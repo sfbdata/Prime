@@ -165,6 +165,7 @@ djen:
         capturados_das: 'Capturados das OABs {oabs}'
         sem_oab: 'Nenhuma OAB ativa: cadastre em OABs monitoradas'
         buscar: Buscar processos da OAB
+        buscando: Buscando...
         kpi_processos: PROCESSOS
         kpi_movidos: MOVIDOS EM 7 DIAS
         kpi_parados: PARADOS +30 DIAS

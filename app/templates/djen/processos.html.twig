@@ -28,9 +28,9 @@
         <h1>{{ 'djen.processos.titulo'|trans }}</h1>
         <span class="pp-topo__texto">{% if oabs_opcoes|length > 0 %}{{ 'djen.processos.capturados_das'|trans({oabs: oabs_opcoes|join(', ')}) }}{% else %}{{ 'djen.processos.sem_oab'|trans }}{% endif %}</span>
         <button type="button" class="pp-btn pp-btn--verde" data-push-cadastrar-processo><i class="bi bi-plus-lg"></i>{{ 'djen.index.cadastrar_processo'|trans }}</button>
-        <form method="POST" action="{{ path('push_processual_sincronizar') }}">
-            <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
-            <button type="submit" class="pp-btn pp-btn--azul"><i class="bi bi-cloud-download"></i>{{ 'djen.processos.buscar'|trans }}</button>
+        <form method="POST" action="{{ path('push_processual_processos_buscar') }}" data-pp-buscar data-t-buscando="{{ 'djen.processos.buscando'|trans|e('html_attr') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+            <button type="submit" class="pp-btn pp-btn--azul"><i class="bi bi-cloud-download"></i><span>{{ 'djen.processos.buscar'|trans }}</span></button>
         </form>
     </div>
 

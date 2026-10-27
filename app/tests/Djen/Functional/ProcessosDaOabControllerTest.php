@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Djen\Functional;
 
 use App\Djen\Controller\ProcessosDaOabController;
+use App\Djen\DTO\ConsultaComunicacoesQuery;
+use App\Djen\DTO\RespostaComunicacoes;
 use App\Djen\Entity\ProcessoAcompanhado;
+use App\Djen\Service\DjenClient;
+use App\Djen\Service\DjenClientInterface;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -383,5 +387,73 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $client->followRedirect();
         $this->limparIdentityMap();
         self::assertNull($this->em()->getRepository(ProcessoAcompanhado::class)->findOneBy(['numeroProcesso' => '07044444420268070001']));
+    }
+
+    #[Test]
+    public function botaoBuscarApontaParaARotaDaAbaEComToken(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+
+        self::assertCount(1, $crawler->filter('.pp-topo form[data-pp-buscar][action="/push-processual/processos/buscar"] input[name="_token"]'));
+    }
+
+    #[Test]
+    public function buscarSemOabAtivaAvisaEVaiParaAsOabs(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-buscar] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/buscar', ['_token' => $token]);
+
+        self::assertResponseRedirects('/push-processual/oabs');
+        self::assertStringContainsString('Cadastre ao menos uma OAB para buscar os processos.', $client->followRedirect()->text());
+    }
+
+    #[Test]
+    public function buscarComOabConsultaHistoricoEInformaOsProcessosEncontrados(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $this->criarOab($tenant, '67228', 'PR');
+        $consultas = [];
+        $mock = $this->createMock(DjenClientInterface::class);
+        $mock->method('consultarComunicacoes')->willReturnCallback(
+            static function (ConsultaComunicacoesQuery $q) use (&$consultas): RespostaComunicacoes {
+                $consultas[] = $q;
+
+                return new RespostaComunicacoes(1, [[
+                    'id' => 990001,
+                    'numero_processo' => self::NUMERO_A,
+                    'siglaTribunal' => 'TJDFT',
+                    'tipoComunicacao' => 'Intimação',
+                    'data_disponibilizacao' => (new \DateTimeImmutable('today'))->format('Y-m-d'),
+                ]]);
+            }
+        );
+        static::getContainer()->set(DjenClient::class, $mock);
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-buscar] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/buscar', ['_token' => $token]);
+
+        self::assertResponseRedirects('/push-processual/processos');
+        self::assertMatchesRegularExpression('#Busca concluída: [1-9]\d* processos encontrados para 67228/PR\.#', $client->followRedirect()->text());
+        self::assertNotEmpty($consultas);
+        self::assertSame((new \DateTimeImmutable('today -89 days'))->format('Y-m-d'), $consultas[0]->dataDisponibilizacaoInicio->format('Y-m-d'));
+    }
+
+    #[Test]
+    public function buscarComTokenInvalidoNaoConsulta(): void
+    {
+        [$client] = $this->entrar();
+
+        $client->request('POST', '/push-processual/processos/buscar', ['_token' => 'x']);
+
+        self::assertStringContainsString('Token de segurança inválido.', $client->followRedirect()->text());
     }
 }

@@ -11,6 +11,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\ClassificacaoDoProcesso;
 use App\Djen\Service\FiltroDeProcessosDaOab;
 use App\Djen\UseCase\AtualizarAnotacoesDoProcessoUseCase;
+use App\Djen\UseCase\BuscarProcessosDaOabUseCase;
 use App\Djen\UseCase\CadastrarProcessoNoPushUseCase;
 use App\Djen\UseCase\ExcluirProcessoDoPushUseCase;
 use App\Djen\UseCase\IncluirProcessoCadastradoNoPushUseCase;
@@ -59,6 +60,7 @@ final class ProcessosDaOabController extends AbstractController
         private readonly CadastrarProcessoNoPushUseCase $cadastrar,
         private readonly IncluirProcessoCadastradoNoPushUseCase $incluirCadastrado,
         private readonly ConsultasDoCnjGuardadas $consultasDoCnj,
+        private readonly BuscarProcessosDaOabUseCase $buscar,
     ) {
     }
 
@@ -243,6 +245,35 @@ final class ProcessosDaOabController extends AbstractController
     }
 
     /** Modal "Vincular processo", modo "Cadastrar novo (CNJ)" (desenho 11). */
+    #[Route('/buscar', name: 'push_processual_processos_buscar', methods: ['POST'])]
+    public function buscarDaOab(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->csrfValido($request)) {
+            return $this->voltar('danger', 'Token de segurança inválido.');
+        }
+
+        try {
+            $busca = $this->buscar->executar($tenant, new \DateTimeImmutable('today'));
+        } catch (AcompanhamentoInvalidoException $e) {
+            $this->addFlash('warning', $e->getMessage());
+
+            return $this->redirectToRoute('push_processual_oabs');
+        } catch (\Throwable) {
+            return $this->voltar('danger', 'Não foi possível buscar os processos agora. Tente novamente em instantes.');
+        }
+
+        $mensagem = sprintf('Busca concluída: %d processos encontrados para %s.', $busca->processos, implode(', ', $busca->oabs));
+        if ($busca->resultado->temFalhas()) {
+            return $this->voltar('warning', 'Busca parcial (alguns tribunais não responderam). ' . $mensagem);
+        }
+
+        return $this->voltar('success', $mensagem);
+    }
+
     #[Route('/cadastrar', name: 'push_processual_processos_cadastrar', methods: ['POST'])]
     public function cadastrar(Request $request): Response
     {
