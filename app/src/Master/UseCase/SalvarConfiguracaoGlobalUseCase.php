@@ -129,6 +129,15 @@ final class SalvarConfiguracaoGlobalUseCase
             return;
         }
 
+        // Chave com padrão do ambiente só é gravada quando difere dele: igual, fica de fora e o leitor cai no padrão
+        // (trocar SESSAO_PADRAO_MINUTOS depois ainda surte efeito).
+        $sobrepor = $this->sessaoPadraoMinutos === null ? [] : CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos);
+        foreach ($sobrepor as $chave => $padrao) {
+            if (($gravados[$chave] ?? null) === $padrao) {
+                unset($gravados[$chave]);
+            }
+        }
+
         $linha ??= new ConfiguracaoGlobal();
         $linha->definirValores($gravados, $input->ator, $this->relogio->now());
         $this->configuracoes->salvar($linha, flush: true);

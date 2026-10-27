@@ -57,6 +57,29 @@ final class ExpiracaoDaSessaoTest extends JusPrimeWebTestCase
         self::assertJson((string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('Cookie de sessão velho em rota pública (/convite, /senha) não vai ao login')]
+    public function testRotaPublicaNaoExpira(): void
+    {
+        $client = $this->logado(40 * 60);
+
+        foreach (['/convite/token-qualquer', '/senha/esqueci'] as $url) {
+            $client->request('GET', $url);
+            self::assertFalse($client->getResponse()->isRedirect('/login'), $url);
+        }
+    }
+
+    #[TestDox('Cada requisição renova o carimbo: depois de um acesso dentro do prazo, o último uso é agora')]
+    public function testRequisicaoRenova(): void
+    {
+        $client = $this->logado(20 * 60);
+
+        $client->request('GET', '/master');
+        self::assertFalse($client->getResponse()->isRedirect('/login'));
+
+        $ultimo = $client->getSession()->getMetadataBag()->getLastUsed();
+        self::assertLessThan(10, time() - $ultimo, 'o carimbo gravado pela requisição é recente, não os 20 min antigos');
+    }
+
     #[TestDox('O prazo gravado no Master vale: com sessao=480, 40 min de pausa não expira')]
     public function testConfiguracaoDoMasterVale(): void
     {

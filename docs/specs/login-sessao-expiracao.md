@@ -29,3 +29,9 @@ Risco ALTO (acesso). Parte 1 da spec `login-config-sessao-e-login-novo.md`. Depe
 ### Testes
 Unit do listener (relógio injetado): dentro do prazo mantém; passou invalida e redireciona; remember_me
 não expira; anônimo ignorado; valor inválido usa o padrão. Funcional: sessão velha cai no login com o aviso.
+
+### Ajustes da revisão
+- Prazo efetivo = min(`sessao`, `app.sessao_gc_segundos` / 60). O `gc_maxlifetime` do PHP é o mesmo parâmetro (padrão 86400 s,
+  1 dia; env `SESSAO_GC_SEGUNDOS`). Acima de 1440 min é preciso subir a env. Risco operacional: sessões anônimas de /login ficam 1 dia em var/sessions.
+- O listener não age em rotas PUBLIC_ACCESS do `access_control` (derivadas do `security.access_map`) nem com o cookie REMEMBERME na requisição.
+- O Master só grava `sessao` quando difere do padrão do ambiente.

@@ -55,6 +55,10 @@ parameters:
     # (confirmado pelo Coordenador, 27/10; cookie_lifetime 0). Trocar aqui ou pela env SESSAO_PADRAO_MINUTOS.
     app.sessao_padrao_minutos: '%env(default:default_sessao_padrao_minutos:int:SESSAO_PADRAO_MINUTOS)%'
     default_sessao_padrao_minutos: 24
+    # gc_maxlifetime do PHP (framework.session) e teto do prazo do ExpiracaoDaSessaoListener: o arquivo da sessão não
+    # some antes dele. 86400 = 1 dia. Para `sessao` acima de 1440 min, subir SESSAO_GC_SEGUNDOS (env) junto.
+    app.sessao_gc_segundos: '%env(default:default_sessao_gc_segundos:int:SESSAO_GC_SEGUNDOS)%'
+    default_sessao_gc_segundos: 86400
     # Carência (em dias) que um escritório soft-deletado fica em quarentena antes do hard
     # delete definitivo pelo job de purga (RN09). Sobrescrevível por env em produção, sem
     # deploy de código. Enquanto dentro da carência, o suporte ainda pode reativar.

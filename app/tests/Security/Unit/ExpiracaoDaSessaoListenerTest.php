@@ -21,6 +21,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\RememberMeToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\User\InMemoryUser;
+use Symfony\Component\Security\Http\AccessMapInterface;
 use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -167,6 +168,43 @@ final class ExpiracaoDaSessaoListenerTest extends TestCase
         self::assertNotNull($this->executar([], self::PADRAO + 1, leitor: $leitor)->getResponse());
     }
 
+    #[TestDox('Token de formulário com o cookie REMEMBERME não expira; sem o cookie, expira')]
+    public function testCookieLembrarMeProtege(): void
+    {
+        $this->entrar();
+        self::assertNull($this->executar(['sessao' => '60'], 600, cookies: ['REMEMBERME' => 'x'])->getResponse());
+
+        $this->setUp();
+        $this->entrar();
+        self::assertNotNull($this->executar(['sessao' => '60'], 600)->getResponse());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function rotasPublicas(): iterable
+    {
+        yield 'convite' => ['/convite/abc'];
+        yield 'senha' => ['/senha/esqueci'];
+    }
+
+    #[DataProvider('rotasPublicas')]
+    #[TestDox('Rota PUBLIC_ACCESS $caminho não derruba a sessão velha')]
+    public function testRotaPublicaNaoExpira(string $caminho): void
+    {
+        $this->entrar();
+        self::assertNull($this->executar(['sessao' => '60'], 600, caminho: $caminho, publicas: [$caminho])->getResponse());
+    }
+
+    #[TestDox('O prazo efetivo é limitado pelo gc_maxlifetime: sessao=1440 com gc de 60 min expira em 61')]
+    public function testGcLimitaOPrazo(): void
+    {
+        $this->entrar();
+        self::assertNull($this->executar(['sessao' => '1440'], 59, gc: 3600)->getResponse());
+
+        $this->setUp();
+        $this->entrar();
+        self::assertNotNull($this->executar(['sessao' => '1440'], 61, gc: 3600)->getResponse());
+    }
+
     private function entrar(): void
     {
         $this->tokens->setToken(new PostAuthenticationToken(new InMemoryUser('a@b.c', null, ['ROLE_USER']), 'main', ['ROLE_USER']));
@@ -175,6 +213,8 @@ final class ExpiracaoDaSessaoListenerTest extends TestCase
     /**
      * @param array<string, string>  $config
      * @param array<string, string>  $cabecalhos
+     * @param array<string, string>  $cookies
+     * @param list<string>           $publicas caminhos que o access_control marca como PUBLIC_ACCESS
      */
     private function executar(
         array $config,
@@ -183,8 +223,11 @@ final class ExpiracaoDaSessaoListenerTest extends TestCase
         array $cabecalhos = [],
         bool $cookie = true,
         ?ConfiguracaoDaPlataforma $leitor = null,
+        array $cookies = [],
+        array $publicas = [],
+        int $gc = 86400,
     ): RequestEvent {
-        $request = Request::create($caminho, 'GET', [], $cookie ? [$this->sessao->getName() => 'abc'] : [], [], $cabecalhos);
+        $request = Request::create($caminho, 'GET', [], ($cookie ? [$this->sessao->getName() => 'abc'] : []) + $cookies, [], $cabecalhos);
         $request->setSession($this->sessao);
 
         $relogio = new MockClock(new \DateTimeImmutable('@' . ($this->inicio + $minutosParado * 60)));
@@ -193,6 +236,11 @@ final class ExpiracaoDaSessaoListenerTest extends TestCase
         $tradutor = $this->createStub(TranslatorInterface::class);
         $tradutor->method('trans')->willReturnCallback(static fn (string $id): string => 'AVISO:' . $id);
 
+        $mapa = $this->createStub(AccessMapInterface::class);
+        $mapa->method('getPatterns')->willReturnCallback(
+            static fn (Request $r): array => [in_array($r->getPathInfo(), $publicas, true) ? ['PUBLIC_ACCESS'] : ['ROLE_USER'], null],
+        );
+
         $listener = new ExpiracaoDaSessaoListener(
             $leitor ?? new ConfiguracaoDaPlataformaFalsa($config),
             $this->tokens,
@@ -200,6 +248,8 @@ final class ExpiracaoDaSessaoListenerTest extends TestCase
             $tradutor,
             $relogio,
             self::PADRAO,
+            $gc,
+            $mapa,
         );
         $evento = new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
         $listener($evento);

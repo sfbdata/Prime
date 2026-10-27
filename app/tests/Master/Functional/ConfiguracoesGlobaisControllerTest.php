@@ -154,6 +154,26 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->gravada());
     }
 
+    #[TestDox('`sessao` só é gravada quando difere do padrão do ambiente (24): igual não grava, 480 grava, voltar a 24 apaga')]
+    public function testSessaoSoGravaQuandoDifereDoPadraoDoAmbiente(): void
+    {
+        $this->entrarComoMaster();
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '24']);
+        self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('sessao', $this->gravada()?->getValores() ?? []);
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '480']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertSame('480', $this->gravada()?->getValores()['sessao'] ?? null);
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '24']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertArrayNotHasKey('sessao', $this->gravada()?->getValores() ?? []);
+    }
+
     #[TestDox('aviso de manutenção: aparece para o usuário logado enquanto vale, some depois do prazo e sem texto')]
     public function testAvisoDeManutencao(): void
     {
