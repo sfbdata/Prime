@@ -22,13 +22,15 @@ final class LeitorDeConfiguracaoDaPlataforma implements ConfiguracaoDaPlataforma
         private readonly ?LoggerInterface $logger = null,
         #[Autowire('%app.sessao_padrao_minutos%')]
         private readonly ?int $sessaoPadraoMinutos = null,
+        #[Autowire('%mailer_from%')]
+        private readonly ?string $mailerFrom = null,
     ) {
     }
 
     public function valor(string $chave): string
     {
         $padroes = CatalogoDeConfiguracoes::padroes(
-            $this->sessaoPadraoMinutos === null ? [] : CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos),
+            CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos, $this->mailerFrom),
         );
         if (!array_key_exists($chave, $padroes)) {
             return '';

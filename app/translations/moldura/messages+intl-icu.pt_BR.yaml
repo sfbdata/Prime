@@ -104,6 +104,7 @@ moldura:
             dashboard_fotografar: Foto diária do Dashboard
             sync_reconciliar: Envio para o Google Drive
             contribua_conciliar_assinaturas: Conciliação das assinaturas de espaço
+            pagamento_conciliar: Conciliação dos pagamentos com o banco
             armazenamento_replicar_espelho: Cópia dos arquivos para o R2
             armazenamento_reconciliar_espelho: Conferência da cópia no R2
             armazenamento_limpar_replicacao: Limpeza da fila de envio ao R2

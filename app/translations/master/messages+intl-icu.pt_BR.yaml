@@ -1018,7 +1018,11 @@ master:
             ajustar_dica: Ajustar valor da recompensa
             mais_opcoes: Mais opções
             menu_condicao: Condição individual (★)
-            menu_geral: Voltar à regra geral
+            menu_geral: Usar a regra geral
+            menu_copiar: Copiar e-mail
+            email_copiado: E-mail copiado.
+            sem_email: Sem e-mail.
+            pagar: Dar baixa
             menu_lancamento: Lançar crédito ou estorno
             menu_extrato: Ver extrato deste indicador
             menu_csv: Baixar extrato (CSV)
@@ -1195,7 +1199,7 @@ master:
                 manut: Aviso para todos os usuários
                 manutAte: Mostrar o aviso até
             ajuda:
-                remetente: Usado em campanhas e avisos
+                remetente: 'O e-mail usado como remetente (cadastro, redefinição de senha, convites e campanhas). Só troque por um endereço de uma conta SMTP da Hostinger com SPF e DKIM configurados no domínio; senão os e-mails podem ser recusados ou cair no spam.'
                 manut: 'Ex.: o sistema ficará indisponível das 22h às 23h. Em branco, nenhum aviso.'
             opcao:
                 cadastro:

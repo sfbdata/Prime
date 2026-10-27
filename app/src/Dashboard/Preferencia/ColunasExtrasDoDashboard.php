@@ -121,9 +121,9 @@ final class ColunasExtrasDoDashboard
      *     as metas pela data de CRIAÇÃO mas leem o status/conclusão de HOJE. As metas do período
      *     anterior tiveram mais tempo para concluir, então o anterior sai maior e a seta mente
      *     (concluídas e taxa "caem", o tempo médio anterior sai maior, sem nada ter mudado no
-     *     trabalho). Seta que mente é pior que ausente. Só destrava com critério por data de
-     *     CONCLUSÃO (`Tarefa.dataConclusao` dentro da janela, o mesmo recorte no anterior):
-     *     decisão do dono, pendente (spec dashboard-parte-1).
+     *     trabalho). Seta que mente é pior que ausente. O critério por data de CONCLUSÃO já existe
+     *     no perfil da pessoa (PR-M), mas a célula da tabela é por criação: uma seta compararia outro
+     *     recorte. Só destrava se o dono mudar o que a coluna conta (spec dashboard-parte-1).
      *   - Em revisão e Pastas urgentes: estoque, com seta própria pela foto diária. Ver ESTOQUE_COM_FOTO.
      *
      * @var array<string, string>

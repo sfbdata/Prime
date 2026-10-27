@@ -46,8 +46,9 @@ pasta_cabecalho:
             excluir_pergunta: 'Excluir a pasta {nup}?'
             excluir_pergunta_cliente: 'Excluir a pasta {nup} ({cliente})?'
             excluir_registro: Essa ação vai para a lixeira e fica registrada no histórico.
-            excluir_digite: 'Para confirmar, digite o número da pasta:'
-            excluir_nao_confere: Número não confere. A pasta não foi excluída.
+            excluir_digite: 'Para confirmar, digite {nup} (o NUP da pasta, não o número da URL):'
+            excluir_nao_confere: 'Número não confere. Digite {nup} (o NUP da pasta, não o número da URL). A pasta não foi excluída.'
+            excluir_sem_dialogo: O navegador bloqueou a janela de confirmação. Libere as janelas deste site e tente de novo. A pasta não foi excluída.
         excluida:
             titulo: Pasta excluída
             quando: 'em {data} às {hora}.'

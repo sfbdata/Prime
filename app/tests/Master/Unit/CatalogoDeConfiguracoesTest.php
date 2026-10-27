@@ -14,11 +14,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeConfiguracoes::class)]
 final class CatalogoDeConfiguracoesTest extends TestCase
 {
-    #[TestDox('os padrões são os do desenho (DEF, 05 VS 25.10.26 L955) e o catálogo tem os 15 campos')]
+    #[TestDox('os padrões são os do desenho (DEF, 05 VS 25.10.26 L955; o remetente é o do MAILER_FROM) e o catálogo tem os 15 campos')]
     public function testPadroesDoDesenho(): void
     {
         self::assertSame([
-            'nome' => 'BlueJus', 'remetente' => 'contato@bluejus.com.br', 'suporte' => 'bluejus.86@gmail.com',
+            'nome' => 'BlueJus', 'remetente' => 'nao-responda@bluejus.com.br', 'suporte' => 'bluejus.86@gmail.com',
             'cadastro' => 'on', 'freeGb' => '10', 'aviso' => '90',
             'sessao' => '480', 'tentativas' => '5', 'dois' => 'master', 'retencao' => '365', 'avisoLoginNovo' => 'on',
             'idioma' => 'pt-BR', 'fuso' => 'America/Sao_Paulo', 'manut' => '', 'manutAte' => '',
@@ -58,6 +58,9 @@ final class CatalogoDeConfiguracoesTest extends TestCase
         yield 'data sem hora' => [['manutAte' => '2026-11-01']];
         yield 'manutenção comprida' => [['manut' => str_repeat('a', 301)]];
         yield 'valor array' => [['nome' => ['x']]];
+        yield 'nome com colchetes' => [['nome' => 'Acme [Jur]']];
+        yield 'nome com aspas' => [['nome' => 'A"B']];
+        yield 'nome com quebra de linha' => [['nome' => "Acme\nBcc: x@y.com"]];
     }
 
     /** @param array<string, mixed> $entrada */
@@ -79,5 +82,18 @@ final class CatalogoDeConfiguracoesTest extends TestCase
         self::assertSame('24', CatalogoDeConfiguracoes::grupos($sobrepor)['seguranca']['sessao']['padrao']);
         self::assertSame('24', CatalogoDeConfiguracoes::normalizar([], $sobrepor)['sessao']);
         self::assertSame('480', CatalogoDeConfiguracoes::normalizar([])['sessao'], 'sem sobreposição, o estático');
+    }
+
+    #[TestDox('O padrão do ambiente troca `remetente` pelo endereço do MAILER_FROM (sem o nome); inválido ou ausente, o estático')]
+    public function testSobreposicaoDoRemetente(): void
+    {
+        $sobrepor = CatalogoDeConfiguracoes::sobreposicoes(24, 'Equipe <envio@exemplo.test>');
+
+        self::assertSame('envio@exemplo.test', $sobrepor['remetente']);
+        self::assertSame('envio@exemplo.test', CatalogoDeConfiguracoes::padroes($sobrepor)['remetente']);
+        self::assertSame('envio@exemplo.test', CatalogoDeConfiguracoes::normalizar([], $sobrepor)['remetente']);
+        self::assertArrayNotHasKey('remetente', CatalogoDeConfiguracoes::sobreposicoes(24));
+        self::assertArrayNotHasKey('remetente', CatalogoDeConfiguracoes::sobreposicoes(24, 'lixo'));
+        self::assertSame('nao-responda@bluejus.com.br', CatalogoDeConfiguracoes::padroes()['remetente']);
     }
 }
