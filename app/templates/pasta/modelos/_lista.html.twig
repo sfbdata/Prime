@@ -1,0 +1,15 @@
+{# Linhas do banco de modelos (desenho 02 de 27/10, `bj-modelos.js` L.66-80). Contexto: `linhas`
+   (id, titulo, materia, tipo, usos, favorito). Montada pelo servidor e trocada pelo pasta-modelos.js. #}
+{% for linha in linhas %}
+    <div class="mdl-linha" data-abrir="{{ linha.id }}">
+        <button type="button" class="mdl-fav{{ linha.favorito ? ' mdl-fav--on' }}" data-fav="{{ linha.id }}" title="{{ 'pasta_modelos.linha.favorito'|trans }}" aria-pressed="{{ linha.favorito ? 'true' : 'false' }}"><i class="bi {{ linha.favorito ? 'bi-star-fill' : 'bi-star' }}"></i></button>
+        <i class="bi bi-file-earmark-text mdl-linha-icone"></i>
+        <span class="mdl-linha-texto">
+            <b>{{ linha.titulo }}</b>
+            <span>{{ linha.tipo.rotulo }} · {{ 'pasta_modelos.linha.do_escritorio'|trans }}{% if linha.usos > 0 %} · {{ 'pasta_modelos.linha.usado'|trans({n: linha.usos}) }}{% endif %}</span>
+        </span>
+        <span class="mdl-selo">{{ linha.materia.rotulo }}</span>
+    </div>
+{% else %}
+    <div class="mdl-vazio">{{ 'pasta_modelos.vazio'|trans }}</div>
+{% endfor %}

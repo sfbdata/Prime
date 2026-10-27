@@ -82,6 +82,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Pasta\Entity\PastaDestaque::class,
         // Estrela de arquivo/subpasta na aba Documentos (D2): mesma natureza do favorito de pasta.
         \App\Pasta\Entity\PastaDocumentoFavorito::class,
+        \App\Pasta\Entity\ModeloDePeca::class,           // corpo grande: iria inteiro ao audit_log
+        \App\Pasta\Entity\ModeloDePecaFavorito::class,
+        \App\Pasta\Entity\MateriaFavoritaDeModelo::class,
         // Cobrança automática do checklist (desenho 02): estado operacional da rotina (datas dos envios,
         // previsão); cada aviso que sai já fica na caixa da pessoa. Auditar daria uma linha por dia por item.
         \App\Pasta\Entity\PastaChecklistCobranca::class,

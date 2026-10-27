@@ -1,0 +1,35 @@
+{# Coluna esquerda do banco de modelos: "Todas as matérias", "★ Favoritos", matérias favoritas e os 5
+   blocos recolhíveis (desenho 02 de 27/10, `bj-modelos.js` `chip()` e `blk()`).
+   Contexto: ativa ('' | '★' | valor da matéria), total, totalFavoritos, porMateria, porBloco, blocos,
+   materiasFavoritas, favoritasValores. #}
+{% macro chip(valor, rotulo, contador, ativa, estrela, favorita) %}
+    <button type="button" class="mdl-chip{{ ativa == valor ? ' mdl-chip--ativo' }}" data-materia="{{ valor }}">
+        <span class="mdl-chip-rotulo">{{ rotulo }}</span>
+        {% if estrela %}<i class="bi {{ favorita ? 'bi-star-fill mdl-estrela--on' : 'bi-star' }} mdl-estrela" data-fav-materia="{{ valor }}" title="{{ (favorita ? 'pasta_modelos.coluna.tirar_favorita' : 'pasta_modelos.coluna.marcar_favorita')|trans }}"></i>{% endif %}
+        <span class="mdl-chip-contador">{{ contador > 0 ? contador : '' }}</span>
+    </button>
+{% endmacro %}
+{% import _self as m %}
+{{ m.chip('', 'pasta_modelos.coluna.todas'|trans, total, ativa, false, false) }}
+{{ m.chip('★', 'pasta_modelos.coluna.favoritos'|trans, totalFavoritos, ativa, false, false) }}
+{% if materiasFavoritas is not empty %}
+    <div class="mdl-bloco" data-bloco="favoritas">
+        <button type="button" class="mdl-bloco-tit" data-bloco-tit="favoritas"><i class="bi bi-chevron-down"></i><span>{{ 'pasta_modelos.coluna.materias_favoritas'|trans }}</span></button>
+        <div class="mdl-bloco-chips">
+            {% for materia in materiasFavoritas %}
+                {{ m.chip(materia.value, materia.rotulo, porMateria[materia.value]|default(0), ativa, true, true) }}
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+<div class="mdl-divisor"></div>
+{% for bloco in blocos %}
+    <div class="mdl-bloco" data-bloco="{{ bloco.value }}">
+        <button type="button" class="mdl-bloco-tit" data-bloco-tit="{{ bloco.value }}"><i class="bi bi-chevron-down"></i><span>{{ bloco.rotulo }}</span><span class="mdl-bloco-total">{{ porBloco[bloco.value] > 0 ? porBloco[bloco.value] : '' }}</span></button>
+        <div class="mdl-bloco-chips">
+            {% for materia in bloco.materias %}
+                {{ m.chip(materia.value, materia.rotulo, porMateria[materia.value]|default(0), ativa, true, materia.value in favoritasValores) }}
+            {% endfor %}
+        </div>
+    </div>
+{% endfor %}

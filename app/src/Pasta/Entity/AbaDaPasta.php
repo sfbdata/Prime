@@ -28,7 +28,7 @@ enum AbaDaPasta: string
             self::Tarefas    => 'Metas',
             self::Processo   => 'Processo',
             self::Financeiro => 'Financeiro',
-            self::Detalhes   => 'Detalhes',
+            self::Detalhes   => 'Modelos',
             self::Documentos => 'Documentos',
             self::Push       => 'Push Processual',
         };

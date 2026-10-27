@@ -1,0 +1,93 @@
+/* Aba Modelos da pasta: banco de modelos de petições.
+   Desenho 02 de 27/10 (docs/design/redesign-27-10-26/, `bj-modelos.js` L.66-170). Os valores são os do
+   desenho, copiados do CSS inline dele; o cartão, os campos e os botões são do desenho, não do AdminLTE.
+   Tudo escopado sob `.mdl` para não vazar. */
+.mdl { --mdl-azul: #0a6fa0; --mdl-texto: #12242f; margin-top: 18px; font-family: Arial, Helvetica, sans-serif; color: var(--mdl-texto); }
+.mdl *, .mdl *::before, .mdl *::after { box-sizing: border-box; }
+.mdl [hidden] { display: none !important; }
+
+.mdl-cartao { background: #fff; border: 1px solid #dde5eb; border-radius: 4px; overflow: visible; min-height: 200px; }
+.mdl-cab { display: flex; align-items: center; gap: 10px; padding: 13px 18px; background: #f7f9fb; border-bottom: 1px solid #e6edf2; }
+.mdl-cab-icone { color: var(--mdl-azul); font-size: 17px; }
+.mdl-cab-titulo { font-size: 15px; flex: 1; }
+.mdl-cab-contador { font-size: 12px; color: #5b7383; }
+
+.mdl-corpo { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 420px; }
+.mdl-esq { border-right: 1px solid #eef2f5; padding: 8px 0; overflow: auto; max-height: 640px; }
+.mdl-dir { padding: 14px 16px; min-width: 0; }
+
+/* Coluna esquerda */
+.mdl-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border: none; background: transparent; color: #34505f; font: 13px Arial, Helvetica, sans-serif; padding: 7px 12px; cursor: pointer; text-align: left; border-left: 3px solid transparent; }
+.mdl-chip--ativo { background: #e5f1f7; color: var(--mdl-azul); font-weight: bold; border-left-color: var(--mdl-azul); }
+.mdl-chip-rotulo { flex: 1; min-width: 0; }
+.mdl-chip-contador { font-size: 11.5px; color: #7a8e9b; min-width: 14px; text-align: right; }
+.mdl-estrela { font-size: 12px; padding: 2px; color: #b7c6d1; }
+.mdl-estrela--on { color: #f4b400; }
+.mdl-bloco-tit { display: flex; align-items: center; gap: 6px; width: 100%; border: none; background: transparent; padding: 8px 12px 4px; font: bold 10.5px Arial, Helvetica, sans-serif; letter-spacing: .8px; text-transform: uppercase; color: #5b7383; cursor: pointer; text-align: left; }
+.mdl-bloco-tit > i { font-size: 10px; }
+.mdl-bloco-tit > span:first-of-type { flex: 1; }
+.mdl-bloco-total { font-weight: normal; color: #9aabb7; }
+.mdl-divisor { height: 1px; background: #eef2f5; margin: 6px 0; }
+
+/* Lista */
+.mdl-barra { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.mdl-busca { display: flex; align-items: center; gap: 7px; height: 34px; border: 1px solid #d3dde4; border-radius: 2px; background: #fff; padding: 0 10px; flex: 1; margin: 0; }
+.mdl-busca > i { color: #7a8e9b; }
+.mdl-busca input { border: none; outline: none; flex: 1; min-width: 0; font: 13.5px Arial, Helvetica, sans-serif; background: transparent; color: var(--mdl-texto); }
+.mdl-select { height: 34px; border: 1px solid #d3dde4; border-radius: 2px; padding: 0 6px; font: 13px Arial, Helvetica, sans-serif; background: #fff; color: var(--mdl-texto); }
+.mdl-btn-primario { height: 34px; padding: 0 14px; border: none; border-radius: 2px; background: var(--mdl-azul); color: #fff; font: bold 13px Arial, Helvetica, sans-serif; cursor: pointer; white-space: nowrap; }
+.mdl-btn-secundario { height: 34px; padding: 0 14px; border: 1px solid #d3dde4; border-radius: 2px; background: #fff; color: #34505f; font: 13.5px Arial, Helvetica, sans-serif; cursor: pointer; }
+.mdl-editor-rodape .mdl-btn-primario { padding: 0 16px; font-size: 13.5px; }
+.mdl-btn-quadrado { width: 32px; height: 32px; flex: none; border: 1px solid #d3dde4; border-radius: 2px; background: #fff; color: #34505f; cursor: pointer; }
+.mdl-linha { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #f0f4f7; cursor: pointer; }
+.mdl-linha:hover { background: #eaf3f9; }
+.mdl-fav { border: none; background: none; cursor: pointer; font-size: 15px; color: #b7c6d1; padding: 0; }
+.mdl-fav--on { color: #e0a106; }
+.mdl-linha-icone { font-size: 19px; color: var(--mdl-azul); }
+.mdl-linha-texto { flex: 1; min-width: 0; }
+.mdl-linha-texto > b { display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mdl-linha-texto > span { font-size: 12px; color: #5b7383; }
+.mdl-selo { font-size: 11.5px; color: #4a6373; border: 1px solid #e1e8ed; border-radius: 2px; padding: 2px 7px; }
+.mdl-vazio { padding: 30px; text-align: center; color: #5b7383; font-size: 13.5px; }
+
+/* Visualização */
+.mdl-visualizacao { display: flex; flex-direction: column; gap: 10px; }
+.mdl-ver-cab { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid #eef2f5; }
+.mdl-ver-titulos { flex: 1; min-width: 0; }
+.mdl-ver-titulos > b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mdl-ver-titulos > span { font-size: 12px; color: #5b7383; }
+.mdl-palco { background: #e6eaee; padding: 18px 12px; max-height: 560px; overflow: auto; border-radius: 2px; }
+.mdl-folha { width: min(210mm, 100%); margin: 0 auto; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .18); padding: 30mm 20mm 20mm 30mm; font: 12pt/1.5 Arial, Helvetica, sans-serif; color: #111; text-align: justify; position: relative; min-height: 297mm; overflow: hidden; }
+.mdl-acoes { position: sticky; bottom: 0; z-index: 4; display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; background: #fff; border-top: 1px solid #e1e8ed; box-shadow: 0 -4px 12px rgba(18, 36, 47, .06); padding: 10px 4px; margin-top: 4px; }
+.mdl-menu-ancora { position: relative; }
+.mdl-menu { position: absolute; right: 0; bottom: 38px; z-index: 20; width: 230px; background: #fff; border: 1px solid #d3dde4; border-radius: 3px; box-shadow: 0 10px 28px rgba(18, 36, 47, .18); padding: 4px 0; }
+.mdl-menu-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; background: #fff; padding: 8px 14px; font: 13.5px Arial, Helvetica, sans-serif; color: #243845; cursor: pointer; text-align: left; }
+.mdl-menu-item:hover { background: #eef5fa; }
+.mdl-menu-item > i { width: 16px; color: #5b7383; }
+.mdl-menu-item--perigo { color: #a3232b; }
+.mdl-menu-sep { height: 1px; background: #eef2f5; margin: 4px 0; }
+
+/* Editor */
+.mdl-editor { display: flex; flex-direction: column; gap: 10px; }
+.mdl-editor-titulo { font-size: 15px; }
+.mdl-rotulo { font: bold 11.5px Arial, Helvetica, sans-serif; color: #4a6373; display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.mdl-campo { height: 34px; border: 1px solid #d3dde4; border-radius: 2px; padding: 0 9px; font: 14px Arial, Helvetica, sans-serif; font-weight: normal; width: 100%; background: #fff; color: var(--mdl-texto); }
+.mdl-editor-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mdl-moldura { border: 1px solid #c5d2db; border-radius: 2px; overflow: hidden; font-weight: normal; }
+.mdl-erro { font-size: 12.5px; color: #a3232b; }
+.mdl-editor-rodape { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Relatório inicial recolhido (o conteúdo é o de sempre, só ganhou o invólucro) */
+.mdl-relatorio { margin-top: 16px; background: #fff; border: 1px solid #dde5eb; border-radius: 4px; }
+.mdl-relatorio > summary { cursor: pointer; padding: 12px 16px; font-size: 13.5px; font-weight: 600; color: #34505f; }
+.mdl-relatorio-corpo { padding: 0 16px 16px; }
+
+/* O desenho não tem versão de celular para o banco (só o grid2 do Relatório); aqui a coluna esquerda
+   passa para cima e a barra de ferramentas quebra, para não estourar a largura. */
+@media (max-width: 760px) {
+    .mdl-corpo { grid-template-columns: minmax(0, 1fr); }
+    .mdl-esq { border-right: none; border-bottom: 1px solid #eef2f5; max-height: 260px; }
+    .mdl-barra { flex-wrap: wrap; }
+    .mdl-editor-grade { grid-template-columns: minmax(0, 1fr); }
+    .mdl-folha { padding: 18px; min-height: 0; }
+}
