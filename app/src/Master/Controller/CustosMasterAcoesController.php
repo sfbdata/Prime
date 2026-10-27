@@ -7,14 +7,12 @@ namespace App\Master\Controller;
 use App\Entity\Auth\User;
 use App\Master\DTO\LancarCustoInput;
 use App\Master\Exception\CustoRecusado;
-use App\Master\Service\ArquivoDeCustosCsv;
 use App\Master\UseCase\CopiarCustosDoMesAnteriorUseCase;
 use App\Master\UseCase\ExcluirLancamentoDeCustoUseCase;
 use App\Master\UseCase\ExportarCustosUseCase;
 use App\Master\UseCase\ImportarCustosUseCase;
 use App\Master\UseCase\LancarCustoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -101,15 +99,14 @@ final class CustosMasterAcoesController extends AbstractController
         if ($barrada !== null) {
             return $barrada;
         }
-        $arquivo = $request->files->get('arquivo');
-        $mes = $request->request->get('mes');
-        if (!$arquivo instanceof UploadedFile || !$arquivo->isValid()) {
+        $corpo = $this->corpo($request);
+        $conteudo = $corpo['conteudo'] ?? null;
+        if (!is_string($conteudo) || '' === trim($conteudo)) {
             return $this->json(['erro' => 'Escolha o arquivo CSV.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+        $mes = $corpo['mes'] ?? '';
 
         try {
-            // Só leitura em memória: o arquivo não é guardado, o que vale é o que virou lançamento.
-            $conteudo = (string) file_get_contents($arquivo->getPathname(), false, null, 0, ArquivoDeCustosCsv::TAMANHO_MAXIMO + 1);
             $resultado = $useCase->executar($conteudo, is_string($mes) ? $mes : '', $this->ator());
         } catch (CustoRecusado $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);

@@ -73,26 +73,41 @@ final class ArquivoDeCustosCsv
         $lidas = [];
         $ignoradas = 0;
         foreach ($brutas as $bruta) {
-            $p = str_getcsv($bruta, $separador, '"', '');
-            $valor = count($p) >= 4 ? ValorEmReais::paraCentavos($p[3]) : null;
-            if ($valor === null) {
+            $linha = self::linhaLida(str_getcsv($bruta, $separador, '"', ''), $mesPadrao, $porRotulo);
+            if ($linha === null) {
                 ++$ignoradas;
                 continue;
             }
-            $mes = trim($p[0]);
-            $fornecedor = trim($p[2]);
-            $observacao = trim($p[5] ?? '');
-            $lidas[] = [
-                'mes' => preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $mes) === 1 ? $mes : $mesPadrao,
-                'categoria' => $porRotulo[mb_strtolower(trim($p[1]))] ?? CategoriaDeCusto::Outros,
-                'valorCentavos' => $valor,
-                'fornecedor' => $fornecedor === '' ? null : mb_substr($fornecedor, 0, LancamentoDeCusto::FORNECEDOR_MAXIMO),
-                'observacao' => $observacao === '' ? null : mb_substr($observacao, 0, LancamentoDeCusto::OBSERVACAO_MAXIMA),
-                'origem' => OrigemDoCusto::Importado,
-            ];
+            $lidas[] = $linha;
         }
 
         return ['linhas' => $lidas, 'ignoradas' => $ignoradas];
+    }
+
+    /**
+     * @param list<string|null>                $p
+     * @param array<string, CategoriaDeCusto> $porRotulo
+     *
+     * @return array{mes: string, categoria: CategoriaDeCusto, valorCentavos: int, fornecedor: ?string, observacao: ?string, origem: OrigemDoCusto}|null
+     */
+    private static function linhaLida(array $p, string $mesPadrao, array $porRotulo): ?array
+    {
+        $valor = count($p) >= 4 ? ValorEmReais::paraCentavos($p[3]) : null;
+        if ($valor === null) {
+            return null;
+        }
+        $mes = trim((string) $p[0]);
+        $fornecedor = trim((string) $p[2]);
+        $observacao = trim((string) ($p[5] ?? ''));
+
+        return [
+            'mes' => preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $mes) === 1 ? $mes : $mesPadrao,
+            'categoria' => $porRotulo[mb_strtolower(trim((string) $p[1]))] ?? CategoriaDeCusto::Outros,
+            'valorCentavos' => $valor,
+            'fornecedor' => $fornecedor === '' ? null : mb_substr($fornecedor, 0, LancamentoDeCusto::FORNECEDOR_MAXIMO),
+            'observacao' => $observacao === '' ? null : mb_substr($observacao, 0, LancamentoDeCusto::OBSERVACAO_MAXIMA),
+            'origem' => OrigemDoCusto::Importado,
+        ];
     }
 
     private static function emUtf8(string $conteudo): string

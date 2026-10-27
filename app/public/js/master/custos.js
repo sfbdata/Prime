@@ -225,15 +225,22 @@
   });
 
   /* ---------- Importar CSV (PR 4) ---------- */
-  // O servidor lê, valida e grava; aqui só se envia o arquivo com o mês escolhido (vale para a linha sem mês válido).
+  // O arquivo é lido aqui, no navegador (como o protótipo), e o servidor recebe só o texto em JSON: não grava nem abre
+  // arquivo em disco. UTF-8; se vier com caracteres inválidos (Excel em Windows-1252), relê nessa codificação.
+  async function lerTexto(arquivo) {
+    const bytes = await arquivo.arrayBuffer();
+    const utf8 = new TextDecoder('utf-8').decode(bytes);
+    return utf8.includes('\uFFFD') ? new TextDecoder('windows-1252').decode(bytes) : utf8;
+  }
+
   $('[data-cst-importar]').addEventListener('change', async e => {
     const arquivo = e.target.files && e.target.files[0];
     if (!arquivo) return;
-    const dados = new FormData();
-    dados.append('arquivo', arquivo);
-    dados.append('mes', elMes.value);
     try {
-      const r = await fetch(URL_IMPORTAR, { method: 'POST', credentials: 'same-origin', body: dados, headers: { Accept: 'application/json', 'X-CSRF-Token': TOKEN } });
+      const r = await fetch(URL_IMPORTAR, {
+        method: 'POST', credentials: 'same-origin', body: JSON.stringify({ conteudo: await lerTexto(arquivo), mes: elMes.value }),
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
+      });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
         avisar(d.erro || T('master.custos.js.erro_importar'));

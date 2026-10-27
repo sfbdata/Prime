@@ -15,7 +15,6 @@ use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Zenstruck\Foundry\Test\Factories;
 
@@ -162,12 +161,7 @@ final class CustosMasterAcoesControllerTest extends JusPrimeWebTestCase
     /** @return array<string, mixed> */
     private function importar(string $conteudo, string $token): array
     {
-        $caminho = tempnam(sys_get_temp_dir(), 'cst');
-        file_put_contents((string) $caminho, $conteudo);
-        $this->client->request('POST', '/master/custos/importar', ['mes' => '2033-03'], ['arquivo' => new UploadedFile((string) $caminho, 'custos.csv', 'text/csv', null, true)], ['HTTP_X-CSRF-Token' => $token]);
-        $dados = json_decode((string) $this->client->getResponse()->getContent(), true);
-
-        return is_array($dados) ? $dados : [];
+        return $this->enviar('/master/custos/importar', ['conteudo' => $conteudo, 'mes' => '2033-03'], $token);
     }
 
     /** @return array<string, string> */
