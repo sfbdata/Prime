@@ -512,3 +512,12 @@ dashboard:
             sim: ✓ Sim
             nao: ✕ Não
             parcial: ↗ Parcialmente
+    # Botão "Criar tarefa" do alerta da Inteligência e seletor de pasta (PR-L; dashboard-inteligencia.js).
+    tarefa_alerta:
+        botao: 'Criar tarefa'
+        titulo: 'Escolher a pasta da tarefa'
+        explicacao: 'Toda tarefa pertence a uma pasta. Escolha a pasta e a tarefa abre já preenchida com o texto do alerta.'
+        busca_ph: 'Buscar por número, cliente ou ação'
+        vazio: 'Nenhuma pasta encontrada.'
+        erro: 'Não foi possível buscar as pastas agora. Tente de novo.'
+        fechar: 'Fechar'
