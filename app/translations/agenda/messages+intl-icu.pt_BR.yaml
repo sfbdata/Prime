@@ -107,6 +107,26 @@ agenda:
         voltar_calendario: Voltar ao Calendário
         cor: 'Cor:'
         dia_inteiro: Evento de dia inteiro
+    um_a:
+        buscar: Buscar evento, local ou pessoa
+        vista_mes: Mês
+        vista_semana: Semana
+        vista_lista: Lista
+        novo_evento: Novo evento
+        hoje_rotulo: Hoje
+        a_seguir: A seguir
+        legendas: Legendas
+        mostrar_todas: mostrar todas
+        gerenciar_legendas: Gerenciar legendas
+        filtros: Filtros
+        pessoa: Pessoa
+        todo_escritorio: Todo o escritório
+        status: Status
+        st_todos: Todos
+        st_agendados: Agendados
+        st_concluidos: Concluídos
+        mostrar_cancelados: Mostrar cancelados
+        limpar_filtros: Limpar filtros
     js:
         comum:
             dia_inteiro: Dia inteiro
@@ -396,3 +416,60 @@ agenda:
                 nao_mostrar: Não mostrar esta mensagem novamente
                 agora_nao: Agora não
                 sincronizar: Sincronizar agora
+        um_a:
+            legenda:
+                aud: Audiência
+                prazo: Prazo
+                reun: Reunião
+                urg: Urgente
+                pess: Pessoal
+                lemb: Lembrete
+            dia_longo:
+                dom: domingo
+                seg: segunda-feira
+                ter: terça-feira
+                qua: quarta-feira
+                qui: quinta-feira
+                sex: sexta-feira
+                sab: sábado
+            status:
+                agendado: Agendado
+                concluido: Concluído
+                cancelado: Cancelado
+            resumo:
+                evento_um: 1 evento
+                evento_n: '{n} eventos'
+                cancelado_um: 1 cancelado
+                cancelado_n: '{n} cancelados'
+                oculta_um: 1 legenda oculta
+                oculta_n: '{n} legendas ocultas'
+            data_longa: '{semana}, {dia} de {mes}'
+            dia_inteiro_curto: dia inteiro
+            meta:
+                participantes: '{n} participantes'
+            mes:
+                mais: '+{n} mais'
+            lista:
+                hoje_dia: 'Hoje · {dia}'
+                evento_um: 1 evento
+                evento_n: '{n} eventos'
+                vazio: Nenhum evento neste período com esses filtros.
+            hoje:
+                agora: agora
+                vazio: Nenhum compromisso hoje.
+            proximos:
+                amanha: amanhã
+            detalhe:
+                duracao_minutos: '{n} minutos'
+                duracao_hora: 1 hora
+                duracao_horas: '{n} horas'
+                repete_diario: Repete diariamente
+                repete_semanal: Repete semanalmente
+                repete_mensal: Repete mensalmente
+                repete_anual: Repete anualmente
+                repete_outro: Evento recorrente
+                so_eu: Somente para mim
+                escritorio: Visível para o escritório
+                participantes: Participantes
+                organizador: organizador
+                cancelar_evento: Cancelar evento

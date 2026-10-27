@@ -1,0 +1,154 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Agenda 1A. Desenho: docs/design/redesign-25-10-26/09 - Agenda 1A (restaurada).dc.html
+    (spec docs/specs/agenda-1a.md). O cabeçalho azul e a faixa de abas são a moldura do sistema (base.html.twig).
+
+    O template monta só o esqueleto fixo. Grade, lista, Detalhe, cartão Hoje, Legendas e a janela de criar e editar
+    são desenhados pelo public/js/agenda-1a.js a partir de GET /agenda/compromissos. `equipe` alimenta o filtro Pessoa
+    e o @colega do "Avisar no Chat". Rotas com {id} vão com o marcador 0, trocado no JS pelo id real.
+#}
+
+{% block title %}{{ 'agenda.nova.titulo_pagina'|trans }}{% endblock %}
+
+{% block body_class %}ag-body a1-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/agenda-nova.css') }}">
+<link rel="stylesheet" href="{{ asset('css/a1-agenda.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="a1" id="a1Pagina"
+     data-url-compromissos="{{ path('app_agenda_compromissos') }}"
+     data-eu="{{ eu|json_encode|e('html_attr') }}"
+     data-equipe="{{ equipe|json_encode|e('html_attr') }}"
+     data-pode-ver-pastas="{{ podeVerPastas ? '1' : '0' }}"
+     data-url-criar="{{ path('app_agenda_compromisso_criar') }}"
+     data-url-salvar="{{ path('app_agenda_compromisso_salvar', {id: 0}) }}"
+     data-url-excluir="{{ path('app_agenda_compromisso_excluir', {id: 0}) }}"
+     data-url-avisar="{{ path('app_agenda_compromisso_avisar', {id: 0}) }}"
+     data-url-avisar-prazo="{{ path('app_agenda_prazo_avisar', {id: 0}) }}"
+     data-url-status="{{ path('app_agenda_compromisso_status', {id: 0}) }}"
+     data-url-pasta="{{ path('pasta_show', {id: 0}) }}"
+     data-google="{{ google }}"
+     data-url-google-conectar="{{ google != 'indisponivel' ? path('app_agenda_google_conectar') : '' }}"
+     data-url-google-desconectar="{{ path('app_agenda_google_desconectar') }}"
+     data-google-aviso="{{ googleAviso ? '1' : '0' }}"
+     data-url-google-aviso-dispensar="{{ path('app_agenda_google_aviso_dispensar') }}"
+     data-escritorio="{{ escritorio }}">
+
+    <div class="a1-barra">
+        <div class="a1-nav">
+            <button type="button" class="a1-hoje-bt" id="a1Hoje">{{ 'agenda.nova.hoje'|trans }}</button>
+            <div class="a1-setas">
+                <button type="button" class="a1-seta" id="a1Ant" title="{{ 'agenda.nova.anterior'|trans }}"><i class="bi bi-chevron-left"></i></button>
+                <button type="button" class="a1-seta" id="a1Prox" title="{{ 'agenda.nova.proximo'|trans }}"><i class="bi bi-chevron-right"></i></button>
+            </div>
+        </div>
+
+        <div class="a1-periodo">
+            <h1 class="a1-titulo" id="a1Titulo"></h1>
+            <div class="a1-resumo" id="a1Resumo"></div>
+        </div>
+
+        <div class="a1-vao"></div>
+
+        <label class="a1-busca">
+            <i class="bi bi-search"></i>
+            <input type="text" id="a1Busca" placeholder="{{ 'agenda.um_a.buscar'|trans }}" autocomplete="off">
+        </label>
+
+        <div class="a1-seg" id="a1Vistas">
+            <button type="button" class="a1-seg-bt is-on" data-a1-vista="mes">{{ 'agenda.um_a.vista_mes'|trans }}</button>
+            <button type="button" class="a1-seg-bt" data-a1-vista="semana">{{ 'agenda.um_a.vista_semana'|trans }}</button>
+            <button type="button" class="a1-seg-bt" data-a1-vista="lista">{{ 'agenda.um_a.vista_lista'|trans }}</button>
+        </div>
+
+        <button type="button" class="a1-novo" id="a1Novo"><i class="bi bi-plus-lg"></i>{{ 'agenda.um_a.novo_evento'|trans }}</button>
+    </div>
+
+    <div class="a1-corpo">
+        <div class="a1-principal" id="a1Grade" aria-live="polite"></div>
+
+        <div class="a1-lateral" id="a1Lateral">
+            {# O Detalhe do evento escolhido entra aqui, como primeiro filho, desenhado pelo JS. #}
+            <div class="a1-cartao a1-hoje">
+                <div class="a1-hoje-cab">
+                    <div class="a1-rotulo">{{ 'agenda.um_a.hoje_rotulo'|trans }}</div>
+                    <div class="a1-hoje-data" id="a1HojeRotulo"></div>
+                </div>
+                <div class="a1-hoje-lista" id="a1HojeLista"></div>
+                <div class="a1-seguir">
+                    <div class="a1-rotulo a1-rotulo-baixo">{{ 'agenda.um_a.a_seguir'|trans }}</div>
+                    <div class="a1-seguir-lista" id="a1Proximos"></div>
+                </div>
+            </div>
+
+            <div class="a1-cartao a1-cartao-pad a1-legendas">
+                <div class="a1-leg-cab">
+                    <span class="a1-rotulo">{{ 'agenda.um_a.legendas'|trans }}</span>
+                    <div class="a1-vao"></div>
+                    <button type="button" class="a1-leg-todas" id="a1LegTodas" hidden>{{ 'agenda.um_a.mostrar_todas'|trans }}</button>
+                    {# Sem destino: o sistema não tem cadastro de legendas (spec agenda-1a, seção 3). #}
+                    <button type="button" class="a1-leg-gear" title="{{ 'agenda.um_a.gerenciar_legendas'|trans }}"><i class="bi bi-gear"></i></button>
+                </div>
+                <div class="a1-leg-lista" id="a1LegLista"></div>
+            </div>
+
+            <div class="a1-cartao a1-cartao-pad a1-filtros">
+                <div class="a1-rotulo a1-rotulo-baixo">{{ 'agenda.um_a.filtros'|trans }}</div>
+                <div class="a1-filtros-col">
+                    <div>
+                        <label class="a1-campo-rot" for="a1Pessoa">{{ 'agenda.um_a.pessoa'|trans }}</label>
+                        <select class="a1-select" id="a1Pessoa">
+                            <option value="">{{ 'agenda.um_a.todo_escritorio'|trans }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <span class="a1-campo-rot">{{ 'agenda.um_a.status'|trans }}</span>
+                        <div class="a1-seg a1-seg-status">
+                            <button type="button" class="a1-seg-bt is-on" data-a1-st="todos">{{ 'agenda.um_a.st_todos'|trans }}</button>
+                            <button type="button" class="a1-seg-bt" data-a1-st="agendado">{{ 'agenda.um_a.st_agendados'|trans }}</button>
+                            <button type="button" class="a1-seg-bt" data-a1-st="concluido">{{ 'agenda.um_a.st_concluidos'|trans }}</button>
+                        </div>
+                    </div>
+                    <label class="a1-check">
+                        <input type="checkbox" id="a1Cancelados" checked>
+                        <span>{{ 'agenda.um_a.mostrar_cancelados'|trans }}</span>
+                    </label>
+                    <button type="button" class="a1-limpar" id="a1Limpar" hidden><i class="bi bi-x-lg"></i>{{ 'agenda.um_a.limpar_filtros'|trans }}</button>
+                </div>
+            </div>
+
+            {# Fora do desenho: sem este cartão ninguém conecta nem revoga o consentimento do Google (LGPD, art. 8º, § 5º). #}
+            <div class="a1-cartao a1-cartao-pad a1-google">
+                <div class="a1-rotulo a1-rotulo-baixo">{{ 'agenda.nova.google_agenda'|trans }}</div>
+                <div class="a1-google-col">
+                    <button type="button" class="a1-google-bt" id="a1Google"><i class="bi bi-arrow-repeat"></i>{{ google == 'conectado' ? 'agenda.nova.google_sincronizado'|trans : 'agenda.nova.google_sincronizar'|trans }}</button>
+                    <div class="a1-google-st{{ google == 'conectado' ? ' is-on' : '' }}"><i class="bi bi-circle-fill"></i>{{ google == 'conectado' ? 'agenda.nova.google_conectado'|trans : (google == 'nao_conectado' ? 'agenda.nova.google_nao_conectado'|trans : 'agenda.nova.google_indisponivel'|trans) }}</div>
+                    {% if google == 'conectado' %}
+                        <button type="button" class="a1-google-sair" id="a1GoogleSair">{{ 'agenda.nova.google_desconectar'|trans }}</button>
+                    {% endif %}
+                    <div class="a1-google-txt">{{ 'agenda.nova.google_explicacao_inicio'|trans }} "{{ 'agenda.nova.google_explicacao_so_eu'|trans }}" {{ 'agenda.nova.google_explicacao_fim'|trans }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Camadas da janela de criar e editar, das perguntas e do aviso. Num invólucro .ag-page só para herdar os tokens
+       do modal (agenda-nova.css), sem o layout da tela antiga. #}
+    <div class="ag-page a1-camadas">
+        <div id="agModal"></div>
+        <div id="agPerg"></div>
+        <div id="agToast"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+{{ catalogo_js('agenda.js') }}
+<script src="{{ asset('js/agenda-1a.js') }}" defer></script>
+{% endblock %}

@@ -37,7 +37,7 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
     {
         $client = $this->cliente(new GoogleAgendaApi(new MockHttpClient()));
         $this->entrar($client);
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
         self::assertSelectorTextContains('.ag-google-st', 'Disponível quando o servidor liberar a conexão');
         self::assertSelectorTextContains('#agGoogle', 'Sincronizar com o Google Agenda');
         self::assertSame('', $client->getCrawler()->filter('[data-google]')->attr('data-url-google-conectar'));
@@ -48,12 +48,12 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
     {
         $client = $this->cliente();
         [$eu, $tenant] = $this->entrar($client);
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
         self::assertSelectorTextContains('.ag-google-st', 'Não conectado');
         self::assertSelectorNotExists('#agGoogleSair');
 
         $this->conectado($eu, $tenant);
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
         self::assertSelectorTextContains('.ag-google-st', 'Conectado · atualiza automaticamente');
         self::assertSelectorTextContains('#agGoogle', 'Sincronizado com o Google Agenda');
         self::assertSelectorExists('#agGoogleSair');

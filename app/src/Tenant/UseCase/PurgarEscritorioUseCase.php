@@ -320,6 +320,9 @@ final class PurgarEscritorioUseCase
         ['chamado', 'tenant_id = :tenant'],
         ['evento', 'tenant_id = :tenant'],
         ['kanban_board', 'tenant_id = :tenant'],
+        // Termo de Voluntariado (CPF e RG no snapshot): o escritório emissor é a sede da Central. A FK de tenant é NO ACTION; a do
+        // currículo é CASCADE, então o termo também sai com o currículo.
+        ['trabalho_externo_termo_voluntariado', 'tenant_id = :tenant'],
         // Trabalho Externo: as demandas que o escritório SOLICITOU. Histórico, mensagens, leituras,
         // propostas e documentos caem pela CASCADE da demanda. Se o escritório for a sede da
         // Central, a configuração perde a sede por SET NULL (a Central não é apagada).

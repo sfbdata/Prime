@@ -16,6 +16,7 @@ use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\ConfiguracaoCentral;
 use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
+use App\TrabalhoExterno\Entity\TermoDeVoluntariado;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\AcaoVaga;
 use App\TrabalhoExterno\Enum\Perfil;
@@ -335,11 +336,37 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         self::assertSame([[3, 2]], $this->quem(), 'sem sede: só o dono');
     }
 
+    #[TestDox('termo de voluntariado: enviado vai ao voluntário, no primeiro escritório dele; aceito vai à Central na sede; nenhum texto leva CPF, RG nem nome')]
+    public function testTermoDeVoluntariado(): void
+    {
+        $voluntaria = Apoio::usuario(9);
+        $cv = $this->comId($this->cv($voluntaria), 12);
+        $termo = TermoDeVoluntariado::enviar($this->sede, $cv, ['vNome' => 'Ana Souza', 'vCpf' => '111.222.333-44', 'vRg' => '1.234.567'], 'TV-0003', $this->master, new \DateTimeImmutable());
+
+        $this->primeiroEscritorio = $this->escritorio;
+        $this->avisos()->termoEnviado($this->ctx($this->master), $termo);
+        self::assertSame([[9, 2]], $this->quem());
+        self::assertSame(['trabalho_externo_termo_enviado', 'Você tem um termo de voluntariado para aceitar', '/trabalho-externo#cv=CV-0012'], [$this->criadas[0]['tipo'], $this->criadas[0]['titulo'], $this->notificacoes[0]->getUrl()]);
+
+        $this->limpar();
+        $this->primeiroEscritorio = null;
+        $this->avisos()->termoEnviado($this->ctx($this->master), $termo);
+        self::assertSame([], $this->criadas, 'voluntário sem escritório ativo: sem aviso');
+
+        $this->avisos()->termoAceito($this->ctx($voluntaria, Perfil::Solicitante), $termo);
+        self::assertSame([[1, 1], [2, 1]], $this->quem(), 'Master e Equipe com talentos, na sede');
+        self::assertSame(['trabalho_externo_termo_aceito', 'Termo de voluntariado aceito: TV-0003 (currículo CV-0012)'], [$this->criadas[0]['tipo'], $this->criadas[0]['titulo']]);
+        $tudo = json_encode($this->criadas, JSON_THROW_ON_ERROR);
+        foreach (['111.222.333-44', '1.234.567', 'Ana Souza', 'CPF', 'RG'] as $dado) {
+            self::assertStringNotContainsString($dado, $tudo);
+        }
+    }
+
     #[TestDox('cada tipo novo tem ícone no sino e grupo, rótulo, ícone e cor na Caixa da Central')]
     public function testTiposNovos(): void
     {
         $tipos = array_filter((new \ReflectionClass(Notificacao::class))->getConstants(), static fn (mixed $v, string $k): bool => str_starts_with($k, 'TIPO_TRABALHO_EXTERNO_'), ARRAY_FILTER_USE_BOTH);
-        self::assertCount(12, $tipos, 'o 11º é a resposta ao despacho (D8); o 12º, a oferta recusada (D11b)');
+        self::assertCount(14, $tipos, 'o 11º é a resposta ao despacho (D8); o 12º, a oferta recusada (D11b); o 13º e o 14º, o termo de voluntariado enviado e aceito');
         foreach ($tipos as $tipo) {
             self::assertLessThanOrEqual(50, strlen($tipo), 'a coluna tipo tem 50 caracteres');
             self::assertNotSame('bi-bell text-secondary', (new Notificacao())->setTipo($tipo)->getIcone(), $tipo);

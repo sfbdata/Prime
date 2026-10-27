@@ -20,6 +20,7 @@ final readonly class RetratoDoPainel
      * @param list<array{status: string, enviadaEm: \DateTimeImmutable}>      $candidaturas  status e envio de cada candidatura
      * @param array<int, int>                                                  $aceitesPorVaga id da oferta → aceites da rodada atual
      * @param float|null                                                       $minutosAteOAceite média do início da rodada ao primeiro aceite
+     * @param array<int, string>                                               $termos        id do currículo → estado do termo mais recente (`enviado` ou `aceito`)
      */
     public function __construct(
         public \DateTimeImmutable $agora,
@@ -31,6 +32,7 @@ final readonly class RetratoDoPainel
         public int $inscritos = 0,
         public int $visitas = 0,
         public int $cliques = 0,
+        public ?array $termos = null,
     ) {
     }
 }
