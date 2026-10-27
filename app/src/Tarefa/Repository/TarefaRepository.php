@@ -558,8 +558,10 @@ class TarefaRepository extends ServiceEntityRepository
             return [];
         }
         $achadas = $this->createQueryBuilder('t')
+            ->join('t.pasta', 'p')
             ->andWhere('t.tenant = :tenant')
             ->andWhere('t.id IN (:ids)')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->setParameter('ids', $ids)
             ->getQuery()

@@ -32,6 +32,11 @@ use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\UseCase\RedistribuirMetasDaPessoaUseCase;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -142,7 +147,7 @@ final class RedistribuirMetasDaPessoaUseCaseTest extends TestCase
         $vinculos = $this->createStub(UserTenantRepository::class);
         $vinculos->method('existeVinculoAtivo')->willReturn(true);
         $regra  = new RegraDosPrimarios($vinculos);
-        $nivel  = new NivelNoCadeado($this->createStub(CadeadoDaPastaRepository::class), $vinculos, $regra, $this->createStub(TenantContext::class));
+        $nivel  = new NivelNoCadeado($this->createStub(CadeadoDaPastaRepository::class), $vinculos, $regra, new TenantContext(new RequestStack(), $this->createStub(Security::class), $this->createStub(EntityManagerInterface::class), new BloqueioPorPedidoDeExclusao($this->createStub(PedidoDeExclusaoDeContaRepository::class), $regra)));
         $urls   = $this->createStub(UrlGeneratorInterface::class);
         $urls->method('generate')->willReturnCallback(static fn (string $rota, array $p = []): string => $rota === 'tarefa_show' ? '/tarefas/' . $p['id'] : '/tarefas/minhas');
 

@@ -23,6 +23,7 @@ use App\Tarefa\Service\GuardaDaRedistribuicao;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\Service\TransacaoDaPassagem;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Confirmação do "Redistribuir" do perfil da pessoa (spec painel-acompanhamento-redistribuir, fatia B). Só o Master ou
@@ -78,6 +79,15 @@ final class RedistribuirMetasDaPessoaUseCase
         return new ResultadoDaRedistribuicaoOutput(count($feitas), count($plano) - count($feitas));
     }
 
+    private function exigirAcessoAMeta(Tarefa $meta, RedistribuirMetasInput $input): void
+    {
+        try {
+            $this->acessoAMeta->exigir($meta, $input->tenant, $input->ator);
+        } catch (AccessDeniedException) {
+            throw new RedistribuicaoRecusadaException('Uma das metas escolhidas não pode ser redistribuída.');
+        }
+    }
+
     /**
      * @return list<array{meta: Tarefa, destino: User}>
      */
@@ -93,7 +103,7 @@ final class RedistribuirMetasDaPessoaUseCase
         $plano     = [];
         foreach ($input->movimentos as $mov) {
             $meta = $metas[$mov['meta_id']] ?? throw new RedistribuicaoForaDoEscritorioException('Meta não encontrada.');
-            $this->acessoAMeta->exigir($meta, $input->tenant, $input->ator);
+            $this->exigirAcessoAMeta($meta, $input);
             $destino = $elegiveis[$mov['destino_id']] ?? null;
             if ($destino === null || !$this->guarda->veAPasta($meta, $destino)) {
                 throw new RedistribuicaoRecusadaException('Um dos destinos não pode receber a meta escolhida.');

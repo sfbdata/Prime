@@ -55,6 +55,8 @@ final class RedistribuirMetasDaPessoaControllerTest extends JusPrimeWebTestCase
         $caio   = $this->criarColaborador($tenant, 'Caio Destino');
         $livre  = $this->criarPasta($tenant, 'CLIENTE LIVRE');
         $trancada = $this->criarPasta($tenant, 'CLIENTE TRANCADO');
+        $livre->setCriadoPor($primario);
+        $trancada->setCriadoPor($primario);
         $this->trancar($trancada, $primario, [[$ana, NivelDeAcesso::Editar], [$caio, NivelDeAcesso::Editar]]);
 
         $metas = [
