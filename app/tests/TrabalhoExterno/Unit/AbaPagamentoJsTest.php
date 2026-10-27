@@ -82,6 +82,7 @@ final class AbaPagamentoJsTest extends TestCase
         self::assertStringContainsString('toastDoServidor(r.toast, \'Pagamento confirmado\', \'O solicitante foi avisado no chat e por e-mail.\')', $aba);
         self::assertStringContainsString('urlPagamentoConfirmar', $js);
         self::assertStringContainsString('urlPagamentoValor', $js);
+        self::assertStringContainsString('urlPagamentoRecusar', $js);
         self::assertStringContainsString("k: '__pagamento_valor__'", $js, 'o lápis do valor usa o diálogo da tela');
         self::assertStringContainsString('pg.podeEditarValor', $js, 'o lápis só aparece quando o servidor manda');
     }
