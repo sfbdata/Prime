@@ -231,6 +231,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Auditar esta linha só espalharia IP/user agent para uma segunda tabela.
         RedefinicaoSenha::class,
 
+        // Impressões do aviso de login novo (spec login-aviso-novo): hash HMAC sem PII, purgado por `retencao` dias
+        // (PurgarAcessosConhecidosUseCase). A linha É o registro; auditá-la seria log de log.
+        \App\Auth\Entity\AcessoConhecido::class,
+
         // Tela de entrada do desenho 10 (spec login-desenho-10):
         // - CienciaPolitica: registro append-only de ciência da Política, como o AceiteTermo, é a própria prova;
         // - ConfirmacaoEmail: link efêmero (7 dias), sem tenant; o fato (e-mail confirmado) muda no próprio User;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use App\Auth\UseCase\PurgarAcessosConhecidosUseCase;
 use App\Auth\UseCase\PurgarCadastrosPendentesUseCase;
 use App\Comercial\UseCase\PurgarDadosDoComercialUseCase;
 use App\Auth\UseCase\PurgarRedefinicoesSenhaUseCase;
@@ -47,6 +48,7 @@ final class PurgarDadosExpiradosCommand extends Command
         private readonly EntityManagerInterface $em,
         private readonly int $carenciaPurgaDias,
         private readonly PurgarDadosDoComercialUseCase $purgarComercial,
+        private readonly PurgarAcessosConhecidosUseCase $purgarAcessos,
     ) {
         parent::__construct();
     }
@@ -102,6 +104,7 @@ final class PurgarDadosExpiradosCommand extends Command
             // (A3) Comercial: confirmações de endereço nunca confirmadas e disparos simulados
             $io->section('Comercial: confirmações de endereço e simulações');
             $io->text(sprintf('%d registro(s) %s.', $this->purgarComercial->executar($agora, $dryRun), $dryRun ? 'seriam purgados' : 'purgados'));
+            $this->purgarAcessosConhecidos($io, $agora, $dryRun); // (A4)
 
             // (B) escritórios em quarentena vencida
             $limite    = $agora->modify(sprintf('-%d days', $this->carenciaPurgaDias));
@@ -213,6 +216,13 @@ final class PurgarDadosExpiradosCommand extends Command
      * Lock exclusivo por lockfile (flock) para impedir execuções sobrepostas. Evita a
      * dependência symfony/lock — coerente com a stack minimalista do projeto.
      */
+    /** (A4) acesso_conhecido: impressões do aviso de login novo não vistas há `retencao` dias (chave do Master). */
+    private function purgarAcessosConhecidos(SymfonyStyle $io, \DateTimeImmutable $agora, bool $dryRun): void
+    {
+        $io->section('Acessos conhecidos (aviso de login novo)');
+        $io->text(sprintf('%d registro(s) %s.', $this->purgarAcessos->executar($agora, $dryRun), $dryRun ? 'seriam purgados' : 'purgados'));
+    }
+
     private function adquirirLock(): bool
     {
         $handle = fopen(sys_get_temp_dir() . '/jusprime-purga.lock', 'c');

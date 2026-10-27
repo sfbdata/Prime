@@ -1122,6 +1122,7 @@ master:
                 tentativas: Bloquear login após (tentativas)
                 dois: Verificação em duas etapas
                 retencao: Guardar auditoria por (dias)
+                avisoLoginNovo: Avisar por e-mail sobre acesso novo
                 idioma: Idioma padrão
                 fuso: Fuso horário
                 manut: Aviso para todos os usuários
@@ -1139,6 +1140,9 @@ master:
                     prim: Master e primários
                     todos: Todos os usuários
                     opc: Opcional
+                avisoLoginNovo:
+                    'on': Ligado
+                    'off': Desligado
                 idioma:
                     pt-BR: Português (Brasil)
                     en: English

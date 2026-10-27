@@ -110,6 +110,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Pré-autenticação e efêmero (1h). Sem tenant por natureza.
         RedefinicaoSenha::class,
 
+        // Impressões de acesso do aviso de login novo (spec login-aviso-novo): do usuário, não do escritório. Identidade
+        // global do User, mesma natureza da RedefinicaoSenha; some com o usuário (ON DELETE CASCADE).
+        \App\Auth\Entity\AcessoConhecido::class,
+
         // Tela de entrada do desenho 10 (spec login-desenho-10), sem tenant por natureza:
         // identidade global do User (link de confirmação, ciência da Política), a tela de entrada única,
         // anterior a qualquer escritório (ajustes SÓ MASTER), e o suporte de quem ainda não entrou.
@@ -356,7 +360,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // global que só o Master define, igual ao Plano do Contribua).
     // 86 → 87 com os custos do Master (27/10/2026): LancamentoDeCusto (plataforma), justificado acima.
     // 87 → 88 com os escritórios guardados da Nova solicitação (27/10/2026): EscritorioSolicitante é do usuário, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 88;
+    // 88 → 89 com o aviso de login novo (27/10/2026): AcessoConhecido é do usuário, justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 89;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
