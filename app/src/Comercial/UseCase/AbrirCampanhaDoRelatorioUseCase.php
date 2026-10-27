@@ -13,7 +13,7 @@ use App\Comercial\Entity\EnvioDeEmail;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
-use Symfony\Component\Mime\Address;
+use App\Shared\Email\IdentidadeDeEmail;
 
 /**
  * O visualizador de uma campanha do Relatório (desenho 05 VS 21.10.26, L502-514 e L710-714; spec
@@ -41,7 +41,7 @@ final class AbrirCampanhaDoRelatorioUseCase
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly RelatorioDeCampanhasRepository $relatorio,
         private readonly ComposicaoDaCampanha $composicao,
-        private readonly string $mailerFrom,
+        private readonly IdentidadeDeEmail $identidade,
         private readonly RastreioDaLeitura $rastreio,
     ) {
     }
@@ -122,14 +122,9 @@ final class AbrirCampanhaDoRelatorioUseCase
         }
     }
 
+    /** O remetente vigente (nome e endereço configurados pelo Master, senão o do ambiente). */
     private function remetente(): string
     {
-        try {
-            $de = Address::create($this->mailerFrom);
-        } catch (\Throwable) {
-            return 'BlueJus';
-        }
-
-        return ($de->getName() !== '' ? $de->getName() : 'BlueJus') . ' <' . $de->getAddress() . '>';
+        return $this->identidade->remetente();
     }
 }

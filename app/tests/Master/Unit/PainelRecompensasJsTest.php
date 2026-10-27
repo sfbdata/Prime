@@ -85,7 +85,7 @@ final class PainelRecompensasJsTest extends TestCase
             'master.js.recompensas.sit.andamento' => 'Em andamento',
             'master.js.recompensas.priv_n' => '{n} com condição individual · não mudam com a regra geral',
             'master.js.recompensas.menu_condicao' => 'Condição individual (★)',
-            'master.js.recompensas.menu_geral' => 'Voltar à regra geral',
+            'master.js.recompensas.menu_geral' => 'Usar a regra geral',
             'master.recompensas.campo_valor' => 'RECOMPENSA POR ESCRITÓRIO (R$)',
             'master.recompensas.campo_libera' => 'LIBERA COM (ESCRITÓRIOS ATIVOS)',
             'master.recompensas.campo_carencia' => 'CARÊNCIA (DIAS DE USO ATIVO)',
@@ -228,7 +228,7 @@ final class PainelRecompensasJsTest extends TestCase
             self::assertStringNotContainsStringIgnoringCase($fora, $codigo, 'fica para as fatias seguintes: ' . $fora);
         }
         $twig = self::arquivo('templates/master/_recompensas.html.twig');
-        self::assertSame(10, substr_count($twig, 'data-mrc-menu-acao='), 'o menu ⋮ tem condição, dar baixa, lançamento, dados para pagamento, revisar suspeitas, extrato, CSV, regra geral, bloqueio e apagar');
+        self::assertSame(11, substr_count($twig, 'data-mrc-menu-acao='), 'o menu ⋮ tem condição, dar baixa, lançamento, dados para pagamento, copiar e-mail, revisar suspeitas, extrato, CSV, regra geral, bloqueio e apagar');
         self::assertStringContainsString('data-sec-externa', self::arquivo('templates/master/painel.html.twig'));
     }
 

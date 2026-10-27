@@ -31,6 +31,7 @@ final readonly class PerfilDaPessoaOutput
         public bool $semMetas,
         public ?string $status,
         public ?string $feedback,
+        public ?AnaliseDaPessoaOutput $analise = null,
     ) {
     }
 

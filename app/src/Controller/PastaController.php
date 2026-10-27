@@ -1732,7 +1732,7 @@ class PastaController extends AbstractController
         // (`Pasta::setNup` grava aparado e em maiúsculas), para "1240a" valer como "1240A".
         $numeroDigitado = mb_strtoupper(trim((string) $request->request->get('confirmar_nup', '')));
         if ($numeroDigitado === '' || $numeroDigitado !== (string) $pasta->getNup()) {
-            $this->addFlash('danger', 'Número não confere. A pasta não foi excluída.');
+            $this->addFlash('danger', sprintf('Número não confere. Digite %s (o NUP da pasta, não o número da URL). A pasta não foi excluída.', $pasta->getNup()));
 
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }

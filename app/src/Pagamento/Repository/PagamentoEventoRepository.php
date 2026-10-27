@@ -33,4 +33,14 @@ class PagamentoEventoRepository extends ServiceEntityRepository
             ->orderBy('e.em', 'ASC')->addOrderBy('e.id', 'ASC')
             ->getQuery()->getResult();
     }
+
+    /** A trilha já tem esse tipo? (registros que não podem repetir a cada reconsulta, como o teste do sandbox) */
+    public function jaTem(int $pagamentoId, string $tipo): bool
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->andWhere('IDENTITY(e.pagamento) = :p')->setParameter('p', $pagamentoId)
+            ->andWhere('e.tipo = :t')->setParameter('t', $tipo)
+            ->getQuery()->getSingleScalarResult() > 0;
+    }
 }
