@@ -57,6 +57,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Pasta/Service/VagasDeZipDoEscritorio.php'             => 'lock files das vagas de zip',
         'src/Pasta/UseCase/MontarZipDeDocumentosUseCase.php'       => 'monta e mede o .zip gerado (ZipArchive), na área temporária',
         'src/Pasta/UseCase/UploadPecaUseCase.php'                  => 'só lê: abre o upload em trânsito com ZipArchive para conferir o DOCX',
+        'src/Pasta/Service/PreviaDeDocumentoOffice.php'            => 'só lê: ZipArchive somente leitura confere o índice do pacote (zip bomb) do arquivo já materializado na área temporária',
         'src/Pasta/Service/DetectorDeAssinaturaDigital.php'        => 'só lê as pontas do upload em trânsito (selo Assinado); o acervo ele lê pelo stream que o armazenamento abre',
         'src/Comercial/Campanha/PreparadorDeImagemDaCampanha.php'  => 'GD gera os bytes em memória (destino null); grava pelo armazenamento (COMERCIAL_IMAGEM)',
         'src/Comercial/Controller/CampanhaDoMasterController.php'  => 'só lê o upload em trânsito da imagem; quem grava é o armazenamento',
