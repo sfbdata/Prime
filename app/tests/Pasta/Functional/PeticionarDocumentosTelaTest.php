@@ -306,7 +306,7 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $anexo);
         self::assertCount(1, $anexo->filter('button > i.bi-paperclip'));
         self::assertStringContainsString('Anexo', $anexo->text());
-        self::assertStringContainsString('Qualquer formato: PDF, Word, Excel, imagens, áudio, ZIP…', $anexo->text());
+        self::assertStringContainsString('PDF, Word, Excel, imagens, XML e KML', $anexo->text());
 
         $texto = $menu->filter('#peticAddMenu > button#btnOpcaoTexto.petic-add-item');
         self::assertCount(1, $texto);

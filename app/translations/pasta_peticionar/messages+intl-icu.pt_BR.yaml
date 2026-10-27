@@ -21,7 +21,7 @@ pasta_peticionar:
         vazio: Nenhum documento na pasta.
         vazio_dica: 'Use "Adicionar peça" ou arraste arquivos para cá.'
         anexo: Anexo
-        anexo_dica: 'Qualquer formato: PDF, Word, Excel, imagens, áudio, ZIP…'
+        anexo_dica: 'PDF, Word, Excel, imagens, XML e KML'
         texto_dica: Escrever a peça no editor
     barra:
         renomear_dica: Clique duas vezes para renomear
