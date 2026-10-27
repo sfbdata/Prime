@@ -33,6 +33,11 @@ final class PublicacaoDjenListaItem
         /** Pasta que o processo da publicação ocupa (a lista do módulo a projeta; as outras consultas, não). */
         public readonly ?int $pastaId = null,
         public readonly ?string $pastaNup = null,
+        /** Data de disponibilização em Y-m-d (a coluna formatada é para exibir; esta é para contar prazo). */
+        public readonly ?string $dataIso = null,
+        public readonly ?int $prazoDias = null,
+        public readonly bool $prazoCumprido = false,
+        public readonly ?int $tarefaId = null,
     ) {
     }
 
@@ -58,6 +63,10 @@ final class PublicacaoDjenListaItem
             self::nullableString($row['tipoDocumento'] ?? null),
             isset($row['pastaId']) ? (int) $row['pastaId'] : null,
             self::nullableString($row['pastaNup'] ?? null),
+            $data instanceof \DateTimeInterface ? $data->format('Y-m-d') : (is_string($data) && $data !== '' ? substr($data, 0, 10) : null),
+            isset($row['prazoDias']) ? (int) $row['prazoDias'] : null,
+            ($row['prazoCumpridoEm'] ?? null) !== null,
+            isset($row['tarefaId']) ? (int) $row['tarefaId'] : null,
         );
     }
 
