@@ -121,7 +121,7 @@ contábil (decisão de 27/10). Sem e-mail ao indicador nesta fatia (o aviso é d
   nulas: `forma` (`pix`, `transferencia`, `desconto_na_mensalidade`, `credito_de_espaco`), `comprovante_chave` e
   `comprovante_nome`. O livro continua só INSERT. Saldo = max(0, ativos x valor + soma(bonus) - soma(pago)); `pagoCentavos`
   do painel passa a ser a soma dos `pago`.
-- Dados de recebimento: tabela `dados_de_recebimento_de_recompensa` (um por indicador; `user_id` único, FK CASCADE, então
+- Dados de recebimento: tabela `dados_de_recebimento_de_recompensa` (um por indicador; `indicador_id` único, FK CASCADE, então
   a exclusão LGPD apaga junto), `nome` (até 120), `documento` (CPF ou CNPJ só com dígitos, validado pelos dígitos
   verificadores), `chave_pix` (até 140, opcional), `atualizado_em`, `atualizado_por_id`. Auditável de plataforma. O
   Master cadastra pelo menu ⋮ "Dados para pagamento". O sistema grava o valor bruto e não calcula imposto (decisão de
