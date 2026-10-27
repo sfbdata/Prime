@@ -67,6 +67,23 @@ final class VincularPublicacaoAPastaUseCase
         return $pasta;
     }
 
+    /**
+     * "Vincular à Pasta N" (desenho 11): o número digitado é o NUP da pasta. Pasta que não existe no escritório
+     * não é criada às cegas: a mensagem manda usar "Abrir nova pasta".
+     *
+     * @throws VinculoDaPublicacaoInvalidoException
+     */
+    public function executarPorNup(Tenant $tenant, User $usuario, int $publicacaoId, string $nup, ?int $trocarDaPastaId = null): Pasta
+    {
+        $nup = trim($nup);
+        $pasta = $nup === '' ? null : $this->pastas->findOneBy(['nup' => $nup, 'tenant' => $tenant]);
+        if (!$pasta instanceof Pasta || $pasta->getExcluidaEm() !== null) {
+            throw new VinculoDaPublicacaoInvalidoException(sprintf('A Pasta %s não existe neste escritório. Use "Abrir nova pasta".', $nup));
+        }
+
+        return $this->executar($tenant, $usuario, $publicacaoId, (int) $pasta->getId(), $trocarDaPastaId);
+    }
+
     private function pastaEditavel(Tenant $tenant, User $usuario, int $pastaId): Pasta
     {
         $pasta = $this->pastas->findOneBy(['id' => $pastaId, 'tenant' => $tenant]);
