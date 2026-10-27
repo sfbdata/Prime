@@ -6,7 +6,7 @@
    Contexto: `pasta`, `podeEditarPasta`. O `<details>` do Relatório inicial mora no show. #}
 <div class="mdl" id="mdlRaiz"
      data-url-base="{{ path('pasta_modelos_listar', {id: pasta.id}) }}"
-     data-token="{{ podeEditarPasta ? csrf_token('modelos_pasta_' ~ pasta.id) : '' }}"
+     data-token="{{ csrf_token('modelos_pasta_' ~ pasta.id) }}"
      data-pode-editar="{{ podeEditarPasta ? '1' : '0' }}"
      data-confirmar-excluir="{{ 'pasta_modelos.confirmar_excluir'|trans }}"
      data-titulo-novo="{{ 'pasta_modelos.editor.novo'|trans }}"

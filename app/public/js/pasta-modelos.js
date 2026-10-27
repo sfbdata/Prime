@@ -231,7 +231,7 @@
         var estrela = e.target.closest('[data-fav-materia]');
         if (estrela) {
             e.stopPropagation();
-            if (podeEditar) { alternarFavoritaDaMateria(estrela.dataset.favMateria); }
+            alternarFavoritaDaMateria(estrela.dataset.favMateria);
             return;
         }
         var titulo = e.target.closest('[data-bloco-tit]');
@@ -255,7 +255,7 @@
         var estrela = e.target.closest('[data-fav]');
         if (estrela) {
             e.stopPropagation();
-            if (podeEditar) { alternarFavoritoDoModelo(estrela.dataset.fav); }
+            alternarFavoritoDoModelo(estrela.dataset.fav);
             return;
         }
         var linha = e.target.closest('[data-abrir]');

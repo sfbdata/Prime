@@ -57,3 +57,12 @@ sementes; reorganização da aba.
 4. Importação com classificação automática, Drive e central de documentos: escopo agora ou depois?
 5. Conteúdo jurídico das sementes (revisão por advogado) e lista de matérias e tipos: fixa ou configurável?
 6. Meta com minuta: prazo, caixa e responsável padrão.
+
+## Decisões aceitas (27/10/2026) e estado da M1
+
+- Só modelos do escritório (sem sementes jurídicas). Matérias (16) e tipos (14) fixos em enum; o menu de botão direito que edita matérias e tópicos fica fora.
+- **Permissão:** ver a pasta basta para consultar o banco e para favoritar (a estrela é preferência pessoal, por usuário). **Criar, editar, duplicar e excluir modelo valem para quem edita a pasta aberta** (padrão do `PastaChecklistModelo`), sem permissão nova.
+- Aba `detalhes` renomeada para Modelos; o Relatório inicial passa para um `<details>` recolhido. Id e permissão da aba continuam `detalhes`.
+- Corpo em HTML, escrito no TinyMCE do sistema e sanitizado no servidor ao gravar. Sem .docx real, sem importação, sem Drive no MVP.
+- "Mais usados" empata em 0 até o uso existir (M2): desempate pelo mais recente.
+- M1 entregue no #523 (migration 154700); M1b: favoritar exige só `view`.
