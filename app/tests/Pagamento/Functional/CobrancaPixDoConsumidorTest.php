@@ -121,6 +121,31 @@ final class CobrancaPixDoConsumidorTest extends JusPrimeWebTestCase
         self::assertSame('Valor ajustado de R$ 20,00 para R$ 30,00', $this->banco()->fetchOne("SELECT resumo FROM pagamento_evento WHERE tipo = 'cancelado'"));
     }
 
+    #[TestDox('Cancelar mirando o id lido: se outra aba já criou uma cobrança mais nova, a nova não é cancelada')]
+    public function testCancelarSoOQueFoiLido(): void
+    {
+        $this->conectar();
+        $lida = $this->emitir('TE-0001-1');
+        $nova = $this->emitir('TE-0001-2');
+        $cancelar = static::getContainer()->get(CancelarCobrancaDaOrigemUseCase::class);
+        $tenant = (int) $this->escritorio->getId();
+
+        self::assertFalse($cancelar->executar($tenant, OrigemDoPagamento::TrabalhoExterno, 501, 'velha', false, $lida->pagamentoId));
+        self::assertSame('aguardando', $this->banco()->fetchOne('SELECT status FROM pagamento WHERE id = ?', [$nova->pagamentoId]));
+        self::assertTrue($cancelar->executar($tenant, OrigemDoPagamento::TrabalhoExterno, 501, 'nova', false, $nova->pagamentoId));
+    }
+
+    #[TestDox('Emitir com a última cobrança já paga pelo banco: não sai QR novo')]
+    public function testNaoEmiteSobrePaga(): void
+    {
+        $this->conectar();
+        $this->emitir('TE-0001-1');
+        $this->banco()->executeStatement("UPDATE pagamento SET status = 'paga'");
+
+        self::assertNull($this->emitir('TE-0001-2'));
+        self::assertSame(1, (int) $this->banco()->fetchOne('SELECT COUNT(*) FROM pagamento'));
+    }
+
     private function emitir(string $referencia): ?\App\Pagamento\DTO\CobrancaPixOutput
     {
         $this->em->clear();

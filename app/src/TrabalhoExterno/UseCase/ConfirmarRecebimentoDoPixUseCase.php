@@ -75,7 +75,10 @@ final class ConfirmarRecebimentoDoPixUseCase
     /**
      * Cobrança PIX no registro de pagamentos (gateway M1, §4.4): ao confirmar à mão a cobrança aguardando é SEMPRE cancelada
      * (com ou sem QR, vencida ou não), para um PIX tardio cair em `divergente` em vez de pagar duas vezes sem ninguém ver.
-     * Com um QR ainda valendo o motivo é obrigatório (409 sem ele, decisão do dono). O pagamento é travado antes de conferir.
+     * Com um QR ainda valendo o motivo é obrigatório (409 sem ele, decisão do dono). A demanda está travada, mas o
+     * pagamento não: a conferência de `viva()` lê a cobrança sem trava e só o cancelamento a trava e relê o estado.
+     * Se o banco confirmar nesse intervalo, o cancelamento não faz nada e a demanda é registrada como paga à mão, com o
+     * pagamento do banco já `paga` (o registro automático é no-op pelo `pagoEm`).
      */
     private function resolverCobrancaViva(Contexto $ctx, DemandaExterna $demanda, string $motivo): void
     {
