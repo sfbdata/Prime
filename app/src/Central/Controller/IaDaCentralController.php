@@ -119,10 +119,11 @@ final class IaDaCentralController extends AbstractController
      */
     private function limitadorDe(User $usuario): callable
     {
-        $limitador = $this->inteligenciaSolicitarLimiter->create((string) $usuario->getId());
+        $factory = $this->inteligenciaSolicitarLimiter;
+        $chave = (string) $usuario->getId();
 
-        return static function () use ($limitador): void {
-            if (!$limitador->consume()->isAccepted()) {
+        return static function () use ($factory, $chave): void {
+            if (!$factory->create($chave)->consume()->isAccepted()) {
                 throw new MuitasSolicitacoesException();
             }
         };

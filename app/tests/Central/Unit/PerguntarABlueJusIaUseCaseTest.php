@@ -269,7 +269,7 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
     {
         $existente = new AnaliseDeInteligencia($this->tenant, $this->eu, TipoDeAnalise::ChatDaCentral, AnaliseDeInteligencia::ALVO_CONVERSA_IA, 300, 'chat-central-v1', 'h', ['conversaId' => 300, 'mensagemId' => 650, 'historico' => 0, 'total' => 1]);
         DefineId::em($existente, 480);
-        (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($existente, new \DateTimeImmutable('2026-10-27 09:55:00'));   // o relógio marca 10:00
+        (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($existente, new \DateTimeImmutable('2026-10-27 09:55:00 UTC'));   // o relógio marca 10:00
         $this->emAndamento = $existente;
         $limitadorRodou = false;
 
@@ -293,7 +293,7 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
         $presa = new AnaliseDeInteligencia($this->tenant, $this->eu, TipoDeAnalise::ChatDaCentral, AnaliseDeInteligencia::ALVO_CONVERSA_IA, 300, 'chat-central-v1', 'h', ['conversaId' => 300, 'mensagemId' => 650, 'historico' => 0, 'total' => 1]);
         DefineId::em($presa, 480);
         // O relógio do teste marca 10:00; a análise nasceu às 09:45 (15 minutos atrás).
-        (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($presa, new \DateTimeImmutable('2026-10-27 09:45:00'));
+        (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($presa, new \DateTimeImmutable('2026-10-27 09:45:00 UTC'));
         $this->emAndamento = $presa;
         $limitadorRodou = false;
 

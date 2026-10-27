@@ -6,6 +6,7 @@ namespace App\Central\UseCase;
 
 use App\Central\DTO\MensagemOutput;
 use App\Central\DTO\ReferenciaDeDespacho;
+use App\Central\Entity\Conversa;
 use App\Central\Entity\Mensagem;
 use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\EnvioNaConversaComAIaException;
@@ -57,11 +58,7 @@ final class EnviarMensagemUseCase
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
         $participacao = $this->acesso->participacao($conversaId, $eu, $tenant);
         $conversa = $participacao->getConversa();
-        if ($conversa->isIa()) {
-            // Na conversa do BlueJus IA só se pergunta (`PerguntarABlueJusIaUseCase`): enviar mensagem comum gravaria
-            // texto sem análise e furaria o limitador, a cota e a disponibilidade da IA.
-            throw new EnvioNaConversaComAIaException();
-        }
+        $this->recusarSeConversaIa($conversa);
 
         // Individual: o par é fixo, e falar com quem saiu do escritório não leva a lugar nenhum. Grupo (B): segue
         // valendo para quem ficou — quem saiu do escritório só deixa de ler.
@@ -102,5 +99,18 @@ final class EnviarMensagemUseCase
         });
 
         return $this->leitura->umaParaLeitor($mensagem, $eu);
+    }
+
+    /**
+     * Na conversa do BlueJus IA só se pergunta (`PerguntarABlueJusIaUseCase`): enviar mensagem comum gravaria texto sem
+     * análise e furaria o limitador, a cota e a disponibilidade da IA.
+     *
+     * @throws EnvioNaConversaComAIaException
+     */
+    private function recusarSeConversaIa(Conversa $conversa): void
+    {
+        if ($conversa->isIa()) {
+            throw new EnvioNaConversaComAIaException();
+        }
     }
 }

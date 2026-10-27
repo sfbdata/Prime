@@ -87,6 +87,7 @@ final class IaDaCentralControllerTest extends JusPrimeWebTestCase
     public function testEmAndamento(): void
     {
         [$client, $tenant, $ana] = $this->cenario();
+        $client->disableReboot();
         $this->logarComTenant($client, $ana, $tenant);
         $this->perguntar($client, ['conteudo' => 'Primeira']);
         $primeira = $this->json($client);

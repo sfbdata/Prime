@@ -218,7 +218,7 @@ final class IaNaCentralUseCasesTest extends TestCase
         return $analise;
     }
 
-    private function status(?Conversa $conversa, ?AnaliseDeInteligencia $analise): ConsultarStatusDaPerguntaDaIaUseCase
+    private function casoDeStatus(?Conversa $conversa, ?AnaliseDeInteligencia $analise): ConsultarStatusDaPerguntaDaIaUseCase
     {
         $conversas = $this->createStub(ConversaRepository::class);
         $conversas->method('daIaDe')->willReturn($conversa);
@@ -231,7 +231,7 @@ final class IaNaCentralUseCasesTest extends TestCase
     #[TestDox('Status: pendente é em andamento, não terminal e sem mensagem')]
     public function testStatusPendente(): void
     {
-        $saida = $this->status($this->conversaIa(), $this->analise())->executar($this->eu, $this->tenant, 480);
+        $saida = $this->casoDeStatus($this->conversaIa(), $this->analise())->executar($this->eu, $this->tenant, 480);
 
         self::assertSame(480, $saida->analiseId);
         self::assertSame(300, $saida->conversaId);
@@ -247,7 +247,7 @@ final class IaNaCentralUseCasesTest extends TestCase
         $analise = $this->analise();
         $analise->falhar('erro do provedor com detalhe sensível', 'texto bruto');
 
-        $saida = $this->status($this->conversaIa(), $analise)->executar($this->eu, $this->tenant, 480);
+        $saida = $this->casoDeStatus($this->conversaIa(), $analise)->executar($this->eu, $this->tenant, 480);
 
         self::assertSame('falhou', $saida->status);
         self::assertTrue($saida->terminal);
@@ -261,7 +261,7 @@ final class IaNaCentralUseCasesTest extends TestCase
         $analise = $this->analise();
         $analise->marcarIndisponivel('sem provedor');
 
-        $saida = $this->status($this->conversaIa(), $analise)->executar($this->eu, $this->tenant, 480);
+        $saida = $this->casoDeStatus($this->conversaIa(), $analise)->executar($this->eu, $this->tenant, 480);
 
         self::assertSame('indisponivel', $saida->status);
         self::assertSame('IA não configurada nesta instalação', $saida->mensagem);
@@ -276,11 +276,11 @@ final class IaNaCentralUseCasesTest extends TestCase
         $excluida->excluir($this->eu);
 
         $casos = [
-            'sem conversa' => $this->status(null, $this->analise()),
-            'inexistente' => $this->status($this->conversaIa(), null),
-            'de outra pessoa' => $this->status($this->conversaIa(), $this->analise($outra)),
-            'de outro tipo' => $this->status($this->conversaIa(), $this->analise(null, TipoDeAnalise::ResumoPush)),
-            'excluída' => $this->status($this->conversaIa(), $excluida),
+            'sem conversa' => $this->casoDeStatus(null, $this->analise()),
+            'inexistente' => $this->casoDeStatus($this->conversaIa(), null),
+            'de outra pessoa' => $this->casoDeStatus($this->conversaIa(), $this->analise($outra)),
+            'de outro tipo' => $this->casoDeStatus($this->conversaIa(), $this->analise(null, TipoDeAnalise::ResumoPush)),
+            'excluída' => $this->casoDeStatus($this->conversaIa(), $excluida),
         ];
         foreach ($casos as $rotulo => $useCase) {
             try {
