@@ -64,6 +64,11 @@ final class FluxoDoChatDaCentralTest extends TestCase
             {
                 $this->teste->registrar($texto, $conversaId);
             }
+
+            public function apagarMensagensDaIaAntesDe(\DateTimeImmutable $limite): int
+            {
+                return 0;
+            }
         };
         $montador = (new \ReflectionClass(MontadorDeContextoDoPush::class))->newInstanceWithoutConstructor();
 
