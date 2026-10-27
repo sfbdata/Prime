@@ -73,6 +73,13 @@ final class MontadorDeContextoDaPasta
     /** Orçamento total em caracteres de todas as seções somadas (o cabeçalho não conta). */
     public const ORCAMENTO_TOTAL = 60000;
 
+    /**
+     * Chat da Central cruzando as pastas dos clientes (PR 4c): a pasta aberta e cada pasta adicional usam um orçamento menor
+     * que o total, para o pedido inteiro (até 5 pastas) ficar em ~90 mil caracteres.
+     */
+    public const ORCAMENTO_PASTA_ABERTA_NO_CRUZAMENTO = 30000;
+    public const ORCAMENTO_PASTA_ADICIONAL_NO_CRUZAMENTO = 15000;
+
     public function __construct(
         private readonly FonteDeDadosDaPasta $dados,
         private readonly FonteDeMovimentacoesDoPush $fonteDeMovimentacoes,
@@ -91,13 +98,14 @@ final class MontadorDeContextoDaPasta
      * `$documentosSelecionados`: os documentos marcados na aba Documentos (F4), já validados na
      * solicitação contra {@see documentosMostrados()} e gravados em `contexto_resumo.documentosSelecionados`;
      * a seção `<documentos>` leva só esses. Nulo = sem recorte (todos os comandos menos o Índice).
+     * `$orcamento`: o teto em caracteres das seções somadas; nulo = {@see ORCAMENTO_TOTAL} (os chamadores antigos não mudam).
      *
      * @param list<string>   $abasOcultas
      * @param list<int>|null $documentosSelecionados
      *
      * @throws ContextoBloqueadoException
      */
-    public function para(Tenant $tenant, Pasta $pasta, Agente $agente, bool $incluirFinanceiro, array $abasOcultas = [], ?Comando $comando = null, ?array $documentosSelecionados = null): ContextoDaPasta
+    public function para(Tenant $tenant, Pasta $pasta, Agente $agente, bool $incluirFinanceiro, array $abasOcultas = [], ?Comando $comando = null, ?array $documentosSelecionados = null, ?int $orcamento = null): ContextoDaPasta
     {
         if ($comando !== null && $comando->agente() !== $agente) {
             throw new \LogicException(sprintf('O comando "%s" é do agente "%s".', $comando->value, $comando->agente()->value));
@@ -117,7 +125,7 @@ final class MontadorDeContextoDaPasta
             if (($secao->exigeVisibilidadeDoFinanceiro() && !$incluirFinanceiro) || \in_array($secao->abaDaPasta()?->value, $abasOcultas, true)) {
                 continue; // a decisão foi tomada na solicitação; aqui só se obedece
             }
-            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados, $incluirFinanceiro, $comando?->leConteudoDosArquivos() === true), $gasto);
+            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados, $incluirFinanceiro, $comando?->leConteudoDosArquivos() === true), $gasto, $orcamento ?? self::ORCAMENTO_TOTAL);
         }
 
         $numeros = array_map(static fn (Processo $p): string => $p->getNumeroProcesso(), $processos);
@@ -606,14 +614,14 @@ final class MontadorDeContextoDaPasta
      * Orçamento total: a seção entra inteira enquanto couber; quando estourar, fica só o que
      * cabe e o resto vira `omitidas` — o modelo é avisado do corte.
      */
-    private function caber(SecaoDeContexto $secao, int &$gasto): SecaoDeContexto
+    private function caber(SecaoDeContexto $secao, int &$gasto, int $orcamento): SecaoDeContexto
     {
         $linhas = [];
         $assinaturas = [];
         $omitidas = $secao->omitidas;
         foreach ($secao->linhas as $indice => $linha) {
             $tamanho = mb_strlen($linha);
-            if ($linhas !== [] && $gasto + $tamanho > self::ORCAMENTO_TOTAL) {
+            if ($linhas !== [] && $gasto + $tamanho > $orcamento) {
                 ++$omitidas;
                 continue;
             }

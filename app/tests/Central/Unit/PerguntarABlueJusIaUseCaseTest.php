@@ -14,6 +14,7 @@ use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\Service\PastaDoContextoDaIa;
+use App\Central\Service\PastasDosClientesDaIa;
 use App\Central\UseCase\AbrirConversaComAIaUseCase;
 use App\Central\UseCase\PerguntarABlueJusIaUseCase;
 use App\Entity\Auth\User;
@@ -26,6 +27,7 @@ use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
+use App\Inteligencia\Exception\CruzamentoDePastasSemAceiteException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\MuitasSolicitacoesException;
 use App\Inteligencia\Exception\PerguntaInvalidaException;
@@ -96,6 +98,7 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
     private Processo $processo;
     private bool $podeVerPasta = true;
     private bool $podeVerFinanceiro = true;
+    private PastasDosClientesDaIa&MockObject $pastasDosClientes;
 
     /** @var list<AbaOcultaDaPasta> */
     private array $regrasDeAba = [];
@@ -150,6 +153,7 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
             $this->eventos[] = 'salvar_analise';
         });
 
+        $this->pastasDosClientes = $this->createMock(PastasDosClientesDaIa::class);
         $configuracao = new ConfiguracaoDeInteligencia($this->tenant);
         $configuracao->liberarPeloMaster();
         $configuracao->atualizar(true, 50, 500, true, $this->eu);
@@ -251,6 +255,8 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
             $em,
             $relogio,
             $this->pastaDoContexto(),
+            $this->pastasDosClientes,
+            $this->configuracoes,
         );
     }
 
@@ -264,9 +270,9 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
         self::assertInstanceOf(ProcessarAnaliseDeInteligencia::class, $mensagem);
     }
 
-    private function executar(string $texto = 'Qual o prazo da réplica?', ?callable $limitador = null, ?int $pastaId = null): PerguntaDaIaOutput
+    private function executar(string $texto = 'Qual o prazo da réplica?', ?callable $limitador = null, ?int $pastaId = null, ?string $escopo = null): PerguntaDaIaOutput
     {
-        return $this->sut()->executar($this->eu, $this->tenant, $texto, $limitador, $pastaId);
+        return $this->sut()->executar($this->eu, $this->tenant, $texto, $limitador, $pastaId, $escopo);
     }
 
     #[TestDox('sem vínculo ativo: 403 da Central, nada gravado nem despachado')]
@@ -646,6 +652,92 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
         self::assertSame([], $this->analisesSalvas);
         self::assertSame(['conversaId' => 300, 'mensagemId' => 650, 'historico' => 0, 'total' => 1], $existente->getContextoResumo(), 'a análise existente não ganha a pasta nova');
         self::assertSame(['begin', 'travar', 'commit'], $this->eventos);
+    }
+
+    /** @return array{pastas: list<array{pastaId: int, financeiro: bool, abasOcultas: list<string>}>, naoConsultadas: int} */
+    private function adicionaisDe(int ...$ids): array
+    {
+        return ['pastas' => array_map(static fn (int $id): array => ['pastaId' => $id, 'financeiro' => false, 'abasOcultas' => ['tarefas']], $ids), 'naoConsultadas' => 2];
+    }
+
+    #[TestDox('escopo clientes: resumo com escopo, ids (aberta primeiro), decisão por pasta e contagem; prompt v3; hash com o escopo e as pastas; nunca NUP')]
+    public function testGravaComClientes(): void
+    {
+        $this->pastasDosClientes->expects(self::once())->method('adicionais')->with($this->eu, $this->tenant, self::PASTA_ID)->willReturn($this->adicionaisDe(21, 22));
+
+        $this->executar('Cruze as pastas', null, self::PASTA_ID, 'clientes');
+
+        $analise = $this->analisesSalvas[0];
+        $mensagemId = (int) $this->mensagensSalvas[0]->getId();
+        $resumo = $analise->getContextoResumo();
+        self::assertSame('clientes', $resumo['escopo']);
+        self::assertSame([self::PASTA_ID, 21, 22], $resumo['pastasIds']);
+        self::assertSame(2, $resumo['naoConsultadas']);
+        self::assertSame(['pastaId' => 21, 'financeiro' => false, 'abasOcultas' => ['tarefas']], $resumo['pastas'][1]);
+        self::assertSame(['pastaId' => self::PASTA_ID, 'financeiro' => true, 'abasOcultas' => []], $resumo['pastas'][0], 'a decisão da aberta não é herdada pelas outras');
+        self::assertSame(self::PASTA_ID, $resumo['pastaId']);
+        self::assertSame('chat-central-v3', $analise->getVersaoDoPrompt());
+        self::assertSame(hash('sha256', '300|' . $mensagemId . '|pasta:' . self::PASTA_ID . '|clientes:7,21,22'), $analise->getContextoHash());
+        $json = (string) json_encode($resumo);
+        self::assertStringNotContainsString(self::NUP_DO_PROCESSO, $json);
+        self::assertStringNotContainsString('Cruze', $json);
+    }
+
+    #[TestDox('escopo clientes sem aceite do escritório: 409 de domínio antes de pasta e transação, nada gravado, serviço não é chamado')]
+    public function testClientesSemAceite(): void
+    {
+        $this->configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
+        $semAceite = new ConfiguracaoDeInteligencia($this->tenant);
+        $semAceite->liberarPeloMaster();
+        $semAceite->atualizar(true, 50, 500, true, $this->eu);
+        (new \ReflectionProperty(ConfiguracaoDeInteligencia::class, 'consentimentoEnvioExternoEm'))->setValue($semAceite, null);
+        $this->configuracoes->method('findDoTenant')->willReturn($semAceite);
+        $this->pastasDosClientes->expects(self::never())->method('adicionais');
+
+        try {
+            $this->executar('Oi', null, self::PASTA_ID, 'clientes');
+            self::fail('Devia recusar.');
+        } catch (CruzamentoDePastasSemAceiteException $e) {
+            self::assertSame('cruzamento_sem_consentimento', $e->motivo());
+            $this->afirmarNadaFeito();
+        }
+    }
+
+    #[TestDox('escopo clientes sem pastaId: 422, nada gravado')]
+    public function testClientesSemPastaId(): void
+    {
+        $this->expectException(PerguntaInvalidaException::class);
+
+        $this->executar('Oi', null, null, 'clientes');
+    }
+
+    #[TestDox('escopo "pasta": o serviço das outras pastas nem é chamado e o resumo fica como na 4a')]
+    public function testEscopoPastaNaoChamaOServico(): void
+    {
+        $this->pastasDosClientes->expects(self::never())->method('adicionais');
+
+        $this->executar('Oi', null, self::PASTA_ID, 'pasta');
+
+        self::assertSame('chat-central-v2', $this->analisesSalvas[0]->getVersaoDoPrompt());
+        self::assertArrayNotHasKey('escopo', $this->analisesSalvas[0]->getContextoResumo());
+    }
+
+    #[TestDox('escopo clientes com pasta aberta oculta (404) ou com segredo (409): recusa antes de procurar as outras pastas')]
+    public function testClientesAbertaRecusada(): void
+    {
+        $this->pastasDosClientes->expects(self::never())->method('adicionais');
+        $this->podeVerPasta = false;
+        try {
+            $this->executar('Oi', null, self::PASTA_ID, 'clientes');
+            self::fail('Devia recusar.');
+        } catch (PastaDaIaNaoEncontradaException) {
+            $this->afirmarNadaFeito();
+        }
+
+        $this->podeVerPasta = true;
+        $this->processo->setNivelSigilo(1);
+        $this->expectException(ContextoBloqueadoException::class);
+        $this->executar('Oi', null, self::PASTA_ID, 'clientes');
     }
 
     #[TestDox('sem pastaId: nada muda (resumo sem os campos novos, prompt v1, hash antigo)')]

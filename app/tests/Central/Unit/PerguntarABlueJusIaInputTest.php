@@ -59,4 +59,22 @@ final class PerguntarABlueJusIaInputTest extends TestCase
             }
         }
     }
+
+    #[TestDox('escopo: padrão "pasta"; "clientes" exige pastaId; qualquer outro valor é 422')]
+    public function testEscopo(): void
+    {
+        self::assertSame('pasta', (new PerguntarABlueJusIaInput('Oi'))->escopo);
+        self::assertSame('pasta', (new PerguntarABlueJusIaInput('Oi', 5, 'pasta'))->escopo);
+        self::assertSame('clientes', (new PerguntarABlueJusIaInput('Oi', 5, 'clientes'))->escopo);
+
+        foreach ([['Oi', null, 'clientes'], ['Oi', 5, 'todos'], ['Oi', 5, ''], ['Oi', null, 'Pasta']] as [$texto, $pastaId, $escopo]) {
+            try {
+                new PerguntarABlueJusIaInput($texto, $pastaId, $escopo);
+                self::fail('devia recusar');
+            } catch (PerguntaInvalidaException $e) {
+                self::assertSame('pergunta_invalida', $e->motivo());
+                self::assertSame('Escopo inválido.', $e->getMessage());
+            }
+        }
+    }
 }
