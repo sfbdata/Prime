@@ -55,7 +55,10 @@ final class ConfirmarPagamentoPeloBancoUseCase
     {
         $iguais = $this->pagamentos->todosPorIdExterno($provedor, $idNoBanco);
         if (count($iguais) > 1) {
-            return $this->duplicado($iguais);
+            // Sandbox reaproveita ids e integração sem certificado não prova nada: só em produção conectada vira divergência.
+            $integracao = $this->integracoes->atual();
+
+            return $integracao->temCertificado() && $integracao->getAmbiente() === 'producao' ? $this->duplicado($iguais) : ResultadoDaReconsulta::Ignorado;
         }
         $pagamento = $iguais[0] ?? null;
         $banco = $this->bancos->doCodigo($provedor);

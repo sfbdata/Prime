@@ -40,6 +40,7 @@ final class ConciliarPagamentosCommand extends Command
 {
     private const LOTE = 200;
     private const CHAVE_RESUMO = 'pagamento_resumo_de_divergentes_';
+    private const CHAVE_FALHA = 'pagamento_conciliacao_sempre_falha_';
 
     public function __construct(
         private readonly IntegracaoBancariaRepository $integracoes,
@@ -72,6 +73,7 @@ final class ConciliarPagamentosCommand extends Command
             return Command::FAILURE;
         }
         [$contagem, $falhas, $conferidos] = $rodada;
+        $this->avisarSeSempreFalha($agora, $falhas, array_sum($contagem));
 
         $expiradas = $this->expirar($agora, $conferidos);
         $this->resumirDivergentes($agora);
@@ -119,6 +121,26 @@ final class ConciliarPagamentosCommand extends Command
         }
 
         return [$contagem, $falhas, $conferidos];
+    }
+
+    /** A reconsulta falhou em todas as cobranças da volta (certificado vencido, banco fora): o Master é avisado, uma vez por dia. */
+    private function avisarSeSempreFalha(\DateTimeImmutable $agora, int $falhas, int $consultadas): void
+    {
+        if ($falhas === 0 || $consultadas > 0) {
+            return;
+        }
+        $item = $this->cache->getItem(self::CHAVE_FALHA . $agora->format('Ymd'));
+        if ($item->isHit()) {
+            return;
+        }
+        $this->avisoAoMaster->avisar(
+            null,
+            AvisoAoMaster::TIPO_PAGAMENTO_DIVERGENTE,
+            sprintf('A conciliação não conseguiu consultar o banco em nenhuma das %d cobrança(s) desta volta. Confira a integração bancária.', $falhas),
+            $this->urls->generate('central_index'),
+        );
+        $item->set(true)->expiresAfter(86400);
+        $this->cache->save($item);
     }
 
     /**

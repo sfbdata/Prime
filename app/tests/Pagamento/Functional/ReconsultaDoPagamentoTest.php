@@ -295,6 +295,61 @@ final class ReconsultaDoPagamentoTest extends JusPrimeWebTestCase
         self::assertSame(2, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM notificacao WHERE tipo = 'pagamento.divergente' AND usuario_id = :u", ['u' => $this->master->getId()]));
     }
 
+    #[TestDox('O banco dá a cobrança por paga com valor zero: nada é confirmado, fica aguardando')]
+    public function testPagaComValorZeroNaoConfirma(): void
+    {
+        $this->conectar();
+        $pagamento = $this->cobranca(2000);
+        $this->cora->status[$pagamento['id']] = 'PAID';
+        $this->cora->valorPago = 0;
+
+        self::assertSame(ResultadoDaReconsulta::Aguardando, $this->reconsultar($pagamento['id']));
+        self::assertSame(StatusDoPagamento::Aguardando, $this->recarregar($pagamento['id'])->getStatus());
+    }
+
+    #[TestDox('Id repetido no ambiente de testes (sandbox) ou sem integração não vira divergência: é ignorado')]
+    public function testIdRepetidoNoSandboxEIgnorado(): void
+    {
+        $this->conectar('sandbox');
+        $a = $this->cobranca(2000);
+        $b = $this->cobranca(2000);
+        $this->banco()->executeStatement('UPDATE pagamento SET id_externo = :i WHERE id = :b', ['i' => $a['id'], 'b' => $b['pagamento']]);
+
+        self::assertSame(ResultadoDaReconsulta::Ignorado, $this->reconsultar($a['id']));
+        self::assertSame(0, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM pagamento WHERE status = 'divergente'"));
+    }
+
+    #[TestDox('Conciliação: lote acima de 200 consulta 200 por volta e o resto fica para a seguinte')]
+    public function testConciliacaoComLoteAcimaDe200(): void
+    {
+        $this->conectar();
+        $ids = [];
+        for ($i = 0; $i < 201; ++$i) {
+            $c = $this->cobranca(2000);
+            $this->cora->status[$c['id']] = 'PAID';
+            $ids[] = $c['id'];
+        }
+        $this->envelhecer($ids);
+
+        self::assertStringContainsString('200 confirmado(s)', $this->conciliar());
+        self::assertStringContainsString('1 confirmado(s)', $this->conciliar());
+    }
+
+    #[TestDox('Conciliação: se a reconsulta falha em todas, o Master é avisado uma vez por dia')]
+    public function testConciliacaoQueSempreFalhaAvisaOMaster(): void
+    {
+        $this->conectar();
+        $c = $this->cobranca(2000);
+        $this->envelhecer([$c['id']]);
+        unset($this->cora->status[$c['id']]);
+        $antes = (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM notificacao WHERE tipo = 'pagamento.divergente'");
+
+        $this->conciliar();
+        $this->conciliar();
+
+        self::assertSame($antes + 1, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM notificacao WHERE tipo = 'pagamento.divergente'"));
+    }
+
     private function cobranca(int $valor, ?string $codigoNoBanco = null): array
     {
         $referencia = 'TE' . strtoupper(substr(uniqid(), -8)) . '-' . ++$this->sequencia;
