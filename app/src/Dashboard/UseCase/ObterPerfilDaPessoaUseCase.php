@@ -79,14 +79,14 @@ final class ObterPerfilDaPessoaUseCase
     private function metricas(LinhaAdvogadoDashboardOutput $l): array
     {
         $zr      = $l->colunasZeradas;
-        $link    = static fn (string $coluna, string $status): ?string => in_array($coluna, $zr, true) ? null : $status;
+        $urlDaLista    = static fn (string $coluna, string $status): ?string => in_array($coluna, $zr, true) ? null : $status;
 
         return [
-            new MetricaDaPessoaOutput('recebidas', $l->totalMetas, false, $link('metas', 'todas'), true),
+            new MetricaDaPessoaOutput('recebidas', $l->totalMetas, false, $urlDaLista('metas', 'todas'), true),
             new MetricaDaPessoaOutput('concluidas', (int) ($l->extras[Extras::METAS_CONCLUIDAS] ?? 0)),
-            new MetricaDaPessoaOutput('pendentes', $l->metasAtivas, false, $link('metas_ativas', 'ativas'), true),
-            new MetricaDaPessoaOutput('atrasadas', $l->metasVencidas, false, $link('metas_vencidas', 'vencidas')),
-            new MetricaDaPessoaOutput('prazos', $l->prazosProximos, false, $link('prazos', 'prazo_proximo')),
+            new MetricaDaPessoaOutput('pendentes', $l->metasAtivas, false, $urlDaLista('metas_ativas', 'ativas'), true),
+            new MetricaDaPessoaOutput('atrasadas', $l->metasVencidas, false, $urlDaLista('metas_vencidas', 'vencidas')),
+            new MetricaDaPessoaOutput('prazos', $l->prazosProximos, false, $urlDaLista('prazos', 'prazo_proximo')),
             new MetricaDaPessoaOutput('taxa', $l->extras[Extras::TAXA_CONCLUSAO] ?? null, true),
         ];
     }
