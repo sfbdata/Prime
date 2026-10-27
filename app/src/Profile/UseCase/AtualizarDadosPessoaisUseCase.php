@@ -48,6 +48,7 @@ final class AtualizarDadosPessoaisUseCase
         $perfil->setNomeCompleto(trim((string) $input->nomeCompleto));
         $perfil->setStatus(self::textoOuNulo($input->status));
         $perfil->setTelefone($input->telefone);
+        $perfil->setChavePixRecompensa($input->chavePixRecompensa);
         // Como digitado (o espelho de ponto imprime o CPF gravado); a tela formata ao exibir.
         $perfil->setCpf(self::textoOuNulo($input->cpf));
         $perfil->setDataNascimento($input->dataNascimento);

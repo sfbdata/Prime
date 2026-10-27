@@ -41,6 +41,7 @@
     function iniciar() {
         filtrosDaLista();
         realceDaMetaNova();
+        metaDoAlertaDaInteligencia();
         molduraDoModalDeMeta();
         atalhosDePrazo();
         avisoDeTituloRepetido();
@@ -955,6 +956,46 @@
         if (editar) {
             window.setTimeout(function () { editar.click(); }, 0);
         }
+    }
+
+    /* ── 7b. Meta vinda de um alerta da Inteligência (painel do Dashboard) ─────
+       O painel escolhe a pasta e chega aqui com `?nova_meta=1&titulo=&descricao=&responsavel=`.
+       Só PREENCHE o modal "Nova meta" (o prazo e o resto continuam da pessoa) e o abre; os
+       parâmetros saem da URL para um F5 não reabrir. O responsável só é marcado se estiver na
+       lista do escritório; a criação segue pela rota e pelas guardas de sempre. */
+    function metaDoAlertaDaInteligencia() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('nova_meta') !== '1') { return; }
+        var modal = document.getElementById('modalCriarTarefa');
+        var titulo = document.getElementById('tarefaTitulo');
+        var descricao = document.getElementById('tarefaDescricao');
+        if (!modal || !titulo || !descricao || !window.bootstrap) { return; }
+
+        titulo.value = (params.get('titulo') || '').slice(0, 255);
+        descricao.value = (params.get('descricao') || '').slice(0, 5000);
+        titulo.dispatchEvent(new Event('input', { bubbles: true }));
+        descricao.dispatchEvent(new Event('input', { bubbles: true }));
+        var responsavel = params.get('responsavel') || '';
+        ['nova_meta', 'titulo', 'descricao', 'responsavel'].forEach(function (k) { params.delete(k); });
+        if (window.history && window.history.replaceState) {
+            var busca = params.toString();
+            window.history.replaceState(null, '', window.location.pathname + (busca ? '?' + busca : '') + window.location.hash);
+        }
+
+        modal.addEventListener('hidden.bs.modal', function limpar() {
+            modal.removeEventListener('hidden.bs.modal', limpar);
+            titulo.value = '';
+            descricao.value = '';
+        });
+        window.addEventListener('load', function () {
+            if (/^\d+$/.test(responsavel)) {
+                var opcao = document.querySelector('[data-ps-nm-resp-opcao="' + responsavel + '"]');
+                var select = document.getElementById('tarefaResponsavel');
+                var marcado = select && Array.prototype.some.call(select.selectedOptions, function (o) { return o.value === responsavel; });
+                if (opcao && !marcado) { opcao.click(); }
+            }
+            window.bootstrap.Modal.getOrCreateInstance(modal).show();
+        });
     }
 
     /* ── 8. Moldura do modal "Nova meta" (PMC-038) ────────────────────────── */
