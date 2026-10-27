@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: alteracao
 ---
 ## Changelog
 - Painel Inteligência: as Perguntas guiadas viram pílulas lado a lado com uma única caixa de resposta abaixo, como no desenho. Tocar na pílula ativa fecha a resposta. As respostas continuam vindas das regras fixas, sem mudança de número. Sem migration.
