@@ -295,7 +295,7 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     (`dashboard.ia_alertas`, mapa por id de alerta, fora do catálogo do menu ⋮ para o "Restaurar padrão" não apagar).
     `POST /dashboard/inteligencia/alerta`; tocar de novo desfaz; persiste até desfazer. O UseCase lê e regrava o mapa
     inteiro (o último a gravar vence); gravar uma chave por alerta fica como melhoria se virar problema.
-  - **Pendências**: "Criar tarefa" (não há tela de tarefa avulsa para receber o título); Perguntas guiadas como pílulas + caixa única (hoje acordeão exclusivo); objetivo por períodos anteriores
+  - **Pendências**: "Criar tarefa" (não há tela de tarefa avulsa para receber o título); objetivo por períodos anteriores
     (precisa guardar o histórico de concluídas por período); plano "Aumentar o nível".
 
 - **PR-H (feito: "Simular dia" do rodapé da Inteligência; sem migration)**. Decisão do dono: implementar como o desenho 01 (dc L1341-1347,
@@ -311,6 +311,11 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
   - **Tela**: o controle fica fora do `.db-ia-corpo`; o `dashboard-inteligencia.js` (250 ms depois de parar) pede o fragmento com
     `dia_simulado` e troca só o corpo; o dia de hoje não manda o parâmetro (desfaz); fechar o painel desfaz. Trocar um filtro também desfaz.
   - **Fora**: os cartões do Modo avançado (`MotorAvancado`) seguem o `TempoDoPeriodo` simulado, mas sem escala de realizado.
+
+- **PR-J (feito: Perguntas guiadas como pílulas + caixa única; sem migration)**. dc L1004-1018, L2561-2562: pílulas lado a lado
+  (30px, 12px/600, canto 4px; selecionada fundo azul e texto branco, `aria-pressed`), uma caixa de resposta abaixo com ícone de
+  estrelas, entrada de .2s; tocar na pílula ativa fecha. As respostas são as de sempre (`MotorAvancado`/Leitura, regras fixas):
+  nenhum número novo, nenhum texto de IA. Só `_inteligencia.html.twig`, CSS e `dashboard-inteligencia.js` (clique delegado).
 
 ## Estado da frente (24/10)
 
