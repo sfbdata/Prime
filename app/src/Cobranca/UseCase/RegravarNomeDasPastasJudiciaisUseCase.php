@@ -6,7 +6,7 @@ namespace App\Cobranca\UseCase;
 
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Service\ComporNomeDaPastaJudicial;
-use App\Entity\Auth\Tenant;
+use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**

@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: alteracao
 ---
 ## Changelog
 - Pasta judicial aberta pela cobrança passa a se chamar só pelo cliente da carteira (nome fantasia, senão razão social ou nome completo), sem o nome da pessoa cobrada. A ordenação da coluna Cliente do Expediente acompanha a mesma regra.

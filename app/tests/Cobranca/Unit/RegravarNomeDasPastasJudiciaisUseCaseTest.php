@@ -11,7 +11,7 @@ use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Service\ComporNomeDaPastaJudicial;
 use App\Cobranca\UseCase\RegravarNomeDasPastasJudiciaisUseCase;
-use App\Entity\Auth\Tenant;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
