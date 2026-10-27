@@ -92,6 +92,15 @@ trait CriaFixturesTrabalhoExternoTrait
         return $this->criarUsuario($tenant, [], ['ROLE_USER', 'ROLE_SUPER_ADMIN'], 'Master');
     }
 
+    /** O termo de voluntariado vem desligado: os testes que o usam ligam (ou desligam) como o Master. */
+    private function ligarTermo(bool $ligado = true): void
+    {
+        $repo = static::getContainer()->get(ConfiguracaoCentralRepository::class);
+        $cfg = $repo->atual();
+        $cfg->definirTermoLigado($ligado);
+        $repo->salvar($cfg, flush: true);
+    }
+
     private function definirSede(?Tenant $sede): void
     {
         $repo = static::getContainer()->get(ConfiguracaoCentralRepository::class);

@@ -33,6 +33,7 @@ final readonly class RetratoDoEngajamento
         public ?\DateTimeImmutable $atualizadoEm = null,
         public bool $candidatou = false,
         public bool $alertaLigado = false,
+        public bool $termoParaAceitar = false,
     ) {
     }
 }

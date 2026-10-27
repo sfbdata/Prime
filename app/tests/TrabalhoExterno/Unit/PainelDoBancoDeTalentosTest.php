@@ -50,6 +50,17 @@ final class PainelDoBancoDeTalentosTest extends TestCase
         ], $kpis);
     }
 
+    #[TestDox('VOLUNTÁRIOS: o subtítulo conta os termos mais recentes aceitos e aguardando (sem nome, CPF nem RG)')]
+    public function testSubtituloDosTermos(): void
+    {
+        $r = $this->retrato();
+        $comTermos = new RetratoDoPainel($r->agora, $r->curriculos, $r->vagas, $r->candidaturas, termos: [1 => 'aceito', 2 => 'aceito', 3 => 'enviado']);
+        $kpi = (new PainelDoBancoDeTalentos())->montar($comTermos)['kpis'][3];
+
+        self::assertSame('2 termo(s) aceito(s) · 1 aguardando', $kpi['sub']);
+        self::assertStringNotContainsString('CPF', json_encode($kpi, JSON_THROW_ON_ERROR));
+    }
+
     #[TestDox('as 6 barras: contagem sobre os ativos, do maior para o menor, rótulos da situação e cliques de filtro')]
     public function testBarras(): void
     {
@@ -148,6 +159,7 @@ final class PainelDoBancoDeTalentosTest extends TestCase
         $pendente = Vaga::doExterno(Apoio::tenant(1), Apoio::usuario(2), 'Bia', $this->dadosDaVaga([]), $this->agora);
 
         return new RetratoDoPainel(
+            termos: [],
             agora: $this->agora,
             curriculos: [$cv1, $cv2, $cv3, $arquivado],
             vagas: [$comum, $aoVivo, $expirada, $pendente],

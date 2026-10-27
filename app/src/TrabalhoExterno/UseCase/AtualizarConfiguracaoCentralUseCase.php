@@ -53,6 +53,7 @@ final class AtualizarConfiguracaoCentralUseCase
             foreach ((array) ($alteracoes['privacidade'] ?? []) as $chave => $valor) {
                 $cfg->definirPrivacidade((string) $chave, (bool) $valor);
             }
+            $cfg->definirTermoLigado((bool) ($alteracoes['termo'] ?? $cfg->termoLigado()));
             if (is_array($alteracoes['vagas'] ?? null)) {
                 $cfg->definirVagas($alteracoes['vagas']);
             }

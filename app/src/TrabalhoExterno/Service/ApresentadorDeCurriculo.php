@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\Service;
 
 use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
+use App\TrabalhoExterno\Entity\TermoDeVoluntariado;
 use App\TrabalhoExterno\Enum\SituacaoAcademica;
 use App\TrabalhoExterno\Enum\TipoArquivoDoCurriculo;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -13,7 +14,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * O currículo no recorte de quem lê, no contrato JSON da spec VS 18.10.26 §4.5, com os textos do
  * desenho 06 (`cvItem`, l.999; tabela, l.199 a 210; detalhe `tmCv`, l.301 a 312). A nota interna só
- * sai para o interno (`nota: null` para o externo). O termo de voluntariado fica "sem" até a F3b.
+ * sai para o interno (`nota: null` para o externo). O termo de voluntariado é o do termo mais recente (`sem`, `enviado`,
+ * `aceito`); o resumo dele, sem CPF nem RG, só vai a quem pode ver o termo completo ({@see PoliticaDoTermo}).
  * O dono externo de uma vaga lê o candidato enviado a ele pelo recorte {@see doDonoDaVaga()}.
  */
 final class ApresentadorDeCurriculo
@@ -29,11 +31,13 @@ final class ApresentadorDeCurriculo
         private readonly CalculadoraDeImportanciaDoCurriculo $importancia,
         private readonly PercentualDoCurriculo $percentual,
         private readonly UrlGeneratorInterface $urls,
+        private readonly PoliticaDoTermo $politicaDoTermo,
+        private readonly ApresentadorDeTermo $apresentadorDeTermo,
     ) {
     }
 
     /** A linha do banco de talentos (`cvs[]`). @return array<string, mixed> */
-    public function cartao(Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, int $candidaturas = 0): array
+    public function cartao(Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, int $candidaturas = 0, ?TermoDeVoluntariado $termo = null, bool $comTermo = true): array
     {
         $sit = $cv->getSituacao();
 
@@ -60,13 +64,12 @@ final class ApresentadorDeCurriculo
             'statusCor' => $cv->getStatus()->cor(),
             'vol' => $cv->texto('vol'),
             'voluntario' => $cv->texto('vol') === 'sim',
-            'termo' => 'sem',
             'estrela' => $marca?->temEstrela() ?? false,
             'lixeira' => $marca?->naLixeira() ?? false,
             'vista' => $marca?->isVista() ?? false,
             'importancia' => $this->importancia->calcular($cv, $marca?->getImportante(), $agora, $candidaturas),
             'candidaturas' => $candidaturas,
-        ];
+        ] + ($comTermo ? ['termo' => ApresentadorDeTermo::estado($termo)] : []);
     }
 
     /**
@@ -77,9 +80,11 @@ final class ApresentadorDeCurriculo
      *
      * @return array<string, mixed>
      */
-    public function detalhe(Contexto $ctx, Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, array $vagas = []): array
+    public function detalhe(Contexto $ctx, Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, array $vagas = [], ?TermoDeVoluntariado $termo = null): array
     {
-        return $this->cartao($cv, $marca, $agora, count($vagas)) + $this->contato($cv) + [
+        $comTermo = $ctx->configuracao->termoLigado();
+
+        return $this->cartao($cv, $marca, $agora, count($vagas), $termo, $comTermo) + $this->contato($cv) + ($comTermo ? $this->doTermo($ctx, $cv, $termo) : []) + [
             'exps' => $cv->itens('exps'),
             'forms' => $cv->itens('forms'),
             'idis' => $cv->itens('idis'),
@@ -110,7 +115,9 @@ final class ApresentadorDeCurriculo
      */
     public function doDonoDaVaga(Contexto $ctx, Curriculo $cv, \DateTimeImmutable $agora): array
     {
-        return array_replace($this->detalhe($ctx, $cv, null, $agora), [
+        $semAcao = $ctx->configuracao->termoLigado() ? ['podeGerarTermo' => false, 'termoResumo' => null] : [];
+
+        return array_replace($this->detalhe($ctx, $cv, null, $agora), $semAcao + [
             'nota' => null,
             'status' => null,
             'statusRotulo' => null,
@@ -122,6 +129,20 @@ final class ApresentadorDeCurriculo
             'podeGerir' => false,
             'podeExcluir' => false,
         ]);
+    }
+
+    /**
+     * O botão do termo no detalhe: "Gerar"/"Novo termo" (`podeGerarTermo`, só quem gere, com voluntariado diferente de
+     * "não") e o resumo do termo mais recente, para quem pode vê-lo por inteiro.
+     *
+     * @return array<string, mixed>
+     */
+    private function doTermo(Contexto $ctx, Curriculo $cv, ?TermoDeVoluntariado $termo): array
+    {
+        return [
+            'podeGerarTermo' => $this->politicaDoTermo->podeGerar($ctx, $cv),
+            'termoResumo' => $termo !== null && $this->politicaDoTermo->podeVerCompleto($ctx, $termo) ? $this->apresentadorDeTermo->resumo($ctx, $termo) : null,
+        ];
     }
 
     /** Os campos crus do formulário, para editar e para o detalhe. @return array<string, mixed> */
