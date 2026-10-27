@@ -40,6 +40,8 @@ use App\TrabalhoExterno\Service\ResolvedorDePerfil;
 use App\TrabalhoExterno\Service\TransacaoDoComprovante;
 use App\TrabalhoExterno\UseCase\AjustarValorDoPagamentoUseCase;
 use App\TrabalhoExterno\UseCase\AvisarPagamentoNoChatUseCase;
+use App\TrabalhoExterno\Repository\ConfiguracaoCentralRepository;
+use App\TrabalhoExterno\Service\RegistrarPagamentoDaDemandaService;
 use App\TrabalhoExterno\UseCase\ConfirmarRecebimentoDoPixUseCase;
 use App\TrabalhoExterno\UseCase\EnviarComprovanteDePagamentoUseCase;
 use App\TrabalhoExterno\UseCase\RecusarComprovanteDePagamentoUseCase;
@@ -297,6 +299,27 @@ final class PagamentoDaDemandaTest extends TestCase
         self::assertSame(1, $this->salvos, 'não gravou de novo');
         self::assertCount(1, array_filter($this->demanda->getMensagens(), static fn ($m): bool => str_contains($m->getTexto(), 'confirmado via PIX')));
         self::assertCount(1, array_filter($this->demanda->getHistorico(), static fn ($h): bool => $h->getPara() === Situacao::MARCO_PAGO));
+    }
+
+    #[TestDox('Banco confirma: leva a demanda a Pago com o autor "Sistema (banco)", uma vez só; pago antes pelo botão ou cancelada não muda nada')]
+    public function testRegistrarPeloBanco(): void
+    {
+        $registro = $this->registro();
+
+        self::assertTrue($registro->registrarPeloBanco($this->demanda, 'R$ 1.500,00'));
+        self::assertNotNull($this->demanda->getPagoEm());
+        $ultima = $this->demanda->getMensagens()[array_key_last($this->demanda->getMensagens())];
+        self::assertSame('Sistema (banco)', $ultima->getNomeAutor());
+        self::assertNull($ultima->getAutor());
+        self::assertStringContainsString('Pagamento de R$ 1.500,00 confirmado via PIX', $ultima->getTexto());
+
+        self::assertFalse($registro->registrarPeloBanco($this->demanda, 'R$ 1.500,00'), 'já pago: no-op');
+        self::assertSame(1, $this->salvos);
+        self::assertCount(1, array_filter($this->demanda->getHistorico(), static fn ($h): bool => $h->getPara() === Situacao::MARCO_PAGO));
+
+        $cancelada = Apoio::demanda(Situacao::Cancelada);
+        self::assertFalse($registro->registrarPeloBanco($cancelada, 'R$ 1,00'), 'cancelada não muda');
+        self::assertNull($cancelada->getPagoEm());
     }
 
     #[TestDox('Confirmar: demanda de outro escritório não existe (o Solicitante de fora leva 404), e sem proposta aceita não há o que confirmar (409)')]
@@ -697,7 +720,15 @@ final class PagamentoDaDemandaTest extends TestCase
 
     private function confirmar(): ConfirmarRecebimentoDoPixUseCase
     {
-        return new ConfirmarRecebimentoDoPixUseCase($this->localizador(), new PoliticaDaDemanda(), $this->repositorio(), $this->avisos());
+        return new ConfirmarRecebimentoDoPixUseCase($this->localizador(), new PoliticaDaDemanda(), $this->repositorio(), $this->registro());
+    }
+
+    private function registro(): RegistrarPagamentoDaDemandaService
+    {
+        $configuracoes = $this->createStub(ConfiguracaoCentralRepository::class);
+        $configuracoes->method('atual')->willReturn(new ConfiguracaoCentral());
+
+        return new RegistrarPagamentoDaDemandaService($this->repositorio(), $this->avisos(), $configuracoes);
     }
 
     private function enviarComprovante(): EnviarComprovanteDePagamentoUseCase

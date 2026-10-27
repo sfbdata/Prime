@@ -10,10 +10,10 @@ use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Service\ApresentadorDoPagamento;
-use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
+use App\TrabalhoExterno\Service\RegistrarPagamentoDaDemandaService;
 
 /**
  * "Confirmar recebimento" da aba Pagamento (desenho 25/10, `pg.confirmar`): a ação `RegistrarPagamento` do fluxo
@@ -33,7 +33,7 @@ final class ConfirmarRecebimentoDoPixUseCase
         private readonly LocalizadorDeDemanda $localizador,
         private readonly PoliticaDaDemanda $politica,
         private readonly DemandaExternaRepository $repositorio,
-        private readonly AvisosDoTrabalhoExterno $avisos,
+        private readonly RegistrarPagamentoDaDemandaService $registro,
     ) {
     }
 
@@ -59,9 +59,7 @@ final class ConfirmarRecebimentoDoPixUseCase
             $valor = ApresentadorDoPagamento::valorDaDemanda($demanda)
                 ?? throw new TransicaoInvalida('O pagamento fica disponível quando uma proposta for aceita.');
 
-            $demanda->confirmarRecebimentoDoPix($ctx->autor(), ApresentadorDoPagamento::valorFormatado($valor));
-            $this->avisos->andamentoDaDemanda($ctx, $demanda);
-            $this->repositorio->salvar($demanda);
+            $this->registro->registrar($demanda, $ctx->autor(), ApresentadorDoPagamento::valorFormatado($valor), $ctx);
 
             return $demanda;
         });
