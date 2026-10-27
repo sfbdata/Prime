@@ -92,9 +92,83 @@
         }
     }
 
+    var modal = document.querySelector('[data-pp-modal-pasta]');
+    var formVinculo = document.querySelector('[data-pp-vinculo-form]');
+    var alvo = null;
+    var temporizador = null;
+
+    function enviarVinculo(rota, linha, pastaId, trocarDe) {
+        formVinculo.action = modal.dataset['url' + rota].replace('%id%', linha.dataset.id);
+        formVinculo.querySelector('[name="numero"]').value = linha.dataset.numero;
+        formVinculo.querySelector('[name="pasta_id"]').value = pastaId;
+        formVinculo.querySelector('[name="trocar_da_pasta_id"]').value = trocarDe || '';
+        formVinculo.submit();
+    }
+
+    function desvincular(linha) {
+        var c = texto('confirma-desvincular', { processo: linha.dataset.numero, n: linha.dataset.pastaNup });
+        if (window.confirm(c)) { enviarVinculo('Desvincular', linha, linha.dataset.pastaId, ''); }
+    }
+
+    function fecharModal() {
+        modal.hidden = true;
+        alvo = null;
+    }
+
+    function mostrarPastas(pastas) {
+        var lista = modal.querySelector('[data-pp-modal-lista]');
+        lista.textContent = '';
+        if (!pastas.length) {
+            var vazio = document.createElement('div');
+            vazio.className = 'pp-modal__vazio';
+            vazio.textContent = modal.dataset.tVazio;
+            lista.appendChild(vazio);
+            return;
+        }
+        pastas.forEach(function (p) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pp-modal__pasta';
+            b.innerHTML = '<i class="bi bi-folder2"></i><span></span><em></em>';
+            b.querySelector('span').textContent = p.texto;
+            b.querySelector('em').textContent = modal.dataset.tVincular;
+            b.addEventListener('click', function () { enviarVinculo('Vincular', alvo.linha, p.id, alvo.trocarDe); });
+            lista.appendChild(b);
+        });
+    }
+
+    function buscarPastas() {
+        var q = modal.querySelector('[data-pp-modal-q]').value;
+        window.fetch(modal.dataset.urlBusca + '?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(mostrarPastas)
+            .catch(function () { mostrarPastas([]); });
+    }
+
+    function abrirModal(linha, trocarDe) {
+        alvo = { linha: linha, trocarDe: trocarDe || '' };
+        modal.querySelector('[data-pp-modal-numero]').textContent = linha.dataset.numero;
+        var q = modal.querySelector('[data-pp-modal-q]');
+        q.value = '';
+        modal.hidden = false;
+        q.focus();
+        buscarPastas();
+    }
+
     function fecharMenu() {
         var m = document.querySelector('[data-pp-ctx]');
         if (m) { m.remove(); }
+    }
+
+    function itensDePasta(linha) {
+        if (!linha.dataset.pastaId) {
+            return [{ r: raiz.dataset.tMenuVincular, ic: 'bi-link-45deg', ir: function () { abrirModal(linha); } }];
+        }
+        return [
+            { r: texto('menu-abrir-pasta', { n: linha.dataset.pastaNup }), ic: 'bi-folder2-open', ir: function () { window.location.href = linha.dataset.pastaUrl; } },
+            { r: raiz.dataset.tMenuTrocar, ic: 'bi-arrow-left-right', ir: function () { abrirModal(linha, linha.dataset.pastaId); } },
+            { r: raiz.dataset.tMenuDesvincular, ic: 'bi-scissors', cor: '#9a5b00', ir: function () { desvincular(linha); } }
+        ];
     }
 
     function abrirMenu(evento, linha) {
@@ -104,11 +178,13 @@
         var itens = [
             { r: raiz.dataset.tMenuAbrir, ic: 'bi-box-arrow-up-right', ir: function () { window.location.href = linha.dataset.url; } },
             { r: lida ? raiz.dataset.tMenuNaoLida : raiz.dataset.tMenuLida, ic: lida ? 'bi-envelope' : 'bi-envelope-open', ir: function () { enviar('leitura', [linha.dataset.id], lida ? '0' : '1'); } },
+            { sep: true }
+        ].concat(itensDePasta(linha)).concat([
             { sep: true },
             { r: raiz.dataset.tMenuCopiar, ic: 'bi-copy', ir: function () { if (navigator.clipboard) { navigator.clipboard.writeText(linha.dataset.numero); } aviso(texto('copiado')); } },
             { sep: true },
             { r: raiz.dataset.tMenuExcluir, ic: 'bi-trash3', cor: '#a3232b', ir: function () { excluirUma(linha); } }
-        ];
+        ]);
         var cobertura = document.createElement('div');
         cobertura.className = 'pp-ctx__fundo';
         cobertura.setAttribute('data-pp-ctx', '');
@@ -150,6 +226,16 @@
             window.location.href = linha.dataset.url;
         });
         linha.addEventListener('contextmenu', function (e) { abrirMenu(e, linha); });
+        var vincular = linha.querySelector('[data-pp-vincular]');
+        var separar = linha.querySelector('[data-pp-desvincular]');
+        if (vincular) { vincular.addEventListener('click', function (e) { e.stopPropagation(); abrirModal(linha); }); }
+        if (separar) { separar.addEventListener('click', function (e) { e.stopPropagation(); desvincular(linha); }); }
+    });
+
+    modal.addEventListener('click', function (e) { if (e.target.closest('[data-pp-modal-fechar]')) { fecharModal(); } });
+    modal.querySelector('[data-pp-modal-q]').addEventListener('input', function () {
+        window.clearTimeout(temporizador);
+        temporizador = window.setTimeout(buscarPastas, 250);
     });
 
     botaoTodas.addEventListener('click', function () {
@@ -161,6 +247,6 @@
     raiz.querySelector('[data-pp-acao-lote="leitura"]').addEventListener('click', function () { enviar('leitura', ids(), '1'); });
     raiz.querySelector('[data-pp-acao-lote="excluir"]').addEventListener('click', function () { excluirLote(ids()); });
     raiz.querySelector('[data-pp-acao-lote="limpar"]').addEventListener('click', limpar);
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { fecharMenu(); } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { fecharMenu(); fecharModal(); } });
     pintar();
 })();
