@@ -39,6 +39,7 @@ final class AcervoPorJurisdicaoUseCase
         $ultimas = $this->ultimas->dosNumeros($tenant, array_map(static fn (LinhaDoProcessoDaOab $l): string => $l->numero, $linhas));
         $doTeor = $this->publicacoes->prazosDoPushPorPublicacao($tenant, array_map(static fn (UltimaPublicacaoDoProcesso $u): int => $u->id, array_values($ultimas)));
 
+        /** @var array<string, array{total: int, orgaos: array<string, int>}> $grupos */
         $grupos = [];
         foreach (SituacaoDoPrazoDoProcesso::grupos() as $chave) {
             $grupos[$chave] = ['total' => 0, 'orgaos' => []];
@@ -55,12 +56,7 @@ final class AcervoPorJurisdicaoUseCase
             $nomeOrgao = $this->orgaoDe($linha, $ultima);
             $todosOrgaos[$nomeOrgao] = true;
             $classificadas[] = [$linha, $situacao, $nomeOrgao];
-            foreach (SituacaoDoPrazoDoProcesso::grupos() as $chave) {
-                if ($situacao->pertenceAoGrupo($chave)) {
-                    ++$grupos[$chave]['total'];
-                    $grupos[$chave]['orgaos'][$nomeOrgao] = ($grupos[$chave]['orgaos'][$nomeOrgao] ?? 0) + 1;
-                }
-            }
+            $grupos = $this->somarNosGrupos($grupos, $situacao, $nomeOrgao);
         }
         foreach ($grupos as &$g) {
             uksort($g['orgaos'], static fn (string $a, string $b): int => strcoll($a, $b));
@@ -68,17 +64,45 @@ final class AcervoPorJurisdicaoUseCase
         unset($g);
 
         $mostrarLista = $grupo !== '' || $orgao !== '' || $busca !== '';
-        $filtradas = [];
-        if ($mostrarLista) {
-            foreach ($classificadas as [$linha, $situacao, $nomeOrgao]) {
-                if (($grupo === '' || $situacao->pertenceAoGrupo($grupo)) && ($orgao === '' || $nomeOrgao === $orgao) && ($busca === '' || str_contains($linha->numero, $busca))) {
-                    $filtradas[] = $linha;
-                }
+
+        return new AcervoPorJurisdicaoOutput($grupos, \count($todosOrgaos), $mostrarLista ? $this->recortar($classificadas, $grupo, $orgao, $busca) : [], $mostrarLista);
+    }
+
+    /**
+     * @param array<string, array{total: int, orgaos: array<string, int>}> $grupos
+     *
+     * @return array<string, array{total: int, orgaos: array<string, int>}>
+     */
+    private function somarNosGrupos(array $grupos, SituacaoDoPrazoDoProcesso $situacao, string $nomeOrgao): array
+    {
+        foreach (SituacaoDoPrazoDoProcesso::grupos() as $chave) {
+            if ($situacao->pertenceAoGrupo($chave)) {
+                ++$grupos[$chave]['total'];
+                $grupos[$chave]['orgaos'][$nomeOrgao] = ($grupos[$chave]['orgaos'][$nomeOrgao] ?? 0) + 1;
             }
-            usort($filtradas, static fn (LinhaDoProcessoDaOab $a, LinhaDoProcessoDaOab $b): int => ($b->ultimoMovimento?->getTimestamp() ?? 0) <=> ($a->ultimoMovimento?->getTimestamp() ?? 0));
         }
 
-        return new AcervoPorJurisdicaoOutput($grupos, \count($todosOrgaos), $filtradas, $mostrarLista);
+        return $grupos;
+    }
+
+    /**
+     * Processos do grupo, órgão e número pedidos, do movimento mais recente ao mais antigo.
+     *
+     * @param list<array{0: LinhaDoProcessoDaOab, 1: SituacaoDoPrazoDoProcesso, 2: string}> $classificadas
+     *
+     * @return list<LinhaDoProcessoDaOab>
+     */
+    private function recortar(array $classificadas, string $grupo, string $orgao, string $busca): array
+    {
+        $filtradas = [];
+        foreach ($classificadas as [$linha, $situacao, $nomeOrgao]) {
+            if (($grupo === '' || $situacao->pertenceAoGrupo($grupo)) && ($orgao === '' || $nomeOrgao === $orgao) && ($busca === '' || str_contains($linha->numero, $busca))) {
+                $filtradas[] = $linha;
+            }
+        }
+        usort($filtradas, static fn (LinhaDoProcessoDaOab $a, LinhaDoProcessoDaOab $b): int => ($b->ultimoMovimento?->getTimestamp() ?? 0) <=> ($a->ultimoMovimento?->getTimestamp() ?? 0));
+
+        return $filtradas;
     }
 
     /**

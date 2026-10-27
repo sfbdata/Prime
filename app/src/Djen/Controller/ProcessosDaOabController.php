@@ -82,14 +82,8 @@ final class ProcessosDaOabController extends AbstractController
 
         $acompanhados = $this->acompanhados($tenant);
         $relatorio = $this->processosDaOab->relatorio($tenant);
-        $acervo = $this->acervoPorJurisdicao->executar(
-            $tenant,
-            $hoje,
-            $this->opcaoDoAcervo($request, 'grupo', SituacaoDoPrazoDoProcesso::grupos()),
-            trim((string) $request->query->get('orgao', '')),
-            preg_replace('/\D/', '', (string) $request->query->get('q', '')) ?? '',
-            $this->idsOcultos(),
-        );
+        $filtroDoAcervo = $this->filtroDoAcervo($request);
+        $acervo = $this->acervoPorJurisdicao->executar($tenant, $hoje, $filtroDoAcervo['grupo'], $filtroDoAcervo['orgao'], $filtroDoAcervo['q'], $this->idsOcultos());
         $conjunto = $sub === 'relatorio' ? $relatorio : $acompanhados;
         $filtradas = $sub === 'acervo' ? $acervo->linhas : $this->filtro->filtrar($conjunto, $criterios, $hoje);
 
@@ -102,14 +96,25 @@ final class ProcessosDaOabController extends AbstractController
             'sub' => $sub,
             'sub_contagens' => ['acompanhados' => \count($acompanhados), 'relatorio' => \count($relatorio), 'acervo' => $acervo->totalDeOrgaos],
             'acervo' => $acervo,
-            'acervo_grupo' => $this->opcaoDoAcervo($request, 'grupo', SituacaoDoPrazoDoProcesso::grupos()),
-            'acervo_orgao' => trim((string) $request->query->get('orgao', '')),
-            'acervo_q' => preg_replace('/\D/', '', (string) $request->query->get('q', '')),
+            'acervo_grupo' => $filtroDoAcervo['grupo'],
+            'acervo_orgao' => $filtroDoAcervo['orgao'],
+            'acervo_q' => $filtroDoAcervo['q'],
             'indicadores' => $this->filtro->indicadores($acompanhados, $hoje),
             'linhas' => \array_slice($filtradas, ($pagina - 1) * self::POR_PAGINA, self::POR_PAGINA),
             'total' => \count($filtradas),
             'pagina' => $pagina,
             'total_paginas' => $totalPaginas,
+        ] + $this->dadosFixosDaTela($tenant, $hoje, $criterios));
+    }
+
+    /**
+     * @param array<string, string> $criterios
+     *
+     * @return array<string, mixed>
+     */
+    private function dadosFixosDaTela(Tenant $tenant, \DateTimeImmutable $hoje, array $criterios): array
+    {
+        return [
             'criterios' => $criterios,
             'tem_filtro' => array_filter($criterios) !== [],
             'oabs_opcoes' => $this->oabsDoFiltro($tenant),
@@ -118,7 +123,7 @@ final class ProcessosDaOabController extends AbstractController
             'grupo_da_fase' => ClassificacaoDoProcesso::grupoDeCadaFase(),
             'hoje' => $hoje,
             'email_padrao' => $this->emailPadrao(),
-        ]);
+        ];
     }
 
     #[Route('/exportar', name: 'push_processual_processos_exportar', methods: ['GET'])]
@@ -395,12 +400,16 @@ final class ProcessosDaOabController extends AbstractController
         return $user instanceof User && $tenant !== null ? $this->acessoAPasta->idsDosProcessosOcultos($user, $tenant) : [];
     }
 
-    /** @param list<string> $validas */
-    private function opcaoDoAcervo(Request $request, string $campo, array $validas): string
+    /** @return array{grupo: string, orgao: string, q: string} */
+    private function filtroDoAcervo(Request $request): array
     {
-        $valor = (string) $request->query->get($campo, '');
+        $grupo = (string) $request->query->get('grupo', '');
 
-        return \in_array($valor, $validas, true) ? $valor : '';
+        return [
+            'grupo' => \in_array($grupo, SituacaoDoPrazoDoProcesso::grupos(), true) ? $grupo : '',
+            'orgao' => trim((string) $request->query->get('orgao', '')),
+            'q' => preg_replace('/\D/', '', (string) $request->query->get('q', '')) ?? '',
+        ];
     }
 
     /** @return array{busca: string, oab: string, mov: string, area: string, fase: string, pasta: string} */
