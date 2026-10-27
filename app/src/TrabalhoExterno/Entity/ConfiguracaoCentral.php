@@ -192,6 +192,21 @@ class ConfiguracaoCentral
         return ['dur' => (int) $v['dur'], 'sino' => (bool) $v['sino'], 'motiv' => (bool) $v['motiv'], 'maxDias' => (int) $v['maxDias'], 'minEnvio' => (int) $v['minEnvio']];
     }
 
+    /**
+     * O interruptor do termo de voluntariado: DESLIGADO por padrão, ligado só pelo Master. Mora no JSON `vagas`
+     * (chave `termo`, fora do {@see getVagas()} que a tela devolve), então não pede migration.
+     */
+    public function termoLigado(): bool
+    {
+        return ($this->vagas['termo'] ?? false) === true;
+    }
+
+    public function definirTermoLigado(bool $ligado): void
+    {
+        $this->vagas = array_merge($this->getVagas(), ['termo' => $ligado]);
+        $this->atualizadoEm = new \DateTimeImmutable();
+    }
+
     /** @param array<string, mixed> $dados só as chaves conhecidas; números fora das opções do desenho são recusados */
     public function definirVagas(array $dados): void
     {
@@ -199,7 +214,7 @@ class ConfiguracaoCentral
         foreach (array_intersect_key($dados, self::VAGAS_PADRAO) as $chave => $valor) {
             $v[$chave] = is_bool(self::VAGAS_PADRAO[$chave]) ? (bool) $valor : $this->opcaoDeVaga($chave, $valor);
         }
-        $this->vagas = $v;
+        $this->vagas = $v + ['termo' => $this->termoLigado()];
         $this->atualizadoEm = new \DateTimeImmutable();
     }
 

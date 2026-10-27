@@ -5126,7 +5126,7 @@
     var CV_SIT_FILTRO = [['adv', 'Advogado(a)'], ['estOab', 'Estagiário(a) com OAB'], ['est', 'Estudante'], ['bach', 'Bacharel(a)']];
     /** Filtro do KPI "COM OAB" (§4.9, lacuna 1): `adv` e `estOab` juntos. */
     var CV_SIT_COM_OAB = 'oab';
-    /** Filtro "Termo" (`cvTerOps`, l.1148); até a F3b todo currículo é "sem". */
+    /** Filtro "Termo" (`cvTerOps`, l.1148); só aparece com o termo ligado pelo Master (`termoLigado`). */
     var CV_TERMO_FILTRO = [['sem', 'Sem termo'], ['enviado', 'Termo aguardando'], ['aceito', 'Termo aceito']];
     /** Botões de situação do formulário (`tfSitOps`, l.1173). */
     var CV_SIT_OPS = [
@@ -6160,7 +6160,9 @@
         // A opção "Com OAB" só existe enquanto o filtro veio do KPI (o select do desenho não a tem).
         alvo.appendChild(sel('cvSit', 'Situação OAB', S.cvSit === CV_SIT_COM_OAB ? [[CV_SIT_COM_OAB, 'Com OAB']].concat(CV_SIT_FILTRO) : CV_SIT_FILTRO));
         alvo.appendChild(sel('cvUf', 'Todas as UFs', (Lt.ufs || []).map(function (u) { return [u, u]; })));
-        alvo.appendChild(sel('cvTer', 'Termo', CV_TERMO_FILTRO));
+        if (S.cv && S.cv.termoLigado) {
+            alvo.appendChild(sel('cvTer', 'Termo', CV_TERMO_FILTRO));
+        }
     }
 
     /** Barra de lote (`cvBulk`, l.1052), igual à das vagas; e o aviso da lixeira. */
@@ -6301,7 +6303,7 @@
         caixa.appendChild(el('div', { class: 'te-menu-tit', text: x.nome || '' }));
         item('Abrir currículo', 'bi-box-arrow-up-right', function () { marcarCvVisto(x); abrirCv(codigo); });
         item('Ver currículo formatado / PDF', 'bi-file-earmark-pdf', function () { verCvDoCodigo(codigo); });
-        if (cvPodeGerir() && x.vol !== 'nao') {
+        if (cvPodeGerir() && x.vol !== 'nao' && S.cv.termoLigado) {
             item('Gerar termo de voluntariado', 'bi-file-earmark-check', function () { abrirTermoNovo(codigo, x.nome); });
         }
         if (cvPodeGerir()) {

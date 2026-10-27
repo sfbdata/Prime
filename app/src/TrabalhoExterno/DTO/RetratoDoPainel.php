@@ -32,7 +32,7 @@ final readonly class RetratoDoPainel
         public int $inscritos = 0,
         public int $visitas = 0,
         public int $cliques = 0,
-        public array $termos = [],
+        public ?array $termos = null,
     ) {
     }
 }

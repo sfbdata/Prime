@@ -35,6 +35,7 @@ final class TermosDeVoluntariadoTest extends JusPrimeWebTestCase
     {
         $this->client = static::createClient();
         $this->instalarCsrf($this->client);
+        $this->ligarTermo();
     }
 
     #[TestDox('fluxo: rascunho pré-preenchido, envio, aceite do voluntário com hash do HTML, "Novo termo" copia o último e o estado é o do mais recente')]
@@ -124,6 +125,54 @@ final class TermosDeVoluntariadoTest extends JusPrimeWebTestCase
         self::assertSame($segundo['codigo'], $this->json($this->client)['termo']['codigo']);
         $this->client->request('GET', $termo['documentoUrl']);
         self::assertSame($docAceito, (string) $this->client->getResponse()->getContent(), 'o termo enviado é imutável');
+    }
+
+    #[TestDox('desligado (padrão): rotas 404 e nada do termo no currículo, lista, painel, CSV nem chip; os termos gravados continuam; ligado volta')]
+    public function testDesligado(): void
+    {
+        [$sede, $a, $master, $voluntaria, $codigo] = $this->cenario();
+        $this->logarComTenant($this->client, $master, $sede);
+        $termo = $this->postarJson($this->client, self::API . "/$codigo/termo/enviar", self::campos())['termo'];
+        $this->logarComTenant($this->client, $voluntaria, $a);
+        $this->client->request('GET', '/trabalho-externo/api/engajamento');
+        self::assertContains('Você tem um termo de voluntariado para aceitar', array_column($this->json($this->client)['banner']['chips'], 'txt'));
+
+        $this->ligarTermo(false);
+        $this->client->request('GET', '/trabalho-externo/api/engajamento');
+        self::assertNotContains('Você tem um termo de voluntariado para aceitar', array_column($this->json($this->client)['banner']['chips'], 'txt'));
+        $this->client->request('GET', self::API);
+        $meu = $this->json($this->client)['meu'];
+        self::assertArrayNotHasKey('termoResumo', $meu);
+        self::assertArrayNotHasKey('termo', $meu);
+        $this->postarJson($this->client, "/trabalho-externo/api/termos/{$termo['codigo']}/aceitar", ['li' => true]);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->logarComTenant($this->client, $master, $sede);
+        foreach (['GET' => [self::API . "/$codigo/termo", self::API . "/$codigo/termo/rascunho", $termo['documentoUrl']]] as $urls) {
+            foreach ($urls as $url) {
+                $this->client->request('GET', $url);
+                self::assertResponseStatusCodeSame(404, $url);
+            }
+        }
+        $this->postarJson($this->client, self::API . "/$codigo/termo/enviar", self::campos());
+        self::assertResponseStatusCodeSame(404);
+        $this->postarJson($this->client, self::API . "/$codigo/termo/previa", self::campos());
+        self::assertResponseStatusCodeSame(404);
+        $this->client->request('GET', self::API);
+        $json = $this->json($this->client);
+        self::assertFalse($json['termoLigado']);
+        self::assertArrayNotHasKey('termo', $json['curriculos'][0]);
+        self::assertArrayNotHasKey('podeGerarTermo', $this->detalhe($codigo));
+        $this->client->request('GET', self::API . '/painel');
+        self::assertSame('', $this->json($this->client)['kpis'][3]['sub']);
+        $this->client->request('GET', '/trabalho-externo/curriculos/exportar.csv?termo=aceito');
+        $csv = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('Termo', $csv);
+        self::assertStringContainsString('Ana', $csv, 'o filtro de termo é ignorado desligado');
+        self::assertSame(1, $this->contarTermos(), 'o termo gravado continua no banco');
+
+        $this->ligarTermo();
+        self::assertSame($termo['codigo'], $this->detalhe($codigo)['termoResumo']['codigo']);
     }
 
     #[TestDox('só o termo mais recente aceita: após "Novo termo" o antigo dá 409 e o novo aceita')]

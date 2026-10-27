@@ -156,7 +156,7 @@ final class MontarEngajamentoUseCase
             atualizadoEm: $meu?->getAtualizadoEm(),
             candidatou: $meu !== null && $this->candidaturas->doCurriculo($meu) !== [],
             alertaLigado: ($alerta['ligado'] ?? false) === true,
-            termoParaAceitar: $meu !== null && $this->termos->maisRecenteDo($meu)?->getStatus() === StatusDoTermo::Enviado,
+            termoParaAceitar: $ctx->configuracao->termoLigado() && $meu !== null && $this->termos->maisRecenteDo($meu)?->getStatus() === StatusDoTermo::Enviado,
         );
     }
 

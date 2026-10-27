@@ -159,6 +159,7 @@ final class PainelDoBancoDeTalentosTest extends TestCase
         $pendente = Vaga::doExterno(Apoio::tenant(1), Apoio::usuario(2), 'Bia', $this->dadosDaVaga([]), $this->agora);
 
         return new RetratoDoPainel(
+            termos: [],
             agora: $this->agora,
             curriculos: [$cv1, $cv2, $cv3, $arquivado],
             vagas: [$comum, $aoVivo, $expirada, $pendente],

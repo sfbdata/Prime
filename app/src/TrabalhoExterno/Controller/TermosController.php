@@ -99,6 +99,9 @@ final class TermosController extends AbstractController
     public function documento(Request $request, string $codigo, GerarDocumentoDoTermoUseCase $gerar): Response
     {
         $ctx = $this->contextoDeLeitura($request) ?? throw $this->createAccessDeniedException();
+        if (!$ctx->configuracao->termoLigado()) {
+            throw $this->createNotFoundException();
+        }
         try {
             return $this->documentoHtml($gerar->executar($ctx, $codigo));
         } catch (DemandaNaoEncontrada) {
@@ -106,6 +109,12 @@ final class TermosController extends AbstractController
         } catch (AcaoNaoPermitida $e) {
             throw $this->createAccessDeniedException($e->getMessage());
         }
+    }
+
+    /** Com o termo desligado pelo Master a funcionalidade não existe para ninguém: 404. */
+    private function desligado(): JsonResponse
+    {
+        return $this->json(['ok' => false, 'mensagem' => 'Não encontrado.'], 404);
     }
 
     private function documentoHtml(string $html): Response
@@ -135,6 +144,10 @@ final class TermosController extends AbstractController
     {
         $ctx = $this->contextoDeLeitura($request);
 
+        if ($ctx !== null && !$ctx->configuracao->termoLigado()) {
+            return $this->desligado();
+        }
+
         return $ctx === null ? $this->semAcesso() : $this->responder(static fn (): array => $acao($ctx));
     }
 
@@ -144,6 +157,9 @@ final class TermosController extends AbstractController
         $ctx = $this->contextoOuNulo();
         if ($ctx === null) {
             return $this->semAcesso();
+        }
+        if (!$ctx->configuracao->termoLigado()) {
+            return $this->desligado();
         }
         $this->validarCsrfAjax($request);
 

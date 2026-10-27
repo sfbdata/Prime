@@ -138,6 +138,7 @@ final class CurriculosDoTrabalhoExternoTest extends JusPrimeWebTestCase
     #[TestDox('Equipe sem talentos vê e marca, mas não muda status, nota nem exporta (403); só o Master exclui o de outra pessoa; CSV com o cabeçalho do desenho')]
     public function testCentral(): void
     {
+        $this->ligarTermo();
         [$sede, $a] = [$this->criarTenant('Sede'), $this->criarTenant('A')];
         $this->definirSede($sede);
         $master = $this->criarMaster($sede);

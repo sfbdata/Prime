@@ -38,6 +38,6 @@ final class DetalheDoCurriculo
         $marca = $ctx->previa || !$comMarca ? null : ($this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, [$id])[$id] ?? null);
         $vagas = array_map(static fn (Candidatura $c): string => $c->getVaga()->getTitulo(), $this->candidaturas->doCurriculo($cv));
 
-        return $this->apresentador->detalhe($ctx, $cv, $marca, $agora, $vagas, $this->termos->maisRecenteDo($cv));
+        return $this->apresentador->detalhe($ctx, $cv, $marca, $agora, $vagas, $ctx->configuracao->termoLigado() ? $this->termos->maisRecenteDo($cv) : null);
     }
 }

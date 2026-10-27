@@ -49,6 +49,7 @@ final class ListarCurriculosUseCase
             'interno' => $this->politica->ehInterno($ctx),
             'podeGerir' => $this->politica->podeGerir($ctx),
             'ehMaster' => $this->politica->ehMaster($ctx),
+            'termoLigado' => $ctx->configuracao->termoLigado(),
             'meu' => $meu !== null ? $this->detalhe->detalhar($ctx, $meu, comMarca: false) : null,
             'minhas' => $meu !== null ? $this->minhas($ctx, $meu, $agora) : [],
             'curriculos' => $this->cartoes($ctx, $agora),
@@ -69,12 +70,13 @@ final class ListarCurriculosUseCase
         $ids = array_map(static fn (Curriculo $c): int => (int) $c->getId(), $curriculos);
         $marcas = $ctx->previa ? [] : $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, $ids);
         $contagem = $this->candidaturas->contarPorCurriculo($ids);
-        $termos = $this->termos->maisRecentesDe($ids);
+        $comTermo = $ctx->configuracao->termoLigado();
+        $termos = $comTermo ? $this->termos->maisRecentesDe($ids) : [];
         $cartoes = [];
         foreach ($curriculos as $cv) {
             $marca = $marcas[(int) $cv->getId()] ?? null;
             if ($marca?->excluida() !== true) {
-                $cartoes[] = $this->apresentador->cartao($cv, $marca, $agora, $contagem[(int) $cv->getId()] ?? 0, $termos[(int) $cv->getId()] ?? null);
+                $cartoes[] = $this->apresentador->cartao($cv, $marca, $agora, $contagem[(int) $cv->getId()] ?? 0, $termos[(int) $cv->getId()] ?? null, $comTermo);
             }
         }
 

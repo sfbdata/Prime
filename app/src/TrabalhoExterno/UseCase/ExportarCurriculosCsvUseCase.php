@@ -49,13 +49,32 @@ final class ExportarCurriculosCsvUseCase
         $todos = $this->localizador->visiveis($ctx);
         $ids = array_map(static fn (Curriculo $c): int => (int) $c->getId(), $todos);
         $marcas = $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, $ids);
-        $termos = array_map(static fn ($t): string => ApresentadorDeTermo::estado($t), $this->termos->maisRecentesDe($ids));
+        $ligado = $ctx->configuracao->termoLigado();
+        $termos = $ligado ? array_map(static fn ($t): string => ApresentadorDeTermo::estado($t), $this->termos->maisRecentesDe($ids)) : [];
+        if (!$ligado) {
+            unset($filtros['termo']);
+        }
         $linhas = [self::CABECALHO];
         foreach ($this->filtro->aplicar($todos, $marcas, $filtros, new \DateTimeImmutable(), $this->candidaturas->contarPorCurriculo($ids), $termos) as $cv) {
             $linhas[] = self::colunas($cv, $termos[(int) $cv->getId()] ?? 'sem');
         }
 
-        return PlanilhaCsv::documento($linhas);
+        return PlanilhaCsv::documento($ligado ? $linhas : array_map(self::semATermo(...), $linhas));
+    }
+
+    /**
+     * Com o termo desligado a coluna Termo sai do arquivo.
+     *
+     * @param list<string> $linha
+     *
+     * @return list<string>
+     */
+    private static function semATermo(array $linha): array
+    {
+        $posicao = array_search('Termo', self::CABECALHO, true);
+        unset($linha[$posicao]);
+
+        return array_values($linha);
     }
 
     /** @return list<string> */

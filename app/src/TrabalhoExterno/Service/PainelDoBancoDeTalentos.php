@@ -61,14 +61,14 @@ final class PainelDoBancoDeTalentos
             self::kpi('ativos', 'CURRÍCULOS ATIVOS', 'bi-person-vcard', '#0a6fa0', count($ativos), $desde('-30 days') . ' nos últimos 30 dias', self::lista(['cf' => 'ativos'])),
             self::kpi('novos', 'NOVOS NA SEMANA', 'bi-person-plus', '#0a6fa0', $desde('-7 days'), $novos . ' ainda não analisados', self::lista(['cf' => 'novo'])),
             self::kpi('oab', 'COM OAB', 'bi-award', '#5b3f9e', $em(SituacaoAcademica::Adv, SituacaoAcademica::EstOab), $em(SituacaoAcademica::Est) . ' estudantes · ' . $em(SituacaoAcademica::Bach) . ' bacharéis', self::lista(['cs' => FiltroDeCurriculos::COM_OAB])),
-            self::kpi('vol', 'VOLUNTÁRIOS', 'bi-heart', '#a3235f', $voluntarios, sprintf(self::SUB_DOS_TERMOS, $this->termosEm($r, 'aceito'), $this->termosEm($r, 'enviado')), self::lista(['cf' => 'vol'])),
+            self::kpi('vol', 'VOLUNTÁRIOS', 'bi-heart', '#a3235f', $voluntarios, $r->termos === null ? '' : sprintf(self::SUB_DOS_TERMOS, $this->termosEm($r, 'aceito'), $this->termosEm($r, 'enviado')), self::lista(['cf' => 'vol'])),
         ];
     }
 
     /** Quantos currículos têm o termo mais recente neste estado (nunca CPF, RG nem nome). */
     private function termosEm(RetratoDoPainel $r, string $estado): int
     {
-        return count(array_filter($r->termos, static fn (string $e): bool => $e === $estado));
+        return count(array_filter($r->termos ?? [], static fn (string $e): bool => $e === $estado));
     }
 
     /** @return list<array<string, mixed>> */

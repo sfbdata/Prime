@@ -37,7 +37,7 @@ final class ApresentadorDeCurriculo
     }
 
     /** A linha do banco de talentos (`cvs[]`). @return array<string, mixed> */
-    public function cartao(Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, int $candidaturas = 0, ?TermoDeVoluntariado $termo = null): array
+    public function cartao(Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, int $candidaturas = 0, ?TermoDeVoluntariado $termo = null, bool $comTermo = true): array
     {
         $sit = $cv->getSituacao();
 
@@ -64,13 +64,12 @@ final class ApresentadorDeCurriculo
             'statusCor' => $cv->getStatus()->cor(),
             'vol' => $cv->texto('vol'),
             'voluntario' => $cv->texto('vol') === 'sim',
-            'termo' => ApresentadorDeTermo::estado($termo),
             'estrela' => $marca?->temEstrela() ?? false,
             'lixeira' => $marca?->naLixeira() ?? false,
             'vista' => $marca?->isVista() ?? false,
             'importancia' => $this->importancia->calcular($cv, $marca?->getImportante(), $agora, $candidaturas),
             'candidaturas' => $candidaturas,
-        ];
+        ] + ($comTermo ? ['termo' => ApresentadorDeTermo::estado($termo)] : []);
     }
 
     /**
@@ -83,7 +82,9 @@ final class ApresentadorDeCurriculo
      */
     public function detalhe(Contexto $ctx, Curriculo $cv, ?MarcacaoDoUsuario $marca, \DateTimeImmutable $agora, array $vagas = [], ?TermoDeVoluntariado $termo = null): array
     {
-        return $this->cartao($cv, $marca, $agora, count($vagas), $termo) + $this->contato($cv) + $this->doTermo($ctx, $cv, $termo) + [
+        $comTermo = $ctx->configuracao->termoLigado();
+
+        return $this->cartao($cv, $marca, $agora, count($vagas), $termo, $comTermo) + $this->contato($cv) + ($comTermo ? $this->doTermo($ctx, $cv, $termo) : []) + [
             'exps' => $cv->itens('exps'),
             'forms' => $cv->itens('forms'),
             'idis' => $cv->itens('idis'),
@@ -114,7 +115,9 @@ final class ApresentadorDeCurriculo
      */
     public function doDonoDaVaga(Contexto $ctx, Curriculo $cv, \DateTimeImmutable $agora): array
     {
-        return array_replace($this->detalhe($ctx, $cv, null, $agora), [
+        $semAcao = $ctx->configuracao->termoLigado() ? ['podeGerarTermo' => false, 'termoResumo' => null] : [];
+
+        return array_replace($this->detalhe($ctx, $cv, null, $agora), $semAcao + [
             'nota' => null,
             'status' => null,
             'statusRotulo' => null,
@@ -125,8 +128,6 @@ final class ApresentadorDeCurriculo
             'podeEditar' => false,
             'podeGerir' => false,
             'podeExcluir' => false,
-            'podeGerarTermo' => false,
-            'termoResumo' => null,
         ]);
     }
 

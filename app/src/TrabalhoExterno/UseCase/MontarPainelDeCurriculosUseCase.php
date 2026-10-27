@@ -61,7 +61,7 @@ final class MontarPainelDeCurriculosUseCase
             inscritos: $this->interessados->contar(),
             visitas: $publicas['visitas'],
             cliques: $publicas['cliques'],
-            termos: array_map(static fn ($t): string => ApresentadorDeTermo::estado($t), $this->termos->maisRecentesDe(array_map(static fn (Curriculo $c): int => (int) $c->getId(), $curriculos))),
+            termos: !$ctx->configuracao->termoLigado() ? null : array_map(static fn ($t): string => ApresentadorDeTermo::estado($t), $this->termos->maisRecentesDe(array_map(static fn (Curriculo $c): int => (int) $c->getId(), $curriculos))),
         ));
     }
 
