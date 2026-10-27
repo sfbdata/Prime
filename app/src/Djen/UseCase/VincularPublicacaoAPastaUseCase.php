@@ -68,6 +68,46 @@ final class VincularPublicacaoAPastaUseCase
     }
 
     /**
+     * "Vincular a uma pasta" na aba Processos da OAB (desenho 11): o processo é identificado só pelo número (CNJ).
+     * Sem cadastro no escritório, ele nasce do que a publicação mais recente traz; sem publicação, só do número.
+     *
+     * @throws VinculoDaPublicacaoInvalidoException
+     */
+    public function executarPorNumero(Tenant $tenant, User $usuario, string $numero, int $pastaId, ?int $trocarDaPastaId = null): Pasta
+    {
+        $numero = preg_replace('/\D+/', '', $numero) ?? '';
+        if (strlen($numero) !== 20) {
+            throw new VinculoDaPublicacaoInvalidoException('Informe o número completo do processo (20 dígitos, padrão CNJ).');
+        }
+        $pasta = $this->pastaEditavel($tenant, $usuario, $pastaId);
+        $processo = $this->processos->findByNumeroProcessoDoTenant($numero, $tenant) ?? $this->cadastrarPeloNumero($tenant, $usuario, $numero);
+
+        if ($trocarDaPastaId !== null && $trocarDaPastaId !== $pastaId) {
+            $anterior = $this->pastaEditavel($tenant, $usuario, $trocarDaPastaId);
+            $this->desvincular->executar($anterior, $processo, $usuario);
+        }
+
+        $this->vincular->executar($pasta, $processo, $usuario);
+        $this->reconciliar->executar($tenant);
+
+        return $pasta;
+    }
+
+    /**
+     * @throws VinculoDaPublicacaoInvalidoException
+     */
+    public function executarPorNumeroENup(Tenant $tenant, User $usuario, string $numero, string $nup, ?int $trocarDaPastaId = null): Pasta
+    {
+        $nup = trim($nup);
+        $pasta = $nup === '' ? null : $this->pastas->findOneBy(['nup' => $nup, 'tenant' => $tenant]);
+        if (!$pasta instanceof Pasta || $pasta->getExcluidaEm() !== null) {
+            throw new VinculoDaPublicacaoInvalidoException(sprintf('A Pasta %s não existe neste escritório. Use "Abrir nova pasta".', $nup));
+        }
+
+        return $this->executarPorNumero($tenant, $usuario, $numero, (int) $pasta->getId(), $trocarDaPastaId);
+    }
+
+    /**
      * "Vincular à Pasta N" (desenho 11): o número digitado é o NUP da pasta. Pasta que não existe no escritório
      * não é criada às cegas: a mensagem manda usar "Abrir nova pasta".
      *
@@ -95,6 +135,26 @@ final class VincularPublicacaoAPastaUseCase
         }
 
         return $pasta;
+    }
+
+    private function cadastrarPeloNumero(Tenant $tenant, User $usuario, string $numero): Processo
+    {
+        $publicacao = $this->publicacoes->findOneBy(['numeroProcesso' => $numero, 'tenant' => $tenant], ['id' => 'DESC']);
+        if ($publicacao instanceof PublicacaoDjen) {
+            return $this->processoDaPublicacao($tenant, $usuario, $publicacao);
+        }
+
+        $entrada = new CadastroDoProcessoInput(
+            numeroProcesso: $numero,
+            orgaoJulgador: self::NAO_INFORMADO,
+            classeProcessual: self::NAO_INFORMADO,
+            assuntoProcessual: self::NAO_INFORMADO,
+        );
+        try {
+            return $this->cadastrarProcesso->executar($entrada, $tenant, $usuario)->processo;
+        } catch (DadosDoProcessoInvalidosException $e) {
+            throw new VinculoDaPublicacaoInvalidoException($e->getMessage(), 0, $e);
+        }
     }
 
     private function processoDaPublicacao(Tenant $tenant, User $usuario, PublicacaoDjen $publicacao): Processo

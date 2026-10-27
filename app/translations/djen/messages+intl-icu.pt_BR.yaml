@@ -238,11 +238,12 @@ djen:
         dias_uteis: 'Prazo em dias úteis'
         outro: Outro
         outro_pergunta: 'Prazo em dias úteis (1 a 399):'
+        dias_n: '{n} dias'
         faltam: '{n, plural, one {Falta # dia útil} other {Faltam # dias úteis}}'
         vence_hoje: Vence hoje
         vencido: Prazo vencido
         cumprido: Prazo cumprido
-        intervalo: 'De {inicio} a {fim} · dias úteis, sem fins de semana, feriados e recesso forense. Confira o termo inicial na intimação.'
+        intervalo: 'De {inicio} a {fim} · dias úteis, sem fins de semana, feriados e recesso forense (20/12 a 20/01). Confira o termo inicial na intimação.'
         do_teor: 'Prazo lido do teor, até {fim}. Confira o termo inicial na intimação.'
         sem_prazo: 'Sem prazo definido. Escolha os dias úteis conforme a intimação.'
         criar_meta: Criar meta com este prazo
