@@ -6,6 +6,8 @@ namespace App\Inteligencia\MessageHandler;
 
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
+use App\Inteligencia\DTO\RespostaDeLinguagem;
+use App\Inteligencia\DTO\ResultadoDaAnalise;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
@@ -18,6 +20,7 @@ use App\Inteligencia\Exception\RespostaInvalidaException;
 use App\Inteligencia\Fluxo\FluxoDaAnaliseDaPasta;
 use App\Inteligencia\Fluxo\FluxoDaPerguntaLivre;
 use App\Inteligencia\Fluxo\FluxoDeAnalise;
+use App\Inteligencia\Fluxo\FluxoDeAnaliseSemPasta;
 use App\Inteligencia\Fluxo\FluxoDoResumoDoPush;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
@@ -29,6 +32,7 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
@@ -52,6 +56,10 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *   · falha definitiva (400/401/403) → `falhou` + Unrecoverable;
  *   · contexto bloqueado/vazio, resposta inválida, tipo sem fluxo → `falhou`, sem re-lançar.
  *
+ * Tipo SEM pasta (o chat da Central, {@see FluxoDeAnaliseSemPasta}): mesma máquina de estados, sem procurar pasta e
+ * sem notificar (a resposta aparece na própria conversa). A resposta gravada e a análise concluída vão numa
+ * transação só. O miolo provedor → interpretação é o mesmo dos tipos com pasta.
+ *
  * "Última tentativa" sai do contador da própria linha (`tentativas`, incrementado a cada entrega)
  * contra {@see TENTATIVAS_MAXIMAS}, que espelha `max_retries` do transport `async`.
  *
@@ -72,12 +80,17 @@ final class ProcessarAnaliseDeInteligenciaHandler
     /** @var array<string, FluxoDeAnalise> chave = `TipoDeAnalise->value` */
     private array $fluxos;
 
+    /** @var array<string, FluxoDeAnaliseSemPasta> chave = `TipoDeAnalise->value` */
+    private array $fluxosSemPasta = [];
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly AnaliseDeInteligenciaRepository $analises,
         FluxoDoResumoDoPush $fluxoDoPush,
         FluxoDaAnaliseDaPasta $fluxoDaPasta,
         FluxoDaPerguntaLivre $fluxoDaPergunta,
+        #[AutowireIterator(FluxoDeAnaliseSemPasta::TAG)]
+        iterable $fluxosSemPasta,
         private readonly ProvedorDeLinguagem $provedor,
         private readonly NotificacaoService $notificacoes,
         private readonly UrlGeneratorInterface $urls,
@@ -90,6 +103,9 @@ final class ProcessarAnaliseDeInteligenciaHandler
             $fluxoDaPasta->tipo()->value => $fluxoDaPasta,
             $fluxoDaPergunta->tipo()->value => $fluxoDaPergunta,
         ];
+        foreach ($fluxosSemPasta as $fluxo) {
+            $this->fluxosSemPasta[$fluxo->tipo()->value] = $fluxo;
+        }
     }
 
     public function __invoke(ProcessarAnaliseDeInteligencia $mensagem): void
@@ -118,6 +134,13 @@ final class ProcessarAnaliseDeInteligenciaHandler
             return;
         }
 
+        $semPasta = $this->fluxosSemPasta[$analise->getTipo()->value] ?? null;
+        if ($semPasta !== null) {
+            $this->processarSemPasta($semPasta, $analise, $tenant);
+
+            return;
+        }
+
         $fluxo = $this->fluxos[$analise->getTipo()->value] ?? null;
         if ($fluxo === null) {
             $this->falhar($analise, 'tipo de análise sem fluxo: ' . $analise->getTipo()->value);
@@ -132,11 +155,75 @@ final class ProcessarAnaliseDeInteligenciaHandler
             return;
         }
 
-        $pedido = $this->preparar($fluxo, $analise, $tenant, $pasta);
+        $pedido = $this->preparar($analise, static fn (): ?PedidoDeLinguagem => $fluxo->preparar($analise, $tenant, $pasta), $fluxo->motivoDeContextoVazio());
         if ($pedido === null) {
             return;
         }
 
+        $concluido = $this->completarEInterpretar($analise, $pedido, $fluxo->interpretar(...));
+        if ($concluido === null) {
+            return;
+        }
+
+        [$resposta, $resultado] = $concluido;
+        $this->aplicarResultado($analise, $resposta, $resultado);
+        $this->em->flush();
+        $this->registrarConclusao($analise, $resposta);
+
+        $this->notificar($analise, $pasta, $fluxo);
+    }
+
+    /**
+     * O ramo dos tipos sem pasta: não procura pasta, não notifica, e grava o efeito do fluxo (a resposta na conversa)
+     * junto com a conclusão, numa transação só. Se o efeito for recusado ({@see \LogicException} ou
+     * {@see \DomainException}, antes de gravar qualquer coisa), a análise termina `falhou` na mesma transação.
+     */
+    private function processarSemPasta(FluxoDeAnaliseSemPasta $fluxo, AnaliseDeInteligencia $analise, Tenant $tenant): void
+    {
+        $pedido = $this->preparar($analise, static fn (): ?PedidoDeLinguagem => $fluxo->preparar($analise, $tenant), $fluxo->motivoDeContextoVazio());
+        if ($pedido === null) {
+            return;
+        }
+
+        $concluido = $this->completarEInterpretar($analise, $pedido, $fluxo->interpretar(...));
+        if ($concluido === null) {
+            return;
+        }
+
+        [$resposta, $resultado] = $concluido;
+        $concluiu = $this->em->wrapInTransaction(function () use ($fluxo, $analise, $tenant, $resposta, $resultado): bool {
+            try {
+                $fluxo->aoConcluir($analise, $tenant, $resultado);
+            } catch (\LogicException | \DomainException $e) {
+                $analise->falhar('análise inconsistente: ' . $e->getMessage(), $resposta->texto);
+
+                return false;
+            }
+            $this->aplicarResultado($analise, $resposta, $resultado);
+
+            return true;
+        });
+
+        if (!$concluiu) {
+            $this->logger->warning('Análise {analise} falhou: resposta não pôde ser gravada.', $this->contexto($analise));
+
+            return;
+        }
+
+        $this->registrarConclusao($analise, $resposta);
+    }
+
+    /**
+     * O miolo comum: registra o provedor, chama-o, classifica a falha e interpreta a resposta. Devolve a resposta e o
+     * resultado, ou null quando a análise já terminou aqui (`indisponivel`, `falhou`); falha do provedor com
+     * retentativa ou definitiva re-lança.
+     *
+     * @param \Closure(string): ResultadoDaAnalise $interpretar
+     *
+     * @return array{0: RespostaDeLinguagem, 1: ResultadoDaAnalise}|null
+     */
+    private function completarEInterpretar(AnaliseDeInteligencia $analise, PedidoDeLinguagem $pedido, \Closure $interpretar): ?array
+    {
         $analise->registrarProvedor($this->provedor->nome());
 
         try {
@@ -162,14 +249,20 @@ final class ProcessarAnaliseDeInteligenciaHandler
         }
 
         try {
-            $resultado = $fluxo->interpretar($resposta->texto);
+            $resultado = $interpretar($resposta->texto);
         } catch (RespostaInvalidaException $e) {
             $this->falhar($analise, $e->getMessage(), $e->textoBruto);
             $this->logger->warning('Análise {analise}: resposta inválida do provedor.', $this->contexto($analise));
 
-            return;
+            return null;
         }
 
+        return [$resposta, $resultado];
+    }
+
+    /** Muda o estado da análise para `concluida` (sem flush: quem chama decide a transação). */
+    private function aplicarResultado(AnaliseDeInteligencia $analise, RespostaDeLinguagem $resposta, ResultadoDaAnalise $resultado): void
+    {
         $analise->concluir(
             resumo: $resultado->resumo,
             pontos: $resultado->pontos,
@@ -182,8 +275,10 @@ final class ProcessarAnaliseDeInteligenciaHandler
             duracaoMs: $resposta->duracaoMs,
             textoDaAnalise: $resultado->textoDaAnalise,
         );
-        $this->em->flush();
+    }
 
+    private function registrarConclusao(AnaliseDeInteligencia $analise, RespostaDeLinguagem $resposta): void
+    {
         $this->logger->info('Análise {analise} concluída.', $this->contexto($analise) + [
             'modelo' => $resposta->modelo,
             'tokens_entrada' => $resposta->tokensEntrada,
@@ -191,8 +286,6 @@ final class ProcessarAnaliseDeInteligenciaHandler
             'duracao_ms' => $resposta->duracaoMs,
             'itens' => (int) ($analise->getContextoResumo()['total'] ?? 0),
         ]);
-
-        $this->notificar($analise, $pasta, $fluxo);
     }
 
     /**
@@ -260,10 +353,10 @@ final class ProcessarAnaliseDeInteligenciaHandler
      * sigilo, documento que não pode ser lido (PR F) ou análise inconsistente. Armazenamento fora do ar ao ler um
      * documento (PR F) é transitório: volta à fila como a falha de rede do provedor.
      */
-    private function preparar(FluxoDeAnalise $fluxo, AnaliseDeInteligencia $analise, Tenant $tenant, Pasta $pasta): ?PedidoDeLinguagem
+    private function preparar(AnaliseDeInteligencia $analise, \Closure $montar, string $motivoDeContextoVazio): ?PedidoDeLinguagem
     {
         try {
-            $pedido = $fluxo->preparar($analise, $tenant, $pasta);
+            $pedido = $montar();
         } catch (ContextoBloqueadoException $e) {
             $this->falhar($analise, 'contexto bloqueado: ' . $e->getMessage());
 
@@ -281,7 +374,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
         }
 
         if ($pedido === null) {
-            $this->falhar($analise, $fluxo->motivoDeContextoVazio());
+            $this->falhar($analise, $motivoDeContextoVazio);
         }
 
         return $pedido;

@@ -58,6 +58,7 @@ final class ProcessarPerguntaLivreHandlerTest extends KernelTestCase
             new FluxoDoResumoDoPush($c->get(MontadorDeContextoDoPush::class), new PromptResumoDoPush(), new InterpretadorDeRespostaDePush(), $repositorio),
             new FluxoDaAnaliseDaPasta($montador, new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio, $c->get(LeitorDeDocumentosDaPasta::class)),
             new FluxoDaPerguntaLivre($montador, new PromptDaPergunta(new PromptDoAgente()), new InterpretadorDeRespostaDoAgente(), $c->get(PerguntaDaConversaRepository::class)),
+            [], // fluxos sem pasta (chat da Central): o ramo tem testes próprios
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
