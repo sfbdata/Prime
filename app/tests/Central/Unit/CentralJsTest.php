@@ -111,8 +111,8 @@ final class CentralJsTest extends TestCase
         self::assertMatchesRegularExpression('/if \(estado\.iaPasta\) \{ corpoDaPergunta\.pastaId = estado\.iaPasta\.pastaId; \}\s*pedir\(urls\.iaPergunta, \{ metodo: \'POST\', corpo: corpoDaPergunta \}/', $js);
         // a sugestão do resumo só com a barra
         self::assertMatchesRegularExpression('/if \(estado\.iaPasta && ia\.sugestaoPasta\) \{ textos\.push\(ia\.sugestaoPasta\); \}/', $js);
-        // 404 pasta_nao_encontrada na pergunta: aviso do servidor e a barra sai
-        self::assertMatchesRegularExpression('/avisar\(e\.message\);[^\n]*\n\s*if \(e\.status === 404 && e\.codigo === \'pasta_nao_encontrada\'\) \{ removerBarraDaPasta\(\); \}/', $js);
+        // 404 pasta_nao_encontrada e 409 contexto_bloqueado na pergunta: aviso do servidor e a barra sai (as próximas perguntas vão sem pastaId)
+        self::assertMatchesRegularExpression('/avisar\(e\.message\);[^\n]*\n\s*if \(e\.codigo === \'pasta_nao_encontrada\' \|\| e\.codigo === \'contexto_bloqueado\'\) \{ removerBarraDaPasta\(\); \}/', $js);
         // a barra é DOM por createElement/textContent, com link para a pasta
         self::assertMatchesRegularExpression('/function barraDaPasta\(\)[\s\S]*?abrir\.href = urls\.pastaBase \+ String\(p\.pastaId\);/', $js);
     }

@@ -45,7 +45,7 @@ final class PastaDaIaNaTelaTest extends JusPrimeWebTestCase
         self::assertSame(['pastaId', 'nup', 'cliente', 'url'], array_keys($json));
         self::assertSame((int) $pasta->getId(), $json['pastaId']);
         self::assertSame($pasta->getNup(), $json['nup']);
-        self::assertSame('Maria da Silva', $json['cliente']);
+        self::assertSame('MARIA DA SILVA', $json['cliente']);
         self::assertSame('/pasta/' . $pasta->getId(), $json['url']);
         $cabecalho = (string) $client->getResponse()->headers->get('Cache-Control');
         self::assertStringContainsString('private', $cabecalho);
@@ -84,7 +84,7 @@ final class PastaDaIaNaTelaTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $ana, $tenant);
         $corpos = [];
-        foreach (['inexistente' => 2147483000, 'outro escritório' => $deFora->getId(), 'excluída' => $excluida->getId()] as $caso => $id) {
+        foreach (['inexistente' => 999999999, 'outro escritório' => $deFora->getId(), 'excluída' => $excluida->getId()] as $caso => $id) {
             $client->request('GET', '/central/ia/pasta/' . $id);
             self::assertResponseStatusCodeSame(404, $caso);
             self::assertStringContainsString('no-store', (string) $client->getResponse()->headers->get('Cache-Control'), $caso);

@@ -65,7 +65,7 @@ final class DescreverPastaDoContextoDaIaUseCaseTest extends TestCase
 
         self::assertSame(50, $saida->pastaId);
         self::assertSame('PASTA-50', $saida->nup);
-        self::assertSame('Maria da Silva', $saida->cliente);
+        self::assertSame('MARIA DA SILVA', $saida->cliente);
         self::assertSame(['pastaId', 'nup', 'cliente'], array_keys(get_object_vars($saida)));
     }
 
