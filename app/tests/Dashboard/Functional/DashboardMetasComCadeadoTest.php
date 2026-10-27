@@ -6,6 +6,7 @@ namespace App\Tests\Dashboard\Functional;
 
 use App\Dashboard\Controller\DashboardController;
 use App\Dashboard\Controller\HistoricoDoDashboardController;
+use App\Dashboard\Entity\DashboardMetaPastas;
 use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
@@ -123,6 +124,29 @@ final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
         $lista = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString('Meta dashboard livre', $lista);
         self::assertStringNotContainsString('Meta dashboard trancada', $lista);
+    }
+
+    #[TestDox('o ritmo da meta de pastas no painel Intelligence não aparece para quem tem pasta oculta (nenhum número vaza)')]
+    public function testRitmoDaMetaNaoApareceComPastaOculta(): void
+    {
+        $c = $this->cenario();
+        $this->em()->persist(new DashboardMetaPastas($c['tenant'], new \DateTimeImmutable('first day of this month'), 4321, $c['primario']));
+        $this->em()->flush();
+        $hoje = new \DateTimeImmutable('today');
+        $url  = '/dashboard?data_de=' . $hoje->format('Y-m-01') . '&data_ate=' . $hoje->format('Y-m-t');
+
+        foreach (['primario' => $c['primario'], 'gestorLivre' => $c['gestorLivre']] as $quem => $usuario) {
+            $this->entrar($usuario, $c['tenant']);
+            $crawler = $this->client->request('GET', $url);
+            self::assertCount(1, $crawler->filter('.db-ia-meta-ritmo'), $quem . ' vê tudo, o ritmo aparece');
+        }
+
+        $this->entrar($c['gestora'], $c['tenant']);
+        $crawler = $this->client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.db-ia-meta-ritmo'), 'o selo mentiria: realizado sem as ocultas, meta do escritório inteiro');
+        self::assertStringNotContainsString('db-ia-gauge', (string) $this->client->getResponse()->getContent());
+        self::assertStringNotContainsString('de 4321 criadas', (string) $this->client->getResponse()->getContent());
     }
 
     #[TestDox('o primário e o gestor com nível na pasta continuam contando as duas metas')]

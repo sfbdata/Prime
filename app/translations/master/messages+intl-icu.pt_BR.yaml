@@ -1189,3 +1189,68 @@ master:
         fecho: Em caso de dúvida, use o menu Ajuda dentro do BlueJus.
         motivo_do_envio: 'Você recebe este aviso porque é usuário primário de um escritório de {uf} no BlueJus.'
         falha_ao_enfileirar: Não foi possível enfileirar os avisos. Nada foi alterado.
+    # Seção Desempenho (master/_desempenho; desenho 05 Perfis 1.2 VS 25.10.26, L271-280; spec master-desempenho, PR 3).
+    # Os textos do JS ficam em master.desempenho.js.*.
+    desempenho:
+        periodo: Período
+        periodo_24h: 24 horas
+        periodo_7d: 7 dias
+        periodo_30d: 30 dias
+        nota: Medido nas telas do sistema pelos usuários logados. Métricas do servidor entram quando a API de monitoramento estiver ligada.
+        incidentes: Incidentes
+        sem_incidentes: Nenhum incidente registrado.
+        backups: Backups e restauração
+        backups_sub: registre cada backup e cada teste
+        sem_backups: Nenhum backup registrado.
+        integracoes: Integrações
+        integracoes_sub: situação das conexões externas
+        erros: Erros recentes
+        erros_sub: capturados nas telas
+        sem_erros: Nenhum erro no período.
+        js:
+            sem_dados: Sem dados
+            nenhum_registrado: nenhum registrado
+            erro_carregar: Não foi possível carregar o desempenho. Recarregue a página.
+            kpi:
+                disponibilidade: DISPONIBILIDADE
+                p95: TEMPO DE CARREGAMENTO (P95)
+                erros: ERROS NO SISTEMA
+                logins: FALHAS DE LOGIN
+                uploads: FALHAS DE UPLOAD
+                backup: ÚLTIMO BACKUP
+                restauracao: TESTE DE RESTAURAÇÃO
+                servidor: CPU E MEMÓRIA DO SERVIDOR
+            verificacoes: '{n} verificação(ões)'
+            segundos: '{n} s'
+            carregamentos: '{n} carregamento(s) medidos'
+            erros_de_tela: erros de tela registrados
+            tentativas: '{n} tentativa(s)'
+            envios: '{n} envio(s)'
+            backup_menos_1h: há menos de 1 h
+            backup_ha_h: há {n} h
+            aprovado: Aprovado
+            falhou: Falhou
+            concluido: Concluído
+            aguarda_api: aguarda a API de métricas do servidor
+            navegador_mb: 'navegador: {n} MB'
+            em_aberto: '{n} em aberto'
+            em_aberto_status: Em aberto
+            resolvido_em: 'Resolvido em {data}'
+            sem_pagina: '-'
+            gravidade:
+                crit: Crítico
+                alta: Alto
+                media: Médio
+                baixa: Baixo
+            tipo:
+                backup: Backup
+                restauracao: Teste de restauração
+            conectada: Conectada
+            nao_configurada: Não configurada
+            integracao:
+                email: E-mail (envio e confirmação de leitura)
+                banco_pix: Banco · PIX
+                google: Google (login e agenda)
+                facebook: Facebook (login)
+                tribunais: Tribunais · Push processual
+                ia: IA (Chat I.A e leitura de documentos)

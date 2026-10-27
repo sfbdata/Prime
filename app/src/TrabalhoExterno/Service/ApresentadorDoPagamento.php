@@ -64,16 +64,14 @@ final class ApresentadorDoPagamento
             'forma' => $valor !== null ? $this->forma($d->propostaAceita()) : '',
             'txid' => $d->getCodigo(),
             'estado' => $estado,
-            'stTxt' => $texto,
-            'stCor' => $cor,
-            'stBg' => $fundo,
-            'stIc' => $icone,
+            'stTxt' => $texto, 'stCor' => $cor, 'stBg' => $fundo, 'stIc' => $icone,
             'mostraQr' => $mostraQr,
             'cod' => $codigo,
             'qr' => $mostraQr ? $this->qr->gerar($codigo) : '',
             'podeComprovante' => $valor !== null && $estado === 'aguarda' && $this->politica->podeEnviarComprovante($ctx, $d),
             'comprovante' => $comprovante !== null ? ['id' => $comprovante->getId(), 'nome' => $comprovante->getNomeOriginal()] : null,
             'podeConfirmar' => $valor !== null && $estado !== 'pago' && $this->politica->podeConfirmarRecebimento($ctx, $d),
+            'podeRecusar' => $valor !== null && $this->politica->podeRecusarComprovante($ctx, $d),
             'confirmacao' => $valor !== null ? sprintf('Confirmar o recebimento de %s via PIX?', self::valorFormatado($valor)) : '',
         ];
     }

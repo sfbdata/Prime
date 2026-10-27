@@ -285,6 +285,20 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
   todos. A `--data` no passado só repara uma noite perdida (o status é o de agora). Nada é preenchido
   para trás: o histórico dos cards começa na primeira foto com os 7 números.
 
+- **PR-G (feito: Inteligência, selo/gauge e botões por alerta; sem migration)**. Porte do desenho 01 VS 25.10.26 no painel BlueJus Intelligence.
+  - **Ritmo da meta** (`RitmoDaMeta`, `EstadoDoRitmo`): selo (4 estados do dc), gauge, Ritmo atual e Ritmo necessário, em
+    DIAS ÚTEIS, sobre a meta de pastas do mês (teto 9999). O dc calcula o objetivo a partir de períodos anteriores, que o
+    sistema não guarda; por isso o objetivo é a meta de pastas. O bloco só existe com meta definida + mês inteiro + sem
+    responsável nem cargo (`visivel`) + SEM pasta oculta pelo cadeado (a meta é do escritório inteiro e o realizado sairia
+    sem as ocultas: o selo mentiria). Sem isso, o bloco some.
+  - **Marcas dos alertas** (Resolvido, Ignorar, Aplicar, Não se aplica): pessoais, em `preferencia_usuario`
+    (`dashboard.ia_alertas`, mapa por id de alerta, fora do catálogo do menu ⋮ para o "Restaurar padrão" não apagar).
+    `POST /dashboard/inteligencia/alerta`; tocar de novo desfaz; persiste até desfazer. O UseCase lê e regrava o mapa
+    inteiro (o último a gravar vence); gravar uma chave por alerta fica como melhoria se virar problema.
+  - **Pendências**: "Criar tarefa" (não há tela de tarefa avulsa para receber o título); "Simular dia" (controle de teste do
+    protótipo); Perguntas guiadas como pílulas + caixa única (hoje acordeão exclusivo); objetivo por períodos anteriores
+    (precisa guardar o histórico de concluídas por período); plano "Aumentar o nível".
+
 ## Estado da frente (24/10)
 
 - #334 e #339 no master (migration 150900 com `finalizada_em`).

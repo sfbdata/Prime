@@ -42,6 +42,29 @@ djen:
         limpar_lidas: Limpar lidas
         vazio: Nenhuma publicação.
     index:
+        selecionar: Selecionar
+        selecionar_todas: Selecionar todas
+        selecionar_publicacao: Selecionar a publicação
+        n_selecionadas: '{n} selecionada(s)'
+        marcar_lidas: Marcar como lidas
+        excluir: Excluir
+        limpar_lidas: Limpar lidas
+        dica_botao_direito: Botão direito para mais opções
+        menu_abrir: Abrir publicação
+        menu_marcar_lida: Marcar como lida
+        menu_marcar_nao_lida: Marcar como não lida
+        menu_copiar: Copiar número do processo
+        menu_excluir: Excluir publicação
+        numero_copiado: Número copiado.
+        confirma_excluir_lote: "Excluir {n} publicação(ões) selecionada(s)?\n\nElas saem da caixa do Push. O processo e a pasta continuam como estão."
+        prompt_excluir_lote: 'Confirmação de segurança: digite EXCLUIR para apagar {n} publicação(ões).'
+        confirma_excluir_uma: 'Excluir esta publicação de {data} do processo {processo}?'
+        prompt_excluir_uma: 'Confirmação de segurança: digite EXCLUIR para apagar a publicação.'
+        confirma_limpar: 'Limpar a caixa: excluir as {n} publicações já lidas?'
+        prompt_limpar: 'Confirmação de segurança: digite EXCLUIR para limpar {n} publicações lidas.'
+        exclusao_cancelada: 'Exclusão cancelada: a confirmação não conferiu.'
+        limpeza_cancelada: Limpeza cancelada.
+        sem_lidas: Não há publicações lidas para limpar.
         titulo_pagina: 'Push Processual | Publicações'
         titulo: 'Push Processual: Publicações'
         processos_monitorados: Processos monitorados
