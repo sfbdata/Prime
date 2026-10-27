@@ -10,6 +10,7 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Attribute\PastaPorId;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Enum\AbaMetas;
@@ -233,34 +234,11 @@ final class TarefaController extends AbstractController
             return $this->json(['erro' => 'Escolha a caixa / etapa da meta.'], 422);
         }
 
-        $tarefa = new Tarefa();
-        $tarefa->setTitulo($titulo);
-        $tarefa->setDescricao($descricao);
-        $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
-        $tarefa->setPasta($pasta);
-        $tarefa->setTenant($tenant);
-        $tarefa->setCriadoPor($usuario);
-        $tarefa->setPrazo($prazo);
-        $tarefa->setEtapa($etapa);
-        foreach ($responsaveis as $responsavel) {
-            $tarefa->addResponsavel($responsavel);
-        }
+        $tarefa = $this->novaMetaDaPasta($titulo, $descricao, $pasta, $tenant, $usuario, $prazo, $etapa, $responsaveis);
 
-        // Análise do prazo (desenho 02): o modal manda `analise_prazo=1` quando a mostrou. Estimado ou a conferir não
-        // grava; sem o campo (Push, drawer da IA, chamadas antigas) a meta nasce como sempre nasceu.
-        if ('1' === (string) $request->request->get('analise_prazo')) {
-            try {
-                $registrarAnalise->executar($tarefa, new AnalisarPrazoDaMetaInput(
-                    $titulo,
-                    $descricao,
-                    AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_publicacao')),
-                    AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_ciencia')),
-                    AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('prazo_juridico')),
-                    '1' === (string) $request->request->get('analise_confirmada'),
-                ), new \DateTimeImmutable('today'));
-            } catch (\DomainException $recusa) {
-                return $this->json(['erro' => $recusa->getMessage(), 'codigo' => 'analise_do_prazo'], 422);
-            }
+        // Análise do prazo (desenho 02): estimado ou a conferir não grava.
+        if (($recusa = $this->registrarAnaliseDoPrazo($request, $registrarAnalise, $tarefa, $titulo, $descricao)) !== null) {
+            return $recusa;
         }
 
         // Grava já com o número da meta no escritório ("Nº 0001"), sob a trava da sequência.
@@ -276,6 +254,55 @@ final class TarefaController extends AbstractController
             'id'      => $tarefa->getId(),
             'destino' => $this->generateUrl('pasta_show', ['id' => $pasta->getId(), 'meta' => $tarefa->getId()]) . '#tarefas',
         ]);
+    }
+
+    /**
+     * A meta nova da pasta, ainda sem gravar (a gravação é do `GravarMetaNovaUseCase`).
+     *
+     * @param iterable<User> $responsaveis
+     */
+    private function novaMetaDaPasta(string $titulo, string $descricao, Pasta $pasta, Tenant $tenant, User $usuario, \DateTimeImmutable $prazo, EtapaDaPasta $etapa, iterable $responsaveis): Tarefa
+    {
+        $tarefa = new Tarefa();
+        $tarefa->setTitulo($titulo);
+        $tarefa->setDescricao($descricao);
+        $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
+        $tarefa->setPasta($pasta);
+        $tarefa->setTenant($tenant);
+        $tarefa->setCriadoPor($usuario);
+        $tarefa->setPrazo($prazo);
+        $tarefa->setEtapa($etapa);
+        foreach ($responsaveis as $responsavel) {
+            $tarefa->addResponsavel($responsavel);
+        }
+
+        return $tarefa;
+    }
+
+    /**
+     * Análise do prazo da Nova meta (desenho 02): o modal manda `analise_prazo=1` quando a mostrou. Sem o campo (chamadas
+     * antigas) a meta nasce como sempre nasceu. Devolve a recusa 422 quando o prazo jurídico ainda é só uma estimativa.
+     */
+    private function registrarAnaliseDoPrazo(Request $request, RegistrarAnaliseDoPrazoNaMetaUseCase $registrar, Tarefa $tarefa, string $titulo, string $descricao): ?JsonResponse
+    {
+        if ('1' !== (string) $request->request->get('analise_prazo')) {
+            return null;
+        }
+
+        try {
+            $registrar->executar($tarefa, new AnalisarPrazoDaMetaInput(
+                $titulo,
+                $descricao,
+                AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_publicacao')),
+                AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_ciencia')),
+                AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('prazo_juridico')),
+                '1' === (string) $request->request->get('analise_confirmada'),
+            ), new \DateTimeImmutable('today'));
+        } catch (\DomainException $recusa) {
+            return $this->json(['erro' => $recusa->getMessage(), 'codigo' => 'analise_do_prazo'], 422);
+        }
+
+        return null;
     }
 
     /**
