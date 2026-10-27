@@ -6,7 +6,7 @@
      e a tela volta ao último valor gravado). A recompensa vai como o Master digitou ("10,00"); o servidor lê.
    - Lista de Indicadores: busca e filtros só no navegador, sobre o que o servidor calculou (nada é recalculado aqui).
    - Menu ⋮ (ou botão direito): "Condição individual", "Lançar crédito ou estorno", "Ver extrato deste indicador",
-     "Baixar extrato (CSV)" e "Voltar à regra geral". Dar baixa, caixa e Fechamento do mês entram nas fatias seguintes.
+     "Baixar extrato (CSV)" e "Usar a regra geral". Dar baixa, caixa e Fechamento do mês entram nas fatias seguintes.
    - Antifraude (F3): a situação vem do servidor (Bloqueado, Em análise, Alerta, Liberado...); o title mostra os motivos
      agregados (sem nome nem e-mail do indicado). O menu ganha "Revisar suspeitas e aprovar" (só com suspeita, confirma
      com a quantidade e os motivos), "Bloquear/Desbloquear recompensa" e "Apagar da lista" (digitar APAGAR; o servidor
@@ -59,6 +59,7 @@
     fundo: $('[data-mrc-rcb-fundo]'), posicao: $('[data-mrc-rcb]'), indicador: $('[data-mrc-rcb-indicador]'), sub: $('[data-mrc-rcb-sub]'),
     nome: $('[data-mrc-rcb-nome]'), documento: $('[data-mrc-rcb-documento]'), pix: $('[data-mrc-rcb-pix]'),
     erro: $('[data-mrc-rcb-erro]'), enviar: $('[data-mrc-rcb-enviar]'),
+    sugestao: $('[data-mrc-rcb-sugestao]'), sugestaoValor: $('[data-mrc-rcb-sugestao-valor]'), sugestaoUsar: $('[data-mrc-rcb-sugestao-usar]'),
   };
   const FORMAS = ['pix', 'transferencia', 'desconto_na_mensalidade', 'credito_de_espaco'];
   // Aspas pelo código (\x22 e \x27): um literal de aspas aqui desalinha o detector de texto fixo (SemTextoFixoNosExtraidos).
@@ -171,7 +172,8 @@
       + celulaPorConta(u)
       + '<b class="mrc-saldo">' + esc(moeda(u.saldoCentavos)) + '</b><span>' + esc(moeda(u.pagoCentavos)) + '</span>'
       + '<span class="mrc-sit' + (s.ok ? ' mrc-sit-ok' : '') + (s.alerta ? ' mrc-sit-alerta' : '') + '" title="' + esc(s.dica) + '">' + esc(s.txt) + '</span>'
-      + '<span class="mrc-acoes"><button type="button" class="mrc-ajustar" data-acao="condicao" title="' + esc(T('master.js.recompensas.ajustar_dica')) + '"><i class="bi bi-star" aria-hidden="true"></i> ' + esc(T('master.js.recompensas.ajustar')) + '</button>'
+      + '<span class="mrc-acoes">' + (REGRAS_DE_FILTRO.pagar(u) ? '<button type="button" class="mrc-pagar" data-acao="baixa">' + esc(T('master.js.recompensas.pagar')) + '</button>' : '')
+      + '<button type="button" class="mrc-ajustar" data-acao="condicao" title="' + esc(T('master.js.recompensas.ajustar_dica')) + '"><i class="bi bi-star" aria-hidden="true"></i> ' + esc(T('master.js.recompensas.ajustar')) + '</button>'
       + '<button type="button" class="mrc-mais" data-acao="menu" title="' + esc(T('master.js.recompensas.mais_opcoes')) + '" aria-label="' + esc(T('master.js.recompensas.mais_opcoes')) + '" aria-haspopup="menu"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button></span>'
       + '</div>';
   }
@@ -443,6 +445,13 @@
     bai.anexoOk.hidden = !f;
   }
 
+  function copiarEmail(id) {
+    const u = indicador(id);
+    fecharMenu();
+    if (u && u.email && navigator.clipboard) navigator.clipboard.writeText(u.email);
+    avisar(T(u && u.email ? 'master.js.recompensas.email_copiado' : 'master.js.recompensas.sem_email'), !!(u && u.email));
+  }
+
   function abrirBaixa(id) {
     const u = indicador(id);
     if (!u) return;
@@ -510,6 +519,7 @@
     rcb.nome.value = u.nome;
     rcb.documento.value = '';
     rcb.pix.value = '';
+    rcb.sugestao.hidden = true;
     avisarNoRecebimento('');
     fecharMenu();
     rcb.fundo.hidden = false;
@@ -519,10 +529,17 @@
     fetch(urlDoUsuario(raiz.dataset.urlRecebimento, id), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(d => {
-        if (alvo !== id || !d.nome) return;
-        rcb.nome.value = d.nome;
-        rcb.documento.value = d.documento || '';
-        rcb.pix.value = d.chavePix || '';
+        if (alvo !== id) return;
+        if (d.nome) {
+          rcb.nome.value = d.nome;
+          rcb.documento.value = d.documento || '';
+          rcb.pix.value = d.chavePix || '';
+        }
+        // A chave que a própria pessoa informou no perfil só é sugerida (com "Usar") se a do Master está vazia.
+        if (d.chavePixDoPerfil && !rcb.pix.value.trim()) {
+          rcb.sugestaoValor.textContent = d.chavePixDoPerfil;
+          rcb.sugestao.hidden = false;
+        }
       })
       .catch(() => avisarNoRecebimento(T('master.js.recompensas.recebimento_erro_carregar')));
   }
@@ -632,6 +649,7 @@
     const id = b ? idDaLinha(b) : null;
     if (id === null) return;
     if (b.dataset.acao === 'condicao') { abrirJanela(id); return; }
+    if (b.dataset.acao === 'baixa') { abrirBaixa(id); return; }
     const r = b.getBoundingClientRect();
     abrirMenu(id, r.right - 260, r.bottom + 4);
   });
@@ -662,6 +680,7 @@
   lan.enviar.addEventListener('click', lancar);
   menu.caixa.querySelector('[data-mrc-menu-acao="baixa"]').addEventListener('click', () => abrirBaixa(alvo));
   menu.caixa.querySelector('[data-mrc-menu-acao="recebimento"]').addEventListener('click', () => abrirRecebimento(alvo));
+  menu.caixa.querySelector('[data-mrc-menu-acao="copiar"]').addEventListener('click', () => copiarEmail(alvo));
   bai.fundo.addEventListener('click', fecharBaixa);
   raiz.querySelectorAll('[data-mrc-bai-fechar]').forEach(b => b.addEventListener('click', fecharBaixa));
   bai.enviar.addEventListener('click', darBaixa);
@@ -675,6 +694,11 @@
   rcb.fundo.addEventListener('click', fecharRecebimento);
   raiz.querySelectorAll('[data-mrc-rcb-fechar]').forEach(b => b.addEventListener('click', fecharRecebimento));
   rcb.enviar.addEventListener('click', salvarRecebimento);
+  rcb.sugestaoUsar.addEventListener('click', () => {
+    rcb.pix.value = rcb.sugestaoValor.textContent;
+    rcb.sugestao.hidden = true;
+    rcb.pix.focus();
+  });
   raiz.querySelector('[data-mrc-ext-limpar]').addEventListener('click', () => filtrarExtrato(null));
   dlg.rec.addEventListener('click', () => alternarRecorrente(dlg.rec.getAttribute('aria-checked') !== 'true'));
   dlg.salvar.addEventListener('click', salvarCondicao);
@@ -694,6 +718,7 @@
     menu.caixa.querySelector('[data-mrc-menu-txt="geral"]').textContent = T('master.js.recompensas.menu_geral');
     menu.caixa.querySelector('[data-mrc-menu-txt="baixa"]').textContent = T('master.js.recompensas.menu_baixa');
     menu.caixa.querySelector('[data-mrc-menu-txt="recebimento"]').textContent = T('master.js.recompensas.menu_recebimento');
+    menu.caixa.querySelector('[data-mrc-menu-txt="copiar"]').textContent = T('master.js.recompensas.menu_copiar');
     menu.caixa.querySelector('[data-mrc-menu-txt="lancamento"]').textContent = T('master.js.recompensas.menu_lancamento');
     menu.caixa.querySelector('[data-mrc-menu-txt="extrato"]').textContent = T('master.js.recompensas.menu_extrato');
     menu.caixa.querySelector('[data-mrc-menu-txt="csv"]').textContent = T('master.js.recompensas.menu_csv');

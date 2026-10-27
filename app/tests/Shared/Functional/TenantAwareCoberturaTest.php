@@ -50,6 +50,7 @@ use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\MetricaPublica;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\RecusaDeOferta;
+use App\TrabalhoExterno\Entity\TermoDeVoluntariado;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Entity\Vaga;
 use Doctrine\ORM\EntityManagerInterface;
@@ -187,6 +188,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
         MetricaPublica::class, // contador anônimo da página pública (dia, link, visitas, cliques), sem escritório nem pessoa; só o painel do Master lê, e só a soma (PainelDoTrabalhoExternoTest::testSoOMasterVeOPainel)
         Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
+        TermoDeVoluntariado::class, // termo do currículo, lido pelo voluntário em qualquer escritório dele; só se acha pelo currículo já localizado ou pelo código conferido na PoliticaDoTermo, e a coluna tenant_id (sede emissora) entra na purga (TermosDeVoluntariadoTest::testIsolamento)
         Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
 
         // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
@@ -378,7 +380,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 91 → 92 com os dados de recebimento das recompensas (27/10/2026): DadosDeRecebimentoDeRecompensa, justificada acima.
     // 92 → 93 com a integração bancária da C4 (linha global da BlueJus, justificada acima).
     // 93 → 94 com o aviso de login novo (27/10/2026): AcessoConhecido é do usuário, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 94;
+    // 94 → 95 com o Termo de Voluntariado do Trabalho Externo (27/10/2026): TermoDeVoluntariado, justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 95;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

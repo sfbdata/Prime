@@ -62,6 +62,8 @@ final class TiposDeAvisoDaCentral
         Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO => ['grupo' => 'atencao', 'rotulo' => 'Andamento da demanda', 'icone' => 'bi-briefcase', 'cor' => self::PETROLEO, 'nivel' => 1],
         Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA => ['grupo' => 'atencao', 'rotulo' => 'Resposta ao despacho', 'icone' => 'bi-reply', 'cor' => self::VERDE, 'nivel' => 1],
         Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA => ['grupo' => 'atencao', 'rotulo' => 'Oferta recusada', 'icone' => 'bi-x-circle', 'cor' => self::AMBAR, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_TERMO_ENVIADO => ['grupo' => 'atencao', 'rotulo' => 'Termo para aceitar', 'icone' => 'bi-file-earmark-check', 'cor' => self::AMBAR, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_TERMO_ACEITO => ['grupo' => 'atencao', 'rotulo' => 'Termo aceito', 'icone' => 'bi-file-earmark-check', 'cor' => self::VERDE, 'nivel' => 1],
     ];
 
     /**
@@ -84,6 +86,11 @@ final class TiposDeAvisoDaCentral
      */
     private const DA_PASTA_ACOMPANHADA = [
         Notificacao::TIPO_PASTA_ACOMPANHADA => ['grupo' => 'mensagens', 'rotulo' => 'Pasta acompanhada', 'icone' => 'bi-bell', 'cor' => self::AZUL, 'nivel' => 1],
+    ];
+
+    /** Gateway de pagamentos (M0b): pagamento divergente ou teste do banco, para o Master decidir. Fora do `match` pelo limite de linhas. */
+    private const DO_GATEWAY = [
+        AvisoAoMaster::TIPO_PAGAMENTO_DIVERGENTE => ['grupo' => 'atencao', 'rotulo' => 'Pagamento', 'icone' => 'bi-cash-coin', 'cor' => self::AMBAR, 'nivel' => 2],
     ];
 
     /**
@@ -112,7 +119,7 @@ final class TiposDeAvisoDaCentral
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
         $tipo = strtolower($tipo);
-        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? self::DO_DASHBOARD[$tipo] ?? self::DA_PASTA_ACOMPANHADA[$tipo] ?? null;
+        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? self::DO_DASHBOARD[$tipo] ?? self::DA_PASTA_ACOMPANHADA[$tipo] ?? self::DO_GATEWAY[$tipo] ?? null;
         if ($doMapa !== null) {
             return $doMapa;
         }
@@ -141,8 +148,6 @@ final class TiposDeAvisoDaCentral
             AvisoAoMaster::TIPO_SUGESTAO, AvisoAoMaster::TIPO_APOIO, AvisoAoMaster::TIPO_MOTIVO, AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO, AvisoAoMaster::TIPO_APOIO_CONFIRMADO, AvisoAoPrimario::TIPO_ASSINATURA => ['grupo' => 'atencao', 'rotulo' => 'Contribua', 'icone' => 'bi-heart', 'cor' => '#c0392b', 'nivel' => 2],
             // Relatório mensal de pastas paradas (spec pastas-paradas, "Avisos"): o `paradasNotificar` do desenho.
             EnviarRelatorioPastasParadasUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Relatório', 'icone' => 'bi-pause-circle', 'cor' => self::AMBAR, 'nivel' => 2],
-            // Gateway de pagamentos (M0b): pagamento divergente ou teste do banco, para o Master decidir.
-            AvisoAoMaster::TIPO_PAGAMENTO_DIVERGENTE => ['grupo' => 'atencao', 'rotulo' => 'Pagamento', 'icone' => 'bi-cash-coin', 'cor' => self::AMBAR, 'nivel' => 2],
             ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Documento analisado', 'icone' => 'bi-file-earmark-check', 'cor' => self::AZUL, 'nivel' => 1],
             // Suporte da tela de entrada (desenho 10 / bluejus-central.js bjSuporteFila: tipo "mensagem").
             EnviarMensagemSuporteUseCase::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Mensagem', 'icone' => 'bi-chat-left-text', 'cor' => self::PETROLEO, 'nivel' => 1],

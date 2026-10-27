@@ -62,11 +62,24 @@
        CABEÇALHO — mantém o padrão BlueJus com fix do position:fixed
        ═══════════════════════════════════════════════════════════════════════ */
     nav.app-header.navtop {
+        background: #0a6fa0 !important;
         position: relative !important;
         height: var(--h) !important;
         min-height: var(--h) !important;
         max-height: var(--h) !important;
     }
+
+    .petic-navtop-usuario {
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+        min-width: 0;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .navtop-right { display: flex; align-items: center; gap: 14px; }
 
     .petic-navtop-info {
         display: flex;
@@ -86,9 +99,11 @@
         line-height: 1.2;
     }
     .petic-navtop-sub {
-        font-size: 0.72rem;
+        font-size: 12px;
         font-weight: 400;
-        color: rgba(255,255,255,0.75);
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.9);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -96,95 +111,35 @@
         line-height: 1.2;
     }
 
-    /* ── Botão de processo na navbar ── */
-    .petic-processo-btn {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.25);
-        border-radius: 4px;
-        color: #fff;
-        font-size: 0.78rem;
-        font-weight: 600;
-        padding: 4px 10px;
-        cursor: pointer;
-        transition: background 0.15s;
-        white-space: nowrap;
+    /* ── Seletor do processo (desenho 07, L35-39) ── */
+    .petic-proc { position: relative; flex-shrink: 0; }
+    .petic-proc-btn {
+        display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px;
+        border: 1px solid rgba(255,255,255,.35); border-radius: 4px; background: rgba(255,255,255,.12);
+        color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+        font-variant-numeric: tabular-nums; white-space: nowrap;
     }
-    .petic-processo-btn:hover,
-    .petic-processo-btn[aria-expanded="true"] {
-        background: rgba(255,255,255,0.22);
+    .petic-proc-btn:hover { background: rgba(255,255,255,.22); }
+    .petic-proc-btn .bi-chevron-down { font-size: 11px; }
+    .petic-proc-fundo { position: fixed; inset: 0; z-index: 9; }
+    .petic-proc-menu {
+        position: absolute; left: 0; top: 40px; z-index: 10; min-width: 320px; background: #fff;
+        border: 1px solid #d3dde4; border-radius: 4px; box-shadow: 0 10px 26px rgba(16,42,58,.18);
+        padding: 4px; color: #12242f;
     }
-    .petic-processo-btn::after { display: none !important; }
-    .petic-processo-btn .bi-chevron-down {
-        font-size: 10px;
-        opacity: 0.7;
-        transition: transform 0.2s;
+    .petic-proc-item {
+        width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: none;
+        border-radius: 4px; background: #fff; font: inherit; text-align: left; cursor: pointer;
     }
-    .petic-processo-btn[aria-expanded="true"] .bi-chevron-down {
-        transform: rotate(180deg);
-    }
-
-    /* ── Card do dropdown do processo ── */
-    .petic-processo-card {
-        min-width: 420px;
-        max-width: 520px;
-        padding: 0 !important;
-        border: none !important;
-        border-radius: 3px !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.22) !important;
-        overflow: hidden;
-        margin-top: 6px !important;
-    }
-
-    .petic-proc-header {
-        background: #0078AA;
-        padding: 10px 14px 12px;
-    }
-    .petic-proc-numero {
-        display: block;
-        font-size: 0.88rem;
-        font-weight: 700;
-        color: #fff;
-        letter-spacing: 0.2px;
-        margin-bottom: 4px;
-    }
-    .petic-proc-partes {
-        display: block;
-        font-size: 0.72rem;
-        color: rgba(255,255,255,0.82);
-        line-height: 1.35;
-        word-break: break-word;
-        white-space: normal;
-    }
-
-    .petic-proc-body {
-        background: var(--bs-body-bg);
-        padding: 6px 0 4px;
-    }
-    .petic-proc-row {
-        display: flex;
-        align-items: baseline;
-        padding: 5px 14px;
-        gap: 10px;
-        border-bottom: 1px solid var(--bs-border-color);
-    }
-    .petic-proc-row:last-child { border-bottom: none; }
-    .petic-proc-label {
-        flex-shrink: 0;
-        width: 130px;
-        text-align: right;
-        font-size: 0.77rem;
-        font-weight: 600;
-        color: var(--bs-secondary-color);
-    }
-    .petic-proc-value {
-        font-size: 0.77rem;
-        color: var(--bs-body-color);
-        word-break: break-word;
-        white-space: normal;
-    }
+    .petic-proc-item:hover { background: #e5f1f7; }
+    .petic-proc-item--atual { background: #e5f1f7; }
+    .petic-proc-item-corpo { flex: 1; min-width: 0; }
+    .petic-proc-item-corpo b { font-size: 13.5px; color: #0a6fa0; font-variant-numeric: tabular-nums; }
+    .petic-proc-item-corpo span { display: block; font-size: 11.5px; color: #5b7383; }
+    .petic-proc-item .bi-check2 { color: #0a6fa0; visibility: hidden; }
+    .petic-proc-item--atual .bi-check2 { visibility: visible; }
+    .petic-proc-vazio { padding: 10px; font-size: 12.5px; color: #7b93a2; }
+    .petic-proc [hidden] { display: none; }
 
     /* ═══════════════════════════════════════════════════════════════════════
        LAYOUT PRINCIPAL
@@ -627,189 +582,45 @@
                     {% endif %}
                 </div>
 
-                {% if pasta.processoPrincipal %}
-                    {% set proc = pasta.processoPrincipal %}
-                    <span class="navtop-page-sep">|</span>
-                    <div class="dropdown">
-                        <button class="petic-processo-btn dropdown-toggle"
-                                type="button"
-                                data-bs-toggle="dropdown"
-                                aria-expanded="false">
-                            <i class="bi bi-journal-text"></i>
-                            {{ proc.siglaTribunal ? proc.siglaTribunal ~ ' ' : '' }}{{ proc.numeroProcesso }}
-                            <i class="bi bi-chevron-down"></i>
-                        </button>
-                        <div class="dropdown-menu petic-processo-card">
-
-                            <div class="petic-proc-header">
-                                <span class="petic-proc-numero">
-                                    <i class="bi bi-journal-text me-1"></i>
-                                    {{ proc.siglaTribunal ? proc.siglaTribunal ~ ' ' : '' }}{{ proc.numeroProcesso }}
+                <span class="navtop-page-sep">|</span>
+                {% set vinculoPrincipal = pasta.vinculoPrincipal %}
+                {% set vinculos = [] %}
+                {% if vinculoPrincipal %}{% set vinculos = [vinculoPrincipal] %}{% endif %}
+                {% for v in pasta.pastaProcessos %}{% if v is not same as(vinculoPrincipal) %}{% set vinculos = vinculos|merge([v]) %}{% endif %}{% endfor %}
+                <div class="petic-proc" id="peticProc">
+                    <button type="button" class="petic-proc-btn" id="peticProcBtn"
+                            aria-expanded="false" aria-controls="peticProcMenu"
+                            title="{{ 'peticionar.processo.dica'|trans }}">
+                        <i class="bi bi-journal-text"></i>
+                        <span id="peticProcTxt">{% if vinculoPrincipal %}{% set proc = vinculoPrincipal.processo %}{{ proc.siglaTribunal ? proc.siglaTribunal ~ ' ' : '' }}{{ proc.numeroProcesso|replace({'.': '', '-': ''}) }}{% else %}{{ 'peticionar.processo.sem_processo'|trans }}{% endif %}</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <div class="petic-proc-fundo" id="peticProcFundo" hidden></div>
+                    <div class="petic-proc-menu" id="peticProcMenu" hidden>
+                        {% for v in vinculos %}
+                            {% set pr = v.processo %}
+                            {% set marcado = loop.first %}
+                            <button type="button" class="petic-proc-item{% if marcado %} petic-proc-item--atual{% endif %}"
+                                    data-numero="{{ pr.numeroProcesso }}"
+                                    data-texto="{{ pr.siglaTribunal ? pr.siglaTribunal ~ ' ' : '' }}{{ pr.numeroProcesso|replace({'.': '', '-': ''}) }}">
+                                <span class="petic-proc-item-corpo">
+                                    <b>{{ pr.numeroProcesso }}</b>
+                                    <span>{{ [v is same as(vinculoPrincipal) ? 'peticionar.processo.principal'|trans : v.tipoApensoRotulo, pr.classeProcessual, pr.siglaTribunal]|filter(x => x)|join(' · ') }}</span>
                                 </span>
-                                {% set poloAtivo   = proc.partes|filter(p => 'ATIVO'   in p.tipo) %}
-                                {% set poloPassivo = proc.partes|filter(p => 'PASSIVO' in p.tipo) %}
-                                {% if poloAtivo|length or poloPassivo|length %}
-                                    <span class="petic-proc-partes">
-                                        {% if poloAtivo|length %}{{ poloAtivo|first.nome }}{% endif %}
-                                        {% if poloAtivo|length and poloPassivo|length %} {{ 'peticionar.processo.contra'|trans }} {% endif %}
-                                        {% if poloPassivo|length %}{{ poloPassivo|first.nome }}{% endif %}
-                                    </span>
-                                {% endif %}
-                            </div>
-
-                            <div class="petic-proc-body">
-                                {% if proc.classeProcessual %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.classe'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.classeProcessual }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.assuntoProcessual %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.assunto'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.assuntoProcessual }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.orgaoJulgador %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.jurisdicao'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.orgaoJulgador }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.dataDistribuicao %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.distribuicao'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.dataDistribuicao|data }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.instancia %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.instancia'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.instancia }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.situacaoProcesso %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.situacao'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.situacaoProcesso }}</span>
-                                    </div>
-                                {% endif %}
-                            </div>
-
-                        </div>
+                                <i class="bi bi-check2"></i>
+                            </button>
+                        {% else %}
+                            <div class="petic-proc-vazio">{{ 'peticionar.processo.nenhum'|trans }}</div>
+                        {% endfor %}
                     </div>
-                {% endif %}
+                </div>
             </div>
 
             <div class="navtop-right">
-
-                {# Notificações #}
-                <div class="navtop-action dropdown">
-                    <a href="#" class="navtop-action-btn"
-                       data-bs-toggle="dropdown" id="notificacaoDropdownToggle"
-                       aria-label="{{ 'moldura.notificacoes.rotulo'|trans }}">
-                        <i class="bi bi-bell"></i>
-                        <span class="navtop-badge" id="notificacaoBadge"
-                              style="{% if notificacoesCount == 0 %}display:none;{% endif %}">
-                            {{ notificacoesCount > 9 ? '9+' : notificacoesCount }}
-                        </span>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-end shadow notif-dropdown"
-                         id="notificacaoDropdownMenu">
-                        <div class="notif-header">
-                            <i class="bi bi-bell me-1"></i>
-                            <span id="notificacaoCountText">{{ notificacoesCount }}</span> {{ 'moldura.notificacoes.contagem_sufixo'|trans }}
-                        </div>
-                        <div class="dropdown-divider m-0"></div>
-                        <div id="notificacaoListContainer">
-                            {% if notificacoes|length > 0 %}
-                                {% for notif in notificacoes %}
-                                    <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
-                                       class="dropdown-item notif-item{% if not notif.lida %} notif-unread{% endif %}">
-                                        <i class="bi {{ notif.icone }} notif-icon"></i>
-                                        <div class="notif-body">
-                                            <div class="notif-title">{{ notif.titulo }}</div>
-                                            <div class="notif-msg">{{ notif.mensagem }}</div>
-                                            <div class="notif-time">{{ notif.tempoRelativo }}</div>
-                                        </div>
-                                    </a>
-                                    <div class="dropdown-divider m-0"></div>
-                                {% endfor %}
-                            {% else %}
-                                <a href="#" class="dropdown-item text-center text-muted py-3" id="notificacaoEmpty">
-                                    <i class="bi bi-check-circle me-2"></i> {{ 'moldura.notificacoes.nenhuma'|trans }}
-                                </a>
-                            {% endif %}
-                        </div>
-                        <a href="{{ path('notificacao_index') }}" class="dropdown-item text-center notif-footer">
-                            <i class="bi bi-list-ul me-1"></i> {{ 'moldura.notificacoes.ver_todas'|trans }}
-                        </a>
-                    </div>
-                </div>
-
-                {# Fullscreen #}
-                <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
-                   aria-label="{{ 'moldura.cabecalho.tela_cheia'|trans }}">
-                    <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
-                    <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none"></i>
-                </a>
-
-                {# Usuário #}
-                <div class="navtop-action dropdown menu-usuario">
-                    <a href="#" class="navtop-avatar-btn dropdown-toggle"
-                       data-bs-toggle="dropdown" aria-expanded="false"
-                       aria-label="{{ 'moldura.cabecalho.menu_usuario'|trans }}">
-                        <div class="navtop-user-info d-none d-md-flex">
-                            <span class="navtop-username">{{ app.user.fullName }}</span>
-                        </div>
-                        <span class="navtop-avatar" id="navtopAvatar">
-                            {% if fotoPerfilUrl %}
-                                <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
-                                     alt="{{ app.user.fullName }}"
-                                     style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                            {% else %}
-                                {{ app.user.fullName|slice(0,1)|upper }}
-                            {% endif %}
-                        </span>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end shadow usuario-dropdown">
-                        <li class="usuario-dropdown-header">
-                            <span class="usuario-avatar-lg" id="usuarioAvatarLg">
-                                {% if fotoPerfilUrl %}
-                                    <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
-                                         alt="{{ app.user.fullName }}"
-                                         style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                                {% else %}
-                                    {{ app.user.fullName|slice(0,1)|upper }}
-                                {% endif %}
-                            </span>
-                            <div class="usuario-info">
-                                <div class="usuario-name">{{ app.user.fullName }}</div>
-                                <div class="usuario-email">{{ app.user.email }}</div>
-                            </div>
-                        </li>
-                        <li><hr class="dropdown-divider my-0"></li>
-                        <li>
-                            <a href="{{ path('app_profile') }}" class="dropdown-item d-flex align-items-center gap-2">
-                                <i class="bi bi-person"></i> {{ 'menu.usuario.dropdown.meu_perfil'|trans }}
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ path('legal_politica_privacidade') }}"
-                               class="dropdown-item d-flex align-items-center gap-2"
-                               target="_blank" rel="noopener">
-                                <i class="bi bi-shield-lock"></i> {{ 'menu.usuario.dropdown.privacidade'|trans }}
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider my-0"></li>
-                        <li>
-                            <a href="{{ logout_path('main') }}" class="dropdown-item d-flex align-items-center gap-2 text-danger">
-                                <i class="bi bi-box-arrow-right"></i> {{ 'menu.usuario.dropdown.sair'|trans }}
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-
+                <a href="{{ path('pasta_show', {id: pasta.id}) }}"
+                   class="petic-voltar-pasta"
+                   title="{{ 'pasta_peticionar.lista.voltar_dica'|trans }}"><i class="bi bi-arrow-left"></i>{{ 'pasta_peticionar.lista.voltar'|trans }}</a>
+                <span class="petic-navtop-usuario">{{ app.user.fullName }}</span>
             </div>{# /navtop-right #}
         </div>{# /navtop-inner #}
 
@@ -827,6 +638,7 @@
 
     <script src="{{ asset('js/tinymce/tinymce.min.js') }}"></script>
     <script src="{{ asset('js/bj-traducao.js') }}"></script>
+    <script src="{{ asset('js/peticionar-processo.js') }}"></script>
     {% block javascripts %}{% endblock %}
 </body>
 </html>

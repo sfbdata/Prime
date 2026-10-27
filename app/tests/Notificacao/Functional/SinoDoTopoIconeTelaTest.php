@@ -94,12 +94,4 @@ final class SinoDoTopoIconeTelaTest extends JusPrimeWebTestCase
 
         return [$user, $tenant, $pasta];
     }
-
-    #[TestDox('o layout do Peticionar tem o mesmo sino de contorno no topo (FPN-035b)')]
-    public function testSinoDoPeticionar(): void
-    {
-        $twig = (string) file_get_contents(\dirname(__DIR__, 3) . '/templates/layout_peticionar.html.twig');
-        self::assertMatchesRegularExpression('/id="notificacaoDropdownToggle"[^>]*>\s*<i class="bi bi-bell"><\/i>/', $twig);
-        self::assertStringNotContainsString('bi-bell-fill', $twig);
-    }
 }

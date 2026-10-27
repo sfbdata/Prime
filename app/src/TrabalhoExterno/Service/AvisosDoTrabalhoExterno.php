@@ -14,6 +14,7 @@ use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
+use App\TrabalhoExterno\Entity\TermoDeVoluntariado;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\SituacaoVaga;
@@ -225,6 +226,34 @@ final class AvisosDoTrabalhoExterno
             $vistos[(int) $master->getId()] = true;
             $this->notificacoes->criar($master, $sede, Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA, $titulo, $mensagem)->setUrl($url);
         }
+    }
+
+    /**
+     * Termo de voluntariado enviado para aceite (desenho 06 de 25/10, l.1123): o voluntário recebe "Você tem um termo
+     * de voluntariado para aceitar", no primeiro escritório ativo dele; sem escritório, nenhum aviso. Sem CPF, RG nem
+     * nome no texto: o título é fixo e o link leva a "Meu currículo".
+     */
+    public function termoEnviado(Contexto $ctx, TermoDeVoluntariado $termo): void
+    {
+        $voluntario = $termo->getCurriculo()->getUsuario();
+        $escritorio = $this->destinatarios->primeiroEscritorio($voluntario);
+        if ($escritorio !== null) {
+            $this->avisar($ctx, [$voluntario], $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_TERMO_ENVIADO, 'Você tem um termo de voluntariado para aceitar', self::urlDoCurriculo($termo));
+        }
+    }
+
+    /**
+     * Termo aceito (`aceitarTermo`, l.1135: "O escritório foi avisado"): a Central (Master e Equipe com `talentos`),
+     * no escritório-sede. O texto leva só os códigos do termo e do currículo, nunca o nome nem os documentos.
+     */
+    public function termoAceito(Contexto $ctx, TermoDeVoluntariado $termo): void
+    {
+        $this->paraACentral($ctx, Notificacao::TIPO_TRABALHO_EXTERNO_TERMO_ACEITO, 'Termo de voluntariado aceito: ' . $termo->getCodigo() . ' (currículo ' . $termo->getCurriculo()->getCodigo() . ')', self::urlDoCurriculo($termo));
+    }
+
+    private static function urlDoCurriculo(TermoDeVoluntariado $termo): string
+    {
+        return self::TELA . '#cv=' . $termo->getCurriculo()->getCodigo();
     }
 
     public static function urlDaVaga(Vaga $vaga): string

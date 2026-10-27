@@ -79,6 +79,7 @@
 .mrc-sit.mrc-sit-ok { color: var(--mrc-verde); }
 .mrc-sit.mrc-sit-alerta { color: var(--mrc-vermelho); }
 .mrc-acoes { display: flex; gap: 5px; justify-content: flex-end; align-items: center; }
+.mrc-pagar { height: 28px; padding: 0 9px; border: none; border-radius: 2px; background: #1e7b45; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer; }
 .mrc-ajustar { height: 28px; padding: 0 8px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 12px; cursor: pointer; }
 .mrc-mais { width: 30px; height: 28px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); cursor: pointer; font-size: 15px; line-height: 1; }
 .mrc-mais:hover { border-color: var(--mrc-azul); color: var(--mrc-azul); }
@@ -106,6 +107,8 @@
 .mrc-dlg-campo input { height: 36px; border: 1px solid var(--mrc-borda); border-radius: 2px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: normal; background: var(--mrc-fundo); color: inherit; }
 .mrc-dlg-campo textarea { border: 1px solid var(--mrc-borda); border-radius: 2px; padding: 8px 10px; font: inherit; font-size: 13.5px; font-weight: normal; resize: vertical; background: var(--mrc-fundo); color: inherit; }
 .mrc-dlg-dica { font-weight: normal; font-size: 11.5px; color: var(--mrc-ic); }
+.mrc-rcb-sugestao b { color: var(--mrc-tx); word-break: break-all; }
+.mrc-rcb-usar { border: none; background: none; padding: 0; color: var(--mrc-azul); font: inherit; text-decoration: underline; cursor: pointer; }
 .mrc-dlg-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .mrc-dlg-rec { border: 1px solid var(--mrc-div); border-radius: 2px; padding: 9px 11px; display: flex; flex-direction: column; gap: 8px; }
 .mrc-dlg-rec-tg { display: flex; align-items: center; gap: 8px; border: none; background: none; padding: 0; font-size: 13.5px; font-weight: bold; color: var(--mrc-tx); cursor: pointer; text-align: left; }

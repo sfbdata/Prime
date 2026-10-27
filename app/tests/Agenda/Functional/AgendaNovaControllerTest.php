@@ -29,17 +29,17 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
 {
     private const PERIODO = '/agenda/compromissos?de=2030-03-01&ate=2030-03-31';
 
-    #[TestDox('/agenda mostra a tela nova no arranjo do desenho: lateral e calendário lado a lado, próximos feriados abaixo')]
+    #[TestDox('/agenda/classica mostra a tela de 18/10 no arranjo do desenho: lateral e calendário lado a lado, próximos feriados abaixo')]
     public function testArranjoDaTela(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $this->logarComTenant($client, $this->criarUsuario($tenant, true), $tenant);
 
-        $crawler = $client->request('GET', '/agenda');
+        $crawler = $client->request('GET', '/agenda/classica');
 
         self::assertResponseIsSuccessful();
-        self::assertSame('agenda_index', $client->getRequest()->attributes->get('_route'));
+        self::assertSame('agenda_classica', $client->getRequest()->attributes->get('_route'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-topo > h1.ag-titulo'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-topo > .ag-resumo'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-corpo > .ag-lado'));

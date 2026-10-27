@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Djen\Controller;
 
 use App\Djen\Exception\AcompanhamentoInvalidoException;
+use App\Djen\Enum\SituacaoDoPrazoDoProcesso;
 use App\Djen\Repository\OabMonitoradaRepository;
 use App\Djen\Repository\ProcessosDaOabRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\ClassificacaoDoProcesso;
 use App\Djen\Service\FiltroDeProcessosDaOab;
+use App\Djen\UseCase\AcervoPorJurisdicaoUseCase;
 use App\Djen\UseCase\AtualizarAnotacoesDoProcessoUseCase;
 use App\Djen\UseCase\BuscarProcessosDaOabUseCase;
 use App\Djen\UseCase\CadastrarProcessoNoPushUseCase;
@@ -42,7 +44,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ProcessosDaOabController extends AbstractController
 {
     private const POR_PAGINA = 25;
-    private const SUBABAS = ['acompanhados', 'relatorio'];
+    private const SUBABAS = ['acompanhados', 'relatorio', 'acervo'];
 
     public function __construct(
         private readonly TenantContext $tenantContext,
@@ -61,6 +63,7 @@ final class ProcessosDaOabController extends AbstractController
         private readonly IncluirProcessoCadastradoNoPushUseCase $incluirCadastrado,
         private readonly ConsultasDoCnjGuardadas $consultasDoCnj,
         private readonly BuscarProcessosDaOabUseCase $buscar,
+        private readonly AcervoPorJurisdicaoUseCase $acervoPorJurisdicao,
     ) {
     }
 
@@ -79,8 +82,10 @@ final class ProcessosDaOabController extends AbstractController
 
         $acompanhados = $this->acompanhados($tenant);
         $relatorio = $this->processosDaOab->relatorio($tenant);
+        $filtroDoAcervo = $this->filtroDoAcervo($request);
+        $acervo = $this->acervoPorJurisdicao->executar($tenant, $hoje, $filtroDoAcervo['grupo'], $filtroDoAcervo['orgao'], $filtroDoAcervo['q'], $this->idsOcultos());
         $conjunto = $sub === 'relatorio' ? $relatorio : $acompanhados;
-        $filtradas = $this->filtro->filtrar($conjunto, $criterios, $hoje);
+        $filtradas = $sub === 'acervo' ? $acervo->linhas : $this->filtro->filtrar($conjunto, $criterios, $hoje);
 
         $pagina = max(1, (int) $request->query->get('pagina', 1));
         $totalPaginas = max(1, (int) ceil(\count($filtradas) / self::POR_PAGINA));
@@ -89,12 +94,27 @@ final class ProcessosDaOabController extends AbstractController
         return $this->render('djen/processos.html.twig', [
             'abas' => $this->contagensDasAbas($tenant, \count($acompanhados)),
             'sub' => $sub,
-            'sub_contagens' => ['acompanhados' => \count($acompanhados), 'relatorio' => \count($relatorio)],
+            'sub_contagens' => ['acompanhados' => \count($acompanhados), 'relatorio' => \count($relatorio), 'acervo' => $acervo->totalDeOrgaos],
+            'acervo' => $acervo,
+            'acervo_grupo' => $filtroDoAcervo['grupo'],
+            'acervo_orgao' => $filtroDoAcervo['orgao'],
+            'acervo_q' => $filtroDoAcervo['q'],
             'indicadores' => $this->filtro->indicadores($acompanhados, $hoje),
             'linhas' => \array_slice($filtradas, ($pagina - 1) * self::POR_PAGINA, self::POR_PAGINA),
             'total' => \count($filtradas),
             'pagina' => $pagina,
             'total_paginas' => $totalPaginas,
+        ] + $this->dadosFixosDaTela($tenant, $hoje, $criterios));
+    }
+
+    /**
+     * @param array<string, string> $criterios
+     *
+     * @return array<string, mixed>
+     */
+    private function dadosFixosDaTela(Tenant $tenant, \DateTimeImmutable $hoje, array $criterios): array
+    {
+        return [
             'criterios' => $criterios,
             'tem_filtro' => array_filter($criterios) !== [],
             'oabs_opcoes' => $this->oabsDoFiltro($tenant),
@@ -103,7 +123,7 @@ final class ProcessosDaOabController extends AbstractController
             'grupo_da_fase' => ClassificacaoDoProcesso::grupoDeCadaFase(),
             'hoje' => $hoje,
             'email_padrao' => $this->emailPadrao(),
-        ]);
+        ];
     }
 
     #[Route('/exportar', name: 'push_processual_processos_exportar', methods: ['GET'])]
@@ -368,10 +388,28 @@ final class ProcessosDaOabController extends AbstractController
     /** @return list<\App\Djen\DTO\LinhaDoProcessoDaOab> */
     private function acompanhados(Tenant $tenant): array
     {
-        $user = $this->getUser();
-        $ocultos = $user instanceof User ? $this->acessoAPasta->idsDosProcessosOcultos($user, $tenant) : [];
+        return $this->processosDaOab->acompanhados($tenant, $this->idsOcultos());
+    }
 
-        return $this->processosDaOab->acompanhados($tenant, $ocultos);
+    /** @return list<int> */
+    private function idsOcultos(): array
+    {
+        $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        return $user instanceof User && $tenant !== null ? $this->acessoAPasta->idsDosProcessosOcultos($user, $tenant) : [];
+    }
+
+    /** @return array{grupo: string, orgao: string, q: string} */
+    private function filtroDoAcervo(Request $request): array
+    {
+        $grupo = (string) $request->query->get('grupo', '');
+
+        return [
+            'grupo' => \in_array($grupo, SituacaoDoPrazoDoProcesso::grupos(), true) ? $grupo : '',
+            'orgao' => trim((string) $request->query->get('orgao', '')),
+            'q' => preg_replace('/\D/', '', (string) $request->query->get('q', '')) ?? '',
+        ];
     }
 
     /** @return array{busca: string, oab: string, mov: string, area: string, fase: string, pasta: string} */

@@ -67,29 +67,11 @@ final class ConciliarPagamentosCommand extends Command
         }
 
         $agora = new \DateTimeImmutable();
-        $contagem = [];
-        $falhas = 0;
-        /** @var list<Pagamento> $conferidos o banco respondeu "ainda não paga": só estes podem expirar sem risco */
-        $conferidos = [];
-        foreach ($this->pagamentos->aguardandoParaConciliar($agora, new \DateInterval('PT2M'), new \DateInterval('P7D'), self::LOTE) as $pagamento) {
-            try {
-                $resultado = $this->reconsultar->executar($pagamento->getProvedor(), (string) $pagamento->getIdExterno());
-                $contagem[$resultado->value] = ($contagem[$resultado->value] ?? 0) + 1;
-                if ($resultado === ResultadoDaReconsulta::Aguardando) {
-                    $conferidos[] = $pagamento;
-                }
-            } catch (\Throwable $e) {
-                // Uma cobrança com defeito não trava as outras: conta, loga e segue; ela fica sem expirar até conferir.
-                ++$falhas;
-                $io->warning('Pagamento ' . $pagamento->getReferencia() . ': ' . $e->getMessage());
-            }
-            if (!$this->em->isOpen()) {
-                // Uma confirmação perdeu a corrida para o webhook e fechou o gerenciador: o resto fica para a próxima volta.
-                $io->writeln('Conciliação interrompida por confirmação simultânea; o restante segue na próxima volta.');
-
-                return Command::FAILURE;
-            }
+        $rodada = $this->reconsultarAguardando($io, $agora);
+        if ($rodada === null) {
+            return Command::FAILURE;
         }
+        [$contagem, $falhas, $conferidos] = $rodada;
 
         $expiradas = $this->expirar($agora, $conferidos);
         $this->resumirDivergentes($agora);
@@ -103,6 +85,40 @@ final class ConciliarPagamentosCommand extends Command
         ));
 
         return $falhas > 0 ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    /**
+     * Reconsulta no banco as cobranças aguardando do lote, uma a uma: uma com defeito conta, loga e segue; ela fica sem
+     * expirar até ser conferida. Devolve as contagens por resultado, as falhas e as que o banco deu por "ainda não paga"
+     * (só estas podem expirar sem risco). `null` quando a volta foi interrompida por confirmação simultânea.
+     *
+     * @return array{0: array<string, int>, 1: int, 2: list<Pagamento>}|null
+     */
+    private function reconsultarAguardando(SymfonyStyle $io, \DateTimeImmutable $agora): ?array
+    {
+        $contagem = [];
+        $falhas = 0;
+        $conferidos = [];
+        foreach ($this->pagamentos->aguardandoParaConciliar($agora, new \DateInterval('PT2M'), new \DateInterval('P7D'), self::LOTE) as $pagamento) {
+            try {
+                $resultado = $this->reconsultar->executar($pagamento->getProvedor(), (string) $pagamento->getIdExterno());
+                $contagem[$resultado->value] = ($contagem[$resultado->value] ?? 0) + 1;
+                if ($resultado === ResultadoDaReconsulta::Aguardando) {
+                    $conferidos[] = $pagamento;
+                }
+            } catch (\Throwable $e) {
+                ++$falhas;
+                $io->warning('Pagamento ' . $pagamento->getReferencia() . ': ' . $e->getMessage());
+            }
+            if (!$this->em->isOpen()) {
+                // Uma confirmação perdeu a corrida para o webhook e fechou o gerenciador: o resto fica para a próxima volta.
+                $io->writeln('Conciliação interrompida por confirmação simultânea; o restante segue na próxima volta.');
+
+                return null;
+            }
+        }
+
+        return [$contagem, $falhas, $conferidos];
     }
 
     /**

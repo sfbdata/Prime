@@ -36,8 +36,8 @@ preferência via composer; (f) aceitar qualquer formato, com entrega segura (fre
 | F1 | Lista de documentos (linhas, ícone por tipo, tamanho) | PR desta entrega |
 | F2 | Rodapé e painel de pré-visualização (`.petic-preview-corpo`), sem trilho/bolinhas nem player de áudio/vídeo | PR desta entrega |
 | F3 | Modal Adicionar peça: opções Anexo e Texto com dicas do desenho | PR desta entrega |
-| F4 | Cabeçalho/navbar enxuta (arquivo quente `layout_peticionar.html.twig`; avisar antes) | pendente |
-| F5 | Seletor do processo, somente leitura | pendente |
+| F4 | Cabeçalho/navbar enxuta (arquivo quente `layout_peticionar.html.twig`; avisar antes) | PR desta entrega |
+| F5 | Seletor do processo, somente leitura | PR desta entrega |
 | F6 | Ordem manual compartilhada com a aba Documentos | pendente |
 | F7 | Destino por peça (spec antes; migration 153800) | pendente |
 | F8 | Editor (TinyMCE mantido) | pendente |

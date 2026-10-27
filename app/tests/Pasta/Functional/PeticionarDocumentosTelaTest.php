@@ -12,6 +12,8 @@ use App\Pasta\Controller\PeticionarController;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\TipoDeApenso;
+use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -46,7 +48,7 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
 
         self::assertResponseIsSuccessful();
-        $voltar = $crawler->filter('.petic-main > a.petic-voltar-pasta');
+        $voltar = $crawler->filter('nav.navtop .navtop-right > a.petic-voltar-pasta');
         self::assertCount(1, $voltar);
         self::assertSame("/pasta/{$pasta->getId()}", $voltar->attr('href'));
         self::assertSame('Voltar à pasta', trim($voltar->text()));
@@ -54,6 +56,20 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $crawler->filter('script[src*="/js/peticionar-documentos.js"]'));
         self::assertCount(1, $crawler->filter('link[href*="/css/peticionar-documentos.css"]'));
+    }
+
+    #[TestDox('o cabeçalho é o do desenho 07: Voltar à pasta e o nome do usuário, sem sino, tela cheia nem menu do avatar')]
+    public function testCabecalhoEnxuto(): void
+    {
+        [$client, $pasta] = $this->cenario();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('nav.navtop .navtop-right > .petic-navtop-usuario'));
+        self::assertCount(2, $crawler->filter('nav.navtop .navtop-right > *'));
+        self::assertCount(0, $crawler->filter('nav.navtop #notificacaoDropdownToggle, nav.navtop [data-lte-toggle="fullscreen"], nav.navtop .menu-usuario'));
+        self::assertCount(1, $crawler->filter('nav.navtop .petic-navtop-info > .petic-navtop-nup'));
     }
 
     #[TestDox('cada linha tem os três pontos e os data-* das rotas de renomear, classificar, baixar e excluir')]
@@ -439,6 +455,55 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
     }
 
     /** @return array{KernelBrowser, Pasta, Tenant, User} */
+    #[TestDox('o seletor do processo lista o principal primeiro (marcado) e os apensados, como no desenho 07')]
+    public function testSeletorDoProcessoListaPrincipalEApensados(): void
+    {
+        [$client, $pasta, $tenant] = $this->cenario();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $apenso    = $this->processo($tenant, '0000002-22.2022.4.01.3400');
+        $principal = $this->processo($tenant, '0000001-11.2022.4.01.3400');
+        $pasta->vincularApensado($apenso, TipoDeApenso::Embargos);
+        $pasta->vincularProcesso($principal);
+        $em->flush();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+
+        self::assertResponseIsSuccessful();
+        $itens = $crawler->filter('nav.navtop #peticProcMenu > .petic-proc-item');
+        self::assertCount(2, $itens);
+        self::assertSame('0000001-11.2022.4.01.3400', $itens->eq(0)->attr('data-numero'));
+        self::assertStringContainsString('petic-proc-item--atual', (string) $itens->eq(0)->attr('class'));
+        self::assertStringNotContainsString('petic-proc-item--atual', (string) $itens->eq(1)->attr('class'));
+        self::assertStringContainsString('Embargos', $itens->eq(1)->text());
+        self::assertStringContainsString('00000011120224013400', $crawler->filter('#peticProcTxt')->text());
+        self::assertCount(1, $crawler->filter('script[src*="/js/peticionar-processo.js"]'));
+    }
+
+    #[TestDox('sem processo vinculado o seletor mostra "Sem processo" e o aviso do desenho')]
+    public function testSeletorSemProcesso(): void
+    {
+        [$client, $pasta] = $this->cenario();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Sem processo', trim($crawler->filter('#peticProcTxt')->text()));
+        self::assertCount(0, $crawler->filter('#peticProcMenu > .petic-proc-item'));
+        self::assertStringContainsString('Nenhum processo vinculado', $crawler->filter('#peticProcMenu > .petic-proc-vazio')->text());
+    }
+
+    private function processo(Tenant $tenant, string $numero): Processo
+    {
+        $em       = static::getContainer()->get(EntityManagerInterface::class);
+        $processo = new Processo();
+        $processo->setNumeroProcesso($numero);
+        $processo->setTenant($tenant);
+        $em->persist($processo);
+        $em->flush();
+
+        return $processo;
+    }
+
     private function cenario(): array
     {
         $client = static::createClient();

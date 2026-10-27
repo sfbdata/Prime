@@ -8,6 +8,7 @@ use App\Djen\Controller\ProcessosDaOabController;
 use App\Djen\DTO\ConsultaComunicacoesQuery;
 use App\Djen\DTO\RespostaComunicacoes;
 use App\Djen\Entity\ProcessoAcompanhado;
+use App\Djen\Entity\PublicacaoDjen;
 use App\Djen\Service\DjenClient;
 use App\Djen\Service\DjenClientInterface;
 use App\Entity\Tenant\Tenant;
@@ -73,7 +74,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('nav.pp-abas a.pp-aba.is-ativa[data-pp-aba="processos"]'));
         self::assertCount(5, $crawler->filter('.pp-pagina > .pp-kpis > a.pp-kpi'));
         self::assertCount(1, $crawler->filter('.pp-pagina > section[data-pp-inclusao] > form'));
-        self::assertCount(2, $crawler->filter('.pp-pagina > .pp-subabas > a.pp-subaba'));
+        self::assertCount(3, $crawler->filter('.pp-pagina > .pp-subabas > a.pp-subaba'));
         self::assertCount(1, $crawler->filter('[data-pp-inclusao] input[data-pp-mascara-cnj]'), 'máscara CNJ do desenho');
         self::assertSame('0 | 150', trim($crawler->filter('[data-pp-inclusao] [data-pp-obs-n]')->text()), 'contador da observação do desenho');
         self::assertCount(1, $crawler->filter('.pp-tabela__corpo > .pp-linha--dado'));
@@ -455,5 +456,87 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $client->request('POST', '/push-processual/processos/buscar', ['_token' => 'x']);
 
         self::assertStringContainsString('Token de segurança inválido.', $client->followRedirect()->text());
+    }
+
+    private function publicar(Tenant $tenant, string $numero, string $orgao, string $dataIso, bool $lida, ?int $prazo, ?string $cumpridoEm = null): void
+    {
+        $pub = $this->criarPublicacao($this->em()->getReference(Tenant::class, $tenant->getId()), (string) random_int(10000000, 99999999), $numero);
+        $pub = $this->em()->find(PublicacaoDjen::class, $pub->getId());
+        $pub->setNomeOrgao($orgao);
+        $pub->setDataDisponibilizacao(new \DateTimeImmutable($dataIso));
+        $pub->setLida($lida);
+        $pub->definirPrazoDias($prazo);
+        if ($cumpridoEm !== null) {
+            $pub->marcarPrazoCumprido(new \DateTimeImmutable($cumpridoEm));
+        }
+        $this->em()->flush();
+    }
+
+    #[Test]
+    public function acervoComecaPedindoUmaJurisdicaoEContaOsOrgaos(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $this->criarProcesso($tenant, self::NUMERO_A);
+        $this->criarProcesso($tenant, self::NUMERO_B);
+
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.pp-subabas > a.pp-subaba.is-ativa[href*="sub=acervo"]'));
+        self::assertCount(1, $crawler->filter('.pp-acv-layout > aside.pp-acv'));
+        self::assertCount(6, $crawler->filter('.pp-acv > .pp-acv__grupos > a.pp-acv__grupo'));
+        self::assertSame('Selecione uma jurisdição', trim($crawler->filter('.pp-acv-layout__lista > .pp-acv-vazio')->text()));
+        self::assertCount(0, $crawler->filter('[data-pp-tabela]'), 'sem recorte a tabela some');
+        self::assertCount(0, $crawler->filter('[data-pp-filtros]'), 'a busca do acervo é a da coluna lateral');
+    }
+
+    #[Test]
+    public function acervoAgrupaPelaSituacaoDoPrazoEFiltraPorOrgao(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $hoje = new \DateTimeImmutable('today');
+        // A: publicada hoje, não lida, 15 dias úteis => pendente de ciência. B: lida há 60 dias, 5 dias => prazo findou.
+        $this->criarProcesso($tenant, self::NUMERO_A);
+        $this->criarProcesso($tenant, self::NUMERO_B);
+        $this->publicar($tenant, self::NUMERO_A, '1ª Vara Cível', $hoje->format('Y-m-d'), false, 15);
+        $this->publicar($tenant, self::NUMERO_B, '2ª Vara Cível', $hoje->modify('-60 days')->format('Y-m-d'), true, 5);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=pr');
+        $grupos = $crawler->filter('.pp-acv__grupo b')->each(static fn ($n) => trim($n->text()));
+        self::assertSame(['1', '1', '0', '1', '0', '0'], $grupos, 'pr, pend, cien, fin, sem, resp');
+        self::assertSame(['1ª VARA CÍVEL'], $crawler->filter('.pp-acv__orgao span')->each(static fn ($n) => trim($n->text())), 'só os pendentes do grupo aberto');
+
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=fin&orgao=' . rawurlencode('1ª VARA CÍVEL'));
+        self::assertCount(1, $crawler->filter('[data-pp-linha-proc]'));
+        self::assertSame(self::NUMERO_B, $crawler->filter('[data-pp-linha-proc]')->attr('data-numero'));
+    }
+
+    #[Test]
+    public function acervoSoListaRespondidosDosUltimos10Dias(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $hoje = new \DateTimeImmutable('today');
+        $this->criarProcesso($tenant, self::NUMERO_A);
+        $this->criarProcesso($tenant, self::NUMERO_B);
+        $this->publicar($tenant, self::NUMERO_A, '1ª Vara Cível', $hoje->modify('-20 days')->format('Y-m-d'), true, 5, $hoje->modify('-9 days')->format('Y-m-d'));
+        $this->publicar($tenant, self::NUMERO_B, '1ª Vara Cível', $hoje->modify('-40 days')->format('Y-m-d'), true, 5, $hoje->modify('-11 days')->format('Y-m-d'));
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=resp&orgao=' . rawurlencode('1ª VARA CÍVEL'));
+
+        self::assertSame([self::NUMERO_A], $crawler->filter('[data-pp-linha-proc]')->each(static fn ($n) => $n->attr('data-numero')));
+    }
+
+    #[Test]
+    public function acervoBuscaPorNumeroEProcessoSemPublicacaoFicaSemPrazo(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $this->criarProcesso($tenant, self::NUMERO_A);
+        $this->criarProcesso($tenant, self::NUMERO_B);
+
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=sem&q=0703333');
+
+        self::assertSame([self::NUMERO_B], $crawler->filter('[data-pp-linha-proc]')->each(static fn ($n) => $n->attr('data-numero')));
     }
 }
