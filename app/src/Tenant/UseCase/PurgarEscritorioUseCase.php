@@ -142,6 +142,8 @@ final class PurgarEscritorioUseCase
         // SET NULL; nada as referencia).
         ['contribua_sugestao', 'tenant_id = :tenant'],
         ['contribua_apoio', 'tenant_id = :tenant'],
+        // Contribua C4: cobranças PIX abertas da conta. FK de tenant CASCADE; explícito por convenção.
+        ['contribua_cobranca_pix', 'tenant_id = :tenant'],
         // Service Desk (desenho 12): razão do saldo. Apagado como o apoio do Contribua (decisão do dono: exclusão apaga
         // na hora). Sem FK entre as duas; a FK de tenant é CASCADE, mas a deleção explícita deixa a cobertura visível.
         ['service_desk_chamado_historico', 'tenant_id = :tenant'],
@@ -318,6 +320,9 @@ final class PurgarEscritorioUseCase
         ['chamado', 'tenant_id = :tenant'],
         ['evento', 'tenant_id = :tenant'],
         ['kanban_board', 'tenant_id = :tenant'],
+        // Termo de Voluntariado (CPF e RG no snapshot): o escritório emissor é a sede da Central. A FK de tenant é NO ACTION; a do
+        // currículo é CASCADE, então o termo também sai com o currículo.
+        ['trabalho_externo_termo_voluntariado', 'tenant_id = :tenant'],
         // Trabalho Externo: as demandas que o escritório SOLICITOU. Histórico, mensagens, leituras,
         // propostas e documentos caem pela CASCADE da demanda. Se o escritório for a sede da
         // Central, a configuração perde a sede por SET NULL (a Central não é apagada).

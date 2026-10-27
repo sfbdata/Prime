@@ -233,18 +233,19 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
 
     // ── O caminho NOVO: judicializar CRIA a pasta ──────────────────────────────────────────────────
 
-    #[TestDox('O modal abre preenchido com o responsável principal e AÇÃO MONITÓRIA')]
+    #[TestDox('O modal abre preenchido com o cliente da carteira e AÇÃO MONITÓRIA')]
     public function testModalAbrePreenchido(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOANA RESPONSAVEL'])->_real();
-        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa]);
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => 'APLC TOP LIFE 1']);
+        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertSame(
-            'JOANA RESPONSAVEL',
+            'APLC TOP LIFE 1',
             $crawler->filter('#modalJudicializar input[name="judicializar_caso[nomeCliente]"]')->attr('value'),
             'o nome do cliente nasce com o responsável principal',
         );
@@ -311,14 +312,15 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         );
     }
 
-    #[TestDox('Judicializar cria a pasta com o nome do responsável e AÇÃO MONITÓRIA')]
+    #[TestDox('Judicializar cria a pasta com o nome do cliente da carteira e AÇÃO MONITÓRIA')]
     public function testJudicializarCriaPasta(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         // Sem CPF na ficha: a pasta nasce só com nome e ação — é o caso de 202 dos 248 em produção.
         $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOANA RESPONSAVEL'])->_real();
-        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa]);
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => 'APLC TOP LIFE 1']);
+        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
         $casoId = (int) $caso->getId();
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
@@ -342,7 +344,7 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(StatusCaso::Judicializado, $fresh->getStatus());
         $pasta = $fresh->getPastaJudicial();
         self::assertNotNull($pasta, 'a pasta foi criada e vinculada');
-        self::assertSame('JOANA RESPONSAVEL', $pasta->getNomeCliente());
+        self::assertSame('APLC TOP LIFE 1', $pasta->getNomeCliente(), 'o nome vem do cliente da carteira, não do formulário');
         self::assertSame('AÇÃO MONITÓRIA', $pasta->getNomeAcao());
         self::assertNotNull($pasta->getNup(), 'o número da pasta é gerado pelo sistema');
         self::assertSame($tenant->getId(), $pasta->getTenant()->getId(), 'a pasta nasce no escritório DO CASO');
@@ -418,7 +420,7 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         // coproprietário e com uma ação diferente. 26 das 30 pastas judicializadas vieram por aqui.
         $pasta = PastaFactory::createOne([
             'tenant' => $tenant,
-            'nomeCliente' => 'APLC TOP LIFE 1 - EVANDRO CAMPELO COUTINHO',
+            'nomeCliente' => 'APLC TOP LIFE 1',
             'nomeAcao' => 'EXECUÇÃO DE TÍTULO',
         ])->_real();
 
@@ -437,9 +439,9 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $fresh = $em->find(CasoCobranca::class, $casoId)->getPastaJudicial();
 
         self::assertSame(
-            'APLC TOP LIFE 1 - SALVADOR PAULO DE OLIVEIRA',
+            'APLC TOP LIFE 1',
             $fresh->getNomeCliente(),
-            'vincular normaliza o nome pelo credor + responsável, sobrescrevendo o que foi digitado',
+            'vincular normaliza o nome pelo credor da carteira, sobrescrevendo o que foi digitado',
         );
         self::assertSame(
             'AÇÃO MONITÓRIA',
@@ -477,7 +479,7 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $em->clear();
         $fresh = $em->find(CasoCobranca::class, $casoId)->getPastaJudicial();
 
-        self::assertSame('APLC TOP LIFE 1 - JOANA SEM CPF', $fresh->getNomeCliente());
+        self::assertSame('APLC TOP LIFE 1', $fresh->getNomeCliente());
         self::assertCount(0, $fresh->getClientes(), 'sem CPF não há identidade para cadastrar — não inventa');
     }
 
@@ -580,7 +582,7 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $pasta = $em->find(CasoCobranca::class, $casoId)->getPastaJudicial();
 
         self::assertNotNull($pasta, 'campo vazio não bloqueia mais a judicialização');
-        self::assertSame('APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ', $pasta->getNomeCliente());
+        self::assertSame('APLC TOP LIFE 1', $pasta->getNomeCliente());
         self::assertSame('AÇÃO MONITÓRIA', $pasta->getNomeAcao(), 'a ação enviada foi descartada');
     }
 
@@ -641,9 +643,9 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertSame(
-            'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
+            'APLC TOP LIFE 1',
             $crawler->filter('#modalJudicializar input[name="judicializar_caso[nomeCliente]"]')->attr('value'),
-            'o nome da pasta nasce no padrão do escritório: fantasia do credor + pessoa cobrada',
+            'o nome da pasta nasce no padrão do escritório: só o cliente (fantasia do credor)',
         );
     }
 
@@ -668,24 +670,23 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $pasta = $em->find(CasoCobranca::class, $casoId)->getPastaJudicial();
 
         self::assertNotNull($pasta, 'a pasta foi criada e vinculada');
-        self::assertSame('APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ', $pasta->getNomeCliente());
+        self::assertSame('APLC TOP LIFE 1', $pasta->getNomeCliente());
     }
 
-    #[TestDox('Credor PJ sem nome fantasia: a pasta fica só com a pessoa cobrada')]
+    #[TestDox('Credor PJ sem nome fantasia: a pasta fica com a razão social')]
     public function testCredorSemNomeFantasiaNaoInventaPrefixo(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => null]);
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => null, 'razaoSocial' => 'APLC EMPREENDIMENTOS LTDA']);
         $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'CLAUDIO SILVA DA CRUZ'])->_real();
         [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
-        // Sem fantasia cadastrada não há prefixo — e a razão social NÃO entra no lugar dela: tem 93
-        // caracteres no maior caso de produção e viraria um nome de pasta ilegível.
+        // Sem fantasia cadastrada vale a razão social (decisão do dono, 2026-10-27).
         self::assertSame(
-            'CLAUDIO SILVA DA CRUZ',
+            'APLC EMPREENDIMENTOS LTDA',
             $crawler->filter('#modalJudicializar input[name="judicializar_caso[nomeCliente]"]')->attr('value'),
         );
     }

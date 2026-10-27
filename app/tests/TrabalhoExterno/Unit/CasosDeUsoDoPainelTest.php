@@ -81,9 +81,14 @@ final class CasosDeUsoDoPainelTest extends TestCase
         $metricas = $this->createStub(MetricaPublicaRepository::class);
         $metricas->method('totais')->willReturn(['visitas' => 9, 'cliques' => 2]);
 
-        $p = $this->painel($interessados, $metricas)->executar(Apoio::contexto(Perfil::Master));
+        $ligado = new ConfiguracaoCentral();
+        $ligado->definirTermoLigado(true);
+        $p = $this->painel($interessados, $metricas)->executar(Apoio::contexto(Perfil::Master, cfg: $ligado));
+        $desligado = $this->painel($interessados, $metricas)->executar(Apoio::contexto(Perfil::Master));
 
+        self::assertSame('', $desligado['kpis'][3]['sub'], 'com o termo desligado o KPI não fala de termo');
         self::assertSame(4, $p['inscritos']);
+        self::assertSame('0 termo(s) aceito(s) · 0 aguardando', $p['kpis'][3]['sub']);
         self::assertSame('9 visita(s) pelo link · 2 clique(s) em criar conta · clique para campanha', $p['kpis'][5]['sub']);
         self::assertSame('nenhuma publicada', $p['kpis'][7]['sub']);
     }
@@ -197,6 +202,7 @@ final class CasosDeUsoDoPainelTest extends TestCase
             $interessados,
             $metricas,
             new PainelDoBancoDeTalentos(),
+            $this->createStub(\App\TrabalhoExterno\Repository\TermoDeVoluntariadoRepository::class),
         );
     }
 

@@ -1,0 +1,32 @@
+{#
+    Prêmio do apoiador (desenho 08, L192-203): aparece uma vez por apoio confirmado pelo banco, na página
+    Contribua da conta. Também abre pelo "Testar mensagem de prêmio" do Master (só na tela, sem gravar).
+#}
+{% set premio = contribua_premio_pendente() %}
+<link rel="stylesheet" href="{{ asset('css/contribua-cora.css') }}">
+<div class="cc-premio" data-cc-premio hidden
+     data-url-visto="{{ path('contribua_premio_visto', {id: 0}) }}"
+     data-url-propostas="{{ path('trabalho_externo_index') }}"
+     data-apoio="{{ premio ? premio.id : '' }}"
+     data-nome="{{ premio ? premio.nome : (app.user ? (app.user.fullName|split(' ')|first ?: 'colega') : 'colega') }}"
+     data-valor="{{ premio ? premio.valor : 'R$ 20,00' }}"
+     data-abrir="{{ premio ? '1' : '0' }}">
+    <div class="cc-premio-fundo"></div>
+    <div class="cc-premio-lugar"><div class="cc-premio-caixa" role="dialog" aria-modal="true" aria-labelledby="ccPremioTitulo">
+        <div class="cc-premio-confete" aria-hidden="true"></div>
+        <div class="cc-premio-topo">
+            <span class="cc-premio-trofeu"><i class="bi bi-trophy-fill"></i></span>
+            <div class="cc-premio-sobre">PAGAMENTO CONFIRMADO</div>
+            <div class="cc-premio-titulo" id="ccPremioTitulo">Parabéns, <span data-cc-premio-nome></span>! Você ganhou um prêmio</div>
+            <div class="cc-premio-texto">Recebemos o seu apoio de <b data-cc-premio-valor></b>. Obrigado por ajudar o BlueJus a crescer!</div>
+        </div>
+        <div class="cc-premio-lista">
+            <div class="cc-premio-rotulo">LIBERADO PARA A SUA CONTA</div>
+            <div class="cc-premio-item" style="animation-delay:.15s;"><span style="background:#fff4d6;color:#9a5b00;"><i class="bi bi-patch-check-fill"></i></span><span><b>Selo Apoiador BlueJus</b>Aparece no seu perfil e nas suas propostas, mostrando que você apoia o escritório digital.</span></div>
+            <div class="cc-premio-item" style="animation-delay:.27s;"><span style="background:#e5f1f7;color:#0a6fa0;"><i class="bi bi-briefcase-fill"></i></span><span><b>Preferência no Trabalho Externo</b>Suas propostas de correspondência jurídica aparecem primeiro e você recebe novas demandas antes.</span></div>
+            <div class="cc-premio-item" style="animation-delay:.39s;"><span style="background:#e9f6ee;color:#1e7b45;"><i class="bi bi-stars"></i></span><span><b>Novidades em primeira mão</b>Acesso antecipado aos novos recursos do BlueJus assim que forem lançados.</span></div>
+        </div>
+        <div class="cc-premio-botoes"><button type="button" class="cc-premio-te" data-cc-premio-te>Ver propostas de correspondência</button><button type="button" class="cc-premio-ok" data-cc-premio-ok>Aproveitar agora</button></div>
+    </div></div>
+</div>
+<script src="{{ asset('js/contribua-cora.js') }}" defer></script>

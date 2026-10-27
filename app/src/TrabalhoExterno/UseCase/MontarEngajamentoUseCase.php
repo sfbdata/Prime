@@ -10,8 +10,10 @@ use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\SituacaoVaga;
 use App\TrabalhoExterno\Enum\StatusCurriculo;
+use App\TrabalhoExterno\Enum\StatusDoTermo;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
+use App\TrabalhoExterno\Repository\TermoDeVoluntariadoRepository;
 use App\TrabalhoExterno\Repository\VagaRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\EngajamentoDoTrabalhoExterno;
@@ -41,6 +43,7 @@ final class MontarEngajamentoUseCase
         private readonly PercentualDoCurriculo $percentual,
         private readonly EngajamentoDoTrabalhoExterno $engajamento,
         private readonly VagaRepository $repositorioDeVagas,
+        private readonly TermoDeVoluntariadoRepository $termos,
     ) {
     }
 
@@ -153,6 +156,7 @@ final class MontarEngajamentoUseCase
             atualizadoEm: $meu?->getAtualizadoEm(),
             candidatou: $meu !== null && $this->candidaturas->doCurriculo($meu) !== [],
             alertaLigado: ($alerta['ligado'] ?? false) === true,
+            termoParaAceitar: $ctx->configuracao->termoLigado() && $meu !== null && $this->termos->maisRecenteDo($meu)?->getStatus() === StatusDoTermo::Enviado,
         );
     }
 

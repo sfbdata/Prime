@@ -4,97 +4,64 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Service;
 
+use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Cobranca\Entity\CasoCobranca;
 
 /**
- * Monta o nome do cliente da pasta que a judicialização abre, no padrão do escritório
- * (decisão do dono, 2026-09-01):
+ * Monta o nome do cliente da pasta que a judicialização abre: o CLIENTE DA CARTEIRA, sozinho
+ * (decisão do dono, 2026-10-27, que substitui o padrão `<fantasia> - <pessoa cobrada>` de 2026-09-01):
  *
- *     <nome fantasia do cliente da carteira> - <nome da pessoa cobrada>
- *     APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ
+ *     APLC TOP LIFE 1
  *
- * Por que existe: até 2026-08-27 a pasta nascia só com o nome da pessoa cobrada
- * (`docs/specs/cobranca-judicializar-cria-pasta.md` §2.1) e o escritório vinha digitando o prefixo à
- * mão — duas das três pastas judiciais de produção já se chamavam `APLC TOP LIFE 1 - <NOME>`, e a
- * terceira escapou. O padrão passa a ser montado pelo sistema; o campo continua EDITÁVEL no modal,
+ * Por que mudou: a pasta judicial representa o credor, e a pessoa cobrada já aparece no processo e
+ * no caso. Com a pessoa no nome, duas pastas do mesmo credor nunca se agrupavam na ordenação e o
+ * Expediente exibia o devedor onde o escritório procura o cliente.
+ *
+ * O cliente mora na carteira, não no caso: `caso → objeto → carteira → cliente`. Nome fantasia
+ * primeiro; sem ele, a razão social (PJ) ou o nome completo (PF). O campo segue EDITÁVEL no modal,
  * então isto é uma sugestão forte, não uma trava.
  *
- * O prefixo mora no CLIENTE da carteira, não na carteira: `caso → objeto → carteira → cliente`. Só
- * cliente PJ tem nome fantasia — para PF (ou PJ sem fantasia preenchida) o nome cai para a pessoa
- * sozinha, que é exatamente o comportamento anterior. Nunca se inventa prefixo a partir da razão
- * social: ela tem 93 caracteres no maior caso de produção e viraria um nome de pasta ilegível.
- *
- * ⚠️ Depende do nome fantasia CADASTRADO. Se o cadastro do cliente trouxer pontuação (o `APLC - TOP
- * LIFE 1` que havia em produção até esta frente), ela entra no nome da pasta como está — o conserto
- * é no cadastro do cliente, não aqui.
+ * ⚠️ Depende do cadastro do cliente: pontuação no nome fantasia entra no nome da pasta como está.
  */
 final class ComporNomeDaPastaJudicial
 {
-    /**
-     * Limite da coluna `pasta.nome_cliente`. Estourá-lo derrubaria a criação da pasta no flush, com
-     * um erro de banco no lugar de um nome de pasta.
-     */
+    /** Limite da coluna `pasta.nome_cliente`; fantasia, razão social e nome completo também têm 255. */
     private const LIMITE = 255;
 
-    /** O separador do padrão, com espaços — é como o escritório já escrevia à mão. */
-    private const SEPARADOR = ' - ';
-
     /**
-     * O nome do cliente da pasta, ou `null` quando não há pessoa cobrada de quem partir (caso em que
-     * o modal abre com o campo vazio, como antes).
+     * O nome do cliente da pasta, ou `null` quando o caso não tem cliente de carteira de quem partir
+     * (o modal abre com o campo vazio, como antes).
      */
     public function paraCaso(CasoCobranca $caso): ?string
     {
-        return $this->compor(
-            $this->nomeFantasiaDoClienteDaCarteira($caso),
-            $caso->getPessoaCobradaAtual()?->getNome(),
-        );
-    }
-
-    /**
-     * A regra, a partir dos dois valores soltos. Existe além do {@see self::paraCaso()} porque a
-     * listagem resolve o identificador de uma página inteira de pastas numa consulta só e recebe
-     * COLUNAS, não entidades. Duplicar a regra nos dois lugares seria a receita para a tela e o
-     * modal divergirem com o tempo — aqui ela é uma só.
-     */
-    public function compor(?string $nomeFantasia, ?string $nomeDaPessoa): ?string
-    {
-        $nomeDaPessoa = trim((string) $nomeDaPessoa);
-
-        // Sem pessoa não há o que compor: devolver só o prefixo produziria `APLC TOP LIFE 1 - ` —
-        // um nome de pasta que parece certo e está pela metade.
-        if ($nomeDaPessoa === '') {
-            return null;
-        }
-
-        $prefixo = trim((string) $nomeFantasia);
-
-        if ($prefixo === '') {
-            return $nomeDaPessoa;
-        }
-
-        $composto = $prefixo . self::SEPARADOR . $nomeDaPessoa;
-
-        // Fantasia e nome da pessoa têm 255 cada; juntos cabem 513. No estouro vale o nome da pessoa
-        // inteiro: nome cortado no meio é pior que nome curto, e o gestor vê o campo antes de criar.
-        return mb_strlen($composto) > self::LIMITE ? $nomeDaPessoa : $composto;
-    }
-
-    /**
-     * A fantasia do cliente da carteira, ou `null` quando não há prefixo a aplicar — carteira sem
-     * objeto, objeto sem carteira, cliente PF, ou PJ com a fantasia em branco.
-     */
-    private function nomeFantasiaDoClienteDaCarteira(CasoCobranca $caso): ?string
-    {
         $cliente = $caso->getObjeto()?->getCarteira()?->getCliente();
 
-        if (!$cliente instanceof ClientePJ) {
-            return null;
+        return match (true) {
+            $cliente instanceof ClientePJ => $this->compor($cliente->getNomeFantasia(), $cliente->getRazaoSocial()),
+            $cliente instanceof ClientePF => $this->compor(null, $cliente->getNomeCompleto()),
+            default => null,
+        };
+    }
+
+    /**
+     * A regra, a partir dos valores soltos. Existe além do {@see self::paraCaso()} porque a listagem
+     * resolve o identificador de uma página inteira de pastas numa consulta só e recebe COLUNAS, não
+     * entidades. Duplicar a regra nos dois lugares seria a receita para a tela e o modal divergirem.
+     *
+     * @param ?string $nomeFantasia nome fantasia do cliente PJ
+     * @param ?string $nomeDeRegistro razão social (PJ) ou nome completo (PF): a queda do fantasia
+     */
+    public function compor(?string $nomeFantasia, ?string $nomeDeRegistro): ?string
+    {
+        foreach ([$nomeFantasia, $nomeDeRegistro] as $nome) {
+            $nome = trim((string) $nome);
+
+            if ($nome !== '') {
+                return mb_substr($nome, 0, self::LIMITE);
+            }
         }
 
-        $fantasia = trim($cliente->getNomeFantasia() ?? '');
-
-        return $fantasia === '' ? null : $fantasia;
+        return null;
     }
 }

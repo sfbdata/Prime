@@ -61,6 +61,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Contribua: aviso bruto recebido de gateway/banco. É ele mesmo a trilha (o que chegou e quando);
         // quem muda dado de escritório é a reconsulta, que audita a assinatura/apoio.
         \App\Contribua\Entity\NotificacaoRecebida::class,
+        // Contribua C4: a integração bancária guarda o certificado e a chave cifrados (segredo, fora da
+        // trilha); a cobrança PIX aberta é passo técnico: o que vale como prova é o Apoio confirmado, auditado.
+        \App\Contribua\Entity\IntegracaoBancaria::class,
+        \App\Contribua\Entity\CobrancaPixDaConta::class,
 
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
@@ -236,6 +240,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // (a senha mudou) já é auditado no próprio User, com o hash fora por IGNORED_FIELDS.
         // Auditar esta linha só espalharia IP/user agent para uma segunda tabela.
         RedefinicaoSenha::class,
+
+        // Impressões do aviso de login novo (spec login-aviso-novo): hash HMAC sem PII, purgado por `retencao` dias
+        // (PurgarAcessosConhecidosUseCase). A linha É o registro; auditá-la seria log de log.
+        \App\Auth\Entity\AcessoConhecido::class,
 
         // Tela de entrada do desenho 10 (spec login-desenho-10):
         // - CienciaPolitica: registro append-only de ciência da Política, como o AceiteTermo, é a própria prova;

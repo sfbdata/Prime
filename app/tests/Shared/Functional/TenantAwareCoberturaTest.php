@@ -50,6 +50,7 @@ use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\MetricaPublica;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\RecusaDeOferta;
+use App\TrabalhoExterno\Entity\TermoDeVoluntariado;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Entity\Vaga;
 use Doctrine\ORM\EntityManagerInterface;
@@ -93,6 +94,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Aviso recebido de gateway/banco: quem manda é o gateway, e o escritório só aparece depois da
         // reconsulta. Guardado antes de processar, para idempotência.
         \App\Contribua\Entity\NotificacaoRecebida::class,
+        // Contribua C4: a integração bancária é da BlueJus (uma linha global, só o Master).
+        \App\Contribua\Entity\IntegracaoBancaria::class,
         // Configuração do pagamento por cartão (gateway, chave pública, carência): uma linha só, da plataforma.
         \App\Contribua\Entity\ConfiguracaoDePagamento::class,
         // Bônus de espaço por indicação: mesmo motivo do espaço do escritório (lido por tenantId explícito
@@ -114,6 +117,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
 
         // Pré-autenticação e efêmero (1h). Sem tenant por natureza.
         RedefinicaoSenha::class,
+
+        // Impressões de acesso do aviso de login novo (spec login-aviso-novo): do usuário, não do escritório. Identidade
+        // global do User, mesma natureza da RedefinicaoSenha; some com o usuário (ON DELETE CASCADE).
+        \App\Auth\Entity\AcessoConhecido::class,
 
         // Tela de entrada do desenho 10 (spec login-desenho-10), sem tenant por natureza:
         // identidade global do User (link de confirmação, ciência da Política), a tela de entrada única,
@@ -181,6 +188,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
         MetricaPublica::class, // contador anônimo da página pública (dia, link, visitas, cliques), sem escritório nem pessoa; só o painel do Master lê, e só a soma (PainelDoTrabalhoExternoTest::testSoOMasterVeOPainel)
         Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
+        TermoDeVoluntariado::class, // termo do currículo, lido pelo voluntário em qualquer escritório dele; só se acha pelo currículo já localizado ou pelo código conferido na PoliticaDoTermo, e a coluna tenant_id (sede emissora) entra na purga (TermosDeVoluntariadoTest::testIsolamento)
         Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
 
         // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
@@ -370,7 +378,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 88 → 89 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
     // 89 → 91 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
     // 91 → 92 com os dados de recebimento das recompensas (27/10/2026): DadosDeRecebimentoDeRecompensa, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 92;
+    // 92 → 93 com a integração bancária da C4 (linha global da BlueJus, justificada acima).
+    // 93 → 94 com o aviso de login novo (27/10/2026): AcessoConhecido é do usuário, justificado acima.
+    // 94 → 95 com o Termo de Voluntariado do Trabalho Externo (27/10/2026): TermoDeVoluntariado, justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 95;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

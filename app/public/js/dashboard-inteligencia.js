@@ -207,7 +207,68 @@
         });
     }
 
+    /* Criar tarefa (dc L967): tarefa exige pasta, então o botão abre o seletor (<dialog data-ia-pasta-dlg>)
+       e, ao escolher, vai ao modal "Nova meta" da pasta com o texto do alerta (pasta-metas.js). */
+    var tarefaDoAlerta = null;
+    var tarefaTimer = null;
+
+    function mensagemNaLista(lista, texto) {
+        lista.textContent = '';
+        var aviso = document.createElement('div');
+        aviso.className = 'db-ia-pasta-vazio';
+        aviso.textContent = texto;
+        lista.appendChild(aviso);
+    }
+
+    function irParaAPasta(dlg, id) {
+        var q = new URLSearchParams({ nova_meta: '1', titulo: tarefaDoAlerta.titulo, descricao: tarefaDoAlerta.descricao });
+        if (tarefaDoAlerta.responsavel) { q.set('responsavel', tarefaDoAlerta.responsavel); }
+        window.location.href = dlg.getAttribute('data-url-pasta').replace(/\/0$/, '/' + id) + '?' + q.toString() + '#tarefas';
+    }
+
+    function listarPastas(dlg) {
+        var lista = dlg.querySelector('[data-ia-pasta-lista]');
+        var termo = dlg.querySelector('[data-ia-pasta-q]').value;
+        fetch(dlg.getAttribute('data-url') + '?q=' + encodeURIComponent(termo), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { if (!r.ok) { throw new Error('HTTP ' + r.status); } return r.json(); })
+            .then(function (itens) {
+                if (!itens.length) { mensagemNaLista(lista, dlg.getAttribute('data-t-vazio')); return; }
+                lista.textContent = '';
+                itens.forEach(function (i) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'db-ia-pasta-item';
+                    b.innerHTML = '<i class="bi bi-folder2" aria-hidden="true"></i><span></span>';
+                    b.querySelector('span').textContent = i.texto;
+                    b.addEventListener('click', function () { irParaAPasta(dlg, i.id); });
+                    lista.appendChild(b);
+                });
+            })
+            .catch(function () { mensagemNaLista(lista, dlg.getAttribute('data-t-erro')); });
+    }
+
+    function abrirSeletorDePasta(botao) {
+        var dlg = document.querySelector('[data-ia-pasta-dlg]');
+        if (!dlg || typeof dlg.showModal !== 'function') { return; }
+        tarefaDoAlerta = { titulo: botao.getAttribute('data-titulo') || '', descricao: botao.getAttribute('data-descricao') || '', responsavel: botao.getAttribute('data-responsavel') || '' };
+        dlg.querySelector('[data-ia-pasta-q]').value = '';
+        dlg.showModal();
+        listarPastas(dlg);
+        dlg.querySelector('[data-ia-pasta-q]').focus();
+    }
+
+    document.addEventListener('input', function (e) {
+        var campo = e.target.closest ? e.target.closest('[data-ia-pasta-q]') : null;
+        if (!campo) { return; }
+        window.clearTimeout(tarefaTimer);
+        tarefaTimer = window.setTimeout(function () { listarPastas(campo.closest('dialog')); }, 250);
+    });
+
     document.addEventListener('click', function (e) {
+        var tarefa = e.target.closest ? e.target.closest('[data-ia-tarefa]') : null;
+        if (tarefa) { abrirSeletorDePasta(tarefa); }
+        var fecharPasta = e.target.closest ? e.target.closest('[data-ia-pasta-fechar]') : null;
+        if (fecharPasta) { fecharPasta.closest('dialog').close(); }
         var botao = e.target.closest ? e.target.closest('[data-ia-marcar]') : null;
         if (botao) { marcar(botao); }
         var pilula = e.target.closest ? e.target.closest('[data-ia-pergunta]') : null;

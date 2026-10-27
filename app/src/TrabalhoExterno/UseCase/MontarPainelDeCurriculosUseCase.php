@@ -10,6 +10,9 @@ use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\InteressadoEmVagasRepository;
 use App\TrabalhoExterno\Repository\MetricaPublicaRepository;
+use App\TrabalhoExterno\Repository\TermoDeVoluntariadoRepository;
+use App\TrabalhoExterno\Entity\Curriculo;
+use App\TrabalhoExterno\Service\ApresentadorDeTermo;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\EngajamentoDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\LocalizadorDeCurriculo;
@@ -35,6 +38,7 @@ final class MontarPainelDeCurriculosUseCase
         private readonly InteressadoEmVagasRepository $interessados,
         private readonly MetricaPublicaRepository $metricas,
         private readonly PainelDoBancoDeTalentos $painel,
+        private readonly TermoDeVoluntariadoRepository $termos,
     ) {
     }
 
@@ -45,10 +49,11 @@ final class MontarPainelDeCurriculosUseCase
         $agora = new \DateTimeImmutable();
         $vagas = $this->vagas->visiveis($ctx, $agora);
         $publicas = $this->metricas->totais();
+        $curriculos = $this->curriculos->visiveis($ctx);
 
         return $this->painel->montar(new RetratoDoPainel(
             agora: $agora,
-            curriculos: $this->curriculos->visiveis($ctx),
+            curriculos: $curriculos,
             vagas: $vagas,
             candidaturas: $this->candidaturas->statusEEnvios(),
             aceitesPorVaga: $this->aceitesDasOfertas($vagas),
@@ -56,6 +61,7 @@ final class MontarPainelDeCurriculosUseCase
             inscritos: $this->interessados->contar(),
             visitas: $publicas['visitas'],
             cliques: $publicas['cliques'],
+            termos: !$ctx->configuracao->termoLigado() ? null : array_map(static fn ($t): string => ApresentadorDeTermo::estado($t), $this->termos->maisRecentesDe(array_map(static fn (Curriculo $c): int => (int) $c->getId(), $curriculos))),
         ));
     }
 

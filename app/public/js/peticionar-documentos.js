@@ -1,8 +1,6 @@
 /*
  * Peticionar (desenho 07): o que a lista de documentos ganhou no P1 e no P2.
  *
- *  - "Voltar à pasta" no cabeçalho (L38): o link nasce escondido no conteúdo e vem para o início
- *    do .navtop-right (o layout não tem bloco no cabeçalho).
  *  - Menu da linha, pelo botão de três pontos e pelo botão direito (L54, L101-105, L161): Abrir,
  *    Renomear, Baixar, Classificar e Excluir (vai para a lixeira).
  *  - Barra do documento selecionado (L77-85): nome (duplo clique renomeia), "tamanho · data"
@@ -125,19 +123,6 @@
 
     function selecionar(row) {
         if (window.PeticionarTela) window.PeticionarTela.selecionarItem(row);
-    }
-
-    // --------------------------------------------------- voltar à pasta (L38) ---
-
-    const voltar = document.getElementById('peticVoltarPasta');
-    if (voltar) {
-        // Logo antes do nome do usuário, como no desenho.
-        const direita = document.querySelector('.navtop-right');
-        if (direita) {
-            const usuario = direita.querySelector(':scope > .menu-usuario');
-            direita.insertBefore(voltar, usuario || null);
-        }
-        voltar.hidden = false;
     }
 
     // --------------------------------------------- menu do "Adicionar peça" (L66-73) ---
