@@ -226,6 +226,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Master\Entity\EventoDeDesempenho::class,
         \App\Master\Entity\IncidenteDeDesempenho::class,
         \App\Master\Entity\RegistroDeBackup::class,
+        // Custos do Master (docs/specs/master-custos.md): lançamento de custo da PLATAFORMA, sem `tenant_id`; só o Master
+        // (ROLE_SUPER_ADMIN) lê e grava.
+        \App\Master\Entity\LancamentoDeCusto::class,
         // Janela da OAB dos estados que faltam (docs/specs/master-oab-estados-que-faltam.md): as subseções e a nota
         // explicativa de cada seccional são anotação de trabalho da PLATAFORMA, compartilhada entre os Masters, sem
         // escritório nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
@@ -349,7 +352,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
     // 85 → 86 com o preço do atendimento do Service Desk (27/10/2026): PrecoDoAtendimento, justificado acima (catálogo
     // global que só o Master define, igual ao Plano do Contribua).
-    private const MAX_FORA_DO_ESCOPO = 86;
+    // 86 → 87 com os custos do Master (27/10/2026): LancamentoDeCusto (plataforma), justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 87;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
