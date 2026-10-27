@@ -66,6 +66,8 @@
 /* Botões do desenho (L261) e a moldura da janela "Lançar custo" (L268). */
 .cst button { font: inherit; }
 .cst-botao { height: 30px; padding: 0 11px; border: 1px solid var(--cst-botao-borda); border-radius: 2px; background: var(--cst-fundo); color: var(--cst-botao-tx); font-size: 12.5px; font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.cst-botao-arquivo input { display: none; }
+.cst-botao:hover { text-decoration: none; }
 .cst-botao:disabled { cursor: progress; opacity: .75; }
 .cst-botao-primario { border: none; background: var(--cst-azul); color: #fff; font-weight: bold; }
 .cst-fundo { position: fixed; inset: 0; z-index: 9500; background: rgba(18, 36, 47, .35); }

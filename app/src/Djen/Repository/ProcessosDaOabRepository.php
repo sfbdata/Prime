@@ -54,6 +54,42 @@ class ProcessosDaOabRepository
     }
 
     /**
+     * "Buscar processo existente" do modal "Vincular processo" (desenho 11): processos cadastrados no escritório, por
+     * número, cliente ou NUP da pasta; até `$limite`. O mais recente primeiro.
+     *
+     * @param list<int> $processosOcultos ids de processo que a pessoa não pode ver (cadeado da pasta)
+     *
+     * @return list<array{numero: string, tribunal: string, pasta: ?string}>
+     */
+    public function buscarCadastrados(Tenant $tenant, string $termo, array $processosOcultos = [], int $limite = 8): array
+    {
+        $termo = trim($termo);
+        $digitos = preg_replace('/\D/', '', $termo) ?? '';
+        $sql = <<<'SQL'
+            SELECT regexp_replace(p.numero_processo, '\D', '', 'g') AS numero, COALESCE(p.sigla_tribunal, '') AS tribunal,
+                   (SELECT pa.nup FROM pasta_processo pr JOIN pasta pa ON pa.id = pr.pasta_id
+                     WHERE pr.processo_id = p.id AND pa.excluida_em IS NULL ORDER BY pr.principal DESC, pa.id LIMIT 1) AS pasta
+            FROM processo p
+            WHERE p.tenant_id = :t AND NOT (p.id = ANY(CAST(:ocultos AS int[])))
+              AND (:termo = ''
+                   OR (:digitos <> '' AND regexp_replace(p.numero_processo, '\D', '', 'g') LIKE '%' || :digitos || '%')
+                   OR EXISTS (SELECT 1 FROM pasta_processo pr JOIN pasta pa ON pa.id = pr.pasta_id
+                               WHERE pr.processo_id = p.id AND pa.excluida_em IS NULL
+                                 AND (pa.nup ILIKE '%' || :termo || '%' OR pa.nome_cliente ILIKE '%' || :termo || '%')))
+            ORDER BY p.id DESC
+            LIMIT :limite
+            SQL;
+
+        $linhas = $this->conexao->fetchAllAssociative(
+            $sql,
+            ['t' => $tenant->getId(), 'ocultos' => '{' . implode(',', $processosOcultos) . '}', 'termo' => $termo, 'digitos' => $digitos, 'limite' => $limite],
+            ['limite' => \Doctrine\DBAL\ParameterType::INTEGER],
+        );
+
+        return array_map(static fn (array $l): array => ['numero' => (string) $l['numero'], 'tribunal' => (string) $l['tribunal'], 'pasta' => $l['pasta'] !== null ? (string) $l['pasta'] : null], $linhas);
+    }
+
+    /**
      * Relatório: números que a OAB trouxe em publicação e que ainda não são acompanhados.
      *
      * @return list<LinhaDoProcessoDaOab>
@@ -67,6 +103,8 @@ class ProcessosDaOabRepository
                 WHERE p.tenant_id = :t AND p.data_baixa IS NULL AND p.monitoramento_pausado_em IS NULL
                 UNION
                 SELECT a.numero_processo FROM djen_processo_acompanhado a WHERE a.tenant_id = :t AND a.acompanhando
+                UNION
+                SELECT a.numero_processo FROM djen_processo_acompanhado a WHERE a.tenant_id = :t AND a.excluido_em IS NOT NULL
             ),
             base AS (
                 SELECT DISTINCT regexp_replace(d.numero_processo, '\D', '', 'g') AS num,

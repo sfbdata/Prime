@@ -90,6 +90,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // ver o Y como Free. Só o repositório do Contribua a consulta
         // (EspacoDoEscritorioSoNoContribuaArquiteturaTest).
         \App\Contribua\Entity\EspacoDoEscritorio::class,
+        // Aviso recebido de gateway/banco: quem manda é o gateway, e o escritório só aparece depois da
+        // reconsulta. Guardado antes de processar, para idempotência.
+        \App\Contribua\Entity\NotificacaoRecebida::class,
+        // Configuração do pagamento por cartão (gateway, chave pública, carência): uma linha só, da plataforma.
+        \App\Contribua\Entity\ConfiguracaoDePagamento::class,
         // Bônus de espaço por indicação: mesmo motivo do espaço do escritório (lido por tenantId explícito
         // no SituacaoDoEspaco, inclusive em lote para o painel do Master). Só o Contribua o cita
         // (BonusDeEspacoSoNoContribuaArquiteturaTest).
@@ -262,6 +267,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Extrato de recompensas (F2, 26/10/2026): livro só de INSERT com os créditos e estornos manuais por indicador.
         // Dado da PLATAFORMA, lido e escrito só pelo Master; o indicador é um usuário, sem escritório. Sem dado de cliente.
         \App\Recompensa\Entity\LancamentoDeRecompensa::class,
+        // Aprovação de conta suspeita (F3, 26/10/2026): o Master libera uma conta que o antifraude reteve. Dado da
+        // PLATAFORMA (dois usuários e quem aprovou), escrito só pelo Master; sem escritório nem dado de cliente.
+        \App\Recompensa\Entity\AprovacaoDeContaDeRecompensa::class,
         // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
         // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
         // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
@@ -303,6 +311,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
+    // (A C3 do Contribua soma 2 no fim: o aviso de gateway, que chega sem escritório, e a configuração do pagamento.)
     // 21 → 22 com RecursoEstado (19/10/2026, Perfis 1.2 · Telas e recursos): configuração global da plataforma.
     // 22 → 26 com a tela de entrada do desenho 10 (19/10/2026): ConfirmacaoEmail, CienciaPolitica, AjusteEntrada e
     // MensagemSuporte são anteriores a qualquer escritório (identidade do User e a tela de entrada única); justificado acima.
@@ -348,7 +357,6 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
     // 80 → 82 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
     // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
-    // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
     // 83 → 84 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
     // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
     // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
@@ -356,7 +364,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // global que só o Master define, igual ao Plano do Contribua).
     // 86 → 87 com os custos do Master (27/10/2026): LancamentoDeCusto (plataforma), justificado acima.
     // 87 → 88 com os escritórios guardados da Nova solicitação (27/10/2026): EscritorioSolicitante é do usuário, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 88;
+    // 88 → 89 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
+    // 89 → 91 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
+    private const MAX_FORA_DO_ESCOPO = 91;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

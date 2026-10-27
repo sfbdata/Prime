@@ -166,9 +166,9 @@ final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
 
         $linha = $prazo->filter('.ps-nm-prazo > .ps-nm-prazo-linha');
         self::assertSame(
-            ['button', 'input', 'button', 'button', 'button', 'button'],
+            ['button', 'input', 'button', 'button', 'button', 'button', 'span'],
             $linha->children()->each(static fn ($c): string => $c->nodeName()),
-            'o campo do desenho vem antes dos atalhos; o input fica logo depois, fora da vista',
+            'o campo do desenho vem antes dos atalhos; o input fica logo depois, fora da vista; o chip do prazo sugerido (Análise do prazo) fecha a linha',
         );
         $campo = $linha->filter('.ps-nm-prazo-linha > button.ps-nm-cal-campo[data-ps-nm-cal-campo]');
         self::assertSame('tarefaPrazoCalendario', $campo->attr('aria-controls'));

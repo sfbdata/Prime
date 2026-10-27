@@ -18,17 +18,17 @@ dele como fonte única de dias úteis. Risco: prazo jurídico é risco (`trilha-
   folga, a urgência e a prioridade; e o calendário do `DiasUteisNacionais` (feriados nacionais com os móveis,
   recesso). Testes: `tests/Tarefa/Unit/AnaliseDoPrazoDaMetaTest.php`. O defeito do desenho (FERIADOS
   redeclarado em MM-DD, D2 da auditoria) não foi copiado.
-- **Travado pelo dono (coordenador, 19/10), pacote junto com a 0d:**
-  1. Rótulo "I.A." numa regra (chip, "ANÁLISE DA I.A.", "Estimado pela I.A.", tooltips): conflita com a regra 1
-     da Inteligência ("nenhuma resposta que não veio do modelo") e com a S-4. Até a resposta, nenhum rótulo
-     "I.A." em regra.
-  2. Sugestão automática de prazo legal visível na tela: risco jurídico. Até a resposta, nenhum prazo sugerido
-     visível.
-  3. Leitura do conteúdo de documentos pela IA (análise documental, "Ler N documentos", "Índice inteligente"):
-     conflita com a regra 7. Até a resposta, nada de leitura de conteúdo.
-- **Depois da decisão:** migration da Tarefa (prioridade, tipo, prazo jurídico, estado, publicação, ciência,
-  "usou a sugestão") e a criação da meta no `TarefaController::criarParaPasta` (legado), combinadas com a 7d
-  (#89 mexe no mesmo controller).
+- **Decidido (coordenação, 27/10/2026), vale para a tela:**
+  1. Sem rótulo "I.A." em regra: o bloco se chama "Análise do prazo"; o estado "Estimado" não diz "pela I.A.".
+  2. O prazo legal aparece como ESTIMATIVA, com data, termo inicial e fonte (a explicação do motor). Antes de
+     gravar a meta, a pessoa confirma a análise ("Confirmar análise"), informa o prazo jurídico ou corrige as
+     informações: o servidor recusa (422) a meta cujo prazo jurídico ainda é só estimado ou "necessita conferência".
+  3. Sem leitura do conteúdo de documentos (regra 7 da Inteligência): continua fora.
+  4. Prazo e responsável obrigatórios na Nova meta (D-META): já valem em `TarefaController::criarParaPasta`.
+- **Feito (27/10): tela e gravação.** Rota `tarefa_analise_do_prazo` (`AnaliseDoPrazoController`, só leitura, mesmo
+  CSRF do formulário), `RegistrarAnaliseDoPrazoNaMetaUseCase` na criação (quando o modal manda `analise_prazo=1`) e
+  migration `Version20261027153400` (Tarefa: `prazo_juridico`, `estado_prazo_juridico`, `data_publicacao`,
+  `data_ciencia`, `usou_prazo_sugerido`). O estado é refeito no servidor com as datas recebidas.
 - **Análise documental (B), feito:** a fase dos documentos sugeridos vem da última movimentação do Push quando ela
   a diz (`FaseDoProcessoPeloPush`, que reaproveita a "Situação atual" do #82: regras do CPC sobre o texto, sem
   IA nem leitura de documento), como o `faseDe` do `bj-docsug.js`; senão, segue pela classe processual. A tela diz
@@ -62,6 +62,15 @@ alteração do modal por uma rota leve, sem fila.
 
 ## Para o dono
 
-1. Rótulo da análise (ver 1 acima) e se o prazo legal sugerido aparece (2).
-2. Leitura de conteúdo de documentos pela IA (3): privacidade, custo e extração (frente D).
-3. Prazo e responsável obrigatórios na nova meta (o desenho exige; hoje são opcionais: D-META).
+1. Leitura de conteúdo de documentos pela IA: privacidade, custo e extração (frente D). Segue fora.
+
+## Decisões da revisão de 27/10 (orquestrador, pela recomendação)
+
+- **A trava do "Confirmar análise" é do formulário, não segurança.** O servidor só a aplica quando o modal manda
+  `analise_prazo=1` (o Push e o drawer da IA preenchem o mesmo modal, então passam por ela). Chamadas sem o campo
+  (testes, integrações) criam a meta como sempre; se a consulta da análise falhar, a meta também é criável. Tornar
+  a trava obrigatória no servidor derrubaria esses caminhos: fica como decisão futura do dono.
+- **Confirmação velha:** mudar título, descrição, publicação ou ciência depois de "Confirmar análise" desfaz a
+  confirmação (o prazo digitado pela pessoa fica). Limpar a data jurídica volta ao prazo estimado.
+- **Linha de aprendizado do desenho:** fora desta entrega (no desenho vem de localStorage, sem lastro multi-tenant);
+  o elemento existe escondido, para quando houver backend.

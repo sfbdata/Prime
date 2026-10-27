@@ -99,4 +99,14 @@
         });
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { janela.hidden = true; } });
     }
+
+    var formBuscar = raiz.querySelector('[data-pp-buscar]');
+    if (formBuscar) {
+        formBuscar.addEventListener('submit', function () {
+            var botao = formBuscar.querySelector('button');
+            botao.querySelector('span').textContent = formBuscar.getAttribute('data-t-buscando');
+            botao.querySelector('i').className = 'bi bi-hourglass-split';
+            window.setTimeout(function () { botao.disabled = true; }, 0);
+        });
+    }
 }());

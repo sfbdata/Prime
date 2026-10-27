@@ -58,6 +58,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Contribua: sugestão. O Master a atende a partir de outro escritório e o audit_log gravaria no
         // escritório da sessão dele (vazamento entre trilhas). Volta quando houver o escopo de plataforma.
         \App\Contribua\Entity\Sugestao::class,
+        // Contribua: aviso bruto recebido de gateway/banco. É ele mesmo a trilha (o que chegou e quando);
+        // quem muda dado de escritório é a reconsulta, que audita a assinatura/apoio.
+        \App\Contribua\Entity\NotificacaoRecebida::class,
 
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
@@ -65,6 +68,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Service Desk: linha do andamento do chamado. Ela JÁ é o registro de quem fez o quê e quando; auditar cada
         // linha duplicaria a trilha. O chamado (ChamadoDeSuporte) e o dinheiro são Auditavel.
         \App\ServiceDesk\Entity\HistoricoDoChamado::class,
+        // Gateway de pagamentos: a trilha imutável do pagamento (criado, confirmado, divergente, manual) JÁ é o registro
+        // de quem fez o quê e quando; auditar cada linha duplicaria. O pagamento (dinheiro) é Auditavel.
+        \App\Pagamento\Entity\PagamentoEvento::class,
         // "Acompanhar alterações" desligado: preferência pessoal de aviso, mesma natureza do favorito.
         \App\Pasta\Entity\PastaAcompanhamentoDesligado::class,
         // Destaque de linha da Lista (E12): cor pessoal de quem olha, mesma natureza do favorito.

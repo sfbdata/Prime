@@ -131,6 +131,8 @@ final class ListarCompromissosUseCase
             inicioOriginal: $evento->getDataInicio()?->format('Y-m-d\TH:i'),
             fimOriginal: $evento->getDataFim()?->format('Y-m-d\TH:i'),
             doGoogle: $evento->isImportadoDoGoogle(),
+            local: '' === (string) $evento->getLocal() ? null : (string) $evento->getLocal(),
+            descricao: '' === (string) $evento->getDescricao() ? null : (string) $evento->getDescricao(),
         );
     }
 

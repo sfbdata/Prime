@@ -190,6 +190,19 @@ services:
     # baixo está mais abaixo, no bloco do espelho (P2.3): a cadeia fica cota → espelho → disco. O alias
     # fica no YAML, e não num atributo no backend, porque o núcleo não pode depender do Symfony (INV-8).
 
+    # Limite de tentativas de login (spec login-config-tentativas): mesmo storage do login_throttling padrão
+    # (CacheStorage sobre cache.rate_limiter), segredo do hash da chave: kernel.secret (estável entre deploys; o Symfony usa o build_hash, que zera os contadores a cada build). Sem lock.
+    App\Security\LimitadorDeTentativasDeLogin:
+        arguments:
+            $armazenamento: '@limiter.storage.login_tentativas'
+            $segredo: '%kernel.secret%'
+    # Público só para o teste funcional trocar por um storage que não é zerado a cada requisição (o ArrayAdapter do
+    # pool de teste é zerado pelo services_resetter, e sem isso o bloqueio não é observável por HTTP).
+    limiter.storage.login_tentativas:
+        class: Symfony\Component\RateLimiter\Storage\CacheStorage
+        public: true
+        arguments: ['@cache.rate_limiter']
+
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
     App\Auth\Service\OabWebServiceClientInterface: '@App\Auth\Service\ClienteOabIndisponivel'
@@ -350,6 +363,12 @@ when@test:
         App\Tests\Inteligencia\Support\ProvedorFalso:
             public: true
         App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Tests\Inteligencia\Support\ProvedorFalso'
+
+        # Contribua C3: gateway de cartão falso (código 'falso'), para o checkout, o webhook e a conciliação
+        # serem provados de ponta a ponta sem rede. `public` para o teste programar a situação no gateway.
+        App\Tests\Contribua\Doubles\GatewayFalso:
+            public: true
+            tags: ['contribua.gateway']
 
         # E2.5 — faz o próximo COMMIT da aplicação falhar, sob demanda. Sob o DAMA nenhum COMMIT
         # falha de verdade; sem isto o ramo "o COMMIT lançou" só seria testável com mock.

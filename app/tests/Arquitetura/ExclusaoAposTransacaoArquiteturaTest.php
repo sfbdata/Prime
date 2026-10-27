@@ -40,6 +40,8 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
      *  - `NotificacaoController` — `NotificacaoService::excluir()` apaga notificações, não arquivos;
      *  - `ExcluirAnaliseUseCase` — `AnaliseDeInteligencia::excluir()` é soft delete da análise da IA
      *    (marca excluída_em/por), não toca em arquivo;
+     *  - `ExcluirProcessoDoPushUseCase` (Djen) — `ProcessoAcompanhado::excluir()` marca excluido_em na
+     *    linha de acompanhamento, não toca em arquivo;
      *  - `ArmazenamentoComCota` (Contribua) — decorador do storage: o `excluir()` dele só repassa ao
      *    interno quem já chamou pela remoção; ele não decide remover nada.
      */
@@ -48,6 +50,7 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
         'src/Central/UseCase/LimparAvisosLidosUseCase.php',
         'src/Contribua/Armazenamento/ArmazenamentoComCota.php',
         'src/Controller/NotificacaoController.php',
+        'src/Djen/UseCase/ExcluirProcessoDoPushUseCase.php',
         'src/Inteligencia/UseCase/ExcluirAnaliseUseCase.php',
         'src/Shared/Armazenamento/RemocaoAposTransacao.php',
         'src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php',
