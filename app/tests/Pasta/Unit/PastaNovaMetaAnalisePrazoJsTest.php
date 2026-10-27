@@ -96,7 +96,7 @@ final class PastaNovaMetaAnalisePrazoJsTest extends TestCase
         $js = $this->js();
         self::assertStringNotContainsString('I.A', $js);
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $js);
-        preg_match_all("/BJ_T\\.t\\('pasta_scripts\\.js\\.analise_prazo\\.' \\+/", $js, $m);
-        self::assertGreaterThan(0, count($m[0]));
+        self::assertStringContainsString("var PREFIXO = 'pasta_scripts.js.analise_prazo.';", $js);
+        self::assertStringContainsString('BJ_T.t(PREFIXO + chave', $js);
     }
 }

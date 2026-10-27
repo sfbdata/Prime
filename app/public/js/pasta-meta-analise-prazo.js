@@ -64,7 +64,8 @@
         return { pub: '', ciencia: '', jur: '', confirmado: false, aberta: false, conferindo: false, editJur: false, origemAberta: false, tip: '', nota: '' };
     }
 
-    function t(chave, params) { return BJ_T.t('pasta_scripts.js.analise_prazo.' + chave, params); }
+    var PREFIXO = 'pasta_scripts.js.analise_prazo.';
+    function t(chave, params) { return BJ_T.t(PREFIXO + chave, params); }
 
     function br(iso) {
         if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) { return iso || ''; }
