@@ -28,15 +28,19 @@ final class CancelarCobrancaDaOrigemUseCase
     ) {
     }
 
-    public function executar(int $tenantId, OrigemDoPagamento $origem, int $origemId, string $motivo): bool
+    /** @throws \DomainException com `$recusarSePaga`, quando a cobrança mais recente já foi paga (conferido com o pagamento travado) */
+    public function executar(int $tenantId, OrigemDoPagamento $origem, int $origemId, string $motivo, bool $recusarSePaga = false): bool
     {
         $ultimo = $this->pagamentos->ultimoDaOrigem($tenantId, $origem, $origemId);
-        if ($ultimo === null || $ultimo->getStatus() !== StatusDoPagamento::Aguardando) {
+        if ($ultimo === null || ($ultimo->getStatus() !== StatusDoPagamento::Aguardando && !$recusarSePaga)) {
             return false;
         }
 
-        return (bool) $this->em->wrapInTransaction(function () use ($ultimo, $motivo): bool {
+        return (bool) $this->em->wrapInTransaction(function () use ($ultimo, $motivo, $recusarSePaga): bool {
             $this->pagamentos->travar($ultimo);
+            if ($recusarSePaga && $ultimo->getStatus() === StatusDoPagamento::Paga) {
+                throw new \DomainException('O banco já confirmou o pagamento desta demanda.');
+            }
             if ($ultimo->getStatus() !== StatusDoPagamento::Aguardando) {
                 return false;
             }

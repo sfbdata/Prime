@@ -22,7 +22,7 @@ class IntegracaoBancaria
     public const ESTADO_CONECTADA = 'ok';
     public const AMBIENTES = ['sandbox', 'producao'];
     /** Chaves do desenho (L249): cobrança por conta, conciliação, boleto, relatório. */
-    public const RECURSOS_PADRAO = ['cob' => true, 'conc' => true, 'bol' => false, 'rel' => true, 'te' => false, 'te_trava' => false];
+    public const RECURSOS_PADRAO = ['cob' => true, 'conc' => true, 'bol' => false, 'rel' => true, 'te' => false];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

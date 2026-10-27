@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\TrabalhoExterno\UseCase;
 
 use App\Pagamento\Enum\OrigemDoPagamento;
+use App\Pagamento\Enum\StatusDoPagamento;
 use App\Pagamento\UseCase\CancelarCobrancaDaOrigemUseCase;
 use App\Pagamento\UseCase\ConsultarCobrancaDaOrigemUseCase;
-use App\Pagamento\UseCase\EmitirCobrancaPixUseCase;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
@@ -40,7 +40,6 @@ final class ConfirmarRecebimentoDoPixUseCase
         private readonly RegistrarPagamentoDaDemandaService $registro,
         private readonly ConsultarCobrancaDaOrigemUseCase $cobrancas,
         private readonly CancelarCobrancaDaOrigemUseCase $cancelarCobranca,
-        private readonly EmitirCobrancaPixUseCase $integracao,
     ) {
     }
 
@@ -74,17 +73,18 @@ final class ConfirmarRecebimentoDoPixUseCase
     }
 
     /**
-     * Cobrança PIX dinâmica viva (gateway M1, §4.4): com a trava ligada o manual exige motivo (409 sem ele); em todo caso a
-     * cobrança é cancelada ao confirmar à mão, para um PIX tardio cair em `divergente` em vez de pagar duas vezes sem ninguém ver.
+     * Cobrança PIX no registro de pagamentos (gateway M1, §4.4): ao confirmar à mão a cobrança aguardando é SEMPRE cancelada
+     * (com ou sem QR, vencida ou não), para um PIX tardio cair em `divergente` em vez de pagar duas vezes sem ninguém ver.
+     * Com um QR ainda valendo o motivo é obrigatório (409 sem ele, decisão do dono). O pagamento é travado antes de conferir.
      */
     private function resolverCobrancaViva(Contexto $ctx, DemandaExterna $demanda, string $motivo): void
     {
         $tenantId = (int) $demanda->getTenant()->getId();
-        $viva = $this->cobrancas->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, (int) $demanda->getId());
-        if ($viva === null || !$viva->viva(new \DateTimeImmutable())) {
+        $ultima = $this->cobrancas->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, (int) $demanda->getId());
+        if ($ultima === null || $ultima->status !== StatusDoPagamento::Aguardando) {
             return;
         }
-        if ($motivo === '' && $this->integracao->disponivel('te_trava')) {
+        if ($motivo === '' && $ultima->viva(new \DateTimeImmutable())) {
             throw new TransicaoInvalida('Há um PIX dinâmico aguardando o banco. Informe o motivo para confirmar o recebimento à mão.');
         }
         $this->cancelarCobranca->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, (int) $demanda->getId(), mb_substr(sprintf('Confirmado à mão por %s%s', $ctx->autor()->nome, $motivo !== '' ? ': ' . $motivo : ''), 0, 500));

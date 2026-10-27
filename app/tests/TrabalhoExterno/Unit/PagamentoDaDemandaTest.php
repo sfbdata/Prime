@@ -714,7 +714,7 @@ final class PagamentoDaDemandaTest extends TestCase
 
     private function ajustar(): AjustarValorDoPagamentoUseCase
     {
-        return new AjustarValorDoPagamentoUseCase($this->localizador(), $this->repositorio(), $this->avisos(), $this->cobrancaDoPixSemBanco()[0], $this->cobrancaDoPixSemBanco()[1]);
+        return new AjustarValorDoPagamentoUseCase($this->localizador(), $this->repositorio(), $this->avisos(), $this->cobrancaDoPixSemBanco()[1]);
     }
 
     private function ultima(DemandaExterna $d): \App\TrabalhoExterno\Entity\MensagemDemanda
@@ -770,7 +770,7 @@ final class PagamentoDaDemandaTest extends TestCase
 
     private function confirmar(): ConfirmarRecebimentoDoPixUseCase
     {
-        return new ConfirmarRecebimentoDoPixUseCase($this->localizador(), new PoliticaDaDemanda(), $this->repositorio(), $this->registro(), ...$this->cobrancaDoPixSemBanco());
+        return new ConfirmarRecebimentoDoPixUseCase($this->localizador(), new PoliticaDaDemanda(), $this->repositorio(), $this->registro(), $this->cobrancaDoPixSemBanco()[0], $this->cobrancaDoPixSemBanco()[1]);
     }
 
     private function registro(): RegistrarPagamentoDaDemandaService

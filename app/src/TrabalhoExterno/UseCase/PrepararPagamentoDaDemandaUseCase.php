@@ -12,10 +12,10 @@ use App\Pagamento\UseCase\ConsultarCobrancaDaOrigemUseCase;
 use App\Pagamento\UseCase\EmitirCobrancaPixUseCase;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
-use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Service\ApresentadorDoPagamento;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
+use App\TrabalhoExterno\Service\PoliticaDaDemanda;
 
 /**
  * História: a pessoa abre a aba Pagamento. Se a integração com o banco está ligada para o Trabalho Externo, garantimos
@@ -35,6 +35,7 @@ final class PrepararPagamentoDaDemandaUseCase
 
     public function __construct(
         private readonly LocalizadorDeDemanda $localizador,
+        private readonly PoliticaDaDemanda $politica,
         private readonly EmitirCobrancaPixUseCase $emitir,
         private readonly ConsultarCobrancaDaOrigemUseCase $consultar,
         private readonly CancelarCobrancaDaOrigemUseCase $cancelar,
@@ -55,6 +56,10 @@ final class PrepararPagamentoDaDemandaUseCase
         $centavos = self::emCentavos($valor);
         $agora = new \DateTimeImmutable();
         $atual = $this->consultar->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, $origemId);
+        if (in_array($atual?->status, [StatusDoPagamento::Paga, StatusDoPagamento::Divergente], true)) {
+            // O banco já recebeu algo: nunca se emite QR novo por cima (a tela mostra o estado; o Master decide).
+            return null;
+        }
         $mesmoValor = $atual !== null && $atual->valorCentavos === $centavos;
         if ($mesmoValor && ($atual->viva($agora) || (!$gerarNovo && $atual->brCode !== null && $atual->expiraEm !== null && $atual->expiraEm <= $agora))) {
             return null;
@@ -70,7 +75,7 @@ final class PrepararPagamentoDaDemandaUseCase
     /** Convidado, prévia, já pago, fora das situações do pagamento ou integração desligada: nada a preparar. */
     private function precisaDeCobranca(Contexto $ctx, DemandaExterna $demanda): bool
     {
-        return $ctx->perfil !== Perfil::Convidado && !$ctx->somenteLeitura() && $demanda->getPagoEm() === null
+        return $this->politica->podeVerAbaPagamento($ctx, $demanda) && !$ctx->somenteLeitura() && $demanda->getPagoEm() === null
             && in_array($demanda->getSituacao(), AcaoDemanda::RegistrarPagamento->origens(), true)
             && $this->emitir->disponivel('te');
     }
@@ -97,11 +102,9 @@ final class PrepararPagamentoDaDemandaUseCase
         return $emitida === null ? self::AVISO_INDISPONIVEL : null;
     }
 
-    /** "1500.00" (valor da proposta) em centavos, sem passar por ponto flutuante. */
+    /** "1500.00" (valor da proposta) em centavos, arredondado como o ajuste de valor. */
     public static function emCentavos(string $valor): int
     {
-        [$inteiro, $centavos] = array_pad(explode('.', $valor, 2), 2, '00');
-
-        return (int) $inteiro * 100 + (int) str_pad(substr($centavos, 0, 2), 2, '0');
+        return (int) round((float) $valor * 100);
     }
 }

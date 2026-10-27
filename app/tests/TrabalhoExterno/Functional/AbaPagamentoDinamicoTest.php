@@ -100,6 +100,52 @@ final class AbaPagamentoDinamicoTest extends JusPrimeWebTestCase
         self::assertSame('divergente', $this->em()->getConnection()->fetchOne('SELECT status FROM pagamento'));
         self::assertNotSame('pago', $this->detalhe($codigo)['pagamento']['estado']);
         self::assertSame(0, $this->contar("trabalho_externo_historico WHERE para = 'pago'"));
+
+        // Nunca QR novo por cima do que o banco já recebeu: a aba mostra o estado e nada é emitido.
+        $r = $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
+        self::assertNull($r['avisoPagamento']);
+        self::assertSame(1, $this->contar('pagamento'));
+        $pg = $r['demanda']['pagamento'];
+        self::assertStringContainsString('valor diferente', $pg['avisoDoBanco']);
+        self::assertFalse($pg['mostraQr']);
+        self::assertFalse($pg['preparar']);
+    }
+
+    #[TestDox('Cobrança paga pelo banco com a demanda ainda sem pago: o valor não pode mais ser ajustado (409) e nenhum QR novo nasce')]
+    public function testAjusteComPagaRecusa(): void
+    {
+        [$codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita('20,00');
+        $this->conectar($master, $central, true);
+        $this->logarComTenant($this->client, $solicitante, $escritorio);
+        $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
+        $this->em()->getConnection()->executeStatement("UPDATE pagamento SET status = 'paga'");
+
+        $this->logarComTenant($this->client, $master, $central);
+        $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/valor", ['valor' => '35,00', 'motivo' => 'Acréscimo combinado com o cliente']);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(0, $this->contar("trabalho_externo_historico WHERE para = 'Valor do pagamento alterado'"));
+        self::assertSame('paga', $this->em()->getConnection()->fetchOne('SELECT status FROM pagamento'));
+
+        $this->logarComTenant($this->client, $solicitante, $escritorio);
+        $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
+        self::assertSame(1, $this->contar('pagamento'));
+    }
+
+    #[TestDox('Cobrança aguardando sem QR (banco fora do ar): o botão manual a cancela sem exigir motivo')]
+    public function testManualCancelaCobrancaSemQr(): void
+    {
+        [$codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita('20,00');
+        $this->conectar($master, $central, true);
+        $this->cora->statusDaCriacao = 500;
+        $this->logarComTenant($this->client, $solicitante, $escritorio);
+        $r = $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
+        self::assertSame(PrepararPagamentoDaDemandaUseCase::AVISO_INDISPONIVEL, $r['avisoPagamento']);
+        self::assertNull($this->em()->getConnection()->fetchOne('SELECT br_code FROM pagamento'));
+
+        $this->logarComTenant($this->client, $master, $central);
+        $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/confirmacao");
+        self::assertResponseIsSuccessful();
+        self::assertSame('cancelada', $this->em()->getConnection()->fetchOne('SELECT status FROM pagamento'));
     }
 
     #[TestDox('Sem a chave "te" a aba segue no PIX estático e nada é criado; CNPJ do escritório ausente avisa e não cria')]
@@ -122,11 +168,11 @@ final class AbaPagamentoDinamicoTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contar('pagamento'));
     }
 
-    #[TestDox('Botão manual com a cobrança viva: com a trava exige motivo (409 sem ele); com motivo paga e cancela a cobrança; PIX tardio vira divergente')]
+    #[TestDox('Botão manual com a cobrança viva: exige motivo (409 sem ele); com motivo paga e cancela a cobrança; PIX tardio vira divergente')]
     public function testManualComCobrancaViva(): void
     {
         [$codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita('20,00');
-        $this->conectar($master, $central, true, true);
+        $this->conectar($master, $central, true);
         $this->logarComTenant($this->client, $solicitante, $escritorio);
         $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
         $idNoBanco = (string) $this->em()->getConnection()->fetchOne('SELECT id_externo FROM pagamento');
@@ -209,7 +255,7 @@ final class AbaPagamentoDinamicoTest extends JusPrimeWebTestCase
         return [$codigo, $master, $central, $solicitante, $escritorio];
     }
 
-    private function conectar(User $master, Tenant $central, bool $te, bool $trava = false): void
+    private function conectar(User $master, Tenant $central, bool $te): void
     {
         $this->logarComTenant($this->client, $master, $central);
         $par = ParDeCertificado::novo();
@@ -221,7 +267,7 @@ final class AbaPagamentoDinamicoTest extends JusPrimeWebTestCase
             new UploadedFile($dir . '/cert.pem', 'cert.pem', null, null, true),
             new UploadedFile($dir . '/chave.key', 'chave.key', null, null, true),
         ]]);
-        $recursos = ['cob' => '1', 'conc' => '1', 'bol' => '0', 'rel' => '1', 'te' => $te ? '1' : '0', 'te_trava' => $trava ? '1' : '0'];
+        $recursos = ['cob' => '1', 'conc' => '1', 'bol' => '0', 'rel' => '1', 'te' => $te ? '1' : '0'];
         $this->client->request('POST', '/contribua/integracao-bancaria/salvar', ['_token' => 'TOKEN_contribua', 'ambiente' => 'producao', 'clientId' => 'cliente-1', 'recursos' => $recursos], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         self::assertTrue(json_decode((string) $this->client->getResponse()->getContent(), true)['ok'], (string) $this->client->getResponse()->getContent());
         $this->client->request('POST', '/contribua/integracao-bancaria/testar', ['_token' => 'TOKEN_contribua'], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);

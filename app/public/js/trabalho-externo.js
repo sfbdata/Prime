@@ -2198,6 +2198,9 @@
         if (S.avisoPg && S.avisoPg[cod]) {
             caixa.appendChild(el('div', { class: 'te-pg-sem', text: S.avisoPg[cod] }));
         }
+        if (pg.avisoDoBanco) {
+            caixa.appendChild(el('div', { class: 'te-pg-sem', text: pg.avisoDoBanco }));
+        }
         if (pg.vencida) {
             caixa.appendChild(el('div', { class: 'te-pg-sem', text: 'Cobrança vencida.' }));
             caixa.appendChild(el('button', { type: 'button', class: 'te-pg-copiar', onclick: function () { prepararCobranca(cod, pg, true); } }, [ic('bi-qr-code'), ' Gerar novo QR']));
@@ -2382,7 +2385,7 @@
         abrirConf(codigo, {
             k: '__pagamento_pix__',
             confirmacao: pg.confirmaComMotivo
-                ? { titulo: 'Confirmar recebimento', texto: pg.confirmacao + ' Há um PIX dinâmico aguardando o banco: ao confirmar à mão, essa cobrança é cancelada. Informe o motivo.', botao: 'Confirmar', motivo: true, motivoMax: 300, motivoOpcional: true }
+                ? { titulo: 'Confirmar recebimento', texto: pg.confirmacao + ' Há um PIX dinâmico aguardando o banco: ao confirmar à mão, essa cobrança é cancelada. Informe o motivo.', botao: 'Confirmar', motivo: true, motivoMax: 300 }
                 : { titulo: 'Confirmar recebimento', texto: pg.confirmacao, botao: 'Confirmar', motivo: false },
             executar: function (motivo) {
                 return pedir('POST', ROTA.pagamentoConfirmar(codigo), motivo ? { motivo: motivo } : undefined).then(function (r) {

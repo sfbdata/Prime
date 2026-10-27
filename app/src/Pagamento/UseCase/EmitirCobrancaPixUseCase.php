@@ -65,6 +65,19 @@ final class EmitirCobrancaPixUseCase
             throw new \DomainException('Cadastre o CNPJ do escritório para gerar o PIX com confirmação automática.');
         }
 
+        // Duas abas pedindo a mesma referência ao mesmo tempo: a segunda espera a primeira (sem transação aberta) e
+        // então encontra a cobrança já criada, em vez de bater na unicidade da referência.
+        $conexao = $this->em->getConnection();
+        $conexao->executeQuery('SELECT pg_advisory_lock(hashtext(?))', [$input->referencia]);
+        try {
+            return $this->emitirSerial($banco, $input);
+        } finally {
+            $conexao->executeQuery('SELECT pg_advisory_unlock(hashtext(?))', [$input->referencia]);
+        }
+    }
+
+    private function emitirSerial(BancoPix $banco, EmitirCobrancaPixInput $input): ?CobrancaPixOutput
+    {
         $criada = $this->criar->executar(new CriarPagamentoInput(
             $input->tenantId,
             $input->origem,
@@ -99,7 +112,7 @@ final class EmitirCobrancaPixUseCase
                 $input->expiraEm,
             ));
         } catch (FalhaNoBanco $falha) {
-            $this->logger->warning('Pagamento: cobrança PIX não criada no banco', ['pagamento' => $pagamento->getId(), 'passageira' => $falha->passageira, 'motivo' => $falha->getMessage()]);
+            $this->logger->warning('Pagamento: cobrança PIX não criada no banco', ['pagamento' => $pagamento->getId(), 'passageira' => $falha->passageira, 'codigo' => $falha->getCode()]);
             if (!$falha->passageira) {
                 $this->cancelarPorRecusa($pagamento->getId());
             }

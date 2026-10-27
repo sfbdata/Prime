@@ -82,7 +82,7 @@ Nenhuma alteração em `DemandaExterna` além do que o miolo já chama.
 
 1. **Ponto de entrada de aviso e conciliação do Pagamento** (a spec mãe põe no M0, mas o #471 não os trouxe): reconsulta mTLS por referência e `app:pix:conciliar` a cada 15 min. **Decisão: M0b separado**, com spec própria (`gateway-m0b-webhook-conciliacao.md`), porque o webhook é público e merece revisão própria de ALTO risco. O M1 só começa depois do M0b.
 2. **Handler da reconsulta** da #477 hoje fala só em `Apoio`. Precisa virar um roteador por prefixo da referência (`TE`, `BJ`, `SD`).
-3. **Chave liga/desliga**: o `ConfiguracaoDePagamento` da C3 é a configuração do cartão (gateway, chave pública, links), não guarda recursos. A convenção de recursos ligáveis do PIX é o JSON `recursos` da `IntegracaoBancaria` (#477: `RECURSOS_PADRAO = cob, conc, bol, rel`). **Decisão: nova chave `te` ("Cobrança PIX no Trabalho Externo"), padrão `false`**, acrescentada a `RECURSOS_PADRAO`; vale só com `cobraPorConta()` verdadeiro (integração conectada, certificado e `cob` ligado). Sem migration (o JSON absorve a chave). A trava do manual (§10.3) usa a chave `te_trava`, também `false`.
+3. **Chave liga/desliga**: o `ConfiguracaoDePagamento` da C3 é a configuração do cartão (gateway, chave pública, links), não guarda recursos. A convenção de recursos ligáveis do PIX é o JSON `recursos` da `IntegracaoBancaria` (#477: `RECURSOS_PADRAO = cob, conc, bol, rel`). **Decisão: nova chave `te` ("Cobrança PIX no Trabalho Externo"), padrão `false`**, acrescentada a `RECURSOS_PADRAO`; vale só com `cobraPorConta()` verdadeiro (integração conectada, certificado e `cob` ligado). Sem migration (o JSON absorve a chave).
 4. **Credencial da Cora em produção** (pendência C5 do dono). Sem ela, o botão dinâmico some e o estático vale.
 
 ## 7. Segurança
@@ -120,13 +120,14 @@ Decisões tomadas na entrega, além das da spec:
 
 - **Cliente da cobrança** = o escritório (tenant) dono da demanda, com nome e CNPJ do cadastro dele (decisão do Coordenador). Sem CNPJ válido o `Preparar` não cria nada e a aba mostra "Cadastre o CNPJ do escritório para gerar o PIX com confirmação automática."
 - **Quem fala com o banco** é o domínio `Pagamento` (`EmitirCobrancaPixUseCase`, `ConsultarCobrancaDaOrigemUseCase`, `CancelarCobrancaDaOrigemUseCase`); o `TrabalhoExterno` só decide valor, referência (`<código da demanda>-<n>`) e cliente, sem importar `Pagamento\Entity`.
-- **Chaves** no JSON `recursos`: `te` (liga o PIX dinâmico) e `te_trava` (o manual exige motivo com a cobrança viva). As duas desligadas por padrão; cada uma tem uma linha na tela de integração bancária.
-- **Botão manual**: com a cobrança viva ele sempre a cancela; sem `te_trava` o motivo é opcional, com `te_trava` sem motivo é 409.
+- **Chave** no JSON `recursos`: `te` (liga o PIX dinâmico), desligada por padrão, com uma linha na tela de integração bancária. A chave `te_trava` foi retirada: o motivo é sempre obrigatório (decisão do dono).
+- **Botão manual**: cancela sempre a cobrança aguardando (com ou sem QR, vencida ou não); com um QR ainda valendo o motivo é obrigatório (409 sem ele).
+- **Nunca QR novo por cima do banco**: se a última cobrança está paga ou divergente, a aba mostra o estado e o `Preparar` não emite outra.
+- **Corrida**: duas aberturas simultâneas da aba esperam uma à outra por trava de sessão do Postgres (`pg_advisory_lock` da referência) e a segunda encontra a cobrança criada.
 - **Aba**: `POST /trabalho-externo/api/demandas/{codigo}/pagamento/cobranca` é chamado pela tela ao abrir a aba (uma vez por demanda e por abertura) e pelo botão "Gerar novo QR" (`{"novo": true}`) quando a cobrança venceu.
 - **Escritório diferente do da sessão**: o Master da Central age na demanda de outro escritório; as consultas do consumidor ao `pagamento` passam por cima do filtro de escritório, sempre com o escritório da demanda explícito.
 
 Lacunas conhecidas, sem desenho ou sem API:
 
 - `BancoPix` não tem cancelamento de cobrança: "cancelar no banco" é só nosso. Um PIX pago em cobrança cancelada cai em `divergente` (aviso ao Master), como a spec prevê.
-- Adições sem desenho (convenção do sistema): linhas `te` e `te_trava` na tela de integração; o texto "válido até", "Cobrança vencida" e o botão "Gerar novo QR" na aba; o campo de motivo (diálogo de confirmação já existente) no "Confirmar recebimento".
-- Condição de corrida rara: duas abas abrindo ao mesmo tempo podem disputar a mesma referência (a segunda recebe erro de unicidade e a tela mostra o PIX estático até recarregar).
+- Adições sem desenho (convenção do sistema): linha `te` na tela de integração; o texto "válido até", "Cobrança vencida" e o botão "Gerar novo QR" na aba; o campo de motivo (diálogo de confirmação já existente) no "Confirmar recebimento".

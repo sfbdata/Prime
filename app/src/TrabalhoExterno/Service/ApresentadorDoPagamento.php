@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\Service;
 
 use App\Pagamento\DTO\CobrancaPixOutput;
 use App\Pagamento\Enum\OrigemDoPagamento;
+use App\Pagamento\Enum\StatusDoPagamento;
 use App\Pagamento\UseCase\ConsultarCobrancaDaOrigemUseCase;
 use App\Pagamento\UseCase\EmitirCobrancaPixUseCase;
 use App\TrabalhoExterno\Entity\DemandaExterna;
@@ -54,7 +55,7 @@ final class ApresentadorDoPagamento
         $comprovante = $d->comprovante();
         [$estado, $texto, $cor, $fundo, $icone] = $this->faixaDeEstado($d);
         $dinamica = $this->cobrancaDinamica($d, $valor);
-        $mostraQr = $valor !== null && $estado !== 'pago' && !$dinamica['vencida'];
+        $mostraQr = $valor !== null && $estado !== 'pago' && !$dinamica['vencida'] && $dinamica['bloqueio'] === '';
         $codigo = match (true) {
             !$mostraQr => '',
             $dinamica['viva'] !== null => (string) $dinamica['viva']->brCode,
@@ -100,7 +101,7 @@ final class ApresentadorDoPagamento
      * PIX dinâmico (gateway M1): `dinamico` = o código é a cobrança do banco; `preparar` = a tela pede a cobrança ao
      * abrir a aba; `vencida` = botão "gerar novo QR"; `venceEm` = validade; `confirmaComMotivo` = o manual pede motivo.
      *
-     * @param array{viva: ?CobrancaPixOutput, vencida: bool, preparar: bool} $dinamica
+     * @param array{viva: ?CobrancaPixOutput, vencida: bool, preparar: bool, bloqueio: string} $dinamica
      *
      * @return array<string, mixed>
      */
@@ -112,6 +113,7 @@ final class ApresentadorDoPagamento
             'vencida' => $dinamica['vencida'],
             'venceEm' => $dinamica['viva']?->expiraEm !== null ? self::dataHora($dinamica['viva']->expiraEm) : '',
             'confirmaComMotivo' => $dinamica['viva'] !== null,
+            'avisoDoBanco' => $dinamica['bloqueio'],
         ];
     }
 
@@ -120,25 +122,30 @@ final class ApresentadorDoPagamento
      * paga. `viva`: aguardando, com QR e do valor de agora. `vencida`: a última passou da validade (botão para a seguinte).
      * `preparar`: nada vivo nem vencido, então a aba pede a cobrança.
      *
-     * @return array{viva: ?CobrancaPixOutput, vencida: bool, preparar: bool}
+     * @return array{viva: ?CobrancaPixOutput, vencida: bool, preparar: bool, bloqueio: string}
      */
     private function cobrancaDinamica(DemandaExterna $d, ?string $valor): array
     {
-        $nada = ['viva' => null, 'vencida' => false, 'preparar' => false];
+        $nada = ['viva' => null, 'vencida' => false, 'preparar' => false, 'bloqueio' => ''];
         if ($valor === null || $d->getPagoEm() !== null || !$this->emitir->disponivel('te')) {
             return $nada;
         }
         $agora = new \DateTimeImmutable();
         $cobranca = $this->cobrancas->executar((int) $d->getTenant()->getId(), OrigemDoPagamento::TrabalhoExterno, (int) $d->getId());
+        if (in_array($cobranca?->status, [StatusDoPagamento::Paga, StatusDoPagamento::Divergente], true)) {
+            return ['viva' => null, 'vencida' => false, 'preparar' => false, 'bloqueio' => $cobranca->status === StatusDoPagamento::Paga
+                ? 'O banco confirmou um pagamento desta demanda. O BlueJus está conferindo.'
+                : 'O banco recebeu um valor diferente do cobrado. O BlueJus vai conferir e retornar.'];
+        }
         $mesmoValor = $cobranca !== null && $cobranca->valorCentavos === PrepararPagamentoDaDemandaUseCase::emCentavos($valor);
         if ($cobranca !== null && $mesmoValor && $cobranca->viva($agora)) {
-            return ['viva' => $cobranca, 'vencida' => false, 'preparar' => false];
+            return ['viva' => $cobranca, 'vencida' => false, 'preparar' => false, 'bloqueio' => ''];
         }
         if ($cobranca !== null && $mesmoValor && $cobranca->brCode !== null && $cobranca->expiraEm !== null && $cobranca->expiraEm <= $agora) {
-            return ['viva' => null, 'vencida' => true, 'preparar' => false];
+            return ['viva' => null, 'vencida' => true, 'preparar' => false, 'bloqueio' => ''];
         }
 
-        return ['viva' => null, 'vencida' => false, 'preparar' => true];
+        return ['viva' => null, 'vencida' => false, 'preparar' => true, 'bloqueio' => ''];
     }
 
     private function forma(?PropostaDemanda $proposta): string

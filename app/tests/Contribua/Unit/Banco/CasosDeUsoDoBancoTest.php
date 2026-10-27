@@ -55,7 +55,7 @@ final class CasosDeUsoDoBancoTest extends TestCase
 
         self::assertSame('Integração salva. Ela é ativada quando o servidor validar o certificado.', $sut->executar('sandbox', 'c1', ['bol' => true, 'xyz' => true], new User()));
         self::assertSame(IntegracaoBancaria::ESTADO_DESLIGADA, $this->integracao->getEstado());
-        self::assertSame(['cob' => true, 'conc' => true, 'bol' => true, 'rel' => true, 'te' => false, 'te_trava' => false], $this->integracao->getRecursos());
+        self::assertSame(['cob' => true, 'conc' => true, 'bol' => true, 'rel' => true, 'te' => false], $this->integracao->getRecursos());
     }
 
     #[TestDox('Enviar o certificado guarda cifrado e devolve só os nomes; a tela (Ver) diz presente, sem o conteúdo')]
