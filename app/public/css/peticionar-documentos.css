@@ -98,19 +98,24 @@
     outline: none;
 }
 
-/* Lista vazia e busca sem resultado (L57-58) */
+/* Lista vazia e busca sem resultado (L61-63): centralizado na vertical */
 .petic-tl-vazio {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 30px 10px;
+    text-align: center;
     color: #34505f;
     font-size: 14px;
 }
-.petic-tl-vazio i {
+.petic-tl-vazio > i {
     font-size: 38px;
     color: #9aabb7;
-    opacity: 1;
 }
 .petic-tl-vazio > .petic-tl-vazio-dica {
-    display: block;
-    margin-top: 12px;
     font-size: 12px;
     color: #7b93a2;
 }
@@ -121,6 +126,86 @@
 }
 .petic-timeline-list.petic-enviando {
     cursor: progress;
+}
+
+/* Rodapé "Adicionar peça" e o menu dele (L65-73) */
+@keyframes pcMenu {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
+.petic-timeline-footer > .petic-add-btn {
+    width: 100%;
+    height: 42px;
+    border: none;
+    border-radius: 4px;
+    background: #0a6fa0;
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: none;
+}
+.petic-timeline-footer > .petic-add-btn:hover,
+.petic-timeline-footer > .petic-add-btn:focus-visible {
+    background: #085a83;
+}
+.petic-timeline-footer > .petic-add-btn > .petic-add-seta {
+    font-size: 11px;
+}
+.petic-timeline-footer > .petic-add-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+}
+.petic-timeline-footer > .petic-add-menu {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: calc(100% - 4px);
+    z-index: 5;
+    background: #fff;
+    border: 1px solid #d3dde4;
+    border-radius: 4px;
+    box-shadow: 0 10px 26px rgba(16, 42, 58, .16);
+    padding: 6px;
+    animation: pcMenu .14s ease;
+}
+.petic-timeline-footer > .petic-add-fundo[hidden],
+.petic-timeline-footer > .petic-add-menu[hidden] { display: none; }
+.petic-add-menu > .petic-add-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font: inherit;
+    font-size: 14.5px;
+    color: #12242f;
+    text-align: left;
+    cursor: pointer;
+}
+.petic-add-menu > .petic-add-item:hover,
+.petic-add-menu > .petic-add-item:focus-visible {
+    background: #e5f1f7;
+    color: #0a6fa0;
+    outline: none;
+}
+.petic-add-menu > .petic-add-item > i { font-size: 17px; }
+.petic-add-menu > .petic-add-item > .petic-add-rotulo { flex: 1; }
+.petic-add-menu .petic-add-sub {
+    display: block;
+    font-size: 11.5px;
+    color: #7b93a2;
 }
 
 /* Menu da linha (L161) */
@@ -171,6 +256,7 @@
 .petic-preview.petic-preview--com-barra {
     padding-top: 53px;
 }
+.petic-preview > .petic-preview-corpo { min-width: 0; }
 .petic-preview > .petic-selbar {
     position: absolute;
     top: 0;
