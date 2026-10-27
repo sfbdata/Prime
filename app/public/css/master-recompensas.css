@@ -128,10 +128,23 @@
 .mrc-exportar { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 12.5px; cursor: pointer; text-decoration: none; }
 .mrc-exportar:hover { color: var(--mrc-botao-tx); text-decoration: none; }
 .mrc-extrato-vazio { padding: 24px; text-align: center; color: var(--mrc-ic); }
-.mrc-extrato-linha { display: grid; grid-template-columns: 150px minmax(200px, 1fr) 150px 110px; gap: 8px; align-items: center; padding: 9px 18px; border-bottom: 1px solid var(--mrc-div-linha); font-size: 13px; }
+.mrc-extrato-linha { display: grid; grid-template-columns: 150px minmax(200px, 1fr) 150px 110px 150px; gap: 8px; align-items: center; padding: 9px 18px; border-bottom: 1px solid var(--mrc-div-linha); font-size: 13px; }
 .mrc-extrato-linha-zebra { background: var(--mrc-zebra); }
 .mrc-extrato-data { color: var(--mrc-rotulo); }
 .mrc-extrato-tipo { font-weight: bold; color: var(--mrc-azul); }
 .mrc-extrato-tipo-estorno { color: var(--mrc-vermelho); }
 .mrc-extrato-rolagem { overflow-x: auto; }
 .mrc-extrato-tabela { min-width: 640px; }
+
+/* F4: baixa manual (diálogo `pagar`, desenho L884 e L887): chips da forma, anexo tracejado e botão verde. */
+.mrc-dlg-salvar.mrc-dlg-pagar { background: #1e7b45; }
+.mrc-menu-item-baixa { color: #1e7b45; }
+.mrc-bai-formas { display: flex; flex-wrap: wrap; gap: 6px; }
+.mrc-bai-forma { height: 30px; padding: 0 10px; border: 1px solid #c5d2db; border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font: inherit; font-size: 12.5px; cursor: pointer; }
+.mrc-bai-forma[aria-checked="true"] { background: #0a6fa0; border-color: #0a6fa0; color: #fff; }
+.mrc-bai-anexo { display: flex; align-items: center; gap: 9px; height: 36px; margin: 0; border: 1px dashed #b9c7d2; border-radius: 2px; padding: 0 11px; font-size: 13px; font-weight: normal; color: var(--mrc-botao-tx); cursor: pointer; background: #f9fbfc; }
+.mrc-bai-anexo > .bi { color: var(--mrc-azul); }
+.mrc-bai-anexo > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mrc-bai-anexo > .mrc-bai-anexo-ok { color: #1e7b45; }
+.mrc-bai-anexo > input { display: none; }
+.mrc-extrato-comprovante { margin-left: 6px; color: var(--mrc-azul); }

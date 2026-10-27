@@ -52,6 +52,24 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         self::assertSame(['Audiência de instrução', 'aud', 60, true], [$item['titulo'], $item['calendario'], $item['lembreteMinutos'], $item['editavel']]);
     }
 
+    #[TestDox('Os três tipos da tela 1A (urgente, pessoal, lembrete) são aceitos e voltam como calendário próprio')]
+    public function testTiposDaAgenda1A(): void
+    {
+        $client = $this->cliente();
+        $tenant = $this->criarTenant();
+        $this->logarComTenant($client, $this->criarUsuario($tenant, true), $tenant);
+
+        foreach (['urg' => TipoDeCompromisso::Urgente, 'pess' => TipoDeCompromisso::Pessoal, 'lemb' => TipoDeCompromisso::Lembrete] as $valor => $tipo) {
+            $r = $this->postar($client, '/agenda/compromissos/novo', ['tipo' => $valor, 'titulo' => 'Tipo ' . $valor] + self::CORPO);
+            self::assertResponseIsSuccessful();
+            self::assertSame($tipo, $this->em()->find(Evento::class, $r['id'])->getTipo());
+        }
+        $client->request('GET', '/agenda/compromissos?de=2030-03-01&ate=2030-03-31');
+        $calendarios = array_column(json_decode((string) $client->getResponse()->getContent(), true)['itens'], 'calendario', 'titulo');
+
+        self::assertSame(['Tipo urg' => 'urg', 'Tipo pess' => 'pess', 'Tipo lemb' => 'lemb'], $calendarios);
+    }
+
     #[TestDox('Sem token CSRF é recusado; título vazio devolve 422 com a mensagem')]
     public function testCsrfEValidacao(): void
     {

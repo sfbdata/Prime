@@ -10,6 +10,7 @@ use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as ExcecaoDeHttp;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * Adaptador da API de Mensagens da Anthropic (Claude) para a porta {@see ProvedorDeLinguagem} — decisão D1 do
@@ -59,6 +60,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     private const STATUS_TRANSITORIOS = [408, 429, 500, 502, 503, 504, 529];
     private const ESFORCOS = ['low', 'medium', 'high', 'xhigh', 'max'];
     public const MARGEM_DE_RACIOCINIO_PADRAO = 8000;
+    private const FATOR_DA_SEGUNDA_TENTATIVA = 2;
     /**
      * O "Ler N documentos" (PR F) manda até 20 MB e 100 páginas: a resposta demora mais que a de um comando sobre
      * metadados. Só o pedido com anexos usa este teto; o resto segue o configurado.
@@ -136,14 +138,55 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
 
     public function completar(PedidoDeLinguagem $pedido): RespostaDeLinguagem
     {
+        return $this->completarComTeto($pedido, 1);
+    }
+
+    /**
+     * `$fator` multiplica o teto de `max_tokens`. Resposta cortada no limite (`stop_reason = max_tokens`) é repetida UMA
+     * vez com o dobro: o corte costuma ser do raciocínio somado à resposta, e uma pasta longa não deve virar "falha
+     * definitiva" de cara. Cortada de novo, falha como antes. A primeira tentativa é paga e não entra no registro de uso.
+     */
+    private function completarComTeto(PedidoDeLinguagem $pedido, int $fator): RespostaDeLinguagem
+    {
         $modelo = $this->modeloEfetivo();
         if (!$this->configurado($modelo)) {
             throw new ProvedorIndisponivelException('Provedor de IA (Anthropic) sem chave ou modelo configurado nesta instalação.');
         }
 
-        $corpo = $this->corpo($pedido, $modelo);
+        $corpo = $this->corpo($pedido, $modelo, $fator);
         $inicio = hrtime(true);
 
+        [$resposta, $status, $cabecalhos] = $this->postar($pedido, $corpo);
+
+        $requisicao = $cabecalhos['request-id'][0] ?? null;
+        try {
+            $dados = $resposta->toArray(false);
+        } catch (ExcecaoDeHttp) {
+            // Corpo que não é JSON (página de proxy, corpo vazio): o STATUS decide — um 401/413 de proxy não melhora
+            // repetindo, um 502 sim.
+            $dados = [];
+            if ($status === 200) {
+                throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: resposta que não é JSON.', $requisicao), true);
+            }
+        }
+        if ($status !== 200) {
+            throw $this->falhaPorStatus($status, $dados, $requisicao, self::segundosDeEspera($cabecalhos['retry-after'][0] ?? null));
+        }
+
+        if ($fator === 1 && ($dados['stop_reason'] ?? null) === 'max_tokens') {
+            return $this->completarComTeto($pedido, self::FATOR_DA_SEGUNDA_TENTATIVA);
+        }
+
+        return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000), $modelo);
+    }
+
+    /**
+     * @param array<string, mixed> $corpo
+     *
+     * @return array{ResponseInterface, int, array<string, list<string>>}
+     */
+    private function postar(PedidoDeLinguagem $pedido, array $corpo): array
+    {
         try {
             $resposta = $this->httpClient->request('POST', rtrim($this->urlBase, '/') . '/v1/messages', [
                 'headers' => [
@@ -162,30 +205,15 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
             throw new FalhaDoProvedorException(sprintf('Anthropic: falha de comunicação (%s).', (new \ReflectionClass($e))->getShortName()), true);
         }
 
-        $requisicao = $cabecalhos['request-id'][0] ?? null;
-        try {
-            $dados = $resposta->toArray(false);
-        } catch (ExcecaoDeHttp) {
-            // Corpo que não é JSON (página de proxy, corpo vazio): o STATUS decide — um 401/413 de proxy não melhora
-            // repetindo, um 502 sim.
-            $dados = [];
-            if ($status === 200) {
-                throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: resposta que não é JSON.', $requisicao), true);
-            }
-        }
-        if ($status !== 200) {
-            throw $this->falhaPorStatus($status, $dados, $requisicao, self::segundosDeEspera($cabecalhos['retry-after'][0] ?? null));
-        }
-
-        return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000), $modelo);
+        return [$resposta, $status, $cabecalhos];
     }
 
     /** @return array<string, mixed> */
-    private function corpo(PedidoDeLinguagem $pedido, string $modelo): array
+    private function corpo(PedidoDeLinguagem $pedido, string $modelo, int $fator = 1): array
     {
         $corpo = [
             'model'      => $modelo,
-            'max_tokens' => $pedido->maxTokens + $this->margemDeRaciocinio,
+            'max_tokens' => ($pedido->maxTokens + $this->margemDeRaciocinio) * $fator,
             'messages'   => self::mensagens($pedido),
         ];
         if ($this->esforco !== '') {

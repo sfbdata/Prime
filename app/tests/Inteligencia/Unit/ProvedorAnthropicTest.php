@@ -471,7 +471,6 @@ final class ProvedorAnthropicTest extends TestCase
     public static function respostasInuteis(): iterable
     {
         yield 'recusa do modelo'          => [['stop_reason' => 'refusal']];
-        yield 'cortada no limite'         => [['stop_reason' => 'max_tokens']];
         yield 'sem bloco de texto'        => [['content' => [['type' => 'thinking', 'thinking' => 'x']]]];
         yield 'texto vazio'               => [['content' => [['type' => 'text', 'text' => '   ']]]];
     }
@@ -487,6 +486,43 @@ final class ProvedorAnthropicTest extends TestCase
         } catch (FalhaDoProvedorException $e) {
             self::assertFalse($e->transitoria);
         }
+    }
+
+    #[TestDox('Resposta cortada no limite de tokens: repete UMA vez com o dobro de max_tokens e devolve a segunda')]
+    public function testCortadaNoLimiteRepeteComODobro(): void
+    {
+        $tetos = [];
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$tetos): MockResponse {
+            $tetos[] = json_decode((string) $opcoes['body'], true, 512, JSON_THROW_ON_ERROR)['max_tokens'];
+
+            return count($tetos) === 1 ? self::ok(['stop_reason' => 'max_tokens']) : self::ok();
+        });
+
+        $resposta = self::provedor($http)->completar($this->pedido());
+
+        self::assertSame('{"resumo":"ok"}', $resposta->texto);
+        self::assertCount(2, $tetos);
+        self::assertSame($tetos[0] * 2, $tetos[1]);
+    }
+
+    #[TestDox('Cortada no limite também na segunda tentativa: falha definitiva, sem terceira chamada')]
+    public function testCortadaDuasVezesFalha(): void
+    {
+        $chamadas = 0;
+        $http = new MockHttpClient(function () use (&$chamadas): MockResponse {
+            ++$chamadas;
+
+            return self::ok(['stop_reason' => 'max_tokens']);
+        });
+
+        try {
+            self::provedor($http)->completar($this->pedido());
+            self::fail('Deveria falhar.');
+        } catch (FalhaDoProvedorException $e) {
+            self::assertFalse($e->transitoria);
+            self::assertStringContainsString('cortada no limite de tokens', $e->getMessage());
+        }
+        self::assertSame(2, $chamadas);
     }
 
     #[TestDox('Id de requisição fora do formato não entra na mensagem')]
