@@ -113,6 +113,15 @@
     <div class="ps-card-cab ps-card-cab--painel">
         <h2>{{ 'pasta_documentos.anotacoes.titulo'|trans }}</h2>
         <span class="ps-contagem" id="timeline-count" title="{{ 'pasta_documentos.anotacoes.contagem_dica'|trans }}">{{ anotacoes|length }}</span>
+        <span class="ps-cab-espaco"></span>
+        <button type="button" class="ps-marcadores-tg" id="psMarcadoresTg" role="switch" aria-checked="false"
+                data-dica-ligar="{{ 'pasta_documentos.anotacoes.marcadores_ligar'|trans|e('html_attr') }}"
+                data-dica-desligar="{{ 'pasta_documentos.anotacoes.marcadores_desligar'|trans|e('html_attr') }}"
+                data-dica-ponto="{{ 'pasta_documentos.anotacoes.marcador_ponto_dica'|trans({titulo: '__T__'})|e('html_attr') }}"
+                data-dica-grupo="{{ 'pasta_documentos.anotacoes.marcador_grupo_dica'|trans({total: '__N__', titulos: '__T__'})|e('html_attr') }}">
+            <span>{{ 'pasta_documentos.anotacoes.marcadores'|trans }}</span>
+            <span class="ps-marcadores-tg-trilho"><span class="ps-marcadores-tg-bola"></span></span>
+        </button>
     </div>
 
     {# ── Compositor ──
@@ -257,6 +266,15 @@
     {# PAS-025b: na pasta excluída (lápide) toda escrita é recusada pelo servidor
        (`PastaSomenteLeituraListener`): sem Editar, Excluir nem Responder, como em Detalhes. #}
     {% set lapide = pasta.estaExcluida %}
+    {# Marcador do sistema (dc 27.10, `ehFase`): o cartão ganha o cabeçalho branco com o título e, à direita, "de → para"
+       (lido do texto 'de "A" para "B"'). Com os marcadores desligados o JS troca o cartão por uma bolinha. #}
+    {% set marcadorTitulos = {fase: 1, proc: 1, resp: 1, situacao: 1, contrato: 1, probono: 1, pasta: 1, cadastro: 1} %}
+    {% set ehMarcador = item.sistema is not null and marcadorTitulos[item.sistema] is defined %}
+    {% if ehMarcador %}
+        {% set marcTitulo = ('pasta_documentos.anotacoes.marcador_titulo.' ~ item.sistema)|trans %}
+        {% set marcPartes = (item.detalhe ?? '')|striptags|split('"') %}
+        {% set marcRot = (marcPartes|length == 5 and 'para' in marcPartes[2]) ? marcPartes[1] ~ '  →  ' ~ marcPartes[3] : '' %}
+    {% endif %}
     {# Cartão do sistema (E12b, dc `autoReg`): andamento, prazo. Não se edita, não se exclui, não se responde. #}
     {% set doSistema = item.sistema ?? null %}
     {% set podeGerenciar = podeGerenciar and not lapide and not doSistema %}
@@ -268,7 +286,8 @@
         ? item.dataHora|date('d/m') ~ ' · ' ~ item.dataHora|date('H:i')
         : item.dataHora|date('H:i') %}
 
-    <article class="ps-anotacao{{ doSistema ? ' ps-anotacao--sistema' : '' }}{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
+    <article class="ps-anotacao{{ doSistema ? ' ps-anotacao--sistema' : '' }}{{ ehMarcador ? ' ps-anotacao--marcador' : '' }}{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
+             {% if ehMarcador %}data-marcador-mes="{{ item.dataHora|date('Y-m') }}" data-marcador-titulo="{{ marcTitulo|e('html_attr') }}" data-marcador-rot="{{ marcRot|e('html_attr') }}"{% endif %}
              {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"
              data-janela-ate="{{ item.dataHora|date('U') + comentario_janela_minutos() * 60 }}"
              data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"
@@ -281,6 +300,9 @@
                 <i class="bi bi-reply-fill" aria-hidden="true"></i>
                 <span>{% if item.respostaANome is not null %}{{ 'pasta_documentos.anotacoes.resposta_a'|trans({nome: item.respostaANome ~ ''}) }}{% else %}{{ 'pasta_documentos.anotacoes.resposta_excluida'|trans }}{% endif %}</span>
             </div>
+        {% endif %}
+        {% if ehMarcador %}
+            <div class="ps-anotacao-fase"><span>{{ marcTitulo }}</span>{% if marcRot %}<span class="ps-anotacao-fase-rot">{{ marcRot }}</span>{% endif %}</div>
         {% endif %}
         <span class="ps-anotacao-ponto" aria-hidden="true"></span>
         <span class="ps-anotacao-seta" aria-hidden="true"></span>
