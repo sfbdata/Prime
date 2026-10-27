@@ -91,6 +91,7 @@ final class IaDaCentralControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $ana, $tenant);
         $this->perguntar($client, ['conteudo' => 'Primeira']);
         $primeira = $this->json($client);
+        self::assertCount(1, $this->transporteAsync()->getSent());
 
         $this->perguntar($client, ['conteudo' => self::SEGREDO]);
 
@@ -101,7 +102,8 @@ final class IaDaCentralControllerTest extends JusPrimeWebTestCase
         self::assertSame($primeira['mensagemId'], $json['mensagemId']);
         self::assertSame(1, $this->analises());
         self::assertSame(1, $this->mensagens());
-        self::assertCount(1, $this->transporteAsync()->getSent());
+        // O transporte em memória zera a cada requisição: depois da segunda, nada novo entrou na fila.
+        self::assertCount(0, $this->transporteAsync()->getSent());
         self::assertStringNotContainsString(self::SEGREDO, (string) $client->getResponse()->getContent());
     }
 
