@@ -49,6 +49,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             trabalhoExternoUploadsDir: $raiz . '/trabalho-externo',
             comercialImagensDir: $raiz . '/comercial-imagens',
             documentosJuridicosDir: $raiz . '/documentos-juridicos',
+            recompensaComprovantesDir: $raiz . '/recompensa-comprovantes',
         );
     }
 
@@ -119,6 +120,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'inteligencia_documento_juridico (plano, escopo global)' => [
             CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, EscopoDeArquivo::global(), 'a1b2.docx',
             $raiz . '/documentos-juridicos/a1b2.docx',
+        ];
+        yield 'recompensa_comprovante (plano, escopo global)' => [
+            CategoriaDeArquivo::RECOMPENSA_COMPROVANTE, EscopoDeArquivo::global(), 'a1b2.pdf',
+            $raiz . '/recompensa-comprovantes/a1b2.pdf',
         ];
     }
 
@@ -208,6 +213,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             'trabalho_externo_uploads_dir' => '%kernel.project_dir%/public/uploads/trabalho-externo',
             'comercial_imagens_dir'      => '%kernel.project_dir%/public/uploads/comercial-imagens',
             'documentos_juridicos_dir'   => '%kernel.project_dir%/public/uploads/documentos-juridicos',
+            'recompensa_comprovantes_dir' => '%kernel.project_dir%/public/uploads/recompensa-comprovantes',
         ];
 
         foreach ($esperados as $parametro => $valor) {

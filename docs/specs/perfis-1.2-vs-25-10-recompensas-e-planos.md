@@ -111,6 +111,45 @@ dinheiro novo: só decide quais contas contam.
   "apagar" com saldo > 0 não avisa e não tem reversão (pergunta ao dono).
 - Fora: alerta na Central (a Notificacao é por escritório; vira fatia própria depois de decidir o destinatário).
 
+### F4 (baixa manual, comprovante e dados de recebimento)
+
+Empilhada na F3 (#445). Migration 20261027152800 (CREATE TABLE e ALTER TABLE ADD COLUMN nulas; sem UPDATE/DELETE).
+Risco ALTO (dinheiro): registra um pagamento feito FORA do sistema. O BlueJus não movimenta dinheiro; o caixa é só
+contábil (decisão de 27/10). Sem e-mail ao indicador nesta fatia (o aviso é da F7) e sem checagem de caixa (F5).
+
+- Tipo novo `pago` no livro `lancamento_de_recompensa` (valor POSITIVO, nunca zero, até R$ 100.000,00). Colunas novas
+  nulas: `forma` (`pix`, `transferencia`, `desconto_na_mensalidade`, `credito_de_espaco`), `comprovante_chave` e
+  `comprovante_nome`. O livro continua só INSERT. Saldo = max(0, ativos x valor + soma(bonus) - soma(pago)); `pagoCentavos`
+  do painel passa a ser a soma dos `pago`.
+- Dados de recebimento: tabela `dados_de_recebimento_de_recompensa` (um por indicador; `indicador_id` único, FK CASCADE, então
+  a exclusão LGPD apaga junto), `nome` (até 120), `documento` (CPF ou CNPJ só com dígitos, validado pelos dígitos
+  verificadores), `chave_pix` (até 140, opcional), `atualizado_em`, `atualizado_por_id`. Auditável de plataforma. O
+  Master cadastra pelo menu ⋮ "Dados para pagamento". O sistema grava o valor bruto e não calcula imposto (decisão de
+  27/10). A tela nunca devolve o documento inteiro na lista: só os 2 últimos dígitos mascarados; o diálogo de edição
+  busca o completo por GET próprio.
+- "Dar baixa" (menu ⋮, verde, desenho L879/L884/L874): diálogo "Dar baixa · registrar pagamento" com Valor pago (R$,
+  padrão = saldo), Forma (PIX, Transferência, Desconto na mensalidade, Crédito de espaço), Observação (opcional),
+  comprovante (PDF, PNG, JPG ou WEBP até 5 MB; opcional como no desenho) e a linha "Saldo disponível: R$ X · Chave PIX:
+  Y ou não cadastrada". Botão "Confirmar pagamento".
+- Regras de recusa (422, nada gravado), conferidas sob a trava das indicações do usuário, a MESMA do bloquear e apagar
+  (trava por usuário): não liberado ("Ainda não liberado: precisa de N escritório(s) ativo(s) com pastas (tem M)."),
+  bloqueado ("Recompensa bloqueada para este usuário."), com suspeita pendente, sem dados de recebimento (nome e
+  documento), valor <= 0 ou maior que o saldo recalculado dentro da trava ("Informe um valor maior que zero e até o saldo
+  de R$ X."). Dois pedidos simultâneos nunca pagam acima do saldo.
+- Idempotência: UUID por abertura do diálogo (`chave`), como na F2; repetir a mesma chave com o mesmo conteúdo responde
+  sucesso sem gravar nem guardar o arquivo de novo; mesma chave com outro indicador ou valor recusa.
+- Comprovante: categoria de arquivo nova `recompensa_comprovante`, escopo GLOBAL (dado da plataforma, a purga de escritório
+  não o leva; `ChavesDeRecompensa`). Upload por `FonteDeUploadHttp` + `TransacaoComArquivoNovo` (o arquivo só sai se o
+  COMMIT não aconteceu). Download só do Master: GET `/master/recompensas/lancamentos/{id}/comprovante`
+  (ROLE_SUPER_ADMIN, entrega por `EntregaDeArquivo`, 404 sem arquivo). O envio é `multipart/form-data` (campos `valor`,
+  `forma`, `observacao`, `chave`, `comprovante`).
+- Auditoria: `documento` e `chave_pix` ficam fora da trilha (`AuditLogSubscriber`); ela registra só que os dados mudaram e quem mudou. O estorno e o crédito manual (F2) passam a pegar a mesma trava por usuário da baixa, para um estorno não furar o saldo conferido por ela.
+- Extrato: tipo exibido "Pagamento", coluna "forma" preenchida, ícone de comprovante com link; CSV ganha a forma.
+- Fora: caixa e checagem de saldo do caixa (F5), e-mail ao indicador (F7), pagamento por API (Gateway), reversão de
+  pagamento (estorno é um lançamento `bonus` negativo, que só reduz crédito, não "devolve" pagamento feito).
+- Perguntas de negócio: nenhuma bloqueante. Comprovante opcional segue o desenho; se o dono quiser obrigatório para PIX e
+  Transferência, é uma linha.
+
 ## Planos: fatias
 
 | Fatia | Conteúdo | Estado |

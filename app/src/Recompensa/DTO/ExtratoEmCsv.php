@@ -16,24 +16,39 @@ final class ExtratoEmCsv
 
     /**
      * @param list<LancamentoDoExtratoOutput> $linhas
-     * @param list<string>                    $cabecalho Data, Usuário, E-mail, Tipo, Valor, Observação (já no idioma)
-     * @param array{credito: string, estorno: string} $rotulosDoTipo
+     * @param list<string>                    $cabecalho Data, Usuário, E-mail, Tipo, Valor, Observação (e Forma, com `$rotulosDaForma`), já no idioma
+     * @param array{credito: string, estorno: string, pago?: string} $rotulosDoTipo
+     * @param array<string, string>|null      $rotulosDaForma forma (pix...) => rótulo; com ele a coluna Forma vai ao fim de cada linha
      */
-    public static function gerar(array $linhas, array $cabecalho, array $rotulosDoTipo): string
+    public static function gerar(array $linhas, array $cabecalho, array $rotulosDoTipo, ?array $rotulosDaForma = null): string
     {
         $saida = [self::linha($cabecalho, [])];
         foreach ($linhas as $l) {
-            $saida[] = self::linha([
+            $celulas = [
                 $l->em->format('d/m/Y H:i'),
                 $l->nome ?? '',
                 $l->email ?? '',
-                $l->valorCentavos < 0 ? $rotulosDoTipo['estorno'] : $rotulosDoTipo['credito'],
+                self::rotuloDoTipo($l, $rotulosDoTipo),
                 self::reais($l->valorCentavos),
                 $l->observacao ?? '',
-            ], [4]);
+            ];
+            if ($rotulosDaForma !== null) {
+                $celulas[] = $l->forma === null ? '' : ($rotulosDaForma[$l->forma] ?? $l->forma);
+            }
+            $saida[] = self::linha($celulas, [4]);
         }
 
         return "\u{FEFF}" . implode("\n", $saida) . "\n";
+    }
+
+    /** @param array{credito: string, estorno: string, pago?: string} $rotulos */
+    private static function rotuloDoTipo(LancamentoDoExtratoOutput $l, array $rotulos): string
+    {
+        return match (true) {
+            $l->tipo === 'pago' => $rotulos['pago'] ?? 'Pagamento',
+            $l->valorCentavos < 0 => $rotulos['estorno'],
+            default => $rotulos['credito'],
+        };
     }
 
     private static function reais(int $centavos): string

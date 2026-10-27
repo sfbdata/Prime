@@ -42,16 +42,6 @@
     'CONTRATO':                'text-bg-dark',
 } %}
 
-{% set categoriaPointMap = {
-    'PECA':                    'petic-tl-dot--primary',
-    'PROCURACAO':              'petic-tl-dot--success',
-    'IDENTIFICACAO':           'petic-tl-dot--info',
-    'COMPROVANTE_RESIDENCIA':  'petic-tl-dot--warning',
-    'GRATUIDADE_JUSTICA':      'petic-tl-dot--secondary',
-    'DEMAIS':                  'petic-tl-dot--secondary',
-    'CONTRATO':                'petic-tl-dot--dark',
-} %}
-
 <div class="petic-layout">
 
     {# ──────────────────────────────────────────────────────────
@@ -60,11 +50,11 @@
     <div class="petic-timeline">
 
         <div class="petic-timeline-header">
-            <span class="petic-timeline-header-title">
-                <i class="bi bi-clock-history text-primary"></i>
-                {{ 'pasta_peticionar.lista.documentos'|trans }}
-                <span class="badge text-bg-secondary rounded-pill" id="badgeCount">{{ documentos|length }}</span>
-            </span>
+            <div class="petic-timeline-header-title">
+                <i class="bi bi-clock-history"></i>
+                <b class="petic-timeline-titulo">{{ 'pasta_peticionar.lista.documentos'|trans }}</b>
+                <span class="petic-contador" id="badgeCount">{{ documentos|length }}</span>
+            </div>
             <div class="petic-search">
                 <i class="bi bi-search petic-search-icon"></i>
                 <input type="text"
@@ -91,14 +81,12 @@
              data-categorias="{{ categoriaLabels|json_encode|e('html_attr') }}"
              data-classificaveis="{{ constant('App\\Pasta\\DTO\\ExploradorDeDocumentosOutput::CATEGORIAS')|keys|json_encode|e('html_attr') }}"
              data-cor-categoria="{{ categoriaCorMap|json_encode|e('html_attr') }}"
-             data-ponto-categoria="{{ categoriaPointMap|json_encode|e('html_attr') }}"
              data-icones="{{ iconesDoEnvio|json_encode|e('html_attr') }}">
             <div class="petic-tl-inner" id="tlInner">
                 {% set lastDate = null %}
                 {% for doc in documentos %}
                     {% set catLabel  = categoriaLabels[doc.categoria] ?? doc.categoria %}
                     {% set catCor    = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary' %}
-                    {% set dotClass  = categoriaPointMap[doc.categoria] ?? 'petic-tl-dot--secondary' %}
                     {% set docDate   = doc.carregadoEm|data %}
                     {% set ehTexto   = doc.mimeType == 'text/html' %}
                     {# O nome é o mesmo da aba Documentos (nome_original), que é o que o Renomear
@@ -136,7 +124,6 @@
                          {% endif %}
                          data-editar-url="{{ path('pasta_documento_editar_texto', {id: doc.id}) }}"
                          {% endif %}>
-                        <div class="petic-tl-dot {{ dotClass }}"></div>
                         <div class="petic-tl-card">
                             <div class="petic-tl-card-top">
                                 <i class="bi {{ icone.icone }} petic-tl-icon petic-doc-icone" style="color: {{ icone.cor }}" aria-hidden="true"></i>
@@ -168,26 +155,24 @@
            excluída não o recebem, nem os tokens de envio do JS abaixo. #}
         {% if podeEditarPasta %}
         <div class="petic-timeline-footer">
-            <div class="dropup w-100">
-                <button type="button"
-                        class="btn btn-primary w-100 dropdown-toggle"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false"
-                        id="btnAbrirUpload">
-                    <i class="bi bi-file-earmark-plus me-1"></i> {{ 'pasta_peticionar.adicionar_peca'|trans }}
+            <button type="button"
+                    class="petic-add-btn"
+                    id="btnAbrirUpload"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="peticAddMenu">
+                <i class="bi bi-file-earmark-plus" aria-hidden="true"></i>{{ 'pasta_peticionar.adicionar_peca'|trans }}<i class="bi bi-caret-up-fill petic-add-seta" id="peticAddSeta" aria-hidden="true"></i>
+            </button>
+            <div class="petic-add-fundo" id="peticAddFundo" hidden></div>
+            <div class="petic-add-menu" id="peticAddMenu" role="menu" hidden>
+                <button type="button" class="petic-add-item" id="btnOpcaoAnexo" role="menuitem">
+                    <i class="bi bi-paperclip" aria-hidden="true"></i>
+                    <span class="petic-add-rotulo">{{ 'pasta_peticionar.lista.anexo'|trans }}<span class="petic-add-sub">{{ 'pasta_peticionar.lista.anexo_dica'|trans }}</span></span>
                 </button>
-                <ul class="dropdown-menu w-100">
-                    <li>
-                        <button type="button" class="dropdown-item" id="btnOpcaoAnexo">
-                            <i class="bi bi-paperclip me-2"></i> {{ 'pasta_peticionar.lista.anexo'|trans }}
-                        </button>
-                    </li>
-                    <li>
-                        <button type="button" class="dropdown-item" id="btnOpcaoTexto">
-                            <i class="bi bi-file-text me-2"></i> {{ 'pasta_peticionar.texto'|trans }}
-                        </button>
-                    </li>
-                </ul>
+                <button type="button" class="petic-add-item" id="btnOpcaoTexto" role="menuitem">
+                    <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                    <span class="petic-add-rotulo">{{ 'pasta_peticionar.texto'|trans }}<span class="petic-add-sub">{{ 'pasta_peticionar.lista.texto_dica'|trans }}</span></span>
+                </button>
             </div>
         </div>
         {% endif %}
@@ -216,32 +201,24 @@
             {% endif %}
         </div>
 
-        <div class="petic-preview-placeholder" id="previewPlaceholder">
-            <i class="bi bi-file-earmark-text"></i>
-            <p>{{ 'pasta_peticionar.preview.selecione'|trans }}</p>
-        </div>
+        <div class="petic-preview-corpo">
+            <div class="petic-preview-placeholder" id="previewPlaceholder">
+                <i class="bi bi-file-earmark-text"></i>
+                {{ 'pasta_peticionar.preview.selecione'|trans }}
+            </div>
 
-        <iframe id="previewIframe"
-                src=""
-                title="{{ 'pasta_peticionar.preview.visualizador'|trans }}"
-                allowfullscreen></iframe>
+            <iframe id="previewIframe"
+                    src=""
+                    title="{{ 'pasta_peticionar.preview.visualizador'|trans }}"
+                    allowfullscreen></iframe>
 
-        <img id="previewImagem" src="" alt="" style="display:none; max-width:100%; max-height:100%; object-fit:contain;">
+            <img id="previewImagem" src="" alt="">
 
-        <audio id="previewAudio" controls style="display:none; width:80%; max-width:520px;">
-            <source id="previewAudioSrc" src="" type="">
-        </audio>
-
-        <video id="previewVideo" controls style="display:none; max-width:100%; max-height:100%;">
-            <source id="previewVideoSrc" src="" type="">
-        </video>
-
-        <div class="petic-download-panel" id="downloadPanel">
-            <i class="bi bi-file-earmark-arrow-down"></i>
-            <p class="text-muted mb-3 fs-6" id="downloadFileName"></p>
-            <a id="downloadLink" href="#" class="btn btn-outline-primary" download>
-                <i class="bi bi-download me-1"></i> {{ 'pasta_peticionar.preview.baixar_arquivo'|trans }}
-            </a>
+            <div class="petic-download-panel" id="downloadPanel">
+                <i class="bi bi-file-earmark"></i>
+                <div class="petic-download-texto">{{ 'pasta_peticionar.preview.indisponivel'|trans }}</div>
+                <a id="downloadLink" href="#" class="petic-download-btn" download>{{ 'pasta_peticionar.preview.baixar_arquivo'|trans }}</a>
+            </div>
         </div>
 
     </div>
@@ -471,13 +448,8 @@
     const placeholder   = document.getElementById('previewPlaceholder');
     const iframe        = document.getElementById('previewIframe');
     const imgPreview    = document.getElementById('previewImagem');
-    const audioEl       = document.getElementById('previewAudio');
-    const audioSrc      = document.getElementById('previewAudioSrc');
-    const videoEl       = document.getElementById('previewVideo');
-    const videoSrc      = document.getElementById('previewVideoSrc');
     const dlPanel       = document.getElementById('downloadPanel');
     const dlLink        = document.getElementById('downloadLink');
-    const dlFileName    = document.getElementById('downloadFileName');
     const timelineList  = document.getElementById('timelineList');
     const tlInner       = document.getElementById('tlInner');
 
@@ -499,14 +471,6 @@
         iframe.src                 = '';
         imgPreview.style.display   = 'none';
         imgPreview.src             = '';
-        audioEl.style.display      = 'none';
-        audioEl.pause();
-        audioSrc.src               = '';
-        audioSrc.type              = '';
-        videoEl.style.display      = 'none';
-        videoEl.pause();
-        videoSrc.src               = '';
-        videoSrc.type              = '';
         dlPanel.style.display      = 'none';
     }
 
@@ -536,18 +500,7 @@
             imgPreview.src           = viewUrl;
             imgPreview.alt           = titulo;
             imgPreview.style.display = 'block';
-        } else if (mime.startsWith('audio/')) {
-            audioSrc.src             = viewUrl;
-            audioSrc.type            = mime;
-            audioEl.load();
-            audioEl.style.display    = 'block';
-        } else if (mime.startsWith('video/')) {
-            videoSrc.src             = viewUrl;
-            videoSrc.type            = mime;
-            videoEl.load();
-            videoEl.style.display    = 'block';
         } else {
-            dlFileName.textContent = titulo;
             dlLink.href            = dlUrl;
             dlPanel.style.display  = 'flex';
         }

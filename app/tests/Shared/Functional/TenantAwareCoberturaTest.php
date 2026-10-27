@@ -270,6 +270,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Aprovação de conta suspeita (F3, 26/10/2026): o Master libera uma conta que o antifraude reteve. Dado da
         // PLATAFORMA (dois usuários e quem aprovou), escrito só pelo Master; sem escritório nem dado de cliente.
         \App\Recompensa\Entity\AprovacaoDeContaDeRecompensa::class,
+        // Dados de recebimento do indicador (F4, 27/10/2026): nome, CPF ou CNPJ e chave PIX de quem recebe a recompensa.
+        // Dado da PLATAFORMA (um por usuário, some com ele), cadastrado e lido só pelo Master; sem escritório.
+        \App\Recompensa\Entity\DadosDeRecebimentoDeRecompensa::class,
         // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
         // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
         // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
@@ -366,7 +369,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 87 → 88 com os escritórios guardados da Nova solicitação (27/10/2026): EscritorioSolicitante é do usuário, justificado acima.
     // 88 → 89 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
     // 89 → 91 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
-    private const MAX_FORA_DO_ESCOPO = 91;
+    // 91 → 92 com os dados de recebimento das recompensas (27/10/2026): DadosDeRecebimentoDeRecompensa, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 92;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

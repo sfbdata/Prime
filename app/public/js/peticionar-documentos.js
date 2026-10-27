@@ -11,6 +11,9 @@
  *  - Soltar arquivos na lista para enviar (L47, L147), pela rota do "Adicionar peça", com o mesmo
  *    token, os mesmos formatos e a mesma categoria padrão do modal.
  *
+ *  - Menu do "Adicionar peça" (L66-73): abre e fecha pelo botão, pelo fundo e pelo Esc; a seta
+ *    troca entre caret-up e caret-down.
+ *
  * Só rotas que já existem, chamadas como a aba Documentos chama: renomear e classificar pelo
  * pasta_documento_edit (form + X-Requested-With, token edit_documento_<id>), excluir pelo
  * excluir-lote (JSON, token pex_lote_<pasta>). O servidor confere permissão e posse; esconder o
@@ -39,7 +42,6 @@
         categorias:     lerJson(lista.dataset.categorias, {}),
         classificaveis: lerJson(lista.dataset.classificaveis, []),
         corCategoria:   lerJson(lista.dataset.corCategoria, {}),
-        pontoCategoria: lerJson(lista.dataset.pontoCategoria, {}),
         icones:         lerJson(lista.dataset.icones, {}),
     };
 
@@ -138,6 +140,34 @@
         voltar.hidden = false;
     }
 
+    // --------------------------------------------- menu do "Adicionar peça" (L66-73) ---
+
+    const addBtn   = document.getElementById('btnAbrirUpload');
+    const addMenu  = document.getElementById('peticAddMenu');
+    const addFundo = document.getElementById('peticAddFundo');
+    const addSeta  = document.getElementById('peticAddSeta');
+
+    function alternarAdd(abrir) {
+        if (!addBtn || !addMenu || !addFundo) return;
+        addMenu.hidden = !abrir;
+        addFundo.hidden = !abrir;
+        addBtn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+        if (addSeta) {
+            addSeta.classList.toggle('bi-caret-down-fill', abrir);
+            addSeta.classList.toggle('bi-caret-up-fill', !abrir);
+        }
+    }
+
+    if (addBtn && addMenu && addFundo) {
+        addBtn.addEventListener('click', function () { alternarAdd(addMenu.hidden); });
+        addFundo.addEventListener('click', function () { alternarAdd(false); });
+        // Escolher Anexo ou Texto fecha o menu (a ação em si é do script da tela).
+        addMenu.addEventListener('click', function (e) { if (e.target.closest('.petic-add-item')) alternarAdd(false); });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !addMenu.hidden) alternarAdd(false);
+        });
+    }
+
     // ----------------------------------------------------- linha montada aqui ---
 
     function vazioDaLista() {
@@ -191,7 +221,6 @@
 
         const ic = cfg.icones[extensaoDe(nome)] || ICONE_PADRAO;
 
-        row.appendChild(el('div', 'petic-tl-dot ' + (cfg.pontoCategoria[categoria] || 'petic-tl-dot--secondary')));
         const card = el('div', 'petic-tl-card');
         const topo = el('div', 'petic-tl-card-top');
         const i = icone(ic.icone + ' petic-tl-icon petic-doc-icone');
@@ -441,7 +470,6 @@
             badge.textContent = row.dataset.categoriaLabel;
             trocarClasse(badge, cfg.corCategoria, cfg.corCategoria[categoria], 'text-bg-secondary');
         }
-        trocarClasse(row.querySelector('.petic-tl-dot'), cfg.pontoCategoria, cfg.pontoCategoria[categoria], 'petic-tl-dot--secondary');
         // A peça de texto aberta no editor: o selo de categoria dele acompanha.
         if (ehTexto(row) && row.classList.contains('ativo')) {
             const seloEditor = document.getElementById('editorCategoriaBadge');

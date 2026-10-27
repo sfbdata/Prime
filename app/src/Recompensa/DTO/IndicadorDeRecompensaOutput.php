@@ -42,6 +42,8 @@ final readonly class IndicadorDeRecompensaOutput
         public array $motivosDeSuspeita,
         /** Contas aceitas nos últimos 7 dias (base do alerta). */
         public int $emSeteDias,
+        /** Para quem pagar (nome, documento mascarado e chave PIX); nulo enquanto o Master não cadastrou. */
+        public ?DadosDeRecebimentoOutput $recebimento = null,
     ) {
     }
 
@@ -57,6 +59,7 @@ final readonly class IndicadorDeRecompensaOutput
             'bloqueado' => $this->bloqueado, 'suspeitas' => $this->suspeitas, 'motivosDeSuspeita' => $this->motivosDeSuspeita,
             'emSeteDias' => $this->emSeteDias,
             'condicao' => $this->condicao?->paraArray(),
+            'recebimento' => $this->recebimento?->paraArray(),
         ];
     }
 }
