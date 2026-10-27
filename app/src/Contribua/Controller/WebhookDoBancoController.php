@@ -8,6 +8,8 @@ use App\Contribua\Entity\NotificacaoRecebida;
 use App\Contribua\Message\ReconsultarCobrancaNoBanco;
 use App\Contribua\Repository\CobrancaPixDaContaRepository;
 use App\Contribua\Repository\NotificacaoRecebidaRepository;
+use App\Pagamento\Message\ReconsultarPagamentoNoBanco;
+use App\Pagamento\Repository\PagamentoRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,6 +27,7 @@ final class WebhookDoBancoController extends AbstractController
     public function __construct(
         private readonly NotificacaoRecebidaRepository $avisos,
         private readonly CobrancaPixDaContaRepository $cobrancas,
+        private readonly PagamentoRepository $pagamentos,
         private readonly MessageBusInterface $bus,
     ) {
     }
@@ -37,11 +40,17 @@ final class WebhookDoBancoController extends AbstractController
         $recurso = $this->cabecalho($request, 'webhook-resource-id');
         // Só uma cobrança nossa gera trabalho: o endereço é público e sem assinatura, então aviso inventado
         // não grava nem enfileira nada (não enche a fila que o Drive e a Inteligência também usam).
-        if ('' === $evento || '' === $recurso || !str_starts_with($tipo, 'invoice.') || null === $this->cobrancas->doBanco('cora', $recurso)) {
+        // Nossa é a cobrança PIX da conta (apoio do Contribua) ou um pagamento do registro único (gateway).
+        if ('' === $evento || '' === $recurso || !str_starts_with($tipo, 'invoice.')) {
             return $this->json(['success' => true]);
         }
-        if ($this->avisos->registrarSeNova(new NotificacaoRecebida('cora', $evento, mb_substr($tipo, 0, 60), $recurso))) {
-            $this->bus->dispatch(new ReconsultarCobrancaNoBanco('cora', $recurso, $evento));
+        $mensagem = match (true) {
+            null !== $this->cobrancas->doBanco('cora', $recurso) => new ReconsultarCobrancaNoBanco('cora', $recurso, $evento),
+            null !== $this->pagamentos->porIdExterno('cora', $recurso) => new ReconsultarPagamentoNoBanco('cora', $recurso, $evento),
+            default => null,
+        };
+        if (null !== $mensagem && $this->avisos->registrarSeNova(new NotificacaoRecebida('cora', $evento, mb_substr($tipo, 0, 60), $recurso))) {
+            $this->bus->dispatch($mensagem);
         }
 
         return $this->json(['success' => true]);

@@ -2,10 +2,11 @@
    Perfil individual da pessoa no painel BlueJus Intelligence (fragmento HTML por XHR).
    Desenho: 01 - Dashboard - VS 25.10.26, "← Equipe" (L787-789), perfil de desempenho (L1098-1190) e
    montagem em L2431-2480. Por regras fixas sobre os números reais da tabela Desempenho: o que o desenho
-   calcula com dado de exemplo e o sistema não registra (cumprimento de prazo, situação, matriz,
-   correlação, hipótese, fatores, plano de ação) não é renderizado. "Criar acompanhamento" grava um registro
-   próprio do escritório (spec painel-acompanhamento-redistribuir, fatia A; confirmação em <dialog>, sem
-   tarefa avulsa, sem texto livre); "Redistribuir" ainda não existe (fatia B).
+   calcula com dado de exemplo e o sistema não registra (cumprimento de prazo, chip de situação) não é
+   renderizado. Matriz, correlação, hipótese, fatores, "O que isso pode causar?" e plano vêm de regras
+   fixas sobre números reais (AnaliseDaPessoa). "Criar acompanhamento" grava um registro próprio do
+   escritório (spec painel-acompanhamento-redistribuir, fatia A; confirmação em <dialog>, sem tarefa
+   avulsa, sem texto livre); "Redistribuir" ainda não existe (fatia B).
    Quem monta é o PerfilDaPessoaDoDashboardController; o dashboard-perfil-pessoa.js injeta este bloco no
    painel e troca o título. Estilo em public/css/dashboard-perfil-pessoa.css (escopo .db-page).
 ─────────────────────────────────────────────────────────────────────────── #}
@@ -57,6 +58,18 @@
         {% endfor %}
     </div>
 
+    {% set analise = perfil.analise %}
+    {% if analise %}
+    <section class="db-pf-secao" data-pf-matriz>
+        <div class="db-pf-secao-cab"><span class="db-pf-secao-t">{{ 'dashboard.pessoa.matriz.titulo'|trans }}</span></div>
+        <div class="db-pf-matriz">
+            {% for x in analise.matriz %}
+                <div class="db-pf-matriz-linha" data-matriz="{{ x.chave }}"><span class="db-pf-matriz-k">{{ ('dashboard.pessoa.matriz.eixo.' ~ x.chave)|trans }}</span><span class="db-pf-matriz-v db-pf-matriz-v--{{ x.tom }}">{{ ('dashboard.pessoa.matriz.estado.' ~ x.estado)|trans }}</span></div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
     <section class="db-pf-secao db-pf-comp" data-pf-comp>
         <div class="db-pf-secao-cab">
             <span class="db-pf-secao-t">{{ 'dashboard.pessoa.comparacao.titulo'|trans }}</span>
@@ -84,7 +97,37 @@
         {% for texto in perfil.motivos %}
             <div class="db-pf-motivo"><span class="db-pf-tag db-pf-tag--observado">{{ 'dashboard.pessoa.observado'|trans }}</span><span>{{ texto }}</span></div>
         {% endfor %}
+        {% for l in analise ? analise.leituras : [] %}
+            <div class="db-pf-motivo" data-leitura="{{ l.tipo }}"><span class="db-pf-tag db-pf-tag--{{ l.tipo }}">{{ ('dashboard.pessoa.etiqueta.' ~ l.tipo)|trans }}</span><span>{{ l.texto }}</span></div>
+        {% endfor %}
+        {% if analise %}<div class="db-pf-legenda">{{ 'dashboard.pessoa.por_regras_fixas'|trans }}</div>{% endif %}
     </section>
+
+    {% if analise and analise.fatores %}
+    <section class="db-pf-secao" data-pf-fatores>
+        <div class="db-pf-secao-cab"><span class="db-pf-secao-t">{{ 'dashboard.pessoa.fatores'|trans }}</span></div>
+        {% for f in analise.fatores %}
+            <div class="db-pf-motivo"><span class="db-pf-tag db-pf-tag--observado">{{ 'dashboard.pessoa.etiqueta.observado'|trans }}</span><span>{{ f }}</span></div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if analise and analise.impactos %}
+    <section class="db-pf-impacto" data-pf-impacto>
+        <div class="db-pf-impacto-t">{{ 'dashboard.pessoa.impacto.titulo'|trans }}<span class="db-pf-impacto-tag">{{ 'dashboard.pessoa.impacto.tag'|trans }}</span></div>
+        {% for i in analise.impactos %}<div class="db-pf-impacto-i">→ {{ i }}</div>{% endfor %}
+    </section>
+    {% endif %}
+
+    {% if analise and analise.plano %}
+    <section class="db-pf-plano" data-pf-plano>
+        <div class="db-pf-secao-cab"><span class="db-pf-secao-t">{{ 'dashboard.pessoa.plano.titulo'|trans }}</span></div>
+        {% for k in ['problema', 'causa', 'acao', 'responsavel', 'revisao', 'sucesso'] %}
+            <div class="db-pf-plano-linha" data-plano="{{ k }}"><span class="db-pf-plano-k">{{ ('dashboard.pessoa.plano.' ~ k)|trans }}</span><span>{{ analise.plano[k] }}</span></div>
+        {% endfor %}
+        <div class="db-pf-legenda">{{ 'dashboard.pessoa.plano.aviso'|trans }}</div>
+    </section>
+    {% endif %}
 
     <details class="db-pf-porque">
         <summary><i class="bi bi-question-circle" aria-hidden="true"></i>{{ 'dashboard.pessoa.por_que'|trans }}</summary>
