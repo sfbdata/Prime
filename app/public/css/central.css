@@ -2326,3 +2326,74 @@ html[data-bs-theme="dark"] .bj-central-ia-sugestao {
     background: var(--bjc-fundo);
     box-shadow: inset 0 0 0 1px var(--bjc-borda);
 }
+
+/* Barra "Pasta N" da conversa com o BlueJus IA (PR 4b) — BC L6001-6006 (barra de contexto): sticky top 0, z-index 2,
+   flex/centro, gap 8, padding 7px 12px, fundo #eaf4f9, borda inferior 1px #d6e7f0. Rótulo 10.5px/700, .06em,
+   maiúsculas, PETROLEO; cliente 12.5px #1d3441 numa linha com reticências; botão 26px, padding 0 10px, raio 3,
+   fundo AZUL, 11.5px/700. O botão do protótipo é <a> aqui (abre a pasta, como ele). */
+.bj-central-ia-pasta {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    background: #eaf4f9;
+    border-bottom: 1px solid #d6e7f0;
+}
+
+.bj-central-ia-pasta > i {
+    color: var(--bjc-petroleo);
+}
+
+.bj-central-ia-pasta-texto {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.bj-central-ia-pasta-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--bjc-petroleo);
+}
+
+.bj-central-ia-pasta-cliente {
+    font-size: 12.5px;
+    color: var(--bjc-texto-forte);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bj-central-ia-pasta-abrir {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 3px;
+    background: var(--bjc-azul);
+    color: #fff;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.bj-central-ia-pasta-abrir:hover,
+.bj-central-ia-pasta-abrir:focus {
+    color: #fff;
+    text-decoration: none;
+}
+
+html[data-bs-theme="dark"] .bj-central-ia-pasta {
+    background: var(--bjc-fundo);
+    border-bottom-color: var(--bjc-borda);
+}

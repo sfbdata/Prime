@@ -9,6 +9,7 @@ use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\PastaDaIaNaoEncontradaException;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\UseCase\ConsultarStatusDaPerguntaDaIaUseCase;
+use App\Central\UseCase\DescreverPastaDoContextoDaIaUseCase;
 use App\Central\UseCase\PerguntarABlueJusIaUseCase;
 use App\Entity\Auth\User;
 use App\Inteligencia\Exception\AnaliseNaoEncontradaException;
@@ -46,6 +47,7 @@ final class IaDaCentralController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PerguntarABlueJusIaUseCase $perguntar,
         private readonly ConsultarStatusDaPerguntaDaIaUseCase $consultarStatus,
+        private readonly DescreverPastaDoContextoDaIaUseCase $descreverPasta,
         // Interface (não a classe), como na pasta: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -110,6 +112,31 @@ final class IaDaCentralController extends AbstractController
             'terminal' => $saida->terminal,
             'mensagem' => $saida->mensagem,
         ]);
+        $resposta->headers->set('Cache-Control', 'private, no-store');
+
+        return $resposta;
+    }
+
+    /**
+     * O rótulo da barra "Pasta N" (PR 4b): só NUP, cliente principal e o link. Pasta que não existe, de outro escritório,
+     * excluída ou que a pessoa não vê: o mesmo 404 de mensagem fixa. Nunca guardado em cache.
+     */
+    #[Route('/pasta/{pastaId}', name: 'central_ia_pasta', requirements: ['pastaId' => '\d{1,9}'], methods: ['GET'])]
+    public function pasta(int $pastaId): JsonResponse
+    {
+        try {
+            $saida = $this->descreverPasta->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $pastaId);
+            $resposta = new JsonResponse([
+                'pastaId' => $saida->pastaId,
+                'nup' => $saida->nup,
+                'cliente' => $saida->cliente,
+                'url' => $this->generateUrl('pasta_show', ['id' => $saida->pastaId]),
+            ]);
+        } catch (SemAcessoACentralException $e) {
+            $resposta = new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (PastaDaIaNaoEncontradaException $e) {
+            $resposta = new JsonResponse(['motivo' => 'pasta_nao_encontrada', 'mensagem' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        }
         $resposta->headers->set('Cache-Control', 'private, no-store');
 
         return $resposta;

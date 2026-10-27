@@ -95,4 +95,25 @@ final class CentralJsTest extends TestCase
         self::assertMatchesRegularExpression('/e\.status === 503[\s\S]*?\/mensagens/', $js);
         self::assertStringContainsString('TAMANHO_MAXIMO_DA_PERGUNTA = 2000', $js);
     }
+
+    #[TestDox('central.js PR 4b: rótulo da pasta buscado uma vez, pastaId no POST só com a barra, 404 tira a barra, textos por data-*')]
+    public function testBarraDaPastaNaConversaDaIa(): void
+    {
+        $js = (string) file_get_contents(self::DIR . 'central.js');
+        foreach (['iaPasta', 'iaSugestaoPasta', 'iaPastaRotulo', 'iaAbrirPasta', 'iaPastaAria', 'urlIaPastaBase'] as $chave) {
+            self::assertStringContainsString('raiz.dataset.' . $chave, $js, $chave);
+        }
+        // o rótulo só é buscado na conversa IA e uma vez (sucesso ou 404)
+        self::assertMatchesRegularExpression('/ehIa\(c\) \? carregarPastaDaIa\(\) : Promise\.resolve\(null\)/', $js);
+        self::assertMatchesRegularExpression('/if \(!ia\.pastaId \|\| estado\.iaPastaTentada\) \{ return Promise\.resolve\(estado\.iaPasta\); \}/', $js);
+        self::assertMatchesRegularExpression('/e\.status === 404\) \{ estado\.iaPastaTentada = true; \}/', $js);
+        // o pastaId só vai no POST enquanto a barra existir
+        self::assertMatchesRegularExpression('/if \(estado\.iaPasta\) \{ corpoDaPergunta\.pastaId = estado\.iaPasta\.pastaId; \}\s*pedir\(urls\.iaPergunta, \{ metodo: \'POST\', corpo: corpoDaPergunta \}/', $js);
+        // a sugestão do resumo só com a barra
+        self::assertMatchesRegularExpression('/if \(estado\.iaPasta && ia\.sugestaoPasta\) \{ textos\.push\(ia\.sugestaoPasta\); \}/', $js);
+        // 404 pasta_nao_encontrada na pergunta: aviso do servidor e a barra sai
+        self::assertMatchesRegularExpression('/avisar\(e\.message\);[^\n]*\n\s*if \(e\.status === 404 && e\.codigo === \'pasta_nao_encontrada\'\) \{ removerBarraDaPasta\(\); \}/', $js);
+        // a barra é DOM por createElement/textContent, com link para a pasta
+        self::assertMatchesRegularExpression('/function barraDaPasta\(\)[\s\S]*?abrir\.href = urls\.pastaBase \+ String\(p\.pastaId\);/', $js);
+    }
 }
