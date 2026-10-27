@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: alteracao
 ---
 ## Changelog
 - Painel de Recompensas do Master (desenho 05): cada indicador com saldo liberado ganha o botão verde "Dar baixa" direto na linha, ao lado de "Ajustar". Abre o mesmo diálogo de baixa do menu.
