@@ -518,6 +518,61 @@ class TarefaRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * As metas NÃO concluídas do escritório em que a pessoa é responsável (spec painel-acompanhamento-redistribuir,
+     * fatia B), de pasta não excluída e visível a quem olha (cadeado). Filtro de escritório explícito.
+     *
+     * @param list<int> $pastasOcultas
+     *
+     * @return list<Tarefa>
+     */
+    public function ativasDaPessoa(Tenant $tenant, User $pessoa, array $pastasOcultas = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->join('t.pasta', 'p')
+            ->join('t.responsaveis', 'u')
+            ->andWhere('t.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('u = :pessoa')
+            ->andWhere('t.status != :concluida')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pessoa', $pessoa)
+            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->orderBy('t.id', 'ASC');
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        return array_values($qb->getQuery()->getResult());
+    }
+
+    /**
+     * As metas pelos ids, só as deste escritório (id de outro escritório simplesmente não volta).
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, Tarefa> id => meta
+     */
+    public function findPorIdsDoEscritorio(array $ids, Tenant $tenant): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $achadas = $this->createQueryBuilder('t')
+            ->andWhere('t.tenant = :tenant')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+
+        $porId = [];
+        foreach ($achadas as $meta) {
+            $porId[(int) $meta->getId()] = $meta;
+        }
+
+        return $porId;
+    }
+
     public function save(Tarefa $entity, bool $flush = false): void
     {
         $this->getEntityManager()->persist($entity);

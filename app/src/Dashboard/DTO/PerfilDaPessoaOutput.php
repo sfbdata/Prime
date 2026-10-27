@@ -34,6 +34,8 @@ final readonly class PerfilDaPessoaOutput
         public ?AnaliseDaPessoaOutput $analise = null,
         /** Acompanhamento ABERTO da pessoa no escritório (dado do escritório, visível a todos os gestores). */
         public ?AcompanhamentoDaPessoaOutput $acompanhamento = null,
+        /** "Redistribuir" só aparece com meta ativa e a fila acima da média do escritório (regra por dado real, sem IA). */
+        public bool $podeRedistribuir = false,
     ) {
     }
 

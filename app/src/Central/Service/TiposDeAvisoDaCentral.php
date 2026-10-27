@@ -16,6 +16,7 @@ use App\Pasta\UseCase\EnviarRelatorioPastasParadasUseCase;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 use App\Tarefa\UseCase\LembrarMetaUseCase;
+use App\Tarefa\UseCase\RedistribuirMetasDaPessoaUseCase;
 use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
 use App\Master\UseCase\ResponderNaCentralUseCase;
 
@@ -73,6 +74,7 @@ final class TiposDeAvisoDaCentral
      */
     private const DAS_METAS = [
         LembrarMetaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'metas', 'rotulo' => 'Lembrete', 'icone' => 'bi-bell', 'cor' => self::AMBAR, 'nivel' => 2],
+        RedistribuirMetasDaPessoaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'metas', 'rotulo' => 'Meta redistribuída', 'icone' => 'bi-arrow-left-right', 'cor' => self::AZUL, 'nivel' => 1],
     ];
 
     /** Dashboard: o "Pedir para zerar" de uma coluna (desenho 01 - Dashboard 1.2.2; bluejus-central.js `pedirZerar`). */

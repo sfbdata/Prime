@@ -23,6 +23,12 @@ use App\Dashboard\UseCase\RegistrarAuditoriaDoDesempenhoIndividualUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\AcessoAPasta;
+use App\Tarefa\DTO\RedistribuirMetasInput;
+use App\Tarefa\Exception\RedistribuicaoForaDoEscritorioException;
+use App\Tarefa\Exception\RedistribuicaoNaoPermitidaException;
+use App\Tarefa\Exception\RedistribuicaoRecusadaException;
+use App\Tarefa\UseCase\ListarMetasParaRedistribuirUseCase;
+use App\Tarefa\UseCase\RedistribuirMetasDaPessoaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
@@ -45,6 +51,10 @@ use Symfony\Component\Routing\Attribute\Route;
  *   (JSON `{"prazo_dias": 1|2|7}`, nos dois primeiros) e "Encerrar acompanhamento". Registro do escritório
  *   (`dashboard_acompanhamento_pessoa`), nunca automático; duplicado ou sem aberto → 409, prazo inválido,
  *   o próprio gestor ou o Master como alvo → 400.
+ * - GET  .../redistribuir (XHR): fragmento HTML com as metas ativas da pessoa (cadeado aplicado, tudo DESMARCADO)
+ *   e o destino sugerido por regras fixas. POST .../redistribuir (JSON `{"movimentos": [{"meta_id", "destino_id"}]}`,
+ *   no máximo 50): a confirmação explícita do gestor; meta de outro escritório → 404, lote inválido → 400
+ *   (spec painel-acompanhamento-redistribuir, fatia B).
  *
  * Guardas: escritório na sessão + módulo `bi` → 403; só o Master ou um primário ativo abre a análise
  * individual (RegraDosPrimarios) → 403; o id tem de ser colaborador ativo do escritório → 404 (IDOR);
@@ -66,6 +76,8 @@ final class PerfilDaPessoaDoDashboardController extends AbstractController
         private readonly CriarAcompanhamentoDaPessoaUseCase $criarAcompanhamento,
         private readonly RenovarAcompanhamentoDaPessoaUseCase $renovarAcompanhamento,
         private readonly EncerrarAcompanhamentoDaPessoaUseCase $encerrarAcompanhamento,
+        private readonly ListarMetasParaRedistribuirUseCase $listarParaRedistribuir,
+        private readonly RedistribuirMetasDaPessoaUseCase $redistribuir,
     ) {
     }
 
@@ -140,6 +152,74 @@ final class PerfilDaPessoaDoDashboardController extends AbstractController
         $encerrar = fn (GerirAcompanhamentoInput $in) => $this->encerrarAcompanhamento->executar(new EncerrarAcompanhamentoInput($in->tenant, $in->ator, $in->pessoaId, $in->agora));
 
         return $this->gerirAcompanhamento($request, $encerrar, $id, false);
+    }
+
+    #[Route('/redistribuir', name: 'dashboard_inteligencia_pessoa_redistribuir', methods: ['GET'])]
+    public function redistribuirLista(int $id): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant  = $this->autorizar($usuario);
+
+        try {
+            $lista = $this->listarParaRedistribuir->executar($tenant, $usuario, $id, $this->acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId()));
+        } catch (RedistribuicaoForaDoEscritorioException) {
+            throw $this->createNotFoundException('Colaborador não encontrado.');
+        } catch (RedistribuicaoNaoPermitidaException | RedistribuicaoRecusadaException $e) {
+            return new Response($e->getMessage(), $e instanceof RedistribuicaoNaoPermitidaException ? Response::HTTP_FORBIDDEN : Response::HTTP_BAD_REQUEST);
+        }
+
+        return $this->render('dashboard/_redistribuir_pessoa.html.twig', ['lista' => $lista, 'limite' => RedistribuirMetasDaPessoaUseCase::LIMITE_DE_METAS]);
+    }
+
+    #[Route('/redistribuir', name: 'dashboard_inteligencia_pessoa_redistribuir_confirmar', methods: ['POST'])]
+    public function redistribuirConfirmar(int $id, Request $request): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant  = $this->autorizar($usuario);
+        $this->validarCsrfAjax($request);
+
+        $movimentos = $this->lerMovimentos($request);
+        if ($movimentos === null) {
+            return $this->json(['erro' => 'Escolha as metas e o destino de cada uma.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $resultado = $this->redistribuir->executar(new RedistribuirMetasInput($tenant, $usuario, $id, $movimentos, new \DateTimeImmutable()));
+        } catch (RedistribuicaoForaDoEscritorioException) {
+            throw $this->createNotFoundException('Meta ou colaborador não encontrado.');
+        } catch (RedistribuicaoNaoPermitidaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (RedistribuicaoRecusadaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        return $this->json($resultado->paraArray());
+    }
+
+    /** @return list<array{meta_id: int, destino_id: int}>|null nulo quando o corpo não tem a forma esperada */
+    private function lerMovimentos(Request $request): ?array
+    {
+        try {
+            $dados = json_decode($request->getContent(), true, 8, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+        $lista = is_array($dados) ? ($dados['movimentos'] ?? null) : null;
+        if (!is_array($lista) || !array_is_list($lista)) {
+            return null;
+        }
+
+        $movimentos = [];
+        foreach ($lista as $item) {
+            if (!is_array($item) || !is_int($item['meta_id'] ?? null) || !is_int($item['destino_id'] ?? null)) {
+                return null;
+            }
+            $movimentos[] = ['meta_id' => $item['meta_id'], 'destino_id' => $item['destino_id']];
+        }
+
+        return $movimentos;
     }
 
     /**
