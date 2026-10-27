@@ -93,6 +93,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Aviso recebido de gateway/banco: quem manda é o gateway, e o escritório só aparece depois da
         // reconsulta. Guardado antes de processar, para idempotência.
         \App\Contribua\Entity\NotificacaoRecebida::class,
+        // Contribua C4: a integração bancária é da BlueJus (uma linha global, só o Master).
+        \App\Contribua\Entity\IntegracaoBancaria::class,
         // Configuração do pagamento por cartão (gateway, chave pública, carência): uma linha só, da plataforma.
         \App\Contribua\Entity\ConfiguracaoDePagamento::class,
         // Bônus de espaço por indicação: mesmo motivo do espaço do escritório (lido por tenantId explícito
@@ -366,7 +368,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 87 → 88 com os escritórios guardados da Nova solicitação (27/10/2026): EscritorioSolicitante é do usuário, justificado acima.
     // 88 → 89 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
     // 89 → 91 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
-    private const MAX_FORA_DO_ESCOPO = 91;
+    // 91 → 92 com a integração bancária da C4 (linha global da BlueJus, justificada acima).
+    private const MAX_FORA_DO_ESCOPO = 92;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
