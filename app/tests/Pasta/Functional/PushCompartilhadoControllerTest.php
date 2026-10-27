@@ -14,6 +14,7 @@ use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use App\Master\Entity\TemaConfig;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
@@ -54,6 +55,37 @@ final class PushCompartilhadoControllerTest extends JusPrimeWebTestCase
     private function conteudo(KernelBrowser $client): string
     {
         return (string) $client->getResponse()->getContent();
+    }
+
+    private function gravarTema(string $modo, ?string $manual): void
+    {
+        $this->em()->clear();
+        $config = $this->em()->getRepository(TemaConfig::class)->findOneBy([]) ?? new TemaConfig();
+        $config->definirModo($modo, $manual, null, new \DateTimeImmutable());
+        $this->em()->persist($config);
+        $this->em()->flush();
+        $this->em()->clear();
+    }
+
+    #[TestDox('Tema comemorativo ativo: variáveis do tema, fita e cabeçalho marcado; sem tema, nada é injetado')]
+    public function testTemaComemorativo(): void
+    {
+        $client = $this->cliente();
+        [$link] = $this->cenario();
+
+        $this->gravarTema('desligado', null);
+        $client->request('GET', '/p/' . $link->getEndereco());
+        self::assertStringNotContainsString('id="bjtFita"', $this->conteudo($client), 'sem tema não se injeta a fita');
+
+        $this->gravarTema('manual', 'outrosa');
+
+        $crawler = $client->request('GET', '/p/' . $link->getEndereco());
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertCount(1, $crawler->filter('header.pc-cabecalho[data-bjt-cabecalho]'));
+        self::assertCount(1, $crawler->filter('#bjtTema'));
+        self::assertCount(1, $crawler->filter('#bjtFita'));
+        self::assertStringContainsString('--bjt-p:#d0558f', $this->conteudo($client));
     }
 
     #[TestDox('Sem login: 200, cabeçalhos de proteção, processo com máscara, cliente, movimentação e 1 acesso contado')]
