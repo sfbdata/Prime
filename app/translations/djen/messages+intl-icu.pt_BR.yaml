@@ -51,6 +51,8 @@ djen:
         confirma_desvincular: 'Desvincular o processo {processo} da Pasta {n}?'
         busca_pasta_ph: Número da pasta ou nome do cliente
         nenhuma_pasta: Nenhuma pasta encontrada.
+        partes_nao_informadas: Partes não informadas
+        vincular_a_pasta_n: 'Vincular à Pasta {n}'
         abrir_nova_pasta: Abrir nova pasta
         fechar: Fechar
         selecionar: Selecionar
@@ -222,3 +224,38 @@ djen:
         fechar: Fechar
         cancelar: Cancelar
         salvar: Salvar
+    detalhe:
+        titulo: '{tipo} · {processo}'
+        data: Data
+        tribunal: Tribunal
+        vinculo: Vínculo
+        orgao: Órgão
+        avulsa: Avulsa
+        pasta_n: 'Pasta {n}'
+        teor: Teor
+        sem_teor: Sem teor disponível.
+        prazo: Prazo
+        dias_uteis: 'Prazo em dias úteis'
+        outro: Outro
+        outro_pergunta: 'Prazo em dias úteis (1 a 399):'
+        faltam: '{n, plural, one {Falta # dia útil} other {Faltam # dias úteis}}'
+        vence_hoje: Vence hoje
+        vencido: Prazo vencido
+        cumprido: Prazo cumprido
+        intervalo: 'De {inicio} a {fim} · dias úteis, sem fins de semana, feriados e recesso forense. Confira o termo inicial na intimação.'
+        do_teor: 'Prazo lido do teor, até {fim}. Confira o termo inicial na intimação.'
+        sem_prazo: 'Sem prazo definido. Escolha os dias úteis conforme a intimação.'
+        criar_meta: Criar meta com este prazo
+        criar_meta_sem_pasta: Vincule uma pasta para criar a meta
+        meta_criada: 'Meta criada · abrir Minhas Metas'
+        abrir_pasta: Abrir a pasta
+        vincular_pasta: Vincular a uma pasta
+        marcar_lida: Marcar como lida
+        marcar_nao_lida: Marcar como não lida
+        fechar: Fechar
+        selo_vencido: Vencido
+        selo_hoje: Vence hoje
+        selo_dias: 'Vence em {n} d'
+        selo_dica: 'Prazo de {dias} dias úteis: de {inicio} a {fim} (sem fins de semana, feriados e recesso forense)'
+        selo_dica_teor: 'Prazo lido do teor: até {fim}'
+        meta_criada_selo: meta criada
