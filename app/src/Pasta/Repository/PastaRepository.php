@@ -1693,7 +1693,7 @@ class PastaRepository extends ServiceEntityRepository
                 break;
 
             case 'cliente':
-                $qb->leftJoin('p.clientes', 'cli_ord')
+                $qb->leftJoin('p.clientePrincipal', 'cli_ord')
                    ->leftJoin(ClientePF::class, 'cpf_ord', 'WITH', 'cpf_ord.id = cli_ord.id')
                    ->leftJoin(ClientePJ::class, 'cpj_ord', 'WITH', 'cpj_ord.id = cli_ord.id')
                    // Caminho da cobrança, só neste ramo: é o que permite ordenar pelo
@@ -1703,16 +1703,16 @@ class PastaRepository extends ServiceEntityRepository
                    ->leftJoin('obj_ord.carteira', 'cart_ord')
                    ->leftJoin('cart_ord.cliente', 'clc_ord')
                    ->leftJoin(ClientePJ::class, 'pjc_ord', 'WITH', 'pjc_ord.id = clc_ord.id')
-                   ->leftJoin('cc_ord.pessoaCobradaAtual', 'pes_ord')
-                   // A precedência espelha a da TELA (`identificador_pasta`): derivado primeiro, o
-                   // nome gravado depois, o cliente cadastrado por último. Se divergirem, a lista
-                   // ordena por um nome que o usuário não vê na coluna. O CONCAT devolve NULL quando
-                   // falta a fantasia, e o COALESCE então cai para a pessoa cobrada sozinha — que é
-                   // exatamente a queda que o `ComporNomeDaPastaJudicial` faz.
+                   ->leftJoin(ClientePF::class, 'pfc_ord', 'WITH', 'pfc_ord.id = clc_ord.id')
+                   // A precedência espelha a da TELA (`identificador_pasta`): o cliente da carteira
+                   // (pasta judicializada), depois o cliente principal da pasta, por último o nome
+                   // gravado, que é só reserva. Se divergirem, a lista ordena por um nome que o
+                   // usuário não vê na coluna. A queda dentro do cliente (fantasia, senão razão
+                   // social ou nome completo) é a do `ComporNomeDaPastaJudicial`.
                    ->orderBy(
                        'MIN(LOWER(COALESCE('
-                       . "CONCAT(pjc_ord.nomeFantasia, ' - ', pes_ord.nome), "
-                       . 'pes_ord.nome, p.nomeCliente, cpf_ord.nomeCompleto, cpj_ord.razaoSocial)))',
+                       . 'NULLIF(TRIM(pjc_ord.nomeFantasia), \'\'), pjc_ord.razaoSocial, pfc_ord.nomeCompleto, '
+                       . 'cpf_ord.nomeCompleto, cpj_ord.razaoSocial, p.nomeCliente)))',
                        $dir,
                    );
                 break;

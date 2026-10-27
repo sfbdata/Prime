@@ -13,10 +13,11 @@ use App\Pasta\Entity\Pasta;
  * Duas naturezas, uma resposta:
  *
  * - pasta **judicializada pela cobrança** → identificador DERIVADO na hora,
- *   `<fantasia do credor> - <pessoa cobrada atual>`. Não é gravado em lugar nenhum: mudar o cadastro
- *   do cliente ou trocar a pessoa cobrada muda o nome de todas as pastas afetadas, de uma vez;
- * - **qualquer outra pasta** (1.093 das 1.099 em produção) → o `nome_cliente` gravado, texto livre,
- *   editável como sempre foi. O escopo é estreito de propósito (spec §1).
+ *   o cliente da carteira (fantasia, senão razão social ou nome completo). Não é gravado em lugar nenhum: mudar o cadastro
+ *   do cliente da carteira muda o nome de todas as pastas afetadas, de uma vez;
+ * - **qualquer outra pasta** com cliente vinculado → o cliente PRINCIPAL, pelo nome de exibição
+ *   (decisão do dono, 2026-10-27); o `nome_cliente` gravado, texto livre, vira reserva e só aparece
+ *   quando a pasta não tem cliente.
  *
  * ⚠️ O derivado VENCE o texto gravado — não se concatena com ele. É isso que impede prefixo em dobro
  * e o que faz as pastas cujo texto ficou quebrado (`APLC TOP LIFE 1 -`) voltarem a exibir o nome
@@ -58,13 +59,13 @@ final class ResolvedorIdentificadorDaPasta
         }
 
         foreach ($porTenant as $grupo) {
-            $dados = $this->casos->credorEDevedorPorPasta($grupo['ids'], $grupo['tenant']);
+            $dados = $this->casos->clienteDaCarteiraPorPasta($grupo['ids'], $grupo['tenant']);
 
             foreach ($grupo['ids'] as $id) {
                 // Pasta sem caso de cobrança fica com `null` na memória — e `null` MEMORIZADO é
                 // diferente de ausente: evita reconsultar a mesma pasta a cada linha da tabela.
                 $this->memoria[$id] = isset($dados[$id])
-                    ? $this->compositor->compor($dados[$id]['fantasia'], $dados[$id]['pessoa'])
+                    ? $this->compositor->compor($dados[$id]['fantasia'], $dados[$id]['razaoSocial'])
                     : null;
             }
         }
@@ -82,7 +83,29 @@ final class ResolvedorIdentificadorDaPasta
             $this->primeParaPastas([$pasta]);
         }
 
-        return $this->memoria[$id] ?? $pasta->getNomeCliente();
+        return $this->memoria[$id]
+            ?? $pasta->getClientePrincipal()?->getNomeExibicao()
+            ?? $pasta->getNomeCliente();
+    }
+
+    /**
+     * Só o derivado da cobrança (`null` para pasta que não veio de judicialização). É o que diz se o
+     * nome da pasta é montado pela carteira e portanto não se edita à mão: o cliente principal de uma
+     * pasta comum NÃO conta, porque o `nome_cliente` dela continua sendo texto livre.
+     */
+    public function daCobranca(Pasta $pasta): ?string
+    {
+        $id = $pasta->getId();
+
+        if ($id === null) {
+            return null;
+        }
+
+        if (!\array_key_exists($id, $this->memoria)) {
+            $this->primeParaPastas([$pasta]);
+        }
+
+        return $this->memoria[$id] ?? null;
     }
 
     /**

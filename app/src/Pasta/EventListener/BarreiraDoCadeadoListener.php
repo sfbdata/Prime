@@ -77,11 +77,13 @@ final class BarreiraDoCadeadoListener
      * olhar. Estão aqui para o teste de arquitetura distinguir "não precisa" de "esqueceram":
      *  - `pasta_index` e `pasta_new`: a lista e a criação;
      *  - `pasta_imagem_editor`: a imagem embutida na peça é servida pelo nome do arquivo; quem confere o
-     *    cadeado da pasta dona é o próprio `PecaImagemController` (D5).
+     *    cadeado da pasta dona é o próprio `PecaImagemController` (D5);
+     *  - `central_ia_pasta`: o rótulo da barra da IA. Quem confere o cadeado (`AcessoAPasta::podeVer`) é o
+     *    próprio use case, que devolve o mesmo 404 para pasta inexistente, de outro escritório, excluída ou trancada.
      *
      * @var list<string>
      */
-    public const ROTAS_SEM_PASTA = ['pasta_index', 'pasta_new', 'pasta_imagem_editor'];
+    public const ROTAS_SEM_PASTA = ['pasta_index', 'pasta_new', 'pasta_imagem_editor', 'central_ia_pasta'];
 
     public const MENSAGEM_OCULTO = 'O usuário primário restringiu o acesso a esta pasta.';
 

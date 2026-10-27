@@ -9,6 +9,7 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Cobranca\Service\ComporNomeDaPastaJudicial;
 use App\Cobranca\Service\NormalizadorDePastaJudicial;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Entity\Auth\User;
@@ -42,6 +43,7 @@ final class CorrigirPastaJudicialDuplicadaUseCase
         private readonly PastaRepository $pastaRepository,
         private readonly CriarPastaUseCase $criarPasta,
         private readonly NormalizadorDePastaJudicial $normalizador,
+        private readonly ComporNomeDaPastaJudicial $comporNome,
         private readonly RegistrarEventoHistorico $registrarEvento,
         private readonly EntityManagerInterface $em,
     ) {
@@ -149,11 +151,12 @@ final class CorrigirPastaJudicialDuplicadaUseCase
         $reaproveitou = $orfa !== null;
         $pastaNova = $orfa ?? $this->criarPastaNova($tenant, $usuario);
 
-        // Nome COM a unidade embutida — ao contrário do padrão normal (`ComporNomeDaPastaJudicial::
-        // paraCaso`), que aqui produziria o MESMO nome para os dois casos do par duplicado (fantasia +
-        // pessoa se repetem). A unidade desambigua. Por isso o `normalizador->normalizar()` (que
-        // SOBRESCREVE o nome pelo padrão comum) roda ANTES, e este nome vem DEPOIS — a ordem importa.
-        $pessoaComUnidade = trim(sprintf('%s (unidade %s)', $pessoaNome === '—' ? '' : $pessoaNome, $unidade));
+        // Nome COM a unidade embutida: o padrão comum (`ComporNomeDaPastaJudicial::paraCaso`) é só o
+        // cliente da carteira, igual para os dois casos do par duplicado. A unidade desambigua o texto
+        // gravado (reserva; a tela mostra o cliente da carteira). Por isso o `normalizador->normalizar()`
+        // (que SOBRESCREVE o nome pelo padrão comum) roda ANTES, e este nome vem DEPOIS: a ordem importa.
+        $cliente = $this->comporNome->paraCaso($caso) ?? ($pessoaNome === '—' ? '' : $pessoaNome);
+        $pessoaComUnidade = trim(sprintf('%s (unidade %s)', $cliente, $unidade));
 
         if ($usuario !== null) {
             $this->normalizador->normalizar($pastaNova, $caso, $tenant, $usuario);
