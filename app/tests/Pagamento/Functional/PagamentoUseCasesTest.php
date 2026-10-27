@@ -64,7 +64,13 @@ final class PagamentoUseCasesTest extends KernelTestCase
     {
         $referencia ??= 'TE' . strtoupper(bin2hex(random_bytes(6)));
         $this->criar->executar(new CriarPagamentoInput(
-            (int) $t->getId(), OrigemDoPagamento::TrabalhoExterno, 42, $referencia, $valor, MetodoDePagamento::Pix, 'cora',
+            (int) $t->getId(),
+            OrigemDoPagamento::TrabalhoExterno,
+            42,
+            $referencia,
+            $valor,
+            MetodoDePagamento::Pix,
+            'cora',
             new \DateTimeImmutable('+24 hours'),
         ));
 
@@ -104,7 +110,13 @@ final class PagamentoUseCasesTest extends KernelTestCase
         $ref = $this->cobrar($t, null, 150_000);
 
         $segunda = $this->criar->executar(new CriarPagamentoInput(
-            (int) $t->getId(), OrigemDoPagamento::TrabalhoExterno, 42, $ref, 999_000, MetodoDePagamento::Pix, 'cora',
+            (int) $t->getId(),
+            OrigemDoPagamento::TrabalhoExterno,
+            42,
+            $ref,
+            999_000,
+            MetodoDePagamento::Pix,
+            'cora',
         ));
 
         self::assertFalse($segunda->nova);
@@ -118,7 +130,13 @@ final class PagamentoUseCasesTest extends KernelTestCase
 
         $this->expectException(\DomainException::class);
         $this->criar->executar(new CriarPagamentoInput(
-            (int) $this->escritorio()->getId(), OrigemDoPagamento::TrabalhoExterno, 1, $ref, 2000, MetodoDePagamento::Pix, 'cora',
+            (int) $this->escritorio()->getId(),
+            OrigemDoPagamento::TrabalhoExterno,
+            1,
+            $ref,
+            2000,
+            MetodoDePagamento::Pix,
+            'cora',
         ));
     }
 
