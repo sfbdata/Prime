@@ -109,6 +109,63 @@ class MetricasExtrasDoDashboardRepository
     }
 
     /**
+     * Metas concluídas NO período, pela DATA DE CONCLUSÃO (`Tarefa.dataConclusao`), por responsável: a
+     * quantidade e a soma dos dias entre criar e concluir. É o recorte que se repete igual no período
+     * anterior (a data de conclusão é um fato do passado), ao contrário do recorte por criação com o
+     * status de hoje (DASH-010b). Só metas hoje concluídas COM `dataConclusao`; a meta reaberta perde a
+     * data e sai da conta nos dois lados. Com `contar_desde` (Zerar), só as concluídas a partir do corte.
+     *
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas cadeado (D1, D3)
+     *
+     * @return array<int, array{dias: int, metas: int}> userId => quantidade e soma de dias
+     */
+    public function concluidasNoPeriodoPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
+    {
+        $qb = $this->em->createQueryBuilder()
+            ->select('u.id AS pessoa_id, SUM(DATE_DIFF(t.dataConclusao, t.dataCriacao)) AS dias, COUNT(t.id) AS metas')
+            ->from(Tarefa::class, 't')
+            ->join('t.pasta', 'p')
+            ->join('t.responsaveis', 'u')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('t.status = :concluida')
+            ->andWhere('t.dataConclusao IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->groupBy('u.id');
+
+        $this->aplicarPeriodo($qb, 't.dataConclusao', $filtros);
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        $mapa = [];
+        foreach ($qb->getQuery()->getArrayResult() as $linha) {
+            $mapa[(int) $linha['pessoa_id']] = ['dias' => (int) $linha['dias'], 'metas' => (int) $linha['metas']];
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * A primeira `dataConclusao` guardada no escritório: antes dela o sistema não registrava quando a meta
+     * foi concluída, então contar conclusões por data num período anterior a ela subestimaria o passado.
+     */
+    public function primeiraDataDeConclusao(Tenant $tenant): ?\DateTimeImmutable
+    {
+        $valor = $this->em->createQueryBuilder()
+            ->select('MIN(t.dataConclusao)')
+            ->from(Tarefa::class, 't')
+            ->join('t.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('t.dataConclusao IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $valor === null ? null : new \DateTimeImmutable((string) $valor);
+    }
+
+    /**
      * Pastas com prioridade Urgente por responsável, abertas no período — o mesmo critério do card
      * "Demandas urgentes" (PastaRepository::countUrgentes), agora por pessoa.
      *
