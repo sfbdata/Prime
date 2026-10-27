@@ -110,10 +110,17 @@ class MovimentoDeSaldo implements TenantAware, Auditavel
         return $movimento;
     }
 
-    public function confirmar(?string $idExterno, string $origem, ?User $confirmadoPor): void
+    /**
+     * Confirma a recarga. Valor pago MAIOR que o pedido libera o que foi pago e guarda a diferença
+     * (`valorRecebidoCentavos`, `divergenteEm`) para o Master ver; o menor nunca chega aqui (fica pendente).
+     */
+    public function confirmar(?string $idExterno, string $origem, ?User $confirmadoPor, ?int $valorPagoCentavos = null): void
     {
         if (!$this->estaPendente()) {
             throw new \DomainException('Este movimento já está confirmado.');
+        }
+        if (null !== $valorPagoCentavos && $valorPagoCentavos > $this->valorCentavos) {
+            $this->registrarDivergencia($valorPagoCentavos);
         }
         $this->confirmadoEm = new \DateTimeImmutable();
         $this->idExterno = $idExterno;
@@ -129,6 +136,18 @@ class MovimentoDeSaldo implements TenantAware, Auditavel
         }
         $this->valorRecebidoCentavos = $valorRecebidoCentavos;
         $this->divergenteEm = new \DateTimeImmutable();
+    }
+
+    /** O que entra (ou entrou) no saldo: o pedido, ou o pago quando veio a mais. */
+    public function valorCreditadoCentavos(): int
+    {
+        return max($this->valorCentavos, $this->valorRecebidoCentavos ?? 0);
+    }
+
+    /** Quanto veio a mais que o pedido (0 se nada). */
+    public function sobraCentavos(): int
+    {
+        return $this->valorCreditadoCentavos() - $this->valorCentavos;
     }
 
     public function temDivergencia(): bool

@@ -13,7 +13,7 @@ enum ResultadoDaConfirmacao: string
 {
     case Confirmada = 'confirmada';
     case JaConfirmada = 'ja_confirmada';
-    /** Valor pago diferente do pedido: nada creditado, divergência gravada para o Master conciliar. */
+    /** Valor pago MENOR que o pedido: nada creditado, a recarga segue pendente e a divergência fica gravada. */
     case ValorDivergente = 'valor_divergente';
     /** O mesmo pagamento (idExterno) já confirmou outra recarga: nada creditado. */
     case PagamentoRepetido = 'pagamento_repetido';
