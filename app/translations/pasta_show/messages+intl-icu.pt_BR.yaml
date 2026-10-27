@@ -25,7 +25,11 @@ pasta_show:
         nota_contratuais: Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros.
         contratuais: Contratuais
         nota_exito: 'Participação no proveito econômico: % sobre o total contratado, recebido só se houver resultado. Entra como previsto.'
-        exito: Êxito
+        exito: Proveito econômico
+        nota_recorrente: 'Honorários mensais fixos (assessoria, partido ou consultoria): o mesmo valor todo mês, pelo número de meses informado.'
+        recorrente: Recorrente
+        valor_mensal: Valor mensal (R$)
+        meses: Meses
         nota_sucumbencia: Fixada pelo juízo, em regra entre 10% e 20% (art. 85 CPC). Estimada sobre o total contratado e paga pela parte contrária.
         sucumbencia: Sucumbência
         nota_custas: Custas e despesas adiantadas a reembolsar pelo cliente.
