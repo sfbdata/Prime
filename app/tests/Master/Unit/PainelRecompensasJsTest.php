@@ -224,11 +224,11 @@ final class PainelRecompensasJsTest extends TestCase
         self::assertStringContainsString("pedir(urlDaCondicao(u.userId), 'DELETE')", $js);
         self::assertStringContainsString("pedir(raiz.dataset.urlRegras, 'POST', corpo)", $js);
         $codigo = substr($js, (int) strpos($js, '(() => {'));
-        foreach (['Dar baixa', 'Simular indicação', 'Fechamento do mês', 'Avisar saldo', 'comprovante'] as $fora) {
+        foreach (['Simular indicação', 'Fechamento do mês', 'Avisar saldo'] as $fora) {
             self::assertStringNotContainsStringIgnoringCase($fora, $codigo, 'fica para as fatias seguintes: ' . $fora);
         }
         $twig = self::arquivo('templates/master/_recompensas.html.twig');
-        self::assertSame(8, substr_count($twig, 'data-mrc-menu-acao='), 'o menu ⋮ tem condição, lançamento, revisar suspeitas, extrato, CSV, regra geral, bloqueio e apagar');
+        self::assertSame(10, substr_count($twig, 'data-mrc-menu-acao='), 'o menu ⋮ tem condição, dar baixa, lançamento, dados para pagamento, revisar suspeitas, extrato, CSV, regra geral, bloqueio e apagar');
         self::assertStringContainsString('data-sec-externa', self::arquivo('templates/master/painel.html.twig'));
     }
 
@@ -249,13 +249,13 @@ final class PainelRecompensasJsTest extends TestCase
         self::assertStringNotContainsString('innerHTML = ' . "u.", $js);
     }
 
-    #[TestDox('F2: extrato e diálogo seguem o desenho: grade de 4 colunas, chip, botão Exportar CSV, ícones e sem modal do Bootstrap')]
+    #[TestDox('F2 e F4: extrato e diálogo seguem o desenho: grade de 5 colunas (forma e comprovante na F4), chip, botão Exportar CSV, ícones e sem modal do Bootstrap')]
     public function testExtratoNoDesenho(): void
     {
         $css = self::arquivo('public/css/master-recompensas.css');
         $twig = self::arquivo('templates/master/_recompensas.html.twig');
 
-        self::assertStringContainsString('.mrc-extrato-linha { display: grid; grid-template-columns: 150px minmax(200px, 1fr) 150px 110px; gap: 8px; align-items: center; padding: 9px 18px;', $css);
+        self::assertStringContainsString('.mrc-extrato-linha { display: grid; grid-template-columns: 150px minmax(200px, 1fr) 150px 110px 150px; gap: 8px; align-items: center; padding: 9px 18px;', $css);
         self::assertStringContainsString('.mrc-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 2px;', $css);
         self::assertStringContainsString('class="bi bi-receipt"', $twig);
         self::assertStringContainsString('bi-filetype-csv', $twig);

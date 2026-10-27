@@ -9,6 +9,7 @@ use App\Recompensa\DTO\IndicadorDeRecompensaOutput;
 use App\Recompensa\Entity\CondicaoDeRecompensa;
 use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Recompensa\Repository\CondicaoDeRecompensaRepository;
+use App\Recompensa\Repository\DadosDeRecebimentoDeRecompensaRepository;
 use App\Recompensa\Repository\LancamentoDeRecompensaRepository;
 use App\Recompensa\Repository\ProgramaDeRecompensaRepository;
 use App\Recompensa\UseCase\ConsultarPainelDeRecompensasUseCase;
@@ -47,7 +48,10 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
         $lancamentos = $this->createStub(LancamentoDeRecompensaRepository::class);
         $lancamentos->method('somaDoBonusPorIndicador')->willReturnCallback(fn (): array => $this->bonus);
 
-        return (new ConsultarPainelDeRecompensasUseCase($indicacoes, $programas, $condicoes, $lancamentos, new MockClock(new \DateTimeImmutable(self::AGORA))))->executar();
+        $recebimentos = $this->createStub(DadosDeRecebimentoDeRecompensaRepository::class);
+        $recebimentos->method('todosPorIndicador')->willReturn([]);
+
+        return (new ConsultarPainelDeRecompensasUseCase($indicacoes, $programas, $condicoes, $lancamentos, $recebimentos, new MockClock(new \DateTimeImmutable(self::AGORA))))->executar();
     }
 
     private function indicador(int $id, int $envios = 20, string $nome = 'Ana Indicadora'): void
@@ -246,7 +250,7 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
 
         $chaves = array_keys($this->executar()->paraArray()['indicadores'][0]);
 
-        self::assertSame(['userId', 'nome', 'email', 'escritorio', 'envios', 'contas', 'ativos', 'emCarencia', 'minEscritorios', 'valorCentavos', 'saldoCentavos', 'pagoCentavos', 'liberado', 'situacao', 'bloqueado', 'suspeitas', 'motivosDeSuspeita', 'emSeteDias', 'condicao'], $chaves);
+        self::assertSame(['userId', 'nome', 'email', 'escritorio', 'envios', 'contas', 'ativos', 'emCarencia', 'minEscritorios', 'valorCentavos', 'saldoCentavos', 'pagoCentavos', 'liberado', 'situacao', 'bloqueado', 'suspeitas', 'motivosDeSuspeita', 'emSeteDias', 'condicao', 'recebimento'], $chaves);
     }
 
     #[TestDox('F2: o saldo soma os lançamentos manuais (crédito e estorno) ao crédito das contas; os KPIs refletem')]

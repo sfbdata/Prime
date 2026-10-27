@@ -150,6 +150,10 @@ final class PurgarEscritorioUseCase
         ['service_desk_chamado', 'tenant_id = :tenant'],
         ['service_desk_movimento', 'tenant_id = :tenant'],
         ['service_desk_saldo', 'tenant_id = :tenant'],
+        // Gateway de pagamentos (M0): trilha antes do pagamento (a FK da trilha é CASCADE, mas a deleção explícita
+        // deixa a cobertura visível). Apagado na hora, como o apoio e o razão (decisão do dono: exclusão apaga na hora).
+        ['pagamento_evento', 'tenant_id = :tenant'],
+        ['pagamento', 'tenant_id = :tenant'],
         ['contribua_motivo_de_nao_apoiar', 'tenant_id = :tenant'],
         // Contribua C3: pedidos e assinaturas de espaço (tenant_id direto; FKs a "user" SET NULL; nada as
         // referencia). A quarentena de 365 dias passa muito do fim de qualquer mês pago.

@@ -49,6 +49,18 @@
     fundo: $('[data-mrc-lan-fundo]'), posicao: $('[data-mrc-lan]'), nome: $('[data-mrc-lan-nome]'), sub: $('[data-mrc-lan-sub]'),
     valor: $('[data-mrc-lan-valor]'), obs: $('[data-mrc-lan-obs]'), erro: $('[data-mrc-lan-erro]'), enviar: $('[data-mrc-lan-enviar]'),
   };
+  const bai = {
+    fundo: $('[data-mrc-bai-fundo]'), posicao: $('[data-mrc-bai]'), nome: $('[data-mrc-bai-nome]'), sub: $('[data-mrc-bai-sub]'),
+    valor: $('[data-mrc-bai-valor]'), dica: $('[data-mrc-bai-dica]'), formas: $('[data-mrc-bai-formas]'), arquivo: $('[data-mrc-bai-arquivo]'),
+    anexoTxt: $('[data-mrc-bai-anexo-txt]'), anexoOk: $('[data-mrc-bai-anexo-ok]'), obs: $('[data-mrc-bai-obs]'),
+    erro: $('[data-mrc-bai-erro]'), enviar: $('[data-mrc-bai-enviar]'),
+  };
+  const rcb = {
+    fundo: $('[data-mrc-rcb-fundo]'), posicao: $('[data-mrc-rcb]'), indicador: $('[data-mrc-rcb-indicador]'), sub: $('[data-mrc-rcb-sub]'),
+    nome: $('[data-mrc-rcb-nome]'), documento: $('[data-mrc-rcb-documento]'), pix: $('[data-mrc-rcb-pix]'),
+    erro: $('[data-mrc-rcb-erro]'), enviar: $('[data-mrc-rcb-enviar]'),
+  };
+  const FORMAS = ['pix', 'transferencia', 'desconto_na_mensalidade', 'credito_de_espaco'];
   // Aspas pelo código (\x22 e \x27): um literal de aspas aqui desalinha o detector de texto fixo (SemTextoFixoNosExtraidos).
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\x22': '&quot;', '\x27': '&#39;' };
   const esc = t => String(t == null ? '' : t).replace(/[&<>\x22\x27]/g, m => ESC[m]);
@@ -74,6 +86,7 @@
   let alvo = null;
   let extratoDe = null;
   let chave = '';
+  let forma = 'pix';
 
   function avisar(texto, ok) {
     elAviso.textContent = texto || '';
@@ -181,7 +194,8 @@
 
   function pedir(url, metodo, corpo) {
     const opcoes = { method: metodo, credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-Token': TOKEN } };
-    if (corpo) { opcoes.headers['Content-Type'] = 'application/json'; opcoes.body = JSON.stringify(corpo); }
+    if (corpo instanceof FormData) opcoes.body = corpo;
+    else if (corpo) { opcoes.headers['Content-Type'] = 'application/json'; opcoes.body = JSON.stringify(corpo); }
     return fetch(url, opcoes)
       .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || T('master.js.recompensas.erro_salvar'))))));
   }
@@ -311,14 +325,21 @@
   /* Extrato (F2) */
   const DATA_HORA = d => window.BJFormato.dataHora(d);
 
+  const urlDoLancamento = id => raiz.dataset.urlComprovante.replace('/lancamentos/0/', '/lancamentos/' + id + '/');
+
   function linhaDoExtrato(e, ix) {
-    const estorno = e.valorCentavos < 0;
+    const pago = e.tipo === 'pago';
+    const estorno = !pago && e.valorCentavos < 0;
     const valor = (estorno ? '-' : '') + moeda(Math.abs(e.valorCentavos));
+    const anexo = e.temComprovante
+      ? '<a class="mrc-extrato-comprovante" href="' + esc(urlDoLancamento(e.id)) + '" target="_blank" rel="noopener" title="' + esc(T('master.js.recompensas.comprovante')) + '" aria-label="' + esc(T('master.js.recompensas.comprovante')) + '"><i class="bi bi-paperclip" aria-hidden="true"></i></a>'
+      : '';
     return '<div class="mrc-extrato-linha' + (ix % 2 ? ' mrc-extrato-linha-zebra' : '') + '"' + (e.observacao ? ' title="' + esc(e.observacao) + '"' : '') + '>'
       + '<span class="mrc-extrato-data">' + esc(DATA_HORA(e.em)) + '</span>'
       + '<b title="' + esc(e.email || '') + '">' + esc(e.nome || T('master.js.recompensas.extrato_removido')) + '</b>'
-      + '<span class="mrc-extrato-tipo' + (estorno ? ' mrc-extrato-tipo-estorno' : '') + '">' + esc(T(estorno ? 'master.js.recompensas.tipo.estorno' : 'master.js.recompensas.tipo.credito')) + '</span>'
-      + '<b>' + esc(valor) + '</b></div>';
+      + '<span class="mrc-extrato-tipo' + (estorno ? ' mrc-extrato-tipo-estorno' : '') + '">' + esc(T(pago ? 'master.js.recompensas.tipo.pago' : estorno ? 'master.js.recompensas.tipo.estorno' : 'master.js.recompensas.tipo.credito')) + '</span>'
+      + '<b>' + esc(valor) + '</b>'
+      + '<span>' + (e.forma ? esc(T('master.js.recompensas.forma.' + e.forma)) : '') + anexo + '</span></div>';
   }
 
   function desenharExtrato(lista) {
@@ -404,6 +425,127 @@
       })
       .catch(e => avisarNoLancamento(e.message || T('master.js.recompensas.erro_salvar')))
       .finally(() => { ocupado = false; lan.enviar.disabled = false; });
+  }
+
+  /* Janela "Dar baixa" (F4): registra um pagamento feito fora do sistema */
+  function avisarNaBaixa(texto) {
+    bai.erro.textContent = texto || '';
+    bai.erro.hidden = !texto;
+  }
+
+  function desenharFormas() {
+    bai.formas.innerHTML = FORMAS.map(f => '<button type="button" role="radio" class="mrc-bai-forma" data-forma="' + f + '" aria-checked="' + (f === forma ? 'true' : 'false') + '">' + esc(T('master.js.recompensas.forma.' + f)) + '</button>').join('');
+  }
+
+  function desenharAnexo() {
+    const f = bai.arquivo.files && bai.arquivo.files[0];
+    bai.anexoTxt.textContent = f ? f.name : T('master.js.recompensas.baixa_anexar');
+    bai.anexoOk.hidden = !f;
+  }
+
+  function abrirBaixa(id) {
+    const u = indicador(id);
+    if (!u) return;
+    alvo = id;
+    chave = novaChave();
+    forma = 'pix';
+    bai.nome.textContent = u.nome;
+    bai.sub.textContent = [u.escritorio, u.email].filter(Boolean).join(' · ');
+    bai.valor.value = campoValor(u.saldoCentavos);
+    bai.dica.textContent = T('master.js.recompensas.baixa_dica', { saldo: moeda(u.saldoCentavos), pix: (u.recebimento && u.recebimento.chavePix) || T('master.js.recompensas.baixa_sem_pix') });
+    bai.obs.value = '';
+    bai.arquivo.value = '';
+    desenharFormas();
+    desenharAnexo();
+    avisarNaBaixa('');
+    fecharMenu();
+    bai.fundo.hidden = false;
+    bai.posicao.hidden = false;
+    bai.valor.focus();
+  }
+
+  function fecharBaixa() {
+    bai.fundo.hidden = true;
+    bai.posicao.hidden = true;
+  }
+
+  function darBaixa() {
+    const u = indicador(alvo);
+    if (!u || ocupado) return;
+    const valor = bai.valor.value.trim();
+    if (!/\d/.test(valor) || valor.startsWith('-')) { avisarNaBaixa(T('master.js.recompensas.baixa_erro_valor')); return; }
+    const corpo = new FormData();
+    corpo.append('valor', valor);
+    corpo.append('forma', forma);
+    corpo.append('observacao', bai.obs.value.trim());
+    corpo.append('chave', chave);
+    const arquivo = bai.arquivo.files && bai.arquivo.files[0];
+    if (arquivo) corpo.append('comprovante', arquivo);
+    ocupado = true;
+    bai.enviar.disabled = true;
+    avisarNaBaixa('');
+    pedir(urlDoUsuario(raiz.dataset.urlBaixa, u.userId), 'POST', corpo)
+      .then(d => {
+        fecharBaixa();
+        desenhar(d);
+        carregarExtrato();
+        avisar(T('master.js.recompensas.baixa_ok', { valor: moeda(centavosDoTexto(valor)), nome: u.nome }), true);
+      })
+      .catch(e => avisarNaBaixa(e.message || T('master.js.recompensas.erro_salvar')))
+      .finally(() => { ocupado = false; bai.enviar.disabled = false; });
+  }
+
+  /* Janela "Dados para pagamento" (F4): nome, CPF ou CNPJ e chave PIX de quem recebe */
+  function avisarNoRecebimento(texto) {
+    rcb.erro.textContent = texto || '';
+    rcb.erro.hidden = !texto;
+  }
+
+  function abrirRecebimento(id) {
+    const u = indicador(id);
+    if (!u) return;
+    alvo = id;
+    rcb.indicador.textContent = u.nome;
+    rcb.sub.textContent = [u.escritorio, u.email].filter(Boolean).join(' · ');
+    rcb.nome.value = u.nome;
+    rcb.documento.value = '';
+    rcb.pix.value = '';
+    avisarNoRecebimento('');
+    fecharMenu();
+    rcb.fundo.hidden = false;
+    rcb.posicao.hidden = false;
+    rcb.nome.focus();
+    // O documento completo só vem sob demanda: a lista traz só o mascarado.
+    fetch(urlDoUsuario(raiz.dataset.urlRecebimento, id), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(d => {
+        if (alvo !== id || !d.nome) return;
+        rcb.nome.value = d.nome;
+        rcb.documento.value = d.documento || '';
+        rcb.pix.value = d.chavePix || '';
+      })
+      .catch(() => avisarNoRecebimento(T('master.js.recompensas.recebimento_erro_carregar')));
+  }
+
+  function fecharRecebimento() {
+    rcb.fundo.hidden = true;
+    rcb.posicao.hidden = true;
+  }
+
+  function salvarRecebimento() {
+    const u = indicador(alvo);
+    if (!u || ocupado) return;
+    ocupado = true;
+    rcb.enviar.disabled = true;
+    avisarNoRecebimento('');
+    pedir(urlDoUsuario(raiz.dataset.urlRecebimento, u.userId), 'PUT', { nome: rcb.nome.value.trim(), documento: rcb.documento.value.trim(), chavePix: rcb.pix.value.trim() })
+      .then(d => {
+        fecharRecebimento();
+        desenhar(d);
+        avisar(T('master.js.recompensas.recebimento_ok', { nome: u.nome }), true);
+      })
+      .catch(e => avisarNoRecebimento(e.message || T('master.js.recompensas.erro_salvar')))
+      .finally(() => { ocupado = false; rcb.enviar.disabled = false; });
   }
 
   /* Antifraude (F3): revisar suspeitas, bloquear e apagar da lista */
@@ -518,6 +660,21 @@
   lan.fundo.addEventListener('click', fecharLancamento);
   raiz.querySelectorAll('[data-mrc-lan-fechar]').forEach(b => b.addEventListener('click', fecharLancamento));
   lan.enviar.addEventListener('click', lancar);
+  menu.caixa.querySelector('[data-mrc-menu-acao="baixa"]').addEventListener('click', () => abrirBaixa(alvo));
+  menu.caixa.querySelector('[data-mrc-menu-acao="recebimento"]').addEventListener('click', () => abrirRecebimento(alvo));
+  bai.fundo.addEventListener('click', fecharBaixa);
+  raiz.querySelectorAll('[data-mrc-bai-fechar]').forEach(b => b.addEventListener('click', fecharBaixa));
+  bai.enviar.addEventListener('click', darBaixa);
+  bai.arquivo.addEventListener('change', desenharAnexo);
+  bai.formas.addEventListener('click', e => {
+    const b = e.target.closest('[data-forma]');
+    if (!b) return;
+    forma = b.dataset.forma;
+    desenharFormas();
+  });
+  rcb.fundo.addEventListener('click', fecharRecebimento);
+  raiz.querySelectorAll('[data-mrc-rcb-fechar]').forEach(b => b.addEventListener('click', fecharRecebimento));
+  rcb.enviar.addEventListener('click', salvarRecebimento);
   raiz.querySelector('[data-mrc-ext-limpar]').addEventListener('click', () => filtrarExtrato(null));
   dlg.rec.addEventListener('click', () => alternarRecorrente(dlg.rec.getAttribute('aria-checked') !== 'true'));
   dlg.salvar.addEventListener('click', salvarCondicao);
@@ -526,6 +683,8 @@
     fecharMenu();
     fecharJanela();
     fecharLancamento();
+    fecharBaixa();
+    fecharRecebimento();
     fecharApagar();
   });
 
@@ -533,6 +692,8 @@
   function textosDoMenu() {
     menu.caixa.querySelector('[data-mrc-menu-txt="condicao"]').textContent = T('master.js.recompensas.menu_condicao');
     menu.caixa.querySelector('[data-mrc-menu-txt="geral"]').textContent = T('master.js.recompensas.menu_geral');
+    menu.caixa.querySelector('[data-mrc-menu-txt="baixa"]').textContent = T('master.js.recompensas.menu_baixa');
+    menu.caixa.querySelector('[data-mrc-menu-txt="recebimento"]').textContent = T('master.js.recompensas.menu_recebimento');
     menu.caixa.querySelector('[data-mrc-menu-txt="lancamento"]').textContent = T('master.js.recompensas.menu_lancamento');
     menu.caixa.querySelector('[data-mrc-menu-txt="extrato"]').textContent = T('master.js.recompensas.menu_extrato');
     menu.caixa.querySelector('[data-mrc-menu-txt="csv"]').textContent = T('master.js.recompensas.menu_csv');

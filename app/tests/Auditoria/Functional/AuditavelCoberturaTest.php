@@ -72,6 +72,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Service Desk: linha do andamento do chamado. Ela JÁ é o registro de quem fez o quê e quando; auditar cada
         // linha duplicaria a trilha. O chamado (ChamadoDeSuporte) e o dinheiro são Auditavel.
         \App\ServiceDesk\Entity\HistoricoDoChamado::class,
+        // Gateway de pagamentos: a trilha imutável do pagamento (criado, confirmado, divergente, manual) JÁ é o registro
+        // de quem fez o quê e quando; auditar cada linha duplicaria. O pagamento (dinheiro) é Auditavel.
+        \App\Pagamento\Entity\PagamentoEvento::class,
         // "Acompanhar alterações" desligado: preferência pessoal de aviso, mesma natureza do favorito.
         \App\Pasta\Entity\PastaAcompanhamentoDesligado::class,
         // Destaque de linha da Lista (E12): cor pessoal de quem olha, mesma natureza do favorito.

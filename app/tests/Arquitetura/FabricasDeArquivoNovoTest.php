@@ -22,6 +22,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Profile\Armazenamento\ChavesDePerfil;
+use App\Recompensa\Armazenamento\ChavesDeRecompensa;
 use App\ServiceDesk\Armazenamento\ChavesDeServiceDesk;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
@@ -214,6 +215,16 @@ final class FabricasDeArquivoNovoTest extends TestCase
         self::assertSame('docx', $novo->extensao);
     }
 
+    #[TestDox('comprovante novo de pagamento de recompensa: escopo global (D1), categoria própria')]
+    public function testComprovanteNovoDeRecompensaEhGlobal(): void
+    {
+        $novo = ChavesDeRecompensa::novoComprovante('pdf');
+
+        self::assertSame(CategoriaDeArquivo::RECOMPENSA_COMPROVANTE, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('pdf', $novo->extensao);
+    }
+
     #[TestDox('toda fábrica de arquivo novo tem caso neste teste, e só as documentadas recebem Tenant')]
     public function testInventarioDasFabricas(): void
     {
@@ -222,6 +233,7 @@ final class FabricasDeArquivoNovoTest extends TestCase
         $cobertas[] = ChavesDeTrabalhoExterno::class . '::novoArquivoDoCurriculo';
         $cobertas[] = ChavesDeComercial::class . '::novaImagem';
         $cobertas[] = ChavesDeInteligencia::class . '::novaVersaoDeDocumentoJuridico';
+        $cobertas[] = ChavesDeRecompensa::class . '::novoComprovante';
 
         $encontradas = [];
 
