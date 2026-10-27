@@ -108,12 +108,31 @@ final class CentralJsTest extends TestCase
         self::assertMatchesRegularExpression('/if \(!ia\.pastaId \|\| estado\.iaPastaTentada\) \{ return Promise\.resolve\(estado\.iaPasta\); \}/', $js);
         self::assertMatchesRegularExpression('/e\.status === 404\) \{ estado\.iaPastaTentada = true; \}/', $js);
         // o pastaId só vai no POST enquanto a barra existir
-        self::assertMatchesRegularExpression('/if \(estado\.iaPasta\) \{ corpoDaPergunta\.pastaId = estado\.iaPasta\.pastaId; \}\s*pedir\(urls\.iaPergunta, \{ metodo: \'POST\', corpo: corpoDaPergunta \}/', $js);
+        self::assertMatchesRegularExpression('/if \(estado\.iaPasta\) \{ corpoDaPergunta\.pastaId = estado\.iaPasta\.pastaId; \}\s*if \(estado\.iaPasta && estado\.iaClientes\) \{ corpoDaPergunta\.escopo = \'clientes\';[^\n]*\n\s*pedir\(urls\.iaPergunta, \{ metodo: \'POST\', corpo: corpoDaPergunta \}/', $js);
         // a sugestão do resumo só com a barra
         self::assertMatchesRegularExpression('/if \(estado\.iaPasta && ia\.sugestaoPasta\) \{ textos\.push\(ia\.sugestaoPasta\); \}/', $js);
         // 404 pasta_nao_encontrada e 409 contexto_bloqueado na pergunta: aviso do servidor e a barra sai (as próximas perguntas vão sem pastaId)
-        self::assertMatchesRegularExpression('/avisar\(e\.message\);[^\n]*\n\s*if \(e\.codigo === \'pasta_nao_encontrada\' \|\| e\.codigo === \'contexto_bloqueado\'\) \{ removerBarraDaPasta\(\); \}/', $js);
+        self::assertMatchesRegularExpression('/avisar\(e\.message\);[^\n]*\n[^\n]*\n\s*if \(e\.codigo === \'pasta_nao_encontrada\' \|\| e\.codigo === \'contexto_bloqueado\'\) \{ removerBarraDaPasta\(\); \}/', $js);
         // a barra é DOM por createElement/textContent, com link para a pasta
         self::assertMatchesRegularExpression('/function barraDaPasta\(\)[\s\S]*?abrir\.href = urls\.pastaBase \+ String\(p\.pastaId\);/', $js);
+    }
+
+    #[TestDox('central.js PR 4c: interruptor de clientes desligado por padrão e só em memória; escopo no POST só com barra e interruptor ligados; recusas desligam; sem innerHTML')]
+    public function testInterruptorDeClientes(): void
+    {
+        $js = (string) file_get_contents(self::DIR . 'central.js');
+        self::assertStringContainsString('raiz.dataset.iaClientesRotulo', $js);
+        self::assertStringContainsString('raiz.dataset.iaClientesAviso', $js);
+        // desligado por padrão e sem persistência (nada de storage no interruptor)
+        self::assertMatchesRegularExpression('/iaClientes: false,/', $js);
+        self::assertDoesNotMatchRegularExpression('/(localStorage|sessionStorage)[^\n]*iaClientes|iaClientes[^\n]*(localStorage|sessionStorage)/', $js);
+        // checkbox nativo dentro de label, aviso escondido enquanto desligado
+        self::assertMatchesRegularExpression('/function interruptorDeClientes\(\)[\s\S]*?caixa\.type = \'checkbox\';[\s\S]*?aviso\.hidden = !estado\.iaClientes;[\s\S]*?aviso\.hidden = !caixa\.checked;/', $js);
+        self::assertMatchesRegularExpression('/criar\(\'label\', \'bj-central-ia-pasta-escopo-rotulo\'\)/', $js);
+        // o escopo só vai com a barra E o interruptor ligado
+        self::assertMatchesRegularExpression('/if \(estado\.iaPasta && estado\.iaClientes\) \{ corpoDaPergunta\.escopo = \'clientes\';/', $js);
+        // sem consentimento do escritório o interruptor desliga; 404/409 que tiram a barra também
+        self::assertMatchesRegularExpression('/e\.codigo === \'cruzamento_sem_consentimento\'\) \{ desligarClientes\(\); \}/', $js);
+        self::assertMatchesRegularExpression('/function removerBarraDaPasta\(\) \{[^\n]*\n\s*estado\.iaPasta = null;\n\s*estado\.iaClientes = false;/', $js);
     }
 }

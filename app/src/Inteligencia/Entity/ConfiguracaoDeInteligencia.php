@@ -199,6 +199,12 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
         return $this->consentimentoEnvioExternoEm;
     }
 
+    /** O administrador deu o aceite do envio ao provedor (qualquer versão do texto)? Base do cruzamento de pastas do chat (PR 4c). */
+    public function aceiteDeEnvioDado(): bool
+    {
+        return $this->consentimentoEnvioExternoEm !== null;
+    }
+
     /** O aceite foi dado com o texto que cita os documentos escolhidos (PR F)? Sem aceite, não. */
     public function aceiteCobreDocumentos(): bool
     {

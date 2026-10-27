@@ -78,6 +78,8 @@
             pastaRotulo: raiz.dataset.iaPastaRotulo || '',
             abrirPasta: raiz.dataset.iaAbrirPasta || '',
             pastaAria: raiz.dataset.iaPastaAria || '',
+            clientesRotulo: raiz.dataset.iaClientesRotulo || '',   /* PR 4c: interruptor "Incluir outras pastas do cliente" */
+            clientesAviso: raiz.dataset.iaClientesAviso || '',
             sugestoes: []
         };
         try {
@@ -163,6 +165,7 @@
             verOnline: false,      // F2: lista "on-line agora / off-line" (L6380)
             externa: null,         // B2: a janela destacada (Picture-in-Picture ou pop-up) em que a Central está agora
             iaPasta: null,         // PR 4b: {pastaId, nup, cliente} da barra "Pasta N" (null = sem barra e sem pastaId na pergunta)
+            iaClientes: false,     // PR 4c: interruptor "Incluir outras pastas do cliente" (só em memória, desligado por padrão, não persiste)
             iaPastaTentada: false, // o rótulo é buscado uma vez (sucesso ou 404)
             iaAguardando: null,    // F3: {analiseId, conversaId, semFala} da pergunta à IA ainda sem resposta (mostra digitando...)
             iaConsultando: false,  // F3: uma consulta de status por vez
@@ -1262,7 +1265,37 @@
                 if (vista() !== window) { ev.preventDefault(); window.open(abrir.href, '_blank', 'noopener'); }
             });
             barra.appendChild(abrir);
+            if (ia.clientesRotulo) { barra.appendChild(interruptorDeClientes()); }
             return barra;
+        }
+
+        // PR 4c: "Incluir outras pastas do cliente". Checkbox nativo com label (acessível por teclado); ligado, mostra o aviso LGPD fixo.
+        function interruptorDeClientes() {
+            var linha = criar('div', 'bj-central-ia-pasta-escopo');
+            var rotulo = criar('label', 'bj-central-ia-pasta-escopo-rotulo');
+            var caixa = criar('input', 'bj-central-ia-pasta-escopo-caixa');
+            caixa.type = 'checkbox';
+            caixa.checked = estado.iaClientes;
+            rotulo.appendChild(caixa);
+            rotulo.appendChild(criar('span', null, ia.clientesRotulo));
+            linha.appendChild(rotulo);
+            var aviso = criar('p', 'bj-central-ia-pasta-escopo-aviso', ia.clientesAviso);
+            aviso.setAttribute('role', 'note');
+            aviso.hidden = !estado.iaClientes;
+            linha.appendChild(aviso);
+            caixa.addEventListener('change', function () {
+                estado.iaClientes = caixa.checked;
+                aviso.hidden = !caixa.checked;
+            });
+            return linha;
+        }
+
+        function desligarClientes() {   // servidor recusou o cruzamento: volta a só a pasta aberta e o interruptor acompanha
+            estado.iaClientes = false;
+            var caixa = el.corpo.querySelector('.bj-central-ia-pasta-escopo-caixa');
+            var aviso = el.corpo.querySelector('.bj-central-ia-pasta-escopo-aviso');
+            if (caixa) { caixa.checked = false; }
+            if (aviso) { aviso.hidden = true; }
         }
 
         function inserirBarraDaPasta() {
@@ -1288,6 +1321,7 @@
 
         function removerBarraDaPasta() {   // o servidor disse que a pasta não vale mais (404 da pergunta)
             estado.iaPasta = null;
+            estado.iaClientes = false;
             var barra = el.corpo.querySelector('.bj-central-ia-pasta');
             if (barra) { barra.remove(); }
             var vazioIa = el.corpo.querySelector('.bj-central-ia-vazio');
@@ -1523,6 +1557,7 @@
             // pastaId só enquanto a barra existir: é dica, o servidor revalida (404/409 abaixo)
             var corpoDaPergunta = { conteudo: texto };
             if (estado.iaPasta) { corpoDaPergunta.pastaId = estado.iaPasta.pastaId; }
+            if (estado.iaPasta && estado.iaClientes) { corpoDaPergunta.escopo = 'clientes'; }   // PR 4c: o servidor decide quais pastas
             pedir(urls.iaPergunta, { metodo: 'POST', corpo: corpoDaPergunta }).then(function (dados) {
                 estado.iaAguardando = { analiseId: dados.analiseId, conversaId: dados.conversaId, semFala: 0, desde: Date.now() };
                 if (dados.emAndamento !== true) {   // 201: a pergunta foi gravada; 202: o texto novo NÃO foi, o rascunho fica
@@ -1542,6 +1577,7 @@
             }).catch(function (e) {
                 if (e.sessao) { tratarFalha(e); return; }
                 avisar(e.message);   // 409 contexto_bloqueado e 404 pasta_nao_encontrada: a mensagem fixa do servidor
+                if (e.codigo === 'cruzamento_sem_consentimento') { desligarClientes(); }   // o escritório não autorizou: a barra fica, o interruptor desliga
                 if (e.codigo === 'pasta_nao_encontrada' || e.codigo === 'contexto_bloqueado') { removerBarraDaPasta(); }   // pasta que a IA não lê: as próximas perguntas vão sem pastaId
             }).finally(function () {
                 estado.enviando = false;

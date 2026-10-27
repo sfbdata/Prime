@@ -12,6 +12,7 @@ use App\Inteligencia\Contract\ConversaDaIaNaCentral;
 use App\Inteligencia\DTO\ResultadoDaAnalise;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Fluxo\FluxoDoChatDaCentral;
 use App\Inteligencia\Prompt\PromptDoAgente;
@@ -48,11 +49,22 @@ final class FluxoDoChatDaCentralTest extends TestCase
 {
     private const PASTA_ID = 7;
     private const NUP_DO_PROCESSO = '07011345720258070007';
+    private const OUTRA_PASTA_ID = 8;
+    private const NUP_DA_OUTRA = '08022456720258070008';
 
     /** @var list<array{string, int, string}> */
     private array $gravadas = [];
 
     private Pasta $pasta;
+    private Pasta $outraPasta;
+    private Processo $outroProcesso;
+    private bool $temAceite = true;
+
+    /** @var list<int> pastas que a pessoa não vê (cadeado) */
+    private array $pastasOcultas = [];
+
+    /** @var list<int> pastas cujo financeiro a pessoa não vê */
+    private array $semFinanceiro = [];
     private Processo $processo;
     private bool $podeVerPasta = true;
     private bool $podeVerFinanceiro = true;
@@ -66,6 +78,9 @@ final class FluxoDoChatDaCentralTest extends TestCase
         $this->podeVerPasta = true;
         $this->podeVerFinanceiro = true;
         $this->regrasDeAba = [];
+        $this->temAceite = true;
+        $this->pastasOcultas = [];
+        $this->semFinanceiro = [];
 
         $tenant = $this->tenant();
         $this->processo = new Processo();
@@ -77,6 +92,16 @@ final class FluxoDoChatDaCentralTest extends TestCase
         $this->pasta->setNup('1234');
         $this->pasta->vincularProcesso($this->processo);
         DefineId::em($this->pasta, self::PASTA_ID);
+
+        $this->outroProcesso = new Processo();
+        $this->outroProcesso->setTenant($tenant);
+        $this->outroProcesso->setNumeroProcesso(self::NUP_DA_OUTRA);
+        DefineId::em($this->outroProcesso, 4);
+        $this->outraPasta = new Pasta();
+        $this->outraPasta->setTenant($tenant);
+        $this->outraPasta->setNup('5678');
+        $this->outraPasta->vincularProcesso($this->outroProcesso);
+        DefineId::em($this->outraPasta, self::OUTRA_PASTA_ID);
     }
 
     private function tenant(): Tenant
@@ -126,18 +151,34 @@ final class FluxoDoChatDaCentralTest extends TestCase
         $mascarador = new MascaradorDeDadosPessoais();
         $movimentacoes = new FonteDeMovimentacoesFalsa();
         $configuracoes = $this->createStub(ConfiguracaoDeInteligenciaRepository::class);
+        $aceite = new ConfiguracaoDeInteligencia($this->tenant());
+        if ($this->temAceite) {
+            $aceite->atualizar(true, 10, 100, true, $this->usuario());
+        }
+        $comAceite = $this->createStub(ConfiguracaoDeInteligenciaRepository::class);
+        $comAceite->method('findDoTenant')->willReturn($aceite);
         $montadorDoPush = new MontadorDeContextoDoPush($movimentacoes, $configuracoes, $mascarador);
         $montadorDaPasta = new MontadorDeContextoDaPasta(new FonteDeDadosDaPastaFalsa(), $movimentacoes, $montadorDoPush, $configuracoes, $mascarador, new MockClock('2026-10-27 10:00:00'));
 
         $pastas = $this->createStub(PastaRepository::class);
         $pastas->method('findOneBy')->willReturnCallback(
-            fn (array $criterios): ?Pasta => ($criterios['id'] ?? null) === self::PASTA_ID && ($criterios['tenant'] ?? null)?->getId() === $this->pasta->getTenant()?->getId() ? $this->pasta : null,
+            function (array $criterios): ?Pasta {
+                if (($criterios['tenant'] ?? null)?->getId() !== $this->pasta->getTenant()?->getId()) {
+                    return null;
+                }
+
+                return match ($criterios['id'] ?? null) {
+                    self::PASTA_ID => $this->pasta,
+                    self::OUTRA_PASTA_ID => $this->outraPasta,
+                    default => null,
+                };
+            },
         );
         $permissoes = $this->createStub(PermissionChecker::class);
-        $permissoes->method('canAccessResource')->willReturnCallback(fn (): bool => $this->podeVerPasta);
+        $permissoes->method('canAccessResource')->willReturnCallback(fn (User $u, Tenant $t, string $recurso, int $id): bool => $this->podeVerPasta && !\in_array($id, $this->pastasOcultas, true));
         $acessoAPasta = new AcessoAPasta((new \ReflectionClass(NivelNoCadeado::class))->newInstanceWithoutConstructor(), $permissoes);
         $financeiro = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
-        $financeiro->method('podeVer')->willReturnCallback(fn (): bool => $this->podeVerFinanceiro);
+        $financeiro->method('podeVer')->willReturnCallback(fn (User $u, Tenant $t, Pasta $p): bool => $this->podeVerFinanceiro && !\in_array($p->getId(), $this->semFinanceiro, true));
         $regras = $this->createStub(AbaOcultaDaPastaRepository::class);
         $regras->method('daPasta')->willReturnCallback(fn (): array => $this->regrasDeAba);
         $vinculos = $this->createStub(UserTenantRepository::class);
@@ -156,6 +197,7 @@ final class FluxoDoChatDaCentralTest extends TestCase
             $abas,
             $montadorDaPasta,
             new PromptDoAgente(),
+            $comAceite,
         );
     }
 
@@ -282,6 +324,158 @@ final class FluxoDoChatDaCentralTest extends TestCase
 
         self::assertSame('chat_central/chat-central-v1', $semPasta?->rotuloDeUso);
         self::assertSame('chat_central/chat-central-v2', $comPasta?->rotuloDeUso);
+    }
+
+    /** @param array<string, mixed> $extra */
+    private function analiseComClientes(array $extra = []): AnaliseDeInteligencia
+    {
+        $pastas = [
+            ['pastaId' => self::PASTA_ID, 'financeiro' => true, 'abasOcultas' => []],
+            ['pastaId' => self::OUTRA_PASTA_ID, 'financeiro' => true, 'abasOcultas' => []],
+        ];
+
+        return $this->analiseComPasta(array_merge(['escopo' => 'clientes', 'pastasIds' => [self::PASTA_ID, self::OUTRA_PASTA_ID], 'pastas' => $pastas, 'naoConsultadas' => 0], $extra));
+    }
+
+    #[TestDox('escopo clientes: prompt v3 com um grupo por pasta (aberta primeiro); resumo só com ids e flags, sem NUP; histórico sem a fala da IA')]
+    public function testComClientes(): void
+    {
+        $analise = $this->analiseComClientes();
+
+        $pedido = $this->fluxo(self::contextoComHistorico())->preparar($analise, $this->tenant());
+
+        self::assertNotNull($pedido);
+        self::assertSame('chat_central/chat-central-v3', $pedido->rotuloDeUso);
+        $texto = $pedido->textoDoUsuario();
+        self::assertSame(2, substr_count($texto, '</pasta>'));
+        self::assertLessThan(strpos($texto, '5678'), strpos($texto, '1234'), 'a aberta vem primeiro');
+        self::assertStringContainsString('PASTA 1 (ABERTA NA TELA)', $texto);
+        self::assertStringNotContainsString('BlueJus IA:', $texto);
+        self::assertStringNotContainsString('não puderam', $texto);
+
+        $resumo = $analise->getContextoResumo();
+        self::assertSame('clientes', $resumo['escopo']);
+        self::assertSame([self::PASTA_ID, self::OUTRA_PASTA_ID], $resumo['pastasIds']);
+        $json = (string) json_encode($resumo);
+        foreach ([self::NUP_DO_PROCESSO, self::NUP_DA_OUTRA, '1234', '5678'] as $segredo) {
+            self::assertStringNotContainsString($segredo, $json);
+        }
+    }
+
+    #[TestDox('escopo clientes: pasta adicional com segredo de justiça é omitida, contada, e nada dela (NUP, nome) chega ao prompt')]
+    public function testAdicionalComSegredoOmitida(): void
+    {
+        $this->outroProcesso->setNivelSigilo(1);
+        $analise = $this->analiseComClientes();
+
+        $pedido = $this->fluxo(self::contextoComHistorico())->preparar($analise, $this->tenant());
+
+        self::assertNotNull($pedido);
+        $texto = $pedido->textoDoUsuario();
+        self::assertSame(1, substr_count($texto, '</pasta>'));
+        self::assertStringContainsString('1 pasta não pôde ser consultada.', $texto);
+        self::assertStringNotContainsString('5678', $texto);
+        self::assertStringNotContainsString(self::NUP_DA_OUTRA, $texto);
+        self::assertSame([self::PASTA_ID], $analise->getContextoResumo()['pastasIds']);
+        self::assertSame(1, $analise->getContextoResumo()['naoConsultadas']);
+    }
+
+    #[TestDox('escopo clientes: a contagem da solicitação soma à do worker e a frase plural é fixa')]
+    public function testContagemSomaEPlural(): void
+    {
+        $this->pastasOcultas = [self::OUTRA_PASTA_ID];
+        $analise = $this->analiseComClientes(['naoConsultadas' => 1]);
+
+        $pedido = $this->fluxo(self::contextoComHistorico())->preparar($analise, $this->tenant());
+
+        self::assertStringContainsString('2 pastas não puderam ser consultadas.', (string) $pedido?->textoDoUsuario());
+        self::assertSame(2, $analise->getContextoResumo()['naoConsultadas']);
+    }
+
+    #[TestDox('escopo clientes: adicional que a pessoa deixou de ver ou que ganhou aba oculta é omitida e contada; financeiro perdido também')]
+    public function testAdicionalInvalidaOmitida(): void
+    {
+        $this->pastasOcultas = [self::OUTRA_PASTA_ID];
+        $a = $this->analiseComClientes();
+        $this->fluxo(self::contextoComHistorico())->preparar($a, $this->tenant());
+        self::assertSame(1, $a->getContextoResumo()['naoConsultadas']);
+
+        $this->pastasOcultas = [];
+        $this->semFinanceiro = [self::OUTRA_PASTA_ID];
+        $b = $this->analiseComClientes();
+        $this->fluxo(self::contextoComHistorico())->preparar($b, $this->tenant());
+        self::assertSame(1, $b->getContextoResumo()['naoConsultadas']);
+        self::assertSame([self::PASTA_ID], $b->getContextoResumo()['pastasIds']);
+    }
+
+    #[TestDox('escopo clientes: financeiro é decidido POR pasta, sem herdar da aberta')]
+    public function testFinanceiroPorPasta(): void
+    {
+        $analise = $this->analiseComClientes(['pastas' => [
+            ['pastaId' => self::PASTA_ID, 'financeiro' => true, 'abasOcultas' => []],
+            ['pastaId' => self::OUTRA_PASTA_ID, 'financeiro' => false, 'abasOcultas' => []],
+        ]]);
+
+        $this->fluxo(self::contextoComHistorico())->preparar($analise, $this->tenant());
+
+        $pastas = $analise->getContextoResumo()['pastas'];
+        self::assertTrue($pastas[0]['financeiro']);
+        self::assertFalse($pastas[1]['financeiro']);
+    }
+
+    #[TestDox('escopo clientes: pasta aberta que a pessoa não vê mais, ou sem aceite do escritório: \LogicException (falhou sem chamar o provedor)')]
+    public function testAbertaInvalidaOuSemAceiteFalha(): void
+    {
+        $this->pastasOcultas = [self::PASTA_ID];
+        try {
+            $this->fluxo(self::contextoComHistorico())->preparar($this->analiseComClientes(), $this->tenant());
+            self::fail('Devia falhar.');
+        } catch (\LogicException) {
+            self::addToAssertionCount(1);
+        }
+
+        $this->pastasOcultas = [];
+        $this->temAceite = false;
+        $this->expectException(\LogicException::class);
+        $this->fluxo(self::contextoComHistorico())->preparar($this->analiseComClientes(), $this->tenant());
+    }
+
+    #[TestDox('escopo clientes: segredo de justiça na pasta ABERTA lança ContextoBloqueadoException')]
+    public function testAbertaComSegredoBloqueia(): void
+    {
+        $this->processo->setNivelSigilo(1);
+
+        $this->expectException(ContextoBloqueadoException::class);
+
+        $this->fluxo(self::contextoComHistorico())->preparar($this->analiseComClientes(), $this->tenant());
+    }
+
+    #[TestDox('escopo clientes: o teto de adicionais gravadas é 4 e ids repetidos ou a aberta repetida não entram duas vezes')]
+    public function testTetoEDuplicadas(): void
+    {
+        $dup = ['pastaId' => self::OUTRA_PASTA_ID, 'financeiro' => true, 'abasOcultas' => []];
+        $analise = $this->analiseComClientes(['pastas' => [
+            ['pastaId' => self::PASTA_ID, 'financeiro' => true, 'abasOcultas' => []], $dup, $dup,
+            ['pastaId' => self::PASTA_ID, 'financeiro' => true, 'abasOcultas' => []],
+        ]]);
+
+        $this->fluxo(self::contextoComHistorico())->preparar($analise, $this->tenant());
+
+        self::assertSame([self::PASTA_ID, self::OUTRA_PASTA_ID], $analise->getContextoResumo()['pastasIds']);
+    }
+
+    #[TestDox('escopo clientes: pasta de OUTRO escritório no resumo é omitida (relida por id + escritório)')]
+    public function testPastaDeOutroEscritorio(): void
+    {
+        $outro = new Tenant();
+        DefineId::em($outro, 99);
+        $this->outraPasta->setTenant($outro);
+
+        $analise = $this->analiseComClientes();
+        $this->fluxo(self::contextoComHistorico())->preparar($analise, $this->tenant());
+
+        self::assertSame([self::PASTA_ID], $analise->getContextoResumo()['pastasIds']);
+        self::assertSame(1, $analise->getContextoResumo()['naoConsultadas']);
     }
 
     #[TestDox('a pessoa perdeu o acesso à pasta (cadeado): \LogicException com motivo fixo, sem id nem NUP (o handler marca falhou sem chamar o provedor)')]
