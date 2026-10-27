@@ -295,9 +295,22 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     (`dashboard.ia_alertas`, mapa por id de alerta, fora do catálogo do menu ⋮ para o "Restaurar padrão" não apagar).
     `POST /dashboard/inteligencia/alerta`; tocar de novo desfaz; persiste até desfazer. O UseCase lê e regrava o mapa
     inteiro (o último a gravar vence); gravar uma chave por alerta fica como melhoria se virar problema.
-  - **Pendências**: "Criar tarefa" (não há tela de tarefa avulsa para receber o título); "Simular dia" (controle de teste do
-    protótipo); Perguntas guiadas como pílulas + caixa única (hoje acordeão exclusivo); objetivo por períodos anteriores
+  - **Pendências**: "Criar tarefa" (não há tela de tarefa avulsa para receber o título); Perguntas guiadas como pílulas + caixa única (hoje acordeão exclusivo); objetivo por períodos anteriores
     (precisa guardar o histórico de concluídas por período); plano "Aumentar o nível".
+
+- **PR-H (feito: "Simular dia" do rodapé da Inteligência; sem migration)**. Decisão do dono: implementar como o desenho 01 (dc L1341-1347,
+  L2572, L2582-2638): faixa "Teste · simular dia" no rodapé, controle de 1 ao último dia do período, número do dia à direita,
+  "dia X de Y" e o resto do painel recalculados; abrir o painel zera a simulação.
+  - **Contrato**: `?dia_simulado=Y-m-d` na querystring do `GET /dashboard` (e no XHR). `SimulacaoDeDia` valida: data estrita, dentro do
+    período filtrado, até o último dia do mês corrente, diferente de hoje; qualquer outra coisa é ignorada (sem erro, sem aviso). Só
+    entra no cálculo da Inteligência (`MontarLeituraDoDashboard`: `TempoDoPeriodo` e `MontarMetaDePastasDoMes::comDiaSimulado` para os dias
+    úteis do `RitmoDaMeta`). O UseCase, os filtros, o "hoje" global e o banco não sabem dela: nada é gravado.
+  - **Diferença do desenho**: o desenho escala o realizado pelo dia (`k = dia / passados`), dado inventado. Aqui os números realizados são os
+    de hoje (o aviso diz); só o calendário muda. Arrastar para trás exagera o ritmo atual e para a frente o reduz, de propósito: é teste.
+  - **Cadeado**: com pasta oculta o selo continua fora (a regra do PR-G vale simulando); a simulação não expõe número novo.
+  - **Tela**: o controle fica fora do `.db-ia-corpo`; o `dashboard-inteligencia.js` (250 ms depois de parar) pede o fragmento com
+    `dia_simulado` e troca só o corpo; o dia de hoje não manda o parâmetro (desfaz); fechar o painel desfaz. Trocar um filtro também desfaz.
+  - **Fora**: os cartões do Modo avançado (`MotorAvancado`) seguem o `TempoDoPeriodo` simulado, mas sem escala de realizado.
 
 ## Estado da frente (24/10)
 

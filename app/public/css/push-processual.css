@@ -130,3 +130,32 @@
 .pp-ctx__item:hover { background: #eaf3f9; }
 .pp-ctx__item > i { width: 16px; }
 .pp-aviso { margin: 8px 16px; }
+
+/* Vincular e desvincular a pasta pela linha, e o modal "Vincular a uma pasta" (desenho 11). */
+.pp-icone { height: 30px; padding: 0 9px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font: inherit; font-size: 12.5px; cursor: pointer; }
+.pp-icone--vincular:hover { border-color: #1e7b45; color: #1e7b45; }
+.pp-icone--desvincular { color: #7a8e9b; }
+.pp-icone--desvincular:hover { border-color: #9a5b00; color: #9a5b00; }
+.pp-modal[hidden] { display: none; }
+.pp-modal__fundo { position: fixed; inset: 0; z-index: 9100; background: rgba(18, 36, 47, .35); }
+.pp-modal__centro { position: fixed; inset: 0; z-index: 9101; display: flex; align-items: center; justify-content: center; padding: 12px; pointer-events: none; }
+.pp-modal__caixa { pointer-events: auto; width: min(480px, 100%); background: #fff; border-radius: 3px; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); }
+.pp-modal__topo { background: #0a6fa0; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 8px; }
+.pp-modal__topo > b { flex: 1; font-size: 15px; }
+.pp-modal__x { width: 28px; height: 28px; border: none; border-radius: 2px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; }
+.pp-modal__corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.pp-modal__proc { font-size: 13px; color: #34505f; }
+.pp-modal__proc > b { display: block; font-size: 14px; color: #12242f; }
+.pp-modal__busca { display: flex; align-items: center; gap: 7px; height: 38px; border: 1px solid #c5d2db; border-radius: 2px; padding: 0 10px; margin: 0; }
+.pp-modal__busca > i { color: #5b7383; }
+.pp-modal__busca > input { border: none; outline: none; flex: 1; min-width: 0; font-size: 14px; }
+.pp-modal__lista { border: 1px solid #e1e8ed; border-radius: 2px; max-height: 280px; overflow: auto; }
+.pp-modal__pasta { width: 100%; display: flex; align-items: center; gap: 10px; border: none; border-bottom: 1px solid #f0f4f7; background: #fff; padding: 9px 12px; font: inherit; text-align: left; cursor: pointer; }
+.pp-modal__pasta:hover { background: #eaf3f9; }
+.pp-modal__pasta > i { color: #0a6fa0; }
+.pp-modal__pasta > span { flex: 1; min-width: 0; font-size: 13.5px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-modal__pasta > em { font-style: normal; font-size: 12px; color: #0a6fa0; font-weight: bold; }
+.pp-modal__vazio { padding: 14px; font-size: 13px; color: #7a8e9b; text-align: center; }
+.pp-modal__rodape { display: flex; gap: 8px; flex-wrap: wrap; }
+.pp-modal__espaco { flex: 1; }
+.pp-modal__nova { height: 34px; padding: 0 13px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }

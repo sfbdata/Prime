@@ -213,6 +213,11 @@ dashboard:
             titulo: Conhecer o Modo avançado
             sub: Visão estratégica, riscos e Central de Inteligência.
         rodape: Acompanhar novamente em 24 horas
+        sim:
+            teste: Teste
+            simular_dia: simular dia
+            aria: Simular dia do período
+            aviso: 'Simulação: o painel como estaria em {data}. Nada é gravado, e os números realizados são os de hoje.'
         dia_util_de: 'dia útil {dia} de {total}'
         ritmo_atual: Ritmo atual
         ritmo_necessario: Ritmo necessário
