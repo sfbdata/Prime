@@ -336,10 +336,10 @@
                     {% set excluirPergunta = (excluirCliente
                         ? 'pasta_cabecalho.cabecalho.menu.excluir_pergunta_cliente'|trans({nup: pasta.nup, cliente: excluirCliente})
                         : 'pasta_cabecalho.cabecalho.menu.excluir_pergunta'|trans({nup: pasta.nup}))
-                        ~ "\n" ~ 'pasta_cabecalho.cabecalho.menu.excluir_registro'|trans ~ "\n\n" ~ 'pasta_cabecalho.cabecalho.menu.excluir_digite'|trans %}
+                        ~ "\n" ~ 'pasta_cabecalho.cabecalho.menu.excluir_registro'|trans ~ "\n\n" ~ 'pasta_cabecalho.cabecalho.menu.excluir_digite'|trans({nup: pasta.nup}) %}
                     <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
                           class="js-excluir-pasta" data-nup="{{ pasta.nup }}" data-cliente="{{ excluirCliente }}"
-                          onsubmit="var n = this.dataset.nup, txt = window.prompt('{{ excluirPergunta|e('js') }}'); if (txt === null) { return false; } if (String(txt).trim().toUpperCase() !== n) { if (window.avisarPs) { window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans|e('js') }}'); } return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
+                          onsubmit="var n = this.dataset.nup, t0 = Date.now(), txt = window.prompt('{{ excluirPergunta|e('js') }}'); if (txt === null) { if (Date.now() - t0 < 150 && window.avisarPs) { window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_sem_dialogo'|trans|e('js') }}'); } return false; } if (String(txt).trim().toUpperCase() !== n) { if (window.avisarPs) { window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans({nup: pasta.nup})|e('js') }}'); } return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
                         <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
                         <input type="hidden" name="confirmar_nup" value="">
                         <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
