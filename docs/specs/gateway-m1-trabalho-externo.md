@@ -55,7 +55,7 @@ Extrair o trecho que muda a demanda (`confirmarRecebimentoDoPix`, `andamentoDaDe
 
 ### 4.4 Botão manual com a cobrança viva
 
-`ConfirmarRecebimentoDoPixUseCase` passa a **recusar** (409, mensagem "Há um PIX dinâmico aguardando o banco") quando existe `pagamento` `aguardando` ainda dentro da validade para a demanda, **exceto** com motivo preenchido (Master ou Equipe com "Alterar a situação"). Com motivo: confirma a demanda, registra `Pagamento::aceitarDivergencia`-equivalente de pagamento manual (`confirmado_por = manual:<userId>`, `motivo_manual`) e **cancela** a cobrança no banco, para um PIX tardio cair em `divergente` em vez de pagar duas vezes sem ninguém ver. A tela ganha o campo "Motivo" só nesse caso (desenho a pedir ao dono, §9.1).
+`ConfirmarRecebimentoDoPixUseCase` passa a **recusar** (409, mensagem "Há um PIX dinâmico aguardando o banco") quando existe `pagamento` `aguardando` ainda dentro da validade para a demanda, **exceto** com motivo preenchido (Master ou Equipe com "Alterar a situação"). Com motivo: confirma a demanda, registra `Pagamento::aceitarDivergencia`-equivalente de pagamento manual (`confirmado_por = manual:<userId>`, `motivo_manual`) e **cancela** a cobrança no banco, para um PIX tardio cair em `divergente` em vez de pagar duas vezes sem ninguém ver. A tela ganha o campo "Motivo" só nesse caso, **texto obrigatório** no manual com cobrança viva. Sem desenho: segue a convenção do sistema (decisão do Coordenador, 27/10), com o componente do campo de texto já usado na aba Pagamento.
 
 ### 4.5 Valor editável (decisão do dono, 26/10)
 
@@ -71,7 +71,7 @@ Cobrança vence em 24 h (`Pagamento::expirar`, chamado pela conciliação; `Paga
 
 ## 5. Modelo de dados
 
-Migration **única** do M1 (número a pedir ao Coordenador; série 20261027):
+Migration **única** do M1 `Version20261027154000` (reservada pelo Coordenador):
 
 - `pagamento.br_code TEXT NULL` (§4.1.5);
 - sem tabela nova; sem coluna na demanda: o vínculo é `pagamento.origem = trabalho_externo` + `origem_id`, lido por `PagamentoRepository::ultimoDaOrigem`. A demanda continua com `pagoEm` como verdade de leitura da tela; o `pagamento` é a verdade do "quem, quando e quanto".
@@ -80,9 +80,9 @@ Nenhuma alteração em `DemandaExterna` além do que o miolo já chama.
 
 ## 6. O que o M1 precisa e ainda não existe
 
-1. **Ponto de entrada de aviso e conciliação do Pagamento** (a spec mãe põe no M0, mas o #471 não os trouxe): reconsulta mTLS por referência e `app:pix:conciliar` a cada 15 min. Pergunta ao Coordenador: entram no M1 como primeiro PR, ou ficam em "M0b" antes do consumidor? **Recomendação: M0b separado**, porque o webhook é público e merece revisão própria de ALTO risco.
+1. **Ponto de entrada de aviso e conciliação do Pagamento** (a spec mãe põe no M0, mas o #471 não os trouxe): reconsulta mTLS por referência e `app:pix:conciliar` a cada 15 min. **Decisão: M0b separado**, com spec própria (`gateway-m0b-webhook-conciliacao.md`), porque o webhook é público e merece revisão própria de ALTO risco. O M1 só começa depois do M0b.
 2. **Handler da reconsulta** da #477 hoje fala só em `Apoio`. Precisa virar um roteador por prefixo da referência (`TE`, `BJ`, `SD`).
-3. **Chave liga/desliga** `ConfiguracaoDePagamento` ("PIX dinâmico no Trabalho Externo"), padrão desligada. Existe na C3 (#95, já no master); confirmar o nome do recurso antes de criar outro.
+3. **Chave liga/desliga**: o `ConfiguracaoDePagamento` da C3 é a configuração do cartão (gateway, chave pública, links), não guarda recursos. A convenção de recursos ligáveis do PIX é o JSON `recursos` da `IntegracaoBancaria` (#477: `RECURSOS_PADRAO = cob, conc, bol, rel`). **Decisão: nova chave `te` ("Cobrança PIX no Trabalho Externo"), padrão `false`**, acrescentada a `RECURSOS_PADRAO`; vale só com `cobraPorConta()` verdadeiro (integração conectada, certificado e `cob` ligado). Sem migration (o JSON absorve a chave). A trava do manual (§10.3) usa a chave `te_trava`, também `false`.
 4. **Credencial da Cora em produção** (pendência C5 do dono). Sem ela, o botão dinâmico some e o estático vale.
 
 ## 7. Segurança
@@ -101,10 +101,11 @@ Nenhuma alteração em `DemandaExterna` além do que o miolo já chama.
 
 ## 9. Perguntas em aberto
 
-1. **Desenho do campo "Motivo"** e da mensagem "PIX dinâmico aguardando o banco" na aba Pagamento: não existe no desenho de 25/10. Pedir ao dono antes de implementar a tela (regra do desenho manda; não inventar).
-2. **M0b** (webhook + conciliação do `Pagamento`) separado do M1? Recomendação: sim (§6.1).
-3. Nome do recurso liga/desliga em `ConfiguracaoDePagamento` (§6.3).
-4. Número da migration do M1.
+Respondidas pelo Coordenador em 27/10:
+1. **Campo "Motivo"** e mensagem "PIX dinâmico aguardando o banco": o desenho de 25/10 não os tem. Criar pela convenção do sistema, texto obrigatório no manual. Reportar na entrega que são adições sem desenho.
+2. **M0b separado** (webhook e conciliação do `Pagamento`): sim, com spec antes: `docs/specs/gateway-m0b-webhook-conciliacao.md`.
+3. **Chave liga/desliga:** `te` no JSON `recursos` da `IntegracaoBancaria` (§6.3).
+4. **Migration do M1:** `Version20261027154000`.
 
 ## 10. Rollout
 
