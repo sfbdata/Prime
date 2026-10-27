@@ -1,7 +1,6 @@
 {% extends 'layout_peticionar.html.twig' %}
 
 {% set pastaInfoNup = pasta.nup %}
-{% set pastaInfoCliente = nomeCliente %}
 
 {# Pasta excluída (lápide) abre só para leitura, mesmo para quem pode editar: o servidor já recusa
    a escrita (PastaSomenteLeituraListener), e a tela não oferece o que seria recusado. Fica fora
@@ -15,14 +14,6 @@
 {% endblock %}
 
 {% block content %}
-
-{# "Voltar à pasta" do cabeçalho (desenho 07, L38). O layout não expõe bloco no cabeçalho: o
-   link nasce aqui, escondido, e o peticionar-documentos.js o leva para o início do .navtop-right. #}
-<a href="{{ path('pasta_show', {id: pasta.id}) }}"
-   class="petic-voltar-pasta"
-   id="peticVoltarPasta"
-   title="{{ 'pasta_peticionar.lista.voltar_dica'|trans }}"
-   hidden><i class="bi bi-arrow-left"></i>{{ 'pasta_peticionar.lista.voltar'|trans }}</a>
 
 {# Formatos do "Adicionar peça": o mesmo accept vale para o modal e para soltar arquivos na lista,
    e o ícone de cada um vem do arquivo_icone() (a linha nova, montada no navegador, usa o mesmo). #}

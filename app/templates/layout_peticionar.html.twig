@@ -62,11 +62,24 @@
        CABEÇALHO — mantém o padrão BlueJus com fix do position:fixed
        ═══════════════════════════════════════════════════════════════════════ */
     nav.app-header.navtop {
+        background: #0a6fa0 !important;
         position: relative !important;
         height: var(--h) !important;
         min-height: var(--h) !important;
         max-height: var(--h) !important;
     }
+
+    .petic-navtop-usuario {
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+        min-width: 0;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .navtop-right { display: flex; align-items: center; gap: 14px; }
 
     .petic-navtop-info {
         display: flex;
@@ -86,9 +99,11 @@
         line-height: 1.2;
     }
     .petic-navtop-sub {
-        font-size: 0.72rem;
+        font-size: 12px;
         font-weight: 400;
-        color: rgba(255,255,255,0.75);
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.9);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -619,11 +634,8 @@
                 <span class="navtop-page-sep">|</span>
                 <div class="petic-navtop-info">
                     <span class="petic-navtop-nup">{{ 'peticionar.cabecalho.numero_pasta'|trans({nup: pastaInfoNup}) }}</span>
-                    {% set sub = [] %}
-                    {% if pastaInfoCliente %}{% set sub = sub|merge(['peticionar.cabecalho.cliente'|trans({cliente: pastaInfoCliente})]) %}{% endif %}
-                    {% if pasta.nomeAcao %}{% set sub = sub|merge([pasta.nomeAcao]) %}{% endif %}
-                    {% if sub %}
-                        <span class="petic-navtop-sub">{{ sub|join(' · ') }}</span>
+                    {% if pasta.nomeAcao %}
+                        <span class="petic-navtop-sub">{{ pasta.nomeAcao }}</span>
                     {% endif %}
                 </div>
 
@@ -702,114 +714,10 @@
             </div>
 
             <div class="navtop-right">
-
-                {# Notificações #}
-                <div class="navtop-action dropdown">
-                    <a href="#" class="navtop-action-btn"
-                       data-bs-toggle="dropdown" id="notificacaoDropdownToggle"
-                       aria-label="{{ 'moldura.notificacoes.rotulo'|trans }}">
-                        <i class="bi bi-bell"></i>
-                        <span class="navtop-badge" id="notificacaoBadge"
-                              style="{% if notificacoesCount == 0 %}display:none;{% endif %}">
-                            {{ notificacoesCount > 9 ? '9+' : notificacoesCount }}
-                        </span>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-end shadow notif-dropdown"
-                         id="notificacaoDropdownMenu">
-                        <div class="notif-header">
-                            <i class="bi bi-bell me-1"></i>
-                            <span id="notificacaoCountText">{{ notificacoesCount }}</span> {{ 'moldura.notificacoes.contagem_sufixo'|trans }}
-                        </div>
-                        <div class="dropdown-divider m-0"></div>
-                        <div id="notificacaoListContainer">
-                            {% if notificacoes|length > 0 %}
-                                {% for notif in notificacoes %}
-                                    <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
-                                       class="dropdown-item notif-item{% if not notif.lida %} notif-unread{% endif %}">
-                                        <i class="bi {{ notif.icone }} notif-icon"></i>
-                                        <div class="notif-body">
-                                            <div class="notif-title">{{ notif.titulo }}</div>
-                                            <div class="notif-msg">{{ notif.mensagem }}</div>
-                                            <div class="notif-time">{{ notif.tempoRelativo }}</div>
-                                        </div>
-                                    </a>
-                                    <div class="dropdown-divider m-0"></div>
-                                {% endfor %}
-                            {% else %}
-                                <a href="#" class="dropdown-item text-center text-muted py-3" id="notificacaoEmpty">
-                                    <i class="bi bi-check-circle me-2"></i> {{ 'moldura.notificacoes.nenhuma'|trans }}
-                                </a>
-                            {% endif %}
-                        </div>
-                        <a href="{{ path('notificacao_index') }}" class="dropdown-item text-center notif-footer">
-                            <i class="bi bi-list-ul me-1"></i> {{ 'moldura.notificacoes.ver_todas'|trans }}
-                        </a>
-                    </div>
-                </div>
-
-                {# Fullscreen #}
-                <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
-                   aria-label="{{ 'moldura.cabecalho.tela_cheia'|trans }}">
-                    <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
-                    <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none"></i>
-                </a>
-
-                {# Usuário #}
-                <div class="navtop-action dropdown menu-usuario">
-                    <a href="#" class="navtop-avatar-btn dropdown-toggle"
-                       data-bs-toggle="dropdown" aria-expanded="false"
-                       aria-label="{{ 'moldura.cabecalho.menu_usuario'|trans }}">
-                        <div class="navtop-user-info d-none d-md-flex">
-                            <span class="navtop-username">{{ app.user.fullName }}</span>
-                        </div>
-                        <span class="navtop-avatar" id="navtopAvatar">
-                            {% if fotoPerfilUrl %}
-                                <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
-                                     alt="{{ app.user.fullName }}"
-                                     style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                            {% else %}
-                                {{ app.user.fullName|slice(0,1)|upper }}
-                            {% endif %}
-                        </span>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end shadow usuario-dropdown">
-                        <li class="usuario-dropdown-header">
-                            <span class="usuario-avatar-lg" id="usuarioAvatarLg">
-                                {% if fotoPerfilUrl %}
-                                    <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
-                                         alt="{{ app.user.fullName }}"
-                                         style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                                {% else %}
-                                    {{ app.user.fullName|slice(0,1)|upper }}
-                                {% endif %}
-                            </span>
-                            <div class="usuario-info">
-                                <div class="usuario-name">{{ app.user.fullName }}</div>
-                                <div class="usuario-email">{{ app.user.email }}</div>
-                            </div>
-                        </li>
-                        <li><hr class="dropdown-divider my-0"></li>
-                        <li>
-                            <a href="{{ path('app_profile') }}" class="dropdown-item d-flex align-items-center gap-2">
-                                <i class="bi bi-person"></i> {{ 'menu.usuario.dropdown.meu_perfil'|trans }}
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ path('legal_politica_privacidade') }}"
-                               class="dropdown-item d-flex align-items-center gap-2"
-                               target="_blank" rel="noopener">
-                                <i class="bi bi-shield-lock"></i> {{ 'menu.usuario.dropdown.privacidade'|trans }}
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider my-0"></li>
-                        <li>
-                            <a href="{{ logout_path('main') }}" class="dropdown-item d-flex align-items-center gap-2 text-danger">
-                                <i class="bi bi-box-arrow-right"></i> {{ 'menu.usuario.dropdown.sair'|trans }}
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-
+                <a href="{{ path('pasta_show', {id: pasta.id}) }}"
+                   class="petic-voltar-pasta"
+                   title="{{ 'pasta_peticionar.lista.voltar_dica'|trans }}"><i class="bi bi-arrow-left"></i>{{ 'pasta_peticionar.lista.voltar'|trans }}</a>
+                <span class="petic-navtop-usuario">{{ app.user.fullName }}</span>
             </div>{# /navtop-right #}
         </div>{# /navtop-inner #}
 

@@ -46,7 +46,7 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
 
         self::assertResponseIsSuccessful();
-        $voltar = $crawler->filter('.petic-main > a.petic-voltar-pasta');
+        $voltar = $crawler->filter('nav.navtop .navtop-right > a.petic-voltar-pasta');
         self::assertCount(1, $voltar);
         self::assertSame("/pasta/{$pasta->getId()}", $voltar->attr('href'));
         self::assertSame('Voltar à pasta', trim($voltar->text()));
@@ -54,6 +54,20 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $crawler->filter('script[src*="/js/peticionar-documentos.js"]'));
         self::assertCount(1, $crawler->filter('link[href*="/css/peticionar-documentos.css"]'));
+    }
+
+    #[TestDox('o cabeçalho é o do desenho 07: Voltar à pasta e o nome do usuário, sem sino, tela cheia nem menu do avatar')]
+    public function testCabecalhoEnxuto(): void
+    {
+        [$client, $pasta] = $this->cenario();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('nav.navtop .navtop-right > .petic-navtop-usuario'));
+        self::assertCount(2, $crawler->filter('nav.navtop .navtop-right > *'));
+        self::assertCount(0, $crawler->filter('nav.navtop #notificacaoDropdownToggle, nav.navtop [data-lte-toggle="fullscreen"], nav.navtop .menu-usuario'));
+        self::assertCount(1, $crawler->filter('nav.navtop .petic-navtop-info > .petic-navtop-nup'));
     }
 
     #[TestDox('cada linha tem os três pontos e os data-* das rotas de renomear, classificar, baixar e excluir')]
