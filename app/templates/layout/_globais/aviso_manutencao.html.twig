@@ -1,0 +1,17 @@
+{#
+    Aviso de manutenção programada (seção "Configurações globais" do /master, grupo "Manutenção programada"; desenho
+    05 Perfis 1.2 VS 25.10.26): o texto que o Master escreveu aparece no topo de toda tela, para todos os usuários
+    logados, com o componente do aviso do desenho 08 (o mesmo .ae-aviso do espaço). aviso_de_manutencao() devolve
+    null sem texto ou depois do prazo "Mostrar o aviso até". O texto sai escapado pelo Twig.
+#}
+{% set manutencao = aviso_de_manutencao() %}
+{% if manutencao %}
+    <link rel="stylesheet" href="{{ asset('css/aviso-espaco.css') }}">
+    <div class="ae-aviso" data-aviso-manutencao data-print="hide" role="status">
+        <span class="ae-icone" aria-hidden="true">🛠️</span>
+        <div class="ae-texto">
+            <b>{{ 'moldura.aviso_manutencao.titulo'|trans }}</b>
+            <div>{{ manutencao }}</div>
+        </div>
+    </div>
+{% endif %}

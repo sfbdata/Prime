@@ -78,11 +78,13 @@ final class DjenController extends AbstractController
             'vinculo' => (string) $request->query->get('vinculo', ''),
             'data_de' => (string) $request->query->get('data_de', ''),
             'data_ate' => (string) $request->query->get('data_ate', ''),
+            'leitura' => (string) $request->query->get('leitura', ''),
         ];
         $pagina = max(1, (int) $request->query->get('pagina', 1));
 
         $ocultos = $this->numerosOcultos($tenant);
         $total = $this->publicacaoRepository->countByFiltros($tenant, $filtros, $ocultos);
+        $indicadores = $this->publicacaoRepository->contarIndicadoresDoTenant($tenant, new \DateTimeImmutable('today'), $ocultos);
 
         return $this->render('djen/index.html.twig', [
             'publicacoes' => $this->publicacaoRepository->listarItensDoTenant($tenant, $filtros, $pagina, self::POR_PAGINA, $ocultos),
@@ -91,8 +93,21 @@ final class DjenController extends AbstractController
             'pagina' => $pagina,
             'total' => $total,
             'totalPaginas' => (int) ceil($total / self::POR_PAGINA),
-            // Processos cadastrados (sem baixa) que a sincronização consulta pelo número.
-            'processosAcompanhados' => $this->processoRepository->contarAcompanhadosDoTenant($tenant),
+            'indicadores' => $indicadores,
+            'abas' => $this->contagensDasAbas($tenant, $indicadores['naoLidas']),
+        ]);
+    }
+
+    #[Route('/diario', name: 'push_processual_diario', methods: ['GET'])]
+    public function diario(): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+
+        return $this->render('djen/diario.html.twig', [
+            'abas' => $this->contagensDasAbas($tenant),
         ]);
     }
 
@@ -124,10 +139,13 @@ final class DjenController extends AbstractController
             }
         }
 
+        $publicacoesPorOab = $this->publicacaoRepository->contarPorOabMonitoradaDoTenant($tenant);
+
         return $this->render('djen/oabs.html.twig', [
+            'abas' => $this->contagensDasAbas($tenant),
             'form' => $form,
             'oabs' => array_map(
-                static fn ($oab): OabMonitoradaOutput => OabMonitoradaOutput::fromEntity($oab),
+                static fn ($oab): OabMonitoradaOutput => OabMonitoradaOutput::fromEntity($oab, $publicacoesPorOab[$oab->getId()] ?? 0),
                 $this->oabRepository->listarDoTenant($tenant),
             ),
         ]);
@@ -241,6 +259,27 @@ final class DjenController extends AbstractController
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
             'voltarPara' => $this->destinoDeVolta($request),
         ]);
+    }
+
+    /**
+     * Números das quatro abas do Push (Publicações, Processos, Diário da OAB, OABs monitoradas).
+     *
+     * @return array{publicacoesNovas: int, processos: int, diarioNovas: int, oabs: int}
+     */
+    private function contagensDasAbas(Tenant $tenant, ?int $publicacoesNovas = null): array
+    {
+        $publicacoesNovas ??= $this->publicacaoRepository->contarIndicadoresDoTenant(
+            $tenant,
+            new \DateTimeImmutable('today'),
+            $this->numerosOcultos($tenant),
+        )['naoLidas'];
+
+        return [
+            'publicacoesNovas' => $publicacoesNovas,
+            'processos' => $this->processoRepository->contarAcompanhadosDoTenant($tenant),
+            'diarioNovas' => 0,
+            'oabs' => \count($this->oabRepository->listarDoTenant($tenant)),
+        ];
     }
 
     /**

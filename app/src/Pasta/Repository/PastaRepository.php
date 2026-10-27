@@ -8,6 +8,7 @@ use App\Cliente\Entity\ClientePJ;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Pasta\Criterio\PastaFinalizadaNoPeriodo;
 use App\Pasta\DTO\OcorrenciaDaBuscaRapida;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
@@ -60,7 +61,7 @@ class PastaRepository extends ServiceEntityRepository
      * "é do Fulano"). Número (`nup`), cliente (`cliente`) e a busca livre não estão aqui: a oculta continua
      * casando por eles. O marcador também é atributo (ver `buildQbPorMarcador`).
      */
-    private const FILTROS_DE_ATRIBUTO = ['responsavel', 'status', 'prioridade', 'criado_por', 'data_de', 'data_ate', 'expediente', 'acao'];
+    private const FILTROS_DE_ATRIBUTO = ['responsavel', 'status', 'prioridade', 'criado_por', 'concluida', 'data_de', 'data_ate', 'expediente', 'acao'];
 
     public function __construct(
         ManagerRegistry $registry,
@@ -884,8 +885,12 @@ class PastaRepository extends ServiceEntityRepository
         // "Sem responsável" (E8 da fidelidade, decisão do dono 14/10; o desenho de 13/10 tem a opção no
         // filtro de responsável): a pasta sem ninguém atribuído. Antes, `responsavel=sem` virava
         // `(int) 0` e devolvia lista vazia — nenhum chamador dependia disso.
-        if (($filters['responsavel'] ?? '') === 'sem') {
+        // `responsavel=equipe[:cargo]`: destino do Total de Pastas concluídas do Dashboard (ver filtrarPorEquipe).
+        $respFiltro = trim((string) ($filters['responsavel'] ?? ''));
+        if ($respFiltro === 'sem') {
             $qb->andWhere('p.responsavel IS NULL');
+        } elseif ($respFiltro === 'equipe' || str_starts_with($respFiltro, 'equipe:')) {
+            $this->filtrarPorEquipe($qb, $respFiltro);
         } elseif (!empty($filters['responsavel'])) {
             $qb->join('p.responsavel', 'r')
                ->andWhere('r.id = :responsavel')
@@ -972,17 +977,47 @@ class PastaRepository extends ServiceEntityRepository
             }
         }
 
-        $dataDe = $this->parseDataFiltro($filters['data_de'] ?? '', false);
-        if ($dataDe !== null) {
-            $qb->andWhere('p.dataAbertura >= :dataDe')
-               ->setParameter('dataDe', $dataDe);
+        $dataDe  = $this->parseDataFiltro($filters['data_de'] ?? '', false);
+        $dataAte = $this->parseDataFiltro($filters['data_ate'] ?? '', true);
+
+        // "Concluídas no período" (destino do número da coluna Pastas concluídas do Dashboard, regra B12):
+        // as datas passam a valer sobre a CHEGADA À FINALIZADA, e não sobre a abertura, com o critério
+        // compartilhado com a coluna (PastaFinalizadaNoPeriodo). Sem o filtro, nada muda.
+        if (($filters['concluida'] ?? '') === '1') {
+            PastaFinalizadaNoPeriodo::aplicar($qb, 'p', $dataDe, $dataAte);
+        } else {
+            if ($dataDe !== null) {
+                $qb->andWhere('p.dataAbertura >= :dataDe')
+                   ->setParameter('dataDe', $dataDe);
+            }
+
+            if ($dataAte !== null) {
+                $qb->andWhere('p.dataAbertura <= :dataAte')
+                   ->setParameter('dataAte', $dataAte);
+            }
+        }
+    }
+
+    /**
+     * `responsavel=equipe` (ou `equipe:<cargo>`): pastas cujo responsável é colaborador ATIVO do escritório da
+     * consulta (`:tenant`), opcionalmente de um cargo (`__sem__` = sem cargo). O Total do Dashboard soma só as linhas exibidas (colaboradores ativos), então a lista conta o mesmo:
+     * pasta sem responsável ou de quem saiu do escritório fica fora dos dois lados. Mesma lógica do `criado_por=equipe`.
+     */
+    private function filtrarPorEquipe(QueryBuilder $qb, string $respFiltro): void
+    {
+        $cargoResp = $respFiltro === 'equipe' ? '' : trim(substr($respFiltro, strlen('equipe:')));
+
+        $sub = 'SELECT 1 FROM ' . UserTenant::class . ' ut_rse LEFT JOIN ut_rse.cargo cg_rse'
+            . ' WHERE ut_rse.user = resp_eq AND ut_rse.tenant = :tenant AND ut_rse.isActive = true';
+        if ($cargoResp === '__sem__') {
+            $sub .= " AND (cg_rse.id IS NULL OR TRIM(cg_rse.nome) = '')";
+        } elseif ($cargoResp !== '') {
+            $sub .= ' AND cg_rse.nome = :cargoResp';
+            $qb->setParameter('cargoResp', $cargoResp);
         }
 
-        $dataAte = $this->parseDataFiltro($filters['data_ate'] ?? '', true);
-        if ($dataAte !== null) {
-            $qb->andWhere('p.dataAbertura <= :dataAte')
-               ->setParameter('dataAte', $dataAte);
-        }
+        $qb->join('p.responsavel', 'resp_eq')
+           ->andWhere('EXISTS (' . $sub . ')');
     }
 
     /**

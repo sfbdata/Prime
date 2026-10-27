@@ -1,0 +1,47 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'djen.diario.titulo_pagina'|trans }}{% endblock %}
+
+{% block body %}
+{% include 'djen/_abas.html.twig' with {ativa: 'diario'} %}
+
+<div class="pp-pagina" data-pp-diario>
+    <div class="pp-topo">
+        <i class="bi bi-shield-check"></i>
+        <h1>{{ 'djen.diario.titulo'|trans }}</h1>
+    </div>
+
+    <div class="pp-sigilo" data-pp-sigilo>
+        <i class="bi bi-lock-fill"></i>
+        <span>{{ 'djen.diario.sigilo'|trans }}</span>
+    </div>
+
+    <section class="pp-caixa pp-caixa--filtros">
+        <div class="pp-filtros">
+            <label class="pp-busca"><i class="bi bi-search"></i><input type="search" placeholder="{{ 'djen.diario.busca_placeholder'|trans }}" disabled></label>
+            <span class="pp-filtro-btn is-ativo">{{ 'djen.diario.filtro_todas'|trans }}</span>
+            <span class="pp-filtro-btn">{{ 'djen.diario.filtro_eticas'|trans }}</span>
+            <span class="pp-filtro-btn">{{ 'djen.diario.filtro_comunicados'|trans }}</span>
+        </div>
+    </section>
+
+    <section class="pp-caixa pp-tabela">
+        <div class="pp-tabela__corpo">
+            <div class="pp-linha pp-linha--diario pp-linha--cab">
+                <span></span>
+                <span>{{ 'djen.index.data_maiusculo'|trans }}</span>
+                <span>{{ 'djen.diario.seccional'|trans }}</span>
+                <span>{{ 'djen.diario.ato'|trans }}</span>
+                <span>{{ 'djen.comum.orgao_maiusculo'|trans }}</span>
+                <span>{{ 'djen.diario.prazo'|trans }}</span>
+            </div>
+            <div class="pp-selecao">
+                <span class="pp-selecao__btn"><i class="bi bi-square"></i>{{ 'djen.diario.selecionar'|trans }}</span>
+                <span class="pp-selecao__esp"></span>
+                <span class="pp-selecao__limpar"><i class="bi bi-trash3"></i> {{ 'djen.diario.limpar_lidas'|trans }}</span>
+            </div>
+            <div class="pp-vazio" data-pp-diario-vazio>{{ 'djen.diario.vazio'|trans }}</div>
+        </div>
+    </section>
+</div>
+{% endblock %}

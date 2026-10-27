@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Auth\Functional;
 
+use App\Contribua\Entity\BonusDeEspaco;
 use App\Controller\SecurityController;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -78,16 +79,34 @@ final class LoginCupomTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($crawler->filter('#lgCdIndCampo')->attr('hidden'), 'o campo começa fechado');
     }
 
-    #[TestDox('sem os textos que aguardam o dono: nada de "5 GB extras", "Cupom válido" nem "Cupom não encontrado"')]
-    public function testSemOsTextosQueAguardamODono(): void
+    #[TestDox('o texto de status da conferência ao vivo existe vazio e escondido, dentro do rótulo do cupom, depois do campo (desenho 10)')]
+    public function testTextoDeStatusDoCupom(): void
+    {
+        $client = static::createClient();
+
+        $crawler = $client->request('GET', '/login?abrir=cadastro');
+
+        $status = $crawler->filter('#lgCdIndCampo > #lgCdInd + #lgCdIndStatus');
+        self::assertSame(1, $status->count(), 'o status é o irmão logo depois do campo, dentro do rótulo');
+        self::assertSame('', trim($status->text()));
+        self::assertNotNull($status->attr('hidden'));
+        self::assertSame('/cadastro/cupom/conferir', $status->attr('data-url'));
+        self::assertSame(
+            sprintf('Cupom válido · você ganha %d GB extras no 1º mês', BonusDeEspaco::GIGABYTES_DA_INDICACAO),
+            $status->attr('data-valido'),
+            'o valor prometido vem da constante do bônus concedido',
+        );
+        self::assertSame('Cupom não encontrado. Confira com quem te indicou.', $status->attr('data-nao-encontrado'));
+    }
+
+    #[TestDox('sem o nome de quem indicou (decisão do dono); o bônus de 5 GB é o real e vem da constante')]
+    public function testSemONomeDeQuemIndicou(): void
     {
         $client = static::createClient();
 
         $client->request('GET', '/login?abrir=cadastro&ind=QWER2345');
 
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringNotContainsString('5 GB', $html);
-        self::assertStringNotContainsString('Cupom válido', $html);
-        self::assertStringNotContainsString('Cupom não encontrado', $html);
+        self::assertStringNotContainsString('indicado por', $html);
     }
 }

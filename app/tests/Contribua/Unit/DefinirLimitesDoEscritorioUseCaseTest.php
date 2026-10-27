@@ -10,6 +10,7 @@ use App\Contribua\DTO\RetratoDoEspaco;
 use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
@@ -23,6 +24,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 #[CoversClass(DefinirLimiteDeArmazenamentoUseCase::class)]
 #[CoversClass(DefinirLimiteDeUsuariosUseCase::class)]
@@ -124,6 +126,6 @@ final class DefinirLimitesDoEscritorioUseCaseTest extends TestCase
         $configuracoes = $this->createStub(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn(new ConfiguracaoDoEspaco());
 
-        return new SituacaoDoEspaco($this->createStub(ConsumoDeArmazenamentoRepository::class), $this->espacos, $planos, $configuracoes);
+        return new SituacaoDoEspaco($this->createStub(ConsumoDeArmazenamentoRepository::class), $this->espacos, $planos, $configuracoes, $this->createStub(BonusDeEspacoRepository::class), new MockClock());
     }
 }

@@ -6,6 +6,7 @@ namespace App\Indicacao\EventListener;
 
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Indicacao\Controller\IndicacaoController;
+use App\Indicacao\Service\BonusDoCadastroPorIndicacao;
 use App\Indicacao\Service\CodigoDeIndicacao;
 use App\Indicacao\UseCase\AtribuirCadastroPeloLinkUseCase;
 use Psr\Log\LoggerInterface;
@@ -22,6 +23,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * `indicacao`, o campo é a palavra final e vale no lugar do código da sessão (vazio ou malformado não liga nada). O
  * ouvinte lê o corpo da própria requisição do cadastro, para o Auth continuar sem conhecer a Indicação.
  *
+ * Depois da atribuição, tenta o bônus de espaço (spec `bonus-de-espaco-por-indicacao.md`).
+ *
  * Nunca derruba o cadastro: qualquer falha vai ao log só com o id da conta nova.
  */
 final class CadastroPeloLinkListener
@@ -30,6 +33,7 @@ final class CadastroPeloLinkListener
         private readonly RequestStack $requests,
         private readonly AtribuirCadastroPeloLinkUseCase $atribuir,
         private readonly LoggerInterface $logger,
+        private readonly BonusDoCadastroPorIndicacao $bonus,
     ) {
     }
 
@@ -48,6 +52,9 @@ final class CadastroPeloLinkListener
             }
             $codigo = $sessao->remove(IndicacaoController::CHAVE_DA_SESSAO);
             $this->atribuir->executar($cupom !== false ? $cupom : (is_string($codigo) ? $codigo : null), $evento->userId);
+            // Conta que já nasce confirmada (Google): o bônus sai agora. Pelo e-mail, o `tentar` não concede (a
+            // conta ainda não confirmou) e quem concede é o ouvinte da confirmação.
+            $this->bonus->tentar($evento->userId);
         } catch (\Throwable $e) {
             $this->logger->error('Falha ao ligar a conta criada pelo link curto a quem indicou.', [
                 'exception' => $e,

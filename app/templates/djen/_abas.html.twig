@@ -1,0 +1,21 @@
+{# Faixa de abas do Push Processual (desenho 11): Publicações, Processos, Diário da OAB, OABs monitoradas.
+   Recebe `ativa` (publicacoes|processos|diario|oabs) e `abas` (contagens). #}
+<link rel="stylesheet" href="{{ asset('css/push-processual.css') }}">
+<nav class="pp-abas" aria-label="{{ 'djen.abas.rotulo'|trans }}" data-pp-abas>
+    <div class="pp-abas__trilho">
+        <a href="{{ path('push_processual_index') }}" class="pp-aba{{ ativa == 'publicacoes' ? ' is-ativa' : '' }}" data-pp-aba="publicacoes">
+            <i class="bi bi-broadcast"></i>{{ 'djen.abas.publicacoes'|trans }}<span class="pp-aba__n">{{ 'djen.abas.novas'|trans({n: abas.publicacoesNovas ~ ''}) }}</span>
+        </a>
+        {% if can_access_module('processos') %}
+            <a href="{{ path('push_processual_processos') }}" class="pp-aba{{ ativa == 'processos' ? ' is-ativa' : '' }}" data-pp-aba="processos">
+                <i class="bi bi-folder2-open"></i>{{ 'djen.abas.processos'|trans }}<span class="pp-aba__n">{{ abas.processos }}</span>
+            </a>
+        {% endif %}
+        <a href="{{ path('push_processual_diario') }}" class="pp-aba{{ ativa == 'diario' ? ' is-ativa' : '' }}" data-pp-aba="diario">
+            <i class="bi bi-shield-check"></i>{{ 'djen.abas.diario'|trans }}<span class="pp-aba__n">{{ 'djen.abas.novas'|trans({n: abas.diarioNovas ~ ''}) }}</span>
+        </a>
+        <a href="{{ path('push_processual_oabs') }}" class="pp-aba{{ ativa == 'oabs' ? ' is-ativa' : '' }}" data-pp-aba="oabs">
+            <i class="bi bi-person-badge"></i>{{ 'djen.abas.oabs'|trans }}<span class="pp-aba__n">{{ abas.oabs }}</span>
+        </a>
+    </div>
+</nav>

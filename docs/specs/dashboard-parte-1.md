@@ -81,9 +81,10 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 
 - **Empate total** (mesmas concluídas e mesmas vencidas): **ninguém recebe o troféu** e o ranking
   divide a posição (1º, 1º, 3º). O desenho é omisso.
-- "Relatório" sem link: o destino do desenho (Expediente filtrado por autor do registro e pelas
-  abas Dados da pasta, Financeiro e Detalhes) não existe, e a regra B12 só deixa o número virar link
-  quando a lista de destino conta a mesma coisa. Fica com a DASH-012 (lista da pessoa).
+- "Relatório" e o modal (PR-D, destravado): o destino do desenho (Expediente filtrado por autor do
+  registro e pelas abas) listava PASTAS e o número conta REGISTROS, então a regra B12 só deixa o
+  número ser clicável quando a lista conta a mesma coisa. Agora o clique no número (ou "Ver relatório de X"
+  do botão direito) abre o modal do desenho (`comVer`) com a lista por REGISTRO: ver "PR-D" abaixo.
 - Universo do troféu e do cartão: vínculo ativo no escritório (`UserTenant.isActive`). Usuário com
   `User.isActive = false` e vínculo ainda ativo continua no universo (não mudado aqui). Escritório em
   quarentena de exclusão não abre o painel, então não há universo a filtrar.
@@ -91,7 +92,7 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 ## Fora deste PR
 
 Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita no PR3), setas × ontem, a tabela
-`dashboard_campeao_mes` que congelaria o "1º do mês", lista e link do Relatório (DASH-012).
+`dashboard_campeao_mes` que congelaria o "1º do mês". A lista por registro e o modal do Relatório (DASH-012) saíram no PR-D.
 
 ## Fatias seguintes
 
@@ -128,8 +129,7 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     `EXTRAS.pastasConcluidas`: "Pastas concluídas", "Demandas encerradas no período", soma, entre
     Pastas urgentes e Eventos na agenda): pastas com `finalizada_em` no período, por responsável,
     qualquer situação, sem lápide e sem as ocultas pelo cadeado. Tem tendência (`alta`, subir é bom).
-    Número sem link: o destino do desenho (`/expediente` com `concluida`) não filtra pela data da
-    finalização, e a regra B12 só deixa virar link quando a lista conta a mesma coisa.
+    Link no PR4 (ver abaixo).
 - **PR3b (feito: Zerar, DASH-014)**. Sem migration (usa a `dashboard_zeramento` do PR3).
   - **Abrir**: botão direito no título da coluna (equipe toda) ou na célula da pessoa (só ela, e
     "Ver relatório" quando o número tem link), como o `comMenu`/`thMenu` do desenho. No cartão do
@@ -160,12 +160,133 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
   - **Desvios do desenho**: "Você recebe a resposta no Chat I.A." saiu do aviso de sem permissão (não
     há fluxo de resposta); "Ver relatório" navega direto em vez do toast com link; o desfazer confirma
     com `window.confirm`, como o desenho.
-- **PR4 em diante**: meta de pastas.
-- **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
-  padrão hoje, nenhuma opção é obrigatória, roda 1x por dia.
+- **PR-B (feito: meta de pastas do mês, DASH-016, "PR3c")**. Sem migration (usa a `dashboard_meta_pastas` do PR3).
+  Desenho `01 - Dashboard - VS 25.10.26` (`nivelador`, `metaEd`, `salvarMeta`, menu `ctxC`).
+  - **Modelo**: `mes` = dia 1º da vigência; vale a linha de `mes` mais recente até o mês pedido e, no mesmo mês,
+    a última gravada (`DashboardMetaPastasRepository::buscarVigenteEm`). Definir grava uma linha nova no mês
+    corrente (o histórico fica); **Remover** grava valor 0 no mês corrente (encerra a meta a partir dele; os
+    meses anteriores seguem); valor 0 vale como "sem meta". Valor: inteiro de 1 a 9999 (o desenho aceita 5
+    dígitos; o teto de 9999 é decisão do coordenador). `DefinirMetaDePastasDoMesUseCase` e
+    `RemoverMetaDePastasDoMesUseCase`; rotas POST `dashboard_meta_pastas_definir` e `dashboard_meta_pastas_remover`
+    (JSON, CSRF no header, escritório e autor da sessão).
+  - **Quem edita**: a mesma régua do Zerar (`RegraDosPrimarios::podeGerirPrimarios`: primário ativo; o Master de
+    plataforma entra porque a régua o inclui), 403 no servidor. Os demais veem a meta e o status, sem o lápis e
+    sem o "Definir"; sem meta, não veem nada. O estado do editor (`data-db-meta-*`) só sai no HTML de quem edita.
+  - **Na tela**: dentro do card "Pastas criadas", só no **mês inteiro, sem responsável nem cargo** (`mesLimpo` do
+    desenho). Barra (cor `15,111,196` no ritmo, `192,57,47` abaixo), traço do ritmo esperado, "X de Y no mês" com
+    lápis, status ("No ritmo", "Abaixo do ritmo", "Meta batida" com ícone) e dica de `title` com previsto, faltam
+    e por dia. O botão direito no card, para o primário, abre o menu "Alterar/Definir meta do mês" e "Ver
+    histórico" (os demais seguem abrindo o histórico direto). Editor: 280px, só dígitos, Salvar desligado até valer,
+    prévia "≈ N por dia útil · M por semana", aviso "Meta herdada de <mês>" quando vem de mês anterior, "Remover
+    meta" só com meta, Enter salva, Esc e clique fora fecham. Sem toast (o desenho só fecha o editor); salvar e
+    remover recarregam o fragmento pelo XHR do filtro.
+  - **Realizado**: o número do próprio card "Pastas criadas" (soma das linhas, antes da busca, já com o "Zerar" da
+    coluna), sem regra de contagem nova. DECISÃO A CONFIRMAR: o desenho conta **pastas criadas** ("Quantas pastas
+    precisam ser abertas no mês", `totalDe('pastasCriadas')`), não "Pastas concluídas"; o código segue o desenho.
+  - **Ritmo em dias úteis (decisão PROVISÓRIA do coordenador, o dono pode rever)**: o desenho usa dias corridos
+    (`DIA`/`TOTAL` do protótipo, fixos em 20 e 31). Aqui, `esperado = round(meta x dias úteis decorridos / dias
+    úteis do mês)`, com `DiasUteisNacionais` (fim de semana, feriados nacionais, recesso de 20/12 a 20/01); "por
+    semana" = por dia útil x 5 (o desenho multiplica por 7). Voltar aos dias corridos é trocar `contarDias` em
+    `App\Dashboard\Meta\MontarMetaDePastasDoMes`.
+  - **Montagem**: `MontarMetaDePastasDoMes` (entra no `ObterDadosDashboardUseCase` e sai em
+    `DashboardOutput::$metaDePastas`); partial `dashboard/_meta_pastas.html.twig`; `dashboard-meta.css` e
+    `dashboard-meta.js`. A purga do escritório já apaga `dashboard_meta_pastas` (PurgarEscritorioUseCase).
+- **PR4 (feito: links de Pastas concluídas, sem migration)**. O número > 0 da pessoa abre
+  `/expediente?painel=acervo-geral&concluida=1&responsavel=<id>&data_de&data_ate`, na mesma aba, com o
+  tooltip "Abrir: Pastas concluídas de {nome}" (o "Ver relatório" do menu da célula passa a existir
+  também para essa coluna, pois depende do link). O Expediente ganhou o filtro `concluida=1`
+  ("Concluídas no período", chip e campo oculto como o `criado_por`): as datas passam a valer sobre
+  `finalizada_em` (não a abertura), em qualquer situação, sem lápide, com o cadeado já aplicado pelo
+  filtro de atributo (D1). O critério é UM só, `App\Pasta\Criterio\PastaFinalizadaNoPeriodo`, usado
+  por `MetricasExtrasDoDashboardRepository::contarFinalizadasPorResponsavel` e por
+  `PastaRepository::aplicarFiltrosPasta`; teste de paridade (célula = total da lista, para quem vê
+  tudo e para quem tem pasta oculta) em `ExpedientePastasConcluidasLinkTest`.
+  - **Zerar**: célula com corte ativo continua sem link (o destino não conta a partir do corte);
+    o corte não viaja na URL.
+  - **Desvios do desenho**: o desenho usa `status=concluida`; aqui `status` segue sendo a situação da
+    pasta (ativo/arquivado), e o filtro novo é `concluida=1`. No Total, o desenho linka, e agora o Total
+    também linka (PR-D, abaixo).
+- **PR-D (feito: Total de Pastas concluídas e modal do Relatório, sem migration)**.
+  - **Total de Pastas concluídas** vira link: `/expediente?painel=acervo-geral&concluida=1&responsavel=equipe`
+    (`equipe:<cargo>` com cargo filtrado; `equipe:__sem__` para "sem cargo") e as datas do painel. O Total soma
+    só as linhas exibidas (colaboradores ATIVOS); `PastaRepository::aplicarFiltrosPasta` aceita
+    `responsavel=equipe[:cargo]` com a mesma lógica do `criado_por=equipe` (EXISTS em `UserTenant` ativo do
+    escritório da consulta + cargo), então a lista conta o mesmo número (paridade em
+    `ExpedienteTotalPastasConcluidasLinkTest`: equipe, cargo, sem cargo, cadeado D1, quem saiu e pasta sem
+    responsável, fora dos dois lados). **Decisão do coordenador**: pasta de responsável que saiu do escritório
+    fica fora do Total e do link. Sem link quando há busca (filtra as linhas), "Zerar" na coluna (o
+    Expediente não aplica o corte) ou Total 0; com uma pessoa só na tabela usa o destino da pessoa. Tooltip
+    "Abrir: Pastas concluídas da equipe filtrada" (ou "...da equipe do cargo X"; o dc diz "de a equipe
+    filtrada"). O select de responsável do Expediente ganha uma opção `data-equipe` (fora do menu) com o rótulo
+    "Equipe" / "Equipe · cargo" para o valor sobreviver à paginação e ao "Limpar".
+  - **Modal "Ver relatório de X"** (dc `comVer`, L1500-1527): `GET /dashboard/relatorio/{userId}`
+    (`dashboard_relatorio`, JSON, módulo `bi`; pessoa de outro escritório ou vínculo inativo = 404),
+    `ObterRelatorioDeRegistrosDoColaboradorUseCase`, `RelatorioDoColaboradorOutput`. Os registros (pasta, data e
+    hora) vêm agrupados por pasta, do mais novo ao mais antigo, com trecho em texto puro (sem HTML, 120
+    caracteres, `textContent` no JS) e link para `/pasta/{id}#dados`. Total no cabeçalho e no rodapé = número da
+    célula. **Mesmo critério da contagem**: `App\Pasta\Criterio\RegistroDePastaNoPeriodo` (escritório, lápide,
+    cartão do sistema fora, cadeado D1, período por `criadaEm`, corte do Zerar) usado por
+    `contarRegistrosPorAutor` (GROUP BY) e por `listarRegistrosDoAutor` (lista). Limite de 200 linhas
+    (`LIMITE_DE_LINHAS`, as mais novas): o resto vira "Mostrando os N mais recentes. Os outros M também entram no
+    total", e o total continua exato. Com Zerar ativo na célula o modal aplica o mesmo corte (o do Relatório da
+    equipe ou da pessoa, o mais recente). **Decisão do coordenador**: a CONTAGEM inclui as três abas; o TEXTO só
+    aparece onde a pessoa logada vê a aba da pasta (Financeiro: `VisibilidadeDoFinanceiroDaPasta::podeVer`; Dados e
+    Detalhes: `VisibilidadeDasAbasDaPasta::ocultaPara`; decisão uma vez por pasta e aba). Onde não vê, a linha e o total
+    ficam (paridade com a célula) e o trecho vira "Conteúdo de uma aba que você não pode ver". O link do grupo usa a
+    âncora da aba (`#financeiro`, `#detalhes`, `#dados`) quando todos os itens são da mesma aba visível; senão `#dados`. O clique no número (botão `[data-db-relatorio-url]`) e o "Ver relatório" do menu da
+    célula (dashboard-zerar.js) abrem o modal; o menu também o oferece com 0 registros (modal vazio), como o dc.
+    Arquivos: `dashboard-relatorio.js/.css`, chaves em `dashboard.relatorio` (catálogo `dashboard`).
+  - **Desvios do desenho**: rodapé com o total e o "e mais N" (o dc tem rodapé só para o texto de referência
+    local); sem a "base de referência" do protótipo.
+- **PR-E (feito: setas de tendência nas colunas)**. Regra única do desenho (`tendencia()`, dc
+  L1819+; `tendCor`/`setaWrap`): delta relativo em %, limiar de 2% para "estável", "novo" quando o
+  anterior é 0, cor pelo sentido (subir é bom; `sobeRuim`: subir é ruim; `neutra`: sempre cinza). O
+  desenho usa % relativo em todas as colunas (nem pontos percentuais nem dias): seguido como está.
+  Macro única: `_tendencia.html.twig`. Zerar (coluna com corte) e o interruptor `db-page--sem-setas`
+  seguem como antes.
+  - **Seta pelo período anterior** (a MESMA consulta nas datas do período anterior; só dias já
+    corridos quando o período termina no futuro, `fimJaCorrido`): Total metas, Total demandas,
+    Pastas criadas, Pastas concluídas, Relatório (subir é bom); Eventos na agenda (neutra).
+    Vencidas e Prazos (cair é bom): foto de `data_de − 1`.
+  - **SEGURADAS (DASH-010b, decisão do dono pendente)**: Metas concluídas, Taxa de conclusão e Tempo
+    médio ficam SEM seta. Elas recortam as metas pela data de CRIAÇÃO e leem o status de HOJE: as
+    metas do período anterior tiveram mais tempo para concluir, então o anterior sai maior e a seta
+    mente (concluídas e taxa "caem", o tempo médio anterior sai maior, sem nada ter mudado). Seta que
+    mente é pior que ausente. Só destrava com critério por data de CONCLUSÃO (`Tarefa.dataConclusao`
+    dentro da janela, o mesmo recorte no anterior).
+- **PR-F (feito: lastro da foto diária, migration `Version20261026152200`)**. A `dashboard_foto`
+  (por colaborador e por dia) ganhou 3 colunas INTEIRAS ANULÁVEIS: `metas_em_revisao`,
+  `pastas_urgentes` e `metas_total` (Meta global = (total − ativas) ÷ total). Só `ADD COLUMN`, tudo
+  NULL, sem backfill: foto antiga fica NULL = sem lastro. O histórico de Metas ativas aproveita as fotos
+  antigas reais (`metas_ativas` é NOT NULL); Demandas urgentes e Meta global só valem a partir da
+  primeira foto com a coluna preenchida (Meta global: a primeira com os 7 números). Meta global com
+  `metas_total = 0` fica SEM barra, de propósito (não há o que dividir). Modelo
+  por PESSOA, o mesmo das setas de Vencidas/Prazos (o histórico filtrado por responsável ou cargo soma
+  o universo do card; meta com mais de um responsável conta para cada um, como o Total da tabela).
+  - **Setas de estoque**: Metas ativas e Demandas ativas (`neutra`, cinza), Em revisão (`neutra`) e
+    Pastas urgentes (`sobeRuim`), na linha, no Total (pílula) e no celular. O anterior é a foto de
+    `data_de − 1`; o ATUAL é o estoque de HOJE sem período (a mesma consulta da foto), e NÃO o número da
+    célula, que o painel recorta por criação no período (por isso o balão pode mostrar "antes 10, agora
+    4" com 2 na célula). Sem foto da pessoa, coluna NULL (foto de antes do PR-F), sem período ou com pasta
+    oculta pelo cadeado (a foto é do escritório inteiro, comparar revelaria a diferença), a seta fica
+    oculta e o espaço reservado. Em revisão e Pastas urgentes só consultam o estoque se a coluna está ligada.
+  - **Histórico dos cards (dc L1354-1391)**: Metas ativas (`estoque`, sem melhor: stat "Pico"),
+    Demandas urgentes (`estoque`, menos é melhor, "Melhor (menor)") e Meta global (`pct`, "p.p.").
+    O retrato de um mês é a soma da última foto DE CADA PESSOA no mês que tem a coluna preenchida; mês sem foto é barra
+    vazia com o título "sem histórico" (nunca zero); o ano é a média dos meses com foto; a comparação com
+    o ano anterior usa só os meses com foto nos dois anos (a série nasce no meio do ano). Sem nenhuma foto
+    no período, ou com pasta oculta pelo cadeado, a janela fica indisponível com a nota.
+  - A purga do escritório já apaga `dashboard_foto` (`PurgarEscritorioUseCase::ORDEM_DELECAO`,
+    guardada por `PurgaCoberturaSchemaTest`).
+- **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente (`ON CONFLICT DO
+  UPDATE` por tenant, pessoa e dia), `--data` tem padrão hoje, nenhuma opção é obrigatória, roda 1x
+  por dia. Desde o PR-F cada foto traz 7 números por pessoa (metas ativas, demandas ativas, vencidas,
+  prazos próximos, metas em revisão, pastas urgentes, total de metas); rodar de novo o mesmo dia regrava
+  todos. A `--data` no passado só repara uma noite perdida (o status é o de agora). Nada é preenchido
+  para trás: o histórico dos cards começa na primeira foto com os 7 números.
 
 ## Estado da frente (24/10)
 
 - #334 e #339 no master (migration 150900 com `finalizada_em`).
 - Zerar (branch `dashboard-3`): revisado, re-revisado e com o master trazido; PR aberto.
-- Próximos: PR3c meta de pastas do mês (primário define e quem ele autorizar) e PR4 links do Relatório e de Pastas concluídas com o filtro do Expediente.
+- Meta de pastas do mês (PR-B, antes PR3c): feita, ver acima (hoje só o primário edita; "quem ele autorizar" ficou fora). PR4 (links de Pastas concluídas) e PR-D (Total e modal do Relatório) feitos.

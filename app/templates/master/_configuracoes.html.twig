@@ -1,0 +1,20 @@
+{# Seção "Configurações globais" do /master (#sec=config). Desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html:
+   marcação L282-285, lógica L955-959 (cgGrupos); spec docs/specs/perfis-1.2-vs-25-10-metas-mapa-config.md, P2.
+   Incluída pelo painel.html.twig num <div data-sec-externa="config"> (o mesmo mecanismo de Indicações): o painel.js
+   mostra este parcial no lugar da seção vazia e avisa a troca pelo evento `mp:secao`. Traz o próprio <link> e <script>
+   (CSP 'self'). Os grupos e campos vêm por JSON quando a seção abre (public/js/master/configuracoes.js); as regras
+   moram no CatalogoDeConfiguracoes e no SalvarConfiguracaoGlobalUseCase. Textos em master.js.config.*. #}
+<link rel="stylesheet" href="{{ asset('css/master-configuracoes.css') }}">
+<div class="mcg" data-mcg
+     data-url-dados="{{ path('master_configuracoes_dados') }}"
+     data-url-salvar="{{ path('master_configuracoes_salvar') }}"
+     data-token="{{ csrf_token('master_configuracoes') }}">
+    <div class="mcg-barra">
+        <span class="mcg-status" data-mcg-status role="status"></span>
+        <button type="button" class="mcg-btn" data-mcg-padrao><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span data-mcg-t="restaurar"></span></button>
+        <button type="button" class="mcg-btn" data-mcg-descartar hidden><i class="bi bi-x" aria-hidden="true"></i><span data-mcg-t="descartar"></span></button>
+        <button type="button" class="mcg-salvar" data-mcg-salvar disabled><i class="bi bi-check2" aria-hidden="true"></i> <span data-mcg-t="salvar"></span></button>
+    </div>
+    <div class="mcg-grade" data-mcg-grade aria-busy="true"></div>
+</div>
+<script src="{{ asset('js/master/configuracoes.js') }}"></script>

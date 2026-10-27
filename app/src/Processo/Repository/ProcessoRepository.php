@@ -2,6 +2,7 @@
 
 namespace App\Processo\Repository;
 
+use App\Djen\Entity\ProcessoAcompanhado;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaProcesso;
@@ -78,7 +79,18 @@ class ProcessoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleColumnResult();
 
-        return array_values(array_map('strval', $linhas));
+        // Números incluídos na mão na aba "Processos da OAB" (sem processo cadastrado) entram depois dos cadastrados.
+        $incluidos = $this->getEntityManager()->createQueryBuilder()
+            ->select('a.numeroProcesso')
+            ->from(ProcessoAcompanhado::class, 'a')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.acompanhando = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('a.id', 'DESC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_unique(array_map('strval', array_merge($linhas, $incluidos))));
     }
 
     /**
@@ -87,14 +99,9 @@ class ProcessoRepository extends ServiceEntityRepository
      */
     public function contarAcompanhadosDoTenant(Tenant $tenant): int
     {
-        return (int) $this->createQueryBuilder('p')
-            ->select('COUNT(p.id)')
-            ->andWhere('p.tenant = :tenant')
-            ->andWhere('p.dataBaixa IS NULL')
-            ->andWhere('p.monitoramentoPausadoEm IS NULL')
-            ->setParameter('tenant', $tenant)
-            ->getQuery()
-            ->getSingleScalarResult();
+        $numeros = array_map(static fn (string $numero): string => (string) preg_replace('/\D/', '', $numero), $this->listarNumerosAcompanhadosDoTenant($tenant));
+
+        return \count(array_unique($numeros));
     }
 
     /**

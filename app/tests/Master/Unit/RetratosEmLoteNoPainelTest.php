@@ -7,12 +7,15 @@ namespace App\Tests\Master\Unit;
 use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Entity\Tenant\Tenant;
+use App\Indicacao\Repository\IndicacaoRepository;
+use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\UseCase\ConsultarContasUseCase;
 use App\Master\UseCase\ConsultarVisaoGeralUseCase;
@@ -21,6 +24,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * O painel monta os retratos do espaço EM LOTE (`SituacaoDoEspaco::retratarVarios`, commit c29b7a8c da f6):
@@ -54,13 +58,13 @@ final class RetratosEmLoteNoPainelTest extends TestCase
         $configuracoes = $this->createMock(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn(new ConfiguracaoDoEspaco());
 
-        $this->situacao = new SituacaoDoEspaco($this->createMock(ConsumoDeArmazenamentoRepository::class), $this->espacos, $this->planos, $configuracoes);
+        $this->situacao = new SituacaoDoEspaco($this->createMock(ConsumoDeArmazenamentoRepository::class), $this->espacos, $this->planos, $configuracoes, $this->createStub(BonusDeEspacoRepository::class), new MockClock());
     }
 
     #[TestDox('lista de contas: uma consulta de espaços para as três contas, o Free uma vez, e o espaço de cada uma')]
     public function testContas(): void
     {
-        $contas = array_column((new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao))->executar(), null, 'id');
+        $contas = array_column((new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class)))->executar(), null, 'id');
 
         self::assertSame([10, 90, 'alerta'], [$contas[1]['espaco']['limiteGb'], $contas[1]['espaco']['percentual'], $contas[1]['espaco']['faixa']]);
         self::assertSame(10, $contas[2]['espaco']['limiteGb']);
@@ -70,7 +74,7 @@ final class RetratosEmLoteNoPainelTest extends TestCase
     #[TestDox('lista de contas: cada linha leva o número da conta, o mesmo "conta Nº" da Contribua (spec perfis-1.2-permissoes-e-hierarquia A3)')]
     public function testNumeroDaConta(): void
     {
-        $contas = (new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao))->executar();
+        $contas = (new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class)))->executar();
 
         self::assertSame(['000001', '000002', '000003'], array_column($contas, 'numero'));
     }
@@ -81,7 +85,7 @@ final class RetratosEmLoteNoPainelTest extends TestCase
         $configuracoes = $this->createMock(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn(new ConfiguracaoDoEspaco());
 
-        $kpi = (new ConsultarVisaoGeralUseCase($this->repositorio, $this->relogio(), $this->situacao, $configuracoes))->executar()['armazenamento'];
+        $kpi = (new ConsultarVisaoGeralUseCase($this->repositorio, $this->relogio(), $this->situacao, $configuracoes, $this->createStub(IndicacaoRepository::class)))->executar()['armazenamento'];
 
         self::assertSame([20, 9 * self::GB, 45, 1, 0], [$kpi['cotaGb'], $kpi['bytesUsados'], $kpi['percentual'], $kpi['contasSemLimite'], $kpi['bytesSemLimite']]);
     }

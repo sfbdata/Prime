@@ -17,9 +17,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Job diário (cron no host → docker exec) que fotografa o estoque do Dashboard de cada
- * escritório ativo: metas ativas, demandas ativas, metas vencidas e prazos próximos de cada
- * colaborador ativo, em `dashboard_foto`. É a fonte da tendência dessas quatro colunas — o
- * painel compara com a foto de `data_de − 1 dia` e, sem foto, não mostra tendência.
+ * escritório ativo: metas ativas, demandas ativas, metas vencidas, prazos próximos, metas em
+ * revisão, pastas urgentes e total de metas de cada colaborador ativo, em `dashboard_foto`. É a
+ * fonte da tendência dessas colunas (o painel compara com a foto de `data_de − 1 dia` e, sem foto,
+ * não mostra seta) e do histórico mensal dos cards.
  *
  * Multi-tenant no CLI: o TenantFilter fica DESLIGADO fora de um request, então iteramos os
  * escritórios e o UseCase recebe o Tenant EXPLICITAMENTE. Re-buscamos um Tenant gerenciado a
@@ -32,7 +33,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 #[AsCommand(
     name: 'app:dashboard:fotografar',
-    description: 'Fotografa o estoque do Dashboard (ativas, vencidas, prazos) de cada colaborador.',
+    description: 'Fotografa o estoque do Dashboard (ativas, vencidas, prazos, revisão, urgentes) de cada colaborador.',
 )]
 final class FotografarDashboardCommand extends Command
 {

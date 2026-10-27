@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Dashboard\Unit;
 
 use App\Dashboard\Repository\DashboardFotoRepository;
+use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Dashboard\UseCase\FotografarDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -24,6 +25,7 @@ final class FotografarDashboardUseCaseTest extends TestCase
     private PastaRepository $pastaRepo;
     private UserRepository $userRepo;
     private DashboardFotoRepository $fotoRepo;
+    private MetricasExtrasDoDashboardRepository $metricas;
     private Tenant $tenant;
     private FotografarDashboardUseCase $sut;
 
@@ -33,9 +35,10 @@ final class FotografarDashboardUseCaseTest extends TestCase
         $this->pastaRepo  = $this->createMock(PastaRepository::class);
         $this->userRepo   = $this->createMock(UserRepository::class);
         $this->fotoRepo   = $this->createMock(DashboardFotoRepository::class);
+        $this->metricas   = $this->createMock(MetricasExtrasDoDashboardRepository::class);
         $this->tenant     = $this->createMock(Tenant::class);
 
-        $this->sut = new FotografarDashboardUseCase($this->tarefaRepo, $this->pastaRepo, $this->userRepo, $this->fotoRepo);
+        $this->sut = new FotografarDashboardUseCase($this->tarefaRepo, $this->pastaRepo, $this->userRepo, $this->fotoRepo, $this->metricas);
     }
 
     private function mockUser(int $id): User
@@ -53,6 +56,9 @@ final class FotografarDashboardUseCaseTest extends TestCase
         $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([1 => 2]);
         $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([2 => 4]);
         $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([1 => 7, 2 => 1]);
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([1 => 9]);
+        $this->metricas->method('contarEmRevisaoPorResponsavel')->willReturn([]);
+        $this->metricas->method('contarUrgentesPorResponsavel')->willReturn([]);
     }
 
     #[TestDox('usa as mesmas consultas do painel SEM período e grava uma linha por colaborador ativo (zeros incluídos)')]
@@ -66,10 +72,14 @@ final class FotografarDashboardUseCaseTest extends TestCase
         $this->pastaRepo->expects(self::once())->method('countAtivasPorResponsavel')->with($this->tenant, [])->willReturn([1 => 7, 2 => 1]);
         $this->tarefaRepo->expects(self::once())->method('countVencidasPorResponsavel')->with($this->tenant, $momento)->willReturn([1 => 2]);
         $this->tarefaRepo->expects(self::once())->method('countPrazosProximosPorResponsavel')->with($this->tenant, $momento)->willReturn([2 => 4]);
+        // Lastro do PR-F: as consultas das colunas Em revisão, Pastas urgentes e Total metas, sem período.
+        $this->tarefaRepo->expects(self::once())->method('countPorResponsavel')->with($this->tenant, [])->willReturn([1 => 9, 2 => 1]);
+        $this->metricas->expects(self::once())->method('contarEmRevisaoPorResponsavel')->with($this->tenant, [])->willReturn([1 => 3]);
+        $this->metricas->expects(self::once())->method('contarUrgentesPorResponsavel')->with($this->tenant, [])->willReturn([2 => 2]);
 
         $esperado = [
-            1 => ['metas_ativas' => 5, 'demandas_ativas' => 7, 'metas_vencidas' => 2, 'prazos_proximos' => 0],
-            2 => ['metas_ativas' => 0, 'demandas_ativas' => 1, 'metas_vencidas' => 0, 'prazos_proximos' => 4],
+            1 => ['metas_ativas' => 5, 'demandas_ativas' => 7, 'metas_vencidas' => 2, 'prazos_proximos' => 0, 'metas_em_revisao' => 3, 'pastas_urgentes' => 0, 'metas_total' => 9],
+            2 => ['metas_ativas' => 0, 'demandas_ativas' => 1, 'metas_vencidas' => 0, 'prazos_proximos' => 4, 'metas_em_revisao' => 0, 'pastas_urgentes' => 2, 'metas_total' => 1],
         ];
         $this->fotoRepo->expects(self::once())->method('gravar')->with($this->tenant, $dia, $esperado)->willReturn(2);
 

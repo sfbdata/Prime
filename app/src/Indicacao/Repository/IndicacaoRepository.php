@@ -144,6 +144,25 @@ class IndicacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * A atribuição do cadastro pelo link da conta nova e o escritório dela (o vínculo ativo mais antigo), para o
+     * bônus de espaço. Nulo: a conta não chegou por indicação, ou ainda não tem escritório.
+     *
+     * @return array{indicacaoId: int, tenantId: int}|null
+     */
+    public function atribuicaoDoCadastro(int $indicadoUserId): ?array
+    {
+        $linha = $this->conexao()->fetchAssociative(
+            'SELECT i.id AS indicacao_id, ut.tenant_id
+             FROM indicacao i JOIN user_tenant ut ON ut.user_id = i.indicado_user_id AND ut.is_active = true
+             WHERE i.indicado_user_id = ? AND i.por_cadastro
+             ORDER BY ut.id LIMIT 1',
+            [$indicadoUserId],
+        );
+
+        return $linha === false ? null : ['indicacaoId' => (int) $linha['indicacao_id'], 'tenantId' => (int) $linha['tenant_id']];
+    }
+
+    /**
      * O e-mail é de alguém com vínculo ativo NESTE escritório? Só o escritório de quem indica: consultar contas de fora
      * deixaria descobrir quem tem conta no BlueJus (spec, comportamento 4).
      */
@@ -177,6 +196,25 @@ class IndicacaoRepository extends ServiceEntityRepository
             'ultimas24h' => (int) ($linha['ultimas24h'] ?? 0),
             'viraramConta' => (int) ($linha['viraram'] ?? 0),
         ];
+    }
+
+    /**
+     * Uma linha por indicação, para o mapa do Master (modo Indicações): quem indicou, se foi envio e se virou conta.
+     * Sem nome nem e-mail; o painel só conta, por UF e cidade de quem indicou.
+     *
+     * @return list<array{indicadorId: int, enviada: bool, virouConta: bool}>
+     */
+    public function paraOMapa(): array
+    {
+        $linhas = $this->conexao()->fetchAllAssociative(
+            'SELECT i.indicado_por_id, (' . self::SO_ENVIOS . ') AS enviada, (' . self::VIROU_CONTA . ') AS virou_conta FROM indicacao i',
+        );
+
+        return array_map(static fn (array $l): array => [
+            'indicadorId' => (int) $l['indicado_por_id'],
+            'enviada' => (bool) $l['enviada'],
+            'virouConta' => (bool) $l['virou_conta'],
+        ], $linhas);
     }
 
     public function contarIndicadores(): int
@@ -213,6 +251,52 @@ class IndicacaoRepository extends ServiceEntityRepository
         );
 
         return array_map(self::linhaDeIndicador(...), $linhas);
+    }
+
+    /**
+     * Quem indicou, para a seção Recompensas do Master: uma linha por indicador (quem tem ao menos uma indicação, envio ou
+     * atribuição pelo link), numa consulta só. O escritório é o do envio mais recente. Sem dado de indicado.
+     *
+     * @return list<array{user_id: int, nome: string, email: string, escritorio: ?string, envios: int}>
+     */
+    public function indicadoresParaRecompensas(): array
+    {
+        $linhas = $this->conexao()->fetchAllAssociative(
+            'SELECT i.indicado_por_id AS user_id, u.full_name AS nome, u.email,
+                    (SELECT t.name FROM indicacao r LEFT JOIN tenant t ON t.id = r.tenant_origem_id
+                      WHERE r.indicado_por_id = i.indicado_por_id AND NOT r.por_cadastro
+                      ORDER BY r.criada_em DESC, r.id DESC LIMIT 1) AS escritorio,
+                    COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ') AS envios
+             FROM indicacao i JOIN "user" u ON u.id = i.indicado_por_id
+             GROUP BY i.indicado_por_id, u.full_name, u.email',
+        );
+
+        return array_map(static fn (array $l): array => [
+            'user_id' => (int) $l['user_id'], 'nome' => (string) $l['nome'], 'email' => (string) $l['email'],
+            'escritorio' => $l['escritorio'] === null ? null : (string) $l['escritorio'], 'envios' => (int) $l['envios'],
+        ], $linhas);
+    }
+
+    /**
+     * As contas criadas por indicação, para as recompensas: UMA linha por conta (a mesma conta indicada por e-mail e pelo
+     * link, ou por duas pessoas, vale uma vez só, para quem indicou primeiro). Traz quando a conta foi criada e se o
+     * escritório dela tem ao menos uma pasta não excluída. Sem nome nem e-mail do indicado.
+     *
+     * @return list<array{indicador_id: int, conta_criada_em: string, tem_pasta: bool}>
+     */
+    public function contasParaRecompensas(): array
+    {
+        $linhas = $this->conexao()->fetchAllAssociative(
+            'SELECT DISTINCT ON (conta.id) i.indicado_por_id AS indicador_id, conta.created_at AS conta_criada_em,
+                    EXISTS (SELECT 1 FROM user_tenant ut JOIN pasta p ON p.tenant_id = ut.tenant_id
+                             WHERE ut.user_id = conta.id AND p.excluida_em IS NULL) AS tem_pasta
+             FROM indicacao i JOIN "user" conta ON conta.id = ' . self::CONTA_CRIADA . '
+             ORDER BY conta.id, i.criada_em, i.id',
+        );
+
+        return array_map(static fn (array $l): array => [
+            'indicador_id' => (int) $l['indicador_id'], 'conta_criada_em' => (string) $l['conta_criada_em'], 'tem_pasta' => (bool) $l['tem_pasta'],
+        ], $linhas);
     }
 
     /**

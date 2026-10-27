@@ -8,7 +8,7 @@ namespace App\Dashboard\DTO;
 final class ResultadoFotografiaDashboard
 {
     /**
-     * @param array<int, array{metas_ativas: int, demandas_ativas: int, metas_vencidas: int, prazos_proximos: int}> $contagens userId => números
+     * @param array<int, array{metas_ativas: int, demandas_ativas: int, metas_vencidas: int, prazos_proximos: int, metas_em_revisao?: int|null, pastas_urgentes?: int|null, metas_total?: int|null}> $contagens userId => números
      */
     public function __construct(
         public readonly array $contagens,

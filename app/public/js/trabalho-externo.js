@@ -238,6 +238,7 @@
         despachar: function (c) { return comCodigo(D.urlDespachar, c); },
         pagamentoComprovante: function (c) { return comCodigo(D.urlPagamentoComprovante, c); },
         pagamentoConfirmar: function (c) { return comCodigo(D.urlPagamentoConfirmar, c); },
+        pagamentoValor: function (c) { return comCodigo(D.urlPagamentoValor, c); },
         pagamentoAvisar: function (c) { return comCodigo(D.urlPagamentoAvisar, c); },
         despachoResponder: function (c) { return comCodigo(D.urlDespachoResponder, c); },
         despachoRespostas: function (c) { return comCodigo(D.urlDespachoRespostas, c); },
@@ -2198,8 +2199,14 @@
                 linha.appendChild(qr);
             }
             var dados = el('div', { class: 'te-pg-dados' }, [
-                el('div', { class: 'te-pg-rot', text: 'VALOR DA PROPOSTA ACEITA' }),
-                el('b', { class: 'te-pg-valor', text: pg.valor }),
+                el('div', { class: 'te-pg-rot', text: pg.valorAjustado ? 'VALOR DO PAGAMENTO' : 'VALOR DA PROPOSTA ACEITA' }),
+                el('span', { class: 'te-pg-valor-linha' }, [
+                    el('b', { class: 'te-pg-valor', text: pg.valor }),
+                    pg.podeEditarValor ? el('button', {
+                        type: 'button', class: 'te-pg-lapis', title: 'Alterar o valor', attrs: { 'aria-label': 'Alterar o valor do pagamento' },
+                        onclick: function () { alterarValorDoPagamento(cod, pg); }
+                    }, [ic('bi-pencil')]) : null
+                ]),
                 el('span', { class: 'te-pg-forma', text: pg.forma }),
                 el('span', null, ['Favorecido: ', el('b', { text: 'BlueJus Gestão e Tecnologia LTDA' })]),
                 el('span', null, ['CNPJ 66.803.163/0001-10 · identificação ', el('b', { text: pg.txid })])
@@ -2279,6 +2286,34 @@
             }
             aplicarDemanda(r);
             trocarAba('chat');
+        });
+    }
+
+    /**
+     * O lápis do Master: o diálogo da tela com o campo de valor e o motivo. O servidor lê o valor ("1.234,56"),
+     * confere tudo de novo e responde com a demanda inteira; erro volta no toast e o diálogo segue aberto.
+     */
+    function alterarValorDoPagamento(codigo, pg) {
+        if (previa()) { return; }
+        abrirConf(codigo, {
+            k: '__pagamento_valor__',
+            confirmacao: {
+                titulo: 'Alterar o valor do pagamento',
+                texto: 'Valor atual: ' + pg.valor + '. Informe o novo valor e o motivo. O solicitante será avisado.',
+                botao: 'Salvar', motivo: true, motivoMax: 300,
+                campoValor: { rotulo: 'Novo valor (R$)', inicial: String(pg.valorNumero || '').replace('.', ',') }
+            },
+            executar: function (motivo, valor) {
+                return pedir('POST', ROTA.pagamentoValor(codigo), { valor: valor, motivo: motivo }).then(function (r) {
+                    if (!r.ok) {
+                        toastErro(r.mensagem);
+                        return r;
+                    }
+                    toastDoServidor(r.toast, 'Valor alterado', 'O solicitante foi avisado no chat e por e-mail.');
+                    aplicarDemanda(r);
+                    return r;
+                });
+            }
         });
     }
 
@@ -2930,11 +2965,17 @@
         S.conf = { codigo: codigo, b: b };
         var c = b.confirmacao, alvo = limpar($('teConf'));
         // `motivoOpcional`: o campo aparece, mas pode ir vazio (ex.: "Não aprovar" uma vaga).
-        var motivo = c.motivo ? el('textarea', { class: 'te-conf-motivo', rows: 3, placeholder: c.motivoOpcional ? 'Opcional' : 'Descreva (obrigatório)' }) : null;
+        var motivo = c.motivo ? el('textarea', { class: 'te-conf-motivo', rows: 3, placeholder: c.motivoOpcional ? 'Opcional' : 'Descreva (obrigatório)', attrs: c.motivoMax ? { maxlength: String(c.motivoMax) } : {} }) : null;
+        // `campoValor`: campo de valor em reais acima do motivo (o servidor lê e valida; aqui só se digita).
+        var valor = c.campoValor ? el('input', { class: 'te-conf-valor', type: 'text', value: c.campoValor.inicial || '', attrs: { inputmode: 'decimal', 'aria-label': c.campoValor.rotulo } }) : null;
         var ok = el('button', {
             type: 'button', class: 'te-btn-pri' + (c.perigo ? ' is-perigo' : ''), text: c.botao,
             onclick: function () {
                 var m = motivo ? motivo.value.trim() : '';
+                if (valor && !valor.value.trim()) {
+                    valor.focus();
+                    return;
+                }
                 if (motivo && !m && !c.motivoOpcional) {
                     motivo.focus();
                     return;
@@ -2942,7 +2983,7 @@
                 ok.disabled = true;
                 if (b.executar) {
                     // Confirmação que não é ação de fluxo (ex.: revogar convite): fecha ao concluir.
-                    b.executar(m || null).then(function (r) { ok.disabled = false; if (r && r.ok) { fecharConf(); } });
+                    b.executar(m || null, valor ? valor.value.trim() : null).then(function (r) { ok.disabled = false; if (r && r.ok) { fecharConf(); } });
                     return;
                 }
                 aplicarAcao(codigo, b.k, m || null).then(function () { ok.disabled = false; });
@@ -2951,13 +2992,17 @@
         alvo.appendChild(el('div', { class: 'te-modal-fundo te-conf-fundo' }, el('div', { class: 'te-conf', attrs: { role: 'dialog', 'aria-modal': 'true' } }, [
             el('div', { class: 'te-conf-tit', text: c.titulo }),
             el('div', { class: 'te-conf-txt', text: c.texto }),
+            valor ? el('label', { class: 'te-conf-rot', text: c.campoValor.rotulo }) : null,
+            valor,
             motivo,
             el('div', { class: 'te-conf-botoes' }, [
                 el('button', { type: 'button', class: 'te-btn-sec', text: 'Cancelar', onclick: fecharConf }),
                 ok
             ])
         ])));
-        if (motivo) {
+        if (valor) {
+            valor.focus();
+        } else if (motivo) {
             motivo.focus();
         }
     }

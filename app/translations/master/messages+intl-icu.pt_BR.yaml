@@ -148,6 +148,9 @@ master:
             sul: Sul
         pessoas: '{n} usuário(s)'
         inscricoes: '{n} inscrição(ões)'
+        ind_env: '{n} indicação(ões) enviada(s)'
+        ind_ok: '{n} conta(s) aberta(s)'
+        ind_pago: 'R$ {n} pagos'
         municipios: '{n} municípios'
         municipio: Município
         cidade_nao_informada: Cidade não informada
@@ -231,6 +234,67 @@ master:
         token_invalido: Token CSRF inválido. Recarregue a página.
         informe_pausa: Informe se os convites ficam pausados ou liberados.
         informe_inteiros: Informe os limites em números inteiros.
+    # Seção Recompensas (master/_recompensas, F1; desenho 05 Perfis 1.2 VS 25.10.26) e as recusas do
+    # RecompensasDoMasterController. Os textos do JS ficam em master.js.recompensas.*.
+    recompensas:
+        titulo: Regras do programa Indique e ganhe
+        campo_valor: RECOMPENSA POR ESCRITÓRIO (R$)
+        campo_libera: LIBERA COM (ESCRITÓRIOS ATIVOS)
+        campo_carencia: CARÊNCIA (DIAS DE USO ATIVO)
+        campo_alerta: ALERTA ANTIFRAUDE (CONTAS EM 7 DIAS)
+        so_com_pasta: Só conta escritório com pastas abertas
+        unico: Pagamento único por escritório liberado · recorrente só para parceiros ★
+        unico_dica: 'Recorrência mensal só por condição individual de parceiro (menu ⋮ › Condição individual)'
+        nota: A recompensa só fica disponível quando o usuário atinge o número de escritórios ativos. Use ★ Ajustar para definir um valor individual.
+        indicadores: Indicadores
+        busca: Nome, e-mail ou escritório
+        vazio: Nenhum indicador neste filtro.
+        col_usuario: USUÁRIO
+        col_envios: ENVIOS
+        col_contas: CONTAS
+        col_ativos: ATIVOS P/ LIBERAR
+        col_por_conta: POR CONTA
+        col_saldo: SALDO
+        col_pago: PAGO
+        col_situacao: SITUAÇÃO
+        col_acoes: AÇÕES
+        dialogo:
+            titulo: Condição individual do indicador
+            valor: Recompensa por escritório (R$)
+            libera: LIBERA COM (ESCRITÓRIOS)
+            carencia: CARÊNCIA (DIAS)
+            vazio_geral: Vazio = regra geral
+            recorrente: Parceiro recorrente (crédito mensal)
+            mensal: POR MÊS, POR ESCRITÓRIO ATIVO (R$)
+            mensal_dica: Só conta escritório ativo, que abriu pasta nos últimos 30 dias e sem suspeita.
+            aviso: Condição individual é mantida mesmo quando a regra geral muda.
+            motivo: Motivo (contrato, parceria, convênio…)
+            cancelar: Cancelar
+            salvar: Salvar condição
+            fechar: Fechar
+        extrato:
+            titulo: Extrato de pagamentos e liberações
+            exportar: Exportar CSV
+            vazio: Nenhum pagamento ou liberação ainda.
+        lancamento:
+            titulo: Lançar crédito ou estorno
+            valor: Valor (R$)
+            dica: Use valor negativo para estornar
+            observacao: Observação (opcional)
+            cancelar: Cancelar
+            lancar: Lançar
+        csv:
+            data: Data
+            usuario: Usuário
+            email: E-mail
+            tipo: Tipo
+            valor: Valor
+            observacao: Observação
+            credito: Crédito manual
+            estorno: Estorno
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        indicador_nao_encontrado: Indicador não encontrado.
+        corpo_invalido: Corpo da requisição inválido.
     # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
     ia:
         instalacao:
@@ -346,6 +410,7 @@ master:
             config: Configurações globais
             com: Comercial e e-mails
             ind: Indicações do BlueJus
+            recomp: Recompensas
             notif: Central de Notificações
         vazia:
             aviso: DADO AINDA NÃO COLETADO · INTEGRAÇÃO AINDA NÃO DISPONÍVEL
@@ -452,6 +517,14 @@ master:
             primarios: Primários
             geral: Geral
             so_primarios: Só primários
+            indicacoes: Indicações
+            ind_env: Indicações enviadas
+            ind_ok: Contas abertas
+            ind_pago: Recompensas pagas (R$)
+            col_ind_env: Indicações
+            col_ind_ok: Contas
+            col_ind_pago: R$ pagos
+            por_estado_ind: indicações por estado de quem indicou
             brasil: Brasil
             mundo: Mundo
             estado: Estado
@@ -602,6 +675,8 @@ master:
             arm_em_uso: '{gb} em uso'
             arm_de: '{gb} de {limite} GB'
             arm_livre: '{faixa} · livre {livre}'
+            arm_bonus: 'Inclui {gb} GB de bônus ({origem}) até {data}'
+            arm_bonus_indicacao: indicação
             aviso_ok: Situação da conta atualizada.
         pedidos:
             titulo: 'Pedidos de exclusão de conta · {n}'
@@ -673,15 +748,20 @@ master:
             nota: 'Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.'
         planos:
             plano_free: 'Plano {nome}'
-            padrao: 'Padrão: toda conta nova começa aqui'
+            tag_free: 'Convênio OAB · toda conta nova começa aqui'
+            tag_escolhido: Mais escolhido
             inativo: inativo
             por_mes: / mês
-            usuarios_sem_limite: usuários sem limite
-            usuarios: '{n} usuários'
-            cap: '{gb} GB · {usuarios}'
+            cap: '<b>{gb} GB</b> de armazenamento · usuários ilimitados'
+            recursos: Todos os recursos liberados
             contas: '{n} conta(s) · {acima} perto ou acima da franquia'
+            ajustar: Ajustar
+            ajustar_dica: Ajustar preço e espaço
             editar: Editar plano
-            nota: Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail recomendando ampliar o espaço; em 100% novos envios ficam bloqueados, mas consultar e baixar arquivos continua liberado. Mudanças de plano com impacto comercial exigem confirmação e ficam registradas na auditoria.
+            rotulo: PLANOS DE ESPAÇO
+            faixa_titulo: Convênio OAB · BlueJus gratuito para advogados
+            faixa_texto: Todos os recursos do sistema ficam liberados em todas as contas, sem limite de usuários. A cobrança existe só para quem quiser mais espaço de armazenamento, em assinatura mensal no cartão de crédito, que pode ser cancelada a qualquer momento.
+            nota: Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.
         # Janela de limite (armazenamento e usuários); o título é o do item do menu (menu.lim_arm e menu.lim_usu).
         limite:
             em_uso: EM USO
@@ -761,6 +841,102 @@ master:
             respondeu: '{nome} respondeu'
             enviada_email: Resposta registrada e enviada para a fila de e-mail.
             enviada_central: Resposta registrada e enviada como aviso na Central.
+        # P4b: convenio-oab.js (painel Convênio OAB por estado, na seção Contas).
+        convenio:
+            titulo: Convênio OAB por estado
+            resumo_todos: Convênio ativo nos 27 estados · todos os advogados usam grátis
+            resumo_gratis: '{n} grátis'
+            resumo_dif: '{n} com valor diferenciado ({ufs})'
+            resumo_sem: '{n} sem convênio ({ufs})'
+            ajuda: 'Clique no estado para escolher: convênio grátis, convênio com valor diferenciado ou sem convênio (mensalidade cheia).'
+            desde: ' desde {data}'
+            st_livre: Convênio ativo · grátis
+            st_dif: 'Convênio · valor diferenciado {valor}/mês'
+            st_sem: 'Sem convênio · {valor}/mês'
+            p_menu: "OAB/{uf} · {estado} ({contas} conta(s))\n\n1 · Convênio ativo, grátis\n2 · Convênio com valor diferenciado\n3 · Sem convênio (mensalidade cheia)\n\nEscolha 1, 2 ou 3:"
+            p_valor_dif: 'Valor diferenciado pelo convênio OAB/{uf} (R$ por mês):'
+            p_valor_sem: "Convênio OAB/{uf} encerrado ou não renovado.\nMensalidade cobrada das contas de {estado} (R$):"
+            p_desde: 'A partir de (AAAA-MM-DD):'
+            p_motivo: 'Motivo (opcional):'
+            motivo_padrao: Convênio não renovado
+            valor_invalido: Valor inválido.
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_carregar: Não foi possível carregar os convênios.
+            rotulo_conta: 'Convênio OAB/{uf}'
+            rotulo_conta_dif: 'Convênio OAB/{uf} · valor diferenciado {valor}/mês'
+            rotulo_conta_sem: 'Sem convênio ({uf}) · {valor}/mês'
+        # P3: metas-divulgacao.js (Metas de divulgação, na Visão geral).
+        metas:
+            titulo: Metas de divulgação
+            mercado_pre: 'Mercado:'
+            mercado_pos: advogados regulares
+            quadro: Quadro da Advocacia
+            ajustar: Ajustar
+            auto: Atualização automática
+            freq:
+                semanal: semanal
+                mensal: mensal
+                trimestral: trimestral
+            ultima: 'última: {ultima} · próxima: {proxima}'
+            nunca: ainda não executada
+            agora: Atualizar agora
+            fase: Avançar de fase ao bater a meta
+            manual: mercado fixado manualmente · voltar a automático
+            fase1: Fase 1
+            fase2: Fase 2
+            chip: '{rotulo} · {valor}'
+            chip_dica: '{valor} advogados'
+            usuarios_de: 'de {alvo} advogados · {pct} da meta · faltam {faltam}'
+            estados: '{n} de 27 estados alcançados'
+            cab:
+                uf: UF
+                estado: Estado
+                meta_estado: Meta do estado
+                bluejus: BlueJus
+                oab: OAB
+                alcance: Alcance
+            linha_dica: Clique para ver as cidades
+            meta_uf_dica: Ajustar meta do estado
+            meta_n: '{n} advogados'
+            alcancado: 'alcançado {pct}'
+            mais_10: Ver só os 10 maiores
+            mais_27: Ver os 27 estados
+            nota: 'Advogados por estado vêm da tabela da OAB do mapa (⋮ › Atualizar dados). BlueJus e OAB se atualizam sozinhos pelo banco de dados.'
+            cid_cab:
+                cidade: Cidade
+                bluejus: BlueJus
+                pct_meta: '% do estado'
+                meta: Meta
+                progresso: Progresso
+            buscar: Buscar cidade
+            cid_total: '{n} cidades'
+            carregando: Carregando cidades do IBGE…
+            sem_conta: Nenhuma cidade com conta ou meta ainda. Busque uma cidade ou veja todas para definir metas.
+            todas_cidades: 'Ver todas as {n} cidades'
+            outra: Meta para outra cidade
+            meta_fixa_dica: Meta fixada. Clique para alterar
+            meta_sugerida_dica: Meta sugerida pelo que falta no estado. Clique para fixar
+            destacar: Destacar
+            cor:
+                amarelo: Amarelo
+                azul: Azul
+                verde: Verde
+                laranja: Laranja
+                vermelho: Vermelho
+                roxo: Roxo
+            ver_cidades: Ver cidades no mapa
+            remover: Remover destaque
+            mapa_titulo: Mapa do Brasil
+            p_mercado: 'Quantos advogados existem no mercado? (total da OAB)'
+            p_alvo: 'Meta de usuários do BlueJus:'
+            p_invalido: Informe números maiores que zero.
+            p_meta_uf: 'Meta de usuários em {estado} (vazio volta ao cálculo automático):'
+            p_meta_cid: 'Meta de usuários em {cidade} ({uf}) (vazio volta à sugestão):'
+            p_cidade: 'Nome da cidade em {estado}:'
+            p_meta_nova: 'Meta de usuários em {cidade}:'
+            confirma_fase: 'A meta de {alvo} usuários foi batida. Avançar para a próxima fase ({proxima})?'
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_carregar: Não foi possível carregar as metas de divulgação.
         # P3: indicacoes.js (seção Indicações).
         indicacoes:
             resumo: '{enviadas} enviadas · {hoje} hoje · {conta} viraram conta'
@@ -769,6 +945,57 @@ master:
             pausados: Convites pausados para todos
             liberados: Convites liberados
             erro_carregar: Não foi possível carregar as indicações. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+        # Seção Recompensas (public/js/master/recompensas.js).
+        recompensas:
+            ativo: Programa ativo
+            pausado: Programa pausado
+            kpi:
+                indicadores: INDICADORES
+                contas: CONTAS ABERTAS
+                liberados: LIBERADOS
+                a_pagar: A PAGAR
+                ja_pago: JÁ PAGO
+            filtro:
+                todos: Todos
+                pagar: A pagar
+                lib: Liberados
+                nao: Ainda não liberados
+                priv: ★ Condição individual
+            priv_n: '{n} com condição individual · não mudam com a regra geral'
+            sit:
+                liberado: Liberado
+                carencia: '{n} em carência'
+                andamento: Em andamento
+            sit_dica_carencia: '{n} conta(s) aguardando {dias} dias de uso ativo para gerar crédito'
+            por_mes: '+ {valor}/mês ↻'
+            dica_geral: Segue a regra geral
+            dica_priv: 'Condição individual. Não muda quando a regra geral é alterada.'
+            dica_priv_motivo: 'Condição individual: {motivo}. Não muda quando a regra geral é alterada.'
+            dica_recorrente: 'Parceiro recorrente: {valor} por mês para cada escritório ativo que abriu pasta nos últimos 30 dias. {motivo}'
+            linha_dica: Botão direito para mais opções
+            ajustar: Ajustar
+            ajustar_dica: Ajustar valor da recompensa
+            mais_opcoes: Mais opções
+            menu_condicao: Condição individual (★)
+            menu_geral: Voltar à regra geral
+            menu_lancamento: Lançar crédito ou estorno
+            menu_extrato: Ver extrato deste indicador
+            menu_csv: Baixar extrato (CSV)
+            tipo:
+                credito: Crédito manual
+                estorno: Estorno
+            extrato_todos: Mostrar todos
+            extrato_removido: Indicador removido
+            extrato_erro: Não foi possível carregar o extrato.
+            erro_valor: Informe o valor do crédito (use negativo para estornar).
+            lancado_credito: 'Crédito de {valor} lançado para {nome}.'
+            lancado_estorno: 'Estorno de {valor} lançado para {nome}.'
+            vazio_geral: 'Vazio = regra geral ({valor})'
+            salvo: 'Condição individual de {nome} salva.'
+            voltou: '{nome} voltou para a regra geral.'
+            regras_salvas: Regras do programa salvas.
+            erro_carregar: Não foi possível carregar as recompensas. Recarregue a página.
             erro_salvar: Não foi possível salvar.
         # Aba "Configurações da I.A." (public/js/master/ia.js).
         ia:
@@ -867,3 +1094,71 @@ master:
             aproximar: Aproximar
             afastar: Afastar
             ajustar: Ajustar ao mapa
+        # Seção "Configurações globais" (public/js/master/configuracoes.js; desenho 05 VS 25.10.26, cgGrupos).
+        config:
+            restaurar: Restaurar padrão
+            descartar: Descartar
+            salvar: Salvar
+            confirmar_padrao: Voltar todas as configurações ao padrão?
+            nao_salvas: Alterações não salvas
+            salvas: Configurações salvas ✓
+            ultima: 'Última alteração em {data}'
+            erro_carregar: Não foi possível carregar as configurações. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+            grupo:
+                identidade: Identidade
+                contas: Contas novas
+                seguranca: Segurança
+                regiao: Região
+                manutencao: Manutenção programada
+            campo:
+                nome: Nome do sistema
+                remetente: E-mail remetente
+                suporte: E-mail do suporte
+                cadastro: Cadastro de novas contas
+                freeGb: Espaço do Plano Free (GB)
+                aviso: Aviso de espaço a partir de (%)
+                sessao: Sessão expira após (min sem uso)
+                tentativas: Bloquear login após (tentativas)
+                dois: Verificação em duas etapas
+                retencao: Guardar auditoria por (dias)
+                idioma: Idioma padrão
+                fuso: Fuso horário
+                manut: Aviso para todos os usuários
+                manutAte: Mostrar o aviso até
+            ajuda:
+                remetente: Usado em campanhas e avisos
+                manut: 'Ex.: o sistema ficará indisponível das 22h às 23h. Em branco, nenhum aviso.'
+            opcao:
+                cadastro:
+                    'on': Aberto
+                    convite: Só por convite
+                    'off': Fechado
+                dois:
+                    master: Obrigatória para o Master
+                    prim: Master e primários
+                    todos: Todos os usuários
+                    opc: Opcional
+                idioma:
+                    pt-BR: Português (Brasil)
+                    en: English
+                    es: Español
+                fuso:
+                    America/Sao_Paulo: Brasília (GMT-3)
+                    America/Manaus: Manaus (GMT-4)
+                    America/Rio_Branco: Rio Branco (GMT-5)
+                    America/Noronha: Noronha (GMT-2)
+    # P4c: e-mail aos primários do estado quando o Master muda o convênio OAB (AvisoDeConvenioDaUf).
+    convenio_email:
+        titulo: 'Convênio OAB/{uf}'
+        ola: 'Olá, {nome}.'
+        assunto_dif: 'Convênio OAB/{uf}: valor diferenciado de R$ {valor}/mês a partir de {data}'
+        assunto_sem: 'Aviso: o convênio OAB/{uf} foi encerrado · nova mensalidade a partir de {data}'
+        assunto_livre: 'Convênio OAB/{uf}: sua conta volta a usar grátis'
+        corpo_dif: 'O convênio da OAB/{uf} passou a ter valor diferenciado: R$ {valor} por mês, a partir de {data}.'
+        corpo_sem: 'O convênio da OAB/{uf} foi encerrado. A partir de {data}, a mensalidade da sua conta passa a ser de R$ {valor} por mês.'
+        corpo_livre: 'O convênio da OAB/{uf} está ativo de novo. Sua conta volta a usar o BlueJus grátis.'
+        motivo: 'Motivo: {motivo}'
+        fecho: Em caso de dúvida, use o menu Ajuda dentro do BlueJus.
+        motivo_do_envio: 'Você recebe este aviso porque é usuário primário de um escritório de {uf} no BlueJus.'
+        falha_ao_enfileirar: Não foi possível enfileirar os avisos. Nada foi alterado.

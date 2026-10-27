@@ -87,6 +87,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // ver o Y como Free. Só o repositório do Contribua a consulta
         // (EspacoDoEscritorioSoNoContribuaArquiteturaTest).
         \App\Contribua\Entity\EspacoDoEscritorio::class,
+        // Bônus de espaço por indicação: mesmo motivo do espaço do escritório (lido por tenantId explícito
+        // no SituacaoDoEspaco, inclusive em lote para o painel do Master). Só o Contribua o cita
+        // (BonusDeEspacoSoNoContribuaArquiteturaTest).
+        \App\Contribua\Entity\BonusDeEspaco::class,
 
         // Identidade: existe antes e acima do vínculo com escritório.
         User::class,
@@ -214,6 +218,12 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
         \App\Master\Entity\SeccionalOab::class,
         \App\Master\Entity\DivulgacaoNaSeccional::class,
+        // Desempenho do Master (docs/specs/master-desempenho.md): telemetria, incidentes e registros de backup da
+        // PLATAFORMA, sem `tenant_id`. O evento guarda no máximo o usuário (SET NULL), nunca dado de escritório;
+        // lidos e gravados só pelo Master (ROLE_SUPER_ADMIN) e pelo endpoint do monitor, que é do usuário logado.
+        \App\Master\Entity\EventoDeDesempenho::class,
+        \App\Master\Entity\IncidenteDeDesempenho::class,
+        \App\Master\Entity\RegistroDeBackup::class,
         // Janela da OAB dos estados que faltam (docs/specs/master-oab-estados-que-faltam.md): as subseções e a nota
         // explicativa de cada seccional são anotação de trabalho da PLATAFORMA, compartilhada entre os Masters, sem
         // escritório nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
@@ -224,10 +234,27 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
         // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
         \App\Master\Entity\TemaConfig::class,
+        // Configurações globais do Master (Perfis 1.2 VS 25.10.26, P2): linha única (id 1) da PLATAFORMA, escrita só pelo
+        // Master, como o TemaConfig. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\ConfiguracaoGlobal::class,
         // BlueJus IA no Painel do Master (frente ia-anthropic-ligar, PR B, 24/10/2026): linha única de configuração da
         // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
         // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
         \App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa::class,
+        // Convênio OAB por estado do Master (P4b, 26/10/2026): uma linha por UF não gratuita, configuração da PLATAFORMA
+        // escrita só pelo Master. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\ConvenioDaUf::class,
+        // Metas de divulgação do Painel do Master (desenho 05 VS 25.10.26, P3): linha única de configuração da PLATAFORMA
+        // (id 1), escrita só pelo Master. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\MetaDeDivulgacao::class,
+        // Recompensas do Painel do Master (F1, 26/10/2026): a regra geral do programa Indique e ganhe (linha única, id 1) e
+        // a condição individual de cada indicador. Configuração da PLATAFORMA, escrita só pelo Master; a chave da condição
+        // é o usuário que indica, sem escritório. Sem dado de cliente.
+        \App\Recompensa\Entity\ProgramaDeRecompensa::class,
+        \App\Recompensa\Entity\CondicaoDeRecompensa::class,
+        // Extrato de recompensas (F2, 26/10/2026): livro só de INSERT com os créditos e estornos manuais por indicador.
+        // Dado da PLATAFORMA, lido e escrito só pelo Master; o indicador é um usuário, sem escritório. Sem dado de cliente.
+        \App\Recompensa\Entity\LancamentoDeRecompensa::class,
         // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
         // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
         // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
@@ -308,7 +335,17 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // e VersaoDeDocumentoJuridico (plataforma), justificadas acima.
     // 73 → 74 com o despacho da Central no Trabalho Externo (24/10/2026): DespachoDemanda, justificado acima.
     // 74 → 75 com a recusa de oferta do Trabalho Externo (24/10/2026): RecusaDeOferta, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 75;
+    // 75 → 78 com o Desempenho do Master (26/10/2026): EventoDeDesempenho, IncidenteDeDesempenho e RegistroDeBackup
+    // (plataforma), justificadas acima.
+    // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
+    // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
+    // 80 → 82 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
+    // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
+    // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
+    // 83 → 84 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
+    // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
+    // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 85;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

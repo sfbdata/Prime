@@ -31,6 +31,11 @@ final readonly class RetratoDoEspaco
         public bool $bloqueioAtivo,
         /** Onde o envio para: a faixa Bloqueio do Master aplicada ao limite (100% = o próprio limite). */
         public ?int $bytesBloqueio = null,
+        /** Bônus vigente já somado ao `bytesLimite` (zero sem bônus, e sempre zero sem limite). */
+        public int $bytesBonus = 0,
+        /** Até quando vale o bônus (o que vence por último); nulo sem bônus vigente. */
+        public ?\DateTimeImmutable $bonusAte = null,
+        public ?string $bonusOrigem = null,
     ) {
     }
 

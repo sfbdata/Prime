@@ -69,6 +69,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Contribua/Entity'
                 prefix: 'App\Contribua\Entity'
                 alias: AppContribua
+            AppServiceDesk:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/ServiceDesk/Entity'
+                prefix: 'App\ServiceDesk\Entity'
+                alias: AppServiceDesk
             AppExpediente:
                 type: attribute
                 is_bundle: false
@@ -148,6 +154,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Indicacao/Entity'
                 prefix: 'App\Indicacao\Entity'
                 alias: AppIndicacao
+            # Recompensas do Master (docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md): dado de plataforma, sem tenant.
+            AppRecompensa:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Recompensa/Entity'
+                prefix: 'App\Recompensa\Entity'
+                alias: AppRecompensa
             AppDashboard:
                 type: attribute
                 is_bundle: false
