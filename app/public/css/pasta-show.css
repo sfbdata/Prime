@@ -2554,33 +2554,41 @@ span.ps-situacao-pill { cursor: default; }
    Spec: docs/specs/pasta-show-financeiro-fatia2.md
    ============================================================================= */
 
-/* ── Faixa de status: quatro cards de MESMO peso ──
-   `auto-fit` com mínimo de 200px: em tela estreita eles quebram em duas linhas
-   em vez de espremer o número a ponto de quebrar "R$ 12.860,00" no meio.
-   `align-items: stretch` mantém os quatro da mesma altura, que é o que faz a
-   faixa parecer uma faixa e não quatro caixas soltas. */
+/* ── Cartão único do Financeiro (dc 27.10): aviso de vencidas, Contrato, Pró-bono, Valor da causa e Média por CPF
+   viram LINHAS de um só cartão (antes eram quatro cartões lado a lado). ── */
 .ps-fin-faixa {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 12px;
     margin-bottom: 16px;
-    align-items: stretch;
-}
-.ps-fin-bloco {
-    min-width: 0;
+    overflow: hidden;
     background: var(--ps-card);
     border: 1px solid var(--ps-border);
     border-radius: 4px;
     box-shadow: var(--ps-shadow-card);
-    padding: 13px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
 }
-/* O rótulo ocupa uma faixa de altura FIXA nos quatro cards. Com altura `auto` um
-   rótulo de duas palavras empurraria só o seu conteúdo para baixo, e os quatro
-   números deixariam de se alinhar — o desenho pede exatamente o contrário. */
-.ps-fin-rotulo-linha { display: flex; align-items: center; gap: 8px; height: 18px; }
+.ps-fin-bloco {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 6px 17px;
+    border-top: 1px solid #eef2f5;
+}
+.ps-fin-faixa > .ps-fin-bloco:first-child,
+.ps-fin-faixa > .ps-fin-vencidas + .ps-fin-bloco { border-top: none; }
+.ps-fin-vencidas {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 17px;
+    background: #fdf1f2;
+    border-bottom: 1px solid #f6d6da;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #a3232b;
+}
+.ps-fin-vencidas[hidden] { display: none; }
+.ps-fin-cab-sub { font-size: 11.5px; font-weight: 400; color: var(--ps-text-muted, #6b7f8c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ps-fin-rotulo-linha { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .ps-fin-rotulo {
     font-size: 10.5px;
     font-weight: 700;
@@ -2598,15 +2606,30 @@ span.ps-situacao-pill { cursor: default; }
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.ps-fin-corpo { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.ps-fin-corpo { display: flex; flex-direction: column; justify-content: flex-end; }
 /* Contrato e Pro-bono (dc 1738/1745, auditoria 2 F1): o selo fica numa LINHA,
    centrado na altura e na largura natural. Em coluna ele virava item de flex e
    esticava na largura do cartao. */
 .ps-fin-corpo--selo { flex-direction: row; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 9px; }
-.ps-fin-bloco--media { background: #fdf8ef; border-color: #ecdfc7; }
+/* Selos de Contrato e Pró-bono com a mesma largura (dc 27.10: 160px, centrados). */
+.ps-fin-bloco .ps-fin-selo { width: 160px; justify-content: center; box-sizing: border-box; padding: 0 10px; }
+/* Valor da causa / Total contratado: bloco bege com o número grande (dc 27.10). */
+#financeiro-total-contratado-bloco { display: block; padding: 14px 17px 12px; background: #fdf8ef; border-top: 1px solid #ecdfc7; }
+#financeiro-total-contratado-bloco .ps-fin-rotulo { color: #a08444; }
+#financeiro-total-contratado-bloco .ps-fin-corpo { margin-top: 4px; }
+#financeiro-total-contratado-bloco .ps-fin-sub { color: #8a6f3d; margin-top: 2px; }
+/* Média por CPF: linha bege, valor à direita. */
+.ps-fin-bloco--media .ps-fin-corpo { text-align: right; line-height: 1.2; }
+.ps-fin-bloco--media .ps-fin-numero { font-size: 15px; font-weight: 700; letter-spacing: 0; }
+.ps-fin-bloco--media .ps-fin-sub { margin-top: 0; font-size: 11px; }
+.ps-fin-bloco--media { background: #fdf8ef; border-top: 1px solid #ecdfc7; min-height: 44px; }
 .ps-fin-bloco--media .ps-fin-rotulo { color: #a08444; }
 .ps-fin-bloco--media .ps-fin-sub { color: #8a6f3d; }
-[data-bs-theme="dark"] .ps-fin-bloco--media { background: var(--ps-warn-bg); border-color: var(--ps-warn-border); }
+[data-bs-theme="dark"] .ps-fin-bloco--media,
+[data-bs-theme="dark"] #financeiro-total-contratado-bloco { background: var(--ps-warn-bg); border-color: var(--ps-warn-border); }
+[data-bs-theme="dark"] #financeiro-total-contratado-bloco .ps-fin-rotulo,
+[data-bs-theme="dark"] #financeiro-total-contratado-bloco .ps-fin-sub { color: var(--ps-warn-text); }
+[data-bs-theme="dark"] .ps-fin-vencidas { background: var(--ps-danger-bg); border-color: var(--ps-danger-border); color: var(--ps-danger-text); }
 [data-bs-theme="dark"] .ps-fin-bloco--media .ps-fin-rotulo,
 [data-bs-theme="dark"] .ps-fin-bloco--media .ps-fin-sub { color: var(--ps-warn-text); }
 

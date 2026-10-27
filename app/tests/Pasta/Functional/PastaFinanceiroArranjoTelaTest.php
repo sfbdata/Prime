@@ -321,6 +321,22 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('dc 27.10: cartão único com aviso de vencidas escondido, trilho "Contratos" e subtítulos')]
+    public function testCartaoUnicoDoDesenho27(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertCount(1, $crawler->filter('.ps-fin-faixa > .ps-fin-vencidas[hidden]'), 'sem atraso a faixa vermelha fica escondida');
+        self::assertSame('Contratos', trim($crawler->filter('[data-trilho="arquivos"] > .ps-card-cab > h2')->text()));
+        self::assertStringContainsString('Recibos, guias e outros', $crawler->filter('[data-trilho="arquivos"] > .ps-card-cab > .ps-fin-cab-sub')->text());
+        self::assertStringContainsString('Cobrança e histórico de negociações', $crawler->filter('#financeiroRelatorio > .ps-card-cab > .ps-fin-cab-sub')->text());
+    }
+
     #[TestDox('Sem cliente vinculado a média mostra travessão e convida a vincular')]
     public function testSemClienteVinculadoMostraTravessao(): void
     {

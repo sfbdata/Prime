@@ -36,6 +36,12 @@
             totalContratado.textContent = resumo.contratado;
             totalContratado.dataset.centavos = String(resumo.contratadoCentavos);
         }
+        const vencidas = document.getElementById('financeiro-vencidas');
+        if (vencidas && typeof resumo.vencidasQuantidade !== 'undefined') {
+            vencidas.hidden = resumo.vencidasQuantidade === 0;
+            const n = resumo.vencidasQuantidade;
+            vencidas.querySelector('span').textContent = BJ_T.t(n === 1 ? 'pasta_financeiro.js.vencidas_um' : 'pasta_financeiro.js.vencidas_varias', { n: n, valor: resumo.vencidasFormatado });
+        }
     }
 
     async function postar(url, csrf, extras) {
