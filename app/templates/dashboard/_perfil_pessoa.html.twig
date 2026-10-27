@@ -6,7 +6,8 @@
    renderizado. Matriz, correlação, hipótese, fatores, "O que isso pode causar?" e plano vêm de regras
    fixas sobre números reais (AnaliseDaPessoa). "Criar acompanhamento" grava um registro próprio do
    escritório (spec painel-acompanhamento-redistribuir, fatia A; confirmação em <dialog>, sem tarefa
-   avulsa, sem texto livre); "Redistribuir" ainda não existe (fatia B).
+   avulsa, sem texto livre); "Redistribuir" (fatia B) abre um <dialog> com as metas ativas da pessoa, tudo desmarcado,
+   e só grava no clique de "Confirmar redistribuição".
    Quem monta é o PerfilDaPessoaDoDashboardController; o dashboard-perfil-pessoa.js injeta este bloco no
    painel e troca o título. Estilo em public/css/dashboard-perfil-pessoa.css (escopo .db-page).
 ─────────────────────────────────────────────────────────────────────────── #}
@@ -21,11 +22,14 @@
      data-url-acomp-criar="{{ path('dashboard_inteligencia_pessoa_acomp_criar', {id: perfil.userId}) }}"
      data-url-acomp-renovar="{{ path('dashboard_inteligencia_pessoa_acomp_renovar', {id: perfil.userId}) }}"
      data-url-acomp-encerrar="{{ path('dashboard_inteligencia_pessoa_acomp_encerrar', {id: perfil.userId}) }}"
+     data-url-redistribuir="{{ path('dashboard_inteligencia_pessoa_redistribuir', {id: perfil.userId}) }}"
      data-acomp-aberto="{{ emAcomp ? '1' : '0' }}" data-acomp-vencido="{{ emAcomp and acomp.vencido ? '1' : '0' }}"
      data-txt-criado="{{ 'dashboard.pessoa.acomp.criado'|trans({nome: perfil.primeiroNome}) }}"
      data-txt-renovado="{{ 'dashboard.pessoa.acomp.renovado'|trans({nome: perfil.primeiroNome}) }}"
      data-txt-encerrado="{{ 'dashboard.pessoa.acomp.encerrado'|trans({nome: perfil.primeiroNome}) }}"
-     data-txt-erro-acomp="{{ 'dashboard.pessoa.acomp.erro'|trans }}">
+     data-txt-erro-acomp="{{ 'dashboard.pessoa.acomp.erro'|trans }}"
+     data-txt-red-concluida="{{ 'dashboard.pessoa.redistribuir.concluida'|trans({passadas: '{passadas}', total: '{total}'}) }}"
+     data-txt-red-parcial="{{ 'dashboard.pessoa.redistribuir.parcial'|trans({passadas: '{passadas}', total: '{total}', puladas: '{puladas}'}) }}">
     <div class="db-pf-cab">
         {% if perfil.fotoUrl %}
             <img src="{{ path('app_profile_foto_serve', {nome: perfil.fotoUrl}) }}" alt="" class="db-avatar db-avatar-img db-pf-avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
@@ -149,6 +153,7 @@
         <button type="button" class="db-pf-btn db-pf-btn--primario" data-pf-acomp-abrir="criar"{{ emAcomp ? ' hidden' : '' }}>{{ 'dashboard.pessoa.acomp.criar'|trans }}</button>
         <button type="button" class="db-pf-btn" data-pf-acomp-abrir="renovar"{{ emAcomp ? '' : ' hidden' }}>{{ 'dashboard.pessoa.acomp.renovar'|trans }}</button>
         <button type="button" class="db-pf-btn" data-pf-acomp-encerrar{{ emAcomp ? '' : ' hidden' }}>{{ 'dashboard.pessoa.acomp.encerrar'|trans }}</button>
+        {% if perfil.podeRedistribuir %}<button type="button" class="db-pf-btn" data-pf-red-abrir>{{ 'dashboard.pessoa.redistribuir.botao'|trans }}</button>{% endif %}
         <button type="button" class="db-pf-btn" data-pf-marcar="analisado" aria-pressed="{{ perfil.status == 'analisado' ? 'true' : 'false' }}">{{ 'dashboard.pessoa.marcar_analisado'|trans }}</button>
         <span class="db-pf-estado">
             <span class="db-pf-revisao" data-pf-revisao data-txt="{{ 'dashboard.pessoa.acomp.revisar_ate'|trans({data: '{data}'}) }}"{{ emAcomp ? '' : ' hidden' }}>{% if emAcomp %}{{ 'dashboard.pessoa.acomp.revisar_ate'|trans({data: acomp.revisarEm.format('d/m')}) }}{% endif %}</span>
@@ -183,4 +188,25 @@
             <button type="button" class="db-pf-btn db-pf-btn--primario" data-pf-dlg-confirmar>{{ 'dashboard.pessoa.acomp.confirmar_criar'|trans }}</button>
         </div>
     </dialog>
+
+    {% if perfil.podeRedistribuir %}
+    {# Redistribuir (spec: nada é gravado sem o clique em "Confirmar redistribuição"). O corpo vem do servidor ao abrir. #}
+    <dialog class="db-pf-dlg db-pf-dlg--red" data-pf-red-dlg aria-labelledby="dbPfRedTitulo"
+            data-txt-uma="{{ 'dashboard.pessoa.redistribuir.meta_um'|trans }}" data-txt-varias="{{ 'dashboard.pessoa.redistribuir.meta_varias'|trans }}"
+            data-txt-resumo="{{ 'dashboard.pessoa.redistribuir.resumo'|trans({metas: '{metas}', origem: '{origem}', destinos: '{destinos}'}) }}"
+            data-txt-origem="{{ perfil.nome }}" data-txt-carregando="{{ 'dashboard.pessoa.redistribuir.carregando'|trans }}"
+            data-txt-erro-carregar="{{ 'dashboard.pessoa.redistribuir.erro_carregar'|trans }}" data-txt-erro="{{ 'dashboard.pessoa.redistribuir.erro'|trans }}">
+        <div class="db-pf-dlg-topo"><i class="bi bi-arrow-left-right" aria-hidden="true"></i><b id="dbPfRedTitulo">{{ 'dashboard.pessoa.redistribuir.titulo'|trans }}</b><button type="button" class="db-pf-dlg-x" data-pf-red-fechar aria-label="{{ 'dashboard.pessoa.acomp.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div class="db-pf-dlg-corpo">
+            <div class="db-pf-dlg-pessoa">{{ perfil.nome }}</div>
+            <div data-pf-red-corpo></div>
+            <div class="db-pf-dlg-texto" data-pf-red-resumo role="status" hidden></div>
+            <div class="db-pf-dlg-erro" data-pf-red-erro role="alert" hidden></div>
+        </div>
+        <div class="db-pf-dlg-rodape">
+            <button type="button" class="db-pf-btn" data-pf-red-fechar>{{ 'dashboard.pessoa.acomp.cancelar'|trans }}</button>
+            <button type="button" class="db-pf-btn db-pf-btn--primario" data-pf-red-confirmar disabled>{{ 'dashboard.pessoa.redistribuir.confirmar'|trans }}</button>
+        </div>
+    </dialog>
+    {% endif %}
 </div>

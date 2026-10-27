@@ -185,3 +185,15 @@
 .db-page .db-pf-dlg-prazo label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-size: 13px; font-weight: 600; cursor: pointer; }
 .db-page .db-pf-dlg-erro { padding: 7px 10px; border-radius: 4px; background: #fbeaea; color: #a32a2a; font-size: 12.5px; font-weight: 600; }
 .db-page .db-pf-dlg-rodape { display: flex; justify-content: flex-end; gap: 6px; padding: 0 16px 14px; }
+
+/* Redistribuir metas (fatia B da spec painel-acompanhamento-redistribuir). O desenho não desenha esta tela: reusa o
+   <dialog> do acompanhamento (cabeçalho #0a6fa0, 440 px) e os botões de 30 px; a lista só alinha meta e destino. */
+.db-page .db-pf-dlg--red { width: min(560px, calc(100vw - 24px)); }
+.db-page .db-pf-red-lista { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.db-page .db-pf-red-linha { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 40%); align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--db-ia-divisor); }
+.db-page .db-pf-red-meta { display: flex; align-items: flex-start; gap: 7px; margin: 0; font-size: 13px; cursor: pointer; }
+.db-page .db-pf-red-meta > span { display: flex; flex-direction: column; min-width: 0; }
+.db-page .db-pf-red-meta b { overflow-wrap: anywhere; }
+.db-page .db-pf-red-meta small { font-size: 11.5px; color: #34505f; }
+.db-page .db-pf-red-destino { width: 100%; height: 30px; font-size: 12.5px; }
+.db-page .db-pf-red-sem { font-size: 12px; color: #a32a2a; }

@@ -293,10 +293,10 @@ class TarefaMensagem implements Auditavel, TenantAware
         return $this->registradoPorCargo;
     }
 
-    /** Despacho registrado (com código) e lembrete não se editam; mensagem antiga, sem código, continua editável. */
+    /** Despacho registrado (com código), lembrete e redistribuição não se editam; mensagem antiga, sem código, continua editável. */
     public function podeSerEditado(): bool
     {
-        return $this->codigo === null && $this->acao !== AcaoDoDespacho::Lembrete;
+        return $this->codigo === null && !in_array($this->acao, [AcaoDoDespacho::Lembrete, AcaoDoDespacho::Redistribuicao], true);
     }
 
     /**

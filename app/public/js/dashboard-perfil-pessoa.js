@@ -7,7 +7,8 @@
    vira o nome da pessoa. Fechar o painel ou tocar em "← Equipe" volta à equipe. Os botões do perfil
    ("Marcar como analisado" e "Essa análise ajudou?") gravam a marca pessoal por POST e só então mudam a
    tela. "Criar acompanhamento", "Renovar" e "Encerrar acompanhamento" fazem POST próprio (o criar e o renovar
-   só depois do clique de confirmação do <dialog>). Tudo é delegado no document: o painel e a tabela são trocados junto com o fragmento dos filtros.
+   só depois do clique de confirmação do <dialog>). "Redistribuir" abre um <dialog> com as metas ativas da pessoa
+   (GET, tudo desmarcado) e só o clique em "Confirmar redistribuição" faz o POST. Tudo é delegado no document: o painel e a tabela são trocados junto com o fragmento dos filtros.
    Textos vêm do HTML (data-*), traduzidos no servidor. Nada de HTML montado por string. */
 (function () {
     'use strict';
@@ -233,6 +234,95 @@
             });
     }
 
+    /* Redistribuir metas (spec painel-acompanhamento-redistribuir, fatia B). A lista chega do servidor TODA desmarcada;
+       só o clique de confirmação grava. O resumo é montado a cada marca ou troca de destino. */
+    function dialogoRedistribuir(el) {
+        return el.closest('[data-pf-red-dlg]');
+    }
+
+    function linhasMarcadas(dlg) {
+        return Array.prototype.filter.call(dlg.querySelectorAll('[data-pf-red-linha]'), function (l) {
+            var m = l.querySelector('[data-pf-red-marca]');
+            return m && m.checked && !m.disabled;
+        });
+    }
+
+    function atualizarResumo(dlg) {
+        var marcadas = linhasMarcadas(dlg);
+        var lista = dlg.querySelector('[data-pf-red-lista]');
+        var limite = lista ? parseInt(lista.getAttribute('data-limite'), 10) : 0;
+        var resumo = dlg.querySelector('[data-pf-red-resumo]');
+        var porDestino = {};
+        var ordem = [];
+        marcadas.forEach(function (l) {
+            var opcao = l.querySelector('[data-pf-red-destino]').selectedOptions[0];
+            var nome = opcao.textContent.replace(/ \(\d+\)$/, '');
+            if (!porDestino[nome]) { porDestino[nome] = 0; ordem.push(nome); }
+            porDestino[nome]++;
+        });
+        var n = marcadas.length;
+        resumo.hidden = n === 0;
+        resumo.textContent = n === 0 ? '' : dlg.getAttribute('data-txt-resumo')
+            .replace('{metas}', n + ' ' + dlg.getAttribute(n === 1 ? 'data-txt-uma' : 'data-txt-varias'))
+            .replace('{origem}', dlg.getAttribute('data-txt-origem'))
+            .replace('{destinos}', ordem.map(function (nome) { return nome + ' (' + porDestino[nome] + ')'; }).join(', '));
+        dlg.querySelector('[data-pf-red-confirmar]').disabled = n === 0 || n > limite;
+    }
+
+    function erroRedistribuir(dlg, texto) {
+        var quadro = dlg.querySelector('[data-pf-red-erro]');
+        quadro.textContent = texto;
+        quadro.hidden = !texto;
+    }
+
+    function abrirRedistribuir(botao) {
+        var perfil = botao.closest('[data-pf]');
+        var dlg = perfil ? perfil.querySelector('[data-pf-red-dlg]') : null;
+        if (!dlg) { return; }
+        var corpo = dlg.querySelector('[data-pf-red-corpo]');
+        corpo.textContent = dlg.getAttribute('data-txt-carregando');
+        erroRedistribuir(dlg, '');
+        dlg.querySelector('[data-pf-red-resumo]').hidden = true;
+        dlg.querySelector('[data-pf-red-confirmar]').disabled = true;
+        if (typeof dlg.showModal === 'function') { dlg.showModal(); } else { dlg.setAttribute('open', ''); }
+        fetch(perfil.getAttribute('data-url-redistribuir'), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) {
+            if (!r.ok) { throw new Error('HTTP ' + r.status); }
+            return r.text();
+        }).then(function (html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            corpo.replaceChildren.apply(corpo, Array.prototype.slice.call(doc.body.childNodes));
+            atualizarResumo(dlg);
+        }).catch(function () {
+            corpo.textContent = dlg.getAttribute('data-txt-erro-carregar');
+        });
+    }
+
+    function confirmarRedistribuicao(botao) {
+        var dlg = dialogoRedistribuir(botao);
+        var perfil = botao.closest('[data-pf]');
+        var movimentos = linhasMarcadas(dlg).map(function (l) {
+            return {
+                meta_id: parseInt(l.getAttribute('data-meta'), 10),
+                destino_id: parseInt(l.querySelector('[data-pf-red-destino]').value, 10)
+            };
+        });
+        if (!perfil || movimentos.length === 0 || botao.disabled) { return; }
+        botao.disabled = true;
+        enviarAcompanhamento(perfil, perfil.getAttribute('data-url-redistribuir'), { movimentos: movimentos })
+            .then(function (r) {
+                fecharDialogo(dlg);
+                var chave = r.puladas > 0 ? 'data-txt-red-parcial' : 'data-txt-red-concluida';
+                avisarAcompanhamento(perfil, perfil.getAttribute(chave)
+                    .replace('{passadas}', r.passadas).replace('{total}', r.total).replace('{puladas}', r.puladas));
+            }).catch(function (erro) {
+                erroRedistribuir(dlg, erro.message || dlg.getAttribute('data-txt-erro'));
+                botao.disabled = false;
+            });
+    }
+
     function alternarComparacao(botao) {
         var secao = botao.closest('[data-pf-comp]');
         if (!secao) { return; }
@@ -244,7 +334,7 @@
     }
 
     document.addEventListener('click', function (e) {
-        var alvo = e.target.closest ? e.target.closest('[data-pf-abrir], [data-ia-pessoa-voltar], [data-pf-marcar], [data-pf-comparar], [data-pf-acomp-abrir], [data-pf-acomp-encerrar], [data-pf-dlg-fechar], [data-pf-dlg-confirmar]') : null;
+        var alvo = e.target.closest ? e.target.closest('[data-pf-abrir], [data-ia-pessoa-voltar], [data-pf-marcar], [data-pf-comparar], [data-pf-acomp-abrir], [data-pf-acomp-encerrar], [data-pf-dlg-fechar], [data-pf-dlg-confirmar], [data-pf-red-abrir], [data-pf-red-fechar], [data-pf-red-confirmar]') : null;
         if (!alvo) { return; }
         if (alvo.hasAttribute('data-pf-abrir')) { abrir(alvo); }
         else if (alvo.hasAttribute('data-ia-pessoa-voltar')) { modoEquipe(); }
@@ -253,7 +343,15 @@
         else if (alvo.hasAttribute('data-pf-acomp-encerrar')) { encerrarAcompanhamento(alvo); }
         else if (alvo.hasAttribute('data-pf-dlg-fechar')) { fecharDialogo(alvo.closest('[data-pf-dlg]')); }
         else if (alvo.hasAttribute('data-pf-dlg-confirmar')) { confirmarDialogo(alvo); }
+        else if (alvo.hasAttribute('data-pf-red-abrir')) { abrirRedistribuir(alvo); }
+        else if (alvo.hasAttribute('data-pf-red-fechar')) { fecharDialogo(dialogoRedistribuir(alvo)); }
+        else if (alvo.hasAttribute('data-pf-red-confirmar')) { confirmarRedistribuicao(alvo); }
         else { alternarComparacao(alvo); }
+    });
+
+    document.addEventListener('change', function (e) {
+        var alvo = e.target && e.target.closest ? e.target.closest('[data-pf-red-marca], [data-pf-red-destino]') : null;
+        if (alvo) { atualizarResumo(dialogoRedistribuir(alvo)); }
     });
 
     /* Fechar o painel volta à equipe: a próxima abertura pelo botão "BlueJus Intelligence" mostra a leitura da equipe. */

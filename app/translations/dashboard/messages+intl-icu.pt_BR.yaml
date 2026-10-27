@@ -571,6 +571,30 @@ dashboard:
             renovado: 'Acompanhamento renovado · {nome}'
             encerrado: 'Acompanhamento encerrado · {nome}'
             erro: Não foi possível registrar agora. Tente de novo.
+        # Redistribuir metas da pessoa (fatia B da spec painel-acompanhamento-redistribuir). Dialog com confirmação;
+        # os textos do JS chegam por data-* do fragmento, já traduzidos no servidor.
+        redistribuir:
+            botao: Redistribuir
+            titulo: Redistribuir metas
+            sugestao: 'Sugestão por regras fixas: quem tem menos metas ativas. Sem IA, sem avaliação de desempenho.'
+            nada_marcado: Nenhuma meta vem marcada. Marque as que quer passar e confirme o destino de cada uma.
+            zerar: Mostra as metas reais da pessoa; pode diferir do número do card se ele foi zerado.
+            vazio: Nenhuma meta ativa para redistribuir.
+            pasta: 'Pasta {pasta}'
+            prazo: 'Prazo {data}'
+            destino: 'Quem recebe a meta {titulo}'
+            sem_destino: Sem pessoa disponível com acesso a esta pasta.
+            marcar_todas: Marcar todas
+            limite: 'No máximo {limite} metas por confirmação.'
+            resumo: 'Passar {metas} de {origem} para {destinos}. A pessoa de origem e quem recebe serão avisados.'
+            meta_um: meta
+            meta_varias: metas
+            confirmar: Confirmar redistribuição
+            carregando: Carregando as metas...
+            erro_carregar: Não foi possível carregar as metas agora. Tente de novo.
+            erro: Não foi possível redistribuir agora. Tente de novo.
+            concluida: 'Redistribuição concluída: {passadas} de {total} metas passadas.'
+            parcial: '{passadas} de {total} metas foram passadas; {puladas} mudaram antes da confirmação.'
         feedback:
             pergunta: Essa análise ajudou?
             sim: ✓ Sim
