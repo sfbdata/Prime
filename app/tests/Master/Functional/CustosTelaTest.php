@@ -61,6 +61,10 @@ final class CustosTelaTest extends JusPrimeWebTestCase
         foreach (['Custos por categoria', 'Margem por plano e projeção', 'Lançamentos do mês', 'Projeção mantém os valores do mês selecionado.', 'PLANO', 'PROJEÇÃO'] as $texto) {
             self::assertStringContainsString($texto, $html, $texto);
         }
+        foreach (['Copiar do mês anterior', 'Lançar custo'] as $botao) {
+            self::assertStringContainsString($botao, $html, $botao);
+        }
         self::assertStringContainsString('data-url-dados="/master/dados/custos"', $html);
+        self::assertStringContainsString('data-token="', $html);
     }
 }

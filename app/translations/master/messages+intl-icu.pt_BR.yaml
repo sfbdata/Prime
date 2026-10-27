@@ -1276,6 +1276,15 @@ master:
     custos:
         mes: Mês
         nota: Receita atual, não histórica. Os custos são os lançados no mês escolhido.
+        copiar: Copiar do mês anterior
+        lancar: Lançar custo
+        cancelar: Cancelar
+        campo_categoria: Categoria
+        campo_valor: Valor mensal (R$)
+        campo_fornecedor: Fornecedor
+        fornecedor_dica: 'Ex.: AWS, Google'
+        campo_origem: Origem do valor
+        campo_observacao: Observação
         por_categoria: Custos por categoria
         do_mes: do mês selecionado
         margem_e_projecao: Margem por plano e projeção
@@ -1308,6 +1317,18 @@ master:
             nao_lancado: não lançado
             sem_valor: '-'
             meses: '{n} meses'
+            excluir: Excluir
+            erro_valor: Informe o valor mensal.
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            dlg:
+                salvar: Salvar
+                excluir: Excluir
+                copiar: Copiar
+                lancar: 'Lançar custo · {mes}'
+                copiar_titulo: Copiar do mês anterior
+                copiar_texto: 'Copiar os lançamentos do mês anterior para {mes}? O que era medido passa a estimado.'
+                excluir_titulo: Excluir lançamento
+                excluir_texto: Excluir este lançamento?
             erro_carregar: Não foi possível carregar os custos. Recarregue a página.
             categoria:
                 armazenamento: Armazenamento

@@ -144,9 +144,9 @@ final class EncaminharNaJanelaJsTest extends TestCase
         $menu = self::trecho(self::js('central.js'), 'function menuDaMensagem(', 'function falhaDeAcao(');
 
         self::assertStringContainsString('var oculta = !!m.ocultoPorPermissao;', $menu);
-        self::assertStringContainsString("if (podeEscrever() && !oculta) {\n                itens.push({ icone: 'bi-reply', rotulo: 'Responder'", $menu);
+        self::assertStringContainsString("if (podeEscrever() && !oculta && !comIa) {\n                itens.push({ icone: 'bi-reply', rotulo: 'Responder'", $menu);
         self::assertStringContainsString("if (!oculta) {\n                itens.push({ icone: 'bi-clipboard', rotulo: 'Copiar'", $menu);
-        self::assertStringContainsString("var autor = !m.minha && podeEscrever() ? mencionavel(m.autorId) : null;", $menu, 'Mencionar não depende do oculto');
+        self::assertStringContainsString("var autor = !m.minha && !comIa && podeEscrever() ? mencionavel(m.autorId) : null;", $menu, 'Mencionar não depende do oculto');
         self::assertStringContainsString('if (!itens.length) { return; }', $menu);
     }
 

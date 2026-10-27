@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
+use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Repository\UserTenantRepository;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
@@ -14,6 +15,8 @@ use App\TrabalhoExterno\Enum\Disponibilidade;
 use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\Visibilidade;
+use App\TrabalhoExterno\Entity\EscritorioSolicitante;
+use App\TrabalhoExterno\Repository\EscritorioSolicitanteRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
 use App\TrabalhoExterno\Service\ApresentadorDeDemanda;
 use App\TrabalhoExterno\Service\ContadorDeNaoLidas;
@@ -39,6 +42,7 @@ final class MontarPainelUseCase
         private readonly UserTenantRepository $vinculos,
         private readonly PreviaDePerfil $previa,
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
+        private readonly EscritorioSolicitanteRepository $escritoriosSalvos,
     ) {
     }
 
@@ -70,10 +74,10 @@ final class MontarPainelUseCase
         // Quem abre solicitação (decisão do dono, 16/10): o Solicitante, no próprio escritório; e o
         // Master, na visão dele ou na prévia de Solicitante, em nome de um dos escritórios dele.
         $novaSolicitacao = match (true) {
-            $ctx->perfil === Perfil::Master && !$ctx->previa => $this->dadosDoModal($ctx) + ['peloMaster' => true],
+            $ctx->perfil === Perfil::Master && !$ctx->previa => $this->dadosDoModal($ctx, comSalvos: false) + ['peloMaster' => true],
             $ctx->perfil !== Perfil::Solicitante => null,
             !$ctx->previa => $this->dadosDoModal($ctx),
-            $master !== null => $this->dadosDoModal($master) + ['peloMaster' => true],
+            $master !== null => $this->dadosDoModal($master, comSalvos: false) + ['peloMaster' => true],
             default => null,
         };
         // Pelo Master, só com algum escritório vinculado para escolher.
@@ -227,7 +231,7 @@ final class MontarPainelUseCase
      *
      * @return array<string, mixed>
      */
-    private function dadosDoModal(Contexto $ctx): array
+    private function dadosDoModal(Contexto $ctx, bool $comSalvos = true): array
     {
         $u = $ctx->usuario;
         $vinculos = $this->vinculos->findActiveByUser($u);
@@ -253,6 +257,10 @@ final class MontarPainelUseCase
             ];
         }
 
+        if ($comSalvos) {
+            array_push($escritorios, ...$this->escritoriosGuardados($u));
+        }
+
         $lotacao = (string) $atual?->getLotacao()?->getNome();
         preg_match('/^(.+?)\/([A-Z]{2})$/', $lotacao, $m);
 
@@ -271,5 +279,16 @@ final class MontarPainelUseCase
             'prioridades' => DadosDaSolicitacao::PRIORIDADES,
             'prazoPadrao' => (new \DateTimeImmutable('today +7 days'))->format('Y-m-d'),
         ];
+    }
+
+    /**
+     * Os escritórios que o usuário guardou, depois dos da conta, com `salvo` e id próprio (`s<id>`). O Master abre
+     * em nome de um escritório da plataforma, então para ele não há guardado para escolher.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function escritoriosGuardados(User $usuario): array
+    {
+        return array_map(static fn (EscritorioSolicitante $e): array => $e->paraPainel(), $this->escritoriosSalvos->doUsuario($usuario));
     }
 }

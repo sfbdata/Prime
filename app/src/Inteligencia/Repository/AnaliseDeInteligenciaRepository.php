@@ -209,7 +209,11 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
-    /** A análise em andamento (pendente ou processando) do alvo/tipo/agente/comando, se houver — idempotência do pedido. */
+    /**
+     * A análise em andamento (pendente ou processando) do alvo/tipo/agente/comando, se houver — idempotência do pedido.
+     * `$criadaApos` (opcional): só vale a criada a partir desse instante, para o chamador que não quer ficar preso a
+     * uma análise que o worker abandonou (o chat da Central). Sem ele, o comportamento é o de sempre.
+     */
     public function findPendenteDoAlvo(
         Tenant $tenant,
         string $alvoTipo,
@@ -217,13 +221,17 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
         TipoDeAnalise $tipo = TipoDeAnalise::ResumoPush,
         ?Agente $agente = null,
         ?Comando $comando = null,
+        ?\DateTimeImmutable $criadaApos = null,
     ): ?AnaliseDeInteligencia {
-        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente, $comando, semComandoQuandoNulo: true)
+        $qb = $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente, $comando, semComandoQuandoNulo: true)
             ->andWhere('a.status IN (:emAndamento)')
             ->setParameter('emAndamento', [StatusDaAnalise::Pendente, StatusDaAnalise::Processando])
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->setMaxResults(1);
+        if ($criadaApos !== null) {
+            $qb->andWhere('a.criadaEm >= :criadaApos')->setParameter('criadaApos', $criadaApos);
+        }
+
+        return $qb->getQuery()->getOneOrNullResult();
     }
 
     /** A última concluída do alvo/tipo/agente/comando — base do "nada novo desde a última" e do [NOVA] do prompt. */
