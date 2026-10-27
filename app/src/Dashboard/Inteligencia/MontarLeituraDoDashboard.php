@@ -18,14 +18,18 @@ final class MontarLeituraDoDashboard
         private readonly MotorAvancado $motorAvancado,
     ) {}
 
-    /** @param array<string, mixed> $filtros filtros do Dashboard (data_de, data_ate, …) */
-    public function montar(DashboardOutput $dashboard, array $filtros, \DateTimeImmutable $agora): LeituraDoDashboard
+    /**
+     * @param array<string, mixed> $filtros          filtros do Dashboard (data_de, data_ate, …)
+     * @param bool                 $comPastasOcultas há pasta oculta (cadeado) para quem vê: a meta é do escritório
+     *                                               inteiro e o realizado sairia sem elas, então o ritmo não é montado
+     */
+    public function montar(DashboardOutput $dashboard, array $filtros, \DateTimeImmutable $agora, bool $comPastasOcultas = false): LeituraDoDashboard
     {
         $tempo    = TempoDoPeriodo::de((string) ($filtros['data_de'] ?? ''), (string) ($filtros['data_ate'] ?? ''), $agora);
         $ritmo    = $this->motorDeRitmo->analisar($dashboard, $tempo);
         $avancado = $this->motorAvancado->analisar($dashboard, $ritmo);
 
-        $ritmoDaMeta = $dashboard->metaDePastas !== null ? RitmoDaMeta::de($dashboard->metaDePastas) : null;
+        $ritmoDaMeta = !$comPastasOcultas && $dashboard->metaDePastas !== null ? RitmoDaMeta::de($dashboard->metaDePastas) : null;
 
         return new LeituraDoDashboard($ritmo, $avancado, $agora, $tempo, $ritmoDaMeta);
     }

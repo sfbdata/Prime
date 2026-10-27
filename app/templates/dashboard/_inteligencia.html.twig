@@ -31,8 +31,8 @@
     <line x1="13.7" y1="10.3" x2="18.6" y2="5.4" class="db-ia-estrela-traco"></line>
 </svg>
 {% endmacro %}
-{% macro alerta(a, marca) %}
-        <details class="db-ia-alerta db-ia-nivel--{{ a.nivel.value }}{{ marca and marca.status ? ' is-marcado' : '' }}" data-alerta="{{ a.id }}">
+{% macro alerta(a, marca, ordem) %}
+        <details class="db-ia-alerta db-ia-nivel--{{ a.nivel.value }}{{ marca and marca.status ? ' is-marcado' : '' }}" data-alerta="{{ a.id }}" data-ordem="{{ ordem }}">
             <summary class="db-ia-alerta-cab">
                 <span class="db-ia-ponto" aria-hidden="true"></span>
                 <span class="db-ia-alerta-texto">
@@ -186,12 +186,15 @@
                             {% endfor %}
                         </div>
                         <div class="db-ia-alertas" data-ia-alertas data-url="{{ path('dashboard_inteligencia_alerta_marcar') }}" data-rotulo-resolvido="{{ 'dashboard.ia.av.status.resolvido'|trans }}" data-rotulo-ignorado="{{ 'dashboard.ia.av.status.ignorado'|trans }}">
+                            {# Posição do servidor de cada alerta: o JS devolve o desmarcado a ela. #}
+                            {% set ordens = {} %}
+                            {% for o in av.alertas %}{% set ordens = ordens|merge({(o.id): loop.index}) %}{% endfor %}
                             {# Os já marcados descem para o fim da lista, esmaecidos (dc L2517). #}
                             {% for a in av.alertas|filter(x => not (marcas[x.id].status ?? null)) %}
-                                {{ ui.alerta(a, marcas[a.id] ?? null) }}
+                                {{ ui.alerta(a, marcas[a.id] ?? null, ordens[a.id]) }}
                             {% endfor %}
                             {% for a in av.alertas|filter(x => marcas[x.id].status ?? null) %}
-                                {{ ui.alerta(a, marcas[a.id]) }}
+                                {{ ui.alerta(a, marcas[a.id], ordens[a.id]) }}
                             {% endfor %}
                             {% if not av.alertas %}
                                 <div class="db-ia-vazio">{{ 'dashboard.ia.av.sem_alerta'|trans }}</div>

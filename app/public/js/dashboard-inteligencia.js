@@ -19,6 +19,21 @@
         });
     }
 
+    /* Marcado desce para o fim; desmarcado volta à posição do servidor (data-ordem), entre os não marcados. */
+    function reposicionar(alerta, lista, marcado) {
+        var itens = Array.prototype.slice.call(lista.querySelectorAll('[data-alerta]')).filter(function (a) { return a !== alerta; });
+        var ordem = parseInt(alerta.getAttribute('data-ordem'), 10);
+        var ref = null;
+        if (marcado) {
+            ref = null;
+        } else {
+            ref = itens.filter(function (a) {
+                return !a.classList.contains('is-marcado') && parseInt(a.getAttribute('data-ordem'), 10) > ordem;
+            })[0] || itens.filter(function (a) { return a.classList.contains('is-marcado'); })[0] || null;
+        }
+        lista.insertBefore(alerta, ref);
+    }
+
     function mostrar(alerta, lista, marca) {
         var status = alerta.querySelector('[data-ia-status]');
         var rotulo = marca.status ? lista.getAttribute('data-rotulo-' + marca.status) : '';
@@ -31,9 +46,7 @@
         pressionar(alerta, 'ignorado', marca.status === 'ignorado');
         pressionar(alerta, 'sim', marca.feedback === 'sim');
         pressionar(alerta, 'nao', marca.feedback === 'nao');
-        if (marca.status) {
-            lista.appendChild(alerta);
-        }
+        reposicionar(alerta, lista, !!marca.status);
     }
 
     function marcar(botao) {
