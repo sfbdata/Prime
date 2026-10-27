@@ -12,10 +12,12 @@ use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Repository\ConversaRepository;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\PastaDoContextoDaIa;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PerguntaInvalidaException;
@@ -39,6 +41,12 @@ use Psr\Clock\ClockInterface;
  * pergunta em andamento devolve a mesma (sem mensagem nova, sem cota, sem limitador); senão roda `$antesDeCriar` (o
  * limitador) e grava a mensagem da pessoa e a análise `pendente` juntas. A mensagem sai para a fila SÓ depois do commit.
  *
+ * Contexto da tela (PR 4a): com `$pastaId`, DEPOIS da disponibilidade e ANTES da transação travada, a pasta é validada por
+ * {@see PastaDoContextoDaIa} (404 igual para inexistente, de outro escritório ou oculta pelo cadeado; 409 para segredo de
+ * justiça). A recusa sai antes de `beginTransaction`: nada gravado, nada travado, EntityManager aberto. O resumo guarda SÓ
+ * `pastaId`, `financeiro` e `abasOcultas` (ids e flags, nunca texto nem NUP) e o hash passa a incluir a pasta. Se já há
+ * pergunta em andamento, ela é devolvida como está e o `pastaId` novo é ignorado. Sem `$pastaId`, tudo como antes.
+ *
  * A transação é pela conexão (e não `wrapInTransaction`): a recusa do limitador não pode fechar o EntityManager.
  * A mensagem fica gravada mesmo que a IA falhe depois (nenhuma resposta é fabricada). O texto nunca vai para a análise
  * (`contexto_resumo` guarda só ids e contagens), nem para log.
@@ -47,6 +55,8 @@ use Psr\Clock\ClockInterface;
  * @throws PerguntaInvalidaException
  * @throws InteligenciaIndisponivelException
  * @throws FilaIndisponivelException
+ * @throws \App\Central\Exception\PastaDaIaNaoEncontradaException
+ * @throws ContextoBloqueadoException
  * @throws \App\Central\Exception\ConversaCriadaAoMesmoTempoException na primeira pergunta com duas abas (a tela repete)
  */
 final class PerguntarABlueJusIaUseCase
@@ -66,13 +76,14 @@ final class PerguntarABlueJusIaUseCase
         private readonly EnfileiradorDeAnalise $enfileirador,
         private readonly EntityManagerInterface $entityManager,
         private readonly ClockInterface $clock,
+        private readonly PastaDoContextoDaIa $pastaDoContexto,
     ) {
     }
 
-    public function executar(User $eu, ?Tenant $tenant, string $texto, ?callable $antesDeCriar = null): PerguntaDaIaOutput
+    public function executar(User $eu, ?Tenant $tenant, string $texto, ?callable $antesDeCriar = null, ?int $pastaId = null): PerguntaDaIaOutput
     {
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
-        $input = new PerguntarABlueJusIaInput($texto);
+        $input = new PerguntarABlueJusIaInput($texto, $pastaId);
         $conversa = $this->conversaDe($eu, $tenant);
 
         $disponibilidade = $this->disponibilidade->para($eu, $tenant);
@@ -80,7 +91,10 @@ final class PerguntarABlueJusIaUseCase
             throw new InteligenciaIndisponivelException($disponibilidade);
         }
 
-        [$analise, $mensagemId, $nova] = $this->gravarTravado($input->texto, $conversa, $eu, $tenant, $antesDeCriar);
+        // Fora da trava: a recusa da pasta (404/409) não pode deixar transação aberta nem fechar o EntityManager.
+        $pasta = $input->pastaId !== null ? $this->pastaDoContexto->liberar($eu, $tenant, $input->pastaId) : null;
+
+        [$analise, $mensagemId, $nova] = $this->gravarTravado($input->texto, $conversa, $eu, $tenant, $antesDeCriar, $pasta);
 
         if ($nova) {
             // Depois do commit: o worker não pode receber o id de uma linha que ainda não existe para ele.
@@ -108,9 +122,11 @@ final class PerguntarABlueJusIaUseCase
     }
 
     /**
+     * @param array{pastaId: int, financeiro: bool, abasOcultas: list<string>}|null $pasta a decisão da pasta da tela
+     *
      * @return array{AnaliseDeInteligencia, int, bool} a análise, o id da mensagem da pergunta e se foi criada agora
      */
-    private function gravarTravado(string $texto, Conversa $conversa, User $eu, Tenant $tenant, ?callable $antesDeCriar): array
+    private function gravarTravado(string $texto, Conversa $conversa, User $eu, Tenant $tenant, ?callable $antesDeCriar, ?array $pasta): array
     {
         $conn = $this->entityManager->getConnection();
         $conn->beginTransaction();
@@ -128,7 +144,7 @@ final class PerguntarABlueJusIaUseCase
                     $antesDeCriar();
                 }
                 $this->encerrarAPresa($tenant, $alvoId);
-                $resultado = $this->registrar($texto, $conversa, $eu, $tenant);
+                $resultado = $this->registrar($texto, $conversa, $eu, $tenant, $pasta);
             }
             $conn->commit();
         } catch (\Throwable $e) {
@@ -155,9 +171,11 @@ final class PerguntarABlueJusIaUseCase
     /**
      * Mensagem da pessoa e análise `pendente`, na mesma transação. Sem menção, aviso nem resposta_a: é conversa privada.
      *
+     * @param array{pastaId: int, financeiro: bool, abasOcultas: list<string>}|null $pasta
+     *
      * @return array{AnaliseDeInteligencia, int, bool}
      */
-    private function registrar(string $texto, Conversa $conversa, User $eu, Tenant $tenant): array
+    private function registrar(string $texto, Conversa $conversa, User $eu, Tenant $tenant, ?array $pasta): array
     {
         $agora = $this->clock->now();
         $mensagem = new Mensagem($tenant, $conversa, $eu, $texto, $agora);
@@ -173,15 +191,21 @@ final class PerguntarABlueJusIaUseCase
         }
         $conversaId = (int) $conversa->getId();
 
+        $resumo = ['conversaId' => $conversaId, 'mensagemId' => $mensagemId, 'historico' => 0, 'total' => 1];
+        if ($pasta !== null) {
+            // Só ids e flags: o texto e os NUPs da pasta o worker relê; aqui nunca se gravam.
+            $resumo += ['pastaId' => $pasta['pastaId'], 'financeiro' => $pasta['financeiro'], 'abasOcultas' => $pasta['abasOcultas']];
+        }
+
         $analise = new AnaliseDeInteligencia(
             tenant: $tenant,
             solicitante: $eu,
             tipo: TipoDeAnalise::ChatDaCentral,
             alvoTipo: AnaliseDeInteligencia::ALVO_CONVERSA_IA,
             alvoId: $conversaId,
-            versaoDoPrompt: PromptDoChatDaCentral::VERSAO,
-            contextoHash: hash('sha256', $conversaId . '|' . $mensagemId),
-            contextoResumo: ['conversaId' => $conversaId, 'mensagemId' => $mensagemId, 'historico' => 0, 'total' => 1],
+            versaoDoPrompt: $pasta !== null ? PromptDoChatDaCentral::VERSAO_COM_PASTA : PromptDoChatDaCentral::VERSAO,
+            contextoHash: hash('sha256', $conversaId . '|' . $mensagemId . ($pasta !== null ? '|pasta:' . $pasta['pastaId'] : '')),
+            contextoResumo: $resumo,
         );
         $this->analises->salvar($analise);
         $this->entityManager->flush();

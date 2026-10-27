@@ -37,4 +37,26 @@ final class PerguntarABlueJusIaInputTest extends TestCase
         self::assertSame('Qual o prazo?', (new PerguntarABlueJusIaInput("  Qual o prazo?\n"))->texto);
         self::assertSame(2000, mb_strlen((new PerguntarABlueJusIaInput('  ' . str_repeat('a', 2000) . '  '))->texto));
     }
+
+    #[TestDox('pastaId é opcional: ausente e null dão null; inteiro positivo passa')]
+    public function testPastaIdOpcional(): void
+    {
+        self::assertNull((new PerguntarABlueJusIaInput('Oi'))->pastaId);
+        self::assertNull((new PerguntarABlueJusIaInput('Oi', null))->pastaId);
+        self::assertSame(12, (new PerguntarABlueJusIaInput('Oi', 12))->pastaId);
+    }
+
+    #[TestDox('pastaId zero ou negativo é recusado com 422 (pergunta_invalida)')]
+    public function testPastaIdInvalido(): void
+    {
+        foreach ([0, -1] as $pastaId) {
+            try {
+                new PerguntarABlueJusIaInput('Oi', $pastaId);
+                self::fail('devia recusar');
+            } catch (PerguntaInvalidaException $e) {
+                self::assertSame('pergunta_invalida', $e->motivo());
+                self::assertSame('Pasta inválida.', $e->getMessage());
+            }
+        }
+    }
 }

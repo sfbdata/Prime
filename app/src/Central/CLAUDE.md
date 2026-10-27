@@ -99,6 +99,12 @@ A resposta da IA entra pela porta `Inteligencia\Contract\ConversaDaIaNaCentral` 
 (autora = dono, `de_ia = false`, mesma conversa e escritório, vínculo ativo) e as 12 mensagens anteriores (corte `limpa_ate_id`),
 e grava a fala `de_ia` (≤ 4000 caracteres, `@[` desarmado). Tenant explícito; provado em `IsolamentoDosRepositoriosDaCentralTest`.
 A pergunta (PR 2b) é `UseCase\PerguntarABlueJusIaUseCase`, sem rota até a tela: conversa DELE por `daIaDe` (não usa `participacao()` nem `EnviarMensagemUseCase`, que excluem `ia`), trava `ConversaRepository::travar`, uma pergunta em andamento por vez, limitador fora do `wrapInTransaction`. A retenção apaga as duas pontas (`apagarMensagensDaIaAntesDe`).
+**Contexto da tela (PR 4a, sem tela ainda).** `POST /central/ia/perguntas` aceita `pastaId` (inteiro positivo ou ausente/null; outro tipo ou valor <= 0 = 422
+`pergunta_invalida`); nunca texto de contexto vindo do cliente. O UseCase valida a pasta ANTES de abrir a transação travada (`PastaDoContextoDaIa`: pasta por
+id + escritório e `AcessoAPasta::podeVer`, os dois casos = 404 `pasta_nao_encontrada` com mensagem fixa; segredo de justiça = 409 `contexto_bloqueado`;
+a recusa não grava nada, não consome o limitador, não deixa trava e não fecha o EntityManager) e grava em `contexto_resumo` só `pastaId`, `financeiro` e
+`abasOcultas` (o hash passa a incluir a pasta; prompt `chat-central-v2`). Pergunta em andamento devolve a mesma (202) e ignora o `pastaId` novo. O worker
+revalida tudo (`Inteligencia/CLAUDE.md`). Resposta HTTP continua só ids e estado: nunca texto, nem NUP da pasta.
 
 ## Tela
 

@@ -9,6 +9,9 @@ use App\Inteligencia\Exception\PerguntaInvalidaException;
 /**
  * A pergunta ao BlueJus IA na Central (F3): texto aparado, de 1 a 2000 caracteres (a mesma regra da aba Perguntar da
  * pasta). Fora disso, {@see PerguntaInvalidaException} (422); nada é gravado nem conta no limitador.
+ *
+ * `pastaId` (PR 4, contexto da tela): opcional; presente, é inteiro positivo. Só o id vem do cliente, nunca texto de
+ * contexto: o servidor revalida a pasta (escritório, cadeado, segredo de justiça).
  */
 final readonly class PerguntarABlueJusIaInput
 {
@@ -16,11 +19,17 @@ final readonly class PerguntarABlueJusIaInput
 
     public string $texto;
 
+    public ?int $pastaId;
+
     /**
      * @throws PerguntaInvalidaException
      */
-    public function __construct(string $texto)
+    public function __construct(string $texto, ?int $pastaId = null)
     {
+        if ($pastaId !== null && $pastaId <= 0) {
+            throw PerguntaInvalidaException::pastaInvalida();
+        }
+
         $aparado = trim($texto);
         if ($aparado === '') {
             throw PerguntaInvalidaException::vazia();
@@ -30,5 +39,6 @@ final readonly class PerguntarABlueJusIaInput
         }
 
         $this->texto = $aparado;
+        $this->pastaId = $pastaId;
     }
 }

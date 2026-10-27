@@ -7,20 +7,25 @@ namespace App\Tests\Central\Unit;
 use App\Central\DTO\PerguntaDaIaOutput;
 use App\Central\Entity\Conversa;
 use App\Central\Entity\Mensagem;
+use App\Central\Exception\PastaDaIaNaoEncontradaException;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\ConversaRepository;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\PastaDoContextoDaIa;
 use App\Central\UseCase\AbrirConversaComAIaUseCase;
 use App\Central\UseCase\PerguntarABlueJusIaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
+use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\MuitasSolicitacoesException;
 use App\Inteligencia\Exception\PerguntaInvalidaException;
@@ -29,11 +34,27 @@ use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\CustoDaIa;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\Prompt\PromptDoChatDaCentral;
 use App\Inteligencia\Service\EnfileiradorDeAnalise;
+use App\Inteligencia\Service\MascaradorDeDadosPessoais;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\AbaOcultaDaPastaRepository;
+use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\EquipeQuePodeTerAbaOculta;
+use App\Pasta\Service\NivelNoCadeado;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
+use App\Processo\Entity\Processo;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Service\PermissionChecker;
 use App\Tests\Inteligencia\Support\DefineId;
+use App\Tests\Inteligencia\Support\FonteDeDadosDaPastaFalsa;
+use App\Tests\Inteligencia\Support\FonteDeMovimentacoesFalsa;
 use App\Tests\Inteligencia\Support\PlataformaDeIaNoTesteTrait;
 use App\Tests\Inteligencia\Support\ProvedorFalso;
 use Doctrine\DBAL\Connection;
@@ -68,6 +89,16 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
     private ?AnaliseDeInteligencia $emAndamento = null;
     private bool $vinculoAtivo = true;
     private bool $filaFalha = false;
+    private const PASTA_ID = 7;
+    private const NUP_DO_PROCESSO = '07011345720258070007';
+
+    private Pasta $pasta;
+    private Processo $processo;
+    private bool $podeVerPasta = true;
+    private bool $podeVerFinanceiro = true;
+
+    /** @var list<AbaOcultaDaPasta> */
+    private array $regrasDeAba = [];
 
     /** @var list<string> */
     private array $eventos = [];
@@ -127,6 +158,47 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
 
         $this->permissoes = $this->createMock(PermissionChecker::class);
         $this->permissoes->method('canAccessModule')->willReturn(true);
+        $this->permissoes->method('canAccessResource')->willReturnCallback(fn (): bool => $this->podeVerPasta);
+
+        $this->processo = new Processo();
+        $this->processo->setTenant($this->tenant);
+        $this->processo->setNumeroProcesso(self::NUP_DO_PROCESSO);
+        DefineId::em($this->processo, 3);
+        $this->pasta = new Pasta();
+        $this->pasta->setTenant($this->tenant);
+        $this->pasta->setNup('1234');
+        $this->pasta->vincularProcesso($this->processo);
+        DefineId::em($this->pasta, self::PASTA_ID);
+    }
+
+    private function pastaDoContexto(): PastaDoContextoDaIa
+    {
+        $pastas = $this->createMock(PastaRepository::class);
+        $pastas->method('findOneBy')->willReturnCallback(
+            fn (array $criterios): ?Pasta => ($criterios['id'] ?? null) === self::PASTA_ID && ($criterios['tenant'] ?? null)?->getId() === $this->pasta->getTenant()?->getId() ? $this->pasta : null,
+        );
+        $acessoAPasta = new AcessoAPasta((new \ReflectionClass(NivelNoCadeado::class))->newInstanceWithoutConstructor(), $this->permissoes);
+        $financeiro = $this->createMock(VisibilidadeDoFinanceiroDaPasta::class);
+        $financeiro->method('podeVer')->willReturnCallback(fn (): bool => $this->podeVerFinanceiro);
+
+        $regras = $this->createStub(AbaOcultaDaPastaRepository::class);
+        $regras->method('daPasta')->willReturn($this->regrasDeAba);
+        $vinculos = $this->createStub(UserTenantRepository::class);
+        $primarios = new RegraDosPrimarios($vinculos);
+        $abas = new VisibilidadeDasAbasDaPasta($regras, $primarios, new EquipeQuePodeTerAbaOculta($vinculos, $primarios));
+
+        $mascarador = new MascaradorDeDadosPessoais();
+        $movimentacoes = new FonteDeMovimentacoesFalsa();
+        $montador = new MontadorDeContextoDaPasta(
+            new FonteDeDadosDaPastaFalsa(),
+            $movimentacoes,
+            new MontadorDeContextoDoPush($movimentacoes, $this->configuracoes, $mascarador),
+            $this->configuracoes,
+            $mascarador,
+            new MockClock(),
+        );
+
+        return new PastaDoContextoDaIa($pastas, $acessoAPasta, $financeiro, $abas, $montador);
     }
 
     private function sut(bool $plataformaLigada = true): PerguntarABlueJusIaUseCase
@@ -178,6 +250,7 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
             new EnfileiradorDeAnalise($this->analises, $bus, new NullLogger()),
             $em,
             $relogio,
+            $this->pastaDoContexto(),
         );
     }
 
@@ -191,9 +264,9 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
         self::assertInstanceOf(ProcessarAnaliseDeInteligencia::class, $mensagem);
     }
 
-    private function executar(string $texto = 'Qual o prazo da réplica?', ?callable $limitador = null): PerguntaDaIaOutput
+    private function executar(string $texto = 'Qual o prazo da réplica?', ?callable $limitador = null, ?int $pastaId = null): PerguntaDaIaOutput
     {
-        return $this->sut()->executar($this->eu, $this->tenant, $texto, $limitador);
+        return $this->sut()->executar($this->eu, $this->tenant, $texto, $limitador, $pastaId);
     }
 
     #[TestDox('sem vínculo ativo: 403 da Central, nada gravado nem despachado')]
@@ -405,5 +478,187 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
 
         self::assertSame(300, $saida->conversaId);
         self::assertSame('abrir', $this->eventos[0]);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Contexto da tela (PR 4a): pastaId
+    // ---------------------------------------------------------------------------------------
+
+    /** Recusa da pasta: nada começou. Sem begin (transação nunca aberta), sem trava, sem mensagem, sem análise, sem fila. */
+    private function afirmarNadaFeito(): void
+    {
+        self::assertSame([], $this->eventos, 'a recusa sai antes da transação travada');
+        self::assertSame([], $this->mensagensSalvas);
+        self::assertSame([], $this->analisesSalvas);
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function pastasInvalidas(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'negativo' => [-3];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('pastasInvalidas')]
+    #[TestDox('pastaId $_dataName: 422 antes de qualquer coisa, limitador não roda')]
+    public function testPastaIdInvalido(int $pastaId): void
+    {
+        $chamado = false;
+
+        try {
+            $this->executar('Oi', function () use (&$chamado): void {
+                $chamado = true;
+            }, $pastaId);
+            self::fail('Devia recusar.');
+        } catch (PerguntaInvalidaException) {
+            self::assertFalse($chamado);
+            $this->afirmarNadaFeito();
+        }
+    }
+
+    #[TestDox('pasta que não existe: 404 de domínio, fora da transação, nada gravado')]
+    public function testPastaInexistente(): void
+    {
+        try {
+            $this->executar('Oi', null, 999);
+            self::fail('Devia recusar.');
+        } catch (PastaDaIaNaoEncontradaException $e) {
+            self::assertSame('Não encontrei essa pasta ou você não tem acesso.', $e->getMessage());
+            $this->afirmarNadaFeito();
+        }
+    }
+
+    #[TestDox('pasta de OUTRO escritório: o mesmo 404 (não confirma que existe), nada gravado')]
+    public function testPastaDeOutroTenant(): void
+    {
+        $outro = new Tenant();
+        DefineId::em($outro, 99);
+        $this->pasta->setTenant($outro);
+
+        try {
+            $this->executar('Oi', null, self::PASTA_ID);
+            self::fail('Devia recusar.');
+        } catch (PastaDaIaNaoEncontradaException) {
+            $this->afirmarNadaFeito();
+        }
+    }
+
+    #[TestDox('pasta oculta pelo cadeado (AcessoAPasta::podeVer falso): o mesmo 404, nada gravado')]
+    public function testPastaOcultaPeloCadeado(): void
+    {
+        $this->podeVerPasta = false;
+
+        try {
+            $this->executar('Oi', null, self::PASTA_ID);
+            self::fail('Devia recusar.');
+        } catch (PastaDaIaNaoEncontradaException $e) {
+            self::assertStringNotContainsString('1234', $e->getMessage());
+            $this->afirmarNadaFeito();
+        }
+    }
+
+    #[TestDox('processo em segredo de justiça: contexto_bloqueado antes da transação, nada gravado, limitador não roda')]
+    public function testSegredoDeJustica(): void
+    {
+        $this->processo->setNivelSigilo(1);
+        $chamado = false;
+
+        try {
+            $this->executar('Oi', function () use (&$chamado): void {
+                $chamado = true;
+            }, self::PASTA_ID);
+            self::fail('Devia recusar.');
+        } catch (ContextoBloqueadoException $e) {
+            self::assertSame('contexto_bloqueado', $e->motivo());
+            self::assertFalse($chamado);
+            $this->afirmarNadaFeito();
+        }
+    }
+
+    #[TestDox('com pasta: grava SÓ pastaId, financeiro e abasOcultas (ids e flags), prompt v2, hash com a pasta; nunca NUP nem texto')]
+    public function testGravaComPasta(): void
+    {
+        $this->regrasDeAba = [AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $this->pasta, AbaDaPasta::Tarefas, $this->eu, new \DateTimeImmutable())];
+
+        $saida = $this->executar('Resuma esta pasta', null, self::PASTA_ID);
+
+        self::assertFalse($saida->emAndamento);
+        $analise = $this->analisesSalvas[0];
+        $mensagemId = (int) $this->mensagensSalvas[0]->getId();
+        self::assertSame(
+            ['conversaId' => 300, 'mensagemId' => $mensagemId, 'historico' => 0, 'total' => 1, 'pastaId' => self::PASTA_ID, 'financeiro' => true, 'abasOcultas' => ['tarefas']],
+            $analise->getContextoResumo(),
+        );
+        self::assertSame(PromptDoChatDaCentral::VERSAO_COM_PASTA, $analise->getVersaoDoPrompt());
+        self::assertSame('chat-central-v2', $analise->getVersaoDoPrompt());
+        self::assertSame(hash('sha256', '300|' . $mensagemId . '|pasta:' . self::PASTA_ID), $analise->getContextoHash());
+        self::assertNotSame(hash('sha256', '300|' . $mensagemId), $analise->getContextoHash(), 'o hash inclui a pasta');
+        $json = (string) json_encode($analise->getContextoResumo());
+        self::assertStringNotContainsString(self::NUP_DO_PROCESSO, $json);
+        self::assertStringNotContainsString('1234', $json);
+        self::assertStringNotContainsString('Resuma', $json);
+        self::assertContains('despachar', $this->eventos);
+    }
+
+    #[TestDox('sem permissão do financeiro: financeiro=false no resumo (a pasta segue liberada)')]
+    public function testFinanceiroSemPermissao(): void
+    {
+        $this->podeVerFinanceiro = false;
+
+        $this->executar('Oi', null, self::PASTA_ID);
+
+        $resumo = $this->analisesSalvas[0]->getContextoResumo();
+        self::assertFalse($resumo['financeiro']);
+        self::assertSame([], $resumo['abasOcultas']);
+    }
+
+    #[TestDox('abas ocultas para a pessoa vão para o resumo como valores do enum (ids, não texto)')]
+    public function testAbasOcultas(): void
+    {
+        $this->regrasDeAba = [
+            AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $this->pasta, AbaDaPasta::Financeiro, $this->eu, new \DateTimeImmutable()),
+            AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $this->pasta, AbaDaPasta::Tarefas, $this->eu, new \DateTimeImmutable()),
+        ];
+
+        $this->executar('Oi', null, self::PASTA_ID);
+
+        $ocultas = $this->analisesSalvas[0]->getContextoResumo()['abasOcultas'];
+        self::assertEqualsCanonicalizing(['financeiro', 'tarefas'], $ocultas);
+    }
+
+    #[TestDox('em andamento: devolve a mesma (202) e IGNORA o pastaId novo, sem tocar a pasta nem gravar')]
+    public function testEmAndamentoIgnoraPastaId(): void
+    {
+        $existente = new AnaliseDeInteligencia($this->tenant, $this->eu, TipoDeAnalise::ChatDaCentral, AnaliseDeInteligencia::ALVO_CONVERSA_IA, 300, 'chat-central-v1', 'h', ['conversaId' => 300, 'mensagemId' => 650, 'historico' => 0, 'total' => 1]);
+        DefineId::em($existente, 480);
+        (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($existente, new \DateTimeImmutable('2026-10-27 09:55:00 UTC'));
+        $this->emAndamento = $existente;
+        $limitadorRodou = false;
+
+        $saida = $this->executar('Outra', function () use (&$limitadorRodou): void {
+            $limitadorRodou = true;
+        }, self::PASTA_ID);
+
+        self::assertTrue($saida->emAndamento);
+        self::assertSame(480, $saida->analiseId);
+        self::assertFalse($limitadorRodou);
+        self::assertSame([], $this->mensagensSalvas);
+        self::assertSame([], $this->analisesSalvas);
+        self::assertSame(['conversaId' => 300, 'mensagemId' => 650, 'historico' => 0, 'total' => 1], $existente->getContextoResumo(), 'a análise existente não ganha a pasta nova');
+        self::assertSame(['begin', 'travar', 'commit'], $this->eventos);
+    }
+
+    #[TestDox('sem pastaId: nada muda (resumo sem os campos novos, prompt v1, hash antigo)')]
+    public function testSemPastaIdInalterado(): void
+    {
+        $this->podeVerPasta = false;   // sem pastaId a pasta nem é consultada
+
+        $this->executar('Oi');
+
+        $analise = $this->analisesSalvas[0];
+        $mensagemId = (int) $this->mensagensSalvas[0]->getId();
+        self::assertSame(['conversaId' => 300, 'mensagemId' => $mensagemId, 'historico' => 0, 'total' => 1], $analise->getContextoResumo());
+        self::assertSame('chat-central-v1', $analise->getVersaoDoPrompt());
+        self::assertSame(hash('sha256', '300|' . $mensagemId), $analise->getContextoHash());
     }
 }
