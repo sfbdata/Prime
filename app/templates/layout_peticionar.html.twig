@@ -634,8 +634,11 @@
                 <span class="navtop-page-sep">|</span>
                 <div class="petic-navtop-info">
                     <span class="petic-navtop-nup">{{ 'peticionar.cabecalho.numero_pasta'|trans({nup: pastaInfoNup}) }}</span>
-                    {% if pasta.nomeAcao %}
-                        <span class="petic-navtop-sub">{{ pasta.nomeAcao }}</span>
+                    {% set sub = [] %}
+                    {% if pastaInfoCliente %}{% set sub = sub|merge(['peticionar.cabecalho.cliente'|trans({cliente: pastaInfoCliente})]) %}{% endif %}
+                    {% if pasta.nomeAcao %}{% set sub = sub|merge([pasta.nomeAcao]) %}{% endif %}
+                    {% if sub %}
+                        <span class="petic-navtop-sub">{{ sub|join(' · ') }}</span>
                     {% endif %}
                 </div>
 

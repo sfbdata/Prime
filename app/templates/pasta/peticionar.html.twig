@@ -1,6 +1,7 @@
 {% extends 'layout_peticionar.html.twig' %}
 
 {% set pastaInfoNup = pasta.nup %}
+{% set pastaInfoCliente = nomeCliente %}
 
 {# Pasta excluída (lápide) abre só para leitura, mesmo para quem pode editar: o servidor já recusa
    a escrita (PastaSomenteLeituraListener), e a tela não oferece o que seria recusado. Fica fora

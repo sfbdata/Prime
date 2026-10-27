@@ -2,6 +2,7 @@ peticionar:
     titulo: Peticionar
     cabecalho:
         numero_pasta: 'Número da Pasta: {nup}'
+        cliente: 'Cliente: {cliente}'
     processo:
         contra: X
         classe: Classe judicial
