@@ -10,11 +10,11 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Indicacao\Entity\Indicacao;
 use App\Master\Controller\RecompensasDoMasterController;
+use App\Recompensa\Entity\AprovacaoDeContaDeRecompensa;
 use App\Recompensa\Entity\CondicaoDeRecompensa;
 use App\Recompensa\Entity\LancamentoDeRecompensa;
 use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Recompensa\Repository\CondicaoDeRecompensaRepository;
-use App\Recompensa\Repository\LancamentoDeRecompensaRepository;
 use App\Recompensa\Repository\ProgramaDeRecompensaRepository;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,7 +24,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * Seção Recompensas do /master, F1 e F2 (extrato e lançamentos; desenho 05 VS 25.10.26): leitura, regras, condição individual, as recusas
+ * Seção Recompensas do /master, F1 a F3 (extrato, lançamentos e antifraude; desenho 05 VS 25.10.26): leitura, regras, condição individual, as recusas
  * (403 sem token ou sem ser Master, 404, 422) e a auditoria de plataforma. O armazém de CSRF é fixo (padrão do painel).
  */
 #[CoversClass(RecompensasDoMasterController::class)]
@@ -463,6 +463,209 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.mrc > [data-mrc-lan] .mrc-dlg[role="dialog"]'));
     }
 
+    #[TestDox('F3: conta suspeita fica retida em análise com o motivo agregado; aprovar faz a conta contar, audita e não vaza dado do indicado')]
+    public function testAprovaSuspeitas(): void
+    {
+        $master = $this->entrarComoMaster();
+        $this->enviar('POST', '/master/recompensas/regras', ['exigePasta' => false, 'carenciaDias' => 0] + $this->regrasValidas());
+        $ana = $this->indicadoraComContaSuspeita('banca-' . uniqid() . '.adv.br');
+        $url = '/master/recompensas/usuarios/' . $ana->getId() . '/suspeitas/aprovar';
+
+        $this->client->request('GET', '/master/recompensas');
+        $antes = $this->linhaDe($this->json(), (int) $ana->getId());
+        self::assertSame(['analise', 0, 1, ['dominio' => 1]], [$antes['situacao'], $antes['ativos'], $antes['suspeitas'], $antes['motivosDeSuspeita']]);
+
+        $this->enviar('POST', $url, ['vistas' => 2]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('A lista de suspeitas mudou. Recarregue o painel e revise de novo.', $this->json()['erro']);
+        foreach ([null, [], ['vistas' => 0], ['vistas' => '1']] as $corpo) {
+            $this->enviar('POST', $url, $corpo);
+            self::assertResponseStatusCodeSame(422);
+        }
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM aprovacao_de_conta_de_recompensa'));
+
+        $this->enviar('POST', $url, ['vistas' => 1]);
+        self::assertResponseIsSuccessful();
+        $depois = $this->linhaDe($this->json(), (int) $ana->getId());
+        self::assertSame(['andamento', 1, 0, 1000], [$depois['situacao'], $depois['ativos'], $depois['suspeitas'], $depois['saldoCentavos']]);
+        $this->enviar('POST', $url, ['vistas' => 1]);
+        self::assertResponseStatusCodeSame(422, 'nada mais pendente: a quantidade vista não bate');
+
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM aprovacao_de_conta_de_recompensa'), 'repetir é recusado e não grava de novo');
+        $auditoria = $this->em->getConnection()->fetchFirstColumn('SELECT tenant_id FROM audit_log WHERE entity_class = ? AND actor_user_id = ?', [AprovacaoDeContaDeRecompensa::class, $master->getId()]);
+        self::assertCount(1, $auditoria);
+        self::assertNull($auditoria[0], 'plataforma, sem escritório');
+        self::assertStringNotContainsString('conta_nova', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('F3: bloquear mostra "bloqueado" sem mexer no saldo; desbloquear volta; repetir é idempotente e a linha some sem condição')]
+    public function testBloqueiaEDesbloqueia(): void
+    {
+        $master = $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $url = '/master/recompensas/usuarios/' . $ana->getId() . '/bloqueio';
+
+        $this->enviar('POST', $url, ['bloqueado' => true]);
+        self::assertResponseIsSuccessful();
+        $linha = $this->linhaDe($this->json(), (int) $ana->getId());
+        self::assertSame(['bloqueado', true, null], [$linha['situacao'], $linha['bloqueado'], $linha['condicao']]);
+        $this->enviar('POST', $url, ['bloqueado' => true]);
+        self::assertResponseIsSuccessful();
+        $acoes = $this->em->getConnection()->fetchFirstColumn('SELECT action FROM audit_log WHERE entity_class = ? AND actor_user_id = ? ORDER BY id', [CondicaoDeRecompensa::class, $master->getId()]);
+        self::assertCount(1, $acoes, 'o segundo bloqueio não regrava');
+
+        $this->enviar('POST', $url, ['bloqueado' => false]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['andamento', false], [$this->linhaDe($this->json(), (int) $ana->getId())['situacao'], $this->linhaDe($this->json(), (int) $ana->getId())['bloqueado']]);
+        $this->em->clear();
+        self::assertNull(static::getContainer()->get(CondicaoDeRecompensaRepository::class)->buscarDoIndicador((int) $ana->getId()));
+    }
+
+    #[TestDox('F3: voltar à regra geral não tira o bloqueio, e o bloqueado não vira ★ no "N com condição individual"')]
+    public function testBloqueioSobreviveAoVoltarParaAGeral(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/condicao', ['valor' => '30,00']);
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/bloqueio', ['bloqueado' => true]);
+
+        $this->enviar('DELETE', '/master/recompensas/usuarios/' . $ana->getId() . '/condicao');
+
+        self::assertResponseIsSuccessful();
+        $d = $this->json();
+        self::assertSame(0, $d['regras']['comCondicaoIndividual']);
+        self::assertSame('bloqueado', $this->linhaDe($d, (int) $ana->getId())['situacao']);
+    }
+
+    #[TestDox('F3: bloqueio recusado: 422 com corpo que não é booleano, 404 para quem nunca indicou')]
+    public function testBloqueioRecusado(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $semIndicacao = $this->usuario(['ROLE_USER']);
+
+        foreach ([null, [], ['bloqueado' => 'true'], ['bloqueado' => 1]] as $i => $corpo) {
+            $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/bloqueio', $corpo);
+            self::assertResponseStatusCodeSame(422, 'caso ' . $i);
+        }
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $semIndicacao->getId() . '/bloqueio', ['bloqueado' => true]);
+        self::assertResponseStatusCodeSame(404);
+        $this->enviar('POST', '/master/recompensas/usuarios/999999999/bloqueio', ['bloqueado' => true]);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame([], static::getContainer()->get(CondicaoDeRecompensaRepository::class)->findAll());
+    }
+
+    #[TestDox('F3: apagar da lista: com APAGAR o indicador sai da lista e dos KPIs e o extrato continua; repetir é idempotente')]
+    public function testApaga(): void
+    {
+        $master = $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $bia = $this->indicadoraComContaAntiga();
+        $this->lancar($ana, '10,00', null, self::CHAVE_A);
+
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/apagar', ['confirmacao' => 'apagar']);
+
+        self::assertResponseIsSuccessful();
+        $d = $this->json();
+        self::assertSame([(int) $bia->getId()], array_column($d['indicadores'], 'userId'));
+        self::assertSame(1, $d['kpis']['indicadores']);
+        self::assertSame(0, $d['kpis']['aPagarCentavos']);
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/apagar', ['confirmacao' => 'APAGAR']);
+        self::assertResponseIsSuccessful();
+        $this->client->request('GET', '/master/recompensas/extrato');
+        self::assertCount(1, $this->json()['extrato'], 'o extrato continua guardado');
+        $acoes = $this->em->getConnection()->fetchFirstColumn('SELECT action FROM audit_log WHERE entity_class = ? AND actor_user_id = ?', [CondicaoDeRecompensa::class, $master->getId()]);
+        self::assertCount(1, $acoes, 'o segundo pedido não regrava');
+    }
+
+    #[TestDox('F3: apagar sem a palavra APAGAR: 422 com a mensagem do desenho e nada muda; quem nunca indicou é 404')]
+    public function testApagarRecusado(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $semIndicacao = $this->usuario(['ROLE_USER']);
+
+        foreach ([null, [], ['confirmacao' => ''], ['confirmacao' => 'apague'], ['confirmacao' => 'APAGAR TUDO'], ['confirmacao' => true]] as $i => $corpo) {
+            $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/apagar', $corpo);
+            self::assertResponseStatusCodeSame(422, 'caso ' . $i);
+            self::assertSame('Digite APAGAR para confirmar.', $this->json()['erro'], 'caso ' . $i);
+        }
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $semIndicacao->getId() . '/apagar', ['confirmacao' => 'APAGAR']);
+        self::assertResponseStatusCodeSame(404);
+        $this->enviar('POST', '/master/recompensas/usuarios/999999999/apagar', ['confirmacao' => 'APAGAR']);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame([], static::getContainer()->get(CondicaoDeRecompensaRepository::class)->findAll());
+    }
+
+    #[TestDox('F3: as três rotas novas recusam sem CSRF (403) e quem não é Master (403), sem mudar nada')]
+    public function testRotasDoAntifraudeProtegidas(): void
+    {
+        $ana = $this->indicadoraComContaSuspeita('banca-' . uniqid() . '.adv.br');
+        $rotas = [
+            ['/master/recompensas/usuarios/' . $ana->getId() . '/suspeitas/aprovar', ['vistas' => 1]],
+            ['/master/recompensas/usuarios/' . $ana->getId() . '/bloqueio', ['bloqueado' => true]],
+            ['/master/recompensas/usuarios/' . $ana->getId() . '/apagar', ['confirmacao' => 'APAGAR']],
+        ];
+
+        $this->entrarComoMaster();
+        foreach ($rotas as [$url, $corpo]) {
+            $this->enviar('POST', $url, $corpo, 'errado');
+            self::assertResponseStatusCodeSame(403, $url);
+            $this->enviar('POST', $url, $corpo, '');
+            self::assertResponseStatusCodeSame(403, $url);
+        }
+        $this->entrarComoPrimarioDeEscritorio();
+        foreach ($rotas as [$url, $corpo]) {
+            $this->enviar('POST', $url, $corpo);
+            self::assertResponseStatusCodeSame(403, $url);
+        }
+
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM aprovacao_de_conta_de_recompensa'));
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM condicao_de_recompensa'));
+    }
+
+    #[TestDox('F3: aprovar para quem nunca indicou é 404')]
+    public function testAprovarInexistente(): void
+    {
+        $this->entrarComoMaster();
+        $semIndicacao = $this->usuario(['ROLE_USER']);
+
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $semIndicacao->getId() . '/suspeitas/aprovar', ['vistas' => 1]);
+        self::assertResponseStatusCodeSame(404);
+        $this->enviar('POST', '/master/recompensas/usuarios/999999999/suspeitas/aprovar', ['vistas' => 1]);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('F3: alerta: aceitas em 7 dias >= alerta do programa mostram "alerta" na lista')]
+    public function testAlerta(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->usuario(['ROLE_USER']);
+        for ($i = 0; $i < 5; ++$i) {
+            $nova = $this->usuario(['ROLE_USER'], 'conta_nova_' . uniqid() . '@indicado-teste.com.br');
+            $nova->setCreatedAt(new \DateTimeImmutable('-2 days'));
+            $this->em->persist(Indicacao::porEmail($ana, null, $nova->getEmail(), null, new \DateTimeImmutable('-3 days')));
+        }
+        $this->em->flush();
+
+        $this->client->request('GET', '/master/recompensas');
+
+        $linha = $this->linhaDe($this->json(), (int) $ana->getId());
+        self::assertSame(['alerta', 5], [$linha['situacao'], $linha['emSeteDias']]);
+    }
+
+    /** Indicadora cuja conta nova (60 dias) tem o MESMO domínio de e-mail corporativo, o que a deixa em análise. */
+    private function indicadoraComContaSuspeita(string $dominio): User
+    {
+        $ana = $this->usuario(['ROLE_USER'], 'ana_' . uniqid() . '@' . $dominio);
+        $nova = $this->usuario(['ROLE_USER'], 'conta_nova_' . uniqid() . '@' . $dominio);
+        $nova->setCreatedAt(new \DateTimeImmutable('-60 days'));
+        $this->em->persist(Indicacao::porEmail($ana, null, $nova->getEmail(), null, new \DateTimeImmutable('-70 days')));
+        $this->em->flush();
+
+        return $ana;
+    }
+
     private function lancar(User $indicador, string $valor, ?string $observacao, string $chave, string $token = self::TOKEN): void
     {
         $this->enviar('POST', '/master/recompensas/usuarios/' . $indicador->getId() . '/lancamento', ['valor' => $valor, 'observacao' => $observacao, 'chave' => $chave], $token);
@@ -506,7 +709,7 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
     private function indicadoraComContaAntiga(): User
     {
         $ana = $this->usuario(['ROLE_USER']);
-        $nova = $this->usuario(['ROLE_USER'], 'conta_nova_' . uniqid() . '@teste.com');
+        $nova = $this->usuario(['ROLE_USER'], 'conta_nova_' . uniqid() . '@indicado-teste.com.br');
         $nova->setCreatedAt(new \DateTimeImmutable('-60 days'));
         $this->em->persist(Indicacao::porEmail($ana, null, $nova->getEmail(), null, new \DateTimeImmutable('-70 days')));
         $this->em->flush();

@@ -77,6 +77,40 @@ Empilhada na F1 (#420). Migration 20261026152000. Risco ALTO (dinheiro): só liv
 - POST `/master/recompensas/usuarios/{id}/lancamento` (CSRF `master_recompensas`), 422 com `{erro}`, 404 se o
   usuário nunca indicou, resposta com o painel novo.
 
+### F3 (antifraude)
+
+Empilhada na F2 (#422). Migration 20261026152100 (CREATE TABLE e ALTER TABLE ADD COLUMN; sem UPDATE/DELETE). Sem
+dinheiro novo: só decide quais contas contam.
+
+- Sinais que o sistema tem (o desenho também cita CPF e aparelho, que o BlueJus não guarda; entram só depois de o dono
+  decidir a LGPD): conta indicada que pertence ao MESMO escritório de quem indicou; mesmo CNPJ de escritório (qualquer
+  escritório do indicador e qualquer do indicado, CNPJ não nulo); mesmo domínio de e-mail, exceto provedor público
+  (gmail, hotmail, outlook, yahoo, icloud, bol, uol, como no desenho). "Mesmo e-mail" não existe (e-mail é único).
+- Conta com suspeita NÃO conta (nem ativa, nem em carência) até o Master aprovar. Aprovação por conta, tabela
+  `aprovacao_de_conta_de_recompensa` (`indicador_id`, `conta_id` únicos juntos, `aprovada_em`, `aprovada_por_id`; FKs
+  CASCADE; auditável de plataforma). Item do menu "Revisar suspeitas e aprovar" (só quando há suspeita): confirma com
+  a quantidade e os motivos (sem nome nem e-mail do indicado) e aprova todas as pendentes do indicador.
+- Alerta: aceitas nos últimos 7 dias >= `alertaQtd` (do programa; individual não existe) => situação "Alerta: N
+  contas em 7 dias", em vermelho, como no desenho. Só sinaliza; não bloqueia.
+- Situação, na ordem do desenho: Bloqueado, Em análise (N suspeitas), Alerta, Liberado, Pronto para liberar, N em
+  carência, Em andamento. Dica (title) com os motivos agregados.
+- Bloquear/desbloquear recompensa e "Apagar da lista" (digitar APAGAR; o extrato continua guardado): colunas
+  `bloqueado_em` e `apagado_em` (nulas) em `condicao_de_recompensa`; a condição só some quando não tem nenhum efeito
+  (incluindo bloqueio e apagado). Bloqueado: o indicador sai do filtro "A pagar" e mostra "Bloqueado". Apagado: sai da
+  lista e dos KPIs; reaparece se fizer nova indicação? NÃO: fica fora até o Master reverter (sem tela de reversão
+  nesta fatia; pendência anotada).
+- Auto-indicação: a conta indicada que é o próprio indicador já é ignorada na atribuição; a F3 não muda isso.
+- Só vínculo ativo (`user_tenant.is_active`) com escritório não excluído gera sinal de escritório e de CNPJ.
+- Provedores públicos: a lista é AMPLIADA em relação ao desenho (que tem gmail, hotmail, outlook, yahoo, icloud, bol, uol):
+  entram também live, msn, terra, ig, globo, globomail, proton, protonmail e zoho, comparados pelo primeiro rótulo do
+  domínio. Decisão a confirmar com o dono.
+- Aprovar suspeitas carrega a quantidade vista (`vistas`, inteiro >= 1); se a quantidade pendente no servidor for outra,
+  recusa com 422 ("A lista de suspeitas mudou...") e nada é aprovado. Bloquear, apagar e aprovar rodam sob a trava das
+  indicações do usuário.
+- Pendências: "Pronto para liberar" depende do lançamento tipo `liberado` (fatia futura; hoje Liberado cobre os dois);
+  "apagar" com saldo > 0 não avisa e não tem reversão (pergunta ao dono).
+- Fora: alerta na Central (a Notificacao é por escritório; vira fatia própria depois de decidir o destinatário).
+
 ## Planos: fatias
 
 | Fatia | Conteúdo | Estado |
@@ -86,3 +120,14 @@ Empilhada na F1 (#420). Migration 20261026152000. Risco ALTO (dinheiro): só liv
 | F3 | Resumo de 4 KPIs e receita por plano | depende do dono (existe assinatura paga?) |
 | F4 | Edição inline com "Restaurar padrão" no lugar do modal | depende do dono |
 | F5 | Aviso por e-mail antes do reajuste | depende do Gateway |
+
+## Estado da frente (fim do dia, 26/10/2026)
+
+- Entregue e mergeado: Planos visual (#419), Recompensas F0 (#421), F1 (#420), F2 (#422); P4a mapa de indicações (#415), P4b convênio por UF (#417), P4c e-mail do convênio (#424; só estado ou valor reenviam, motivo e data não).
+- Em PR: F3 antifraude, bloqueio e apagar da lista (#423), teto TenantAware 86. Depois do merge, conferir o teto contra o master.
+- Esperam o dono (pendências 2i/2j/2k): F4 baixa manual com comprovante e PIX, F5 caixa e fechamento, F6 repasse e recorrência, F7 avisos em lote e mapa pago. F4 é risco ALTO (dinheiro): spec, revisão e re-revisão.
+- Planos, o que falta: tirar o campo "usuários" do modal Editar plano; KPIs e receita por plano (precisa de assinatura paga); edição inline com "Restaurar padrão"; aviso por e-mail no reajuste (depende do Gateway).
+- Convênio: soma do valor na receita espera resposta do dono.
+- Registrar P4a/P4b na spec `perfis-1.2-vs-25-10-metas-mapa-config.md` (ainda não feito).
+- Nunca feitos, fora desta frente: Service Desk · saldos, Custos; Desempenho é de outra sessão.
+- Rotina ao retomar: `git fetch`, trazer `origin/master` em cada PR aberto, migrar o banco da frente, conferir o teto de `TenantAwareCoberturaTest`.

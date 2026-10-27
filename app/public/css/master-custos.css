@@ -1,0 +1,88 @@
+/* Seção "Custos" do /master (desenho 05 VS 25.10, L260-270). Valores do dc em tokens, com par escuro. */
+.cst {
+    --cst-fundo: #fff; --cst-borda: #d3dde4; --cst-cabeca: #f7f9fb; --cst-div: #e6edf2; --cst-linha: #f0f4f7; --cst-linha-tab: #f4f6f8;
+    --cst-azul: #0a6fa0; --cst-verde: #1e7b45; --cst-vermelho: #a3232b; --cst-ambar: #9a5b00;
+    --cst-sub: #5b7383; --cst-tx: #12242f; --cst-tx2: #34505f; --cst-ic: #7a8e9b; --cst-vazio: #6c757d; --cst-nao-lancado: #9aabb7;
+    --cst-trilho: #eef2f5; --cst-campo-borda: #d3dde4; --cst-aviso-fundo: #fdecee;
+    --cst-botao-borda: #c5d2db; --cst-botao-tx: #34505f; --cst-rotulo: #4a6373; --cst-linha-dlg: #eef2f5; --cst-azul-cabeca: #0a6fa0;
+}
+[data-bs-theme="dark"] .cst {
+    --cst-fundo: var(--bs-body-bg); --cst-borda: var(--bs-border-color); --cst-cabeca: var(--bs-tertiary-bg);
+    --cst-div: var(--bs-border-color); --cst-linha: var(--bs-border-color); --cst-linha-tab: var(--bs-border-color);
+    --cst-azul: #4da3ea; --cst-verde: #4cc08a; --cst-vermelho: #f0a2a8; --cst-ambar: #e0a84a;
+    --cst-sub: var(--bs-secondary-color); --cst-tx: var(--bs-body-color); --cst-tx2: var(--bs-body-color); --cst-ic: var(--bs-secondary-color);
+    --cst-vazio: var(--bs-secondary-color); --cst-nao-lancado: var(--bs-secondary-color);
+    --cst-trilho: var(--bs-tertiary-bg); --cst-campo-borda: var(--bs-border-color); --cst-aviso-fundo: rgba(208, 82, 91, .18);
+    --cst-botao-borda: var(--bs-border-color); --cst-botao-tx: var(--bs-body-color); --cst-rotulo: var(--bs-secondary-color); --cst-linha-dlg: var(--bs-border-color); --cst-azul-cabeca: #0a5a82;
+}
+.cst [hidden] { display: none !important; }
+
+.cst-barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.cst-mes { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: normal; color: var(--cst-sub); }
+.cst-entrada { height: 32px; border: 1px solid var(--cst-campo-borda); border-radius: 2px; padding: 0 8px; font: inherit; font-size: 13px; background: var(--cst-fundo); color: var(--cst-tx); }
+.cst-nota { flex: 1; font-size: 12px; color: var(--cst-sub); }
+.cst-aviso { margin-bottom: 10px; padding: 8px 12px; border-radius: 3px; background: var(--cst-aviso-fundo); color: var(--cst-vermelho); font-size: 12.5px; }
+
+.cst-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); background: var(--cst-fundo); border: 1px solid var(--cst-borda); border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+.cst-kpi { padding: 12px 18px; border-right: 1px solid var(--cst-div); border-bottom: 1px solid var(--cst-div); margin: 0 -1px -1px 0; }
+.cst-kpi-rotulo { display: block; font-size: 11px; font-weight: bold; letter-spacing: .8px; color: var(--cst-sub); }
+.cst-kpi-valor { display: block; font-size: 21px; margin-top: 3px; color: var(--cst-tx); }
+.cst-kpi-detalhe { font-size: 11.5px; color: var(--cst-ic); }
+.cst-tom-ok { color: var(--cst-verde); }
+.cst-tom-critico { color: var(--cst-vermelho); }
+.cst-tom-ambar { color: var(--cst-ambar); }
+.cst-tom-azul { color: var(--cst-azul); }
+
+.cst-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.cst-caixa { background: var(--cst-fundo); border: 1px solid var(--cst-borda); border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+.cst-cabeca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 11px 16px; background: var(--cst-cabeca); border-bottom: 1px solid var(--cst-div); }
+.cst-cabeca-ic { color: var(--cst-azul); }
+.cst-cabeca-titulo { font-size: 14.5px; }
+.cst-cabeca-sub { flex: 1; font-size: 12px; color: var(--cst-sub); }
+.cst-corpo { padding: 8px 16px 12px; font-size: 13px; }
+.cst-vazio { padding: 22px; text-align: center; font-size: 13px; color: var(--cst-vazio); }
+
+.cst-cat { display: grid; grid-template-columns: 170px minmax(0, 1fr) 110px; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+.cst-cat-nome { color: var(--cst-tx2); }
+.cst-cat-trilho { height: 6px; border-radius: 3px; background: var(--cst-trilho); overflow: hidden; }
+.cst-cat-barra { display: block; height: 100%; background: var(--cst-azul); }
+.cst-cat-valor { text-align: right; font-size: 12.5px; color: var(--cst-tx); }
+.cst-cat-valor.cst-nao-lancado { color: var(--cst-nao-lancado); }
+
+.cst-tab { display: grid; gap: 8px; }
+.cst-tab-planos { grid-template-columns: 1fr 50px 90px 90px 90px; padding: 5px 0; border-bottom: 1px solid var(--cst-linha-tab); }
+.cst-tab-proj { grid-template-columns: 1fr 1fr 1fr 1fr; padding: 5px 0; }
+.cst-tab-cab { font-size: 11px; font-weight: bold; letter-spacing: .5px; color: var(--cst-sub); }
+.cst-tab-cab.cst-tab-planos { padding: 0 0 4px; border-bottom: 1px solid var(--cst-trilho); }
+.cst-tab-cab-proj { padding: 10px 0 4px; border-bottom: 1px solid var(--cst-trilho); }
+.cst-rodape { font-size: 11.5px; color: var(--cst-ic); margin-top: 6px; }
+
+.cst-lin { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 1fr) 110px 170px minmax(0, 1.5fr) 30px; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--cst-linha); font-size: 13px; }
+.cst-lin-forn { color: var(--cst-tx2); }
+.cst-lin-origem { font-size: 11.5px; font-weight: bold; }
+.cst-lin-obs { color: var(--cst-sub); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cst-lin-excluir { border: none; background: none; color: var(--cst-vermelho); cursor: pointer; }
+
+/* Botões do desenho (L261) e a moldura da janela "Lançar custo" (L268). */
+.cst button { font: inherit; }
+.cst-botao { height: 30px; padding: 0 11px; border: 1px solid var(--cst-botao-borda); border-radius: 2px; background: var(--cst-fundo); color: var(--cst-botao-tx); font-size: 12.5px; font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.cst-botao:disabled { cursor: progress; opacity: .75; }
+.cst-botao-primario { border: none; background: var(--cst-azul); color: #fff; font-weight: bold; }
+.cst-fundo { position: fixed; inset: 0; z-index: 9500; background: rgba(18, 36, 47, .35); }
+.cst-janela { position: fixed; inset: 0; z-index: 9501; display: flex; align-items: center; justify-content: center; padding: 12px; pointer-events: none; }
+.cst-caixa-dlg { pointer-events: auto; width: min(440px, 100%); background: var(--cst-fundo); border-radius: 3px; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); overflow: hidden; margin: 0; }
+.cst-dlg-cabeca { background: var(--cst-azul-cabeca); color: #fff; padding: 12px 16px; font-weight: bold; }
+.cst-dlg-corpo { padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cst-dlg-texto { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--cst-tx); }
+.cst-campo { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 11.5px; font-weight: bold; color: var(--cst-rotulo); text-transform: uppercase; }
+.cst-campo-cheio { grid-column: 1 / -1; }
+.cst-campo .cst-entrada { height: 34px; font-size: 13.5px; font-weight: normal; text-transform: none; }
+.cst-dlg-erro { grid-column: 1 / -1; font-size: 12.5px; color: var(--cst-vermelho); }
+.cst-dlg-rodape { padding: 10px 16px; border-top: 1px solid var(--cst-linha-dlg); display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 575.98px) {
+    .cst-cat { grid-template-columns: 1fr 70px; }
+    .cst-cat-trilho { display: none; }
+    .cst-lin { grid-template-columns: 1fr 100px 30px; }
+    .cst-lin-forn, .cst-lin-origem, .cst-lin-obs { grid-column: 1 / -1; }
+}
