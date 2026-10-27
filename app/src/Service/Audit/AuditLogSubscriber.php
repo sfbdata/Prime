@@ -7,6 +7,7 @@ use App\Entity\Auth\Invitation;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\ConteudoParticular;
+use App\TrabalhoExterno\Entity\TermoDeVoluntariado;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityNotFoundException;
@@ -42,6 +43,9 @@ class AuditLogSubscriber
      */
     private const IGNORED_FIELDS_POR_CLASSE = [
         Invitation::class => ['token', 'tokenHash'],
+        // O snapshot do Termo de Voluntariado guarda CPF e RG do voluntário: fica fora da auditoria, que registra só
+        // "termo enviado/aceito" (código, currículo, quando, quem). O user-agent do aceite também não é diff útil.
+        TermoDeVoluntariado::class => ['campos', 'aceiteUserAgent'],
     ];
 
     public function __construct(

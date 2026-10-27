@@ -9,6 +9,7 @@ use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Repository\TermoDeVoluntariadoRepository;
 
 /**
  * O detalhe do currículo (`curriculo` das respostas) no recorte de quem lê: a Central e o próprio dono
@@ -22,6 +23,7 @@ final class DetalheDoCurriculo
         private readonly ApresentadorDeCurriculo $apresentador,
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
         private readonly CandidaturaRepository $candidaturas,
+        private readonly TermoDeVoluntariadoRepository $termos,
     ) {
     }
 
@@ -36,6 +38,6 @@ final class DetalheDoCurriculo
         $marca = $ctx->previa || !$comMarca ? null : ($this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, [$id])[$id] ?? null);
         $vagas = array_map(static fn (Candidatura $c): string => $c->getVaga()->getTitulo(), $this->candidaturas->doCurriculo($cv));
 
-        return $this->apresentador->detalhe($ctx, $cv, $marca, $agora, $vagas);
+        return $this->apresentador->detalhe($ctx, $cv, $marca, $agora, $vagas, $this->termos->maisRecenteDo($cv));
     }
 }

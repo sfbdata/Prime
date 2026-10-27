@@ -236,7 +236,13 @@ final class CurriculoTest extends TestCase
         self::assertSame([], $filtro->aplicar([$a, $b], [1 => $lixo], [], $this->agora));
         self::assertSame([$a], $filtro->aplicar([$a, $b], [1 => $lixo], ['filtro' => 'lix'], $this->agora));
         self::assertSame([$b], $filtro->aplicar([$a, $b], [], ['filtro' => 'arquivado', 'busca' => '999', 'area' => 'Trabalhista'], $this->agora));
-        self::assertSame([], $filtro->aplicar([$a], [], ['termo' => 'aceito'], $this->agora), 'termo fica "sem" até a F3b');
+        // Termo (spec do termo de voluntariado): o estado do termo mais recente; sem entrada é "sem".
+        self::assertSame([], $filtro->aplicar([$a], [], ['termo' => 'aceito'], $this->agora));
+        self::assertSame([$a], $filtro->aplicar([$a], [], ['termo' => 'sem'], $this->agora));
+        self::assertSame([$a], $filtro->aplicar([$a, $b], [], ['termo' => 'aceito'], $this->agora, [], [1 => 'aceito', 2 => 'aceito']));
+        self::assertSame([$a], $filtro->aplicar([$a], [], ['termo' => 'enviado'], $this->agora, [], [1 => 'enviado']));
+        self::assertSame([], $filtro->aplicar([$a], [], ['termo' => 'sem'], $this->agora, [], [1 => 'enviado']));
+        self::assertSame([$a], $filtro->aplicar([$a], [], ['termo' => ''], $this->agora, [], [1 => 'aceito']), 'sem filtro de termo, todos');
     }
 
     /** @param array<string, mixed> $troca */

@@ -9,6 +9,8 @@ use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Repository\TermoDeVoluntariadoRepository;
+use App\TrabalhoExterno\Service\ApresentadorDeTermo;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FiltroDeCurriculos;
 use App\TrabalhoExterno\Service\LocalizadorDeCurriculo;
@@ -25,6 +27,8 @@ final class ExportarCurriculosCsvUseCase
     public const NOME_DO_ARQUIVO = 'curriculos-bluejus.csv';
     public const CABECALHO = ['Nome', 'E-mail', 'Instagram', 'Telefone', 'Situação', 'OAB', 'UF OAB', 'Instituição', 'Cidade', 'UF', 'Cargo', 'Áreas', 'Modalidade', 'Anos exp.', 'Pretensão', 'Voluntário', 'Termo', 'Situação no banco', 'Recebido'];
     private const VOLUNTARIO = ['sim' => 'Sim', 'talvez' => 'Talvez', 'nao' => 'Não'];
+    /** A coluna Termo (`cvCsv`, l.1150): só o estado do termo mais recente, nunca CPF nem RG. */
+    private const TERMO = ['sem' => 'Sem termo', 'enviado' => 'Aguardando aceite', 'aceito' => 'Aceito'];
 
     public function __construct(
         private readonly LocalizadorDeCurriculo $localizador,
@@ -32,6 +36,7 @@ final class ExportarCurriculosCsvUseCase
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
         private readonly FiltroDeCurriculos $filtro,
         private readonly CandidaturaRepository $candidaturas,
+        private readonly TermoDeVoluntariadoRepository $termos,
     ) {
     }
 
@@ -44,23 +49,24 @@ final class ExportarCurriculosCsvUseCase
         $todos = $this->localizador->visiveis($ctx);
         $ids = array_map(static fn (Curriculo $c): int => (int) $c->getId(), $todos);
         $marcas = $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, $ids);
+        $termos = array_map(static fn ($t): string => ApresentadorDeTermo::estado($t), $this->termos->maisRecentesDe($ids));
         $linhas = [self::CABECALHO];
-        foreach ($this->filtro->aplicar($todos, $marcas, $filtros, new \DateTimeImmutable(), $this->candidaturas->contarPorCurriculo($ids)) as $cv) {
-            $linhas[] = self::colunas($cv);
+        foreach ($this->filtro->aplicar($todos, $marcas, $filtros, new \DateTimeImmutable(), $this->candidaturas->contarPorCurriculo($ids), $termos) as $cv) {
+            $linhas[] = self::colunas($cv, $termos[(int) $cv->getId()] ?? 'sem');
         }
 
         return PlanilhaCsv::documento($linhas);
     }
 
     /** @return list<string> */
-    private static function colunas(Curriculo $cv): array
+    private static function colunas(Curriculo $cv, string $termo): array
     {
         return [
             $cv->texto('nome'), $cv->texto('email'), $cv->texto('insta') !== '' ? '@' . $cv->texto('insta') : '',
             $cv->texto('tel'), $cv->getSituacao()->rotuloCurto(), $cv->texto('oabNum'), $cv->texto('oabUf'),
             $cv->texto('inst'), $cv->texto('cidade'), $cv->texto('uf'), $cv->texto('cargo'), implode('; ', $cv->getAreas()),
             $cv->texto('modalidade'), $cv->getAnos() !== null ? (string) $cv->getAnos() : '', $cv->texto('pretensao'),
-            self::VOLUNTARIO[$cv->texto('vol')] ?? '', 'Sem termo', $cv->getStatus()->rotulo(), $cv->getRecebidoEm()->format('d/m/Y'),
+            self::VOLUNTARIO[$cv->texto('vol')] ?? '', self::TERMO[$termo] ?? self::TERMO['sem'], $cv->getStatus()->rotulo(), $cv->getRecebidoEm()->format('d/m/Y'),
         ];
     }
 }

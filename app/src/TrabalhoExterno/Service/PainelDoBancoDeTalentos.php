@@ -26,7 +26,7 @@ final class PainelDoBancoDeTalentos
 {
     /** Subtítulo de ALERTAS POR E-MAIL, exato do desenho (l.1146): o clique abre a campanha (§4.10). */
     public const SUB_DOS_ALERTAS = '%d visita(s) pelo link · %d clique(s) em criar conta · clique para campanha';
-    /** Subtítulo de VOLUNTÁRIOS (l.1146): fica 0/0 até o Termo de Voluntariado (F3b-2). */
+    /** Subtítulo de VOLUNTÁRIOS (l.1146 e 1220): os termos mais recentes aceitos e aguardando aceite. */
     public const SUB_DOS_TERMOS = '%d termo(s) aceito(s) · %d aguardando';
     private const TOPO = 8;
     private const FUNIL = [StatusCandidatura::Recebida, StatusCandidatura::Analise, StatusCandidatura::Entrevista, StatusCandidatura::Aprovado];
@@ -61,8 +61,14 @@ final class PainelDoBancoDeTalentos
             self::kpi('ativos', 'CURRÍCULOS ATIVOS', 'bi-person-vcard', '#0a6fa0', count($ativos), $desde('-30 days') . ' nos últimos 30 dias', self::lista(['cf' => 'ativos'])),
             self::kpi('novos', 'NOVOS NA SEMANA', 'bi-person-plus', '#0a6fa0', $desde('-7 days'), $novos . ' ainda não analisados', self::lista(['cf' => 'novo'])),
             self::kpi('oab', 'COM OAB', 'bi-award', '#5b3f9e', $em(SituacaoAcademica::Adv, SituacaoAcademica::EstOab), $em(SituacaoAcademica::Est) . ' estudantes · ' . $em(SituacaoAcademica::Bach) . ' bacharéis', self::lista(['cs' => FiltroDeCurriculos::COM_OAB])),
-            self::kpi('vol', 'VOLUNTÁRIOS', 'bi-heart', '#a3235f', $voluntarios, sprintf(self::SUB_DOS_TERMOS, 0, 0), self::lista(['cf' => 'vol'])),
+            self::kpi('vol', 'VOLUNTÁRIOS', 'bi-heart', '#a3235f', $voluntarios, sprintf(self::SUB_DOS_TERMOS, $this->termosEm($r, 'aceito'), $this->termosEm($r, 'enviado')), self::lista(['cf' => 'vol'])),
         ];
+    }
+
+    /** Quantos currículos têm o termo mais recente neste estado (nunca CPF, RG nem nome). */
+    private function termosEm(RetratoDoPainel $r, string $estado): int
+    {
+        return count(array_filter($r->termos, static fn (string $e): bool => $e === $estado));
     }
 
     /** @return list<array<string, mixed>> */

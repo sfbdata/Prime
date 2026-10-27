@@ -87,6 +87,7 @@ final class EngajamentoDoTrabalhoExterno
         $p = $r->percentual;
 
         return [
+            $r->termoParaAceitar ? self::chip('bi-file-earmark-check', '#9a5b00', 'Você tem um termo de voluntariado para aceitar', ['mod' => 'cv', 'acao' => 'abrirTermo']) : null,
             $aoVivo > 0 ? self::chip('bi-broadcast', '#1e7b45', $aoVivo . ' vaga(s) disputada(s) disponível(is) agora', ['mod' => 'vagas']) : null,
             $r->novasDesdeAVisita > 0 ? self::chip('bi-stars', '#0a6fa0', $r->novasDesdeAVisita . ' vaga(s) nova(s) desde sua última visita', ['mod' => 'vagas']) : null,
             match (true) {

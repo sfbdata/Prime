@@ -11,6 +11,7 @@ use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Repository\TermoDeVoluntariadoRepository;
 use App\TrabalhoExterno\Service\ApresentadorDeCandidatura;
 use App\TrabalhoExterno\Service\ApresentadorDeCurriculo;
 use App\TrabalhoExterno\Service\Contexto;
@@ -34,6 +35,7 @@ final class ListarCurriculosUseCase
         private readonly CandidaturaRepository $candidaturas,
         private readonly ApresentadorDeCandidatura $apresentadorDeCandidatura,
         private readonly DetalheDoCurriculo $detalhe,
+        private readonly TermoDeVoluntariadoRepository $termos,
     ) {
     }
 
@@ -67,11 +69,12 @@ final class ListarCurriculosUseCase
         $ids = array_map(static fn (Curriculo $c): int => (int) $c->getId(), $curriculos);
         $marcas = $ctx->previa ? [] : $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, $ids);
         $contagem = $this->candidaturas->contarPorCurriculo($ids);
+        $termos = $this->termos->maisRecentesDe($ids);
         $cartoes = [];
         foreach ($curriculos as $cv) {
             $marca = $marcas[(int) $cv->getId()] ?? null;
             if ($marca?->excluida() !== true) {
-                $cartoes[] = $this->apresentador->cartao($cv, $marca, $agora, $contagem[(int) $cv->getId()] ?? 0);
+                $cartoes[] = $this->apresentador->cartao($cv, $marca, $agora, $contagem[(int) $cv->getId()] ?? 0, $termos[(int) $cv->getId()] ?? null);
             }
         }
 
