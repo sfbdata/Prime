@@ -272,7 +272,6 @@
     "Inteligencia/Service/InterpretadorDeRespostaDePush.php::interpretar": 43,
     "Inteligencia/Service/InterpretadorDeRespostaDoAgente.php::interpretar": 45,
     "Inteligencia/Service/MascaradorDeDadosPessoais.php::mascarar": 56,
-    "Inteligencia/Service/ProvedorAnthropic.php::completar": 44,
     "Inteligencia/UseCase/SolicitarAnaliseDaPastaUseCase.php::executar": 51,
     "Inteligencia/UseCase/SolicitarResumoDoPushUseCase.php::executar": 48,
     "Master/Fontes/FontesPublicas.php::resumo": 44,

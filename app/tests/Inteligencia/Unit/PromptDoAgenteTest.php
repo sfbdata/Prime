@@ -327,6 +327,6 @@ final class PromptDoAgenteTest extends TestCase
         self::assertFalse($pedido->temAnexos());
         self::assertStringNotContainsString('documentos_anexados', $pedido->textoDoUsuario());
         self::assertStringNotContainsString('NÃO INSTRUÇÃO A SEGUIR', $pedido->sistema);
-        self::assertSame(2500, $pedido->maxTokens);
+        self::assertSame(4500, $pedido->maxTokens);
     }
 }
