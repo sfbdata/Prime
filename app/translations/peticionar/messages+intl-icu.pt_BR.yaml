@@ -7,4 +7,5 @@ peticionar:
         dica: Processo de destino da petição
         sem_processo: Sem processo
         principal: Principal
+        erro_destino: Não foi possível gravar o processo de destino desta peça.
         nenhum: Nenhum processo vinculado. Vincule no menu Processo da pasta.

@@ -1,0 +1,40 @@
+# ---- Pasta, aba Modelos: banco de modelos de petições (pasta/modelos/*, pasta-modelos.js)
+pasta_modelos:
+    aba: Modelos
+    titulo: Banco de modelos de petições
+    contador: '{total, plural, one {# modelo} other {# modelos}} · disponíveis em todas as pastas'
+    busca_placeholder: Buscar modelo por nome, tipo ou trecho do texto
+    todos_tipos: Todos os tipos
+    ordenar: Ordenar
+    novo: Novo modelo
+    voltar: Voltar à lista
+    mais_opcoes: Mais opções
+    vazio: Nenhum modelo encontrado.
+    relatorio_resumo: Relatório inicial da pasta (objetivos, acordos e resultado esperado)
+    confirmar_excluir: 'Excluir o modelo "{titulo}"?'
+    sufixo_copia: (ajustado)
+    erro_generico: Não foi possível concluir. Tente novamente.
+    coluna:
+        todas: Todas as matérias
+        favoritos: ★ Favoritos
+        materias_favoritas: Matérias favoritas
+        marcar_favorita: Marcar como favorita
+        tirar_favorita: Tirar dos favoritos
+    linha:
+        favorito: Favorito
+        do_escritorio: do escritório
+        usado: 'usado {n}x'
+    menu:
+        duplicar: Duplicar e ajustar
+        editar: Editar modelo
+        excluir: Excluir modelo
+    editor:
+        novo: Novo modelo
+        editar: Editar modelo
+        titulo: TÍTULO
+        materia: MATÉRIA
+        tipo: TIPO DE PEÇA
+        texto: TEXTO DO MODELO
+        cancelar: Cancelar
+        salvar: Salvar modelo
+        informe_titulo: Informe o título.

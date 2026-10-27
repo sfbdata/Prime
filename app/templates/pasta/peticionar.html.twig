@@ -90,6 +90,7 @@
                     <div class="petic-tl-row"
                          {% if podeEditarPasta %}draggable="true"{% endif %}
                          data-doc-id="{{ doc.id }}"
+                         data-destino="{{ doc.processoDestino ? doc.processoDestino.id : '' }}"
                          data-ordem="{{ doc.ordem }}"
                          data-view-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
                          data-download-url="{{ path('pasta_documento_download', {id: doc.id}) }}"
@@ -469,6 +470,7 @@
     function selecionarItem(item) {
         document.querySelectorAll('.petic-tl-row').forEach(el => el.classList.remove('ativo'));
         item.classList.add('ativo');
+        if (window.PeticionarProcesso) window.PeticionarProcesso.aoSelecionar(item);
 
         const mime    = item.dataset.mimeType ?? '';
         const viewUrl = item.dataset.viewUrl;

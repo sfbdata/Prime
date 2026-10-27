@@ -29,7 +29,7 @@ final class PastaPontosRelatorioTelaTest extends JusPrimeWebTestCase
     use CriaFixturesPushDaPastaTrait;
     use CriaUsuarioComPermissoesTrait;
 
-    private const CARD = '#detalhes > .ps-grade > .ps-trilho > .ps-registro-pasta + section.ps-pontos-relatorio';
+    private const CARD = '#detalhes > details.mdl-relatorio > .mdl-relatorio-corpo > .ps-grade > .ps-trilho > .ps-registro-pasta + section.ps-pontos-relatorio';
 
     private function abrir(KernelBrowser $client, Pasta $pasta): Crawler
     {

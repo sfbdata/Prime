@@ -16,6 +16,7 @@ use App\Pasta\DTO\UploadImagemEditorInput;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Pasta\DTO\DocumentoDuplicadoOutput;
+use App\Pasta\UseCase\DefinirDestinoDaPecaUseCase;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
 use App\Pasta\UseCase\GerarPreviaDeDocumentoOfficeUseCase;
 use App\Pasta\UseCase\ExportarPecaTextoUseCase;
@@ -47,6 +48,7 @@ final class PeticionarController extends AbstractController
         private readonly SalvarPecaTextoUseCase $salvarPecaTextoUseCase,
         private readonly EditarPecaTextoUseCase $editarPecaTextoUseCase,
         private readonly GerarPreviaDeDocumentoOfficeUseCase $gerarPreviaOffice,
+        private readonly DefinirDestinoDaPecaUseCase $definirDestinoDaPecaUseCase,
         private readonly ExportarPecaTextoUseCase $exportarPecaTextoUseCase,
         private readonly UploadImagemEditorUseCase $uploadImagemEditorUseCase,
         private readonly ListarDuplicadosDoDocumentoUseCase $listarDuplicadosDoDocumentoUseCase,
@@ -447,6 +449,36 @@ final class PeticionarController extends AbstractController
         $resposta->headers->set('X-Content-Type-Options', 'nosniff');
 
         return $resposta;
+    }
+
+    /** Processo de destino da peça (seletor do cabeçalho). `vinculo` vazio volta ao principal. */
+    #[Route('/documento/{id}/destino', name: 'pasta_documento_destino', methods: ['POST'])]
+    public function definirDestino(PastaDocumento $doc, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $pasta       = $doc->getPasta();
+
+        if ($pasta === null || $pasta->estaExcluida() || !$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', (int) $pasta->getId(), 'edit')) {
+            return new JsonResponse(['success' => false, 'error' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('peticionar_destino_' . $pasta->getId(), (string) $request->request->get('_token'))) {
+            return new JsonResponse(['success' => false, 'error' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $bruto = trim((string) $request->request->get('vinculo', ''));
+        if ($bruto !== '' && preg_match('/^\d{1,10}$/', $bruto) !== 1) {
+            return new JsonResponse(['success' => false, 'error' => 'Processo inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $this->definirDestinoDaPecaUseCase->executar($doc, $bruto === '' ? null : (int) $bruto);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return new JsonResponse(['success' => true]);
     }
 
     #[Route('/documento/{id}/exportar/{formato}', name: 'pasta_documento_exportar_texto', methods: ['GET'])]

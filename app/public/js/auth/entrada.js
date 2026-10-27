@@ -400,18 +400,16 @@
     /* Destino da conta criada: só caminho relativo do próprio site. */
     const destinoSeguro = (d) => (typeof d === 'string' && d.startsWith('/') && !d.startsWith('//') && !d.includes('\\') ? d : '/');
 
-    /* "Bom dia, Nome!": o primeiro nome digitado no cadastro (sem Dr./Dra.), como o véu do /login/entrando;
-       sem nome, a parte antes do @, como no desenho. */
-    const saudacao = (em, nome) => {
+    /* "Bom dia, Ana!": como no desenho, o começo do e-mail (antes do @ e do primeiro . _ -), com a inicial maiúscula;
+       o /login/entrando faz o mesmo no servidor. */
+    const saudacao = (em) => {
         const h = new Date().getHours();
-        const partes = (nome || '').trim().split(/\s+/).filter(Boolean);
-        while (partes.length > 1 && /^(dr|dra|sr|sra)\.?$/i.test(partes[0])) { partes.shift(); }
-        const nm = partes[0] || ((em.split('@')[0] || '').split(/[._-]/)[0]) || '';
+        const nm = (em.split('@')[0] || '').split(/[._-]/)[0] || '';
 
         const sd = h < 12 ? window.BJ_T.t('entrada.js.saudacao.bom_dia') : h < 18 ? window.BJ_T.t('entrada.js.saudacao.boa_tarde') : window.BJ_T.t('entrada.js.saudacao.boa_noite');
 
         return nm
-            ? window.BJ_T.t('entrada.js.saudacao.com_nome', { saudacao: sd, nome: nm.charAt(0).toUpperCase() + nm.slice(1).toLowerCase() })
+            ? window.BJ_T.t('entrada.js.saudacao.com_nome', { saudacao: sd, nome: nm.charAt(0).toUpperCase() + nm.slice(1) })
             : window.BJ_T.t('entrada.js.saudacao.sem_nome', { saudacao: sd });
     };
 
@@ -451,7 +449,7 @@
             return;
         }
         mdFechar();
-        $('lgVeuTit').textContent = saudacao(em, $('lgCdNome').value);
+        $('lgVeuTit').textContent = saudacao(em);
         mostrar($('lgVeu'), true);
         $('lgCartao').classList.add('lg-sai');
         const destino = destinoSeguro(r.dados.destino);

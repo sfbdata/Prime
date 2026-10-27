@@ -54,20 +54,14 @@ final class EntradaController extends AbstractController
     }
 
     /**
-     * Primeira palavra do nome completo; sem nome, o começo do e-mail como no desenho
-     * (`ana.souza@...` vira `Ana`).
+     * Como no desenho 10 (VS 25.10.26): o começo do e-mail, antes do `@` e do primeiro `.`, `_` ou `-`, com a inicial
+     * maiúscula (`ana.souza@...` vira `Ana`). O nome completo não entra na saudação.
      */
     private function primeiroNome(User $user): string
     {
-        $partes = preg_split('/\s+/', trim((string) $user->getFullName()), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        // "Dra. Ana Souza" cumprimenta a Ana, não a "Dra.".
-        while (count($partes) > 1 && preg_match('/^(dr|dra|sr|sra)\.?$/iu', $partes[0]) === 1) {
-            array_shift($partes);
-        }
         $local = explode('@', (string) $user->getEmail())[0];
-        $primeiro = $partes[0] ?? (preg_split('/[._-]/', $local) ?: [''])[0];
+        $primeiro = (preg_split('/[._-]/', $local) ?: [''])[0];
 
-        // Nome gravado em maiúsculas ("SAMUEL FREITAS") cumprimenta o Samuel.
-        return mb_strtoupper(mb_substr($primeiro, 0, 1)) . mb_strtolower(mb_substr($primeiro, 1));
+        return mb_strtoupper(mb_substr($primeiro, 0, 1)) . mb_substr($primeiro, 1);
     }
 }

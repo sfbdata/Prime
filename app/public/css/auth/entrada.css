@@ -280,9 +280,3 @@ html:has(#bjtCss) .lg-seg__item-icone{color:var(--bjt-p)}
 @media (prefers-reduced-motion: reduce){
   .lg-raiz *, .lg-camada *, .lg-raiz, .lg-camada{animation:none !important; transition:none !important}
 }
-
-/* Celular: a frase fica ao lado da logo, como no desenho; só o botão da tarja quebra linha em vez de empurrar a
-   página para o lado (no desenho ele tem `nowrap` e passa de 360px, o que cria rolagem lateral). */
-@media (max-width:480px){
-  .lg-tarja__seg{white-space:normal; flex-wrap:wrap; text-align:left}
-}

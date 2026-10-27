@@ -39,7 +39,7 @@ preferência via composer; (f) aceitar qualquer formato, com entrega segura (fre
 | F4 | Cabeçalho/navbar enxuta (arquivo quente `layout_peticionar.html.twig`; avisar antes) | PR desta entrega |
 | F5 | Seletor do processo, somente leitura | PR desta entrega |
 | F6 | Ordem manual compartilhada com a aba Documentos | PR desta entrega |
-| F7 | Destino por peça (spec antes; migration 153800) | pendente |
+| F7 | Destino por peça: `pasta_documento.processo_destino_id` (nulo = principal), rota `pasta_documento_destino`, o seletor do cabeçalho mostra o destino da peça selecionada e grava ao escolher (migration 154400) | PR desta entrega |
 | F8 | Editor (TinyMCE mantido) | adiada: o desenho 07 traz só um contentEditable com modo leitura, Editar/Concluir, autosalvamento de 600 ms e "Texto" que cria a peça na hora; mudam o fluxo, ficam para decisão do dono (itens 5 e 11) |
 | F9 | Visualizador DOCX/XLSX: rota `pasta_documento_previa`, conversão no servidor com `phpword` e `phpspreadsheet` (já no composer), HTML sob CSP `sandbox; default-src 'none'`; planilha limitada a 500 linhas x 40 colunas; arquivo acima de 10 MB ou inválido mostra o aviso e o Baixar | PR desta entrega |
 | F10 | Aceitar qualquer formato | pendente |

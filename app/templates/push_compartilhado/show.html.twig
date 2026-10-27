@@ -29,7 +29,7 @@
 {% include '_recurso_faixa_master.html.twig' %}
 <div class="pc-pagina" data-pc-estado="{{ estado }}">
     {# [PC] 23-45 #}
-    <header class="pc-cabecalho">
+    <header class="pc-cabecalho" data-bjt-cabecalho>
         <div class="pc-faixa"></div>
         <div class="pc-barra">
             <div class="pc-barra-in">
@@ -173,5 +173,7 @@
     <div class="pc-aviso" role="status" data-pc-aviso hidden><i class="bi bi-shield-lock"></i>Cópia e impressão bloqueadas neste andamento</div>
 </div>
 <script src="/js/push-compartilhado.js" defer></script>
+{# Tema comemorativo (desenho Push Compartilhado, bj-tema.js): cores da barra, fita e ícones no cabeçalho. #}
+{% include 'layout/_globais/tema_comemorativo.html.twig' only %}
 </body>
 </html>

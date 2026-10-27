@@ -250,13 +250,13 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $painel = $crawler->filter('#detalhes > .ps-grade > .ps-detalhes-obs');
+        $painel = $crawler->filter('#detalhes > details.mdl-relatorio > .mdl-relatorio-corpo > .ps-grade > .ps-detalhes-obs');
         self::assertCount(1, $painel, 'o relatório ocupa a coluna central da grade do desenho');
         self::assertSame('Relatório inicial de Atendimento', trim($painel->filter('.ps-detalhes-obs > .ps-card-cab--painel > h2')->text()));
         self::assertCount(1, $painel->filter('.ps-detalhes-obs > .ps-compositor > #formDetalhesObservacao'));
         self::assertCount(1, $painel->filter('.ps-detalhes-obs > #detalhesObsLista.ps-registro'), 'as observações viram linha do tempo');
 
-        $trilho = $crawler->filter('#detalhes > .ps-grade > .ps-trilho');
+        $trilho = $crawler->filter('#detalhes > details.mdl-relatorio > .mdl-relatorio-corpo > .ps-grade > .ps-trilho');
         $registro = $trilho->filter('.ps-trilho > .ps-registro-pasta');
         self::assertSame('Registro da pasta', trim($registro->filter('h2')->text()));
         self::assertSame(['Criada em', 'Modificada em', 'Criada por'], $registro->filter('.ps-registro-pasta-campos .ps-rotulo')->each(static fn ($n) => trim($n->text())));
