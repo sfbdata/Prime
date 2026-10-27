@@ -116,6 +116,7 @@
         cvF: null,
         cvDoc: null,
         cvDel: null,
+        tmo: null,
         // Painel do Master (spec VS 18.10.26 §4.9, fatia F3b-1)
         cvVista: null,
         cvPn: null,
@@ -271,6 +272,11 @@
         curriculoExcluir: function (c) { return D.urlCurriculoExcluir.replace(MARCADOR_CV, encodeURIComponent(c)); },
         curriculoStatus: function (c) { return D.urlCurriculoStatus.replace(MARCADOR_CV, encodeURIComponent(c)); },
         curriculoNota: function (c) { return D.urlCurriculoNota.replace(MARCADOR_CV, encodeURIComponent(c)); },
+        // Termo de voluntariado: o rascunho é leitura (aceita `?como=`); prévia, envio e aceite são escritas.
+        termoRascunho: function (c) { return comComo(D.urlTermoRascunho.replace(MARCADOR_CV, encodeURIComponent(c))); },
+        termoPrevia: function (c) { return D.urlTermoPrevia.replace(MARCADOR_CV, encodeURIComponent(c)); },
+        termoEnviar: function (c) { return D.urlTermoEnviar.replace(MARCADOR_CV, encodeURIComponent(c)); },
+        termoAceitar: function (c) { return D.urlTermoAceitar.replace('TV-0000', encodeURIComponent(c)); },
         curriculosMarcacoes: function () { return D.urlCurriculosMarcacoes; },
         curriculoPrevia: function () { return D.urlCurriculoPrevia; },
         curriculosCsv: function (q) { return comComo(D.urlCurriculosCsv + (q ? (D.urlCurriculosCsv.indexOf('?') >= 0 ? '&' : '?') + q : '')); },
@@ -4040,7 +4046,7 @@
 
     function fecharTlm() {
         // Fechar no meio do envio esconderia a vaga (ou o currículo) gravado: espera a resposta.
-        if ((S.vf && S.vf.enviando) || (S.vgDel && S.vgDel.enviando) || (S.cvF && S.cvF.enviando) || (S.cvDel && S.cvDel.enviando)) {
+        if ((S.vf && S.vf.enviando) || (S.vgDel && S.vgDel.enviando) || (S.cvF && S.cvF.enviando) || (S.cvDel && S.cvDel.enviando) || (S.tmo && S.tmo.enviando)) {
             return;
         }
         // A nota interna que ainda esperava os 800 ms vai agora, antes de o campo sumir.
@@ -4056,6 +4062,8 @@
         S.cvF = null;
         S.cvDoc = null;
         S.cvDel = null;
+        S.tmo = null;
+        clearTimeout(temporizadorTermo);
         S.cp = null;
         relogiosDetalhe = [];
         limpar($('teVagaModal'));
@@ -6180,7 +6188,7 @@
     /**
      * Menu da linha (`cvMenu`, l.1000): Abrir currículo, Ver currículo formatado / PDF, "Marcar como …"
      * para as situações diferentes da atual (com `talentos`) e Excluir currículo (só o Master).
-     * "Gerar termo de voluntariado" é da F3b.
+     * "Gerar termo de voluntariado" (l.1093): quem gere o banco, com voluntariado diferente de "não".
      */
     function menuDoCv(caixa, codigo) {
         var x = cvDe(codigo);
@@ -6196,6 +6204,9 @@
         caixa.appendChild(el('div', { class: 'te-menu-tit', text: x.nome || '' }));
         item('Abrir currículo', 'bi-box-arrow-up-right', function () { marcarCvVisto(x); abrirCv(codigo); });
         item('Ver currículo formatado / PDF', 'bi-file-earmark-pdf', function () { verCvDoCodigo(codigo); });
+        if (cvPodeGerir() && x.vol !== 'nao') {
+            item('Gerar termo de voluntariado', 'bi-file-earmark-check', function () { abrirTermoNovo(codigo, x.nome); });
+        }
         if (cvPodeGerir()) {
             CST.filter(function (c) { return c[0] !== x.status; }).forEach(function (c) {
                 item('Marcar como ' + c[1].toLowerCase(), c[0] === 'favorito' ? 'bi-star' : c[0] === 'arquivado' ? 'bi-archive' : 'bi-flag', function () { mudarStatusCv(codigo, c[0]); });
@@ -6400,7 +6411,8 @@
                 botaoArquivoCv(A.oab, 'bi-person-badge', 'Carteira da OAB'),
                 botaoArquivoCv(A.matricula, 'bi-file-earmark-text', 'Comprovante de curso')
             ]),
-            botaoArquivoCv(A.curriculo, 'bi-file-earmark-arrow-down', A.curriculo ? A.curriculo.nome || '' : '', 'te-cv-arq-btn')
+            botaoArquivoCv(A.curriculo, 'bi-file-earmark-arrow-down', A.curriculo ? A.curriculo.nome || '' : '', 'te-cv-arq-btn'),
+            x.termoResumo ? botaoDoTermo(x.termoResumo.botaoTxt, x.termoResumo.cor, function () { abrirTermoVer(x.codigo, x.nome, x.termoResumo); }, '') : null
         ];
         // Situação no banco e nota interna: só o interno recebe a nota (o externo recebe null, decisão 1).
         if (x.nota !== null && x.nota !== undefined) {
@@ -6422,13 +6434,14 @@
         if (titulosCand.length) {
             corpo.push(el('div', { class: 'te-cv-cands' }, [el('b', { text: 'Candidaturas:' }), ' ' + titulosCand.join(', ')]));
         }
-        modalVaga({
-            icone: 'bi-person-vcard', titulo: 'Currículo · ' + (x.nome || ''), largura: '720px', corpo: corpo,
-            botoes: [
-                botaoTlm('Fechar', 'bi-x', '', fecharTlm),
-                botaoTlm('Ver currículo formatado', 'bi-file-earmark-person', '', function () { verCvDe(x, false); })
-            ]
-        });
+        var botoes = [
+            botaoTlm('Fechar', 'bi-x', '', fecharTlm),
+            botaoTlm('Ver currículo formatado', 'bi-file-earmark-person', '', function () { verCvDe(x, false); })
+        ];
+        if (x.podeGerarTermo && cvPodeGerir()) {
+            botoes.push(botaoTlm(x.termoResumo ? 'Novo termo de voluntariado' : 'Gerar termo de voluntariado', 'bi-file-earmark-check', 'pri', function () { abrirTermoNovo(x.codigo, x.nome); }));
+        }
+        modalVaga({ icone: 'bi-person-vcard', titulo: 'Currículo · ' + (x.nome || ''), largura: '720px', corpo: corpo, botoes: botoes });
     }
 
     /* ---------------------------------------------------------------- nota interna (decisão 8) */
@@ -6555,6 +6568,304 @@
         modalVaga({ icone: 'bi-file-earmark-person', titulo: 'Currículo · pré-visualização', largura: '960px', corpo: [quadro], botoes: botoes });
     }
 
+    /* ---------------------------------------------------------------- termo de voluntariado (tmTermo) */
+
+    /**
+     * Os campos do modal (l.334 a 341) na ordem do desenho: [chave, rótulo, tipo, placeholder]. `vNac`, `vSit`, `vInst`,
+     * `vSem` e `data` não têm campo no desenho: seguem do rascunho do servidor e entram no termo.
+     */
+    var TERMO_GRUPOS = [
+        ['ESCRITÓRIO', [
+            ['eNome', 'NOME / RAZÃO SOCIAL'], ['eDoc', 'CNPJ / CPF'], ['eEnd', 'ENDEREÇO DA SEDE'], ['eEmail', 'E-MAIL'], ['eTel', 'TELEFONE'],
+            ['resp', 'REPRESENTANTE'], ['respOab', 'OAB Nº'], ['respOabUf', 'OAB UF']
+        ]],
+        ['VOLUNTÁRIO(A)', [
+            ['vNome', 'NOME COMPLETO'], ['vCpf', 'CPF'], ['vRg', 'RG'], ['vOab', 'OAB Nº (se houver)'], ['vOabUf', 'OAB UF'],
+            ['vEnd', 'ENDEREÇO'], ['vEmail', 'E-MAIL']
+        ]]
+    ];
+    var TERMO_CONDICOES = [
+        ['orient', 'ORIENTADOR(A)', 'text', 'Se diferente do representante'], ['horas', 'HORAS POR SEMANA', 'number', ''], ['modal', 'MODALIDADE', 'text', ''],
+        ['inicio', 'INÍCIO', 'date', ''], ['meses', 'PRAZO (MESES)', 'number', ''], ['aviso', 'AVISO PRÉVIO (DIAS)', 'number', ''],
+        ['foro', 'FORO (COMARCA)', 'text', ''], ['cidade', 'LOCAL DA ASSINATURA', 'text', '']
+    ];
+    var temporizadorTermo = null;
+
+    function termoAberto() { return S.tlm === 'termo' && S.tmo; }
+
+    /** "Gerar termo" / "Novo termo": o rascunho vem do servidor (cadastro do escritório e currículo). */
+    function abrirTermoNovo(codigo, nome) {
+        if (!podeEscreverCv() || vazio(D.urlTermoRascunho)) {
+            return;
+        }
+        fecharMenu();
+        pedirCv('GET', ROTA.termoRascunho(codigo)).then(function (r) {
+            if (!r.ok || !r.campos) {
+                toastErro(r.mensagem);
+                return;
+            }
+            mostrarTermo({ modo: 'novo', codigo: codigo, nome: nome || '', campos: r.campos, resumo: null, html: '', erro: '', enviando: false, li: false });
+            atualizarPreviaDoTermo(true);
+        });
+    }
+
+    /** O termo já enviado ou aceito: o HTML gravado no iframe. `resumo` vem do detalhe (sem CPF nem RG). */
+    function abrirTermoVer(codigo, nome, resumo) {
+        if (!resumo || vazio(resumo.documentoUrl)) {
+            return;
+        }
+        fecharMenu();
+        pedirHtml('GET', comComo(resumo.documentoUrl)).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            mostrarTermo({ modo: 'ver', codigo: codigo, nome: nome || '', campos: {}, resumo: resumo, html: r.html, erro: '', enviando: false, li: false });
+        });
+    }
+
+    /** O chip "Você tem um termo de voluntariado para aceitar" e o botão de Meu currículo. */
+    function abrirTermoDoMeu() {
+        var abrir = function () {
+            var m = S.cv && S.cv.meu;
+            if (m && m.termoResumo) {
+                abrirTermoVer(m.codigo, m.nome, m.termoResumo);
+            }
+        };
+        if (S.cv && S.cv.meu) {
+            abrir();
+            return;
+        }
+        carregarCurriculos().then(abrir);
+    }
+
+    function mostrarTermo(estado) {
+        gravarNotaJa();
+        S.tlm = 'termo';
+        S.tmo = estado;
+        S.cvDet = null;
+        S.vgDet = null;
+        S.vf = null;
+        S.vgDel = null;
+        S.cvF = null;
+        S.cvDoc = null;
+        S.cvDel = null;
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderTermo();
+    }
+
+    /** O HTML do rascunho vem sempre do servidor (nada de montar o texto jurídico aqui). Sem `agora`, espera 400 ms. */
+    function atualizarPreviaDoTermo(agora) {
+        clearTimeout(temporizadorTermo);
+        var T = S.tmo;
+        if (!T || T.modo !== 'novo') {
+            return;
+        }
+        temporizadorTermo = setTimeout(function () {
+            pedirHtml('POST', ROTA.termoPrevia(T.codigo), T.campos).then(function (r) {
+                if (S.tmo !== T) {
+                    return;
+                }
+                if (!r.ok) {
+                    T.erro = r.mensagem || FALHA;
+                    renderTermo();
+                    return;
+                }
+                T.html = r.html;
+                var quadro = $('teTermoPrevia');
+                if (quadro) {
+                    quadro.srcdoc = r.html;
+                }
+            });
+        }, agora ? 0 : 400);
+    }
+
+    function campoDoTermo(T, chave, rot, tipo, dica) {
+        var ctl = el('input', { class: 'te-vf-ctl', type: tipo, value: T.campos[chave] || '', placeholder: dica || '', attrs: { 'data-termo-campo': chave } });
+        ctl.addEventListener('input', function (e) {
+            T.campos[chave] = e.target.value;
+            T.erro = '';
+            atualizarPreviaDoTermo(false);
+        });
+        return el('label', { class: 'te-vf-rot is-pequeno' }, [rot, ctl]);
+    }
+
+    /** O formulário do desenho (l.333 a 341), só no rascunho. */
+    function formularioDoTermo(T) {
+        var corpo = [
+            el('div', { class: 'te-tm-aviso' }, [ic('bi-info-circle'), ' Modelo padrão do BlueJus, igual para todos os escritórios. Os dados vêm do cadastro do escritório e do currículo; o que estiver em branco aparece como linha para preencher.'])
+        ];
+        TERMO_GRUPOS.forEach(function (g) {
+            corpo.push(el('div', { class: 'te-tm-grupo', text: g[0] }));
+            corpo.push(el('div', { class: 'te-tm-grade' }, g[1].map(function (c) { return campoDoTermo(T, c[0], c[1], 'text', ''); })));
+        });
+        corpo.push(el('div', { class: 'te-tm-grupo', text: 'CONDIÇÕES' }));
+        var ativ = el('textarea', { class: 'te-vf-ctl', rows: 2, value: T.campos.ativ || '' });
+        ativ.addEventListener('input', function (e) {
+            T.campos.ativ = e.target.value;
+            T.erro = '';
+            atualizarPreviaDoTermo(false);
+        });
+        corpo.push(el('label', { class: 'te-vf-rot is-pequeno' }, ['ATIVIDADES', ativ]));
+        corpo.push(el('div', { class: 'te-tm-grade' }, TERMO_CONDICOES.map(function (c) { return campoDoTermo(T, c[0], c[1], c[2], c[3]); })));
+        var sim = T.campos.ress === 'sim';
+        var opcao = function (k, rot) {
+            var on = (T.campos.ress || 'nao') === k;
+            return el('button', {
+                type: 'button', class: 'te-tm-seg' + (on ? ' is-on' : ''), attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                onclick: function () { T.campos.ress = k; renderTermo(); atualizarPreviaDoTermo(true); }
+            }, rot);
+        };
+        corpo.push(el('div', { class: 'te-tm-ress' }, [
+            el('div', { class: 'te-vf-rot is-pequeno' }, ['RESSARCIMENTO DE DESPESAS', el('div', { class: 'te-tm-segs' }, [opcao('nao', 'Sem ressarcimento'), opcao('sim', 'Ressarcir despesas')])]),
+            sim ? el('div', { class: 'te-tm-lim' }, campoDoTermo(T, 'ressLim', 'LIMITE MENSAL (R$)', 'text', 'Opcional')) : null
+        ]));
+        corpo.push(el('div', { class: 'te-tm-grupo', text: 'PRÉVIA DO TERMO' }));
+        return corpo;
+    }
+
+    /** Pede o HTML atual (rascunho: do servidor com os campos de agora; salvo: o gravado). */
+    function htmlDoTermo() {
+        var T = S.tmo;
+        return T.modo === 'novo' ? pedirHtml('POST', ROTA.termoPrevia(T.codigo), T.campos) : Promise.resolve({ ok: true, html: T.html });
+    }
+
+    /** Word: `Blob` application/msword com BOM e o nome "Termo de voluntariado - {nome}.doc" (`baixarDoc`, l.1132). */
+    function baixarWordDoTermo() {
+        var T = S.tmo;
+        htmlDoTermo().then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            var url = URL.createObjectURL(new Blob(['﻿' + r.html], { type: 'application/msword' }));
+            var a = el('a', { href: url, attrs: { download: 'Termo de voluntariado - ' + ((T.campos.vNome || T.nome) || 'voluntario') + '.doc' } });
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        });
+    }
+
+    /** Imprimir / PDF (`imprimir`, l.1133): a janela abre no clique (senão o navegador bloqueia) e recebe o HTML depois. */
+    function imprimirTermo() {
+        var w = window.open('', '_blank');
+        if (!w) {
+            mostrarToast({ tit: 'Permita pop-ups', txt: 'O navegador bloqueou a janela de impressão.', hora: '' });
+            return;
+        }
+        htmlDoTermo().then(function (r) {
+            if (!r.ok) {
+                w.close();
+                toastErro(r.mensagem);
+                return;
+            }
+            w.document.write(r.html);
+            w.document.close();
+            setTimeout(function () { w.focus(); w.print(); }, 300);
+        });
+    }
+
+    /** "Enviar para aceite": o servidor confere os 7 obrigatórios e devolve a mensagem do desenho (l.1134). */
+    function enviarTermoParaAceite() {
+        var T = S.tmo;
+        if (!T || T.enviando) {
+            return;
+        }
+        T.enviando = true;
+        T.erro = '';
+        renderTermo();
+        pedirCv('POST', ROTA.termoEnviar(T.codigo), T.campos).then(function (r) {
+            T.enviando = false;
+            if (!r.ok) {
+                T.erro = r.mensagem || FALHA;
+                renderTermo();
+                return;
+            }
+            fecharTlm();
+            mostrarToast({ tit: 'Termo enviado para aceite', txt: (T.campos.vNome || T.nome) + ' recebe o termo em Meu currículo.', hora: '' });
+            carregarCurriculos();
+        });
+    }
+
+    /** "Aceitar termo": a caixa "Li e aceito" é obrigatória; data, IP e hash são do servidor. */
+    function aceitarTermo() {
+        var T = S.tmo;
+        if (!T || T.enviando || !T.resumo) {
+            return;
+        }
+        if (!T.li) {
+            T.erro = 'Marque "Li e aceito" para confirmar.';
+            renderTermo();
+            return;
+        }
+        T.enviando = true;
+        T.erro = '';
+        renderTermo();
+        pedirCv('POST', ROTA.termoAceitar(T.resumo.codigo), { li: true }).then(function (r) {
+            T.enviando = false;
+            if (!r.ok) {
+                T.erro = r.mensagem || FALHA;
+                renderTermo();
+                return;
+            }
+            fecharTlm();
+            mostrarToast({ tit: 'Termo aceito', txt: 'O escritório foi avisado. Você pode baixar sua via a qualquer momento.', hora: '' });
+            carregarCurriculos();
+            carregarEngajamento(false);
+        });
+    }
+
+    /** O modal "Termo de adesão ao serviço voluntário" (l.330 a 352, 960px; rodapé l.1193). */
+    function renderTermo() {
+        var T = termoAberto() ? S.tmo : null;
+        if (!T) {
+            return;
+        }
+        var novo = T.modo === 'novo', R = T.resumo;
+        var statusTxt = novo ? 'Rascunho · revise os dados e envie para aceite' : R.statusTxt;
+        var statusCor = novo ? '#0a6fa0' : R.statusCor;
+        var corpo = [el('div', { class: 'te-tm-status', style: { color: statusCor } }, [ic('bi-circle-fill'), statusTxt])];
+        if (novo) {
+            formularioDoTermo(T).forEach(function (n) { corpo.push(n); });
+        }
+        var quadro = el('iframe', { class: 'te-tm-previa', id: 'teTermoPrevia', title: 'Prévia do termo', attrs: { sandbox: '' } });
+        quadro.style.height = novo ? '420px' : '62vh';
+        quadro.srcdoc = T.html;
+        corpo.push(quadro);
+        if (!novo && R.podeAceitar) {
+            var caixa = el('input', { type: 'checkbox', checked: !!T.li });
+            caixa.addEventListener('change', function (e) { T.li = e.target.checked; T.erro = ''; });
+            corpo.push(el('label', { class: 'te-tm-li' }, [
+                caixa,
+                el('span', { text: 'Li e aceito o Termo de Adesão ao Serviço Voluntário. Sei que não há remuneração nem vínculo de emprego (Lei nº 9.608/1998). O aceite fica registrado com data e hora.' })
+            ]));
+        }
+        corpo.push(erroTlm(T.erro));
+        var botoes = [
+            botaoTlm('Fechar', 'bi-x', '', fecharTlm),
+            botaoTlm(novo ? 'Word' : 'Baixar Word', 'bi-file-earmark-word', '', baixarWordDoTermo),
+            botaoTlm('Imprimir / PDF', 'bi-printer', '', imprimirTermo)
+        ];
+        if (novo) {
+            botoes.push(botaoTlm(T.enviando ? 'Enviando…' : 'Enviar para aceite', 'bi-send', 'pri', enviarTermoParaAceite));
+        } else if (R.podeAceitar) {
+            botoes.push(botaoTlm(T.enviando ? 'Aceitando…' : 'Aceitar termo', 'bi-check2-circle', 'verde', aceitarTermo));
+        }
+        modalVaga({
+            icone: 'bi-file-earmark-check', titulo: 'Termo de adesão ao serviço voluntário' + (T.campos.vNome || T.nome ? ' · ' + (T.campos.vNome || T.nome) : ''),
+            largura: '960px', corpo: corpo.filter(Boolean), botoes: botoes
+        });
+    }
+
+    /** Botão do termo (detalhe e Meu currículo): ícone, texto na cor do estado e seta (`termoAbrir`, l.322; l.230). */
+    function botaoDoTermo(texto, cor, acao, classe) {
+        return el('button', { type: 'button', class: 'te-tm-botao' + (classe || ''), style: { color: cor }, onclick: acao }, [
+            ic('bi-file-earmark-check'), texto, ic('bi-chevron-right')
+        ]);
+    }
+
     /* ---------------------------------------------------------------- "Meu currículo" do externo */
 
     /**
@@ -6585,7 +6896,8 @@
                     el('div', { class: 'te-cv-pct-cab' }, [el('b', { text: 'Currículo completo' }), el('b', { style: { color: cor }, text: n + '%' })]),
                     el('div', { class: 'te-cv-pct-trilho' }, el('div', { class: 'te-cv-pct-barra', style: { width: n + '%', background: cor } })),
                     faltas.length ? el('div', { class: 'te-cv-falta', text: 'Falta: ' + faltas.join(', ') }) : null
-                ])
+                ]),
+                m.termoResumo ? botaoDoTermo(m.termoResumo.meuTxt, m.termoResumo.cor, function () { abrirTermoVer(m.codigo, m.nome, m.termoResumo); }, ' is-meu') : null
             ]);
         }
         alvo.appendChild(el('div', { class: 'te-cv-card', attrs: { 'data-screen-label': 'Meu currículo' } }, [
@@ -7914,6 +8226,10 @@
     function irDoChip(ir) {
         if (ir.acao === 'novaVaga') {
             abrirNovaOferta();
+            return;
+        }
+        if (ir.acao === 'abrirTermo') {
+            abrirTermoDoMeu();
             return;
         }
         if (ir.acao === 'editarCv') {

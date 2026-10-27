@@ -1521,3 +1521,26 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-pg-recusar:hover { background: #fdf0ef; }
 .te-pg-copiar:hover { background: #0b5f86; }
 .te-pg-chat:hover { background: #f5f8fa; }
+
+/* Termo de voluntariado (desenho 06 de 25/10, l.322 e 330 a 352): modal de 960px, formulário em grade, prévia e aceite. */
+.te-tm-status { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: bold; }
+.te-tm-status .bi { font-size: 7px; }
+.te-tm-aviso { font-size: 12.5px; color: var(--te-text-2); background: var(--te-perfil-bg); border: 1px solid #cfe3f0; border-radius: 3px; padding: 9px 12px; line-height: 1.5; }
+.te-tm-aviso .bi { color: var(--te-azul); }
+.te-tm-grupo { font-size: 11.5px; font-weight: bold; color: var(--te-azul); letter-spacing: .6px; margin-top: 4px; }
+.te-tm-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.te-tm-ress { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.te-tm-segs { display: flex; background: var(--te-seg); border-radius: 4px; padding: 3px; gap: 2px; }
+.te-tm-seg { height: 28px; padding: 0 12px; border: none; border-radius: 3px; background: transparent; color: var(--te-muted); font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; }
+.te-tm-seg.is-on { background: var(--te-seg-on); color: var(--te-azul); box-shadow: 0 1px 3px rgba(18, 36, 47, .12); }
+.te-tm-lim { width: 180px; }
+.te-tm-previa { flex: none; width: 100%; border: 1px solid var(--te-border); border-radius: 3px; background: #fff; }
+.te-tm-li { display: flex; align-items: flex-start; gap: 9px; font-size: 13.5px; color: var(--te-body); cursor: pointer; line-height: 1.5; background: #e9f6ee; border: 1px solid #bfe3cc; border-radius: 3px; padding: 10px 12px; }
+.te-tm-li input { width: 16px; height: 16px; accent-color: #1e7b45; margin-top: 2px; }
+.te-tm-botao { display: flex; align-items: center; gap: 8px; width: 100%; border: 1px solid #e1eaf0; border-radius: 3px; background: var(--te-card); padding: 8px 12px; font: inherit; font-size: 13px; font-weight: bold; cursor: pointer; text-align: left; }
+.te-tm-botao:hover { border-color: #9fc3d8; background: #f5fafd; }
+.te-tm-botao .bi-chevron-right { margin-left: auto; font-size: 10px; color: #9aabb7; }
+.te-tm-botao.is-meu { margin-top: 12px; border-radius: 2px; padding: 8px 11px; }
+[data-bs-theme="dark"] .te-page .te-tm-aviso { border-color: var(--te-border); }
+[data-bs-theme="dark"] .te-page .te-tm-li { background: rgba(30, 123, 69, .15); border-color: rgba(30, 123, 69, .4); }
+[data-bs-theme="dark"] .te-page .te-tm-botao:hover { background: var(--te-hover); }
