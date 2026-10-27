@@ -7,6 +7,7 @@ namespace App\Profile\DTO;
 use App\Profile\Enum\Atuacao;
 use App\Profile\Enum\Genero;
 use App\Profile\Enum\VinculoColaborador;
+use App\Profile\Service\ChavePix;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -26,6 +27,11 @@ final class DadosPessoaisInput
     #[Assert\Length(max: 20, maxMessage: 'Telefone inválido.')]
     #[Assert\Regex(pattern: '/^[\d\s()+\-.]*$/', message: 'Telefone inválido.')]
     public ?string $telefone = null;
+
+    /** Desenho 07 (`pixRecomp`): onde a pessoa recebe recompensas de indicação; vazio vale. */
+    #[Assert\Length(max: ChavePix::TAMANHO_MAXIMO, maxMessage: 'Informe uma chave PIX válida: CPF, CNPJ, e-mail, celular ou chave aleatória.')]
+    #[Assert\Callback(callback: [self::class, 'validarChavePix'], groups: ['perfil'])]
+    public ?string $chavePixRecompensa = null;
 
     #[Assert\Length(max: 14, maxMessage: 'CPF inválido.')]
     #[Assert\Callback(callback: [self::class, 'validarCpf'], groups: ['perfil'])]
@@ -61,6 +67,7 @@ final class DadosPessoaisInput
         $input->nomeCompleto   = $perfil->nomeExibido;
         $input->status         = $perfil->status;
         $input->telefone       = $perfil->telefone;
+        $input->chavePixRecompensa = $perfil->chavePixRecompensa;
         $input->cpf            = $perfil->cpf;
         $input->dataNascimento = $perfil->dataNascimento;
         // O legado `nao_informado` (D1 da spec genero-no-cadastro) abre como vazio: não é mais uma opção.
@@ -81,6 +88,13 @@ final class DadosPessoaisInput
         $digitos = preg_replace('/\D/', '', (string) $cpf) ?? '';
         if ($digitos !== '' && strlen($digitos) !== 11) {
             $contexto->buildViolation('O CPF precisa ter 11 números.')->addViolation();
+        }
+    }
+
+    public static function validarChavePix(?string $chave, \Symfony\Component\Validator\Context\ExecutionContextInterface $contexto): void
+    {
+        if (trim((string) $chave) !== '' && !ChavePix::valida((string) $chave)) {
+            $contexto->buildViolation('Informe uma chave PIX válida: CPF, CNPJ, e-mail, celular ou chave aleatória.')->addViolation();
         }
     }
 

@@ -156,6 +156,34 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('2026-03-01', $vinculo?->getContratoInicio()?->format('Y-m-d'));
     }
 
+    #[TestDox('chave PIX para recompensas (desenho 07): o modal tem o campo com o placeholder do desenho, grava, recusa chave inválida e a grade não a mostra')]
+    public function testChavePixDeRecompensas(): void
+    {
+        $tela = $this->abrir($this->primario);
+        $campo = $tela->filter('#formDadosPessoais input[name="dados_pessoais[chavePixRecompensa]"]');
+        self::assertCount(1, $campo);
+        self::assertSame('CPF, e-mail, celular ou chave aleatória', $campo->attr('placeholder'));
+
+        $form = $tela->filter('#formDadosPessoais')->form();
+        $form['dados_pessoais[chavePixRecompensa]'] = 'texto solto sem formato';
+        $this->client->submit($form);
+        $this->em->clear();
+        $perfil = $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $this->primario->getId()]);
+        self::assertNull($perfil?->getChavePixRecompensa(), 'chave inválida não grava');
+
+        $form = $this->abrir($this->primario)->filter('#formDadosPessoais')->form();
+        $form['dados_pessoais[chavePixRecompensa]'] = '  ana@pix.com.br ';
+        $this->client->submit($form);
+        self::assertResponseRedirects('/perfil');
+        $this->em->clear();
+        $perfil = $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $this->primario->getId()]);
+        self::assertSame('ana@pix.com.br', $perfil?->getChavePixRecompensa());
+
+        $tela = $this->abrir($this->primario);
+        self::assertSame('ana@pix.com.br', $tela->filter('#formDadosPessoais input[name="dados_pessoais[chavePixRecompensa]"]')->attr('value'), 'o modal reabre com a chave');
+        self::assertStringNotContainsString('ana@pix.com.br', $tela->filter('.mp-grade')->html(), 'a grade de dados não mostra a chave');
+    }
+
     #[TestDox('gênero e atuação (desenho 05 de 21/10): a pessoa declara no modal, grava e o modal reabre com eles')]
     public function testGeneroEAtuacao(): void
     {
@@ -356,6 +384,7 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         $perfil->setNomeCompleto('Jéssica Martins');
         $perfil->setStatus('Frase da Jéssica');
         $perfil->setTelefone('82911112222');
+        $perfil->setChavePixRecompensa('jessica@pix.com.br');
         $perfil->setGenero(Genero::Feminino);
         $perfil->setAtuacao(Atuacao::Advogado);
         $this->em->persist($perfil);
@@ -373,6 +402,7 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('Jéssica Martins Souza', $salvo?->getNomeCompleto(), 'o admin salvou');
         self::assertSame('Frase da Jéssica', $salvo?->getStatus());
         self::assertSame('82911112222', $salvo?->getTelefone());
+        self::assertSame('jessica@pix.com.br', $salvo?->getChavePixRecompensa(), 'o admin não apaga a chave PIX');
         self::assertSame([Genero::Feminino, Atuacao::Advogado], [$salvo?->getGenero(), $salvo?->getAtuacao()], 'o admin não apaga gênero nem atuação');
         self::assertSame('123', $salvo?->getCpf(), 'a regra dos 11 números é só do modal do perfil');
     }

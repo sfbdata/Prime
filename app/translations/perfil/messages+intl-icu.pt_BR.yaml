@@ -135,6 +135,8 @@ perfil:
         frase: FRASE DO PERFIL
         telefone: TELEFONE / WHATSAPP
         cpf: CPF
+        pix_recompensa: CHAVE PIX PARA RECOMPENSAS
+        pix_recompensa_placeholder: CPF, e-mail, celular ou chave aleatória
         cpf_placeholder: Somente números
         cpf_ajuda: Usado nos relatórios e estatísticas do escritório
         nascimento: NASCIMENTO

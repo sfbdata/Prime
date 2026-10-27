@@ -61,6 +61,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Contribua: aviso bruto recebido de gateway/banco. É ele mesmo a trilha (o que chegou e quando);
         // quem muda dado de escritório é a reconsulta, que audita a assinatura/apoio.
         \App\Contribua\Entity\NotificacaoRecebida::class,
+        // Contribua C4: a integração bancária guarda o certificado e a chave cifrados (segredo, fora da
+        // trilha); a cobrança PIX aberta é passo técnico: o que vale como prova é o Apoio confirmado, auditado.
+        \App\Contribua\Entity\IntegracaoBancaria::class,
+        \App\Contribua\Entity\CobrancaPixDaConta::class,
 
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
