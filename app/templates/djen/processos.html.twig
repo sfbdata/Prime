@@ -5,12 +5,14 @@
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/push-processos.css') }}">
+<link rel="stylesheet" href="{{ asset('css/push-acervo.css') }}">
 {% endblock %}
 
 {% block body %}
 {% include 'djen/_abas.html.twig' with {ativa: 'processos'} %}
 
 {% set no_relatorio = sub == 'relatorio' %}
+{% set no_acervo = sub == 'acervo' %}
 <div class="pp-pagina" data-pp-processos
      data-t-ver-publicacoes="{{ 'djen.processos.ver_publicacoes'|trans|e('html_attr') }}"
      data-t-abrir-pasta="{{ 'djen.index.menu_abrir_pasta'|trans({n: '%n%'})|e('html_attr') }}"
@@ -69,6 +71,7 @@
     <div class="pp-subabas" data-pp-subabas>
         <a href="{{ path('push_processual_processos', {sub: 'acompanhados'}) }}" class="pp-subaba{{ sub == 'acompanhados' ? ' is-ativa' : '' }}">{{ 'djen.processos.sub_acompanhados'|trans }} <span>({{ sub_contagens.acompanhados }})</span></a>
         <a href="{{ path('push_processual_processos', {sub: 'relatorio'}) }}" class="pp-subaba{{ sub == 'relatorio' ? ' is-ativa' : '' }}">{{ 'djen.processos.sub_relacionados'|trans }} <span>({{ sub_contagens.relatorio }})</span></a>
+        <a href="{{ path('push_processual_processos', {sub: 'acervo'}) }}" class="pp-subaba{{ no_acervo ? ' is-ativa' : '' }}">{{ 'djen.acervo.subaba'|trans }} <span>({{ sub_contagens.acervo }})</span></a>
     </div>
 
     {% if not no_relatorio %}
@@ -97,6 +100,11 @@
         </div>
     {% endif %}
 
+    {% if no_acervo %}<div class="pp-acv-layout">
+        {% include 'djen/_acervo_lateral.html.twig' with {acervo: acervo, grupo: acervo_grupo, orgao: acervo_orgao, q: acervo_q} only %}
+        <div class="pp-acv-layout__lista">
+    {% endif %}
+    {% if not no_acervo %}
     <section class="pp-caixa pp-caixa--filtros">
         <form method="GET" action="{{ path('push_processual_processos') }}" class="pp-filtros" data-pp-filtros>
             <input type="hidden" name="sub" value="{{ sub }}">
@@ -129,7 +137,11 @@
             <a href="{{ path('push_processual_processos_exportar', criterios) }}" class="pp-exportar" data-pp-exportar><i class="bi bi-filetype-csv"></i>{{ 'djen.processos.exportar'|trans }}</a>
         </form>
     </section>
+    {% endif %}
 
+    {% if no_acervo and not acervo.mostrarLista %}
+        <div class="pp-acv-vazio">{{ 'djen.acervo.selecione'|trans }}</div>
+    {% else %}
     <section class="pp-caixa pp-tabela" data-pp-tabela>
         <div class="pp-tabela__corpo pp-tabela__corpo--proc">
             <div class="pp-linha pp-linha--proc pp-linha--cab">
@@ -198,6 +210,8 @@
             </div>
         {% endif %}
     </section>
+    {% endif %}
+    {% if no_acervo %}</div></div>{% endif %}
 
     <div class="pp-janela" data-pp-janela hidden>
         <div class="pp-janela__fundo" data-pp-fechar></div>
@@ -238,5 +252,6 @@
 {{ parent() }}
 <script src="{{ asset('js/push-processos.js') }}"></script>
 <script src="{{ asset('js/push-processos-pasta.js') }}"></script>
+<script src="{{ asset('js/push-acervo.js') }}"></script>
 <script src="{{ asset('js/push-vincular-processo.js') }}"></script>
 {% endblock %}
