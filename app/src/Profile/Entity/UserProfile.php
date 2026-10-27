@@ -44,6 +44,10 @@ class UserProfile
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $telefone = null;
 
+    /** Chave PIX para receber recompensas (desenho 07; spec meu-perfil-pix-recompensas), como digitada; só a pessoa e o Master leem. */
+    #[ORM\Column(length: 140, nullable: true)]
+    private ?string $chavePixRecompensa = null;
+
     /** Gênero declarado (desenho 05 de 21/10); nulo = não preenchido. Sem backfill. */
     #[ORM\Column(length: 20, nullable: true, enumType: Genero::class)]
     private ?Genero $genero = null;
@@ -234,6 +238,20 @@ class UserProfile
     {
         $digitos        = preg_replace('/\D/', '', (string) $telefone) ?? '';
         $this->telefone = $digitos === '' ? null : $digitos;
+
+        return $this;
+    }
+
+    public function getChavePixRecompensa(): ?string
+    {
+        return $this->chavePixRecompensa;
+    }
+
+    /** Guarda como digitada, aparada; vazio vira null. */
+    public function setChavePixRecompensa(?string $chave): static
+    {
+        $chave                    = trim((string) $chave);
+        $this->chavePixRecompensa = $chave === '' ? null : $chave;
 
         return $this;
     }

@@ -42,6 +42,8 @@ final class PerfilOutput
         public readonly ?Atuacao $atuacao = null,
         /** A chave "Registra ponto eletrônico" no escritório atual (spec seguranca-b-jornada): o rótulo do vínculo lê ela. */
         public readonly bool $registraPonto = false,
+        /** Só alimenta o modal de edição; a grade e a revisão do cadastro não mostram (desenho 07). */
+        public readonly ?string $chavePixRecompensa = null,
     ) {
     }
 
@@ -71,6 +73,7 @@ final class PerfilOutput
             oabNomeOficial: $user->getOabNomeOficial(),
             oabVerificadaEm: $user->getOabVerificadaEm(),
             telefone: $perfil->getTelefone(),
+            chavePixRecompensa: $perfil->getChavePixRecompensa(),
             vinculo: $vinculo?->getTipo() ?? VinculoColaborador::Clt,
             dataAdmissao: $userTenant?->getDataAdmissao(),
             contratoInicio: $vinculo?->getContratoInicio(),

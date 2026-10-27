@@ -59,6 +59,22 @@ final class AtualizarDadosPessoaisUseCaseTest extends TestCase
         self::assertSame('001', $this->perfil->getSerie());
     }
 
+    #[TestDox('chave PIX para recompensas: grava aparada, vazia vira nula e não mexe nas outras colunas')]
+    public function testChavePixDeRecompensas(): void
+    {
+        $this->repository->method('salvar');
+        $input = $this->inputCompleto();
+        $input->chavePixRecompensa = '  ana@pix.com.br ';
+
+        $this->sut->executar($this->perfil, $input);
+        self::assertSame('ana@pix.com.br', $this->perfil->getChavePixRecompensa());
+        self::assertSame('12345', $this->perfil->getCtps());
+
+        $input->chavePixRecompensa = '   ';
+        $this->sut->executar($this->perfil, $input);
+        self::assertNull($this->perfil->getChavePixRecompensa());
+    }
+
     #[TestDox('CPF vazio define null no perfil')]
     public function testCpfVazioDefineNull(): void
     {

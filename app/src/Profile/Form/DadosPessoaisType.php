@@ -6,6 +6,7 @@ use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\Enum\Atuacao;
 use App\Profile\Enum\Genero;
 use App\Profile\Enum\VinculoColaborador;
+use App\Profile\Service\ChavePix;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
@@ -65,6 +66,11 @@ final class DadosPessoaisType extends AbstractType
                 'label'    => 'Telefone / WhatsApp',
                 'required' => false,
                 'attr'     => ['maxlength' => 20, 'placeholder' => '(00) 00000-0000'],
+            ])
+            ->add('chavePixRecompensa', TextType::class, [
+                'label'    => 'Chave PIX para recompensas',
+                'required' => false,
+                'attr'     => ['maxlength' => ChavePix::TAMANHO_MAXIMO, 'placeholder' => 'CPF, e-mail, celular ou chave aleatória', 'autocomplete' => 'off'],
             ]);
         $this->adicionarGeneroEAtuacao($builder);
         $this->adicionarCamposDoVinculo($builder);
