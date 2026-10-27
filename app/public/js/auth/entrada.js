@@ -1,5 +1,5 @@
 /*
- * Tela de entrada (desenho "10 - Login - VS 19.10.26"): todo o comportamento da página.
+ * Tela de entrada (desenho "10 - Login - VS 25.10.26"): todo o comportamento da página.
  *
  * Reproduz o componente do desenho (DCLogic) sobre o HTML que o Twig serve. Os dados chegam por
  * data-attributes no #lgRaiz; as escritas são POST JSON para os endpoints da spec
@@ -73,6 +73,7 @@
         });
     }
 
+    let saindo = false;
     form.addEventListener('submit', (e) => {
         if (!REGEX_EMAIL.test(email.value.trim())) {
             e.preventDefault();
@@ -85,7 +86,19 @@
             e.preventDefault();
             mostrarErro(window.BJ_T.t('entrada.js.informe_a_senha'));
             senha.focus();
+
+            return;
         }
+        // Desenho: o cartão sai (lgSai, .35s) antes de a página do véu entrar. O envio segue o mesmo formulário.
+        if (saindo) { e.preventDefault(); return; }
+        saindo = true;
+        e.preventDefault();
+        $('lgCartao').classList.add('lg-sai');
+        setTimeout(() => { form.submit(); }, 350);
+    });
+    // Voltar do navegador devolve a página do cache com o cartão já "saído": reabre.
+    window.addEventListener('pageshow', (ev) => {
+        if (ev.persisted) { saindo = false; $('lgCartao').classList.remove('lg-sai'); }
     });
 
     olho.addEventListener('click', () => {
@@ -224,6 +237,7 @@
         indTg.setAttribute('aria-checked', sim ? 'true' : 'false');
         mostrar(indCampo, sim);
         ind.value = sim ? (valor || '') : '';
+        conferirCupomAoVivo();
     };
     indTg.addEventListener('click', () => {
         const ligar = !cupomLigado();
@@ -233,7 +247,46 @@
     });
     ind.addEventListener('input', () => {
         ind.value = ind.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 11);
+        conferirCupomAoVivo();
     });
+    /* Conferência ao vivo (spec login-cupom-ao-vivo): com o formato de cupom e 400 ms parado, uma consulta por valor;
+       resposta de valor já trocado (ou chave desligada) é ignorada. Limite (429), falha de rede ou resposta estranha:
+       silêncio, o cupom é conferido de novo ao enviar. */
+    const indStatus = $('lgCdIndStatus');
+    let indTemporizador = null;
+    let indValorConferido = '';
+    const mostrarStatusDoCupom = (valido) => {
+        indStatus.textContent = '';
+        const icone = document.createElement('i');
+        icone.className = valido ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle';
+        icone.setAttribute('aria-hidden', 'true');
+        indStatus.appendChild(icone);
+        indStatus.appendChild(document.createTextNode(' ' + (valido ? indStatus.dataset.valido : indStatus.dataset.naoEncontrado)));
+        indStatus.dataset.estado = valido ? 'valido' : 'ruim';
+        mostrar(indStatus, true);
+    };
+    const limparStatusDoCupom = () => { indStatus.textContent = ''; delete indStatus.dataset.estado; mostrar(indStatus, false); };
+    function conferirCupomAoVivo() {
+        clearTimeout(indTemporizador);
+        const valor = ind.value.trim();
+        if (valor !== indValorConferido) { indValorConferido = ''; limparStatusDoCupom(); }
+        /* Como no desenho 10: o prefixo "BJ-" é opcional e a conferência começa em 6 caracteres do código. O servidor
+           normaliza o prefixo (CodigoDeIndicacao::doCupom), então o valor vai como foi digitado. */
+        if (!cupomLigado() || valor === indValorConferido || !/^[A-Z0-9]{6,12}$/.test(valor.replace(/^BJ-/, ''))) { return; }
+        indTemporizador = setTimeout(() => {
+            fetch(indStatus.dataset.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigo: valor }),
+                credentials: 'same-origin',
+            }).then((r) => (r.ok ? r.json() : null)).then((dados) => {
+                if (!dados || typeof dados.valido !== 'boolean') { return; }
+                if (!cupomLigado() || ind.value.trim() !== valor) { return; }
+                indValorConferido = valor;
+                mostrarStatusDoCupom(dados.valido);
+            }).catch(() => { /* sem rede ou limite: silêncio */ });
+        }, 400);
+    }
     [$('lgCdGoogle'), $('lgCdFacebook')].forEach((botao) => {
         if (!botao) { return; }
         botao.addEventListener('click', () => {
@@ -265,7 +318,10 @@
         repintarForca();
     };
     $('lgEsqueci').addEventListener('click', (e) => { e.preventDefault(); abrirSenha(); });
-    $('lgCriar').addEventListener('click', (e) => { e.preventDefault(); abrirCadastro(); });
+    /* Cadastro fechado ao público (política do Master): o link "Criar conta" nem vem na página e nada abre o cadastro. */
+    const cadastroBloqueado = raiz.dataset.cadastroBloqueado === '1';
+    const linkCriar = $('lgCriar');
+    if (linkCriar) { linkCriar.addEventListener('click', (e) => { e.preventDefault(); abrirCadastro(); }); }
 
     /* Código: só dígitos, no máximo 6. */
     $('lgRsCod').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
@@ -646,6 +702,8 @@
     /* ---------------------------------------- ?abrir=senha|cadastro -------- */
     if (raiz.dataset.abrir === 'senha') {
         abrirSenha();
+    } else if (cadastroBloqueado) {
+        /* O aviso da política já veio no cartão de login (servidor); ?abrir=cadastro, cupom e #cadastro não abrem o modal. */
     } else if (raiz.dataset.abrir === 'cadastro') {
         abrirCadastro();
         /* "Continuar com Google" sem o cliente OAuth no servidor: o aviso volta da ida, no erro do modal. */

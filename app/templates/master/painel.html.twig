@@ -14,6 +14,8 @@
 {% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('css/master.css') }}">
     <link rel="stylesheet" href="{{ asset('css/master-seccionais.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/master-convenio-oab.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/master-metas-divulgacao.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -33,9 +35,15 @@
     faixas: path('master_faixas_configurar'),
     mapaBrasil: path('master_mapa_brasil'),
     mapaMundo: path('master_mapa_mundo'),
+    convenios: path('master_convenios_dados'),
+    conveniosToken: csrf_token('master_convenios_oab'),
+    metasDivulgacao: path('master_metas_divulgacao_dados'),
+    metasToken: csrf_token('master_metas_divulgacao'),
+    populacaoIbge: path('master_ibge_populacao', {uf: 'XX'}),
     seccionais: path('master_dados_seccionais'),
     revisaoOab: path('admin_platform_oab_index'),
     convites: path('admin_platform_convite_index'),
+    logoOab: asset('images/logo/oab-logo.png'),
     logo: asset('images/logo/bluejus-logo-nav.png')
 } %}
 <div class="mp" id="master-painel" data-urls="{{ urls|json_encode|e('html_attr') }}" data-quem="{{ app.user ? app.user.fullName : '' }}">
@@ -61,6 +69,9 @@
            e ouvir o evento "mp:secao" no #master-painel para montar a seção quando ela abrir. #}
         <div class="mp-secao-externa" data-sec-externa="com" hidden>{% include 'master/_comercial.html.twig' ignore missing %}</div>
         <div class="mp-secao-externa" data-sec-externa="ind" hidden>{% include 'master/_indicacoes.html.twig' ignore missing %}</div>
+        <div class="mp-secao-externa" data-sec-externa="recomp" hidden>{% include 'master/_recompensas.html.twig' ignore missing %}</div>
+        <div class="mp-secao-externa" data-sec-externa="desemp" hidden>{% include 'master/_desempenho.html.twig' ignore missing %}</div>
+        <div class="mp-secao-externa" data-sec-externa="config" hidden>{% include 'master/_configuracoes.html.twig' ignore missing %}</div>
         <div class="mp-secao-externa" data-sec-externa="notif" hidden>{% include 'master/_notificacoes.html.twig' ignore missing %}</div>
     </div>
 
@@ -204,6 +215,8 @@
 {% block javascripts %}
     <script src="{{ asset('js/master/bj-dica.js') }}"></script>
     {{ catalogo_js('master.js', 'termos') }}
+    <script src="{{ asset('js/master/convenio-oab.js') }}"></script>
+    <script src="{{ asset('js/master/metas-divulgacao.js') }}"></script>
     <script src="{{ asset('js/master/painel.js') }}"></script>
     <script src="{{ asset('js/master/masters.js') }}"></script>
     <script src="{{ asset('js/master/recursos.js') }}"></script>

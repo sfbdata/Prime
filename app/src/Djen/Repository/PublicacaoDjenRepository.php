@@ -7,6 +7,7 @@ namespace App\Djen\Repository;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaProcesso;
 use App\Processo\DTO\HistoricoParaPrevisao;
 use App\Processo\DTO\MovimentacaoParaPrevisao;
 use Doctrine\DBAL\ArrayParameterType;
@@ -24,6 +25,9 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     /** Caracteres do teor (HTML cru) que a lista da PASTA projeta para montar o `textoResumo`. */
     private const TEXTO_INICIO_LISTA = 2000;
     private const TEXTO_PREVISAO = 15000;
+
+    /** Vinculada (desenho 11) = o processo da publicação está numa pasta que não foi excluída. */
+    private const COM_PASTA = 'EXISTS (SELECT 1 FROM App\\Pasta\\Entity\\PastaProcesso pc JOIN pc.pasta pac WHERE pc.processo = p.processo AND pac.excluidaEm IS NULL)';
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -111,6 +115,8 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                 'p.nomeOrgao AS nomeOrgao',
                 'p.lida AS lida',
                 'IDENTITY(p.processo) AS processoId',
+                '(SELECT MIN(pa.id) FROM ' . PastaProcesso::class . ' pp JOIN pp.pasta pa WHERE pp.processo = p.processo AND pa.excluidaEm IS NULL) AS pastaId',
+                '(SELECT MIN(pa2.nup) FROM ' . PastaProcesso::class . ' pp2 JOIN pp2.pasta pa2 WHERE pp2.processo = p.processo AND pa2.excluidaEm IS NULL) AS pastaNup',
             )
             ->orderBy('p.dataDisponibilizacao', 'DESC')
             ->addOrderBy('p.id', 'DESC')
@@ -138,6 +144,152 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Contadores dos cartões do topo da tela (não lidas, do dia, vinculadas, avulsas), sobre todas as
+     * publicações visíveis do escritório, sem os filtros da lista.
+     *
+     * @param list<string> $numerosOcultos
+     * @return array{naoLidas: int, hoje: int, vinculadas: int, avulsas: int}
+     */
+    public function contarIndicadoresDoTenant(Tenant $tenant, \DateTimeImmutable $hoje, array $numerosOcultos = []): array
+    {
+        $linha = $this->buildQbFiltros($tenant, [], $numerosOcultos)
+            ->select(
+                'SUM(CASE WHEN p.lida = false THEN 1 ELSE 0 END) AS naoLidas',
+                'SUM(CASE WHEN p.dataDisponibilizacao = :hoje THEN 1 ELSE 0 END) AS hoje',
+                'SUM(CASE WHEN ' . self::COM_PASTA . ' THEN 1 ELSE 0 END) AS vinculadas',
+                'COUNT(p.id) AS total',
+            )
+            ->setParameter('hoje', $hoje->setTime(0, 0))
+            ->getQuery()
+            ->getSingleResult();
+
+        return [
+            'naoLidas' => (int) $linha['naoLidas'],
+            'hoje' => (int) $linha['hoje'],
+            'vinculadas' => (int) $linha['vinculadas'],
+            'avulsas' => (int) $linha['total'] - (int) $linha['vinculadas'],
+        ];
+    }
+
+    /**
+     * Marca como lidas (ou não lidas) as publicações do escritório com os ids dados.
+     *
+     * @param list<int> $ids
+     * @param list<string> $numerosOcultos
+     *
+     * @return int quantas linhas mudaram
+     */
+    public function atualizarLeituraDoTenant(Tenant $tenant, array $ids, bool $lida, array $numerosOcultos = []): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.lida', ':lida')
+            ->andWhere('p.id IN (:ids)')
+            ->andWhere('p.lida <> :lida')
+            ->setParameter('lida', $lida)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Tira da caixa do Push as publicações com os ids dados (exclusão lógica).
+     *
+     * @param list<int> $ids
+     * @param list<string> $numerosOcultos
+     *
+     * @return int quantas linhas saíram
+     */
+    public function excluirDoTenant(Tenant $tenant, array $ids, \DateTimeImmutable $quando, array $numerosOcultos = []): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.excluidaEm', ':quando')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('quando', $quando)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * "Limpar lidas": tira da caixa todas as publicações já lidas do escritório.
+     *
+     * @param list<string> $numerosOcultos
+     */
+    public function excluirLidasDoTenant(Tenant $tenant, \DateTimeImmutable $quando, array $numerosOcultos = []): int
+    {
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.excluidaEm', ':quando')
+            ->andWhere('p.lida = true')
+            ->setParameter('quando', $quando)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Quantas lidas ainda estão na caixa (o "Limpar lidas" avisa quando não há nenhuma).
+     *
+     * @param list<string> $numerosOcultos
+     */
+    public function contarLidasDoTenant(Tenant $tenant, array $numerosOcultos = []): int
+    {
+        return $this->countByFiltros($tenant, ['leitura' => 'lidas'], $numerosOcultos);
+    }
+
+    /**
+     * UPDATE em massa sempre preso ao escritório, às não excluídas e fora das pastas que o usuário não enxerga.
+     *
+     * @param list<string> $numerosOcultos
+     */
+    private function updateDoTenant(Tenant $tenant, array $numerosOcultos): QueryBuilder
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder()
+            ->update(PublicacaoDjen::class, 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant);
+
+        if ($numerosOcultos !== []) {
+            $qb->andWhere('p.numeroProcesso NOT IN (:numerosOcultos)')
+               ->setParameter('numerosOcultos', $numerosOcultos);
+        }
+
+        return $qb;
+    }
+
+    /**
+     * Quantas publicações cada OAB monitorada captou (coluna Publicações da aba OABs monitoradas).
+     *
+     * @return array<int, int> id da OAB monitorada => total
+     */
+    public function contarPorOabMonitoradaDoTenant(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.oabMonitorada) AS oabId', 'COUNT(p.id) AS total')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.oabMonitorada IS NOT NULL')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('p.oabMonitorada')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porOab = [];
+        foreach ($linhas as $linha) {
+            $porOab[(int) $linha['oabId']] = (int) $linha['total'];
+        }
+
+        return $porOab;
+    }
+
+    /**
      * Siglas de tribunal presentes nas publicações do escritório (opções da faceta).
      *
      * @return string[]
@@ -145,6 +297,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     public function listarTribunaisDoTenant(Tenant $tenant): array
     {
         $rows = $this->createQueryBuilder('p')
+            ->andWhere('p.excluidaEm IS NULL')
             ->select('DISTINCT p.siglaTribunal')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.siglaTribunal != :vazio')
@@ -427,6 +580,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant);
 
         if ($numerosOcultos !== []) {
@@ -454,12 +608,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                ->setParameter('meio', $filtros['meio']);
         }
 
-        $vinculo = (string) ($filtros['vinculo'] ?? '');
-        if ($vinculo === 'vinculada') {
-            $qb->andWhere('p.processo IS NOT NULL');
-        } elseif ($vinculo === 'avulsa') {
-            $qb->andWhere('p.processo IS NULL');
-        }
+        $this->filtrarPorVinculoELeitura($qb, (string) ($filtros['vinculo'] ?? ''), (string) ($filtros['leitura'] ?? ''));
 
         $dataDe = $this->parseDataFiltro($filtros['data_de'] ?? '');
         if ($dataDe !== null) {
@@ -474,6 +623,21 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
         }
 
         return $qb;
+    }
+
+    private function filtrarPorVinculoELeitura(QueryBuilder $qb, string $vinculo, string $leitura): void
+    {
+        if ($vinculo === 'vinculada') {
+            $qb->andWhere(self::COM_PASTA);
+        } elseif ($vinculo === 'avulsa') {
+            $qb->andWhere('NOT (' . self::COM_PASTA . ')');
+        }
+
+        if ($leitura === 'nao_lidas') {
+            $qb->andWhere('p.lida = false');
+        } elseif ($leitura === 'lidas') {
+            $qb->andWhere('p.lida = true');
+        }
     }
 
     private function parseDataFiltro(string $valor): ?\DateTimeImmutable

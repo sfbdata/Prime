@@ -10,12 +10,15 @@ use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Repository\ApoioRepository;
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\MotivoDeNaoApoiarRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Repository\SugestaoRepository;
+use App\Contribua\Entity\BonusDeEspaco;
+use App\Indicacao\Entity\Indicacao;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Contribua\Service\VisaoDoMaster;
 use App\Contribua\UseCase\MontarPaginaDoContribuaUseCase;
@@ -24,6 +27,7 @@ use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 #[CoversClass(MontarPaginaDoContribuaUseCase::class)]
 final class PacotesDaPaginaTest extends TestCase
@@ -44,6 +48,18 @@ final class PacotesDaPaginaTest extends TestCase
         self::assertSame('Grátis', $pacotes['free']['preco']);
         self::assertSame('seu plano atual', $pacotes['free']['periodo']);
         self::assertTrue($pacotes['free']['desabilitado']);
+    }
+
+    #[TestDox('Com bônus vigente os pacotes comparam com o limite base: o plano logo acima da base continua pedível e o ganho é sobre a base')]
+    public function testBonusNaoEscondePlanoPago(): void
+    {
+        $comBonus = array_column($this->pagina(2 * RetratoDoEspaco::BYTES_POR_GB, limiteDoMaster: 18, comBonus: true)['pacotes'], null, 'codigo');
+        $semBonus = array_column($this->pagina(2 * RetratoDoEspaco::BYTES_POR_GB, limiteDoMaster: 18)['pacotes'], null, 'codigo');
+
+        self::assertSame('Quero +2 GB', $comBonus['essencial']['botao']);
+        self::assertFalse($comBonus['essencial']['desabilitado']);
+        self::assertSame('+2 GB', $comBonus['essencial']['ganho']);
+        self::assertSame($semBonus['essencial'], $comBonus['essencial'], 'o bônus não muda o cartão');
     }
 
     #[TestDox('Uso baixo: cabeçalho calmo e o recomendado é o primeiro que dobra o uso')]
@@ -96,7 +112,7 @@ final class PacotesDaPaginaTest extends TestCase
         self::assertFalse($pacotes['profissional']['nuvemRecomendada']);
     }
 
-    private function pagina(int $usados, ?string $planoAtual = null): array
+    private function pagina(int $usados, ?string $planoAtual = null, ?int $limiteDoMaster = null, bool $comBonus = false): array
     {
         $planos = [
             new Plano('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1),
@@ -118,7 +134,16 @@ final class PacotesDaPaginaTest extends TestCase
             $plano = array_values(array_filter($planos, static fn (Plano $p): bool => $p->getCodigo() === $planoAtual))[0];
             $espacos->method('doTenant')->willReturn(new EspacoDoEscritorio($escritorio, $plano));
         }
-        $situacao = new SituacaoDoEspaco($consumo, $espacos, $repositorioDePlanos, $configuracoes);
+        if ($limiteDoMaster !== null) {
+            $espaco = new EspacoDoEscritorio($escritorio, $planos[0]);
+            $espaco->definirLimite($limiteDoMaster, false, 'teste', null);
+            $espacos->method('doTenant')->willReturn($espaco);
+        }
+        $bonus = $this->createStub(BonusDeEspacoRepository::class);
+        if ($comBonus) {
+            $bonus->method('vigentesDosTenants')->willReturn([7 => [new BonusDeEspaco($escritorio, (new \ReflectionClass(Indicacao::class))->newInstanceWithoutConstructor(), 5, new \DateTimeImmutable('-1 day'), new \DateTimeImmutable('+29 days'))]]);
+        }
+        $situacao = new SituacaoDoEspaco($consumo, $espacos, $repositorioDePlanos, $configuracoes, $bonus, new MockClock());
         $sugestoes = $this->createStub(SugestaoRepository::class);
         $sugestoes->method('doEscritorio')->willReturn([]);
 

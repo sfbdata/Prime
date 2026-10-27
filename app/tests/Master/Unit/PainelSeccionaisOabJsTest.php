@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Bloco "SECCIONAIS VISÍVEIS" do mapa (desenho 05, Perfis 1.2, VS 21.10.26, L116-127; spec master-seccionais-oab),
@@ -26,7 +26,7 @@ final class PainelSeccionaisOabJsTest extends TestCase
     /** Texto em português (a fonte) de uma chave do catálogo: o literal do desenho mora lá desde a P2a do idioma. */
     private static function texto(string $chave): string
     {
-        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             self::assertIsArray($no, $chave);
             self::assertArrayHasKey($parte, $no, $chave);
@@ -65,15 +65,15 @@ final class PainelSeccionaisOabJsTest extends TestCase
     {
         $js = self::arquivo('public/js/master/painel.js');
 
-        self::assertStringContainsString("seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings'], ['oab', T('master.js.mapa.oab'), 'bi-bank']], S.mapaQuem, 'data-mapa-quem', true)", $js);
+        self::assertStringContainsString("seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings'], ['oab', T('master.js.mapa.oab'), 'bi-bank'], ['ind', T('master.js.mapa.indicacoes'), 'bi-share']], S.mapaQuem, 'data-mapa-quem', true)", $js);
         self::assertStringContainsString("mapaModo: 'br', mapaQuem: 'esc',", $js, 'Escritórios por padrão');
         self::assertStringContainsString("const ehModoOab = () => S.mapaModo !== 'mundo' && S.mapaQuem === 'oab';", $js);
         self::assertStringContainsString("if (ehModoOab()) return { A: secInscricoes(), C: (M.pessoas.geral || {}).C || {}", $js, 'o número da UF são as inscrições');
         self::assertMatchesRegularExpression("/\\+ \\(br \\? linhasDoBrasil\\(G\\) : linhasDoMundo\\(totBr, paisesExt\\)\\)\\s*\\n\\s*\\+ \\(ehOab \\? blocoSeccionais\\(\\) : ''\\)/", $js);
         self::assertStringContainsString("ehModoOab() ? T('master.js.mapa.por_seccional')", $js);
-        self::assertStringContainsString("const usuTit = ehOab ? T('master.js.mapa.inscricoes')", $js);
+        self::assertStringContainsString("const usuTit = ehModoInd() ? T('master.js.mapa.col_ind_' + S.mapaInd) : ehOab ? T('master.js.mapa.inscricoes')", $js);
         self::assertSame(['OAB', 'inscrições por seccional da OAB', 'Inscrições'], array_map(self::texto(...), ['master.js.mapa.oab', 'master.js.mapa.por_seccional', 'master.js.mapa.inscricoes']));
-        self::assertStringContainsString("const quem = ehOab ? 'oab' : S.mapaQuem === 'esc' ? 'esc' : 'pes';", $js, 'o iframe recebe quem=oab');
+        self::assertStringContainsString("const quem = ehOab ? 'oab' : ehModoInd() ? 'ind' : S.mapaQuem === 'esc' ? 'esc' : 'pes';", $js, 'o iframe recebe quem=oab ou quem=ind');
     }
 
     #[TestDox('linha da UF no modo OAB (L898): "OAB/<UF> · <Estado>", com mão, e o clique abre o cartão da sede')]

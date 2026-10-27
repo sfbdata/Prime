@@ -174,6 +174,30 @@ final class FotografarDashboardCommandTest extends KernelTestCase
         ], $this->fotos($tenantId));
     }
 
+    #[TestDox('PR-F: a foto guarda também metas em revisão, pastas urgentes e total de metas (zero é dado), e refotografar não duplica')]
+    public function testGravaOLastroNovo(): void
+    {
+        self::bootKernel();
+        [$tenant, $ana, $beto, $vencida] = $this->cenario();
+        $tenantId = (int) $tenant->getId();
+        $anaId    = (int) $ana->getId();
+        $betoId   = (int) $beto->getId();
+        $this->conexao()->executeStatement('UPDATE tarefa SET status = :s WHERE id = :id', ['s' => Tarefa::STATUS_EM_REVISAO, 'id' => (int) $vencida->getId()]);
+        $this->conexao()->executeStatement("UPDATE pasta SET prioridade = 'urgente' WHERE tenant_id = :t AND responsavel_id = :r AND id = (SELECT MIN(id) FROM pasta WHERE tenant_id = :t AND responsavel_id = :r)", ['t' => $tenantId, 'r' => $anaId]);
+
+        $this->rodar(['--tenant' => (string) $tenantId, '--data' => self::DIA]);
+        $this->rodar(['--tenant' => (string) $tenantId, '--data' => self::DIA]);
+
+        $linhas = $this->conexao()->fetchAllAssociative('SELECT user_id, metas_em_revisao, pastas_urgentes, metas_total FROM dashboard_foto WHERE tenant_id = :t ORDER BY user_id', ['t' => $tenantId]);
+        $mapa   = [];
+        foreach ($linhas as $l) {
+            $mapa[(int) $l['user_id']] = [(int) $l['metas_em_revisao'], (int) $l['pastas_urgentes'], (int) $l['metas_total']];
+            self::assertNotNull($l['metas_em_revisao'], 'zero fotografado é dado, nunca NULL');
+        }
+        self::assertSame([$anaId => [1, 1, 3], $betoId => [0, 0, 0]], $mapa);
+        self::assertSame(2, $this->totalDeLinhas($tenantId), 'duas execuções, um dia: sem duplicar');
+    }
+
     #[TestDox('rodar o mesmo dia de novo regrava os números em vez de duplicar a linha')]
     public function testEhIdempotente(): void
     {
@@ -258,12 +282,13 @@ final class FotografarDashboardCommandTest extends KernelTestCase
 
         $repo = static::getContainer()->get(DashboardFotoRepository::class);
         $dia  = new \DateTimeImmutable(self::DIA);
-        $repo->gravar($tenant, $dia, [$anaId => ['metas_ativas' => 1, 'demandas_ativas' => 1, 'metas_vencidas' => 1, 'prazos_proximos' => 1]]);
+        $repo->gravar($tenant, $dia, [$anaId => ['metas_ativas' => 1, 'demandas_ativas' => 1, 'metas_vencidas' => 1, 'prazos_proximos' => 1]]); // foto antiga: sem o lastro novo
         $repo->gravar($outro, $dia, [$anaId => ['metas_ativas' => 9, 'demandas_ativas' => 9, 'metas_vencidas' => 9, 'prazos_proximos' => 9]]);
 
         self::assertSame(
-            [$anaId => ['metas_ativas' => 1, 'demandas_ativas' => 1, 'metas_vencidas' => 1, 'prazos_proximos' => 1]],
+            [$anaId => ['metas_ativas' => 1, 'demandas_ativas' => 1, 'metas_vencidas' => 1, 'prazos_proximos' => 1, 'metas_em_revisao' => null, 'pastas_urgentes' => null, 'metas_total' => null]],
             $repo->buscarPorReferencia($tenant, $dia, [$anaId]),
+            'sem o lastro novo a leitura devolve NULL, nunca zero',
         );
         self::assertSame([], $repo->buscarPorReferencia($tenant, $dia->modify('-1 day'), [$anaId]), 'outro dia: nada');
     }

@@ -172,7 +172,7 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertStringNotContainsString('localStorage', $painel->outerHtml());
     }
 
-    #[TestDox('Nada fake: sem "Criar tarefa", "Resolvido", "Aumentar o nível", simular dia nem Inteligência de Desempenho')]
+    #[TestDox('Nada fake: sem "Criar tarefa", "Aumentar o nível", simular dia nem Inteligência de Desempenho; os botões por alerta são os 4 com efeito real')]
     public function testElementosSemFuncaoNaoSaoRenderizados(): void
     {
         $client = static::createClient();
@@ -185,12 +185,15 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         $html   = $painel->outerHtml();
 
         self::assertCount(0, $painel->filter('a'), 'nenhum link: não há destino real para nenhum');
-        self::assertCount(5, $painel->filter('button'), 'dentro do painel só o X, o interruptor do Modo avançado, os 2 da confirmação e o cartão do rodapé (o botão de abrir é irmão, fora do aside)');
+        $porAlerta = 4 * $painel->filter('.db-ia-alertas > details.db-ia-alerta')->count();
+        self::assertGreaterThan(0, $porAlerta);
+        self::assertCount(5 + $porAlerta, $painel->filter('button'), 'dentro do painel: o X, o interruptor do Modo avançado, os 2 da confirmação, o cartão do rodapé e os 4 de cada alerta (Resolvido, Ignorar, Aplicar, Não se aplica); o botão de abrir é irmão, fora do aside');
+        self::assertCount($porAlerta, $painel->filter('.db-ia-alerta-corpo button[data-ia-marcar]'));
         self::assertCount(1, $painel->filter('.db-ia-cab > button.db-ia-fechar'));
         self::assertCount(1, $painel->filter('.db-ia-sub > button.db-ia-av-switch'));
         self::assertCount(2, $painel->filter('.db-ia-confirma .db-ia-confirma-acoes > button'));
         self::assertCount(1, $painel->filter('aside.db-ia-painel > button.db-ia-teaser'));
-        foreach (['Criar tarefa', 'Resolvido', 'Ignorar', 'Aumentar o nível', 'simular dia', 'Inteligência de Desempenho', 'Não se aplica'] as $proibido) {
+        foreach (['Criar tarefa', 'Aumentar o nível', 'Inteligência de Desempenho'] as $proibido) {
             self::assertStringNotContainsString($proibido, $html, $proibido);
         }
     }

@@ -245,6 +245,21 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame('ZXCV2345', $this->client->getRequest()->getSession()->get(IndicacaoController::CHAVE_DA_SESSAO));
     }
 
+    #[TestDox('/i/{codigo} plantado em <img>, <iframe> ou fetch de outro site não grava o código; a navegação de página grava')]
+    public function testLinkCurtoPlantadoNaoGuardaOCodigo(): void
+    {
+        $this->conexao->executeStatement('INSERT INTO indicacao_codigo (user_id, codigo) VALUES (?, ?)', [$this->ana->getId(), 'ZXCV2345']);
+
+        foreach ([['Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'], ['Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'iframe'], ['Sec-Fetch-Mode' => 'cors', 'Sec-Fetch-Dest' => 'empty']] as $cabecalhos) {
+            $this->client->request('GET', '/i/ZXCV2345', server: array_combine(array_map(static fn (string $c): string => 'HTTP_' . strtoupper(str_replace('-', '_', $c)), array_keys($cabecalhos)), $cabecalhos));
+            self::assertResponseRedirects('/cadastro?ind=ZXCV2345');
+            self::assertNull($this->client->getRequest()->getSession()->get(IndicacaoController::CHAVE_DA_SESSAO), json_encode($cabecalhos));
+        }
+
+        $this->client->request('GET', '/i/ZXCV2345', server: ['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_SEC_FETCH_DEST' => 'document', 'HTTP_SEC_FETCH_SITE' => 'cross-site']);
+        self::assertSame('ZXCV2345', $this->client->getRequest()->getSession()->get(IndicacaoController::CHAVE_DA_SESSAO));
+    }
+
     #[TestDox('/i/{codigo} inexistente: leva ao cadastro igual, sem código guardado (não revela)')]
     public function testLinkCurtoInexistente(): void
     {

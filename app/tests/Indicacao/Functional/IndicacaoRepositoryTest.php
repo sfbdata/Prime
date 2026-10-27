@@ -350,4 +350,19 @@ final class IndicacaoRepositoryTest extends KernelTestCase
         $pausar->executar((int) $alvo->getId(), false, $m1);
         self::assertFalse($pausas->estaPausado((int) $alvo->getId()));
     }
+
+    #[TestDox('paraOMapa: uma linha por indicação, com quem indicou, se foi envio e se virou conta; a atribuição pelo link não é envio')]
+    public function testParaOMapa(): void
+    {
+        $ana = $this->usuario('Ana Mapa');
+        $nova = $this->usuario('Conta Nova', 'nova_' . uniqid() . '@exemplo.com');
+        $this->em->persist(Indicacao::porCanal($ana, null, CanalDeIndicacao::Link, $this->agora->modify('-2 hours')));
+        $this->em->flush();
+        self::assertTrue($this->repo->gravarAtribuicao(Indicacao::porCadastroDoLink($ana, null, $nova, $this->agora->modify('-1 hour'))));
+
+        $linhas = array_values(array_filter($this->repo->paraOMapa(), static fn (array $l): bool => $l['indicadorId'] === $ana->getId()));
+
+        self::assertCount(2, $linhas);
+        self::assertSame([[true, false], [false, true]], array_map(static fn (array $l): array => [$l['enviada'], $l['virouConta']], $linhas));
+    }
 }

@@ -11,11 +11,11 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Aba Detalhes ("Relatório inicial de Atendimento"), Ciclo 6:
@@ -213,7 +213,7 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         $montador = $this->montador($client);
         self::assertStringNotContainsString('ps-anotacao-janela', $montador);
         self::assertStringContainsString('title="${esc(editavelDica(15))}" aria-label="${esc(BJ_T.t(\'pasta_detalhes.js.editar\'))}"', $montador);
-        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
         self::assertSame('Editável por mais {minutos} minutos', $catalogo['editavel_varios']);
         self::assertSame('Editar observação', $catalogo['editar']);
         self::assertMatchesRegularExpression('/<button type="button" hidden\s+class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs-det"/', $montador);
@@ -250,7 +250,7 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("BJ_T.t('pasta_detalhes.js.editado_dica', { hora: publicado, quando: edicao })", $fn);
         self::assertStringContainsString("BJ_T.t('pasta_detalhes.js.editado_dica_sem_hora', { quando: edicao })", $fn);
         self::assertStringContainsString("BJ_T.t('pasta_detalhes.js.editado_quando', { data: partes[0], hora: partes[1] })", $fn);
-        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
         self::assertSame('Publicado às {hora} · última edição {quando}', $catalogo['editado_dica']);
         self::assertSame('última edição {quando}', $catalogo['editado_dica_sem_hora']);
         self::assertSame('{data} às {hora}', $catalogo['editado_quando']);
@@ -303,7 +303,7 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         $pintar = substr($html, (int) strpos($html, 'function pintarJanelaObs(menu, artigo) {'), 2500);
         self::assertStringContainsString("BJ_T.t('pasta_detalhes.js.editar_bloqueado'), 'bi-lock', motivo", $pintar);
         self::assertStringContainsString("BJ_T.t('pasta_detalhes.js.editar_min', { minutos: resto })", $pintar);
-        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
         self::assertSame('Editar · bloqueado', $catalogo['editar_bloqueado']);
         self::assertSame('Editar · {minutos} min', $catalogo['editar_min']);
         // Item que ficou bloqueado com a página aberta não aciona o botão do cartão: avisa o motivo.

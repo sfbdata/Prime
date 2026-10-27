@@ -14,6 +14,8 @@ use App\Djen\Repository\OabMonitoradaRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\FormatadorTeorDjen;
 use App\Djen\UseCase\AdicionarOabMonitoradaUseCase;
+use App\Djen\UseCase\ExcluirPublicacoesUseCase;
+use App\Djen\UseCase\MarcarPublicacoesComoLidasUseCase;
 use App\Djen\UseCase\AlternarStatusOabMonitoradaUseCase;
 use App\Djen\UseCase\RemoverOabMonitoradaUseCase;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
@@ -60,6 +62,8 @@ final class DjenController extends AbstractController
         private readonly SincronizarPublicacoesDjenUseCase $sincronizar,
         private readonly ProcessoRepository $processoRepository,
         private readonly AcessoAPasta $acessoAPasta,
+        private readonly MarcarPublicacoesComoLidasUseCase $marcarLidas,
+        private readonly ExcluirPublicacoesUseCase $excluirPublicacoes,
     ) {
     }
 
@@ -78,11 +82,13 @@ final class DjenController extends AbstractController
             'vinculo' => (string) $request->query->get('vinculo', ''),
             'data_de' => (string) $request->query->get('data_de', ''),
             'data_ate' => (string) $request->query->get('data_ate', ''),
+            'leitura' => (string) $request->query->get('leitura', ''),
         ];
         $pagina = max(1, (int) $request->query->get('pagina', 1));
 
         $ocultos = $this->numerosOcultos($tenant);
         $total = $this->publicacaoRepository->countByFiltros($tenant, $filtros, $ocultos);
+        $indicadores = $this->publicacaoRepository->contarIndicadoresDoTenant($tenant, new \DateTimeImmutable('today'), $ocultos);
 
         return $this->render('djen/index.html.twig', [
             'publicacoes' => $this->publicacaoRepository->listarItensDoTenant($tenant, $filtros, $pagina, self::POR_PAGINA, $ocultos),
@@ -91,8 +97,22 @@ final class DjenController extends AbstractController
             'pagina' => $pagina,
             'total' => $total,
             'totalPaginas' => (int) ceil($total / self::POR_PAGINA),
-            // Processos cadastrados (sem baixa) que a sincronização consulta pelo número.
-            'processosAcompanhados' => $this->processoRepository->contarAcompanhadosDoTenant($tenant),
+            'indicadores' => $indicadores,
+            'lidas_na_caixa' => $this->publicacaoRepository->contarLidasDoTenant($tenant, $ocultos),
+            'abas' => $this->contagensDasAbas($tenant, $indicadores['naoLidas']),
+        ]);
+    }
+
+    #[Route('/diario', name: 'push_processual_diario', methods: ['GET'])]
+    public function diario(): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+
+        return $this->render('djen/diario.html.twig', [
+            'abas' => $this->contagensDasAbas($tenant),
         ]);
     }
 
@@ -124,10 +144,13 @@ final class DjenController extends AbstractController
             }
         }
 
+        $publicacoesPorOab = $this->publicacaoRepository->contarPorOabMonitoradaDoTenant($tenant);
+
         return $this->render('djen/oabs.html.twig', [
+            'abas' => $this->contagensDasAbas($tenant),
             'form' => $form,
             'oabs' => array_map(
-                static fn ($oab): OabMonitoradaOutput => OabMonitoradaOutput::fromEntity($oab),
+                static fn ($oab): OabMonitoradaOutput => OabMonitoradaOutput::fromEntity($oab, $publicacoesPorOab[$oab->getId()] ?? 0),
                 $this->oabRepository->listarDoTenant($tenant),
             ),
         ]);
@@ -218,6 +241,58 @@ final class DjenController extends AbstractController
         return $this->redirectToRoute('push_processual_index');
     }
 
+    #[Route('/lote/leitura', name: 'push_processual_lote_leitura', methods: ['POST'])]
+    public function marcarLeitura(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->loteValido($request)) {
+            return $this->voltarDoLote($request);
+        }
+
+        $lida = (string) $request->request->get('lida', '1') === '1';
+        $n = $this->marcarLidas->executar($tenant, $this->idsDoLote($request), $lida, $this->numerosOcultos($tenant));
+        $this->addFlash('success', sprintf($lida ? '%d publicação(ões) marcada(s) como lida(s).' : '%d publicação(ões) marcada(s) como não lida(s).', $n));
+
+        return $this->voltarDoLote($request);
+    }
+
+    #[Route('/lote/excluir', name: 'push_processual_lote_excluir', methods: ['POST'])]
+    public function excluirLote(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->loteValido($request)) {
+            return $this->voltarDoLote($request);
+        }
+
+        $n = $this->excluirPublicacoes->executar($tenant, $this->idsDoLote($request), $this->numerosOcultos($tenant));
+        $this->addFlash('success', sprintf('%d publicação(ões) excluída(s).', $n));
+
+        return $this->voltarDoLote($request);
+    }
+
+    #[Route('/lote/limpar-lidas', name: 'push_processual_lote_limpar_lidas', methods: ['POST'])]
+    public function limparLidas(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->loteValido($request)) {
+            return $this->voltarDoLote($request);
+        }
+
+        $n = $this->excluirPublicacoes->limparLidas($tenant, $this->numerosOcultos($tenant));
+        $this->addFlash('success', $n > 0 ? sprintf('%d publicação(ões) lida(s) excluída(s).', $n) : 'Não há publicações lidas para limpar.');
+
+        return $this->voltarDoLote($request);
+    }
+
     #[Route('/{id}', name: 'push_processual_show', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function show(int $id, Request $request, FormatadorTeorDjen $formatadorTeor): Response
     {
@@ -241,6 +316,57 @@ final class DjenController extends AbstractController
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
             'voltarPara' => $this->destinoDeVolta($request),
         ]);
+    }
+
+    private function loteValido(Request $request): bool
+    {
+        if ($this->isCsrfTokenValid('push_publicacoes', (string) $request->request->get('_token'))) {
+            return true;
+        }
+        $this->addFlash('danger', 'Token de segurança inválido.');
+
+        return false;
+    }
+
+    /** @return list<int> */
+    private function idsDoLote(Request $request): array
+    {
+        $ids = [];
+        foreach ($request->request->all('ids') as $id) {
+            if (is_scalar($id) && (int) $id > 0) {
+                $ids[(int) $id] = (int) $id;
+            }
+        }
+
+        return array_values($ids);
+    }
+
+    private function voltarDoLote(Request $request): Response
+    {
+        $destino = self::caminhoInterno((string) $request->request->get('voltar', ''));
+
+        return $destino !== null ? $this->redirect($destino) : $this->redirectToRoute('push_processual_index');
+    }
+
+    /**
+     * Números das quatro abas do Push (Publicações, Processos, Diário da OAB, OABs monitoradas).
+     *
+     * @return array{publicacoesNovas: int, processos: int, diarioNovas: int, oabs: int}
+     */
+    private function contagensDasAbas(Tenant $tenant, ?int $publicacoesNovas = null): array
+    {
+        $publicacoesNovas ??= $this->publicacaoRepository->contarIndicadoresDoTenant(
+            $tenant,
+            new \DateTimeImmutable('today'),
+            $this->numerosOcultos($tenant),
+        )['naoLidas'];
+
+        return [
+            'publicacoesNovas' => $publicacoesNovas,
+            'processos' => $this->processoRepository->contarAcompanhadosDoTenant($tenant),
+            'diarioNovas' => 0,
+            'oabs' => \count($this->oabRepository->listarDoTenant($tenant)),
+        ];
     }
 
     /**
@@ -328,7 +454,7 @@ final class DjenController extends AbstractController
      * Caminho do próprio sistema, ou null. `//outro-site` e `/\outro-site` são lidos pelo
      * navegador como OUTRO host mesmo começando com barra — é o disfarce clássico desta validação.
      */
-    private static function caminhoInterno(string $caminho): ?string
+    public static function caminhoInterno(string $caminho): ?string
     {
         if ($caminho === '' || !str_starts_with($caminho, '/')) {
             return null;

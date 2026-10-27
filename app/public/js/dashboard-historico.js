@@ -63,7 +63,7 @@
             if (b.valor === null) { col.classList.add('is-vazio'); }
             if (b.melhor) { col.classList.add('is-melhor'); }
             if (b.atual) { col.classList.add('is-atual'); }
-            col.appendChild(el('span', 'db-hist-valor', b.mostrarValor ? b.valor : ''));
+            col.appendChild(el('span', 'db-hist-valor', b.mostrarValor ? (b.texto !== undefined ? b.texto : b.valor) : ''));
             var barra = el('span', 'db-hist-barra');
             barra.style.height = Number(b.altura) + 'px';
             barra.style.animationDelay = (i * 0.03).toFixed(2) + 's';
@@ -153,6 +153,29 @@
         });
     }
 
+    function abrirHistorico(root, card, x, y) {
+        var tipo = card.getAttribute('data-historico') || 'pastas';
+        var visual = VISUAL[tipo] || VISUAL.pastas;
+        var f = filtrosDoPainel(root);
+        var url = new URL(card.getAttribute('data-historico-url'), window.location.origin);
+        if (f.responsavel !== '') { url.searchParams.set('responsavel', f.responsavel); }
+        if (f.cargo !== '') { url.searchParams.set('cargo', f.cargo); }
+
+        window.DbJanelas.abrir({
+            chave: 'hist:' + tipo + '|' + f.responsavel + '|' + f.cargo,
+            titulo: window.BJ_T.t(visual.titulo),
+            subtitulo: window.BJ_T.t('dashboard.js.historico.subtitulo'),
+            icone: visual.icone,
+            classe: 'db-hist db-hist--' + tipo,
+            largura: 330,
+            altura: 420, // altura da janela pronta (desenho: H0): a posição já reserva o espaço
+            x: x,
+            y: y,
+            origem: card,
+            montar: function (corpo, janela) { carregar(url.toString(), janela); }
+        });
+    }
+
     function ligar(root) {
         root.addEventListener('contextmenu', function (e) {
             var card = e.target.closest('.db-stat-card[data-historico-url]');
@@ -161,26 +184,11 @@
             if (e.target.closest('a, button, input, select, textarea')) { return; }
             e.preventDefault();
 
-            var tipo = card.getAttribute('data-historico') || 'pastas';
-            var visual = VISUAL[tipo] || VISUAL.pastas;
-            var f = filtrosDoPainel(root);
-            var url = new URL(card.getAttribute('data-historico-url'), window.location.origin);
-            if (f.responsavel !== '') { url.searchParams.set('responsavel', f.responsavel); }
-            if (f.cargo !== '') { url.searchParams.set('cargo', f.cargo); }
-
-            window.DbJanelas.abrir({
-                chave: 'hist:' + tipo + '|' + f.responsavel + '|' + f.cargo,
-                titulo: window.BJ_T.t(visual.titulo),
-                subtitulo: window.BJ_T.t('dashboard.js.historico.subtitulo'),
-                icone: visual.icone,
-                classe: 'db-hist db-hist--' + tipo,
-                largura: 330,
-                altura: 420, // altura da janela pronta (desenho: H0): a posição já reserva o espaço
-                x: e.clientX,
-                y: e.clientY,
-                origem: card,
-                montar: function (corpo, janela) { carregar(url.toString(), janela); }
-            });
+            var x = e.clientX, y = e.clientY;
+            var abrir = function () { abrirHistorico(root, card, x, y); };
+            // Card Pastas criadas, para o primário: menu "Alterar meta do mês / Ver histórico" (DASH-016, dashboard-meta.js).
+            if (window.DbMeta && window.DbMeta.menuDoCard(card, x, y, abrir)) { return; }
+            abrir();
         });
     }
 

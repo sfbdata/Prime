@@ -24,15 +24,13 @@ final class ApresentadorDoPagamento
     ) {
     }
 
-    /** O valor da proposta aceita ("1500.00"), ou null sem aceite (ou com valor zerado). */
+    /** O valor a cobrar ("1500.00"): o ajustado pelo Master ou o da proposta aceita; null sem aceite (ou com valor zerado). */
     public static function valorDaDemanda(DemandaExterna $d): ?string
     {
-        $valor = $d->propostaAceita()?->getValor();
-
-        return $valor !== null && (float) $valor > 0 ? $valor : null;
+        return $d->valorEfetivoDoPagamento();
     }
 
-    /** "R$ 1.500,00" da proposta aceita. */
+    /** "R$ 1.500,00" do valor a cobrar. */
     public static function valorFormatado(string $valor): string
     {
         return PropostaDemanda::brl($valor);
@@ -60,19 +58,20 @@ final class ApresentadorDoPagamento
             'temValor' => $valor !== null,
             'semValor' => $valor === null,
             'valor' => $valor !== null ? self::valorFormatado($valor) : '',
+            'valorAjustado' => $d->getValorPagamentoAjustado() !== null,
+            'valorNumero' => $valor ?? '',
+            'podeEditarValor' => $this->politica->podeAjustarValorDoPagamento($ctx, $d),
             'forma' => $valor !== null ? $this->forma($d->propostaAceita()) : '',
             'txid' => $d->getCodigo(),
             'estado' => $estado,
-            'stTxt' => $texto,
-            'stCor' => $cor,
-            'stBg' => $fundo,
-            'stIc' => $icone,
+            'stTxt' => $texto, 'stCor' => $cor, 'stBg' => $fundo, 'stIc' => $icone,
             'mostraQr' => $mostraQr,
             'cod' => $codigo,
             'qr' => $mostraQr ? $this->qr->gerar($codigo) : '',
             'podeComprovante' => $valor !== null && $estado === 'aguarda' && $this->politica->podeEnviarComprovante($ctx, $d),
             'comprovante' => $comprovante !== null ? ['id' => $comprovante->getId(), 'nome' => $comprovante->getNomeOriginal()] : null,
             'podeConfirmar' => $valor !== null && $estado !== 'pago' && $this->politica->podeConfirmarRecebimento($ctx, $d),
+            'podeRecusar' => $valor !== null && $this->politica->podeRecusarComprovante($ctx, $d),
             'confirmacao' => $valor !== null ? sprintf('Confirmar o recebimento de %s via PIX?', self::valorFormatado($valor)) : '',
         ];
     }

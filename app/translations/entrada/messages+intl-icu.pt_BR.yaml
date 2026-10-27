@@ -1,0 +1,162 @@
+# ---- entrada: tela de entrada e véu (security/login, security/entrando, registration/confirm, auth/entrada.js). O que
+# vem do PHP fica fora: as frases da tarja (SecurityController::FRASES), os textos da ContaAConfirmar, os links do
+# rodapé e os destinatários do suporte (PaginaDeEntrada), os flashes e as respostas dos endpoints. Os textos de
+# segurança são os do desenho 10, confirmados pelo dono. Os assuntos do suporte são dado (o servidor compara o
+# português, EnviarMensagemSuporteInput::ASSUNTOS): só o rótulo sai daqui. A régua de força usa auth.js.forca.*.
+entrada:
+    # Aviso da política de cadastro do Master (spec login-config-cadastro): no lugar do "Criar conta" e na recusa das portas.
+    cadastro:
+        aviso:
+            convite: O cadastro está disponível só por convite.
+            'off': O cadastro está fechado no momento.
+    login:
+        titulo_pagina: 'Entrar | BlueJus'
+        logo_alt: 'BlueJus · sistema de gestão jurídica e de arquivos'
+        como_protegemos: Como protegemos os seus dados
+        conexao_segura: Conexão segura
+        criptografia: Criptografia de ponta a ponta
+        bem_vindo: Bem-vindo de volta
+        acesse: Acesse sua conta para continuar
+        email: E-mail
+        email_exemplo: nome@escritorio.com.br
+        senha: Senha
+        mostrar_senha: Mostrar senha
+        caps_lock: Caps Lock está ativado.
+        manter_conectado: Manter conectado
+        esqueceu: Esqueceu a senha?
+        entrar: Entrar
+        ou: ou
+        entrar_google: Entrar com o Google
+        google_nao_configurado: O acesso pelo Google ainda não está configurado neste ambiente. Use o e-mail.
+        selo_texto: O BlueJus não tem acesso aos seus arquivos nem ao conteúdo das pastas.
+        sem_conta: Não tem conta?
+        criar_conta: Criar minha conta e escritório
+        fechar: Fechar
+        direitos: '© {ano} BlueJus'
+        link_do_master: '{rotulo} · botão direito para editar'
+    link:
+        titulo: Editar link
+        so_master: 'SÓ {papel}'
+        endereco: Endereço do link
+        salvar: Salvar
+        abrir: Abrir
+        restaurar: Restaurar
+        ocultar: Ocultar do rodapé
+    seguranca:
+        rotulo: Segurança e privacidade
+        tag: SEGURANÇA E PRIVACIDADE
+        titulo: O sigilo do seu escritório começa aqui.
+        lead: 'Advocacia é confiança. O BlueJus foi construído para que as informações dos seus clientes fiquem só com quem tem direito a elas: você e a equipe que você autorizar.'
+        criptografia_texto: Documentos, registros e conversas são cifrados antes de sair do seu aparelho e só são abertos por quem o escritório autorizou. Nem a equipe BlueJus tem acesso ao conteúdo das suas pastas.
+        terceiros: Nenhum terceiro vê os seus dados
+        terceiros_texto: Não vendemos, não compartilhamos e não usamos as informações do escritório para publicidade. Cada conta fica isolada das demais.
+        controle: Você controla quem acessa
+        controle_texto: O usuário primário define permissões, oculta abas e tranca pastas sigilosas. Cada acesso e alteração fica registrado com data, hora e autor.
+        conexao: Conexão protegida
+        conexao_texto: Todo o tráfego usa HTTPS com certificado válido, e as sessões de aparelhos sem uso são encerradas automaticamente.
+        lgpd:
+            titulo: Em conformidade com a LGPD (Lei nº 13.709/2018)
+            controlador: O escritório é o controlador; o BlueJus atua como operador.
+            finalidade: Dados usados só para prestar o serviço contratado.
+            direitos: 'Direitos do titular: acesso, correção, portabilidade e exclusão.'
+            incidentes: Incidentes comunicados ao escritório e à ANPD.
+            encarregado: Encarregado de dados (DPO) disponível.
+            exportacao: Exportação completa dos seus dados quando quiser.
+        cresce: Segurança que ajuda o escritório a crescer
+        cresce_texto: Mostrar ao cliente que os dados dele estão protegidos é diferencial na hora de fechar contrato. Com o BlueJus você atende a LGPD e transmite profissionalismo desde o primeiro atendimento.
+        entrar: Entrar com segurança
+        privacidade: Política de privacidade
+        termos: Termos de uso
+        falar_com_encarregado: Falar com o encarregado de dados
+    modal:
+        recuperar_texto: Informe o e-mail da sua conta. Enviaremos um código de 6 números para criar uma nova senha.
+        enviamos_antes: Enviamos o código para
+        enviamos_depois: '. Ele vale por 15 minutos.'
+        codigo: Código
+        nova_senha: Nova senha
+        minimo: Mínimo de 8 caracteres
+        confirmar_nova: Confirmar nova senha
+        reenviar_codigo: Reenviar código
+        senha_alterada: Senha alterada
+        senha_alterada_texto: Entre com a nova senha. Por segurança, as outras sessões foram encerradas.
+        cadastro_texto: Crie seu escritório digital em 1 minuto. Você entra como usuário primário e depois convida a sua equipe.
+        continuar_google: Continuar com Google
+        ou_outro_email: ou com outro e-mail
+        conectado_pelo: '{email} · conectado pelo {provedor}'
+        usar_outro_email: Usar outro e-mail
+        nome_completo: Seu nome completo
+        escritorio: Nome do escritório
+        escritorio_exemplo: 'Ex.: BlueJus Advogados Associados'
+        genero: Gênero
+        genero_escolha: Selecione
+        genero_feminino: Feminino
+        genero_masculino: Masculino
+        li_e_aceito_os: Li e aceito os
+        e_a: e a
+        ja_tem_conta: Já tem conta?
+        cupom: Tenho um cupom de indicação
+        cupom_exemplo: BJ-XXXXXX
+        continuar_facebook: Continuar com Facebook
+        conectado_pelo_sem_email: 'Conectado pelo {provedor}'
+        cupom_valido: Cupom válido · você ganha {gb} GB extras no 1º mês
+        cupom_nao_encontrado: Cupom não encontrado. Confira com quem te indicou.
+    abrindo: Abrindo o seu escritório digital…
+    suporte:
+        falar: Falar com suporte
+        titulo: Suporte BlueJus
+        subtitulo: Sua mensagem vai direto para a equipe
+        quem_recebe: Quem recebe o suporte
+        quem_recebe_titulo: 'QUEM RECEBE AS MENSAGENS DE SUPORTE · SÓ {papel} VÊ'
+        enviada: Mensagem enviada
+        enviada_texto: A equipe BlueJus recebeu no chat e vai responder no e-mail
+        seu_nome: Seu nome
+        email_resposta: E-mail para resposta
+        assunto:
+            nao_consigo_entrar: Não consigo entrar
+            esqueci_a_senha: Esqueci a senha
+            criar_conta: Criar conta
+            outro: Outro assunto
+        como_ajudar: Como podemos ajudar?
+        enviar: Enviar para o suporte
+        aviso: Não envie senhas nem dados de clientes por aqui.
+    entrando:
+        titulo_pagina: 'Entrando | BlueJus'
+        ola: 'Olá, {nome}!'
+        ola_sem_nome: Olá!
+        continuar: Continuar
+    js:
+        erro_generico: Não foi possível concluir. Tente novamente.
+        email_invalido: Informe um e-mail válido.
+        informe_a_senha: Informe a senha.
+        mostrar_senha: Mostrar senha
+        ocultar_senha: Ocultar senha
+        passo:
+            recuperar: Recuperar senha
+            enviar_codigo: Enviar código
+            criar_nova: Criar nova senha
+            salvar_nova: Salvar nova senha
+            pronto: Pronto
+            voltar: Voltar para o login
+            cadastro: Criar conta e escritório
+            criar_gratis: Criar minha conta grátis
+        codigo_incorreto: Código incorreto. Confira o e-mail ou reenvie.
+        senha_curta: Use pelo menos 8 caracteres, com letras e números.
+        senhas_diferentes: As senhas não conferem.
+        informe_nome: Informe seu nome completo.
+        informe_escritorio: Informe o nome do escritório.
+        informe_genero: Informe o gênero.
+        aceite: É preciso aceitar os Termos e a Política de privacidade.
+        saudacao:
+            bom_dia: Bom dia
+            boa_tarde: Boa tarde
+            boa_noite: Boa noite
+            com_nome: '{saudacao}, {nome}!'
+            sem_nome: '{saudacao}!'
+        link_do_master: '{rotulo} · botão direito para editar'
+        editar_link: 'Editar link · {rotulo}'
+        mostrar_no_rodape: Mostrar no rodapé
+        ocultar_do_rodape: Ocultar do rodapé
+        endereco_invalido: 'Informe um endereço começando com https://'
+        suporte:
+            email_invalido: Informe um e-mail válido para a resposta.
+            escreva: Escreva a sua mensagem.

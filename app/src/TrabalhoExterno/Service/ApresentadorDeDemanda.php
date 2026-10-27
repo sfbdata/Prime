@@ -382,7 +382,9 @@ final class ApresentadorDeDemanda
     {
         $visiveis = array_filter(
             array_reverse($d->getHistorico()),
-            fn (HistoricoDemanda $h): bool => !$this->politica->marcoReservado($ctx, $h->getPara(), $h->getEm()),
+            // O ajuste do valor e a recusa do comprovante são dinheiro: o Convidado não vê os marcos.
+            fn (HistoricoDemanda $h): bool => !$this->politica->marcoReservado($ctx, $h->getPara(), $h->getEm())
+                && !($ctx->perfil === Perfil::Convidado && in_array($h->getPara(), [Situacao::MARCO_VALOR, Situacao::MARCO_COMPROVANTE_RECUSADO], true)),
         );
 
         return array_values(array_map(function (HistoricoDemanda $h) use ($ctx): array {
@@ -459,6 +461,12 @@ final class ApresentadorDeDemanda
     {
         if ($valor === Situacao::MARCO_PAGO) {
             return ['Pagamento registrado', '#1e7b45', 'bi-cash-coin'];
+        }
+        if ($valor === Situacao::MARCO_VALOR) {
+            return ['Valor do pagamento alterado', '#9a5b00', 'bi-pencil-square'];
+        }
+        if ($valor === Situacao::MARCO_COMPROVANTE_RECUSADO) {
+            return ['Comprovante recusado', '#b3261e', 'bi-x-circle'];
         }
         $s = Situacao::tryFrom($valor);
 

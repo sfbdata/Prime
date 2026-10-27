@@ -8,6 +8,93 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.21.0] - 2026-10-26
+
+### Adicionado
+
+- Bônus de espaço por indicação: a conta nova que chegou por indicação e confirmou o e-mail ganha 5 GB extras por 30 dias, uma vez só. O bônus soma ao limite do plano (ou ao limite definido pelo Master) e vence sozinho pela data; nada é apagado.
+- Página do espaço (Contribua): linha "Inclui 5 GB de bônus até dd/mm/aaaa" enquanto o bônus vale.
+- Painel do Master: a conta mostra a origem (indicação) e a validade do bônus.
+- Nova tabela `contribua_bonus_de_espaco` (migration `Version20261026151600`, reversível). Contas já confirmadas antes desta versão não recebem o bônus.
+- Painel: o Total de "Pastas concluídas" agora abre o Expediente com as pastas da equipe (ou só do cargo escolhido no filtro), com o mesmo número do Total. Fica sem link quando há busca, quando a coluna foi zerada ou quando o Total é 0.
+- Painel: na coluna "Relatório", clicar no número (ou usar "Ver relatório de X" no botão direito) abre uma janela com os registros da pessoa agrupados por pasta, com data e hora de cada um. O total da janela é igual ao número da célula e respeita o período, o "Zerar" e as pastas ocultas pelo cadeado. Nas abas Financeiro e Detalhes (e Dados) que a pessoa não pode ver, a linha e o total aparecem, mas o texto do registro é trocado por um aviso.
+- Expediente: o filtro de responsável entende "Equipe" e "Equipe · cargo" (vindos do Painel) e mostra o rótulo no campo.
+- Sem migration.
+- Painel do Master, seção "Recompensas": novo bloco "Extrato de pagamentos e liberações" com os 60 lançamentos mais recentes (data, indicador, tipo e valor) e o botão "Exportar CSV" com o extrato completo.
+- Menu ⋮ de cada indicador ganha "Lançar crédito ou estorno" (valor em reais, negativo para estornar, com observação), "Ver extrato deste indicador" (filtra o extrato, com o botão para mostrar todos) e "Baixar extrato (CSV)".
+- O saldo e o "A pagar" passam a somar os créditos e estornos manuais. O saldo nunca fica negativo: estorno maior que o crédito zera o saldo.
+- O extrato é um livro: lançamento não se edita nem se apaga, só se corrige com outro de sinal oposto. Cada pedido leva uma chave única, então um duplo clique ou reenvio não lança duas vezes. Tudo entra na auditoria da plataforma.
+- O CSV usa ponto e vírgula, abre com acentos no Excel e protege células que começam com =, +, - ou @ contra fórmulas. Não traz dado de quem foi indicado.
+- Nova tabela `lancamento_de_recompensa` (dado da plataforma, sem escritório). Ninguém é pago nesta entrega: a baixa de pagamento fica para a próxima.
+
+## [2.20.0] - 2026-10-26
+
+### Adicionado
+
+- Painel do Master: a seção "Configurações globais" deixa de ser vazia e ganha os 14 campos do desenho (identidade, contas novas, segurança, região, manutenção programada), com Restaurar padrão, Descartar e Salvar. O espaço do Plano Free e o aviso de espaço gravam em Planos e Faixas; os outros 12 ficam na nova tabela configuracao_global, com auditoria.
+- Aviso de manutenção: o texto escrito em "Manutenção programada" aparece no topo de toda tela de quem está logado, até a data e hora escolhidas.
+- Os demais campos (cadastro, sessão, tentativas de login, verificação em duas etapas, retenção da auditoria, idioma, fuso, nomes e e-mails) já são gravados, mas ainda não mudam o comportamento do sistema: serão ligados um a um.
+- Ao mudar o convênio OAB de um estado no painel do Master (valor diferenciado, sem convênio ou grátis de novo), o sistema enfileira um e-mail para cada usuário primário ativo dos escritórios daquele estado, com o valor em reais, a data de vigência e, quando houver, o motivo.
+- Só avisa quando o convênio realmente mudou: salvar o mesmo estado duas vezes não repete o e-mail. Um e-mail por pessoa, sem expor a lista de destinatários, pela fila de envio e dentro da cota diária: todos entram na fila e o envio adia o que passar da cota, então em estado grande a entrega pode se espalhar por mais de um dia. A mudança e a fila andam juntas: se os avisos não entram na fila, nada é alterado.
+- A resposta de POST /master/convenios ganhou o campo `avisados` (quantos e-mails entraram na fila). Sem migration.
+- Painel do Master, seção Contas: novo painel recolhível "Convênio OAB por estado". Para cada um dos 27 estados o Master escolhe convênio grátis, convênio com valor diferenciado (valor por mês e data de início) ou sem convênio (mensalidade, data e motivo). Cada mudança fica na auditoria.
+- Na lista de contas, abaixo do plano, aparece o convênio do estado da conta (verde grátis, azul valor diferenciado, vermelho sem convênio). Conta sem estado cadastrado fica sem rótulo.
+- Por enquanto o convênio só é registrado e mostrado: o aviso por e-mail aos primários do estado e o efeito na cobrança entram em outra entrega.
+- Painel do Master, mapa "Onde estamos atuando": novo botão "Indicações" ao lado de Pessoas, Escritórios e OAB (só no Brasil), com três visões: Indicações enviadas, Contas abertas e Recompensas pagas (R$). Cada indicação conta no estado e na cidade de quem indicou.
+- Recompensas pagas aparece zerada até existir o extrato de recompensas.
+- Painel do Master, Planos e limites: faixa do convênio OAB com a logo, rótulo "Planos de espaço", selos "Convênio OAB · toda conta nova começa aqui" (Free) e "Mais escolhido" (Profissional), botão "Ajustar" no topo do cartão, linhas "usuários ilimitados" e "Todos os recursos liberados", cor roxa do Avançado e nota de rodapé nova, conforme o desenho 05 de 25/10.
+- Os planos Free, Essencial e Profissional deixam de limitar o número de usuários (antes 3, 8 e 15), como o Avançado: a tela passa a dizer "usuários ilimitados" e o convite de usuários não é mais recusado por limite de plano. O Master ainda pode definir um limite próprio para uma conta.
+- Painel do Master: nova seção "Recompensas" (ícone de presente), com as regras do programa Indique e ganhe: chave de programa ativo ou pausado, recompensa por escritório (em reais), quantos escritórios ativos liberam, carência em dias, alerta antifraude e a opção "Só conta escritório com pastas abertas".
+- A seção traz os KPIs (Indicadores, Contas abertas, Liberados, A pagar e Já pago) e a lista de Indicadores com busca, filtros e a situação de cada um (Liberado, em carência ou em andamento). O valor é calculado na hora da leitura: nada é gravado nem pago ainda.
+- Condição individual por indicador (valor, "libera com", carência, parceiro recorrente e motivo), que não muda quando a regra geral muda, e "Voltar à regra geral". Tudo registrado na auditoria da plataforma.
+- Novas tabelas `programa_de_recompensa` e `condicao_de_recompensa` (dado da plataforma, sem escritório). Baixa de pagamento, caixa, extrato e Fechamento do mês ficam para as próximas entregas.
+
+### Corrigido
+
+- Link de indicação `/i/{codigo}`: o código só é guardado na sessão quando a pessoa abre o link como página (navegação). Requisição vinda de `<img>`, `<iframe>` ou `fetch` de outro site deixa de atribuir a conta nova a quem indicou.
+- Push Processual: corrige a grade da lista de Processos da OAB, que desalinhava cabeçalhos e células, sobrepunha número e órgão e quebrava os ícones de ação.
+
+## [2.19.0] - 2026-10-26
+
+### Adicionado
+
+- Login: no "Criar conta", o cupom de indicação é conferido enquanto se digita ("Cupom válido" ou "Cupom não encontrado"), sem mostrar quem indicou.
+- Novo endpoint público `POST /cadastro/cupom/conferir`, limitado a 20 consultas por 15 minutos por IP (`indicacao_cupom`).
+- Login (desenho 10 VS 25.10.26): "Tenho um cupom de indicação" no Criar conta, com o campo BJ-XXXXXX; o código digitado liga a conta nova a quem indicou, pelo e-mail e pelo Google, e cupom inválido nunca impede o cadastro.
+- Login: `?ind=`, `?codigo=`, `?ref=` e `#cadastro` abrem o Criar conta (com o cupom preenchido); o link curto `/i/{codigo}` leva o cupom junto.
+- Login: título do Criar conta centralizado e sem ícone, como no desenho.
+- Login: "Continuar com Facebook" volta ao Criar conta, ligado só quando as credenciais da Meta estão configuradas (sem elas o botão não aparece). O e-mail do Facebook é só sugestão: a conta nasce não confirmada e o e-mail é confirmado pelo link, como no cadastro por e-mail.
+- Login: quem já ligou a conta ao Facebook entra por ele; o e-mail do Facebook nunca liga, confirma nem acessa uma conta existente.
+- Nova coluna `user.facebook_id` (migration 150800).
+- Painel do Escritório: meta de pastas do mês editável no card "Pastas criadas", como no desenho VS 25.10.26: barra de progresso, traço do ritmo esperado, "X de Y no mês" e status (No ritmo, Abaixo do ritmo, Meta batida). Sem meta, o primário vê o botão "Definir meta do mês".
+- Só o usuário primário define, altera ou remove a meta (lápis do card ou botão direito no card: "Alterar meta do mês / Ver histórico"); os demais veem a meta sem o botão, e a rota recusa com 403. A meta vale do mês em que foi definida em diante, até ser trocada; remover encerra a meta a partir do mês corrente.
+- O ritmo esperado conta dias úteis do mês (fim de semana, feriados nacionais e recesso), decisão provisória: o dono pode rever.
+- Sem migration: usa a tabela `dashboard_meta_pastas` do PR3. Rotas novas `dashboard_meta_pastas_definir` e `dashboard_meta_pastas_remover` (POST, CSRF).
+- Cabeçalho: botão discreto "Indicar o BlueJus" (ícone de compartilhar) antes do sino, em todas as telas; abre a janela de indicação que já existia no menu do usuário.
+- Painel do Master, Visão geral: novo bloco "Metas de divulgação" depois do mapa. Mostra o mercado (advogados regulares), a meta de usuários em fases (1.000, 10.000, percentuais do mercado), o progresso, a tabela por estado com meta própria e as cidades de cada estado, ao lado do mapa do Brasil.
+- Atualização automática do mercado pela tabela da OAB (semanal, mensal ou trimestral), com "Atualizar agora", avanço de fase ao bater a meta e "voltar a automático" quando o mercado foi fixado à mão.
+- Clique com o botão direito num estado para destacá-lo no mapa com uma de seis cores. Metas, destaques e ajustes ficam gravados no servidor (tabela meta_de_divulgacao) e valem para todos os Masters.
+- Trabalho Externo: nova aba "Pagamento" na demanda (entre Chat e Histórico), conforme o desenho de 25/10. Mostra o valor da última proposta aceita, a forma de pagamento, o QR Code e o código PIX "copia e cola" (gerados no servidor, só enquanto não pago) e o estado do pagamento em três faixas: aguardando, comprovante enviado e confirmado.
+- Trabalho Externo: o solicitante envia o comprovante do PIX (PDF ou imagem, até 20 MB, um por demanda) e a Central confirma o recebimento pela própria aba; a confirmação usa a ação "Registrar pagamento" (histórico "PIX R$ x", aviso de andamento e de WhatsApp). "Enviar no chat" grava o aviso do PIX na conversa.
+- O convidado não vê a aba, o valor, o comprovante nem os registros de pagamento no chat e no histórico.
+- Nova dependência: `bacon/bacon-qr-code` (QR Code em SVG, PHP puro). Nova coluna `trabalho_externo_documento.comprovante`, com índice único parcial (um comprovante por demanda); confirmar recebimento e enviar comprovante travam a demanda na transação.
+- Decisão a confirmar pelo dono: hoje a Equipe só confirma o recebimento com a opção "Alterar a situação das demandas" ligada, a mesma regra do botão "Registrar pagamento".
+- Trabalho Externo: o Master altera o valor do pagamento na aba "Pagamento" (lápis ao lado do valor), informando o novo valor e o motivo (10 a 300 caracteres). Só com proposta aceita, antes do pagamento e sem comprovante enviado; o valor é lido e validado no servidor, com trava da demanda na transação.
+- O novo valor passa a valer em tudo: QR Code, código PIX, mensagem do chat, histórico ("PIX R$ x") e confirmação do recebimento. A proposta aceita não muda; aceitar outra proposta zera o ajuste.
+- Trilha: marco no histórico (valor antigo, novo, quem, quando e motivo), mensagem de sistema no chat sem o motivo e aviso de andamento ao solicitante. O convidado não vê nada disso.
+- Nova coluna `trabalho_externo_demanda.valor_pagamento_ajustado` (migration `Version20261024150900`) e rota `POST /trabalho-externo/api/demandas/{codigo}/pagamento/valor`.
+
+### Alterado
+
+- Dashboard: a tela passa a se chamar "Painel do Escritório" (título, aba, PDF e migalha) e "Painel" no menu lateral, como o desenho VS 25.10.26.
+- Dashboard: visual do desenho VS 25.10.26: cor primária #0a6fa0, título sem brilho, cabeçalhos azuis sólidos, cantos de 3px, cards sem glifo, Total sem calculadora e com fundo #f5f8fa, pílulas de Vencidas e Prazos sem fundo, contador de pessoas maior.
+- Dashboard: dica em cada um dos 4 cards, que some depois de 3 passagens do mouse por card (localStorage `bj-dica-paineis`).
+- Dashboard: "Este mês" vai do dia 1º ao último dia do mês; 60 e 90 dias passam a contar hoje incluído.
+- Push Processual: tela de Publicações refeita conforme o desenho 11 (faixa de abas, cartões Não lidas/Hoje/Vinculadas/Avulsas que filtram a lista, filtros por tribunal, vínculo, leitura e período, tabela nova). Novo filtro de leitura. Entra a aba Diário da OAB, ainda sem publicações (casca com o estado vazio). A tela de OABs monitoradas ganha a faixa de abas.
+- Push Processual, aba OABs monitoradas refeita conforme o desenho 11: formulário com UF em lista, tabela com a coluna Publicações (quantas cada OAB captou), botões Pausar/Retomar e confirmação ao remover.
+- Push Processual: aba Processos da OAB refeita conforme o desenho 11, com inclusão de processo por número, sub-aba Relatório, anotações por processo e exportação em CSV. Nova tabela `djen_processo_acompanhado`.
+- Painel do Master: saem da aba "Configurações da I.A." os blocos "Questões jurídicas" e "Documentos jurídicos" e o aviso global "Questões jurídicas a serem verificadas". Tabelas, rotas, UseCases e catálogo ficam dormentes.
+
 ## [2.18.0] - 2026-10-24
 
 ### Adicionado
@@ -947,7 +1034,10 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.18.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.21.0...HEAD
+[2.21.0]: https://github.com/sfbdata/Prime/compare/v2.20.0...v2.21.0
+[2.20.0]: https://github.com/sfbdata/Prime/compare/v2.19.0...v2.20.0
+[2.19.0]: https://github.com/sfbdata/Prime/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/sfbdata/Prime/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/sfbdata/Prime/compare/v2.16.0...v2.17.0
 [2.16.0]: https://github.com/sfbdata/Prime/compare/v2.15.0...v2.16.0

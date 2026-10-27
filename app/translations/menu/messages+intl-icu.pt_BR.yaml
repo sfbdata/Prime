@@ -1,0 +1,113 @@
+# ---- menu do usuário (menu_usuario/*, menu-usuario.js)
+menu:
+    usuario:
+        dropdown:
+            selo_primario: USUÁRIO PRIMÁRIO
+            fechar_menu: Fechar menu
+            meu_perfil: Meu Perfil
+            convites: Convites do escritório
+            convites_dir: equipe
+            indicar: Indicar o BlueJus
+            indicar_dir: nova conta
+            trocar_conta: Trocar de conta
+            exclusivo_master: EXCLUSIVO DO MASTER
+            tema_escuro: Tema escuro
+            idioma: Idioma
+            instalar: Instalar aplicativo
+            novidades: Novidades
+            novidades_selo: novo
+            ajuda: Ajuda e atalhos
+            privacidade: Política de Privacidade
+            contribua: Contribua
+            sair: Sair
+        master:
+            painel:
+                titulo: Painel do Master
+                sub: Visão geral do sistema
+            contas:
+                titulo: Contas e escritórios
+                sub: Suspender, reativar e limites
+            armazenamento:
+                titulo: Planos e armazenamento
+                sub: Franquias e consumo por conta
+            auditoria:
+                titulo: Segurança e auditoria
+                sub: Registro de ações e PDF
+            permissoes:
+                titulo: Permissões e Masters
+                sub: Promover ou remover Master
+            vagas:
+                titulo: Central de vagas e currículos
+                sub: Pedidos de divulgação e candidatos
+            campanha:
+                titulo: Campanha por e-mail
+                sub: Enviar vagas para a base de contatos
+            configuracoes:
+                titulo: Configurações globais
+                sub: Regras que valem para todas as contas
+        minha_conta:
+            escritorio: Escritório
+            voce: Você
+            papel_primario: Usuário primário
+            equipe_rotulo: EQUIPE DA CONTA ({n})
+            selo_primario: PRIMÁRIO
+            situacao: Situação
+            opcoes: Opções
+            opcoes_de: Opções de {nome}
+            convidar_rotulo: CONVIDAR (ENTRA COMO SECUNDÁRIO)
+            ver_convites: Ver convites pendentes
+            nota_convidar: Clique com o botão direito (ou em ⋮) numa pessoa para aprovar, suspender, voltar para análise ou demitir.
+            sem_perfil: Para convidar, cadastre antes um perfil secundário em
+            sem_perfil_link: Perfis do escritório
+            campo_nome: Nome
+            campo_email: E-mail
+            campo_perfil: Perfil
+            enviar_convite: Enviar convite
+        conta:
+            titulo: Conta do escritório
+            aba_minha_conta: Minha conta
+            aba_abrir_conta: Abrir conta
+            aba_trocar_conta: Trocar conta
+            carregando: Carregando…
+            nova_texto_antes: Quem abre a conta se torna o
+            nova_texto_destaque: usuário primário
+            nova_texto_depois: (gestor do escritório). As pessoas convidadas depois entram como secundárias. Os dados de cada conta ficam separados e não são vistos por outras contas.
+            botao_abrir_conta: Abrir conta
+        modal:
+            fechar: Fechar
+        idioma:
+            titulo: Idioma do sistema
+            em_breve: em breve
+            regra: Vale só para você e muda todas as telas, menus, avisos e o Chat I.A. Por enquanto só o Português (Brasil) está disponível; os demais idiomas chegam em breve.
+        preparacao:
+            titulo_sufixo: em preparação
+            texto: Estamos finalizando esta tela para ela chegar com tudo funcionando. Volte em breve.
+        presenca:
+            selo: 'Quem está on-line: {n}'
+        trocar_conta:
+            usuarios: '{n} usuário(s)'
+            primario: 'primário: {nome}'
+            atual: ATUAL
+            vazio: Você ainda não faz parte de nenhuma conta.
+            nota: Cada pessoa só vê as contas a que pertence. Os dados de cada conta ficam separados.
+            sair_confirmar: Deseja realmente sair de {nome}? Você perderá o acesso a este escritório.
+            sair: Sair deste escritório
+        js:
+            idioma_erro: Não foi possível trocar o idioma.
+            aba_erro: Não foi possível carregar agora. Recarregue a página e tente de novo.
+            situacao:
+                aprovado: aprovado
+                em_analise: em análise
+                suspenso: suspenso
+            acao_reativar: Reativar (aprovar)
+            acao_aprovar: Aprovar
+            acao_voltar_analise: Voltar para análise
+            acao_suspender: Suspender acesso
+            acao_demitir: Demitir (remover da conta)
+            sem_acoes: Sem ações disponíveis
+            confirmar_demitir: Demitir {nome}? A pessoa perde o acesso a esta conta. É a mesma ação de "Remover do escritório" da tela de equipe.
+            confirmar_suspender: Suspender o acesso de {nome}? Os dados e o histórico continuam guardados.
+            feito: Feito
+            acao_erro: Não foi possível concluir agora.
+            ajuda: 'Atalhos: clique direito numa linha para ações, Esc fecha janelas, ⋮ abre as opções de cada área.'
+            confirmar_sair: Sair do BlueJus?

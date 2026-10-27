@@ -1,0 +1,436 @@
+# ---- Dashboard (dashboard/*, dashboard.js, dashboard-filtros.js, dashboard-historico.js, dashboard-janelas.js)
+dashboard:
+    titulo: Painel do Escritório
+    atualizado_as: 'Atualizado às {hora}'
+    sem_cargo: Sem cargo
+    exportar_pdf: Exportar PDF
+    exportar_pdf_titulo: Exportar relatório em PDF
+    impressao:
+        marca: BlueJus · Painel do Escritório
+        titulo: Relatório de desempenho
+        periodo: Período
+        intervalo: '{de} a {ate}'
+        inicio: início
+        hoje: hoje
+        busca: 'Busca: {termo}'
+        gerado_em: Gerado em
+        data_as_hora: '{data} às {hora}'
+        por: 'por {nome}'
+        rodape: Documento gerado pelo BlueJus para uso interno do escritório.
+    periodo:
+        rotulo: Período
+        este_mes: Este mês
+        d60: 60 dias
+        d90: 90 dias
+        este_ano: Este ano
+    filtros:
+        limpar: Limpar filtros
+        buscar_colaborador: Buscar colaborador
+        de: De
+        ate: Até
+        ate_separador: até
+        responsavel: Responsável
+        cargo: Cargo
+        data_inicial: Data inicial
+        data_final: Data final
+        sem_data: sem data
+        dd_mm_aaaa: dd/mm/aaaa
+        escolher: 'Escolher {campo}'
+        todos_responsaveis: Todos os responsáveis
+        todos_cargos: Todos os cargos
+        buscar_pessoa: Buscar pessoa
+        nenhum_resultado: Nenhum resultado.
+        pessoa: pessoa
+        pessoas: pessoas
+    cards:
+        pastas_criadas: Pastas criadas
+        metas_ativas: Metas ativas
+        demandas_urgentes: Demandas urgentes
+        meta_global_batida: Meta global batida
+        ver_pastas: ver pastas
+        ver_metas: ver metas
+        abrir_pastas_criadas: 'Abrir: Expediente · pastas criadas'
+        abrir_metas_ativas: 'Abrir: Metas da equipe · metas ativas'
+        abrir_pastas_urgentes: 'Abrir: Expediente · pastas urgentes'
+        legenda_metas_ativas: tarefas ainda não concluídas
+        legenda_urgentes: pastas com prioridade Urgente
+        legenda_global_de: de
+        legenda_global_metas_concluidas: metas concluídas
+    tabela:
+        titulo: Desempenho
+        um_colaborador: 1 colaborador
+        n_colaboradores: '{n} colaboradores'
+        colaborador: Colaborador
+        cargo: Cargo
+        total_metas: Total metas
+        metas_ativas: Metas ativas
+        metas_vencidas: Metas vencidas
+        vencidas: Vencidas
+        prazos_proximos: Prazos próximos
+        total_demandas: Total demandas
+        demandas_ativas: Demandas ativas
+        pastas_criadas: Pastas criadas
+        total: Total
+        vazio: Nenhum colaborador com esses filtros.
+        nota: Uma meta com vários responsáveis conta para cada um deles, por isso a soma das linhas pode passar do total do card. Vencidas e prazos próximos são sempre relativos a hoje, não ao período filtrado.
+        abrir_metas: 'Abrir: Metas de {nome}'
+        abrir_metas_ativas: 'Abrir: Metas ativas de {nome}'
+        abrir_metas_vencidas: 'Abrir: Metas vencidas de {nome}'
+        abrir_prazo_proximo: 'Abrir: Metas com prazo próximo de {nome}'
+        abrir_pastas: 'Abrir: Expediente · pastas de {nome}'
+        abrir_pastas_ativas: 'Abrir: Expediente · pastas ativas de {nome}'
+        abrir_pastas_criadas: 'Abrir: Expediente · pastas criadas por {nome}'
+        botao_direito_desempenho: 'Botão direito: desempenho de {nome}'
+        trofeu_titulo: Mais metas concluídas no período
+        trofeu_rotulo: Melhor resultado
+    celular:
+        ordenar: Ordenar
+        ordem_crescente: Ordem crescente
+        ordem_decrescente: Ordem decrescente
+    extras:
+        sem_dado: Sem dado
+        sem_dado_no_periodo: Sem dado no período
+        valor_dias: '{n}d'
+        abrir_pastas_urgentes: 'Abrir: Expediente · pastas urgentes de {nome}'
+        abrir_metas_concluidas: 'Abrir: Metas concluídas de {nome}'
+        abrir_taxa_conclusao: 'Abrir: Taxa de conclusão de {nome}'
+        abrir_tempo_medio: 'Abrir: Tempo médio de {nome}'
+        abrir_metas_revisao: 'Abrir: Metas em revisão de {nome}'
+        abrir_eventos_agenda: 'Abrir: Eventos na agenda de {nome}'
+        abrir_pastas_concluidas: 'Abrir: Pastas concluídas de {nome}'
+    tendencia:
+        sem_movimento_titulo: Sem movimento nos dois períodos
+        sem_movimento: sem movimento
+        novo: novo
+        anterior_zero: 'Período anterior: 0'
+        antes_agora: 'antes: {anterior} → agora: {atual}'
+        subiu: 'Subiu {pct}% em relação ao período anterior ({anterior} → {atual})'
+        caiu: 'Caiu {pct}% em relação ao período anterior ({anterior} → {atual})'
+        estavel: 'Estável, {pct}% em relação ao período anterior ({anterior} → {atual})'
+    pref:
+        opcoes_da_tabela: Opções da tabela
+        ajustes_salvos_para: Ajustes salvos só para
+        meu_estilo: Meu estilo
+        densidade: Densidade
+        normal: Normal
+        compacta: Compacta
+        sons: Sons
+        animacoes: Animações
+        exibicao: Exibição
+        setas: Setas de tendência
+        colunas: Colunas
+        mostrar_todas: Mostrar todas
+        fixa: fixa
+        coluna_extra: '{rotulo} (extra)'
+        adicionar_coluna: Adicionar coluna
+        todas_na_tabela: Todas as colunas disponíveis já estão na tabela.
+        restaurar: Restaurar padrão
+        zerar_relatorio_todos: 'Zerar relatório de todos'
+        zerar_relatorio_todos_sub: 'Para uma pessoa: botão direito no nome'
+    zerar:
+        aviso:
+            titulo: 'Pedido para zerar {rotulo}'
+            texto_primario: '{destinatario}, {nome} pediu às {hora} para zerar {rotulo} {alvo} no Painel do Escritório. É um dado estatístico: zerar recomeça a contagem a partir de agora e o histórico anterior deixa de entrar no número. Para autorizar, zere a coluna no Painel do Escritório (botão direito no título dela).'
+            texto_controladoria: '{destinatario}, para sua análise: {nome} pediu para zerar {rotulo} {alvo} no Painel do Escritório. A decisão é do usuário primário; nada foi alterado.'
+            alvo_pessoa: 'de {nome}'
+            alvo_todos: 'de toda a equipe'
+            sem_nome: 'Um colaborador'
+        th_titulo: 'Botão direito: relatório e zerar'
+    ia:
+        abrir: Abrir BlueJus Intelligence
+        ponto_de_atencao: '{n} ponto de atenção'
+        pontos_de_atencao: '{n} pontos de atenção'
+        leitura_do_periodo: Leitura do período
+        legenda: Leitura automática dos números do período, por regras fixas
+        atualizada_hoje_as: 'Atualizada hoje às {hora}'
+        fechar: Fechar
+        visao_da_equipe: Visão da equipe
+        analises_ampliadas: Análises ampliadas do escritório
+        modo_avancado: Modo avançado
+        confirma:
+            titulo: Ativar Modo Avançado?
+            texto: A BlueJus Intelligence passará a fazer análises ampliadas do escritório, usando apenas os dados disponíveis ao seu perfil de acesso.
+            podera_analisar: Poderá analisar
+            escopo:
+                tarefas: Tarefas
+                prazos: Prazos
+                equipes: Equipes
+                gargalos: Gargalos
+                indicadores: Indicadores
+                riscos_operacionais: Riscos operacionais
+            agora_nao: Agora não
+            ativar: Ativar Modo Avançado
+        av:
+            titulo: Visão estratégica do escritório
+            lema: Entenda. Antecipe. Aja. Evolua.
+            hoje_hora: 'Hoje, {hora}'
+            qualidade_regras: 'Nota por regras: −6 por colaborador sem cargo, −15 no início do período (ou −6 em andamento), −20 com menos de 3 colaboradores, −4 fixo; mínimo 40'
+            qualidade: Qualidade da análise
+            central: Central de Inteligência
+            como_montada: Como esta leitura foi montada
+            dados_analisados: Dados analisados
+            fatores: Fatores da classificação
+            sem_alerta: Nenhum alerta com os números atuais.
+            distribuicao: Distribuição da equipe
+            ativas: ativas
+            vencidas: vencidas
+            ativas_vencidas: '{ativas} ativas, {vencidas} vencidas'
+            media_da_equipe: 'Traço: média da equipe ({media} ativas por pessoa)'
+            visao_estrategica: Visão estratégica da equipe
+            principais_riscos: Principais riscos
+            sem_risco: Nenhum risco relevante identificado.
+            perguntas: Perguntas guiadas
+            resolvido: Resolvido
+            ignorar: Ignorar
+            recomendacao_se_aplica: A recomendação se aplica?
+            aplicar: Aplicar
+            nao_se_aplica: Não se aplica
+            status:
+                resolvido: Resolvido
+                ignorado: Ignorado
+        dia_de: 'dia {dia} de {total}'
+        entram_por_dia: Entram por dia
+        concluidas_por_dia: Concluídas por dia
+        por_dia: /dia
+        abertas_no_periodo: Abertas no período
+        metas: Metas
+        concluidas: Concluídas
+        ativas: Ativas
+        vencidas: Vencidas
+        pct_metas_concluidas: '{taxa}% das metas concluídas'
+        concluida_minusculo: concluída
+        concluidas_minusculo: concluídas
+        pct_das: '{taxa}% das {n}'
+        abertas_no_periodo_minusculo: abertas no período
+        metas_minusculo: metas
+        o_que_acontece: O que está acontecendo
+        por_que: Por que
+        o_que_fazer: O que fazer agora
+        proximas_acoes: Próximas ações
+        limites: O que este painel não faz
+        nota_numeros: 'Números: somas das linhas visíveis da tabela Desempenho (uma meta com vários responsáveis conta para cada um); vencidas e prazos próximos são relativos a hoje; urgentes vêm do card Demandas urgentes.'
+        teaser:
+            titulo: Conhecer o Modo avançado
+            sub: Visão estratégica, riscos e Central de Inteligência.
+        rodape: Acompanhar novamente em 24 horas
+        sim:
+            teste: Teste
+            simular_dia: simular dia
+            aria: Simular dia do período
+            aviso: 'Simulação: o painel como estaria em {data}. Nada é gravado, e os números realizados são os de hoje.'
+        dia_util_de: 'dia útil {dia} de {total}'
+        ritmo_atual: Ritmo atual
+        ritmo_necessario: Ritmo necessário
+        nd: N/D
+        meta_de_pastas_legenda: 'Meta de pastas do mês: {feitas} de {meta} criadas'
+        estado:
+            adequado: Ritmo adequado
+            atencao: Ritmo de atenção
+            abaixo: Ritmo abaixo do necessário
+            critico: Ritmo crítico
+    js:
+        impressao:
+            intervalo: '{de} a {ate}'
+            inicio: início
+            hoje: hoje
+            todos_responsaveis: Todos os responsáveis
+            todos_cargos: Todos os cargos
+            busca: 'Busca: {termo}'
+            data_as_hora: '{data} às {hora}'
+            nome_do_arquivo: 'BlueJus Relatorio de desempenho {data}'
+        filtros:
+            responsavel: Responsável
+            cargo: Cargo
+            titulo_mes: '{mes} de {ano}'
+            mes_anterior: Mês anterior
+            proximo_mes: Próximo mês
+            dia: '{semana}, {dia} de {mes} de {ano}'
+            dia_hoje: '{semana}, {dia} de {mes} de {ano} (hoje)'
+            limpar: Limpar
+            hoje: Hoje
+            dd_mm_aaaa: dd/mm/aaaa
+            data_inicial: Data inicial
+            data_final: Data final
+            sem_data: sem data
+            mes_1: janeiro
+            mes_2: fevereiro
+            mes_3: março
+            mes_4: abril
+            mes_5: maio
+            mes_6: junho
+            mes_7: julho
+            mes_8: agosto
+            mes_9: setembro
+            mes_10: outubro
+            mes_11: novembro
+            mes_12: dezembro
+            semana_curta_0: D
+            semana_curta_1: S
+            semana_curta_2: T
+            semana_curta_3: Q
+            semana_curta_4: Q
+            semana_curta_5: S
+            semana_curta_6: S
+            semana_longa_0: domingo
+            semana_longa_1: segunda
+            semana_longa_2: terça
+            semana_longa_3: quarta
+            semana_longa_4: quinta
+            semana_longa_5: sexta
+            semana_longa_6: sábado
+        historico:
+            pastas_criadas: Pastas criadas
+            metas_ativas: Metas ativas
+            demandas_urgentes: Demandas urgentes
+            meta_global_batida: Meta global batida
+            subtitulo: Histórico mensal
+            ano: Ano
+            carregando: Carregando…
+            sem_historico: Ainda não há histórico deste número.
+            erro: Não foi possível carregar o histórico. Feche a janela e tente de novo.
+        janelas:
+            arraste_para_mover: Arraste para mover
+            fechar: Fechar
+        colaborador:
+            carregando: Carregando…
+            erro: Não foi possível carregar o desempenho. Feche a janela e tente de novo.
+            sem_cargo: Sem cargo
+            janela_aria: Recorte do cartão
+            periodo: Período
+            mes: Mês
+            trimestre: Trimestre
+            semestre: Semestre
+            ano: Ano
+            posicao_periodo: '{pos}º de {n} no período'
+            posicao_mes: '{pos}º de {n} no mês'
+            posicao_trimestre: '{pos}º de {n} no trimestre'
+            posicao_semestre: '{pos}º de {n} no semestre'
+            posicao_ano: '{pos}º de {n} no ano'
+            comentarios: Comentários
+            primeiro_mes: 1º do mês
+            ano_aria: Ano
+            todos: Todos
+            vez: vez
+            vezes: vezes
+            em_ano: 'em {ano}'
+            no_total: no total
+            meses_curtos: jan,fev,mar,abr,mai,jun,jul,ago,set,out,nov,dez
+            meses_letras: J,F,M,A,M,J,J,A,S,O,N,D
+            mes_aberto: '{mes}/{ano}: ainda não fechou'
+            mes_ganhou: '{mes}/{ano}: 1º lugar'
+            mes_nao: '{mes}/{ano}: não ficou em 1º'
+            rendimento: Rendimento
+            frase_acima: '{nome} rendeu {pct}% a mais que a média dos outros'
+            frase_abaixo: '{nome} rendeu {pct}% a menos que a média dos outros'
+            frase_igual: '{nome} está na média da equipe'
+            media_equipe: Média equipe
+            legenda: 'Metas concluídas {quando}, comparadas com a média dos outros {n} colaboradores.'
+            quando_periodo: no período
+            quando_mes: no mês
+            quando_trimestre: no trimestre
+            quando_semestre: no semestre
+            quando_ano: no ano
+        zerar:
+            menu_titulo: '{quem} · {rotulo}'
+            equipe: 'Equipe'
+            toda_a_equipe: 'toda a equipe'
+            contando_desde: 'Contando desde {quando}'
+            contagem_completa: 'Contagem completa do período'
+            ver_relatorio: 'Ver relatório de {nome}'
+            ver_relatorio_sub: 'Abre a lista de {rotulo}'
+            zerar_de: 'Zerar de {nome}'
+            zerar_de_sub: 'Recomeça a contagem só desta pessoa'
+            zerar_equipe: 'Zerar de toda a equipe'
+            zerar_equipe_sub: 'Recomeça a contagem de todos'
+            pedir_de: 'Pedir para zerar de {nome}'
+            pedir_equipe: 'Pedir para zerar de toda a equipe'
+            pedir_sub: 'Vai para o usuário primário e a Controladoria'
+            desfazer: 'Desfazer zeramentos'
+            desfazer_sub: 'Volta a contar desde o início'
+            desfazer_confirmar: 'Desfazer os zeramentos de {rotulo}? O contador volta a mostrar a contagem completa.'
+            sem_permissao: 'Só o usuário primário zera dados estatísticos.'
+            confirmar_aria: 'Confirmar zerar'
+            confirmar_titulo: 'Zerar {rotulo}?'
+            confirmar_texto: 'Você vai zerar {rotulo} de {nome}.'
+            confirmar_aviso: 'É um dado estatístico: a contagem recomeça agora e o histórico anterior deixa de entrar no número. A ação fica registrada e pode ser desfeita depois pelo menu.'
+            cancelar: 'Cancelar'
+            sim_zerar: 'Sim, zerar'
+            negado_aria: 'Sem permissão'
+            negado_titulo: 'Sem permissão para zerar'
+            negado_texto: '{rotulo} de {nome} é um dado estatístico do escritório. Só o usuário primário pode zerar.'
+            negado_enviado: 'Seu pedido foi enviado ao usuário primário e à Controladoria para análise.'
+            negado_enviado_primario: 'Seu pedido foi enviado ao usuário primário para análise.'
+            negado_repetido: 'Você já tinha pedido isso hoje. O pedido continua com o usuário primário e a Controladoria.'
+            negado_repetido_primario: 'Você já tinha pedido isso hoje. O pedido continua com o usuário primário.'
+            entendi: 'Entendi'
+            zerado: '{rotulo} zerado · {nome}'
+            fechar: 'Fechar'
+            erro: 'Não foi possível concluir agora. Tente de novo.'
+            cartao_zerar: 'Zerar'
+            cartao_zerar_titulo: 'Zerar o relatório desta pessoa'
+        # Meta de pastas do mês (DASH-016; dashboard-meta.js; desenho VS 25.10.26, `metaEd` e menu do card)
+        meta:
+            menu_alterar: 'Alterar meta do mês'
+            menu_definir: 'Definir meta do mês'
+            menu_historico: 'Ver histórico'
+            aria: 'Meta de pastas do mês'
+            titulo: 'Meta de pastas'
+            a_partir_de: 'A partir de {mes}'
+            pergunta: 'Quantas pastas precisam ser abertas no mês.'
+            placeholder: 'Ex.: 40'
+            previa: '≈ {dia} por dia útil · {semana} por semana'
+            vigencia_herdada: 'Meta herdada de {desde}. Ao salvar, vale de {mes} em diante.'
+            vigencia_nova: 'Vale para toda a equipe e segue para os próximos meses até ser alterada.'
+            remover: 'Remover meta'
+            cancelar: 'Cancelar'
+            salvar: 'Salvar'
+            erro: 'Não foi possível salvar a meta agora. Tente de novo.'
+            sem_permissao: 'Só o usuário primário pode alterar a meta de pastas.'
+    # Dica de cada card (data-tip, dc VS 25.10.26 L2816-2819); some depois de 3 passagens (dashboard.js).
+    dicas_cards:
+        pastas_criadas: 'Soma das pastas abertas no período escolhido. Clique para ver a lista. Botão direito: histórico.'
+        metas_ativas: 'Metas em andamento no período. Clique para abrir. Botão direito: histórico.'
+        demandas_urgentes: 'Pastas marcadas como urgentes. Clique para ver quais são. Botão direito: histórico.'
+        meta_global: 'Percentual das metas concluídas no período. Botão direito: histórico.'
+    # Meta de pastas do mês no card Pastas criadas (DASH-016; _meta_pastas.html.twig). O ritmo conta dias úteis.
+    meta:
+        definir: 'Definir meta do mês'
+        alterar: 'Alterar meta do mês'
+        de: 'de'
+        no_mes: 'no mês'
+        status_batida: 'Meta batida'
+        status_no_ritmo: 'No ritmo'
+        status_abaixo: 'Abaixo do ritmo'
+        dica_batida: 'Meta do mês alcançada'
+        dica: 'Previsto até hoje: {esperado} (dia útil {dia} de {total}). Faltam {faltam} em {restam} dias úteis: {porDia, number, ::.#} por dia útil, {porSemana} por semana. O traço marca onde a equipe deveria estar hoje.'
+    # Link do Total de "Pastas concluídas" e modal "Ver relatório" da coluna Relatório (PR-D; dashboard-relatorio.js).
+    relatorio:
+        total_equipe: 'Abrir: Pastas concluídas da equipe filtrada'
+        total_cargo: 'Abrir: Pastas concluídas da equipe do cargo {cargo}'
+        total_sem_cargo: 'Abrir: Pastas concluídas da equipe sem cargo'
+        abrir_relatorio: 'Ver relatório de {nome}'
+        js:
+            aria: 'Relatório'
+            menu_sub: 'Pastas, data e hora de cada registro'
+            titulo: 'Relatório · {nome}'
+            fechar: 'Fechar'
+            carregando: 'Carregando...'
+            erro: 'Não foi possível carregar o relatório. Tente de novo.'
+            vazio: 'Nenhum registro no período.'
+            registro_um: '1 registro'
+            registros: '{n} registros'
+            pasta_uma: '1 pasta'
+            pastas: '{n} pastas'
+            resumo_completo: '{registros} · período completo'
+            resumo_corte: '{registros} · desde {quando}'
+            resumo_pastas: '{registros} em {pastas}'
+            pasta_titulo: 'Pasta {numero}'
+            pasta_sem_numero: 'Pasta sem número'
+            abrir_pasta: 'Abrir a pasta'
+            sem_texto: 'Registro sem texto'
+            aba_oculta: 'Conteúdo de uma aba que você não pode ver'
+            aba_dados: 'Dados da pasta'
+            aba_financeiro: 'Financeiro'
+            aba_detalhes: 'Detalhes'
+            rodape_total: 'Total: {registros}'
+            rodape_restantes: 'Mostrando os {n} mais recentes. Os outros {restantes} também entram no total.'

@@ -1,0 +1,20 @@
+access_request:
+    titulo: Solicitações de Acesso
+    titulo_pendentes: Solicitações de Acesso Pendentes
+    nenhuma: Nenhuma solicitação pendente no momento.
+    col_solicitante: Solicitante
+    col_recurso: Recurso
+    col_id: ID
+    col_acao: Ação Solicitada
+    col_solicitado_em: Solicitado em
+    col_decisao: Decisão
+    aprovar: Aprovar
+    negar: Negar
+    confirmar_negar: 'Negar o acesso de {nome} ao {recurso} #{id}?'
+    modal_titulo: Aprovar Acesso
+    solicitante: 'Solicitante:'
+    recurso: 'Recurso:'
+    instrucao: Selecione as ações que serão concedidas. Pelo menos uma deve ser marcada.
+    visualizar: Visualizar
+    editar: Editar
+    confirmar_aprovacao: Confirmar Aprovação

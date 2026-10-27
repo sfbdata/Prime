@@ -239,6 +239,7 @@ final class AbaPagamentoTest extends JusPrimeWebTestCase
         self::assertSame('/trabalho-externo/api/demandas/TE-0/pagamento/comprovante', $raiz->attr('data-url-pagamento-comprovante'));
         self::assertSame('/trabalho-externo/api/demandas/TE-0/pagamento/confirmacao', $raiz->attr('data-url-pagamento-confirmar'));
         self::assertSame('/trabalho-externo/api/demandas/TE-0/pagamento/aviso', $raiz->attr('data-url-pagamento-avisar'));
+        self::assertSame('/trabalho-externo/api/demandas/TE-0/pagamento/valor', $raiz->attr('data-url-pagamento-valor'));
         self::assertSame(0, $crawler->filter('#tePagina .te-pg, #tePagina .modal, #tePagina .card')->count(), 'a aba nasce no JavaScript, com os componentes do desenho');
     }
 
@@ -396,12 +397,12 @@ final class AbaPagamentoTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contar('trabalho_externo_documento WHERE comprovante = true'));
     }
 
-    #[TestDox('CSRF: as três escritas sem o token são 403 e nada muda')]
+    #[TestDox('CSRF: as cinco escritas sem o token são 403 e nada muda')]
     public function testCsrf(): void
     {
         [$client, $codigo] = $this->demandaAceita();
 
-        foreach (['confirmacao', 'aviso', 'comprovante'] as $rota) {
+        foreach (['confirmacao', 'aviso', 'comprovante', 'valor', 'recusa'] as $rota) {
             $client->request('POST', "/trabalho-externo/api/demandas/$codigo/pagamento/$rota", [], [], ['HTTP_X_CSRF_TOKEN' => 'errado']);
             self::assertResponseStatusCodeSame(403, $rota);
         }
@@ -416,6 +417,257 @@ final class AbaPagamentoTest extends JusPrimeWebTestCase
 
         $avisos = $this->em()->getConnection()->fetchFirstColumn('SELECT mensagem FROM notificacao WHERE usuario_id = ?', [$solicitante->getId()]);
         self::assertContains('✅ Pagamento de R$ 1.500,00 confirmado via PIX. A execução pode começar.', $avisos);
+    }
+
+    #[TestDox('Master ajusta o valor: QR, txid, código, confirmação, chat e histórico usam o novo; marco e mensagem sem motivo; o Solicitante é avisado')]
+    public function testMasterAjustaOValor(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita();
+        self::assertTrue($this->detalhe($client, $codigo)['pagamento']['podeEditarValor']);
+
+        $r = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/valor", ['valor' => '1.800,50', 'motivo' => 'Acordo de desconto com o cliente']);
+        self::assertResponseIsSuccessful();
+        self::assertSame('Valor alterado', $r['toast']['titulo']);
+        $pg = $r['demanda']['pagamento'];
+        self::assertSame(['R$ 1.800,50', true, '1800.50'], [$pg['valor'], $pg['valorAjustado'], $pg['valorNumero']]);
+        self::assertSame((new \App\TrabalhoExterno\Service\PixDaDemanda())->gerar($codigo, '1800.50'), $pg['cod']);
+        self::assertStringContainsString('540718' . '00.50', $pg['cod']);
+        self::assertSame('Confirmar o recebimento de R$ 1.800,50 via PIX?', $pg['confirmacao']);
+        self::assertSame($codigo, $pg['txid']);
+
+        $textos = array_column($r['demanda']['mensagens'], 'txt');
+        self::assertContains('Valor do pagamento alterado de R$ 1.500,00 para R$ 1.800,50.', $textos);
+        foreach ($textos as $t) {
+            self::assertStringNotContainsString('Acordo de desconto', $t, 'o motivo não vai ao chat');
+        }
+        $marco = array_values(array_filter($r['demanda']['historico'], static fn (array $h): bool => $h['para'] === 'Valor do pagamento alterado'));
+        self::assertCount(1, $marco);
+        self::assertSame('De R$ 1.500,00 para R$ 1.800,50. Motivo: Acordo de desconto com o cliente', $marco[0]['motivo']);
+        self::assertSame('1800.50', $this->em()->getConnection()->fetchOne('SELECT valor_pagamento_ajustado FROM trabalho_externo_demanda'));
+        self::assertSame('1500.00', $this->em()->getConnection()->fetchOne('SELECT valor FROM trabalho_externo_proposta'), 'a proposta aceita não muda');
+
+        $avisos = $this->em()->getConnection()->fetchFirstColumn('SELECT mensagem FROM notificacao WHERE usuario_id = ?', [$solicitante->getId()]);
+        self::assertContains('Valor do pagamento alterado de R$ 1.500,00 para R$ 1.800,50.', $avisos);
+
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/aviso");
+        self::assertContains("💳 Pagamento disponível: R\$ 1.800,50 via PIX para BlueJus Gestão e Tecnologia LTDA (CNPJ 66.803.163/0001-10), identificação $codigo. Veja o QR Code na aba Pagamento.", array_column($this->detalhe($client, $codigo)['mensagens'], 'txt'));
+
+        // Igual ao efetivo: 409 sem gravar. Depois, a confirmação grava o valor novo.
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/valor", ['valor' => '1800.50', 'motivo' => 'Acordo de desconto com o cliente']);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(1, $this->contar("trabalho_externo_historico WHERE para = 'valor'"));
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/confirmacao");
+        $pago = array_values(array_filter($this->detalhe($client, $codigo)['historico'], static fn (array $h): bool => $h['para'] === 'Pagamento registrado'));
+        self::assertSame('PIX R$ 1.800,50', $pago[0]['motivo']);
+
+        // Pago: nem o lápis nem a rota.
+        self::assertFalse($this->detalhe($client, $codigo)['pagamento']['podeEditarValor']);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/valor", ['valor' => '10,00', 'motivo' => 'Motivo suficiente']);
+        self::assertResponseStatusCodeSame(409);
+    }
+
+    #[TestDox('valor inválido ou motivo curto: 422; Solicitante e Equipe: 403; comprovante enviado: 409 e o lápis some; CSRF errado: 403')]
+    public function testAjusteDeValorRecusas(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita();
+        $url = "/trabalho-externo/api/demandas/$codigo/pagamento/valor";
+
+        $this->postarJson($client, $url, ['valor' => 'abc', 'motivo' => 'Motivo suficiente']);
+        self::assertResponseStatusCodeSame(422);
+        $this->postarJson($client, $url, ['valor' => '0,00', 'motivo' => 'Motivo suficiente']);
+        self::assertResponseStatusCodeSame(422);
+        $this->postarJson($client, $url, ['valor' => '10,00', 'motivo' => 'curto']);
+        self::assertResponseStatusCodeSame(422);
+        $this->postarJson($client, $url, ['valor' => '10,00', 'motivo' => 'Motivo suficiente'], 'errado');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->contar("trabalho_externo_historico WHERE para = 'valor'"));
+
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        self::assertFalse($this->detalhe($client, $codigo)['pagamento']['podeEditarValor']);
+        $this->postarJson($client, $url, ['valor' => '10,00', 'motivo' => 'Motivo suficiente']);
+        self::assertResponseStatusCodeSame(403);
+        $this->comprovante($client, $codigo, $this->pdf('pix.pdf'));
+        self::assertResponseIsSuccessful();
+
+        $this->logarComTenant($client, $master, $central);
+        self::assertFalse($this->detalhe($client, $codigo)['pagamento']['podeEditarValor'], 'com comprovante, sem lápis');
+        $this->postarJson($client, $url, ['valor' => '10,00', 'motivo' => 'Motivo suficiente']);
+        self::assertResponseStatusCodeSame(409);
+        self::assertNull($this->em()->getConnection()->fetchOne('SELECT valor_pagamento_ajustado FROM trabalho_externo_demanda'));
+    }
+
+    #[TestDox('Equipe com "Alterar a situação" não ajusta (403); Convidado e outro escritório: 403 e 404; a prévia não traz o lápis')]
+    public function testAjusteDeValorEquipeConvidadoOutroEscritorioPrevia(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita();
+        $url = "/trabalho-externo/api/demandas/$codigo/pagamento/valor";
+        $corpo = ['valor' => '10,00', 'motivo' => 'Motivo suficiente'];
+
+        $this->definirSede($central);
+        $equipe = $this->criarUsuario($central, nome: 'Colaborador');
+        $repo = static::getContainer()->get(ConfiguracaoCentralRepository::class);
+        $cfg = $repo->atual();
+        $cfg->definirEquipe('situacao', true);
+        $repo->salvar($cfg, flush: true);
+        $this->logarComTenant($client, $equipe, $central);
+        self::assertFalse($this->detalhe($client, $codigo)['pagamento']['podeEditarValor']);
+        $this->postarJson($client, $url, $corpo);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->logarComTenant($client, $master, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo?como=solicitante");
+        self::assertFalse($this->json($client)['demanda']['pagamento']['podeEditarValor']);
+
+        $token = $this->convidar($client, $codigo, 'conv@test.com');
+        $convidado = $this->contaDoConvidado($client, $token, 'conv@test.com');
+        $this->logarComoConvidado($client, $convidado);
+        $this->postarJson($client, $url, $corpo);
+        self::assertResponseStatusCodeSame(403);
+
+        $outro = $this->criarTenant('Outro');
+        $this->logarComTenant($client, $this->criarUsuario($outro), $outro);
+        $this->postarJson($client, $url, $corpo);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(0, $this->contar("trabalho_externo_historico WHERE para = 'valor'"));
+    }
+
+    #[TestDox('o Convidado não vê o marco do ajuste nem o valor novo no histórico, no chat ou no JSON')]
+    public function testConvidadoNaoVeOAjuste(): void
+    {
+        [$client, $codigo, $master, $central] = $this->demandaAceita();
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/valor", ['valor' => '1.777,77', 'motivo' => 'Desconto especial']);
+        self::assertResponseIsSuccessful();
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/iniciar");
+        $token = $this->convidar($client, $codigo, 'conv@test.com');
+        $convidado = $this->contaDoConvidado($client, $token, 'conv@test.com');
+        $this->logarComoConvidado($client, $convidado);
+
+        $this->detalhe($client, $codigo);
+        $json = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('1.777,77', $json);
+        self::assertStringNotContainsString('Desconto especial', $json);
+        self::assertStringNotContainsString('Valor do pagamento alterado', $json);
+    }
+
+    #[TestDox('Master recusa o comprovante: marco, chat sem motivo, aviso com motivo, documento e arquivo saem, lápis volta e o Solicitante reenvia')]
+    public function testMasterRecusaOComprovante(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita();
+        $url = "/trabalho-externo/api/demandas/$codigo/pagamento/recusa";
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $enviado = $this->comprovante($client, $codigo, $this->pdf('pix-errado.pdf'));
+        $nomeArmazenado = (string) $this->em()->getConnection()->fetchOne('SELECT nome_armazenado FROM trabalho_externo_documento WHERE comprovante = true');
+        $armazenamento = static::getContainer()->get(\App\Shared\Armazenamento\ArmazenamentoDeArquivos::class);
+        $chave = \App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno::documento($this->em()->getRepository(\App\TrabalhoExterno\Entity\DocumentoDemanda::class)->findOneBy(['nomeArmazenado' => $nomeArmazenado]));
+        self::assertTrue($armazenamento->existe($chave));
+
+        $this->logarComTenant($client, $master, $central);
+        $pg = $this->detalhe($client, $codigo)['pagamento'];
+        self::assertSame([true, false], [$pg['podeRecusar'], $pg['podeEditarValor']]);
+
+        $this->postarJson($client, $url, ['motivo' => 'curto']);
+        self::assertResponseStatusCodeSame(422);
+        $r = $this->postarJson($client, $url, ['motivo' => 'Valor diferente do combinado']);
+        self::assertResponseIsSuccessful();
+        self::assertSame('Comprovante recusado', $r['toast']['titulo']);
+        $pg = $r['demanda']['pagamento'];
+        self::assertSame(['aguarda', null, false, true], [$pg['estado'], $pg['comprovante'], $pg['podeRecusar'], $pg['podeEditarValor']]);
+        self::assertSame('Aguardando pagamento', $pg['stTxt']);
+        self::assertSame(0, $this->contar('trabalho_externo_documento WHERE comprovante = true'));
+        self::assertFalse($armazenamento->existe($chave), 'o arquivo saiu depois do COMMIT');
+
+        $textos = array_column($r['demanda']['mensagens'], 'txt');
+        self::assertContains('Comprovante de pagamento recusado. Envie um novo comprovante na aba Pagamento.', $textos);
+        foreach ($textos as $t) {
+            self::assertStringNotContainsString('Valor diferente', $t, 'o motivo não vai ao chat');
+        }
+        $marco = array_values(array_filter($r['demanda']['historico'], static fn (array $h): bool => $h['para'] === 'Comprovante recusado'));
+        self::assertCount(1, $marco);
+        self::assertSame('Arquivo: pix-errado.pdf. Motivo: Valor diferente do combinado', $marco[0]['motivo']);
+        $avisos = $this->em()->getConnection()->fetchFirstColumn('SELECT mensagem FROM notificacao WHERE usuario_id = ?', [$solicitante->getId()]);
+        self::assertContains('Comprovante de pagamento recusado. Motivo: Valor diferente do combinado. Envie um novo comprovante na aba Pagamento.', $avisos);
+
+        // Sem comprovante: 409. O valor volta a ser editável.
+        $this->postarJson($client, $url, ['motivo' => 'Valor diferente do combinado']);
+        self::assertResponseStatusCodeSame(409);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/valor", ['valor' => '1.400,00', 'motivo' => 'Ajuste combinado']);
+        self::assertResponseIsSuccessful();
+
+        // O Solicitante reenvia (o índice único parcial já está livre).
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        self::assertTrue($this->detalhe($client, $codigo)['pagamento']['podeComprovante']);
+        $novo = $this->comprovante($client, $codigo, $this->pdf('pix-certo.pdf'));
+        self::assertResponseIsSuccessful();
+        self::assertSame('pix-certo.pdf', $novo['demanda']['pagamento']['comprovante']['nome']);
+        self::assertSame(1, $this->contar('trabalho_externo_documento WHERE comprovante = true'));
+    }
+
+    #[TestDox('recusa do comprovante: Solicitante e Equipe 403, Convidado 403 sem ver o marco, outro escritório 404, pago 409, prévia sem o botão')]
+    public function testRecusaDoComprovanteQuemNaoPode(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita();
+        $url = "/trabalho-externo/api/demandas/$codigo/pagamento/recusa";
+        $corpo = ['motivo' => 'Motivo suficiente'];
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $this->comprovante($client, $codigo, $this->pdf('pix.pdf'));
+        self::assertFalse($this->detalhe($client, $codigo)['pagamento']['podeRecusar']);
+        $this->postarJson($client, $url, $corpo);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->definirSede($central);
+        $equipe = $this->criarUsuario($central, nome: 'Colaborador');
+        $repo = static::getContainer()->get(ConfiguracaoCentralRepository::class);
+        $cfg = $repo->atual();
+        $cfg->definirEquipe('situacao', true);
+        $repo->salvar($cfg, flush: true);
+        $this->logarComTenant($client, $equipe, $central);
+        self::assertFalse($this->detalhe($client, $codigo)['pagamento']['podeRecusar']);
+        $this->postarJson($client, $url, $corpo);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->logarComTenant($client, $master, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo?como=solicitante");
+        self::assertFalse($this->json($client)['demanda']['pagamento']['podeRecusar']);
+
+        $token = $this->convidar($client, $codigo, 'conv@test.com');
+        $convidado = $this->contaDoConvidado($client, $token, 'conv@test.com');
+        $this->logarComoConvidado($client, $convidado);
+        $this->postarJson($client, $url, $corpo);
+        self::assertResponseStatusCodeSame(403);
+
+        $outro = $this->criarTenant('Outro');
+        $this->logarComTenant($client, $this->criarUsuario($outro), $outro);
+        $this->postarJson($client, $url, $corpo);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(1, $this->contar('trabalho_externo_documento WHERE comprovante = true'));
+        self::assertSame(0, $this->contar("trabalho_externo_historico WHERE para = 'comprovante_recusado'"));
+
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/confirmacao");
+        $this->postarJson($client, $url, $corpo);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(1, $this->contar('trabalho_externo_documento WHERE comprovante = true'));
+    }
+
+    #[TestDox('o Convidado não vê o marco da recusa do comprovante nem o motivo')]
+    public function testConvidadoNaoVeARecusa(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita();
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/iniciar");
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $this->comprovante($client, $codigo, $this->pdf('pix.pdf'));
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/recusa", ['motivo' => 'Comprovante ilegível']);
+        self::assertResponseIsSuccessful();
+        $token = $this->convidar($client, $codigo, 'conv@test.com');
+        $convidado = $this->contaDoConvidado($client, $token, 'conv@test.com');
+        $this->logarComoConvidado($client, $convidado);
+
+        $this->detalhe($client, $codigo);
+        $json = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('Comprovante recusado', $json);
+        self::assertStringNotContainsString('Comprovante ilegível', $json);
+        self::assertStringNotContainsString('Comprovante de pagamento recusado', $json);
     }
 
     /**

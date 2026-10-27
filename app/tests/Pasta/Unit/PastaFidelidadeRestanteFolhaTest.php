@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote P13, lido como FOLHA (não há navegador no PHPUnit): o CSS de N10/N11 e o JS das duas
@@ -100,7 +100,7 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
         self::assertStringContainsString('corpo.innerText.trim()', $copiar, 'texto da tela, sem a marcação do editor');
         self::assertStringContainsString('navigator.clipboard.writeText(texto)', $copiar);
         self::assertStringContainsString("avisar(BJ_T.t('pasta_detalhes.js.texto_copiado'))", $copiar);
-        self::assertSame('Texto copiado', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js']['texto_copiado']);
+        self::assertSame('Texto copiado', CatalogoPtBr::carregar()['pasta_detalhes']['js']['texto_copiado']);
         self::assertStringContainsString("e.target.closest('.js-obs-copiar')", $fonte);
         self::assertStringContainsString("e.target.closest('.js-obs-menu')", $fonte);
     }
@@ -165,7 +165,7 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
         self::assertStringContainsString('<div id="clientesPlaceholder" class="ps-vazio">', $trilho);
         self::assertStringContainsString('<div id="clientesPlaceholder" class="ps-cliente">', $trilho);
         self::assertStringContainsString('<div class="ps-vazio-titulo">{{ \'pasta_cabecalho.trilho.clientes.nenhum\'|trans }}</div>', $trilho);
-        self::assertSame('Nenhum cliente vinculado', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_cabecalho']['trilho']['clientes']['nenhum']);
+        self::assertSame('Nenhum cliente vinculado', CatalogoPtBr::carregar()['pasta_cabecalho']['trilho']['clientes']['nenhum']);
     }
 
     #[TestDox('(b) trocar o principal pela estrela move o selo "Principal" e a linha para o bloco do principal')]
@@ -204,6 +204,6 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
     /** @return array<string, mixed> os textos dos scripts inline do show, no catálogo do idioma (`pasta_show.js`) */
     private static function catalogoJs(): array
     {
-        return Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js'];
+        return CatalogoPtBr::carregar()['pasta_show']['js'];
     }
 }

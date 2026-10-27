@@ -304,7 +304,7 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/master/dados/contas');
         $contas = array_column(json_decode((string) $this->client->getResponse()->getContent(), true)['contas'], null, 'id');
         $espaco = $contas[$this->alvo->getId()]['espaco'];
-        self::assertSame(['free', 'Free', 10, 0, 'livre', false, 3], [$espaco['planoCodigo'], $espaco['planoNome'], $espaco['limiteGb'], $espaco['percentual'], $espaco['faixa'], $espaco['semLimite'], $espaco['limiteUsuarios']]);
+        self::assertSame(['free', 'Free', 10, 0, 'livre', false, null], [$espaco['planoCodigo'], $espaco['planoNome'], $espaco['limiteGb'], $espaco['percentual'], $espaco['faixa'], $espaco['semLimite'], $espaco['limiteUsuarios']]);
 
         $this->client->request('GET', '/master/dados/visao-geral');
         $visao = json_decode((string) $this->client->getResponse()->getContent(), true);

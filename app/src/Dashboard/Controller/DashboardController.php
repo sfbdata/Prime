@@ -7,6 +7,7 @@ namespace App\Dashboard\Controller;
 use App\Dashboard\Inteligencia\MontarLeituraDoDashboard;
 use App\Dashboard\Periodo\PeriodoDoDashboard;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
+use App\Dashboard\UseCase\ObterMarcasDosAlertasUseCase;
 use App\Dashboard\UseCase\ObterPreferenciasDoDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -32,6 +33,7 @@ final class DashboardController extends AbstractController
         private readonly ObterPreferenciasDoDashboardUseCase $obterPreferencias,
         private readonly AcessoAPasta $acessoAPasta,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly ObterMarcasDosAlertasUseCase $obterMarcasDosAlertas,
     ) {}
 
     #[Route('', name: 'dashboard_index', methods: ['GET'])]
@@ -43,10 +45,16 @@ final class DashboardController extends AbstractController
 
         $filtros = $this->lerFiltros($request);
 
+        // Quem gere o escritório (Master ou primário ativo): zera colunas (DASH-014) e define a meta de pastas
+        // do mês (DASH-016). Os demais veem a meta, sem o botão de editar.
+        $podeGerir = $this->regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant);
+
         // Estilo pessoal do menu ⋮ do usuário LOGADO neste escritório. Lido também no XHR: as
         // colunas extras ("Adicionar coluna") mudam o HTML da tabela, então o fragmento tem de
         // sair com as colunas que ele ligou — e o servidor só calcula essas.
         $preferencias = $this->obterPreferencias->executar($tenant, $currentUser);
+        // Marcas pessoais dos alertas da Central (Resolvido, Ignorar, Aplicar): do usuário logado.
+        $marcasAlertas = $this->obterMarcasDosAlertas->executar($tenant, $currentUser);
 
         // Cadeado (spec pasta-cadeado D1 e D3): as metas das pastas ocultas para quem olha saem dos cards e
         // das colunas de metas, como da lista /tarefas/equipe a que os números levam. Uma consulta só.
@@ -57,7 +65,7 @@ final class DashboardController extends AbstractController
 
         // BlueJus Intelligence: leitura por regras sobre o DashboardOutput já calculado (os
         // mesmos filtros). O UseCase não sabe que o painel existe.
-        $leitura = $this->montarLeitura->montar($output, $filtros, $agora);
+        $leitura = $this->montarLeitura->montar($output, $filtros, $agora, $pastasOcultas !== [], (string) $request->query->get('dia_simulado', ''));
 
         if ($request->isXmlHttpRequest()) {
             // `filtros` vai junto para o fragmento marcar a coluna ordenada — sem ele a seta
@@ -69,6 +77,8 @@ final class DashboardController extends AbstractController
                 'filtros'      => $filtros,
                 'inteligencia' => $leitura,
                 'preferencias' => $preferencias,
+                'marcasAlertas' => $marcasAlertas,
+                'podeMeta'     => $podeGerir,
             ];
 
             // O XHR devolve o conteúdo de [data-filtro-resultado]: cards + tabela e, na mesma
@@ -121,13 +131,15 @@ final class DashboardController extends AbstractController
             'preferencias'   => $preferencias,
             'filtros'        => $filtros,
             'inteligencia'   => $leitura,
+            'marcasAlertas'  => $marcasAlertas,
             'responsaveis'   => $responsaveis,
             'cargos'         => $cargos,
             'existeSemCargo' => $existeSemCargo,
             'contagemCargo'    => $contagemCargo,
             'contagemSemCargo' => $contagemSemCargo,
             'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
-            'podeZerar'      => $this->regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant), // "Zerar" (DASH-014): Master ou primário ativo
+            'podeZerar'      => $podeGerir, // "Zerar" (DASH-014): Master ou primário ativo
+            'podeMeta'       => $podeGerir, // meta de pastas do mês (DASH-016)
         ]);
     }
 

@@ -8,10 +8,9 @@ use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Criterio\PastaFinalizadaNoPeriodo;
+use App\Pasta\Criterio\RegistroDePastaNoPeriodo;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\Entity\PastaMensagem;
-use App\Pasta\Entity\PastaObservacaoDetalhes;
-use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PrioridadePasta;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
@@ -156,12 +155,18 @@ class MetricasExtrasDoDashboardRepository
             ->from(Pasta::class, 'p')
             ->join('p.responsavel', 'r')
             ->andWhere('p.tenant = :tenant')
-            ->andWhere('p.finalizadaEm IS NOT NULL')
-            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->groupBy('r.id');
 
-        $this->aplicarPeriodo($qb, 'p.finalizadaEm', $filtros);
+        // O critério é o mesmo do filtro `concluida` do Expediente (regra B12: o número = a lista).
+        $desde = $filtros['contar_desde'] ?? null;
+        PastaFinalizadaNoPeriodo::aplicar(
+            $qb,
+            'p',
+            $this->lerData((string) ($filtros['data_de'] ?? ''), false),
+            $this->lerData((string) ($filtros['data_ate'] ?? ''), true),
+            $desde instanceof \DateTimeImmutable ? $desde : null,
+        );
         if ($pastasOcultas !== []) {
             $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
         }
@@ -226,8 +231,15 @@ class MetricasExtrasDoDashboardRepository
     public function contarRegistrosPorAutor(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $mapa = [];
-        foreach ([PastaMensagem::class, PastaObservacaoFinanceira::class, PastaObservacaoDetalhes::class] as $classe) {
-            foreach ($this->mapaDeContagem($this->registrosDe($classe, $tenant, $filtros, $pastasOcultas)) as $id => $n) {
+        foreach (array_keys(RegistroDePastaNoPeriodo::ABAS) as $classe) {
+            $qb = $this->em->createQueryBuilder()
+                ->select('IDENTITY(r.autor) AS pessoa_id, COUNT(r.id) AS total')
+                ->from($classe, 'r')
+                ->join('r.pasta', 'p')
+                ->groupBy('r.autor');
+            $this->criterioDeRegistros($qb, $classe, $tenant, $filtros, $pastasOcultas);
+
+            foreach ($this->mapaDeContagem($qb) as $id => $n) {
                 $mapa[$id] = ($mapa[$id] ?? 0) + $n;
             }
         }
@@ -236,31 +248,75 @@ class MetricasExtrasDoDashboardRepository
     }
 
     /**
+     * A lista por trás do número da coluna Relatório (modal "Ver relatório"): os registros de UMA
+     * pessoa, com o MESMO critério de contagem (RegistroDePastaNoPeriodo), dos mais novos aos mais
+     * antigos. Cada aba traz no máximo `$limite` (as mais novas); `total` é a contagem exata, sem
+     * limite, e é igual ao número da célula.
+     *
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d) e contar_desde (corte do Zerar)
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array{total: int, registros: list<array{id: int, aba: string, pastaId: int, pastaNup: ?string, cliente: ?string, criadaEm: \DateTimeImmutable, conteudo: string}>}
+     */
+    public function listarRegistrosDoAutor(Tenant $tenant, int $autorId, array $filtros, array $pastasOcultas, int $limite): array
+    {
+        $total     = 0;
+        $registros = [];
+        foreach (RegistroDePastaNoPeriodo::ABAS as $classe => $aba) {
+            $base = $this->em->createQueryBuilder()
+                ->from($classe, 'r')
+                ->join('r.pasta', 'p')
+                ->andWhere('IDENTITY(r.autor) = :rpAutor')
+                ->setParameter('rpAutor', $autorId);
+            $this->criterioDeRegistros($base, $classe, $tenant, $filtros, $pastasOcultas);
+
+            $total += (int) (clone $base)->select('COUNT(r.id)')->getQuery()->getSingleScalarResult();
+
+            $linhas = (clone $base)
+                ->select('r.id AS id, r.criadaEm AS criadaEm, r.conteudo AS conteudo, p.id AS pastaId, p.nup AS pastaNup, p.nomeCliente AS cliente')
+                ->orderBy('r.criadaEm', 'DESC')
+                ->addOrderBy('r.id', 'DESC')
+                ->setMaxResults($limite)
+                ->getQuery()
+                ->getArrayResult();
+            foreach ($linhas as $l) {
+                $registros[] = [
+                    'id'       => (int) $l['id'],
+                    'aba'      => $aba,
+                    'pastaId'  => (int) $l['pastaId'],
+                    'pastaNup' => $l['pastaNup'] !== null ? (string) $l['pastaNup'] : null,
+                    'cliente'  => $l['cliente'] !== null ? (string) $l['cliente'] : null,
+                    'criadaEm' => $l['criadaEm'],
+                    'conteudo' => (string) $l['conteudo'],
+                ];
+            }
+        }
+
+        return ['total' => $total, 'registros' => $registros];
+    }
+
+    /**
+     * O WHERE compartilhado pela contagem e pela lista: o critério do registro (RegistroDePastaNoPeriodo)
+     * com o período do painel e o corte do Zerar lidos dos filtros.
+     *
      * @param class-string         $classe
      * @param array<string, mixed> $filtros
      * @param list<int>            $pastasOcultas
      */
-    private function registrosDe(string $classe, Tenant $tenant, array $filtros, array $pastasOcultas): QueryBuilder
+    private function criterioDeRegistros(QueryBuilder $qb, string $classe, Tenant $tenant, array $filtros, array $pastasOcultas): void
     {
-        $qb = $this->em->createQueryBuilder()
-            ->select('IDENTITY(r.autor) AS pessoa_id, COUNT(r.id) AS total')
-            ->from($classe, 'r')
-            ->join('r.pasta', 'p')
-            ->andWhere('r.tenant = :tenant')
-            ->andWhere('p.tenant = :tenant')
-            ->andWhere('p.excluidaEm IS NULL')
-            ->setParameter('tenant', $tenant)
-            ->groupBy('r.autor');
-
-        if ($classe === PastaMensagem::class) {
-            $qb->andWhere('r.sistema IS NULL'); // cartão do sistema não é registro de ninguém
-        }
-        if ($pastasOcultas !== []) {
-            $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
-        }
-        $this->aplicarPeriodo($qb, 'r.criadaEm', $filtros);
-
-        return $qb;
+        $desde = $filtros['contar_desde'] ?? null;
+        RegistroDePastaNoPeriodo::aplicar(
+            $qb,
+            $classe,
+            'r',
+            'p',
+            $tenant,
+            $this->lerData((string) ($filtros['data_de'] ?? ''), false),
+            $this->lerData((string) ($filtros['data_ate'] ?? ''), true),
+            $desde instanceof \DateTimeImmutable ? $desde : null,
+            $pastasOcultas,
+        );
     }
 
     /**

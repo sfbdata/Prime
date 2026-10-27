@@ -82,8 +82,13 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
 `nome` 1–60 e `administrador_id`) → `central_participante` (cursor `ultima_lida_id`, nunca recua; `marcada_nao_lida`
 à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (despacho do Encaminhar: `despacho_pasta_id` e `despacho_tipo`, conferidos na leitura, regra 13; índices `(conversa_id, id)` e
 `(tenant_id, criada_em)` da janela do polling; `resposta_a_id` só da MESMA conversa; `sistema` = linha "Ana adicionou
-Bruno", montada pelo servidor). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
+Bruno", montada pelo servidor; `de_ia` = fala do BlueJus IA, conta como de OUTRA pessoa). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
 do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.
+Tipo `ia` (F3, `docs/specs/ia-chat-central.md`): uma por (escritório, usuário), `menor = maior = o usuário`, só ele participa. **Invisível por ora:**
+lista, não lidas, novidades, contatos e `daConversa` excluem `tipo = ia` (abrir por id = 404) até o PR da tela.
+A resposta da IA entra pela porta `Inteligencia\Contract\ConversaDaIaNaCentral` (`Service\ConversaDaIaDaCentral`, PR 2a): relê a pergunta
+(autora = dono, `de_ia = false`, mesma conversa e escritório, vínculo ativo) e as 12 mensagens anteriores (corte `limpa_ate_id`),
+e grava a fala `de_ia` (≤ 4000 caracteres, `@[` desarmado). Tenant explícito; provado em `IsolamentoDosRepositoriosDaCentralTest`.
 
 ## Tela
 

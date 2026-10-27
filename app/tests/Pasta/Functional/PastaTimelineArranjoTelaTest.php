@@ -6,10 +6,10 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Timeline inteligente na tela da pasta (L18): o item no menu ⋮ (com o atalho T do desenho) e o
@@ -125,7 +125,7 @@ final class PastaTimelineArranjoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("alteracao ? BJ_T.t('pasta_resp.js.timeline.ocultar_alteracao') : BJ_T.t('pasta_resp.js.timeline.ver_alteracao')", $js);
         self::assertStringContainsString("[[BJ_T.t('pasta_resp.js.timeline.antes'), String(e.antes)], [BJ_T.t('pasta_resp.js.timeline.depois'), depois]]", $js);
         self::assertStringContainsString("BJ_T.t('pasta_resp.js.timeline.alterado_em', { quando: new Date(e.alteradoEm).toLocaleString(BJFormato.idioma()) })", $js);
-        $cat = Yaml::parseFile(dirname(__DIR__, 3) . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_resp']['js']['timeline'];
+        $cat = CatalogoPtBr::carregar()['pasta_resp']['js']['timeline'];
         self::assertSame(['Ocultar alteração', 'Ver alteração', 'Antes:', 'Depois:', 'Alterado em {quando}'], [$cat['ocultar_alteracao'], $cat['ver_alteracao'], $cat['antes'], $cat['depois'], $cat['alterado_em']]);
         // Texto de usuário nunca vira HTML.
         self::assertStringNotContainsString('.innerHTML', $js);

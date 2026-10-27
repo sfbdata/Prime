@@ -1,0 +1,224 @@
+# ---- Push Processual: publicações, OABs monitoradas e publicação (djen/index, oabs, show)
+djen:
+    comum:
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        avulsa: Avulsa
+        tribunal: Tribunal
+        tipo: Tipo
+        processo: Processo
+        orgao: Órgão
+        meio: Meio
+        acoes: Ações
+        tribunal_maiusculo: TRIBUNAL
+        tipo_maiusculo: TIPO
+        processo_maiusculo: PROCESSO
+        orgao_maiusculo: ÓRGÃO
+        acoes_maiusculo: AÇÕES
+    abas:
+        rotulo: Seções do Push Processual
+        publicacoes: Publicações
+        processos: Processos da OAB
+        diario: Diário da OAB
+        oabs: OABs monitoradas
+        novas: '{n} novas'
+    kpi:
+        nao_lidas: NÃO LIDAS
+        hoje: HOJE
+        vinculadas: VINCULADAS
+        avulsas: AVULSAS
+    diario:
+        titulo_pagina: 'Push Processual | Diário da OAB'
+        titulo: Diário Eletrônico da OAB
+        sigilo: 'Publicações do Diário Eletrônico da OAB (DEOAB) para as OABs monitoradas. Nos processos ético-disciplinares a publicação traz só o número do processo, o órgão, as iniciais das partes e o nome do procurador, por causa do sigilo (art. 72 da Lei nº 8.906/1994). Todo prazo é de 15 dias úteis e começa no 1º dia útil após a publicação, que é o dia útil seguinte à disponibilização (art. 69, § 2º). Só você vê esta aba.'
+        busca_placeholder: Processo, ato ou texto
+        filtro_todas: Todas
+        filtro_eticas: Ético-disciplinares
+        filtro_comunicados: Comunicados
+        seccional: SECCIONAL
+        ato: ATO
+        prazo: PRAZO
+        selecionar: Selecionar
+        limpar_lidas: Limpar lidas
+        vazio: Nenhuma publicação.
+    index:
+        vincular_pasta: Vincular a uma pasta
+        desvincular_pasta: Desvincular da pasta
+        vincular: Vincular
+        pasta_n: 'Pasta {n}'
+        menu_abrir_pasta: 'Abrir a Pasta {n}'
+        menu_trocar_pasta: Trocar a pasta vinculada
+        confirma_desvincular: 'Desvincular o processo {processo} da Pasta {n}?'
+        busca_pasta_ph: Número da pasta ou nome do cliente
+        nenhuma_pasta: Nenhuma pasta encontrada.
+        abrir_nova_pasta: Abrir nova pasta
+        fechar: Fechar
+        selecionar: Selecionar
+        selecionar_todas: Selecionar todas
+        selecionar_publicacao: Selecionar a publicação
+        n_selecionadas: '{n} selecionada(s)'
+        marcar_lidas: Marcar como lidas
+        excluir: Excluir
+        limpar_lidas: Limpar lidas
+        dica_botao_direito: Botão direito para mais opções
+        menu_abrir: Abrir publicação
+        menu_marcar_lida: Marcar como lida
+        menu_marcar_nao_lida: Marcar como não lida
+        menu_copiar: Copiar número do processo
+        menu_excluir: Excluir publicação
+        numero_copiado: Número copiado.
+        confirma_excluir_lote: "Excluir {n} publicação(ões) selecionada(s)?\n\nElas saem da caixa do Push. O processo e a pasta continuam como estão."
+        prompt_excluir_lote: 'Confirmação de segurança: digite EXCLUIR para apagar {n} publicação(ões).'
+        confirma_excluir_uma: 'Excluir esta publicação de {data} do processo {processo}?'
+        prompt_excluir_uma: 'Confirmação de segurança: digite EXCLUIR para apagar a publicação.'
+        confirma_limpar: 'Limpar a caixa: excluir as {n} publicações já lidas?'
+        prompt_limpar: 'Confirmação de segurança: digite EXCLUIR para limpar {n} publicações lidas.'
+        exclusao_cancelada: 'Exclusão cancelada: a confirmação não conferiu.'
+        limpeza_cancelada: Limpeza cancelada.
+        sem_lidas: Não há publicações lidas para limpar.
+        titulo_pagina: 'Push Processual | Publicações'
+        titulo: 'Push Processual: Publicações'
+        processos_monitorados: Processos monitorados
+        cadastrar_processo: Cadastrar processo
+        sincronizar: Sincronizar agora
+        filtros: Filtros
+        busca: Busca
+        busca_placeholder: Nº processo, tribunal, tipo...
+        todos: Todos
+        todas: Todas
+        diario: Diário
+        edital: Edital
+        vinculo: Vínculo
+        vinculadas: Vinculadas
+        avulsas: Avulsas
+        de: De
+        ate: Até
+        filtrar: Filtrar
+        limpar: Limpar
+        data: Data
+        vinculada: Vinculada
+        ver: Ver
+        vazio: 'Nenhuma publicação encontrada. Cadastre uma OAB ou um processo e clique em "Sincronizar agora".'
+        paginacao: '{total} publicação(ões) · página {pagina} de {paginas}'
+        anterior: Anterior
+        proxima: Próxima
+        tribunal_todos: 'Tribunal: todos'
+        vinculo_todos: 'Vínculo: todos'
+        vinculadas_pasta: Vinculadas a pasta
+        leitura_todas: 'Leitura: todas'
+        nao_lidas: Não lidas
+        lidas: Lidas
+        a: a
+        limpar_filtros: Limpar filtros
+        data_maiusculo: DATA
+        vazio_filtros: Nenhuma publicação com esses filtros.
+        avulsa_dica: Publicação sem pasta vinculada
+        vinculada_dica: Publicação vinculada a uma pasta
+    oabs:
+        titulo_pagina: 'Push Processual | OABs monitoradas'
+        titulo: OABs monitoradas
+        voltar: Voltar às publicações
+        adicionar_oab: Adicionar OAB
+        adicionar: Adicionar
+        oab: OAB
+        apelido: Apelido
+        status: Status
+        desde: Desde
+        ativa: Ativa
+        pausada: Pausada
+        pausar: Pausar
+        reativar: Reativar
+        remover_confirmar: 'Parar de monitorar a OAB {oab}? As publicações já recebidas continuam.'
+        vazio: Nenhuma OAB monitorada.
+        adicionar_dica: o sistema busca diariamente as publicações em nome desta inscrição
+        numero_da_oab: NÚMERO DA OAB
+        uf: UF
+        apelido_maiusculo: APELIDO
+        opcional: (opcional)
+        oab_maiusculo: OAB
+        status_maiusculo: STATUS
+        publicacoes_maiusculo: PUBLICAÇÕES
+        desde_maiusculo: DESDE
+        retomar: Retomar
+        remover: Remover
+        sem_apelido: Sem apelido
+    show:
+        titulo_pagina: 'Push Processual | Publicação'
+        titulo: 'Push Processual: Publicação'
+        voltar: Voltar
+        voltar_publicacoes: Voltar para as publicações
+        disponibilizacao: Disponibilização
+        ver_processo: Ver processo
+        classe: Classe
+        captada_pela_oab: Captada pela OAB
+        destinatarios: Destinatários
+        nome: Nome
+        polo: Polo
+        teor: Teor da comunicação
+        inteiro_teor: Inteiro teor na origem
+        sem_teor: Sem teor textual disponível.
+    processos:
+        titulo_pagina: 'Push Processual | Processos da OAB'
+        titulo: Processos da OAB
+        capturados_das: 'Capturados das OABs {oabs}'
+        sem_oab: 'Nenhuma OAB ativa: cadastre em OABs monitoradas'
+        buscar: Buscar processos da OAB
+        kpi_processos: PROCESSOS
+        kpi_movidos: MOVIDOS EM 7 DIAS
+        kpi_parados: PARADOS +30 DIAS
+        kpi_nunca: NUNCA CAPTURADOS
+        kpi_sem_pasta: SEM PASTA
+        inclusao_titulo: Inclusão de processos para acompanhamento
+        numero_do_processo: Número do processo
+        email_alternativo: E-mail alternativo
+        opcional: Opcional
+        observacao: Observação
+        observacao_dica: 'Ex.: cliente, assunto ou parte contrária'
+        incluir: Incluir
+        email_padrao: 'Sem e-mail alternativo, os avisos vão para {email}.'
+        sub_acompanhados: Processos acompanhados
+        sub_relacionados: Processos relacionados
+        selecionadas: selecionada(s)
+        selecionar_todos: Selecionar todos
+        selecionar_processo: Selecionar processo
+        parar: Parar de acompanhar
+        parar_confirmar: 'Parar de acompanhar os processos selecionados? As publicações já recebidas continuam.'
+        parar_um_confirmar: 'Parar de acompanhar {numero}? As publicações já recebidas continuam.'
+        relatorio_texto: Processos em que a OAB aparece e que ainda não estão sendo acompanhados.
+        incluir_n: 'Incluir {n} no acompanhamento'
+        busca: Número, cliente, parte ou órgão
+        oab_todas: 'OAB: todas'
+        mov_todas: 'Movimentação: todas'
+        mov_hoje: Movimentados hoje
+        mov_7: Últimos 7 dias
+        mov_30: Últimos 30 dias
+        mov_p30: Parados há +30 dias
+        mov_p45: Parados há +45 dias
+        mov_p90: Parados há +90 dias
+        mov_nc: Nunca capturados
+        area_todas: 'Área: todas'
+        fase_todas: 'Fase: todas'
+        pasta_todos: 'Pasta: todos'
+        com_pasta: Com pasta
+        sem_pasta: Sem pasta
+        exportar: Exportar
+        col_partes: PARTES · ÓRGÃO
+        col_area: ÁREA
+        col_fase: FASE
+        col_ultimo: ÚLT. MOVIMENTO
+        col_pasta: PASTA
+        sem_partes: Partes não informadas
+        sem_orgao: Órgão não informado
+        nunca_capturado: Nunca capturado
+        hoje: hoje
+        ha_dias: 'há {n} dia(s)'
+        pasta_curto: Pasta
+        editar_obs: Editar anotações
+        incluir_acompanhamento: Incluir no acompanhamento
+        ver_publicacoes: Ver publicações
+        vazio: Nenhum processo com esses filtros.
+        paginacao: '{total} processo(s) · página {pagina} de {paginas}'
+        janela_titulo: Anotações do processo
+        fechar: Fechar
+        cancelar: Cancelar
+        salvar: Salvar

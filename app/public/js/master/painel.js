@@ -39,8 +39,9 @@
   const QUEM = raiz.dataset.quem || T('termos.master');
   const agora = () => dataHora(new Date().toISOString());
 
-  const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral',
+  const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
     faltamOn: false, faltamCid: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
+  let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
 
@@ -52,6 +53,7 @@
   raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
   if (EXTERNAS.com) SECS.push(['com', T('master.js.secao.com'), 'bi-megaphone']);
   if (EXTERNAS.ind) SECS.push(['ind', T('master.js.secao.ind'), 'bi-share']);
+  if (EXTERNAS.recomp) SECS.push(['recomp', T('master.js.secao.recomp'), 'bi-gift']);
   if (EXTERNAS.notif) SECS.push(['notif', T('master.js.secao.notif'), 'bi-bell']);
   const VAZIAS = {
     custos: ['bi-cash-coin', T('master.js.secao.custos'), T('master.js.vazia.custos.texto'), [T('master.js.vazia.custos.armazenamento'), T('master.js.vazia.custos.banco'), T('master.js.vazia.custos.hospedagem'), T('master.js.vazia.custos.trafego'), T('master.js.vazia.custos.backups'), T('master.js.vazia.custos.apis_ia'), T('master.js.vazia.custos.notificacoes'), T('master.js.vazia.custos.receita'), T('master.js.vazia.custos.custo_conta'), T('master.js.vazia.custos.custo_gb'), T('master.js.vazia.custos.margem'), T('master.js.vazia.custos.projecao')]],
@@ -148,6 +150,18 @@
     + '<span class="mp-vazia-texto">' + esc(texto) + '</span><div class="mp-vazia-itens">' + itens.map(i => '<span>' + esc(i) + '</span>').join('') + '</div>'
     + '<span class="mp-vazia-aviso">' + T('master.js.vazia.aviso') + '</span></div>';
 
+  /* Metas de divulgação: o módulo metas-divulgacao.js cuida do bloco; aqui só entram a base do mapa (usuários por
+     estado e por cidade, geral) e as URLs. */
+  function renderMetas() {
+    const el = document.getElementById('mp-metas');
+    if (!el || !window.BJMetasDivulgacao) return;
+    const g = D.visao.mapa.pessoas.geral || {};
+    window.BJMetasDivulgacao.montar(el, {
+      url: URLS.metasDivulgacao, token: URLS.metasToken, urlPopulacao: URLS.populacaoIbge,
+      urlMapa: URLS.mapaBrasil + '?quem=pes&usu=geral', usuarios: { A: g.A || {}, C: g.C || {} },
+    });
+  }
+
   /* ================= VISÃO GERAL ================= */
   function montarVisao() {
     elSecao.innerHTML = '<div class="mp-kpis" id="mp-kpis"></div>'
@@ -156,8 +170,9 @@
       + '<div class="mp-mapa-corpo"><div class="mp-uf-tab" id="mp-uf-tab"></div><iframe class="mp-mapa-iframe" id="mp-mapa-iframe" title=""></iframe></div>'
       + '<div class="mp-escala"><span>' + T('master.js.mapa.escala_menos') + '</span>' + ['#eef2f5', '#cfe3f1', '#4f8fbd', '#0a4f7a'].map(c => '<i style="--cor:' + c + '"></i>').join('')
       + '<span>' + T('master.js.mapa.escala_mais') + '</span><span class="mp-espaco"></span><span>' + T('master.js.mapa.malha') + '</span></div></div>'
+      + '<div id="mp-metas"></div>'
       + '<div class="mp-card mp-idades" id="mp-idades"></div>';
-    renderKpis(); renderGrafico(); renderMapa(); renderIdades();
+    renderKpis(); renderGrafico(); renderMapa(); renderIdades(); renderMetas();
   }
 
   function renderKpis() {
@@ -238,12 +253,15 @@
   const temCidade = (C, uf, cidade) => Object.keys(C[uf] || {}).some(k => semAcento(k) === semAcento(cidade));
   const seg = (lista, atual, attr, comIcone) => '<div class="mp-seg mp-seg-28">' + lista.map(([k, rot, ic]) => '<button type="button" class="' + (atual === k ? 'on' : '') + '" ' + attr + '="' + k + '">' + (comIcone ? '<i class="bi ' + ic + '"></i>' : '') + esc(rot) + '</button>').join('') + '</div>';
   const ehModoOab = () => S.mapaModo !== 'mundo' && S.mapaQuem === 'oab';
+  // Modo Indicações (desenho 05 VS 25.10.26, L116 e L1160): só no Brasil; sub-modo env (enviadas), ok (contas) ou pago (R$).
+  const ehModoInd = () => S.mapaModo !== 'mundo' && S.mapaQuem === 'ind';
 
   // Modo OAB (desenho L898): o número da UF é o de inscrições na seccional (GET das seccionais); as cidades com usuário
   // são as das pessoas, a base do mapa (modo Capitais dos que faltam).
   function geo() {
     const M = D.visao.mapa;
     if (S.mapaQuem === 'esc') return { A: M.escritorios.A || {}, C: M.escritorios.C || {}, tend: {}, semEnd: M.escritorios.semEnd || 0, semLoc: 0 };
+    if (ehModoInd()) { const i = (M.indicacoes || {})[S.mapaInd] || {}; return { A: i.A || {}, C: i.C || {}, tend: {}, semEnd: 0, semLoc: 0 }; }
     if (ehModoOab()) return { A: secInscricoes(), C: (M.pessoas.geral || {}).C || {}, tend: {}, semEnd: 0, semLoc: 0 };
     const g = M.pessoas[S.mapaUsu] || {};
     return { A: g.A || {}, C: g.C || {}, tend: g.tend || {}, semEnd: 0, semLoc: g.semLoc || 0 };
@@ -254,7 +272,7 @@
     const exterior = M.exterior || 0, paisesExt = M.paises || [];
     const totBr = Object.values(ATUA).reduce((a, b) => a + b, 0), ufTotal = totBr + exterior;
     document.getElementById('mp-mapa-topo').innerHTML = mapaTopo(br, ehPes, ufTotal);
-    const usuTit = ehOab ? T('master.js.mapa.inscricoes') : S.mapaQuem === 'esc' ? T('master.js.mapa.escritorios') : S.mapaUsu === 'prim' ? T('master.js.mapa.primarios') : T('master.js.mapa.pessoas');
+    const usuTit = ehModoInd() ? T('master.js.mapa.col_ind_' + S.mapaInd) : ehOab ? T('master.js.mapa.inscricoes') : S.mapaQuem === 'esc' ? T('master.js.mapa.escritorios') : S.mapaUsu === 'prim' ? T('master.js.mapa.primarios') : T('master.js.mapa.pessoas');
 
     document.getElementById('mp-uf-tab').innerHTML = '<div class="mp-uf-cab"><span>' + (br ? T('master.js.mapa.estado') : T('master.js.mapa.pais')) + '</span><span>' + usuTit + '</span><span></span></div>'
       + (br ? linhasDoBrasil(G) : linhasDoMundo(totBr, paisesExt))
@@ -267,8 +285,8 @@
 
     // iframe: só troca o endereço quando a visão muda (evita recarregar o mapa a cada clique). O iframe busca as
     // contagens no servidor e as valida; a query string só escolhe a visão (quem=oab no modo OAB do Brasil).
-    const quem = ehOab ? 'oab' : S.mapaQuem === 'esc' ? 'esc' : 'pes';
-    const src = (br ? URLS.mapaBrasil : URLS.mapaMundo) + '?quem=' + quem + '&usu=' + (S.mapaUsu === 'prim' ? 'prim' : 'geral'), fr = document.getElementById('mp-mapa-iframe');
+    const quem = ehOab ? 'oab' : ehModoInd() ? 'ind' : S.mapaQuem === 'esc' ? 'esc' : 'pes';
+    const src = (br ? URLS.mapaBrasil : URLS.mapaMundo) + '?quem=' + quem + '&usu=' + (S.mapaUsu === 'prim' ? 'prim' : 'geral') + (quem === 'ind' ? '&sub=' + S.mapaInd : ''), fr = document.getElementById('mp-mapa-iframe');
     fr.style.setProperty('--ratio', br ? '1.75' : '2.05');
     fr.title = br ? T('master.js.mapa.iframe_brasil') : T('master.js.mapa.iframe_mundo');
     if (fr.dataset.src !== src) { fr.dataset.src = src; fr.src = src; }
@@ -276,9 +294,10 @@
 
   // Título, subtítulo e seletores (desenho L114 e L875): "quem" com Pessoas, Escritórios e OAB, só no Brasil.
   function mapaTopo(br, ehPes, ufTotal) {
-    const sub = !br ? T('master.js.mapa.por_pais') : ehModoOab() ? T('master.js.mapa.por_seccional') : T('master.js.mapa.por_estado');
+    const sub = !br ? T('master.js.mapa.por_pais') : ehModoOab() ? T('master.js.mapa.por_seccional') : ehModoInd() ? T('master.js.mapa.por_estado_ind') : T('master.js.mapa.por_estado');
     return '<b>' + T('master.js.mapa.titulo') + '</b><span class="mp-mapa-sub">' + sub + ' · ' + T('master.js.mapa.total', { n: num(ufTotal) }) + '</span>'
-      + (br ? seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings'], ['oab', T('master.js.mapa.oab'), 'bi-bank']], S.mapaQuem, 'data-mapa-quem', true) : '')
+      + (br ? seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings'], ['oab', T('master.js.mapa.oab'), 'bi-bank'], ['ind', T('master.js.mapa.indicacoes'), 'bi-share']], S.mapaQuem, 'data-mapa-quem', true) : '')
+      + (ehModoInd() ? seg([['env', T('master.js.mapa.ind_env')], ['ok', T('master.js.mapa.ind_ok')], ['pago', T('master.js.mapa.ind_pago')]], S.mapaInd, 'data-mapa-ind', false) : '')
       + (ehPes && br ? seg([['geral', T('master.js.mapa.geral')], ['prim', T('master.js.mapa.so_primarios')]], S.mapaUsu, 'data-mapa-usu', false) : '')
       + seg([['br', T('master.js.mapa.brasil'), 'bi-geo-alt-fill'], ['mundo', T('master.js.mapa.mundo'), 'bi-globe-americas']], S.mapaModo, 'data-mapa-modo', true);
   }
@@ -684,7 +703,7 @@
   function montarContas() {
     // O bloco "Pedidos de exclusão de conta" (desenho 1.2, linha 148) vem antes da tabela. Escondido (hidden,
     // sem pedidos), ele não ocupa lugar nem abre o espaçamento da seção.
-    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>' + T('master.js.secao.contas') + ' <span id="mp-contas-n"></span></b>'
+    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div id="mp-convenio"></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>' + T('master.js.secao.contas') + ' <span id="mp-contas-n"></span></b>'
       + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>' + T('master.js.contas.convites') + '</a>'
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">' + T('master.js.contas.todas_situacoes') + '</option>'
       + [ATIVA, SUSPENSA].map(v => '<option value="' + v + '"' + (S.fSit === v ? ' selected' : '') + '>' + rotuloDaSituacao(v) + '</option>').join('')
@@ -698,6 +717,29 @@
       + '<div id="mp-menu-conta"></div>';
     renderPedidosDeExclusao();
     renderContasLista();
+    renderConvenio();
+  }
+
+  // Convênio OAB por estado (desenho 05 VS 25.10.26, L175-178): o módulo convenio-oab.js cuida do painel; cada gravação
+  // devolve os 27 estados e o rótulo "Convênio OAB/UF" da linha de cada conta se atualiza.
+  function renderConvenio() {
+    const el = document.getElementById('mp-convenio');
+    if (!el || !window.BJConvenioOab) return;
+    window.BJConvenioOab.montar(el, {
+      url: URLS.convenios, token: URLS.conveniosToken,
+      aoMudar: estados => { CONVENIO = Object.fromEntries(estados.map(x => [x.uf, x])); renderContasLista(); },
+    });
+  }
+
+  // Rótulo do convênio sob o plano da conta (desenho L194): verde (grátis), azul (valor diferenciado) ou vermelho
+  // (sem convênio). Conta sem estado válido não tem rótulo.
+  function rotuloDoConvenio(c) {
+    const v = c.uf && (CONVENIO[c.uf] || c.convenio);
+    if (!v) return '';
+    const p = { uf: c.uf, valor: 'R$ ' + window.BJFormato.numero(v.valor, 2) };
+    const [cor, texto] = v.modo === 'dif' ? ['#0a6fa0', T('master.js.convenio.rotulo_conta_dif', p)]
+      : v.modo === 'sem' ? ['#a3232b', T('master.js.convenio.rotulo_conta_sem', p)] : ['#1e7b45', T('master.js.convenio.rotulo_conta', p)];
+    return '<span class="mp-conta-conv" style="color:' + cor + '">' + esc(texto) + '</span>';
   }
 
   // Pedidos de exclusão de conta (desenho 1.2, linhas 148 e 679), de /master/dados/contas (`pedidosExclusao`).
@@ -821,12 +863,18 @@
   // Armazenamento da linha (desenho 1.2, linhas 166 e 733): "<uso> de <limite>", %, barra e "<faixa> · livre <livre>".
   // Em quarentena o uso não é medido: só o plano e os limites fazem sentido. Sem limite: o uso e "sem limite".
   const livreDe = c => Math.max(0, c.espaco.limiteGb * GB - c.bytes);
+  // Bônus de espaço vigente (origem e validade): o limite mostrado já o inclui.
+  function bonusDaConta(c) {
+    if (!c.espaco.bonusAte) return '';
+    const origem = c.espaco.bonusOrigem === 'indicacao' ? T('master.js.contas.arm_bonus_indicacao') : c.espaco.bonusOrigem;
+    return '<span data-mp-bonus>' + esc(T('master.js.contas.arm_bonus', { gb: num(c.espaco.bonusGb), origem, data: c.espaco.bonusAte })) + '</span>';
+  }
   function celulaArm(c) {
     if (c.purgaEm) return '<div class="mp-conta-arm mp-hv" style="--cor:#5b7383"><span><span>' + T('master.js.contas.arm_nao_medido') + '</span><b></b></span><span>' + T('master.js.contas.arm_quarentena') + '</span></div>';
     if (c.espaco.semLimite) return '<div class="mp-conta-arm mp-hv" style="--cor:#4a6373"><span><span>' + esc(T('master.js.contas.arm_em_uso', { gb: gb(c.bytes) })) + '</span><b></b></span><span>' + T('master.js.sem_limite') + '</span></div>';
     const [rotulo, cor] = faixaDe(c), p = c.espaco.percentual;
     return '<div class="mp-conta-arm mp-hv" style="--cor:' + cor + '"><span><span>' + esc(T('master.js.contas.arm_de', { gb: gb(c.bytes), limite: num(c.espaco.limiteGb) })) + '</span><b>' + p + '%</b></span>'
-      + '<div class="mp-barra-6"><div style="--w:' + Math.min(100, p) + '%"></div></div><span>' + esc(T('master.js.contas.arm_livre', { faixa: rotulo, livre: gb(livreDe(c)) })) + '</span></div>';
+      + '<div class="mp-barra-6"><div style="--w:' + Math.min(100, p) + '%"></div></div><span>' + esc(T('master.js.contas.arm_livre', { faixa: rotulo, livre: gb(livreDe(c)) })) + '</span>' + bonusDaConta(c) + '</div>';
   }
   // Previsão (desenho, linha 733): meses até o limite no ritmo dos últimos 30 dias. Plural: convenção ("≈ 1 mês").
   function previsao(c) {
@@ -855,7 +903,7 @@
       const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="' + esc(T('master.js.contas.numero_dica')) + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
-        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
+        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span>' + rotuloDoConvenio(c) + '</div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? T('master.js.sem_limite') : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
         + celulaArm(c)
@@ -959,23 +1007,25 @@
 
   /* ================= PLANOS E LIMITES ================= */
   // Cartões (desenho 1.2, linhas 205-210 e 697). Cores do desenho; o 4º plano (Avançado) é convenção, o desenho tem 3.
-  const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#7a3e8f' };
+  const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#5b3f9e' };
   const reais = cent => 'R$ ' + (cent % 100 === 0 ? num(cent / 100) : window.BJFormato.numero(cent / 100, 2));
   const nomeDoPlano = p => (p.codigo === 'free' ? T('master.js.planos.plano_free', { nome: p.nome }) : p.nome);
-  // "usuários sem limite", e não "sem limite usuários" (o desenho sempre acrescenta " usuários"): convenção.
-  const usuariosDoPlano = p => (p.limiteUsuarios === null ? T('master.js.planos.usuarios_sem_limite') : T('master.js.planos.usuarios', { n: num(p.limiteUsuarios) }));
+  const TAG_PLANO = { free: 'master.js.planos.tag_free', profissional: 'master.js.planos.tag_escolhido' };
 
   function montarPlanos() {
     const ativas = D.contas.contas.filter(c => c.situacao !== QUARENTENA);
-    elSecao.innerHTML = '<div id="mp-planos-aviso"></div><div class="mp-planos">' + D.planos.planos.map(p => {
+    elSecao.innerHTML = '<div id="mp-planos-aviso"></div>'
+      + '<div class="mp-convenio-faixa"><img src="' + esc(URLS.logoOab) + '" alt="OAB"><div><b>' + T('master.js.planos.faixa_titulo') + '</b><span>' + T('master.js.planos.faixa_texto') + '</span></div></div>'
+      + '<div class="mp-planos-rotulo">' + T('master.js.planos.rotulo') + '</div><div class="mp-planos">' + D.planos.planos.map(p => {
       const acima = ativas.filter(c => c.espaco.planoCodigo === p.codigo && pertoDaFranquia(c)).length;
       return '<div class="mp-card mp-plano" style="--cor:' + (COR_PLANO[p.codigo] || '#4a6373') + '"><div class="mp-plano-topo"><b>' + esc(nomeDoPlano(p)) + '</b>'
-        + (p.codigo === 'free' ? '<span class="mp-plano-tag">' + T('master.js.planos.padrao') + '</span>' : '')
-        + (p.ativo ? '' : '<span class="mp-plano-inativo">' + T('master.js.planos.inativo') + '</span>') + '</div>'
+        + (TAG_PLANO[p.codigo] ? '<span class="mp-plano-tag">' + T(TAG_PLANO[p.codigo]) + '</span>' : '')
+        + (p.ativo ? '' : '<span class="mp-plano-inativo">' + T('master.js.planos.inativo') + '</span>')
+        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '" title="' + esc(T('master.js.planos.ajustar_dica')) + '"><i class="bi bi-pencil"></i> ' + T('master.js.planos.ajustar') + '</button></div>'
         + '<span class="mp-plano-preco">' + esc(reais(p.precoCentavos)) + '<span> ' + T('master.js.planos.por_mes') + '</span></span>'
-        + '<span class="mp-plano-cap">' + esc(T('master.js.planos.cap', { gb: num(p.cotaGb), usuarios: usuariosDoPlano(p) })) + '</span>'
-        + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span>'
-        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '"><i class="bi bi-pencil"></i>' + T('master.js.planos.editar') + '</button></div>';
+        + '<span class="mp-plano-cap">' + T('master.js.planos.cap', { gb: num(p.cotaGb) }) + '</span>'
+        + '<span class="mp-plano-recursos"><i class="bi bi-check2"></i> ' + T('master.js.planos.recursos') + '</span>'
+        + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>';
     }).join('') + '</div>'
       + '<span class="mp-nota">' + T('master.js.planos.nota') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();
@@ -995,7 +1045,7 @@
   // "Sem limite" (spec P4, contrato semLimite) só no armazenamento: libera o espaço e os usuários da conta.
   function abrirLimite(tipo, id) {
     const c = D.contas && D.contas.contas.find(x => x.id === id); if (!c || !elModal) return;
-    const arm = tipo === 'arm', atual = arm ? c.espaco.limiteGb : c.espaco.limiteUsuarios;
+    const arm = tipo === 'arm', atual = arm ? (c.espaco.limiteGb === null ? null : c.espaco.limiteGb - (c.espaco.bonusGb || 0)) : c.espaco.limiteUsuarios;
     modal = { tipo: 'lim', lim: tipo, c, atual, erro: null, enviando: false };
     const sem = T('master.js.sem_limite');
     const info = arm
@@ -1197,6 +1247,7 @@
     const ano = t.closest('[data-gr-ano]');
     if (ano) { const a = +ano.dataset.grAno, on = S.grSel.includes(a), sel = on ? S.grSel.filter(x => x !== a) : S.grSel.concat(a); if (sel.length) S.grSel = sel; return renderGrafico(); }
     const quem = t.closest('[data-mapa-quem]'); if (quem) { S.mapaQuem = quem.dataset.mapaQuem; return renderMapa(); }
+    const ind = t.closest('[data-mapa-ind]'); if (ind) { S.mapaInd = ind.dataset.mapaInd; return renderMapa(); }
     const usu = t.closest('[data-mapa-usu]'); if (usu) { S.mapaUsu = usu.dataset.mapaUsu; return renderMapa(); }
     const modo = t.closest('[data-mapa-modo]'); if (modo) { S.mapaModo = modo.dataset.mapaModo; return renderMapa(); }
     const fm = t.closest('[data-faltam-modo]'); if (fm) { S.faltamCid = fm.dataset.faltamModo === '1'; return renderMapa(); }

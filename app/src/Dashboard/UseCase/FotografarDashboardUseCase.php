@@ -6,6 +6,7 @@ namespace App\Dashboard\UseCase;
 
 use App\Dashboard\DTO\ResultadoFotografiaDashboard;
 use App\Dashboard\Repository\DashboardFotoRepository;
+use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
@@ -13,7 +14,8 @@ use App\Tarefa\Repository\TarefaRepository;
 
 /**
  * Fotografa o ESTOQUE do Dashboard de um escritório num dia: para cada colaborador ativo,
- * quantas metas ativas, demandas ativas, metas vencidas e prazos próximos ele tem agora.
+ * quantas metas ativas, demandas ativas, metas vencidas, prazos próximos, metas em revisão, pastas
+ * urgentes e metas no total ele tem agora (as três últimas, o lastro do PR-F).
  *
  * Usa EXATAMENTE as consultas do `ObterDadosDashboardUseCase` (mesmos `count*PorResponsavel`),
  * sem período — uma foto não sabe que período alguém vai escolher depois, então registra o
@@ -31,6 +33,7 @@ final class FotografarDashboardUseCase
         private readonly PastaRepository         $pastaRepository,
         private readonly UserRepository          $userRepository,
         private readonly DashboardFotoRepository $fotoRepository,
+        private readonly MetricasExtrasDoDashboardRepository $metricasExtras,
     ) {}
 
     public function executar(
@@ -48,6 +51,10 @@ final class FotografarDashboardUseCase
         $mVencidas     = $this->tarefaRepository->countVencidasPorResponsavel($tenant, $momento);
         $mPrazos       = $this->tarefaRepository->countPrazosProximosPorResponsavel($tenant, $momento);
         $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant, []);
+        // Lastro do PR-F: as MESMAS consultas das colunas Em revisão, Pastas urgentes e Total metas, sem período.
+        $mRevisao      = $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, []);
+        $mUrgentes     = $this->metricasExtras->contarUrgentesPorResponsavel($tenant, []);
+        $mTotalMetas   = $this->tarefaRepository->countPorResponsavel($tenant, []);
 
         $contagens = [];
         foreach ($colaboradores as $user) {
@@ -57,6 +64,9 @@ final class FotografarDashboardUseCase
                 'demandas_ativas' => $mAtivasPasta[$id]  ?? 0,
                 'metas_vencidas'  => $mVencidas[$id]     ?? 0,
                 'prazos_proximos' => $mPrazos[$id]       ?? 0,
+                'metas_em_revisao' => $mRevisao[$id]     ?? 0,
+                'pastas_urgentes'  => $mUrgentes[$id]    ?? 0,
+                'metas_total'      => $mTotalMetas[$id]  ?? 0,
             ];
         }
 

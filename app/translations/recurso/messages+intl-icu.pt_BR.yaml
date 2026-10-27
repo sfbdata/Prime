@@ -1,0 +1,6 @@
+# ---- Recurso em preparação (a7, spec idioma-do-sistema §26b): a página que o guarda de rota mostra quando o Master
+# desliga uma tela. O título e o motivo chegam do PHP (BloqueioDeRecursoDesativado).
+recurso:
+    em_preparacao:
+        previsao: 'Previsão: {data}'
+        voltar: Voltar ao Expediente
