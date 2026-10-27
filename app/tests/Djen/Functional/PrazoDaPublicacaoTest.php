@@ -91,7 +91,7 @@ final class PrazoDaPublicacaoTest extends JusPrimeWebTestCase
         self::assertCount(1, $lista->filter('.pp-selo--prazo'));
         self::assertStringContainsString('Vencido', $lista->filter('.pp-selo--prazo')->text());
         $detalhe = $client->request('GET', "/push-processual/publicacoes/$id/detalhe");
-        self::assertSame('15', trim($detalhe->filter('.pp-det__dia--on')->text()));
+        self::assertSame('15 dias', trim($detalhe->filter('.pp-det__dia--on')->text()));
         self::assertStringContainsString('dias úteis, sem fins de semana', $detalhe->text());
     }
 

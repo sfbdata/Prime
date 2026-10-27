@@ -18,7 +18,7 @@
             <input type="hidden" name="dias" value="">
             <span class="pp-det__dias-rotulo">{{ 'djen.detalhe.dias_uteis'|trans }}</span>
             {% for n in [5, 10, 15, 30] %}
-                <button type="button" class="pp-det__dia{{ prazoDias == n ? ' pp-det__dia--on' : '' }}" data-pp-dias="{{ n }}">{{ n }}</button>
+                <button type="button" class="pp-det__dia{{ prazoDias == n ? ' pp-det__dia--on' : '' }}" data-pp-dias="{{ n }}">{{ 'djen.detalhe.dias_n'|trans({n: n}) }}</button>
             {% endfor %}
             <button type="button" class="pp-det__dia pp-det__dia--outro{{ prazoDias is not null and prazoDias not in [5, 10, 15, 30] ? ' pp-det__dia--on' : '' }}" data-pp-dias-outro data-pergunta="{{ 'djen.detalhe.outro_pergunta'|trans|e('html_attr') }}">{{ prazoDias is not null and prazoDias not in [5, 10, 15, 30] ? prazoDias : 'djen.detalhe.outro'|trans }}</button>
         </form>
