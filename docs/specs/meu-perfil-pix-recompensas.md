@@ -48,6 +48,17 @@ recompensas" em "Editar informações" e o sistema não.
 - Validação de existência da chave junto ao banco (DICT): não existe no sistema.
 - Chave na grade de dados do perfil: o desenho não tem.
 
+## P2 (Master vê a chave do perfil como sugestão; decidido em 27/10, depois do #475)
+
+- Só o Master. O GET `/master/recompensas/usuarios/{id}/recebimento` (já restrito a ROLE_SUPER_ADMIN) ganha o campo
+  `chavePixDoPerfil` (a chave do `UserProfile` do indicador, ou nulo), mesmo quando o Master ainda não cadastrou os
+  dados de recebimento (a resposta passa de `{}` para `{chavePixDoPerfil: ...}`). A lista do painel (`recebimento`
+  em cada indicador) NÃO traz a chave do perfil.
+- No diálogo "Dados para pagamento", se a chave do Master está vazia e o indicador informou uma, aparece abaixo do campo
+  "Chave informada pelo indicador: X · Usar". "Usar" só copia para o campo; o Master confere e clica em "Salvar dados".
+  Nada é preenchido, salvo ou pago sozinho, e a sugestão nunca sobrescreve a chave que o Master já tem.
+- Sem migration. Texto novo em `master.recompensas.recebimento.pix_sugestao` e `pix_usar`.
+
 ## Testes (antes do código)
 
 - Unit do DTO: vazio vale; CPF e CNPJ válidos e inválidos; e-mail; celular com e sem `+55`; UUID; texto solto recusa;
@@ -63,4 +74,4 @@ recompensas" em "Editar informações" e o sistema não.
 | Fatia | Conteúdo | Estado |
 |---|---|---|
 | P1 | Coluna, DTO, form, UseCase, modal e testes | a fazer |
-| P2 | Master vê a chave do perfil como sugestão nos Dados para pagamento (após #475) | só com o ok do dono |
+| P2 | Master vê a chave do perfil como sugestão nos Dados para pagamento | decidido; sem migration |
