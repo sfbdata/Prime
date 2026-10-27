@@ -74,7 +74,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('nav.pp-abas a.pp-aba.is-ativa[data-pp-aba="processos"]'));
         self::assertCount(5, $crawler->filter('.pp-pagina > .pp-kpis > a.pp-kpi'));
         self::assertCount(1, $crawler->filter('.pp-pagina > section[data-pp-inclusao] > form'));
-        self::assertCount(2, $crawler->filter('.pp-pagina > .pp-subabas > a.pp-subaba'));
+        self::assertCount(3, $crawler->filter('.pp-pagina > .pp-subabas > a.pp-subaba'));
         self::assertCount(1, $crawler->filter('[data-pp-inclusao] input[data-pp-mascara-cnj]'), 'máscara CNJ do desenho');
         self::assertSame('0 | 150', trim($crawler->filter('[data-pp-inclusao] [data-pp-obs-n]')->text()), 'contador da observação do desenho');
         self::assertCount(1, $crawler->filter('.pp-tabela__corpo > .pp-linha--dado'));
@@ -460,7 +460,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
 
     private function publicar(Tenant $tenant, string $numero, string $orgao, string $dataIso, bool $lida, ?int $prazo, ?string $cumpridoEm = null): void
     {
-        $pub = $this->criarPublicacao($tenant, 'ac_' . $numero . $dataIso, $numero);
+        $pub = $this->criarPublicacao($this->em()->getReference(Tenant::class, $tenant->getId()), (string) random_int(10000000, 99999999), $numero);
         $pub = $this->em()->find(PublicacaoDjen::class, $pub->getId());
         $pub->setNomeOrgao($orgao);
         $pub->setDataDisponibilizacao(new \DateTimeImmutable($dataIso));
@@ -505,9 +505,9 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=pr');
         $grupos = $crawler->filter('.pp-acv__grupo b')->each(static fn ($n) => trim($n->text()));
         self::assertSame(['1', '1', '0', '1', '0', '0'], $grupos, 'pr, pend, cien, fin, sem, resp');
-        self::assertSame(['1ª Vara Cível'], $crawler->filter('.pp-acv__orgao span')->each(static fn ($n) => trim($n->text())), 'só os pendentes do grupo aberto');
+        self::assertSame(['1ª VARA CÍVEL'], $crawler->filter('.pp-acv__orgao span')->each(static fn ($n) => trim($n->text())), 'só os pendentes do grupo aberto');
 
-        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=fin&orgao=' . rawurlencode('2ª Vara Cível'));
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=fin&orgao=' . rawurlencode('1ª VARA CÍVEL'));
         self::assertCount(1, $crawler->filter('[data-pp-linha-proc]'));
         self::assertSame(self::NUMERO_B, $crawler->filter('[data-pp-linha-proc]')->attr('data-numero'));
     }
@@ -523,7 +523,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $this->publicar($tenant, self::NUMERO_B, '1ª Vara Cível', $hoje->modify('-40 days')->format('Y-m-d'), true, 5, $hoje->modify('-11 days')->format('Y-m-d'));
         $this->limparIdentityMap();
 
-        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=resp&orgao=' . rawurlencode('1ª Vara Cível'));
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acervo&grupo=resp&orgao=' . rawurlencode('1ª VARA CÍVEL'));
 
         self::assertSame([self::NUMERO_A], $crawler->filter('[data-pp-linha-proc]')->each(static fn ($n) => $n->attr('data-numero')));
     }

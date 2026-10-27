@@ -48,7 +48,7 @@ final class AcervoPorJurisdicaoUseCase
         $classificadas = [];
         foreach ($linhas as $linha) {
             $ultima = $ultimas[$linha->numero] ?? null;
-            $situacao = $this->situacao($ultima, $doTeor[$ultima?->id ?? 0] ?? null, $tenant->getEstado(), $hoje);
+            $situacao = $this->situacao($ultima, $ultima !== null ? ($doTeor[$ultima->id] ?? null) : null, $tenant->getEstado(), $hoje);
             if ($situacao === null) {
                 continue;
             }
@@ -111,7 +111,7 @@ final class AcervoPorJurisdicaoUseCase
 
     private function orgaoDe(LinhaDoProcessoDaOab $linha, ?UltimaPublicacaoDoProcesso $ultima): string
     {
-        foreach ([$linha->orgao, $ultima?->nomeOrgao ?? ''] as $nome) {
+        foreach ([$linha->orgao, $ultima !== null ? ($ultima->nomeOrgao ?? '') : ''] as $nome) {
             if (trim($nome) !== '') {
                 return trim($nome);
             }
