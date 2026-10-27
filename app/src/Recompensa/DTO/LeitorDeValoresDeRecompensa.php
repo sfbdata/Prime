@@ -54,6 +54,22 @@ final class LeitorDeValoresDeRecompensa
         return $negativo ? -$centavos : $centavos;
     }
 
+    /**
+     * O valor de um pagamento (baixa): positivo, diferente de zero e até R$ 100.000,00. Negativo recusa.
+     *
+     * @throws RecompensaRecusada
+     */
+    public static function centavosDePagamento(mixed $valor): int
+    {
+        $texto = self::texto($valor);
+        $centavos = $texto === null || str_starts_with($texto, '-') ? 0 : (self::centavos($texto) ?? 0);
+        if ($centavos === 0 || $centavos > LancamentoDeRecompensa::VALOR_MAXIMO) {
+            throw new RecompensaRecusada('Informe um valor maior que zero e até o saldo.');
+        }
+
+        return $centavos;
+    }
+
     /** Inteiro não negativo, em número ou texto só com dígitos. */
     public static function inteiro(mixed $valor): ?int
     {
