@@ -73,6 +73,27 @@ final class DiagnosticoDaPessoaTest extends TestCase
         self::assertCount(1, DiagnosticoDaPessoa::comparacoes($this->linha(zeradas: ['metas_vencidas'])));
     }
 
+    #[TestDox('Com Zerar em metas e demandas, a comparação e a frase da carga somem; sem Zerar aparecem')]
+    public function testZerarEmMetasEDemandas(): void
+    {
+        $com = new LinhaAdvogadoDashboardOutput(5, 'Ana Souza', null, null, 10, 4, 0, 0, 3, 2, 1, 8, 2, null, colunasZeradas: []);
+        self::assertSame(['recebidas', 'demandas'], array_map(static fn (ComparacaoDaPessoaOutput $x): string => $x->chave, DiagnosticoDaPessoa::comparacoes($com)));
+        self::assertStringContainsString('A carga recebida subiu', implode(' ', DiagnosticoDaPessoa::motivos($com, 6, 'Ana')));
+
+        $zerada = new LinhaAdvogadoDashboardOutput(5, 'Ana Souza', null, null, 10, 4, 0, 0, 3, 2, 1, 8, 2, null, colunasZeradas: ['metas', 'demandas']);
+        self::assertSame([], DiagnosticoDaPessoa::comparacoes($zerada));
+        self::assertStringNotContainsString('carga recebida', implode(' ', DiagnosticoDaPessoa::motivos($zerada, 6, 'Ana')));
+    }
+
+    #[TestDox('Com Zerar em metas, ativas, concluídas ou taxa, a frase-resumo (X% concluído) não sai')]
+    public function testZerarOmiteResumo(): void
+    {
+        foreach (['metas', 'metas_ativas', 'metas_concluidas', 'taxa_conclusao'] as $coluna) {
+            $motivos = DiagnosticoDaPessoa::motivos($this->linha(zeradas: [$coluna]), 6, 'Ana');
+            self::assertStringNotContainsString('concluído', implode(' ', $motivos), $coluna);
+        }
+    }
+
     #[TestDox('Anterior zero não gera percentual inventado')]
     public function testAnteriorZeroSemVariacao(): void
     {

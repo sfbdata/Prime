@@ -20,19 +20,9 @@ final class DiagnosticoDaPessoa
     public static function motivos(LinhaAdvogadoDashboardOutput $linha, int $concluidas, string $primeiroNome): array
     {
         $motivos = [];
-        if ($linha->totalMetas === 0) {
-            $motivos[] = sprintf('Nenhuma meta foi criada para %s no período.', $primeiroNome);
-        } else {
-            $motivos[] = sprintf(
-                '%d %s no período: %d %s e %d %s (%d%% concluído).',
-                $linha->totalMetas,
-                self::plural($linha->totalMetas, 'meta criada', 'metas criadas'),
-                $concluidas,
-                self::plural($concluidas, 'concluída', 'concluídas'),
-                $linha->metasAtivas,
-                self::plural($linha->metasAtivas, 'ativa', 'ativas'),
-                (int) round($concluidas / $linha->totalMetas * 100),
-            );
+        $resumo  = self::resumoDoPeriodo($linha, $concluidas, $primeiroNome);
+        if ($resumo !== null) {
+            $motivos[] = $resumo;
         }
         if ($linha->metasVencidas > 0) {
             $motivos[] = sprintf('%d %s com prazo já vencido %s.', $linha->metasVencidas, self::plural($linha->metasVencidas, 'meta', 'metas'), self::plural($linha->metasVencidas, 'continua aberta', 'continuam abertas'));
@@ -45,6 +35,31 @@ final class DiagnosticoDaPessoa
     }
 
     /**
+     * A frase-resumo mistura Total, Ativas, Concluídas e Taxa, cada uma com o corte do próprio "Zerar":
+     * com qualquer uma zerada, as bases divergem e a frase seria um número que a tabela não confirma.
+     */
+    private static function resumoDoPeriodo(LinhaAdvogadoDashboardOutput $linha, int $concluidas, string $primeiroNome): ?string
+    {
+        if (array_intersect(['metas', 'metas_ativas', 'metas_concluidas', 'taxa_conclusao'], $linha->colunasZeradas) !== []) {
+            return null;
+        }
+        if ($linha->totalMetas === 0) {
+            return sprintf('Nenhuma meta foi criada para %s no período.', $primeiroNome);
+        }
+
+        return sprintf(
+            '%d %s no período: %d %s e %d %s (%d%% concluído).',
+            $linha->totalMetas,
+            self::plural($linha->totalMetas, 'meta criada', 'metas criadas'),
+            $concluidas,
+            self::plural($concluidas, 'concluída', 'concluídas'),
+            $linha->metasAtivas,
+            self::plural($linha->metasAtivas, 'ativa', 'ativas'),
+            (int) round($concluidas / $linha->totalMetas * 100),
+        );
+    }
+
+    /**
      * Comparação com o período anterior de mesma duração. Só entra a linha que tem o número do passado
      * de verdade: sem período completo, ou sem foto do dia para as vencidas, a linha não existe.
      *
@@ -53,10 +68,10 @@ final class DiagnosticoDaPessoa
     public static function comparacoes(LinhaAdvogadoDashboardOutput $linha): array
     {
         $c = [];
-        if ($linha->totalMetasAnterior !== null) {
+        if ($linha->totalMetasAnterior !== null && !in_array('metas', $linha->colunasZeradas, true)) {
             $c[] = new ComparacaoDaPessoaOutput('recebidas', $linha->totalMetas, $linha->totalMetasAnterior);
         }
-        if ($linha->totalDemandasAnterior !== null) {
+        if ($linha->totalDemandasAnterior !== null && !in_array('demandas', $linha->colunasZeradas, true)) {
             $c[] = new ComparacaoDaPessoaOutput('demandas', $linha->totalDemandas, $linha->totalDemandasAnterior);
         }
         if ($linha->metasVencidasAnterior !== null && !in_array('metas_vencidas', $linha->colunasZeradas, true)) {
@@ -111,7 +126,7 @@ final class DiagnosticoDaPessoa
     private static function frasesDaCarga(LinhaAdvogadoDashboardOutput $linha): array
     {
         $c = $linha->totalMetasAnterior;
-        if ($c === null || $c === 0 || $c === $linha->totalMetas) {
+        if ($c === null || $c === 0 || $c === $linha->totalMetas || in_array('metas', $linha->colunasZeradas, true)) {
             return [];
         }
         $pct = (int) round(abs($linha->totalMetas - $c) / $c * 100);
