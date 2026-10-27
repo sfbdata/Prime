@@ -40,8 +40,8 @@ preferência via composer; (f) aceitar qualquer formato, com entrega segura (fre
 | F5 | Seletor do processo, somente leitura | PR desta entrega |
 | F6 | Ordem manual compartilhada com a aba Documentos | PR desta entrega |
 | F7 | Destino por peça: `pasta_documento.processo_destino_id` (nulo = principal), rota `pasta_documento_destino`, o seletor do cabeçalho mostra o destino da peça selecionada e grava ao escolher (migration 154400) | PR desta entrega |
-| F8 | Editor (TinyMCE mantido) | pendente |
-| F9 | Visualizador DOCX/XLSX | pendente |
+| F8 | Editor (TinyMCE mantido) | adiada: o desenho 07 traz só um contentEditable com modo leitura, Editar/Concluir, autosalvamento de 600 ms e "Texto" que cria a peça na hora; mudam o fluxo, ficam para decisão do dono (itens 5 e 11) |
+| F9 | Visualizador DOCX/XLSX: rota `pasta_documento_previa`, conversão no servidor com `phpword` e `phpspreadsheet` (já no composer), HTML sob CSP `sandbox; default-src 'none'`; planilha limitada a 500 linhas x 40 colunas; arquivo acima de 10 MB ou inválido mostra o aviso e o Baixar | PR desta entrega |
 | F10 | Aceitar qualquer formato | pendente |
 
 Até a F10, a dica do anexo lista só o que o servidor aceita hoje: PDF, Word, Excel, imagens, XML e KML.
@@ -63,3 +63,4 @@ Até a F10, a dica do anexo lista só o que o servidor aceita hoje: PDF, Word, E
    documentos antigos podem aparecer com o nome do arquivo.
 10. Renomear a peça de texto pelo menu grava só o nome do arquivo; o título interno (lido, por exemplo, pela IA) só se
     atualiza ao salvar no editor, como já acontece na aba Documentos.
+11. Editor (F8): modo leitura com Editar/Concluir, "Texto" criando a peça "Petição N" na hora, e folha Times 16px do desenho em vez de Arial 12pt ABNT. Hoje o editor abre sempre editando, o modal pede título e categoria, e a folha segue o padrão de peça.
