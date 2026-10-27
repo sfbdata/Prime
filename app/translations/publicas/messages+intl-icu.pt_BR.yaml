@@ -19,19 +19,26 @@ publicas:
             texto: Este link venceu ou já foi usado. Peça a confirmação de novo.
     descadastro:
         confirmado:
-            titulo: Descadastro confirmado
+            titulo: Pronto, você não receberá mais
             todos: 'Você não vai mais receber nenhum e-mail de {remetente}.'
             estes_avisos: 'Você não vai mais receber estes avisos por e-mail de {remetente}.'
-            pode_fechar: Pode fechar esta página.
+            ver_vagas: Ver vagas abertas
             demais: 'Os demais e-mails de {remetente} continuam chegando.'
         confirmar:
-            titulo: Não quero mais receber estes avisos
+            titulo: Não quer mais receber nossos e-mails?
             # O endereço <strong>{email}</strong> deixará de receber...
             endereco: O endereço
             deixara: 'deixará de receber estes avisos por e-mail de {remetente}.'
             nenhum: 'Não quero receber nenhum e-mail de {remetente}'
-            botao: Confirmar
+            botao: Confirmar descadastro
+            continuar: Continuar recebendo
+            motivo_rotulo: SE QUISER, CONTE O MOTIVO
             fechar: Se não quiser deixar de receber, é só fechar esta página.
+        motivos:
+            demais: Recebo e-mails demais
+            sem_interesse: Não me interessa mais
+            nao_cadastrei: Não me cadastrei
+            outro: Outro motivo
     indicacao:
         titulo: Indicar o BlueJus
         fechar: Fechar
