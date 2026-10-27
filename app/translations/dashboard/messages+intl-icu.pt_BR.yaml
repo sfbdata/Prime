@@ -522,7 +522,7 @@ dashboard:
                 elevada: Elevada
                 baixa: Baixa
                 melhorando: Melhorando
-                piorando: Piorando
+                queda: Conclusões em queda
                 estavel: Estável
                 sem_base: Sem base
                 sem_registro: Sem registro

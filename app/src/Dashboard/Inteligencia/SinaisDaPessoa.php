@@ -12,7 +12,7 @@ use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
  * Os números reais de UMA pessoa que as regras de {@see AnaliseDaPessoa} leem, já com o "Zerar" aplicado:
  * número de coluna zerada vira null e a regra que dependeria dele não dispara (nada é inferido do que a
  * tabela não mostra). Limiares do desenho (dc `bluejus-equipe.js`, sensibilidade moderada): queda de
- * conclusões de 15%, carga que sobe 20%, fila 1,5 vez a média da equipe (ou 0,5), vencidas 40% da fila.
+ * conclusões de 15%, carga que sobe 20%, fila 1,5 vez a média da equipe (ou 0,5), 4 ou mais vencidas.
  */
 final readonly class SinaisDaPessoa
 {
@@ -55,17 +55,13 @@ final readonly class SinaisDaPessoa
         return $this->variacaoCarga !== null && $this->variacaoCarga >= 20;
     }
 
-    /** Vencidas como parte da fila ativa; sem fila, sem razão. */
-    public function razaoDeVencidas(): ?float
-    {
-        return $this->ativas !== null && $this->vencidas !== null && $this->ativas > 0 ? $this->vencidas / $this->ativas : null;
-    }
-
+    /**
+     * Só o limiar absoluto: vencidas são o estoque de HOJE (sem janela) e ativas são as criadas no período,
+     * recortes diferentes. A razão entre elas misturaria bases e poderia passar de 100%, então não existe.
+     */
     public function vencidasPedemAtencao(): bool
     {
-        $razao = $this->razaoDeVencidas();
-
-        return $this->vencidas !== null && $this->vencidas > 0 && ($this->vencidas >= 4 || ($razao !== null && $razao >= 0.4));
+        return $this->vencidas !== null && $this->vencidas >= 4;
     }
 
     /** Piso de 3 ativas: com fila de 1 ou 2 metas "acima da média" é só efeito de equipe pequena. */

@@ -78,17 +78,32 @@ final class AnaliseDaPessoaTest extends TestCase
         self::assertSame('sem_base', $sem->matriz[5]->estado);
     }
 
-    #[TestDox('Atrasos: 4 vencidas ou 40% da fila disparam; o impacto cita o número e a revisão sobe para 24 horas com 60%')]
+    #[TestDox('Atrasos: só o limiar absoluto de 4 vencidas, sem razão que misture recortes; plano com sugestão ao gestor')]
     public function testAtrasos(): void
     {
-        $a = AnaliseDaPessoa::montar($this->linha(ativas: 5, vencidas: 3), null, 5.0);
-        self::assertSame('3 metas vencidas (60% da fila ativa).', $a->leituras[0]->texto);
-        self::assertSame(['Com 3 metas vencidas, os prazos podem exigir acompanhamento adicional.'], $a->impactos);
-        self::assertSame('24 horas', $a->plano['revisao']);
+        $a = AnaliseDaPessoa::montar($this->linha(ativas: 2, vencidas: 4), null, 2.0);
+        self::assertSame('4 metas com o prazo já vencido.', $a->leituras[0]->texto);
+        self::assertSame(['Com 4 metas vencidas, os prazos podem exigir acompanhamento adicional.'], $a->impactos);
+        self::assertSame('Vale priorizar as 4 vencidas antes de novas metas.', $a->plano['acao']);
+        self::assertSame('48 horas', $a->plano['revisao']);
         self::assertSame('Metas vencidas reduzidas a zero', $a->plano['sucesso']);
+        self::assertSame('atencao', $a->matriz[2]->estado);
 
-        self::assertSame([], $this->tipos(AnaliseDaPessoa::montar($this->linha(ativas: 10, vencidas: 3), null, 10.0)), '30% e menos de 4 não dispara');
-        self::assertSame('48 horas', AnaliseDaPessoa::montar($this->linha(ativas: 10, vencidas: 4), null, 10.0)->plano['revisao']);
+        $tres = AnaliseDaPessoa::montar($this->linha(ativas: 3, vencidas: 3), null, 3.0);
+        self::assertSame([], $this->tipos($tres), '3 vencidas de 3 ativas não dispara: não há proporção');
+        self::assertSame('normal', $tres->matriz[2]->estado);
+        self::assertDoesNotMatchRegularExpression('/%\s+da fila/u', $a->leituras[0]->texto);
+    }
+
+    #[TestDox('Matriz: queda de conclusões é rótulo do volume em âmbar (nunca vermelho); média zero da equipe é Sem base')]
+    public function testQuedaNeutraEMediaZero(): void
+    {
+        $m = AnaliseDaPessoa::montar($this->linha(), $this->conclusoes(8, 10), 0.0)->matriz;
+        self::assertSame(['queda', 'atencao'], [$m[5]->estado, $m[5]->tom]);
+        self::assertSame('sem_base', $m[6]->estado);
+        foreach ($m as $x) {
+            self::assertNotSame('ruim', $x->tom);
+        }
     }
 
     #[TestDox('Fila 1,5 vez a média da equipe é sobrecarga; com menos de 3 ativas é efeito de equipe pequena e não dispara')]
@@ -113,7 +128,7 @@ final class AnaliseDaPessoaTest extends TestCase
         self::assertStringContainsString('Antes de concluir, conferir', $a->leituras[0]->texto);
         self::assertSame('baixa', $a->matriz[6]->estado);
 
-        self::assertSame([LeituraDaPessoaOutput::OBSERVADO], $this->tipos(AnaliseDaPessoa::montar($this->linha(ativas: 1, vencidas: 1), null, 4.0)), 'só o atraso, sem hipótese de capacidade');
+        self::assertSame([], $this->tipos(AnaliseDaPessoa::montar($this->linha(ativas: 1, vencidas: 1), null, 4.0)), 'com vencida não há hipótese de capacidade livre');
     }
 
     #[TestDox('Conclusões em alta com prazos em dia é Observado e não gera plano; Zerar tira da regra o número zerado')]

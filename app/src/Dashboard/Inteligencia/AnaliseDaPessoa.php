@@ -72,7 +72,7 @@ final class AnaliseDaPessoa
     {
         return [
             'leitura' => new Leitura(Leitura::CORRELACAO, sprintf('Conclusões %s frente ao período anterior, mas a carga recebida subiu %s. A redução coincide com o aumento da demanda.', self::sinal($s->variacaoConclusoes), self::sinal($s->variacaoCarga))),
-            'acao'    => 'Conferir se a distribuição de tarefas está equilibrada antes de interpretar a queda como desempenho.',
+            'acao'    => 'Vale conferir se a distribuição de tarefas está equilibrada antes de interpretar a queda como desempenho.',
             'impacto' => null,
         ];
     }
@@ -84,7 +84,7 @@ final class AnaliseDaPessoa
 
         return [
             'leitura' => new Leitura(Leitura::OBSERVADO, sprintf('Conclusões %s frente ao próprio período anterior%s.', self::sinal($s->variacaoConclusoes), $carga)),
-            'acao'    => 'Acompanhar a conclusão nos próximos 7 dias e conversar com a pessoa antes de qualquer avaliação.',
+            'acao'    => 'Vale acompanhar a conclusão nos próximos 7 dias e conversar com a pessoa antes de qualquer avaliação.',
             'impacto' => null,
         ];
     }
@@ -92,13 +92,11 @@ final class AnaliseDaPessoa
     /** @return array{leitura: Leitura, acao: string, impacto: ?string} */
     private static function atrasos(SinaisDaPessoa $s): array
     {
-        $n     = (int) $s->vencidas;
-        $razao = $s->razaoDeVencidas();
-        $parte = $razao === null ? '' : sprintf(' (%d%% da fila ativa)', (int) round($razao * 100));
+        $n = (int) $s->vencidas;
 
         return [
-            'leitura' => new Leitura(Leitura::OBSERVADO, sprintf('%d %s%s.', $n, $n === 1 ? 'meta vencida' : 'metas vencidas', $parte)),
-            'acao'    => sprintf('Tratar as %d vencidas antes de novas metas.', $n),
+            'leitura' => new Leitura(Leitura::OBSERVADO, sprintf('%d %s com o prazo já vencido.', $n, $n === 1 ? 'meta' : 'metas')),
+            'acao'    => sprintf('Vale priorizar as %d vencidas antes de novas metas.', $n),
             'impacto' => sprintf('Com %d %s, os prazos podem exigir acompanhamento adicional.', $n, $n === 1 ? 'meta vencida' : 'metas vencidas'),
         ];
     }
@@ -110,7 +108,7 @@ final class AnaliseDaPessoa
 
         return [
             'leitura' => new Leitura(Leitura::OBSERVADO, sprintf('%d metas ativas, %d%% da média da equipe (%s). Volume não é sinônimo de produtividade.', (int) $s->ativas, (int) round((int) $s->ativas / $media * 100), self::decimal($media))),
-            'acao'    => sprintf('Avaliar a redistribuição de cerca de %d metas para quem tem capacidade disponível.', (int) ceil(((int) $s->ativas - $media) / 2)),
+            'acao'    => sprintf('Vale avaliar a redistribuição de cerca de %d metas para quem tem capacidade disponível.', (int) ceil(((int) $s->ativas - $media) / 2)),
             'impacto' => 'Pode haver concentração de tarefas nesta pessoa.',
         ];
     }
@@ -120,7 +118,7 @@ final class AnaliseDaPessoa
     {
         return [
             'leitura' => new Leitura(Leitura::HIPOTESE, sprintf('Há capacidade aparentemente disponível neste período (%d ativas, sem vencidas). Antes de concluir, conferir se faltaram tarefas, se há dependências, ausência ou trabalho registrado fora do sistema.', (int) $s->ativas)),
-            'acao'    => 'Conferir se há trabalho a distribuir para esta pessoa.',
+            'acao'    => 'Vale conferir se há trabalho a distribuir para esta pessoa.',
             'impacto' => null,
         ];
     }
@@ -145,16 +143,15 @@ final class AnaliseDaPessoa
     {
         $c = $s->variacaoCarga;
         $d = $s->variacaoConclusoes;
-        $razao = $s->razaoDeVencidas();
 
         return [
             self::linhaDa('volume_recebido', $c === null ? ['sem_base', 'sem'] : ($c >= 20 ? ['elevada', 'atencao'] : ($c <= -20 ? ['baixa', 'info'] : ['normal', 'bom']))),
             self::linhaDa('volume_concluido', $d === null ? ['sem_base', 'sem'] : ($s->quedaDeConclusoes() ? ['atencao', 'atencao'] : ['normal', 'bom'])),
-            self::linhaDa('backlog', $razao === null ? ['sem_base', 'sem'] : ($razao >= 0.4 ? ['atencao', 'atencao'] : ['normal', 'bom'])),
+            self::linhaDa('backlog', $s->vencidas === null ? ['sem_base', 'sem'] : ($s->vencidasPedemAtencao() ? ['atencao', 'atencao'] : ['normal', 'bom'])),
             self::linhaDa('complexidade', ['sem_registro', 'sem']),
             self::linhaDa('retrabalho', ['sem_registro', 'sem']),
-            self::linhaDa('evolucao', $d === null ? ['sem_base', 'sem'] : ($d >= 10 ? ['melhorando', 'bom'] : ($d <= -15 ? ['piorando', 'ruim'] : ['estavel', 'neutro']))),
-            self::linhaDa('capacidade', $s->media === null ? ['sem_base', 'sem'] : ($s->filaAcimaDaMedia() ? ['elevada', 'atencao'] : ($s->filaAbaixoDaMedia() ? ['baixa', 'info'] : ['normal', 'bom']))),
+            self::linhaDa('evolucao', $d === null ? ['sem_base', 'sem'] : ($d >= 10 ? ['melhorando', 'bom'] : ($d <= -15 ? ['queda', 'atencao'] : ['estavel', 'neutro']))),
+            self::linhaDa('capacidade', $s->media === null || $s->media <= 0 ? ['sem_base', 'sem'] : ($s->filaAcimaDaMedia() ? ['elevada', 'atencao'] : ($s->filaAbaixoDaMedia() ? ['baixa', 'info'] : ['normal', 'bom']))),
         ];
     }
 
@@ -197,14 +194,12 @@ final class AnaliseDaPessoa
      */
     private static function plano(SinaisDaPessoa $s, array $alertas, array $fatores): array
     {
-        $razao = $s->razaoDeVencidas();
-
         return [
             'problema'    => $alertas[0]['leitura']->texto,
             'causa'       => $fatores[0] ?? 'Os números não indicam a causa. Vale conversar com a pessoa.',
             'acao'        => $alertas[0]['acao'],
             'responsavel' => 'A definir pelo gestor',
-            'revisao'     => $razao !== null && $razao >= 0.6 ? '24 horas' : '48 horas',
+            'revisao'     => '48 horas',
             'sucesso'     => self::indicador($s),
         ];
     }

@@ -113,7 +113,7 @@ class MetricasExtrasDoDashboardRepository
      * quantidade e a soma dos dias entre criar e concluir. É o recorte que se repete igual no período
      * anterior (a data de conclusão é um fato do passado), ao contrário do recorte por criação com o
      * status de hoje (DASH-010b). Só metas hoje concluídas COM `dataConclusao`; a meta reaberta perde a
-     * data e sai da conta nos dois lados. Com `contar_desde` (Zerar), só as concluídas a partir do corte.
+     * data e sai da conta nos dois lados. Não aplica `contar_desde`: com Zerar na coluna, o chamador tira a comparação em vez de recortá-la.
      *
      * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
      * @param list<int>            $pastasOcultas cadeado (D1, D3)

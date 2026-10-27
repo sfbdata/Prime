@@ -143,8 +143,8 @@ final class PerfilDaPessoaDoDashboardControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('responsavel=' . $c['ana']->getId(), $href);
         self::assertSame(['Observado'], array_values(array_unique($perfil->filter('.db-pf-tag')->each(static fn (Crawler $t): string => trim($t->text())))));
         $html = (string) $this->client->getResponse()->getContent();
-        self::assertSame('1 meta vencida (100% da fila ativa).', trim($perfil->filter('[data-plano="problema"] span:last-child')->text()));
-        self::assertSame('A definir pelo gestor', trim($perfil->filter('[data-plano="responsavel"] span:last-child')->text()));
+        self::assertCount(0, $perfil->filter('[data-pf-plano]'), '1 vencida está abaixo do limiar de 4: sem plano');
+        self::assertCount(1, $perfil->filter('[data-matriz="backlog"] .db-pf-matriz-v--bom'));
         foreach (['Correlação', 'Hipótese', 'Criar acompanhamento', 'Redistribuir'] as $naoDeve) {
             self::assertStringNotContainsString($naoDeve, $html, $naoDeve);
         }
