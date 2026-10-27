@@ -37,4 +37,15 @@ final class ClienteR2Test extends TestCase
         self::assertSame((float) ClienteR2::OCIOSIDADE_MAXIMA, (float) $opcoes['timeout']);
         self::assertSame((float) ClienteR2::DURACAO_MAXIMA_DA_REQUISICAO, (float) $opcoes['max_duration']);
     }
+
+    #[TestDox('sem cliente HTTP injetado, o S3Client sai pedindo Accept-Encoding: identity')]
+    public function testClientePadraoPedeRespostaSemCompressao(): void
+    {
+        $s3 = ClienteR2::criar('https://conta.r2.cloudflarestorage.com', 'CHAVE', 'SEGREDO');
+
+        $http = (new \ReflectionProperty(AbstractApi::class, 'httpClient'))->getValue($s3);
+        $opcoes = (new \ReflectionProperty($http, 'defaultOptions'))->getValue($http);
+
+        self::assertContains('Accept-Encoding: identity', $opcoes['headers']);
+    }
 }

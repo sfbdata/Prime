@@ -122,11 +122,18 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
             throw self::falha('consultar', $chaveRemota, $e);
         }
 
+        // Sem Content-Length o tamanho é desconhecido, não 0: o (int) de null fazia o objeto íntegro
+        // parecer vazio (ver ClienteR2::CABECALHOS).
+        $tamanho = $resultado->getContentLength();
+        if ($tamanho === null) {
+            throw new FalhaNoEspelhoRemoto(sprintf('O destino não informou o tamanho de %s (HEAD sem Content-Length).', $chaveRemota));
+        }
+
         $sha256 = $resultado->getMetadata()['sha256'] ?? null;
 
         return new MetadadosRemotos(
             $chaveRemota,
-            (int) $resultado->getContentLength(),
+            $tamanho,
             \is_string($sha256) && preg_match('/\A[0-9a-f]{64}\z/', $sha256) === 1 ? $sha256 : null,
             $resultado->getContentType(),
             $resultado->getLastModified(),
