@@ -23,8 +23,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * Conversa "BlueJus IA" (F3, PR 1): invisível nas consultas da tela até o PR da tela, uma por (escritório, usuário), e
- * a fala `de_ia` conta como de OUTRA pessoa. Tudo com o `TenantFilter` DESLIGADO, como em
+ * Conversa "BlueJus IA" (F3): visível só ao dono nas consultas da tela (PR 3a), uma por (escritório, usuário), e a fala
+ * `de_ia` conta como de OUTRA pessoa. Tudo com o `TenantFilter` DESLIGADO, como em
  * `IsolamentoDosRepositoriosDaCentralTest`: a guarda é a explícita da consulta.
  */
 #[CoversClass(ConversaRepository::class)]
@@ -61,8 +61,8 @@ final class ConversaComAIaTest extends JusPrimeWebTestCase
         return $ia;
     }
 
-    #[TestDox('Nenhuma consulta da tela enxerga a conversa IA nem as mensagens dela; a individual continua aparecendo')]
-    public function testConversaIaInvisivel(): void
+    #[TestDox('As consultas da tela enxergam a conversa IA do dono e as mensagens dela; a Equipe e o par individual a ignoram; a outra pessoa não a vê')]
+    public function testConversaIaVisivelAoDono(): void
     {
         [$a, , $ana, $bia] = $this->cenario();
         $agora = new \DateTimeImmutable();
@@ -84,17 +84,27 @@ final class ConversaComAIaTest extends JusPrimeWebTestCase
         $conversas = $this->em()->getRepository(Conversa::class);
         $anaId = (int) $ana->getId();
 
-        self::assertNull($participantes->daConversa((int) $ia->getId(), $ana, $a), 'abrir a IA por id é 404');
-        self::assertNotNull($participantes->daConversa((int) $individual->getId(), $ana, $a), 'controle');
-        self::assertSame([(int) $individual->getId()], array_map(static fn (Participante $p): int => (int) $p->getConversa()->getId(), $participantes->doUsuario($ana, $a)));
-        self::assertSame([(int) $individual->getId() => true], $participantes->idsDasConversasAtivas($ana, $a));
-        self::assertSame([(int) $individual->getId() => 1], $mensagens->naoLidasPorConversa($ana, $a));
-        self::assertSame([$anaId => 1], $mensagens->naoLidasPorUsuario($a, [$anaId]));
+        $ids = static fn (array $participacoes): array => array_map(static fn (Participante $p): int => (int) $p->getConversa()->getId(), $participacoes);
+        $iaId = (int) $ia->getId();
+        $individualId = (int) $individual->getId();
+
+        self::assertNotNull($participantes->daConversa($iaId, $ana, $a), 'o dono abre a IA por id');
+        self::assertNull($participantes->daConversa($iaId, $bia, $a), 'a outra pessoa, mesmo do escritório, não: 404');
+        self::assertNotNull($participantes->daConversa($individualId, $ana, $a), 'controle');
+        self::assertEqualsCanonicalizing([$iaId, $individualId], $ids($participantes->doUsuario($ana, $a)));
+        self::assertSame([$individualId], $ids($participantes->doUsuario($ana, $a, semIa: true)), 'destinos do Encaminhar ficam sem a IA');
+        self::assertSame([$individualId], $ids($participantes->doUsuario($bia, $a)), 'a IA da Ana não está na lista da Bia');
+        self::assertEquals([$iaId => true, $individualId => true], $participantes->idsDasConversasAtivas($ana, $a));
+        self::assertSame([$iaId => 1, $individualId => 1], $mensagens->naoLidasPorConversa($ana, $a), 'a resposta da IA é não lida do dono');
+        self::assertSame([$anaId => 1], $mensagens->naoLidasPorUsuario($a, [$anaId], semIa: true), 'a Equipe não soma o uso da IA');
+        self::assertSame([$anaId => 2], $mensagens->naoLidasPorUsuario($a, [$anaId]), 'sem o parâmetro a IA conta');
         $textos = array_map(static fn (Mensagem $m): string => $m->getConteudo(), $mensagens->novidades($ana, $a, 0, 200));
-        self::assertSame(['oi'], $textos);
+        self::assertSame(['pergunta', 'resposta-da-ia', 'oi'], $textos);
+        self::assertSame(['oi'], array_map(static fn (Mensagem $m): string => $m->getConteudo(), $mensagens->novidades($bia, $a, 0, 200)), 'a Bia só recebe a individual');
         $janela = $mensagens->recentesAbaixoDoCursor($ana, $a, PHP_INT_MAX >> 33, new \DateTimeImmutable('-1 day'), 200);
-        self::assertSame(['oi'], array_map(static fn (Mensagem $m): string => $m->getConteudo(), $janela));
+        self::assertSame(['pergunta', 'resposta-da-ia', 'oi'], array_map(static fn (Mensagem $m): string => $m->getConteudo(), $janela));
         self::assertSame($this->idDe($mensagens, 'oi'), $mensagens->ultimoIdVisivelPara($ana, $a));
+        self::assertSame($this->idDe($mensagens, 'oi'), $mensagens->ultimoIdVisivelPara($bia, $a));
         // O par individual nunca resolve para a IA (menor = maior = ela).
         self::assertNull($conversas->individualEntre($a, $ana, $ana));
         self::assertSame($ia, $conversas->daIaDe($a, $ana));
@@ -105,22 +115,26 @@ final class ConversaComAIaTest extends JusPrimeWebTestCase
         return (int) $mensagens->findOneBy(['conteudo' => $texto])?->getId();
     }
 
-    #[TestDox('Só a conversa IA, sem mais nada: tudo vazio e cursor 0')]
-    public function testSoIaFicaVazio(): void
+    #[TestDox('Só a conversa IA: o dono vê a fala dela; a outra pessoa, nada')]
+    public function testSoIa(): void
     {
-        [$a, , $ana] = $this->cenario();
+        [$a, , $ana, $bia] = $this->cenario();
         $ia = $this->iaDe($a, $ana);
         $this->em()->persist(Mensagem::daIA($a, $ia, $ana, 'so-ia', new \DateTimeImmutable()));
         $this->em()->flush();
 
         /** @var MensagemRepository $mensagens */
         $mensagens = $this->em()->getRepository(Mensagem::class);
-        self::assertSame([], $mensagens->naoLidasPorConversa($ana, $a));
-        self::assertSame([], $mensagens->novidades($ana, $a, 0, 200));
-        self::assertSame(0, $mensagens->ultimoIdVisivelPara($ana, $a));
+        $id = $this->idDe($mensagens, 'so-ia');
+        self::assertSame([(int) $ia->getId() => 1], $mensagens->naoLidasPorConversa($ana, $a));
+        self::assertCount(1, $mensagens->novidades($ana, $a, 0, 200));
+        self::assertSame($id, $mensagens->ultimoIdVisivelPara($ana, $a));
+        self::assertSame([], $mensagens->naoLidasPorConversa($bia, $a));
+        self::assertSame([], $mensagens->novidades($bia, $a, 0, 200));
+        self::assertSame(0, $mensagens->ultimoIdVisivelPara($bia, $a));
     }
 
-    #[TestDox('A fala da IA só existe na conversa IA; a conversa IA não entra na contagem, mesmo com de_ia')]
+    #[TestDox('A fala da IA só existe na conversa IA e conta como não lida do dono')]
     public function testDaIaSoNaConversaIa(): void
     {
         [$a, , $ana, $bia] = $this->cenario();
@@ -139,7 +153,7 @@ final class ConversaComAIaTest extends JusPrimeWebTestCase
         /** @var MensagemRepository $mensagens */
         $mensagens = $this->em()->getRepository(Mensagem::class);
         self::assertTrue($mensagens->findOneBy(['conteudo' => 'da-ia'])?->isDeIa());
-        self::assertSame([], $mensagens->naoLidasPorConversa($ana, $a));
+        self::assertSame([(int) $ia->getId() => 1], $mensagens->naoLidasPorConversa($ana, $a));
     }
 
     #[TestDox('Regra de consulta: mensagem de_ia conta como não lida de OUTRA pessoa, mesmo com o dono como autor')]
@@ -177,6 +191,11 @@ final class ConversaComAIaTest extends JusPrimeWebTestCase
         $conversas = $this->em()->getRepository(Conversa::class);
         self::assertSame($ia, $conversas->daIaDe($a, $ana));
         self::assertNull($conversas->daIaDe($b, $ana));
+        /** @var ParticipanteRepository $participantes */
+        $participantes = $this->em()->getRepository(Participante::class);
+        self::assertNotNull($participantes->daConversa((int) $ia->getId(), $ana, $a), 'controle: no A ela abre');
+        self::assertNull($participantes->daConversa((int) $ia->getId(), $ana, $b), 'com o escritório errado, 404');
+        self::assertSame([], $participantes->doUsuario($ana, $b));
     }
 
     #[TestDox('UseCase: abre uma vez, devolve a mesma depois, uma por pessoa e por escritório, só o dono participa')]

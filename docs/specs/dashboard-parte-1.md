@@ -330,6 +330,18 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
   - **Textos**: "A IA monta" virou "Por regras fixas, o painel monta"; "conclusões" virou "pastas". Os 4 níveis chegam prontos; o JS só alterna o painel visível.
   - **Fora**: a escolha do nível não é guardada (abre sempre em +10%, como o dc `iaNivel: 1`).
 
+- **PR-I (feito: análise individual da pessoa no painel Intelligence, por regras fixas; sem migration)**. Dc 01 VS 25.10.26: botão da linha (L720), "← Equipe" (L787), perfil (L1098-1190, L2431-2480).
+  - **Contrato**: `GET /dashboard/inteligencia/pessoa/{id}?data_de&data_ate` devolve o fragmento `_perfil_pessoa.html.twig` (XHR; o `dashboard-perfil-pessoa.js` injeta em `[data-ia-individual]`, irmão do `.db-ia-corpo`);
+    `POST .../marca` `{acao: analisado|sim|nao|parcial}` guarda por usuário em `preferencia_usuario` (`dashboard.ia_pessoas`, `MarcasDasPessoas`, padrão das marcas dos alertas; fora do catálogo do menu ⋮). Fluxo: Controller -> `ObterPerfilDaPessoaUseCase`
+    / `MarcarPessoaDaInteligenciaUseCase` -> DTOs. Os números vêm do `ObterDadosDashboardUseCase` filtrado na pessoa (cadeado e "Zerar" já aplicados), nunca de conta própria.
+  - **Permissão**: Master ou primário ativo (`RegraDosPrimarios::podeGerirPrimarios`) -> 403 para os demais (que veem o botão bloqueado com o texto do dc); id fora do escritório -> 404. Primário e Master nunca têm pasta oculta, mas o cadeado é repassado ao cálculo (defesa) e testado.
+  - **Auditoria**: `audit_log` à mão, `ia_pessoa` (visualizou) e `ia_marca` (marcou), `entity_class` User, `changes` só `{evento, pessoa_id}`; sem nome nem texto livre.
+  - **Itens do dc**: feitos: botão, "← Equipe", título, métricas (Recebidas, Concluídas, Pendentes, Atrasadas, Prazos próximos, Taxa de conclusão no lugar de Prazos cumpridos), comparação com o período anterior (carga recebida, demandas e atrasadas, só com número real), Diagnóstico só "Observado",
+    "Por que chegou a essa conclusão" (dados considerados e limites), Ver tarefas (só com link que conta o mesmo número, regra B12), Marcar como analisado, "Essa análise ajudou?" (Sim, Não, Parcialmente), status Analisado/Pendente, auditoria.
+  - **Fora (sem dado real ou sem destino)**: Prazos cumpridos (o dc mistura vencidas de hoje com metas do período), chip de situação, matriz de desempenho, tags Correlação e Hipótese, fatores, "O que isso pode causar?", plano de ação, status "Em acompanhamento",
+    "Criar acompanhamento" (sem tela de tarefa avulsa), "Redistribuir" (sem tela), "Explicar contexto" (texto livre), comparação de Concluídas (o sistema não guarda concluídas do período anterior, DASH-010b).
+  - **Limite conhecido**: a marca é por pessoa, não por pessoa e período; o último a gravar vence (mapa inteiro, como nos alertas).
+
 - **PR-J (feito: Perguntas guiadas como pílulas + caixa única; sem migration)**. dc L1004-1018, L2561-2562: pílulas lado a lado
   (30px, 12px/600, canto 4px; selecionada fundo azul e texto branco, `aria-pressed`), uma caixa de resposta abaixo com ícone de
   estrelas, entrada de .2s; tocar na pílula ativa fecha. As respostas são as de sempre (`MotorAvancado`/Leitura, regras fixas):

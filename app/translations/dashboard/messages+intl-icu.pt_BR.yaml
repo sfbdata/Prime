@@ -468,3 +468,47 @@ dashboard:
             aba_detalhes: 'Detalhes'
             rodape_total: 'Total: {registros}'
             rodape_restantes: 'Mostrando os {n} mais recentes. Os outros {restantes} também entram no total.'
+    pessoa:
+        abrir_analise: 'Análise de desempenho de {nome}'
+        bloqueado: Seu perfil não pode abrir análises individuais
+        titulo: 'Análise de desempenho · {nome}'
+        voltar_equipe: Equipe
+        carregando: Carregando a análise...
+        erro: Não foi possível carregar a análise. Tente de novo.
+        rotulo: PERFIL DE DESEMPENHO
+        periodo_selecionado: período selecionado
+        sem_dado: Sem dado
+        abrir_lista: 'Abrir: {rotulo} de {nome}'
+        metrica:
+            recebidas: Recebidas
+            concluidas: Concluídas
+            pendentes: Pendentes
+            atrasadas: Atrasadas
+            prazos: Prazos próximos
+            taxa: Taxa de conclusão
+        comparacao:
+            titulo: Comparação com o período anterior
+            comparar: Comparar períodos
+            recebidas: Carga recebida
+            demandas: Demandas
+            atrasadas: Atrasadas
+            de_para: '{anterior} para {atual}'
+            novo: novo
+            legenda: 'Barra escura: período atual · clara: período anterior de mesma duração'
+            sem_base: Sem período anterior comparável. Informe De e Até para comparar.
+        diagnostico: Diagnóstico
+        observado: Observado
+        por_que: Por que chegou a essa conclusão
+        por_que_texto: Leitura por regras fixas sobre os números do Painel para esta pessoa. Nenhum modelo de linguagem foi usado e nenhum número foi estimado.
+        dados_considerados: Quais dados foram considerados?
+        limites: O que esta leitura não sabe
+        ver_tarefas: Ver tarefas
+        marcar_analisado: Marcar como analisado
+        status:
+            analisado: Analisado
+            pendente: Pendente
+        feedback:
+            pergunta: Essa análise ajudou?
+            sim: ✓ Sim
+            nao: ✕ Não
+            parcial: ↗ Parcialmente

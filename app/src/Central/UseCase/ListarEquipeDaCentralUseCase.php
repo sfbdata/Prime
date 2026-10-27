@@ -42,7 +42,7 @@ final class ListarEquipeDaCentralUseCase
         $ids = array_map(static fn (User $u): int => (int) $u->getId(), $pessoas);
         $cargos = $this->usuarios->findCargoPorColaboradores($tenant);
         $fotos = $this->usuarios->findFotoPorColaboradores($tenant);
-        $naCentral = $this->mensagens->naoLidasPorUsuario($tenant, $ids);
+        $naCentral = $this->mensagens->naoLidasPorUsuario($tenant, $ids, semIa: true);
         $noSino = $this->notificacoes->contarNaoLidasPorUsuarios($tenant, $ids);
         $presencas = $this->presencas->doEscritorio($tenant, $ids);
         $limite = $this->clock->now()->modify(sprintf('-%d seconds', PresencaRepository::ONLINE_SEGUNDOS));
