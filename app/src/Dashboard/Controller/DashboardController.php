@@ -7,6 +7,7 @@ namespace App\Dashboard\Controller;
 use App\Dashboard\Inteligencia\MontarLeituraDoDashboard;
 use App\Dashboard\Periodo\PeriodoDoDashboard;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
+use App\Dashboard\UseCase\ObterMarcasDosAlertasUseCase;
 use App\Dashboard\UseCase\ObterPreferenciasDoDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -32,6 +33,7 @@ final class DashboardController extends AbstractController
         private readonly ObterPreferenciasDoDashboardUseCase $obterPreferencias,
         private readonly AcessoAPasta $acessoAPasta,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly ObterMarcasDosAlertasUseCase $obterMarcasDosAlertas,
     ) {}
 
     #[Route('', name: 'dashboard_index', methods: ['GET'])]
@@ -51,6 +53,8 @@ final class DashboardController extends AbstractController
         // colunas extras ("Adicionar coluna") mudam o HTML da tabela, então o fragmento tem de
         // sair com as colunas que ele ligou — e o servidor só calcula essas.
         $preferencias = $this->obterPreferencias->executar($tenant, $currentUser);
+        // Marcas pessoais dos alertas da Central (Resolvido, Ignorar, Aplicar): do usuário logado.
+        $marcasAlertas = $this->obterMarcasDosAlertas->executar($tenant, $currentUser);
 
         // Cadeado (spec pasta-cadeado D1 e D3): as metas das pastas ocultas para quem olha saem dos cards e
         // das colunas de metas, como da lista /tarefas/equipe a que os números levam. Uma consulta só.
@@ -73,6 +77,7 @@ final class DashboardController extends AbstractController
                 'filtros'      => $filtros,
                 'inteligencia' => $leitura,
                 'preferencias' => $preferencias,
+                'marcasAlertas' => $marcasAlertas,
                 'podeMeta'     => $podeGerir,
             ];
 
@@ -126,6 +131,7 @@ final class DashboardController extends AbstractController
             'preferencias'   => $preferencias,
             'filtros'        => $filtros,
             'inteligencia'   => $leitura,
+            'marcasAlertas'  => $marcasAlertas,
             'responsaveis'   => $responsaveis,
             'cargos'         => $cargos,
             'existeSemCargo' => $existeSemCargo,

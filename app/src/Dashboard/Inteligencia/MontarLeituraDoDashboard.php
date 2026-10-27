@@ -25,6 +25,8 @@ final class MontarLeituraDoDashboard
         $ritmo    = $this->motorDeRitmo->analisar($dashboard, $tempo);
         $avancado = $this->motorAvancado->analisar($dashboard, $ritmo);
 
-        return new LeituraDoDashboard($ritmo, $avancado, $agora, $tempo);
+        $ritmoDaMeta = $dashboard->metaDePastas !== null ? RitmoDaMeta::de($dashboard->metaDePastas) : null;
+
+        return new LeituraDoDashboard($ritmo, $avancado, $agora, $tempo, $ritmoDaMeta);
     }
 }

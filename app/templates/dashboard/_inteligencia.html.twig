@@ -12,9 +12,13 @@
    (`dashboard.ia_avancado`, PreferenciasDoDashboardOutput) pelo
    dashboard-preferencias.js, nada guardado no navegador. Ligado, o `.db-page` ganha
    `db-page--ia-avancado`: o bloco avançado aparece e o painel vai a 600px.
-   O que no desenho depende de função ou dado inexistente não é
-   renderizado: plano "Aumentar o nível", Criar tarefa, Resolvido/Ignorar,
-   feedback, simular dia, Inteligência de Desempenho (condição por pessoa).
+   Resolvido, Ignorar e Aplicar/Não se aplicam gravam a marca PESSOAL do alerta
+   (MarcarAlertaDaInteligenciaUseCase, public/js/dashboard-inteligencia.js). Selo,
+   gauge e "Ritmo necessário" saem da meta de pastas do mês, em dias úteis (RitmoDaMeta).
+   O que no desenho depende de função ou dado inexistente não é renderizado:
+   plano "Aumentar o nível", Criar tarefa (não há tela de tarefa avulsa para receber
+   o título), simular dia (controle de teste do protótipo), Inteligência de Desempenho
+   (condição por pessoa).
    Estilo em public/css/dashboard-inteligencia.css (escopo .db-page).
 ─────────────────────────────────────────────────────────────────────────── #}
 {% import _self as ui %}
@@ -27,6 +31,44 @@
     <line x1="13.7" y1="10.3" x2="18.6" y2="5.4" class="db-ia-estrela-traco"></line>
 </svg>
 {% endmacro %}
+{% macro alerta(a, marca) %}
+        <details class="db-ia-alerta db-ia-nivel--{{ a.nivel.value }}{{ marca and marca.status ? ' is-marcado' : '' }}" data-alerta="{{ a.id }}">
+            <summary class="db-ia-alerta-cab">
+                <span class="db-ia-ponto" aria-hidden="true"></span>
+                <span class="db-ia-alerta-texto">
+                    <span class="db-ia-alerta-linha"><span class="db-ia-alerta-titulo">{{ a.titulo }}</span><span class="db-ia-nivel-chip">{{ a.nivel.rotulo }}</span><span class="db-ia-alerta-status" data-ia-status{% if not (marca and marca.status) %} hidden{% endif %}>{% if marca and marca.status %}{{ marca.status == 'resolvido' ? 'dashboard.ia.av.status.resolvido'|trans : 'dashboard.ia.av.status.ignorado'|trans }}{% endif %}</span></span>
+                    <span class="db-ia-alerta-problema">{{ a.problema }}</span>
+                </span>
+                <i class="bi bi-chevron-down db-ia-chevron" aria-hidden="true"></i>
+            </summary>
+            <div class="db-ia-alerta-corpo">
+                {% for k, v in a.linhas %}
+                    <div class="db-ia-kv"><span class="db-ia-kv-k">{{ k }}</span><span class="db-ia-kv-v">{{ v }}</span></div>
+                {% endfor %}
+                {% if a.fatores %}
+                    <div class="db-ia-fatores">{% for f in a.fatores %}<span class="db-ia-fator">{{ f }}</span>{% endfor %}</div>
+                {% endif %}
+                <details class="db-ia-como">
+                    <summary><i class="bi bi-diagram-3" aria-hidden="true"></i>{{ 'dashboard.ia.av.como_montada'|trans }}</summary>
+                    <div class="db-ia-como-corpo">
+                        <div class="db-ia-como-h">{{ 'dashboard.ia.av.dados_analisados'|trans }}</div>
+                        {% for d in a.dados %}<div>→ {{ d }}</div>{% endfor %}
+                        <div class="db-ia-como-h">{{ 'dashboard.ia.av.fatores'|trans }}</div>
+                        {% for f in a.fatores %}<div>→ {{ f }}</div>{% endfor %}
+                    </div>
+                </details>
+                <div class="db-ia-alerta-acoes">
+                    <button type="button" class="db-ia-btn-resolver" data-ia-marcar="resolvido" aria-pressed="{{ marca and marca.status == 'resolvido' ? 'true' : 'false' }}">{{ 'dashboard.ia.av.resolvido'|trans }}</button>
+                    <button type="button" class="db-ia-btn-ignorar" data-ia-marcar="ignorado" aria-pressed="{{ marca and marca.status == 'ignorado' ? 'true' : 'false' }}">{{ 'dashboard.ia.av.ignorar'|trans }}</button>
+                </div>
+                <div class="db-ia-retorno">
+                    <span class="db-ia-retorno-pergunta">{{ 'dashboard.ia.av.recomendacao_se_aplica'|trans }}</span>
+                    <button type="button" class="db-ia-retorno-btn" data-ia-marcar="sim" aria-pressed="{{ marca and marca.feedback == 'sim' ? 'true' : 'false' }}"><i class="bi bi-check2" aria-hidden="true"></i>{{ 'dashboard.ia.av.aplicar'|trans }}</button>
+                    <button type="button" class="db-ia-retorno-btn" data-ia-marcar="nao" aria-pressed="{{ marca and marca.feedback == 'nao' ? 'true' : 'false' }}"><i class="bi bi-x-lg" aria-hidden="true"></i>{{ 'dashboard.ia.av.nao_se_aplica'|trans }}</button>
+                </div>
+            </div>
+        </details>
+{% endmacro %}
 {% macro fmt(v) %}{{ (v|round(1) ~ '')|replace({'.': ','}) }}{% endmacro %}
 
 {% set ritmo = inteligencia.ritmo %}
@@ -38,6 +80,8 @@
 {# Estado do Modo avançado do usuário logado. `preferencias` chega no render completo e no XHR;
    sem ela, o painel abre no modo básico, que é o padrão. #}
 {% set iaAvancado = preferencias is defined and preferencias.iaAvancadoLigado() %}
+{# Marcas pessoais dos alertas (Resolvido, Ignorar, Aplicar). #}
+{% set marcas = marcasAlertas is defined ? marcasAlertas : {} %}
 
 <div class="db-ia">
     <button type="button" class="db-ia-abrir{{ inteligencia.temAlerta ? ' is-alerta' : '' }}" popovertarget="dbIaPainel" aria-label="{{ 'dashboard.ia.abrir'|trans }}" aria-describedby="dbIaDica">
@@ -141,38 +185,17 @@
                                 <span class="db-ia-chip db-ia-nivel--{{ c.nivel.value }}{{ c.total == 0 ? ' is-vazio' : '' }}"><b>{{ c.total }}</b> {{ c.nivel.rotulo|lower }}</span>
                             {% endfor %}
                         </div>
-                        <div class="db-ia-alertas">
-                            {% for a in av.alertas %}
-                                <details class="db-ia-alerta db-ia-nivel--{{ a.nivel.value }}" data-alerta="{{ a.id }}">
-                                    <summary class="db-ia-alerta-cab">
-                                        <span class="db-ia-ponto" aria-hidden="true"></span>
-                                        <span class="db-ia-alerta-texto">
-                                            <span class="db-ia-alerta-linha"><span class="db-ia-alerta-titulo">{{ a.titulo }}</span><span class="db-ia-nivel-chip">{{ a.nivel.rotulo }}</span></span>
-                                            <span class="db-ia-alerta-problema">{{ a.problema }}</span>
-                                        </span>
-                                        <i class="bi bi-chevron-down db-ia-chevron" aria-hidden="true"></i>
-                                    </summary>
-                                    <div class="db-ia-alerta-corpo">
-                                        {% for k, v in a.linhas %}
-                                            <div class="db-ia-kv"><span class="db-ia-kv-k">{{ k }}</span><span class="db-ia-kv-v">{{ v }}</span></div>
-                                        {% endfor %}
-                                        {% if a.fatores %}
-                                            <div class="db-ia-fatores">{% for f in a.fatores %}<span class="db-ia-fator">{{ f }}</span>{% endfor %}</div>
-                                        {% endif %}
-                                        <details class="db-ia-como">
-                                            <summary><i class="bi bi-diagram-3" aria-hidden="true"></i>{{ 'dashboard.ia.av.como_montada'|trans }}</summary>
-                                            <div class="db-ia-como-corpo">
-                                                <div class="db-ia-como-h">{{ 'dashboard.ia.av.dados_analisados'|trans }}</div>
-                                                {% for d in a.dados %}<div>→ {{ d }}</div>{% endfor %}
-                                                <div class="db-ia-como-h">{{ 'dashboard.ia.av.fatores'|trans }}</div>
-                                                {% for f in a.fatores %}<div>→ {{ f }}</div>{% endfor %}
-                                            </div>
-                                        </details>
-                                    </div>
-                                </details>
-                            {% else %}
-                                <div class="db-ia-vazio">{{ 'dashboard.ia.av.sem_alerta'|trans }}</div>
+                        <div class="db-ia-alertas" data-ia-alertas data-url="{{ path('dashboard_inteligencia_alerta_marcar') }}" data-rotulo-resolvido="{{ 'dashboard.ia.av.status.resolvido'|trans }}" data-rotulo-ignorado="{{ 'dashboard.ia.av.status.ignorado'|trans }}">
+                            {# Os já marcados descem para o fim da lista, esmaecidos (dc L2517). #}
+                            {% for a in av.alertas|filter(x => not (marcas[x.id].status ?? null)) %}
+                                {{ ui.alerta(a, marcas[a.id] ?? null) }}
                             {% endfor %}
+                            {% for a in av.alertas|filter(x => marcas[x.id].status ?? null) %}
+                                {{ ui.alerta(a, marcas[a.id]) }}
+                            {% endfor %}
+                            {% if not av.alertas %}
+                                <div class="db-ia-vazio">{{ 'dashboard.ia.av.sem_alerta'|trans }}</div>
+                            {% endif %}
                         </div>
                     </section>
 
@@ -218,7 +241,7 @@
                     <section class="db-ia-bloco db-ia-perguntas">
                         <div class="db-ia-secao-cab"><i class="bi bi-chat-square-text" aria-hidden="true"></i><span>{{ 'dashboard.ia.av.perguntas'|trans }}</span></div>
                         {% for p in av.perguntas %}
-                            <details class="db-ia-pergunta">
+                            <details class="db-ia-pergunta" name="dbIaPergunta">
                                 <summary>{{ p.pergunta }}</summary>
                                 <div class="db-ia-resposta"><i class="bi bi-stars" aria-hidden="true"></i><span>{{ p.resposta }}</span></div>
                             </details>
@@ -227,10 +250,33 @@
                 </div>
             </div>
 
+            {# Selo, gauge, Ritmo atual e Ritmo necessário (dc L1198-1218): do ritmo da META DE PASTAS
+               do mês, em dias úteis. Só aparece com meta definida e o painel no mês inteiro sem
+               responsável nem cargo (o recorte em que o número do card é o do escritório). #}
+            {% if inteligencia.ritmoDaMeta %}
+                {% set rm = inteligencia.ritmoDaMeta %}
+                <section class="db-ia-bloco db-ia-meta-ritmo db-ia-estado--{{ rm.estado.value }}" data-estado="{{ rm.estado.value }}">
+                    <div class="db-ia-selo-linha">
+                        <span class="db-ia-selo"><span class="db-ia-selo-ponto" aria-hidden="true"></span>{{ rm.estado.chaveDoRotulo|trans }}</span>
+                        <span class="db-ia-selo-espaco"></span>
+                        <span class="db-ia-dia">{{ 'dashboard.ia.dia_util_de'|trans({dia: rm.diaUtil ~ '', total: rm.diasUteisTotal ~ ''}) }}</span>
+                    </div>
+                    <div class="db-ia-gauge" role="img" aria-label="{{ rm.estado.chaveDoRotulo|trans }}">
+                        <span class="db-ia-gauge-faixa"></span><span class="db-ia-gauge-faixa"></span><span class="db-ia-gauge-faixa"></span><span class="db-ia-gauge-faixa"></span>
+                        <span class="db-ia-gauge-marcador" style="left:{{ rm.estado.posicao }}%"></span>
+                    </div>
+                    <div class="db-ia-ritmo-grade db-ia-ritmo-grade--selo">
+                        <div class="db-ia-mini"><div class="db-ia-mini-rotulo">{{ 'dashboard.ia.ritmo_atual'|trans }}</div><div class="db-ia-mini-valor">{{ ui.fmt(rm.ritmoAtual) }}<span class="db-ia-mini-un"> {{ 'dashboard.ia.por_dia'|trans }}</span></div></div>
+                        <div class="db-ia-mini"><div class="db-ia-mini-rotulo">{{ 'dashboard.ia.ritmo_necessario'|trans }}</div><div class="db-ia-mini-valor {{ rm.precisaAcelerar ? 'is-acelerar' : 'is-folga' }}">{{ rm.ritmoNecessario is null ? 'dashboard.ia.nd'|trans : ui.fmt(rm.ritmoNecessario) }}{% if rm.ritmoNecessario is not null %}<span class="db-ia-mini-un"> {{ 'dashboard.ia.por_dia'|trans }}</span>{% endif %}</div></div>
+                    </div>
+                    <div class="db-ia-barra-legenda"><span>{{ 'dashboard.ia.meta_de_pastas_legenda'|trans({feitas: rm.realizado ~ '', meta: rm.meta ~ ''}) }}</span></div>
+                </section>
+            {% endif %}
+
             {# ── Leitura básica ─────────────────────────────────────────────────
-               s1 do desenho (dc L1281-1299) sem o selo de estado nem o "ritmo
-               necessário" (não classificado): entrada e conclusão por dia, só com
-               período; números do período e a taxa de conclusão. #}
+               Números das metas do período: entrada e conclusão por dia (só com
+               período), contagens e a taxa de conclusão. O selo e o "ritmo necessário"
+               ficam no bloco da meta de pastas, acima. #}
             <section class="db-ia-bloco db-ia-ritmo">
                 {% if ritmo.tempo %}
                     {# "dia X de Y" no topo do bloco de ritmo, à direita (dc L1282-1286). #}
