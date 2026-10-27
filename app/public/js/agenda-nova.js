@@ -27,6 +27,10 @@
         com: [BJ_T.t('agenda.js.calendario.com'), '#c2457a', '#fce7f0'],
         trib: [BJ_T.t('agenda.js.calendario.trib'), '#334e8a', '#e4eaf6'],
         aniv: [BJ_T.t('agenda.js.calendario.aniv'), '#d1477a', '#fde8f0'],
+        /* Tipos da tela 1A (docs/specs/agenda-1a.md): a tela de 18/10 só os mostra, não os oferece no formulário. */
+        urg: [BJ_T.t('agenda.js.calendario.urg'), '#f56954', '#fdeeea'],
+        pess: [BJ_T.t('agenda.js.calendario.pess'), '#605ca8', '#efeef8'],
+        lemb: [BJ_T.t('agenda.js.calendario.lemb'), '#00c0ef', '#e5f6fb'],
     };
     const DO_SISTEMA = ['fer', 'est', 'forense', 'com', 'trib', 'aniv'];
     const MES = [BJ_T.t('agenda.js.datas.mes.janeiro'), BJ_T.t('agenda.js.datas.mes.fevereiro'), BJ_T.t('agenda.js.datas.mes.marco'), BJ_T.t('agenda.js.datas.mes.abril'), BJ_T.t('agenda.js.datas.mes.maio'), BJ_T.t('agenda.js.datas.mes.junho'), BJ_T.t('agenda.js.datas.mes.julho'), BJ_T.t('agenda.js.datas.mes.agosto'), BJ_T.t('agenda.js.datas.mes.setembro'), BJ_T.t('agenda.js.datas.mes.outubro'), BJ_T.t('agenda.js.datas.mes.novembro'), BJ_T.t('agenda.js.datas.mes.dezembro')];

@@ -25,7 +25,7 @@ final readonly class CompromissoInput
         #[Assert\NotBlank(message: 'Informe o título.')]
         #[Assert\Length(max: 255, maxMessage: 'O título passa de {{ limit }} caracteres.')]
         public string $titulo,
-        #[Assert\Choice(choices: ['meus', 'aud', 'reun', 'prazo'], message: 'Tipo de compromisso inválido.')]
+        #[Assert\Choice(choices: ['meus', 'aud', 'reun', 'prazo', 'urg', 'pess', 'lemb'], message: 'Tipo de compromisso inválido.')]
         public string $tipo,
         #[Assert\NotBlank(message: 'Informe a data.')]
         #[Assert\Date(message: 'Data inválida.')]
