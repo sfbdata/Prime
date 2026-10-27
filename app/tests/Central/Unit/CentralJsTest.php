@@ -85,4 +85,14 @@ final class CentralJsTest extends TestCase
         // estado vazio: só sugestões que o servidor sabe responder (sem o resumo da pasta, PR 4) e sem innerHTML (SVG por createElementNS)
         self::assertStringContainsString('createElementNS', $js);
     }
+
+    #[TestDox('Pergunta presa destrava o campo, 503 relê o histórico e a pergunta tem limite de 2000')]
+    public function testIaNaoTravaOCampoNemDuplicaAPergunta(): void
+    {
+        $js = (string) file_get_contents(self::DIR . 'central.js');
+        self::assertStringContainsString('ESPERA_MAXIMA_DA_IA', $js);
+        self::assertStringContainsString('raiz.dataset.iaDemora', $js);
+        self::assertMatchesRegularExpression('/e\.status === 503[\s\S]*?\/mensagens/', $js);
+        self::assertStringContainsString('TAMANHO_MAXIMO_DA_PERGUNTA = 2000', $js);
+    }
 }

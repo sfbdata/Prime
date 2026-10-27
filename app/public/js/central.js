@@ -64,6 +64,7 @@
             funcao: raiz.dataset.iaFuncao || '',
             vazioTitulo: raiz.dataset.iaVazioTitulo || '',
             vazioTexto: raiz.dataset.iaVazioTexto || '',
+            demora: raiz.dataset.iaDemora || '',
             digitando: raiz.dataset.iaDigitando || '',
             aviso: raiz.dataset.iaAviso || '',
             placeholder: raiz.dataset.iaPlaceholder || '',
@@ -78,6 +79,8 @@
         } catch (e) { ia.sugestoes = []; }
         var NS_SVG = 'http://www.w3.org/2000/svg';
         var meuNome = raiz.dataset.euNome || '';
+        var TAMANHO_MAXIMO_DA_PERGUNTA = 2000;   /* PerguntarABlueJusIaInput */
+        var ESPERA_MAXIMA_DA_IA = 11 * 60 * 1000;   /* os 10 min do servidor + folga: depois disso a pergunta presa não conta mais */
         var tamanhoMaximo = Number(raiz.dataset.tamanhoMaximo) || 4000;   // Mensagem::TAMANHO_MAXIMO
         var el = {
             voltar: raiz.querySelector('[data-central-voltar]'),
@@ -1409,8 +1412,9 @@
         function enviar() {
             var texto = el.campo.value.trim();
             if (!estado.aberta || texto === '' || estado.enviando || iaBloqueada()) { return; }
-            if (tamanhoVisivel(texto) > tamanhoMaximo) {
-                avisar('A mensagem passa de ' + tamanhoMaximo + ' caracteres (tem ' + tamanhoVisivel(texto) + ').');
+            var limite = estado.aberta.ia ? TAMANHO_MAXIMO_DA_PERGUNTA : tamanhoMaximo;
+            if (tamanhoVisivel(texto) > limite) {
+                avisar('A mensagem passa de ' + limite + ' caracteres (tem ' + tamanhoVisivel(texto) + ').');
                 return;
             }
             if (estado.aberta.ia) { perguntarAIa(texto); return; }
@@ -1430,6 +1434,12 @@
             }).catch(function (e) {
                 if (e.sessao) { tratarFalha(e); return; }
                 avisar(e.message);
+                // 503: a pergunta já estava gravada quando a fila falhou; relê o histórico para não reenviar em duplicidade
+                if (e.status === 503 && estado.aberta && estado.aberta.id === id) {
+                    el.campo.value = '';
+                    ajustarAltura();
+                    return pedir(urls.base + '/' + id + '/mensagens').then(function (pagina) { anexarAoFim(pagina.mensagens || []); }).catch(function () {});
+                }
             }).finally(function () {
                 estado.enviando = false;
                 el.enviar.disabled = false;
@@ -1444,7 +1454,7 @@
             estado.enviando = true;
             atualizarCampoDaIa();
             pedir(urls.iaPergunta, { metodo: 'POST', corpo: { conteudo: texto } }).then(function (dados) {
-                estado.iaAguardando = { analiseId: dados.analiseId, conversaId: dados.conversaId, semFala: 0 };
+                estado.iaAguardando = { analiseId: dados.analiseId, conversaId: dados.conversaId, semFala: 0, desde: Date.now() };
                 if (dados.emAndamento !== true) {   // 201: a pergunta foi gravada; 202: o texto novo NÃO foi, o rascunho fica
                     el.campo.value = '';
                     ajustarAltura();
@@ -1481,6 +1491,11 @@
         function conferirPerguntaDaIa() {
             var pendente = estado.iaAguardando;
             if (!pendente || estado.iaConsultando) { return; }
+            if (Date.now() - pendente.desde > ESPERA_MAXIMA_DA_IA) {   // worker parado: não trava o campo para sempre
+                encerrarPerguntaDaIa();
+                if (ia.demora) { avisar(ia.demora); }
+                return;
+            }
             estado.iaConsultando = true;
             pedir(urls.iaStatus + pendente.analiseId).then(function (d) {
                 if (estado.iaAguardando !== pendente) { return; }   // a fala chegou enquanto a consulta ia
