@@ -236,8 +236,10 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         $this->conectar();
         $this->logarComTenant($this->client, $this->primario, $this->escritorio);
 
-        self::assertStringNotContainsString('cora.com.br', $this->pix(1000001)['codigo'], 'acima do teto do apoio: estático');
-        for ($reais = 5; $reais < 15; ++$reais) {
+        // O controller limita o valor pedido ao teto do apoio (R$ 1.000.000): acima disso vale o teto, e o teto ainda é cobrável.
+        self::assertStringContainsString('cora.com.br', $this->pix(1000001)['codigo'], 'acima do teto do apoio: vale o teto');
+        // A do teto foi a 1ª do dia; mais 9 completam as 10 permitidas.
+        for ($reais = 5; $reais < 14; ++$reais) {
             self::assertStringContainsString('cora.com.br', $this->pix($reais)['codigo']);
         }
         self::assertStringNotContainsString('cora.com.br', $this->pix(15)['codigo'], 'a 11ª cobrança do dia não é criada');
