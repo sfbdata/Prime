@@ -79,7 +79,7 @@ final class ObterPerfilDaPessoaUseCase
     private function metricas(LinhaAdvogadoDashboardOutput $l): array
     {
         $zr      = $l->colunasZeradas;
-        $urlDaLista    = static fn (string $coluna, string $status): ?string => in_array($coluna, $zr, true) ? null : $status;
+        $urlDaLista = static fn (string $coluna, string $status): ?string => in_array($coluna, $zr, true) ? null : $status;
 
         return [
             new MetricaDaPessoaOutput('recebidas', $l->totalMetas, false, $urlDaLista('metas', 'todas'), true),
