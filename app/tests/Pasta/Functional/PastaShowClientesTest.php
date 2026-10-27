@@ -230,6 +230,7 @@ final class PastaShowClientesTest extends JusPrimeWebTestCase
         $pfMascarado = $this->novoPf($tenant, 'Ana Mascarada', '444.555.666-77');
         $pfCru       = $this->novoPf($tenant, 'Bruno Cru', '55566677788');
         $pj          = $this->novoPj($tenant, 'ACME Servicos Ltda', '12345678000190');
+        $pfMascarado->setTelefoneCelular('61999887766');
         foreach ([$pfMascarado, $pfCru, $pj] as $c) {
             $em->persist($c);
             $pasta->addCliente($c);
@@ -246,6 +247,9 @@ final class PastaShowClientesTest extends JusPrimeWebTestCase
         $a = $linha($pfMascarado->getId());
         self::assertSame('CPF', trim($a->filter('.cliente-doc-rotulo')->text()));
         self::assertSame('444.555.666-77', trim($a->filter('.cliente-doc-valor')->text()));
+        // Telefone ao lado do documento (desenho 27.10, `c.temTel`); sem telefone, a linha não mostra nada.
+        self::assertSame('(61) 99988-7766', trim($a->filter('.cliente-doc > .cliente-tel')->text()));
+        self::assertCount(0, $linha($pfCru->getId())->filter('.cliente-tel'));
 
         // Gravado sem máscara, mas a tela não pode mostrar "55566677788".
         $b = $linha($pfCru->getId());

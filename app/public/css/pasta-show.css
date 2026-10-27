@@ -2454,6 +2454,9 @@ span.ps-situacao-pill { cursor: default; }
 }
 .ps-clientes .ps-selo-principal { flex-shrink: 0; }
 .ps-clientes .cliente-doc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 10px;
     font-variant-numeric: tabular-nums;
     font-size: 11.5px;
     color: var(--ps-label);
@@ -2461,6 +2464,9 @@ span.ps-situacao-pill { cursor: default; }
 }
 /* "CPF 006…" num texto só, peso normal (N10, dc L.1385 e L.6115): o rótulo não se destaca. */
 .ps-clientes .cliente-doc-rotulo { font-weight: inherit; margin-right: 0; }
+/* Telefone ao lado do documento (dc 27.10, `c.temTel`) */
+.ps-clientes .cliente-tel { white-space: nowrap; }
+.ps-clientes .cliente-tel .bi { font-size: 10.5px; }
 .ps-clientes .cliente-principal {
     background: var(--ps-cli-principal);
     border-radius: 0;
@@ -6078,3 +6084,39 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-nm-etapa-on-setor:  rgba(255,255,255,.8);
     --ps-nm-etapa-dica:      #45b0d6;
 }
+
+/* Marcadores do sistema (dc 27.10, `cheio` x `ponto`): cabeçalho branco do cartão e a bolinha da linha do tempo. */
+.ps-registro .ps-anotacao-fase {
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+    margin: -12px -16px 10px; padding: 9px 16px;
+    background: #fff; border-bottom: 1px solid #edf0f3; border-radius: 4px 4px 0 0;
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #3a4a55;
+}
+.ps-registro .ps-anotacao-fase-rot {
+    margin-left: auto; min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis;
+    letter-spacing: .02em; text-transform: none; font-size: 12px; font-weight: 700; white-space: pre;
+}
+.ps-registro .ps-marcador-ponto { position: relative; height: 16px; margin: 0 0 6px; cursor: pointer; }
+.ps-registro .ps-marcador-ponto-bola {
+    position: absolute; left: -29px; top: 2px; width: 13px; height: 13px; border-radius: 50%;
+    border: 2px solid #fff; background: #5aa6d2; box-shadow: 0 0 0 1px #c9dbe6; box-sizing: border-box;
+}
+.ps-registro .ps-marcador-ponto-n {
+    position: absolute; left: -10px; top: 1px; height: 15px; min-width: 15px; padding: 0 5px; box-sizing: border-box;
+    border-radius: 8px; background: #e5f1f7; color: #0a6fa0; font: bold 10.5px/15px Arial; text-align: center;
+}
+.ps-registro .ps-anotacao--marcador-oculto,
+.ps-registro .ps-dia--marcador-oculto { display: none; }
+/* Chave "Marcadores do sistema" no cabeçalho do cartão (dc L1390) */
+.ps-marcadores-tg {
+    display: flex; align-items: center; gap: 8px; border: none; background: transparent; padding: 4px 6px;
+    font: inherit; font-size: 12px; color: #5b7383; cursor: pointer; border-radius: 3px;
+}
+.ps-marcadores-tg:hover { background: #e8eef2; }
+.ps-marcadores-tg-trilho { width: 34px; height: 18px; border-radius: 9px; background: #c9d3da; position: relative; transition: background .2s; }
+.ps-marcadores-tg-bola {
+    position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: left .2s;
+}
+.ps-marcadores-tg[aria-checked="true"] .ps-marcadores-tg-trilho { background: #0a6fa0; }
+.ps-marcadores-tg[aria-checked="true"] .ps-marcadores-tg-bola { left: 18px; }

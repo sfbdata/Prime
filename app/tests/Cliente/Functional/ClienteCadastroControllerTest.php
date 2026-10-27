@@ -63,7 +63,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Cadastro e qualificação do cliente', $c->filter('.cad-janela')->attr('aria-label'));
-        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'endereco', 'contato', 'docs', 'reu', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame('GLEISSON BRUNO GABRIEL', trim($c->filter('.js-cad-nome')->text()));
         self::assertSame('CPF ' . $cliente->getCpf(), trim($c->filter('.js-cad-doc')->text()), 'subtítulo com o número, não só o rótulo');
         self::assertSame('Número não informado', $c->filter('input[name="numero"]')->attr('data-obrig'));
@@ -396,7 +396,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('1', $c->filter('[data-cad-janela]')->attr('data-novo'));
         self::assertSame('WELTON ALVES DA SILVA', trim($c->filter('.js-cad-nome')->text()));
         self::assertSame('WELTON ALVES DA SILVA', $c->filter('input[name="nome"]')->attr('value'));
-        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'endereco', 'contato', 'reu', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame(['Pessoa física', 'Empresa'], $c->filter('.js-cad-tipo')->each(fn ($b) => trim($b->text())));
     }
 

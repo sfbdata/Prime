@@ -1,5 +1,6 @@
 /* Andamento da pasta em fases, desenho 1.2.3 (dc L.1298-1321), E12b. */
 .ps-and { min-width: 0; padding: 0 16px; margin: 4px 150px 0 0; }
+.ps-and-rotulo { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9aabb7; margin: 0 0 6px 2px; }
 .ps-and-rol { display: flex; align-items: flex-start; overflow-x: auto; padding-bottom: 4px; }
 .bjFasesRol { scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color .2s; }
 .bjFasesRol:hover { scrollbar-color: #b9c7d2 transparent; }

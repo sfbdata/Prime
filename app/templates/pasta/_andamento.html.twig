@@ -11,6 +11,7 @@
      data-atual="{{ andamento.atual }}" data-ultima="{{ ultima }}" data-pasta="{{ pasta.id }}"
      data-pode="{{ podeMudarFase ? '1' : '0' }}"
      style="max-width: {{ max(820, andamento.fases|length * 104) }}px;">
+    <div class="ps-and-rotulo">{{ 'pasta_documentos.anotacoes.linha_do_tempo'|trans }}</div>
     <div class="ps-and-rol bjFasesRol">
         {% for f in andamento.fases %}
             {% set k = f.indice %}
