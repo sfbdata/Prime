@@ -7,10 +7,15 @@ namespace App\Master\Controller;
 use App\Entity\Auth\User;
 use App\Master\DTO\LancarCustoInput;
 use App\Master\Exception\CustoRecusado;
+use App\Master\Service\ArquivoDeCustosCsv;
 use App\Master\UseCase\CopiarCustosDoMesAnteriorUseCase;
 use App\Master\UseCase\ExcluirLancamentoDeCustoUseCase;
+use App\Master\UseCase\ExportarCustosUseCase;
+use App\Master\UseCase\ImportarCustosUseCase;
 use App\Master\UseCase\LancarCustoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,7 +24,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Ações de gravação da seção "Custos" do Painel do Master (spec docs/specs/master-custos.md): lançar, excluir e copiar
- * do mês anterior. Só o Master; token CSRF `master_custos` no header `X-CSRF-Token`. 422 com a mensagem do motivo.
+ * do mês anterior, importar e exportar CSV. Só o Master; token CSRF `master_custos` no header `X-CSRF-Token`. 422 com a mensagem do motivo.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 #[Route('/master/custos')]
@@ -77,6 +82,40 @@ final class CustosMasterAcoesController extends AbstractController
         }
 
         return $this->json(['copiados' => $copiados], Response::HTTP_CREATED);
+    }
+
+    #[Route('/exportar', name: 'master_custos_exportar', methods: ['GET'])]
+    public function exportar(ExportarCustosUseCase $useCase): Response
+    {
+        $resposta = new Response($useCase->executar());
+        $resposta->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $resposta->headers->set('Content-Disposition', HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, 'custos-bluejus.csv'));
+
+        return $resposta;
+    }
+
+    #[Route('/importar', name: 'master_custos_importar', methods: ['POST'])]
+    public function importar(Request $request, ImportarCustosUseCase $useCase): JsonResponse
+    {
+        $barrada = $this->barrar($request);
+        if ($barrada !== null) {
+            return $barrada;
+        }
+        $arquivo = $request->files->get('arquivo');
+        $mes = $request->request->get('mes');
+        if (!$arquivo instanceof UploadedFile || !$arquivo->isValid()) {
+            return $this->json(['erro' => 'Escolha o arquivo CSV.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            // Só leitura em memória: o arquivo não é guardado, o que vale é o que virou lançamento.
+            $conteudo = (string) file_get_contents($arquivo->getPathname(), false, null, 0, ArquivoDeCustosCsv::TAMANHO_MAXIMO + 1);
+            $resultado = $useCase->executar($conteudo, is_string($mes) ? $mes : '', $this->ator());
+        } catch (CustoRecusado $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json($resultado, Response::HTTP_CREATED);
     }
 
     private function barrar(Request $request): ?JsonResponse

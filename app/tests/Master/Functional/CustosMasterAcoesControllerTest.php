@@ -15,10 +15,11 @@ use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Zenstruck\Foundry\Test\Factories;
 
-/** Gravação da seção Custos (spec master-custos PR 3): só Master, CSRF, validação, copiar e excluir. */
+/** Gravação da seção Custos (spec master-custos PR 3 e 4): só Master, CSRF, validação, copiar, excluir, importar e exportar. */
 final class CustosMasterAcoesControllerTest extends JusPrimeWebTestCase
 {
     use Factories;
@@ -106,6 +107,67 @@ final class CustosMasterAcoesControllerTest extends JusPrimeWebTestCase
 
         $this->enviar('/master/custos/copiar', ['mes' => '2032-08'], $token);
         self::assertResponseStatusCodeSame(422);
+    }
+
+    #[TestDox('importa o CSV como importado e conta as linhas ignoradas; sem linha válida dá 422')]
+    public function testImportar(): void
+    {
+        $token = $this->entrar(['ROLE_SUPER_ADMIN']);
+        $antes = $this->em->getRepository(LancamentoDeCusto::class)->count(['mes' => '2033-03']);
+
+        $r = $this->importar("Mês;Categoria;Fornecedor;Valor\n2033-03;Armazenamento;B2;12,50\n2033-03;Outros;Zero;0\n", $token);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(['importados' => 1, 'ignoradas' => 1], $r);
+        $this->em->clear();
+        $novos = $this->em->getRepository(LancamentoDeCusto::class)->doMes('2033-03');
+        self::assertCount($antes + 1, $novos);
+        self::assertSame(OrigemDoCusto::Importado, $novos[0]->getOrigem());
+        self::assertSame(1250, $novos[0]->getValorCentavos());
+
+        $this->importar("Mês;Categoria;Fornecedor;Valor\n", $token);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    #[TestDox('importar sem token CSRF válido recusa')]
+    public function testImportarSemCsrf(): void
+    {
+        $this->entrar(['ROLE_SUPER_ADMIN']);
+
+        $this->importar("Mês;Categoria;Fornecedor;Valor\n2033-03;Outros;X;1\n", 'errado');
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('exporta CSV com BOM e os lançamentos; quem não é Master recebe 403')]
+    public function testExportar(): void
+    {
+        $this->entrar(['ROLE_SUPER_ADMIN']);
+        $this->em->persist(new LancamentoDeCusto('2034-01', CategoriaDeCusto::Trafego, 7500, OrigemDoCusto::Estimado, 'CDN', null, new \DateTimeImmutable()));
+        $this->em->flush();
+
+        $this->client->request('GET', '/master/custos/exportar');
+
+        self::assertResponseIsSuccessful();
+        $corpo = (string) $this->client->getResponse()->getContent();
+        self::assertStringStartsWith("\u{FEFF}", $corpo);
+        self::assertStringContainsString('"2034-01";"Tráfego";"CDN";"75,00";"Estimado";""', $corpo);
+        self::assertStringContainsString('attachment', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+
+        $this->entrar(['ROLE_USER']);
+        $this->client->request('GET', '/master/custos/exportar');
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    /** @return array<string, mixed> */
+    private function importar(string $conteudo, string $token): array
+    {
+        $caminho = tempnam(sys_get_temp_dir(), 'cst');
+        file_put_contents((string) $caminho, $conteudo);
+        $this->client->request('POST', '/master/custos/importar', ['mes' => '2033-03'], ['arquivo' => new UploadedFile((string) $caminho, 'custos.csv', 'text/csv', null, true)], ['HTTP_X-CSRF-Token' => $token]);
+        $dados = json_decode((string) $this->client->getResponse()->getContent(), true);
+
+        return is_array($dados) ? $dados : [];
     }
 
     /** @return array<string, string> */
