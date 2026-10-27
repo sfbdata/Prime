@@ -57,6 +57,8 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         self::assertSame((string) static::getContainer()->get(PlanoRepository::class)->free()->getCotaGb(), $d['valores']['freeGb']);
         self::assertSame((string) static::getContainer()->get(ConfiguracaoDoEspacoRepository::class)->atual()->getFaixaAlerta(), $d['valores']['aviso']);
         self::assertSame('BlueJus', $d['padroes']['nome']);
+        self::assertSame('nao-responda@bluejus.com.br', $d['padroes']['remetente'], 'padrão do ambiente (MAILER_FROM)');
+        self::assertSame('nao-responda@bluejus.com.br', $d['valores']['remetente']);
         self::assertSame('24', $d['padroes']['sessao'], 'padrão do ambiente (app.sessao_padrao_minutos), não o 480 estático');
     }
 
@@ -172,6 +174,31 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $this->em->clear();
         self::assertArrayNotHasKey('sessao', $this->gravada()?->getValores() ?? []);
+    }
+
+    #[TestDox('`remetente` só é gravado quando difere do MAILER_FROM: salvar sem mudar não grava, mudar grava, voltar apaga')]
+    public function testRemetenteSoGravaQuandoDifereDoAmbiente(): void
+    {
+        $this->entrarComoMaster();
+
+        $this->postar([]);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->gravada(), 'salvar sem mudar nada não cria linha');
+
+        $this->postar(['nome' => 'Outro nome', 'remetente' => 'nao-responda@bluejus.com.br']);
+        self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('remetente', $this->gravada()?->getValores() ?? []);
+
+        $this->postar(['nome' => 'Outro nome', 'remetente' => 'envio@exemplo.com']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertSame('envio@exemplo.com', $this->gravada()?->getValores()['remetente'] ?? null);
+        self::assertSame('envio@exemplo.com', static::getContainer()->get(\App\Shared\Contract\ConfiguracaoDaPlataforma::class)->valor('remetente'));
+
+        $this->postar(['nome' => 'Outro nome', 'remetente' => 'nao-responda@bluejus.com.br']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertArrayNotHasKey('remetente', $this->gravada()?->getValores() ?? []);
     }
 
     #[TestDox('aviso de manutenção: aparece para o usuário logado enquanto vale, some depois do prazo e sem texto')]

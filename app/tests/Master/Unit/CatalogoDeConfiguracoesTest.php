@@ -14,11 +14,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeConfiguracoes::class)]
 final class CatalogoDeConfiguracoesTest extends TestCase
 {
-    #[TestDox('os padrões são os do desenho (DEF, 05 VS 25.10.26 L955) e o catálogo tem os 14 campos')]
+    #[TestDox('os padrões são os do desenho (DEF, 05 VS 25.10.26 L955; o remetente é o do MAILER_FROM) e o catálogo tem os 14 campos')]
     public function testPadroesDoDesenho(): void
     {
         self::assertSame([
-            'nome' => 'BlueJus', 'remetente' => 'contato@bluejus.com.br', 'suporte' => 'bluejus.86@gmail.com',
+            'nome' => 'BlueJus', 'remetente' => 'nao-responda@bluejus.com.br', 'suporte' => 'bluejus.86@gmail.com',
             'cadastro' => 'on', 'freeGb' => '10', 'aviso' => '90',
             'sessao' => '480', 'tentativas' => '5', 'dois' => 'master', 'retencao' => '365',
             'idioma' => 'pt-BR', 'fuso' => 'America/Sao_Paulo', 'manut' => '', 'manutAte' => '',
@@ -79,5 +79,18 @@ final class CatalogoDeConfiguracoesTest extends TestCase
         self::assertSame('24', CatalogoDeConfiguracoes::grupos($sobrepor)['seguranca']['sessao']['padrao']);
         self::assertSame('24', CatalogoDeConfiguracoes::normalizar([], $sobrepor)['sessao']);
         self::assertSame('480', CatalogoDeConfiguracoes::normalizar([])['sessao'], 'sem sobreposição, o estático');
+    }
+
+    #[TestDox('O padrão do ambiente troca `remetente` pelo endereço do MAILER_FROM (sem o nome); inválido ou ausente, o estático')]
+    public function testSobreposicaoDoRemetente(): void
+    {
+        $sobrepor = CatalogoDeConfiguracoes::sobreposicoes(24, 'Equipe <envio@exemplo.test>');
+
+        self::assertSame('envio@exemplo.test', $sobrepor['remetente']);
+        self::assertSame('envio@exemplo.test', CatalogoDeConfiguracoes::padroes($sobrepor)['remetente']);
+        self::assertSame('envio@exemplo.test', CatalogoDeConfiguracoes::normalizar([], $sobrepor)['remetente']);
+        self::assertArrayNotHasKey('remetente', CatalogoDeConfiguracoes::sobreposicoes(24));
+        self::assertArrayNotHasKey('remetente', CatalogoDeConfiguracoes::sobreposicoes(24, 'lixo'));
+        self::assertSame('nao-responda@bluejus.com.br', CatalogoDeConfiguracoes::padroes()['remetente']);
     }
 }

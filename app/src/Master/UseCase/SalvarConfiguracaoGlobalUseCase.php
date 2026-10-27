@@ -46,6 +46,8 @@ final class SalvarConfiguracaoGlobalUseCase
         private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
         #[Autowire('%app.sessao_padrao_minutos%')]
         private readonly ?int $sessaoPadraoMinutos = null,
+        #[Autowire('%mailer_from%')]
+        private readonly ?string $mailerFrom = null,
     ) {
     }
 
@@ -53,7 +55,7 @@ final class SalvarConfiguracaoGlobalUseCase
     {
         $novos = CatalogoDeConfiguracoes::normalizar(
             $input->valores,
-            $this->sessaoPadraoMinutos === null ? [] : CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos),
+            CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos, $this->mailerFrom),
         );
         $atuais = $this->consultar->executar()->valores;
 
@@ -131,7 +133,7 @@ final class SalvarConfiguracaoGlobalUseCase
 
         // Chave com padrão do ambiente só é gravada quando difere dele: igual, fica de fora e o leitor cai no padrão
         // (trocar SESSAO_PADRAO_MINUTOS depois ainda surte efeito).
-        $sobrepor = $this->sessaoPadraoMinutos === null ? [] : CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos);
+        $sobrepor = CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos, $this->mailerFrom);
         foreach ($sobrepor as $chave => $padrao) {
             if (($gravados[$chave] ?? null) === $padrao) {
                 unset($gravados[$chave]);

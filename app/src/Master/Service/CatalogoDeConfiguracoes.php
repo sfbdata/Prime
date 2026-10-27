@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Master\Service;
 
 use App\Master\Exception\ConfiguracaoRecusada;
+use Symfony\Component\Mime\Address;
 
 /**
  * Catálogo das configurações globais do Master (desenho 05 Perfis 1.2 VS 25.10.26, `cgGrupos` e `DEF`): grupos,
@@ -37,7 +38,7 @@ final class CatalogoDeConfiguracoes
     private const GRUPOS = [
         'identidade' => [
             'nome' => ['tipo' => self::TEXTO, 'padrao' => 'BlueJus', 'max' => 60],
-            'remetente' => ['tipo' => self::EMAIL, 'padrao' => 'contato@bluejus.com.br', 'max' => 180, 'ajuda' => true],
+            'remetente' => ['tipo' => self::EMAIL, 'padrao' => 'nao-responda@bluejus.com.br', 'max' => 180, 'ajuda' => true],
             'suporte' => ['tipo' => self::EMAIL, 'padrao' => 'bluejus.86@gmail.com', 'max' => 180],
         ],
         'contas' => [
@@ -62,14 +63,37 @@ final class CatalogoDeConfiguracoes
     ];
 
     /**
-     * Padrões que dependem de configuração do ambiente (hoje só `sessao`, parâmetro `app.sessao_padrao_minutos`).
-     * O catálogo segue estático; quem tem o container (leitor, consulta do Master) passa isto a `padroes()`/`grupos()`.
+     * Padrões que dependem de configuração do ambiente: `sessao` (parâmetro `app.sessao_padrao_minutos`) e `remetente`
+     * (o endereço do MAILER_FROM; o Master só muda se editar). O catálogo segue estático; quem tem o container (leitor,
+     * consulta e salvar do Master) passa isto a `padroes()`/`grupos()`/`normalizar()`. Argumento ausente, nada a sobrepor.
      *
      * @return array<string, string>
      */
-    public static function sobreposicoes(int $sessaoPadraoMinutos): array
+    public static function sobreposicoes(?int $sessaoPadraoMinutos, ?string $mailerFrom = null): array
     {
-        return ['sessao' => (string) $sessaoPadraoMinutos];
+        $sobrepor = [];
+        if ($sessaoPadraoMinutos !== null) {
+            $sobrepor['sessao'] = (string) $sessaoPadraoMinutos;
+        }
+        $endereco = self::enderecoDoMailerFrom($mailerFrom);
+        if ($endereco !== null) {
+            $sobrepor['remetente'] = $endereco;
+        }
+
+        return $sobrepor;
+    }
+
+    /** O endereço (sem o nome) do MAILER_FROM; inválido ou vazio, nulo (vale o padrão estático). */
+    private static function enderecoDoMailerFrom(?string $mailerFrom): ?string
+    {
+        if ($mailerFrom === null || trim($mailerFrom) === '') {
+            return null;
+        }
+        try {
+            return Address::create($mailerFrom)->getAddress();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

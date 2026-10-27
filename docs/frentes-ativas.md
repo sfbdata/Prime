@@ -709,3 +709,4 @@ scripts/frente-fechar.sh <nome>           # ritual de migration + suíte; para a
 ```
 
 Contexto e medições que sustentam este fluxo: [worktrees-frentes-paralelas.md](worktrees-frentes-paralelas.md).
+| `login-config-identidade` | Auth + Master + Shared: nome e remetente dos e-mails vindos das configurações globais do Master (`IdentidadeDeEmail`) — risco ALTO (e-mail transacional de auth) | não | `app/src/Shared/Email/IdentidadeDeEmail.php`, `app/src/Master/` (sobreposição do padrão do ambiente também para `remetente`), `AbrirCampanhaDoRelatorioUseCase`, `translations/master` (texto de ajuda do remetente), `docs/frentes-ativas.md` (esta linha); `services.yaml` não tocado | implementado, ⏳ revisão e PR; spec `docs/specs/login-config-identidade.md` | `origin/master` |
