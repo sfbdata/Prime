@@ -62,10 +62,11 @@ final class InterpretadorDeRespostaDoChat
         return new ResultadoDaAnalise($resposta, $pontos, null);
     }
 
-    /** Uma linha só: travessão/meia-risca e hífen solto viram vírgula. */
+    /** Uma linha só: travessão/meia-risca e hífen solto viram vírgula; "10–20" vira "10 a 20". */
     private function limparLinha(string $texto): string
     {
-        $texto = (string) preg_replace('/\s*[\x{2014}\x{2013}]\s*/u', ', ', $texto);
+        $texto = $this->semControle($texto, true);
+        $texto = $this->semTravessao($texto);
         $texto = (string) preg_replace('/\s+-\s+/u', ', ', $texto);
 
         return trim((string) preg_replace('/\s+/u', ' ', $texto));
@@ -75,10 +76,11 @@ final class InterpretadorDeRespostaDoChat
     private function limparTexto(string $texto): string
     {
         $texto = str_replace(["\r\n", "\r"], "\n", $texto);
-        $texto = (string) preg_replace('/[^\P{C}\n]+/u', '', $texto); // controle, menos \n
-        $texto = (string) preg_replace('/[ \t]*[\x{2014}\x{2013}][ \t]*/u', ', ', $texto);
+        $texto = $this->semControle($texto, false);
+        $texto = $this->semTravessao($texto);
         $texto = (string) preg_replace('/[ \t]+-[ \t]+/u', ', ', $texto);
         $texto = (string) preg_replace('/[ \t]+/u', ' ', $texto);
+        $texto = (string) preg_replace('/ ?\n ?/u', "\n", $texto);
         $texto = (string) preg_replace('/\n{3,}/u', "\n\n", $texto);
         $texto = trim($texto);
 
@@ -87,5 +89,24 @@ final class InterpretadorDeRespostaDoChat
         }
 
         return $texto;
+    }
+
+    /**
+     * Tira só controle (Cc), menos \n; o \t vira espaço (não cola as palavras). Formato (Cf) como ZWJ/ZWNJ fica:
+     * o árabe, o persa e os emojis compostos dependem deles. `$tambemNovaLinha` = a linha única também perde o \n.
+     */
+    private function semControle(string $texto, bool $tambemNovaLinha): string
+    {
+        $texto = (string) preg_replace('/\t/u', ' ', $texto);
+
+        return (string) preg_replace($tambemNovaLinha ? '/\p{Cc}+/u' : '/[^\P{Cc}\n]+/u', $tambemNovaLinha ? ' ' : '', $texto);
+    }
+
+    /** "10–20" (meia-risca entre dígitos) vira "10 a 20"; o resto do travessão vira vírgula. */
+    private function semTravessao(string $texto): string
+    {
+        $texto = (string) preg_replace('/(?<=\d)[ \t]*\x{2013}[ \t]*(?=\d)/u', ' a ', $texto);
+
+        return (string) preg_replace('/[ \t]*[\x{2014}\x{2013}][ \t]*/u', ', ', $texto);
     }
 }

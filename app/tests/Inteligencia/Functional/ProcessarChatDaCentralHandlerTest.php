@@ -21,6 +21,7 @@ use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Fluxo\FluxoDaAnaliseDaPasta;
 use App\Inteligencia\Fluxo\FluxoDaPerguntaLivre;
+use App\Inteligencia\Fluxo\FluxoDeAnaliseSemPasta;
 use App\Inteligencia\Fluxo\FluxoDoChatDaCentral;
 use App\Inteligencia\Fluxo\FluxoDoResumoDoPush;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
@@ -38,6 +39,13 @@ use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\InterpretadorDeRespostaDePush;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoAgente;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoChat;
+use App\Inteligencia\Service\ProvedorDeLinguagem;
+use App\Inteligencia\DTO\PedidoDeLinguagem;
+use App\Inteligencia\DTO\RespostaDeLinguagem;
+use App\Inteligencia\DTO\ResultadoDaAnalise;
+use App\Inteligencia\Exception\ProvedorIndisponivelException;
+use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
+use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Tenant\Enum\SituacaoNaEquipe;
@@ -45,6 +53,7 @@ use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use App\Tests\Inteligencia\Support\ProvedorFalso;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -60,7 +69,7 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
 {
     use CriaFixturesInteligenciaTrait;
 
-    private function handler(ProvedorFalso $provedor, bool $iaHabilitada = true, ?LoggerEmMemoria $logger = null): ProcessarAnaliseDeInteligenciaHandler
+    private function handler(ProvedorDeLinguagem $provedor, bool $iaHabilitada = true, ?LoggerEmMemoria $logger = null, ?FluxoDeAnaliseSemPasta $fluxoDoChat = null): ProcessarAnaliseDeInteligenciaHandler
     {
         $c = static::getContainer();
         $repositorio = $c->get(AnaliseDeInteligenciaRepository::class);
@@ -73,7 +82,7 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
             new FluxoDoResumoDoPush($c->get(MontadorDeContextoDoPush::class), new PromptResumoDoPush(), new InterpretadorDeRespostaDePush(), $repositorio),
             new FluxoDaAnaliseDaPasta($montador, new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio, $c->get(LeitorDeDocumentosDaPasta::class)),
             new FluxoDaPerguntaLivre($montador, new PromptDaPergunta(new PromptDoAgente()), new InterpretadorDeRespostaDoAgente(), $c->get(PerguntaDaConversaRepository::class)),
-            [new FluxoDoChatDaCentral($c->get(ConversaDaIaNaCentral::class), new PromptDoChatDaCentral($relogio), new InterpretadorDeRespostaDoChat(), $c->get(MontadorDeContextoDoPush::class), $relogio)],
+            [$fluxoDoChat ?? new FluxoDoChatDaCentral($c->get(ConversaDaIaNaCentral::class), new PromptDoChatDaCentral($relogio), new InterpretadorDeRespostaDoChat(), $c->get(MontadorDeContextoDoPush::class), $relogio)],
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
@@ -119,9 +128,9 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
         return $analise;
     }
 
-    private function processar(ProvedorFalso $provedor, AnaliseDeInteligencia $analise, bool $iaHabilitada = true, ?int $tenantId = null, ?LoggerEmMemoria $logger = null): AnaliseDeInteligencia
+    private function processar(ProvedorDeLinguagem $provedor, AnaliseDeInteligencia $analise, bool $iaHabilitada = true, ?int $tenantId = null, ?LoggerEmMemoria $logger = null, ?FluxoDeAnaliseSemPasta $fluxoDoChat = null): AnaliseDeInteligencia
     {
-        $this->handler($provedor, $iaHabilitada, $logger)(new ProcessarAnaliseDeInteligencia((int) $analise->getId(), $tenantId ?? (int) $analise->getTenant()?->getId()));
+        $this->handler($provedor, $iaHabilitada, $logger, $fluxoDoChat)(new ProcessarAnaliseDeInteligencia((int) $analise->getId(), $tenantId ?? (int) $analise->getTenant()?->getId()));
         $id = (int) $analise->getId();
         $this->em()->clear();
         $relida = $this->em()->find(AnaliseDeInteligencia::class, $id);
@@ -398,6 +407,8 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
             self::assertLessThanOrEqual(400 + mb_strlen('• BlueJus IA: '), mb_strlen($linha));
         }
         self::assertStringNotContainsString('MSG03', $texto);
+        self::assertStringNotContainsString('PERGUNTA-DE-AGORA', $m[1], 'a própria pergunta não volta no histórico');
+        self::assertSame(1, substr_count($texto, 'PERGUNTA-DE-AGORA'));
 
         // "Excluir conversa" até a MSG12: só MSG13, MSG14 e MSG15 voltam.
         /** @var ParticipanteRepository $participantes */
@@ -460,5 +471,227 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
         self::assertSame([], $repositorio->listarTrilhaDoAlvo($tenantRelido, AnaliseDeInteligencia::ALVO_PASTA, (int) $conversa->getId(), 20));
         self::assertSame(0, $repositorio->contarTrilhaDoAlvo($tenantRelido, AnaliseDeInteligencia::ALVO_PASTA, (int) $conversa->getId()));
         self::assertSame(1, $repositorio->contarDesde($tenantRelido, new \DateTimeImmutable('-1 hour')), 'a cota conta o chat');
+    }
+
+    /** O fluxo do chat, mas com o `aoConcluir` quebrado: para provar a rede de segurança do handler. */
+    private function fluxoQueQuebraAoConcluir(\Throwable $erro): FluxoDeAnaliseSemPasta
+    {
+        $c = static::getContainer();
+        $relogio = $c->get(ClockInterface::class);
+        $real = new FluxoDoChatDaCentral($c->get(ConversaDaIaNaCentral::class), new PromptDoChatDaCentral($relogio), new InterpretadorDeRespostaDoChat(), $c->get(MontadorDeContextoDoPush::class), $relogio);
+
+        return new class ($real, $erro) implements FluxoDeAnaliseSemPasta {
+            public function __construct(private readonly FluxoDoChatDaCentral $real, private readonly \Throwable $erro)
+            {
+            }
+
+            public function tipo(): TipoDeAnalise
+            {
+                return $this->real->tipo();
+            }
+
+            public function preparar(AnaliseDeInteligencia $analise, Tenant $tenant): ?PedidoDeLinguagem
+            {
+                return $this->real->preparar($analise, $tenant);
+            }
+
+            public function motivoDeContextoVazio(): string
+            {
+                return $this->real->motivoDeContextoVazio();
+            }
+
+            public function interpretar(string $texto): ResultadoDaAnalise
+            {
+                return $this->real->interpretar($texto);
+            }
+
+            public function aoConcluir(AnaliseDeInteligencia $analise, Tenant $tenant, ResultadoDaAnalise $resultado): void
+            {
+                throw $this->erro;
+            }
+        };
+    }
+
+    /** @return iterable<string, array{\Throwable}> */
+    public static function errosAoGravar(): iterable
+    {
+        yield 'LogicException' => [new \LogicException('Entidade X com valor SEGREDO-NA-EXCECAO')];
+        yield 'DomainException' => [new \DomainException('Mensagem com SEGREDO-NA-EXCECAO')];
+        yield 'RuntimeException' => [new \RuntimeException('Falha SEGREDO-NA-EXCECAO')];
+        yield 'Error' => [new \TypeError('Tipo SEGREDO-NA-EXCECAO')];
+    }
+
+    #[DataProvider('errosAoGravar')]
+    #[TestDox('aoConcluir quebrado ($_dataName): análise falhou com motivo fixo, nenhuma fala, 1 chamada ao provedor, sem relançar, sem a mensagem da exceção no motivo nem no log')]
+    public function testFalhaAoGravarNaoPrendeAAnalise(\Throwable $erro): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->cenario();
+        [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user);
+        $analise = $this->analiseDoChat($tenant, $user, $conversa, $pergunta);
+        $analiseId = (int) $analise->getId();
+        $conversaId = (int) $conversa->getId();
+        $falso = new ProvedorFalso();
+        $falso->responderCom(self::resposta('Resposta do modelo.'));
+        $logger = new LoggerEmMemoria();
+
+        $this->handler($falso, true, $logger, $this->fluxoQueQuebraAoConcluir($erro))(new ProcessarAnaliseDeInteligencia($analiseId, (int) $tenant->getId()));
+
+        self::assertCount(1, $falso->pedidos);
+        $linha = $this->em()->getConnection()->fetchAssociative('SELECT status, erro_motivo, concluida_em FROM inteligencia_analise WHERE id = :id', ['id' => $analiseId]);
+        self::assertSame('falhou', $linha['status']);
+        self::assertSame(ProcessarAnaliseDeInteligenciaHandler::MOTIVO_SEM_GRAVAR_A_RESPOSTA, $linha['erro_motivo']);
+        self::assertNotNull($linha['concluida_em']);
+        self::assertSame(0, $this->contarNoBanco('SELECT COUNT(*) FROM central_mensagem WHERE conversa_id = :c AND de_ia = true', ['c' => $conversaId]));
+        $registros = (string) json_encode($logger->registros, JSON_UNESCAPED_UNICODE);
+        self::assertStringNotContainsString('SEGREDO-NA-EXCECAO', $registros);
+        self::assertStringContainsString($erro::class, $registros);
+    }
+
+    /** Provedor que roda um efeito no banco no meio da chamada (a pessoa sai durante a espera pelo modelo). */
+    private function provedorQueAgeNoMeio(ProvedorFalso $falso, \Closure $efeito): ProvedorDeLinguagem
+    {
+        return new class ($falso, $efeito) implements ProvedorDeLinguagem {
+            public function __construct(private readonly ProvedorFalso $falso, private readonly \Closure $efeito)
+            {
+            }
+
+            public function nome(): string
+            {
+                return $this->falso->nome();
+            }
+
+            public function estaConfigurado(): bool
+            {
+                return $this->falso->estaConfigurado();
+            }
+
+            public function completar(PedidoDeLinguagem $pedido): RespostaDeLinguagem
+            {
+                $resposta = $this->falso->completar($pedido);
+                ($this->efeito)();
+
+                return $resposta;
+            }
+        };
+    }
+
+    #[TestDox('a pessoa sai da conversa OU do escritório durante a chamada ao provedor: falhou com motivo fixo, nenhuma fala gravada')]
+    public function testSaidaDuranteAChamada(): void
+    {
+        foreach (['participacao', 'vinculo'] as $saida) {
+            self::bootKernel();
+            [$user, $tenant] = $this->cenario();
+            [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user);
+            $analise = $this->analiseDoChat($tenant, $user, $conversa, $pergunta);
+            $analiseId = (int) $analise->getId();
+            $conversaId = (int) $conversa->getId();
+            $userId = (int) $user->getId();
+            $tenantId = (int) $tenant->getId();
+            $conexao = $this->em()->getConnection();
+            $falso = new ProvedorFalso();
+            $falso->responderCom(self::resposta('Resposta que não deve ser gravada.'));
+            $provedor = $this->provedorQueAgeNoMeio($falso, static function () use ($conexao, $saida, $conversaId, $userId, $tenantId): void {
+                if ($saida === 'participacao') {
+                    $conexao->executeStatement('UPDATE central_participante SET saiu_em = :agora WHERE conversa_id = :c', ['agora' => date('Y-m-d H:i:s'), 'c' => $conversaId]);
+                } else {
+                    $conexao->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = :u AND tenant_id = :t', ['u' => $userId, 't' => $tenantId]);
+                }
+            });
+
+            $relida = $this->processar($provedor, $analise);
+
+            self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus(), $saida);
+            self::assertSame(ProcessarAnaliseDeInteligenciaHandler::MOTIVO_SEM_GRAVAR_A_RESPOSTA, $relida->getErroMotivo(), $saida);
+            self::assertSame(0, $this->contarNoBanco('SELECT COUNT(*) FROM central_mensagem WHERE conversa_id = :c AND de_ia = true', ['c' => $conversaId]), $saida);
+            self::assertCount(1, $falso->pedidos, $saida);
+            self::assertSame($analiseId, (int) $relida->getId());
+        }
+    }
+
+    #[TestDox('conversa apagada OU mensagem apagada entre o pedido e o worker: falhou, provedor NÃO chamado')]
+    public function testConversaOuMensagemApagada(): void
+    {
+        foreach (['conversa', 'mensagem'] as $apagada) {
+            self::bootKernel();
+            [$user, $tenant] = $this->cenario();
+            [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user);
+            $analise = $this->analiseDoChat($tenant, $user, $conversa, $pergunta);
+            $conexao = $this->em()->getConnection();
+            if ($apagada === 'conversa') {
+                $conexao->executeStatement('DELETE FROM central_conversa WHERE id = :id', ['id' => $conversa->getId()]);
+            } else {
+                $conexao->executeStatement('DELETE FROM central_mensagem WHERE id = :id', ['id' => $pergunta->getId()]);
+            }
+            $this->em()->clear();
+            $falso = new ProvedorFalso();
+            $falso->responderCom(self::resposta('não devia sair'));
+
+            $relida = $this->processar($falso, $this->em()->find(AnaliseDeInteligencia::class, $analise->getId()));
+
+            self::assertFalse($falso->foiChamado(), $apagada);
+            self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus(), $apagada);
+        }
+    }
+
+    #[TestDox('provedor no ramo sem pasta: transitória com retry-after re-lança Recoverable e volta a pendente; definitiva vira falhou + Unrecoverable; sem provedor vira indisponivel + Unrecoverable; nenhuma fala')]
+    public function testFalhasDoProvedor(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->cenario();
+        [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user);
+        $conversaId = (int) $conversa->getId();
+
+        $transitoria = $this->analiseDoChat($tenant, $user, $conversa, $pergunta);
+        $falso = new ProvedorFalso();
+        $falso->falharTransitoriamente('HTTP 429', esperarSegundos: 30);
+        try {
+            $this->processar($falso, $transitoria);
+            self::fail('devia re-lançar');
+        } catch (RecoverableMessageHandlingException $e) {
+            self::assertSame(30_000, $e->getRetryDelay());
+        }
+        $this->em()->clear();
+        $relida = $this->em()->find(AnaliseDeInteligencia::class, $transitoria->getId());
+        self::assertSame(StatusDaAnalise::Pendente, $relida->getStatus());
+        self::assertSame(1, $relida->getTentativas());
+
+        $definitiva = $this->analiseDoChat($this->em()->find(Tenant::class, $tenant->getId()), $this->em()->find(User::class, $user->getId()), $this->em()->find(Conversa::class, $conversaId), $this->em()->find(Mensagem::class, $pergunta->getId()));
+        $falso = new ProvedorFalso();
+        $falso->falharDefinitivamente('chave recusada (401)');
+        try {
+            $this->processar($falso, $definitiva);
+            self::fail('devia re-lançar');
+        } catch (UnrecoverableMessageHandlingException) {
+        }
+        $this->em()->clear();
+        self::assertSame(StatusDaAnalise::Falhou, $this->em()->find(AnaliseDeInteligencia::class, $definitiva->getId())->getStatus());
+
+        $semProvedor = $this->analiseDoChat($this->em()->find(Tenant::class, $tenant->getId()), $this->em()->find(User::class, $user->getId()), $this->em()->find(Conversa::class, $conversaId), $this->em()->find(Mensagem::class, $pergunta->getId()));
+        $indisponivel = new class () implements ProvedorDeLinguagem {
+            public function nome(): string
+            {
+                return 'indisponivel';
+            }
+
+            public function estaConfigurado(): bool
+            {
+                return true;
+            }
+
+            public function completar(PedidoDeLinguagem $pedido): RespostaDeLinguagem
+            {
+                throw new ProvedorIndisponivelException('Provedor de IA não configurado nesta instalação.');
+            }
+        };
+        try {
+            $this->processar($indisponivel, $semProvedor);
+            self::fail('devia re-lançar');
+        } catch (UnrecoverableMessageHandlingException) {
+        }
+        $this->em()->clear();
+        self::assertSame(StatusDaAnalise::Indisponivel, $this->em()->find(AnaliseDeInteligencia::class, $semProvedor->getId())->getStatus());
+
+        self::assertSame(0, $this->contarNoBanco('SELECT COUNT(*) FROM central_mensagem WHERE conversa_id = :c AND de_ia = true', ['c' => $conversaId]));
     }
 }

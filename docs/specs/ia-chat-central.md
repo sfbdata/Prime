@@ -33,6 +33,8 @@ membros = [eu, ia]).
    `central_mensagem`, `central_participante` e `central_conversa`. Vínculo encerrado: `exigirVinculoAtivo` barra a
    pessoa, então a conversa IA fica inacessível (regras 1 a 9 da Central).
 
+Se a pessoa sair do escritório ou da conversa durante a chamada ao provedor, a fala não é gravada e a análise termina `falhou`; o provedor já cobrou, o que é aceito.
+
 ## TODO
 
 - PR 2: mensagens da IA entram na expiração de 12 meses do `ExpirarConteudoDaInteligenciaUseCase` (hoje não há

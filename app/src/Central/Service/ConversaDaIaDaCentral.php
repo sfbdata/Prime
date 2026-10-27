@@ -82,6 +82,15 @@ final class ConversaDaIaDaCentral implements ConversaDaIaNaCentral
         $conversa = $this->conversaDoDono($tenant, $conversaId, $dono)
             ?? throw new \LogicException('Conversa com a IA não encontrada para este escritório e usuário.');
 
+        // Revalida o que a leitura conferiu: a pessoa pode ter saído do escritório ou da conversa durante a chamada.
+        // (O provedor já cobrou; a análise termina `falhou` e nenhuma fala é gravada.)
+        if (!$this->vinculos->existeVinculoAtivo($dono, $tenant)) {
+            throw new \LogicException('Vínculo encerrado.');
+        }
+        if (!$this->participantes->participaAtivamente($conversa, $dono, $tenant)) {
+            throw new \LogicException('Participação encerrada.');
+        }
+
         // Menção só entre pessoas: a IA não "chama" ninguém (regra 13 da Central), então o token fica inerte.
         $texto = trim(str_replace('@[', '@ [', $texto));
         $texto = self::cortar($texto, Mensagem::TAMANHO_MAXIMO);

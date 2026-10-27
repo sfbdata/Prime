@@ -77,6 +77,8 @@ final class ProcessarAnaliseDeInteligenciaHandler
      */
     public const TENTATIVAS_MAXIMAS = 4;
 
+    public const MOTIVO_SEM_GRAVAR_A_RESPOSTA = 'não foi possível gravar a resposta na conversa';
+
     /** @var array<string, FluxoDeAnalise> chave = `TipoDeAnalise->value` */
     private array $fluxos;
 
@@ -191,26 +193,60 @@ final class ProcessarAnaliseDeInteligenciaHandler
         }
 
         [$resposta, $resultado] = $concluido;
-        $concluiu = $this->em->wrapInTransaction(function () use ($fluxo, $analise, $tenant, $resposta, $resultado): bool {
-            try {
-                $fluxo->aoConcluir($analise, $tenant, $resultado);
-            } catch (\LogicException | \DomainException $e) {
-                $analise->falhar('análise inconsistente: ' . $e->getMessage(), $resposta->texto);
-
-                return false;
-            }
-            $this->aplicarResultado($analise, $resposta, $resultado);
-
-            return true;
-        });
-
-        if (!$concluiu) {
-            $this->logger->warning('Análise {analise} falhou: resposta não pôde ser gravada.', $this->contexto($analise));
-
-            return;
+        if ($this->gravarEConcluir($fluxo, $analise, $tenant, $resposta, $resultado)) {
+            $this->registrarConclusao($analise, $resposta);
         }
+    }
 
-        $this->registrarConclusao($analise, $resposta);
+    /**
+     * Efeito do fluxo e conclusão da análise numa transação só. Devolve false quando a análise terminou `falhou`
+     * (efeito recusado ou falha inesperada); nunca relança: reentregar recobraria o provedor.
+     */
+    private function gravarEConcluir(FluxoDeAnaliseSemPasta $fluxo, AnaliseDeInteligencia $analise, Tenant $tenant, RespostaDeLinguagem $resposta, ResultadoDaAnalise $resultado): bool
+    {
+        try {
+            return $this->em->wrapInTransaction(function () use ($fluxo, $analise, $tenant, $resposta, $resultado): bool {
+                try {
+                    $fluxo->aoConcluir($analise, $tenant, $resultado);
+                } catch (\LogicException | \DomainException $e) {
+                    // Motivo FIXO: a mensagem da exceção pode citar entidade e valores (texto da pessoa).
+                    $analise->falhar(self::MOTIVO_SEM_GRAVAR_A_RESPOSTA, $resposta->texto);
+                    $this->logger->warning('Análise {analise}: resposta recusada pela gravação ({classe}).', $this->contexto($analise) + ['classe' => $e::class]);
+
+                    return false;
+                }
+                $this->aplicarResultado($analise, $resposta, $resultado);
+
+                return true;
+            });
+        } catch (\Throwable $e) {
+            // O wrapInTransaction fechou o EntityManager no rollback: só a conexão ainda grava. Sem isto a linha
+            // ficaria em `processando` para sempre. NÃO relança: reentregar recobraria o provedor (reservar aceita Falhou).
+            $this->falharPelaConexao($analise);
+            $this->logger->error('Análise {analise}: falha inesperada ao gravar a resposta ({classe}).', $this->contexto($analise) + ['classe' => $e::class]);
+
+            return false;
+        }
+    }
+
+    /** Marca `falhou` direto na conexão (EntityManager fechado), com motivo fixo e sem texto da exceção. */
+    private function falharPelaConexao(AnaliseDeInteligencia $analise): void
+    {
+        try {
+            $this->em->getConnection()->executeStatement(
+                'UPDATE inteligencia_analise SET status = :status, erro_motivo = :motivo, concluida_em = :agora WHERE id = :id AND tenant_id = :tenant AND status = :processando',
+                [
+                    'status' => StatusDaAnalise::Falhou->value,
+                    'motivo' => self::MOTIVO_SEM_GRAVAR_A_RESPOSTA,
+                    'agora' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+                    'id' => $analise->getId(),
+                    'tenant' => $analise->getTenant()?->getId(),
+                    'processando' => StatusDaAnalise::Processando->value,
+                ],
+            );
+        } catch (\Throwable $e) {
+            $this->logger->error('Análise {analise}: não foi possível marcar a falha ({classe}).', $this->contexto($analise) + ['classe' => $e::class]);
+        }
     }
 
     /**

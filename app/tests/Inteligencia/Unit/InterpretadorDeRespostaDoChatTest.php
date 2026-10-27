@@ -98,4 +98,16 @@ final class InterpretadorDeRespostaDoChatTest extends TestCase
         self::assertSame('A, B', $resultado->pontos[0]['texto']);
         self::assertDoesNotMatchRegularExpression('/[\x{2013}\x{2014}]/u', $resultado->resumo);
     }
+
+    #[TestDox('\t vira espaço (não cola palavras), ZWJ/ZWNJ ficam, controle sai, "10–20" vira "10 a 20"')]
+    public function testLimpezaDeCaracteres(): void
+    {
+        $resultado = $this->interpretador->interpretar((string) json_encode([
+            'resposta' => "col1\tcol2 prazo de 10\u{2013}20 dias\x07 fim \u{200D}\u{200C}ok",
+            'pontos' => [['tipo' => 'info', 'texto' => "a\tb 5\u{2013}7"]],
+        ], JSON_UNESCAPED_UNICODE));
+
+        self::assertSame("col1 col2 prazo de 10 a 20 dias fim \u{200D}\u{200C}ok", $resultado->resumo);
+        self::assertSame('a b 5 a 7', $resultado->pontos[0]['texto']);
+    }
 }
