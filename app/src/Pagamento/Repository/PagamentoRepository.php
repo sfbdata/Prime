@@ -37,6 +37,15 @@ class PagamentoRepository extends ServiceEntityRepository
      */
     public function porReferenciaDoAviso(string $referencia): ?Pagamento
     {
+        return $this->findOneBy(['referencia' => $referencia]);
+    }
+
+    /**
+     * A referência é única entre os escritórios: quem cria a cobrança para o consumidor (que já autorizou a pessoa) acha
+     * a que já existe mesmo agindo, como Master da Central, na demanda de outro escritório.
+     */
+    public function porReferencia(string $referencia): ?Pagamento
+    {
         return $this->semFiltroDeTenant(fn (): ?Pagamento => $this->findOneBy(['referencia' => $referencia]));
     }
 

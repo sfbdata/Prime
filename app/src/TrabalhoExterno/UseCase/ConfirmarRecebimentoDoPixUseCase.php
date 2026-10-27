@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
+use App\Pagamento\Enum\OrigemDoPagamento;
+use App\Pagamento\UseCase\CancelarCobrancaDaOrigemUseCase;
+use App\Pagamento\UseCase\ConsultarCobrancaDaOrigemUseCase;
+use App\Pagamento\UseCase\EmitirCobrancaPixUseCase;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
@@ -34,10 +38,13 @@ final class ConfirmarRecebimentoDoPixUseCase
         private readonly PoliticaDaDemanda $politica,
         private readonly DemandaExternaRepository $repositorio,
         private readonly RegistrarPagamentoDaDemandaService $registro,
+        private readonly ConsultarCobrancaDaOrigemUseCase $cobrancas,
+        private readonly CancelarCobrancaDaOrigemUseCase $cancelarCobranca,
+        private readonly EmitirCobrancaPixUseCase $integracao,
     ) {
     }
 
-    public function executar(Contexto $ctx, string $codigo): DemandaExterna
+    public function executar(Contexto $ctx, string $codigo, ?string $motivo = null): DemandaExterna
     {
         [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
 
@@ -46,7 +53,7 @@ final class ConfirmarRecebimentoDoPixUseCase
             throw new AcaoNaoPermitida('Você não pode confirmar o recebimento desta demanda.');
         }
 
-        return $this->repositorio->comADemandaTravada($demanda, function () use ($ctx, $demanda): DemandaExterna {
+        return $this->repositorio->comADemandaTravada($demanda, function () use ($ctx, $demanda, $motivo): DemandaExterna {
             if (!in_array($demanda->getSituacao(), AcaoDemanda::RegistrarPagamento->origens(), true)) {
                 throw new TransicaoInvalida(sprintf('A demanda está %s: a ação não se aplica mais. Recarregue a tela.', mb_strtolower($demanda->getSituacao()->rotulo())));
             }
@@ -59,9 +66,27 @@ final class ConfirmarRecebimentoDoPixUseCase
             $valor = ApresentadorDoPagamento::valorDaDemanda($demanda)
                 ?? throw new TransicaoInvalida('O pagamento fica disponível quando uma proposta for aceita.');
 
+            $this->resolverCobrancaViva($ctx, $demanda, trim((string) $motivo));
             $this->registro->registrar($demanda, $ctx->autor(), ApresentadorDoPagamento::valorFormatado($valor), $ctx);
 
             return $demanda;
         });
+    }
+
+    /**
+     * Cobrança PIX dinâmica viva (gateway M1, §4.4): com a trava ligada o manual exige motivo (409 sem ele); em todo caso a
+     * cobrança é cancelada ao confirmar à mão, para um PIX tardio cair em `divergente` em vez de pagar duas vezes sem ninguém ver.
+     */
+    private function resolverCobrancaViva(Contexto $ctx, DemandaExterna $demanda, string $motivo): void
+    {
+        $tenantId = (int) $demanda->getTenant()->getId();
+        $viva = $this->cobrancas->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, (int) $demanda->getId());
+        if ($viva === null || !$viva->viva(new \DateTimeImmutable())) {
+            return;
+        }
+        if ($motivo === '' && $this->integracao->disponivel('te_trava')) {
+            throw new TransicaoInvalida('Há um PIX dinâmico aguardando o banco. Informe o motivo para confirmar o recebimento à mão.');
+        }
+        $this->cancelarCobranca->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, (int) $demanda->getId(), mb_substr(sprintf('Confirmado à mão por %s%s', $ctx->autor()->nome, $motivo !== '' ? ': ' . $motivo : ''), 0, 500));
     }
 }

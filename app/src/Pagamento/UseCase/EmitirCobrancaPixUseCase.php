@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pagamento\UseCase;
 
+use App\Contribua\Banco\BancoPix;
 use App\Contribua\Banco\BancosPix;
 use App\Contribua\Banco\FalhaNoBanco;
 use App\Contribua\Banco\PedidoDeCobrancaPix;
@@ -11,6 +12,7 @@ use App\Contribua\Repository\IntegracaoBancariaRepository;
 use App\Pagamento\DTO\CobrancaPixOutput;
 use App\Pagamento\DTO\CriarPagamentoInput;
 use App\Pagamento\DTO\EmitirCobrancaPixInput;
+use App\Pagamento\Entity\Pagamento;
 use App\Pagamento\Entity\PagamentoEvento;
 use App\Pagamento\Enum\MetodoDePagamento;
 use App\Pagamento\Enum\StatusDoPagamento;
@@ -25,7 +27,7 @@ use Psr\Log\LoggerInterface;
  * (idempotente pela referência) e só então criamos a cobrança, com a mesma chave de idempotência: se o banco criou e a
  * resposta se perdeu, a próxima chamada recebe a mesma cobrança. Nenhuma chamada ao banco dentro de transação.
  *
- * Devolve `null` quando não há QR dinâmico a mostrar (integração desligada ou sem a chave do consumidor, banco fora
+ * Sem CNPJ válido do cliente lança \DomainException antes de criar qualquer coisa. Devolve `null` quando não há QR dinâmico a mostrar (integração desligada ou sem a chave do consumidor, banco fora
  * do ar agora, recusa do banco): o consumidor cai no PIX estático. Recusa certa do banco cancela o pagamento;
  * falha passageira o deixa `aguardando` sem `brCode`, e a próxima abertura repete o pedido.
  */
@@ -44,12 +46,23 @@ final class EmitirCobrancaPixUseCase
     ) {
     }
 
-    public function executar(EmitirCobrancaPixInput $input): ?CobrancaPixOutput
+    /** A integração está conectada e a chave do consumidor (`te`) ligada? Sem isto vale o PIX estático. */
+    public function disponivel(string $recurso): bool
     {
         $integracao = $this->integracoes->atual();
-        $banco = $this->bancos->doCodigo($integracao->getBanco());
-        if ($banco === null || !$integracao->cobraPorConta() || !($integracao->getRecursos()[$input->recurso] ?? false)) {
+
+        return $this->bancos->doCodigo($integracao->getBanco()) !== null && $integracao->cobraPorConta() && ($integracao->getRecursos()[$recurso] ?? false);
+    }
+
+    /** @throws \DomainException cliente sem CNPJ válido (o banco exige) ou valor fora do limite */
+    public function executar(EmitirCobrancaPixInput $input): ?CobrancaPixOutput
+    {
+        $banco = $this->bancos->doCodigo($this->integracoes->atual()->getBanco());
+        if ($banco === null || !$this->disponivel($input->recurso)) {
             return null;
+        }
+        if (strlen($input->cnpj) !== 14) {
+            throw new \DomainException('Cadastre o CNPJ do escritório para gerar o PIX com confirmação automática.');
         }
 
         $criada = $this->criar->executar(new CriarPagamentoInput(
@@ -70,6 +83,12 @@ final class EmitirCobrancaPixUseCase
             return CobrancaPixOutput::fromEntity($pagamento);
         }
 
+        return $this->criarNoBanco($banco, $pagamento, $input);
+    }
+
+    /** Fala com o banco (fora de transação) e guarda o que ele devolveu. `null`: sem QR dinâmico, vale o estático. */
+    private function criarNoBanco(BancoPix $banco, Pagamento $pagamento, EmitirCobrancaPixInput $input): ?CobrancaPixOutput
+    {
         try {
             $cobranca = $banco->criarCobranca(new PedidoDeCobrancaPix(
                 $pagamento->getReferencia(),
