@@ -1,5 +1,5 @@
 /*
- * Tela de entrada (desenho "10 - Login - VS 19.10.26"): todo o comportamento da página.
+ * Tela de entrada (desenho "10 - Login - VS 25.10.26"): todo o comportamento da página.
  *
  * Reproduz o componente do desenho (DCLogic) sobre o HTML que o Twig serve. Os dados chegam por
  * data-attributes no #lgRaiz; as escritas são POST JSON para os endpoints da spec
