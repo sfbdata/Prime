@@ -120,7 +120,8 @@ Cada etapa é reversível por chave liga/desliga (`ConfiguracaoDePagamento`); o 
 
 Todas as perguntas foram respondidas pela recomendação:
 1. **Cora para PIX, Asaas para cartão.** Certificado mTLS e Client ID de produção da Cora são do dono; esta frente pede quando precisar. **Sem credencial, o botão de PIX dinâmico some** (dev igual a produção: cai no PIX estático onde ele já existe).
-2. Pagamento **a menor**: fica pendente (`divergente`), não libera. **A maior**: libera e avisa o Master da diferença. (Ajusta o §3.4 e o §5.2: no Service Desk o resultado `ValorDivergente` continua sem creditar; a maior no TE libera.)
+1b. **PIX dinâmico, valor fixo (decisão do dono, 27/10):** com o gateway o PIX é cobrança dinâmica: o QR Code já vem com o valor predefinido e o pagador **não pode alterar o valor** (`valor` do BR Code sem permissão de alteração; cobrança com valor fixo na API do banco). Cobrança sem integração (PIX estático antigo) continua existindo só como fallback.
+2. Pagamento **a menor**: fica pendente (`divergente`), não libera. **A maior**: libera e avisa o Master da diferença. Com 1b isso é só **rede de segurança** (PIX estático antigo ou valor alterado), não o fluxo normal. (Ajusta o §3.4 e o §5.2: no Service Desk o resultado `ValorDivergente` continua sem creditar; a maior no TE libera.)
 3. **Estorno:** o Master decide caso a caso.
 4. Service Desk: saldo pré-pago, recarga mínima R$ 20,00; preço do chamado configurável pelo Master, só cobra com preço definido (da spec da sessão ServiceDesk).
 5. **Botão manual** fica como plano B, só com motivo registrado.
