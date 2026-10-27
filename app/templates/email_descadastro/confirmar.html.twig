@@ -1,6 +1,8 @@
 {# Pedido de descadastro de e-mail (GET da rota pública `email_descadastro`, spec push-avisar-quando-chegar D3).
-   O GET só mostra: quem grava é o POST do botão "Confirmar", na mesma URL assinada (`acao`). Antivírus
-   de e-mail pré-abrem links e não podem descadastrar ninguém. Página avulsa, sem o layout do sistema. #}
+   O GET só mostra: quem grava é o POST do botão "Confirmar descadastro", na mesma URL assinada (`acao`). Antivírus
+   de e-mail pré-abrem links e não podem descadastrar ninguém. Página avulsa, sem o layout do sistema.
+   Visual do desenho Vagas Públicas (tela Descadastro): cartão central, chips de motivo (radio, opcional), dois botões.
+   A opção "nenhum e-mail deste remetente" não está no desenho, mas é função da spec D3: fica abaixo dos chips. #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -8,29 +10,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
     <title>{{ 'publicas.descadastro.confirmar.titulo'|trans }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous">
+    <style>
+        body { margin:0; background:#f3f6f8; font-family:Arial, Helvetica, sans-serif; color:#12242f; }
+        @keyframes vpUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+        .ds-chip { display:block; }
+        .ds-chip input { position:absolute; opacity:0; pointer-events:none; }
+        .ds-chip span { display:flex; align-items:center; justify-content:center; height:34px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font-size:13px; cursor:pointer; }
+        .ds-chip input:checked + span { border-color:#0a6fa0; background:#e5f1f7; color:#0a6fa0; }
+        .ds-chip input:focus-visible + span { outline:2px solid #0a6fa0; outline-offset:2px; }
+    </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
-    <main style="max-width:520px;margin:48px auto;padding:0 16px;">
-        <div style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
-            <div style="background-color:#0a6fa0;padding:20px 28px;">
-                <p style="margin:0;font-size:20px;font-weight:bold;color:#ffffff;">BlueJus</p>
-            </div>
-            <div style="padding:28px;">
-                <h1 style="margin:0 0 12px;font-size:18px;color:#1a1a2e;">{{ 'publicas.descadastro.confirmar.titulo'|trans }}</h1>
-                <p style="margin:0 0 20px;font-size:15px;color:#444444;line-height:1.6;">
-                    {{ 'publicas.descadastro.confirmar.endereco'|trans }} <strong>{{ email }}</strong> {{ 'publicas.descadastro.confirmar.deixara'|trans({remetente: remetente}) }}
-                </p>
-                <form method="post" action="{{ acao }}">
-                    <label style="display:flex;align-items:flex-start;gap:8px;margin:0 0 20px;font-size:14px;color:#444444;line-height:1.5;cursor:pointer;">
-                        <input type="checkbox" name="todos" value="1" style="margin-top:3px;">
-                        <span>{{ 'publicas.descadastro.confirmar.nenhum'|trans({remetente: remetente}) }}</span>
-                    </label>
-                    <button type="submit" name="confirmar" value="1" style="padding:12px 24px;border:none;border-radius:6px;background-color:#0a6fa0;color:#ffffff;font-size:15px;font-weight:bold;cursor:pointer;">{{ 'publicas.descadastro.confirmar.botao'|trans }}</button>
-                </form>
-                <p style="margin:20px 0 0;font-size:13px;color:#888888;line-height:1.5;">
-                    {{ 'publicas.descadastro.confirmar.fechar'|trans }}
-                </p>
-            </div>
+<body style="min-height:100vh; display:flex; flex-direction:column;">
+    <header style="background:#0a6fa0; color:#fff; height:58px; display:flex; align-items:center; gap:12px; padding:0 18px;">
+        <span style="font-size:20px; font-weight:bold;">BlueJus</span>
+    </header>
+    <main style="flex:1; display:flex; align-items:center; justify-content:center; padding:40px 16px;">
+        <div style="width:min(480px, 100%); background:#fff; border:1px solid #dde5eb; border-radius:8px; padding:30px 28px; text-align:center; animation:vpUp .4s ease both;">
+            <span style="width:60px; height:60px; margin:0 auto 12px; border-radius:50%; background:#fdf1f2; color:#a3232b; font-size:26px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-envelope-slash"></i></span>
+            <h1 style="font-size:19px; font-weight:bold; margin:0 0 6px;">{{ 'publicas.descadastro.confirmar.titulo'|trans }}</h1>
+            <p style="margin:0; font-size:14px; color:#4a6373; line-height:1.55;">
+                {{ 'publicas.descadastro.confirmar.endereco'|trans }} <b>{{ email }}</b> {{ 'publicas.descadastro.confirmar.deixara'|trans({remetente: remetente}) }}
+            </p>
+            <form method="post" action="{{ acao }}">
+                <div style="font-size:12px; font-weight:bold; color:#4a6373; letter-spacing:.4px; margin:16px 0 6px;">{{ 'publicas.descadastro.confirmar.motivo_rotulo'|trans }}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                    {% for chave in motivos %}
+                        <label class="ds-chip"><input type="radio" name="motivo" value="{{ chave }}"><span>{{ ('publicas.descadastro.motivos.' ~ chave)|trans }}</span></label>
+                    {% endfor %}
+                </div>
+                <label style="display:flex; align-items:flex-start; gap:8px; margin:16px 0 0; font-size:13px; color:#4a6373; line-height:1.5; text-align:left; cursor:pointer;">
+                    <input type="checkbox" name="todos" value="1" style="margin-top:3px;">
+                    <span>{{ 'publicas.descadastro.confirmar.nenhum'|trans({remetente: remetente}) }}</span>
+                </label>
+                <div style="display:flex; gap:8px; justify-content:center; margin-top:18px; flex-wrap:wrap;">
+                    <a href="/vagas-juridicas" style="display:inline-flex; align-items:center; height:38px; box-sizing:border-box; padding:0 14px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font-size:14px; text-decoration:none;">{{ 'publicas.descadastro.confirmar.continuar'|trans }}</a>
+                    <button type="submit" name="confirmar" value="1" style="height:38px; padding:0 16px; border:none; border-radius:3px; background:#a3232b; color:#fff; font:inherit; font-size:14px; font-weight:bold; cursor:pointer;">{{ 'publicas.descadastro.confirmar.botao'|trans }}</button>
+                </div>
+            </form>
         </div>
     </main>
 </body>

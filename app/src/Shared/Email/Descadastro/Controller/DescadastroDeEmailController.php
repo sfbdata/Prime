@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * O link "Não quero mais receber estes avisos" dos e-mails (spec push-avisar-quando-chegar D3).
@@ -26,6 +27,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *   - POST na MESMA URL assinada grava (idempotente) e mostra a confirmação. Serve ao botão e ao
  *     one-click dos provedores (RFC 8058, cabeçalho List-Unsubscribe-Post). Sem token CSRF: o
  *     provedor não teria como mandá-lo, e a assinatura do link já prova que o pedido veio do e-mail;
+ *   - os chips de motivo (opcionais) gravam o texto da chave escolhida (lista fixa); chave fora dela é ignorada;
  *   - a opção "Não quero receber nenhum e-mail deste remetente" (desmarcada por padrão) grava
  *     também `todos` no escopo do link; o one-click grava só o assunto do link.
  *
@@ -36,10 +38,14 @@ final class DescadastroDeEmailController extends AbstractController
     /** O remetente dos e-mails da plataforma (escopo sem escritório). */
     private const PLATAFORMA = 'BlueJus';
 
+    /** Motivos oferecidos na página (chips do desenho); o texto gravado vem da tradução da chave. */
+    private const MOTIVOS = ['demais', 'sem_interesse', 'nao_cadastrei', 'outro'];
+
     public function __construct(
         private readonly LinkDeDescadastro $link,
         private readonly DescadastroDeEmailInterface $descadastro,
         private readonly TenantRepository $tenants,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -58,6 +64,7 @@ final class DescadastroDeEmailController extends AbstractController
                 'remetente' => $remetente,
                 'email' => $pedido->emailMascarado(),
                 'acao' => $request->getRequestUri(),
+                'motivos' => self::MOTIVOS,
             ]);
         }
 
@@ -65,7 +72,8 @@ final class DescadastroDeEmailController extends AbstractController
         // provedor (RFC 8058): só o assunto do link.
         $doBotao = $request->request->has('confirmar');
         $todos = $doBotao && $request->request->getBoolean('todos');
-        $this->gravar($tenant, $pedido->email, $pedido->assunto, $doBotao ? 'link_do_email' : 'one_click');
+        $motivo = $doBotao ? $this->motivo($request) : null;
+        $this->gravar($tenant, $pedido->email, $pedido->assunto, $doBotao ? 'link_do_email' : 'one_click', $motivo);
         if ($todos) {
             $this->gravar($tenant, $pedido->email, DescadastroDeEmailInterface::ASSUNTO_TODOS, 'link_do_email');
         }
@@ -88,10 +96,21 @@ final class DescadastroDeEmailController extends AbstractController
         return $tenant;
     }
 
-    private function gravar(?Tenant $tenant, string $email, string $assunto, string $origem): void
+    /** O motivo escolhido nos chips (opcional): só chave da lista fixa vale; o gravado é o texto dela. */
+    private function motivo(Request $request): ?string
+    {
+        $chave = $request->request->get('motivo');
+        if (!is_string($chave) || !in_array($chave, self::MOTIVOS, true)) {
+            return null;
+        }
+
+        return $this->translator->trans('publicas.descadastro.motivos.' . $chave, [], null, 'pt_BR');
+    }
+
+    private function gravar(?Tenant $tenant, string $email, string $assunto, string $origem, ?string $motivo = null): void
     {
         try {
-            $this->descadastro->descadastrar($tenant, $email, $assunto, $origem);
+            $this->descadastro->descadastrar($tenant, $email, $assunto, $origem, $motivo);
         } catch (\InvalidArgumentException) {
             throw new NotFoundHttpException('Link de descadastro inválido.');
         }
