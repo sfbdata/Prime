@@ -15,7 +15,6 @@ use App\Recompensa\Entity\CondicaoDeRecompensa;
 use App\Recompensa\Entity\LancamentoDeRecompensa;
 use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Recompensa\Repository\CondicaoDeRecompensaRepository;
-use App\Recompensa\Repository\LancamentoDeRecompensaRepository;
 use App\Recompensa\Repository\ProgramaDeRecompensaRepository;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
