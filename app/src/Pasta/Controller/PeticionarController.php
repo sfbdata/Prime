@@ -17,6 +17,7 @@ use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Pasta\DTO\DocumentoDuplicadoOutput;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
+use App\Pasta\UseCase\GerarPreviaDeDocumentoOfficeUseCase;
 use App\Pasta\UseCase\ExportarPecaTextoUseCase;
 use App\Pasta\UseCase\ListarDuplicadosDoDocumentoUseCase;
 use App\Pasta\UseCase\SalvarPecaTextoUseCase;
@@ -45,6 +46,7 @@ final class PeticionarController extends AbstractController
         private readonly UploadPecaUseCase $uploadPecaUseCase,
         private readonly SalvarPecaTextoUseCase $salvarPecaTextoUseCase,
         private readonly EditarPecaTextoUseCase $editarPecaTextoUseCase,
+        private readonly GerarPreviaDeDocumentoOfficeUseCase $gerarPreviaOffice,
         private readonly ExportarPecaTextoUseCase $exportarPecaTextoUseCase,
         private readonly UploadImagemEditorUseCase $uploadImagemEditorUseCase,
         private readonly ListarDuplicadosDoDocumentoUseCase $listarDuplicadosDoDocumentoUseCase,
@@ -413,6 +415,38 @@ final class PeticionarController extends AbstractController
         }
 
         return new JsonResponse(['success' => true]);
+    }
+
+    /**
+     * Prévia só de leitura de DOCX e XLSX (F9). O HTML sai sob CSP sem script nem rede, para o iframe
+     * do visualizador. Sem prévia possível (tipo, tamanho ou arquivo ruim), a página diz isso.
+     */
+    #[Route('/documento/{id}/previa', name: 'pasta_documento_previa', methods: ['GET'])]
+    public function previa(PastaDocumento $doc): Response
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $pasta       = $doc->getPasta();
+
+        if ($pasta === null || !$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', (int) $pasta->getId(), 'view')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
+        }
+
+        try {
+            $html = $this->gerarPreviaOffice->executar($doc);
+        } catch (ArquivoNaoEncontrado) {
+            throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
+        }
+
+        $html ??= '<!doctype html><meta charset="utf-8"><body style="font:14px sans-serif;color:#34505f;padding:24px">'
+            . 'Não foi possível mostrar este arquivo aqui. Use Baixar para abri-lo.</body>';
+
+        $resposta = new Response($html);
+        $resposta->headers->set('Content-Type', 'text/html; charset=UTF-8');
+        $resposta->headers->set('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:");
+        $resposta->headers->set('X-Content-Type-Options', 'nosniff');
+
+        return $resposta;
     }
 
     #[Route('/documento/{id}/exportar/{formato}', name: 'pasta_documento_exportar_texto', methods: ['GET'])]

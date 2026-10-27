@@ -463,6 +463,9 @@
         dlPanel.style.display      = 'none';
     }
 
+    const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
     function selecionarItem(item) {
         document.querySelectorAll('.petic-tl-row').forEach(el => el.classList.remove('ativo'));
         item.classList.add('ativo');
@@ -484,6 +487,10 @@
 
         if (mime === 'application/pdf' || mime === 'text/html') {
             iframe.src           = viewUrl;
+            iframe.style.display = 'block';
+        } else if (mime === MIME_DOCX || mime === MIME_XLSX) {
+            // F9: prévia só de leitura, convertida no servidor (a rota entrega sob CSP sem script).
+            iframe.src           = viewUrl.replace('/visualizar', '/previa');
             iframe.style.display = 'block';
         } else if (mime === 'image/jpeg' || mime === 'image/png') {
             imgPreview.src           = viewUrl;
