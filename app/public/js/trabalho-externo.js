@@ -982,7 +982,10 @@
             return;
         }
         var fechar = function (e) { e.preventDefault(); fecharMenu(); };
-        var caixa = el('div', { class: 'te-menu', style: { left: m.x + 'px', top: m.y + 'px' } });
+        var caixa = el('div', { class: 'te-menu' + (m.tipo ? '' : ' te-menu--demanda'), style: { left: m.x + 'px', top: m.y + 'px' } });
+        if (m.tipo) {
+            caixa.setAttribute('role', 'menu');
+        }
         alvo.appendChild(el('div', { class: 'te-menu-fundo', onclick: fechar, oncontextmenu: fechar }));
         if (m.tipo === 'selpor') {
             caixa.style.width = m.largura + 'px';
@@ -3513,7 +3516,7 @@
             },
             oncontextmenu: function (e) {
                 e.preventDefault();
-                abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 250);
+                abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 230);
             }
         }, [
             // D4 (l.164): véu e carimbo "EXPIRADA", sem clique.
@@ -6171,7 +6174,7 @@
             el('span', { class: 'te-cv-cel' }, seloSituacao(x.statusRotulo || stCv(x.status)[1], x.statusCor || stCv(x.status)[2])),
             el('button', {
                 type: 'button', class: 'te-cv-mais', title: 'Mais opções',
-                onclick: function (e) { e.stopPropagation(); var r = e.currentTarget.getBoundingClientRect(); menu(r.left - 200, r.bottom + 4); }
+                onclick: function (e) { e.stopPropagation(); if (e.clientX || e.clientY) { menu(e.clientX, e.clientY); return; } var r = e.currentTarget.getBoundingClientRect(); menu(r.left - 200, r.bottom + 4); }
             }, ic('bi-three-dots-vertical'))
         ]);
     }
