@@ -56,6 +56,21 @@ final class PastaPagamentosOutputTest extends TestCase
         self::assertSame([], $saida->proximos);
     }
 
+    #[TestDox('parcelas vencidas (não pagas, vencimento antes de hoje) entram na faixa vermelha do cartão')]
+    public function testVencidas(): void
+    {
+        $saida = PastaPagamentosOutput::montar([
+            $this->pagamento('1500.00', '2026-06-18', '2026-06-18'),
+            $this->pagamento('1300.00', '2026-08-01'),
+            $this->pagamento('200.00', '2026-08-10'),
+            $this->pagamento('1300.00', '2026-08-28'),
+        ], $this->hoje());
+
+        self::assertSame(2, $saida->vencidasQuantidade);
+        self::assertSame('R$ 1.500,00', $saida->vencidasFormatado);
+        self::assertSame(0, PastaPagamentosOutput::montar([], $this->hoje())->vencidasQuantidade);
+    }
+
     #[TestDox('previsto soma tudo; recebido soma só o que tem data de pagamento')]
     public function testTotais(): void
     {

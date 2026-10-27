@@ -38,7 +38,8 @@
    id da pasta ou null. Aba oculta não restringe (spec §2.2). #}
 {% set encaminharPasta = central_disponivel() and not finPastaLapide ? pasta.id : null %}
 
-{% set contratoAssinado = pasta.situacaoContrato == 'REGULAR' %}
+{# Contrato só consta como Assinado com o arquivo do contrato anexado (dc 27.10): a marca sozinha não basta. #}
+{% set contratoAssinado = pasta.situacaoContrato == 'REGULAR' and documentosContrato is not empty %}
 {% set arquivosVisiveis = 3 %}
 
 {# "Enviar por e-mail ao cliente" do ⋮ do arquivo (desenho 1.2.3, dc 6546): é um
@@ -58,6 +59,13 @@
    o conteúdo na mesma altura nos quatro. Nenhum ganha destaque sobre o outro.
    Arranjo sob teste (PastaFinanceiroArranjoTelaTest). #}
 <div class="ps-fin-faixa">
+
+    {# Aviso de parcelas vencidas: primeira linha do cartão, vermelha, só aparece com atraso (dc 27.10).
+       O script de Pagamentos reescreve o texto e o `hidden` a cada resposta. #}
+    <div class="ps-fin-vencidas" id="financeiro-vencidas"{% if pagamentos.vencidasQuantidade == 0 %} hidden{% endif %}>
+        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+        <span>{{ (pagamentos.vencidasQuantidade == 1 ? 'pasta_financeiro.vencidas.uma' : 'pasta_financeiro.vencidas.varias')|trans({n: pagamentos.vencidasQuantidade, valor: pagamentos.vencidasFormatado}) }}</span>
+    </div>
 
     {# Contrato — o SELO é o botão. O link "marcar como assinado" saiu na revisão
        de 28/08: dois alvos para a mesma ação ensinam o usuário a procurar o
@@ -172,6 +180,7 @@
         <section class="ps-card ps-anotacoes" id="financeiroRelatorio">
             <div class="ps-card-cab ps-card-cab--painel">
                 <h2>{{ 'pasta_financeiro.relatorio.titulo'|trans }}</h2>
+                <span class="ps-fin-cab-sub">{{ 'pasta_financeiro.relatorio.subtitulo'|trans }}</span>
                 {% set idsContagemFin = observacoesFinanceiras|map(o => o.id) %}
                 <span class="ps-contagem" id="financeiro-obs-count" title="{{ 'pasta_financeiro.relatorio.contagem_dica'|trans }}">{{ observacoesFinanceiras|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemFin)|length }}</span>
             </div>
@@ -309,6 +318,7 @@
         <section class="ps-card" data-trilho="arquivos">
             <div class="ps-card-cab">
                 <h2>{{ 'pasta_financeiro.arquivos.titulo'|trans }}</h2>
+                <span class="ps-fin-cab-sub">{{ 'pasta_financeiro.arquivos.subtitulo'|trans }}</span>
                 {# Contagem SEMPRE à vista, inclusive 0 (dc 1831). #}
                 <span class="ps-contagem" id="financeiro-docs-contagem">{{ documentosContrato|length }}</span>
                 {# C7-FPN-01: enviar arquivo exige EDIT; quem não escreve não recebe o Adicionar. #}
@@ -641,6 +651,12 @@
         btnSituacao.addEventListener('click', async function () {
             const atual = this.dataset.situacaoAtual;
             const nova  = atual === 'PENDENTE' ? 'REGULAR' : 'PENDENTE';
+
+            // Assinado só com o arquivo do contrato anexado (dc 27.10). Sem arquivo, só reabre.
+            if (nova === 'REGULAR' && !document.querySelector('#financeiro-docs-lista .ps-fin-doc')) {
+                (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.contrato_sem_arquivo'));
+                return;
+            }
 
             const fd = new FormData();
             fd.append('_token', this.dataset.csrf);

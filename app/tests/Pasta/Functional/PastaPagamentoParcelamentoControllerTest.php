@@ -324,7 +324,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         unset($resumo['html']);
         self::assertSame(11, $dados['quantidade']);
         self::assertSame(
-            ['total' => 11, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'contratado' => 'R$ 12.843,42', 'contratadoCentavos' => 1284342, 'percentual' => 0],
+            ['total' => 11, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'contratado' => 'R$ 12.843,42', 'contratadoCentavos' => 1284342, 'percentual' => 0, 'vencidasQuantidade' => 0, 'vencidasFormatado' => 'R$ 0,00'],
             $resumo,
             'o resumo do card é o mesmo de antes da coluna',
         );
