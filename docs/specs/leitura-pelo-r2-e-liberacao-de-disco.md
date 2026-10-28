@@ -53,8 +53,13 @@ arquivo baixado do R2 para `var/espelho-cache/`.
   `verificado`.
 - O nome no cache é o SHA. A escrita é atômica (`.parcial-*` e depois `rename`), e o cache é por
   instância.
-- Teto configurável (`ESPELHO_CACHE_MAX_BYTES`, padrão 2 GB), com descarte LRU por `atime` do arquivo
-  de cache.
+- Teto configurável (`ESPELHO_CACHE_MAX_BYTES`, padrão 512 MB no container, sem precisar da linha em
+  produção), com descarte LRU por `atime`/`mtime` do arquivo de cache.
+- O descarte nunca apaga arquivo usado nos últimos 30 minutos: o ZIP lê no `close()` e o
+  `BinaryFileResponse` abre no `sendContent()`. O cache pode passar do teto por um tempo.
+- Uma trava por SHA (`flock`) faz requisições simultâneas da mesma chave baixarem uma vez só.
+- O cache fica na camada gravável do contêiner (`var/espelho-cache`) e some quando o contêiner é
+  recriado. Isso é aceito.
 - Motivo: um vídeo pedido com Range faz várias requisições; baixar a cada uma seria lento e caro.
 - `paraLeitura()` devolve `ArquivoEmprestado` sobre o arquivo do cache. A cópia zero (INV-9) continua
   valendo para o disco de produção.
@@ -104,6 +109,11 @@ senão → o mesmo erro/null de hoje (ArquivoNaoEncontrado)
   disco, e isso é uma escrita normal, que reenvia ao espelho.
 - `listar()`/`excluirPrefixo()` não mudam: listam e apagam só o disco. O uso de cada um é revisado no
   §7.
+- Quem precisa saber o que está **no disco** recebe o `ArmazenamentoLocal` direto, sem cota e sem
+  fallback: `ReconciliadorDoEspelho`, `ReplicadorDeArquivos` e `CarregadorDoAcervo`. Sem isso, a
+  reconciliação deixaria de ver arquivo perdido e baixaria do R2 na fatia do SHA. Um teste de
+  arquitetura trava essa fiação.
+- `tarefa_anexo` fica fora do fallback até a prova R1 (§3.3).
 - Falha do R2 na hidratação: erro 503 na entrega, com log de contagem, nunca 404 (o arquivo existe).
   Sem nova tentativa em linha.
 
@@ -222,7 +232,7 @@ somam menos de 100 MB e ficam no disco, porque o ganho não paga o risco.
 | Arquivo liberado que o R2 não tem | download completo com SHA antes de mover; `.liberados` por 7 dias; backup P0d |
 | R2 fora do ar | 503 na entrega só dos liberados; o disco atende o resto; o alerta da reconciliação avisa |
 | Chave com tenant errado (e2 :473) | testes de leitura por categoria × tenant; R1 de Tarefa (§3.3) |
-| Cache enche o disco | teto e LRU; o cache fica no mesmo volume `var` monitorado |
+| Cache enche o disco | teto de 512 MB, LRU e trava por SHA; os `.parcial-*` contam no teto; só o contêiner `php` hidrata |
 | Exclusão LGPD não apaga no R2 | D6: liberar só depois da frente de exclusão |
 | `listar()`/`excluirPrefixo()` não enxergam liberados | revisar cada chamador; o caso conhecido é a exclusão de pasta inteira, que precisa apagar também a linha de liberação e o objeto no R2 (frente D6) |
 | Drive Via A, ZIP e IA exigem caminho | passam pelo `paraLeitura()` e recebem o cache (D3); testar um de cada |
