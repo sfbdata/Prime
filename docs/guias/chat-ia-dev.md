@@ -55,3 +55,22 @@ Para parar: `Ctrl+C` no terminal. Ninguém deixa o servidor rodando.
 - A sessão (login) é de outro endereço (IP:porta), então o login na 8080 não vale aqui: entre de novo.
 - Mudança de código aparece ao recarregar (o servidor do PHP lê os arquivos a cada pedido). A migration da frente precisa
   estar aplicada no banco de dev: `scripts/migrar-dev.sh`.
+
+## 4. O que olhar na tela (`/chat-ia`)
+
+Passo a passo: (1) cole a chave em `app/.env.local` e rode `app:inteligencia:testar-conexao` (seção 1); (2) suba o servidor
+com `scripts/servir-frente.sh ia-chat-pagina 8091`; (3) entre com um usuário do escritório de teste e abra
+`http://<ip>:8091/chat-ia`; (4) `Ctrl+C` no terminal ao terminar. Sem chave, a página abre com o banner "A IA ainda não está
+conectada" (isso também vale olhar).
+
+- **Tela vazia:** saudação pela hora ("Boa tarde, Dr(a). Farlei"), caixa arredondada no centro com clipe, "Citar pasta", seletor de modelo e botão de enviar.
+- **Conversa:** sua pergunta em balão discreto à direita; a resposta sem balão, aparecendo aos poucos; título da conversa mudando na barra lateral ao fim da primeira resposta.
+- **Parar:** o botão de enviar vira quadrado durante a resposta; ao clicar, a resposta fica marcada "Resposta interrompida".
+- **Markdown:** peça "uma tabela, uma lista numerada com sublista e um trecho de código": tabela rola na horizontal, código com botão Copiar.
+- **Rolagem:** role para cima durante a resposta (ela deixa de acompanhar) e use o botão de seta para voltar ao fim.
+- **Ações sob a resposta:** Copiar, Gerar de novo (última resposta) e, na última pergunta, Editar (reenvia).
+- **Barra lateral:** Novo chat, busca, grupos, menu "..." (Renomear, Fixar, Excluir com diálogo próprio), recolher e reabrir.
+- **Anexo e pasta:** clipe, arrastar um PDF/imagem/DOCX para a tela e colar uma imagem; `#` ou "Citar pasta" busca pelo NUP.
+- **Claro/escuro:** o ícone no pé da barra alterna; sem escolha, segue o sistema.
+- **Celular** (estreite a janela): a barra vira gaveta com fundo escurecido, caixa fixa embaixo, sem rolagem horizontal.
+- **Erros:** sem aceite de envio de dados, pasta com segredo de justiça, teto diário: aviso vermelho acima da caixa, sem perder o texto digitado.

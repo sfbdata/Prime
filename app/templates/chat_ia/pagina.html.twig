@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>{{ 'chat_ia.titulo_pagina'|trans }} | BlueJus</title>
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+    /* Tokens do Guia visual BlueJus. Claro por padrão; escuro pelo sistema (se a pessoa não fixou o claro) ou pelo alternador. */
+    :root {
+        color-scheme: light;
+        --ci-acao: #0f6fc4;
+        --ci-acao-forte: #0b5f86;
+        --ci-acao-texto: #ffffff;
+        --ci-realce: #e8f2fa;
+        --ci-texto: #12242f;
+        --ci-apoio: #5f7684;
+        --ci-mudo: #7b93a2;
+        --ci-fundo: #f4f7f9;
+        --ci-fundo-barra: #eef2f5;
+        --ci-superficie: #ffffff;
+        --ci-borda: #d5dfe6;
+        --ci-codigo-fundo: #eef2f5;
+        --ci-balao: #e8f2fa;
+        --ci-destrutivo: #a3232b;
+        --ci-sucesso: #1f9d61;
+        --ci-sombra: 0 1px 2px rgba(16, 42, 58, .05);
+        --ci-sombra-flutua: 0 8px 24px rgba(16, 42, 58, .14);
+        --ci-raio: 4px;
+        --ci-pilula: 999px;
+        --ci-fonte: 'Open Sans', Arial, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+            color-scheme: dark;
+            --ci-acao: #4da3ec;
+            --ci-acao-forte: #7cc0ee;
+            --ci-acao-texto: #08202f;
+            --ci-realce: #16344a;
+            --ci-texto: #e6eef3;
+            --ci-apoio: #a3b5c1;
+            --ci-mudo: #7f95a3;
+            --ci-fundo: #0f1b23;
+            --ci-fundo-barra: #0b151c;
+            --ci-superficie: #172732;
+            --ci-borda: #2a3d4a;
+            --ci-codigo-fundo: #0b151c;
+            --ci-balao: #1d3547;
+            --ci-destrutivo: #ef7d85;
+            --ci-sucesso: #4cc58a;
+            --ci-sombra: 0 1px 2px rgba(0, 0, 0, .3);
+            --ci-sombra-flutua: 0 8px 24px rgba(0, 0, 0, .5);
+        }
+    }
+    :root[data-theme="dark"] {
+        color-scheme: dark;
+        --ci-acao: #4da3ec;
+        --ci-acao-forte: #7cc0ee;
+        --ci-acao-texto: #08202f;
+        --ci-realce: #16344a;
+        --ci-texto: #e6eef3;
+        --ci-apoio: #a3b5c1;
+        --ci-mudo: #7f95a3;
+        --ci-fundo: #0f1b23;
+        --ci-fundo-barra: #0b151c;
+        --ci-superficie: #172732;
+        --ci-borda: #2a3d4a;
+        --ci-codigo-fundo: #0b151c;
+        --ci-balao: #1d3547;
+        --ci-destrutivo: #ef7d85;
+        --ci-sucesso: #4cc58a;
+        --ci-sombra: 0 1px 2px rgba(0, 0, 0, .3);
+        --ci-sombra-flutua: 0 8px 24px rgba(0, 0, 0, .5);
+    }
+    html, body { margin: 0; height: 100%; }
+    body { background: var(--ci-fundo); color: var(--ci-texto); font-family: var(--ci-fonte); }
+    </style>
+    <script>
+    /* Aplica o tema salvo antes de pintar, para não piscar. */
+    (function () {
+        try {
+            var t = window.localStorage.getItem('chat-ia-tema');
+            if (t === 'light' || t === 'dark') { document.documentElement.setAttribute('data-theme', t); }
+        } catch (e) { /* sem armazenamento: segue o sistema */ }
+    }());
+    </script>
+    <link rel="stylesheet" href="{{ asset('css/chat-ia.css') }}">
+</head>
+<body>
+{% set textos = {} %}
+{% for chave in [
+    'novo_chat', 'buscar', 'buscar_placeholder', 'grupo_fixadas', 'grupo_hoje', 'grupo_ultimos_7_dias', 'grupo_mais_antigas',
+    'sem_conversas', 'sem_resultados', 'carregando', 'recolher_barra', 'abrir_barra', 'fechar_barra', 'tema_claro', 'tema_escuro',
+    'mais_opcoes', 'renomear', 'fixar', 'desafixar', 'excluir', 'renomear_rotulo', 'sem_titulo', 'excluir_titulo', 'excluir_texto',
+    'cancelar', 'salvar', 'saudacao_bom_dia', 'saudacao_boa_tarde', 'saudacao_boa_noite', 'saudacao_com_nome',
+    'mensagem_rotulo', 'enviar', 'parar', 'anexar', 'citar_pasta', 'citar_pasta_busca', 'citar_pasta_vazio', 'citar_pasta_chip',
+    'remover', 'voce', 'copiar', 'copiado', 'copiar_resposta', 'regenerar', 'editar', 'interrompida', 'cortada', 'descer',
+    'gerando', 'fechar_aviso', 'erro_sem_chave', 'erro_sem_aceite', 'erro_generico', 'erro_rede', 'erro_conversa',
+    'erro_anexo_tipo', 'erro_anexo_tamanho', 'erro_anexo_quantidade', 'erro_texto_vazio', 'titulo_pagina'
+] %}
+    {% set textos = textos|merge({(chave): ('chat_ia.' ~ chave)|trans}) %}
+{% endfor %}
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+        <symbol id="ci-i-novo" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+        <symbol id="ci-i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+        <symbol id="ci-i-barra" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 4.5v15" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+        <symbol id="ci-i-mais" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor"/></symbol>
+        <symbol id="ci-i-clipe" viewBox="0 0 24 24"><path d="m20 11.5-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L9.5 17a1.7 1.7 0 0 1-2.4-2.4L15 6.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-pasta" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2H10l2 2.5h6.5a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-enviar" viewBox="0 0 24 24"><path d="M12 19V6M6.5 11.5 12 6l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-parar" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"/></symbol>
+        <symbol id="ci-i-lua" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+        <symbol id="ci-i-copiar" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+        <symbol id="ci-i-ok" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-refazer" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.4-5.5M19.5 4.5v4.5H15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-editar" viewBox="0 0 24 24"><path d="m4.5 19.5 1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8.5 18.5ZM14.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-fechar" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+        <symbol id="ci-i-descer" viewBox="0 0 24 24"><path d="M12 5v13M6.5 12.5 12 18l5.5-5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-fixar" viewBox="0 0 24 24"><path d="M9 4h6l-1 6 3.5 3.5V15h-11v-1.5L10 10ZM12 15v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-lixo" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l.8 12.5h8.4L17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="ci-i-aviso" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M12 7.5v5.5M12 16.2v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    </defs>
+</svg>
+
+<div class="ci-app" id="ci-app"
+     data-urls="{{ urls|json_encode|e('html_attr') }}"
+     data-csrf="{{ csrf }}"
+     data-modelos="{{ modelos|json_encode|e('html_attr') }}"
+     data-modelo-padrao="{{ modeloPadrao }}"
+     data-nome="{{ nome }}"
+     data-conversa-id="{{ conversaId is null ? '' : conversaId }}"
+     data-sem-chave="{{ semChave ? '1' : '0' }}"
+     data-aviso="{{ aviso ?? '' }}"
+     data-textos="{{ textos|json_encode|e('html_attr') }}">
+
+    <div class="ci-fundo-gaveta" id="ci-fundo-gaveta" hidden></div>
+
+    <aside class="ci-barra" id="ci-barra" aria-label="{{ 'chat_ia.historico'|trans }}">
+        <div class="ci-barra-topo">
+            <span class="ci-marca">{{ 'chat_ia.marca'|trans }}</span>
+            <button type="button" class="ci-icone" id="ci-recolher" aria-label="{{ 'chat_ia.recolher_barra'|trans }}" title="{{ 'chat_ia.recolher_barra'|trans }}">
+                <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-barra"/></svg>
+            </button>
+        </div>
+        <button type="button" class="ci-item-barra ci-item-novo" id="ci-novo">
+            <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-novo"/></svg>
+            <span>{{ 'chat_ia.novo_chat'|trans }}</span>
+        </button>
+        <div class="ci-busca">
+            <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-busca"/></svg>
+            <input type="search" id="ci-busca" autocomplete="off" maxlength="80"
+                   placeholder="{{ 'chat_ia.buscar_placeholder'|trans }}" aria-label="{{ 'chat_ia.buscar'|trans }}">
+        </div>
+        {# Espaço reservado para itens futuros do dono. Vazio de propósito. #}
+        <div class="ci-reservado" id="ci-reservado"></div>
+        <nav class="ci-historico" id="ci-historico" aria-label="{{ 'chat_ia.historico'|trans }}"></nav>
+        <div class="ci-barra-rodape">
+            <button type="button" class="ci-icone" id="ci-tema" aria-label="{{ 'chat_ia.tema_escuro'|trans }}" title="{{ 'chat_ia.tema_escuro'|trans }}">
+                <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-lua"/></svg>
+            </button>
+        </div>
+    </aside>
+
+    <main class="ci-principal" id="ci-principal">
+        <header class="ci-topo">
+            <button type="button" class="ci-icone ci-abrir-barra" id="ci-abrir-barra" aria-label="{{ 'chat_ia.abrir_barra'|trans }}" title="{{ 'chat_ia.abrir_barra'|trans }}">
+                <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-barra"/></svg>
+            </button>
+            <h1 class="ci-titulo-conversa" id="ci-titulo-conversa">{{ 'chat_ia.titulo_pagina'|trans }}</h1>
+        </header>
+
+        <div class="ci-banner" id="ci-banner" role="status" hidden>
+            <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-aviso"/></svg>
+            <div>
+                <strong>{{ 'chat_ia.sem_chave_titulo'|trans }}</strong>
+                <p id="ci-banner-texto"></p>
+            </div>
+        </div>
+
+        <div class="ci-corpo ci-vazia" id="ci-corpo">
+            <div class="ci-rolagem" id="ci-rolagem" tabindex="-1">
+                <div class="ci-vazio" id="ci-vazio"><h2 id="ci-saudacao"></h2></div>
+                <div class="ci-coluna" id="ci-mensagens" aria-live="polite" aria-relevant="additions text" hidden></div>
+            </div>
+
+            <div class="ci-rodape">
+                <button type="button" class="ci-descer" id="ci-descer" aria-label="{{ 'chat_ia.descer'|trans }}" title="{{ 'chat_ia.descer'|trans }}" hidden>
+                    <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-descer"/></svg>
+                </button>
+                <div class="ci-aviso" id="ci-aviso" role="alert" hidden>
+                    <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-aviso"/></svg>
+                    <span id="ci-aviso-texto"></span>
+                    <button type="button" class="ci-icone ci-icone-pequeno" id="ci-aviso-fechar" aria-label="{{ 'chat_ia.fechar_aviso'|trans }}">
+                        <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-fechar"/></svg>
+                    </button>
+                </div>
+                <form class="ci-caixa" id="ci-caixa" autocomplete="off">
+                    <div class="ci-chips" id="ci-chips" hidden></div>
+                    <textarea id="ci-texto" rows="1" maxlength="8000"
+                              placeholder="{{ 'chat_ia.mensagem_placeholder'|trans }}"
+                              aria-label="{{ 'chat_ia.mensagem_rotulo'|trans }}"></textarea>
+                    <div class="ci-caixa-base">
+                        <div class="ci-caixa-esquerda">
+                            <button type="button" class="ci-icone" id="ci-anexar" aria-label="{{ 'chat_ia.anexar'|trans }}" title="{{ 'chat_ia.anexar'|trans }}">
+                                <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-clipe"/></svg>
+                            </button>
+                            <button type="button" class="ci-botao-texto" id="ci-citar" aria-haspopup="dialog" aria-expanded="false">
+                                <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-pasta"/></svg>
+                                <span>{{ 'chat_ia.citar_pasta'|trans }}</span>
+                            </button>
+                            <input type="file" id="ci-arquivo" hidden multiple
+                                   accept=".pdf,.docx,image/png,image/jpeg,image/gif,image/webp,application/pdf">
+                        </div>
+                        <div class="ci-caixa-direita">
+                            <select id="ci-modelo" aria-label="{{ 'chat_ia.modelo_rotulo'|trans }}"></select>
+                            <button type="submit" class="ci-enviar" id="ci-enviar" aria-label="{{ 'chat_ia.enviar'|trans }}" title="{{ 'chat_ia.enviar'|trans }}">
+                                <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-enviar"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ci-pastas" id="ci-pastas" role="dialog" aria-label="{{ 'chat_ia.citar_pasta'|trans }}" hidden>
+                        <input type="search" id="ci-pastas-busca" autocomplete="off" placeholder="{{ 'chat_ia.citar_pasta_busca'|trans }}" aria-label="{{ 'chat_ia.citar_pasta_busca'|trans }}">
+                        <ul id="ci-pastas-lista" role="listbox" aria-label="{{ 'chat_ia.citar_pasta'|trans }}"></ul>
+                    </div>
+                </form>
+                <p class="ci-rodape-nota">{{ 'chat_ia.aviso_rodape'|trans }}</p>
+            </div>
+        </div>
+
+        <div class="ci-soltar" id="ci-soltar" hidden><span>{{ 'chat_ia.soltar_arquivo'|trans }}</span></div>
+    </main>
+
+    <div class="ci-dialogo-fundo" id="ci-dialogo" hidden>
+        <div class="ci-dialogo" role="alertdialog" aria-modal="true" aria-labelledby="ci-dialogo-titulo" aria-describedby="ci-dialogo-texto">
+            <h2 id="ci-dialogo-titulo"></h2>
+            <p id="ci-dialogo-texto"></p>
+            <div class="ci-dialogo-acoes">
+                <button type="button" class="ci-botao" id="ci-dialogo-cancelar">{{ 'chat_ia.cancelar'|trans }}</button>
+                <button type="button" class="ci-botao ci-botao-perigo" id="ci-dialogo-confirmar">{{ 'chat_ia.excluir'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ asset('js/chat-ia.js') }}"></script>
+</body>
+</html>

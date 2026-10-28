@@ -1,0 +1,69 @@
+# ---- Chat I.A em página inteira (chat_ia/pagina.html.twig, public/js/chat-ia.js)
+chat_ia:
+    titulo_pagina: Chat I.A
+    marca: BlueJus
+    novo_chat: Novo chat
+    buscar: Buscar conversas
+    buscar_placeholder: Buscar conversas
+    historico: Histórico de conversas
+    grupo_fixadas: Fixadas
+    grupo_hoje: Hoje
+    grupo_ultimos_7_dias: Últimos 7 dias
+    grupo_mais_antigas: Mais antigas
+    sem_conversas: Nenhuma conversa ainda.
+    sem_resultados: Nenhuma conversa encontrada.
+    carregando: Carregando
+    recolher_barra: Recolher a barra lateral
+    abrir_barra: Abrir a barra lateral
+    fechar_barra: Fechar a barra lateral
+    tema_claro: Usar o tema claro
+    tema_escuro: Usar o tema escuro
+    mais_opcoes: Mais opções da conversa
+    renomear: Renomear
+    fixar: Fixar
+    desafixar: Desafixar
+    excluir: Excluir
+    renomear_rotulo: Nome da conversa
+    sem_titulo: Nova conversa
+    excluir_titulo: Excluir esta conversa?
+    excluir_texto: 'A conversa "{titulo}" e os anexos dela serão apagados. Não dá para desfazer.'
+    cancelar: Cancelar
+    salvar: Salvar
+    saudacao_bom_dia: Bom dia
+    saudacao_boa_tarde: Boa tarde
+    saudacao_boa_noite: Boa noite
+    saudacao_com_nome: '{saudacao}, Dr(a). {nome}'
+    mensagem_placeholder: Como posso ajudar você hoje?
+    mensagem_rotulo: Mensagem para a I.A
+    enviar: Enviar mensagem
+    parar: Parar a resposta
+    anexar: Anexar arquivo
+    citar_pasta: Citar pasta
+    citar_pasta_busca: Buscar pasta pelo NUP
+    citar_pasta_vazio: Nenhuma pasta encontrada.
+    citar_pasta_chip: 'Pasta {nup} · {cliente}'
+    remover: Remover
+    modelo_rotulo: Modelo da I.A
+    aviso_rodape: A I.A pode errar. Confira as informações importantes.
+    voce: Você
+    copiar: Copiar
+    copiado: Copiado
+    copiar_resposta: Copiar resposta
+    regenerar: Gerar de novo
+    editar: Editar pergunta
+    interrompida: Resposta interrompida
+    cortada: A resposta atingiu o limite de tamanho e foi cortada.
+    descer: Descer até o fim
+    gerando: Gerando a resposta
+    sem_chave_titulo: A IA ainda não está conectada
+    fechar_aviso: Fechar o aviso
+    soltar_arquivo: Solte o arquivo para anexar
+    erro_sem_chave: A IA ainda não está conectada. Avise quem administra o sistema.
+    erro_sem_aceite: O escritório precisa do aceite de envio de dados para usar a I.A. Peça a quem administra o escritório para dar o aceite em Inteligência.
+    erro_generico: Não consegui responder agora. Tente de novo.
+    erro_rede: Sem conexão com o servidor. Confira a internet e tente de novo.
+    erro_conversa: Não consegui abrir esta conversa.
+    erro_anexo_tipo: 'Tipo de arquivo não aceito: {nome}. Envie PDF, imagem ou DOCX.'
+    erro_anexo_tamanho: 'O arquivo {nome} é grande demais.'
+    erro_anexo_quantidade: Anexe no máximo 3 arquivos por mensagem.
+    erro_texto_vazio: Escreva uma mensagem antes de enviar.

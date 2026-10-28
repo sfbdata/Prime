@@ -31,3 +31,6 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
 8. **Título**: automático depois da primeira resposta (`completar`, 24 tokens, Haiku; fallback = início da pergunta); renomear
    à mão (`tituloManual`) vale sobre ele.
 9. **Teste**: o provedor é o `ProvedorFalso` (`tests/Inteligencia/Support`), também em fluxo. Nenhuma chamada real à API.
+10. **Tela** (`templates/chat_ia/pagina.html.twig`, `public/css/chat-ia.css`, `public/js/chat-ia.js`): layout próprio sem AdminLTE, textos no
+    catálogo `translations/chat_ia/` e entregues ao JS em `data-textos`. O JS só usa `createElement`/`textContent` (o markdown da
+    resposta tem renderizador próprio; links só http, https e mailto) e é guardado por `tests/ChatIa/Unit/ChatIaJsTest.php`.
