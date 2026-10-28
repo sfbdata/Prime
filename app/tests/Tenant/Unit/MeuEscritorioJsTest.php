@@ -128,6 +128,7 @@ final class MeuEscritorioJsTest extends TestCase
     public function testTextoLimpo(): void
     {
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $this->js());
-        self::assertStringContainsString("'tenant.meu_escritorio.js.' + chave", $this->js());
+        self::assertStringContainsString("var PREFIXO_T = 'tenant.meu_escritorio.js.';", $this->js());
+        self::assertStringContainsString('PREFIXO_T + chave', $this->js());
     }
 }

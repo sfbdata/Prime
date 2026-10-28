@@ -8,7 +8,8 @@
     var raiz = document.querySelector('[data-me-pagina]');
     if (!raiz) { return; }
 
-    var T = function (chave, params) { return (window.BJ_T ? window.BJ_T.t('tenant.meu_escritorio.js.' + chave, params) : chave); };
+    var PREFIXO_T = 'tenant.meu_escritorio.js.';
+    var T = function (chave, params) { return (window.BJ_T ? window.BJ_T.t(PREFIXO_T + chave, params) : chave); };
     var q = function (sel) { return raiz.querySelector(sel); };
     var qa = function (sel) { return Array.prototype.slice.call(raiz.querySelectorAll(sel)); };
     var csrf = raiz.dataset.csrf || '';
