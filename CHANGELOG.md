@@ -8,6 +8,28 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.23.0] - 2026-10-28
+
+### Adicionado
+
+- Meu Escritório refeito conforme o desenho 13 (28/10): cartão "Informações do Escritório" com logo, código da conta, nome, CNPJ ou CPF (com conferência dos dígitos), registro na OAB, e-mail, telefone, endereço, data de criação e situação, edição no próprio cartão e o rodapé "Alterado por X em".
+- Só o usuário primário (e o Master) edita os dados e a logo, conferido no servidor; a tentativa de um secundário é recusada e fica na trilha de auditoria.
+- Novo cartão "Backup de arquivos" ligado à conexão do Google Drive que já existia, e cartão "Excluir conta" com senha do primário e nome do escritório, que segue para o pedido de exclusão já em vigor (guarda de 365 dias).
+- Migration `Version20261028150000`: colunas novas e nulas em `tenant` (OAB, e-mail, telefone, logo, quem e quando alterou, código da conta) e índice único parcial. Sem UPDATE e sem DROP. O código da conta é gerado no primeiro acesso à tela.
+- Nova categoria de arquivo `TENANT_LOGO` (logo do escritório, guardada por chave, apagada junto com o escritório).
+
+### Alterado
+
+- Cabeçalho da pasta: o botão "BlueJus Intelligence" virou "BlueJus IA". O nome aparece letra a letra, o símbolo da marca entra e sai e fica o ícone IA. Com o painel da IA aberto, o botão recolhe para só o ícone.
+- Aba Perguntar da IA: o carregamento da resposta ganhou o cartão novo, com faixa que varre, símbolo girando, passos (consultando, lendo, redigindo), frases e barra de progresso. Os passos avançam por tempo decorrido, não por etapas reais do servidor.
+- Linha do tempo da pasta: o título só aparece quando o mouse passa pela faixa.
+
+### Corrigido
+
+- Pastas: na coluna Cliente, o cliente principal de uma pasta comum passa a aparecer pelo nome fantasia (senão a razão social ou o nome completo), a mesma regra das pastas judicializadas. Cadastros com razão social composta ("a - b") deixam de aparecer assim na lista do Expediente.
+- Pastas: o cartão da lista de demandas, os cartões e a tela de Metas, o resumo do processo, o financeiro da pasta, o relatório de registros do Dashboard, o LEIA-ME do ZIP de documentos e as análises de pastas paradas e sem processo passam a mostrar o mesmo nome da coluna Cliente, e não mais o texto composto gravado nas pastas antigas.
+- O comando `app:cobranca:regravar-nome-pasta-judicial` também alinha as pastas que não são judiciais, têm cliente principal e ainda guardam texto composto ("a - b"): passam a guardar o nome do cliente principal. Simula por padrão e é idempotente.
+
 ## [2.22.0] - 2026-10-27
 
 ### Adicionado
@@ -1220,7 +1242,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.22.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.23.0...HEAD
+[2.23.0]: https://github.com/sfbdata/Prime/compare/v2.22.0...v2.23.0
 [2.22.0]: https://github.com/sfbdata/Prime/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/sfbdata/Prime/compare/v2.20.0...v2.21.0
 [2.20.0]: https://github.com/sfbdata/Prime/compare/v2.19.0...v2.20.0
