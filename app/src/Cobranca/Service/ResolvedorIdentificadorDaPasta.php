@@ -84,6 +84,7 @@ final class ResolvedorIdentificadorDaPasta
         }
 
         return $this->memoria[$id]
+            ?? $this->compositor->paraCliente($pasta->getClientePrincipal())
             ?? $pasta->getClientePrincipal()?->getNomeExibicao()
             ?? $pasta->getNomeCliente();
     }

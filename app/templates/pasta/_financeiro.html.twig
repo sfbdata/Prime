@@ -604,7 +604,7 @@
             <div class="ps-fin-extrato-cab" id="psExtratoCabecalho" hidden>
                 <div class="ps-fin-extrato-titulo">{{ 'pasta_financeiro.pagamentos.extrato_titulo'|trans }}</div>
                 <div class="ps-fin-extrato-pasta">
-                    {{ 'pasta_financeiro.pagamentos.extrato_pasta'|trans({pasta: pasta.nup ?? ('#' ~ pasta.id)}) }}{% if pasta.nomeCliente %} · {{ pasta.nomeCliente }}{% endif %}
+                    {{ 'pasta_financeiro.pagamentos.extrato_pasta'|trans({pasta: pasta.nup ?? ('#' ~ pasta.id)}) }}{% set nomeDaPasta = identificador_pasta(pasta) %}{% if nomeDaPasta %} · {{ nomeDaPasta }}{% endif %}
                 </div>
                 <div class="ps-fin-extrato-emissao">{{ 'pasta_financeiro.pagamentos.emitido_em'|trans }} <span class="js-extrato-emitido-em"></span></div>
             </div>

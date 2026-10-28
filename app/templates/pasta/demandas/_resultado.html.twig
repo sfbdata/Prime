@@ -119,7 +119,10 @@
                 <div class="pasta-card-row">
                     <span class="pasta-card-label"><i class="bi bi-person"></i></span>
                     <span class="pasta-card-value">
-                        {% if pasta.clientes|length > 0 %}
+                        {% set identificadorCartao = identificador_pasta(pasta) %}
+                        {% if identificadorCartao %}
+                            {{ identificadorCartao }}
+                        {% elseif pasta.clientes|length > 0 %}
                             {{ pasta.clientes[0].nomeExibicao }}{% if pasta.clientes|length > 1 %} <span class="text-muted">(+{{ pasta.clientes|length - 1 }})</span>{% endif %}
                         {% elseif pasta.nomeCliente %}
                             {{ pasta.nomeCliente }}

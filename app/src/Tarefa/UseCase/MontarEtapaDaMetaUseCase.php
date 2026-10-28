@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tarefa\UseCase;
 
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
@@ -35,6 +36,7 @@ final class MontarEtapaDaMetaUseCase
         private readonly TranslatorInterface $tradutor,
         private readonly UserRepository $usuarios,
         private readonly UrlGeneratorInterface $urls,
+        private readonly ResolvedorIdentificadorDaPasta $identificador,
     ) {
     }
 
@@ -95,7 +97,7 @@ final class MontarEtapaDaMetaUseCase
                 'id'     => $meta->getId(),
                 'titulo' => $meta->getTitulo(),
                 'pasta'  => $pasta->getNup() ?? '#' . $pasta->getId(),
-                'cliente' => $pasta->getNomeCliente(),
+                'cliente' => $this->identificador->para($pasta),
                 'etapa'  => $meta->getEtapa()->value,
                 'tipo'   => $meta->getTipoDeDemanda()->value,
             ],

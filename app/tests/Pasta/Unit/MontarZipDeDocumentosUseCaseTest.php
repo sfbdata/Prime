@@ -77,6 +77,7 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
             $this->em,
             new MockClock(self::AGORA),
             $this->logger,
+            new \App\Cobranca\Service\ResolvedorIdentificadorDaPasta($this->createStub(\App\Cobranca\Repository\CasoCobrancaRepository::class), new \App\Cobranca\Service\ComporNomeDaPastaJudicial()),
         );
 
         $this->tenant = self::comId((new Tenant())->setName('Escritório Teste'), 7);

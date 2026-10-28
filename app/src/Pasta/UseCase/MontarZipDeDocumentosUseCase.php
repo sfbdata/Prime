@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -107,6 +108,7 @@ final class MontarZipDeDocumentosUseCase
         private readonly EntityManagerInterface $em,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
+        private readonly ResolvedorIdentificadorDaPasta $identificador,
     ) {
     }
 
@@ -316,8 +318,9 @@ final class MontarZipDeDocumentosUseCase
         $linhas = [
             'Documentos da pasta ' . ($pasta->getNup() ?? ('#' . $pasta->getId())),
         ];
-        if ($pasta->getNomeCliente() !== null && $pasta->getNomeCliente() !== '') {
-            $linhas[] = 'Pasta: ' . $pasta->getNomeCliente();
+        $nomeDaPasta = $this->identificador->para($pasta);
+        if ($nomeDaPasta !== null && $nomeDaPasta !== '') {
+            $linhas[] = 'Pasta: ' . $nomeDaPasta;
         }
         $linhas[] = 'Escritório: ' . ($tenant->getName() ?? '');
         $linhas[] = sprintf('Gerado em: %s por %s (%s)', $this->clock->now()->format('d/m/Y H:i'), $autor->getFullName(), $autor->getEmail());

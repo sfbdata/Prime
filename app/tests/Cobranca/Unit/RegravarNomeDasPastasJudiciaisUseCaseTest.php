@@ -13,6 +13,7 @@ use App\Cobranca\Service\ComporNomeDaPastaJudicial;
 use App\Cobranca\UseCase\RegravarNomeDasPastasJudiciaisUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -81,13 +82,71 @@ final class RegravarNomeDasPastasJudiciaisUseCaseTest extends TestCase
         self::assertSame('TEXTO', $pasta->getNomeCliente());
     }
 
-    /** @param list<CasoCobranca> $casos */
-    private function useCase(array $casos, EntityManagerInterface $em): RegravarNomeDasPastasJudiciaisUseCase
+    #[Test]
+    #[TestDox('Pasta comum com cliente principal e texto composto passa a guardar o nome do cliente')]
+    public function pastaNaoJudicialRecebeONomeDoPrincipal(): void
+    {
+        $pasta = $this->pastaComPrincipal(20, 'ACME LTDA - JOAO', 'ACME LTDA');
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::once())->method('flush');
+
+        $mudancas = $this->useCase([], $em, [$pasta])->executar(new Tenant(), true);
+
+        self::assertSame([['pastaId' => 20, 'antes' => 'ACME LTDA - JOAO', 'depois' => 'ACME LTDA']], $mudancas);
+        self::assertSame('ACME LTDA', $pasta->getNomeCliente());
+    }
+
+    #[Test]
+    #[TestDox('Pasta comum: simulação não grava e o segundo uso não muda nada (idempotente)')]
+    public function pastaNaoJudicialSimulaEEIdempotente(): void
+    {
+        $pasta = $this->pastaComPrincipal(20, 'ACME LTDA - JOAO', 'ACME LTDA');
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::once())->method('flush');
+        $useCase = $this->useCase([], $em, [$pasta]);
+
+        self::assertCount(1, $useCase->executar(new Tenant(), false));
+        self::assertSame('ACME LTDA - JOAO', $pasta->getNomeCliente());
+
+        $useCase->executar(new Tenant(), true);
+        self::assertSame([], $useCase->executar(new Tenant(), true));
+    }
+
+    #[Test]
+    #[TestDox('Pasta judicial que o repositório também devolve como composta não é regravada duas vezes')]
+    public function pastaJudicialNaoPassaPelaRegraDoPrincipal(): void
+    {
+        $pasta = $this->pastaComPrincipal(10, 'CREDOR - DEVEDOR', 'RAZAO DO PRINCIPAL');
+        $em = $this->createMock(EntityManagerInterface::class);
+
+        $mudancas = $this->useCase([$this->caso($pasta, 'CREDOR')], $em, [$pasta])->executar(new Tenant(), true);
+
+        self::assertSame([['pastaId' => 10, 'antes' => 'CREDOR - DEVEDOR', 'depois' => 'CREDOR']], $mudancas);
+        self::assertSame('CREDOR', $pasta->getNomeCliente());
+    }
+
+    /**
+     * @param list<CasoCobranca> $casos
+     * @param list<Pasta>        $compostas
+     */
+    private function useCase(array $casos, EntityManagerInterface $em, array $compostas = []): RegravarNomeDasPastasJudiciaisUseCase
     {
         $repo = $this->createStub(CasoCobrancaRepository::class);
         $repo->method('comPastaJudicial')->willReturn($casos);
+        $pastas = $this->createStub(PastaRepository::class);
+        $pastas->method('comNomeCompostoEClientePrincipal')->willReturn($compostas);
 
-        return new RegravarNomeDasPastasJudiciaisUseCase($repo, new ComporNomeDaPastaJudicial(), $em);
+        return new RegravarNomeDasPastasJudiciaisUseCase($repo, new ComporNomeDaPastaJudicial(), $em, $pastas);
+    }
+
+    private function pastaComPrincipal(int $id, string $gravado, string $razaoSocial): Pasta
+    {
+        $pasta = $this->pasta($id, $gravado);
+        $cliente = new ClientePJ();
+        $cliente->setRazaoSocial($razaoSocial);
+        $pasta->addCliente($cliente);
+
+        return $pasta;
     }
 
     private function pasta(int $id, string $nome): Pasta

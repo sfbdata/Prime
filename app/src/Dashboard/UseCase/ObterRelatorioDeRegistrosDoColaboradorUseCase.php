@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dashboard\UseCase;
 
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Dashboard\DTO\RelatorioDoColaboradorOutput;
 use App\Dashboard\Exception\ColaboradorForaDoEscritorioException;
 use App\Dashboard\Periodo\PeriodoDoDashboard;
@@ -43,6 +44,7 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
         private readonly PastaRepository $pastaRepository,
         private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
+        private readonly ResolvedorIdentificadorDaPasta $identificador,
     ) {
     }
 
@@ -94,7 +96,7 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
         $grupos = [];
         foreach ($registros as $r) {
             $visivel = $this->vePasta($quemOlha, $r['pastaId'], $r['aba']);
-            $grupos[$r['pastaId']] ??= ['pastaId' => $r['pastaId'], 'titulo' => $r['pastaNup'] ?? '', 'cliente' => $r['cliente'], 'abas' => [], 'itens' => []];
+            $grupos[$r['pastaId']] ??= ['pastaId' => $r['pastaId'], 'titulo' => $r['pastaNup'] ?? '', 'cliente' => $this->nomeDaPasta($r['pastaId'], $r['cliente']), 'abas' => [], 'itens' => []];
             $grupos[$r['pastaId']]['abas'][$visivel ? $r['aba'] : '#'] = true;
             $grupos[$r['pastaId']]['itens'][] = [
                 'id'     => $r['id'],
@@ -117,6 +119,14 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
     }
 
     /** A pessoa que olha vê esta aba nesta pasta? Decide uma vez por pasta e aba. Na dúvida (pasta não achada), não vê. */
+    /** O nome que a tela mostra para a pasta (derivado da carteira ou cliente principal); o gravado é a reserva. */
+    private function nomeDaPasta(int $pastaId, ?string $gravado): ?string
+    {
+        $pasta = $this->pastaRepository->find($pastaId);
+
+        return $pasta instanceof Pasta ? ($this->identificador->para($pasta) ?? $gravado) : $gravado;
+    }
+
     private function vePasta(User $quemOlha, int $pastaId, string $aba): bool
     {
         $chave = $pastaId . ':' . $aba;

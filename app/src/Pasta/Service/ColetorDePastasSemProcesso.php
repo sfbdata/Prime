@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Service;
 
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PastaParaAnaliseSemProcesso;
 use App\Pasta\Entity\Pasta;
@@ -31,6 +32,7 @@ final class ColetorDePastasSemProcesso
         private readonly PastaDocumentoRepository $documentoRepository,
         private readonly TarefaRepository $tarefaRepository,
         private readonly PastaChecklistItemRepository $checklistRepository,
+        private readonly ResolvedorIdentificadorDaPasta $identificador,
     ) {
     }
 
@@ -84,8 +86,9 @@ final class ColetorDePastasSemProcesso
         $checklist  = $this->checklistRepository->titulosParaAnaliseSemProcesso($ids, $tenant);
 
         return array_map(
-            static fn (Pasta $p): PastaParaAnaliseSemProcesso => self::montarPasta(
+            fn (Pasta $p): PastaParaAnaliseSemProcesso => self::montarPasta(
                 $p,
+                (string) $this->identificador->para($p),
                 self::fontes((int) $p->getId(), $registros, $documentos, $metas, $checklist),
                 $registros[(int) $p->getId()] ?? [],
                 \count($documentos[(int) $p->getId()] ?? []),
@@ -98,7 +101,7 @@ final class ColetorDePastasSemProcesso
      * @param list<array{rotulo: string, texto: string}>                                $fontes
      * @param list<array{conteudo: string, autor: string, em: \DateTimeImmutable}>     $registros
      */
-    private static function montarPasta(Pasta $p, array $fontes, array $registros, int $totalDocumentos): PastaParaAnaliseSemProcesso
+    private static function montarPasta(Pasta $p, string $cliente, array $fontes, array $registros, int $totalDocumentos): PastaParaAnaliseSemProcesso
     {
         $processo    = $p->getProcessoPrincipal();
         $responsavel = $p->getResponsavel();
@@ -106,7 +109,7 @@ final class ColetorDePastasSemProcesso
         return new PastaParaAnaliseSemProcesso(
             id: (int) $p->getId(),
             numero: self::numeroDaPasta($p),
-            cliente: (string) ($p->getNomeCliente() ?? ''),
+            cliente: $cliente,
             responsavel: $responsavel !== null ? (string) ($responsavel->getFullName() ?? $responsavel->getEmail()) : 'Sem responsável',
             responsavelId: $responsavel?->getId(),
             processoNumero: $processo !== null ? (new NumeroProcessoExtension())->numeroCnj($processo->getNumeroProcesso()) : null,
