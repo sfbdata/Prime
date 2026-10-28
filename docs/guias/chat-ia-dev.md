@@ -86,3 +86,56 @@ conectada" (isso também vale olhar).
 - **Claro/escuro:** o ícone no pé da barra alterna; sem escolha, segue o sistema.
 - **Celular** (estreite a janela): a barra vira gaveta com fundo escurecido, caixa fixa embaixo, sem rolagem horizontal.
 - **Erros:** sem aceite de envio de dados, pasta com segredo de justiça, teto diário: aviso vermelho acima da caixa, sem perder o texto digitado.
+
+## 5. Produção: timeouts para o SSE
+
+A resposta do chat (`POST /chat-ia/conversas/{id}/mensagens`) é um fluxo `text/event-stream` que pode durar minutos. Se algum
+elo da cadeia (nginx, FastCGI, PHP-FPM) cortar antes, o cliente vê a resposta parar no meio. O app já manda
+`X-Accel-Buffering: no` e `Cache-Control: no-store` e dá `flush` a cada trecho. O resto é configuração do servidor, abaixo,
+com o valor que o repositório tem HOJE (lido em 28/10/2026; nada foi alterado).
+
+| Ponto | Valor atual no repositório | O que o SSE precisa |
+|---|---|---|
+| `fastcgi_read_timeout` (nginx, `nginx/conf.d/nginx.prod.conf`, `location ~ \.php$`) | `120s` para todo PHP | 300s só no local do chat (ver abaixo); o restante pode ficar em 120s |
+| `proxy_read_timeout` | não existe no bloco do JusPrime (a conexão com o PHP é FastCGI). O único `proxy_read_timeout 120s` é do bloco `grupojusprime.tech`, que é de outro sistema: NÃO mexer | não se aplica ao chat |
+| `fastcgi_buffering` | não definido (padrão `on`); o `X-Accel-Buffering: no` da resposta já o desliga por pedido | `off` no local do chat (cinto e suspensório) |
+| `gzip` | nenhum `gzip` em `nginx.conf` nem em `nginx.prod.conf`; a imagem `nginx:alpine` traz `#gzip on;` comentado no `nginx.conf` principal, ou seja, desligado | manter desligado para `text/event-stream` (gzip retém o fluxo em buffer). Se um dia ligar, não incluir esse tipo em `gzip_types` |
+| `max_execution_time` (PHP) | não definido no `Dockerfile` (só `max_input_vars`, `upload_max_filesize`, `post_max_size` em `limits.ini`): vale o padrão do PHP, `30` segundos | `300` para esta rota (ver abaixo) |
+| `request_terminate_timeout` (pool do PHP-FPM) | não definido (o único arquivo de pool do repositório é `zz-seguranca.conf`, com `register_argc_argv`): padrão `0` (sem limite) | se o dono definir um limite global, ele tem de ser maior que o do chat |
+| `pm.max_children` | não definido: padrão da imagem oficial `php:fpm` | cada resposta em curso ocupa UM processo do FPM até o fim; veja o aviso abaixo |
+| `nginx.conf` (desenvolvimento) | sem timeout próprio (padrão do nginx, 60s de `fastcgi_read_timeout`) | só importa se alguém testar respostas longas no dev |
+
+### O que mudar (quando o dono decidir publicar)
+
+No `nginx/conf.d/nginx.prod.conf`, dentro do `server` de `bluejus.com.br`, um local ANTES do `location ~ \.php$` só para a rota
+das mensagens, que repete os `fastcgi_param` do bloco do PHP e muda só o que o fluxo exige:
+
+```nginx
+location ~ ^/chat-ia/conversas/\d+/mensagens$ {
+    include fastcgi_params;
+    fastcgi_pass php:9000;
+    fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    fastcgi_param SCRIPT_NAME /index.php;
+    fastcgi_param HTTP_X_FORWARDED_PROTO https;
+    fastcgi_param HTTP_X_FORWARDED_HOST $host;
+    fastcgi_param HTTP_X_FORWARDED_PORT 443;
+    fastcgi_param HTTP_X_FORWARDED_FOR $remote_addr;
+    fastcgi_read_timeout 300s;
+    fastcgi_buffering off;
+    gzip off;
+}
+```
+
+No PHP, `max_execution_time = 300` não deve valer para o site inteiro. Como o fluxo já controla o próprio tempo, a forma mais
+limpa é o controller chamar `set_time_limit(300)` antes de abrir o SSE (mudança de código, fora desta documentação), ou um
+`php_admin_value[max_execution_time] = 300` no pool (`zz-*.conf`, como o `zz-seguranca.conf`). `request_terminate_timeout` do
+pool, se for definido, tem de ser igual ou maior que 300s. Depois de mudar o nginx: recarregar o nginx (`nginx -s reload`),
+lembrando que subir o `php` sem recarregar o nginx dá 502.
+
+Aviso de capacidade: o SSE segura um processo do FPM durante toda a resposta. Com o padrão de poucos `pm.max_children`, algumas
+pessoas conversando ao mesmo tempo esgotam o pool e o resto do sistema espera. Antes de abrir o chat a muita gente, confira o
+`pm.max_children` do pool em produção e o teto de tempo da resposta (`CHAT_IA_TETO_TOKENS_RESPOSTA`).
+
+Como conferir em produção: uma resposta longa (peça um texto grande) tem de terminar com o evento `fim`, sem o evento `erro` e
+sem o fluxo parar em 30s (`max_execution_time`) nem em 120s (`fastcgi_read_timeout`). `nginx -T` e `php-fpm -tt` mostram os
+valores efetivos.
