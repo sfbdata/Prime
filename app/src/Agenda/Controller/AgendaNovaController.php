@@ -23,8 +23,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Tela da Agenda: /agenda e /agenda/nova mostram a 1A (desenho 09 - Agenda 1A, spec agenda-1a.md); /agenda/classica,
- * a de 18/10 (desenho 09 - Agenda - VS 18.10.26). Desde a entrega 3b responde em /agenda
+ * Tela da Agenda: /agenda, /agenda/nova e /agenda/classica mostram a de 18/10 (desenho 09 - Agenda - VS 18.10.26);
+ * a 1A (desenho 09 - Agenda 1A, spec agenda-1a.md) fica guardada em /agenda/1a, sem link (28/10: dono pediu voltar). Desde a entrega 3b responde em /agenda
  * (agenda_index, usada pela barra lateral, pela aba e pelo "Voltar ao Calendário" das páginas antigas);
  * /agenda/nova continua para os links já enviados nos avisos. As páginas antigas de lista, detalhe,
  * novo e editar seguem de pé: o Dashboard e avisos gravados no banco apontam para elas.
@@ -49,6 +49,7 @@ final class AgendaNovaController extends AbstractController
     #[Route('/agenda', name: 'agenda_index', methods: ['GET'])]
     #[Route('/agenda/nova', name: 'agenda_nova', methods: ['GET'])]
     #[Route('/agenda/classica', name: 'agenda_classica', methods: ['GET'])]
+    #[Route('/agenda/1a', name: 'agenda_1a', methods: ['GET'])]
     public function tela(Request $request): Response
     {
         /** @var User $user */
@@ -61,8 +62,8 @@ final class AgendaNovaController extends AbstractController
         }
         $google = $this->estadoDoGoogle->executar($tenant, $user);
 
-        // /agenda é a tela 1A (docs/specs/agenda-1a.md); /agenda/classica guarda a de 18/10 até o dono aprovar a nova.
-        $modelo = 'agenda_classica' === $request->attributes->get('_route') ? 'agenda/nova.html.twig' : 'agenda/um_a.html.twig';
+        // /agenda é a tela de 18/10; a 1A (docs/specs/agenda-1a.md) só abre em /agenda/1a.
+        $modelo = 'agenda_1a' === $request->attributes->get('_route') ? 'agenda/um_a.html.twig' : 'agenda/nova.html.twig';
 
         return $this->render($modelo, [
             'eu'     => ['id' => $user->getId(), 'nome' => $user->getFullName()],

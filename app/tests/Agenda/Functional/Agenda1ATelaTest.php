@@ -146,7 +146,7 @@ final class Agenda1ATelaTest extends JusPrimeWebTestCase
         $tenant = $this->criarTenant();
         $this->logarComTenant($client, $this->criarUsuario($tenant), $tenant);
 
-        $crawler = $client->request('GET', '/agenda');
+        $crawler = $client->request('GET', '/agenda/1a');
         self::assertResponseIsSuccessful();
 
         return $crawler;
