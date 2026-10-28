@@ -194,6 +194,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Central\Entity\Conversa::class,
         \App\Central\Entity\Participante::class,
         \App\Central\Entity\Mensagem::class,
+        // Chat I.A em página inteira (28/10, spec chat-pagina-inteira.md decisão 2): a conversa é particular de quem a criou,
+        // como a da Central. O AuditLogSubscriber gravaria o estado inteiro (texto das perguntas e respostas) no audit_log,
+        // lido por quem administra o escritório.
+        \App\ChatIa\Entity\ConversaDeChat::class,
+        \App\ChatIa\Entity\MensagemDeChat::class,
+        \App\ChatIa\Entity\AnexoDeChat::class,
         // Presença na Central (F2, 16/10): batimento a cada 20 s por pessoa. É atividade, não dado de negócio; auditar
         // cada batimento inundaria o audit_log e exporia a rotina de cada um a quem administra.
         \App\Central\Entity\Presenca::class,

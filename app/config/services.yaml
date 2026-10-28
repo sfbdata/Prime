@@ -41,6 +41,15 @@ parameters:
     documentos_juridicos_dir: '%kernel.project_dir%/public/uploads/documentos-juridicos'
     # Comprovantes de pagamento de recompensa (baixa manual do Master). Mesmo volume, só pela rota do Master.
     recompensa_comprovantes_dir: '%kernel.project_dir%/public/uploads/recompensa-comprovantes'
+    # Chat I.A em página inteira (spec chat-pagina-inteira, decisão 10): tetos de custo. Por resposta (max_tokens do pedido)
+    # e por dia e por pessoa (soma de tokens das mensagens do dia). Os defaults moram AQUI (o build de produção faz
+    # `rm .env`); sobrepor com CHAT_IA_TETO_TOKENS_RESPOSTA / CHAT_IA_TETO_TOKENS_DIA.
+    chat_ia_teto_tokens_resposta: '%env(int:default:default_chat_ia_teto_tokens_resposta:CHAT_IA_TETO_TOKENS_RESPOSTA)%'
+    default_chat_ia_teto_tokens_resposta: 2000
+    chat_ia_teto_tokens_dia: '%env(int:default:default_chat_ia_teto_tokens_dia:CHAT_IA_TETO_TOKENS_DIA)%'
+    default_chat_ia_teto_tokens_dia: 200000
+    # Esvazia os buffers de saída do PHP antes de transmitir o SSE (senão o trecho só chega quando o buffer enche). Falso no teste.
+    chat_ia_sse_esvaziar_buffers: true
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -223,6 +232,16 @@ services:
             $regiaoDeInferencia: '%ia_anthropic_regiao_inferencia%'
             $fonteDoModelo: '@App\Inteligencia\Service\FonteDoModeloDeIa'
     App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorAnthropic'
+    # A mesma Anthropic, em fluxo (SSE): o Chat I.A em página inteira. Em `when@test` vira o ProvedorFalso.
+    App\Inteligencia\Service\ProvedorDeLinguagemEmFluxo: '@App\Inteligencia\Service\ProvedorAnthropic'
+    # Chat I.A: tetos de custo e escritor do SSE (valores acima).
+    App\ChatIa\Service\TetoDeUsoDoChat:
+        arguments:
+            $tetoPorResposta: '%chat_ia_teto_tokens_resposta%'
+            $tetoPorDia: '%chat_ia_teto_tokens_dia%'
+    App\ChatIa\Controller\EscritorDeSse:
+        arguments:
+            $esvaziarBuffers: '%chat_ia_sse_esvaziar_buffers%'
     # Custo estimado (orçamento mensal e painéis de consumo): a região `us` custa 1,1x o preço de tabela.
     App\Inteligencia\Service\CustoDaIa:
         arguments:
@@ -356,6 +375,7 @@ when@test:
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true
+        chat_ia_sse_esvaziar_buffers: false
 
     services:
         # Página de erro igual à de PRODUÇÃO (sem depuração); o porquê está na classe.
@@ -367,6 +387,7 @@ when@test:
         App\Tests\Inteligencia\Support\ProvedorFalso:
             public: true
         App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Tests\Inteligencia\Support\ProvedorFalso'
+        App\Inteligencia\Service\ProvedorDeLinguagemEmFluxo: '@App\Tests\Inteligencia\Support\ProvedorFalso'
 
         # Contribua C3: gateway de cartão falso (código 'falso'), para o checkout, o webhook e a conciliação
         # serem provados de ponta a ponta sem rede. `public` para o teste programar a situação no gateway.
