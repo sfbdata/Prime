@@ -80,6 +80,7 @@ pasta_cabecalho:
             salvar: Salvar foto
         ia_dica: 'BlueJus IA · ler documentos, resumir e gerar relatórios'
         ia_aria: Abrir BlueJus IA
+        ia_marca: BlueJus
         selo:
             arquivado: ARQUIVADO
             suspenso: SUSPENSO
