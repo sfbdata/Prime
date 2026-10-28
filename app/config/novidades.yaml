@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.25.0"
+  data: "2026-10-28"
+  itens:
+    - "Se você abria o sistema por www.bluejus.com.br e o login com o Google dava erro, agora o endereço é ajustado sozinho e o botão funciona."
 - versao: "2.24.0"
   data: "2026-10-28"
   itens:

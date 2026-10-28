@@ -8,6 +8,12 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.25.0] - 2026-10-28
+
+### Alterado
+
+- Quem abre o BlueJus por www.bluejus.com.br passa a ser levado para bluejus.com.br (redirecionamento 301, HTTP e HTTPS), o endereço canônico. Corrige o erro 400 "redirect_uri_mismatch" ao entrar com o Google, que acontecia só pelo endereço com www.
+
 ## [2.24.0] - 2026-10-28
 
 ### Alterado
@@ -1248,7 +1254,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.24.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.25.0...HEAD
+[2.25.0]: https://github.com/sfbdata/Prime/compare/v2.24.0...v2.25.0
 [2.24.0]: https://github.com/sfbdata/Prime/compare/v2.23.0...v2.24.0
 [2.23.0]: https://github.com/sfbdata/Prime/compare/v2.22.0...v2.23.0
 [2.22.0]: https://github.com/sfbdata/Prime/compare/v2.21.0...v2.22.0
