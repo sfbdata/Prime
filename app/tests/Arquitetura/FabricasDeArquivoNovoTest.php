@@ -17,6 +17,7 @@ use App\Inteligencia\Armazenamento\ChavesDeInteligencia;
 use App\Kanban\Armazenamento\ChavesDeKanban;
 use App\Kanban\Entity\KanbanCard;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Tenant\Armazenamento\ChavesDeTenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Ponto\Armazenamento\ChavesDePonto;
@@ -53,6 +54,8 @@ final class FabricasDeArquivoNovoTest extends TestCase
     private const RECEBEM_TENANT = [
         ChavesDePasta::class . '::novaImagemDoEditor',
         ChavesDePonto::class . '::novoAnexoDeLote',
+        // O próprio Tenant É a entidade dona da logo (a chave nasce de `tenant.logo_chave`), não um escritório solto.
+        ChavesDeTenant::class . '::novaLogo',
     ];
 
     /**
@@ -60,6 +63,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
      */
     public static function fabricas(): iterable
     {
+        yield ChavesDeTenant::class . '::novaLogo' => [
+            ChavesDeTenant::class . '::novaLogo',
+            static fn (?Tenant $t): ?Tenant => $t,
+            CategoriaDeArquivo::TENANT_LOGO,
+        ];
         yield ChavesDePasta::class . '::novoDocumento' => [
             ChavesDePasta::class . '::novoDocumento',
             static fn (?Tenant $t): object => self::comTenant(new PastaDocumento(), $t),

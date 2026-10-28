@@ -1,0 +1,152 @@
+/* BlueJus · Meu Escritório (desenho 13 VS 28.10.26, docs/specs/meu-escritorio.md).
+   Valores tirados do CSS do próprio desenho; tudo escopado sob .me-tela / .me-pagina. Sem Bootstrap/AdminLTE
+   como componente: cartão, botão, campo e aviso são os do desenho. */
+.me-tela {
+    --me-texto: #12242f;
+    --me-azul: #0a6fa0;
+    --me-azul-escuro: #0b5f86;
+    --me-azul-claro: #e5f1f7;
+    --me-borda: #d3dde4;
+    --me-borda-fina: #e6edf2;
+    --me-cinza: #5b7383;
+    --me-cinza-claro: #7a8e9b;
+    --me-cinza-vazio: #9aabb7;
+    --me-rotulo: #4a6373;
+    --me-valor: #243845;
+    --me-zebra: #f2f2f2;
+    --me-rodape: #f7f9fb;
+    --me-verde: #1e7b45;
+    --me-vermelho: #a3232b;
+    --me-vermelho-titulo: #b02a37;
+    --me-vermelho-borda: #e6b9be;
+    --me-vermelho-claro: #e6a6ad;
+    --me-ambar: #9a5b00;
+    --me-toast: #12242f;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 22px 18px 40px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 16px;
+    line-height: normal;
+    color: var(--me-texto);
+}
+.me-tela *, .me-tela *::before, .me-tela *::after { box-sizing: border-box; }
+.me-tela [hidden] { display: none !important; }
+.me-tela .me-titulo { margin: 0 0 6px; font-size: 34px; font-weight: normal; line-height: normal; color: var(--me-texto); }
+.me-tela a { color: var(--me-azul); }
+.me-tela a:hover { color: var(--me-azul-escuro); }
+
+.me-pagina { width: 100%; max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Cartão ── */
+.me-pagina > .me-cartao {
+    background: #fff; border: 1px solid var(--me-borda); border-radius: 3px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(18, 36, 47, .06);
+}
+.me-pagina > .me-cartao--info { animation: meIn .25s ease both; }
+.me-pagina > .me-cartao--exclusao { border-color: var(--me-vermelho-borda); }
+@keyframes meIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.me-pagina .me-cartao-titulo { display: flex; align-items: center; gap: 9px; padding: 13px 16px; background: var(--me-azul); color: #fff; }
+.me-pagina .me-cartao-titulo--perigo { background: var(--me-vermelho-titulo); }
+.me-pagina .me-cartao-titulo > i { font-size: 17px; }
+.me-pagina .me-cartao-titulo > span:first-of-type { flex: 1; font-size: 16px; font-weight: bold; letter-spacing: .2px; }
+.me-pagina .me-drive-situacao { font-size: 12px; font-weight: bold; color: #f1d47b; }
+.me-pagina .me-drive-situacao--on { color: #9fe3b8; }
+
+/* ── Faixa da logo ── */
+.me-pagina .me-logo { display: flex; align-items: center; gap: 14px; padding: 12px 24px; border-bottom: 1px solid var(--me-borda-fina); }
+.me-pagina .me-logo-quadro {
+    width: 64px; height: 64px; flex: none; border: 1px dashed #b9c7d2; border-radius: 3px; background: var(--me-rodape);
+    display: flex; align-items: center; justify-content: center; color: var(--me-cinza-vazio); font-size: 22px; overflow: hidden;
+}
+.me-pagina .me-logo-quadro img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.me-pagina .me-logo-texto { flex: 1; min-width: 0; }
+.me-pagina .me-logo-texto b { display: block; font-size: 14px; }
+.me-pagina .me-logo-texto span { font-size: 12.5px; color: var(--me-cinza); }
+.me-pagina .me-btn-logo {
+    height: 32px; padding: 0 12px; border: 1px solid #9fc3d8; border-radius: 3px; background: #fff; color: var(--me-azul);
+    font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; font-weight: normal;
+}
+.me-pagina .me-btn-logo input { display: none; }
+.me-pagina .me-btn-lixeira {
+    width: 32px; height: 32px; padding: 0; border: 1px solid #f1c4c9; border-radius: 3px; background: #fff; color: var(--me-vermelho); cursor: pointer;
+}
+
+/* ── Linhas (zebra) ── */
+.me-pagina .me-linha {
+    display: grid; grid-template-columns: minmax(140px, 40%) minmax(0, 1fr); align-items: center; min-height: 38px;
+    padding: 6px 24px; border-bottom: 1px solid var(--me-borda-fina); background: var(--me-zebra); font-size: 14px;
+}
+.me-pagina .me-linha--impar { background: #fff; }
+.me-pagina .me-linha-rotulo { font-size: 11.5px; font-weight: bold; letter-spacing: .8px; text-transform: uppercase; color: var(--me-cinza); }
+.me-pagina .me-linha-valor { min-width: 0; overflow-wrap: anywhere; color: var(--me-valor); display: flex; align-items: center; gap: 6px; }
+.me-pagina .me-valor { letter-spacing: 0; }
+.me-pagina .me-valor--mono { font: bold 14px/1 monospace; letter-spacing: 1px; }
+.me-pagina .me-valor--vazio { color: var(--me-cinza-vazio); }
+.me-pagina .me-btn-copiar { width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: var(--me-cinza-claro); cursor: pointer; border-radius: 3px; }
+.me-pagina .me-btn-copiar:hover { background: var(--me-borda-fina); color: var(--me-azul); }
+.me-pagina .me-selo {
+    display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 3px; background: var(--me-verde);
+    color: #fff; font-size: 11.5px; font-weight: bold; cursor: help;
+}
+.me-pagina .me-selo--quarentena { background: var(--me-vermelho); }
+
+/* ── Modo edição ── */
+.me-pagina .me-form { padding: 14px 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.me-pagina .me-campo { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; font-weight: bold; letter-spacing: .4px; color: var(--me-rotulo); margin: 0; }
+.me-pagina .me-campo--larga { grid-column: 1 / -1; }
+.me-pagina .me-campo input {
+    height: 36px; border: 1px solid var(--me-borda); border-radius: 3px; padding: 0 10px; font: inherit; font-size: 14px;
+    font-weight: normal; letter-spacing: 0; color: var(--me-texto); background: #fff; width: 100%;
+}
+.me-pagina .me-erro { grid-column: 1 / -1; font-size: 13px; color: var(--me-vermelho); }
+
+/* ── Rodapé ── */
+.me-pagina .me-rodape { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 16px; background: var(--me-rodape); }
+.me-pagina .me-rodape-alterado { flex: 1; min-width: 180px; font-size: 12px; color: var(--me-cinza-claro); }
+.me-pagina .me-rodape-vista, .me-pagina .me-rodape-edicao { display: flex; align-items: center; gap: 8px; }
+.me-pagina .me-btn { height: 36px; padding: 0 13px; border-radius: 3px; font: inherit; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 7px; text-decoration: none; }
+.me-pagina .me-btn--contorno { border: 1px solid var(--me-azul); background: #fff; color: var(--me-azul); }
+.me-pagina .me-btn--contorno:hover { background: var(--me-azul-claro); color: var(--me-azul); }
+.me-pagina .me-btn--primario { padding: 0 15px; border: none; background: var(--me-azul); color: #fff; }
+.me-pagina .me-btn--primario:hover { background: var(--me-azul-escuro); }
+.me-pagina .me-btn--neutro { padding: 0 14px; border: 1px solid var(--me-borda); background: #fff; color: #34505f; }
+.me-pagina .me-btn[disabled] { opacity: .6; cursor: default; }
+
+/* ── Backup ── */
+.me-pagina .me-backup { padding: 14px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.me-pagina .me-backup-texto { flex: 1 1 320px; min-width: 0; font-size: 13.5px; color: #34505f; line-height: 1.55; }
+.me-pagina .me-backup-situacao { margin-top: 6px; font-size: 12.5px; color: var(--me-ambar); font-weight: bold; }
+.me-pagina .me-btn-google {
+    height: 36px; padding: 0 14px 0 12px; border: 1px solid #dadce0; border-radius: 4px; background: #fff; color: #3c4043;
+    font: 500 14px Roboto, Arial, Helvetica, sans-serif; letter-spacing: .2px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 1px 2px rgba(60, 64, 67, .15); transition: background .15s, box-shadow .15s; text-decoration: none;
+}
+.me-pagina .me-btn-google:hover { background: #f8f9fa; box-shadow: 0 1px 3px rgba(60, 64, 67, .3); color: #3c4043; }
+.me-pagina .me-btn-google--on, .me-pagina .me-btn-google--on:hover { border-color: #bfe3cc; color: var(--me-verde); }
+.me-pagina .me-btn-google--off { opacity: .6; cursor: default; }
+
+/* ── Excluir conta ── */
+.me-pagina .me-exclusao-fechado { padding: 12px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--me-cinza); }
+.me-pagina .me-exclusao-fechado > span { flex: 1; min-width: 200px; }
+.me-pagina .me-btn-mostrar { height: 32px; padding: 0 12px; border: 1px solid var(--me-vermelho-borda); border-radius: 3px; background: #fff; color: var(--me-vermelho); font: inherit; font-size: 13px; cursor: pointer; }
+.me-pagina .me-btn-mostrar:hover { background: #fdf1f2; }
+.me-pagina .me-exclusao-aberto { padding: 16px; display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: #34505f; line-height: 1.55; }
+.me-pagina .me-exclusao-grupo { display: flex; flex-direction: column; gap: 6px; }
+.me-pagina .me-exclusao-senha { height: 38px; border: 1px solid var(--me-borda); border-radius: 3px; padding: 0 10px; font: inherit; font-size: 14px; max-width: 320px; width: 100%; }
+.me-pagina .me-exclusao-conf { display: flex; }
+.me-pagina .me-exclusao-conf input { flex: 1; min-width: 0; height: 38px; border: 1px solid var(--me-borda); border-right: none; border-radius: 3px 0 0 3px; padding: 0 10px; font: inherit; font-size: 14px; }
+.me-pagina .me-btn-excluir {
+    height: 38px; padding: 0 16px; border: none; border-radius: 0 3px 3px 0; background: var(--me-vermelho); color: #fff; font: inherit; font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; gap: 7px; white-space: nowrap;
+}
+.me-pagina .me-btn-excluir[disabled] { background: var(--me-vermelho-claro); cursor: not-allowed; }
+.me-pagina .me-btn-ocultar { align-self: flex-start; border: none; background: none; color: var(--me-cinza); font: inherit; font-size: 12.5px; cursor: pointer; padding: 0; }
+
+/* ── Aviso (toast do desenho) ── */
+.me-tela .me-toast {
+    position: fixed; z-index: 9500; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--me-toast); color: #fff;
+    font-size: 13.5px; padding: 10px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); max-width: calc(100vw - 24px);
+}

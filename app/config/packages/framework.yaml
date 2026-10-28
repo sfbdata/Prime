@@ -100,6 +100,12 @@ framework:
             policy: sliding_window
             limit: 3
             interval: '15 minutes'
+        # Meu Escritório, "Excluir escritório": a conferência da senha do primário e do nome (spec meu-escritorio.md).
+        # Chave = id do usuário; 5 tentativas em 15 min seguram quem tenta adivinhar a senha.
+        exclusao_conferir:
+            policy: sliding_window
+            limit: 5
+            interval: '15 minutes'
         # BlueJus IA — "Resumir com IA": chave = id do USUÁRIO, não IP (ver os blocos acima sobre
         # SYMFONY_TRUSTED_PROXIES). A cota de verdade é a do escritório (inteligencia_configuracao);
         # este limite só segura clique repetido/laço. 10 por minuto é mais do que um humano faz.

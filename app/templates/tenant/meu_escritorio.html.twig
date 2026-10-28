@@ -1,0 +1,173 @@
+{% extends 'base.html.twig' %}
+
+{# Meu Escritório (desenho 13 VS 28.10.26; spec docs/specs/meu-escritorio.md). Só o conteúdo central do desenho:
+   cabeçalho azul e abas do protótipo são a moldura do sistema. Variáveis do TenantController::show: `escritorio`
+   (MeuEscritorioOutput), `tenant`, `csrf`, `urlDriveConectar`, `urlDriveGerenciar` (as duas últimas podem ser nulas).
+   Quem edita é decidido no servidor (`escritorio.podeEditar`, `escritorio.podeExcluir`); aqui só se esconde o botão. #}
+
+{% block title %}{{ 'tenant.meu_escritorio.titulo'|trans }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/meu-escritorio.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set e = escritorio %}
+{% set enderecoLinha = [e.endereco, e.cidadeUf, e.cep ? 'CEP ' ~ e.cep : '']|filter(v => v is not empty)|join(' · ') %}
+{% set linhas = [
+    {chave: 'codigo', rotulo: 'tenant.meu_escritorio.linha.codigo'|trans, valor: e.codigo, copia: true, mono: true},
+    {chave: 'nome', rotulo: 'tenant.meu_escritorio.linha.nome'|trans, valor: e.nome, copia: false, mono: false},
+    {chave: 'doc', rotulo: 'tenant.meu_escritorio.linha.doc'|trans, valor: e.docFormatado, copia: true, mono: false},
+    {chave: 'oab', rotulo: 'tenant.meu_escritorio.linha.oab'|trans, valor: e.oab, copia: true, mono: false},
+    {chave: 'email', rotulo: 'tenant.meu_escritorio.linha.email'|trans, valor: e.email, copia: true, mono: false},
+    {chave: 'telefone', rotulo: 'tenant.meu_escritorio.linha.telefone'|trans, valor: e.telefone, copia: true, mono: false},
+    {chave: 'endereco', rotulo: 'tenant.meu_escritorio.linha.endereco'|trans, valor: enderecoLinha, copia: false, mono: false},
+    {chave: 'criado_em', rotulo: 'tenant.meu_escritorio.linha.criado_em'|trans, valor: e.criadoEm ? e.criadoEm|date('d/m/Y H:i:s') : '', copia: false, mono: false},
+    {chave: 'status', rotulo: 'tenant.meu_escritorio.linha.status'|trans, valor: '', copia: false, mono: false},
+] %}
+{% set campos = [
+    {chave: 'nome', rotulo: 'tenant.meu_escritorio.campo.nome'|trans, valor: e.nome, ph: '', larga: true, tipo: 'text', max: 150},
+    {chave: 'doc', rotulo: 'tenant.meu_escritorio.campo.doc'|trans, valor: e.doc, ph: 'tenant.meu_escritorio.placeholder.doc'|trans, larga: false, tipo: 'text', max: 18},
+    {chave: 'oab', rotulo: 'tenant.meu_escritorio.campo.oab'|trans, valor: e.oab, ph: 'tenant.meu_escritorio.placeholder.oab'|trans, larga: false, tipo: 'text', max: 40},
+    {chave: 'email', rotulo: 'tenant.meu_escritorio.campo.email'|trans, valor: e.email, ph: 'tenant.meu_escritorio.placeholder.email'|trans, larga: false, tipo: 'text', max: 180},
+    {chave: 'telefone', rotulo: 'tenant.meu_escritorio.campo.telefone'|trans, valor: e.telefone, ph: 'tenant.meu_escritorio.placeholder.telefone'|trans, larga: false, tipo: 'text', max: 20},
+    {chave: 'cep', rotulo: 'tenant.meu_escritorio.campo.cep'|trans, valor: e.cep, ph: 'tenant.meu_escritorio.placeholder.cep'|trans, larga: false, tipo: 'text', max: 9},
+    {chave: 'endereco', rotulo: 'tenant.meu_escritorio.campo.endereco'|trans, valor: e.endereco, ph: 'tenant.meu_escritorio.placeholder.endereco'|trans, larga: true, tipo: 'text', max: 255},
+    {chave: 'cidadeUf', rotulo: 'tenant.meu_escritorio.campo.cidade_uf'|trans, valor: e.cidadeUf, ph: 'tenant.meu_escritorio.placeholder.cidade_uf'|trans, larga: false, tipo: 'text', max: 120},
+] %}
+
+<div class="me-tela">
+    <h1 class="me-titulo">{{ 'tenant.meu_escritorio.titulo'|trans }}</h1>
+
+    <div class="me-pagina"
+         data-me-pagina
+         data-csrf="{{ csrf }}"
+         data-nome="{{ e.nome }}"
+         data-url-salvar="{{ path('meu_escritorio_salvar', {tenantId: tenant.id}) }}"
+         data-url-logo-enviar="{{ path('meu_escritorio_logo_enviar', {tenantId: tenant.id}) }}"
+         data-url-logo-remover="{{ path('meu_escritorio_logo_remover', {tenantId: tenant.id}) }}"
+         data-url-logo="{{ path('meu_escritorio_logo', {tenantId: tenant.id}) }}"
+         data-url-exclusao-conferir="{{ path('meu_escritorio_exclusao_conferir', {tenantId: tenant.id}) }}"
+         data-url-exclusao-fluxo="{{ path('app_profile') }}#mpExclusao">
+
+        {# ══ 1. Informações do Escritório ══ #}
+        <section class="me-cartao me-cartao--info" data-screen-label="Informações do Escritório">
+            <div class="me-cartao-titulo"><i class="bi bi-info-circle"></i><span>{{ 'tenant.meu_escritorio.informacoes'|trans }}</span></div>
+
+            <div data-me-vista>
+                <div class="me-logo">
+                    <span class="me-logo-quadro" data-me-logo-quadro>
+                        {% if e.temLogo %}
+                            <img src="{{ path('meu_escritorio_logo', {tenantId: tenant.id}) }}" alt="" data-me-logo-img>
+                        {% else %}
+                            <i class="bi bi-image" data-me-logo-icone></i>
+                        {% endif %}
+                    </span>
+                    <span class="me-logo-texto"><b>{{ 'tenant.meu_escritorio.logo.titulo'|trans }}</b><span>{{ 'tenant.meu_escritorio.logo.sub'|trans }}</span></span>
+                    {% if e.podeEditar %}
+                        <label class="me-btn-logo"><i class="bi bi-upload"></i><span data-me-logo-rotulo>{{ (e.temLogo ? 'tenant.meu_escritorio.logo.trocar' : 'tenant.meu_escritorio.logo.enviar')|trans }}</span><input type="file" accept="image/*" data-me-logo-arquivo></label>
+                        <button type="button" class="me-btn-lixeira" title="{{ 'tenant.meu_escritorio.logo.remover'|trans }}" aria-label="{{ 'tenant.meu_escritorio.logo.remover'|trans }}" data-me-logo-remover{% if not e.temLogo %} hidden{% endif %}><i class="bi bi-trash3"></i></button>
+                    {% endif %}
+                </div>
+
+                <div class="me-linhas">
+                    {% for l in linhas %}
+                        <div class="me-linha{{ loop.index0 is odd ? ' me-linha--impar' : '' }}" data-me-linha="{{ l.chave }}">
+                            <span class="me-linha-rotulo">{{ l.rotulo }}</span>
+                            <span class="me-linha-valor">
+                                {% if l.chave == 'status' %}
+                                    <span class="me-selo{{ e.ativo ? '' : ' me-selo--quarentena' }}" title="{{ e.statusDica }}" tabindex="0">{{ (e.ativo ? 'tenant.meu_escritorio.status.ativo' : 'tenant.meu_escritorio.status.quarentena')|trans }}</span>
+                                {% else %}
+                                    <span class="me-valor{{ l.mono ? ' me-valor--mono' : '' }}{{ l.valor is empty ? ' me-valor--vazio' : '' }}" data-me-valor>{{ l.valor is empty ? 'tenant.meu_escritorio.nao_informado'|trans : l.valor }}</span>
+                                    {% if l.copia %}
+                                        <button type="button" class="me-btn-copiar" title="{{ 'tenant.meu_escritorio.copiar'|trans }}" aria-label="{{ 'tenant.meu_escritorio.copiar'|trans }}" data-me-copiar="{{ l.rotulo }}"{% if l.valor is empty %} hidden{% endif %}><i class="bi bi-copy"></i></button>
+                                    {% endif %}
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if e.podeEditar %}
+                <div class="me-form" data-me-edicao hidden>
+                    {% for c in campos %}
+                        <label class="me-campo{{ c.larga ? ' me-campo--larga' : '' }}">{{ c.rotulo }}<input type="{{ c.tipo }}" value="{{ c.valor }}" placeholder="{{ c.ph }}" maxlength="{{ c.max }}" autocomplete="off" data-me-campo="{{ c.chave }}" data-original="{{ c.valor }}"></label>
+                    {% endfor %}
+                    <div class="me-erro" data-me-erro role="alert" hidden></div>
+                </div>
+            {% endif %}
+
+            <div class="me-rodape">
+                <span class="me-rodape-alterado" data-me-alterado>
+                    {%- if e.alteradoEm -%}
+                        {{ 'tenant.meu_escritorio.rodape.alterado'|trans({nome: e.alteradoPor ?? '', data: e.alteradoEm|date('d/m/Y H:i')}) }}
+                    {%- else -%}
+                        {{ 'tenant.meu_escritorio.rodape.sem_alteracoes'|trans }}
+                    {%- endif -%}
+                </span>
+                <span class="me-rodape-vista" data-me-acoes-vista>
+                    <a class="me-btn me-btn--contorno" href="{{ path('app_tenant_role_index', {tenantId: tenant.id}) }}"><i class="bi bi-shield"></i>{{ 'tenant.meu_escritorio.rodape.perfis'|trans }}</a>
+                    {% if e.podeEditar %}
+                        <button type="button" class="me-btn me-btn--primario" data-me-editar><i class="bi bi-pencil"></i>{{ 'tenant.meu_escritorio.rodape.editar'|trans }}</button>
+                    {% endif %}
+                </span>
+                {% if e.podeEditar %}
+                    <span class="me-rodape-edicao" data-me-acoes-edicao hidden>
+                        <button type="button" class="me-btn me-btn--neutro" data-me-cancelar>{{ 'tenant.meu_escritorio.rodape.cancelar'|trans }}</button>
+                        <button type="button" class="me-btn me-btn--primario" data-me-salvar><i class="bi bi-check2"></i>{{ 'tenant.meu_escritorio.rodape.salvar'|trans }}</button>
+                    </span>
+                {% endif %}
+            </div>
+        </section>
+
+        {# ══ 2. Backup de arquivos (só o que o sistema faz: a conexão com o Drive) ══ #}
+        <section class="me-cartao me-cartao--backup" data-screen-label="Backup de arquivos">
+            <div class="me-cartao-titulo"><i class="bi bi-cloud-arrow-up"></i><span>{{ 'tenant.meu_escritorio.backup.titulo'|trans }}</span><span class="me-drive-situacao{{ e.driveConectado ? ' me-drive-situacao--on' : '' }}">{{ (e.driveConectado ? 'tenant.meu_escritorio.backup.conectado' : 'tenant.meu_escritorio.backup.nao_conectado')|trans }}</span></div>
+            <div class="me-backup">
+                <div class="me-backup-texto">{{ 'tenant.meu_escritorio.backup.texto'|trans }}
+                    {% if not e.driveConectado %}
+                        <div class="me-backup-situacao"><i class="bi bi-clock-history"></i> {{ 'tenant.meu_escritorio.backup.desativado'|trans }}</div>
+                    {% endif %}
+                </div>
+                {% set urlDrive = e.driveConectado ? urlDriveGerenciar : urlDriveConectar %}
+                {% set rotuloDrive = (e.driveConectado ? 'tenant.meu_escritorio.backup.drive_conectado' : 'tenant.meu_escritorio.backup.conectar')|trans %}
+                {% set googleSvg %}<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>{% endset %}
+                {% if urlDrive %}
+                    <a class="me-btn-google{{ e.driveConectado ? ' me-btn-google--on' : '' }}" href="{{ urlDrive }}">{{ googleSvg }}{{ rotuloDrive }}</a>
+                {% else %}
+                    <span class="me-btn-google me-btn-google--off" aria-disabled="true">{{ googleSvg }}{{ rotuloDrive }}</span>
+                {% endif %}
+            </div>
+        </section>
+
+        {# ══ 3. Excluir conta (só quem pode excluir; a conferência é no servidor) ══ #}
+        {% if e.podeExcluir %}
+            <section class="me-cartao me-cartao--exclusao" data-screen-label="Excluir conta" data-me-exclusao>
+                <div class="me-cartao-titulo me-cartao-titulo--perigo"><i class="bi bi-exclamation-triangle"></i><span>{{ 'tenant.meu_escritorio.exclusao.titulo'|trans }}</span></div>
+                <div class="me-exclusao-fechado" data-me-exclusao-fechado>
+                    <span>{{ 'tenant.meu_escritorio.exclusao.fechado'|trans }}</span>
+                    <button type="button" class="me-btn-mostrar" data-me-exclusao-alternar><i class="bi bi-chevron-down"></i> {{ 'tenant.meu_escritorio.exclusao.mostrar'|trans }}</button>
+                </div>
+                <div class="me-exclusao-aberto" data-me-exclusao-aberto hidden>
+                    <div>{{ 'tenant.meu_escritorio.exclusao.texto_antes'|trans }} <b>{{ 'tenant.meu_escritorio.exclusao.texto_destaque'|trans }}</b>{{ 'tenant.meu_escritorio.exclusao.texto_meio'|trans }} <b>{{ 'tenant.meu_escritorio.exclusao.texto_dias'|trans }}</b>{{ 'tenant.meu_escritorio.exclusao.texto_depois'|trans }}</div>
+                    <div class="me-exclusao-grupo"><span>{{ 'tenant.meu_escritorio.exclusao.senha'|trans }}</span><input type="password" class="me-exclusao-senha" autocomplete="current-password" data-me-exclusao-senha></div>
+                    <div class="me-exclusao-grupo"><span>{{ 'tenant.meu_escritorio.exclusao.digite_antes'|trans }} <b data-me-exclusao-nome>{{ e.nome }}</b> {{ 'tenant.meu_escritorio.exclusao.digite_depois'|trans }}</span>
+                        <div class="me-exclusao-conf"><input type="text" autocomplete="off" data-me-exclusao-conf><button type="button" class="me-btn-excluir" disabled data-me-exclusao-excluir><i class="bi bi-trash3"></i>{{ 'tenant.meu_escritorio.exclusao.botao'|trans }}</button></div>
+                    </div>
+                    <button type="button" class="me-btn-ocultar" data-me-exclusao-alternar><i class="bi bi-chevron-up"></i> {{ 'tenant.meu_escritorio.exclusao.ocultar'|trans }}</button>
+                </div>
+            </section>
+        {% endif %}
+    </div>
+
+    <div class="me-toast" data-me-toast role="status" aria-live="polite" hidden></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+{{ catalogo_js('tenant.meu_escritorio.js') }}
+<script src="{{ asset('js/meu-escritorio.js') }}" defer></script>
+{% endblock %}
