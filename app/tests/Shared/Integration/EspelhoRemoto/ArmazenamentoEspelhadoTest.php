@@ -16,11 +16,13 @@ use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Shared\EspelhoRemoto\ArmazenamentoEspelhado;
+use App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\LoggerEspiao;
+use App\Tests\Shared\Doubles\ProvedorDoEspelhoFixo;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -148,11 +150,11 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
         self::assertSame($antes, $this->total(), 'ler não registra nada');
     }
 
-    #[TestDox('o decorador não conhece o espelho remoto: leitura nunca pode ir ao R2 (DP-4)')]
-    public function testDecoradorNaoDependeDoEspelho(): void
+    #[TestDox('o decorador recebe o PROVEDOR do espelho, nunca o espelho montado: a requisição que lê do disco não monta cliente R2')]
+    public function testDecoradorNaoMontaOEspelhoNoConstrutor(): void
     {
         foreach ((new \ReflectionClass(ArmazenamentoEspelhado::class))->getConstructor()?->getParameters() ?? [] as $parametro) {
-            self::assertStringNotContainsString(EspelhoRemoto::class, (string) $parametro->getType());
+            self::assertNotSame(EspelhoRemoto::class, (string) $parametro->getType());
         }
     }
 
@@ -160,7 +162,7 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
     public function testOutboxQuebradaNaoQuebraOUsuario(): void
     {
         $semTabela = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
-        $espelhado = new ArmazenamentoEspelhado($this->interno, new OutboxDeReplicacao($semTabela, new MockClock()), new PoliticaDeEspelhamento('pasta_documento'), $this->logger);
+        $espelhado = new ArmazenamentoEspelhado($this->interno, new OutboxDeReplicacao($semTabela, new MockClock()), new PoliticaDeEspelhamento('pasta_documento'), $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0));
         $chave     = new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::PASTA_DOCUMENTO, self::NOME_PESSOAL);
 
         $armazenado = $espelhado->gravar($chave, FonteDeConteudo::deTexto('x'));
@@ -227,7 +229,7 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
 
     private function espelhado(PoliticaDeEspelhamento $politica): ArmazenamentoEspelhado
     {
-        return new ArmazenamentoEspelhado($this->interno, $this->outbox, $politica, $this->logger);
+        return new ArmazenamentoEspelhado($this->interno, $this->outbox, $politica, $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0));
     }
 
     private function novo(CategoriaDeArquivo $categoria): NovoArquivo

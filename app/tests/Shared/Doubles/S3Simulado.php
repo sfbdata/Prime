@@ -10,11 +10,12 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 /**
  * Um S3 em memória para o `async-aws` falar com ele sem rede (spec P2 §4, P2.2).
  *
- * Entende o mínimo que o espelho usa — `PUT` e `HEAD` de objeto em estilo de caminho
+ * Entende o mínimo que o espelho usa — `PUT`, `HEAD` e `GET` de objeto em estilo de caminho
  * (`/<bucket>/<chave>`) — e se comporta como o S3/R2 nos pontos que importam para a réplica:
  *  - recusa `x-amz-checksum-sha256` que não bate com o corpo (`400 BadDigest`), sem gravar;
- *  - `HEAD` de chave inexistente é `404` sem corpo;
- *  - devolve os metadados `x-amz-meta-*` gravados no PUT.
+ *  - `HEAD` de chave inexistente é `404` sem corpo; `GET` de chave inexistente é `404 NoSuchKey`;
+ *  - devolve os metadados `x-amz-meta-*` gravados no PUT;
+ *  - o corpo do `GET` sai em blocos de {@see $tamanhoDoBlocoDoGet} bytes, como uma resposta de rede.
  *
  * E registra TODA requisição: os testes provam por aqui que nenhuma exclusão sai (regra 0) e que a
  * chave que chega ao destino é, byte a byte, a do layout.
@@ -32,6 +33,9 @@ final class S3Simulado
 
     /** @var list<MockResponse> */
     private array $falhasProgramadas = [];
+
+    /** Tamanho de cada bloco do corpo do GET: pequeno nos testes, para o download chegar em vários. */
+    public int $tamanhoDoBlocoDoGet = 8192;
 
     public function __construct(
         public readonly string $endpoint = 'https://conta-teste.r2.cloudflarestorage.com',
@@ -107,6 +111,7 @@ final class S3Simulado
         return match ($metodo) {
             'PUT'   => $this->put($chave, $corpo, $cabecalhos),
             'HEAD'  => $this->head($chave),
+            'GET'   => $this->get($chave),
             default => self::erro(405, 'MethodNotAllowed'),
         };
     }
@@ -158,6 +163,28 @@ final class S3Simulado
         }
 
         return new MockResponse('', ['http_code' => 200, 'response_headers' => $cabecalhos]);
+    }
+
+    private function get(string $chave): MockResponse
+    {
+        $objeto = $this->objetos[$chave] ?? null;
+        if ($objeto === null) {
+            return self::erro(404, 'NoSuchKey');
+        }
+
+        $cabecalhos = [
+            'content-length' => (string) \strlen($objeto['corpo']),
+            'content-type'   => $objeto['tipo'],
+            'etag'           => $objeto['etag'],
+            'last-modified'  => $objeto['gravadoEm']->format(\DATE_RFC7231),
+        ];
+        foreach ($objeto['metadados'] as $nome => $valor) {
+            $cabecalhos['x-amz-meta-' . $nome] = $valor;
+        }
+
+        $blocos = $objeto['corpo'] === '' ? [] : str_split($objeto['corpo'], max(1, $this->tamanhoDoBlocoDoGet));
+
+        return new MockResponse($blocos, ['http_code' => 200, 'response_headers' => $cabecalhos]);
     }
 
     /** A chave em bytes, decodificada da URL em estilo de caminho; null se não for deste bucket. */

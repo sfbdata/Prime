@@ -144,12 +144,12 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/deleteFileAfterSend/', $this->codigoDaEntrega());
     }
 
-    #[TestDox('a entrega só transforma em 404 o arquivo ausente — nada de catch amplo (D10)')]
+    #[TestDox('a entrega só transforma em 404 o arquivo ausente e em 503 o indisponível do R2 — nada de catch amplo (D10)')]
     public function testEntregaNaoMascaraPane(): void
     {
         preg_match_all('/catch\s*\(([^)]*)\)/', $this->codigoDaEntrega(), $capturas);
 
-        self::assertSame(['ArquivoNaoEncontrado $e'], array_map('trim', $capturas[1]));
+        self::assertSame(['ArquivoNaoEncontrado $e', 'ArquivoIndisponivelNoMomento $e'], array_map('trim', $capturas[1]));
     }
 
     // ------------------------------------------------------------------ apoio

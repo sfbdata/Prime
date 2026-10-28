@@ -398,6 +398,41 @@ final class OutboxDeReplicacao
         return $estado === false ? null : (string) $estado;
     }
 
+    /**
+     * O envio `verificado` da chave, quando ele é a linha MAIS NOVA dela; senão null.
+     *
+     * Uma exclusão registrada, um envio ainda pendente (regravação em curso), um envio que falhou ou
+     * foi descartado depois do último verificado tiram a prova: o que está no R2 pode não ser mais o
+     * conteúdo atual da chave. Linha verificada sem SHA ou tamanho válido também não prova nada.
+     */
+    public function envioVerificadoDe(string $chaveRemota): ?EnvioVerificado
+    {
+        $linha = $this->conexao->fetchAssociative(
+            'SELECT operacao, estado, sha256, tamanho_bytes, mime_type, criado_em FROM ' . self::TABELA . ' WHERE chave_remota = ? ORDER BY id DESC LIMIT 1',
+            [$chaveRemota],
+        );
+
+        if ($linha === false || $linha['operacao'] !== self::OPERACAO_ENVIAR || $linha['estado'] !== self::ESTADO_VERIFICADO) {
+            return null;
+        }
+
+        $sha256  = (string) $linha['sha256'];
+        $tamanho = $linha['tamanho_bytes'];
+        if (preg_match('/\A[0-9a-f]{64}\z/', $sha256) !== 1 || $tamanho === null || (int) $tamanho < 0) {
+            return null;
+        }
+
+        $mime = (string) ($linha['mime_type'] ?? '');
+
+        return new EnvioVerificado(
+            $chaveRemota,
+            $sha256,
+            (int) $tamanho,
+            $mime !== '' ? $mime : 'application/octet-stream',
+            new \DateTimeImmutable((string) $linha['criado_em'], new \DateTimeZone('UTC')),
+        );
+    }
+
     private function registrar(ChaveDeArquivo $chave, string $operacao, string $estado, ?string $sha256, ?int $tamanho, ?string $mime): int
     {
         $chaveRemota = LayoutDeChaveRemota::chaveDe($chave);
