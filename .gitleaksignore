@@ -62,3 +62,6 @@ d8b27ac180b649a322799fc7afb929c68e716601:app/tests/Comercial/Unit/ImagensDaCampa
 
 # Scheduler (23/10/2026): mesmo token fictício sequencial das guardas de deploy, caso SEM_AGENDADOR.
 347a7ab5c83435fa0853a600ae75a8c6f22f8e33:scripts/testar-deploy-guardas.sh:github-pat:220
+
+# Meu Escritório (28/10/2026): rótulo de tradução "Senha do usuário primário:" (texto do campo), sem valor real.
+dcb2c549e4367a802d027b730c2d36c6e649e580:app/translations/tenant/messages+intl-icu.pt_BR.yaml:senha-em-variavel-entre-aspas:70
