@@ -51,4 +51,15 @@ final class PreenchedorDeModeloTest extends TestCase
     {
         self::assertSame('<p>___</p>', (new PreenchedorDeModelo())->preencher('<p>{cliente}</p>', []));
     }
+
+    #[TestDox('O negrito do cliente só entra no texto: nome curto igual a tag ou atributo não quebra o markup')]
+    public function testNegritoNaoQuebraTag(): void
+    {
+        $html = (new PreenchedorDeModelo())->preencher('<p class="b" style="x">{cliente}: b e class</p>', ['cliente' => 'b']);
+
+        self::assertSame('<p class="b" style="x"><b>B</b>: <b>B</b> e class</p>', $html);
+
+        $html = (new PreenchedorDeModelo())->preencher('<p class="class">{cliente} class</p>', ['cliente' => 'class']);
+        self::assertSame('<p class="class"><b>CLASS</b> <b>CLASS</b></p>', $html);
+    }
 }
