@@ -14,7 +14,7 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Uma fala da conversa do Chat I.A. Texto puro (a tela escapa). `pasta` é a pasta citada NESTA pergunta (o servidor
  * relê o contexto na hora; o texto da pasta nunca é gravado aqui). Os tokens são os REAIS do provedor; numa resposta
- * interrompida são uma estimativa (o provedor não chegou a informar). Fora da auditoria, como a conversa.
+ * interrompida são uma estimativa (o provedor não chegou a informar). Fora da auditoria (é o texto da conversa; a trilha é a da conversa e do anexo).
  */
 #[ORM\Entity(repositoryClass: MensagemDeChatRepository::class)]
 #[ORM\Table(name: 'chat_ia_mensagem')]

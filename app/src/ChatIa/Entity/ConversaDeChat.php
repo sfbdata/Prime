@@ -8,13 +8,15 @@ use App\ChatIa\Repository\ConversaDeChatRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Enum\ModeloDeIa;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Uma conversa do Chat I.A em página inteira (`docs/specs/chat-pagina-inteira.md`). É PARTICULAR de quem a criou:
- * conversa alheia é 404, nem o administrador do escritório a lê. Fora da auditoria (`Auditavel`) pelo mesmo motivo da
- * `central_conversa`: o `audit_log` é lido por quem administra o escritório.
+ * conversa alheia é 404, nem o administrador do escritório a lê. É `Auditavel` (criar, renomear, fixar, trocar o
+ * modelo, excluir), mas o `titulo` fica FORA do diff (`AuditLogSubscriber::IGNORED_FIELDS_POR_CLASSE`): o `audit_log` é
+ * lido por quem administra o escritório e o título pode conter dado de cliente.
  *
  * O título nasce vazio. A primeira resposta gera um automático; renomear à mão (`renomear`) marca `tituloManual` e o
  * automático nunca mais sobrescreve.
@@ -22,7 +24,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: ConversaDeChatRepository::class)]
 #[ORM\Table(name: 'chat_ia_conversa')]
 #[ORM\Index(name: 'idx_chat_ia_conversa_dono', columns: ['tenant_id', 'usuario_id', 'atualizada_em'])]
-class ConversaDeChat implements TenantAware
+class ConversaDeChat implements TenantAware, Auditavel
 {
     public const TAMANHO_MAXIMO_DO_TITULO = 120;
 

@@ -9,9 +9,13 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
 1. **Conversa é particular de quem a criou.** Toda consulta filtra por escritório E dono (`ConversaDeChatRepository::doDono`).
    Conversa alheia, de outro escritório ou inexistente é o MESMO 404 (`ConversaDeChatNaoEncontradaException`), nem o
    administrador lê. Isolamento entre usuários do mesmo escritório conta tanto quanto entre escritórios.
-2. **Fora da auditoria.** As três entidades estão na lista de exceção do `AuditavelCoberturaTest` (o `audit_log` é lido por
-   quem administra) e na purga do escritório (`PurgarEscritorioUseCase`, tabelas e arquivos). Texto de pergunta, resposta e
-   anexo nunca vai para log, notificação nem audit.
+2. **Auditoria sem conteúdo.** `ConversaDeChat` e `AnexoDeChat` são `Auditavel` (criar, renomear, fixar, trocar o modelo,
+   excluir, anexar, remover: ator, ação e id). O `AuditLogSubscriber` tira do diff `titulo` e `atualizadaEm` da conversa e
+   `nome` e `chave` do anexo (`IGNORED_FIELDS_POR_CLASSE`) e não resolve o rótulo dessas duas classes (`SEM_ROTULO`), para o
+   título não vazar como rótulo de referência. `MensagemDeChat` fica fora (é o texto) na lista de exceção do
+   `AuditavelCoberturaTest`. As três entidades estão na purga do escritório (`PurgarEscritorioUseCase`, tabelas e arquivos).
+   Texto de pergunta, resposta, título e nome de arquivo nunca vão para log, notificação nem audit. Campo novo de texto livre
+   nessas entidades = entrar na lista de ignorados e no `AuditoriaDoChatTest`.
 3. **Guardas na ordem** (`AcessoAoChat` + `EnviarMensagemNoChatUseCase`): login, vínculo ativo, módulo da I.A, posse da
    conversa, provedor configurado (503 `sem_chave`), `DisponibilidadeDeInteligencia::para`, teto diário (429 `teto_diario`),
    pasta (aceite 409 `sem_aceite`, 404, segredo 409 `contexto_bloqueado`), anexos. Tudo recusa ANTES de abrir o SSE.

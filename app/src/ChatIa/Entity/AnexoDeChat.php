@@ -7,6 +7,7 @@ namespace App\ChatIa\Entity;
 use App\ChatIa\Repository\AnexoDeChatRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -19,7 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'chat_ia_anexo')]
 #[ORM\Index(name: 'idx_chat_ia_anexo_conversa', columns: ['conversa_id'])]
 #[ORM\Index(name: 'idx_chat_ia_anexo_mensagem', columns: ['mensagem_id'])]
-class AnexoDeChat implements TenantAware
+class AnexoDeChat implements TenantAware, Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

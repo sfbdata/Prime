@@ -2,6 +2,8 @@
 
 namespace App\Service\Audit;
 
+use App\ChatIa\Entity\AnexoDeChat;
+use App\ChatIa\Entity\ConversaDeChat;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
 use App\Entity\Tenant\Tenant;
@@ -53,7 +55,18 @@ class AuditLogSubscriber
         // Meu Escritório: a chave da logo e o carimbo de "alterado por/em" não são diff útil; o nome, CNPJ, OAB, e-mail,
         // telefone e endereço seguem na trilha como os demais campos do Tenant.
         Tenant::class => ['logoChave', 'alteradoEm', 'alteradoPor'],
+        // Chat I.A: o título da conversa pode conter dado de cliente (nasce da pergunta) e o nome do arquivo anexado
+        // também. A trilha guarda quem criou, renomeou (a marca `tituloManual`), fixou, trocou o modelo e excluiu,
+        // nunca o texto. `atualizadaEm` muda a cada pergunta e só faria ruído.
+        ConversaDeChat::class => ['titulo', 'atualizadaEm'],
+        AnexoDeChat::class => ['nome', 'chave'],
     ];
+
+    /**
+     * Entidades cujo rótulo (título, nome) nunca vai para o audit_log, nem quando outra entidade as referencia
+     * (o anexo aponta a conversa, que tem `getTitulo`). Fica só a classe e o id.
+     */
+    private const SEM_ROTULO = [ConversaDeChat::class, AnexoDeChat::class];
 
     public function __construct(
         private readonly Security $security,
@@ -243,6 +256,12 @@ class AuditLogSubscriber
         // mudança de participantes, nem como item relacionado de outra entidade).
         if ($entity instanceof ConteudoParticular && $entity->ehParticular()) {
             return self::ROTULO_PARTICULAR;
+        }
+
+        foreach (self::SEM_ROTULO as $classe) {
+            if ($entity instanceof $classe) {
+                return null;
+            }
         }
 
         return $this->entityLabelResolver->resolve($entity);
