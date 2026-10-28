@@ -70,8 +70,9 @@ final class ReconsultaDoPagamentoTest extends JusPrimeWebTestCase
         static::getContainer()->set(CofreDeCertificado::class, $cofre);
         static::getContainer()->set(ClienteCora::class, new ClienteCora($this->cora->cliente(), new ArrayAdapter(), $cofre));
         $this->instalarCsrf();
-        // O resumo diário guarda a marca no cache da aplicação (que sobrevive entre execuções do teste).
-        static::getContainer()->get('cache.app')->deleteItem('pagamento_resumo_de_divergentes_' . (new \DateTimeImmutable())->format('Ymd'));
+        // Os avisos diários ao Master guardam a marca no cache da aplicação (que sobrevive entre execuções do teste).
+        $hoje = (new \DateTimeImmutable())->format('Ymd');
+        static::getContainer()->get('cache.app')->deleteItems(['pagamento_resumo_de_divergentes_' . $hoje, 'pagamento_conciliacao_sempre_falha_' . $hoje]);
         $this->em = static::getContainer()->get(EntityManagerInterface::class);
         $this->escritorio = $this->tenant();
         $this->master = $this->pessoa('master', ['ROLE_SUPER_ADMIN']);
