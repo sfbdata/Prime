@@ -48,10 +48,27 @@
             </div>
         </div>
         {% if emAndamento %}
-            <div class="ia-conversa-carregando" role="status" data-ia-consultando>
-                <div class="ia-conversa-etapa"><i class="bi bi-stars" aria-hidden="true"></i>{{ 'inteligencia.conversa.consultando'|trans }}</div>
-                <div class="ia-conversa-shim" aria-hidden="true"></div>
-                <div class="ia-conversa-shim ia-conversa-shim--curto" aria-hidden="true"></div>
+            {# Carregamento do desenho 02 VS 28.10.26: faixa varrendo, símbolo girando, etapa em gradiente, frase,
+               passos (feito/atual/futuro) e barra. O servidor só diz "em andamento": o avanço dos passos e a troca
+               da frase são do pasta-ia-conversa.js, por tempo decorrido. #}
+            {% set etapas = ['inteligencia.conversa.consultando'|trans, 'inteligencia.conversa.lendo'|trans, 'inteligencia.conversa.redigindo'|trans] %}
+            {% set frases = [] %}
+            {% for i in 1..7 %}{% set frases = frases|merge([('inteligencia.conversa.frase_' ~ i)|trans]) %}{% endfor %}
+            <div class="ia-conversa-carregando" role="status" data-ia-consultando data-frases="{{ frases|json_encode|e('html_attr') }}">
+                <span class="ia-carga-varre" aria-hidden="true"></span>
+                <div class="ia-carga-topo">
+                    <span class="ia-carga-simbolo" aria-hidden="true"><span class="ia-carga-halo"></span><img src="{{ asset('images/bluejus-simbolo-petroleo.png') }}" alt=""></span>
+                    <span class="ia-carga-textos">
+                        <span class="ia-conversa-etapa" data-ia-etapa>{{ etapas[0] }}…</span>
+                        <span class="ia-carga-frase" data-ia-frase>{{ frases[0] }}</span>
+                    </span>
+                </div>
+                <div class="ia-carga-passos">
+                    {% for e in etapas %}
+                        <div class="ia-carga-passo" data-ia-passo data-rotulo="{{ e }}" data-estado="{{ loop.first ? 'atual' : 'futuro' }}"><i class="bi bi-circle" aria-hidden="true"></i>{{ e }}<span class="ia-carga-pontos" aria-hidden="true"><i></i><i></i><i></i></span></div>
+                    {% endfor %}
+                </div>
+                <div class="ia-carga-barra" aria-hidden="true"><div data-ia-barra style="width:17%"></div></div>
             </div>
         {% endif %}
     {% endif %}

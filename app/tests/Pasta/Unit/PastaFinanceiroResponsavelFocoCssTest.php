@@ -65,12 +65,12 @@ final class PastaFinanceiroResponsavelFocoCssTest extends TestCase
         self::assertMatchesRegularExpression('/white-space:\s*nowrap;/', $regra);
     }
 
-    #[TestDox('foco da marca BLUEJUS Intelligence continua visível: fundo no :focus-visible e o contorno do navegador não é zerado')]
+    #[TestDox('foco do botão BlueJus IA continua visível: borda e sombra no :focus-visible e o contorno do navegador não é zerado')]
     public function testFocoDaMarcaContinuaVisivel(): void
     {
         $css = $this->css('pasta-ia-agentes.css');
 
-        self::assertMatchesRegularExpression('/background:\s*var\(--ia-hover-cab\)/', $this->regras('pasta-ia-agentes.css', '.ps-cab-ia:focus-visible'));
+        self::assertMatchesRegularExpression('/border-color:\s*var\(--ia-borda-botao-hover\)/', $this->regras('pasta-ia-agentes.css', '.ps-cab-ia:focus-visible'));
         preg_match_all('/([^{}]*\.ps-cab-ia\b[^{}]*)\{([^{}]*)\}/', $css, $m, PREG_SET_ORDER);
         foreach ($m as [, $seletor, $corpo]) {
             self::assertDoesNotMatchRegularExpression('/outline:\s*(none|0)\b/', $corpo, 'outline zerado em ' . trim($seletor));

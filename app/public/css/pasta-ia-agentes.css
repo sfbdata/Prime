@@ -24,6 +24,13 @@
     --ia-azul-claro:    #1597bd;
     --ia-azul-txt:      #0c7a9c;
     --ia-marca-cab:     #0a6fa0;  /* BLUEJUS do cabeçalho, dc de 13/10 L1246 */
+    --ia-borda-botao:   #cfe3f0;  /* botão BlueJus IA, dc 28.10.26 */
+    --ia-borda-botao-hover: #9fc3d8;
+    --ia-fundo-botao:   linear-gradient(180deg, #ffffff, #f1f8fc);
+    --ia-nome-botao:    #0b3550;
+    --ia-anel-carga:    #dbe8f0;  /* cartão de carregamento, dc 28.10.26 */
+    --ia-carga-chip:    #f2f8fc;
+    --ia-carga-texto:   #0b3550;
     --ia-azul-link:     #0a7aad;
     --ia-fundo:         #f7fafc;
     --ia-cartao:        #fff;
@@ -92,6 +99,13 @@
 [data-bs-theme="dark"] .ia-drawer-fundo {
     --ia-azul-txt:      #6fc3e0;
     --ia-marca-cab:     #6fc3e0;
+    --ia-borda-botao:   var(--bs-border-color);
+    --ia-borda-botao-hover: rgba(111, 195, 224, .55);
+    --ia-fundo-botao:   var(--bs-secondary-bg);
+    --ia-nome-botao:    var(--bs-body-color);
+    --ia-anel-carga:    var(--bs-border-color);
+    --ia-carga-chip:    var(--bs-tertiary-bg);
+    --ia-carga-texto:   var(--bs-body-color);
     --ia-azul-link:     #6fc3e0;
     --ia-fundo:         var(--bs-body-bg);
     --ia-cartao:        var(--bs-secondary-bg);
@@ -153,32 +167,58 @@
 @keyframes iaShim { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes iaCartaoEntra { 0% { opacity: 0; transform: translate3d(0, -8px, 0); } 60% { opacity: 1; transform: none; } }
 
-/* ── Botão do cabeçalho (dc L.1139) ── */
+/* ── Botão BlueJus IA do cabeçalho (desenho 02 VS 28.10.26) ──
+   "BlueJus" digitado letra a letra, o símbolo entra e sai, e fica o ícone IA. Com o painel aberto
+   (data-mini="1", posto pelo pasta-ia-agentes.js) recolhe para só o ícone. */
 .ps-cab-cliente > .ps-cab-ia {
     margin-left: auto;
     flex-shrink: 0;
     align-self: center;
     display: flex;
     align-items: center;
-    gap: 8px;
-    height: 32px;
-    padding: 0 11px 0 8px;
-    border: none;
-    border-radius: 4px;
+    gap: 0;
+    height: 40px;
+    padding: 0 9px 0 13px;
+    border: 1px solid var(--ia-borda-botao);
+    border-radius: 5px;
     cursor: pointer;
     font-family: inherit;
-    background: transparent;
-    transition: background .18s;
+    background: var(--ia-fundo-botao);
+    box-shadow: 0 1px 2px rgba(10, 111, 160, .12), inset 0 1px 0 rgba(255, 255, 255, .9);
+    transition: padding .5s cubic-bezier(.4, 0, .2, 1), box-shadow .2s, border-color .2s;
 }
 .ps-cab-ia:hover,
-.ps-cab-ia:focus-visible { background: var(--ia-hover-cab); }
-.ps-cab-ia-estrela { position: relative; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
-.ps-cab-ia-estrela-g { transform-box: fill-box; transform-origin: center; animation: iaEstrela 3.2s ease-in-out infinite; }
-.ps-cab-ia-estrela-p { transform-box: fill-box; transform-origin: center; animation: iaBrilho 3.2s ease-in-out .8s infinite; }
-.ps-cab-ia-estrela-c { transform-box: fill-box; transform-origin: center; animation: iaBrilho 3.2s ease-in-out 1.6s infinite; }
-.ps-cab-ia-rotulo { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; line-height: 1.1; }
-.ps-cab-ia-marca { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: var(--ia-marca-cab); }
-.ps-cab-ia-nome { font-size: 14.5px; font-weight: 700; color: var(--ia-texto); }
+.ps-cab-ia:focus-visible { border-color: var(--ia-borda-botao-hover); box-shadow: 0 4px 12px rgba(10, 111, 160, .16), inset 0 1px 0 rgba(255, 255, 255, .9); }
+.ps-cab-ia-nomew {
+    display: flex; align-items: center; max-width: 120px; overflow: hidden; padding-right: 9px;
+    transition: max-width .5s cubic-bezier(.4, 0, .2, 1), opacity .35s, padding .5s;
+    font-size: 16px; font-weight: 700; letter-spacing: .01em; color: var(--ia-nome-botao); line-height: 1; white-space: nowrap;
+}
+.ps-cab-ia-letra { opacity: 0; animation: bjIaLetra .01s linear forwards; }
+.ps-cab-ia-letra--j { color: #2a9fd6; }
+.ps-cab-ia-letra:nth-child(1) { animation-delay: .10s; }
+.ps-cab-ia-letra:nth-child(2) { animation-delay: .20s; }
+.ps-cab-ia-letra:nth-child(3) { animation-delay: .30s; }
+.ps-cab-ia-letra:nth-child(4) { animation-delay: .40s; }
+.ps-cab-ia-letra:nth-child(5) { animation-delay: .50s; }
+.ps-cab-ia-letra:nth-child(6) { animation-delay: .60s; }
+.ps-cab-ia-letra:nth-child(7) { animation-delay: .70s; }
+.ps-cab-ia-caret { display: inline-block; width: 2px; height: 17px; margin-left: 2px; background: #1fa6cc; animation: bjIaCaret .55s steps(1) 0s 4, bjIaSome2 .2s linear 2.2s forwards; }
+.ps-cab-ia-icone { position: relative; width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; }
+.ps-cab-ia-logo { position: absolute; width: 28px; height: 28px; object-fit: contain; animation: bjIaLogo .8s cubic-bezier(.2, .9, .25, 1.2) .95s both, bjIaSome .45s ease 2.1s forwards; }
+.ps-cab-ia-ia { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; animation: bjIaVem .5s cubic-bezier(.2, .9, .25, 1.25) 2.2s forwards; }
+.ps-cab-ia-traco { stroke-dasharray: 70; stroke-dashoffset: 70; animation: bjIaTraco .7s ease-out 2.3s forwards; }
+.ps-cab-ia[data-mini="1"] .ps-cab-ia-nomew { max-width: 0; opacity: 0; padding-right: 0; }
+.ps-cab-ia[data-mini="1"] { padding: 0 5px; }
+.ps-cab-ia[data-mini="1"] svg { animation: bjIaMini .6s cubic-bezier(.2, .9, .25, 1.3); }
+@keyframes bjIaMini { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-8deg); } 100% { transform: none; } }
+@keyframes bjIaLetra { to { opacity: 1; } }
+@keyframes bjIaCaret { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes bjIaSome2 { to { opacity: 0; width: 0; margin-left: 0; } }
+@keyframes bjIaSome { to { opacity: 0; transform: scale(.5) rotate(40deg); } }
+@keyframes bjIaVem { 0% { opacity: 0; transform: scale(.4) rotate(-20deg); } 100% { opacity: 1; transform: none; } }
+@keyframes bjIaTraco { to { stroke-dashoffset: 0; } }
+@keyframes bjIaLogo { 0% { opacity: 0; transform: scale(.4) rotate(-120deg); } 70% { opacity: 1; transform: scale(1.08) rotate(8deg); } 100% { transform: none; } }
 
 /* ── Drawer (dc L.843) ── */
 /* O desenho cobre a tela inteira, barra superior inclusive: o 95/96 do protótipo vira 1051/1052,
@@ -844,25 +884,65 @@ a.ia-icone { text-decoration: none; }
 .ia-conversa-sugestao:hover:not(:disabled),
 .ia-conversa-sugestao:focus-visible { background: var(--ia-sugestao-hover); }
 .ia-conversa-sugestao:disabled { opacity: .5; cursor: default; }
+/* Carregamento da IA (desenho 02 VS 28.10.26): faixa varrendo, símbolo girando, etapa em gradiente,
+   frase, passos feito/atual/futuro e barra #1fa6cc para #7b6cf6. O JS só troca data-estado, a frase e a largura. */
 .ia-conversa-carregando {
+    position: relative;
     background: var(--ia-cartao);
     border-radius: 4px;
-    box-shadow: inset 0 0 0 1px var(--ia-anel);
-    padding: 16px;
+    box-shadow: inset 0 0 0 1px var(--ia-anel-carga);
+    padding: 14px 16px 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    overflow: hidden;
+    animation: pcIn .3s ease both;
 }
-.ia-conversa-etapa { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ia-azul-txt); }
-.ia-conversa-etapa > i { font-size: 14px; animation: iaPulse 1.2s ease-in-out infinite; }
-.ia-conversa-shim {
-    height: 9px;
-    border-radius: 3px;
-    background: linear-gradient(90deg, var(--ia-shim-1) 25%, var(--ia-shim-2) 50%, var(--ia-shim-1) 75%);
-    background-size: 200% 100%;
-    animation: iaShim 1.2s linear infinite;
+.ia-carga-varre {
+    position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, #1fa6cc, #7b6cf6, transparent);
+    background-size: 50% 100%;
+    background-repeat: no-repeat;
+    animation: iaVarre 1.6s ease-in-out infinite;
 }
-.ia-conversa-shim--curto { width: 78%; }
+.ia-carga-topo { display: flex; align-items: center; gap: 10px; }
+.ia-carga-simbolo {
+    position: relative; width: 38px; height: 38px; flex: none; border-radius: 7px;
+    background: var(--ia-carga-chip); box-shadow: inset 0 0 0 1px var(--ia-anel-carga);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.ia-carga-halo { position: absolute; inset: 0; background: radial-gradient(circle, rgba(63, 182, 224, .28), transparent 62%); animation: iaRespira 1.6s ease-in-out infinite; }
+.ia-carga-simbolo > img { position: relative; width: 24px; height: 24px; object-fit: contain; animation: iaSimbolo 2.4s cubic-bezier(.45, 0, .25, 1) infinite; }
+.ia-carga-textos { flex: 1; min-width: 0; }
+.ia-conversa-etapa {
+    display: block; font-size: 13px; font-weight: 700;
+    background: linear-gradient(90deg, var(--ia-carga-texto) 0%, var(--ia-carga-texto) 40%, #3fb6e0 50%, var(--ia-carga-texto) 60%, var(--ia-carga-texto) 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: iaTexto 2s linear infinite;
+}
+.ia-carga-frase { display: block; font-size: 11.5px; color: var(--ia-texto-4); margin-top: 1px; animation: iaFrase .5s ease both; }
+.ia-carga-passos { display: flex; flex-direction: column; gap: 7px; padding-left: 4px; border-left: 2px solid var(--ia-shim-1); margin-left: 13px; }
+.ia-carga-passo { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin-left: -11px; color: #9aabb7; font-weight: 400; transition: color .3s; }
+.ia-carga-passo > i.bi { font-size: 12px; color: #b7c6d1; background: var(--ia-cartao); transition: color .3s; }
+.ia-carga-passo[data-estado="feito"] { color: var(--ia-texto-4); }
+.ia-carga-passo[data-estado="feito"] > i.bi { color: #1e7b45; }
+.ia-carga-passo[data-estado="atual"] { color: var(--ia-texto); font-weight: 700; }
+.ia-carga-passo[data-estado="atual"] > i.bi { color: #0c7a9c; }
+.ia-carga-pontos { display: none; gap: 2px; margin-left: 2px; }
+.ia-carga-passo[data-estado="atual"] .ia-carga-pontos { display: inline-flex; }
+.ia-carga-pontos > i { width: 3px; height: 3px; border-radius: 50%; background: #1fa6cc; animation: iaPonto 1s ease-in-out infinite; }
+.ia-carga-pontos > i:nth-child(2) { animation-delay: .15s; }
+.ia-carga-pontos > i:nth-child(3) { animation-delay: .3s; }
+.ia-carga-barra { height: 3px; border-radius: 2px; background: var(--ia-shim-1); overflow: hidden; }
+.ia-carga-barra > div { height: 100%; background: linear-gradient(90deg, #1fa6cc, #7b6cf6); transition: width .8s cubic-bezier(.4, 0, .2, 1); }
+@keyframes pcIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes iaSimbolo { 0% { transform: rotate(0) scale(1); } 35% { transform: rotate(-140deg) scale(.86); } 60% { transform: rotate(-220deg) scale(1.06); } 100% { transform: rotate(-360deg) scale(1); } }
+@keyframes iaRespira { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes iaFrase { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes iaVarre { 0% { background-position: -50% 0; } 100% { background-position: 150% 0; } }
+@keyframes iaTexto { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@keyframes iaPonto { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
 .ia-conversa-rodape {
     flex-shrink: 0;
     display: flex;
@@ -909,7 +989,7 @@ a.ia-icone { text-decoration: none; }
 
 @media (max-width: 520px) {
     .ia-drawer { width: 100vw; }
-    .ps-cab-ia-rotulo { display: none; }
+    .ps-cab-ia-nomew { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
     .ia-drawer-fundo,
@@ -920,11 +1000,25 @@ a.ia-icone { text-decoration: none; }
     .ia-comando-btn.is-andamento .ia-comando-ico > i,
     .ia-relatorio-btn.is-andamento .ia-relatorio-ico,
     .ia-andamento-ico,
-    .ia-conversa-etapa > i,
-    .ia-conversa-shim,
-    .ps-cab-ia-estrela-g,
-    .ps-cab-ia-estrela-p,
-    .ps-cab-ia-estrela-c { animation: none; }
+    .ia-conversa-carregando,
+    .ia-carga-varre,
+    .ia-carga-halo,
+    .ia-carga-simbolo > img,
+    .ia-conversa-etapa,
+    .ia-carga-frase,
+    .ia-carga-pontos > i,
+    .ps-cab-ia-letra,
+    .ps-cab-ia-caret,
+    .ps-cab-ia-logo,
+    .ps-cab-ia-ia,
+    .ps-cab-ia-traco,
+    .ps-cab-ia[data-mini="1"] svg { animation: none; }
+    /* Sem movimento: já no estado final (nome escrito, ícone IA desenhado, símbolo e cursor fora). */
+    .ps-cab-ia-letra,
+    .ps-cab-ia-ia { opacity: 1; }
+    .ps-cab-ia-traco { stroke-dashoffset: 0; }
+    .ps-cab-ia-logo,
+    .ps-cab-ia-caret { display: none; }
 }
 
 /* ── Ações do resultado (F5, dc L1101-1105): botão claro, 30px, ícone + rótulo ── */

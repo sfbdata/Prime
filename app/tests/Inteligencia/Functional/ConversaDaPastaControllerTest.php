@@ -388,8 +388,14 @@ final class ConversaDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('&lt;b&gt;risco&lt;/b&gt;', $html);
         self::assertSame('Não foi possível responder.', $daIa->eq(1)->text());
         self::assertTrue($daIa->eq(1)->matches('.is-falha'));
-        self::assertSame('Consultando os dados desta pasta', trim($crawler->filter('.ia-conversa > .ia-conversa-carregando[data-ia-consultando] > .ia-conversa-etapa')->text()));
-        self::assertSame(2, $crawler->filter('.ia-conversa > .ia-conversa-carregando > .ia-conversa-shim')->count());
+        $carga = '.ia-conversa > .ia-conversa-carregando[data-ia-consultando]';
+        self::assertSame('Consultando os dados desta pasta…', trim($crawler->filter($carga . ' > .ia-carga-topo > .ia-carga-textos > .ia-conversa-etapa')->text()));
+        self::assertSame(1, $crawler->filter($carga . ' > .ia-carga-varre')->count());
+        self::assertSame(['atual', 'futuro', 'futuro'], $crawler->filter($carga . ' > .ia-carga-passos > .ia-carga-passo')->each(static fn ($p): string => (string) $p->attr('data-estado')));
+        self::assertSame(['Consultando os dados desta pasta', 'Lendo registros e documentos', 'Redigindo a resposta'], $crawler->filter($carga . ' > .ia-carga-passos > .ia-carga-passo')->each(static fn ($p): string => (string) $p->attr('data-rotulo')));
+        self::assertCount(7, json_decode((string) $crawler->filter($carga)->attr('data-frases'), true));
+        self::assertSame(1, $crawler->filter($carga . ' > .ia-carga-barra > div[data-ia-barra]')->count());
+        self::assertSame(0, $crawler->filter('.ia-conversa-shim')->count(), 'o brilho cinza antigo saiu');
         self::assertSame(4, $crawler->filter('.ia-conversa-sugestao[disabled]')->count(), 'com pergunta em andamento as sugestões ficam desabilitadas');
         self::assertSame(0, $crawler->filter('.ia-conversa p.ia-conversa-vazia')->count());
         self::assertStringNotContainsString('secreta', $html, 'a conversa de outra pessoa nunca aparece');
