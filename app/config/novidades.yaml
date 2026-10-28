@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.23.0"
+  data: "2026-10-28"
+  itens:
+    - "Em Meu Escritório, o usuário primário agora cadastra os dados do escritório (CNPJ, OAB, contato e endereço) e envia a logo. Os demais usuários só consultam."
+    - "O pedido de exclusão do escritório continua em duas etapas, com código enviado por e-mail, e os dados ficam guardados por 365 dias."
 - versao: "2.22.0"
   data: "2026-10-27"
   itens:
