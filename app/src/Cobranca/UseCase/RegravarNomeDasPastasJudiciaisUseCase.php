@@ -7,6 +7,7 @@ namespace App\Cobranca\UseCase;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Service\ComporNomeDaPastaJudicial;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -37,51 +38,86 @@ final class RegravarNomeDasPastasJudiciaisUseCase
      */
     public function executar(Tenant $tenant, bool $aplicar): array
     {
-        $mudancas = [];
-        $vistas = [];
         $judiciais = [];
-
-        foreach ($this->casos->comPastaJudicial($tenant) as $caso) {
-            $pasta = $caso->getPastaJudicial();
-            $id = $pasta?->getId();
-            $nome = $this->comporNome->paraCaso($caso);
-            if ($id !== null) {
-                $judiciais[$id] = true;
-            }
-
-            if ($pasta === null || $id === null || isset($vistas[$id]) || $nome === null) {
-                continue;
-            }
-            $vistas[$id] = true;
-
-            if ($pasta->getNomeCliente() === $nome) {
-                continue;
-            }
-
-            $mudancas[] = ['pastaId' => $id, 'antes' => $pasta->getNomeCliente(), 'depois' => $nome];
-            if ($aplicar) {
-                $pasta->setNomeCliente($nome);
-            }
-        }
-
-        foreach ($this->pastas->comNomeCompostoEClientePrincipal($tenant) as $pasta) {
-            $id = $pasta->getId();
-            $nome = $this->comporNome->paraCliente($pasta->getClientePrincipal());
-
-            if ($id === null || isset($judiciais[$id]) || $nome === null || $nome === '' || $pasta->getNomeCliente() === $nome) {
-                continue;
-            }
-
-            $mudancas[] = ['pastaId' => $id, 'antes' => $pasta->getNomeCliente(), 'depois' => $nome];
-            if ($aplicar) {
-                $pasta->setNomeCliente($nome);
-            }
-        }
+        $mudancas = $this->regravarJudiciais($tenant, $aplicar, $judiciais);
+        array_push($mudancas, ...$this->regravarComuns($tenant, $aplicar, $judiciais));
 
         if ($aplicar && $mudancas !== []) {
             $this->em->flush();
         }
 
         return $mudancas;
+    }
+
+    /**
+     * @param array<int, true> $judiciais ids de todas as pastas ligadas a um caso (preenchido aqui)
+     *
+     * @return list<array{pastaId: int, antes: ?string, depois: string}>
+     */
+    private function regravarJudiciais(Tenant $tenant, bool $aplicar, array &$judiciais): array
+    {
+        $mudancas = [];
+        $vistas = [];
+
+        foreach ($this->casos->comPastaJudicial($tenant) as $caso) {
+            $pasta = $caso->getPastaJudicial();
+            $id = $pasta?->getId();
+            if ($id !== null) {
+                $judiciais[$id] = true;
+            }
+
+            $nome = $this->comporNome->paraCaso($caso);
+            if ($pasta === null || $id === null || isset($vistas[$id]) || $nome === null) {
+                continue;
+            }
+            $vistas[$id] = true;
+
+            $mudanca = $this->regravar($pasta, $id, $nome, $aplicar);
+            if ($mudanca !== null) {
+                $mudancas[] = $mudanca;
+            }
+        }
+
+        return $mudancas;
+    }
+
+    /**
+     * @param array<int, true> $judiciais
+     *
+     * @return list<array{pastaId: int, antes: ?string, depois: string}>
+     */
+    private function regravarComuns(Tenant $tenant, bool $aplicar, array $judiciais): array
+    {
+        $mudancas = [];
+
+        foreach ($this->pastas->comNomeCompostoEClientePrincipal($tenant) as $pasta) {
+            $id = $pasta->getId();
+            $nome = $this->comporNome->paraCliente($pasta->getClientePrincipal());
+            if ($id === null || isset($judiciais[$id]) || $nome === null || $nome === '') {
+                continue;
+            }
+
+            $mudanca = $this->regravar($pasta, $id, $nome, $aplicar);
+            if ($mudanca !== null) {
+                $mudancas[] = $mudanca;
+            }
+        }
+
+        return $mudancas;
+    }
+
+    /** @return ?array{pastaId: int, antes: ?string, depois: string} `null` quando o nome já está certo */
+    private function regravar(Pasta $pasta, int $id, string $nome, bool $aplicar): ?array
+    {
+        if ($pasta->getNomeCliente() === $nome) {
+            return null;
+        }
+
+        $mudanca = ['pastaId' => $id, 'antes' => $pasta->getNomeCliente(), 'depois' => $nome];
+        if ($aplicar) {
+            $pasta->setNomeCliente($nome);
+        }
+
+        return $mudanca;
     }
 }
