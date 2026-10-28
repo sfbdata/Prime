@@ -42,9 +42,10 @@ parameters:
     # Comprovantes de pagamento de recompensa (baixa manual do Master). Mesmo volume, só pela rota do Master.
     recompensa_comprovantes_dir: '%kernel.project_dir%/public/uploads/recompensa-comprovantes'
     # Cache de leitura do espelho (o que veio do R2, nome = SHA). Fora de public/, por instância e
-    # descartável. O teto em bytes tem padrão aqui (2 GB) para valer mesmo sem a variável no ambiente.
+    # descartável (fica na camada do contêiner e some no recreate). O teto em bytes tem padrão aqui
+    # (512 MB) para valer mesmo sem a variável no ambiente.
     espelho_cache_dir: '%kernel.project_dir%/var/espelho-cache'
-    espelho_cache_max_bytes_padrao: 2147483648
+    espelho_cache_max_bytes_padrao: 536870912
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -309,6 +310,18 @@ services:
         arguments:
             $diretorio: '%espelho_cache_dir%'
             $maximoDeBytes: '%env(int:default:espelho_cache_max_bytes_padrao:ESPELHO_CACHE_MAX_BYTES)%'
+    # Quem MEDE o disco para o espelho (réplica, reconciliação, carga do acervo) recebe o disco local
+    # direto, sem cota e sem o decorador: com a leitura de recuperação, o decorador responderia pelo R2
+    # e a reconciliação deixaria de ver o arquivo ausente do disco (EspelhoRemotoFiacaoArquiteturaTest).
+    App\Shared\EspelhoRemoto\Replica\ReplicadorDeArquivos:
+        arguments:
+            $local: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+    App\Shared\EspelhoRemoto\Reconciliacao\ReconciliadorDoEspelho:
+        arguments:
+            $local: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+    App\Shared\EspelhoRemoto\Acervo\CarregadorDoAcervo:
+        arguments:
+            $local: '@App\Shared\Armazenamento\ArmazenamentoLocal'
     App\Shared\Armazenamento\ArmazenamentoDeArquivos: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\MaterializadorDeArquivo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\ArmazenamentoComPrefixo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'

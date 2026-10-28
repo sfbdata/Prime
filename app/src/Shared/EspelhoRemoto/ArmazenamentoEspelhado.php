@@ -10,6 +10,7 @@ use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\ArquivoEmprestado;
 use App\Shared\Armazenamento\ArquivoTemporarioPossuido;
 use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
+use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\DiretorioTemporarioPrivado;
 use App\Shared\Armazenamento\EscopoDeArquivo;
@@ -49,7 +50,8 @@ use Psr\Log\LoggerInterface;
  *
  * Enquanto o arquivo está no disco, nada muda e o espelho nem é consultado. Quando o disco não tem o
  * arquivo, o R2 só é usado se as três condições valem:
- *  1. a categoria está ligada na {@see PoliticaDeEspelhamento};
+ *  1. a categoria está ligada na {@see PoliticaDeEspelhamento} e não está em
+ *     {@see self::CATEGORIAS_SEM_LEITURA_DE_RECUPERACAO};
  *  2. o espelho está configurado (`ESPELHO_R2_*`); sem ele, comportamento de hoje;
  *  3. a linha mais nova da chave na outbox é um envio `verificado` ({@see OutboxDeReplicacao::envioVerificadoDe()}).
  *
@@ -67,6 +69,16 @@ use Psr\Log\LoggerInterface;
  */
 final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, MaterializadorDeArquivo, ArmazenamentoComPrefixo
 {
+    /**
+     * Categorias que ficam FORA da leitura de recuperação mesmo ligadas na política: sem o arquivo no
+     * disco, o comportamento é o de hoje.
+     *
+     * `tarefa_anexo`: a spec `leitura-pelo-r2-e-liberacao-de-disco.md` §3.3 exige, antes de ligar a
+     * leitura, provar que a chave de leitura do anexo usa o tenant da TAREFA e não o da mensagem
+     * (pendência R1 da p2 §12). Sai daqui só com essa prova.
+     */
+    public const CATEGORIAS_SEM_LEITURA_DE_RECUPERACAO = [CategoriaDeArquivo::TAREFA_ANEXO];
+
     /** Montado só na primeira hidratação: a requisição que acha o arquivo no disco nunca o monta. */
     private ?EspelhoRemoto $espelho = null;
 
@@ -268,7 +280,9 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
      */
     private function provaNoEspelho(ChaveDeArquivo $chave): ?EnvioVerificado
     {
-        if (!$this->politica->espelha($chave->categoria) || !$this->provedor->estaConfigurado()) {
+        if (!$this->politica->espelha($chave->categoria)
+            || \in_array($chave->categoria, self::CATEGORIAS_SEM_LEITURA_DE_RECUPERACAO, true)
+            || !$this->provedor->estaConfigurado()) {
             return null;
         }
 

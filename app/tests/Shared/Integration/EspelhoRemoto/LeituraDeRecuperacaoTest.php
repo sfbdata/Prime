@@ -186,6 +186,34 @@ final class LeituraDeRecuperacaoTest extends KernelTestCase
         self::assertSame([], $this->arquivosNoCache());
     }
 
+    #[TestDox('tarefa_anexo fica fora da leitura de recuperação até a prova R1 (spec §3.3): ligada, com verificado e no R2, comportamento de hoje')]
+    public function testTarefaAnexoFicaDeFora(): void
+    {
+        $chave = new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::TAREFA_ANEXO, 'arquivo_6abab5669fac90.42347212.pdf');
+        $this->verificado($chave, self::CONTEUDO);
+        $this->espelho->semear($chave, self::CONTEUDO);
+
+        $this->assertComportamentoDeHoje($this->espelhado(new PoliticaDeEspelhamento('tarefa_anexo,pasta_documento')), $chave);
+    }
+
+    #[TestDox('a indisponibilidade não leva o nome do arquivo: nem na mensagem, nem numa causa encadeada (só a classe dela)')]
+    public function testIndisponivelSemNomeDoArquivo(): void
+    {
+        $chave = $this->soNoEspelho('Contrato de Antônio Carlos.pdf');
+        $this->espelho->foraDoAr = true;
+
+        try {
+            $this->espelhado()->paraLeitura($chave);
+            self::fail('devia falhar');
+        } catch (ArquivoIndisponivelNoMomento $e) {
+            self::assertNull($e->getPrevious(), 'a causa traz a chave remota, com o nome: não é encadeada');
+            self::assertStringNotContainsString('Antônio', $e->getMessage());
+            self::assertStringNotContainsString('core/t/', $e->getMessage());
+            self::assertSame(\App\Shared\EspelhoRemoto\FalhaNoEspelhoRemoto::class, $e->classeDaCausa);
+            self::assertStringContainsString('causa=App\\Shared\\EspelhoRemoto\\FalhaNoEspelhoRemoto', $e->getMessage());
+        }
+    }
+
     #[TestDox('categoria desligada: comportamento de hoje (ausente), mesmo com envio verificado e objeto no R2')]
     public function testCategoriaDesligada(): void
     {
@@ -253,19 +281,19 @@ final class LeituraDeRecuperacaoTest extends KernelTestCase
         self::assertSame([], $listados);
     }
 
-    #[TestDox('ESPELHO_CACHE_MAX_BYTES tem padrão no próprio container (2 GB): sem a variável no ambiente, o teto não fica sem valor')]
+    #[TestDox('ESPELHO_CACHE_MAX_BYTES tem padrão no próprio container (512 MB): sem a variável no ambiente, o teto não fica sem valor')]
     public function testTetoTemPadraoNoContainer(): void
     {
         $container = static::getContainer();
 
         // É este o valor que o `default:` do %env()% usa quando a variável não existe no ambiente.
-        self::assertSame(2_147_483_648, $container->getParameter('espelho_cache_max_bytes_padrao'));
+        self::assertSame(536_870_912, $container->getParameter('espelho_cache_max_bytes_padrao'));
 
         $cache = $container->get(ArmazenamentoEspelhado::class);
         $teto  = (new \ReflectionProperty(CacheDeLeituraDoEspelho::class, 'maximoDeBytes'))->getValue(
             (new \ReflectionProperty(ArmazenamentoEspelhado::class, 'cache'))->getValue($cache),
         );
-        self::assertSame(2_147_483_648, $teto);
+        self::assertSame(536_870_912, $teto);
     }
 
     private function assertComportamentoDeHoje(ArmazenamentoEspelhado $espelhado, ChaveDeArquivo $chave): void
@@ -330,6 +358,9 @@ final class LeituraDeRecuperacaoTest extends KernelTestCase
             return [];
         }
 
-        return array_values(array_diff(scandir($this->diretorioDoCache) ?: [], ['.', '..']));
+        return array_values(array_filter(
+            array_diff(scandir($this->diretorioDoCache) ?: [], ['.', '..']),
+            static fn (string $nome): bool => !str_starts_with($nome, '.trava-'),
+        ));
     }
 }

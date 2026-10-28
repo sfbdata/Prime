@@ -15,14 +15,21 @@ use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
  *    o nome já diz o que tem de estar dentro;
  *  - **escrita atômica**: o download vai para `.parcial-<aleatório>`, é conferido (tamanho e SHA) e só
  *    então ganha o nome final por `rename`. Arquivo que não confere nunca aparece com o nome final, e
- *    portanto nunca é entregue. Duas hidratações ao mesmo tempo da mesma chave escrevem cada uma o seu
- *    parcial; a última a renomear vence, e as duas versões são o mesmo conteúdo conferido;
- *  - **teto em bytes** (`ESPELHO_CACHE_MAX_BYTES`): depois de publicar, os arquivos menos usados saem
- *    até o total caber. "Menos usado" é o maior entre `atime` e `mtime`: cada acesso pelo cache toca o
- *    arquivo, então o critério vale mesmo em volume montado com `noatime`. O arquivo que acabou de ser
- *    publicado nunca sai na mesma rodada, mesmo sozinho maior que o teto (senão não haveria como
- *    entregá-lo);
- *  - **parcial órfão** (processo morto no meio do download) com mais de uma hora sai na próxima gravação.
+ *    portanto nunca é entregue;
+ *  - **um download por conteúdo**: a hidratação segura um `flock` exclusivo em `.trava-<sha>`. Quem
+ *    chega enquanto outro processo baixa o mesmo conteúdo espera a trava e lê o que ele publicou, sem
+ *    ir ao R2 de novo;
+ *  - **teto em bytes** (`ESPELHO_CACHE_MAX_BYTES`, com os parciais em curso contados): depois de
+ *    publicar, os arquivos menos usados saem até o total caber. "Menos usado" é o maior entre `atime` e
+ *    `mtime`: cada acesso pelo cache toca o arquivo, então o critério vale mesmo em volume montado com
+ *    `noatime`;
+ *  - **arquivo usado nos últimos 30 minutos nunca sai**, mesmo passando do teto: quem recebeu o
+ *    caminho emprestado ainda vai lê-lo (o `ZipArchive` só lê no `close()`, a `BinaryFileResponse`
+ *    só abre no `sendContent()`, um vídeo pede vários Range). Por isso o cache **pode passar do teto
+ *    temporariamente**; o excedente sai na primeira gravação depois que o uso esfria. O recém-publicado
+ *    é sempre recente, e fica mesmo sozinho maior que o teto;
+ *  - **parcial órfão** (processo morto no meio do download) e trava velha com mais de uma hora saem na
+ *    próxima gravação.
  *
  * O cache é por instância e descartável: apagar o diretório inteiro só custa downloads.
  */
@@ -30,7 +37,12 @@ final class CacheDeLeituraDoEspelho
 {
     public const IDADE_DO_PARCIAL_ORFAO_EM_SEGUNDOS = 3600;
 
+    /** Arquivo usado há menos que isto não sai no descarte, mesmo passando do teto. */
+    public const PROTECAO_DE_USO_RECENTE_EM_SEGUNDOS = 1800;
+
     private const PREFIXO_DO_PARCIAL = '.parcial-';
+
+    private const PREFIXO_DA_TRAVA = '.trava-';
 
     private readonly string $diretorio;
 
@@ -82,21 +94,57 @@ final class CacheDeLeituraDoEspelho
         }
 
         $this->garantirDiretorio();
-        $this->limparParciaisOrfaos();
+        $trava = $this->travar($sha256);
 
-        $parcial = $this->baixarParaParcial($baixar);
-        $this->exigirQueOParcialConfere($parcial, $sha256, $tamanhoBytes);
+        try {
+            // Outro processo pode ter publicado enquanto este esperava a trava.
+            $existente = $this->caminhoDe($sha256, $tamanhoBytes);
+            if ($existente !== null) {
+                return $existente;
+            }
 
-        $final = $this->diretorio . '/' . $sha256;
-        if (!@rename($parcial, $final)) {
-            @unlink($parcial);
+            $this->limparOrfaos();
+            $parcial = $this->baixarParaParcial($baixar);
+            $this->exigirQueOParcialConfere($parcial, $sha256, $tamanhoBytes);
 
-            throw new FalhaDeArmazenamento('Não foi possível publicar o arquivo no cache de leitura do espelho.');
+            $final = $this->diretorio . '/' . $sha256;
+            if (!@rename($parcial, $final)) {
+                @unlink($parcial);
+
+                throw new FalhaDeArmazenamento('Não foi possível publicar o arquivo no cache de leitura do espelho.');
+            }
+
+            $this->descartarExcedente();
+
+            return $final;
+        } finally {
+            flock($trava, \LOCK_UN);
+            fclose($trava);
         }
+    }
 
-        $this->descartarExcedente($sha256);
+    /**
+     * Trava exclusiva do conteúdo, por `flock` (espera quem já está baixando). O arquivo da trava fica
+     * no diretório: apagá-lo ao destravar abriria a corrida de dois processos com travas em inodes
+     * diferentes. A limpeza dos velhos é a de {@see limparOrfaos()}.
+     *
+     * @return resource
+     */
+    private function travar(string $sha256): mixed
+    {
+        $caminho = $this->diretorio . '/' . self::PREFIXO_DA_TRAVA . $sha256;
+        $trava   = @fopen($caminho, 'c');
+        if ($trava === false) {
+            throw new FalhaDeArmazenamento('Não foi possível criar a trava no cache de leitura do espelho.');
+        }
+        if (!flock($trava, \LOCK_EX)) {
+            fclose($trava);
 
-        return $final;
+            throw new FalhaDeArmazenamento('Não foi possível obter a trava no cache de leitura do espelho.');
+        }
+        @touch($caminho);
+
+        return $trava;
     }
 
     /** @param callable(resource): void $baixar */
@@ -195,34 +243,35 @@ final class CacheDeLeituraDoEspelho
         return $caminho;
     }
 
-    /** Remove os menos usados até o total caber no teto. Nunca remove `$protegido`, nem parciais. */
-    private function descartarExcedente(string $protegido): void
+    /**
+     * Remove os menos usados até o total caber no teto. Os parciais em curso contam no total, mas não
+     * saem aqui; arquivo usado nos últimos {@see self::PROTECAO_DE_USO_RECENTE_EM_SEGUNDOS} também não.
+     */
+    private function descartarExcedente(): void
     {
-        $arquivos = [];
-        $total    = 0;
+        $candidatos = [];
+        $total      = 0;
+        $recente    = time() - self::PROTECAO_DE_USO_RECENTE_EM_SEGUNDOS;
         foreach ($this->entradas() as $nome) {
-            if (preg_match('/\A[0-9a-f]{64}\z/', $nome) !== 1) {
+            $publicado = preg_match('/\A[0-9a-f]{64}\z/', $nome) === 1;
+            if (!$publicado && !str_starts_with($nome, self::PREFIXO_DO_PARCIAL)) {
                 continue;
             }
             $info = @stat($this->diretorio . '/' . $nome);
             if ($info === false) {
                 continue;
             }
-            $arquivos[] = ['nome' => $nome, 'tamanho' => (int) $info['size'], 'uso' => max((int) $info['atime'], (int) $info['mtime'])];
             $total += (int) $info['size'];
+            $uso    = max((int) $info['atime'], (int) $info['mtime']);
+            if ($publicado && $uso < $recente) {
+                $candidatos[] = ['nome' => $nome, 'tamanho' => (int) $info['size'], 'uso' => $uso];
+            }
         }
 
-        if ($total <= $this->maximoDeBytes) {
-            return;
-        }
-
-        usort($arquivos, static fn (array $a, array $b): int => [$a['uso'], $a['nome']] <=> [$b['uso'], $b['nome']]);
-        foreach ($arquivos as $arquivo) {
+        usort($candidatos, static fn (array $a, array $b): int => [$a['uso'], $a['nome']] <=> [$b['uso'], $b['nome']]);
+        foreach ($candidatos as $arquivo) {
             if ($total <= $this->maximoDeBytes) {
                 return;
-            }
-            if ($arquivo['nome'] === $protegido) {
-                continue;
             }
             if (@unlink($this->diretorio . '/' . $arquivo['nome'])) {
                 $total -= $arquivo['tamanho'];
@@ -230,11 +279,11 @@ final class CacheDeLeituraDoEspelho
         }
     }
 
-    private function limparParciaisOrfaos(): void
+    private function limparOrfaos(): void
     {
         $limite = time() - self::IDADE_DO_PARCIAL_ORFAO_EM_SEGUNDOS;
         foreach ($this->entradas() as $nome) {
-            if (!str_starts_with($nome, self::PREFIXO_DO_PARCIAL)) {
+            if (!str_starts_with($nome, self::PREFIXO_DO_PARCIAL) && !str_starts_with($nome, self::PREFIXO_DA_TRAVA)) {
                 continue;
             }
             $caminho = $this->diretorio . '/' . $nome;

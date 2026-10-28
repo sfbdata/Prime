@@ -80,7 +80,8 @@ final class EspelhoRemotoEmMemoria implements EspelhoRemoto
 
         ++$this->downloads;
         if ($this->foraDoAr) {
-            throw new FalhaNoEspelhoRemoto('Não foi possível baixar do espelho remoto: falha de rede ou de transporte (simulada).');
+            // Como o real: a mensagem leva a chave remota (com o nome do arquivo).
+            throw new FalhaNoEspelhoRemoto(sprintf('Não foi possível baixar %s do espelho remoto: falha de rede ou de transporte (simulada).', LayoutDeChaveRemota::chaveDe($chave)));
         }
 
         $objeto = $this->objetos[LayoutDeChaveRemota::chaveDe($chave)] ?? null;
