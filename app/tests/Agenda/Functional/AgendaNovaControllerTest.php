@@ -29,17 +29,17 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
 {
     private const PERIODO = '/agenda/compromissos?de=2030-03-01&ate=2030-03-31';
 
-    #[TestDox('/agenda/classica mostra a tela de 18/10 no arranjo do desenho: lateral e calendário lado a lado, próximos feriados abaixo')]
+    #[TestDox('/agenda mostra a tela de 18/10 no arranjo do desenho: lateral e calendário lado a lado, próximos feriados abaixo')]
     public function testArranjoDaTela(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $this->logarComTenant($client, $this->criarUsuario($tenant, true), $tenant);
 
-        $crawler = $client->request('GET', '/agenda/classica');
+        $crawler = $client->request('GET', '/agenda');
 
         self::assertResponseIsSuccessful();
-        self::assertSame('agenda_classica', $client->getRequest()->attributes->get('_route'));
+        self::assertSame('agenda_index', $client->getRequest()->attributes->get('_route'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-topo > h1.ag-titulo'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-topo > .ag-resumo'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-corpo > .ag-lado'));
@@ -50,18 +50,22 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Agenda', trim($crawler->filter('.navtop-subnav-link.active')->text()));
     }
 
-    #[TestDox('/agenda/classica serve a tela de 18/10 enquanto a 1A não é aprovada (docs/specs/agenda-1a.md, D5)')]
-    public function testClassicaContinuaDePe(): void
+    #[TestDox('/agenda/classica continua como sinônimo e a 1A fica guardada em /agenda/1a, sem link (28/10: dono pediu voltar à tela de 18/10)')]
+    public function testClassicaEUmAGuardada(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $this->logarComTenant($client, $this->criarUsuario($tenant, true), $tenant);
 
         $crawler = $client->request('GET', '/agenda/classica');
-
         self::assertResponseIsSuccessful();
-        self::assertSame('agenda_classica', $client->getRequest()->attributes->get('_route'));
         self::assertCount(1, $crawler->filter('.ag-page > .ag-corpo > .ag-lado'));
+
+        $crawler = $client->request('GET', '/agenda/1a');
+        self::assertResponseIsSuccessful();
+        self::assertSame('agenda_1a', $client->getRequest()->attributes->get('_route'));
+        self::assertCount(1, $crawler->filter('.a1-barra'));
+        self::assertCount(0, $crawler->filter('.ag-lado'));
     }
 
     #[TestDox('o JSON leva local e descrição separados, e a observação continua juntando os dois')]

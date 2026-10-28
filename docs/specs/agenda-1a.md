@@ -49,6 +49,9 @@ Frente: Agenda 1A. Sem migration prevista (a 153600 fica livre).
   seguem vivos. Se o dono quiser feriados como evento de dia inteiro, vira PR próprio.
 - D5. Salvaguarda: `/agenda/classica` serve a tela de 18/10 até o dono aprovar a nova. O menu e a aba apontam para
   `/agenda` (nova). Nenhum código nem backend é apagado nesta frente.
+- **28/10: dono pediu voltar à tela de 18/10; 1A guardada em `/agenda/1a`** (sem link). `/agenda`, `/agenda/nova` e
+  `/agenda/classica` servem a de 18/10. Tipos novos, local e descrição do JSON seguem; a legenda da tela de 18/10 já
+  lista os seis tipos (`CAL` em `agenda-nova.js`). Esta nota substitui a D5.
 - D6. Agenda 4b (apagar a agenda do Google de quem sai do escritório) **não é tocada**: pendente com o dono.
 
 ## 3. Legendas e tipo (a parte sem lastro direto)
