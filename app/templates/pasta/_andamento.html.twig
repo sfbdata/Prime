@@ -5,13 +5,13 @@
 {% if andamento %}
 {% set podeMudarFase = (podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit')) and not pasta.estaExcluida %}
 {% set ultima = andamento.fases|length - 1 %}
-<div class="ps-and" data-screen-label="Andamento da pasta"
+<div class="ps-and bjLinhaT" data-screen-label="Andamento da pasta"
      data-url="{{ path('pasta_andamento_mudar', {id: pasta.id}) }}"
      data-csrf="{{ csrf_token('pasta_andamento_' ~ pasta.id) }}"
      data-atual="{{ andamento.atual }}" data-ultima="{{ ultima }}" data-pasta="{{ pasta.id }}"
      data-pode="{{ podeMudarFase ? '1' : '0' }}"
      style="max-width: {{ max(820, andamento.fases|length * 104) }}px;">
-    <div class="ps-and-rotulo">{{ 'pasta_documentos.anotacoes.linha_do_tempo'|trans }}</div>
+    <div class="ps-and-rotulo bjLinhaTit">{{ 'pasta_documentos.anotacoes.linha_do_tempo'|trans }}</div>
     <div class="ps-and-rol bjFasesRol">
         {% for f in andamento.fases %}
             {% set k = f.indice %}

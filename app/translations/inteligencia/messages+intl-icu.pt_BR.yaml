@@ -118,6 +118,15 @@ inteligencia:
         vazia: Pergunte sobre esta pasta. A IA já conhece o cliente, o processo, os prazos, as metas, os registros e os documentos.
         sugestoes: Sugestões de pergunta
         consultando: Consultando os dados desta pasta
+        lendo: Lendo registros e documentos
+        redigindo: Redigindo a resposta
+        frase_1: Fazendo uma análise profunda da pasta, item por item.
+        frase_2: Cruzando registros, metas e documentos entre si.
+        frase_3: Lendo as movimentações do processo vinculado.
+        frase_4: Conferindo os prazos e as metas da pasta.
+        frase_5: Consultando as anotações e as observações da pasta.
+        frase_6: Buscando inconsistências que passariam despercebidas.
+        frase_7: Organizando a resposta com o que realmente importa.
         placeholder: Pergunte sobre esta pasta...
         campo: Pergunta para a IA
         enviar: Enviar

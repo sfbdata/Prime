@@ -102,6 +102,7 @@
             drawer.hidden = false;
             if (fundo) { fundo.hidden = false; }
             abrirBotao.setAttribute('aria-expanded', 'true');
+            abrirBotao.setAttribute('data-mini', '1');
             document.body.classList.add('ia-drawer-aberto');
             var fechar = drawer.querySelector('[data-ia-fechar]');
             if (fechar) { fechar.focus(); }
@@ -114,6 +115,7 @@
             drawer.hidden = true;
             if (fundo) { fundo.hidden = true; }
             abrirBotao.setAttribute('aria-expanded', 'false');
+            abrirBotao.setAttribute('data-mini', '0');
             document.body.classList.remove('ia-drawer-aberto');
             pausar();
             abrirBotao.focus();
