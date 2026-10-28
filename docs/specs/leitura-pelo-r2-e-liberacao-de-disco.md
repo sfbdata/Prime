@@ -157,6 +157,24 @@ Uma migration (número pedido ao Coordenador), só aditiva: tabela `armazenament
 
 ## 5. Etapa C: liberar disco
 
+### 5.0 Condições da 2ª revisão da Etapa A (fechar antes do primeiro lote)
+
+1. **Espera da trava com prazo.**
+   - Hoje o `flock` por SHA espera sem limite, e quem segura a trava pode levar até 600 s (`ClienteR2`).
+   - No FPM (`pm.max_children` a conferir na VPS), poucas requisições do mesmo arquivo prendem todos os
+     workers.
+   - A espera tem de terminar antes dos 120 s do nginx, com 503 ao estourar. Também é preciso decidir
+     o tempo máximo de hidratação dentro da requisição.
+2. **Limite duro no cache.**
+   - A proteção de 30 minutos deixa o cache crescer sem teto numa leitura em massa: ZIP da pasta,
+     `CalcularHashDosDocumentosCommand`, Drive `ReconciliadorDePasta`, IA.
+   - É preciso um piso de espaço livre (recusar com 503 abaixo dele), ou tirar esses leitores do
+     fallback.
+3. **Teste de fiação mais largo.** O `CalcularHashDosDocumentosCommand` mede o disco e ainda recebe a
+   cadeia com fallback. O teste trava só `src/Shared/EspelhoRemoto`.
+4. **Purga e exclusão.** Hoje, com o arquivo só no R2, a exclusão conta como "removido" e o objeto fica
+   no R2. Isso é coberto pela condição D6.
+
 ### 5.1 Comando
 
 `armazenamento:liberar-disco --categoria=X [--frio-dias=90] [--lote=200] [--executar]`.
@@ -232,7 +250,7 @@ somam menos de 100 MB e ficam no disco, porque o ganho não paga o risco.
 | Arquivo liberado que o R2 não tem | download completo com SHA antes de mover; `.liberados` por 7 dias; backup P0d |
 | R2 fora do ar | 503 na entrega só dos liberados; o disco atende o resto; o alerta da reconciliação avisa |
 | Chave com tenant errado (e2 :473) | testes de leitura por categoria × tenant; R1 de Tarefa (§3.3) |
-| Cache enche o disco | teto de 512 MB, LRU e trava por SHA; os `.parcial-*` contam no teto; só o contêiner `php` hidrata |
+| Cache enche o disco | teto de 512 MB, LRU e trava por SHA; os `.parcial-*` contam no teto. php, worker e scheduler têm cache próprio (três tetos). Leitura em massa ainda não tem limite duro: ver §5.0 |
 | Exclusão LGPD não apaga no R2 | D6: liberar só depois da frente de exclusão |
 | `listar()`/`excluirPrefixo()` não enxergam liberados | revisar cada chamador; o caso conhecido é a exclusão de pasta inteira, que precisa apagar também a linha de liberação e o objeto no R2 (frente D6) |
 | Drive Via A, ZIP e IA exigem caminho | passam pelo `paraLeitura()` e recebem o cache (D3); testar um de cada |
