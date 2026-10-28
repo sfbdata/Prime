@@ -9,11 +9,14 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\ModeloDePeca;
 use App\Pasta\Entity\ModeloDePecaUso;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\ModeloDePecaRepository;
 use App\Pasta\Repository\ModeloDePecaUsoRepository;
 use App\Pasta\Service\PreenchedorDeModelo;
 use App\Pasta\Service\SanitizadorDeModeloDePeca;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
@@ -31,6 +34,7 @@ final class UsarModeloNaPastaUseCase
         private readonly SalvarPecaTextoUseCase $salvarPeca,
         private readonly ModeloDePecaRepository $modeloRepository,
         private readonly ModeloDePecaUsoRepository $usoRepository,
+        private readonly TransacaoComArquivoNovo $transacao,
     ) {
     }
 
@@ -44,12 +48,24 @@ final class UsarModeloNaPastaUseCase
         $html   = $this->sanitizador->sanitizar($this->preenchedor->preencher($modelo->getCorpo(), $valores));
         $titulo = mb_substr($modelo->getTitulo(), 0, self::LIMITE_DO_TITULO) . ' · Pasta ' . $pasta->getNup();
 
-        $documento = $this->salvarPeca->executar($pasta, null, $html, $titulo, PastaDocumento::CATEGORIA_PECA, $tenant, $usuario);
+        // Documento, contagem e registro do uso confirmam juntos: ou nasce tudo, ou nada (e o arquivo
+        // novo só sai se for provado que nada foi confirmado).
+        /** @var \ArrayObject<int, ChaveDeArquivo> $gravados arquivos criados pelo trabalho, lidos só se ele falhar */
+        $gravados = new \ArrayObject();
 
-        $modelo->registrarUso();
-        $this->modeloRepository->salvar($modelo);
-        $this->usoRepository->salvar(new ModeloDePecaUso($tenant, $modelo, $pasta, $usuario, $documento), flush: true);
+        return $this->transacao->executar(
+            function () use ($gravados, $modelo, $pasta, $tenant, $usuario, $html, $titulo): PastaDocumento {
+                $documento = $this->salvarPeca->executar($pasta, null, $html, $titulo, PastaDocumento::CATEGORIA_PECA, $tenant, $usuario);
+                $gravados->append(ChavesDePasta::documento($documento));
 
-        return $documento;
+                $modelo->registrarUso();
+                $this->modeloRepository->salvar($modelo);
+                $this->usoRepository->salvar(new ModeloDePecaUso($tenant, $modelo, $pasta, $usuario, $documento));
+
+                return $documento;
+            },
+            static fn (): array => $gravados->getArrayCopy(),
+            'Usar modelo de petição na pasta',
+        );
     }
 }

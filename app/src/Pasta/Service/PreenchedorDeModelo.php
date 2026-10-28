@@ -7,7 +7,7 @@ namespace App\Pasta\Service;
 /**
  * Troca as variáveis `{cliente}`, `{cpf}`... do corpo de um modelo pelos dados da pasta (desenho 02 de
  * 27/10, `bj-modelos.js` `vars`, `preencher` e `fmtPeca`). Variável sem dado vira `___` para a pessoa
- * completar. O nome do cliente sai em negrito e maiúsculas, onde quer que apareça. Os valores entram
+ * completar. O nome do cliente sai em negrito e maiúsculas, onde quer que apareça no TEXTO (nunca dentro de uma tag). Os valores entram
  * escapados: dado da pasta nunca vira HTML.
  */
 final class PreenchedorDeModelo
@@ -39,11 +39,18 @@ final class PreenchedorDeModelo
         if ($cliente === '' || $cliente === self::LACUNA) {
             return $html;
         }
-        $escapado = htmlspecialchars($cliente, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $escapado  = htmlspecialchars($cliente, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $negrito   = '<b>' . htmlspecialchars(mb_strtoupper($cliente), ENT_QUOTES | ENT_HTML5, 'UTF-8') . '</b>';
+        $pedacos   = preg_split('/(<[^>]*>)/', $html, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$html];
 
-        $maiusculo = htmlspecialchars(mb_strtoupper($cliente), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Posições ímpares são as tags; o negrito só entra no texto, nunca dentro de `<tag attr>`.
+        foreach ($pedacos as $i => $pedaco) {
+            if ($i % 2 === 0) {
+                $pedacos[$i] = str_replace($escapado, $negrito, $pedaco);
+            }
+        }
 
-        return str_replace($escapado, '<b>' . $maiusculo . '</b>', $html);
+        return implode('', $pedacos);
     }
 
     private function limpo(string $valor): string

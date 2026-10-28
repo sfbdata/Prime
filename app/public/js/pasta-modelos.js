@@ -127,7 +127,12 @@
         var cliente = valorLimpo(valores.cliente);
         if (cliente === '' || cliente === lacuna) { return html; }
 
-        return html.split(esc(cliente)).join('<b>' + esc(cliente.toUpperCase()) + '</b>');
+        var negrito = '<b>' + esc(cliente.toUpperCase()) + '</b>';
+
+        // Posições ímpares são as tags; o negrito só entra no texto (igual ao servidor).
+        return html.split(/(<[^>]*>)/).map(function (pedaco, i) {
+            return i % 2 === 0 ? pedaco.split(esc(cliente)).join(negrito) : pedaco;
+        }).join('');
     }
 
     function montarDados() {
