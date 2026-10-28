@@ -105,6 +105,25 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Pastas com cliente principal cujo nome gravado ainda é um texto composto ("cliente - alguém").
+     * Insumo do comando que alinha o nome gravado ao do cliente (`RegravarNomeDasPastasJudiciaisUseCase`).
+     *
+     * @return list<Pasta>
+     */
+    public function comNomeCompostoEClientePrincipal(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.clientePrincipal IS NOT NULL')
+            ->andWhere('p.nomeCliente LIKE :composto')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('composto', '% - %')
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Subconsulta que casa a pasta cujo CREDOR (fantasia da carteira) ou DEVEDOR (pessoa cobrada)
      * bate com o termo — é o que faz a busca enxergar o identificador DERIVADO das pastas
      * judicializadas, que não existe gravado em lugar nenhum

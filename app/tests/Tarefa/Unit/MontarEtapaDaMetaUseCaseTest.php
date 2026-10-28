@@ -112,6 +112,16 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
         self::assertFalse($saida->podeDevolver);
     }
 
+    #[TestDox('Dados do modal: o cliente da pasta judicializada é o da carteira, não o texto composto gravado')]
+    public function testClienteDoModalEODerivado(): void
+    {
+        $this->meta->getPasta()->setNomeCliente('CREDOR - DEVEDOR');
+
+        $dados = $this->useCase([40 => ['fantasia' => 'CREDOR', 'razaoSocial' => 'CREDOR S.A.']])->dadosDoModal($this->meta, $this->escritorio, new \DateTimeImmutable('2026-10-22 15:00'));
+
+        self::assertSame('CREDOR', $dados['meta']['cliente']);
+    }
+
     #[TestDox('Dados do modal: etapas, tipos com sequência, equipe com iniciais e função, prazo padrão de 2 dias úteis')]
     public function testDadosDoModal(): void
     {
@@ -178,10 +188,13 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
         );
     }
 
-    private function useCase(): MontarEtapaDaMetaUseCase
+    /** @param array<int, array{fantasia: ?string, razaoSocial: ?string}> $daCarteira cliente da carteira por id de pasta judicial */
+    private function useCase(array $daCarteira = []): MontarEtapaDaMetaUseCase
     {
         $caixas = $this->createStub(CaixaDaEsteiraRepository::class);
         $caixas->method('configuradasDoEscritorio')->willReturn([]);
+        $casos = $this->createStub(\App\Cobranca\Repository\CasoCobrancaRepository::class);
+        $casos->method('clienteDaCarteiraPorPasta')->willReturn($daCarteira);
         $vinculo = new UserTenant($this->criador, $this->escritorio);
         $vinculo->setCargo((new Cargo())->setNome('Secretária'));
         $vinculos = $this->createStub(UserTenantRepository::class);
@@ -218,6 +231,7 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
             },
             $usuarios,
             $urls,
+            new \App\Cobranca\Service\ResolvedorIdentificadorDaPasta($casos, new \App\Cobranca\Service\ComporNomeDaPastaJudicial()),
         );
     }
 

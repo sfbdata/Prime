@@ -68,7 +68,7 @@
                                 <div class="mm-linha-meta">
                                     <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-linha-titulo" title="{{ meta.titulo }}">{{ meta.titulo }}</a>
                                     <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-linha-pasta">
-                                        {{ meta.pasta.nup }}{% if meta.pasta.nomeCliente %} · {{ meta.pasta.nomeCliente }}{% endif %}
+                                        {{ meta.pasta.nup }}{% set nomeDaPasta = identificador_pasta(meta.pasta) %}{% if nomeDaPasta %} · {{ nomeDaPasta }}{% endif %}
                                     </a>
                                 </div>
 

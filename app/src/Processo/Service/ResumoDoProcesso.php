@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Processo\Service;
 
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\Processo;
 use App\Twig\NumeroProcessoExtension;
@@ -22,6 +23,7 @@ final class ResumoDoProcesso
 
     public function __construct(
         private readonly MontadorDosDadosDoProcesso $montador,
+        private readonly ResolvedorIdentificadorDaPasta $identificador,
     ) {
     }
 
@@ -48,7 +50,7 @@ final class ResumoDoProcesso
         foreach ($campos as $rotulo => $valor) {
             $linhas[] = ['rotulo' => $rotulo, 'valor' => $valor !== '' ? $valor : self::NAO_INFORMADO];
         }
-        $cliente = (string) $pasta->getNomeCliente();
+        $cliente = (string) $this->identificador->para($pasta);
         $linhas[] = ['rotulo' => 'Pasta ' . ($pasta->getNup() ?? ('#' . $pasta->getId())) . ($cliente !== '' && $cliente !== '0' ? ' · ' . $cliente : ''), 'valor' => ''];
 
         return $linhas;

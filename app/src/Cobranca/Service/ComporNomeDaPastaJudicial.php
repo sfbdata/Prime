@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Service;
 
+use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Cobranca\Entity\CasoCobranca;
@@ -35,8 +36,16 @@ final class ComporNomeDaPastaJudicial
      */
     public function paraCaso(CasoCobranca $caso): ?string
     {
-        $cliente = $caso->getObjeto()?->getCarteira()?->getCliente();
+        return $this->paraCliente($caso->getObjeto()?->getCarteira()?->getCliente());
+    }
 
+    /**
+     * O nome de um cliente na coluna CLIENTE: fantasia primeiro, senão razão social (PJ) ou nome completo
+     * (PF). A mesma regra serve ao cliente da carteira e ao cliente principal de uma pasta comum: o
+     * cadastro pode trazer na razão social um texto composto ("cliente - alguém").
+     */
+    public function paraCliente(?Cliente $cliente): ?string
+    {
         return match (true) {
             $cliente instanceof ClientePJ => $this->compor($cliente->getNomeFantasia(), $cliente->getRazaoSocial()),
             $cliente instanceof ClientePF => $this->compor(null, $cliente->getNomeCompleto()),

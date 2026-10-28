@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Service;
 
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PastaParaAnaliseDeParada;
@@ -43,6 +44,7 @@ final class ColetorDePastasParadas
         private readonly PastaMensagemRepository $mensagemRepository,
         private readonly PastaDocumentoRepository $documentoRepository,
         private readonly PastaPagamentoRepository $pagamentoRepository,
+        private readonly ResolvedorIdentificadorDaPasta $identificador,
     ) {
     }
 
@@ -77,8 +79,9 @@ final class ColetorDePastasParadas
         $pagamentos   = $this->pagamentoRepository->resumoPorPasta($ids, $tenant, $hoje);
 
         return array_map(
-            static fn (Pasta $p): PastaParaAnaliseDeParada => self::montarPasta(
+            fn (Pasta $p): PastaParaAnaliseDeParada => self::montarPasta(
                 $p,
+                (string) $this->identificador->para($p),
                 $movimentadas[(int) $p->getId()] ?? [],
                 $andamentos[(int) $p->getId()][AndamentoDaPasta::via($p)] ?? null,
                 $documentos[(int) $p->getId()] ?? [],
@@ -149,7 +152,7 @@ final class ColetorDePastasParadas
      * @param list<array{titulo: string, nomeOriginal: string, categoria: string}> $documentos
      * @param array{total: int, vencidos: int}                                        $pagamentos
      */
-    private static function montarPasta(Pasta $p, array $movimentacoes, ?PastaAndamento $andamento, array $documentos, array $pagamentos): PastaParaAnaliseDeParada
+    private static function montarPasta(Pasta $p, string $cliente, array $movimentacoes, ?PastaAndamento $andamento, array $documentos, array $pagamentos): PastaParaAnaliseDeParada
     {
         $processo    = $p->getProcessoPrincipal();
         $comNumero   = $processo !== null && $processo->getNumeroProcesso() !== '';
@@ -159,7 +162,7 @@ final class ColetorDePastasParadas
         return new PastaParaAnaliseDeParada(
             id: (int) $p->getId(),
             numero: ColetorDePastasSemProcesso::numeroDaPasta($p),
-            cliente: (string) ($p->getNomeCliente() ?? ''),
+            cliente: $cliente,
             responsavel: $responsavel !== null ? (string) ($responsavel->getFullName() ?? $responsavel->getEmail()) : 'Sem responsável',
             responsavelId: $responsavel?->getId(),
             abertura: $p->getDataAbertura(),

@@ -345,7 +345,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
 
-        $cliente = ClientePJFactory::createOne(['tenant' => $tenant, 'razaoSocial' => 'CONDOMINIO DO EDIFICIO SOL LTDA'])->_real();
+        $cliente = ClientePJFactory::createOne(['tenant' => $tenant, 'razaoSocial' => 'CONDOMINIO DO EDIFICIO SOL LTDA', 'nomeFantasia' => null])->_real();
         $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nomeCliente' => 'TEXTO LIVRE ANTIGO'])->_real();
         $pasta->addCliente($cliente);
         static::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class)->flush();

@@ -54,7 +54,7 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCaseTest extends TestCase
         $zer = $this->createStub(DashboardZeramentoRepository::class);
         $zer->method('listarAtivos')->willReturn($zeramentos);
 
-        return new ObterRelatorioDeRegistrosDoColaboradorUseCase($users, $metricas, $zer, $pastas, $abas, $fin);
+        return new ObterRelatorioDeRegistrosDoColaboradorUseCase($users, $metricas, $zer, $pastas, $abas, $fin, new \App\Cobranca\Service\ResolvedorIdentificadorDaPasta($this->createStub(\App\Cobranca\Repository\CasoCobrancaRepository::class), new \App\Cobranca\Service\ComporNomeDaPastaJudicial()));
     }
 
     private function linha(int $id, int $pasta, string $quando, string $conteudo = 'texto', string $aba = 'dados'): array

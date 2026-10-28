@@ -46,7 +46,7 @@
 
             {# Pasta e DEMANDA (L52-54) #}
             <div class="meta-demanda">
-                <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}" class="meta-pasta" title="{{ 'metas.detalhe.abrir_a_pasta'|trans }}"><i class="bi bi-folder2-open"></i>{{ 'metas.detalhe.pasta'|trans({nup: tarefa.pasta.nup ~ ''}) }}{% if tarefa.pasta.nomeCliente %}<span class="meta-pasta-cliente">· {{ tarefa.pasta.nomeCliente }}</span>{% endif %}</a>
+                <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}" class="meta-pasta" title="{{ 'metas.detalhe.abrir_a_pasta'|trans }}"><i class="bi bi-folder2-open"></i>{{ 'metas.detalhe.pasta'|trans({nup: tarefa.pasta.nup ~ ''}) }}{% set nomeDaPasta = identificador_pasta(tarefa.pasta) %}{% if nomeDaPasta %}<span class="meta-pasta-cliente">· {{ nomeDaPasta }}</span>{% endif %}</a>
                 <div class="meta-demanda-rotulo">{{ 'metas.detalhe.demanda'|trans }}</div>
                 <div class="meta-demanda-texto">{{ tarefa.descricao|trim is not empty ? tarefa.descricao|nl2br : 'metas.detalhe.sem_descricao'|trans }}</div>
             </div>

@@ -18,7 +18,7 @@
         <div class="mm-meta-linha2">
             {# Pasta (dc L91): bi-folder2, nº em negrito azul, " · " e o nome do cliente. Continua sendo o link da pasta. #}
             <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-meta-info mm-meta-pasta" title="{{ 'metas.cartao.abrir_a_pasta'|trans }}">
-                <i class="bi bi-folder2"></i><b class="mm-meta-pasta-num">{{ meta.pasta.nup }}</b>{% if meta.pasta.nomeCliente %} · {{ meta.pasta.nomeCliente }}{% endif %}
+                <i class="bi bi-folder2"></i><b class="mm-meta-pasta-num">{{ meta.pasta.nup }}</b>{% set nomeDaPasta = identificador_pasta(meta.pasta) %}{% if nomeDaPasta %} · {{ nomeDaPasta }}{% endif %}
             </a>
 
             {# Sempre "de {quem criou}" (dc L92), em qualquer aba. #}
