@@ -26,7 +26,7 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
     private const DIRETORIO_DO_ESPELHO = 'src/Shared/EspelhoRemoto/';
     private const DIRETORIO_DO_ADAPTADOR = 'src/Shared/EspelhoRemoto/R2/';
 
-    #[TestDox('o contrato do espelho só tem enviar, consultar e existe — nenhum verbo de exclusão (regra 0 da P2)')]
+    #[TestDox('o contrato do espelho só tem enviar, consultar, existe e baixar — nenhum verbo de exclusão (regra 0 da P2)')]
     public function testContratoSemExclusao(): void
     {
         $metodos = array_map(
@@ -35,7 +35,7 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         );
         sort($metodos);
 
-        self::assertSame(['consultar', 'enviar', 'existe'], $metodos);
+        self::assertSame(['baixar', 'consultar', 'enviar', 'existe'], $metodos);
     }
 
     #[TestDox('nenhum arquivo de src/ chama exclusão, expiração, cópia ou retenção do S3')]
@@ -44,8 +44,8 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         self::assertSame([], $this->arquivosQueCasam('/\b(?:deleteObjects?|deleteBucket\w*|putBucketLifecycle\w*|abortMultipartUpload|copyObject|putObjectRetention|putObjectLegalHold|putBucket\w*)\s*\(|\bDeleteObjects?(?:Request|Input)\b/i'));
     }
 
-    /** Lista PERMITIDA, não proibida: o adaptador só pode chamar estas duas operações no cliente. */
-    #[TestDox('o adaptador R2 só chama putObject e headObject no cliente S3')]
+    /** Lista PERMITIDA, não proibida: o adaptador só pode chamar estas três operações no cliente. */
+    #[TestDox('o adaptador R2 só chama putObject, headObject e getObject no cliente S3')]
     public function testAdaptadorSoChamaPutEHead(): void
     {
         $codigo = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/src/Shared/EspelhoRemoto/R2/EspelhoRemotoR2.php'));
@@ -53,7 +53,7 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         $operacoes = array_values(array_unique($chamadas[1]));
         sort($operacoes);
 
-        self::assertSame(['headObject', 'putObject'], $operacoes);
+        self::assertSame(['getObject', 'headObject', 'putObject'], $operacoes);
         self::assertSame(0, preg_match('/\$cliente\b(?!->)|->cliente\b(?!->)/', str_replace(['private readonly S3Client $cliente', 'S3Client $cliente'], '', $codigo)), 'o cliente não pode ser repassado para fora');
     }
 

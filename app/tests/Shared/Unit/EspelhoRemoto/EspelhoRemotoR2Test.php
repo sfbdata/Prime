@@ -11,6 +11,7 @@ use App\Shared\EspelhoRemoto\FalhaNoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\R2\ClienteR2;
 use App\Shared\EspelhoRemoto\R2\EspelhoRemotoR2;
+use App\Tests\Shared\Doubles\ContadorDeEscritas;
 use App\Tests\Shared\Doubles\S3Simulado;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -222,6 +223,98 @@ final class EspelhoRemotoR2Test extends TestCase
             $metodos[] = $requisicao['metodo'];
         }
         self::assertSame(['PUT', 'HEAD'], $metodos);
+    }
+
+    #[TestDox('baixar lê o GET em blocos: o corpo chega em vários pedaços, cada um gravado no destino, e o total confere')]
+    public function testBaixarEmBlocos(): void
+    {
+        $this->s3->tamanhoDoBlocoDoGet = 1000;
+        $conteudo = random_bytes(10_500);
+        $chave    = new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 'grande.bin');
+        $this->enviar($chave, $conteudo);
+
+        $stream = ContadorDeEscritas::streamContado();
+
+        $this->espelho->baixar($chave, $stream, \strlen($conteudo), hash('sha256', $conteudo));
+
+        self::assertSame(11, ContadorDeEscritas::$escritas, 'um fwrite por bloco de 1000 bytes');
+        rewind($stream);
+        self::assertSame($conteudo, stream_get_contents($stream));
+        self::assertContains('GET', $this->s3->metodosUsados());
+    }
+
+    #[TestDox('o GET do baixar pede Accept-Encoding: identity e vai para o endpoint, o bucket e a chave do layout')]
+    public function testBaixarPedeIdentity(): void
+    {
+        $chave = new ChaveDeArquivo(EscopoDeArquivo::deTenant(4), CategoriaDeArquivo::PASTA_DOCUMENTO, 'texto.txt');
+        $this->enviar($chave, 'texto com mais de cinquenta bytes para a borda comprimir', 'text/plain');
+        $stream = fopen('php://temp', 'w+b');
+        self::assertIsResource($stream);
+
+        $this->espelho->baixar($chave, $stream, \strlen('texto com mais de cinquenta bytes para a borda comprimir'), hash('sha256', 'texto com mais de cinquenta bytes para a borda comprimir'));
+
+        $gets = array_values(array_filter($this->s3->requisicoes(), static fn (array $r): bool => $r['metodo'] === 'GET'));
+        self::assertCount(1, $gets);
+        self::assertSame('identity', $gets[0]['cabecalhos']['accept-encoding'] ?? null);
+        self::assertSame(LayoutDeChaveRemota::chaveDe($chave), $gets[0]['chave']);
+        self::assertStringStartsWith($this->s3->endpoint . '/' . $this->s3->bucket . '/core/t/4/', $gets[0]['url']);
+    }
+
+    #[TestDox('baixar objeto ausente (404 NoSuchKey) é FalhaNoEspelhoRemoto que diz "não existe", sem segredo')]
+    public function testBaixarAusenteSemSegredo(): void
+    {
+        $stream = fopen('php://temp', 'w+b');
+        self::assertIsResource($stream);
+
+        try {
+            $this->espelho->baixar(new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 'sumiu.pdf'), $stream, 3, hash('sha256', 'abc'));
+            self::fail('devia falhar');
+        } catch (FalhaNoEspelhoRemoto $e) {
+            self::assertStringContainsString('não existe', $e->getMessage());
+            self::assertStringNotContainsString(self::SEGREDO, $e->getMessage());
+        }
+    }
+
+    #[TestDox('objeto remoto maior que o esperado: o download para no primeiro bloco que passa do tamanho')]
+    public function testBaixarMaiorQueOEsperadoParaCedo(): void
+    {
+        $this->s3->tamanhoDoBlocoDoGet = 100;
+        $conteudo = str_repeat('a', 1000);
+        $chave    = new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 'maior.txt');
+        $this->enviar($chave, $conteudo);
+        $stream = fopen('php://temp', 'w+b');
+        self::assertIsResource($stream);
+
+        try {
+            $this->espelho->baixar($chave, $stream, 150, hash('sha256', substr($conteudo, 0, 150)));
+            self::fail('devia falhar');
+        } catch (FalhaNoEspelhoRemoto $e) {
+            self::assertStringContainsString('maior que o esperado', $e->getMessage());
+        }
+        self::assertLessThanOrEqual(150, (int) fstat($stream)['size'], 'não gravou além do esperado');
+    }
+
+    #[TestDox('pane no GET (500) e falha de rede viram FalhaNoEspelhoRemoto, sem segredo')]
+    public function testBaixarPaneERede(): void
+    {
+        $chave = new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 'pane.txt');
+        $this->enviar($chave, 'abc');
+
+        foreach ([
+            new MockResponse('<?xml version="1.0"?><Error><Code>InternalError</Code></Error>', ['http_code' => 500, 'response_headers' => ['content-type' => 'application/xml']]),
+            new MockResponse('', ['error' => 'conexão recusada (simulada)']),
+        ] as $resposta) {
+            $this->s3->falharAProxima($resposta);
+            $stream = fopen('php://temp', 'w+b');
+            self::assertIsResource($stream);
+            try {
+                $this->espelho->baixar($chave, $stream, 3, hash('sha256', 'abc'));
+                self::fail('devia falhar');
+            } catch (FalhaNoEspelhoRemoto $e) {
+                self::assertStringNotContainsString(self::SEGREDO, $e->getMessage());
+                self::assertStringNotContainsString('Signature=', $e->getMessage());
+            }
+        }
     }
 
     #[TestDox('HEAD sem Content-Length é falha de consulta, nunca "0 bytes": o objeto íntegro não vira divergente')]

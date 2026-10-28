@@ -9,6 +9,7 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\EspelhoRemoto\ArmazenamentoEspelhado;
+use App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
@@ -17,6 +18,7 @@ use App\Shared\EspelhoRemoto\R2\EspelhoRemotoR2;
 use App\Shared\EspelhoRemoto\Replica\ReplicadorDeArquivos;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\LoggerEspiao;
+use App\Tests\Shared\Doubles\ProvedorDoEspelhoFixo;
 use App\Tests\Shared\Doubles\S3Simulado;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -54,7 +56,7 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
         $this->local      = new ArmazenamentoEmMemoria();
         $this->outbox     = new OutboxDeReplicacao($this->conexao, $this->relogio);
         $this->logger     = new LoggerEspiao();
-        $this->espelhado  = new ArmazenamentoEspelhado($this->local, $this->outbox, new PoliticaDeEspelhamento('pasta_documento'), $this->logger);
+        $this->espelhado  = new ArmazenamentoEspelhado($this->local, $this->outbox, new PoliticaDeEspelhamento('pasta_documento'), $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0));
         $this->s3         = new S3Simulado();
         $this->espelho    = new EspelhoRemotoR2(ClienteR2::criar($this->s3->endpoint, $this->s3->chaveDeAcesso, self::SEGREDO, $this->s3->cliente()), $this->s3->bucket);
         $this->replicador = new ReplicadorDeArquivos($this->outbox, $this->local, $this->logger, new PoliticaDeEspelhamento('pasta_documento'));
@@ -175,6 +177,11 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
             {
                 return $this->consultar($chave) !== null;
             }
+
+            public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+            {
+                $this->real->baixar($chave, $destino, $tamanhoEsperado, $sha256Esperado);
+            }
         };
 
         $resumo = $this->replicador->processar($espiao, 1);
@@ -203,6 +210,11 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
             public function existe(ChaveDeArquivo $chave): bool
             {
                 return false;
+            }
+
+            public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+            {
+                throw new \LogicException('a réplica e a reconciliação não baixam conteúdo');
             }
         };
 

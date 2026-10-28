@@ -41,6 +41,10 @@ parameters:
     documentos_juridicos_dir: '%kernel.project_dir%/public/uploads/documentos-juridicos'
     # Comprovantes de pagamento de recompensa (baixa manual do Master). Mesmo volume, só pela rota do Master.
     recompensa_comprovantes_dir: '%kernel.project_dir%/public/uploads/recompensa-comprovantes'
+    # Cache de leitura do espelho (o que veio do R2, nome = SHA). Fora de public/, por instância e
+    # descartável. O teto em bytes tem padrão aqui (2 GB) para valer mesmo sem a variável no ambiente.
+    espelho_cache_dir: '%kernel.project_dir%/var/espelho-cache'
+    espelho_cache_max_bytes_padrao: 2147483648
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -294,10 +298,17 @@ services:
 
     # Espelho no R2 (P2.3, spec docs/specs/p2-gravacao-dupla.md §14). O armazenamento ativo é o
     # decorador, por cima do disco local. Com ARMAZENAMENTO_ESPELHO_CATEGORIAS vazia — o padrão —
-    # ele é repasse puro: nenhuma linha na outbox, nenhuma chamada ao R2. Leitura é sempre do disco.
+    # ele é repasse puro: nenhuma linha na outbox, nenhuma chamada ao R2. Leitura é do disco; o R2
+    # só é lido quando o disco não tem o arquivo e a outbox prova o envio verificado
+    # (docs/specs/leitura-pelo-r2-e-liberacao-de-disco.md), pelo cache de leitura abaixo.
     App\Shared\EspelhoRemoto\ArmazenamentoEspelhado:
         arguments:
             $interno: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+            $provedor: '@App\Shared\EspelhoRemoto\FabricaDoEspelhoRemoto'
+    App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho:
+        arguments:
+            $diretorio: '%espelho_cache_dir%'
+            $maximoDeBytes: '%env(int:default:espelho_cache_max_bytes_padrao:ESPELHO_CACHE_MAX_BYTES)%'
     App\Shared\Armazenamento\ArmazenamentoDeArquivos: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\MaterializadorDeArquivo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\ArmazenamentoComPrefixo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
@@ -353,6 +364,7 @@ when@test:
         comercial_imagens_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/comercial-imagens'
         documentos_juridicos_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/documentos-juridicos'
         recompensa_comprovantes_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/recompensa-comprovantes'
+        espelho_cache_dir: '%kernel.project_dir%/var/espelho-cache-test%env(default::TESTE_PROCESSO)%'
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true

@@ -13,12 +13,14 @@ use AsyncAws\Core\Exception\Exception as ExcecaoDoAsyncAws;
 use AsyncAws\Core\Exception\Http\HttpException;
 use AsyncAws\S3\Exception\NoSuchKeyException;
 use AsyncAws\S3\S3Client;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as ExcecaoDoHttpClient;
 
 /**
  * O espelho no Cloudflare R2, pela API S3 do `async-aws/s3` (spec P2 §4, DP-2).
  *
- * **Só `PutObject` e `HeadObject`.** Não existe chamada de exclusão nesta classe nem em nenhum outro
- * lugar de `src/` (regra 0 da P2) — `EspelhoRemotoArquiteturaTest` trava.
+ * **Só `PutObject`, `HeadObject` e `GetObject`.** Não existe chamada de exclusão nesta classe nem em
+ * nenhum outro lugar de `src/` (regra 0 da P2) — `EspelhoRemotoArquiteturaTest` trava. O `GetObject`
+ * é só da leitura de recuperação ({@see baixar()}), que confere tamanho e SHA-256 do que chegou.
  *
  * ## Integridade, em três camadas — e o que cada uma prova
  *
@@ -143,6 +145,94 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
     public function existe(ChaveDeArquivo $chave): bool
     {
         return $this->consultar($chave) !== null;
+    }
+
+    public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+    {
+        self::exigirStreamGravavel($destino);
+        if ($tamanhoEsperado < 0) {
+            throw new \InvalidArgumentException('Tamanho negativo.');
+        }
+        if (preg_match('/\A[0-9a-f]{64}\z/', $sha256Esperado) !== 1) {
+            throw new \InvalidArgumentException('O SHA-256 tem de vir em hex minúsculo de 64 caracteres.');
+        }
+
+        $chaveRemota = LayoutDeChaveRemota::chaveDe($chave);
+        [$recebidos, $medido] = $this->baixarEmBlocos($chaveRemota, $destino, $tamanhoEsperado);
+
+        if ($recebidos !== $tamanhoEsperado || !hash_equals($sha256Esperado, $medido)) {
+            throw new FalhaNoEspelhoRemoto(sprintf(
+                'O objeto remoto %s não confere com o esperado (esperado %d bytes / %s; recebido %d bytes / %s).',
+                $chaveRemota,
+                $tamanhoEsperado,
+                $sha256Esperado,
+                $recebidos,
+                $medido,
+            ));
+        }
+    }
+
+    /**
+     * O `GetObject` lido bloco a bloco: o conteúdo nunca fica inteiro numa string. Passou do tamanho
+     * esperado, o download para ali (não adianta baixar o resto de um objeto que já não confere).
+     *
+     * @param resource $destino
+     *
+     * @return array{0: int, 1: string} bytes recebidos e SHA-256 do que foi recebido
+     */
+    private function baixarEmBlocos(string $chaveRemota, mixed $destino, int $tamanhoEsperado): array
+    {
+        $contexto  = hash_init('sha256');
+        $recebidos = 0;
+
+        try {
+            $corpo = $this->cliente->getObject(['Bucket' => $this->bucket, 'Key' => $chaveRemota])->getBody();
+            foreach ($corpo->getChunks() as $bloco) {
+                $recebidos += \strlen($bloco);
+                if ($recebidos > $tamanhoEsperado) {
+                    throw new FalhaNoEspelhoRemoto(sprintf('O objeto remoto %s é maior que o esperado (%d bytes); o download foi interrompido.', $chaveRemota, $tamanhoEsperado));
+                }
+                hash_update($contexto, $bloco);
+                self::escreverTudo($destino, $bloco, $chaveRemota);
+            }
+        } catch (NoSuchKeyException) {
+            throw new FalhaNoEspelhoRemoto(sprintf('O objeto remoto %s não existe no espelho.', $chaveRemota));
+        } catch (ExcecaoDoAsyncAws $e) {
+            throw self::falha('baixar', $chaveRemota, $e);
+        } catch (ExcecaoDoHttpClient $e) {
+            throw new FalhaNoEspelhoRemoto(
+                sprintf('Não foi possível baixar %s do espelho remoto: falha de rede ou de transporte (%s).', $chaveRemota, (new \ReflectionClass($e))->getShortName()),
+                0,
+                $e,
+            );
+        }
+
+        return [$recebidos, hash_final($contexto)];
+    }
+
+    /** @param resource $destino */
+    private static function escreverTudo(mixed $destino, string $bloco, string $chaveRemota): void
+    {
+        $restante = $bloco;
+        while ($restante !== '') {
+            $escritos = @fwrite($destino, $restante);
+            if ($escritos === false || $escritos === 0) {
+                throw new FalhaNoEspelhoRemoto(sprintf('Não foi possível gravar localmente o que veio de %s (destino recusou a escrita).', $chaveRemota));
+            }
+            $restante = substr($restante, $escritos);
+        }
+    }
+
+    private static function exigirStreamGravavel(mixed $destino): void
+    {
+        if (!\is_resource($destino) || get_resource_type($destino) !== 'stream') {
+            throw new \InvalidArgumentException('O destino tem de ser um stream aberto.');
+        }
+
+        $modo = stream_get_meta_data($destino)['mode'];
+        if (strpbrk($modo, 'waxc+') === false) {
+            throw new \InvalidArgumentException('O stream de destino não é gravável.');
+        }
     }
 
     /**

@@ -6,6 +6,7 @@ namespace App\Shared\Http;
 
 use App\Shared\Armazenamento\ArquivoEmprestado;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\ArquivoIndisponivelNoMomento;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\MaterializadorDeArquivo;
@@ -13,6 +14,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 /**
  * Entrega um arquivo persistido como resposta HTTP, endereçado por CHAVE (E2.3, D11).
@@ -46,6 +48,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  * ## D10 — erro na entrega
  *
  *  - arquivo ausente → **404**, e só isso vira 404 aqui;
+ *  - {@see ArquivoIndisponivelNoMomento} (a cópia local foi liberada e o R2 não respondeu ou não
+ *    conferiu) → **503**: o arquivo existe, então nunca 404. Sem nova tentativa em linha;
  *  - {@see FalhaDeArmazenamento} (permissão, I/O, backend fora) **passa direto**. Não há catch
  *    amplo: "não consegui ler o storage" não é "o arquivo não existe";
  *  - chave inválida vinda da URL é da rota — é ela que monta a chave e responde 404 à recusa.
@@ -75,8 +79,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * ## O que ainda não está aqui
  *
- * Redirect, URL assinada e streaming de backend remoto são decisão da E4. Hoje o único
- * materializador é o disco local, e esta classe só sabe entregar um arquivo emprestado.
+ * Redirect, URL assinada e streaming de backend remoto são decisão da E4. O materializador entrega
+ * sempre um arquivo local emprestado: o do disco ou, na leitura de recuperação, o do cache de leitura
+ * hidratado do R2 e conferido por SHA. Range, CSP e `Content-Disposition` são os mesmos nos dois.
  */
 final class EntregaDeArquivo
 {
@@ -104,8 +109,9 @@ final class EntregaDeArquivo
     }
 
     /**
-     * @throws NotFoundHttpException quando não há arquivo na chave
-     * @throws FalhaDeArmazenamento  quando o storage não consegue responder — nunca vira 404
+     * @throws NotFoundHttpException           quando não há arquivo na chave
+     * @throws ServiceUnavailableHttpException quando o arquivo existe mas não pôde ser obtido agora
+     * @throws FalhaDeArmazenamento            quando o storage não consegue responder — nunca vira 404
      */
     public function resposta(ChaveDeArquivo $chave, string $nomeParaDownload, bool $inline): Response
     {
@@ -113,6 +119,8 @@ final class EntregaDeArquivo
             $arquivo = $this->materializador->paraLeitura($chave);
         } catch (ArquivoNaoEncontrado $e) {
             throw new NotFoundHttpException('Arquivo não encontrado.', $e);
+        } catch (ArquivoIndisponivelNoMomento $e) {
+            throw new ServiceUnavailableHttpException(null, 'Arquivo temporariamente indisponível. Tente de novo em alguns minutos.', $e);
         }
 
         return $this->deEmprestado($arquivo, $nomeParaDownload, $inline);
