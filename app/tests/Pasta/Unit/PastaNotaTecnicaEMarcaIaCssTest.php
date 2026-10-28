@@ -73,20 +73,24 @@ final class PastaNotaTecnicaEMarcaIaCssTest extends TestCase
         self::assertSame('6px', $this->propriedade($conector, 'border-bottom-left-radius'));
     }
 
-    #[TestDox('marca BLUEJUS Intelligence do cabeçalho: 10.5px/700/.12em #0a6fa0 e Intelligence 14.5px')]
-    public function testMarcaDoCabecalho(): void
+    #[TestDox('botão BlueJus IA do cabeçalho (dc 28.10.26): 40px, borda #cfe3f0, raio 5px, nome 16px/700 #0b3550')]
+    public function testBotaoDoCabecalho(): void
     {
-        $rotulo = $this->regra('pasta-ia-agentes.css', '.ps-cab-ia-rotulo');
-        self::assertSame('2px', $this->propriedade($rotulo, 'gap'));
-        self::assertSame('1.1', $this->propriedade($rotulo, 'line-height'));
+        $botao = $this->regra('pasta-ia-agentes.css', '.ps-cab-cliente > .ps-cab-ia');
+        self::assertSame('40px', $this->propriedade($botao, 'height'));
+        self::assertSame('0 9px 0 13px', $this->propriedade($botao, 'padding'));
+        self::assertSame('5px', $this->propriedade($botao, 'border-radius'));
+        self::assertSame('1px solid var(--ia-borda-botao)', $this->propriedade($botao, 'border'));
 
-        $marca = $this->regra('pasta-ia-agentes.css', '.ps-cab-ia-marca');
-        self::assertSame('10.5px', $this->propriedade($marca, 'font-size'));
-        self::assertSame('700', $this->propriedade($marca, 'font-weight'));
-        self::assertSame('.12em', $this->propriedade($marca, 'letter-spacing'));
-        self::assertSame('var(--ia-marca-cab)', $this->propriedade($marca, 'color'));
+        $nome = $this->regra('pasta-ia-agentes.css', '.ps-cab-ia-nomew');
+        self::assertSame('16px', $this->propriedade($nome, 'font-size'));
+        self::assertSame('700', $this->propriedade($nome, 'font-weight'));
+        self::assertSame('var(--ia-nome-botao)', $this->propriedade($nome, 'color'));
 
-        self::assertSame('14.5px', $this->propriedade($this->regra('pasta-ia-agentes.css', '.ps-cab-ia-nome'), 'font-size'));
+        $css = $this->css('pasta-ia-agentes.css');
+        self::assertSame(1, preg_match('/--ia-borda-botao:\s*#cfe3f0;/', $css));
+        self::assertSame(1, preg_match('/--ia-nome-botao:\s*#0b3550;/', $css));
+        self::assertStringContainsString('.ps-cab-ia[data-mini="1"] .ps-cab-ia-nomew { max-width: 0; opacity: 0; padding-right: 0; }', $css);
     }
 
     #[TestDox('a cor da marca é token próprio (#0a6fa0 no claro); --ia-azul-txt, usado em outros lugares, não muda')]

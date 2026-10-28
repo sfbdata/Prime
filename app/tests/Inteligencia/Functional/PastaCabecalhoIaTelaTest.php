@@ -70,8 +70,14 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         self::assertSame('nao_configurada_na_plataforma', $botao->attr('data-ia-motivo'));
         self::assertSame('IA não configurada nesta instalação', $botao->attr('title'));
         self::assertSame('psIaDrawer', $botao->attr('aria-controls'));
-        self::assertSame('BLUEJUS', trim($botao->filter('.ps-cab-ia-marca')->text()));
-        self::assertSame('Intelligence', trim($botao->filter('.ps-cab-ia-nome')->text()));
+        self::assertSame('1', $botao->attr('data-bjia'));
+        self::assertSame('0', $botao->attr('data-mini'), 'nasce expandido; o JS recolhe com o painel aberto');
+        self::assertSame('Abrir BlueJus IA', $botao->attr('aria-label'));
+        self::assertSame('BlueJus', trim($botao->filter('button > .ps-cab-ia-nomew')->text()), 'letras uma a uma, filhas diretas do nome');
+        self::assertSame(7, $botao->filter('.ps-cab-ia-nomew > .ps-cab-ia-letra')->count());
+        self::assertSame(1, $botao->filter('button > .ps-cab-ia-icone > img.ps-cab-ia-logo[src$="bluejus-simbolo-petroleo.png"]')->count());
+        self::assertSame(1, $botao->filter('button > .ps-cab-ia-icone > .ps-cab-ia-ia > svg')->count(), 'ícone IA que entra depois do símbolo');
+        self::assertStringNotContainsString('Intelligence', $botao->text(), 'o rótulo antigo saiu');
 
         $drawer = $crawler->filter(self::DRAWER);
         self::assertSame(1, $drawer->count());

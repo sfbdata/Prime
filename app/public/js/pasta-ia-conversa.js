@@ -92,6 +92,50 @@
         }
 
         /* ── 1. Conversa ──────────────────────────────────────────────────── */
+        /* ── Carregamento (desenho 02 VS 28.10.26) ───────────────────────────
+           O servidor só diz que há pergunta em andamento. Os passos avançam e a frase troca por tempo
+           decorrido desde que o cartão apareceu; o cartão novo de cada recarga recebe o estado na hora. */
+        var PASSO_MS = 5000;
+        var FRASE_MS = 2200;
+        var cargaDesde = null;
+        var cargaTimer = null;
+
+        function atualizarCarga() {
+            var cartao = aba.querySelector('[data-ia-consultando]');
+            if (!cartao) {
+                cargaDesde = null;
+                if (cargaTimer !== null) { clearTimeout(cargaTimer); cargaTimer = null; }
+                return;
+            }
+            if (cargaDesde === null) { cargaDesde = Date.now(); }
+            var decorrido = Date.now() - cargaDesde;
+            var passos = cartao.querySelectorAll('[data-ia-passo]');
+            var atual = Math.min(passos.length - 1, Math.floor(decorrido / PASSO_MS));
+            passos.forEach(function (passo, j) {
+                passo.setAttribute('data-estado', j < atual ? 'feito' : (j === atual ? 'atual' : 'futuro'));
+                var icone = passo.querySelector('i.bi');
+                if (icone) { icone.className = 'bi ' + (j < atual ? 'bi-check-circle-fill' : 'bi-circle'); }
+            });
+            var etapa = cartao.querySelector('[data-ia-etapa]');
+            if (etapa && passos[atual]) { etapa.textContent = passos[atual].getAttribute('data-rotulo') + '…'; }
+            var barra = cartao.querySelector('[data-ia-barra]');
+            if (barra && passos.length) { barra.style.width = Math.round((atual + 0.5) / passos.length * 100) + '%'; }
+            var frase = cartao.querySelector('[data-ia-frase]');
+            var frases = [];
+            try { frases = JSON.parse(cartao.getAttribute('data-frases') || '[]'); } catch (e) { frases = []; }
+            if (frase && frases.length) {
+                var texto = frases[Math.floor(decorrido / FRASE_MS) % frases.length];
+                if (frase.textContent !== texto) {
+                    frase.textContent = texto;
+                    frase.style.animation = 'none';
+                    void frase.offsetWidth;
+                    frase.style.animation = '';
+                }
+            }
+            if (cargaTimer !== null) { clearTimeout(cargaTimer); }
+            cargaTimer = setTimeout(atualizarCarga, 1000);
+        }
+
         function trocarConversa(html) {
             var molde = document.createElement('template');
             molde.innerHTML = html.trim();
@@ -99,6 +143,7 @@
             var atual = conversa();
             if (nova && atual) { atual.replaceWith(nova); }
             if (corpo) { corpo.scrollTop = corpo.scrollHeight; }
+            atualizarCarga();
         }
 
         function recarregar() {

@@ -75,17 +75,19 @@ final class PastaIaConversaJsCssTest extends TestCase
         self::assertStringContainsString('--ia-anel:          #e6edf2;', $css);
     }
 
-    #[TestDox('cartão "Consultando" com iaPulse e iaShim do desenho, e o reduzir movimento desliga os dois')]
+    #[TestDox('cartão de carregamento (dc 28.10.26): faixa que varre, símbolo girando, etapa em gradiente, passos e barra; o reduzir movimento desliga')]
     public function testCarregando(): void
     {
         $css = self::css();
 
-        self::assertStringContainsString('@keyframes iaShim { from { background-position: 200% 0; } to { background-position: -200% 0; } }', $css);
-        self::assertStringContainsString('.ia-conversa-etapa > i { font-size: 14px; animation: iaPulse 1.2s ease-in-out infinite; }', $css);
-        self::assertMatchesRegularExpression('/\.ia-conversa-shim \{[^}]*animation: iaShim 1\.2s linear infinite;/', $css);
+        self::assertMatchesRegularExpression('/\.ia-carga-varre \{[^}]*animation: iaVarre 1\.6s ease-in-out infinite;/', $css);
+        self::assertMatchesRegularExpression('/\.ia-carga-simbolo > img \{[^}]*animation: iaSimbolo 2\.4s/', $css);
+        self::assertMatchesRegularExpression('/\.ia-conversa-etapa \{[^}]*animation: iaTexto 2s linear infinite;/', $css);
+        self::assertStringContainsString('linear-gradient(90deg, #1fa6cc, #7b6cf6)', $css);
         $reduzir = substr($css, (int) strpos($css, '@media (prefers-reduced-motion: reduce)'));
-        self::assertStringContainsString('.ia-conversa-etapa > i,', $reduzir);
-        self::assertStringContainsString('.ia-conversa-shim,', $reduzir);
+        foreach (['.ia-carga-varre,', '.ia-carga-halo,', '.ia-carga-simbolo > img,', '.ia-conversa-etapa,', '.ia-carga-pontos > i,'] as $seletor) {
+            self::assertStringContainsString($seletor, $reduzir);
+        }
     }
 
     #[TestDox('rodapé: escondido com [hidden], campo de 40px e botão enviar de 40px em degradê')]

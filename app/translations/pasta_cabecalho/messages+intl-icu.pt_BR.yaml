@@ -78,7 +78,9 @@ pasta_cabecalho:
             trocar: Trocar imagem
             cancelar: Cancelar
             salvar: Salvar foto
-        ia_dica: 'BlueJus IA: análises desta pasta por agente'
+        ia_dica: 'BlueJus IA · ler documentos, resumir e gerar relatórios'
+        ia_aria: Abrir BlueJus IA
+        ia_marca: BlueJus
         selo:
             arquivado: ARQUIVADO
             suspenso: SUSPENSO
