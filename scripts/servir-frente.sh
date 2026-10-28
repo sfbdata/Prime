@@ -5,7 +5,7 @@
 # Uso:  scripts/servir-frente.sh <worktree> <porta>
 #       scripts/servir-frente.sh ia-chat-pagina 8091
 #
-# Roda em PRIMEIRO PLANO. Para parar: Ctrl+C. Ninguém deixa o servidor rodando.
+# Roda em PRIMEIRO PLANO. Para parar: Ctrl+C (o trap encerra o php -S no container). Ninguém deixa o servidor rodando.
 # Guia: docs/guias/chat-ia-dev.md.
 set -euo pipefail
 
@@ -64,5 +64,17 @@ echo "==> parar:    Ctrl+C neste terminal (o servidor roda em primeiro plano)."
 echo "==> banco:    o de DESENVOLVIMENTO do container (o mesmo da 8080); entre com um usuario de dev."
 echo
 
-exec docker exec -it -e APP_ENV=dev "$container" \
-    php -S "0.0.0.0:$porta" -t "$caminho/app/public" "$caminho/app/public/index.php"
+# O php -S de processo unico trava durante o SSE do chat: PHP_CLI_SERVER_WORKERS=4 cria 4 processos filhos.
+# O `docker exec` NAO encerra o processo do container quando o terminal fecha, entao o trap derruba o php -S desta porta
+# (Ctrl+C, terminal fechado ou kill do script). O container nao tem pkill nem pgrep: varre o /proc.
+parar_servidor() {
+    docker exec "$container" sh -c '
+        for p in /proc/[0-9]*; do
+            c=$(tr "\0" " " < "$p/cmdline" 2>/dev/null)
+            case "$c" in "php -S 0.0.0.0:'"$porta"' "*) kill "${p#/proc/}" 2>/dev/null ;; esac
+        done' >/dev/null 2>&1 || true
+}
+trap parar_servidor EXIT INT TERM HUP
+
+docker exec -it -e APP_ENV=dev -e PHP_CLI_SERVER_WORKERS=4 "$container" \
+    php -S "0.0.0.0:$porta" -t "$caminho/app/public" "$caminho/app/public/index.php" || true

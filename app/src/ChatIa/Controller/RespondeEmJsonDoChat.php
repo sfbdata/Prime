@@ -21,6 +21,7 @@ use App\Inteligencia\Exception\MuitasSolicitacoesException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * O que os controllers do Chat I.A têm em comum: o erro JSON `{codigo, mensagem}` (contrato da spec), a tradução das
@@ -39,6 +40,16 @@ trait RespondeEmJsonDoChat
         }
 
         return $this->erro('csrf', 'Sua sessão expirou. Recarregue a página e tente de novo.', Response::HTTP_FORBIDDEN);
+    }
+
+    /** @return JsonResponse|null a recusa 429 se o usuário estourou o limitador, ou nulo */
+    private function semRitmo(RateLimiterFactoryInterface $limitador): ?JsonResponse
+    {
+        if ($limitador->create((string) $this->usuario()->getId())->consume()->isAccepted()) {
+            return null;
+        }
+
+        return $this->erro('muitas_solicitacoes', 'Muitos pedidos em sequência. Aguarde um instante.', Response::HTTP_TOO_MANY_REQUESTS);
     }
 
     private function erro(string $codigo, string $mensagem, int $status): JsonResponse

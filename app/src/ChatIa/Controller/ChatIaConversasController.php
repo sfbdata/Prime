@@ -18,6 +18,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -32,6 +33,8 @@ final class ChatIaConversasController extends AbstractController
 
     public function __construct(
         private readonly TenantContext $tenantContext,
+        // Interface (não a classe): dublê em teste.
+        private readonly RateLimiterFactoryInterface $chatIaEscritaLimiter,
         private readonly ListarConversasDoChatUseCase $listar,
         private readonly CriarConversaDoChatUseCase $criar,
         private readonly VerConversaDoChatUseCase $ver,
@@ -57,6 +60,9 @@ final class ChatIaConversasController extends AbstractController
     public function criar(Request $request): JsonResponse
     {
         if (($recusa = $this->semCsrf($request)) !== null) {
+            return $recusa;
+        }
+        if (($recusa = $this->semRitmo($this->chatIaEscritaLimiter)) !== null) {
             return $recusa;
         }
         try {

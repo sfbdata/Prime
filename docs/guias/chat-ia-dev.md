@@ -49,6 +49,18 @@ O script confere os argumentos, descobre o IP do container `jusprime_php_dev`, i
 (`http://<ip>:8091/`) e roda o servidor do PHP **em primeiro plano**. Abra a URL no navegador e acrescente `chat-ia`.
 Para parar: `Ctrl+C` no terminal. Ninguém deixa o servidor rodando.
 
+O script sobe o `php -S` com `PHP_CLI_SERVER_WORKERS=4` (o servidor de processo único trava durante o SSE: uma resposta
+em andamento bloquearia a lista de conversas) e, ao sair (Ctrl+C ou terminal fechado), derruba o `php -S` da porta no
+container. Fechar o terminal à força pode deixar o servidor vivo; confira que não sobrou nenhum (o container não tem
+`pgrep`, então a varredura é pelo `/proc`):
+
+```bash
+docker exec jusprime_php_dev sh -c 'for p in /proc/[0-9]*; do tr "\0" " " < $p/cmdline 2>/dev/null | grep "^php -S"; done'
+```
+
+Sem saída = nada rodando. Se aparecer linha, rode o script de novo e saia com `Ctrl+C`, ou
+`docker exec jusprime_php_dev sh -c 'kill <pid>'` com o número da pasta `/proc` correspondente.
+
 - A porta tem de estar entre 1024 e 65535 e não pode ser a 8080 (é do master).
 - O banco é o de **desenvolvimento do container** (o mesmo da 8080). Entre com um usuário de dev que já exista nele; se
   o seu usuário ainda não existe, crie pelo cadastro ou peça o de teste à equipe. Quem não tem o módulo da I.A recebe 403.

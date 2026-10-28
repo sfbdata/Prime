@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -30,6 +31,8 @@ final class ChatIaAnexosController extends AbstractController
 
     public function __construct(
         private readonly TenantContext $tenantContext,
+        // Interface (não a classe): dublê em teste.
+        private readonly RateLimiterFactoryInterface $chatIaEscritaLimiter,
         private readonly AnexarArquivoAoChatUseCase $anexar,
         private readonly RemoverAnexoDoChatUseCase $remover,
     ) {
@@ -39,6 +42,9 @@ final class ChatIaAnexosController extends AbstractController
     public function enviar(Request $request): JsonResponse
     {
         if (($recusa = $this->semCsrf($request)) !== null) {
+            return $recusa;
+        }
+        if (($recusa = $this->semRitmo($this->chatIaEscritaLimiter)) !== null) {
             return $recusa;
         }
         try {

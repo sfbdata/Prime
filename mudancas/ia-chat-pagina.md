@@ -6,3 +6,4 @@ tipo: novidade
 - Provedor da Anthropic em fluxo (`stream: true`) e modelo por pedido (Haiku 5.5, Sonnet 5.5 e Opus 5.5).
 - Comando `app:inteligencia:testar-conexao` e `scripts/servir-frente.sh`; migration `Version20261028170000` (tabelas `chat_ia_conversa`, `chat_ia_mensagem`, `chat_ia_anexo`).
 - Chat I.A em página inteira, a tela (`/chat-ia`): layout próprio claro e escuro, barra lateral recolhível com histórico (Fixadas, Hoje, Últimos 7 dias, Mais antigas, buscar, renomear, fixar, excluir), resposta aparecendo aos poucos com markdown completo, botão Parar, Regenerar, Editar a última pergunta, Copiar, anexos (clipe, arrastar e colar), citar pasta (`#`) e seletor de modelo. Celular com a barra como gaveta.
+- Chat I.A: editar a última pergunta mantém pasta e anexos; limite de ritmo ao criar conversa e anexar (e teto de 20 conversas vazias por pessoa); servidor de pré-visualização com 4 processos.

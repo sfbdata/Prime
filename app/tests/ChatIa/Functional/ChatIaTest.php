@@ -7,9 +7,13 @@ namespace App\Tests\ChatIa\Functional;
 use App\ChatIa\Controller\ChatIaAnexosController;
 use App\ChatIa\Controller\ChatIaConversasController;
 use App\ChatIa\Controller\ChatIaMensagensController;
+use App\ChatIa\Entity\ConversaDeChat;
 use App\Entity\Auth\User;
+use App\Inteligencia\Enum\ModeloDeIa;
 use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Central\Support\CentralHttpTrait;
@@ -146,7 +150,8 @@ final class ChatIaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $bruno, $tenant);
         $this->afirmar404($client, $id);
         $client->request('GET', '/chat-ia/conversas');
-        self::assertSame([], $this->json($client)['conversas'] ?? $this->json($client));
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->json($client));
 
         // Outro escritório.
         [$admin2, $tenant2] = $this->criarAdmin();
@@ -154,6 +159,8 @@ final class ChatIaTest extends JusPrimeWebTestCase
         $carla = $this->criarUsuarioComPermissoes($tenant2, ['modules.inteligencia.view'], 'carla');
         $this->logarComTenant($client, $carla, $tenant2);
         $this->afirmar404($client, $id);
+        $client->request('GET', '/chat-ia/conversas');
+        self::assertSame([], $this->json($client));
         self::assertSame(1, $this->contarNoBanco('SELECT count(*) FROM chat_ia_conversa'));
     }
 
@@ -255,28 +262,309 @@ final class ChatIaTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contarNoBanco('SELECT count(*) FROM chat_ia_mensagem'));
     }
 
-    #[TestDox('Anexo: sobe para a conversa da pessoa; outra pessoa não anexa na conversa alheia (404) nem usa o anexo alheio')]
+    private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+    /** Sobe um arquivo para a conversa; devolve o id do anexo (ou 0 se recusou, com o status na resposta). */
+    private function subirAnexo(KernelBrowser $client, int $conversaId, string $bytes, string $nome = 'foto.png', string $mime = 'image/png'): int
+    {
+        $arquivo = tempnam(sys_get_temp_dir(), 'anx');
+        file_put_contents($arquivo, $bytes);
+        $client->request('POST', '/chat-ia/anexos', ['conversaId' => $conversaId], ['arquivo' => new UploadedFile($arquivo, $nome, $mime, null, true)], ['HTTP_X-CSRF-Token' => 'TOKEN_ajax']);
+        unlink($arquivo);
+
+        return $client->getResponse()->getStatusCode() === 201 ? (int) $this->json($client)['id'] : 0;
+    }
+
+    private function png(): string
+    {
+        return (string) base64_decode(self::PNG);
+    }
+
+    private function afirmarAnexoInvalido(KernelBrowser $client): void
+    {
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('anexo_invalido', $this->json($client)['codigo']);
+    }
+
+    #[TestDox('Anexo: outra pessoa não anexa na conversa alheia (404) nem usa o anexo alheio (422 anexo_invalido)')]
     public function testAnexoAlheio(): void
     {
         [$client, $tenant, $ana, $bruno] = $this->cenario();
         $this->logarComTenant($client, $ana, $tenant);
-        $id = $this->novaConversa($client);
-        $arquivo = tempnam(sys_get_temp_dir(), 'png');
-        file_put_contents($arquivo, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='));
-        $envio = fn () => $client->request('POST', '/chat-ia/anexos', ['conversaId' => $id], ['arquivo' => new UploadedFile($arquivo, 'foto.png', 'image/png', null, true)], ['HTTP_X-CSRF-Token' => 'TOKEN_ajax']);
-
-        $envio();
+        $idAna = $this->novaConversa($client);
+        $anexoId = $this->subirAnexo($client, $idAna, $this->png());
         self::assertResponseStatusCodeSame(201);
-        $anexoId = (int) $this->json($client)['id'];
+        self::assertGreaterThan(0, $anexoId);
 
         $this->logarComTenant($client, $bruno, $tenant);
-        $envio();
+        $this->subirAnexo($client, $idAna, $this->png());
         self::assertResponseStatusCodeSame(404);
         $idBruno = $this->novaConversa($client);
         $this->provedorFalso()->transmitirTrechos(['ok']);
         $this->enviarTexto($client, $idBruno, ['texto' => 'Veja', 'anexoIds' => [$anexoId]]);
-        self::assertContains($client->getResponse()->getStatusCode(), [404, 422]);
+        $this->afirmarAnexoInvalido($client);
         self::assertSame(0, $this->contarNoBanco('SELECT count(*) FROM chat_ia_mensagem'));
+        self::assertFalse($this->provedorFalso()->foiChamado());
+    }
+
+    #[TestDox('Anexo de outro escritório: não vale em nenhuma conversa, e nem sobe na conversa dele (404)')]
+    public function testAnexoDeOutroEscritorio(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $idAna = $this->novaConversa($client);
+        $anexoId = $this->subirAnexo($client, $idAna, $this->png());
+
+        [$admin2, $tenant2] = $this->criarAdmin();
+        $this->ligarIaNoTenant($tenant2, $admin2);
+        $carla = $this->criarUsuarioComPermissoes($tenant2, ['modules.inteligencia.view'], 'carla');
+        $this->logarComTenant($client, $carla, $tenant2);
+        $this->subirAnexo($client, $idAna, $this->png());
+        self::assertResponseStatusCodeSame(404);
+        $idCarla = $this->novaConversa($client);
+        $this->enviarTexto($client, $idCarla, ['texto' => 'Veja', 'anexoIds' => [$anexoId]]);
+        $this->afirmarAnexoInvalido($client);
+        $client->request('DELETE', '/chat-ia/anexos/' . $anexoId, [], [], self::CSRF);
+        $this->afirmarAnexoInvalido($client);
+        self::assertSame(1, $this->contarNoBanco('SELECT count(*) FROM chat_ia_anexo'));
+    }
+
+    #[TestDox('Anexo da mesma pessoa em OUTRA conversa: 422 anexo_invalido; já amarrado a uma pergunta: 422 também')]
+    public function testAnexoDeOutraConversaEJaUsado(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $a = $this->novaConversa($client);
+        $b = $this->novaConversa($client);
+        $anexoId = $this->subirAnexo($client, $a, $this->png());
+
+        $this->enviarTexto($client, $b, ['texto' => 'Outra conversa', 'anexoIds' => [$anexoId]]);
+        $this->afirmarAnexoInvalido($client);
+        self::assertSame(0, $this->contarNoBanco('SELECT count(*) FROM chat_ia_mensagem'));
+
+        $this->provedorFalso()->transmitirTrechos(['ok']);
+        $this->provedorFalso()->responderCom('Titulo');
+        $this->enviarTexto($client, $a, ['texto' => 'Aqui vale', 'anexoIds' => [$anexoId]]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->contarNoBanco('SELECT count(*) FROM chat_ia_anexo WHERE mensagem_id IS NOT NULL'));
+
+        $this->enviarTexto($client, $a, ['texto' => 'De novo', 'anexoIds' => [$anexoId]]);
+        $this->afirmarAnexoInvalido($client);
+        $client->request('DELETE', '/chat-ia/anexos/' . $anexoId, [], [], self::CSRF);
+        $this->afirmarAnexoInvalido($client);
+        self::assertSame(2, $this->contarNoBanco('SELECT count(*) FROM chat_ia_mensagem'));
+    }
+
+    #[TestDox('DELETE de anexo alheio (mesmo escritório) é 422 anexo_invalido e o anexo fica; o dono descarta o solto')]
+    public function testRemoverAnexoAlheio(): void
+    {
+        [$client, $tenant, $ana, $bruno] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $anexoId = $this->subirAnexo($client, $this->novaConversa($client), $this->png());
+
+        $this->logarComTenant($client, $bruno, $tenant);
+        $client->request('DELETE', '/chat-ia/anexos/' . $anexoId, [], [], self::CSRF);
+        $this->afirmarAnexoInvalido($client);
+        self::assertSame(1, $this->contarNoBanco('SELECT count(*) FROM chat_ia_anexo'));
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('DELETE', '/chat-ia/anexos/' . $anexoId, [], [], self::CSRF);
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $this->contarNoBanco('SELECT count(*) FROM chat_ia_anexo'));
+    }
+
+    private function docx(string $texto): string
+    {
+        $caminho = tempnam(sys_get_temp_dir(), 'docx');
+        $zip = new \ZipArchive();
+        $zip->open($caminho, \ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', '<Types/>');
+        $zip->addFromString('word/document.xml', '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>' . $texto . '</w:t></w:r></w:p></w:body></w:document>');
+        $zip->close();
+        $bytes = (string) file_get_contents($caminho);
+        unlink($caminho);
+
+        return $bytes;
+    }
+
+    #[TestDox('DOCX por HTTP: sobe (mime do conteúdo) e o texto vai ao provedor como DADO, não como arquivo')]
+    public function testDocxPorHttp(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->novaConversa($client);
+        // Com título manual não há a chamada curta do título, e o último pedido do falso é o da resposta.
+        $client->request('PATCH', "/chat-ia/conversas/$id", [], [], self::CSRF, '{"titulo":"Contrato"}');
+
+        $anexoId = $this->subirAnexo($client, $id, $this->docx('CLAUSULA-DO-CONTRATO-XYZ'), 'contrato.docx', 'application/octet-stream');
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('contrato.docx', $this->json($client)['nome']);
+        self::assertStringContainsString('wordprocessingml', $this->json($client)['mime']);
+        $this->provedorFalso()->transmitirTrechos(['Li o contrato.']);
+
+        $corpo = $this->enviarTexto($client, $id, ['texto' => 'Resuma', 'anexoIds' => [$anexoId]]);
+
+        self::assertResponseIsSuccessful();
+        $eventos = $this->eventos($corpo);
+        self::assertSame('fim', end($eventos)['evento']);
+        $pedido = $this->provedorFalso()->ultimoPedido();
+        self::assertNotNull($pedido);
+        self::assertStringContainsString('CLAUSULA-DO-CONTRATO-XYZ', $pedido->sistema . $pedido->textoDoUsuario());
+        self::assertSame([], $pedido->anexos, 'DOCX vira texto no servidor, nunca bloco de arquivo');
+    }
+
+    #[TestDox('Editar a última pergunta sem reenviar pasta nem anexos MANTÉM os dois; reenviar anexoIds vazio os remove')]
+    public function testEditarUltimaMantemPastaEAnexos(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->darAcessoDeLeitura($ana, $tenant, $pasta);
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->novaConversa($client);
+        $anexoId = $this->subirAnexo($client, $id, $this->png());
+        $this->provedorFalso()->transmitirTrechos(['Primeira']);
+        $this->provedorFalso()->responderCom('Titulo');
+        $this->enviarTexto($client, $id, ['texto' => 'Pergunta original', 'pastaId' => (int) $pasta->getId(), 'anexoIds' => [$anexoId]]);
+        self::assertResponseIsSuccessful();
+
+        $this->provedorFalso()->transmitirTrechos(['Editada']);
+        $this->enviarTexto($client, $id, ['texto' => 'Pergunta editada', 'editarUltima' => true]);
+
+        self::assertResponseIsSuccessful();
+        $perguntas = $this->em()->getConnection()->fetchAllAssociative("SELECT id, conteudo, pasta_id FROM chat_ia_mensagem WHERE papel = 'usuario'");
+        self::assertCount(1, $perguntas);
+        self::assertSame('Pergunta editada', $perguntas[0]['conteudo']);
+        self::assertSame((int) $pasta->getId(), (int) $perguntas[0]['pasta_id'], 'a pasta ficou');
+        self::assertSame([['mensagem_id' => $perguntas[0]['id'], 'id' => $anexoId]], $this->em()->getConnection()->fetchAllAssociative('SELECT mensagem_id, id FROM chat_ia_anexo'), 'o anexo ficou, amarrado à pergunta nova');
+        self::assertCount(1, $this->provedorFalso()->ultimoPedido()?->anexos ?? [], 'o provedor recebeu o anexo mantido');
+        self::assertSame(1, $this->contarNoBanco("SELECT count(*) FROM chat_ia_mensagem WHERE papel = 'assistente'"));
+
+        $this->provedorFalso()->transmitirTrechos(['Sem anexo']);
+        $this->enviarTexto($client, $id, ['texto' => 'Sem o arquivo', 'editarUltima' => true, 'anexoIds' => []]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $this->contarNoBanco('SELECT count(*) FROM chat_ia_anexo'), 'anexoIds vazio explícito remove os antigos');
+        self::assertSame((int) $pasta->getId(), (int) $this->em()->getConnection()->fetchOne("SELECT pasta_id FROM chat_ia_mensagem WHERE papel = 'usuario'"), 'a pasta continua');
+    }
+
+    #[TestDox('Regenerar mantém pasta e anexos e SUBSTITUI a última resposta (sem duplicar a pergunta)')]
+    public function testRegenerar(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->darAcessoDeLeitura($ana, $tenant, $pasta);
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->novaConversa($client);
+        $anexoId = $this->subirAnexo($client, $id, $this->png());
+        $this->provedorFalso()->transmitirTrechos(['Resposta velha']);
+        $this->provedorFalso()->responderCom('Titulo');
+        $this->enviarTexto($client, $id, ['texto' => 'Pergunta', 'pastaId' => (int) $pasta->getId(), 'anexoIds' => [$anexoId]]);
+
+        $this->provedorFalso()->transmitirTrechos(['Resposta nova']);
+        $this->enviarTexto($client, $id, ['regenerar' => true]);
+
+        self::assertResponseIsSuccessful();
+        $client->request('GET', "/chat-ia/conversas/$id");
+        $mensagens = $this->json($client)['mensagens'];
+        self::assertSame(['usuario', 'assistente'], array_column($mensagens, 'papel'));
+        self::assertSame('Pergunta', $mensagens[0]['conteudo']);
+        self::assertSame('Resposta nova', $mensagens[1]['conteudo']);
+        self::assertSame($pasta->getId(), $mensagens[0]['pasta']['id']);
+        self::assertSame([$anexoId], array_column($mensagens[0]['anexos'], 'id'));
+        self::assertCount(1, $this->provedorFalso()->ultimoPedido()?->anexos ?? []);
+    }
+
+    #[TestDox('GET /chat-ia/pastas: só as que a pessoa vê, de seu escritório, fora da lixeira e do cadeado; no máximo 8')]
+    public function testPastasCitaveis(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $visiveis = [];
+        for ($i = 1; $i <= 9; ++$i) {
+            $visiveis[] = $this->pastaDeBusca($tenant, 'CITA-' . $i);
+            $this->darAcessoDeLeitura($ana, $tenant, $visiveis[$i - 1]);
+        }
+        $trancada = $this->pastaDeBusca($tenant, 'CITA-TRANCADA');
+        $this->darAcessoDeLeitura($ana, $tenant, $trancada);
+        $this->em()->persist(new CadeadoDaPasta($tenant, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $excluida = $this->pastaDeBusca($tenant, 'CITA-EXCLUIDA');
+        $this->darAcessoDeLeitura($ana, $tenant, $excluida);
+        $excluida->marcarExcluida($ana, new \DateTimeImmutable());
+        [$admin2, $tenant2] = $this->criarAdmin();
+        $this->pastaDeBusca($tenant2, 'CITA-OUTRO');
+        $this->em()->flush();
+        $this->logarComTenant($client, $ana, $tenant);
+
+        $client->request('GET', '/chat-ia/pastas?q=CITA-');
+        self::assertResponseIsSuccessful();
+        $nups = array_column($this->json($client), 'nup');
+        self::assertCount(8, $nups);
+        foreach (['CITA-TRANCADA', 'CITA-EXCLUIDA', 'CITA-OUTRO'] as $proibida) {
+            self::assertNotContains($proibida, $nups);
+        }
+
+        $client->request('GET', '/chat-ia/pastas?q=CITA-TRANCADA');
+        self::assertSame([], $this->json($client));
+        $client->request('GET', '/chat-ia/pastas?q=CITA-EXCLUIDA');
+        self::assertSame([], $this->json($client));
+        $client->request('GET', '/chat-ia/pastas?q=CITA-OUTRO');
+        self::assertSame([], $this->json($client));
+        $client->request('GET', '/chat-ia/pastas?q=');
+        self::assertSame([], $this->json($client));
+    }
+
+    private function pastaDeBusca(Tenant $tenant, string $nup): Pasta
+    {
+        $pasta = new Pasta();
+        $pasta->setNup($nup);
+        $pasta->setTenant($tenant);
+        $this->em()->persist($pasta);
+        $this->em()->flush();
+
+        return $pasta;
+    }
+
+    #[TestDox('Limitador chat_ia_escrita: criar conversa e subir anexo estourados são 429 muitas_solicitacoes e nada é gravado')]
+    public function testLimiteDeEscrita(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $conversa = new ConversaDeChat($tenant, $ana, ModeloDeIa::PADRAO, new \DateTimeImmutable());
+        $this->em()->persist($conversa);
+        $this->em()->flush();
+        $id = (int) $conversa->getId();
+        // Antes de qualquer requisição: o serviço do limitador não pode ter sido inicializado.
+        $espiao = new RateLimiterFactoryEspiao(false);
+        static::getContainer()->set('limiter.chat_ia_escrita', $espiao);
+
+        $this->post($client, '/chat-ia/conversas', []);
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame('muitas_solicitacoes', $this->json($client)['codigo']);
+        $this->subirAnexo($client, $id, $this->png());
+        self::assertResponseStatusCodeSame(429);
+
+        self::assertSame([(string) $ana->getId(), (string) $ana->getId()], $espiao->chavesConsumidas);
+        self::assertSame(1, $this->contarNoBanco('SELECT count(*) FROM chat_ia_conversa'));
+        self::assertSame(0, $this->contarNoBanco('SELECT count(*) FROM chat_ia_anexo'));
+    }
+
+    #[TestDox('Teto de conversas vazias: a 21ª criação devolve a vazia mais recente em vez de criar outra')]
+    public function testTetoDeConversasVazias(): void
+    {
+        [$client, $tenant, $ana, $bruno] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $ultima = 0;
+        for ($i = 0; $i < 20; ++$i) {
+            $ultima = $this->novaConversa($client);
+        }
+
+        self::assertSame($ultima, $this->novaConversa($client));
+        self::assertSame(20, $this->contarNoBanco('SELECT count(*) FROM chat_ia_conversa'));
+
+        $this->logarComTenant($client, $bruno, $tenant);
+        $doBruno = $this->novaConversa($client);
+        self::assertNotSame($ultima, $doBruno, 'o teto é por pessoa');
+        self::assertSame(21, $this->contarNoBanco('SELECT count(*) FROM chat_ia_conversa'));
     }
 
     #[TestDox('Arquivo que não é PDF, imagem nem DOCX (mesmo com extensão .pdf): 422 anexo_invalido')]

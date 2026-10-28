@@ -46,8 +46,9 @@ use Psr\Clock\ClockInterface;
  * aceite, quantidade) → grava a pergunta (e apaga a resposta que será substituída) numa transação → monta o pedido.
  *
  * Três modos: pergunta nova; `regenerar` (reenvia a última pergunta e SUBSTITUI a última resposta, com a mesma pasta e
- * os mesmos anexos); `editarUltima` (apaga a última pergunta e o que veio depois e grava a nova; os anexos da antiga que
- * a nova mantiver em `anexoIds` são reaproveitados, os demais apagados). Arquivo apagado só sai do disco depois do COMMIT.
+ * os mesmos anexos); `editarUltima` (apaga a última pergunta e o que veio depois e grava a nova; por padrão MANTÉM a pasta e
+ * os anexos da antiga. Se vier `pastaId`, vale ele; se vier `anexoIds`, valem eles: os da antiga ali listados são
+ * reaproveitados, os demais da antiga apagados, e os soltos novos entram, tudo validado como numa pergunta nova). Arquivo apagado só sai do disco depois do COMMIT.
  *
  * @throws SemAcessoAoChatException
  * @throws \App\ChatIa\Exception\ConversaDeChatNaoEncontradaException
@@ -141,7 +142,7 @@ final class EnviarMensagemNoChatUseCase
         ));
         $plano['antigos'] = $this->anexos->daMensagem($ultima, $tenant);
         if ($input->editarUltima) {
-            return ['apagar' => [$ultima, ...$depois]] + $plano;
+            return ['apagar' => [$ultima, ...$depois], 'pastaId' => $ultima->getPasta()?->getId()] + $plano;
         }
 
         return [
@@ -162,8 +163,8 @@ final class EnviarMensagemNoChatUseCase
     }
 
     /**
-     * Os anexos desta pergunta. Regenerar mantém os da pergunta; nos outros modos valem os `anexoIds` (soltos, do dono,
-     * desta conversa; na edição, também os que já eram da pergunta antiga). Com qualquer anexo, o aceite precisa cobrir
+     * Os anexos desta pergunta. Regenerar mantém os da pergunta, e a edição também quando `anexoIds` não veio; nos
+     * outros casos valem os `anexoIds` (soltos, do dono, desta conversa; na edição, também os que já eram da antiga). Com qualquer anexo, o aceite precisa cobrir
      * a leitura de documentos.
      *
      * @param array{texto: string, nova: bool, pastaId: ?int, pergunta: ?MensagemDeChat, apagar: list<MensagemDeChat>, antigos: list<AnexoDeChat>} $plano
@@ -172,11 +173,12 @@ final class EnviarMensagemNoChatUseCase
      */
     private function anexosDoEnvio(User $eu, Tenant $tenant, ConversaDeChat $conversa, EnviarMensagemInput $input, array $plano): array
     {
-        if (!$plano['nova']) {
+        if (!$plano['nova'] || ($input->editarUltima && $input->anexoIds === null)) {
             $anexos = $plano['antigos'];
         } else {
-            $antigos = $input->editarUltima ? array_values(array_filter($plano['antigos'], static fn (AnexoDeChat $a): bool => \in_array($a->getId(), $input->anexoIds, true))) : [];
-            $idsSoltos = array_values(array_diff($input->anexoIds, array_map(static fn (AnexoDeChat $a): int => (int) $a->getId(), $antigos)));
+            $ids = $input->anexoIds ?? [];
+            $antigos = $input->editarUltima ? array_values(array_filter($plano['antigos'], static fn (AnexoDeChat $a): bool => \in_array($a->getId(), $ids, true))) : [];
+            $idsSoltos = array_values(array_diff($ids, array_map(static fn (AnexoDeChat $a): int => (int) $a->getId(), $antigos)));
             $soltos = $this->anexos->soltosDoDono($idsSoltos, $tenant, $eu, $conversa);
             if (\count($soltos) !== \count($idsSoltos)) {
                 throw new AnexoDoChatInvalidoException('Um dos anexos não foi encontrado. Anexe de novo.');

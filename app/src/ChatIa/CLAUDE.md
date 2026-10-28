@@ -27,7 +27,13 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
    `TransmitirRespostaDoChatUseCase` grava a resposta com os tokens reais; cliente que aborta (`connection_aborted`) deixa o
    trecho parcial com `interrompida = true` (tokens estimados). Nunca logar corpo, texto nem contexto.
 7. **Custo**: `CHAT_IA_TETO_TOKENS_RESPOSTA` (padrão 2000, `max_tokens` do pedido; o provedor soma a margem de raciocínio) e
-   `CHAT_IA_TETO_TOKENS_DIA` (padrão 200000 por pessoa), em `services.yaml`. Limiter `inteligencia_solicitar` no envio.
+   `CHAT_IA_TETO_TOKENS_DIA` (padrão 200000 por pessoa), em `services.yaml`. Limiter `inteligencia_solicitar` no envio e
+   `chat_ia_escrita` (30/min por usuário) em criar conversa e subir anexo. Quem já tem 20 conversas SEM mensagem reaproveita a
+   vazia mais recente em vez de criar outra. LIMITES ACEITOS: o custo do título automático (Haiku, 24 tokens) e o de uma
+   chamada que falha sem devolver texto NÃO entram no teto diário (a soma só olha mensagens gravadas). No aborto, a entrada
+   estimada soma bytes/3 por PDF e imagem anexos (no máximo 30 mil tokens por arquivo); o DOCX já vai como texto no `sistema`.
+   Editar a última pergunta MANTÉM pasta e anexos dela, salvo se o cliente reenviar `pastaId`/`anexoIds` (valem esses,
+   validados como numa pergunta nova); regenerar sempre mantém.
 8. **Título**: automático depois da primeira resposta (`completar`, 24 tokens, Haiku; fallback = início da pergunta); renomear
    à mão (`tituloManual`) vale sobre ele.
 9. **Teste**: o provedor é o `ProvedorFalso` (`tests/Inteligencia/Support`), também em fluxo. Nenhuma chamada real à API.

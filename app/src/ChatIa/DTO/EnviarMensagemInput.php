@@ -18,11 +18,11 @@ use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
  */
 final readonly class EnviarMensagemInput
 {
-    /** @param list<int> $anexoIds */
+    /** @param list<int>|null $anexoIds nulo = o cliente não informou (na edição da última pergunta, ficam os anexos dela) */
     public function __construct(
         public string $texto,
         public ?int $pastaId = null,
-        public array $anexoIds = [],
+        public ?array $anexoIds = null,
         public bool $regenerar = false,
         public bool $editarUltima = false,
     ) {
@@ -35,7 +35,7 @@ final readonly class EnviarMensagemInput
         if ($pastaId !== null && $pastaId <= 0) {
             throw new TextoDoChatInvalidoException('Pasta inválida.');
         }
-        if (\count($anexoIds) > RegraDaLeituraDeDocumentos::MAXIMO_POR_ANALISE) {
+        if ($anexoIds !== null && \count($anexoIds) > RegraDaLeituraDeDocumentos::MAXIMO_POR_ANALISE) {
             throw new AnexoDoChatInvalidoException(sprintf('Anexe no máximo %d arquivos por mensagem.', RegraDaLeituraDeDocumentos::MAXIMO_POR_ANALISE));
         }
     }
@@ -45,11 +45,11 @@ final readonly class EnviarMensagemInput
     {
         $texto = $corpo['texto'] ?? '';
         $pastaId = $corpo['pastaId'] ?? null;
-        $ids = $corpo['anexoIds'] ?? [];
-        if (!\is_string($texto) || ($pastaId !== null && !\is_int($pastaId)) || !\is_array($ids)) {
+        $ids = $corpo['anexoIds'] ?? null;
+        if (!\is_string($texto) || ($pastaId !== null && !\is_int($pastaId)) || ($ids !== null && !\is_array($ids))) {
             throw new TextoDoChatInvalidoException();
         }
-        foreach ($ids as $id) {
+        foreach ($ids ?? [] as $id) {
             if (!\is_int($id) || $id <= 0) {
                 throw new AnexoDoChatInvalidoException();
             }
@@ -58,7 +58,7 @@ final readonly class EnviarMensagemInput
         return new self(
             $texto,
             $pastaId,
-            array_values(array_unique($ids)),
+            $ids === null ? null : array_values(array_unique($ids)),
             ($corpo['regenerar'] ?? false) === true,
             ($corpo['editarUltima'] ?? false) === true,
         );

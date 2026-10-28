@@ -113,6 +113,13 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '1 minute'
+        # Chat I.A em página inteira: criar conversa e subir anexo (a pergunta usa inteligencia_solicitar).
+        # Chave = id do USUÁRIO. 30 por minuto passa folgado para quem anexa 3 arquivos e abre conversas,
+        # e segura laço ou clique repetido (cada anexo grava um arquivo no armazenamento).
+        chat_ia_escrita:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
         # "Baixar .zip" da seleção no explorador de documentos (SEC-004): chave = id do USUÁRIO.
         # Cada .zip lê até 1 GB, grava um temporário do mesmo tamanho e prende um worker do PHP
         # até o fim do envio. 3 por minuto cobre o uso real (baixar, perceber que faltou um

@@ -167,7 +167,17 @@
 
     function ehPalavra(c) { return c !== '' && /\w/.test(c); }
 
+    /* Linha inline maior que isto vira texto simples: as alternâncias lazy do RE_INLINE são quadráticas no pior caso. */
+    var MAX_INLINE = 2000;
+
     function inline(texto, pai) {
+        if (texto.length > MAX_INLINE) {
+            texto.split('\n').forEach(function (linha, i) {
+                if (i > 0) { pai.appendChild(el('br')); }
+                if (linha.length > MAX_INLINE) { pai.appendChild(document.createTextNode(linha)); } else { inline(linha, pai); }
+            });
+            return;
+        }
         var re = new RegExp(RE_INLINE.source, 'g');
         var ultimo = 0;
         var m;
@@ -697,6 +707,8 @@
             if (op.editarUltima) { corpo.editarUltima = true; }
             var enviados = estado.anexos.filter(function (a) { return a.id; });
             var pasta = estado.pasta;
+            /* Editar a última pergunta ou regenerar NÃO manda pastaId nem anexoIds: o servidor mantém a pasta e os anexos
+               da pergunta (são os chips que o balão já mostra). Os chips do campo valem só para a próxima pergunta nova. */
             if (!op.regenerar && !op.editarUltima) {
                 if (pasta) { corpo.pastaId = pasta.id; }
                 if (enviados.length) { corpo.anexoIds = enviados.map(function (a) { return a.id; }); }

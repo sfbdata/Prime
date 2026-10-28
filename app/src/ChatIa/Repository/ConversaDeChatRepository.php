@@ -69,6 +69,27 @@ class ConversaDeChatRepository extends ServiceEntityRepository
         return array_values($qb->getQuery()->getResult());
     }
 
+    public function contarVaziasDoDono(Tenant $tenant, User $dono): int
+    {
+        return (int) $this->vaziasDoDono($tenant, $dono)->select('COUNT(c.id)')->getQuery()->getSingleScalarResult();
+    }
+
+    /** A conversa SEM nenhuma mensagem mais recente do dono, ou nulo. */
+    public function vaziaMaisRecenteDoDono(Tenant $tenant, User $dono): ?ConversaDeChat
+    {
+        return $this->vaziasDoDono($tenant, $dono)->orderBy('c.id', 'DESC')->setMaxResults(1)->getQuery()->getOneOrNullResult();
+    }
+
+    private function vaziasDoDono(Tenant $tenant, User $dono): \Doctrine\ORM\QueryBuilder
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.usuario = :dono')
+            ->andWhere(sprintf('NOT EXISTS (SELECT 1 FROM %s m WHERE m.conversa = c AND m.tenant = :tenant)', MensagemDeChat::class))
+            ->setParameter('tenant', $tenant)
+            ->setParameter('dono', $dono);
+    }
+
     public function salvar(ConversaDeChat $conversa): void
     {
         $this->getEntityManager()->persist($conversa);

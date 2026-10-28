@@ -27,13 +27,17 @@ use Psr\Log\LoggerInterface;
  *
  * Parar (o cliente abortou o fetch): `$clienteSaiu` é consultado depois de cada trecho entregue; se verdadeiro, o texto
  * parcial é gravado com `interrompida = true` e o gerador termina em silêncio. Nesse caso o provedor não informa o
- * consumo, então os tokens gravados são uma ESTIMATIVA (caracteres / 3,5), para o teto diário não ficar cego.
+ * consumo, então os tokens gravados são uma ESTIMATIVA (texto: caracteres / 3,5; PDF e imagem anexos: bytes / 3, no máximo
+ * 30 mil por arquivo), para o teto diário não ficar cego.
  *
  * Nunca registra texto de pergunta, de resposta nem de contexto: o log leva ids, a classe do erro e se foi transitório.
  */
 final class TransmitirRespostaDoChatUseCase
 {
     private const CARACTERES_POR_TOKEN = 3.5;
+    /** PDF e imagem anexos: estimativa de bytes por token e teto por arquivo (a API cobra páginas e pixels, não bytes). */
+    private const BYTES_POR_TOKEN_DE_ANEXO = 3;
+    private const TETO_DE_TOKENS_POR_ANEXO = 30_000;
 
     public function __construct(
         private readonly ProvedorDeLinguagemEmFluxo $provedor,
@@ -121,7 +125,7 @@ final class TransmitirRespostaDoChatUseCase
     private function gravar(RespostaPreparada $preparada, string $texto, ?UsoDaTransmissao $uso, bool $interrompida): MensagemDeChat
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
-        $entrada = $uso->tokensEntrada ?? self::estimar($preparada->pedido->sistema . $this->conteudoDoPedido($preparada));
+        $entrada = $uso->tokensEntrada ?? self::estimar($preparada->pedido->sistema . $this->conteudoDoPedido($preparada)) + self::estimarOsAnexos($preparada);
         $saida = $uso->tokensSaida ?? self::estimar($texto);
         $mensagem = MensagemDeChat::doAssistente($preparada->conversa, $texto, $uso->modelo ?? $preparada->modelo->value, $entrada, $saida, $interrompida, $agora);
 
@@ -149,6 +153,16 @@ final class TransmitirRespostaDoChatUseCase
     private function conteudoDoPedido(RespostaPreparada $preparada): string
     {
         return implode('', array_map(static fn (array $m): string => $m['conteudo'], $preparada->pedido->mensagens));
+    }
+
+    private static function estimarOsAnexos(RespostaPreparada $preparada): int
+    {
+        $total = 0;
+        foreach ($preparada->pedido->anexos as $anexo) {
+            $total += min(self::TETO_DE_TOKENS_POR_ANEXO, (int) ceil(\strlen($anexo->bytes) / self::BYTES_POR_TOKEN_DE_ANEXO));
+        }
+
+        return $total;
     }
 
     private static function estimar(string $texto): int
