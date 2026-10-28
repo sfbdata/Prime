@@ -35,9 +35,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * Banco de modelos de petições da aba Modelos da pasta (desenho 02 de 27/10, fatia M1).
  *
  * O modelo é do ESCRITÓRIO e vale em todas as pastas, mas as rotas moram sob `/pasta/{id}` como as
- * do {@see PastaChecklistModeloController}: a pasta aberta dá o contexto de permissão. Ler exige ver
- * a pasta; gravar (criar, editar, excluir, favoritar) exige poder editá-la. Um único token CSRF por
- * pasta (`modelos_pasta_{id}`) cobre as escritas.
+ * do {@see PastaChecklistModeloController}: a pasta aberta dá o contexto de permissão. Ler e favoritar
+ * (preferência pessoal, só de quem marca) exigem ver a pasta; criar, editar e excluir exigem poder
+ * editá-la. Um único token CSRF por pasta (`modelos_pasta_{id}`) cobre as escritas.
  */
 #[Route('/pasta')]
 final class PastaModelosController extends AbstractController
@@ -131,7 +131,7 @@ final class PastaModelosController extends AbstractController
     #[Route('/{id}/modelos/{modeloId}/favorito', name: 'pasta_modelos_favoritar', requirements: ['modeloId' => '\d+'], methods: ['POST'])]
     public function favoritar(Pasta $pasta, int $modeloId, Request $request): JsonResponse
     {
-        if (($negado = $this->negar($pasta, 'edit', $request)) !== null) {
+        if (($negado = $this->negar($pasta, 'view', $request)) !== null) {
             return $negado;
         }
 
@@ -147,7 +147,7 @@ final class PastaModelosController extends AbstractController
     #[Route('/{id}/modelos/materias/{materia}/favorita', name: 'pasta_modelos_materia_favoritar', methods: ['POST'])]
     public function favoritarMateria(Pasta $pasta, string $materia, Request $request): JsonResponse
     {
-        if (($negado = $this->negar($pasta, 'edit', $request)) !== null) {
+        if (($negado = $this->negar($pasta, 'view', $request)) !== null) {
             return $negado;
         }
 
