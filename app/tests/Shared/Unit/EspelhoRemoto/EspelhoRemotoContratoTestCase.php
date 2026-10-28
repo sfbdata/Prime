@@ -160,6 +160,92 @@ abstract class EspelhoRemotoContratoTestCase extends TestCase
         self::assertTrue($this->espelho()->consultar($this->chave('fim.txt'))?->confereCom(\strlen('conteúdo inteiro'), hash('sha256', 'conteúdo inteiro')));
     }
 
+    #[TestDox('baixar: o destino recebe os bytes que foram enviados, conferidos por tamanho e SHA')]
+    public function testBaixarDevolveOConteudo(): void
+    {
+        $conteudo = random_bytes(70_000) . "\x00fim";
+        $chave    = $this->chave('baixar.bin');
+        $this->enviar($chave, $conteudo, 'application/octet-stream');
+
+        $destino = $this->destino();
+        $this->espelho()->baixar($chave, $destino, \strlen($conteudo), hash('sha256', $conteudo));
+
+        rewind($destino);
+        self::assertSame($conteudo, stream_get_contents($destino));
+    }
+
+    #[TestDox('baixar arquivo vazio confere com 0 bytes')]
+    public function testBaixarVazio(): void
+    {
+        $chave = $this->chave('vazio-baixar.txt');
+        $this->enviar($chave, '', 'text/plain');
+
+        $destino = $this->destino();
+        $this->espelho()->baixar($chave, $destino, 0, hash('sha256', ''));
+
+        rewind($destino);
+        self::assertSame('', stream_get_contents($destino));
+    }
+
+    #[TestDox('baixar objeto ausente é FalhaNoEspelhoRemoto')]
+    public function testBaixarAusente(): void
+    {
+        $this->expectException(FalhaNoEspelhoRemoto::class);
+        $this->espelho()->baixar($this->chave('nunca-enviado-baixar.pdf'), $this->destino(), 1, hash('sha256', 'x'));
+    }
+
+    #[TestDox('baixar com tamanho esperado diferente do objeto é FalhaNoEspelhoRemoto')]
+    public function testBaixarTamanhoErrado(): void
+    {
+        $chave = $this->chave('tamanho.txt');
+        $this->enviar($chave, 'conteúdo', 'text/plain');
+
+        $this->expectException(FalhaNoEspelhoRemoto::class);
+        $this->espelho()->baixar($chave, $this->destino(), \strlen('conteúdo') + 1, hash('sha256', 'conteúdo'));
+    }
+
+    #[TestDox('baixar com SHA esperado diferente do objeto é FalhaNoEspelhoRemoto')]
+    public function testBaixarShaErrado(): void
+    {
+        $chave = $this->chave('sha.txt');
+        $this->enviar($chave, 'conteúdo', 'text/plain');
+
+        $this->expectException(FalhaNoEspelhoRemoto::class);
+        $this->espelho()->baixar($chave, $this->destino(), \strlen('conteúdo'), hash('sha256', 'outro'));
+    }
+
+    #[TestDox('baixar recusa destino que não é stream gravável e parâmetros inválidos')]
+    public function testBaixarParametrosInvalidos(): void
+    {
+        $chave = $this->chave('p.txt');
+        $this->enviar($chave, 'p', 'text/plain');
+        $soLeitura = fopen('php://memory', 'r');
+        self::assertIsResource($soLeitura);
+
+        foreach ([
+            fn () => $this->espelho()->baixar($chave, 'não é stream', 1, hash('sha256', 'p')),
+            fn () => $this->espelho()->baixar($chave, $soLeitura, 1, hash('sha256', 'p')),
+            fn () => $this->espelho()->baixar($chave, $this->destino(), -1, hash('sha256', 'p')),
+            fn () => $this->espelho()->baixar($chave, $this->destino(), 1, 'XYZ'),
+        ] as $i => $chamada) {
+            try {
+                $chamada();
+                self::fail('caso ' . $i . ' devia recusar');
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    /** @return resource */
+    protected function destino(): mixed
+    {
+        $stream = fopen('php://temp', 'w+b');
+        self::assertIsResource($stream);
+
+        return $stream;
+    }
+
     protected function chave(string $nome): ChaveDeArquivo
     {
         return new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, $nome);

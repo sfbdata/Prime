@@ -9,7 +9,8 @@ use App\Shared\EspelhoRemoto\R2\EspelhoRemotoR2;
 use Psr\Log\NullLogger;
 
 /**
- * Monta o espelho R2 só quando alguém pede (o worker, a reconciliação) — nunca na requisição HTTP.
+ * Monta o espelho R2 só quando alguém pede: o worker, a reconciliação e, na requisição HTTP, só a
+ * leitura de recuperação, quando o disco não tem o arquivo (`ArmazenamentoEspelhado`).
  *
  * Os quatro valores vêm de variáveis de ambiente de produção (`ESPELHO_R2_*`, vazias por padrão).
  * Sem eles, {@see criar()} recusa com {@see EspelhoRemotoNaoConfigurado}: a aplicação sobe normal, e

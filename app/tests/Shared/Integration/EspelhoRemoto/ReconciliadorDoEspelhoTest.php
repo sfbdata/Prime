@@ -117,6 +117,11 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
             {
                 return false;
             }
+
+            public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+            {
+                throw new \LogicException('a réplica e a reconciliação não baixam conteúdo');
+            }
         };
 
         $relatorio = $this->reconciliador([$this->comLocal('1.pdf', '1'), $this->comLocal('2.pdf', '2')])->reconciliar($quebrado);

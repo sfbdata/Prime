@@ -59,7 +59,9 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *    usuário nem passa pelo armazenamento (o Dompdf roda sem recurso remoto);
      *  - `CatalogoDeQuestoesJuridicas` e `DocumentosJuridicosAtuais` (questões jurídicas do Master, 24/10) — leem
      *    arquivos versionados da APLICAÇÃO (`config/inteligencia/questoes_juridicas.json` e `resources/legal/*`), não
-     *    do usuário; as versões ajustadas que o Master envia vão por chave para o armazenamento.
+     *    do usuário; as versões ajustadas que o Master envia vão por chave para o armazenamento;
+     *  - `CacheDeLeituraDoEspelho` (leitura pelo R2, D3) — lê a cópia que ele mesmo publicou no cache de
+     *    leitura, já conferida por SHA; quem pede é o `ArmazenamentoEspelhado::ler()`, por chave.
      */
     private const QUEM_LE_CRU = [
         'src/Cobranca/DTO/ImportarRelatorioInput.php',
@@ -70,6 +72,7 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
         'src/Inteligencia/Juridico/DocumentosJuridicosAtuais.php',
         'src/Master/Controller/FontesPublicasController.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
+        'src/Shared/EspelhoRemoto/CacheDeLeituraDoEspelho.php',
         'src/Shared/Service/GeradorDePdfComDompdf.php',
     ];
 

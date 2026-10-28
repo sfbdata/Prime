@@ -106,6 +106,8 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/TrabalhoExterno/Controller/VagasPublicasController.php' => 'falso positivo: método link()',
         'src/TrabalhoExterno/UseCase/ExportarEmailDaCampanhaUseCase.php' => 'falso positivo: método link()',
         'src/Shared/EspelhoRemoto/Command/ReconciliarEspelhoCommand.php' => 'grava o relatório JSON pedido em --saida (P2.3)',
+        'src/Shared/EspelhoRemoto/CacheDeLeituraDoEspelho.php'     => 'cache de leitura do que veio do R2, nome = SHA, publicado só depois de conferido (leitura de recuperação, D3)',
+        'src/Shared/EspelhoRemoto/R2/EspelhoRemotoR2.php'          => 'fwrite só no stream de destino que o chamador entregou ao baixar',
     ];
 
     /** Os oito diretórios de upload e os binds: só o resolvedor os conhece. */

@@ -50,12 +50,17 @@ final class LimpezaDeArquivosArquiteturaTest extends TestCase
      *    uploads) e só apaga o que o próprio mecanismo cria lá: áreas `<16 hex>` de montagem cujo
      *    processo morreu e arquivos `<16 hex>.<ext>` de entrega que não aconteceu, com mais de 1 h.
      *    Nunca segue link, nunca vê o armazenamento, e não há linha no banco apontando para nada
-     *    disso: é lixo de execução, não arquivo de cliente sem registro.
+     *    disso: é lixo de execução, não arquivo de cliente sem registro;
+     *  - `CacheDeLeituraDoEspelho` (leitura pelo R2, D3) — varre SÓ o diretório do cache de leitura
+     *    (`var/espelho-cache`, fora do volume de uploads) e só apaga o que ele mesmo publicou ali: cópias
+     *    `<sha256>` do que veio do R2 (descarte por uso quando passa do teto; a origem continua no R2) e
+     *    parciais `.parcial-*` de download interrompido com mais de 1 h. Nunca vê o armazenamento.
      */
     private const ALLOWLIST = [
         'src/Shared/Armazenamento/AreaTemporariaPrivada.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
         'src/Shared/Armazenamento/ArquivoGeradoParaEntrega.php',
+        'src/Shared/EspelhoRemoto/CacheDeLeituraDoEspelho.php',
     ];
 
     /** Sem distinção de caixa: o PHP aceita `GLOB(` e `Unlink(`. */
