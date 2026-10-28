@@ -10,6 +10,7 @@ use App\Pasta\Entity\ModeloDePeca;
 use App\Pasta\Entity\ModeloDePecaUso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\ModeloDePecaRepository;
 use App\Pasta\Repository\ModeloDePecaUsoRepository;
@@ -49,11 +50,13 @@ final class UsarModeloNaPastaUseCase
 
         // Documento, contagem e registro do uso confirmam juntos: ou nasce tudo, ou nada (e o arquivo
         // novo só sai se for provado que nada foi confirmado).
-        $documento = null;
+        /** @var \ArrayObject<int, ChaveDeArquivo> $gravados arquivos criados pelo trabalho, lidos só se ele falhar */
+        $gravados = new \ArrayObject();
 
         return $this->transacao->executar(
-            function () use (&$documento, $modelo, $pasta, $tenant, $usuario, $html, $titulo): PastaDocumento {
+            function () use ($gravados, $modelo, $pasta, $tenant, $usuario, $html, $titulo): PastaDocumento {
                 $documento = $this->salvarPeca->executar($pasta, null, $html, $titulo, PastaDocumento::CATEGORIA_PECA, $tenant, $usuario);
+                $gravados->append(ChavesDePasta::documento($documento));
 
                 $modelo->registrarUso();
                 $this->modeloRepository->salvar($modelo);
@@ -61,7 +64,7 @@ final class UsarModeloNaPastaUseCase
 
                 return $documento;
             },
-            static fn (): array => $documento === null ? [] : [ChavesDePasta::documento($documento)],
+            static fn (): array => $gravados->getArrayCopy(),
             'Usar modelo de petição na pasta',
         );
     }
