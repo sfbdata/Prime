@@ -6,9 +6,11 @@ namespace App\Tests\Inteligencia\Support;
 
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\RespostaDeLinguagem;
+use App\Inteligencia\DTO\UsoDaTransmissao;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
+use App\Inteligencia\Service\ProvedorDeLinguagemEmFluxo;
 
 /**
  * O ÚNICO provedor com resposta programada — e mora em tests/ de propósito (regra de ouro da spec).
@@ -18,9 +20,13 @@ use App\Inteligencia\Service\ProvedorDeLinguagem;
  * Os anexos do pedido (PR F) ficam no pedido registrado, para o teste conferir o que iria ao provedor; o falso não
  * os lê.
  *
+ * Também é o {@see ProvedorDeLinguagemEmFluxo} da suíte (Chat I.A em página inteira): `transmitirTrechos()` programa os
+ * trechos e o consumo de uma resposta em fluxo; `transmitirTrechosEFalhar()` rende os trechos e então lança. Os pedidos
+ * do fluxo também ficam em `$pedidos`.
+ *
  * Igual ao `FakeGoogleDriveClientFactory` do Sync: entra pelo `when@test` do services.yaml.
  */
-final class ProvedorFalso implements ProvedorDeLinguagem
+final class ProvedorFalso implements ProvedorDeLinguagem, ProvedorDeLinguagemEmFluxo
 {
     public const NOME = 'falso';
     public const MODELO = 'falso-1';
@@ -30,6 +36,9 @@ final class ProvedorFalso implements ProvedorDeLinguagem
 
     /** @var list<RespostaDeLinguagem|\Throwable> */
     private array $fila = [];
+
+    /** @var list<array{trechos: list<string>, uso: UsoDaTransmissao, falha: ?\Throwable}> */
+    private array $filaDeFluxo = [];
 
     private bool $configurado = true;
 
@@ -107,6 +116,52 @@ final class ProvedorFalso implements ProvedorDeLinguagem
         return $proxima;
     }
 
+    /**
+     * Programa a próxima resposta em fluxo: os trechos, na ordem, e o consumo que o gerador devolve ao terminar.
+     *
+     * @param list<string> $trechos
+     */
+    public function transmitirTrechos(array $trechos, ?int $tokensEntrada = 120, ?int $tokensSaida = 40, bool $cortadaNoLimite = false, string $modelo = self::MODELO): void
+    {
+        $this->filaDeFluxo[] = ['trechos' => $trechos, 'uso' => new UsoDaTransmissao($modelo, $tokensEntrada, $tokensSaida, 15, $cortadaNoLimite), 'falha' => null];
+    }
+
+    /**
+     * Programa um fluxo que rende os trechos e então lança a falha (o provedor caiu no meio da resposta).
+     *
+     * @param list<string> $trechos
+     */
+    public function transmitirTrechosEFalhar(array $trechos, ?\Throwable $falha = null): void
+    {
+        $this->filaDeFluxo[] = [
+            'trechos' => $trechos,
+            'uso' => new UsoDaTransmissao(self::MODELO),
+            'falha' => $falha ?? new FalhaDoProvedorException('Anthropic: erro no fluxo (overloaded_error).', transitoria: true),
+        ];
+    }
+
+    public function transmitir(PedidoDeLinguagem $pedido): \Generator
+    {
+        $this->pedidos[] = $pedido;
+
+        if (!$this->configurado) {
+            throw new ProvedorIndisponivelException('Provedor de IA não configurado nesta instalação.');
+        }
+        if ($this->filaDeFluxo === []) {
+            throw new \LogicException('ProvedorFalso sem fluxo programado: o teste precisa chamar transmitirTrechos() antes.');
+        }
+
+        $proximo = array_shift($this->filaDeFluxo);
+        foreach ($proximo['trechos'] as $trecho) {
+            yield $trecho;
+        }
+        if ($proximo['falha'] !== null) {
+            throw $proximo['falha'];
+        }
+
+        return $proximo['uso'];
+    }
+
     public function foiChamado(): bool
     {
         return $this->pedidos !== [];
@@ -121,6 +176,7 @@ final class ProvedorFalso implements ProvedorDeLinguagem
     {
         $this->pedidos = [];
         $this->fila = [];
+        $this->filaDeFluxo = [];
         $this->configurado = true;
     }
 }

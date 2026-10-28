@@ -13,6 +13,9 @@ namespace App\Inteligencia\DTO;
  * do bloco DOCUMENTOS ANEXADOS do prompt. Quem não sabe mandar arquivo recusa o pedido com anexo de forma
  * explícita (nunca o manda sem eles, fingindo que leu); o `ProvedorAnthropic` manda inline, em base64.
  *
+ * `modelo` (opcional, Chat I.A em página inteira): o modelo DESTA chamada. Nulo = o modelo da plataforma (o do banco,
+ * escolhido pelo Master). Quem preenche já validou contra {@see \App\Inteligencia\Enum\ModeloDeIa}.
+ *
  * Nunca é logado inteiro: carrega o texto das publicações (conteúdo processual) e, com anexos, os arquivos.
  */
 final readonly class PedidoDeLinguagem
@@ -29,6 +32,7 @@ final readonly class PedidoDeLinguagem
         public bool $exigeJson,
         public string $rotuloDeUso,
         public array $anexos = [],
+        public ?string $modelo = null,
     ) {
     }
 

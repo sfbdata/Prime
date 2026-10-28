@@ -17,6 +17,10 @@ use App\Inteligencia\Armazenamento\ChavesDeInteligencia;
 use App\Kanban\Armazenamento\ChavesDeKanban;
 use App\Kanban\Entity\KanbanCard;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\ChatIa\Armazenamento\ChavesDeChatIa;
+use App\ChatIa\Entity\ConversaDeChat;
+use App\Entity\Auth\User;
+use App\Inteligencia\Enum\ModeloDeIa;
 use App\Tenant\Armazenamento\ChavesDeTenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
@@ -67,6 +71,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ChavesDeTenant::class . '::novaLogo',
             static fn (?Tenant $t): ?Tenant => $t,
             CategoriaDeArquivo::TENANT_LOGO,
+        ];
+        yield ChavesDeChatIa::class . '::novoAnexo' => [
+            ChavesDeChatIa::class . '::novoAnexo',
+            static fn (?Tenant $t): object => new ConversaDeChat($t ?? new Tenant(), new User(), ModeloDeIa::PADRAO, new \DateTimeImmutable()),
+            CategoriaDeArquivo::CHAT_IA_ANEXO,
         ];
         yield ChavesDePasta::class . '::novoDocumento' => [
             ChavesDePasta::class . '::novoDocumento',

@@ -55,6 +55,10 @@ enum CategoriaDeArquivo: string
     // A logo do escritório (tela Meu Escritório, spec meu-escritorio.md). Plana, numa subpasta da raiz dos documentos de
     // pasta; o escopo é o escritório dono (`ChavesDeTenant::logo`), e a coluna `tenant.logo_chave` guarda só o nome.
     case TENANT_LOGO = 'tenant_logo';
+    // Os anexos (PDF, imagem, DOCX) das conversas do Chat I.A em página inteira. Plana, numa subpasta da raiz dos documentos
+    // de pasta; o escopo é o escritório dono da conversa (`ChavesDeChatIa::anexo`) e a purga a leva pelos registros de
+    // `chat_ia_anexo`.
+    case CHAT_IA_ANEXO = 'chat_ia_anexo';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

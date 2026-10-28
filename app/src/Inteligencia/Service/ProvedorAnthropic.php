@@ -6,6 +6,7 @@ namespace App\Inteligencia\Service;
 
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\RespostaDeLinguagem;
+use App\Inteligencia\DTO\UsoDaTransmissao;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as ExcecaoDeHttp;
@@ -25,6 +26,11 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * `completar()` lança {@see ProvedorIndisponivelException} — o mesmo comportamento do `ProvedorNaoConfigurado`. Ligar
  * a IA continua exigindo, além disso, `IA_HABILITADA=1`, o escritório habilitado e o consentimento dele
  * (`DisponibilidadeDeInteligencia`). A chave nunca está no código.
+ *
+ * **Em fluxo** ({@see transmitir()}, Chat I.A em página inteira): a mesma requisição com `stream: true`; o SSE é lido por
+ * {@see LeitorDeFluxoDaAnthropic} e só o texto (`text_delta`) sai. O corpo e o texto nunca são logados; erro dentro do
+ * fluxo (`overloaded_error`...) vira {@see FalhaDoProvedorException} só com o tipo. O `modelo` do pedido, quando vem,
+ * vale no lugar do da plataforma (o chat deixa a pessoa escolher entre os de {@see \App\Inteligencia\Enum\ModeloDeIa}).
  *
  * O que vai e o que não vai na requisição:
  * - vai `model`, `max_tokens`, `system` e `messages` (papel `usuario` → `user`, `assistente` → `assistant`);
@@ -52,7 +58,7 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * da exceção leva só status, tipo do erro e id da requisição — ela é gravada como motivo da análise, e o corpo da
  * resposta de erro nunca é copiado para ela. O texto do pedido nunca é logado nem posto em exceção.
  */
-final class ProvedorAnthropic implements ProvedorDeLinguagem
+final class ProvedorAnthropic implements ProvedorDeLinguagem, ProvedorDeLinguagemEmFluxo
 {
     public const NOME = 'anthropic';
     public const VERSAO_DA_API = '2023-06-01';
@@ -148,11 +154,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
      */
     private function completarComTeto(PedidoDeLinguagem $pedido, int $fator): RespostaDeLinguagem
     {
-        $modelo = $this->modeloEfetivo();
-        if (!$this->configurado($modelo)) {
-            throw new ProvedorIndisponivelException('Provedor de IA (Anthropic) sem chave ou modelo configurado nesta instalação.');
-        }
-
+        $modelo = $this->modeloDoPedido($pedido);
         $corpo = $this->corpo($pedido, $modelo, $fator);
         $inicio = hrtime(true);
 
@@ -178,6 +180,92 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
         }
 
         return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000), $modelo);
+    }
+
+    /** O modelo desta chamada: o do pedido, se veio, ou o da plataforma. Sem chave ou modelo válido, indisponível. */
+    private function modeloDoPedido(PedidoDeLinguagem $pedido): string
+    {
+        $modelo = trim($pedido->modelo ?? '') !== '' ? trim((string) $pedido->modelo) : $this->modeloEfetivo();
+        if (!$this->configurado($modelo)) {
+            throw new ProvedorIndisponivelException('Provedor de IA (Anthropic) sem chave ou modelo configurado nesta instalação.');
+        }
+
+        return $modelo;
+    }
+
+    /**
+     * Rende os trechos de texto do modelo (SSE). Devolve o consumo real ao terminar. Não repete a chamada: o corte por
+     * `max_tokens` termina a resposta como está (`cortadaNoLimite`), e quem decide tentar de novo é o chamador.
+     *
+     * @return \Generator<int, string, mixed, UsoDaTransmissao>
+     */
+    public function transmitir(PedidoDeLinguagem $pedido): \Generator
+    {
+        $modelo = $this->modeloDoPedido($pedido);
+        $inicio = hrtime(true);
+        [$resposta, $requisicao] = $this->abrirFluxo($pedido, $modelo);
+
+        $leitor = new LeitorDeFluxoDaAnthropic();
+        try {
+            foreach ($this->httpClient->stream($resposta) as $parte) {
+                if ($parte->isTimeout()) {
+                    throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: o fluxo ficou sem dados até o limite de tempo.', $requisicao), true);
+                }
+                foreach ($leitor->alimentar($parte->getContent()) as $trecho) {
+                    yield $trecho;
+                }
+            }
+        } catch (ExcecaoDeHttp $e) {
+            throw new FalhaDoProvedorException(sprintf('Anthropic: falha de comunicação no fluxo (%s).', (new \ReflectionClass($e))->getShortName()), true);
+        }
+        $this->conferirOFim($leitor, $requisicao);
+
+        return new UsoDaTransmissao(
+            modelo: $leitor->modelo() ?? $modelo,
+            tokensEntrada: $leitor->tokensEntrada(),
+            tokensSaida: $leitor->tokensSaida(),
+            duracaoMs: (int) ((hrtime(true) - $inicio) / 1_000_000),
+            cortadaNoLimite: $leitor->cortadaNoLimite(),
+        );
+    }
+
+    /**
+     * Abre a requisição em fluxo e confere o status antes de qualquer trecho. Status diferente de 200: a falha sai
+     * pelo mesmo caminho da chamada comum (só status, tipo e id da requisição; nunca o corpo).
+     *
+     * @return array{ResponseInterface, ?string} a resposta e o id da requisição
+     */
+    private function abrirFluxo(PedidoDeLinguagem $pedido, string $modelo): array
+    {
+        [$resposta, $status, $cabecalhos] = $this->postar($pedido, $this->corpo($pedido, $modelo, 1, true));
+        $requisicao = $cabecalhos['request-id'][0] ?? null;
+        if ($status !== 200) {
+            try {
+                $dados = $resposta->toArray(false);
+            } catch (ExcecaoDeHttp) {
+                $dados = [];
+            }
+
+            throw $this->falhaPorStatus($status, $dados, $requisicao, self::segundosDeEspera($cabecalhos['retry-after'][0] ?? null));
+        }
+
+        return [$resposta, $requisicao];
+    }
+
+    private function conferirOFim(LeitorDeFluxoDaAnthropic $leitor, ?string $requisicao): void
+    {
+        $erro = $leitor->erro();
+        if ($erro !== null) {
+            $transitorio = in_array($erro, ['overloaded_error', 'api_error', 'rate_limit_error', 'timeout_error'], true);
+
+            throw new FalhaDoProvedorException($this->comRequisicao(sprintf('Anthropic: erro no fluxo (%s).', $erro), $requisicao), $transitorio);
+        }
+        if ($leitor->recusou()) {
+            throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: o modelo recusou responder a este pedido.', $requisicao), false);
+        }
+        if (!$leitor->terminou()) {
+            throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: o fluxo terminou antes do fim da mensagem.', $requisicao), true);
+        }
     }
 
     /**
@@ -209,13 +297,16 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     }
 
     /** @return array<string, mixed> */
-    private function corpo(PedidoDeLinguagem $pedido, string $modelo, int $fator = 1): array
+    private function corpo(PedidoDeLinguagem $pedido, string $modelo, int $fator = 1, bool $fluxo = false): array
     {
         $corpo = [
             'model'      => $modelo,
             'max_tokens' => ($pedido->maxTokens + $this->margemDeRaciocinio) * $fator,
             'messages'   => self::mensagens($pedido),
         ];
+        if ($fluxo) {
+            $corpo['stream'] = true;
+        }
         if ($this->esforco !== '') {
             $corpo['output_config'] = ['effort' => $this->esforco];
         }
