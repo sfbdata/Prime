@@ -31,6 +31,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
 {
     use ClockSensitiveTrait;
+    use LiberaSessaoDoRelogioFixoTrait;
 
     private KernelBrowser $client;
     private Tenant $tenant;
@@ -43,6 +44,7 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
         $this->client->disableReboot();
         $this->hoje = (new \DateTimeImmutable('today'))->format('Y-m-d');
         self::mockTime(new \DateTimeImmutable($this->hoje . ' 12:00:00', new \DateTimeZone(date_default_timezone_get())));
+        $this->liberarSessaoDoRelogioFixo();
 
         $this->tenant      = $this->criarTenant();
         $this->colaborador = $this->criarUsuario();
