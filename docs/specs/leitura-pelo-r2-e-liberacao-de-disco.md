@@ -77,8 +77,8 @@ e SHA na fatia diária.
 
 ### 3.1 Contrato
 
-`EspelhoRemoto` ganha `baixar(ChaveDeArquivo $chave, mixed $destino, string $sha256Esperado,
-int $tamanhoEsperado): void`.
+`EspelhoRemoto` ganha `baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado,
+string $sha256Esperado): void`.
 - Grava em stream gravável, sem carregar tudo em memória (`getObject` do async-aws em blocos), e
   confere tamanho e SHA ao fim.
 - Divergência ou ausência → `FalhaNoEspelhoRemoto`.
