@@ -68,6 +68,7 @@ final class ChatIaMensagensController extends AbstractController
     {
         $resposta = new StreamedResponse(function () use ($preparada): void {
             ignore_user_abort(true);
+            set_time_limit(300);   // o limite padrão do FPM (30s) cortaria respostas longas do Opus
             try {
                 foreach ($this->transmitir->executar($preparada, static fn (): bool => connection_aborted() === 1) as $evento) {
                     $this->escritor->escrever($evento['evento'], $evento['dados']);
