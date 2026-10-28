@@ -65,6 +65,7 @@ moldura:
         kanban: Kanban
         service_desk: Service Desk
         ponto_eletronico: Ponto Eletrônico
+        chat_ia: BlueJus IA
         secao_admin: ADMIN
         convidar_usuarios: Convidar Usuários
         colaboradores: Colaboradores
