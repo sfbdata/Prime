@@ -113,6 +113,7 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::KANBAN_ANEXO        => 'kanban',
             CategoriaDeArquivo::TAREFA_ANEXO        => 'tarefas/chat',
             CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO => 'trabalho-externo',
+            CategoriaDeArquivo::TENANT_LOGO         => 'pastas/logos',
             CategoriaDeArquivo::FOTO_PERFIL,
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
             CategoriaDeArquivo::COMERCIAL_IMAGEM,

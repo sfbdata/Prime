@@ -12,6 +12,7 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\TenantRepository;
 use App\Service\TenantBootstrapService;
 use App\Tenant\DTO\CriarEscritorioInput;
+use App\Tenant\Service\CodigoDaContaDoEscritorio;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -33,6 +34,7 @@ final class CriarEscritorioUseCase
         private readonly ValidadorOab $validadorOab,
         private readonly int $tenantMaxPorUsuario,
         private readonly EspelhoDaOabPrincipal $espelhoOab,
+        private readonly CodigoDaContaDoEscritorio $codigoDaConta,
     ) {}
 
     public function executar(CriarEscritorioInput $input, User $criador): Tenant
@@ -78,6 +80,7 @@ final class CriarEscritorioUseCase
 
         $tenant = new Tenant();
         $tenant->setName($input->nome);
+        $this->codigoDaConta->garantir($tenant); // o código da conta nasce com o escritório (Meu Escritório)
         $this->em->persist($tenant);
 
         // bootstrap seta criadoPor, cria perfil admin + vínculo dono + seed, e faz flush().

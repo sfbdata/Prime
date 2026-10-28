@@ -407,6 +407,15 @@ final class PurgarEscritorioUseCase
              WHERE d.tenant_id = :tenant AND d.foto IS NOT NULL
              GROUP BY d.foto',
         ],
+        // A logo do escritório (Meu Escritório): a linha é o próprio escritório (coluna `logo_chave`).
+        'tenant' => [
+            CategoriaDeArquivo::TENANT_LOGO,
+            'SELECT d.logo_chave AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM tenant d
+             LEFT JOIN tenant o ON o.logo_chave = d.logo_chave AND o.id <> d.id
+             WHERE d.id = :tenant AND d.logo_chave IS NOT NULL
+             GROUP BY d.logo_chave',
+        ],
         // A foto do cabeçalho da pasta sem cliente: a linha é a própria pasta (coluna `foto`), sem cadeia acima dela.
         'pasta' => [
             CategoriaDeArquivo::PASTA_FOTO,

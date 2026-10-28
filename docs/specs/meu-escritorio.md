@@ -68,7 +68,7 @@ relatório).
 
 Colunas novas em `tenant`, todas nulas, sem DROP: `oab` VARCHAR(40), `email_contato` VARCHAR(180), `telefone`
 VARCHAR(20), `logo_chave` VARCHAR(255), `alterado_em` TIMESTAMP, `alterado_por_id` INT (FK `user`, ON DELETE SET NULL),
-`codigo_conta` VARCHAR(16) com índice único parcial (`WHERE codigo_conta IS NOT NULL`). A migration só tem ADD COLUMN
+`codigo_conta` VARCHAR(20) (o formato `BJ-XXXX-XXXX-XXXX` tem 17 caracteres) com índice único parcial (`WHERE codigo_conta IS NOT NULL`). A migration só tem ADD COLUMN
 nulo e o índice: sem UPDATE e sem DROP no `up()` (a guarda do deploy para a publicação se houver). O `codigo_conta` é
 gerado sob demanda: no primeiro acesso à tela, se estiver nulo, o UseCase de consulta gera (`BJ-XXXX-XXXX-XXXX`,
 alfabeto do desenho sem letras ambíguas), grava, tenta de novo se bater no índice, e a trilha registra. Escritório novo
@@ -89,6 +89,8 @@ Mapeamentos:
 
 ## Regras (D1) e segurança
 
+- A conferência da exclusão e o cartão de exclusão só valem para o escritório da SESSÃO (o pedido de exclusão age nele); aberto outro escritório pela URL, o cartão não aparece e o servidor recusa. Só confere: quem bloqueia a exclusão de verdade é o fluxo existente (código por e-mail e palavra EXCLUIR). O Master sem vínculo de primário não vê o cartão (regra E2 do pedido vigente).
+- Os POST aceitam o corpo JSON que o navegador manda (e o formulário).
 - Ler a tela: a mesma porta de hoje (Master ou vínculo ativo com `admin.tenant.settings.manage`). Não se amplia.
 - Salvar dados, enviar e remover a logo, conferir a exclusão: só o primário do escritório da sessão
   (`RegraDosPrimarios::ehPrimario`) ou o Master. Secundário recebe 403, mesmo que mande o POST à mão, e a tentativa

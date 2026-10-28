@@ -17,6 +17,17 @@ class TenantRepository extends ServiceEntityRepository
         parent::__construct($registry, Tenant::class);
     }
 
+    /** Já existe escritório com este código de conta? (O índice único parcial é a trava; isto evita tentar à toa.) */
+    public function existeCodigoDaConta(string $codigo): bool
+    {
+        return (int) $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->andWhere('t.codigoConta = :codigo')
+            ->setParameter('codigo', $codigo)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
+
     /**
      * Conta os escritórios criados por um usuário (dos quais ele é dono) que ocupam vaga no limite
      * de escritórios próprios (RN08): os ativos e os SUSPENSOS (isActive=false sem excluidoEm,

@@ -46,7 +46,10 @@ use App\Profile\Form\DadosPessoaisType;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
+use App\Tenant\Controller\MeuEscritorioController;
 use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\UseCase\ConsultarMeuEscritorioUseCase;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
 use App\Tenant\Service\HierarquiaDePerfis;
 use App\Tenant\Service\RegraDosPrimarios;
@@ -237,8 +240,13 @@ final class TenantController extends AbstractController
     }
 
     #[Route('/{tenantId}', name: 'app_tenant_show', methods: ['GET'])]
-    public function show(#[MapEntity(id: 'tenantId')] Tenant $tenant, PermissionChecker $permissionChecker, UserTenantRepository $userTenantRepository): Response
-    {
+    public function show(
+        #[MapEntity(id: 'tenantId')] Tenant $tenant,
+        PermissionChecker $permissionChecker,
+        UserTenantRepository $userTenantRepository,
+        ConsultarMeuEscritorioUseCase $consultarMeuEscritorio,
+        CsrfTokenManagerInterface $csrf,
+    ): Response {
         $user = $this->getUser();
 
         if (!$user) {
@@ -252,7 +260,22 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para ver este Tenant.');
         }
 
-        return $this->render('tenant/show.html.twig', ['tenant' => $tenant]);
+        // Meu Escritório (spec meu-escritorio.md). O Drive é da conexão do escritório da SESSÃO: os endereços só vão a
+        // quem pode usá-los (quem edita e administra o escritório que está aberto).
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+        $daSessao = $this->tenantContext->getCurrentTenant()?->getId() === $tenant->getId();
+        $escritorio = $consultarMeuEscritorio->executar($user, $tenant, $daSessao);
+        $podeUsarODrive = $escritorio->podeEditar && $daSessao && $permissionChecker->canAdminister($user, $tenant, 'admin.tenant.settings.manage');
+
+        return $this->render('tenant/meu_escritorio.html.twig', [
+            'tenant' => $tenant,
+            'escritorio' => $escritorio,
+            'csrf' => $csrf->getToken(MeuEscritorioController::CSRF)->getValue(),
+            'urlDriveConectar' => $podeUsarODrive ? $this->generateUrl('app_sync_drive_iniciar') : null,
+            'urlDriveGerenciar' => $podeUsarODrive ? $this->generateUrl('app_sync_drive_conexao') : null,
+        ]);
     }
 
     #[Route('/{tenantId}/edit', name: 'app_tenant_edit', methods: ['GET', 'POST'])]

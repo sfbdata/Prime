@@ -11,6 +11,8 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\TenantRepository;
 use App\Service\TenantBootstrapService;
 use App\Tenant\DTO\CriarEscritorioInput;
+use App\Tenant\Service\CodigoDaContaDoEscritorio;
+use App\Tenant\Service\GeradorDeCodigoDaConta;
 use App\Tenant\UseCase\CriarEscritorioUseCase;
 use App\Tests\Auth\Doubles\OabWebServiceClientFake;
 use Doctrine\ORM\EntityManagerInterface;
@@ -36,7 +38,7 @@ final class CriarEscritorioUseCaseTest extends TestCase
         $this->bootstrap        = $this->createMock(TenantBootstrapService::class);
         // ValidadorOab real com backend dormente (fake indisponível) = comportamento de produção.
         $validadorOab           = new ValidadorOab((new OabWebServiceClientFake())->indisponivel());
-        $this->useCase          = new CriarEscritorioUseCase($this->em, $this->tenantRepository, $this->bootstrap, $validadorOab, 3, new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class)));
+        $this->useCase          = new CriarEscritorioUseCase($this->em, $this->tenantRepository, $this->bootstrap, $validadorOab, 3, new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class)), new CodigoDaContaDoEscritorio(new GeradorDeCodigoDaConta(), $this->tenantRepository));
     }
 
     private function input(string $nome, ?string $oabNumero = null, ?string $oabUf = null): CriarEscritorioInput
@@ -64,6 +66,7 @@ final class CriarEscritorioUseCaseTest extends TestCase
 
         self::assertInstanceOf(Tenant::class, $tenant);
         self::assertSame('Banca Silva', $tenant->getName());
+        self::assertMatchesRegularExpression(GeradorDeCodigoDaConta::PADRAO, (string) $tenant->getCodigoConta());
     }
 
     #[TestDox('Grava a OAB na conta quando o usuário ainda não tinha (colaborador virando dono)')]

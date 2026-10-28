@@ -155,6 +155,8 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::COMERCIAL_IMAGEM => $this->comercialImagensRaiz(),
             CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => $this->documentosJuridicosRaiz(),
             CategoriaDeArquivo::RECOMPENSA_COMPROVANTE => $this->recompensaComprovantesRaiz(),
+            // Subpasta da mesma raiz: as logos dos escritórios não se misturam com os documentos da pasta.
+            CategoriaDeArquivo::TENANT_LOGO => $this->raiz($this->uploadsDir) . '/logos',
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),

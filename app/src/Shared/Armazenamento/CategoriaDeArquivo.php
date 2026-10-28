@@ -52,6 +52,9 @@ enum CategoriaDeArquivo: string
     // O comprovante de um pagamento de recompensa registrado na baixa manual do Master (spec perfis-1.2-vs-25-10, F4).
     // Escopo GLOBAL: é da plataforma, não de um escritório, e a purga de escritório não o leva (`ChavesDeRecompensa`).
     case RECOMPENSA_COMPROVANTE = 'recompensa_comprovante';
+    // A logo do escritório (tela Meu Escritório, spec meu-escritorio.md). Plana, numa subpasta da raiz dos documentos de
+    // pasta; o escopo é o escritório dono (`ChavesDeTenant::logo`), e a coluna `tenant.logo_chave` guarda só o nome.
+    case TENANT_LOGO = 'tenant_logo';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

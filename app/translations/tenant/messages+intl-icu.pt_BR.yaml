@@ -1,0 +1,97 @@
+# ---- tenant: tela Meu Escritório (desenho 13, docs/specs/meu-escritorio.md). Textos do desenho; o backup só
+# tem o que o sistema faz (conexão com o Drive). Chaves sob `meu_escritorio.js` vão cruas ao navegador.
+tenant:
+    meu_escritorio:
+        titulo: Meu Escritório
+        informacoes: Informações do Escritório
+        nao_informado: Não informado
+        copiar: Copiar
+        logo:
+            titulo: Logo do escritório
+            sub: Usada no papel timbrado dos Modelos e nos documentos gerados.
+            enviar: Enviar logo
+            trocar: Trocar logo
+            remover: Remover logo
+        linha:
+            codigo: Código da conta
+            nome: Nome
+            doc: CNPJ / CPF
+            oab: Registro OAB
+            email: E-mail
+            telefone: Telefone
+            endereco: Endereço
+            criado_em: Criado em
+            status: Status
+        status:
+            ativo: Ativo
+            quarentena: Em quarentena
+        rodape:
+            alterado: 'Alterado por {nome} em {data}'
+            sem_alteracoes: Sem alterações registradas
+            perfis: Perfis
+            editar: Editar
+            cancelar: Cancelar
+            salvar: Salvar
+        campo:
+            nome: NOME DO ESCRITÓRIO
+            doc: CNPJ OU CPF
+            oab: REGISTRO NA OAB
+            email: E-MAIL
+            telefone: TELEFONE
+            cep: CEP
+            endereco: ENDEREÇO
+            cidade_uf: CIDADE / UF
+        placeholder:
+            doc: Somente números
+            oab: 'Ex.: OAB/DF 1234'
+            email: contato@escritorio.com.br
+            telefone: (00) 00000-0000
+            cep: Preenche o endereço
+            endereco: Rua, número, sala
+            cidade_uf: Brasília/DF
+        backup:
+            titulo: Backup de arquivos
+            texto: Faça uma cópia de segurança dos documentos das pastas (petições, procurações, contratos e anexos) no Google Drive do escritório. Com o Drive conectado, cada pasta do BlueJus ganha uma pasta correspondente no Drive e os arquivos novos são copiados automaticamente.
+            conectado: Conectado
+            nao_conectado: Não conectado
+            conectar: Conectar meu Drive
+            drive_conectado: Drive conectado
+            desativado: 'Backup desativado: conecte o Drive para começar'
+        exclusao:
+            titulo: Excluir conta
+            fechado: Opções para excluir o escritório. Use só se tiver certeza.
+            mostrar: Mostrar opções de exclusão
+            ocultar: Ocultar
+            texto_antes: Excluir o escritório
+            texto_destaque: desativa o acesso de todos os colaboradores
+            texto_meio: '. O pedido segue para o BlueJus decidir e os dados ficam guardados por'
+            texto_dias: 365 dias
+            texto_depois: ', podendo ser recuperados pelo suporte ou pelo Master antes da remoção definitiva.'
+            senha: 'Senha do usuário primário:' # segredo:permitido rótulo do campo, não é credencial
+            digite_antes: Digite
+            digite_depois: 'para confirmar:'
+            botao: Excluir escritório
+        js:
+            copiado: '{rotulo} copiado.'
+            salvo: Informações salvas e sincronizadas em todo o sistema.
+            logo_atualizada: Logo atualizada. Já vale no papel timbrado.
+            logo_removida: Logo removida.
+            logo_remover_confirmar: Remover a logo do escritório?
+            alterado: 'Alterado por {nome} em {data}'
+            nao_informado: Não informado
+            sem_alteracoes: Sem alterações registradas
+            erro_nome: Informe o nome do escritório.
+            erro_doc_tamanho: CNPJ precisa ter 14 números (ou CPF, 11).
+            erro_cnpj: 'CNPJ inválido: confira os dígitos.'
+            erro_email: E-mail inválido.
+            erro_cep: CEP não encontrado.
+            cep_preenchido: Endereço preenchido pelo CEP. Complete o número e a sala.
+            receita_preenchida: Dados preenchidos pela Receita Federal. Confira antes de salvar.
+            erro_senha: Informe a senha do usuário primário.
+            erro_comunicacao: Erro de comunicação. Tente de novo.
+            erro_salvar: Não foi possível salvar agora.
+            erro_logo: Não foi possível enviar a logo.
+            erro_exclusao: Não foi possível conferir agora.
+            exclusao_confirmar: 'Última confirmação: excluir "{nome}"? Você segue para o pedido de exclusão e, ao concluí-lo, todos os colaboradores perdem o acesso.'
+            logo_trocar: Trocar logo
+            logo_enviar: Enviar logo

@@ -14,6 +14,7 @@ use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TenantRepository::class)]
+#[ORM\UniqueConstraint(name: 'uniq_tenant_codigo_conta', columns: ['codigo_conta'], options: ['where' => '(codigo_conta IS NOT NULL)'])]
 class Tenant implements Auditavel
 {
     #[ORM\Id]
@@ -90,6 +91,31 @@ class Tenant implements Auditavel
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $responsavelAssinatura = null;
+
+    /** Registro na OAB do escritório, como o desenho (texto livre, ex.: "OAB/SP 123.456"). */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $oab = null;
+
+    #[ORM\Column(name: 'email_contato', length: 180, nullable: true)]
+    private ?string $emailContato = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $telefone = null;
+
+    /** Só a chave da logo no armazenamento (nunca caminho). Fora da trilha de auditoria. */
+    #[ORM\Column(name: 'logo_chave', length: 255, nullable: true)]
+    private ?string $logoChave = null;
+
+    #[ORM\Column(name: 'alterado_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $alteradoEm = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'alterado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $alteradoPor = null;
+
+    /** "BJ-XXXX-XXXX-XXXX": o código da conta que o suporte e o cliente citam; gerado sob demanda quando nulo. */
+    #[ORM\Column(name: 'codigo_conta', length: 20, nullable: true)]
+    private ?string $codigoConta = null;
 
     public function __construct()
     {
@@ -354,6 +380,79 @@ class Tenant implements Auditavel
     public function setResponsavelAssinatura(?string $responsavelAssinatura): static
     {
         $this->responsavelAssinatura = $responsavelAssinatura;
+        return $this;
+    }
+
+    public function getOab(): ?string
+    {
+        return $this->oab;
+    }
+
+    public function setOab(?string $oab): static
+    {
+        $this->oab = $oab;
+        return $this;
+    }
+
+    public function getEmailContato(): ?string
+    {
+        return $this->emailContato;
+    }
+
+    public function setEmailContato(?string $emailContato): static
+    {
+        $this->emailContato = $emailContato;
+        return $this;
+    }
+
+    public function getTelefone(): ?string
+    {
+        return $this->telefone;
+    }
+
+    public function setTelefone(?string $telefone): static
+    {
+        $this->telefone = $telefone;
+        return $this;
+    }
+
+    public function getLogoChave(): ?string
+    {
+        return $this->logoChave;
+    }
+
+    public function setLogoChave(?string $logoChave): static
+    {
+        $this->logoChave = $logoChave;
+        return $this;
+    }
+
+    public function getAlteradoEm(): ?\DateTimeImmutable
+    {
+        return $this->alteradoEm;
+    }
+
+    public function getAlteradoPor(): ?User
+    {
+        return $this->alteradoPor;
+    }
+
+    /** Carimba quem alterou os dados ou a logo e quando. */
+    public function carimbarAlteracao(User $por, \DateTimeImmutable $quando): static
+    {
+        $this->alteradoPor = $por;
+        $this->alteradoEm = $quando;
+        return $this;
+    }
+
+    public function getCodigoConta(): ?string
+    {
+        return $this->codigoConta;
+    }
+
+    public function setCodigoConta(?string $codigoConta): static
+    {
+        $this->codigoConta = $codigoConta;
         return $this;
     }
 }

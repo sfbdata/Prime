@@ -4,6 +4,7 @@ namespace App\Service\Audit;
 
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
+use App\Entity\Tenant\Tenant;
 use App\Recompensa\Entity\DadosDeRecebimentoDeRecompensa;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Shared\Contract\Auditavel;
@@ -49,6 +50,9 @@ class AuditLogSubscriber
         TermoDeVoluntariado::class => ['campos', 'aceiteIp', 'aceiteUserAgent'],
         // CPF ou CNPJ e chave PIX de quem recebe a recompensa (F4): a trilha registra que mudou e quem mudou, nunca o valor.
         DadosDeRecebimentoDeRecompensa::class => ['documento', 'chavePix'],
+        // Meu Escritório: a chave da logo e o carimbo de "alterado por/em" não são diff útil; o nome, CNPJ, OAB, e-mail,
+        // telefone e endereço seguem na trilha como os demais campos do Tenant.
+        Tenant::class => ['logoChave', 'alteradoEm', 'alteradoPor'],
     ];
 
     public function __construct(
