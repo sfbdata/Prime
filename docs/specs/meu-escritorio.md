@@ -68,9 +68,11 @@ relatório).
 
 Colunas novas em `tenant`, todas nulas, sem DROP: `oab` VARCHAR(40), `email_contato` VARCHAR(180), `telefone`
 VARCHAR(20), `logo_chave` VARCHAR(255), `alterado_em` TIMESTAMP, `alterado_por_id` INT (FK `user`, ON DELETE SET NULL),
-`codigo_conta` VARCHAR(16) com índice único. Preenchimento do `codigo_conta` dos escritórios existentes na própria
-migration (UPDATE, formato `BJ-XXXX-XXXX-XXXX`, alfabeto do desenho sem letras ambíguas) e geração na criação de
-escritório novo. Reversível (`down` remove as colunas). Sem outro UPDATE ou DELETE.
+`codigo_conta` VARCHAR(16) com índice único parcial (`WHERE codigo_conta IS NOT NULL`). A migration só tem ADD COLUMN
+nulo e o índice: sem UPDATE e sem DROP no `up()` (a guarda do deploy para a publicação se houver). O `codigo_conta` é
+gerado sob demanda: no primeiro acesso à tela, se estiver nulo, o UseCase de consulta gera (`BJ-XXXX-XXXX-XXXX`,
+alfabeto do desenho sem letras ambíguas), grava, tenta de novo se bater no índice, e a trilha registra. Escritório novo
+já nasce com o código. Reversível (`down` remove).
 
 Mapeamentos:
 - CNPJ ou CPF: a coluna `cnpj` guarda 11 ou 14 dígitos. Validação como o desenho (14: dígito do CNPJ; 11: CPF; outro
