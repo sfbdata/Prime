@@ -8,6 +8,8 @@ use App\ChatIa\Armazenamento\ChavesDeChatIa;
 use App\ChatIa\Entity\AnexoDeChat;
 use App\ChatIa\Entity\ConversaDeChat;
 use App\ChatIa\Entity\MensagemDeChat;
+use App\ChatIa\Entity\PropostaDeCadastro;
+use App\ChatIa\Enum\TipoDaProposta;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Enum\ModeloDeIa;
@@ -62,6 +64,7 @@ final class PurgaDoChatTest extends KernelTestCase
         $anexo = new AnexoDeChat($tenant, $dono, $conversa, $armazenado->chave->nome, 'foto.png', 'image/png', 8, $agora);
         $anexo->anexarA($pergunta);
         $this->em->persist($anexo);
+        $this->em->persist(new PropostaDeCadastro($tenant, $dono, $conversa, TipoDaProposta::Cliente, ['tipoPessoa' => 'pf', 'campos' => ['nome' => 'Maria']], $agora));
         $this->em->flush();
 
         return [$anexo, ChavesDeChatIa::anexo($anexo)];
@@ -72,7 +75,7 @@ final class PurgaDoChatTest extends KernelTestCase
         return (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM $tabela WHERE tenant_id = ?", [$tenantId]);
     }
 
-    #[TestDox('Purgar o escritório apaga conversas, mensagens, anexos e os arquivos do chat; o vizinho fica intacto')]
+    #[TestDox('Purgar o escritório apaga conversas, mensagens, anexos, propostas e os arquivos do chat; o vizinho fica intacto')]
     public function testPurgaCobreOChat(): void
     {
         $dono = UserFactory::createOne()->_real();
@@ -84,13 +87,13 @@ final class PurgaDoChatTest extends KernelTestCase
 
         $resultado = static::getContainer()->get(PurgarEscritorioUseCase::class)->executar($alvo, dryRun: false);
 
-        foreach (['chat_ia_conversa', 'chat_ia_mensagem', 'chat_ia_anexo'] as $tabela) {
+        foreach (['chat_ia_conversa', 'chat_ia_mensagem', 'chat_ia_anexo', 'chat_ia_proposta'] as $tabela) {
             self::assertSame(0, $this->contar($tabela, (int) $alvo->getId()), "$tabela do escritório purgado ficou");
         }
         self::assertFalse($this->armazenamento->existe($chaveDoAlvo), 'o arquivo do anexo deveria ter saído do disco');
         self::assertSame([], $resultado->arquivosNaoRemovidos);
 
-        foreach (['chat_ia_conversa' => 1, 'chat_ia_mensagem' => 2, 'chat_ia_anexo' => 1] as $tabela => $esperadas) {
+        foreach (['chat_ia_conversa' => 1, 'chat_ia_mensagem' => 2, 'chat_ia_anexo' => 1, 'chat_ia_proposta' => 1] as $tabela => $esperadas) {
             self::assertSame($esperadas, $this->contar($tabela, (int) $vizinho->getId()), "$tabela do vizinho foi apagada");
         }
         self::assertTrue($this->armazenamento->existe($chaveDoVizinho), 'a purga do alvo apagou o arquivo do vizinho');

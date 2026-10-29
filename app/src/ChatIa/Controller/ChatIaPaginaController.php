@@ -77,6 +77,10 @@ final class ChatIaPaginaController extends AbstractController
             'conversa' => $com('chat_ia_conversa_ver'),
             'mensagens' => $com('chat_ia_mensagens_enviar'),
             'anexos' => $this->generateUrl('chat_ia_anexos_enviar'),
+            'propostaConfirmar' => $com('chat_ia_proposta_confirmar'),
+            'propostaCancelar' => $com('chat_ia_proposta_cancelar'),
+            'pasta' => $com('pasta_show'),
+            'cliente' => $com('cliente_show'),
             'anexo' => $com('chat_ia_anexo_remover'),
             'pastas' => $this->generateUrl('chat_ia_pastas_buscar'),
         ];

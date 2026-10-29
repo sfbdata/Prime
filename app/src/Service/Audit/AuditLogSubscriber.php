@@ -4,6 +4,7 @@ namespace App\Service\Audit;
 
 use App\ChatIa\Entity\AnexoDeChat;
 use App\ChatIa\Entity\ConversaDeChat;
+use App\ChatIa\Entity\PropostaDeCadastro;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
 use App\Entity\Tenant\Tenant;
@@ -60,13 +61,16 @@ class AuditLogSubscriber
         // nunca o texto. `atualizadaEm` muda a cada pergunta e só faria ruído.
         ConversaDeChat::class => ['titulo', 'atualizadaEm'],
         AnexoDeChat::class => ['nome', 'chave'],
+        // Proposta de cadastro da I.A: `dados` é o JSON do cliente/pasta a criar (CPF, nome, endereço). A trilha guarda quem
+        // propôs, confirmou ou cancelou, o estado e o id do criado, nunca o valor (spec chat-ia-cadastro).
+        PropostaDeCadastro::class => ['dados'],
     ];
 
     /**
      * Entidades cujo rótulo (título, nome) nunca vai para o audit_log, nem quando outra entidade as referencia
      * (o anexo aponta a conversa, que tem `getTitulo`). Fica só a classe e o id.
      */
-    private const SEM_ROTULO = [ConversaDeChat::class, AnexoDeChat::class];
+    private const SEM_ROTULO = [ConversaDeChat::class, AnexoDeChat::class, PropostaDeCadastro::class];
 
     public function __construct(
         private readonly Security $security,

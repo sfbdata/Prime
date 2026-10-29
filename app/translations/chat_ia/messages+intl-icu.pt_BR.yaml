@@ -68,3 +68,22 @@ chat_ia:
     erro_anexo_tamanho: 'O arquivo {nome} é grande demais.'
     erro_anexo_quantidade: Anexe no máximo 3 arquivos por mensagem.
     erro_texto_vazio: Escreva uma mensagem antes de enviar.
+    proposta_titulo_cliente: Cadastrar cliente
+    proposta_titulo_pasta: Abrir pasta
+    proposta_confira: Confira os dados. Nada é gravado até você confirmar.
+    proposta_nome_cliente: Nome do cliente
+    proposta_nome_acao: Ação
+    proposta_numero: Número da pasta
+    proposta_cadastro_do_cliente: Cadastro do cliente
+    proposta_duplicada: 'Este {documento} já está no cadastro de {nome}.'
+    proposta_abrir_cadastro: Abrir cadastro
+    proposta_semelhantes: 'Já existem pastas deste cliente com esta ação: {total}.'
+    proposta_confirmar: Confirmar
+    proposta_criar_mesmo_assim: Criar mesmo assim
+    proposta_usar_existente: Usar o existente
+    proposta_cancelar: Cancelar
+    proposta_criada_cliente: Cliente cadastrado.
+    proposta_criada_pasta: Pasta aberta.
+    proposta_abrir: Abrir
+    proposta_cancelada: Cancelado. Nada foi gravado.
+    proposta_vencida: A proposta venceu. Peça de novo à I.A.
