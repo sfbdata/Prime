@@ -94,8 +94,8 @@
 .pp-campo--form { height: 38px; font-size: 14px; font-weight: normal; padding: 0 10px; }
 .pp-oab-form__enviar { height: 38px; justify-content: center; border-radius: 2px; }
 .pp-erro { padding: 0 18px 12px; font-size: 13px; color: #a3232b; }
-.pp-tabela__corpo--oab { min-width: 720px; }
-.pp-linha--oab { grid-template-columns: 140px minmax(160px, 1fr) 110px 120px 120px 170px; }
+.pp-tabela__corpo--oab { min-width: 860px; }
+.pp-linha--oab { grid-template-columns: 140px minmax(160px, 1fr) 110px 120px 120px 210px; }
 .pp-linha--oab > b, .pp-linha--oab > span { padding: 11px 8px; }
 .pp-linha--oab > b, .pp-linha--oab > span:first-child { padding-left: 18px; }
 .pp-linha--oab:hover { background: #f5fafd; }
@@ -248,3 +248,6 @@
 .pp-vp__ok { height: 38px; padding: 0 18px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 7px; }
 .pp-vp__ok:hover { background: #0b5f86; }
 .pp-vp [hidden] { display: none !important; }
+.pp-acao--icone { width: 32px; padding: 0; }
+.pp-modal .pp-rotulo { margin: 0; }
+.pp-modal .pp-rotulo > input { display: block; width: 100%; height: 38px; margin-top: 5px; border: 1px solid #c5d2db; border-radius: 2px; padding: 0 10px; font-size: 14px; font-weight: normal; }

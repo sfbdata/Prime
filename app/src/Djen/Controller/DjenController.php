@@ -16,6 +16,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\PrazosDasPublicacoes;
 use App\Djen\Service\FormatadorTeorDjen;
 use App\Djen\UseCase\AdicionarOabMonitoradaUseCase;
+use App\Djen\UseCase\EditarApelidoOabMonitoradaUseCase;
 use App\Djen\UseCase\ExcluirPublicacoesUseCase;
 use App\Djen\UseCase\MarcarPublicacoesComoLidasUseCase;
 use App\Djen\UseCase\AlternarStatusOabMonitoradaUseCase;
@@ -62,6 +63,7 @@ final class DjenController extends AbstractController
         private readonly AdicionarOabMonitoradaUseCase $adicionarOab,
         private readonly RemoverOabMonitoradaUseCase $removerOab,
         private readonly AlternarStatusOabMonitoradaUseCase $alternarOab,
+        private readonly EditarApelidoOabMonitoradaUseCase $editarApelidoOab,
         private readonly SincronizarPublicacoesDjenUseCase $sincronizar,
         private readonly ProcessoRepository $processoRepository,
         private readonly AcessoAPasta $acessoAPasta,
@@ -174,6 +176,36 @@ final class DjenController extends AbstractController
 
         $ativo = $this->alternarOab->executar($oab);
         $this->addFlash('success', $ativo ? 'Monitoramento reativado.' : 'Monitoramento pausado.');
+
+        return $this->redirectToRoute('push_processual_oabs');
+    }
+
+    #[Route('/oabs/{id}/apelido', name: 'push_processual_oab_apelido', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function editarApelidoOabAction(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+
+        // Busca tenant-safe ANTES do CSRF, como nas outras ações da OAB: cross-tenant vira 404 e a mutação fica após o CSRF.
+        $oab = $this->oabRepository->findOneByIdDoTenant($id, $tenant);
+        if ($oab === null) {
+            throw $this->createNotFoundException('OAB monitorada não encontrada.');
+        }
+
+        if (!$this->isCsrfTokenValid('push_processual_oab_' . $id, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirectToRoute('push_processual_oabs');
+        }
+
+        try {
+            $this->editarApelidoOab->executar($oab, (string) $request->request->get('apelido'));
+            $this->addFlash('success', 'Apelido atualizado.');
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
 
         return $this->redirectToRoute('push_processual_oabs');
     }
