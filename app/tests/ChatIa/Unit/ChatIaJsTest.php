@@ -22,6 +22,19 @@ final class ChatIaJsTest extends TestCase
         return $js;
     }
 
+    #[TestDox('Envio imediato lê anexos e pasta ANTES de prepararTela esvaziar o estado (o servidor recebe anexoIds e pastaId)')]
+    public function testEnvioImediatoLeOEstadoAntesDeLimpar(): void
+    {
+        $js = $this->js();
+        $leitura = strpos($js, 'enviadosAgora = estado.anexos.filter');
+        $limpeza = strpos($js, 'm = prepararTela(op, texto, enviadosAgora, pastaAgora)');
+        self::assertNotFalse($leitura);
+        self::assertNotFalse($limpeza);
+        self::assertLessThan($limpeza, $leitura);
+        self::assertStringContainsString('var enviados = otimista ? enviadosAgora', $js);
+        self::assertStringContainsString('corpo.anexoIds = enviados.map', $js);
+    }
+
     #[TestDox('Nenhum alert/confirm/prompt nativo')]
     public function testSemCaixaNativa(): void
     {

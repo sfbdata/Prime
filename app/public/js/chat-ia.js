@@ -887,9 +887,14 @@
         var otimista = !op.regenerar && !op.editarUltima;
         var devolver = null;
         var foiAoServidor = false;
+        var enviadosAgora = null;
+        var pastaAgora = null;
         if (otimista) {
             devolver = { texto: texto, anexos: estado.anexos, pasta: estado.pasta };
-            m = prepararTela(op, texto, estado.anexos.filter(function (a) { return a.id; }), estado.pasta);
+            /* prepararTela esvazia estado.anexos e estado.pasta: o que vai ao servidor tem de ser lido ANTES. */
+            enviadosAgora = estado.anexos.filter(function (a) { return a.id; });
+            pastaAgora = estado.pasta;
+            m = prepararTela(op, texto, enviadosAgora, pastaAgora);
         }
         function desfazer() {
             if (!m || !devolver) { return; }
@@ -922,8 +927,8 @@
             var corpo = { texto: texto };
             if (op.regenerar) { corpo.regenerar = true; }
             if (op.editarUltima) { corpo.editarUltima = true; }
-            var enviados = estado.anexos.filter(function (a) { return a.id; });
-            var pasta = estado.pasta;
+            var enviados = otimista ? enviadosAgora : estado.anexos.filter(function (a) { return a.id; });
+            var pasta = otimista ? pastaAgora : estado.pasta;
             /* Editar a última pergunta ou regenerar NÃO manda pastaId nem anexoIds: o servidor mantém a pasta e os anexos
                da pergunta (são os chips que o balão já mostra). Os chips do campo valem só para a próxima pergunta nova. */
             if (!op.regenerar && !op.editarUltima) {
