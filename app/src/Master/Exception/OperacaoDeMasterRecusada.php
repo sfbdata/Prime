@@ -17,11 +17,10 @@ final class OperacaoDeMasterRecusada extends \DomainException
 {
     public const RECUSA_SO_PRIMARIO = 'Só o Master primário pode promover ou remover Masters.';
     public const RECUSA_OUTRO_ESCRITORIO = 'Entre no escritório do usuário secundário para promovê-lo a Master.';
-    public const RECUSA_SEM_ESCOLHA = 'Escolha um usuário secundário cadastrado.';
+    public const RECUSA_SEM_ESCOLHA = 'Escolha um usuário cadastrado.';
     public const RECUSA_CONTA_DESATIVADA = 'A conta deste usuário está desativada.';
     public const RECUSA_JA_MASTER = 'Este usuário já é Master.';
-    public const RECUSA_SO_SECUNDARIO_ATIVO = 'Só usuários secundários ativos desta conta podem ser promovidos a Master.';
-    public const RECUSA_PRIMARIO_DO_ESCRITORIO = 'O primário do escritório não pode ser promovido a Master. Só usuários secundários da conta.';
+    public const RECUSA_SO_USUARIO_ATIVO = 'Só usuários ativos desta conta podem ser promovidos a Master.';
     public const RECUSA_NAO_E_MASTER = 'Este usuário não é Master.';
     public const RECUSA_EXCLUIR_PRIMARIO = 'O Master primário não pode ser excluído.';
 
@@ -31,8 +30,7 @@ final class OperacaoDeMasterRecusada extends \DomainException
         self::RECUSA_SEM_ESCOLHA => 'master.masters.recusa.sem_escolha',
         self::RECUSA_CONTA_DESATIVADA => 'master.masters.recusa.conta_desativada',
         self::RECUSA_JA_MASTER => 'master.masters.recusa.ja_master',
-        self::RECUSA_SO_SECUNDARIO_ATIVO => 'master.masters.recusa.so_secundario_ativo',
-        self::RECUSA_PRIMARIO_DO_ESCRITORIO => 'master.masters.recusa.primario_do_escritorio',
+        self::RECUSA_SO_USUARIO_ATIVO => 'master.masters.recusa.so_usuario_ativo',
         self::RECUSA_NAO_E_MASTER => 'master.masters.recusa.nao_e_master',
         self::RECUSA_EXCLUIR_PRIMARIO => 'master.masters.recusa.excluir_primario',
     ];

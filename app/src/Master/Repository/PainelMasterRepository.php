@@ -478,8 +478,8 @@ class PainelMasterRepository
 
     /**
      * Quem pode ser promovido a Master secundário (spec perfis-1.2-masters M5): vínculo ATIVO com o
-     * escritório informado (o da sessão do Master), perfil que não é de sistema (sem perfil também
-     * conta como secundário), conta ativa e ainda sem `ROLE_SUPER_ADMIN`. Recorte por escritório:
+     * escritório informado (o da sessão do Master), qualquer perfil (o primário do escritório entra, com o
+     * nome exibido "Usuário Primário"; decisão do dono em 29/10), conta ativa e ainda sem `ROLE_SUPER_ADMIN`. Recorte por escritório:
      * nada de outro escritório entra na lista.
      *
      * @return list<array{id: int, nome: string, email: string, perfil: ?string, oabNumero: ?string, oabUf: ?string}>
@@ -487,17 +487,17 @@ class PainelMasterRepository
     public function candidatosAMaster(int $tenantId): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
-            'SELECT u.id, u.full_name, u.email, u.oab_numero, u.oab_uf, tr.name AS perfil
+            'SELECT u.id, u.full_name, u.email, u.oab_numero, u.oab_uf,
+                    CASE WHEN tr.is_system THEN :primario ELSE tr.name END AS perfil
                FROM user_tenant ut
                JOIN "user" u ON u.id = ut.user_id
           LEFT JOIN tenant_role tr ON tr.id = ut.tenant_role_id
               WHERE ut.tenant_id = :tenant
                 AND ut.is_active = TRUE
                 AND u.is_active = TRUE
-                AND COALESCE(tr.is_system, FALSE) = FALSE
                 AND u.roles::text NOT LIKE :papel
            ORDER BY u.full_name, u.id',
-            ['tenant' => $tenantId, 'papel' => '%"' . RegraDosMasters::PAPEL_MASTER . '"%'],
+            ['tenant' => $tenantId, 'primario' => TenantRole::NOME_EXIBIDO_PRIMARIO, 'papel' => '%"' . RegraDosMasters::PAPEL_MASTER . '"%'],
             ['tenant' => ParameterType::INTEGER],
         );
 
