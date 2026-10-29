@@ -177,7 +177,7 @@ final class PropostaDeCadastroTest extends JusPrimeWebTestCase
 
         $this->confirmar($client, $id);
         self::assertResponseStatusCodeSame(409);
-        self::assertSame('proposta_encerrada', $this->json($client)['codigo']);
+        self::assertSame('proposta_confirmada', $this->json($client)['codigo']);
         self::assertSame($antes + 1, $this->totalDeClientes($tenant), 'a segunda confirmação não gravou');
     }
 

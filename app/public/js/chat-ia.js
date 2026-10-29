@@ -659,12 +659,12 @@
         } else if (r.status === 422 && d.erros) {
             c.erros = d.erros;
         } else if (r.status === 409 && d.codigo === 'duplicada' && d.existente) {
-            c.dados.duplicada = { id: d.existente.id, nome: d.existente.nome, documento: d.existente.documento, podeUsarExistente: !!d.podeUsarExistente };
+            c.dados.duplicada = { id: d.existente.id, nome: d.existente.nome, documento: d.existente.documento || T('proposta_documento'), podeUsarExistente: !!d.podeUsarExistente };
             c.alterou = false;
         } else if (r.status === 409 && d.codigo === 'pasta_semelhante') {
             c.dados.semelhantes = { lista: d.semelhantes || [], total: d.total || 0 };
         } else if (r.status === 409) {
-            c.dados = { id: c.dados.id, tipo: c.dados.tipo, estado: d.codigo === 'proposta_vencida' ? 'expirada' : 'cancelada' };
+            c.dados = { id: c.dados.id, tipo: c.dados.tipo, estado: d.codigo === 'proposta_vencida' ? 'expirada' : (d.codigo === 'proposta_confirmada' ? 'confirmada' : 'cancelada'), resultado: { tipo: c.dados.tipo } };
             c.aviso = d.mensagem || '';
         } else {
             c.aviso = textoDoErro(d);

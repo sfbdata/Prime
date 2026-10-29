@@ -48,6 +48,7 @@ final class VerConversaDoChatUseCase
         }
 
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
+        $this->propostas->expirarVencidas($tenant, $agora);   // abrir a conversa também apaga os dados pessoais das vencidas
         $propostasPorMensagem = [];
         foreach ($this->propostas->daConversa($conversa, $tenant) as $proposta) {
             if ($proposta->getMensagem() !== null) {

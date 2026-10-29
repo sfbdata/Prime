@@ -55,5 +55,5 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
     linha (409), permissão NO CLIQUE (403), validação por campo (422), CPF/CNPJ duplicado (409 `duplicada`), pasta parecida (409
     `pasta_semelhante`, `criarMesmoAssim`). A recusa é devolvida pela transação (não lançada dentro) para o vencimento persistir.
     `dados` (JSON com dado pessoal) fica fora do diff de auditoria (`IGNORED_FIELDS_POR_CLASSE`), é zerado ao decidir ou vencer
-    (`expirarVencidas` varre as vencidas ao registrar nova proposta) e nunca vai a log nem ao prompt (o histórico leva só
+    (`expirarVencidas` varre as vencidas ao registrar nova proposta e ao abrir a conversa; sem varredura agendada: limite aceito, ver a spec) e nunca vai a log nem ao prompt (o histórico leva só
     "proposta de cadastro registrada"). Campo novo na proposta com texto livre = fora do diff e no teste de auditoria de `PropostaDeCadastroTest`.

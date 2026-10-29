@@ -75,6 +75,7 @@ chat_ia:
     proposta_nome_acao: Ação
     proposta_numero: Número da pasta
     proposta_cadastro_do_cliente: Cadastro do cliente
+    proposta_documento: documento
     proposta_duplicada: 'Este {documento} já está no cadastro de {nome}.'
     proposta_abrir_cadastro: Abrir cadastro
     proposta_semelhantes: 'Já existem pastas deste cliente com esta ação: {total}.'

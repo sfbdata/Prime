@@ -22,7 +22,7 @@ final class PropostaEncerradaException extends \DomainException
     public static function jaDecidida(EstadoDaProposta $estado): self
     {
         return match ($estado) {
-            EstadoDaProposta::Confirmada => new self('Esta proposta já foi confirmada.', 'proposta_encerrada'),
+            EstadoDaProposta::Confirmada => new self('Esta proposta já foi confirmada.', 'proposta_confirmada'),
             EstadoDaProposta::Cancelada => new self('Esta proposta foi cancelada.', 'proposta_encerrada'),
             default => self::vencida(),
         };

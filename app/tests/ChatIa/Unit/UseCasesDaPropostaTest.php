@@ -276,7 +276,7 @@ final class UseCasesDaPropostaTest extends TestCase
             $caso->executar($this->eu, $this->tenant, 5, new ConfirmarPropostaInput());
             self::fail('Deveria ser 409.');
         } catch (PropostaEncerradaException $e) {
-            self::assertSame('proposta_encerrada', $e->codigo());
+            self::assertSame('proposta_confirmada', $e->codigo());
         }
 
         self::assertCount(1, $this->execucoes);

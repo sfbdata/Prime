@@ -18,7 +18,7 @@ credencial, não chama o sistema e não escolhe escritório nem usuário: o que 
    - `propor_pasta(nome_cliente, nome_acao, nup?, cliente?: {mesmos campos})`: pasta nova; com `cliente`, o cadastro do cliente vai junto, ligado à pasta.
 2. O provedor devolve um bloco `tool_use`. O servidor NÃO o executa: valida, grava uma **proposta** (`PropostaDeCadastro`,
    `pendente`, dono = quem perguntou, escritório, JSON dos campos, expira em 24 h) e emite o evento SSE `proposta {id, ...}`.
-   O modelo recebe `tool_result` "proposta registrada, aguardando confirmação da pessoa" e fecha a fala com texto curto.
+   O fluxo ENCERRA na chamada (sem segunda chamada ao provedor com `tool_result`: mais barato e mais seguro; desvio aceito): o servidor acrescenta um aviso fixo (`AVISO_COM_PROPOSTA`/`AVISO_SEM_PROPOSTA`) ao texto do modelo.
 3. A tela mostra o **cartão da proposta** na conversa: título ("Cadastrar cliente" / "Abrir pasta"), a lista EXATA de campo e
    valor que será gravado (o mesmo JSON que o servidor guardou, nunca o texto do modelo), o aviso de duplicidade e os botões
    **Confirmar** e **Cancelar**. A pessoa pode editar os valores no cartão antes de confirmar (o que vale é o que ela enviou no clique, revalidado).
@@ -52,6 +52,11 @@ credencial, não chama o sistema e não escolhe escritório nem usuário: o que 
 Cancelar muda a proposta para `cancelada`, o cartão vira "Cancelado" (somente leitura) e nada foi gravado. O chat continua: ela pode pedir
 ajuste ("o CPF é outro") e a IA faz NOVA proposta; a anterior segue cancelada. Fechar a página sem clicar deixa `pendente` até expirar (24 h),
 depois `expirada`; clicar depois disso dá 409 "a proposta venceu, peça de novo".
+
+## Limite aceito da expiração
+
+Quem zera os dados pessoais de proposta vencida é `expirarVencidas`, chamado ao registrar nova proposta e ao abrir uma conversa do escritório. Proposta abandonada num escritório
+que nunca mais usa o chat guarda o JSON até alguém voltar; uma varredura periódica no Scheduler fecha isso (pendente do dono, pois toca arquivo quente do agendador).
 
 ## Auditoria e privacidade
 
