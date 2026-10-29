@@ -40,6 +40,10 @@
          {# Dica de UI: a pasta aberta na tela (/pasta/{id}). O servidor revalida tudo (rótulo e pergunta). #}
          {% if app.request and app.request.attributes.get('_route') == 'pasta_show' and app.request.attributes.get('id') matches '/^[1-9][0-9]{0,8}$/' %}data-ia-pasta="{{ app.request.attributes.get('id') }}"{% endif %}
          data-url-pasta-base="{{ path('pasta_show', {id: 0})|slice(0, -1) }}"
+         {# Mini chat da IA (central-ia-chat.js): as mesmas rotas do Chat I.A; `0` é o lugar do id. #}
+         data-chat-ia-rotas="{{ {conversas: path('chat_ia_conversas_listar'), conversa: path('chat_ia_conversa_ver', {id: 0}), mensagens: path('chat_ia_mensagens_enviar', {id: 0}), importar: path('chat_ia_importar_central'), pagina: path('chat_ia_pagina_conversa', {id: 0})}|json_encode|e('html_attr') }}"
+         data-chat-ia-textos="{{ {lista_rotulo: 'central.ia_chat.lista_rotulo'|trans, pasta: 'central.ia_chat.pasta'|trans, nova: 'central.ia_chat.nova'|trans, nova_opcao: 'central.ia_chat.nova_opcao'|trans, sem_titulo: 'central.ia_chat.sem_titulo'|trans, pagina_inteira: 'central.ia_chat.pagina_inteira'|trans, placeholder: 'central.ia_chat.placeholder'|trans, enviar: 'central.ia_chat.enviar'|trans, pensando: 'central.ia_chat.pensando'|trans, vazio: 'central.ia_chat.vazio'|trans, proposta: 'central.ia_chat.proposta'|trans, erro_rede: 'central.ia_chat.erro_rede'|trans, erro_sem_chave: 'central.ia_chat.erro_sem_chave'|trans, erro_sem_aceite: 'central.ia_chat.erro_sem_aceite'|trans, erro_generico: 'central.ia_chat.erro_generico'|trans}|json_encode|e('html_attr') }}"
+         data-chat-ia-csrf="{{ csrf_token('ajax') }}"
          data-eu-nome="{{ eu.fullName }}"
          data-eu-id="{{ eu.id }}"
          data-inativo-apos-min="{{ presenca_ausente_apos_min() }}"

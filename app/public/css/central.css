@@ -2431,3 +2431,24 @@ html[data-bs-theme="dark"] .bj-central-ia-pasta-escopo-rotulo,
 html[data-bs-theme="dark"] .bj-central-ia-pasta-escopo-aviso {
     color: #7cc4e6;
 }
+
+/* Mini chat da BlueJus IA (central-ia-chat.js): dentro da tela de conversa, no lugar do corpo e do compositor da Central. */
+.bj-ciq { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--bjc-fundo-corpo); }
+.bj-ciq-barra { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--bjc-fundo); border-bottom: 1px solid var(--bjc-borda-suave); flex-shrink: 0; }
+.bj-ciq-seletor { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--bjc-borda); border-radius: 6px; background: var(--bjc-fundo); color: var(--bjc-texto); font-size: 12px; }
+.bj-ciq-botao { padding: 4px 8px; border: 1px solid var(--bjc-borda); border-radius: 6px; background: var(--bjc-fundo); color: var(--bjc-petroleo); font-size: 12px; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.bj-ciq-botao:hover { background: var(--bjc-fundo-hover-usuario); }
+.bj-ciq-botao:disabled { opacity: .5; cursor: default; }
+.bj-ciq-aviso { margin: 6px 8px 0; padding: 6px 8px; border-radius: 6px; background: #fff4e5; color: #8a5300; font-size: 12px; }
+.bj-ciq-corpo { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.bj-ciq-msg { max-width: 88%; padding: 6px 10px; border-radius: 10px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+.bj-ciq-msg--minha { align-self: flex-end; background: var(--bjc-azul); color: #fff; }
+.bj-ciq-msg--ia { align-self: flex-start; background: var(--bjc-bolha-outro); color: var(--bjc-texto); border: 1px solid var(--bjc-borda-suave); }
+.bj-ciq-msg--gerando { opacity: .8; font-style: italic; }
+.bj-ciq-vazio, .bj-ciq-nota { margin: auto; color: var(--bjc-texto-suave); font-size: 12px; text-align: center; padding: 0 12px; }
+.bj-ciq-nota { margin: 0; color: var(--bjc-petroleo); }
+.bj-ciq-rodape { display: flex; align-items: flex-end; gap: 6px; padding: 8px; background: var(--bjc-fundo); border-top: 1px solid var(--bjc-borda-suave); flex-shrink: 0; }
+.bj-ciq-campo { flex: 1; resize: none; padding: 6px 8px; border: 1px solid var(--bjc-borda); border-radius: 8px; font-size: 13px; color: var(--bjc-texto); }
+.bj-ciq-enviar { background: var(--bjc-azul); color: #fff; border-color: var(--bjc-azul); }
+.bj-ciq-contentor { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.bj-ciq-pasta { padding: 4px 8px; background: var(--bjc-fundo-hover-usuario); color: var(--bjc-petroleo); font-size: 12px; border-bottom: 1px solid var(--bjc-borda-suave); }
