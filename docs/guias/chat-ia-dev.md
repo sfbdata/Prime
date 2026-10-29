@@ -62,11 +62,14 @@ Sem saída = nada rodando. Se aparecer linha, rode o script de novo e saia com `
 `docker exec jusprime_php_dev sh -c 'kill <pid>'` com o número da pasta `/proc` correspondente.
 
 - A porta tem de estar entre 1024 e 65535 e não pode ser a 8080 (é do master).
-- O banco é o de **desenvolvimento do container** (o mesmo da 8080). Entre com um usuário de dev que já exista nele; se
-  o seu usuário ainda não existe, crie pelo cadastro ou peça o de teste à equipe. Quem não tem o módulo da I.A recebe 403.
+- O banco é o **`saas_chat`**, cópia do `saas_ux` (o da 8080) feita com `pg_dump`, e a worktree aponta para ele em
+  `app/.env.local` (`DATABASE_URL`, mais `IA_HABILITADA=1`; a chave da Anthropic o dono cola aí). O `saas_ux` NÃO recebe
+  a migration desta frente (ela só entra nele depois do merge, por `scripts/migrar-dev.sh`). Entre com um usuário que
+  exista na cópia. Quem não tem o módulo da I.A recebe 403.
 - A sessão (login) é de outro endereço (IP:porta), então o login na 8080 não vale aqui: entre de novo.
-- Mudança de código aparece ao recarregar (o servidor do PHP lê os arquivos a cada pedido). A migration da frente precisa
-  estar aplicada no banco de dev: `scripts/migrar-dev.sh`.
+- Mudança de código aparece ao recarregar (o servidor do PHP lê os arquivos a cada pedido). Migration nova da frente:
+  `docker exec jusprime_php_dev bash -c "cd /var/www/.claude/worktrees/ia-chat-pagina/app && php -d memory_limit=1G bin/console doctrine:migrations:execute 'DoctrineMigrations\\<Versao>' --up -n"`
+  (só ela, no `saas_chat`; o `migrations:migrate` inteiro rodaria as ~120 que o banco não tem).
 
 ## 4. O que olhar na tela (`/chat-ia`)
 
