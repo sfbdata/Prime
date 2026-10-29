@@ -101,6 +101,7 @@ final class ChatIaJsTest extends TestCase
         self::assertStringContainsString('urls.propostaConfirmar', $js);
         self::assertStringContainsString('urls.propostaCancelar', $js);
         self::assertStringContainsString("campo.value = grupo === 'campos' ? dataParaTela(chave, valor) : valor", $js, 'o valor do campo entra como propriedade, nunca como HTML');
+        self::assertStringContainsString('{ usarExistente: true, criarMesmoAssim: true }', $js, '"Abrir nova pasta com o cliente existente" com pasta parecida segue sem depender do Confirmar escondido');
         self::assertStringContainsString('dataParaServidor(k, i.value)', $js, 'a data digitada em dd/mm/aaaa volta ao servidor como AAAA-MM-DD');
     }
 }

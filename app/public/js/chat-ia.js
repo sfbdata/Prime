@@ -634,14 +634,15 @@
         }
 
         var acoes = el('div', 'ci-proposta-acoes');
+        var temAviso = !!(p.semelhantes && p.semelhantes.lista && p.semelhantes.lista.length);
         if (p.duplicada && p.duplicada.podeUsarExistente) {
             var usar = el('button', 'ci-botao ci-botao-primario', T('proposta_usar_existente'));
             usar.type = 'button';
             usar.disabled = c.ocupado;
-            usar.addEventListener('click', function () { confirmarProposta(c, { usarExistente: true }); });
+            /* "Abrir nova pasta" já é a decisão de abrir mesmo com pasta parecida: o Confirmar fica escondido e não pode ser o único caminho. */
+            usar.addEventListener('click', function () { confirmarProposta(c, temAviso ? { usarExistente: true, criarMesmoAssim: true } : { usarExistente: true }); });
             acoes.appendChild(usar);
         }
-        var temAviso = !!(p.semelhantes && p.semelhantes.lista && p.semelhantes.lista.length);
         var ok = el('button', 'ci-botao' + (p.duplicada && p.duplicada.podeUsarExistente ? '' : ' ci-botao-primario'), T(temAviso ? 'proposta_criar_mesmo_assim' : 'proposta_confirmar'));
         ok.type = 'button';
         ok.disabled = c.ocupado;
