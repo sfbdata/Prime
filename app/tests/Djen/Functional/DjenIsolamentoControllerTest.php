@@ -137,4 +137,29 @@ final class DjenIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($recarregada);
         self::assertSame($ativoAntes, $recarregada->isAtivo(), 'A não pode alterar o status da OAB de B');
     }
+
+    #[Test]
+    #[TestDox('Usuário de A não consegue editar o apelido da OAB de B (404); apelido de B intacto')]
+    public function editarApelidoDaOabDeOutroTenantRetorna404(): void
+    {
+        $client = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $gestorA = $this->criarGestor($tenantA, 'a_' . uniqid() . '@test.com');
+        $oabB = $this->criarOab($tenantB, '88888', 'RJ');
+        $id = (int) $oabB->getId();
+        $apelidoAntes = $oabB->getApelido();
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestorA, $tenantA);
+        $client->request('POST', '/push-processual/oabs/' . $id . '/apelido', ['_token' => 'irrelevante', 'apelido' => 'Invasor']);
+        self::assertResponseStatusCodeSame(404);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+        self::assertSame($apelidoAntes, $em->find(OabMonitorada::class, $id)->getApelido());
+    }
 }
