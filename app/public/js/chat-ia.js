@@ -671,6 +671,20 @@
         });
     }
 
+    /* "Voltar ao BlueJus": volta à página do sistema de onde a pessoa veio; sem origem do sistema, o link vai ao início. */
+    (function () {
+        var voltar = $('ci-voltar');
+        if (!voltar) { return; }
+        voltar.addEventListener('click', function (e) {
+            var origem = '';
+            try {
+                var ref = document.referrer ? new URL(document.referrer) : null;
+                if (ref && ref.origin === window.location.origin && ref.pathname.indexOf('/chat-ia') !== 0 && ref.pathname.indexOf('/login') !== 0) { origem = ref.href; }
+            } catch (err) { origem = ''; }
+            if (origem !== '') { e.preventDefault(); window.location.assign(origem); }
+        });
+    }());
+
     function enviar(op) {
         op = op || {};
         if (estado.enviando) { return; }

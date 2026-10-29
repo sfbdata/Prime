@@ -48,6 +48,8 @@ final class PaginaDoChatTest extends JusPrimeWebTestCase
         self::assertStringContainsString('js/chat-ia.js', $html);
         self::assertStringContainsString('prefers-color-scheme: dark', $html);
         self::assertStringContainsString('Novo chat', $html);
+        self::assertMatchesRegularExpression('#<a class="ci-item-barra ci-voltar"[^>]*href="/dashboard"[^>]*>.*?Voltar ao BlueJus#s', preg_replace('/\s+/', ' ', $html) ?? '', 'botão de voltar no topo da barra');
+        self::assertStringContainsString('<a class="ci-marca" href="/dashboard">BlueJus</a>', $html, 'a marca também é link');
         self::assertStringNotContainsString('adminlte', strtolower($html));
         self::assertStringNotContainsString('app-sidebar', $html);
         self::assertStringNotContainsString('bootstrap', strtolower($html));
