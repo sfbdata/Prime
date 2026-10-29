@@ -41,6 +41,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
         yield 'pasta_imagem_editor' => [CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, $t7, 'a1.png', 'core/t/7/uploads/pastas/7/a1.png'];
         yield 'pasta_foto'          => [CategoriaDeArquivo::PASTA_FOTO, $t7, 'a1.jpg', 'core/t/7/uploads/pastas/fotos/a1.jpg'];
         yield 'cliente_documento'   => [CategoriaDeArquivo::CLIENTE_DOCUMENTO, $t7, 'a1.pdf', 'core/t/7/uploads/clientes/a1.pdf'];
+        yield 'chat_ia_anexo'       => [CategoriaDeArquivo::CHAT_IA_ANEXO, $t7, 'a1.pdf', 'core/t/7/uploads/pastas/chat-ia/a1.pdf'];
         yield 'tenant_logo'         => [CategoriaDeArquivo::TENANT_LOGO, $t7, 'a1.png', 'core/t/7/uploads/pastas/logos/a1.png'];
         yield 'cliente_foto'        => [CategoriaDeArquivo::CLIENTE_FOTO, $t7, 'a1.jpg', 'core/t/7/uploads/clientes/fotos/a1.jpg'];
         yield 'chamado_anexo'       => [CategoriaDeArquivo::CHAMADO_ANEXO, $t7, 'a1.pdf', 'core/t/7/uploads/chamados/a1.pdf'];

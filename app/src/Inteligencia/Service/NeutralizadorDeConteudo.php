@@ -31,6 +31,8 @@ final class NeutralizadorDeConteudo
         'documentos', 'documentos_anexados', 'checklist', 'financeiro',
         'conversa_anterior', 'pergunta',
         'historico', 'pessoa',
+        // Chat I.A em página inteira (`chat-livre-v1`): texto extraído de arquivo DOCX anexado.
+        'anexo_texto',
     ];
 
     /** Controle C0/C1 (menos \t \n \r, que viram espaço depois), zero-width, bidi e BOM. */

@@ -157,6 +157,8 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::RECOMPENSA_COMPROVANTE => $this->recompensaComprovantesRaiz(),
             // Subpasta da mesma raiz: as logos dos escritórios não se misturam com os documentos da pasta.
             CategoriaDeArquivo::TENANT_LOGO => $this->raiz($this->uploadsDir) . '/logos',
+            // Subpasta da mesma raiz: os anexos do Chat I.A não se misturam com os documentos da pasta.
+            CategoriaDeArquivo::CHAT_IA_ANEXO => $this->raiz($this->uploadsDir) . '/chat-ia',
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),

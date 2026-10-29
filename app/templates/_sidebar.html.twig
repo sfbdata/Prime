@@ -153,6 +153,18 @@
                     </li>
                 {% endif %}
 
+                {# Chat I.A em página inteira (spec chat-pagina-inteira): mesmo módulo de permissão que o próprio chat exige. #}
+                {% if can_access_module('inteligencia') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('chat_ia_pagina') }}"
+                           data-busca-alias="chat ia inteligência artificial"
+                           class="pje-menu-link {{ currentRoute starts with 'chat_ia_' ? 'active' : '' }}">
+                            <i class="bi bi-stars pje-nav-icon"></i>
+                            <span>{{ 'moldura.menu_lateral.chat_ia'|trans }}</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {# Seção ADMIN — visível se o usuário tiver qualquer permissão admin.* #}
                 {% set hasAnyAdminPerm =
                     can_administer('admin.users.invite') or

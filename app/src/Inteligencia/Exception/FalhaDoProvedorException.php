@@ -11,6 +11,9 @@ namespace App\Inteligencia\Exception;
  *
  * `esperarSegundos` é o prazo que o provedor pediu (`retry-after` do 429/529/503): o worker re-tenta só depois
  * dele, em vez de seguir o atraso padrão do transport e bater de novo no mesmo limite.
+ *
+ * `deRede` marca a falha de transporte (rede, timeout, fluxo cortado), para a tela dizer "demorou demais" e não
+ * "sobrecarregada" (que é 429/5xx/529 do provedor).
  */
 final class FalhaDoProvedorException extends \RuntimeException
 {
@@ -19,6 +22,7 @@ final class FalhaDoProvedorException extends \RuntimeException
         public readonly bool $transitoria,
         ?\Throwable $anterior = null,
         public readonly ?int $esperarSegundos = null,
+        public readonly bool $deRede = false,
     ) {
         parent::__construct($mensagem, 0, $anterior);
     }

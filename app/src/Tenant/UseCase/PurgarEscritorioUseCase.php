@@ -290,6 +290,11 @@ final class PurgarEscritorioUseCase
         ['central_mensagem', 'tenant_id = :tenant'],
         ['central_participante', 'tenant_id = :tenant'],
         ['central_conversa', 'tenant_id = :tenant'],
+        // Chat I.A em página inteira (spec chat-pagina-inteira.md): anexo e mensagem caem pela CASCADE da conversa, mas as
+        // FKs de tenant são NO ACTION. Deleção explícita de baixo para cima; os arquivos saem pela lista de registros.
+        ['chat_ia_anexo', 'tenant_id = :tenant'],
+        ['chat_ia_mensagem', 'tenant_id = :tenant'],
+        ['chat_ia_conversa', 'tenant_id = :tenant'],
         // Presença na Central (F2): uma linha por vínculo, FK de tenant NO ACTION.
         ['central_presenca', 'tenant_id = :tenant'],
         // Regra de ausência do escritório (presença, fase 3): uma linha por escritório, FK de tenant NO ACTION.
@@ -415,6 +420,15 @@ final class PurgarEscritorioUseCase
              LEFT JOIN tenant o ON o.logo_chave = d.logo_chave AND o.id <> d.id
              WHERE d.id = :tenant AND d.logo_chave IS NOT NULL
              GROUP BY d.logo_chave',
+        ],
+        // Os anexos do Chat I.A: a linha é o próprio anexo (coluna `chave`), com escritório próprio.
+        'chat_ia_anexo' => [
+            CategoriaDeArquivo::CHAT_IA_ANEXO,
+            'SELECT d.chave AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM chat_ia_anexo d
+             LEFT JOIN chat_ia_anexo o ON o.chave = d.chave AND o.tenant_id IS DISTINCT FROM d.tenant_id
+             WHERE d.tenant_id = :tenant
+             GROUP BY d.chave',
         ],
         // A foto do cabeçalho da pasta sem cliente: a linha é a própria pasta (coluna `foto`), sem cadeia acima dela.
         'pasta' => [
