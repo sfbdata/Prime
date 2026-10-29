@@ -88,7 +88,15 @@ final class ServicosDaPropostaTest extends TestCase
         self::assertSame(['tipoPessoa' => 'pf', 'campos' => ['profissao' => $injecao]], $lida['dados']);
     }
 
-    #[TestDox('Pasta com cliente: nome e ação obrigatórios, número opcional, cliente no formato da ferramenta de cliente')]
+    #[TestDox('O número da pasta é do sistema: um `nup` mandado pelo modelo é descartado')]
+    public function testNupDoModeloEDescartado(): void
+    {
+        $lida = (new InterpretadorDaChamadaDeCadastro())->interpretar($this->chamada('propor_pasta', ['nome_cliente' => 'Maria', 'nome_acao' => 'Divórcio', 'nup' => '0001234-56.2026.8.26.0100']));
+
+        self::assertSame('', $lida['dados']['nup']);
+    }
+
+    #[TestDox('Pasta com cliente: nome e ação obrigatórios, cliente no formato da ferramenta de cliente')]
     public function testPastaComCliente(): void
     {
         $lida = (new InterpretadorDaChamadaDeCadastro())->interpretar($this->chamada('propor_pasta', [

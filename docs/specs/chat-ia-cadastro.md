@@ -82,7 +82,7 @@ que nunca mais usa o chat guarda o JSON até alguém voltar; uma varredura peri�
 ## Limites aceitos da revisão (29/10/2026)
 
 - Regenerar ou editar a pergunta deixa as propostas da resposta trocada `pendentes` com os dados até vencerem (24 h) e a próxima varredura; o Confirmar delas é recusado e as expira.
-- O NUP pode vir da I.A ou do cartão (`nup?`), com só o limite de tamanho; a tela de Nova pasta não aceita mais NUP digitado (R1). A duplicidade de NUP não é avisada. Pergunta ao dono: tirar `nup` da ferramenta?
+- Decidido pelo dono (29/10): o NUP NÃO é oferecido à I.A (a ferramenta `propor_pasta` não tem `nup` e um `nup` mandado pelo modelo é descartado), como a tela de Nova pasta (R1). Quem quiser número vincula depois na pasta. Isto vale no lugar do `nup?` do desenho da ferramenta acima.
 - Abrir a conversa revalida cada cartão pendente (consultas de CPF e pasta parecida), no máximo 2 por resposta.
 - `AuditLogSubscriber::tenantDoRegistro` cai para o escritório da entidade em qualquer `RuntimeException` da sessão, não só no SSE.
 

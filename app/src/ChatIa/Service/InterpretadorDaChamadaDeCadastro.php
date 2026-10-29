@@ -110,8 +110,8 @@ final class InterpretadorDaChamadaDeCadastro
         }
         $nomeCliente = self::texto($entrada['nome_cliente'] ?? null, 255);
         $nomeAcao = self::texto($entrada['nome_acao'] ?? null, 255);
-        $nup = isset($entrada['nup']) ? self::texto($entrada['nup'], 50) : '';
-        if ($nomeCliente === null || $nomeCliente === '' || $nomeAcao === null || $nomeAcao === '' || $nup === null) {
+        $nup = ''; // o número da pasta é gerado pelo sistema (R1): se o modelo mandar `nup`, é descartado
+        if ($nomeCliente === null || $nomeCliente === '' || $nomeAcao === null || $nomeAcao === '') {
             return null;
         }
         $dados = ['nomeCliente' => $nomeCliente, 'nomeAcao' => $nomeAcao, 'nup' => $nup, 'cliente' => null];

@@ -37,13 +37,12 @@ final class FerramentasDoCadastro
         return new FerramentaDeLinguagem(
             TipoDaProposta::FERRAMENTA_PASTA,
             'Propõe a abertura de uma pasta nova, opcionalmente com o cadastro do cliente ligado a ela. Use esta ferramenta (com `cliente`) quando a pessoa pedir cliente e pasta juntos. '
-            . 'Não grava nada: a pessoa confere o cartão e confirma. O número da pasta é gerado pelo sistema; só informe `nup` se a pessoa o ditou.',
+            . 'Não grava nada: a pessoa confere o cartão e confirma. O número da pasta é sempre gerado pelo sistema: não peça nem informe número.',
             [
                 'type' => 'object',
                 'properties' => [
                     'nome_cliente' => ['type' => 'string', 'description' => 'Nome do cliente como aparecerá na pasta'],
                     'nome_acao' => ['type' => 'string', 'description' => 'Nome da ação (ex.: Ação de cobrança, Divórcio consensual)'],
-                    'nup' => ['type' => 'string', 'description' => 'Número da pasta, somente se a pessoa informou'],
                     'cliente' => [
                         'type' => 'object',
                         'description' => 'Cadastro do cliente a criar junto da pasta (omita se a pessoa não enviou dados do cliente)',
