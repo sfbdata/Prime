@@ -50,7 +50,7 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
         $pasta->vincularProcesso($vinculado);
 
         $this->processos->expects(self::once())->method('buscarPorTermoDoTenant')
-            ->with('execução', $this->tenant, [7], 8)
+            ->with('execução', $this->tenant, [7], BuscarProcessosParaVincularUseCase::LIMITE)
             ->willReturn([]);
         $this->pastas->expects(self::once())->method('vinculosDosProcessos')->with([], $this->tenant)->willReturn([]);
 

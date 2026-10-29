@@ -81,6 +81,7 @@ final class ListarMinhasMetasUseCase
             andamento: $this->repository->contarAndamento($usuario, $pastasOcultas),
             atencao: $this->repository->findAtrasadasParaAtencao($usuario, MinhasMetasOutput::TETO_ATENCAO, $pastasOcultas),
             nomesDasEtapas: $this->nomesDasEtapas($escritorio),
+            prioridades: $soAListagem ? [] : $this->repository->findPrioridadesDoDia($usuario, MinhasMetasOutput::TETO_PRIORIDADES, $pastasOcultas),
         );
     }
 

@@ -170,6 +170,11 @@ djen:
         retomar: Retomar
         remover: Remover
         sem_apelido: Sem apelido
+        editar_apelido: Editar apelido
+        editar_dica: 'Só o apelido muda. Número e UF ficam: para trocar a inscrição, remova e adicione outra.'
+        apelido_ph: 'Ex.: Dra. Fulana'
+        cancelar: Cancelar
+        salvar: Salvar
     show:
         titulo_pagina: 'Push Processual | Publicação'
         titulo: 'Push Processual: Publicação'

@@ -101,7 +101,7 @@ final class PromoverMasterUseCaseTest extends TestCase
     public function testRecusaAlvoInexistente(): void
     {
         $this->userRepository->method('find')->willReturn(null);
-        $this->esperarRecusa('/Escolha um usuário secundário cadastrado/');
+        $this->esperarRecusa('/Escolha um usuário cadastrado/');
 
         $this->useCase->executar(new PromoverMasterInput($this->primario, $this->escritorio, 999));
     }
@@ -131,7 +131,7 @@ final class PromoverMasterUseCaseTest extends TestCase
     {
         $alvo = $this->usuario([]);
         $this->encontrar($alvo, null);
-        $this->esperarRecusa('/secundários ativos desta conta/');
+        $this->esperarRecusa('/usuários ativos desta conta/');
 
         $this->useCase->executar(new PromoverMasterInput($this->primario, $this->escritorio, 42));
     }
@@ -141,7 +141,7 @@ final class PromoverMasterUseCaseTest extends TestCase
     {
         $alvo = $this->usuario([]);
         $this->encontrar($alvo, $this->vinculo($alvo, new Tenant(), sistema: false));
-        $this->esperarRecusa('/secundários ativos desta conta/');
+        $this->esperarRecusa('/usuários ativos desta conta/');
 
         $this->useCase->executar(new PromoverMasterInput($this->primario, $this->escritorio, 42));
     }
@@ -153,17 +153,30 @@ final class PromoverMasterUseCaseTest extends TestCase
         $vinculo = $this->vinculo($alvo, $this->escritorio, sistema: false);
         (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($vinculo, false);
         $this->encontrar($alvo, $vinculo);
-        $this->esperarRecusa('/secundários ativos desta conta/');
+        $this->esperarRecusa('/usuários ativos desta conta/');
 
         $this->useCase->executar(new PromoverMasterInput($this->primario, $this->escritorio, 42));
     }
 
-    #[TestDox('primário do escritório (perfil de sistema) é recusado')]
-    public function testRecusaPrimarioDoEscritorio(): void
+    #[TestDox('primário do escritório (perfil de sistema) é promovido como qualquer usuário ativo da conta (decisão do dono, 29/10)')]
+    public function testPromovePrimarioDoEscritorio(): void
     {
-        $alvo = $this->usuario([]);
+        $alvo = $this->usuario(['ROLE_USER']);
         $this->encontrar($alvo, $this->vinculo($alvo, $this->escritorio, sistema: true));
-        $this->esperarRecusa('/primário do escritório não pode ser promovido/');
+        $this->userRepository->expects($this->once())->method('salvar')->with($alvo, true);
+
+        $this->useCase->executar(new PromoverMasterInput($this->primario, $this->escritorio, 42));
+
+        self::assertContains('ROLE_SUPER_ADMIN', $alvo->getRoles());
+        self::assertNotContains('ROLE_MASTER_PRIMARIO', $alvo->getRoles(), 'promovido é secundário, nunca primário');
+    }
+
+    #[TestDox('primário do escritório sem vínculo ativo com a conta continua recusado')]
+    public function testRecusaPrimarioDoEscritorioSemVinculoAtivo(): void
+    {
+        $alvo = $this->usuario(['ROLE_USER']);
+        $this->encontrar($alvo, null);
+        $this->esperarRecusa('/Só usuários ativos desta conta/');
 
         $this->useCase->executar(new PromoverMasterInput($this->primario, $this->escritorio, 42));
     }

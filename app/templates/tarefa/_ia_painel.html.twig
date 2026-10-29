@@ -1,0 +1,51 @@
+{#
+   Painel lateral "BlueJus IA" de Minhas Metas (desenho 04 VS 29.10.26, dc L152-166). Números e "O que fazer primeiro"
+   saem de DADOS (nenhum modelo é chamado aqui). As perguntas sugeridas e a caixa de pergunta não respondem no painel:
+   o `minhas-metas-ia.js` dispara `bj-central:perguntar-ia` e a Central abre o assistente BlueJus IA com a pergunta
+   preenchida (ponto único de integração do assistente).
+#}
+{% set kpis = painel.kpis %}
+{% set cartoes = [
+    { rotulo: 'metas.ia.kpi_atrasadas'|trans, valor: kpis.atrasadas, tom: 'danger' },
+    { rotulo: 'metas.ia.kpi_sete_dias'|trans, valor: kpis.proximas, tom: 'warn' },
+    { rotulo: 'metas.ia.kpi_revisao'|trans, valor: kpis.aguardando_revisao, tom: 'accent' }
+] %}
+{% set sugestoes = ['metas.ia.sug_primeiro'|trans, 'metas.ia.sug_delegar'|trans, 'metas.ia.sug_atrasadas'|trans, 'metas.ia.sug_despacho'|trans] %}
+<div class="mm-ia-fundo" data-mm-ia-fechar hidden></div>
+<aside class="mm-ia-painel" id="mmIaPainel" role="dialog" aria-label="BlueJus IA" hidden>
+    <div class="mm-ia-cab">
+        <span class="mm-ia-cab-texto"><span class="mm-ia-cab-eyebrow">{{ 'metas.ia.eyebrow'|trans }}</span><b>{{ 'metas.ia.titulo'|trans }}</b></span>
+        <button type="button" class="mm-ia-x" data-mm-ia-fechar aria-label="{{ 'metas.ia.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </div>
+    <div class="mm-ia-corpo">
+        <div class="mm-ia-kpis">
+            {% for k in cartoes %}
+                <div class="mm-ia-kpi tom-{{ k.valor > 0 ? k.tom : 'zero' }}"><b>{{ k.valor }}</b><span>{{ k.rotulo }}</span></div>
+            {% endfor %}
+        </div>
+        <div class="mm-ia-secao">{{ 'metas.ia.primeiro'|trans }}</div>
+        {% if painel.prioridades is empty %}
+            <div class="mm-ia-vazio"><i class="bi bi-check2-circle" aria-hidden="true"></i> {{ 'metas.ia.sem_prioridade'|trans }}</div>
+        {% endif %}
+        {% for meta in painel.prioridades %}
+            {% set dias = painel.diasParaOPrazo(meta) %}
+            {% set prazo = dias < 0 ? 'metas.ia.motivo_atrasada'|trans({dias: -dias}) : (dias == 0 ? 'metas.ia.motivo_hoje'|trans : 'metas.ia.motivo_vence'|trans({dias: dias})) %}
+            <a class="mm-ia-prio" href="{{ path('tarefa_show', {id: meta.id}) }}">
+                <b class="mm-ia-prio-n {{ dias < 0 ? 'is-atrasada' : 'is-vence' }}">{{ loop.index }}.</b>
+                <span class="mm-ia-prio-texto">
+                    <b>{{ 'metas.atencao.titulo_e_pasta'|trans({titulo: meta.titulo, nup: meta.pasta.nup ~ ''}) }}</b>
+                    <span>{{ 'metas.ia.motivo_detalhe'|trans({prazo: prazo, prioridade: meta.prioridade.rotulo|trans|lower, cliente: meta.pasta.nomeCliente ?? ''}) }}</span>
+                </span>
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </a>
+        {% endfor %}
+        <div class="mm-ia-secao mm-ia-secao--perguntar">{{ 'metas.ia.perguntar'|trans }}</div>
+        <div class="mm-ia-sugestoes">
+            {% for s in sugestoes %}<button type="button" class="mm-ia-sug" data-mm-ia-perguntar="{{ s }}">{{ s }}</button>{% endfor %}
+        </div>
+    </div>
+    <div class="mm-ia-rodape">
+        <input type="text" class="mm-ia-campo" maxlength="2000" placeholder="{{ 'metas.ia.placeholder'|trans }}" aria-label="{{ 'metas.ia.placeholder'|trans }}" data-mm-ia-campo>
+        <button type="button" class="mm-ia-enviar" data-mm-ia-enviar title="{{ 'metas.ia.enviar'|trans }}" aria-label="{{ 'metas.ia.enviar'|trans }}"><i class="bi bi-send" aria-hidden="true"></i></button>
+    </div>
+</aside>

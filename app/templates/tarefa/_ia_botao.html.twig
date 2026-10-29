@@ -1,0 +1,14 @@
+{#
+   Botão "BlueJus IA" do topo de Minhas Metas (desenho 04 VS 29.10.26, dc L70-76): à direita do título, 46px de altura,
+   o nome digitado letra a letra e o símbolo que vira "IA". Abre o painel `_ia_painel.html.twig`; com o painel aberto
+   o nome some (`data-mini="1"`). Classes `.mm-ia-*` em minhas-metas-ia.css, nada do botão da pasta.
+#}
+<button type="button" class="mm-ia" id="mmIaAbrir" data-bjia="1" data-mini="0" data-mm-ia-abrir
+        aria-controls="mmIaPainel" aria-expanded="false"
+        title="{{ 'metas.ia.dica'|trans }}" aria-label="{{ 'metas.ia.abrir'|trans }}">
+    <span class="mm-ia-nomew">{% for letra in 'metas.ia.marca'|trans|split('') %}<span class="mm-ia-letra">{{ letra }}</span>{% endfor %}<span class="mm-ia-caret" aria-hidden="true"></span></span>
+    <span class="mm-ia-icone" aria-hidden="true">
+        <img class="mm-ia-logo" src="{{ asset('images/bluejus-simbolo-petroleo.png') }}" alt="">
+        <span class="mm-ia-ia"><svg width="34" height="34" viewBox="0 0 32 32" style="overflow:visible"><defs><linearGradient id="mmIaQ" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#084a6b"></stop><stop offset="1" stop-color="#0a7fb8"></stop></linearGradient></defs><path class="mm-ia-traco" d="M17 5H9.5A4.5 4.5 0 0 0 5 9.5v13A4.5 4.5 0 0 0 9.5 27h13a4.5 4.5 0 0 0 4.5-4.5V19" fill="none" stroke="url(#mmIaQ)" stroke-width="2.8" stroke-linecap="round" shape-rendering="geometricPrecision"></path><text x="16" y="21.2" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="13" fill="#082f45" letter-spacing=".2" text-rendering="geometricPrecision">IA</text><path d="M24.5 2.5c.35 2.6 1.6 3.85 4.2 4.2-2.6.35-3.85 1.6-4.2 4.2-.35-2.6-1.6-3.85-4.2-4.2 2.6-.35 3.85-1.6 4.2-4.2z" fill="#0a8fd0"></path><path d="M29.3 11.6c.18 1.3.8 1.92 2.1 2.1-1.3.18-1.92.8-2.1 2.1-.18-1.3-.8-1.92-2.1-2.1 1.3-.18 1.92-.8 2.1-2.1z" fill="#084a6b"></path></svg></span>
+    </span>
+</button>

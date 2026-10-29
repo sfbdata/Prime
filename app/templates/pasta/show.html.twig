@@ -1804,6 +1804,7 @@
                 <i class="bi bi-briefcase" aria-hidden="true"></i>
                 <b class="vp-titulo" id="modalVincularProcessoLabel"><span id="mp-titulo-texto">{{ 'pasta_show.processo.vincular'|trans }}</span></b>
                 {# Desenho N:292: X branco num quadrado translúcido. #}
+                <button type="button" class="mp-fechar mp-ampliar" id="mp-ampliar" title="{{ 'pasta_show.processo.ampliar'|trans }}" aria-label="{{ 'pasta_show.processo.ampliar'|trans }}"><i class="bi bi-arrows-fullscreen"></i></button>
                 <button type="button" class="mp-fechar" data-vp-fechar aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             {# novalidate: os obrigatórios são conferidos no clique ("Preencha: ...", desenho `procSalvarVinc`), sem o
@@ -1830,7 +1831,7 @@
                         <button type="button" class="mp-aba" id="mp-modo-novo" data-vp-modo="novo" role="tab" aria-selected="false"><i class="bi bi-plus-lg"></i>{{ 'pasta_show.processo.cadastrar_novo'|trans }}</button>
                     </div>
 
-                    {# MODO: buscar processo já cadastrado (N:296-304). A lista abre ao focar, com até 8 processos do
+                    {# MODO: buscar processo já cadastrado (N:296-304). A lista abre ao focar, inline no corpo da janela, com até 30 processos do
                        escritório, e filtra enquanto se digita; o escolhido vai no `processo_id`. #}
                     <div id="modal-modo-existente" class="mp-campo mp-busca">
                         <label for="mp-busca-input" class="mp-rotulo">{{ 'pasta_show.processo.ja_cadastrado'|trans }} <span class="mp-obrig">*</span></label>
@@ -3538,7 +3539,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
                 });
                 var dados = await resp.json().catch(function () { return {}; });
-                itens = resp.ok ? (dados.results || []).slice(0, 8) : [];
+                itens = resp.ok ? (dados.results || []).slice(0, 30) : [];
             } catch (_) { itens = []; }
             if (seq !== buscaSeq) return; // chegou depois de uma busca mais nova
             buscaItens = itens;
@@ -3571,7 +3572,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (buscaLista.hidden) { buscaQuer = true; mpBuscar(true); }
     });
     buscaInput.addEventListener('input', function () { buscaQuer = true; mpBuscar(false); });
-    buscaInput.addEventListener('blur', function () { buscaQuer = false; mpFecharLista(); });
+    // A lista é inline (não flutua sobre nada): o blur não a fecha, senão pegar a barra de rolagem some com ela.
+    var btnAmpliar = document.getElementById('mp-ampliar');
+    btnAmpliar.addEventListener('click', function () {
+        var ampla = modalEl.querySelector('.vp-caixa').classList.toggle('is-ampliada');
+        var rotulo = T(ampla ? 'reduzir_janela' : 'ampliar_janela');
+        btnAmpliar.title = rotulo;
+        btnAmpliar.setAttribute('aria-label', rotulo);
+        btnAmpliar.firstElementChild.className = ampla ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
+    });
     buscaInput.addEventListener('keydown', function (e) {
         var aberta = !buscaLista.hidden;
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {

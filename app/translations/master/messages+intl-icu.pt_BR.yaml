@@ -29,9 +29,9 @@ master:
             sem_oab: sem OAB
             sem_perfil: sem perfil
             promover_titulo: 'Promover a {papel}'
-            promover_campo: Usuário secundário a promover a Master
-            promover_escolha: Escolha um usuário secundário da conta *
-            promover_info: Precisa estar cadastrado antes como usuário secundário.
+            promover_campo: Usuário a promover a Master
+            promover_escolha: Escolha um usuário da conta *
+            promover_info: Precisa estar cadastrado antes como usuário da conta.
             promover_msg: Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e remoção vai para a auditoria.
             promover: Promover
         poderes:
@@ -402,12 +402,11 @@ master:
         removido: '"{nome}" deixou de ser {papel}.'
         recusa:
             so_primario: Só o Master primário pode promover ou remover Masters.
-            outro_escritorio: Entre no escritório do usuário secundário para promovê-lo a Master.
-            sem_escolha: Escolha um usuário secundário cadastrado.
+            outro_escritorio: Entre no escritório do usuário para promovê-lo a Master.
+            sem_escolha: Escolha um usuário cadastrado.
             conta_desativada: A conta deste usuário está desativada.
             ja_master: Este usuário já é Master.
-            so_secundario_ativo: Só usuários secundários ativos desta conta podem ser promovidos a Master.
-            primario_do_escritorio: O primário do escritório não pode ser promovido a Master. Só usuários secundários da conta.
+            so_usuario_ativo: Só usuários ativos desta conta podem ser promovidos a Master.
             nao_e_master: Este usuário não é Master.
             excluir_primario: O Master primário não pode ser excluído.
     # P3: o mapa mundial (master/mapa_mundo, a página do iframe). O mapa do Brasil fica com a 4b (spec §8).
@@ -1129,7 +1128,7 @@ master:
         # quem abre a confirmação (EXCLUIR, que não se traduz).
         masters:
             digite: 'Digite {palavra} para confirmar'
-            escolha: Escolha um usuário secundário cadastrado.
+            escolha: Escolha um usuário cadastrado.
             promover_titulo: 'Promover a {papel}'
             promover_botao: Confirmar promoção
             promover_texto: '"{nome}" passará a ter todos os poderes do sistema (contas, limites, planos, configurações e auditoria), como {papel} secundário. Ele não poderá excluir o {papel} primário.'

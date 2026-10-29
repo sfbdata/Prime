@@ -69,8 +69,8 @@
     </section>
 
     <div class="pp-subabas" data-pp-subabas>
-        <a href="{{ path('push_processual_processos', {sub: 'acompanhados'}) }}" class="pp-subaba{{ sub == 'acompanhados' ? ' is-ativa' : '' }}">{{ 'djen.processos.sub_acompanhados'|trans }} <span>({{ sub_contagens.acompanhados }})</span></a>
         <a href="{{ path('push_processual_processos', {sub: 'relatorio'}) }}" class="pp-subaba{{ sub == 'relatorio' ? ' is-ativa' : '' }}">{{ 'djen.processos.sub_relacionados'|trans }} <span>({{ sub_contagens.relatorio }})</span></a>
+        <a href="{{ path('push_processual_processos', {sub: 'acompanhados'}) }}" class="pp-subaba{{ sub == 'acompanhados' ? ' is-ativa' : '' }}">{{ 'djen.processos.sub_acompanhados'|trans }} <span>({{ sub_contagens.acompanhados }})</span></a>
         <a href="{{ path('push_processual_processos', {sub: 'acervo'}) }}" class="pp-subaba{{ no_acervo ? ' is-ativa' : '' }}">{{ 'djen.acervo.subaba'|trans }} <span>({{ sub_contagens.acervo }})</span></a>
     </div>
 

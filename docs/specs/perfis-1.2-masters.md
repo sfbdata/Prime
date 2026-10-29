@@ -69,7 +69,7 @@ sistema"). Passa a valer o desenho 1.2:
 | M2 | Todo Master tem `ROLE_SUPER_ADMIN` (os poderes de hoje, sem mudança). O primário tem **também** `ROLE_MASTER_PRIMARIO`, que só marca quem é o primário; não dá acesso a nada sozinho. |
 | M3 | **Só o Master primário promove e remove** Masters secundários ("quem ele promover", texto do papel no desenho). O secundário vê a lista sem as ações. |
 | M4 | O **Master primário nunca é removido** pela tela (cadeado). Trocar o primário continua sendo o comando `app:master:definir`, rodado pelo dono. |
-| M5 | Só pode ser promovido um **usuário secundário da conta** em que o Master primário está (vínculo ativo, perfil que não é de sistema, conta do usuário ativa, ainda não Master). Rótulo do desenho: "Escolha um usuário secundário da conta *". |
+| M5 | Só pode ser promovido um **usuário da conta** em que o Master primário está (vínculo ativo, conta do usuário ativa, ainda não Master). **Decisão do dono em 29/10 (revoga a versão anterior, que barrava o primário do escritório):** o primário do escritório (perfil de sistema) também pode ser promovido; as outras guardas ficam (só o Master primário promove, vínculo e conta ativos, não Master, mesmo escritório, auditoria). Desvio do desenho: rótulo "Escolha um usuário da conta *" (o desenho dizia "secundário") e, pelo mesmo motivo, a info "Precisa estar cadastrado antes como usuário da conta." No select, o primário do escritório aparece como "Usuário Primário". |
 | M6 | Remover um secundário tira só o `ROLE_SUPER_ADMIN`; o vínculo dele com o escritório fica como está. |
 | M7 | Promoção e remoção vão para a auditoria: `User` é `Auditavel`, o `AuditLogSubscriber` grava a troca de `roles` no flush. A troca grava sem escritório (`tenant_id` nulo, `EscopoDeAuditoriaDePlataforma`) e aparece só na trilha do Master, como "Plataforma (sem conta)", nunca na auditoria do escritório da sessão. |
 
@@ -94,11 +94,11 @@ Bloco "Masters do sistema · N Master(s)", uma linha por Master, primário prime
 - primário: cadeado, title "O Master primário não pode ser excluído";
 - secundário, **só para quem vê é o primário**: lixeira, title "Remover este Master", abre a confirmação.
 
-Rodapé "Promover a Master" (**só para o primário**): select "Escolha um usuário secundário da conta *" com
-opções "Nome · Perfil"; ao lado, info "Precisa estar cadastrado antes como usuário secundário." (ou
+Rodapé "Promover a Master" (**só para o primário**): select "Escolha um usuário da conta *" (M5) com
+opções "Nome · Perfil"; ao lado, info "Precisa estar cadastrado antes como usuário da conta." (ou
 "e-mail · OAB n/UF" / "e-mail · sem OAB" do escolhido); botão "Promover" (`bi-stars`, `#7a3e8f`). Mensagem
 padrão: "Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e
-remoção vai para a auditoria." Sem escolha: "Escolha um usuário secundário cadastrado." em vermelho.
+remoção vai para a auditoria." Sem escolha: "Escolha um usuário cadastrado." em vermelho.
 
 Confirmações (modal interno, como `perfis.js`, botões "Cancelar" + ação):
 
@@ -120,7 +120,7 @@ no desenho: `aba=(\w+)` e `sec=(\w+)`) com flash de sucesso ou do motivo da recu
 - `POST /master/masters/{userId}/remover` (`master_remover`), CSRF `master_remover_{userId}`.
 - As duas sob `ROLE_SUPER_ADMIN` na classe **e** a regra M3 no UseCase (secundário recebe recusa).
 - Recusas (mensagem no flash): ator não é o primário; alvo inexistente, inativo, sem vínculo ativo com a conta
-  do ator, primário do escritório, ou já Master (promover); alvo não é Master ou é o primário (remover).
+  do ator, ou já Master (promover); alvo não é Master ou é o primário (remover).
 - Comandos: `app:master:definir` passa a mover também o `ROLE_MASTER_PRIMARIO` (o escolhido fica primário, os
   demais perdem os dois papéis, como hoje); `app:create-super-admin` cria o primeiro Master já primário.
 
