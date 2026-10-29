@@ -103,6 +103,29 @@ final class PropostaDeCadastroTest extends JusPrimeWebTestCase
         return $eventos;
     }
 
+    #[TestDox('Propor cliente e pasta na mesma resposta: duas propostas, dois cartões, nada gravado')]
+    public function testProporClienteEPastaJuntos(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->post($client, '/chat-ia/conversas', []);
+        $id = (int) $this->json($client)['id'];
+        $this->provedorFalso()->transmitirComFerramenta(['Vou propor o cadastro e a pasta.'], [
+            new ChamadaDeFerramenta('propor_cliente', ['tipo' => 'pf', 'campos' => ['nome' => 'Maria da Silva', 'cpf' => self::CPF]]),
+            new ChamadaDeFerramenta('propor_pasta', ['nome_cliente' => 'Maria da Silva', 'nome_acao' => 'Ação de cobrança']),
+        ]);
+        $this->provedorFalso()->responderCom('Cadastro de Maria');
+        $clientes = $this->totalDeClientes($tenant);
+        $pastas = $this->totalDePastas($tenant);
+
+        $this->post($client, "/chat-ia/conversas/$id/mensagens", ['texto' => 'Cadastre a Maria e abra uma pasta']);
+
+        $eventos = $this->eventos($client->getInternalResponse()->getContent());
+        self::assertSame(['delta', 'proposta', 'proposta', 'fim'], array_column($eventos, 'evento'), json_encode($eventos));
+        self::assertSame($clientes, $this->totalDeClientes($tenant));
+        self::assertSame($pastas, $this->totalDePastas($tenant));
+    }
+
     #[TestDox('Propor: o tool use vira proposta pendente e evento SSE; nada é gravado em Cliente ou Pasta; reabrir a conversa traz o cartão')]
     public function testProporNaoGrava(): void
     {
