@@ -144,6 +144,7 @@ final class PropostaDeCadastroTest extends JusPrimeWebTestCase
         $cartao = $eventos[1]['dados'];
         self::assertSame('pendente', $cartao['estado']);
         self::assertSame('Maria da Silva', $cartao['campos'][0]['valor']);
+        self::assertSame(['Nome', 'CPF'], array_slice(array_column($cartao['campos'], 'rotulo'), 0, 2), 'rótulos com inicial maiúscula');
         self::assertSame($antes, $this->totalDeClientes($tenant), 'a I.A não grava: só o clique');
         $nomes = array_map(static fn ($f): string => $f->nome, $this->provedorFalso()->pedidos[0]->ferramentas);
         self::assertSame(['propor_cliente', 'propor_pasta'], $nomes);

@@ -181,7 +181,7 @@ final class TransmitirRespostaDoChatTest extends TestCase
         $cartao = $eventos[1]['dados'];
         self::assertSame('cliente', $cartao['tipo']);
         self::assertSame('pendente', $cartao['estado']);
-        self::assertSame([['chave' => 'nome', 'rotulo' => 'nome', 'valor' => 'Maria da Silva'], ['chave' => 'cpf', 'rotulo' => 'CPF', 'valor' => '529.982.247-25']], $cartao['campos']);
+        self::assertSame([['chave' => 'nome', 'rotulo' => 'Nome', 'valor' => 'Maria da Silva'], ['chave' => 'cpf', 'rotulo' => 'CPF', 'valor' => '529.982.247-25']], $cartao['campos']);
     }
 
     #[TestDox('Sem texto do modelo, a resposta ganha a frase padrão (também enviada como delta); o evento `fim` continua')]

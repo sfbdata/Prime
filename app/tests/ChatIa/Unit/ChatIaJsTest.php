@@ -100,6 +100,7 @@ final class ChatIaJsTest extends TestCase
         self::assertStringContainsString('function adicionarCartao', $js);
         self::assertStringContainsString('urls.propostaConfirmar', $js);
         self::assertStringContainsString('urls.propostaCancelar', $js);
-        self::assertStringContainsString("campo.value = valor", $js, 'o valor do campo entra como propriedade, nunca como HTML');
+        self::assertStringContainsString("campo.value = grupo === 'campos' ? dataParaTela(chave, valor) : valor", $js, 'o valor do campo entra como propriedade, nunca como HTML');
+        self::assertStringContainsString('dataParaServidor(k, i.value)', $js, 'a data digitada em dd/mm/aaaa volta ao servidor como AAAA-MM-DD');
     }
 }

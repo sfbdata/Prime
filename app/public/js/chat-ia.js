@@ -518,9 +518,20 @@
         return a;
     }
 
+    /* O servidor guarda e valida a data como AAAA-MM-DD; na tela ela aparece dd/mm/aaaa. */
+    function dataParaTela(chave, valor) {
+        var m = chave === 'nascimento' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor) : null;
+        return m ? m[3] + '/' + m[2] + '/' + m[1] : valor;
+    }
+
+    function dataParaServidor(chave, valor) {
+        var m = chave === 'nascimento' ? /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor.trim()) : null;
+        return m ? m[3] + '-' + m[2] + '-' + m[1] : valor;
+    }
+
     function colherValores(c) {
         var v = { campos: {}, pasta: {} };
-        c.el.querySelectorAll('[data-campo]').forEach(function (i) { v.campos[i.getAttribute('data-campo')] = i.value; });
+        c.el.querySelectorAll('[data-campo]').forEach(function (i) { var k = i.getAttribute('data-campo'); v.campos[k] = dataParaServidor(k, i.value); });
         c.el.querySelectorAll('[data-pasta]').forEach(function (i) { v.pasta[i.getAttribute('data-pasta')] = i.value; });
         return v;
     }
@@ -535,7 +546,7 @@
         campo.id = id;
         campo.maxLength = 1000;
         campo.autocomplete = 'off';
-        campo.value = valor;
+        campo.value = grupo === 'campos' ? dataParaTela(chave, valor) : valor;
         campo.setAttribute(grupo === 'campos' ? 'data-campo' : 'data-pasta', chave);
         campo.addEventListener('input', function () {
             c.alterou = true;

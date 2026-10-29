@@ -71,7 +71,7 @@ final class MontadorDoCartaoDaProposta
         foreach ($rotulos as $chave => $rotulo) {
             $valor = \is_array($cliente['campos'] ?? null) ? ($cliente['campos'][$chave] ?? null) : null;
             if (\is_string($valor) && $valor !== '') {
-                $lista[] = ['chave' => $chave, 'rotulo' => $rotulo, 'valor' => $valor];
+                $lista[] = ['chave' => $chave, 'rotulo' => mb_strtoupper(mb_substr($rotulo, 0, 1)) . mb_substr($rotulo, 1), 'valor' => $valor];
             }
         }
 
