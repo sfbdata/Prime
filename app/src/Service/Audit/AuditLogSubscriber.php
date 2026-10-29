@@ -404,7 +404,7 @@ class AuditLogSubscriber
         // (promover/remover Master) ou com a conta alvo (suspender/reativar conta pelo Master).
         $tenantId = $this->escopoDePlataforma->estaLigado()
             ? $this->escopoDePlataforma->contaAlvo()
-            : $this->tenantContext->getCurrentTenant()?->getId();
+            : self::tenantDoRegistro(fn (): ?int => $this->tenantContext->getCurrentTenant()?->getId(), $entity);
 
         return (new AuditLog())
             ->setAction($action)
@@ -416,6 +416,24 @@ class AuditLogSubscriber
             ->setTenantId(is_int($tenantId) ? $tenantId : null)
             ->setIpAddress($request?->getClientIp())
             ->setRoute($request?->attributes->get('_route'));
+    }
+
+    /**
+     * O escritório do registro de auditoria: o da sessão. Em resposta em fluxo (SSE, Chat I.A) a sessão já foi fechada e os
+     * cabeçalhos já saíram, então ler a sessão estoura `RuntimeException` ("headers already sent"); nesse caso o escritório
+     * é o da própria entidade gravada (toda entidade auditável do chat é do escritório de quem agiu).
+     *
+     * @param callable(): ?int $daSessao
+     */
+    public static function tenantDoRegistro(callable $daSessao, object $entity): ?int
+    {
+        try {
+            return $daSessao();
+        } catch (\RuntimeException) {
+            $tenant = method_exists($entity, 'getTenant') ? $entity->getTenant() : null;
+
+            return $tenant instanceof \App\Entity\Tenant\Tenant ? $tenant->getId() : null;
+        }
     }
 
     private function resolveEntityId(object $entity, UnitOfWork $unitOfWork): ?string
