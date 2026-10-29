@@ -15,18 +15,19 @@ use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Repository\UserTenantRepository;
 
 /**
- * Promove um usuário secundário a Master secundário (spec docs/specs/perfis-1.2-masters.md, M1 a M7).
+ * Promove um usuário da conta (secundário ou primário do escritório) a Master secundário (spec docs/specs/perfis-1.2-masters.md, M1 a M7).
  *
  * Quem dispara: o Master primário, no bloco "Masters do sistema" da aba Permissões de /master. O
  * controller exige ROLE_SUPER_ADMIN; a regra de que só o PRIMÁRIO promove (M3) mora aqui, para o
  * Master secundário ser recusado mesmo forjando o POST.
  * Objetivo: dar a outra pessoa os poderes do sistema (o bypass total do ROLE_SUPER_ADMIN).
  * Pré-condições (M5): o alvo existe, a conta dele está ativa, ele ainda não é Master e tem vínculo
- * ATIVO, com perfil que NÃO é de sistema, com o escritório em que o Master primário está.
+ * ATIVO com o escritório em que o Master primário está. Qualquer perfil serve, inclusive o de sistema
+ * (o primário do escritório): decisão do dono em 29/10, que revogou a recusa antiga.
  * Fluxo principal: carrega o alvo, aplica as recusas, acrescenta ROLE_SUPER_ADMIN aos papéis dele
  * (os demais ficam como estão) e grava.
  * Fluxos alternativos: ator não é o primário; sem escritório na sessão; alvo inexistente, inativo,
- * já Master, sem vínculo ativo com o escritório ou primário do escritório. Todos recusados com mensagem.
+ * já Master ou sem vínculo ativo com o escritório. Todos recusados com mensagem.
  * Pós-condições: o alvo é Master secundário; o vínculo com o escritório não muda.
  * Auditoria (M7): User é Auditavel; o AuditLogSubscriber grava a troca de `roles` no flush, dentro do
  * EscopoDeAuditoriaDePlataforma: sem escritório, visível só na trilha do Master.
@@ -48,7 +49,7 @@ final class PromoverMasterUseCase
         $this->exigirMasterPrimario($input->ator);
         $escritorio = $this->exigirEscritorio($input->escritorio);
         $alvo = $this->carregarAlvo($input->alvoId);
-        $this->exigirSecundarioDoEscritorio($alvo, $escritorio);
+        $this->exigirUsuarioDoEscritorio($alvo, $escritorio);
 
         RegraDosMasters::darPapeis($alvo, RegraDosMasters::PAPEL_MASTER);
         // Ato de plataforma: a troca de roles vai para o audit_log sem escritório (M7).
@@ -91,15 +92,11 @@ final class PromoverMasterUseCase
         return $alvo;
     }
 
-    private function exigirSecundarioDoEscritorio(User $alvo, Tenant $escritorio): void
+    private function exigirUsuarioDoEscritorio(User $alvo, Tenant $escritorio): void
     {
         $vinculo = $this->userTenantRepository->findAtivoPorUserETenant($alvo, $escritorio);
         if ($vinculo === null || !$vinculo->isActive() || !$this->mesmoEscritorio($vinculo->getTenant(), $escritorio)) {
-            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_SO_SECUNDARIO_ATIVO);
-        }
-
-        if ($vinculo->getTenantRole()?->isSystem() === true) {
-            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_PRIMARIO_DO_ESCRITORIO);
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_SO_USUARIO_ATIVO);
         }
     }
 
