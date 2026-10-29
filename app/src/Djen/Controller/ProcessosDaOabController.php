@@ -45,7 +45,8 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ProcessosDaOabController extends AbstractController
 {
     private const POR_PAGINA = 25;
-    private const SUBABAS = ['acompanhados', 'relatorio', 'acervo'];
+    /** Ordem das sub-abas na tela; a primeira (relacionados) abre por padrão. Desvio do desenho 11 aprovado pelo dono em 29/10. */
+    private const SUBABAS = ['relatorio', 'acompanhados', 'acervo'];
 
     public function __construct(
         private readonly PublicacaoDoDiarioDaOabRepository $diarioRepository,
@@ -78,8 +79,8 @@ final class ProcessosDaOabController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable('today');
-        $sub = (string) $request->query->get('sub', 'acompanhados');
-        $sub = \in_array($sub, self::SUBABAS, true) ? $sub : 'acompanhados';
+        $sub = (string) $request->query->get('sub', self::SUBABAS[0]);
+        $sub = \in_array($sub, self::SUBABAS, true) ? $sub : self::SUBABAS[0];
         $criterios = $this->criterios($request);
 
         $acompanhados = $this->acompanhados($tenant);
@@ -461,7 +462,8 @@ final class ProcessosDaOabController extends AbstractController
     {
         $this->addFlash($tipo, $mensagem);
 
-        return $this->redirectToRoute('push_processual_processos', $parametros);
+        // Sem destino dito, volta à lista de acompanhados (de onde saem estas ações), não à aba padrão (relacionados).
+        return $this->redirectToRoute('push_processual_processos', $parametros !== [] ? $parametros : ['sub' => 'acompanhados']);
     }
 
     /**

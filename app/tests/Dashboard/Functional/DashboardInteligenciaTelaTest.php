@@ -90,7 +90,13 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertCount(1, $botao);
         self::assertSame('dbIaPainel', $botao->attr('popovertarget'), 'abre o painel pelo Popover API nativo');
         self::assertSame('button', $botao->attr('type'));
-        self::assertStringContainsString('Intelligence', $botao->text());
+        self::assertSame('Abrir BlueJus IA', $botao->attr('aria-label'));
+        self::assertSame('BlueJus', $botao->filter('.db-ia-nome')->text());
+        self::assertSame('BlueJus IA · análise do escritório', $botao->attr('title'));
+        self::assertCount(7, $botao->filter('.db-ia-nome > .db-ia-letra'), 'o nome é digitado letra a letra');
+        self::assertCount(1, $botao->filter('.db-ia-marca > img.db-ia-simbolo'));
+        self::assertCount(1, $botao->filter('.db-ia-marca > .db-ia-emblema svg'), 'o selo IA que substitui o símbolo');
+        self::assertCount(0, $botao->filter('.db-ia-estrela, .db-ia-abrir-texto'), 'a estrela e o texto Intelligence saíram do botão');
         // sem alerta: balão neutro, sem ponto, com a leitura do período
         $dica = $crawler->filter('[data-filtro-resultado] > .db-ia > button.db-ia-abrir + span.db-ia-dica[role="tooltip"]');
         self::assertCount(1, $dica);
@@ -139,9 +145,10 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertResponseIsSuccessful();
 
         $html = $crawler->filter('[data-filtro-resultado] > .db-ia')->outerHtml();
-        self::assertStringContainsStringIgnoringCase('Intelligence', $html, 'o nome do produto está lá (irmã que prova o alvo certo)');
+        self::assertStringContainsStringIgnoringCase('BlueJus', $html, 'o nome do produto está lá (irmã que prova o alvo certo)');
         self::assertDoesNotMatchRegularExpression('/intelig[êe]ncia\s+artificial/iu', $html);
-        self::assertDoesNotMatchRegularExpression('/\bI\.?A\b/u', $html, 'nem a sigla, nem "I.A"');
+        // desenho 29.10.26: o botão passou a se chamar "BlueJus IA" (rótulo, title e selo); só "I.A" segue fora
+        self::assertDoesNotMatchRegularExpression('/\bI\.A\b/u', $html, 'nem "I.A" com pontos');
         self::assertDoesNotMatchRegularExpression('/\banalisou\b/iu', $html, 'o painel não "analisou" nada: ele soma e compara');
     }
 
@@ -262,7 +269,7 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertCount(1, $botao);
         self::assertStringContainsString('is-alerta', (string) $botao->attr('class'));
         self::assertCount(0, $botao->filter('.db-ia-abrir-ponto, .db-ia-dica-ponto'), 'o botão não leva ponto');
-        self::assertNull($botao->attr('title'), 'a dica é o balão próprio, não o title nativo');
+        self::assertSame('BlueJus IA · análise do escritório', $botao->attr('title'), 'title do botão como no desenho 29.10.26 (L216)');
         self::assertSame('dbIaDica', $botao->attr('aria-describedby'));
         $dica = $crawler->filter('[data-filtro-resultado] > .db-ia > button.db-ia-abrir + span.db-ia-dica#dbIaDica[role="tooltip"]');
         self::assertCount(1, $dica);

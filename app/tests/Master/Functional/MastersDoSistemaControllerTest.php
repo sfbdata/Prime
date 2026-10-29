@@ -70,6 +70,22 @@ final class MastersDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('&quot;Ana Secundária&quot; agora é Master secundário.', (string) $this->client->getResponse()->getContent());
     }
 
+    #[TestDox('o Master primário promove também o primário do escritório (perfil de sistema): vira Master secundário e o vínculo fica')]
+    public function testPrimarioPromoveOPrimarioDoEscritorio(): void
+    {
+        $alvo = $this->usuario('Paulo Primário', ['ROLE_USER']);
+        $vinculo = $this->vincular($alvo, $this->escritorio, sistema: true);
+        $this->entrar($this->primario);
+
+        $this->client->request('POST', '/master/masters/promover', ['_token' => 'TOKEN_master_promover', 'usuario' => $alvo->getId()]);
+
+        self::assertResponseRedirects('/master#aba=perm');
+        self::assertContains('ROLE_SUPER_ADMIN', $this->recarregar($alvo)->getRoles());
+        self::assertNotContains('ROLE_MASTER_PRIMARIO', $this->recarregar($alvo)->getRoles());
+        self::assertTrue($this->em->find(UserTenant::class, $vinculo->getId())?->isActive());
+        self::assertNotNull($this->auditoriaDeRoles($alvo));
+    }
+
     #[TestDox('o Master primário remove um Master secundário: só o ROLE_SUPER_ADMIN sai e o vínculo fica')]
     public function testPrimarioRemove(): void
     {
@@ -156,7 +172,7 @@ final class MastersDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/master#aba=perm');
         self::assertNotContains('ROLE_SUPER_ADMIN', $this->recarregar($alvo)->getRoles());
         $this->client->followRedirect();
-        self::assertStringContainsString('Só usuários secundários ativos desta conta podem ser promovidos a Master.', (string) $this->client->getResponse()->getContent());
+        self::assertStringContainsString('Só usuários ativos desta conta podem ser promovidos a Master.', (string) $this->client->getResponse()->getContent());
     }
 
     #[TestDox('Master secundário recebe a recusa ao promover e ao remover; nada muda')]
@@ -181,6 +197,21 @@ final class MastersDoSistemaControllerTest extends JusPrimeWebTestCase
 
         self::assertNotContains('ROLE_SUPER_ADMIN', $this->recarregar($alvo)->getRoles());
         self::assertContains('ROLE_SUPER_ADMIN', $this->recarregar($outroMaster)->getRoles());
+    }
+
+    #[TestDox('Master secundário não promove nem o primário do escritório: só o Master primário promove')]
+    public function testSecundarioNaoPromoveOPrimarioDoEscritorio(): void
+    {
+        $secundario = $this->usuario('Master Secundário', ['ROLE_SUPER_ADMIN']);
+        $this->vincular($secundario, $this->escritorio, sistema: false);
+        $alvo = $this->usuario('Paulo Primário', ['ROLE_USER']);
+        $this->vincular($alvo, $this->escritorio, sistema: true);
+        $this->entrar($secundario);
+
+        $this->client->request('POST', '/master/masters/promover', ['_token' => 'TOKEN_master_promover', 'usuario' => $alvo->getId()]);
+
+        self::assertResponseRedirects('/master#aba=perm');
+        self::assertNotContains('ROLE_SUPER_ADMIN', $this->recarregar($alvo)->getRoles());
     }
 
     #[TestDox('usuário comum (primário de escritório) recebe 403 nos dois POST')]
@@ -220,7 +251,7 @@ final class MastersDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertContains('ROLE_SUPER_ADMIN', $this->recarregar($master)->getRoles());
     }
 
-    #[TestDox('HTML do primário: primário primeiro com cadeado, secundário com lixeira, formulário com só os secundários do escritório')]
+    #[TestDox('HTML do primário: primário primeiro com cadeado, secundário com lixeira, formulário com os usuários ativos do escritório (primário incluído)')]
     public function testHtmlDoPrimario(): void
     {
         $secundarioMaster = $this->usuario('Aaron Master', ['ROLE_SUPER_ADMIN']);
@@ -251,10 +282,10 @@ final class MastersDoSistemaControllerTest extends JusPrimeWebTestCase
 
         $form = $crawler->filter('form[data-mp-form-promover]');
         self::assertSame('/master/masters/promover', $form->attr('action'));
-        self::assertSame('Escolha um usuário secundário da conta *', $form->filter('option')->first()->text());
+        self::assertSame('Escolha um usuário da conta *', $form->filter('option')->first()->text());
         $opcoes = $form->filter('option[value!=""]')->each(fn ($o) => $o->text());
-        self::assertSame(['Ana Secundária · Advogado (a)'], $opcoes, 'nem primário do escritório, nem de outro escritório, nem inativo, nem Master');
-        self::assertStringContainsString('Precisa estar cadastrado antes como usuário secundário.', $form->text());
+        self::assertSame(['Ana Secundária · Advogado (a)', 'Paulo Primário · Usuário Primário'], $opcoes, 'secundário e primário do escritório; nem de outro escritório, nem inativo, nem Master');
+        self::assertStringContainsString('Precisa estar cadastrado antes como usuário da conta.', $form->text());
         self::assertStringContainsString('Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e remoção vai para a auditoria.', $form->text());
 
         self::assertCount(8, $crawler->filter('.mp-poderes .mp-poder'));

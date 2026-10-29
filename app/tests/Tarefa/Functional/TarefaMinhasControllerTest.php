@@ -1176,4 +1176,46 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
             'O JS atualiza os badges pela chave da aba; faltar uma deixaria o número velho na tela.',
         );
     }
+
+    #[TestDox('BlueJus IA (desenho 04 VS 29.10.26): botão no topo e painel com números e "O que fazer primeiro" vindos dos dados')]
+    public function testPainelBlueJusIaComDadosDasMetas(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $atrasada           = $this->criarMeta($tenant, $usuario, 'Meta atrasada');
+        $atrasada->setPrazo(new \DateTimeImmutable('-3 days'));
+        $hoje = $this->criarMeta($tenant, $usuario, 'Meta de hoje');
+        $hoje->setPrazo(new \DateTimeImmutable('today'));
+        $this->criarMeta($tenant, $usuario, 'Meta sem prazo');
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+        $c = $client->getCrawler();
+
+        self::assertCount(1, $c->filter('.mm-topo > button.mm-ia[data-bjia]'), 'o botão é filho direto do topo, ao lado do cabeçalho');
+        self::assertCount(1, $c->filter('aside.mm-ia-painel#mmIaPainel[hidden]'));
+        self::assertCount(3, $c->filter('.mm-ia-kpis > .mm-ia-kpi'));
+        $itens = $c->filter('.mm-ia-corpo > a.mm-ia-prio');
+        self::assertCount(2, $itens, 'sem prazo não entra no "O que fazer primeiro"');
+        self::assertStringContainsString('Meta atrasada', $itens->eq(0)->text());
+        self::assertStringContainsString('Atrasada há 3 dia(s)', $itens->eq(0)->text());
+        self::assertStringContainsString('Vence hoje', $itens->eq(1)->text());
+        self::assertSame('/tarefas/' . $atrasada->getId(), $itens->eq(0)->attr('href'));
+        self::assertCount(4, $c->filter('.mm-ia-sugestoes > button[data-mm-ia-perguntar]'));
+        self::assertCount(0, $c->filter('.mm-ia-painel form'), 'o painel não chama modelo: perguntar abre a Central');
+    }
+
+    #[TestDox('BlueJus IA: sem meta atrasada ou vencendo, o painel diz que não há nada')]
+    public function testPainelBlueJusIaSemPrioridades(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Sem pressa');
+
+        $client->request('GET', '/tarefas/minhas');
+        $c = $client->getCrawler();
+        self::assertCount(0, $c->filter('a.mm-ia-prio'));
+        self::assertStringContainsString('Nenhuma meta atrasada ou vencendo nos próximos 7 dias.', $c->filter('.mm-ia-vazio')->text());
+    }
 }

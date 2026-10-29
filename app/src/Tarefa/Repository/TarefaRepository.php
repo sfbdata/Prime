@@ -189,6 +189,39 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * "O que fazer primeiro" do painel BlueJus IA (desenho 04 VS 29.10.26, dc `iaPrio`): as metas abertas de
+     * que a pessoa é responsável, atrasadas ou vencendo em até 7 dias, da mais atrasada para a mais distante;
+     * no mesmo dia, a de maior prioridade primeiro. Só dados, nenhum modelo. Em revisão e concluída ficam fora.
+     *
+     * @param list<int> $pastasOcultas
+     * @return Tarefa[]
+     */
+    public function findPrioridadesDoDia(User $usuario, int $limite, array $pastasOcultas = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->addSelect('p')
+            ->innerJoin('t.pasta', 'p', 'WITH', 'p.excluidaEm IS NULL')
+            ->andWhere('t.status NOT IN (:foraDaFila)')
+            ->andWhere('t.prazo IS NOT NULL AND t.prazo <= :limite')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('limite', (new \DateTimeImmutable('today'))->modify('+7 days')->setTime(23, 59, 59));
+        $this->escoparPelaAba($qb, AbaMetas::RESPONSAVEL);
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        /** @var Tarefa[] $metas */
+        $metas = $qb->getQuery()->getResult();
+        $peso  = static fn (Tarefa $m): int => match ($m->getPrioridade()) {
+            PrioridadeDaMeta::Urgente => 0,
+            PrioridadeDaMeta::Alta    => 1,
+            PrioridadeDaMeta::Normal  => 2,
+        };
+        usort($metas, static fn (Tarefa $a, Tarefa $b): int => [$a->getPrazo(), $peso($a), $a->getId()] <=> [$b->getPrazo(), $peso($b), $b->getId()]);
+
+        return array_slice($metas, 0, $limite);
+    }
+
+    /**
      * "Precisa de atenção" (desenho 04, dc `atencao`): as atrasadas de TODAS as metas da pessoa, da
      * que venceu primeiro, até `$limite`. Mesmo universo e mesmo recorte de `contarAndamento`.
      *

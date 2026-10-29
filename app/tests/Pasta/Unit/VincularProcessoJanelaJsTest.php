@@ -132,7 +132,7 @@ final class VincularProcessoJanelaJsTest extends TestCase
         foreach (["e.key === 'ArrowDown'", "e.key === 'ArrowUp'", "e.key === 'Enter'"] as $tecla) {
             self::assertStringContainsString($tecla, $js);
         }
-        self::assertStringContainsString('.slice(0, 8)', $this->funcao('mpBuscar'));
+        self::assertStringContainsString('.slice(0, 30)', $this->funcao('mpBuscar'));
 
         $lista = $this->funcao('mpMostrarLista');
         self::assertStringContainsString('num.textContent = mpNumeroVisivel(p.numero);', $lista);

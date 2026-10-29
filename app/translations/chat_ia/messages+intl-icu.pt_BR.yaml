@@ -2,6 +2,7 @@
 chat_ia:
     titulo_pagina: Chat I.A
     marca: BlueJus
+    voltar_ao_bluejus: Voltar ao BlueJus
     novo_chat: Novo chat
     buscar: Buscar conversas
     buscar_placeholder: Buscar conversas

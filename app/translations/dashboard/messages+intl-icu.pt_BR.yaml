@@ -137,7 +137,8 @@ dashboard:
             sem_nome: 'Um colaborador'
         th_titulo: 'Botão direito: relatório e zerar'
     ia:
-        abrir: Abrir BlueJus Intelligence
+        abrir: Abrir BlueJus IA
+        abrir_dica: BlueJus IA · análise do escritório
         ponto_de_atencao: '{n} ponto de atenção'
         pontos_de_atencao: '{n} pontos de atenção'
         leitura_do_periodo: Leitura do período

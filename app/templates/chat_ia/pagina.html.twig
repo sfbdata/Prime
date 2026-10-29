@@ -150,11 +150,15 @@
 
     <aside class="ci-barra" id="ci-barra" aria-label="{{ 'chat_ia.historico'|trans }}">
         <div class="ci-barra-topo">
-            <span class="ci-marca">{{ 'chat_ia.marca'|trans }}</span>
+            <a class="ci-marca" href="{{ path('dashboard_index') }}">{{ 'chat_ia.marca'|trans }}</a>
             <button type="button" class="ci-icone" id="ci-recolher" aria-label="{{ 'chat_ia.recolher_barra'|trans }}" title="{{ 'chat_ia.recolher_barra'|trans }}">
                 <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-barra"/></svg>
             </button>
         </div>
+        <a class="ci-item-barra ci-voltar" id="ci-voltar" href="{{ path('dashboard_index') }}">
+            <svg class="ci-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+            <span>{{ 'chat_ia.voltar_ao_bluejus'|trans }}</span>
+        </a>
         <button type="button" class="ci-item-barra ci-item-novo" id="ci-novo">
             <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-novo"/></svg>
             <span>{{ 'chat_ia.novo_chat'|trans }}</span>

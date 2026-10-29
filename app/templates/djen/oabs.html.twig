@@ -47,6 +47,11 @@
                     <span>{{ oab.publicacoes }}</span>
                     <span>{{ oab.criadoEm }}</span>
                     <span class="pp-c-acoes">
+                        <button type="button" class="pp-acao pp-acao--icone" title="{{ 'djen.oabs.editar_apelido'|trans }}" data-pp-oab-editar
+                                data-url="{{ path('push_processual_oab_apelido', {id: oab.id}) }}"
+                                data-token="{{ csrf_token('push_processual_oab_' ~ oab.id) }}"
+                                data-oab="{{ oab.numero }}/{{ oab.uf }}"
+                                data-apelido="{{ oab.apelido ?? '' }}"><i class="bi bi-pencil"></i></button>
                         <form method="POST" action="{{ path('push_processual_oab_alternar', {id: oab.id}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
                             <button type="submit" class="pp-acao">{{ (oab.ativo ? 'djen.oabs.pausar' : 'djen.oabs.retomar')|trans }}</button>
@@ -64,4 +69,26 @@
         </div>
     </section>
 </div>
+
+<div class="pp-modal" data-pp-oab-modal hidden>
+    <div class="pp-modal__fundo" data-pp-oab-fechar></div>
+    <div class="pp-modal__centro">
+        <form method="POST" class="pp-modal__caixa" role="dialog" aria-modal="true" aria-label="{{ 'djen.oabs.editar_apelido'|trans }}" data-pp-oab-form>
+            <div class="pp-modal__topo"><i class="bi bi-pencil"></i><b>{{ 'djen.oabs.editar_apelido'|trans }}</b><button type="button" class="pp-modal__x" data-pp-oab-fechar aria-label="{{ 'djen.index.fechar'|trans }}"><i class="bi bi-x-lg"></i></button></div>
+            <div class="pp-modal__corpo">
+                <input type="hidden" name="_token" value="" data-pp-oab-token>
+                <div class="pp-modal__proc"><b data-pp-oab-rotulo></b><span>{{ 'djen.oabs.editar_dica'|trans }}</span></div>
+                <label class="pp-rotulo" for="pp-oab-apelido">{{ 'djen.oabs.apelido_maiusculo'|trans }} <span class="pp-rotulo__opc">{{ 'djen.oabs.opcional'|trans }}</span>
+                    <input type="text" id="pp-oab-apelido" name="apelido" maxlength="255" autocomplete="off" placeholder="{{ 'djen.oabs.apelido_ph'|trans }}" data-pp-oab-apelido>
+                </label>
+                <div class="pp-modal__rodape">
+                    <span class="pp-modal__espaco"></span>
+                    <button type="button" class="pp-btn" data-pp-oab-fechar>{{ 'djen.oabs.cancelar'|trans }}</button>
+                    <button type="submit" class="pp-btn pp-btn--verde"><i class="bi bi-check-lg"></i>{{ 'djen.oabs.salvar'|trans }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<script src="{{ asset('js/push-oabs.js') }}"></script>
 {% endblock %}

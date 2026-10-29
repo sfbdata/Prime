@@ -194,6 +194,52 @@ final class DjenControllerTest extends JusPrimeWebTestCase
     }
 
     #[Test]
+    public function editarApelidoDaOabPeloModalSalvaOApelidoEMantemNumeroEUf(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com');
+        $oab = $this->criarOab($tenant, '67228', 'PR');
+        $id = (int) $oab->getId();
+        $this->logarComTenant($client, $gestor, $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/oabs');
+        $botao = $crawler->filter('[data-pp-oab-editar]')->first();
+        self::assertSame('/push-processual/oabs/' . $id . '/apelido', $botao->attr('data-url'));
+
+        $client->request('POST', $botao->attr('data-url'), ['_token' => $botao->attr('data-token'), 'apelido' => 'Dra. Fulana']);
+        self::assertResponseRedirects('/push-processual/oabs');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $salva = $em->find(OabMonitorada::class, $id);
+        self::assertSame('Dra. Fulana', $salva->getApelido());
+        self::assertSame('67228', $salva->getNumero());
+        self::assertSame('PR', $salva->getUf());
+    }
+
+    #[Test]
+    public function editarApelidoComTokenInvalidoNaoMuda(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com');
+        $oab = $this->criarOab($tenant, '67228', 'PR');
+        $id = (int) $oab->getId();
+        $antes = $oab->getApelido();
+        $this->logarComTenant($client, $gestor, $tenant);
+        $this->limparIdentityMap();
+
+        $client->request('POST', '/push-processual/oabs/' . $id . '/apelido', ['_token' => 'invalido', 'apelido' => 'Invasor']);
+        self::assertResponseRedirects('/push-processual/oabs');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame($antes, $em->find(OabMonitorada::class, $id)->getApelido());
+    }
+
+    #[Test]
     public function alternarOabDoProprioTenantComTokenValidoPausa(): void
     {
         // Happy path HTTP do caminho pós-CSRF: o token válido vem do form renderizado.

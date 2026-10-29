@@ -18,6 +18,9 @@ final class MinhasMetasOutput
     /** Teto do "Precisa de atenção" (desenho 04, dc `atencao`: `.slice(0, 4)`), sem "Ver todas". */
     public const TETO_ATENCAO = 4;
 
+    /** Teto do "O que fazer primeiro" do painel BlueJus IA (desenho 04 VS 29.10.26, dc `iaPrio`: `.slice(0, 5)`). */
+    public const TETO_PRIORIDADES = 5;
+
     /**
      * @param GrupoDeMetasOutput[]                                                      $grupos
      * @param array<string, int>                                                        $contagensPorAba
@@ -25,6 +28,7 @@ final class MinhasMetasOutput
      * @param array<string, string>                                                     $filtros
      * @param int[]                                                                     $acompanhadas
      * @param Tarefa[]                                                                  $atencao
+     * @param Tarefa[]                                                                  $prioridades "O que fazer primeiro" do painel BlueJus IA
      * @param array<string, string>                                                     $nomesDasEtapas etapa → nome dado pelo escritório
      */
     public function __construct(
@@ -37,6 +41,7 @@ final class MinhasMetasOutput
         public readonly AndamentoDasMetasOutput $andamento = new AndamentoDasMetasOutput(),
         public readonly array $atencao = [],
         public readonly array $nomesDasEtapas = [],
+        public readonly array $prioridades = [],
     ) {
     }
 
@@ -147,5 +152,13 @@ final class MinhasMetasOutput
     public function estaVazia(): bool
     {
         return $this->grupos === [];
+    }
+
+    /** Dias de hoje até o prazo da meta (negativo = atrasada); nulo sem prazo. Dia do calendário, como o desenho. */
+    public function diasParaOPrazo(Tarefa $meta): ?int
+    {
+        $prazo = $meta->getPrazo();
+
+        return $prazo === null ? null : (int) (new \DateTimeImmutable('today'))->diff($prazo->setTime(0, 0))->format('%r%a');
     }
 }

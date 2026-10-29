@@ -42,9 +42,9 @@
 .pp-exportar { height: 36px; padding: 0 12px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .pp-exportar:hover { border-color: #0a6fa0; color: #0a6fa0; }
 
-.pp-tabela .pp-tabela__corpo--proc { min-width: 1110px; }
+.pp-tabela .pp-tabela__corpo--proc { min-width: 1230px; }
 /* push-processual.css chega depois (a faixa de abas o carrega no corpo): o seletor composto garante a vez. */
-.pp-tabela__corpo--proc .pp-linha.pp-linha--proc { grid-template-columns: minmax(220px, 1.2fr) minmax(200px, 1.3fr) 130px 170px 120px 110px 150px; }
+.pp-tabela__corpo--proc .pp-linha.pp-linha--proc { grid-template-columns: minmax(220px, 1.2fr) minmax(200px, 1.3fr) 130px 170px 120px 110px 270px; }
 .pp-tabela__corpo--proc .pp-linha.pp-linha--proc > span { padding: 10px 8px; min-width: 0; }
 .pp-tabela__corpo--proc .pp-linha--proc.pp-linha--cab > span { padding: 11px 8px; }
 .pp-tabela__corpo--proc .pp-linha.pp-linha--proc > span:first-child { padding-left: 18px; }
@@ -66,8 +66,10 @@
 .pp-tabela__corpo--proc .pp-linha.pp-linha--proc > .pp-c-acoes { padding: 8px 18px; }
 .pp-acao--verde { border-color: #1e7b45; color: #1e7b45; padding: 0 9px; }
 .pp-acao--verde:hover { background: #e9f6ee; border-color: #1e7b45; color: #1e7b45; }
-.pp-acao--link { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; padding: 0 9px; line-height: 28px; }
-.pp-acao { padding: 0 9px; }
+/* Cada botão de ação é uma caixa própria: conteúdo centralizado dentro do quadrado, sem encolher nem quebrar linha. */
+.pp-acao { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; box-sizing: border-box; padding: 0 9px; line-height: 1; white-space: nowrap; }
+.pp-acao--link { gap: 5px; text-decoration: none; }
+.pp-acao > i { line-height: 1; }
 .pp-acao[hidden], [data-pp-selecao-barra][hidden] { display: none; }
 [data-pp-selecao-barra]:not([hidden]) { display: inline-flex; align-items: center; gap: 8px; }
 

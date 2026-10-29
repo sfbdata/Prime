@@ -47,13 +47,25 @@ final class VincularProcessoJanelaTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($janela->attr('hidden'), 'fechada até um [data-vp-abrir] abrir');
         $caixa = $janela->filter('#modalVincularProcesso > .vp-caixa[role="dialog"][aria-modal="true"][aria-labelledby="modalVincularProcessoLabel"]');
         self::assertCount(1, $caixa);
-        self::assertCount(1, $caixa->filter('.vp-caixa > .vp-cab > i.bi-briefcase + b.vp-titulo#modalVincularProcessoLabel + button.mp-fechar[data-vp-fechar]'));
+        self::assertCount(1, $caixa->filter('.vp-caixa > .vp-cab > i.bi-briefcase + b.vp-titulo#modalVincularProcessoLabel + button#mp-ampliar + button.mp-fechar[data-vp-fechar]'));
         self::assertCount(1, $caixa->filter('.vp-caixa > .vp-cab + form#formVincularProcesso.vp-form > .vp-corpo + .vp-rodape'));
 
         $rodape = $caixa->filter('form#formVincularProcesso > .vp-rodape');
         self::assertSame(['Cancelar', 'Vincular processo'], $rodape->children()->each(static fn (Crawler $b): string => trim($b->text())));
         self::assertCount(1, $rodape->filter('.vp-rodape > button.vp-btn.vp-btn--cancelar[data-vp-fechar] + button[type="submit"].vp-btn.vp-btn--ok > i.bi-check2'));
         self::assertCount(0, $janela->filter('.bi-check-lg, .btn, .modal-header, .modal-body, .modal-footer, [data-bs-dismiss], [data-bs-toggle]'), 'nada do Bootstrap');
+    }
+
+    #[TestDox('Lista do processo existente inline (sem position absolute, até 60vh, um rolo só) e botão de ampliar a janela no cabeçalho')]
+    public function testListaInlineEAmpliar(): void
+    {
+        $css = (string) preg_replace('#/\*.*?\*/#s', '', (string) file_get_contents(self::CSS));
+        self::assertSame(1, preg_match('/#modalVincularProcesso \.mp-busca-lista \{([^}]*)\}/', $css, $m));
+        self::assertStringNotContainsString('position: absolute', $m[1]);
+        self::assertStringContainsString('60vh', $m[1]);
+        self::assertStringContainsString('#modalVincularProcesso .vp-caixa.is-ampliada', $css);
+
+        self::assertCount(1, $this->janela()->filter('.vp-cab > button#mp-ampliar.mp-fechar > i.bi-arrows-fullscreen'));
     }
 
     #[TestDox('Sem validação do navegador: form novalidate e nenhum required (o "Preencha: ..." é no clique)')]

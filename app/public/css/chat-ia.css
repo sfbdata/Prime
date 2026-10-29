@@ -28,9 +28,12 @@ button { cursor: pointer; }
 .ci-barra { display: flex; flex-direction: column; width: 280px; flex: 0 0 280px; min-height: 0; padding: 10px 8px; background: var(--ci-fundo-barra); border-right: 1px solid var(--ci-borda); transition: margin-left .2s ease, transform .2s ease; }
 .ci-recolhida .ci-barra { margin-left: -280px; visibility: hidden; }
 .ci-barra-topo { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 8px 8px; }
-.ci-marca { font-weight: 700; font-size: 16px; color: var(--ci-acao-forte); letter-spacing: .2px; }
+.ci-marca { text-decoration: none; font-weight: 700; font-size: 16px; color: var(--ci-acao-forte); letter-spacing: .2px; }
 .ci-item-barra { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--ci-raio); background: transparent; color: var(--ci-texto); text-align: left; font-weight: 600; }
 .ci-item-barra:hover { background: var(--ci-realce); }
+.ci-voltar { text-decoration: none; color: var(--ci-apoio); }
+.ci-voltar:hover { color: var(--ci-texto); }
+.ci-marca:hover { text-decoration: underline; }
 .ci-busca { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; padding: 0 10px; border-radius: var(--ci-raio); color: var(--ci-apoio); }
 .ci-busca:focus-within { background: var(--ci-superficie); box-shadow: 0 0 0 1px var(--ci-borda); }
 .ci-busca input { flex: 1; min-width: 0; height: 34px; border: 0; background: transparent; color: var(--ci-texto); }
