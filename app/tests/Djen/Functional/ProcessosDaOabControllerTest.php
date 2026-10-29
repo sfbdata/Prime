@@ -68,7 +68,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
         $this->limparIdentityMap();
 
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('nav.pp-abas a.pp-aba.is-ativa[data-pp-aba="processos"]'));
@@ -88,10 +88,24 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     }
 
     #[Test]
+    public function aAbaProcessosAbrePorRelacionadosEAsSubAbasSaemNaOrdemAprovada(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+
+        $subabas = $crawler->filter('.pp-subabas > .pp-subaba');
+        self::assertCount(3, $subabas);
+        self::assertStringContainsString('sub=relatorio', $subabas->eq(0)->attr('href'));
+        self::assertStringContainsString('sub=acompanhados', $subabas->eq(1)->attr('href'));
+        self::assertStringContainsString('sub=acervo', $subabas->eq(2)->attr('href'));
+        self::assertSame('pp-subaba is-ativa', $subabas->eq(0)->attr('class'));
+    }
+
+    #[Test]
     public function incluirNumeroSemProcessoGravaEAparece(): void
     {
         [$client, $tenant] = $this->entrar();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-inclusao] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/incluir', ['_token' => $token, 'numero' => '0703333-33.2026.8.07.0002', 'email' => 'a@b.com', 'observacao' => 'Cliente Y']);
@@ -125,7 +139,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $processo = $this->criarProcesso($tenant, self::NUMERO_A);
         $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
         $this->limparIdentityMap();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-inclusao] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/parar', ['_token' => $token, 'numeros' => [self::NUMERO_A]]);
@@ -160,7 +174,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/push-processual/processos?sub=relatorio');
 
         self::assertCount(0, $crawler->filter('.pp-linha--dado'), 'incluído, sai do Relatório');
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         self::assertCount(1, $crawler->filter('.pp-linha--dado'));
     }
 
@@ -172,7 +186,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $this->criarProcesso($tenant, self::NUMERO_A);
         $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
         $this->limparIdentityMap();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-inclusao] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/anotacoes', ['_token' => $token, 'numero' => self::NUMERO_A, 'observacao' => 'Cliente Z', 'area' => 'Cível', 'fase' => 'Recurso protocolado', 'email' => '']);
@@ -183,7 +197,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Cível', $linha);
         self::assertStringContainsString('Recurso protocolado', $linha);
         self::assertStringContainsString('Recursal', $linha, 'o grupo da fase aparece sob o número');
-        $crawler = $client->request('GET', '/push-processual/processos', ['area' => 'Família']);
+        $crawler = $client->request('GET', '/push-processual/processos', ['sub' => 'acompanhados', 'area' => 'Família']);
         self::assertCount(0, $crawler->filter('.pp-linha--dado'));
         self::assertCount(1, $crawler->filter('[data-pp-limpar]'));
     }
@@ -216,7 +230,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
         $this->limparIdentityMap();
 
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
 
         self::assertCount(0, $crawler->filter('.pp-linha--dado'));
     }
@@ -228,7 +242,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $tenant = $this->criarTenant();
         $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, ['modules.djen.view']), $tenant);
 
-        $client->request('GET', '/push-processual/processos');
+        $client->request('GET', '/push-processual/processos?sub=acompanhados');
 
         self::assertResponseRedirects();
     }
@@ -253,7 +267,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
         $this->limparIdentityMap();
 
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         self::assertCount(1, $crawler->filter('.pp-linha--dado'));
         $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
 
@@ -274,7 +288,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     public function incluirDeNovoDesfazOExcluir(): void
     {
         [$client, $tenant] = $this->entrar();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/excluir', ['_token' => $token, 'numero' => self::NUMERO_B]);
@@ -295,7 +309,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     public function excluirRecusaNumeroIncompleto(): void
     {
         [$client] = $this->entrar();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/excluir', ['_token' => $token, 'numero' => '123']);
@@ -335,7 +349,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     {
         [$client, $tenant] = $this->entrar();
         $this->criarProcesso($tenant, self::NUMERO_A);
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-vp-form-busca] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/incluir-cadastrado', ['_token' => $token, 'numero' => self::NUMERO_A]);
@@ -347,7 +361,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     public function incluirCadastradoSemSelecaoAvisa(): void
     {
         [$client] = $this->entrar();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-vp-form-busca] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/incluir-cadastrado', ['_token' => $token, 'numero' => '']);
@@ -359,7 +373,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     public function cadastraProcessoNovoEIncluiNoAcompanhamento(): void
     {
         [$client] = $this->entrar();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-vp-form-novo] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/cadastrar', [
@@ -372,7 +386,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         ]);
 
         self::assertStringContainsString('cadastrado e incluído', $client->followRedirect()->text());
-        $lista = $client->request('GET', '/push-processual/processos');
+        $lista = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         self::assertCount(1, $lista->filter('[data-pp-linha-proc][data-numero="07044444420268070001"]'));
     }
 
@@ -380,7 +394,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     public function cadastrarSemCamposObrigatoriosMostraErro(): void
     {
         [$client] = $this->entrar();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-vp-form-novo] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/cadastrar', ['_token' => $token, 'numeroProcesso' => '0704444-44.2026.8.07.0001']);
@@ -394,7 +408,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     public function botaoBuscarApontaParaARotaDaAbaEComToken(): void
     {
         [$client] = $this->entrar();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
 
         self::assertCount(1, $crawler->filter('.pp-topo form[data-pp-buscar][action="/push-processual/processos/buscar"] input[name="_token"]'));
     }
@@ -403,7 +417,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     public function buscarSemOabAtivaAvisaEVaiParaAsOabs(): void
     {
         [$client] = $this->entrar();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-buscar] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/buscar', ['_token' => $token]);
@@ -437,12 +451,12 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         static::getContainer()->set(DjenClient::class, $mock);
         $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
         $this->limparIdentityMap();
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
         $token = $crawler->filter('[data-pp-buscar] input[name="_token"]')->attr('value');
 
         $client->request('POST', '/push-processual/processos/buscar', ['_token' => $token]);
 
-        self::assertResponseRedirects('/push-processual/processos');
+        self::assertResponseRedirects('/push-processual/processos?sub=acompanhados');
         self::assertMatchesRegularExpression('#Busca concluída: [1-9]\d* processos encontrados para 67228/PR\.#', $client->followRedirect()->text());
         self::assertNotEmpty($consultas);
         self::assertSame((new \DateTimeImmutable('today -89 days'))->format('Y-m-d'), $consultas[0]->dataDisponibilizacaoInicio->format('Y-m-d'));
