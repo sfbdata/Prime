@@ -39,7 +39,11 @@
     --db-ia-icone-brilho:   rgba(21,151,189,.25);
     --db-ia-halo:           radial-gradient(circle, rgba(21,151,189,.16), transparent 65%);
     /* botão do cabeçalho (iaBtnStyle, dc L2652) */
-    --db-ia-btn-bg:         linear-gradient(180deg, #ffffff, #f4f9fb);
+    --db-ia-btn-bg:         linear-gradient(180deg, #ffffff, #f1f8fc);
+    --db-ia-btn-borda:      #cfe3f0;
+    --db-ia-btn-borda-hover: #7fb3d1;
+    --db-ia-marca-texto:    #0b3550;
+    --db-ia-marca-jus:      #2a9fd6;
     --db-ia-btn-bg-hover:   linear-gradient(180deg, #ffffff, #eef7fb);
     --db-ia-btn-anel:       rgba(12,122,156,.18);
     --db-ia-btn-anel-hover: rgba(12,122,156,.35);
@@ -47,6 +51,228 @@
     --db-ia-btn-sombra-hover: 0 8px 20px -10px rgba(21,151,189,.6);
     --db-ia-alerta-ponto:   #d6921e;
     /* balão da dica do botão (iaDicaStyle, dc L2707-2709) */
+    --db-ia-dica-bg:        #e9f5f9;
+    --db-ia-dica-texto:     #0b6a88;
+    --db-ia-dica-anel:      #cfe7ef;
+    --db-ia-dica-sombra:    0 8px 18px -10px rgba(12,90,130,.45);
+    --db-ia-dica-alerta-bg:     #fdf3e1;
+    --db-ia-dica-alerta-texto:  #7a4c05;
+    --db-ia-dica-alerta-anel:   #f0dcb4;
+    --db-ia-dica-alerta-sombra: 0 8px 18px -10px rgba(160,110,20,.45);
+    /* interruptor do Modo avançado (dc L2575) */
+    --db-ia-switch-off:     #cfd9e0;
+    --db-ia-switch-on:      linear-gradient(90deg, #1597bd, #0a6fa0);
+    --db-ia-switch-pill-bg: rgba(12,122,156,.08);
+    --db-ia-switch-pill-bg-hover: rgba(12,122,156,.15);
+    --db-ia-switch-pill-texto: #0b5a78;
+    /* confirmação "Ativar Modo Avançado?" e cartão "Conhecer o Modo avançado" (dc L941-959, L1412-1418) */
+    --db-ia-confirma-veu:     rgba(14,37,51,.32);
+    --db-ia-confirma-bg:      #fff;
+    --db-ia-confirma-sombra:  0 30px 60px -24px rgba(12,48,72,.5);
+    --db-ia-confirma-titulo:  #0e2533;
+    --db-ia-confirma-texto:   #4f6878;
+    --db-ia-confirma-rotulo:  #7b93a2;
+    --db-ia-confirma-item:    #1d3a4a;
+    --db-ia-confirma-check:   #14784a;
+    --db-ia-confirma-nao-bg:  #eef3f6;
+    --db-ia-confirma-nao-bg-hover: #e3ebf0;
+    --db-ia-confirma-nao-texto: #34505f;
+    --db-ia-azul-grad:        #0a6fa0;
+    --db-ia-confirma-sim-sombra: 0 8px 18px -10px rgba(15,111,196,.7);
+    --db-ia-teaser-sombra:    0 12px 26px -16px rgba(15,111,196,.8);
+    --db-ia-teaser-sombra-hover: 0 16px 30px -16px rgba(15,111,196,.9);
+    /* ícones das três perguntas (dc L2725-2727) */
+    --db-ia-q-oque-bg:      #e9f5f9;  --db-ia-q-oque:   #0a6fa0;
+    --db-ia-q-porque-bg:    #eef1fb;  --db-ia-q-porque: #3d5bb5;
+    --db-ia-q-fazer-bg:     #fdf3e1;  --db-ia-q-fazer:  #a8670c;
+    /* níveis dos alertas (NIVEIS, bluejus-avancado.js L6-12) */
+    --db-ia-critico:        #b0302a;  --db-ia-critico-bg:      #fdeceb;
+    --db-ia-atencao:        #b4560f;  --db-ia-atencao-bg:      #fdf0e4;
+    --db-ia-monitorar:      #8a6a06;  --db-ia-monitorar-bg:    #fbf5dc;
+    --db-ia-normal:         #14784a;  --db-ia-normal-bg:       #e6f6ee;
+    --db-ia-oportunidade:   #0a6fa0;  --db-ia-oportunidade-bg: #e8f1fb;
+    /* riscos por nível (dc L2742) e grupos de ação (dc L2745-2746) */
+    --db-ia-risco-3:        #b0302a;
+    --db-ia-risco-2:        #c98414;
+    --db-ia-risco-1:        #7b93a2;
+    --db-ia-acao-imediata:  #b0302a;
+    --db-ia-acao-acomp:     #7b93a2;
+    --db-ia-acao-recom:     #0a6fa0;
+    /* barras */
+    --db-ia-barra-fill:     linear-gradient(90deg, #1597bd, #0a6fa0);
+    --db-ia-dist-ativas:    linear-gradient(90deg, rgba(12,122,156,.55), #0a6fa0);
+    --db-ia-dist-vencidas:  #c0392f;
+    --db-ia-dist-media:     #34505f;
+    --db-ia-qual-alta:      linear-gradient(90deg, #1f9d61, #14784a);
+    --db-ia-qual-media:     linear-gradient(90deg, #d9a21b, #b4800c);
+    --db-ia-qual-baixa:     linear-gradient(90deg, #d0573c, #b0302a);
+    --db-ia-pergunta-bg:    #fff;
+    --db-ia-pergunta-anel:  #cfe2ea;
+    --db-ia-pergunta-texto: #0b5a78;
+    --db-ia-resposta-anel:  #e1eaf0;
+    --db-ia-ease:           cubic-bezier(.22,.8,.3,1);
+}
+
+[data-bs-theme="dark"] .db-page {
+    --db-ia-painel-bg:      var(--bs-body-bg);
+    --db-ia-painel-sombra:  -24px 0 60px -30px rgba(0,0,0,.8);
+    --db-ia-veu:            rgba(0,0,0,.45);
+    --db-ia-bloco-bg:       var(--bs-tertiary-bg);
+    --db-ia-bloco-borda:    var(--bs-border-color);
+    --db-ia-bloco-sombra:   0 1px 2px rgba(0,0,0,.35);
+    --db-ia-mini-bg:        var(--bs-secondary-bg);
+    --db-ia-suave-bg:       var(--bs-secondary-bg);
+    --db-ia-como-bg:        var(--bs-secondary-bg);
+    --db-ia-rodape-bg:      var(--bs-tertiary-bg);
+    --db-ia-divisor:        var(--bs-border-color);
+    --db-ia-divisor-fraco:  var(--bs-border-color-translucent);
+    --db-ia-trilho:         var(--bs-secondary-bg);
+    --db-ia-chip-bg:        rgba(255,255,255,.08);
+    --db-ia-chip-texto:     var(--bs-body-color);
+    --db-ia-icone-bg:       rgba(79,179,212,.14);
+    --db-ia-icone-anel:     rgba(79,179,212,.35);
+    --db-ia-icone-brilho:   rgba(79,179,212,.2);
+    --db-ia-halo:           radial-gradient(circle, rgba(79,179,212,.12), transparent 65%);
+    --db-ia-btn-bg:         var(--bs-tertiary-bg);
+    --db-ia-btn-borda:      var(--bs-border-color);
+    --db-ia-btn-borda-hover: var(--db-accent);
+    --db-ia-marca-texto:    var(--db-text-strong);
+    --db-ia-marca-jus:      var(--db-accent);
+    --db-ia-btn-bg-hover:   var(--bs-secondary-bg);
+    --db-ia-btn-anel:       var(--bs-border-color);
+    --db-ia-btn-anel-hover: var(--db-accent);
+    --db-ia-btn-sombra:     none;
+    --db-ia-btn-sombra-hover: none;
+    --db-ia-dica-bg:        rgba(79,179,212,.16);
+    --db-ia-dica-texto:     var(--db-accent-text);
+    --db-ia-dica-anel:      rgba(79,179,212,.35);
+    --db-ia-dica-sombra:    0 8px 18px -10px rgba(0,0,0,.7);
+    --db-ia-dica-alerta-bg:     rgba(214,146,30,.18);
+    --db-ia-dica-alerta-texto:  #e9be6c;
+    --db-ia-dica-alerta-anel:   rgba(214,146,30,.4);
+    --db-ia-dica-alerta-sombra: 0 8px 18px -10px rgba(0,0,0,.7);
+    --db-ia-switch-off:     rgba(255,255,255,.22);
+    --db-ia-switch-pill-bg: rgba(79,179,212,.14);
+    --db-ia-switch-pill-bg-hover: rgba(79,179,212,.22);
+    --db-ia-switch-pill-texto: var(--db-accent-text);
+    --db-ia-confirma-veu:     rgba(0,0,0,.5);
+    --db-ia-confirma-bg:      var(--bs-body-bg);
+    --db-ia-confirma-sombra:  0 30px 60px -24px rgba(0,0,0,.85);
+    --db-ia-confirma-titulo:  var(--db-text-strong);
+    --db-ia-confirma-texto:   var(--db-label);
+    --db-ia-confirma-rotulo:  var(--db-faint);
+    --db-ia-confirma-item:    var(--bs-body-color);
+    --db-ia-confirma-check:   #6ddaa2;
+    --db-ia-confirma-nao-bg:  rgba(255,255,255,.08);
+    --db-ia-confirma-nao-bg-hover: rgba(255,255,255,.14);
+    --db-ia-confirma-nao-texto: var(--bs-body-color);
+    --db-ia-confirma-sim-sombra: none;
+    --db-ia-teaser-sombra:    0 12px 26px -16px rgba(0,0,0,.8);
+    --db-ia-teaser-sombra-hover: 0 16px 30px -16px rgba(0,0,0,.9);
+    --db-ia-q-oque-bg:      rgba(79,179,212,.14);  --db-ia-q-oque:   var(--db-accent);
+    --db-ia-q-porque-bg:    rgba(99,130,220,.18);  --db-ia-q-porque: #9fb2f0;
+    --db-ia-q-fazer-bg:     rgba(214,146,30,.18);  --db-ia-q-fazer:  #e9be6c;
+    --db-ia-critico:        #f08a84;  --db-ia-critico-bg:      rgba(192,57,47,.2);
+    --db-ia-atencao:        #f0a86a;  --db-ia-atencao-bg:      rgba(180,86,15,.2);
+    --db-ia-monitorar:      #e9c95c;  --db-ia-monitorar-bg:    rgba(138,106,6,.22);
+    --db-ia-normal:         #6ddaa2;  --db-ia-normal-bg:       rgba(31,157,97,.2);
+    --db-ia-oportunidade:   #7cbcf2;  --db-ia-oportunidade-bg: rgba(15,111,196,.22);
+    --db-ia-risco-3:        #f08a84;
+    --db-ia-risco-2:        #e9be6c;
+    --db-ia-risco-1:        var(--bs-secondary-color);
+    --db-ia-acao-imediata:  #c0392f;
+    --db-ia-acao-acomp:     #5f7684;
+    --db-ia-acao-recom:     #0a6fa0;
+    --db-ia-dist-media:     var(--bs-body-color);
+    --db-ia-pergunta-bg:    var(--bs-tertiary-bg);
+    --db-ia-pergunta-anel:  var(--bs-border-color);
+    --db-ia-pergunta-texto: var(--db-accent-text);
+    --db-ia-resposta-anel:  var(--bs-border-color);
+}
+
+/* ── Botão no cabeçalho ──────────────────────────────────────────────────────
+   Filho direto de [data-filtro-resultado] (display:contents): participa do flex
+   do root com order 0 e vai para a ponta direita da primeira linha, ao lado do
+   título e do "Atualizado às" (dc L197: à direita do título). */
+.db-page .db-ia {
+    order: 0;
+    flex: 0 0 auto;
+    margin: 0 0 18px auto;
+    position: relative;
+}
+/* Botão do desenho 29.10.26 (dc L216): 46px, borda 1px, raio 5px; hover escala 1.05. Dentro dele, o nome
+   "BlueJus" é digitado, o símbolo entra e vira o selo "IA". Painel aberto = botão recolhido (mini). */
+.db-page .db-ia-abrir {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 0;
+    height: 46px;
+    padding: 0 11px 0 16px;
+    border: 1px solid var(--db-ia-btn-borda);
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    background: var(--db-ia-btn-bg);
+    box-shadow: 0 1px 2px rgba(10,111,160,.12), inset 0 1px 0 #fff;
+    transition: padding .5s cubic-bezier(.4,0,.2,1), transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s, border-color .2s;
+}
+.db-page .db-ia-abrir:hover,
+.db-page .db-ia-abrir:focus-visible {
+    transform: scale(1.05);
+    border-color: var(--db-ia-btn-borda-hover);
+    box-shadow: 0 6px 16px rgba(10,111,160,.2), inset 0 1px 0 #fff;
+    outline: none;
+}
+.db-page .db-ia-abrir:focus-visible { box-shadow: 0 6px 16px rgba(10,111,160,.2), var(--db-focus); }
+.db-page .db-ia-nome {
+    display: flex;
+    align-items: center;
+    max-width: 120px;
+    overflow: hidden;
+    padding-right: 9px;
+    transition: max-width .5s cubic-bezier(.4,0,.2,1), opacity .35s, padding .5s;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    color: var(--db-ia-marca-texto);
+    line-height: 1;
+    white-space: nowrap;
+}
+.db-page .db-ia-letra { opacity: 0; animation: dbIaLetra .01s linear forwards; }
+.db-page .db-ia-letra--jus { color: var(--db-ia-marca-jus); }
+.db-page .db-ia-caret {
+    display: inline-block;
+    width: 2px;
+    height: 19px;
+    margin-left: 2px;
+    background: #1fa6cc;
+    animation: dbIaCaret .55s steps(1) 0s 4, dbIaSome2 .2s linear 2.2s forwards;
+}
+.db-page .db-ia-marca { position: relative; width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; }
+.db-page .db-ia-simbolo {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    animation: dbIaLogo .8s cubic-bezier(.2,.9,.25,1.2) .95s both, dbIaSome .45s ease 2.1s forwards;
+}
+.db-page .db-ia-emblema { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; animation: dbIaVem .5s cubic-bezier(.2,.9,.25,1.25) 2.2s forwards; }
+.db-page .db-ia-emblema-traco { stroke-dasharray: 70; stroke-dashoffset: 70; animation: dbIaTraco .7s ease-out 2.3s forwards; }
+/* painel aberto: o nome recolhe e o selo dá um pulo */
+.db-page .db-ia:has(#dbIaPainel:popover-open) .db-ia-abrir { padding: 0 5px; }
+.db-page .db-ia:has(#dbIaPainel:popover-open) .db-ia-nome { max-width: 0; opacity: 0; padding-right: 0; }
+.db-page .db-ia:has(#dbIaPainel:popover-open) .db-ia-emblema svg { animation: dbIaMini .6s cubic-bezier(.2,.9,.25,1.3); }
+@keyframes dbIaLetra { to { opacity: 1; } }
+@keyframes dbIaCaret { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes dbIaSome2 { to { opacity: 0; width: 0; margin-left: 0; } }
+@keyframes dbIaSome  { to { opacity: 0; transform: scale(.5) rotate(40deg); } }
+@keyframes dbIaVem   { 0% { opacity: 0; transform: scale(.4) rotate(-20deg); } 100% { opacity: 1; transform: none; } }
+@keyframes dbIaTraco { to { stroke-dashoffset: 0; } }
+@keyframes dbIaLogo  { 0% { opacity: 0; transform: scale(.4) rotate(-120deg); } 70% { opacity: 1; transform: scale(1.08) rotate(8deg); } 100% { transform: none; } }
+@keyframes dbIaMini  { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-8deg); } 100% { transform: none; } }
+/* balão da dica do botão (iaDicaStyle, dc L2707-2709) */
     --db-ia-dica-bg:        #e9f5f9;
     --db-ia-dica-texto:     #0b6a88;
     --db-ia-dica-anel:      #cfe7ef;
@@ -252,7 +478,6 @@
 
 /* estrela (SVG do desenho): órbita, pulso e pontos que piscam */
 .db-page .db-ia-estrela { display: flex; filter: drop-shadow(0 0 2px rgba(21,151,189,.3)); transition: transform .35s cubic-bezier(.34,1.56,.64,1), filter .35s ease; }
-.db-page .db-ia-abrir:hover .db-ia-estrela { transform: scale(1.18) rotate(18deg); filter: drop-shadow(0 0 6px rgba(21,151,189,.75)); }
 .db-page .db-ia-estrela-svg { overflow: visible; display: block; }
 .db-page .db-ia-estrela-orbita { transform-box: view-box; transform-origin: 12px 12px; animation: dbIaOrbita 14s linear infinite; }
 .db-page .db-ia-estrela-anel { stroke: rgba(21,151,189,.38); stroke-width: 1; stroke-dasharray: 1.4 3.2; }
@@ -671,6 +896,10 @@
 /* ── Movimento reduzido e impressão ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
     .db-page .db-ia *, .db-page .db-ia *::before, .db-page .db-ia *::after { animation: none !important; transition: none !important; }
+    .db-page .db-ia-letra { opacity: 1; }
+    .db-page .db-ia-caret, .db-page .db-ia-simbolo { display: none; }
+    .db-page .db-ia-emblema { opacity: 1; }
+    .db-page .db-ia-emblema-traco { stroke-dashoffset: 0; }
 }
 @media print {
     .db-page .db-ia { display: none !important; }
