@@ -454,6 +454,26 @@ final class ChatIaTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contarNoBanco("SELECT count(*) FROM chat_ia_mensagem WHERE papel = 'assistente' AND NOT substituida"), 'só a nova aparece na conversa');
     }
 
+    #[TestDox('Regenerar ignora o pastaId do corpo: a pasta é a da pergunta guardada')]
+    public function testRegenerarIgnoraAPastaDoCorpo(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->darAcessoDeLeitura($ana, $tenant, $pasta);
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->novaConversa($client);
+        $this->provedorFalso()->transmitirTrechos(['Primeira']);
+        $this->provedorFalso()->responderCom('Titulo');
+        $this->enviarTexto($client, $id, ['texto' => 'Pergunta sem pasta']);
+
+        $this->provedorFalso()->transmitirTrechos(['Outra']);
+        $this->enviarTexto($client, $id, ['regenerar' => true, 'pastaId' => (int) $pasta->getId()]);
+
+        self::assertResponseIsSuccessful();
+        $ultima = $this->provedorFalso()->ultimoPedido()?->mensagens ?? [];
+        self::assertStringNotContainsString('<pasta>', end($ultima)['conteudo'] ?? '', 'regenerar não puxa o contexto de uma pasta que a pergunta não tinha');
+    }
+
     #[TestDox('Editar a última pergunta sem reenviar pasta nem anexos MANTÉM os dois; reenviar anexoIds vazio os remove')]
     public function testEditarUltimaMantemPastaEAnexos(): void
     {

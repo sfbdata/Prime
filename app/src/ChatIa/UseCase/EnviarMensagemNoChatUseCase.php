@@ -88,7 +88,7 @@ final class EnviarMensagemNoChatUseCase
         $this->teto->conferirODia($eu, $tenant);
 
         $plano = $this->planejar($conversa, $tenant, $input);
-        $pasta = $this->lerAPasta($eu, $tenant, $input->pastaId ?? $plano['pastaId']);
+        $pasta = $this->lerAPasta($eu, $tenant, $input->regenerar ? $plano['pastaId'] : ($input->pastaId ?? $plano['pastaId']));
         $anexos = $this->anexosDoEnvio($eu, $tenant, $conversa, $input, $plano);
         $primeiraResposta = $conversa->getTitulo() === null;
 

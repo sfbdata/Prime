@@ -39,7 +39,11 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
    Regenerar/editar NÃO apaga o custo: a resposta trocada vira registro (`substituida`, sem texto, com modelo e tokens), fora da
    conversa e do histórico mas dentro da soma do teto diário. Anexos de perguntas anteriores seguem no pedido (os mais recentes
    que couberem em 3 arquivos e 20 MB). Editar a última pergunta MANTÉM pasta e anexos dela, salvo se o cliente reenviar `pastaId`/`anexoIds` (valem esses,
-   validados como numa pergunta nova); regenerar sempre mantém.
+   validados como numa pergunta nova); regenerar sempre mantém (ignora `pastaId` e `anexoIds` do corpo).
+   LIMITES ACEITOS (revisão de 29/10): excluir a conversa apaga as mensagens e o custo delas sai da soma do teto diário (só o
+   limiter `inteligencia_solicitar` segura quem apaga para voltar a gastar); regenerar/editar trocam a resposta antes de o
+   provedor responder, então uma falha sem texto deixa a resposta antiga perdida; o teto diário é conferido uma vez por envio,
+   e envios em paralelo passam pela mesma soma (cada resposta tem `max_tokens` 2000).
 8. **Título**: automático depois da primeira resposta (`completar`, 24 tokens, Haiku; fallback = início da pergunta); renomear
    à mão (`tituloManual`) vale sobre ele.
 9. **Teste**: o provedor é o `ProvedorFalso` (`tests/Inteligencia/Support`), também em fluxo. Nenhuma chamada real à API.
