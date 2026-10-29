@@ -16,7 +16,7 @@ namespace App\Master\Exception;
 final class OperacaoDeMasterRecusada extends \DomainException
 {
     public const RECUSA_SO_PRIMARIO = 'Só o Master primário pode promover ou remover Masters.';
-    public const RECUSA_OUTRO_ESCRITORIO = 'Entre no escritório do usuário secundário para promovê-lo a Master.';
+    public const RECUSA_OUTRO_ESCRITORIO = 'Entre no escritório do usuário para promovê-lo a Master.';
     public const RECUSA_SEM_ESCOLHA = 'Escolha um usuário cadastrado.';
     public const RECUSA_CONTA_DESATIVADA = 'A conta deste usuário está desativada.';
     public const RECUSA_JA_MASTER = 'Este usuário já é Master.';

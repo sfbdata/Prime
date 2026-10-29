@@ -402,7 +402,7 @@ master:
         removido: '"{nome}" deixou de ser {papel}.'
         recusa:
             so_primario: Só o Master primário pode promover ou remover Masters.
-            outro_escritorio: Entre no escritório do usuário secundário para promovê-lo a Master.
+            outro_escritorio: Entre no escritório do usuário para promovê-lo a Master.
             sem_escolha: Escolha um usuário cadastrado.
             conta_desativada: A conta deste usuário está desativada.
             ja_master: Este usuário já é Master.
@@ -1128,7 +1128,7 @@ master:
         # quem abre a confirmação (EXCLUIR, que não se traduz).
         masters:
             digite: 'Digite {palavra} para confirmar'
-            escolha: Escolha um usuário secundário cadastrado.
+            escolha: Escolha um usuário cadastrado.
             promover_titulo: 'Promover a {papel}'
             promover_botao: Confirmar promoção
             promover_texto: '"{nome}" passará a ter todos os poderes do sistema (contas, limites, planos, configurações e auditoria), como {papel} secundário. Ele não poderá excluir o {papel} primário.'

@@ -199,6 +199,21 @@ final class MastersDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertContains('ROLE_SUPER_ADMIN', $this->recarregar($outroMaster)->getRoles());
     }
 
+    #[TestDox('Master secundário não promove nem o primário do escritório: só o Master primário promove')]
+    public function testSecundarioNaoPromoveOPrimarioDoEscritorio(): void
+    {
+        $secundario = $this->usuario('Master Secundário', ['ROLE_SUPER_ADMIN']);
+        $this->vincular($secundario, $this->escritorio, sistema: false);
+        $alvo = $this->usuario('Paulo Primário', ['ROLE_USER']);
+        $this->vincular($alvo, $this->escritorio, sistema: true);
+        $this->entrar($secundario);
+
+        $this->client->request('POST', '/master/masters/promover', ['_token' => 'TOKEN_master_promover', 'usuario' => $alvo->getId()]);
+
+        self::assertResponseRedirects('/master#aba=perm');
+        self::assertNotContains('ROLE_SUPER_ADMIN', $this->recarregar($alvo)->getRoles());
+    }
+
     #[TestDox('usuário comum (primário de escritório) recebe 403 nos dois POST')]
     public function testUsuarioComumRecebe403(): void
     {

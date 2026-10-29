@@ -95,10 +95,10 @@ Bloco "Masters do sistema · N Master(s)", uma linha por Master, primário prime
 - secundário, **só para quem vê é o primário**: lixeira, title "Remover este Master", abre a confirmação.
 
 Rodapé "Promover a Master" (**só para o primário**): select "Escolha um usuário da conta *" (M5) com
-opções "Nome · Perfil"; ao lado, info "Precisa estar cadastrado antes como usuário secundário." (ou
+opções "Nome · Perfil"; ao lado, info "Precisa estar cadastrado antes como usuário da conta." (ou
 "e-mail · OAB n/UF" / "e-mail · sem OAB" do escolhido); botão "Promover" (`bi-stars`, `#7a3e8f`). Mensagem
 padrão: "Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e
-remoção vai para a auditoria." Sem escolha: "Escolha um usuário secundário cadastrado." em vermelho.
+remoção vai para a auditoria." Sem escolha: "Escolha um usuário cadastrado." em vermelho.
 
 Confirmações (modal interno, como `perfis.js`, botões "Cancelar" + ação):
 
