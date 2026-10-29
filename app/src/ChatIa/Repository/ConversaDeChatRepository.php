@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\ChatIa\Repository;
 
 use App\ChatIa\Entity\ConversaDeChat;
+use App\ChatIa\Enum\OrigemDaConversa;
 use App\ChatIa\Entity\MensagemDeChat;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -36,6 +37,21 @@ class ConversaDeChatRepository extends ServiceEntityRepository
             ->setParameter('id', $id)
             ->setParameter('tenant', $tenant)
             ->setParameter('dono', $dono)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** A conversa importada do histórico da Central, se esta pessoa já a tem (no máximo uma). */
+    public function importadaDoDono(Tenant $tenant, User $dono): ?ConversaDeChat
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.usuario = :dono')
+            ->andWhere('c.origem = :origem')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('dono', $dono)
+            ->setParameter('origem', OrigemDaConversa::Importada)
+            ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
     }
