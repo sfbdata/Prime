@@ -378,7 +378,7 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#modalVincularProcesso.modal, #modalVincularProcesso .modal-dialog'));
 
         self::assertSame('Vincular processo', trim($modal->filter('.vp-cab > b.vp-titulo > #mp-titulo-texto')->text()));
-        self::assertCount(1, $modal->filter('.vp-cab > i.bi-briefcase + b.vp-titulo + button.mp-fechar[data-vp-fechar] > i.bi-x-lg'));
+        self::assertCount(1, $modal->filter('.vp-cab > i.bi-briefcase + b.vp-titulo + button#mp-ampliar + button.mp-fechar[data-vp-fechar] > i.bi-x-lg'));
         $abas = $modal->filter('.vp-form > .vp-corpo > .mp-abas');
         self::assertCount(1, $abas);
         self::assertSame(['Buscar processo existente', 'Cadastrar novo (CNJ)'], $abas->filter('.mp-abas > button.mp-aba')->each(static fn (Crawler $l): string => trim($l->text())));

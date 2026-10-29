@@ -139,6 +139,7 @@
 
 /* Busca de processo existente (N:299-302): input com seta, lista de até 8 e o escolhido. */
 #modalVincularProcesso .mp-busca { position: relative; }
+#modalVincularProcesso .mp-ampliar { margin-right: 6px; }
 /* Partes da janela que o JS liga e desliga pelo atributo `hidden` (no lugar do d-none do Bootstrap): o
    display:flex/grid das classes acima não pode reacender o que está escondido. */
 #modalVincularProcesso [hidden] { display: none !important; }
@@ -146,19 +147,19 @@
 #modalVincularProcesso .mp-busca-input { padding-right: 32px; }
 #modalVincularProcesso .mp-busca-seta { position: absolute; right: 11px; top: 11px; font-size: 11px; line-height: 1; color: #5b7383; pointer-events: none; }
 #modalVincularProcesso .mp-busca-lista {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(100% + 4px);
-    z-index: 5;
-    max-height: 260px;
+    /* Inline no corpo (pedido de 29/10, desvio do desenho que a flutua): um só rolo, o da própria lista. */
+    margin-top: 6px;
+    max-height: max(160px, min(60vh, calc(100vh - 420px)));
     overflow: auto;
     padding: 4px;
     background: #fff;
     border: 1px solid #d3dde4;
     border-radius: 4px;
-    box-shadow: 0 10px 26px rgba(16, 42, 58, .16);
 }
+/* Janela ampliada: quase a tela toda; a lista toma a altura que sobra. */
+#modalVincularProcesso .vp-caixa.is-ampliada { width: 100%; height: calc(100vh - 32px); }
+#modalVincularProcesso .vp-caixa.is-ampliada .vp-form { min-height: 0; }
+#modalVincularProcesso .vp-caixa.is-ampliada .mp-busca-lista { max-height: calc(100vh - 380px); }
 #modalVincularProcesso .mp-busca-lista[hidden] { display: none; }
 #modalVincularProcesso .mp-busca-item {
     width: 100%;

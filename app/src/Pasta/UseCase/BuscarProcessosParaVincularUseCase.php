@@ -34,7 +34,7 @@ use App\Service\PermissionChecker;
  */
 final class BuscarProcessosParaVincularUseCase
 {
-    public const LIMITE = 8;
+    public const LIMITE = 30;
 
     public function __construct(
         private readonly ProcessoRepository $processoRepository,

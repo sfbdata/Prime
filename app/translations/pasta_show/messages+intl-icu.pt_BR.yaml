@@ -116,6 +116,7 @@ pasta_show:
         ja_cadastrado: Processo já cadastrado
         busca_placeholder: Digite número, classe, assunto ou tribunal…
         trocar: Trocar
+        ampliar: Ampliar a janela
         busque_dica: Busque por número, classe, assunto ou tribunal e selecione um processo do escritório.
         aba_informacoes: Informações
         aba_partes: Partes
@@ -305,6 +306,8 @@ pasta_show:
             desvincular_pergunta: Desvincular o processo desta pasta?
             erro_desvincular: Erro ao desvincular processo.
             erro_principal: Erro ao definir o processo principal.
+            ampliar_janela: Ampliar a janela
+            reduzir_janela: Reduzir a janela
             nenhum_encontrado: 'Nenhum processo encontrado. Use "Cadastrar novo (CNJ)".'
             buscando: Buscando…
             buscar_cnj: Buscar no CNJ
