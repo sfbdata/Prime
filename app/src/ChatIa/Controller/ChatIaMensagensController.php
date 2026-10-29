@@ -68,7 +68,11 @@ final class ChatIaMensagensController extends AbstractController
     {
         $resposta = new StreamedResponse(function () use ($preparada): void {
             ignore_user_abort(true);
-            set_time_limit(300);   // o limite padrão do FPM (30s) cortaria respostas longas do Opus
+            // O limite padrão do FPM (30s) cortaria respostas longas do Opus. Fora da CLI: lá o limite vale para o
+            // processo inteiro (worker do ParaTest) e o set_time_limit mataria a suíte depois de 300s acumulados.
+            if (PHP_SAPI !== 'cli') {
+                set_time_limit(300);
+            }
             try {
                 foreach ($this->transmitir->executar($preparada, static fn (): bool => connection_aborted() === 1) as $evento) {
                     $this->escritor->escrever($evento['evento'], $evento['dados']);
