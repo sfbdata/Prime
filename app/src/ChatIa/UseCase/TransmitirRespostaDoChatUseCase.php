@@ -112,13 +112,18 @@ final class TransmitirRespostaDoChatUseCase
             'conversaId' => $preparada->conversa->getId(),
             'erro' => $e::class,
             'transitoria' => $transitoria,
+            'motivo' => $e->getMessage(), // saneada pelo provedor: só tipo, status e id da requisição, nunca corpo nem texto
         ]);
 
         return $e instanceof ProvedorIndisponivelException
             ? $this->evento('erro', ['codigo' => 'sem_chave', 'mensagem' => 'A IA ainda não está conectada.'])
             : $this->evento('erro', [
                 'codigo' => 'falha_do_provedor',
-                'mensagem' => $transitoria ? 'A IA está sobrecarregada agora. Tente de novo em instantes.' : 'Não consegui responder agora. Tente de novo.',
+                'mensagem' => match (true) {
+                    $e->deRede => 'A IA demorou demais para responder. Tente de novo.',
+                    $transitoria => 'A IA está sobrecarregada agora. Tente de novo em instantes.',
+                    default => 'Não consegui responder agora. Tente de novo.',
+                },
             ]);
     }
 

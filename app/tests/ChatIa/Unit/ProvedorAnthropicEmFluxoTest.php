@@ -84,6 +84,7 @@ final class ProvedorAnthropicEmFluxoTest extends TestCase
             self::fail('Deveria lançar.');
         } catch (FalhaDoProvedorException $e) {
             self::assertSame($transitoria, $e->transitoria);
+            self::assertFalse($e->deRede, 'Erro de status do provedor não é falha de rede (a tela diz "sobrecarregada").');
             self::assertStringContainsString((string) $status, $e->getMessage());
             self::assertStringNotContainsString(self::CHAVE, $e->getMessage());
             self::assertStringNotContainsString(self::SEGREDO, $e->getMessage());
@@ -102,6 +103,7 @@ final class ProvedorAnthropicEmFluxoTest extends TestCase
             self::fail('Deveria lançar.');
         } catch (FalhaDoProvedorException $e) {
             self::assertTrue($e->transitoria);
+            self::assertTrue($e->deRede, 'Falha de transporte vira "demorou demais" na tela.');
             self::assertStringNotContainsString(self::CHAVE, $e->getMessage());
             self::assertNull($e->getPrevious());
         }

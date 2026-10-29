@@ -209,14 +209,14 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem, ProvedorDeLinguage
         try {
             foreach ($this->httpClient->stream($resposta) as $parte) {
                 if ($parte->isTimeout()) {
-                    throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: o fluxo ficou sem dados até o limite de tempo.', $requisicao), true);
+                    throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: o fluxo ficou sem dados até o limite de tempo.', $requisicao), true, deRede: true);
                 }
                 foreach ($leitor->alimentar($parte->getContent()) as $trecho) {
                     yield $trecho;
                 }
             }
         } catch (ExcecaoDeHttp $e) {
-            throw new FalhaDoProvedorException(sprintf('Anthropic: falha de comunicação no fluxo (%s).', (new \ReflectionClass($e))->getShortName()), true);
+            throw new FalhaDoProvedorException(sprintf('Anthropic: falha de comunicação no fluxo (%s).', (new \ReflectionClass($e))->getShortName()), true, deRede: true);
         }
         $this->conferirOFim($leitor, $requisicao);
 
@@ -264,7 +264,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem, ProvedorDeLinguage
             throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: o modelo recusou responder a este pedido.', $requisicao), false);
         }
         if (!$leitor->terminou()) {
-            throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: o fluxo terminou antes do fim da mensagem.', $requisicao), true);
+            throw new FalhaDoProvedorException($this->comRequisicao('Anthropic: o fluxo terminou antes do fim da mensagem.', $requisicao), true, deRede: true);
         }
     }
 
@@ -290,7 +290,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem, ProvedorDeLinguage
             $cabecalhos = $resposta->getHeaders(false);
         } catch (ExcecaoDeHttp $e) {
             // Rede, DNS, TLS ou timeout: nada disso depende do pedido — tenta de novo. Sem encadear `$e` (ver docblock).
-            throw new FalhaDoProvedorException(sprintf('Anthropic: falha de comunicação (%s).', (new \ReflectionClass($e))->getShortName()), true);
+            throw new FalhaDoProvedorException(sprintf('Anthropic: falha de comunicação (%s).', (new \ReflectionClass($e))->getShortName()), true, deRede: true);
         }
 
         return [$resposta, $status, $cabecalhos];
