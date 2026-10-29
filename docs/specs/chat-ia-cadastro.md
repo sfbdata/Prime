@@ -79,6 +79,13 @@ que nunca mais usa o chat guarda o JSON até alguém voltar; uma varredura peri�
   Os UseCases de Cliente e Pasta NÃO mudam.
 - Tela: cartão em `chat-ia.js`, só `createElement`/`textContent`; textos em `translations/chat_ia/`; sem travessão.
 
+## Limites aceitos da revisão (29/10/2026)
+
+- Regenerar ou editar a pergunta deixa as propostas da resposta trocada `pendentes` com os dados até vencerem (24 h) e a próxima varredura; o Confirmar delas é recusado e as expira.
+- O NUP pode vir da I.A ou do cartão (`nup?`), com só o limite de tamanho; a tela de Nova pasta não aceita mais NUP digitado (R1). A duplicidade de NUP não é avisada. Pergunta ao dono: tirar `nup` da ferramenta?
+- Abrir a conversa revalida cada cartão pendente (consultas de CPF e pasta parecida), no máximo 2 por resposta.
+- `AuditLogSubscriber::tenantDoRegistro` cai para o escritório da entidade em qualquer `RuntimeException` da sessão, não só no SSE.
+
 ## CPF, e-mail e telefone digitados seguem mascarados (decisão do dono, 29/10/2026)
 
 O `MascaradorDeDadosPessoais` troca CPF, CNPJ, e-mail e telefone escritos na mensagem por `[CPF]`, `[CNPJ]`, `[EMAIL]` e `[TEL]` antes de o texto chegar ao modelo, e isso NÃO muda para o cadastro (LGPD). Efeito aceito: o cartão só traz esses campos quando vêm de arquivo anexo (PDF, foto de CNH ou ficha), que vai ao modelo como bloco nativo; quem digita os dados completa no cartão, que é editável antes de confirmar. Visto no teste de tela de 29/10.
