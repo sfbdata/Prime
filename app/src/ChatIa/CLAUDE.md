@@ -21,7 +21,7 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
    pasta (aceite 409 `sem_aceite`, 404, segredo 409 `contexto_bloqueado`), anexos. Tudo recusa ANTES de abrir o SSE.
 4. **O cliente nunca manda contexto.** A mensagem leva só `pastaId`; o servidor relê por id + escritório
    (`PastaDoContextoDaIa::liberar` + `MontadorDeContextoDaPasta`). Do que a pessoa escreve só saem controle e invisíveis;
-   texto de arquivo e blocos da pasta são DADO (neutralizados, em bloco delimitado, `chat-livre-v1`). Bloco novo no prompt
+   texto de arquivo e blocos da pasta são DADO (neutralizados, em bloco delimitado, `chat-livre-v2`). Bloco novo no prompt
    = nome novo em `NeutralizadorDeConteudo::DELIMITADORES`.
 5. **Anexo**: tipo pelo CONTEÚDO (nunca extensão), limites da `RegraDaLeituraDeDocumentos` (3 por mensagem, PDF 10 MB, imagem
    3 MB, 20 MB somados); DOCX vira texto no servidor (`ExtratorDeTextoDocx`: zip bomb, sem DOCTYPE, 60 mil caracteres). Exige
@@ -36,7 +36,9 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
    vazia mais recente em vez de criar outra. LIMITES ACEITOS: o custo do título automático (Haiku, 24 tokens) e o de uma
    chamada que falha sem devolver texto NÃO entram no teto diário (a soma só olha mensagens gravadas). No aborto, a entrada
    estimada soma bytes/3 por PDF e imagem anexos (no máximo 30 mil tokens por arquivo); o DOCX já vai como texto no `sistema`.
-   Editar a última pergunta MANTÉM pasta e anexos dela, salvo se o cliente reenviar `pastaId`/`anexoIds` (valem esses,
+   Regenerar/editar NÃO apaga o custo: a resposta trocada vira registro (`substituida`, sem texto, com modelo e tokens), fora da
+   conversa e do histórico mas dentro da soma do teto diário. Anexos de perguntas anteriores seguem no pedido (os mais recentes
+   que couberem em 3 arquivos e 20 MB). Editar a última pergunta MANTÉM pasta e anexos dela, salvo se o cliente reenviar `pastaId`/`anexoIds` (valem esses,
    validados como numa pergunta nova); regenerar sempre mantém.
 8. **Título**: automático depois da primeira resposta (`completar`, 24 tokens, Haiku; fallback = início da pergunta); renomear
    à mão (`tituloManual`) vale sobre ele.

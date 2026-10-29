@@ -30,6 +30,7 @@ class MensagemDeChatRepository extends ServiceEntityRepository
         return array_values($this->createQueryBuilder('m')
             ->andWhere('m.conversa = :conversa')
             ->andWhere('m.tenant = :tenant')
+            ->andWhere('m.substituida = false')
             ->setParameter('conversa', $conversa)
             ->setParameter('tenant', $tenant)
             ->orderBy('m.id', 'ASC')
@@ -42,6 +43,7 @@ class MensagemDeChatRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('m')
             ->andWhere('m.conversa = :conversa')
             ->andWhere('m.tenant = :tenant')
+            ->andWhere('m.substituida = false')
             ->setParameter('conversa', $conversa)
             ->setParameter('tenant', $tenant)
             ->orderBy('m.id', 'DESC')
@@ -56,6 +58,7 @@ class MensagemDeChatRepository extends ServiceEntityRepository
             ->andWhere('m.conversa = :conversa')
             ->andWhere('m.tenant = :tenant')
             ->andWhere('m.papel = :papel')
+            ->andWhere('m.substituida = false')
             ->setParameter('conversa', $conversa)
             ->setParameter('tenant', $tenant)
             ->setParameter('papel', $papel)
@@ -72,6 +75,7 @@ class MensagemDeChatRepository extends ServiceEntityRepository
             ->andWhere('m.conversa = :conversa')
             ->andWhere('m.tenant = :tenant')
             ->andWhere('m.papel = :papel')
+            ->andWhere('m.substituida = false')
             ->setParameter('conversa', $conversa)
             ->setParameter('tenant', $tenant)
             ->setParameter('papel', $papel)
@@ -79,7 +83,7 @@ class MensagemDeChatRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
-    /** Tokens (entrada + saída) que as conversas DESTA pessoa neste escritório gastaram desde `$desde`. */
+    /** Tokens (entrada + saída; inclui as respostas substituídas, que já foram cobradas) que as conversas DESTA pessoa neste escritório gastaram desde `$desde`. */
     public function tokensDaPessoaDesde(Tenant $tenant, User $pessoa, \DateTimeImmutable $desde): int
     {
         return (int) $this->createQueryBuilder('m')

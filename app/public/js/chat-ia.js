@@ -543,6 +543,7 @@
         var d = el('span', 'ci-digitando');
         d.setAttribute('role', 'img');
         d.setAttribute('aria-label', T('gerando'));
+        d.appendChild(el('span', 'ci-digitando-texto', T('pensando')));
         d.appendChild(el('i'));
         d.appendChild(el('i'));
         d.appendChild(el('i'));
@@ -687,6 +688,29 @@
         var m = null;
         var terminou = false;
         var vivo = function () { return sessao === estado.sessao; };
+        /* Pergunta nova: ela e os anexos entram na conversa NA HORA, a caixa limpa e o "Pensando" anima até o 1º trecho.
+           Se o servidor recusar, a pergunta volta para a caixa (desfazer). Editar e regenerar esperam o "ok" do servidor,
+           porque mexem na resposta que já está na tela. */
+        var otimista = !op.regenerar && !op.editarUltima;
+        var devolver = null;
+        var foiAoServidor = false;
+        if (otimista) {
+            devolver = { texto: texto, anexos: estado.anexos, pasta: estado.pasta };
+            m = prepararTela(op, texto, estado.anexos.filter(function (a) { return a.id; }), estado.pasta);
+        }
+        function desfazer() {
+            if (!m || !devolver) { return; }
+            var ultimaUsuario = estado.msgs[estado.msgs.indexOf(m) - 1];
+            removerMensagem(m);
+            if (ultimaUsuario && ultimaUsuario.papel === 'usuario') { removerMensagem(ultimaUsuario); }
+            m = null;
+            campo.value = devolver.texto;
+            estado.anexos = devolver.anexos;
+            estado.pasta = devolver.pasta;
+            crescerCampo();
+            renderChips();
+            if (!estado.msgs.length) { mostrarVazio(true); }
+        }
 
         function encerrar() {
             if (!vivo()) { return; }
@@ -700,7 +724,7 @@
         }
 
         garantirConversa().then(function (id) {
-            if (!id) { return null; }
+            if (!id) { desfazer(); return null; }
             if (!vivo()) { return null; }
             var corpo = { texto: texto };
             if (op.regenerar) { corpo.regenerar = true; }
@@ -713,6 +737,7 @@
                 if (pasta) { corpo.pastaId = pasta.id; }
                 if (enviados.length) { corpo.anexoIds = enviados.map(function (a) { return a.id; }); }
             }
+            foiAoServidor = true;
             return fetch(comId(urls.mensagens, id), {
                 method: 'POST',
                 credentials: 'same-origin',
@@ -722,11 +747,11 @@
             }).then(function (resp) {
                 if (!resp.ok) {
                     return resp.json().then(function (d) { return d; }, function () { return {}; }).then(function (d) {
-                        if (vivo()) { mostrarAviso(textoDoErro(d)); }
+                        if (vivo()) { desfazer(); mostrarAviso(textoDoErro(d)); }
                     });
                 }
                 if (!vivo()) { return null; }
-                m = prepararTela(op, texto, enviados, pasta);
+                if (!otimista) { m = prepararTela(op, texto, enviados, pasta); }
                 return lerFluxo(resp, function (evento, d) {
                     if (!vivo()) { return; }
                     if (evento === 'delta') {
@@ -755,6 +780,7 @@
             });
         }).catch(function (err) {
             if (!vivo()) { return; }
+            if (otimista && !foiAoServidor) { desfazer(); mostrarAviso(T('erro_rede')); return; }
             if (err && err.name === 'AbortError') {
                 if (m) { m.interrompida = true; marcarInterrompida(m); agendarRender(m, true); }
             } else {

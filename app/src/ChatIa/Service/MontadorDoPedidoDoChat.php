@@ -13,6 +13,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\AnexoDeDocumento;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
+use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 
@@ -40,12 +41,18 @@ final class MontadorDoPedidoDoChat
      * @param list<MensagemDeChat> $anteriores as falas anteriores à pergunta, em ordem cronológica
      * @param list<string>         $blocosDaPasta
      * @param list<AnexoDeChat>    $anexos      os da pergunta atual
+     * @param list<AnexoDeChat>    $anexosAnteriores os das perguntas anteriores da conversa, em ordem cronológica: os mais
+     *                                              recentes que couberem nos limites da leitura seguem junto, para o arquivo
+     *                                              continuar no contexto das perguntas seguintes
      *
      * @throws AnexoDoChatInvalidoException
      */
-    public function montar(User $eu, Tenant $tenant, ?string $modelo, array $anteriores, string $pergunta, array $blocosDaPasta, array $anexos): PedidoDeLinguagem
+    public function montar(User $eu, Tenant $tenant, ?string $modelo, array $anteriores, string $pergunta, array $blocosDaPasta, array $anexos, array $anexosAnteriores = []): PedidoDeLinguagem
     {
-        [$documentos, $textos] = $this->lerOsAnexos($tenant, $anexos);
+        [$docsAntigos, $textosAntigos] = $this->lerOsAnexos($tenant, $this->quePodemSeguir($anexos, $anexosAnteriores), true);
+        [$docsAtuais, $textosAtuais] = $this->lerOsAnexos($tenant, $anexos);
+        $documentos = [...$docsAntigos, ...$docsAtuais];
+        $textos = [...$textosAntigos, ...$textosAtuais];
 
         return $this->prompt->montar(
             $this->protecao->rotulo($tenant, self::primeiroNome($eu), ''),
@@ -57,6 +64,36 @@ final class MontadorDoPedidoDoChat
             $this->teto->porResposta(),
             $modelo,
         );
+    }
+
+    /**
+     * Dos anexos antigos, os mais recentes que ainda cabem ao lado dos atuais: no máximo
+     * {@see RegraDaLeituraDeDocumentos::MAXIMO_POR_ANALISE} arquivos e {@see RegraDaLeituraDeDocumentos::TAMANHO_MAXIMO_TOTAL}
+     * bytes somados (DOCX vira texto e não pesa no pedido nativo, mas conta na quantidade). Os que não couberem ficam só no histórico.
+     *
+     * @param list<AnexoDeChat> $atuais
+     * @param list<AnexoDeChat> $antigos
+     *
+     * @return list<AnexoDeChat> em ordem cronológica
+     */
+    private function quePodemSeguir(array $atuais, array $antigos): array
+    {
+        $vagas = RegraDaLeituraDeDocumentos::MAXIMO_POR_ANALISE - \count($atuais);
+        $bytes = RegraDaLeituraDeDocumentos::TAMANHO_MAXIMO_TOTAL - array_sum(array_map(static fn (AnexoDeChat $a): int => $a->getTamanho(), $atuais));
+        $seguem = [];
+        foreach (array_reverse($antigos) as $anexo) {
+            if ($vagas <= 0) {
+                break;
+            }
+            if ($anexo->getTamanho() > $bytes) {
+                continue;
+            }
+            $seguem[] = $anexo;
+            --$vagas;
+            $bytes -= $anexo->getTamanho();
+        }
+
+        return array_reverse($seguem);
     }
 
     /** @return list<array{papel: string, conteudo: string}> */
@@ -78,16 +115,25 @@ final class MontadorDoPedidoDoChat
 
     /**
      * @param list<AnexoDeChat> $anexos
+     * @param bool              $ignorarOsSumidos arquivo de pergunta antiga que saiu do disco é pulado, não derruba a pergunta
      *
      * @return array{0: list<AnexoDeDocumento>, 1: list<array{nome: string, texto: string}>}
      */
-    private function lerOsAnexos(Tenant $tenant, array $anexos): array
+    private function lerOsAnexos(Tenant $tenant, array $anexos, bool $ignorarOsSumidos = false): array
     {
         $documentos = [];
         $textos = [];
         foreach ($anexos as $anexo) {
             $nome = $this->protecao->rotulo($tenant, $anexo->getNome(), 'sem nome');
-            $bytes = $this->bytesDe($anexo);
+            try {
+                $bytes = $this->bytesDe($anexo);
+            } catch (AnexoDoChatInvalidoException $e) {
+                if ($ignorarOsSumidos) {
+                    continue;
+                }
+
+                throw $e;
+            }
             if ($anexo->getMime() === self::TIPO_DOCX) {
                 $textos[] = ['nome' => $nome, 'texto' => $this->protecao->comoDado($tenant, $this->docx->extrair($bytes))];
 

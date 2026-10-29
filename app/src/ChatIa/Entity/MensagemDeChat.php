@@ -45,6 +45,10 @@ class MensagemDeChat implements TenantAware
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $interrompida = false;
 
+    /** Resposta trocada por regeneração/edição: o texto sai, modelo e tokens ficam (o custo conta no teto do dia). */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $substituida = false;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
         #[ORM\JoinColumn(name: 'tenant_id', nullable: false)]
@@ -131,6 +135,24 @@ class MensagemDeChat implements TenantAware
     public function foiInterrompida(): bool
     {
         return $this->interrompida;
+    }
+
+    public function foiSubstituida(): bool
+    {
+        return $this->substituida;
+    }
+
+    /** Só a resposta que gastou tokens vira registro de custo; a pergunta e a resposta sem consumo são removidas. */
+    public function guardaCustoAoSerSubstituida(): bool
+    {
+        return $this->papel === PapelDaMensagem::Assistente && ($this->tokensEntrada !== null || $this->tokensSaida !== null);
+    }
+
+    /** Apaga o texto e mantém modelo e tokens; a mensagem deixa de aparecer na conversa e no histórico. */
+    public function substituir(): void
+    {
+        $this->conteudo = '';
+        $this->substituida = true;
     }
 
     public function getCriadaEm(): \DateTimeImmutable

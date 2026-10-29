@@ -55,6 +55,7 @@ chat_ia:
     cortada: A resposta atingiu o limite de tamanho e foi cortada.
     descer: Descer até o fim
     gerando: Gerando a resposta
+    pensando: Pensando
     sem_chave_titulo: A IA ainda não está conectada
     fechar_aviso: Fechar o aviso
     soltar_arquivo: Solte o arquivo para anexar

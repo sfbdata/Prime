@@ -101,6 +101,7 @@ final class EnviarMensagemNoChatUseCase
             $plano['texto'],
             $pasta['blocos'] ?? [],
             $anexos,
+            $this->anexosAnteriores($conversa, $tenant, $pergunta),
         );
 
         return new RespostaPreparada($conversa, $tenant, $conversa->getModelo(), $pedido, $this->protecao->livre($tenant, $plano['texto']), $primeiraResposta);
@@ -219,7 +220,11 @@ final class EnviarMensagemNoChatUseCase
             }
             $pergunta = $plano['pergunta'] ?? MensagemDeChat::doUsuario($conversa, $plano['texto'], $pasta, $agora);
             foreach ($plano['apagar'] as $mensagem) {
-                $this->mensagens->remover($mensagem);
+                if ($mensagem->guardaCustoAoSerSubstituida()) {
+                    $mensagem->substituir();   // o texto sai, o custo fica no teto do dia
+                } else {
+                    $this->mensagens->remover($mensagem);
+                }
             }
             if ($plano['nova']) {
                 $this->mensagens->salvar($pergunta);
@@ -235,6 +240,19 @@ final class EnviarMensagemNoChatUseCase
         $this->remocao->remover($chavesApagadas, 'chat_ia_pergunta_refeita');
 
         return $pergunta;
+    }
+
+    /**
+     * Os anexos das perguntas ANTERIORES, para o arquivo seguir no contexto (quem decide quantos cabem é o montador).
+     *
+     * @return list<AnexoDeChat>
+     */
+    private function anexosAnteriores(ConversaDeChat $conversa, Tenant $tenant, MensagemDeChat $pergunta): array
+    {
+        return array_values(array_filter(
+            $this->anexos->daConversa($conversa, $tenant),
+            static fn (AnexoDeChat $a): bool => $a->getMensagem() !== null && $a->getMensagem()->getId() < $pergunta->getId(),
+        ));
     }
 
     /**

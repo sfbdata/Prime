@@ -414,6 +414,46 @@ final class ChatIaTest extends JusPrimeWebTestCase
         self::assertSame([], $pedido->anexos, 'DOCX vira texto no servidor, nunca bloco de arquivo');
     }
 
+    #[TestDox('Anexo da pergunta anterior segue no pedido das perguntas seguintes da conversa')]
+    public function testAnexoSegueNasPerguntasSeguintes(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->novaConversa($client);
+        $anexoId = $this->subirAnexo($client, $id, $this->png());
+        $this->provedorFalso()->transmitirTrechos(['Primeira']);
+        $this->provedorFalso()->responderCom('Titulo');
+        $this->enviarTexto($client, $id, ['texto' => 'Resuma', 'anexoIds' => [$anexoId]]);
+        self::assertResponseIsSuccessful();
+
+        $this->provedorFalso()->transmitirTrechos(['Segunda']);
+        $this->enviarTexto($client, $id, ['texto' => 'E a data?']);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->provedorFalso()->ultimoPedido()?->anexos ?? [], 'o arquivo da 1ª pergunta continua no contexto da 2ª');
+    }
+
+    #[TestDox('Regenerar não apaga o custo: a resposta trocada continua somando no teto do dia')]
+    public function testRegenerarGuardaOCusto(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->novaConversa($client);
+        $this->provedorFalso()->transmitirTrechos(['Primeira']);
+        $this->provedorFalso()->responderCom('Titulo');
+        $this->enviarTexto($client, $id, ['texto' => 'Pergunta']);
+        $antes = $this->contarNoBanco('SELECT COALESCE(SUM(COALESCE(tokens_entrada, 0) + COALESCE(tokens_saida, 0)), 0) FROM chat_ia_mensagem');
+        self::assertGreaterThan(0, $antes);
+
+        $this->provedorFalso()->transmitirTrechos(['Outra']);
+        $this->enviarTexto($client, $id, ['regenerar' => true]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $this->contarNoBanco("SELECT count(*) FROM chat_ia_mensagem WHERE papel = 'assistente'"), 'a trocada fica como registro');
+        self::assertGreaterThan($antes, $this->contarNoBanco('SELECT COALESCE(SUM(COALESCE(tokens_entrada, 0) + COALESCE(tokens_saida, 0)), 0) FROM chat_ia_mensagem'), 'o custo da trocada soma ao da nova');
+        self::assertSame(1, $this->contarNoBanco("SELECT count(*) FROM chat_ia_mensagem WHERE papel = 'assistente' AND NOT substituida"), 'só a nova aparece na conversa');
+    }
+
     #[TestDox('Editar a última pergunta sem reenviar pasta nem anexos MANTÉM os dois; reenviar anexoIds vazio os remove')]
     public function testEditarUltimaMantemPastaEAnexos(): void
     {
@@ -438,7 +478,8 @@ final class ChatIaTest extends JusPrimeWebTestCase
         self::assertSame((int) $pasta->getId(), (int) $perguntas[0]['pasta_id'], 'a pasta ficou');
         self::assertSame([['mensagem_id' => $perguntas[0]['id'], 'id' => $anexoId]], $this->em()->getConnection()->fetchAllAssociative('SELECT mensagem_id, id FROM chat_ia_anexo'), 'o anexo ficou, amarrado à pergunta nova');
         self::assertCount(1, $this->provedorFalso()->ultimoPedido()?->anexos ?? [], 'o provedor recebeu o anexo mantido');
-        self::assertSame(1, $this->contarNoBanco("SELECT count(*) FROM chat_ia_mensagem WHERE papel = 'assistente'"));
+        self::assertSame(1, $this->contarNoBanco("SELECT count(*) FROM chat_ia_mensagem WHERE papel = 'assistente' AND NOT substituida"));
+        self::assertSame(1, $this->contarNoBanco("SELECT count(*) FROM chat_ia_mensagem WHERE papel = 'assistente' AND substituida AND conteudo = '' AND modelo IS NOT NULL AND tokens_saida IS NOT NULL"), 'a resposta trocada fica só como registro de custo');
 
         $this->provedorFalso()->transmitirTrechos(['Sem anexo']);
         $this->enviarTexto($client, $id, ['texto' => 'Sem o arquivo', 'editarUltima' => true, 'anexoIds' => []]);
