@@ -568,8 +568,8 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertNotContains($alheio->getId(), $ids);
     }
 
-    #[TestDox('Desenho N:299-302: sem termo, a busca devolve os 8 primeiros do escritório (a lista abre ao focar), sem os de outro escritório')]
-    public function testBuscarSemTermoDevolveOitoDoTenant(): void
+    #[TestDox('Desenho N:299-302: sem termo, a busca devolve até 30 do escritório (a lista abre ao focar, inline), sem os de outro escritório')]
+    public function testBuscarSemTermoDevolveOsDoTenant(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -584,7 +584,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertCount(8, $data['results']);
+        self::assertCount(10, $data['results']);
         self::assertNotContains($alheio->getId(), array_column($data['results'], 'id'));
     }
 
