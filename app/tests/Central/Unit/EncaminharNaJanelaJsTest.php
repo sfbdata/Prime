@@ -30,13 +30,15 @@ final class EncaminharNaJanelaJsTest extends TestCase
         return substr($js, $inicio, $fim - $inicio);
     }
 
-    #[TestDox('central-flutuante.js: window.BJCentral com abrir, despachar e conversar, só dentro do lançador, e os eventos no document')]
+    #[TestDox('central-flutuante.js: window.BJCentral com abrir, despachar, conversar e perguntarIa (Minhas Metas), só dentro do lançador, e os eventos no document')]
     public function testApiDaJanela(): void
     {
         $js = self::js('central-flutuante.js');
         $api = self::trecho($js, '// ── API da janela para o resto do sistema', "btnMinimizar.addEventListener('click', minimizar);");
 
-        self::assertStringContainsString("window.BJCentral = {\n            abrir: abrirSeFechada,\n            despachar: despacharItem,\n            conversar: conversarCom\n        };", $api);
+        self::assertStringContainsString("window.BJCentral = {\n            abrir: abrirSeFechada,\n            despachar: despacharItem,\n            conversar: conversarCom,\n            perguntarIa: perguntarAIa\n        };", $api);
+        self::assertStringContainsString("document.addEventListener('bj-central:perguntar-ia', function (ev) { perguntarAIa(ev.detail && ev.detail.texto); });", $api);
+        self::assertStringContainsString("central.dispatchEvent(new CustomEvent('bj-central:janela-perguntar-ia'", $api);
         self::assertStringContainsString("document.addEventListener('bj-central:despachar', function (ev) { despacharItem(ev.detail); });", $api);
         self::assertStringContainsString("document.addEventListener('bj-central:conversar', function (ev) { conversarCom(ev.detail && ev.detail.userId); });", $api);
         self::assertStringContainsString("if (!ui.aberto) { abrir(); }", $api, 'abrir() é o mesmo da janela, sem trocar de conversa');
