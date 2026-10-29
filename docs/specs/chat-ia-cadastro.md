@@ -79,6 +79,10 @@ que nunca mais usa o chat guarda o JSON até alguém voltar; uma varredura peri�
   Os UseCases de Cliente e Pasta NÃO mudam.
 - Tela: cartão em `chat-ia.js`, só `createElement`/`textContent`; textos em `translations/chat_ia/`; sem travessão.
 
+## CPF, e-mail e telefone digitados seguem mascarados (decisão do dono, 29/10/2026)
+
+O `MascaradorDeDadosPessoais` troca CPF, CNPJ, e-mail e telefone escritos na mensagem por `[CPF]`, `[CNPJ]`, `[EMAIL]` e `[TEL]` antes de o texto chegar ao modelo, e isso NÃO muda para o cadastro (LGPD). Efeito aceito: o cartão só traz esses campos quando vêm de arquivo anexo (PDF, foto de CNH ou ficha), que vai ao modelo como bloco nativo; quem digita os dados completa no cartão, que é editável antes de confirmar. Visto no teste de tela de 29/10.
+
 ## Fora de escopo (decisão pendente do dono, nada aqui o implementa)
 
 Editar/arquivar cliente ou pasta pela IA; criar meta, prazo ou processo; confirmar por voz ou em lote; cadastrar vários clientes de uma só foto.
