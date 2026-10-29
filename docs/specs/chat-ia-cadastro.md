@@ -41,7 +41,7 @@ credencial, não chama o sistema e não escolhe escritório nem usuário: o que 
 ## Duplicidade (CPF/CNPJ e pasta)
 
 - Ao montar o cartão, o servidor consulta o escritório: CPF/CNPJ já cadastrado → o cartão avisa "já existe o cliente X (abrir)" e oferece
-  **Usar o existente** (vincula à pasta, quando for pasta) ou **Cancelar**; o botão Confirmar de criar um segundo cadastro NÃO aparece.
+  **Abrir nova pasta com o cliente existente** (vincula à pasta, quando for pasta) ou **Cancelar**; o botão Confirmar de criar um segundo cadastro NÃO aparece.
   O UseCase já recusa CPF de outro cadastro do escritório; a consulta do cartão é só para avisar antes.
 - Pasta: mesmo aviso do formulário (`findSemelhantesPorClienteEAcao`): pastas parecidas listadas; confirmar segue só com
   "Criar mesmo assim" (equivale ao `confirmar=1` da tela).

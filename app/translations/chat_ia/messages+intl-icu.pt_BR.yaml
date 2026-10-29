@@ -81,7 +81,7 @@ chat_ia:
     proposta_semelhantes: 'Já existem pastas deste cliente com esta ação: {total}.'
     proposta_confirmar: Confirmar
     proposta_criar_mesmo_assim: Criar mesmo assim
-    proposta_usar_existente: Usar o existente
+    proposta_usar_existente: Abrir nova pasta com o cliente existente
     proposta_cancelar: Cancelar
     proposta_criada_cliente: Cliente cadastrado.
     proposta_criada_pasta: Pasta aberta.
