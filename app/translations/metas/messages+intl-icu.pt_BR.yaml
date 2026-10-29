@@ -90,6 +90,29 @@ metas:
         titulo_e_pasta: '{titulo} · Pasta {nup}'
         prazo: 'prazo {data}'
         prazo_nao_informado: não informado
+    ia:
+        marca: BlueJus
+        dica: 'BlueJus IA · analisar suas metas, prazos e despachos'
+        abrir: Abrir BlueJus IA
+        eyebrow: BLUEJUS IA
+        titulo: Suas metas, prazos e despachos
+        fechar: Fechar
+        kpi_atrasadas: atrasada(s)
+        kpi_sete_dias: vencem em 7 dias
+        kpi_revisao: em revisão
+        primeiro: O QUE FAZER PRIMEIRO
+        sem_prioridade: Nenhuma meta atrasada ou vencendo nos próximos 7 dias.
+        motivo_atrasada: 'Atrasada há {dias} dia(s)'
+        motivo_hoje: Vence hoje
+        motivo_vence: 'Vence em {dias} dia(s)'
+        motivo_detalhe: '{prazo} · prioridade {prioridade} · {cliente}'
+        perguntar: PERGUNTE À BLUEJUS IA
+        placeholder: Pergunte sobre suas metas
+        enviar: Enviar
+        sug_primeiro: O que faço primeiro hoje?
+        sug_delegar: Quais metas posso delegar?
+        sug_atrasadas: Resuma minhas atrasadas
+        sug_despacho: Escreva um despacho de cobrança
     equipe:
         migalha_dashboard: Painel do Escritório
         migalha_atual: Metas da equipe

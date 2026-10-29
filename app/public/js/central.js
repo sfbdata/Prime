@@ -2656,6 +2656,22 @@
         });
         // BJCentral (central-flutuante.js) pede a tela de despacho ou a 1:1 com um colega, já com a janela aberta.
         raiz.addEventListener('bj-central:janela-despachar', function (ev) { if (!estado.semSessao) { abrirDespacho(ev.detail); } });
+        // Pergunta vinda de outra tela (evento `bj-central:perguntar-ia`): abre a conversa da BlueJus IA e deixa o texto
+        // no campo, sem enviar. Sem IA na lista ou sem sessão, só abre a janela.
+        raiz.addEventListener('bj-central:janela-perguntar-ia', function (ev) {
+            if (estado.semSessao) { return; }
+            var texto = ev.detail && typeof ev.detail.texto === 'string' ? ev.detail.texto : '';
+            var pronta = estado.listaCarregada ? Promise.resolve() : carregarConversas();
+            pronta.then(function () {
+                var c = estado.conversas.filter(ehIa)[0];
+                if (!c) { return; }
+                if (!estado.aberta || !estado.aberta.ia || estado.tela !== 'conversa') { abrirConversa(c); }
+                if (texto !== '' && !iaBloqueada()) {
+                    el.campo.value = texto.slice(0, TAMANHO_MAXIMO_DA_PERGUNTA);
+                    el.campo.focus();
+                }
+            }).catch(tratarFalha);
+        });
         raiz.addEventListener('bj-central:janela-conversar', function (ev) { conversarCom(ev.detail && ev.detail.userId); });
         el.mais.addEventListener('click', alternarPainelMenu);
         el.online.addEventListener('click', function () {

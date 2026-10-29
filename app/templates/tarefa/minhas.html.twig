@@ -30,7 +30,15 @@
             </div>
             <p class="mm-subtitulo">{{ 'metas.subtitulo'|trans }}</p>
         </div>
+        {# BlueJus IA (desenho 04 VS 29.10.26): só para quem usa o módulo, como o botão da pasta. #}
+        {% if can_access_module('inteligencia') and recurso_visivel('assistente') %}
+            {{ include('tarefa/_ia_botao.html.twig') }}
+        {% endif %}
     </header>
+
+    {% if can_access_module('inteligencia') and recurso_visivel('assistente') %}
+        {{ include('tarefa/_ia_painel.html.twig') }}
+    {% endif %}
 
     {# Só filtros preenchidos entram na URL: parâmetro vazio na barra de endereço é ruído. #}
     {% set base = filtros|filter(v => v != '') %}
@@ -122,6 +130,7 @@
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 {{ catalogo_js('metas.js', 'metas.passagem.js') }}
 <script src="{{ asset('js/meta-passagem.js') }}"></script>
+{% if can_access_module('inteligencia') and recurso_visivel('assistente') %}<script src="{{ asset('js/minhas-metas-ia.js') }}"></script>{% endif %}
 {% if esteira is defined and esteira.podeConfigurar %}<script src="{{ asset('js/esteira-da-pasta.js') }}"></script>{% endif %}
 <script>
 // A aba e a etapa da esteira são estado da tela: entram no form de filtro como campos ocultos para sobreviverem à
@@ -271,5 +280,6 @@ document.querySelectorAll('.mm-body .app-content-header .alert').forEach(functio
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <link rel="stylesheet" href="{{ asset('css/minhas-metas.css') }}">
+<link rel="stylesheet" href="{{ asset('css/minhas-metas-ia.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-passagem.css') }}">
 {% endblock %}

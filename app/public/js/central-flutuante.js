@@ -687,14 +687,21 @@
             abrirSeFechada();
             central.dispatchEvent(new CustomEvent('bj-central:janela-conversar', { detail: { userId: userId } }));
         }
+        function perguntarAIa(texto) {   /* abre a janela na conversa da BlueJus IA, com a pergunta preenchida (não envia) */
+            abrirSeFechada();
+            central.dispatchEvent(new CustomEvent('bj-central:janela-perguntar-ia', { detail: { texto: String(texto || '') } }));
+        }
         window.BJCentral = {
             abrir: abrirSeFechada,
             despachar: despacharItem,
-            conversar: conversarCom
+            conversar: conversarCom,
+            perguntarIa: perguntarAIa
         };
         // Por evento, para quem carrega antes da janela ou não quer depender do global.
         document.addEventListener('bj-central:despachar', function (ev) { despacharItem(ev.detail); });
         document.addEventListener('bj-central:conversar', function (ev) { conversarCom(ev.detail && ev.detail.userId); });
+        // Ponto único de integração do assistente: quem quer perguntar à BlueJus IA dispara este evento com {texto}.
+        document.addEventListener('bj-central:perguntar-ia', function (ev) { perguntarAIa(ev.detail && ev.detail.texto); });
 
         btnMinimizar.addEventListener('click', minimizar);
         btnMaximizar.addEventListener('click', alternarMaximizar);
