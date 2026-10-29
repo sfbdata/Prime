@@ -61,7 +61,7 @@ echo "==> frente:   $nome"
 echo "==> codigo:   $caminho/app"
 echo "==> abra no navegador:  http://$ip:$porta/"
 echo "==> parar:    Ctrl+C neste terminal (o servidor roda em primeiro plano)."
-echo "==> banco:    o de DESENVOLVIMENTO do container (o mesmo da 8080); entre com um usuario de dev."
+echo "==> banco:    saas_chat (copia do saas_ux, via app/.env.local da worktree); entre com um usuario que exista nele."
 echo
 
 # O php -S de processo unico trava durante o SSE do chat: PHP_CLI_SERVER_WORKERS=4 cria 4 processos filhos.
@@ -77,4 +77,4 @@ parar_servidor() {
 trap parar_servidor EXIT INT TERM HUP
 
 docker exec -it -e APP_ENV=dev -e PHP_CLI_SERVER_WORKERS=4 "$container" \
-    php -S "0.0.0.0:$porta" -t "$caminho/app/public" "$caminho/app/public/index.php" || true
+    php -S "0.0.0.0:$porta" -t "$caminho/app/public" "$caminho/scripts/servir-frente-roteador.php" || true
