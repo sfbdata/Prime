@@ -8,6 +8,22 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.26.0] - 2026-10-29
+
+### Adicionado
+
+- Minhas Metas: botão BlueJus IA no topo e painel lateral com os números (atrasadas, vencem em 7 dias, em revisão), "O que fazer primeiro" (até 5 metas) e perguntas sugeridas. Os números e a lista saem dos dados; perguntar abre o assistente da Central com a pergunta preenchida.
+- Push Processual, OABs monitoradas: ação Editar apelido (modal pequeno com salvar e cancelar). Número e UF não se editam. Coluna de ações alargada para caber o novo botão.
+
+### Alterado
+
+- Dashboard: o botão da IA no cabeçalho ganhou a marca nova do desenho de 29/10. O nome "BlueJus" é digitado, o símbolo entra e vira o selo "IA". Com o painel aberto, o botão recolhe e mostra só o selo. O texto "Intelligence" saiu do botão.
+- O Master primário agora pode promover a Master do sistema também o usuário primário de um escritório, não só os secundários.
+- Continuam valendo: só o Master primário promove, conta e vínculo ativos com o escritório, ainda não ser Master e a promoção na auditoria.
+- Push Processual, Processos da OAB: a sub-aba Processos relacionados vem primeiro e abre por padrão, depois Processos acompanhados e Acervo por jurisdição. Desvio do desenho 11 (que ordena acompanhados, relacionados, acervo) aprovado pelo dono em 29/10. As ações que voltam à lista continuam voltando a Processos acompanhados.
+- Coluna Ações da lista de processos: cada botão é uma caixa própria, com o conteúdo centralizado dentro do quadrado (o P do vínculo e o número de publicações não saem mais do enquadramento) e a coluna foi alargada de 150 para 270 px.
+- Pasta: nos modais "Vincular processo" e "Vincular apensado", a lista de processos já cadastrados aparece inline no corpo do modal (até 60% da altura da tela, um único scroll), mostra até 30 resultados e o modal ganhou botão para ampliar.
+
 ## [2.25.0] - 2026-10-28
 
 ### Alterado
@@ -1254,7 +1270,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.25.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.26.0...HEAD
+[2.26.0]: https://github.com/sfbdata/Prime/compare/v2.25.0...v2.26.0
 [2.25.0]: https://github.com/sfbdata/Prime/compare/v2.24.0...v2.25.0
 [2.24.0]: https://github.com/sfbdata/Prime/compare/v2.23.0...v2.24.0
 [2.23.0]: https://github.com/sfbdata/Prime/compare/v2.22.0...v2.23.0

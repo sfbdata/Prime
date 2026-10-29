@@ -1,6 +1,17 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.26.0"
+  data: "2026-10-29"
+  itens:
+    - "No painel do Master, a lista \"Escolha um usuário da conta\" passa a incluir o usuário primário do escritório."
+    - "O texto de apoio do campo e as mensagens de recusa deixam de falar só em \"usuário secundário\"."
+    - "Em Minhas Metas, o botão BlueJus IA mostra o que fazer primeiro e leva suas perguntas ao assistente."
+    - "Sem efeito para o cliente."
+    - "Agora dá para trocar o apelido de uma OAB monitorada, direto na lista."
+    - "Em Processos da OAB, a primeira aba agora é Processos relacionados, e os botões da coluna Ações ficaram alinhados."
+    - "Nenhuma mudança visível: a tela já mostrava esse perfil como \"Usuário Primário\"."
+    - "Ao vincular um processo, a lista agora mostra vários processos de uma vez, e dá para ampliar a janela."
 - versao: "2.25.0"
   data: "2026-10-28"
   itens:
