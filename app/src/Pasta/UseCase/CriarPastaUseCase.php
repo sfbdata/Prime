@@ -44,6 +44,9 @@ final class CriarPastaUseCase
             $pasta->setNomeAcao($dto->nomeAcao);
             $pasta->setCriadoPor($criadoPor);
             $pasta->setTenant($tenant);
+            if ($dto->criadorComoResponsavel) {
+                $pasta->setResponsavel($criadoPor);
+            }
             $this->vincularAoCadastroDoMesmoNome($pasta, $dto, $tenant);
 
             $this->em->persist($pasta);

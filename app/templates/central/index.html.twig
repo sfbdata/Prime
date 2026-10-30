@@ -17,6 +17,8 @@
 
 {% block javascripts %}
 {{ parent() }}
+<script src="{{ asset('js/chat-ia-markdown.js') }}" defer></script>
+<script src="{{ asset('js/central-ia-chat.js') }}" defer></script>
 <script src="{{ asset('js/central.js') }}" defer></script>
 <script src="{{ asset('js/central-dica.js') }}" defer></script>
 {% endblock %}

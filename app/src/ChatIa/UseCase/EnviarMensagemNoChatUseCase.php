@@ -20,6 +20,7 @@ use App\ChatIa\Repository\AnexoDeChatRepository;
 use App\ChatIa\Repository\MensagemDeChatRepository;
 use App\ChatIa\Service\AcessoAoChat;
 use App\ChatIa\Service\ContextoDaPastaNoChat;
+use App\ChatIa\Service\ContextoDasMetasNoChat;
 use App\ChatIa\Service\MontadorDoPedidoDoChat;
 use App\ChatIa\Service\ProtecaoDoTextoDoChat;
 use App\ChatIa\Service\TetoDeUsoDoChat;
@@ -69,6 +70,7 @@ final class EnviarMensagemNoChatUseCase
         private readonly DisponibilidadeDeInteligencia $disponibilidade,
         private readonly TetoDeUsoDoChat $teto,
         private readonly ContextoDaPastaNoChat $contextoDaPasta,
+        private readonly ContextoDasMetasNoChat $contextoDasMetas,
         private readonly RegraDaLeituraDeDocumentos $regraDosDocumentos,
         private readonly MensagemDeChatRepository $mensagens,
         private readonly AnexoDeChatRepository $anexos,
@@ -89,6 +91,7 @@ final class EnviarMensagemNoChatUseCase
 
         $plano = $this->planejar($conversa, $tenant, $input);
         $pasta = $this->lerAPasta($eu, $tenant, $input->regenerar ? $plano['pastaId'] : ($input->pastaId ?? $plano['pastaId']));
+        $metas = $input->contexto === EnviarMensagemInput::CONTEXTO_METAS ? $this->contextoDasMetas->ler($eu, $tenant) : [];
         $anexos = $this->anexosDoEnvio($eu, $tenant, $conversa, $input, $plano);
         $primeiraResposta = $conversa->getTitulo() === null;
 
@@ -99,7 +102,7 @@ final class EnviarMensagemNoChatUseCase
             $conversa->getModelo()->value,
             $this->anteriores($conversa, $tenant, $pergunta),
             $plano['texto'],
-            $pasta['blocos'] ?? [],
+            [...($pasta['blocos'] ?? []), ...$metas],
             $anexos,
             $this->anexosAnteriores($conversa, $tenant, $pergunta),
         );

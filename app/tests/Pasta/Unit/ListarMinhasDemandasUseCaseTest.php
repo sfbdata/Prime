@@ -19,63 +19,86 @@ final class ListarMinhasDemandasUseCaseTest extends TestCase
 {
     private PastaRepository&MockObject $repository;
     private ListarMinhasDemandasUseCase $useCase;
+    private User&MockObject $usuario;
+    private Tenant&MockObject $tenant;
 
     protected function setUp(): void
     {
         $this->repository = $this->createMock(PastaRepository::class);
         $this->useCase    = new ListarMinhasDemandasUseCase($this->repository);
+        $this->usuario    = $this->createMock(User::class);
+        $this->usuario->method('getId')->willReturn(42);
+        $this->tenant = $this->createMock(Tenant::class);
     }
 
-    #[TestDox('Fixa o responsável como o próprio usuário e repassa filtros/paginação ao repositório')]
+    #[TestDox('Fixa o responsável como o próprio usuário e repassa filtros, página e ordem ao repositório')]
     public function testFixaResponsavelERepassaFiltros(): void
     {
-        $usuario = $this->createMock(User::class);
-        $usuario->method('getId')->willReturn(42);
-        $tenant = $this->createMock(Tenant::class);
-
         $pasta = new Pasta();
         $pasta->setNup('TEST-001');
+        $comResponsavel = static fn (array $f): bool => ($f['responsavel'] ?? null) === '42' && ($f['status'] ?? null) === 'suspenso';
 
-        $comResponsavel = static fn (array $f): bool =>
-            ($f['responsavel'] ?? null) === '42' && ($f['status'] ?? null) === 'ativo';
-
-        $this->repository
-            ->expects($this->once())
-            ->method('findByFilters')
-            ->with(self::callback($comResponsavel), $tenant, 2, 25, 'prioridade', 'desc')
+        $this->repository->expects($this->once())->method('countByFilters')
+            ->with(self::callback($comResponsavel), $this->tenant, $this->usuario)->willReturn(60);
+        $this->repository->expects($this->once())->method('findByFilters')
+            ->with(self::callback($comResponsavel), $this->tenant, 2, 50, 'nup', 'asc', $this->usuario, $this->usuario)
             ->willReturn([$pasta]);
 
-        $this->repository
-            ->expects($this->once())
-            ->method('countByFilters')
-            ->with(self::callback($comResponsavel), $tenant)
-            ->willReturn(1);
-
-        $resultado = $this->useCase->executar($usuario, $tenant, ['status' => 'ativo'], 2, 25, 'prioridade', 'desc');
+        $resultado = $this->useCase->executar($this->usuario, $this->tenant, ['status' => 'suspenso'], 2, 50, 'nup', 'asc');
 
         self::assertSame([$pasta], $resultado['pastas']);
+        self::assertSame(60, $resultado['total']);
+        self::assertSame(2, $resultado['pagina']);
+    }
+
+    #[TestDox('Cadeado: quem busca é o próprio usuário (a pasta oculta para ele não volta)')]
+    public function testPassaOUsuarioComoQuemBusca(): void
+    {
+        $this->repository->expects($this->once())->method('countByFilters')
+            ->with(self::anything(), $this->tenant, self::identicalTo($this->usuario))->willReturn(0);
+        $this->repository->expects($this->once())->method('findByFilters')
+            ->with(self::anything(), $this->tenant, 1, 1, '', 'desc', self::identicalTo($this->usuario), self::identicalTo($this->usuario))
+            ->willReturn([]);
+
+        $this->useCase->executar($this->usuario, $this->tenant, [], 1, null, '', 'desc');
+    }
+
+    #[TestDox('Filtro Responsável com o próprio usuário continua listando as minhas')]
+    public function testResponsavelEuMesmo(): void
+    {
+        $this->repository->expects($this->once())->method('countByFilters')
+            ->with(self::callback(static fn (array $f): bool => $f['responsavel'] === '42'))->willReturn(1);
+        $this->repository->expects($this->once())->method('findByFilters')->willReturn([]);
+
+        $resultado = $this->useCase->executar($this->usuario, $this->tenant, ['responsavel' => '42'], 1, 25, '', 'desc');
+
         self::assertSame(1, $resultado['total']);
     }
 
-    #[TestDox('Nunca deixa o request sobrescrever o responsável (segurança entre colegas)')]
-    public function testResponsavelNaoVemDoRequest(): void
+    #[TestDox('Filtro Responsável com outra pessoa (ou "sem") só estreita: nenhuma pasta, e o repositório nem é consultado')]
+    public function testResponsavelDeOutraPessoaNaoAmplia(): void
     {
-        $usuario = $this->createMock(User::class);
-        $usuario->method('getId')->willReturn(7);
-        $tenant = $this->createMock(Tenant::class);
+        $this->repository->expects($this->never())->method('countByFilters');
+        $this->repository->expects($this->never())->method('findByFilters');
 
-        $this->repository
-            ->expects($this->once())
-            ->method('findByFilters')
-            ->with(self::callback(static fn (array $f): bool => ($f['responsavel'] ?? null) === '7'), $tenant, 1, 25, '', 'desc')
-            ->willReturn([]);
+        foreach (['999', 'sem', 'equipe'] as $outro) {
+            $resultado = $this->useCase->executar($this->usuario, $this->tenant, ['responsavel' => $outro], 3, 25, '', 'desc');
+            self::assertSame(['pastas' => [], 'total' => 0, 'pagina' => 1], $resultado, $outro);
+        }
+    }
 
-        $this->repository->method('countByFilters')->willReturn(0);
+    #[TestDox('Página além da última volta para a última; sem tamanho de página traz todas (CSV)')]
+    public function testPaginaLimitadaETodasDeUmaVez(): void
+    {
+        $this->repository->method('countByFilters')->willReturn(30);
+        $this->repository->expects($this->exactly(2))->method('findByFilters')
+            ->willReturnCallback(function (array $f, Tenant $t, int $pagina, int $tamanho): array {
+                self::assertContains([$pagina, $tamanho], [[2, 25], [1, 30]]);
 
-        // Tenta injetar o responsável de outro usuário via filtros — deve ser ignorado.
-        $resultado = $this->useCase->executar($usuario, $tenant, ['responsavel' => '999'], 1, 25, '', 'desc');
+                return [];
+            });
 
-        self::assertSame([], $resultado['pastas']);
-        self::assertSame(0, $resultado['total']);
+        self::assertSame(2, $this->useCase->executar($this->usuario, $this->tenant, [], 9, 25, '', 'desc')['pagina']);
+        self::assertSame(1, $this->useCase->executar($this->usuario, $this->tenant, [], 1, null, '', 'desc')['pagina']);
     }
 }

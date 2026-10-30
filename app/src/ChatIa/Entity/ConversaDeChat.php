@@ -7,6 +7,7 @@ namespace App\ChatIa\Entity;
 use App\ChatIa\Repository\ConversaDeChatRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\ChatIa\Enum\OrigemDaConversa;
 use App\Inteligencia\Enum\ModeloDeIa;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
@@ -44,6 +45,9 @@ class ConversaDeChat implements TenantAware, Auditavel
 
     #[ORM\Column(name: 'atualizada_em', type: 'datetime_immutable')]
     private \DateTimeImmutable $atualizadaEm;
+
+    #[ORM\Column(length: 16, enumType: OrigemDaConversa::class, options: ['default' => 'pagina'])]
+    private OrigemDaConversa $origem = OrigemDaConversa::Pagina;
 
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
@@ -88,6 +92,16 @@ class ConversaDeChat implements TenantAware, Auditavel
     public function estaFixada(): bool
     {
         return $this->fixada;
+    }
+
+    public function getOrigem(): OrigemDaConversa
+    {
+        return $this->origem;
+    }
+
+    public function nascerEm(OrigemDaConversa $origem): void
+    {
+        $this->origem = $origem;
     }
 
     public function getModelo(): ModeloDeIa

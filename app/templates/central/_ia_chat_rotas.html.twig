@@ -1,0 +1,2 @@
+{# Rotas do Chat I.A usadas pelo mini chat (central-ia-chat.js), em JSON; `0` é o lugar do id. #}
+{{- {conversas: path('chat_ia_conversas_listar'), conversa: path('chat_ia_conversa_ver', {id: 0}), mensagens: path('chat_ia_mensagens_enviar', {id: 0}), importar: path('chat_ia_importar_central'), pagina: path('chat_ia_pagina_conversa', {id: 0})}|json_encode|raw -}}

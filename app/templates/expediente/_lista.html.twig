@@ -16,6 +16,21 @@
 {# Favoritas do usuário logado (menu ⋮ da pasta → "Fixar nos favoritos"): uma consulta só,
    e a linha ganha a estrela. Quem as põe no topo é a ordenação do repositório. #}
 {% set favoritasIds = pastas_favoritas_ids() %}
+{# Parâmetros de quem inclui (padrão = Expediente, que não passa nenhum). As Minhas Demandas (desenho 15,
+   pasta/demandas/_acervo) trocam as rotas pelas delas (módulo `pastas`), as colunas padrão e a chave local das
+   colunas, tiram o "Painel de marcadores" (a tela não tem trilho) e trocam o resumo e o vazio. #}
+{% set rotaPastaNome = rotaPastaNome ?? 'expediente_pasta_nome' %}
+{% set rotaPastaTrancar = rotaPastaTrancar ?? 'expediente_pasta_trancar' %}
+{% set rotaPastaDestaque = rotaPastaDestaque ?? 'expediente_pasta_destaque' %}
+{% set rotaPastaMarcadores = rotaPastaMarcadores ?? 'expediente_pasta_marcadores' %}
+{% set urlCsvLista = urlCsvLista ?? path('expediente_exportar_csv') %}
+{% set urlColunasLista = urlColunasLista ?? path('expediente_colunas_gravar') %}
+{% set colunasPadrao = colunasPadrao ?? null %}
+{% set prefixoColunasLocal = prefixoColunasLocal ?? null %}
+{% set semPainelMarcadores = semPainelMarcadores ?? false %}
+{% set resumoDemandas = resumoDemandas ?? false %}
+{# Coluna "Mod." (dias desde a abertura) que a tela antiga das Minhas Demandas tinha: só lá ela entra. #}
+{% set colunaModificada = colunaModificada ?? false %}
 
 <style>
 @keyframes urgente-pulso {
@@ -27,8 +42,12 @@
 }
 </style>
 
-{% if pastas|length > 0 %}
-<div class="pastas-view pastas-view--tabela" id="pastasView">
+{# Nas Minhas Demandas (desenho 15, dc L.186-191 e L.269) a linha do resumo (colunas, Visualizar) fica também sem
+   resultado: o #pastasView vem marcado `pastas-view--vazio` (demandas-lista.css esconde tabela, lista e cartões)
+   e o vazio do desenho entra no lugar deles. O Expediente continua com o vazio sozinho. #}
+{% set listaVazia = pastas|length == 0 %}
+{% if not listaVazia or resumoDemandas %}
+<div class="pastas-view pastas-view--tabela{{ listaVazia ? ' pastas-view--vazio' }}" id="pastasView">
 {# Topo do resultado no desenho 1.1 (dc L.112-139, AUD-11/12): "Visualizar" e a paginação ficam na MESMA linha
    dos filtros, à direita, e o resumo vem sozinho embaixo. Os filtros moram fora desta área trocável
    (pasta/_filtros); no desktop o `.exp-topo` some da caixa (display: contents, expediente-lista.css) e os
@@ -78,10 +97,12 @@
                         <button type="button" class="exp-vis-pp js-por-pagina{{ n == porPaginaAtual ? ' is-atual' }}" data-n="{{ n }}" aria-pressed="{{ n == porPaginaAtual ? 'true' : 'false' }}">{{ n }}</button>
                     {% endfor %}
                 </div>
+                {% if not semPainelMarcadores %}
                 <div class="exp-vis-sep" role="separator"></div>
                 <button type="button" class="exp-vis-item js-vis-painel" role="menuitemcheckbox" aria-checked="true">
                     <span class="exp-vis-ponto" aria-hidden="true"></span><i class="bi bi-layout-sidebar-inset-reverse" aria-hidden="true"></i>{{ 'expediente.lista.visualizar.painel_marcadores'|trans }}
                 </button>
+                {% endif %}
             </div>
         </div>
         {% if pagination is defined and pagination is not null %}
@@ -93,9 +114,13 @@
        "página de N" (AUD-14). #}
     {# Linha do resumo (dc L.178-182): botão de colunas (clique e botão direito) e o resumo. #}
     <span class="exp-resumo">
-        <button type="button" class="exp-colunas js-colunas" data-url-csv="{{ path('expediente_exportar_csv') }}" data-tip="{{ 'expediente.lista.colunas'|trans }}" aria-label="{{ 'expediente.lista.colunas'|trans }}" aria-haspopup="menu"><i class="bi bi-layout-three-columns" aria-hidden="true"></i></button>
+        <button type="button" class="exp-colunas js-colunas" data-url-csv="{{ urlCsvLista }}" data-tip="{{ 'expediente.lista.colunas'|trans }}" aria-label="{{ 'expediente.lista.colunas'|trans }}" aria-haspopup="menu"><i class="bi bi-layout-three-columns" aria-hidden="true"></i></button>
         <i class="bi bi-list-ul" aria-hidden="true"></i>
-        {%- if pagination is defined and pagination is not null %}
+        {%- if resumoDemandas and listaVazia %}
+            {{ 'pasta_lista.demandas.resumo_vazio'|trans }}
+        {%- elseif resumoDemandas %}
+            {{ 'pasta_lista.demandas.resumo'|trans({total: (pagination.total_items ?? pastas|length)|numero(0)}) }}
+        {%- elseif pagination is defined and pagination is not null %}
             {%- set primeiraDaPagina = (pagination.current_page - 1) * pagination.per_page + 1 %}
             {{ 'expediente.lista.resumo.intervalo'|trans({inicio: primeiraDaPagina|numero(0), fim: (primeiraDaPagina + pastas|length - 1)|numero(0)}) }}&#8195;·&#8195;{{ pagination.total_items != 1 ? 'expediente.lista.resumo.total_varias'|trans({total: pagination.total_items|numero(0)}) : 'expediente.lista.resumo.total_uma'|trans({total: pagination.total_items|numero(0)}) }}
         {%- else %}
@@ -123,10 +148,10 @@
         <table class="table table-hover mb-0" id="tabelaPastas" data-csrf-lista="{{ csrfLista ?? '' }}" data-sou-admin="{{ (souAdministrador ?? false) ? '1' : '0' }}"
                data-chave-colunas="{{ (current_tenant() ? current_tenant().id : 0) ~ ':' ~ (app.user ? app.user.id : 0) }}"
                data-colunas="{{ (colunasSalvas ?? null)|json_encode|e('html_attr') }}"
-               data-url-colunas="{{ path('expediente_colunas_gravar') }}">
+               data-url-colunas="{{ urlColunasLista }}"{% if colunasPadrao is not null %} data-colunas-padrao="{{ colunasPadrao|json_encode|e('html_attr') }}"{% endif %}{% if prefixoColunasLocal %} data-prefixo-colunas-local="{{ prefixoColunasLocal }}"{% endif %}>
             <colgroup>
                 <col data-col="nup"><col data-col="cliente"><col data-col="reu"><col data-col="acao"><col data-col="prio">
-                <col data-col="resp"><col data-col="metas"><col data-col="marc"><col data-col="sit">
+                <col data-col="resp"><col data-col="metas"><col data-col="marc"><col data-col="sit">{% if colunaModificada %}<col data-col="mod">{% endif %}
             </colgroup>
             <thead class="table-light">
                 <tr>
@@ -139,6 +164,7 @@
                     <th data-col="metas" class="col-tarefas-tabela" title="{{ 'expediente.lista.coluna_dica.metas'|trans }}"><span class="exp-th"><i class="bi bi-check2-square me-1"></i><span class="exp-th-rot">{{ 'expediente.lista.coluna.metas'|trans }}</span></span></th>
                     <th data-col="marc" class="sortable col-marc-tabela {{ ordColVis == 'marcadores' ? ordDirVis }}" data-ordenar="marcadores" title="{{ 'expediente.lista.coluna_dica.marcadores'|trans }}"{{ tab.ariaSort('marcadores', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-tags me-1"></i><span class="exp-th-rot">{{ 'expediente.lista.coluna.marcadores'|trans }}</span>{{ tab.seta('marcadores', ordColVis, ordDirVis) }}</span></th>
                     <th data-col="sit" class="sortable {{ ordColVis == 'situacao' ? ordDirVis }}" data-ordenar="situacao" title="{{ 'expediente.lista.coluna_dica.situacao'|trans }}"{{ tab.ariaSort('situacao', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-circle-half me-1"></i><span class="exp-th-rot">{{ 'expediente.lista.coluna.situacao'|trans }}</span>{{ tab.seta('situacao', ordColVis, ordDirVis) }}</span></th>
+                    {% if colunaModificada %}<th data-col="mod" class="col-data-tabela"><span class="exp-th"><i class="bi bi-clock-history me-1"></i><span class="exp-th-rot">{{ 'pasta_lista.resultado.modificada'|trans }}</span></span></th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -156,9 +182,9 @@
                 <tr class="pasta-row-link{% if not oculta and pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if not oculta and pasta.estaExcluida %} pasta-excluida{% endif %}"
                     style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}"
                     data-pasta-id="{{ pasta.id }}" data-nup="{{ pasta.nup }}" data-nome="{{ nomeLinha }}"
-                    data-url-nome="{{ path('expediente_pasta_nome', {id: pasta.id}) }}"
-                    data-url-trancar="{{ path('expediente_pasta_trancar', {id: pasta.id}) }}"
-                    data-url-destaque="{{ path('expediente_pasta_destaque', {id: pasta.id}) }}"
+                    data-url-nome="{{ path(rotaPastaNome, {id: pasta.id}) }}"
+                    data-url-trancar="{{ path(rotaPastaTrancar, {id: pasta.id}) }}"
+                    data-url-destaque="{{ path(rotaPastaDestaque, {id: pasta.id}) }}"
                     data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}"{% if oculta %} data-csrf-pedir="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}"{% endif %}
                     data-nome-editavel="{{ identificador is not null and identificador != pasta.nomeCliente ? '0' : '1' }}"
                     {% if dest %}data-dest="{{ dest }}"{% endif %}>
@@ -202,6 +228,7 @@
                     <td data-col="metas" class="col-tarefas-tabela align-middle"></td>
                     <td data-col="marc" class="col-marc-tabela align-middle"></td>
                     <td data-col="sit" class="align-middle"></td>
+                    {% if colunaModificada %}<td data-col="mod" class="col-data-tabela align-middle"></td>{% endif %}
                     {% else %}
                     <td data-col="reu" class="align-middle col-reu-tabela">
                         {% if reus is not empty %}
@@ -261,7 +288,7 @@
                                     data-pasta-nome="{{ pasta.nup }}"
                                     data-marcadores-ativos="{{ idsMarcadores }}"
                                     data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
-                                    data-url="{{ path('expediente_pasta_marcadores', {id: pasta.id}) }}"
+                                    data-url="{{ path(rotaPastaMarcadores, {id: pasta.id}) }}"
                                     data-tip="{{ 'expediente.lista.adicionar_marcador'|trans }}" aria-label="{{ 'expediente.lista.adicionar_marcador'|trans }}">
                                 <i class="bi bi-tag" aria-hidden="true"></i>
                             </button>
@@ -287,6 +314,15 @@
                         <span class="badge exp-sit-fixa" data-situacao="{{ pasta.situacao }}" data-tip="{{ 'expediente.lista.situacao_dica_aberta'|trans({situacao: sit[1], data: pasta.dataAbertura|data}) }}">{{ sit[0] }}</span>
                         {% endif %}
                     </td>
+                    {% if colunaModificada %}
+                    {% set dias = pasta.dataAbertura ? date().diff(pasta.dataAbertura).days : null %}
+                    <td data-col="mod" class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
+                        {% if dias is null %}{{ 'pasta_lista.resultado.sem_registro'|trans }}
+                        {% elseif dias == 0 %}{{ 'pasta_lista.hoje'|trans }}
+                        {% elseif dias == 1 %}{{ 'pasta_lista.resultado.um_dia'|trans }}
+                        {% else %}{{ 'pasta_lista.resultado.dias'|trans({dias: dias ~ ''}) }}{% endif %}
+                    </td>
+                    {% endif %}
                     {% endif %}
                 </tr>
                 {% endfor %}
@@ -377,6 +413,13 @@
 </div>
 
 {{ include('pasta/_resp_menu.html.twig', {usuarios: usuarios, fotosResponsaveis: fotosResponsaveis|default({}), respContexto: 'expediente'}) }}
+{% if listaVazia %}
+{# Vazio do desenho 15 (dc L.269), com ou sem filtro. #}
+<div class="exp-vazio">
+    <i class="bi bi-folder-x" aria-hidden="true"></i>
+    {{ 'expediente.lista.vazio_filtros'|trans }}
+</div>
+{% endif %}
 </div>{# /#pastasView #}
 {% else %}
 {# Vazio do desenho (dc L.214). #}
