@@ -86,7 +86,7 @@ final class PainelCodigoEOrdemDasContasJsTest extends TestCase
     {
         $js = self::js();
         self::assertStringContainsString("const sh = b.replace(/-/g, '');", $js);
-        self::assertStringContainsString("if (sh && c.codigo && c.codigo.toLowerCase().replace(/-/g, '').includes(sh)) return true;", $js);
+        self::assertStringContainsString("if (sh && !/^\\d+$/.test(sh) && c.codigo && c.codigo.toLowerCase().replace(/-/g, '').includes(sh)) return true;", $js, 'só dígitos acha o Nº exato, nunca um trecho do código');
         self::assertStringContainsString('[ATIVA, SUSPENSA].map(', $js);
         self::assertStringNotContainsString("'Teste'", $js);
     }

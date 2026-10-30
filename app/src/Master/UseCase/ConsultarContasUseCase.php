@@ -73,9 +73,7 @@ final class ConsultarContasUseCase
                 'numero'        => NumeroDaConta::doId($id),
                 'codigo'        => $e['codigo_conta'] ?? null,
                 'nome'          => $e['nome'],
-                'criadoEm'      => (new \DateTimeImmutable($e['criado_em']))->format(\DATE_ATOM),
-                'desde'         => (new \DateTimeImmutable($e['criado_em']))->format('m/Y'),
-                'ultimoAcesso'  => isset($usuarios[$id]['ultimoAcesso']) ? (new \DateTimeImmutable($usuarios[$id]['ultimoAcesso']))->format(\DATE_ATOM) : null,
+                ...self::datasDaConta($e['criado_em'], $usuarios[$id]['ultimoAcesso'] ?? null),
                 'titular'       => $e['titular'],
                 'usuarios'      => $usuarios[$id]['usuarios'] ?? 0,
                 'pastas'        => $pastas[$id] ?? 0,
@@ -92,6 +90,18 @@ final class ConsultarContasUseCase
         }
 
         return $contas;
+    }
+
+    /** @return array{criadoEm: string, desde: string, ultimoAcesso: ?string} */
+    private static function datasDaConta(string $criadoEm, ?string $ultimoAcesso): array
+    {
+        $criada = new \DateTimeImmutable($criadoEm);
+
+        return [
+            'criadoEm'     => $criada->format(\DATE_ATOM),
+            'desde'        => $criada->format('m/Y'),
+            'ultimoAcesso' => $ultimoAcesso !== null ? (new \DateTimeImmutable($ultimoAcesso))->format(\DATE_ATOM) : null,
+        ];
     }
 
     /**

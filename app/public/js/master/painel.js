@@ -892,7 +892,7 @@
     const q = b.replace(/^n\s*[º°o]?\s*/, '');
     if (/^\d+$/.test(q) && Number(q) === Number(c.numero)) return true;
     const sh = b.replace(/-/g, '');
-    if (sh && c.codigo && c.codigo.toLowerCase().replace(/-/g, '').includes(sh)) return true;
+    if (sh && !/^\d+$/.test(sh) && c.codigo && c.codigo.toLowerCase().replace(/-/g, '').includes(sh)) return true;
 
     return (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b);
   }
