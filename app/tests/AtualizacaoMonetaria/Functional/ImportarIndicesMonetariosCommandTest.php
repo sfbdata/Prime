@@ -32,6 +32,7 @@ final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
             '188' => [['data' => '01/01/1994', 'valor' => '41.32'], ['data' => '01/06/2026', 'valor' => '0.14']],
             '433' => [['data' => '01/06/2026', 'valor' => '0.16']],
             '29543' => [['data' => '01/07/2026', 'valor' => '0.706607']],
+            '4390' => [['data' => '01/06/2026', 'valor' => '1.14']],
         ]);
 
         $tester = $this->rodar();
@@ -61,6 +62,7 @@ final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
             '188' => [['data' => '01/06/2026', 'valor' => '0.14']],
             '433' => [['data' => '01/06/2026', 'valor' => '0.16']],
             '29543' => [['data' => '01/07/2026', 'valor' => '0.706607']],
+            '4390' => [['data' => '01/06/2026', 'valor' => '1.14']],
         ]);
 
         self::assertSame(Command::SUCCESS, $this->rodar()->getStatusCode());
@@ -75,7 +77,7 @@ final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
         $segundaRodada = $this->rodar();
 
         self::assertSame(Command::SUCCESS, $segundaRodada->getStatusCode());
-        self::assertSame(3, \count($repositorio->findAll()), 'a segunda rodada não pode duplicar');
+        self::assertSame(4, \count($repositorio->findAll()), 'a segunda rodada não pode duplicar');
 
         $depois = $repositorio->findOneBy(['serie' => SerieIndice::INPC]);
         self::assertInstanceOf(IndiceMonetario::class, $depois);
@@ -127,6 +129,7 @@ final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
             [
                 '188' => [['data' => '01/06/2026', 'valor' => '0.14']],
                 '29543' => [['data' => '01/07/2026', 'valor' => '0.706607']],
+                '4390' => [['data' => '01/06/2026', 'valor' => '1.14']],
             ],
             statusPorSerie: ['433' => 500],
         );
@@ -180,6 +183,7 @@ final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
             '188' => [['data' => '01/06/2026', 'valor' => '0.14']],
             '433' => [['data' => '01/06/2026', 'valor' => '0.16']],
             '29543' => [['data' => '01/07/2026', 'valor' => '0.706607']],
+            '4390' => [['data' => '01/06/2026', 'valor' => '1.14']],
         ]);
 
         $tester = $this->rodar(['--dry-run' => true]);
@@ -197,6 +201,7 @@ final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
             '188' => [['data' => '01/06/2026', 'valor' => '0.14']],
             '433' => [['data' => '01/06/2026', 'valor' => '0.16']],
             '29543' => [['data' => '01/07/2026', 'valor' => '0.706607']],
+            '4390' => [['data' => '01/06/2026', 'valor' => '1.14']],
         ]);
 
         $tester = $this->rodar(['--serie' => 'IPCA']);
@@ -325,6 +330,7 @@ final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
             '188' => [['data' => '01/06/2026', 'valor' => '0.14']],
             '433' => [['data' => '01/06/2026', 'valor' => '0.1234567']],   // 7 casas: não cabe
             '29543' => [['data' => '01/07/2026', 'valor' => '0.706607']],
+            '4390' => [['data' => '01/06/2026', 'valor' => '1.14']],
         ]);
 
         $tester = $this->rodar();

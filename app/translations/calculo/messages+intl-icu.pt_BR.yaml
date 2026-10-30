@@ -1,0 +1,188 @@
+# ---- Cálculo de atualização monetária (calculo/*, calculo.js, PDF do demonstrativo)
+calculo:
+    titulo: Cálculo
+    tela:
+        sec_dados: '1 · DADOS DO CÁLCULO'
+        sec_valores: '2 · VALORES DEVIDOS'
+        sec_acrescimos: '3 · ACRÉSCIMOS E ABATIMENTOS'
+        proc_rotulo: 'PROCESSO (OPCIONAL)'
+        proc_ph: 'Número do processo'
+        credor_rotulo: CREDOR
+        credor_ph: 'Nome do credor'
+        devedor_rotulo: DEVEDOR
+        devedor_ph: 'Nome do devedor'
+        ate_rotulo: 'ATUALIZAR ATÉ'
+        idx_rotulo: 'ÍNDICE DE CORREÇÃO MONETÁRIA'
+        idx_oficial: 'Índices oficiais TJDFT (INPC até 31/08/2024 e IPCA a partir de 01/09/2024, Lei 14.905/2024)'
+        idx_inpc: 'INPC durante todo o período'
+        idx_nenhum: 'Sem correção monetária'
+        jur_rotulo: 'JUROS DE MORA'
+        jur_legal: '1% a.m. até 29/08/2024 e taxa legal depois (Lei 14.905/2024)'
+        jur_1: '1% ao mês durante todo o período'
+        jur_05: '0,5% ao mês durante todo o período'
+        jur_nenhum: 'Sem juros de mora'
+        ini_rotulo: 'INCIDÊNCIA DOS JUROS'
+        ini_valores: 'A partir da data dos valores'
+        ini_citacao: 'A partir da citação ou outra data'
+        ini_fixa: 'A partir de uma data fixa'
+        proj_rotulo: 'MESES FUTUROS (SEM ÍNDICE)'
+        proj_media: 'Projetar pela média dos últimos 12 meses'
+        proj_nao: 'Não corrigir meses sem índice'
+        djur_fixa: 'DATA FIXA DOS JUROS'
+        djur_citacao: 'DATA DA CITAÇÃO (OU OUTRA)'
+        gerar_parcelas: 'Gerar parcelas'
+        ger_qtd: QUANTIDADE
+        ger_valor: 'VALOR DE CADA (R$)'
+        ger_ini: '1º VENCIMENTO'
+        ger_desc: 'DESCRIÇÃO'
+        ger_desc_ph: 'Ex.: Parcela do acordo'
+        ger_incluir: 'Incluir parcelas mensais'
+        nv_valor: 'VALOR (R$)'
+        nv_data: 'DATA DO VALOR'
+        nv_desc: 'DESCRIÇÃO'
+        nv_desc_ph: 'Ex.: parcela 1, aluguel de agosto'
+        nv_adicionar: 'Adicionar valor'
+        nv_salvar: 'Salvar valor'
+        cancelar: Cancelar
+        col_valor: VALOR
+        col_data: 'DATA DO VALOR'
+        col_desc: 'DESCRIÇÃO'
+        col_acoes: 'AÇÕES'
+        vazio_valores: 'Nenhum valor incluído. Preencha acima e clique em Adicionar valor.'
+        nota_anatocismo: 'Informe o valor original de cada parcela. Se o valor já tiver juros, o cálculo terá juros sobre juros (anatocismo).'
+        multa_rotulo: 'MULTA (%)'
+        hon_rotulo: 'HONORÁRIOS (%)'
+        abat_rotulo: 'ABATIMENTOS (PAGAMENTOS JÁ FEITOS)'
+        abat_add: 'Adicionar abatimento'
+        abat_desc_ph: 'Descrição do pagamento'
+        calcular: Calcular
+        limpar: Limpar
+        pdf: 'Baixar PDF'
+        pdf_tip: 'Baixar o cálculo em PDF'
+        atualizar_indices: 'Atualizar índices'
+        atualizar_indices_tip: 'Buscar os índices novamente no Banco Central'
+    pagina:
+        titulo: Atualização monetária
+        subtitulo: Correção, juros de mora e acréscimos pelas regras do JurisCalc do TJDFT.
+    criterio:
+        indice_nenhum: Sem correção monetária.
+        indice_inpc: Correção pelo INPC em todo o período.
+        indice_oficial: Correção pelo INPC até 08/2024 e pelo IPCA a partir de 09/2024 (Lei 14.905/2024).
+        juros_nenhum: Sem juros de mora.
+        juros_legal: Juros de 1% ao mês até 29/08/2024 e, depois, taxa legal (Selic menos IPCA, art. 406 do CC).
+        juros_simples: 'Juros simples de {taxa} ao mês.'
+        inicio_valores: Juros a partir do vencimento de cada parcela.
+        inicio_fixa: 'Juros a partir de {data} para todas as parcelas.'
+        inicio_citacao: 'Juros a partir de {data} para parcelas anteriores e do vencimento para as posteriores.'
+        data_valores: A partir do vencimento de cada parcela
+        data_fixa: 'A partir de {data}'
+        data_citacao: 'A partir de {data} (parcelas anteriores) e do vencimento (posteriores)'
+    resumo:
+        subtotal: Subtotal corrigido com juros
+        multa: 'Multa ({pct}%)'
+        honorarios: 'Honorários ({pct}%)'
+        abatimentos: Abatimentos corrigidos
+        debito: Débito
+        multa_523: Multa art. 523, § 1º, CPC (10%)
+        honorarios_523: Honorários art. 523, § 1º, CPC (10%)
+        total: TOTAL DEVIDO
+    aviso:
+        sem_indice: 'Atenção: {n} mês(es) do período ainda não têm índice publicado e foram considerados sem correção.'
+        projetadas: '{n} parcela(s) com valores projetados: meses ainda sem índice publicado foram estimados pela média dos últimos 12 meses (INPC/IPCA/Selic). O resultado será confirmado quando os índices saírem.'
+        titulo_atencao: Confira antes de usar o resultado
+        titulo_corrigir: Corrija para calcular
+    erro:
+        sem_valores: Nenhum valor foi incluído em Valores devidos. Preencha valor e data e clique em Adicionar valor.
+        ir_valores: Ir para Valores
+        sem_ate: Informe até quando o cálculo deve ser atualizado (campo Atualizar até).
+        ir_campo: Ir para o campo
+        sem_indices: Os índices do Banco Central ainda não foram carregados. Clique em Atualizar índices, no topo da página, e tente de novo.
+        sem_data_juros_fixa: Informe a data de início dos juros (data fixa).
+        sem_data_juros_citacao: Informe a data de início dos juros (data da citação).
+        data_invalida: 'A data informada não é válida: {data}.'
+        muitos_valores: 'Há valores demais para calcular (máximo {max}).'
+        indices_ocupado: Outra atualização de índices já está em andamento. Tente de novo em instantes.
+        indices_falha: 'Não foi possível atualizar a série {series} agora. Os índices já gravados continuam valendo.'
+    indices:
+        ate: 'Índices até {mes}'
+        indisponiveis: Índices indisponíveis
+        carregando: Carregando índices…
+        dica: INPC, IPCA e Selic oficiais do Banco Central (SGS)
+        dica_consulta: 'INPC, IPCA e Selic oficiais do Banco Central (SGS) · consultado em {quando}'
+    pdf:
+        titulo: Demonstrativo de cálculo de atualização monetária
+        escritorio_padrao: Escritório de advocacia
+        marca_dagua: usuário
+        moeda: Moeda
+        valores_em_real: Valores em Real (R$)
+        processo: Processo
+        credor: Credor
+        devedor: Devedor
+        atualizacao_ate: 'Atualização monetária até {mes}'
+        data_final: 'Data final do cálculo:'
+        indices_rotulo: 'Índices de atualização monetária:'
+        juros: Juros
+        tipo_juros: 'Tipo de juros:'
+        data: 'Data:'
+        principais: Demonstrativo dos valores principais
+        abatimentos: Abatimentos
+        agrupamento: Agrupamento dos valores apurados
+        total_do_calculo: 'Total do cálculo:'
+        total_valores: Total valores
+        coluna:
+            data: Data
+            descricao: Descrição
+            valor: Valor
+            indices: Índices de atualização
+            fator: Fator da atualização
+            valor_atualizacao: Valor da atualização
+            valor_atualizado: Valor atualizado
+            juros_pct: '% de juros acumulado'
+            valor_juros: Valor dos juros
+            total: Total
+        indice_sem: Sem correção
+        indice_inpc: INPC
+        indice_oficial: INPC/IPCA
+        indice_periodo: '{indice} de {de} até {ate}'
+        projecao: Projeção
+        nota: Nota
+        nota_indices: 'Índices: Banco Central do Brasil (séries INPC, IPCA e Selic)'
+        nota_consulta: ', consultados em {quando}'
+        nota_projecao: 'Parcelas marcadas como PROJEÇÃO ainda vão vencer: o valor é projetado até o vencimento.'
+        nota_final: A rotina não atende às regras dos cálculos fazendários. Confira os dados antes de juntar aos autos.
+        rodape: 'BlueJus · Cálculo de atualização monetária · Código de verificação {codigo}'
+        cabecalho: BlueJus · Cálculos
+        pagina: '{n}/{total}'
+        nome_arquivo: Cálculo
+    js:
+        carregando: Carregando índices…
+        nao_gerou_pdf: Não foi possível gerar o PDF agora. Tente de novo.
+        parcela_padrao: Parcela
+        editar: Editar
+        excluir: Excluir
+        valor_zero: 'Informe um valor maior que zero.'
+        sem_data: 'Informe a data do valor.'
+        excluir_valor: 'Excluir o valor de R$ {valor}?'
+        limpar_confirma: 'Limpar todos os dados do cálculo?'
+        ger_faltam: 'Informe valor e 1º vencimento para gerar as parcelas.'
+        soma: '{n} valores · soma sem atualização'
+        valor_sem_data: 'O valor de R$ {valor} está sem data. Informe a Data do valor.'
+        ir_data: 'Ir para a data'
+        data_sem_valor: 'Há uma data preenchida sem valor em Valores devidos. Informe o valor.'
+        ir_valor: 'Ir para o valor'
+        dem_titulo: 'DEMONSTRATIVO DO CÁLCULO · ATUALIZADO ATÉ {data}'
+        dem_col_data: DATA
+        dem_col_desc: 'DESCRIÇÃO'
+        dem_col_valor: VALOR
+        dem_col_fator: FATOR
+        dem_col_corrigido: CORRIGIDO
+        dem_col_juros_pct: 'JUROS %'
+        dem_col_juros: JUROS
+        dem_col_total: TOTAL
+        proj_tag: 'PROJEÇÃO'
+        proj_tip: 'Parcela a vencer: valores projetados até o vencimento'
+        rodape_fixo: 'Índices: Banco Central do Brasil (séries INPC, IPCA e Selic). A rotina não atende às regras dos cálculos fazendários. Confira os dados antes de juntar aos autos.'
+        baixar_pdf: 'Baixar PDF'
+        gerando_pdf: 'Gerando PDF…'
+        falha_calculo: 'Não foi possível calcular agora. Tente de novo.'
+        falha_indices: 'Não foi possível atualizar os índices agora. Tente de novo.'

@@ -147,7 +147,7 @@ class PainelMasterRepository
      * Master (`do_master`, spec perfis-1.2-contas C5: não se suspende nem exclui). Mesma regra de
      * RegraDosMasters::ehContaDoMaster(): titular Master; sem titular, algum Master com vínculo ativo.
      *
-     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string}>
+     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string, codigo_conta: ?string}>
      */
     public function escritorios(): array
     {
@@ -159,7 +159,7 @@ class PainelMasterRepository
      * de contas (spec perfis-1.2-contas C4b). Mesmo formato de {@see escritorios()}, com `excluido_em`.
      * Só esta consulta enxerga a quarentena; as contagens do painel continuam fora dela.
      *
-     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string}>
+     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string, codigo_conta: ?string}>
      */
     public function escritoriosEmQuarentena(): array
     {
@@ -169,13 +169,13 @@ class PainelMasterRepository
     /**
      * @param string $filtro recorte FIXO da quarentena (nunca dado de fora): um dos dois acima
      *
-     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string}>
+     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string, codigo_conta: ?string}>
      */
     private function escritoriosOnde(string $filtro): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT t.id, t.name AS nome, t.cidade, t.estado, t.created_at AS criado_em, t.is_active AS ativo,
-                    t.excluido_em, u.full_name AS titular,
+                    t.excluido_em, t.codigo_conta, u.full_name AS titular,
                     CASE WHEN u.id IS NOT NULL THEN u.roles::text LIKE :papel
                          ELSE EXISTS (SELECT 1 FROM user_tenant ut JOIN "user" m ON m.id = ut.user_id
                                        WHERE ut.tenant_id = t.id AND ut.is_active = TRUE AND m.roles::text LIKE :papel)
@@ -197,6 +197,7 @@ class PainelMasterRepository
             'titular'     => $l['titular'] !== null ? (string) $l['titular'] : null,
             'do_master'   => (bool) $l['do_master'],
             'excluido_em' => $l['excluido_em'] !== null ? (string) $l['excluido_em'] : null,
+            'codigo_conta' => $l['codigo_conta'] !== null ? (string) $l['codigo_conta'] : null,
         ], $linhas);
     }
 

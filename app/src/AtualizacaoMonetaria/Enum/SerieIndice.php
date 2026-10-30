@@ -18,6 +18,9 @@ enum SerieIndice: string
     /** Taxa legal de juros da Lei 14.905/2024, publicada pelo BCB a partir de 08/2024. */
     case TAXA_LEGAL = 'TAXA_LEGAL';
 
+    /** Selic mensal acumulada (SGS 4390). A taxa legal do cálculo de atualização é a Selic menos o IPCA do mês. */
+    case SELIC = 'SELIC';
+
     /**
      * Código da série no SGS do Banco Central.
      *
@@ -29,6 +32,7 @@ enum SerieIndice: string
             self::INPC => '188',
             self::IPCA => '433',
             self::TAXA_LEGAL => '29543',
+            self::SELIC => '4390',
         };
     }
 
@@ -44,6 +48,7 @@ enum SerieIndice: string
             self::INPC => 'INPC',
             self::IPCA => 'IPCA',
             self::TAXA_LEGAL => 'Taxa legal (Lei 14.905/2024)',
+            self::SELIC => 'Selic mensal',
         };
     }
 }

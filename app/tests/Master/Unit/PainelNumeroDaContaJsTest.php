@@ -44,21 +44,21 @@ final class PainelNumeroDaContaJsTest extends TestCase
         return (string) file_get_contents(self::RAIZ . 'public/css/master.css');
     }
 
-    #[TestDox('L165: placeholder "Buscar nº, conta ou primário"; o antigo saiu')]
+    #[TestDox('VS 30.10.26: placeholder "Buscar código, conta ou primário"; os antigos saíram')]
     public function testPlaceholder(): void
     {
         $js = self::js();
 
         self::assertStringContainsString("placeholder=\"' + esc(T('master.js.contas.busca')) + '\" aria-label=\"' + esc(T('master.js.contas.busca')) + '\"", $js);
-        self::assertSame('Buscar nº, conta ou primário', self::catalogo('master.js.contas.busca'));
+        self::assertSame('Buscar código, conta ou primário', self::catalogo('master.js.contas.busca'));
         self::assertStringNotContainsString('"Buscar conta ou primário"', $js);
     }
 
-    #[TestDox('L173: selo do número antes do nome, com o título e os valores do desenho')]
+    #[TestDox('VS 30.10.26 L173: nome, depois o Nº em texto mono, depois a linha "desde"; valores do desenho')]
     public function testSelo(): void
     {
         self::assertStringContainsString(
-            "'<div class=\"mp-conta-nome mp-hv\"><span class=\"mp-conta-titulo\"><span class=\"mp-conta-nro\" title=\"' + esc(T('master.js.contas.numero_dica')) + '\">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title=\"' + esc(c.nome) + '\">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', ",
+            "'<div class=\"mp-conta-nome mp-hv\"><b title=\"' + esc(c.nome) + '\">' + esc(c.nome) + '</b><span class=\"mp-conta-ids\"><span class=\"mp-conta-nro\" title=\"' + esc(T('master.js.contas.numero_dica')) + '\">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span>'",
             self::js(),
         );
         self::assertSame('Número da conta (ordem de abertura)', self::catalogo('master.js.contas.numero_dica'));
@@ -66,9 +66,8 @@ final class PainelNumeroDaContaJsTest extends TestCase
         self::assertStringStartsWith('desde {desde}', self::catalogo('master.js.contas.desde'));
 
         $css = self::css();
-        self::assertStringContainsString('.mp-conta-titulo { display: flex; align-items: baseline; gap: 7px; min-width: 0; }', $css);
-        self::assertStringContainsString('.mp-conta-nro { flex: none; font: bold 11.5px/1 monospace; color: #0a6fa0; background: #e5f1f7; border: 1px solid #cfe3f0; border-radius: 3px; padding: 3px 5px; }', $css);
-        self::assertStringContainsString('.mp-conta-titulo > b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }', $css);
+        self::assertStringContainsString('.mp-conta-nro { flex: none; font: bold 10.5px/1 monospace; color: #5b7383; }', $css);
+        self::assertStringContainsString('.mp-conta-nome > b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }', $css);
         // A linha "desde ... · último acesso" continua com o estilo dela (é o último span da célula).
         self::assertStringContainsString('.mp-conta-nome > span:last-child { font-size: 11.5px; color: #5b7383; }', $css);
     }
