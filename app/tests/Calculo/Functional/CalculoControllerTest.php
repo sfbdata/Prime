@@ -8,6 +8,7 @@ use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\AtualizacaoMonetaria\Enum\SerieIndice;
 use App\AtualizacaoMonetaria\Service\ClienteSgsBcbInterface;
 use App\Calculo\Controller\CalculoController;
+use App\Calculo\Entity\CalculoEmitido;
 use App\Calculo\UseCase\ConsultarStatusDosIndicesUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -258,6 +259,13 @@ final class CalculoControllerTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('%PDF', (string) $resposta->getContent());
         self::assertStringContainsString('attachment', (string) $resposta->headers->get('Content-Disposition'));
         self::assertStringContainsString('0701234-56.2026.8.07.0001', (string) $resposta->headers->get('Content-Disposition'));
+
+        // o PDF emitido fica registrado: código no formato do rodapé e hash dos bytes entregues
+        $emitidos = $this->em()->getRepository(CalculoEmitido::class)->findAll();
+        self::assertCount(1, $emitidos);
+        self::assertMatchesRegularExpression('/^BJC-[A-Z0-9]{8}$/', $emitidos[0]->getCodigo());
+        self::assertSame('20094.57', $emitidos[0]->getTotal());
+        self::assertTrue($emitidos[0]->confereComOHash(hash('sha256', (string) $resposta->getContent())));
     }
 
     public function testAtualizarIndicesGravaAsTresSeriesEAtualizaOSelo(): void

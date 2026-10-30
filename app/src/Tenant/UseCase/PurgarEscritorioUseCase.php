@@ -296,6 +296,8 @@ final class PurgarEscritorioUseCase
         ['chat_ia_anexo', 'tenant_id = :tenant'],
         ['chat_ia_mensagem', 'tenant_id = :tenant'],
         ['chat_ia_conversa', 'tenant_id = :tenant'],
+        // PDFs do Cálculo emitidos (código de verificação): a FK de tenant cascateia, mas a purga é explícita.
+        ['calculo_emitido', 'tenant_id = :tenant'],
         // Presença na Central (F2): uma linha por vínculo, FK de tenant NO ACTION.
         ['central_presenca', 'tenant_id = :tenant'],
         // Regra de ausência do escritório (presença, fase 3): uma linha por escritório, FK de tenant NO ACTION.

@@ -383,6 +383,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Falha de tarefa agendada (spec scheduler-tarefas-agendadas): gravada pelo agendador, sem sessão nem
         // escritório, e o audit_log é por escritório. A própria linha guarda quem dispensou e quando.
         \App\Shared\Scheduler\Entity\FalhaAgendada::class,
+        // Registro de emissão do PDF do Cálculo (spec calculo-atualizacao-monetaria §7): é ele mesmo o rastro (quem, quando,
+        // hash), só se acrescenta e nunca se altera.
+        \App\Calculo\Entity\CalculoEmitido::class,
     ];
 
     private EntityManagerInterface $em;

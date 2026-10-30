@@ -154,6 +154,27 @@ calculo:
         cabecalho: BlueJus · Cálculos
         pagina: '{n}/{total}'
         nome_arquivo: Cálculo
+    verificacao:
+        titulo: 'Verificar PDF do Cálculo'
+        subtitulo: 'Confira se um demonstrativo de atualização monetária foi emitido pelo BlueJus.'
+        codigo_rotulo: 'Código de verificação'
+        codigo_ph: BJC-XXXXXXXX
+        arquivo_rotulo: 'PDF recebido (opcional)'
+        arquivo_dica: 'Envie o arquivo para saber se ele é idêntico ao original. O arquivo não é guardado.'
+        botao: Verificar
+        encontrado: 'Código reconhecido'
+        emitido_por: 'Emitido por {escritorio}'
+        emitido_em: 'Emissão: {data}'
+        atualizado_ate: 'Atualizado até: {data}'
+        total: 'Total do demonstrativo: R$ {valor}'
+        confere_sim: 'O arquivo enviado é idêntico ao PDF emitido.'
+        confere_nao: 'O arquivo enviado NÃO é idêntico ao PDF emitido. Ele foi alterado ou é de outro cálculo.'
+        sem_arquivo: 'Envie o PDF para conferir também o conteúdo.'
+        formato_invalido: 'O código deve ter o formato BJC- seguido de 8 letras ou números.'
+        nao_encontrado: 'Nenhum PDF foi emitido com este código.'
+        limite: 'Muitas consultas seguidas. Espere um minuto e tente de novo.'
+        sessao: 'A página expirou. Envie de novo.'
+        arquivo_grande: 'O arquivo passa de 5 MB. Envie o PDF original do cálculo.'
     js:
         carregando: Carregando índices…
         nao_gerou_pdf: Não foi possível gerar o PDF agora. Tente de novo.
