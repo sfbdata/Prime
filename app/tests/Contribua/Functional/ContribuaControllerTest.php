@@ -66,6 +66,26 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Marcar atendida', $html);
     }
 
+    #[TestDox('Indique e ganhe no topo: saldo, prêmio, cupom BJ- do link curto, copiar, compartilhar e contadores; dica "ganhe saldo"')]
+    public function testIndiqueEGanhe(): void
+    {
+        $html = $this->abrir($this->primario);
+
+        self::assertSelectorCount(1, '.ct-pagina > section#indique.ct-indique:first-child');
+        self::assertSelectorTextContains('.ct-indique > .ct-indique-saldo .ct-indique-rotulo', 'SEU SALDO DE RECOMPENSA');
+        self::assertSelectorTextSame('.ct-indique-valor', 'R$ 0,00');
+        self::assertSelectorTextContains('.ct-indique-situacao', 'Libera com 10 escritórios ativos com pastas · você tem 0');
+        self::assertSelectorTextContains('.ct-indique-titulo', 'Indique o BlueJus e ganhe R$ 10 por escritório');
+        self::assertMatchesRegularExpression('#data-cupom>BJ-[A-HJ-NP-Z2-9]{8}<#', $html);
+        self::assertSelectorTextContains('.ct-indique-cupom > [data-copiar-cupom]', 'Copiar cupom');
+        self::assertSelectorTextContains('.ct-indique-cupom > .ct-indique-compartilhar[data-ind-abrir]', 'Compartilhar');
+        self::assertSelectorTextContains('.ct-indique-contadores', '0 convite(s) enviado(s)');
+        self::assertSelectorTextContains('.ct-indique-contadores', '0 aguardando confirmação');
+        self::assertSelectorTextContains('.ct-indique-contadores', '0 conta(s) aberta(s)');
+        self::assertSelectorExists('.bj-share[data-tip="Indique o BlueJus e ganhe saldo"]');
+        self::assertStringNotContainsString('—', $this->client->getCrawler()->filter('#indique')->text());
+    }
+
     #[TestDox('O pacote Free mostra o selo do convênio OAB, que abre o modal; os pagos mostram "+ Espaço"')]
     public function testConvenioOabEMaisEspaco(): void
     {

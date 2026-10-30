@@ -257,9 +257,11 @@ class IndicacaoRepository extends ServiceEntityRepository
      * Quem indicou, para a seção Recompensas do Master: uma linha por indicador (quem tem ao menos uma indicação, envio ou
      * atribuição pelo link), numa consulta só. O escritório é o do envio mais recente. Sem dado de indicado.
      *
+     * Com `$indicadorId`, só a linha dessa pessoa (o cartão "Seu saldo de recompensa" do Contribua).
+     *
      * @return list<array{user_id: int, nome: string, email: string, escritorio: ?string, envios: int}>
      */
-    public function indicadoresParaRecompensas(): array
+    public function indicadoresParaRecompensas(?int $indicadorId = null): array
     {
         $linhas = $this->conexao()->fetchAllAssociative(
             'SELECT i.indicado_por_id AS user_id, u.full_name AS nome, u.email,
@@ -267,8 +269,10 @@ class IndicacaoRepository extends ServiceEntityRepository
                       WHERE r.indicado_por_id = i.indicado_por_id AND NOT r.por_cadastro
                       ORDER BY r.criada_em DESC, r.id DESC LIMIT 1) AS escritorio,
                     COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ') AS envios
-             FROM indicacao i JOIN "user" u ON u.id = i.indicado_por_id
+             FROM indicacao i JOIN "user" u ON u.id = i.indicado_por_id'
+            . ($indicadorId === null ? '' : ' WHERE i.indicado_por_id = :indicador') . '
              GROUP BY i.indicado_por_id, u.full_name, u.email',
+            $indicadorId === null ? [] : ['indicador' => $indicadorId],
         );
 
         return array_map(static fn (array $l): array => [
@@ -287,14 +291,16 @@ class IndicacaoRepository extends ServiceEntityRepository
      * @return list<array{indicador_id: int, conta_id: int, conta_criada_em: string, tem_pasta: bool, aprovada: bool,
      *     escritorios_conta: list<int>, escritorios_indicador: list<int>, cnpjs_conta: list<string>, cnpjs_indicador: list<string>,
      *     dominio_conta: string, dominio_indicador: string}>
+     *
+     * Com `$indicadorId`, só as contas dessa pessoa. O filtro vem DEPOIS do `DISTINCT ON`: a conta indicada por duas
+     * pessoas continua sendo só de quem indicou primeiro.
      */
-    public function contasParaRecompensas(): array
+    public function contasParaRecompensas(?int $indicadorId = null): array
     {
         // Só vínculo ativo com escritório não excluído gera sinal: vínculo morto e escritório apagado não provam ligação.
         $escritorios = 'SELECT string_agg(ut.tenant_id::text, \',\') FROM user_tenant ut JOIN tenant t ON t.id = ut.tenant_id WHERE ut.user_id = %s AND ut.is_active = true AND t.excluido_em IS NULL';
         $cnpjs = 'SELECT string_agg(DISTINCT t.cnpj, \',\') FROM user_tenant ut JOIN tenant t ON t.id = ut.tenant_id WHERE ut.user_id = %s AND ut.is_active = true AND t.excluido_em IS NULL AND t.cnpj IS NOT NULL';
-        $linhas = $this->conexao()->fetchAllAssociative(
-            'SELECT DISTINCT ON (conta.id) i.indicado_por_id AS indicador_id, conta.id AS conta_id, conta.created_at AS conta_criada_em,
+        $sql = 'SELECT DISTINCT ON (conta.id) i.indicado_por_id AS indicador_id, conta.id AS conta_id, conta.created_at AS conta_criada_em,
                     EXISTS (SELECT 1 FROM user_tenant ut JOIN pasta p ON p.tenant_id = ut.tenant_id
                              WHERE ut.user_id = conta.id AND p.excluida_em IS NULL) AS tem_pasta,
                     EXISTS (SELECT 1 FROM aprovacao_de_conta_de_recompensa a
@@ -306,8 +312,10 @@ class IndicacaoRepository extends ServiceEntityRepository
                     split_part(lower(conta.email), \'@\', 2) AS dominio_conta,
                     (SELECT split_part(lower(ind.email), \'@\', 2) FROM "user" ind WHERE ind.id = i.indicado_por_id) AS dominio_indicador
              FROM indicacao i JOIN "user" conta ON conta.id = ' . self::CONTA_CRIADA . '
-             ORDER BY conta.id, i.criada_em, i.id',
-        );
+             ORDER BY conta.id, i.criada_em, i.id';
+        $linhas = $indicadorId === null
+            ? $this->conexao()->fetchAllAssociative($sql)
+            : $this->conexao()->fetchAllAssociative('SELECT * FROM (' . $sql . ') contas WHERE contas.indicador_id = ?', [$indicadorId]);
 
         return array_map(static fn (array $l): array => [
             'indicador_id' => (int) $l['indicador_id'], 'conta_id' => (int) $l['conta_id'], 'conta_criada_em' => (string) $l['conta_criada_em'],

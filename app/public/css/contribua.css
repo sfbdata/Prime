@@ -245,3 +245,22 @@
 
 /* O contêiner do sistema já dá a margem lateral; em tela estreita a da página somaria com ela. */
 @media (max-width: 576px) { .ct-pagina { padding-left: 0; padding-right: 0; } }
+
+/* Indique e ganhe (desenho 08 VS 30.10.26, seção `indique`) */
+.ct-indique { background: #fff; border: 1px solid #dee2e6; border-left: 4px solid #1e7b45; border-radius: 4px; padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; }
+.ct-indique-saldo { flex: 1 1 200px; min-width: 0; }
+.ct-indique-rotulo { font-size: 11px; font-weight: bold; letter-spacing: 1px; color: #4a6373; }
+.ct-indique-valor { display: block; font-size: 34px; line-height: 1.1; color: #1e7b45; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.ct-indique-situacao { font-size: 12.5px; color: #5b7383; margin-top: 2px; }
+.ct-indique-corpo { flex: 999 1 300px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ct-indique-titulo { font-size: 16px; color: #0b3550; }
+.ct-indique-texto { font-size: 13.5px; color: #34505f; line-height: 1.5; margin-top: 3px; }
+.ct-indique-cupom { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ct-indique-rotulo-cupom { font-size: 11px; font-weight: bold; letter-spacing: .6px; color: #4a6373; }
+.ct-indique-codigo { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px dashed #9fc3d8; border-radius: 3px; background: #f5fafd; font: bold 14px monospace; color: #0b4f75; letter-spacing: 1px; }
+.ct-indique-copiar { height: 36px; padding: 0 12px; border: 1px solid #c5d2db; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 13px; cursor: pointer; }
+.ct-indique-compartilhar { height: 36px; padding: 0 14px; border: none; border-radius: 3px; background: #1e7b45; color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+.ct-indique-compartilhar:hover { background: #17643a; }
+.ct-indique-contadores { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: #5b7383; }
+.ct-indique-contadores b { color: #243845; }
+.ct-indique-contadores b.ct-indique-ok { color: #1e7b45; }

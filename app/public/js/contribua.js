@@ -108,6 +108,30 @@
     $('[data-copiar-chave]').addEventListener('click', (e) => copiar(CHAVE, e.currentTarget, 'Chave copiada', 'Chave PIX copiada'));
     $('[data-copiar-conta]').addEventListener('click', (e) => copiar(DADOS_BANCARIOS, e.currentTarget, 'Dados copiados', 'Dados bancários copiados'));
 
+    /* "Copiar cupom" do Indique e ganhe: o rótulo vira "Copiado" por 2 s, sem toast (desenho, `copiarCod`). */
+    const botaoCupom = $('[data-copiar-cupom]');
+    let tempoCupom = null;
+    botaoCupom?.addEventListener('click', () => {
+        const feito = () => {
+            $('span', botaoCupom).textContent = 'Copiado';
+            clearTimeout(tempoCupom);
+            tempoCupom = setTimeout(() => { $('span', botaoCupom).textContent = 'Copiar cupom'; }, 2000);
+        };
+        const texto = $('[data-cupom]').textContent.trim();
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(texto).then(feito, feito);
+
+            return;
+        }
+        const area = document.createElement('textarea');
+        area.value = texto;
+        document.body.appendChild(area);
+        area.select();
+        try { document.execCommand('copy'); } catch (erro) { /* sem área de transferência: o cupom continua à vista */ }
+        area.remove();
+        feito();
+    });
+
     /* "Já contribuí, registrar meu apoio" */
     $('[data-registrar-apoio]').addEventListener('click', (e) => {
         const botao = e.currentTarget;

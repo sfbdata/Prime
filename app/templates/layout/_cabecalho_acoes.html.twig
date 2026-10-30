@@ -2,12 +2,13 @@
     Botão discreto "Indicar o BlueJus" na tarja azul, antes do sino (desenho 05 Perfis 1.2 VS 25.10.26,
     bj-compartilhar.js: 34x34, bi-share, tooltip "Indique o BlueJus e ganhe recompensa"). Entra pelo ponto de
     inclusão do base (`layout/_cabecalho_acoes.html.twig`). Abre a janela que já existe: o `data-ind-abrir`
-    é tratado por public/js/indicacao.js, e a janela vem de menu_usuario/_modais.html.twig.
+    é tratado por public/js/indicacao.js, e a janela vem de menu_usuario/_modais.html.twig. No Contribua a dica é
+    "ganhe saldo" (desenho 08 VS 30.10.26); o componente comum do bj-compartilhar.js segue "ganhe recompensa".
 #}
 <div class="navtop-action">
     <link rel="stylesheet" href="{{ asset('css/cabecalho-indicar.css') }}">
     <button type="button" class="bj-share" data-bj-share data-ind-abrir
-            aria-label="{{ 'moldura.cabecalho.indicar_botao'|trans }}" data-tip="{{ 'moldura.cabecalho.indicar_botao_dica'|trans }}">
+            aria-label="{{ 'moldura.cabecalho.indicar_botao'|trans }}" data-tip="{{ (app.request and (app.request.attributes.get('_route') ?? '') starts with 'contribua_' ? 'moldura.cabecalho.indicar_botao_dica_saldo' : 'moldura.cabecalho.indicar_botao_dica')|trans }}">
         <i class="bi bi-share"></i>
     </button>
 </div>

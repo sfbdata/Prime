@@ -18,6 +18,7 @@ use App\Contribua\UseCase\RegistrarApoioUseCase;
 use App\Contribua\UseCase\RegistrarMotivoDeNaoApoiarUseCase;
 use App\Contribua\UseCase\RegistrarRetornoDoPagamentoUseCase;
 use App\Entity\Auth\User;
+use App\Recompensa\UseCase\ObterMeuSaldoDeRecompensaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -43,12 +44,15 @@ final class ContribuaController extends AbstractController
 
     /** `?assinatura=ok` é a página de retorno colada no gateway: abre o "Pagamento enviado" do checkout. */
     #[Route('', name: 'contribua_index', methods: ['GET'])]
-    public function index(Request $request, MontarPaginaDoContribuaUseCase $montar, MontarPagamentoDoContribuaUseCase $pagamento, RegistrarRetornoDoPagamentoUseCase $retorno): Response
+    public function index(Request $request, MontarPaginaDoContribuaUseCase $montar, MontarPagamentoDoContribuaUseCase $pagamento, RegistrarRetornoDoPagamentoUseCase $retorno, ObterMeuSaldoDeRecompensaUseCase $recompensa): Response
     {
         $quem = $this->solicitante();
         $voltou = $request->query->get('assinatura') === 'ok' ? $retorno->executar($quem) : null;
 
-        return $this->render('contribua/index.html.twig', ['pagina' => $montar->executar($quem), 'pagamento' => $pagamento->executar($quem), 'retorno' => $voltou]);
+        return $this->render('contribua/index.html.twig', [
+            'pagina' => $montar->executar($quem), 'pagamento' => $pagamento->executar($quem), 'retorno' => $voltou,
+            'recompensa' => $recompensa->executar($quem->usuario),
+        ]);
     }
 
     /** O "copia e cola" para o valor escolhido (R$ 20, 50, 100 ou outro). */

@@ -113,7 +113,39 @@ final class PacotesDaPaginaTest extends TestCase
         self::assertFalse($pacotes['profissional']['nuvemRecomendada']);
     }
 
-    private function pagina(int $usados, ?string $planoAtual = null, ?int $limiteDoMaster = null, bool $comBonus = false): array
+    #[TestDox('Sem limite (só o do Master): uso contra a cota do plano com o % real, barra cheia, faixa do desenho, sem "Menor que o atual"')]
+    public function testSemLimite(): void
+    {
+        $pagina = $this->pagina((int) (14.5 * RetratoDoEspaco::BYTES_POR_GB), semLimite: true);
+
+        self::assertSame('14,5 GB', $pagina['espaco']['uso']);
+        self::assertSame('10 GB', $pagina['espaco']['limite']);
+        self::assertSame(145, $pagina['espaco']['percentual']);
+        self::assertSame('100%', $pagina['espaco']['largura']);
+        self::assertSame('Seu escritório está com 145% do espaço ocupado', $pagina['espaco']['titulo']);
+        self::assertSame('#fdf1f2', $pagina['espaco']['fundo']);
+        self::assertSame('#b02a37', $pagina['espaco']['cor']);
+        self::assertSame(['Seu plano atual', 'Incluído', 'Incluído', 'Incluído'], array_column($pagina['pacotes'], 'botao'));
+        foreach ($pagina['pacotes'] as $pacote) {
+            self::assertFalse($pacote['recomendado']);
+            self::assertFalse($pacote['temGanho']);
+            self::assertFalse($pacote['temNuvem']);
+            self::assertTrue($pacote['desabilitado']);
+        }
+    }
+
+    #[TestDox('Sem limite a 92% da cota: faixa amarela e âmbar do desenho')]
+    public function testSemLimiteNaFaixaAmarela(): void
+    {
+        $pagina = $this->pagina((int) (9.2 * RetratoDoEspaco::BYTES_POR_GB), semLimite: true);
+
+        self::assertSame('Seu escritório está com 92% do espaço ocupado', $pagina['espaco']['titulo']);
+        self::assertSame('#fff8e6', $pagina['espaco']['fundo']);
+        self::assertSame('#c08a12', $pagina['espaco']['cor']);
+        self::assertSame('92%', $pagina['espaco']['largura']);
+    }
+
+    private function pagina(int $usados, ?string $planoAtual = null, ?int $limiteDoMaster = null, bool $comBonus = false, bool $semLimite = false): array
     {
         $planos = [
             new Plano('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1),
@@ -138,6 +170,11 @@ final class PacotesDaPaginaTest extends TestCase
         if ($limiteDoMaster !== null) {
             $espaco = new EspacoDoEscritorio($escritorio, $planos[0]);
             $espaco->definirLimite($limiteDoMaster, false, 'teste', null);
+            $espacos->method('doTenant')->willReturn($espaco);
+        }
+        if ($semLimite) {
+            $espaco = new EspacoDoEscritorio($escritorio, $planos[0]);
+            $espaco->definirLimite(null, true, 'teste', null);
             $espacos->method('doTenant')->willReturn($espaco);
         }
         $bonus = $this->createStub(BonusDeEspacoRepository::class);
