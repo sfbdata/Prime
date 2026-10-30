@@ -14,6 +14,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -83,7 +84,22 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('.ct-indique-contadores', '0 aguardando confirmação');
         self::assertSelectorTextContains('.ct-indique-contadores', '0 conta(s) aberta(s)');
         self::assertSelectorExists('.bj-share[data-tip="Indique o BlueJus e ganhe saldo"]');
+        self::assertSelectorTextContains('.ct-indique-texto', 'você ganha crédito quando o escritório indicado começar a usar o BlueJus. O saldo fica guardado e nunca expira.');
         self::assertStringNotContainsString('—', $this->client->getCrawler()->filter('#indique')->text());
+    }
+
+    #[TestDox('Com o programa de recompensa desligado no Master, o cartão do saldo some')]
+    public function testIndiqueSomeComProgramaDesligado(): void
+    {
+        $programa = $this->em->find(ProgramaDeRecompensa::class, ProgramaDeRecompensa::ID_UNICO) ?? new ProgramaDeRecompensa();
+        $programa->alterarRegras(false, 1000, 10, 0, 50, true);
+        $this->em->persist($programa);
+        $this->em->flush();
+
+        $this->abrir($this->primario);
+
+        self::assertSelectorNotExists('#indique');
+        self::assertSelectorExists('.ct-pagina');
     }
 
     #[TestDox('O pacote Free mostra o selo do convênio OAB, que abre o modal; os pagos mostram "+ Espaço"')]

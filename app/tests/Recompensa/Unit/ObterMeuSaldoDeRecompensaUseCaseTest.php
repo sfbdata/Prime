@@ -79,7 +79,16 @@ final class ObterMeuSaldoDeRecompensaUseCaseTest extends TestCase
         self::assertSame($doPainel->saldoCentavos, $saldo->saldoCentavos);
     }
 
-    private function executar(): MeuSaldoDeRecompensaOutput
+    #[TestDox('Programa desligado no Master: nada (o cartão do Contribua some)')]
+    public function testProgramaDesligado(): void
+    {
+        $this->programa = new ProgramaDeRecompensa();
+        $this->programa->alterarRegras(false, 1000, 10, 0, 50, true);
+
+        self::assertNull($this->executar());
+    }
+
+    private function executar(): ?MeuSaldoDeRecompensaOutput
     {
         $indicacoes = $this->createStub(IndicacaoRepository::class);
         $indicacoes->method('indicadoresParaRecompensas')->willReturnCallback(fn (?int $id = null): array => array_values(array_filter($this->indicadores, static fn (array $l): bool => $id === null || $l['user_id'] === $id)));

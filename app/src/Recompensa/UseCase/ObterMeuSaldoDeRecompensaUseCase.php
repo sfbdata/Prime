@@ -21,7 +21,7 @@ use App\Recompensa\Repository\ProgramaDeRecompensaRepository;
  * janela "Indicar o BlueJus") e os contadores. "Convites" é o total de indicações da pessoa (o mesmo de "SUAS
  * INDICAÇÕES" na janela, envios e cadastros pelo link) e "contas abertas" as que contam para ela no painel: as duas
  * saem da tabela de indicações, e o desenho faz "aguardando" = convites menos contas. Quem nunca indicou (ou foi apagado da lista) vê saldo zero, com o valor
- * e o mínimo da própria condição ou da regra geral.
+ * e o mínimo da própria condição ou da regra geral. Com o programa desligado no Master, devolve null e o cartão some.
  */
 final class ObterMeuSaldoDeRecompensaUseCase
 {
@@ -34,10 +34,13 @@ final class ObterMeuSaldoDeRecompensaUseCase
     ) {
     }
 
-    public function executar(User $user): MeuSaldoDeRecompensaOutput
+    public function executar(User $user): ?MeuSaldoDeRecompensaOutput
     {
         $userId = (int) $user->getId();
         $programa = $this->programas->buscarUnico() ?? new ProgramaDeRecompensa();
+        if (!$programa->isAtivo()) {
+            return null;
+        }
         $cupom = 'BJ-' . $this->codigos->codigoDe($user);
         $linha = $this->painel->doIndicador($userId);
         $convites = $this->indicacoes->contarDoUsuario($userId);
