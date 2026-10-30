@@ -118,7 +118,7 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.js-vis-painel'));
     }
 
-    #[TestDox('colunas padrão do desenho 15: NUP, Cliente, Ação, Prioridade e Metas ligadas; o resto desligado')]
+    #[TestDox('colunas padrão do desenho 15: NUP, Cliente, Ação, Prioridade, Metas e a "Mod." da tela antiga ligadas; o resto desligado')]
     public function testColunasPadrao(): void
     {
         [$user, $tenant] = $this->criarAdmin();
@@ -130,10 +130,27 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         $tabela = $crawler->filter('#tabelaPastas');
         self::assertCount(1, $tabela);
         self::assertSame(
-            ['nup' => true, 'cliente' => true, 'reu' => false, 'acao' => true, 'prio' => true, 'resp' => false, 'metas' => true, 'marc' => false, 'sit' => false],
+            ['nup' => true, 'cliente' => true, 'reu' => false, 'acao' => true, 'prio' => true, 'resp' => false, 'metas' => true, 'marc' => false, 'sit' => false, 'mod' => true],
             json_decode((string) $tabela->attr('data-colunas-padrao'), true, 512, JSON_THROW_ON_ERROR),
         );
         self::assertSame('demandas_colunas:', $tabela->attr('data-prefixo-colunas-local'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-col="mod"]'));
+        self::assertStringContainsString('Hoje', $crawler->filter('#tabelaPastas tbody td[data-col="mod"]')->text());
+    }
+
+    #[TestDox('sem ordenação escolhida, as urgentes vêm primeiro (comportamento histórico das Demandas)')]
+    public function testOrdemPadraoUrgentesPrimeiro(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $normal  = $this->criarPasta($tenant, $user);
+        $urgente = $this->criarPasta($tenant, $user);
+        $urgente->setPrioridade(PrioridadePasta::Urgente);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $crawler = $this->client->request('GET', '/demandas');
+
+        self::assertStringContainsString((string) $urgente->getNup(), $crawler->filter('#tabelaPastas tbody tr')->first()->text());
     }
 
     #[TestDox('o CSS da tela zebra as linhas (#ffffff e #eef3f7, borda #eef2f5) só sob .exp-demandas')]

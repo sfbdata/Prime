@@ -50,16 +50,17 @@ final class GravarColunasDoExpedienteUseCase
      * O mapa aceito, ou a recusa. Público e estático porque a leitura ({@see ObterColunasDoExpedienteUseCase})
      * usa a mesma regra para não devolver à tela um valor que não passaria aqui.
      *
+     * @param list<string> $colunasDaTabela as colunas aceitas (as Minhas Demandas somam a "Mod.")
      * @return array<string, bool>
      */
-    public static function exigirMapaValido(mixed $colunas): array
+    public static function exigirMapaValido(mixed $colunas, array $colunasDaTabela = self::COLUNAS): array
     {
         if (!is_array($colunas) || count($colunas) > self::MAXIMO_DE_ENTRADAS) {
             throw new ColunasDoExpedienteInvalidasException();
         }
 
         foreach ($colunas as $coluna => $visivel) {
-            if (!in_array($coluna, self::COLUNAS, true) || !is_bool($visivel)) {
+            if (!in_array($coluna, $colunasDaTabela, true) || !is_bool($visivel)) {
                 throw new ColunasDoExpedienteInvalidasException();
             }
         }

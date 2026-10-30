@@ -17,7 +17,7 @@
 
     <div id="pastas-resultado">
         {# Desenho 15 (dc L.578): NUP, Cliente, Ação, Prioridade e Metas ligadas; Réu, Responsável, Marcadores e
-           Situação desligadas, até a pessoa escolher as dela (chave `demandas.colunas`). #}
+           Situação desligadas, "Mod." ligada (a tela antiga a tinha), até a pessoa escolher as dela (chave `demandas.colunas`). #}
         {{ include('expediente/_lista.html.twig', {
             rotaPastaNome: 'demandas_pasta_nome',
             rotaPastaTrancar: 'demandas_pasta_trancar',
@@ -25,7 +25,8 @@
             rotaPastaMarcadores: 'demandas_pasta_marcadores',
             urlCsvLista: path('demandas_exportar_csv'),
             urlColunasLista: path('demandas_colunas_gravar'),
-            colunasPadrao: {nup: true, cliente: true, reu: false, acao: true, prio: true, resp: false, metas: true, marc: false, sit: false},
+            colunasPadrao: {nup: true, cliente: true, reu: false, acao: true, prio: true, resp: false, metas: true, marc: false, sit: false, mod: true},
+            colunaModificada: true,
             prefixoColunasLocal: 'demandas_colunas:',
             semPainelMarcadores: true,
             resumoDemandas: true

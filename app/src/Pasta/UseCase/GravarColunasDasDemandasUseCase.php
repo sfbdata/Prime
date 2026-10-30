@@ -21,6 +21,9 @@ final class GravarColunasDasDemandasUseCase
 {
     public const CHAVE = 'demandas.colunas';
 
+    /** As do Expediente mais a "Mod." (dias desde a abertura), que a tela antiga das Demandas tinha. */
+    public const COLUNAS = [...GravarColunasDoExpedienteUseCase::COLUNAS, 'mod'];
+
     public function __construct(
         private readonly PreferenciaDoUsuarioRepository $preferencias,
     ) {
@@ -34,6 +37,6 @@ final class GravarColunasDasDemandasUseCase
             return;
         }
 
-        $this->preferencias->gravar($tenant, $usuario, self::CHAVE, GravarColunasDoExpedienteUseCase::exigirMapaValido($colunas));
+        $this->preferencias->gravar($tenant, $usuario, self::CHAVE, GravarColunasDoExpedienteUseCase::exigirMapaValido($colunas, self::COLUNAS));
     }
 }

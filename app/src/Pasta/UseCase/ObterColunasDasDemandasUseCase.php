@@ -31,7 +31,7 @@ final class ObterColunasDasDemandasUseCase
         }
 
         try {
-            return GravarColunasDoExpedienteUseCase::exigirMapaValido($valor);
+            return GravarColunasDoExpedienteUseCase::exigirMapaValido($valor, GravarColunasDasDemandasUseCase::COLUNAS);
         } catch (ColunasDoExpedienteInvalidasException) {
             return null;
         }

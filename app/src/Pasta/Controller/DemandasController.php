@@ -194,7 +194,8 @@ final class DemandasController extends AbstractController
         $ordenar = (string) $request->query->get('ordenar', '');
         $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        return [in_array($ordenar, self::ORDENAVEIS, true) ? $ordenar : '', $direcao];
+        // Sem ordenação explícita, mantém o comportamento histórico das Demandas: urgentes primeiro.
+        return [in_array($ordenar, self::ORDENAVEIS, true) ? $ordenar : 'prioridade', $direcao];
     }
 
     private function porPaginaDaRequest(Request $request): int

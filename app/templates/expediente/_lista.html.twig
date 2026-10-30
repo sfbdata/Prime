@@ -29,6 +29,8 @@
 {% set prefixoColunasLocal = prefixoColunasLocal ?? null %}
 {% set semPainelMarcadores = semPainelMarcadores ?? false %}
 {% set resumoDemandas = resumoDemandas ?? false %}
+{# Coluna "Mod." (dias desde a abertura) que a tela antiga das Minhas Demandas tinha: só lá ela entra. #}
+{% set colunaModificada = colunaModificada ?? false %}
 
 <style>
 @keyframes urgente-pulso {
@@ -149,7 +151,7 @@
                data-url-colunas="{{ urlColunasLista }}"{% if colunasPadrao is not null %} data-colunas-padrao="{{ colunasPadrao|json_encode|e('html_attr') }}"{% endif %}{% if prefixoColunasLocal %} data-prefixo-colunas-local="{{ prefixoColunasLocal }}"{% endif %}>
             <colgroup>
                 <col data-col="nup"><col data-col="cliente"><col data-col="reu"><col data-col="acao"><col data-col="prio">
-                <col data-col="resp"><col data-col="metas"><col data-col="marc"><col data-col="sit">
+                <col data-col="resp"><col data-col="metas"><col data-col="marc"><col data-col="sit">{% if colunaModificada %}<col data-col="mod">{% endif %}
             </colgroup>
             <thead class="table-light">
                 <tr>
@@ -162,6 +164,7 @@
                     <th data-col="metas" class="col-tarefas-tabela" title="{{ 'expediente.lista.coluna_dica.metas'|trans }}"><span class="exp-th"><i class="bi bi-check2-square me-1"></i><span class="exp-th-rot">{{ 'expediente.lista.coluna.metas'|trans }}</span></span></th>
                     <th data-col="marc" class="sortable col-marc-tabela {{ ordColVis == 'marcadores' ? ordDirVis }}" data-ordenar="marcadores" title="{{ 'expediente.lista.coluna_dica.marcadores'|trans }}"{{ tab.ariaSort('marcadores', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-tags me-1"></i><span class="exp-th-rot">{{ 'expediente.lista.coluna.marcadores'|trans }}</span>{{ tab.seta('marcadores', ordColVis, ordDirVis) }}</span></th>
                     <th data-col="sit" class="sortable {{ ordColVis == 'situacao' ? ordDirVis }}" data-ordenar="situacao" title="{{ 'expediente.lista.coluna_dica.situacao'|trans }}"{{ tab.ariaSort('situacao', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-circle-half me-1"></i><span class="exp-th-rot">{{ 'expediente.lista.coluna.situacao'|trans }}</span>{{ tab.seta('situacao', ordColVis, ordDirVis) }}</span></th>
+                    {% if colunaModificada %}<th data-col="mod" class="col-data-tabela"><span class="exp-th"><i class="bi bi-clock-history me-1"></i><span class="exp-th-rot">{{ 'pasta_lista.resultado.modificada'|trans }}</span></span></th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -225,6 +228,7 @@
                     <td data-col="metas" class="col-tarefas-tabela align-middle"></td>
                     <td data-col="marc" class="col-marc-tabela align-middle"></td>
                     <td data-col="sit" class="align-middle"></td>
+                    {% if colunaModificada %}<td data-col="mod" class="col-data-tabela align-middle"></td>{% endif %}
                     {% else %}
                     <td data-col="reu" class="align-middle col-reu-tabela">
                         {% if reus is not empty %}
@@ -310,6 +314,15 @@
                         <span class="badge exp-sit-fixa" data-situacao="{{ pasta.situacao }}" data-tip="{{ 'expediente.lista.situacao_dica_aberta'|trans({situacao: sit[1], data: pasta.dataAbertura|data}) }}">{{ sit[0] }}</span>
                         {% endif %}
                     </td>
+                    {% if colunaModificada %}
+                    {% set dias = pasta.dataAbertura ? date().diff(pasta.dataAbertura).days : null %}
+                    <td data-col="mod" class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
+                        {% if dias is null %}{{ 'pasta_lista.resultado.sem_registro'|trans }}
+                        {% elseif dias == 0 %}{{ 'pasta_lista.hoje'|trans }}
+                        {% elseif dias == 1 %}{{ 'pasta_lista.resultado.um_dia'|trans }}
+                        {% else %}{{ 'pasta_lista.resultado.dias'|trans({dias: dias ~ ''}) }}{% endif %}
+                    </td>
+                    {% endif %}
                     {% endif %}
                 </tr>
                 {% endfor %}

@@ -1005,7 +1005,9 @@
 
     /* ── Colunas da tabela (dc `colVis`, `colItens`, `colCsv`) ─────────── */
     var COLUNAS = [['nup', BJ_T.t('expediente.js.lista.coluna.nup')], ['cliente', BJ_T.t('expediente.js.lista.coluna.cliente')], ['reu', BJ_T.t('expediente.js.lista.coluna.reu')], ['acao', BJ_T.t('expediente.js.lista.coluna.acao')], ['prio', BJ_T.t('expediente.js.lista.coluna.prio')], ['resp', BJ_T.t('expediente.js.lista.coluna.resp')], ['metas', BJ_T.t('expediente.js.lista.coluna.metas')], ['marc', BJ_T.t('expediente.js.lista.coluna.marc')], ['sit', BJ_T.t('expediente.js.lista.coluna.sit')]];
-    var ESSENCIAIS = { nup: true, cliente: true, reu: false, acao: true, prio: false, resp: true, metas: false, marc: false, sit: true };
+    var ESSENCIAIS = { nup: true, cliente: true, reu: false, acao: true, prio: false, resp: true, metas: false, marc: false, sit: true, mod: false };
+    // A coluna "Mod." só existe nas Minhas Demandas (`colunaModificada` do _lista.html.twig).
+    if (document.querySelector('#tabelaPastas th[data-col="mod"]')) { COLUNAS.push(['mod', BJ_T.t('expediente.js.lista.coluna.mod')]); }
     /* Ajuste só de quem escolheu (dc `colKey`: conta + usuário), guardado no SERVIDOR por escritório e usuário:
        a tabela traz o ajuste em `data-colunas` (`null` = padrão) e a gravação é POST em `data-url-colunas`, com o
        token da Lista no cabeçalho. A chave local da conta e do usuário (`data-chave-colunas`) só serve para trazer,
@@ -1103,7 +1105,7 @@
         var params = new URLSearchParams(f ? new FormData(f) : undefined);
         params.delete('page');
         var v = colunasVisiveis();
-        params.set('colunas', COLUNAS.filter(function (c) { return v[c[0]] && c[0] !== 'metas'; }).map(function (c) { return c[0]; }).join(','));
+        params.set('colunas', COLUNAS.filter(function (c) { return v[c[0]] && c[0] !== 'metas' && c[0] !== 'mod'; }).map(function (c) { return c[0]; }).join(','));
         var painel = document.getElementById('painel-marcador-wrapper');
         if (painel) { params.set('marcador', painel.getAttribute('data-marcador-id')); }
 

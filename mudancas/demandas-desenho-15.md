@@ -7,3 +7,5 @@ tipo: novidade
 - Colunas padrão próprias (NUP, Cliente, Ação, Prioridade e Metas), guardadas por pessoa numa preferência separada da do Expediente.
 - Botão "Nova demanda": abre a Nova Pasta e quem cria fica como responsável; a lista recarrega e avisa "Demanda da pasta N aberta para CLIENTE com você como responsável".
 - Rotas próprias da tela (`/demandas/colunas`, `/demandas/exportar.csv`, `/demandas/nova-pasta/sugestoes`, `/demandas/pasta/{id}/...`) com o acesso ao módulo Pastas e a guarda do escritório.
+
+- Ficam da tela antiga (função do sistema não sai): a ordem padrão "urgentes primeiro", a coluna "Mod." (ligada por padrão, escolhível no menu de colunas, só nas Demandas) e os vários clientes juntos com "; ".

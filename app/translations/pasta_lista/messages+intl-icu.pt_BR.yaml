@@ -52,6 +52,13 @@ pasta_lista:
         resumo: '{total} demanda(s) encontrada(s)'
         resumo_vazio: Nenhuma demanda encontrada
     # Responsável "equipe" (Total de Pastas concluídas do Dashboard): rótulo do campo e da opção que só existe com o link.
+    # Coluna "Mod." das Minhas Demandas (expediente/_lista.html.twig com `colunaModificada`).
+    hoje: Hoje
+    resultado:
+        modificada: Mod.
+        sem_registro: Sem registro
+        um_dia: 1 dia atrás
+        dias: '{dias}d atrás'
     filtro_equipe:
         equipe: Equipe
         equipe_cargo: 'Equipe · {cargo}'

@@ -11,6 +11,7 @@ use App\Expediente\Exception\ColunasDoExpedienteInvalidasException;
 use App\Pasta\UseCase\GravarColunasDasDemandasUseCase;
 use App\Pasta\UseCase\ObterColunasDasDemandasUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use App\Expediente\UseCase\GravarColunasDoExpedienteUseCase;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -50,6 +51,18 @@ final class ColunasDasDemandasUseCaseTest extends TestCase
         $this->preferencias->expects(self::never())->method('gravar');
 
         (new GravarColunasDasDemandasUseCase($this->preferencias))->executar($this->tenant, $this->user, null);
+    }
+
+    #[TestDox('a coluna "Mod." vale nas Demandas e continua recusada no Expediente')]
+    public function testColunaModSoNasDemandas(): void
+    {
+        $mapa = ['nup' => true, 'mod' => false];
+        $this->preferencias->expects(self::once())->method('gravar')->with($this->tenant, $this->user, 'demandas.colunas', $mapa);
+
+        (new GravarColunasDasDemandasUseCase($this->preferencias))->executar($this->tenant, $this->user, $mapa);
+
+        $this->expectException(ColunasDoExpedienteInvalidasException::class);
+        GravarColunasDoExpedienteUseCase::exigirMapaValido($mapa);
     }
 
     #[TestDox('coluna que a tabela não tem é recusada sem gravar')]
