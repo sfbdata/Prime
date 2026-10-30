@@ -10,7 +10,7 @@ use App\Inteligencia\DTO\PedidoDeLinguagem;
 use Psr\Clock\ClockInterface;
 
 /**
- * O prompt do chat livre da página inteira (`chat-livre-v3`, spec chat-pagina-inteira). Conversa em Markdown, sem JSON.
+ * O prompt do chat livre da página inteira (`chat-livre-v4`, spec chat-pagina-inteira). Conversa em Markdown, sem JSON.
  *
  * - O histórico entra como turnos de verdade (usuário/assistente); turnos seguidos do mesmo papel (uma pergunta cuja
  *   resposta falhou) são unidos, e a conversa começa sempre por um turno do usuário.
@@ -24,7 +24,7 @@ use Psr\Clock\ClockInterface;
  */
 final class PromptDoChatLivre
 {
-    public const VERSAO = 'chat-livre-v3';
+    public const VERSAO = 'chat-livre-v4';
     public const ROTULO_DE_USO = 'chat_livre';
     private const TEMPERATURA = 0.3;
 

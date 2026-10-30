@@ -57,7 +57,7 @@ evento `bj-central:perguntar-ia` preservado). Os testes `EncaminharNaJanelaJsTes
 2. **Contexto de metas no servidor.** O corpo do envio ganha `contexto: "metas"` (SINAL; o cliente nunca manda texto). `ContextoDasMetasNoChat`
    exige o aceite do escritório, usa só as metas da própria pessoa (mesmos recortes da tela: cadeado, `findPrioridadesDoDia`,
    `findAtrasadasParaAtencao`, novo `findAguardandoRevisao`) e entrega UM bloco `<metas>` (delimitador já em `NeutralizadorDeConteudo::DELIMITADORES`),
-   com cada valor por `ProtecaoDoTextoDoChat::rotulo`. Prompt vira `chat-livre-v3` (parágrafo sobre o bloco de metas).
+   com cada valor por `ProtecaoDoTextoDoChat::rotulo`. Prompt vira `chat-livre-v4` (parágrafo sobre o bloco de metas).
 3. **Markdown no mini.** O renderizador seguro saiu de `chat-ia.js` para `public/js/chat-ia-markdown.js` (`window.BJMarkdown.criar`), usado pela
    página inteira e pelo mini (Central e painel de Metas). Mesmas garantias: só `createElement`/`textContent`, links http/https/mailto.
 
