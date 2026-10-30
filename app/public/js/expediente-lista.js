@@ -981,7 +981,7 @@
         }
         // Título do acervo: volta ao acervo geral, sem filtros (dc `irPadrao`).
         if (e.target.closest('.exp-body .exp-barra-titulo')) {
-            if (window.ExpTrilho) { window.ExpTrilho.abrirTodas(true); }
+            if (window.ExpTrilho) { window.ExpTrilho.abrirTodas(true); } else if (window.ExpPainel && window.ExpPainel.irPadrao) { window.ExpPainel.irPadrao(); }   // Demandas: sem trilho
             return;
         }
         var pp = e.target.closest('.js-por-pagina');
@@ -1018,8 +1018,10 @@
     function chaveColunasLocal() {
         var t = tabelaDaLista();
         var dono = t ? t.getAttribute('data-chave-colunas') : '';
+        // As Minhas Demandas (desenho 15, dc `colKey` = `bj-dem-cols`) guardam o ajuste antigo em chave própria.
+        var prefixo = (t && t.getAttribute('data-prefixo-colunas-local')) || PREFIXO_COLUNAS_LOCAL;
 
-        return dono ? PREFIXO_COLUNAS_LOCAL + dono : '';
+        return dono ? prefixo + dono : '';
     }
     function mapaCompleto(v) {
         var out = {};
@@ -1036,8 +1038,16 @@
         try { v = JSON.parse(t.dataset.colunas || 'null'); } catch (x) { v = null; }
         return v && typeof v === 'object' ? v : null;
     }
+    /* Sem ajuste salvo vale o padrão da tela: o Expediente mostra todas; as Demandas trazem o delas em
+       `data-colunas-padrao` (desenho 15, dc `COL_PADRAO`). */
+    function colunasPadrao() {
+        var t = tabelaDaLista();
+        var p = null;
+        try { p = JSON.parse((t && t.getAttribute('data-colunas-padrao')) || 'null'); } catch (x) { p = null; }
+        return p && typeof p === 'object' ? p : {};
+    }
     function colunasVisiveis() {
-        return mapaCompleto(colunasSalvas() || {});
+        return mapaCompleto(colunasSalvas() || colunasPadrao());
     }
     /* `null` volta ao padrão (o servidor apaga o ajuste). Sem conexão, avisa e a tela fica como a pessoa deixou. */
     function gravarColunas(v, silencioso) {

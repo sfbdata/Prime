@@ -1,0 +1,38 @@
+{# Painel do acervo das Minhas Demandas (desenho 15, dc L.120-131): a barra do acervo da Lista do Expediente com
+   "Todas as demandas" e "Nova demanda", o filtro de situação, os filtros e a Lista (expediente/_lista) com as
+   rotas, as colunas padrão e o resumo das Demandas. É também o que o XHR de filtro/página devolve. #}
+{% set filters = filters ?? {} %}
+<div class="exp-painel" id="acervo-geral-wrapper">
+    <div class="exp-barra">
+        <h2 class="exp-barra-titulo" role="button" tabindex="0" data-tip="{{ 'expediente.acervo.voltar_dica'|trans }}"><i class="bi bi-folder2" aria-hidden="true"></i>{{ 'pasta_lista.demandas.todas'|trans }}</h2>
+        <button type="button" class="exp-nova-pasta exp-nova-demanda"
+                data-bs-toggle="modal" data-bs-target="#modalNovaPasta"
+                data-tip="{{ 'pasta_lista.demandas.nova_dica'|trans }}">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'pasta_lista.demandas.nova'|trans }}
+        </button>
+        {{ include('pasta/_filtro_situacao.html.twig') }}
+    </div>
+
+    {{ include('pasta/_filtros.html.twig') }}
+
+    <div id="pastas-resultado">
+        {# Desenho 15 (dc L.578): NUP, Cliente, Ação, Prioridade e Metas ligadas; Réu, Responsável, Marcadores e
+           Situação desligadas, até a pessoa escolher as dela (chave `demandas.colunas`). #}
+        {{ include('expediente/_lista.html.twig', {
+            rotaPastaNome: 'demandas_pasta_nome',
+            rotaPastaTrancar: 'demandas_pasta_trancar',
+            rotaPastaDestaque: 'demandas_pasta_destaque',
+            rotaPastaMarcadores: 'demandas_pasta_marcadores',
+            urlCsvLista: path('demandas_exportar_csv'),
+            urlColunasLista: path('demandas_colunas_gravar'),
+            colunasPadrao: {nup: true, cliente: true, reu: false, acao: true, prio: true, resp: false, metas: true, marc: false, sit: false},
+            prefixoColunasLocal: 'demandas_colunas:',
+            semPainelMarcadores: true,
+            resumoDemandas: true,
+            vazioSemFiltro: 'pasta_lista.resultado.vazio_texto'
+        }) }}
+        <div class="mt-2">
+            {{ include('expediente/_paginacao.html.twig', {paginacaoRodape: true}) }}
+        </div>
+    </div>
+</div>
