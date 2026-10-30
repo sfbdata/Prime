@@ -117,7 +117,8 @@
         box.style.display = 'none';
     }
 
-    // "Importar em lote" (desenho 03): fecha a Nova Pasta e só então avisa o lote, para as duas não ficarem abertas.
+    {#- Botão do lote (desenho 03): fecha a Nova Pasta e só então avisa o lote, para as duas não ficarem abertas. #}
+    {% if importarLote %}
     form.addEventListener('click', function (e) {
         if (!e.target.closest('[data-acao="importar-lote"]')) { return; }
         var inst = novaEl && window.bootstrap ? bootstrap.Modal.getInstance(novaEl) : null;
@@ -126,6 +127,7 @@
         novaEl.addEventListener('hidden.bs.modal', avisar, { once: true });
         inst.hide();
     });
+    {% endif %}
 
     function fecharModais() {
         [novaEl, avisoEl].forEach(function (m) {
