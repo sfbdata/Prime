@@ -899,10 +899,14 @@
             "pasta/_filtros.html.twig",
             "pasta/_filtro_situacao.html.twig",
             "pasta/demandas.html.twig",
-            "pasta/demandas/_resultado.html.twig"
+            "pasta/demandas/_acervo.html.twig"
         ],
-        "js": [],
-        "permitidos": []
+        "js": [
+            "demandas-lista.js"
+        ],
+        "permitidos": [
+            "exp-body exp-demandas"
+        ]
     },
 
     "inteligencia": {

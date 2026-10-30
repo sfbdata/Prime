@@ -269,6 +269,7 @@ expediente:
                 metas: Metas
                 marc: Marcadores
                 sit: Situação
+                mod: Modificada
             colunas:
                 nup_fixo: O NUP fica sempre visível
                 mostrar_todas: Mostrar todas
