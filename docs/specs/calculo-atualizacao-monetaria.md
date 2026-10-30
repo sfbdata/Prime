@@ -92,5 +92,10 @@ Migration: `Version20261030110000` só cria `modules.calculo.view`.
 
 ## 6. Fora de escopo
 
-Tela de verificação do código do PDF; gravar cálculos por escritório; cálculos fazendários (o
+Gravar cálculos por escritório; cálculos fazendários (o
 próprio rodapé do desenho avisa que a rotina não os atende); mudar o visual de qualquer outra área.
+
+## 7. Combinado com o Coordenador (30/10/2026)
+
+- **Modo escuro** entra neste PR: `calculo.css` tem um bloco `[data-bs-theme="dark"]` com as variáveis do Bootstrap do sistema (o desenho só define o claro).
+- **Tela de verificação do código do PDF** (`BJC-...`): PR seguinte, logo depois deste. Exige gravar o código emitido (hoje não é gravado) e uma consulta pública ou por login; decidir no PR dela.
