@@ -1,6 +1,6 @@
 {
     "AtualizacaoMonetaria/Command/ImportarIndicesMonetariosCommand.php::execute": 120,
-    "AtualizacaoMonetaria/Command/ImportarIndicesMonetariosCommand.php::importarSerie": 68,
+    "AtualizacaoMonetaria/Service/ImportadorDeIndices.php::importarSerie": 68,
     "AtualizacaoMonetaria/Service/ClienteSgsBcb.php::baixarSerie": 41,
     "Auditoria/UseCase/DesfazerAlteracaoAuditLogUseCase.php::converterCampo": 51,
     "Auditoria/UseCase/DesfazerAlteracaoAuditLogUseCase.php::prepararCampo": 45,

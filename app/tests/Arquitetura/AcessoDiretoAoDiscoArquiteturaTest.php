@@ -85,6 +85,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Novidades/Service/LeitorDeNovidades.php'              => 'lê o arquivo de novidades da própria aplicação',
         // Commands de operador: leem arquivos do operador ou abrem lock/saída, fora do armazenamento.
         'src/AtualizacaoMonetaria/Command/ImportarIndicesMonetariosCommand.php' => 'planilha do operador',
+        'src/AtualizacaoMonetaria/Service/ImportadorDeIndices.php' => 'lock file da importação dos índices (cron e botão da tela)',
         'src/Cobranca/Command/CarregarEspelhoRelatorioCommand.php'  => 'planilha do operador',
         'src/Cobranca/Command/ImportarRelatorioCobrancaCommand.php' => 'planilha do operador',
         'src/Command/CopiarArquivosAcervoCommand.php'              => 'lê a origem do operador; grava pelo armazenamento (D15)',

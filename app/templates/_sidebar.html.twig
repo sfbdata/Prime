@@ -95,6 +95,17 @@
                     </li>
                 {% endif %}
 
+                {% if can_access_module('calculo') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('calculo_index') }}"
+                           data-busca-alias="atualização monetária correção juros inpc ipca"
+                           class="pje-menu-link {{ currentRoute starts with 'calculo_' ? 'active' : '' }}">
+                            <i class="bi bi-calculator pje-nav-icon"></i>
+                            <span>{{ 'moldura.menu_lateral.calculo'|trans }}</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {% if can_access_module('tarefas') and recurso_visivel('metas') %}
                     <li class="pje-menu-item {{ recurso_marca('metas') }}">
                         <a href="{{ path('tarefa_minhas') }}"

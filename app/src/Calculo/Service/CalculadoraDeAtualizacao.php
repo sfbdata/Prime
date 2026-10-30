@@ -32,29 +32,9 @@ final class CalculadoraDeAtualizacao
         $semIndice = 0;
 
         foreach ($this->ordenadosPorData($in->valores) as $v) {
-            $this->mesesProjetados = [];
-            [$fator, $faltantes] = $this->fator($in, $series, $v->data, $in->ate);
+            [$linha, $faltantes] = $this->linhaDoValor($in, $series, $v, $hoje);
+            $linhas[] = $linha;
             $semIndice += $faltantes;
-            $corrigido = $v->valorNumerico() * $fator;
-            $inicio = match ($in->incidencia) {
-                'valores' => $v->data,
-                'fixa' => $in->dataJuros,
-                default => $v->data > $in->dataJuros ? $v->data : $in->dataJuros,
-            };
-            $jurosPct = $this->jurosPct($in, $series, $inicio, $in->ate);
-            $juros = $corrigido * $jurosPct / 100;
-            $linhas[] = new LinhaDoCalculo(
-                $v->data,
-                $v->descricao !== '' ? $v->descricao : 'Parcela',
-                $v->valorNumerico(),
-                $fator,
-                $corrigido,
-                $jurosPct,
-                $juros,
-                $corrigido + $juros,
-                $v->data > $hoje,
-                \count($this->mesesProjetados),
-            );
         }
 
         $subtotal = array_reduce($linhas, static fn (float $a, LinhaDoCalculo $l): float => $a + $l->total, 0.0);
@@ -62,14 +42,7 @@ final class CalculadoraDeAtualizacao
         $base = $subtotal + $multa;
         $honorarios = $base * $in->honorariosPct() / 100;
 
-        $abatimentos = [];
-        foreach ($in->abatimentos as $a) {
-            if (!$a->completo()) {
-                continue;
-            }
-            [$fator] = $this->fator($in, $series, $a->data, $in->ate);
-            $abatimentos[] = new AbatimentoCorrigido($a->data, $a->descricao !== '' ? $a->descricao : 'Abatimento', $a->valorNumerico(), $fator, $a->valorNumerico() * $fator);
-        }
+        $abatimentos = $this->abatimentosCorrigidos($in, $series);
         $abatido = array_reduce($abatimentos, static fn (float $s, AbatimentoCorrigido $x): float => $s + $x->corrigido, 0.0);
 
         $debito = $base + $honorarios - $abatido;
@@ -78,9 +51,64 @@ final class CalculadoraDeAtualizacao
         $projetadas = \count(array_filter($linhas, static fn (LinhaDoCalculo $l): bool => $l->mesesProjetados > 0 || $l->aVencer));
 
         return new ResultadoDoCalculo(
-            $linhas, $abatimentos, $subtotal, $multa, $honorarios, $abatido, $debito,
-            $multa523, $honorarios523, $debito + $multa523 + $honorarios523, $in->ate, $semIndice, $projetadas,
+            $linhas,
+            $abatimentos,
+            $subtotal,
+            $multa,
+            $honorarios,
+            $abatido,
+            $debito,
+            $multa523,
+            $honorarios523,
+            $debito + $multa523 + $honorarios523,
+            $in->ate,
+            $semIndice,
+            $projetadas,
         );
+    }
+
+    /** @return array{LinhaDoCalculo, int} a linha e quantos meses ficaram sem índice */
+    private function linhaDoValor(CalculoInput $in, SeriesDoCalculo $series, ValorDoCalculo $v, string $hoje): array
+    {
+        $this->mesesProjetados = [];
+        [$fator, $faltantes] = $this->fator($in, $series, $v->data, $in->ate);
+        $corrigido = $v->valorNumerico() * $fator;
+        $inicio = match ($in->incidencia) {
+            'valores' => $v->data,
+            'fixa' => $in->dataJuros,
+            default => $v->data > $in->dataJuros ? $v->data : $in->dataJuros,
+        };
+        $jurosPct = $this->jurosPct($in, $series, $inicio, $in->ate);
+        $juros = $corrigido * $jurosPct / 100;
+        $linha = new LinhaDoCalculo(
+            $v->data,
+            $v->descricao !== '' ? $v->descricao : 'Parcela',
+            $v->valorNumerico(),
+            $fator,
+            $corrigido,
+            $jurosPct,
+            $juros,
+            $corrigido + $juros,
+            $v->data > $hoje,
+            \count($this->mesesProjetados),
+        );
+
+        return [$linha, $faltantes];
+    }
+
+    /** @return list<AbatimentoCorrigido> */
+    private function abatimentosCorrigidos(CalculoInput $in, SeriesDoCalculo $series): array
+    {
+        $abatimentos = [];
+        foreach ($in->abatimentos as $a) {
+            if (!$a->completo()) {
+                continue;
+            }
+            [$fator] = $this->fator($in, $series, $a->data, $in->ate);
+            $abatimentos[] = new AbatimentoCorrigido($a->data, $a->descricao !== '' ? $a->descricao : 'Abatimento', $a->valorNumerico(), $fator, $a->valorNumerico() * $fator);
+        }
+
+        return $abatimentos;
     }
 
     /**

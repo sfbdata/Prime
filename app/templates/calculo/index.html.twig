@@ -1,0 +1,143 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Cálculo de atualização monetária.
+    Desenho aprovado: docs/design/redesign-30-10-26/14 - Calculo - VS 30.10.26.dc.html (spec em
+    docs/specs/calculo-atualizacao-monetaria.md). A barra azul com logo do protótipo é a moldura
+    do sistema (base.html.twig). O cálculo é no servidor: o calculo.js guarda o formulário no
+    navegador (localStorage 'bj-calc'), envia ao POST de cálculo e só desenha a resposta.
+    Contexto: `status` = {estado, texto, dica, desatualizado}.
+#}
+
+{% block title %}{{ 'calculo.titulo'|trans }}{% endblock %}
+
+{% block body_class %}calc-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/calculo.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set erroSelo = status.estado == 'erro' %}
+<div class="calc-page" id="calculo"
+     data-url-calcular="{{ path('calculo_calcular') }}"
+     data-url-indices="{{ path('calculo_indices_atualizar') }}"
+     data-url-pdf="{{ path('calculo_pdf') }}"
+     data-token="{{ csrf_token('calculo') }}"
+     data-desatualizado="{{ status.desatualizado ? 'sim' : 'nao' }}">
+<main class="calc-main">
+
+    <div class="calc-topo">
+        <div class="calc-topo-titulo">
+            <h1>{{ 'calculo.pagina.titulo'|trans }}</h1>
+            <div class="calc-topo-sub">{{ 'calculo.pagina.subtitulo'|trans }}</div>
+        </div>
+        <span class="calc-selo{{ erroSelo ? ' calc-selo--erro' : '' }}" id="calcIndicesSelo" title="{{ status.dica }}"><i class="bi {{ erroSelo ? 'bi-exclamation-triangle' : 'bi-check-circle' }}" aria-hidden="true"></i><span class="calc-selo-txt">{{ status.texto }}</span></span>
+        <button type="button" class="calc-btn-mini" id="calcBtnIndices" title="{{ 'calculo.tela.atualizar_indices_tip'|trans }}"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> {{ 'calculo.tela.atualizar_indices'|trans }}</button>
+        <button type="button" class="calc-btn-pdf-topo" id="calcBtnPdf" title="{{ 'calculo.tela.pdf_tip'|trans }}" hidden><i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i><span class="calc-btn-txt">{{ 'calculo.tela.pdf'|trans }}</span></button>
+    </div>
+
+    <section class="calc-sec" data-screen-label="Dados do cálculo">
+        <div class="calc-sec-cab">{{ 'calculo.tela.sec_dados'|trans }}</div>
+        <div class="calc-dados">
+            <label class="calc-rot">{{ 'calculo.tela.proc_rotulo'|trans }}<input class="calc-in" data-f="proc" placeholder="{{ 'calculo.tela.proc_ph'|trans }}"></label>
+            <label class="calc-rot">{{ 'calculo.tela.credor_rotulo'|trans }}<input class="calc-in" data-f="credor" placeholder="{{ 'calculo.tela.credor_ph'|trans }}"></label>
+            <label class="calc-rot">{{ 'calculo.tela.devedor_rotulo'|trans }}<input class="calc-in" data-f="devedor" placeholder="{{ 'calculo.tela.devedor_ph'|trans }}"></label>
+            <label class="calc-rot">{{ 'calculo.tela.ate_rotulo'|trans }}<input class="calc-in" data-campo="ate" data-f="ate" type="date"></label>
+            <label class="calc-rot calc-rot--larga">{{ 'calculo.tela.idx_rotulo'|trans }}
+                <select class="calc-sel" data-f="idx">
+                    <option value="oficial">{{ 'calculo.tela.idx_oficial'|trans }}</option>
+                    <option value="inpc">{{ 'calculo.tela.idx_inpc'|trans }}</option>
+                    <option value="nenhum">{{ 'calculo.tela.idx_nenhum'|trans }}</option>
+                </select>
+            </label>
+            <label class="calc-rot">{{ 'calculo.tela.jur_rotulo'|trans }}
+                <select class="calc-sel" data-f="jur">
+                    <option value="legal">{{ 'calculo.tela.jur_legal'|trans }}</option>
+                    <option value="1">{{ 'calculo.tela.jur_1'|trans }}</option>
+                    <option value="05">{{ 'calculo.tela.jur_05'|trans }}</option>
+                    <option value="nenhum">{{ 'calculo.tela.jur_nenhum'|trans }}</option>
+                </select>
+            </label>
+            <label class="calc-rot">{{ 'calculo.tela.ini_rotulo'|trans }}
+                <select class="calc-sel" data-f="ini">
+                    <option value="valores">{{ 'calculo.tela.ini_valores'|trans }}</option>
+                    <option value="citacao">{{ 'calculo.tela.ini_citacao'|trans }}</option>
+                    <option value="fixa">{{ 'calculo.tela.ini_fixa'|trans }}</option>
+                </select>
+            </label>
+            <label class="calc-rot">{{ 'calculo.tela.proj_rotulo'|trans }}
+                <select class="calc-sel" data-f="proj">
+                    <option value="media">{{ 'calculo.tela.proj_media'|trans }}</option>
+                    <option value="nao">{{ 'calculo.tela.proj_nao'|trans }}</option>
+                </select>
+            </label>
+            <label class="calc-rot" id="calcDJurRot" hidden data-rot-fixa="{{ 'calculo.tela.djur_fixa'|trans }}" data-rot-citacao="{{ 'calculo.tela.djur_citacao'|trans }}"><span class="calc-djur-txt"></span><input class="calc-in" data-campo="dJur" data-f="dJur" type="date"></label>
+        </div>
+    </section>
+
+    <section class="calc-sec" data-campo="vals" data-screen-label="Valores devidos">
+        <div class="calc-sec-cab calc-sec-cab--flex"><b>{{ 'calculo.tela.sec_valores'|trans }}</b><button type="button" class="calc-btn-ger" id="calcBtnGerarTg"><i class="bi bi-calendar-range" aria-hidden="true"></i> {{ 'calculo.tela.gerar_parcelas'|trans }}</button></div>
+        <div class="calc-ger" id="calcGer" hidden>
+            <label class="calc-rot calc-rot--pq">{{ 'calculo.tela.ger_qtd'|trans }}<input class="calc-in calc-in--pq" id="calcGerQtd" style="width:90px" inputmode="numeric" value="12"></label>
+            <label class="calc-rot calc-rot--pq">{{ 'calculo.tela.ger_valor'|trans }}<input class="calc-in calc-in--pq calc-dir" id="calcGerVal" style="width:140px" inputmode="decimal" placeholder="0,00"></label>
+            <label class="calc-rot calc-rot--pq">{{ 'calculo.tela.ger_ini'|trans }}<input class="calc-in calc-in--pq" id="calcGerIni" type="date"></label>
+            <label class="calc-rot calc-rot--pq calc-ger-desc">{{ 'calculo.tela.ger_desc'|trans }}<input class="calc-in calc-in--pq" id="calcGerDesc" placeholder="{{ 'calculo.tela.ger_desc_ph'|trans }}"></label>
+            <button type="button" class="calc-btn-prim calc-btn-prim--34" id="calcBtnGerar">{{ 'calculo.tela.ger_incluir'|trans }}</button>
+        </div>
+        <div class="calc-nv" id="calcNv">
+            <label class="calc-rot calc-rot--nv">{{ 'calculo.tela.nv_valor'|trans }}<input class="calc-in calc-in--nv calc-in--verde calc-dir" data-campo="nvV" id="calcNvV" inputmode="numeric" placeholder="0,00"></label>
+            <label class="calc-rot calc-rot--nv">{{ 'calculo.tela.nv_data'|trans }}<input class="calc-in calc-in--nv calc-in--verde" data-campo="nvD" id="calcNvD" type="date"></label>
+            <label class="calc-rot calc-rot--desc">{{ 'calculo.tela.nv_desc'|trans }}<input class="calc-in calc-in--nv" id="calcNvT" placeholder="{{ 'calculo.tela.nv_desc_ph'|trans }}"></label>
+            <div class="calc-nv-btns">
+                <button type="button" class="calc-btn-prim calc-btn-prim--38" data-campo="nvBtn" id="calcNvSalvar" data-txt-add="{{ 'calculo.tela.nv_adicionar'|trans }}" data-txt-salvar="{{ 'calculo.tela.nv_salvar'|trans }}"><i class="bi bi-plus-lg" aria-hidden="true"></i><span class="calc-btn-txt">{{ 'calculo.tela.nv_adicionar'|trans }}</span></button>
+                <button type="button" class="calc-btn-cancelar" id="calcNvCancelar" hidden>{{ 'calculo.tela.cancelar'|trans }}</button>
+            </div>
+            <div class="calc-nv-erro" id="calcNvErro" hidden></div>
+        </div>
+        <div class="calc-rolagem"><div class="calc-vals">
+            <div class="calc-vals-cab" id="calcValsCab">
+                <button type="button" class="calc-ord" data-ord="v" style="justify-content:flex-end">{{ 'calculo.tela.col_valor'|trans }}<i class="bi bi-chevron-expand" aria-hidden="true"></i></button>
+                <button type="button" class="calc-ord" data-ord="d" style="justify-content:flex-end">{{ 'calculo.tela.col_data'|trans }}<i class="bi bi-chevron-expand" aria-hidden="true"></i></button>
+                <button type="button" class="calc-ord" data-ord="t">{{ 'calculo.tela.col_desc'|trans }}<i class="bi bi-chevron-expand" aria-hidden="true"></i></button>
+                <span class="calc-centro">{{ 'calculo.tela.col_acoes'|trans }}</span>
+            </div>
+            <div class="calc-vals-vazio" id="calcValsVazio">{{ 'calculo.tela.vazio_valores'|trans }}</div>
+            <div id="calcValsCorpo"></div>
+            <div class="calc-vals-soma" id="calcValsSoma" hidden><span class="calc-dir" id="calcSomaV"></span><span></span><span id="calcSomaN"></span><span></span></div>
+        </div></div>
+        <div class="calc-nota">{{ 'calculo.tela.nota_anatocismo'|trans }}</div>
+    </section>
+
+    <section class="calc-sec" data-screen-label="Acréscimos e abatimentos">
+        <div class="calc-sec-cab">{{ 'calculo.tela.sec_acrescimos'|trans }}</div>
+        <div class="calc-acresc">
+            <label class="calc-rot">{{ 'calculo.tela.multa_rotulo'|trans }}<input class="calc-in" data-f="multa" inputmode="decimal" placeholder="0"></label>
+            <label class="calc-rot">{{ 'calculo.tela.hon_rotulo'|trans }}<input class="calc-in" data-f="hon" inputmode="decimal" placeholder="0"></label>
+            <label class="calc-chk"><input type="checkbox" data-f="m523">{{ 'calculo.resumo.multa_523'|trans }}</label>
+            <label class="calc-chk"><input type="checkbox" data-f="h523">{{ 'calculo.resumo.honorarios_523'|trans }}</label>
+        </div>
+        <div class="calc-abat">
+            <div class="calc-abat-cab"><b>{{ 'calculo.tela.abat_rotulo'|trans }}</b><button type="button" class="calc-btn-add" id="calcBtnAbat"><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'calculo.tela.abat_add'|trans }}</button></div>
+            <div id="calcAbatCorpo" data-ph="{{ 'calculo.tela.abat_desc_ph'|trans }}"></div>
+        </div>
+    </section>
+
+    <div class="calc-acoes">
+        <button type="button" class="calc-btn-calc" id="calcBtnCalcular"><i class="bi bi-calculator" aria-hidden="true"></i> {{ 'calculo.tela.calcular'|trans }}</button>
+        <button type="button" class="calc-btn-limpar" id="calcBtnLimpar">{{ 'calculo.tela.limpar'|trans }}</button>
+        <span class="calc-esp"></span>
+        <button type="button" class="calc-btn-pdf2" id="calcBtnPdf2" hidden><i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i> <span class="calc-btn-txt">{{ 'calculo.tela.pdf'|trans }}</span></button>
+    </div>
+
+    <div class="calc-aviso" id="calcAviso" hidden></div>
+    <div class="calc-erros" id="calcErros" role="alert" hidden></div>
+</main>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ catalogo_js('calculo.js', 'calculo.aviso', 'calculo.indices') }}
+<script src="{{ asset('js/calculo.js') }}" defer></script>
+{% endblock %}

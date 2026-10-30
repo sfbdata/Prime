@@ -269,6 +269,7 @@ Fonte: `app/src/DataFixtures/PermissionFixture.php` e
 | `pastas` | `modules.pastas.view` | **nenhum** — sem item de menu próprio | não verificado | "Expediente" e "Demandas" são as entradas do domínio Pasta |
 | `financeiro` | `modules.financeiro.view` | **nenhum** | não verificado | Marcado como "futuro" na fixture; sem tela |
 | `bi` | `modules.bi.view` | **nenhum** | não verificado | Marcado como "futuro" na fixture; sem tela |
+| `calculo` | `modules.calculo.view` | `can_access_module('calculo')` | `assertAcesso()` em todas as rotas `calculo_*` | Ativo (Cálculo de atualização monetária); migration concede aos perfis que já têm `pastas` |
 
 **Nota sobre Expediente:** o item aparece sem guard no menu Twig (sidebar),
 então todos os usuários autenticados o veem. Porém o controller

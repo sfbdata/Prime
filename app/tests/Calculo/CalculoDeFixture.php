@@ -14,6 +14,11 @@ final class CalculoDeFixture
 
     public static function series(): SeriesDoCalculo
     {
+        return new SeriesDoCalculo(self::tabela());
+    }
+
+    public static function tabela(): TabelaIndices
+    {
         $bruto = json_decode((string) file_get_contents(__DIR__ . '/Fixtures/series-bcb-30-10-2026.json'), true, 512, \JSON_THROW_ON_ERROR);
         $variacoes = [];
         foreach (['INPC', 'IPCA', 'SELIC'] as $serie) {
@@ -22,7 +27,7 @@ final class CalculoDeFixture
             }
         }
 
-        return new SeriesDoCalculo(new TabelaIndices($variacoes));
+        return new TabelaIndices($variacoes);
     }
 
     /** @return array{hoje: string, casos: list<array<string, mixed>>} */
