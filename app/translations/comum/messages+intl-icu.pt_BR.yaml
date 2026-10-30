@@ -28,6 +28,8 @@ comum:
         nome_acao: Nome da Ação
         cliente_placeholder: Digite o nome do cliente
         acao_placeholder: Informe primeiro o nome do cliente
+        importar_lote: Importar em lote
+        importar_lote_dica: 'Importar várias pastas de uma vez: cada subpasta vira uma pasta nova com os documentos anexados'
     mover_marcador:
         titulo: Marcadores da pasta
         buscar: Buscar marcador…

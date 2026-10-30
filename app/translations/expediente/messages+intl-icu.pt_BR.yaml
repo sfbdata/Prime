@@ -2,6 +2,7 @@
 expediente:
     titulo: Expediente
     lista:
+        arquivada_dica: Pasta arquivada
         placeholder: Selecione um grupo para visualizar os expedientes
         drawer_abrir: Abrir menu de navegação
         drawer_fechar_menu: Fechar menu
