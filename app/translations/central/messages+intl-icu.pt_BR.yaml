@@ -41,6 +41,24 @@ central:
         enviar: Enviar
         enviar_title: Enviar (Enter)
     # Conversa com o BlueJus IA (F3, docs/specs/ia-chat-central.md). Vão ao central.js por data-ia-* da janela.
+    ia_chat:
+        lista_rotulo: Conversas com a BlueJus IA
+        pasta: Pasta
+        nova: Nova
+        nova_opcao: Nova conversa
+        sem_titulo: Conversa sem título
+        pagina_inteira: Abrir em página inteira
+        placeholder: Pergunte ao BlueJus IA…
+        enviar: Enviar
+        pensando: Pensando…
+        vazio: Pergunte em linguagem natural. A IA usa só os dados que a sua conta pode acessar.
+        proposta: A IA preparou um cadastro. Abra em página inteira para conferir e confirmar.
+        erro_rede: Sem conexão com a IA. Tente de novo.
+        erro_sem_chave: A IA ainda não está conectada.
+        erro_sem_aceite: O escritório precisa do aceite de envio de dados para usar a I.A.
+        erro_generico: Não consegui responder agora. Tente de novo.
+        copiar: Copiar
+        copiado: Copiado
     ia:
         nome: BlueJus IA
         selo: IA

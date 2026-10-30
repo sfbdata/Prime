@@ -981,7 +981,7 @@
         }
         // Título do acervo: volta ao acervo geral, sem filtros (dc `irPadrao`).
         if (e.target.closest('.exp-body .exp-barra-titulo')) {
-            if (window.ExpTrilho) { window.ExpTrilho.abrirTodas(true); }
+            if (window.ExpTrilho) { window.ExpTrilho.abrirTodas(true); } else if (window.ExpPainel && window.ExpPainel.irPadrao) { window.ExpPainel.irPadrao(); }   // Demandas: sem trilho
             return;
         }
         var pp = e.target.closest('.js-por-pagina');
@@ -1005,7 +1005,9 @@
 
     /* ── Colunas da tabela (dc `colVis`, `colItens`, `colCsv`) ─────────── */
     var COLUNAS = [['nup', BJ_T.t('expediente.js.lista.coluna.nup')], ['cliente', BJ_T.t('expediente.js.lista.coluna.cliente')], ['reu', BJ_T.t('expediente.js.lista.coluna.reu')], ['acao', BJ_T.t('expediente.js.lista.coluna.acao')], ['prio', BJ_T.t('expediente.js.lista.coluna.prio')], ['resp', BJ_T.t('expediente.js.lista.coluna.resp')], ['metas', BJ_T.t('expediente.js.lista.coluna.metas')], ['marc', BJ_T.t('expediente.js.lista.coluna.marc')], ['sit', BJ_T.t('expediente.js.lista.coluna.sit')]];
-    var ESSENCIAIS = { nup: true, cliente: true, reu: false, acao: true, prio: false, resp: true, metas: false, marc: false, sit: true };
+    var ESSENCIAIS = { nup: true, cliente: true, reu: false, acao: true, prio: false, resp: true, metas: false, marc: false, sit: true, mod: false };
+    // A coluna "Mod." só existe nas Minhas Demandas (`colunaModificada` do _lista.html.twig).
+    if (document.querySelector('#tabelaPastas th[data-col="mod"]')) { COLUNAS.push(['mod', BJ_T.t('expediente.js.lista.coluna.mod')]); }
     /* Ajuste só de quem escolheu (dc `colKey`: conta + usuário), guardado no SERVIDOR por escritório e usuário:
        a tabela traz o ajuste em `data-colunas` (`null` = padrão) e a gravação é POST em `data-url-colunas`, com o
        token da Lista no cabeçalho. A chave local da conta e do usuário (`data-chave-colunas`) só serve para trazer,
@@ -1018,8 +1020,10 @@
     function chaveColunasLocal() {
         var t = tabelaDaLista();
         var dono = t ? t.getAttribute('data-chave-colunas') : '';
+        // As Minhas Demandas (desenho 15, dc `colKey` = `bj-dem-cols`) guardam o ajuste antigo em chave própria.
+        var prefixo = (t && t.getAttribute('data-prefixo-colunas-local')) || PREFIXO_COLUNAS_LOCAL;
 
-        return dono ? PREFIXO_COLUNAS_LOCAL + dono : '';
+        return dono ? prefixo + dono : '';
     }
     function mapaCompleto(v) {
         var out = {};
@@ -1036,8 +1040,16 @@
         try { v = JSON.parse(t.dataset.colunas || 'null'); } catch (x) { v = null; }
         return v && typeof v === 'object' ? v : null;
     }
+    /* Sem ajuste salvo vale o padrão da tela: o Expediente mostra todas; as Demandas trazem o delas em
+       `data-colunas-padrao` (desenho 15, dc `COL_PADRAO`). */
+    function colunasPadrao() {
+        var t = tabelaDaLista();
+        var p = null;
+        try { p = JSON.parse((t && t.getAttribute('data-colunas-padrao')) || 'null'); } catch (x) { p = null; }
+        return p && typeof p === 'object' ? p : {};
+    }
     function colunasVisiveis() {
-        return mapaCompleto(colunasSalvas() || {});
+        return mapaCompleto(colunasSalvas() || colunasPadrao());
     }
     /* `null` volta ao padrão (o servidor apaga o ajuste). Sem conexão, avisa e a tela fica como a pessoa deixou. */
     function gravarColunas(v, silencioso) {
@@ -1093,7 +1105,7 @@
         var params = new URLSearchParams(f ? new FormData(f) : undefined);
         params.delete('page');
         var v = colunasVisiveis();
-        params.set('colunas', COLUNAS.filter(function (c) { return v[c[0]] && c[0] !== 'metas'; }).map(function (c) { return c[0]; }).join(','));
+        params.set('colunas', COLUNAS.filter(function (c) { return v[c[0]] && c[0] !== 'metas' && c[0] !== 'mod'; }).map(function (c) { return c[0]; }).join(','));
         var painel = document.getElementById('painel-marcador-wrapper');
         if (painel) { params.set('marcador', painel.getAttribute('data-marcador-id')); }
 

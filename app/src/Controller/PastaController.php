@@ -293,6 +293,8 @@ class PastaController extends AbstractController
             nomeCliente: $nomeCliente,
             nomeAcao: $nomeAcao,
             vincularAoCadastroDoMesmoNome: true,
+            // Só a Nova demanda das Minhas Demandas manda o campo (desenho 15): quem cria vira o responsável.
+            criadorComoResponsavel: $request->request->getBoolean('criador_responsavel'),
         );
 
         try {

@@ -7,10 +7,12 @@ namespace App\ChatIa\Controller;
 use App\ChatIa\DTO\AtualizarConversaInput;
 use App\ChatIa\DTO\ConversaNaListaOutput;
 use App\ChatIa\DTO\PastaCitavelOutput;
+use App\ChatIa\Enum\OrigemDaConversa;
 use App\ChatIa\UseCase\AtualizarConversaDoChatUseCase;
 use App\ChatIa\UseCase\BuscarPastasParaOChatUseCase;
 use App\ChatIa\UseCase\CriarConversaDoChatUseCase;
 use App\ChatIa\UseCase\ExcluirConversaDoChatUseCase;
+use App\ChatIa\UseCase\ImportarHistoricoDaCentralUseCase;
 use App\ChatIa\UseCase\ListarConversasDoChatUseCase;
 use App\ChatIa\UseCase\VerConversaDoChatUseCase;
 use App\Service\Tenant\TenantContext;
@@ -41,6 +43,7 @@ final class ChatIaConversasController extends AbstractController
         private readonly AtualizarConversaDoChatUseCase $atualizar,
         private readonly ExcluirConversaDoChatUseCase $excluir,
         private readonly BuscarPastasParaOChatUseCase $buscarPastas,
+        private readonly ImportarHistoricoDaCentralUseCase $importarDaCentral,
     ) {
     }
 
@@ -66,12 +69,32 @@ final class ChatIaConversasController extends AbstractController
             return $recusa;
         }
         try {
-            $id = $this->criar->executar($this->usuario(), $this->tenantContext->getCurrentTenant());
+            $origem = ($this->corpoJson($request)['origem'] ?? null) === OrigemDaConversa::Central->value ? OrigemDaConversa::Central : OrigemDaConversa::Pagina;
+            $id = $this->criar->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $origem);
         } catch (\Throwable $e) {
             return $this->recusaDe($e);
         }
 
         return new JsonResponse(['id' => $id], Response::HTTP_CREATED);
+    }
+
+    /** Traz o histórico antigo da conversa "BlueJus IA" da Central uma vez (idempotente): `{id}` da conversa importada ou `{id: null}`. */
+    #[Route('/importar-central', name: 'chat_ia_importar_central', methods: ['POST'])]
+    public function importarDaCentral(Request $request): JsonResponse
+    {
+        if (($recusa = $this->semCsrf($request)) !== null) {
+            return $recusa;
+        }
+        if (($recusa = $this->semRitmo($this->chatIaEscritaLimiter)) !== null) {
+            return $recusa;
+        }
+        try {
+            $id = $this->importarDaCentral->executar($this->usuario(), $this->tenantContext->getCurrentTenant());
+        } catch (\Throwable $e) {
+            return $this->recusaDe($e);
+        }
+
+        return $this->semCache(new JsonResponse(['id' => $id]));
     }
 
     #[Route('/conversas/{id}', name: 'chat_ia_conversa_ver', requirements: ['id' => '\d{1,9}'], methods: ['GET'])]

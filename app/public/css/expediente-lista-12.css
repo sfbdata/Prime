@@ -620,8 +620,12 @@
 .exp-nova-campo--acao.is-desligado { opacity: .55; }
 .exp-nova-campo input:disabled { background: #f4f7f9; }
 .exp-nova-existe { font-size: 12px; color: #0a6fa0; }
-.exp-nova-rodape { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid #eef2f5; margin-top: 14px; }
+.exp-nova-rodape { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 16px 20px; border-top: 1px solid #eef2f5; margin-top: 14px; }
 .exp-nova-rodape .exp-btn--azul:disabled { background: #9fbccd; cursor: not-allowed; opacity: 1; transform: none; }
+/* "Importar em lote" à esquerda do rodapé (desenho 03 VS 30.10.26 dc L.285). */
+.exp-nova-lote { height: 38px; display: flex; align-items: center; gap: 8px; border: 1px solid #c9d6df; border-radius: 4px; background: #fff; color: #0a6fa0; font: inherit; font-size: 14px; font-weight: bold; padding: 0 14px; cursor: pointer; margin-right: auto; }
+.exp-nova-lote:hover { background: #e5f1f7; border-color: #0a6fa0; }
+.exp-nova-lote .bi { font-size: 16px; }
 .exp-body .exp-cartao .pasta-card-ident { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .exp-body .exp-cartao .pasta-card-nup { font-size: 13px; }
 
@@ -630,3 +634,13 @@
     .exp-body #tabelaPastas thead th .bi:not(.sort-icon) { display: none; }
     .exp-body #tabelaPastas thead th:not(.asc):not(.desc) .sort-icon { display: none; }
 }
+
+/* Linhas zebradas (desenho 03 VS 30.10.26 dc L.795, `dBg`: `iZ % 2 ? '#eef3f7' : '#ffffff'`, iZ a partir de 0) e
+   borda de baixo #eef2f5 (dc L.211). O hover azul e o destaque de linha têm !important e continuam vencendo. */
+.exp-body #tabelaPastas tbody tr > td { background: #ffffff; border-bottom: 1px solid #eef2f5; }
+.exp-body #tabelaPastas tbody tr:nth-child(even) > td { background: #eef3f7; }
+[data-bs-theme="dark"] .exp-body #tabelaPastas tbody tr > td { background: transparent; border-bottom-color: var(--bs-border-color-translucent); }
+[data-bs-theme="dark"] .exp-body #tabelaPastas tbody tr:nth-child(even) > td { background: rgba(255,255,255,.04); }
+
+/* Pasta arquivada esmaecida (dc L.211 e L.795: opacidade .62 e grayscale(.35)). */
+.exp-body #tabelaPastas tbody tr[data-arquivada] > td { opacity: .62; filter: grayscale(.35); }

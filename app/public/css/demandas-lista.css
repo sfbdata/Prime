@@ -1,0 +1,24 @@
+/* =============================================================================
+   demandas-lista.css: o que é só das Minhas Demandas no desenho 15 (`15 - Demandas - VS 30.10.26.dc.html`,
+   "dc L.n"). O resto do visual é o da Lista do Expediente (expediente-lista.css e expediente-lista-12.css,
+   sob `.exp-body`). Tudo aqui fica sob `.exp-demandas` (classe do <body> desta tela): o Expediente não muda.
+   ============================================================================= */
+
+/* Mais largura para o conteúdo, como no Expediente (expediente/index): o respiro lateral vem do painel. */
+.exp-demandas .app-content > .container-fluid,
+.exp-demandas section.content > .container-fluid { padding-left: 0; padding-right: 0; }
+
+/* Linhas zebradas (dc L.758, `dBg`: `iZ % 2 ? '#eef3f7' : '#ffffff'`, com iZ a partir de 0): a primeira linha
+   branca, a segunda azul-acinzentada, e assim por diante; borda de baixo #eef2f5 (dc L.209). O hover do desenho
+   (azul cheio, com !important em expediente-lista.css) e o destaque de linha (expediente-lista-12.css) continuam
+   vencendo a zebra. */
+.exp-demandas #tabelaPastas tbody tr > td { background: #ffffff; border-bottom: 1px solid #eef2f5; }
+.exp-demandas #tabelaPastas tbody tr:nth-child(even) > td { background: #eef3f7; }
+[data-bs-theme="dark"] .exp-demandas #tabelaPastas tbody tr > td { background: transparent; border-bottom-color: var(--bs-border-color-translucent); }
+[data-bs-theme="dark"] .exp-demandas #tabelaPastas tbody tr:nth-child(even) > td { background: rgba(255,255,255,.04); }
+
+/* Sem demanda (dc L.186-191 e L.269): a linha do resumo fica (colunas, Visualizar) e só o vazio aparece embaixo;
+   tabela, lista simples e cartões saem em qualquer modo. */
+.exp-demandas .pastas-view--vazio .pastas-tabela-wrap,
+.exp-demandas .pastas-view--vazio .exp-simples,
+.exp-demandas .pastas-view--vazio .exp-cartoes { display: none !important; }

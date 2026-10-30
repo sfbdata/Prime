@@ -45,7 +45,7 @@
                 {{ include('expediente/_trilho.html.twig') }}
             </div>
 
-            {{ include('_partials/modal_nova_pasta.html.twig', {desenho11: true}) }}
+            {{ include('_partials/modal_nova_pasta.html.twig', {desenho11: true, importarLote: can_access_module('pastas')}) }}
             {% if can_access_module('pastas') %}{{ include('expediente/_importar_lote_modal.html.twig') }}{% endif %}
 
             {{ include('expediente/_modais_lista.html.twig') }}
