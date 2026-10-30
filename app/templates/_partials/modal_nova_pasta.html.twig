@@ -3,8 +3,12 @@
    arrasta, o próximo número (só informativo; o servidor numera de novo ao salvar), cliente obrigatório com
    sugestões e a ação liberada depois do cliente. O envio é o mesmo nas duas variantes (script abaixo). #}
 {% set desenho11 = desenho11 ?? false %}
+{# As Minhas Demandas (desenho 15) usam o mesmo modal com as sugestões da rota delas (módulo `pastas`) e
+   `criadorResponsavel`: a pasta nasce com quem cria como responsável. Sem os dois, o Expediente de sempre. #}
+{% set urlSugestoesNova = urlSugestoesNova ?? (desenho11 ? path('expediente_nova_pasta_sugestoes') : null) %}
+{% set criadorResponsavel = criadorResponsavel ?? false %}
 <div class="modal fade{{ desenho11 ? ' exp-nova' }}"{% if desenho11 %} data-fica-na-lista="1"{% endif %} id="modalNovaPasta" tabindex="-1" aria-labelledby="modalNovaPastaLabel" aria-hidden="true"
-     {% if desenho11 %}data-url-sugestoes="{{ path('expediente_nova_pasta_sugestoes') }}"{% endif %}>
+     {% if desenho11 %}data-url-sugestoes="{{ urlSugestoesNova }}"{% endif %}>
     <div class="modal-dialog modal-dialog-centered" style="max-width:{{ desenho11 ? 'min(520px, calc(100vw - 32px))' : '480px' }};">
         <div class="modal-content">
             {% if desenho11 %}
@@ -22,6 +26,7 @@
             </div>
             {% endif %}
             <form method="post" action="{{ path('pasta_new') }}" id="form-nova-pasta-modal">
+                {% if criadorResponsavel %}<input type="hidden" name="criador_responsavel" value="1">{% endif %}
                 {% if desenho11 %}
                 <div class="exp-nova-corpo">
                     <div class="exp-nova-info"><i class="bi bi-info-circle" aria-hidden="true"></i><span>{{ 'comum.nova_pasta.numero_automatico'|trans }}</span><span class="exp-nova-prox js-nova-prox"></span></div>
@@ -179,6 +184,7 @@
             fd.append('nome_cliente', btn.getAttribute('data-nome-cliente') || '');
             fd.append('nome_acao', btn.getAttribute('data-nome-acao') || '');
             fd.append('confirmar', '1');
+            if (form.elements.namedItem('criador_responsavel')) { fd.append('criador_responsavel', '1'); }
             enviar(fd, avisoErro).then(function () { btn.disabled = false; });
         });
     }

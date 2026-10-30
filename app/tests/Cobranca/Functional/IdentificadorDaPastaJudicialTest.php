@@ -291,7 +291,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
 
         self::assertSame(
             'APLC TOP LIFE 1',
-            trim($crawler->filter('#tabelaDemandas tbody tr td')->eq(1)->text()),
+            trim($crawler->filter('#tabelaPastas tbody tr td')->eq(1)->text()),
         );
     }
 
