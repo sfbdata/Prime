@@ -10,7 +10,7 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Tela "Meu Escritório" (spec `docs/specs/meu-escritorio.md`): registro na OAB, e-mail e telefone de contato, a chave
  * da logo, quem alterou os dados e quando, e o código da conta. Só aditiva: colunas nulas e um índice único parcial.
- * Sem UPDATE e sem DROP: o `codigo_conta` dos escritórios existentes é gerado no primeiro acesso à tela.
+ * Sem UPDATE e sem DROP: o `codigo_conta` dos escritórios existentes foi preenchido depois, pela Version20261030100000.
  */
 final class Version20261028150000 extends AbstractMigration
 {

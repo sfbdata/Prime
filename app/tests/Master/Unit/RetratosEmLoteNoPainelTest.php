@@ -19,6 +19,10 @@ use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\UseCase\ConsultarContasUseCase;
 use App\Master\UseCase\ConsultarVisaoGeralUseCase;
+use App\Repository\TenantRepository;
+use App\Tenant\Service\CodigoDaContaDoEscritorio;
+use App\Tenant\Service\GeradorDeCodigoDaConta;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -64,7 +68,7 @@ final class RetratosEmLoteNoPainelTest extends TestCase
     #[TestDox('lista de contas: uma consulta de espaços para as três contas, o Free uma vez, e o espaço de cada uma')]
     public function testContas(): void
     {
-        $contas = array_column((new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class)))->executar(), null, 'id');
+        $contas = array_column((new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class), new CodigoDaContaDoEscritorio(new GeradorDeCodigoDaConta(), $this->createStub(TenantRepository::class)), $this->createStub(TenantRepository::class), $this->createStub(EntityManagerInterface::class)))->executar(), null, 'id');
 
         self::assertSame([10, 90, 'alerta'], [$contas[1]['espaco']['limiteGb'], $contas[1]['espaco']['percentual'], $contas[1]['espaco']['faixa']]);
         self::assertSame(10, $contas[2]['espaco']['limiteGb']);
@@ -74,7 +78,7 @@ final class RetratosEmLoteNoPainelTest extends TestCase
     #[TestDox('lista de contas: cada linha leva o número da conta, o mesmo "conta Nº" da Contribua (spec perfis-1.2-permissoes-e-hierarquia A3)')]
     public function testNumeroDaConta(): void
     {
-        $contas = (new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class)))->executar();
+        $contas = (new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class), new CodigoDaContaDoEscritorio(new GeradorDeCodigoDaConta(), $this->createStub(TenantRepository::class)), $this->createStub(TenantRepository::class), $this->createStub(EntityManagerInterface::class)))->executar();
 
         self::assertSame(['000001', '000002', '000003'], array_column($contas, 'numero'));
     }
