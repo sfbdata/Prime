@@ -1,0 +1,76 @@
+{#
+  "Importar pastas em lote" (desenho 03 de 30/10, modal `lotOn`; spec importar-pastas-em-lote.md).
+  Abre pelo evento `bj:importar-lote` que o botão do modal Nova Pasta dispara. O comportamento mora
+  em public/js/expediente-importar-lote.js; valores de CSS copiados do desenho.
+#}
+<style>
+.il-fundo { position:fixed; inset:0; z-index:9400; background:rgba(18,36,47,.35); }
+.il-centro { position:fixed; inset:0; z-index:9401; display:flex; align-items:center; justify-content:center; padding:12px; pointer-events:none; }
+.il-caixa { pointer-events:auto; width:min(760px, 100%); max-height:92vh; display:flex; flex-direction:column; background:#fff; border-radius:4px; box-shadow:0 20px 50px rgba(18,36,47,.25); }
+.il-topo { background:#0a76a8; color:#fff; padding:13px 18px; display:flex; align-items:center; gap:10px; }
+.il-topo b { flex:1; font-size:15px; }
+.il-x { width:30px; height:30px; border:none; border-radius:3px; background:rgba(255,255,255,.15); color:#fff; cursor:pointer; }
+.il-corpo { padding:16px 18px; overflow:auto; display:flex; flex-direction:column; gap:12px; }
+.il-raiz[hidden], .il-raiz [hidden] { display:none !important; }
+.il-vazio, .il-tem { display:flex; flex-direction:column; gap:12px; }
+.il-explica { font-size:13.5px; color:#34505f; line-height:1.55; }
+.il-arvore { display:flex; gap:14px; flex-wrap:wrap; font:12.5px/1.5 monospace; color:#34505f; background:#f5f8fa; border:1px solid #e1e8ed; border-radius:3px; padding:10px 12px; }
+.il-soltar { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:140px; border:2px dashed #9fc3d8; border-radius:4px; background:#f5fafd; color:#0a6fa0; cursor:pointer; text-align:center; padding:16px; margin:0; }
+.il-soltar i { font-size:34px; }
+.il-soltar b { font-size:15px; }
+.il-soltar span { font-size:12.5px; color:#5b7383; }
+.il-soltos { display:flex; align-items:center; justify-content:center; gap:8px; font-size:12.5px; color:#0a6fa0; cursor:pointer; margin:0; font-weight:normal; }
+.il-cab { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.il-cab b { flex:1; font-size:14px; }
+.il-trocar { height:30px; padding:0 10px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font:inherit; font-size:12.5px; cursor:pointer; }
+.il-tabela { border:1px solid #e1e8ed; border-radius:3px; max-height:46vh; overflow:auto; }
+.il-tit, .il-linha { display:grid; grid-template-columns:28px 80px minmax(0,1fr) 90px 110px; gap:8px; }
+.il-tit { padding:7px 12px; font-size:10.5px; font-weight:bold; letter-spacing:.6px; color:#5b7383; background:#f5f8fa; border-bottom:1px solid #e1e8ed; position:sticky; top:0; }
+.il-linha { padding:6px 12px; border-bottom:1px solid #f0f3f6; align-items:center; font-size:13px; background:#fff; }
+.il-linha.importada { background:#f1faf4; }
+.il-linha input[type=checkbox] { width:16px; height:16px; accent-color:#0a6fa0; margin:0; }
+.il-nup { color:#0a6fa0; font-variant-numeric:tabular-nums; }
+.il-cli { height:30px; border:1px solid #e1e8ed; border-radius:3px; padding:0 8px; font:inherit; font-size:13px; text-transform:uppercase; min-width:0; }
+.il-dir { text-align:right; }
+.il-qtd { color:#34505f; }
+.il-sit { font-size:12px; font-weight:bold; color:#5b7383; }
+.il-sit.ignorada { color:#9aabb7; }
+.il-sit.andando { color:#0a6fa0; }
+.il-sit.importada { color:#1e7b45; }
+.il-prog-txt { display:flex; justify-content:space-between; font-size:12.5px; color:#34505f; margin-bottom:4px; }
+.il-barra { height:8px; background:#e6edf2; border-radius:4px; overflow:hidden; }
+.il-barra div { height:100%; width:0; background:#0a6fa0; transition:width .2s; }
+.il-fim { font-size:13.5px; color:#1e7b45; background:#e9f6ee; border:1px solid #bfe3cc; border-radius:3px; padding:10px 12px; }
+.il-erro { font-size:13px; color:#a3232b; }
+.il-rodape { padding:12px 18px; border-top:1px solid #eef2f5; display:flex; gap:8px; justify-content:flex-end; }
+.il-cancelar { height:36px; padding:0 14px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font:inherit; font-size:14px; cursor:pointer; }
+.il-importar { height:36px; padding:0 18px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font:inherit; font-size:14px; font-weight:bold; cursor:pointer; }
+</style>
+<div class="il-raiz" id="il-raiz" hidden
+     data-url-pasta="{{ path('expediente_importar_lote_pasta') }}"
+     data-url-proximo="{{ path('expediente_nova_pasta_sugestoes') }}"
+     data-token="{{ csrf_token('expediente_importar_lote') }}">
+  <div class="il-fundo" data-il="fechar"></div>
+  <div class="il-centro"><div class="il-caixa" role="dialog" aria-modal="true" aria-label="Importar pastas em lote">
+    <div class="il-topo"><i class="bi bi-folder-symlink"></i><b>Importar pastas em lote</b><button type="button" class="il-x" data-il="fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>
+    <div class="il-corpo">
+      <div class="il-vazio" data-il="vazio">
+        <div class="il-explica">Escolha a pasta do computador que contém as pastas dos clientes. <b>Cada subpasta vira uma pasta nova</b> no BlueJus, com o nome da subpasta como cliente, e os arquivos dentro dela vão direto para <b>Documentos</b>.</div>
+        <div class="il-arvore"><span>📁 Clientes<br>&nbsp;&nbsp;📁 MARIA DA SILVA → pasta nova<br>&nbsp;&nbsp;&nbsp;&nbsp;📄 procuração.pdf<br>&nbsp;&nbsp;&nbsp;&nbsp;📄 RG.jpg<br>&nbsp;&nbsp;📁 JOÃO SOUZA → pasta nova</span></div>
+        <label class="il-soltar"><i class="bi bi-folder2-open"></i><b>Selecionar a pasta dos clientes</b><span>Todas as subpastas e arquivos são lidos de uma vez</span><input type="file" webkitdirectory directory multiple data-il="ler-pasta" style="display:none;"></label>
+        <label class="il-soltos"><i class="bi bi-files"></i>Ou selecionar arquivos soltos (vira uma pasta só)<input type="file" multiple data-il="ler-arquivos" style="display:none;"></label>
+      </div>
+      <div class="il-tem" data-il="tem" hidden>
+        <div class="il-cab"><b data-il="resumo"></b><button type="button" class="il-trocar" data-il="trocar">Escolher outra pasta</button></div>
+        <div class="il-tabela">
+          <div class="il-tit"><span></span><span>Nº PASTA</span><span>CLIENTE</span><span class="il-dir">ARQUIVOS</span><span class="il-dir">SITUAÇÃO</span></div>
+          <div data-il="linhas"></div>
+        </div>
+        <div data-il="progresso" hidden><div class="il-prog-txt"><span data-il="prog-txt"></span><b data-il="pct">0%</b></div><div class="il-barra"><div data-il="barra"></div></div></div>
+        <div class="il-fim" data-il="fim" hidden><i class="bi bi-check2-circle"></i> <span data-il="fim-txt"></span></div>
+      </div>
+      <div class="il-erro" data-il="erro" hidden></div>
+    </div>
+    <div class="il-rodape"><button type="button" class="il-cancelar" data-il="fechar">Cancelar</button><button type="button" class="il-importar" data-il="importar" hidden><i class="bi bi-cloud-upload"></i> <span data-il="btn-txt">Importar</span></button></div>
+  </div></div>
+</div>

@@ -9,6 +9,7 @@ use App\ChatIa\Entity\AnexoDeChat;
 use App\ChatIa\Entity\MensagemDeChat;
 use App\ChatIa\Exception\AnexoDoChatInvalidoException;
 use App\ChatIa\Prompt\PromptDoChatLivre;
+use App\ChatIa\Repository\PropostaDeCadastroRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\AnexoDeDocumento;
@@ -27,6 +28,7 @@ final class MontadorDoPedidoDoChat
     public const TIPO_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     public const MAXIMO_DE_FALAS_NO_HISTORICO = 20;
     public const MAXIMO_DE_CARACTERES_NO_HISTORICO = 60_000;
+    public const MARCA_DE_PROPOSTA = "\n\n[proposta de cadastro registrada, aguardando confirmação da pessoa]";
 
     public function __construct(
         private readonly PromptDoChatLivre $prompt,
@@ -34,6 +36,8 @@ final class MontadorDoPedidoDoChat
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ExtratorDeTextoDocx $docx,
         private readonly TetoDeUsoDoChat $teto,
+        private readonly GuardaDasPropostas $guardaDasPropostas,
+        private readonly PropostaDeCadastroRepository $propostas,
     ) {
     }
 
@@ -63,6 +67,7 @@ final class MontadorDoPedidoDoChat
             $documentos,
             $this->teto->porResposta(),
             $modelo,
+            $this->guardaDasPropostas->ferramentasPara($eu, $tenant),
         );
     }
 
@@ -96,13 +101,26 @@ final class MontadorDoPedidoDoChat
         return array_reverse($seguem);
     }
 
-    /** @return list<array{papel: string, conteudo: string}> */
+    /**
+     * A fala do assistente que trouxe uma proposta de cadastro leva só "proposta registrada": o JSON da proposta (dado
+     * pessoal) nunca volta ao modelo.
+     *
+     * @return list<array{papel: string, conteudo: string}>
+     */
     private function historico(Tenant $tenant, array $anteriores): array
     {
+        $recentes = \array_slice($anteriores, -self::MAXIMO_DE_FALAS_NO_HISTORICO);
+        $comProposta = $this->propostas->mensagensComProposta(
+            array_values(array_filter(array_map(static fn (MensagemDeChat $m): int => (int) $m->getId(), $recentes), static fn (int $id): bool => $id > 0)),
+            $tenant,
+        );
         $fala = [];
         $gasto = 0;
-        foreach (array_reverse(\array_slice($anteriores, -self::MAXIMO_DE_FALAS_NO_HISTORICO)) as $mensagem) {
+        foreach (array_reverse($recentes) as $mensagem) {
             $texto = $this->protecao->livre($tenant, $mensagem->getConteudo());
+            if (\in_array($mensagem->getId(), $comProposta, true)) {
+                $texto .= self::MARCA_DE_PROPOSTA;
+            }
             $gasto += mb_strlen($texto);
             if ($gasto > self::MAXIMO_DE_CARACTERES_NO_HISTORICO) {
                 break;

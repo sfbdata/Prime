@@ -167,6 +167,29 @@ button { cursor: pointer; }
 
 .ci-fundo-gaveta { position: fixed; inset: 0; z-index: 70; background: rgba(8, 20, 28, .5); }
 
+/* Cartão da proposta de cadastro (a I.A só propõe; quem grava é o Confirmar) */
+.ci-proposta { margin-top: 12px; padding: 14px; border: 1px solid var(--ci-borda); border-left: 3px solid var(--ci-acao); border-radius: var(--ci-raio); background: var(--ci-superficie); box-shadow: var(--ci-sombra); }
+.ci-proposta-confirmada { border-left-color: var(--ci-sucesso); }
+.ci-proposta-cancelada, .ci-proposta-expirada { border-left-color: var(--ci-mudo); color: var(--ci-apoio); }
+.ci-proposta-titulo { font-weight: 700; font-size: 15px; }
+.ci-proposta-dica { margin: 2px 0 10px; color: var(--ci-apoio); font-size: 13px; }
+.ci-proposta-subtitulo { margin: 12px 0 4px; color: var(--ci-apoio); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+.ci-proposta-linha { display: grid; grid-template-columns: minmax(110px, 30%) 1fr; align-items: center; gap: 4px 10px; margin: 6px 0; }
+.ci-proposta-rotulo { color: var(--ci-apoio); font-size: 13px; }
+.ci-proposta-campo { min-width: 0; padding: 6px 8px; border: 1px solid var(--ci-borda); border-radius: var(--ci-raio); background: var(--ci-fundo); color: var(--ci-texto); font: inherit; font-size: 14px; }
+.ci-proposta-campo:focus-visible { outline: 2px solid var(--ci-acao); outline-offset: 1px; }
+.ci-proposta-campo[aria-invalid="true"] { border-color: var(--ci-destrutivo); }
+.ci-proposta-erro { grid-column: 2; color: var(--ci-destrutivo); font-size: 13px; }
+.ci-proposta > .ci-proposta-erro { margin-top: 8px; }
+.ci-proposta-alerta { margin-top: 10px; padding: 8px 10px; border: 1px solid var(--ci-borda); border-radius: var(--ci-raio); background: var(--ci-realce); font-size: 13px; }
+.ci-proposta-lista { margin: 6px 0 0; padding-left: 18px; }
+.ci-proposta-link { margin-left: 6px; color: var(--ci-acao); text-decoration: underline; text-underline-offset: 2px; }
+.ci-proposta-situacao { margin-top: 6px; font-size: 14px; }
+.ci-proposta-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.ci-proposta-acoes .ci-botao[hidden] { display: none; }
+.ci-proposta-acoes .ci-botao:disabled { opacity: .6; cursor: default; }
+@media (max-width: 800px) { .ci-proposta-linha { grid-template-columns: 1fr; } .ci-proposta-erro { grid-column: 1; } }
+
 /* Celular */
 @media (max-width: 800px) {
     .ci-barra { position: fixed; top: 0; bottom: 0; left: 0; z-index: 75; width: min(300px, 86vw); flex: none; margin-left: 0; transform: translateX(-100%); visibility: hidden; box-shadow: var(--ci-sombra-flutua); }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\Service;
 
+use App\Inteligencia\DTO\FerramentaDeLinguagem;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\RespostaDeLinguagem;
 use App\Inteligencia\DTO\UsoDaTransmissao;
@@ -31,6 +32,10 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * {@see LeitorDeFluxoDaAnthropic} e só o texto (`text_delta`) sai. O corpo e o texto nunca são logados; erro dentro do
  * fluxo (`overloaded_error`...) vira {@see FalhaDoProvedorException} só com o tipo. O `modelo` do pedido, quando vem,
  * vale no lugar do da plataforma (o chat deixa a pessoa escolher entre os de {@see \App\Inteligencia\Enum\ModeloDeIa}).
+ *
+ * **Tool use** (Chat I.A que propõe cadastro): as `ferramentas` do pedido vão em `tools`; o bloco `tool_use` que o modelo
+ * devolve é juntado pelo {@see LeitorDeFluxoDaAnthropic} e sai em {@see UsoDaTransmissao::$chamadasDeFerramenta}. Não há
+ * segunda chamada com `tool_result`: o fluxo termina na chamada.
  *
  * O que vai e o que não vai na requisição:
  * - vai `model`, `max_tokens`, `system` e `messages` (papel `usuario` → `user`, `assistente` → `assistant`);
@@ -226,6 +231,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem, ProvedorDeLinguage
             tokensSaida: $leitor->tokensSaida(),
             duracaoMs: (int) ((hrtime(true) - $inicio) / 1_000_000),
             cortadaNoLimite: $leitor->cortadaNoLimite(),
+            chamadasDeFerramenta: $leitor->chamadasDeFerramenta(),
         );
     }
 
@@ -315,6 +321,10 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem, ProvedorDeLinguage
         }
         if (trim($pedido->sistema) !== '') {
             $corpo['system'] = $pedido->sistema;
+        }
+        if ($pedido->ferramentas !== []) {
+            // Tool use: o modelo só PEDE a chamada (bloco `tool_use`); o servidor a trata como proposta, nunca a executa.
+            $corpo['tools'] = array_map(static fn (FerramentaDeLinguagem $f): array => $f->paraAnthropic(), $pedido->ferramentas);
         }
 
         return $corpo;
