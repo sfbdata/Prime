@@ -235,6 +235,210 @@
         return m;
     }
 
+    /* ------------------------------------------------------------------ cartão da proposta de cadastro
+       A I.A só PROPÕE: o cartão mostra o que o servidor guardou (campo e valor literais, via textContent) e quem grava é o
+       clique em Confirmar. O que a pessoa edita aqui é o que vale no clique, e o servidor revalida tudo. */
+    function adicionarCartao(m, proposta) {
+        var c = { dados: proposta, el: el('div', 'ci-proposta'), valores: null, erros: proposta.erros || {}, aviso: '', ocupado: false, alterou: false };
+        m.el.insertBefore(c.el, m.nota);
+        desenharCartao(c);
+        return c;
+    }
+
+    function linkDoCartao(url, id, texto) {
+        var a = el('a', 'ci-proposta-link', texto);
+        a.href = comId(url, id);
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        return a;
+    }
+
+    /* O servidor guarda e valida a data como AAAA-MM-DD; na tela ela aparece dd/mm/aaaa. */
+    function dataParaTela(chave, valor) {
+        var m = chave === 'nascimento' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor) : null;
+        return m ? m[3] + '/' + m[2] + '/' + m[1] : valor;
+    }
+
+    function dataParaServidor(chave, valor) {
+        var m = chave === 'nascimento' ? /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor.trim()) : null;
+        return m ? m[3] + '-' + m[2] + '-' + m[1] : valor;
+    }
+
+    function colherValores(c) {
+        var v = { campos: {}, pasta: {} };
+        c.el.querySelectorAll('[data-campo]').forEach(function (i) { var k = i.getAttribute('data-campo'); v.campos[k] = dataParaServidor(k, i.value); });
+        c.el.querySelectorAll('[data-pasta]').forEach(function (i) { v.pasta[i.getAttribute('data-pasta')] = i.value; });
+        return v;
+    }
+
+    function campoDoCartao(c, grupo, chave, rotulo, valor) {
+        var linha = el('div', 'ci-proposta-linha');
+        var id = 'ci-p' + c.dados.id + '-' + grupo + '-' + chave;
+        var rot = el('label', 'ci-proposta-rotulo', rotulo);
+        rot.setAttribute('for', id);
+        var campo = el('input', 'ci-proposta-campo');
+        campo.type = 'text';
+        campo.id = id;
+        campo.maxLength = 1000;
+        campo.autocomplete = 'off';
+        campo.value = grupo === 'campos' ? dataParaTela(chave, valor) : valor;
+        campo.setAttribute(grupo === 'campos' ? 'data-campo' : 'data-pasta', chave);
+        campo.addEventListener('input', function () {
+            c.alterou = true;
+            if (c.botaoConfirmar && c.dados.duplicada) { c.botaoConfirmar.hidden = false; }
+        });
+        linha.appendChild(rot);
+        linha.appendChild(campo);
+        var erro = c.erros[(grupo === 'campos' ? 'campos.' : 'pasta.') + chave];
+        if (erro) {
+            campo.setAttribute('aria-invalid', 'true');
+            var msg = el('div', 'ci-proposta-erro', erro);
+            msg.id = id + '-erro';
+            campo.setAttribute('aria-describedby', msg.id);
+            linha.appendChild(msg);
+        }
+        return linha;
+    }
+
+    function desenharCartao(c) {
+        var p = c.dados;
+        var antigos = c.valores;
+        limpar(c.el);
+        c.el.className = 'ci-proposta ci-proposta-' + p.estado;
+        c.botaoConfirmar = null;
+        var titulo = el('div', 'ci-proposta-titulo', T(p.tipo === 'pasta' ? 'proposta_titulo_pasta' : 'proposta_titulo_cliente'));
+        c.el.setAttribute('role', 'group');
+        c.el.setAttribute('aria-label', titulo.textContent);
+        c.el.appendChild(titulo);
+
+        if (p.estado !== 'pendente') {
+            var fim = el('div', 'ci-proposta-situacao');
+            if (p.estado === 'confirmada') {
+                var res = p.resultado || {};
+                fim.appendChild(el('span', '', T(res.tipo === 'pasta' ? 'proposta_criada_pasta' : 'proposta_criada_cliente')));
+                if (res.id) { fim.appendChild(linkDoCartao(res.tipo === 'pasta' ? urls.pasta : urls.cliente, res.id, T('proposta_abrir'))); }
+            } else {
+                fim.textContent = T(p.estado === 'cancelada' ? 'proposta_cancelada' : 'proposta_vencida');
+            }
+            c.el.appendChild(fim);
+            if (c.aviso) { c.el.appendChild(el('div', 'ci-proposta-erro', c.aviso)); }
+            return;
+        }
+
+        c.el.appendChild(el('div', 'ci-proposta-dica', T('proposta_confira')));
+        if (p.pasta) {
+            [['nomeCliente', 'proposta_nome_cliente'], ['nomeAcao', 'proposta_nome_acao'], ['nup', 'proposta_numero']].forEach(function (f) {
+                if (f[0] === 'nup' && !p.pasta.nup && !(antigos && antigos.pasta.nup)) { return; }
+                var v = antigos && antigos.pasta[f[0]] !== undefined ? antigos.pasta[f[0]] : p.pasta[f[0]];
+                c.el.appendChild(campoDoCartao(c, 'pasta', f[0], T(f[1]), v));
+            });
+        }
+        if (p.campos && p.campos.length) {
+            if (p.pasta) { c.el.appendChild(el('div', 'ci-proposta-subtitulo', T('proposta_cadastro_do_cliente'))); }
+            p.campos.forEach(function (f) {
+                var v = antigos && antigos.campos[f.chave] !== undefined ? antigos.campos[f.chave] : f.valor;
+                c.el.appendChild(campoDoCartao(c, 'campos', f.chave, f.rotulo, v));
+            });
+        }
+        if (p.duplicada) {
+            var dup = el('div', 'ci-proposta-alerta');
+            dup.setAttribute('role', 'status');
+            dup.appendChild(el('span', '', T('proposta_duplicada', { documento: p.duplicada.documento, nome: p.duplicada.nome })));
+            dup.appendChild(linkDoCartao(urls.cliente, p.duplicada.id, T('proposta_abrir_cadastro')));
+            c.el.appendChild(dup);
+        }
+        if (p.semelhantes && p.semelhantes.lista && p.semelhantes.lista.length) {
+            var sem = el('div', 'ci-proposta-alerta');
+            sem.setAttribute('role', 'status');
+            sem.appendChild(el('div', '', T('proposta_semelhantes', { total: p.semelhantes.total })));
+            var ul = el('ul', 'ci-proposta-lista');
+            p.semelhantes.lista.forEach(function (s) {
+                var li = el('li');
+                li.appendChild(linkDoCartao(urls.pasta, s.id, s.nup));
+                li.appendChild(el('span', '', ' ' + s.nomeCliente + (s.nomeAcao ? ', ' + s.nomeAcao : '')));
+                ul.appendChild(li);
+            });
+            sem.appendChild(ul);
+            c.el.appendChild(sem);
+        }
+        var geral = c.aviso || c.erros[''];
+        if (geral) {
+            var g = el('div', 'ci-proposta-erro', geral);
+            g.setAttribute('role', 'alert');
+            c.el.appendChild(g);
+        }
+
+        var acoes = el('div', 'ci-proposta-acoes');
+        var temAviso = !!(p.semelhantes && p.semelhantes.lista && p.semelhantes.lista.length);
+        if (p.duplicada && p.duplicada.podeUsarExistente) {
+            var usar = el('button', 'ci-botao ci-botao-primario', T('proposta_usar_existente'));
+            usar.type = 'button';
+            usar.disabled = c.ocupado;
+            /* "Abrir nova pasta" já é a decisão de abrir mesmo com pasta parecida: o Confirmar fica escondido e não pode ser o único caminho. */
+            usar.addEventListener('click', function () { confirmarProposta(c, temAviso ? { usarExistente: true, criarMesmoAssim: true } : { usarExistente: true }); });
+            acoes.appendChild(usar);
+        }
+        var ok = el('button', 'ci-botao' + (p.duplicada && p.duplicada.podeUsarExistente ? '' : ' ci-botao-primario'), T(temAviso ? 'proposta_criar_mesmo_assim' : 'proposta_confirmar'));
+        ok.type = 'button';
+        ok.disabled = c.ocupado;
+        /* Cadastro que já existe: o Confirmar que criaria o segundo some, e só volta se a pessoa editar os dados. */
+        ok.hidden = !!p.duplicada && !c.alterou;
+        ok.addEventListener('click', function () { confirmarProposta(c, temAviso ? { criarMesmoAssim: true } : {}); });
+        c.botaoConfirmar = ok;
+        acoes.appendChild(ok);
+        var nao = el('button', 'ci-botao', T('proposta_cancelar'));
+        nao.type = 'button';
+        nao.disabled = c.ocupado;
+        nao.addEventListener('click', function () { cancelarProposta(c); });
+        acoes.appendChild(nao);
+        c.el.appendChild(acoes);
+    }
+
+    /* Resposta do servidor ao clique: sucesso troca o cartão; recusa mostra o motivo no próprio cartão, sem perder o que a pessoa editou. */
+    function aoResponderProposta(c, r) {
+        c.ocupado = false;
+        var d = r.dados || {};
+        c.aviso = '';
+        c.erros = {};
+        if (r.ok) {
+            c.dados = d;
+            c.valores = null;
+        } else if (r.status === 422 && d.erros) {
+            c.erros = d.erros;
+        } else if (r.status === 409 && d.codigo === 'duplicada' && d.existente) {
+            c.dados.duplicada = { id: d.existente.id, nome: d.existente.nome, documento: d.existente.documento || T('proposta_documento'), podeUsarExistente: !!d.podeUsarExistente };
+            c.alterou = false;
+        } else if (r.status === 409 && d.codigo === 'pasta_semelhante') {
+            c.dados.semelhantes = { lista: d.semelhantes || [], total: d.total || 0 };
+        } else if (r.status === 409) {
+            c.dados = { id: c.dados.id, tipo: c.dados.tipo, estado: d.codigo === 'proposta_vencida' ? 'expirada' : (d.codigo === 'proposta_confirmada' ? 'confirmada' : 'cancelada'), resultado: { tipo: c.dados.tipo } };
+            c.aviso = d.mensagem || '';
+        } else {
+            c.aviso = textoDoErro(d);
+        }
+        desenharCartao(c);
+    }
+
+    function confirmarProposta(c, extras) {
+        if (c.ocupado) { return; }
+        c.valores = colherValores(c);
+        var corpo = {};
+        if (c.dados.campos) { corpo.campos = c.valores.campos; }
+        if (c.dados.pasta) { corpo.pasta = c.valores.pasta; }
+        Object.keys(extras || {}).forEach(function (k) { corpo[k] = extras[k]; });
+        c.ocupado = true;
+        desenharCartao(c);
+        api('POST', comId(urls.propostaConfirmar, c.dados.id), corpo).then(function (r) { aoResponderProposta(c, r); });
+    }
+
+    function cancelarProposta(c) {
+        if (c.ocupado) { return; }
+        c.valores = colherValores(c);
+        c.ocupado = true;
+        desenharCartao(c);
+        api('POST', comId(urls.propostaCancelar, c.dados.id), {}).then(function (r) { aoResponderProposta(c, r); });
+    }
+
     function adicionarMensagemIa(dados) {
         var m = { papel: 'assistente', texto: dados.conteudo || '', id: dados.id || null, interrompida: !!dados.interrompida, gerando: false };
         m.el = el('div', 'ci-msg ci-msg-ia');
@@ -252,6 +456,7 @@
         estado.msgs.push(m);
         if (m.texto) { renderizarMarkdown(m.texto, m.md); }
         marcarInterrompida(m);
+        (dados.propostas || []).forEach(function (p) { adicionarCartao(m, p); });
         return m;
     }
 
@@ -511,6 +716,9 @@
                     if (evento === 'delta') {
                         m.texto += String(d.t || '');
                         agendarRender(m);
+                    } else if (evento === 'proposta') {
+                        adicionarCartao(m, d);
+                        rolarFim();
                     } else if (evento === 'fim') {
                         terminou = true;
                         m.id = d.mensagemId || null;

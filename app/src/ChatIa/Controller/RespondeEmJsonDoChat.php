@@ -5,16 +5,26 @@ declare(strict_types=1);
 namespace App\ChatIa\Controller;
 
 use App\ChatIa\Exception\AnexoDoChatInvalidoException;
+use App\ChatIa\Exception\CadastroJaExisteNaPropostaException;
 use App\ChatIa\Exception\ConversaDeChatNaoEncontradaException;
 use App\ChatIa\Exception\ModeloDoChatInvalidoException;
+use App\ChatIa\Exception\PastaSemelhanteNaPropostaException;
+use App\ChatIa\Exception\PropostaEncerradaException;
+use App\ChatIa\Exception\PropostaInvalidaException;
+use App\ChatIa\Exception\PropostaNaoEncontradaException;
 use App\ChatIa\Exception\SemAceiteNoChatException;
 use App\ChatIa\Exception\SemAcessoAoChatException;
 use App\ChatIa\Exception\SemChaveNoChatException;
+use App\ChatIa\Exception\SemPermissaoParaPropostaException;
 use App\ChatIa\Exception\TetoDiarioDoChatException;
 use App\ChatIa\Exception\TextoDoChatInvalidoException;
 use App\ChatIa\Exception\TituloDoChatInvalidoException;
 use App\Central\Exception\PastaDaIaNaoEncontradaException;
+use App\Cliente\Exception\CadastroInvalidoException;
+use App\Cliente\Exception\DocumentoJaCadastradoException;
+use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
 use App\Entity\Auth\User;
+use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\MuitasSolicitacoesException;
@@ -52,9 +62,10 @@ trait RespondeEmJsonDoChat
         return $this->erro('muitas_solicitacoes', 'Muitos pedidos em sequência. Aguarde um instante.', Response::HTTP_TOO_MANY_REQUESTS);
     }
 
-    private function erro(string $codigo, string $mensagem, int $status): JsonResponse
+    /** @param array<string, mixed> $extra campos a mais no corpo do erro (ex.: `erros` por campo, o cadastro `existente`) */
+    private function erro(string $codigo, string $mensagem, int $status, array $extra = []): JsonResponse
     {
-        $resposta = new JsonResponse(['codigo' => $codigo, 'mensagem' => $mensagem], $status);
+        $resposta = new JsonResponse(['codigo' => $codigo, 'mensagem' => $mensagem] + $extra, $status);
         $resposta->headers->set('Cache-Control', 'private, no-store');
 
         return $resposta;
@@ -66,6 +77,18 @@ trait RespondeEmJsonDoChat
             $e instanceof SemAcessoAoChatException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_FORBIDDEN),
             $e instanceof ConversaDeChatNaoEncontradaException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_NOT_FOUND),
             $e instanceof PastaDaIaNaoEncontradaException => $this->erro('pasta_nao_encontrada', $e->getMessage(), Response::HTTP_NOT_FOUND),
+            $e instanceof PropostaNaoEncontradaException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_NOT_FOUND),
+            $e instanceof PropostaEncerradaException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_CONFLICT),
+            // Os UseCases de Cliente e Pasta recusam por conta própria (ex.: pasta que a pessoa não pode editar); a transação
+            // desfaz o que já tinha sido criado.
+            $e instanceof SemPermissaoParaEditarPastaException,
+            $e instanceof SemPermissaoParaEditarClienteException => $this->erro('sem_permissao', $e->getMessage(), Response::HTTP_FORBIDDEN),
+            $e instanceof CadastroInvalidoException => $this->erro('proposta_invalida', $e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY, ['erros' => ['' => $e->getMessage()]]),
+            $e instanceof DocumentoJaCadastradoException => $this->erro('duplicada', $e->getMessage(), Response::HTTP_CONFLICT, ['existente' => ['id' => (int) $e->existente->getId(), 'nome' => $e->existente->getNomeExibicao()], 'podeUsarExistente' => false]),
+            $e instanceof SemPermissaoParaPropostaException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_FORBIDDEN),
+            $e instanceof PropostaInvalidaException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY, ['erros' => $e->erros]),
+            $e instanceof CadastroJaExisteNaPropostaException,
+            $e instanceof PastaSemelhanteNaPropostaException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_CONFLICT, $e->dados()),
             $e instanceof SemChaveNoChatException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_SERVICE_UNAVAILABLE),
             $e instanceof SemAceiteNoChatException => $this->erro($e->codigo(), $e->getMessage(), Response::HTTP_CONFLICT),
             $e instanceof ContextoBloqueadoException => $this->erro($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT),

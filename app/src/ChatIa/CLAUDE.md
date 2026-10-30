@@ -50,3 +50,14 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
 10. **Tela** (`templates/chat_ia/pagina.html.twig`, `public/css/chat-ia.css`, `public/js/chat-ia.js`): layout próprio sem AdminLTE, textos no
     catálogo `translations/chat_ia/` e entregues ao JS em `data-textos`. O JS só usa `createElement`/`textContent` (o markdown da
     resposta tem renderizador próprio; links só http, https e mailto) e é guardado por `tests/ChatIa/Unit/ChatIaJsTest.php`.
+11. **Proposta de cadastro** (spec `docs/specs/chat-ia-cadastro.md`): a I.A NUNCA grava. Tool use (`propor_cliente`, `propor_pasta`,
+    oferecidas só conforme a permissão: carteira para cliente avulso, módulo `pastas` para pasta) vira `PropostaDeCadastro`
+    (`pendente`, dono = quem perguntou, expira em 24 h) e o evento SSE `proposta`; o fluxo termina na chamada (sem `tool_result`
+    nem segunda chamada). No máximo 2 por resposta, uma por tipo; chave fora de `CamposDoCadastro::ROTULOS`, JSON torto ou
+    valor que não é texto descarta a chamada. Quem grava é `ConfirmarPropostaDeCadastroUseCase` (POST `/chat-ia/propostas/{id}/confirmar`),
+    pelos UseCases de Cliente e Pasta, que NÃO mudam, com usuário e escritório da SESSÃO. Ordem: posse (404), estado com trava de
+    linha (409), permissão NO CLIQUE (403), validação por campo (422), CPF/CNPJ duplicado (409 `duplicada`), pasta parecida (409
+    `pasta_semelhante`, `criarMesmoAssim`). A recusa é devolvida pela transação (não lançada dentro) para o vencimento persistir.
+    `dados` (JSON com dado pessoal) fica fora do diff de auditoria (`IGNORED_FIELDS_POR_CLASSE`), é zerado ao decidir ou vencer
+    (`expirarVencidas` varre as vencidas ao registrar nova proposta e ao abrir a conversa; sem varredura agendada: limite aceito, ver a spec) e nunca vai a log nem ao prompt (o histórico leva só
+    "proposta de cadastro registrada"). Campo novo na proposta com texto livre = fora do diff e no teste de auditoria de `PropostaDeCadastroTest`.

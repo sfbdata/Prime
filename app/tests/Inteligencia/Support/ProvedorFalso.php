@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Support;
 
+use App\Inteligencia\DTO\ChamadaDeFerramenta;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\RespostaDeLinguagem;
 use App\Inteligencia\DTO\UsoDaTransmissao;
@@ -22,7 +23,7 @@ use App\Inteligencia\Service\ProvedorDeLinguagemEmFluxo;
  *
  * Também é o {@see ProvedorDeLinguagemEmFluxo} da suíte (Chat I.A em página inteira): `transmitirTrechos()` programa os
  * trechos e o consumo de uma resposta em fluxo; `transmitirTrechosEFalhar()` rende os trechos e então lança. Os pedidos
- * do fluxo também ficam em `$pedidos`.
+ * do fluxo também ficam em `$pedidos`. `transmitirComFerramenta()` programa também as chamadas de ferramenta (tool use).
  *
  * Igual ao `FakeGoogleDriveClientFactory` do Sync: entra pelo `when@test` do services.yaml.
  */
@@ -124,6 +125,22 @@ final class ProvedorFalso implements ProvedorDeLinguagem, ProvedorDeLinguagemEmF
     public function transmitirTrechos(array $trechos, ?int $tokensEntrada = 120, ?int $tokensSaida = 40, bool $cortadaNoLimite = false, string $modelo = self::MODELO): void
     {
         $this->filaDeFluxo[] = ['trechos' => $trechos, 'uso' => new UsoDaTransmissao($modelo, $tokensEntrada, $tokensSaida, 15, $cortadaNoLimite), 'falha' => null];
+    }
+
+    /**
+     * Programa uma resposta em fluxo que, além dos trechos de texto, pede chamadas de ferramenta (tool use). O fluxo
+     * termina na chamada: não há `tool_result` nem segunda chamada.
+     *
+     * @param list<string>                $trechos
+     * @param list<ChamadaDeFerramenta>   $chamadas
+     */
+    public function transmitirComFerramenta(array $trechos, array $chamadas, ?int $tokensEntrada = 120, ?int $tokensSaida = 40, string $modelo = self::MODELO): void
+    {
+        $this->filaDeFluxo[] = [
+            'trechos' => $trechos,
+            'uso' => new UsoDaTransmissao($modelo, $tokensEntrada, $tokensSaida, 15, false, $chamadas),
+            'falha' => null,
+        ];
     }
 
     /**

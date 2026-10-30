@@ -6,7 +6,11 @@ namespace App\ChatIa\UseCase;
 
 use App\ChatIa\DTO\RespostaPreparada;
 use App\ChatIa\Entity\MensagemDeChat;
+use App\ChatIa\Entity\PropostaDeCadastro;
 use App\ChatIa\Repository\MensagemDeChatRepository;
+use App\ChatIa\Repository\PropostaDeCadastroRepository;
+use App\ChatIa\Service\MontadorDoCartaoDaProposta;
+use App\ChatIa\Service\RegistradorDasPropostas;
 use App\ChatIa\Service\TituloAutomaticoDoChat;
 use App\ChatIa\Service\TransacaoDoChat;
 use App\Inteligencia\DTO\UsoDaTransmissao;
@@ -21,6 +25,9 @@ use Psr\Log\LoggerInterface;
  * `{evento, dados}` que o controller escreve como SSE:
  *
  * - `delta {t}`: um trecho de texto;
+ * - `proposta {id, tipo, estado, ...}`: o cartão de uma proposta de cadastro que o modelo pediu (tool use), já gravada como
+ *   `pendente` e ligada à resposta. Vem antes do `fim`. O modelo só PROPÕE: nada vira Cliente nem Pasta sem o clique da pessoa
+ *   ({@see ConfirmarPropostaDeCadastroUseCase}). Sem proposta válida o texto ganha um aviso (também enviado como `delta`);
  * - `fim {mensagemId, tokensEntrada, tokensSaida, titulo?, cortada?}`: a resposta inteira foi gravada (tokens REAIS do
  *   provedor); `titulo` só vem na primeira resposta (automático, ou o início da pergunta se a chamada curta falhar);
  * - `erro {codigo, mensagem}`: o provedor falhou. O que já chegou é gravado como resposta interrompida.
@@ -38,11 +45,16 @@ final class TransmitirRespostaDoChatUseCase
     /** PDF e imagem anexos: estimativa de bytes por token e teto por arquivo (a API cobra páginas e pixels, não bytes). */
     private const BYTES_POR_TOKEN_DE_ANEXO = 3;
     private const TETO_DE_TOKENS_POR_ANEXO = 30_000;
+    private const AVISO_SEM_PROPOSTA = 'Não consegui montar o cadastro. Descreva de novo os dados que você quer cadastrar.';
+    private const AVISO_COM_PROPOSTA = 'Montei a proposta abaixo. Confira os dados e confirme se estiverem certos.';
 
     public function __construct(
         private readonly ProvedorDeLinguagemEmFluxo $provedor,
         private readonly MensagemDeChatRepository $mensagens,
         private readonly TituloAutomaticoDoChat $titulo,
+        private readonly RegistradorDasPropostas $registrador,
+        private readonly PropostaDeCadastroRepository $propostas,
+        private readonly MontadorDoCartaoDaProposta $cartao,
         private readonly TransacaoDoChat $transacao,
         private readonly ClockInterface $relogio,
         private readonly LoggerInterface $logger,
@@ -75,17 +87,30 @@ final class TransmitirRespostaDoChatUseCase
             return;
         }
 
-        yield $this->terminou($preparada, $texto, $uso);
+        yield from $this->terminou($preparada, $texto, $uso);
     }
 
-    /** @return array{evento: string, dados: array<string, mixed>} */
-    private function terminou(RespostaPreparada $preparada, string $texto, UsoDaTransmissao $uso): array
+    /** @return \Generator<int, array{evento: string, dados: array<string, mixed>}> */
+    private function terminou(RespostaPreparada $preparada, string $texto, UsoDaTransmissao $uso): \Generator
     {
+        $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
+        [$propostas, $aviso] = $this->registrarPropostas($preparada, $texto, $uso, $agora);
+        if ($aviso !== '') {
+            // O texto que o modelo escreveu fica como veio; o aviso do sistema entra depois e também vai ao cliente.
+            $aviso = trim($texto) === '' ? $aviso : "\n\n" . $aviso;
+            $texto .= $aviso;
+            yield $this->evento('delta', ['t' => $aviso]);
+        }
         if (trim($texto) === '') {
-            return $this->evento('erro', ['codigo' => 'resposta_vazia', 'mensagem' => 'A IA não devolveu texto. Tente de novo.']);
+            yield $this->evento('erro', ['codigo' => 'resposta_vazia', 'mensagem' => 'A IA não devolveu texto. Tente de novo.']);
+
+            return;
         }
 
-        $mensagem = $this->gravar($preparada, $texto, $uso, false);
+        $mensagem = $this->gravar($preparada, $texto, $uso, false, $propostas);
+        foreach ($propostas as $proposta) {
+            yield $this->evento('proposta', $this->cartao->montar($proposta, $agora)->paraArray());
+        }
         $dados = ['mensagemId' => (int) $mensagem->getId(), 'tokensEntrada' => $mensagem->getTokensEntrada(), 'tokensSaida' => $mensagem->getTokensSaida()];
         if ($uso->cortadaNoLimite) {
             $dados['cortada'] = true;
@@ -95,7 +120,26 @@ final class TransmitirRespostaDoChatUseCase
             $dados['titulo'] = $titulo;
         }
 
-        return $this->evento('fim', $dados);
+        yield $this->evento('fim', $dados);
+    }
+
+    /**
+     * @return array{0: list<PropostaDeCadastro>, 1: string}
+     */
+    private function registrarPropostas(RespostaPreparada $preparada, string $texto, UsoDaTransmissao $uso, \DateTimeImmutable $agora): array
+    {
+        if ($uso->chamadasDeFerramenta === []) {
+            return [[], ''];
+        }
+        $conversa = $preparada->conversa;
+        $propostas = $this->registrador->preparar($conversa->getUsuario(), $preparada->tenant, $conversa, $uso->chamadasDeFerramenta, $agora);
+        $aviso = match (true) {
+            $propostas === [] => self::AVISO_SEM_PROPOSTA,
+            trim($texto) === '' => self::AVISO_COM_PROPOSTA,
+            default => '',
+        };
+
+        return [$propostas, $aviso];
     }
 
     /**
@@ -127,15 +171,24 @@ final class TransmitirRespostaDoChatUseCase
             ]);
     }
 
-    private function gravar(RespostaPreparada $preparada, string $texto, ?UsoDaTransmissao $uso, bool $interrompida): MensagemDeChat
+    /** @param list<PropostaDeCadastro> $propostas as propostas desta resposta, gravadas na mesma transação que ela */
+    private function gravar(RespostaPreparada $preparada, string $texto, ?UsoDaTransmissao $uso, bool $interrompida, array $propostas = []): MensagemDeChat
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
         $entrada = $uso->tokensEntrada ?? self::estimar($preparada->pedido->sistema . $this->conteudoDoPedido($preparada)) + self::estimarOsAnexos($preparada);
         $saida = $uso->tokensSaida ?? self::estimar($texto);
         $mensagem = MensagemDeChat::doAssistente($preparada->conversa, $texto, $uso->modelo ?? $preparada->modelo->value, $entrada, $saida, $interrompida, $agora);
 
-        $this->transacao->executar(function () use ($mensagem, $preparada, $agora): void {
+        $this->transacao->executar(function () use ($mensagem, $preparada, $agora, $propostas): void {
             $this->mensagens->salvar($mensagem);
+            if ($propostas !== []) {
+                // Aproveita para zerar os dados pessoais das propostas deste escritório que já venceram.
+                $this->propostas->expirarVencidas($preparada->tenant, $agora);
+            }
+            foreach ($propostas as $proposta) {
+                $proposta->associarAMensagem($mensagem);
+                $this->propostas->salvar($proposta);
+            }
             $preparada->conversa->registrarAtividade($agora);
         });
 

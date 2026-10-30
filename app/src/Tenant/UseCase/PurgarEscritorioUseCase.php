@@ -292,6 +292,7 @@ final class PurgarEscritorioUseCase
         ['central_conversa', 'tenant_id = :tenant'],
         // Chat I.A em página inteira (spec chat-pagina-inteira.md): anexo e mensagem caem pela CASCADE da conversa, mas as
         // FKs de tenant são NO ACTION. Deleção explícita de baixo para cima; os arquivos saem pela lista de registros.
+        ['chat_ia_proposta', 'tenant_id = :tenant'],
         ['chat_ia_anexo', 'tenant_id = :tenant'],
         ['chat_ia_mensagem', 'tenant_id = :tenant'],
         ['chat_ia_conversa', 'tenant_id = :tenant'],

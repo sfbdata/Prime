@@ -16,6 +16,10 @@ namespace App\Inteligencia\DTO;
  * `modelo` (opcional, Chat I.A em página inteira): o modelo DESTA chamada. Nulo = o modelo da plataforma (o do banco,
  * escolhido pelo Master). Quem preenche já validou contra {@see \App\Inteligencia\Enum\ModeloDeIa}.
  *
+ * `ferramentas` (opcional, Chat I.A que propõe cadastro): as ferramentas (tool use) oferecidas ao modelo, vazio por
+ * padrão. Só o fluxo em `transmitir` devolve as chamadas pedidas ({@see UsoDaTransmissao::$chamadasDeFerramenta}); o
+ * modelo nunca as executa.
+ *
  * Nunca é logado inteiro: carrega o texto das publicações (conteúdo processual) e, com anexos, os arquivos.
  */
 final readonly class PedidoDeLinguagem
@@ -23,6 +27,7 @@ final readonly class PedidoDeLinguagem
     /**
      * @param list<array{papel: string, conteudo: string}> $mensagens
      * @param list<AnexoDeDocumento>                        $anexos
+     * @param list<FerramentaDeLinguagem>                   $ferramentas
      */
     public function __construct(
         public string $sistema,
@@ -33,6 +38,7 @@ final readonly class PedidoDeLinguagem
         public string $rotuloDeUso,
         public array $anexos = [],
         public ?string $modelo = null,
+        public array $ferramentas = [],
     ) {
     }
 
