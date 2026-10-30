@@ -16,3 +16,9 @@
 .exp-demandas #tabelaPastas tbody tr:nth-child(even) > td { background: #eef3f7; }
 [data-bs-theme="dark"] .exp-demandas #tabelaPastas tbody tr > td { background: transparent; border-bottom-color: var(--bs-border-color-translucent); }
 [data-bs-theme="dark"] .exp-demandas #tabelaPastas tbody tr:nth-child(even) > td { background: rgba(255,255,255,.04); }
+
+/* Sem demanda (dc L.186-191 e L.269): a linha do resumo fica (colunas, Visualizar) e só o vazio aparece embaixo;
+   tabela, lista simples e cartões saem em qualquer modo. */
+.exp-demandas .pastas-view--vazio .pastas-tabela-wrap,
+.exp-demandas .pastas-view--vazio .exp-simples,
+.exp-demandas .pastas-view--vazio .exp-cartoes { display: none !important; }

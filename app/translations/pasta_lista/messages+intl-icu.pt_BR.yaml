@@ -1,15 +1,9 @@
 # ---- Pasta: lista de pastas e demandas (pasta/index, _tabela, _card, _filtros, demandas...)
 pasta_lista:
-    nao_informado: Não informado
-    hoje: Hoje
     ativo: Ativo
     arquivado: Arquivado
-    nup: NUP
     cliente: Cliente
-    acao: Ação
     prioridade: Prioridade
-    metas: Metas
-    metas_resumo: '{total} meta(s) · {ativas} ativa(s)'
     cliente_linha:
         cad_completo: Cadastro completo · abrir detalhes do cliente
         cad_incompleto_uma: 'Cadastro incompleto: {total} pendência · abrir detalhes do cliente'
@@ -51,30 +45,12 @@ pasta_lista:
         limpar: Limpar todos os filtros
     demandas:
         titulo: Minhas Demandas
-        busca_placeholder: Buscar por cliente, ação, NUP ou processo…
-        status: Status
-        normal: Normal
-        urgente: Urgente
-        de: De
-        ate: Até
         # Desenho 15 (Minhas Demandas na Lista do Expediente): barra do acervo, resumo e Nova demanda.
         todas: Todas as demandas
         nova: Nova demanda
         nova_dica: 'Nova demanda: abre uma pasta com o próximo número do acervo geral e você como responsável'
         resumo: '{total} demanda(s) encontrada(s)'
         resumo_vazio: Nenhuma demanda encontrada
-    resultado:
-        encontradas: demanda(s) encontrada(s)
-        modificada: Mod.
-        nenhuma: Nenhuma
-        sem_registro: Sem registro
-        um_dia: 1 dia atrás
-        dias: '{dias}d atrás'
-        ver: Ver
-        vazio_filtro_titulo: Nenhuma demanda encontrada
-        vazio_filtro_texto: Tente ajustar ou limpar os filtros aplicados.
-        vazio_titulo: Tudo em dia por aqui
-        vazio_texto: Você não possui demandas no momento.
     # Responsável "equipe" (Total de Pastas concluídas do Dashboard): rótulo do campo e da opção que só existe com o link.
     filtro_equipe:
         equipe: Equipe

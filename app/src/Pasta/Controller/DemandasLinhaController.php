@@ -42,7 +42,8 @@ final class DemandasLinhaController extends AbstractController
         private readonly PastaRepository $pastaRepository,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
-    ) {}
+    ) {
+    }
 
     #[Route('/demandas/pasta/{id}/nome', name: 'demandas_pasta_nome', methods: ['POST'])]
     public function renomearCliente(Pasta $pasta, Request $request): JsonResponse

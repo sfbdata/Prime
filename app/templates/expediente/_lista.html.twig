@@ -40,8 +40,12 @@
 }
 </style>
 
-{% if pastas|length > 0 %}
-<div class="pastas-view pastas-view--tabela" id="pastasView">
+{# Nas Minhas Demandas (desenho 15, dc L.186-191 e L.269) a linha do resumo (colunas, Visualizar) fica também sem
+   resultado: o #pastasView vem marcado `pastas-view--vazio` (demandas-lista.css esconde tabela, lista e cartões)
+   e o vazio do desenho entra no lugar deles. O Expediente continua com o vazio sozinho. #}
+{% set listaVazia = pastas|length == 0 %}
+{% if not listaVazia or resumoDemandas %}
+<div class="pastas-view pastas-view--tabela{{ listaVazia ? ' pastas-view--vazio' }}" id="pastasView">
 {# Topo do resultado no desenho 1.1 (dc L.112-139, AUD-11/12): "Visualizar" e a paginação ficam na MESMA linha
    dos filtros, à direita, e o resumo vem sozinho embaixo. Os filtros moram fora desta área trocável
    (pasta/_filtros); no desktop o `.exp-topo` some da caixa (display: contents, expediente-lista.css) e os
@@ -110,7 +114,9 @@
     <span class="exp-resumo">
         <button type="button" class="exp-colunas js-colunas" data-url-csv="{{ urlCsvLista }}" data-tip="{{ 'expediente.lista.colunas'|trans }}" aria-label="{{ 'expediente.lista.colunas'|trans }}" aria-haspopup="menu"><i class="bi bi-layout-three-columns" aria-hidden="true"></i></button>
         <i class="bi bi-list-ul" aria-hidden="true"></i>
-        {%- if resumoDemandas %}
+        {%- if resumoDemandas and listaVazia %}
+            {{ 'pasta_lista.demandas.resumo_vazio'|trans }}
+        {%- elseif resumoDemandas %}
             {{ 'pasta_lista.demandas.resumo'|trans({total: (pagination.total_items ?? pastas|length)|numero(0)}) }}
         {%- elseif pagination is defined and pagination is not null %}
             {%- set primeiraDaPagina = (pagination.current_page - 1) * pagination.per_page + 1 %}
@@ -394,21 +400,22 @@
 </div>
 
 {{ include('pasta/_resp_menu.html.twig', {usuarios: usuarios, fotosResponsaveis: fotosResponsaveis|default({}), respContexto: 'expediente'}) }}
-</div>{# /#pastasView #}
-{% else %}
-{% if resumoDemandas %}
-{# Desenho 15 (dc L.644): sem demanda, o resumo continua e diz "Nenhuma demanda encontrada". #}
-<div class="exp-topo exp-topo--vazio">
-    <span class="exp-resumo"><i class="bi bi-list-ul" aria-hidden="true"></i>{{ 'pasta_lista.demandas.resumo_vazio'|trans }}</span>
+{% if listaVazia %}
+{# Vazio do desenho 15 (dc L.269), com ou sem filtro. #}
+<div class="exp-vazio">
+    <i class="bi bi-folder-x" aria-hidden="true"></i>
+    {{ 'expediente.lista.vazio_filtros'|trans }}
 </div>
 {% endif %}
+</div>{# /#pastasView #}
+{% else %}
 {# Vazio do desenho (dc L.214). #}
 <div class="exp-vazio">
     <i class="bi bi-folder-x" aria-hidden="true"></i>
     {% if filters.busca or filters.status or filters.responsavel or filters.prioridade or filters.data_de or filters.data_ate %}
         {{ 'expediente.lista.vazio_filtros'|trans }}
     {% else %}
-        {{ (vazioSemFiltro ?? 'expediente.lista.vazio')|trans }}
+        {{ 'expediente.lista.vazio'|trans }}
     {% endif %}
 </div>
 {% endif %}

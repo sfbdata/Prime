@@ -248,17 +248,43 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('exp-titulo-icone', $html);
     }
 
-    #[TestDox('busca sem resultado mostra "Nenhuma demanda encontrada"')]
-    public function testBuscaSemResultado(): void
+    #[TestDox('sem resultado, a linha do resumo (colunas e Visualizar) fica e o vazio diz o texto do desenho (L.269)')]
+    public function testVazioMantemLinhaDoResumo(): void
     {
         [$user, $tenant] = $this->criarAdmin();
         $this->criarPasta($tenant, $user);
         $this->logarComTenant($this->client, $user, $tenant);
 
-        $this->client->xmlHttpRequest('GET', '/demandas', ['busca' => 'zzz-inexistente-zzz']);
+        $crawler = $this->client->xmlHttpRequest('GET', '/demandas', ['busca' => 'zzz-inexistente-zzz']);
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Nenhuma demanda encontrada', (string) $this->client->getResponse()->getContent());
+        $vista = '#pastas-resultado > #pastasView.pastas-view--vazio';
+        self::assertCount(1, $crawler->filter($vista . ' > .exp-topo > .exp-resumo > button.js-colunas'));
+        self::assertCount(1, $crawler->filter($vista . ' > .exp-topo > .exp-controles > .exp-visualizar'));
+        self::assertStringContainsString('Nenhuma demanda encontrada', $crawler->filter($vista . ' > .exp-topo > .exp-resumo')->text());
+        self::assertSame('Nenhuma pasta encontrada com esses filtros.', $crawler->filter($vista . ' > .exp-vazio')->text());
+        self::assertCount(0, $crawler->filter('#tabelaPastas tbody tr.pasta-row-link'));
+    }
+
+    #[TestDox('sem nenhuma demanda (sem filtro), o vazio também é o do desenho')]
+    public function testVazioSemFiltro(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $crawler = $this->client->request('GET', '/demandas');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Nenhuma pasta encontrada com esses filtros.', $crawler->filter('#pastasView.pastas-view--vazio > .exp-vazio')->text());
+    }
+
+    #[TestDox('o CSS esconde tabela, lista e cartões no vazio das Demandas')]
+    public function testCssDoVazio(): void
+    {
+        $css = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/css/demandas-lista.css');
+
+        self::assertStringContainsString('.exp-demandas .pastas-view--vazio .pastas-tabela-wrap,', $css);
+        self::assertStringContainsString('.exp-demandas .pastas-view--vazio .exp-cartoes { display: none !important; }', $css);
     }
 
     // ── Endpoints da tela: gate do módulo e escritório ─────────────────
@@ -347,6 +373,37 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         $this->client->xmlHttpRequest('POST', '/demandas/pasta/' . $alheia->getId() . '/destaque', ['cor' => 'rosa', '_token' => self::TOKEN]);
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('editar o nome rápido (F2) numa pasta de outro escritório devolve 404 e não grava')]
+    public function testNomeDeOutroEscritorio(): void
+    {
+        [$user, $tenant]   = $this->criarAdmin();
+        [$outro, $tenantB] = $this->criarAdmin();
+        $alheia            = $this->criarPasta($tenantB, $outro);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->xmlHttpRequest('POST', '/demandas/pasta/' . $alheia->getId() . '/nome', ['nome' => 'INVASOR', '_token' => self::TOKEN]);
+
+        self::assertResponseStatusCodeSame(404);
+        $this->em()->clear();
+        // SQL direto: o filtro de escritório do Doctrine, ligado pela requisição, esconderia a pasta alheia.
+        self::assertSame('CLIENTE TESTE', $this->em()->getConnection()->fetchOne('SELECT nome_cliente FROM pasta WHERE id = ?', [$alheia->getId()]));
+    }
+
+    #[TestDox('trancar uma pasta de outro escritório devolve 404 e não cria cadeado')]
+    public function testTrancarDeOutroEscritorio(): void
+    {
+        [$user, $tenant]   = $this->criarAdmin();
+        [$outro, $tenantB] = $this->criarAdmin();
+        $alheia            = $this->criarPasta($tenantB, $outro);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->xmlHttpRequest('POST', '/demandas/pasta/' . $alheia->getId() . '/trancar', ['_token' => self::TOKEN]);
+
+        self::assertResponseStatusCodeSame(404);
+        $this->em()->clear();
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_cadeado WHERE pasta_id = ?', [$alheia->getId()]));
     }
 
     #[TestDox('o CSV traz só as minhas demandas')]
