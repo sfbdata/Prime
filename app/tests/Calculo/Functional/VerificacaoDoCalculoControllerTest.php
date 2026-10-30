@@ -6,6 +6,8 @@ namespace App\Tests\Calculo\Functional;
 
 use App\Calculo\Controller\VerificacaoDoCalculoController;
 use App\Calculo\Entity\CalculoEmitido;
+use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -99,6 +101,24 @@ final class VerificacaoDoCalculoControllerTest extends JusPrimeWebTestCase
 
         $this->client->request('GET', '/calculo/verificar', ['codigo' => 'abc']);
         self::assertSelectorTextContains('.cv-ruim', 'formato BJC-');
+    }
+
+    public function testUsuarioLogadoEmOutroEscritorioTambemVerifica(): void
+    {
+        $this->emitir();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $outro = (new Tenant())->setName('Outro Escritório ' . uniqid());
+        $em->persist($outro);
+        $user = (new User())->setEmail('verif_' . uniqid() . '@test.com')->setFullName('Outra Pessoa')->setRoles(['ROLE_USER'])->setIsActive(true);
+        $em->persist($user);
+        $em->persist(new UserTenant($user, $outro));
+        $em->flush();
+        $this->logarComTenant($this->client, $user, $outro);
+
+        $this->client->request('GET', '/calculo/verificar', ['codigo' => self::CODIGO]);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Escritório Verificável', (string) $this->client->getResponse()->getContent());
     }
 
     public function testArquivoIdenticoConfere(): void
