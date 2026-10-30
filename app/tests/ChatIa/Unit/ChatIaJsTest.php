@@ -16,7 +16,9 @@ final class ChatIaJsTest extends TestCase
 {
     private function js(): string
     {
-        $js = (string) file_get_contents(__DIR__ . '/../../../public/js/chat-ia.js');
+        // O renderer de markdown mora em chat-ia-markdown.js (compartilhado com o mini chat); as garantias valem para os dois.
+        $js = (string) file_get_contents(__DIR__ . '/../../../public/js/chat-ia.js')
+            . "\n" . (string) file_get_contents(__DIR__ . '/../../../public/js/chat-ia-markdown.js');
         self::assertNotSame('', $js);
 
         return $js;

@@ -57,6 +57,8 @@ central:
         erro_sem_chave: A IA ainda não está conectada.
         erro_sem_aceite: O escritório precisa do aceite de envio de dados para usar a I.A.
         erro_generico: Não consegui responder agora. Tente de novo.
+        copiar: Copiar
+        copiado: Copiado
     ia:
         nome: BlueJus IA
         selo: IA

@@ -21,7 +21,7 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
    pasta (aceite 409 `sem_aceite`, 404, segredo 409 `contexto_bloqueado`), anexos. Tudo recusa ANTES de abrir o SSE.
 4. **O cliente nunca manda contexto.** A mensagem leva só `pastaId`; o servidor relê por id + escritório
    (`PastaDoContextoDaIa::liberar` + `MontadorDeContextoDaPasta`). Do que a pessoa escreve só saem controle e invisíveis;
-   texto de arquivo e blocos da pasta são DADO (neutralizados, em bloco delimitado, `chat-livre-v2`). Bloco novo no prompt
+   texto de arquivo e blocos da pasta são DADO (neutralizados, em bloco delimitado, `chat-livre-v3`). Bloco novo no prompt
    = nome novo em `NeutralizadorDeConteudo::DELIMITADORES`.
 5. **Anexo**: tipo pelo CONTEÚDO (nunca extensão), limites da `RegraDaLeituraDeDocumentos` (3 por mensagem, PDF 10 MB, imagem
    3 MB, 20 MB somados); DOCX vira texto no servidor (`ExtratorDeTextoDocx`: zip bomb, sem DOCTYPE, 60 mil caracteres). Exige

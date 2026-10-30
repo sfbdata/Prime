@@ -47,3 +47,17 @@ marca nada como lido com a janela fechada; a conversa IA continua fora de Encami
 Unit: `OrigemDaConversa`, importação (idempotente, mapeia `de_ia`, só do dono). Functional: `POST /chat-ia/importar-central` (duas
 chamadas = uma conversa; outro usuário não vê), criar conversa com `origem = central`, guarda de JS do mini (sem `innerHTML`,
 evento `bj-central:perguntar-ia` preservado). Os testes `EncaminharNaJanelaJsTest` seguem verdes (listener intacto).
+
+## Ajustes do teste do dono (30/10)
+
+1. **Painel de Minhas Metas responde no painel.** `minhas-metas-ia.js` monta o mesmo mini (`BJMiniIaChat.montar`, `compacto: true`,
+   `contexto: 'metas'`) na área `data-mm-ia-resposta`, abaixo das sugestões; sem barra e sem rodapé do mini (o campo é o do painel).
+   Link discreto "Abrir em página inteira" para `/chat-ia/{id}`. O evento `bj-central:perguntar-ia` segue existindo (reserva se o mini não
+   carregar, e para outros emissores).
+2. **Contexto de metas no servidor.** O corpo do envio ganha `contexto: "metas"` (SINAL; o cliente nunca manda texto). `ContextoDasMetasNoChat`
+   exige o aceite do escritório, usa só as metas da própria pessoa (mesmos recortes da tela: cadeado, `findPrioridadesDoDia`,
+   `findAtrasadasParaAtencao`, novo `findAguardandoRevisao`) e entrega UM bloco `<metas>` (delimitador já em `NeutralizadorDeConteudo::DELIMITADORES`),
+   com cada valor por `ProtecaoDoTextoDoChat::rotulo`. Prompt vira `chat-livre-v3` (parágrafo sobre o bloco de metas).
+3. **Markdown no mini.** O renderizador seguro saiu de `chat-ia.js` para `public/js/chat-ia-markdown.js` (`window.BJMarkdown.criar`), usado pela
+   página inteira e pelo mini (Central e painel de Metas). Mesmas garantias: só `createElement`/`textContent`, links http/https/mailto.
+

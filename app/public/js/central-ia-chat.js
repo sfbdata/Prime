@@ -4,6 +4,8 @@
 (function () {
     'use strict';
 
+    if (window.BJMiniIaChat) { return; }
+
     var ROTAS = null;
     var TEXTOS = {};
     var csrf = '';
@@ -38,6 +40,23 @@
         if (c === 'sem_aceite') { return T('erro_sem_aceite'); }
         if (d && typeof d.mensagem === 'string' && d.mensagem) { return d.mensagem; }
         return T('erro_generico');
+    }
+
+    /* A resposta da IA é markdown: o mesmo renderizador seguro da página inteira (chat-ia-markdown.js). */
+    var md = null;
+    function renderizarMarkdown(texto, destino) {
+        if (!md && window.BJMarkdown) {
+            md = window.BJMarkdown.criar({
+                T: T,
+                icone: function () { return document.createElement('span'); },
+                copiar: function (t) {
+                    return navigator.clipboard && navigator.clipboard.writeText
+                        ? navigator.clipboard.writeText(t).then(function () { return true; }, function () { return false; })
+                        : Promise.resolve(false);
+                }
+            });
+        }
+        if (md) { md.renderizar(texto, destino); } else { destino.textContent = texto; }
     }
 
     function comId(base, id) { return base.replace('/0', '/' + id); }
@@ -91,6 +110,9 @@
         barra.appendChild(seletor);
         barra.appendChild(nova);
         barra.appendChild(pagina);
+        /* Modo compacto (painel de Minhas Metas): sem barra nem rodapé; só a resposta e o link discreto "Abrir em página inteira". */
+        var compacto = cfg.compacto === true;
+        if (compacto) { pagina.className = 'bj-ciq-pagina-discreta'; raiz.classList.add('bj-ciq--compacto'); pagina.hidden = true; }
         var pastaLinha = el('div', 'bj-ciq-pasta');
         pastaLinha.hidden = true;
         var aviso = el('div', 'bj-ciq-aviso');
@@ -108,11 +130,10 @@
         enviar.type = 'button';
         rodape.appendChild(campo);
         rodape.appendChild(enviar);
-        raiz.appendChild(barra);
-        raiz.appendChild(pastaLinha);
+        if (!compacto) { raiz.appendChild(barra); raiz.appendChild(pastaLinha); }
         raiz.appendChild(aviso);
         raiz.appendChild(corpo);
-        raiz.appendChild(rodape);
+        if (compacto) { raiz.appendChild(pagina); } else { raiz.appendChild(rodape); }
         contentor.appendChild(raiz);
 
         /* A pasta aberta na tela (dica de UI; o servidor revalida) vai junto da pergunta, e a pessoa vê qual é. */
@@ -132,7 +153,8 @@
 
         function balao(papel, texto) {
             var b = el('div', 'bj-ciq-msg bj-ciq-msg--' + (papel === 'usuario' ? 'minha' : 'ia'));
-            var t = el('div', 'bj-ciq-texto', texto);
+            var t = el('div', papel === 'usuario' ? 'bj-ciq-texto' : 'bj-ciq-texto bj-ciq-md');
+            if (papel === 'usuario') { t.textContent = texto; } else { renderizarMarkdown(texto, t); }
             b.appendChild(t);
             corpo.appendChild(b);
             return t;
@@ -218,6 +240,7 @@
                 var corpoEnvio = { texto: texto };
                 var pasta = pastaDaTela();
                 if (pasta) { corpoEnvio.pastaId = pasta.pastaId; }
+                if (cfg.contexto) { corpoEnvio.contexto = cfg.contexto; }
                 estado.abort = typeof AbortController === 'function' ? new AbortController() : null;
                 return fetch(comId(ROTAS.mensagens, id), {
                     method: 'POST',
@@ -239,7 +262,7 @@
                     return lerFluxo(resp, function (evento, d) {
                         if (evento === 'delta') {
                             recebido += String(d.t || '');
-                            alvo.textContent = recebido;
+                            renderizarMarkdown(recebido, alvo);
                             rolar();
                         } else if (evento === 'proposta') {
                             if (!corpo.querySelector('.bj-ciq-nota')) { corpo.appendChild(el('p', 'bj-ciq-nota', T('proposta'))); }
@@ -276,7 +299,16 @@
             });
         }
 
+        /* Faz uma pergunta já escrita (painel de Minhas Metas). Continua a conversa aberta; a primeira cria a conversa. */
+        function perguntar(texto) {
+            if (estado.enviando) { return false; }
+            campo.value = String(texto || '').slice(0, 8000);
+            enviarPergunta();
+            return true;
+        }
+
         return {
+            perguntar: perguntar,
             iniciar: iniciar,
             atualizarPasta: atualizarPasta,
             preencher: function (texto) {

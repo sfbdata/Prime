@@ -47,4 +47,38 @@ final class MiniChatDaIaJsTest extends TestCase
         self::assertStringContainsString("{ origem: 'central' }", $js);
         self::assertStringContainsString('ROTAS.importar', $js);
     }
+
+    #[TestDox('A resposta da IA no mini usa o MESMO renderizador de markdown da página inteira (nada de **negrito** cru)')]
+    public function testMiniUsaORenderizadorCompartilhado(): void
+    {
+        $mini = $this->ler('central-ia-chat.js');
+        $pagina = $this->ler('chat-ia.js');
+        $comum = $this->ler('chat-ia-markdown.js');
+
+        self::assertStringContainsString('window.BJMarkdown.criar', $mini);
+        self::assertStringContainsString('window.BJMarkdown.criar', $pagina);
+        self::assertStringContainsString('window.BJMarkdown = { criar: criar }', $comum);
+        self::assertStringNotContainsString('function renderizarMarkdown', $pagina, 'o renderizador mora só em chat-ia-markdown.js');
+        self::assertStringContainsString('renderizarMarkdown(recebido, alvo)', $mini, 'cada trecho do fluxo é renderizado');
+        self::assertDoesNotMatchRegularExpression('/\.innerHTML|insertAdjacentHTML/', $comum);
+        foreach (['central/_flutuante.html.twig', 'central/index.html.twig', 'tarefa/minhas.html.twig', 'chat_ia/pagina.html.twig'] as $template) {
+            self::assertStringContainsString('js/chat-ia-markdown.js', (string) file_get_contents(\dirname(__DIR__, 3) . '/templates/' . $template), $template);
+        }
+    }
+
+    #[TestDox('O painel de Minhas Metas responde no próprio painel, manda só o sinal contexto metas e mantém o evento antigo como reserva')]
+    public function testPainelDeMetasRespondeNoProprioPainel(): void
+    {
+        $metas = $this->ler('minhas-metas-ia.js');
+        $mini = $this->ler('central-ia-chat.js');
+
+        self::assertStringContainsString('window.BJMiniIaChat.montar', $metas);
+        self::assertStringContainsString("contexto: 'metas'", $metas);
+        self::assertStringContainsString('compacto: true', $metas);
+        self::assertStringContainsString("'bj-central:perguntar-ia'", $metas, 'reserva sem o mini carregado');
+        self::assertStringContainsString('corpoEnvio.contexto = cfg.contexto', $mini);
+        self::assertStringNotContainsString('definir(false);\n            chat', $metas);
+        $painel = (string) file_get_contents(\dirname(__DIR__, 3) . '/templates/tarefa/_ia_painel.html.twig');
+        self::assertStringContainsString('data-mm-ia-resposta', $painel);
+    }
 }
