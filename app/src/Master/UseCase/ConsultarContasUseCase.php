@@ -12,7 +12,10 @@ use App\Master\Entity\ConvenioDaUf;
 use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\Service\LocalizacaoDaPessoa;
+use App\Repository\TenantRepository;
+use App\Tenant\Service\CodigoDaContaDoEscritorio;
 use App\Tenant\Service\NumeroDaConta;
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -26,6 +29,10 @@ use Psr\Clock\ClockInterface;
  * `numero` é o mesmo "conta Nº" do Contribua e do Pix (`NumeroDaConta`, spec perfis-1.2-permissoes-e-hierarquia A1):
  * o selo da linha e a busca por número no painel. Os retratos saem em
  * lote (`SituacaoDoEspaco::retratarVarios`): uma consulta para todas as contas, não uma por conta.
+ *
+ * `codigo` é o "BJ-XXXX-XXXX-XXXX" da conta (chip ao lado do Nº e busca por código, desenho 05 VS 30.10.26) e
+ * `criadoEm` a data ISO de abertura (ordem "mais recentes"). A migration preenche as contas antigas; a que ainda vier
+ * sem código ganha um aqui, com UM flush para a lista toda. O código só sai neste caso de uso, do Master.
  */
 final class ConsultarContasUseCase
 {
@@ -35,11 +42,14 @@ final class ConsultarContasUseCase
         private readonly int $carenciaPurgaDias,
         private readonly SituacaoDoEspaco $situacaoDoEspaco,
         private readonly ConvenioDaUfRepository $convenios,
+        private readonly CodigoDaContaDoEscritorio $codigos,
+        private readonly TenantRepository $tenants,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
     /**
-     * @return list<array{id: int, numero: string, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string, espaco: array<string, mixed>, uf: ?string, convenio: array{modo: string, valor: float}}>
+     * @return list<array{id: int, numero: string, codigo: ?string, nome: string, desde: string, criadoEm: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string, espaco: array<string, mixed>, uf: ?string, convenio: array{modo: string, valor: float}}>
      */
     public function executar(): array
     {
@@ -49,7 +59,7 @@ final class ConsultarContasUseCase
         $pastas   = $this->repositorio->pastasPorEscritorio();
         $consumo  = $this->repositorio->consumoPorEscritorio($desde);
 
-        $escritorios = [...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()];
+        $escritorios = $this->comCodigo([...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()]);
         $retratos = $this->retratos($escritorios, $consumo);
         $convenios = $this->convenios->todosPorUf();
 
@@ -61,7 +71,9 @@ final class ConsultarContasUseCase
             $contas[] = [
                 'id'            => $id,
                 'numero'        => NumeroDaConta::doId($id),
+                'codigo'        => $e['codigo_conta'] ?? null,
                 'nome'          => $e['nome'],
+                'criadoEm'      => (new \DateTimeImmutable($e['criado_em']))->format(\DATE_ATOM),
                 'desde'         => (new \DateTimeImmutable($e['criado_em']))->format('m/Y'),
                 'ultimoAcesso'  => isset($usuarios[$id]['ultimoAcesso']) ? (new \DateTimeImmutable($usuarios[$id]['ultimoAcesso']))->format(\DATE_ATOM) : null,
                 'titular'       => $e['titular'],
@@ -80,6 +92,36 @@ final class ConsultarContasUseCase
         }
 
         return $contas;
+    }
+
+    /**
+     * Garante o código das contas que ainda não têm (idempotente: com todas preenchidas não toca no banco). Um flush
+     * só, e um código nunca repete dentro do lote (a conferência no banco só enxerga o que já foi gravado).
+     *
+     * @param list<array<string, mixed>> $escritorios
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function comCodigo(array $escritorios): array
+    {
+        $gerados = [];
+        foreach ($escritorios as $e) {
+            $tenant = ($e['codigo_conta'] ?? null) === null ? $this->tenants->find($e['id']) : null;
+            if ($tenant === null) {
+                continue;
+            }
+            do {
+                $tenant->setCodigoConta(null);
+                $this->codigos->garantir($tenant);
+            } while (isset($gerados[$tenant->getCodigoConta()]));
+            $gerados[$tenant->getCodigoConta()] = $e['id'];
+        }
+        if ($gerados !== []) {
+            $this->em->flush();
+        }
+        $porId = array_flip($gerados);
+
+        return array_map(static fn (array $e): array => isset($porId[$e['id']]) ? ['codigo_conta' => $porId[$e['id']]] + $e : $e, $escritorios);
     }
 
     /**

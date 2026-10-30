@@ -40,7 +40,7 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
-    faltamOn: false, faltamCid: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
+    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
   let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
@@ -705,6 +705,7 @@
     // sem pedidos), ele não ocupa lugar nem abre o espaçamento da seção.
     elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div id="mp-convenio"></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>' + T('master.js.secao.contas') + ' <span id="mp-contas-n"></span></b>'
       + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>' + T('master.js.contas.convites') + '</a>'
+      + '<select class="mp-select mp-select-34" data-c-ord title="' + esc(T('master.js.contas.ordenar')) + '" aria-label="' + esc(T('master.js.contas.ordenar')) + '">' + ORDENS_CONTAS.map(o => '<option value="' + o[0] + '"' + (S.cOrd === o[0] ? ' selected' : '') + '>' + o[1]() + '</option>').join('') + '</select>'
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">' + T('master.js.contas.todas_situacoes') + '</option>'
       + [ATIVA, SUSPENSA].map(v => '<option value="' + v + '"' + (S.fSit === v ? ' selected' : '') + '>' + rotuloDaSituacao(v) + '</option>').join('')
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
@@ -883,26 +884,46 @@
     return '<div class="mp-conta-prev mp-hv" style="--cor:' + (mes < 3 ? '#a3232b' : '#4a6373') + '">' + (mes < 1 ? T('master.js.contas.prev_menos') : T(n === 1 ? 'master.js.contas.prev_mes' : 'master.js.contas.prev_meses', { n })) + '</div>';
   }
 
-  // Busca da lista (desenho L752): nome e primário por trecho; o número só EXATO (n === +q). Só dígitos, com ou
-  // sem "nº"/"n°" e zeros à esquerda antes, casa a conta daquele número: "123" e "nº 000123" acham a Nº 000123,
-  // "12" não acha a 000120 e "000" não acha todas.
+  // Busca da lista (desenho L752 e VS 30.10.26): nome e primário por trecho; o número só EXATO (n === +q). Só dígitos,
+  // com ou sem "nº"/"n°" e zeros à esquerda antes, casa a conta daquele número: "123" e "nº 000123" acham a Nº 000123,
+  // "12" não acha a 000120 e "000" não acha todas. O código da conta casa por trecho, em minúsculas e sem hífens
+  // ("bj-ab12" e "bjab12" acham BJ-AB12-...).
   function casaNaBusca(c, b) {
     const q = b.replace(/^n\s*[º°o]?\s*/, '');
     if (/^\d+$/.test(q) && Number(q) === Number(c.numero)) return true;
+    const sh = b.replace(/-/g, '');
+    if (sh && c.codigo && c.codigo.toLowerCase().replace(/-/g, '').includes(sh)) return true;
 
     return (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b);
   }
 
+  // Ordem da lista (select "Ordem:" do desenho): nº da conta (o id, a ordem de abertura), nome A-Z em pt-BR, e
+  // os maiores primeiro em usuários, armazenamento e pastas; "mais recentes" pela data de abertura. Empate: pelo nº.
+  const ORDENS_CONTAS = [
+    ['num', () => T('master.js.contas.ordem_num')], ['nome', () => T('master.js.contas.ordem_nome')], ['usu', () => T('master.js.contas.ordem_usu')],
+    ['arm', () => T('master.js.contas.ordem_arm')], ['pastas', () => T('master.js.contas.ordem_pastas')], ['rec', () => T('master.js.contas.ordem_rec')],
+  ];
+  const COMPARA_CONTAS = {
+    num: (a, b) => a.id - b.id,
+    nome: (a, b) => a.nome.localeCompare(b.nome, 'pt-BR'),
+    usu: (a, b) => b.usuarios - a.usuarios,
+    arm: (a, b) => b.bytes - a.bytes,
+    pastas: (a, b) => b.pastas - a.pastas,
+    rec: (a, b) => Date.parse(b.criadoEm) - Date.parse(a.criadoEm),
+  };
+  const ordenarContas = lista => lista.slice().sort((a, b) => (COMPARA_CONTAS[S.cOrd] || COMPARA_CONTAS.num)(a, b) || a.id - b.id);
+
   function renderContasLista() {
     const b = S.busca.toLowerCase().trim();
-    const contas = D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || casaNaBusca(c, b)));
+    const contas = ordenarContas(D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || casaNaBusca(c, b))));
     document.getElementById('mp-contas-n').textContent = T('master.js.contas.contagem', { n: num(contas.length) });
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
       const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
-        + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="' + esc(T('master.js.contas.numero_dica')) + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
+        + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span class="mp-conta-ids"><span class="mp-conta-nro" title="' + esc(T('master.js.contas.numero_dica')) + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span>'
+        + (c.codigo ? '<span class="mp-conta-codigo" title="' + esc(T('master.js.contas.codigo_dica')) + '">' + esc(c.codigo) + '</span>' : '') + '</span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
         + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span>' + rotuloDoConvenio(c) + '</div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? T('master.js.sem_limite') : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
@@ -1290,6 +1311,7 @@
   elSecao.addEventListener('change', e => {
     const t = e.target;
     if (t.matches('[data-gr-met]')) { S.grMet = t.value; return renderGrafico(); }
+    if (t.matches('[data-c-ord]')) { S.cOrd = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-f-sit]')) { S.fSit = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-aud-tipo]')) { S.audTipo = t.value; return montarAudit(); }
     if (t.matches('[data-faixa-bloqueio]')) { S.fx.bloqueioAtivo = t.checked; S.fxMsg = null; return atualizarFaixas(); }

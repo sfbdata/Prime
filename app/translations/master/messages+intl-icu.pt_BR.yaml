@@ -668,7 +668,15 @@ master:
         contas:
             convites: Convites
             todas_situacoes: Todas as situações
-            busca: Buscar nº, conta ou primário
+            busca: Buscar código, conta ou primário
+            ordenar: Ordenar contas
+            ordem_num: 'Ordem: nº da conta'
+            ordem_nome: 'Ordem: nome (A-Z)'
+            ordem_usu: 'Ordem: mais usuários'
+            ordem_arm: 'Ordem: mais armazenamento'
+            ordem_pastas: 'Ordem: mais pastas'
+            ordem_rec: 'Ordem: mais recentes'
+            codigo_dica: Código da conta
             cab:
                 conta: CONTA
                 primario_plano: PRIMÁRIO · PLANO
