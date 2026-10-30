@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Expediente\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CriarPastaDTO;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -45,34 +47,11 @@ final class ImportarLoteController extends AbstractController
         $user   = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        // Mesma porta do `pasta_new`: o módulo Pastas (D2).
-        if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'pastas')) {
-            return new JsonResponse(
-                ['status' => 'erro', 'mensagem' => 'Você não tem permissão para acessar o módulo de pastas.'],
-                Response::HTTP_FORBIDDEN,
-            );
-        }
-
-        if (!$this->isCsrfTokenValid(self::CSRF, (string) $request->request->get('_token'))) {
-            return new JsonResponse(
-                ['status' => 'erro', 'mensagem' => 'Sessão expirada. Recarregue a página e tente de novo.'],
-                Response::HTTP_FORBIDDEN,
-            );
-        }
-
         $nomeCliente = trim((string) $request->request->get('nome_cliente', ''));
-        if ($nomeCliente === '') {
-            return new JsonResponse(
-                ['status' => 'erro', 'mensagem' => 'Todas as pastas marcadas precisam de um nome de cliente.'],
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-            );
-        }
-        // A coluna `nome_cliente` tem 255; nome de subpasta maior viraria erro de banco.
-        if (mb_strlen($nomeCliente) > 255) {
-            return new JsonResponse(
-                ['status' => 'erro', 'mensagem' => 'O nome do cliente passa de 255 caracteres.'],
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-            );
+        $recusa      = $this->recusa($request, $user, $tenant, $nomeCliente);
+        // `$tenant === null` já vem recusado; o teste repetido só estreita o tipo para o UseCase.
+        if ($recusa !== null || $tenant === null) {
+            return $recusa ?? $this->erro('Você não tem permissão para acessar o módulo de pastas.', Response::HTTP_FORBIDDEN);
         }
 
         // Sem o aviso de pasta duplicada do modal Nova Pasta: o desenho do lote não tem a etapa e
@@ -85,6 +64,32 @@ final class ImportarLoteController extends AbstractController
 
         $this->syncDispatcher->despachar($pasta, $user, $tenant);
 
+        return $this->criada($pasta, $user, $tenant);
+    }
+
+    /** Por que o pedido não cria pasta, ou null quando pode criar. */
+    private function recusa(Request $request, User $user, ?Tenant $tenant, string $nomeCliente): ?JsonResponse
+    {
+        // Mesma porta do `pasta_new`: o módulo Pastas (D2).
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'pastas')) {
+            return $this->erro('Você não tem permissão para acessar o módulo de pastas.', Response::HTTP_FORBIDDEN);
+        }
+        if (!$this->isCsrfTokenValid(self::CSRF, (string) $request->request->get('_token'))) {
+            return $this->erro('Sessão expirada. Recarregue a página e tente de novo.', Response::HTTP_FORBIDDEN);
+        }
+        if ($nomeCliente === '') {
+            return $this->erro('Todas as pastas marcadas precisam de um nome de cliente.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        // A coluna `nome_cliente` tem 255; nome de subpasta maior viraria erro de banco.
+        if (mb_strlen($nomeCliente) > 255) {
+            return $this->erro('O nome do cliente passa de 255 caracteres.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return null;
+    }
+
+    private function criada(Pasta $pasta, User $user, Tenant $tenant): JsonResponse
+    {
         $id = (int) $pasta->getId();
         // O token de upload só vai para quem pode anexar na pasta criada (D2); sem ele a pasta
         // existe e a linha avisa que os arquivos não foram anexados.
@@ -98,5 +103,10 @@ final class ImportarLoteController extends AbstractController
             'uploadUrl'   => $podeAnexar ? $this->generateUrl('pasta_peticionar_upload', ['id' => $id]) : null,
             'uploadToken' => $podeAnexar ? $this->csrfTokenManager->getToken('peticionar_upload_' . $id)->getValue() : null,
         ]);
+    }
+
+    private function erro(string $mensagem, int $status): JsonResponse
+    {
+        return new JsonResponse(['status' => 'erro', 'mensagem' => $mensagem], $status);
     }
 }
