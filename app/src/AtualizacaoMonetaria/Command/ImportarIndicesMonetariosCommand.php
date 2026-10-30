@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\AtualizacaoMonetaria\Command;
 
-use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\AtualizacaoMonetaria\Enum\SerieIndice;
 use App\AtualizacaoMonetaria\Exception\ImportacaoIndicesException;
-use App\AtualizacaoMonetaria\Repository\IndiceMonetarioRepository;
 use App\AtualizacaoMonetaria\Service\ClienteSgsBcbInterface;
-use App\AtualizacaoMonetaria\Service\VariacaoPercentual;
+use App\AtualizacaoMonetaria\Service\ImportadorDeIndices;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -41,19 +39,19 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 #[AsCommand(
     name: 'app:importar-indices-monetarios',
-    description: 'Importa INPC, IPCA e taxa legal do Banco Central para a tabela global de índices.',
+    description: 'Importa INPC, IPCA, taxa legal e Selic do Banco Central para a tabela global de índices.',
 )]
 final class ImportarIndicesMonetariosCommand extends Command
 {
     /** Público para o teste do lock não duplicar o caminho. */
-    public const ARQUIVO_LOCK = 'jusprime-importar-indices-monetarios.lock';
+    public const ARQUIVO_LOCK = ImportadorDeIndices::ARQUIVO_LOCK;
 
     /** @var resource|null */
     private $lockHandle = null;
 
     public function __construct(
         private readonly ClienteSgsBcbInterface $cliente,
-        private readonly IndiceMonetarioRepository $repositorio,
+        private readonly ImportadorDeIndices $importador,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
     ) {
@@ -63,7 +61,7 @@ final class ImportarIndicesMonetariosCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('serie', null, InputOption::VALUE_REQUIRED, 'Restringe a uma série (INPC, IPCA ou TAXA_LEGAL).')
+            ->addOption('serie', null, InputOption::VALUE_REQUIRED, 'Restringe a uma série (INPC, IPCA, TAXA_LEGAL ou SELIC).')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Simula: consulta o BCB e relata, mas não grava.');
     }
 
@@ -120,7 +118,7 @@ final class ImportarIndicesMonetariosCommand extends Command
                         continue;
                     }
 
-                    $resumo = $this->importarSerie($serie, $variacoes, $agora, $dryRun);
+                    $resumo = $this->importador->importarSerie($serie, $variacoes, $agora, $dryRun);
 
                     if ($dryRun === false) {
                         $this->em->flush();
@@ -186,81 +184,6 @@ final class ImportarIndicesMonetariosCommand extends Command
         } finally {
             $this->liberarLock();
         }
-    }
-
-    /**
-     * @param array<string, string> $variacoes competência 'Y-m-01' => variação
-     *
-     * @return array{novos: int, revisados: int, inalterados: int, primeira: string, ultima: string,
-     *               revisoes: list<array{string, string, string, string}>}
-     */
-    private function importarSerie(
-        SerieIndice $serie,
-        array $variacoes,
-        \DateTimeImmutable $agora,
-        bool $dryRun,
-    ): array {
-        // Uma consulta por série (não uma por mês): são ~570 competências no INPC.
-        $existentes = $this->repositorio->mapaPorCompetencia($serie);
-
-        $novos = 0;
-        $revisados = 0;
-        $inalterados = 0;
-        $revisoes = [];
-
-        foreach ($variacoes as $chave => $variacao) {
-            $existente = $existentes[$chave] ?? null;
-
-            if ($existente === null) {
-                ++$novos;
-
-                if ($dryRun === false) {
-                    $this->repositorio->salvar(new IndiceMonetario(
-                        $serie,
-                        new \DateTimeImmutable($chave),
-                        $variacao,
-                        $serie->fonte(),
-                        $agora,
-                    ));
-                }
-
-                continue;
-            }
-
-            if ($existente->variacaoDivergeDe($variacao) === false) {
-                ++$inalterados;
-
-                continue;
-            }
-
-            ++$revisados;
-            $anterior = $existente->getVariacaoPct();
-            $novo = VariacaoPercentual::canonizar($variacao);
-            $competencia = substr($chave, 0, 7);
-
-            $revisoes[] = [$serie->value, $competencia, $anterior, $novo];
-            $this->logger->warning('Índice monetário revisado pela fonte oficial.', [
-                'serie' => $serie->value,
-                'competencia' => $competencia,
-                'anterior' => $anterior,
-                'novo' => $novo,
-            ]);
-
-            if ($dryRun === false) {
-                $existente->atualizarVariacao($variacao, $agora);
-            }
-        }
-
-        $competencias = array_keys($variacoes);
-
-        return [
-            'novos' => $novos,
-            'revisados' => $revisados,
-            'inalterados' => $inalterados,
-            'revisoes' => $revisoes,
-            'primeira' => substr((string) reset($competencias), 0, 7),
-            'ultima' => substr((string) end($competencias), 0, 7),
-        ];
     }
 
     /**

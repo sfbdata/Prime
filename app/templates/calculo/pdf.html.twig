@@ -1,0 +1,129 @@
+{# Demonstrativo em PDF (dompdf), igual ao exemplo do desenho 14: cabeçalho, três cartões, demonstrativo dos
+   valores principais, abatimentos, agrupamento e nota. Sem flex/grid (o dompdf não tem): tudo em tabela.
+   Contexto: escritorio, marcaDagua, entrada, resultado, ate, mesAte, indices, resumo, criterioIndice,
+   criterioJuros, dataJuros, aviso, consultadoEm, logo. #}
+{% macro rs(v) %}R$ {{ v|number_format(2, ',', '.') }}{% endmacro %}
+{% macro pct(v) %}{{ v|number_format(6, ',', '') }}%{% endmacro %}
+{% macro fator(v) %}{{ v|number_format(6, ',', '') }}{% endmacro %}
+{% import _self as f %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>{{ 'calculo.pdf.titulo'|trans }}{% if entrada.processo %} · {{ entrada.processo }}{% endif %}</title>
+<style>
+@page { margin: 42pt 34pt 52pt 34pt; }
+body { margin: 0; font-family: Helvetica, Arial, sans-serif; font-size: 8pt; line-height: 1.35; color: #212529; }
+.cab { width: 100%; border-collapse: collapse; border-bottom: 0.8pt solid #dee2e6; margin-bottom: 12pt; }
+.cab td { vertical-align: middle; padding: 0 0 10pt 0; }
+.cab .logo img { height: 37pt; }
+.cab .tx { border-left: 0.8pt solid #dee2e6; padding-left: 14pt; font-size: 10.5pt; color: #343a40; line-height: 1.3; }
+.cartoes { width: 100%; border-collapse: separate; border-spacing: 8pt 0; margin: 0 -8pt 12pt -8pt; table-layout: fixed; }
+.cartoes td { vertical-align: top; border: 0.7pt solid #e3e6ea; padding: 7pt 8pt; height: 60pt; }
+.cartoes h4 { margin: 0 0 3pt; font-size: 11pt; font-weight: normal; }
+.cartoes p { margin: 0 0 3pt; font-size: 7.4pt; color: #495057; }
+.cartoes b { color: #0a6fa0; }
+.c1 { border-left: 2.6pt solid #2e9e5b; } .c1 h4 { color: #2e9e5b; }
+.c2 { border-left: 2.6pt solid #0a6fa0; } .c2 h4 { color: #0a6fa0; }
+.c3 { border-left: 2.6pt solid #e08a2e; } .c3 h4 { color: #e08a2e; }
+.caixa { border: 0.7pt solid #dee2e6; margin-bottom: 12pt; }
+.agrupamento { page-break-inside: avoid; }
+.titulo { text-align: center; font-weight: bold; font-size: 11pt; padding: 7pt; border-bottom: 0.7pt solid #dee2e6; }
+table.dados { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.dados th { font-size: 6pt; font-weight: bold; padding: 4.5pt 3pt; line-height: 1.2; border-bottom: 1.1pt solid #adb5bd; vertical-align: bottom; text-align: left; }
+.dados td { font-size: 6.6pt; padding: 3.2pt 3pt; border-bottom: 0.6pt solid #dee2e6; vertical-align: middle; }
+.dados tr.par td { background: #f2f2f2; }
+.dados td.r { text-align: right; white-space: nowrap; } .dados td.c { text-align: center; white-space: nowrap; }
+.dados th.r { text-align: right; } .dados th.c { text-align: center; }
+.idx { display: block; border: 0.7pt solid #ced4da; padding: 1pt 3pt; background: #fff; color: #495057; font-size: 6pt; line-height: 1.2; }
+.tag { font-size: 6pt; font-weight: bold; text-transform: uppercase; color: #8a5a00; border: 0.7pt solid #e5c77a; background: #fff8e6; padding: 0 3pt; }
+.dados tr.total td { background: #fff; color: #495057; border-top: 0.9pt solid #dee2e6; }
+.ag td { padding: 5pt 8pt; font-size: 7.4pt; text-align: right; border-bottom: 0.6pt solid #dee2e6; }
+.ag td.rot { width: 66%; border-right: 0.6pt solid #dee2e6; }
+.ag tr.destaque td { font-weight: bold; background: #f2f2f2; }
+.ag tr.final td { font-weight: bold; font-size: 12.5pt; padding: 12pt 10pt; border-bottom: 0; }
+.nota { margin-top: 8pt; font-size: 6.8pt; line-height: 1.5; color: #6c757d; text-align: justify; }
+.nota b { color: #495057; }
+.agua { position: fixed; left: 130pt; top: 330pt; transform: rotate(-55deg); font-size: 110pt; color: #eef4f8; white-space: nowrap; z-index: -1; }
+</style>
+</head>
+<body>
+<div class="agua">BlueJus{% if marcaDagua %}<div style="font-size:34pt">{{ 'calculo.pdf.marca_dagua'|trans }} {{ marcaDagua }}</div>{% endif %}</div>
+<table class="cab"><tr>
+    <td class="logo" style="width:130pt">{% if logo %}<img src="{{ logo }}" alt="BlueJus">{% endif %}</td>
+    <td class="tx"><div>{{ escritorio }}</div><div style="text-transform:uppercase;letter-spacing:.3pt">{{ 'calculo.pdf.titulo'|trans }}</div></td>
+</tr></table>
+
+<table class="cartoes"><tr>
+    <td class="c1"><h4>{{ 'calculo.pdf.moeda'|trans }}</h4><p>{{ 'calculo.pdf.valores_em_real'|trans }}</p>
+        {% if entrada.processo %}<p>{{ 'calculo.pdf.processo'|trans }}: <b>{{ entrada.processo }}</b></p>{% endif %}
+        {% if entrada.credor %}<p>{{ 'calculo.pdf.credor'|trans }}: {{ entrada.credor }}</p>{% endif %}
+        {% if entrada.devedor %}<p>{{ 'calculo.pdf.devedor'|trans }}: {{ entrada.devedor }}</p>{% endif %}</td>
+    <td class="c2"><h4>{{ 'calculo.pdf.atualizacao_ate'|trans({mes: mesAte}) }}</h4>
+        <p>{{ 'calculo.pdf.data_final'|trans }} <b>{{ ate }}</b></p>
+        <p style="margin-top:7pt"><b>{{ 'calculo.pdf.indices_rotulo'|trans }}</b></p><p>{{ criterioIndice }}</p></td>
+    <td class="c3"><h4>{{ 'calculo.pdf.juros'|trans }}</h4>
+        <p><b>{{ 'calculo.pdf.tipo_juros'|trans }}</b> {{ criterioJuros }}</p>
+        <p><b>{{ 'calculo.pdf.data'|trans }}</b> {{ dataJuros }}</p></td>
+</tr></table>
+
+<div class="caixa">
+    <div class="titulo">{{ 'calculo.pdf.principais'|trans }}</div>
+    <table class="dados">
+        <colgroup><col style="width:8%"><col style="width:10%"><col style="width:9%"><col style="width:16%"><col style="width:7.5%"><col style="width:8.5%"><col style="width:9.5%"><col style="width:8.5%"><col style="width:8.5%"><col style="width:14.5%"></colgroup>
+        <thead><tr>
+            <th class="c">{{ 'calculo.pdf.coluna.data'|trans }}</th><th>{{ 'calculo.pdf.coluna.descricao'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.valor'|trans }}</th><th>{{ 'calculo.pdf.coluna.indices'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.fator'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.valor_atualizacao'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.valor_atualizado'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.juros_pct'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.valor_juros'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.total'|trans }}</th>
+        </tr></thead>
+        <tbody>
+        {% set somaV = 0 %}{% set somaC = 0 %}{% set somaJ = 0 %}{% set somaT = 0 %}
+        {% for l in resultado.linhas %}
+            {% set somaV = somaV + l.valor %}{% set somaC = somaC + l.corrigido %}{% set somaJ = somaJ + l.juros %}{% set somaT = somaT + l.total %}
+            <tr class="{{ loop.index is odd ? 'par' : '' }}">
+                <td class="c">{{ l.data|date('d/m/Y') }}</td>
+                <td>{{ l.descricao }}{% if l.projecao(resultado.ate) %}<br><span class="tag">{{ 'calculo.pdf.projecao'|trans }}</span>{% endif %}</td>
+                <td class="r">{{ f.rs(l.valor) }}</td>
+                <td><span class="idx">{{ indices[loop.index0] }}</span></td>
+                <td class="r">{{ f.fator(l.fator) }}</td>
+                <td class="r">{{ f.rs(l.corrigido - l.valor) }}</td>
+                <td class="r">{{ f.rs(l.corrigido) }}</td>
+                <td class="r">{{ f.pct(l.jurosPct) }}</td>
+                <td class="r">{{ f.rs(l.juros) }}</td>
+                <td class="r">{{ f.rs(l.total) }}</td>
+            </tr>
+        {% endfor %}
+        <tr class="total">
+            <td></td><td class="r">{{ 'calculo.pdf.total_valores'|trans }}</td><td class="r">{{ f.rs(somaV) }}</td><td></td><td></td>
+            <td class="r">{{ f.rs(somaC - somaV) }}</td><td class="r">{{ f.rs(somaC) }}</td><td></td><td class="r">{{ f.rs(somaJ) }}</td><td class="r">{{ f.rs(somaT) }} (A)</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+{% if resultado.abatimentos %}
+<div class="caixa">
+    <div class="titulo">{{ 'calculo.pdf.abatimentos'|trans }}</div>
+    <table class="dados">
+        <colgroup><col style="width:14%"><col style="width:34%"><col style="width:17%"><col style="width:17%"><col style="width:18%"></colgroup>
+        <thead><tr><th>{{ 'calculo.pdf.coluna.data'|trans }}</th><th>{{ 'calculo.pdf.coluna.descricao'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.valor'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.fator'|trans }}</th><th class="r">{{ 'calculo.pdf.coluna.valor_atualizado'|trans }}</th></tr></thead>
+        <tbody>
+        {% for a in resultado.abatimentos %}
+            <tr class="{{ loop.index is odd ? 'par' : '' }}"><td class="c">{{ a.data|date('d/m/Y') }}</td><td>{{ a.descricao }}</td><td class="r">{{ f.rs(a.valor) }}</td><td class="r">{{ f.fator(a.fator) }}</td><td class="r">{{ f.rs(a.corrigido) }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="caixa agrupamento">
+    <div class="titulo">{{ 'calculo.pdf.agrupamento'|trans }}</div>
+    <table class="dados ag">
+        {% for linha in resumo %}{% if linha.nivel != 2 %}
+            <tr class="{{ linha.nivel == 1 ? 'destaque' : '' }}"><td class="rot">{{ linha.rotulo }}</td><td>{{ f.rs(linha.valor) }}</td></tr>
+        {% endif %}{% endfor %}
+        <tr class="final"><td class="rot">{{ 'calculo.pdf.total_do_calculo'|trans }}</td><td>{{ resultado.total|number_format(2, ',', '.') }}</td></tr>
+    </table>
+</div>
+
+<div class="nota"><b>{{ 'calculo.pdf.nota'|trans }}:</b> {{ criterioIndice }} {{ criterioJuros }}{% if aviso %} {{ aviso }}{% endif %} {{ 'calculo.pdf.nota_indices'|trans }}{% if consultadoEm %}{{ 'calculo.pdf.nota_consulta'|trans({quando: consultadoEm}) }}{% endif %}.{% if aviso %} {{ 'calculo.pdf.nota_projecao'|trans }}{% endif %} {{ 'calculo.pdf.nota_final'|trans }}</div>
+</body>
+</html>

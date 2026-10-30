@@ -53,6 +53,8 @@ final class FixtureIndicesBcbTest extends TestCase
         // A taxa legal da Lei 14.905/2024 só existe a partir de 08/2024 — e em 29/07/2026 ela já
         // tinha 07/2026 publicado enquanto INPC e IPCA paravam em 06/2026.
         yield 'taxa legal' => [SerieIndice::TAXA_LEGAL, 24, '2024-08-01', '2026-07-01'];
+        // Selic mensal (SGS 4390): a taxa legal do cálculo de atualização é Selic menos IPCA do mês.
+        yield 'Selic' => [SerieIndice::SELIC, 394, '1994-01-01', '2026-10-01'];
     }
 
     /**
@@ -113,6 +115,7 @@ final class FixtureIndicesBcbTest extends TestCase
         yield 'INPC 06/2026 (último publicado)' => [SerieIndice::INPC, '2026-06-01', '0.140000'];
         yield 'IPCA 06/2026' => [SerieIndice::IPCA, '2026-06-01', '0.160000'];
         yield 'taxa legal 07/2026' => [SerieIndice::TAXA_LEGAL, '2026-07-01', '0.706607'];
+        yield 'Selic 09/2026 (consultada em 30/10/2026)' => [SerieIndice::SELIC, '2026-09-01', '1.080000'];
     }
 
     /**
