@@ -99,3 +99,7 @@ próprio rodapé do desenho avisa que a rotina não os atende); mudar o visual d
 
 - **Modo escuro** entra neste PR: `calculo.css` tem um bloco `[data-bs-theme="dark"]` com as variáveis do Bootstrap do sistema (o desenho só define o claro).
 - **Tela de verificação do código do PDF** (`BJC-...`): PR seguinte, logo depois deste. Exige gravar o código emitido (hoje não é gravado) e uma consulta pública ou por login; decidir no PR dela.
+
+## 8. Limites de entrada (revisão de 30/10/2026)
+
+O corpo do cálculo (até 1.000 valores e 200 abatimentos) tem poucas centenas de KB e cabe com folga no `client_max_body_size 70m` do nginx (`nginx/conf.d/nginx.prod.conf`). Não há limite menor só para `/calculo`: a validação de quantidade (`MAX_VALORES`, `MAX_ABATIMENTOS`), a faixa de ano (1900 a 2200) e o formato estrito de número (só dígitos, 12 inteiros e 6 decimais) é que protegem o servidor.
