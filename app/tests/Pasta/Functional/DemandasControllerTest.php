@@ -118,7 +118,7 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.js-vis-painel'));
     }
 
-    #[TestDox('colunas padrão do desenho 15: NUP, Cliente, Ação, Prioridade, Metas e a "Mod." da tela antiga ligadas; o resto desligado')]
+    #[TestDox('colunas padrão do desenho 15: NUP, Cliente, Ação, Prioridade e Metas ligadas; o resto, com a "Mod." da tela antiga, desligado')]
     public function testColunasPadrao(): void
     {
         [$user, $tenant] = $this->criarAdmin();
@@ -130,7 +130,7 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         $tabela = $crawler->filter('#tabelaPastas');
         self::assertCount(1, $tabela);
         self::assertSame(
-            ['nup' => true, 'cliente' => true, 'reu' => false, 'acao' => true, 'prio' => true, 'resp' => false, 'metas' => true, 'marc' => false, 'sit' => false, 'mod' => true],
+            ['nup' => true, 'cliente' => true, 'reu' => false, 'acao' => true, 'prio' => true, 'resp' => false, 'metas' => true, 'marc' => false, 'sit' => false, 'mod' => false],
             json_decode((string) $tabela->attr('data-colunas-padrao'), true, 512, JSON_THROW_ON_ERROR),
         );
         self::assertSame('demandas_colunas:', $tabela->attr('data-prefixo-colunas-local'));

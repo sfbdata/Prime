@@ -8,4 +8,4 @@ tipo: novidade
 - Botão "Nova demanda": abre a Nova Pasta e quem cria fica como responsável; a lista recarrega e avisa "Demanda da pasta N aberta para CLIENTE com você como responsável".
 - Rotas próprias da tela (`/demandas/colunas`, `/demandas/exportar.csv`, `/demandas/nova-pasta/sugestoes`, `/demandas/pasta/{id}/...`) com o acesso ao módulo Pastas e a guarda do escritório.
 
-- Ficam da tela antiga (função do sistema não sai): a ordem padrão "urgentes primeiro", a coluna "Mod." (ligada por padrão, escolhível no menu de colunas, só nas Demandas) e os vários clientes juntos com "; ".
+- Ficam da tela antiga (função do sistema não sai): a ordem padrão "urgentes primeiro", a coluna "Mod." (escondida por padrão, quem quiser liga no menu de colunas; só nas Demandas) e os vários clientes juntos com "; ".
