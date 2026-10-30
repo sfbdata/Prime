@@ -81,7 +81,7 @@ final class CalcularAtualizacaoUseCase
 
     private static function dataValida(string $data): bool
     {
-        return preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $data, $m) === 1 && checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
+        return preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $data, $m) === 1 && (int) $m[1] >= 1900 && (int) $m[1] <= 2200 && checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
     }
 
     /** @param array<string, mixed> $p */

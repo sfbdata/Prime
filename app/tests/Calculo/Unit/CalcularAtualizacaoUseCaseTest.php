@@ -9,6 +9,7 @@ use App\AtualizacaoMonetaria\Service\TabelaIndices;
 use App\Calculo\DTO\CalculoInput;
 use App\Calculo\DTO\ErroDoCalculo;
 use App\Calculo\DTO\ResultadoDoCalculo;
+use App\Calculo\DTO\ValorDoCalculo;
 use App\Calculo\Service\CalculadoraDeAtualizacao;
 use App\Calculo\UseCase\CalcularAtualizacaoUseCase;
 use App\Tests\Calculo\CalculoDeFixture;
@@ -100,6 +101,24 @@ final class CalcularAtualizacaoUseCaseTest extends TestCase
 
         self::assertInstanceOf(ErroDoCalculo::class, $r);
         self::assertSame('calculo.erro.data_invalida', $r->mensagem);
+    }
+
+    public function testAnoForaDaFaixaEhRecusado(): void
+    {
+        foreach (['0001-01-01', '9999-12-31'] as $data) {
+            $r = $this->useCase()->executar($this->entrada(['vals' => [['d' => $data, 'v' => '100,00', 't' => '']]]));
+
+            self::assertInstanceOf(ErroDoCalculo::class, $r, $data);
+            self::assertSame('calculo.erro.data_invalida', $r->mensagem);
+        }
+    }
+
+    public function testNumeroComExpoenteOuGigantePassaAValerZero(): void
+    {
+        foreach (['9e999', '1e3', '-5', '99999999999999999999'] as $texto) {
+            self::assertSame(0.0, (new ValorDoCalculo('2026-08-25', $texto, ''))->valorNumerico(), $texto);
+        }
+        self::assertSame(1234.56, (new ValorDoCalculo('2026-08-25', '1.234,56', ''))->valorNumerico());
     }
 
     public function testRecusaListaGrandeDemais(): void

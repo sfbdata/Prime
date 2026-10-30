@@ -29,7 +29,8 @@ final readonly class ValorDoCalculo
     {
         $limpo = str_replace(['.', ','], ['', '.'], $this->valor);
 
-        return is_numeric($limpo) ? (float) $limpo : 0.0;
+        // só dígitos com até 12 inteiros e 6 decimais: sem expoente, sinal nem INF
+        return preg_match('/^\d{1,12}(\.\d{1,6})?$/', $limpo) === 1 ? (float) $limpo : 0.0;
     }
 
     /** Conta só quando tem data e valor maior que zero (mesma regra da tela). */
