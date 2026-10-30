@@ -187,7 +187,8 @@
                     data-url-destaque="{{ path(rotaPastaDestaque, {id: pasta.id}) }}"
                     data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}"{% if oculta %} data-csrf-pedir="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}"{% endif %}
                     data-nome-editavel="{{ identificador is not null and identificador != pasta.nomeCliente ? '0' : '1' }}"
-                    {% if dest %}data-dest="{{ dest }}"{% endif %}>
+                    {#- Pasta arquivada (desenho 03 VS 30.10.26 dc L.211 e L.795): a linha esmaece, com a dica. #}
+                    {% if not oculta and pasta.situacao == 'arquivado' %}data-arquivada="1" title="{{ 'expediente.lista.arquivada_dica'|trans }}" {% endif %}{% if dest %}data-dest="{{ dest }}"{% endif %}>
                     <td data-col="nup" class="fw-semibold align-middle" data-favorito-celula="{{ pasta.id }}">
                         <span class="exp-nup">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita" data-pasta-id="{{ pasta.id }}" title="{{ 'expediente.lista.favorita'|trans }}" aria-label="{{ 'expediente.lista.favorita'|trans }}"></i>{% endif %}{{ pasta.nup }}</span>
                         {%- if cad %}

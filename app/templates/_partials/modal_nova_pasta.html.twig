@@ -3,6 +3,10 @@
    arrasta, o próximo número (só informativo; o servidor numera de novo ao salvar), cliente obrigatório com
    sugestões e a ação liberada depois do cliente. O envio é o mesmo nas duas variantes (script abaixo). #}
 {% set desenho11 = desenho11 ?? false %}
+{# `importarLote` (só o Expediente, desenho 03 VS 30.10.26 dc L.284-285): o botão "Importar em lote" à esquerda do
+   rodapé. O clique fecha esta modal e, depois de fechada, dispara `bj:importar-lote` no document; quem abre o lote
+   é expediente/_importar_lote_modal.html.twig (expediente-importar-lote.js). #}
+{% set importarLote = importarLote ?? false %}
 {# As Minhas Demandas (desenho 15) usam o mesmo modal com as sugestões da rota delas (módulo `pastas`) e
    `criadorResponsavel`: a pasta nasce com quem cria como responsável. Sem os dois, o Expediente de sempre. #}
 {% set urlSugestoesNova = urlSugestoesNova ?? (desenho11 ? path('expediente_nova_pasta_sugestoes') : null) %}
@@ -43,6 +47,7 @@
                     <div id="modalNovaPastaErro" class="text-danger small" style="display:none;"></div>
                 </div>
                 <div class="exp-nova-rodape">
+                    {% if importarLote %}<button type="button" class="exp-nova-lote" data-acao="importar-lote" data-tip="{{ 'comum.nova_pasta.importar_lote_dica'|trans }}"><i class="bi bi-folder-symlink" aria-hidden="true"></i>{{ 'comum.nova_pasta.importar_lote'|trans }}</button>{% endif %}
                     <button type="button" class="exp-btn exp-btn--cinza" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
                     <button type="submit" class="exp-btn exp-btn--azul js-nova-salvar" disabled><i class="bi bi-check-lg" aria-hidden="true"></i>{{ 'comum.salvar'|trans }}</button>
                 </div>
@@ -111,6 +116,18 @@
         box.textContent = '';
         box.style.display = 'none';
     }
+
+    {#- Botão do lote (desenho 03): fecha a Nova Pasta e só então avisa o lote, para as duas não ficarem abertas. #}
+    {% if importarLote %}
+    form.addEventListener('click', function (e) {
+        if (!e.target.closest('[data-acao="importar-lote"]')) { return; }
+        var inst = novaEl && window.bootstrap ? bootstrap.Modal.getInstance(novaEl) : null;
+        var avisar = function () { document.dispatchEvent(new CustomEvent('bj:importar-lote')); };
+        if (!inst) { avisar(); return; }
+        novaEl.addEventListener('hidden.bs.modal', avisar, { once: true });
+        inst.hide();
+    });
+    {% endif %}
 
     function fecharModais() {
         [novaEl, avisoEl].forEach(function (m) {

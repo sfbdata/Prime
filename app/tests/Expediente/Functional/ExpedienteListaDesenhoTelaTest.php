@@ -288,6 +288,55 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("av.style.background = '#0a6fa0 url(\"' + url + '\") center/cover no-repeat';", $js);
     }
 
+    #[TestDox('desenho 03 VS 30.10.26: "Importar em lote" à esquerda do rodapé da Nova Pasta; o clique fecha a modal e só então dispara bj:importar-lote')]
+    public function testImportarEmLoteNoRodapeDaNovaPasta(): void
+    {
+        $client = static::createClient();
+        $this->entrar($client);
+
+        $crawler = $client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+
+        $botoes = $crawler->filter('#modalNovaPasta .exp-nova-rodape > button');
+        self::assertSame('importar-lote', $botoes->first()->attr('data-acao'), 'o botão do lote é o primeiro do rodapé (à esquerda)');
+        self::assertSame('Importar em lote', trim($botoes->first()->text()));
+        self::assertCount(1, $crawler->filter('#modalNovaPasta [data-acao="importar-lote"]'));
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString("novaEl.addEventListener('hidden.bs.modal', avisar, { once: true });", $html);
+        self::assertStringContainsString("document.dispatchEvent(new CustomEvent('bj:importar-lote'))", $html);
+        self::assertCount(1, $crawler->filter('script[src$="/js/expediente-importar-lote.js"]'), 'a linha do e5 continua');
+    }
+
+    #[TestDox('desenho 03 VS 30.10.26: pasta arquivada sai esmaecida com a dica "Pasta arquivada"; a ativa não')]
+    public function testPastaArquivadaEsmaecida(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->entrar($client);
+        $ativa     = $this->criarPasta($tenant, 'ATIVA-' . uniqid());
+        $arquivada = $this->criarPasta($tenant, 'ARQ-' . uniqid());
+        $arquivada->setSituacao(Pasta::SITUACAO_ARQUIVADA);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral', ['status' => '']);
+        self::assertResponseIsSuccessful();
+
+        $linha = $crawler->filter('#tabelaPastas tbody tr[data-pasta-id="' . $arquivada->getId() . '"]');
+        self::assertSame('1', $linha->attr('data-arquivada'));
+        self::assertSame('Pasta arquivada', $linha->attr('title'));
+        self::assertNull($crawler->filter('#tabelaPastas tbody tr[data-pasta-id="' . $ativa->getId() . '"]')->attr('data-arquivada'));
+    }
+
+    #[TestDox('desenho 03 VS 30.10.26: o CSS zebra as linhas (#ffffff e #eef3f7) e esmaece a arquivada (.62, grayscale .35)')]
+    public function testZebraEArquivadaNoCss(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__, 3) . '/public/css/expediente-lista-12.css');
+
+        self::assertStringContainsString('.exp-body #tabelaPastas tbody tr > td { background: #ffffff; border-bottom: 1px solid #eef2f5; }', $css);
+        self::assertStringContainsString('.exp-body #tabelaPastas tbody tr:nth-child(even) > td { background: #eef3f7; }', $css);
+        self::assertStringContainsString('.exp-body #tabelaPastas tbody tr[data-arquivada] > td { opacity: .62; filter: grayscale(.35); }', $css);
+    }
+
     private function entrar($client): array
     {
         $container = static::getContainer();
