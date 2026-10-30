@@ -17,6 +17,7 @@ use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Central\Support\CentralHttpTrait;
+use App\Tests\Factory\Tarefa\TarefaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -472,6 +473,53 @@ final class ChatIaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $ultima = $this->provedorFalso()->ultimoPedido()?->mensagens ?? [];
         self::assertStringNotContainsString('<pasta>', end($ultima)['conteudo'] ?? '', 'regenerar não puxa o contexto de uma pasta que a pergunta não tinha');
+    }
+
+    #[TestDox('contexto metas: o servidor monta as metas da PRÓPRIA pessoa (atrasada e a que vence, com pasta, cliente e dias) e não as de outra')]
+    public function testContextoMetasLeAsMetasDaPropriaPessoa(): void
+    {
+        [$client, $tenant, $ana, $bruno] = $this->cenario();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $pasta->setNomeCliente('Cliente Fulano da Silva');
+        $this->em()->flush();
+        $atrasada = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Protocolar contestacao', 'prazo' => new \DateTimeImmutable('-3 days'), 'tenant' => $tenant])->_real();
+        $atrasada->addResponsavel($ana);
+        $dele = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Meta so do Bruno', 'prazo' => new \DateTimeImmutable('+1 day'), 'tenant' => $tenant])->_real();
+        $dele->addResponsavel($bruno);
+        $this->em()->flush();
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->novaConversa($client);
+        // Com título manual não há a chamada curta do título, e o último pedido do falso é o da resposta.
+        $client->request('PATCH', "/chat-ia/conversas/$id", [], [], self::CSRF, '{"titulo":"Metas"}');
+        $this->provedorFalso()->transmitirTrechos(['Resposta']);
+
+        $this->enviarTexto($client, $id, ['texto' => 'O que fazer primeiro?', 'contexto' => 'metas']);
+
+        self::assertResponseIsSuccessful();
+        $ultima = $this->provedorFalso()->ultimoPedido()?->mensagens ?? [];
+        $texto = end($ultima)['conteudo'] ?? '';
+        self::assertStringContainsString('<metas>', $texto);
+        self::assertStringContainsString('Protocolar contestacao', $texto);
+        self::assertStringContainsString('atrasada há 3 dia(s)', $texto);
+        self::assertStringContainsString('CLIENTE FULANO DA SILVA', $texto);
+        self::assertStringNotContainsString('Meta so do Bruno', $texto, 'metas de outra pessoa nunca entram');
+    }
+
+    #[TestDox('contexto desconhecido é recusado; sem o sinal, o pedido não leva o bloco de metas')]
+    public function testContextoDesconhecidoERecusadoESemSinalNaoHaMetas(): void
+    {
+        [$client, $tenant, $ana] = $this->cenario();
+        $this->logarComTenant($client, $ana, $tenant);
+        $id = $this->novaConversa($client);
+
+        $this->post($client, "/chat-ia/conversas/$id/mensagens", ['texto' => 'Oi', 'contexto' => 'tudo']);
+        self::assertResponseStatusCodeSame(422);
+
+        $client->request('PATCH', "/chat-ia/conversas/$id", [], [], self::CSRF, '{"titulo":"Oi"}');
+        $this->provedorFalso()->transmitirTrechos(['Ok']);
+        $this->enviarTexto($client, $id, ['texto' => 'Oi']);
+        $ultima = $this->provedorFalso()->ultimoPedido()?->mensagens ?? [];
+        self::assertStringNotContainsString('<metas>', end($ultima)['conteudo'] ?? '');
     }
 
     #[TestDox('Editar a última pergunta sem reenviar pasta nem anexos MANTÉM os dois; reenviar anexoIds vazio os remove')]

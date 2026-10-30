@@ -130,7 +130,7 @@
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 {{ catalogo_js('metas.js', 'metas.passagem.js') }}
 <script src="{{ asset('js/meta-passagem.js') }}"></script>
-{% if can_access_module('inteligencia') and recurso_visivel('assistente') %}<script src="{{ asset('js/minhas-metas-ia.js') }}"></script>{% endif %}
+{% if can_access_module('inteligencia') and recurso_visivel('assistente') %}<script src="{{ asset('js/chat-ia-markdown.js') }}"></script><script src="{{ asset('js/central-ia-chat.js') }}"></script><script src="{{ asset('js/minhas-metas-ia.js') }}"></script>{% endif %}
 {% if esteira is defined and esteira.podeConfigurar %}<script src="{{ asset('js/esteira-da-pasta.js') }}"></script>{% endif %}
 <script>
 // A aba e a etapa da esteira são estado da tela: entram no form de filtro como campos ocultos para sobreviverem à

@@ -330,6 +330,31 @@ class TarefaRepository extends ServiceEntityRepository
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
+    /**
+     * As metas que a pessoa delegou e aguardam a revisão dela (a lista por trás do KPI "aguardando revisão"), da mais
+     * antiga para a mais nova, até `$limite`. Mesmo recorte de {@see contarAguardandoRevisao()}.
+     *
+     * @param list<int> $pastasOcultas
+     * @return Tarefa[]
+     */
+    public function findAguardandoRevisao(User $usuario, int $limite, array $pastasOcultas = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->addSelect('p')
+            ->innerJoin('t.pasta', 'p', 'WITH', 'p.excluidaEm IS NULL')
+            ->andWhere('t.criadoPor = :usuario')
+            ->andWhere('t.status = :emRevisao')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('emRevisao', Tarefa::STATUS_EM_REVISAO)
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->setMaxResults($limite);
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        /** @var Tarefa[] */
+        return $qb->getQuery()->getResult();
+    }
+
     /** @param list<int> $pastasOcultas */
     private function contarAguardandoRevisao(User $usuario, array $pastasOcultas): int
     {

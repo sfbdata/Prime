@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\ChatIa\UseCase;
 
 use App\ChatIa\Entity\ConversaDeChat;
+use App\ChatIa\Enum\OrigemDaConversa;
 use App\ChatIa\Repository\ConversaDeChatRepository;
 use App\ChatIa\Service\AcessoAoChat;
 use App\ChatIa\Service\TransacaoDoChat;
@@ -32,7 +33,7 @@ final class CriarConversaDoChatUseCase
     ) {
     }
 
-    public function executar(User $eu, ?Tenant $tenant): int
+    public function executar(User $eu, ?Tenant $tenant, OrigemDaConversa $origem = OrigemDaConversa::Pagina): int
     {
         $tenant = $this->acesso->exigir($eu, $tenant);
         if ($this->conversas->contarVaziasDoDono($tenant, $eu) >= self::MAXIMO_DE_VAZIAS) {
@@ -42,6 +43,7 @@ final class CriarConversaDoChatUseCase
             }
         }
         $conversa = new ConversaDeChat($tenant, $eu, ModeloDeIa::PADRAO, \DateTimeImmutable::createFromInterface($this->relogio->now()));
+        $conversa->nascerEm($origem);
 
         $this->transacao->executar(function () use ($conversa): void {
             $this->conversas->salvar($conversa);

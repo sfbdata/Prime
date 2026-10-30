@@ -1,8 +1,9 @@
 {#
    Painel lateral "BlueJus IA" de Minhas Metas (desenho 04 VS 29.10.26, dc L152-166). Números e "O que fazer primeiro"
-   saem de DADOS (nenhum modelo é chamado aqui). As perguntas sugeridas e a caixa de pergunta não respondem no painel:
-   o `minhas-metas-ia.js` dispara `bj-central:perguntar-ia` e a Central abre o assistente BlueJus IA com a pergunta
-   preenchida (ponto único de integração do assistente).
+   saem de DADOS (nenhum modelo é chamado ao abrir). As perguntas sugeridas e a caixa de pergunta respondem AQUI mesmo:
+   o `minhas-metas-ia.js` monta o mini chat da IA (central-ia-chat.js, as mesmas rotas do Chat I.A) na área de resposta
+   e manda `contexto: metas`; o servidor monta as metas da própria pessoa (o cliente nunca manda o texto). O link
+   "Abrir em página inteira" leva à mesma conversa no Chat I.A.
 #}
 {% set kpis = painel.kpis %}
 {% set cartoes = [
@@ -12,7 +13,10 @@
 ] %}
 {% set sugestoes = ['metas.ia.sug_primeiro'|trans, 'metas.ia.sug_delegar'|trans, 'metas.ia.sug_atrasadas'|trans, 'metas.ia.sug_despacho'|trans] %}
 <div class="mm-ia-fundo" data-mm-ia-fechar hidden></div>
-<aside class="mm-ia-painel" id="mmIaPainel" role="dialog" aria-label="BlueJus IA" hidden>
+<aside class="mm-ia-painel" id="mmIaPainel" role="dialog" aria-label="BlueJus IA" hidden
+       data-chat-ia-rotas="{{ include('central/_ia_chat_rotas.html.twig')|e('html_attr') }}"
+       data-chat-ia-textos="{{ include('central/_ia_chat_textos.html.twig')|e('html_attr') }}"
+       data-chat-ia-csrf="{{ csrf_token('ajax') }}">
     <div class="mm-ia-cab">
         <span class="mm-ia-cab-texto"><span class="mm-ia-cab-eyebrow">{{ 'metas.ia.eyebrow'|trans }}</span><b>{{ 'metas.ia.titulo'|trans }}</b></span>
         <button type="button" class="mm-ia-x" data-mm-ia-fechar aria-label="{{ 'metas.ia.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
@@ -43,6 +47,7 @@
         <div class="mm-ia-sugestoes">
             {% for s in sugestoes %}<button type="button" class="mm-ia-sug" data-mm-ia-perguntar="{{ s }}">{{ s }}</button>{% endfor %}
         </div>
+        <div class="mm-ia-resposta" data-mm-ia-resposta aria-live="polite"></div>
     </div>
     <div class="mm-ia-rodape">
         <input type="text" class="mm-ia-campo" maxlength="2000" placeholder="{{ 'metas.ia.placeholder'|trans }}" aria-label="{{ 'metas.ia.placeholder'|trans }}" data-mm-ia-campo>

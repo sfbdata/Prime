@@ -1397,7 +1397,7 @@
 
         function ajustarCompositor() {
             var podeEnviar = podeEscrever();
-            el.compositor.hidden = !podeEnviar;
+            el.compositor.hidden = !podeEnviar || !!miniIa;
             el.telaConversa.querySelectorAll('.bj-central-aviso').forEach(function (a) { a.remove(); });
             atualizarCampoDaIa();
             if (podeEnviar && estado.aberta && estado.aberta.ia && ia.aviso) {   // aviso fixo: a resposta é de IA e pode errar
@@ -1413,6 +1413,7 @@
         // Só uma tela à vista: lista, conversa, novo grupo, informações ou despacho.
         function mostrarTela(nome) {
             estado.tela = nome;
+            if (nome !== 'conversa') { fecharMiniIa(); }
             el.telaLista.hidden = nome !== 'lista';
             el.telaConversa.hidden = nome !== 'conversa';
             el.telaNovoGrupo.hidden = nome !== 'novoGrupo';
@@ -1442,7 +1443,40 @@
             if (estado.tela === 'conversa') { ajustarCompositor(); }
         }
 
-        function abrirConversa(c) {
+        // Mini chat da IA (central-ia-chat.js): a conversa da BlueJus IA roda no motor do Chat I.A, só a tela fica aqui.
+        var miniIa = null;
+        var miniIaContentor = null;
+        function fecharMiniIa() {
+            if (!miniIa) { return; }
+            miniIa.destruir();
+            miniIaContentor.remove();
+            miniIa = null;
+            miniIaContentor = null;
+            el.corpo.hidden = false;
+        }
+
+        function abrirMiniIa(textoPreenchido) {
+            fecharMiniIa();
+            miniIaContentor = criar('div', 'bj-ciq-contentor');
+            el.corpo.after(miniIaContentor);
+            el.corpo.hidden = true;
+            el.compositor.hidden = true;
+            var meta = document.querySelector('meta[name="csrf-token"]');
+            miniIa = window.BJMiniIaChat.montar(miniIaContentor, {
+                rotas: JSON.parse(raiz.dataset.chatIaRotas || '{}'),
+                textos: JSON.parse(raiz.dataset.chatIaTextos || '{}'),
+                csrf: raiz.dataset.chatIaCsrf || (meta ? meta.getAttribute('content') : ''),
+                pasta: function () { return estado.iaPasta; }
+            });
+            miniIa.iniciar(textoPreenchido || '');
+            carregarPastaDaIa().then(function () { if (miniIa) { miniIa.atualizarPasta(); } }).catch(function () { /* sem a pasta, a pergunta vai sem contexto */ });
+        }
+
+        function temMiniIa() {
+            return !!(window.BJMiniIaChat && raiz.dataset.chatIaRotas);
+        }
+
+        function abrirConversa(c, textoPreenchido) {
             fecharMenu();
             var id = c.id;
             estado.aberta = {
@@ -1457,6 +1491,11 @@
             el.corpo.replaceChildren();
             atualizarCabecalho();
             ajustarCompositor();
+            if (ehIa(c) && temMiniIa()) {
+                abrirMiniIa(textoPreenchido);
+                return;
+            }
+            fecharMiniIa();
             var rotuloDaPasta = ehIa(c) ? carregarPastaDaIa() : Promise.resolve(null);
             Promise.all([pedir(urls.base + '/' + id + '/mensagens'), rotuloDaPasta]).then(function (resultado) {
                 var dados = resultado[0];
@@ -2665,6 +2704,10 @@
             pronta.then(function () {
                 var c = estado.conversas.filter(ehIa)[0];
                 if (!c) { return; }
+                if (temMiniIa()) {   // o mini abre numa conversa NOVA com o texto no campo, sem enviar
+                    abrirConversa(c, texto.slice(0, TAMANHO_MAXIMO_DA_PERGUNTA));
+                    return;
+                }
                 if (!estado.aberta || !estado.aberta.ia || estado.tela !== 'conversa') { abrirConversa(c); }
                 if (texto !== '' && !iaBloqueada()) {
                     el.campo.value = texto.slice(0, TAMANHO_MAXIMO_DA_PERGUNTA);

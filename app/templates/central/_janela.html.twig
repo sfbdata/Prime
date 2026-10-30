@@ -40,6 +40,10 @@
          {# Dica de UI: a pasta aberta na tela (/pasta/{id}). O servidor revalida tudo (rótulo e pergunta). #}
          {% if app.request and app.request.attributes.get('_route') == 'pasta_show' and app.request.attributes.get('id') matches '/^[1-9][0-9]{0,8}$/' %}data-ia-pasta="{{ app.request.attributes.get('id') }}"{% endif %}
          data-url-pasta-base="{{ path('pasta_show', {id: 0})|slice(0, -1) }}"
+         {# Mini chat da IA (central-ia-chat.js): as mesmas rotas do Chat I.A; `0` é o lugar do id. #}
+         data-chat-ia-rotas="{{ include('central/_ia_chat_rotas.html.twig')|e('html_attr') }}"
+         data-chat-ia-textos="{{ include('central/_ia_chat_textos.html.twig')|e('html_attr') }}"
+         data-chat-ia-csrf="{{ csrf_token('ajax') }}"
          data-eu-nome="{{ eu.fullName }}"
          data-eu-id="{{ eu.id }}"
          data-inativo-apos-min="{{ presenca_ausente_apos_min() }}"
