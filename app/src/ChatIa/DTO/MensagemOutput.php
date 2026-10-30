@@ -6,11 +6,13 @@ namespace App\ChatIa\DTO;
 
 use App\ChatIa\Entity\MensagemDeChat;
 
-/** Uma fala na leitura da conversa: `{id, papel, conteudo, pasta?: {id, nup}, anexos: [{id, nome}], interrompida, criadaEm}`. */
+/** Uma fala na leitura da conversa: `{id, papel, conteudo, pasta?: {id, nup}, anexos: [{id, nome}], propostas?: [{...}], interrompida, criadaEm}`.
+ * `propostas` são os cartões das propostas de cadastro que esta resposta trouxe, no estado atual ({@see PropostaOutput}). */
 final readonly class MensagemOutput
 {
     /**
-     * @param list<AnexoOutput> $anexos
+     * @param list<AnexoOutput>     $anexos
+     * @param list<PropostaOutput>  $propostas
      */
     public function __construct(
         public int $id,
@@ -21,11 +23,15 @@ final readonly class MensagemOutput
         public array $anexos,
         public bool $interrompida,
         public string $criadaEm,
+        public array $propostas = [],
     ) {
     }
 
-    /** @param list<AnexoOutput> $anexos */
-    public static function de(MensagemDeChat $mensagem, array $anexos): self
+    /**
+     * @param list<AnexoOutput>    $anexos
+     * @param list<PropostaOutput> $propostas
+     */
+    public static function de(MensagemDeChat $mensagem, array $anexos, array $propostas = []): self
     {
         $pasta = $mensagem->getPasta();
 
@@ -38,6 +44,7 @@ final readonly class MensagemOutput
             $anexos,
             $mensagem->foiInterrompida(),
             $mensagem->getCriadaEm()->format(\DATE_ATOM),
+            $propostas,
         );
     }
 
@@ -52,6 +59,9 @@ final readonly class MensagemOutput
             'interrompida' => $this->interrompida,
             'criadaEm' => $this->criadaEm,
         ];
+        if ($this->propostas !== []) {
+            $saida['propostas'] = array_map(static fn (PropostaOutput $p): array => $p->paraArray(), $this->propostas);
+        }
         if ($this->pastaId !== null) {
             $saida['pasta'] = ['id' => $this->pastaId, 'nup' => $this->pastaNup];
         }

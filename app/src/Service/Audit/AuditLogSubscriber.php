@@ -4,6 +4,7 @@ namespace App\Service\Audit;
 
 use App\ChatIa\Entity\AnexoDeChat;
 use App\ChatIa\Entity\ConversaDeChat;
+use App\ChatIa\Entity\PropostaDeCadastro;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
 use App\Entity\Tenant\Tenant;
@@ -60,13 +61,16 @@ class AuditLogSubscriber
         // nunca o texto. `atualizadaEm` muda a cada pergunta e só faria ruído.
         ConversaDeChat::class => ['titulo', 'atualizadaEm'],
         AnexoDeChat::class => ['nome', 'chave'],
+        // Proposta de cadastro da I.A: `dados` é o JSON do cliente/pasta a criar (CPF, nome, endereço). A trilha guarda quem
+        // propôs, confirmou ou cancelou, o estado e o id do criado, nunca o valor (spec chat-ia-cadastro).
+        PropostaDeCadastro::class => ['dados'],
     ];
 
     /**
      * Entidades cujo rótulo (título, nome) nunca vai para o audit_log, nem quando outra entidade as referencia
      * (o anexo aponta a conversa, que tem `getTitulo`). Fica só a classe e o id.
      */
-    private const SEM_ROTULO = [ConversaDeChat::class, AnexoDeChat::class];
+    private const SEM_ROTULO = [ConversaDeChat::class, AnexoDeChat::class, PropostaDeCadastro::class];
 
     public function __construct(
         private readonly Security $security,
@@ -400,7 +404,7 @@ class AuditLogSubscriber
         // (promover/remover Master) ou com a conta alvo (suspender/reativar conta pelo Master).
         $tenantId = $this->escopoDePlataforma->estaLigado()
             ? $this->escopoDePlataforma->contaAlvo()
-            : $this->tenantContext->getCurrentTenant()?->getId();
+            : self::tenantDoRegistro(fn (): ?int => $this->tenantContext->getCurrentTenant()?->getId(), $entity);
 
         return (new AuditLog())
             ->setAction($action)
@@ -412,6 +416,24 @@ class AuditLogSubscriber
             ->setTenantId(is_int($tenantId) ? $tenantId : null)
             ->setIpAddress($request?->getClientIp())
             ->setRoute($request?->attributes->get('_route'));
+    }
+
+    /**
+     * O escritório do registro de auditoria: o da sessão. Em resposta em fluxo (SSE, Chat I.A) a sessão já foi fechada e os
+     * cabeçalhos já saíram, então ler a sessão estoura `RuntimeException` ("headers already sent"); nesse caso o escritório
+     * é o da própria entidade gravada (toda entidade auditável do chat é do escritório de quem agiu).
+     *
+     * @param callable(): ?int $daSessao
+     */
+    public static function tenantDoRegistro(callable $daSessao, object $entity): ?int
+    {
+        try {
+            return $daSessao();
+        } catch (\RuntimeException) {
+            $tenant = method_exists($entity, 'getTenant') ? $entity->getTenant() : null;
+
+            return $tenant instanceof \App\Entity\Tenant\Tenant ? $tenant->getId() : null;
+        }
     }
 
     private function resolveEntityId(object $entity, UnitOfWork $unitOfWork): ?string

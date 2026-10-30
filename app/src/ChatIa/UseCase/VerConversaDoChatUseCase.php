@@ -10,12 +10,15 @@ use App\ChatIa\DTO\MensagemOutput;
 use App\ChatIa\Entity\MensagemDeChat;
 use App\ChatIa\Repository\AnexoDeChatRepository;
 use App\ChatIa\Repository\MensagemDeChatRepository;
+use App\ChatIa\Repository\PropostaDeCadastroRepository;
 use App\ChatIa\Service\AcessoAoChat;
+use App\ChatIa\Service\MontadorDoCartaoDaProposta;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use Psr\Clock\ClockInterface;
 
 /**
- * A conversa aberta, com todas as falas e os anexos de cada uma. Conversa que não é de quem pede: 404.
+ * A conversa aberta, com todas as falas, os anexos e as propostas de cadastro de cada uma (no estado atual). Conversa que não é de quem pede: 404.
  *
  * @throws \App\ChatIa\Exception\SemAcessoAoChatException
  * @throws \App\ChatIa\Exception\ConversaDeChatNaoEncontradaException
@@ -26,6 +29,9 @@ final class VerConversaDoChatUseCase
         private readonly AcessoAoChat $acesso,
         private readonly MensagemDeChatRepository $mensagens,
         private readonly AnexoDeChatRepository $anexos,
+        private readonly PropostaDeCadastroRepository $propostas,
+        private readonly MontadorDoCartaoDaProposta $cartao,
+        private readonly ClockInterface $relogio,
     ) {
     }
 
@@ -41,13 +47,22 @@ final class VerConversaDoChatUseCase
             }
         }
 
+        $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
+        $this->propostas->expirarVencidas($tenant, $agora);   // abrir a conversa também apaga os dados pessoais das vencidas
+        $propostasPorMensagem = [];
+        foreach ($this->propostas->daConversa($conversa, $tenant) as $proposta) {
+            if ($proposta->getMensagem() !== null) {
+                $propostasPorMensagem[(int) $proposta->getMensagem()->getId()][] = $this->cartao->montar($proposta, $agora);
+            }
+        }
+
         return new ConversaOutput(
             (int) $conversa->getId(),
             $conversa->getTitulo(),
             $conversa->getModelo()->value,
             $conversa->estaFixada(),
             array_map(
-                static fn (MensagemDeChat $m): MensagemOutput => MensagemOutput::de($m, $anexosPorMensagem[(int) $m->getId()] ?? []),
+                static fn (MensagemDeChat $m): MensagemOutput => MensagemOutput::de($m, $anexosPorMensagem[(int) $m->getId()] ?? [], $propostasPorMensagem[(int) $m->getId()] ?? []),
                 $this->mensagens->daConversa($conversa, $tenant),
             ),
         );

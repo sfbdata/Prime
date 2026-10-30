@@ -78,7 +78,7 @@ final class ChatIaMensagensController extends AbstractController
                     $this->escritor->escrever($evento['evento'], $evento['dados']);
                 }
             } catch (\Throwable $e) {
-                $this->logger->error('Chat I.A: erro inesperado durante a resposta.', ['erro' => $e::class, 'conversaId' => $preparada->conversa->getId()]);
+                $this->logger->error('Chat I.A: erro inesperado durante a resposta.', self::contextoDoErro($e, (int) $preparada->conversa->getId()));
                 $this->escritor->escrever('erro', ['codigo' => 'erro_interno', 'mensagem' => 'Não consegui responder agora. Tente de novo.']);
             }
         });
@@ -87,6 +87,30 @@ final class ChatIaMensagensController extends AbstractController
         $resposta->headers->set('X-Accel-Buffering', 'no');
 
         return $resposta;
+    }
+
+    /**
+     * O que vai ao log de uma falha inesperada: classe, lugar onde estourou e a cadeia de causas. A mensagem só vai quando a classe é
+     * da linguagem ou nossa (as do Doctrine/DBAL podem trazer os parâmetros da consulta, isto é, dado pessoal).
+     *
+     * @return array<string, mixed>
+     */
+    private static function contextoDoErro(\Throwable $e, int $conversaId): array
+    {
+        $contexto = ['erro' => $e::class, 'conversaId' => $conversaId, 'em' => basename($e->getFile()) . ':' . $e->getLine()];
+        $seguras = [\RuntimeException::class, \LogicException::class, \UnexpectedValueException::class, \InvalidArgumentException::class, \DomainException::class];
+        if (\in_array($e::class, $seguras, true) || str_starts_with($e::class, 'App\\')) {
+            $contexto['motivo'] = mb_substr($e->getMessage(), 0, 300);
+        }
+        $causas = [];
+        for ($causa = $e->getPrevious(); $causa !== null; $causa = $causa->getPrevious()) {
+            $causas[] = $causa::class . '@' . basename($causa->getFile()) . ':' . $causa->getLine();
+        }
+        if ($causas !== []) {
+            $contexto['causas'] = $causas;
+        }
+
+        return $contexto;
     }
 
     /** @throws MuitasSolicitacoesException */

@@ -66,6 +66,7 @@ final class ChatIaJsTest extends TestCase
         self::assertStringContainsString("evento === 'delta'", $js);
         self::assertStringContainsString("evento === 'fim'", $js);
         self::assertStringContainsString("evento === 'erro'", $js);
+        self::assertStringContainsString("evento === 'proposta'", $js);
         self::assertStringContainsString("indexOf('event:')", $js);
         self::assertStringContainsString("indexOf('data:')", $js);
         self::assertStringContainsString('e.isComposing', $js, 'Enter respeita a composição de IME');
@@ -90,5 +91,17 @@ final class ChatIaJsTest extends TestCase
         self::assertMatchesRegularExpression('/try \{ window\.localStorage\.setItem[^\n]*catch/', $js);
         self::assertMatchesRegularExpression('/try \{ return window\.localStorage\.getItem[^\n]*catch/', $js);
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $js);
+    }
+
+    #[TestDox('O cartão da proposta só usa textContent e createElement, confirma e cancela pelas URLs do servidor')]
+    public function testCartaoDaProposta(): void
+    {
+        $js = $this->js();
+        self::assertStringContainsString('function adicionarCartao', $js);
+        self::assertStringContainsString('urls.propostaConfirmar', $js);
+        self::assertStringContainsString('urls.propostaCancelar', $js);
+        self::assertStringContainsString("campo.value = grupo === 'campos' ? dataParaTela(chave, valor) : valor", $js, 'o valor do campo entra como propriedade, nunca como HTML');
+        self::assertStringContainsString('{ usarExistente: true, criarMesmoAssim: true }', $js, '"Abrir nova pasta com o cliente existente" com pasta parecida segue sem depender do Confirmar escondido');
+        self::assertStringContainsString('dataParaServidor(k, i.value)', $js, 'a data digitada em dd/mm/aaaa volta ao servidor como AAAA-MM-DD');
     }
 }
