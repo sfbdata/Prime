@@ -14,6 +14,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -64,6 +65,41 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Já contribuí, registrar meu apoio', $html);
         self::assertStringContainsString('Quem somos e contribua', $html, 'título na barra azul');
         self::assertStringNotContainsString('Marcar atendida', $html);
+    }
+
+    #[TestDox('Indique e ganhe no topo: saldo, prêmio, cupom BJ- do link curto, copiar, compartilhar e contadores; dica "ganhe saldo"')]
+    public function testIndiqueEGanhe(): void
+    {
+        $html = $this->abrir($this->primario);
+
+        self::assertSelectorCount(1, '.ct-pagina > section#indique.ct-indique:first-child');
+        self::assertSelectorTextContains('.ct-indique > .ct-indique-saldo .ct-indique-rotulo', 'SEU SALDO DE RECOMPENSA');
+        self::assertSelectorTextSame('.ct-indique-valor', 'R$ 0,00');
+        self::assertSelectorTextContains('.ct-indique-situacao', 'Libera com 10 escritórios ativos com pastas · você tem 0');
+        self::assertSelectorTextContains('.ct-indique-titulo', 'Indique o BlueJus e ganhe R$ 10 por escritório');
+        self::assertMatchesRegularExpression('#data-cupom>BJ-[A-HJ-NP-Z2-9]{8}<#', $html);
+        self::assertSelectorTextContains('.ct-indique-cupom > [data-copiar-cupom]', 'Copiar cupom');
+        self::assertSelectorTextContains('.ct-indique-cupom > .ct-indique-compartilhar[data-ind-abrir]', 'Compartilhar');
+        self::assertSelectorTextContains('.ct-indique-contadores', '0 convite(s) enviado(s)');
+        self::assertSelectorTextContains('.ct-indique-contadores', '0 aguardando confirmação');
+        self::assertSelectorTextContains('.ct-indique-contadores', '0 conta(s) aberta(s)');
+        self::assertSelectorExists('.bj-share[data-tip="Indique o BlueJus e ganhe saldo"]');
+        self::assertSelectorTextContains('.ct-indique-texto', 'você ganha crédito quando o escritório indicado começar a usar o BlueJus. O saldo fica guardado e nunca expira.');
+        self::assertStringNotContainsString('—', $this->client->getCrawler()->filter('#indique')->text());
+    }
+
+    #[TestDox('Com o programa de recompensa desligado no Master, o cartão do saldo some')]
+    public function testIndiqueSomeComProgramaDesligado(): void
+    {
+        $programa = $this->em->find(ProgramaDeRecompensa::class, ProgramaDeRecompensa::ID_UNICO) ?? new ProgramaDeRecompensa();
+        $programa->alterarRegras(false, 1000, 10, 0, 50, true);
+        $this->em->persist($programa);
+        $this->em->flush();
+
+        $this->abrir($this->primario);
+
+        self::assertSelectorNotExists('#indique');
+        self::assertSelectorExists('.ct-pagina');
     }
 
     #[TestDox('O pacote Free mostra o selo do convênio OAB, que abre o modal; os pagos mostram "+ Espaço"')]

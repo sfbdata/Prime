@@ -111,6 +111,22 @@ final class ConsultasDeRecompensaNoBancoTest extends KernelTestCase
         self::assertSame([$bia->getId(), true], $porData[$this->agora->modify('-20 days')->format('Y-m-d')], 'c4');
     }
 
+    #[TestDox('Filtradas por indicador: a conta indicada por duas pessoas continua só de quem indicou primeiro')]
+    public function testFiltroPorIndicadorDepoisDoDistinct(): void
+    {
+        $ana = $this->usuario('Ana Primeira');
+        $bia = $this->usuario('Bia Segunda');
+        $conta = $this->usuario('Conta Disputada', '-10 days');
+        $this->em->persist(Indicacao::porEmail($ana, null, $conta->getEmail(), null, $this->agora->modify('-30 days')));
+        $this->em->persist(Indicacao::porEmail($bia, null, $conta->getEmail(), null, $this->agora->modify('-20 days')));
+        $this->em->flush();
+
+        self::assertSame([$conta->getId()], array_column($this->repo->contasParaRecompensas((int) $ana->getId()), 'conta_id'));
+        self::assertSame([], $this->repo->contasParaRecompensas((int) $bia->getId()), 'a Bia indicou depois');
+        self::assertSame([(int) $bia->getId()], array_column($this->repo->indicadoresParaRecompensas((int) $bia->getId()), 'user_id'));
+        self::assertSame(1, $this->repo->indicadoresParaRecompensas((int) $bia->getId())[0]['envios']);
+    }
+
     #[TestDox('indicadores: quem tem ao menos uma indicação (mesmo só a atribuição pelo link), com envios só dos envios')]
     public function testIndicadores(): void
     {

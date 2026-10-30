@@ -54,8 +54,8 @@ final class MontarPaginaDoContribuaUseCase
             'escritorio' => $quem->escritorio->getName(),
             'ehMaster' => $quem->ehMaster,
             'podePedirEspaco' => $quem->ehPrimario || $quem->ehMaster,
-            'espaco' => self::cabecalhoDoEspaco($retrato),
-            'pacotes' => self::pacotes($this->planos->ativosEmOrdem(), $retrato),
+            'espaco' => self::cabecalhoDoEspaco($retrato, $planos = $this->planos->ativosEmOrdem()),
+            'pacotes' => self::pacotes($planos, $retrato),
             'pix' => ['conta' => $quem->numeroDaConta(), ...$this->codigoPix->para($quem, self::VALOR_PADRAO_CENTAVOS)],
             'apoiouNoMes' => $apoiou,
             'perguntarMotivo' => !$apoiou && !$respondeu,
@@ -66,14 +66,28 @@ final class MontarPaginaDoContribuaUseCase
         ];
     }
 
-    /** @return array<string, mixed> */
-    private static function cabecalhoDoEspaco(RetratoDoEspaco $r): array
+    /**
+     * Escritório sem limite (só o que o Master define no painel; decisões do Samuel, 30/10): o uso aparece contra a cota
+     * do plano, com o percentual real mesmo acima de 100% e a barra cheia, e a faixa de alerta segue o desenho. Nunca
+     * "pausados": sem limite não há bloqueio.
+     *
+     * @param list<Plano> $planos
+     *
+     * @return array<string, mixed>
+     */
+    private static function cabecalhoDoEspaco(RetratoDoEspaco $r, array $planos): array
     {
-        $pct = $r->percentual ?? 0;
+        $limite = $r->bytesLimite;
+        $pct = $r->percentual;
+        if ($r->semLimite()) {
+            $cotas = array_map(static fn (Plano $p): int => $p->getCotaGb(), array_filter($planos, static fn (Plano $p): bool => $p->getCodigo() === $r->planoCodigo));
+            $limite = $cotas === [] || reset($cotas) <= 0 ? null : reset($cotas) * RetratoDoEspaco::BYTES_POR_GB;
+            $pct = $limite === null ? null : (int) round($r->bytesUsados / $limite * 100);
+        }
         // "Seu espaço acabou: novos envios estão pausados" só quando é verdade: bloqueio ligado e faixa
         // Bloqueio atingida. Com o bloqueio desligado, acima de 100% os envios continuam passando.
-        $cheio = $r->bloqueioAtivo && $r->faixa === FaixaDoEspaco::Bloqueio;
-        $alto = $pct >= 80;
+        $cheio = !$r->semLimite() && $r->bloqueioAtivo && $r->faixa === FaixaDoEspaco::Bloqueio;
+        $alto = ($pct ?? 0) >= 80;
 
         return [
             'titulo' => $cheio ? 'Seu espaço acabou: novos envios estão pausados' : ($alto ? 'Seu escritório está com ' . $pct . '% do espaço ocupado' : 'Mais espaço quando o escritório crescer'),
@@ -84,13 +98,14 @@ final class MontarPaginaDoContribuaUseCase
             'fundo' => $cheio || $pct >= 100 ? '#fdf1f2' : ($alto ? '#fff8e6' : '#f8f9fa'),
             'cor' => $cheio || $pct >= 100 ? '#b02a37' : ($pct >= 90 ? '#c08a12' : '#0a6fa0'),
             'uso' => RetratoDoEspaco::formatarGb($r->bytesUsados),
-            'limite' => $r->bytesLimite === null ? 'sem limite' : RetratoDoEspaco::formatarGb($r->bytesLimite),
+            // Nulo só no sem limite com plano fora do catálogo: a tela mostra o uso sem barra.
+            'limite' => $limite === null ? null : RetratoDoEspaco::formatarGb($limite),
             'plano' => $r->planoNome,
             // "Inclui 5 GB de bônus até dd/mm/aaaa": só com bônus vigente (o texto vem por tradução).
             'bonusGb' => $r->bytesBonus > 0 ? intdiv($r->bytesBonus, RetratoDoEspaco::BYTES_POR_GB) : null,
             'bonusAte' => $r->bytesBonus > 0 ? $r->bonusAte?->format('d/m/Y') : null,
             'percentual' => $pct,
-            'largura' => min(100, $pct) . '%',
+            'largura' => $pct === null ? null : min(100, $pct) . '%',
         ];
     }
 
@@ -102,10 +117,12 @@ final class MontarPaginaDoContribuaUseCase
     private static function pacotes(array $planos, RetratoDoEspaco $r): array
     {
         // Os pacotes se comparam com o limite BASE (sem o bônus de 30 dias): o bônus não esconde nem desabilita plano pago.
-        $limiteGb = $r->bytesLimite === null ? PHP_INT_MAX : intdiv($r->bytesLimite - $r->bytesBonus, RetratoDoEspaco::BYTES_POR_GB);
+        if ($r->semLimite()) {
+            return array_map(static fn (Plano $p): array => self::pacoteSemComparacao($p, $r->planoCodigo === $p->getCodigo()), $planos);
+        }
+        $limiteGb = intdiv((int) $r->bytesLimite - $r->bytesBonus, RetratoDoEspaco::BYTES_POR_GB);
         $usoGb = $r->bytesUsados / RetratoDoEspaco::BYTES_POR_GB;
-        // Sem limite não há o que ampliar: nenhum cartão aparece como recomendado.
-        $recomendado = $r->bytesLimite === null ? null : self::recomendado($planos, $limiteGb, $usoGb);
+        $recomendado = self::recomendado($planos, $limiteGb, $usoGb);
 
         return array_map(
             static fn (Plano $p): array => self::pacote($p, $r->planoCodigo === $p->getCodigo(), $limiteGb, $recomendado === $p->getCodigo()),
@@ -158,6 +175,25 @@ final class MontarPaginaDoContribuaUseCase
             'temNuvem' => !$p->ehGratuito() && !$atual && !$menor,
             'nuvemRecomendada' => $topo,
             'botao' => $atual ? 'Seu plano atual' : ($p->ehGratuito() ? 'Incluído' : ($menor ? 'Menor que o atual' : 'Quero +' . $ganho . ' GB')),
+        ];
+    }
+
+    /**
+     * Sem limite não há o que ampliar nem com o que comparar: nenhum "Menor que o atual", "+N GB", nuvem ou
+     * recomendado. Os planos que não são o atual aparecem como "Incluído", desabilitados.
+     *
+     * @return array<string, mixed>
+     */
+    private static function pacoteSemComparacao(Plano $p, bool $atual): array
+    {
+        return [
+            ...self::pacote($p, $atual, $p->getCotaGb(), false),
+            'hojeGb' => $p->getCotaGb(),
+            'ganho' => '',
+            'temGanho' => false,
+            'desabilitado' => true,
+            'temNuvem' => false,
+            'botao' => $atual ? 'Seu plano atual' : 'Incluído',
         ];
     }
 

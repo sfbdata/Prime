@@ -81,11 +81,30 @@ final class ConsultarPainelDeRecompensasUseCase
         );
     }
 
+    /**
+     * A linha de UMA pessoa, com as mesmas regras do painel (o cartão "Seu saldo de recompensa" do Contribua). Nulo
+     * para quem nunca indicou ou foi apagado da lista. As somas de lançamentos são de todos (tabela pequena, uma
+     * consulta cada); as de indicação já vêm filtradas.
+     */
+    public function doIndicador(int $userId): ?IndicadorDeRecompensaOutput
+    {
+        $indicador = $this->indicacoes->indicadoresParaRecompensas($userId)[0] ?? null;
+        $condicao = $this->condicoes->buscarDoIndicador($userId);
+        if ($indicador === null || $condicao?->isApagada()) {
+            return null;
+        }
+
+        return $this->linha(
+            $indicador, $this->programas->buscarUnico() ?? new ProgramaDeRecompensa(), $condicao, $this->contasPorIndicador($userId)[$userId] ?? [],
+            $this->lancamentos->somaDoBonusPorIndicador()[$userId] ?? 0, $this->lancamentos->somaDoPagoPorIndicador()[$userId] ?? 0, null, $this->relogio->now(),
+        );
+    }
+
     /** @return array<int, list<array{criada_em: \DateTimeImmutable, tem_pasta: bool, suspeita: list<string>}>> `suspeita` vazia: conta limpa ou já aprovada */
-    private function contasPorIndicador(): array
+    private function contasPorIndicador(?int $indicadorId = null): array
     {
         $porIndicador = [];
-        foreach ($this->indicacoes->contasParaRecompensas() as $conta) {
+        foreach ($this->indicacoes->contasParaRecompensas($indicadorId) as $conta) {
             $motivos = $conta['aprovada'] ? [] : SuspeitaDeConta::daLinha($conta);
             $porIndicador[$conta['indicador_id']][] = ['criada_em' => new \DateTimeImmutable($conta['conta_criada_em']), 'tem_pasta' => $conta['tem_pasta'], 'suspeita' => $motivos];
         }

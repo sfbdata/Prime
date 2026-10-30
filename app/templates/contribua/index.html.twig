@@ -23,6 +23,32 @@
      data-retorno="{{ retorno ? '1' : '0' }}"
      data-apoiou="{{ p.apoiouNoMes ? '1' : '0' }}">
 
+    {# Indique e ganhe: o saldo de recompensa de quem está logado (regras do painel de Recompensas do Master). Some com o programa desligado. #}
+    {% if recompensa is not null %}
+    {% set rc = recompensa %}
+    <section id="indique" class="ct-indique">
+        <div class="ct-indique-saldo">
+            <div class="ct-indique-rotulo">SEU SALDO DE RECOMPENSA</div>
+            <b class="ct-indique-valor">{{ rc.saldo }}</b>
+            <div class="ct-indique-situacao">{{ rc.situacao }}</div>
+        </div>
+        <div class="ct-indique-corpo">
+            <div><b class="ct-indique-titulo">Indique o BlueJus e ganhe R$ {{ rc.premio }} por escritório</b><div class="ct-indique-texto">Quem abrir a conta com o seu cupom ganha 5 GB extras no 1º mês, e você ganha crédito quando o escritório indicado começar a usar o BlueJus. O saldo fica guardado e nunca expira.</div></div>
+            <div class="ct-indique-cupom">
+                <span class="ct-indique-rotulo-cupom">SEU CUPOM</span>
+                <span class="ct-indique-codigo" data-cupom>{{ rc.cupom }}</span>
+                <button type="button" class="ct-indique-copiar" data-copiar-cupom><i class="bi bi-copy"></i> <span>Copiar cupom</span></button>
+                <button type="button" class="ct-indique-compartilhar" data-ind-abrir><i class="bi bi-share-fill"></i>Compartilhar</button>
+            </div>
+            <div class="ct-indique-contadores">
+                <span><b>{{ rc.convites }}</b> convite(s) enviado(s)</span>
+                <span><b>{{ rc.aguardando }}</b> aguardando confirmação</span>
+                <span><b class="ct-indique-ok">{{ rc.contasAbertas }}</b> conta(s) aberta(s)</span>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
     {# Apresentação #}
     <section class="ct-cartao ct-apresentacao">
         <span class="ct-apresentacao-simbolo"><img src="{{ asset('images/logo/bluejus-simbolo-branco.png') }}" alt=""></span>
@@ -49,8 +75,12 @@
             {% endif %}
         </div>
         <div class="ct-espaco-uso">
-            <div class="ct-barra"><div style="width: {{ e.largura }}"></div></div>
-            <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> de {{ e.limite }} no plano {{ e.plano }}</span><b>{{ e.percentual }}% ocupado</b></div>
+            {% if e.largura is not null %}
+                <div class="ct-barra"><div style="width: {{ e.largura }}"></div></div>
+                <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> de {{ e.limite }} no plano {{ e.plano }}</span><b>{{ e.percentual }}% ocupado</b></div>
+            {% else %}
+                <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> em uso no plano {{ e.plano }}</span></div>
+            {% endif %}
             {% if e.bonusAte is not null %}<div class="ct-espaco-bonus" data-ct-bonus><i class="bi bi-gift"></i> {{ 'contribua.espaco.bonus_ate'|trans({gb: e.bonusGb, data: e.bonusAte}) }}</div>{% endif %}
         </div>
         <div class="ct-pacotes">

@@ -32,6 +32,7 @@ moldura:
             trabalho_externo: Trabalho Externo
         indicar_botao: Indicar o BlueJus
         indicar_botao_dica: Indique o BlueJus e ganhe recompensa
+        indicar_botao_dica_saldo: Indique o BlueJus e ganhe saldo
     notificacoes:
         rotulo: Notificações
         aba_minhas: Minhas
