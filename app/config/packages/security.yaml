@@ -59,6 +59,7 @@ security:
         # é sempre reconsultada no gateway antes de mudar qualquer coisa.
         - { path: ^/api/webhooks/, roles: PUBLIC_ACCESS }
         - { path: ^/vagas-juridicas, roles: PUBLIC_ACCESS }  # página pública de vagas do Trabalho Externo (só cargo, local e tipo)
+        - { path: ^/calculo/verificar, roles: PUBLIC_ACCESS }  # verificação do código do PDF do Cálculo (sem login; só o que o PDF já mostra)
         - { path: ^/email/descadastro, roles: PUBLIC_ACCESS }  # "Não quero mais receber estes avisos": link assinado, sem login
         - { path: ^/e/a/,             roles: PUBLIC_ACCESS }  # Comercial: pixel de abertura dos e-mails (sem login, sem sessão)
         - { path: ^/e/c/,             roles: PUBLIC_ACCESS }  # Comercial: link rastreado dos e-mails (assinado; sem login)

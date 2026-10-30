@@ -7,6 +7,8 @@ namespace App\Calculo\UseCase;
 use App\Calculo\DTO\CalculoInput;
 use App\Calculo\DTO\ErroDoCalculo;
 use App\Calculo\DTO\ResultadoDoCalculo;
+use App\Calculo\Entity\CalculoEmitido;
+use App\Calculo\Repository\CalculoEmitidoRepository;
 use App\Calculo\Service\ApresentacaoDoCalculo;
 use App\Calculo\Service\GeradorDePdfDoCalculo;
 use App\Entity\Auth\User;
@@ -28,6 +30,7 @@ final class GerarPdfDoCalculoUseCase
         private readonly ClockInterface $relogio,
         private readonly TranslatorInterface $tradutor,
         private readonly GeradorDePdf $logos,
+        private readonly CalculoEmitidoRepository $emitidos,
     ) {
     }
 
@@ -40,7 +43,7 @@ final class GerarPdfDoCalculoUseCase
         }
 
         $agora = $this->relogio->now()->setTimezone(new \DateTimeZone('America/Sao_Paulo'));
-        $codigo = GeradorDePdfDoCalculo::codigoDeVerificacao();
+        $codigo = $this->codigoNovo();
         $t = fn (string $chave, array $p = []): string => $this->tradutor->trans('calculo.pdf.' . $chave, $p);
         $html = $this->twig->render('calculo/pdf.html.twig', $this->contexto($in, $resultado, $usuario, $tenant, $t));
 
@@ -51,9 +54,28 @@ final class GerarPdfDoCalculoUseCase
             $t('cabecalho'),
             $t('rodape', ['codigo' => $codigo]),
         );
+        $this->emitidos->salvar(new CalculoEmitido(
+            $tenant,
+            $usuario,
+            $codigo,
+            $agora, // hora de Brasília, igual à impressa no cabeçalho do PDF
+            new \DateTimeImmutable($resultado->ate),
+            number_format($resultado->total, 2, '.', ''),
+            hash('sha256', $pdf),
+        ));
         $nomeProcesso = (string) preg_replace('/[^\w.-]+/u', '-', $in->processo !== '' ? $in->processo : 'BlueJus');
 
         return ['conteudo' => $pdf, 'nome' => $t('nome_arquivo') . ' ' . $nomeProcesso . ' ' . $agora->format('d-m-Y') . '.pdf'];
+    }
+
+    /** Código inédito: o índice único é a garantia, a checagem evita tropeçar nele. */
+    private function codigoNovo(): string
+    {
+        do {
+            $codigo = GeradorDePdfDoCalculo::codigoDeVerificacao();
+        } while ($this->emitidos->existeCodigo($codigo));
+
+        return $codigo;
     }
 
     /** @param \Closure(string, array=): string $t */

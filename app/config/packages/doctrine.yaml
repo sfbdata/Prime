@@ -192,6 +192,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Central/Entity'
                 prefix: 'App\Central\Entity'
                 alias: AppCentral
+            AppCalculo:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Calculo/Entity'
+                prefix: 'App\Calculo\Entity'
+                alias: AppCalculo
             AppChatIa:
                 type: attribute
                 is_bundle: false

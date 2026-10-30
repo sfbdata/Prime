@@ -98,7 +98,10 @@ próprio rodapé do desenho avisa que a rotina não os atende); mudar o visual d
 ## 7. Combinado com o Coordenador (30/10/2026)
 
 - **Modo escuro** entra neste PR: `calculo.css` tem um bloco `[data-bs-theme="dark"]` com as variáveis do Bootstrap do sistema (o desenho só define o claro).
-- **Tela de verificação do código do PDF** (`BJC-...`): PR seguinte, logo depois deste. Exige gravar o código emitido (hoje não é gravado) e uma consulta pública ou por login; decidir no PR dela.
+- **Verificação do código do PDF** (`BJC-...`), aprovada pelo Samuel em 30/10/2026, entra no PR seguinte (migration `Version20261030120000`):
+  - Cada PDF gerado grava uma linha em `calculo_emitido` (escritório, usuário, código, emissão, data final, total e SHA-256 dos bytes entregues). Não guarda processo, partes nem valores.
+  - Página pública `/calculo/verificar` (`PUBLIC_ACCESS`, sem login, `noindex`, sem cache, limite de 20 consultas por minuto por IP): o código (por URL `?codigo=` ou pelo formulário) devolve só o que o PDF já mostra: escritório, emissão, data final e total. Opcionalmente o formulário recebe o PDF (até 5 MB), calcula o SHA-256 e diz se o arquivo é idêntico ao emitido; o arquivo nunca é gravado.
+  - Visual: cartão central das páginas públicas já existentes (não há desenho para esta página).
 
 ## 8. Limites de entrada (revisão de 30/10/2026)
 

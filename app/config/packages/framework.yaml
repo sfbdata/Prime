@@ -26,6 +26,12 @@ framework:
             policy: sliding_window
             limit: 30
             interval: '1 minute'
+        # Verificação pública do código do PDF do Cálculo (GET/POST /calculo/verificar, sem login): chave = IP.
+        # O código tem 36^8 combinações; o limite torna inviável varrê-las e ainda cobre quem confere vários PDFs.
+        calculo_verificacao:
+            policy: sliding_window
+            limit: 20
+            interval: '1 minute'
         convite_criar:
             policy: sliding_window
             limit: 10
