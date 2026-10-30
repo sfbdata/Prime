@@ -8,6 +8,47 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.27.0] - 2026-10-30
+
+### Adicionado
+
+- Nova aba Cálculo (`/calculo`) no menu lateral: atualização monetária de valores devidos com correção por INPC até 08/2024 e IPCA depois (Lei 14.905/2024), juros de 1% ao mês até 29/08/2024 e taxa legal (Selic menos IPCA) depois, incidência dos juros, meses futuros projetados pela média de 12 meses, geração de parcelas, abatimentos, multa, honorários e art. 523 §1º do CPC, com demonstrativo na tela.
+- Cálculo: botão Baixar PDF com o demonstrativo no mesmo formato do exemplo, com código de verificação no rodapé, e botão Atualizar índices (séries do Banco Central). A série Selic mensal (SGS 4390) passa a ser importada junto com INPC e IPCA; o comando `app:importar-indices-monetarios` e o botão usam a mesma rotina.
+- Permissão nova `modules.calculo.view` (migration `Version20261030110000`, só INSERT): concedida por padrão aos perfis que já veem Pastas.
+- Cálculo: o código de verificação impresso no rodapé do PDF agora vale de verdade. Cada PDF emitido fica registrado (tabela `calculo_emitido`, migration `Version20261030120000`) e a página pública `/calculo/verificar`, sem login, confirma o código mostrando só o que o PDF já mostra (escritório, data de emissão, data final e total). Quem recebe o PDF pode também enviá-lo na página para saber se ele é idêntico ao original (o arquivo não é guardado).
+- Painel do Master, Contas e escritórios: código da conta (BJ-XXXX-XXXX-XXXX) em destaque ao lado do Nº, seletor "Ordem:" (nº da conta, nome, mais usuários, mais armazenamento, mais pastas, mais recentes) e busca por código (aceita minúsculas e sem hífens).
+- Migration `Version20261030100000`: dá o código a todas as contas que ainda não tinham.
+- Contribua (desenho 08 de 30/10): cartão "Seu saldo de recompensa" no topo, com o saldo calculado pelas mesmas regras do painel de Recompensas do Master, o prêmio por escritório, o cupom BJ- (Copiar cupom e Compartilhar) e os contadores de convites, aguardando confirmação e contas abertas. No Contribua, a dica do botão de indicar diz "ganhe saldo".
+- Contribua: o escritório sem limite de espaço mostra o uso contra a cota do plano (com o percentual real, mesmo acima de 100%, e a faixa de alerta do desenho) e os planos sem "Menor que o atual".
+- Minhas Demandas no desenho 15: a mesma Lista do Expediente (filtros, Visualizar com modos e 25/50/100 por página, colunas, cabeçalho fixo, menus, Lista e Cartões), sem o trilho, com o título "Minhas Demandas", "Todas as demandas" e linhas zebradas.
+- A lista mostra só as pastas de que a pessoa é responsável e respeita o cadeado: pasta escondida para a pessoa não aparece mais nas Minhas Demandas.
+- Colunas padrão próprias (NUP, Cliente, Ação, Prioridade e Metas), guardadas por pessoa numa preferência separada da do Expediente.
+- Botão "Nova demanda": abre a Nova Pasta e quem cria fica como responsável; a lista recarrega e avisa "Demanda da pasta N aberta para CLIENTE com você como responsável".
+- Rotas próprias da tela (`/demandas/colunas`, `/demandas/exportar.csv`, `/demandas/nova-pasta/sugestoes`, `/demandas/pasta/{id}/...`) com o acesso ao módulo Pastas e a guarda do escritório.
+- Ficam da tela antiga (função do sistema não sai): a ordem padrão "urgentes primeiro", a coluna "Mod." (escondida por padrão, quem quiser liga no menu de colunas; só nas Demandas) e os vários clientes juntos com "; ".
+- A janela "BlueJus IA" da Central agora conversa com o mesmo motor do Chat I.A: resposta aparecendo aos poucos, lista das suas conversas, botão "Nova" e "Abrir em página inteira". As respostas aparecem formatadas (negrito, listas, tabelas), como na página inteira. Perguntas da barra da pasta continuam abrindo a janela com o texto preenchido.
+- Minhas Metas: a pergunta feita no painel "BlueJus IA" é respondida no próprio painel, ao vivo, com link discreto "Abrir em página inteira". A IA agora enxerga as suas metas (atrasadas, que vencem em 7 dias, aguardando revisão e o que fazer primeiro, com pasta, cliente e dias). O servidor monta isso a partir das suas metas; só as suas.
+- O histórico antigo da conversa com a BlueJus IA na Central é trazido uma vez para o Chat I.A como "Conversa anterior com a BlueJus IA". Nada é apagado da Central.
+- Migration `Version20261028190000` (coluna `origem` em `chat_ia_conversa`).
+- Chat I.A propõe cadastro de cliente e de pasta: a pessoa manda o que tem (texto, CNH, ficha, contrato) e a I.A monta um cartão na conversa com os dados, que podem ser editados. A I.A nunca grava: só o clique em Confirmar cria o cliente ou a pasta, com a sua permissão e no seu escritório. Cancelar não grava nada; a proposta vence em 24 horas.
+- Avisos no cartão: CPF ou CNPJ que já está cadastrado (com a opção de usar o cadastro existente na pasta) e pasta parecida já aberta (só segue com "Criar mesmo assim").
+- Provedor da Anthropic com tool use (ferramentas `propor_cliente` e `propor_pasta`, oferecidas só a quem tem permissão); prompt `chat-livre-v3`; migration `Version20261028180000` (tabela `chat_ia_proposta`).
+- Proposta é auditada (propor, confirmar, cancelar: quem e quando) sem gravar CPF, nome nem endereço; os dados somem da proposta ao decidir ou vencer, e a tabela entra na purga do escritório.
+- Chat I.A em página inteira (`/chat-ia`), fase do servidor: conversas particulares por pessoa (criar, listar com busca, renomear, fixar, trocar o modelo e excluir), mensagens com resposta em fluxo (SSE), pasta citada com as mesmas travas do chat da Central (aceite, segredo de justiça), anexos em PDF, imagem e DOCX, título automático, teto diário de tokens por pessoa e por resposta.
+- Provedor da Anthropic em fluxo (`stream: true`) e modelo por pedido (Haiku 5.5, Sonnet 5.5 e Opus 5.5).
+- Comando `app:inteligencia:testar-conexao` e `scripts/servir-frente.sh`; migration `Version20261028170000` (tabelas `chat_ia_conversa`, `chat_ia_mensagem`, `chat_ia_anexo`).
+- Chat I.A em página inteira, a tela (`/chat-ia`): layout próprio claro e escuro, barra lateral recolhível com histórico (Fixadas, Hoje, Últimos 7 dias, Mais antigas, buscar, renomear, fixar, excluir), resposta aparecendo aos poucos com markdown completo, botão Parar, Regenerar, Editar a última pergunta, Copiar, anexos (clipe, arrastar e colar), citar pasta (`#`) e seletor de modelo. Celular com a barra como gaveta.
+- Chat I.A: editar a última pergunta mantém pasta e anexos; limite de ritmo ao criar conversa e anexar (e teto de 20 conversas vazias por pessoa); servidor de pré-visualização com 4 processos.
+- Chat I.A: criar, renomear, fixar, trocar o modelo, excluir conversa e anexar ou remover arquivo ficam na trilha de auditoria (quem e quando), sem gravar o título, o nome do arquivo nem o texto das mensagens.
+- Expediente: "Importar pastas em lote" (desenho 03 de 30/10). Escolha a pasta do computador com as pastas dos clientes: cada subpasta vira uma pasta nova com o nome dela como cliente, e os arquivos vão para Documentos (Demais documentos). Dá para desmarcar pastas, corrigir o nome do cliente antes de importar e acompanhar o progresso. Arquivo recusado (tipo ou tamanho) não para o lote e entra no resumo final; espaço esgotado interrompe.
+
+### Alterado
+
+- Expediente no desenho 03 (VS 30.10.26): linhas da tabela zebradas (#ffffff e #eef3f7, borda #eef2f5); hover azul e destaque de linha continuam por cima. Tema escuro com zebra suave.
+- Pasta arquivada esmaecida (opacidade .62, cinza .35) com a dica "Pasta arquivada".
+- Modal Nova Pasta do Expediente: botão "Importar em lote" à esquerda do rodapé (só com o módulo Pastas). O clique fecha a Nova Pasta e, depois de fechada, dispara `bj:importar-lote` no document; o modal do lote abre por esse evento.
+- Nada sai da tela; sem migration.
+
 ## [2.26.0] - 2026-10-29
 
 ### Adicionado
@@ -1270,7 +1311,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.26.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.27.0...HEAD
+[2.27.0]: https://github.com/sfbdata/Prime/compare/v2.26.0...v2.27.0
 [2.26.0]: https://github.com/sfbdata/Prime/compare/v2.25.0...v2.26.0
 [2.25.0]: https://github.com/sfbdata/Prime/compare/v2.24.0...v2.25.0
 [2.24.0]: https://github.com/sfbdata/Prime/compare/v2.23.0...v2.24.0
