@@ -113,6 +113,17 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 - Testes: união só com igualdade total; arquivos de mesmo hash e conteúdo diferente (simulado) não unem; excluir um
   vínculo mantém o arquivo; excluir o último remove após o COMMIT; corrida (dois vínculos novos e uma exclusão);
   purga do escritório; cota; tenant isolado (mesmo arquivo em dois escritórios nunca une).
+- **P5 (Samuel, 31/10): só avisa, não impede.** Duplicata continua permitida e segue só avisando (como hoje);
+  a união física automática é decisão da C2 e nunca muda o que o usuário vê.
+- **Condição do R2 (confirmada pela sessão do R2):** a nova referência aponta para a chave física que já existe,
+  sem gravar cópia; o evento de exclusão no R2 sai uma vez, quando a última referência cair; a reconciliação do
+  R2 lista a mesma chave uma vez por referência (não é divergência).
+- **Estado da C1 (implementada):** tabela `arquivo_armazenado` + `pasta_documento.arquivo_id` (nullable, sem
+  backfill). `caminho_arquivo` segue sendo a chave física, então `ChavesDePasta::documento` não muda e leitura e
+  gravação continuam simétricas. Upload novo cria o seu `arquivo_armazenado` (1:1, código `DOC-XXXX-XXXX-XXXX`).
+  Remoção física pela purga da lixeira passa por `ReferenciasDeArquivoDaPasta`: depois do COMMIT, só sai a chave
+  que nenhuma linha de `pasta_documento` (viva ou na lixeira) do escritório referencia. A C2 acrescenta o
+  `SELECT … FOR UPDATE` ao criar a segunda referência, para fechar a corrida contra uma remoção em andamento.
 - Revisão: `feature-review-agent` duas vezes (ALTO).
 
 ### D. Vincular documento a outra pasta (sem migration se C estiver pronto, ALTO)

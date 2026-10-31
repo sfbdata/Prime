@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Armazenamento\ReferenciasDeArquivoDaPasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaDocumentoRepository;
@@ -72,6 +73,7 @@ final class PurgarLixeiraUseCase
         private readonly PastaSecaoRepository $secoes,
         private readonly AcessoALixeira $lixeira,
         private readonly RemocaoAposTransacao $remocao,
+        private readonly ReferenciasDeArquivoDaPasta $referencias,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
     ) {
@@ -264,7 +266,8 @@ final class PurgarLixeiraUseCase
 
         $this->em->flush();
 
-        $resultado = $this->remocao->remover($chaves, 'PurgarLixeiraUseCase');
+        // Arquivo que outro documento ainda referencia fica (fatia C): só sai o da última referência.
+        $resultado = $this->remocao->remover($this->referencias->semReferencia($chaves), 'PurgarLixeiraUseCase');
         $this->em->clear();
 
         return [$resultado->removidos, $resultado->naoRemovidas];

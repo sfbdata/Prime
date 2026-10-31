@@ -110,6 +110,7 @@ final class PurgarEscritorioUseCase
         ['materia_favorita_de_modelo', 'tenant_id = :tenant'],
         ['modelo_de_peca', 'tenant_id = :tenant'],
         ['pasta_documento', 'tenant_id = :tenant'],
+        ['arquivo_armazenado', 'tenant_id = :tenant'],
         ['movimentacao_processo', 'tenant_id = :tenant'],
         ['parte_processo', 'tenant_id = :tenant'],
         ['assunto_processo', 'tenant_id = :tenant'],
