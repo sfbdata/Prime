@@ -1,5 +1,5 @@
 /* Controladoria da pasta, desenho 02 VS 31.10.26 (bj-central-docs.js). */
-.ctl-btn { position: fixed; z-index: 1040; left: 16px; bottom: 16px; height: 38px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #0a6fa0; font: bold 13px Arial, Helvetica, sans-serif; cursor: pointer; box-shadow: 0 4px 14px rgba(18,36,47,.12); }
+.ctl-btn { position: fixed; z-index: 1030; left: 16px; bottom: 16px; height: 38px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #0a6fa0; font: bold 13px Arial, Helvetica, sans-serif; cursor: pointer; box-shadow: 0 4px 14px rgba(18,36,47,.12); }
 .ctl-btn:hover { background: #f2f7fa; }
 .ctl-btn-n { min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; background: #a3232b; color: #fff; font-size: 11px; }
 .ctl-btn-n[hidden] { display: none; }

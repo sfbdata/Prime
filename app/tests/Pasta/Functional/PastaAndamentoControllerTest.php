@@ -336,6 +336,30 @@ final class PastaAndamentoControllerTest extends JusPrimeWebTestCase
         self::assertDoesNotMatchRegularExpression('/[—–]/u', (string) $c->filter('.ps-and')->html());
     }
 
+    #[TestDox('faixa histórico: a ficha de meta aponta para a aba tarefas, que existe na pasta (tarefas-tab)')]
+    public function testFichaDeMetaAbreAbaTarefas(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $meta = new \App\Entity\Tarefa\Tarefa();
+        $meta->setTitulo('Juntar procuração');
+        $meta->setDescricao('...');
+        $meta->setPasta($pasta);
+        $meta->setTenant($tenant);
+        $meta->setCriadoPor($user);
+        $meta->addResponsavel($user);
+        $this->em()->persist($meta);
+        $pasta->getTarefas()->add($meta);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+
+        $aba = (string) $c->filter('.ps-and > .ps-and-hist > .js-and-hist')->first()->attr('data-aba');
+        self::assertSame('tarefas', $aba);
+        self::assertCount(1, $c->filter('#' . $aba . '-tab'), 'o gatilho da aba existe na pasta');
+    }
+
     private function nomearEtapa(Pasta $pasta, int $origem, string $texto): void
     {
         $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/andamento/etapa', [

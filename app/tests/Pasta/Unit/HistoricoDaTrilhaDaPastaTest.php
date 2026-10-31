@@ -51,7 +51,7 @@ final class HistoricoDaTrilhaDaPastaTest extends TestCase
         self::assertSame('20/10/26', $porChave['meta_respondida']['data']);
         self::assertSame('Protocolar inicial', $porChave['meta_respondida']['detalhe']);
         self::assertSame('bi-flag', $porChave['meta_aberta']['icone']);
-        self::assertSame('metas', $porChave['meta_aberta']['aba']);
+        self::assertSame('tarefas', $porChave['meta_aberta']['aba']);
     }
 
     #[TestDox('aba Metas oculta para o usuário: as metas não entram na faixa')]
@@ -60,7 +60,7 @@ final class HistoricoDaTrilhaDaPastaTest extends TestCase
         $pasta = new Pasta();
         $this->meta($pasta, 'Juntar procuração', Tarefa::STATUS_PENDENTE);
 
-        self::assertSame([], $this->servico()->montar($pasta, new Tenant(), ['metas']));
+        self::assertSame([], $this->servico()->montar($pasta, new Tenant(), ['tarefas']));
     }
 
     #[TestDox('a faixa guarda no máximo 8 fichas')]

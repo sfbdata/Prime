@@ -35,7 +35,7 @@ final class HistoricoDaTrilhaDaPasta
     public function montar(Pasta $pasta, Tenant $tenant, array $abasOcultas = []): array
     {
         $itens = [];
-        if (!in_array('metas', $abasOcultas, true)) {
+        if (!in_array('tarefas', $abasOcultas, true)) {
             foreach ($pasta->getTarefas() as $meta) {
                 $itens[] = $this->deMeta($meta);
             }
@@ -60,7 +60,7 @@ final class HistoricoDaTrilhaDaPasta
         $quando = $respondida ? $meta->getDataConclusao() : $meta->getDataCriacao();
 
         return [
-            'aba' => 'metas', 'icone' => $respondida ? 'bi-check2-circle' : 'bi-flag', 'tom' => $respondida ? 'respondida' : 'aberta',
+            'aba' => 'tarefas', 'icone' => $respondida ? 'bi-check2-circle' : 'bi-flag', 'tom' => $respondida ? 'respondida' : 'aberta',
             'data' => $quando->format('d/m/y'), 'chave' => $respondida ? 'meta_respondida' : 'meta_aberta', 'tipo' => '',
             'detalhe' => $meta->getTitulo(), '_quando' => $quando->getTimestamp(),
         ];
