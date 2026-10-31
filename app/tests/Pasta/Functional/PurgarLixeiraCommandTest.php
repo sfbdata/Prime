@@ -7,7 +7,9 @@ namespace App\Tests\Pasta\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Armazenamento\ReferenciasDeArquivoDaPasta;
 use App\Pasta\Command\PurgarLixeiraCommand;
+use App\Pasta\Entity\ArquivoArmazenado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
@@ -22,6 +24,7 @@ use App\Shared\Doctrine\Filter\AcessoALixeira;
 use App\Shared\Doctrine\Filter\LixeiraFilter;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Events;
@@ -469,9 +472,165 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         self::assertFalse($this->existeLinha('pasta_documento', (int) $v3->getId()));
     }
 
+    #[TestDox('arquivo com outra referência viva NÃO sai quando a linha vencida é purgada (fatia C)')]
+    public function testArquivoComOutraReferenciaVivaFica(): void
+    {
+        $vencido = $this->documento('compartilhado.pdf', naLixeiraHa: 45);
+        $this->outraLinhaNoMesmoArquivo($vencido, naLixeiraHa: null);
+        $this->em->clear();
+
+        $tester = $this->tester();
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $vencido->getId()));
+        self::assertTrue($this->memoria->existe($this->chaveDe($vencido)), 'a outra linha ainda aponta para o arquivo');
+        self::assertSame([], $this->memoria->excluidas);
+    }
+
+    #[TestDox('duas exclusões em sequência: o arquivo só sai na que derruba a última referência')]
+    public function testArquivoSaiSoNaUltimaReferencia(): void
+    {
+        $primeiro = $this->documento('dupla.pdf', naLixeiraHa: 45);
+        $segundo  = $this->outraLinhaNoMesmoArquivo($primeiro, naLixeiraHa: 40);
+        $chave    = $this->chaveDe($primeiro);
+        $this->em->clear();
+
+        // A segunda linha ainda não venceu: só a primeira é purgada e o arquivo fica.
+        $this->em->getConnection()->executeStatement(
+            'UPDATE pasta_documento SET excluido_em = :d WHERE id = :id',
+            ['d' => $this->haDias(5)->format('Y-m-d H:i:s'), 'id' => $segundo->getId()],
+        );
+        $this->tester()->execute([]);
+        self::assertTrue($this->memoria->existe($chave));
+
+        $this->em->getConnection()->executeStatement(
+            'UPDATE pasta_documento SET excluido_em = :d WHERE id = :id',
+            ['d' => $this->haDias(40)->format('Y-m-d H:i:s'), 'id' => $segundo->getId()],
+        );
+        $this->em->clear();
+        $this->tester()->execute([]);
+
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $segundo->getId()));
+        self::assertFalse($this->memoria->existe($chave), 'a última referência caiu');
+    }
+
+    #[TestDox('fatia C: a purga também apaga o registro arquivo_armazenado da última referência')]
+    public function testPurgaApagaORegistroDoArquivo(): void
+    {
+        $vencido = $this->documento('registro.pdf', naLixeiraHa: 45);
+        $arquivo = new ArquivoArmazenado($this->tenant, 'DOC-AAAA-BBBB-CCCC', $vencido->getCaminhoArquivo(), 10, null);
+        $this->em->persist($arquivo);
+        $vencido->setArquivo($arquivo);
+        $this->em->flush();
+        $arquivoId = (int) $arquivo->getId();
+        $this->em->clear();
+
+        $this->tester()->execute([]);
+
+        self::assertFalse($this->existeLinha('arquivo_armazenado', $arquivoId));
+        self::assertFalse($this->memoria->existe($this->chaveDe($vencido)));
+    }
+
+    #[TestDox('fatia C: linha de OUTRO escritório com o mesmo caminho_arquivo também segura o arquivo (categoria plana no disco)')]
+    public function testLinhaDeOutroEscritorioSegura(): void
+    {
+        $vencido = $this->documento('plano.pdf', naLixeiraHa: 45);
+        [$outro, $outraPasta] = $this->outroEscritorio();
+        $doOutro = $this->documento('plano-outro.pdf', pasta: $outraPasta, tenant: $outro);
+        $this->corromperCaminho($doOutro, $vencido->getCaminhoArquivo());
+        $this->em->clear();
+
+        $this->tester()->execute([]);
+
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $vencido->getId()));
+        self::assertTrue($this->memoria->existe($this->chaveDe($vencido)), 'a linha do outro escritório ainda aponta para o nome');
+    }
+
+    #[TestDox('fatia C: a contagem trava o registro do arquivo (FOR UPDATE) e a remoção física sai depois do COMMIT')]
+    public function testContagemTravaORegistroERemocaoSaiAposOCommit(): void
+    {
+        $vencido = $this->documento('trava.pdf', naLixeiraHa: 45);
+        $this->documento('trava2.pdf', naLixeiraHa: 45);
+        $arquivo = new ArquivoArmazenado($this->tenant, 'DOC-TRAV-AAAA-BBBB', $vencido->getCaminhoArquivo(), 10, null);
+        $this->em->persist($arquivo);
+        $vencido->setArquivo($arquivo);
+        $this->em->flush();
+        $this->em->clear();
+
+        $conexao = $this->em->getConnection();
+        $nivelAntes = $conexao->getTransactionNestingLevel();
+        $nivelNaRemocao = null;
+        $this->memoria->aoExcluir = static function () use ($conexao, &$nivelNaRemocao): void {
+            $nivelNaRemocao = $conexao->getTransactionNestingLevel();
+        };
+
+        $referencias = static::getContainer()->get(ReferenciasDeArquivoDaPasta::class);
+        $conexao->beginTransaction();
+        $conexao->executeStatement('DELETE FROM pasta_documento WHERE id = :id', ['id' => $vencido->getId()]);
+        $livres = $referencias->semReferencia([$this->chaveDe($vencido)]);
+        $travado = $conexao->fetchOne('SELECT xmax::text FROM arquivo_armazenado WHERE codigo = :c', ['c' => 'DOC-TRAV-AAAA-BBBB']);
+        $conexao->rollBack();
+
+        self::assertCount(1, $livres);
+        self::assertNotSame('0', $travado, 'o registro do arquivo ficou travado (FOR UPDATE) durante a contagem');
+
+        $this->tester()->execute([]);
+        self::assertSame($nivelAntes, $nivelNaRemocao, 'a remoção física não roda dentro da transação da purga');
+    }
+
+    #[TestDox('fatia C: a purga chama a contagem de referências DENTRO da transação (falharia se saísse do wrapInTransaction)')]
+    public function testContagemRodaDentroDaTransacaoDaPurga(): void
+    {
+        $this->documento('dentro-da-tx.pdf', naLixeiraHa: 45);
+        $this->em->clear();
+        $conexao = $this->em->getConnection();
+        $nivelAntes = $conexao->getTransactionNestingLevel();
+
+        $espiao = new class(static::getContainer()->get(Connection::class)) extends ReferenciasDeArquivoDaPasta {
+            public ?int $nivelNaContagem = null;
+
+            public function __construct(private readonly Connection $c)
+            {
+                parent::__construct($c);
+            }
+
+            public function semReferencia(array $chaves): array
+            {
+                $this->nivelNaContagem = $this->c->getTransactionNestingLevel();
+
+                return parent::semReferencia($chaves);
+            }
+        };
+
+        $this->tester($espiao)->execute([]);
+
+        self::assertNotNull($espiao->nivelNaContagem);
+        self::assertGreaterThan($nivelAntes, $espiao->nivelNaContagem, 'a contagem tem que rodar dentro da transação do flush');
+    }
+
+    private function outraLinhaNoMesmoArquivo(PastaDocumento $origem, ?int $naLixeiraHa): PastaDocumento
+    {
+        $copia = (new PastaDocumento())->setTenant($origem->getTenant());
+        $copia->setTitulo('outra-' . $origem->getTitulo())
+            ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
+            ->setCaminhoArquivo($origem->getCaminhoArquivo())
+            ->setNomeOriginal($origem->getNomeOriginal())
+            ->setMimeType('application/pdf')
+            ->setTamanhoBytes(10)
+            ->setPasta($this->pasta);
+        if ($naLixeiraHa !== null) {
+            $copia->marcarExcluido($this->autor, $this->haDias($naLixeiraHa));
+        }
+        $this->em->persist($copia);
+        $this->em->flush();
+
+        return $copia;
+    }
+
     // ----------------------------------------------------------------- helpers
 
-    private function tester(): CommandTester
+    private function tester(?ReferenciasDeArquivoDaPasta $referencias = null): CommandTester
     {
         $container = static::getContainer();
 
@@ -481,6 +640,7 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
             $container->get(PastaSecaoRepository::class),
             $container->get(AcessoALixeira::class),
             new RemocaoAposTransacao($this->memoria, new NullLogger()),
+            $referencias ?? $container->get(ReferenciasDeArquivoDaPasta::class),
             new MockClock(self::AGORA),
             $this->logger,
         )));

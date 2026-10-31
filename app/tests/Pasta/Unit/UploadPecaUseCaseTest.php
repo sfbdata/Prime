@@ -127,6 +127,38 @@ final class UploadPecaUseCaseTest extends TestCase
         self::assertSame(self::PDF, $this->armazenamento->ler($gravada));
     }
 
+    #[TestDox('fatia C: o upload cria o arquivo_armazenado com código DOC e a mesma chave física do documento')]
+    public function testUploadCriaOArquivoArmazenado(): void
+    {
+        $repo = $this->createStub(\App\Pasta\Repository\ArquivoArmazenadoRepository::class);
+        $repo->method('existeCodigo')->willReturn(false);
+        $useCase = new UploadPecaUseCase(
+            $this->em,
+            $this->armazenamento,
+            new CompressaoDeArquivoArmazenado($this->armazenamento, $this->armazenamento, $this->compressor, new NullLogger()),
+            new NullLogger(),
+            $this->contador,
+            new DetectorDeAssinaturaDigital(),
+            null,
+            new \App\Pasta\Armazenamento\GeradorDeCodigoDeDocumento($repo),
+        );
+
+        $persistidos = [];
+        $this->em->method('persist')->willReturnCallback(static function (object $o) use (&$persistidos): void {
+            $persistidos[] = $o;
+        });
+
+        $doc = $useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'a.pdf'), 'PECA', null, null, $this->tenant)->documento;
+
+        $arquivo = $doc->getArquivo();
+        self::assertNotNull($arquivo);
+        self::assertContains($arquivo, $persistidos);
+        self::assertMatchesRegularExpression('/^DOC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/', $arquivo->getCodigo());
+        self::assertSame($doc->getCaminhoArquivo(), $arquivo->getChaveFisica());
+        self::assertSame($doc->getTamanhoBytes(), $arquivo->getTamanhoBytes());
+        self::assertSame($doc->getSha256(), $arquivo->getSha256());
+    }
+
     #[TestDox('R1: a chave gravada tem a categoria de documento e o escopo da pasta')]
     public function testChaveGravadaTemOEscopoDaPasta(): void
     {

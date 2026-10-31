@@ -10,6 +10,8 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Armazenamento\GeradorDeCodigoDeDocumento;
+use App\Pasta\Entity\ArquivoArmazenado;
 use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Pasta\Service\DetectorDeAssinaturaDigital;
@@ -145,6 +147,7 @@ final class UploadPecaUseCase
         private readonly ContadorDePaginasDePdf $contadorDePaginas,
         private readonly DetectorDeAssinaturaDigital $detectorDeAssinatura,
         private readonly ?AvisoDePastaAcompanhada $avisoDeAcompanhamento = null,
+        private readonly ?GeradorDeCodigoDeDocumento $codigos = null,
     ) {}
 
     /** @param (\Closure(\App\Shared\Armazenamento\ChaveDeArquivo): void)|null $aoGravar recebe a chave logo depois da gravação */
@@ -198,8 +201,8 @@ final class UploadPecaUseCase
 
         // O escopo sai do próprio documento (R1): o mesmo escritório que a leitura vai usar. O
         // documento só é persistido depois da gravação.
-        $doc = new PastaDocumento();
-        $doc->setTenant($tenant);
+        $doc = (new PastaDocumento())->setTenant($tenant);
+        $codigo = $this->codigos?->gerar((int) $tenant->getId()); // antes de gravar: se falhar, não sobra arquivo órfão
 
         $upload = FonteDeUploadHttp::de($file);
 
@@ -235,14 +238,25 @@ final class UploadPecaUseCase
         $doc->setMimeType($mimeType);
         $doc->setTamanhoBytes($compressao->tamanhoFinal);
         $doc->setSha256($sha256);
-        $doc->setSecao($secao);
-        $doc->setPaginas($paginas);
+        $doc->setSecao($secao)->setPaginas($paginas);
         $doc->setEnviadoPor($enviadoPor);
         $doc->marcarAssinaturaDoUpload($assinado, $compressao->comprimido, $enviadoPor);
 
+        $this->vincularAoArquivo($doc, $tenant, $codigo, $nomeUnico, $compressao->tamanhoFinal, $sha256);
         $this->gravarEAvisar($avisarQuemAcompanha, $doc, $pasta, $tenant, $enviadoPor);
 
         return new ResultadoUploadPeca($doc, $compressao);
+    }
+
+    /** Cada upload ganha o seu `arquivo_armazenado` (1:1 na C1); o código DOC é o nome que o escritório vê. */
+    private function vincularAoArquivo(PastaDocumento $doc, Tenant $tenant, ?string $codigo, string $chave, int $tamanho, ?string $sha256): void
+    {
+        if ($codigo === null) {
+            return;
+        }
+        $arquivo = new ArquivoArmazenado($tenant, $codigo, $chave, $tamanho, $sha256);
+        $this->em->persist($arquivo);
+        $doc->setArquivo($arquivo);
     }
 
     /**

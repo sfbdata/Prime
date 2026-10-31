@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Armazenamento\ReferenciasDeArquivoDaPasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaDocumentoRepository;
@@ -72,6 +73,7 @@ final class PurgarLixeiraUseCase
         private readonly PastaSecaoRepository $secoes,
         private readonly AcessoALixeira $lixeira,
         private readonly RemocaoAposTransacao $remocao,
+        private readonly ReferenciasDeArquivoDaPasta $referencias,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
     ) {
@@ -262,9 +264,16 @@ final class PurgarLixeiraUseCase
             return [0, []];
         }
 
-        $this->em->flush();
+        // O flush e a contagem de referências na MESMA transação (com o registro do arquivo travado): o COMMIT
+        // sai ao fim do closure e a remoção física só depois dele (INV-6).
+        $livres = $this->em->wrapInTransaction(function () use ($chaves): array {
+            $this->em->flush();
 
-        $resultado = $this->remocao->remover($chaves, 'PurgarLixeiraUseCase');
+            return $this->referencias->semReferencia($chaves);
+        });
+
+        $resultado = $this->remocao->remover($livres, 'PurgarLixeiraUseCase');
+        $this->referencias->descartarRegistros($livres, $resultado->naoRemovidas);
         $this->em->clear();
 
         return [$resultado->removidos, $resultado->naoRemovidas];
