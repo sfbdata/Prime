@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\AlertaDaPasta;
 use App\Pasta\DTO\ResultadoDaRotinaDaControladoria;
@@ -57,11 +58,16 @@ final class LancarAlertasDaControladoriaUseCase
         $porTipo  = [];
 
         foreach ($pastas as $pasta) {
+            // Os alertas de cadastro respeitam o cadeado de QUEM os vê: aqui, o autor do cartão.
+            $autor = $pasta->getResponsavel() ?? $pasta->getCriadoPor();
+            if ($autor === null) {
+                continue;
+            }
             $achados = array_values(array_filter(
-                $this->alertas->montar($pasta, $tenant, $hoje),
+                $this->alertas->montar($pasta, $tenant, $autor, $hoje),
                 static fn (AlertaDaPasta $a): bool => $a->nivel !== AlertaDaPasta::BAIXA,
             ));
-            $novosDaPasta = $this->processar($pasta, $achados, $ultimos[(int) $pasta->getId()] ?? null, $simular);
+            $novosDaPasta = $this->processar($pasta, $autor, $achados, $ultimos[(int) $pasta->getId()] ?? null, $simular);
             foreach ($novosDaPasta as $a) {
                 $porTipo[$a->chave] = ($porTipo[$a->chave] ?? 0) + 1;
             }
@@ -84,7 +90,7 @@ final class LancarAlertasDaControladoriaUseCase
      *
      * @return list<AlertaDaPasta> os alertas novos da pasta
      */
-    private function processar(Pasta $pasta, array $achados, ?PastaMensagem $ultimo, bool $simular): array
+    private function processar(Pasta $pasta, User $autor, array $achados, ?PastaMensagem $ultimo, bool $simular): array
     {
         $vigentes = array_values(array_unique(array_map(static fn (AlertaDaPasta $a): string => $a->chave, $achados)));
         $lancados = $ultimo !== null ? $this->chavesDoCartao($ultimo) : [];
@@ -95,10 +101,6 @@ final class LancarAlertasDaControladoriaUseCase
                 $ultimo->setConteudo($this->comEstado($ultimo->getConteudo(), $vigentes));
             }
 
-            return [];
-        }
-        $autor = $pasta->getResponsavel() ?? $pasta->getCriadoPor();
-        if ($autor === null) {
             return [];
         }
         if (!$simular) {
