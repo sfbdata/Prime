@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.27.0"
+  data: "2026-10-31"
+  itens:
+    - "Sem efeito visível além do nome do cartão do Financeiro."
 - versao: "2.26.0"
   data: "2026-10-29"
   itens:

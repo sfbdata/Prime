@@ -428,7 +428,10 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // Pasta + seção + documento (bloqueador intermediário)
         $pasta = $this->ins('pasta', ['nup' => 'NUP-' . $uid, 'data_abertura' => $ts, 'created_at' => $ts, 'tenant_id' => $t]);
         $this->ins('pasta_secao', ['nome' => 'Secao', 'criada_em' => $ts, 'pasta_id' => $pasta, 'tenant_id' => $t]);
-        $this->ins('pasta_documento', ['titulo' => 'PDoc', 'categoria' => 'geral', 'caminho_arquivo' => $hex(), 'nome_original' => 'p.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => 1, 'uploaded_at' => $ts, 'pasta_id' => $pasta, 'tenant_id' => $t]);
+        // Fatia C: o documento aponta para um arquivo_armazenado real (FK RESTRICT): a ordem da purga tem que apagar o documento antes.
+        $chaveFisica = $hex();
+        $arquivoId   = $this->ins('arquivo_armazenado', ['codigo' => 'DOC-TEST-TEST-' . substr($uid, 0, 4), 'tamanho_bytes' => 1, 'chave_fisica' => $chaveFisica, 'criado_em' => $ts, 'tenant_id' => $t]);
+        $this->ins('pasta_documento', ['arquivo_id' => $arquivoId, 'titulo' => 'PDoc', 'categoria' => 'geral', 'caminho_arquivo' => $chaveFisica, 'nome_original' => 'p.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => 1, 'uploaded_at' => $ts, 'pasta_id' => $pasta, 'tenant_id' => $t]);
 
         // Processo + movimentação + parte + documento (bloqueadores intermediários)
         $proc = $this->ins('processo', ['numero_processo' => 'PROC-' . $uid, 'orgao_julgador' => 'OJ', 'sigla_tribunal' => 'TJSP', 'classe_processual' => 'CLS', 'assunto_processual' => 'ASS', 'situacao_processo' => 'ativo', 'instancia' => '1', 'tenant_id' => $t]);

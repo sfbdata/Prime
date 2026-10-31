@@ -52,6 +52,11 @@ class PastaDocumento implements Auditavel, TenantAware, Descartavel
     #[ORM\Column(length: 255)]
     private string $caminhoArquivo;
 
+    /** O arquivo físico (fatia C). NULL no acervo anterior: lá a chave é só o `caminho_arquivo`. */
+    #[ORM\ManyToOne(targetEntity: ArquivoArmazenado::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
+    private ?ArquivoArmazenado $arquivo = null;
+
     #[ORM\Column(length: 255)]
     private string $nomeOriginal;
 
@@ -216,6 +221,18 @@ class PastaDocumento implements Auditavel, TenantAware, Descartavel
     public function getCaminhoArquivo(): string
     {
         return $this->caminhoArquivo;
+    }
+
+    public function getArquivo(): ?ArquivoArmazenado
+    {
+        return $this->arquivo;
+    }
+
+    public function setArquivo(?ArquivoArmazenado $arquivo): self
+    {
+        $this->arquivo = $arquivo;
+
+        return $this;
     }
 
     public function setCaminhoArquivo(string $caminhoArquivo): self
