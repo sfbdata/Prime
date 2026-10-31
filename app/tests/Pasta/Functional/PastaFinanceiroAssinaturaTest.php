@@ -337,6 +337,32 @@ final class PastaFinanceiroAssinaturaTest extends JusPrimeWebTestCase
         self::assertSame('PENDENTE', $this->situacaoGravada($pastaId));
     }
 
+    #[TestDox('upload de assinatura .p7s no CONTRATOS é aceito e conta como assinado; .exe e executável renomeado para .p7s são recusados')]
+    public function testUploadDeP7sAceitoEExecutavelRecusado(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pastaId         = (int) $pasta->getId();
+        $this->logarComTenant($client, $user, $tenant);
+        $url   = "/pasta/{$pastaId}/financeiro/upload";
+        $token = ['_token' => 'TOKEN_pasta_financeiro_upload_' . $pastaId];
+
+        $client->request('POST', $url, $token, ['arquivo' => $this->uploadDe("\x30\x82\x01\x0a\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x07\x02assinatura", 'contrato.pdf.p7s')]);
+        self::assertResponseStatusCodeSame(201);
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('REGULAR', $dados['situacaoContrato']);
+
+        $executavel = "MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff" . str_repeat("\x00", 200) . 'This program cannot be run in DOS mode.';
+        foreach (['contrato.exe', 'contrato.p7s'] as $nome) {
+            $client->request('POST', $url, $token, ['arquivo' => $this->uploadDe($executavel, $nome)]);
+            self::assertResponseStatusCodeSame(422, 'recusa de ' . $nome);
+        }
+    }
+
     #[TestDox('o botão Adicionar de CONTRATOS é um label com input file múltiplo')]
     public function testAdicionarAceitaVariosArquivos(): void
     {
