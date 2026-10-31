@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Armazenamento\ReferenciasDeArquivoDaPasta;
 use App\Pasta\Command\PurgarLixeiraCommand;
+use App\Pasta\Entity\ArquivoArmazenado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
@@ -511,6 +512,23 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
 
         self::assertFalse($this->existeLinha('pasta_documento', (int) $segundo->getId()));
         self::assertFalse($this->memoria->existe($chave), 'a última referência caiu');
+    }
+
+    #[TestDox('fatia C: a purga também apaga o registro arquivo_armazenado da última referência')]
+    public function testPurgaApagaORegistroDoArquivo(): void
+    {
+        $vencido = $this->documento('registro.pdf', naLixeiraHa: 45);
+        $arquivo = new ArquivoArmazenado($this->tenant, 'DOC-AAAA-BBBB-CCCC', $vencido->getCaminhoArquivo(), 10, null);
+        $this->em->persist($arquivo);
+        $vencido->setArquivo($arquivo);
+        $this->em->flush();
+        $arquivoId = (int) $arquivo->getId();
+        $this->em->clear();
+
+        $this->tester()->execute([]);
+
+        self::assertFalse($this->existeLinha('arquivo_armazenado', $arquivoId));
+        self::assertFalse($this->memoria->existe($this->chaveDe($vencido)));
     }
 
     private function outraLinhaNoMesmoArquivo(PastaDocumento $origem, ?int $naLixeiraHa): PastaDocumento

@@ -124,6 +124,15 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
   Remoção física pela purga da lixeira passa por `ReferenciasDeArquivoDaPasta`: depois do COMMIT, só sai a chave
   que nenhuma linha de `pasta_documento` (viva ou na lixeira) do escritório referencia. A C2 acrescenta o
   `SELECT … FOR UPDATE` ao criar a segunda referência, para fechar a corrida contra uma remoção em andamento.
+  A mesma purga apaga a linha de `arquivo_armazenado` da chave que ficou sem referência (registro órfão nunca é
+  elegível à união).
+- **Fora da C1, aceito (revisão 1):** só `UploadPecaUseCase` cria `arquivo_armazenado`. Os outros criadores de
+  `pasta_documento` (`SalvarPecaTextoUseCase`, `CopiarDocumentosDaPastaUseCase`, contrato em `PastaController`,
+  `ReconciliadorDePasta`, `CopiarArquivosAcervoCommand`) seguem com `arquivo_id` NULL; a purga continua segura
+  porque conta por `caminho_arquivo`. A C2 os cobre antes de exibir o código DOC na tela. Na C2: `sha256` e
+  `tamanho_bytes` do registro são fotografia do upload; recalcular após regravação (compressão tardia, edição)
+  antes de comparar. Isolamento: a chave de `PASTA_DOCUMENTO` carrega o escopo do escritório, então a contagem
+  por `tenant_id` é a correta.
 - Revisão: `feature-review-agent` duas vezes (ALTO).
 
 ### D. Vincular documento a outra pasta (sem migration se C estiver pronto, ALTO)

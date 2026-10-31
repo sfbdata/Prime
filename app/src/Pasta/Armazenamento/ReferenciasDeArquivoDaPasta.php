@@ -47,6 +47,27 @@ final class ReferenciasDeArquivoDaPasta
         return $livres;
     }
 
+    /**
+     * Apaga a linha de `arquivo_armazenado` das chaves que acabaram de ficar sem referência, para
+     * a C2 nunca unir um upload novo a um registro cujo arquivo já saiu do disco. Roda no mesmo
+     * momento da remoção física, só com o resultado de {@see semReferencia()}.
+     *
+     * @param list<ChaveDeArquivo> $livres
+     */
+    public function descartarRegistros(array $livres): void
+    {
+        foreach ($livres as $chave) {
+            if ($chave->categoria !== CategoriaDeArquivo::PASTA_DOCUMENTO) {
+                continue;
+            }
+            $this->conexao->executeStatement(
+                'DELETE FROM arquivo_armazenado a WHERE a.tenant_id = :t AND a.chave_fisica = :c
+                 AND NOT EXISTS (SELECT 1 FROM pasta_documento d WHERE d.arquivo_id = a.id)',
+                ['t' => $chave->escopo->tenantIdObrigatorio(), 'c' => $chave->nome],
+            );
+        }
+    }
+
     public function contar(ChaveDeArquivo $chave): int
     {
         return (int) $this->conexao->fetchOne(

@@ -267,7 +267,9 @@ final class PurgarLixeiraUseCase
         $this->em->flush();
 
         // Arquivo que outro documento ainda referencia fica (fatia C): só sai o da última referência.
-        $resultado = $this->remocao->remover($this->referencias->semReferencia($chaves), 'PurgarLixeiraUseCase');
+        $livres = $this->referencias->semReferencia($chaves);
+        $this->referencias->descartarRegistros($livres);
+        $resultado = $this->remocao->remover($livres, 'PurgarLixeiraUseCase');
         $this->em->clear();
 
         return [$resultado->removidos, $resultado->naoRemovidas];
