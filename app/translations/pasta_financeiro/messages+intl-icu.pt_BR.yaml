@@ -16,7 +16,7 @@ pasta_financeiro:
         inativo: Não é pró-bono
         alternar: Alternar caso pró-bono
     total_contratado:
-        rotulo: Total contratado
+        rotulo: Valor da causa
         nota: total dos pagamentos · sincronizado
         dica: Soma dos lançamentos contratados em Pagamentos. Atualiza sozinho ao incluir, editar ou excluir um pagamento.
     media:

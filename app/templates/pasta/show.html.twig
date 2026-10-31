@@ -3317,7 +3317,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var mpCnjNada = '';
     var mpCnjBuscando = false;
 
-    function T(chave, params) { return BJ_T.t('pasta_show.js.processo.' + chave, params); }
+    /* O BJ_T vem do base, que o carrega no fim da página: na carga ele ainda não existe. O texto é refeito ao abrir a janela. */
+    function T(chave, params) { return window.BJ_T ? BJ_T.t('pasta_show.js.processo.' + chave, params) : ''; }
 
     /* O que vem do Datajud é texto de fora: escapado antes de entrar no HTML das linhas (P5d). */
     function mpEsc(valor) {

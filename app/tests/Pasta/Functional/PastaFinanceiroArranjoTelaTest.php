@@ -112,7 +112,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         foreach ([
             '#financeiro-situacao-btn'  => 'Contrato',
             '#financeiro-probono-btn'   => 'Pró-bono',
-            '#financeiro-total-contratado' => 'Total contratado',
+            '#financeiro-total-contratado' => 'Valor da causa',
             '#financeiro-media-cpf'     => 'Média por CPF',
         ] as $seletor => $rotulo) {
             self::assertSame(
@@ -159,7 +159,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
 
         $bloco = $crawler->filter('.ps-fin-faixa > #financeiro-total-contratado-bloco');
         self::assertCount(1, $bloco, 'o card é filho direto da faixa');
-        self::assertSame('Total contratado', trim($bloco->filter('.ps-fin-rotulo-linha > .ps-fin-rotulo')->text()));
+        self::assertSame('Valor da causa', trim($bloco->filter('.ps-fin-rotulo-linha > .ps-fin-rotulo')->text()));
         self::assertSame('R$ 12.860,00', trim($bloco->filter('.ps-fin-corpo > #financeiro-total-contratado')->text()), 'pagos ou não, sem o previsto e sem o valor da causa');
         self::assertSame('1286000', $bloco->filter('#financeiro-total-contratado')->attr('data-centavos'));
         $sub = $bloco->filter('.ps-fin-corpo > .ps-fin-sub');
