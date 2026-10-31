@@ -24,7 +24,8 @@ final class MarcarContratoAssinadoPeloArquivoUseCase
 {
     public function __construct(
         private readonly AlterarSituacaoContratoUseCase $alterarSituacao,
-    ) {}
+    ) {
+    }
 
     /** Devolve a situação do contrato da pasta depois do envio (`PENDENTE` ou `REGULAR`). */
     public function executar(Pasta $pasta, PastaDocumento $documento, User $usuario, ?Tenant $tenant): string
