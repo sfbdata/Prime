@@ -50,7 +50,9 @@ class Base(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.dir)
 
-    def mudanca(self, nome, tipo, changelog='- Item técnico.', cliente=''):
+    def mudanca(self, nome, tipo, changelog='- Item técnico.', cliente=None):
+        if cliente is None:
+            cliente = '' if tipo in ('interno', 'remoção', 'remocao', 'segurança', 'seguranca') else '- Texto para o escritório.'
         corpo = f'---\ntipo: {tipo}\n---\n## Changelog\n{changelog}\n'
         if cliente:
             corpo += f'\n## Para o cliente\n{cliente}\n'
@@ -109,6 +111,27 @@ class Validacao(Base):
         (self.dir / 'mudancas/a.md').write_text('## Changelog\n- x\n')
         self.assertEqual(self.roda('validar').returncode, 1)
 
+    def test_sem_para_o_cliente_falha_nos_tipos_da_pagina(self):
+        for tipo in ('novidade', 'alteração', 'correcao'):
+            with self.subTest(tipo=tipo):
+                self.mudanca('a.md', tipo, cliente='')
+                r = self.roda('validar')
+                self.assertEqual(r.returncode, 1)
+                self.assertIn('falta "## Para o cliente"', r.stderr)
+
+    def test_interno_continua_sem_texto_ao_cliente(self):
+        self.mudanca('a.md', 'interno', changelog='', cliente='')
+        self.assertEqual(self.roda('validar').returncode, 0)
+
+    def test_frase_de_sem_efeito_recusada(self):
+        for frase in ('Sem efeito para o cliente.', 'Nada muda para os escritórios.', 'Nenhuma mudança visível.',
+                      'Sem mudança na tela.'):
+            with self.subTest(frase=frase):
+                self.mudanca('a.md', 'novidade', cliente=f'- {frase}')
+                r = self.roda('validar')
+                self.assertEqual(r.returncode, 1)
+                self.assertIn('não pode dizer que nada mudou', r.stderr)
+
     def test_valido(self):
         self.mudanca('a.md', 'novidade', cliente='- Texto para o escritório.')
         r = self.roda('validar')
@@ -117,7 +140,7 @@ class Validacao(Base):
 
 class Aplicar(Base):
     def test_monta_a_versao_inteira(self):
-        self.mudanca('a.md', 'correcao', changelog='- Conserta X.')
+        self.mudanca('a.md', 'correcao', changelog='- Conserta X.', cliente='- Corrigido X.')
         self.mudanca('b.md', 'novidade', changelog='- Tela Y.\n  com detalhe.', cliente='- Agora há Y.')
         self.mudanca('c.md', 'interno', changelog='')
         r = self.roda('aplicar', '--data', '2026-10-20')
@@ -131,7 +154,7 @@ class Aplicar(Base):
                       '[2.1.0]: https://github.com/sfbdata/Prime/compare/v2.0.0...v2.1.0\n', cl)
         self.assertIn("ATUAL = '2.1.0'", (self.dir / 'app/src/Shared/VersaoDoSistema.php').read_text())
         nov = (self.dir / 'app/config/novidades.yaml').read_text()
-        self.assertIn('versoes:\n- versao: "2.1.0"\n  data: "2026-10-20"\n  itens:\n    - "Agora há Y."\n', nov)
+        self.assertIn('versoes:\n- versao: "2.1.0"\n  data: "2026-10-20"\n  itens:\n    - "Corrigido X."\n    - "Agora há Y."\n', nov)
         restantes = sorted(p.name for p in (self.dir / 'mudancas').iterdir())
         self.assertEqual(restantes, ['README.md'])
 

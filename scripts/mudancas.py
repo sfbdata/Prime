@@ -14,7 +14,8 @@ Formato de um arquivo de mudança:
     - Texto técnico, como vai para o CHANGELOG.md (uma ou mais linhas "- ").
 
     ## Para o cliente
-    - Texto curto, em linguagem de escritório, para a página Novidades (opcional).
+    - Texto curto, em linguagem de escritório, para a página Novidades (obrigatório nos tipos
+      novidade, alteracao e correcao; descreva o que mudou, mesmo que a tela seja só do Master).
 
 Tipos (e o que cada um faz com a versão):
     remocao    → Removido   → MAJOR   (algo que o usuário usava deixa de existir)
@@ -60,6 +61,12 @@ TIPOS = {
     'interno': (None, 0),
 }
 ORDEM_SECOES = ['Adicionado', 'Alterado', 'Removido', 'Corrigido', 'Segurança']
+
+
+# Tipos que aparecem na página Novidades: exigem "## Para o cliente".
+TIPOS_COM_TEXTO_AO_CLIENTE = ('novidade', 'alteracao', 'correcao')
+# Frases que não dizem o que mudou (regra do dono, 31/10/2026): recusadas no texto ao cliente.
+FRASES_VAZIAS = ('sem efeito', 'nada muda', 'nenhuma mudanca', 'sem mudanca', 'nao muda', 'nada mudou')
 
 
 class ErroDeMudanca(Exception):
@@ -123,6 +130,13 @@ def ler(arquivo: pathlib.Path) -> dict:
     cliente = _lista(secoes['cliente'], f'{arquivo.name} (Para o cliente)')
     if tipo != 'interno' and not changelog:
         raise ErroDeMudanca(f'{arquivo.name}: "## Changelog" vazio (só o tipo interno dispensa).')
+    if tipo in TIPOS_COM_TEXTO_AO_CLIENTE and not cliente:
+        raise ErroDeMudanca(f'{arquivo.name}: falta "## Para o cliente" (obrigatório no tipo {tipo}; '
+                            'descreva em linguagem simples o que mudou, mesmo que a tela seja só do Master).')
+    for item in cliente:
+        if any(f in _normalizar(item) for f in FRASES_VAZIAS):
+            raise ErroDeMudanca(f'{arquivo.name}: "Para o cliente" não pode dizer que nada mudou; '
+                                f'descreva o que mudou: {item[:60]!r}.')
     for item in changelog + cliente:
         if '—' in item or '–' in item:
             raise ErroDeMudanca(f'{arquivo.name}: sem travessão no texto (regra do dono): {item[:60]!r}.')
