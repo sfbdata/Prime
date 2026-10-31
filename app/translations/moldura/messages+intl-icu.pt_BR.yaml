@@ -102,6 +102,7 @@ moldura:
             importar_indices_monetarios: Importação dos índices monetários
             djen_sincronizar: Captação das publicações do DJEN
             push_resumo_semanal_cliente: Resumo semanal ao cliente
+            pastas_rotina_controladoria: Rotina de segunda-feira da Controladoria
             pastas_relatorio_sem_processo: Relatório de pastas sem processo
             pastas_relatorio_pastas_paradas: Relatório de pastas paradas
             dashboard_fotografar: Foto diária do Dashboard
