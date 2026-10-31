@@ -223,7 +223,7 @@
                 <span class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
                       id="financeiro-situacao-selo"
                       style="cursor: default;"
-                      title="{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado_titulo'|trans : 'pasta_financeiro.contrato.pendente_titulo'|trans }}">
+                      title="{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado_titulo'|trans : (documentosContrato is empty ? 'pasta_financeiro.contrato.sem_arquivo_titulo'|trans : 'pasta_financeiro.contrato.pendente_titulo'|trans) }}">
                     <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
                     <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado'|trans : 'pasta_financeiro.contrato.pendente'|trans }}</span>
                 </span>
@@ -233,7 +233,7 @@
                         class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
                         title="{{ contratoAssinado
                             ? 'pasta_financeiro.contrato.assinado_dica'|trans
-                            : 'pasta_financeiro.contrato.pendente_dica'|trans }}"
+                            : (documentosContrato is empty ? 'pasta_financeiro.contrato.sem_arquivo_titulo'|trans : 'pasta_financeiro.contrato.pendente_dica'|trans) }}"
                         data-pasta-id="{{ pasta.id }}"
                         data-situacao-atual="{{ pasta.situacaoContrato }}"
                         data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
