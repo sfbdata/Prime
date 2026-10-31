@@ -12,9 +12,12 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Controller\PastaControladoriaController;
+use App\Pasta\Entity\PastaReu;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Service\AlertasDaPasta;
+use App\Pasta\Service\AlertasDoCadastroDaPasta;
+use App\Pasta\UseCase\SalvarCadastroDaPastaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -25,6 +28,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 /** Controladoria da pasta, fatia A (spec central-documentos-controladoria): alertas somente leitura e o botão na pasta. */
 #[CoversClass(PastaControladoriaController::class)]
 #[CoversClass(AlertasDaPasta::class)]
+#[CoversClass(AlertasDoCadastroDaPasta::class)]
+#[CoversClass(SalvarCadastroDaPastaUseCase::class)]
 final class PastaControladoriaTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -34,6 +39,7 @@ final class PastaControladoriaTest extends JusPrimeWebTestCase
         parent::setUp();
         $this->client = static::createClient();
         $this->client->disableReboot();
+        $this->instalarCsrfStorage();
     }
 
     #[TestDox('pasta sem nada vencido: sem alertas e contador zero')]
@@ -43,7 +49,7 @@ final class PastaControladoriaTest extends JusPrimeWebTestCase
         $pasta = $this->criarPasta($tenant);
         $this->logarComTenant($this->client, $user, $tenant);
 
-        $r = $this->alertas($pasta);
+        $r = $this->semAvisoDeCadastro($this->alertas($pasta));
 
         self::assertSame([], $r['alertas']);
         self::assertSame(0, $r['urgentes']);
@@ -70,7 +76,7 @@ final class PastaControladoriaTest extends JusPrimeWebTestCase
         $this->em()->flush();
         $this->logarComTenant($this->client, $user, $tenant);
 
-        $r = $this->alertas($pasta);
+        $r = $this->semAvisoDeCadastro($this->alertas($pasta));
 
         $titulos = array_column($r['alertas'], 'titulo');
         self::assertContains('1 meta(s) vencida(s)', $titulos);
@@ -95,7 +101,7 @@ final class PastaControladoriaTest extends JusPrimeWebTestCase
         $this->em()->flush();
         $this->logarComTenant($this->client, $user, $tenant);
 
-        self::assertSame([], $this->alertas($pasta)['alertas']);
+        self::assertSame([], $this->semAvisoDeCadastro($this->alertas($pasta))['alertas']);
     }
 
     #[TestDox('pasta parada: 100 dias sem movimento é alta; 45 dias é baixa; 70 dias é média')]
@@ -158,7 +164,126 @@ final class PastaControladoriaTest extends JusPrimeWebTestCase
         self::assertLessThan((int) $fundo[1], (int) $botao[1]);
     }
 
-    /** @return array{alertas: list<array<string, string>>, urgentes: int} */
+    #[TestDox('cadastro incompleto: salva só com o nome do réu, fica com pendência e gera o alerta baixo; completo some o alerta')]
+    public function testSalvarCadastroComPendenciaEDepoisCompleto(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $r = $this->salvar($pasta, ['reu' => 'maria  da silva']);
+        self::assertTrue($r['ok']);
+        self::assertFalse($r['completo']);
+        $dados = $this->alertas($pasta);
+        self::assertSame('MARIA DA SILVA', $dados['cadastro']['reu']);
+        self::assertContains('Cadastro do réu incompleto', array_column($dados['alertas'], 'titulo'));
+        self::assertSame(0, $dados['urgentes'], 'pendência de cadastro é baixa e não conta no botão');
+
+        $r = $this->salvar($pasta, ['reu' => 'Maria da Silva', 'cpf' => '529.982.247-25', 'qualificacao' => 'Brasileira, casada, professora']);
+        self::assertTrue($r['completo']);
+        $dados = $this->alertas($pasta);
+        self::assertSame('52998224725', $dados['cadastro']['cpf']);
+        self::assertNotContains('Cadastro do réu incompleto', array_column($dados['alertas'], 'titulo'));
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_reu WHERE pasta_id = ?', [$pasta->getId()]), 'o réu principal é atualizado, não duplicado');
+    }
+
+    #[TestDox('cadastro: CPF inválido, e-mail inválido, data inválida e dado sem nome do réu são recusados e nada é gravado')]
+    public function testSalvarCadastroRecusas(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        foreach ([['reu' => 'A', 'cpf' => '111.111.111-11'], ['reu' => 'A', 'email' => 'nao-e-email'], ['reu' => 'A', 'prescricao' => '2026-13-45'], ['cpf' => '529.982.247-25']] as $campos) {
+            $this->salvar($pasta, $campos);
+            self::assertResponseStatusCodeSame(422);
+        }
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_reu WHERE pasta_id = ?', [$pasta->getId()]));
+    }
+
+    #[TestDox('alertas do cadastro: titular diferente do réu e prescrição próxima viram alta; prescrição longe não alerta')]
+    public function testAlertasDoCadastro(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->salvar($pasta, ['reu' => 'Maria da Silva', 'titular_extrato' => 'JOSÉ PEREIRA', 'prescricao' => (new \DateTimeImmutable('+20 days'))->format('Y-m-d')]);
+
+        $porTitulo = array_column($this->alertas($pasta)['alertas'], null, 'titulo');
+
+        self::assertSame('alta', $porTitulo['Titular do extrato diferente do réu']['nivel']);
+        self::assertStringContainsString('JOSÉ PEREIRA', $porTitulo['Titular do extrato diferente do réu']['detalhe']);
+        self::assertSame('alta', $porTitulo['Prescrição próxima']['nivel']);
+
+        $this->salvar($pasta, ['reu' => 'Maria da Silva', 'titular_extrato' => 'maria da silva', 'prescricao' => (new \DateTimeImmutable('+200 days'))->format('Y-m-d')]);
+        $titulos = array_column($this->alertas($pasta)['alertas'], 'titulo');
+        self::assertNotContains('Titular do extrato diferente do réu', $titulos);
+        self::assertNotContains('Prescrição próxima', $titulos);
+
+        $this->salvar($pasta, ['reu' => 'Maria da Silva', 'titular_extrato' => 'Maria da Silva', 'prescricao' => (new \DateTimeImmutable('-3 days'))->format('Y-m-d')]);
+        $porTitulo = array_column($this->alertas($pasta)['alertas'], null, 'titulo');
+        self::assertSame('alta', $porTitulo['Prescrição possivelmente ocorrida']['nivel']);
+    }
+
+    #[TestDox('duas pastas do mesmo escritório no mesmo contrato alertam as duas; outro escritório não entra')]
+    public function testMesmoContrato(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        [$outroUser, $outro] = $this->criarAdmin();
+        $a = $this->criarPasta($tenant);
+        $this->salvar0($a, $user, $tenant, ['contrato' => 'CT-123']);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $tenant = $this->em()->find(Tenant::class, $tenant->getId());
+        $b = $this->criarPasta($tenant);
+        $dela = $this->criarPasta($this->em()->find(Tenant::class, $outro->getId()));
+        $dela->setContrato('ct-123');
+        $b->setContrato(' CT-123 ');
+        $this->em()->flush();
+
+        $achado = array_values(array_filter($this->alertas($a)['alertas'], static fn (array $x): bool => $x['titulo'] === 'Duas pastas no mesmo contrato'));
+
+        self::assertCount(1, $achado);
+        self::assertSame('alta', $achado[0]['nivel']);
+        self::assertStringContainsString($b->getNup(), $achado[0]['detalhe']);
+        self::assertStringNotContainsString($dela->getNup(), $achado[0]['detalhe']);
+    }
+
+    #[TestDox('leitor vê o cadastro mas não salva (403) e a resposta diz que não pode editar')]
+    public function testLeitorNaoSalva(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $leitor = $this->criarLeitor($tenant);
+        $this->logarComTenant($this->client, $leitor, $this->em()->find(Tenant::class, $tenant->getId()));
+
+        self::assertFalse($this->alertas($pasta)['podeEditar']);
+        $this->salvar($pasta, ['reu' => 'X']);
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    /** @param array<string, string> $campos */
+    private function salvar(Pasta $pasta, array $campos): array
+    {
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/controladoria/cadastro', ['_token' => 'TOKEN_' . PastaControladoriaController::idDoToken((int) $pasta->getId())] + $campos);
+
+        return json_decode((string) $this->client->getResponse()->getContent(), true) ?? [];
+    }
+
+    /** Grava o cadastro direto no caso de uso (preparo de cenário). @param array<string, string> $campos */
+    private function salvar0(Pasta $pasta, User $user, Tenant $tenant, array $campos): void
+    {
+        static::getContainer()->get(SalvarCadastroDaPastaUseCase::class)->executar($pasta, $user, $tenant, new \App\Pasta\DTO\CadastroDaPastaInput(contrato: $campos['contrato'] ?? ''));
+    }
+
+    /** O aviso baixo de cadastro do réu incompleto aparece em toda pasta sem réu (desenho); os testes de outras regras o ignoram. */
+    private function semAvisoDeCadastro(array $dados): array
+    {
+        $dados['alertas'] = array_values(array_filter($dados['alertas'], static fn (array $a): bool => $a['titulo'] !== 'Cadastro do réu incompleto'));
+
+        return $dados;
+    }
+
+    /** @return array{alertas: list<array<string, string>>, urgentes: int, cadastro: array<string, mixed>, podeEditar: bool} */
     private function alertas(Pasta $pasta): array
     {
         $this->client->xmlHttpRequest('GET', '/pasta/' . $pasta->getId() . '/controladoria');
@@ -245,5 +370,31 @@ final class PastaControladoriaTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         return $pasta;
+    }
+
+    private function instalarCsrfStorage(): void
+    {
+        $storage = new class implements \Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string
+            {
+                return 'TOKEN_' . $tokenId;
+            }
+
+            public function setToken(string $tokenId, string $token): void {}
+
+            public function removeToken(string $tokenId): ?string
+            {
+                return null;
+            }
+
+            public function hasToken(string $tokenId): bool
+            {
+                return true;
+            }
+
+            public function clear(): void {}
+        };
+
+        static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 }
