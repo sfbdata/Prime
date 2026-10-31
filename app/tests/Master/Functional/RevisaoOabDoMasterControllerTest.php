@@ -147,6 +147,7 @@ final class RevisaoOabDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $r = $this->resposta();
         self::assertGreaterThanOrEqual(1, $r['invalidas']);
+        self::assertGreaterThanOrEqual(1, $r['conferidas']);
         self::assertStringContainsString('CNA', $r['mensagem']);
         self::assertStringNotContainsString('—', $r['mensagem']);
 
@@ -154,6 +155,10 @@ final class RevisaoOabDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('divergente', $linhas[$invalida->getId()]['status']);
         self::assertSame('nao_verificada', $linhas[$valida->getId()]['status'], 'nunca confirma sem o CNA');
         self::assertNotNull($this->listar()['auto']['ultimaRodada']);
+        $semEscritorio = (int) static::getContainer()->get(\Doctrine\DBAL\Connection::class)->fetchOne(
+            "SELECT COUNT(*) FROM audit_log WHERE entity_class LIKE '%ConfiguracaoGlobal' AND tenant_id IS NULL",
+        );
+        self::assertGreaterThanOrEqual(1, $semEscritorio, 'a configuração da plataforma é auditada sem escritório');
     }
 
     private function inscricao(string $nome, string $numero, string $uf, TipoInscricaoOab $tipo): InscricaoOab

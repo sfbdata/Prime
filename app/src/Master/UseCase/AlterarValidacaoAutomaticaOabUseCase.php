@@ -6,6 +6,7 @@ namespace App\Master\UseCase;
 
 use App\Master\Entity\ConfiguracaoGlobal;
 use App\Master\Repository\ConfiguracaoGlobalRepository;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 
 /**
  * Liga/desliga e frequência da validação automática da Revisão de OAB (desenho 05 - Perfis 1.2 de 31/10).
@@ -13,7 +14,8 @@ use App\Master\Repository\ConfiguracaoGlobalRepository;
  * Só "Ao cadastrar" é aceita: Diária e Semanal precisam da consulta ao CNA, que está desligada (decisão do dono:
  * revalidação periódica fica fora de escopo). Ao cadastrar, o formato da OAB já é conferido pelo
  * {@see \App\Auth\Service\ValidadorOab::validarFormato()}; o CNA, quando ligado, completa a conferência.
- * Grava em configuracao_global, sem tocar nos campos do catálogo ({@see ConfiguracaoGlobal::definirRevisaoOab()}).
+ * Grava em configuracao_global, sem tocar nos campos do catálogo ({@see ConfiguracaoGlobal::definirRevisaoOab()}),
+ * no escopo de auditoria de plataforma (não no escritório em que o Master navega).
  *
  * @throws \DomainException frequência que não é "cadastro"
  */
@@ -21,6 +23,7 @@ final class AlterarValidacaoAutomaticaOabUseCase
 {
     public function __construct(
         private readonly ConfiguracaoGlobalRepository $configuracoes,
+        private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
     ) {
     }
 
@@ -30,8 +33,10 @@ final class AlterarValidacaoAutomaticaOabUseCase
             throw new \DomainException('Disponível quando a consulta ao CNA estiver ligada.');
         }
 
-        $linha = $this->configuracoes->buscarUnica() ?? new ConfiguracaoGlobal();
-        $linha->definirRevisaoOab(['ligada' => $ligada ? '1' : '0', 'frequencia' => $frequencia]);
-        $this->configuracoes->salvar($linha, flush: true);
+        $this->escopoDePlataforma->executar(function () use ($ligada, $frequencia): void {
+            $linha = $this->configuracoes->buscarUnica() ?? new ConfiguracaoGlobal();
+            $linha->definirRevisaoOab(['ligada' => $ligada ? '1' : '0', 'frequencia' => $frequencia]);
+            $this->configuracoes->salvar($linha, flush: true);
+        });
     }
 }

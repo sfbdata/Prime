@@ -415,13 +415,13 @@ master:
         carregando_mapa: Carregando mapa…
         carregando: Carregando…
         voltar: Voltar
-    # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
     revisao_oab:
         token_invalido: Token CSRF inválido. Recarregue a página.
         nao_encontrada: Inscrição não encontrada. Recarregue a lista.
         inscricao_mudou: A inscrição mudou desde que a lista foi aberta. Recarregue e confira de novo.
         frequencia_sem_cna: Disponível quando a consulta ao CNA estiver ligada.
         rodada: 'Validação automática: {conferidas} inscrição(ões) conferida(s), {invalidas} com formato inválido. A consulta ao CNA está indisponível, então nome e situação não foram conferidos: confirme pelo nome no CNA.'
+    # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
     js:
         carregando: Carregando…
         erro_secao: Não foi possível carregar esta seção agora. Recarregue a página.

@@ -7,6 +7,7 @@ namespace App\Tests\Master\Unit;
 use App\Master\Entity\ConfiguracaoGlobal;
 use App\Master\Repository\ConfiguracaoGlobalRepository;
 use App\Master\UseCase\AlterarValidacaoAutomaticaOabUseCase;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -37,7 +38,7 @@ final class ConfiguracaoGlobalRevisaoOabTest extends TestCase
         $linha = new ConfiguracaoGlobal();
         $repo = $this->createStub(ConfiguracaoGlobalRepository::class);
         $repo->method('buscarUnica')->willReturn($linha);
-        $sut = new AlterarValidacaoAutomaticaOabUseCase($repo);
+        $sut = new AlterarValidacaoAutomaticaOabUseCase($repo, new EscopoDeAuditoriaDePlataforma());
 
         $sut->executar(true, 'cadastro');
         self::assertSame('1', $linha->getRevisaoOab()['ligada']);
