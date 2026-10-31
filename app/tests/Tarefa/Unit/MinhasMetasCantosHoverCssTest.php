@@ -48,7 +48,7 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
     /** @return iterable<string, array{string, string}> */
     public static function raios(): iterable
     {
-        yield 'KPI (dc 22/10 L64)' => ['.mm-kpi', '3px'];
+        yield 'KPI (dc 31/10 L83)' => ['.mm-kpi', '4px'];
         yield 'faixa das abas (dc L68)' => ['.mm-abas', '4px'];
         yield 'aba (dc L70)' => ['.mm-aba', '3px'];
         yield 'contagem da aba' => ['.mm-aba-badge', '3px'];
@@ -156,13 +156,13 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         self::assertMatchesRegularExpression('/border-bottom:\s*3px solid var\(--mm-faixa-atencao\)/', $this->regras('.mm-trilho > .mm-cartao.mm-trilho-atencao'));
     }
 
-    #[TestDox('Indicador do desenho de 22/10 (dc L64) sem halo, ícone nem faixa; número 28px, vermelho só com atrasadas')]
+    #[TestDox('Indicador do desenho de 31/10 (dc L83) com ícone e anel, sem halo, faixa nem estado ativo; número 42px, vermelho só com atrasadas')]
     public function testIndicadores(): void
     {
-        foreach (['.mm-kpi-halo', '.mm-kpi-icone', '.mm-kpi-faixa', '.mm-kpi.is-ativo'] as $saiu) {
+        foreach (['.mm-kpi-halo', '.mm-kpi-faixa', '.mm-kpi.is-ativo'] as $saiu) {
             self::assertStringNotContainsString($saiu, $this->css());
         }
-        self::assertMatchesRegularExpression('/font-size:\s*28px;/', $this->regras('.mm-kpi-valor'));
+        self::assertMatchesRegularExpression('/font-size:\s*42px;/', $this->regras('.mm-kpi-valor'));
         self::assertMatchesRegularExpression('/color:\s*var\(--mm-danger-text\)/', $this->regras('.mm-kpi-valor.is-alerta'));
     }
 
