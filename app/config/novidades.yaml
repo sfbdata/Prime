@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.28.0"
+  data: "2026-10-31"
+  itens:
+    - "Toda segunda-feira de manhã, o sistema confere suas pastas ativas e deixa um aviso no Registro de cada pasta quando aparece algo novo: meta vencida, prazo vencido ou pasta parada. Você não recebe o mesmo aviso de novo enquanto o problema continuar; se ele sumir e voltar, o aviso volta."
+    - "A página Novidades passa a contar, em linguagem simples, tudo o que mudou em cada versão, inclusive nas telas do Painel do Master."
 - versao: "2.27.0"
   data: "2026-10-31"
   itens:

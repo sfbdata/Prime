@@ -8,6 +8,18 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.28.0] - 2026-10-31
+
+### Adicionado
+
+- Controladoria: toda segunda-feira, às 7h30, o sistema analisa as pastas ativas de cada escritório e lança no Registro da pasta, como cartão "Controladoria", só o alerta novo (meta vencida, prazo vencido, pasta parada). O mesmo alerta não se repete enquanto continuar valendo; se sumir e voltar, é lançado de novo. Sem migration.
+- O rodapé do painel da Controladoria volta a citar a rotina de segunda-feira.
+- A tarefa aparece com nome legível na lista de tarefas agendadas do Master.
+
+### Corrigido
+
+- Página Novidades: textos "Sem efeito para o cliente" e semelhantes trocados por frases que dizem o que mudou; a versão 2.27.0 ganhou o texto completo. O check do registro agora exige "## Para o cliente" nos tipos novidade, alteracao e correcao e recusa frases de "sem efeito".
+
 ## [2.27.0] - 2026-10-31
 
 ### Adicionado
@@ -1336,7 +1348,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.27.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.28.0...HEAD
+[2.28.0]: https://github.com/sfbdata/Prime/compare/v2.27.0...v2.28.0
 [2.27.0]: https://github.com/sfbdata/Prime/compare/v2.26.0...v2.27.0
 [2.26.0]: https://github.com/sfbdata/Prime/compare/v2.25.0...v2.26.0
 [2.25.0]: https://github.com/sfbdata/Prime/compare/v2.24.0...v2.25.0
