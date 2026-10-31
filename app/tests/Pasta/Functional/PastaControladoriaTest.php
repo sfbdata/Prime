@@ -146,6 +146,18 @@ final class PastaControladoriaTest extends JusPrimeWebTestCase
         self::assertDoesNotMatchRegularExpression('/[—–]/u', (string) $c->filter('.js-ctl-fundo')->html());
     }
 
+    #[TestDox('o botão fica abaixo do menu lateral (z-index menor que o do menu e do fundo escuro)')]
+    public function testBotaoFicaAbaixoDoMenuLateral(): void
+    {
+        $raiz = dirname(__DIR__, 3) . '/public/css/';
+        preg_match('/\.ctl-btn \{[^}]*z-index:\s*(\d+)/', (string) file_get_contents($raiz . 'pasta-controladoria.css'), $botao);
+        preg_match('/\.sidebar-backdrop \{[^}]*z-index:\s*(\d+)/', (string) file_get_contents($raiz . 'app.css'), $fundo);
+
+        self::assertNotEmpty($botao);
+        self::assertNotEmpty($fundo);
+        self::assertLessThan((int) $fundo[1], (int) $botao[1]);
+    }
+
     /** @return array{alertas: list<array<string, string>>, urgentes: int} */
     private function alertas(Pasta $pasta): array
     {
