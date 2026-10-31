@@ -3,9 +3,8 @@
    Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html"), Aba 4, na
    revisão de 28/08/2026. Spec: docs/specs/pasta-show-financeiro-fatia2.md.
 
-   Arranjo: faixa de QUATRO cards iguais no topo (Contrato · Pró-bono · Total
-   contratado · Média), depois grade de duas colunas — Relatório financeiro ao centro,
-   Arquivos e Pagamentos no trilho.
+   Arranjo (dc 31.10): grade de duas colunas — Relatório financeiro ao centro; no trilho,
+   o cartão único de status (Contrato · Pró-bono · Valor da causa · Média), Contratos e Pagamentos.
 
    Os `id` desta tela são contrato com o JS do fim deste arquivo. Renomear
    qualquer um quebra o envio em silêncio:
@@ -53,122 +52,6 @@
 {% set emailCliente = pasta.clientePrincipal ? pasta.clientePrincipal.email|trim : '' %}
 {% set emailCliente = emailCliente matches '/^[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$/' ? emailCliente : '' %}
 {% set rotuloPastaEmail = pasta.nup ?? ('#' ~ pasta.id) %}
-
-{# ── Faixa de status: quatro cards de MESMO peso ──────────────────────────────
-   O desenho pede quatro blocos alinhados entre si — rótulo numa linha de 18px e
-   o conteúdo na mesma altura nos quatro. Nenhum ganha destaque sobre o outro.
-   Arranjo sob teste (PastaFinanceiroArranjoTelaTest). #}
-<div class="ps-fin-faixa">
-
-    {# Aviso de parcelas vencidas: primeira linha do cartão, vermelha, só aparece com atraso (dc 27.10).
-       O script de Pagamentos reescreve o texto e o `hidden` a cada resposta. #}
-    <div class="ps-fin-vencidas" id="financeiro-vencidas"{% if pagamentos.vencidasQuantidade == 0 %} hidden{% endif %}>
-        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-        <span>{{ (pagamentos.vencidasQuantidade == 1 ? 'pasta_financeiro.vencidas.uma' : 'pasta_financeiro.vencidas.varias')|trans({n: pagamentos.vencidasQuantidade, valor: pagamentos.vencidasFormatado}) }}</span>
-    </div>
-
-    {# Contrato — o SELO é o botão. O link "marcar como assinado" saiu na revisão
-       de 28/08: dois alvos para a mesma ação ensinam o usuário a procurar o
-       texto e ignorar o selo. #}
-    <div class="ps-fin-bloco">
-        <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo">{{ 'pasta_financeiro.contrato.rotulo'|trans }}</span>
-        </div>
-        <div class="ps-fin-corpo ps-fin-corpo--selo">
-            {% if not podeEscreverFin %}
-            {# Quem não escreve lê o estado: o mesmo selo, sem gesto (C7-FPN-01). #}
-            <span class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
-                  id="financeiro-situacao-selo"
-                  style="cursor: default;"
-                  title="{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado_titulo'|trans : 'pasta_financeiro.contrato.pendente_titulo'|trans }}">
-                <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
-                <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado'|trans : 'pasta_financeiro.contrato.pendente'|trans }}</span>
-            </span>
-            {% else %}
-            <button type="button"
-                    id="financeiro-situacao-btn"
-                    class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
-                    title="{{ contratoAssinado
-                        ? 'pasta_financeiro.contrato.assinado_dica'|trans
-                        : 'pasta_financeiro.contrato.pendente_dica'|trans }}"
-                    data-pasta-id="{{ pasta.id }}"
-                    data-situacao-atual="{{ pasta.situacaoContrato }}"
-                    data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
-                    data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
-                <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
-                <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado'|trans : 'pasta_financeiro.contrato.pendente'|trans }}</span>
-            </button>
-            {% endif %}
-        </div>
-    </div>
-
-    {# Pró-bono — selo idêntico ao do contrato, porque é o mesmo gesto. #}
-    <div class="ps-fin-bloco">
-        <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo">{{ 'pasta_financeiro.pro_bono.rotulo'|trans }}</span>
-        </div>
-        <div class="ps-fin-corpo ps-fin-corpo--selo">
-            {% if not podeEscreverFin %}
-            <span class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
-                  id="financeiro-probono-selo"
-                  style="cursor: default;">
-                <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
-                <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'pasta_financeiro.pro_bono.ativo'|trans : 'pasta_financeiro.pro_bono.inativo'|trans }}</span>
-            </span>
-            {% else %}
-            <button type="button"
-                    id="financeiro-probono-btn"
-                    class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
-                    title="{{ 'pasta_financeiro.pro_bono.alternar'|trans }}"
-                    aria-pressed="{{ pasta.proBono ? 'true' : 'false' }}"
-                    data-pasta-id="{{ pasta.id }}"
-                    data-ativo="{{ pasta.proBono ? '1' : '0' }}"
-                    data-csrf="{{ csrf_token('pasta_pro_bono_' ~ pasta.id) }}"
-                    data-url="{{ path('pasta_atualizar_pro_bono', {id: pasta.id}) }}">
-                <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
-                <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'pasta_financeiro.pro_bono.ativo'|trans : 'pasta_financeiro.pro_bono.inativo'|trans }}</span>
-            </button>
-            {% endif %}
-        </div>
-    </div>
-
-    {# Total contratado (decisão C8 do dono, 23/10/2026): o card "Valor da causa" do desenho 02
-       (dc L.1878-1892), com o nome aprovado. É SOMA, só leitura: os lançamentos não previstos do
-       card Pagamentos, pagos ou não (`PastaPagamentosOutput::contratadoFormatado`, a mesma base
-       do % de êxito e sucumbência). Sem lápis, sem campo, sem rota: o valor da causa da pasta
-       continua editável no modal do Processo. O script de Pagamentos atualiza o número a cada
-       resposta (`#financeiro-total-contratado`, `data-centavos` lido pelo modal). #}
-    <div class="ps-fin-bloco" id="financeiro-total-contratado-bloco">
-        <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo">{{ 'pasta_financeiro.total_contratado.rotulo'|trans }}</span>
-        </div>
-        <div class="ps-fin-corpo">
-            <div id="financeiro-total-contratado"
-                 class="ps-fin-numero ps-num"
-                 data-centavos="{{ pagamentos.contratadoCentavos }}">{{ pagamentos.contratadoFormatado }}</div>
-            <div class="ps-fin-sub" title="{{ 'pasta_financeiro.total_contratado.dica'|trans }}">{{ 'pasta_financeiro.total_contratado.nota'|trans }}</div>
-        </div>
-    </div>
-
-    {# Média por CPF — a média das pastas de UM cliente: o principal. Por isso a
-       sublinha nomeia esse cliente em vez de contar os vinculados, como mostrava
-       o protótipo: "4 clientes vinculados" ao lado de um número que é de um só
-       deles diz uma coisa por outra. Desvio do desenho decidido pelo dono
-       em 28/08. #}
-    <div class="ps-fin-bloco ps-fin-bloco--media">
-        <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo" id="financeiro-media-rotulo">{{ financeiro.mediaRotulo }}</span>
-        </div>
-        <div class="ps-fin-corpo">
-            <div id="financeiro-media-cpf" class="ps-fin-numero ps-num">{{ financeiro.mediaCpfFormatada }}</div>
-            <div class="ps-fin-sub" id="financeiro-media-nota"
-                 {% if financeiro.clienteNome %}title="{{ 'pasta_financeiro.media.dica'|trans }}"{% endif %}>
-                {{- financeiro.clienteNome ?? 'pasta_financeiro.media.sem_cliente'|trans -}}
-            </div>
-        </div>
-    </div>
-
-</div>
 
 <div class="ps-grade">
 
@@ -314,6 +197,122 @@
        lista os documentos da pasta sem filtrar categoria — arquivo financeiro
        aparece lá. #}
     <div class="ps-trilho">
+
+    {# ── Cartão único de status, no topo do trilho (dc 31.10, L1942): aviso de vencidas, Contrato,
+       Pró-bono, Valor da causa (Total contratado) e Média por CPF, como LINHAS de um só cartão.
+       Arranjo sob teste (PastaFinanceiroArranjoTelaTest). ─────────────────────────────── #}
+    <div class="ps-fin-faixa">
+
+        {# Aviso de parcelas vencidas: primeira linha do cartão, vermelha, só aparece com atraso (dc 27.10).
+           O script de Pagamentos reescreve o texto e o `hidden` a cada resposta. #}
+        <div class="ps-fin-vencidas" id="financeiro-vencidas"{% if pagamentos.vencidasQuantidade == 0 %} hidden{% endif %}>
+            <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+            <span>{{ (pagamentos.vencidasQuantidade == 1 ? 'pasta_financeiro.vencidas.uma' : 'pasta_financeiro.vencidas.varias')|trans({n: pagamentos.vencidasQuantidade, valor: pagamentos.vencidasFormatado}) }}</span>
+        </div>
+
+        {# Contrato — o SELO é o botão. O link "marcar como assinado" saiu na revisão
+           de 28/08: dois alvos para a mesma ação ensinam o usuário a procurar o
+           texto e ignorar o selo. #}
+        <div class="ps-fin-bloco">
+            <div class="ps-fin-rotulo-linha">
+                <span class="ps-fin-rotulo">{{ 'pasta_financeiro.contrato.rotulo'|trans }}</span>
+            </div>
+            <div class="ps-fin-corpo ps-fin-corpo--selo">
+                {% if not podeEscreverFin %}
+                {# Quem não escreve lê o estado: o mesmo selo, sem gesto (C7-FPN-01). #}
+                <span class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
+                      id="financeiro-situacao-selo"
+                      style="cursor: default;"
+                      title="{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado_titulo'|trans : 'pasta_financeiro.contrato.pendente_titulo'|trans }}">
+                    <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
+                    <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado'|trans : 'pasta_financeiro.contrato.pendente'|trans }}</span>
+                </span>
+                {% else %}
+                <button type="button"
+                        id="financeiro-situacao-btn"
+                        class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
+                        title="{{ contratoAssinado
+                            ? 'pasta_financeiro.contrato.assinado_dica'|trans
+                            : 'pasta_financeiro.contrato.pendente_dica'|trans }}"
+                        data-pasta-id="{{ pasta.id }}"
+                        data-situacao-atual="{{ pasta.situacaoContrato }}"
+                        data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
+                        data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
+                    <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
+                    <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado'|trans : 'pasta_financeiro.contrato.pendente'|trans }}</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Pró-bono — selo idêntico ao do contrato, porque é o mesmo gesto. #}
+        <div class="ps-fin-bloco">
+            <div class="ps-fin-rotulo-linha">
+                <span class="ps-fin-rotulo">{{ 'pasta_financeiro.pro_bono.rotulo'|trans }}</span>
+            </div>
+            <div class="ps-fin-corpo ps-fin-corpo--selo">
+                {% if not podeEscreverFin %}
+                <span class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
+                      id="financeiro-probono-selo"
+                      style="cursor: default;">
+                    <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
+                    <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'pasta_financeiro.pro_bono.ativo'|trans : 'pasta_financeiro.pro_bono.inativo'|trans }}</span>
+                </span>
+                {% else %}
+                <button type="button"
+                        id="financeiro-probono-btn"
+                        class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
+                        title="{{ 'pasta_financeiro.pro_bono.alternar'|trans }}"
+                        aria-pressed="{{ pasta.proBono ? 'true' : 'false' }}"
+                        data-pasta-id="{{ pasta.id }}"
+                        data-ativo="{{ pasta.proBono ? '1' : '0' }}"
+                        data-csrf="{{ csrf_token('pasta_pro_bono_' ~ pasta.id) }}"
+                        data-url="{{ path('pasta_atualizar_pro_bono', {id: pasta.id}) }}">
+                    <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
+                    <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'pasta_financeiro.pro_bono.ativo'|trans : 'pasta_financeiro.pro_bono.inativo'|trans }}</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Total contratado (decisão C8 do dono, 23/10/2026): o card "Valor da causa" do desenho 02
+           (dc L.1878-1892), com o nome aprovado. É SOMA, só leitura: os lançamentos não previstos do
+           card Pagamentos, pagos ou não (`PastaPagamentosOutput::contratadoFormatado`, a mesma base
+           do % de êxito e sucumbência). Sem lápis, sem campo, sem rota: o valor da causa da pasta
+           continua editável no modal do Processo. O script de Pagamentos atualiza o número a cada
+           resposta (`#financeiro-total-contratado`, `data-centavos` lido pelo modal). #}
+        <div class="ps-fin-bloco" id="financeiro-total-contratado-bloco">
+            <div class="ps-fin-rotulo-linha">
+                <span class="ps-fin-rotulo">{{ 'pasta_financeiro.total_contratado.rotulo'|trans }}</span>
+            </div>
+            <div class="ps-fin-corpo">
+                <div id="financeiro-total-contratado"
+                     class="ps-fin-numero ps-num"
+                     data-centavos="{{ pagamentos.contratadoCentavos }}">{{ pagamentos.contratadoFormatado }}</div>
+                <div class="ps-fin-sub" title="{{ 'pasta_financeiro.total_contratado.dica'|trans }}">{{ 'pasta_financeiro.total_contratado.nota'|trans }}</div>
+            </div>
+        </div>
+
+        {# Média por CPF — a média das pastas de UM cliente: o principal. Por isso a
+           sublinha nomeia esse cliente em vez de contar os vinculados, como mostrava
+           o protótipo: "4 clientes vinculados" ao lado de um número que é de um só
+           deles diz uma coisa por outra. Desvio do desenho decidido pelo dono
+           em 28/08. #}
+        <div class="ps-fin-bloco ps-fin-bloco--media">
+            <div class="ps-fin-rotulo-linha">
+                <span class="ps-fin-rotulo" id="financeiro-media-rotulo">{{ financeiro.mediaRotulo }}</span>
+            </div>
+            <div class="ps-fin-corpo">
+                <div id="financeiro-media-cpf" class="ps-fin-numero ps-num">{{ financeiro.mediaCpfFormatada }}</div>
+                <div class="ps-fin-sub" id="financeiro-media-nota"
+                     {% if financeiro.clienteNome %}title="{{ 'pasta_financeiro.media.dica'|trans }}"{% endif %}>
+                    {{- financeiro.clienteNome ?? 'pasta_financeiro.media.sem_cliente'|trans -}}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
 
         <section class="ps-card" data-trilho="arquivos">
             <div class="ps-card-cab">

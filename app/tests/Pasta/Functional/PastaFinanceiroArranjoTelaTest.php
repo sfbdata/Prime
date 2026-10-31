@@ -332,9 +332,25 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
         self::assertCount(1, $crawler->filter('.ps-fin-faixa > .ps-fin-vencidas[hidden]'), 'sem atraso a faixa vermelha fica escondida');
-        self::assertSame('Contratos', trim($crawler->filter('[data-trilho="arquivos"] > .ps-card-cab > h2')->text()));
+        self::assertSame('CONTRATOS', trim($crawler->filter('[data-trilho="arquivos"] > .ps-card-cab > h2')->text()));
         self::assertStringContainsString('Recibos, guias e outros', $crawler->filter('[data-trilho="arquivos"] > .ps-card-cab > .ps-fin-cab-sub')->text());
         self::assertStringContainsString('Cobrança e histórico de negociações', $crawler->filter('#financeiroRelatorio > .ps-card-cab > .ps-fin-cab-sub')->text());
+    }
+
+    #[TestDox('dc 31.10: o cartão de status é o primeiro filho do trilho, acima de Contratos, e o ícone do aviso é o do desenho')]
+    public function testCartaoDeStatusNoTopoDoTrilho(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertCount(1, $crawler->filter('#financeiro .ps-grade > .ps-trilho > .ps-fin-faixa:first-child'), 'o cartão de status abre o trilho');
+        self::assertCount(0, $crawler->filter('#financeiro .ps-grade > .ps-fin-faixa'), 'o cartão não fica mais acima da grade');
+        self::assertCount(1, $crawler->filter('.ps-fin-faixa > .ps-fin-vencidas > i.bi-exclamation-circle'));
+        self::assertCount(1, $crawler->filter('.ps-fin-faixa + [data-trilho="arquivos"]'), 'Contratos vem logo depois do cartão');
     }
 
     #[TestDox('Sem cliente vinculado a média mostra travessão e convida a vincular')]
