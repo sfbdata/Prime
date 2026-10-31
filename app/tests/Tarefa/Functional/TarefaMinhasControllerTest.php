@@ -414,8 +414,8 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $c->filter('.mm-barra-abas'), 'a faixa solta de abas saiu');
     }
 
-    #[TestDox('Indicadores do desenho de 31/10 (dc L83): anel, ícone, rótulo, traço, número e a descrição embaixo; alerta só com atrasadas; sem estado ativo')]
-    public function testIndicadores(): void
+    #[TestDox('Indicadores do desenho (dc L64): rótulo e descrição à esquerda, número à direita; sem ícone nem halo (decisão do dono de 22/10); alerta só com atrasadas; sem estado ativo')]
+    public function testIndicadoresSemIconeNemHalo(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
@@ -423,13 +423,9 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/tarefas/minhas', ['aba' => 'responsavel', 'prazo' => 'vencidas']);
         $kpis = $client->getCrawler()->filter('.mm-page > .mm-kpis > a.mm-kpi');
         self::assertCount(4, $kpis);
-        self::assertSame(4, $kpis->filter('a.mm-kpi > .mm-kpi-anel:first-child + .mm-kpi-icone > i.bi')->count());
-        self::assertSame(4, $kpis->filter('a.mm-kpi > .mm-kpi-icone + .mm-kpi-rotulo + .mm-kpi-traco + b.mm-kpi-valor + .mm-kpi-sub:last-child')->count());
-        self::assertSame(
-            ['bi-exclamation-octagon', 'bi-hourglass-split', 'bi-clipboard2-check', 'bi-calendar-x'],
-            $kpis->each(static fn ($k): string => trim(str_replace('bi ', '', (string) $k->filter('.mm-kpi-icone > i')->attr('class')))),
-        );
-        self::assertSame(0, $kpis->filter('.mm-kpi-halo, .mm-kpi-faixa')->count());
+        self::assertSame(4, $kpis->filter('a.mm-kpi > .mm-kpi-texto > .mm-kpi-rotulo + .mm-kpi-sub')->count());
+        self::assertSame(4, $kpis->filter('a.mm-kpi > .mm-kpi-texto + b.mm-kpi-valor:last-child')->count());
+        self::assertSame(0, $kpis->filter('i, .mm-kpi-icone, .mm-kpi-halo, .mm-kpi-faixa')->count(), 'o cartão não renderiza o ícone nem o halo');
         self::assertSame(
             ['ATRASADAS', 'VENCEM EM 7 DIAS', 'AGUARDANDO SUA REVISÃO', 'SEM PRAZO'],
             $kpis->each(static fn ($k): string => mb_strtoupper(trim($k->filter('.mm-kpi-rotulo')->text()))),
