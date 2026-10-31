@@ -7,4 +7,4 @@ tipo: novidade
 - A tarefa aparece com nome legível na lista de tarefas agendadas do Master.
 
 ## Para o cliente
-Toda segunda-feira de manhã, o sistema confere suas pastas ativas e deixa um aviso no Registro de cada pasta quando aparece algo novo: meta vencida, prazo vencido ou pasta parada. Você não recebe o mesmo aviso de novo enquanto o problema continuar; se ele sumir e voltar, o aviso volta.
+- Toda segunda-feira de manhã, o sistema confere suas pastas ativas e deixa um aviso no Registro de cada pasta quando aparece algo novo: meta vencida, prazo vencido ou pasta parada. Você não recebe o mesmo aviso de novo enquanto o problema continuar; se ele sumir e voltar, o aviso volta.
