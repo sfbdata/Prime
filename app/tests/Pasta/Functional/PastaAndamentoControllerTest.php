@@ -246,6 +246,104 @@ final class PastaAndamentoControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($c->filter('.js-and-fase')->first()->attr('disabled'));
     }
 
+    #[TestDox('etapa entre fases: nomear, renomear e remover; a tela mostra o rótulo e o registro conta a mudança')]
+    public function testNomearEtapaEntreFases(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertCount(9, $c->filter('.ps-and-rol > .ps-and-fase > .ps-and-gap-mais'), 'uma etapa vazia entre cada par de fases');
+        self::assertCount(0, $c->filter('.ps-and-gap-txt'));
+
+        $this->nomearEtapa($pasta, 0, 'Triagem');
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->resposta()['mudou']);
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertSame('Triagem', trim($c->filter('.ps-and-rol > .ps-and-fase > .ps-and-gap-txt')->text()));
+        self::assertSame('Triagem', $c->filter('.ps-and-rol > .ps-and-fase > .ps-and-gap > .js-and-gap')->attr('data-nome'));
+        self::assertStringContainsString('Triagem', $this->ultimoCartao($pasta, 'fase'));
+
+        $this->nomearEtapa($pasta, 0, 'Triagem');
+        self::assertFalse($this->resposta()['mudou'], 'mesmo texto não grava de novo');
+
+        $this->nomearEtapa($pasta, 0, 'Entrevista');
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertSame('Entrevista', trim($c->filter('.ps-and-gap-txt')->text()));
+
+        $this->nomearEtapa($pasta, 0, '');
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertCount(0, $c->filter('.ps-and-gap-txt'));
+        self::assertCount(9, $c->filter('.ps-and-gap-mais'));
+    }
+
+    #[TestDox('etapa: texto longo, origem inválida, outro escritório, leitor e sem token são recusados')]
+    public function testNomearEtapaRecusas(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        [, $outro] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $dele = $this->criarPasta($outro);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->nomearEtapa($pasta, 0, 'Treze letras!');
+        self::assertResponseStatusCodeSame(422);
+        $this->nomearEtapa($pasta, 0, 'a<b');
+        self::assertResponseStatusCodeSame(422);
+        $this->nomearEtapa($pasta, 9, 'Ok');
+        self::assertResponseStatusCodeSame(422);
+        $this->nomearEtapa($dele, 0, 'Ok');
+        self::assertResponseStatusCodeSame(404);
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/andamento/etapa', ['_token' => 'errado', 'fase' => '0', 'texto' => 'Ok']);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_rotulo_etapa'));
+
+        $tenant = $this->em()->find(Tenant::class, $tenant->getId());   // a requisição soltou a entidade
+        $pasta = $this->em()->find(Pasta::class, $pasta->getId());
+        $leitor = $this->criarLeitor($tenant);
+        $this->logarComTenant($this->client, $leitor, $tenant);
+        $this->nomearEtapa($pasta, 0, 'Ok');
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('etapa nomeada é da via da pasta: judicial e administrativa têm rótulos separados')]
+    public function testEtapaPorVia(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->nomearEtapa($pasta, 0, 'Judicial');
+
+        $pasta->setAdministrativa(true);
+        $this->em()->flush();
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertCount(0, $c->filter('.ps-and-gap-txt'));
+        $this->nomearEtapa($pasta, 0, 'Admin');
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertSame('Admin', trim($c->filter('.ps-and-gap-txt')->text()));
+    }
+
+    #[TestDox('faixa histórico: sem ocorrência não há faixa e a trilha não tem travessão')]
+    public function testFaixaHistoricoVazia(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertCount(0, $c->filter('.ps-and > .ps-and-hist'));
+        self::assertDoesNotMatchRegularExpression('/[—–]/u', (string) $c->filter('.ps-and')->html());
+    }
+
+    private function nomearEtapa(Pasta $pasta, int $origem, string $texto): void
+    {
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/andamento/etapa', [
+            '_token' => 'TOKEN_' . PastaAndamentoController::idDoToken((int) $pasta->getId()),
+            'fase' => (string) $origem, 'texto' => $texto,
+        ]);
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private function em(): EntityManagerInterface

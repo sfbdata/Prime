@@ -9,6 +9,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\MudarFaseDaPastaUseCase;
+use App\Pasta\UseCase\NomearEtapaDaPastaUseCase;
 use App\Service\Tenant\TenantContext;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -24,6 +25,7 @@ final class PastaAndamentoController extends AbstractController
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly MudarFaseDaPastaUseCase $mudarFase,
+        private readonly NomearEtapaDaPastaUseCase $nomearEtapa,
     ) {
     }
 
@@ -67,5 +69,33 @@ final class PastaAndamentoController extends AbstractController
         }
 
         return $this->json(['ok' => true, 'mudou' => $texto !== null, 'texto' => $texto]);
+    }
+
+    /** Nome da etapa entre duas fases (desenho 02 de 31/10/2026): texto vazio remove. */
+    #[Route('/{id}/andamento/etapa', name: 'pasta_andamento_etapa', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function nomearEtapa(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+        if (!$this->isCsrfTokenValid(self::idDoToken((int) $pasta->getId()), (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $texto = $this->nomearEtapa->executar($pasta, $user, $tenant, $request->request->getInt('fase', -1), (string) $request->request->get('texto', ''));
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaEditarPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (\DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['ok' => true, 'mudou' => $texto !== null]);
     }
 }
