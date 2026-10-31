@@ -58,18 +58,37 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 - Permissão: `RESOURCE_PASTA` view. Pasta trancada pelo cadeado: não mostra (o alerta entregaria dado).
 - Testes: unit por regra; functional do endpoint do painel (tenant, cadeado, sem alerta); arranjo por filho direto.
 
-### B. Cadastro com pendência do réu + campos da Controladoria (1 migration, risco MÉDIO)
+### B. Cadastro com pendência do réu + campos da Controladoria (1 migration `Version20261031120000`, risco MÉDIO)
 
-- `PastaReu` ganha `qualificacao`, `email`, `endereco` (todos opcionais). CPF já existe (`documento`), validar com o
-  algoritmo de CPF (protótipo `valCPF`), CNPJ para réu pessoa jurídica.
+**Estado: implementada.** Decisões do Samuel (31/10): P3 limites certos (pasta parada 30/60/90; prescrição avisa a 90
+dias, alta a 30 ou vencida); P4 contrato, unidade e titular do extrato **vêm da Cobrança quando a pasta tem carteira, e
+a pessoa preenche ou corrige à mão no Cadastro da pasta**; P5 (pendência só avisa ou impede) segue aberta e esta fatia
+só **avisa**.
+
+- `PastaReu` ganha `qualificacao`, `email`, `endereco` (opcionais). CPF/CNPJ já existia (`documento`), validado pelo
+  dígito (`DigitoVerificador`). O Cadastro da pasta edita o **réu principal** (primeiro da ordem; sem nenhum, nasce
+  um). Os demais réus continuam na aba Réu.
 - `Pasta` ganha `contrato`, `unidade`, `titular_extrato` (texto) e `prescricao_em` (data), todos opcionais.
-- **Pendência é derivada, não gravada**: "cadastro incompleto" = réu sem CPF ou sem qualificação. Sem flag para
-  desatualizar. Salvar nunca é bloqueado por falta de e-mail/endereço (regra do protótipo).
-- Liga as regras de A: mesmo contrato/unidade **dentro do mesmo escritório** (comparação sem acento, sem caixa, com
-  espaços colapsados), titular do extrato ≠ réu (mesma normalização), prescrição em ≤ 90 dias (alta se ≤ 30 ou vencida).
-- Auditoria: `Pasta` e `PastaReu` já são `Auditavel`; a edição entra no `audit_log` e no Registro como as demais.
-- Não mistura com a conferência de cadastro do Cliente (`cliente-inteligencia-cadastral.md`): são coisas diferentes
-  (réu da pasta, não cliente).
+- **Da Cobrança** (`DadosDaCobrancaNaPasta` → `CasoCobrancaRepository::dadosParaControladoriaDaPasta`): unidade =
+  `ObjetoCobranca.identificacao`; titular = `CasoCobranca.pessoaCobradaAtual.nome`; com mais de um caso (anomalia), o de
+  menor id, como `unidadeCobradaDaPasta`. **Contrato não tem origem na Cobrança**: não existe campo de contrato lá
+  (`referencia_externa` está preenchida em 1 de 511 objetos em produção e é texto livre); fica só manual. Só 6 de 1.099
+  pastas vieram de uma judicialização, então a sugestão aparece em poucas pastas.
+- **Regra do valor:** vale o que a pessoa digitou; se ela não digitou, vale o da Cobrança. Salvar um valor igual ao da
+  Cobrança **não grava** na pasta (a sugestão acompanha a Cobrança se ela mudar); só correção de fato é gravada.
+  A tela avisa "Sugerido pela Cobrança" enquanto o valor vem de lá.
+- **Pendência é derivada, não gravada**: "cadastro incompleto" = réu sem CPF ou sem qualificação. Salvar nunca é
+  bloqueado por falta de e-mail/endereço. Sem nome do réu, não se grava CPF, qualificação, e-mail nem endereço (422).
+- **Alertas ligados** (`AlertasDoCadastroDaPasta`): mesmo contrato (alta) e mesma unidade (média) em outra pasta do
+  **mesmo escritório**, fora da lixeira e **sem listar pasta oculta pelo cadeado** (o alerta não entrega o número de
+  pasta que a pessoa não vê); titular do extrato diferente do réu (alta; sem acento, caixa nem espaços repetidos);
+  prescrição (alta se ≤ 30 dias ou vencida, média até 90); cadastro do réu incompleto (baixa, como no desenho: aparece
+  em toda pasta sem réu completo, e não conta no contador do botão). Limites em constantes de `AlertasDaPasta`.
+  A comparação de unidade com outras pastas usa só a unidade **digitada** nelas; a que vem só da Cobrança não entra.
+- Tela: aba "Cadastro da pasta" no painel da Controladoria, nos valores do desenho; leitor vê e não edita.
+- Auditoria: `Pasta` e `PastaReu` já são `Auditavel` (a edição entra no `audit_log`). Sem tabela nova, então nada novo na
+  purga do escritório (`ORDEM_DELECAO` já cobre as duas tabelas).
+- Não mistura com a conferência de cadastro do Cliente (`cliente-inteligencia-cadastral.md`): é o réu da pasta.
 
 ### C. Código do documento e deduplicação segura (1 migration, ALTO)
 
@@ -158,10 +177,8 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 
 1. ~~Espaço~~ **Respondida (31/10): conta uma vez por pasta, como hoje.**
 2. ~~Exclusão~~ **Respondida (31/10): uma pasta por vez; o arquivo só some da última; sem "apagar de todas".**
-3. **Alertas**: pasta parada usa os prazos que o relatório já usa (30, 60 e 90 dias). Prescrição avisa a 90 dias
-   (alta a 30 dias ou vencida). Esses números estão certos?
-4. **Contrato, unidade e titular do extrato**: hoje a pasta não tem esses campos. Quem preenche é a pessoa, à mão, no
-   "Cadastro da pasta", ou isso vem do extrato da cobrança?
+3. ~~Alertas~~ **Respondida (31/10): os números estão certos (30/60/90; prescrição 90/30).**
+4. ~~Contrato, unidade e titular~~ **Respondida (31/10): vêm da Cobrança quando a pasta tem carteira; a pessoa preenche ou corrige à mão.**
 5. **Cadastro com pendência**: réu sem CPF ou sem qualificação aparece como "pendente" e só avisa. Deve também
    **impedir** algo (por exemplo, gerar a petição), ou só avisar?
 
@@ -169,4 +186,4 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 
 A (sem migration) → B (migration) → C (migration, depois de B mergeado) → D. Uma migration por vez entre PRs abertos.
 Cada fatia: spec curta atualizada aqui, testes antes do resto, PR pequeno, `mudancas/`, "o que olhar na tela" para o Samuel.
-Pergunta 4 trava B; as perguntas 1 e 2 estão respondidas; 5 trava só a parte "impedir" de B.
+As perguntas 1 a 4 estão respondidas. A 5 trava só a parte "impedir" da B (hoje só avisa).
