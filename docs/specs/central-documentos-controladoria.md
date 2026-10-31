@@ -94,7 +94,10 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 - **Regravação no mesmo lugar** (compressão tardia, edição de peça): hoje regrava a mesma chave. Com mais de um vínculo
   isso mudaria o documento de outra pasta. Regra: arquivo com mais de 1 referência **não é regravado no lugar**; a
   edição gera arquivo novo para aquele documento (copia ao gravar).
-- **Cota:** hoje é lógica por linha, então compartilhar não economiza. Decisão do dono (pergunta 1).
+- **Cota (decidido pelo Samuel, 31/10):** o espaço conta **uma vez por pasta**, como hoje, mesmo com o arquivo guardado
+  uma vez. O consumo continua somando `tamanho_bytes` por linha; nada muda em `ConsumoDeArmazenamentoRepository`. Por
+  consequência, a frase "espaço economizado" do protótipo **não aparece para o cliente** (seria falsa). A economia é
+  só de disco do sistema.
 - **Lixeira e LGPD:** excluir um documento tira só aquele vínculo. A lixeira (30 dias) segura a linha, logo o arquivo.
   Restaurar nunca encontra arquivo purgado, porque a linha da lixeira conta como referência. **Não há hoje fluxo
   "exclusão LGPD apaga na hora" na Pasta**; se o dono exigir, apagar na hora vale para o vínculo e para o arquivo
@@ -132,8 +135,7 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 
 ## Perguntas de negócio para o Samuel (linguagem simples)
 
-1. **Espaço**: quando o mesmo arquivo está em várias pastas do escritório, o escritório deve pagar espaço **uma vez**
-   (economiza) ou **uma vez por pasta** (como é hoje)? O protótipo mostra "espaço economizado", mas cobra pelo total.
+1. ~~Espaço~~ **Respondida (31/10): conta uma vez por pasta, como hoje.**
 2. **Exclusão**: se alguém apaga o documento de uma pasta e ele ainda está em outra, ele some só daquela pasta e o
    arquivo continua na outra. Para pedido de exclusão por privacidade (LGPD), tudo bem o arquivo só sumir de vez
    quando a última pasta que o usa for apagada?
@@ -148,4 +150,4 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 
 A (sem migration) → B (migration) → C (migration, depois de B mergeado) → D. Uma migration por vez entre PRs abertos.
 Cada fatia: spec curta atualizada aqui, testes antes do resto, PR pequeno, `mudancas/`, "o que olhar na tela" para o Samuel.
-Pergunta 4 trava B; perguntas 1 e 2 travam C; 5 trava só a parte "impedir" de B.
+Pergunta 4 trava B; a pergunta 2 trava C; 5 trava só a parte "impedir" de B.
