@@ -8,6 +8,7 @@ pasta_financeiro:
         pendente: Pendente
         assinado_titulo: Contrato assinado
         pendente_titulo: Contrato pendente
+        sem_arquivo_titulo: 'Nenhum contrato anexado: fica pendente até anexar o contrato em CONTRATOS.'
         assinado_dica: Contrato assinado. Clique para reabrir como pendente
         pendente_dica: Contrato pendente. Clique para marcar como assinado
     pro_bono:
@@ -123,6 +124,7 @@ pasta_financeiro:
         contrato_pendente: Pendente
         contrato_assinado_dica: Contrato assinado. Clique para reabrir como pendente
         contrato_pendente_dica: Contrato pendente. Clique para marcar como assinado
+        contrato_sem_arquivo_titulo: 'Nenhum contrato anexado: fica pendente até anexar o contrato em CONTRATOS.'
         pro_bono_ativo: Pró-bono ativo
         pro_bono_inativo: Não é pró-bono
         erro_situacao: Erro ao alterar situação.

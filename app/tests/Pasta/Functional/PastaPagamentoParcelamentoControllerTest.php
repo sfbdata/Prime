@@ -356,6 +356,50 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('juros', $entrada->text());
     }
 
+    #[TestDox('recorrente: valor mensal x meses, sem entrada nem juros, "Mensalidade k/n", mês a mês')]
+    public function testRecorrenteGravaMensalidades(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['tipo' => 'recorrente', 'total' => '1.500,00', 'parcelas' => '3', 'entrada' => '500,00', 'juros' => '1', 'taxa' => '2']);
+
+        self::assertResponseStatusCodeSame(201);
+        $linhas = $this->linhasGravadas($pastaId);
+        self::assertSame(
+            [
+                ['Mensalidade 1/3 · honorários recorrentes', '1500.00', '2026-11-06'],
+                ['Mensalidade 2/3 · honorários recorrentes', '1500.00', '2026-12-06'],
+                ['Mensalidade 3/3 · honorários recorrentes', '1500.00', '2027-01-06'],
+            ],
+            array_map(static fn (array $l): array => [$l['descricao'], $l['valor'], $l['vencimento']], $linhas),
+        );
+        self::assertSame(
+            ['recorrente', 'recorrente', 'recorrente'],
+            $this->em()->getConnection()->fetchFirstColumn('SELECT tipo FROM pasta_pagamento WHERE pasta_id = :p ORDER BY id', ['p' => $pastaId]),
+        );
+        self::assertSame(
+            [null, null, null],
+            $this->em()->getConnection()->fetchFirstColumn('SELECT juros_mensal FROM pasta_pagamento WHERE pasta_id = :p ORDER BY id', ['p' => $pastaId]),
+        );
+    }
+
+    #[TestDox('recorrente: acima de 60 meses é recusado e nada é gravado')]
+    public function testRecorrenteAcimaDe60MesesRecusado(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->parcelar($client, $pastaId, ['tipo' => 'recorrente', 'total' => '1.500,00', 'parcelas' => '61']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame([], $this->linhasGravadas($pastaId));
+    }
+
     #[TestDox('FPN-009: sem juros, nenhuma linha grava taxa nem mostra sufixo')]
     public function testSemJurosNaoRegistraTaxa(): void
     {

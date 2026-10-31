@@ -223,7 +223,7 @@
                 <span class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
                       id="financeiro-situacao-selo"
                       style="cursor: default;"
-                      title="{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado_titulo'|trans : 'pasta_financeiro.contrato.pendente_titulo'|trans }}">
+                      title="{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado_titulo'|trans : (documentosContrato is empty ? 'pasta_financeiro.contrato.sem_arquivo_titulo'|trans : 'pasta_financeiro.contrato.pendente_titulo'|trans) }}">
                     <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
                     <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado'|trans : 'pasta_financeiro.contrato.pendente'|trans }}</span>
                 </span>
@@ -233,7 +233,7 @@
                         class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
                         title="{{ contratoAssinado
                             ? 'pasta_financeiro.contrato.assinado_dica'|trans
-                            : 'pasta_financeiro.contrato.pendente_dica'|trans }}"
+                            : (documentosContrato is empty ? 'pasta_financeiro.contrato.sem_arquivo_titulo'|trans : 'pasta_financeiro.contrato.pendente_dica'|trans) }}"
                         data-pasta-id="{{ pasta.id }}"
                         data-situacao-atual="{{ pasta.situacaoContrato }}"
                         data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
@@ -328,7 +328,8 @@
                     <i class="bi bi-plus-lg"></i> {{ 'pasta_financeiro.arquivos.adicionar'|trans }}
                     <input type="file"
                            id="financeiro-upload-input"
-                           accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                           accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.p7s,.p7m"
+                           multiple
                            hidden
                            data-pasta-id="{{ pasta.id }}"
                            data-csrf="{{ csrf_token('pasta_financeiro_upload_' ~ pasta.id) }}"
@@ -646,6 +647,21 @@
     // ── Situação do Contrato ──────────────────────────────────────────────────
     // O SELO é o botão: o clique nele alterna Pendente ⇄ Assinado.
     const btnSituacao = document.getElementById('financeiro-situacao-btn');
+
+    /** Repinta o selo: Assinado (REGULAR) ou Pendente, com a dica certa para quem ainda não anexou o contrato. */
+    function pintarSeloDoContrato(situacao) {
+        if (!btnSituacao) { return; }
+        const assinado = situacao === 'REGULAR';
+        const semArquivo = !document.querySelector('#financeiro-docs-lista .ps-fin-doc');
+        btnSituacao.dataset.situacaoAtual = situacao;
+        btnSituacao.className = 'ps-fin-selo ps-fin-selo--' + (assinado ? 'ok' : 'perigo');
+        btnSituacao.title = assinado
+            ? BJ_T.t('pasta_financeiro.js.contrato_assinado_dica')
+            : BJ_T.t(semArquivo ? 'pasta_financeiro.js.contrato_sem_arquivo_titulo' : 'pasta_financeiro.js.contrato_pendente_dica');
+        btnSituacao.querySelector('i').className = 'bi ' + (assinado ? 'bi-patch-check-fill' : 'bi-hourglass-split');
+        btnSituacao.querySelector('.ps-fin-selo-texto').textContent = assinado ? BJ_T.t('pasta_financeiro.js.contrato_assinado') : BJ_T.t('pasta_financeiro.js.contrato_pendente');
+    }
+
     if (btnSituacao) {
         btnSituacao.addEventListener('click', async function () {
             const atual = this.dataset.situacaoAtual;
@@ -670,14 +686,7 @@
                 const data = await resp.json();
                 if (!resp.ok) { (window.avisarErroPs || window.alert)(data.erro ?? BJ_T.t('pasta_financeiro.js.erro_situacao')); return; }
 
-                const assinado = data.situacao === 'REGULAR';
-                this.dataset.situacaoAtual = data.situacao;
-                this.className = 'ps-fin-selo ps-fin-selo--' + (assinado ? 'ok' : 'perigo');
-                this.title = assinado
-                    ? BJ_T.t('pasta_financeiro.js.contrato_assinado_dica')
-                    : BJ_T.t('pasta_financeiro.js.contrato_pendente_dica');
-                this.querySelector('i').className = 'bi ' + (assinado ? 'bi-patch-check-fill' : 'bi-hourglass-split');
-                this.querySelector('.ps-fin-selo-texto').textContent = assinado ? BJ_T.t('pasta_financeiro.js.contrato_assinado') : BJ_T.t('pasta_financeiro.js.contrato_pendente');
+                pintarSeloDoContrato(data.situacao);
             } catch (_) {
                 (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede_tente'));
             }
@@ -941,21 +950,18 @@
         return div;
     }
 
-    if (uploadInput) {
-        uploadInput.addEventListener('change', async function () {
-            const file = this.files[0];
-            if (!file) return;
+    /** Envia UM arquivo da caixa CONTRATOS; o `change` chama um por vez, em fila. */
+    async function enviarArquivoDeContrato(input, file) {
+        {
+            const url      = input.dataset.url;
+            const csrf     = input.dataset.csrf;
+            const baseRen  = input.dataset.baseUrlRenomear;
+            const baseExc  = input.dataset.baseUrlExcluir;
+            const baseVis  = input.dataset.baseUrlVisualizar;
+            const baseDl   = input.dataset.baseUrlDownload;
+            const baseMarc = input.dataset.baseUrlMarcarAssinado;
+            const baseDesm = input.dataset.baseUrlDesmarcarAssinado;
 
-            const url      = this.dataset.url;
-            const csrf     = this.dataset.csrf;
-            const baseRen  = this.dataset.baseUrlRenomear;
-            const baseExc  = this.dataset.baseUrlExcluir;
-            const baseVis  = this.dataset.baseUrlVisualizar;
-            const baseDl   = this.dataset.baseUrlDownload;
-            const baseMarc = this.dataset.baseUrlMarcarAssinado;
-            const baseDesm = this.dataset.baseUrlDesmarcarAssinado;
-
-            uploadErro.classList.add('d-none');
             uploadSpinner.classList.remove('d-none');
 
             const fd = new FormData();
@@ -972,7 +978,7 @@
                 const data = await resp.json();
 
                 if (!resp.ok) {
-                    uploadErro.textContent = data.erro ?? BJ_T.t('pasta_financeiro.js.erro_enviar_arquivo');
+                    uploadErro.textContent = file.name + ': ' + (data.erro ?? BJ_T.t('pasta_financeiro.js.erro_enviar_arquivo'));
                     uploadErro.classList.remove('d-none');
                     return;
                 }
@@ -1003,12 +1009,24 @@
                     mostrarExcedente();
                 }
                 atualizarContagemDocs(+1);
+                // Contrato assinado digitalmente: o servidor já marcou; o selo acompanha (desenho 31.10).
+                if (data.situacaoContrato) { pintarSeloDoContrato(data.situacaoContrato); }
             } catch (_) {
                 uploadErro.textContent = BJ_T.t('pasta_financeiro.js.erro_rede_tente');
                 uploadErro.classList.remove('d-none');
             } finally {
                 uploadSpinner.classList.add('d-none');
-                this.value = '';
+            }
+        }
+    }
+
+    if (uploadInput) {
+        uploadInput.addEventListener('change', async function () {
+            const arquivos = Array.from(this.files || []);
+            this.value = '';
+            uploadErro.classList.add('d-none');
+            for (const arquivo of arquivos) {
+                await enviarArquivoDeContrato(this, arquivo);
             }
         });
     }

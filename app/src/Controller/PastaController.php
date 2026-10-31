@@ -70,6 +70,7 @@ use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
+use App\Pasta\UseCase\MarcarContratoAssinadoPeloArquivoUseCase;
 use App\Pasta\UseCase\MontarPainelDoPushUseCase;
 use App\Pasta\UseCase\MontarAvisosDoPushUseCase;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
@@ -135,6 +136,7 @@ use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Pasta\Service\MencoesDoRegistro;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -1811,6 +1813,45 @@ class PastaController extends AbstractController
         'image/png'                                                                          => 10 * 1024 * 1024,
     ];
 
+    /** Resposta 422 quando o arquivo de CONTRATOS não pode subir (ausente, inválido, tipo ou tamanho); null se está tudo certo. */
+    private function recusaDoArquivoDeContrato(?UploadedFile $file): ?JsonResponse
+    {
+        if ($file === null) {
+            return $this->json(['erro' => 'Nenhum arquivo enviado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if (!$file->isValid()) {
+            return $this->json(['erro' => 'Arquivo inválido ou excede o limite de upload do servidor (máx. 15 MB).'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $limite = self::limiteDoContrato($file->getMimeType() ?? '', $file->getClientOriginalName());
+        if ($limite === null) {
+            return $this->json(['erro' => 'Tipo de arquivo não permitido. Use PDF, DOCX, imagem JPEG/PNG ou assinatura .p7s/.p7m.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $tamanho = $file->getSize();
+        if ($tamanho === false || $tamanho > $limite) {
+            return $this->json(['erro' => 'Arquivo excede o limite de 10 MB.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return null;
+    }
+
+    /**
+     * Limite de tamanho do arquivo de CONTRATOS, ou null se o tipo não é aceito. Além dos tipos da lista, aceita a
+     * assinatura digital (.p7s/.p7m): MIME PKCS#7 e, só para essas duas extensões, application/octet-stream (como o
+     * servidor costuma detectar o .p7s). Uma extensão qualquer com octet-stream continua recusada.
+     */
+    private static function limiteDoContrato(string $mimeType, string $nomeOriginal): ?int
+    {
+        if (array_key_exists($mimeType, self::MIME_LIMITS_CONTRATO)) {
+            return self::MIME_LIMITS_CONTRATO[$mimeType];
+        }
+        $extensao = strtolower(pathinfo($nomeOriginal, PATHINFO_EXTENSION));
+        if (!in_array($extensao, ['p7s', 'p7m'], true)) {
+            return null;
+        }
+
+        return in_array($mimeType, ['application/pkcs7-signature', 'application/pkcs7-mime', 'application/x-pkcs7-signature', 'application/x-pkcs7-mime', 'application/octet-stream'], true) ? 10 * 1024 * 1024 : null;
+    }
+
     #[Route('/documento/{id}/visualizar', name: 'pasta_documento_view', methods: ['GET'])]
     public function viewDocumento(PastaDocumento $doc): Response
     {
@@ -1996,7 +2037,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Upload de documento de contrato ──────────────────────────
 
     #[Route('/{id}/financeiro/upload', name: 'pasta_financeiro_upload', methods: ['POST'])]
-    public function financeiroUpload(Pasta $pasta, Request $request, DetectorDeAssinaturaDigital $detectorDeAssinatura): JsonResponse
+    public function financeiroUpload(Pasta $pasta, Request $request, DetectorDeAssinaturaDigital $detectorDeAssinatura, MarcarContratoAssinadoPeloArquivoUseCase $marcarContratoAssinado): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2012,23 +2053,11 @@ class PastaController extends AbstractController
         }
 
         $file = $request->files->get('arquivo');
-        if ($file === null) {
-            return $this->json(['erro' => 'Nenhum arquivo enviado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        $recusa = $this->recusaDoArquivoDeContrato($file);
+        if ($recusa !== null) {
+            return $recusa;
         }
-
-        if (!$file->isValid()) {
-            return $this->json(['erro' => 'Arquivo inválido ou excede o limite de upload do servidor (máx. 15 MB).'], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
         $mimeType = $file->getMimeType() ?? '';
-        if (!array_key_exists($mimeType, self::MIME_LIMITS_CONTRATO)) {
-            return $this->json(['erro' => 'Tipo de arquivo não permitido. Use PDF, DOCX ou imagem JPEG/PNG.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        $tamanho = $file->getSize();
-        if ($tamanho === false || $tamanho > self::MIME_LIMITS_CONTRATO[$mimeType]) {
-            return $this->json(['erro' => 'Arquivo excede o limite de 10 MB.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
 
         $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
 
@@ -2087,6 +2116,7 @@ class PastaController extends AbstractController
             'csrfExcluir'  => $this->csrfTokenManager->getToken('pasta_financeiro_excluir_' . $doc->getId())->getValue(),
             'csrfAssinatura' => $this->csrfTokenManager->getToken('pasta_financeiro_assinatura_' . $doc->getId())->getValue(),
             'assinatura'     => $doc->getAssinaturaOrigem()?->value, // null = sem o selo "Assinado"
+            'situacaoContrato' => $marcarContratoAssinado->executar($pasta, $doc, $currentUser, $tenant), // assinado e "contrato" no nome: marca o selo
             'compressao'   => $compressao !== null ? [
                 'comprimido'      => $compressao->comprimido,
                 'tamanhoOriginal' => $compressao->tamanhoOriginal,
