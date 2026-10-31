@@ -1,12 +1,13 @@
 {# Andamento da pasta em fases, sob o nome (desenho 1.2.3, dc L.1298-1320, E12b). Cada bolinha: cor do estado,
    data em que a fase foi alcançada, dias entre as fases e a contagem de registros feitos nela. Quem pode editar a
    pasta clica para avançar, voltar, finalizar ou reativar (pasta-andamento.js pergunta com os textos do desenho).
-   Contexto: `pasta`, `andamento` (AndamentoDaPastaOutput). #}
+   Contexto: `pasta`, `andamento` (AndamentoDaPastaOutput), `historicoDaTrilha` (HistoricoDaTrilhaDaPasta::montar). #}
 {% if andamento %}
 {% set podeMudarFase = (podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit')) and not pasta.estaExcluida %}
 {% set ultima = andamento.fases|length - 1 %}
 <div class="ps-and bjLinhaT" data-screen-label="Andamento da pasta"
      data-url="{{ path('pasta_andamento_mudar', {id: pasta.id}) }}"
+     data-url-etapa="{{ path('pasta_andamento_etapa', {id: pasta.id}) }}"
      data-csrf="{{ csrf_token('pasta_andamento_' ~ pasta.id) }}"
      data-atual="{{ andamento.atual }}" data-ultima="{{ ultima }}" data-pasta="{{ pasta.id }}"
      data-pode="{{ podeMudarFase ? '1' : '0' }}"
@@ -19,6 +20,17 @@
                 <span class="ps-and-linha ps-and-linha--e{{ k == 0 ? ' is-nada' : (k <= andamento.atual ? ' is-feita' : '') }}"></span>
                 {% if f.intervalo %}<span class="ps-and-int"{% if f.intervaloDica %} title="{{ f.intervaloDica }}"{% endif %}>{{ f.intervalo }}</span>{% endif %}
                 <span class="ps-and-linha ps-and-linha--d{{ k == ultima ? ' is-nada' : (k < andamento.atual ? ' is-feita' : '') }}"></span>
+                {# Etapa entre esta fase e a seguinte (desenho 02 de 31/10/2026): "+" para nomear; com nome, ponto e rótulo sobre a linha. #}
+                {% if f.gap %}
+                    {% if f.gap.nome != '' %}
+                        <span class="ps-and-gap"><button type="button" class="ps-and-gap-pt js-and-gap{{ f.gap.feita ? ' is-feita' : '' }}" data-origem="{{ k }}" data-nome="{{ f.gap.nome }}" data-entre="{{ f.gap.entre }}" data-exemplo="{{ f.gap.exemplo }}"
+                                title="{{ 'pasta_avisos.andamento.etapa_dica'|trans({nome: f.gap.nome}) }}"{% if not podeMudarFase %} disabled{% endif %}><span class="ps-and-gap-ponto"></span></button></span>
+                        <span class="ps-and-gap-txt{{ f.gap.feita ? ' is-feita' : '' }}">{{ f.gap.nome }}</span>
+                    {% elseif podeMudarFase %}
+                        <button type="button" class="ps-and-gap-mais js-and-gap" data-origem="{{ k }}" data-nome="" data-entre="{{ f.gap.entre }}" data-exemplo="{{ f.gap.exemplo }}"
+                                title="{{ 'pasta_avisos.andamento.etapa_exemplo'|trans({exemplos: f.gap.exemplo}) }}" aria-label="{{ 'pasta_avisos.andamento.etapa_nomear'|trans({entre: f.gap.entre}) }}"><i class="bi bi-plus" aria-hidden="true"></i></button>
+                    {% endif %}
+                {% endif %}
                 <button type="button" class="ps-and-bola js-and-fase" data-estado="{{ f.estado }}" data-fase="{{ k }}" data-nome="{{ f.rotulo }}"
                         title="{{ f.dica }}" aria-label="{{ f.dica }}"{% if not podeMudarFase %} disabled{% endif %}>
                     {% if f.martelo %}<span class="ps-and-martelo" aria-hidden="true"></span>{% else %}<i class="bi {{ f.icone }}" aria-hidden="true"></i>{% endif %}
@@ -30,6 +42,17 @@
         {% endfor %}
         {% if andamento.total %}<div class="ps-and-total" title="{{ andamento.totalDica }}">{{ andamento.total }}</div>{% endif %}
     </div>
+    {# Faixa histórico (desenho 02 de 31/10/2026): metas e movimentações do Push, as mais recentes primeiro. #}
+    {% if historicoDaTrilha is defined and historicoDaTrilha is not empty %}
+        <div class="ps-and-hist">
+            {% for h in historicoDaTrilha %}
+                {% set titulo = h.chave == 'push' ? 'pasta_avisos.andamento.hist_push'|trans({tipo: h.tipo}) : ('pasta_avisos.andamento.hist_' ~ h.chave)|trans %}
+                <button type="button" class="ps-and-hist-item js-and-hist" data-aba="{{ h.aba }}" data-tom="{{ h.tom }}" title="{{ h.detalhe != '' ? h.detalhe : titulo }}">
+                    <i class="bi {{ h.icone }}" aria-hidden="true"></i><b>{{ h.data }}</b><span>{{ titulo }}</span>
+                </button>
+            {% endfor %}
+        </div>
+    {% endif %}
 </div>
 {# Faixa "Avançar para X?" (dc L.1315-1321): a fase à frente que os dados sugerem. Ignorar vale até sair da pasta. #}
 {% if podeMudarFase and andamento.sugestoes is not empty %}

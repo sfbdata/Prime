@@ -18,6 +18,12 @@ pasta_avisos:
     andamento:
         avancar: Avançar
         ignorar: Ignorar
+        etapa_dica: '{nome} · clique para editar, botão direito para remover'
+        etapa_exemplo: 'Ex.: {exemplos}'
+        etapa_nomear: 'Nomear a etapa entre {entre}'
+        hist_meta_aberta: Meta aberta
+        hist_meta_respondida: Meta respondida
+        hist_push: '{tipo} · Push'
     duplicada:
         titulo: Já existe uma pasta parecida
         encontramos_uma: 'Encontramos {total} pasta já cadastrada'
@@ -84,6 +90,12 @@ pasta_avisos:
         abas_toda_equipe: 'Toda a equipe ({total})'
         abas_ocultar_aba: 'Ocultar aba {aba}'
         andamento_erro: Não foi possível mudar a fase
+        etapa_erro: Não foi possível salvar a etapa
+        etapa_placeholder: 'Ex.: {exemplo}'
+        etapa_letras: '{total} letras'
+        etapa_cancelar: Cancelar
+        etapa_salvar: Salvar
+        etapa_remover: Remover etapa
         andamento_sem_conexao: Falha de conexão. Tente de novo.
         andamento_reativar_titulo: Reativar pasta
         andamento_reativar_texto: 'A pasta está finalizada. Reativar abre duas novas etapas: "Em andamento" (reativada) e um novo "Finalizada". O histórico anterior é mantido.'

@@ -54,3 +54,37 @@
 @media (prefers-reduced-motion: reduce) { .ps-and-bola { animation: none !important; } }
 @media (max-width: 991.98px) { .ps-and { margin-right: 0; } }
 [data-bs-theme="dark"] .ps-and-bola:not([data-estado="feita"]):not([data-estado="fim"]):not([data-estado="reativada"]) { background: var(--bs-body-bg); }
+/* Etapa entre fases e faixa histórico, desenho 02 VS 31.10.26 (dc L.1326-1342). */
+.ps-and-gap, .ps-and-gap-mais { position: absolute; right: 0; top: 17px; transform: translateX(50%); z-index: 2; width: 16px; height: 16px; }
+.ps-and-gap-mais { box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid #9aabb7; border-radius: 50%; background: #fff; color: #5b7383; font-size: 12px; line-height: 1; opacity: .55; cursor: pointer; transition: opacity .15s; }
+.ps-and-gap-mais:hover, .ps-and-gap-mais:focus-visible { opacity: 1; border-color: #0a6fa0; color: #0a6fa0; }
+.ps-and-gap-pt { box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; border: 1.5px solid #9aabb7; border-radius: 50%; background: #fff; cursor: pointer; }
+.ps-and-gap-pt:disabled { cursor: default; }
+.ps-and-gap-ponto { width: 6px; height: 6px; border-radius: 50%; background: #9aabb7; }
+.ps-and-gap-pt.is-feita { border-color: #2b8ac0; }
+.ps-and-gap-pt.is-feita .ps-and-gap-ponto { background: #2b8ac0; }
+.ps-and-gap-txt { position: absolute; right: 0; top: -9px; transform: translateX(50%); z-index: 2; padding: 0 3px; background: #fff; font-size: 10px; font-weight: 700; color: #9aabb7; white-space: nowrap; pointer-events: none; }
+.ps-and-gap-txt.is-feita { color: #2b8ac0; }
+.ps-and-pop-fundo { position: fixed; inset: 0; z-index: 40; }
+.ps-and-pop { position: fixed; z-index: 41; box-sizing: border-box; width: 200px; display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; background: #fff; border: 1px solid #c9d6df; border-radius: 4px; box-shadow: 0 8px 22px rgba(18,36,47,.18); }
+.ps-and-pop-entre { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; color: #5b7383; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-and-pop-campo { box-sizing: border-box; width: 100%; height: 30px; padding: 0 8px; border: 1px solid #d3dde4; border-radius: 3px; font: inherit; font-size: 13px; color: #12242f; background: #fff; }
+.ps-and-pop-campo:focus { outline: 2px solid #0a6fa0; outline-offset: -1px; }
+.ps-and-pop-cont { font-size: 11px; color: #9aabb7; }
+.ps-and-pop-acoes { display: flex; gap: 6px; }
+.ps-and-pop-cancelar, .ps-and-pop-salvar { flex: 1; height: 26px; border-radius: 3px; font: inherit; font-size: 12px; cursor: pointer; }
+.ps-and-pop-cancelar { border: 1px solid #d3dde4; background: #fff; color: #34505f; }
+.ps-and-pop-salvar { border: 0; background: #0a6fa0; color: #fff; font-weight: 700; }
+.ps-and-pop-remover { display: flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; font: inherit; font-size: 11.5px; color: #a3232b; cursor: pointer; }
+.ps-and-hist { display: flex; gap: 6px; overflow-x: auto; margin-top: 4px; padding: 6px 2px 2px; border-top: 1px dashed #e3eaef; scrollbar-width: thin; }
+.ps-and-hist-item { flex: none; display: flex; align-items: center; gap: 6px; max-width: 240px; height: 26px; padding: 0 9px; border: 1px solid #e1e8ed; border-left: 3px solid #5b3f9e; border-radius: 3px; background: #fff; font: inherit; font-size: 11.5px; color: #34505f; cursor: pointer; }
+.ps-and-hist-item:hover { background: #f2f7fa; }
+.ps-and-hist-item[data-tom="aberta"] { border-left-color: #c08a12; }
+.ps-and-hist-item[data-tom="aberta"] > .bi { color: #c08a12; }
+.ps-and-hist-item[data-tom="respondida"] { border-left-color: #1e7b45; }
+.ps-and-hist-item[data-tom="respondida"] > .bi { color: #1e7b45; }
+.ps-and-hist-item[data-tom="push"] > .bi { color: #5b3f9e; }
+.ps-and-hist-item > b { font-weight: 700; font-variant-numeric: tabular-nums; color: #5b7383; }
+.ps-and-hist-item > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-bs-theme="dark"] .ps-and-gap-txt, [data-bs-theme="dark"] .ps-and-gap-mais, [data-bs-theme="dark"] .ps-and-gap-pt { background: var(--bs-body-bg); }
+[data-bs-theme="dark"] .ps-and-pop, [data-bs-theme="dark"] .ps-and-pop-campo, [data-bs-theme="dark"] .ps-and-pop-cancelar, [data-bs-theme="dark"] .ps-and-hist-item { background: var(--bs-body-bg); color: var(--bs-body-color); }

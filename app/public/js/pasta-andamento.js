@@ -62,6 +62,90 @@
         perguntar(+b.getAttribute('data-fase'), false, '');
     });
 
+    /* Etapa entre fases (desenho 02 VS 31.10.26): "+" nomeia, clique edita, botão direito remove. */
+    function gravarEtapa(origem, texto) {
+        var corpo = new URLSearchParams({ _token: caixa.getAttribute('data-csrf'), fase: String(origem), texto: texto });
+        fetch(caixa.getAttribute('data-url-etapa'), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: corpo.toString()
+        })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+            .then(function (res) {
+                if (!res.ok) { avisar(res.j.erro || BJ_T.t('pasta_avisos.js.etapa_erro')); return; }
+                window.location.reload();
+            }, function () { avisar(BJ_T.t('pasta_avisos.js.andamento_sem_conexao')); });
+    }
+
+    function criar(tag, classe, texto) {
+        var el = document.createElement(tag);
+        if (classe) { el.className = classe; }
+        if (texto) { el.textContent = texto; }
+        return el;
+    }
+
+    function abrirEtapa(gatilho) {
+        var origem = +gatilho.getAttribute('data-origem');
+        var nome = gatilho.getAttribute('data-nome') || '';
+        var fundo = criar('div', 'ps-and-pop-fundo');
+        var caixaPop = criar('div', 'ps-and-pop');
+        var campo = criar('input', 'ps-and-pop-campo');
+        var cont = criar('div', 'ps-and-pop-cont');
+        var acoes = criar('div', 'ps-and-pop-acoes');
+        var cancelar = criar('button', 'ps-and-pop-cancelar', BJ_T.t('pasta_avisos.js.etapa_cancelar'));
+        var salvar = criar('button', 'ps-and-pop-salvar', BJ_T.t('pasta_avisos.js.etapa_salvar'));
+        campo.type = 'text';
+        campo.maxLength = 12;
+        campo.value = nome;
+        campo.placeholder = BJ_T.t('pasta_avisos.js.etapa_placeholder', { exemplo: gatilho.getAttribute('data-exemplo') });
+        cancelar.type = 'button';
+        salvar.type = 'button';
+        function contar() { cont.textContent = BJ_T.t('pasta_avisos.js.etapa_letras', { total: campo.value.length }); }
+        function fechar() { fundo.remove(); caixaPop.remove(); }
+        campo.addEventListener('input', contar);
+        campo.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); fechar(); gravarEtapa(origem, campo.value); }
+            if (e.key === 'Escape') { fechar(); }
+        });
+        fundo.addEventListener('click', fechar);
+        cancelar.addEventListener('click', fechar);
+        salvar.addEventListener('click', function () { fechar(); gravarEtapa(origem, campo.value); });
+        acoes.append(cancelar, salvar);
+        caixaPop.append(criar('div', 'ps-and-pop-entre', gatilho.getAttribute('data-entre')), campo, cont, acoes);
+        if (nome !== '') {
+            var remover = criar('button', 'ps-and-pop-remover');
+            remover.type = 'button';
+            remover.append(criar('i', 'bi bi-trash3'), document.createTextNode(BJ_T.t('pasta_avisos.js.etapa_remover')));
+            remover.addEventListener('click', function () { fechar(); gravarEtapa(origem, ''); });
+            caixaPop.append(remover);
+        }
+        var r = gatilho.getBoundingClientRect();
+        caixaPop.style.left = Math.max(8, Math.min(window.innerWidth - 210, r.left + r.width / 2 - 100)) + 'px';
+        caixaPop.style.top = Math.min(window.innerHeight - 140, r.bottom + 8) + 'px';
+        document.body.append(fundo, caixaPop);
+        contar();
+        campo.focus();
+        campo.select();
+    }
+
+    caixa.addEventListener('click', function (e) {
+        var g = e.target.closest('.js-and-gap');
+        if (g && !g.disabled) { abrirEtapa(g); }
+    });
+    caixa.addEventListener('contextmenu', function (e) {
+        var g = e.target.closest('.js-and-gap');
+        if (!g || g.disabled || (g.getAttribute('data-nome') || '') === '') { return; }
+        e.preventDefault();
+        gravarEtapa(+g.getAttribute('data-origem'), '');
+    });
+
+    /* Faixa histórico: abre a aba da ocorrência (mesmo caminho do fragmento #aba da URL). */
+    caixa.addEventListener('click', function (e) {
+        var h = e.target.closest('.js-and-hist');
+        var gatilho = h ? document.getElementById(h.getAttribute('data-aba') + '-tab') : null;
+        if (gatilho && window.bootstrap) { window.bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
+    });
+
     /* Rola até a fase atual (dc `fasesRefFn`). */
     var rol = caixa.querySelector('.ps-and-rol');
     function rolar() {
