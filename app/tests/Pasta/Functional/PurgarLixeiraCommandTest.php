@@ -24,6 +24,7 @@ use App\Shared\Doctrine\Filter\AcessoALixeira;
 use App\Shared\Doctrine\Filter\LixeiraFilter;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Events;
@@ -578,6 +579,36 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         self::assertSame($nivelAntes, $nivelNaRemocao, 'a remoção física não roda dentro da transação da purga');
     }
 
+    #[TestDox('fatia C: a purga chama a contagem de referências DENTRO da transação (falharia se saísse do wrapInTransaction)')]
+    public function testContagemRodaDentroDaTransacaoDaPurga(): void
+    {
+        $this->documento('dentro-da-tx.pdf', naLixeiraHa: 45);
+        $this->em->clear();
+        $conexao = $this->em->getConnection();
+        $nivelAntes = $conexao->getTransactionNestingLevel();
+
+        $espiao = new class(static::getContainer()->get(Connection::class)) extends ReferenciasDeArquivoDaPasta {
+            public ?int $nivelNaContagem = null;
+
+            public function __construct(private readonly Connection $c)
+            {
+                parent::__construct($c);
+            }
+
+            public function semReferencia(array $chaves): array
+            {
+                $this->nivelNaContagem = $this->c->getTransactionNestingLevel();
+
+                return parent::semReferencia($chaves);
+            }
+        };
+
+        $this->tester($espiao)->execute([]);
+
+        self::assertNotNull($espiao->nivelNaContagem);
+        self::assertGreaterThan($nivelAntes, $espiao->nivelNaContagem, 'a contagem tem que rodar dentro da transação do flush');
+    }
+
     private function outraLinhaNoMesmoArquivo(PastaDocumento $origem, ?int $naLixeiraHa): PastaDocumento
     {
         $copia = (new PastaDocumento())->setTenant($origem->getTenant());
@@ -599,7 +630,7 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
 
     // ----------------------------------------------------------------- helpers
 
-    private function tester(): CommandTester
+    private function tester(?ReferenciasDeArquivoDaPasta $referencias = null): CommandTester
     {
         $container = static::getContainer();
 
@@ -609,7 +640,7 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
             $container->get(PastaSecaoRepository::class),
             $container->get(AcessoALixeira::class),
             new RemocaoAposTransacao($this->memoria, new NullLogger()),
-            $container->get(ReferenciasDeArquivoDaPasta::class),
+            $referencias ?? $container->get(ReferenciasDeArquivoDaPasta::class),
             new MockClock(self::AGORA),
             $this->logger,
         )));

@@ -6,6 +6,7 @@ namespace App\Pasta\Armazenamento;
 
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 
 /**
@@ -26,7 +27,7 @@ use Doctrine\DBAL\Connection;
  * vem depois do COMMIT, e o registro só é apagado ({@see descartarRegistros()}) para o que
  * realmente saiu do disco.
  */
-final class ReferenciasDeArquivoDaPasta
+class ReferenciasDeArquivoDaPasta
 {
     public function __construct(private readonly Connection $conexao)
     {
@@ -41,15 +42,12 @@ final class ReferenciasDeArquivoDaPasta
      */
     public function semReferencia(array $chaves): array
     {
+        $daPasta = array_values(array_filter($chaves, static fn (ChaveDeArquivo $c): bool => $c->categoria === CategoriaDeArquivo::PASTA_DOCUMENTO));
+        $this->travar($daPasta);
+
         $livres = [];
         foreach ($chaves as $chave) {
-            if ($chave->categoria !== CategoriaDeArquivo::PASTA_DOCUMENTO) {
-                $livres[] = $chave;
-
-                continue;
-            }
-            $this->travar($chave);
-            if ($this->contar($chave) === 0) {
+            if ($chave->categoria !== CategoriaDeArquivo::PASTA_DOCUMENTO || $this->contar($chave) === 0) {
                 $livres[] = $chave;
             }
         }
@@ -87,11 +85,26 @@ final class ReferenciasDeArquivoDaPasta
         );
     }
 
-    private function travar(ChaveDeArquivo $chave): void
+    /**
+     * Uma consulta só, `ORDER BY id`: duas purgas que disputam registros travam na mesma ordem e não
+     * se prendem uma à outra (deadlock). Pode travar um pouco além do necessário (escritório e nome
+     * cruzados), o que é inofensivo.
+     *
+     * @param list<ChaveDeArquivo> $chaves
+     */
+    private function travar(array $chaves): void
     {
-        $this->conexao->fetchOne(
-            'SELECT id FROM arquivo_armazenado WHERE tenant_id = :t AND chave_fisica = :c FOR UPDATE',
-            ['t' => $chave->escopo->tenantIdObrigatorio(), 'c' => $chave->nome],
+        if ($chaves === []) {
+            return;
+        }
+
+        $this->conexao->fetchFirstColumn(
+            'SELECT id FROM arquivo_armazenado WHERE tenant_id IN (:t) AND chave_fisica IN (:c) ORDER BY id FOR UPDATE',
+            [
+                't' => array_values(array_unique(array_map(static fn (ChaveDeArquivo $c): int => $c->escopo->tenantIdObrigatorio(), $chaves))),
+                'c' => array_values(array_unique(array_map(static fn (ChaveDeArquivo $c): string => $c->nome, $chaves))),
+            ],
+            ['t' => ArrayParameterType::INTEGER, 'c' => ArrayParameterType::STRING],
         );
     }
 

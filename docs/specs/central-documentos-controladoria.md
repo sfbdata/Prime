@@ -146,6 +146,9 @@ só **avisa**.
   trava o mesmo registro ao criar a segunda referência: entra antes (a contagem a vê) ou espera o COMMIT e vê
   zero (registro sem referência não é elegível à união). O registro de `arquivo_armazenado` só é apagado para o
   que realmente saiu do disco; falha física mantém o registro.
+- **Nota para a C2:** linha legada (`arquivo_id` NULL) só pode ser unida depois de criar o seu `arquivo_armazenado`
+  (mesmo escritório, `chave_fisica` = `caminho_arquivo`), sob a mesma trava. A trava de várias chaves é uma consulta
+  `ORDER BY id FOR UPDATE`, para duas purgas não se prenderem uma à outra.
 - **Fora da C1, aceito (revisão 1):** só `UploadPecaUseCase` cria `arquivo_armazenado`. Os outros criadores de
   `pasta_documento` (`SalvarPecaTextoUseCase`, `CopiarDocumentosDaPastaUseCase`, contrato em `PastaController`,
   `ReconciliadorDePasta`, `CopiarArquivosAcervoCommand`) seguem com `arquivo_id` NULL; a purga continua segura
