@@ -97,6 +97,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:push:resumo-semanal-cliente --no-interaction',
             'cron'    => '0 8 * * 1',
         ],
+        // Segunda, 7h30: rotina da Controladoria. Lança no Registro de cada pasta ativa só o alerta novo
+        // (spec central-documentos-controladoria.md, "Rotina de segunda-feira"). Antes do resumo das 8h.
+        'app:pastas:rotina-controladoria' => [
+            'comando' => 'app:pastas:rotina-controladoria --no-interaction',
+            'cron'    => '30 7 * * 1',
+        ],
         // Todo dia, 10h05 e 10h15: os relatórios mensais (o comando só envia na primeira
         // segunda-feira do mês, uma vez por escritório).
         'app:pastas:relatorio-sem-processo' => [

@@ -48,6 +48,7 @@ final class AgendaDeTarefasTest extends TestCase
             'armazenamento:reconciliar-espelho' => ['armazenamento:reconciliar-espelho --se-ligado --fatia=auto --no-interaction', '30 3 * * *', '30 6 * * *'],
             'armazenamento:limpar-replicacao' => ['armazenamento:limpar-replicacao --se-ligado --no-interaction', '30 4 * * *', '30 7 * * *'],
             'app:push:resumo-semanal-cliente' => ['app:push:resumo-semanal-cliente --no-interaction', '0 8 * * 1', '0 11 * * 1'],
+            'app:pastas:rotina-controladoria' => ['app:pastas:rotina-controladoria --no-interaction', '30 7 * * 1', '30 10 * * 1'],
             'app:pastas:relatorio-sem-processo' => ['app:pastas:relatorio-sem-processo --no-interaction', '5 10 * * *', '5 13 * * *'],
             'app:pastas:relatorio-pastas-paradas' => ['app:pastas:relatorio-pastas-paradas --no-interaction', '15 10 * * *', '15 13 * * *'],
             // A recomendação antiga era 02h55 UTC (23h55 de Brasília do dia anterior): mesma hora.

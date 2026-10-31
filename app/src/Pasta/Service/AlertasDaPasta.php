@@ -58,7 +58,7 @@ final class AlertasDaPasta
         }
         $itens = array_map(static fn (array $m): string => $m['titulo'] . ' em ' . $m['prazo'], array_slice($atencao, 0, 2));
 
-        return new AlertaDaPasta(AlertaDaPasta::ALTA, count($atencao) . ' meta(s) vencida(s)', implode('; ', $itens) . '.', self::SUGESTAO_VENCIDO);
+        return new AlertaDaPasta(AlertaDaPasta::ALTA, count($atencao) . ' meta(s) vencida(s)', implode('; ', $itens) . '.', self::SUGESTAO_VENCIDO, 'metas');
     }
 
     private function prazosVencidos(Pasta $pasta, Tenant $tenant, \DateTimeImmutable $hoje): ?AlertaDaPasta
@@ -73,7 +73,7 @@ final class AlertasDaPasta
         }
         $itens = array_map(static fn ($p): string => $p->getTitulo() . ' em ' . $p->getData()->format('d/m/Y'), array_slice($vencidos, 0, 2));
 
-        return new AlertaDaPasta(AlertaDaPasta::ALTA, count($vencidos) . ' prazo(s) vencido(s)', implode('; ', $itens) . '.', self::SUGESTAO_VENCIDO);
+        return new AlertaDaPasta(AlertaDaPasta::ALTA, count($vencidos) . ' prazo(s) vencido(s)', implode('; ', $itens) . '.', self::SUGESTAO_VENCIDO, 'prazos');
     }
 
     private function pastaParada(Pasta $pasta, Tenant $tenant, \DateTimeImmutable $hoje): ?AlertaDaPasta
@@ -86,6 +86,6 @@ final class AlertasDaPasta
         $nivel = $parada->critica() ? AlertaDaPasta::ALTA : ($parada->dias > self::PARADA_MEDIA_ACIMA_DE_DIAS ? AlertaDaPasta::MEDIA : AlertaDaPasta::BAIXA);
         $detalhe = $parada->ultima !== null ? 'Última movimentação em ' . $parada->ultima->format('d/m/Y') . '.' : 'Sem movimentação desde a abertura.';
 
-        return new AlertaDaPasta($nivel, 'Pasta parada há ' . $parada->dias . ' dias', $detalhe, $parada->sugestoes[0] ?? 'Registre a providência.');
+        return new AlertaDaPasta($nivel, 'Pasta parada há ' . $parada->dias . ' dias', $detalhe, $parada->sugestoes[0] ?? 'Registre a providência.', 'parada');
     }
 }

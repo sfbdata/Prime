@@ -8,7 +8,7 @@ pasta_controladoria:
     vazio: Nenhum alerta nesta pasta.
     erro: Não foi possível carregar os alertas. Tente de novo.
     carregando: Carregando os alertas...
-    nota: Os alertas usam os dados dos prazos, das metas e do andamento da pasta.
+    nota: Os alertas usam os dados dos prazos, das metas e do andamento da pasta. A rotina de segunda-feira roda esta mesma análise em todas as pastas e lança no registro de cada uma só o alerta novo.
     nivel:
         alta: Alta
         media: Média

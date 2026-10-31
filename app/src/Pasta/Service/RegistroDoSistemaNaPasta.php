@@ -32,6 +32,8 @@ final class RegistroDoSistemaNaPasta
         'pasta'    => 'Dados da pasta',
         // "Mover para outra carteira" do menu ⋮ (desenho 02 VS 18.10.26, `menuPasta('mover')`).
         'carteira' => 'Carteira',
+        // Rotina de segunda-feira da Controladoria (spec central-documentos-controladoria.md, "Rotina de segunda").
+        'controladoria' => 'Controladoria',
     ];
 
     /**

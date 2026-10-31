@@ -132,4 +132,35 @@ class PastaMensagemRepository extends ServiceEntityRepository
 
         return $porPasta;
     }
+
+    /**
+     * O último cartão do sistema de cada tipo, por pasta, entre as pastas pedidas deste escritório. Chave = id da pasta.
+     *
+     * @param list<int> $idsPasta
+     *
+     * @return array<int, PastaMensagem>
+     */
+    public function ultimoDoSistemaPorPasta(Tenant $tenant, string $tipo, array $idsPasta): array
+    {
+        if ($idsPasta === []) {
+            return [];
+        }
+        $mensagens = $this->createQueryBuilder('m')
+            ->andWhere('m.tenant = :tenant')
+            ->andWhere('m.sistema = :tipo')
+            ->andWhere('IDENTITY(m.pasta) IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('ids', $idsPasta)
+            ->orderBy('m.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $porPasta = [];
+        foreach ($mensagens as $m) {
+            $porPasta[(int) $m->getPasta()?->getId()] = $m;
+        }
+
+        return $porPasta;
+    }
 }
