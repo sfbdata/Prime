@@ -75,16 +75,19 @@ final class MinhasMetas2210CssTest extends TestCase
         yield '"Atualizado às" (L54)' => ['.mm-atualizado', ['font-size: 14px;', 'color: var(--mm-subtitulo);', 'gap: 7px;']];
         yield 'filtro e resultado' => ['.mm-filtro', ['flex-direction: column;', 'gap: 16px;']];
         yield 'divisor SUAS METAS (L61)' => ['.mm-divisor-suas', ['margin: 2px 0 -6px;', 'gap: 10px;']];
-        yield 'grade dos indicadores (L62)' => ['.mm-kpis', ['grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));', 'gap: 10px;']];
-        yield 'indicador (L64)' => ['.mm-kpi', ['align-items: center;', 'gap: 14px;', 'border: 1px solid var(--mm-grupo-borda);', 'border-left: 3px solid var(--mm-kpi-cor);', 'border-radius: 3px;', 'padding: 14px 16px;', 'transition: background .15s;']];
-        yield 'hover do indicador (L64)' => ['.mm-kpi:hover', ['background: var(--mm-grupo-cabeca-bg);']];
-        yield 'cor de Atrasadas' => ['.mm-kpi.tom-danger', ['--mm-kpi-cor: #a3232b;']];
-        yield 'cor de Vencem em 7 dias' => ['.mm-kpi.tom-warn', ['--mm-kpi-cor: #c08a12;']];
-        yield 'cor de Aguardando revisão' => ['.mm-kpi.tom-accent', ['--mm-kpi-cor: #0a6fa0;']];
-        yield 'cor de Sem prazo' => ['.mm-kpi.tom-cinza', ['--mm-kpi-cor: #7d909d;']];
-        yield 'rótulo do indicador' => ['.mm-kpi-rotulo', ['font-size: 11px;', 'font-weight: 700;', 'letter-spacing: 1px;', 'color: var(--mm-subtitulo);']];
-        yield 'descrição do indicador' => ['.mm-kpi-sub', ['font-size: 12.5px;', 'color: var(--mm-kpi-desc);', 'margin-top: 3px;']];
-        yield 'número do indicador' => ['.mm-kpi-valor', ['font-size: 28px;', 'line-height: 1;', 'font-variant-numeric: tabular-nums;']];
+        yield 'grade dos indicadores (dc 31/10 L82)' => ['.mm-kpis', ['grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));', 'gap: 16px;']];
+        yield 'indicador (dc 31/10 L83)' => ['.mm-kpi', ['position: relative;', 'overflow: hidden;', 'flex-direction: column;', 'border: 1px solid var(--mm-grupo-borda);', 'border-bottom: 3px solid var(--mm-kpi-cor);', 'border-radius: 4px;', 'padding: 20px 22px 22px;', 'min-height: 160px;', 'transition: box-shadow .2s, transform .2s;']];
+        yield 'hover do indicador (dc 31/10 L83)' => ['.mm-kpi:hover', ['box-shadow: 0 8px 22px rgba(18,36,47,.08);', 'transform: translateY(-2px);']];
+        yield 'cor de Atrasadas (VIS)' => ['.mm-kpi.tom-danger', ['--mm-kpi-cor: #a3232b;', '--mm-kpi-anel: rgba(163,35,43,.14);', '--mm-kpi-icone-bg: #fbe7e7;']];
+        yield 'cor de Vencem em 7 dias (VIS)' => ['.mm-kpi.tom-warn', ['--mm-kpi-cor: #c08a12;', '--mm-kpi-anel: rgba(192,138,18,.16);', '--mm-kpi-icone-bg: #fbf1dc;']];
+        yield 'cor de Aguardando revisão (VIS)' => ['.mm-kpi.tom-accent', ['--mm-kpi-cor: #0a6fa0;', '--mm-kpi-anel: rgba(10,111,160,.14);', '--mm-kpi-icone-bg: #e5f1f7;']];
+        yield 'cor de Sem prazo (VIS)' => ['.mm-kpi.tom-cinza', ['--mm-kpi-cor: #7d909d;', '--mm-kpi-anel: rgba(125,144,157,.16);', '--mm-kpi-icone-bg: #eef2f5;']];
+        yield 'anel tracejado' => ['.mm-kpi > .mm-kpi-anel', ['right: -34px;', 'top: -34px;', 'width: 140px;', 'height: 140px;', 'border-radius: 50%;', 'border: 1px dashed var(--mm-kpi-anel);', 'pointer-events: none;']];
+        yield 'ícone do indicador' => ['.mm-kpi > .mm-kpi-icone', ['right: 22px;', 'top: 20px;', 'width: 46px;', 'height: 46px;', 'border-radius: 10px;', 'background: var(--mm-kpi-icone-bg);', 'color: var(--mm-kpi-cor);', 'font-size: 20px;', 'box-shadow: 0 2px 6px var(--mm-kpi-anel);']];
+        yield 'rótulo do indicador' => ['.mm-kpi-rotulo', ['font-size: 12px;', 'font-weight: 700;', 'letter-spacing: 2px;', 'color: var(--mm-kpi-rotulo);', 'padding-right: 60px;']];
+        yield 'traço do rótulo' => ['.mm-kpi-traco', ['width: 22px;', 'height: 2px;', 'background: var(--mm-kpi-cor);', 'margin: 6px 0 10px;']];
+        yield 'número do indicador' => ['.mm-kpi-valor', ['font-size: 42px;', 'line-height: 1;', 'font-variant-numeric: tabular-nums;']];
+        yield 'descrição do indicador' => ['.mm-kpi-sub', ['font-size: 13px;', 'color: var(--mm-subtitulo);', 'margin-top: auto;', 'padding-top: 14px;']];
         yield 'cartão da barra (L66)' => ['.mm-barra-cartao', ['border: 1px solid var(--mm-grupo-borda);', 'border-radius: 4px;', 'padding: 14px 18px;', 'gap: 14px;']];
         yield 'separador da barra (L74)' => ['.mm-barra-sep', ['width: 1px;', 'height: 28px;', 'background: var(--mm-controle-borda);']];
         yield 'aba inativa sem hover (L71)' => ['.mm-aba:hover', ['color: var(--mm-aba-texto);']];
@@ -142,10 +145,10 @@ final class MinhasMetas2210CssTest extends TestCase
         self::assertSame(0, preg_match('/^\.mm-body \.app-content-header \.alert > \.btn-close/m', self::css()), 'o X não pode sumir de todo aviso');
     }
 
-    #[TestDox('O que o desenho não tem saiu da folha: alternância cartões/lista, ⋮ do cartão, Pessoas, halo e ícone do indicador, risco da concluída, borda sumida no último item de atenção')]
+    #[TestDox('O que o desenho não tem saiu da folha: alternância cartões/lista, ⋮ do cartão, Pessoas, halo, faixa e estado ativo do indicador, risco da concluída, borda sumida no último item de atenção')]
     public function testSemOQueODesenhoNaoTem(): void
     {
-        foreach (['.mm-modos', '.mm-modo', '.mm-menu', '.mm-pessoa', '.mm-kpi-halo', '.mm-kpi-icone', '.mm-kpi-faixa', '.mm-kpi.is-ativo', '.mm-meta-acoes', '.mm-atencao-vazio', 'line-through', '.mm-atencao-item:last-of-type', '.mm-sem-trilho', 'modal-dialog'] as $saiu) {
+        foreach (['.mm-modos', '.mm-modo', '.mm-menu', '.mm-pessoa', '.mm-kpi-halo', '.mm-kpi-faixa', '.mm-kpi.is-ativo', '.mm-meta-acoes', '.mm-atencao-vazio', 'line-through', '.mm-atencao-item:last-of-type', '.mm-sem-trilho', 'modal-dialog'] as $saiu) {
             self::assertStringNotContainsString($saiu, self::css(), $saiu);
         }
     }

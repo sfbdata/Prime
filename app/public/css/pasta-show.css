@@ -2557,7 +2557,6 @@ span.ps-situacao-pill { cursor: default; }
 /* ── Cartão único do Financeiro (dc 27.10): aviso de vencidas, Contrato, Pró-bono, Valor da causa e Média por CPF
    viram LINHAS de um só cartão (antes eram quatro cartões lado a lado). ── */
 .ps-fin-faixa {
-    margin-bottom: 16px;
     overflow: hidden;
     background: var(--ps-card);
     border: 1px solid var(--ps-border);

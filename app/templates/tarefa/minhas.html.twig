@@ -48,25 +48,26 @@
         {{ include('tarefa/_esteira.html.twig', {comModo: base|merge({aba: aba.value})}) }}
     {% endif %}
 
-    {# ── KPIs (dc L62-64): atalhos, não resumo do filtro. Rótulo e descrição à esquerda, número à direita, borda
-       esquerda na cor do indicador. Sem ícone nem halo (decisão do dono de 22/10, vale contra o desenho). ── #}
+    {# ── KPIs (dc 31/10 L82-83): atalhos, não resumo do filtro. Anel tracejado e ícone no canto (JS `VIS`), rótulo com
+       traço, número grande e a descrição embaixo; borda inferior na cor do indicador. ── #}
     {% set kpis = painel.kpis %}
     {% set atalhos = [
-        { chave: 'atrasadas', rotulo: 'metas.prazo.atrasadas'|trans, valor: kpis.atrasadas, sub: 'metas.kpis.sob_sua_responsabilidade'|trans, tom: 'danger', destino: { aba: 'responsavel', prazo: 'vencidas' } },
-        { chave: 'proximas', rotulo: 'metas.prazo.vencem_em_7_dias'|trans, valor: kpis.proximas, sub: 'metas.kpis.ainda_da_tempo'|trans, tom: 'warn', destino: { aba: 'responsavel', prazo: 'proximas' } },
-        { chave: 'revisao', rotulo: 'metas.kpis.aguardando_sua_revisao'|trans, valor: kpis.aguardando_revisao, sub: 'metas.kpis.criadas_por_voce'|trans, tom: 'accent', destino: { aba: 'criei' } },
-        { chave: 'sem_prazo', rotulo: 'metas.prazo.sem_prazo'|trans, valor: kpis.sem_prazo, sub: 'metas.kpis.abertas_sem_data'|trans, tom: 'cinza', destino: { aba: 'responsavel', prazo: 'sem' } }
+        { chave: 'atrasadas', icone: 'bi-exclamation-octagon', rotulo: 'metas.prazo.atrasadas'|trans, valor: kpis.atrasadas, sub: 'metas.kpis.sob_sua_responsabilidade'|trans, tom: 'danger', destino: { aba: 'responsavel', prazo: 'vencidas' } },
+        { chave: 'proximas', icone: 'bi-hourglass-split', rotulo: 'metas.prazo.vencem_em_7_dias'|trans, valor: kpis.proximas, sub: 'metas.kpis.ainda_da_tempo'|trans, tom: 'warn', destino: { aba: 'responsavel', prazo: 'proximas' } },
+        { chave: 'revisao', icone: 'bi-clipboard2-check', rotulo: 'metas.kpis.aguardando_sua_revisao'|trans, valor: kpis.aguardando_revisao, sub: 'metas.kpis.criadas_por_voce'|trans, tom: 'accent', destino: { aba: 'criei' } },
+        { chave: 'sem_prazo', icone: 'bi-calendar-x', rotulo: 'metas.prazo.sem_prazo'|trans, valor: kpis.sem_prazo, sub: 'metas.kpis.abertas_sem_data'|trans, tom: 'cinza', destino: { aba: 'responsavel', prazo: 'sem' } }
     ] %}
     <div class="mm-kpis">
         {% for k in atalhos %}
             <a href="{{ path('tarefa_minhas', k.destino) }}" class="mm-kpi tom-{{ k.tom }}"
                title="{{ 'metas.kpis.ver'|trans({rotulo: k.rotulo|lower}) }}">
-                <span class="mm-kpi-texto">
-                    <span class="mm-kpi-rotulo">{{ k.rotulo }}</span>
-                    <span class="mm-kpi-sub">{{ k.sub }}</span>
-                </span>
+                <span class="mm-kpi-anel" aria-hidden="true"></span>
+                <span class="mm-kpi-icone" aria-hidden="true"><i class="bi {{ k.icone }}"></i></span>
+                <span class="mm-kpi-rotulo">{{ k.rotulo }}</span>
+                <span class="mm-kpi-traco" aria-hidden="true"></span>
                 {# O número das atrasadas só fica vermelho se houver atrasadas (dc `numCor`). #}
                 <b class="mm-kpi-valor{{ k.chave == 'atrasadas' and 0 < k.valor ? ' is-alerta' : '' }}">{{ k.valor }}</b>
+                <span class="mm-kpi-sub">{{ k.sub }}</span>
             </a>
         {% endfor %}
     </div>

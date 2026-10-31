@@ -16,14 +16,17 @@
         <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}"><span class="mm-meta-num">{{ numero }}.</span>{{ meta.titulo }}</a>
 
         <div class="mm-meta-linha2">
-            {# Pasta (dc L91): bi-folder2, nº em negrito azul, " · " e o nome do cliente. Continua sendo o link da pasta. #}
-            <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-meta-info mm-meta-pasta" title="{{ 'metas.cartao.abrir_a_pasta'|trans }}">
-                <i class="bi bi-folder2"></i><b class="mm-meta-pasta-num">{{ meta.pasta.nup }}</b>{% set nomeDaPasta = identificador_pasta(meta.pasta) %}{% if nomeDaPasta %} · {{ nomeDaPasta }}{% endif %}
+            {# Pasta (dc 31/10 L109): bi-folder2, nº em negrito azul, " · " e o nome do cliente cortado com reticências; a dica
+               mostra o nome inteiro. Continua sendo o link da pasta. #}
+            {% set nomeDaPasta = identificador_pasta(meta.pasta) %}
+            <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-meta-info mm-meta-pasta" title="{{ nomeDaPasta ?: 'metas.cartao.abrir_a_pasta'|trans }}">
+                <i class="bi bi-folder2"></i><b class="mm-meta-pasta-num">{{ meta.pasta.nup }}</b>{% if nomeDaPasta %} <span class="mm-meta-corta">· {{ nomeDaPasta }}</span>{% endif %}
             </a>
 
-            {# Sempre "de {quem criou}" (dc L92), em qualquer aba. #}
-            <span class="mm-meta-info" title="{{ 'metas.cartao.quem_delegou'|trans }}">
-                <i class="bi bi-person"></i>{{ meta.criadoPor ? 'metas.comum.de_criador'|trans({nome: meta.criadoPor.fullName}) : 'metas.cartao.sem_criador'|trans }}
+            {# Sempre "de {quem criou}" (dc 31/10 L110), em qualquer aba, cortado com reticências; a dica repete o texto inteiro. #}
+            {% set deQuem = meta.criadoPor ? 'metas.comum.de_criador'|trans({nome: meta.criadoPor.fullName}) : 'metas.cartao.sem_criador'|trans %}
+            <span class="mm-meta-info" title="{{ deQuem }}">
+                <i class="bi bi-person"></i><span class="mm-meta-corta">{{ deQuem }}</span>
             </span>
 
             <span class="mm-prazo{{ prazo.atrasado ? ' is-atrasado' : '' }}"{% if meta.prazo %} title="{{ 'metas.cartao.prazo_dica'|trans({data: meta.prazo|data}) }}"{% endif %}>
