@@ -12,7 +12,7 @@ tipo: novidade
 - Texto técnico, como vai para o CHANGELOG.md.
 
 ## Para o cliente
-- Texto curto, em linguagem de escritório, para a página Novidades (opcional).
+- Texto curto, em linguagem de escritório, para a página Novidades.
 ```
 
 | tipo | seção do CHANGELOG | efeito na versão |
@@ -23,6 +23,11 @@ tipo: novidade
 | `correcao` | Corrigido | PATCH (x.y.Z) |
 | `seguranca` | Segurança | PATCH (x.y.Z) |
 | `interno` | (não aparece) | nenhum: CI, testes, documentação |
+
+**"## Para o cliente" é obrigatório** nos tipos `novidade`, `alteracao` e `correcao` (o check do registro falha sem ele).
+Descreva o que mudou em linguagem simples, mesmo que a tela seja só do Master (ex.: "No Painel do Master, a lista ...").
+Frases como "Sem efeito para o cliente", "Nada muda..." ou "Nenhuma mudança visível" são recusadas. O tipo `interno`
+continua fora da página e não precisa da seção.
 
 Regras: cada item começa com `- `; sem travessão (— ou –); `interno` pode deixar o Changelog vazio.
 Conferir localmente: `python3 scripts/mudancas.py validar` e `python3 scripts/mudancas.py resumo`.
