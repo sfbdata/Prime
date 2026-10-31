@@ -568,3 +568,62 @@
 .nf-resp-msg { font-size: 12.5px; color: #34505f; }
 .mp .nf-ver-ir { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; height: 30px; padding: 0 12px; border: 1px solid #d3dde4; border-radius: 3px; color: #0a6fa0; font-size: 12.5px; text-decoration: none; }
 .mp .nf-ver-ir:hover { background: #e5f1f7; }
+
+/* ---------- Revisão de OAB (desenho 05 VS 31.10.26, secRoab: public/js/master/revisao-oab.js) ---------- */
+/* Valores do CSS do desenho; hover por CSS (style-hover do desenho). O mesmo bloco vai na seção roab e embutido em
+   Usuários e OABs, envolto no margin-top de 22px. */
+.mp .roab-embutido { margin-top: 22px; }
+.mp .roab-topo { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.mp .roab-topo-txt { flex: 1; min-width: 240px; }
+.mp .roab-titulo { font-size: 22px; font-weight: bold; color: #12242f; }
+.mp .roab-sub { font-size: 13px; color: #5b7383; }
+.mp .roab-selo { height: 30px; padding: 0 12px; border-radius: 3px; background: #e5f1f7; color: #0a6fa0; font-size: 12.5px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; }
+.mp .roab-caixa { background: #fff; border: 1px solid #dde5eb; border-radius: 4px; padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; }
+.mp .roab-auto { gap: 12px; }
+.mp .roab-filtros { gap: 8px; }
+.mp .roab-chave { display: flex; align-items: center; gap: 9px; border: none; background: transparent; font: inherit; font-size: 13.5px; font-weight: bold; color: #243845; cursor: pointer; padding: 0; }
+.mp .roab-chave-trilho { width: 36px; height: 20px; border-radius: 10px; background: #c9d3da; position: relative; flex: none; }
+.mp .roab-chave.on .roab-chave-trilho { background: #0a6fa0; }
+.mp .roab-chave-trilho > span { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s; }
+.mp .roab-chave.on .roab-chave-trilho > span { left: 19px; }
+.mp .roab-freq { height: 30px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 6px; font: inherit; font-size: 12.5px; background: #fff; }
+.mp .roab-ajuda { font-size: 12px; color: #5b7383; flex: 1; min-width: 200px; }
+.mp .roab-rodar { height: 32px; padding: 0 13px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: inherit; font-size: 13px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.mp .roab-rodar:hover { background: #0b5f86; }
+.mp .roab-msg { font-size: 12.5px; color: #0b5f86; background: #f2f8fc; border: 1px solid #cfe3f0; border-radius: 3px; padding: 8px 11px; margin-bottom: 12px; }
+.mp .roab-msg[hidden] { display: none; }
+.mp .roab-abas { display: contents; }
+.mp .roab-aba { height: 32px; padding: 0 14px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 13px; font-weight: bold; cursor: pointer; }
+.mp .roab-aba.on { border-color: #0a6fa0; background: #0a6fa0; color: #fff; }
+.mp .roab-aba > span { opacity: .75; font-weight: normal; }
+.mp .roab-espaco { flex: 1; }
+.mp .roab-busca { display: flex; align-items: center; gap: 7px; height: 32px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; width: min(260px, 100%); margin: 0; font-weight: normal; }
+.mp .roab-busca > i { color: #7a8e9b; }
+.mp .roab-busca > input { border: none; outline: none; flex: 1; min-width: 0; font: inherit; font-size: 13px; }
+.mp .roab-tabela { background: #fff; border: 1px solid #dde5eb; border-radius: 4px; overflow-x: auto; overflow-y: hidden; }
+.mp .roab-larga { min-width: 900px; }
+.mp .roab-grade { display: grid; grid-template-columns: minmax(170px,1.3fr) minmax(190px,1.4fr) 170px minmax(120px,1fr) 140px 150px 90px; gap: 10px; }
+.mp .roab-cab { padding: 11px 18px; border-bottom: 1px solid #dde5eb; font-size: 11px; font-weight: bold; letter-spacing: .8px; color: #4a6373; }
+.mp .roab-dir { text-align: right; }
+.mp .roab-vazio { padding: 24px; text-align: center; font-size: 13px; color: #6c757d; }
+.mp .roab-vazio[hidden] { display: none; }
+.mp .roab-linha { align-items: center; padding: 10px 18px; border-bottom: 1px solid #eef2f5; font-size: 13px; background: #fff; }
+.mp .roab-linha:nth-child(even) { background: #f7f9fb; }
+.mp .roab-linha:hover { background: #eaf3f9; }
+.mp .roab-linha > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp .roab-esc { color: #4a6373; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp .roab-oab { display: flex; align-items: center; gap: 7px; }
+.mp .roab-oab > b { font-variant-numeric: tabular-nums; }
+.mp .roab-principal { height: 20px; padding: 0 7px; border-radius: 3px; background: #0a6fa0; color: #fff; font-size: 10.5px; font-weight: bold; display: inline-flex; align-items: center; gap: 3px; }
+.mp .roab-cna { font-size: 12.5px; color: #243845; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp .roab-cna.roab-cna-sem { color: #9aabb7; }
+.mp .roab-st { height: 24px; padding: 0 9px; border: 1px solid #d3dde4; border-radius: 3px; background: #eef2f5; color: #5b7383; font-size: 11.5px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
+.mp .roab-st-conf { color: #1e7b45; background: #e9f6ee; border-color: #bfe3cc; }
+.mp .roab-st-div { color: #a3232b; background: #fdecee; border-color: #f3c4ca; }
+.mp .roab-st-nao { color: #8a6200; background: #fff6dc; border-color: #f0dba3; }
+.mp .roab-em { font-size: 12.5px; color: #5b7383; }
+.mp .roab-acoes { display: flex; gap: 5px; justify-content: flex-end; }
+.mp .roab-confirmar { width: 32px; height: 30px; border: none; border-radius: 3px; background: #1e7b45; color: #fff; cursor: pointer; }
+.mp .roab-confirmar:hover { background: #17633a; }
+.mp .roab-reverif { width: 32px; height: 30px; border: 1px solid #c5d2db; border-radius: 3px; background: #fff; color: #34505f; cursor: pointer; }
+.mp .roab-reverif:hover { border-color: #0a6fa0; color: #0a6fa0; }
