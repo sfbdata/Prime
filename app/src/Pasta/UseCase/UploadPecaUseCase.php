@@ -201,8 +201,8 @@ final class UploadPecaUseCase
 
         // O escopo sai do próprio documento (R1): o mesmo escritório que a leitura vai usar. O
         // documento só é persistido depois da gravação.
-        $doc = new PastaDocumento();
-        $doc->setTenant($tenant);
+        $doc = (new PastaDocumento())->setTenant($tenant);
+        $codigo = $this->codigos?->gerar((int) $tenant->getId()); // antes de gravar: se falhar, não sobra arquivo órfão
 
         $upload = FonteDeUploadHttp::de($file);
 
@@ -242,19 +242,19 @@ final class UploadPecaUseCase
         $doc->setEnviadoPor($enviadoPor);
         $doc->marcarAssinaturaDoUpload($assinado, $compressao->comprimido, $enviadoPor);
 
-        $this->vincularAoArquivo($doc, $tenant, $nomeUnico, $compressao->tamanhoFinal, $sha256);
+        $this->vincularAoArquivo($doc, $tenant, $codigo, $nomeUnico, $compressao->tamanhoFinal, $sha256);
         $this->gravarEAvisar($avisarQuemAcompanha, $doc, $pasta, $tenant, $enviadoPor);
 
         return new ResultadoUploadPeca($doc, $compressao);
     }
 
     /** Cada upload ganha o seu `arquivo_armazenado` (1:1 na C1); o código DOC é o nome que o escritório vê. */
-    private function vincularAoArquivo(PastaDocumento $doc, Tenant $tenant, string $chave, int $tamanho, ?string $sha256): void
+    private function vincularAoArquivo(PastaDocumento $doc, Tenant $tenant, ?string $codigo, string $chave, int $tamanho, ?string $sha256): void
     {
-        if ($this->codigos === null) {
+        if ($codigo === null) {
             return;
         }
-        $arquivo = new ArquivoArmazenado($tenant, $this->codigos->gerar((int) $tenant->getId()), $chave, $tamanho, $sha256);
+        $arquivo = new ArquivoArmazenado($tenant, $codigo, $chave, $tamanho, $sha256);
         $this->em->persist($arquivo);
         $doc->setArquivo($arquivo);
     }

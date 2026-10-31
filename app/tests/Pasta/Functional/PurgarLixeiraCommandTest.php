@@ -531,6 +531,53 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         self::assertFalse($this->memoria->existe($this->chaveDe($vencido)));
     }
 
+    #[TestDox('fatia C: linha de OUTRO escritório com o mesmo caminho_arquivo também segura o arquivo (categoria plana no disco)')]
+    public function testLinhaDeOutroEscritorioSegura(): void
+    {
+        $vencido = $this->documento('plano.pdf', naLixeiraHa: 45);
+        [$outro, $outraPasta] = $this->outroEscritorio();
+        $doOutro = $this->documento('plano-outro.pdf', pasta: $outraPasta, tenant: $outro);
+        $this->corromperCaminho($doOutro, $vencido->getCaminhoArquivo());
+        $this->em->clear();
+
+        $this->tester()->execute([]);
+
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $vencido->getId()));
+        self::assertTrue($this->memoria->existe($this->chaveDe($vencido)), 'a linha do outro escritório ainda aponta para o nome');
+    }
+
+    #[TestDox('fatia C: a contagem trava o registro do arquivo (FOR UPDATE) e a remoção física sai depois do COMMIT')]
+    public function testContagemTravaORegistroERemocaoSaiAposOCommit(): void
+    {
+        $vencido = $this->documento('trava.pdf', naLixeiraHa: 45);
+        $this->documento('trava2.pdf', naLixeiraHa: 45);
+        $arquivo = new ArquivoArmazenado($this->tenant, 'DOC-TRAV-AAAA-BBBB', $vencido->getCaminhoArquivo(), 10, null);
+        $this->em->persist($arquivo);
+        $vencido->setArquivo($arquivo);
+        $this->em->flush();
+        $this->em->clear();
+
+        $conexao = $this->em->getConnection();
+        $nivelAntes = $conexao->getTransactionNestingLevel();
+        $nivelNaRemocao = null;
+        $this->memoria->aoExcluir = static function () use ($conexao, &$nivelNaRemocao): void {
+            $nivelNaRemocao = $conexao->getTransactionNestingLevel();
+        };
+
+        $referencias = static::getContainer()->get(ReferenciasDeArquivoDaPasta::class);
+        $conexao->beginTransaction();
+        $conexao->executeStatement('DELETE FROM pasta_documento WHERE id = :id', ['id' => $vencido->getId()]);
+        $livres = $referencias->semReferencia([$this->chaveDe($vencido)]);
+        $travado = $conexao->fetchOne('SELECT xmax::text FROM arquivo_armazenado WHERE codigo = :c', ['c' => 'DOC-TRAV-AAAA-BBBB']);
+        $conexao->rollBack();
+
+        self::assertCount(1, $livres);
+        self::assertNotSame('0', $travado, 'o registro do arquivo ficou travado (FOR UPDATE) durante a contagem');
+
+        $this->tester()->execute([]);
+        self::assertSame($nivelAntes, $nivelNaRemocao, 'a remoção física não roda dentro da transação da purga');
+    }
+
     private function outraLinhaNoMesmoArquivo(PastaDocumento $origem, ?int $naLixeiraHa): PastaDocumento
     {
         $copia = (new PastaDocumento())->setTenant($origem->getTenant());

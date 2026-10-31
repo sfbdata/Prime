@@ -140,18 +140,20 @@ só **avisa**.
 - **Estado da C1 (implementada):** tabela `arquivo_armazenado` + `pasta_documento.arquivo_id` (nullable, sem
   backfill). `caminho_arquivo` segue sendo a chave física, então `ChavesDePasta::documento` não muda e leitura e
   gravação continuam simétricas. Upload novo cria o seu `arquivo_armazenado` (1:1, código `DOC-XXXX-XXXX-XXXX`).
-  Remoção física pela purga da lixeira passa por `ReferenciasDeArquivoDaPasta`: depois do COMMIT, só sai a chave
-  que nenhuma linha de `pasta_documento` (viva ou na lixeira) do escritório referencia. A C2 acrescenta o
-  `SELECT … FOR UPDATE` ao criar a segunda referência, para fechar a corrida contra uma remoção em andamento.
-  A mesma purga apaga a linha de `arquivo_armazenado` da chave que ficou sem referência (registro órfão nunca é
-  elegível à união).
+  Remoção física pela purga da lixeira passa por `ReferenciasDeArquivoDaPasta`: o `flush` e a contagem rodam na
+  MESMA transação, com o registro do arquivo travado por `SELECT … FOR UPDATE`; o arquivo só sai do disco
+  DEPOIS do COMMIT, e só a chave que nenhuma linha de `pasta_documento` (viva ou na lixeira) referencia. A C2
+  trava o mesmo registro ao criar a segunda referência: entra antes (a contagem a vê) ou espera o COMMIT e vê
+  zero (registro sem referência não é elegível à união). O registro de `arquivo_armazenado` só é apagado para o
+  que realmente saiu do disco; falha física mantém o registro.
 - **Fora da C1, aceito (revisão 1):** só `UploadPecaUseCase` cria `arquivo_armazenado`. Os outros criadores de
   `pasta_documento` (`SalvarPecaTextoUseCase`, `CopiarDocumentosDaPastaUseCase`, contrato em `PastaController`,
   `ReconciliadorDePasta`, `CopiarArquivosAcervoCommand`) seguem com `arquivo_id` NULL; a purga continua segura
   porque conta por `caminho_arquivo`. A C2 os cobre antes de exibir o código DOC na tela. Na C2: `sha256` e
   `tamanho_bytes` do registro são fotografia do upload; recalcular após regravação (compressão tardia, edição)
-  antes de comparar. Isolamento: a chave de `PASTA_DOCUMENTO` carrega o escopo do escritório, então a contagem
-  por `tenant_id` é a correta.
+  antes de comparar. Isolamento: no disco local `PASTA_DOCUMENTO` é categoria plana (sem subpasta por escritório),
+  então a contagem é por `caminho_arquivo` SEM filtro de escritório (como a purga do escritório trata o
+  `compartilhado`): linha de outro escritório com o mesmo nome também segura o arquivo.
 - Revisão: `feature-review-agent` duas vezes (ALTO).
 
 ### D. Vincular documento a outra pasta (sem migration se C estiver pronto, ALTO)

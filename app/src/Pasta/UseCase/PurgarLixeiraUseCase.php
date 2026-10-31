@@ -264,12 +264,16 @@ final class PurgarLixeiraUseCase
             return [0, []];
         }
 
-        $this->em->flush();
+        // O flush e a contagem de referências na MESMA transação (com o registro do arquivo travado): o COMMIT
+        // sai ao fim do closure e a remoção física só depois dele (INV-6).
+        $livres = $this->em->wrapInTransaction(function () use ($chaves): array {
+            $this->em->flush();
 
-        // Arquivo que outro documento ainda referencia fica (fatia C): só sai o da última referência.
-        $livres = $this->referencias->semReferencia($chaves);
-        $this->referencias->descartarRegistros($livres);
+            return $this->referencias->semReferencia($chaves);
+        });
+
         $resultado = $this->remocao->remover($livres, 'PurgarLixeiraUseCase');
+        $this->referencias->descartarRegistros($livres, $resultado->naoRemovidas);
         $this->em->clear();
 
         return [$resultado->removidos, $resultado->naoRemovidas];
