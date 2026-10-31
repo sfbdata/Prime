@@ -42,6 +42,12 @@
     populacaoIbge: path('master_ibge_populacao', {uf: 'XX'}),
     seccionais: path('master_dados_seccionais'),
     revisaoOab: path('admin_platform_oab_index'),
+    roab: path('master_revisao_oab_listar'),
+    roabToken: csrf_token('master_revisao_oab'),
+    roabConfirmar: path('master_revisao_oab_confirmar', {id: 0}),
+    roabConferir: path('master_revisao_oab_conferir', {id: 0}),
+    roabAutomatica: path('master_revisao_oab_automatica'),
+    roabValidarAgora: path('master_revisao_oab_validar_agora'),
     convites: path('admin_platform_convite_index'),
     logoOab: asset('images/logo/oab-logo.png'),
     logo: asset('images/logo/bluejus-logo-nav.png')
@@ -218,6 +224,7 @@
     {{ catalogo_js('master.js', 'termos') }}
     <script src="{{ asset('js/master/convenio-oab.js') }}"></script>
     <script src="{{ asset('js/master/metas-divulgacao.js') }}"></script>
+    <script src="{{ asset('js/master/revisao-oab.js') }}"></script>
     <script src="{{ asset('js/master/painel.js') }}"></script>
     <script src="{{ asset('js/master/masters.js') }}"></script>
     <script src="{{ asset('js/master/recursos.js') }}"></script>

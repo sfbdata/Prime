@@ -48,6 +48,7 @@ use App\Service\Tenant\TenantContext;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Pasta\Service\ConflitoDeNumeroCnj;
 use App\Pasta\Service\DetectorDeAssinaturaDigital;
+use App\Pasta\Service\HistoricoDaTrilhaDaPasta;
 use App\Pasta\Service\OrganizacaoSugeridaPorFase;
 use App\Pasta\Service\PastaTimelineAssembler;
 use App\Pasta\Entity\PastaMensagem;
@@ -347,7 +348,7 @@ class PastaController extends AbstractController
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         MontarPainelDoPushUseCase $montarPainelDoPush,
         ColaboradoresAtribuiveis $atribuiveis,
-        TribunalCnjResolver $tribunalCnjResolver,
+        TribunalCnjResolver $tribunalCnjResolver, HistoricoDaTrilhaDaPasta $historicoDaTrilha,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -509,10 +510,10 @@ class PastaController extends AbstractController
             'proximosPrazos'              => $proximosPrazos,
             // Andamento da pasta em fases (desenho 1.2.3, E12b): a trilha sob o nome.
             'andamento'                   => $tenant !== null ? AndamentoDaPastaOutput::de(
-                $this->andamentoDaPasta->estado($pasta, $tenant),
-                $pasta->getMensagens(),
-                $this->andamentoDaPasta->sugestoes($pasta, $tenant),
+                $this->andamentoDaPasta->estado($pasta, $tenant), $pasta->getMensagens(),
+                $this->andamentoDaPasta->sugestoes($pasta, $tenant), $this->andamentoDaPasta->rotulos($pasta, $tenant),
             ) : null,
+            'historicoDaTrilha'           => $tenant !== null ? $historicoDaTrilha->montar($pasta, $tenant, $abasDaPasta->ocultas) : [],
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
             'fotosResponsaveis'           => $fotosResponsaveis,

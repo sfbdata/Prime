@@ -55,6 +55,8 @@
   if (EXTERNAS.ind) SECS.push(['ind', T('master.js.secao.ind'), 'bi-share']);
   if (EXTERNAS.recomp) SECS.push(['recomp', T('master.js.secao.recomp'), 'bi-gift']);
   if (EXTERNAS.notif) SECS.push(['notif', T('master.js.secao.notif'), 'bi-bell']);
+  // Revisão de OAB (desenho 05 VS 31.10.26, SECS): a última seção; o bloco é do revisao-oab.js, também embutido em Usuários e OABs.
+  SECS.push(['roab', T('master.js.secao.roab'), 'bi-patch-check']);
   const VAZIAS = {
     custos: ['bi-cash-coin', T('master.js.secao.custos'), T('master.js.vazia.custos.texto'), [T('master.js.vazia.custos.armazenamento'), T('master.js.vazia.custos.banco'), T('master.js.vazia.custos.hospedagem'), T('master.js.vazia.custos.trafego'), T('master.js.vazia.custos.backups'), T('master.js.vazia.custos.apis_ia'), T('master.js.vazia.custos.notificacoes'), T('master.js.vazia.custos.receita'), T('master.js.vazia.custos.custo_conta'), T('master.js.vazia.custos.custo_gb'), T('master.js.vazia.custos.margem'), T('master.js.vazia.custos.projecao')]],
     desemp: ['bi-activity', T('master.js.vazia.desemp.titulo'), T('master.js.vazia.desemp.texto'), [T('master.js.vazia.desemp.disponibilidade'), T('master.js.vazia.desemp.tempo_resposta'), T('master.js.vazia.desemp.erros'), T('master.js.vazia.desemp.falhas_upload'), T('master.js.vazia.desemp.falhas_login'), T('master.js.vazia.desemp.ultimo_backup'), T('master.js.vazia.desemp.teste_restauracao'), T('master.js.vazia.desemp.cpu_memoria'), T('master.js.vazia.desemp.integracoes'), T('master.js.vazia.desemp.incidentes')]],
@@ -144,6 +146,7 @@
     if (sec === 'arm') return montarArm();
     if (sec === 'planos') return montarPlanos();
     if (sec === 'audit') return montarAudit();
+    if (sec === 'roab') { elSecao.innerHTML = '<div id="mp-roab"></div>'; return montarRevisaoOab(); }
   }
 
   const vazia = ([icone, titulo, texto, itens]) => '<div class="mp-card mp-vazia"><span class="mp-vazia-ico"><i class="bi ' + icone + '"></i></span><b>' + esc(titulo) + '</b>'
@@ -963,7 +966,19 @@
       + '</div></div><div class="mp-card mp-oab-pend"><div class="mp-cab-simples"><b>' + T('master.js.usuarios_oab.pendencias') + '</b></div>'
       + (O.pendencias.length ? O.pendencias.map(p => { const [ic, cor, txt, tag] = (P[p.tipo] || P.nao_validada)(p); return '<div class="mp-pend" style="--cor:' + cor + '"><i class="bi ' + ic + '"></i><span>' + esc(txt) + '</span><span>' + tag + '</span></div>'; }).join('') : '<div class="mp-vazio-linha">' + T('master.js.usuarios_oab.sem_pendencia') + '</div>')
       + '</div></div>'
-      + '<span class="mp-nota">' + T('master.js.usuarios_oab.nota') + ' <a href="' + esc(URLS.revisaoOab) + '">' + T('master.js.usuarios_oab.revisao') + '</a></span>';
+      + '<span class="mp-nota">' + T('master.js.usuarios_oab.nota') + ' <a href="' + esc(URLS.revisaoOab) + '">' + T('master.js.usuarios_oab.revisao') + '</a></span>'
+      + '<div class="roab-embutido" id="mp-roab"></div>';
+    montarRevisaoOab();
+  }
+
+  // Revisão de OAB (desenho 05 VS 31.10.26): o mesmo bloco na seção própria e abaixo da nota de Usuários e OABs.
+  function montarRevisaoOab() {
+    const el = document.getElementById('mp-roab');
+    if (!el || !window.BJRevisaoOab) return;
+    window.BJRevisaoOab.montar(el, {
+      url: URLS.roab, token: URLS.roabToken, urlConfirmar: URLS.roabConfirmar, urlConferir: URLS.roabConferir,
+      urlAutomatica: URLS.roabAutomatica, urlValidarAgora: URLS.roabValidarAgora,
+    });
   }
 
   /* ================= ARMAZENAMENTO ================= */

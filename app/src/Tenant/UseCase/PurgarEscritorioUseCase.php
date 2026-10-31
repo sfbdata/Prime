@@ -242,6 +242,7 @@ final class PurgarEscritorioUseCase
         ['pasta_prazo', 'tenant_id = :tenant'],
         // Andamento da pasta em fases (E12b): mesmo caso.
         ['pasta_andamento', 'tenant_id = :tenant'],
+        ['pasta_rotulo_etapa', 'tenant_id = :tenant'],
         // Réus cadastrados na pasta (E12h): mesmo caso.
         ['pasta_reu', 'tenant_id = :tenant'],
         // Cobrança automática do checklist (por item): cairia pela CASCADE do item; FK de tenant NO ACTION.

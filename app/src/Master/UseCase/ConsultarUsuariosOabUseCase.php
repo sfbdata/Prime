@@ -93,7 +93,7 @@ final class ConsultarUsuariosOabUseCase
      * @param list<array{tenantId: int, primario: bool, ultimoAcesso: string}> $vinculos
      * @param array<int, string>                                               $nomePorEscritorio
      */
-    private static function contaDaPessoa(array $vinculos, array $nomePorEscritorio): string
+    public static function contaDaPessoa(array $vinculos, array $nomePorEscritorio): string
     {
         usort($vinculos, static function (array $a, array $b): int {
             if ($a['primario'] !== $b['primario']) {

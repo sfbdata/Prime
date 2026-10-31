@@ -701,7 +701,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         $pct = "{$corpo} > .ps-np-grade.js-np-bloco-pct";
         self::assertNotNull($crawler->filter($pct)->attr('hidden'));
         self::assertSame(
-            ['% sobre o proveito', 'Base'],
+            ['% sobre o proveito econômico', 'Base'],
             $crawler->filter("{$pct} > .ps-np-campo > .ps-np-rotulo")->each(static fn (Crawler $s): string => trim($s->text())),
         );
         self::assertCount(1, $crawler->filter("{$pct} > .ps-np-campo > input[name=\"percentualPrevisto\"]"));
@@ -753,7 +753,8 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame('R$ 1.300,00', trim($crawler->filter('#formNovoPagamento .js-np-bloco-pct .ps-np-base')->text()));
         foreach (['exito', 'sucumbencia'] as $tipo) {
             $nota = (string) $crawler->filter('.ps-np-tipos > button.ps-np-tipo[data-tipo="' . $tipo . '"]')->attr('data-nota');
-            self::assertStringContainsString('sobre o total contratado', $nota, "dica do {$tipo}");
+            // Êxito segue a descrição do desenho de 31/10 ("proveito econômico obtido para o cliente").
+            self::assertStringContainsString($tipo === 'exito' ? 'sobre o proveito econômico obtido' : 'sobre o total contratado', $nota, "dica do {$tipo}");
             self::assertStringNotContainsString('valor da causa', $nota, "dica do {$tipo}");
         }
     }

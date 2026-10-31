@@ -24,7 +24,7 @@ pasta_show:
         tipo_rotulo: Tipo do pagamento
         nota_contratuais: Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros.
         contratuais: Contratuais
-        nota_exito: 'Participação no proveito econômico: % sobre o total contratado, recebido só se houver resultado. Entra como previsto.'
+        nota_exito: 'Êxito: % sobre o proveito econômico obtido para o cliente, recebido só se houver resultado. Entra como previsto.'
         exito: Proveito econômico
         nota_recorrente: 'Honorários mensais fixos (assessoria, partido ou consultoria): o mesmo valor todo mês, pelo número de meses informado.'
         recorrente: Recorrente
@@ -39,7 +39,7 @@ pasta_show:
         pct_da_causa: '% da causa'
         valor_total: Valor total (R$)
         pct_do_valor: '% do valor da causa'
-        pct_proveito: '% sobre o proveito'
+        pct_proveito: '% sobre o proveito econômico'
         pct_sucumbencia: '% de sucumbência'
         base_previsto: Base
         entrada: Entrada (R$)

@@ -13,6 +13,7 @@ use App\Pasta\Entity\PastaAndamento;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Repository\PastaAndamentoRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Repository\RotuloDeEtapaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -57,6 +58,7 @@ final class AndamentoDaPasta
         private readonly PastaDocumentoRepository $documentos,
         private readonly RegistroDoSistemaNaPasta $registro,
         private readonly EntityManagerInterface $em,
+        private readonly RotuloDeEtapaRepository $rotulos,
     ) {
     }
 
@@ -105,6 +107,12 @@ final class AndamentoDaPasta
         }
 
         return ['via' => $via, 'fases' => self::base($via), 'em' => [], 'pul' => [], 'extra' => [], 'inferida' => true] + $this->inferir($pasta, $via);
+    }
+
+    /** Nomes dados às etapas entre fases desta pasta na via atual (índice da fase de origem => texto). @return array<int, string> */
+    public function rotulos(Pasta $pasta, Tenant $tenant): array
+    {
+        return $this->rotulos->daPasta($pasta, self::via($pasta), $tenant);
     }
 
     /** @return array{atual: int, base: string} */

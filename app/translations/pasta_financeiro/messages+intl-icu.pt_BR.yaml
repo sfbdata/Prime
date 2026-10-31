@@ -55,7 +55,7 @@ pasta_financeiro:
         uma: '{n} parcela vencida · {valor}'
         varias: '{n} parcelas vencidas · {valor}'
     arquivos:
-        titulo: Contratos
+        titulo: CONTRATOS
         subtitulo: Recibos, guias e outros
         adicionar: Adicionar
         adicionar_dica: Adicionar arquivo (PDF, DOCX, JPEG, PNG, máx. 10 MB)

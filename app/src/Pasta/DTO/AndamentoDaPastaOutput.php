@@ -14,7 +14,7 @@ use App\Pasta\Entity\PastaMensagem;
 final readonly class AndamentoDaPastaOutput
 {
     /**
-     * @param list<array{rotulo: string, icone: string, martelo: bool, estado: string, dia: string, intervalo: string, intervaloDica: string, registros: int, dica: string, indice: int}> $fases
+     * @param list<array{rotulo: string, icone: string, martelo: bool, estado: string, dia: string, intervalo: string, intervaloDica: string, registros: int, dica: string, indice: int, gap: ?array{nome: string, entre: string, exemplo: string, feita: bool}}> $fases
      * @param list<array{nome: string, indice: int, motivo: string, icone: string}> $sugestoes
      */
     public function __construct(
@@ -30,8 +30,9 @@ final readonly class AndamentoDaPastaOutput
      * @param array{via: string, fases: list<array{0: string, 1: string}>, atual: int, em: array<int, string>, pul: list<int>, inferida: bool, base: string} $estado
      * @param iterable<PastaMensagem> $mensagens
      * @param list<array{nome: string, indice: int, motivo: string, icone: string}> $sugestoes
+     * @param array<int, string> $rotulos nome dado à etapa entre a fase de índice k e a seguinte
      */
-    public static function de(array $estado, iterable $mensagens, array $sugestoes): self
+    public static function de(array $estado, iterable $mensagens, array $sugestoes, array $rotulos = []): self
     {
         $fases = $estado['fases'];
         $fim = count($fases) - 1;
@@ -80,6 +81,7 @@ final readonly class AndamentoDaPastaOutput
                 'rotulo' => $rotulo, 'icone' => $icone === 'gavel' ? '' : $icone, 'martelo' => $icone === 'gavel',
                 'estado' => $estadoK, 'dia' => $ehPul ? 'pulada' : (isset($em[$k]) ? $em[$k]->format('d/m/y') : ''),
                 'intervalo' => '', 'intervaloDica' => '', 'registros' => $n, 'dica' => $dica, 'indice' => $k,
+                'gap' => $k < $fim ? self::etapa($rotulo, $fases[$k + 1][0], $rotulos[$k] ?? '', $k < $atual) : null,
             ];
         }
 
@@ -111,6 +113,31 @@ final readonly class AndamentoDaPastaOutput
 
         return new self($itens, $atual, $total, $fechada ? 'Duração total da pasta' : 'Tempo desde a abertura até hoje', $sugestoes, $estado['via']);
     }
+
+    /** @return array{nome: string, entre: string, exemplo: string, feita: bool} */
+    private static function etapa(string $de, string $para, string $nome, bool $feita): array
+    {
+        return ['nome' => $nome, 'entre' => $de . ' → ' . $para, 'exemplo' => self::exemploDeEtapa($de, $para), 'feita' => $feita];
+    }
+
+    /** Sugestão do campo ("Ex.: Triagem"), por par de fases, como o `GAP_EX` do desenho. */
+    private static function exemploDeEtapa(string $de, string $para): string
+    {
+        $ex = self::EXEMPLOS_DE_ETAPA[$de . '>' . $para] ?? ['Diligência', 'Revisão'];
+
+        return $ex[0] . ', ' . $ex[1];
+    }
+
+    private const EXEMPLOS_DE_ETAPA = [
+        'Abertura>Documentação' => ['Triagem', 'Entrevista'], 'Documentação>Contrato' => ['Procuração', 'Proposta'],
+        'Contrato>Distribuído' => ['Petição', 'Minuta'], 'Distribuído>Protocolo' => ['Revisão', 'Custas'],
+        'Protocolo>Em andamento' => ['Citação', 'Emenda'], 'Em andamento>Decisão' => ['Audiência', 'Perícia'],
+        'Decisão>Sentença' => ['Embargos', 'Agravo'], 'Sentença>Cumprimento' => ['Apelação', 'Trânsito'],
+        'Cumprimento>Finalizada' => ['Penhora', 'Alvará'],
+        'Contrato>Requerimento' => ['Documentos', 'Minuta'], 'Requerimento>Protocolo' => ['Revisão', 'Taxas'],
+        'Protocolo>Em análise' => ['Agendamento', 'Perícia'], 'Em análise>Exigência' => ['Diligência', 'Ofício'],
+        'Exigência>Parecer' => ['Cumprimento', 'Recurso'], 'Parecer>Cumprimento' => ['Recurso', 'Revisão'],
+    ];
 
     private static function duracao(int $n): string
     {

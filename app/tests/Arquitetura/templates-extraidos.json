@@ -260,6 +260,7 @@
         ],
         "js": [
             "master/painel.js",
+            "master/revisao-oab.js",
             "master/notificacoes.js",
             "master/indicacoes.js",
             "master/recompensas.js",
