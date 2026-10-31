@@ -415,6 +415,12 @@ master:
         carregando_mapa: Carregando mapa…
         carregando: Carregando…
         voltar: Voltar
+    revisao_oab:
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        nao_encontrada: Inscrição não encontrada. Recarregue a lista.
+        inscricao_mudou: A inscrição mudou desde que a lista foi aberta. Recarregue e confira de novo.
+        frequencia_sem_cna: Disponível quando a consulta ao CNA estiver ligada.
+        rodada: 'Validação automática: {conferidas} inscrição(ões) conferida(s), {invalidas} com formato inválido. A consulta ao CNA está indisponível, então nome e situação não foram conferidos: confirme pelo nome no CNA.'
     # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
     js:
         carregando: Carregando…
@@ -439,6 +445,7 @@ master:
             ind: Indicações do BlueJus
             recomp: Recompensas
             notif: Central de Notificações
+            roab: Revisão de OAB
         vazia:
             aviso: DADO AINDA NÃO COLETADO · INTEGRAÇÃO AINDA NÃO DISPONÍVEL
             custos:
@@ -1244,6 +1251,53 @@ master:
                     America/Manaus: Manaus (GMT-4)
                     America/Rio_Branco: Rio Branco (GMT-5)
                     America/Noronha: Noronha (GMT-2)
+        # Revisão de OAB (desenho 05 VS 31.10.26, roabVals): bloco do public/js/master/revisao-oab.js.
+        revisao_oab:
+            titulo: Revisão de OAB
+            subtitulo: 'Identidade global: advogados de todos os escritórios'
+            total: '{n} inscrições'
+            total_um: '{n} inscrição'
+            auto_ligada: Validação automática ligada
+            auto_desligada: Validação automática desligada
+            frequencia: Frequência da validação automática
+            freq:
+                cadastro: Ao cadastrar a OAB
+                diaria: Diariamente
+                semanal: Semanalmente
+            freq_sem_cna: Disponível quando a consulta ao CNA estiver ligada
+            ajuda: 'Confere formato, nome no CNA e situação. Nome igual confirma; nome diferente vai para Divergentes.'
+            ultima_rodada: 'Última rodada: {quando}'
+            ainda_nao_rodou: Ainda não rodou
+            validar_agora: Validar agora
+            aba:
+                pend: Pendentes
+                div: Divergentes
+                nao: Não verificadas
+                conf: Confirmadas
+                todas: Todas
+            busca: Nome, e-mail ou nº OAB
+            col:
+                nome: NOME
+                escritorio: ESCRITÓRIO
+                oab: OAB
+                nome_cna: NOME NO CNA
+                status: STATUS
+                verificada_em: VERIFICADA EM
+                acoes: AÇÕES
+            vazio: Nenhuma inscrição nesta aba.
+            principal: PRINCIPAL
+            nao_informado: Não informado
+            sem_registro: Sem registro
+            status:
+                conf: Confirmada
+                div: Divergente
+                nao: Não verificada
+                pend: Pendente
+            confirmar: Confirmar inscrição
+            verificar: Verificar de novo (nome no CNA)
+            prompt: 'Nome que consta no CNA para a OAB {inscricao} (deixe em branco se não localizar):'
+            erro: Não foi possível concluir a ação. Recarregue a página.
+            erro_carga: Não foi possível carregar a revisão de OAB agora. Recarregue a página.
     # P4c: e-mail aos primários do estado quando o Master muda o convênio OAB (AvisoDeConvenioDaUf).
     convenio_email:
         titulo: 'Convênio OAB/{uf}'

@@ -17,6 +17,10 @@ use Doctrine\ORM\Mapping as ORM;
  * que não têm outra fonte: o espaço do Plano Free e o aviso de espaço moram em Plano e ConfiguracaoDoEspaco.
  * Sem a linha, valem os padrões do {@see \App\Master\Service\CatalogoDeConfiguracoes}.
  * Auditável: o AuditLogSubscriber grava cada mudança, no escopo de plataforma.
+ *
+ * Na mesma linha, com prefixo próprio, mora a validação automática da Revisão de OAB (desenho 05 - Perfis 1.2 de
+ * 31/10). Ela não é campo do catálogo: {@see getValores()} não a devolve e {@see definirValores()} a preserva, para
+ * que salvar a tela de configurações não a apague nem a mostre.
  */
 #[ORM\Entity(repositoryClass: ConfiguracaoGlobalRepository::class)]
 #[ORM\Table(name: 'configuracao_global')]
@@ -24,6 +28,7 @@ use Doctrine\ORM\Mapping as ORM;
 class ConfiguracaoGlobal implements Auditavel
 {
     public const ID_UNICO = 1;
+    private const PREFIXO_REVISAO_OAB = 'revisaoOab.';
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
@@ -48,7 +53,7 @@ class ConfiguracaoGlobal implements Auditavel
     /** @param array<string, string> $valores já validados pelo catálogo */
     public function definirValores(array $valores, ?User $por, \DateTimeImmutable $em): void
     {
-        $this->valores = $valores;
+        $this->valores = $valores + $this->getRevisaoOab(comPrefixo: true);
         $this->alteradoPor = $por;
         $this->alteradoEm = $em;
     }
@@ -56,7 +61,33 @@ class ConfiguracaoGlobal implements Auditavel
     /** @return array<string, string> */
     public function getValores(): array
     {
-        return $this->valores;
+        return array_filter($this->valores, static fn (string $chave): bool => !str_starts_with($chave, self::PREFIXO_REVISAO_OAB), ARRAY_FILTER_USE_KEY);
+    }
+
+    /**
+     * Grava a configuração da Revisão de OAB sem mexer nos campos do catálogo nem em alteradoPor/alteradoEm (que são
+     * da tela de configurações).
+     *
+     * @param array<string, string> $valores chave curta (sem prefixo) => valor
+     */
+    public function definirRevisaoOab(array $valores): void
+    {
+        foreach ($valores as $chave => $valor) {
+            $this->valores[self::PREFIXO_REVISAO_OAB . $chave] = $valor;
+        }
+    }
+
+    /** @return array<string, string> chave curta (ou com prefixo, para preservar) => valor */
+    public function getRevisaoOab(bool $comPrefixo = false): array
+    {
+        $saida = [];
+        foreach ($this->valores as $chave => $valor) {
+            if (str_starts_with($chave, self::PREFIXO_REVISAO_OAB)) {
+                $saida[$comPrefixo ? $chave : substr($chave, \strlen(self::PREFIXO_REVISAO_OAB))] = $valor;
+            }
+        }
+
+        return $saida;
     }
 
     public function getAlteradoPor(): ?User
