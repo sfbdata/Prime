@@ -27,6 +27,8 @@ use Psr\Clock\ClockInterface;
  *    que vale agora);
  *  - alerta que está no estado e segue valendo: não repete;
  *  - alerta que sumiu: sai do estado do último cartão (sem cartão novo), então, se voltar, é novo de novo.
+ * Alerta de nível BAIXO não entra no Registro (nem no estado): só médio e alto. Sem esse corte, um alerta baixo que vale
+ * para quase toda pasta (ex.: cadastro do réu incompleto) lançaria um cartão em cada pasta na primeira segunda.
  * O cartão é escrito em nome do responsável da pasta (ou de quem a criou); pasta sem os dois é pulada.
  */
 final class LancarAlertasDaControladoriaUseCase
@@ -52,28 +54,37 @@ final class LancarAlertasDaControladoriaUseCase
         $ultimos  = $this->mensagens->ultimoDoSistemaPorPasta($tenant, self::TIPO, array_map(static fn (Pasta $p): int => (int) $p->getId(), $pastas));
         $comNovo  = 0;
         $novos    = 0;
+        $porTipo  = [];
 
         foreach ($pastas as $pasta) {
-            $achados = $this->alertas->montar($pasta, $tenant, $hoje);
+            $achados = array_values(array_filter(
+                $this->alertas->montar($pasta, $tenant, $hoje),
+                static fn (AlertaDaPasta $a): bool => $a->nivel !== AlertaDaPasta::BAIXA,
+            ));
             $novosDaPasta = $this->processar($pasta, $achados, $ultimos[(int) $pasta->getId()] ?? null, $simular);
-            if ($novosDaPasta > 0) {
+            foreach ($novosDaPasta as $a) {
+                $porTipo[$a->chave] = ($porTipo[$a->chave] ?? 0) + 1;
+            }
+            if ($novosDaPasta !== []) {
                 ++$comNovo;
-                $novos += $novosDaPasta;
+                $novos += count($novosDaPasta);
             }
         }
         if (!$simular) {
             $this->em->flush();
         }
 
-        return new ResultadoDaRotinaDaControladoria(count($pastas), $comNovo, $novos);
+        ksort($porTipo);
+
+        return new ResultadoDaRotinaDaControladoria(count($pastas), $comNovo, $novos, $porTipo);
     }
 
     /**
      * @param list<AlertaDaPasta> $achados
      *
-     * @return int quantos alertas novos a pasta ganhou
+     * @return list<AlertaDaPasta> os alertas novos da pasta
      */
-    private function processar(Pasta $pasta, array $achados, ?PastaMensagem $ultimo, bool $simular): int
+    private function processar(Pasta $pasta, array $achados, ?PastaMensagem $ultimo, bool $simular): array
     {
         $vigentes = array_values(array_unique(array_map(static fn (AlertaDaPasta $a): string => $a->chave, $achados)));
         $lancados = $ultimo !== null ? $this->chavesDoCartao($ultimo) : [];
@@ -84,18 +95,18 @@ final class LancarAlertasDaControladoriaUseCase
                 $ultimo->setConteudo($this->comEstado($ultimo->getConteudo(), $vigentes));
             }
 
-            return 0;
+            return [];
         }
         $autor = $pasta->getResponsavel() ?? $pasta->getCriadoPor();
         if ($autor === null) {
-            return 0;
+            return [];
         }
         if (!$simular) {
             $cartao = $this->registro->registrar($pasta, $autor, self::TIPO, $this->texto($novos));
             $cartao->setConteudo($this->comEstado($cartao->getConteudo(), $vigentes));
         }
 
-        return count($novos);
+        return $novos;
     }
 
     /** @param list<AlertaDaPasta> $novos */

@@ -11,6 +11,8 @@ final readonly class ResultadoDaRotinaDaControladoria
         public int $pastas,
         public int $pastasComAlertaNovo,
         public int $alertasNovos,
+        /** @var array<string, int> alertas novos por tipo (chave do alerta) */
+        public array $porTipo = [],
     ) {
     }
 }

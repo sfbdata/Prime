@@ -164,4 +164,42 @@ final class RotinaDaControladoriaTest extends KernelTestCase
         self::assertSame(Command::SUCCESS, $ok);
         self::assertSame(Command::FAILURE, $falha);
     }
+
+    #[TestDox('alerta de nível baixo (pasta parada há 45 dias) não entra no Registro; o médio (70 dias) entra')]
+    public function testIgnoraNivelBaixo(): void
+    {
+        $tenant = $this->escritorio('Baixo');
+        $user   = $this->primeiroUsuario($tenant);
+        $baixa  = $this->pastaAbertaEm($tenant, '8', '2026-09-18', $user);   // 45 dias em 02/11
+        $media  = $this->pastaAbertaEm($tenant, '9', '2026-08-24', $user);    // 70 dias em 02/11
+
+        $r = $this->rotina()->executar($tenant);
+
+        self::assertSame(1, $r->alertasNovos);
+        self::assertSame(['parada' => 1], $r->porTipo);
+        self::assertSame([], $this->cartoes($baixa));
+        self::assertCount(1, $this->cartoes($media));
+    }
+
+    #[TestDox('--simular lista escritório e tipo e não grava cartão')]
+    public function testSimularListaPorTipoSemGravar(): void
+    {
+        $tenant = $this->escritorio('Simular');
+        $pasta  = $this->pastaAbertaEm($tenant, '10', '2026-10-30', $this->primeiroUsuario($tenant));
+        $this->comPrazoVencido($pasta);
+        $rotina = $this->rotina();
+        $c = static::getContainer();
+        $tester = new CommandTester(new RotinaDaControladoriaCommand(
+            $c->get(TenantRepository::class),
+            $rotina,
+            $this->em(),
+            $c->get(ManagerRegistry::class),
+        ));
+
+        $codigo = $tester->execute(['--simular' => true, '--tenant' => (string) $tenant->getId()]);
+
+        self::assertSame(Command::SUCCESS, $codigo);
+        self::assertMatchesRegularExpression('/Simular \S+\s+prazos\s+1\s/u', $tester->getDisplay());
+        self::assertSame([], $this->cartoes($pasta));
+    }
 }

@@ -135,6 +135,10 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
   no último cartão `controladoria` da pasta, num `<span hidden data-controladoria="...">`. Chave que vale agora e não
   está no estado = nova (cartão novo). Chave que sumiu sai do estado do último cartão (sem cartão novo); se voltar, é
   nova de novo. Variação de contagem (2 prazos em vez de 1) do mesmo tipo não é alerta novo.
+- **Só médio e alto:** alerta de nível baixo não entra no Registro (nem no estado). Motivo: o alerta baixo "cadastro do
+  réu incompleto" vale para quase toda pasta e a 1ª segunda lançaria um cartão em ~1.400 pastas.
+- **`--simular`:** como `--dry-run`, e lista quantos alertas novos lançaria por escritório e tipo, sem gravar. Rodar em
+  produção antes de a rotina valer.
 - **Autor do cartão:** responsável da pasta; sem ele, quem a criou; sem os dois, a pasta é pulada.
 - **Multi-tenant:** o comando percorre os escritórios ativos um a um e o UseCase escopa tudo pelo escritório; um
   escritório que falha não derruba os demais. Cartões do sistema não contam como movimentação (pasta parada continua

@@ -46,13 +46,15 @@ final class RotinaDaControladoriaCommand extends Command
     {
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Simula: analisa e conta, mas não grava.')
+            ->addOption('simular', null, InputOption::VALUE_NONE, 'Como --dry-run, e lista quantos alertas novos lançaria por escritório e tipo.')
             ->addOption('tenant', null, InputOption::VALUE_REQUIRED, 'Restringe a um escritório específico (id).');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io     = new SymfonyStyle($input, $output);
-        $dryRun = (bool) $input->getOption('dry-run');
+        $simular = (bool) $input->getOption('simular');
+        $dryRun = $simular || (bool) $input->getOption('dry-run');
 
         if (!$this->adquirirLock()) {
             $io->warning('Outra rotina da Controladoria já está em andamento. Abortando.');
@@ -66,10 +68,10 @@ final class RotinaDaControladoriaCommand extends Command
                 return Command::FAILURE;
             }
             if ($dryRun) {
-                $io->note('Modo simulação (--dry-run): nada será gravado.');
+                $io->note('Modo simulação: nada será gravado.');
             }
 
-            return $this->lancarEmTodos($ids, $dryRun, $io);
+            return $this->lancarEmTodos($ids, $dryRun, $simular, $io);
         } finally {
             $this->liberarLock();
         }
@@ -78,9 +80,10 @@ final class RotinaDaControladoriaCommand extends Command
     /**
      * @param list<int> $ids
      */
-    private function lancarEmTodos(array $ids, bool $dryRun, SymfonyStyle $io): int
+    private function lancarEmTodos(array $ids, bool $dryRun, bool $detalhar, SymfonyStyle $io): int
     {
         $linhas = [];
+        $tipos  = [];
         $falhas = 0;
         foreach ($ids as $id) {
             $tenant = $this->tenantRepository->find($id);
@@ -90,6 +93,9 @@ final class RotinaDaControladoriaCommand extends Command
 
             try {
                 $resultado = $this->lancar->executar($tenant, $dryRun);
+                foreach ($resultado->porTipo as $tipo => $qtd) {
+                    $tipos[] = [$id, (string) $tenant->getName(), $tipo, $qtd];
+                }
                 $linhas[]  = [$id, (string) $tenant->getName(), $resultado->pastas, $resultado->pastasComAlertaNovo, $resultado->alertasNovos];
             } catch (\Throwable $e) {
                 ++$falhas;
@@ -102,6 +108,10 @@ final class RotinaDaControladoriaCommand extends Command
 
         if ($linhas !== []) {
             $io->table(['ID', 'Escritório', 'Pastas', 'Com alerta novo', 'Alertas novos'], $linhas);
+        }
+
+        if ($detalhar && $tipos !== []) {
+            $io->table(['ID', 'Escritório', 'Tipo', 'Cartões'], $tipos);
         }
 
         return $falhas > 0 ? Command::FAILURE : Command::SUCCESS;
