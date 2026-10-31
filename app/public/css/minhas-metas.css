@@ -71,6 +71,7 @@
     --mm-pagina:             #f3f6f8;   /* fundo da página e da faixa das metas do grupo (dc L20, L86) */
     --mm-meta-borda:         #e3eaef;   /* borda de baixo de cada meta (dc L87) */
     --mm-kpi-desc:           #7a8e9b;   /* descrição do indicador (dc L64) */
+    --mm-kpi-rotulo:         #34505f;   /* rótulo do indicador (dc 31/10 L83) */
     --mm-pilula-atrasada:    #a3232b;   /* pílulas do cartão (dc `ST`) */
     --mm-pilula-atrasada-bg: #fbe7e7;
     --mm-pilula-breve:       #8a5a12;
@@ -170,6 +171,7 @@
     --mm-pagina:             var(--bs-body-bg);
     --mm-meta-borda:         var(--bs-border-color-translucent);
     --mm-kpi-desc:           var(--bs-secondary-color);
+    --mm-kpi-rotulo:         var(--bs-body-color);
     --mm-pilula-atrasada:    #f08a84;
     --mm-pilula-atrasada-bg: rgba(192,57,47,.16);
     --mm-pilula-breve:       #e9be6c;
@@ -289,46 +291,75 @@
 .mm-page .mm-cabecalho .mm-titulo::after { background: var(--mm-num); }
 .mm-page .mm-cabecalho .mm-subtitulo { font-size: 13.5px; color: var(--mm-subtitulo); margin: 0; }
 
-/* ── KPIs (dc L64): rótulo e descrição à esquerda, número 28px à direita, borda esquerda de 3px na cor do
-   indicador. Sem ícone, halo, faixa nem estado ativo (decisão do dono de 22/10). ── */
+/* ── KPIs (dc 31/10 L82-83, JS `kp`/`VIS`): cartão de 160px com borda inferior de 3px na cor do indicador, anel
+   tracejado e ícone 46×46 no canto, rótulo 12px com traço 22×2, número 42px e a descrição embaixo. ── */
 .mm-kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
 }
-.mm-kpi.tom-danger { --mm-kpi-cor: #a3232b; }
-.mm-kpi.tom-warn   { --mm-kpi-cor: #c08a12; }
-.mm-kpi.tom-accent { --mm-kpi-cor: #0a6fa0; }
-.mm-kpi.tom-cinza  { --mm-kpi-cor: #7d909d; }
+.mm-kpi.tom-danger { --mm-kpi-cor: #a3232b; --mm-kpi-anel: rgba(163,35,43,.14); --mm-kpi-icone-bg: #fbe7e7; }
+.mm-kpi.tom-warn   { --mm-kpi-cor: #c08a12; --mm-kpi-anel: rgba(192,138,18,.16); --mm-kpi-icone-bg: #fbf1dc; }
+.mm-kpi.tom-accent { --mm-kpi-cor: #0a6fa0; --mm-kpi-anel: rgba(10,111,160,.14); --mm-kpi-icone-bg: #e5f1f7; }
+.mm-kpi.tom-cinza  { --mm-kpi-cor: #7d909d; --mm-kpi-anel: rgba(125,144,157,.16); --mm-kpi-icone-bg: #eef2f5; }
+/* No escuro o fundo claro do ícone ofuscaria: usa o próprio halo. */
+[data-bs-theme="dark"] .mm-kpi { --mm-kpi-icone-bg: var(--mm-kpi-anel); }
 .mm-kpi {
+    position: relative;
+    overflow: hidden;
     display: flex;
-    align-items: center;
-    gap: 14px;
+    flex-direction: column;
     text-align: left;
     background: var(--mm-card);
     border: 1px solid var(--mm-grupo-borda);
-    border-left: 3px solid var(--mm-kpi-cor);
-    border-radius: 3px;
-    padding: 14px 16px;
+    border-bottom: 3px solid var(--mm-kpi-cor);
+    border-radius: 4px;
+    padding: 20px 22px 22px;
+    min-height: 160px;
     box-sizing: border-box;
     color: var(--mm-text);
     text-decoration: none;
-    transition: background .15s;
+    transition: box-shadow .2s, transform .2s;
     min-width: 0;
 }
-.mm-kpi:hover { background: var(--mm-grupo-cabeca-bg); color: var(--mm-text); text-decoration: none; }
-.mm-kpi > .mm-kpi-texto { flex: 1; min-width: 0; }
+.mm-kpi:hover { box-shadow: 0 8px 22px rgba(18,36,47,.08); transform: translateY(-2px); color: var(--mm-text); text-decoration: none; }
+.mm-kpi > .mm-kpi-anel {
+    position: absolute;
+    right: -34px;
+    top: -34px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 1px dashed var(--mm-kpi-anel);
+    pointer-events: none;
+}
+.mm-kpi > .mm-kpi-icone {
+    position: absolute;
+    right: 22px;
+    top: 20px;
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    background: var(--mm-kpi-icone-bg);
+    color: var(--mm-kpi-cor);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 2px 6px var(--mm-kpi-anel);
+}
 .mm-kpi-rotulo {
     display: block;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--mm-subtitulo);
+    color: var(--mm-kpi-rotulo);
+    padding-right: 60px;
 }
-.mm-kpi-sub { display: block; font-size: 12.5px; color: var(--mm-kpi-desc); margin-top: 3px; }
+.mm-kpi-traco { display: block; width: 22px; height: 2px; background: var(--mm-kpi-cor); margin: 6px 0 10px; }
 .mm-kpi-valor {
-    font-size: 28px;
+    font-size: 42px;
     font-weight: 700;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -336,6 +367,7 @@
 }
 /* O número das atrasadas fica vermelho só quando há atrasadas (dc `numCor`). */
 .mm-kpi-valor.is-alerta { color: var(--mm-danger-text); }
+.mm-kpi-sub { display: block; font-size: 13px; color: var(--mm-subtitulo); margin-top: auto; padding-top: 14px; }
 
 /* ── Abas (controle segmentado) + modo ────────────────────────────────────── */
 /* Abas, busca, facetas e modo num cartão só (dc L65-75). A barra de filtros é o componente
@@ -642,6 +674,10 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
     color: var(--mm-linha-info);
     text-decoration: none;
 }
+/* Pasta e criador (dc 31/10 L109-110): numa linha só, cortados com reticências; o nome inteiro fica na dica. */
+.mm-meta-linha2 > .mm-meta-info { min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mm-meta-info > .bi, .mm-meta-info > .mm-meta-pasta-num { flex: none; }
+.mm-meta-info > .mm-meta-corta { overflow: hidden; text-overflow: ellipsis; }
 /* Nº da pasta em negrito azul (dc L92). */
 .mm-meta-pasta-num { font-weight: 700; color: var(--mm-num); }
 .mm-meta-lado {
