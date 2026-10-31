@@ -86,6 +86,20 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $dataAbertura;
 
+    /** Controladoria da pasta (spec central-documentos-controladoria, fatia B): contrato, unidade e titular do extrato digitados à mão. */
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $contrato = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $unidade = null;
+
+    #[ORM\Column(name: 'titular_extrato', length: 255, nullable: true)]
+    private ?string $titularExtrato = null;
+
+    /** Data-limite de prescrição estimada, informada pela advogada. */
+    #[ORM\Column(name: 'prescricao_em', type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $prescricaoEm = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $nomeCliente = null;
 
@@ -366,6 +380,15 @@ $this->documentos = new ArrayCollection();
     {
         return $this->prioridade->label();
     }
+
+    public function getContrato(): ?string { return $this->contrato; }
+    public function setContrato(?string $contrato): self { $this->contrato = $contrato; return $this; }
+    public function getUnidade(): ?string { return $this->unidade; }
+    public function setUnidade(?string $unidade): self { $this->unidade = $unidade; return $this; }
+    public function getTitularExtrato(): ?string { return $this->titularExtrato; }
+    public function setTitularExtrato(?string $titular): self { $this->titularExtrato = $titular; return $this; }
+    public function getPrescricaoEm(): ?\DateTimeImmutable { return $this->prescricaoEm; }
+    public function setPrescricaoEm(?\DateTimeImmutable $em): self { $this->prescricaoEm = $em; return $this; }
 
     public function getDataAbertura(): \DateTimeImmutable
     {
