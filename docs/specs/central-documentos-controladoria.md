@@ -98,10 +98,11 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
   uma vez. O consumo continua somando `tamanho_bytes` por linha; nada muda em `ConsumoDeArmazenamentoRepository`. Por
   consequência, a frase "espaço economizado" do protótipo **não aparece para o cliente** (seria falsa). A economia é
   só de disco do sistema.
-- **Lixeira e LGPD:** excluir um documento tira só aquele vínculo. A lixeira (30 dias) segura a linha, logo o arquivo.
-  Restaurar nunca encontra arquivo purgado, porque a linha da lixeira conta como referência. **Não há hoje fluxo
-  "exclusão LGPD apaga na hora" na Pasta**; se o dono exigir, apagar na hora vale para o vínculo e para o arquivo
-  só se for a última referência (pergunta 2).
+- **Lixeira e LGPD (decidido pelo Samuel, 31/10):** o documento sai **uma pasta por vez**; o arquivo só some de vez
+  quando sai da **última** pasta que o usa. **Não existe botão "apagar de todas as pastas".** Excluir um documento tira
+  só aquele vínculo. A lixeira (30 dias) segura a linha, logo o arquivo; restaurar nunca encontra arquivo purgado,
+  porque a linha da lixeira conta como referência. Não há hoje fluxo "exclusão LGPD apaga na hora" na Pasta; se o dono
+  pedir, vale a mesma regra (o vínculo some na hora, o arquivo só com a última referência).
 - **Purga do escritório:** `PurgarEscritorioUseCase` apaga `arquivo_armazenado` do tenant (entrar em `ORDEM_DELECAO`,
   `AuditavelCoberturaTest` e `PurgaCoberturaSchemaTest` exigem) e remove cada chave física uma vez.
 - **R2:** nenhuma mudança no código do R2 (frente exclusiva da outra sessão). Contrato: continua 1 chave física = 1
@@ -136,9 +137,7 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 ## Perguntas de negócio para o Samuel (linguagem simples)
 
 1. ~~Espaço~~ **Respondida (31/10): conta uma vez por pasta, como hoje.**
-2. **Exclusão**: se alguém apaga o documento de uma pasta e ele ainda está em outra, ele some só daquela pasta e o
-   arquivo continua na outra. Para pedido de exclusão por privacidade (LGPD), tudo bem o arquivo só sumir de vez
-   quando a última pasta que o usa for apagada?
+2. ~~Exclusão~~ **Respondida (31/10): uma pasta por vez; o arquivo só some da última; sem "apagar de todas".**
 3. **Alertas**: pasta parada usa os prazos que o relatório já usa (30, 60 e 90 dias). Prescrição avisa a 90 dias
    (alta a 30 dias ou vencida). Esses números estão certos?
 4. **Contrato, unidade e titular do extrato**: hoje a pasta não tem esses campos. Quem preenche é a pessoa, à mão, no
@@ -150,4 +149,4 @@ inferior esquerdo da pasta, painel lateral com três abas: Alertas, Documentos, 
 
 A (sem migration) → B (migration) → C (migration, depois de B mergeado) → D. Uma migration por vez entre PRs abertos.
 Cada fatia: spec curta atualizada aqui, testes antes do resto, PR pequeno, `mudancas/`, "o que olhar na tela" para o Samuel.
-Pergunta 4 trava B; a pergunta 2 trava C; 5 trava só a parte "impedir" de B.
+Pergunta 4 trava B; as perguntas 1 e 2 estão respondidas; 5 trava só a parte "impedir" de B.
