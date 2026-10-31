@@ -170,6 +170,30 @@ só **avisa**.
   vínculo. Quem vincula não ganha acesso à pasta de origem além do arquivo vinculado.
 - Cota e lixeira como definido em C.
 
+## Rotina de segunda-feira (aprovada pelo Samuel em 31/10, sem migration, risco BAIXO)
+
+- **O quê:** toda segunda, 7h30 (Brasília), o scheduler roda `app:pastas:rotina-controladoria` (`--dry-run`, `--tenant`).
+  Para cada escritório ativo, roda a mesma análise do painel (`AlertasDaPasta`) em todas as pastas ativas e lança no
+  Registro da pasta, como cartão do sistema "Controladoria", **só o alerta novo**.
+- **Não repete:** cada alerta tem uma chave de tipo (`metas`, `prazos`, `parada`). O estado "já lançado e ainda vale" mora
+  no último cartão `controladoria` da pasta, num `<span hidden data-controladoria="...">`. Chave que vale agora e não
+  está no estado = nova (cartão novo). Chave que sumiu sai do estado do último cartão (sem cartão novo); se voltar, é
+  nova de novo. Variação de contagem (2 prazos em vez de 1) do mesmo tipo não é alerta novo.
+- **Só médio e alto:** alerta de nível baixo não entra no Registro (nem no estado). Motivo: o alerta baixo "cadastro do
+  réu incompleto" vale para quase toda pasta e a 1ª segunda lançaria um cartão em ~1.400 pastas.
+- **`--simular`:** como `--dry-run`, e lista quantos alertas novos lançaria por escritório e tipo, sem gravar. Rodar em
+  produção antes de a rotina valer.
+- **Autor do cartão:** responsável da pasta; sem ele, quem a criou; sem os dois, a pasta é pulada.
+- **Multi-tenant:** o comando percorre os escritórios ativos um a um e o UseCase escopa tudo pelo escritório; um
+  escritório que falha não derruba os demais. Cartões do sistema não contam como movimentação (pasta parada continua
+  parada).
+- **Chave de desligar:** nenhuma. A rotina só escreve cartões; se o dono quiser parar, basta tirar a linha de
+  `AgendaDeTarefas`.
+- **Rodapé do painel:** volta a citar a rotina (texto do desenho: "A rotina de segunda-feira roda esta mesma análise em
+  todas as pastas e lança o resultado no registro de cada uma"; o sistema diz "só o alerta novo", que é a regra aprovada).
+- **Testes:** `RotinaDaControladoriaTest` (não repete, só o novo, some e volta, dry-run, isolamento de escritório,
+  comando) e `AgendaDeTarefasTest`.
+
 ## Fora de escopo (não faz parte desta frente)
 
 - Detecção de assinatura digital e compactação: já existem; o protótipo só as repete na tela.

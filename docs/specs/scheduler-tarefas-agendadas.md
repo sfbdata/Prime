@@ -36,6 +36,7 @@ A coluna "crontab antigo" foi **conferida com o crontab real da VPS em 23/10/202
 | `app:desempenho:purgar --no-interaction` | não estava no crontab (nova, docs/specs/master-desempenho.md) | `40 0 * * *` (0h40) |
 | `app:djen:sincronizar --dias=2 --no-interaction` | `0 6 * * *` (com `--dias=2`) | `0 3 * * *` (3h) |
 | `app:push:resumo-semanal-cliente --no-interaction` | `0 11 * * 1` | `0 8 * * 1` (segunda, 8h) |
+| `app:pastas:rotina-controladoria --no-interaction` | não estava no crontab (nova, docs/specs/central-documentos-controladoria.md) | `30 7 * * 1` (segunda, 7h30) |
 | `app:pastas:relatorio-sem-processo --no-interaction` | `5 13 * * *` | `5 10 * * *` (10h05) |
 | `app:pastas:relatorio-pastas-paradas --no-interaction` | `15 13 * * *` | `15 10 * * *` (10h15) |
 | `app:dashboard:fotografar --no-interaction` | não estava no crontab (recomendada em `trilha-b-designer.md`, D-CRON: `55 2 * * *`) | `55 23 * * *` (23h55) |

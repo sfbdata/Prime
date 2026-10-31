@@ -99,6 +99,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Pasta/Command/RelatorioPastasParadasCommand.php'      => 'lock file do relatório',
         'src/Pasta/Command/RelatorioSemProcessoCommand.php'        => 'lock file do relatório',
         'src/Pasta/Command/ResumoSemanalAoClienteCommand.php'      => 'lock file do resumo semanal',
+        'src/Pasta/Command/RotinaDaControladoriaCommand.php'       => 'lock file da rotina da Controladoria',
         'src/Profile/Command/ResumoDiarioCommand.php'              => 'lock file do resumo diário',
         // Falso positivo do regex: método chamado `link()`, que casa com a função `link(` do PHP. Não tocam o disco.
         'src/Agenda/Service/AvisoDoCompromisso.php'                => 'falso positivo: método link()',
