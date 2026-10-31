@@ -130,10 +130,14 @@
     postar(urlDaInscricao(ctx.urlConfirmar, l.id), { numero: l.numero, uf: l.uf });
   }
 
-  // Desenho (verificar): prompt com o nome do CNA ou o do usuário; cancelar ou deixar em branco envia vazio e a
-  // inscrição volta a Não verificada (regra do servidor). Nome igual confirma; diferente vai para Divergentes.
+  // Desenho (verificar): prompt com o nome do CNA ou o do usuário. Cancelar não faz nada (decisão do Coordenador
+  // 31/10); deixar em branco envia vazio e a inscrição volta a Não verificada. Nome igual confirma; diferente diverge.
   function verificar(l) {
-    const nomeCna = (window.prompt(T('prompt', { inscricao: l.inscricao }), l.nomeCna || l.nome) || '').trim();
+    const digitado = window.prompt(T('prompt', { inscricao: l.inscricao }), l.nomeCna || l.nome);
+    if (digitado === null) {
+      return;
+    }
+    const nomeCna = digitado.trim();
     postar(urlDaInscricao(ctx.urlConferir, l.id), { numero: l.numero, uf: l.uf, nomeCna });
   }
 

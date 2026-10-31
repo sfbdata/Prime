@@ -161,13 +161,14 @@ final class PainelRevisaoOabJsTest extends TestCase
         self::assertStringContainsString("(f === 'cadastro' ? '' : ' disabled title=\"' + esc(T('freq_sem_cna')) + '\"')", $js);
     }
 
-    #[TestDox('ações: Confirmar sempre na linha, Verificar de novo pelo prompt com nomeCna ou nome, POST com X-CSRF-Token e recarga')]
+    #[TestDox('ações: Confirmar sempre na linha, Verificar de novo pelo prompt com nomeCna ou nome (cancelar não faz nada), POST com X-CSRF-Token e recarga')]
     public function testAcoes(): void
     {
         $js = self::js();
 
         self::assertStringContainsString("'X-CSRF-Token': ctx.token", $js);
-        self::assertStringContainsString("window.prompt(T('prompt', { inscricao: l.inscricao }), l.nomeCna || l.nome) || '').trim()", $js);
+        self::assertStringContainsString("const digitado = window.prompt(T('prompt', { inscricao: l.inscricao }), l.nomeCna || l.nome);", $js);
+        self::assertMatchesRegularExpression('/if \(digitado === null\) \{\s*return;\s*\}/', $js, 'cancelar o prompt não muda o status');
         self::assertStringContainsString('{ numero: l.numero, uf: l.uf, nomeCna }', $js);
         self::assertStringContainsString('{ numero: l.numero, uf: l.uf }', $js);
         self::assertStringContainsString("msg = j.mensagem || '';", $js);
