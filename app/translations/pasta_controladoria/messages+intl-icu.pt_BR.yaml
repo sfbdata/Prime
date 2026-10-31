@@ -1,0 +1,15 @@
+# ---- Pasta: Controladoria da pasta (botão e painel de alertas, desenho 02 de 31/10/2026)
+pasta_controladoria:
+    botao: Controladoria
+    botao_dica: 'Controladoria da pasta: alertas'
+    titulo: 'Controladoria · Pasta {nup}'
+    fechar: Fechar
+    aba_alertas: Alertas
+    vazio: Nenhum alerta nesta pasta.
+    erro: Não foi possível carregar os alertas. Tente de novo.
+    carregando: Carregando os alertas...
+    nota: Os alertas usam os dados dos prazos, das metas e do andamento da pasta.
+    nivel:
+        alta: Alta
+        media: Média
+        baixa: Baixa

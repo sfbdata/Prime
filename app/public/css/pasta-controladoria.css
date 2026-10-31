@@ -1,0 +1,30 @@
+/* Controladoria da pasta, desenho 02 VS 31.10.26 (bj-central-docs.js). */
+.ctl-btn { position: fixed; z-index: 1040; left: 16px; bottom: 16px; height: 38px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #0a6fa0; font: bold 13px Arial, Helvetica, sans-serif; cursor: pointer; box-shadow: 0 4px 14px rgba(18,36,47,.12); }
+.ctl-btn:hover { background: #f2f7fa; }
+.ctl-btn-n { min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; background: #a3232b; color: #fff; font-size: 11px; }
+.ctl-btn-n[hidden] { display: none; }
+.ctl-fundo { position: fixed; inset: 0; z-index: 1070; display: flex; justify-content: flex-end; background: rgba(18,36,47,.35); font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+.ctl-fundo[hidden] { display: none; }
+.ctl-painel { width: min(560px, 100%); height: 100%; display: flex; flex-direction: column; background: #fff; box-shadow: -10px 0 30px rgba(18,36,47,.2); }
+.ctl-topo { display: flex; align-items: center; gap: 10px; padding: 13px 18px; background: #0a76a8; color: #fff; }
+.ctl-topo > b { flex: 1; font-size: 15px; }
+.ctl-fechar { width: 30px; height: 30px; border: 0; border-radius: 2px; background: rgba(255,255,255,.15); color: #fff; font-size: 16px; cursor: pointer; }
+.ctl-abas { display: flex; border-bottom: 1px solid #e6edf2; }
+.ctl-aba { flex: 1; height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border-bottom: 3px solid #0a6fa0; background: #fff; color: #0a6fa0; font: bold 13px Arial, Helvetica, sans-serif; }
+.ctl-aba-n { padding: 1px 6px; border-radius: 2px; background: #0a6fa0; color: #fff; font-size: 11px; }
+.ctl-aba-n[hidden] { display: none; }
+.ctl-corpo { flex: 1; overflow: auto; padding: 14px 18px; font-size: 13px; color: #5b7383; }
+.ctl-item { margin-bottom: 8px; padding: 10px 12px; border: 1px solid #e1e8ed; border-left: 4px solid var(--ctl-cor); border-radius: 2px; color: #12242f; }
+.ctl-item-topo { display: flex; align-items: center; gap: 8px; }
+.ctl-item-topo > b { flex: 1; font-size: 13.5px; }
+.ctl-item-nivel { padding: 2px 7px; border-radius: 2px; background: var(--ctl-fundo); color: var(--ctl-cor); font: bold 10.5px Arial, Helvetica, sans-serif; }
+.ctl-item-detalhe { margin-top: 3px; font-size: 12.5px; color: #34505f; }
+.ctl-item-sugestao { margin-top: 4px; font-size: 12px; color: #0a6fa0; }
+.ctl-item[data-nivel="alta"] { --ctl-cor: #a3232b; --ctl-fundo: #fdecee; }
+.ctl-item[data-nivel="media"] { --ctl-cor: #9a5b00; --ctl-fundo: #fff4d6; }
+.ctl-item[data-nivel="baixa"] { --ctl-cor: #5b7383; --ctl-fundo: #eef2f5; }
+.ctl-vazio { padding: 24px; text-align: center; font-size: 13.5px; color: #5b7383; }
+.ctl-vazio > .bi { display: block; margin-bottom: 6px; font-size: 26px; color: #1e7b45; }
+.ctl-nota { margin-top: 6px; font-size: 11.5px; line-height: 1.5; color: #7a8e9b; }
+[data-bs-theme="dark"] .ctl-btn, [data-bs-theme="dark"] .ctl-painel, [data-bs-theme="dark"] .ctl-aba { background: var(--bs-body-bg); }
+[data-bs-theme="dark"] .ctl-item { color: var(--bs-body-color); }

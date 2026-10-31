@@ -1,0 +1,21 @@
+{# Controladoria da pasta (desenho 02 de 31/10/2026, bj-central-docs.js): botão flutuante no canto inferior esquerdo e
+   painel lateral com os alertas. Os alertas vêm de pasta_controladoria (fatia A da spec central-documentos-controladoria).
+   Contexto: `pasta`. #}
+<button type="button" class="ctl-btn js-ctl-abrir" data-url="{{ path('pasta_controladoria', {id: pasta.id}) }}" title="{{ 'pasta_controladoria.botao_dica'|trans }}">
+    <i class="bi bi-clipboard2-check" aria-hidden="true"></i>{{ 'pasta_controladoria.botao'|trans }}<span class="ctl-btn-n" hidden></span>
+</button>
+<div class="ctl-fundo js-ctl-fundo" hidden>
+    <div class="ctl-painel" role="dialog" aria-modal="true" aria-label="{{ 'pasta_controladoria.botao'|trans }}">
+        <div class="ctl-topo">
+            <i class="bi bi-clipboard2-check" aria-hidden="true"></i>
+            <b>{{ 'pasta_controladoria.titulo'|trans({nup: pasta.nup}) }}</b>
+            <button type="button" class="ctl-fechar js-ctl-fechar" aria-label="{{ 'pasta_controladoria.fechar'|trans }}">&times;</button>
+        </div>
+        <div class="ctl-abas"><span class="ctl-aba">{{ 'pasta_controladoria.aba_alertas'|trans }}<span class="ctl-aba-n js-ctl-total" hidden></span></span></div>
+        <div class="ctl-corpo">
+            <div class="js-ctl-lista" data-alta="{{ 'pasta_controladoria.nivel.alta'|trans }}" data-media="{{ 'pasta_controladoria.nivel.media'|trans }}" data-baixa="{{ 'pasta_controladoria.nivel.baixa'|trans }}"
+                 data-vazio="{{ 'pasta_controladoria.vazio'|trans }}" data-erro="{{ 'pasta_controladoria.erro'|trans }}">{{ 'pasta_controladoria.carregando'|trans }}</div>
+            <div class="ctl-nota">{{ 'pasta_controladoria.nota'|trans }}</div>
+        </div>
+    </div>
+</div>

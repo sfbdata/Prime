@@ -16,6 +16,8 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-modelos.css') }}">
 <link rel="stylesheet" href="{{ asset('css/cliente-cadastro.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
+{# Controladoria da pasta (desenho 02 de 31/10/2026): botão e painel de alertas (pasta/_controladoria.html.twig). #}
+<link rel="stylesheet" href="{{ asset('css/pasta-controladoria.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-apensados.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
@@ -569,6 +571,7 @@
 {{ include('pasta/_cadeado_modal.html.twig', {pasta: pasta, cad: cad}) }}
 {# Ocultar aba (spec pasta-ocultar-aba §5): menu do botão direito e modal "Ocultar aba", só para quem configura. #}
 {{ include('pasta/_abas_ocultas.html.twig', {pasta: pasta, abasDaPasta: abasDaPasta}) }}
+{{ include('pasta/_controladoria.html.twig', {pasta: pasta}) }}
 
 {# ── Modais do explorador de documentos ─────────────────────────────────────
    Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos. Modal é
@@ -4924,6 +4927,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-prazos.js') }}"></script>
 {# Andamento da pasta em fases (E12b). #}
 <script src="{{ asset('js/pasta-andamento.js') }}"></script>
+<script src="{{ asset('js/pasta-controladoria.js') }}"></script>
 <script src="{{ asset('js/pasta-registro-marcadores.js') }}"></script>
 {{ catalogo_js('cliente.js') }}
 <script src="{{ asset('js/cliente-cadastro.js') }}"></script>
