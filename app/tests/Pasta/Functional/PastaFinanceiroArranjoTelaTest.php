@@ -302,10 +302,10 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         self::assertSame('button', $contrato->nodeName());
         self::assertStringContainsString('ps-fin-selo', (string) $contrato->attr('class'));
         self::assertSame('Pendente', trim($contrato->text()), 'pasta nova nasce com contrato pendente');
-        self::assertStringContainsString(
-            'Clique para marcar como assinado',
-            (string) $contrato->attr('title'),
-            'o próprio selo tem de dizer o que o clique faz'
+        self::assertSame(
+            'Nenhum contrato anexado: fica pendente até anexar o contrato em CONTRATOS.',
+            $contrato->attr('title'),
+            'sem arquivo em CONTRATOS o selo diz por que está pendente (desenho 31.10.26)'
         );
 
         $proBono = $crawler->filter('#financeiro-probono-btn');

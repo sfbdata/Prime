@@ -287,6 +287,73 @@ final class PastaFinanceiroAssinaturaTest extends JusPrimeWebTestCase
         self::assertFalse($this->recarregar((int) $dados['id'])->estaAssinado());
     }
 
+    #[TestDox('upload de contrato assinado digitalmente (nome com "contrato") marca o contrato da pasta como Assinado')]
+    public function testUploadDeContratoAssinadoMarcaOContrato(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pastaId         = (int) $pasta->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pastaId}/financeiro/upload",
+            ['_token' => 'TOKEN_pasta_financeiro_upload_' . $pastaId],
+            ['arquivo' => $this->uploadDe(self::PDF_ASSINADO, 'contrato_assinado.pdf')],
+        );
+
+        self::assertResponseStatusCodeSame(201);
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('REGULAR', $dados['situacaoContrato']);
+        self::assertSame('REGULAR', $this->situacaoGravada($pastaId));
+    }
+
+    #[TestDox('upload de arquivo assinado que não é contrato (recibo) deixa o contrato Pendente')]
+    public function testUploadDeReciboAssinadoNaoMarcaOContrato(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pastaId         = (int) $pasta->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pastaId}/financeiro/upload",
+            ['_token' => 'TOKEN_pasta_financeiro_upload_' . $pastaId],
+            ['arquivo' => $this->uploadDe(self::PDF_ASSINADO, 'recibo_assinado.pdf')],
+        );
+
+        self::assertResponseStatusCodeSame(201);
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('PENDENTE', $dados['situacaoContrato']);
+        self::assertSame('PENDENTE', $this->situacaoGravada($pastaId));
+    }
+
+    #[TestDox('o botão Adicionar de CONTRATOS é um label com input file múltiplo')]
+    public function testAdicionarAceitaVariosArquivos(): void
+    {
+        [$client, , , $pasta] = $this->cenario();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $input = $crawler->filter('#financeiro [data-trilho="arquivos"] > .ps-card-cab > label.ps-fin-adicionar > input[type="file"]#financeiro-upload-input');
+        self::assertCount(1, $input);
+        self::assertNotNull($input->attr('multiple'));
+    }
+
+    private function situacaoGravada(int $pastaId): string
+    {
+        return (string) $this->em()->getConnection()->fetchOne('SELECT situacao_contrato FROM pasta WHERE id = :p', ['p' => $pastaId]);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
     /** @return array{KernelBrowser, User, Tenant, Pasta} */

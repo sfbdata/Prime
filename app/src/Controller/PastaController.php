@@ -69,6 +69,7 @@ use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
+use App\Pasta\UseCase\MarcarContratoAssinadoPeloArquivoUseCase;
 use App\Pasta\UseCase\MontarPainelDoPushUseCase;
 use App\Pasta\UseCase\MontarAvisosDoPushUseCase;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
@@ -1995,7 +1996,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Upload de documento de contrato ──────────────────────────
 
     #[Route('/{id}/financeiro/upload', name: 'pasta_financeiro_upload', methods: ['POST'])]
-    public function financeiroUpload(Pasta $pasta, Request $request, DetectorDeAssinaturaDigital $detectorDeAssinatura): JsonResponse
+    public function financeiroUpload(Pasta $pasta, Request $request, DetectorDeAssinaturaDigital $detectorDeAssinatura, MarcarContratoAssinadoPeloArquivoUseCase $marcarContratoAssinado): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2086,6 +2087,7 @@ class PastaController extends AbstractController
             'csrfExcluir'  => $this->csrfTokenManager->getToken('pasta_financeiro_excluir_' . $doc->getId())->getValue(),
             'csrfAssinatura' => $this->csrfTokenManager->getToken('pasta_financeiro_assinatura_' . $doc->getId())->getValue(),
             'assinatura'     => $doc->getAssinaturaOrigem()?->value, // null = sem o selo "Assinado"
+            'situacaoContrato' => $marcarContratoAssinado->executar($pasta, $doc, $currentUser, $tenant), // assinado e "contrato" no nome: marca o selo
             'compressao'   => $compressao !== null ? [
                 'comprimido'      => $compressao->comprimido,
                 'tamanhoOriginal' => $compressao->tamanhoOriginal,
