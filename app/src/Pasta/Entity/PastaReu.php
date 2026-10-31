@@ -35,6 +35,16 @@ class PastaReu implements TenantAware, Auditavel
     #[ORM\Column(length: 14, nullable: true)]
     private ?string $documento = null;
 
+    /** Cadastro do réu na Controladoria (fatia B): todos opcionais; salvar nunca exige e-mail nem endereço. */
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $qualificacao = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $email = null;
+
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $endereco = null;
+
     #[ORM\Column(type: 'integer')]
     private int $ordem = 0;
 
@@ -68,6 +78,25 @@ class PastaReu implements TenantAware, Auditavel
     public function getPasta(): Pasta { return $this->pasta; }
     public function getNome(): string { return $this->nome; }
     public function getDocumento(): ?string { return $this->documento; }
+    public function setNome(string $nome): void { $this->nome = self::normalizarNome($nome); }
+    public function setDocumento(?string $documento): void { $this->documento = $documento !== null && $documento !== '' ? $documento : null; }
+    public function getQualificacao(): ?string { return $this->qualificacao; }
+    public function getEmail(): ?string { return $this->email; }
+    public function getEndereco(): ?string { return $this->endereco; }
+
+    public function completar(?string $qualificacao, ?string $email, ?string $endereco): void
+    {
+        $this->qualificacao = $qualificacao;
+        $this->email = $email;
+        $this->endereco = $endereco;
+    }
+
+    /** Cadastro completo = CPF (ou CNPJ) e qualificação informados; e-mail e endereço são opcionais. */
+    public function estaCompleto(): bool
+    {
+        return $this->documento !== null && $this->qualificacao !== null;
+    }
+
     public function getOrdem(): int { return $this->ordem; }
     public function setOrdem(int $ordem): void { $this->ordem = $ordem; }
     public function getCriadoEm(): \DateTimeImmutable { return $this->criadoEm; }

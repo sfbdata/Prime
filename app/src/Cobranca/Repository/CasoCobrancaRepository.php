@@ -319,6 +319,35 @@ class CasoCobrancaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Unidade e titular da pessoa cobrada do caso ligado à pasta, para a Controladoria da pasta (spec
+     * central-documentos-controladoria, fatia B) sugerir o que a advogada não digitou. Mesmo critério de
+     * `unidadeCobradaDaPasta`: pasta com mais de um caso (anomalia) fica com o de menor id.
+     *
+     * @return array{unidade: string, titular: ?string}|null null quando a pasta não veio de uma judicialização
+     */
+    public function dadosParaControladoriaDaPasta(Pasta $pasta, Tenant $tenant): ?array
+    {
+        $linhas = $this->createQueryBuilder('c')
+            ->select('o.identificacao AS unidade', 'pe.nome AS titular')
+            ->join('c.objeto', 'o')
+            ->leftJoin('c.pessoaCobradaAtual', 'pe')
+            ->andWhere('c.pastaJudicial = :pasta')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('c.id', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getArrayResult();
+
+        if ($linhas === []) {
+            return null;
+        }
+
+        return ['unidade' => (string) $linhas[0]['unidade'], 'titular' => $linhas[0]['titular'] !== null ? (string) $linhas[0]['titular'] : null];
+    }
+
+    /**
      * O OUTRO Caso (se houver) já vinculado a ESTA pasta — guarda contra duplicidade (Problema B:
      * mesma pasta acabando ligada a duas unidades/pessoas). Chamada pela judicialização ANTES de
      * vincular, nunca depois.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Service;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\AlertaDaPasta;
 use App\Pasta\DTO\PastaMetasResumoOutput;
@@ -15,9 +16,9 @@ use App\Pasta\Repository\PastaPrazoRepository;
  * Alertas da Controladoria da pasta (spec docs/specs/central-documentos-controladoria.md, fatia A). Somente leitura:
  * junta o que o sistema já sabe da pasta, sem gravar nada.
  *
- * Regras ligadas: metas vencidas, prazos vencidos e pasta parada (reusa o {@see AnalisadorDePastasParadas}).
- * Fica para a fatia B, quando o dado existir: mesmo contrato/unidade, titular do extrato diferente do réu e prescrição
- * (os limites já ficam aqui, num lugar só, para o dono mudar sem caçar).
+ * Regras: metas vencidas, prazos vencidos e pasta parada (reusa o {@see AnalisadorDePastasParadas}) e, vindas do
+ * Cadastro da pasta, as do {@see AlertasDoCadastroDaPasta} (contrato/unidade repetidos, titular do extrato, prescrição,
+ * cadastro do réu incompleto). Os limites ficam aqui, num lugar só, para o dono mudar sem caçar.
  */
 final class AlertasDaPasta
 {
@@ -34,17 +35,18 @@ final class AlertasDaPasta
         private readonly PastaPrazoRepository $prazos,
         private readonly ColetorDePastasParadas $coletorDeParadas,
         private readonly AnalisadorDePastasParadas $analisadorDeParadas,
+        private readonly AlertasDoCadastroDaPasta $doCadastro,
     ) {
     }
 
     /** @return list<AlertaDaPasta> da mais grave para a menos */
-    public function montar(Pasta $pasta, Tenant $tenant, \DateTimeImmutable $hoje): array
+    public function montar(Pasta $pasta, Tenant $tenant, User $pessoa, \DateTimeImmutable $hoje): array
     {
-        $alertas = array_values(array_filter([
+        $alertas = array_merge(array_values(array_filter([
             $this->metasVencidas($pasta, $hoje),
             $this->prazosVencidos($pasta, $tenant, $hoje),
             $this->pastaParada($pasta, $tenant, $hoje),
-        ]));
+        ])), $this->doCadastro->montar($pasta, $tenant, $pessoa, $hoje));
         usort($alertas, static fn (AlertaDaPasta $a, AlertaDaPasta $b): int => self::ORDEM[$a->nivel] <=> self::ORDEM[$b->nivel]);
 
         return $alertas;

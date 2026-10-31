@@ -13,3 +13,28 @@ pasta_controladoria:
         alta: Alta
         media: Média
         baixa: Baixa
+    aba_cadastro: Cadastro da pasta
+    cadastro:
+        nota_antes: 'Pode salvar mesmo sem e-mail ou endereço: o cadastro fica '
+        nota_negrito: com pendência
+        nota_depois: ' e você completa depois.'
+        reu: Réu (nome completo)
+        cpf: CPF do réu
+        cpf_dica: Somente números
+        qualificacao: Qualificação do réu
+        qualificacao_dica: Nacionalidade, estado civil, profissão, endereço
+        email: E-mail (opcional)
+        endereco: Endereço (opcional)
+        contrato: Contrato
+        contrato_dica: Nº ou nome
+        unidade: Unidade
+        unidade_dica: 'Ex.: Lote 12, Apto 302'
+        titular: Titular do extrato
+        prescricao: Data-limite de prescrição
+        da_cobranca: Sugerido pela Cobrança. Corrija se estiver diferente.
+        completo: ✓ Cadastro completo
+        pendente: Cadastro com pendência
+        salvar: Salvar
+        salvo_completo: Cadastro completo salvo.
+        salvo_pendente: Salvo com pendência. Complete CPF e qualificação depois.
+        erro: Não foi possível salvar o cadastro. Tente de novo.

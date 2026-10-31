@@ -1,7 +1,7 @@
 {# Controladoria da pasta (desenho 02 de 31/10/2026, bj-central-docs.js): botão flutuante no canto inferior esquerdo e
    painel lateral com os alertas. Os alertas vêm de pasta_controladoria (fatia A da spec central-documentos-controladoria).
    Contexto: `pasta`. #}
-<button type="button" class="ctl-btn js-ctl-abrir" data-url="{{ path('pasta_controladoria', {id: pasta.id}) }}" title="{{ 'pasta_controladoria.botao_dica'|trans }}">
+<button type="button" class="ctl-btn js-ctl-abrir" data-url="{{ path('pasta_controladoria', {id: pasta.id}) }}" data-url-salvar="{{ path('pasta_controladoria_cadastro', {id: pasta.id}) }}" data-csrf="{{ csrf_token('pasta_controladoria_' ~ pasta.id) }}" title="{{ 'pasta_controladoria.botao_dica'|trans }}">
     <i class="bi bi-clipboard2-check" aria-hidden="true"></i>{{ 'pasta_controladoria.botao'|trans }}<span class="ctl-btn-n" hidden></span>
 </button>
 <div class="ctl-fundo js-ctl-fundo" hidden>
@@ -11,11 +11,35 @@
             <b>{{ 'pasta_controladoria.titulo'|trans({nup: pasta.nup}) }}</b>
             <button type="button" class="ctl-fechar js-ctl-fechar" aria-label="{{ 'pasta_controladoria.fechar'|trans }}">&times;</button>
         </div>
-        <div class="ctl-abas"><span class="ctl-aba">{{ 'pasta_controladoria.aba_alertas'|trans }}<span class="ctl-aba-n js-ctl-total" hidden></span></span></div>
+        <div class="ctl-abas">
+            <button type="button" class="ctl-aba is-ativa js-ctl-aba" data-aba="alertas">{{ 'pasta_controladoria.aba_alertas'|trans }}<span class="ctl-aba-n js-ctl-total" hidden></span></button>
+            <button type="button" class="ctl-aba js-ctl-aba" data-aba="cadastro">{{ 'pasta_controladoria.aba_cadastro'|trans }}</button>
+        </div>
         <div class="ctl-corpo">
-            <div class="js-ctl-lista" data-alta="{{ 'pasta_controladoria.nivel.alta'|trans }}" data-media="{{ 'pasta_controladoria.nivel.media'|trans }}" data-baixa="{{ 'pasta_controladoria.nivel.baixa'|trans }}"
-                 data-vazio="{{ 'pasta_controladoria.vazio'|trans }}" data-erro="{{ 'pasta_controladoria.erro'|trans }}">{{ 'pasta_controladoria.carregando'|trans }}</div>
-            <div class="ctl-nota">{{ 'pasta_controladoria.nota'|trans }}</div>
+            <div class="js-ctl-sec" data-sec="alertas">
+                <div class="js-ctl-lista" data-alta="{{ 'pasta_controladoria.nivel.alta'|trans }}" data-media="{{ 'pasta_controladoria.nivel.media'|trans }}" data-baixa="{{ 'pasta_controladoria.nivel.baixa'|trans }}"
+                     data-vazio="{{ 'pasta_controladoria.vazio'|trans }}" data-erro="{{ 'pasta_controladoria.erro'|trans }}">{{ 'pasta_controladoria.carregando'|trans }}</div>
+                <div class="ctl-nota">{{ 'pasta_controladoria.nota'|trans }}</div>
+            </div>
+            <form class="js-ctl-sec js-ctl-form" data-sec="cadastro" hidden novalidate
+                  data-completo="{{ 'pasta_controladoria.cadastro.completo'|trans }}" data-pendente="{{ 'pasta_controladoria.cadastro.pendente'|trans }}"
+                  data-salvo-completo="{{ 'pasta_controladoria.cadastro.salvo_completo'|trans }}" data-salvo-pendente="{{ 'pasta_controladoria.cadastro.salvo_pendente'|trans }}"
+                  data-erro="{{ 'pasta_controladoria.cadastro.erro'|trans }}">
+                <div class="ctl-aviso">{{ 'pasta_controladoria.cadastro.nota_antes'|trans }}<b>{{ 'pasta_controladoria.cadastro.nota_negrito'|trans }}</b>{{ 'pasta_controladoria.cadastro.nota_depois'|trans }}</div>
+                <div class="ctl-grade">
+                    <label class="ctl-campo">{{ 'pasta_controladoria.cadastro.reu'|trans }}<input type="text" name="reu" maxlength="255"></label>
+                    <label class="ctl-campo">{{ 'pasta_controladoria.cadastro.cpf'|trans }}<input type="text" name="cpf" maxlength="18" inputmode="numeric" placeholder="{{ 'pasta_controladoria.cadastro.cpf_dica'|trans }}"></label>
+                    <label class="ctl-campo ctl-campo--larga">{{ 'pasta_controladoria.cadastro.qualificacao'|trans }}<input type="text" name="qualificacao" maxlength="500" placeholder="{{ 'pasta_controladoria.cadastro.qualificacao_dica'|trans }}"></label>
+                    <label class="ctl-campo">{{ 'pasta_controladoria.cadastro.email'|trans }}<input type="email" name="email" maxlength="255"></label>
+                    <label class="ctl-campo">{{ 'pasta_controladoria.cadastro.endereco'|trans }}<input type="text" name="endereco" maxlength="500"></label>
+                    <label class="ctl-campo">{{ 'pasta_controladoria.cadastro.contrato'|trans }}<input type="text" name="contrato" maxlength="120" placeholder="{{ 'pasta_controladoria.cadastro.contrato_dica'|trans }}"></label>
+                    <label class="ctl-campo">{{ 'pasta_controladoria.cadastro.unidade'|trans }}<input type="text" name="unidade" maxlength="120" placeholder="{{ 'pasta_controladoria.cadastro.unidade_dica'|trans }}"><small class="ctl-sugestao" hidden>{{ 'pasta_controladoria.cadastro.da_cobranca'|trans }}</small></label>
+                    <label class="ctl-campo">{{ 'pasta_controladoria.cadastro.titular'|trans }}<input type="text" name="titular_extrato" maxlength="255"><small class="ctl-sugestao" hidden>{{ 'pasta_controladoria.cadastro.da_cobranca'|trans }}</small></label>
+                    <label class="ctl-campo">{{ 'pasta_controladoria.cadastro.prescricao'|trans }}<input type="date" name="prescricao"></label>
+                </div>
+                <div class="ctl-status js-ctl-status"></div>
+                <button type="submit" class="ctl-salvar js-ctl-salvar">{{ 'pasta_controladoria.cadastro.salvar'|trans }}</button>
+            </form>
         </div>
     </div>
 </div>

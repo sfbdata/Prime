@@ -1965,4 +1965,37 @@ class PastaRepository extends ServiceEntityRepository
 
         return $qb->getQuery()->getResult();
     }
+
+    /**
+     * Outras pastas do escritório com o mesmo `contrato` ou a mesma `unidade` (Controladoria da pasta, fatia B): igual
+     * sem diferenciar caixa nem espaços das pontas. Fora da lixeira, sem as `$ocultas` (o cadeado: o alerta não pode
+     * entregar o número de uma pasta que a pessoa não vê).
+     *
+     * @param string    $campo   'contrato' ou 'unidade'
+     * @param list<int> $ocultas
+     *
+     * @return list<array{id: int, nup: string}>
+     */
+    public function outrasComOMesmo(string $campo, Pasta $pasta, Tenant $tenant, string $valor, array $ocultas): array
+    {
+        if (!in_array($campo, ['contrato', 'unidade'], true)) {
+            throw new \InvalidArgumentException('Campo não comparável: ' . $campo);
+        }
+        $qb = $this->createQueryBuilder('p')
+            ->select('p.id AS id', 'p.nup AS nup')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id <> :pasta')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('LOWER(TRIM(p.' . $campo . ')) = :valor')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pasta', $pasta->getId())
+            ->setParameter('valor', mb_strtolower(trim($valor)))
+            ->orderBy('p.id', 'ASC')
+            ->setMaxResults(5);
+        if ($ocultas !== []) {
+            $qb->andWhere($qb->expr()->notIn('p.id', ':ocultas'))->setParameter('ocultas', $ocultas);
+        }
+
+        return array_map(static fn (array $l): array => ['id' => (int) $l['id'], 'nup' => (string) $l['nup']], $qb->getQuery()->getArrayResult());
+    }
 }
