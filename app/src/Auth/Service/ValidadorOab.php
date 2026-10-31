@@ -68,7 +68,7 @@ final class ValidadorOab
      * Matcher lenient: ignora acento/caixa/pontuação/espaços e considera "bate" se todos os
      * tokens do nome mais curto estão contidos no outro (tolera nome do meio omitido, etc.).
      */
-    private function nomesBatem(string $digitado, string $oficial): bool
+    public function nomesBatem(string $digitado, string $oficial): bool
     {
         $tokensDigitado = $this->tokens($digitado);
         $tokensOficial  = $this->tokens($oficial);
