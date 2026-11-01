@@ -186,6 +186,6 @@ final class ContaConfirmacaoControllerTest extends JusPrimeWebTestCase
 
         $this->pedir(referer: $referer);
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
     }
 }

@@ -37,6 +37,8 @@ security:
                 samesite: lax
             logout:
                 path: app_logout
+                # A raiz (/) é o site institucional estático (nginx de produção): sair volta à tela de entrada.
+                target: app_login
                 # Sem o token, qualquer site derrubava a sessão (e o lembrar-me) com um GET para /logout.
                 # O id `logout` é stateless (csrf.yaml): vale pela origem da requisição. Link de sair: logout_path('main').
                 enable_csrf: true

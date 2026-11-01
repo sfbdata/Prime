@@ -49,7 +49,7 @@ final class EspacoEsgotadoListenerTest extends TestCase
         $resposta = $this->responder($request, new EspacoEsgotado(self::retrato()));
 
         self::assertInstanceOf(RedirectResponse::class, $resposta);
-        self::assertSame('https://app.test/', $resposta->getTargetUrl());
+        self::assertSame('https://app.test/inicio', $resposta->getTargetUrl());
     }
 
     #[TestDox('fetch com X-CSRF-Token (sem X-Requested-With) recebe JSON 422')]

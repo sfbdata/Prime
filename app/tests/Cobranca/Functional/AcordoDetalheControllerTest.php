@@ -170,7 +170,7 @@ final class AcordoDetalheControllerTest extends CobrancaWebTestCase
 
         // Alvo explícito: `semAcesso()` manda para a home. Sem o alvo, um 302 para /login
         // (usuário não autenticado) passaria igual e o teste não provaria o gate de módulo.
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
     }
 
     #[TestDox('IDOR: detalhe de acordo de outro tenant → 404')]

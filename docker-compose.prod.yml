@@ -128,6 +128,10 @@ services:
       # Página de manutenção + flag (maintenance.on). O :ro só impede escrita pelo
       # container; o deploy cria/remove a flag no host e o nginx vê na hora.
       - ./nginx/maintenance:/var/www/maintenance:ro
+      # Os 3 sites estáticos (repositório sfbdata/sites-bluejus: site, blog e gratis), já construídos. Fora do git
+      # (sites-publicados/ no .gitignore); o nginx serve do disco, sem passar pelo PHP. PASTA, pelo mesmo motivo do
+      # conf.d acima: trocar o conteúdo não exige recriar o container.
+      - ./sites-publicados:/var/www/sites:ro
     ports:
       - "80:80"
       - "443:443"

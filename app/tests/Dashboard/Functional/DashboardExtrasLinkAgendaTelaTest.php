@@ -408,6 +408,6 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
         self::assertCount(0, $celula->filter('a'), 'sem Agenda, não há lista que bata');
 
         $client->request('GET', '/agenda/lista?' . http_build_query(['responsavel' => $bruno->getId()]));
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
     }
 }
