@@ -8,6 +8,21 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.29.0] - 2026-10-31
+
+### Adicionado
+
+- Rota pública `POST /contato` (form-urlencoded) para o formulário de Contato do site institucional: nome, e-mail, assunto (Suporte, Dúvidas comerciais, Parcerias institucionais, Sugestão de funcionalidade, Problema técnico), mensagem e consentimento=1, com honeypot `website`. Reaproveita o `EnviarMensagemSuporteUseCase` com origem `site` (sem migration): grava a mensagem, avisa o Master no sino e ela aparece na Central de Notificações como "Fale conosco". Cota por IP do limitador `suporte_entrada` numa chave própria (`site:<ip>`). Resposta JSON `{ok: true}` ou `{ok: false, erro}`.
+
+### Alterado
+
+- O nginx de produção serve os 3 sites estáticos do repositório sfbdata/sites-bluejus no bluejus.com.br: o site institucional em `/` e nas páginas dele (como-funciona, duvidas, funcionalidades, gratuito, para-escritorios, seguranca, sobre, contato), mais robots.txt, sitemaps, `/_astro/` e `/imagens/`; o blog em `/blog` e o gratis em `/gratis`. Arquivo ausente responde 404 sem passar pelo PHP; o POST de `/contato` vai ao Symfony. Volume `./sites-publicados:/var/www/sites:ro` (fora do git).
+- A rota `homepage` do sistema passa de `/` para `/inicio`; sair do sistema volta à tela de entrada (`target: app_login`). O "espaço esgotado" sem Referer volta para `/inicio`.
+
+### Corrigido
+
+- Rotina de segunda da Controladoria: os alertas do Cadastro (contrato ou unidade repetidos, titular diferente, prescrição próxima, cadastro incompleto) ganham tipo próprio. Antes saíam com o Tipo vazio no resumo do `--simular` e dividiam a mesma marca, então um alerta já lançado escondia os outros. A chave do `AlertaDaPasta` passa a ser obrigatória.
+
 ## [2.28.0] - 2026-10-31
 
 ### Adicionado
@@ -1348,7 +1363,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.28.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.29.0...HEAD
+[2.29.0]: https://github.com/sfbdata/Prime/compare/v2.28.0...v2.29.0
 [2.28.0]: https://github.com/sfbdata/Prime/compare/v2.27.0...v2.28.0
 [2.27.0]: https://github.com/sfbdata/Prime/compare/v2.26.0...v2.27.0
 [2.26.0]: https://github.com/sfbdata/Prime/compare/v2.25.0...v2.26.0

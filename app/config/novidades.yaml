@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.29.0"
+  data: "2026-10-31"
+  itens:
+    - "O formulário de Contato do site do BlueJus agora chega direto à equipe do BlueJus, que responde pelo e-mail informado."
+    - "No Registro da pasta, a Controladoria agora avisa cada problema do cadastro (contrato repetido, unidade repetida, titular diferente, prescrição chegando, cadastro incompleto) separadamente. Antes, depois do primeiro aviso, os outros podiam deixar de aparecer."
+    - "O endereço bluejus.com.br passa a abrir o site do BlueJus, com o blog e a página do plano gratuito. O sistema continua no mesmo lugar: entrar pela tela de login leva ao Expediente, e sair do sistema volta à tela de login."
 - versao: "2.28.0"
   data: "2026-10-31"
   itens:
