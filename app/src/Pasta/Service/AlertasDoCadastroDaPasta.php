@@ -59,7 +59,7 @@ final class AlertasDoCadastroDaPasta
         $nups = array_map(static fn (array $o): string => $o['nup'], $outras);
         $quem = count($nups) === 1 ? 'A Pasta ' . $nups[0] . ' ' . $frases[1] : 'As Pastas ' . implode(', ', $nups) . ' ' . $frases[2];
 
-        return new AlertaDaPasta($nivel, 'Duas pastas ' . $frases[0], $quem . ' (' . $valor . ').', $sugestao);
+        return new AlertaDaPasta($nivel, 'Duas pastas ' . $frases[0], $quem . ' (' . $valor . ').', $sugestao, $campo);
     }
 
     private function titularDiferente(?string $titular, ?PastaReu $reu): ?AlertaDaPasta
@@ -68,7 +68,7 @@ final class AlertasDoCadastroDaPasta
             return null;
         }
 
-        return new AlertaDaPasta(AlertaDaPasta::ALTA, 'Titular do extrato diferente do réu', 'Extrato em nome de "' . $titular . '", réu cadastrado "' . $reu->getNome() . '".', 'Confirme a legitimidade passiva antes de prosseguir.');
+        return new AlertaDaPasta(AlertaDaPasta::ALTA, 'Titular do extrato diferente do réu', 'Extrato em nome de "' . $titular . '", réu cadastrado "' . $reu->getNome() . '".', 'Confirme a legitimidade passiva antes de prosseguir.', 'titular');
     }
 
     private function prescricao(Pasta $pasta, \DateTimeImmutable $hoje): ?AlertaDaPasta
@@ -88,6 +88,7 @@ final class AlertasDoCadastroDaPasta
             $dias < 0 ? 'Prescrição possivelmente ocorrida' : 'Prescrição próxima',
             'Data-limite estimada: ' . $limite->format('d/m/Y') . $quando . '.',
             'Revisão jurídica: confira o marco inicial e as causas de interrupção ou suspensão.',
+            'prescricao',
         );
     }
 
@@ -104,7 +105,7 @@ final class AlertasDoCadastroDaPasta
             return null;
         }
 
-        return new AlertaDaPasta(AlertaDaPasta::BAIXA, 'Cadastro do réu incompleto', 'Falta: ' . implode(' e ', $falta) . '.', 'Complete em "Cadastro da pasta" quando tiver os dados.');
+        return new AlertaDaPasta(AlertaDaPasta::BAIXA, 'Cadastro do réu incompleto', 'Falta: ' . implode(' e ', $falta) . '.', 'Complete em "Cadastro da pasta" quando tiver os dados.', 'cadastro');
     }
 
     private static function normalizar(string $texto): string

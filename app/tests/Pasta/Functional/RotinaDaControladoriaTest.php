@@ -181,6 +181,36 @@ final class RotinaDaControladoriaTest extends KernelTestCase
         self::assertCount(1, $this->cartoes($media));
     }
 
+    #[TestDox('alertas do Cadastro saem com o tipo próprio (contrato, prescricao) e um lançado não esconde o outro')]
+    public function testAlertasDoCadastroTemTipoProprio(): void
+    {
+        $tenant = $this->escritorio('Cadastro');
+        $user   = $this->primeiroUsuario($tenant);
+        $pasta  = $this->pastaAbertaEm($tenant, '11', '2026-10-30', $user);
+        $outra  = $this->pastaAbertaEm($tenant, '12', '2026-10-30', $user);
+        $pasta->setContrato('CT-77');
+        $outra->setContrato('ct-77 ');
+        $this->em()->flush();
+
+        $primeira = $this->rotina()->executar($tenant);
+
+        self::assertSame(['contrato' => 2], $primeira->porTipo);
+        self::assertArrayNotHasKey('', $primeira->porTipo);
+
+        // Na semana seguinte surge a prescrição na mesma pasta: é outro tipo, então é novo.
+        $pasta = $this->em()->find(Pasta::class, $pasta->getId());
+        $pasta->setPrescricaoEm(new \DateTimeImmutable('2026-11-20'));
+        $this->em()->flush();
+
+        $segunda = $this->rotina('2026-11-09 07:30:00')->executar($tenant);
+
+        self::assertSame(['prescricao' => 1], $segunda->porTipo);
+        $cartoes = $this->cartoes($pasta);
+        self::assertCount(2, $cartoes);
+        self::assertStringContainsString('Prescrição próxima', $cartoes[1]->getConteudo());
+        self::assertStringContainsString('data-controladoria="contrato,prescricao"', $cartoes[1]->getConteudo());
+    }
+
     #[TestDox('--simular lista escritório e tipo e não grava cartão')]
     public function testSimularListaPorTipoSemGravar(): void
     {
