@@ -27,6 +27,8 @@ final class EnviarMensagemSuporteInput
         public readonly string $mensagem,
         public readonly string $ip,
         public readonly ?string $userAgent = null,
+        /** 'login' (tela de entrada) ou 'site' (Contato do site institucional, {@see ContatoDoSiteInput}). */
+        public readonly string $origem = 'login',
     ) {
     }
 

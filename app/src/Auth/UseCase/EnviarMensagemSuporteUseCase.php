@@ -67,6 +67,7 @@ final class EnviarMensagemSuporteUseCase
             ip: $input->ip,
             userAgent: $input->userAgent,
             destinatario: $destinatario,
+            origem: $input->origem,
         );
     }
 
@@ -76,10 +77,12 @@ final class EnviarMensagemSuporteUseCase
         return mb_substr('Suporte · ' . ($input->nome !== '' ? $input->nome : $input->email), 0, 255);
     }
 
-    /** "💬 Nome (e-mail) pela página de login: mensagem", o texto do desenho. */
+    /** "💬 Nome (e-mail) pela página de login: mensagem", o texto do desenho; do site, "pelo site". */
     private function textoDoAviso(EnviarMensagemSuporteInput $input): string
     {
-        return '💬 ' . ($input->nome !== '' ? $input->nome : 'Visitante') . ' (' . $input->email . ') pela página de login: ' . $input->mensagem;
+        $onde = $input->origem === 'site' ? 'pelo site' : 'pela página de login';
+
+        return '💬 ' . ($input->nome !== '' ? $input->nome : 'Visitante') . ' (' . $input->email . ') ' . $onde . ': ' . $input->mensagem;
     }
 
     /** @return list<User> */

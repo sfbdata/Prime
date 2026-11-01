@@ -55,6 +55,7 @@ security:
         - { path: ^/i/,               roles: PUBLIC_ACCESS }  # link curto do Indicar o BlueJus: guarda o código e leva ao cadastro
         - { path: ^/senha,            roles: PUBLIC_ACCESS }  # recuperação de senha (quem esqueceu não consegue logar)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
+        - { path: ^/contato$,         roles: PUBLIC_ACCESS }  # formulário de Contato do site institucional (sem login)
         - { path: ^/politica-de-privacidade, roles: PUBLIC_ACCESS }  # leitura pública: quem ainda não tem conta precisa ler
         # Avisos de pagamento dos gateways e bancos (Contribua). Público porque quem chama é o gateway, não um
         # usuário; cada controller autentica o aviso (token, assinatura) e o trata só como aviso: a situação
