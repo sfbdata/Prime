@@ -386,7 +386,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
 
         $this->enviarLogin($client, (string) $user->getEmail(), 'novaSenha456');
         self::assertEntrouPeloVeu($client);
-        $client->request('GET', '/');
+        $client->request('GET', '/inicio');
         self::assertResponseRedirects('/termos/aceitar');
 
         $tela = $client->followRedirect();
@@ -396,11 +396,11 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $form = $tela->selectButton('Aceitar e continuar')->form();
         $form['aceito']->tick();
         $client->submit($form);
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
 
         self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('aceite_termo', $user));
         self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('ciencia_politica', $user));
-        $client->request('GET', '/');
+        $client->request('GET', '/inicio');
         self::assertFalse($client->getResponse()->isRedirect('/termos/aceitar'), 'depois do aceite, o gate não para mais');
 
         // Duplo envio do gate: a segunda ciência `reaceite` não grava nem estoura o índice único.
@@ -421,7 +421,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertSame(['cadastro'], $this->origens('aceite_termo', $user));
         self::assertSame(['cadastro'], $this->origens('ciencia_politica', $user));
         $this->enviarLogin($client, (string) $user->getEmail(), 'novaSenha456');
-        $client->request('GET', '/');
+        $client->request('GET', '/inicio');
         self::assertFalse($client->getResponse()->isRedirect('/termos/aceitar'));
     }
 

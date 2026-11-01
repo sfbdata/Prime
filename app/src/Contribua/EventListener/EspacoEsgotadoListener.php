@@ -94,6 +94,7 @@ final class EspacoEsgotadoListener
         $referer = (string) $request->headers->get('referer');
         $origem = $request->getSchemeAndHttpHost();
 
-        return str_starts_with($referer, $origem . '/') ? $referer : $origem . '/';
+        // Sem Referer, o início do sistema (rota homepage): a raiz (/) é o site institucional estático.
+        return str_starts_with($referer, $origem . '/') ? $referer : $origem . '/inicio';
     }
 }

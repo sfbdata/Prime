@@ -167,7 +167,7 @@ final class CalculoControllerTest extends JusPrimeWebTestCase
     {
         $this->entrar(false);
 
-        $crawler = $this->client->request('GET', '/');
+        $crawler = $this->client->request('GET', '/inicio');
         self::assertSame(0, $crawler->filter('a[href="/calculo"]')->count());
     }
 

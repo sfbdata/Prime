@@ -205,7 +205,7 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
 
         foreach (['https://mal.example/x', '//mal.example/x', '/\\mal.example', '/%2F%2Fmal.example', ''] as $voltar) {
             $this->dispensar($voltar);
-            self::assertResponseRedirects('/', null, $voltar);
+            self::assertResponseRedirects('/inicio', null, $voltar);
         }
     }
 

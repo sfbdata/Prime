@@ -251,9 +251,9 @@ final class CarteiraExportarListaTest extends CobrancaWebTestCase
         $carteira = $this->carteira($tenant);
 
         $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
         $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId() . '/exportar');
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
         self::assertResponseHeaderNotSame('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
 

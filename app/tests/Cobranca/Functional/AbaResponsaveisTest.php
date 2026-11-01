@@ -513,7 +513,7 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
 
         // Destino EXPLÍCITO: `semAcesso()` vai para a homepage. Um `assertResponseRedirects()` sem alvo
         // aceitaria também o redirect de recusa por CSRF (`?aba=responsaveis`) e deixaria o gate sem prova.
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -1069,7 +1069,7 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         );
         // Destino EXPLÍCITO: `semAcesso()` vai para a homepage — um redirect sem alvo aceitaria também
         // a recusa por CSRF (`?aba=responsaveis`) e deixaria o gate sem prova.
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -1162,12 +1162,12 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         ]);
         // Destino EXPLÍCITO: `semAcesso()` vai para a homepage — um redirect sem alvo aceitaria também
         // a recusa por CSRF (`?aba=responsaveis`) e deixaria o gate sem prova.
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
 
         $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId() . '/excluir', [
             '_token' => 'token-qualquer',
         ]);
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

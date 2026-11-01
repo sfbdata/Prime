@@ -50,7 +50,7 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
 
         $this->postarDaTela($client, $convite, 'aceitar');
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertSame('accepted', $em->find(Invitation::class, $convite->getId())->getStatus());
@@ -67,7 +67,7 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
 
         $this->postarDaTela($client, $convite, 'recusar');
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertSame('rejected', $em->find(Invitation::class, $convite->getId())->getStatus());
@@ -190,7 +190,7 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
         $form = $crawler->filter(sprintf('form[action="/convite/%s/aceitar"]', $this->tokenDe($convite)));
         $client->request('POST', (string) $form->attr('action'), ['_token' => (string) $form->filter('input[name="_token"]')->attr('value')]);
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertSame('accepted', $em->find(Invitation::class, $convite->getId())->getStatus());

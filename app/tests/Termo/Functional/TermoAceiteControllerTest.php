@@ -82,7 +82,7 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
         $user   = $this->criarUsuario();
         $client->loginUser($user);
 
-        $client->request('GET', '/');
+        $client->request('GET', '/inicio');
 
         self::assertResponseRedirects('/termos/aceitar');
     }
@@ -94,7 +94,7 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
         $user   = $this->criarUsuario();
         $client->loginUser($user);
 
-        $client->request('GET', '/', [], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
+        $client->request('GET', '/inicio', [], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
 
         self::assertResponseStatusCodeSame(403);
     }
@@ -127,7 +127,7 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
             'aceito' => '1',
         ]);
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
 
         $repo = static::getContainer()->get(AceiteTermoRepository::class);
         self::assertTrue($repo->existeAceiteVigente($user, TermoVigente::VERSAO));
@@ -160,7 +160,7 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
         $client->loginUser($user);
 
         // Cai no gate ao acessar a home, sem antes ser mandado para seleção de escritório.
-        $client->request('GET', '/');
+        $client->request('GET', '/inicio');
         self::assertResponseRedirects('/termos/aceitar');
 
         // E a própria tela de aceite renderiza, mesmo sem tenant selecionado (C1).
@@ -180,7 +180,7 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         $client->loginUser($user);
-        $client->request('GET', '/');
+        $client->request('GET', '/inicio');
 
         self::assertResponseRedirects('/termos/aceitar');
     }

@@ -181,7 +181,7 @@ final class JanelaDoGeneroTest extends JusPrimeWebTestCase
 
         $this->client->request('POST', '/perfil/genero', ['genero' => 'feminino', '_token' => $this->csrf()]);
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
         self::assertSame(Genero::Feminino, $this->generoDe($user));
     }
 

@@ -102,7 +102,7 @@ final class FichaPessoaModalControllerTest extends CobrancaWebTestCase
         $client->request('GET', '/cobrancas/pessoas/' . $pessoa->getId() . '/ficha-modal');
 
         // `semAcesso()` do módulo: flash + volta para a home. Mesma recusa da página da ficha.
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
     }
 
     #[TestDox('Pessoa de OUTRO escritório é 404 no fragmento (anti-IDOR)')]

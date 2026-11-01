@@ -420,7 +420,7 @@ final class LoginTelaTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/login');
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
     }
 
     #[TestDox('O olho da senha e o aviso de Caps Lock')]

@@ -38,7 +38,7 @@ final class DestinoPosLoginTest extends KernelTestCase
      */
     public static function paginasDaLista(): iterable
     {
-        yield 'homepage' => ['homepage', '/'];
+        yield 'homepage' => ['homepage', '/inicio'];
         yield 'tenant_selecionar' => ['tenant_selecionar', '/escritorio/selecionar'];
         yield 'dashboard_index' => ['dashboard_index', '/dashboard'];
         yield 'expediente_index' => ['expediente_index', '/expediente'];
@@ -160,14 +160,14 @@ final class DestinoPosLoginTest extends KernelTestCase
     public static function destinosAceitos(): iterable
     {
         yield 'caminho simples' => ['/agenda', '/agenda'];
-        yield 'raiz' => ['/', '/'];
+        yield 'início do sistema' => ['/inicio', '/inicio']; // a raiz (/) é o site institucional, fora do sistema
         yield 'caminho com query' => ['/agenda?dia=2026-10-19', '/agenda?dia=2026-10-19'];
         yield 'query com espaço codificado' => ['/expediente?q=a%20b', '/expediente?q=a%20b'];
         yield 'barra no fim de página sem barra' => ['/ponto', '/ponto'];
         yield 'URL absoluta do próprio host' => ['http://localhost/agenda?dia=1', '/agenda?dia=1'];
         yield 'URL absoluta https do próprio host' => ['https://localhost/agenda', '/agenda'];
         yield 'host em maiúsculas' => ['http://LOCALHOST/agenda', '/agenda'];
-        yield 'URL absoluta sem caminho' => ['http://localhost', '/'];
+        yield 'URL absoluta do início' => ['http://localhost/inicio', '/inicio'];
         yield 'fragmento cai na redução' => ['http://localhost/agenda#topo', '/agenda'];
     }
 

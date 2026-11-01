@@ -175,7 +175,7 @@ final class QualificacaoContatoControllerTest extends CobrancaWebTestCase
         // Destino EXPLÍCITO: `semAcesso()` manda para a homepage, e é justamente esse destino que separa
         // "barrado pelo gate" de "barrado pelo CSRF" (que voltaria para `?aba=responsaveis`). Um
         // `assertResponseRedirects()` sem alvo aceitaria os dois e deixaria o gate sem prova.
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/inicio');
         self::assertCount(0, $this->qualificacoesDoCaso($casoId), 'sem capacidade nada pode ser gravado');
     }
 
@@ -376,7 +376,7 @@ final class QualificacaoContatoControllerTest extends CobrancaWebTestCase
             '_token' => $this->tokenCsrf($client, 'desfazer_qualificacao_' . $id),
         ]);
 
-        self::assertResponseRedirects('/');   // homepage do `semAcesso()`, não a volta para a aba
+        self::assertResponseRedirects('/inicio');   // homepage do `semAcesso()`, não a volta para a aba
         self::assertNotNull($this->buscarEvento($id), 'sem capacidade nada pode ser removido');
     }
 
