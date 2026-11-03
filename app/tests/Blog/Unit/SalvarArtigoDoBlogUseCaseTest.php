@@ -73,9 +73,10 @@ final class SalvarArtigoDoBlogUseCaseTest extends TestCase
     }
 
     /** Uma imagem do artigo com id, e o arquivo dela no armazenamento em memória. */
-    private function imagem(ArtigoDoBlog $artigo, int $id, string $mime = 'image/png'): ImagemDoArtigo
+    /** Por padrão enviada na véspera: fora da carência da imagem nova, a limpeza pode levá-la. O MockClock é UTC. */
+    private function imagem(ArtigoDoBlog $artigo, int $id, string $mime = 'image/png', string $criadaEm = '2026-11-02'): ImagemDoArtigo
     {
-        $imagem = new ImagemDoArtigo($artigo, 'arquivo-' . $id . '.png', 'foto.png', $mime, 800, 600, 1234, new \DateTimeImmutable('2026-11-02'));
+        $imagem = new ImagemDoArtigo($artigo, 'arquivo-' . $id . '.png', 'foto.png', $mime, 800, 600, 1234, new \DateTimeImmutable($criadaEm));
         (new \ReflectionProperty(ImagemDoArtigo::class, 'id'))->setValue($imagem, $id);
         $this->armazenamento->semear(ChavesDoBlog::imagem($imagem));
 
@@ -188,6 +189,60 @@ final class SalvarArtigoDoBlogUseCaseTest extends TestCase
         self::assertTrue($this->armazenamento->existe(ChavesDoBlog::imagem($capa)));
         self::assertSame('5', $artigo->getImagemChave());
         self::assertSame('Capa', $artigo->getImagemAlt());
+    }
+
+    #[TestDox('Carência: imagem sem uso enviada há menos de 1 hora fica (envio em andamento); a de mais de 1 hora sai')]
+    public function testImagemRecenteSemUsoFica(): void
+    {
+        $artigo = $this->existente(7);
+        $this->artigos->method('existeSlug')->willReturn(false);
+        $recente = $this->imagem($artigo, 4, criadaEm: '2026-11-03 09:01:00 UTC');
+        $antiga = $this->imagem($artigo, 5, criadaEm: '2026-11-03 08:59:59 UTC');
+        $this->imagens->method('doArtigo')->willReturn([$recente, $antiga]);
+        $this->imagens->expects(self::once())->method('remover')->with($antiga);
+
+        $this->sut()->executar($this->input(['corpoHtml' => '<p>Sem imagem.</p>'], 7));
+
+        self::assertTrue($this->armazenamento->existe(ChavesDoBlog::imagem($recente)));
+        self::assertFalse($this->armazenamento->existe(ChavesDoBlog::imagem($antiga)));
+    }
+
+    #[TestDox('Flush que falha: a exceção sobe e nenhum arquivo é apagado')]
+    public function testFlushQueFalhaNaoApagaArquivo(): void
+    {
+        $artigos = $this->createMock(ArtigoDoBlogRepository::class);
+        $artigo = new ArtigoDoBlog('meu-artigo', BlogsDoArtigo::Normal, null, new \DateTimeImmutable('2026-11-01'));
+        (new \ReflectionProperty(ArtigoDoBlog::class, 'id'))->setValue($artigo, 7);
+        $artigos->method('porId')->willReturn($artigo);
+        $artigos->method('existeSlug')->willReturn(false);
+        $artigos->method('salvar')->willThrowException(new \RuntimeException('banco fora'));
+        $this->artigos = $artigos;
+        $semUso = $this->imagem($artigo, 4);
+        $this->imagens->method('doArtigo')->willReturn([$semUso]);
+
+        try {
+            $this->sut()->executar($this->input(['corpoHtml' => '<p>Sem imagem.</p>'], 7));
+            self::fail('deveria lançar');
+        } catch (\RuntimeException $e) {
+            self::assertSame('banco fora', $e->getMessage());
+        }
+        self::assertSame([], $this->armazenamento->excluidas);
+        self::assertTrue($this->armazenamento->existe(ChavesDoBlog::imagem($semUso)));
+    }
+
+    #[TestDox('Imagem de outro artigo no corpo sai do HTML (e do Markdown) ao salvar; a do artigo fica')]
+    public function testImagemDeOutroArtigoSaiDoHtml(): void
+    {
+        $artigo = $this->existente(7);
+        $this->artigos->method('existeSlug')->willReturn(false);
+        $this->imagens->method('doArtigo')->willReturn([$this->imagem($artigo, 4)]);
+
+        $this->sut()->executar($this->input(['corpoHtml' => '<p>A <img src="/master/blog/imagens/4" alt="Minha"> B <img src="/master/blog/imagens/99" alt="Alheia"></p>'], 7));
+
+        self::assertStringContainsString('/master/blog/imagens/4', $artigo->getCorpoHtml());
+        self::assertStringNotContainsString('/master/blog/imagens/99', $artigo->getCorpoHtml());
+        self::assertStringNotContainsString('Alheia', $artigo->getCorpoHtml());
+        self::assertStringContainsString('![Minha](./imagens/4.png)', $artigo->getCorpoMarkdown());
     }
 
     #[TestDox('Tirar a imagem do corpo e a capa apaga as duas')]

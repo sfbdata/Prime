@@ -38,10 +38,27 @@ final class HtmlDoArtigoParaMarkdown
     ) {
     }
 
-    /** O HTML limpo pela lista branca: é o que o `corpoHtml` guarda. */
-    public function sanitizar(string $html): string
+    /**
+     * O HTML limpo pela lista branca: é o que o `corpoHtml` guarda.
+     *
+     * Com `$idsDasImagens`, o `<img>` cujo id não está na lista também sai: ao salvar, só ficam as imagens do PRÓPRIO
+     * artigo (a de outro artigo some quando ele a limpar, e o Markdown já a descartaria calado).
+     *
+     * @param list<int>|null $idsDasImagens ids das ImagemDoArtigo aceitas; null = não filtra por id
+     */
+    public function sanitizar(string $html, ?array $idsDasImagens = null): string
     {
-        return $this->listaBranca->paraHtml($this->listaBranca->limpar($html));
+        $raiz = $this->listaBranca->limpar($html);
+        if ($idsDasImagens !== null) {
+            foreach (iterator_to_array($raiz->getElementsByTagName('img'), false) as $img) {
+                $id = preg_match(ListaBrancaDoArtigo::REGEX_SRC_DA_IMAGEM, $img->getAttribute('src'), $m) === 1 ? (int) $m[1] : 0;
+                if (!\in_array($id, $idsDasImagens, true)) {
+                    $img->parentNode?->removeChild($img);
+                }
+            }
+        }
+
+        return $this->listaBranca->paraHtml($raiz);
     }
 
     /**

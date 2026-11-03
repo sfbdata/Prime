@@ -34,13 +34,21 @@ use Psr\Clock\ClockInterface;
  * Capa: `imagemChave` guarda o ID da {@see ImagemDoArtigo} (texto), não a chave do armazenamento. É dele que o pacote do
  * build (P4) tira `./imagens/{id}.{ext}` para o {@see \App\Blog\Service\ExportadorDeArtigo}, igual às imagens do corpo.
  * Limpeza (seção 4): imagem do artigo que não está no corpo nem na capa sai junto, no mesmo flush; o arquivo sai só
- * DEPOIS do COMMIT ({@see RemocaoAposTransacao}), e falha física vira log, não erro.
+ * DEPOIS do COMMIT ({@see RemocaoAposTransacao}), e falha física vira log, não erro. Imagem enviada há menos de
+ * {@see self::CARENCIA_DA_IMAGEM_NOVA} fica (envio em andamento). `<img>` de imagem que não é deste artigo sai do HTML.
  * Pós-condições: a situação NÃO muda (D7). Num artigo publicado ou despublicado, texto novo fica como
  * "alterações não publicadas" até Publicar de novo; salvar sem mudança nenhuma não marca nada.
  */
 final class SalvarArtigoDoBlogUseCase
 {
     private const PALAVRAS_POR_MINUTO = 200;
+
+    /**
+     * Imagem enviada há menos disto não é limpa, mesmo sem uso: o Salvar pode sair enquanto a capa ou uma imagem do
+     * corpo ainda sobe, ou de outra aba aberta com o HTML antigo. Sem a carência, a limpeza apagaria a imagem recém-
+     * enviada e a tela ficaria apontando para o vazio. Ela sai num salvar posterior, se continuar sem uso.
+     */
+    public const CARENCIA_DA_IMAGEM_NOVA = '-1 hour';
 
     public function __construct(
         private readonly ArtigoDoBlogRepository $artigos,
@@ -102,11 +110,11 @@ final class SalvarArtigoDoBlogUseCase
     private function aplicar(ArtigoDoBlog $artigo, SalvarArtigoDoBlogInput $input, array $imagens): void
     {
         $capa = $this->capa($input->imagemChave, $imagens);
-        $html = $this->conversor->sanitizar($input->corpoHtml);
         $extensoes = [];
         foreach ($imagens as $imagem) {
             $extensoes[(int) $imagem->getId()] = $imagem->extensao();
         }
+        $html = $this->conversor->sanitizar($input->corpoHtml, array_keys($extensoes));
 
         $artigo->trocarSlug($input->slug);
         $artigo->definirBlogs(BlogsDoArtigo::from($input->blogs));
@@ -141,7 +149,7 @@ final class SalvarArtigoDoBlogUseCase
     }
 
     /**
-     * Imagens do artigo que o corpo salvo e a capa não citam mais.
+     * Imagens do artigo que o corpo salvo e a capa não citam mais, fora as enviadas na carência (envio em andamento).
      *
      * @param list<ImagemDoArtigo> $imagens
      *
@@ -154,7 +162,12 @@ final class SalvarArtigoDoBlogUseCase
             $usadas[] = (int) $artigo->getImagemChave();
         }
 
-        return array_values(array_filter($imagens, static fn (ImagemDoArtigo $i): bool => !\in_array((int) $i->getId(), $usadas, true)));
+        $limite = $this->relogio->now()->modify(self::CARENCIA_DA_IMAGEM_NOVA);
+
+        return array_values(array_filter(
+            $imagens,
+            static fn (ImagemDoArtigo $i): bool => !\in_array((int) $i->getId(), $usadas, true) && $i->getCriadaEm() < $limite,
+        ));
     }
 
     /** "N min" pelo número de palavras do corpo, quando o Master não escreveu a leitura. */

@@ -377,6 +377,8 @@
   const btCapa = qs('[data-be-capa-enviar]');
   const btCapaRemover = qs('[data-be-capa-remover]');
   const inCapa = qs('[data-be-capa-arquivo]');
+  // O envio da capa em andamento: salvar, verificar e pré-visualizar esperam por ele (senão o salvar vai sem a capa).
+  let envioDaCapa = null;
 
   function desenharCapa() {
     elCapa.hidden = !S.capa;
@@ -395,7 +397,7 @@
     if (!arquivo) return;
     erroNoCampo('imagemChave', '');
     btCapa.disabled = true;
-    enviarImagem(arquivo).then(j => {
+    envioDaCapa = enviarImagem(arquivo).then(j => {
       S.capa = String(j.id);
       sujo = true;
       desenharCapa();
@@ -404,7 +406,7 @@
         campo('imagemAlt').focus();
       }
     }).catch(e => erroNoCampo('imagemChave', e.message || ERRO_PADRAO))
-      .finally(() => { btCapa.disabled = !id; });
+      .finally(() => { envioDaCapa = null; btCapa.disabled = !id || ocupado; });
   });
   btCapaRemover.addEventListener('click', () => {
     S.capa = null;
@@ -574,9 +576,16 @@
   const corpoHtml = () => (editor ? editor.getContent() : qs('[data-be-corpo]').value);
 
   /* ---------- salvar, verificar, pré-visualizar, excluir ---------- */
-  const BOTOES = ['[data-be-salvar]', '[data-be-verificar]', '[data-be-previa]', '[data-be-excluir]'];
+  const BOTOES = ['[data-be-salvar]', '[data-be-verificar]', '[data-be-previa]', '[data-be-excluir]', '[data-be-capa-enviar]'];
   function travar(sim) {
     BOTOES.forEach(sel => { qs(sel).disabled = sim || (sel !== '[data-be-salvar]' && !id); });
+    if (envioDaCapa) btCapa.disabled = true;
+  }
+
+  // Imagem ainda subindo (capa ou corpo): espera, senão o HTML ou a capa vão sem ela.
+  async function esperarEnvios() {
+    if (envioDaCapa) await envioDaCapa.catch(() => null);
+    if (editor && id) await editor.uploadImages();
   }
 
   function dados(confirmarTrocaDeSlug) {
@@ -625,8 +634,7 @@
     travar(true);
     limparErros();
     try {
-      // Imagem ainda subindo no corpo: espera, senão o HTML vai sem ela e a limpeza do salvar a apagaria.
-      if (editor && id) await editor.uploadImages();
+      await esperarEnvios();
       let res = await postar(id ? comId(URLS.salvar, id) : URLS.criar, dados(false));
       if (pedeConfirmacaoDoSlug(res)) {
         const sim = await confirmar({
@@ -664,6 +672,7 @@
 
   async function verificar() {
     if (!id || ocupado) return;
+    await esperarEnvios();
     if (sujo && !(await salvar())) return;
     ocupado = true;
     travar(true);
@@ -685,6 +694,7 @@
     if (!id || ocupado) return;
     // A janela abre já no clique (bloqueador de pop-up); o endereço entra depois de salvar.
     const janela = window.open('', '_blank');
+    await esperarEnvios();
     if (sujo && !(await salvar())) { if (janela) janela.close(); return; }
     const url = comId(URLS.previa, id);
     if (janela) { janela.opener = null; janela.location.href = url; } else { window.open(url, '_blank', 'noopener'); }

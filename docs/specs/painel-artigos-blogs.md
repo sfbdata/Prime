@@ -178,7 +178,8 @@ Testes de ida: um HTML de cada bloco vira exatamente o Markdown da tabela; um ar
   (imagem gigante derruba o build); grava pela chave, mede largura/altura, e devolve `{id, url}`. Sem compressão no envio: o Astro otimiza no build.
 - Exibição no editor: `GET /master/blog/imagens/{id}` (Master), `EntregaDeArquivo::resposta(…, inline: true)`.
 - Exclusão: apagar a imagem ou o artigo remove o arquivo **depois do COMMIT** (`RemocaoAposTransacao`).
-  Imagem sem uso no corpo nem na capa é limpa ao salvar.
+  Imagem sem uso no corpo nem na capa é limpa ao salvar, **depois de 1 hora** de enviada (carência da P3: o
+  salvar que sai enquanto a capa sobe, ou numa segunda aba, não apaga a imagem recém-enviada).
 - Capa: `imagemChave` guarda o **id** da `ImagemDoArtigo` (ex.: `"12"`), não a chave do armazenamento; só vale
   id de imagem do próprio artigo (422 no salvar). O pacote da P4 lê esse id para gerar `./imagens/{id}.{ext}`.
 - No build, a exportação copia cada imagem do R2 para `src/content/artigos/{slug}/imagens/` (ao lado do

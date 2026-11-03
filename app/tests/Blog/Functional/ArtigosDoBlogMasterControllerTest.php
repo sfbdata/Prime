@@ -89,8 +89,22 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         $client->request('POST', '/master/blog/artigos', [], [], self::CSRF, (string) json_encode(['slug' => 'x', 'blogs' => 'normal']));
         self::assertResponseStatusCodeSame(403);
         self::assertNull($this->repositorio()->porSlug('x'));
+    }
 
-        // Imagens (P3): nem envia nem vê, mesmo com o token certo e um artigo e uma imagem que existem.
+    #[TestDox('Usuário de escritório (não Master): 403 no envio (POST artigos/{id}/imagens) e na entrega (GET imagens/{id}), mesmo com o token certo')]
+    public function testImagensUsuarioComum(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        $tenant = (new Tenant())->setName('Escritório Blog ' . uniqid());
+        $em->persist($tenant);
+        $usuario = $this->usuario(['ROLE_USER']);
+        $em->persist(new UserTenant($usuario, $tenant));
+        $em->flush();
+        $this->logarComTenant($client, $usuario, $tenant);
+        $this->trocarTokens();
+
         $artigo = $this->novoArtigo('img-comum-' . bin2hex(random_bytes(4)), 'Artigo');
         $imagem = new ImagemDoArtigo($artigo, 'nao-existe.png', 'a.png', 'image/png', 1, 1, 1, new \DateTimeImmutable());
         $this->imagens()->salvar($imagem, flush: true);
@@ -445,7 +459,7 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    #[TestDox('Imagem: salvar sem a imagem no corpo nem na capa apaga a linha e o arquivo; a usada fica; capa de outro artigo, 422')]
+    #[TestDox('Imagem: salvar sem a imagem no corpo nem na capa apaga a linha e o arquivo; a usada e a recém-enviada ficam; capa de outro artigo, 422')]
     public function testSalvarLimpaImagemSemUso(): void
     {
         $client = $this->clienteMaster();
@@ -456,6 +470,8 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         $capa = (int) $this->enviar($client, $id, self::png(), 'capa.png')['id'];
         $semUso = (int) $this->enviar($client, $id, self::png(), 'sobra.png')['id'];
         $chaveDaSobra = $this->chaveDe($semUso);
+        $this->envelhecer($noCorpo, $capa, $semUso);
+        $recente = (int) $this->enviar($client, $id, self::png(), 'subindo.png')['id'];
 
         $this->postar($client, "/master/blog/artigos/$id", ['slug' => $slug, 'blogs' => 'normal', 'imagemChave' => (string) $capa, 'imagemAlt' => 'Capa',
             'corpoHtml' => '<p>Texto</p><p><img src="/master/blog/imagens/' . $noCorpo . '" alt="Tela"></p>']);
@@ -466,6 +482,8 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->armazenamento()->existe($chaveDaSobra), 'o arquivo sem uso sai depois do COMMIT');
         self::assertTrue($this->armazenamento()->existe($this->chaveDe($noCorpo)));
         self::assertTrue($this->armazenamento()->existe($this->chaveDe($capa)));
+        self::assertNotNull($this->imagens()->porId($recente), 'enviada há menos de 1 hora: fica (envio em andamento)');
+        self::assertTrue($this->armazenamento()->existe($this->chaveDe($recente)));
         $salvo = $this->repositorio()->porId($id);
         self::assertSame((string) $capa, $salvo?->getImagemChave());
         self::assertStringContainsString('![Tela](./imagens/' . $noCorpo . '.png)', (string) $salvo?->getCorpoMarkdown());
@@ -515,6 +533,18 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         }
 
         return $dados;
+    }
+
+    /** Põe a imagem como enviada há 2 horas: fora da carência, a limpeza do salvar pode levá-la. */
+    private function envelhecer(int ...$ids): void
+    {
+        foreach ($ids as $id) {
+            $this->em()->getConnection()->executeStatement(
+                'UPDATE artigo_blog_imagem SET criada_em = ? WHERE id = ?',
+                [(new \DateTimeImmutable('-2 hours'))->format('Y-m-d H:i:s'), $id],
+            );
+        }
+        $this->em()->clear();
     }
 
     private function chaveDe(int $imagemId): ChaveDeArquivo
