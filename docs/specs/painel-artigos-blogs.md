@@ -253,9 +253,10 @@ para os blogs, passa a pedir ao builder em vez de gerar com os artigos do reposi
 | P4 | `blog-builder` (este repo) + `sites-gerar-com-pacote` (sites-bluejus) | serviço `blog_builder` no compose, laço do builder, pacote do worker, `PublicacaoDosBlogs` e a faixa da tela; no repositório dos sites, `npm run build` aceita a pasta de artigos de fora (`ARTIGOS`, como o `blog-gratis` já faz nos testes) | sim (1) |
 | P5 | `blog-agendamento` | Agendar, `blog:publicar-agendados` na `AgendaDeTarefas`, aviso de falha; `publicar.sh` deixa de levar artigos do repositório | não |
 | P6 | `blog-previa` | prévia real pelo builder (opcional, depois do uso) | não |
+| P7 | `blog-marcadores` | marcadores nos artigos (seção 11): coluna, campo com sugestões no editor, validação e frontmatter; vai junto com a P2 ou logo depois dela | sim (1) |
 
 Ordem: P1 → P2 → P3 em sequência (mesmo domínio); P4 pode correr ao lado de P2/P3 depois do P1; P5 por
-último. Uma migration por vez (P1 e P4). Cada fatia tem unit dos UseCases e functional dos controllers.
+último. Uma migration por vez (P1, P4 e P7). Cada fatia tem unit dos UseCases e functional dos controllers.
 
 ## 9. Decisões para o Samuel (com a recomendação)
 
@@ -284,3 +285,33 @@ Todos os comandos vão em bloco "Execute manualmente" na fatia P4, com o passo a
 5. Rodar uma vez a importação dos artigos atuais (P2): `bin/console blog:importar-do-repositorio`.
 
 Nada disso precisa ser repetido depois: publicar e agendar passam a ser cliques do Farlei.
+
+## 11. Marcadores (pedido do Samuel, 03/11)
+
+Etiquetas livres no artigo, além da categoria fixa: "INSS", "Prazo em dobro".
+
+**Contrato do campo** (o mesmo para o BlueJus e para o repositório dos sites):
+
+- `marcadores`: opcional, lista de **até 8**, cada um com **até 40 caracteres** de texto livre, sem espaço
+  nas pontas e sem espaço duplo no meio.
+- O **slug** de cada marcador sai do texto sem acento, em minúsculas, com hífen no lugar do resto
+  (`Prazo em dobro` → `prazo-em-dobro`), na mesma regra do slug do artigo. Marcador cujo slug fica vazio é recusado.
+- Dois marcadores do mesmo artigo com o mesmo slug (`INSS` e `inss`) contam como um: fica a primeira grafia.
+- No Markdown exportado, sai no frontmatter, depois de `categoria`, como lista do YAML:
+  `marcadores: ["INSS", "Prazo em dobro"]`. Sem marcadores, a chave não sai.
+
+**No BlueJus:**
+
+- Modelo: coluna `marcadores` (`jsonb`, lista de textos, padrão `[]`) em `artigo_blog`, com migration própria
+  (número pedido ao Coordenador). A grafia escolhida é guardada; o slug é calculado, não gravado.
+- Editor (P2): campo de marcadores que **sugere os já usados** nos outros artigos, pela busca no
+  `ArtigoDoBlogRepository::marcadoresUsados(busca)` (`jsonb_array_elements_text`, agrupado por slug,
+  mais usados primeiro, até 10). Escolher uma sugestão reaproveita a grafia que já existe, para "INSS" não
+  virar também "Inss".
+- `ValidadorDoArtigo` e o Input conferem os limites acima; a mensagem diz qual marcador passou do limite.
+- Exportador: a chave `marcadores` no frontmatter, na ordem do editor.
+
+**Nos sites** (sessão dos sites, fora deste repositório): o zod aceita `marcadores` opcional com os mesmos
+limites; página `/blog/marcador/<slug>` com os artigos do marcador, com `noindex`. O repositório dos sites
+precisa aceitar a chave **antes** de o BlueJus exportá-la: confira isso antes do merge da P7.
+
