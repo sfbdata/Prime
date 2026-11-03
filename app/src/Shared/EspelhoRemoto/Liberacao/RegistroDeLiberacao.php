@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Shared\EspelhoRemoto\Liberacao;
 
+use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
@@ -20,8 +22,8 @@ use Psr\Clock\ClockInterface;
  * não tem o envio `verificado` (retenção de 90 dias), e é o que a reconciliação usa para separar
  * "liberado" de "perdido". O índice único parcial impede duas linhas abertas da mesma chave.
  *
- * Nesta etapa ninguém grava em produção: `registrar()` e `fechar()` são da etapa C (liberar e
- * restaurar) e dos testes.
+ * Nesta etapa ninguém abre linha em produção: `registrar()` é da etapa C (liberar) e dos testes. A
+ * exclusão já fecha a linha (`fechar()`, `fecharPrefixo()`, pelo `ArmazenamentoEspelhado`).
  */
 final class RegistroDeLiberacao
 {
@@ -91,6 +93,18 @@ final class RegistroDeLiberacao
         return (int) $this->conexao->executeStatement(
             'UPDATE ' . self::TABELA . ' SET restaurado_em = :agora WHERE chave_remota = :chave AND restaurado_em IS NULL',
             ['agora' => $this->agora(), 'chave' => $chaveRemota],
+        );
+    }
+
+    /** Fecha as linhas abertas de um escritório numa categoria (a purga por prefixo). Devolve quantas fechou. */
+    public function fecharPrefixo(EscopoDeArquivo $escopo, CategoriaDeArquivo $categoria): int
+    {
+        $tenant = $escopo->tenantIdOuNull();
+
+        return (int) $this->conexao->executeStatement(
+            'UPDATE ' . self::TABELA . ' SET restaurado_em = :agora WHERE categoria = :categoria AND restaurado_em IS NULL AND '
+            . ($tenant === null ? 'escopo_tenant_id IS NULL' : 'escopo_tenant_id = :tenant'),
+            ['agora' => $this->agora(), 'categoria' => $categoria->value] + ($tenant === null ? [] : ['tenant' => $tenant]),
         );
     }
 

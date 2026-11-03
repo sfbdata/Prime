@@ -90,6 +90,21 @@ final class RegistroDeLiberacaoTest extends KernelTestCase
         self::assertNull($this->registro->abertaDe(LayoutDeChaveRemota::chaveDe($this->chave(8, 'mesmo.pdf'))));
     }
 
+    #[TestDox('fecharPrefixo fecha só as linhas abertas do escritório na categoria')]
+    public function testFecharPrefixo(): void
+    {
+        $alvo  = $this->chave(7, 'a.pdf');
+        $outro = $this->chave(8, 'a.pdf');
+        foreach ([$alvo, $outro] as $chave) {
+            $this->registro->registrar('lote-1', $chave, hash('sha256', 'x'), 1);
+        }
+
+        self::assertSame(1, $this->registro->fecharPrefixo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::PASTA_DOCUMENTO));
+        self::assertNull($this->registro->abertaDe(LayoutDeChaveRemota::chaveDe($alvo)));
+        self::assertNotNull($this->registro->abertaDe(LayoutDeChaveRemota::chaveDe($outro)));
+        self::assertSame(0, $this->registro->fecharPrefixo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::COBRANCA_DOCUMENTO));
+    }
+
     #[TestDox('recusa SHA fora do formato, tamanho negativo e lote vazio, sem gravar nada')]
     public function testRecusaDadoInvalido(): void
     {

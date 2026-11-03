@@ -157,6 +157,7 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
                 $this->registrarFalha('exclusão', $chave, $e);
             }
         }
+        $this->fecharLiberacoesDoPrefixo($escopo, $categoria);
 
         return $resultado;
     }
@@ -346,12 +347,41 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
         return $this->interno->listar($escopo, $categoria);
     }
 
+    /**
+     * A exclusão registra o `excluir` na outbox e FECHA a linha de liberação da chave, na mesma ordem.
+     * Sem fechar, a retenção de 90 dias apagaria o `excluir` e a linha voltaria a provar um arquivo
+     * excluído (503 em vez de 404).
+     */
     private function registrarExclusao(ChaveDeArquivo $chave): void
     {
         try {
             $this->outbox->registrarExclusao($chave);
         } catch (\Throwable $e) {
             $this->registrarFalha('exclusão', $chave, $e);
+        }
+
+        try {
+            $this->liberacoes->fechar(LayoutDeChaveRemota::chaveDe($chave));
+        } catch (\Throwable $e) {
+            $this->registrarFalha('fechamento da liberação', $chave, $e);
+        }
+    }
+
+    /**
+     * O arquivo liberado não está no disco, então a listagem do prefixo não o vê: as linhas abertas do
+     * escritório na categoria são fechadas de uma vez.
+     */
+    private function fecharLiberacoesDoPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): void
+    {
+        try {
+            $this->liberacoes->fecharPrefixo($escopo, $categoria->paraCategoria());
+        } catch (\Throwable $e) {
+            $this->logger->error(sprintf(
+                'Espelho: não foi possível fechar as liberações do prefixo purgado (categoria=%s, escritório=%s, erro=%s).',
+                $categoria->value,
+                $escopo->comoTexto(),
+                $e::class,
+            ));
         }
     }
 

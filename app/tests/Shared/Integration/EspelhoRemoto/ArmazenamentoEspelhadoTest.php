@@ -163,7 +163,7 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
     public function testOutboxQuebradaNaoQuebraOUsuario(): void
     {
         $semTabela = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
-        $espelhado = new ArmazenamentoEspelhado($this->interno, new OutboxDeReplicacao($semTabela, new MockClock()), new PoliticaDeEspelhamento('pasta_documento'), $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0), new RegistroDeLiberacao($semTabela, new MockClock()));
+        $espelhado = new ArmazenamentoEspelhado($this->interno, new OutboxDeReplicacao($semTabela, new MockClock()), new PoliticaDeEspelhamento('pasta_documento'), $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0), new RegistroDeLiberacao($this->conexao, new MockClock()));
         $chave     = new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::PASTA_DOCUMENTO, self::NOME_PESSOAL);
 
         $armazenado = $espelhado->gravar($chave, FonteDeConteudo::deTexto('x'));

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Integration\EspelhoRemoto;
 
+use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
@@ -125,6 +126,39 @@ final class LeituraPelaLiberacaoTest extends KernelTestCase
         $regravada = $this->liberada('regravada.pdf', self::CONTEUDO);
         $this->outbox->registrarEnvio($regravada, hash('sha256', 'nova'), 4, 'application/pdf');
         $this->assertComportamentoDeHoje($regravada);
+    }
+
+    #[TestDox('arquivo liberado e excluído: a exclusão fecha a linha, e depois que a retenção apaga o excluir verificado a leitura é a recusa de sempre (inexistente, não 503)')]
+    public function testExclusaoFechaALinhaEARetencaoNaoRessuscita(): void
+    {
+        $chave = $this->liberada('excluido.pdf', self::CONTEUDO);
+
+        $this->espelhado()->excluir($chave);
+        self::assertNull($this->liberacoes->abertaDe(LayoutDeChaveRemota::chaveDe($chave)), 'a exclusão fechou a linha');
+
+        // O worker apagou no R2 e a retenção de 90 dias levou a linha `excluir`/`verificado`.
+        $this->conexao->executeStatement("UPDATE armazenamento_replicacao SET estado = 'verificado' WHERE chave_remota = ?", [LayoutDeChaveRemota::chaveDe($chave)]);
+        $this->conexao->executeStatement('DELETE FROM armazenamento_replicacao WHERE chave_remota = ?', [LayoutDeChaveRemota::chaveDe($chave)]);
+
+        $this->assertComportamentoDeHoje($chave);
+    }
+
+    #[TestDox('purga por prefixo: fecha as linhas abertas do escritório na categoria (o liberado não aparece na listagem do disco), e só as dele')]
+    public function testPurgaPorPrefixoFechaAsLinhas(): void
+    {
+        $doEscritorio = new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::COBRANCA_DOCUMENTO, 'cobranca.pdf');
+        $deOutro      = new ChaveDeArquivo(EscopoDeArquivo::deTenant(8), CategoriaDeArquivo::COBRANCA_DOCUMENTO, 'cobranca.pdf');
+        $outraCat     = $this->chave('pasta.pdf');
+        foreach ([$doEscritorio, $deOutro, $outraCat] as $chave) {
+            $this->liberacoes->registrar('lote-teste', $chave, hash('sha256', self::CONTEUDO), \strlen(self::CONTEUDO));
+        }
+
+        $this->espelhado(new PoliticaDeEspelhamento('cobranca_documento,pasta_documento'))
+            ->excluirPrefixo(EscopoDeArquivo::deTenant(7), CategoriaComIsolamentoFisico::COBRANCA_DOCUMENTO);
+
+        self::assertNull($this->liberacoes->abertaDe(LayoutDeChaveRemota::chaveDe($doEscritorio)));
+        self::assertNotNull($this->liberacoes->abertaDe(LayoutDeChaveRemota::chaveDe($deOutro)), 'outro escritório');
+        self::assertNotNull($this->liberacoes->abertaDe(LayoutDeChaveRemota::chaveDe($outraCat)), 'outra categoria');
     }
 
     #[TestDox('com o envio verificado na outbox, a prova é a da outbox (inclusive o MIME), mesmo com a linha aberta')]

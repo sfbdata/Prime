@@ -32,10 +32,10 @@ use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
  *
  * Ausente no disco com linha aberta no {@see RegistroDeLiberacao}: o R2 é a única cópia, então ele é
  * conferido contra a linha (presença, tamanho e o SHA do metadado). Batendo, a classe é `liberado`, que
- * não alerta; faltando o objeto ou divergindo, a classe é a mesma de sempre (`ausente_no_espelho`,
- * `tamanho_divergente`, `sha_divergente`), que alerta. Presente no disco E com linha aberta: a classe
- * é `restaurado_sem_registro` (alerta leve), salvo quando a comparação de sempre deu divergência que
- * exige ação ({@see AlertaDaReconciliacao::CLASSES_QUE_EXIGEM_ACAO}): essa vale mais e não some.
+ * não alerta; faltando o objeto, sem SHA no metadado ou divergindo, a classe é a mesma de sempre
+ * (`ausente_no_espelho`, `sem_sha_no_espelho`, `tamanho_divergente`, `sha_divergente`). Presente no
+ * disco E com linha aberta: a classe é `restaurado_sem_registro` (alerta leve), salvo quando a
+ * comparação de sempre deu uma de {@see PREVALECEM_SOBRE_A_RESTAURACAO}: essa vale mais e não some.
  */
 final class ReconciliadorDoEspelho
 {
@@ -47,6 +47,15 @@ final class ReconciliadorDoEspelho
      * semana), e a semana cobre tudo sem nenhuma noite ler o acervo inteiro.
      */
     public const FATIAS_DO_SHA = 7;
+
+    /**
+     * Com o arquivo de volta ao disco e a liberação aberta, estas classes valem mais que
+     * `restaurado_sem_registro`: as que exigem ação e o suspeito do erro do Drive (DP-7).
+     */
+    private const PREVALECEM_SOBRE_A_RESTAURACAO = [
+        ...AlertaDaReconciliacao::CLASSES_QUE_EXIGEM_ACAO,
+        ClasseDeReconciliacao::SUSPEITO_ERRO_DO_DRIVE,
+    ];
 
     public function __construct(
         private readonly FonteDeReferencias $fontes,
@@ -132,7 +141,7 @@ final class ReconciliadorDoEspelho
         }
 
         $classe = $this->compararComODisco($espelho, $chave, $noDisco, $conferirSha);
-        if (\in_array($classe, AlertaDaReconciliacao::CLASSES_QUE_EXIGEM_ACAO, true) || $this->liberacaoDe($chave) === null) {
+        if (\in_array($classe, self::PREVALECEM_SOBRE_A_RESTAURACAO, true) || $this->liberacaoDe($chave) === null) {
             return $classe;
         }
 
@@ -149,7 +158,10 @@ final class ReconciliadorDoEspelho
         if ($remoto->tamanhoBytes !== $liberacao->tamanhoBytes) {
             return ClasseDeReconciliacao::TAMANHO_DIVERGENTE;
         }
-        if ($remoto->sha256 !== null && !hash_equals($liberacao->sha256, $remoto->sha256)) {
+        if ($remoto->sha256 === null) {
+            return ClasseDeReconciliacao::SEM_SHA_NO_ESPELHO;
+        }
+        if (!hash_equals($liberacao->sha256, $remoto->sha256)) {
             return ClasseDeReconciliacao::SHA_DIVERGENTE;
         }
 

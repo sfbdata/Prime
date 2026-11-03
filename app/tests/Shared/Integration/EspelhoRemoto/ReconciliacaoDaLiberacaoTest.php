@@ -8,8 +8,10 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
+use App\Shared\EspelhoRemoto\MetadadosRemotos;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\Reconciliacao\AlertaDaReconciliacao;
 use App\Shared\EspelhoRemoto\Reconciliacao\ClasseDeReconciliacao;
@@ -35,6 +37,9 @@ use Symfony\Component\Clock\MockClock;
 final class ReconciliacaoDaLiberacaoTest extends KernelTestCase
 {
     private const CONTEUDO = 'conteúdo provado no R2';
+
+    /** Faz o papel da resposta de erro 401 do Drive: o reconciliador recebe o SHA dele como suspeito. */
+    private const ERRO_DO_DRIVE = 'erro-401-do-drive';
 
     private ArmazenamentoEmMemoria $local;
     private EspelhoRemotoEmMemoria $espelho;
@@ -82,6 +87,60 @@ final class ReconciliacaoDaLiberacaoTest extends KernelTestCase
         self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::SHA_DIVERGENTE));
         self::assertSame(0, $relatorio->quantos(ClasseDeReconciliacao::LIBERADO));
         self::assertTrue(AlertaDaReconciliacao::avaliar($relatorio, [])->disparou());
+    }
+
+    #[TestDox('liberado e o R2 sem SHA no metadado: "sem_sha_no_espelho", como no disco, nunca "liberado"')]
+    public function testLiberadoSemShaNoR2(): void
+    {
+        $ref = $this->liberada('sem-sha.pdf');
+        // O dublê em memória sempre tem SHA: este espelho só responde a consulta, sem SHA no metadado.
+        $semSha = new class (\strlen(self::CONTEUDO)) implements EspelhoRemoto {
+            public function __construct(private readonly int $tamanho)
+            {
+            }
+
+            public function consultar(ChaveDeArquivo $chave): MetadadosRemotos
+            {
+                return new MetadadosRemotos(LayoutDeChaveRemota::chaveDe($chave), $this->tamanho, null, 'application/pdf', null);
+            }
+
+            public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
+            {
+                throw new \LogicException('a reconciliação não envia');
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return true;
+            }
+
+            public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+            {
+                throw new \LogicException('a reconciliação não baixa');
+            }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                throw new \LogicException('a reconciliação não apaga');
+            }
+        };
+
+        $relatorio = $this->reconciliar([$ref], $semSha);
+
+        self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::SEM_SHA_NO_ESPELHO));
+        self::assertSame(0, $relatorio->quantos(ClasseDeReconciliacao::LIBERADO));
+    }
+
+    #[TestDox('de volta ao disco com o conteúdo do erro 401 do Drive e a linha aberta: o suspeito vale mais que "restaurado_sem_registro"')]
+    public function testSuspeitoPrevaleceSobreARestauracao(): void
+    {
+        $ref = $this->liberada('drive.pdf');
+        $this->local->gravar($this->chave('drive.pdf'), FonteDeConteudo::deTexto(self::ERRO_DO_DRIVE));
+
+        $relatorio = $this->reconciliar([$ref]);
+
+        self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::SUSPEITO_ERRO_DO_DRIVE));
+        self::assertSame(0, $relatorio->quantos(ClasseDeReconciliacao::RESTAURADO_SEM_REGISTRO));
     }
 
     #[TestDox('presente no disco E com linha aberta: "restaurado_sem_registro", que não faz a rodada falhar')]
@@ -151,7 +210,7 @@ final class ReconciliacaoDaLiberacaoTest extends KernelTestCase
     }
 
     /** @param list<ReferenciaDeArquivo> $referencias */
-    private function reconciliar(array $referencias): RelatorioDeReconciliacao
+    private function reconciliar(array $referencias, ?EspelhoRemoto $espelho = null): RelatorioDeReconciliacao
     {
         $fonte = new class ($referencias) implements FonteDeReferencias {
             /** @param list<ReferenciaDeArquivo> $referencias */
@@ -165,6 +224,6 @@ final class ReconciliacaoDaLiberacaoTest extends KernelTestCase
             }
         };
 
-        return (new ReconciliadorDoEspelho($fonte, $this->local, $this->outbox, $this->liberacoes))->reconciliar($this->espelho);
+        return (new ReconciliadorDoEspelho($fonte, $this->local, $this->outbox, $this->liberacoes, hash('sha256', self::ERRO_DO_DRIVE)))->reconciliar($espelho ?? $this->espelho);
     }
 }
