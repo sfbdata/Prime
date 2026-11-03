@@ -1496,3 +1496,7 @@ master:
                 medido: Medido
                 importado: Importado do fornecedor
                 estimado: Estimado
+    # Artigos dos blogs (spec painel-artigos-blogs, P2): o rótulo da seção no painel, entregue ao painel.js por catalogo_js.
+    blog:
+        js:
+            secao: Artigos dos blogs

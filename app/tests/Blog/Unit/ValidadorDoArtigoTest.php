@@ -85,9 +85,21 @@ final class ValidadorDoArtigoTest extends TestCase
     public function testImagemExigeAlt(): void
     {
         $artigo = ArtigosDeTeste::controleDePrazos();
-        $artigo->definirImagem('blog/imagens/1.png', null);
+        $artigo->definirImagem('1', null);
 
         self::assertSame(['A imagem de compartilhamento precisa do texto alternativo.'], $this->validar($artigo)['imagemAlt']);
+    }
+
+    #[TestDox('Imagem do corpo sem texto alternativo é recusada; com texto, passa')]
+    public function testImagemDoCorpoExigeAlt(): void
+    {
+        $artigo = ArtigosDeTeste::controleDePrazos();
+        $artigo->definirCorpo('<p>x</p>', "Texto.\n\n![](./imagens/4.png)\n");
+
+        self::assertSame(['Toda imagem do texto precisa do texto alternativo (clique na imagem e use o botão de imagem).'], $this->validar($artigo)['corpo']);
+
+        $artigo->definirCorpo('<p>x</p>', "Texto.\n\n![Tela do painel](./imagens/4.png)\n");
+        self::assertArrayNotHasKey('corpo', $this->validar($artigo));
     }
 
     #[TestDox('Referência exige texto, rótulo e url http(s) válida; endereço com acento vale, como no z.url() do site')]
@@ -118,6 +130,22 @@ final class ValidadorDoArtigoTest extends TestCase
             'O artigo não pode ser relacionado a ele mesmo.',
             'O artigo relacionado "nao-existe" não existe.',
         ], $this->validar($artigo)['relacionados']);
+    }
+
+    #[TestDox('Marcadores: mais de 8 e mais de 40 caracteres aparecem no campo marcadores')]
+    public function testMarcadores(): void
+    {
+        $artigo = ArtigosDeTeste::controleDePrazos();
+        $artigo->definirMarcadores(['Prazos', 'Recesso']);
+        self::assertSame([], $this->validar($artigo));
+
+        $longo = str_repeat('m', 41);
+        $artigo->definirMarcadores(['1', '2', '3', '4', '5', '6', '7', '8', $longo]);
+
+        self::assertSame([
+            'Use até 8 marcadores.',
+            sprintf('O marcador "%s" passa de 40 caracteres.', $longo),
+        ], $this->validar($artigo)['marcadores']);
     }
 
     #[TestDox('Uma chamada não leva os erros da anterior')]

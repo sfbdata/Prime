@@ -1,6 +1,13 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.31.0"
+  data: "2026-11-03"
+  itens:
+    - "No Painel do Master, a equipe do BlueJus passa a pôr imagens nos artigos dos blogs e a escolher a imagem que aparece quando o artigo é compartilhado."
+    - "No Painel do Master, a equipe do BlueJus passa a escrever, revisar e organizar os artigos do Blog BlueJus e do Blog BlueJus Grátis, com etiquetas por assunto para facilitar a busca dos textos."
+    - "As imagens antigas coladas no texto das pastas passam a ter cópia de segurança na nuvem, como os documentos."
+    - "A abertura de documentos antigos guardados na cópia na nuvem ficou mais segura quando várias pessoas abrem o mesmo arquivo ao mesmo tempo: o sistema não fica mais travado esperando."
 - versao: "2.30.0"
   data: "2026-11-03"
   itens:

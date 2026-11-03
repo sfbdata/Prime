@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Shared\EspelhoRemoto\Command;
 
+use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\EspelhoRemoto\Acervo\CarregadorDoAcervo;
+use App\Shared\EspelhoRemoto\Acervo\ResumoDaCarga;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
+use Doctrine\DBAL\Connection;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -28,6 +31,7 @@ final class CarregarAcervoCommand extends Command
     public function __construct(
         private readonly CarregadorDoAcervo $carregador,
         private readonly PoliticaDeEspelhamento $politica,
+        private readonly Connection $conexao,
     ) {
         parent::__construct();
     }
@@ -37,7 +41,8 @@ final class CarregarAcervoCommand extends Command
         $this
             ->addOption('categoria', null, InputOption::VALUE_REQUIRED, 'A categoria a carregar (precisa estar ligada na política).')
             ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Para depois de enfileirar N arquivos.')
-            ->addOption('simular', null, InputOption::VALUE_NONE, 'Só conta o que seria enfileirado, sem gravar na outbox.');
+            ->addOption('simular', null, InputOption::VALUE_NONE, 'Só conta o que seria enfileirado, sem gravar na outbox.')
+            ->addOption('do-disco', null, InputOption::VALUE_NONE, 'Lista o disco, escritório por escritório, em vez das referências do banco. Só para pasta_imagem_editor e cobranca_documento (subpasta por escritório).');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -64,7 +69,13 @@ final class CarregarAcervoCommand extends Command
         }
 
         $simular = (bool) $input->getOption('simular');
-        $resumo  = $this->carregador->carregar($categoria, $limite === null ? null : (int) $limite, $simular);
+        $limite  = $limite === null ? null : (int) $limite;
+        $resumo  = $input->getOption('do-disco')
+            ? $this->carregarDoDisco($io, $categoria, $limite, $simular)
+            : $this->carregador->carregar($categoria, $limite, $simular);
+        if ($resumo === null) {
+            return Command::INVALID;
+        }
 
         $io->table(['carga do acervo (' . $categoria->value . ')', 'quantidade'], array_map(null, array_keys($resumo->comoLista()), array_values($resumo->comoLista())));
         if ($simular) {
@@ -72,5 +83,19 @@ final class CarregarAcervoCommand extends Command
         }
 
         return Command::SUCCESS;
+    }
+
+    /** A carga pela listagem do disco, só nas categorias com subpasta por escritório; null = recusada. */
+    private function carregarDoDisco(SymfonyStyle $io, CategoriaDeArquivo $categoria, ?int $limite, bool $simular): ?ResumoDaCarga
+    {
+        $isolada = CategoriaComIsolamentoFisico::deCategoriaOuNull($categoria);
+        if ($isolada === null) {
+            $io->error(sprintf('--do-disco só vale para categoria com subpasta por escritório (pasta_imagem_editor, cobranca_documento); %s divide a pasta entre escritórios.', $categoria->value));
+
+            return null;
+        }
+        $tenantIds = array_map('intval', $this->conexao->fetchFirstColumn('SELECT id FROM tenant ORDER BY id'));
+
+        return $this->carregador->carregarDoDisco($isolada, $tenantIds, $limite, $simular);
     }
 }

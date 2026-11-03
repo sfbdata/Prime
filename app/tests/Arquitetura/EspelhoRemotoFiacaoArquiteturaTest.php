@@ -6,6 +6,7 @@ namespace App\Tests\Arquitetura;
 
 use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Pasta\Command\CalcularHashDosDocumentosCommand;
 use App\Shared\Armazenamento\ArmazenamentoLocal;
 use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\EspelhoRemoto\Acervo\CarregadorDoAcervo;
@@ -42,6 +43,24 @@ final class EspelhoRemotoFiacaoArquiteturaTest extends KernelTestCase
             $valor   = (new \ReflectionProperty($classe, $propriedade))->getValue($servico);
 
             self::assertInstanceOf(ArmazenamentoLocal::class, $valor, $classe);
+        }
+    }
+
+    /** Fora do espelho, quem também mede o disco do acervo inteiro (§5.0, condição 3). */
+    private const QUEM_MEDE_O_DISCO_FORA_DO_ESPELHO = [
+        CalcularHashDosDocumentosCommand::class => ['armazenamento', 'materializador'],
+    ];
+
+    #[TestDox('o cálculo de hash e de páginas dos documentos recebe o ArmazenamentoLocal, sem leitura pelo R2')]
+    public function testCalculoDeHashRecebeOLocal(): void
+    {
+        self::bootKernel();
+
+        foreach (self::QUEM_MEDE_O_DISCO_FORA_DO_ESPELHO as $classe => $propriedades) {
+            $servico = static::getContainer()->get($classe);
+            foreach ($propriedades as $propriedade) {
+                self::assertInstanceOf(ArmazenamentoLocal::class, (new \ReflectionProperty($classe, $propriedade))->getValue($servico), $classe . '::$' . $propriedade);
+            }
         }
     }
 

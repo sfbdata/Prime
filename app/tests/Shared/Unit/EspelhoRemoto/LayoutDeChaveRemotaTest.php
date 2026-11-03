@@ -55,6 +55,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
         yield 'comercial_imagem (global)' => [CategoriaDeArquivo::COMERCIAL_IMAGEM, EscopoDeArquivo::global(), 'a1.jpg', 'core/g/uploads/comercial-imagens/a1.jpg'];
         yield 'inteligencia_documento_juridico (global)' => [CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, EscopoDeArquivo::global(), 'a1.pdf', 'core/g/uploads/documentos-juridicos/a1.pdf'];
         yield 'recompensa_comprovante (global)' => [CategoriaDeArquivo::RECOMPENSA_COMPROVANTE, EscopoDeArquivo::global(), 'a1.pdf', 'core/g/uploads/recompensa-comprovantes/a1.pdf'];
+        yield 'blog_imagem (global)' => [CategoriaDeArquivo::BLOG_IMAGEM, EscopoDeArquivo::global(), 'a1.webp', 'core/g/uploads/pastas/blog-imagens/a1.webp'];
     }
 
     #[DataProvider('tabela')]
@@ -99,7 +100,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
     /** @return iterable<string, array{CategoriaDeArquivo, EscopoDeArquivo}> */
     public static function escoposQueNaoConcordam(): iterable
     {
-        $globais = [CategoriaDeArquivo::FOTO_PERFIL, CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, CategoriaDeArquivo::COMERCIAL_IMAGEM, CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, CategoriaDeArquivo::RECOMPENSA_COMPROVANTE];
+        $globais = [CategoriaDeArquivo::FOTO_PERFIL, CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, CategoriaDeArquivo::COMERCIAL_IMAGEM, CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, CategoriaDeArquivo::RECOMPENSA_COMPROVANTE, CategoriaDeArquivo::BLOG_IMAGEM];
         foreach ($globais as $categoria) {
             yield $categoria->value . ' com escritório' => [$categoria, EscopoDeArquivo::deTenant(1)];
         }

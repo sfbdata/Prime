@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Arquitetura;
 
+use App\Blog\Armazenamento\ChavesDoBlog;
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cobranca\Armazenamento\ChavesDeCobranca;
@@ -45,7 +46,7 @@ use PHPUnit\Framework\TestCase;
  * O que está em jogo é R1: no disco local o escopo é ignorado em sete categorias, então um tenant
  * errado na gravação passaria verde aqui e viraria 404 (ou vazamento) no backend remoto. Por isso
  * cada fábrica é conferida contra a entidade dona, e as fábricas são DESCOBERTAS em
- * `src/<Dominio>/Armazenamento/ChavesDe*.php`: uma fábrica nova sem caso neste teste derruba a
+ * `src/<Dominio>/Armazenamento/ChavesDe*.php` (e `ChavesDo*.php`, como `ChavesDoBlog`): uma fábrica nova sem caso neste teste derruba a
  * suíte. E nada fora delas pode montar `NovoArquivo` — senão a rede toda é contornável.
  */
 final class FabricasDeArquivoNovoTest extends TestCase
@@ -242,6 +243,16 @@ final class FabricasDeArquivoNovoTest extends TestCase
         self::assertSame('pdf', $novo->extensao);
     }
 
+    #[TestDox('imagem nova de artigo dos blogs: escopo global (D1), categoria própria')]
+    public function testImagemNovaDoBlogEhGlobal(): void
+    {
+        $novo = ChavesDoBlog::novaImagem('webp');
+
+        self::assertSame(CategoriaDeArquivo::BLOG_IMAGEM, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('webp', $novo->extensao);
+    }
+
     #[TestDox('toda fábrica de arquivo novo tem caso neste teste, e só as documentadas recebem Tenant')]
     public function testInventarioDasFabricas(): void
     {
@@ -251,6 +262,7 @@ final class FabricasDeArquivoNovoTest extends TestCase
         $cobertas[] = ChavesDeComercial::class . '::novaImagem';
         $cobertas[] = ChavesDeInteligencia::class . '::novaVersaoDeDocumentoJuridico';
         $cobertas[] = ChavesDeRecompensa::class . '::novoComprovante';
+        $cobertas[] = ChavesDoBlog::class . '::novaImagem';
 
         $encontradas = [];
 
@@ -306,7 +318,7 @@ final class FabricasDeArquivoNovoTest extends TestCase
             $relativo = str_replace($raiz . '/', '', $arquivo->getPathname());
 
             if ($arquivo->getExtension() !== 'php'
-                || preg_match('#^src/[A-Za-z]+/Armazenamento/ChavesDe[A-Za-z]+\.php$#', $relativo) === 1
+                || preg_match('#^src/[A-Za-z]+/Armazenamento/ChavesD[eo][A-Za-z]+\.php$#', $relativo) === 1
                 || str_starts_with($relativo, 'src/Shared/Armazenamento/')
             ) {
                 continue;
@@ -332,7 +344,9 @@ final class FabricasDeArquivoNovoTest extends TestCase
         $raiz     = \dirname(__DIR__, 2);
         $fabricas = [];
 
-        foreach (glob($raiz . '/src/*/Armazenamento/ChavesDe*.php') ?: [] as $arquivo) {
+        // `ChavesDo*` também: a fábrica do Blog leva o artigo no nome (`ChavesDoBlog`), e escapar da descoberta seria escapar da prova.
+        $arquivos = [...(glob($raiz . '/src/*/Armazenamento/ChavesDe*.php') ?: []), ...(glob($raiz . '/src/*/Armazenamento/ChavesDo*.php') ?: [])];
+        foreach ($arquivos as $arquivo) {
             $dominio    = basename(\dirname($arquivo, 2));
             $fabricas[] = 'App\\' . $dominio . '\\Armazenamento\\' . basename($arquivo, '.php');
         }

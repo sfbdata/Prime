@@ -81,11 +81,17 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
             static fn (string $a): bool => !str_starts_with($a, 'src/Shared/Armazenamento/'),
         ));
 
-        // O decorador da P2.3 implementa a interface e repassa ao disco — não é consumidor novo.
+        // O decorador da P2.3 implementa a interface e repassa ao disco — não é consumidor novo. A carga
+        // do acervo pelo disco (imagens do editor) só LISTA o prefixo para enfileirar no espelho.
         self::assertSame(
-            ['src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php', 'src/Tenant/UseCase/PurgarEscritorioUseCase.php'],
+            ['src/Shared/EspelhoRemoto/Acervo/CarregadorDoAcervo.php', 'src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php', 'src/Tenant/UseCase/PurgarEscritorioUseCase.php'],
             $foraDoNucleo($this->arquivosQueCasam('/->\s*excluirPrefixo\s*\(|\bArmazenamentoComPrefixo\b/')),
             'Apagar um escritório inteiro por prefixo só faz sentido na purga (D7, §3.3).',
+        );
+        self::assertSame(
+            ['src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php', 'src/Tenant/UseCase/PurgarEscritorioUseCase.php'],
+            $foraDoNucleo($this->arquivosQueCasam('/->\s*excluirPrefixo\s*\(/')),
+            'só a purga apaga por prefixo; a carga do acervo só lista',
         );
     }
 
