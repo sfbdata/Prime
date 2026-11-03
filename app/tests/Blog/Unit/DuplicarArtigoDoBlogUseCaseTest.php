@@ -49,6 +49,7 @@ final class DuplicarArtigoDoBlogUseCaseTest extends TestCase
         $artigo = ArtigosDeTeste::controleDePrazos();
         $artigo->definirImagem('blog/imagens/5.png', 'Painel de prazos');
         $artigo->definirMarcadores(['Prazo em dobro', 'Recesso']);
+        $artigo->definirRelacionados(['distribuicao-de-tarefas']);
         $artigo->definirCorpo(
             '<p>Antes</p><img src="/master/blog/imagens/5" alt="x"><p>Depois <IMG src="y"></p>',
             "Antes\n\n![x](./imagens/5.png)\n\nDepois\n",
@@ -84,6 +85,7 @@ final class DuplicarArtigoDoBlogUseCaseTest extends TestCase
         self::assertSame($origem->getAutor(), $copia->getAutor());
         self::assertSame($origem->getLeitura(), $copia->getLeitura());
         self::assertSame($origem->getReferencias(), $copia->getReferencias());
+        self::assertSame(['distribuicao-de-tarefas'], $copia->getRelacionados());
         self::assertSame($origem->getBlogs(), $copia->getBlogs());
         self::assertSame($ator, $copia->getCriadoPor());
         self::assertSame('2026-11-03 10:00', $copia->getCriadoEm()->format('Y-m-d H:i'), 'a hora do relógio');

@@ -92,6 +92,7 @@ final class ImportarArtigosDoRepositorioCommand extends Command
     {
         /** @var array<string, array<string, array{string, string}>> $porSlug slug => pasta => [conteúdo, caminho] */
         $porSlug = [];
+        $duplicados = [];
         foreach ($pastas as $pasta => $blogs) {
             foreach ($this->arquivosMd($raiz . '/' . $pasta . self::ARTIGOS) as $caminho) {
                 $relativo = substr($caminho, \strlen($raiz) + 1);
@@ -103,8 +104,20 @@ final class ImportarArtigosDoRepositorioCommand extends Command
                     ++$recusados;
                     continue;
                 }
+                if (isset($porSlug[$slug][$pasta])) {
+                    // Dois arquivos com o mesmo slug no mesmo blog: recusa os dois, para não ficar só o último sem aviso.
+                    $output->writeln(sprintf('Recusado: %s. O slug "%s" já aparece em %s.', $relativo, $slug, $porSlug[$slug][$pasta][1]));
+                    ++$recusados;
+                    $duplicados[$slug] = true;
+                    continue;
+                }
                 $porSlug[$slug][$pasta] = [$conteudo, $relativo];
             }
+        }
+        foreach (array_keys($duplicados) as $slug) {
+            $output->writeln(sprintf('Recusado: %s. Corrija o slug repetido e rode de novo.', $porSlug[$slug][array_key_first($porSlug[$slug])][1]));
+            ++$recusados;
+            unset($porSlug[$slug]);
         }
         ksort($porSlug);
 

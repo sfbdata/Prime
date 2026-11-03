@@ -108,6 +108,23 @@ final class ImportarArtigosDoRepositorioCommandTest extends KernelTestCase
         self::assertSame(['controle-de-prazos-processuais', 'so-no-gratis'], $this->artigos->slugsExistentes());
     }
 
+    #[TestDox('Dois arquivos com o mesmo slug no mesmo blog: os dois são recusados, nenhum some calado')]
+    public function testSlugRepetidoNoMesmoBlog(): void
+    {
+        (new Filesystem())->dumpFile(
+            $this->pasta . '/blog-gratis/src/content/artigos/outro/copia-do-gratis.md',
+            str_replace('Painel', 'Quadro', (string) file_get_contents($this->pasta . '/blog-gratis/src/content/artigos/sub/so-no-gratis.md')),
+        );
+
+        $codigo = $this->comando->execute(['pasta' => $this->pasta]);
+        $saida = $this->comando->getDisplay();
+
+        self::assertSame(Command::FAILURE, $codigo);
+        self::assertStringContainsString('O slug "so-no-gratis" já aparece em', $saida);
+        self::assertStringContainsString('Corrija o slug repetido e rode de novo.', $saida);
+        self::assertSame(['controle-de-prazos-processuais'], $this->artigos->slugsExistentes());
+    }
+
     #[TestDox('O mesmo slug com textos diferentes nos dois blogs é recusado')]
     public function testTextosDiferentesNosDoisBlogs(): void
     {

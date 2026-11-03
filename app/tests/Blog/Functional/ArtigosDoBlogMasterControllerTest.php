@@ -139,6 +139,22 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->repositorio()->porSlug($slug));
     }
 
+    #[TestDox('Criar com marcador só de símbolos: 422 já no salvar, um erro para cada marcador')]
+    public function testMarcadorSemSlug(): void
+    {
+        $client = $this->clienteMaster();
+        $slug = 'simbolos-' . bin2hex(random_bytes(4));
+
+        $this->postar($client, '/master/blog/artigos', ['slug' => $slug, 'blogs' => 'normal', 'marcadores' => ['INSS', '!!!', '???']]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(
+            ['O marcador "!!!" precisa ter letras ou números.', 'O marcador "???" precisa ter letras ou números.'],
+            $this->json($client)['erros']['marcadores'],
+        );
+        self::assertNull($this->repositorio()->porSlug($slug));
+    }
+
     #[TestDox('Sugestões de marcadores: os já usados, com a busca')]
     public function testSugestoes(): void
     {

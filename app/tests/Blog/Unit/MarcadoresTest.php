@@ -87,6 +87,12 @@ final class MarcadoresTest extends TestCase
         self::assertSame([sprintf('O marcador "%s" passa de 40 caracteres.', $longo)], Marcadores::erros(['Prazos', $longo]));
     }
 
+    #[TestDox('Marcadores só de símbolos não se juntam pelo slug vazio: cada um fica para ser recusado')]
+    public function testSemSlugNaoJunta(): void
+    {
+        self::assertSame(['!!!', '???'], Marcadores::normalizar(['!!!', '???', '!!!']));
+    }
+
     #[TestDox('Marcador sem letra nem número (slug vazio): a mensagem cita o marcador')]
     public function testSlugVazio(): void
     {

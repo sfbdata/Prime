@@ -31,6 +31,7 @@ final class DuplicarArtigoDoBlogUseCase
         $copia->editarTextos($origem->getTitulo(), $origem->getTituloCurto(), $origem->getTituloSeo(), $origem->getDescricao(), $origem->getLinhaFina(), $origem->getResumo());
         $copia->classificar($origem->getCategoria(), $origem->getAutor(), $origem->getRevisorNome(), $origem->getRevisorOab(), $origem->getLeitura(), false);
         $copia->definirReferencias($origem->getReferencias());
+        $copia->definirRelacionados($origem->getRelacionados());
         $copia->definirMarcadores($origem->getMarcadores());
         $copia->definirCorpo($this->semImagens($origem->getCorpoHtml()), $this->semImagens($origem->getCorpoMarkdown()));
 

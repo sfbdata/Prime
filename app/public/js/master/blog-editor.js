@@ -468,6 +468,7 @@
       toolbar_mode: 'wrap',
       height: 620,
       elementpath: false,
+      /* Sem img por enquanto: o envio de imagens chega na P3, que precisa incluir img[src|alt] aqui (spec, seção 3). */
       valid_elements: 'p[contenteditable],h2,h3,strong/b,em/i,a[href],ul[contenteditable],ol[contenteditable],li,blockquote,br,div[data-bj|data-artigo|contenteditable]',
       entity_encoding: 'raw',
       convert_urls: false,

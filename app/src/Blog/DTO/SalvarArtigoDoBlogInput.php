@@ -9,6 +9,7 @@ use App\Blog\Enum\BlogsDoArtigo;
 use App\Blog\Service\Marcadores;
 use App\Entity\Auth\User;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
  * Pedido de salvar um artigo do blog (botão "Salvar rascunho" do editor, P2). Sem `id` cria; com `id` atualiza.
@@ -145,5 +146,17 @@ final readonly class SalvarArtigoDoBlogInput
         }
 
         return array_values(array_filter(array_map(static fn (mixed $s): string => \is_string($s) ? trim($s) : '', $slugs), static fn (string $s): bool => $s !== ''));
+    }
+
+    /** Spec, seção 11: marcador cujo slug fica vazio é recusado já ao salvar, não só no Verificar. */
+    #[Assert\Callback]
+    public function validarMarcadoresSemSlug(ExecutionContextInterface $contexto): void
+    {
+        foreach ($this->marcadores as $marcador) {
+            if (Marcadores::slug($marcador) === '') {
+                $contexto->buildViolation(sprintf('O marcador "%s" precisa ter letras ou números.', $marcador))
+                    ->atPath('marcadores')->addViolation();
+            }
+        }
     }
 }

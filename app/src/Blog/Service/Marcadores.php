@@ -39,10 +39,12 @@ final class Marcadores
             }
             $texto = trim((string) preg_replace('/\s+/u', ' ', $marcador));
             $slug = self::slug($texto);
-            if ($texto === '' || isset($vistos[$slug])) {
+            // Slug vazio (só símbolos) não junta com outro: fica na lista para erros() recusar cada um pelo texto.
+            $chave = $slug !== '' ? $slug : "\0" . $texto;
+            if ($texto === '' || isset($vistos[$chave])) {
                 continue;
             }
-            $vistos[$slug] = true;
+            $vistos[$chave] = true;
             $saida[] = $texto;
         }
 
