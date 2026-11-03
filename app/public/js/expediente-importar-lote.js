@@ -9,6 +9,13 @@
     if (!raiz) { return; }
 
     var IGNORAR = /^(\.|thumbs\.db$|desktop\.ini$)/i;
+    /* Arquivo de lixo ou oculto, ou arquivo dentro de PASTA oculta em qualquer nível abaixo da escolhida
+       (".ocultos/rascunho.pdf", "ANA/.git/config"). A própria pasta escolhida (partes[0]) não conta. */
+    function ignorado(partes) {
+        if (IGNORAR.test(partes[partes.length - 1])) { return true; }
+
+        return partes.slice(1, -1).some(function (pasta) { return pasta.charAt(0) === '.'; });
+    }
     // Só estes disparam ação; o rótulo dentro do botão também tem data-il e não pode interceptar o clique.
     var ACOES = '[data-il="fechar"], [data-il="trocar"], [data-il="importar"], [data-il="sim"], [data-il="nao"]';
     var el = function (nome) { return raiz.querySelector('[data-il="' + nome + '"]'); };
@@ -69,7 +76,7 @@
         var soltos = 0, emSubpasta = 0;
         Array.prototype.forEach.call(files, function (fl) {
             var partes = partesDe(fl);
-            if (IGNORAR.test(partes[partes.length - 1])) { return; }
+            if (ignorado(partes)) { return; }
             if (partes.length === 2) { soltos++; }
             if (partes.length > 2) { emSubpasta++; }
         });
@@ -99,7 +106,7 @@
         var grupos = {};
         Array.prototype.forEach.call(files, function (fl) {
             var partes = partesDe(fl);
-            if (IGNORAR.test(partes[partes.length - 1])) { return; }
+            if (ignorado(partes)) { return; }
             var k = solta ? 'NOVA PASTA' : umCliente ? partes[0] : (partes.length > 2 ? partes[1] : partes.length === 2 ? partes[0] : 'NOVA PASTA');
             (grupos[k] = grupos[k] || []).push(fl);
         });
