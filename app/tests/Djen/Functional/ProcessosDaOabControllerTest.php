@@ -88,17 +88,19 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     }
 
     #[Test]
-    public function aAbaProcessosAbrePorRelacionadosEAsSubAbasSaemNaOrdemAprovada(): void
+    public function aAbaProcessosAbrePorAcompanhadosEAsSubAbasSaemNaOrdemAprovada(): void
     {
         [$client] = $this->entrar();
         $crawler = $client->request('GET', '/push-processual/processos');
 
         $subabas = $crawler->filter('.pp-subabas > .pp-subaba');
         self::assertCount(3, $subabas);
-        self::assertStringContainsString('sub=relatorio', $subabas->eq(0)->attr('href'));
-        self::assertStringContainsString('sub=acompanhados', $subabas->eq(1)->attr('href'));
+        self::assertStringContainsString('sub=acompanhados', $subabas->eq(0)->attr('href'));
+        self::assertStringContainsString('sub=relatorio', $subabas->eq(1)->attr('href'));
         self::assertStringContainsString('sub=acervo', $subabas->eq(2)->attr('href'));
-        self::assertSame('pp-subaba is-ativa', $subabas->eq(0)->attr('class'));
+        self::assertSame('pp-subaba is-ativa', $subabas->eq(0)->attr('class'), 'sem ?sub, abre em Acompanhados');
+        self::assertSame('pp-subaba', $subabas->eq(1)->attr('class'));
+        self::assertCount(1, $crawler->filter('.pp-subabas > .pp-subaba.is-ativa'));
     }
 
     #[Test]

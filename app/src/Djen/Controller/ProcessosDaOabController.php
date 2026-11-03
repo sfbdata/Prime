@@ -45,8 +45,8 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ProcessosDaOabController extends AbstractController
 {
     private const POR_PAGINA = 25;
-    /** Ordem das sub-abas na tela; a primeira (relacionados) abre por padrão. Desvio do desenho 11 aprovado pelo dono em 29/10. */
-    private const SUBABAS = ['relatorio', 'acompanhados', 'acervo'];
+    /** Ordem das sub-abas na tela; a primeira (acompanhados) abre por padrão. Pedido do Samuel em 03/11: Acompanhados primeiro, para a lista de processos aparecer ao entrar. */
+    private const SUBABAS = ['acompanhados', 'relatorio', 'acervo'];
 
     public function __construct(
         private readonly PublicacaoDoDiarioDaOabRepository $diarioRepository,
