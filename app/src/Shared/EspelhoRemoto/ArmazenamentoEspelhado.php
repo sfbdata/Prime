@@ -23,6 +23,7 @@ use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Shared\Armazenamento\ResultadoDaRemocao;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\EnvioVerificado;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use Psr\Log\LoggerInterface;
@@ -53,10 +54,15 @@ use Psr\Log\LoggerInterface;
  *  1. a categoria está ligada na {@see PoliticaDeEspelhamento} e não está em
  *     {@see self::CATEGORIAS_SEM_LEITURA_DE_RECUPERACAO};
  *  2. o espelho está configurado (`ESPELHO_R2_*`); sem ele, comportamento de hoje;
- *  3. a linha mais nova da chave na outbox é um envio `verificado` ({@see OutboxDeReplicacao::envioVerificadoDe()}).
+ *  3. há prova de que o R2 tem o conteúdo: a linha mais nova da chave na outbox é um envio `verificado`
+ *     ({@see OutboxDeReplicacao::envioVerificadoDe()}) ou, quando a outbox não tem linha NENHUMA da
+ *     chave (a retenção de 90 dias já a levou), uma linha aberta no registro de liberação
+ *     ({@see RegistroDeLiberacao}, etapa B da spec). Qualquer linha mais nova na outbox (exclusão,
+ *     reenvio pendente, falha) vale mais que a liberação: aí não há prova.
  *
- * Aí `existe()` e `metadados()` respondem pela outbox (tamanho, SHA e MIME, sem ir ao R2), e as leituras
- * de conteúdo hidratam o {@see CacheDeLeituraDoEspelho}: o download é conferido pelo SHA da outbox antes
+ * Aí `existe()` e `metadados()` respondem pela prova (tamanho, SHA e MIME, sem ir ao R2; a liberação não
+ * guarda MIME, e responde `application/octet-stream`), e as leituras de conteúdo hidratam o
+ * {@see CacheDeLeituraDoEspelho}: o download é conferido pelo SHA da prova antes
  * de ganhar nome no cache, e a segunda leitura sai do cache sem tocar no R2. Faltando qualquer condição,
  * o resultado é o de hoje (`ArquivoNaoEncontrado`, false, null).
  *
@@ -89,6 +95,7 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
         private readonly LoggerInterface $logger,
         private readonly ProvedorDoEspelhoRemoto $provedor,
         private readonly CacheDeLeituraDoEspelho $cache,
+        private readonly RegistroDeLiberacao $liberacoes,
     ) {
     }
 
@@ -150,6 +157,7 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
                 $this->registrarFalha('exclusão', $chave, $e);
             }
         }
+        $this->fecharLiberacoesDoPrefixo($escopo, $categoria);
 
         return $resultado;
     }
@@ -274,9 +282,9 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
 
     /**
      * A prova de que a chave está no espelho, ou null quando não há como usar o espelho para ela:
-     * categoria desligada, espelho sem configuração, ou a linha mais nova não é um envio verificado.
+     * categoria desligada, espelho sem configuração, ou nem a outbox nem o registro de liberação provam.
      *
-     * Erro ao consultar a outbox não vira "não existe": é pane, e sobe como indisponível (D10).
+     * Erro ao consultar a outbox ou o registro de liberação não vira "não existe": é pane, e sobe como indisponível (D10).
      */
     private function provaNoEspelho(ChaveDeArquivo $chave): ?EnvioVerificado
     {
@@ -294,10 +302,10 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
         }
 
         try {
-            return $this->outbox->envioVerificadoDe($chaveRemota);
+            return $this->provaDaChaveRemota($chaveRemota);
         } catch (\Throwable $e) {
             $this->logger->error(sprintf(
-                'Espelho: não foi possível consultar a outbox para a leitura de recuperação (categoria=%s, escritório=%s, erro=%s).',
+                'Espelho: não foi possível consultar a outbox ou o registro de liberação para a leitura de recuperação (categoria=%s, escritório=%s, erro=%s).',
                 $chave->categoria->value,
                 $chave->escopo->comoTexto(),
                 $e::class,
@@ -305,6 +313,28 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
 
             throw ArquivoIndisponivelNoMomento::para($chave, $e);
         }
+    }
+
+    /**
+     * O envio `verificado` da outbox; sem ele, a linha aberta de liberação, mas só quando a outbox não
+     * tem linha nenhuma da chave. A liberação vira a mesma prova (SHA e tamanho conferidos no download).
+     */
+    private function provaDaChaveRemota(string $chaveRemota): ?EnvioVerificado
+    {
+        $envio = $this->outbox->envioVerificadoDe($chaveRemota);
+        if ($envio !== null || $this->outbox->ultimoEstadoDe($chaveRemota) !== null) {
+            return $envio;
+        }
+
+        $liberacao = $this->liberacoes->abertaDe($chaveRemota);
+
+        return $liberacao === null ? null : new EnvioVerificado(
+            $chaveRemota,
+            $liberacao->sha256,
+            $liberacao->tamanhoBytes,
+            'application/octet-stream',
+            $liberacao->liberadoEm,
+        );
     }
 
     private function espelho(): EspelhoRemoto
@@ -317,12 +347,41 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
         return $this->interno->listar($escopo, $categoria);
     }
 
+    /**
+     * A exclusão registra o `excluir` na outbox e FECHA a linha de liberação da chave, na mesma ordem.
+     * Sem fechar, a retenção de 90 dias apagaria o `excluir` e a linha voltaria a provar um arquivo
+     * excluído (503 em vez de 404).
+     */
     private function registrarExclusao(ChaveDeArquivo $chave): void
     {
         try {
             $this->outbox->registrarExclusao($chave);
         } catch (\Throwable $e) {
             $this->registrarFalha('exclusão', $chave, $e);
+        }
+
+        try {
+            $this->liberacoes->fechar(LayoutDeChaveRemota::chaveDe($chave));
+        } catch (\Throwable $e) {
+            $this->registrarFalha('fechamento da liberação', $chave, $e);
+        }
+    }
+
+    /**
+     * O arquivo liberado não está no disco, então a listagem do prefixo não o vê: as linhas abertas do
+     * escritório na categoria são fechadas de uma vez.
+     */
+    private function fecharLiberacoesDoPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): void
+    {
+        try {
+            $this->liberacoes->fecharPrefixo($escopo, $categoria->paraCategoria());
+        } catch (\Throwable $e) {
+            $this->logger->error(sprintf(
+                'Espelho: não foi possível fechar as liberações do prefixo purgado (categoria=%s, escritório=%s, erro=%s).',
+                $categoria->value,
+                $escopo->comoTexto(),
+                $e::class,
+            ));
         }
     }
 

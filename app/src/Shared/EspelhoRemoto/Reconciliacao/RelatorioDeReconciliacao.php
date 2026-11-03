@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Shared\EspelhoRemoto\Reconciliacao;
 
 /**
- * O resultado de uma reconciliação: contagem por classe e, para o que não está `igual`, a FONTE e o
- * ID da linha do banco — nunca o nome do arquivo nem a chave remota (LGPD).
+ * O resultado de uma reconciliação: contagem por classe e, para o que não está `igual` nem `liberado`,
+ * a FONTE e o ID da linha do banco, nunca o nome do arquivo nem a chave remota (LGPD).
  */
 final class RelatorioDeReconciliacao
 {
@@ -28,7 +28,8 @@ final class RelatorioDeReconciliacao
         $categoria = $referencia->categoria()->value ?? self::SEM_CATEGORIA;
         $this->porCategoria[$classe->value][$categoria] = ($this->porCategoria[$classe->value][$categoria] ?? 0) + 1;
 
-        if ($classe !== ClasseDeReconciliacao::IGUAL) {
+        // `liberado` conta à parte: saiu do disco de propósito e o R2 confere, não é divergência.
+        if ($classe !== ClasseDeReconciliacao::IGUAL && $classe !== ClasseDeReconciliacao::LIBERADO) {
             $this->divergencias[] = ['fonte' => $referencia->fonte, 'id' => $referencia->idDaLinha, 'classe' => $classe->value];
         }
     }

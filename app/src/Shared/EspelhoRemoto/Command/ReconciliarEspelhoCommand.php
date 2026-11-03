@@ -9,6 +9,7 @@ use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Shared\EspelhoRemoto\ProvedorDoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\Reconciliacao\AlertaDaReconciliacao;
+use App\Shared\EspelhoRemoto\Reconciliacao\ClasseDeReconciliacao;
 use App\Shared\EspelhoRemoto\Reconciliacao\ReconciliadorDoEspelho;
 use App\Shared\EspelhoRemoto\Reconciliacao\RelatorioDeReconciliacao;
 use Psr\Clock\ClockInterface;
@@ -127,6 +128,11 @@ final class ReconciliarEspelhoCommand extends Command
         });
         $io->table(['classe', 'referências'], array_map(null, array_keys($relatorio->contagem()), array_values($relatorio->contagem())));
         $io->writeln(sprintf('Total: %d referência(s); %d fora de "igual".', $relatorio->total(), \count($relatorio->divergencias())));
+        $io->writeln(sprintf('Liberadas do disco (só no espelho, conferidas): %d.', $relatorio->quantos(ClasseDeReconciliacao::LIBERADO)));
+        $restauradas = $relatorio->quantos(ClasseDeReconciliacao::RESTAURADO_SEM_REGISTRO);
+        if ($restauradas > 0) {
+            $io->warning(sprintf('%d arquivo(s) de volta ao disco com a liberação ainda aberta (restaurado_sem_registro): fechar a linha.', $restauradas));
+        }
     }
 
     /** null = SHA de todas; int = a fatia; false = opção inválida. */
