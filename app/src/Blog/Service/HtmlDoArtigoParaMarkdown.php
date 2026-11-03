@@ -38,10 +38,45 @@ final class HtmlDoArtigoParaMarkdown
     ) {
     }
 
-    /** O HTML limpo pela lista branca: é o que o `corpoHtml` guarda. */
-    public function sanitizar(string $html): string
+    /**
+     * O HTML limpo pela lista branca: é o que o `corpoHtml` guarda.
+     *
+     * Com `$idsDasImagens`, o `<img>` cujo id não está na lista também sai: ao salvar, só ficam as imagens do PRÓPRIO
+     * artigo (a de outro artigo some quando ele a limpar, e o Markdown já a descartaria calado).
+     *
+     * @param list<int>|null $idsDasImagens ids das ImagemDoArtigo aceitas; null = não filtra por id
+     */
+    public function sanitizar(string $html, ?array $idsDasImagens = null): string
     {
-        return $this->listaBranca->paraHtml($this->listaBranca->limpar($html));
+        $raiz = $this->listaBranca->limpar($html);
+        if ($idsDasImagens !== null) {
+            foreach (iterator_to_array($raiz->getElementsByTagName('img'), false) as $img) {
+                $id = preg_match(ListaBrancaDoArtigo::REGEX_SRC_DA_IMAGEM, $img->getAttribute('src'), $m) === 1 ? (int) $m[1] : 0;
+                if (!\in_array($id, $idsDasImagens, true)) {
+                    $img->parentNode?->removeChild($img);
+                }
+            }
+        }
+
+        return $this->listaBranca->paraHtml($raiz);
+    }
+
+    /**
+     * Ids das ImagemDoArtigo que o corpo usa (`<img src="/master/blog/imagens/{id}">` que passa pela lista branca), sem
+     * repetir, na ordem em que aparecem. É o que a limpeza do salvar confere: imagem fora disto e da capa sai.
+     *
+     * @return list<int>
+     */
+    public function idsDasImagens(string $html): array
+    {
+        $ids = [];
+        foreach ($this->listaBranca->limpar($html)->getElementsByTagName('img') as $img) {
+            if (preg_match(ListaBrancaDoArtigo::REGEX_SRC_DA_IMAGEM, $img->getAttribute('src'), $m) === 1) {
+                $ids[(int) $m[1]] = true;
+            }
+        }
+
+        return array_keys($ids);
     }
 
     /** @param array<int, string> $extensoesDasImagens id da ImagemDoArtigo => extensão (jpg, png, webp) */

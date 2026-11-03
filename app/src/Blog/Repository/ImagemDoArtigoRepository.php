@@ -38,6 +38,11 @@ class ImagemDoArtigoRepository extends ServiceEntityRepository
         }
     }
 
+    public function porId(int $id): ?ImagemDoArtigo
+    {
+        return $this->find($id);
+    }
+
     /** @return list<ImagemDoArtigo> */
     public function doArtigo(ArtigoDoBlog $artigo): array
     {

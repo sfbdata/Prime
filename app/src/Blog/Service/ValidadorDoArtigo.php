@@ -118,6 +118,10 @@ final class ValidadorDoArtigo
         if ($artigo->getImagemChave() !== null && $artigo->getImagemAlt() === null) {
             $this->erro('imagemAlt', 'A imagem de compartilhamento precisa do texto alternativo.');
         }
+        // Imagem do corpo sai como `![alt](./imagens/...)`: alt vazio é imagem que o leitor de tela não descreve.
+        if (preg_match('/!\[\]\(/', $artigo->getCorpoMarkdown()) === 1) {
+            $this->erro('corpo', 'Toda imagem do texto precisa do texto alternativo (clique na imagem e use o botão de imagem).');
+        }
     }
 
     /** @param array<int, array<string, mixed>> $referencias o json pode vir de fora do formato */

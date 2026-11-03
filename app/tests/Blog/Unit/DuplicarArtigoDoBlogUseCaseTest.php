@@ -47,7 +47,7 @@ final class DuplicarArtigoDoBlogUseCaseTest extends TestCase
     private function origem(): ArtigoDoBlog
     {
         $artigo = ArtigosDeTeste::controleDePrazos();
-        $artigo->definirImagem('blog/imagens/5.png', 'Painel de prazos');
+        $artigo->definirImagem('5', 'Painel de prazos');
         $artigo->definirMarcadores(['Prazo em dobro', 'Recesso']);
         $artigo->definirRelacionados(['distribuicao-de-tarefas']);
         $artigo->definirCorpo(

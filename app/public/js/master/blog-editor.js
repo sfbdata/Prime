@@ -9,7 +9,11 @@
    - TinyMCE restrito (seção 3): Parágrafo, Seção (h2), Subseção (h3), negrito, itálico, link, listas, citação,
      desfazer/refazer e o menu Blocos BlueJus, que gera exatamente o HTML da tabela da seção 3 (div[data-bj]). Os
      blocos ficam não editáveis por fora e editáveis por dentro (contenteditable só na tela; sai ao salvar).
-     Sem imagem: chega na fatia P3. O servidor passa o HTML pela lista branca de novo (ListaBrancaDoArtigo).
+     Imagem (P3): botão de imagem do TinyMCE (plugin image), com o texto alternativo no diálogo; o envio vai ao
+     servidor pelo images_upload_handler (POST imagens, multipart). O servidor passa o HTML pela lista branca de novo
+     (ListaBrancaDoArtigo) e, ao salvar, apaga a imagem que não está mais no corpo nem na capa.
+   - Imagem de compartilhamento (P3): enviada pelo mesmo endereço; imagemChave guarda o id da imagem do artigo.
+     Só um artigo já salvo recebe imagem (o envio precisa do id).
    - Marcadores (P7): até 8, até 40 caracteres; sugere os já usados (GET marcadores?busca=) e, escolhendo uma
      sugestão ou digitando o mesmo marcador com outra grafia, fica a grafia que já existe.
    - Relacionados (até 3) e o bloco Leia também escolhem entre os artigos da lista (GET artigos, todas as páginas).
@@ -38,6 +42,8 @@
   const MAX_MARCADORES = 8;
   const MAX_CARACTERES_MARCADOR = 40;
   const MAX_RELACIONADOS = 3;
+  const MAX_BYTES_IMAGEM = 5 * 1024 * 1024;
+  const TIPOS_DE_IMAGEM = ['image/jpeg', 'image/png', 'image/webp'];
 
   let id = A.id || null;
   let slugSalvo = A.slug || '';
@@ -49,6 +55,7 @@
   const S = {
     marcadores: (A.marcadores || []).slice(),
     relacionados: (A.relacionados || []).map(r => ({ slug: r.slug, titulo: r.titulo })),
+    capa: A.imagemChave ? String(A.imagemChave) : null,
   };
 
   /* ---------- mensagens e erros ---------- */
@@ -70,6 +77,7 @@
   const lugarDoErro = chave => {
     const base = String(chave).replace(/\[.*$/, '').replace(/\..*$/, '');
     if (base === 'corpoHtml') return 'corpo';
+    if (base === 'imagem') return 'imagemChave';
     if (base === 'revisorNome' || base === 'revisorOab') return 'revisor';
     return base;
   };
@@ -343,6 +351,72 @@
   elSugRelacionado.addEventListener('mousedown', e => e.preventDefault());
   desenharRelacionados();
 
+  /* ---------- imagens (P3): envio comum ao corpo e à capa ---------- */
+  // Devolve {id, url}; recusa com a mensagem do servidor (422 vem em erros.imagem).
+  function enviarImagem(arquivo, nome) {
+    if (!id) return Promise.reject(new Error('Salve o rascunho antes de enviar imagens.'));
+    if (arquivo.type && !TIPOS_DE_IMAGEM.includes(arquivo.type)) return Promise.reject(new Error('Envie uma imagem JPG, PNG ou WEBP.'));
+    if (arquivo.size > MAX_BYTES_IMAGEM) return Promise.reject(new Error('A imagem passa de 5 MB.'));
+    const corpo = new FormData();
+    corpo.append('arquivo', arquivo, nome || arquivo.name || 'imagem');
+    return fetch(comId(URLS.imagens, id), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json', 'X-CSRF-Token': TOKEN },
+      body: corpo,
+    }).then(r => r.json().catch(() => null).then(j => {
+      if (r.ok && !r.redirected && j && j.id) return j;
+      const recusa = j && j.erros && j.erros.imagem ? [].concat(j.erros.imagem)[0] : (j && j.erro);
+      throw new Error(recusa || ERRO_PADRAO);
+    }));
+  }
+
+  const elCapa = qs('[data-be-capa-previa]');
+  const imgCapa = qs('[data-be-capa-img]');
+  const elCapaVazio = qs('[data-be-capa-vazio]');
+  const btCapa = qs('[data-be-capa-enviar]');
+  const btCapaRemover = qs('[data-be-capa-remover]');
+  const inCapa = qs('[data-be-capa-arquivo]');
+  // O envio da capa em andamento: salvar, verificar e pré-visualizar esperam por ele (senão o salvar vai sem a capa).
+  let envioDaCapa = null;
+
+  function desenharCapa() {
+    elCapa.hidden = !S.capa;
+    elCapaVazio.hidden = !!S.capa;
+    btCapaRemover.hidden = !S.capa;
+    if (S.capa) imgCapa.src = comId(URLS.imagem, S.capa);
+    else imgCapa.removeAttribute('src');
+    imgCapa.alt = valor('imagemAlt');
+    qs('[data-be-capa-enviar-rotulo]').textContent = S.capa ? 'Trocar imagem' : 'Enviar imagem';
+  }
+
+  btCapa.addEventListener('click', () => { if (id) inCapa.click(); });
+  inCapa.addEventListener('change', () => {
+    const arquivo = inCapa.files && inCapa.files[0];
+    inCapa.value = '';
+    if (!arquivo) return;
+    erroNoCampo('imagemChave', '');
+    btCapa.disabled = true;
+    envioDaCapa = enviarImagem(arquivo).then(j => {
+      S.capa = String(j.id);
+      sujo = true;
+      desenharCapa();
+      if (!valor('imagemAlt')) {
+        erroNoCampo('imagemAlt', 'Descreva a imagem no texto alternativo.');
+        campo('imagemAlt').focus();
+      }
+    }).catch(e => erroNoCampo('imagemChave', e.message || ERRO_PADRAO))
+      .finally(() => { envioDaCapa = null; btCapa.disabled = !id || ocupado; });
+  });
+  btCapaRemover.addEventListener('click', () => {
+    S.capa = null;
+    sujo = true;
+    erroNoCampo('imagemChave', '');
+    desenharCapa();
+  });
+  campo('imagemAlt').addEventListener('input', () => { imgCapa.alt = valor('imagemAlt'); });
+  desenharCapa();
+
   /* ---------- TinyMCE restrito (seção 3) ---------- */
   // O HTML de cada bloco é exatamente o da tabela da seção 3; o conversor do servidor transforma em diretiva.
   const BLOCOS = {
@@ -460,16 +534,15 @@
       promotion: false,
       branding: false,
       language: 'pt_BR',
-      plugins: 'lists link autolink',
+      plugins: 'lists link autolink image',
       menubar: false,
       contextmenu: false,
       browser_spellcheck: true,
-      toolbar: 'bjp bjh2 bjh3 | bold italic | link | bullist numlist blockquote | undo redo | bjblocos',
+      toolbar: 'bjp bjh2 bjh3 | bold italic | link image | bullist numlist blockquote | undo redo | bjblocos',
       toolbar_mode: 'wrap',
       height: 620,
       elementpath: false,
-      /* Sem img por enquanto: o envio de imagens chega na P3, que precisa incluir img[src|alt] aqui (spec, seção 3). */
-      valid_elements: 'p[contenteditable],h2,h3,strong/b,em/i,a[href],ul[contenteditable],ol[contenteditable],li,blockquote,br,div[data-bj|data-artigo|contenteditable]',
+      valid_elements: 'p[contenteditable],h2,h3,strong/b,em/i,a[href],ul[contenteditable],ol[contenteditable],li,blockquote,img[src|alt],br,div[data-bj|data-artigo|contenteditable]',
       entity_encoding: 'raw',
       convert_urls: false,
       relative_urls: false,
@@ -478,6 +551,20 @@
       link_target_list: false,
       link_default_protocol: 'https',
       paste_data_images: false,
+      /* Imagem (P3): o diálogo pede o texto alternativo; a aba Enviar manda o arquivo pelo images_upload_handler.
+         Sem largura, altura, título nem legenda: o blog só guarda src e alt. */
+      image_description: true,
+      image_dimensions: false,
+      image_title: false,
+      image_caption: false,
+      image_advtab: false,
+      image_uploadtab: true,
+      automatic_uploads: true,
+      images_file_types: 'jpeg,jpg,png,webp',
+      images_reuse_filename: false,
+      images_upload_handler: blobInfo => enviarImagem(blobInfo.blob(), blobInfo.filename())
+        .then(j => { sujo = true; return j.url; })
+        .catch(e => Promise.reject({ message: e.message || ERRO_PADRAO, remove: true })),
       paste_webkit_styles: 'none',
       paste_remove_styles_if_webkit: true,
       paste_postprocess: limparColagem,
@@ -489,9 +576,16 @@
   const corpoHtml = () => (editor ? editor.getContent() : qs('[data-be-corpo]').value);
 
   /* ---------- salvar, verificar, pré-visualizar, excluir ---------- */
-  const BOTOES = ['[data-be-salvar]', '[data-be-verificar]', '[data-be-previa]', '[data-be-excluir]'];
+  const BOTOES = ['[data-be-salvar]', '[data-be-verificar]', '[data-be-previa]', '[data-be-excluir]', '[data-be-capa-enviar]'];
   function travar(sim) {
     BOTOES.forEach(sel => { qs(sel).disabled = sim || (sel !== '[data-be-salvar]' && !id); });
+    if (envioDaCapa) btCapa.disabled = true;
+  }
+
+  // Imagem ainda subindo (capa ou corpo): espera, senão o HTML ou a capa vão sem ela.
+  async function esperarEnvios() {
+    if (envioDaCapa) await envioDaCapa.catch(() => null);
+    if (editor && id) await editor.uploadImages();
   }
 
   function dados(confirmarTrocaDeSlug) {
@@ -514,9 +608,9 @@
       relacionados: S.relacionados.map(r => r.slug),
       marcadores: S.marcadores.slice(),
       corpoHtml: corpoHtml(),
-      /* A capa ainda não tem campo na tela (P3): devolve a que veio, para salvar não apagá-la. */
-      imagemChave: A.imagemChave || null,
-      imagemAlt: A.imagemAlt || null,
+      // A capa: o id da imagem enviada para este artigo (ou nada) e o texto alternativo.
+      imagemChave: S.capa,
+      imagemAlt: valor('imagemAlt') || null,
       confirmarTrocaDeSlug: !!confirmarTrocaDeSlug,
     };
   }
@@ -540,6 +634,7 @@
     travar(true);
     limparErros();
     try {
+      await esperarEnvios();
       let res = await postar(id ? comId(URLS.salvar, id) : URLS.criar, dados(false));
       if (pedeConfirmacaoDoSlug(res)) {
         const sim = await confirmar({
@@ -577,6 +672,7 @@
 
   async function verificar() {
     if (!id || ocupado) return;
+    await esperarEnvios();
     if (sujo && !(await salvar())) return;
     ocupado = true;
     travar(true);
@@ -598,6 +694,7 @@
     if (!id || ocupado) return;
     // A janela abre já no clique (bloqueador de pop-up); o endereço entra depois de salvar.
     const janela = window.open('', '_blank');
+    await esperarEnvios();
     if (sujo && !(await salvar())) { if (janela) janela.close(); return; }
     const url = comId(URLS.previa, id);
     if (janela) { janela.opener = null; janela.location.href = url; } else { window.open(url, '_blank', 'noopener'); }

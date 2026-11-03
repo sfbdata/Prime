@@ -87,6 +87,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             CategoriaDeArquivo::CHAT_IA_ANEXO, $tenant, 'a1b2.pdf',
             $raiz . '/pastas/chat-ia/a1b2.pdf',
         ];
+        yield 'blog_imagem (plano, escopo global, subpasta própria)' => [
+            CategoriaDeArquivo::BLOG_IMAGEM, EscopoDeArquivo::global(), 'a1b2.webp',
+            $raiz . '/pastas/blog-imagens/a1b2.webp',
+        ];
         yield 'chamado_anexo (plano)' => [
             CategoriaDeArquivo::CHAMADO_ANEXO, $tenant, 'a1b2.pdf',
             $raiz . '/chamados/a1b2.pdf',

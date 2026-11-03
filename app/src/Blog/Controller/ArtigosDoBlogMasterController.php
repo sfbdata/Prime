@@ -4,21 +4,28 @@ declare(strict_types=1);
 
 namespace App\Blog\Controller;
 
+use App\Blog\Armazenamento\ChavesDoBlog;
 use App\Blog\DTO\SalvarArtigoDoBlogInput;
 use App\Blog\Exception\ArtigoDoBlogNaoEncontrado;
 use App\Blog\Exception\ArtigoDoBlogRecusado;
+use App\Blog\Exception\ImagemDoArtigoNaoEncontrada;
 use App\Blog\Enum\BlogsDoArtigo;
 use App\Blog\Service\CatalogoDoBlog;
 use App\Blog\Service\HtmlDoArtigoParaMarkdown;
 use App\Blog\UseCase\CarregarArtigoParaEditorUseCase;
 use App\Blog\UseCase\DuplicarArtigoDoBlogUseCase;
+use App\Blog\UseCase\EnviarImagemDoArtigoUseCase;
 use App\Blog\UseCase\ExcluirArtigoDoBlogUseCase;
 use App\Blog\UseCase\ListarArtigosDoBlogUseCase;
+use App\Blog\UseCase\ObterImagemDoArtigoUseCase;
 use App\Blog\UseCase\SalvarArtigoDoBlogUseCase;
 use App\Blog\UseCase\SugerirMarcadoresUseCase;
 use App\Blog\UseCase\VerificarArtigoDoBlogUseCase;
 use App\Entity\Auth\User;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,8 +37,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * "Artigos dos blogs" do Painel do Master (spec painel-artigos-blogs, fatia P2): a lista (JSON, vira seção do painel),
- * a página do editor, salvar rascunho, verificar, duplicar, excluir, sugestões de marcadores e a prévia aproximada.
- * Só o Master. Todo POST leva o token CSRF `master_blog` no header `X-CSRF-Token`.
+ * a página do editor, salvar rascunho, verificar, duplicar, excluir, sugestões de marcadores e a prévia aproximada; e,
+ * desde a P3, o envio e a entrega das imagens do corpo e da capa (seção 4). Só o Master. Todo POST leva o token CSRF `master_blog` no header `X-CSRF-Token`.
  *
  * Agendar, Publicar e Despublicar não estão aqui: dependem do builder (P4) e do agendador (P5).
  */
@@ -122,6 +129,43 @@ final class ArtigosDoBlogMasterController extends AbstractController
 
             return $this->json(['ok' => true]);
         });
+    }
+
+    /** Envio do TinyMCE e do cartão da capa: multipart `arquivo` (e `alt`, opcional). Devolve `{id, url}`. */
+    #[Route('/artigos/{id}/imagens', name: 'master_blog_imagens_enviar', requirements: ['id' => '\d{1,10}'], methods: ['POST'])]
+    public function enviarImagem(int $id, Request $request, EnviarImagemDoArtigoUseCase $enviar): JsonResponse
+    {
+        return $this->protegido($request, function () use ($id, $request, $enviar): JsonResponse {
+            $arquivo = $request->files->get('arquivo');
+            if (!$arquivo instanceof UploadedFile) {
+                throw ArtigoDoBlogRecusado::imagem('Escolha uma imagem para enviar.');
+            }
+            $alt = $request->request->get('alt');
+            $imagem = $enviar->executar($id, $arquivo, \is_string($alt) ? $alt : null);
+
+            return $this->json([
+                'id' => $imagem->getId(),
+                'url' => $this->generateUrl('master_blog_imagens_ver', ['id' => $imagem->getId()]),
+            ], Response::HTTP_CREATED);
+        });
+    }
+
+    /** A imagem no editor (o `src` do corpo e a prévia da capa). Só o Master; fora do editor ninguém a enxerga. */
+    #[Route('/imagens/{id}', name: 'master_blog_imagens_ver', requirements: ['id' => '\d{1,10}'], methods: ['GET'])]
+    public function verImagem(int $id, ObterImagemDoArtigoUseCase $obter, ArmazenamentoDeArquivos $armazenamento, EntregaDeArquivo $entrega): Response
+    {
+        try {
+            $imagem = $obter->executar($id);
+        } catch (ImagemDoArtigoNaoEncontrada $e) {
+            throw $this->createNotFoundException($e->getMessage());
+        }
+
+        $chave = ChavesDoBlog::imagem($imagem);
+        if (!$armazenamento->existe($chave)) {
+            throw $this->createNotFoundException('Arquivo da imagem não encontrado.');
+        }
+
+        return $entrega->resposta($chave, $imagem->getNomeOriginal(), inline: true);
     }
 
     #[Route('/marcadores', name: 'master_blog_marcadores', methods: ['GET'])]

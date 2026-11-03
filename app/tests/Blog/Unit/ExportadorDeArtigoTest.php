@@ -40,7 +40,7 @@ final class ExportadorDeArtigoTest extends TestCase
     {
         $artigo = ArtigosDeTeste::controleDePrazos();
         $artigo->classificar('prazos-processuais', 'equipe-editorial-bluejus', 'Dra. Ana', 'OAB/DF 123', '9 min', false);
-        $artigo->definirImagem('blog/imagens/5.png', 'Painel de prazos');
+        $artigo->definirImagem('5', 'Painel de prazos');
 
         [$frontmatter] = self::separar((new ExportadorDeArtigo())->exportar($artigo, './imagens/5.png'));
         $dados = Yaml::parse($frontmatter);

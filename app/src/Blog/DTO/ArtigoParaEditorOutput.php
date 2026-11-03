@@ -39,7 +39,7 @@ final readonly class ArtigoParaEditorOutput
         public string $situacaoRotulo,
         public bool $alteracoesPendentes,
         public bool $jaFoiAoAr,
-        /** A capa volta no salvar: sem isto, salvar pelo editor apagaria a imagem (o campo da tela chega na P3). */
+        /** A capa: o id da ImagemDoArtigo (texto), que o cartão "Imagem de compartilhamento" mostra e devolve no salvar. */
         public ?string $imagemChave = null,
         public ?string $imagemAlt = null,
     ) {
