@@ -42,6 +42,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Shared/Armazenamento/ArmazenamentoLocal.php'          => 'o backend local',
         'src/Shared/Armazenamento/AreaTemporariaPrivada.php'       => 'diretório aleatório por operação, apagado no finally (E2.6C)',
         'src/Shared/Armazenamento/ArquivoGeradoParaEntrega.php'    => 'arquivo GERADO (o .zip), nunca persistido',
+        'src/Shared/Armazenamento/AreaDeLiberados.php'             => 'liberação do disco: move para .liberados/<lote>/ e devolve, sem apagar nem sobrescrever (spec leitura-pelo-r2 §5.3)',
         'src/Shared/Armazenamento/ArquivoTemporarioPossuido.php'   => 'cópia possuída, com ciclo de vida (D9)',
         'src/Shared/Armazenamento/DiretorioTemporarioPrivado.php'  => 'o temporário privado do processo (D29)',
         'src/Shared/Armazenamento/FonteDeConteudo.php'             => 'abre a origem que o chamador entregou',
@@ -109,6 +110,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/TrabalhoExterno/Controller/VagasPublicasController.php' => 'falso positivo: método link()',
         'src/TrabalhoExterno/UseCase/ExportarEmailDaCampanhaUseCase.php' => 'falso positivo: método link()',
         'src/Shared/EspelhoRemoto/Command/ReconciliarEspelhoCommand.php' => 'grava o relatório JSON pedido em --saida (P2.3)',
+        'src/Shared/EspelhoRemoto/Liberacao/ArquivosDoOperador.php' => 'manifesto do lote em var/liberacao e a cópia de conferência de --baixar-para, fora do acervo',
         'src/Shared/EspelhoRemoto/CacheDeLeituraDoEspelho.php'     => 'cache de leitura do que veio do R2, nome = SHA, publicado só depois de conferido (leitura de recuperação, D3)',
         'src/Shared/EspelhoRemoto/R2/EspelhoRemotoR2.php'          => 'fwrite só no stream de destino que o chamador entregou ao baixar',
     ];

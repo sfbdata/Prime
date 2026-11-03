@@ -7,6 +7,7 @@ namespace App\Shared\EspelhoRemoto\Liberacao;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
@@ -22,12 +23,15 @@ use Psr\Clock\ClockInterface;
  * não tem o envio `verificado` (retenção de 90 dias), e é o que a reconciliação usa para separar
  * "liberado" de "perdido". O índice único parcial impede duas linhas abertas da mesma chave.
  *
- * Nesta etapa ninguém abre linha em produção: `registrar()` é da etapa C (liberar) e dos testes. A
- * exclusão já fecha a linha (`fechar()`, `fecharPrefixo()`, pelo `ArmazenamentoEspelhado`).
+ * Quem abre linha é a liberação do disco (`armazenamento:liberar-disco`, etapa C), e quem fecha é a
+ * restauração (`armazenamento:restaurar-lote`) e a exclusão (`fechar()`, `fecharPrefixo()`, pelo
+ * `ArmazenamentoEspelhado`).
  */
 final class RegistroDeLiberacao
 {
     private const TABELA = 'armazenamento_liberacao';
+
+    private const COLUNAS = 'id, lote, categoria, escopo_tenant_id, nome, chave_remota, sha256, tamanho_bytes, liberado_em';
 
     public function __construct(
         private readonly Connection $conexao,
@@ -39,13 +43,38 @@ final class RegistroDeLiberacao
     public function abertaDe(string $chaveRemota): ?LiberacaoAberta
     {
         $linha = $this->conexao->fetchAssociative(
-            'SELECT id, lote, sha256, tamanho_bytes, liberado_em FROM ' . self::TABELA . ' WHERE chave_remota = ? AND restaurado_em IS NULL',
+            'SELECT ' . self::COLUNAS . ' FROM ' . self::TABELA . ' WHERE chave_remota = ? AND restaurado_em IS NULL',
             [$chaveRemota],
         );
-        if ($linha === false) {
-            return null;
+
+        return $linha === false ? null : self::daLinha($linha);
+    }
+
+    /**
+     * As linhas abertas de um lote, na ordem em que foram abertas (restaurar o lote, §5.4). Linha que
+     * não prova nada (SHA ou tamanho inválido) fica de fora.
+     *
+     * @return list<LiberacaoAberta>
+     */
+    public function abertasDoLote(string $lote): array
+    {
+        $abertas = [];
+        foreach ($this->conexao->fetchAllAssociative(
+            'SELECT ' . self::COLUNAS . ' FROM ' . self::TABELA . ' WHERE lote = ? AND restaurado_em IS NULL ORDER BY id',
+            [$lote],
+        ) as $linha) {
+            $aberta = self::daLinha($linha);
+            if ($aberta !== null) {
+                $abertas[] = $aberta;
+            }
         }
 
+        return $abertas;
+    }
+
+    /** @param array<string, mixed> $linha */
+    private static function daLinha(array $linha): ?LiberacaoAberta
+    {
         $sha256  = (string) $linha['sha256'];
         $tamanho = (int) $linha['tamanho_bytes'];
         if (!self::shaValido($sha256) || $tamanho < 0) {
@@ -55,11 +84,31 @@ final class RegistroDeLiberacao
         return new LiberacaoAberta(
             (int) $linha['id'],
             (string) $linha['lote'],
-            $chaveRemota,
+            (string) $linha['chave_remota'],
             $sha256,
             $tamanho,
             new \DateTimeImmutable((string) $linha['liberado_em'], new \DateTimeZone('UTC')),
+            self::chaveDaLinha($linha),
         );
+    }
+
+    /** @param array<string, mixed> $linha */
+    private static function chaveDaLinha(array $linha): ?ChaveDeArquivo
+    {
+        $categoria = CategoriaDeArquivo::tryFrom((string) $linha['categoria']);
+        if ($categoria === null) {
+            return null;
+        }
+
+        try {
+            return new ChaveDeArquivo(
+                $linha['escopo_tenant_id'] === null ? EscopoDeArquivo::global() : EscopoDeArquivo::deTenant((int) $linha['escopo_tenant_id']),
+                $categoria,
+                (string) $linha['nome'],
+            );
+        } catch (ChaveDeArquivoInvalida) {
+            return null;
+        }
     }
 
     /**

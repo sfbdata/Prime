@@ -240,4 +240,25 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             );
         }
     }
+
+    #[TestDox('liberação: .liberados/<lote>/<caminho relativo> dentro do uploads_dir; lote que vira caminho e categoria fora da raiz são recusados')]
+    public function testCaminhoNosLiberados(): void
+    {
+        $resolvedor = $this->resolvedorDeProducao();
+        $raiz       = self::PROJECT_DIR . '/public/uploads/pastas/.liberados/20261103-090000';
+
+        self::assertSame($raiz . '/doc.pdf', $resolvedor->caminhoNosLiberados(new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::PASTA_DOCUMENTO, 'doc.pdf'), '20261103-090000'));
+        self::assertSame($raiz . '/7/img.png', $resolvedor->caminhoNosLiberados(new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, 'img.png'), '20261103-090000'));
+
+        foreach (['', '../x', 'a/b', '.oculto', str_repeat('a', 65)] as $lote) {
+            try {
+                $resolvedor->caminhoNosLiberados(new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::PASTA_DOCUMENTO, 'doc.pdf'), $lote);
+                self::fail('lote aceito: ' . $lote);
+            } catch (\InvalidArgumentException) {
+            }
+        }
+
+        $this->expectException(\LogicException::class);
+        $resolvedor->caminhoNosLiberados(new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::CLIENTE_DOCUMENTO, 'doc.pdf'), '20261103-090000');
+    }
 }

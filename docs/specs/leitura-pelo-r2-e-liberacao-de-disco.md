@@ -251,6 +251,45 @@ entidade só de mapeamento `LiberacaoDeArquivo` e `Liberacao\RegistroDeLiberacao
   - Nos dois casos, fecha as linhas (`restaurado_em`).
 - **Restaurar um arquivo:** `--chave=` para restaurar só ele.
 
+### Estado em 03/11/2026 (branch `r2-liberar-disco`): liberar e restaurar, sem esvaziar
+
+Entregues `armazenamento:liberar-disco` e `armazenamento:restaurar-lote`. O `--esvaziar-lote` **não
+existe** e continua bloqueado: nada é apagado do disco nesta etapa.
+
+- **Onde ficam os liberados:** `<uploads_dir>/.liberados/<lote>/<caminho relativo ao uploads_dir>`
+  (em produção, `public/uploads/pastas/.liberados/`). Fica dentro da raiz das duas categorias aceitas,
+  então o `rename` não troca de sistema de arquivos (o comando confere o dispositivo e recusa se
+  trocar). O caminho sai do `ResolvedorDeCaminhoLocal::caminhoNosLiberados()`, e o disco é tocado só
+  pela `Shared/Armazenamento/AreaDeLiberados`. O lote é `AAAAMMDD-HHMMSS` no horário de Brasília.
+- **P2 (7 dias de reconciliação limpa):** o sistema não guarda as rodadas boas da reconciliação; só a
+  `falha_agendada` (as que falharam). Sem tabela nova, a execução exige `--confirmo-reconciliacao-limpa`
+  (o operador confere os logs do agendador) e, além disso, recusa sozinha quando há falha da
+  `armazenamento:reconciliar-espelho` em `falha_agendada` nos últimos 7 dias, ou envio da categoria em
+  `falhou` na outbox. A D6 já está no ar: sem checagem.
+- **Critério de acesso (`atime`):** com `relatime` (o padrão do ext4 e o que o contêiner de dev mostra),
+  qualquer leitura renova o `atime` uma vez por dia. A fatia semanal do SHA da reconciliação lê cada
+  arquivo uma vez por semana, então o critério "sem acesso há 30 dias" deixa **tudo** de fora. O
+  critério fica ligado por padrão, como pede o §5.2, e `--sem-acesso` o desliga (fica só a data do banco
+  ou o `mtime`). A medição do próprio comando não aquece o arquivo: o `atime` volta ao que era depois do
+  SHA. **Antes do primeiro lote:** medir a montagem do volume na VPS e decidir se o lote roda com
+  `--sem-acesso`.
+- **Data do banco:** documento da pasta usa o mais novo entre `uploaded_at` e `modificado_em`; sem data
+  no banco, vale o `mtime`. Várias linhas da mesma chave: vale a mais nova.
+- **Imagens do editor:** a categoria é aceita, mas não tem referência no banco (mora no HTML da peça),
+  então nunca há candidato (item 1 do §5.2). A simulação avisa.
+- **Exclusão (D6, etapa C):** a restauração não devolve ao disco uma chave com exclusão registrada depois
+  do último envio. A exclusão de um liberado já fecha a linha (etapa B).
+- **Por arquivo:** além dos passos do §5.3, o SHA da cópia é medido de novo **depois** do movimento;
+  se mudou (regravação no meio), a cópia volta ao lugar e a linha fecha. Destino ocupado, SHA local
+  diferente, R2 que não confere: pula e a linha fecha. Falha depois de mover deixa a cópia nos liberados
+  e a linha aberta (o restaurar a devolve).
+- **Restaurar:** devolve por `link` e `unlink` da cópia (o `link` falha com o original presente, então
+  nunca sobrescreve, nem numa corrida com um upload); fora dos liberados, baixa do R2 para um parcial no
+  mesmo diretório, confere SHA e tamanho da linha e publica do mesmo jeito. Original presente: pula e
+  avisa, e a linha fica aberta. `--baixar-para=PASTA` (com `--chave`) baixa para a pasta do operador e
+  imprime OK ou DIVERGE, sem tocar no disco do sistema nem na linha.
+- **Tela:** só contagens e bytes. A chave remota (que traz o nome do arquivo) fica só no manifesto.
+
 ### 5.5 Antes do primeiro lote
 
 - Cópia complementar do backup (P0d) no `bluejus-backup-uploads`, como P0/P0b/P0c: o R2 de backup
