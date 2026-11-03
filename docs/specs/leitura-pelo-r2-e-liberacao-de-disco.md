@@ -277,16 +277,35 @@ existe** e continua bloqueado: nada é apagado do disco nesta etapa.
   no banco, vale o `mtime`. Várias linhas da mesma chave: vale a mais nova.
 - **Imagens do editor:** a categoria é aceita, mas não tem referência no banco (mora no HTML da peça),
   então nunca há candidato (item 1 do §5.2). A simulação avisa.
-- **Exclusão (D6, etapa C):** a restauração não devolve ao disco uma chave com exclusão registrada depois
-  do último envio. A exclusão de um liberado já fecha a linha (etapa B).
+- **Exclusão de um liberado (D6, etapa C; revisão de 03/11):** `excluir()` do `ArmazenamentoEspelhado`
+  apaga a cópia em `.liberados/<lote>/` (pela `AreaDeLiberados`) e depois fecha a linha; é a mesma
+  exclusão de sempre, não o esvaziamento. Na purga por prefixo, cada linha aberta do escritório na
+  categoria tem a cópia apagada e, com a categoria espelhada, o `excluir` registrado na outbox (o objeto
+  sai também do R2). Falha ao apagar a cópia fica no log, e a linha fecha mesmo assim. A restauração
+  não devolve ao disco uma chave com exclusão registrada depois do último envio.
+- **Lixeira fora:** documento com `excluido_em` preenchido nunca é candidato (motivo `na_lixeira`); a
+  purga dos 30 dias o apaga.
+- **Risco anotado (caminho repetido):** em produção (03/11/2026) nenhum `caminho_arquivo` se repete em
+  `pasta_documento`. Se uma cópia de documento um dia repetir o caminho de outro, as duas linhas apontam
+  para o mesmo arquivo e a mesma linha de liberação: excluir um apagaria a cópia liberada e fecharia a
+  linha do outro.
 - **Por arquivo:** além dos passos do §5.3, o SHA da cópia é medido de novo **depois** do movimento;
-  se mudou (regravação no meio), a cópia volta ao lugar e a linha fecha. Destino ocupado, SHA local
+  se mudou (regravação no meio), a cópia volta ao lugar e a linha fecha. Com o lugar já ocupado de novo,
+  a cópia fica presa nos liberados com a linha aberta (`copia_presa_nos_liberados`). Destino ocupado, SHA local
   diferente, R2 que não confere: pula e a linha fecha. Falha depois de mover deixa a cópia nos liberados
-  e a linha aberta (o restaurar a devolve).
+  e a linha aberta (o restaurar a devolve). Esses dois casos entram no manifesto com a coluna
+  `situacao`; os liberados entram como `liberado`.
+- **Execução única:** liberar e restaurar (com `--executar`) dividem a trava `armazenamento-liberacao-do-disco`
+  (tabela `lock_keys`, vale entre contêineres), renovada a cada arquivo. Manifesto que não grava: o
+  resumo sai mesmo assim e o comando termina com falha.
+- **Custo da simulação:** a categoria é filtrada antes de qualquer consulta; as datas saem por bloco de
+  mil ids, só das linhas da categoria; a saída mostra o tempo da seleção. Erro do banco na seleção sai com
+  mensagem genérica (os parâmetros trazem o nome do arquivo).
 - **Restaurar:** devolve por `link` e `unlink` da cópia (o `link` falha com o original presente, então
-  nunca sobrescreve, nem numa corrida com um upload); fora dos liberados, baixa do R2 para um parcial no
-  mesmo diretório, confere SHA e tamanho da linha e publica do mesmo jeito. Original presente: pula e
-  avisa, e a linha fica aberta. `--baixar-para=PASTA` (com `--chave`) baixa para a pasta do operador e
+  nunca sobrescreve, nem numa corrida com um upload); fora dos liberados, baixa do R2 para um parcial em
+  `.liberados/.parciais` (mesmo sistema de arquivos, fora do diretório dos documentos), confere SHA e
+  tamanho da linha e publica do mesmo jeito. Original presente com o SHA da linha: fecha a linha
+  (`ja_no_lugar`). Com outro SHA: pula e avisa, e a linha fica aberta. `--baixar-para=PASTA` (com `--chave`) baixa para a pasta do operador e
   imprime OK ou DIVERGE, sem tocar no disco do sistema nem na linha.
 - **Tela:** só contagens e bytes. A chave remota (que traz o nome do arquivo) fica só no manifesto.
 

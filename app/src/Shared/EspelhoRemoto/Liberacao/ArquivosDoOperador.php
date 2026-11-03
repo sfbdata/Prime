@@ -9,7 +9,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * O que a liberação grava para o operador, FORA do acervo (spec `leitura-pelo-r2-e-liberacao-de-disco.md`
- * §5.3 e §5.4): o manifesto do lote (`var/liberacao/<lote>.tsv`: chave remota, SHA-256, tamanho) e a
+ * §5.3 e §5.4): o manifesto do lote (`var/liberacao/<lote>.tsv`: chave remota, SHA-256, tamanho e
+ * situação: `liberado`, ou o motivo de a cópia ter ficado nos liberados com a linha aberta) e a
  * cópia de conferência que o operador pede com `--baixar-para`. Nenhum dos dois é arquivo do sistema:
  * não passam pelo armazenamento nem pelo espelho, e nunca sobrescrevem um arquivo que já existe.
  */
@@ -21,12 +22,8 @@ final class ArquivosDoOperador
     ) {
     }
 
-    /**
-     * @param list<CandidatoALiberar> $liberados
-     *
-     * @return string o caminho do manifesto
-     */
-    public function gravarManifesto(string $lote, array $liberados): string
+    /** @return string o caminho do manifesto */
+    public function gravarManifesto(string $lote, ResumoDaLiberacao $resumo): string
     {
         if (!is_dir($this->diretorioDosManifestos) && !@mkdir($this->diretorioDosManifestos, 0o750, true) && !is_dir($this->diretorioDosManifestos)) {
             throw new \RuntimeException('Não foi possível criar o diretório dos manifestos.');
@@ -38,9 +35,12 @@ final class ArquivosDoOperador
             throw new \RuntimeException(sprintf('O manifesto %s já existe ou não pôde ser criado.', $caminho));
         }
         try {
-            fwrite($saida, "chave_remota\tsha256\ttamanho_bytes\n");
-            foreach ($liberados as $c) {
-                fwrite($saida, sprintf("%s\t%s\t%d\n", $c->chaveRemota, $c->sha256, $c->tamanhoBytes));
+            fwrite($saida, "chave_remota\tsha256\ttamanho_bytes\tsituacao\n");
+            foreach ($resumo->liberados() as $c) {
+                fwrite($saida, sprintf("%s\t%s\t%d\tliberado\n", $c->chaveRemota, $c->sha256, $c->tamanhoBytes));
+            }
+            foreach ($resumo->comCopiaNosLiberados() as ['candidato' => $c, 'motivo' => $motivo]) {
+                fwrite($saida, sprintf("%s\t%s\t%d\t%s\n", $c->chaveRemota, $c->sha256, $c->tamanhoBytes, $motivo));
             }
         } finally {
             fclose($saida);

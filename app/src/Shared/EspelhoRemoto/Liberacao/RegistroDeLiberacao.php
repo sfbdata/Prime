@@ -72,6 +72,30 @@ final class RegistroDeLiberacao
         return $abertas;
     }
 
+    /**
+     * As linhas abertas de um escritório numa categoria (a purga por prefixo apaga a cópia de cada uma
+     * antes de fechar).
+     *
+     * @return list<LiberacaoAberta>
+     */
+    public function abertasDoPrefixo(EscopoDeArquivo $escopo, CategoriaDeArquivo $categoria): array
+    {
+        $tenant  = $escopo->tenantIdOuNull();
+        $abertas = [];
+        foreach ($this->conexao->fetchAllAssociative(
+            'SELECT ' . self::COLUNAS . ' FROM ' . self::TABELA . ' WHERE categoria = :categoria AND restaurado_em IS NULL AND '
+            . ($tenant === null ? 'escopo_tenant_id IS NULL' : 'escopo_tenant_id = :tenant') . ' ORDER BY id',
+            ['categoria' => $categoria->value] + ($tenant === null ? [] : ['tenant' => $tenant]),
+        ) as $linha) {
+            $aberta = self::daLinha($linha);
+            if ($aberta !== null) {
+                $abertas[] = $aberta;
+            }
+        }
+
+        return $abertas;
+    }
+
     /** @param array<string, mixed> $linha */
     private static function daLinha(array $linha): ?LiberacaoAberta
     {

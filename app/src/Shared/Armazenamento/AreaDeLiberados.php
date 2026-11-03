@@ -15,8 +15,10 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  * {@see ChaveDeArquivo} e pelo lote, e nunca conhece o caminho.
  *
  * Regras que nenhum método quebra:
- *  - **nunca apaga conteúdo**: o arquivo muda de lugar, e o único `unlink` é o do nome de origem
- *    depois que o mesmo inode já tem o nome de destino (ou do temporário que esta classe criou);
+ *  - **liberar e restaurar nunca apagam conteúdo**: o arquivo muda de lugar, e o `unlink` é o do nome
+ *    de origem depois que o mesmo inode já tem o nome de destino (ou do temporário que esta classe
+ *    criou). A única exceção é {@see apagarDosLiberados()}, que só a exclusão pedida chama (o usuário
+ *    ou a purga apagou o documento, e a cópia liberada não pode ficar: LGPD);
  *  - **nunca sobrescreve**: destino existente é {@see MovimentoNoDisco::DESTINO_EXISTE}, e nada muda;
  *  - **mesmo sistema de arquivos**: o `rename` entre discos diferentes viraria cópia e apagamento,
  *    então é recusado antes;
@@ -28,7 +30,7 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  * fica). Devolver usa `link` e depois `unlink` da cópia nos liberados: o `link` falha se o original já
  * existe, então nunca sobrescreve, nem numa corrida com um upload.
  */
-final readonly class AreaDeLiberados
+final readonly class AreaDeLiberados implements DiscoDaLiberacao
 {
     private const MODO_DOS_DIRETORIOS = 0o750;
 
@@ -155,12 +157,13 @@ final readonly class AreaDeLiberados
 
     /**
      * Grava no lugar original o que `$escrever` produz (o download do espelho), conferido contra o
-     * SHA-256 e o tamanho esperados, sem sobrescrever. O parcial nasce no MESMO diretório do original
-     * e só ganha o nome final depois de conferido.
+     * SHA-256 e o tamanho esperados, sem sobrescrever. O parcial nasce em `.liberados/.parciais`, no
+     * mesmo sistema de arquivos e fora do diretório dos documentos, e só ganha o nome final depois de
+     * conferido. Conteúdo que não confere: {@see MovimentoNoDisco::CONTEUDO_DIVERGENTE}, nada publicado.
      *
      * @param \Closure(resource): void $escrever
      *
-     * @throws FalhaDeArmazenamento quando o conteúdo não confere ou o disco falha
+     * @throws FalhaDeArmazenamento quando o disco falha
      */
     public function publicarNoOriginal(ChaveDeArquivo $chave, \Closure $escrever, string $sha256, int $tamanhoBytes): MovimentoNoDisco
     {
@@ -169,8 +172,10 @@ final readonly class AreaDeLiberados
             return MovimentoNoDisco::DESTINO_EXISTE;
         }
         $this->garantirDiretorio(\dirname($original));
+        $parciais = $this->resolvedor->diretorioDosParciaisDaLiberacao();
+        $this->garantirDiretorio($parciais);
 
-        $parcial = \dirname($original) . '/' . self::PREFIXO_DO_PARCIAL . bin2hex(random_bytes(8));
+        $parcial = $parciais . '/' . self::PREFIXO_DO_PARCIAL . bin2hex(random_bytes(8));
         $saida   = @fopen($parcial, 'xb');
         if ($saida === false) {
             throw new FalhaDeArmazenamento(sprintf('Não foi possível criar o parcial de %s.', $chave->comoTexto()));
@@ -184,7 +189,7 @@ final readonly class AreaDeLiberados
             }
             clearstatcache(true, $parcial);
             if (@filesize($parcial) !== $tamanhoBytes || !hash_equals($sha256, Sha256DeArquivo::deArquivoLocal($parcial))) {
-                throw new FalhaDeArmazenamento(sprintf('O conteúdo baixado de %s não confere com o registro.', $chave->comoTexto()));
+                return MovimentoNoDisco::CONTEUDO_DIVERGENTE;
             }
 
             return $this->publicarSemSobrescrever($parcial, $original, $chave);
@@ -192,6 +197,23 @@ final readonly class AreaDeLiberados
             if ($this->existeAlgo($parcial)) {
                 @unlink($parcial);
             }
+        }
+    }
+
+    /**
+     * Apaga a cópia da chave nos liberados do lote. Só a exclusão pedida chama (o documento saiu do
+     * sistema); ausente conta como apagada.
+     *
+     * @throws FalhaDeArmazenamento quando a cópia continua lá
+     */
+    public function apagarDosLiberados(ChaveDeArquivo $chave, string $lote): void
+    {
+        $copia = $this->resolvedor->caminhoNosLiberados($chave, $lote);
+        if ($this->lstatRegular($copia) === null) {
+            return;
+        }
+        if (!@unlink($copia) && $this->existeAlgo($copia)) {
+            throw new FalhaDeArmazenamento(sprintf('Não foi possível apagar a cópia liberada de %s.', $chave->comoTexto()));
         }
     }
 

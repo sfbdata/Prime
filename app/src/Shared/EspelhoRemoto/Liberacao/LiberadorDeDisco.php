@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Shared\EspelhoRemoto\Liberacao;
 
-use App\Shared\Armazenamento\AreaDeLiberados;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\DiscoDaLiberacao;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\MovimentoNoDisco;
@@ -15,6 +15,7 @@ use App\Shared\EspelhoRemoto\FalhaNoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\Reconciliacao\FonteDeReferencias;
+use App\Shared\EspelhoRemoto\Reconciliacao\ReferenciaDeArquivo;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Psr\Clock\ClockInterface;
 
@@ -27,7 +28,7 @@ use Psr\Clock\ClockInterface;
  *  1. referenciado no banco, pela mesma fonte da reconciliação ({@see FonteDeReferencias});
  *  2. a linha mais nova da outbox é o envio `verificado` da chave (exclusão, reenvio pendente ou falha
  *     depois dele tiram a prova), e o SHA local de agora é o mesmo desse envio;
- *  3. sem linha de liberação aberta;
+ *  3. sem linha de liberação aberta, e nenhuma linha do banco que a cita na lixeira;
  *  4. frio: a data do banco ({@see DatasDasReferencias}), ou o `mtime` quando o banco não tem, mais
  *     velha que os dias pedidos; e, com o critério de acesso ligado, o `atime` mais velho que
  *     {@see DIAS_SEM_ACESSO}.
@@ -36,11 +37,23 @@ use Psr\Clock\ClockInterface;
  * Por arquivo: (1) baixa do R2 para um temporário e mede o SHA do que chegou; (2) abre a linha (o
  * DBAL confirma na hora, sem transação aberta); (3) mede de novo o SHA local (mudou: fecha a linha e
  * pula); (4) move por `rename`, sem sobrescrever (destino ocupado: fecha a linha e pula); (5) mede o
- * SHA da cópia já nos liberados (mudou entre a medida e o movimento: devolve e fecha). Falha num
+ * SHA da cópia já nos liberados (mudou entre a medida e o movimento: devolve e fecha; sem conseguir
+ * devolver, a cópia fica presa nos liberados com a linha aberta e entra no manifesto). Falha num
  * arquivo conta e segue.
  */
 final class LiberadorDeDisco
 {
+    /** As categorias em que liberar compensa o risco (§5.6). */
+    public const CATEGORIAS_LIBERAVEIS = [CategoriaDeArquivo::PASTA_DOCUMENTO, CategoriaDeArquivo::PASTA_IMAGEM_EDITOR];
+
+    /**
+     * A trava de execução única (tabela `lock_keys`, vale entre contêineres) que liberar e restaurar
+     * dividem: os dois mexem nas mesmas linhas e nos mesmos liberados. Renovada a cada arquivo.
+     */
+    public const TRAVA = 'armazenamento-liberacao-do-disco';
+
+    public const DURACAO_DA_TRAVA_EM_SEGUNDOS = 1800;
+
     /** Sem entrega (pelo `atime`) há pelo menos isto, quando o critério de acesso está ligado. */
     public const DIAS_SEM_ACESSO = 30;
 
@@ -50,6 +63,7 @@ final class LiberadorDeDisco
     public const TAMANHO_DIVERGENTE   = 'tamanho_divergente';
     public const RECENTE              = 'recente';
     public const ACESSADO_RECENTEMENTE = 'acessado_recentemente';
+    public const NA_LIXEIRA           = 'na_lixeira';
     public const SHA_LOCAL_DIVERGENTE = 'sha_local_divergente';
     public const FALHA_NO_R2          = 'falha_no_r2';
     public const R2_DIVERGENTE        = 'r2_divergente';
@@ -58,13 +72,21 @@ final class LiberadorDeDisco
     public const FALHA_NO_DISCO       = 'falha_no_disco';
     /** Moveu, e a conferência depois do movimento falhou: a cópia fica nos liberados e a linha, aberta. */
     public const FALHA_DEPOIS_DE_MOVER = 'falha_depois_de_mover';
+    /**
+     * Regravado entre a medida e o movimento, e o lugar original já ocupado de novo: a cópia (que não é
+     * o que o R2 tem) fica nos liberados e a linha, aberta, para conferência à mão.
+     */
+    public const COPIA_PRESA_NOS_LIBERADOS = 'copia_presa_nos_liberados';
+
+    /** Os motivos em que a linha fica aberta e a cópia nos liberados: entram no manifesto. */
+    public const MOTIVOS_COM_COPIA_NOS_LIBERADOS = [self::FALHA_DEPOIS_DE_MOVER, self::COPIA_PRESA_NOS_LIBERADOS];
 
     public function __construct(
         private readonly FonteDeReferencias $fontes,
         private readonly DatasDasReferencias $datas,
         private readonly OutboxDeReplicacao $outbox,
         private readonly RegistroDeLiberacao $liberacoes,
-        private readonly AreaDeLiberados $area,
+        private readonly DiscoDaLiberacao $area,
         private readonly ClockInterface $relogio,
     ) {
     }
@@ -77,8 +99,8 @@ final class LiberadorDeDisco
         $limiteFrio = $agora->modify(sprintf('-%d days', $frioDias));
         $limiteUso  = $agora->modify(sprintf('-%d days', self::DIAS_SEM_ACESSO));
 
-        foreach ($this->referenciadas($categoria) as $chaveRemota => ['chave' => $chave, 'data' => $data]) {
-            $avaliado = $this->avaliar($chave, $chaveRemota, $data, $limiteFrio, $comAcesso ? $limiteUso : null);
+        foreach ($this->referenciadas($categoria) as $chaveRemota => ['chave' => $chave, 'data' => $data, 'naLixeira' => $naLixeira]) {
+            $avaliado = $naLixeira ? self::NA_LIXEIRA : $this->avaliar($chave, $chaveRemota, $data, $limiteFrio, $comAcesso ? $limiteUso : null);
             if (\is_string($avaliado)) {
                 $fora[$avaliado] = ($fora[$avaliado] ?? 0) + 1;
 
@@ -136,13 +158,21 @@ final class LiberadorDeDisco
         return new CandidatoALiberar($chave, $chaveRemota, $envio->sha256, $envio->tamanhoBytes, $referencia);
     }
 
-    /** @param list<CandidatoALiberar> $candidatos */
-    public function liberar(EspelhoRemoto $espelho, array $candidatos, string $lote): ResumoDaLiberacao
+    /**
+     * `$aCadaArquivo` roda depois de cada arquivo (o comando renova a trava de execução única).
+     *
+     * @param list<CandidatoALiberar> $candidatos
+     * @param (\Closure(): void)|null $aCadaArquivo
+     */
+    public function liberar(EspelhoRemoto $espelho, array $candidatos, string $lote, ?\Closure $aCadaArquivo = null): ResumoDaLiberacao
     {
         $resumo = new ResumoDaLiberacao();
         foreach ($candidatos as $candidato) {
             $motivo = $this->liberarUm($espelho, $candidato, $lote);
-            $motivo === null ? $resumo->liberado($candidato) : $resumo->pulado($motivo);
+            $motivo === null ? $resumo->liberado($candidato) : $resumo->pulado($motivo, $candidato);
+            if ($aCadaArquivo !== null) {
+                $aCadaArquivo();
+            }
         }
 
         return $resumo;
@@ -171,7 +201,7 @@ final class LiberadorDeDisco
         } catch (\Throwable) {
             $motivo = $movido ? self::FALHA_DEPOIS_DE_MOVER : self::FALHA_NO_DISCO;
         }
-        if ($motivo !== null && $motivo !== self::FALHA_DEPOIS_DE_MOVER) {
+        if ($motivo !== null && !\in_array($motivo, self::MOTIVOS_COM_COPIA_NOS_LIBERADOS, true)) {
             $this->fecharSemFalhar($c->chaveRemota);
         }
 
@@ -196,8 +226,8 @@ final class LiberadorDeDisco
 
     /**
      * Passos 4 e 5: move sem sobrescrever e mede a cópia já nos liberados. Regravado entre a medida e o
-     * movimento, o que saiu não é o que o R2 tem: volta ao lugar (se o lugar ainda está livre), e quem
-     * chama fecha a linha. Nada é apagado.
+     * movimento, o que saiu não é o que o R2 tem: volta ao lugar, e quem chama fecha a linha. Com o
+     * lugar já ocupado de novo, a cópia fica presa nos liberados e a linha, aberta. Nada é apagado.
      */
     private function moverConferindo(CandidatoALiberar $c, string $lote, bool &$movido): ?string
     {
@@ -208,9 +238,7 @@ final class LiberadorDeDisco
         $movido = true;
 
         if (!hash_equals($c->sha256, $this->area->sha256NosLiberados($c->chave, $lote))) {
-            $this->area->devolverDosLiberados($c->chave, $lote);
-
-            return self::MUDOU_NO_DISCO;
+            return $this->area->devolverDosLiberados($c->chave, $lote) === MovimentoNoDisco::MOVIDO ? self::MUDOU_NO_DISCO : self::COPIA_PRESA_NOS_LIBERADOS;
         }
 
         return null;
@@ -240,12 +268,14 @@ final class LiberadorDeDisco
 
     /**
      * As chaves da categoria que o banco referencia, uma vez cada, com a data mais nova entre as linhas
-     * que a citam (null quando nenhuma fonte dela tem data).
+     * que a citam (null quando nenhuma tem data) e se alguma delas está na lixeira. A categoria é
+     * filtrada antes de qualquer consulta, e as datas saem por bloco só das linhas da categoria.
      *
-     * @return array<string, array{chave: ChaveDeArquivo, data: ?\DateTimeImmutable}>
+     * @return array<string, array{chave: ChaveDeArquivo, data: ?\DateTimeImmutable, naLixeira: bool}>
      */
     private function referenciadas(CategoriaDeArquivo $categoria): array
     {
+        /** @var array<string, array{chave: ChaveDeArquivo, referencias: list<ReferenciaDeArquivo>}> $porChave */
         $porChave = [];
         foreach ($this->fontes->referencias() as $referencia) {
             $chave = $referencia->chave;
@@ -257,15 +287,28 @@ final class LiberadorDeDisco
             } catch (ChaveDeArquivoInvalida) {
                 continue;
             }
-
-            $data     = $this->datas->dataDe($referencia);
-            $anterior = $porChave[$chaveRemota]['data'] ?? null;
-            if ($anterior !== null && ($data === null || $anterior > $data)) {
-                $data = $anterior;
-            }
-            $porChave[$chaveRemota] = ['chave' => $chave, 'data' => $data];
+            $porChave[$chaveRemota]['chave']          = $chave;
+            $porChave[$chaveRemota]['referencias'][] = $referencia;
         }
 
-        return $porChave;
+        $doBanco = $this->datas->para(array_merge(...array_column($porChave, 'referencias')));
+        $saida   = [];
+        foreach ($porChave as $chaveRemota => ['chave' => $chave, 'referencias' => $referencias]) {
+            $data      = null;
+            $naLixeira = false;
+            foreach ($referencias as $referencia) {
+                $linha = $doBanco[DatasDasReferencias::chaveDe($referencia->fonte, $referencia->idDaLinha)] ?? null;
+                if ($linha === null) {
+                    continue;
+                }
+                $naLixeira = $naLixeira || $linha['naLixeira'];
+                if ($linha['data'] !== null && ($data === null || $linha['data'] > $data)) {
+                    $data = $linha['data'];
+                }
+            }
+            $saida[(string) $chaveRemota] = ['chave' => $chave, 'data' => $data, 'naLixeira' => $naLixeira];
+        }
+
+        return $saida;
     }
 }

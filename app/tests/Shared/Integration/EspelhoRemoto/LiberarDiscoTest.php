@@ -5,6 +5,17 @@ declare(strict_types=1);
 namespace App\Tests\Shared\Integration\EspelhoRemoto;
 
 use App\Shared\Armazenamento\AreaDeLiberados;
+use Psr\Log\NullLogger;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Tests\Shared\Doubles\DiscoDaLiberacaoComGanchos;
+use App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho;
+use App\Shared\EspelhoRemoto\ArmazenamentoEspelhado;
+use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
+use Symfony\Component\Lock\Store\InMemoryStore;
+use Symfony\Component\Lock\LockFactory;
+use App\Shared\EspelhoRemoto\MetadadosRemotos;
+use App\Shared\EspelhoRemoto\EspelhoRemoto;
+use App\Shared\Armazenamento\DiscoDaLiberacao;
 use App\Shared\Armazenamento\ArmazenamentoLocal;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -76,6 +87,14 @@ final class LiberarDiscoTest extends KernelTestCase
 
     private int $proximoId = 900_001;
 
+    /** Troca o disco que o liberador e o restaurador recebem (o dublê com ganchos). */
+    private ?DiscoDaLiberacao $discoDosComandos = null;
+
+    /** Troca o espelho que os comandos recebem (o que entrega conteúdo errado). */
+    private ?EspelhoRemoto $espelhoDosComandos = null;
+
+    private LockFactory $travas;
+
     protected function setUp(): void
     {
         self::bootKernel();
@@ -89,6 +108,7 @@ final class LiberarDiscoTest extends KernelTestCase
         $this->liberacoes = new RegistroDeLiberacao($this->conexao, $this->relogio);
         $this->manifestos = sys_get_temp_dir() . '/liberacao-teste-' . bin2hex(random_bytes(6));
         $this->prefixo    = 'lib-' . bin2hex(random_bytes(4)) . '-';
+        $this->travas     = new LockFactory(new InMemoryStore());
         $this->conexao->executeStatement('DELETE FROM armazenamento_replicacao');
         $this->conexao->executeStatement('DELETE FROM armazenamento_liberacao');
     }
@@ -289,7 +309,7 @@ final class LiberarDiscoTest extends KernelTestCase
         $tester = $this->restaurar(['--lote' => self::LOTE, '--executar' => true]);
 
         self::assertStringContainsString(RestauradorDeLote::ORIGINAL_EXISTE, $tester->getDisplay());
-        self::assertStringContainsString('nada foi sobrescrito', $tester->getDisplay());
+        self::assertStringContainsString('Confira à mão', $tester->getDisplay());
         self::assertSame('regravado', $this->local->ler($chave));
         self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
         self::assertNotNull($this->liberacoes->abertaDe($this->remota($chave)));
@@ -338,16 +358,281 @@ final class LiberarDiscoTest extends KernelTestCase
         self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
         self::assertNotNull($this->liberacoes->abertaDe($this->remota($chave)));
 
-        $this->espelho->semear($chave, 'corrompido');
-        $diverge = $this->restaurar(['--chave' => $this->remota($chave), '--baixar-para' => $pasta . '/outra']);
-        self::assertSame(Command::FAILURE, $diverge->getStatusCode());
         self::assertSame(Command::INVALID, $this->restaurar(['--lote' => self::LOTE, '--baixar-para' => $pasta])->getStatusCode());
+        $semPasta = $this->restaurar(['--chave' => $this->remota($chave), '--baixar-para' => $pasta . '/nao-existe']);
+        self::assertSame(Command::FAILURE, $semPasta->getStatusCode());
+        self::assertStringContainsString('não existe', $semPasta->getDisplay());
+        self::assertStringNotContainsString('DIVERGE', $semPasta->getDisplay());
 
+        // O R2 entrega outro conteúdo, do mesmo tamanho, sem lançar: o SHA medido é que acusa.
+        $this->espelhoDosComandos = $this->espelhoQueMente();
         mkdir($pasta . '/outra');
         $diverge = $this->restaurar(['--chave' => $this->remota($chave), '--baixar-para' => $pasta . '/outra']);
         self::assertSame(Command::FAILURE, $diverge->getStatusCode());
-        self::assertStringContainsString('DIVERGE', $diverge->getDisplay());
-        self::assertFileDoesNotExist($pasta . '/outra/' . $chave->nome, 'o download que não confere não fica');
+        self::assertStringContainsString('DIVERGE: o arquivo baixado não tem o SHA-256', $diverge->getDisplay());
+        self::assertNotNull($this->liberacoes->abertaDe($this->remota($chave)), 'a conferência não mexe na linha');
+    }
+
+    // ------------------------------------------------------------- revisão de 0c4f0b078
+
+    #[TestDox('R2 que entrega conteúdo errado sem lançar: liberar pula como r2_divergente; restaurar pelo R2 não grava nada e a linha fica aberta')]
+    public function testR2QueMente(): void
+    {
+        $chave                    = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->espelhoDosComandos = $this->espelhoQueMente();
+
+        $tester = $this->executar();
+        self::assertStringContainsString(LiberadorDeDisco::R2_DIVERGENTE, $tester->getDisplay());
+        self::assertNotNull($this->area->noDisco($chave));
+        self::assertNull($this->liberacoes->abertaDe($this->remota($chave)));
+
+        $soNoR2 = $this->chave('esvaziado.pdf');
+        $this->espelho->semear($soNoR2, 'só no R2');
+        $this->liberacoes->registrar('lote-antigo', $soNoR2, hash('sha256', 'só no R2'), \strlen('só no R2'));
+        $restaurado = $this->restaurar(['--chave' => $this->remota($soNoR2), '--executar' => true]);
+        self::assertStringContainsString(RestauradorDeLote::R2_DIVERGENTE, $restaurado->getDisplay());
+        self::assertNull($this->area->noDisco($soNoR2), 'nada gravado no lugar');
+        self::assertNotNull($this->liberacoes->abertaDe($this->remota($soNoR2)));
+        self::assertSame([], glob($this->resolvedor->diretorioDosParciaisDaLiberacao() . '/*') ?: [], 'o parcial não fica');
+    }
+
+    #[TestDox('regravado no disco durante o download: mudou_no_disco, a linha fecha e o arquivo novo fica no lugar')]
+    public function testMudouNoDiscoDuranteODownload(): void
+    {
+        $chave                    = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $local                    = $this->local;
+        $real                     = $this->espelho;
+        $this->espelhoDosComandos = new class ($real, static function () use ($local, $chave): void {
+            $local->gravar($chave, FonteDeConteudo::deTexto('conteúdo novo'));
+        }) implements EspelhoRemoto {
+            public function __construct(private readonly EspelhoRemotoEmMemoria $real, private readonly \Closure $noMeio)
+            {
+            }
+
+            public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
+            {
+            }
+
+            public function consultar(ChaveDeArquivo $chave): ?MetadadosRemotos
+            {
+                return $this->real->consultar($chave);
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return $this->real->existe($chave);
+            }
+
+            public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+            {
+                ($this->noMeio)();
+                $this->real->baixar($chave, $destino, $tamanhoEsperado, $sha256Esperado);
+            }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+            }
+        };
+
+        $tester = $this->executar();
+
+        self::assertStringContainsString(LiberadorDeDisco::MUDOU_NO_DISCO, $tester->getDisplay());
+        self::assertSame('conteúdo novo', $this->local->ler($chave));
+        self::assertFalse($this->area->estaNosLiberados($chave, self::LOTE));
+        self::assertNull($this->liberacoes->abertaDe($this->remota($chave)));
+    }
+
+    #[TestDox('falha depois de mover: a cópia fica nos liberados, a linha aberta, e o manifesto registra a situação')]
+    public function testFalhaDepoisDeMover(): void
+    {
+        $chave                         = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $disco                         = new DiscoDaLiberacaoComGanchos($this->area);
+        $disco->antesDeMedirNosLiberados = static function (): void {
+            throw new FalhaDeArmazenamento('disco ilegível (simulado)');
+        };
+        $this->discoDosComandos = $disco;
+
+        $tester = $this->executar();
+
+        self::assertStringContainsString(LiberadorDeDisco::FALHA_DEPOIS_DE_MOVER, $tester->getDisplay());
+        self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
+        self::assertNotNull($this->liberacoes->abertaDe($this->remota($chave)));
+        self::assertStringContainsString("\t" . LiberadorDeDisco::FALHA_DEPOIS_DE_MOVER . "\n", (string) file_get_contents($this->manifestos . '/' . self::LOTE . '.tsv'));
+    }
+
+    #[TestDox('regravado entre a medida e o movimento e o lugar ocupado de novo: copia_presa_nos_liberados, linha aberta, no manifesto; com o lugar livre, a cópia volta (mudou_no_disco)')]
+    public function testCopiaPresaNosLiberados(): void
+    {
+        $presa  = $this->arquivoProvado('presa.pdf', 'conteúdo frio');
+        $volta  = $this->arquivoProvado('volta.pdf', 'conteúdo frio');
+        $disco  = new DiscoDaLiberacaoComGanchos($this->area);
+        $local  = $this->local;
+        $resolv = $this->resolvedor;
+        $disco->depoisDeMover = static function (ChaveDeArquivo $chave, string $lote) use ($presa, $local, $resolv): void {
+            file_put_contents($resolv->caminhoNosLiberados($chave, $lote), 'outra coisa!!');
+            if ($chave->nome === $presa->nome) {
+                $local->gravar($chave, FonteDeConteudo::deTexto('upload novo'));
+            }
+        };
+        $this->discoDosComandos = $disco;
+
+        $tester = $this->executar();
+
+        self::assertStringContainsString(LiberadorDeDisco::COPIA_PRESA_NOS_LIBERADOS, $tester->getDisplay());
+        self::assertStringContainsString(LiberadorDeDisco::MUDOU_NO_DISCO, $tester->getDisplay());
+        self::assertTrue($this->area->estaNosLiberados($presa, self::LOTE));
+        self::assertSame('upload novo', $this->local->ler($presa));
+        self::assertNotNull($this->liberacoes->abertaDe($this->remota($presa)), 'presa: a linha fica aberta');
+        self::assertSame('outra coisa!!', $this->local->ler($volta), 'a cópia voltou ao lugar');
+        self::assertNull($this->liberacoes->abertaDe($this->remota($volta)));
+        self::assertStringContainsString($this->remota($presa) . "\t", (string) file_get_contents($this->manifestos . '/' . self::LOTE . '.tsv'));
+    }
+
+    #[TestDox('falha ao mover depois de abrir a linha: nenhuma linha fica aberta sem o arquivo ter saído')]
+    public function testLinhaNaoFicaAbertaSemMover(): void
+    {
+        $chave               = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $disco               = new DiscoDaLiberacaoComGanchos($this->area);
+        $disco->antesDeMover = static function (): void {
+            throw new FalhaDeArmazenamento('rename recusado (simulado)');
+        };
+        $this->discoDosComandos = $disco;
+
+        $tester = $this->executar();
+
+        self::assertStringContainsString(LiberadorDeDisco::FALHA_NO_DISCO, $tester->getDisplay());
+        self::assertNotNull($this->area->noDisco($chave));
+        self::assertNull($this->liberacoes->abertaDe($this->remota($chave)));
+    }
+
+    #[TestDox('a medição não aquece o arquivo: duas simulações seguidas com o critério de acesso, e ele continua candidato com o mesmo atime')]
+    public function testSimulacaoPreservaOAtime(): void
+    {
+        $chave   = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $caminho = $this->resolvedor->caminhoDe($chave);
+        clearstatcache();
+        $atime = fileatime($caminho);
+
+        foreach ([1, 2] as $rodada) {
+            $tester = $this->liberar([]);
+            self::assertStringContainsString('para o mais novo): 1 arquivo(s)', $tester->getDisplay(), 'rodada ' . $rodada);
+            clearstatcache();
+            self::assertSame($atime, fileatime($caminho), 'rodada ' . $rodada);
+        }
+        self::assertStringContainsString('Tempo da seleção:', $tester->getDisplay());
+    }
+
+    #[TestDox('várias linhas do banco para a mesma chave: vale a data mais nova; linha na lixeira tira a chave dos candidatos')]
+    public function testDataMaisNovaELixeira(): void
+    {
+        $pasta  = PastaFactory::createOne();
+        $tenant = (int) $pasta->getTenant()->getId();
+        $linha  = fn (int $dias, bool $naLixeira = false): int => (int) $this->conexao->fetchOne(
+            "INSERT INTO pasta_documento (titulo, categoria, caminho_arquivo, nome_original, mime_type, tamanho_bytes, uploaded_at, pasta_id, tenant_id, ordem, excluido_em)
+             VALUES ('t', 'outros', 'x', 'x', 'application/pdf', 1, ?, ?, ?, 0, ?) RETURNING id",
+            [$this->relogio->now()->modify(sprintf('-%d days', $dias))->format('Y-m-d H:i:s'), $pasta->getId(), $tenant, $naLixeira ? $this->relogio->now()->format('Y-m-d H:i:s') : null],
+        );
+
+        $duas = $this->arquivoProvado('duas.pdf', 'duas linhas', tenant: $tenant, idDaLinha: $linha(400));
+        $this->referencias[] = new ReferenciaDeArquivo('pasta_documento', $linha(5), $duas, CategoriaDeArquivo::PASTA_DOCUMENTO);
+        $this->arquivoProvado('lixeira.pdf', 'na lixeira', tenant: $tenant, idDaLinha: $linha(400, true));
+        $this->arquivoProvado('velha.pdf', 'velha', tenant: $tenant, idDaLinha: $linha(400));
+
+        $tester = $this->liberar([]);
+
+        self::assertStringContainsString('Candidatos: 1 arquivo(s)', $tester->getDisplay(), 'só a velha');
+        self::assertMatchesRegularExpression('/' . LiberadorDeDisco::RECENTE . '\s+1/', $tester->getDisplay());
+        self::assertMatchesRegularExpression('/' . LiberadorDeDisco::NA_LIXEIRA . '\s+1/', $tester->getDisplay());
+    }
+
+    #[TestDox('restaurar --chave com o original no lugar e o mesmo SHA: ja_no_lugar, e a linha fecha')]
+    public function testRestaurarComOriginalIgualFecha(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+        $this->local->gravar($chave, FonteDeConteudo::deTexto('conteúdo frio'));
+
+        $tester = $this->restaurar(['--chave' => $this->remota($chave), '--executar' => true]);
+
+        self::assertStringContainsString(RestauradorDeLote::JA_NO_LUGAR, $tester->getDisplay());
+        self::assertNull($this->liberacoes->abertaDe($this->remota($chave)));
+        self::assertSame('conteúdo frio', $this->local->ler($chave));
+    }
+
+    #[TestDox('excluir um liberado apaga a cópia em .liberados, fecha a linha e registra a exclusão na outbox')]
+    public function testExcluirLiberadoApagaACopia(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+
+        $this->espelhado()->excluir($chave);
+
+        self::assertFalse($this->area->estaNosLiberados($chave, self::LOTE));
+        self::assertNull($this->liberacoes->abertaDe($this->remota($chave)));
+        self::assertTrue($this->outbox->temExclusaoDepoisDoUltimoEnvio($this->remota($chave)));
+    }
+
+    #[TestDox('purga por prefixo apaga as cópias liberadas do escritório na categoria, sem tocar em outro escritório nem em outra categoria')]
+    public function testPrefixoApagaSoOsDoEscritorio(): void
+    {
+        $doUm     = $this->arquivoProvado('img-1.png', 'imagem um', tenant: 990_001, categoria: CategoriaDeArquivo::PASTA_IMAGEM_EDITOR);
+        $doOutro  = $this->arquivoProvado('img-2.png', 'imagem dois', tenant: 990_002, categoria: CategoriaDeArquivo::PASTA_IMAGEM_EDITOR);
+        $documento = $this->arquivoProvado('doc.pdf', 'documento', tenant: 990_001);
+        $this->executar(['--categoria' => 'pasta_imagem_editor']);
+        $this->relogio->modify('+1 second');
+        $this->executar();
+        $loteDoDocumento = '20261103-090001';
+
+        $this->espelhado('pasta_documento,pasta_imagem_editor')->excluirPrefixo(EscopoDeArquivo::deTenant(990_001), CategoriaComIsolamentoFisico::PASTA_IMAGEM_EDITOR);
+
+        self::assertFalse($this->area->estaNosLiberados($doUm, self::LOTE));
+        self::assertNull($this->liberacoes->abertaDe($this->remota($doUm)));
+        self::assertTrue($this->outbox->temExclusaoDepoisDoUltimoEnvio($this->remota($doUm)), 'o objeto sai também do R2');
+        self::assertTrue($this->area->estaNosLiberados($doOutro, self::LOTE), 'outro escritório');
+        self::assertNotNull($this->liberacoes->abertaDe($this->remota($doOutro)));
+        self::assertTrue($this->area->estaNosLiberados($documento, $loteDoDocumento), 'outra categoria');
+        self::assertNotNull($this->liberacoes->abertaDe($this->remota($documento)));
+    }
+
+    #[TestDox('execução única: com a trava tomada, liberar e restaurar recusam sem mexer em nada')]
+    public function testTravaDeExecucaoUnica(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $trava = $this->travas->createLock(LiberadorDeDisco::TRAVA);
+        self::assertTrue($trava->acquire());
+
+        $liberar = $this->executar();
+        self::assertSame(Command::FAILURE, $liberar->getStatusCode());
+        self::assertStringContainsString('em andamento', $liberar->getDisplay());
+        self::assertNotNull($this->area->noDisco($chave));
+
+        $this->liberacoes->registrar('lote-x', $chave, hash('sha256', 'conteúdo frio'), \strlen('conteúdo frio'));
+        $restaurar = $this->restaurar(['--lote' => 'lote-x', '--executar' => true]);
+        self::assertSame(Command::FAILURE, $restaurar->getStatusCode());
+        self::assertStringContainsString('em andamento', $restaurar->getDisplay());
+        $trava->release();
+    }
+
+    #[TestDox('manifesto que não grava: o resumo sai mesmo assim, com o aviso, e o comando falha')]
+    public function testFalhaNoManifestoNaoPerdeOResumo(): void
+    {
+        $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        file_put_contents($this->manifestos, 'um arquivo onde devia haver o diretório');
+
+        $tester = $this->executar();
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('Liberados: 1 arquivo(s)', $tester->getDisplay());
+        self::assertStringContainsString('manifesto não foi gravado', $tester->getDisplay());
+        @unlink($this->manifestos);
+    }
+
+    #[TestDox('no container, o decorador recebe o disco da liberação (sem ele a exclusão não apagaria a cópia)')]
+    public function testDecoradorDoContainerApagaLiberados(): void
+    {
+        $decorador = static::getContainer()->get(ArmazenamentoEspelhado::class);
+
+        self::assertInstanceOf(DiscoDaLiberacao::class, (new \ReflectionProperty(ArmazenamentoEspelhado::class, 'liberados'))->getValue($decorador));
     }
 
     // ------------------------------------------------------------- apoio
@@ -365,8 +650,9 @@ final class LiberarDiscoTest extends KernelTestCase
         ?string $corpoNoR2 = null,
         int $tenant = self::TENANT,
         ?int $idDaLinha = null,
+        CategoriaDeArquivo $categoria = CategoriaDeArquivo::PASTA_DOCUMENTO,
     ): ChaveDeArquivo {
-        $chave = $this->chave($nome, $tenant);
+        $chave = $this->chave($nome, $tenant, $categoria);
         $this->local->gravar($chave, FonteDeConteudo::deTexto($conteudo));
         $agora = $this->relogio->now()->getTimestamp();
         touch($this->resolvedor->caminhoDe($chave), $agora - $idadeEmDias * 86_400, $agora - $acessoHaDias * 86_400);
@@ -374,14 +660,14 @@ final class LiberarDiscoTest extends KernelTestCase
         $id = $this->outbox->registrarEnvio($chave, $shaDoEnvio ?? hash('sha256', $conteudo), \strlen($conteudo), 'application/pdf');
         $this->conexao->executeStatement("UPDATE armazenamento_replicacao SET estado = 'verificado' WHERE id = ?", [$id]);
         $this->espelho->semear($chave, $corpoNoR2 ?? $conteudo);
-        $this->referencias[] = new ReferenciaDeArquivo('pasta_documento', $idDaLinha ?? $this->proximoId++, $chave, CategoriaDeArquivo::PASTA_DOCUMENTO);
+        $this->referencias[] = new ReferenciaDeArquivo($categoria->value, $idDaLinha ?? $this->proximoId++, $chave, $categoria);
 
         return $chave;
     }
 
-    private function chave(string $nome, int $tenant = self::TENANT): ChaveDeArquivo
+    private function chave(string $nome, int $tenant = self::TENANT, CategoriaDeArquivo $categoria = CategoriaDeArquivo::PASTA_DOCUMENTO): ChaveDeArquivo
     {
-        $chave           = new ChaveDeArquivo(EscopoDeArquivo::deTenant($tenant), CategoriaDeArquivo::PASTA_DOCUMENTO, $this->prefixo . $nome);
+        $chave           = new ChaveDeArquivo(EscopoDeArquivo::deTenant($tenant), $categoria, $this->prefixo . $nome);
         $this->criadas[] = $chave;
 
         return $chave;
@@ -406,15 +692,16 @@ final class LiberarDiscoTest extends KernelTestCase
                 return $this->referencias;
             }
         };
-        $liberador = new LiberadorDeDisco($fontes, new DatasDasReferencias($this->conexao), $this->outbox, $this->liberacoes, $this->area, $this->relogio);
+        $liberador = new LiberadorDeDisco($fontes, new DatasDasReferencias($this->conexao), $this->outbox, $this->liberacoes, $this->discoDosComandos ?? $this->area, $this->relogio);
         $comando   = new LiberarDiscoCommand(
             $liberador,
             new ArquivosDoOperador($this->manifestos),
-            ProvedorDoEspelhoFixo::com($this->espelho),
+            ProvedorDoEspelhoFixo::com($this->espelhoDosComandos ?? $this->espelho),
             $politica ?? new PoliticaDeEspelhamento('pasta_documento,pasta_imagem_editor'),
             $this->outbox,
             static::getContainer()->get(FalhaAgendadaRepository::class),
             $this->relogio,
+            $this->travas,
         );
         $tester = new CommandTester($comando);
         $tester->execute($opcoes + ['--categoria' => 'pasta_documento']);
@@ -423,18 +710,74 @@ final class LiberarDiscoTest extends KernelTestCase
     }
 
     /** @param array<string, mixed> $opcoes */
+    private function executar(array $opcoes = []): CommandTester
+    {
+        return $this->liberar($opcoes + ['--executar' => true, '--confirmo-reconciliacao-limpa' => true]);
+    }
+
+    private function espelhado(string $categorias = 'pasta_documento'): ArmazenamentoEspelhado
+    {
+        return new ArmazenamentoEspelhado(
+            $this->local,
+            $this->outbox,
+            new PoliticaDeEspelhamento($categorias),
+            new NullLogger(),
+            ProvedorDoEspelhoFixo::naoConfigurado(),
+            new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0),
+            $this->liberacoes,
+            $this->area,
+        );
+    }
+
+    /** @param array<string, mixed> $opcoes */
     private function restaurar(array $opcoes): CommandTester
     {
         $comando = new RestaurarLoteCommand(
-            new RestauradorDeLote($this->outbox, $this->liberacoes, $this->area),
+            new RestauradorDeLote($this->outbox, $this->liberacoes, $this->discoDosComandos ?? $this->area),
             $this->liberacoes,
             new ArquivosDoOperador($this->manifestos),
-            ProvedorDoEspelhoFixo::com($this->espelho),
+            ProvedorDoEspelhoFixo::com($this->espelhoDosComandos ?? $this->espelho),
+            $this->travas,
         );
         $tester = new CommandTester($comando);
         $tester->execute($opcoes);
 
         return $tester;
+    }
+
+    /** Um espelho que responde como o em memória, mas no download entrega bytes errados do mesmo tamanho, sem lançar. */
+    private function espelhoQueMente(): EspelhoRemoto
+    {
+        return new class ($this->espelho) implements EspelhoRemoto {
+            public function __construct(private readonly EspelhoRemotoEmMemoria $real)
+            {
+            }
+
+            public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
+            {
+                $this->real->enviar($chave, $conteudo, $tamanhoBytes, $sha256, $mimeType);
+            }
+
+            public function consultar(ChaveDeArquivo $chave): ?MetadadosRemotos
+            {
+                return $this->real->consultar($chave);
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return $this->real->existe($chave);
+            }
+
+            public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+            {
+                fwrite($destino, str_repeat('?', $tamanhoEsperado));
+            }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                $this->real->excluir($chave);
+            }
+        };
     }
 
     private function apagarArvore(string $diretorio): void

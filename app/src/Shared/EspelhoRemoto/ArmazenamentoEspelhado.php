@@ -13,6 +13,7 @@ use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\DiretorioTemporarioPrivado;
+use App\Shared\Armazenamento\DiscoDaLiberacao;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ArquivoIndisponivelNoMomento;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
@@ -23,6 +24,7 @@ use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Shared\Armazenamento\ResultadoDaRemocao;
+use App\Shared\EspelhoRemoto\Liberacao\LiberadorDeDisco;
 use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\EnvioVerificado;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
@@ -96,6 +98,10 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
         private readonly ProvedorDoEspelhoRemoto $provedor,
         private readonly CacheDeLeituraDoEspelho $cache,
         private readonly RegistroDeLiberacao $liberacoes,
+        // A cópia em `.liberados/<lote>/` de um arquivo liberado: a exclusão a apaga (LGPD). Opcional só
+        // para os testes que montam o decorador sobre o armazenamento em memória; no container vem
+        // sempre (LiberarDiscoTest confere).
+        private readonly ?DiscoDaLiberacao $liberados = null,
     ) {
     }
 
@@ -118,6 +124,7 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
     public function excluir(ChaveDeArquivo $chave): void
     {
         $this->interno->excluir($chave);
+        $this->apagarCopiaLiberada($chave);
 
         if ($this->politica->espelha($chave->categoria)) {
             $this->registrarExclusao($chave);
@@ -127,7 +134,10 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
     public function excluirPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): ResultadoDaRemocao
     {
         if (!$this->politica->espelha($categoria->paraCategoria())) {
-            return $this->interno->excluirPrefixo($escopo, $categoria);
+            $resultado = $this->interno->excluirPrefixo($escopo, $categoria);
+            $this->apagarLiberadosDoPrefixo($escopo, $categoria, false);
+
+            return $resultado;
         }
 
         // A remoção por prefixo devolve só a contagem; para registrar CADA exclusão, as chaves são
@@ -157,7 +167,7 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
                 $this->registrarFalha('exclusão', $chave, $e);
             }
         }
-        $this->fecharLiberacoesDoPrefixo($escopo, $categoria);
+        $this->apagarLiberadosDoPrefixo($escopo, $categoria, true);
 
         return $resultado;
     }
@@ -364,6 +374,78 @@ final class ArmazenamentoEspelhado implements ArmazenamentoDeArquivos, Materiali
             $this->liberacoes->fechar(LayoutDeChaveRemota::chaveDe($chave));
         } catch (\Throwable $e) {
             $this->registrarFalha('fechamento da liberação', $chave, $e);
+        }
+    }
+
+    /**
+     * A exclusão de um arquivo liberado apaga a cópia em `.liberados/<lote>/` e fecha a linha (spec
+     * `leitura-pelo-r2-e-liberacao-de-disco.md`, etapa C): é a mesma exclusão que já valia para o arquivo
+     * no disco, não o esvaziamento do lote. Falha ao apagar fica no log e a linha fecha mesmo assim: o
+     * documento saiu do sistema e não pode voltar a ser lido pela prova da liberação.
+     */
+    private function apagarCopiaLiberada(ChaveDeArquivo $chave): void
+    {
+        if ($this->liberados === null || !\in_array($chave->categoria, LiberadorDeDisco::CATEGORIAS_LIBERAVEIS, true)) {
+            return;
+        }
+
+        try {
+            $aberta = $this->liberacoes->abertaDe(LayoutDeChaveRemota::chaveDe($chave));
+        } catch (\Throwable $e) {
+            $this->registrarFalha('consulta da liberação', $chave, $e);
+
+            return;
+        }
+        if ($aberta === null) {
+            return;
+        }
+
+        try {
+            $this->liberados->apagarDosLiberados($chave, $aberta->lote);
+        } catch (\Throwable $e) {
+            $this->registrarFalha('exclusão da cópia liberada', $chave, $e);
+        }
+        try {
+            $this->liberacoes->fechar($aberta->chaveRemota);
+        } catch (\Throwable $e) {
+            $this->registrarFalha('fechamento da liberação', $chave, $e);
+        }
+    }
+
+    /**
+     * Na purga por prefixo, os liberados (fora do disco, fora da listagem) têm a cópia apagada e, com a
+     * categoria espelhada, a exclusão registrada na outbox, para o objeto sair também do R2 (D6). No fim,
+     * as linhas que sobraram abertas do prefixo fecham de uma vez (com a categoria espelhada).
+     */
+    private function apagarLiberadosDoPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria, bool $espelhada): void
+    {
+        $this->apagarCopiasDoPrefixo($escopo, $categoria, $espelhada);
+        if ($espelhada) {
+            $this->fecharLiberacoesDoPrefixo($escopo, $categoria);
+        }
+    }
+
+    private function apagarCopiasDoPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria, bool $espelhada): void
+    {
+        if ($this->liberados === null || !\in_array($categoria->paraCategoria(), LiberadorDeDisco::CATEGORIAS_LIBERAVEIS, true)) {
+            return;
+        }
+
+        try {
+            $abertas = $this->liberacoes->abertasDoPrefixo($escopo, $categoria->paraCategoria());
+        } catch (\Throwable $e) {
+            $this->logger->error(sprintf('Espelho: não foi possível listar as liberações do prefixo purgado (categoria=%s, escritório=%s, erro=%s).', $categoria->value, $escopo->comoTexto(), $e::class));
+
+            return;
+        }
+        foreach ($abertas as $aberta) {
+            if ($aberta->chave === null) {
+                continue;
+            }
+            $this->apagarCopiaLiberada($aberta->chave);
+            if ($espelhada) {
+                $this->registrarExclusao($aberta->chave);
+            }
         }
     }
 

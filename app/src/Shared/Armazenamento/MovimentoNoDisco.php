@@ -12,4 +12,6 @@ enum MovimentoNoDisco: string
     case ORIGEM_AUSENTE = 'origem_ausente';
     /** O destino já existia: nada mudou (nunca sobrescreve). */
     case DESTINO_EXISTE = 'destino_existe';
+    /** O conteúdo recebido não tem o SHA-256 ou o tamanho esperados: nada foi publicado. */
+    case CONTEUDO_DIVERGENTE = 'conteudo_divergente';
 }

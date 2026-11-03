@@ -9,6 +9,7 @@ use App\Shared\EspelhoRemoto\EspelhoRemotoNaoConfigurado;
 use App\Shared\EspelhoRemoto\FalhaNoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\Liberacao\ArquivosDoOperador;
 use App\Shared\EspelhoRemoto\Liberacao\LiberacaoAberta;
+use App\Shared\EspelhoRemoto\Liberacao\LiberadorDeDisco;
 use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Liberacao\RestauradorDeLote;
 use App\Shared\EspelhoRemoto\Liberacao\ResumoDaRestauracao;
@@ -19,6 +20,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Lock\LockFactory;
 
 /**
  * Volta atrás numa liberação do disco (spec `leitura-pelo-r2-e-liberacao-de-disco.md` §5.4): o lote
@@ -28,6 +31,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * `--baixar-para=PASTA` (só com `--chave`): baixa do R2 para a pasta do operador e compara o SHA-256
  * com o da linha. Não toca no disco do sistema, nos liberados nem na linha: é a conferência de que o
  * R2 devolve o que foi provado. Imprime OK ou DIVERGE.
+ *
+ * Com `--executar`, uma execução por vez (a trava da liberação, {@see LiberadorDeDisco::TRAVA}).
  *
  * A tela mostra só contagens: nome de arquivo e chave remota não aparecem.
  */
@@ -42,6 +47,8 @@ final class RestaurarLoteCommand extends Command
         private readonly RegistroDeLiberacao $liberacoes,
         private readonly ArquivosDoOperador $arquivos,
         private readonly ProvedorDoEspelhoRemoto $fabrica,
+        #[Autowire(service: 'lock.agendador.factory')]
+        private readonly LockFactory $travas,
     ) {
         parent::__construct();
     }
@@ -78,7 +85,6 @@ final class RestaurarLoteCommand extends Command
 
     private function restaurarOuConferir(SymfonyStyle $io, InputInterface $input, string $lote, string $chave, string $baixar): int
     {
-
         $linhas = $chave !== '' ? array_filter([$this->liberacoes->abertaDe($chave)]) : $this->liberacoes->abertasDoLote($lote);
         if ($linhas === []) {
             $io->error($chave !== '' ? 'Essa chave não tem liberação aberta.' : 'Esse lote não tem liberação aberta.');
@@ -91,12 +97,24 @@ final class RestaurarLoteCommand extends Command
         }
 
         $executar = (bool) $input->getOption('executar');
+        $trava    = $this->travas->createLock(LiberadorDeDisco::TRAVA, LiberadorDeDisco::DURACAO_DA_TRAVA_EM_SEGUNDOS);
+        if ($executar && !$trava->acquire()) {
+            $io->error('Outra liberação ou restauração do disco está em andamento. Espere ela terminar.');
+
+            return Command::FAILURE;
+        }
         try {
-            $resumo = $this->restaurador->restaurar($linhas, $executar, fn (): EspelhoRemoto => $this->fabrica->criar());
+            $resumo = $this->restaurador->restaurar($linhas, $executar, fn (): EspelhoRemoto => $this->fabrica->criar(), $executar ? static function () use ($trava): void {
+                $trava->refresh();
+            } : null);
         } catch (EspelhoRemotoNaoConfigurado $e) {
             $io->error($e->getMessage());
 
             return Command::FAILURE;
+        } finally {
+            if ($executar) {
+                $trava->release();
+            }
         }
 
         $this->mostrar($io, $resumo, $executar, \count($linhas));
@@ -109,7 +127,7 @@ final class RestaurarLoteCommand extends Command
         $io->title(sprintf('Restauração (%s): %d linha(s) aberta(s)', $executar ? 'execução' : 'simulação', $linhas));
         $io->table(['resultado', 'arquivos'], array_map(null, array_keys($resumo->contagem()), array_values($resumo->contagem())));
         if ($resumo->quantos(RestauradorDeLote::ORIGINAL_EXISTE) > 0) {
-            $io->warning(sprintf('%d arquivo(s) já estão no lugar original: nada foi sobrescrito, e a linha continua aberta. Confira à mão.', $resumo->quantos(RestauradorDeLote::ORIGINAL_EXISTE)));
+            $io->warning(sprintf('%d arquivo(s) já estão no lugar original com outro conteúdo: nada foi sobrescrito, e a linha continua aberta. Confira à mão.', $resumo->quantos(RestauradorDeLote::ORIGINAL_EXISTE)));
         }
         if (!$executar) {
             $io->note('Simulação: nada foi movido, baixado nem fechado. Use --executar para restaurar.');

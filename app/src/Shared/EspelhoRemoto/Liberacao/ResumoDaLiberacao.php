@@ -13,14 +13,30 @@ final class ResumoDaLiberacao
     /** @var array<string, int> */
     private array $pulados = [];
 
+    /** @var list<array{candidato: CandidatoALiberar, motivo: string}> */
+    private array $comCopiaNosLiberados = [];
+
     public function liberado(CandidatoALiberar $candidato): void
     {
         $this->liberados[] = $candidato;
     }
 
-    public function pulado(string $motivo): void
+    public function pulado(string $motivo, ?CandidatoALiberar $candidato = null): void
     {
         $this->pulados[$motivo] = ($this->pulados[$motivo] ?? 0) + 1;
+        if ($candidato !== null && \in_array($motivo, LiberadorDeDisco::MOTIVOS_COM_COPIA_NOS_LIBERADOS, true)) {
+            $this->comCopiaNosLiberados[] = ['candidato' => $candidato, 'motivo' => $motivo];
+        }
+    }
+
+    /**
+     * Os pulados que deixaram a cópia nos liberados com a linha aberta (vão ao manifesto).
+     *
+     * @return list<array{candidato: CandidatoALiberar, motivo: string}>
+     */
+    public function comCopiaNosLiberados(): array
+    {
+        return $this->comCopiaNosLiberados;
     }
 
     /** @return list<CandidatoALiberar> */

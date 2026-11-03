@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Shared\EspelhoRemoto\Liberacao;
 
-use App\Shared\Armazenamento\AreaDeLiberados;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\DiscoDaLiberacao;
 use App\Shared\Armazenamento\MovimentoNoDisco;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\EspelhoRemotoNaoConfigurado;
@@ -22,7 +22,8 @@ use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
  *  - nos dois casos, a linha fecha (`restaurado_em`).
  *
  * Nunca restaura o que o sistema mandou apagar: com exclusão registrada depois do último envio da chave
- * (D6), a linha fica como está. Original já presente: pula e avisa, sem tocar em nada (a reconciliação
+ * (D6), a linha fica como está. Original já presente com o SHA-256 da linha: a linha fecha ("já no
+ * lugar"; na simulação só conta). Com outro SHA: pula e avisa, sem tocar em nada (a reconciliação
  * mostra o caso como `restaurado_sem_registro`).
  */
 final class RestauradorDeLote
@@ -32,6 +33,10 @@ final class RestauradorDeLote
     public const DEVOLVERIA             = 'devolveria_dos_liberados';
     public const BAIXARIA               = 'baixaria_do_r2';
     public const ORIGINAL_EXISTE        = 'original_ja_existe';
+    /** O original está no lugar com o SHA-256 da linha: a linha fecha (na simulação, fecharia). */
+    public const JA_NO_LUGAR            = 'ja_no_lugar';
+    /** O R2 entregou conteúdo que não tem o SHA-256 ou o tamanho da linha: nada foi gravado. */
+    public const R2_DIVERGENTE          = 'r2_divergente';
     public const EXCLUSAO_REGISTRADA    = 'exclusao_registrada';
     public const LINHA_SEM_CHAVE        = 'linha_sem_chave';
     public const FALHA_NO_R2            = 'falha_no_r2';
@@ -40,21 +45,26 @@ final class RestauradorDeLote
     public function __construct(
         private readonly OutboxDeReplicacao $outbox,
         private readonly RegistroDeLiberacao $liberacoes,
-        private readonly AreaDeLiberados $area,
+        private readonly DiscoDaLiberacao $area,
     ) {
     }
 
     /**
      * `$espelho` só é chamado (e montado) quando uma linha precisa baixar do R2 com `$executar`.
+     * `$aCadaArquivo` roda depois de cada linha (o comando renova a trava de execução única).
      *
      * @param list<LiberacaoAberta>    $linhas
      * @param \Closure(): EspelhoRemoto $espelho
+     * @param (\Closure(): void)|null  $aCadaArquivo
      */
-    public function restaurar(array $linhas, bool $executar, \Closure $espelho): ResumoDaRestauracao
+    public function restaurar(array $linhas, bool $executar, \Closure $espelho, ?\Closure $aCadaArquivo = null): ResumoDaRestauracao
     {
         $resumo = new ResumoDaRestauracao();
         foreach ($linhas as $linha) {
             $resumo->contar($this->restaurarUma($linha, $executar, $espelho));
+            if ($aCadaArquivo !== null) {
+                $aCadaArquivo();
+            }
         }
 
         return $resumo;
@@ -73,7 +83,7 @@ final class RestauradorDeLote
                 return self::EXCLUSAO_REGISTRADA;
             }
             if ($this->area->noDisco($chave) !== null) {
-                return self::ORIGINAL_EXISTE;
+                return $this->originalNoLugar($chave, $linha, $executar);
             }
 
             $nosLiberados = $this->area->estaNosLiberados($chave, $linha->lote);
@@ -90,8 +100,9 @@ final class RestauradorDeLote
         }
 
         return match ($movimento) {
-            MovimentoNoDisco::DESTINO_EXISTE => self::ORIGINAL_EXISTE,
-            MovimentoNoDisco::ORIGEM_AUSENTE => self::FALHA_NO_DISCO,
+            MovimentoNoDisco::DESTINO_EXISTE      => self::ORIGINAL_EXISTE,
+            MovimentoNoDisco::ORIGEM_AUSENTE      => self::FALHA_NO_DISCO,
+            MovimentoNoDisco::CONTEUDO_DIVERGENTE => self::R2_DIVERGENTE,
             MovimentoNoDisco::MOVIDO         => $this->fecharComo($linha, $nosLiberados ? self::DEVOLVIDO : self::BAIXADO),
         };
     }
@@ -106,6 +117,16 @@ final class RestauradorDeLote
             $linha->sha256,
             $linha->tamanhoBytes,
         );
+    }
+
+    /** O original já está no lugar: com o SHA-256 da linha, a restauração está feita e a linha fecha. */
+    private function originalNoLugar(ChaveDeArquivo $chave, LiberacaoAberta $linha, bool $executar): string
+    {
+        if (!hash_equals($linha->sha256, $this->area->sha256NoDisco($chave))) {
+            return self::ORIGINAL_EXISTE;
+        }
+
+        return $executar ? $this->fecharComo($linha, self::JA_NO_LUGAR) : self::JA_NO_LUGAR;
     }
 
     private function fecharComo(LiberacaoAberta $linha, string $resultado): string

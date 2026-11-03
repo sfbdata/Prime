@@ -13,6 +13,7 @@ use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Shared\EspelhoRemoto\ProvedorDoEspelhoRemoto;
 use App\Shared\Scheduler\Repository\FalhaAgendadaRepository;
+use Doctrine\DBAL\Exception as DbalException;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -20,6 +21,9 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\LockInterface;
 
 /**
  * Libera o disco sem esvaziar (spec `leitura-pelo-r2-e-liberacao-de-disco.md` §5.1 a §5.3). Sem
@@ -41,6 +45,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * reconciliação lê cada arquivo e renova o `atime`, então o critério deixa tudo de fora; o uso é
  * registrado na spec (§5.2).
  *
+ * Uma execução por vez (trava {@see LiberadorDeDisco::TRAVA}, dividida com a restauração). A simulação
+ * não trava. Se o manifesto não for gravado, o resumo sai mesmo assim e o comando termina com falha.
+ *
  * A tela mostra só contagens e bytes: nome de arquivo e chave remota ficam no manifesto.
  */
 #[AsCommand(
@@ -49,9 +56,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class LiberarDiscoCommand extends Command
 {
-    /** As categorias em que liberar compensa o risco (§5.6). */
-    public const CATEGORIAS_ACEITAS = [CategoriaDeArquivo::PASTA_DOCUMENTO, CategoriaDeArquivo::PASTA_IMAGEM_EDITOR];
-
     public const COMANDO_DA_RECONCILIACAO = 'armazenamento:reconciliar-espelho';
 
     public const DIAS_DE_RECONCILIACAO_LIMPA = 7;
@@ -66,6 +70,8 @@ final class LiberarDiscoCommand extends Command
         private readonly OutboxDeReplicacao $outbox,
         private readonly FalhaAgendadaRepository $falhasAgendadas,
         private readonly ClockInterface $relogio,
+        #[Autowire(service: 'lock.agendador.factory')]
+        private readonly LockFactory $travas,
     ) {
         parent::__construct();
     }
@@ -95,9 +101,36 @@ final class LiberarDiscoCommand extends Command
             return Command::FAILURE;
         }
 
+        $trava = $this->travas->createLock(LiberadorDeDisco::TRAVA, LiberadorDeDisco::DURACAO_DA_TRAVA_EM_SEGUNDOS);
+        if ($executar && !$trava->acquire()) {
+            $io->error('Outra liberação ou restauração do disco está em andamento. Espere ela terminar.');
+
+            return Command::FAILURE;
+        }
+
+        try {
+            return $this->selecionarEExecutar($io, $input, $categoria, $frioDias, $lote, $executar, $trava);
+        } finally {
+            if ($executar) {
+                $trava->release();
+            }
+        }
+    }
+
+    private function selecionarEExecutar(SymfonyStyle $io, InputInterface $input, CategoriaDeArquivo $categoria, int $frioDias, int $lote, bool $executar, LockInterface $trava): int
+    {
         $comAcesso = !$input->getOption('sem-acesso');
-        $selecao   = $this->liberador->selecionar($categoria, $frioDias, $comAcesso, $lote);
+        $inicio    = hrtime(true);
+        try {
+            $selecao = $this->liberador->selecionar($categoria, $frioDias, $comAcesso, $lote);
+        } catch (DbalException) {
+            // A mensagem do DBAL traz os parâmetros, e a chave remota traz o nome do arquivo.
+            $io->error('Falha no banco ao selecionar os candidatos. Nada foi baixado, registrado nem movido.');
+
+            return Command::FAILURE;
+        }
         $this->mostrarSelecao($io, $categoria, $frioDias, $comAcesso, $executar, $selecao);
+        $io->writeln(sprintf('Tempo da seleção: %.1f s.', (hrtime(true) - $inicio) / 1e9));
 
         if (!$executar) {
             $io->note('Simulação: nada foi baixado, registrado nem movido. Use --executar para liberar.');
@@ -105,14 +138,14 @@ final class LiberarDiscoCommand extends Command
             return Command::SUCCESS;
         }
 
-        return $this->executarLote($io, $selecao);
+        return $this->executarLote($io, $selecao, $trava);
     }
 
     /** @return array{0: CategoriaDeArquivo, 1: int, 2: int}|int as opções válidas, ou o código de saída da recusa */
     private function opcoes(SymfonyStyle $io, InputInterface $input): array|int
     {
         $categoria = CategoriaDeArquivo::tryFrom((string) $input->getOption('categoria'));
-        if ($categoria === null || !\in_array($categoria, self::CATEGORIAS_ACEITAS, true)) {
+        if ($categoria === null || !\in_array($categoria, LiberadorDeDisco::CATEGORIAS_LIBERAVEIS, true)) {
             $io->error('--categoria precisa ser pasta_documento ou pasta_imagem_editor: as outras somam pouco e ficam no disco (spec §5.6).');
 
             return Command::INVALID;
@@ -145,7 +178,7 @@ final class LiberarDiscoCommand extends Command
         $this->tabela($io, 'fora dos candidatos', $selecao->fora);
     }
 
-    private function executarLote(SymfonyStyle $io, SelecaoParaLiberar $selecao): int
+    private function executarLote(SymfonyStyle $io, SelecaoParaLiberar $selecao, LockInterface $trava): int
     {
         try {
             $espelho = $this->fabrica->criar();
@@ -155,14 +188,24 @@ final class LiberarDiscoCommand extends Command
             return Command::FAILURE;
         }
 
-        $idDoLote  = $this->relogio->now()->setTimezone(new \DateTimeZone('America/Sao_Paulo'))->format('Ymd-His');
-        $resumo    = $this->liberador->liberar($espelho, $selecao->lote, $idDoLote);
-        $manifesto = $this->arquivos->gravarManifesto($idDoLote, $resumo->liberados());
+        $idDoLote = $this->relogio->now()->setTimezone(new \DateTimeZone('America/Sao_Paulo'))->format('Ymd-His');
+        $resumo   = $this->liberador->liberar($espelho, $selecao->lote, $idDoLote, static function () use ($trava): void {
+            $trava->refresh();
+        });
 
         $io->section('Lote ' . $idDoLote);
         $io->writeln(sprintf('Liberados: %d arquivo(s), %s.', \count($resumo->liberados()), self::bytes($resumo->bytesLiberados())));
         $this->tabela($io, 'pulados', $resumo->pulados());
-        $io->writeln('Manifesto: ' . $manifesto);
+        if ($resumo->comCopiaNosLiberados() !== []) {
+            $io->warning(sprintf('%d arquivo(s) ficaram nos liberados com a linha aberta (ver a coluna situacao do manifesto). Confira à mão.', \count($resumo->comCopiaNosLiberados())));
+        }
+        try {
+            $io->writeln('Manifesto: ' . $this->arquivos->gravarManifesto($idDoLote, $resumo));
+        } catch (\Throwable $e) {
+            $io->error(sprintf('O lote %s foi executado, mas o manifesto não foi gravado (%s). As linhas do lote estão em armazenamento_liberacao.', $idDoLote, $e->getMessage()));
+
+            return Command::FAILURE;
+        }
         $io->success(sprintf('Lote %s pronto. Voltar atrás: armazenamento:restaurar-lote --lote=%s --executar', $idDoLote, $idDoLote));
 
         return Command::SUCCESS;

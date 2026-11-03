@@ -123,6 +123,16 @@ final readonly class ResolvedorDeCaminhoLocal
     }
 
     /**
+     * Onde nasce o parcial da restauração que baixa do espelho: `<uploads_dir>/.liberados/.parciais`.
+     * Mesmo sistema de arquivos do original (o `link` final não troca de disco) e fora de qualquer
+     * diretório de documentos; o ponto inicial impede colisão com um lote.
+     */
+    public function diretorioDosParciaisDaLiberacao(): string
+    {
+        return $this->raiz($this->uploadsDir) . '/' . self::DIRETORIO_DOS_LIBERADOS . '/.parciais';
+    }
+
+    /**
      * As oito raízes configuradas, sem escopo.
      *
      * Existe para o backend recusar um prefixo que coincida com alguma delas ou as contenha — o
