@@ -99,7 +99,6 @@ moldura:
             purgar_dados_expirados: Limpeza dos dados expirados
             inteligencia_expirar_conteudo: Retenção das respostas da BlueJus IA
             desempenho_purgar: Limpeza dos registros de desempenho
-            documentos_purgar_lixeira: Limpeza da lixeira dos documentos (30 dias)
             importar_indices_monetarios: Importação dos índices monetários
             djen_sincronizar: Captação das publicações do DJEN
             push_resumo_semanal_cliente: Resumo semanal ao cliente

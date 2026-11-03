@@ -66,13 +66,6 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:desempenho:purgar --no-interaction',
             'cron'    => '40 0 * * *',
         ],
-        // 0h50: lixeira da aba Documentos. Apaga de verdade (linha e arquivo) o que está na lixeira há
-        // mais de 30 dias (decisão do dono de 23/10/2026, S-10). Com o espelho ligado, a exclusão também
-        // sai do R2 pela outbox (frente D6). Depois da purga de cadastros, antes dos índices.
-        'app:documentos:purgar-lixeira' => [
-            'comando' => 'app:documentos:purgar-lixeira --no-interaction',
-            'cron'    => '50 0 * * *',
-        ],
         // Dia 11, 1h: importação dos índices do BCB (INPC, IPCA e taxa legal), como no DEPLOY.md
         // (04h UTC). Ligada por decisão do dono em 23/10/2026.
         'app:importar-indices-monetarios' => [
