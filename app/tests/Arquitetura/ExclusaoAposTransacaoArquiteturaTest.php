@@ -54,6 +54,8 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
         'src/Inteligencia/UseCase/ExcluirAnaliseUseCase.php',
         'src/Shared/Armazenamento/RemocaoAposTransacao.php',
         'src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php',
+        // Frente D6: o worker apaga no R2 o que já saiu do disco (excluir() do espelho, não do disco).
+        'src/Shared/EspelhoRemoto/Replica/ReplicadorDeArquivos.php',
     ];
 
     #[TestDox('só a remoção pós-transação chama excluir() — o resto pede a ela')]

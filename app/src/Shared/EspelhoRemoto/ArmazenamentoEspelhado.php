@@ -36,8 +36,8 @@ use Psr\Log\LoggerInterface;
  *    `listar` é repasse puro: lista só o disco;
  *  - **gravar**, em categoria ligada pela {@see PoliticaDeEspelhamento}, registra um envio na outbox
  *    com o SHA medido no disco;
- *  - **excluir** e **excluirPrefixo**, em categoria ligada, registram a exclusão como EVENTO — nada
- *    sai para o R2 (regra 0).
+ *  - **excluir** e **excluirPrefixo**, em categoria ligada, registram a exclusão na outbox; o worker
+ *    a leva ao R2 depois (frente D6). Nada é apagado no R2 em linha, durante a requisição.
  *
  * ## Falha da réplica nunca é falha do usuário (regra 4)
  *

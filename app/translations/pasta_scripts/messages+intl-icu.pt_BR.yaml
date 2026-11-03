@@ -204,7 +204,7 @@ pasta_scripts:
             favorito_falha_padrao: Não foi possível atualizar o favorito.
             favorito_falha_varios_um: 'Não foi possível atualizar {favoritos} de {total}; esse voltou como estava.'
             favorito_falha_varios: 'Não foi possível atualizar {favoritos} de {total}; esses voltaram como estavam.'
-            aviso_lixeira: Os itens vão para a lixeira e podem ser restaurados.
+            aviso_lixeira: Os itens vão para a lixeira e podem ser restaurados por 30 dias. Depois disso, são apagados de vez.
             lista_e: '{a} e {b}'
             excluir_pasta_vazia: 'A pasta "{nome}" está vazia. Excluir mesmo assim? {lixeira}'
             excluir_pasta: 'Excluir a pasta "{nome}" e todo o conteúdo dela? Ao todo: {conteudo}. {lixeira}'
@@ -223,7 +223,7 @@ pasta_scripts:
             lix_erro_abrir: Não foi possível abrir a lixeira.
             lix_itens: Itens na lixeira
             lix_vazia: A lixeira está vazia.
-            lix_nota: Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.
+            lix_nota: Itens na lixeira podem ser restaurados por 30 dias. Depois disso, são apagados de vez automaticamente.
             lix_lapide: 'Esta pasta está excluída: restaure a pasta para restaurar os documentos dela.'
             lix_restaurar_selecionados: Restaurar selecionados
             lix_restaurar_selecionados_n: 'Restaurar selecionados ({n})'

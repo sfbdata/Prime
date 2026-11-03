@@ -61,6 +61,11 @@ final class EspelhoRemotoEmMemoria implements EspelhoRemoto
             : new MetadadosRemotos($chaveRemota, \strlen($objeto['corpo']), $objeto['sha256'], $objeto['mime'], null);
     }
 
+    public function excluir(ChaveDeArquivo $chave): void
+    {
+        unset($this->objetos[LayoutDeChaveRemota::chaveDe($chave)]);
+    }
+
     public function existe(ChaveDeArquivo $chave): bool
     {
         return $this->consultar($chave) !== null;

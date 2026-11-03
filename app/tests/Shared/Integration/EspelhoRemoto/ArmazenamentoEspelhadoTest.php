@@ -115,8 +115,8 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
         $espelhado->excluir($armazenado->chave);
 
         self::assertFalse($this->interno->existe($armazenado->chave));
-        self::assertSame('exclusao_registrada', $this->ultimaLinha()['operacao']);
-        self::assertSame('registrado', $this->ultimaLinha()['estado']);
+        self::assertSame('excluir', $this->ultimaLinha()['operacao']);
+        self::assertSame('pendente', $this->ultimaLinha()['estado'], 'o worker leva a exclusão ao R2 depois (D6)');
     }
 
     #[TestDox('purga por prefixo em categoria ligada: um evento por arquivo que saiu do disco')]
@@ -126,11 +126,11 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
         $escopo    = EscopoDeArquivo::deTenant(7);
         $espelhado->gravar(new NovoArquivo($escopo, CategoriaDeArquivo::COBRANCA_DOCUMENTO, 'pdf'), FonteDeConteudo::deTexto('1'));
         $espelhado->gravar(new NovoArquivo($escopo, CategoriaDeArquivo::COBRANCA_DOCUMENTO, 'pdf'), FonteDeConteudo::deTexto('2'));
-        $antes = (int) $this->conexao->fetchOne("SELECT count(*) FROM armazenamento_replicacao WHERE operacao = 'exclusao_registrada'");
+        $antes = (int) $this->conexao->fetchOne("SELECT count(*) FROM armazenamento_replicacao WHERE operacao = 'excluir'");
 
         $espelhado->excluirPrefixo($escopo, CategoriaComIsolamentoFisico::COBRANCA_DOCUMENTO);
 
-        self::assertSame($antes + 2, (int) $this->conexao->fetchOne("SELECT count(*) FROM armazenamento_replicacao WHERE operacao = 'exclusao_registrada'"));
+        self::assertSame($antes + 2, (int) $this->conexao->fetchOne("SELECT count(*) FROM armazenamento_replicacao WHERE operacao = 'excluir'"));
     }
 
     #[TestDox('leitura é repasse puro: abrir, ler, existe, metadados, paraLeitura e listar devolvem o que o disco devolve')]

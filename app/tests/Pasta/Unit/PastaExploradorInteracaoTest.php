@@ -318,7 +318,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("return BJ_T.t('pasta_scripts.js.explorador.excluir_lote', { n: itens.length, conteudo: juntarComE(partes), lixeira: AVISO_LIXEIRA });", $js);
         self::assertTextoDoScript('Excluir {n} itens? Ao todo: {conteudo}. {lixeira}', 'explorador.excluir_lote', $js);
         self::assertStringContainsString("const AVISO_LIXEIRA = BJ_T.t('pasta_scripts.js.explorador.aviso_lixeira');", $js);
-        self::assertTextoDoScript('Os itens vão para a lixeira e podem ser restaurados.', 'explorador.aviso_lixeira', $js);
+        self::assertTextoDoScript('Os itens vão para a lixeira e podem ser restaurados por 30 dias. Depois disso, são apagados de vez.', 'explorador.aviso_lixeira', $js);
         self::assertStringNotContainsString('não pode ser desfeita', $js, 'com a lixeira (L7) a frase deixou de ser verdade');
         self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.excluido_um', { nome: itens[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.excluidos_varios', { n: itens.length }));", $js);
         self::assertTextoDoScript('Excluído: {nome}', 'explorador.excluido_um', $js);

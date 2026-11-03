@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Command;
 
 use App\Pasta\UseCase\PurgarLixeiraUseCase;
+use App\Pasta\UseCase\ResultadoPurgaDaLixeira;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,7 +15,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Esvazia a lixeira da aba Documentos (D7): apaga de verdade — linha e arquivo — o que está na
- * lixeira há mais de `--dias` (padrão 30, S-10). Nenhum cron o aciona nesta frente: é do operador.
+ * lixeira há mais de `--dias` (padrão 30, S-10). Roda todo dia às 0h50 pela `AgendaDeTarefas`; à mão, continua valendo.
  *
  * `--dry-run` conta e lista sem apagar nada; `--limite=N` purga no máximo N entradas da fila
  * (seções e documentos vencidos; os pulados por caminho inválido não contam) e a próxima execução
@@ -77,6 +78,21 @@ final class PurgarLixeiraCommand extends Command
             return Command::FAILURE;
         }
 
+        if ($resultado->nadaVenceAntesDe !== null) {
+            $io->success(sprintf('A contagem dos %d dias começou no deploy: nada vence antes de %s.', $dias, $resultado->nadaVenceAntesDe->format('d/m/Y H:i')));
+            $io->text(sprintf('resumo: modo=%s dias=%d aguardando_ate=%s', $dryRun ? 'simulacao' : 'purga', $dias, $resultado->nadaVenceAntesDe->format('Y-m-d H:i:s')));
+
+            return Command::SUCCESS;
+        }
+
+        $this->relatar($io, $resultado, $dryRun, $dias, $tenantId);
+
+        return Command::SUCCESS;
+    }
+
+    /** O resumo da execução: uma linha para o log (máquina) e a tabela para quem lê. */
+    private function relatar(SymfonyStyle $io, ResultadoPurgaDaLixeira $resultado, bool $dryRun, int $dias, ?int $tenantId): void
+    {
         $io->section($dryRun ? 'Resumo (simulado — nada apagado)' : 'Resumo');
         // Uma linha legível por máquina (log), antes da tabela para humanos.
         $io->text(sprintf(
@@ -107,6 +123,15 @@ final class PurgarLixeiraCommand extends Command
             ['Documentos pulados (caminho que não vira chave)', $resultado->documentosPulados],
         ]);
 
+        $this->avisar($io, $resultado);
+    }
+
+    /**
+     * @return int|null|false null quando a opção não veio; false quando veio inválida (já reportada)
+     */
+    /** Pulados por caminho inválido e órfãos que o armazenamento não removeu. */
+    private function avisar(SymfonyStyle $io, ResultadoPurgaDaLixeira $resultado): void
+    {
         if ($resultado->secoesPuladas + $resultado->documentosPulados > 0) {
             $io->warning(sprintf(
                 '%d subpasta(s) e %d documento(s) ficaram na lixeira por caminho inválido (ids no log).',
@@ -119,13 +144,8 @@ final class PurgarLixeiraCommand extends Command
             $io->warning('Arquivos que o armazenamento não removeu depois do COMMIT (ver o log):');
             $io->listing($resultado->arquivosNaoRemovidos);
         }
-
-        return Command::SUCCESS;
     }
 
-    /**
-     * @return int|null|false null quando a opção não veio; false quando veio inválida (já reportada)
-     */
     private function inteiroPositivoOuNull(mixed $valor, string $nome, SymfonyStyle $io): int|null|false
     {
         if ($valor === null) {

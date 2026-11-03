@@ -12,8 +12,10 @@ use PHPUnit\Framework\TestCase;
 /**
  * As regras da P2 que o código tem de carregar, não só a spec (spec P2 §0, §4, §9).
  *
- *  - **Nenhuma exclusão remota** (regra 0): o contrato não tem o verbo, e nenhum arquivo de `src/`
- *    chama exclusão do S3.
+ *  - **Exclusão remota só pelo worker, um objeto por vez** (frente D6, que substituiu a regra 0): o
+ *    contrato tem `excluir`, o adaptador só conhece o `deleteObject` de UMA chave, só o worker da
+ *    réplica chama `excluir` no espelho, e nenhum arquivo de `src/` chama exclusão em lote, expiração,
+ *    cópia ou retenção do S3.
  *  - **O SDK fica no adaptador**: só `src/Shared/EspelhoRemoto/R2/` conhece o `async-aws`.
  *  - **Ligado só pela configuração, e desligado por padrão (P2.3)**: nenhum arquivo de `src/` fora
  *    do diretório do espelho o usa; a única ligação é o `services.yaml` (o decorador por cima do
@@ -26,8 +28,8 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
     private const DIRETORIO_DO_ESPELHO = 'src/Shared/EspelhoRemoto/';
     private const DIRETORIO_DO_ADAPTADOR = 'src/Shared/EspelhoRemoto/R2/';
 
-    #[TestDox('o contrato do espelho só tem enviar, consultar, existe e baixar — nenhum verbo de exclusão (regra 0 da P2)')]
-    public function testContratoSemExclusao(): void
+    #[TestDox('o contrato do espelho só tem enviar, consultar, existe, baixar e excluir (um objeto, frente D6)')]
+    public function testContratoSoComExclusaoDeUmObjeto(): void
     {
         $metodos = array_map(
             static fn (\ReflectionMethod $m): string => $m->getName(),
@@ -35,17 +37,36 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         );
         sort($metodos);
 
-        self::assertSame(['baixar', 'consultar', 'enviar', 'existe'], $metodos);
+        self::assertSame(['baixar', 'consultar', 'enviar', 'excluir', 'existe'], $metodos);
     }
 
-    #[TestDox('nenhum arquivo de src/ chama exclusão, expiração, cópia ou retenção do S3')]
+    #[TestDox('só o worker da réplica chama excluir no espelho remoto (frente D6)')]
+    public function testSoOWorkerApagaNoEspelho(): void
+    {
+        // Toda variável ou propriedade tipada como EspelhoRemoto, com qualquer nome, em qualquer arquivo.
+        $quemApaga = [];
+        foreach ($this->arquivosQueCasam('/\bEspelhoRemoto\s+\$\w+/') as $arquivo) {
+            $codigo = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/' . $arquivo));
+            preg_match_all('/\bEspelhoRemoto\s+\$(\w+)/', $codigo, $nomes);
+            foreach (array_unique($nomes[1]) as $nome) {
+                if (preg_match('/\$(?:this->)?' . $nome . '->excluir\s*\(/', $codigo) === 1) {
+                    $quemApaga[] = $arquivo;
+                }
+            }
+        }
+
+        self::assertSame(['src/Shared/EspelhoRemoto/Replica/ReplicadorDeArquivos.php'], array_values(array_unique($quemApaga)));
+        self::assertSame(['src/Shared/EspelhoRemoto/R2/EspelhoRemotoR2.php'], $this->arquivosQueCasam('/\bdeleteObject\s*\(/'));
+    }
+
+    #[TestDox('nenhum arquivo de src/ chama exclusão em lote, expiração, cópia ou retenção do S3')]
     public function testNinguemChamaOperacaoDestrutivaRemota(): void
     {
-        self::assertSame([], $this->arquivosQueCasam('/\b(?:deleteObjects?|deleteBucket\w*|putBucketLifecycle\w*|abortMultipartUpload|copyObject|putObjectRetention|putObjectLegalHold|putBucket\w*)\s*\(|\bDeleteObjects?(?:Request|Input)\b/i'));
+        self::assertSame([], $this->arquivosQueCasam('/\b(?:deleteObjects|deleteBucket\w*|putBucketLifecycle\w*|abortMultipartUpload|copyObject|putObjectRetention|putObjectLegalHold|putBucket\w*)\s*\(|\bDeleteObjects?(?:Request|Input)\b/i'));
     }
 
-    /** Lista PERMITIDA, não proibida: o adaptador só pode chamar estas três operações no cliente. */
-    #[TestDox('o adaptador R2 só chama putObject, headObject e getObject no cliente S3')]
+    /** Lista PERMITIDA, não proibida: o adaptador só pode chamar estas quatro operações no cliente. */
+    #[TestDox('o adaptador R2 só chama putObject, headObject, getObject e deleteObject no cliente S3')]
     public function testAdaptadorSoChamaPutEHead(): void
     {
         $codigo = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/src/Shared/EspelhoRemoto/R2/EspelhoRemotoR2.php'));
@@ -53,22 +74,24 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         $operacoes = array_values(array_unique($chamadas[1]));
         sort($operacoes);
 
-        self::assertSame(['getObject', 'headObject', 'putObject'], $operacoes);
+        self::assertSame(['deleteObject', 'getObject', 'headObject', 'putObject'], $operacoes);
+        self::assertSame(1, substr_count($codigo, '->cliente->deleteObject('), 'um único ponto de exclusão remota');
         self::assertSame(0, preg_match('/\$cliente\b(?!->)|->cliente\b(?!->)/', str_replace(['private readonly S3Client $cliente', 'S3Client $cliente'], '', $codigo)), 'o cliente não pode ser repassado para fora');
     }
 
     /**
-     * A única exceção é a retenção da outbox (decisão do dono de 23/10, I4): ela apaga LINHAS LOCAIS da
-     * tabela `armazenamento_replicacao`, nunca objeto remoto. O arquivo entra só com aquele `DELETE`.
+     * As duas exceções: a retenção da outbox (decisão do dono de 23/10, I4), que apaga LINHAS LOCAIS da
+     * tabela `armazenamento_replicacao`, e o `deleteObject` do adaptador (frente D6), um objeto por vez.
      */
     private const OUTBOX = 'src/Shared/EspelhoRemoto/Outbox/OutboxDeReplicacao.php';
+    private const ADAPTADOR = 'src/Shared/EspelhoRemoto/R2/EspelhoRemotoR2.php';
 
-    #[TestDox('dentro do espelho não existe a palavra delete fora de comentário (só o DELETE da retenção da outbox, que é linha local)')]
+    #[TestDox('dentro do espelho não existe a palavra delete fora de comentário (só o DELETE da retenção da outbox e o deleteObject do adaptador)')]
     public function testAdaptadorNaoConheceDelete(): void
     {
         $achados = array_filter(
             $this->arquivosQueCasam('/delete/i'),
-            static fn (string $arquivo): bool => str_starts_with($arquivo, self::DIRETORIO_DO_ESPELHO) && $arquivo !== self::OUTBOX,
+            static fn (string $arquivo): bool => str_starts_with($arquivo, self::DIRETORIO_DO_ESPELHO) && $arquivo !== self::OUTBOX && $arquivo !== self::ADAPTADOR,
         );
 
         self::assertSame([], array_values($achados));
@@ -76,6 +99,9 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         $outbox = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/' . self::OUTBOX));
         self::assertSame(1, preg_match_all('/delete/i', $outbox), 'a outbox só conhece um delete');
         self::assertStringContainsString("'DELETE FROM ' . self::TABELA . ' WHERE ' . self::CONCLUIDAS_ANTES_DE", $outbox);
+
+        $adaptador = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/' . self::ADAPTADOR));
+        self::assertSame(1, preg_match_all('/delete/i', $adaptador), 'o adaptador só conhece o deleteObject');
     }
 
     #[TestDox('o async-aws só é conhecido pelo adaptador R2')]

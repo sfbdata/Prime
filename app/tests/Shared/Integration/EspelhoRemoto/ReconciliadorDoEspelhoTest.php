@@ -122,6 +122,11 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
             {
                 throw new \LogicException('a réplica e a reconciliação não baixam conteúdo');
             }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                throw new \LogicException('a réplica não apaga neste teste');
+            }
         };
 
         $relatorio = $this->reconciliador([$this->comLocal('1.pdf', '1'), $this->comLocal('2.pdf', '2')])->reconciliar($quebrado);
