@@ -12,7 +12,8 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
    (`webkitdirectory`) e o link "Ou selecionar arquivos soltos (vira uma pasta só)".
 3. Agrupamento (`montar`): cada subpasta de 1º nível vira uma pasta; arquivo solto direto na pasta
    escolhida entra numa pasta com o nome dela (fiel ao `montar` do desenho); seleção de arquivos
-   soltos vira "NOVA PASTA". Ignora `.oculto`, `Thumbs.db`, `desktop.ini`. Nome do cliente =
+   soltos vira "NOVA PASTA". Ignora `.oculto`, `Thumbs.db`, `desktop.ini`, e tudo que está dentro de pasta oculta em qualquer nível
+   abaixo da escolhida (`.ocultos/rascunho.pdf`; correção de 03/11/2026). Nome do cliente =
    nome da subpasta, `_`/`-` viram espaço, maiúsculas. Ordem alfabética pt-BR.
 4. Tabela: marcar/desmarcar, Nº PASTA previsto (a partir do próximo número), CLIENTE editável,
    ARQUIVOS (qtd · tamanho), SITUAÇÃO (Pronta, Ignorada, Importada). Resumo
