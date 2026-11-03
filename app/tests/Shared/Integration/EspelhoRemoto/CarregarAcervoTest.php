@@ -12,6 +12,7 @@ use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\EspelhoRemoto\Acervo\CarregadorDoAcervo;
 use App\Shared\EspelhoRemoto\Acervo\ResumoDaCarga;
 use App\Shared\EspelhoRemoto\Command\CarregarAcervoCommand;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Shared\EspelhoRemoto\Reconciliacao\ClasseDeReconciliacao;
@@ -124,7 +125,7 @@ final class CarregarAcervoTest extends KernelTestCase
         $this->foto('f.jpg');
         $this->carregador()->carregar(CategoriaDeArquivo::FOTO_PERFIL);
 
-        $relatorio = (new ReconciliadorDoEspelho($this->fonte(), $this->local, $this->outbox))->reconciliar(new EspelhoRemotoEmMemoria());
+        $relatorio = (new ReconciliadorDoEspelho($this->fonte(), $this->local, $this->outbox, new RegistroDeLiberacao($this->conexao, new MockClock())))->reconciliar(new EspelhoRemotoEmMemoria());
 
         self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::AUSENTE_PENDENTE_OUTBOX));
         self::assertSame(0, $relatorio->quantos(ClasseDeReconciliacao::AUSENTE_NO_ESPELHO));

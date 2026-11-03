@@ -11,6 +11,7 @@ use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\EspelhoRemoto\ArmazenamentoEspelhado;
 use App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Shared\EspelhoRemoto\R2\ClienteR2;
@@ -56,7 +57,7 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
         $this->local      = new ArmazenamentoEmMemoria();
         $this->outbox     = new OutboxDeReplicacao($this->conexao, $this->relogio);
         $this->logger     = new LoggerEspiao();
-        $this->espelhado  = new ArmazenamentoEspelhado($this->local, $this->outbox, new PoliticaDeEspelhamento('pasta_documento'), $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0));
+        $this->espelhado  = new ArmazenamentoEspelhado($this->local, $this->outbox, new PoliticaDeEspelhamento('pasta_documento'), $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0), new RegistroDeLiberacao($this->conexao, $this->relogio));
         $this->s3         = new S3Simulado();
         $this->espelho    = new EspelhoRemotoR2(ClienteR2::criar($this->s3->endpoint, $this->s3->chaveDeAcesso, self::SEGREDO, $this->s3->cliente()), $this->s3->bucket);
         $this->replicador = new ReplicadorDeArquivos($this->outbox, $this->local, $this->logger, new PoliticaDeEspelhamento('pasta_documento'));
