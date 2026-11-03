@@ -14,7 +14,8 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
    escolhida entra numa pasta com o nome dela (fiel ao `montar` do desenho); seleção de arquivos
    soltos vira "NOVA PASTA". Ignora `.oculto`, `Thumbs.db`, `desktop.ini`, e tudo que está dentro de pasta oculta em qualquer nível
    abaixo da escolhida (`.ocultos/rascunho.pdf`; correção de 03/11/2026). Nome do cliente =
-   nome da subpasta, `_`/`-` viram espaço, maiúsculas. Ordem alfabética pt-BR.
+   nome da subpasta sem o número da frente ("001 - ", "01_", "1. "; nome só com número fica;
+   03/11/2026), `_`/`-` viram espaço, maiúsculas. Ordem alfabética pt-BR.
 4. Tabela: marcar/desmarcar, Nº PASTA previsto (a partir do próximo número), CLIENTE editável,
    ARQUIVOS (qtd · tamanho), SITUAÇÃO (Pronta, Ignorada, Importada). Resumo
    "N pasta(s) · N arquivo(s) · numeração a partir de X" e "Escolher outra pasta".
