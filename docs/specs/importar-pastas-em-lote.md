@@ -62,6 +62,18 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
 - **D9 Gancho.** O botão é da bluejus-17 (`data-acao="importar-lote"`) e dispara `bj:importar-lote`
   no `document`. O nosso JS só ouve o evento; não edita o modal Nova Pasta.
 
+- **D11 Pasta de um cliente só (pedido do Samuel, 03/11/2026).** Quando a pasta escolhida tem
+  arquivos soltos direto nela **e** arquivos em subpastas, o modal pergunta, no visual do próprio
+  modal (`.il-pergunta`, sem Bootstrap): "Esta é a pasta de um cliente só?".
+  - **Sim**: tudo vira **uma** pasta, com o nome da pasta escolhida como cliente. O arquivo que estava
+    numa subpasta leva o caminho dentro da pasta escolhida na **descrição** do documento
+    (`descricao` do upload, que já existe; coluna `text`): ex. `Processo/Inicial.pdf`. Arquivo solto
+    fica sem descrição. Sem migration.
+  - **Não**: comportamento de antes (cada subpasta de 1º nível vira uma pasta; os soltos, outra com o
+    nome da pasta escolhida).
+  - Só arquivos soltos, ou só subpastas: não pergunta (nada muda). A seleção de "arquivos soltos"
+    também não pergunta.
+
 ## Arquivos
 
 - `app/src/Expediente/Controller/ImportarLoteController.php` (rota nova)
