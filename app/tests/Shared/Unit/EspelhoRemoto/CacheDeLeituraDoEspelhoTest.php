@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Unit\EspelhoRemoto;
 
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho;
 use App\Shared\EspelhoRemoto\FalhaNoEspelhoRemoto;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -90,6 +91,67 @@ final class CacheDeLeituraDoEspelhoTest extends TestCase
         }
 
         self::assertSame([], $this->publicadosEParciais());
+    }
+
+    #[TestDox('§5.0: trava do mesmo conteúdo ocupada além do prazo → falha (503 na entrega), sem baixar e sem prender o worker')]
+    public function testTravaOcupadaEstouraOPrazo(): void
+    {
+        $sha   = hash('sha256', 'abc');
+        $cache = new CacheDeLeituraDoEspelho($this->diretorio, 1000, 1);
+        mkdir($this->diretorio);
+        // Outra "leitura" segura a trava (outro descritor: o flock do Linux não é reentrante entre eles).
+        $outra = fopen($this->diretorio . '/.trava-' . $sha, 'c');
+        self::assertTrue(flock($outra, \LOCK_EX));
+        $baixou = false;
+        $inicio = microtime(true);
+
+        try {
+            $cache->hidratar($sha, 3, static function ($destino) use (&$baixou): void {
+                $baixou = true;
+                fwrite($destino, 'abc');
+            });
+            self::fail('devia estourar o prazo da trava');
+        } catch (FalhaDeArmazenamento $e) {
+            self::assertStringContainsString('há mais de 1 s', $e->getMessage());
+        } finally {
+            flock($outra, \LOCK_UN);
+            fclose($outra);
+        }
+
+        self::assertFalse($baixou);
+        self::assertLessThan(5, microtime(true) - $inicio, 'esperou o prazo, não o download do outro');
+        self::assertSame([], $this->publicadosEParciais());
+        self::assertLessThan(120, CacheDeLeituraDoEspelho::ESPERA_MAXIMA_DA_TRAVA_EM_SEGUNDOS, 'menor que o timeout do nginx');
+    }
+
+    #[TestDox('§5.0: download que deixaria o disco abaixo do piso de espaço livre é recusado antes de baixar')]
+    public function testPisoDeEspacoLivreRecusa(): void
+    {
+        $cache  = new CacheDeLeituraDoEspelho($this->diretorio, 1000, 1, 100, static fn (string $d): float => 102.0);
+        $baixou = false;
+
+        try {
+            $cache->hidratar(hash('sha256', 'abc'), 3, static function ($destino) use (&$baixou): void {
+                $baixou = true;
+                fwrite($destino, 'abc');
+            });
+            self::fail('devia recusar abaixo do piso');
+        } catch (FalhaDeArmazenamento $e) {
+            self::assertStringContainsString('piso de espaço livre', $e->getMessage());
+        }
+
+        self::assertFalse($baixou);
+        self::assertSame([], $this->publicadosEParciais());
+    }
+
+    #[TestDox('§5.0: com espaço acima do piso, ou sem como medir, a hidratação segue')]
+    public function testPisoDeEspacoLivreDeixaPassar(): void
+    {
+        $acima  = new CacheDeLeituraDoEspelho($this->diretorio, 1000, 1, 100, static fn (string $d): float => 103.0);
+        $semMedida = new CacheDeLeituraDoEspelho($this->diretorio, 1000, 1, 100, static fn (string $d): false => false);
+
+        self::assertFileExists($this->hidratar($acima, 'abc'));
+        self::assertFileExists($this->hidratar($semMedida, 'xyz'));
     }
 
     #[TestDox('teto em bytes: ao publicar, os menos usados (e frios) saem até caber; o recém-publicado fica')]
