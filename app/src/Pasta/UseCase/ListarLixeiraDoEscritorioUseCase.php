@@ -42,8 +42,9 @@ use App\Shared\Doctrine\Filter\AcessoALixeira;
  *  - ordem: da exclusão visível mais recente para a mais antiga (empate: id maior primeiro). A
  *    página seguinte continua DEPOIS da chave da última pasta (`proximo` = "data|id"): resolver uma
  *    pasta já mostrada não faz a próxima página pular ninguém;
- *  - volume: as contas são agregações no banco (GROUP BY pasta); cada página confere no máximo
- *    {@see PASTAS_POR_PEDIDO} pastas, com um número FIXO de consultas (regras de aba do escritório,
+ *  - volume: as contas são agregações no banco (GROUP BY pasta); a permissão é conferida em blocos
+ *    de {@see PASTAS_POR_PEDIDO} pastas até juntar uma página visível, com um número FIXO de consultas
+ *    por bloco (regras de aba do escritório,
  *    pastas, cadeados, vínculo, acessos item a item e nomes; uma de cada), não uma por pasta.
  */
 final class ListarLixeiraDoEscritorioUseCase
@@ -70,15 +71,25 @@ final class ListarLixeiraDoEscritorioUseCase
     public function executar(User $quem, Tenant $tenant, ?string $apos = null): LixeiraDoEscritorioOutput
     {
         $candidatas = self::depoisDe($this->candidatasEmOrdem($quem, $tenant), self::chaveDoCursor($apos));
-        $pagina     = array_slice($candidatas, 0, self::PASTAS_POR_PEDIDO);
-        $ultima     = $pagina === [] ? null : $pagina[count($pagina) - 1];
 
-        $visiveis = $this->editaveis($pagina, $quem, $tenant);
+        // A permissão é conferida em blocos de PASTAS_POR_PEDIDO (consultas fixas por bloco) até
+        // juntar uma página de pastas VISÍVEIS. O cursor é a chave da última pasta visível: ele
+        // nunca revela id nem data de pasta que quem lê não pode editar.
+        $visiveis   = [];
+        $conferidas = 0;
+        while (count($visiveis) <= self::PASTAS_POR_PEDIDO && $conferidas < count($candidatas)) {
+            $bloco       = array_slice($candidatas, $conferidas, self::PASTAS_POR_PEDIDO);
+            $conferidas += count($bloco);
+            array_push($visiveis, ...$this->editaveis($bloco, $quem, $tenant));
+        }
+        $haMais   = count($visiveis) > self::PASTAS_POR_PEDIDO || $conferidas < count($candidatas);
+        $visiveis = array_slice($visiveis, 0, self::PASTAS_POR_PEDIDO);
+        $ultima   = $visiveis === [] ? null : $visiveis[count($visiveis) - 1];
         $nomes    = $this->nomesDosAutores($visiveis);
 
         return new LixeiraDoEscritorioOutput(
             array_map(static fn (array $v): GrupoDaLixeiraDoEscritorio => self::grupo($v['pasta'], $v['contas'], $nomes), $visiveis),
-            $ultima !== null && count($candidatas) > count($pagina) ? $ultima['contas']['maisRecente'] . '|' . $ultima['pastaId'] : null,
+            $haMais && $ultima !== null ? $ultima['contas']['maisRecente'] . '|' . $ultima['pasta']->getId() : null,
         );
     }
 

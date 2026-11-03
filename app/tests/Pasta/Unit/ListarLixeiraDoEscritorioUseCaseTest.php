@@ -199,6 +199,26 @@ final class ListarLixeiraDoEscritorioUseCaseTest extends TestCase
         self::assertSame([2, 1], array_map(static fn (GrupoDaLixeiraDoEscritorio $g): int => $g->pastaId, $segunda->grupos));
     }
 
+    #[TestDox('o cursor é a chave da última pasta VISÍVEL: nunca revela id nem data de pasta sem permissão')]
+    public function testCursorNaoRevelaPastaSemPermissao(): void
+    {
+        $n = ListarLixeiraDoEscritorioUseCase::PASTAS_POR_PEDIDO * 2 + 5;
+        $this->pastasComUmaSubpasta($n);
+        // Só as pastas pares são editáveis: em cada bloco de 50 conferidas, metade some.
+        $this->editaveis = array_values(array_filter($this->editaveis, static fn (int $id): bool => $id % 2 === 0));
+
+        $primeira = $this->useCase()->executar($this->quem, $this->tenant);
+        self::assertCount(ListarLixeiraDoEscritorioUseCase::PASTAS_POR_PEDIDO, $primeira->grupos, 'junta uma página inteira de visíveis');
+        $ultima = $primeira->grupos[count($primeira->grupos) - 1]->pastaId;
+        self::assertSame(0, $ultima % 2);
+        self::assertSame($this->quandoDa($ultima) . '|' . $ultima, $primeira->proximo, 'a chave é da última visível');
+
+        $segunda = $this->useCase()->executar($this->quem, $this->tenant, $primeira->proximo);
+        $ids     = array_map(static fn (GrupoDaLixeiraDoEscritorio $g): int => $g->pastaId, $segunda->grupos);
+        self::assertSame(array_values(array_filter(range($ultima - 1, 1, -1), static fn (int $id): bool => $id % 2 === 0)), $ids, 'continua sem pular nenhuma visível');
+        self::assertNull($segunda->proximo);
+    }
+
     #[TestDox('cursor que não é chave recomeça do início')]
     public function testCursorInvalido(): void
     {
