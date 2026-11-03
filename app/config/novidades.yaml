@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.30.0"
+  data: "2026-11-03"
+  itens:
+    - "Em Processos da OAB, a tela agora abre direto em \"Processos acompanhados\", com a lista dos seus processos. \"Relacionados\" passa a ser a segunda aba."
 - versao: "2.29.0"
   data: "2026-10-31"
   itens:
