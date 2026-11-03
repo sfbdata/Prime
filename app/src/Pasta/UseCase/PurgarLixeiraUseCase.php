@@ -6,6 +6,7 @@ namespace App\Pasta\UseCase;
 
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Armazenamento\ReferenciasDeArquivoDaPasta;
+use App\Pasta\Entity\InicioDaPurgaDaLixeira;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaDocumentoRepository;
@@ -28,6 +29,10 @@ use Psr\Log\LoggerInterface;
  * Quem dispara é o operador, pelo comando `app:documentos:purgar-lixeira` (sem cron nesta frente).
  * O que ele quer: liberar o espaço do que ninguém restaurou no prazo, sem tocar no que ainda pode
  * voltar.
+ *
+ * Prazo do deploy (03/11/2026): o que já estava na lixeira quando a purga agendada entrou ganha
+ * os mesmos dias contados de `lixeira_purga_inicio` ({@see InicioDaPurgaDaLixeira}). Enquanto o
+ * corte for anterior a essa data, nada é lido nem apagado; sem a linha, vale a regra de sempre.
  *
  * Como percorre:
  *  - **seções vencidas primeiro**, da mais antiga à mais nova. Apagar a seção leva a subárvore
@@ -98,7 +103,14 @@ final class PurgarLixeiraUseCase
             throw new \InvalidArgumentException('O id do escritório precisa ser um inteiro positivo.');
         }
 
-        $corte = $this->clock->now()->modify(sprintf('-%d days', $dias));
+        $corte  = $this->clock->now()->modify(sprintf('-%d days', $dias));
+        $inicio = $this->em->find(InicioDaPurgaDaLixeira::class, InicioDaPurgaDaLixeira::ID_UNICO)?->getIniciaEm();
+        if ($inicio !== null && $corte <= $inicio) {
+            // Ainda no prazo dado a quem já estava na lixeira no deploy: nada vence antes de
+            // `inicia_em + $dias`. Depois disso, quem foi excluído antes do início já é mais velho
+            // que o corte e a regra de sempre basta (`max(excluido_em, inicio) < corte`).
+            return new ResultadoPurgaDaLixeira($simulacao, $corte, 0, 0, 0, 0, 0, [], nadaVenceAntesDe: $inicio->modify(sprintf('+%d days', $dias)));
+        }
 
         return $this->lixeira->comLixeiraVisivel(fn (): ResultadoPurgaDaLixeira => $this->purgar($corte, $simulacao, $limite, $tenantId));
     }
