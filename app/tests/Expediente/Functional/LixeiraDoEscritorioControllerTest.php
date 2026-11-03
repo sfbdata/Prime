@@ -263,6 +263,21 @@ final class LixeiraDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.content-header > .container-fluid > button#expLixeiraAbrir'));
         self::assertSame('/expediente/lixeira', $crawler->filter('#expLixeira')->attr('data-url'));
         self::assertCount(1, $crawler->filter('script[src*="expediente-lixeira.js"]'));
+        // O mesmo modal da lixeira da pasta abre aqui (03/11/2026): tipos e modal ANTES do script da janela,
+        // com o catálogo e o CSS do explorador.
+        $scripts = $crawler->filter('script[src]')->each(static fn ($n): string => (string) $n->attr('src'));
+        $posicao = static function (string $nome) use ($scripts): int {
+            foreach ($scripts as $i => $src) {
+                if (str_contains($src, $nome)) {
+                    return $i;
+                }
+            }
+            self::fail("script {$nome} ausente");
+        };
+        self::assertLessThan($posicao('pasta-lixeira.js'), $posicao('pasta-tipos-de-arquivo.js'));
+        self::assertLessThan($posicao('expediente-lixeira.js'), $posicao('pasta-lixeira.js'));
+        self::assertCount(1, $crawler->filter('link[href*="css/pasta-explorador.css"]'));
+        self::assertStringContainsString('"pasta_scripts.js.explorador.lix_abrir"', (string) $client->getResponse()->getContent());
     }
 
     // ── apoio ──────────────────────────────────────────────────────────────────

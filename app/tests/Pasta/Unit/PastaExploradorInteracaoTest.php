@@ -221,7 +221,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString('const pasta = Number(pastaId);', $encaminha);
         self::assertStringContainsString('const id = Number(alvo && alvo.id);', $encaminha);
         // Item na lixeira não entra na lista (o servidor monta o #pexDados só com os vivos; LixeiraFilter).
-        self::assertStringNotContainsString('opEncaminhar', $this->funcao('montarModalDaLixeira'));
+        self::assertStringNotContainsString('opEncaminhar', (string) file_get_contents(__DIR__ . '/../../../public/js/pasta-lixeira.js'), 'o modal da lixeira mora em pasta-lixeira.js');
 
         // A "pasta" do explorador é uma PastaSecao; o arquivo, um PastaDocumento (spec §3).
         self::assertStringContainsString("const tipo = alvo.tipo === 'pasta' ? 'secao' : 'documento';", $encaminha);

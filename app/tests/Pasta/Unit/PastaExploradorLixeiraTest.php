@@ -16,6 +16,10 @@ use PHPUnit\Framework\TestCase;
  * os ids que o SERVIDOR devolveu com o csrfLote, o confirm() continua antes do pedido (S-3), a
  * lista da lixeira nasce sem HTML em string, o agrupamento usa `paiNaLixeira`/`secaoNaLixeira`,
  * e a lápide da Pasta inteira não ganha botão de escrita.
+ *
+ * Desde 03/11/2026 o modal da lixeira mora em `pasta-lixeira.js` (a Lixeira do Expediente abre o mesmo):
+ * o que é do modal se lê de lá (`lix()`/`funcaoLix()`); o que é da aba (rotas do #pexDados, rótulo,
+ * foco de volta, recarregar ao fechar) continua no explorador.
  */
 final class PastaExploradorLixeiraTest extends TestCase
 {
@@ -23,16 +27,28 @@ final class PastaExploradorLixeiraTest extends TestCase
 
     private const JS  = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS = __DIR__ . '/../../../public/css/pasta-explorador.css';
+    private const LIX = __DIR__ . '/../../../public/js/pasta-lixeira.js';
 
     private function js(): string
     {
         return (string) file_get_contents(self::JS);
     }
 
-    /** O corpo de `function $nome(…) {` até o fechamento no mesmo recuo de 4 espaços. */
-    private function funcao(string $nome): string
+    private function lix(): string
     {
-        $js  = $this->js();
+        return (string) file_get_contents(self::LIX);
+    }
+
+    /** `funcao()` no pasta-lixeira.js (o modal). */
+    private function funcaoLix(string $nome): string
+    {
+        return $this->funcao($nome, $this->lix());
+    }
+
+    /** O corpo de `function $nome(…) {` até o fechamento no mesmo recuo de 4 espaços. */
+    private function funcao(string $nome, ?string $js = null): string
+    {
+        $js ??= $this->js();
         $ini = strpos($js, '    function ' . $nome . '(');
         self::assertNotFalse($ini, "função {$nome} não encontrada");
         $fim = strpos($js, "\n    }", $ini);
@@ -112,10 +128,12 @@ final class PastaExploradorLixeiraTest extends TestCase
     public function testModalDaLixeira(): void
     {
         $js    = $this->js();
-        $modal = $this->funcao('montarModalDaLixeira');
+        $modal = $this->funcaoLix('montarModalDaLixeira');
 
-        self::assertStringNotContainsString('innerHTML', $js);
-        self::assertStringNotContainsString('insertAdjacentHTML', $js);
+        foreach ([$js, $this->lix()] as $fonte) {
+            self::assertStringNotContainsString('innerHTML', $fonte);
+            self::assertStringNotContainsString('insertAdjacentHTML', $fonte);
+        }
         self::assertStringContainsString('document.body.appendChild(raizModal);', $modal, 'fora do painel animado da aba');
         self::assertStringContainsString("class: 'modal fade pex-modal pex-lix'", $modal);
         // Sem purga automática (D-DOC-RET, 07/10): a tela não pode prometer prazo nem apagamento de vez.
@@ -123,7 +141,7 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringNotContainsString('DIAS_NA_LIXEIRA', $js);
         self::assertDoesNotMatchRegularExpression('/\\d+ dias na lixeira|apagados de vez\\./', $js);
         // A linha: nome por `text` (textContent), excluído em/por e caminho original.
-        $linha = $this->funcao('linhaDaLixeira');
+        $linha = $this->funcaoLix('linhaDaLixeira');
         self::assertStringContainsString("h('span', { class: 'pex-lix-nome', id: nomeId, text: it.nome, title: it.nome })", $linha);
         self::assertStringContainsString("const excluido = dataExclusao ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_em', { data: dataExclusao }) : BJ_T.t('pasta_scripts.js.explorador.lix_excluido_sem_data');", $linha);
         self::assertStringContainsString("const quando = it.excluidoPor && it.excluidoPor.nome ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_por', { quando: excluido, nome: it.excluidoPor.nome }) : excluido;", $linha);
@@ -134,16 +152,24 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertTextoDoScript('Local original: {local}', 'explorador.lix_local_original', $linha);
         self::assertTextoDoScript('Raiz', 'explorador.raiz', $linha);
         // Restaurar (um ou selecionados) pelo MESMO token do lote; a lista é relida depois.
-        $restaurar = $this->funcao('restaurarDaLixeira');
+        $restaurar = $this->funcaoLix('restaurarDaLixeira');
         self::assertStringContainsString('postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes })', $restaurar);
         self::assertStringContainsString('lixeiraRestaurou = true;', $restaurar);
         self::assertStringContainsString('return lerLixeira()', $restaurar);
-        self::assertStringContainsString("fetch(cfg.urlLixeira, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })", $this->funcao('lerLixeira'));
+        self::assertStringContainsString("fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })", $this->funcaoLix('ler'));
+        self::assertStringContainsString('return ler(cfg.urlLixeira)', $this->funcaoLix('lerLixeira'));
         // Fechar depois de restaurar recarrega a lista (a lixeira não traz URL nem token dos itens).
-        self::assertStringContainsString("if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos(", $modal);
+        self::assertStringContainsString('if (typeof cfg.aoFechar === \'function\') cfg.aoFechar(restaurou);', $modal);
+        self::assertStringContainsString("if (restaurou) { recarregarDocumentos(", $this->funcao('aoFecharLixeira'));
         // Foco: volta a quem abriu (Organizar → o botão; menu de contexto → a lista).
         self::assertStringContainsString('lixeiraFocoDeVolta = el.menuOrganizar && el.menuOrganizar.contains(ativo) ? el.btnOrganizar', $this->funcao('abrirLixeira'));
-        self::assertStringContainsString("if (volta && volta.isConnected && typeof volta.focus === 'function') volta.focus({ preventScroll: true });", $modal);
+        self::assertStringContainsString("if (volta && volta.isConnected && typeof volta.focus === 'function') volta.focus({ preventScroll: true });", $this->funcao('aoFecharLixeira'));
+        // A aba passa ao modal as rotas e o token do #pexDados.
+        $abrir = $this->funcao('abrirLixeira');
+        self::assertStringContainsString('window.BJ_LixeiraDaPasta.abrir({', $abrir);
+        foreach (['urlLixeira:      cfg.urlLixeira,', 'urlRestaurar:    cfg.urlRestaurar,', 'urlExcluirDeVez: cfg.urlExcluirDeVez,', 'csrfLote:        cfg.csrfLote,', 'pastaExcluida:   cfg.pastaExcluida,'] as $par) {
+            self::assertStringContainsString($par, $abrir);
+        }
         // Acesso: menu do fundo e Organizar.
         self::assertStringContainsString("op(rotuloLixeira(), 'bi-trash3', abrirLixeira),", $this->funcao('opcoesDoMenu'));
         self::assertStringContainsString("el.btnLixeira.addEventListener('click', abrirLixeira);", $js);
@@ -152,17 +178,17 @@ final class PastaExploradorLixeiraTest extends TestCase
     #[TestDox('lixeira: o excluído dentro de pasta também na lixeira fica agrupado embaixo dela (paiNaLixeira/secaoNaLixeira), com guarda de ciclo')]
     public function testAgrupamento(): void
     {
-        $arvore = $this->funcao('arvoreDaLixeira');
+        $arvore = $this->funcaoLix('arvoreDaLixeira');
         self::assertStringContainsString("? (it.paiNaLixeira && it.paiId != null ? Number(it.paiId) : null)", $arvore);
         self::assertStringContainsString(": (it.secaoNaLixeira && it.secaoId != null ? Number(it.secaoId) : null);", $arvore);
         self::assertStringContainsString('if (pai != null && pastasNaLista[pai]', $arvore, 'só agrupa quando o pai ESTÁ na lista');
 
-        $render = $this->funcao('renderizarLixeira');
+        $render = $this->funcaoLix('renderizarLixeira');
         self::assertStringContainsString('if (vistos[chave] || nivel > 50) return;', $render);
         self::assertStringContainsString('montar(f, nivel + 1, it)', $render);
         self::assertStringContainsString("m.lista.textContent = '';", $render);
 
-        $linha = $this->funcao('linhaDaLixeira');
+        $linha = $this->funcaoLix('linhaDaLixeira');
         self::assertStringContainsString("const junto = !!pai && pai.excluidoEm != null && pai.excluidoEm === it.excluidoEm;", $linha);
         self::assertTextoDoScript('Excluído junto com a pasta "{nome}"', 'explorador.lix_junto_com', $linha);
     }
@@ -170,12 +196,14 @@ final class PastaExploradorLixeiraTest extends TestCase
     #[TestDox('lápide da Pasta inteira: sem caixa de marcar, sem Restaurar e sem Desfazer')]
     public function testPastaExcluidaSemEscrita(): void
     {
-        self::assertStringContainsString('function podeEscreverNaLixeira() { return !cfg.pastaExcluida && !!cfg.urlRestaurar && !!cfg.csrfLote; }', $this->js());
-        $linha = $this->funcao('linhaDaLixeira');
+        self::assertStringContainsString('function podeEscreverNaLixeira() { return !cfg.pastaExcluida && !!cfg.urlRestaurar && !!cfg.csrfLote; }', $this->lix());
+        $linha = $this->funcaoLix('linhaDaLixeira');
         self::assertStringContainsString("escrever ? h('input', { type: 'checkbox'", $linha);
         self::assertStringContainsString("escrever ? h('button', {", $linha);
-        self::assertStringContainsString('if (!chaves.length || lixeiraOcupada || !podeEscreverNaLixeira()) return;', $this->funcao('restaurarDaLixeira'));
-        self::assertStringContainsString("hidden: !podeEscreverNaLixeira()", $this->funcao('montarModalDaLixeira'));
+        self::assertStringContainsString('if (!chaves.length || lixeiraOcupada || !podeEscreverNaLixeira()) return;', $this->funcaoLix('restaurarDaLixeira'));
+        self::assertStringContainsString("hidden: !podeEscreverNaLixeira()", $this->funcaoLix('montarModalDaLixeira'));
+        self::assertStringContainsString('m.restaurarSel.hidden = !podeEscreverNaLixeira();', $this->funcaoLix('abrir'), 'a cada abertura (o modal serve a várias pastas no Expediente)');
+        self::assertStringContainsString('m.somenteVer.hidden = !cfg.pastaExcluida;', $this->funcaoLix('abrir'));
         self::assertStringContainsString('cfg.pastaExcluida ||', $this->funcao('desfazerDe'));
     }
 
@@ -184,35 +212,34 @@ final class PastaExploradorLixeiraTest extends TestCase
     {
         $js = $this->js();
         self::assertStringContainsString("urlExcluirDeVez:     dados.urlExcluirDeVez || '',", $js);
-        self::assertStringContainsString('function podeExcluirDeVez() { return podeEscreverNaLixeira() && !!cfg.urlExcluirDeVez; }', $js);
+        self::assertStringContainsString('function podeExcluirDeVez() { return podeEscreverNaLixeira() && !!cfg.urlExcluirDeVez; }', $this->lix());
 
         // Linha: o botão só nasce quando pode escrever na lixeira (lápide e leitor ficam sem ele).
-        $linha = $this->funcao('linhaDaLixeira');
+        $linha = $this->funcaoLix('linhaDaLixeira');
         self::assertStringContainsString("escrever && podeExcluirDeVez() ? h('button', {", $linha);
         self::assertStringContainsString("'data-pex-lix-excluir-de-vez': chave,", $linha);
         self::assertStringContainsString("icone('bi-x-octagon')", $linha);
         self::assertTextoDoScript('Excluir de vez', 'explorador.lix_excluir_de_vez', $linha);
 
         // Rodapé: escondido sem permissão; o rótulo conta os selecionados.
-        $modal = $this->funcao('montarModalDaLixeira');
+        $modal = $this->funcaoLix('montarModalDaLixeira');
         self::assertStringContainsString("id: 'pexLixeiraExcluirDeVezSel', disabled: true, hidden: !podeExcluirDeVez() }", $modal);
         self::assertStringContainsString("h('div', { class: 'modal-footer' }, [fechar, excluirSel, restaurarSel]),", $modal);
         self::assertStringContainsString('excluirDeVezDaLixeira(Array.from(lixeiraMarcados));', $modal);
         self::assertStringContainsString('excluirDeVezDaLixeira([x.dataset.pexLixExcluirDeVez]);', $modal);
         self::assertTextoDoScript('Excluir de vez os selecionados', 'explorador.lix_excluir_de_vez_sel', $modal);
-        $botoes = $this->funcao('atualizarBotaoRestaurarSelecionados');
+        $botoes = $this->funcaoLix('atualizarBotaoRestaurarSelecionados');
         self::assertStringContainsString('x.disabled = lixeiraOcupada || n === 0 || !podeExcluirDeVez();', $botoes);
         self::assertTextoDoScript('Excluir de vez os selecionados ({n})', 'explorador.lix_excluir_de_vez_sel_n', $botoes);
 
         // A ação: guarda de permissão, confirmação ANTES do pedido, mesmo token, relê a lista.
-        $excluir = $this->funcao('excluirDeVezDaLixeira');
+        $excluir = $this->funcaoLix('excluirDeVezDaLixeira');
         self::assertStringContainsString('if (!chaves.length || lixeiraOcupada || !podeExcluirDeVez()) return;', $excluir);
         self::assertStringContainsString('window.confirmarUIPs ? window.confirmarUIPs(pergunta, true) : Promise.resolve(confirm(pergunta))', $excluir);
         self::assertStringContainsString('if (sim) excluirDeVezConfirmado();', $excluir);
         self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'window.confirmarUIPs(pergunta, true)'));
         self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'function excluirDeVezConfirmado() {'));
         self::assertStringContainsString('postJson(cfg.urlExcluirDeVez, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes })', $excluir);
-        self::assertStringContainsString('invalidarContagemDaLixeira();', $excluir);
         self::assertStringContainsString('return lerLixeira()', $excluir);
         self::assertTextoDoScript('Excluir de vez {n} item(ns)? Eles saem do sistema e não podem ser restaurados.', 'explorador.lix_confirmar_excluir_de_vez', $excluir);
         self::assertTextoDoScript('1 item excluído de vez', 'explorador.lix_excluido_de_vez_um', $excluir);
@@ -223,5 +250,17 @@ final class PastaExploradorLixeiraTest extends TestCase
         $css = (string) file_get_contents(self::CSS);
         self::assertMatchesRegularExpression('/\.pex-lix-excluir-de-vez \{[^}]*border: 1px solid #f0c9cd;[^}]*background: #fff;[^}]*color: #a3232b;/', $css);
         self::assertMatchesRegularExpression('/\.pex-lix-excluir-de-vez:hover,\s*\.pex-lix-excluir-de-vez:focus-visible \{[^}]*background: #fdecee;/', $css);
+    }
+
+    #[TestDox('abrir da lixeira: o arquivo (não a pasta) abre numa aba nova pela rota urlLixeira/<id>, pelo nome e pelo botão Abrir, sem restaurar')]
+    public function testAbrirArquivoDaLixeira(): void
+    {
+        self::assertStringContainsString("function urlParaAbrir(it) { return String(cfg.urlLixeira).replace(/\\/+$/, '') + '/' + Number(it.id); }", $this->lix());
+        $linha = $this->funcaoLix('linhaDaLixeira');
+        self::assertStringContainsString("h('a', { class: 'pex-lix-nome pex-lix-nome--link', id: nomeId, href: urlParaAbrir(it), target: '_blank', rel: 'noopener', text: it.nome,", $linha);
+        self::assertStringContainsString("ehPasta ? null : h('a', {", $linha, 'pasta não abre');
+        self::assertStringContainsString("class: 'btn btn-sm btn-outline-secondary pex-lix-abrir',", $linha);
+        self::assertTextoDoScript('Abrir', 'explorador.lix_abrir', $linha);
+        self::assertTextoDoScript('Abrir "{nome}" numa aba nova, só para ver (continua na lixeira)', 'explorador.lix_abrir_titulo', $linha);
     }
 }

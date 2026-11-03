@@ -237,6 +237,8 @@ pasta_scripts:
             lix_volta_raiz: 'Sozinho, volta para a raiz da pasta: a pasta de origem está na lixeira'
             lix_volta_para: 'Volta para: {local}'
             lix_restaurar: Restaurar
+            lix_abrir: Abrir
+            lix_abrir_titulo: 'Abrir "{nome}" numa aba nova, só para ver (continua na lixeira)'
             lix_restaurado_um: 1 item restaurado
             lix_restaurados_varios: '{n} itens restaurados'
             lix_restaurado_na_raiz: '{texto} ({n} na raiz da pasta: a pasta de origem continua na lixeira)'

@@ -4909,6 +4909,10 @@ document.addEventListener('DOMContentLoaded', function () {
 {% block javascripts %}
 {{ parent() }}
 {# Explorador de documentos (aba Documentos): lê #pexDados e renderiza só o nível aberto. #}
+{# O tipo do arquivo e o modal da lixeira moram em arquivos próprios (03/11/2026): a Lixeira do Expediente
+   abre o mesmo modal. Vêm antes do explorador, que os usa. #}
+<script src="/js/pasta-tipos-de-arquivo.js"></script>
+<script src="/js/pasta-lixeira.js"></script>
 <script src="/js/pasta-explorador.js"></script>
 {# Indicador das abas, drawer do histórico e popovers do cabeçalho redesenhado. #}
 <script src="/js/pasta-show.js"></script>

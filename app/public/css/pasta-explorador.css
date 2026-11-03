@@ -1612,6 +1612,11 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 .pex-lix-nome { font-size: 13px; font-weight: 600; color: var(--bs-body-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pex-lix-sub { font-size: 11.5px; color: var(--bs-secondary-color); overflow-wrap: anywhere; }
 .pex-lix-restaurar { flex-shrink: 0; white-space: nowrap; }
+/* Abrir o arquivo excluído numa aba nova (03/11/2026): o nome vira link e há o botão "Abrir" antes do Restaurar. */
+a.pex-lix-nome--link { text-decoration: none; }
+a.pex-lix-nome--link:hover,
+a.pex-lix-nome--link:focus-visible { text-decoration: underline; color: var(--bs-link-color); }
+.pex-lix-abrir { flex-shrink: 0; white-space: nowrap; }
 /* "Excluir de vez" (03/11/2026): as cores do "Excluir definitivamente" da lixeira do chat
    (desenho 06 - Trabalho Externo, :596): texto #a3232b, borda #f0c9cd, fundo branco; no hover,
    fundo #fdecee. O tamanho segue o do Restaurar ao lado (btn-sm na linha, btn no rodapé). */
@@ -1624,6 +1629,8 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 @media (max-width: 575.98px) {
     .pex-lix-item { flex-wrap: wrap; padding-left: calc(6px + var(--pex-lix-nivel, 0) * 12px); }
     .pex-lix-txt { flex-basis: calc(100% - 56px); }
+    .pex-lix-abrir { margin-left: 46px; }
+    .pex-lix-abrir + .pex-lix-restaurar { margin-left: 0; }
     .pex-lix-restaurar { margin-left: 46px; }
     .pex-lix .modal-footer { flex-wrap: wrap; }
 }

@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class ArquivoIconePadraoFolhaTest extends TestCase
 {
-    private const EXPLORADOR_JS  = __DIR__ . '/../../../public/js/pasta-explorador.js';
+    private const EXPLORADOR_JS  = __DIR__ . '/../../../public/js/pasta-tipos-de-arquivo.js';
     private const EXPLORADOR_CSS = __DIR__ . '/../../../public/css/pasta-explorador.css';
     private const PASTA_CSS      = __DIR__ . '/../../../public/css/pasta-show.css';
 

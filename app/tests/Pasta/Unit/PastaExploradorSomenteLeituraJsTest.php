@@ -111,7 +111,7 @@ final class PastaExploradorSomenteLeituraJsTest extends TestCase
     private const FUNCOES_DE_ESCRITA = [
         'excluirItens', 'iniciarRenomear', 'salvarRenomear', 'recortar', 'copiar', 'colarEm', 'colarAqui',
         'moverLote', 'copiarLote', 'escolherDestino', 'novaPastaInline', 'criarPasta', 'abrirEditar',
-        'enviarArquivos', 'restaurarDaLixeira',
+        'enviarArquivos',
     ];
 
     /**
