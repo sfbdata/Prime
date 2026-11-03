@@ -1,0 +1,51 @@
+{# Prévia aproximada de um artigo dos blogs (spec docs/specs/painel-artigos-blogs.md, seção 2.2 e D8): mostra a última
+   versão salva com um estilo parecido com o do blog. A prévia real, gerada pelo próprio Astro, chega na fatia P6.
+   Página própria, sem a moldura do sistema, aberta em outra aba pelo editor (ROLE_SUPER_ADMIN no controller).
+   `corpo` já vem limpo pela lista branca do servidor (HtmlDoArtigoParaMarkdown::sanitizar): é a única variável com
+   |raw. Os blocos data-bj ganham só um estilo aproximado; no site eles viram os componentes do blog. #}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Prévia: {{ artigo.titulo ?: artigo.slug }}</title>
+<style>
+body { margin: 0; background: #fff; color: #1d2b36; font-family: Georgia, "Times New Roman", serif; }
+.pv-faixa { background: #fff6dc; color: #8a6200; border-bottom: 1px solid #f0dba3; padding: 10px 16px; font: 13px Arial, Helvetica, sans-serif; text-align: center; }
+.pv { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+.pv-cat { font: bold 12px Arial, Helvetica, sans-serif; letter-spacing: .8px; text-transform: uppercase; color: #0a6fa0; }
+.pv h1 { font-family: Arial, Helvetica, sans-serif; font-size: 36px; line-height: 1.2; margin: 10px 0 12px; }
+.pv-linha-fina { font-size: 20px; line-height: 1.5; color: #4a6373; margin: 0 0 18px; }
+.pv-meta { font: 13px Arial, Helvetica, sans-serif; color: #5b7383; padding-bottom: 18px; border-bottom: 1px solid #e6edf2; margin-bottom: 26px; }
+.pv-corpo { font-size: 18px; line-height: 1.7; }
+.pv-corpo h2 { font-family: Arial, Helvetica, sans-serif; font-size: 26px; margin: 1.6em 0 .5em; }
+.pv-corpo h3 { font-family: Arial, Helvetica, sans-serif; font-size: 20px; margin: 1.3em 0 .4em; }
+.pv-corpo a { color: #0a6fa0; }
+.pv-corpo blockquote { margin: 1.2em 0; padding: .2em 1.2em; border-left: 4px solid #c5d2db; color: #4a6373; }
+.pv-corpo img { max-width: 100%; height: auto; }
+.pv-corpo [data-bj] { margin: 1.4em 0; padding: 16px 20px; border-radius: 6px; background: #f5f8fa; border: 1px solid #e6edf2; font-family: Arial, Helvetica, sans-serif; font-size: 16px; }
+.pv-corpo [data-bj="aviso"] { background: #fff6dc; border-color: #f0dba3; }
+.pv-corpo [data-bj="cta-meio"]::before { content: "Chamada para criar conta no BlueJus"; font-weight: bold; color: #0a6fa0; }
+.pv-corpo [data-bj="cta-meio"] { background: #e5f1f7; border-color: #bcdcec; text-align: center; }
+.pv-corpo [data-bj="leia-tambem"]::before { content: "Leia também: " attr(data-artigo); color: #0a6fa0; font-weight: bold; }
+.pv-corpo [data-bj="checklist"] ul { list-style: none; padding-left: 4px; }
+.pv-corpo [data-bj="checklist"] li::before { content: "\2713"; color: #1e7b45; font-weight: bold; margin-right: 8px; }
+.pv-vazio { color: #7a8e9b; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="pv-faixa">Prévia aproximada da última versão salva. No site, o artigo usa o visual completo do blog.</div>
+<article class="pv">
+    {% if categoria %}<div class="pv-cat">{{ categoria }}</div>{% endif %}
+    <h1>{{ artigo.titulo ?: 'Sem título' }}</h1>
+    {% if artigo.linhaFina %}<p class="pv-linha-fina">{{ artigo.linhaFina }}</p>{% endif %}
+    <div class="pv-meta">
+        {{ autor ?: 'Sem autor' }}{% if artigo.revisorNome %} · Revisão jurídica: {{ artigo.revisorNome }}{% if artigo.revisorOab %} ({{ artigo.revisorOab }}){% endif %}{% endif %}{% if artigo.leitura %} · Leitura de {{ artigo.leitura }}{% endif %}
+    </div>
+    <div class="pv-corpo">
+        {% if corpo %}{{ corpo|raw }}{% else %}<p class="pv-vazio">O texto do artigo ainda está vazio.</p>{% endif %}
+    </div>
+</article>
+</body>
+</html>

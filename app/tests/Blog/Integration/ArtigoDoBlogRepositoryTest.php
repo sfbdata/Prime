@@ -93,6 +93,91 @@ final class ArtigoDoBlogRepositoryTest extends KernelTestCase
         self::assertCount(3, $pagina2);
     }
 
+    /** @param list<string> $marcadores */
+    private function comMarcadores(string $slug, array $marcadores): ArtigoDoBlog
+    {
+        $artigo = $this->artigo($slug, $slug, BlogsDoArtigo::Normal, '2026-11-01');
+        $artigo->definirMarcadores($marcadores);
+
+        return $artigo;
+    }
+
+    /** O banco de teste pode ter artigos de outra frente: começa do zero (DAMA desfaz). */
+    private function semArtigos(): void
+    {
+        $this->em()->getConnection()->executeStatement('DELETE FROM artigo_blog');
+    }
+
+    #[TestDox('Marcadores usados: grafias do mesmo slug somam, fica a mais usada, mais usados primeiro e empate em ordem alfabética')]
+    public function testMarcadoresUsados(): void
+    {
+        $this->semArtigos();
+        $this->comMarcadores('a1', ['Prazos', 'Recesso', 'Agenda']);
+        $this->comMarcadores('a2', ['prazos', 'Recesso', 'Bloco', 'Petição inicial']);
+        $this->comMarcadores('a3', ['Prazos', 'Petição inicial']);
+        $this->comMarcadores('a4', ['PETICAO INICIAL', 'Prazos']);
+        $this->comMarcadores('a5', []);
+        $this->comMarcadores('a6', ['Ética', 'Zebra']);
+        $this->em()->flush();
+
+        self::assertSame([
+            ['marcador' => 'Prazos', 'usos' => 4],
+            ['marcador' => 'Petição inicial', 'usos' => 3],
+            ['marcador' => 'Recesso', 'usos' => 2],
+            ['marcador' => 'Agenda', 'usos' => 1],
+            ['marcador' => 'Bloco', 'usos' => 1],
+            ['marcador' => 'Ética', 'usos' => 1],
+            ['marcador' => 'Zebra', 'usos' => 1],
+        ], $this->artigos->marcadoresUsados(null));
+    }
+
+    #[TestDox('Marcadores usados: busca sem diferenciar maiúsculas, % é texto, e no máximo 10')]
+    public function testMarcadoresUsadosBuscaELimite(): void
+    {
+        $this->semArtigos();
+        $this->comMarcadores('b1', ['Prazo em dobro', 'Recesso', '100% online']);
+        $this->comMarcadores('b2', ['Contagem de prazo']);
+        $this->comMarcadores('b3', array_map(static fn (int $n): string => 'Tema ' . $n, range(1, 8)));
+        $this->comMarcadores('b4', ['Tema 9', 'Tema 10', 'Tema 11', 'Tema 12']);
+        $this->em()->flush();
+
+        self::assertSame(
+            [['marcador' => 'Contagem de prazo', 'usos' => 1], ['marcador' => 'Prazo em dobro', 'usos' => 1]],
+            $this->artigos->marcadoresUsados('PRAZO'),
+        );
+        self::assertSame([['marcador' => '100% online', 'usos' => 1]], $this->artigos->marcadoresUsados('%'));
+        self::assertSame([['marcador' => 'Recesso', 'usos' => 1]], $this->artigos->marcadoresUsados('récesso'));
+        self::assertSame([], $this->artigos->marcadoresUsados('nada-assim'));
+        self::assertCount(10, $this->artigos->marcadoresUsados(null));
+        self::assertCount(10, $this->artigos->marcadoresUsados('  tema '));
+        self::assertCount(3, $this->artigos->marcadoresUsados('tema', 3));
+    }
+
+    #[TestDox('Títulos por slug: só os que existem; lista vazia não consulta')]
+    public function testTitulosPorSlug(): void
+    {
+        $this->tres();
+
+        self::assertSame(
+            ['controle-de-prazos' => 'Controle de Prazos', 'prazo-em-dobro' => 'Prazo em dobro 100%'],
+            $this->sortear($this->artigos->titulosPorSlug(['prazo-em-dobro', 'nao-existe', 'controle-de-prazos'])),
+        );
+        self::assertSame([], $this->artigos->titulosPorSlug([]));
+        self::assertSame([], $this->artigos->titulosPorSlug(['nao-existe']));
+    }
+
+    /**
+     * @param array<string, string> $mapa
+     *
+     * @return array<string, string>
+     */
+    private function sortear(array $mapa): array
+    {
+        ksort($mapa);
+
+        return $mapa;
+    }
+
     #[TestDox('Imagens do artigo: mapa id => extensão, e somem junto com o artigo (ON DELETE CASCADE)')]
     public function testImagensEmCascata(): void
     {

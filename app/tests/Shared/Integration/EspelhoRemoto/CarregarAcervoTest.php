@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Integration\EspelhoRemoto;
 
+use App\Tests\Factory\Tenant\TenantFactory;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
@@ -129,6 +130,38 @@ final class CarregarAcervoTest extends KernelTestCase
         self::assertSame(0, $relatorio->quantos(ClasseDeReconciliacao::AUSENTE_NO_ESPELHO));
     }
 
+    #[TestDox('--do-disco: as imagens do editor sem tabela no banco entram pela listagem do disco de cada escritório; rodar de novo não duplica')]
+    public function testCargaPeloDisco(): void
+    {
+        $tenantId = (int) TenantFactory::createOne()->_real()->getId();
+        foreach (['a.png', 'b.png'] as $nome) {
+            $this->local->gravar(new ChaveDeArquivo(EscopoDeArquivo::deTenant($tenantId), CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, $nome), FonteDeConteudo::deTexto($nome));
+        }
+        // Documento da pasta, na raiz compartilhada: não é imagem do editor e não entra.
+        $this->local->gravar(new ChaveDeArquivo(EscopoDeArquivo::deTenant($tenantId), CategoriaDeArquivo::PASTA_DOCUMENTO, 'rg.pdf'), FonteDeConteudo::deTexto('rg'));
+
+        $tester = $this->comando('pasta_imagem_editor');
+        self::assertSame(Command::SUCCESS, $tester->execute(['--categoria' => 'pasta_imagem_editor', '--do-disco' => true, '--simular' => true]));
+        self::assertSame(0, $this->linhas(), 'simular não grava');
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['--categoria' => 'pasta_imagem_editor', '--do-disco' => true]));
+        self::assertStringContainsString('enfileiradas 2', preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '');
+        self::assertSame(['pasta_imagem_editor'], $this->conexao->fetchFirstColumn('SELECT DISTINCT categoria FROM armazenamento_replicacao'));
+        self::assertSame([(string) $tenantId], array_map('strval', $this->conexao->fetchFirstColumn('SELECT DISTINCT escopo_tenant_id FROM armazenamento_replicacao')));
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['--categoria' => 'pasta_imagem_editor', '--do-disco' => true]));
+        self::assertSame(2, $this->linhas(), 'idempotente');
+    }
+
+    #[TestDox('--do-disco recusa categoria de pasta compartilhada entre escritórios')]
+    public function testCargaPeloDiscoRecusaPastaCompartilhada(): void
+    {
+        $this->foto('x.jpg');
+
+        self::assertSame(Command::INVALID, $this->comando('foto_perfil')->execute(['--categoria' => 'foto_perfil', '--do-disco' => true]));
+        self::assertSame(0, $this->linhas());
+    }
+
     private function foto(string $nome): ChaveDeArquivo
     {
         $chave = $this->chaveDeFoto($nome);
@@ -150,7 +183,7 @@ final class CarregarAcervoTest extends KernelTestCase
 
     private function comando(string $ligadas): CommandTester
     {
-        return new CommandTester(new CarregarAcervoCommand($this->carregador(), new PoliticaDeEspelhamento($ligadas)));
+        return new CommandTester(new CarregarAcervoCommand($this->carregador(), new PoliticaDeEspelhamento($ligadas), $this->conexao));
     }
 
     private function carregador(): CarregadorDoAcervo

@@ -18,7 +18,10 @@ namespace App\Pasta\UseCase;
  *    caminho que não vira chave (SEC-007);
  *  - `documentosPulados`: documentos vencidos da fila que NÃO saíram pelo mesmo motivo. Nenhum
  *    pulado ocupa vaga do `--limite` (SEC-007b);
- *  - `simulacao`: `--dry-run` — nada saiu do banco nem do disco.
+ *  - `simulacao`: `--dry-run` — nada saiu do banco nem do disco;
+ *  - `nadaVenceAntesDe`: preenchido quando a execução caiu no prazo do deploy (a contagem dos 30
+ *    dias começou em `lixeira_purga_inicio`): nada foi lido nem apagado, e esta é a primeira data
+ *    em que algo pode vencer.
  */
 final readonly class ResultadoPurgaDaLixeira
 {
@@ -34,6 +37,7 @@ final readonly class ResultadoPurgaDaLixeira
         public array $arquivosNaoRemovidos,
         public int $secoesPuladas = 0,
         public int $documentosPulados = 0,
+        public ?\DateTimeImmutable $nadaVenceAntesDe = null,
     ) {
     }
 }

@@ -342,6 +342,12 @@ services:
     App\Shared\EspelhoRemoto\Acervo\CarregadorDoAcervo:
         arguments:
             $local: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+    # O cálculo de hash e de páginas MEDE o disco: pelo decorador, um arquivo que saiu do disco seria
+    # baixado do R2 para o cache, um por um, no acervo inteiro (§5.0, condição 3).
+    App\Pasta\Command\CalcularHashDosDocumentosCommand:
+        arguments:
+            $armazenamento: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+            $materializador: '@App\Shared\Armazenamento\ArmazenamentoLocal'
     App\Shared\Armazenamento\ArmazenamentoDeArquivos: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\MaterializadorDeArquivo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\ArmazenamentoComPrefixo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'

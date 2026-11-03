@@ -50,6 +50,9 @@ final class ValidadorDoArtigo
         $this->exigirAltDaImagem($artigo);
         $this->exigirReferencias($artigo->getReferencias());
         $this->exigirRelacionados($artigo, $slugsExistentes);
+        foreach (Marcadores::erros($artigo->getMarcadores()) as $mensagem) {
+            $this->erro('marcadores', $mensagem);
+        }
         if ($artigo->getPublicarEm() === null && $artigo->getPublicadoEm() === null) {
             $this->erro('publicarEm', 'Informe a data de publicação.');
         }
@@ -114,6 +117,10 @@ final class ValidadorDoArtigo
     {
         if ($artigo->getImagemChave() !== null && $artigo->getImagemAlt() === null) {
             $this->erro('imagemAlt', 'A imagem de compartilhamento precisa do texto alternativo.');
+        }
+        // Imagem do corpo sai como `![alt](./imagens/...)`: alt vazio é imagem que o leitor de tela não descreve.
+        if (preg_match('/!\[\]\(/', $artigo->getCorpoMarkdown()) === 1) {
+            $this->erro('corpo', 'Toda imagem do texto precisa do texto alternativo (clique na imagem e use o botão de imagem).');
         }
     }
 

@@ -59,6 +59,10 @@ enum CategoriaDeArquivo: string
     // de pasta; o escopo é o escritório dono da conversa (`ChavesDeChatIa::anexo`) e a purga a leva pelos registros de
     // `chat_ia_anexo`.
     case CHAT_IA_ANEXO = 'chat_ia_anexo';
+    // As imagens do corpo e da capa dos artigos dos blogs (spec painel-artigos-blogs.md, seção 4). Escopo GLOBAL: é
+    // conteúdo da plataforma (só o Master envia), não de um escritório, e a purga de escritório não as leva. Plana,
+    // numa subpasta da raiz dos documentos de pasta (`ChavesDoBlog`).
+    case BLOG_IMAGEM = 'blog_imagem';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

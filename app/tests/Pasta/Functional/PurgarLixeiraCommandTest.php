@@ -10,6 +10,7 @@ use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Armazenamento\ReferenciasDeArquivoDaPasta;
 use App\Pasta\Command\PurgarLixeiraCommand;
 use App\Pasta\Entity\ArquivoArmazenado;
+use App\Pasta\Entity\InicioDaPurgaDaLixeira;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
@@ -86,6 +87,45 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         $this->pasta->setTenant($this->tenant);
         $this->em->persist($this->pasta);
         $this->em->flush();
+
+        // A migration grava o início da contagem com a hora em que rodou; os testes da regra de
+        // sempre partem sem ele (o DAMA desfaz no fim). Os do prazo do deploy gravam o próprio.
+        $this->em->getConnection()->executeStatement('DELETE FROM lixeira_purga_inicio');
+    }
+
+    #[TestDox('prazo do deploy: o que já estava na lixeira ganha 30 dias contados do início; antes disso nada sai')]
+    public function testDentroDoPrazoDoDeployNadaSai(): void
+    {
+        $this->inicioDaContagem(haDias: 10);
+        $antigo = $this->documento('antigo.pdf', naLixeiraHa: 45);
+        $this->em->clear();
+
+        $tester = $this->tester();
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('nada vence antes de ' . $this->haDias(10)->modify('+30 days')->format('d/m/Y H:i'), $this->saida($tester));
+        self::assertStringContainsString('modo=purga dias=30 aguardando_ate=', $this->saida($tester));
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $antigo->getId()));
+        self::assertTrue($this->memoria->existe($this->chaveDe($antigo)));
+        self::assertSame([], $this->memoria->excluidas);
+    }
+
+    #[TestDox('prazo do deploy vencido: o antigo sai, o excluído há menos de 30 dias fica (regra de sempre)')]
+    public function testDepoisDoPrazoDoDeployARegraDeSempreVale(): void
+    {
+        $this->inicioDaContagem(haDias: 31);
+        $antigo  = $this->documento('antigo.pdf', naLixeiraHa: 60);
+        $recente = $this->documento('recente.pdf', naLixeiraHa: 29);
+        $this->em->clear();
+
+        $tester = $this->tester();
+        $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('documentos_removidos=1', $this->saida($tester));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $antigo->getId()));
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $recente->getId()));
     }
 
     #[TestDox('--dry-run conta o que sairia e não apaga nada — nem linha, nem arquivo')]
@@ -687,6 +727,12 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         $this->em->flush();
 
         return $secao;
+    }
+
+    private function inicioDaContagem(int $haDias): void
+    {
+        $this->em->persist(new InicioDaPurgaDaLixeira($this->haDias($haDias)));
+        $this->em->flush();
     }
 
     private function haDias(int $dias): \DateTimeImmutable

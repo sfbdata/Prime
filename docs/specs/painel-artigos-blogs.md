@@ -169,14 +169,19 @@ Testes de ida: um HTML de cada bloco vira exatamente o Markdown da tabela; um ar
 ## 4. Imagens (R2, skill `armazenamento-de-arquivos`)
 
 - Categoria nova `CategoriaDeArquivo::BLOG_IMAGEM = 'blog_imagem'`, escopo `EscopoDeArquivo::global()`
-  (sem escritório). Fábrica `App\Blog\Armazenamento\ChavesDoBlog::novaImagem(ImagemDoArtigo, ext)` e
-  `::imagem(ImagemDoArtigo)`.
+  (sem escritório). Fábrica `App\Blog\Armazenamento\ChavesDoBlog::novaImagem(ext)` (ajuste da P3: a
+  `ImagemDoArtigo` nasce com a chave, e o escopo global não tem dona a consultar) e `::imagem(ImagemDoArtigo)`.
+  Nasce **desligada** no espelho do R2: entra em `ARMAZENAMENTO_ESPELHO_CATEGORIAS` só quando o Samuel ligar, e
+  antes disso a fonte `artigo_blog_imagem` precisa entrar em `FontesDeReferencia` (carga do acervo).
 - Envio: `POST /master/blog/artigos/{id}/imagens` (o `images_upload_handler` do TinyMCE e o campo da capa).
-  `FonteDeUploadHttp::de()` (extensão pelo conteúdo), só `jpg`, `png`, `webp`, até 5 MB; grava pela chave,
-  mede largura/altura, e devolve `{id, url}`. Sem compressão no envio: o Astro otimiza no build.
+  `FonteDeUploadHttp::de()` (extensão pelo conteúdo), só `jpg`, `png`, `webp`, até 5 MB e até 10000 px de lado
+  (imagem gigante derruba o build); grava pela chave, mede largura/altura, e devolve `{id, url}`. Sem compressão no envio: o Astro otimiza no build.
 - Exibição no editor: `GET /master/blog/imagens/{id}` (Master), `EntregaDeArquivo::resposta(…, inline: true)`.
 - Exclusão: apagar a imagem ou o artigo remove o arquivo **depois do COMMIT** (`RemocaoAposTransacao`).
-  Imagem sem uso no corpo nem na capa é limpa ao salvar.
+  Imagem sem uso no corpo nem na capa é limpa ao salvar, **depois de 1 hora** de enviada (carência da P3: o
+  salvar que sai enquanto a capa sobe, ou numa segunda aba, não apaga a imagem recém-enviada).
+- Capa: `imagemChave` guarda o **id** da `ImagemDoArtigo` (ex.: `"12"`), não a chave do armazenamento; só vale
+  id de imagem do próprio artigo (422 no salvar). O pacote da P4 lê esse id para gerar `./imagens/{id}.{ext}`.
 - No build, a exportação copia cada imagem do R2 para `src/content/artigos/{slug}/imagens/` (ao lado do
   `.md`), onde o `image()` do zod e o `<Image>` do Astro já sabem tratar.
 
@@ -282,7 +287,8 @@ Todos os comandos vão em bloco "Execute manualmente" na fatia P4, com o passo a
 3. Conferir que `/opt/jusprime/sites-publicados/{site,blog,gratis}` existem (já existem desde o PR #580).
 4. Depois do merge da P4, rodar o deploy normal: ele sobe o contêiner `blog_builder` (o `up -d` cria o
    serviço novo).
-5. Rodar uma vez a importação dos artigos atuais (P2): `bin/console blog:importar-do-repositorio`.
+5. Rodar uma vez a importação dos artigos atuais (P2), com a raiz do repositório dos sites copiada para dentro do
+   contêiner: `bin/console blog:importar-do-repositorio <pasta-dos-sites> --simular` para conferir, depois sem `--simular`.
 
 Nada disso precisa ser repetido depois: publicar e agendar passam a ser cliques do Farlei.
 
