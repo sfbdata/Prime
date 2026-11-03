@@ -256,7 +256,12 @@
     --pex-ck-modelos-bd:  #eef2f5;
 
     --pex-fonte-num: Arial, Helvetica, sans-serif;
+}
 
+/* O cartão é só do `.pex`. O `.pex-lix` recebe só os tokens acima: ele está na raiz do modal da lixeira
+   (o `.modal` do Bootstrap ocupa a tela inteira), e o fundo branco do cartão ali escondia a página atrás
+   (03/11/2026). */
+.pex {
     background: var(--pex-card-bg);
     border: 1px solid var(--pex-card-bd);
     border-radius: 4px;

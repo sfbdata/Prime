@@ -263,4 +263,15 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertTextoDoScript('Abrir', 'explorador.lix_abrir', $linha);
         self::assertTextoDoScript('Abrir "{nome}" numa aba nova, só para ver (continua na lixeira)', 'explorador.lix_abrir_titulo', $linha);
     }
+
+    #[TestDox('o modal da lixeira não pinta a tela: o .pex-lix (raiz do .modal, tela inteira) recebe só os tokens, sem o fundo branco do cartão')]
+    public function testModalNaoEscondeAPaginaAtras(): void
+    {
+        $css = (string) file_get_contents(self::CSS);
+        self::assertSame(1, preg_match('/^\.pex-lix,\s*\.pex \{([^}]*)\}/m', $css, $m), 'o bloco de tokens do .pex-lix');
+        foreach (['background', 'border:', 'box-shadow', 'border-radius'] as $prop) {
+            self::assertStringNotContainsString($prop, preg_replace('/--[\w-]+:[^;]*;/', '', $m[1]) ?? '', "o .pex-lix não leva {$prop} do cartão");
+        }
+        self::assertMatchesRegularExpression('/^\.pex \{[^}]*background: var\(--pex-card-bg\);/m', $css, 'o cartão continua no .pex');
+    }
 }
