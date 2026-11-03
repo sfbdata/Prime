@@ -59,6 +59,9 @@ final class ExportadorDeArtigo
             'categoria' => $artigo->getCategoria(),
             'autor' => $artigo->getAutor(),
         ];
+        if ($artigo->getMarcadores() !== []) {
+            $dados['marcadores'] = $artigo->getMarcadores();
+        }
         if ($artigo->getRevisorNome() !== null && $artigo->getRevisorOab() !== null) {
             $dados['revisor'] = ['nome' => $artigo->getRevisorNome(), 'oab' => $artigo->getRevisorOab()];
         }

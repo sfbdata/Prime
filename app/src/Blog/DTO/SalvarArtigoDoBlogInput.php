@@ -6,6 +6,7 @@ namespace App\Blog\DTO;
 
 use App\Blog\Entity\ArtigoDoBlog;
 use App\Blog\Enum\BlogsDoArtigo;
+use App\Blog\Service\Marcadores;
 use App\Entity\Auth\User;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -52,6 +53,10 @@ final readonly class SalvarArtigoDoBlogInput
         #[Assert\All([new Assert\Type('string')])]
         public array $relacionados = [],
         public bool $destaque = false,
+        /** Etiquetas livres; os limites (8 e 40 caracteres) são conferidos pelo ValidadorDoArtigo e pelo Assert abaixo. */
+        #[Assert\Count(max: Marcadores::MAXIMO, maxMessage: 'Use até {{ limit }} marcadores.')]
+        #[Assert\All([new Assert\Type('string'), new Assert\Length(max: Marcadores::TAMANHO_MAXIMO, maxMessage: 'Cada marcador pode ter até {{ limit }} caracteres.')])]
+        public array $marcadores = [],
         public string $corpoHtml = '',
         public ?int $id = null,
         /** Trocar o slug de um artigo que já foi ao ar quebra o link antigo: a tela pede confirmação. */
@@ -88,6 +93,7 @@ final readonly class SalvarArtigoDoBlogInput
             referencias: self::referencias($corpo['referencias'] ?? null),
             relacionados: self::relacionados($corpo['relacionados'] ?? null),
             destaque: ($corpo['destaque'] ?? false) === true,
+            marcadores: Marcadores::normalizar(\is_array($corpo['marcadores'] ?? null) ? $corpo['marcadores'] : []),
             corpoHtml: \is_string($corpo['corpoHtml'] ?? null) ? $corpo['corpoHtml'] : '',
             id: $id,
             confirmarTrocaDeSlug: ($corpo['confirmarTrocaDeSlug'] ?? false) === true,
