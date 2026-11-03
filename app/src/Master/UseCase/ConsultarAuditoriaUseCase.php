@@ -77,36 +77,72 @@ final class ConsultarAuditoriaUseCase
             ];
         }
 
-        $tipos = array_values(array_unique(array_column($registros, 'acao')));
-        (new \Collator('pt_BR'))->sort($tipos);
-
         $filtrados = array_values(array_filter(
             $registros,
             static fn (array $r): bool => ($conta === null || $r['contaId'] === $conta) && ($tipo === '' || $r['acao'] === $tipo),
         ));
+
+        return self::paginar($filtrados, $pagina, $porPagina, $todas) + [
+            'total'      => count($filtrados),
+            'totalGeral' => count($registros),
+            'tipos'      => self::tipos($registros),
+            'resumo'     => self::resumo($filtrados),
+            'limite'     => self::LIMITE,
+            'meses'      => self::MESES,
+            'truncado'   => count($linhas) >= self::LIMITE,
+        ];
+    }
+
+    /**
+     * Página pedida do filtro (ou o filtro inteiro, com `todas`). "Por página" fora das opções cai no padrão; página
+     * fora do intervalo cai na primeira ou na última.
+     *
+     * @param list<array{quando: string, quem: string, acao: string, conta: string, contaId: ?int, detalhe: string}> $filtrados
+     *
+     * @return array{registros: list<array{quando: string, quem: string, acao: string, conta: string, contaId: ?int, detalhe: string}>, pagina: int, porPagina: int, paginas: int}
+     */
+    private static function paginar(array $filtrados, int $pagina, int $porPagina, bool $todas): array
+    {
+        $porPagina = in_array($porPagina, self::POR_PAGINA_OPCOES, true) ? $porPagina : self::POR_PAGINA_PADRAO;
+        if ($todas) {
+            return ['registros' => $filtrados, 'pagina' => 1, 'porPagina' => $porPagina, 'paginas' => 1];
+        }
+        $paginas = max(1, (int) ceil(count($filtrados) / $porPagina));
+        $pagina = min(max(1, $pagina), $paginas);
+
+        return ['registros' => array_slice($filtrados, ($pagina - 1) * $porPagina, $porPagina), 'pagina' => $pagina, 'porPagina' => $porPagina, 'paginas' => $paginas];
+    }
+
+    /**
+     * Ações distintas da janela inteira, em ordem alfabética do português (a lista do filtro não encolhe com ele).
+     *
+     * @param list<array{acao: string}> $registros
+     *
+     * @return list<string>
+     */
+    private static function tipos(array $registros): array
+    {
+        $tipos = array_values(array_unique(array_column($registros, 'acao')));
+        (new \Collator('pt_BR'))->sort($tipos);
+
+        return $tipos;
+    }
+
+    /**
+     * Contagem das pílulas do resumo sobre o filtro inteiro.
+     *
+     * @param list<array{acao: string}> $filtrados
+     *
+     * @return array<string, int>
+     */
+    private static function resumo(array $filtrados): array
+    {
         $resumo = [];
         foreach (self::RESUMO as $chave => $padrao) {
             $resumo[$chave] = count(array_filter($filtrados, static fn (array $r): bool => preg_match($padrao, $r['acao']) === 1));
         }
 
-        $total = count($filtrados);
-        $porPagina = in_array($porPagina, self::POR_PAGINA_OPCOES, true) ? $porPagina : self::POR_PAGINA_PADRAO;
-        $paginas = max(1, (int) ceil($total / $porPagina));
-        $pagina = min(max(1, $pagina), $paginas);
-
-        return [
-            'registros'  => $todas ? $filtrados : array_slice($filtrados, ($pagina - 1) * $porPagina, $porPagina),
-            'total'      => $total,
-            'totalGeral' => count($registros),
-            'pagina'     => $todas ? 1 : $pagina,
-            'porPagina'  => $porPagina,
-            'paginas'    => $todas ? 1 : $paginas,
-            'tipos'      => $tipos,
-            'resumo'     => $resumo,
-            'limite'     => self::LIMITE,
-            'meses'      => self::MESES,
-            'truncado'   => count($linhas) >= self::LIMITE,
-        ];
+        return $resumo;
     }
 
     /**
