@@ -140,7 +140,7 @@ class ArtigoDoBlogRepository extends ServiceEntityRepository
             'SELECT marcador, COUNT(*) AS usos FROM (
                 SELECT jsonb_array_elements_text(marcadores) AS marcador FROM artigo_blog
              ) m
-             WHERE LOWER(marcador) LIKE :termo
+             WHERE unaccent(LOWER(marcador)) LIKE unaccent(:termo)
              GROUP BY marcador',
             ['termo' => $termo],
         );
@@ -152,13 +152,16 @@ class ArtigoDoBlogRepository extends ServiceEntityRepository
             $slug = Marcadores::slug($texto);
             $usos = (int) $linha['usos'];
             $porSlug[$slug]['total'] = ($porSlug[$slug]['total'] ?? 0) + $usos;
-            if ($usos > ($porSlug[$slug]['melhor'] ?? 0)) {
+            // Empate de usos entre grafias: fica a primeira em ordem alfabética, para a sugestão não variar.
+            $melhor = $porSlug[$slug]['melhor'] ?? 0;
+            if ($usos > $melhor || ($usos === $melhor && strcmp($texto, $porSlug[$slug]['marcador']) < 0)) {
                 $porSlug[$slug]['melhor'] = $usos;
                 $porSlug[$slug]['marcador'] = $texto;
             }
         }
         $saida = array_map(static fn (array $g): array => ['marcador' => $g['marcador'], 'usos' => $g['total']], array_values($porSlug));
-        usort($saida, static fn (array $a, array $b): int => [$b['usos'], $a['marcador']] <=> [$a['usos'], $b['marcador']]);
+        $colacao = new \Collator('pt_BR');
+        usort($saida, static fn (array $a, array $b): int => $b['usos'] <=> $a['usos'] ?: (int) $colacao->compare($a['marcador'], $b['marcador']));
 
         return \array_slice($saida, 0, $limite);
     }

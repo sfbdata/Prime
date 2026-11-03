@@ -120,6 +120,22 @@ final class ValidadorDoArtigoTest extends TestCase
         ], $this->validar($artigo)['relacionados']);
     }
 
+    #[TestDox('Marcadores: mais de 8 e mais de 40 caracteres aparecem no campo marcadores')]
+    public function testMarcadores(): void
+    {
+        $artigo = ArtigosDeTeste::controleDePrazos();
+        $artigo->definirMarcadores(['Prazos', 'Recesso']);
+        self::assertSame([], $this->validar($artigo));
+
+        $longo = str_repeat('m', 41);
+        $artigo->definirMarcadores(['1', '2', '3', '4', '5', '6', '7', '8', $longo]);
+
+        self::assertSame([
+            'Use até 8 marcadores.',
+            sprintf('O marcador "%s" passa de 40 caracteres.', $longo),
+        ], $this->validar($artigo)['marcadores']);
+    }
+
     #[TestDox('Uma chamada não leva os erros da anterior')]
     public function testSemEstadoEntreChamadas(): void
     {

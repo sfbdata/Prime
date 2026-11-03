@@ -41,7 +41,8 @@ final class DuplicarArtigoDoBlogUseCase
 
     private function slugLivre(string $slug): string
     {
-        $base = mb_substr($slug, 0, 110) . '-copia';
+        // Sem o rtrim, um corte em cima de um hífen geraria `--copia`, que o slug não aceita.
+        $base = rtrim(mb_substr($slug, 0, 110), '-') . '-copia';
         $candidato = $base;
         for ($n = 2; $this->artigos->existeSlug($candidato); ++$n) {
             $candidato = $base . '-' . $n;
