@@ -39,6 +39,9 @@ final readonly class ArtigoParaEditorOutput
         public string $situacaoRotulo,
         public bool $alteracoesPendentes,
         public bool $jaFoiAoAr,
+        /** A capa volta no salvar: sem isto, salvar pelo editor apagaria a imagem (o campo da tela chega na P3). */
+        public ?string $imagemChave = null,
+        public ?string $imagemAlt = null,
     ) {
     }
 
@@ -80,6 +83,8 @@ final readonly class ArtigoParaEditorOutput
             situacaoRotulo: $artigo->getSituacao()->rotulo(),
             alteracoesPendentes: $artigo->temAlteracoesPendentes(),
             jaFoiAoAr: \in_array($artigo->getSituacao()->value, ['publicado', 'despublicado'], true),
+            imagemChave: $artigo->getImagemChave(),
+            imagemAlt: $artigo->getImagemAlt(),
         );
     }
 }

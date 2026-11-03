@@ -25,7 +25,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * header X-CSRF-Token em todo POST.
  *
  * As páginas GET /master/blog/artigos/novo, /master/blog/artigos/{id} e /master/blog/artigos/{id}/previa renderizam
- * blog/editor.html.twig e blog/previa.html.twig, que ainda não existem: os testes delas entram junto com os templates.
+ * blog/editor.html.twig e blog/previa.html.twig (testes "Páginas" abaixo).
  */
 #[CoversClass(ArtigosDoBlogMasterController::class)]
 final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
@@ -220,6 +220,113 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         $erros = $this->json($client)['erros'];
         self::assertSame(['Informe o título.'], $erros['titulo']);
         self::assertArrayNotHasKey('publicarEm', $erros);
+    }
+
+    #[TestDox('Páginas: novo artigo abre o editor vazio, com o token e o TinyMCE')]
+    public function testPaginaNovo(): void
+    {
+        $client = $this->clienteMaster();
+
+        $client->request('GET', '/master/blog/artigos/novo');
+
+        self::assertResponseIsSuccessful();
+        self::assertNotSame('', (string) $client->getCrawler()->filter('#blog-editor')->attr('data-token'));
+        self::assertSelectorTextContains('h1', 'Novo artigo');
+        self::assertSelectorExists('textarea[data-be-corpo]');
+        self::assertSelectorExists('[data-be-verificar][disabled]');
+        self::assertStringContainsString('js/tinymce/tinymce.min.js', (string) $client->getResponse()->getContent());
+        $artigo = json_decode((string) $client->getCrawler()->filter('#blog-editor')->attr('data-artigo'), true);
+        self::assertNull($artigo['id']);
+        self::assertSame('rascunho', $artigo['situacao']);
+    }
+
+    #[TestDox('Páginas: editar mostra o artigo (título, marcadores e o corpo como texto, nunca HTML cru)')]
+    public function testPaginaEditar(): void
+    {
+        $client = $this->clienteMaster();
+        $artigo = $this->novoArtigo('pag-' . bin2hex(random_bytes(4)), 'Prazo em dobro na prática', ['INSS']);
+        $artigo->definirCorpo('<p>Olá <script>alert(1)</script></p>', 'Olá');
+        $this->repositorio()->salvar($artigo, flush: true);
+
+        $client->request('GET', '/master/blog/artigos/' . $artigo->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'Editar artigo');
+        self::assertSame('Prazo em dobro na prática', $client->getCrawler()->filter('input[data-campo="titulo"]')->attr('value'));
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('<script>alert(1)</script>', $html);
+        $dados = json_decode((string) $client->getCrawler()->filter('#blog-editor')->attr('data-artigo'), true);
+        self::assertSame($artigo->getId(), $dados['id']);
+        self::assertSame(['INSS'], $dados['marcadores']);
+        self::assertSame('<p>Olá <script>alert(1)</script></p>', $client->getCrawler()->filter('textarea[data-be-corpo]')->text());
+    }
+
+    #[TestDox('Páginas: id inexistente dá 404 no editor e na prévia')]
+    public function testPaginasInexistente(): void
+    {
+        $client = $this->clienteMaster();
+
+        $client->request('GET', '/master/blog/artigos/999999999');
+        self::assertResponseStatusCodeSame(404);
+        $client->request('GET', '/master/blog/artigos/999999999/previa');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Páginas: a prévia mostra título, linha fina, categoria, autor e o corpo limpo pela lista branca')]
+    public function testPaginaPrevia(): void
+    {
+        $client = $this->clienteMaster();
+        $artigo = $this->novoArtigo('prev-' . bin2hex(random_bytes(4)), 'Artigo da prévia');
+        $artigo->editarTextos('Artigo da prévia', 'Curto', 'SEO', 'Descrição', 'A linha fina da prévia', 'Resumo');
+        $artigo->classificar('prazos-processuais', 'equipe-editorial-bluejus', null, null, '4 min', false);
+        $artigo->definirCorpo('<h2>Seção um</h2><p>Texto <script>alert(1)</script></p>', '');
+        $this->repositorio()->salvar($artigo, flush: true);
+
+        $client->request('GET', '/master/blog/artigos/' . $artigo->getId() . '/previa');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'Artigo da prévia');
+        self::assertSelectorTextContains('.pv-linha-fina', 'A linha fina da prévia');
+        self::assertSelectorTextContains('.pv-cat', 'Prazos Processuais e Controle de Processos');
+        self::assertSelectorTextContains('.pv-meta', 'Equipe editorial BlueJus');
+        self::assertSelectorTextContains('.pv-meta', '4 min');
+        self::assertSelectorTextContains('.pv-corpo h2', 'Seção um');
+        self::assertStringNotContainsString('alert(1)', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('Páginas: usuário de escritório (não Master) recebe 403 no editor e na prévia')]
+    public function testPaginasUsuarioComum(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        $tenant = (new Tenant())->setName('Escritório Blog ' . uniqid());
+        $em->persist($tenant);
+        $usuario = $this->usuario(['ROLE_USER']);
+        $em->persist(new UserTenant($usuario, $tenant));
+        $em->flush();
+        $this->logarComTenant($client, $usuario, $tenant);
+        $artigo = $this->novoArtigo('pag-403-' . bin2hex(random_bytes(4)), 'Fechado');
+
+        foreach (['/master/blog/artigos/novo', '/master/blog/artigos/' . $artigo->getId(), '/master/blog/artigos/' . $artigo->getId() . '/previa'] as $url) {
+            $client->request('GET', $url);
+            self::assertResponseStatusCodeSame(403, $url);
+        }
+    }
+
+    #[TestDox('Painel do Master: leva as URLs e o token da seção Artigos dos blogs')]
+    public function testPainelComASecao(): void
+    {
+        $client = $this->clienteMaster();
+
+        $client->request('GET', '/master');
+
+        self::assertResponseIsSuccessful();
+        $urls = json_decode((string) $client->getCrawler()->filter('#master-painel')->attr('data-urls'), true);
+        self::assertSame('/master/blog/artigos', $urls['blogArtigos']);
+        self::assertNotSame('', (string) $urls['blogToken']);
+        self::assertStringContainsString('js/master/blog-artigos.js', (string) $client->getResponse()->getContent());
+        self::assertStringContainsString('master.blog.js.secao', (string) $client->getResponse()->getContent());
     }
 
     /** @param list<string> $marcadores */

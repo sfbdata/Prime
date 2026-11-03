@@ -56,6 +56,7 @@ final class CarregarArtigoParaEditorUseCaseTest extends TestCase
         (new \ReflectionProperty($artigo::class, 'id'))->setValue($artigo, 4);
         $artigo->definirRelacionados(['distribuicao-de-tarefas', 'apagado']);
         $artigo->definirMarcadores(['Prazos']);
+        $artigo->definirImagem('blog/imagens/9.png', 'Painel de prazos');
         $this->artigos->method('porId')->willReturnMap([[4, $artigo]]);
         $this->artigos->expects(self::once())->method('titulosPorSlug')
             ->with(['distribuicao-de-tarefas', 'apagado'])
@@ -72,6 +73,9 @@ final class CarregarArtigoParaEditorUseCaseTest extends TestCase
         self::assertSame(['Prazos'], $saida->marcadores);
         self::assertSame('publicado', $saida->situacao);
         self::assertTrue($saida->jaFoiAoAr);
+        // A capa volta para o editor, que a reenvia ao salvar (sem isto, salvar a apagaria).
+        self::assertSame('blog/imagens/9.png', $saida->imagemChave);
+        self::assertSame('Painel de prazos', $saida->imagemAlt);
     }
 
     #[TestDox('Id que não existe: não encontrado')]
