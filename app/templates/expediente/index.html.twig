@@ -229,6 +229,9 @@ section.content-header > .container-fluid {
 {# E8: o visual do desenho de 13/10 vem por último, para ganhar dos estilos antigos acima. #}
 <link rel="stylesheet" href="{{ asset('css/expediente-lista.css') }}">
 <link rel="stylesheet" href="{{ asset('css/expediente-lista-12.css') }}">
+{# O modal da lixeira da pasta (pasta-lixeira.js) abre aqui também: o visual dele mora no CSS do explorador,
+   todo preso a .pex/.pex-modal/.pex-lix (nada global). #}
+<link rel="stylesheet" href="{{ asset('css/pasta-explorador.css') }}">
 <link rel="stylesheet" href="{{ asset('css/expediente-lixeira.css') }}">
 {% endblock %}
 
@@ -889,5 +892,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/expediente-lista.js') }}"></script>
 <script src="{{ asset('js/expediente-trilho.js') }}"></script>
 <script src="{{ asset('js/expediente-importar-lote.js') }}"></script>
+{{ catalogo_js('pasta_scripts.js.explorador') }}
+<script src="{{ asset('js/pasta-tipos-de-arquivo.js') }}"></script>
+<script src="{{ asset('js/pasta-lixeira.js') }}"></script>
 <script src="{{ asset('js/expediente-lixeira.js') }}"></script>
 {% endblock %}

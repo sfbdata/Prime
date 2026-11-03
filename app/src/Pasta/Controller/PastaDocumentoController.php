@@ -22,6 +22,8 @@ use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Service\VagasDeZipDoEscritorio;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\UseCase\AbrirDocumentoDaLixeiraUseCase;
 use App\Pasta\UseCase\AlternarFavoritoDeDocumentoUseCase;
 use App\Pasta\UseCase\CopiarDocumentosDaPastaUseCase;
 use App\Pasta\UseCase\EditarDocumentoDaPastaUseCase;
@@ -33,7 +35,9 @@ use App\Pasta\UseCase\MoverItensDaPastaUseCase;
 use App\Pasta\UseCase\RestaurarItensDaPastaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
+use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\EntregaDeArquivoGerado;
 use Doctrine\DBAL\Exception as DbalException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -113,6 +117,9 @@ final class PastaDocumentoController extends AbstractController
         // SEC-004b: no máximo 2 .zips simultâneos por escritório (trava não bloqueante).
         private readonly VagasDeZipDoEscritorio $vagasDeZip,
         private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
+        private readonly AbrirDocumentoDaLixeiraUseCase $abrirDaLixeiraUseCase,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
     ) {
     }
 
@@ -354,6 +361,43 @@ final class PastaDocumentoController extends AbstractController
         }
 
         return $this->json(['ok' => true] + $lixeira->paraJson());
+    }
+
+    /**
+     * Abre um arquivo que está NA LIXEIRA desta pasta, numa aba nova, como o "visualizar" dos
+     * documentos vivos (pedido do Samuel, 03/11/2026): dá para conferir antes de restaurar ou
+     * excluir de vez. Só leitura. A URL é a da lixeira + o id (`urlLixeira/<id>`), que o modal da
+     * lixeira monta sozinho.
+     *
+     * Guardas, nesta ordem e com as respostas da lista da lixeira: pasta de outro escritório → 404;
+     * sem permissão de EDITAR a pasta → 403; documento que não está na lixeira desta pasta (vivo,
+     * de pasta irmã, de outro escritório ou contrato com o Financeiro oculto) → 404; arquivo
+     * ausente no armazenamento → 404. O arquivo é lido pela chave (vale o espelho no R2).
+     */
+    #[Route('/{id}/documentos/lixeira/{documento}', name: 'pasta_documentos_lixeira_abrir', requirements: ['id' => '\d+', 'documento' => '\d+'], methods: ['GET'])]
+    public function abrirDaLixeira(Pasta $pasta, int $documento): Response
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            throw $this->createNotFoundException('Pasta não encontrada.');
+        }
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
+            throw $this->createAccessDeniedException('Sem permissão para editar esta pasta.');
+        }
+
+        $doc = $this->abrirDaLixeiraUseCase->executar($pasta, $tenant, $documento, $this->abasOcultas($pasta, $currentUser));
+        if ($doc === null) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+        $chave = ChavesDePasta::documento($doc);
+        if (!$this->armazenamento->existe($chave)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: true);
     }
 
     /**

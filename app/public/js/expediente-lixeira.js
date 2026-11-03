@@ -4,7 +4,10 @@
    pastas em que quem olha pode restaurar. Cada grupo traz as URLs e o token de lote das rotas que JÁ existem na
    lixeira da pasta; as ações "Restaurar tudo" e "Excluir de vez tudo" leem os itens pela lixeira da própria pasta
    (`urlLixeira`, que já tira o contrato de honorários oculto) e mandam os ids por ela, em lotes de até `tetoPorLote`.
-   Nenhuma regra nova aqui: quem decide é o servidor da pasta. Tudo por createElement/textContent: nome de pasta e
+   Nenhuma regra nova aqui: quem decide é o servidor da pasta.
+   "Abrir a lixeira da pasta" (03/11/2026, pedido do Samuel) abre AQUI o mesmo modal da lixeira da pasta
+   (pasta-lixeira.js: restaurar, excluir de vez, selecionados, abrir o arquivo), sem sair da página; a cada
+   leitura da lista o grupo é refeito com a contagem nova (ou sai, se a lixeira da pasta esvaziou). Tudo por createElement/textContent: nome de pasta e
    de pessoa é dado do usuário. */
 (function () {
     'use strict';
@@ -96,12 +99,16 @@
         const cf = document.getElementById('psConfirmar');
         return !!cf && !cf.hidden;
     }
+    // O modal da lixeira da pasta (Bootstrap) por cima: o Esc é dele.
+    function modalDaPastaAberto(e) {
+        return document.body.classList.contains('modal-open') || !!(e.target && e.target.closest && e.target.closest('.modal'));
+    }
     abrirBtn.addEventListener('click', abrir);
     janela.addEventListener('click', function (e) {
         if (e.target === janela || e.target.closest('.js-lix-fechar')) fechar();
     });
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && !janela.hidden && !confirmacaoAberta()) { e.preventDefault(); fechar(); }
+        if (e.key === 'Escape' && !janela.hidden && !confirmacaoAberta() && !modalDaPastaAberto(e)) { e.preventDefault(); fechar(); }
     });
     el.mais.addEventListener('click', function () { lerPagina(PAGINAS_SOZINHAS); });
 
@@ -173,7 +180,9 @@
             h('span', { class: 'exp-lix-sub', text: quantidade(g.documentos, g.subpastas) + ' · ' + quando(g) }),
             h('span', { class: 'exp-lix-sub', text: quem(g) }),
             g.pastaExcluida ? h('span', { class: 'exp-lix-lapide', text: BJ_T.t('expediente.js.lixeira.lapide') }) : null,
-            h('a', { class: 'exp-lix-link', href: g.urlPasta, text: BJ_T.t('expediente.js.lixeira.abrir') }),
+            modalDaPasta()
+                ? h('button', { type: 'button', class: 'exp-lix-link', 'data-lix-acao': 'ver', text: BJ_T.t('expediente.js.lixeira.abrir') })
+                : h('a', { class: 'exp-lix-link', href: g.urlPasta, text: BJ_T.t('expediente.js.lixeira.abrir') }),
         ]));
         if (!escreve) return;
         li.appendChild(h('div', { class: 'exp-lix-acoes' }, [
@@ -181,6 +190,8 @@
             g.urlExcluirDeVez ? h('button', { type: 'button', class: 'exp-btn exp-lix-excluir-de-vez', 'data-lix-acao': 'excluir', 'data-tip': BJ_T.t('expediente.js.lixeira.excluir_de_vez_titulo'), disabled: ocupado }, [icone('bi-x-octagon'), h('span', { text: BJ_T.t('expediente.js.lixeira.excluir_de_vez_tudo') })]) : null,
         ]));
     }
+    // Sem o modal (script ou Bootstrap ausentes), o link leva à lixeira na própria pasta, como antes.
+    function modalDaPasta() { return !!window.BJ_LixeiraDaPasta && !!window.bootstrap; }
     function travar(sim) {
         ocupado = sim;
         el.lista.querySelectorAll('button[data-lix-acao]').forEach(function (b) { b.disabled = sim; });
@@ -190,9 +201,34 @@
         if (!b || ocupado) return;
         const li = b.closest('li[data-lix-pasta]');
         if (!li || !li._grupo) return;
-        if (b.dataset.lixAcao === 'restaurar') restaurarTudo(li);
+        if (b.dataset.lixAcao === 'ver') abrirLixeiraDaPasta(li);
+        else if (b.dataset.lixAcao === 'restaurar') restaurarTudo(li);
         else excluirDeVezTudo(li);
     });
+
+    /* O mesmo modal da lixeira da pasta, aberto por cima desta janela. As rotas e o token são os do grupo
+       (os da lixeira da pasta); lápide só se olha (sem URLs de escrita). Cada leitura da lista refaz o
+       grupo; ao fechar, o foco volta ao botão do grupo (ou à janela, se o grupo saiu). */
+    function abrirLixeiraDaPasta(li) {
+        const g = li._grupo;
+        const pastaId = g.pastaId;
+        window.BJ_LixeiraDaPasta.abrir({
+            urlLixeira:      g.urlLixeira,
+            urlRestaurar:    g.pastaExcluida ? '' : (g.urlRestaurar || ''),
+            urlExcluirDeVez: g.pastaExcluida ? '' : (g.urlExcluirDeVez || ''),
+            csrfLote:        g.csrfLote || '',
+            pastaExcluida:   !!g.pastaExcluida,
+            titulo:          BJ_T.t('expediente.js.lixeira.pasta', { nup: g.nup }) + ' · ' + (g.nome || BJ_T.t('expediente.js.lixeira.sem_nome')),
+            teto:            teto,
+            listaAoFechar:   false,
+            aoLer:           function (itens) { if (li.isConnected) atualizarGrupo(li, itens); },
+            aoFechar:        function () {
+                const atual = el.lista.querySelector('li[data-lix-pasta="' + String(pastaId) + '"] button[data-lix-acao="ver"]');
+                const volta = atual || janela.querySelector('.exp-modal-x');
+                if (volta) volta.focus({ preventScroll: true });
+            },
+        });
+    }
 
     // ------------------------------------------------------------- ações ---
     function itensDaPasta(g) {

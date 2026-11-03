@@ -19,6 +19,9 @@
 .exp-lix-sub { font-size: 12px; color: #62798a; overflow-wrap: anywhere; }
 .exp-lix-link { font-size: 12px; font-weight: 700; color: var(--ex-azul, #0a6fa0); text-decoration: none; align-self: flex-start; margin-top: 3px; }
 .exp-lix-link:hover, .exp-lix-link:focus-visible { text-decoration: underline; }
+button.exp-lix-link { background: none; border: 0; padding: 0; cursor: pointer; }
+/* O modal da lixeira da pasta (Bootstrap, z-index 1055) abre por cima desta janela (.exp-modal-fundo, 1065). */
+.modal.pex-lix { z-index: 1075; }
 .exp-lix-acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .exp-lix-acoes .exp-btn { height: 32px; padding: 0 12px; font-size: 13px; }
 .exp-lix-restaurar { background: #fff; color: var(--ex-azul, #0a6fa0); border: 1px solid #b9d3e2; }
