@@ -94,6 +94,7 @@ final class SalvarArtigoDoBlogUseCase
         $artigo->definirImagem($input->imagemChave, $input->imagemAlt);
         $artigo->definirReferencias($input->referencias);
         $artigo->definirRelacionados($input->relacionados);
+        $artigo->definirMarcadores($input->marcadores);
         $artigo->definirCorpo($html, $this->conversor->converter($html, $extensoes));
     }
 

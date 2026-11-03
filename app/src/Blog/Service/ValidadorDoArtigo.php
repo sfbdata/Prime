@@ -50,6 +50,9 @@ final class ValidadorDoArtigo
         $this->exigirAltDaImagem($artigo);
         $this->exigirReferencias($artigo->getReferencias());
         $this->exigirRelacionados($artigo, $slugsExistentes);
+        foreach (Marcadores::erros($artigo->getMarcadores()) as $mensagem) {
+            $this->erro('marcadores', $mensagem);
+        }
         if ($artigo->getPublicarEm() === null && $artigo->getPublicadoEm() === null) {
             $this->erro('publicarEm', 'Informe a data de publicação.');
         }

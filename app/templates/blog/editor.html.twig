@@ -1,0 +1,240 @@
+{% extends 'base.html.twig' %}
+
+{# Editor de um artigo dos blogs (spec docs/specs/painel-artigos-blogs.md, seções 2.2, 3 e 11; fatia P2 com os
+   marcadores da P7). Página própria do Master (ROLE_SUPER_ADMIN no controller), aberta pela seção "Artigos dos blogs"
+   do painel. Sem desenho do Claude Design (D1): segue o padrão visual do Painel do Master (master.css + master-blog.css).
+
+   Duas colunas: à esquerda Título, Linha fina, o corpo no TinyMCE restrito e as Referências; à direita os cartões
+   Publicação, SEO, Classificação, Marcadores, Relacionados, Resumo e título curto.
+   Ainda não entram: Agendar, Publicar, Despublicar e a data de publicação (P4/P5) e a imagem (P3).
+
+   Os valores vêm do ArtigoParaEditorOutput; o public/js/master/blog-editor.js lê o artigo de data-artigo (JSON) e
+   salva por POST JSON com o token `master_blog` no header X-CSRF-Token. O corpoHtml já vem limpo pela lista branca
+   do servidor e vai como texto dentro do <textarea> (nunca |raw). #}
+
+{% block title %}{{ artigo.id ? 'Editar artigo do blog' : 'Novo artigo do blog' }}{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('css/master.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/master-blog.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set urls = {
+    criar: path('master_blog_artigos_criar'),
+    salvar: path('master_blog_artigos_salvar', {id: 0}),
+    editar: path('master_blog_artigos_editar', {id: 0}),
+    verificar: path('master_blog_artigos_verificar', {id: 0}),
+    excluir: path('master_blog_artigos_excluir', {id: 0}),
+    previa: path('master_blog_artigos_previa', {id: 0}),
+    listar: path('master_blog_artigos_listar'),
+    marcadores: path('master_blog_marcadores'),
+    painel: path('master_painel') ~ '#aba=painel&sec=blog',
+    tinymce: asset('js/tinymce')
+} %}
+<div class="mp be" id="blog-editor"
+     data-artigo="{{ artigo|json_encode|e('html_attr') }}"
+     data-urls="{{ urls|json_encode|e('html_attr') }}"
+     data-token="{{ token }}">
+
+    <div class="mp-topo">
+        <h1 class="mp-titulo"><i class="bi bi-journal-richtext"></i><span data-be-titulo-pagina>{{ artigo.id ? 'Editar artigo' : 'Novo artigo' }}</span><span class="mp-titulo-traco"></span></h1>
+        <a class="mp-btn-voltar" href="{{ urls.painel }}"><i class="bi bi-arrow-left"></i>Artigos dos blogs</a>
+    </div>
+
+    <div class="be-msg" data-be-msg role="status" hidden></div>
+
+    <div class="be-grade">
+        {# ---------- coluna da esquerda ---------- #}
+        <div class="be-esq">
+            <div class="mp-card be-corpo-card">
+                <div class="be-campo" data-be-campo="titulo">
+                    <label for="be-titulo">Título</label>
+                    <input type="text" id="be-titulo" class="be-titulo-input" maxlength="255" data-campo="titulo" value="{{ artigo.titulo }}" placeholder="Título do artigo">
+                    <div class="be-erro" data-erro="titulo"></div>
+                </div>
+                <div class="be-campo" data-be-campo="linhaFina">
+                    <label for="be-linha-fina">Linha fina</label>
+                    <textarea id="be-linha-fina" rows="2" data-campo="linhaFina" placeholder="A frase abaixo do título">{{ artigo.linhaFina }}</textarea>
+                    <div class="be-erro" data-erro="linhaFina"></div>
+                </div>
+                <div class="be-campo" data-be-campo="corpo">
+                    <label for="be-corpo">Texto do artigo</label>
+                    <textarea id="be-corpo" rows="20" data-be-corpo>{{ artigo.corpoHtml }}</textarea>
+                    <div class="be-erro be-corpo-erro" data-erro="corpo"></div>
+                </div>
+            </div>
+
+            <div class="mp-card be-card">
+                <div class="mp-cab-simples"><i class="bi bi-link-45deg"></i><b>Referências</b></div>
+                <div class="be-dentro" data-be-campo="referencias">
+                    <div class="be-ref be-ref-cab" data-be-ref-cab><span>Texto</span><span>Endereço (URL)</span><span>Rótulo</span><span></span></div>
+                    <div class="be-refs" data-be-refs></div>
+                    <div class="be-vazio" data-be-refs-vazio>Nenhuma referência.</div>
+                    <div class="be-erro" data-erro="referencias"></div>
+                    <div><button type="button" class="be-btn-sec" data-be-ref-add><i class="bi bi-plus-lg"></i>Adicionar referência</button></div>
+                </div>
+            </div>
+        </div>
+
+        {# ---------- coluna da direita ---------- #}
+        <div class="be-dir">
+            <div class="mp-card be-card">
+                <div class="mp-cab-simples"><i class="bi bi-send"></i><b>Publicação</b></div>
+                <div class="be-dentro">
+                    <div class="be-situacao">Situação: <span class="be-st be-st-{{ artigo.situacao }}" data-be-situacao>{{ artigo.situacaoRotulo }}</span></div>
+                    <div class="be-pendente" data-be-pendente {{ artigo.alteracoesPendentes ? '' : 'hidden' }}><i class="bi bi-exclamation-circle"></i>Alterações ainda não publicadas</div>
+                    <div class="be-campo" data-be-campo="blogs">
+                        <label for="be-blogs">Blog</label>
+                        <select id="be-blogs" data-campo="blogs">
+                            {% for b in blogs %}
+                                <option value="{{ b.valor }}"{{ b.valor == artigo.blogs ? ' selected' : '' }}>{{ b.rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="be-erro" data-erro="blogs"></div>
+                    </div>
+                    <div class="be-botoes">
+                        <button type="button" class="be-btn" data-be-salvar><i class="bi bi-floppy"></i>Salvar rascunho</button>
+                        <button type="button" class="be-btn-sec" data-be-verificar{{ artigo.id ? '' : ' disabled' }}><i class="bi bi-check2-square"></i>Verificar</button>
+                        <button type="button" class="be-btn-sec" data-be-previa{{ artigo.id ? '' : ' disabled' }}><i class="bi bi-eye"></i>Pré-visualizar</button>
+                        <button type="button" class="be-btn-sec be-btn-perigo" data-be-excluir{{ artigo.id ? '' : ' disabled' }}><i class="bi bi-trash3"></i>Excluir</button>
+                    </div>
+                    <div class="be-dica">Salvar não muda o site. Publicar e agendar chegam numa próxima etapa.</div>
+                </div>
+            </div>
+
+            <div class="mp-card be-card">
+                <div class="mp-cab-simples"><i class="bi bi-google"></i><b>SEO</b></div>
+                <div class="be-dentro">
+                    <div class="be-campo" data-be-campo="tituloSeo">
+                        <label for="be-titulo-seo">Título SEO <span class="be-contador" data-be-contador="tituloSeo" data-max="60"></span></label>
+                        <input type="text" id="be-titulo-seo" data-campo="tituloSeo" value="{{ artigo.tituloSeo }}">
+                        <div class="be-erro" data-erro="tituloSeo"></div>
+                    </div>
+                    <div class="be-campo" data-be-campo="descricao">
+                        <label for="be-descricao">Meta description <span class="be-contador" data-be-contador="descricao" data-max="160"></span></label>
+                        <textarea id="be-descricao" rows="3" data-campo="descricao">{{ artigo.descricao }}</textarea>
+                        <div class="be-erro" data-erro="descricao"></div>
+                    </div>
+                    <div class="be-campo" data-be-campo="slug">
+                        <label for="be-slug">Slug (endereço)</label>
+                        <div class="be-linha">
+                            <input type="text" id="be-slug" maxlength="120" data-campo="slug" value="{{ artigo.slug }}" spellcheck="false" autocomplete="off">
+                            <button type="button" class="be-btn-sec" data-be-gerar-slug title="Gerar o slug a partir do título">Gerar do título</button>
+                        </div>
+                        <div class="be-dica">Minúsculas, sem acento, palavras separadas por hífen.</div>
+                        <div class="be-erro" data-erro="slug"></div>
+                    </div>
+                    <div>
+                        <div class="be-rot">Prévia no Google</div>
+                        <div class="be-google">
+                            <div class="be-google-url" data-be-google-url></div>
+                            <div class="be-google-tit" data-be-google-tit></div>
+                            <div class="be-google-desc" data-be-google-desc></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mp-card be-card">
+                <div class="mp-cab-simples"><i class="bi bi-tags"></i><b>Classificação</b></div>
+                <div class="be-dentro">
+                    <div class="be-campo" data-be-campo="categoria">
+                        <label for="be-categoria">Categoria</label>
+                        <select id="be-categoria" data-campo="categoria">
+                            <option value="">Escolha a categoria</option>
+                            {% for slug, nome in categorias %}
+                                <option value="{{ slug }}"{{ slug == artigo.categoria ? ' selected' : '' }}>{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="be-erro" data-erro="categoria"></div>
+                    </div>
+                    <div class="be-campo" data-be-campo="autor">
+                        <label for="be-autor">Autor</label>
+                        <select id="be-autor" data-campo="autor">
+                            {% for slug, nome in autores %}
+                                <option value="{{ slug }}"{{ slug == artigo.autor ? ' selected' : '' }}>{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="be-erro" data-erro="autor"></div>
+                    </div>
+                    <div class="be-campo" data-be-campo="revisor">
+                        <span class="be-rot">Revisor jurídico (só com revisão real)</span>
+                        <div class="be-linha">
+                            <input type="text" maxlength="255" data-campo="revisorNome" value="{{ artigo.revisorNome }}" placeholder="Nome" aria-label="Nome do revisor">
+                            <input type="text" maxlength="60" data-campo="revisorOab" value="{{ artigo.revisorOab }}" placeholder="OAB" aria-label="OAB do revisor">
+                        </div>
+                        <div class="be-erro" data-erro="revisor"></div>
+                    </div>
+                    <div class="be-campo" data-be-campo="leitura">
+                        <label for="be-leitura">Tempo de leitura</label>
+                        <input type="text" id="be-leitura" maxlength="20" data-campo="leitura" value="{{ artigo.leitura }}" placeholder="Ex.: 5 min">
+                        <div class="be-dica">Vazio: calculado ao salvar, pelo número de palavras.</div>
+                        <div class="be-erro" data-erro="leitura"></div>
+                    </div>
+                    <label class="be-check"><input type="checkbox" data-campo="destaque"{{ artigo.destaque ? ' checked' : '' }}>Destaque</label>
+                </div>
+            </div>
+
+            <div class="mp-card be-card">
+                <div class="mp-cab-simples"><i class="bi bi-bookmark"></i><b>Marcadores</b></div>
+                <div class="be-dentro" data-be-campo="marcadores">
+                    <div class="be-chips" data-be-marcadores></div>
+                    <div class="be-campo">
+                        <input type="search" maxlength="40" data-be-marcador-input placeholder="Digite e tecle Enter" aria-label="Novo marcador" autocomplete="off">
+                        <div class="be-sugestoes" data-be-marcador-sugestoes hidden></div>
+                    </div>
+                    <div class="be-dica">Até 8 marcadores, com até 40 caracteres cada. Prefira um já usado.</div>
+                    <div class="be-erro" data-erro="marcadores"></div>
+                </div>
+            </div>
+
+            <div class="mp-card be-card">
+                <div class="mp-cab-simples"><i class="bi bi-diagram-3"></i><b>Relacionados</b></div>
+                <div class="be-dentro" data-be-campo="relacionados">
+                    <div class="be-chips" data-be-relacionados></div>
+                    <div class="be-campo">
+                        <input type="search" data-be-relacionado-input placeholder="Buscar artigo pelo título" aria-label="Buscar artigo relacionado" autocomplete="off">
+                        <div class="be-sugestoes" data-be-relacionado-sugestoes hidden></div>
+                    </div>
+                    <div class="be-dica">Até 3 artigos.</div>
+                    <div class="be-erro" data-erro="relacionados"></div>
+                </div>
+            </div>
+
+            <div class="mp-card be-card">
+                <div class="mp-cab-simples"><i class="bi bi-card-text"></i><b>Resumo e título curto</b></div>
+                <div class="be-dentro">
+                    <div class="be-campo" data-be-campo="resumo">
+                        <label for="be-resumo">Resumo (aparece nos cartões)</label>
+                        <textarea id="be-resumo" rows="3" data-campo="resumo">{{ artigo.resumo }}</textarea>
+                        <div class="be-erro" data-erro="resumo"></div>
+                    </div>
+                    <div class="be-campo" data-be-campo="tituloCurto">
+                        <label for="be-titulo-curto">Título curto (aparece na trilha)</label>
+                        <input type="text" id="be-titulo-curto" maxlength="255" data-campo="tituloCurto" value="{{ artigo.tituloCurto }}">
+                        <div class="be-erro" data-erro="tituloCurto"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Confirmação (troca de slug de artigo que já foi ao ar, excluir), com os componentes do painel (mp-conf). #}
+    <div class="mp-conf-fundo" data-be-conf hidden>
+        <div class="mp-conf" role="dialog" aria-modal="true" aria-labelledby="beConfTitulo">
+            <div class="mp-conf-cab"><i class="bi" data-be-conf-icone></i><span id="beConfTitulo" data-be-conf-titulo></span></div>
+            <div class="mp-conf-texto" data-be-conf-texto></div>
+            <div class="mp-conf-rodape">
+                <button type="button" class="mp-conf-cancelar" data-be-conf-cancelar>Cancelar</button>
+                <button type="button" class="mp-conf-ok" data-be-conf-ok></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    <script src="{{ asset('js/tinymce/tinymce.min.js') }}"></script>
+    <script src="{{ asset('js/master/blog-editor.js') }}"></script>
+{% endblock %}

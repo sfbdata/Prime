@@ -55,6 +55,9 @@
   if (EXTERNAS.ind) SECS.push(['ind', T('master.js.secao.ind'), 'bi-share']);
   if (EXTERNAS.recomp) SECS.push(['recomp', T('master.js.secao.recomp'), 'bi-gift']);
   if (EXTERNAS.notif) SECS.push(['notif', T('master.js.secao.notif'), 'bi-bell']);
+  // Artigos dos blogs (spec painel-artigos-blogs, seção 2.1; sem desenho, D1): o bloco é do blog-artigos.js. Antes da
+  // Revisão de OAB, que continua a última.
+  SECS.push(['blog', T('master.blog.js.secao'), 'bi-journal-richtext']);
   // Revisão de OAB (desenho 05 VS 31.10.26, SECS): a última seção; o bloco é do revisao-oab.js, também embutido em Usuários e OABs.
   SECS.push(['roab', T('master.js.secao.roab'), 'bi-patch-check']);
   const VAZIAS = {
@@ -147,6 +150,7 @@
     if (sec === 'planos') return montarPlanos();
     if (sec === 'audit') return montarAudit();
     if (sec === 'roab') { elSecao.innerHTML = '<div id="mp-roab"></div>'; return montarRevisaoOab(); }
+    if (sec === 'blog') { elSecao.innerHTML = '<div id="mp-blog"></div>'; return montarArtigosDoBlog(); }
   }
 
   const vazia = ([icone, titulo, texto, itens]) => '<div class="mp-card mp-vazia"><span class="mp-vazia-ico"><i class="bi ' + icone + '"></i></span><b>' + esc(titulo) + '</b>'
@@ -978,6 +982,16 @@
     window.BJRevisaoOab.montar(el, {
       url: URLS.roab, token: URLS.roabToken, urlConfirmar: URLS.roabConfirmar, urlConferir: URLS.roabConferir,
       urlAutomatica: URLS.roabAutomatica, urlValidarAgora: URLS.roabValidarAgora,
+    });
+  }
+
+  // Artigos dos blogs (spec painel-artigos-blogs, seção 2.1): lista, filtros e ações moram no blog-artigos.js.
+  function montarArtigosDoBlog() {
+    const el = document.getElementById('mp-blog');
+    if (!el || !window.BJBlogArtigos) return;
+    window.BJBlogArtigos.montar(el, {
+      url: URLS.blogArtigos, token: URLS.blogToken, urlNovo: URLS.blogNovo, urlEditar: URLS.blogEditar,
+      urlDuplicar: URLS.blogDuplicar, urlExcluir: URLS.blogExcluir, site: URLS.blogSite,
     });
   }
 

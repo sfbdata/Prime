@@ -7,6 +7,7 @@ namespace App\Blog\Entity;
 use App\Blog\Enum\BlogsDoArtigo;
 use App\Blog\Enum\SituacaoDoArtigo;
 use App\Blog\Repository\ArtigoDoBlogRepository;
+use App\Blog\Service\Marcadores;
 use App\Entity\Auth\User;
 use App\Shared\Attribute\SemIsolamentoDeTenant;
 use App\Shared\Contract\Auditavel;
@@ -86,6 +87,10 @@ class ArtigoDoBlog implements Auditavel
     /** @var list<string> slugs de outros artigos */
     #[ORM\Column(type: 'json')]
     private array $relacionados = [];
+
+    /** @var list<string> etiquetas livres (seção 11 da spec); o slug é calculado, não gravado */
+    #[ORM\Column(type: 'json', options: ['jsonb' => true, 'default' => '[]'])]
+    private array $marcadores = [];
 
     #[ORM\Column(type: 'boolean')]
     private bool $destaque = false;
@@ -182,6 +187,12 @@ class ArtigoDoBlog implements Auditavel
         $this->referencias = $referencias;
     }
 
+    /** @param array<mixed> $marcadores o texto do editor; guarda normalizado (sem vazio nem repetido) */
+    public function definirMarcadores(array $marcadores): void
+    {
+        $this->marcadores = Marcadores::normalizar($marcadores);
+    }
+
     /** @param list<string> $relacionados */
     public function definirRelacionados(array $relacionados): void
     {
@@ -214,7 +225,7 @@ class ArtigoDoBlog implements Auditavel
         return hash('sha256', serialize([
             $this->slug, $this->blogs->value, $this->titulo, $this->tituloCurto, $this->tituloSeo, $this->descricao,
             $this->linhaFina, $this->resumo, $this->categoria, $this->autor, $this->revisorNome, $this->revisorOab,
-            $this->leitura, $this->imagemChave, $this->imagemAlt, $this->referencias, $this->relacionados,
+            $this->leitura, $this->imagemChave, $this->imagemAlt, $this->referencias, $this->relacionados, $this->marcadores,
             $this->destaque, $this->corpoMarkdown,
         ]));
     }
@@ -403,6 +414,12 @@ class ArtigoDoBlog implements Auditavel
     public function getRelacionados(): array
     {
         return $this->relacionados;
+    }
+
+    /** @return list<string> */
+    public function getMarcadores(): array
+    {
+        return $this->marcadores;
     }
 
     public function isDestaque(): bool

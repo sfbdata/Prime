@@ -282,7 +282,8 @@ Todos os comandos vão em bloco "Execute manualmente" na fatia P4, com o passo a
 3. Conferir que `/opt/jusprime/sites-publicados/{site,blog,gratis}` existem (já existem desde o PR #580).
 4. Depois do merge da P4, rodar o deploy normal: ele sobe o contêiner `blog_builder` (o `up -d` cria o
    serviço novo).
-5. Rodar uma vez a importação dos artigos atuais (P2): `bin/console blog:importar-do-repositorio`.
+5. Rodar uma vez a importação dos artigos atuais (P2), com a raiz do repositório dos sites copiada para dentro do
+   contêiner: `bin/console blog:importar-do-repositorio <pasta-dos-sites> --simular` para conferir, depois sem `--simular`.
 
 Nada disso precisa ser repetido depois: publicar e agendar passam a ser cliques do Farlei.
 

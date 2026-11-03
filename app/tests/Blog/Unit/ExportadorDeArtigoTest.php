@@ -52,6 +52,29 @@ final class ExportadorDeArtigoTest extends TestCase
         self::assertArrayNotHasKey('rascunho', $dados);
     }
 
+    #[TestDox('Marcadores saem logo depois de categoria, na ordem em que foram escritos')]
+    public function testMarcadores(): void
+    {
+        $artigo = ArtigosDeTeste::controleDePrazos();
+        $artigo->definirMarcadores(['Prazo em dobro', 'Recesso forense', 'Intimação']);
+
+        [$frontmatter] = self::separar((new ExportadorDeArtigo())->exportar($artigo));
+        $dados = Yaml::parse($frontmatter, Yaml::PARSE_DATETIME);
+        $chaves = array_keys($dados);
+
+        self::assertSame(['Prazo em dobro', 'Recesso forense', 'Intimação'], $dados['marcadores']);
+        self::assertSame(['slug', 'categoria', 'marcadores', 'autor'], \array_slice($chaves, array_search('slug', $chaves, true), 4));
+    }
+
+    #[TestDox('Sem marcadores a chave não sai (o modelo dos sites não tem a chave)')]
+    public function testSemMarcadoresNaoSai(): void
+    {
+        [$frontmatter] = self::separar((new ExportadorDeArtigo())->exportar(ArtigosDeTeste::controleDePrazos()));
+
+        self::assertArrayNotHasKey('marcadores', Yaml::parse($frontmatter, Yaml::PARSE_DATETIME));
+        self::assertStringNotContainsString('marcadores', $frontmatter);
+    }
+
     #[TestDox('Artigo sem data de publicação não exporta')]
     public function testSemDataNaoExporta(): void
     {

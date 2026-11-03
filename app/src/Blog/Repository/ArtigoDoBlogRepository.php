@@ -7,6 +7,7 @@ namespace App\Blog\Repository;
 use App\Blog\Entity\ArtigoDoBlog;
 use App\Blog\Enum\BlogsDoArtigo;
 use App\Blog\Enum\SituacaoDoArtigo;
+use App\Blog\Service\Marcadores;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -103,6 +104,66 @@ class ArtigoDoBlogRepository extends ServiceEntityRepository
         }
 
         return new Paginator($qb);
+    }
+
+    /**
+     * Título de cada slug pedido (os que existem), para mostrar os relacionados pelo nome.
+     *
+     * @param list<string> $slugs
+     *
+     * @return array<string, string> slug => título
+     */
+    public function titulosPorSlug(array $slugs): array
+    {
+        if ($slugs === []) {
+            return [];
+        }
+
+        $mapa = [];
+        foreach ($this->createQueryBuilder('a')->select('a.slug', 'a.titulo')->andWhere('a.slug IN (:slugs)')->setParameter('slugs', $slugs)->getQuery()->getArrayResult() as $linha) {
+            $mapa[(string) $linha['slug']] = (string) $linha['titulo'];
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * Marcadores já usados nos artigos, para as sugestões do editor: agrupados pelo slug, os mais usados primeiro
+     * (empate: ordem alfabética), com a grafia mais frequente de cada um. Até 10.
+     *
+     * @return list<array{marcador: string, usos: int}>
+     */
+    public function marcadoresUsados(?string $busca, int $limite = 10): array
+    {
+        $termo = '%' . addcslashes(mb_strtolower(trim((string) $busca)), '%_\\') . '%';
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT marcador, COUNT(*) AS usos FROM (
+                SELECT jsonb_array_elements_text(marcadores) AS marcador FROM artigo_blog
+             ) m
+             WHERE unaccent(LOWER(marcador)) LIKE unaccent(:termo)
+             GROUP BY marcador',
+            ['termo' => $termo],
+        );
+
+        // Agrupa as grafias do mesmo slug: soma os usos e fica a grafia mais usada.
+        $porSlug = [];
+        foreach ($linhas as $linha) {
+            $texto = (string) $linha['marcador'];
+            $slug = Marcadores::slug($texto);
+            $usos = (int) $linha['usos'];
+            $porSlug[$slug]['total'] = ($porSlug[$slug]['total'] ?? 0) + $usos;
+            // Empate de usos entre grafias: fica a primeira em ordem alfabética, para a sugestão não variar.
+            $melhor = $porSlug[$slug]['melhor'] ?? 0;
+            if ($usos > $melhor || ($usos === $melhor && strcmp($texto, $porSlug[$slug]['marcador']) < 0)) {
+                $porSlug[$slug]['melhor'] = $usos;
+                $porSlug[$slug]['marcador'] = $texto;
+            }
+        }
+        $saida = array_map(static fn (array $g): array => ['marcador' => $g['marcador'], 'usos' => $g['total']], array_values($porSlug));
+        $colacao = new \Collator('pt_BR');
+        usort($saida, static fn (array $a, array $b): int => $b['usos'] <=> $a['usos'] ?: (int) $colacao->compare($a['marcador'], $b['marcador']));
+
+        return \array_slice($saida, 0, $limite);
     }
 
     private function aplicarBusca(QueryBuilder $qb, ?string $busca): void

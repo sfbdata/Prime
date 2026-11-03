@@ -57,8 +57,12 @@ final class ExportadorDeArtigo
             'resumo' => $artigo->getResumo(),
             'slug' => $artigo->getSlug(),
             'categoria' => $artigo->getCategoria(),
-            'autor' => $artigo->getAutor(),
         ];
+        // Spec, seção 11: a chave sai logo depois de `categoria` e só quando há marcadores.
+        if ($artigo->getMarcadores() !== []) {
+            $dados['marcadores'] = $artigo->getMarcadores();
+        }
+        $dados['autor'] = $artigo->getAutor();
         if ($artigo->getRevisorNome() !== null && $artigo->getRevisorOab() !== null) {
             $dados['revisor'] = ['nome' => $artigo->getRevisorNome(), 'oab' => $artigo->getRevisorOab()];
         }
