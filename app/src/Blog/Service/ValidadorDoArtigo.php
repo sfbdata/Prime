@@ -155,11 +155,16 @@ final class ValidadorDoArtigo
 
     private static function urlValida(string $url): bool
     {
-        if (filter_var($url, \FILTER_VALIDATE_URL) === false) {
+        // Sem FILTER_VALIDATE_URL: ele recusa endereço com acento, que o z.url() do site aceita.
+        if (preg_match('/\s/u', $url) === 1) {
+            return false;
+        }
+        $partes = parse_url($url);
+        if ($partes === false || ($partes['host'] ?? '') === '') {
             return false;
         }
 
-        return \in_array(strtolower((string) parse_url($url, \PHP_URL_SCHEME)), ['http', 'https'], true);
+        return \in_array(strtolower($partes['scheme'] ?? ''), ['http', 'https'], true);
     }
 
     private function erro(string $campo, string $mensagem): void

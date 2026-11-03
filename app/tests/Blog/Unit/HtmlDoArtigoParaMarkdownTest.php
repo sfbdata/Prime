@@ -29,6 +29,10 @@ final class HtmlDoArtigoParaMarkdownTest extends TestCase
             '<div data-bj="aviso"><p>Confira a norma.</p></div>',
             ":::aviso\nConfira a norma.\n:::\n",
         ];
+        yield 'aviso com título e lista vira um parágrafo só, como no site' => [
+            '<div data-bj="aviso"><h2>Atenção</h2><p>Confira a norma.</p><ul><li>prazo</li><li>custas</li></ul></div>',
+            ":::aviso\nAtenção Confira a norma. prazo custas\n:::\n",
+        ];
         yield 'etapas' => [
             '<div data-bj="etapas"><ol><li><strong>Captura.</strong> Entram por um ponto.</li><li><strong>Cadastro.</strong> Na pasta.</li></ol></div>',
             ":::etapas\n1. **Captura.** Entram por um ponto.\n2. **Cadastro.** Na pasta.\n:::\n",

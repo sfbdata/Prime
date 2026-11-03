@@ -128,7 +128,8 @@ final class HtmlDoArtigoParaMarkdown
             'leia-tambem' => '::leia-tambem{artigo=' . $el->getAttribute('data-artigo') . '}',
             'etapas' => $this->blocoComLista('etapas', $el, true),
             'checklist' => $this->blocoComLista('checklist', $el, false),
-            'aviso' => $this->moldura('aviso', $this->blocos($el)),
+            // o aviso do site é um parágrafo só (diretivas.mjs): títulos e listas dentro dele viram texto corrido
+            'aviso' => $this->moldura('aviso', array_filter([$this->paragrafo(iterator_to_array($el->childNodes))], static fn (string $b): bool => $b !== '')),
             default => implode("\n\n", $this->blocos($el)),
         };
     }
@@ -307,6 +308,10 @@ final class HtmlDoArtigoParaMarkdown
     private static function escaparUrl(string $href): string
     {
         $href = trim($href);
+
+        // O CommonMark desfaz entidade e barra invertida no destino do link: "&#58;" viraria ":" e "\:" viraria ":".
+        // Por isso "&" sai como "&amp;" e "\" sai dobrada; o link chega ao HTML com o texto que a lista branca conferiu.
+        $href = str_replace(['\\', '&'], ['\\\\', '&amp;'], $href);
 
         return str_replace([' ', '(', ')', '<', '>', '"', "\n", "\r", "\t"], ['%20', '%28', '%29', '%3C', '%3E', '%22', '', '', ''], $href);
     }

@@ -64,7 +64,9 @@ final class ListaBrancaDoArtigo
     /** Href sem esquema (caminho relativo) ou com http, https ou mailto; o esquema é lido sem diferenciar maiúsculas e sem espaços e controles. */
     public static function hrefPermitido(string $href): bool
     {
-        $compacto = (string) preg_replace('/[\x00-\x20\x7F]+/', '', $href);
+        // Entidade e barra invertida decodificadas antes de ler o esquema: "javascript&#58;" e "javascript\:" não passam por caminho relativo.
+        $decodificado = str_replace('\\', '', html_entity_decode(html_entity_decode($href, \ENT_QUOTES | \ENT_HTML5, 'UTF-8'), \ENT_QUOTES | \ENT_HTML5, 'UTF-8'));
+        $compacto = (string) preg_replace('/[\x00-\x20\x7F]+/', '', $decodificado);
         if ($compacto === '') {
             return false;
         }

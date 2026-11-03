@@ -30,6 +30,11 @@ final class ConversorXssTest extends TestCase
         yield 'link JaVaScRiPt com espaço e controle' => ["<p><a href=\" \x01JaVaScRiPt:alert(1)\">clique</a></p>"];
         yield 'link com tab no meio do esquema' => ["<p><a href=\"java\tscript:alert(1)\">clique</a></p>"];
         yield 'link com entidade no esquema' => ['<p><a href="&#106;avascript:alert(1)">clique</a></p>'];
+        yield 'link com entidade escrita no esquema' => ['<p><a href="javascript&amp;#58;alert(1)">clique</a></p>'];
+        yield 'link com &colon; escrito' => ['<p><a href="javascript&amp;colon;alert(1)">clique</a></p>'];
+        yield 'link com &Tab; escrito no meio' => ['<p><a href="java&amp;Tab;script:alert(1)">clique</a></p>'];
+        yield 'link com &#106; escrito no começo' => ['<p><a href="&amp;#106;avascript:alert(1)">clique</a></p>'];
+        yield 'link com barra antes dos dois-pontos' => ['<p><a href="javascript\\:alert(1)">clique</a></p>'];
         yield 'link data' => ['<p><a href="data:text/html;base64,PHNjcmlwdD4=">clique</a></p>'];
         yield 'link vbscript' => ['<p><a href="VBScript:msgbox(1)">clique</a></p>'];
         yield 'texto <b>& escrito como texto' => ['<p>&lt;b&gt;&amp; escrito</p>'];
@@ -74,7 +79,17 @@ final class ConversorXssTest extends TestCase
 
         self::assertSame("&lt;b&gt;&amp; escrito\n", $sut->converter('<p>&lt;b&gt;&amp; escrito</p>'));
         self::assertSame("![a&lt;b&gt;c](./imagens/3.png)\n", $sut->converter('<p><img src="/master/blog/imagens/3" alt="a<b>c"></p>', [3 => 'png']));
-        self::assertSame("[&lt;b&gt; site](https://a.b/?x=1&y=2)\n", $sut->converter('<p><a href="https://a.b/?x=1&amp;y=2">&lt;b&gt; site</a></p>'));
+        self::assertSame("[&lt;b&gt; site](https://a.b/?x=1&amp;y=2)\n", $sut->converter('<p><a href="https://a.b/?x=1&amp;y=2">&lt;b&gt; site</a></p>'));
+    }
+
+    #[TestDox('Entidade e barra invertida no destino do link não sobrevivem cruas: o CommonMark as desfaria')]
+    public function testDestinoDoLinkSemEntidadeNemBarraCrua(): void
+    {
+        $sut = new HtmlDoArtigoParaMarkdown();
+
+        self::assertSame("clique\n", $sut->converter('<p><a href="javascript&amp;#58;alert(1)">clique</a></p>'));
+        self::assertSame("[a](/x&amp;#58;y)\n", $sut->converter('<p><a href="/x&amp;#58;y">a</a></p>'));
+        self::assertSame("[a](/x\\\\y)\n", $sut->converter('<p><a href="/x\\y">a</a></p>'));
     }
 
     #[TestDox('Link com esquema perigoso deixa só o texto; caminho relativo vale')]

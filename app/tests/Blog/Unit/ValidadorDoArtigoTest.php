@@ -90,7 +90,7 @@ final class ValidadorDoArtigoTest extends TestCase
         self::assertSame(['A imagem de compartilhamento precisa do texto alternativo.'], $this->validar($artigo)['imagemAlt']);
     }
 
-    #[TestDox('Referência exige texto, rótulo e url http(s) válida')]
+    #[TestDox('Referência exige texto, rótulo e url http(s) válida; endereço com acento vale, como no z.url() do site')]
     public function testReferencias(): void
     {
         $artigo = ArtigosDeTeste::controleDePrazos();
@@ -98,6 +98,7 @@ final class ValidadorDoArtigoTest extends TestCase
             ['texto' => 'ok', 'url' => 'https://planalto.gov.br', 'rotulo' => 'planalto'],
             ['texto' => '', 'url' => 'ftp://planalto.gov.br', 'rotulo' => 'x'],
             ['texto' => 'x', 'url' => 'não é url', 'rotulo' => 'x'],
+            ['texto' => 'com acento', 'url' => 'https://www.gov.br/conselho-de-justiça/notícias', 'rotulo' => 'acento'],
         ]);
 
         self::assertSame([
