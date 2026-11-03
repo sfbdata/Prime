@@ -5,8 +5,10 @@
    do painel. Sem desenho do Claude Design (D1): segue o padrão visual do Painel do Master (master.css + master-blog.css).
 
    Duas colunas: à esquerda Título, Linha fina, o corpo no TinyMCE restrito e as Referências; à direita os cartões
-   Publicação, SEO, Classificação, Marcadores, Relacionados, Resumo e título curto.
-   Ainda não entram: Agendar, Publicar, Despublicar e a data de publicação (P4/P5) e a imagem (P3).
+   Publicação, SEO, Classificação, Marcadores, Imagem de compartilhamento (P3), Relacionados, Resumo e título curto.
+   Ainda não entram: Agendar, Publicar, Despublicar e a data de publicação (P4/P5).
+   Imagens (P3): o corpo e a capa enviam para /master/blog/artigos/{id}/imagens e mostram de /master/blog/imagens/{id};
+   só um artigo já salvo recebe imagem (o envio precisa do id).
 
    Os valores vêm do ArtigoParaEditorOutput; o public/js/master/blog-editor.js lê o artigo de data-artigo (JSON) e
    salva por POST JSON com o token `master_blog` no header X-CSRF-Token. O corpoHtml já vem limpo pela lista branca
@@ -29,6 +31,8 @@
     previa: path('master_blog_artigos_previa', {id: 0}),
     listar: path('master_blog_artigos_listar'),
     marcadores: path('master_blog_marcadores'),
+    imagens: path('master_blog_imagens_enviar', {id: 0}),
+    imagem: path('master_blog_imagens_ver', {id: 0}),
     painel: path('master_painel') ~ '#aba=painel&sec=blog',
     tinymce: asset('js/tinymce')
 } %}
@@ -186,6 +190,26 @@
                     </div>
                     <div class="be-dica">Até 8 marcadores, com até 40 caracteres cada. Prefira um já usado.</div>
                     <div class="be-erro" data-erro="marcadores"></div>
+                </div>
+            </div>
+
+            <div class="mp-card be-card">
+                <div class="mp-cab-simples"><i class="bi bi-image"></i><b>Imagem de compartilhamento</b></div>
+                <div class="be-dentro" data-be-campo="imagemChave">
+                    <div class="be-capa" data-be-capa-previa hidden><img data-be-capa-img alt=""></div>
+                    <div class="be-vazio" data-be-capa-vazio>Nenhuma imagem.</div>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" data-be-capa-arquivo hidden>
+                    <div class="be-botoes">
+                        <button type="button" class="be-btn-sec" data-be-capa-enviar{{ artigo.id ? '' : ' disabled' }}><i class="bi bi-upload"></i><span data-be-capa-enviar-rotulo>Enviar imagem</span></button>
+                        <button type="button" class="be-btn-sec be-btn-perigo" data-be-capa-remover hidden><i class="bi bi-x-lg"></i>Tirar imagem</button>
+                    </div>
+                    <div class="be-erro" data-erro="imagemChave"></div>
+                    <div class="be-campo" data-be-campo="imagemAlt">
+                        <label for="be-imagem-alt">Texto alternativo (obrigatório com imagem)</label>
+                        <input type="text" id="be-imagem-alt" maxlength="255" data-campo="imagemAlt" value="{{ artigo.imagemAlt }}" placeholder="Descreva o que a imagem mostra">
+                        <div class="be-erro" data-erro="imagemAlt"></div>
+                    </div>
+                    <div class="be-dica">{{ artigo.id ? 'JPG, PNG ou WEBP, até 5 MB. Aparece quando o artigo é compartilhado.' : 'Salve o rascunho antes de enviar a imagem.' }}</div>
                 </div>
             </div>
 

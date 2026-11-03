@@ -44,6 +44,24 @@ final class HtmlDoArtigoParaMarkdown
         return $this->listaBranca->paraHtml($this->listaBranca->limpar($html));
     }
 
+    /**
+     * Ids das ImagemDoArtigo que o corpo usa (`<img src="/master/blog/imagens/{id}">` que passa pela lista branca), sem
+     * repetir, na ordem em que aparecem. É o que a limpeza do salvar confere: imagem fora disto e da capa sai.
+     *
+     * @return list<int>
+     */
+    public function idsDasImagens(string $html): array
+    {
+        $ids = [];
+        foreach ($this->listaBranca->limpar($html)->getElementsByTagName('img') as $img) {
+            if (preg_match(ListaBrancaDoArtigo::REGEX_SRC_DA_IMAGEM, $img->getAttribute('src'), $m) === 1) {
+                $ids[(int) $m[1]] = true;
+            }
+        }
+
+        return array_keys($ids);
+    }
+
     /** @param array<int, string> $extensoesDasImagens id da ImagemDoArtigo => extensão (jpg, png, webp) */
     public function converter(string $html, array $extensoesDasImagens = []): string
     {

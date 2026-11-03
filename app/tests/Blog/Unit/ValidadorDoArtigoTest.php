@@ -85,9 +85,21 @@ final class ValidadorDoArtigoTest extends TestCase
     public function testImagemExigeAlt(): void
     {
         $artigo = ArtigosDeTeste::controleDePrazos();
-        $artigo->definirImagem('blog/imagens/1.png', null);
+        $artigo->definirImagem('1', null);
 
         self::assertSame(['A imagem de compartilhamento precisa do texto alternativo.'], $this->validar($artigo)['imagemAlt']);
+    }
+
+    #[TestDox('Imagem do corpo sem texto alternativo é recusada; com texto, passa')]
+    public function testImagemDoCorpoExigeAlt(): void
+    {
+        $artigo = ArtigosDeTeste::controleDePrazos();
+        $artigo->definirCorpo('<p>x</p>', "Texto.\n\n![](./imagens/4.png)\n");
+
+        self::assertSame(['Toda imagem do texto precisa do texto alternativo (clique na imagem e use o botão de imagem).'], $this->validar($artigo)['corpo']);
+
+        $artigo->definirCorpo('<p>x</p>', "Texto.\n\n![Tela do painel](./imagens/4.png)\n");
+        self::assertArrayNotHasKey('corpo', $this->validar($artigo));
     }
 
     #[TestDox('Referência exige texto, rótulo e url http(s) válida; endereço com acento vale, como no z.url() do site')]
