@@ -54,45 +54,52 @@ final class MarkdownDoArtigoParaHtml
         $i = 0;
         $total = \count($linhas);
         while ($i < $total) {
-            $linha = $linhas[$i];
-            $limpa = trim($linha);
-
-            if ($limpa === '') {
+            if (trim($linhas[$i]) === '') {
                 ++$i;
                 continue;
             }
-            if (preg_match('/^:::([a-z][a-z-]*)\s*$/', $limpa, $m) === 1) {
-                [$saida[], $i] = $this->diretivaDeBloco($m[1], $linhas, $i + 1);
-                continue;
-            }
-            if (str_starts_with($limpa, ':::')) {
-                // `:::` sem abertura, ou diretiva com rótulo e atributos, que o blog não usa
-                throw ArtigoDoRepositorioRecusado::diretivaDesconhecida($limpa);
-            }
-            if (str_starts_with($limpa, '::')) {
-                $saida[] = $this->diretivaDeLinha($limpa);
-                ++$i;
-                continue;
-            }
-            $this->recusarBlocoForaDoSubconjunto($linha);
-            if (preg_match('/^ {0,3}(#{2,3})\s+(.*?)(?:\s+#+)?\s*$/', $linha, $m) === 1) {
-                $tag = 'h' . \strlen($m[1]);
-                $saida[] = '<' . $tag . '>' . $this->inline($m[2]) . '</' . $tag . '>';
-                ++$i;
-                continue;
-            }
-            if (preg_match('/^ {0,3}>/', $linha) === 1) {
-                [$saida[], $i] = $this->citacao($linhas, $i);
-                continue;
-            }
-            if (preg_match(self::REGEX_ITEM, $linha) === 1) {
-                [$saida[], $i] = $this->lista($linhas, $i);
-                continue;
-            }
-            [$saida[], $i] = $this->paragrafo($linhas, $i);
+            [$saida[], $i] = $this->bloco($linhas, $i);
         }
 
         return array_values(array_filter($saida, static fn (string $b): bool => $b !== ''));
+    }
+
+    /**
+     * Um bloco que começa na linha `$i` (que tem texto).
+     *
+     * @param list<string> $linhas
+     *
+     * @return array{string, int} HTML do bloco, posição da linha seguinte
+     */
+    private function bloco(array $linhas, int $i): array
+    {
+        $linha = $linhas[$i];
+        $limpa = trim($linha);
+
+        if (preg_match('/^:::([a-z][a-z-]*)\s*$/', $limpa, $m) === 1) {
+            return $this->diretivaDeBloco($m[1], $linhas, $i + 1);
+        }
+        if (str_starts_with($limpa, ':::')) {
+            // `:::` sem abertura, ou diretiva com rótulo e atributos, que o blog não usa
+            throw ArtigoDoRepositorioRecusado::diretivaDesconhecida($limpa);
+        }
+        if (str_starts_with($limpa, '::')) {
+            return [$this->diretivaDeLinha($limpa), $i + 1];
+        }
+        $this->recusarBlocoForaDoSubconjunto($linha);
+        if (preg_match('/^ {0,3}(#{2,3})\s+(.*?)(?:\s+#+)?\s*$/', $linha, $m) === 1) {
+            $tag = 'h' . \strlen($m[1]);
+
+            return ['<' . $tag . '>' . $this->inline($m[2]) . '</' . $tag . '>', $i + 1];
+        }
+        if (preg_match('/^ {0,3}>/', $linha) === 1) {
+            return $this->citacao($linhas, $i);
+        }
+        if (preg_match(self::REGEX_ITEM, $linha) === 1) {
+            return $this->lista($linhas, $i);
+        }
+
+        return $this->paragrafo($linhas, $i);
     }
 
     private function recusarBlocoForaDoSubconjunto(string $linha): void
@@ -209,41 +216,10 @@ final class MarkdownDoArtigoParaHtml
         $total = \count($linhas);
 
         while ($i < $total && preg_match(self::REGEX_ITEM, $linhas[$i], $m) === 1 && ($m[3] !== '') === $numerada) {
-            $recuo = \strlen($m[0]) === \strlen(rtrim($m[0])) ? \strlen($m[0]) + 1 : \strlen($m[0]);
-            $conteudo = [substr($linhas[$i], \strlen($m[0]))];
-            ++$i;
-            while ($i < $total) {
-                $linha = $linhas[$i];
-                if (trim($linha) === '') {
-                    // linha em branco: o item continua só se a próxima linha com texto estiver recuada
-                    $proxima = $i + 1;
-                    while ($proxima < $total && trim($linhas[$proxima]) === '') {
-                        ++$proxima;
-                    }
-                    if ($proxima < $total && self::recuo($linhas[$proxima]) >= $recuo) {
-                        $conteudo[] = '';
-                        ++$i;
-                        continue;
-                    }
-                    break;
-                }
-                if (self::recuo($linha) >= $recuo) {
-                    $conteudo[] = substr($linha, $recuo);
-                    ++$i;
-                    continue;
-                }
-                if (preg_match(self::REGEX_ITEM, $linha) === 1 || $this->fechaParagrafo($linha)) {
-                    break;
-                }
-                $conteudo[] = $linha; // continuação preguiçosa do texto do item
-                ++$i;
-            }
+            [$conteudo, $i] = $this->conteudoDoItem($linhas, $i, $m[0]);
             $itens[] = '<li>' . $this->itemDaLista($conteudo) . '</li>';
             // linhas em branco entre itens da mesma lista
-            $proxima = $i;
-            while ($proxima < $total && trim($linhas[$proxima]) === '') {
-                ++$proxima;
-            }
+            $proxima = $this->proximaComTexto($linhas, $i);
             if ($proxima > $i && $proxima < $total && preg_match(self::REGEX_ITEM, $linhas[$proxima], $p) === 1 && ($p[3] !== '') === $numerada) {
                 $i = $proxima;
             }
@@ -252,6 +228,61 @@ final class MarkdownDoArtigoParaHtml
         $tag = $numerada ? 'ol' : 'ul';
 
         return ['<' . $tag . '>' . implode('', $itens) . '</' . $tag . '>', $i];
+    }
+
+    /**
+     * As linhas de um item, a partir da linha da marca: o texto depois da marca e o que vem recuado abaixo.
+     *
+     * @param list<string> $linhas
+     *
+     * @return array{list<string>, int} conteúdo do item sem o recuo, posição da linha seguinte
+     */
+    private function conteudoDoItem(array $linhas, int $i, string $marca): array
+    {
+        $recuo = \strlen($marca) === \strlen(rtrim($marca)) ? \strlen($marca) + 1 : \strlen($marca);
+        $conteudo = [substr($linhas[$i], \strlen($marca))];
+        ++$i;
+        $total = \count($linhas);
+        while ($i < $total) {
+            $linha = $linhas[$i];
+            if (trim($linha) === '') {
+                // linha em branco: o item continua só se a próxima linha com texto estiver recuada
+                $proxima = $this->proximaComTexto($linhas, $i + 1);
+                if ($proxima < $total && self::recuo($linhas[$proxima]) >= $recuo) {
+                    $conteudo[] = '';
+                    ++$i;
+                    continue;
+                }
+                break;
+            }
+            if (self::recuo($linha) >= $recuo) {
+                $conteudo[] = substr($linha, $recuo);
+                ++$i;
+                continue;
+            }
+            if (preg_match(self::REGEX_ITEM, $linha) === 1 || $this->fechaParagrafo($linha)) {
+                break;
+            }
+            $conteudo[] = $linha; // continuação preguiçosa do texto do item
+            ++$i;
+        }
+
+        return [$conteudo, $i];
+    }
+
+    /**
+     * Posição da primeira linha com texto a partir de `$i` (o total de linhas, se não houver).
+     *
+     * @param list<string> $linhas
+     */
+    private function proximaComTexto(array $linhas, int $i): int
+    {
+        $total = \count($linhas);
+        while ($i < $total && trim($linhas[$i]) === '') {
+            ++$i;
+        }
+
+        return $i;
     }
 
     /**
@@ -288,81 +319,126 @@ final class MarkdownDoArtigoParaHtml
         $i = 0;
 
         while ($i < $tamanho) {
-            $c = $texto[$i];
-
-            if ($c === '\\' && $i + 1 < $tamanho) {
-                $proximo = $texto[$i + 1];
-                if ($proximo === "\n") {
-                    $saida .= $this->texto($buffer) . '<br>';
-                    $buffer = '';
-                    $i += 2;
-                    continue;
-                }
-                if (str_contains(self::PONTUACAO_ESCAPAVEL, $proximo)) {
-                    $buffer .= $proximo;
-                    $i += 2;
-                    continue;
-                }
-            }
-            if ($c === "\n") {
-                if (str_ends_with($buffer, '  ')) {
-                    $saida .= $this->texto(rtrim($buffer, ' ')) . '<br>';
-                    $buffer = '';
-                } else {
-                    $buffer = rtrim($buffer, ' ') . ' ';
-                }
-                ++$i;
-                while ($i < $tamanho && $texto[$i] === ' ') {
-                    ++$i;
-                }
-                continue;
-            }
-            if ($c === '!' && ($texto[$i + 1] ?? '') === '[') {
-                throw ArtigoDoRepositorioRecusado::imagemNoCorpo();
-            }
-            if ($c === '&' && preg_match('/\G&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});/', $texto, $m, 0, $i) === 1) {
-                $decodificado = html_entity_decode($m[0], \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
-                $buffer .= $decodificado === $m[0] ? $m[0] : $decodificado;
-                $i += \strlen($m[0]);
-                continue;
-            }
-            if ($c === '<') {
-                if (preg_match('/\G<((?:https?:|mailto:)[^\s<>]*)>/i', $texto, $m, 0, $i) === 1) {
-                    $saida .= $this->texto($buffer) . $this->link($this->texto($m[1]), $m[1]);
-                    $buffer = '';
-                    $i += \strlen($m[0]);
-                    continue;
-                }
-                if (preg_match('/\G<(\/?[a-zA-Z][a-zA-Z0-9-]*[\s\/>]|!--)/', $texto, $m, 0, $i) === 1) {
-                    throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('HTML no meio do texto');
-                }
-            }
-            if ($c === '`' && preg_match('/\G(`+)(.+?)\1(?!`)/s', $texto, $m, 0, $i) === 1) {
-                // código no meio da frase: o blog não tem estilo para ele; fica o texto, sem a marca
-                $buffer .= trim($m[2]);
-                $i += \strlen($m[0]);
-                continue;
-            }
-            if ($c === '[' && ($link = $this->lerLink($texto, $i)) !== null) {
-                [$rotulo, $href, $fim] = $link;
-                $saida .= $this->texto($buffer) . $this->link($this->inline($rotulo), $href);
-                $buffer = '';
-                $i = $fim;
-                continue;
-            }
-            if (($c === '*' || $c === '_') && ($enfase = $this->lerEnfase($texto, $i)) !== null) {
-                [$tag, $dentro, $fim] = $enfase;
-                $saida .= $this->texto($buffer) . '<' . $tag . '>' . $this->inline($dentro) . '</' . $tag . '>';
-                $buffer = '';
+            $fim = $this->escapeOuQuebra($texto, $i, $saida, $buffer)
+                ?? $this->imagemEntidadeOuHtml($texto, $i, $saida, $buffer)
+                ?? $this->codigoLinkOuEnfase($texto, $i, $saida, $buffer);
+            if ($fim !== null) {
                 $i = $fim;
                 continue;
             }
 
-            $buffer .= $c;
+            $buffer .= $texto[$i];
             ++$i;
         }
 
         return $saida . $this->texto($buffer);
+    }
+
+    /**
+     * Barra invertida (quebra de linha ou pontuação escapada) e quebra de linha do texto, em `$i`. O texto comum vai
+     * para `$buffer`; o HTML pronto, para `$saida`.
+     *
+     * @return int|null posição depois do que foi lido; null se em `$i` não há nada disso
+     */
+    private function escapeOuQuebra(string $texto, int $i, string &$saida, string &$buffer): ?int
+    {
+        $c = $texto[$i];
+        $tamanho = \strlen($texto);
+
+        if ($c === '\\' && $i + 1 < $tamanho) {
+            $proximo = $texto[$i + 1];
+            if ($proximo === "\n") {
+                $saida .= $this->texto($buffer) . '<br>';
+                $buffer = '';
+
+                return $i + 2;
+            }
+            if (str_contains(self::PONTUACAO_ESCAPAVEL, $proximo)) {
+                $buffer .= $proximo;
+
+                return $i + 2;
+            }
+        }
+        if ($c !== "\n") {
+            return null;
+        }
+        if (str_ends_with($buffer, '  ')) {
+            $saida .= $this->texto(rtrim($buffer, ' ')) . '<br>';
+            $buffer = '';
+        } else {
+            $buffer = rtrim($buffer, ' ') . ' ';
+        }
+        ++$i;
+        while ($i < $tamanho && $texto[$i] === ' ') {
+            ++$i;
+        }
+
+        return $i;
+    }
+
+    /**
+     * Imagem (recusada), entidade HTML, link entre `<>` e HTML no meio do texto (recusado), em `$i`.
+     *
+     * @return int|null posição depois do que foi lido; null se em `$i` não há nada disso
+     */
+    private function imagemEntidadeOuHtml(string $texto, int $i, string &$saida, string &$buffer): ?int
+    {
+        $c = $texto[$i];
+        if ($c === '!' && ($texto[$i + 1] ?? '') === '[') {
+            throw ArtigoDoRepositorioRecusado::imagemNoCorpo();
+        }
+        if ($c === '&' && preg_match('/\G&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});/', $texto, $m, 0, $i) === 1) {
+            $decodificado = html_entity_decode($m[0], \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+            $buffer .= $decodificado === $m[0] ? $m[0] : $decodificado;
+
+            return $i + \strlen($m[0]);
+        }
+        if ($c !== '<') {
+            return null;
+        }
+        if (preg_match('/\G<((?:https?:|mailto:)[^\s<>]*)>/i', $texto, $m, 0, $i) === 1) {
+            $saida .= $this->texto($buffer) . $this->linkHtml($this->texto($m[1]), $m[1]);
+            $buffer = '';
+
+            return $i + \strlen($m[0]);
+        }
+        if (preg_match('/\G<(\/?[a-zA-Z][a-zA-Z0-9-]*[\s\/>]|!--)/', $texto, $m, 0, $i) === 1) {
+            throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('HTML no meio do texto');
+        }
+
+        return null;
+    }
+
+    /**
+     * Código entre crases, `[link](destino)` e ênfase (`*`, `_`), em `$i`.
+     *
+     * @return int|null posição depois do que foi lido; null se em `$i` não há nada disso
+     */
+    private function codigoLinkOuEnfase(string $texto, int $i, string &$saida, string &$buffer): ?int
+    {
+        $c = $texto[$i];
+        if ($c === '`' && preg_match('/\G(`+)(.+?)\1(?!`)/s', $texto, $m, 0, $i) === 1) {
+            // código no meio da frase: o blog não tem estilo para ele; fica o texto, sem a marca
+            $buffer .= trim($m[2]);
+
+            return $i + \strlen($m[0]);
+        }
+        if ($c === '[' && ($link = $this->lerLink($texto, $i)) !== null) {
+            [$rotulo, $href, $fim] = $link;
+            $saida .= $this->texto($buffer) . $this->linkHtml($this->inline($rotulo), $href);
+            $buffer = '';
+
+            return $fim;
+        }
+        if (($c === '*' || $c === '_') && ($enfase = $this->lerEnfase($texto, $i)) !== null) {
+            [$tag, $dentro, $fim] = $enfase;
+            $saida .= $this->texto($buffer) . '<' . $tag . '>' . $this->inline($dentro) . '</' . $tag . '>';
+            $buffer = '';
+
+            return $fim;
+        }
+
+        return null;
     }
 
     /**
@@ -462,7 +538,7 @@ final class MarkdownDoArtigoParaHtml
     }
 
     /** Link com href da lista branca; fora dela, fica só o texto. */
-    private function link(string $rotuloHtml, string $href): string
+    private function linkHtml(string $rotuloHtml, string $href): string
     {
         $href = trim($href);
         if ($href === '' || !ListaBrancaDoArtigo::hrefPermitido($href)) {

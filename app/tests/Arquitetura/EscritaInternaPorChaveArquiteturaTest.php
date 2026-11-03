@@ -61,9 +61,12 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *    arquivos versionados da APLICAÇÃO (`config/inteligencia/questoes_juridicas.json` e `resources/legal/*`), não
      *    do usuário; as versões ajustadas que o Master envia vão por chave para o armazenamento;
      *  - `CacheDeLeituraDoEspelho` (leitura pelo R2, D3) — lê a cópia que ele mesmo publicou no cache de
-     *    leitura, já conferida por SHA; quem pede é o `ArmazenamentoEspelhado::ler()`, por chave.
+     *    leitura, já conferida por SHA; quem pede é o `ArmazenamentoEspelhado::ler()`, por chave;
+     *  - `ImportarArtigosDoRepositorioCommand` (painel de artigos dos blogs, P2, 03/11) — lê os `.md` da cópia do
+     *    repositório dos sites que o operador aponta, uma vez; vira linha no banco, nunca arquivo do armazenamento.
      */
     private const QUEM_LE_CRU = [
+        'src/Blog/Command/ImportarArtigosDoRepositorioCommand.php',
         'src/Cobranca/DTO/ImportarRelatorioInput.php',
         'src/Comercial/Controller/CampanhaDoMasterController.php',
         'src/Command/MapearAcervoCommand.php',

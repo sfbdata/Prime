@@ -54,7 +54,6 @@ final readonly class SalvarArtigoDoBlogInput
         #[Assert\All([new Assert\Type('string')])]
         public array $relacionados = [],
         public bool $destaque = false,
-        /** Etiquetas livres; os limites (8 e 40 caracteres) são conferidos pelo ValidadorDoArtigo e pelo Assert abaixo. */
         #[Assert\Count(max: Marcadores::MAXIMO, maxMessage: 'Use até {{ limit }} marcadores.')]
         #[Assert\All([new Assert\Type('string'), new Assert\Length(max: Marcadores::TAMANHO_MAXIMO, maxMessage: 'Cada marcador pode ter até {{ limit }} caracteres.')])]
         public array $marcadores = [],
@@ -148,7 +147,10 @@ final readonly class SalvarArtigoDoBlogInput
         return array_values(array_filter(array_map(static fn (mixed $s): string => \is_string($s) ? trim($s) : '', $slugs), static fn (string $s): bool => $s !== ''));
     }
 
-    /** Spec, seção 11: marcador cujo slug fica vazio é recusado já ao salvar, não só no Verificar. */
+    /**
+     * Marcadores (spec, seção 11): os limites de 8 e 40 caracteres vêm dos Asserts do construtor e do ValidadorDoArtigo;
+     * aqui, o marcador cujo slug fica vazio é recusado já ao salvar, não só no Verificar.
+     */
     #[Assert\Callback]
     public function validarMarcadoresSemSlug(ExecutionContextInterface $contexto): void
     {

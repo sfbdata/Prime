@@ -90,6 +90,18 @@ final class ImportarArtigosDoRepositorioCommand extends Command
      */
     private function lerArquivos(string $raiz, array $pastas, OutputInterface $output, int &$recusados): array
     {
+        return $this->juntarOsBlogs($this->lerPorSlug($raiz, $pastas, $output, $recusados), $output, $recusados);
+    }
+
+    /**
+     * Lê os arquivos de cada blog e agrupa pelo slug do frontmatter; slug repetido no mesmo blog é recusado.
+     *
+     * @param array<string, BlogsDoArtigo> $pastas
+     *
+     * @return array<string, array<string, array{string, string}>> slug => pasta => [conteúdo, caminho], em ordem de slug
+     */
+    private function lerPorSlug(string $raiz, array $pastas, OutputInterface $output, int &$recusados): array
+    {
         /** @var array<string, array<string, array{string, string}>> $porSlug slug => pasta => [conteúdo, caminho] */
         $porSlug = [];
         $duplicados = [];
@@ -121,6 +133,18 @@ final class ImportarArtigosDoRepositorioCommand extends Command
         }
         ksort($porSlug);
 
+        return $porSlug;
+    }
+
+    /**
+     * Um artigo por slug: o de um blog só fica nele; o que está nos dois, com o mesmo texto, vai para "os dois".
+     *
+     * @param array<string, array<string, array{string, string}>> $porSlug slug => pasta => [conteúdo, caminho]
+     *
+     * @return array<string, array{string, BlogsDoArtigo, string}> slug => [conteúdo, blogs, de onde veio]
+     */
+    private function juntarOsBlogs(array $porSlug, OutputInterface $output, int &$recusados): array
+    {
         $artigos = [];
         foreach ($porSlug as $slug => $origens) {
             $slug = (string) $slug;

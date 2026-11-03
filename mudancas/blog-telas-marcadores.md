@@ -8,4 +8,4 @@ tipo: interno
 - Ainda sem publicar, agendar e imagens (fatias P3, P4 e P5).
 
 ## Para o cliente
-- Nada muda nas telas dos escritórios. A equipe do BlueJus ganhou um lugar para escrever e organizar os artigos dos blogs, com etiquetas por assunto, o que vai deixar o conteúdo do blog mais fácil de encontrar.
+- No Painel do Master, a equipe do BlueJus passa a escrever, revisar e organizar os artigos do Blog BlueJus e do Blog BlueJus Grátis, com etiquetas por assunto para facilitar a busca dos textos.
