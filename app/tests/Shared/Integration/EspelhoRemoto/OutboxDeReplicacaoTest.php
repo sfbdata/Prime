@@ -36,7 +36,7 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         $this->outbox  = new OutboxDeReplicacao($this->conexao, $this->relogio);
     }
 
-    #[TestDox('registrar envio cria linha pendente com chave remota, SHA, tamanho e MIME; exclusão nasce "registrado"')]
+    #[TestDox('registrar envio cria linha pendente com chave remota, SHA, tamanho e MIME; exclusão nasce "excluir" pendente (D6)')]
     public function testRegistrar(): void
     {
         $envio    = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
@@ -50,8 +50,8 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         self::assertSame(1, (int) $linha['tamanho_bytes']);
         self::assertSame('pasta_documento', $linha['categoria']);
         self::assertSame(1, (int) $linha['escopo_tenant_id']);
-        self::assertSame('registrado', $this->linha($exclusao)['estado']);
-        self::assertSame('exclusao_registrada', $this->linha($exclusao)['operacao']);
+        self::assertSame('pendente', $this->linha($exclusao)['estado']);
+        self::assertSame('excluir', $this->linha($exclusao)['operacao']);
     }
 
     #[TestDox('o nome entra na coluna byte a byte — Unicode, espaço na borda e ／')]
@@ -104,13 +104,16 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         self::assertStringContainsString('#' . $nova, (string) $this->linha($velha)['ultimo_erro']);
     }
 
-    #[TestDox('exclusão registrada DEPOIS de um envio pendente: o envio vira "superado" e nada sai — o excluído não é recriado')]
+    #[TestDox('exclusão registrada DEPOIS de um envio pendente: o envio vira "superado" e só a exclusão sai — o excluído não é recriado')]
     public function testExclusaoSuperaEnvioAnterior(): void
     {
-        $envio = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
-        $this->outbox->registrarExclusao($this->chave('a.pdf'));
+        $envio    = $this->outbox->registrarEnvio($this->chave('a.pdf'), $this->sha('a'), 1, 'application/pdf');
+        $exclusao = $this->outbox->registrarExclusao($this->chave('a.pdf'));
 
-        self::assertNull($this->outbox->reivindicarProxima(900, 6));
+        $item = $this->outbox->reivindicarProxima(900, 6);
+
+        self::assertSame($exclusao, $item?->id);
+        self::assertTrue($item->ehExclusao());
         self::assertSame('superado', $this->linha($envio)['estado']);
     }
 
@@ -290,9 +293,8 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
 
         $contagem = $this->outbox->contarPorEstado();
 
-        self::assertGreaterThanOrEqual(1, $contagem['pendente'] ?? 0);
-        self::assertGreaterThanOrEqual(1, $contagem['registrado'] ?? 0);
-        self::assertSame('registrado', $this->outbox->ultimoEstadoDe('core/t/1/uploads/pastas/b.pdf'));
+        self::assertSame(2, $contagem['pendente'] ?? 0);
+        self::assertSame('pendente', $this->outbox->ultimoEstadoDe('core/t/1/uploads/pastas/b.pdf'));
         self::assertNull($this->outbox->ultimoEstadoDe('core/t/1/uploads/pastas/nunca.pdf'));
     }
 
@@ -313,6 +315,41 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
             $existe = $this->conexao->fetchOne('SELECT 1 FROM armazenamento_replicacao WHERE id = ?', [$id]) !== false;
             self::assertSame(!\in_array($estado, OutboxDeReplicacao::ESTADOS_CONCLUIDOS, true), $existe, $estado);
         }
+    }
+
+    #[TestDox('D6: a exclusão sai na reivindicação como item de exclusão, sem SHA nem tamanho')]
+    public function testReivindicaExclusao(): void
+    {
+        $id = $this->outbox->registrarExclusao($this->chave('saiu.pdf'));
+
+        $item = $this->outbox->reivindicarProxima(900, 6);
+
+        self::assertSame($id, $item?->id);
+        self::assertTrue($item->ehExclusao());
+        self::assertSame('core/t/1/uploads/pastas/saiu.pdf', $item->chaveRemota);
+    }
+
+    #[TestDox('D6: o evento antigo (exclusao_registrada) nunca é reivindicado')]
+    public function testEventoAntigoNaoEhReivindicado(): void
+    {
+        $id = $this->outbox->registrarExclusao($this->chave('antigo.pdf'));
+        $this->conexao->executeStatement("UPDATE armazenamento_replicacao SET operacao = 'exclusao_registrada', estado = 'registrado' WHERE id = ?", [$id]);
+
+        self::assertNull($this->outbox->reivindicarProxima(900, 6));
+    }
+
+    #[TestDox('D6: exclusão concluída sai pela retenção; exclusão em "falhou" conta no alerta e volta com reenfileirar')]
+    public function testExclusaoNaRetencaoENoAlerta(): void
+    {
+        $velha  = $this->linhaNoEstado($this->outbox->registrarExclusao($this->chave('velha.pdf')), 'verificado', 91);
+        $falhou = $this->linhaNoEstado($this->outbox->registrarExclusao($this->chave('falhou.pdf')), 'falhou', 1);
+
+        self::assertSame(['verificado' => 1], $this->outbox->contarConcluidasHaMaisDe(90));
+        self::assertSame(['pasta_documento' => 1], $this->outbox->contarFalhasPorCategoria(['pasta_documento']));
+        self::assertSame(1, $this->outbox->reenfileirarFalhas(['pasta_documento']));
+        self::assertSame('pendente', $this->linha($falhou)['estado']);
+        self::assertSame(1, $this->outbox->apagarConcluidasHaMaisDe(90));
+        self::assertFalse($this->conexao->fetchOne('SELECT 1 FROM armazenamento_replicacao WHERE id = ?', [$velha]));
     }
 
     #[TestDox('retenção: com 90 dias, a linha concluída de 89 dias fica e a de 91 sai')]

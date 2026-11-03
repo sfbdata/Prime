@@ -61,12 +61,12 @@ final class ReenfileirarFalhasCommand extends Command
         $io->table(['categoria', 'envios em falhou'], $falhas === [] ? [['(nenhuma)', 0]] : array_map(null, array_keys($falhas), array_values($falhas)));
 
         if ($input->getOption('simular')) {
-            $io->note(sprintf('Simulação: %d envio(s) voltariam para a fila; nada mudou.', array_sum($falhas)));
+            $io->note(sprintf('Simulação: %d envio(s) ou exclusão(ões) voltariam para a fila; nada mudou.', array_sum($falhas)));
 
             return Command::SUCCESS;
         }
 
-        $io->success(sprintf('%d envio(s) de volta para a fila.', $this->outbox->reenfileirarFalhas($categorias)));
+        $io->success(sprintf('%d envio(s) ou exclusão(ões) de volta para a fila.', $this->outbox->reenfileirarFalhas($categorias)));
 
         return Command::SUCCESS;
     }

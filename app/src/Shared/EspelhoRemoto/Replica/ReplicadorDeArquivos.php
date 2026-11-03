@@ -33,6 +33,12 @@ use Psr\Log\LoggerInterface;
  *     que a posse, o PUT termina antes que outro worker possa pegar a mesma chave — um envio velho
  *     não cai por cima de um novo.
  *
+ * Linha de exclusão (`excluir`, frente D6: purga da lixeira, exclusão LGPD), nesta ordem:
+ *  1. o arquivo voltou ao disco (mesma chave regravada) → `superado`, e nada é apagado no R2; sem
+ *     registro mais novo da chave, o conteúdo atual entra na fila como envio;
+ *  2. senão, RENOVA a posse e só então apaga o objeto no espelho e confere que ele saiu → `verificado`.
+ *     Objeto que já não estava lá também conta como apagado.
+ *
  * Falha transitória (espelho fora, disco momentaneamente ilegível, qualquer erro inesperado) →
  * reagenda com backoff até {@see self::MAXIMO_DE_TENTATIVAS}; depois, `falhou`. Erro que não melhora
  * com o tempo (chave inválida, parâmetro recusado) → `falhou` na hora. Se até a marcação de estado
@@ -112,6 +118,12 @@ final class ReplicadorDeArquivos
      */
     private function replicar(EspelhoRemoto $espelho, ItemDeReplicacao $item, ResumoDaRodada $resumo): void
     {
+        if ($item->ehExclusao()) {
+            $this->excluirDoEspelho($espelho, $item, $resumo);
+
+            return;
+        }
+
         if ($this->local->metadados($item->chave) === null) {
             $this->descartar($item, $resumo);
 
@@ -143,6 +155,40 @@ final class ReplicadorDeArquivos
         $this->enviarDoDisco($espelho, $item);
         $this->concluido($item, $this->outbox->marcarVerificado($item));
         $resumo->enviados++;
+    }
+
+    /** Exclusão (frente D6): o objeto sai do espelho, a não ser que o arquivo tenha voltado ao disco. */
+    private function excluirDoEspelho(EspelhoRemoto $espelho, ItemDeReplicacao $item, ResumoDaRodada $resumo): void
+    {
+        $noDisco = $this->local->metadados($item->chave);
+        if ($noDisco !== null) {
+            // Como em superarPorConteudoMudado: sem registro mais novo, o conteúdo atual entra na fila,
+            // senão o arquivo regravado ficaria sem réplica.
+            $reregistrou = false;
+            if (!$this->outbox->existeRegistroMaisNovo($item)) {
+                $medida = MedidaDeConteudo::de($this->local, $item->chave);
+                $this->outbox->registrarEnvio($item->chave, $medida->sha256, $medida->tamanhoBytes, $noDisco->mimeType);
+                $reregistrou = true;
+            }
+            $this->outbox->marcarSuperado($item, $reregistrou
+                ? 'o arquivo voltou ao disco depois da exclusão; nada foi apagado no espelho e o conteúdo atual foi registrado para envio'
+                : 'o arquivo voltou ao disco depois da exclusão; nada foi apagado no espelho');
+            $resumo->superados++;
+            $this->registrar($item, 'exclusão superada (o arquivo está no disco)');
+
+            return;
+        }
+
+        if (!$this->outbox->renovarPosse($item, self::POSSE_EM_SEGUNDOS)) {
+            $resumo->possesPerdidas++;
+            $this->registrar($item, 'não apagado: a posse foi perdida antes de apagar');
+
+            return;
+        }
+
+        $espelho->excluir($item->chave);
+        $this->concluido($item, $this->outbox->marcarVerificado($item));
+        $resumo->excluidos++;
     }
 
     /** O disco mudou depois do registro: vale o mais novo, e se não houver, registra o conteúdo atual. */

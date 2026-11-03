@@ -6,7 +6,10 @@ namespace App\Shared\EspelhoRemoto\Outbox;
 
 use App\Shared\Armazenamento\ChaveDeArquivo;
 
-/** Uma linha `enviar` reivindicada pelo worker: o que enviar, de qual versão (SHA) e em qual tentativa. */
+/**
+ * Uma linha reivindicada pelo worker: o que enviar, de qual versão (SHA) e em qual tentativa, ou o
+ * que apagar do espelho (`excluir`, frente D6; aí SHA e tamanho vêm vazios).
+ */
 final readonly class ItemDeReplicacao
 {
     public function __construct(
@@ -19,6 +22,12 @@ final readonly class ItemDeReplicacao
         public int $tentativas,
         /** Token da posse desta reivindicação: só ele conclui, reagenda ou renova a linha. */
         public string $posse,
+        public string $operacao = OutboxDeReplicacao::OPERACAO_ENVIAR,
     ) {
+    }
+
+    public function ehExclusao(): bool
+    {
+        return $this->operacao === OutboxDeReplicacao::OPERACAO_EXCLUIR;
     }
 }

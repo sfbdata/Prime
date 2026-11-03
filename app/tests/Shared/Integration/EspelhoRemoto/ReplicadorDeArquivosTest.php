@@ -182,6 +182,11 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
             {
                 $this->real->baixar($chave, $destino, $tamanhoEsperado, $sha256Esperado);
             }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                $this->real->excluir($chave);
+            }
         };
 
         $resumo = $this->replicador->processar($espiao, 1);
@@ -216,6 +221,11 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
             {
                 throw new \LogicException('a réplica e a reconciliação não baixam conteúdo');
             }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                throw new \LogicException('a réplica não apaga neste teste');
+            }
         };
 
         $resumo = $this->replicador->processar($quebrado, 10);
@@ -231,7 +241,7 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
         self::assertGreaterThanOrEqual(ClienteR2::DURACAO_MAXIMA_DA_REQUISICAO + 120, ReplicadorDeArquivos::POSSE_EM_SEGUNDOS);
     }
 
-    #[TestDox('excluído depois do envio pendente: nada é enviado e nada é apagado — o excluído não volta')]
+    #[TestDox('excluído depois do envio pendente: nada é enviado, a exclusão é levada ao R2 — o excluído não volta')]
     public function testExcluidoNaoVolta(): void
     {
         $chave = $this->gravar('a.pdf', 'conteúdo');
@@ -240,8 +250,72 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
         $this->replicador->processar($this->espelho, 10);
 
         self::assertSame([], $this->s3->chavesGravadas());
+        self::assertNotContains('PUT', $this->s3->metodosUsados());
+        self::assertSame(['superado' => 1, 'verificado' => 1], $this->outbox->contarPorEstado());
+    }
+
+    #[TestDox('D6: arquivo já no espelho e excluído no sistema → o objeto sai do R2 e a exclusão vira "verificado"')]
+    public function testExclusaoApagaNoEspelho(): void
+    {
+        $chave = $this->gravar('a.pdf', 'conteúdo');
+        $this->replicador->processar($this->espelho, 10);
+        self::assertSame('conteúdo', $this->s3->conteudoDe(LayoutDeChaveRemota::chaveDe($chave)));
+
+        $this->espelhado->excluir($chave);
+        $resumo = $this->replicador->processar($this->espelho, 10);
+
+        self::assertSame(1, $resumo->excluidos);
+        self::assertNull($this->s3->conteudoDe(LayoutDeChaveRemota::chaveDe($chave)));
+        self::assertSame(['verificado' => 2], $this->outbox->contarPorEstado());
+        self::assertSame('verificado', $this->outbox->ultimoEstadoDe(LayoutDeChaveRemota::chaveDe($chave)));
+    }
+
+    #[TestDox('D6: o arquivo voltou ao disco depois da exclusão → a exclusão vira "superado" e nada sai do R2')]
+    public function testExclusaoComArquivoDeVoltaNaoApaga(): void
+    {
+        $chave = $this->gravar('a.pdf', 'conteúdo');
+        $this->replicador->processar($this->espelho, 10);
+        $this->espelhado->excluir($chave);
+        // Regravado por fora do decorador, sem envio novo na fila.
+        $this->local->gravar($chave, FonteDeConteudo::deTexto('conteúdo'));
+
+        $resumo = $this->replicador->processar($this->espelho, 10);
+
+        self::assertSame(0, $resumo->excluidos);
+        self::assertSame(1, $resumo->superados);
+        self::assertSame('conteúdo', $this->s3->conteudoDe(LayoutDeChaveRemota::chaveDe($chave)));
         self::assertNotContains('DELETE', $this->s3->metodosUsados());
-        self::assertSame(['registrado' => 1, 'superado' => 1], $this->outbox->contarPorEstado());
+        self::assertSame(1, $resumo->jaEstavamNoEspelho, 'sem registro mais novo, o conteúdo atual voltou à fila e conferiu com o R2');
+        self::assertSame('verificado', $this->outbox->ultimoEstadoDe(LayoutDeChaveRemota::chaveDe($chave)));
+    }
+
+    #[TestDox('D6: R2 fora do ar no DELETE → a exclusão é reagendada e tenta de novo depois')]
+    public function testExclusaoComR2ForaReagenda(): void
+    {
+        $chave = $this->gravar('a.pdf', 'conteúdo');
+        $this->replicador->processar($this->espelho, 10);
+        $this->espelhado->excluir($chave);
+        $this->s3->falharAProxima(new MockResponse('', ['http_code' => 503]));
+
+        $resumo = $this->replicador->processar($this->espelho, 10);
+
+        self::assertSame(1, $resumo->reagendados);
+        self::assertSame('pendente', $this->outbox->ultimoEstadoDe(LayoutDeChaveRemota::chaveDe($chave)));
+        self::assertSame('conteúdo', $this->s3->conteudoDe(LayoutDeChaveRemota::chaveDe($chave)));
+    }
+
+    #[TestDox('D6: o destino diz que apagou, mas o objeto continua lá → reagenda, não marca "verificado"')]
+    public function testExclusaoQueNaoApagouReagenda(): void
+    {
+        $chave = $this->gravar('a.pdf', 'conteúdo');
+        $this->replicador->processar($this->espelho, 10);
+        $this->espelhado->excluir($chave);
+        $this->s3->falharAProxima(new MockResponse('', ['http_code' => 204]));
+
+        $resumo = $this->replicador->processar($this->espelho, 10);
+
+        self::assertSame(1, $resumo->reagendados);
+        self::assertSame('pendente', $this->outbox->ultimoEstadoDe(LayoutDeChaveRemota::chaveDe($chave)));
     }
 
     #[TestDox('arquivo local sumiu sem evento (fora do decorador) → "descartado", sem envio')]

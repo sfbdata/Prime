@@ -77,6 +77,11 @@ e SHA na fatia diária.
 - Regra: nenhuma categoria tem a cópia local liberada antes de essa frente estar no ar.
 - Motivo: depois de liberado, o R2 é a única cópia, e a exclusão pedida pela pessoa tem de apagar lá.
   Sem isso, o pedido LGPD deixaria o arquivo no R2.
+- **Entregue em 03/11/2026 (PR da branch `r2-d6-exclusao`):** a exclusão grava `excluir`/`pendente` na
+  outbox e o worker apaga o objeto no R2 (uma chave, conferida por HEAD); se o arquivo voltou ao disco,
+  a exclusão vira `superado` e nada sai. A purga da lixeira (`app:documentos:purgar-lixeira`, 30 dias)
+  roda às 0h50. Etapa C: ao restaurar um lote, conferir que não há exclusão pendente da mesma chave, e
+  a exclusão de um arquivo liberado tem de apagar também o registro de liberação.
 
 ## 3. Etapa A: leitura de recuperação
 

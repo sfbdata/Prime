@@ -47,7 +47,7 @@ final class ReenfileirarFalhasTest extends KernelTestCase
 
         self::assertSame(Command::SUCCESS, $tester->execute(['--categoria' => 'foto_perfil']));
         $saida = preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '';
-        self::assertStringContainsString('1 envio(s) de volta', $saida);
+        self::assertStringContainsString('1 envio(s) ou exclusão(ões) de volta', $saida);
         self::assertStringNotContainsString('Antônio', $saida);
         self::assertStringNotContainsString('core/', $saida);
         self::assertSame(['estado' => 'pendente', 'tentativas' => 0, 'proxima_tentativa_em' => '2026-10-24 12:00:00'], $this->estado($foto));

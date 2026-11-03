@@ -14,7 +14,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Esvazia a lixeira da aba Documentos (D7): apaga de verdade — linha e arquivo — o que está na
- * lixeira há mais de `--dias` (padrão 30, S-10). Nenhum cron o aciona nesta frente: é do operador.
+ * lixeira há mais de `--dias` (padrão 30, S-10). Roda todo dia às 0h50 pela `AgendaDeTarefas`; à mão, continua valendo.
  *
  * `--dry-run` conta e lista sem apagar nada; `--limite=N` purga no máximo N entradas da fila
  * (seções e documentos vencidos; os pulados por caminho inválido não contam) e a próxima execução
