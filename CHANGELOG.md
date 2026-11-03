@@ -8,6 +8,12 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.30.0] - 2026-11-03
+
+### Alterado
+
+- Processos da OAB (Push Processual): a sub-aba "Processos acompanhados" passa a ser a primeira e a que abre por padrão (sem `?sub`). Ordem: Acompanhados, Relacionados, Acervo por jurisdição. Links com `?sub=relatorio` e a volta ao incluir processos (Relacionados) continuam iguais.
+
 ## [2.29.0] - 2026-10-31
 
 ### Adicionado
@@ -1363,7 +1369,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.29.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.30.0...HEAD
+[2.30.0]: https://github.com/sfbdata/Prime/compare/v2.29.0...v2.30.0
 [2.29.0]: https://github.com/sfbdata/Prime/compare/v2.28.0...v2.29.0
 [2.28.0]: https://github.com/sfbdata/Prime/compare/v2.27.0...v2.28.0
 [2.27.0]: https://github.com/sfbdata/Prime/compare/v2.26.0...v2.27.0
