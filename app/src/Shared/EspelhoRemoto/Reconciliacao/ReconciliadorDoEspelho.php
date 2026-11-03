@@ -8,9 +8,12 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
+use App\Shared\EspelhoRemoto\Liberacao\LiberacaoAberta;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 
@@ -24,6 +27,15 @@ use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
  *
  * O conteúdo de erro 401 do Drive (os 90 da P1) tem SHA conhecido: sai como `suspeito`, nunca como
  * `igual` (DP-7).
+ *
+ * ## Liberação do disco (spec `leitura-pelo-r2-e-liberacao-de-disco.md` D5, §4)
+ *
+ * Ausente no disco com linha aberta no {@see RegistroDeLiberacao}: o R2 é a única cópia, então ele é
+ * conferido contra a linha (presença, tamanho e o SHA do metadado). Batendo, a classe é `liberado`, que
+ * não alerta; faltando o objeto ou divergindo, a classe é a mesma de sempre (`ausente_no_espelho`,
+ * `tamanho_divergente`, `sha_divergente`), que alerta. Presente no disco E com linha aberta: a classe
+ * é `restaurado_sem_registro` (alerta leve), salvo quando a comparação de sempre deu divergência que
+ * exige ação ({@see AlertaDaReconciliacao::CLASSES_QUE_EXIGEM_ACAO}): essa vale mais e não some.
  */
 final class ReconciliadorDoEspelho
 {
@@ -40,6 +52,7 @@ final class ReconciliadorDoEspelho
         private readonly FonteDeReferencias $fontes,
         private readonly ArmazenamentoDeArquivos $local,
         private readonly OutboxDeReplicacao $outbox,
+        private readonly RegistroDeLiberacao $liberacoes,
         private readonly string $shaSuspeito = self::SHA_DO_ERRO_401_DO_DRIVE,
     ) {
     }
@@ -113,8 +126,48 @@ final class ReconciliadorDoEspelho
     {
         $noDisco = $this->local->metadados($chave);
         if ($noDisco === null) {
-            return ClasseDeReconciliacao::LOCAL_AUSENTE;
+            $liberacao = $this->liberacaoDe($chave);
+
+            return $liberacao === null ? ClasseDeReconciliacao::LOCAL_AUSENTE : $this->conferirLiberado($espelho, $chave, $liberacao);
         }
+
+        $classe = $this->compararComODisco($espelho, $chave, $noDisco, $conferirSha);
+        if (\in_array($classe, AlertaDaReconciliacao::CLASSES_QUE_EXIGEM_ACAO, true) || $this->liberacaoDe($chave) === null) {
+            return $classe;
+        }
+
+        return ClasseDeReconciliacao::RESTAURADO_SEM_REGISTRO;
+    }
+
+    /** O R2 é a única cópia do liberado: tem de estar lá, com o tamanho e o SHA provados na liberação. */
+    private function conferirLiberado(EspelhoRemoto $espelho, ChaveDeArquivo $chave, LiberacaoAberta $liberacao): ClasseDeReconciliacao
+    {
+        $remoto = $espelho->consultar($chave);
+        if ($remoto === null) {
+            return ClasseDeReconciliacao::AUSENTE_NO_ESPELHO;
+        }
+        if ($remoto->tamanhoBytes !== $liberacao->tamanhoBytes) {
+            return ClasseDeReconciliacao::TAMANHO_DIVERGENTE;
+        }
+        if ($remoto->sha256 !== null && !hash_equals($liberacao->sha256, $remoto->sha256)) {
+            return ClasseDeReconciliacao::SHA_DIVERGENTE;
+        }
+
+        return ClasseDeReconciliacao::LIBERADO;
+    }
+
+    /** A linha aberta de liberação da chave; chave que o layout recusa nunca foi liberada. */
+    private function liberacaoDe(ChaveDeArquivo $chave): ?LiberacaoAberta
+    {
+        try {
+            return $this->liberacoes->abertaDe(LayoutDeChaveRemota::chaveDe($chave));
+        } catch (ChaveDeArquivoInvalida) {
+            return null;
+        }
+    }
+
+    private function compararComODisco(EspelhoRemoto $espelho, ChaveDeArquivo $chave, MetadadosDeArquivo $noDisco, bool $conferirSha): ClasseDeReconciliacao
+    {
 
         $shaNoDisco = $conferirSha ? Sha256DeArquivo::deChave($this->local, $chave) : null;
         if ($shaNoDisco !== null && hash_equals($this->shaSuspeito, $shaNoDisco)) {

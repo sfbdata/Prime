@@ -19,4 +19,11 @@ enum ClasseDeReconciliacao: string
     case SUSPEITO_ERRO_DO_DRIVE   = 'suspeito_erro_do_drive';
     case CHAVE_INVALIDA           = 'chave_invalida';
     case ERRO_DE_CONSULTA         = 'erro_de_consulta';
+    /**
+     * Ausente no disco, com linha aberta no registro de liberação e o R2 confirmando presença e tamanho
+     * (spec `leitura-pelo-r2-e-liberacao-de-disco.md` D5, §4): saiu do disco de propósito. Não alerta.
+     */
+    case LIBERADO                 = 'liberado';
+    /** Presente no disco E com linha aberta de liberação: alguém regravou o arquivo. Alerta leve: fechar a linha. */
+    case RESTAURADO_SEM_REGISTRO  = 'restaurado_sem_registro';
 }

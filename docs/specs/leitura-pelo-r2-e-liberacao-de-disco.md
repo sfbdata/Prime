@@ -160,6 +160,17 @@ Uma migration (número pedido ao Coordenador), só aditiva: tabela `armazenament
 - A leitura (§3) passa a aceitar como prova **ou** o `verificado` da outbox **ou** a linha de
   liberação. Assim a retenção de 90 dias da outbox não apaga a prova.
 
+**Entregue em 03/11/2026 (branch `r2-registro-liberacao`):** migration `Version20261103180000`,
+entidade só de mapeamento `LiberacaoDeArquivo` e `Liberacao\RegistroDeLiberacao` (DBAL: `abertaDe`,
+`registrar`, `fechar`). O tenant fica em `escopo_tenant_id` (nulo = global), como na outbox.
+- Reconciliação: o `liberado` só sai com o R2 conferido contra a linha (presença, tamanho e SHA do
+  metadado, D5); faltando o objeto ou divergindo, a classe é a de sempre e alerta. No
+  `restaurado_sem_registro`, uma divergência que exige ação vale mais e continua alertando. O aviso leve
+  sai na saída do comando, sem falhar a rodada.
+- Leitura: a linha de liberação só prova quando a outbox não tem linha **nenhuma** da chave. Qualquer
+  linha mais nova (exclusão, reenvio pendente, falha) vale mais. Sem MIME na linha, `metadados()`
+  responde `application/octet-stream` (a entrega adivinha o tipo pelo conteúdo).
+
 ## 5. Etapa C: liberar disco
 
 ### 5.0 Condições da 2ª revisão da Etapa A (fechar antes do primeiro lote)

@@ -17,6 +17,7 @@ use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
 use App\Shared\EspelhoRemoto\ArmazenamentoEspelhado;
 use App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
@@ -95,6 +96,7 @@ final class ZipPeloEspelhoTest extends KernelTestCase
             new LoggerEspiao(),
             ProvedorDoEspelhoFixo::com($espelho),
             new CacheDeLeituraDoEspelho($this->diretorioDoCache, 1),
+            new RegistroDeLiberacao($conexao, new MockClock()),
         );
 
         $saida           = $this->useCase($espelhado, $documentos)->executar($pasta, $documentos, [], self::comId((new User())->setEmail('ana@r2.com')->setFullName('Ana'), 3), $tenant);

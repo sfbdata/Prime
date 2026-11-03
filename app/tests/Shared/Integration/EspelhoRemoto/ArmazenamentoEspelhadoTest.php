@@ -18,6 +18,7 @@ use App\Shared\Armazenamento\NovoArquivo;
 use App\Shared\EspelhoRemoto\ArmazenamentoEspelhado;
 use App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
@@ -162,7 +163,7 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
     public function testOutboxQuebradaNaoQuebraOUsuario(): void
     {
         $semTabela = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
-        $espelhado = new ArmazenamentoEspelhado($this->interno, new OutboxDeReplicacao($semTabela, new MockClock()), new PoliticaDeEspelhamento('pasta_documento'), $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0));
+        $espelhado = new ArmazenamentoEspelhado($this->interno, new OutboxDeReplicacao($semTabela, new MockClock()), new PoliticaDeEspelhamento('pasta_documento'), $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0), new RegistroDeLiberacao($semTabela, new MockClock()));
         $chave     = new ChaveDeArquivo(EscopoDeArquivo::deTenant(7), CategoriaDeArquivo::PASTA_DOCUMENTO, self::NOME_PESSOAL);
 
         $armazenado = $espelhado->gravar($chave, FonteDeConteudo::deTexto('x'));
@@ -229,7 +230,7 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
 
     private function espelhado(PoliticaDeEspelhamento $politica): ArmazenamentoEspelhado
     {
-        return new ArmazenamentoEspelhado($this->interno, $this->outbox, $politica, $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0));
+        return new ArmazenamentoEspelhado($this->interno, $this->outbox, $politica, $this->logger, ProvedorDoEspelhoFixo::naoConfigurado(), new CacheDeLeituraDoEspelho(sys_get_temp_dir() . '/jusprime-cache-nao-usado', 0), new RegistroDeLiberacao($this->conexao, new MockClock()));
     }
 
     private function novo(CategoriaDeArquivo $categoria): NovoArquivo

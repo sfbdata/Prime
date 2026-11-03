@@ -9,6 +9,7 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\R2\ClienteR2;
 use App\Shared\EspelhoRemoto\R2\EspelhoRemotoR2;
@@ -224,6 +225,6 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
             }
         };
 
-        return new ReconciliadorDoEspelho($fonte, $this->local, $this->outbox, hash('sha256', $this->conteudoDoErro401()));
+        return new ReconciliadorDoEspelho($fonte, $this->local, $this->outbox, new RegistroDeLiberacao($this->conexao, new MockClock()), hash('sha256', $this->conteudoDoErro401()));
     }
 }
