@@ -102,6 +102,12 @@
         montar(files, false, umCliente);
     }
 
+    /* "001 - Fulano", "01_Fulano", "1. Fulano" viram "Fulano": só o número da frente seguido de separador
+       (espaço, -, _, ., ) ou º) e com nome depois. Nome que é só número ("2024") fica como está. */
+    function semNumeroNaFrente(nome) {
+        return nome.replace(/^\s*\d+(?:\s*[-_.)ºª°]+\s*|\s+)(?=[^\s\-_.)ºª°])/, '');
+    }
+
     function montar(files, solta, umCliente) {
         var grupos = {};
         Array.prototype.forEach.call(files, function (fl) {
@@ -111,7 +117,7 @@
             (grupos[k] = grupos[k] || []).push(fl);
         });
         var lote = Object.keys(grupos).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); }).map(function (k) {
-            return { cli: k.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase(), files: grupos[k], on: true, feita: false, st: '', nup: '', comCaminho: !!umCliente };
+            return { cli: semNumeroNaFrente(k).replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase(), files: grupos[k], on: true, feita: false, st: '', nup: '', comCaminho: !!umCliente };
         });
         if (!lote.length) {
             s.erro = 'Nenhum arquivo encontrado na pasta escolhida.';

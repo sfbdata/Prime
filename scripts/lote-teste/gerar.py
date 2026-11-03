@@ -134,8 +134,12 @@ def ignorado(partes: list[str]) -> bool:
     return bool(IGNORAR.search(partes[-1])) or any(p.startswith(".") for p in partes[1:-1])
 
 
+NUMERO_NA_FRENTE = re.compile(r"^\s*\d+(?:\s*[-_.)ºª°]+\s*|\s+)(?=[^\s\-_.)ºª°])")
+
+
 def _nome_do_cliente(chave: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[_-]+", " ", chave)).strip().upper()
+    """Mesma regra do JS: tira o número da frente ("001 - ", "01_", "1. "), troca _/- por espaço, maiúsculas."""
+    return re.sub(r"\s+", " ", re.sub(r"[_-]+", " ", NUMERO_NA_FRENTE.sub("", chave, count=1))).strip().upper()
 
 
 def _ordem_pt(texto: str) -> str:
@@ -213,9 +217,9 @@ CENARIOS = [
         "titulo": "Pastas numeradas (\"001 - Fulano\")",
         "escolher": "Clientes",
         "arquivos": ["001 - Fulano Ficticio/inicial.pdf", "002 - Beltrana_Teste/procuracao.pdf",
-                     "010 - Sicrano Teste/RG.jpg"],
-        "ideal": "3 pastas com o nome sem o número: FULANO FICTICIO, BELTRANA TESTE, SICRANO TESTE.",
-        "notas": "Hoje o número fica no nome do cliente (001 FULANO FICTICIO): a pessoa corrige na tabela.",
+                     "010 - Sicrano Teste/RG.jpg", "03_Joana Teste/RG.jpg", "4. Marcos Teste/inicial.pdf"],
+        "ideal": "5 pastas com o nome sem o número: FULANO FICTICIO, BELTRANA TESTE, SICRANO TESTE, JOANA TESTE, MARCOS TESTE.",
+        "notas": "O número da frente sai do nome desde 03/11/2026 (antes ficava: 001 FULANO FICTICIO). Nome só com número (2024) fica.",
     },
     {
         "id": "05-tres-niveis",
