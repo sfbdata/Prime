@@ -295,6 +295,16 @@ pedidos/{id}/                  id = PublicacaoDosBlogs.id
 - `npm test` passar sem `ARTIGOS` (com os artigos de teste do próprio repositório).
 - `imagem: ./imagens/{id}.{ext}` relativo ao `.md` (já é o formato do zod).
 
+**Quem escreve em `sites-publicados` (dono dos arquivos)**
+
+- Depois que a P4 for ao ar, `blog/` e `gratis/` são **só do builder** (uid 33). O `scripts/publicar.sh` dos sites
+  passa a publicar **só o `site/`**: se ele continuasse enviando os blogs, o `rsync -a` devolveria os arquivos ao
+  dono da máquina do Samuel, o builder perderia a escrita, e o `--delete` trocaria os artigos do banco pelos do
+  repositório. Mudança no repositório dos sites, junto com a P4 (antecipa o item do `publicar.sh` da P5).
+- Mudança de **código** dos blogs (layout, componentes) vai ao ar pedindo uma geração ao builder: comando
+  `bin/console blog:gerar-de-novo` no BlueJus (cria uma `PublicacaoDosBlogs` com motivo `manual`). O
+  `publicar.sh` mostra esse lembrete no fim quando houve mudança em `blog/` ou `blog-gratis/`.
+
 ### Opção B: GitHub Action disparada pelo BlueJus
 
 - O BlueJus grava os artigos no repositório (API do GitHub: commit em `main` ou PR automático) e dispara um
@@ -366,6 +376,8 @@ Todos os comandos vão em bloco "Execute manualmente" na fatia P4, com o passo a
    ao builder (uid 33) a escrita nos blogs e a leitura da chave:
    `chown -R 33:33 /opt/jusprime/sites-publicados/blog /opt/jusprime/sites-publicados/gratis` e
    `chown 33:33 /opt/jusprime/secrets/sites_deploy_key && chmod 400 /opt/jusprime/secrets/sites_deploy_key`.
+   Fazer **depois** do merge do PR dos sites que tira os blogs do `publicar.sh` (seção 6.1), senão o próximo
+   `publicar.sh` desfaz o `chown`.
 4. Depois do merge da P4, rodar o deploy normal: ele sobe o contêiner `blog_builder` (o `up -d` cria o
    serviço novo).
 5. Rodar uma vez a importação dos artigos atuais (P2), com a raiz do repositório dos sites copiada para dentro do
