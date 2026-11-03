@@ -22,7 +22,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *    aqui é a segunda barreira, e o laço da purga confere de novo na hora do `remove()`);
  *  - a subpasta leva a subárvore inteira, como na purga; o arquivo só sai do disco DEPOIS do
  *    COMMIT e só se nenhuma outra linha o referenciar (INV-6, fatia C). Banco que recusa → nada
- *    sai do disco e a exceção sobe;
+ *    do lote que falhou sai do disco e a exceção sobe (lote anterior, já confirmado, fica apagado);
  *  - documento com caminho legado que não vira chave é PULADO (fica na lixeira), como na purga.
  *
  * Não duplica a lógica: delega a {@see PurgarLixeiraUseCase::purgarSelecao()}, o mesmo laço da
