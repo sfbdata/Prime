@@ -214,6 +214,49 @@ final class ConsultasDoPainelTest extends KernelTestCase
         self::assertSame('Usuário sem nome (nº 999999999)', $usuario['quem']);
     }
 
+    #[TestDox('Auditoria paginada no servidor: filtro de conta e ação, página, por página, pílulas do filtro inteiro e todas=1 para o PDF')]
+    public function testAuditoriaPaginada(): void
+    {
+        $conexao = self::getContainer()->get(Connection::class);
+        $agora = (new \DateTimeImmutable('+1 hour'))->format('Y-m-d H:i:s');
+        $conta = 999999998;
+        for ($i = 0; $i < 25; ++$i) {
+            $conexao->insert('audit_log', ['action' => 'update', 'entity_class' => User::class, 'entity_id' => (string) $i,
+                'changes' => '{"diff":{"changes":{"fullName":{"from":"a","to":"b"}}}}', 'tenant_id' => $conta, 'created_at' => $agora]);
+        }
+        for ($i = 0; $i < 3; ++$i) {
+            $conexao->insert('audit_log', ['action' => 'purge', 'entity_class' => Tenant::class, 'entity_id' => (string) $i,
+                'changes' => '{"nome":"Escritório Paginado","motivo":"quarentena_expirada"}', 'tenant_id' => $conta, 'created_at' => $agora]);
+        }
+        $useCase = self::getContainer()->get(ConsultarAuditoriaUseCase::class);
+
+        $p2 = $useCase->executar(pagina: 2, porPagina: 20, conta: $conta);
+        self::assertSame(28, $p2['total'], 'o total é do filtro inteiro, não da página');
+        self::assertSame(2, $p2['pagina']);
+        self::assertSame(2, $p2['paginas']);
+        self::assertCount(8, $p2['registros']);
+        self::assertSame(['limites' => 0, 'contas' => 3, 'masters' => 0, 'alertas' => 0], $p2['resumo'], 'as pílulas contam o filtro inteiro');
+        self::assertContains('Usuário alterado', $p2['tipos']);
+        self::assertContains('Conta excluída definitivamente', $p2['tipos']);
+        self::assertGreaterThanOrEqual(28, $p2['totalGeral']);
+
+        $tipo = $useCase->executar(porPagina: 20, tipo: 'Conta excluída definitivamente', conta: $conta);
+        self::assertSame(3, $tipo['total']);
+        self::assertSame(['Conta excluída definitivamente'], array_values(array_unique(array_column($tipo['registros'], 'acao'))));
+        self::assertContains('Usuário alterado', $tipo['tipos'], 'a lista de ações não encolhe com o filtro de ação');
+
+        $alem = $useCase->executar(pagina: 9, porPagina: 20, conta: $conta);
+        self::assertSame(2, $alem['pagina'], 'página além da última cai na última');
+        self::assertSame(50, $useCase->executar(porPagina: 33, conta: $conta)['porPagina'], 'fora de 20, 50 ou 100: o padrão 50');
+
+        $pdf = $useCase->executar(porPagina: 20, conta: $conta, todas: true);
+        self::assertCount(28, $pdf['registros'], 'todas=1 (PDF) leva o filtro inteiro, não só a página');
+        self::assertSame(1, $pdf['paginas']);
+
+        $nada = $useCase->executar(tipo: 'Ação que não existe', conta: $conta);
+        self::assertSame([0, 1, 1, []], [$nada['total'], $nada['pagina'], $nada['paginas'], $nada['registros']]);
+    }
+
     /**
      * @return array<string, mixed>
      */

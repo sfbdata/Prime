@@ -18,12 +18,30 @@ use Psr\Clock\ClockInterface;
  *
  * O `changes` nunca sai cru: só o rótulo da ação e os NOMES dos campos alterados
  * ({@see RotuloDeAuditoria}). Entrada no sistema (login) não é auditada como evento próprio.
+ *
+ * Paginação no servidor: o filtro de ação é o RÓTULO traduzido (não existe no banco), então a janela
+ * (até {@see self::LIMITE} linhas, últimos {@see self::MESES} meses) é traduzida inteira, filtrada por ação e conta
+ * e só a página pedida sai na resposta. Os totais, a lista de ações e as pílulas do resumo valem para o filtro
+ * inteiro, não só para a página. `todas` devolve o filtro inteiro (o PDF).
  */
 final class ConsultarAuditoriaUseCase
 {
     public const LIMITE = 1000;
 
     public const MESES = 12;
+
+    public const POR_PAGINA_PADRAO = 50;
+
+    /** Opções do "por página" da tela; valor fora da lista cai no padrão. */
+    public const POR_PAGINA_OPCOES = [20, 50, 100];
+
+    /** Pílulas do resumo: chave => padrão do rótulo da ação (os mesmos que a tela usava). */
+    private const RESUMO = [
+        'limites' => '/Limite/u',
+        'contas'  => '/Conta/u',
+        'masters' => '/Master|primário/iu',
+        'alertas' => '/Alerta/u',
+    ];
 
     public function __construct(
         private readonly PainelMasterRepository $repositorio,
@@ -34,9 +52,13 @@ final class ConsultarAuditoriaUseCase
     }
 
     /**
-     * @return array{registros: list<array{quando: string, quem: string, acao: string, conta: string, contaId: ?int, detalhe: string}>, limite: int, meses: int, truncado: bool}
+     * @param string   $tipo  rótulo exato da ação ('' = todas as ações)
+     * @param int|null $conta id do escritório (null = todas as contas)
+     * @param bool     $todas true devolve o filtro inteiro, sem paginar (PDF)
+     *
+     * @return array{registros: list<array{quando: string, quem: string, acao: string, conta: string, contaId: ?int, detalhe: string}>, total: int, totalGeral: int, pagina: int, porPagina: int, paginas: int, tipos: list<string>, resumo: array<string, int>, limite: int, meses: int, truncado: bool}
      */
-    public function executar(): array
+    public function executar(int $pagina = 1, int $porPagina = self::POR_PAGINA_PADRAO, string $tipo = '', ?int $conta = null, bool $todas = false): array
     {
         $linhas = $this->repositorio->trilhaAdministrativa(self::LIMITE, $this->relogio->now()->modify(sprintf('-%d months', self::MESES)));
         $planos = $this->planosDasContas($linhas);
@@ -55,7 +77,72 @@ final class ConsultarAuditoriaUseCase
             ];
         }
 
-        return ['registros' => $registros, 'limite' => self::LIMITE, 'meses' => self::MESES, 'truncado' => count($linhas) >= self::LIMITE];
+        $filtrados = array_values(array_filter(
+            $registros,
+            static fn (array $r): bool => ($conta === null || $r['contaId'] === $conta) && ($tipo === '' || $r['acao'] === $tipo),
+        ));
+
+        return self::paginar($filtrados, $pagina, $porPagina, $todas) + [
+            'total'      => count($filtrados),
+            'totalGeral' => count($registros),
+            'tipos'      => self::tipos($registros),
+            'resumo'     => self::resumo($filtrados),
+            'limite'     => self::LIMITE,
+            'meses'      => self::MESES,
+            'truncado'   => count($linhas) >= self::LIMITE,
+        ];
+    }
+
+    /**
+     * Página pedida do filtro (ou o filtro inteiro, com `todas`). "Por página" fora das opções cai no padrão; página
+     * fora do intervalo cai na primeira ou na última.
+     *
+     * @param list<array{quando: string, quem: string, acao: string, conta: string, contaId: ?int, detalhe: string}> $filtrados
+     *
+     * @return array{registros: list<array{quando: string, quem: string, acao: string, conta: string, contaId: ?int, detalhe: string}>, pagina: int, porPagina: int, paginas: int}
+     */
+    private static function paginar(array $filtrados, int $pagina, int $porPagina, bool $todas): array
+    {
+        $porPagina = in_array($porPagina, self::POR_PAGINA_OPCOES, true) ? $porPagina : self::POR_PAGINA_PADRAO;
+        if ($todas) {
+            return ['registros' => $filtrados, 'pagina' => 1, 'porPagina' => $porPagina, 'paginas' => 1];
+        }
+        $paginas = max(1, (int) ceil(count($filtrados) / $porPagina));
+        $pagina = min(max(1, $pagina), $paginas);
+
+        return ['registros' => array_slice($filtrados, ($pagina - 1) * $porPagina, $porPagina), 'pagina' => $pagina, 'porPagina' => $porPagina, 'paginas' => $paginas];
+    }
+
+    /**
+     * Ações distintas da janela inteira, em ordem alfabética do português (a lista do filtro não encolhe com ele).
+     *
+     * @param list<array{acao: string}> $registros
+     *
+     * @return list<string>
+     */
+    private static function tipos(array $registros): array
+    {
+        $tipos = array_values(array_unique(array_column($registros, 'acao')));
+        (new \Collator('pt_BR'))->sort($tipos);
+
+        return $tipos;
+    }
+
+    /**
+     * Contagem das pílulas do resumo sobre o filtro inteiro.
+     *
+     * @param list<array{acao: string}> $filtrados
+     *
+     * @return array<string, int>
+     */
+    private static function resumo(array $filtrados): array
+    {
+        $resumo = [];
+        foreach (self::RESUMO as $chave => $padrao) {
+            $resumo[$chave] = count(array_filter($filtrados, static fn (array $r): bool => preg_match($padrao, $r['acao']) === 1));
+        }
+
+        return $resumo;
     }
 
     /**
