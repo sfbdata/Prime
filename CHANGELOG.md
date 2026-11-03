@@ -8,6 +8,13 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.31.0] - 2026-11-03
+
+### Alterado
+
+- Espelho R2: `armazenamento:carregar-acervo --do-disco` carrega as categorias sem tabela no banco (imagens do editor das pastas) listando a subpasta de cada escritório. Só vale para `pasta_imagem_editor` e `cobranca_documento`; idempotente, com `--simular` e `--limite`.
+- Leitura pelo R2 (§5.0 da spec): a espera pela trava do cache de leitura termina em 60 s, com 503, em vez de prender o worker; o download que deixaria o disco do cache com menos de 5 GiB livres é recusado (503); o cálculo de hash e de páginas dos documentos lê só o disco local, sem buscar no R2.
+
 ## [2.30.0] - 2026-11-03
 
 ### Alterado
@@ -1369,7 +1376,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.30.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.31.0...HEAD
+[2.31.0]: https://github.com/sfbdata/Prime/compare/v2.30.0...v2.31.0
 [2.30.0]: https://github.com/sfbdata/Prime/compare/v2.29.0...v2.30.0
 [2.29.0]: https://github.com/sfbdata/Prime/compare/v2.28.0...v2.29.0
 [2.28.0]: https://github.com/sfbdata/Prime/compare/v2.27.0...v2.28.0
