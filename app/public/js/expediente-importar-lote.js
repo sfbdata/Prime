@@ -227,6 +227,31 @@
             });
     }
 
+    /* Motivo curto da recusa do upload, sem repetir o nome do arquivo (o servidor manda '"nome": excede ...'). */
+    function motivoCurto(erro) {
+        var limite = /excede o limite de (\d+) MB/.exec(erro);
+        if (limite) { return 'passa de ' + limite[1] + ' MB'; }
+        if (/Tipo de arquivo não permitido/i.test(erro)) { return 'tipo não aceito'; }
+        var pacote = /não é um arquivo (\.\w+) válido/.exec(erro);
+        if (pacote) { return 'arquivo ' + pacote[1] + ' inválido'; }
+        var resto = erro.replace(/^"[^"]*":\s*/, '').replace(/\.\s*$/, '').trim();
+
+        return resto ? resto.charAt(0).toLowerCase() + resto.slice(1) : 'não foi possível enviar';
+    }
+
+    /* "2 arquivos não foram anexados: a.jpg (passa de 3 MB) e b.exe (tipo não aceito)". Até 5 pelo nome;
+       passou disso, "e mais N". */
+    function fraseDosRecusados(lista) {
+        var MAX = 5;
+        var itens = lista.slice(0, MAX).map(function (x) { return x.nome + ' (' + x.motivo + ')'; });
+        var resto = lista.length - itens.length;
+        var juntos = resto > 0
+            ? itens.join(', ') + ' e mais ' + resto
+            : itens.length > 1 ? itens.slice(0, -1).join(', ') + ' e ' + itens[itens.length - 1] : itens[0];
+
+        return (lista.length === 1 ? '1 arquivo não foi anexado: ' : lista.length + ' arquivos não foram anexados: ') + juntos;
+    }
+
     async function importar() {
         var sel = pendentes();
         if (!sel.length || s.rodando) { return; }
@@ -296,7 +321,7 @@
                     atualizarLinha(p);
                     break lote;
                 } else {
-                    recusados.push(p.files[j].name + ': ' + (r.error || r.mensagem || 'não foi possível enviar'));
+                    recusados.push({ nome: p.files[j].name, motivo: motivoCurto(r.error || r.mensagem || '') });
                 }
                 feitos++;
                 progresso(null, feitos / tot);
@@ -309,7 +334,7 @@
         var frase = novas.length
             ? novas.length + ' pasta(s) criada(s) (nº ' + novas[0] + (novas.length > 1 ? ' a ' + novas[novas.length - 1] : '') + ') com ' + anexados + ' documento(s) anexado(s)'
                 + (iguais ? '. ' + iguais + ' arquivo(s) iguais a documentos de outras pastas' : '')
-                + (recusados.length ? '. ' + recusados.length + ' arquivo(s) não foram anexados (' + recusados[0] + (recusados.length > 1 ? ' e outros' : '') + ')' : '')
+                + (recusados.length ? '. ' + fraseDosRecusados(recusados) : '')
                 + '.'
             : '';
         if (s.erro) {

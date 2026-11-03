@@ -50,7 +50,8 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
 - **D5 Número real é o do servidor.** A coluna Nº PASTA mostra a previsão; depois de importada,
   mostra o número gravado. A mensagem final usa os números reais.
 - **D6 Falhas (desenho omisso, convenção do sistema).** Arquivo recusado (tipo, tamanho) não para o
-  lote: conta e entra na mensagem final ("N arquivo(s) não foram anexados (motivo)"). Espaço esgotado
+  lote: conta e entra na mensagem final, cada um com nome e motivo curto ("2 arquivos não foram
+  anexados: foto.jpg (passa de 3 MB) e app.exe (tipo não aceito)"; até 5 pelo nome, depois "e mais N"). Espaço esgotado
   ou falha ao criar a pasta interrompe o lote e mostra o erro no lugar do `lotErro`, junto do que já
   foi criado. Pasta criada nunca volta para a fila: o botão Importar retoma só as que faltam, e a
   pasta que parou no meio do envio fica "Incompleta".

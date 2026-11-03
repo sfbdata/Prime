@@ -278,7 +278,9 @@ CENARIOS = [
                      "RITA TESTE/instalador.exe"],
         "ideal": "1 pasta RITA TESTE com 2 documentos anexados; 2 recusados (imagem acima de 3 MB e executável), "
                  "contados na mensagem final sem parar o lote.",
-        "notas": "foto-grande.jpg tem ~3,3 MB (JPEG válido). instalador.exe é falso (só o cabeçalho MZ), não executa.",
+        "notas": "foto-grande.jpg tem ~3,3 MB (JPEG válido). instalador.exe é falso (só o cabeçalho MZ), não executa. "
+                 "Mensagem final esperada: \"2 arquivos não foram anexados: foto-grande.jpg (passa de 3 MB) e "
+                 "instalador.exe (tipo não aceito).\"",
     },
 ]
 
