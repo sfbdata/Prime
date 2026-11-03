@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Shared\EspelhoRemoto\Acervo;
 
+use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\MedidaDeConteudo;
@@ -20,6 +23,10 @@ use App\Shared\EspelhoRemoto\Reconciliacao\FonteDeReferencias;
  *
  * Lê só do disco local (a mesma função de chave do decorador), não fala com o R2 e não envia nada: quem
  * envia é o worker, no ritmo dele (50 por minuto no agendador), o que limita a banda.
+ *
+ * `carregarDoDisco()` é a carga das categorias sem tabela no banco (as imagens do editor das pastas):
+ * lista o disco, escritório por escritório, só nas categorias com subpasta própria do escritório
+ * ({@see CategoriaComIsolamentoFisico}), e segue a mesma regra de idempotência.
  */
 final class CarregadorDoAcervo
 {
@@ -58,6 +65,36 @@ final class CarregadorDoAcervo
             }
 
             $this->carregarUma($chave, $simular, $resumo);
+        }
+
+        return $resumo;
+    }
+
+    /**
+     * @param iterable<int> $tenantIds os escritórios cujas subpastas são listadas
+     */
+    public function carregarDoDisco(CategoriaComIsolamentoFisico $categoria, iterable $tenantIds, ?int $limite = null, bool $simular = false): ResumoDaCarga
+    {
+        if (!$this->local instanceof ArmazenamentoComPrefixo) {
+            throw new \LogicException('A carga pelo disco precisa do disco local, que lista por prefixo.');
+        }
+
+        $resumo = new ResumoDaCarga();
+        foreach ($tenantIds as $tenantId) {
+            try {
+                $chaves = $this->local->listar(EscopoDeArquivo::deTenant($tenantId), $categoria);
+                foreach ($chaves as $chave) {
+                    if ($limite !== null && $resumo->enfileirados >= $limite) {
+                        return $resumo;
+                    }
+                    ++$resumo->vistos;
+                    $this->carregarUma($chave, $simular, $resumo);
+                }
+            } catch (\Throwable) {
+                // A subpasta deste escritório não pôde ser listada; os outros seguem. Sem a mensagem
+                // (ela traz o caminho).
+                ++$resumo->erros;
+            }
         }
 
         return $resumo;
