@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
-use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\GrupoDaLixeiraDoEscritorio;
@@ -38,15 +37,21 @@ use App\Shared\Doctrine\Filter\AcessoALixeira;
  *    (a mesma permissão das rotas da lixeira da pasta) e a aba Documentos visível para ele (a
  *    `BarreiraDeAbaOcultaListener` recusaria as rotas `pasta_documento*`);
  *  - o contrato de honorários com o Financeiro oculto para quem lê não conta (nem na quantidade,
- *    nem nas datas, nem em quem excluiu); a pasta em que só ele está na lixeira não aparece;
- *  - volume: a contagem é uma agregação no banco (GROUP BY pasta); a permissão só é conferida em
- *    {@see PASTAS_POR_PEDIDO} pastas por pedido, da exclusão mais recente para a mais antiga. A
- *    página seguinte continua de `proximo` (posição na lista ordenada).
+ *    nem nas datas, nem em quem excluiu, nem na POSIÇÃO da pasta na lista); a pasta em que só ele
+ *    está na lixeira não aparece;
+ *  - ordem: da exclusão visível mais recente para a mais antiga (empate: id maior primeiro). A
+ *    página seguinte continua DEPOIS da chave da última pasta (`proximo` = "data|id"): resolver uma
+ *    pasta já mostrada não faz a próxima página pular ninguém;
+ *  - volume: as contas são agregações no banco (GROUP BY pasta); cada página confere no máximo
+ *    {@see PASTAS_POR_PEDIDO} pastas, com um número FIXO de consultas (regras de aba do escritório,
+ *    pastas, cadeados, vínculo, acessos item a item e nomes; uma de cada), não uma por pasta.
  */
 final class ListarLixeiraDoEscritorioUseCase
 {
-    /** Pastas com algo na lixeira conferidas (permissão e abas) por pedido. */
+    /** Pastas com algo visível na lixeira conferidas (permissão) por pedido. */
     public const PASTAS_POR_PEDIDO = 50;
+
+    private const CURSOR = '/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,6})?)\|([1-9]\d{0,17})$/';
 
     public function __construct(
         private readonly PastaDocumentoRepository $documentos,
@@ -61,54 +66,103 @@ final class ListarLixeiraDoEscritorioUseCase
     ) {
     }
 
-    public function executar(User $quem, Tenant $tenant, int $apos = 0): LixeiraDoEscritorioOutput
+    /** `$apos`: o `proximo` da página anterior ("data|id"); vazio ou inválido = do começo. */
+    public function executar(User $quem, Tenant $tenant, ?string $apos = null): LixeiraDoEscritorioOutput
     {
-        $apos    = max(0, $apos);
-        $resumos = $this->resumosDoEscritorio($tenant);
-        $fatia   = array_slice($resumos, $apos, self::PASTAS_POR_PEDIDO);
-        $fim     = $apos + count($fatia);
+        $candidatas = self::depoisDe($this->candidatasEmOrdem($quem, $tenant), self::chaveDoCursor($apos));
+        $pagina     = array_slice($candidatas, 0, self::PASTAS_POR_PEDIDO);
+        $ultima     = $pagina === [] ? null : $pagina[count($pagina) - 1];
 
-        $visiveis = $this->visiveisPara($fatia, $quem, $tenant);
+        $visiveis = $this->editaveis($pagina, $quem, $tenant);
         $nomes    = $this->nomesDosAutores($visiveis);
 
         return new LixeiraDoEscritorioOutput(
             array_map(static fn (array $v): GrupoDaLixeiraDoEscritorio => self::grupo($v['pasta'], $v['contas'], $nomes), $visiveis),
-            $fim < count($resumos) ? $fim : null,
+            $ultima !== null && count($candidatas) > count($pagina) ? $ultima['contas']['maisRecente'] . '|' . $ultima['pastaId'] : null,
         );
     }
 
-    /** @return list<ResumoDaLixeiraDaPasta> da exclusão mais recente para a mais antiga */
-    private function resumosDoEscritorio(Tenant $tenant): array
+    /**
+     * Toda pasta do escritório com algo VISÍVEL na lixeira para quem lê (aba Documentos visível,
+     * contrato oculto fora), com as contas dele, da exclusão visível mais recente para a mais antiga.
+     *
+     * @return list<array{pastaId: int, contas: array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}}>
+     */
+    private function candidatasEmOrdem(User $quem, Tenant $tenant): array
     {
-        return $this->lixeira->comLixeiraVisivel(fn (): array => ResumoDaLixeiraDaPasta::agrupar(
+        $resumos = $this->lixeira->comLixeiraVisivel(fn (): array => ResumoDaLixeiraDaPasta::agrupar(
             $this->documentos->resumoDaLixeiraDoEscritorio($tenant),
             $this->secoes->resumoDaLixeiraDoEscritorio($tenant),
         ));
+        $ocultasPorPasta = $this->abas->abasOcultasPorPasta($quem, $tenant);
+
+        $candidatas = [];
+        foreach ($resumos as $resumo) {
+            $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $ocultasPorPasta[$resumo->pastaId] ?? []);
+            // Aba Documentos oculta: as rotas da lixeira recusariam; a pasta não entra.
+            $contas = \in_array(AbaDaPasta::Documentos->value, $ocultas, true) ? null : $resumo->visivelPara($ocultas);
+            if ($contas !== null) {
+                $candidatas[] = ['pastaId' => $resumo->pastaId, 'contas' => $contas];
+            }
+        }
+        usort($candidatas, static fn (array $a, array $b): int => [$b['contas']['maisRecente'], $b['pastaId']] <=> [$a['contas']['maisRecente'], $a['pastaId']]);
+
+        return $candidatas;
+    }
+
+    /** @return array{0: string, 1: int}|null a chave (data, id) do cursor, ou NULL para começar do início */
+    private static function chaveDoCursor(?string $apos): ?array
+    {
+        if ($apos === null || preg_match(self::CURSOR, $apos, $m) !== 1) {
+            return null;
+        }
+
+        return [$m[1], (int) $m[2]];
     }
 
     /**
-     * As pastas da fatia que quem lê pode restaurar, com as contas que ele vê, na ordem da fatia.
+     * As candidatas que vêm DEPOIS da chave na ordem (mais antigas que ela, ou de mesma data e id menor).
      *
-     * @param list<ResumoDaLixeiraDaPasta> $fatia
+     * @template T of array{pastaId: int, contas: array{maisRecente: string}}
+     *
+     * @param list<T>                   $candidatas
+     * @param array{0: string, 1: int}|null $chave
+     *
+     * @return list<T>
+     */
+    private static function depoisDe(array $candidatas, ?array $chave): array
+    {
+        if ($chave === null) {
+            return $candidatas;
+        }
+
+        return array_values(array_filter($candidatas, static fn (array $c): bool => [$c['contas']['maisRecente'], $c['pastaId']] < $chave));
+    }
+
+    /**
+     * As pastas da página em que quem lê pode EDITAR (a permissão das rotas da lixeira da pasta), na
+     * ordem da página. Uma consulta para as pastas, uma para os cadeados, uma para o vínculo e uma
+     * para os acessos item a item ({@see PermissionChecker::idsPermitidosComVinculo()}).
+     *
+     * @param list<array{pastaId: int, contas: array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}}> $pagina
      *
      * @return list<array{pasta: Pasta, contas: array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}}>
      */
-    private function visiveisPara(array $fatia, User $quem, Tenant $tenant): array
+    private function editaveis(array $pagina, User $quem, Tenant $tenant): array
     {
-        $pastas = $this->pastasDoEscritorio($fatia, $tenant);
-        // Carrega os cadeados da fatia numa consulta: o `canAccessResource` de cada pasta os lê da memória.
+        $pastas = $this->pastasDoEscritorio(array_column($pagina, 'pastaId'), $tenant);
+        if ($pastas === []) {
+            return [];
+        }
+        // Carrega os cadeados da página numa consulta: o checker os lê da memória.
         $this->acessoAPasta->niveisEmLote($quem, $pastas);
-        $vinculo = $this->vinculos->findAtivoPorUserETenant($quem, $tenant);
+        $vinculo    = $this->vinculos->findAtivoPorUserETenant($quem, $tenant);
+        $permitidas = array_flip($this->permissoes->idsPermitidosComVinculo($quem, $vinculo, AccessRequest::RESOURCE_PASTA, array_keys($pastas), AccessRequest::ACTION_EDIT));
 
         $visiveis = [];
-        foreach ($fatia as $resumo) {
-            $pasta = $pastas[$resumo->pastaId] ?? null;
-            if ($pasta === null || !$this->podeRestaurarNa($pasta, $quem, $tenant, $vinculo)) {
-                continue;
-            }
-            $contas = $this->contasVisiveis($resumo, $pasta, $quem);
-            if ($contas !== null) {
-                $visiveis[] = ['pasta' => $pasta, 'contas' => $contas];
+        foreach ($pagina as $candidata) {
+            if (isset($permitidas[$candidata['pastaId']], $pastas[$candidata['pastaId']])) {
+                $visiveis[] = ['pasta' => $pastas[$candidata['pastaId']], 'contas' => $candidata['contas']];
             }
         }
 
@@ -116,52 +170,24 @@ final class ListarLixeiraDoEscritorioUseCase
     }
 
     /**
-     * @param list<ResumoDaLixeiraDaPasta> $fatia
+     * @param list<int> $ids
      *
      * @return array<int, Pasta> por id; só pasta deste escritório
      */
-    private function pastasDoEscritorio(array $fatia, Tenant $tenant): array
+    private function pastasDoEscritorio(array $ids, Tenant $tenant): array
     {
-        if ($fatia === []) {
+        if ($ids === []) {
             return [];
         }
 
         $porId = [];
-        foreach ($this->pastas->findBy(['id' => array_map(static fn (ResumoDaLixeiraDaPasta $r): int => $r->pastaId, $fatia), 'tenant' => $tenant]) as $pasta) {
+        foreach ($this->pastas->findBy(['id' => $ids, 'tenant' => $tenant]) as $pasta) {
             if ($pasta->getTenant() === $tenant) {
                 $porId[(int) $pasta->getId()] = $pasta;
             }
         }
 
         return $porId;
-    }
-
-    /** A permissão das rotas da lixeira da pasta: EDITAR a pasta (S-10: restaura quem pode excluir). */
-    private function podeRestaurarNa(Pasta $pasta, User $quem, Tenant $tenant, ?UserTenant $vinculo): bool
-    {
-        $id = (int) $pasta->getId();
-        if ($vinculo !== null) {
-            return $this->permissoes->canAccessResourceComVinculo($quem, $vinculo, AccessRequest::RESOURCE_PASTA, $id, AccessRequest::ACTION_EDIT);
-        }
-
-        // Sem vínculo ativo só o Master passa (o próprio checker decide).
-        return $this->permissoes->canAccessResource($quem, $tenant, AccessRequest::RESOURCE_PASTA, $id, AccessRequest::ACTION_EDIT);
-    }
-
-    /**
-     * Aba Documentos oculta: a pasta não entra (as rotas da lixeira recusariam). Senão, as contas
-     * sem o contrato oculto.
-     *
-     * @return array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}|null
-     */
-    private function contasVisiveis(ResumoDaLixeiraDaPasta $resumo, Pasta $pasta, User $quem): ?array
-    {
-        $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $this->abas->abasOcultasPara($pasta, $quem));
-        if (\in_array(AbaDaPasta::Documentos->value, $ocultas, true)) {
-            return null;
-        }
-
-        return $resumo->visivelPara($ocultas);
     }
 
     /**

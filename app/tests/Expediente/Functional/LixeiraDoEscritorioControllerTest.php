@@ -112,6 +112,59 @@ final class LixeiraDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->pedir($client, $quem, $tenant)['grupos']);
     }
 
+    #[TestDox('por que a janela manda só as raízes: a filha num lote seguinte ao da mãe dá 404; raízes em rodadas restauram tudo, até o que saiu antes com outro carimbo')]
+    public function testRestaurarSoAsRaizesEmRodadas(): void
+    {
+        $client = $this->cliente();
+        $tenant = $this->criarTenant();
+        $quem   = $this->criarUsuarioComPermissoes($tenant, self::QUEM_LE);
+        $pasta  = $this->criarPasta($tenant, 'RAIZES');
+        $a      = $this->criarSecao($pasta, $tenant, 'A');
+        $emA    = $this->criarDocumento($pasta, $tenant, $a, 'em-a.pdf');
+        $antes  = $this->criarDocumento($pasta, $tenant, $a, 'antes.pdf');
+        $this->logarComTenant($client, $quem, $tenant);
+        $token = $this->tokenDoLote($client, $quem, $tenant, $pasta);
+        $this->excluirLote($client, $pasta, $token, ['documentos' => [(string) $antes->getId()]]);
+        $this->excluirLote($client, $pasta, $token, ['secoes' => [(string) $a->getId()]]);
+        // "antes" saiu numa exclusão anterior, com outro carimbo (no mesmo segundo os dois carimbos coincidiriam).
+        $this->em()->getConnection()->executeStatement("UPDATE pasta_documento SET excluido_em = '2026-10-01 09:00:00' WHERE id = :id", ['id' => $antes->getId()]);
+
+        // Lote 1 com a mãe; lote 2 com o filho que já voltou junto: 404 (o que a janela evitava mal antes).
+        $this->restaurar($client, $pasta, $token, ['secoes' => [(string) $a->getId()]]);
+        self::assertResponseIsSuccessful();
+        $this->restaurar($client, $pasta, $token, ['documentos' => [(string) $emA->getId()]]);
+        self::assertResponseStatusCodeSame(404);
+
+        // O que ficou ("antes", outro carimbo) agora está numa seção viva: é raiz na leitura seguinte.
+        $itens = $this->lixeiraDaPasta($client, $pasta)['itens'];
+        self::assertSame([[(int) $antes->getId(), false]], array_map(static fn (array $i): array => [$i['id'], $i['secaoNaLixeira']], $itens));
+        $this->restaurar($client, $pasta, $token, ['documentos' => [(string) $antes->getId()]]);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->lixeiraDaPasta($client, $pasta)['itens']);
+    }
+
+    #[TestDox('número fixo de consultas por página: 2 pastas ou 8 pastas, a mesma conta')]
+    public function testConsultasFixasPorPagina(): void
+    {
+        $client = $this->cliente();
+        $poucas = $this->criarTenant();
+        $muitas = $this->criarTenant();
+        $quemPoucas = $this->criarUsuarioComPermissoes($poucas, ['modules.expediente.view', 'resources.pasta.view']);
+        $quemMuitas = $this->criarUsuarioComPermissoes($muitas, ['modules.expediente.view', 'resources.pasta.view']);
+        $this->comPastas($poucas, $quemPoucas, 2);
+        $this->comPastas($muitas, $quemMuitas, 8);
+
+        // O primeiro pedido do kernel aquece caches (metadados, catálogo): não entra na conta.
+        $this->consultasDoPedido($client, $quemMuitas, $muitas);
+        $comPoucas = $this->consultasDoPedido($client, $quemPoucas, $poucas);
+        $comMuitas = $this->consultasDoPedido($client, $quemMuitas, $muitas);
+
+        self::assertSame(2, $this->contarGrupos($client, $quemPoucas, $poucas), 'pré-condição');
+        self::assertSame(8, $this->contarGrupos($client, $quemMuitas, $muitas), 'pré-condição');
+
+        self::assertSame($comPoucas, $comMuitas, 'a conta não cresce com o número de pastas');
+    }
+
     #[TestDox('pasta em que a pessoa não pode editar (restaurar) não aparece')]
     public function testPastaSemPermissaoNaoAparece(): void
     {
@@ -276,6 +329,57 @@ final class LixeiraDoEscritorioControllerTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         return $user;
+    }
+
+    /** Pastas com um documento na lixeira e acesso de editar item a item (o caminho que consulta por pasta). */
+    private function comPastas(Tenant $tenant, User $quem, int $n): void
+    {
+        for ($i = 0; $i < $n; ++$i) {
+            $pasta = $this->criarPasta($tenant, 'Q-' . uniqid());
+            $this->darEdicao($quem, $tenant, $pasta);
+            $this->marcar('pasta_documento', $this->criarDocumento($pasta, $tenant, null, 'q.pdf')->getId(), $quem, '2026-10-01 09:00:00');
+            $this->ocultarFinanceiro($pasta, $tenant, $quem);
+        }
+    }
+
+    private function contarGrupos(KernelBrowser $client, User $quem, Tenant $tenant): int
+    {
+        return \count($this->pedir($client, $quem, $tenant)['grupos']);
+    }
+
+    private function consultasDoPedido(KernelBrowser $client, User $quem, Tenant $tenant): int
+    {
+        $this->logarComTenant($client, $quem, $tenant);
+        $this->em()->clear();
+        $client->enableProfiler();
+        $client->request('GET', '/expediente/lixeira', [], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
+        self::assertResponseIsSuccessful();
+        $perfil = $client->getProfile();
+        self::assertNotFalse($perfil);
+        /** @var \Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector $banco */
+        $banco = $perfil->getCollector('db');
+
+        return $banco->getQueryCount();
+    }
+
+    private function tokenDoLote(KernelBrowser $client, User $quem, Tenant $tenant, Pasta $pasta): string
+    {
+        return 'TOKEN_pex_lote_' . $pasta->getId();
+    }
+
+    /** @param array<string, list<string>> $ids */
+    private function excluirLote(KernelBrowser $client, Pasta $pasta, string $token, array $ids): void
+    {
+        $this->em()->clear();
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-lote", ['_token' => $token] + $ids);
+        self::assertResponseIsSuccessful('pré-condição: excluir-lote ' . (string) $client->getResponse()->getContent());
+    }
+
+    /** @param array<string, list<string>> $ids */
+    private function restaurar(KernelBrowser $client, Pasta $pasta, string $token, array $ids): void
+    {
+        $this->em()->clear();
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/restaurar", ['_token' => $token] + $ids);
     }
 
     private function criarTenant(): Tenant

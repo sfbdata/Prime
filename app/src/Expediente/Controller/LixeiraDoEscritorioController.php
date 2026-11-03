@@ -28,7 +28,8 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  * por elas, com as mesmas guardas (nada de regra nova aqui). Pasta excluída (lápide) só se olha:
  * vai sem as URLs de escrita, como a lixeira dela na própria pasta.
  *
- * `?apos=<n>` continua a lista de onde a página anterior parou (`proximo`).
+ * `?apos=<proximo>` continua a lista depois da última pasta da página anterior (chave "data|id";
+ * valor que não é chave recomeça do início).
  */
 final class LixeiraDoEscritorioController extends AbstractController
 {
@@ -51,7 +52,7 @@ final class LixeiraDoEscritorioController extends AbstractController
         }
 
         $apos  = $request->query->get('apos');
-        $saida = $this->listarLixeira->executar($usuario, $tenant, is_string($apos) && ctype_digit($apos) ? (int) $apos : 0);
+        $saida = $this->listarLixeira->executar($usuario, $tenant, is_string($apos) ? $apos : null);
 
         return $this->json([
             'ok'          => true,

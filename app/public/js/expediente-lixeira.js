@@ -20,8 +20,9 @@
         mais: document.getElementById('expLixeiraMais'),
     };
     const MINIMO_NA_TELA = 20;          // abaixo disso, a próxima página vem sozinha
-    const PAGINAS_SOZINHAS = 12;        // ... até este tanto de páginas seguidas por abertura
-    let proximo = null;
+    const PAGINAS_SOZINHAS = 4;         // ... até este tanto de páginas seguidas por pedido
+    let proximo = null;                 // '' = primeira página; "data|id" = continua depois dela; null = acabou
+    let geracao = 0;                    // cada abertura é uma geração: resposta de abertura anterior é descartada
     let teto = 2000;
     let lendo = false;
     let ocupado = false;
@@ -76,7 +77,9 @@
         janela.hidden = false;
         el.lista.textContent = '';
         vistas.clear();
-        proximo = 0;
+        geracao++;
+        lendo = false;
+        proximo = '';
         el.vazia.hidden = true;
         el.mais.hidden = true;
         avisar(BJ_T.t('expediente.js.lixeira.carregando'));
@@ -108,12 +111,14 @@
         if (lendo || proximo === null) return;
         lendo = true;
         el.mais.disabled = true;
+        const minha = geracao;
         const url = new URL(janela.dataset.url, window.location.href);
-        url.searchParams.set('apos', String(proximo));
+        if (proximo) url.searchParams.set('apos', proximo);
         getJson(url.toString()).then(function (res) {
+            if (minha !== geracao) return;      // a janela foi reaberta: esta resposta é da lista velha
             if (!res.ok || !res.j.ok) throw new Error(res.j.erro || BJ_T.t('expediente.js.lixeira.erro_carregar'));
             teto = Number(res.j.tetoPorLote) || teto;
-            proximo = res.j.proximo === null || res.j.proximo === undefined ? null : Number(res.j.proximo);
+            proximo = typeof res.j.proximo === 'string' && res.j.proximo !== '' ? res.j.proximo : null;
             (res.j.grupos || []).forEach(function (g) {
                 if (vistas.has(g.pastaId)) return;
                 vistas.add(g.pastaId);
@@ -124,6 +129,7 @@
             if (proximo !== null && sozinhas > 1 && el.lista.children.length < MINIMO_NA_TELA) { lerPagina(sozinhas - 1); return; }
             atualizarRodape();
         }).catch(function (err) {
+            if (minha !== geracao) return;
             lendo = false;
             avisar(err.message || BJ_T.t('expediente.js.lixeira.erro_comunicacao'), true);
             atualizarRodape();
@@ -195,25 +201,20 @@
             return res.j.itens || [];
         });
     }
-    /* Pastas antes de arquivos, e a mãe antes da filha: um lote que devolvesse a filha com a mãe ainda na
-       lixeira a mandaria para a raiz (regra do restaurar). Profundidade pelo `paiId` dentro da própria lista. */
-    function emOrdemDeRestaurar(itens) {
-        const pastas = itens.filter(function (it) { return it.tipo === 'pasta'; });
-        const porId = {};
-        pastas.forEach(function (p) { porId[Number(p.id)] = p; });
-        const nivel = function (p) {
-            let n = 0;
-            let atual = p;
-            while (atual && atual.paiNaLixeira && atual.paiId != null && porId[Number(atual.paiId)] && n < 50) { atual = porId[Number(atual.paiId)]; n++; }
-            return n;
-        };
-        pastas.sort(function (a, b) { return nivel(a) - nivel(b); });
-        return pastas.concat(itens.filter(function (it) { return it.tipo !== 'pasta'; }));
-    }
-    /* Para excluir de vez basta a raiz de cada bloco: a subpasta leva a subárvore inteira, e mandar um item que
-       já saiu com a mãe num lote seguinte daria 404 (id que não existe mais). */
-    function raizesParaExcluir(itens) {
-        return itens.filter(function (it) { return it.tipo === 'pasta' ? !it.paiNaLixeira : !it.secaoNaLixeira; });
+    /* A raiz de cada bloco, pelo mesmo critério da lixeira da pasta (`arvoreDaLixeira` em pasta-explorador.js):
+       o item está DENTRO quando o pai (subpasta) ou a seção (arquivo) também está na lixeira e aparece na lista.
+       Só as raízes vão ao servidor: a subpasta já leva a subárvore (restaurar devolve o que saiu junto com ela;
+       excluir de vez apaga tudo de dentro), e mandar num lote seguinte um id que já voltou ou já saiu daria 404
+       no lote inteiro. Raízes não dependem umas das outras: podem ir em lotes separados, em qualquer ordem. */
+    function raizesDaLixeira(itens) {
+        const pastasNaLista = {};
+        itens.forEach(function (it) { if (it.tipo === 'pasta') pastasNaLista[Number(it.id)] = true; });
+        return itens.filter(function (it) {
+            const pai = it.tipo === 'pasta'
+                ? (it.paiNaLixeira && it.paiId != null ? Number(it.paiId) : null)
+                : (it.secaoNaLixeira && it.secaoId != null ? Number(it.secaoId) : null);
+            return !(pai != null && pastasNaLista[pai] && !(it.tipo === 'pasta' && pai === Number(it.id)));
+        });
     }
     function lotes(itens) {
         const saida = [];
@@ -227,7 +228,7 @@
         return saida;
     }
     // Os lotes um depois do outro; a soma das contagens que o servidor devolve. Erro para no lote que falhou.
-    function enviarEmLotes(url, token, listaDeLotes, somar) {
+    function enviarEmLotes(url, token, listaDeLotes, somar, inicio) {
         return listaDeLotes.reduce(function (anterior, lote) {
             return anterior.then(function (total) {
                 return postJson(url, { _token: token, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
@@ -235,16 +236,32 @@
                     return somar(total, res.j);
                 });
             });
-        }, Promise.resolve({ n: 0, pulados: 0 }));
+        }, Promise.resolve(inicio));
     }
     function contar(par) { return (Number((par || {}).documentos) || 0) + (Number((par || {}).secoes) || 0); }
+    /* Rodadas: manda as raízes, relê a lixeira da pasta e repete com as raízes novas (o que estava dentro de uma
+       subpasta com outro carimbo fica na lixeira quando ela volta, e vira raiz). Para quando a lista esvazia, quando
+       uma rodada não muda nada (tudo pulado) ou depois de RODADAS rodadas. */
+    const RODADAS = 10;
+    function emRodadas(g, url, somar, itens) {
+        function rodada(n, total, atuais) {
+            const raizes = raizesDaLixeira(atuais);
+            if (!raizes.length || n >= RODADAS) return Promise.resolve(total);
+            return enviarEmLotes(url, g.csrfLote, lotes(raizes), somar, total).then(function (t) {
+                // Nada mudou: o que sobrou foi pulado. Depois da 1ª rodada, os pulados já foram contados nela.
+                if (t.n === total.n) return n === 0 ? t : total;
+                return itensDaPasta(g).then(function (novos) { return rodada(n + 1, t, novos); });
+            });
+        }
+        return rodada(0, { n: 0, pulados: 0 }, itens);
+    }
 
     function restaurarTudo(li) {
         const g = li._grupo;
         confirmar(BJ_T.t('expediente.js.lixeira.confirmar_restaurar', { nup: g.nup, n: inteiro(g.documentos + g.subpastas) }), false).then(function (sim) {
             if (!sim) return;
             executar(li, BJ_T.t('expediente.js.lixeira.restaurando'), BJ_T.t('expediente.js.lixeira.erro_restaurar'), function (itens) {
-                return enviarEmLotes(g.urlRestaurar, g.csrfLote, lotes(emOrdemDeRestaurar(itens)), function (t, j) { return { n: t.n + contar(j.restaurados), pulados: 0 }; })
+                return emRodadas(g, g.urlRestaurar, function (t, j) { return { n: t.n + contar(j.restaurados), pulados: 0 }; }, itens)
                     .then(function (t) { return BJ_T.t('expediente.js.lixeira.restaurados', { n: inteiro(t.n), nup: g.nup }); });
             });
         });
@@ -254,7 +271,7 @@
         confirmar(BJ_T.t('expediente.js.lixeira.confirmar_excluir_de_vez', { n: inteiro(g.documentos + g.subpastas) }), true).then(function (sim) {
             if (!sim) return;
             executar(li, BJ_T.t('expediente.js.lixeira.excluindo_de_vez'), BJ_T.t('expediente.js.lixeira.erro_excluir_de_vez'), function (itens) {
-                return enviarEmLotes(g.urlExcluirDeVez, g.csrfLote, lotes(raizesParaExcluir(itens)), function (t, j) { return { n: t.n + contar(j.excluidos), pulados: t.pulados + contar(j.pulados) }; })
+                return emRodadas(g, g.urlExcluirDeVez, function (t, j) { return { n: t.n + contar(j.excluidos), pulados: t.pulados + contar(j.pulados) }; }, itens)
                     .then(function (t) {
                         const texto = BJ_T.t('expediente.js.lixeira.excluidos_de_vez', { n: inteiro(t.n), nup: g.nup });
                         return t.pulados ? BJ_T.t('expediente.js.lixeira.pulados', { texto: texto, n: inteiro(t.pulados) }) : texto;

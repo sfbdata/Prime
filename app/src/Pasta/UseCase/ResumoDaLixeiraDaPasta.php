@@ -21,17 +21,14 @@ final class ResumoDaLixeiraDaPasta
     /** @var list<array{autorId: int|null, total: int, maisAntiga: string, maisRecente: string}> */
     private array $secoes = [];
 
-    /** A exclusão mais recente de qualquer linha (só para ordenar as pastas; nunca vai à tela). */
-    private string $ordem = '';
-
     private function __construct(
         public readonly int $pastaId,
     ) {
     }
 
     /**
-     * Junta as linhas das duas agregações por pasta e ordena da exclusão mais recente para a mais
-     * antiga (empate: a pasta de id maior primeiro, para a página ser estável).
+     * Junta as linhas das duas agregações por pasta. A ordem é de quem chama: ela depende do que a
+     * pessoa vê (a data do contrato oculto não pode decidir a posição da pasta).
      *
      * @param list<array{pastaId: int, categoria: string|null, autorId: int|null, total: int, maisAntiga: string, maisRecente: string}> $documentos
      * @param list<array{pastaId: int, autorId: int|null, total: int, maisAntiga: string, maisRecente: string}>                        $secoes
@@ -44,18 +41,13 @@ final class ResumoDaLixeiraDaPasta
         foreach ($documentos as $linha) {
             $resumo = $porPasta[$linha['pastaId']] ??= new self($linha['pastaId']);
             $resumo->documentos[] = $linha;
-            $resumo->ordem = max($resumo->ordem, $linha['maisRecente']);
         }
         foreach ($secoes as $linha) {
             $resumo = $porPasta[$linha['pastaId']] ??= new self($linha['pastaId']);
             $resumo->secoes[] = $linha;
-            $resumo->ordem = max($resumo->ordem, $linha['maisRecente']);
         }
 
-        $resumos = array_values($porPasta);
-        usort($resumos, static fn (self $a, self $b): int => [$b->ordem, $b->pastaId] <=> [$a->ordem, $a->pastaId]);
-
-        return $resumos;
+        return array_values($porPasta);
     }
 
     /**
