@@ -8,4 +8,5 @@ tipo: alteracao
 - O esvaziamento dos liberados continua bloqueado. Nenhum comando novo roda sozinho: nada entra no agendador.
 
 ## Para o cliente
-- Preparamos a forma de guardar na nuvem os documentos antigos que ninguém abre há muito tempo, liberando espaço no servidor. Nada mudou ainda para quem usa o sistema: os documentos continuam abrindo do mesmo jeito, e qualquer arquivo pode voltar ao servidor a qualquer momento. Documento apagado é apagado também dessa cópia guardada.
+- Documentos antigos, que ninguém abre há meses, passam a poder ficar guardados só na nuvem e continuam abrindo normalmente pelo sistema. O primeiro acesso a um deles pode levar alguns segundos a mais.
+- Quando um documento é apagado de vez, a cópia guardada também é apagada.
