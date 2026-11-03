@@ -175,6 +175,18 @@ Uma migration (número pedido ao Coordenador), só aditiva: tabela `armazenament
 4. **Purga e exclusão.** Hoje, com o arquivo só no R2, a exclusão conta como "removido" e o objeto fica
    no R2. Isso é coberto pela condição D6.
 
+**Estado em 03/11/2026 (branch `r2-leitura-limites`):** condições 1, 2 e 3 entregues.
+- **1.** A espera da trava por SHA termina em 60 s (`CacheDeLeituraDoEspelho::ESPERA_MAXIMA_DA_TRAVA_EM_SEGUNDOS`,
+  menor que os 120 s do nginx). Estourou: falha, e a entrega responde 503. **Tempo máximo da hidratação:**
+  fica o teto do `ClienteR2` (600 s). Um arquivo que leva mais de 120 s para baixar recebe 504 do nginx,
+  mas o PHP termina e publica no cache, e a próxima abertura sai do cache. Quem chega no meio espera no
+  máximo 60 s. Arquivo tão grande assim é raro no acervo (o maior PDF da pasta é medido antes do 1º lote).
+- **2.** Piso de 5 GiB de espaço livre no disco do cache (`PISO_DE_ESPACO_LIVRE_EM_BYTES`): o download que
+  deixaria o disco abaixo do piso é recusado antes de começar (503). Vale para todo leitor em massa
+  (ZIP, IA, Drive), sem tirar nenhum do fallback.
+- **3.** `CalcularHashDosDocumentosCommand` recebe o `ArmazenamentoLocal` (`services.yaml`), travado em
+  `EspelhoRemotoFiacaoArquiteturaTest`.
+
 ### 5.1 Comando
 
 `armazenamento:liberar-disco --categoria=X [--frio-dias=90] [--lote=200] [--executar]`.

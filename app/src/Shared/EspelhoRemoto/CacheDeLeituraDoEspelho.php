@@ -18,7 +18,13 @@ use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
  *    portanto nunca é entregue;
  *  - **um download por conteúdo**: a hidratação segura um `flock` exclusivo em `.trava-<sha>`. Quem
  *    chega enquanto outro processo baixa o mesmo conteúdo espera a trava e lê o que ele publicou, sem
- *    ir ao R2 de novo;
+ *    ir ao R2 de novo. A espera tem prazo ({@see self::ESPERA_MAXIMA_DA_TRAVA_EM_SEGUNDOS}, menor que os
+ *    120 s do nginx): estourou, a leitura falha e a entrega responde 503, em vez de prender o worker do
+ *    FPM até o download do outro terminar (§5.0, condição 1);
+ *  - **piso de espaço livre** ({@see self::PISO_DE_ESPACO_LIVRE_EM_BYTES}): se baixar deixaria o disco
+ *    do cache com menos que o piso, a leitura falha antes de baixar (503). É o limite duro numa leitura
+ *    em massa (ZIP da pasta, IA, Drive), quando a proteção de uso recente deixa o cache passar do teto
+ *    (§5.0, condição 2);
  *  - **teto em bytes** (`ESPELHO_CACHE_MAX_BYTES`, com os parciais em curso contados): depois de
  *    publicar, os arquivos menos usados saem até o total caber. "Menos usado" é o maior entre `atime` e
  *    `mtime`: cada acesso pelo cache toca o arquivo, então o critério vale mesmo em volume montado com
@@ -40,20 +46,42 @@ final class CacheDeLeituraDoEspelho
     /** Arquivo usado há menos que isto não sai no descarte, mesmo passando do teto. */
     public const PROTECAO_DE_USO_RECENTE_EM_SEGUNDOS = 1800;
 
+    /** Quanto quem chega espera a trava de quem já baixa o mesmo conteúdo. Menor que os 120 s do nginx. */
+    public const ESPERA_MAXIMA_DA_TRAVA_EM_SEGUNDOS = 60;
+
+    /** Espaço livre mínimo que precisa sobrar no disco do cache depois do download: 5 GiB. */
+    public const PISO_DE_ESPACO_LIVRE_EM_BYTES = 5 * 1024 ** 3;
+
+    private const INTERVALO_DA_ESPERA_EM_MICROSSEGUNDOS = 200_000;
+
     private const PREFIXO_DO_PARCIAL = '.parcial-';
 
     private const PREFIXO_DA_TRAVA = '.trava-';
 
     private readonly string $diretorio;
 
+    /** @var \Closure(string): (float|false) */
+    private readonly \Closure $espacoLivre;
+
+    /**
+     * @param (\Closure(string): (float|false))|null $espacoLivre bytes livres no disco do diretório
+     *                                                           (`disk_free_space`, trocável nos testes)
+     */
     public function __construct(
         string $diretorio,
         private readonly int $maximoDeBytes,
+        private readonly int $esperaMaximaDaTravaEmSegundos = self::ESPERA_MAXIMA_DA_TRAVA_EM_SEGUNDOS,
+        private readonly int $pisoDeEspacoLivreEmBytes = self::PISO_DE_ESPACO_LIVRE_EM_BYTES,
+        ?\Closure $espacoLivre = null,
     ) {
         $this->diretorio = rtrim($diretorio, '/');
         if ($maximoDeBytes < 0) {
             throw new \InvalidArgumentException('O teto do cache de leitura não pode ser negativo.');
         }
+        if ($esperaMaximaDaTravaEmSegundos < 0 || $pisoDeEspacoLivreEmBytes < 0) {
+            throw new \InvalidArgumentException('O prazo da trava e o piso de espaço livre não podem ser negativos.');
+        }
+        $this->espacoLivre = $espacoLivre ?? static fn (string $diretorio): float|false => @disk_free_space($diretorio);
     }
 
     /**
@@ -104,6 +132,7 @@ final class CacheDeLeituraDoEspelho
             }
 
             $this->limparOrfaos();
+            $this->exigirEspacoPara($tamanhoBytes);
             $parcial = $this->baixarParaParcial($baixar);
             $this->exigirQueOParcialConfere($parcial, $sha256, $tamanhoBytes);
 
@@ -124,7 +153,7 @@ final class CacheDeLeituraDoEspelho
     }
 
     /**
-     * Trava exclusiva do conteúdo, por `flock` (espera quem já está baixando). O arquivo da trava fica
+     * Trava exclusiva do conteúdo, por `flock` (espera quem já está baixando, até o prazo). O arquivo da trava fica
      * no diretório: apagá-lo ao destravar abriria a corrida de dois processos com travas em inodes
      * diferentes. A limpeza dos velhos é a de {@see limparOrfaos()}.
      *
@@ -137,14 +166,36 @@ final class CacheDeLeituraDoEspelho
         if ($trava === false) {
             throw new FalhaDeArmazenamento('Não foi possível criar a trava no cache de leitura do espelho.');
         }
-        if (!flock($trava, \LOCK_EX)) {
-            fclose($trava);
+        $prazo = microtime(true) + $this->esperaMaximaDaTravaEmSegundos;
+        while (!flock($trava, \LOCK_EX | \LOCK_NB, $ocupada)) {
+            if ($ocupada !== 1) {
+                fclose($trava);
 
-            throw new FalhaDeArmazenamento('Não foi possível obter a trava no cache de leitura do espelho.');
+                throw new FalhaDeArmazenamento('Não foi possível obter a trava no cache de leitura do espelho.');
+            }
+            if (microtime(true) >= $prazo) {
+                fclose($trava);
+
+                throw new FalhaDeArmazenamento(sprintf('O mesmo arquivo está sendo baixado do espelho por outra leitura há mais de %d s.', $this->esperaMaximaDaTravaEmSegundos));
+            }
+            usleep(self::INTERVALO_DA_ESPERA_EM_MICROSSEGUNDOS);
         }
         @touch($caminho);
 
         return $trava;
+    }
+
+    /** Recusa o download que deixaria o disco do cache abaixo do piso de espaço livre. */
+    private function exigirEspacoPara(int $tamanhoBytes): void
+    {
+        $livre = ($this->espacoLivre)($this->diretorio);
+        if ($livre === false) {
+            // Sem a medida, segue: o teto em bytes continua valendo.
+            return;
+        }
+        if ($livre - $tamanhoBytes < $this->pisoDeEspacoLivreEmBytes) {
+            throw new FalhaDeArmazenamento('O disco do cache de leitura do espelho está abaixo do piso de espaço livre.');
+        }
     }
 
     /** @param callable(resource): void $baixar */
