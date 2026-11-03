@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.33.0"
+  data: "2026-11-03"
+  itens:
+    - "Na Lixeira do Expediente, cada pasta abre a lixeira dela na mesma tela, com as mesmas opções de restaurar e excluir de vez, sem precisar sair da página."
+    - "Na lixeira (da pasta e do Expediente), dá para abrir o arquivo excluído numa aba nova para conferir antes de restaurar ou excluir de vez. Abrir não tira o arquivo da lixeira."
 - versao: "2.32.0"
   data: "2026-11-03"
   itens:
