@@ -8,6 +8,14 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.33.0] - 2026-11-03
+
+### Adicionado
+
+- Lixeira do Expediente: "Abrir a lixeira da pasta" abre ali mesmo o modal da lixeira da pasta (Restaurar, Excluir de vez, selecionados), sem ir para a pasta. A cada leitura da lista a linha da pasta é refeita com a contagem nova (ou sai, se a lixeira dela esvaziou).
+- O modal da lixeira saiu do `pasta-explorador.js` para `pasta-lixeira.js` (o mesmo na pasta e no Expediente); o mapa de tipos de arquivo foi para `pasta-tipos-de-arquivo.js`. Sem mudança de comportamento na aba Documentos.
+- Abrir arquivo excluído: nova rota `pasta_documentos_lixeira_abrir` (GET `/pasta/{id}/documentos/lixeira/{documento}`), só leitura, com a permissão da lixeira da pasta (EDITAR), tenant conferido, contrato oculto respeitado e o arquivo lido pela chave (vale o espelho no R2). No modal, o nome do arquivo e o botão "Abrir" abrem numa aba nova.
+
 ## [2.32.0] - 2026-11-03
 
 ### Adicionado
@@ -1407,7 +1415,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.32.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.33.0...HEAD
+[2.33.0]: https://github.com/sfbdata/Prime/compare/v2.32.0...v2.33.0
 [2.32.0]: https://github.com/sfbdata/Prime/compare/v2.31.0...v2.32.0
 [2.31.0]: https://github.com/sfbdata/Prime/compare/v2.30.0...v2.31.0
 [2.30.0]: https://github.com/sfbdata/Prime/compare/v2.29.0...v2.30.0
