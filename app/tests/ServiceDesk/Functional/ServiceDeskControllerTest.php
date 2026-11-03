@@ -75,6 +75,7 @@ final class ServiceDeskControllerTest extends JusPrimeWebTestCase
         self::assertSelectorCount(1, '.sd-pagina > .sd-saldo');
         self::assertSelectorCount(1, '.sd-pagina > .sd-lista');
         self::assertSelectorCount(1, '.sd-pagina > .sd-cabeca > .sd-btn-azul');
+        self::assertSelectorCount(1, '.sd-pagina > .sd-cabeca > a.sd-btn-manual[href="/ajuda"]');
         self::assertSelectorCount(1, '.sd-pagina > .sd-modal-area > .sd-modal');
         self::assertSelectorNotExists('.sd-pagina .modal');
         self::assertSelectorNotExists('.sd-pagina .select2');

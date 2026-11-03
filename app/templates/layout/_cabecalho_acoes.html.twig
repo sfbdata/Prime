@@ -5,6 +5,15 @@
     é tratado por public/js/indicacao.js, e a janela vem de menu_usuario/_modais.html.twig. No Contribua a dica é
     "ganhe saldo" (desenho 08 VS 30.10.26); o componente comum do bj-compartilhar.js segue "ganhe recompensa".
 #}
+{# Ajuda: "?" junto do sino, em todas as telas logadas (desvio do desenho aprovado pelo Samuel em 03/11/2026).
+   Fica antes do "Indicar", que o desenho põe colado no sino. Mesmo componente do sino (`.navtop-action-btn`,
+   34x34, cor do cabeçalho); leva à página /ajuda com o manual. #}
+<div class="navtop-action">
+    <a href="{{ path('ajuda_index') }}" class="navtop-action-btn" data-ajuda-topo
+       aria-label="{{ 'ajuda.botao_cabecalho'|trans }}" data-tip="{{ 'ajuda.botao_cabecalho'|trans }}">
+        <i class="bi bi-question-circle"></i>
+    </a>
+</div>
 <div class="navtop-action">
     <link rel="stylesheet" href="{{ asset('css/cabecalho-indicar.css') }}">
     <button type="button" class="bj-share" data-bj-share data-ind-abrir
