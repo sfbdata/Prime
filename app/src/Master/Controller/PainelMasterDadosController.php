@@ -14,6 +14,7 @@ use App\Master\UseCase\ConsultarVisaoGeralUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -120,9 +121,22 @@ final class PainelMasterDadosController extends AbstractController
         return $this->json($useCase->executar());
     }
 
+    /**
+     * Trilha paginada no servidor: `pagina`, `porPagina` (20, 50 ou 100), `tipo` (rótulo da ação), `conta` (id) e
+     * `todas=1` (o filtro inteiro, para o PDF). Valor inválido cai no padrão do UseCase.
+     */
     #[Route('/auditoria', name: 'master_dados_auditoria', methods: ['GET'])]
-    public function auditoria(ConsultarAuditoriaUseCase $useCase): JsonResponse
+    public function auditoria(ConsultarAuditoriaUseCase $useCase, Request $request): JsonResponse
     {
-        return $this->json($useCase->executar());
+        $q = $request->query;
+        $conta = $q->getInt('conta');
+
+        return $this->json($useCase->executar(
+            pagina: $q->getInt('pagina', 1),
+            porPagina: $q->getInt('porPagina', ConsultarAuditoriaUseCase::POR_PAGINA_PADRAO),
+            tipo: $q->getString('tipo'),
+            conta: $conta > 0 ? $conta : null,
+            todas: $q->getBoolean('todas'),
+        ));
     }
 }
