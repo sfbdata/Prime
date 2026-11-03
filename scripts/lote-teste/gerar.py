@@ -129,6 +129,11 @@ def conteudo(nome: str) -> bytes:
 IGNORAR = re.compile(r"^(\.|thumbs\.db$|desktop\.ini$)", re.IGNORECASE)
 
 
+def ignorado(partes: list[str]) -> bool:
+    """Lixo/oculto no nome do arquivo, ou pasta oculta abaixo da escolhida (correção do PR #602)."""
+    return bool(IGNORAR.search(partes[-1])) or any(p.startswith(".") for p in partes[1:-1])
+
+
 def _nome_do_cliente(chave: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[_-]+", " ", chave)).strip().upper()
 
@@ -139,7 +144,7 @@ def _ordem_pt(texto: str) -> str:
 
 def precisa_perguntar(caminhos: list[str]) -> bool:
     """D11: arquivo solto direto na pasta escolhida E arquivo em subpasta."""
-    validos = [c.split("/") for c in caminhos if not IGNORAR.search(c.split("/")[-1])]
+    validos = [p for p in (c.split("/") for c in caminhos) if not ignorado(p)]
 
     return any(len(p) == 2 for p in validos) and any(len(p) > 2 for p in validos)
 
@@ -149,7 +154,7 @@ def montar(caminhos: list[str], um_cliente: bool) -> list[dict]:
     grupos: dict[str, list[str]] = {}
     for c in caminhos:
         partes = c.split("/")
-        if IGNORAR.search(partes[-1]):
+        if ignorado(partes):
             continue
         if um_cliente:
             chave = partes[0]
@@ -241,8 +246,7 @@ CENARIOS = [
         "vazias": ["PASTA VAZIA", "ANA TESTE/Subpasta vazia"],
         "ideal": "1 pasta ANA TESTE com 1 arquivo. Lixo, oculto e pasta vazia não aparecem.",
         "notas": "O lixo na raiz não dispara a pergunta. Pasta vazia o navegador nem lista. "
-                 "Achado: o montar() ignora só ARQUIVO oculto; a PASTA oculta .ocultos vira um cliente \".OCULTOS\" "
-                 "(veja \"hoje\"). Provável defeito.",
+                 "A pasta oculta .ocultos é ignorada desde o PR #602; antes dele, virava um cliente \".OCULTOS\".",
     },
     {
         "id": "08-acentos-e-separadores",
