@@ -149,10 +149,20 @@ GPL autohospedada). Sem dependência nova, o Farlei já conhece a barra. Alterna
 | `<div data-bj="leia-tambem" data-artigo="slug"></div>` | `::leia-tambem{artigo=slug}` |
 | `<img src="/master/blog/imagens/{id}" alt="…">` | `![alt](./imagens/{id}.{ext})` |
 
-**Conversão no servidor**, a cada salvar: `HtmlDoArtigoParaMarkdown` (serviço do domínio Blog) com
-`league/html-to-markdown` (dependência nova do composer, MIT) e conversores próprios para os `data-bj`.
-Antes de converter, o HTML passa por um sanitizador de lista branca (o mesmo conjunto do `valid_elements`):
-o que o TinyMCE deixa passar não é confiável só por vir do navegador.
+**Conversão no servidor**, a cada salvar: `HtmlDoArtigoParaMarkdown` (serviço do domínio Blog), um
+conversor próprio sobre `DOMDocument`, sem dependência nova (ajuste da P1: `composer.json` e `composer.lock`
+são arquivos quentes). Antes de converter, o HTML passa por um sanitizador de lista branca (o mesmo conjunto
+do `valid_elements`): o que o TinyMCE deixa passar não é confiável só por vir do navegador.
+
+**Segurança do conversor (Coordenador, 03/11).** O Astro repassa o HTML cru que estiver no Markdown, então
+o conversor nunca emite HTML: tag fora da lista branca vira só o texto dela (`script` e `style` somem
+inteiros); `<`, `>` e `&` do texto saem escapados; `href` só aceita http(s), `mailto` e caminho relativo
+(`javascript:`, `data:` e `vbscript:` caem, inclusive com maiúsculas ou espaço antes); `src` de imagem só
+aceita `/master/blog/imagens/{id}`. Coberto por `ConversorXssTest`.
+
+**Imagens no build (Coordenador, 03/11).** `/master/blog/imagens/{id}` só vale no editor (exige login). O
+Markdown exportado usa `./imagens/{id}.{ext}` e o builder da P4 copia o arquivo para o lado do artigo no
+repositório dos sites (seção 4): o site continua estático, sem rota pública no PHP.
 Testes de ida: um HTML de cada bloco vira exatamente o Markdown da tabela; um artigo real do repositório
 (`controle-de-prazos-processuais.md`) importado e reexportado sai equivalente (fatia P2).
 
