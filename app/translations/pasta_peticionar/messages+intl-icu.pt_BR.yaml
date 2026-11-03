@@ -89,7 +89,7 @@ pasta_peticionar:
         novo_nome: Novo nome
         erro_comunicacao_curto: Erro de comunicação.
         classificado: 'Classificado como {categoria}'
-        excluir_pergunta: 'Excluir a peça "{nome}"? Ela vai para a lixeira e pode ser restaurada na aba Documentos da pasta.'
+        excluir_pergunta: 'Excluir a peça "{nome}"? Ela vai para a lixeira e pode ser restaurada na aba Documentos da pasta por 30 dias.'
         erro_excluir: Não foi possível excluir.
         erro_ordenar: Não foi possível salvar a nova ordem.
         peca_excluida: Peça excluída

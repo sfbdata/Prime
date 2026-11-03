@@ -79,8 +79,8 @@ e SHA na fatia diária.
   Sem isso, o pedido LGPD deixaria o arquivo no R2.
 - **Entregue em 03/11/2026 (PR da branch `r2-d6-exclusao`):** a exclusão grava `excluir`/`pendente` na
   outbox e o worker apaga o objeto no R2 (uma chave, conferida por HEAD); se o arquivo voltou ao disco,
-  a exclusão vira `superado` e nada sai. A lixeira das pastas continua sem prazo (decisão do dono de
-  23/10, "Lixeira para sempre"): a purga segue manual, e só o que ela apaga sai do R2. Etapa C: ao restaurar um lote, conferir que não há exclusão pendente da mesma chave, e
+  a exclusão vira `superado` e nada sai. A purga da lixeira (`app:documentos:purgar-lixeira`, 30 dias)
+  roda às 0h50 (decisão do Samuel de 03/11/2026, que substitui a "lixeira para sempre" de 23/10). Etapa C: ao restaurar um lote, conferir que não há exclusão pendente da mesma chave, e
   a exclusão de um arquivo liberado tem de apagar também o registro de liberação.
 
 ## 3. Etapa A: leitura de recuperação

@@ -119,7 +119,7 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringContainsString('document.body.appendChild(raizModal);', $modal, 'fora do painel animado da aba');
         self::assertStringContainsString("class: 'modal fade pex-modal pex-lix'", $modal);
         // Sem purga automática (D-DOC-RET, 07/10): a tela não pode prometer prazo nem apagamento de vez.
-        self::assertTextoDoScript('Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.', 'explorador.lix_nota', $modal);
+        self::assertTextoDoScript('Itens na lixeira podem ser restaurados por 30 dias. Depois disso, são apagados de vez automaticamente.', 'explorador.lix_nota', $modal);
         self::assertStringNotContainsString('DIAS_NA_LIXEIRA', $js);
         self::assertDoesNotMatchRegularExpression('/\\d+ dias na lixeira|apagados de vez\\./', $js);
         // A linha: nome por `text` (textContent), excluído em/por e caminho original.
