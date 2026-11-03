@@ -192,6 +192,38 @@ class PastaSecaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * O resumo das seções na lixeira do ESCRITÓRIO (lixeira do escritório no Expediente): uma
+     * linha por pasta e autor da exclusão, com a contagem e as datas extremas. Agregação no banco,
+     * sem carregar entidade. Conta todas as seções na lixeira, as que saíram junto com uma mãe
+     * inclusive (a mesma conta do `totalPastas` da lixeira da pasta). Quem chama precisa estar
+     * dentro de `AcessoALixeira::comLixeiraVisivel()`; o `excluidoEm IS NOT NULL` e o tenant vão à mão.
+     *
+     * @return list<array{pastaId: int, autorId: int|null, total: int, maisAntiga: string, maisRecente: string}>
+     */
+    public function resumoDaLixeiraDoEscritorio(Tenant $tenant): array
+    {
+        /** @var list<array<string, mixed>> $linhas */
+        $linhas = $this->createQueryBuilder('s')
+            ->select('IDENTITY(s.pasta) AS pastaId', 'IDENTITY(s.excluidoPor) AS autorId')
+            ->addSelect('COUNT(s.id) AS total', 'MIN(s.excluidoEm) AS maisAntiga', 'MAX(s.excluidoEm) AS maisRecente')
+            ->andWhere('s.tenant = :tenant')
+            ->andWhere('s.excluidoEm IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('s.pasta')
+            ->addGroupBy('s.excluidoPor')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'pastaId'     => (int) $l['pastaId'],
+            'autorId'     => $l['autorId'] === null ? null : (int) $l['autorId'],
+            'total'       => (int) $l['total'],
+            'maisAntiga'  => (string) $l['maisAntiga'],
+            'maisRecente' => (string) $l['maisRecente'],
+        ], $linhas);
+    }
+
+    /**
      * As seções na lixeira de uma pasta, da excluída mais recente à mais antiga, com o pai e quem
      * excluiu já carregados (a listagem da UI da lixeira).
      *
