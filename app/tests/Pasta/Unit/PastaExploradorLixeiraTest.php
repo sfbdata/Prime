@@ -178,4 +178,50 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringContainsString("hidden: !podeEscreverNaLixeira()", $this->funcao('montarModalDaLixeira'));
         self::assertStringContainsString('cfg.pastaExcluida ||', $this->funcao('desfazerDe'));
     }
+
+    #[TestDox('excluir de vez: botão por item e no rodapé, confirmação ANTES do pedido, mesmo token do lote, relê a lista; sem permissão, sem botão')]
+    public function testExcluirDeVez(): void
+    {
+        $js = $this->js();
+        self::assertStringContainsString("urlExcluirDeVez:     dados.urlExcluirDeVez || '',", $js);
+        self::assertStringContainsString('function podeExcluirDeVez() { return podeEscreverNaLixeira() && !!cfg.urlExcluirDeVez; }', $js);
+
+        // Linha: o botão só nasce quando pode escrever na lixeira (lápide e leitor ficam sem ele).
+        $linha = $this->funcao('linhaDaLixeira');
+        self::assertStringContainsString("escrever && podeExcluirDeVez() ? h('button', {", $linha);
+        self::assertStringContainsString("'data-pex-lix-excluir-de-vez': chave,", $linha);
+        self::assertStringContainsString("icone('bi-x-octagon')", $linha);
+        self::assertTextoDoScript('Excluir de vez', 'explorador.lix_excluir_de_vez', $linha);
+
+        // Rodapé: escondido sem permissão; o rótulo conta os selecionados.
+        $modal = $this->funcao('montarModalDaLixeira');
+        self::assertStringContainsString("id: 'pexLixeiraExcluirDeVezSel', disabled: true, hidden: !podeExcluirDeVez() }", $modal);
+        self::assertStringContainsString("h('div', { class: 'modal-footer' }, [fechar, excluirSel, restaurarSel]),", $modal);
+        self::assertStringContainsString('excluirDeVezDaLixeira(Array.from(lixeiraMarcados));', $modal);
+        self::assertStringContainsString('excluirDeVezDaLixeira([x.dataset.pexLixExcluirDeVez]);', $modal);
+        self::assertTextoDoScript('Excluir de vez os selecionados', 'explorador.lix_excluir_de_vez_sel', $modal);
+        $botoes = $this->funcao('atualizarBotaoRestaurarSelecionados');
+        self::assertStringContainsString('x.disabled = lixeiraOcupada || n === 0 || !podeExcluirDeVez();', $botoes);
+        self::assertTextoDoScript('Excluir de vez os selecionados ({n})', 'explorador.lix_excluir_de_vez_sel_n', $botoes);
+
+        // A ação: guarda de permissão, confirmação ANTES do pedido, mesmo token, relê a lista.
+        $excluir = $this->funcao('excluirDeVezDaLixeira');
+        self::assertStringContainsString('if (!chaves.length || lixeiraOcupada || !podeExcluirDeVez()) return;', $excluir);
+        self::assertStringContainsString('window.confirmarUIPs ? window.confirmarUIPs(pergunta, true) : Promise.resolve(confirm(pergunta))', $excluir);
+        self::assertStringContainsString('if (sim) excluirDeVezConfirmado();', $excluir);
+        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'window.confirmarUIPs(pergunta, true)'));
+        self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'function excluirDeVezConfirmado() {'));
+        self::assertStringContainsString('postJson(cfg.urlExcluirDeVez, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes })', $excluir);
+        self::assertStringContainsString('invalidarContagemDaLixeira();', $excluir);
+        self::assertStringContainsString('return lerLixeira()', $excluir);
+        self::assertTextoDoScript('Excluir de vez {n} item(ns)? Eles saem do sistema e não podem ser restaurados.', 'explorador.lix_confirmar_excluir_de_vez', $excluir);
+        self::assertTextoDoScript('1 item excluído de vez', 'explorador.lix_excluido_de_vez_um', $excluir);
+        self::assertTextoDoScript('{n} itens excluídos de vez', 'explorador.lix_excluidos_de_vez_varios', $excluir);
+        self::assertTextoDoScript('Não foi possível excluir de vez.', 'explorador.lix_erro_excluir_de_vez', $excluir);
+
+        // Cores do "Excluir definitivamente" da lixeira do chat (desenho 06, :596).
+        $css = (string) file_get_contents(self::CSS);
+        self::assertMatchesRegularExpression('/\.pex-lix-excluir-de-vez \{[^}]*border: 1px solid #f0c9cd;[^}]*background: #fff;[^}]*color: #a3232b;/', $css);
+        self::assertMatchesRegularExpression('/\.pex-lix-excluir-de-vez:hover,\s*\.pex-lix-excluir-de-vez:focus-visible \{[^}]*background: #fdecee;/', $css);
+    }
 }
