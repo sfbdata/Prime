@@ -1,0 +1,112 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Blog\UseCase;
+
+use App\Blog\DTO\ArtigoDoBlogOutput;
+use App\Blog\DTO\SalvarArtigoDoBlogInput;
+use App\Blog\Entity\ArtigoDoBlog;
+use App\Blog\Enum\BlogsDoArtigo;
+use App\Blog\Enum\SituacaoDoArtigo;
+use App\Blog\Exception\ArtigoDoBlogNaoEncontrado;
+use App\Blog\Exception\ArtigoDoBlogRecusado;
+use App\Blog\Repository\ArtigoDoBlogRepository;
+use App\Blog\Repository\ImagemDoArtigoRepository;
+use App\Blog\Service\HtmlDoArtigoParaMarkdown;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use Psr\Clock\ClockInterface;
+
+/**
+ * Salva um artigo do blog (botão "Salvar rascunho" do editor; spec painel-artigos-blogs, seções 1 e 3).
+ *
+ * Quem dispara: o Master, no editor de /master/blog/artigos/{id} (o controller exige ROLE_SUPER_ADMIN).
+ * Objetivo: guardar o texto sem ir ao ar. Rascunho salva incompleto; as regras do zod só valem ao agendar/publicar.
+ * Pré-condições: o Input já passou pelo Assert (formato do slug, tamanhos das colunas).
+ * Fluxo principal: carrega o artigo (ou cria um rascunho novo); recusa slug de outro artigo; sanitiza o HTML pela lista
+ * branca; gera o corpoMarkdown; calcula a leitura (200 palavras por minuto) quando vier vazia; grava, no escopo de
+ * plataforma (auditoria sem escritório).
+ * Fluxos alternativos: id inexistente (404); slug repetido (422); trocar o slug de um artigo que já foi ao ar sem
+ * confirmar (422).
+ * Pós-condições: a situação NÃO muda (D7). Num artigo publicado ou despublicado, texto novo fica como
+ * "alterações não publicadas" até Publicar de novo; salvar sem mudança nenhuma não marca nada.
+ */
+final class SalvarArtigoDoBlogUseCase
+{
+    private const PALAVRAS_POR_MINUTO = 200;
+
+    public function __construct(
+        private readonly ArtigoDoBlogRepository $artigos,
+        private readonly ImagemDoArtigoRepository $imagens,
+        private readonly HtmlDoArtigoParaMarkdown $conversor,
+        private readonly ClockInterface $relogio,
+        private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
+    ) {
+    }
+
+    public function executar(SalvarArtigoDoBlogInput $input): ArtigoDoBlogOutput
+    {
+        $artigo = $input->id === null ? $this->novoRascunho($input) : $this->carregar($input->id);
+        $this->exigirSlugLivre($artigo, $input);
+
+        $antes = $artigo->getId() === null ? null : $artigo->assinaturaDoConteudo();
+        $this->aplicar($artigo, $input);
+        if ($antes !== null && $antes !== $artigo->assinaturaDoConteudo()) {
+            $artigo->registrarAlteracao($input->ator, $this->relogio->now());
+        }
+
+        $this->escopoDePlataforma->executar(fn () => $this->artigos->salvar($artigo, flush: true));
+
+        return ArtigoDoBlogOutput::fromEntity($artigo);
+    }
+
+    private function novoRascunho(SalvarArtigoDoBlogInput $input): ArtigoDoBlog
+    {
+        return new ArtigoDoBlog($input->slug, BlogsDoArtigo::from($input->blogs), $input->ator, $this->relogio->now());
+    }
+
+    private function carregar(int $id): ArtigoDoBlog
+    {
+        return $this->artigos->porId($id) ?? throw ArtigoDoBlogNaoEncontrado::comId($id);
+    }
+
+    private function exigirSlugLivre(ArtigoDoBlog $artigo, SalvarArtigoDoBlogInput $input): void
+    {
+        if ($this->artigos->existeSlug($input->slug, $artigo->getId())) {
+            throw ArtigoDoBlogRecusado::slugRepetido($input->slug);
+        }
+
+        $jaFoiAoAr = \in_array($artigo->getSituacao(), [SituacaoDoArtigo::Publicado, SituacaoDoArtigo::Despublicado], true);
+        if ($jaFoiAoAr && $artigo->getSlug() !== $input->slug && !$input->confirmarTrocaDeSlug) {
+            throw ArtigoDoBlogRecusado::trocaDeSlugSemConfirmacao();
+        }
+    }
+
+    private function aplicar(ArtigoDoBlog $artigo, SalvarArtigoDoBlogInput $input): void
+    {
+        $html = $this->conversor->sanitizar($input->corpoHtml);
+        $extensoes = $artigo->getId() === null ? [] : $this->imagens->extensoesDoArtigo($artigo);
+
+        $artigo->trocarSlug($input->slug);
+        $artigo->definirBlogs(BlogsDoArtigo::from($input->blogs));
+        $artigo->editarTextos($input->titulo, $input->tituloCurto, $input->tituloSeo, $input->descricao, $input->linhaFina, $input->resumo);
+        $artigo->classificar($input->categoria, $input->autor, $input->revisorNome, $input->revisorOab, $this->leitura($input, $html), $input->destaque);
+        $artigo->definirImagem($input->imagemChave, $input->imagemAlt);
+        $artigo->definirReferencias($input->referencias);
+        $artigo->definirRelacionados($input->relacionados);
+        $artigo->definirCorpo($html, $this->conversor->converter($html, $extensoes));
+    }
+
+    /** "N min" pelo número de palavras do corpo, quando o Master não escreveu a leitura. */
+    private function leitura(SalvarArtigoDoBlogInput $input, string $html): string
+    {
+        if (trim($input->leitura) !== '') {
+            return $input->leitura;
+        }
+
+        $texto = html_entity_decode(strip_tags(str_replace('<', ' <', $html)), \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+        $palavras = preg_match_all('/[\p{L}\p{N}]+(?:[\'\-.][\p{L}\p{N}]+)*/u', $texto);
+
+        return max(1, (int) ceil(((int) $palavras) / self::PALAVRAS_POR_MINUTO)) . ' min';
+    }
+}
