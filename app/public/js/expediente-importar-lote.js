@@ -83,8 +83,9 @@
         var nome = partesDe(lista[0])[0];
         s.pergunta = { files: lista };
         s.erro = '';
-        el('pergunta-txt').textContent = 'A pasta "' + nome + '" tem arquivos soltos e subpastas. Sim: tudo vira uma pasta só, com o nome "'
-            + nome + '", e o caminho da subpasta vai na descrição de cada documento. Não: cada subpasta vira uma pasta, e os arquivos soltos, outra.';
+        // Pasta = caso: o mesmo cliente pode ter várias pastas. Por isso o texto pede "Não" quando as subpastas são casos diferentes.
+        el('pergunta-txt').textContent = 'A pasta "' + nome + '" tem arquivos soltos e subpastas. Sim: é um caso só; tudo vira uma pasta, com o nome "'
+            + nome + '", e o caminho da subpasta vai na descrição de cada documento. Não: cada subpasta vira uma pasta (use Não também quando as subpastas forem casos diferentes do mesmo cliente).';
         render();
     }
 

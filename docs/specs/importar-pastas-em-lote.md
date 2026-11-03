@@ -71,6 +71,9 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
     fica sem descrição. Sem migration.
   - **Não**: comportamento de antes (cada subpasta de 1º nível vira uma pasta; os soltos, outra com o
     nome da pasta escolhida).
+  - **Pasta = caso** (regra do Samuel, 03/11/2026): o mesmo cliente pode ter várias pastas. O texto da
+    pergunta diz que o Sim é para **um caso só** e pede Não quando as subpastas são casos diferentes do
+    mesmo cliente. Quem decide é a pessoa; o sistema nunca junta casos sozinho.
   - Só arquivos soltos, ou só subpastas: não pergunta (nada muda). A seleção de "arquivos soltos"
     também não pergunta.
 
