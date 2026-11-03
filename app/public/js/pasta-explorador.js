@@ -3849,6 +3849,18 @@
         if (!valor || !/^[1-9]\d{0,17}$/.test(valor)) return null;
         return pastaPorId(valor) ? Number(valor) : null;
     }
+    /* `?pex_lixeira=1` (lixeira do escritório, 03/11/2026): abre a lixeira desta pasta ao chegar.
+       Lido uma vez e tirado da barra de endereço, como o `?pex`. Quem não pode ver a lixeira
+       (`veLixeira()`) fica na aba de sempre, sem aviso. */
+    function lixeiraDoLink() {
+        try {
+            const url = new URL(window.location.href);
+            if (url.searchParams.get('pex_lixeira') === null) return false;
+            url.searchParams.delete('pex_lixeira');
+            window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+            return true;
+        } catch (e) { return false; }
+    }
     (function inicializar() {
         let salvo = null;
         try { salvo = JSON.parse(sessionStorage.getItem(CHAVE_CAMINHO) || 'null'); } catch (e) { /* formato inválido */ }
@@ -3866,5 +3878,7 @@
         }
         atualizarBotaoLimpar();
         renderizar();
+        // `?pex_lixeira=1`: o link "Abrir a lixeira da pasta" da lixeira do escritório (Expediente).
+        if (lixeiraDoLink() && veLixeira()) abrirLixeira();
     })();
 })();

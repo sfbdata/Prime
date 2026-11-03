@@ -149,11 +149,13 @@
             "expediente/_trilho.html.twig",
             "expediente/_relatorio_processos_modal.html.twig",
             "expediente/relatorio_processos.html.twig",
-            "expediente/pastas_paradas.html.twig"
+            "expediente/pastas_paradas.html.twig",
+            "expediente/_lixeira_modal.html.twig"
         ],
         "js": [
             "expediente-lista.js",
-            "expediente-trilho.js"
+            "expediente-trilho.js",
+            "expediente-lixeira.js"
         ],
         "permitidos": [
             "exp-body",

@@ -1,0 +1,24 @@
+{# Lixeira do escritório (pedido do Samuel, 03/11/2026; sem desenho): a janela que o botão "Lixeira" do
+   cabeçalho abre. A moldura é a dos modais da Lista (exp-modal-fundo/exp-modal, _modais_lista.html.twig);
+   a lista é montada por /js/expediente-lixeira.js a partir de `expediente_lixeira` (JSON), tudo por
+   createElement/textContent (nome de pasta e de pessoa é dado do usuário). As ações chamam as rotas da
+   lixeira de cada pasta, com o token de lote que vem em cada grupo. #}
+<div class="exp-modal-fundo" id="expLixeira" hidden data-url="{{ path('expediente_lixeira') }}">
+    <div class="exp-modal exp-modal--lixeira" role="dialog" aria-modal="true" aria-labelledby="expLixeiraTitulo">
+        <div class="exp-modal-cab">
+            <i class="bi bi-trash3" aria-hidden="true"></i>
+            <b id="expLixeiraTitulo">{{ 'expediente.lixeira.titulo'|trans }}</b>
+            <button type="button" class="exp-modal-x js-lix-fechar" aria-label="{{ 'expediente.lixeira.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="exp-modal-corpo exp-lix-corpo">
+            <p class="exp-lix-nota">{{ 'expediente.lixeira.nota'|trans }}</p>
+            <div class="exp-lix-aviso" id="expLixeiraAviso" role="status" aria-live="polite" hidden></div>
+            <ul class="exp-lix-lista" id="expLixeiraLista"></ul>
+            <p class="exp-lix-vazia" id="expLixeiraVazia" hidden>{{ 'expediente.lixeira.vazia'|trans }}</p>
+            <button type="button" class="exp-btn exp-btn--cinza exp-lix-mais" id="expLixeiraMais" hidden>{{ 'expediente.lixeira.carregar_mais'|trans }}</button>
+        </div>
+        <div class="exp-modal-rodape">
+            <button type="button" class="exp-btn exp-btn--cinza js-lix-fechar">{{ 'expediente.lixeira.fechar'|trans }}</button>
+        </div>
+    </div>
+</div>
