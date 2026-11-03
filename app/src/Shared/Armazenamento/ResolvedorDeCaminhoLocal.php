@@ -39,6 +39,12 @@ final readonly class ResolvedorDeCaminhoLocal
      */
     private const SUBPASTA_DE_TAREFA = 'chat';
 
+    /** O diretório da liberação do disco, dentro de `%uploads_dir%` ({@see caminhoNosLiberados()}). */
+    public const DIRETORIO_DOS_LIBERADOS = '.liberados';
+
+    /** O identificador de lote aceito no caminho: nunca vira travessia nem subdiretório. */
+    private const FORMATO_DO_LOTE = '/\A[0-9A-Za-z][0-9A-Za-z_-]{0,63}\z/';
+
     public function __construct(
         private string $uploadsDir,
         private string $clientesUploadsDir,
@@ -89,6 +95,41 @@ final readonly class ResolvedorDeCaminhoLocal
         };
 
         return ['raiz' => $raiz, 'prefixo' => $raiz . '/' . $escopo->tenantIdObrigatorio()];
+    }
+
+    /**
+     * Onde a liberação do disco guarda a cópia local que saiu do lugar (spec
+     * `leitura-pelo-r2-e-liberacao-de-disco.md` §5.3): `<uploads_dir>/.liberados/<lote>/<caminho
+     * relativo ao uploads_dir>`. Fica DENTRO da raiz dos documentos da pasta, então o `rename` não
+     * troca de sistema de arquivos, e fora de todo diretório que o sistema lista (o prefixo de um
+     * escritório é `<uploads_dir>/<tenant>`).
+     *
+     * Só as categorias que moram sob `uploads_dir` têm lugar aqui; as outras são recusadas, porque o
+     * caminho relativo delas não caberia sob esta raiz.
+     */
+    public function caminhoNosLiberados(ChaveDeArquivo $chave, string $lote): string
+    {
+        if (preg_match(self::FORMATO_DO_LOTE, $lote) !== 1) {
+            throw new \InvalidArgumentException('O lote da liberação precisa de 1 a 64 letras, dígitos, "-" ou "_", começando por letra ou dígito.');
+        }
+
+        $raiz    = $this->raiz($this->uploadsDir);
+        $caminho = $this->caminhoDe($chave);
+        if (!str_starts_with($caminho, $raiz . '/')) {
+            throw new \LogicException(sprintf('A categoria %s não mora sob a raiz dos documentos da pasta.', $chave->categoria->value));
+        }
+
+        return $raiz . '/' . self::DIRETORIO_DOS_LIBERADOS . '/' . $lote . '/' . substr($caminho, \strlen($raiz) + 1);
+    }
+
+    /**
+     * Onde nasce o parcial da restauração que baixa do espelho: `<uploads_dir>/.liberados/.parciais`.
+     * Mesmo sistema de arquivos do original (o `link` final não troca de disco) e fora de qualquer
+     * diretório de documentos; o ponto inicial impede colisão com um lote.
+     */
+    public function diretorioDosParciaisDaLiberacao(): string
+    {
+        return $this->raiz($this->uploadsDir) . '/' . self::DIRETORIO_DOS_LIBERADOS . '/.parciais';
     }
 
     /**

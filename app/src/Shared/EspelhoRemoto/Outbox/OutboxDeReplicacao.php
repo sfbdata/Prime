@@ -410,6 +410,22 @@ final class OutboxDeReplicacao
     }
 
     /**
+     * Há exclusão (a de hoje, `excluir`, ou o evento antigo) registrada para a chave remota, mais nova
+     * que o último envio dela? A restauração de um lote liberado não devolve ao disco um arquivo que o
+     * sistema mandou apagar (spec `leitura-pelo-r2-e-liberacao-de-disco.md` D6, etapa C).
+     */
+    public function temExclusaoDepoisDoUltimoEnvio(string $chaveRemota): bool
+    {
+        $operacao = $this->conexao->fetchOne(
+            'SELECT operacao FROM ' . self::TABELA . ' WHERE chave_remota = ? AND operacao IN (?) ORDER BY id DESC LIMIT 1',
+            [$chaveRemota, [self::OPERACAO_ENVIAR, self::OPERACAO_EXCLUIR, self::OPERACAO_EXCLUSAO]],
+            [1 => ArrayParameterType::STRING],
+        );
+
+        return $operacao !== false && $operacao !== self::OPERACAO_ENVIAR;
+    }
+
+    /**
      * O envio `verificado` da chave, quando ele é a linha MAIS NOVA dela; senão null.
      *
      * Uma exclusão registrada, um envio ainda pendente (regravação em curso), um envio que falhou ou
