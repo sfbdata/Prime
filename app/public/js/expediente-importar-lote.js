@@ -10,9 +10,9 @@
 
     var IGNORAR = /^(\.|thumbs\.db$|desktop\.ini$)/i;
     // Só estes disparam ação; o rótulo dentro do botão também tem data-il e não pode interceptar o clique.
-    var ACOES = '[data-il="fechar"], [data-il="trocar"], [data-il="importar"]';
+    var ACOES = '[data-il="fechar"], [data-il="trocar"], [data-il="importar"], [data-il="sim"], [data-il="nao"]';
     var el = function (nome) { return raiz.querySelector('[data-il="' + nome + '"]'); };
-    var s = { lote: null, base: null, rodando: false, criou: false, fim: '', erro: '' };
+    var s = { lote: null, base: null, rodando: false, criou: false, fim: '', erro: '', pergunta: null };
 
     function tamanho(b) {
         return b > 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
@@ -28,7 +28,7 @@
     }
 
     function abrir() {
-        s = { lote: null, base: null, rodando: false, criou: false, fim: '', erro: '' };
+        s = { lote: null, base: null, rodando: false, criou: false, fim: '', erro: '', pergunta: null };
         raiz.hidden = false;
         render();
         raiz.querySelector('.il-x').focus();
@@ -48,18 +48,63 @@
         if (s.criou) { window.location.reload(); return; }
         raiz.hidden = true;
         s.lote = null;
+        s.pergunta = null;
     }
 
-    function montar(files, solta) {
+    function partesDe(fl) {
+        return String(fl.webkitRelativePath || fl.name).split('/');
+    }
+
+    /* Caminho do arquivo dentro da pasta escolhida, só quando está numa subpasta ("Processo/Inicial.pdf"):
+       vai na descrição do documento quando a pasta é de um cliente só (D11). */
+    function caminhoNaSubpasta(fl) {
+        var partes = partesDe(fl);
+
+        return partes.length > 2 ? partes.slice(1).join('/') : '';
+    }
+
+    /* D11: arquivo solto direto na pasta escolhida E arquivo dentro de subpasta. Aí não dá para saber se é a
+       pasta de um cliente (com subpastas de organização) ou a pasta de vários clientes: pergunta. */
+    function precisaPerguntar(files) {
+        var soltos = 0, emSubpasta = 0;
+        Array.prototype.forEach.call(files, function (fl) {
+            var partes = partesDe(fl);
+            if (IGNORAR.test(partes[partes.length - 1])) { return; }
+            if (partes.length === 2) { soltos++; }
+            if (partes.length > 2) { emSubpasta++; }
+        });
+
+        return soltos > 0 && emSubpasta > 0;
+    }
+
+    function lerPasta(files) {
+        if (!precisaPerguntar(files)) { montar(files, false, false); return; }
+        var lista = Array.prototype.slice.call(files);
+        var nome = partesDe(lista[0])[0];
+        s.pergunta = { files: lista };
+        s.erro = '';
+        // Pasta = caso: o mesmo cliente pode ter várias pastas. Por isso o texto pede "Não" quando as subpastas são casos diferentes.
+        el('pergunta-txt').textContent = 'A pasta "' + nome + '" tem arquivos soltos e subpastas. Sim: é um caso só; tudo vira uma pasta, com o nome "'
+            + nome + '", e o caminho da subpasta vai na descrição de cada documento. Não: cada subpasta vira uma pasta (use Não também quando as subpastas forem casos diferentes do mesmo cliente).';
+        render();
+    }
+
+    function responder(umCliente) {
+        var files = s.pergunta.files;
+        s.pergunta = null;
+        montar(files, false, umCliente);
+    }
+
+    function montar(files, solta, umCliente) {
         var grupos = {};
         Array.prototype.forEach.call(files, function (fl) {
-            var partes = String(fl.webkitRelativePath || fl.name).split('/');
+            var partes = partesDe(fl);
             if (IGNORAR.test(partes[partes.length - 1])) { return; }
-            var k = solta ? 'NOVA PASTA' : (partes.length > 2 ? partes[1] : partes.length === 2 ? partes[0] : 'NOVA PASTA');
+            var k = solta ? 'NOVA PASTA' : umCliente ? partes[0] : (partes.length > 2 ? partes[1] : partes.length === 2 ? partes[0] : 'NOVA PASTA');
             (grupos[k] = grupos[k] || []).push(fl);
         });
         var lote = Object.keys(grupos).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); }).map(function (k) {
-            return { cli: k.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase(), files: grupos[k], on: true, feita: false, st: '', nup: '' };
+            return { cli: k.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase(), files: grupos[k], on: true, feita: false, st: '', nup: '', comCaminho: !!umCliente };
         });
         if (!lote.length) {
             s.erro = 'Nenhum arquivo encontrado na pasta escolhida.';
@@ -138,7 +183,8 @@
 
     function render() {
         var sel = pendentes();
-        el('vazio').hidden = !!s.lote;
+        el('vazio').hidden = !!s.lote || !!s.pergunta;
+        el('pergunta').hidden = !s.pergunta;
         el('tem').hidden = !s.lote;
         if (s.lote) {
             el('resumo').textContent = resumo();
@@ -220,6 +266,7 @@
                 arq.append('_token', criada.uploadToken);
                 arq.append('arquivo', p.files[j]);
                 arq.append('categoria', 'DEMAIS');
+                if (p.comCaminho && caminhoNaSubpasta(p.files[j])) { arq.append('descricao', caminhoNaSubpasta(p.files[j])); }
                 var r;
                 try {
                     r = await postar(criada.uploadUrl, arq);
@@ -266,14 +313,15 @@
         if (!alvo) { return; }
         var acao = alvo.getAttribute('data-il');
         if (acao === 'fechar') { fechar(); }
-        if (acao === 'trocar' && !s.rodando) { s.lote = null; s.fim = ''; s.erro = ''; render(); }
+        if (acao === 'trocar' && !s.rodando) { s.lote = null; s.pergunta = null; s.fim = ''; s.erro = ''; render(); }
+        if ((acao === 'sim' || acao === 'nao') && s.pergunta) { responder(acao === 'sim'); }
         if (acao === 'importar') { importar(); }
     });
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !raiz.hidden) { fechar(); }
     });
-    el('ler-pasta').addEventListener('change', function (e) { montar(e.target.files, false); e.target.value = ''; });
-    el('ler-arquivos').addEventListener('change', function (e) { montar(e.target.files, true); e.target.value = ''; });
+    el('ler-pasta').addEventListener('change', function (e) { lerPasta(e.target.files); e.target.value = ''; });
+    el('ler-arquivos').addEventListener('change', function (e) { montar(e.target.files, true, false); e.target.value = ''; });
 
     document.addEventListener('bj:importar-lote', abrir);
 })();

@@ -42,6 +42,10 @@
 .il-barra div { height:100%; width:0; background:#0a6fa0; transition:width .2s; }
 .il-fim { font-size:13.5px; color:#1e7b45; background:#e9f6ee; border:1px solid #bfe3cc; border-radius:3px; padding:10px 12px; }
 .il-erro { font-size:13px; color:#a3232b; }
+.il-pergunta { display:flex; flex-direction:column; gap:10px; background:#f5fafd; border:1px solid #9fc3d8; border-radius:4px; padding:14px 16px; }
+.il-pergunta b { font-size:15px; color:#12242f; }
+.il-pergunta span { font-size:13px; color:#34505f; line-height:1.5; }
+.il-pergunta-botoes { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 .il-rodape { padding:12px 18px; border-top:1px solid #eef2f5; display:flex; gap:8px; justify-content:flex-end; }
 .il-cancelar { height:36px; padding:0 14px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font:inherit; font-size:14px; cursor:pointer; }
 .il-importar { height:36px; padding:0 18px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font:inherit; font-size:14px; font-weight:bold; cursor:pointer; }
@@ -59,6 +63,12 @@
         <div class="il-arvore"><span>📁 Clientes<br>&nbsp;&nbsp;📁 MARIA DA SILVA → pasta nova<br>&nbsp;&nbsp;&nbsp;&nbsp;📄 procuração.pdf<br>&nbsp;&nbsp;&nbsp;&nbsp;📄 RG.jpg<br>&nbsp;&nbsp;📁 JOÃO SOUZA → pasta nova</span></div>
         <label class="il-soltar"><i class="bi bi-folder2-open"></i><b>Selecionar a pasta dos clientes</b><span>Todas as subpastas e arquivos são lidos de uma vez</span><input type="file" webkitdirectory directory multiple data-il="ler-pasta" style="display:none;"></label>
         <label class="il-soltos"><i class="bi bi-files"></i>Ou selecionar arquivos soltos (vira uma pasta só)<input type="file" multiple data-il="ler-arquivos" style="display:none;"></label>
+      </div>
+      {# D11: pasta escolhida com arquivos soltos E subpastas. Sim: tudo vira uma pasta só; Não: cada subpasta é um cliente. #}
+      <div class="il-pergunta" data-il="pergunta" hidden>
+        <b>Esta é a pasta de um cliente só?</b>
+        <span data-il="pergunta-txt"></span>
+        <div class="il-pergunta-botoes"><button type="button" class="il-trocar" data-il="nao">Não, cada subpasta é um cliente</button><button type="button" class="il-importar" data-il="sim">Sim, uma pasta só</button></div>
       </div>
       <div class="il-tem" data-il="tem" hidden>
         <div class="il-cab"><b data-il="resumo"></b><button type="button" class="il-trocar" data-il="trocar">Escolher outra pasta</button></div>
