@@ -31,6 +31,35 @@ class ResourceAccessRepository extends ServiceEntityRepository
     }
 
     /**
+     * O {@see findForUserAndResource()} para vários itens de uma vez (mesmos critérios), indexado
+     * pelo id do item: uma consulta para uma lista inteira.
+     *
+     * @param list<int> $resourceIds
+     *
+     * @return array<int, ResourceAccess>
+     */
+    public function findForUserAndResources(User $user, string $resourceType, array $resourceIds): array
+    {
+        if ($resourceIds === []) {
+            return [];
+        }
+
+        /** @var list<ResourceAccess> $acessos */
+        $acessos = $this->findBy([
+            'user'         => $user,
+            'resourceType' => $resourceType,
+            'resourceId'   => $resourceIds,
+        ]);
+
+        $porItem = [];
+        foreach ($acessos as $acesso) {
+            $porItem[(int) $acesso->getResourceId()] = $acesso;
+        }
+
+        return $porItem;
+    }
+
+    /**
      * Retorna todos os acessos específicos de um conjunto de usuários, indexados por user_id.
      *
      * @param  User[]  $users

@@ -109,6 +109,18 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame('tok_pex_lote_9', $json['csrfLote'], 'restaurar não tem token próprio: é o do lote');
     }
 
+    #[TestDox('Excluir de vez (03/11/2026): o JSON leva urlExcluirDeVez da pasta, com o mesmo token do lote')]
+    public function testExcluirDeVez(): void
+    {
+        $out = $this->montar([], []);
+
+        self::assertSame('/pasta_documentos_excluir_de_vez/9', $out->urlExcluirDeVez);
+
+        $json = json_decode($out->json(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('/pasta_documentos_excluir_de_vez/9', $json['urlExcluirDeVez']);
+        self::assertSame('tok_pex_lote_9', $json['csrfLote'], 'excluir de vez não tem token próprio: é o do lote');
+    }
+
     #[TestDox('DOC-118: o JSON leva podeEditar — falso por padrão (o seguro), verdadeiro só quando quem monta decide')]
     public function testPodeEditar(): void
     {
