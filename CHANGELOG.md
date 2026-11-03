@@ -8,6 +8,12 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.33.1] - 2026-11-03
+
+### Corrigido
+
+- Modal da lixeira (pasta e Lixeira do Expediente): o fundo da tela ficava todo branco. Causa: no `pasta-explorador.css` o bloco que dá os tokens ao `.pex-lix` também aplicava o cartão (`background: var(--pex-card-bg)`, borda, sombra) e o `.pex-lix` é a raiz do `.modal` do Bootstrap, que cobre a tela inteira. O cartão ficou só no `.pex`; o `.pex-lix` recebe só os tokens. Teste em `PastaExploradorLixeiraTest`.
+
 ## [2.33.0] - 2026-11-03
 
 ### Adicionado
@@ -1415,7 +1421,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.33.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.33.1...HEAD
+[2.33.1]: https://github.com/sfbdata/Prime/compare/v2.33.0...v2.33.1
 [2.33.0]: https://github.com/sfbdata/Prime/compare/v2.32.0...v2.33.0
 [2.32.0]: https://github.com/sfbdata/Prime/compare/v2.31.0...v2.32.0
 [2.31.0]: https://github.com/sfbdata/Prime/compare/v2.30.0...v2.31.0

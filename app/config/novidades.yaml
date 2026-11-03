@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.33.1"
+  data: "2026-11-03"
+  itens:
+    - "A lixeira da pasta agora abre por cima da tela, com a página visível e escurecida atrás, como as outras janelas do sistema. Antes o fundo ficava todo branco."
 - versao: "2.33.0"
   data: "2026-11-03"
   itens:
