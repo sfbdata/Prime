@@ -14,6 +14,9 @@ namespace App\Shared\EspelhoRemoto\Reconciliacao;
  * `ausente_pendente_na_outbox` (em fila) e `local_ausente`, `chave_invalida` e `sem_sha_no_espelho`:
  * problemas conhecidos do acervo local (P1), não do espelho. Todos aparecem na contagem.
  *
+ * Liberação do disco (spec `leitura-pelo-r2-e-liberacao-de-disco.md` §4): `liberado` não alerta, e
+ * `restaurado_sem_registro` é alerta leve: o comando o mostra como aviso, sem falhar a rodada.
+ *
  * A mensagem leva só contagens por classe e por categoria: nunca nome de arquivo, chave remota ou
  * nome de pessoa (vai para o log do agendador).
  */

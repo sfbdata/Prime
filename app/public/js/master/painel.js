@@ -40,7 +40,7 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
-    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
+    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, aviso: null, fx: null, fxMsg: null };
   let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
@@ -97,7 +97,10 @@
   // Armazenamento e Planos leem as contas (plano, limite, faixa) e o catálogo com as faixas de alerta.
   const precisa = { visao: ['visao'], contas: ['contas'], arm: ['contas', 'planos'], planos: ['planos', 'contas'], oab: ['oab'], audit: ['audit'] };
   const deps = sec => precisa[sec] || [];
-  const urlDe = { visao: URLS.visao, contas: URLS.contas, oab: URLS.oab, audit: URLS.auditoria, planos: URLS.planos };
+  // A trilha é paginada e filtrada no servidor: a URL leva página, "por página", ação e conta do estado (S.aud*).
+  const urlDaTrilha = extra => URLS.auditoria + '?' + new URLSearchParams(Object.assign({ pagina: S.audPag, porPagina: S.audPor },
+    S.audTipo ? { tipo: S.audTipo } : {}, S.audConta !== null ? { conta: S.audConta } : {}, extra || {}));
+  const urlDe = { visao: URLS.visao, contas: URLS.contas, oab: URLS.oab, get audit() { return urlDaTrilha(); }, planos: URLS.planos };
   const aguardando = chave => (ERRO[chave] === 'falhou'
     ? '<div class="mp-card mp-carregando">' + T('master.js.erro_secao') + '</div>'
     : '<div class="mp-carregando">' + T('master.js.carregando') + '</div>');
@@ -128,7 +131,7 @@
   function renderSecs() {
     // Selo desde a abertura (desenho 1.2, linha 678; spec P10): o total vem com a Visão geral; aberta a trilha, vale a lista.
     // Recarga pendente (D.visao ou D.audit zerados depois de uma ação) mantém o último número conhecido.
-    const nAud = S.nAud = D.audit ? D.audit.registros.length : D.visao ? D.visao.registrosDeAuditoria || 0 : S.nAud || 0;
+    const nAud = S.nAud = D.audit ? D.audit.totalGeral : D.visao ? D.visao.registrosDeAuditoria || 0 : S.nAud || 0;
     elSecs.innerHTML = SECS.map(([k, rot, icone]) => '<button type="button" class="mp-sec' + (S.sec === k ? ' on' : '') + '" data-sec="' + k + '"><i class="bi ' + icone + '"></i>' + esc(rot)
       + (k === 'audit' && nAud > 0 ? '<span class="mp-sec-n">' + num(nAud) + '</span>' : '') + '</button>').join('');
   }
@@ -1271,27 +1274,48 @@
   const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /reativada|reativado|Exclusão de conta cancelada/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /suspensa|excluída|excluído|removido|retirada|desativado/i.test(a) ? ['bi-slash-circle', '#a3232b'] : /Master|primário|Papel no sistema/i.test(a) ? ['bi-stars', '#7a3e8f'] : /Alerta/.test(a) ? ['bi-exclamation-triangle', '#c08a12'] : /^Plano|^Faixas de alerta/.test(a) ? ['bi-sliders', '#0a6fa0'] : ['bi-journal-check', '#4a6373']);
   // Cabeçalho da trilha, na tela e no PDF.
   const AUD_CAB = () => [T('master.js.audit.cab.data'), T('master.js.audit.cab.responsavel'), T('master.js.audit.cab.acao'), T('master.js.audit.cab.detalhe')];
-  const audFiltrada = () => D.audit.registros.filter(r => (S.audConta === null || r.contaId === S.audConta) && (!S.audTipo || r.acao === S.audTipo));
+  // Linha da trilha, igual na tela e no PDF (o PDF pede o filtro inteiro, todas=1).
+  const linhaDaTrilha = r => { const [ic, cor] = AI(r.acao); return '<div class="mp-audit-grade mp-audit-lin mp-lin"><span class="mp-hv">' + esc(dataHora(r.quando)) + '</span><span class="mp-hv">' + esc(r.quem) + '</span>'
+    + '<span class="mp-hv"><span style="--cor:' + cor + '"><i class="bi ' + ic + '"></i><b>' + esc(r.acao) + '</b></span><br><span>' + esc(r.conta) + '</span></span><span class="mp-hv">' + esc(r.detalhe) + '</span></div>'; };
+  // Filtro ou página mudou: a trilha volta do servidor (o selo mantém S.nAud enquanto isso).
+  function recarregarTrilha(paginaNova) { S.audPag = paginaNova || 1; D.audit = null; ERRO.audit = null; renderSecao(); }
 
   function montarAudit() {
-    const A = D.audit, audF = audFiltrada(), tipos = [...new Set(A.registros.map(r => r.acao))].sort((a, b) => a.localeCompare(b));
-    const resumo = [[T('master.js.audit.resumo.limites'), 'bi-hdd', '#0a6fa0', '#e5f1f7', r => /Limite/.test(r.acao)], [T('master.js.audit.resumo.contas'), 'bi-buildings', '#8a5a12', '#fbf1dc', r => /Conta/.test(r.acao)], [T('master.js.audit.resumo.masters'), 'bi-stars', '#7a3e8f', '#f3e9f7', r => /Master|primário/i.test(r.acao)], [T('master.js.audit.resumo.alertas'), 'bi-exclamation-triangle', '#a3232b', '#fbe7e7', r => /Alerta/.test(r.acao)]];
-    elSecao.innerHTML = '<div class="mp-card mp-audit"><div class="mp-audit-cab"><b>' + T('master.js.audit.titulo') + ' <span>' + T('master.js.audit.contagem', { n: num(audF.length), meses: A.meses }) + (A.truncado ? ' · ' + T('master.js.audit.truncado', { n: num(A.limite) }) : '') + '</span></b>'
-      + '<select class="mp-select" data-aud-tipo><option value="">' + T('master.js.audit.todas_acoes') + '</option>' + tipos.map(t => '<option value="' + esc(t) + '"' + (S.audTipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>'
+    const A = D.audit;
+    const resumo = [[T('master.js.audit.resumo.limites'), 'bi-hdd', '#0a6fa0', '#e5f1f7', 'limites'], [T('master.js.audit.resumo.contas'), 'bi-buildings', '#8a5a12', '#fbf1dc', 'contas'], [T('master.js.audit.resumo.masters'), 'bi-stars', '#7a3e8f', '#f3e9f7', 'masters'], [T('master.js.audit.resumo.alertas'), 'bi-exclamation-triangle', '#a3232b', '#fbe7e7', 'alertas']];
+    elSecao.innerHTML = '<div class="mp-card mp-audit"><div class="mp-audit-cab"><b>' + T('master.js.audit.titulo') + ' <span>' + T('master.js.audit.contagem', { n: num(A.total), meses: A.meses }) + (A.truncado ? ' · ' + T('master.js.audit.truncado', { n: num(A.limite) }) : '') + '</span></b>'
+      + '<select class="mp-select" data-aud-tipo><option value="">' + T('master.js.audit.todas_acoes') + '</option>' + A.tipos.map(t => '<option value="' + esc(t) + '"' + (S.audTipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>'
       + '<button type="button" class="mp-btn-cinza" data-pdf><i class="bi bi-file-earmark-pdf"></i>' + T('master.js.audit.pdf') + '</button>'
       + (S.audConta !== null ? '<button type="button" class="mp-btn-link" data-aud-todas>' + T('master.js.audit.todas_contas') + '</button>' : '') + '</div>'
-      + '<div class="mp-audit-resumo">' + resumo.map(([rot, ic, cor, bg, f]) => '<span style="--cor:' + cor + ';--bg:' + bg + '"><i class="bi ' + ic + '"></i>' + rot + ' · ' + audF.filter(f).length + '</span>').join('') + '</div>'
-      + '<div class="mp-audit-grade mp-audit-titulos">' + AUD_CAB().map(t => '<span>' + t + '</span>').join('') + '</div>'
-      + audF.map(r => { const [ic, cor] = AI(r.acao); return '<div class="mp-audit-grade mp-audit-lin mp-lin"><span class="mp-hv">' + esc(dataHora(r.quando)) + '</span><span class="mp-hv">' + esc(r.quem) + '</span>'
-        + '<span class="mp-hv"><span style="--cor:' + cor + '"><i class="bi ' + ic + '"></i><b>' + esc(r.acao) + '</b></span><br><span>' + esc(r.conta) + '</span></span><span class="mp-hv">' + esc(r.detalhe) + '</span></div>'; }).join('')
-      + (audF.length ? '' : '<div class="mp-vazio-linha">' + T('master.js.audit.vazio') + '</div>')
+      + '<div class="mp-audit-resumo">' + resumo.map(([rot, ic, cor, bg, k]) => '<span style="--cor:' + cor + ';--bg:' + bg + '"><i class="bi ' + ic + '"></i>' + rot + ' · ' + (A.resumo[k] || 0) + '</span>').join('') + '</div>'
+      // Rolagem própria: altura limitada, cabeçalho da tabela fixo no topo (sticky).
+      + '<div class="mp-audit-rolagem" data-aud-rolagem><div class="mp-audit-grade mp-audit-titulos">' + AUD_CAB().map(t => '<span>' + t + '</span>').join('') + '</div>'
+      + A.registros.map(linhaDaTrilha).join('')
+      + (A.registros.length ? '' : '<div class="mp-vazio-linha">' + T('master.js.audit.vazio') + '</div>') + '</div>'
+      // Paginação: o componente da lista de artigos do Blog (.bja-pag) com o "por página" à esquerda.
+      + '<div class="bja-pag mp-audit-pag"><label class="mp-audit-por">' + T('master.js.audit.por_pagina') + ' <select class="mp-select" data-aud-por>'
+      + [20, 50, 100].map(n => '<option value="' + n + '"' + (A.porPagina === n ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label>'
+      + '<button type="button" data-aud-ant' + (A.pagina <= 1 ? ' disabled' : '') + '>' + T('master.js.audit.anterior') + '</button>'
+      + '<span data-aud-pag-txt>' + T('master.js.audit.pagina', { pagina: A.pagina, paginas: A.paginas }) + '</span>'
+      + '<button type="button" data-aud-prox' + (A.pagina >= A.paginas ? ' disabled' : '') + '>' + T('master.js.audit.proxima') + '</button></div>'
       + '</div>';
   }
 
+  // O PDF leva o filtro inteiro (não só a página): pede todas=1 ao servidor. A janela abre já no clique (sem
+  // bloqueio de pop-up) com o aviso "Gerando..." e recebe o documento quando a resposta chega.
   function gerarPdf() {
-    const audF = audFiltrada(), contaNome = S.audConta !== null ? ((D.contas && D.contas.contas.find(c => c.id === S.audConta)) || {}).nome || (audF[0] || {}).conta || '' : '';
-    const linhas = audF.map(r => '<tr><td>' + esc(dataHora(r.quando)) + '</td><td>' + esc(r.quem) + '</td><td><b>' + esc(r.acao) + '</b><br><span>' + esc(r.conta) + '</span></td><td>' + esc(r.detalhe) + '</td></tr>').join('');
     const w = window.open('', '_blank'); if (!w) return;
+    w.document.write('<!doctype html><meta charset="utf-8"><p style="font-family:Arial,sans-serif">' + T('master.js.audit.gerando_pdf') + '</p>');
+    fetch(urlDaTrilha({ todas: 1 }), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(j => escreverPdf(w, j.registros))
+      .catch(() => { w.document.body.innerHTML = '<p style="font-family:Arial,sans-serif">' + T('master.js.audit.erro_pdf') + '</p>'; });
+  }
+
+  function escreverPdf(w, audF) {
+    const contaNome = S.audConta !== null ? ((D.contas && D.contas.contas.find(c => c.id === S.audConta)) || {}).nome || (audF[0] || {}).conta || '' : '';
+    const linhas = audF.map(r => '<tr><td>' + esc(dataHora(r.quando)) + '</td><td>' + esc(r.quem) + '</td><td><b>' + esc(r.acao) + '</b><br><span>' + esc(r.conta) + '</span></td><td>' + esc(r.detalhe) + '</td></tr>').join('');
+    w.document.open();
     w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + T('master.js.pdf.titulo_janela') + '</title><style>body{font-family:Arial,sans-serif;color:#12242f;margin:0}header{background:#0a6fa0;color:#fff;padding:18px 28px;display:flex;align-items:center;gap:14px}header img{height:30px}h1{font-size:20px;margin:0}main{padding:22px 28px}p{color:#4a6373;font-size:12px;margin:0 0 14px}table{width:100%;border-collapse:collapse;font-size:12px}th{text-align:left;background:#f5f8fa;border-bottom:2px solid #d6e0e7;padding:8px;font-size:10.5px;letter-spacing:1px}td{border-bottom:1px solid #e6edf2;padding:8px;vertical-align:top}td span{color:#5b7383}footer{margin-top:18px;font-size:10.5px;color:#7d909d}@page{size:A4;margin:12mm}@media print{header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>'
       + '<header><img src="' + esc(new URL(URLS.logo, location.href).href) + '" alt="BlueJus"><h1>' + T('master.js.pdf.titulo') + '</h1></header><main><p>'
       + T('master.js.pdf.gerado', { quando: esc(agora()), quem: esc(QUEM), papel: T('termos.master'), n: audF.length })
@@ -1325,13 +1349,15 @@
       if (op.dataset.op === 'estat') return irPara('arm');
       if (op.dataset.op === 'limArm' || op.dataset.op === 'limUsu') return abrirLimite(op.dataset.op === 'limArm' ? 'arm' : 'usu', +op.dataset.contaId);
       if (CONF_CONTA[op.dataset.op]) return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId);
-      S.audConta = +op.dataset.contaId; S.audTipo = ''; return irPara('audit');
+      S.audConta = +op.dataset.contaId; S.audTipo = ''; S.audPag = 1; D.audit = null; ERRO.audit = null; return irPara('audit');
     }
     const limArm = t.closest('[data-lim-arm]'); if (limArm) return abrirLimite('arm', +limArm.dataset.limArm);
     const plano = t.closest('[data-plano-editar]'); if (plano) return abrirPlano(plano.dataset.planoEditar);
     if (t.closest('[data-faixas-salvar]')) return salvarFaixas();
     if (t.closest('[data-pdf]')) return gerarPdf();
-    if (t.closest('[data-aud-todas]')) { S.audConta = null; return montarAudit(); }
+    if (t.closest('[data-aud-todas]')) { S.audConta = null; return recarregarTrilha(); }
+    if (t.closest('[data-aud-ant]')) return recarregarTrilha(Math.max(1, D.audit.pagina - 1));
+    if (t.closest('[data-aud-prox]')) return recarregarTrilha(Math.min(D.audit.paginas, D.audit.pagina + 1));
   });
   elSecao.addEventListener('contextmenu', e => {
     const lin = e.target.closest('[data-conta]'); if (!lin) return;
@@ -1342,7 +1368,8 @@
     if (t.matches('[data-gr-met]')) { S.grMet = t.value; return renderGrafico(); }
     if (t.matches('[data-c-ord]')) { S.cOrd = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-f-sit]')) { S.fSit = t.value; fecharMenuDaConta(); return renderContasLista(); }
-    if (t.matches('[data-aud-tipo]')) { S.audTipo = t.value; return montarAudit(); }
+    if (t.matches('[data-aud-tipo]')) { S.audTipo = t.value; return recarregarTrilha(); }
+    if (t.matches('[data-aud-por]')) { S.audPor = +t.value; return recarregarTrilha(); }
     if (t.matches('[data-faixa-bloqueio]')) { S.fx.bloqueioAtivo = t.checked; S.fxMsg = null; return atualizarFaixas(); }
   });
   elSecao.addEventListener('input', e => {
