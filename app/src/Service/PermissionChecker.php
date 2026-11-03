@@ -110,6 +110,37 @@ class PermissionChecker
         return $this->permiteORecurso($user, $userTenant, $resourceType, $resourceId, $action);
     }
 
+    /**
+     * O MESMO {@see canAccessResourceComVinculo()} para uma lista de itens de um tipo, com UMA consulta
+     * aos acessos item a item (em vez de uma por item). A ordem das camadas não muda: super admin
+     * global, vínculo ativo da própria pessoa, perfil de sistema, teto do cadeado (quem chama carrega
+     * os cadeados da lista antes, `AcessoAPasta::niveisEmLote`, para ele não consultar por pasta),
+     * acesso do item e permissão do papel. Sem vínculo (`null`) só o super admin passa, como no
+     * `canAccessResource`.
+     *
+     * @param list<int> $resourceIds
+     *
+     * @return list<int> os ids permitidos, na ordem recebida
+     */
+    public function idsPermitidosComVinculo(User $user, ?UserTenant $userTenant, string $resourceType, array $resourceIds, string $action): array
+    {
+        if ($this->isGlobalSuperAdmin($user)) {
+            return $resourceIds;
+        }
+        if ($userTenant === null || !$userTenant->isActive() || !self::mesmoUsuario($userTenant->getUser(), $user)) {
+            return [];
+        }
+        if ($userTenant->getTenantRole()?->isSystem() === true) {
+            return $resourceIds;
+        }
+
+        $noCadeado = array_values(array_filter($resourceIds, fn (int $id): bool => $this->cabeNoCadeadoDaPasta($user, $userTenant, $resourceType, $id, $action)));
+        $acessos   = $this->resourceAccessRepository->findForUserAndResources($user, $resourceType, $noCadeado);
+        $doPapel   = $this->hasPermissionFromUserTenant($userTenant, sprintf('resources.%s.%s', $resourceType, $action));
+
+        return array_values(array_filter($noCadeado, static fn (int $id): bool => (isset($acessos[$id]) && $acessos[$id]->allows($action)) || $doPapel));
+    }
+
     private static function mesmoUsuario(User $a, User $b): bool
     {
         return $a === $b || ($a->getId() !== null && $a->getId() === $b->getId());

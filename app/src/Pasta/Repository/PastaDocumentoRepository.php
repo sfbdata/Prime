@@ -332,6 +332,44 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * O resumo da lixeira do ESCRITÓRIO (lixeira do escritório no Expediente, 03/11/2026): uma
+     * linha por pasta, categoria e autor da exclusão, com a contagem e as datas extremas. É uma
+     * agregação no banco (o escritório 1 tem ~6.100 documentos na lixeira em ~560 pastas): nenhuma
+     * entidade é carregada. A categoria vem separada para quem chama tirar o contrato de honorários
+     * de quem tem o Financeiro oculto, pela regra única `VisibilidadeDasAbasDaPasta::documentoVisivel`.
+     *
+     * Conta tudo que está na lixeira, inclusive o que saiu junto com uma subpasta (a mesma conta do
+     * `totalArquivos` da lixeira da pasta). Quem chama precisa estar dentro de
+     * `AcessoALixeira::comLixeiraVisivel()`; o `excluidoEm IS NOT NULL` e o tenant vão à mão.
+     *
+     * @return list<array{pastaId: int, categoria: string|null, autorId: int|null, total: int, maisAntiga: string, maisRecente: string}>
+     */
+    public function resumoDaLixeiraDoEscritorio(Tenant $tenant): array
+    {
+        /** @var list<array<string, mixed>> $linhas */
+        $linhas = $this->createQueryBuilder('d')
+            ->select('IDENTITY(d.pasta) AS pastaId', 'd.categoria AS categoria', 'IDENTITY(d.excluidoPor) AS autorId')
+            ->addSelect('COUNT(d.id) AS total', 'MIN(d.excluidoEm) AS maisAntiga', 'MAX(d.excluidoEm) AS maisRecente')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.excluidoEm IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('d.pasta')
+            ->addGroupBy('d.categoria')
+            ->addGroupBy('d.excluidoPor')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'pastaId'     => (int) $l['pastaId'],
+            'categoria'   => $l['categoria'] === null ? null : (string) $l['categoria'],
+            'autorId'     => $l['autorId'] === null ? null : (int) $l['autorId'],
+            'total'       => (int) $l['total'],
+            'maisAntiga'  => (string) $l['maisAntiga'],
+            'maisRecente' => (string) $l['maisRecente'],
+        ], $linhas);
+    }
+
+    /**
      * Tudo que está na lixeira de uma pasta, do excluído mais recente ao mais antigo, com a seção
      * e quem excluiu já carregados (uma query — é a listagem da UI da lixeira).
      *

@@ -108,6 +108,29 @@ final class VisibilidadeDasAbasDaPasta
         return $this->ocultasEntre($this->regras->daPasta($pasta, $tenant), $user, $tenant);
     }
 
+    /**
+     * {@see abasOcultasPara()} para TODAS as pastas do escritório de uma vez (lixeira do escritório):
+     * uma consulta às regras e, se alguma alcançar a pessoa, uma ao vínculo. A regra é a mesma do
+     * `ocultasEntre()`: quem configura não tem aba oculta; para os demais, a regra que os alcança.
+     *
+     * @return array<int, list<AbaDaPasta>> id da pasta → abas ocultas (pasta sem aba oculta fica de fora)
+     */
+    public function abasOcultasPorPasta(User $user, Tenant $tenant): array
+    {
+        $userId   = (int) $user->getId();
+        $porPasta = [];
+        foreach ($this->regras->doEscritorio($tenant) as $regra) {
+            if ($regra->alcanca($userId)) {
+                $porPasta[(int) $regra->getPasta()->getId()][] = $regra->getAba();
+            }
+        }
+        if ($porPasta === [] || $this->podeConfigurar($user, $tenant)) {
+            return [];
+        }
+
+        return $porPasta;
+    }
+
     /** O estado das abas para a tela da pasta: o que esconder e, para quem configura, as regras. */
     public function estadoParaTela(Pasta $pasta, User $user): AbasDaPastaOutput
     {
