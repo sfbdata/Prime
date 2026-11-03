@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Blog\Entity;
 
 use App\Blog\Repository\ImagemDoArtigoRepository;
+use App\Shared\Attribute\SemIsolamentoDeTenant;
 use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -15,6 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
  * GLOBAL, sem tenant: pertence ao artigo, que é conteúdo da plataforma. Some junto com o artigo (ON DELETE CASCADE).
  * No Markdown exportado ela vira `./imagens/{id}.{extensao}`, e o builder copia o arquivo para ao lado do artigo.
  */
+#[SemIsolamentoDeTenant('Blog público da BlueJus: conteúdo global, só o Master edita')]
 #[ORM\Entity(repositoryClass: ImagemDoArtigoRepository::class)]
 #[ORM\Table(name: 'artigo_blog_imagem')]
 #[ORM\Index(name: 'idx_artigo_blog_imagem_artigo', columns: ['artigo_id'])]

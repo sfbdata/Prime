@@ -8,6 +8,7 @@ use App\Blog\Enum\BlogsDoArtigo;
 use App\Blog\Enum\SituacaoDoArtigo;
 use App\Blog\Repository\ArtigoDoBlogRepository;
 use App\Entity\Auth\User;
+use App\Shared\Attribute\SemIsolamentoDeTenant;
 use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -23,6 +24,7 @@ use Doctrine\ORM\Mapping as ORM;
  * Ciclo: rascunho, agendado, publicado, despublicado. Salvar um artigo publicado (ou despublicado) guarda o texto e
  * marca "alterações não publicadas" (D7), até o próximo {@see publicar()}.
  */
+#[SemIsolamentoDeTenant('Blog público da BlueJus: conteúdo global, só o Master edita')]
 #[ORM\Entity(repositoryClass: ArtigoDoBlogRepository::class)]
 #[ORM\Table(name: 'artigo_blog')]
 #[ORM\UniqueConstraint(name: 'uniq_artigo_blog_slug', columns: ['slug'])]
