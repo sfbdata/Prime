@@ -247,6 +247,16 @@ pasta_scripts:
             carregando: Carregando…
             restaurando: Restaurando…
             lix_erro_restaurar: Não foi possível restaurar.
+            lix_excluir_de_vez: Excluir de vez
+            lix_excluir_de_vez_titulo: 'Apaga agora do sistema, sem poder restaurar'
+            lix_excluir_de_vez_sel: Excluir de vez os selecionados
+            lix_excluir_de_vez_sel_n: 'Excluir de vez os selecionados ({n})'
+            lix_confirmar_excluir_de_vez: 'Excluir de vez {n} item(ns)? Eles saem do sistema e não podem ser restaurados.'
+            lix_excluindo_de_vez: Excluindo de vez…
+            lix_excluido_de_vez_um: 1 item excluído de vez
+            lix_excluidos_de_vez_varios: '{n} itens excluídos de vez'
+            lix_excluido_de_vez_pulados: '{texto}. {n} item(ns) não puderam ser excluídos e continuam na lixeira.'
+            lix_erro_excluir_de_vez: Não foi possível excluir de vez.
             ren_nome_arquivo: Novo nome do arquivo
             ren_nome_pasta: Nome da pasta
             falha_renomear: Falha ao renomear.

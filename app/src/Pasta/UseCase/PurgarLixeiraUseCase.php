@@ -27,7 +27,8 @@ use Psr\Log\LoggerInterface;
  *
  * Quem dispara é o operador, pelo comando `app:documentos:purgar-lixeira` (sem cron nesta frente).
  * O que ele quer: liberar o espaço do que ninguém restaurou no prazo, sem tocar no que ainda pode
- * voltar.
+ * voltar. O mesmo laço serve ao botão "Excluir de vez" da lixeira ({@see purgarSelecao()}, pela
+ * `ExcluirDeVezDaLixeiraUseCase`): a fila passa a ser a seleção do usuário, sem o corte de dias.
  *
  * Como percorre:
  *  - **seções vencidas primeiro**, da mais antiga à mais nova. Apagar a seção leva a subárvore
@@ -100,10 +101,44 @@ final class PurgarLixeiraUseCase
 
         $corte = $this->clock->now()->modify(sprintf('-%d days', $dias));
 
-        return $this->lixeira->comLixeiraVisivel(fn (): ResultadoPurgaDaLixeira => $this->purgar($corte, $simulacao, $limite, $tenantId));
+        return $this->lixeira->comLixeiraVisivel(fn (): ResultadoPurgaDaLixeira => $this->purgarVencidos($corte, $simulacao, $limite, $tenantId));
     }
 
-    private function purgar(\DateTimeImmutable $corte, bool $simulacao, ?int $limite, ?int $tenantId): ResultadoPurgaDaLixeira
+    /**
+     * "Excluir de vez" da lixeira da aba Documentos: apaga NA HORA (linha e arquivo) a seleção que
+     * o usuário marcou, sem o corte de dias. Mesma ordem INV-6, mesma subárvore da seção, mesma
+     * regra de referência compartilhada (arquivo que outra linha ainda usa fica) e mesmos pulos
+     * (caminho que não vira chave) da purga agendada: é o mesmo laço, só a fila e a regra de quem
+     * entra mudam.
+     *
+     * Só sai o que, na hora do `remove()`, está NA LIXEIRA, nesta pasta e neste escritório. Item
+     * vivo, de outra pasta ou de outro escritório é ignorado em silêncio: a rota já provou a posse
+     * (404), aqui é a segunda barreira. Sem limite de vagas (a rota já aplica o teto do lote).
+     *
+     * @param list<int> $idsSecoes
+     * @param list<int> $idsDocumentos
+     *
+     * @throws \Doctrine\DBAL\Exception banco que recusa o lote (nada do lote saiu do disco)
+     */
+    public function purgarSelecao(array $idsSecoes, array $idsDocumentos, int $pastaId, int $tenantId): ResultadoPurgaDaLixeira
+    {
+        $daSelecao = static fn (PastaSecao|PastaDocumento $item): bool => $item->getExcluidoEm() !== null
+            && (int) $item->getPasta()?->getId() === $pastaId
+            && (int) $item->getTenant()?->getId() === $tenantId;
+
+        return $this->lixeira->comLixeiraVisivel(fn (): ResultadoPurgaDaLixeira => $this->purgar(
+            $idsSecoes,
+            $idsDocumentos,
+            $daSelecao,
+            $this->clock->now(),
+            false,
+            null,
+            count($idsSecoes),
+            count($idsDocumentos),
+        ));
+    }
+
+    private function purgarVencidos(\DateTimeImmutable $corte, bool $simulacao, ?int $limite, ?int $tenantId): ResultadoPurgaDaLixeira
     {
         $candidatosSecoes     = $this->secoes->contarNaLixeiraVencida($corte, $tenantId);
         $candidatosDocumentos = $this->documentos->contarNaLixeiraVencida($corte, $tenantId);
@@ -113,6 +148,22 @@ final class PurgarLixeiraUseCase
         $idsSecoes     = $this->secoes->idsNaLixeiraVencida($corte, null, $tenantId);
         $idsDocumentos = $this->documentos->idsNaLixeiraVencida($corte, null, $tenantId);
 
+        $vencida = static fn (PastaSecao|PastaDocumento $item): bool => self::vencida($item->getExcluidoEm(), $corte);
+
+        return $this->purgar($idsSecoes, $idsDocumentos, $vencida, $corte, $simulacao, $limite, $candidatosSecoes, $candidatosDocumentos);
+    }
+
+    /**
+     * O laço da purga, comum às duas filas: a dos vencidos (`executar`) e a da seleção
+     * (`purgarSelecao`). `$elegivel` decide, na hora do `remove()`, se a entrada ainda pode sair
+     * (vencida, ou na lixeira desta pasta); a que não puder é pulada sem contar.
+     *
+     * @param list<int>                                $idsSecoes
+     * @param list<int>                                $idsDocumentos
+     * @param callable(PastaSecao|PastaDocumento): bool $elegivel
+     */
+    private function purgar(array $idsSecoes, array $idsDocumentos, callable $elegivel, \DateTimeImmutable $corte, bool $simulacao, ?int $limite, int $candidatosSecoes, int $candidatosDocumentos): ResultadoPurgaDaLixeira
+    {
         /** Vagas que sobram nesta execução; null = sem limite. */
         $vagas = $limite;
 
@@ -152,7 +203,7 @@ final class PurgarLixeiraUseCase
                     continue;
                 }
                 $secao = $this->em->find(PastaSecao::class, $id);
-                if ($secao === null || !self::vencida($secao->getExcluidoEm(), $corte)) {
+                if ($secao === null || !$elegivel($secao)) {
                     continue;
                 }
                 if ($this->temAncestralNaFila($secao, $naFila)) {
@@ -205,7 +256,7 @@ final class PurgarLixeiraUseCase
                     continue;
                 }
                 $documento = $this->em->find(PastaDocumento::class, $id);
-                if ($documento === null || !self::vencida($documento->getExcluidoEm(), $corte)) {
+                if ($documento === null || !$elegivel($documento)) {
                     continue;
                 }
 

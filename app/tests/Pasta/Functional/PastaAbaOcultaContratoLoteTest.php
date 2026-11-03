@@ -103,7 +103,7 @@ final class PastaAbaOcultaContratoLoteTest extends JusPrimeWebTestCase
         self::assertNotSame(404, $this->pedir($this->primario, 'POST', $caminho, $corpo));
     }
 
-    #[TestDox('Lixeira e restaurar: o contrato na lixeira não aparece para quem tem o Financeiro oculto e restaurá-lo é 404')]
+    #[TestDox('Lixeira e restaurar: o contrato na lixeira não aparece para quem tem o Financeiro oculto; restaurá-lo ou excluí-lo de vez é 404')]
     public function testLixeiraERestaurar(): void
     {
         $this->cenario();
@@ -117,6 +117,8 @@ final class PastaAbaOcultaContratoLoteTest extends JusPrimeWebTestCase
 
         $corpo = ['_token' => 'TOKEN_pex_lote_' . $this->pasta->getId(), 'documentos' => [(string) $this->contrato->getId()]];
         self::assertSame(404, $this->pedir($this->ana, 'POST', '/documentos/restaurar', $corpo));
+        self::assertSame(404, $this->pedir($this->ana, 'POST', '/documentos/excluir-de-vez', $corpo), 'excluir de vez segue a mesma guarda');
+        self::assertNotNull($this->em()->getConnection()->fetchOne('SELECT id FROM pasta_documento WHERE id = ?', [$this->contrato->getId()]) ?: null, 'o contrato continua no banco');
     }
 
     #[TestDox('Estrela no contrato: 404 para quem tem o Financeiro oculto; o primário marca')]

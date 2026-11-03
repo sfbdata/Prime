@@ -25,6 +25,7 @@ use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Pasta\UseCase\AlternarFavoritoDeDocumentoUseCase;
 use App\Pasta\UseCase\CopiarDocumentosDaPastaUseCase;
 use App\Pasta\UseCase\EditarDocumentoDaPastaUseCase;
+use App\Pasta\UseCase\ExcluirDeVezDaLixeiraUseCase;
 use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\ListarLixeiraDaPastaUseCase;
 use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
@@ -34,6 +35,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use App\Shared\Http\EntregaDeArquivoGerado;
+use Doctrine\DBAL\Exception as DbalException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -63,8 +65,9 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  * resposta ganha `lixeira: true` e os ids afetados para o "Desfazer". `restaurar` recebe os mesmos
  * ids e token, e prova a posse procurando os itens NA LIXEIRA da pasta — a consulta e o UseCase
  * rodam dentro de `AcessoALixeira::comLixeiraVisivel()`, o único jeito de enxergá-la. `lixeira`
- * (GET, JSON) lista o que está lá para a UI. As três exigem a permissão de EDITAR: restaura quem
- * pode excluir (S-10).
+ * (GET, JSON) lista o que está lá para a UI. `excluir-de-vez` (03/11/2026) recebe os mesmos ids
+ * e token e apaga NA HORA, linha e arquivo, o que está na lixeira. As quatro exigem a permissão de
+ * EDITAR: restaura e exclui de vez quem pode excluir (S-10).
  *
  * A estrela (D2, `pasta_documentos_favorito`) é a exceção à permissão de EDITAR: favorito é
  * preferência pessoal, basta VER a pasta (como `PastaFavoritoController`). Token por pasta
@@ -95,6 +98,7 @@ final class PastaDocumentoController extends AbstractController
         private readonly MoverItensDaPastaUseCase $moverItensUseCase,
         private readonly ExcluirItensDaPastaUseCase $excluirItensUseCase,
         private readonly RestaurarItensDaPastaUseCase $restaurarItensUseCase,
+        private readonly ExcluirDeVezDaLixeiraUseCase $excluirDeVezUseCase,
         private readonly ListarLixeiraDaPastaUseCase $listarLixeiraUseCase,
         private readonly AcessoALixeira $lixeira,
         private readonly AlternarFavoritoDeDocumentoUseCase $favoritoUseCase,
@@ -273,6 +277,45 @@ final class PastaDocumentoController extends AbstractController
                 'ok'          => true,
                 'restaurados' => ['documentos' => $resultado->documentos, 'secoes' => $resultado->secoes],
                 'paraARaiz'   => $resultado->paraARaiz,
+            ]);
+        });
+    }
+
+    /**
+     * "Excluir de vez" na lixeira (03/11/2026): mesmo corpo, token, permissão e prova de posse do
+     * `restaurar` (só item NA LIXEIRA desta pasta e deste escritório; o resto → 404 sem efeito).
+     * Apaga NA HORA a linha e, depois do COMMIT, o arquivo (INV-6; arquivo com outra referência
+     * fica). Banco que recusa: nada sai do disco e a resposta é 500. Resposta: `{ok, excluidos:
+     * {documentos, secoes}, pulados: {documentos, secoes}}` (as contagens levam a subárvore).
+     */
+    #[Route('/{id}/documentos/excluir-de-vez', name: 'pasta_documentos_excluir_de_vez', methods: ['POST'])]
+    public function excluirDeVez(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        return $this->lixeira->comLixeiraVisivel(function () use ($pasta, $currentUser, $tenant, $request): JsonResponse {
+            $lote = $this->loteAutorizado($pasta, $currentUser, $tenant, $request, naLixeira: true);
+            if ($lote instanceof JsonResponse) {
+                return $lote;
+            }
+            [$documentos, $secoes, , $tenant] = $lote;
+
+            try {
+                $resultado = $this->excluirDeVezUseCase->executar($pasta, $documentos, $secoes, $tenant);
+            } catch (\InvalidArgumentException $e) {
+                return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            } catch (AccessDeniedException) {
+                return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+            } catch (DbalException) {
+                return $this->json(['erro' => 'Não foi possível excluir de vez agora. Confira a lixeira e tente de novo.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            return $this->json([
+                'ok'        => true,
+                'excluidos' => ['documentos' => $resultado->documentosRemovidos, 'secoes' => $resultado->secoesRemovidas],
+                'pulados'   => ['documentos' => $resultado->documentosPulados, 'secoes' => $resultado->secoesPuladas],
             ]);
         });
     }

@@ -104,6 +104,8 @@
         // Lixeira (L7, D7): restaurar usa o MESMO token do lote; a lista é um GET em JSON.
         urlRestaurar:        dados.urlRestaurar || '',
         urlLixeira:          dados.urlLixeira || '',
+        // "Excluir de vez" (03/11/2026): apaga NA HORA o que está na lixeira; o mesmo token do lote.
+        urlExcluirDeVez:     dados.urlExcluirDeVez || '',
         // Zip e cópia (L8, D5/D6): o MESMO token do lote, o mesmo corpo de ids.
         urlZip:              dados.urlZip || '',
         urlCopiar:           dados.urlCopiar || '',
@@ -2700,16 +2702,20 @@
        Os itens vêm de `urlLixeira` (GET) e o que foi excluído DENTRO de uma pasta que também está
        na lixeira (`paiNaLixeira`/`secaoNaLixeira`) aparece agrupado embaixo dela. Restaurar (um ou
        os selecionados) vai a `urlRestaurar` com o csrfLote; como a lixeira não traz URL nem token
-       dos itens, a lista de documentos é recarregada ao fechar o modal. */
+       dos itens, a lista de documentos é recarregada ao fechar o modal. "Excluir de vez" (um ou os
+       selecionados, 03/11/2026) vai a `urlExcluirDeVez` com o mesmo csrfLote, sempre depois de uma
+       confirmação; o botão vermelho segue o "Excluir definitivamente" da lixeira do chat
+       (desenho 06 - Trabalho Externo, :596). */
     let lixeiraContagem = null;      // N do rótulo "Lixeira (N)"; null = ainda não sabemos
     let lixeiraContando = null;      // o GET em voo (um por vez)
-    let lixeiraModal = null;         // { raiz, bs, lista, vazio, aviso, restaurarSel }
+    let lixeiraModal = null;         // { raiz, bs, lista, vazio, aviso, restaurarSel, excluirSel }
     let lixeiraItens = [];
     const lixeiraMarcados = new Set();
     let lixeiraRestaurou = false;    // algo voltou: recarrega a lista ao fechar
     let lixeiraOcupada = false;
 
     function podeEscreverNaLixeira() { return !cfg.pastaExcluida && !!cfg.urlRestaurar && !!cfg.csrfLote; }
+    function podeExcluirDeVez() { return podeEscreverNaLixeira() && !!cfg.urlExcluirDeVez; }
     function rotuloLixeira() { return lixeiraContagem == null ? BJ_T.t('pasta_scripts.js.explorador.lixeira') : BJ_T.t('pasta_scripts.js.explorador.lixeira_n', { n: formatarInteiro(lixeiraContagem) }); }
     function chaveDaLixeira(it) { return (it.tipo === 'pasta' ? 'pasta' : 'arquivo') + ':' + Number(it.id); }
     function invalidarContagemDaLixeira() {
@@ -2742,6 +2748,7 @@
         const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: BJ_T.t('pasta_scripts.js.explorador.lix_nota') })]);
         const somenteVer   = h('p', { class: 'pex-lix-nota pex-lix-nota--lapide', hidden: !cfg.pastaExcluida }, [icone('bi-lock'), h('span', { text: BJ_T.t('pasta_scripts.js.explorador.lix_lapide') })]);
         const restaurarSel = h('button', { type: 'button', class: 'btn btn-primary', id: 'pexLixeiraRestaurarSel', disabled: true, hidden: !podeEscreverNaLixeira() }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados') })]);
+        const excluirSel   = h('button', { type: 'button', class: 'btn pex-lix-excluir-de-vez', id: 'pexLixeiraExcluirDeVezSel', disabled: true, hidden: !podeExcluirDeVez() }, [icone('bi-x-octagon'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lix_excluir_de_vez_sel') })]);
         const fechar       = h('button', { type: 'button', class: 'btn btn-outline-secondary', 'data-bs-dismiss': 'modal', text: BJ_T.t('pasta_scripts.js.explorador.fechar') });
         const raizModal = h('div', { class: 'modal fade pex-modal pex-lix', id: 'pexLixeiraModal', tabindex: '-1', 'aria-labelledby': 'pexLixeiraTitulo', 'aria-hidden': 'true' }, [
             h('div', { class: 'modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg' }, [
@@ -2751,12 +2758,12 @@
                         h('button', { type: 'button', class: 'btn-close', 'data-bs-dismiss': 'modal', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.fechar') }),
                     ]),
                     h('div', { class: 'modal-body' }, [nota, somenteVer, aviso, vazio, lista]),
-                    h('div', { class: 'modal-footer' }, [fechar, restaurarSel]),
+                    h('div', { class: 'modal-footer' }, [fechar, excluirSel, restaurarSel]),
                 ]),
             ]),
         ]);
         document.body.appendChild(raizModal);
-        lixeiraModal = { raiz: raizModal, bs: window.bootstrap ? bootstrap.Modal.getOrCreateInstance(raizModal) : null, lista: lista, vazio: vazio, aviso: aviso, restaurarSel: restaurarSel };
+        lixeiraModal = { raiz: raizModal, bs: window.bootstrap ? bootstrap.Modal.getOrCreateInstance(raizModal) : null, lista: lista, vazio: vazio, aviso: aviso, restaurarSel: restaurarSel, excluirSel: excluirSel };
 
         lista.addEventListener('change', function (e) {
             const cx = e.target.closest('input[data-pex-lix]');
@@ -2765,6 +2772,8 @@
             atualizarBotaoRestaurarSelecionados();
         });
         lista.addEventListener('click', function (e) {
+            const x = e.target.closest('button[data-pex-lix-excluir-de-vez]');
+            if (x) { if (!x.disabled) excluirDeVezDaLixeira([x.dataset.pexLixExcluirDeVez]); return; }
             const b = e.target.closest('button[data-pex-lix-restaurar]');
             if (!b || b.disabled) return;
             restaurarDaLixeira([b.dataset.pexLixRestaurar]);
@@ -2772,6 +2781,10 @@
         restaurarSel.addEventListener('click', function () {
             if (restaurarSel.disabled) return;
             restaurarDaLixeira(Array.from(lixeiraMarcados));
+        });
+        excluirSel.addEventListener('click', function () {
+            if (excluirSel.disabled) return;
+            excluirDeVezDaLixeira(Array.from(lixeiraMarcados));
         });
         raizModal.addEventListener('hidden.bs.modal', function () {
             if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos(BJ_T.t('pasta_scripts.js.explorador.atualizando_documentos')); return; }
@@ -2822,6 +2835,9 @@
         const b = lixeiraModal.restaurarSel;
         b.disabled = lixeiraOcupada || n === 0 || !podeEscreverNaLixeira();
         b.lastChild.textContent = ' ' + (n ? BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados_n', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados'));
+        const x = lixeiraModal.excluirSel;
+        x.disabled = lixeiraOcupada || n === 0 || !podeExcluirDeVez();
+        x.lastChild.textContent = ' ' + (n ? BJ_T.t('pasta_scripts.js.explorador.lix_excluir_de_vez_sel_n', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.lix_excluir_de_vez_sel'));
     }
 
     /* Agrupamento: o item excluído dentro de uma pasta que TAMBÉM está na lixeira fica embaixo
@@ -2891,6 +2907,13 @@
                 title: pai ? BJ_T.t('pasta_scripts.js.explorador.lix_volta_raiz') : BJ_T.t('pasta_scripts.js.explorador.lix_volta_para', { local: it.caminho || BJ_T.t('pasta_scripts.js.explorador.raiz') }),
                 disabled: lixeiraOcupada,
             }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lix_restaurar') })]) : null,
+            escrever && podeExcluirDeVez() ? h('button', {
+                type: 'button',
+                class: 'btn btn-sm pex-lix-excluir-de-vez',
+                'data-pex-lix-excluir-de-vez': chave,
+                title: BJ_T.t('pasta_scripts.js.explorador.lix_excluir_de_vez_titulo'),
+                disabled: lixeiraOcupada,
+            }, [icone('bi-x-octagon'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lix_excluir_de_vez') })]) : null,
         ]);
     }
     function restaurarDaLixeira(chaves) {
@@ -2898,8 +2921,7 @@
         const lote = separarChaves(chaves);
         if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
         lixeiraOcupada = true;
-        lixeiraModal.lista.querySelectorAll('button[data-pex-lix-restaurar]').forEach(function (b) { b.disabled = true; });
-        atualizarBotaoRestaurarSelecionados();
+        travarBotoesDaLixeira();
         avisarNaLixeira(BJ_T.t('pasta_scripts.js.explorador.restaurando'));
         postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
             if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.lix_erro_restaurar'));
@@ -2921,6 +2943,48 @@
             });
             renderizarLixeira();
         });
+    }
+    function travarBotoesDaLixeira() {
+        lixeiraModal.lista.querySelectorAll('button[data-pex-lix-restaurar], button[data-pex-lix-excluir-de-vez]').forEach(function (b) { b.disabled = true; });
+        atualizarBotaoRestaurarSelecionados();
+    }
+    /* Excluir de vez (03/11/2026): um ou os selecionados, SEMPRE com a confirmação antes (a janela
+       vermelha da tela, que já sabe perguntar com um modal aberto; sem ela, o confirm do
+       navegador). O pedido só sai depois do "sim". Depois, como o restaurar: invalida a contagem
+       e relê a lista. A lista de documentos não muda (o que estava na lixeira já não aparecia). */
+    function excluirDeVezDaLixeira(chaves) {
+        if (!chaves.length || lixeiraOcupada || !podeExcluirDeVez()) return;
+        const lote = separarChaves(chaves);
+        if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
+        const pergunta = BJ_T.t('pasta_scripts.js.explorador.lix_confirmar_excluir_de_vez', { n: formatarInteiro(chaves.length) });
+        const resposta = window.confirmarUIPs ? window.confirmarUIPs(pergunta, true) : Promise.resolve(confirm(pergunta));
+        resposta.then(function (sim) { if (sim) excluirDeVezConfirmado(); });
+        function excluirDeVezConfirmado() {
+            if (lixeiraOcupada) return;
+            lixeiraOcupada = true;
+            travarBotoesDaLixeira();
+            avisarNaLixeira(BJ_T.t('pasta_scripts.js.explorador.lix_excluindo_de_vez'));
+            postJson(cfg.urlExcluirDeVez, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.lix_erro_excluir_de_vez'));
+                const r = res.j.excluidos || {};
+                const p = res.j.pulados || {};
+                const n = (Number(r.documentos) || 0) + (Number(r.secoes) || 0);
+                const pulados = (Number(p.documentos) || 0) + (Number(p.secoes) || 0);
+                chaves.forEach(function (k) { lixeiraMarcados.delete(k); });
+                const texto = n === 1 ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_de_vez_um') : BJ_T.t('pasta_scripts.js.explorador.lix_excluidos_de_vez_varios', { n: formatarInteiro(n) });
+                avisarNaLixeira(pulados ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_de_vez_pulados', { texto: texto, n: formatarInteiro(pulados) }) : texto);
+                invalidarContagemDaLixeira();
+                return lerLixeira().then(function (itens) { lixeiraItens = itens; });
+            }).catch(function (err) {
+                avisarNaLixeira(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao'), true);
+            }).then(function () {
+                lixeiraOcupada = false;
+                Array.from(lixeiraMarcados).forEach(function (k) {
+                    if (!lixeiraItens.some(function (it) { return chaveDaLixeira(it) === k; })) lixeiraMarcados.delete(k);
+                });
+                renderizarLixeira();
+            });
+        }
     }
     if (el.btnLixeira) {
         el.btnLixeira.hidden = !veLixeira();
