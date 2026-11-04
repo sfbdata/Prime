@@ -56,7 +56,8 @@ final class SanitizadorTextoRicoContainerTest extends KernelTestCase
         yield 'citação' => ['<blockquote>a</blockquote>'];
         yield 'classes do editor' => ['<p class="ql-align-center ql-indent-1"><span class="ql-color-red">a</span></p>'];
         yield 'classe estranha' => ['<p class="d-none">a</p>'];
-        yield 'tabela (fora do escopo)' => ['<table><tr><td>a</td></tr></table>'];
+        yield 'tabela' => ['<table><tbody><tr><td data-row="row-1">a</td><td data-row="row-1">b</td></tr></tbody></table>'];
+        yield 'tabela com estilo e mescla' => ['<table style="x" class="d-none"><tbody><tr><td colspan="2" rowspan="2" style="color:red" onclick="x()">a</td><th>b</th></tr></tbody></table>'];
         yield 'texto puro' => ['Cliente & Cia'];
     }
 }

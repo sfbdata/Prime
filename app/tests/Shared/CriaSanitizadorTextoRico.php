@@ -40,6 +40,10 @@ trait CriaSanitizadorTextoRico
             ->allowElement('li', ['class', 'data-list'])
             ->allowElement('blockquote', ['class'])
             ->allowElement('span', ['class'])
+            ->allowElement('table')
+            ->allowElement('tbody')
+            ->allowElement('tr')
+            ->allowElement('td', ['data-row'])
             ->allowRelativeLinks(false)
             ->allowRelativeMedias(false);
 

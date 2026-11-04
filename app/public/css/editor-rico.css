@@ -591,6 +591,51 @@
     --er-revisao-para:  #6ddaa2;
 }
 
+/* Tabela: grade de linhas × colunas, ações dentro da tabela e a tabela no texto. */
+.editor-rico-tabela-grade {
+    display: grid;
+    grid-template-columns: repeat(8, 18px);
+    gap: 3px;
+    padding: 4px;
+}
+
+.editor-rico-tabela-grade button {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--er-tabela-borda, #c5d2db);
+    border-radius: 2px;
+    background: var(--er-simbolo-bg, #f3f7fa);
+    cursor: pointer;
+}
+
+.editor-rico-tabela-grade button.on { background: var(--er-simbolo-hover, #dcebf6); border-color: #0a6fa0; }
+
+.editor-rico-tabela-legenda { padding: 2px 4px 4px; font-size: 12px; color: var(--er-simbolo-tx, #1d3441); text-align: center; }
+
+.editor-rico-tabela-acoes { display: flex; flex-direction: column; gap: 2px; min-width: 210px; }
+
+.editor-rico-tabela-acoes button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--er-simbolo-tx, #1d3441);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.editor-rico-tabela-acoes button:hover { background: var(--er-simbolo-hover, #dcebf6); }
+
+.editor-rico .ql-editor td { border-color: var(--er-tabela-borda, #c5d2db); padding: 4px 6px; }
+
+[data-bs-theme="dark"] .editor-rico { --er-tabela-borda: var(--bs-border-color); }
+
 /* `.bjed-rev` */
 .editor-rico-revisao {
     display: flex;
@@ -1052,6 +1097,12 @@
 .editor-rico-conteudo .ql-editor > *:last-child  { margin-bottom: 0; }
 
 .editor-rico-conteudo .ql-editor p { margin-bottom: .35rem; }
+
+/* Tabela do botão "Inserir tabela" no texto salvo: borda clara (o quill.snow.css põe preto, que some no tema
+   escuro) e as páginas sem o quill.snow.css também ganham a tabela inteira. */
+.editor-rico-conteudo table { border-collapse: collapse; table-layout: fixed; width: 100%; margin: 4px 0 8px; }
+.editor-rico-conteudo td { border: 1px solid var(--er-tabela-borda, #c5d2db); padding: 4px 6px; vertical-align: top; }
+[data-bs-theme="dark"] .editor-rico-conteudo { --er-tabela-borda: var(--bs-border-color); }
 
 /* Realce é fundo atrás da letra: um respiro lateral evita que encoste no texto vizinho. */
 .ql-editor [class*="ql-bg-"] { border-radius: 2px; padding: 0 1px; }

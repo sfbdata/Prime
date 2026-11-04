@@ -505,7 +505,7 @@ final class MontadorDaTimelineInteligente
             return null;
         }
 
-        $texto = preg_replace('#<(br|/p|/div|/li|/h[1-6])\b[^>]*>#i', ' ', $html) ?? $html;
+        $texto = preg_replace('#<(br|/p|/div|/li|/h[1-6]|/td|/tr)\b[^>]*>#i', ' ', $html) ?? $html;
         $texto = html_entity_decode(strip_tags($texto), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $texto = trim(preg_replace('/\s+/u', ' ', $texto) ?? $texto);
 
