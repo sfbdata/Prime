@@ -154,7 +154,7 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
 
         $resposta = $this->assinarCom($this->primario, 'avancado', 3);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Escolha quantas vezes dobrar o espaço: de 1 a 16, sempre dobrando.', $resposta['erro']);
+        self::assertSame('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 e assim por diante, sempre dobrando.', $resposta['erro']);
         self::assertSame(0, $this->contarAssinaturas());
     }
 
@@ -238,26 +238,23 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame(AmpliarEspacoAutomaticamenteUseCase::FALHOU, $this->ampliar(25));
         self::assertSame(AmpliarEspacoAutomaticamenteUseCase::FALHOU, $this->ampliar(26), 'o envio seguinte tenta de novo');
         $ampliar = static::getContainer()->get(AmpliarEspacoAutomaticamenteUseCase::class);
-        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::NADA, $ampliar->executar((int) $this->escritorio->getId(), 27 * 1024 ** 3, false), 'na mesma requisição, uma tentativa só');
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::NADA, $ampliar->executar((int) $this->escritorio->getId(), 27 * 1024 ** 3), 'na mesma requisição, uma tentativa só');
         self::assertSame(1, $this->pedido()->getMultiplicador());
         self::assertSame(1990, $this->pedido()->getValorCentavos());
         self::assertSame(20 * 1024 ** 3, $this->limiteEmBytes());
         self::assertSame(1, (int) static::getContainer()->get(Connection::class)->fetchOne("SELECT COUNT(*) FROM notificacao WHERE usuario_id = ? AND tipo = 'contribua.ampliacao_falhou'", [$this->master->getId()]), 'o mesmo aviso ao Master no máximo uma vez por dia');
     }
 
-    #[TestDox('Dobra automática: no teto não dobra mais e avisa o primário uma vez, só quando o envio cruza o limite')]
-    public function testDobraAutomaticaNoTeto(): void
+    #[TestDox('Dobra automática: sem limite de vezes, dobra de novo mesmo com o pacote já dobrado muitas vezes')]
+    public function testDobraAutomaticaSemLimite(): void
     {
-        $this->assinaturaPaga('avancado', AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO);
+        $this->assinaturaPaga('avancado', 16);
         $this->ligarAmpliacao();
-        $antes = $this->contarNotificacoesDoPrimario();
-        self::assertSame(0, $this->folga(), 'no teto não há folga: o bloqueio volta a valer');
+        self::assertSame(1600 * 1024 ** 3, $this->folga(), 'a folga continua sendo de uma dobra');
 
-        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::NO_TETO, $this->ampliar(100 * AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO + 1, false));
-        self::assertSame($antes, $this->contarNotificacoesDoPrimario(), 'sem cruzar o limite, sem aviso');
-        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::NO_TETO, $this->ampliar(100 * AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO + 1));
-        self::assertSame($antes + 1, $this->contarNotificacoesDoPrimario());
-        self::assertSame([], $this->gateway->valoresAlterados);
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::AMPLIOU, $this->ampliar(1601));
+        self::assertSame(32, $this->pedido()->getMultiplicador());
+        self::assertSame(6990 * 32, $this->pedido()->getValorCentavos());
     }
 
     #[TestDox('Dobra automática: o envio que passa do limite chega pelo evento UsoDoEspacoSubiu')]
@@ -590,13 +587,13 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertTrue($this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '0'])['ok']);
     }
 
-    private function ampliar(int $gbUsados, bool $cruzou = true): string
+    private function ampliar(int $gbUsados): string
     {
         $this->em->clear();
         $ampliar = static::getContainer()->get(AmpliarEspacoAutomaticamenteUseCase::class);
         $ampliar->reset();
 
-        return $ampliar->executar((int) $this->escritorio->getId(), $gbUsados * 1024 ** 3, $cruzou);
+        return $ampliar->executar((int) $this->escritorio->getId(), $gbUsados * 1024 ** 3);
     }
 
     private function folga(): int

@@ -33,11 +33,10 @@ use Doctrine\ORM\Mapping as ORM;
 class AssinaturaDeEspaco implements TenantAware, Auditavel
 {
     /**
-     * O teto do multiplicador, num ponto só: os + e − do maior pacote, a ampliação automática e o JS do checkout
-     * (via `data-mul-max`) leem daqui. Trava do servidor contra valor sem fim; o desenho diz "sem limite de vezes"
-     * (desvio em decisão com o Samuel, 04/11/2026).
+     * O multiplicador não tem limite de vezes (desenho 08 VS 03.11.26, decisão do Samuel em 04/11/2026). O único limite é
+     * técnico: o valor mensal mora numa coluna `integer` (até R$ 21.474.836,47 por mês).
      */
-    public const MULTIPLICADOR_MAXIMO = 16;
+    public const VALOR_MAXIMO_CENTAVOS = 2147483647;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -115,6 +114,7 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
         int $multiplicador = 1,
     ) {
         self::exigirMultiplicadorValido($multiplicador);
+        self::exigirValorQueCabe($valorCentavos);
         $this->multiplicador = $multiplicador;
         $this->criadaEm = new \DateTimeImmutable();
     }
@@ -124,17 +124,34 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
         return $this->multiplicador;
     }
 
-    /** 1, 2, 4... até o teto: só potência de 2, porque o + dobra e o − reduz pela metade. */
+    /**
+     * 1, 2, 4, 8... sem limite de vezes: só potência de 2, porque o + dobra e o − reduz pela metade. Acima do valor
+     * máximo nenhum preço caberia na coluna (e preço × multiplicador ainda cabe no inteiro do PHP).
+     */
     public static function multiplicadorValido(int $multiplicador): bool
     {
-        return $multiplicador >= 1 && $multiplicador <= self::MULTIPLICADOR_MAXIMO && ($multiplicador & ($multiplicador - 1)) === 0;
+        return $multiplicador >= 1 && $multiplicador <= self::VALOR_MAXIMO_CENTAVOS && ($multiplicador & ($multiplicador - 1)) === 0;
     }
 
-    /** @throws \DomainException fora de 1, 2, 4... até o teto */
+    /** @throws \DomainException fora de 1, 2, 4, 8... */
     public static function exigirMultiplicadorValido(int $multiplicador): void
     {
         if (!self::multiplicadorValido($multiplicador)) {
-            throw new \DomainException(sprintf('Escolha quantas vezes dobrar o espaço: de 1 a %d, sempre dobrando.', self::MULTIPLICADOR_MAXIMO));
+            throw new \DomainException('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 e assim por diante, sempre dobrando.');
+        }
+    }
+
+    /** O valor mensal com este multiplicador cabe no que o sistema registra? */
+    public function cabeNoRegistro(int $multiplicador): bool
+    {
+        return self::multiplicadorValido($multiplicador) && $this->valorCom($multiplicador) <= self::VALOR_MAXIMO_CENTAVOS;
+    }
+
+    /** @throws \DomainException valor mensal acima do que a coluna guarda */
+    private static function exigirValorQueCabe(int $valorCentavos): void
+    {
+        if ($valorCentavos > self::VALOR_MAXIMO_CENTAVOS) {
+            throw new \DomainException('O valor mensal passou do máximo que o sistema registra. Fale com o suporte.');
         }
     }
 
@@ -149,7 +166,9 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
         if ($multiplicador <= $this->multiplicador) {
             throw new \DomainException('A ampliação só aumenta o espaço.');
         }
-        $this->valorCentavos = intdiv($this->valorCentavos, $this->multiplicador) * $multiplicador;
+        $valor = $this->valorCom($multiplicador);
+        self::exigirValorQueCabe($valor);
+        $this->valorCentavos = $valor;
         $this->multiplicador = $multiplicador;
     }
 

@@ -165,7 +165,7 @@ final class AssinaturaDeEspacoTest extends TestCase
         new AssinaturaDeEspaco(new Tenant(), $plano, 'falso', 6990 * 3, null, 3);
     }
 
-    #[TestDox('Dobra automática: ampliar sobe o multiplicador e o valor na proporção do contratado; nunca reduz nem passa do teto')]
+    #[TestDox('Dobra automática: ampliar sobe o multiplicador e o valor na proporção do contratado, sem limite de vezes; nunca reduz')]
     public function testAmpliarPara(): void
     {
         $plano = new Plano('avancado', 'Avançado', 100, 6990, 'Para quem precisa de muito', 15, 15);
@@ -176,9 +176,11 @@ final class AssinaturaDeEspacoTest extends TestCase
         self::assertSame(4, $assinatura->getMultiplicador());
         self::assertSame(12000, $assinatura->getValorCentavos());
         self::assertSame(400, $assinatura->gigabytes());
-        self::assertTrue(AssinaturaDeEspaco::multiplicadorValido(AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO));
-        self::assertFalse(AssinaturaDeEspaco::multiplicadorValido(AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO * 2));
+        self::assertTrue(AssinaturaDeEspaco::multiplicadorValido(1024), 'sem limite de vezes');
         self::assertFalse(AssinaturaDeEspaco::multiplicadorValido(6));
+        self::assertFalse(AssinaturaDeEspaco::multiplicadorValido(0));
+        self::assertTrue($assinatura->cabeNoRegistro(4096));
+        self::assertFalse($assinatura->cabeNoRegistro(2 ** 20), 'só o valor que a coluna guarda limita');
 
         $this->expectException(\DomainException::class);
         $assinatura->ampliarPara(2);

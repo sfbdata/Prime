@@ -32,8 +32,8 @@ use Symfony\Contracts\Service\ResetInterface;
  * Quem dispara: depois do commit de cada envio (`EspacoPassouDoContratado` quando o envio só entrou pela folga da
  * dobra, `UsoDoEspacoSubiu` com o bloqueio desligado). Fluxo principal: com a chave ligada e uma assinatura Ativa,
  * vigente e ligada no gateway, quando o uso passa do espaço CONTRATADO (plano × multiplicador, sem bônus nem limite do
- * Master), o multiplicador dobra quantas vezes for preciso para caber o uso, até o teto
- * {@see AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO}. O gateway recebe o valor novo primeiro (vale da próxima cobrança,
+ * Master), o multiplicador dobra quantas vezes for preciso para caber o uso, sem limite de vezes (decisão do Samuel,
+ * 04/11/2026; só para no valor que a coluna guarda, {@see AssinaturaDeEspaco::VALOR_MAXIMO_CENTAVOS}). O gateway recebe o valor novo primeiro (vale da próxima cobrança,
  * sem proporcional); só depois de aceito o espaço dobra, na hora, e o primário recebe o aviso.
  *
  * Folga: com o bloqueio ligado, o envio que passaria do limite entra se ainda dá para dobrar, até UMA dobra a mais
@@ -41,7 +41,7 @@ use Symfony\Contracts\Service\ResetInterface;
  * resolver; o envio seguinte acima do limite tenta de novo.
  *
  * Alternativos: chave desligada, Free, Aguardando, Inadimplente ou fora da vigência, uso dentro do contratado: nada.
- * No teto: não dobra e avisa o primário uma vez (quando o envio cruza 100%). Gateway recusou ou fora do ar: nada muda,
+ * Gateway recusou ou fora do ar: nada muda,
  * vai ao log e o Master é avisado. Banco falhou depois do gateway aceitar: o valor antigo volta ao gateway e o Master
  * é avisado. Dois envios ao mesmo tempo: a assinatura fica travada (`FOR UPDATE`) e o segundo, ao reler, já encontra
  * o espaço dobrado. A chamada ao gateway acontece com a trava (um aviso do gateway da mesma assinatura espera).
@@ -51,7 +51,6 @@ use Symfony\Contracts\Service\ResetInterface;
 final class AmpliarEspacoAutomaticamenteUseCase implements FolgaDaAmpliacao, ResetInterface
 {
     public const AMPLIOU = 'ampliou';
-    public const NO_TETO = 'no_teto';
     public const FALHOU = 'falhou';
     public const NADA = 'nada';
 
@@ -79,7 +78,7 @@ final class AmpliarEspacoAutomaticamenteUseCase implements FolgaDaAmpliacao, Res
 
     /**
      * Quantos bytes a mais o envio pode usar porque a ampliação vai dobrar o espaço: o tamanho de uma dobra, ou zero
-     * (chave desligada, sem assinatura ligada ou já no teto).
+     * (chave desligada ou sem assinatura ligada).
      */
     public function folgaDaAmpliacao(int $tenantId): int
     {
@@ -87,15 +86,14 @@ final class AmpliarEspacoAutomaticamenteUseCase implements FolgaDaAmpliacao, Res
             return 0;
         }
         $assinatura = $this->assinaturaLigada($tenantId);
-        if ($assinatura === null || $assinatura->getMultiplicador() * 2 > AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO) {
+        if ($assinatura === null || !$assinatura->cabeNoRegistro($assinatura->getMultiplicador() * 2)) {
             return 0;
         }
 
         return $assinatura->gigabytes() * RetratoDoEspaco::BYTES_POR_GB;
     }
 
-    /** @param bool $cruzouOLimite o envio levou o uso a 100% agora (o aviso do teto sai uma vez só) */
-    public function executar(int $tenantId, int $bytesUsados, bool $cruzouOLimite): string
+    public function executar(int $tenantId, int $bytesUsados): string
     {
         if ($this->espacos->doTenant($tenantId)?->isAmpliacaoAutomatica() !== true) {
             return self::NADA;
@@ -108,7 +106,7 @@ final class AmpliarEspacoAutomaticamenteUseCase implements FolgaDaAmpliacao, Res
 
         $this->conexao->beginTransaction();
         try {
-            $resultado = $this->ampliarTravado($assinatura, $bytesUsados, $cruzouOLimite);
+            $resultado = $this->ampliarTravado($assinatura, $bytesUsados);
             $this->conexao->commit();
         } catch (\Throwable $erro) {
             $this->conexao->rollBack();
@@ -128,7 +126,7 @@ final class AmpliarEspacoAutomaticamenteUseCase implements FolgaDaAmpliacao, Res
         $this->tentados = [];
     }
 
-    private function ampliarTravado(AssinaturaDeEspaco $assinatura, int $bytesUsados, bool $cruzouOLimite): string
+    private function ampliarTravado(AssinaturaDeEspaco $assinatura, int $bytesUsados): string
     {
         $this->em->refresh($assinatura, LockMode::PESSIMISTIC_WRITE);
         if (!$this->ligada($assinatura) || $bytesUsados <= $assinatura->gigabytes() * RetratoDoEspaco::BYTES_POR_GB) {
@@ -136,11 +134,10 @@ final class AmpliarEspacoAutomaticamenteUseCase implements FolgaDaAmpliacao, Res
         }
         $novo = self::multiplicadorQueCabe($assinatura, $bytesUsados);
         if ($novo === $assinatura->getMultiplicador()) {
-            if ($cruzouOLimite) {
-                $this->avisarPrimario($assinatura, sprintf('Seu espaço passou de %d GB, o máximo da ampliação automática. Fale com o suporte para ampliar mais.', $assinatura->gigabytes()));
-            }
+            $this->logger->error('Contribua: a ampliação automática passaria do valor que o sistema registra', ['assinatura' => $assinatura->getId()]);
+            $this->avisarMaster($assinatura, 'Ampliação automática não aplicada: o valor novo passaria do máximo que o sistema registra (%s, conta Nº %06d).');
 
-            return self::NO_TETO;
+            return self::FALHOU;
         }
         [$antes, $valorAntes] = [$assinatura->gigabytes(), $assinatura->getValorCentavos()];
         if (!$this->alterarNoGateway($assinatura, $assinatura->valorCom($novo))) {
@@ -160,12 +157,12 @@ final class AmpliarEspacoAutomaticamenteUseCase implements FolgaDaAmpliacao, Res
         return self::AMPLIOU;
     }
 
-    /** A menor potência de 2 acima da atual em que o uso cabe, parando no teto. */
+    /** A menor potência de 2 acima da atual em que o uso cabe, parando no valor que a coluna guarda. */
     private static function multiplicadorQueCabe(AssinaturaDeEspaco $assinatura, int $bytesUsados): int
     {
         $base = $assinatura->getPlano()->getCotaGb() * RetratoDoEspaco::BYTES_POR_GB;
         $multiplicador = $assinatura->getMultiplicador();
-        while ($base * $multiplicador < $bytesUsados && $multiplicador * 2 <= AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO) {
+        while ($base * $multiplicador < $bytesUsados && $assinatura->cabeNoRegistro($multiplicador * 2)) {
             $multiplicador *= 2;
         }
 

@@ -30,13 +30,13 @@ final class AmpliacaoAutomaticaListener
     #[AsEventListener(priority: -100)]
     public function aoPassarDoContratado(EspacoPassouDoContratado $evento): void
     {
-        $this->ampliarSemDerrubar($evento->tenantId, fn (): string => $this->ampliar->executar($evento->tenantId, $this->consumo->bytesDoEscritorio($evento->tenantId), true));
+        $this->ampliarSemDerrubar($evento->tenantId, fn (): string => $this->ampliar->executar($evento->tenantId, $this->consumo->bytesDoEscritorio($evento->tenantId)));
     }
 
     #[AsEventListener(priority: -100)]
     public function aoSubirOUso(UsoDoEspacoSubiu $evento): void
     {
-        $this->ampliarSemDerrubar($evento->tenantId, fn (): string => $this->ampliar->executar($evento->tenantId, $evento->retrato->bytesUsados, $evento->cruzou(100)));
+        $this->ampliarSemDerrubar($evento->tenantId, fn (): string => $this->ampliar->executar($evento->tenantId, $evento->retrato->bytesUsados));
     }
 
     /** @param \Closure(): string $ampliacao */
