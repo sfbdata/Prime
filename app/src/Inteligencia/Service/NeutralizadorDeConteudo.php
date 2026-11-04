@@ -33,6 +33,8 @@ final class NeutralizadorDeConteudo
         'historico', 'pessoa',
         // Chat I.A em página inteira (`chat-livre-v1`): texto extraído de arquivo DOCX anexado.
         'anexo_texto',
+        // Importar pastas em lote (etapa 2): a árvore de nomes de pasta e arquivo do computador.
+        'arvore_do_lote',
     ];
 
     /** Controle C0/C1 (menos \t \n \r, que viram espaço depois), zero-width, bidi e BOM. */

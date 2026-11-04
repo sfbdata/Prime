@@ -6,6 +6,10 @@ namespace App\Expediente\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Exception\AgrupamentoDoLoteFalhouException;
+use App\Inteligencia\Exception\CaminhosDoLoteInvalidosException;
+use App\Inteligencia\Exception\InteligenciaIndisponivelException;
+use App\Inteligencia\UseCase\SugerirAgrupamentoDoLoteUseCase;
 use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\CriarPastaUseCase;
@@ -13,6 +17,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Exception\JsonException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,6 +31,9 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  * mesmo `CriarPastaUseCase` do modal Nova Pasta, e depois sobe os arquivos um a um pela rota de upload
  * da aba Documentos (`pasta_peticionar_upload`). Assim cada pedido cabe no limite de upload do PHP e
  * as travas do upload (tipo, tamanho, cota do plano) valem sem cópia (D1).
+ *
+ * Etapa 2: "Sugerir agrupamento com IA" manda só os caminhos dos arquivos e devolve a sugestão de casos. A IA nunca
+ * grava: quem cria as pastas continua sendo o Importar, pela rota de sempre.
  */
 final class ImportarLoteController extends AbstractController
 {
@@ -37,6 +45,7 @@ final class ImportarLoteController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly SugerirAgrupamentoDoLoteUseCase $sugerirAgrupamento,
     ) {
     }
 
@@ -65,6 +74,45 @@ final class ImportarLoteController extends AbstractController
         $this->syncDispatcher->despachar($pasta, $user, $tenant);
 
         return $this->criada($pasta, $user, $tenant);
+    }
+
+    /**
+     * Corpo JSON `{"_token": "...", "caminhos": ["Clientes/MARIA/rg.pdf", ...]}`. Ordem: módulo Pastas, CSRF, UseCase
+     * (que confere a disponibilidade da IA, inclusive a cota, antes de ler os caminhos).
+     */
+    #[Route('/expediente/importar-lote/sugerir', name: 'expediente_importar_lote_sugerir', methods: ['POST'])]
+    public function sugerir(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'pastas')) {
+            return $this->erro('Você não tem permissão para acessar o módulo de pastas.', Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $corpo = $request->toArray();
+        } catch (JsonException) {
+            $corpo = [];
+        }
+        $token = $corpo['_token'] ?? '';
+        if (!is_string($token) || !$this->isCsrfTokenValid(self::CSRF, $token)) {
+            return $this->erro('Sessão expirada. Recarregue a página e tente de novo.', Response::HTTP_FORBIDDEN);
+        }
+
+        $caminhos = $corpo['caminhos'] ?? [];
+        try {
+            $sugestao = $this->sugerirAgrupamento->executar($user, $tenant, is_array($caminhos) ? array_values($caminhos) : []);
+        } catch (InteligenciaIndisponivelException $e) {
+            return $this->erro($e->motivo->mensagem(), Response::HTTP_CONFLICT);
+        } catch (CaminhosDoLoteInvalidosException $e) {
+            return $this->erro($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (AgrupamentoDoLoteFalhouException) {
+            return $this->erro(AgrupamentoDoLoteFalhouException::MENSAGEM, Response::HTTP_BAD_GATEWAY);
+        }
+
+        return new JsonResponse($sugestao->paraJson());
     }
 
     /** Por que o pedido não cria pasta, ou null quando pode criar. */

@@ -52,6 +52,7 @@ final readonly class RegistroDeAuditoriaOutput
             TipoDeAnalise::AnalisePasta => 'Análise de agente',
             TipoDeAnalise::ResumoDocumento => 'Resumo de documento',
             TipoDeAnalise::ChatDaCentral => 'Chat com a IA',
+            TipoDeAnalise::AgrupamentoDoLote => 'Agrupamento do lote',
         };
     }
 

@@ -23,6 +23,11 @@
 .il-cab { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .il-cab b { flex:1; font-size:14px; }
 .il-trocar { height:30px; padding:0 10px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font:inherit; font-size:12.5px; cursor:pointer; }
+.il-trocar:disabled { opacity:.6; cursor:default; }
+.il-aviso-ia { font-size:12.5px; color:#34505f; background:#f5fafd; border:1px solid #9fc3d8; border-radius:3px; padding:8px 12px; line-height:1.5; }
+.il-nome { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.il-nome .il-cli { width:100%; }
+.il-mesmo { font-size:11.5px; color:#5b7383; }
 .il-tabela { border:1px solid #e1e8ed; border-radius:3px; max-height:46vh; overflow:auto; }
 .il-tit, .il-linha { display:grid; grid-template-columns:28px 80px minmax(0,1fr) 90px 110px; gap:8px; }
 .il-tit { padding:7px 12px; font-size:10.5px; font-weight:bold; letter-spacing:.6px; color:#5b7383; background:#f5f8fa; border-bottom:1px solid #e1e8ed; position:sticky; top:0; }
@@ -53,6 +58,7 @@
 <div class="il-raiz" id="il-raiz" hidden
      data-url-pasta="{{ path('expediente_importar_lote_pasta') }}"
      data-url-proximo="{{ path('expediente_nova_pasta_sugestoes') }}"
+     data-url-sugerir="{{ path('expediente_importar_lote_sugerir') }}"
      data-token="{{ csrf_token('expediente_importar_lote') }}">
   <div class="il-fundo" data-il="fechar"></div>
   <div class="il-centro"><div class="il-caixa" role="dialog" aria-modal="true" aria-label="Importar pastas em lote">
@@ -71,7 +77,14 @@
         <div class="il-pergunta-botoes"><button type="button" class="il-trocar" data-il="nao">Não, cada subpasta é um cliente</button><button type="button" class="il-importar" data-il="sim">Sim, uma pasta só</button></div>
       </div>
       <div class="il-tem" data-il="tem" hidden>
-        <div class="il-cab"><b data-il="resumo"></b><button type="button" class="il-trocar" data-il="trocar">Escolher outra pasta</button></div>
+        <div class="il-cab"><b data-il="resumo"></b>
+          {# Etapa 2: a IA sugere o agrupamento, só por clique e só quando a BlueJus IA está disponível para quem está na tela. #}
+          {% if ia_disponibilidade().estaDisponivel() %}
+            <button type="button" class="il-trocar" data-il="sugerir" hidden><i class="bi bi-stars"></i> <span data-il="sugerir-txt">Sugerir agrupamento com IA</span></button>
+            <button type="button" class="il-trocar" data-il="voltar-regra" hidden>Voltar ao agrupamento por pasta</button>
+          {% endif %}
+          <button type="button" class="il-trocar" data-il="trocar">Escolher outra pasta</button></div>
+        <div class="il-aviso-ia" data-il="aviso-ia" hidden></div>
         <div class="il-tabela">
           <div class="il-tit"><span></span><span>Nº PASTA</span><span>CLIENTE</span><span class="il-dir">ARQUIVOS</span><span class="il-dir">SITUAÇÃO</span></div>
           <div data-il="linhas"></div>

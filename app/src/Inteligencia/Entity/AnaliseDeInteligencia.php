@@ -54,6 +54,12 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel, ConteudoParticula
     /** Chat da Central (F3): `alvo_id` é o id da conversa IA, não de uma pasta. */
     public const ALVO_CONVERSA_IA = 'conversa_ia';
 
+    /**
+     * "Sugerir agrupamento com IA" do Importar pastas em lote: não há registro no banco por trás (o lote mora no
+     * navegador), então `alvo_id` é 0.
+     */
+    public const ALVO_IMPORTACAO_LOTE = 'importacao_lote';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -386,10 +392,15 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel, ConteudoParticula
     // Auditoria
     // ---------------------------------------------------------------------------------------
 
-    /** Pergunta livre e chat da Central: a conversa é da pessoa (o tipo nunca muda depois de criada). */
+    /**
+     * Pergunta livre e chat da Central: a conversa é da pessoa (o tipo nunca muda depois de criada). O agrupamento do
+     * lote também: o que o modelo diria traz nomes de cliente e de arquivo do computador de quem pediu.
+     */
     public function ehParticular(array $mudancas = []): bool
     {
-        return $this->tipo === TipoDeAnalise::PerguntaLivre || $this->tipo === TipoDeAnalise::ChatDaCentral;
+        return $this->tipo === TipoDeAnalise::PerguntaLivre
+            || $this->tipo === TipoDeAnalise::ChatDaCentral
+            || $this->tipo === TipoDeAnalise::AgrupamentoDoLote;
     }
 
     /** O texto do modelo, em todas as formas em que a linha o guarda. */

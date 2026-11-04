@@ -17,4 +17,9 @@ enum TipoDeAnalise: string
     case ResumoDocumento = 'resumo_documento';
     /** A conversa da pessoa com o BlueJus IA na Central (F3): sem pasta, o alvo é a conversa. */
     case ChatDaCentral = 'chat_central';
+    /**
+     * "Sugerir agrupamento com IA" do Importar pastas em lote (spec importar-pastas-em-lote, etapa 2): síncrono,
+     * sem pasta; o alvo é {@see \App\Inteligencia\Entity\AnaliseDeInteligencia::ALVO_IMPORTACAO_LOTE}.
+     */
+    case AgrupamentoDoLote = 'agrupamento_lote';
 }
