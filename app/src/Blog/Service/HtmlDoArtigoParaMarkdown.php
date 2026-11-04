@@ -14,6 +14,7 @@ namespace App\Blog\Service;
  *   div[data-bj=cta-meio]     ::cta-meio
  *   div[data-bj=leia-tambem]  ::leia-tambem{artigo=slug}
  *   img /master/blog/imagens/{id}   ![alt](./imagens/{id}.{ext})
+ *   table                     tabela GFM: "| a | b |", "| --- | --- |" e uma linha por linha da tabela
  *
  * Conversor próprio, sem dependência nova: DOMDocument e a {@see ListaBrancaDoArtigo}.
  *
@@ -25,6 +26,10 @@ namespace App\Blog\Service;
  * `id => ext` (de {@see \App\Blog\Entity\ImagemDoArtigo::extensao()}). Imagem fora do mapa cai.
  *
  * Etapas ou checklist sem lista dentro perdem a moldura e ficam como texto comum (o build recusaria a diretiva vazia).
+ *
+ * Tabela (GFM): a primeira linha (a do thead que a lista branca monta) é o cabeçalho, seguida da linha `| --- |`, sem
+ * alinhamento. Todas as linhas saem com o número de colunas da linha mais longa (as curtas ganham células vazias).
+ * Na célula, `|` sai como `\|` e a quebra de linha (br) vira espaço, porque a linha da tabela não pode quebrar.
  */
 final class HtmlDoArtigoParaMarkdown
 {
@@ -32,6 +37,9 @@ final class HtmlDoArtigoParaMarkdown
 
     /** @var array<int, string> */
     private array $extensoes = [];
+
+    /** Dentro de uma célula de tabela: br vira espaço. */
+    private bool $naCelula = false;
 
     public function __construct(
         private readonly ListaBrancaDoArtigo $listaBranca = new ListaBrancaDoArtigo(),
@@ -111,7 +119,7 @@ final class HtmlDoArtigoParaMarkdown
 
     private function ehBloco(\DOMNode $no): bool
     {
-        return $no instanceof \DOMElement && \in_array($no->tagName, ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'div'], true);
+        return $no instanceof \DOMElement && \in_array($no->tagName, ['p', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'div', 'table'], true);
     }
 
     private function bloco(\DOMElement $el): string
@@ -123,6 +131,7 @@ final class HtmlDoArtigoParaMarkdown
             'ul' => $this->lista($el, false),
             'ol' => $this->lista($el, true),
             'blockquote' => $this->citacao($el),
+            'table' => $this->tabela($el),
             default => $this->blocoBlueJus($el),
         };
     }
@@ -193,6 +202,48 @@ final class HtmlDoArtigoParaMarkdown
         return $blocos === [] ? '' : ':::' . $nome . "\n" . implode("\n\n", $blocos) . "\n:::";
     }
 
+    // ---- tabela ----
+
+    private function tabela(\DOMElement $tabela): string
+    {
+        $linhas = [];
+        foreach ($tabela->getElementsByTagName('tr') as $linha) {
+            $celulas = [];
+            foreach ($linha->childNodes as $celula) {
+                if ($celula instanceof \DOMElement && \in_array($celula->tagName, ['th', 'td'], true)) {
+                    $celulas[] = $this->celula($celula);
+                }
+            }
+            if ($celulas !== []) {
+                $linhas[] = $celulas;
+            }
+        }
+        if ($linhas === []) {
+            return '';
+        }
+
+        $colunas = max(array_map('count', $linhas));
+        $linha = static fn (array $celulas): string => '| ' . implode(' | ', array_pad($celulas, $colunas, '')) . ' |';
+        $saida = [$linha(array_shift($linhas)), $linha(array_fill(0, $colunas, '---'))];
+        foreach ($linhas as $celulas) {
+            $saida[] = $linha($celulas);
+        }
+
+        return implode("\n", $saida);
+    }
+
+    private function celula(\DOMElement $celula): string
+    {
+        $this->naCelula = true;
+        try {
+            $texto = $this->inlineDe($celula->childNodes);
+        } finally {
+            $this->naCelula = false;
+        }
+
+        return str_replace('|', '\\|', trim((string) preg_replace('/ {2,}/', ' ', $texto)));
+    }
+
     // ---- listas ----
 
     private function lista(\DOMElement $lista, bool $numerada, string $recuo = ''): string
@@ -256,7 +307,7 @@ final class HtmlDoArtigoParaMarkdown
             'em' => $this->envolver('*', $this->inlineDe($no->childNodes)),
             'a' => $this->linkEmMarkdown($no),
             'img' => $this->imagem($no),
-            'br' => "\\\n",
+            'br' => $this->naCelula ? ' ' : "\\\n",
             // p, li ou título dentro de texto corrido (lista, citação): vira texto separado por espaço
             default => ' ' . $this->inlineDe($no->childNodes) . ' ',
         };

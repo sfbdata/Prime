@@ -343,6 +343,42 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('editor.undoManager.transact(', $js);
     }
 
+    #[TestDox('Páginas: o editor traz o botão Inserir tabela, só com tabela simples e as ações da pasta')]
+    public function testPaginaComOBotaoDeTabela(): void
+    {
+        $client = $this->clienteMaster();
+
+        $client->request('GET', '/master/blog/artigos/novo');
+
+        self::assertResponseIsSuccessful();
+        $js = (string) file_get_contents(__DIR__ . '/../../../public/js/master/blog-editor.js');
+        self::assertSame(1, preg_match("/toolbar: '([^']*)'/", $js, $m), 'toolbar do TinyMCE não encontrada');
+        self::assertStringContainsString('blockquote bjsimbolo bjtabela |', $m[1]);
+        self::assertSame(1, preg_match("/plugins: '([^']*)'/", $js, $p));
+        self::assertContains('table', explode(' ', $p[1]));
+        self::assertSame(1, preg_match("/valid_elements: '([^']*)'/", $js, $v));
+        $elementos = explode(',', $v[1]);
+        foreach (['table', 'thead', 'tbody', 'tr', 'th', 'td'] as $tag) {
+            self::assertContains($tag, $elementos, "{$tag} precisa entrar sem atributo no valid_elements");
+        }
+        self::assertStringContainsString("tabela: 'Inserir tabela'", $js);
+        self::assertStringContainsString("'bjtabela'", $js);
+        self::assertStringContainsString("headerRows: 1", $js);
+        self::assertStringContainsString("table_header_type: 'sectionCells'", $js);
+        foreach (['table_appearance_options', 'table_advtab', 'table_cell_advtab', 'table_row_advtab', 'table_resize_bars', 'table_use_colgroups'] as $opcao) {
+            self::assertStringContainsString($opcao . ': false', $js);
+        }
+        self::assertStringContainsString('table_default_styles: {}', $js);
+        self::assertStringContainsString('table_default_attributes: {}', $js);
+        self::assertStringContainsString('table_toolbar: ACOES_DA_TABELA', $js);
+        // As ações, os textos e os ícones (Bootstrap Icons) são os da tabela da pasta (ACOES_DA_TABELA do editor-rico.js).
+        foreach ([['arrow-bar-up', 'Inserir linha acima'], ['arrow-bar-down', 'Inserir linha abaixo'], ['arrow-bar-left', 'Inserir coluna à esquerda'],
+            ['arrow-bar-right', 'Inserir coluna à direita'], ['dash-square', 'Remover linha'], ['dash-square-dotted', 'Remover coluna'], ['trash3', 'Remover tabela']] as [$icone, $texto]) {
+            self::assertStringContainsString("'bj-" . $icone . "', '" . $texto . "'", $js);
+            self::assertStringContainsString("'bj-" . $icone . "': svgBi(", $js);
+        }
+    }
+
     #[TestDox('Páginas: editar mostra o artigo (título, marcadores e o corpo como texto, nunca HTML cru)')]
     public function testPaginaEditar(): void
     {
