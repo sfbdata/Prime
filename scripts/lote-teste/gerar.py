@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ambiente controlado para testar o "Importar pastas em lote" do Expediente.
 
-Gera, numa pasta (padrão ~/lote-teste), 10 cenários de organização de pastas com arquivos FALSOS e
+Gera, numa pasta (padrão ~/lote-teste), 11 cenários de organização de pastas com arquivos FALSOS e
 pequenos (PDF, JPG e DOCX mínimos e válidos), nomes fictícios e nenhum dado real. Cada cenário tem:
 
 - a pasta para escolher no modal (botão "Selecionar a pasta dos clientes");
@@ -181,6 +181,9 @@ def texto_da_pergunta(nome: str, caminhos: list[str]) -> dict:
     }
 
 
+NIVEIS = 10  # CriarPastaSecaoUseCase::PROFUNDIDADE_MAXIMA
+
+
 def montar(caminhos: list[str], um_cliente: bool) -> list[dict]:
     """Mesmo agrupamento do montar(files, false, umCliente) do JS. Caminho = webkitRelativePath."""
     grupos: dict[str, list[str]] = {}
@@ -199,8 +202,14 @@ def montar(caminhos: list[str], um_cliente: bool) -> list[dict]:
         for c in grupos[chave]:
             partes = c.split("/")
             item = {"arquivo": partes[-1]}
-            if um_cliente and len(partes) > 2:
-                item["descricao"] = "/".join(partes[1:])
+            # Importar copia a organização (04/11/2026): as pastas abaixo da pasta do BlueJus viram subpastas
+            # dos Documentos (o explorador grava o nome em maiúsculas), até 10 níveis; o que passar vai na descrição.
+            base = 1 if um_cliente else (2 if len(partes) > 2 else 1)
+            subpastas = [n.strip() for n in partes[base:-1] if n.strip()]
+            if subpastas:
+                item["subpasta"] = " > ".join(n.upper() for n in subpastas[:NIVEIS])
+            if len(subpastas) > NIVEIS:
+                item["descricao"] = "/".join(subpastas[NIVEIS:])
             arquivos.append(item)
         pastas.append({"cliente": _nome_do_cliente(chave), "arquivos": arquivos})
 
@@ -228,7 +237,7 @@ CENARIOS = [
         "escolher": "MARIA FICTICIA",
         "arquivos": ["procuracao.pdf", "Documentos/RG.jpg", "Documentos/comprovante.pdf",
                      "Processo/Inicial.pdf", "Processo/contestacao.docx"],
-        "ideal": "1 pasta MARIA FICTICIA com 5 arquivos; a descrição leva o caminho (Documentos/RG.jpg, Processo/Inicial.pdf...).",
+        "ideal": "1 pasta MARIA FICTICIA com 5 arquivos: procuracao.pdf na raiz dos Documentos e os outros nas subpastas DOCUMENTOS e PROCESSO.",
         "notas": "Aparece a pergunta D11. Resposta certa: 1 pasta só.",
         "resposta_certa": "sim",
     },
@@ -237,7 +246,7 @@ CENARIOS = [
         "titulo": "Um cliente só com subpastas, sem arquivo solto",
         "escolher": "PAULO FICTICIO",
         "arquivos": ["Documentos/RG.jpg", "Documentos/CPF.pdf", "Processo/Inicial.pdf"],
-        "ideal": "1 pasta PAULO FICTICIO com 3 arquivos.",
+        "ideal": "1 pasta PAULO FICTICIO com 3 arquivos, nas subpastas DOCUMENTOS e PROCESSO.",
         "notas": "Aparece a pergunta (desde 04/11/2026, pedido do Farlei). Resposta certa: 1 pasta só. "
                  "Antes não perguntava, e cada subpasta virava um cliente (DOCUMENTOS e PROCESSO).",
         "resposta_certa": "sim",
@@ -323,6 +332,18 @@ CENARIOS = [
                  "instalador.exe (tipo não aceito).\" Aparece a pergunta. Resposta certa: Criar 1 pasta.",
         "resposta_certa": "nao",
     },
+    {
+        "id": "11-subpastas-fundas",
+        "titulo": "Subpastas dentro de subpastas (e mais de 10 níveis)",
+        "escolher": "Clientes",
+        "arquivos": ["ANA TESTE/Processo/Recursos/apelacao.pdf", "ANA TESTE/Processo/inicial.pdf",
+                     "ANA TESTE/N1/N2/N3/N4/N5/N6/N7/N8/N9/N10/N11/N12/fundo.pdf"],
+        "ideal": "1 pasta ANA TESTE. Nos Documentos: PROCESSO (com inicial.pdf) > RECURSOS (com apelacao.pdf), e "
+                 "N1 > ... > N10 com fundo.pdf e a descrição N11/N12.",
+        "notas": "Aparece a pergunta. Resposta certa: Criar 1 pasta. O explorador aceita até 10 níveis de subpasta; "
+                 "o que passa fica no 10º nível, com o resto do caminho na descrição.",
+        "resposta_certa": "nao",
+    },
 ]
 
 
@@ -352,7 +373,11 @@ def esperado(c: dict) -> dict:
 def _tabela(pastas: list[dict]) -> str:
     linhas = ["| Pasta (cliente) | Arquivos |", "|---|---|"]
     for p in pastas:
-        arqs = ", ".join(a["arquivo"] + (f" (descrição: {a['descricao']})" if "descricao" in a else "") for a in p["arquivos"])
+        arqs = ", ".join(
+            (f"{a['subpasta']} > " if "subpasta" in a else "") + a["arquivo"]
+            + (f" (descrição: {a['descricao']})" if "descricao" in a else "")
+            for a in p["arquivos"]
+        )
         linhas.append(f"| {p['cliente']} | {arqs} |")
 
     return "\n".join(linhas)
