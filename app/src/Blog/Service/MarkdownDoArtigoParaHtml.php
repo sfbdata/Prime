@@ -112,7 +112,7 @@ final class MarkdownDoArtigoParaHtml
         }
         if ($this->comecaTabela($linhas, $i)) {
             if ($this->profundidade > 0) {
-                throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('tabela dentro de citação, lista ou bloco (:::aviso, :::etapas, :::checklist); no blog a tabela fica solta no corpo');
+                throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('tabela dentro de citação, lista ou bloco (:::aviso, :::etapas, :::checklist)');
             }
 
             return $this->tabela($linhas, $i);
