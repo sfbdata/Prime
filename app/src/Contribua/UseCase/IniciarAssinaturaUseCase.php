@@ -30,7 +30,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * Só o primário assina (D4); só plano pago maior que o limite atual; uma assinatura viva por
  * escritório (para trocar de plano, cancela a atual em Meu Perfil: evita duas cobranças no mesmo cartão).
  *
- * Multiplicador (desenho 08 VS 03.11.26, botões + e − do maior pacote): 1, 2, 4, 8 ou 16. Acima de 1 só no
+ * Multiplicador (desenho 08 VS 03.11.26, botões + e − do maior pacote): 1, 2, 4, 8... sem limite de vezes. Acima de 1 só no
  * maior pacote pago do catálogo; o espaço e o valor mensal saem multiplicados e o gateway recebe o valor
  * cheio (nunca o "Link do pacote" fixo, que tem o preço de uma vez só).
  */
@@ -62,9 +62,7 @@ final class IniciarAssinaturaUseCase
      */
     public function executar(Solicitante $quem, string $codigoDoPlano, string $documento, ?string $ip, int $multiplicador = 1): InicioDaAssinatura
     {
-        if (!\in_array($multiplicador, AssinaturaDeEspaco::MULTIPLICADORES, true)) {
-            throw new \DomainException('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 ou 16.');
-        }
+        AssinaturaDeEspaco::exigirMultiplicadorValido($multiplicador);
         $this->conexao->executeStatement('SELECT pg_advisory_lock(?, ?)', [self::TRAVA, $quem->tenantId()]);
         try {
             return $this->iniciar($quem, $codigoDoPlano, $documento, $ip, $multiplicador);

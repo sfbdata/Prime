@@ -7,10 +7,12 @@ namespace App\Contribua\Armazenamento;
 use App\Contribua\DTO\RetratoDoEspaco;
 use App\Contribua\Event\EnvioRecusadoPorEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
+use App\Contribua\Event\EspacoPassouDoContratado;
 use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\Exception\EspacoEsgotado;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
+use App\Contribua\Service\FolgaDaAmpliacao;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoArmazenado;
@@ -40,6 +42,10 @@ use Symfony\Contracts\Service\ResetInterface;
  * recusado (`RetratoDoEspaco::cabe()`), mas o uso continua medido: subir o percentual gera
  * `UsoDoEspacoSubiu` e subir de faixa gera `EspacoAtingiuFaixa`, despachados depois do commit; é deles
  * que saem os avisos por e-mail (frente "Comercial e e-mails").
+ *
+ * Ampliação de GB automática (desenho 08 VS 03.11.26): com a chave ligada e uma assinatura que ainda pode dobrar, o
+ * envio que passaria do limite entra com a folga de UMA dobra e `EspacoPassouDoContratado` sai depois do commit, uma
+ * vez por escritório na requisição; quem ouve dobra o espaço e o valor (`AmpliarEspacoAutomaticamenteUseCase`).
  *
  * O uso medido fica guardado por escritório durante a requisição e cresce a cada gravação: um
  * envio de dez arquivos faz uma soma no banco, não dez. `reset()` esvazia entre requisições e
@@ -71,6 +77,12 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
     /** @var array<int, int> bytes usados por tenant, medidos nesta requisição */
     private array $usados = [];
 
+    /** @var array<int, int> folga da ampliação automática por tenant, lida nesta requisição só quando o envio não cabe */
+    private array $folgas = [];
+
+    /** @var array<int, true> tenants cuja ampliação já foi pedida nesta requisição */
+    private array $ampliacaoPedida = [];
+
     public function __construct(
         #[AutowireDecorated]
         private readonly ArmazenamentoDeArquivos $interno,
@@ -78,6 +90,7 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
         private readonly SituacaoDoEspaco $situacao,
         private readonly EventosDoEspacoAposConfirmar $eventos,
         private readonly LoggerInterface $logger,
+        private readonly FolgaDaAmpliacao $ampliacao,
     ) {
     }
 
@@ -89,7 +102,7 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
         }
 
         $antes = $this->retrato($tenantId);
-        if (!$antes->cabe(0)) {
+        if (!$this->cabe($antes, 0)) {
             $this->recusar($antes);
         }
 
@@ -129,6 +142,8 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
     public function reset(): void
     {
         $this->usados = [];
+        $this->folgas = [];
+        $this->ampliacaoPedida = [];
     }
 
     /** Só bloqueia o que a soma do espaço cobra (§5 da spec): não se recusa o que não se conta. */
@@ -147,7 +162,7 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
     /** Passou do limite com este arquivo: ele sai já (nenhum registro aponta para ele ainda) e o envio é recusado. */
     private function desfazerSeNaoCoube(RetratoDoEspaco $antes, ArquivoArmazenado $armazenado): void
     {
-        if ($antes->cabe($armazenado->tamanhoBytes)) {
+        if ($this->cabe($antes, $armazenado->tamanhoBytes)) {
             return;
         }
 
@@ -155,6 +170,28 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
             ->remover([$armazenado->chave], 'arquivo recusado por falta de espaço');
 
         $this->recusar($antes);
+    }
+
+    /**
+     * Cabe no limite, ou cabe com a folga de uma dobra da ampliação automática (e então a ampliação é pedida para
+     * depois do commit). A folga só é lida do banco quando o envio não cabe.
+     */
+    private function cabe(RetratoDoEspaco $retrato, int $bytes): bool
+    {
+        if ($retrato->cabe($bytes)) {
+            return true;
+        }
+        $tenantId = $retrato->tenantId;
+        $this->folgas[$tenantId] ??= $this->ampliacao->folgaDaAmpliacao($tenantId);
+        if ($this->folgas[$tenantId] === 0 || !$retrato->cabeComFolga($bytes, $this->folgas[$tenantId])) {
+            return false;
+        }
+        if (!isset($this->ampliacaoPedida[$tenantId])) {
+            $this->ampliacaoPedida[$tenantId] = true;
+            $this->eventos->adiar(new EspacoPassouDoContratado($tenantId));
+        }
+
+        return true;
     }
 
     /** Avisa a recusa na hora (é o fato, não depende do trabalho) e recusa. */

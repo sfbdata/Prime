@@ -26,7 +26,7 @@ final class ApuracaoDeCustos
 
     /**
      * @param list<LancamentoDeCusto>                                                                                                        $lancamentos
-     * @param list<array{situacao: string, usuarios: int, bytes: int, espaco: array{planoCodigo: string}, convenio: array{modo: string, valor: float}}> $contas
+     * @param list<array{situacao: string, usuarios: int, bytes: int, espaco: array{planoCodigo: string, multiplicador?: int}, convenio: array{modo: string, valor: float}}> $contas
      * @param list<array{codigo: string, nome: string, cotaGb: int, precoCentavos: int, ativo: bool}>                                        $planos
      *
      * @return array<string, mixed>
@@ -65,7 +65,7 @@ final class ApuracaoDeCustos
     }
 
     /**
-     * @param list<array{situacao: string, usuarios: int, bytes: int, espaco: array{planoCodigo: string}, convenio: array{modo: string, valor: float}}> $ativas
+     * @param list<array{situacao: string, usuarios: int, bytes: int, espaco: array{planoCodigo: string, multiplicador?: int}, convenio: array{modo: string, valor: float}}> $ativas
      * @param array<string, int>                                                                                                                       $precos
      *
      * @return array{receita: int, usuarios: int, bytes: int, contasPorPlano: array<string, int>}
@@ -76,7 +76,8 @@ final class ApuracaoDeCustos
         foreach ($ativas as $c) {
             $plano = $c['espaco']['planoCodigo'];
             $resumo['contasPorPlano'][$plano] = ($resumo['contasPorPlano'][$plano] ?? 0) + 1;
-            $resumo['receita'] += ($precos[$plano] ?? 0) + self::convenioEmCentavos($c['convenio']);
+            // O pacote dobrado (desenho 08 VS 03.11.26) paga o preço do plano vezes o multiplicador.
+            $resumo['receita'] += ($precos[$plano] ?? 0) * ($c['espaco']['multiplicador'] ?? 1) + self::convenioEmCentavos($c['convenio']);
             $resumo['usuarios'] += $c['usuarios'];
             $resumo['bytes'] += $c['bytes'];
         }

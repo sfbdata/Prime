@@ -58,4 +58,12 @@ interface GatewayDeAssinatura
 
     /** Cancela no gateway (a cobrança seguinte não acontece). Cancelar o que já está cancelado não é erro. @throws FalhaNoGateway */
     public function cancelar(string $idDaAssinatura): void;
+
+    /**
+     * Muda o valor mensal da assinatura (a ampliação automática do desenho 08 VS 03.11.26). Vale a partir da próxima
+     * cobrança, inclusive a que o gateway já gerou e ainda não cobrou; sem cobrança proporcional. Nenhum dado de cartão.
+     *
+     * @throws FalhaNoGateway o gateway recusou ou não respondeu: nada mudou
+     */
+    public function alterarValor(string $idDaAssinatura, int $valorCentavos): void;
 }

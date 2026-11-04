@@ -86,6 +86,7 @@ abstract class TesteDeContratoDoGatewayDeAssinatura extends TestCase
             static fn () => $gateway->iniciar(self::pedido()),
             static fn () => $gateway->consultar('sub_qualquer'),
             static fn () => $gateway->cancelar('sub_qualquer'),
+            static fn () => $gateway->alterarValor('sub_qualquer', 13980),
         ] as $chamada) {
             try {
                 $chamada();

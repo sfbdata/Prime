@@ -12,6 +12,7 @@ use App\Contribua\Entity\Plano;
 use App\Contribua\Enum\FaixaDoEspaco;
 use App\Contribua\Event\EnvioRecusadoPorEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
+use App\Contribua\Event\EspacoPassouDoContratado;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Exception\EspacoEsgotado;
@@ -20,6 +21,7 @@ use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\PlanoRepository;
+use App\Contribua\Service\FolgaDaAmpliacao;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
@@ -82,6 +84,31 @@ final class ArmazenamentoComCotaTest extends TestCase
         self::assertSame(7, $evento->tenantId);
         self::assertSame(FaixaDoEspaco::Alerta, $evento->faixa);
         self::assertSame(FaixaDoEspaco::Atencao, $evento->faixaAnterior);
+    }
+
+    #[TestDox('Ampliação automática: o envio que passaria do limite entra com a folga de uma dobra e pede a ampliação uma vez depois do commit')]
+    public function testFolgaDaAmpliacaoDeixaPassar(): void
+    {
+        $cota = $this->decorador(usados: 10 * self::GB - 10, bloqueioAtivo: true, folga: 10 * self::GB);
+
+        $cota->gravar(self::novo(7), FonteDeConteudo::deTexto(str_repeat('x', 100)));
+        $cota->gravar(self::novo(7), FonteDeConteudo::deTexto(str_repeat('y', 100)));
+        self::assertSame([], $this->disparados, 'nada sai antes do commit');
+        $this->terminarComSucesso();
+
+        self::assertCount(2, $this->interno->gravadas);
+        $pedidos = array_values(array_filter($this->disparados, static fn (object $e): bool => $e instanceof EspacoPassouDoContratado));
+        self::assertCount(1, $pedidos, 'uma ampliação por escritório na requisição');
+        self::assertSame(7, $pedidos[0]->tenantId);
+    }
+
+    #[TestDox('Ampliação automática: a folga é de uma dobra só; o que passa dela continua recusado')]
+    public function testFolgaTemTamanhoDeUmaDobra(): void
+    {
+        $cota = $this->decorador(usados: 10 * self::GB - 10, bloqueioAtivo: true, folga: 50);
+
+        $this->expectException(EspacoEsgotado::class);
+        $cota->gravar(self::novo(7), FonteDeConteudo::deTexto(str_repeat('x', 100)));
     }
 
     #[TestDox('Gravar sem mudar de percentual nem de faixa não dispara nada')]
@@ -197,7 +224,7 @@ final class ArmazenamentoComCotaTest extends TestCase
         return new NovoArquivo(EscopoDeArquivo::deTenant($tenantId), CategoriaDeArquivo::KANBAN_ANEXO, 'pdf');
     }
 
-    private function decorador(int $usados, bool $bloqueioAtivo, ?ConsumoDeArmazenamentoRepository $consumo = null, ?int $cotaGb = null): ArmazenamentoComCota
+    private function decorador(int $usados, bool $bloqueioAtivo, ?ConsumoDeArmazenamentoRepository $consumo = null, ?int $cotaGb = null, int $folga = 0): ArmazenamentoComCota
     {
         if ($consumo === null) {
             $consumo = $this->createStub(ConsumoDeArmazenamentoRepository::class);
@@ -225,6 +252,9 @@ final class ArmazenamentoComCotaTest extends TestCase
         });
         $this->eventos = new EventosDoEspacoAposConfirmar($despachante);
 
-        return new ArmazenamentoComCota($this->interno, $consumo, $situacao, $this->eventos, new NullLogger());
+        $ampliacao = $this->createStub(FolgaDaAmpliacao::class);
+        $ampliacao->method('folgaDaAmpliacao')->willReturn($folga);
+
+        return new ArmazenamentoComCota($this->interno, $consumo, $situacao, $this->eventos, new NullLogger(), $ampliacao);
     }
 }
