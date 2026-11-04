@@ -292,6 +292,21 @@ final class SugerirAgrupamentoDoLoteUseCaseTest extends TestCase
         }
     }
 
+    #[TestDox('erro fora do contrato da porta: análise falhou só com a classe, e o erro original segue')]
+    public function testErroInesperadoDoProvedor(): void
+    {
+        // Sem resposta programada, o ProvedorFalso lança \LogicException: fora do contrato da porta.
+        $this->expectException(\LogicException::class);
+        try {
+            $this->useCase()->executar($this->user, $this->tenant, self::CAMINHOS);
+        } finally {
+            $analise = $this->ultimaAnalise();
+            self::assertSame(StatusDaAnalise::Falhou, $analise->getStatus());
+            self::assertSame('erro inesperado: LogicException', $analise->getErroMotivo());
+            self::assertCount(2, $this->salvas);
+        }
+    }
+
     #[TestDox('provedor indisponível na chamada: análise indisponível')]
     public function testProvedorIndisponivel(): void
     {

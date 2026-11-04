@@ -126,6 +126,13 @@ final class SugerirAgrupamentoDoLoteUseCase
             $analise->falhar('resposta inválida do modelo');
 
             throw $this->falhou($analise, $e);
+        } catch (\Throwable $e) {
+            // Fora do contrato da porta: a linha não fica em `processando` para sempre. Só a classe
+            // vai ao motivo (a mensagem pode trazer texto do pedido); o erro original segue para o log.
+            $analise->falhar('erro inesperado: ' . $e::class);
+            $this->falhou($analise, $e);
+
+            throw $e;
         }
     }
 

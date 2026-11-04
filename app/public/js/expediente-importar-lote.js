@@ -294,7 +294,7 @@
             });
             if (!files.length) { return; }
             lote.push({ cli: String(c.cliente || '').toUpperCase(), files: files, on: true, feita: false, st: '', nup: '',
-                comCaminho: false, ia: true, pastaIa: c.pasta, sub: c.mesmoClienteQue ? 'mesmo cliente que ' + nomeDaPasta(c.mesmoClienteQue) : '' });
+                comCaminho: false, ia: true, pastaIa: c.pasta, sub: c.mesmoClienteQue ? 'mesmo cliente que a pasta ' + nomeDaPasta(c.mesmoClienteQue) : '' });
         });
         var resto = arquivos.filter(function (fl, i) { return !usados[i]; });
         if (resto.length) {
@@ -303,8 +303,8 @@
         }
         s.lote = lote;
         s.modo = 'ia';
-        s.aviso = 'Sugestão da IA, confira antes de importar.'
-            + (d.truncado ? ' A IA olhou só os primeiros 2.000 itens; o resto ficou em Arquivos sem caso.' : '');
+        s.aviso = 'Sugestão da IA: ela pode errar, confira antes de importar.'
+            + (d.truncado ? ' A IA olhou só os primeiros 2.000 itens (pastas e arquivos). Confira os arquivos de cada caso e a linha Arquivos sem caso.' : '');
         s.erro = '';
     }
 
