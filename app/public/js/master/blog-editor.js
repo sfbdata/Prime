@@ -13,6 +13,9 @@
      blocos ficam não editáveis por fora e editáveis por dentro (contenteditable só na tela; sai ao salvar).
      Do editor da pasta vêm Revisar texto, Localizar (Ctrl+H), Diminuir/Aumentar recuo (só em lista: sublista) e
      Inserir símbolo; ver a seção "Revisar texto, Localizar, recuo da lista e símbolos" abaixo.
+     Inserir tabela (plugin table): tabela simples, a primeira linha é o cabeçalho (thead > th) e vira a linha de
+     cabeçalho da tabela GFM no Markdown; dentro da tabela, as ações da pasta (inserir e remover linha e coluna,
+     remover tabela) na barra de contexto. Sem mesclar, estilo, largura nem atributo.
      Imagem (P3): botão de imagem do TinyMCE (plugin image), com o texto alternativo no diálogo; o envio vai ao
      servidor pelo images_upload_handler (POST imagens, multipart). O servidor passa o HTML pela lista branca de novo
      (ListaBrancaDoArtigo) e, ao salvar, apaga a imagem que não está mais no corpo nem na capa.
@@ -449,6 +452,9 @@
     'div[data-bj="leia-tambem"] { min-height: 20px; }',
     'div[data-bj="leia-tambem"]::before { content: "Leia também: " attr(data-artigo); color: #0a6fa0; text-transform: none; font-size: 13px; }',
     'div[data-bj] [contenteditable="true"] { outline: none; }',
+    'table { border-collapse: collapse; margin: 1.2em 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; }',
+    'th, td { border: 1px solid #c5d2db; padding: 6px 10px; text-align: left; vertical-align: top; min-width: 48px; }',
+    'th { background: #f7f9fb; font-weight: bold; }',
   ].join('\n');
 
   // Bloco no editor: não editável por fora; os filhos dos blocos de texto ficam editáveis por dentro.
@@ -519,6 +525,32 @@
     ]),
     // O botão de símbolos da pasta mostra o próprio "§" (editor-rico-icone-simbolo).
     'bj-simbolo': '<svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><text x="12" y="17.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">§</text></svg>',
+    // Tabela: bi-table e os ícones das ações da tabela da pasta (ACOES_DA_TABELA do editor-rico.js).
+    'bj-table': svgBi([
+      'M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm15 2h-4v3h4zm0 4h-4v3h4zm0 4h-4v3h3a1 1 0 0 0 1-1zm-5 3v-3H6v3zm-5 0v-3H1v2a1 1 0 0 0 1 1zm-4-4h4V8H1zm0-4h4V4H1zm5-3v3h4V4zm4 4H6v3h4z',
+    ]),
+    'bj-arrow-bar-up': svgBi([
+      'M8 10a.5.5 0 0 0 .5-.5V3.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 3.707V9.5a.5.5 0 0 0 .5.5m-7 2.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 0 1h-13a.5.5 0 0 1-.5-.5',
+    ]),
+    'bj-arrow-bar-down': svgBi([
+      'M1 3.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 0 1h-13a.5.5 0 0 1-.5-.5M8 6a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 .708-.708L7.5 12.293V6.5A.5.5 0 0 1 8 6',
+    ]),
+    'bj-arrow-bar-left': svgBi([
+      'M12.5 15a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 1 0v13a.5.5 0 0 1-.5.5M10 8a.5.5 0 0 1-.5.5H3.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L3.707 7.5H9.5a.5.5 0 0 1 .5.5',
+    ]),
+    'bj-arrow-bar-right': svgBi([
+      'M6 8a.5.5 0 0 0 .5.5h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L12.293 7.5H6.5A.5.5 0 0 0 6 8m-2.5 7a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 1 0v13a.5.5 0 0 1-.5.5',
+    ]),
+    'bj-dash-square': svgBi([
+      'M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z',
+      'M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8',
+    ]),
+    'bj-dash-square-dotted': svgBi([
+      'M2.5 0q-.25 0-.487.048l.194.98A1.5 1.5 0 0 1 2.5 1h.458V0zm2.292 0h-.917v1h.917zm1.833 0h-.917v1h.917zm1.833 0h-.916v1h.916zm1.834 0h-.917v1h.917zm1.833 0h-.917v1h.917zM13.5 0h-.458v1h.458q.151 0 .293.029l.194-.981A2.5 2.5 0 0 0 13.5 0m2.079 1.11a2.5 2.5 0 0 0-.69-.689l-.556.831q.248.167.415.415l.83-.556zM1.11.421a2.5 2.5 0 0 0-.689.69l.831.556c.11-.164.251-.305.415-.415zM16 2.5q0-.25-.048-.487l-.98.194q.027.141.028.293v.458h1zM.048 2.013A2.5 2.5 0 0 0 0 2.5v.458h1V2.5q0-.151.029-.293zM0 3.875v.917h1v-.917zm16 .917v-.917h-1v.917zM0 5.708v.917h1v-.917zm16 .917v-.917h-1v.917zM0 7.542v.916h1v-.916zm15 .916h1v-.916h-1zM0 9.375v.917h1v-.917zm16 .917v-.917h-1v.917zm-16 .916v.917h1v-.917zm16 .917v-.917h-1v.917zm-16 .917v.458q0 .25.048.487l.98-.194A1.5 1.5 0 0 1 1 13.5v-.458zm16 .458v-.458h-1v.458q0 .151-.029.293l.981.194Q16 13.75 16 13.5M.421 14.89c.183.272.417.506.69.689l.556-.831a1.5 1.5 0 0 1-.415-.415zm14.469.689c.272-.183.506-.417.689-.69l-.831-.556c-.11.164-.251.305-.415.415l.556.83zm-12.877.373Q2.25 16 2.5 16h.458v-1H2.5q-.151 0-.293-.029zM13.5 16q.25 0 .487-.048l-.194-.98A1.5 1.5 0 0 1 13.5 15h-.458v1zm-9.625 0h.917v-1h-.917zm1.833 0h.917v-1h-.917zm1.834 0h.916v-1h-.916zm1.833 0h.917v-1h-.917zm1.833 0h.917v-1h-.917zM4.5 7.5a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1z',
+    ]),
+    'bj-trash3': svgBi([
+      'M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5',
+    ]),
   };
   const DICAS = {
     revisar: 'Revisar texto',
@@ -526,7 +558,18 @@
     diminuirRecuo: 'Diminuir recuo (Shift+Tab)',
     aumentarRecuo: 'Aumentar recuo (Tab)',
     simbolo: 'Inserir símbolo',
+    tabela: 'Inserir tabela',
   };
+  // As ações da tabela da pasta (editor-rico.js, ACOES_DA_TABELA): botão, ícone, texto e o comando do plugin table.
+  const ACOES_DA_TABELA = [
+    ['bjtabelalinhaacima', 'bj-arrow-bar-up', 'Inserir linha acima', 'mceTableInsertRowBefore'],
+    ['bjtabelalinhaabaixo', 'bj-arrow-bar-down', 'Inserir linha abaixo', 'mceTableInsertRowAfter'],
+    ['bjtabelacolunaesquerda', 'bj-arrow-bar-left', 'Inserir coluna à esquerda', 'mceTableInsertColBefore'],
+    ['bjtabelacolunadireita', 'bj-arrow-bar-right', 'Inserir coluna à direita', 'mceTableInsertColAfter'],
+    ['bjtabelaremoverlinha', 'bj-dash-square', 'Remover linha', 'mceTableDeleteRow'],
+    ['bjtabelaremovercoluna', 'bj-dash-square-dotted', 'Remover coluna', 'mceTableDeleteCol'],
+    ['bjtabelaremover', 'bj-trash3', 'Remover tabela', 'mceTableDelete'],
+  ];
   let janela = null;
 
   const elemento = (tag, classe, texto) => {
@@ -571,7 +614,7 @@
     abrirJanela(dica, montar());
   }
 
-  const BLOCO_DE_TEXTO = /^(P|H[1-6]|LI|UL|OL|BLOCKQUOTE|DIV|BR)$/;
+  const BLOCO_DE_TEXTO = /^(P|H[1-6]|LI|UL|OL|BLOCKQUOTE|DIV|BR|TABLE|TR|TH|TD)$/;
 
   /* O texto do corpo como a revisão o lê: cada bloco numa linha ("\n", para "palavra repetida" não juntar fim e
      começo de parágrafos) e, para cada nó de texto editável, onde ele começa nesse texto. */
@@ -756,6 +799,40 @@
       onAction: () => { if (Revisao) alternarJanela(DICAS.simbolo, conteudoDosSimbolos); },
     });
 
+    /* Inserir tabela: fora de tabela, a grade linhas × colunas do plugin table (fancymenuitem inserttable); a tabela
+       nasce com a primeira linha como cabeçalho (thead > tr > th, table_header_type sectionCells), que é a linha de
+       cabeçalho da tabela no Markdown. A tabela só fica solta no corpo: dentro de tabela, item de lista, citação ou
+       bloco BlueJus o botão fica desabilitado (a lista branca do servidor a transformaria em texto). Dentro da
+       tabela, as ações aparecem na barra de contexto (table_toolbar), com os ícones e textos da pasta. */
+    const podeInserirTabela = () => !ed.dom.getParent(ed.selection.getNode(), 'table,li,blockquote,div[data-bj]', ed.getBody());
+    ed.ui.registry.addMenuButton('bjtabela', {
+      icon: 'bj-table',
+      tooltip: DICAS.tabela,
+      fetch: devolver => devolver([{
+        type: 'fancymenuitem',
+        fancytype: 'inserttable',
+        onAction: d => {
+          if (!podeInserirTabela()) return;
+          fecharJanela();
+          ed.execCommand('mceInsertTable', false, { rows: d.numRows, columns: d.numColumns, options: { headerRows: 1 } });
+          sujo = true;
+        },
+      }]),
+      onSetup: api => {
+        const atualizar = () => api.setEnabled(podeInserirTabela());
+        atualizar();
+        ed.on('NodeChange', atualizar);
+        return () => ed.off('NodeChange', atualizar);
+      },
+    });
+    ACOES_DA_TABELA.forEach(([nome, icone, texto, comando]) => {
+      ed.ui.registry.addButton(nome, {
+        icon: icone,
+        tooltip: texto,
+        onAction: () => { ed.execCommand(comando); sujo = true; },
+      });
+    });
+
     // Clique no texto ou Esc fecham a janela aberta (o clique dentro do iframe não chega ao document).
     ed.on('mousedown', fecharJanela);
     ed.on('keydown', e => { if (e.key === 'Escape' && janela) { e.preventDefault(); fecharJanela(); } });
@@ -815,15 +892,15 @@
       promotion: false,
       branding: false,
       language: 'pt_BR',
-      plugins: 'lists link autolink image searchreplace',
+      plugins: 'lists link autolink image searchreplace table',
       menubar: false,
       contextmenu: false,
       browser_spellcheck: true,
-      toolbar: 'bjp bjh2 bjh3 | bold italic | link image | bullist numlist bjdiminuirrecuo bjaumentarrecuo blockquote bjsimbolo | undo redo | bjrevisar bjlocalizar | bjblocos',
+      toolbar: 'bjp bjh2 bjh3 | bold italic | link image | bullist numlist bjdiminuirrecuo bjaumentarrecuo blockquote bjsimbolo bjtabela | undo redo | bjrevisar bjlocalizar | bjblocos',
       toolbar_mode: 'wrap',
       height: 620,
       elementpath: false,
-      valid_elements: 'p[contenteditable],h2,h3,strong/b,em/i,a[href],ul[contenteditable],ol[contenteditable],li,blockquote,img[src|alt],br,div[data-bj|data-artigo|contenteditable]',
+      valid_elements: 'p[contenteditable],h2,h3,strong/b,em/i,a[href],ul[contenteditable],ol[contenteditable],li,blockquote,img[src|alt],br,div[data-bj|data-artigo|contenteditable],table,thead,tbody,tr,th,td',
       entity_encoding: 'raw',
       convert_urls: false,
       relative_urls: false,
@@ -832,6 +909,21 @@
       link_target_list: false,
       link_default_protocol: 'https',
       paste_data_images: false,
+      /* Tabela simples: cabeçalho e linhas, sem aparência. Sem propriedades, abas avançadas, barras de redimensionar,
+         largura, colgroup, estilo nem atributo; a alça de redimensionar fica só na imagem. */
+      table_toolbar: ACOES_DA_TABELA.map(a => a[0]).join(' '),
+      table_header_type: 'sectionCells',
+      table_appearance_options: false,
+      table_advtab: false,
+      table_cell_advtab: false,
+      table_row_advtab: false,
+      table_resize_bars: false,
+      table_sizing_mode: 'responsive',
+      table_default_styles: {},
+      table_default_attributes: {},
+      table_use_colgroups: false,
+      table_style_by_css: false,
+      object_resizing: 'img',
       /* Imagem (P3): o diálogo pede o texto alternativo; a aba Enviar manda o arquivo pelo images_upload_handler.
          Sem largura, altura, título nem legenda: o blog só guarda src e alt. */
       image_description: true,

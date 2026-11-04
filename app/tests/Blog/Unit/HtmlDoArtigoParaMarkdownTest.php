@@ -94,14 +94,15 @@ final class HtmlDoArtigoParaMarkdownTest extends TestCase
         self::assertSame($esperado, $this->sut->converter($html));
     }
 
-    #[TestDox('A lista branca derruba script, style, on*, style e class, e tag desconhecida deixa só o texto')]
+    #[TestDox('A lista branca derruba script, style, on*, style e class, e tag desconhecida deixa só o texto (tabela simples fica)')]
     public function testListaBranca(): void
     {
         $html = '<p class="x" style="color:red" onclick="alert(1)">Oi <span style="x">você</span></p><script>alert(1)</script><style>p{}</style>'
             . '<h1>Grande</h1><table><tr><td>a</td><td>b</td></tr></table>';
 
-        self::assertSame('<p>Oi você</p>Grande a b', trim((string) preg_replace('/\s+/', ' ', $this->sut->sanitizar($html))));
-        self::assertSame("Oi você\n\nGrande a b\n", $this->sut->converter($html));
+        // A tabela simples entra (botão Inserir tabela), sem atributo e com a primeira linha como cabeçalho.
+        self::assertSame('<p>Oi você</p>Grande <table><thead><tr><th>a</th><th>b</th></tr></thead></table>', trim((string) preg_replace('/\s+/', ' ', $this->sut->sanitizar($html))));
+        self::assertSame("Oi você\n\nGrande\n\n| a | b |\n| --- | --- |\n", $this->sut->converter($html));
     }
 
     #[TestDox('Imagem fora do mapa de extensões, de outro endereço ou sem id cai')]

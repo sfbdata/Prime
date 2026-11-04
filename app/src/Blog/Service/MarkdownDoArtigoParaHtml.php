@@ -12,13 +12,21 @@ use App\Blog\Exception\ArtigoDoRepositorioRecusado;
  * HTML que o editor guarda (spec painel-artigos-blogs, seção 3, tabela dos blocos). Usado só na importação (fatia P2).
  *
  * Só o subconjunto que o blog usa: parágrafo, `##`, `###`, negrito, itálico, link, listas (com e sem número, aninhadas),
- * citação, quebra de linha e as diretivas do repositório dos sites:
+ * citação, quebra de linha, tabela GFM e as diretivas do repositório dos sites:
  *
  *   :::aviso ... :::                  <div data-bj="aviso"><p>...</p></div>
  *   :::etapas + "1. **T.** texto"     <div data-bj="etapas"><ol><li><strong>T.</strong> texto</li></ol></div>
  *   :::checklist + "- ..."            <div data-bj="checklist"><ul><li>...</li></ul></div>
  *   ::cta-meio                        <div data-bj="cta-meio"></div>
  *   ::leia-tambem{artigo=slug}        <div data-bj="leia-tambem" data-artigo="slug"></div>
+ *
+ * Tabela GFM (`| a | b |` + `| --- | --- |` + linhas): sai na forma que a lista branca guarda,
+ * `<table><thead><tr><th>a</th>...</tr></thead><tbody><tr><td>...</td></tr></tbody></table>` (sem tbody quando só há o
+ * cabeçalho). O alinhamento (`:---:`) não é guardado; linha com menos células ganha células vazias e a com mais perde
+ * as que sobram, como no GFM. `\|` é a barra dentro da célula. A tabela fecha na linha em branco, na linha horizontal
+ * e no começo de outro bloco (item de lista, título, citação, diretiva); o parágrafo para antes da linha que começa
+ * uma tabela, como no cmark-gfm. Tabela dentro de diretiva, citação ou lista é RECUSADA: no blog ela só fica solta no
+ * corpo (a lista branca a transformaria em texto, e nada pode sumir calado na importação).
  *
  * O que fica fora do subconjunto é RECUSADO com mensagem, para nada sumir calado na importação: imagem (as imagens
  * entram pela P3), bloco de código, título de nível 1, 4, 5 ou 6, linha horizontal, HTML no meio do texto e diretiva
@@ -33,6 +41,10 @@ final class MarkdownDoArtigoParaHtml
     private const DIRETIVAS_DE_BLOCO = ['aviso', 'etapas', 'checklist'];
     private const REGEX_ITEM = '/^( {0,3})([-*+]|(\d{1,9})[.)])( +|$)/';
     private const PONTUACAO_ESCAPAVEL = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+    private const REGEX_LINHA_HORIZONTAL = '/^ {0,3}([-*_])( *\1){2,} *$/';
+
+    /** Quantos blocos (diretiva, citação, item de lista) envolvem o que está sendo lido: tabela só vale no 0. */
+    private int $profundidade = 0;
 
     public function converter(string $markdown): string
     {
@@ -98,6 +110,13 @@ final class MarkdownDoArtigoParaHtml
         if (preg_match(self::REGEX_ITEM, $linha) === 1) {
             return $this->lista($linhas, $i);
         }
+        if ($this->comecaTabela($linhas, $i)) {
+            if ($this->profundidade > 0) {
+                throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('tabela dentro de citação, lista ou bloco (:::aviso, :::etapas, :::checklist)');
+            }
+
+            return $this->tabela($linhas, $i);
+        }
 
         return $this->paragrafo($linhas, $i);
     }
@@ -110,7 +129,7 @@ final class MarkdownDoArtigoParaHtml
         if (preg_match('/^ {0,3}(#|#{4,6})(\s|$)/', $linha) === 1) {
             throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('título de nível 1, 4, 5 ou 6 (o blog usa só ## e ###)');
         }
-        if (preg_match('/^ {0,3}([-*_])( *\1){2,} *$/', $linha) === 1) {
+        if (preg_match(self::REGEX_LINHA_HORIZONTAL, $linha) === 1) {
             throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('linha horizontal');
         }
     }
@@ -136,7 +155,7 @@ final class MarkdownDoArtigoParaHtml
             throw ArtigoDoRepositorioRecusado::diretivaSemFechamento($nome);
         }
 
-        return ['<div data-bj="' . $nome . '">' . implode('', $this->blocos($dentro)) . '</div>', $i + 1];
+        return ['<div data-bj="' . $nome . '">' . implode('', $this->blocosDeDentro($dentro)) . '</div>', $i + 1];
     }
 
     private function diretivaDeLinha(string $linha): string
@@ -167,13 +186,30 @@ final class MarkdownDoArtigoParaHtml
             $dentro[] = $m[1];
             ++$i;
         }
-        $html = implode('', $this->blocos($dentro));
+        $html = implode('', $this->blocosDeDentro($dentro));
 
         return [$html === '' ? '' : '<blockquote>' . $html . '</blockquote>', $i];
     }
 
     /**
-     * Parágrafo: as linhas seguidas até uma linha em branco ou o começo de outro bloco.
+     * Os blocos de dentro de uma diretiva, citação ou item de lista (onde tabela é recusada).
+     *
+     * @param list<string> $linhas
+     *
+     * @return list<string>
+     */
+    private function blocosDeDentro(array $linhas): array
+    {
+        ++$this->profundidade;
+        try {
+            return $this->blocos($linhas);
+        } finally {
+            --$this->profundidade;
+        }
+    }
+
+    /**
+     * Parágrafo: as linhas seguidas até uma linha em branco, o começo de outro bloco ou de uma tabela.
      *
      * @param list<string> $linhas
      *
@@ -185,7 +221,7 @@ final class MarkdownDoArtigoParaHtml
         do {
             $texto[] = $linhas[$i];
             ++$i;
-        } while ($i < \count($linhas) && !$this->fechaParagrafo($linhas[$i]));
+        } while ($i < \count($linhas) && !$this->fechaParagrafo($linhas[$i]) && !$this->comecaTabela($linhas, $i));
 
         return ['<p>' . $this->inline(implode("\n", $texto)) . '</p>', $i];
     }
@@ -196,6 +232,114 @@ final class MarkdownDoArtigoParaHtml
             || preg_match('/^ {0,3}(#{1,6}(\s|$)|>|```|~~~)/', $linha) === 1
             || preg_match('/^\s*::/', $linha) === 1
             || preg_match('/^ {0,3}([-*+]|1[.)]) +\S/', $linha) === 1;
+    }
+
+    // ---- tabela ----
+
+    /**
+     * Linha com `|` seguida da linha de separação (`| --- | :---: |`) com o mesmo número de células.
+     *
+     * @param list<string> $linhas
+     */
+    private function comecaTabela(array $linhas, int $i): bool
+    {
+        $separacao = $linhas[$i + 1] ?? '';
+        if (!str_contains($linhas[$i], '|') || !str_contains($separacao, '|')) {
+            return false;
+        }
+        $marcas = self::celulasDaLinha($separacao);
+        if ($marcas === []) {
+            return false;
+        }
+        foreach ($marcas as $marca) {
+            if (preg_match('/^:?-+:?$/', $marca) !== 1) {
+                return false;
+            }
+        }
+
+        return \count($marcas) === \count(self::celulasDaLinha($linhas[$i]));
+    }
+
+    /**
+     * A tabela até a linha em branco ou o começo de outro bloco.
+     *
+     * @param list<string> $linhas
+     *
+     * @return array{string, int}
+     */
+    private function tabela(array $linhas, int $i): array
+    {
+        $cabecalho = self::celulasDaLinha($linhas[$i]);
+        $colunas = \count($cabecalho);
+        $html = '<table><thead>' . $this->linhaDaTabela($cabecalho, 'th') . '</thead>';
+        $i += 2;
+
+        $corpo = '';
+        $total = \count($linhas);
+        while ($i < $total && !$this->fechaTabela($linhas[$i])) {
+            $celulas = \array_slice(array_pad(self::celulasDaLinha($linhas[$i]), $colunas, ''), 0, $colunas);
+            $corpo .= $this->linhaDaTabela($celulas, 'td');
+            ++$i;
+        }
+
+        return [$html . ($corpo === '' ? '' : '<tbody>' . $corpo . '</tbody>') . '</table>', $i];
+    }
+
+    /** Linha em branco, linha horizontal ou começo de outro bloco (item de lista com qualquer número, título, citação, diretiva). */
+    private function fechaTabela(string $linha): bool
+    {
+        return $this->fechaParagrafo($linha)
+            || preg_match(self::REGEX_LINHA_HORIZONTAL, $linha) === 1
+            || preg_match(self::REGEX_ITEM, $linha) === 1;
+    }
+
+    /** @param list<string> $celulas */
+    private function linhaDaTabela(array $celulas, string $tag): string
+    {
+        $html = '';
+        foreach ($celulas as $celula) {
+            $html .= '<' . $tag . '>' . $this->inline($celula) . '</' . $tag . '>';
+        }
+
+        return '<tr>' . $html . '</tr>';
+    }
+
+    /**
+     * As células de uma linha da tabela, sem os espaços das pontas. A `|` das pontas é opcional; `\|` é a barra no
+     * texto da célula (vira `|`), e as outras barras invertidas ficam para o texto corrido tratar.
+     *
+     * @return list<string>
+     */
+    private static function celulasDaLinha(string $linha): array
+    {
+        $linha = trim($linha);
+        $celulas = [];
+        $atual = '';
+        $terminouNaBarra = false;
+        for ($i = 0, $tamanho = \strlen($linha); $i < $tamanho; ++$i) {
+            $c = $linha[$i];
+            $terminouNaBarra = false;
+            if ($c === '\\' && $i + 1 < $tamanho) {
+                $atual .= $linha[$i + 1] === '|' ? '|' : $c . $linha[$i + 1];
+                ++$i;
+                continue;
+            }
+            if ($c === '|') {
+                $celulas[] = trim($atual);
+                $atual = '';
+                $terminouNaBarra = true;
+                continue;
+            }
+            $atual .= $c;
+        }
+        if (!$terminouNaBarra) {
+            $celulas[] = trim($atual);
+        }
+        if (str_starts_with($linha, '|')) {
+            array_shift($celulas);
+        }
+
+        return $celulas;
     }
 
     // ---- listas ----
@@ -299,7 +443,7 @@ final class MarkdownDoArtigoParaHtml
             ++$i;
         }
         $inline = $this->inline(trim(implode("\n", $texto)));
-        $resto = implode('', $this->blocos(\array_slice($conteudo, $i)));
+        $resto = implode('', $this->blocosDeDentro(\array_slice($conteudo, $i)));
 
         return $inline . $resto;
     }

@@ -18,7 +18,14 @@ use App\Blog\Entity\ArtigoDoBlog;
  *  - href só http(s), mailto ou caminho relativo; javascript:, data:, vbscript: e outros esquemas derrubam o link
  *    e fica o texto. O esquema é lido sem diferenciar maiúsculas e ignorando espaços e controles;
  *  - src de img só `/master/blog/imagens/{id}`; qualquer outro derruba a imagem;
- *  - os blocos `data-bj` só valem no nível de cima do corpo (não se aninham).
+ *  - os blocos `data-bj` só valem no nível de cima do corpo (não se aninham);
+ *  - tabela simples (botão Inserir tabela), só no nível de cima do corpo e sem atributo nenhum. Sai sempre na mesma
+ *    forma: `table > thead > tr > th` com a linha do cabeçalho e `tbody > tr > td` com as outras (sem tbody quando só
+ *    há o cabeçalho). O cabeçalho é a primeira linha do thead; sem thead, a primeira linha da tabela. As outras linhas
+ *    do thead e as do tfoot vão para o tbody, na ordem. Linha sem célula e tabela sem linha somem. Na célula só fica
+ *    texto, strong, em, a e br: bloco (parágrafo, título, lista, citação, outra tabela) vira texto e imagem cai.
+ *    Tabela fora do nível de cima (dentro de lista, citação ou bloco BlueJus) vira texto. Dentro da tabela, só as
+ *    linhas (tr) contam: caption, colgroup e texto solto fora de tr caem.
  *
  * Uso interno do {@see HtmlDoArtigoParaMarkdown}.
  */
@@ -32,7 +39,11 @@ final class ListaBrancaDoArtigo
     private const SOMEM_COM_TEXTO = ['script', 'style'];
     /** Tags de bloco desconhecidas: o texto fica, com um espaço para não grudar palavras vizinhas. */
     private const BLOCOS_DESCONHECIDOS = ['div', 'section', 'article', 'header', 'footer', 'aside', 'nav', 'main', 'h1', 'h4', 'h5', 'h6',
-        'table', 'thead', 'tbody', 'tr', 'td', 'th', 'pre', 'figure', 'figcaption', 'dl', 'dt', 'dd', 'address', 'hr'];
+        'pre', 'figure', 'figcaption', 'dl', 'dt', 'dd', 'address', 'hr'];
+    /** Partes da tabela: fora do lugar (tabela que não está no topo, célula solta), viram texto como os blocos desconhecidos. */
+    private const PARTES_DA_TABELA = ['table', 'caption', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'];
+    /** O que a célula aceita; o resto dos permitidos vira texto (bloco) ou cai (imagem). */
+    private const PERMITIDOS_NA_CELULA = ['strong', 'em', 'a', 'br'];
     private const ESQUEMAS_PERMITIDOS = ['http', 'https', 'mailto'];
 
     /** Devolve a raiz (um `<div>` de um documento novo) só com os nós da lista branca. */
@@ -94,19 +105,19 @@ final class ListaBrancaDoArtigo
         return $corpo instanceof \DOMElement ? $corpo : null;
     }
 
-    private function copiarFilhos(\DOMNode $origem, \DOMElement $destino, bool $noTopo): void
+    private function copiarFilhos(\DOMNode $origem, \DOMElement $destino, bool $noTopo, bool $naCelula = false): void
     {
         foreach ($origem->childNodes as $filho) {
             if ($filho instanceof \DOMText && !$filho instanceof \DOMCdataSection) {
                 $destino->appendChild($this->documento($destino)->createTextNode($filho->data));
             } elseif ($filho instanceof \DOMElement) {
-                $this->copiarElemento($filho, $destino, $noTopo);
+                $this->copiarElemento($filho, $destino, $noTopo, $naCelula);
             }
             // comentário, CDATA e instrução de processamento caem
         }
     }
 
-    private function copiarElemento(\DOMElement $elemento, \DOMElement $destino, bool $noTopo): void
+    private function copiarElemento(\DOMElement $elemento, \DOMElement $destino, bool $noTopo, bool $naCelula): void
     {
         $nome = strtolower($elemento->tagName);
         $nome = self::TROCAS[$nome] ?? $nome;
@@ -118,39 +129,122 @@ final class ListaBrancaDoArtigo
 
             return;
         }
-        if (!\in_array($nome, self::PERMITIDOS, true)) {
-            $this->desembrulhar($elemento, $nome, $destino);
+        if ($nome === 'table' && $noTopo) {
+            $this->copiarTabela($elemento, $destino);
+
+            return;
+        }
+        if ($naCelula && $nome === 'img') {
+            return;
+        }
+        if (!\in_array($nome, $naCelula ? self::PERMITIDOS_NA_CELULA : self::PERMITIDOS, true)) {
+            $this->desembrulhar($elemento, $nome, $destino, $naCelula);
 
             return;
         }
 
         match ($nome) {
-            'a' => $this->copiarLink($elemento, $destino),
+            'a' => $this->copiarLink($elemento, $destino, $naCelula),
             'img' => $this->copiarImagem($elemento, $destino),
-            default => $this->copiarFilhos($elemento, $this->anexar($destino, $nome), false),
+            default => $this->copiarFilhos($elemento, $this->anexar($destino, $nome), false, $naCelula),
         };
     }
 
-    private function desembrulhar(\DOMElement $elemento, string $nome, \DOMElement $destino): void
+    private function desembrulhar(\DOMElement $elemento, string $nome, \DOMElement $destino, bool $naCelula = false): void
     {
-        $this->copiarFilhos($elemento, $destino, false);
-        if (\in_array($nome, self::BLOCOS_DESCONHECIDOS, true)) {
+        if (\in_array($nome, self::PARTES_DA_TABELA, true)) {
+            // célula e linha fora do lugar: espaço antes também, para o texto não grudar no que vem antes
+            $destino->appendChild($this->documento($destino)->createTextNode(' '));
+        }
+        $this->copiarFilhos($elemento, $destino, false, $naCelula);
+        if (\in_array($nome, self::BLOCOS_DESCONHECIDOS, true) || \in_array($nome, self::PARTES_DA_TABELA, true)
+            || ($naCelula && \in_array($nome, self::PERMITIDOS, true))) {
             $destino->appendChild($this->documento($destino)->createTextNode(' '));
         }
     }
 
-    private function copiarLink(\DOMElement $link, \DOMElement $destino): void
+    private function copiarLink(\DOMElement $link, \DOMElement $destino, bool $naCelula = false): void
     {
         $href = trim($link->getAttribute('href'));
         if (!self::hrefPermitido($href)) {
-            $this->copiarFilhos($link, $destino, false);
+            $this->copiarFilhos($link, $destino, false, $naCelula);
 
             return;
         }
 
         $novo = $this->anexar($destino, 'a');
         $novo->setAttribute('href', $href);
-        $this->copiarFilhos($link, $novo, false);
+        $this->copiarFilhos($link, $novo, false, $naCelula);
+    }
+
+    /** A tabela na forma única (ver o cabeçalho da classe): thead com a linha do cabeçalho, tbody com o resto. */
+    private function copiarTabela(\DOMElement $tabela, \DOMElement $destino): void
+    {
+        $linhas = $this->linhasDaTabela($tabela);
+        if ($linhas === []) {
+            return;
+        }
+
+        $nova = $this->anexar($destino, 'table');
+        $this->copiarLinha(array_shift($linhas), $this->anexar($nova, 'thead'), 'th');
+        if ($linhas !== []) {
+            $corpo = $this->anexar($nova, 'tbody');
+            foreach ($linhas as $linha) {
+                $this->copiarLinha($linha, $corpo, 'td');
+            }
+        }
+    }
+
+    /**
+     * As linhas com pelo menos uma célula, com a do cabeçalho primeiro: a primeira do thead ou, sem thead, a primeira
+     * da tabela. As demais seguem a ordem do HTML.
+     *
+     * @return list<\DOMElement>
+     */
+    private function linhasDaTabela(\DOMElement $tabela): array
+    {
+        $linhas = [];
+        $cabecalho = null;
+        foreach ($tabela->childNodes as $filho) {
+            if (!$filho instanceof \DOMElement) {
+                continue;
+            }
+            $nome = strtolower($filho->tagName);
+            $doGrupo = \in_array($nome, ['thead', 'tbody', 'tfoot'], true) ? iterator_to_array($filho->childNodes, false) : [$filho];
+            foreach ($doGrupo as $linha) {
+                if (!$linha instanceof \DOMElement || strtolower($linha->tagName) !== 'tr' || $this->celulas($linha) === []) {
+                    continue;
+                }
+                if ($nome === 'thead' && $cabecalho === null) {
+                    $cabecalho = $linha;
+                    continue;
+                }
+                $linhas[] = $linha;
+            }
+        }
+
+        return $cabecalho === null ? $linhas : [$cabecalho, ...$linhas];
+    }
+
+    /** @return list<\DOMElement> */
+    private function celulas(\DOMElement $linha): array
+    {
+        $celulas = [];
+        foreach ($linha->childNodes as $filho) {
+            if ($filho instanceof \DOMElement && \in_array(strtolower($filho->tagName), ['th', 'td'], true)) {
+                $celulas[] = $filho;
+            }
+        }
+
+        return $celulas;
+    }
+
+    private function copiarLinha(\DOMElement $linha, \DOMElement $grupo, string $tagDaCelula): void
+    {
+        $nova = $this->anexar($grupo, 'tr');
+        foreach ($this->celulas($linha) as $celula) {
+            $this->copiarFilhos($celula, $this->anexar($nova, $tagDaCelula), false, true);
+        }
     }
 
     private function copiarImagem(\DOMElement $imagem, \DOMElement $destino): void
