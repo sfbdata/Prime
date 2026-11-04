@@ -147,8 +147,8 @@ cliente. A pessoa confere na tabela de sempre e clica Importar.
 - Sempre **Haiku 5.5** (`claude-haiku-5-5`), fixado no `PedidoDeLinguagem::$modelo` deste uso, mesmo que o
   Master escolha outro modelo para o resto. A tarefa é classificação de nomes; o modelo maior não paga
   a diferença.
-- `exigeJson`, `maxTokens` 4.000, sem `temperature`. Até **2.000 caminhos** por pedido, cada um cortado
-  em 200 caracteres. Lote maior: a IA sugere só os primeiros 2.000 e a tela diz isso.
+- `exigeJson`, `maxTokens` 4.000, sem `temperature`. Até **2.000 itens** por pedido (pastas e arquivos da
+  lista numerada), cada um cortado em 200 caracteres. Lote maior: a IA sugere só os primeiros 2.000 e a tela diz isso.
 - **Custo estimado** (preço de `ModeloDeIa::precoPorMilhao()`: US$ 0,10 por milhão de entrada,
   US$ 0,50 por milhão de saída, mais 1,1x da região `us` em `CustoDaIa`):
 
@@ -156,7 +156,7 @@ cliente. A pessoa confere na tabela de sempre e clica Importar.
   |---|---|---|---|
   | 100 arquivos | 3 mil tokens | 0,5 mil | ≈ US$ 0,0006 (R$ 0,004) |
   | 500 arquivos | 11 mil tokens | 2 mil | ≈ US$ 0,0023 (R$ 0,013) |
-  | 2.000 arquivos (teto) | 42 mil tokens | 4 mil | ≈ US$ 0,0068 (R$ 0,04) |
+  | 2.000 itens (teto) | 42 mil tokens | 4 mil | ≈ US$ 0,0068 (R$ 0,04) |
 
   Conta: ~20 tokens por caminho mais ~1 mil de instrução; dólar a R$ 5,50. [Suposição] O consumo real
   sai de `tokens_entrada`/`tokens_saida` gravados na linha da análise.
@@ -207,4 +207,4 @@ O jurídico não trava a função; os advogados ajustam os termos depois.
 1. **Sem aceite novo:** nem v3 nem aviso na função. Valem só `DisponibilidadeDeInteligencia::para()`
    e a cota, como no resto da IA.
 2. **Clique explícito:** a IA só roda quando a pessoa clica. Nunca automática.
-3. **Teto de 2.000 caminhos** por pedido. Lote maior: a IA sugere os primeiros 2.000 e a tela avisa.
+3. **Teto de 2.000 itens** (pastas e arquivos da lista) por pedido. Lote maior: a IA sugere os primeiros 2.000 e a tela avisa.

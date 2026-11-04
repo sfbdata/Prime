@@ -17,9 +17,16 @@
         return partes.slice(1, -1).some(function (pasta) { return pasta.charAt(0) === '.'; });
     }
     // Só estes disparam ação; o rótulo dentro do botão também tem data-il e não pode interceptar o clique.
-    var ACOES = '[data-il="fechar"], [data-il="trocar"], [data-il="importar"], [data-il="sim"], [data-il="nao"]';
+    var ACOES = '[data-il="fechar"], [data-il="trocar"], [data-il="importar"], [data-il="sim"], [data-il="nao"], [data-il="sugerir"], [data-il="voltar-regra"]';
+    var FALHA_IA = 'A IA não conseguiu sugerir agora. O agrupamento por pasta continua valendo.';
     var el = function (nome) { return raiz.querySelector('[data-il="' + nome + '"]'); };
-    var s = { lote: null, base: null, rodando: false, criou: false, fim: '', erro: '', pergunta: null };
+    /* Etapa 2 (IA): `origem` guarda os arquivos e a regra do último `montar`, para a IA e o "Voltar"; `modo` é
+       'regra' ou 'ia'; `iniciou` some com os botões da IA assim que o Importar começa. */
+    function estadoInicial() {
+        return { lote: null, base: null, rodando: false, criou: false, fim: '', erro: '', pergunta: null,
+            origem: null, modo: 'regra', aviso: '', analisando: false, iniciou: false, vezIa: 0 };
+    }
+    var s = estadoInicial();
 
     function tamanho(b) {
         return b > 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
@@ -35,7 +42,7 @@
     }
 
     function abrir() {
-        s = { lote: null, base: null, rodando: false, criou: false, fim: '', erro: '', pergunta: null };
+        s = estadoInicial();
         raiz.hidden = false;
         render();
         raiz.querySelector('.il-x').focus();
@@ -68,6 +75,18 @@
         var partes = partesDe(fl);
 
         return partes.length > 2 ? partes.slice(1).join('/') : '';
+    }
+
+    /* Descrição do documento: na linha sugerida pela IA, o caminho abaixo da pasta do caso quando o arquivo está numa
+       subpasta dela; na regra, o caminho da subpasta quando a pasta é de um cliente só (D11). */
+    function descricaoDo(p, fl) {
+        if (p.pastaIa) {
+            var resto = partesDe(fl).join('/').slice(p.pastaIa.length + 1);
+
+            return resto.indexOf('/') >= 0 ? resto : '';
+        }
+
+        return p.comCaminho ? caminhoNaSubpasta(fl) : '';
     }
 
     /* D11: arquivo solto direto na pasta escolhida E arquivo dentro de subpasta. Aí não dá para saber se é a
@@ -109,6 +128,9 @@
     }
 
     function montar(files, solta, umCliente) {
+        s.origem = { files: Array.prototype.slice.call(files), solta: !!solta, umCliente: !!umCliente };
+        s.modo = 'regra';
+        s.aviso = '';
         var grupos = {};
         Array.prototype.forEach.call(files, function (fl) {
             var partes = partesDe(fl);
@@ -141,6 +163,7 @@
     function situacao(p) {
         if (p.st === 'Importada') { return ['Importada', 'importada']; }
         if (p.st) { return [p.st, 'andando']; }
+        if (p.ia && p.on) { return ['Sugerida pela IA', '']; }
 
         return p.on ? ['Pronta', ''] : ['Ignorada', 'ignorada'];
     }
@@ -179,7 +202,20 @@
             cli.className = 'il-cli';
             cli.value = p.cli;
             cli.maxLength = 255;
+            if (!p.cli) { cli.placeholder = 'Nome do cliente'; }
             cli.addEventListener('input', function () { p.cli = cli.value.toUpperCase(); });
+
+            /* Linha da IA: "mesmo cliente que ..." ou "Arquivos sem caso" em texto pequeno sob o nome. */
+            var nome = cli;
+            if (p.sub) {
+                nome = document.createElement('div');
+                nome.className = 'il-nome';
+                var sub = document.createElement('small');
+                sub.className = 'il-mesmo';
+                sub.textContent = p.sub;
+                nome.appendChild(cli);
+                nome.appendChild(sub);
+            }
 
             var qtd = document.createElement('span');
             qtd.className = 'il-dir il-qtd';
@@ -187,7 +223,7 @@
 
             var st = document.createElement('span');
 
-            [marca, nup, cli, qtd, st].forEach(function (n) { linha.appendChild(n); });
+            [marca, nup, nome, qtd, st].forEach(function (n) { linha.appendChild(n); });
             caixa.appendChild(linha);
             p.ref = { linha: linha, nup: nup, cli: cli, st: st };
             atualizarLinha(p);
@@ -206,11 +242,104 @@
         el('progresso').hidden = !s.rodando;
         el('fim').hidden = !s.fim;
         el('fim-txt').textContent = s.fim;
+        renderIa();
         el('erro').hidden = !s.erro;
         el('erro').textContent = s.erro;
         el('importar').hidden = !(s.lote && !s.fim && sel.length > 0);
         el('btn-txt').textContent = s.rodando ? 'Importando…' : 'Importar ' + sel.length + ' pasta(s)';
         raiz.querySelector('.il-cancelar').textContent = s.fim ? 'Concluir' : 'Cancelar';
+    }
+
+    /* Os botões da IA só existem quando a BlueJus IA está disponível (o Twig não os renderiza fora disso). Só para
+       lote de pasta, nunca para arquivos soltos, e somem quando o Importar começa. */
+    function renderIa() {
+        var sugerir = el('sugerir'), voltar = el('voltar-regra');
+        var pode = !!(s.lote && s.origem && !s.origem.solta && !s.iniciou && !s.fim);
+        if (sugerir) {
+            sugerir.hidden = !(pode && s.modo === 'regra');
+            sugerir.disabled = s.analisando;
+            el('sugerir-txt').textContent = s.analisando ? 'Analisando...' : 'Sugerir agrupamento com IA';
+        }
+        if (voltar) { voltar.hidden = !(pode && s.modo === 'ia') || s.analisando; }
+        el('aviso-ia').hidden = !(s.lote && s.modo === 'ia' && s.aviso);
+        el('aviso-ia').textContent = s.aviso;
+    }
+
+    function caminhoDe(fl) {
+        return partesDe(fl).join('/');
+    }
+
+    /* Só os arquivos que a regra aceitou (sem lixo nem oculto), os mesmos do "Voltar". */
+    function arquivosDaOrigem() {
+        return s.origem.files.filter(function (fl) { return !ignorado(partesDe(fl)); });
+    }
+
+    function nomeDaPasta(caminho) {
+        var partes = caminho.split('/');
+
+        return partes[partes.length - 1];
+    }
+
+    /* A sugestão só troca as linhas: um caso por pasta do computador, com os arquivos de caminho que começa com
+       `pasta + '/'`. O que não caiu em caso vai para "Arquivos sem caso", desmarcada. Nada some. */
+    function aplicarSugestao(d) {
+        var arquivos = arquivosDaOrigem(), usados = [], lote = [];
+        (d.casos || []).forEach(function (c) {
+            var prefixo = c.pasta + '/';
+            var files = arquivos.filter(function (fl, i) {
+                if (usados[i] || caminhoDe(fl).indexOf(prefixo) !== 0) { return false; }
+                usados[i] = true;
+
+                return true;
+            });
+            if (!files.length) { return; }
+            lote.push({ cli: String(c.cliente || '').toUpperCase(), files: files, on: true, feita: false, st: '', nup: '',
+                comCaminho: false, ia: true, pastaIa: c.pasta, sub: c.mesmoClienteQue ? 'mesmo cliente que a pasta ' + nomeDaPasta(c.mesmoClienteQue) : '' });
+        });
+        var resto = arquivos.filter(function (fl, i) { return !usados[i]; });
+        if (resto.length) {
+            lote.push({ cli: '', files: resto, on: false, feita: false, st: '', nup: '', comCaminho: true, ia: true, pastaIa: '',
+                sub: 'Arquivos sem caso' });
+        }
+        s.lote = lote;
+        s.modo = 'ia';
+        s.aviso = 'Sugestão da IA: ela pode errar, confira antes de importar.'
+            + (d.truncado ? ' A IA olhou só os primeiros 2.000 itens (pastas e arquivos). Confira os arquivos de cada caso e a linha Arquivos sem caso.' : '');
+        s.erro = '';
+    }
+
+    function sugerir() {
+        if (!s.origem || s.origem.solta || s.analisando || s.rodando || s.iniciou) { return; }
+        var origem = s.origem, vez = ++s.vezIa;
+        s.analisando = true;
+        s.erro = '';
+        render();
+        fetch(raiz.dataset.urlSugerir, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ _token: raiz.dataset.token, caminhos: arquivosDaOrigem().map(caminhoDe) })
+        })
+            .then(function (r) { return r.json().catch(function () { return { status: 'erro', mensagem: FALHA_IA }; }); })
+            .catch(function () { return { status: 'erro', mensagem: FALHA_IA }; })
+            .then(function (d) {
+                /* Trocou de pasta, voltou ou começou a importar enquanto a IA pensava: a resposta não vale mais. */
+                if (vez !== s.vezIa || s.origem !== origem) { return; }
+                s.analisando = false;
+                if (s.iniciou || s.rodando) { render(); return; }
+                if (d && d.status === 'ok') {
+                    aplicarSugestao(d);
+                } else {
+                    s.erro = (d && d.mensagem) || FALHA_IA;
+                }
+                render();
+            });
+    }
+
+    function voltarARegra() {
+        if (!s.origem || s.rodando || s.iniciou) { return; }
+        s.vezIa++;
+        s.analisando = false;
+        montar(s.origem.files, s.origem.solta, s.origem.umCliente);
     }
 
     function progresso(texto, fracao) {
@@ -264,6 +393,9 @@
 
         var tot = totalDeArquivos(sel), feitos = 0, anexados = 0, iguais = 0, recusados = [], novas = [];
         s.rodando = true;
+        s.iniciou = true;
+        s.analisando = false;
+        s.vezIa++;
         s.erro = '';
         render();
         progresso('Preparando…', 0);
@@ -304,7 +436,7 @@
                 arq.append('_token', criada.uploadToken);
                 arq.append('arquivo', p.files[j]);
                 arq.append('categoria', 'DEMAIS');
-                if (p.comCaminho && caminhoNaSubpasta(p.files[j])) { arq.append('descricao', caminhoNaSubpasta(p.files[j])); }
+                if (descricaoDo(p, p.files[j])) { arq.append('descricao', descricaoDo(p, p.files[j])); }
                 var r;
                 try {
                     r = await postar(criada.uploadUrl, arq);
@@ -351,7 +483,13 @@
         if (!alvo) { return; }
         var acao = alvo.getAttribute('data-il');
         if (acao === 'fechar') { fechar(); }
-        if (acao === 'trocar' && !s.rodando) { s.lote = null; s.pergunta = null; s.fim = ''; s.erro = ''; render(); }
+        if (acao === 'trocar' && !s.rodando) {
+            s.lote = null; s.pergunta = null; s.fim = ''; s.erro = ''; s.origem = null; s.modo = 'regra'; s.aviso = '';
+            s.analisando = false; s.iniciou = false; s.vezIa++;
+            render();
+        }
+        if (acao === 'sugerir') { sugerir(); }
+        if (acao === 'voltar-regra') { voltarARegra(); }
         if ((acao === 'sim' || acao === 'nao') && s.pergunta) { responder(acao === 'sim'); }
         if (acao === 'importar') { importar(); }
     });
