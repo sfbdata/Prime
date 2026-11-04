@@ -201,8 +201,8 @@ final readonly class AreaDeLiberados implements DiscoDaLiberacao
     }
 
     /**
-     * Apaga a cópia da chave nos liberados do lote. Só a exclusão pedida chama (o documento saiu do
-     * sistema); ausente conta como apagada.
+     * Apaga a cópia da chave nos liberados do lote. Só a exclusão pedida (o documento saiu do sistema)
+     * e o esvaziamento do lote (depois das provas do R2) chamam; ausente conta como apagada.
      *
      * @throws FalhaDeArmazenamento quando a cópia continua lá
      */

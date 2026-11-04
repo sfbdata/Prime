@@ -52,7 +52,8 @@ interface DiscoDaLiberacao
     public function publicarNoOriginal(ChaveDeArquivo $chave, \Closure $escrever, string $sha256, int $tamanhoBytes): MovimentoNoDisco;
 
     /**
-     * Apaga a cópia de um lote: só a EXCLUSÃO pedida (usuário, purga) chama. Ausente conta como apagada.
+     * Apaga a cópia de um lote: só a EXCLUSÃO pedida (usuário, purga) e o esvaziamento do lote
+     * (`EsvaziadorDeLote`, depois das provas) chamam. Ausente conta como apagada.
      *
      * @throws FalhaDeArmazenamento
      */
