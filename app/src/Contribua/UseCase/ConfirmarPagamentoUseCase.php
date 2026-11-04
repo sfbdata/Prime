@@ -49,7 +49,7 @@ final class ConfirmarPagamentoUseCase
 
         $this->avisoAoPrimario->avisar(
             $pedido->getTenant(),
-            sprintf('Pagamento confirmado: seu espaço passou para %d GB (plano %s).', $pedido->getPlano()->getCotaGb(), $pedido->getPlano()->getNome()),
+            sprintf('Pagamento confirmado: seu espaço passou para %d GB (plano %s).', $pedido->gigabytes(), $pedido->getPlano()->getNome()),
             $this->urls->generate('contribua_index') . '#espaco',
         );
     }

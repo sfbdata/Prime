@@ -9,6 +9,7 @@ use App\Contribua\UseCase\AssinarComTokenUseCase;
 use App\Contribua\UseCase\CancelarAssinaturaUseCase;
 use App\Contribua\UseCase\ConfigurarPagamentoUseCase;
 use App\Contribua\UseCase\ConfirmarPagamentoUseCase;
+use App\Contribua\UseCase\DefinirAmpliacaoAutomaticaUseCase;
 use App\Contribua\UseCase\IniciarAssinaturaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -40,6 +41,7 @@ final class AssinaturaDeEspacoController extends AbstractController
             (string) $request->request->get('plano', ''),
             (string) $request->request->get('documento', ''),
             $request->getClientIp(),
+            (int) $request->request->get('multiplicador', 1),
         )->paraJson());
     }
 
@@ -59,6 +61,13 @@ final class AssinaturaDeEspacoController extends AbstractController
     public function cancelar(Request $request, CancelarAssinaturaUseCase $cancelar): JsonResponse
     {
         return $this->acao($request, fn (): array => ['mensagem' => $cancelar->executar($this->sessao->atual())]);
+    }
+
+    /** A chave "Ampliação de GB automática" do checkout (desenho 08 VS 03.11.26): grava na hora, por escritório. */
+    #[Route('/espaco/ampliacao-automatica', name: 'contribua_ampliacao_automatica', methods: ['POST'])]
+    public function ampliacaoAutomatica(Request $request, DefinirAmpliacaoAutomaticaUseCase $definir): JsonResponse
+    {
+        return $this->acao($request, fn (): array => ['ligada' => $definir->executar($this->sessao->atual(), $request->request->getBoolean('ligada'))]);
     }
 
     #[Route('/pagamento', name: 'contribua_pagamento_configurar', methods: ['POST'])]

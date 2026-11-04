@@ -10,6 +10,8 @@
      data-gateway-nome="{{ pg.gatewayNome }}"
      data-url-iniciar="{{ path('contribua_assinatura_iniciar') }}"
      data-url-token="{{ path('contribua_assinatura_token', {id: 0}) }}"
+     data-url-ampliacao="{{ path('contribua_ampliacao_automatica') }}"
+     data-ampliacao="{{ pg.ampliacaoAutomatica ? '1' : '0' }}"
      data-chave-publica="{{ pg.chavePublica }}"
      data-pagador-nome="{{ pg.pagadorNome }}"
      data-pagador-email="{{ pg.email }}">
@@ -19,10 +21,13 @@
             <div class="co-resumo">
                 <div class="co-marca"><img src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt=""><b>BlueJus</b></div>
                 <div class="co-compra">
-                    <div class="co-compra-topo"><span class="co-compra-icone"><i class="bi bi-hdd-stack"></i></span><div><div class="co-compra-rotulo">VOCÊ ESTÁ COMPRANDO ESPAÇO</div><b class="co-compra-gb">+<span data-co-add></span> GB de armazenamento</b></div></div>
+                    <div class="co-compra-topo"><span class="co-compra-icone"><i class="bi bi-hdd-stack"></i></span><div class="co-compra-titulo"><div class="co-compra-rotulo">VOCÊ ESTÁ COMPRANDO ESPAÇO</div><b class="co-compra-gb">+<span data-co-add></span> GB de armazenamento</b></div><button type="button" class="co-mais" data-co-mais title="Dobrar o espaço e o valor" hidden><i class="bi bi-plus-lg"></i></button></div>
                     <div class="co-compra-barra"><span><span class="co-compra-mini">HOJE</span><b><span data-co-de></span> GB</b></span><span class="co-trilho"><span class="co-trilho-hoje" data-co-largura></span><span class="co-trilho-novo" data-co-largura-novo></span></span><i class="bi bi-arrow-right"></i><span class="co-compra-com"><span class="co-compra-mini">COM O PLANO</span><b data-co-gb></b></span></div>
+                    {# VS 03.11.26: só no maior pacote, + dobra e − reduz pela metade o espaço e o valor #}
+                    <div class="co-dobrar" data-co-dobrar hidden><span>Precisa de mais? Dobre o espaço e o valor</span><button type="button" class="co-menos" data-co-menos title="Reduzir pela metade"><i class="bi bi-dash-lg"></i></button><b class="co-mul" data-co-mul hidden></b></div>
                 </div>
                 <div class="co-ciclo"><i class="bi bi-calendar-check"></i>Assinatura mensal · sem fidelidade</div>
+                <button type="button" class="co-auto" data-co-auto role="switch" aria-checked="{{ pg.ampliacaoAutomatica ? 'true' : 'false' }}"><span class="co-auto-trilho"><span class="co-auto-bola"></span></span><b data-co-auto-txt>Ampliação de GB automática</b></button>
                 <div class="co-totais"><div><span>Subtotal</span><span data-co-preco></span></div><div class="co-total"><span>Total mensal</span><span data-co-preco></span></div></div>
                 <div class="co-letras"><i class="bi bi-arrow-repeat"></i> Cobrança mensal no cartão, no mesmo dia de cada mês. Sem fidelidade e sem multa: cancele a qualquer momento em Meu Perfil. O espaço vale até o fim do mês pago e nenhum arquivo é apagado.</div>
             </div>

@@ -29,12 +29,17 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *
  * Só o primário assina (D4); só plano pago maior que o limite atual; uma assinatura viva por
  * escritório (para trocar de plano, cancela a atual em Meu Perfil: evita duas cobranças no mesmo cartão).
+ *
+ * Multiplicador (desenho 08 VS 03.11.26, botões + e − do maior pacote): 1, 2, 4, 8 ou 16. Acima de 1 só no
+ * maior pacote pago do catálogo; o espaço e o valor mensal saem multiplicados e o gateway recebe o valor
+ * cheio (nunca o "Link do pacote" fixo, que tem o preço de uma vez só).
  */
 final class IniciarAssinaturaUseCase
 {
     public const FALHA_NO_GATEWAY = 'O gateway de pagamento não respondeu. Tente de novo em instantes.';
     public const JA_ASSINA = 'Este escritório já tem uma assinatura ativa. Para trocar de plano, cancele a atual em Meu Perfil.';
     public const EM_CONFIRMACAO = 'Seu pagamento anterior ainda está sendo confirmado pelo gateway. Aguarde alguns minutos e tente de novo.';
+    public const SO_O_MAIOR_DOBRA = 'Só o maior pacote pode ser dobrado.';
     private const MINUTOS_DO_CHECKOUT = 60;
     /** Primeira chave da trava consultiva (a segunda é o escritório): só o checkout do Contribua a usa. */
     private const TRAVA = 8722;
@@ -55,29 +60,33 @@ final class IniciarAssinaturaUseCase
      * Um checkout por escritório de cada vez (trava consultiva do Postgres por escritório): dois cliques
      * simultâneos não criam dois pedidos nem dois checkouts no gateway; o segundo espera e reaproveita.
      */
-    public function executar(Solicitante $quem, string $codigoDoPlano, string $documento, ?string $ip): InicioDaAssinatura
+    public function executar(Solicitante $quem, string $codigoDoPlano, string $documento, ?string $ip, int $multiplicador = 1): InicioDaAssinatura
     {
+        if (!\in_array($multiplicador, AssinaturaDeEspaco::MULTIPLICADORES, true)) {
+            throw new \DomainException('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 ou 16.');
+        }
         $this->conexao->executeStatement('SELECT pg_advisory_lock(?, ?)', [self::TRAVA, $quem->tenantId()]);
         try {
-            return $this->iniciar($quem, $codigoDoPlano, $documento, $ip);
+            return $this->iniciar($quem, $codigoDoPlano, $documento, $ip, $multiplicador);
         } finally {
             $this->conexao->executeStatement('SELECT pg_advisory_unlock(?, ?)', [self::TRAVA, $quem->tenantId()]);
         }
     }
 
-    private function iniciar(Solicitante $quem, string $codigoDoPlano, string $documento, ?string $ip): InicioDaAssinatura
+    private function iniciar(Solicitante $quem, string $codigoDoPlano, string $documento, ?string $ip, int $multiplicador): InicioDaAssinatura
     {
         $gateway = $this->exigirGateway($quem);
-        $plano = $this->planoQueAmplia($quem->tenantId(), $codigoDoPlano);
+        $plano = $this->planoQueAmplia($quem->tenantId(), $codigoDoPlano, $multiplicador);
+        $valor = $plano->getPrecoCentavos() * $multiplicador;
         $this->exigirSemAssinaturaViva($quem->tenantId());
         $pagador = new Pagador($quem->escritorio->getName() ?? $quem->nome(), preg_replace('/\D/', '', $documento) ?? '', (string) $quem->usuario->getEmail());
 
-        $pedido = $this->pedidoAberto($quem, $gateway, $plano);
+        $pedido = $this->pedidoAberto($quem, $gateway, $plano, $valor);
         if ($pedido?->getUrlDoCheckout() !== null) {
             return new InicioDaAssinatura((int) $pedido->getId(), InicioDoCheckout::REDIRECIONAR, $pedido->getUrlDoCheckout(), null, $gateway->codigo());
         }
 
-        $pedido ??= new AssinaturaDeEspaco($quem->escritorio, $plano, $gateway->codigo(), $plano->getPrecoCentavos(), $quem->usuario);
+        $pedido ??= new AssinaturaDeEspaco($quem->escritorio, $plano, $gateway->codigo(), $valor, $quem->usuario, $multiplicador);
         $this->assinaturas->salvar($pedido, flush: true);
         $inicio = $this->iniciarNoGateway($gateway, $pedido, $this->pedidoDeCheckout($pedido, $pagador, $ip));
         $pedido->registrarInicio($inicio->idNoGateway, $inicio->urlDeRedirecionamento);
@@ -93,14 +102,14 @@ final class IniciarAssinaturaUseCase
      * hospedada fica como está, porque pode ter sido pago e o aviso ainda não chegou (o vínculo é pelo valor),
      * e se o pagador já voltou de lá a compra nova espera a confirmação.
      */
-    private function pedidoAberto(Solicitante $quem, GatewayDeAssinatura $gateway, Plano $plano): ?AssinaturaDeEspaco
+    private function pedidoAberto(Solicitante $quem, GatewayDeAssinatura $gateway, Plano $plano, int $valor): ?AssinaturaDeEspaco
     {
         $desde = new \DateTimeImmutable('-' . self::MINUTOS_DO_CHECKOUT . ' minutes');
         foreach ($this->assinaturas->doTenant($quem->tenantId()) as $aberto) {
             if (!$aberto->semNadaNoGateway() || $aberto->getCriadaEm() < $desde || $aberto->getGateway() !== $gateway->codigo()) {
                 continue;
             }
-            if ($aberto->getPlano()->getId() === $plano->getId() && $aberto->getValorCentavos() === $plano->getPrecoCentavos()) {
+            if ($aberto->getPlano()->getId() === $plano->getId() && $aberto->getValorCentavos() === $valor) {
                 return $aberto;
             }
             if ($aberto->getRetornouEm() !== null) {
@@ -126,15 +135,29 @@ final class IniciarAssinaturaUseCase
         return $this->gateways->configurado() ?? throw new \DomainException('A assinatura por cartão ainda não foi liberada.');
     }
 
-    private function planoQueAmplia(int $tenantId, string $codigo): Plano
+    private function planoQueAmplia(int $tenantId, string $codigo, int $multiplicador): Plano
     {
         $plano = $this->planos->findOneBy(['codigo' => $codigo, 'ativo' => true]);
         $limite = $this->situacao->doEscritorio($tenantId)->bytesLimite;
-        if (!$plano instanceof Plano || $plano->ehGratuito() || $limite === null || $plano->getCotaGb() * 1024 ** 3 <= $limite) {
+        if (!$plano instanceof Plano || $plano->ehGratuito() || $limite === null || $plano->getCotaGb() * $multiplicador * 1024 ** 3 <= $limite) {
             throw new \DomainException('Escolha um plano maior que o espaço atual.');
+        }
+        if ($multiplicador > 1 && !$this->ehOMaiorPago($plano)) {
+            throw new \DomainException(self::SO_O_MAIOR_DOBRA);
         }
 
         return $plano;
+    }
+
+    private function ehOMaiorPago(Plano $plano): bool
+    {
+        foreach ($this->planos->findBy(['ativo' => true]) as $outro) {
+            if (!$outro->ehGratuito() && $outro->getCotaGb() > $plano->getCotaGb()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -194,7 +217,7 @@ final class IniciarAssinaturaUseCase
             $pagina . '?assinatura=ok',
             $pagina . '#espaco',
             $ip,
-            $this->configuracao->atual()->linkDoPacote($plano->getCodigo()),
+            $pedido->getMultiplicador() === 1 ? $this->configuracao->atual()->linkDoPacote($plano->getCodigo()) : null,
         );
     }
 

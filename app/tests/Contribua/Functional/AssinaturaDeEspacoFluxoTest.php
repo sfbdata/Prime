@@ -14,6 +14,7 @@ use App\Contribua\Repository\ConfiguracaoDePagamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Service\AtualizacaoDaAssinatura;
 use App\Contribua\Service\PlanoVigenteDoEscritorio;
+use App\Contribua\Service\SituacaoDoEspaco;
 use App\Contribua\UseCase\ConciliarAssinaturasUseCase;
 use App\Contribua\UseCase\MontarPagamentoDoContribuaUseCase;
 use App\Contribua\UseCase\ReceberAvisoDoGatewayUseCase;
@@ -107,6 +108,83 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('seu espaço passa para <span data-co-ok-gb>20 GB</span>', $html);
         self::assertStringContainsString('data-retorno="1"', $html, 'abre direto no Pagamento enviado');
         self::assertSame('free', $this->planoDoEscritorio(), 'a URL de retorno não libera nada sozinha');
+    }
+
+    #[TestDox('VS 03.11.26: o maior pacote dobrado (×4) grava o valor e o GB multiplicados e o pagamento libera 400 GB')]
+    public function testMaiorPacoteDobrado(): void
+    {
+        $resposta = $this->assinarCom($this->primario, 'avancado', 4);
+
+        self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
+        $pedido = $this->pedido();
+        self::assertSame(4, $pedido->getMultiplicador());
+        self::assertSame(6990 * 4, $pedido->getValorCentavos());
+        self::assertSame(400, $pedido->gigabytes());
+
+        $idNoGateway = (string) $pedido->getIdDoCheckout();
+        $this->gateway->marcarComoPaga($idNoGateway, new \DateTimeImmutable('+1 month'));
+        $this->webhook('evt-mul', $idNoGateway);
+
+        $this->em->clear();
+        $espaco = static::getContainer()->get(EspacoDoEscritorioRepository::class)->doTenant((int) $this->escritorio->getId());
+        self::assertNotNull($espaco);
+        self::assertSame('avancado', $espaco->getPlano()->getCodigo());
+        self::assertSame(4, $espaco->getMultiplicador());
+        self::assertSame(400 * 1024 ** 3, static::getContainer()->get(SituacaoDoEspaco::class)->doEscritorio((int) $this->escritorio->getId())->bytesLimite);
+    }
+
+    #[TestDox('VS 03.11.26: só o maior pacote dobra; multiplicador fora de 1, 2, 4, 8 e 16 é recusado')]
+    public function testSoOMaiorDobra(): void
+    {
+        $resposta = $this->assinarCom($this->primario, 'essencial', 2);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Só o maior pacote pode ser dobrado.', $resposta['erro']);
+
+        $resposta = $this->assinarCom($this->primario, 'avancado', 3);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 ou 16.', $resposta['erro']);
+        self::assertSame(0, $this->contarAssinaturas());
+    }
+
+    #[TestDox('VS 03.11.26: a chave "Ampliação de GB automática" grava por escritório; só o primário liga')]
+    public function testAmpliacaoAutomatica(): void
+    {
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $this->client->request('GET', '/contribua');
+        self::assertSelectorExists('[data-checkout][data-ampliacao="0"] .co-auto[aria-checked="false"]');
+
+        $resposta = $this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '1']);
+        self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
+        self::assertTrue($resposta['ligada']);
+        $this->em->clear();
+        self::assertTrue(static::getContainer()->get(EspacoDoEscritorioRepository::class)->doTenant((int) $this->escritorio->getId())?->isAmpliacaoAutomatica());
+        self::assertSame('free', $this->planoDoEscritorio(), 'ligar a chave não muda o plano');
+
+        $this->client->request('GET', '/contribua');
+        self::assertSelectorExists('[data-checkout][data-ampliacao="1"] .co-auto[aria-checked="true"]');
+
+        $this->logarComTenant($this->client, $this->secundario, $this->escritorio);
+        $resposta = $this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '0']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Quem amplia o espaço é o usuário primário do escritório.', $resposta['erro']);
+
+        $this->client->request('POST', '/contribua/espaco/ampliacao-automatica', ['_token' => 'errado', 'ligada' => '0'], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('VS 03.11.26: checkout com o + no topo, a linha "Precisa de mais?" com − e ×N, e a chave; só o maior pacote marca data-plano-maior')]
+    public function testCheckoutComDobrarEChave(): void
+    {
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $crawler = $this->client->request('GET', '/contribua');
+
+        self::assertSame(1, $crawler->filter('.co-compra > .co-compra-topo > button.co-mais[data-co-mais][title="Dobrar o espaço e o valor"] > i.bi-plus-lg')->count());
+        self::assertSame(1, $crawler->filter('.co-compra > .co-dobrar[data-co-dobrar] > button.co-menos[title="Reduzir pela metade"] > i.bi-dash-lg')->count());
+        self::assertSelectorTextContains('.co-dobrar > span', 'Precisa de mais? Dobre o espaço e o valor');
+        self::assertSame(1, $crawler->filter('.co-resumo > .co-ciclo + button.co-auto[role="switch"] > .co-auto-trilho > .co-auto-bola')->count());
+        self::assertSelectorTextSame('.co-auto > b', 'Ampliação de GB automática');
+        self::assertSame(['0', '0', '0', '1'], $crawler->filter('[data-pedir-plano]')->each(static fn ($b): string => (string) $b->attr('data-plano-maior')));
+        self::assertSame(4, $crawler->filter('.ct-pacote > .ct-pacote-cabeca > .ct-pacote-cabeca-selos')->count(), 'o selo de ganho fica dentro do span do desenho, em todo pacote');
     }
 
     #[TestDox('Gateway fora do ar no checkout: mensagem amigável e nenhum pedido fica para trás')]
@@ -402,6 +480,14 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $quem, $this->escritorio);
 
         return $this->post('/contribua/assinatura', ['plano' => $plano, 'documento' => '123.456.789-09']);
+    }
+
+    /** @return array<string, mixed> */
+    private function assinarCom(User $quem, string $plano, int $multiplicador): array
+    {
+        $this->logarComTenant($this->client, $quem, $this->escritorio);
+
+        return $this->post('/contribua/assinatura', ['plano' => $plano, 'documento' => '123.456.789-09', 'multiplicador' => (string) $multiplicador]);
     }
 
     /** @return array<string, mixed> */

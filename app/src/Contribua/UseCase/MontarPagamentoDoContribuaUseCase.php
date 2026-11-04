@@ -13,6 +13,7 @@ use App\Contribua\Gateway\InicioDoCheckout;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDePagamentoRepository;
+use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\VisaoDoMaster;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -48,6 +49,7 @@ final class MontarPagamentoDoContribuaUseCase
         private readonly PlanoRepository $planos,
         private readonly VisaoDoMaster $visaoDoMaster,
         private readonly UrlGeneratorInterface $urls,
+        private readonly EspacoDoEscritorioRepository $espacos,
     ) {
     }
 
@@ -70,6 +72,8 @@ final class MontarPagamentoDoContribuaUseCase
             'email' => (string) $quem->usuario->getEmail(),
             'script' => $gateway === null ? null : 'js/contribua-' . str_replace('_', '-', $gateway->codigo()) . '.js',
             'assinatura' => $this->assinaturaDoEscritorio($quem->tenantId()),
+            // A chave "Ampliação de GB automática" do checkout (desenho 08 VS 03.11.26), gravada por escritório.
+            'ampliacaoAutomatica' => $this->espacos->doTenant($quem->tenantId())?->isAmpliacaoAutomatica() ?? false,
             'master' => $quem->ehMaster ? $this->doMaster() : null,
         ];
     }
@@ -87,7 +91,7 @@ final class MontarPagamentoDoContribuaUseCase
 
         return [
             'plano' => $viva->getPlano()->getNome(),
-            'gb' => $viva->getPlano()->getCotaGb(),
+            'gb' => $viva->gigabytes(),
             'valor' => RegistrarApoioUseCase::reais($viva->getValorCentavos()),
             'situacao' => self::rotuloDaSituacao($viva),
             'cor' => self::corDaSituacao($viva->getSituacao()),
@@ -149,7 +153,7 @@ final class MontarPagamentoDoContribuaUseCase
         return [
             'id' => $a->getId(),
             'conta' => sprintf('%s (Nº %06d)', (string) $a->getTenant()->getName(), (int) $a->getTenant()->getId()),
-            'plano' => $a->getPlano()->getNome(),
+            'plano' => $a->getPlano()->getNome() . ($a->getMultiplicador() > 1 ? ' ×' . $a->getMultiplicador() : ''),
             'em' => $a->getCriadaEm()->format('d/m/Y H:i'),
             'situacao' => self::rotuloDaSituacao($a),
             'cor' => self::corDaSituacao($a->getSituacao()),

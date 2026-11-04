@@ -84,7 +84,12 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('.ct-indique-contadores', '0 aguardando confirmação');
         self::assertSelectorTextContains('.ct-indique-contadores', '0 conta(s) aberta(s)');
         self::assertSelectorExists('.bj-share[data-tip="Indique o BlueJus e ganhe saldo"]');
-        self::assertSelectorTextContains('.ct-indique-texto', 'você ganha crédito quando o escritório indicado começar a usar o BlueJus. O saldo fica guardado e nunca expira.');
+        // VS 03.11.26: o texto saiu de baixo do título e virou balão no próprio título, com a validade de 3 meses.
+        self::assertSelectorCount(0, '.ct-indique-texto');
+        $titulo = $this->client->getCrawler()->filter('.ct-indique-titulo');
+        self::assertStringContainsString('você ganha crédito quando o escritório indicado começar a usar o BlueJus. O saldo fica guardado e expira em 3 meses.', (string) $titulo->attr('data-tip'));
+        self::assertSame($titulo->attr('data-tip'), $titulo->attr('title'));
+        self::assertStringNotContainsString('nunca expira', $html);
         self::assertStringNotContainsString('—', $this->client->getCrawler()->filter('#indique')->text());
     }
 
