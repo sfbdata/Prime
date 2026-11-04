@@ -122,7 +122,7 @@ final class MencoesDoRegistro
      */
     public function textoDoSino(?string $html): string
     {
-        $html  = preg_replace('#<br\s*/?>|</(p|li|h[1-6]|blockquote|pre)>#i', ' ', (string) $html) ?? '';
+        $html  = preg_replace('#<br\s*/?>|</(p|li|h[1-6]|blockquote|pre|td|tr)>#i', ' ', (string) $html) ?? '';
         $texto = html_entity_decode(strip_tags($html), \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
         $texto = $this->paraTextoPlano($texto);
 

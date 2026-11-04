@@ -52,6 +52,9 @@
     .rp-corpo blockquote { border-left: 3px solid #c9d6de; margin: 8px 0; padding: 2px 12px; color: #4f6878; }
     .rp-corpo img { max-width: 100%; }
     .rp-corpo table { border-collapse: collapse; }
+    {# Tabela do editor rico dentro do registro (botão "Inserir tabela"); só ela, as rp-tabela têm estilo próprio. #}
+    .rp-corpo [data-secao="registro"] table { width: 100%; margin: 4px 0 8px; }
+    .rp-corpo [data-secao="registro"] td { border: 1px solid #c9d6de; padding: 3px 6px; vertical-align: top; }
     .rp-corpo p { margin: 0 0 .6em; }
     .rp-secao { margin: 14px 0 6px; font-size: .8696em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #0a7aad; border-bottom: 1px solid #dfe4e8; padding-bottom: 3px; }
     .rp-tabela { width: 100%; border-collapse: collapse; }
