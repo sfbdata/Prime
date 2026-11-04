@@ -56,6 +56,14 @@ class EspacoDoEscritorio implements Auditavel
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $justificativa = null;
 
+    /** Quantas vezes o pacote foi dobrado (+ e − do maior pacote, desenho 08 VS 03.11.26): 1, 2, 4... Vem da assinatura vigente. */
+    #[ORM\Column(type: 'integer', options: ['default' => 1])]
+    private int $multiplicador = 1;
+
+    /** A chave "Ampliação de GB automática" do checkout. Só gravada; a dobra automática é o PR seguinte. */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $ampliacaoAutomatica = false;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $alteradoPor = null;
@@ -112,9 +120,31 @@ class EspacoDoEscritorio implements Auditavel
         return $this->limiteUsuarios;
     }
 
-    public function mudarDePlano(Plano $plano): void
+    public function mudarDePlano(Plano $plano, int $multiplicador = 1): void
     {
         $this->plano = $plano;
+        $this->multiplicador = max(1, $multiplicador);
+    }
+
+    public function getMultiplicador(): int
+    {
+        return $this->multiplicador;
+    }
+
+    /** O GB do plano já multiplicado. */
+    public function cotaDoPlanoEmGb(): int
+    {
+        return $this->plano->getCotaGb() * $this->multiplicador;
+    }
+
+    public function isAmpliacaoAutomatica(): bool
+    {
+        return $this->ampliacaoAutomatica;
+    }
+
+    public function definirAmpliacaoAutomatica(bool $ligada): void
+    {
+        $this->ampliacaoAutomatica = $ligada;
     }
 
     public function getTenant(): Tenant

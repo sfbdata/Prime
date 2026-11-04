@@ -34,6 +34,8 @@ class ProgramaDeRecompensa implements Auditavel
     public const VALOR_MAXIMO = 10000000;
     public const LIMITE_CONTAGEM = 100000;
     public const CARENCIA_MAXIMA = 3650;
+    /** O crédito de indicação expira em 3 meses (desenho 08 VS 03.11.26). */
+    public const VALIDADE_MESES = 3;
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
@@ -63,6 +65,14 @@ class ProgramaDeRecompensa implements Auditavel
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $alteradoEm;
+
+    /**
+     * Desde quando vale a validade de {@see self::VALIDADE_MESES} meses do crédito de indicação (desenho 08 VS 03.11.26).
+     * Gravada pela migration Version20261104110000 (o deploy): crédito ganho antes conta os meses a partir daqui; o
+     * ganho depois, da própria data. Nula só no programa em memória (sem linha no banco): nada expira.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $validadeDesde = null;
 
     public function __construct()
     {
@@ -142,5 +152,16 @@ class ProgramaDeRecompensa implements Auditavel
     public function getAlteradoEm(): \DateTimeImmutable
     {
         return $this->alteradoEm;
+    }
+
+    public function getValidadeDesde(): ?\DateTimeImmutable
+    {
+        return $this->validadeDesde;
+    }
+
+    /** Para os testes e para a carga inicial; em produção a data vem da migration. */
+    public function definirValidadeDesde(\DateTimeImmutable $desde): void
+    {
+        $this->validadeDesde = $desde;
     }
 }
