@@ -58,6 +58,8 @@ final class AgendaDeTarefasTest extends TestCase
             // Nova (Gateway M0b): conciliação do registro único de pagamentos, a cada 15 minutos.
             'app:pagamento:conciliar' => ['app:pagamento:conciliar --no-interaction', '*/15 * * * *', '*/15 * * * *'],
             'armazenamento:replicar-espelho' => ['armazenamento:replicar-espelho --se-ligado --limite=50 --no-interaction', '* * * * *', '* * * * *'],
+            // Nova (painel de artigos dos blogs, P4): lê o resultado do builder dos blogs a cada minuto.
+            'blog:conferir-publicacoes' => ['blog:conferir-publicacoes --no-interaction', '* * * * *', '* * * * *'],
             // Sem --tenant-id: todos os escritórios com Drive conectado (decisão do dono, 24/10/2026).
             'app:sync:reconciliar' => ['app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction', '0 * * * *', '0 * * * *'],
         ];

@@ -281,10 +281,14 @@ pedidos/{id}/                  id = PublicacaoDosBlogs.id
 
 - Tarefa `blog:conferir-publicacoes` na `AgendaDeTarefas`, a cada minuto: para cada `PublicacaoDosBlogs` `na_fila`
   ou `gerando`, `iniciado` presente vira `gerando`; `resultado.json` presente atualiza situação, commit, log e
-  `terminadaEm` e apaga a pasta do pedido. Pedido sem resultado 30 min depois de `iniciado` vira `falhou`
-  ("o builder não respondeu").
-- Duas gerações ao mesmo tempo: Publicar com uma `PublicacaoDosBlogs` ainda `na_fila` não cria outra; a que está
-  na fila já vai levar o estado novo (o pacote é montado pelo worker na hora de mandar, com os artigos do banco).
+  `terminadaEm` e apaga a pasta do pedido. Pedido sem resultado 30 min depois de `iniciado`, ou 30 min depois
+  de pedido sem o builder ter começado, vira `falhou` e a pasta é apagada (o builder não publica depois um
+  pedido já dado como falho). Geração que falha na rodada faz o comando sair com erro, e o aviso de falha do
+  agendador avisa o Master.
+- Duas gerações ao mesmo tempo: Publicar só reaproveita a `PublicacaoDosBlogs` `na_fila` cujo pacote ainda não
+  foi montado; com o pacote já montado, cria outra, para a mudança nova não ficar para depois.
+- Falha ao montar o pacote (imagem que sumiu do armazenamento, por exemplo): o pedido vira `falhou` com o motivo
+  no log, sem nova tentativa do Messenger.
 
 **O repositório dos sites precisa**
 

@@ -54,9 +54,15 @@ final class LimpezaDeArquivosArquiteturaTest extends TestCase
      *  - `CacheDeLeituraDoEspelho` (leitura pelo R2, D3) — varre SÓ o diretório do cache de leitura
      *    (`var/espelho-cache`, fora do volume de uploads) e só apaga o que ele mesmo publicou ali: cópias
      *    `<sha256>` do que veio do R2 (descarte por uso quando passa do teto; a origem continua no R2) e
-     *    parciais `.parcial-*` de download interrompido com mais de 1 h. Nunca vê o armazenamento.
+     *    parciais `.parcial-*` de download interrompido com mais de 1 h. Nunca vê o armazenamento;
+     *  - `PastaDosPedidos` (painel de artigos dos blogs, P4, 03/11) — varre e apaga SÓ a pasta de um pedido ao builder
+     *    dos blogs (`{id}/` ou `.{id}.montando/`, no volume `publicacao_blogs`, fora do volume de uploads), pelo id da
+     *    `PublicacaoDosBlogs`: o pacote que o próprio BlueJus gerou do banco, depois de lido o resultado do builder (ou
+     *    vencido o prazo). Nunca segue link (o link é apagado, não percorrido) e nunca vê o armazenamento: as imagens do
+     *    pacote são cópias, o original continua lá.
      */
     private const ALLOWLIST = [
+        'src/Blog/Service/PastaDosPedidos.php',
         'src/Shared/Armazenamento/AreaTemporariaPrivada.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
         'src/Shared/Armazenamento/ArquivoGeradoParaEntrega.php',

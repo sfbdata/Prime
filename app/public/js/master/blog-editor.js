@@ -6,6 +6,8 @@
      recusa pedindo confirmação; a tela pergunta e reenvia com confirmarTrocaDeSlug = true. Depois de criar, a página
      vai para /master/blog/artigos/{id}.
    - Verificar e Pré-visualizar trabalham com a versão salva: com alteração na tela, salvam antes.
+   - Publicar agora e Despublicar (P4): POST publicar/despublicar; o servidor muda a situação e pede a geração dos blogs
+     ao builder. Publicar salva antes o que mudou na tela e mostra os erros do zod por campo (422). Despublicar confirma.
    - TinyMCE restrito (seção 3): Parágrafo, Seção (h2), Subseção (h3), negrito, itálico, link, listas, citação,
      desfazer/refazer e o menu Blocos BlueJus, que gera exatamente o HTML da tabela da seção 3 (div[data-bj]). Os
      blocos ficam não editáveis por fora e editáveis por dentro (contenteditable só na tela; sai ao salvar).
@@ -47,7 +49,8 @@
 
   let id = A.id || null;
   let slugSalvo = A.slug || '';
-  const jaFoiAoAr = !!A.jaFoiAoAr;
+  let jaFoiAoAr = !!A.jaFoiAoAr;
+  let situacao = A.situacao || 'rascunho';
   let sujo = false;
   let saindo = false;
   let ocupado = false;
@@ -575,8 +578,8 @@
 
   const corpoHtml = () => (editor ? editor.getContent() : qs('[data-be-corpo]').value);
 
-  /* ---------- salvar, verificar, pré-visualizar, excluir ---------- */
-  const BOTOES = ['[data-be-salvar]', '[data-be-verificar]', '[data-be-previa]', '[data-be-excluir]', '[data-be-capa-enviar]'];
+  /* ---------- salvar, verificar, pré-visualizar, publicar, despublicar, excluir ---------- */
+  const BOTOES = ['[data-be-salvar]', '[data-be-publicar]', '[data-be-despublicar]', '[data-be-verificar]', '[data-be-previa]', '[data-be-excluir]', '[data-be-capa-enviar]'];
   function travar(sim) {
     BOTOES.forEach(sel => { qs(sel).disabled = sim || (sel !== '[data-be-salvar]' && !id); });
     if (envioDaCapa) btCapa.disabled = true;
@@ -721,10 +724,74 @@
     }
   }
 
+  // Situação depois de Publicar ou Despublicar: a pílula, o aviso de alterações e os botões do cartão Publicação.
+  function mostrarSituacao(j) {
+    situacao = j.situacao;
+    jaFoiAoAr = situacao === 'publicado' || situacao === 'despublicado';
+    const pilula = qs('[data-be-situacao]');
+    pilula.textContent = j.situacaoRotulo;
+    pilula.className = 'be-st be-st-' + situacao;
+    qs('[data-be-pendente]').hidden = !j.alteracoesPendentes;
+    qs('[data-be-publicar-rotulo]').textContent = situacao === 'publicado' ? 'Publicar alterações' : 'Publicar agora';
+    qs('[data-be-despublicar]').hidden = situacao !== 'publicado';
+  }
+
+  // Publicar agora: salva antes o que mudou na tela; a recusa do zod volta por campo (422).
+  async function publicar() {
+    if (!id || ocupado) return;
+    await esperarEnvios();
+    if (sujo && !(await salvar())) return;
+    ocupado = true;
+    travar(true);
+    try {
+      const res = await postar(comId(URLS.publicar, id), {});
+      if (res.ok && res.j.ok) {
+        limparErros();
+        mostrarSituacao(res.j);
+        mostrarMsg('Artigo publicado. Os blogs estão sendo gerados de novo, e o site muda em poucos minutos.', 'ok');
+        return;
+      }
+      if (res.status === 422 && res.j.erros) { mostrarErros(res.j.erros, 'O artigo não foi publicado. Falta corrigir:'); return; }
+      mostrarMsg(res.j.erro || ERRO_PADRAO, 'erro');
+    } catch (e) {
+      mostrarMsg(ERRO_PADRAO, 'erro');
+    } finally {
+      ocupado = false;
+      travar(false);
+    }
+  }
+
+  async function despublicar() {
+    if (!id || ocupado) return;
+    const sim = await confirmar({
+      titulo: 'Despublicar artigo', icone: 'bi-eye-slash', cor: '#a3232b', botao: 'Despublicar',
+      texto: 'Tirar o artigo "' + (valor('titulo') || slugSalvo) + '" do site? O endereço deixa de funcionar quando os blogs forem gerados de novo, em poucos minutos. O texto fica guardado aqui.',
+    });
+    if (!sim) return;
+    ocupado = true;
+    travar(true);
+    try {
+      const res = await postar(comId(URLS.despublicar, id), {});
+      if (res.ok && res.j.ok) {
+        mostrarSituacao(res.j);
+        mostrarMsg('Artigo despublicado. Ele sai do site quando os blogs terminarem de ser gerados.', 'ok');
+        return;
+      }
+      mostrarMsg(res.j.erro || ERRO_PADRAO, 'erro');
+    } catch (e) {
+      mostrarMsg(ERRO_PADRAO, 'erro');
+    } finally {
+      ocupado = false;
+      travar(false);
+    }
+  }
+
   qs('[data-be-salvar]').addEventListener('click', salvar);
   qs('[data-be-verificar]').addEventListener('click', verificar);
   qs('[data-be-previa]').addEventListener('click', previa);
   qs('[data-be-excluir]').addEventListener('click', excluir);
+  qs('[data-be-publicar]').addEventListener('click', publicar);
+  qs('[data-be-despublicar]').addEventListener('click', despublicar);
 
   /* ---------- alterações na tela ---------- */
   const fora = el => el.matches('[data-be-marcador-input], [data-be-relacionado-input]');

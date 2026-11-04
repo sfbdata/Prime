@@ -4,7 +4,9 @@
    - A lista vem do GET /master/blog/artigos (busca, situacao, blogs, pagina); Duplicar e Excluir são POST JSON com
      X-CSRF-Token e, dando certo, a lista é lida de novo. Erro do servidor ({erro}) aparece na caixa de mensagem.
    - Editar abre a página própria do editor; Ver no site só aparece no artigo publicado.
-   - A faixa da última publicação fica para a fatia P4 (depende do builder).
+   - Faixa da última publicação (P4): GET /master/blog/publicacoes (as 20 últimas gerações dos blogs). "No ar desde",
+     "Gerando os blogs..." ou "A última publicação falhou", com o histórico aberto por "ver detalhes". Enquanto há
+     geração na fila ou gerando, a faixa é lida de novo a cada 20 segundos (só com a seção aberta).
    - Título, slug e categoria são dado do artigo: sempre passam por esc(). */
 (() => {
   'use strict';
@@ -26,6 +28,9 @@
   let erro = '';
   let ocupado = false;
   let espera = null;
+  let P = null; // histórico das gerações: {itens}
+  let historicoAberto = false;
+  let vigia = null;
 
   // Troca o id 0 do modelo da rota (/master/blog/artigos/0 e /master/blog/artigos/0/acao) pelo id do artigo.
   const comId = (modelo, id) => modelo.replace(/\/0(\/|$)/, '/' + encodeURIComponent(id) + '$1');
@@ -48,6 +53,22 @@
       .then(j => { R = j; falhou = false; })
       .catch(() => { falhou = true; })
       .finally(desenhar);
+  }
+
+  const ABERTAS = ['na_fila', 'gerando'];
+
+  function carregarPublicacoes() {
+    clearTimeout(vigia);
+    if (!ctx.urlPublicacoes) return Promise.resolve();
+    const minhaRaiz = raiz;
+    return pedir(ctx.urlPublicacoes)
+      .then(j => { P = j; })
+      .catch(() => { P = null; })
+      .finally(() => {
+        if (minhaRaiz !== raiz || !raiz.isConnected) return;
+        desenharFaixa();
+        if (P && P.itens.some(p => ABERTAS.includes(p.situacao))) vigia = setTimeout(carregarPublicacoes, 20000);
+      });
   }
 
   function postar(url, aoDarCerto) {
@@ -73,6 +94,7 @@
       + '<select class="bja-filtro" data-bja-situacao aria-label="Situação">' + opcoes(SITUACOES, filtro.situacao) + '</select>'
       + '<select class="bja-filtro" data-bja-blogs aria-label="Blog">' + opcoes(BLOGS, filtro.blogs) + '</select>'
       + '<span class="bja-espaco"></span><span class="bja-total" data-bja-total></span></div>'
+      + '<div class="bja-faixa" data-bja-faixa hidden></div>'
       + '<div class="bja-msg" data-bja-msg role="status" hidden></div>'
       + '<div class="bja-tabela"><div class="bja-larga"><div class="bja-grade bja-cab">' + cab + '</div>'
       + '<div class="bja-vazio" data-bja-vazio hidden></div><div data-bja-linhas></div></div>'
@@ -130,6 +152,39 @@
     raiz.querySelector('[data-bja-prox]').disabled = filtro.pagina >= paginas;
   }
 
+  /* ---------- faixa da última publicação ---------- */
+  function faixaDe(itens) {
+    if (itens.some(p => ABERTAS.includes(p.situacao))) return ['is-gerando', 'bi-arrow-repeat', 'Gerando os blogs...', 'ver histórico'];
+    const ultima = itens[0];
+    if (ultima.situacao === 'falhou') return ['is-falhou', 'bi-exclamation-triangle', 'A última publicação falhou:', 'ver detalhes'];
+    return ['is-no-ar', 'bi-check-circle', 'No ar desde ' + dataHora(ultima.terminadaEm || ultima.pedidaEm), 'ver histórico'];
+  }
+
+  function linhaDoHistorico(p) {
+    const artigos = p.artigos ? (p.artigos.blog || []).length + (p.artigos['blog-gratis'] || []).length : null;
+    return '<div class="bja-hist-linha">'
+      + '<span>' + esc(dataHora(p.pedidaEm)) + '</span>'
+      + '<span>' + esc(p.motivoRotulo) + (p.pedidaPor ? ' (' + esc(p.pedidaPor) + ')' : '') + '</span>'
+      + '<span><span class="bja-pub bja-pub-' + esc(p.situacao) + '">' + esc(p.situacaoRotulo) + '</span></span>'
+      + '<span>' + (p.terminadaEm ? 'Terminou ' + esc(dataHora(p.terminadaEm)) : '') + '</span>'
+      + '<span>' + (artigos === null ? '' : esc(artigos === 1 ? '1 artigo' : artigos + ' artigos')) + '</span>'
+      + (p.log ? '<details class="bja-hist-log"><summary>Registro da geração' + (p.commit ? ' (código ' + esc(p.commit) + ')' : '') + '</summary><pre>' + esc(p.log) + '</pre></details>' : '')
+      + '</div>';
+  }
+
+  function desenharFaixa() {
+    const el = raiz.querySelector('[data-bja-faixa]');
+    if (!el) return;
+    const itens = P ? P.itens : [];
+    el.hidden = itens.length === 0;
+    if (!itens.length) { el.innerHTML = ''; return; }
+    const [classe, icone, texto, link] = faixaDe(itens);
+    el.className = 'bja-faixa ' + classe;
+    el.innerHTML = '<div class="bja-faixa-txt"><i class="bi ' + icone + '"></i><span>' + esc(texto) + '</span>'
+      + '<button type="button" class="bja-faixa-link" data-bja-historico aria-expanded="' + historicoAberto + '">' + esc(historicoAberto ? 'fechar histórico' : link) + '</button></div>'
+      + (historicoAberto ? '<div class="bja-hist">' + itens.map(linhaDoHistorico).join('') + '</div>' : '');
+  }
+
   /* ---------- ações ---------- */
   const artigoPorId = id => (R ? R.itens.find(a => String(a.id) === String(id)) : null);
 
@@ -154,6 +209,7 @@
     raiz.addEventListener('click', e => {
       const b = e.target.closest('button');
       if (!b || !raiz.contains(b)) return;
+      if (b.hasAttribute('data-bja-historico')) { historicoAberto = !historicoAberto; desenharFaixa(); return; }
       if (b.hasAttribute('data-bja-ant')) { filtro.pagina = Math.max(1, filtro.pagina - 1); carregar(); return; }
       if (b.hasAttribute('data-bja-prox')) { filtro.pagina += 1; carregar(); return; }
       const ad = b.dataset.bjaDuplicar && artigoPorId(b.dataset.bjaDuplicar);
@@ -185,9 +241,12 @@
       falhou = false;
       msg = '';
       erro = '';
+      P = null;
+      historicoAberto = false;
       ouvir();
       desenhar();
       carregar();
+      carregarPublicacoes();
     },
   };
 })();

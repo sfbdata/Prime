@@ -37,4 +37,15 @@ final class ArtigosDeTeste
 
         return $artigo;
     }
+
+    /** Rascunho sem data, com tudo o que o zod pede para ir ao ar (Publicar agora). */
+    public static function rascunhoCompleto(string $slug = 'rascunho-completo', BlogsDoArtigo $blogs = BlogsDoArtigo::Normal): ArtigoDoBlog
+    {
+        $artigo = new ArtigoDoBlog($slug, $blogs, null, new \DateTimeImmutable('2026-11-01 10:00'));
+        $artigo->editarTextos('Título completo', 'Título curto', 'Título SEO', 'Descrição do artigo.', 'Linha fina do artigo.', 'Resumo do artigo.');
+        $artigo->classificar('prazos-processuais', 'equipe-editorial-bluejus', null, null, '3 min', false);
+        $artigo->definirCorpo('<p>Texto.</p>', "Texto.\n");
+
+        return $artigo;
+    }
 }

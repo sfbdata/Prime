@@ -141,6 +141,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'armazenamento:replicar-espelho --se-ligado --limite=50 --no-interaction',
             'cron'    => '* * * * *',
         ],
+        // A cada minuto: lê o resultado do builder dos blogs (spec painel-artigos-blogs, seção 6.1). Sem pedido aberto,
+        // termina na hora sem fazer nada. Sai com erro quando uma geração falhou, para o aviso chegar ao Master.
+        'blog:conferir-publicacoes' => [
+            'comando' => 'blog:conferir-publicacoes --no-interaction',
+            'cron'    => '* * * * *',
+        ],
         // De hora em hora: envio do sistema para o Drive (só sistema para Drive; importar nunca
         // é automático). Sem --tenant-id: percorre todos os escritórios com Drive conectado; o
         // escritório que desconecta para de enviar (decisão do dono, 24/10/2026). Sem nenhum

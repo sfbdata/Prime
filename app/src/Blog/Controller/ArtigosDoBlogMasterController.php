@@ -7,17 +7,21 @@ namespace App\Blog\Controller;
 use App\Blog\Armazenamento\ChavesDoBlog;
 use App\Blog\DTO\SalvarArtigoDoBlogInput;
 use App\Blog\Exception\ArtigoDoBlogNaoEncontrado;
+use App\Blog\Exception\ArtigoDoBlogNaoPublicavel;
 use App\Blog\Exception\ArtigoDoBlogRecusado;
 use App\Blog\Exception\ImagemDoArtigoNaoEncontrada;
 use App\Blog\Enum\BlogsDoArtigo;
 use App\Blog\Service\CatalogoDoBlog;
 use App\Blog\Service\HtmlDoArtigoParaMarkdown;
 use App\Blog\UseCase\CarregarArtigoParaEditorUseCase;
+use App\Blog\UseCase\DespublicarArtigoDoBlogUseCase;
 use App\Blog\UseCase\DuplicarArtigoDoBlogUseCase;
 use App\Blog\UseCase\EnviarImagemDoArtigoUseCase;
 use App\Blog\UseCase\ExcluirArtigoDoBlogUseCase;
 use App\Blog\UseCase\ListarArtigosDoBlogUseCase;
+use App\Blog\UseCase\ListarPublicacoesDosBlogsUseCase;
 use App\Blog\UseCase\ObterImagemDoArtigoUseCase;
+use App\Blog\UseCase\PublicarArtigoDoBlogUseCase;
 use App\Blog\UseCase\SalvarArtigoDoBlogUseCase;
 use App\Blog\UseCase\SugerirMarcadoresUseCase;
 use App\Blog\UseCase\VerificarArtigoDoBlogUseCase;
@@ -40,7 +44,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * a página do editor, salvar rascunho, verificar, duplicar, excluir, sugestões de marcadores e a prévia aproximada; e,
  * desde a P3, o envio e a entrega das imagens do corpo e da capa (seção 4). Só o Master. Todo POST leva o token CSRF `master_blog` no header `X-CSRF-Token`.
  *
- * Agendar, Publicar e Despublicar não estão aqui: dependem do builder (P4) e do agendador (P5).
+ * Desde a P4: Publicar e Despublicar (pedem a geração dos blogs ao builder) e o histórico das gerações para a faixa da
+ * lista. Agendar fica para a P5 (agendador).
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 #[Route('/master/blog')]
@@ -129,6 +134,31 @@ final class ArtigosDoBlogMasterController extends AbstractController
 
             return $this->json(['ok' => true]);
         });
+    }
+
+    /** Publicar agora: 422 com os erros por campo quando o artigo não passa nas regras do zod; 409 se já está no ar sem alterações. */
+    #[Route('/artigos/{id}/publicar', name: 'master_blog_artigos_publicar', requirements: ['id' => '\d{1,10}'], methods: ['POST'])]
+    public function publicar(int $id, Request $request, PublicarArtigoDoBlogUseCase $publicar): JsonResponse
+    {
+        $ator = $this->getUser();
+
+        return $this->protegido($request, fn (): JsonResponse => $this->json(['ok' => true] + (array) $publicar->executar($id, $ator instanceof User ? $ator : null)));
+    }
+
+    /** Despublicar: 409 se o artigo não está publicado. */
+    #[Route('/artigos/{id}/despublicar', name: 'master_blog_artigos_despublicar', requirements: ['id' => '\d{1,10}'], methods: ['POST'])]
+    public function despublicar(int $id, Request $request, DespublicarArtigoDoBlogUseCase $despublicar): JsonResponse
+    {
+        $ator = $this->getUser();
+
+        return $this->protegido($request, fn (): JsonResponse => $this->json(['ok' => true] + (array) $despublicar->executar($id, $ator instanceof User ? $ator : null)));
+    }
+
+    /** As últimas gerações dos blogs (faixa e histórico da lista). */
+    #[Route('/publicacoes', name: 'master_blog_publicacoes', methods: ['GET'])]
+    public function publicacoes(ListarPublicacoesDosBlogsUseCase $listar): JsonResponse
+    {
+        return $this->json($listar->executar());
     }
 
     /** Envio do TinyMCE e do cartão da capa: multipart `arquivo` (e `alt`, opcional). Devolve `{id, url}`. */
@@ -223,6 +253,8 @@ final class ArtigosDoBlogMasterController extends AbstractController
             return $acao();
         } catch (ArtigoDoBlogNaoEncontrado $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (ArtigoDoBlogNaoPublicavel $e) {
+            return $this->json(['erros' => $e->erros], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (ArtigoDoBlogRecusado $e) {
             return $this->json(['erros' => [$e->campo => [$e->getMessage()]]], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (\DomainException $e) {

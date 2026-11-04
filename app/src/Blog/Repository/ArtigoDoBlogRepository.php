@@ -83,6 +83,22 @@ class ArtigoDoBlogRepository extends ServiceEntityRepository
     }
 
     /**
+     * Os artigos no ar, por slug: o pacote do builder leva todos eles (spec painel-artigos-blogs, seção 6.1).
+     *
+     * @return list<ArtigoDoBlog>
+     */
+    public function publicados(): array
+    {
+        /** @var list<ArtigoDoBlog> */
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.situacao = :publicado')
+            ->setParameter('publicado', SituacaoDoArtigo::Publicado)
+            ->orderBy('a.slug', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Lista da seção "Artigos dos blogs" (P2): busca no título e no slug, filtros opcionais de situação e de blog,
      * os alterados por último primeiro.
      *
