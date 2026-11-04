@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.36.0"
+  data: "2026-11-04"
+  itens:
+    - "No Importar pastas em lote, quem tem a BlueJus IA ligada ganha o botão \"Sugerir agrupamento com IA\": a IA olha só os nomes das pastas e dos arquivos e sugere qual pasta do computador vira cada caso, com o nome do cliente. Você confere, ajusta os nomes e só então clica em Importar."
+    - "A IA nunca junta casos diferentes, mesmo do mesmo cliente; no máximo avisa \"mesmo cliente que\" outra pasta. O conteúdo dos arquivos não é lido e cada clique conta como uma análise na cota do escritório."
+    - "Os documentos antigos que já estão guardados na nuvem deixam de ocupar espaço duas vezes no servidor. Eles continuam abrindo normalmente pelo sistema; o primeiro acesso a um deles pode levar alguns segundos a mais."
 - versao: "2.35.0"
   data: "2026-11-04"
   itens:

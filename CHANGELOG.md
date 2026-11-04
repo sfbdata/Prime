@@ -8,6 +8,19 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.36.0] - 2026-11-04
+
+### Adicionado
+
+- Importar pastas em lote: botão "Sugerir agrupamento com IA" (rota `expediente_importar_lote_sugerir`, `SugerirAgrupamentoDoLoteUseCase`). A IA (Haiku 5.5 fixo) lê só a árvore de nomes, mascarada e neutralizada, até 2.000 itens, e escolhe pastas do computador que viram um caso cada; o servidor recusa arquivo, pasta dentro de outra escolhida e cliente inválido.
+- Novo tipo de análise `agrupamento_lote` (sem migration): conta na cota do escritório, guarda só o hash e as contagens, nunca os nomes nem a resposta.
+- A IA nunca grava: as pastas continuam criadas pelo Importar, pela rota de sempre.
+
+### Alterado
+
+- Espelho R2 (etapa 9): novo comando `armazenamento:esvaziar-lote --lote=ID`, que apaga de vez as cópias de um lote em `.liberados/`. Simula por padrão; com `--executar`, exige `--confirmo-backup-testado`.
+- Cada cópia só sai depois de 7 dias da liberação, sem exclusão registrada, com o envio verificado igual na outbox, com a cópia igual à da liberação e com um download inteiro do R2 que confere o SHA-256 e o tamanho. A linha de liberação continua aberta, e `armazenamento:restaurar-lote` traz o arquivo de volta baixando do R2.
+
 ## [2.35.0] - 2026-11-04
 
 ### Adicionado
@@ -1462,7 +1475,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.35.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.36.0...HEAD
+[2.36.0]: https://github.com/sfbdata/Prime/compare/v2.35.0...v2.36.0
 [2.35.0]: https://github.com/sfbdata/Prime/compare/v2.34.0...v2.35.0
 [2.34.0]: https://github.com/sfbdata/Prime/compare/v2.33.1...v2.34.0
 [2.33.1]: https://github.com/sfbdata/Prime/compare/v2.33.0...v2.33.1
