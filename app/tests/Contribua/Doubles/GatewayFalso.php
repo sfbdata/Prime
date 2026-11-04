@@ -29,6 +29,9 @@ final class GatewayFalso implements GatewayDeAssinatura
 
     public bool $foraDoAr = false;
 
+    /** O último pedido que chegou em `iniciar`: o teste confere o valor e o link que iriam ao gateway. */
+    public ?PedidoDeCheckout $ultimoPedido = null;
+
     /** @var array<string, string> o que chegou no último `interpretarAviso` */
     public array $ultimosCabecalhos = [];
 
@@ -46,6 +49,7 @@ final class GatewayFalso implements GatewayDeAssinatura
     public function iniciar(PedidoDeCheckout $pedido): InicioDoCheckout
     {
         $this->exigirNoAr();
+        $this->ultimoPedido = $pedido;
         $id = 'sub_' . substr(sha1($pedido->referencia), 0, 12);
         $this->assinaturas[$id] = new SituacaoNoGateway($id, SituacaoDaAssinatura::Aguardando, null, $pedido->referencia, null, $pedido->valorCentavos);
 

@@ -107,7 +107,7 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
 
         $this->em->clear();
-        self::assertNull(static::getContainer()->get(ProgramaDeRecompensaRepository::class)->buscarUnico());
+        $this->assertProgramaIntocado();
         self::assertNull(static::getContainer()->get(CondicaoDeRecompensaRepository::class)->buscarDoIndicador((int) $ana->getId()));
     }
 
@@ -125,7 +125,7 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
 
         $this->em->clear();
-        self::assertNull(static::getContainer()->get(ProgramaDeRecompensaRepository::class)->buscarUnico());
+        $this->assertProgramaIntocado();
     }
 
     #[TestDox('regras: grava as seis, devolve o estado novo e deixa a trilha de auditoria de plataforma (sem escritório)')]
@@ -166,7 +166,7 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
             self::assertNotSame('', $this->json()['erro'], 'caso ' . $i);
         }
         $this->em->clear();
-        self::assertNull(static::getContainer()->get(ProgramaDeRecompensaRepository::class)->buscarUnico());
+        $this->assertProgramaIntocado();
     }
 
     #[TestDox('condição individual: grava, aparece na linha e no "N com condição individual", vale na leitura e vai para a auditoria')]
@@ -768,5 +768,15 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
     private function json(): array
     {
         return json_decode((string) $this->client->getResponse()->getContent(), true, 12, \JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * A recusa não grava a regra. A linha única do programa já existe desde a migration Version20261104110000
+     * (validade do crédito de indicação), então o sinal de "nada mudou" é ninguém ter registrado alteração.
+     */
+    private function assertProgramaIntocado(): void
+    {
+        $programa = static::getContainer()->get(ProgramaDeRecompensaRepository::class)->buscarUnico();
+        self::assertTrue($programa === null || $programa->getAlteradoPor() === null, 'a recusa não grava a regra');
     }
 }

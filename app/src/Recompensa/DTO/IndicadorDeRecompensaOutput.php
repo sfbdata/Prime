@@ -44,6 +44,8 @@ final readonly class IndicadorDeRecompensaOutput
         public int $emSeteDias,
         /** Para quem pagar (nome, documento mascarado e chave PIX); nulo enquanto o Master não cadastrou. */
         public ?DadosDeRecebimentoOutput $recebimento = null,
+        /** Crédito que venceu sem uso (validade de 3 meses por crédito); já fora do `saldoCentavos`. */
+        public int $expiradoCentavos = 0,
     ) {
     }
 
@@ -54,7 +56,7 @@ final readonly class IndicadorDeRecompensaOutput
             'userId' => $this->userId, 'nome' => $this->nome, 'email' => $this->email, 'escritorio' => $this->escritorio,
             'envios' => $this->envios, 'contas' => $this->contas, 'ativos' => $this->ativos, 'emCarencia' => $this->emCarencia,
             'minEscritorios' => $this->minEscritorios, 'valorCentavos' => $this->valorCentavos,
-            'saldoCentavos' => $this->saldoCentavos, 'pagoCentavos' => $this->pagoCentavos,
+            'saldoCentavos' => $this->saldoCentavos, 'pagoCentavos' => $this->pagoCentavos, 'expiradoCentavos' => $this->expiradoCentavos,
             'liberado' => $this->liberado, 'situacao' => $this->situacao,
             'bloqueado' => $this->bloqueado, 'suspeitas' => $this->suspeitas, 'motivosDeSuspeita' => $this->motivosDeSuspeita,
             'emSeteDias' => $this->emSeteDias,

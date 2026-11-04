@@ -17,6 +17,9 @@
     const soDigitos = (t) => String(t || '').replace(/\D/g, '');
     const MODULOS = { stripe: 'ContribuaStripe', mercado_pago: 'ContribuaMercadoPago', pagarme: 'ContribuaPagarme' };
     let plano = null;
+    /* VS 03.11.26: quantas vezes o maior pacote foi dobrado (+ e −); o servidor aceita 1, 2, 4, 8 e 16 */
+    const MUL_MAX = 16;
+    let mul = 1;
     let processando = false;
     let montado = null;
 
@@ -48,18 +51,52 @@
         const botao = $('[data-co-pagar]', modal);
         botao.disabled = ligado;
         botao.style.opacity = ligado ? '.7' : '1';
-        $('[data-co-botao-texto]', modal).textContent = ligado ? 'Processando com segurança…' : 'Assinar por ' + plano.preco + '/mês';
+        $('[data-co-botao-texto]', modal).textContent = ligado ? 'Processando com segurança…' : 'Assinar por ' + precoAtual() + '/mês';
+    }
+
+    const reais = (centavos) => 'R$ ' + (centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const gbAtual = () => plano.gb * mul;
+    const precoAtual = () => (mul === 1 ? plano.preco : reais(plano.centavos * mul));
+
+    /* Resumo do checkout com o multiplicador (coAdd, coGb, coDeW, coMulTxt, coMenosOp, coAutoTxt do desenho) */
+    function desenhar() {
+        $('[data-co-add]', modal).textContent = String(gbAtual() - plano.hoje);
+        $('[data-co-de]', modal).textContent = String(plano.hoje);
+        $('[data-co-gb]', modal).textContent = gbAtual() + ' GB';
+        $$('[data-co-preco]', modal).forEach((el) => { el.textContent = precoAtual(); });
+        const largura = Math.round(plano.hoje / gbAtual() * 100) + '%';
+        $('[data-co-largura]', modal).style.width = largura;
+        $('[data-co-largura-novo]', modal).style.left = largura;
+        $('[data-co-mais]', modal).hidden = !plano.maior;
+        $('[data-co-dobrar]', modal).hidden = !plano.maior;
+        $('[data-co-mais]', modal).disabled = mul >= MUL_MAX;
+        $('[data-co-menos]', modal).classList.toggle('co-menos--ativo', mul > 1);
+        const vezes = $('[data-co-mul]', modal);
+        vezes.hidden = mul === 1;
+        vezes.textContent = '×' + mul;
+        $('[data-co-auto-txt]', modal).title = 'Ao passar de ' + gbAtual() + ' GB, o espaço dobra para ' + gbAtual() * 2 + ' GB e o valor para '
+            + reais(plano.centavos * mul * 2) + '/mês; ao passar de ' + gbAtual() * 2 + ' GB, dobra de novo, e assim por diante.';
+    }
+
+    function multiplicar(novo) {
+        if (processando || !plano || !plano.maior || novo < 1 || novo > MUL_MAX || novo === mul) {
+            return;
+        }
+        mul = novo;
+        desenhar();
+        botaoProcessando(false);
+        /* O campo seguro do gateway foi montado com o valor antigo: remonta com o novo */
+        if (montado) {
+            montado.desmontar();
+            montado = null;
+            montarCampoSeguro();
+        }
     }
 
     function abrir(botao) {
-        plano = { codigo: botao.dataset.pedirPlano, nome: botao.dataset.planoNome, gb: +botao.dataset.planoGb, hoje: +botao.dataset.planoHoje, preco: botao.dataset.planoPreco, centavos: +botao.dataset.planoCentavos };
-        $('[data-co-add]', modal).textContent = String(plano.gb - plano.hoje);
-        $('[data-co-de]', modal).textContent = String(plano.hoje);
-        $('[data-co-gb]', modal).textContent = plano.gb + ' GB';
-        $$('[data-co-preco]', modal).forEach((el) => { el.textContent = plano.preco; });
-        const largura = Math.round(plano.hoje / plano.gb * 100) + '%';
-        $('[data-co-largura]', modal).style.width = largura;
-        $('[data-co-largura-novo]', modal).style.left = largura;
+        plano = { codigo: botao.dataset.pedirPlano, nome: botao.dataset.planoNome, gb: +botao.dataset.planoGb, hoje: +botao.dataset.planoHoje, preco: botao.dataset.planoPreco, centavos: +botao.dataset.planoCentavos, maior: botao.dataset.planoMaior === '1' };
+        mul = 1;
+        desenhar();
         mostrarSucesso(false);
         erro('');
         botaoProcessando(false);
@@ -80,7 +117,7 @@
             return;
         }
         montado = m;
-        Promise.resolve(m.montar(elemento, { chavePublica: modal.dataset.chavePublica, valorCentavos: plano.centavos, nome: modal.dataset.pagadorNome, email: modal.dataset.pagadorEmail }))
+        Promise.resolve(m.montar(elemento, { chavePublica: modal.dataset.chavePublica, valorCentavos: plano.centavos * mul, nome: modal.dataset.pagadorNome, email: modal.dataset.pagadorEmail }))
             .catch((e) => erro(e.message || 'Não foi possível abrir o formulário do cartão.'));
     }
 
@@ -115,7 +152,7 @@
         }
         erro('');
         botaoProcessando(true);
-        enviar(modal.dataset.urlIniciar, { plano: plano.codigo, documento: documento() })
+        enviar(modal.dataset.urlIniciar, { plano: plano.codigo, documento: documento(), multiplicador: mul })
             .then((d) => {
                 if (!d.ok) {
                     throw new Error(d.erro);
@@ -151,7 +188,7 @@
             })
             .then((d) => {
                 botaoProcessando(false);
-                $('[data-co-ok-gb]', modal).textContent = plano.gb + ' GB';
+                $('[data-co-ok-gb]', modal).textContent = gbAtual() + ' GB';
                 $('[data-co-ok-proxima]', modal).textContent = d.proxima;
                 mostrarSucesso(true);
             });
@@ -173,6 +210,32 @@
     }));
     $$('[data-fechar-checkout]', modal).forEach((b) => b.addEventListener('click', fechar));
     $('[data-co-pagar]', modal).addEventListener('click', pagar);
+    $('[data-co-mais]', modal).addEventListener('click', () => multiplicar(mul * 2));
+    $('[data-co-menos]', modal).addEventListener('click', () => multiplicar(mul / 2));
+
+    /* Chave "Ampliação de GB automática": grava na hora, por escritório; se o servidor recusar, volta como estava */
+    const chave = $('[data-co-auto]', modal);
+    let gravandoChave = false;
+    chave.addEventListener('click', () => {
+        if (gravandoChave) {
+            return;
+        }
+        gravandoChave = true;
+        const ligar = chave.getAttribute('aria-checked') !== 'true';
+        chave.setAttribute('aria-checked', ligar ? 'true' : 'false');
+        enviar(modal.dataset.urlAmpliacao, { ligada: ligar ? '1' : '0' })
+            .then((d) => {
+                if (!d.ok) {
+                    throw new Error(d.erro);
+                }
+                chave.setAttribute('aria-checked', d.ligada ? 'true' : 'false');
+            })
+            .catch((e) => {
+                chave.setAttribute('aria-checked', ligar ? 'false' : 'true');
+                erro(e.message || 'Não foi possível salvar. Tente de novo.');
+            })
+            .finally(() => { gravandoChave = false; });
+    });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !modal.hidden) {
             fechar();

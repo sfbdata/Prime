@@ -180,7 +180,7 @@ final class AtualizacaoDaAssinatura
         $plano = $pedido->getPlano();
         $ate = $pedido->getPagaAte()?->format('d/m/Y') ?? '';
         $mensagem = match ($pedido->getSituacao()) {
-            SituacaoDaAssinatura::Ativa => sprintf('Pagamento confirmado: seu espaço passou para %d GB (plano %s). Próxima cobrança em %s.', $plano->getCotaGb(), $plano->getNome(), $ate),
+            SituacaoDaAssinatura::Ativa => sprintf('Pagamento confirmado: seu espaço passou para %d GB (plano %s). Próxima cobrança em %s.', $pedido->gigabytes(), $plano->getNome(), $ate),
             SituacaoDaAssinatura::Inadimplente => $ate === '' ? sprintf('A primeira cobrança do plano %s não foi aprovada. Tente de novo em Contribua, com outro cartão.', $plano->getNome()) : sprintf('A cobrança do plano %s não foi aprovada. Atualize o cartão no gateway: o espaço continua por alguns dias de carência.', $plano->getNome()),
             SituacaoDaAssinatura::Cancelada => $ate === '' ? null : sprintf('Assinatura do plano %s cancelada. O espaço vale até %s e nenhum arquivo é apagado.', $plano->getNome(), $ate),
             SituacaoDaAssinatura::Aguardando => null,

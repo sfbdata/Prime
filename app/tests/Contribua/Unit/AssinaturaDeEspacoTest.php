@@ -6,6 +6,7 @@ namespace App\Tests\Contribua\Unit;
 
 use App\Contribua\Entity\AssinaturaDeEspaco;
 use App\Contribua\Entity\ConfiguracaoDePagamento;
+use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Gateway\SituacaoNoGateway;
@@ -150,6 +151,33 @@ final class AssinaturaDeEspacoTest extends TestCase
     {
         $this->expectException(\DomainException::class);
         (new ConfiguracaoDePagamento())->configurar(null, null, [], 61);
+    }
+
+    #[TestDox('VS 03.11.26: o multiplicador multiplica o GB do plano; o padrão é 1 e só valem 1, 2, 4, 8 e 16')]
+    public function testMultiplicador(): void
+    {
+        $plano = new Plano('avancado', 'Avançado', 100, 6990, 'Para quem precisa de muito', 15, 15);
+        self::assertSame(1, $this->assinatura()->getMultiplicador());
+        self::assertSame(20, $this->assinatura()->gigabytes());
+        self::assertSame(400, (new AssinaturaDeEspaco(new Tenant(), $plano, 'falso', 6990 * 4, null, 4))->gigabytes());
+
+        $this->expectException(\DomainException::class);
+        new AssinaturaDeEspaco(new Tenant(), $plano, 'falso', 6990 * 3, null, 3);
+    }
+
+    #[TestDox('VS 03.11.26: o espaço guarda o multiplicador da assinatura e a chave da ampliação automática')]
+    public function testEspacoComMultiplicadorEChave(): void
+    {
+        $espaco = new EspacoDoEscritorio(new Tenant(), new Plano('free', 'Free', 10, 0, 'Grátis', 1, 1));
+        self::assertSame(1, $espaco->getMultiplicador());
+        self::assertFalse($espaco->isAmpliacaoAutomatica());
+
+        $espaco->mudarDePlano(new Plano('avancado', 'Avançado', 100, 6990, 'Para quem precisa de muito', 15, 15), 2);
+        self::assertSame(200, $espaco->cotaDoPlanoEmGb());
+        $espaco->definirAmpliacaoAutomatica(true);
+        self::assertTrue($espaco->isAmpliacaoAutomatica());
+        $espaco->mudarDePlano(new Plano('free', 'Free', 10, 0, 'Grátis', 1, 1));
+        self::assertSame(1, $espaco->getMultiplicador(), 'voltar ao Free zera o multiplicador');
     }
 
     private function assinatura(): AssinaturaDeEspaco

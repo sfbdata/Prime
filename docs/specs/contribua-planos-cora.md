@@ -10,6 +10,23 @@
 
 Atualizado em 19/10/2026. Sessão f6 (Contribua). Coordenação: sessão "coordenador".
 
+**04/11/2026, desenho 08 VS 03.11.26** (cópia em `docs/design/contribua/`; Samuel aceitou os itens, Coordenador
+deu o escopo). Branch `contribua-0311`, migration `Version20261104110000` (espera o #611 do Perfis entrar):
+- Convite "Indique o BlueJus": o texto virou balão (`data-tip`/`title`) no título, com "expira em 3 meses". Mantido o
+  texto real do sistema ("quando o escritório indicado começar a usar o BlueJus", "fica guardado") no lugar do
+  "confirmar o e-mail" e "abate a mensalidade" do desenho, que o sistema não faz.
+- Validade do crédito de indicação: 3 meses (`ProgramaDeRecompensa::VALIDADE_MESES`). Crédito ganho antes do deploy
+  conta de `validade_desde` (gravada pela migration, que cria a linha do programa se faltar); o novo, da data em
+  que foi ganho. Débitos (pagos e estornos) consomem o crédito que vence primeiro. Vale no painel do Master também.
+- Botões + e − no checkout do MAIOR pacote pago: multiplicador 1, 2, 4, 8 ou 16 (teto do servidor) gravado na
+  assinatura e no espaço; valor e GB multiplicados; com multiplicador o gateway não recebe o "Link do pacote".
+  O desenho exportado tem a marcação embaralhada nesse trecho; seguida a ordem do arquivo: + no topo do cartão azul,
+  − e ×N na linha "Precisa de mais?".
+- Chave "Ampliação de GB automática": gravada por escritório (`contribua_espaco_do_escritorio.ampliacao_automatica`),
+  POST `contribua_ampliacao_automatica`, só o primário.
+- **Pendente (PR seguinte, decisão do Coordenador 04/11):** a dobra automática de verdade: detectar uso acima do
+  limite, dobrar espaço e valor na assinatura do gateway, avisar o escritório.
+
 **Pilha de PRs e ordem de merge** (cada um só depois do anterior):
 1. **#64** `contribua-cora` (C1: planos, espaço, bloqueio, evento, contrato b5, catálogo). **No master (20/10).**
    Migration `Version20261019190000` (cria 3 tabelas + carga dos planos + escritório do dono sem limite).
