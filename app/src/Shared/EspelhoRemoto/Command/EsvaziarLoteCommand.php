@@ -8,7 +8,9 @@ use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\EspelhoRemotoNaoConfigurado;
 use App\Shared\EspelhoRemoto\Liberacao\EsvaziadorDeLote;
 use App\Shared\EspelhoRemoto\Liberacao\LiberadorDeDisco;
+use App\Shared\EspelhoRemoto\Liberacao\LiberacaoAberta;
 use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
+use App\Shared\EspelhoRemoto\Liberacao\ResumoDaRestauracao;
 use App\Shared\EspelhoRemoto\ProvedorDoEspelhoRemoto;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -81,11 +83,27 @@ final class EsvaziarLoteCommand extends Command
             return Command::FAILURE;
         }
 
+        $resumo = $this->esvaziarComTrava($io, $linhas, $executar);
+        if ($resumo === null) {
+            return Command::FAILURE;
+        }
+        $this->mostrar($io, $lote, $executar, \count($linhas), $resumo);
+
+        return Command::SUCCESS;
+    }
+
+    /**
+     * @param list<LiberacaoAberta> $linhas
+     *
+     * @return ResumoDaRestauracao|null null quando a trava está com outro ou o espelho não está configurado
+     */
+    private function esvaziarComTrava(SymfonyStyle $io, array $linhas, bool $executar): ?ResumoDaRestauracao
+    {
         $trava = $this->travas->createLock(LiberadorDeDisco::TRAVA, LiberadorDeDisco::DURACAO_DA_TRAVA_EM_SEGUNDOS);
         if ($executar && !$trava->acquire()) {
             $io->error('Outra operação nos liberados está em andamento. Espere ela terminar.');
 
-            return Command::FAILURE;
+            return null;
         }
 
         try {
@@ -95,22 +113,25 @@ final class EsvaziarLoteCommand extends Command
         } catch (EspelhoRemotoNaoConfigurado $e) {
             $io->error($e->getMessage());
 
-            return Command::FAILURE;
+            return null;
         } finally {
             if ($executar) {
                 $trava->release();
             }
         }
 
-        $io->title(sprintf('Esvaziamento do lote %s (%s): %d linha(s) aberta(s)', $lote, $executar ? 'execução' : 'simulação', \count($linhas)));
+        return $resumo;
+    }
+
+    private function mostrar(SymfonyStyle $io, string $lote, bool $executar, int $linhas, ResumoDaRestauracao $resumo): void
+    {
+        $io->title(sprintf('Esvaziamento do lote %s (%s): %d linha(s) aberta(s)', $lote, $executar ? 'execução' : 'simulação', $linhas));
         $io->table(['resultado', 'arquivos'], array_map(null, array_keys($resumo->contagem()), array_values($resumo->contagem())));
         if (!$executar) {
             $io->note('Simulação: nada foi baixado nem apagado. Use --executar --confirmo-backup-testado para esvaziar.');
 
-            return Command::SUCCESS;
+            return;
         }
         $io->success(sprintf('Esvaziados: %d arquivo(s). Eles seguem no R2; voltar atrás: armazenamento:restaurar-lote --lote=%s --executar', $resumo->quantos(EsvaziadorDeLote::ESVAZIADO), $lote));
-
-        return Command::SUCCESS;
     }
 }

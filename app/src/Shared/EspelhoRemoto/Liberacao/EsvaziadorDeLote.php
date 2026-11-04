@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\EspelhoRemoto\Liberacao;
 
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\DiscoDaLiberacao;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\EspelhoRemotoNaoConfigurado;
@@ -88,30 +89,14 @@ final class EsvaziadorDeLote
         }
 
         try {
-            if ($this->outbox->temExclusaoDepoisDoUltimoEnvio($linha->chaveRemota)) {
-                return self::EXCLUSAO_REGISTRADA;
-            }
-            if (!$this->area->estaNosLiberados($chave, $linha->lote)) {
-                return self::JA_FORA;
-            }
-            if ($this->area->noDisco($chave) !== null) {
-                return self::ORIGINAL_NO_LUGAR;
-            }
-            if (!$this->outboxConfirma($linha)) {
-                return self::SEM_ENVIO_VERIFICADO;
-            }
-            if (!hash_equals($linha->sha256, $this->area->sha256NosLiberados($chave, $linha->lote))) {
-                return self::COPIA_DIVERGENTE;
+            $motivo = $this->motivoParaFicar($linha, $chave);
+            if ($motivo !== null) {
+                return $motivo;
             }
             if (!$executar) {
                 return self::ESVAZIARIA;
             }
-
-            $r2      = $espelho();
-            $baixado = $this->area->medirDownload(static function ($destino) use ($r2, $chave, $linha): void {
-                $r2->baixar($chave, $destino, $linha->tamanhoBytes, $linha->sha256);
-            });
-            if ($baixado['tamanhoBytes'] !== $linha->tamanhoBytes || !hash_equals($linha->sha256, $baixado['sha256'])) {
+            if (!$this->r2Confirma($linha, $chave, $espelho())) {
                 return self::R2_DIVERGENTE;
             }
 
@@ -129,6 +114,38 @@ final class EsvaziadorDeLote
         }
 
         return self::ESVAZIADO;
+    }
+
+    /** As provas 2 a 4, sem tocar no R2: o motivo para a cópia ficar, ou null quando todas passam. */
+    private function motivoParaFicar(LiberacaoAberta $linha, ChaveDeArquivo $chave): ?string
+    {
+        if ($this->outbox->temExclusaoDepoisDoUltimoEnvio($linha->chaveRemota)) {
+            return self::EXCLUSAO_REGISTRADA;
+        }
+        if (!$this->area->estaNosLiberados($chave, $linha->lote)) {
+            return self::JA_FORA;
+        }
+        if ($this->area->noDisco($chave) !== null) {
+            return self::ORIGINAL_NO_LUGAR;
+        }
+        if (!$this->outboxConfirma($linha)) {
+            return self::SEM_ENVIO_VERIFICADO;
+        }
+        if (!hash_equals($linha->sha256, $this->area->sha256NosLiberados($chave, $linha->lote))) {
+            return self::COPIA_DIVERGENTE;
+        }
+
+        return null;
+    }
+
+    /** Prova 5: o download inteiro do R2, medido aqui, tem o SHA-256 e o tamanho da linha. */
+    private function r2Confirma(LiberacaoAberta $linha, ChaveDeArquivo $chave, EspelhoRemoto $r2): bool
+    {
+        $baixado = $this->area->medirDownload(static function ($destino) use ($r2, $chave, $linha): void {
+            $r2->baixar($chave, $destino, $linha->tamanhoBytes, $linha->sha256);
+        });
+
+        return $baixado['tamanhoBytes'] === $linha->tamanhoBytes && hash_equals($linha->sha256, $baixado['sha256']);
     }
 
     /** Envio `verificado` igual à linha, ou nenhuma linha da chave na outbox (prova 3). */
