@@ -57,6 +57,9 @@ final class SugerirAgrupamentoDoLoteControllerTest extends BuscaRapidaWebTestCas
     {
         $crawler = $client->request('GET', '/expediente');
         self::assertResponseIsSuccessful();
+        // IA disponível: o botão aparece na tabela e na pergunta D11 (filho direto dos botões da pergunta).
+        self::assertCount(1, $crawler->filter('#il-raiz .il-cab > [data-il="sugerir"]'));
+        self::assertCount(1, $crawler->filter('#il-raiz .il-pergunta-botoes > [data-il="sugerir-pergunta"]'));
 
         return (string) $crawler->filter('#il-raiz')->attr('data-token');
     }
@@ -131,6 +134,7 @@ final class SugerirAgrupamentoDoLoteControllerTest extends BuscaRapidaWebTestCas
         $this->logarComTenant($client, $admin, $tenant);
         $crawler = $client->request('GET', '/expediente');
         self::assertCount(0, $crawler->filter('#il-raiz [data-il="sugerir"]'));
+        self::assertCount(0, $crawler->filter('#il-raiz [data-il="sugerir-pergunta"]'));
         $this->sugerir($client, (string) $crawler->filter('#il-raiz')->attr('data-token'));
 
         self::assertResponseStatusCodeSame(409);
