@@ -74,6 +74,23 @@ final class ReconciliadorDePasta
         return $comCadeado;
     }
 
+    /**
+     * Reconhecimento do Drive (spec drive-reconhecimento): enquanto uma dúvida PENDENTE cita a pasta como candidata,
+     * a pasta dela pode já existir no Drive. Criar outra agora deixaria o caso em dobro; o envio espera a decisão.
+     */
+    private function aguardaReconhecimento(int $pastaId, ResultadoReconciliacaoPasta $r): bool
+    {
+        $aguarda = $this->em->getConnection()->fetchOne(
+            "SELECT 1 FROM sync_drive_reconhecimento WHERE estado = 'pendente' AND candidatos @> CAST(:ids AS jsonb) LIMIT 1",
+            ['ids' => json_encode([$pastaId], JSON_THROW_ON_ERROR)],
+        ) !== false;
+        if ($aguarda) {
+            $r->log(sprintf('[reconhecimento] pasta_id=%d sem pasta nova no Drive: espera a decisão do reconhecimento.', $pastaId));
+        }
+
+        return $aguarda;
+    }
+
     /** Nome esperado da pasta no Drive: "NUP - CLIENTE - AÇÃO" (partes vazias omitidas). */
     public static function nomeEsperado(?string $nup, ?string $cliente, ?string $acao): string
     {
@@ -162,18 +179,30 @@ final class ReconciliadorDePasta
     }
 
     /**
+     * A pasta ganha pasta nova no Drive só se existe, não tem vínculo, não tem cadeado e nenhuma dúvida pendente do
+     * reconhecimento a cita como candidata.
+     */
+    private function precisaDePastaNoDrive(int $pastaId, ResultadoReconciliacaoPasta $r): bool
+    {
+        if ($this->foraDoSyncPeloCadeado($pastaId, $r)) {
+            return false;
+        }
+        $folderAtual = $this->em->getConnection()->fetchOne('SELECT drive_folder_id FROM pasta WHERE id = :id', ['id' => $pastaId]);
+        if ($folderAtual === false || ($folderAtual !== null && $folderAtual !== '')) {
+            return false; // pasta inexistente ou já vinculada
+        }
+
+        return !$this->aguardaReconhecimento($pastaId, $r);
+    }
+
+    /**
      * Via sistema→Drive (pasta): se a Pasta ainda não tem drive_folder_id, cria a pasta no Drive
      * (nome pela convenção) e grava o vínculo. No-op se já vinculada. flush()+clear() atômico.
      */
     public function garantirFolderDaPasta(int $pastaId, string $rootFolderId, GoogleDriveClientInterface $client, bool $dryRun, ResultadoReconciliacaoPasta $r): void
     {
-        if ($this->foraDoSyncPeloCadeado($pastaId, $r)) {
+        if (!$this->precisaDePastaNoDrive($pastaId, $r)) {
             return;
-        }
-        $conn = $this->em->getConnection();
-        $folderAtual = $conn->fetchOne('SELECT drive_folder_id FROM pasta WHERE id = :id', ['id' => $pastaId]);
-        if ($folderAtual === false || ($folderAtual !== null && $folderAtual !== '')) {
-            return; // pasta inexistente ou já vinculada
         }
 
         if ($dryRun) {
