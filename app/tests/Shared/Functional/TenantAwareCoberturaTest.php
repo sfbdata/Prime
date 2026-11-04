@@ -242,6 +242,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Master\Entity\EventoDeDesempenho::class,
         \App\Master\Entity\IncidenteDeDesempenho::class,
         \App\Master\Entity\RegistroDeBackup::class,
+        // Gráfico Crescimento do Master (desenho 05 - Perfis 1.2, VS 03.11.26): foto diária das métricas da PLATAFORMA
+        // (totais do sistema, sem escritório) e acesso por pessoa e por dia (só usuário e dia, CASCADE com a conta). Sem
+        // `tenant_id`; gravados pela tarefa agendada e pelo login, lidos só pelo Master (ROLE_SUPER_ADMIN), em agregado.
+        \App\Master\Entity\MetricaDiariaDoSistema::class,
+        \App\Master\Entity\AcessoDiario::class,
         // Custos do Master (docs/specs/master-custos.md): lançamento de custo da PLATAFORMA, sem `tenant_id`; só o Master
         // (ROLE_SUPER_ADMIN) lê e grava.
         \App\Master\Entity\LancamentoDeCusto::class,
@@ -387,7 +392,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 92 → 93 com a integração bancária da C4 (linha global da BlueJus, justificada acima).
     // 93 → 94 com o aviso de login novo (27/10/2026): AcessoConhecido é do usuário, justificado acima.
     // 94 → 95 com o Termo de Voluntariado do Trabalho Externo (27/10/2026): TermoDeVoluntariado, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 95;
+    // 95 → 97 com o gráfico Crescimento do Master (04/11/2026): MetricaDiariaDoSistema e AcessoDiario, justificados acima.
+    private const MAX_FORA_DO_ESCOPO = 97;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

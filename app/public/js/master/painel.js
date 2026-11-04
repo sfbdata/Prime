@@ -39,7 +39,7 @@
   const QUEM = raiz.dataset.quem || T('termos.master');
   const agora = () => dataHora(new Date().toISOString());
 
-  const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
+  const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grAce: false, grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
     faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, aviso: null, fx: null, fxMsg: null };
   let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
@@ -222,6 +222,14 @@
   const corDoAno = ano => { const anos = ANOS(), i = anos.length - 1 - anos.indexOf(ano); return ['#0a6fa0', '#7d909d', '#c08a12', '#7a3e8f', '#1e7b45', '#3b5bb8'][i % 6]; };
   const curva = P => { if (!P.length) return ''; if (P.length === 1) return 'M' + P[0].x + ' ' + P[0].y; const k = P.length, dx = [], m = [], t = []; for (let i = 0; i < k - 1; i++) { dx[i] = P[i + 1].x - P[i].x; m[i] = (P[i + 1].y - P[i].y) / dx[i]; } t[0] = m[0]; t[k - 1] = m[k - 2]; for (let i = 1; i < k - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : 3 * (dx[i - 1] + dx[i]) / ((2 * dx[i] + dx[i - 1]) / m[i - 1] + (dx[i] + 2 * dx[i - 1]) / m[i]); let d = 'M' + P[0].x.toFixed(1) + ' ' + P[0].y.toFixed(1); for (let i = 0; i < k - 1; i++) { const h = dx[i] / 3; d += ' C' + (P[i].x + h).toFixed(1) + ' ' + (P[i].y + t[i] * h).toFixed(1) + ' ' + (P[i + 1].x - h).toFixed(1) + ' ' + (P[i + 1].y - t[i + 1] * h).toFixed(1) + ' ' + P[i + 1].x.toFixed(1) + ' ' + P[i + 1].y.toFixed(1); } return d; };
 
+  // Visão "Diário" e linha "Acessos ao sistema" (desenho 05 - Perfis 1.2, VS 03.11.26). Os dados vêm do servidor por
+  // dia do ano: D.visao.crescimentoDiario[ano][métrica] e D.visao.acessos[ano] (nulo antes do 1º acesso gravado).
+  const DIARIO = () => D.visao.crescimentoDiario || {};
+  const ACESSOS = () => D.visao.acessos || {};
+  const diaDoAno = (a, i) => new Date(a, 0, 1 + i);
+  const somaDoMes = (a, m) => { const v = (ACESSOS()[a] || []).filter((x, i) => x !== null && diaDoAno(a, i).getMonth() === m); return v.length ? v.reduce((p, q) => p + q, 0) : null; };
+  const media7 = V => V.map((v, i) => { if (v === null) return null; const w = V.slice(Math.max(0, i - 6), i + 1).filter(x => x !== null); return w.reduce((p, q) => p + q, 0) / w.length; });
+
   function renderGrafico() {
     const C = CRESC(), anos = ANOS();
     if (!S.grSel) S.grSel = anos.slice(-2);
@@ -229,26 +237,59 @@
     const fmt = v => (S.grMet === 'gb' ? decimal(Math.round(v * 10) / 10, 0, 1) : num(Math.round(v)));
     const serie = a => { const v = C[a][S.grMet]; if (mod === 'acum') return v.slice(); const ant = C[a - 1] ? C[a - 1][S.grMet].filter(x => x !== null).slice(-1)[0] || 0 : 0; return v.map((x, i) => (x === null ? null : Math.max(0, Math.round((x - (i ? v[i - 1] : ant)) * 10) / 10))); };
     let rotulos, grupos;
-    if (vis === 'mes') { rotulos = MES.slice(); grupos = sel.map(a => ({ cor: corDoAno(a), vals: serie(a).map((v, i) => ({ v, tip: MES[i] + '/' + a })) })); }
-    else if (vis === 'todos') { const pts = [].concat(...sel.map(a => serie(a).map((v, i) => ({ v, tip: MES[i] + '/' + String(a).slice(2) })).filter(p => p.v !== null))); rotulos = pts.map((p, i) => (i % 2 ? '' : p.tip)); grupos = [{ cor: '#0a6fa0', vals: pts }]; }
+    if (vis === 'dia') {
+      // Desenho: o último ano escolhido, um ponto por dia até hoje; rótulo no dia 1º dos meses ímpares.
+      const a = sel[sel.length - 1], v = (DIARIO()[a] || {})[S.grMet] || [], ant = ((DIARIO()[a - 1] || {})[S.grMet] || []).filter(x => x !== null).slice(-1)[0] || 0;
+      const vals = v.map((x, i) => (x === null ? null : { i, v: mod === 'acum' ? x : Math.max(0, Math.round((x - (i ? v[i - 1] : ant)) * 10) / 10), tip: diaDoAno(a, i).toLocaleDateString('pt-BR') })).filter(Boolean);
+      rotulos = vals.map(p => { const d = diaDoAno(a, p.i); return d.getDate() === 1 && d.getMonth() % 2 === 0 ? MES[d.getMonth()] + ' ' + String(a).slice(2) : ''; });
+      grupos = [{ cor: '#1f3fd1', bolsa: true, ano: a, vals }];
+    }
+    else if (vis === 'mes') { rotulos = MES.slice(); grupos = sel.map(a => ({ cor: corDoAno(a), vals: serie(a).map((v, i) => ({ v, tip: MES[i] + '/' + a })) })); }
+    else if (vis === 'todos') { const pts = [].concat(...sel.map(a => serie(a).map((v, i) => ({ v, a, m: i, tip: MES[i] + '/' + String(a).slice(2) })).filter(p => p.v !== null))); rotulos = pts.map((p, i) => (i % 2 ? '' : p.tip)); grupos = [{ cor: '#0a6fa0', vals: pts }]; }
     else { rotulos = sel.map(String); grupos = [{ cor: '#0a6fa0', vals: sel.map(a => { const v = serie(a).filter(x => x !== null); return { v: mod === 'acum' ? v[v.length - 1] : v.reduce((p, q) => p + q, 0), tip: String(a) }; }) }]; }
     const n = rotulos.length, X = i => (n > 1 ? 60 + i * (688 / (n - 1)) : 404);
     const all = [].concat(...grupos.map(g => g.vals.map(p => p.v).filter(v => v !== null))), mx = Math.max(1, ...all) * 1.12, Y = v => 200 - v / mx * 180;
     const grade = [0, 0.25, 0.5, 0.75, 1].map(f => ({ y: Y(mx * f), topPct: (Y(mx * f) / 230 * 100) + '%', v: fmt(mx * f) }));
-    const series = grupos.map(g => { const pts = g.vals.map((p, i) => (p.v === null ? null : { x: X(i), y: Y(p.v), tip: p.tip + ': ' + fmt(p.v) })).filter(Boolean), d = curva(pts); return { cor: g.cor, pts, d, area: pts.length > 1 ? d + ' L' + pts[pts.length - 1].x + ' 200 L' + pts[0].x + ' 200 Z' : '' }; });
+    const reta = P => (P.length ? 'M' + P.map(p => p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' L') : '');
+    // Na visão Diário (desenho: "bolsa") a linha é fina e reta, sem área e sem bolinhas: só o último ponto.
+    const series = grupos.map(g => { const P0 = g.vals.map((p, i) => (p.v === null ? null : { x: X(i), y: Y(p.v), tip: p.tip + ': ' + fmt(p.v) })).filter(Boolean), d = g.bolsa ? reta(P0) : curva(P0); return { cor: g.cor, bolsa: !!g.bolsa, pts: g.bolsa ? P0.slice(-1) : P0, d, area: !g.bolsa && P0.length > 1 ? d + ' L' + P0[P0.length - 1].x + ' 200 L' + P0[0].x + ' 200 Z' : '' }; });
+    // Referência de 30 dias atrás e ponto final verde (subiu ou igual) ou vermelho (caiu), só na visão Diário.
+    const ref = (() => { const g = grupos[0]; if (!g || !g.bolsa || !g.vals.length) return ''; const P = g.vals, ult = P[P.length - 1], r = P[Math.max(0, P.length - 31)];
+      return '<line x1="44" x2="748" y1="' + Y(r.v).toFixed(1) + '" y2="' + Y(r.v).toFixed(1) + '" stroke="#12242f" stroke-width=".8"></line><circle cx="' + X(P.length - 1).toFixed(1) + '" cy="' + Y(ult.v).toFixed(1) + '" r="3" fill="' + (ult.v >= r.v ? '#1e7b45' : '#d32f2f') + '"></circle>'; })();
+    // Linha de acessos, escala própria à direita. Some em "Por ano"; no Diário é a média de 7 dias do ano mostrado;
+    // por mês, a soma das pessoas que entraram em cada dia do mês (o último ano escolhido, ou cada mês da linha contínua).
+    const ace = (() => {
+      if (!S.grAce || vis === 'ano') return { svg: '', txt: T('master.js.visao.grafico.acessos') };
+      const g = grupos[0] || { vals: [] }, ultAno = sel[sel.length - 1];
+      const V = vis === 'dia' ? media7(g.vals.map(p => { const x = (ACESSOS()[g.ano] || [])[p.i]; return x === undefined ? null : x; }))
+        : vis === 'todos' ? g.vals.map(p => somaDoMes(p.a, p.m)) : MES.map((_, m) => somaDoMes(ultAno, m));
+      const ok = V.filter(v => v !== null);
+      if (!ok.length) return { svg: '', txt: T('master.js.visao.grafico.acessos') };
+      const max = Math.max(1, ...ok), mA = max * 1.12, P = V.map((v, i) => (v === null ? null : { x: X(i), y: 200 - v / mA * 180 })).filter(Boolean);
+      const d = vis === 'dia' ? reta(P) : curva(P);
+      return {
+        svg: '<path class="mp-gr-ace-linha" d="' + d + '" stroke-width="' + (vis === 'dia' ? '1.2' : '1.6') + '" stroke-dasharray="' + (vis === 'dia' ? 'none' : '4 3') + '" opacity="' + (vis === 'dia' ? '.7' : '.9') + '"></path>'
+          + [0, 0.5, 1].map(f => '<text class="mp-gr-ace-esc" x="756" y="' + (200 - f / 1.12 * 180).toFixed(1) + '" text-anchor="end" dy="-2">' + esc(num(Math.round(f * max))) + '</text>').join(''),
+        txt: T(vis === 'dia' ? 'master.js.visao.grafico.acessos_max_dia' : 'master.js.visao.grafico.acessos_max_mes', { n: num(Math.round(max)) }),
+      };
+    })();
     const tit = { contas: T('master.js.visao.grafico.tit_contas'), usuarios: T('master.js.visao.grafico.tit_usuarios'), pastas: T('master.js.visao.grafico.tit_pastas'), gb: T('master.js.visao.grafico.tit_gb') }[S.grMet];
     const seg = (lista, atual, attr) => '<div class="mp-seg">' + lista.map(([k, rot]) => '<button type="button" class="' + (atual === k ? 'on' : '') + '" ' + attr + '="' + k + '">' + esc(rot) + '</button>').join('') + '</div>';
     const todos = sel.length === anos.length;
     document.getElementById('mp-gr').innerHTML = '<div class="mp-gr-topo"><b>' + T('master.js.visao.grafico.titulo') + ' <span>' + esc(tit) + '</span></b>'
       + '<select class="mp-select" data-gr-met>' + [['contas', T('master.js.visao.grafico.met_contas')], ['usuarios', T('master.js.visao.grafico.met_usuarios')], ['pastas', T('master.js.visao.grafico.met_pastas')], ['gb', T('master.js.visao.grafico.met_gb')]].map(([k, r]) => '<option value="' + k + '"' + (S.grMet === k ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>'
-      + seg([['mes', T('master.js.visao.grafico.por_mes')], ['ano', T('master.js.visao.grafico.por_ano')], ['todos', T('master.js.visao.grafico.continua')]], vis, 'data-gr-vis') + seg([['acum', T('master.js.visao.grafico.acumulado')], ['novo', T('master.js.visao.grafico.novos')]], mod, 'data-gr-mod')
+      + seg([['dia', T('master.js.visao.grafico.diario')], ['mes', T('master.js.visao.grafico.por_mes')], ['ano', T('master.js.visao.grafico.por_ano')], ['todos', T('master.js.visao.grafico.continua')]], vis, 'data-gr-vis')
+      + '<button type="button" class="mp-gr-ace' + (S.grAce ? ' on' : '') + '" data-gr-ace title="' + esc(T('master.js.visao.grafico.acessos_dica')) + '"><span class="mp-gr-ace-amostra"></span>' + esc(ace.txt) + '</button>'
+      + seg([['acum', T('master.js.visao.grafico.acumulado')], ['novo', T('master.js.visao.grafico.novos')]], mod, 'data-gr-mod')
       + '<div class="mp-anos"><button type="button" class="mp-todos-anos' + (todos ? ' on' : '') + '" data-gr-todos>' + T('master.js.visao.grafico.todos_anos') + '</button>'
       + anos.map(a => { const on = S.grSel.includes(a), cor = corDoAno(a); return '<button type="button" class="mp-ano" data-gr-ano="' + a + '" style="--linha:' + cor + ';--bg:' + (on ? '#fff' : '#f3f6f8') + ';--borda:' + (on ? cor : '#e2e9ee') + ';--cor:' + (on ? '#12242f' : '#98a9b4') + '"><span class="mp-ano-linha"></span>' + a + '</button>'; }).join('') + '</div></div>'
       + '<div class="mp-gr-area">' + grade.map(g => '<span class="mp-gr-y" style="top:' + g.topPct + '">' + esc(g.v) + '</span>').join('')
-      + rotulos.map((r, i) => '<span class="mp-gr-x" style="left:' + (X(i) / 760 * 100) + '%">' + esc(r) + '</span>').join('')
+      + rotulos.map((r, i) => (r === '' ? '' : '<span class="mp-gr-x" style="left:' + (X(i) / 760 * 100) + '%">' + esc(r) + '</span>')).join('')
       + '<svg viewBox="0 0 760 230" aria-hidden="false">' + grade.map(g => '<line x1="44" x2="748" y1="' + g.y + '" y2="' + g.y + '" stroke="#eef2f5"></line>').join('')
-      + series.map(s => '<path class="mp-gr-area-fill" d="' + s.area + '" fill="' + s.cor + '"></path><path class="mp-gr-linha" d="' + s.d + '" stroke="' + s.cor + '"></path>'
+      + ace.svg
+      + series.map(s => '<path class="mp-gr-area-fill" d="' + s.area + '" fill="' + s.cor + '"></path><path class="mp-gr-linha' + (s.bolsa ? ' mp-gr-fina' : '') + '" d="' + s.d + '" stroke="' + s.cor + '"></path>'
         + s.pts.map(p => '<g><circle class="mp-gr-ponto" cx="' + p.x + '" cy="' + p.y + '" r="2.6" stroke="' + s.cor + '"></circle><circle class="mp-gr-alvo" cx="' + p.x + '" cy="' + p.y + '" r="11" fill="' + s.cor + '"><title>' + esc(p.tip) + '</title></circle></g>').join('')).join('')
+      + ref
       + '</svg></div>';
   }
 
@@ -1331,6 +1372,7 @@
     const ped = t.closest('[data-pedido-op]'); if (ped) { e.stopPropagation(); fecharMenuDaConta(); return pedirAcaoNaConta(ped.dataset.pedidoOp, +ped.dataset.contaId); }
     if (t.closest('[data-parar]') && !t.closest('[data-op]')) return e.stopPropagation();
     const vis = t.closest('[data-gr-vis]'); if (vis) { S.grVis = vis.dataset.grVis; return renderGrafico(); }
+    if (t.closest('[data-gr-ace]')) { S.grAce = !S.grAce; return renderGrafico(); }
     const mod = t.closest('[data-gr-mod]'); if (mod) { S.grMod = mod.dataset.grMod; return renderGrafico(); }
     if (t.closest('[data-gr-todos]')) { S.grSel = ANOS(); return renderGrafico(); }
     const ano = t.closest('[data-gr-ano]');
