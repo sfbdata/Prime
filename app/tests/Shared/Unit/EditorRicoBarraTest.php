@@ -159,13 +159,14 @@ final class EditorRicoBarraTest extends TestCase
         $arquivos = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($templates, \FilesystemIterator::SKIP_DOTS));
         foreach ($arquivos as $arquivo) {
             $twig = (string) file_get_contents((string) $arquivo);
-            if (!str_contains($twig, "asset('js/editor-rico.js')")) {
+            // aspas simples ou duplas
+            if (preg_match('/asset\\([\'"]js\/editor-rico\.js[\'"]\\)/', $twig, $editor, \PREG_OFFSET_CAPTURE) !== 1) {
                 continue;
             }
             ++$achou;
-            $modulo = strpos($twig, "asset('js/revisao-de-texto.js')");
-            self::assertNotFalse($modulo, $arquivo->getPathname() . ' carrega o editor sem o revisao-de-texto.js');
-            self::assertLessThan(strpos($twig, "asset('js/editor-rico.js')"), $modulo, $arquivo->getPathname() . ' carrega o módulo depois do editor');
+            $achouModulo = preg_match('/asset\\([\'"]js\/revisao-de-texto\.js[\'"]\\)/', $twig, $modulo, \PREG_OFFSET_CAPTURE);
+            self::assertSame(1, $achouModulo, $arquivo->getPathname() . ' carrega o editor sem o revisao-de-texto.js');
+            self::assertLessThan($editor[0][1], $modulo[0][1], $arquivo->getPathname() . ' carrega o módulo depois do editor');
         }
         self::assertGreaterThan(0, $achou);
     }

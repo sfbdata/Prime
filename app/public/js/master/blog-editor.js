@@ -616,15 +616,19 @@
     });
   }
 
-  // Cada correção é um passo de desfazer; a próxima relê o texto (a troca anterior pode ter mudado as posições).
-  function corrigirProblema(problema) {
+  // Cada clique é um passo de desfazer ("Corrigir tudo" também é um só); cada problema relê o texto
+  // (a troca anterior pode ter mudado as posições).
+  function corrigirProblemas(problemas) {
     editor.undoManager.transact(() => {
-      const lido = textoDoCorpo();
-      trocarTrechos(problema.trechos.call(problema, lido.texto), lido.segmentos);
+      problemas.forEach(problema => {
+        const lido = textoDoCorpo();
+        trocarTrechos(problema.trechos.call(problema, lido.texto), lido.segmentos);
+      });
     });
     editor.nodeChanged();
     sujo = true;
   }
+  const corrigirProblema = problema => corrigirProblemas([problema]);
 
   // A janela da pasta (conteudoDaRevisao), com os mesmos textos.
   function conteudoDaRevisao() {
@@ -663,7 +667,7 @@
       'Corrigir tudo (' + problemas.length + ')'));
     todos.type = 'button';
     todos.addEventListener('click', () => {
-      problemas.forEach(corrigirProblema);
+      corrigirProblemas(problemas);
       abrirJanela(DICAS.revisar, conteudoDaRevisao());
     });
     caixa.appendChild(todos);
@@ -718,6 +722,8 @@
       onAction: () => { fecharJanela(); ed.execCommand('SearchReplace'); },
     });
     ed.addShortcut('meta+h', DICAS.localizar, () => { fecharJanela(); ed.execCommand('SearchReplace'); });
+    // O plugin searchreplace também liga o Ctrl+F; a pasta só tem o Ctrl+H, e o Ctrl+F fica com o navegador.
+    ed.on('init', () => ed.shortcuts.remove('meta+f'));
 
     [['bjdiminuirrecuo', 'bj-text-indent-right', DICAS.diminuirRecuo, 'Outdent', podeDiminuir],
       ['bjaumentarrecuo', 'bj-text-indent-left', DICAS.aumentarRecuo, 'Indent', podeAumentar]].forEach(([nome, icone, dica, comando, pode]) => {
@@ -733,6 +739,16 @@
         },
       });
     });
+
+    // Tab e Shift+Tab na lista seguem a mesma regra dos botões (o plugin lists trataria a tecla sem trava e
+    // deixaria um item vazio por cima da sublista). Entra antes do plugin (prepend) e o barra quando não pode.
+    ed.on('keydown', e => {
+      if (e.key !== 'Tab' || !itensSelecionados(ed)) return;
+      if (!(e.shiftKey ? podeDiminuir(ed) : podeAumentar(ed))) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }, true);
 
     ed.ui.registry.addButton('bjsimbolo', {
       icon: 'bj-simbolo',
