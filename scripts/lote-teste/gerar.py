@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Ambiente controlado para testar o "Importar pastas em lote" do Expediente.
 
-Gera, numa pasta (padrão ~/lote-teste), 10 cenários de organização de pastas com arquivos FALSOS e
+Gera, numa pasta (padrão ~/lote-teste), 11 cenários de organização de pastas com arquivos FALSOS e
 pequenos (PDF, JPG e DOCX mínimos e válidos), nomes fictícios e nenhum dado real. Cada cenário tem:
 
 - a pasta para escolher no modal (botão "Selecionar a pasta dos clientes");
 - LEIA-ME.md: o que escolher, o que o sistema cria hoje (pela regra do montar() do
-  app/public/js/expediente-importar-lote.js, com a pergunta D11) e o que seria o ideal;
+  app/public/js/expediente-importar-lote.js, com a pergunta D11 de 04/11) e o que seria o ideal;
 - esperado.json: o mesmo em formato de máquina, para medir a IA da etapa 2 (spec
   docs/specs/importar-pastas-em-lote.md, PR #600) contra o "ideal".
 
@@ -146,11 +146,42 @@ def _ordem_pt(texto: str) -> str:
     return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
 
 
-def precisa_perguntar(caminhos: list[str]) -> bool:
-    """D11: arquivo solto direto na pasta escolhida E arquivo em subpasta."""
+def estrutura(caminhos: list[str]) -> tuple[list[str], int]:
+    """Subpastas de 1º nível (em ordem) e arquivos soltos na raiz, como o estruturaDa() do JS."""
     validos = [p for p in (c.split("/") for c in caminhos) if not ignorado(p)]
+    subpastas = sorted({p[1] for p in validos if len(p) > 2}, key=_ordem_pt)
 
-    return any(len(p) == 2 for p in validos) and any(len(p) > 2 for p in validos)
+    return subpastas, sum(1 for p in validos if len(p) == 2)
+
+
+def precisa_perguntar(caminhos: list[str]) -> bool:
+    """D11 (04/11/2026): pergunta sempre que a pasta escolhida tem subpasta com arquivo."""
+    return len(estrutura(caminhos)[0]) > 0
+
+
+def _plural(n: int, um: str, varios: str) -> str:
+    return f"{n} {um if n == 1 else varios}"
+
+
+def texto_da_pergunta(nome: str, caminhos: list[str]) -> dict:
+    """Mesmo texto e rótulos do textoDaPergunta() do JS."""
+    subpastas, soltos = estrutura(caminhos)
+    n = len(subpastas)
+    nomes = ", ".join(subpastas[:5]) + (", ..." if n > 5 else "")
+    pastas = n + (1 if soltos else 0)
+    com_soltos = f" e {_plural(soltos, 'arquivo solto', 'arquivos soltos')}" if soltos else ""
+    criar = f"Criar {_plural(pastas, 'pasta', 'pastas')}, " + ("uma para a subpasta" if n == 1 else "uma por subpasta") + (
+        f" e uma \"{nome}\" com {'o arquivo solto' if soltos == 1 else 'os arquivos soltos'}" if soltos else "")
+
+    return {
+        "texto": f"A pasta \"{nome}\" tem {_plural(n, 'subpasta', 'subpastas')} ({nomes}){com_soltos}. "
+                 f"{criar}, ou 1 pasta só, \"{nome}\", com tudo?",
+        "nao": f"Criar {_plural(pastas, 'pasta', 'pastas')}",
+        "sim": f"1 pasta só, \"{nome}\"",
+    }
+
+
+NIVEIS = 10  # CriarPastaSecaoUseCase::PROFUNDIDADE_MAXIMA
 
 
 def montar(caminhos: list[str], um_cliente: bool) -> list[dict]:
@@ -171,8 +202,14 @@ def montar(caminhos: list[str], um_cliente: bool) -> list[dict]:
         for c in grupos[chave]:
             partes = c.split("/")
             item = {"arquivo": partes[-1]}
-            if um_cliente and len(partes) > 2:
-                item["descricao"] = "/".join(partes[1:])
+            # Importar copia a organização (04/11/2026): as pastas abaixo da pasta do BlueJus viram subpastas
+            # dos Documentos (o explorador grava o nome em maiúsculas), até 10 níveis; o que passar vai na descrição.
+            base = 1 if um_cliente else (2 if len(partes) > 2 else 1)
+            subpastas = [n.strip() for n in partes[base:-1] if n.strip()]
+            if subpastas:
+                item["subpasta"] = " > ".join(n.upper() for n in subpastas[:NIVEIS])
+            if len(subpastas) > NIVEIS:
+                item["descricao"] = "/".join(subpastas[NIVEIS:])
             arquivos.append(item)
         pastas.append({"cliente": _nome_do_cliente(chave), "arquivos": arquivos})
 
@@ -191,7 +228,8 @@ CENARIOS = [
         "arquivos": ["ANA_SOUZA_TESTE/procuracao.pdf", "ANA_SOUZA_TESTE/RG.jpg",
                      "BRUNO-LIMA-TESTE/contrato.docx", "CARLA MENDES TESTE/inicial.pdf"],
         "ideal": "3 pastas: ANA SOUZA TESTE (2 arquivos), BRUNO LIMA TESTE (1), CARLA MENDES TESTE (1).",
-        "notas": "Caso feliz. Sem pergunta.",
+        "notas": "Caso feliz. Aparece a pergunta (desde 04/11). Resposta certa: Criar 3 pastas.",
+        "resposta_certa": "nao",
     },
     {
         "id": "02-cliente-com-subpastas-e-soltos",
@@ -199,8 +237,8 @@ CENARIOS = [
         "escolher": "MARIA FICTICIA",
         "arquivos": ["procuracao.pdf", "Documentos/RG.jpg", "Documentos/comprovante.pdf",
                      "Processo/Inicial.pdf", "Processo/contestacao.docx"],
-        "ideal": "1 pasta MARIA FICTICIA com 5 arquivos; a descrição leva o caminho (Documentos/RG.jpg, Processo/Inicial.pdf...).",
-        "notas": "Aparece a pergunta D11. Resposta certa: Sim.",
+        "ideal": "1 pasta MARIA FICTICIA com 5 arquivos: procuracao.pdf na raiz dos Documentos e os outros nas subpastas DOCUMENTOS e PROCESSO.",
+        "notas": "Aparece a pergunta D11. Resposta certa: 1 pasta só.",
         "resposta_certa": "sim",
     },
     {
@@ -208,9 +246,10 @@ CENARIOS = [
         "titulo": "Um cliente só com subpastas, sem arquivo solto",
         "escolher": "PAULO FICTICIO",
         "arquivos": ["Documentos/RG.jpg", "Documentos/CPF.pdf", "Processo/Inicial.pdf"],
-        "ideal": "1 pasta PAULO FICTICIO com 3 arquivos.",
-        "notas": "Limite da regra: sem arquivo solto não há pergunta, e cada subpasta vira um cliente "
-                 "(DOCUMENTOS e PROCESSO). Caso para a IA da etapa 2.",
+        "ideal": "1 pasta PAULO FICTICIO com 3 arquivos, nas subpastas DOCUMENTOS e PROCESSO.",
+        "notas": "Aparece a pergunta (desde 04/11/2026, pedido do Farlei). Resposta certa: 1 pasta só. "
+                 "Antes não perguntava, e cada subpasta virava um cliente (DOCUMENTOS e PROCESSO).",
+        "resposta_certa": "sim",
     },
     {
         "id": "04-numeradas",
@@ -219,7 +258,9 @@ CENARIOS = [
         "arquivos": ["001 - Fulano Ficticio/inicial.pdf", "002 - Beltrana_Teste/procuracao.pdf",
                      "010 - Sicrano Teste/RG.jpg", "03_Joana Teste/RG.jpg", "4. Marcos Teste/inicial.pdf"],
         "ideal": "5 pastas com o nome sem o número: FULANO FICTICIO, BELTRANA TESTE, SICRANO TESTE, JOANA TESTE, MARCOS TESTE.",
-        "notas": "O número da frente sai do nome desde 03/11/2026 (antes ficava: 001 FULANO FICTICIO). Nome só com número (2024) fica.",
+        "notas": "Aparece a pergunta. Resposta certa: Criar 5 pastas. O número da frente sai do nome desde 03/11/2026 "
+                 "(antes ficava: 001 FULANO FICTICIO). Nome só com número (2024) fica.",
+        "resposta_certa": "nao",
     },
     {
         "id": "05-tres-niveis",
@@ -229,7 +270,9 @@ CENARIOS = [
                      "2024/LUIZA TESTE/Processo A/inicial.pdf", "2025/JOAO FICTICIO/Processo 2/inicial.pdf"],
         "ideal": "3 pastas (pasta = caso): JOAO FICTICIO (Processo 1, 2 arquivos), LUIZA TESTE (Processo A), "
                  "JOAO FICTICIO (Processo 2). As duas do João são casos diferentes e NÃO se juntam.",
-        "notas": "Limite da regra: o ano vira cliente (2024 e 2025). Caso para a IA.",
+        "notas": "Aparece a pergunta, e nenhuma resposta acerta: Criar 2 pastas faz o ano virar cliente (2024 e 2025); "
+                 "1 pasta só junta casos diferentes. Caso para a IA (o botão da IA aparece junto da pergunta).",
+        "resposta_certa": "nenhuma (use a IA)",
     },
     {
         "id": "06-soltos-e-subpastas-de-varios-clientes",
@@ -237,8 +280,8 @@ CENARIOS = [
         "escolher": "Clientes",
         "arquivos": ["planilha-geral.pdf", "ANA TESTE/procuracao.pdf", "BRUNO TESTE/RG.jpg"],
         "ideal": "2 pastas (ANA TESTE, BRUNO TESTE) e o planilha-geral.pdf fora, para a pessoa decidir.",
-        "notas": "Aparece a pergunta D11. Resposta certa: Não (vira ANA TESTE, BRUNO TESTE e CLIENTES com o solto; "
-                 "desmarque CLIENTES se não quiser importar o solto). Sim juntaria clientes diferentes.",
+        "notas": "Aparece a pergunta D11. Resposta certa: Criar 3 pastas (ANA TESTE, BRUNO TESTE e CLIENTES com o solto; "
+                 "desmarque CLIENTES se não quiser importar o solto). 1 pasta só juntaria clientes diferentes.",
         "resposta_certa": "nao",
     },
     {
@@ -249,8 +292,10 @@ CENARIOS = [
                      "ANA TESTE/.~lock.contrato.docx#", ".ocultos/rascunho.pdf"],
         "vazias": ["PASTA VAZIA", "ANA TESTE/Subpasta vazia"],
         "ideal": "1 pasta ANA TESTE com 1 arquivo. Lixo, oculto e pasta vazia não aparecem.",
-        "notas": "O lixo na raiz não dispara a pergunta. Pasta vazia o navegador nem lista. "
+        "notas": "Aparece a pergunta (ANA TESTE é subpasta). Resposta certa: Criar 1 pasta. O lixo na raiz não conta como "
+                 "arquivo solto. Pasta vazia o navegador nem lista. "
                  "A pasta oculta .ocultos é ignorada desde o PR #602; antes dele, virava um cliente \".OCULTOS\".",
+        "resposta_certa": "nao",
     },
     {
         "id": "08-acentos-e-separadores",
@@ -259,7 +304,9 @@ CENARIOS = [
         "arquivos": ["JOSÉ_DA_CONCEIÇÃO/procuração.pdf", "ÁUREA-MÜLLER/RG.jpg", "édson lima/inicial.pdf",
                      "Zé__Ninguém--Teste/contrato.docx"],
         "ideal": "4 pastas, em ordem alfabética do português: ÁUREA MÜLLER, ÉDSON LIMA, JOSÉ DA CONCEIÇÃO, ZÉ NINGUÉM TESTE.",
-        "notas": "Confere a ordem (acento não joga para o fim) e a troca de _/- por espaço.",
+        "notas": "Aparece a pergunta. Resposta certa: Criar 4 pastas. Confere a ordem (acento não joga para o fim) "
+                 "e a troca de _/- por espaço.",
+        "resposta_certa": "nao",
     },
     {
         "id": "09-mesmo-cliente-dois-casos",
@@ -268,7 +315,9 @@ CENARIOS = [
         "arquivos": ["PEDRO FICTICIO - TRABALHISTA/inicial.pdf", "PEDRO FICTICIO - TRABALHISTA/ctps.jpg",
                      "PEDRO FICTICIO - FAMILIA/inicial.pdf"],
         "ideal": "2 pastas separadas (pasta = caso). A IA pode avisar \"mesmo cliente que a pasta X\", sem juntar.",
-        "notas": "Hoje vira PEDRO FICTICIO FAMILIA e PEDRO FICTICIO TRABALHISTA: certo; só o nome leva o tipo do caso.",
+        "notas": "Aparece a pergunta. Resposta certa: Criar 2 pastas (PEDRO FICTICIO FAMILIA e PEDRO FICTICIO "
+                 "TRABALHISTA); só o nome leva o tipo do caso.",
+        "resposta_certa": "nao",
     },
     {
         "id": "10-recusados",
@@ -280,7 +329,20 @@ CENARIOS = [
                  "contados na mensagem final sem parar o lote.",
         "notas": "foto-grande.jpg tem ~3,3 MB (JPEG válido). instalador.exe é falso (só o cabeçalho MZ), não executa. "
                  "Mensagem final esperada: \"2 arquivos não foram anexados: foto-grande.jpg (passa de 3 MB) e "
-                 "instalador.exe (tipo não aceito).\"",
+                 "instalador.exe (tipo não aceito).\" Aparece a pergunta. Resposta certa: Criar 1 pasta.",
+        "resposta_certa": "nao",
+    },
+    {
+        "id": "11-subpastas-fundas",
+        "titulo": "Subpastas dentro de subpastas (e mais de 10 níveis)",
+        "escolher": "Clientes",
+        "arquivos": ["ANA TESTE/Processo/Recursos/apelacao.pdf", "ANA TESTE/Processo/inicial.pdf",
+                     "ANA TESTE/N1/N2/N3/N4/N5/N6/N7/N8/N9/N10/N11/N12/fundo.pdf"],
+        "ideal": "1 pasta ANA TESTE. Nos Documentos: PROCESSO (com inicial.pdf) > RECURSOS (com apelacao.pdf), e "
+                 "N1 > ... > N10 com fundo.pdf e a descrição N11/N12.",
+        "notas": "Aparece a pergunta. Resposta certa: Criar 1 pasta. O explorador aceita até 10 níveis de subpasta; "
+                 "o que passa fica no 10º nível, com o resto do caminho na descrição.",
+        "resposta_certa": "nao",
     },
 ]
 
@@ -299,6 +361,7 @@ def esperado(c: dict) -> dict:
     }
     if pergunta:
         saida["resposta_certa"] = c.get("resposta_certa")
+        saida["pergunta_texto"] = texto_da_pergunta(c["escolher"], caminhos)
         saida["hoje_sim"] = montar(caminhos, True)
         saida["hoje_nao"] = montar(caminhos, False)
     else:
@@ -310,7 +373,11 @@ def esperado(c: dict) -> dict:
 def _tabela(pastas: list[dict]) -> str:
     linhas = ["| Pasta (cliente) | Arquivos |", "|---|---|"]
     for p in pastas:
-        arqs = ", ".join(a["arquivo"] + (f" (descrição: {a['descricao']})" if "descricao" in a else "") for a in p["arquivos"])
+        arqs = ", ".join(
+            (f"{a['subpasta']} > " if "subpasta" in a else "") + a["arquivo"]
+            + (f" (descrição: {a['descricao']})" if "descricao" in a else "")
+            for a in p["arquivos"]
+        )
         linhas.append(f"| {p['cliente']} | {arqs} |")
 
     return "\n".join(linhas)
@@ -332,13 +399,16 @@ def leia_me(e: dict) -> str:
         partes += [
             "## Hoje (regra do montar() com a pergunta D11)",
             "",
-            f"Aparece a pergunta \"Esta é a pasta de um cliente só?\". Resposta certa: **{e['resposta_certa']}**.",
+            f"Aparece a pergunta \"Esta é a pasta de um cliente só?\": {e['pergunta_texto']['texto']}",
             "",
-            "Respondendo **Sim**:",
+            f"Resposta certa: **{e['resposta_certa']}** (sim = {e['pergunta_texto']['sim']}; "
+            f"nao = {e['pergunta_texto']['nao']}).",
+            "",
+            f"Respondendo **{e['pergunta_texto']['sim']}**:",
             "",
             _tabela(e["hoje_sim"]),
             "",
-            "Respondendo **Não**:",
+            f"Respondendo **{e['pergunta_texto']['nao']}**:",
             "",
             _tabela(e["hoje_nao"]),
             "",

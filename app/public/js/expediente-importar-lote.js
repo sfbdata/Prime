@@ -69,50 +69,89 @@
         return String(fl.webkitRelativePath || fl.name).split('/');
     }
 
-    /* Caminho do arquivo dentro da pasta escolhida, só quando está numa subpasta ("Processo/Inicial.pdf"):
-       vai na descrição do documento quando a pasta é de um cliente só (D11). */
-    function caminhoNaSubpasta(fl) {
+    /* Importar é copiar a organização do computador (Samuel, 04/11/2026): as pastas do computador abaixo da pasta
+       do BlueJus viram SUBPASTAS dos Documentos, pela mesma rota do explorador (`pasta_secao_criar`). `base` é quantos
+       pedaços do caminho formam a pasta do BlueJus: 1 em "1 pasta só" e em "Arquivos sem caso", o tamanho do caminho
+       da pasta na linha da IA, 0 nos arquivos soltos, e -1 em "Criar N pastas" (2 para quem está numa subpasta, 1
+       para o solto na raiz, que vira a pasta com o nome da escolhida). */
+    var NIVEIS = 10; // CriarPastaSecaoUseCase::PROFUNDIDADE_MAXIMA
+
+    function baseDa(p, partes) {
+        if (p.pastaIa) { return p.pastaIa.split('/').length; }
+        if (p.base === -1) { return partes.length > 2 ? 2 : 1; }
+
+        return p.base;
+    }
+
+    /* Onde o arquivo vai: as subpastas (até 10 níveis) e a descrição, que só leva o resto do caminho quando ele
+       passa de 10 níveis (as pastas que sobraram, "N11/N12"). */
+    function destinoDo(p, fl) {
         var partes = partesDe(fl);
+        var pastas = partes.slice(baseDa(p, partes), -1).map(function (n) { return n.trim(); }).filter(function (n) { return n !== ''; });
+        if (pastas.length <= NIVEIS) { return { pastas: pastas, descricao: '' }; }
 
-        return partes.length > 2 ? partes.slice(1).join('/') : '';
+        return { pastas: pastas.slice(0, NIVEIS), descricao: pastas.slice(NIVEIS).join('/') };
     }
 
-    /* Descrição do documento: na linha sugerida pela IA, o caminho abaixo da pasta do caso quando o arquivo está numa
-       subpasta dela; na regra, o caminho da subpasta quando a pasta é de um cliente só (D11). */
-    function descricaoDo(p, fl) {
-        if (p.pastaIa) {
-            var resto = partesDe(fl).join('/').slice(p.pastaIa.length + 1);
-
-            return resto.indexOf('/') >= 0 ? resto : '';
-        }
-
-        return p.comCaminho ? caminhoNaSubpasta(fl) : '';
-    }
-
-    /* D11: arquivo solto direto na pasta escolhida E arquivo dentro de subpasta. Aí não dá para saber se é a
-       pasta de um cliente (com subpastas de organização) ou a pasta de vários clientes: pergunta. */
-    function precisaPerguntar(files) {
-        var soltos = 0, emSubpasta = 0;
+    /* D11 (04/11/2026, pedido do Farlei): a pasta escolhida tem subpasta com arquivo. Aí não dá para saber se é a
+       pasta de um cliente (com subpastas de organização, como Documentos e Processo) ou a pasta de vários clientes:
+       pergunta sempre. Devolve as subpastas (em ordem) e quantos arquivos estão soltos na raiz. */
+    function estruturaDa(files) {
+        var subpastas = {}, soltos = 0;
         Array.prototype.forEach.call(files, function (fl) {
             var partes = partesDe(fl);
             if (ignorado(partes)) { return; }
             if (partes.length === 2) { soltos++; }
-            if (partes.length > 2) { emSubpasta++; }
+            if (partes.length > 2) { subpastas[partes[1]] = true; }
         });
 
-        return soltos > 0 && emSubpasta > 0;
+        return { subpastas: Object.keys(subpastas).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); }), soltos: soltos };
+    }
+
+    function plural(n, um, varios) {
+        return n + ' ' + (n === 1 ? um : varios);
+    }
+
+    /* "A pasta "X" tem 2 subpastas (Documentos, Processo). Criar 2 pastas, uma por subpasta, ou 1 pasta só, "X", com
+       tudo?" Com arquivo solto na raiz, a regra cria mais uma pasta com o nome da escolhida para eles: o texto conta. */
+    function textoDaPergunta(nome, e) {
+        var n = e.subpastas.length, MAX = 5;
+        var nomes = e.subpastas.slice(0, MAX).join(', ') + (n > MAX ? ', ...' : '');
+        var pastas = n + (e.soltos > 0 ? 1 : 0);
+        var comSoltos = e.soltos > 0 ? ' e ' + plural(e.soltos, 'arquivo solto', 'arquivos soltos') : '';
+        var criar = 'Criar ' + plural(pastas, 'pasta', 'pastas') + (n === 1 ? ', uma para a subpasta' : ', uma por subpasta')
+            + (e.soltos > 0 ? ' e uma "' + nome + '" com ' + (e.soltos === 1 ? 'o arquivo solto' : 'os arquivos soltos') : '');
+
+        return {
+            texto: 'A pasta "' + nome + '" tem ' + plural(n, 'subpasta', 'subpastas') + ' (' + nomes + ')' + comSoltos + '. '
+                + criar + ', ou 1 pasta só, "' + nome + '", com tudo?',
+            nao: 'Criar ' + plural(pastas, 'pasta', 'pastas'),
+            sim: '1 pasta só, "' + nome + '"'
+        };
     }
 
     function lerPasta(files) {
-        if (!precisaPerguntar(files)) { montar(files, false, false); return; }
+        var e = estruturaDa(files);
+        if (e.subpastas.length === 0) { montar(files, false, false); return; }
         var lista = Array.prototype.slice.call(files);
         var nome = partesDe(lista[0])[0];
+        var t = textoDaPergunta(nome, e);
         s.pergunta = { files: lista };
         s.erro = '';
-        // Pasta = caso: o mesmo cliente pode ter várias pastas. Por isso o texto pede "Não" quando as subpastas são casos diferentes.
-        el('pergunta-txt').textContent = 'A pasta "' + nome + '" tem arquivos soltos e subpastas. Sim: é um caso só; tudo vira uma pasta, com o nome "'
-            + nome + '", e o caminho da subpasta vai na descrição de cada documento. Não: cada subpasta vira uma pasta (use Não também quando as subpastas forem casos diferentes do mesmo cliente).';
+        // Pasta = caso: o mesmo cliente pode ter várias pastas. Nas duas respostas, as subpastas viram subpastas dos Documentos (D12).
+        el('pergunta-txt').textContent = t.texto;
+        el('nao-txt').textContent = t.nao;
+        el('sim-txt').textContent = t.sim;
         render();
+    }
+
+    /* O botão da IA na pergunta: monta pela regra (uma pasta por subpasta) e já pede a sugestão. */
+    function sugerirDaPergunta() {
+        if (!s.pergunta || s.analisando) { return; }
+        var files = s.pergunta.files;
+        s.pergunta = null;
+        montar(files, false, false);
+        sugerir();
     }
 
     function responder(umCliente) {
@@ -139,7 +178,8 @@
             (grupos[k] = grupos[k] || []).push(fl);
         });
         var lote = Object.keys(grupos).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); }).map(function (k) {
-            return { cli: semNumeroNaFrente(k).replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase(), files: grupos[k], on: true, feita: false, st: '', nup: '', comCaminho: !!umCliente };
+            return { cli: semNumeroNaFrente(k).replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase(), files: grupos[k], on: true, feita: false, st: '', nup: '',
+                base: solta ? 0 : umCliente ? 1 : -1 };
         });
         if (!lote.length) {
             s.erro = 'Nenhum arquivo encontrado na pasta escolhida.';
@@ -260,6 +300,8 @@
             sugerir.disabled = s.analisando;
             el('sugerir-txt').textContent = s.analisando ? 'Analisando...' : 'Sugerir agrupamento com IA';
         }
+        var daPergunta = el('sugerir-pergunta');
+        if (daPergunta) { daPergunta.hidden = !s.pergunta; }
         if (voltar) { voltar.hidden = !(pode && s.modo === 'ia') || s.analisando; }
         el('aviso-ia').hidden = !(s.lote && s.modo === 'ia' && s.aviso);
         el('aviso-ia').textContent = s.aviso;
@@ -294,11 +336,11 @@
             });
             if (!files.length) { return; }
             lote.push({ cli: String(c.cliente || '').toUpperCase(), files: files, on: true, feita: false, st: '', nup: '',
-                comCaminho: false, ia: true, pastaIa: c.pasta, sub: c.mesmoClienteQue ? 'mesmo cliente que a pasta ' + nomeDaPasta(c.mesmoClienteQue) : '' });
+                base: 0, ia: true, pastaIa: c.pasta, sub: c.mesmoClienteQue ? 'mesmo cliente que a pasta ' + nomeDaPasta(c.mesmoClienteQue) : '' });
         });
         var resto = arquivos.filter(function (fl, i) { return !usados[i]; });
         if (resto.length) {
-            lote.push({ cli: '', files: resto, on: false, feita: false, st: '', nup: '', comCaminho: true, ia: true, pastaIa: '',
+            lote.push({ cli: '', files: resto, on: false, feita: false, st: '', nup: '', base: 1, ia: true, pastaIa: '',
                 sub: 'Arquivos sem caso' });
         }
         s.lote = lote;
@@ -344,6 +386,7 @@
 
     function progresso(texto, fracao) {
         if (texto !== null) { el('prog-txt').textContent = texto; }
+        if (fracao === null) { return; }
         var pct = Math.round(fracao * 100) + '%';
         el('pct').textContent = pct;
         el('barra').style.width = pct;
@@ -354,6 +397,58 @@
             .then(function (r) {
                 return r.json().catch(function () { return { status: 'erro', error: 'não foi possível enviar' }; });
             });
+    }
+
+    /* Cria, na pasta nova, as subpastas que os arquivos da linha pedem, em ordem alfabética (o pai antes do filho),
+       pela rota do explorador. Devolve `lugar(destino)`: a subpasta mais funda que existe e a descrição. Se uma
+       subpasta não pôde ser criada, o arquivo fica na mais funda que deu certo e o resto do caminho vai na descrição:
+       nenhum arquivo deixa de ser enviado por causa da subpasta. */
+    async function criarSubpastas(p, criada) {
+        var ids = {};
+        var caminhos = {};
+        p.files.forEach(function (fl) {
+            var pastas = destinoDo(p, fl).pastas;
+            for (var n = 1; n <= pastas.length; n++) { caminhos[pastas.slice(0, n).join('/')] = pastas.slice(0, n); }
+        });
+        var ordem = Object.keys(caminhos).sort(function (a, b) {
+            var pa = caminhos[a], pb = caminhos[b];
+            for (var n = 0; n < Math.min(pa.length, pb.length); n++) {
+                var c = pa[n].localeCompare(pb[n], 'pt-BR');
+                if (c !== 0) { return c; }
+            }
+
+            return pa.length - pb.length;
+        });
+        if (ordem.length && criada.secaoUrl) {
+            progresso('Criando subpastas · ' + p.cli, null);
+            for (var i = 0; i < ordem.length; i++) {
+                var pastas = caminhos[ordem[i]];
+                var pai = pastas.length > 1 ? ids[pastas.slice(0, -1).join('/')] : null;
+                if (pastas.length > 1 && !pai) { continue; }
+                var dados = new FormData();
+                dados.append('_token', criada.secaoToken);
+                dados.append('nome', pastas[pastas.length - 1]);
+                if (pai) { dados.append('paiId', String(pai)); }
+                var r;
+                try {
+                    r = await postar(criada.secaoUrl, dados);
+                } catch (e) {
+                    r = {};
+                }
+                if (r && r.id) { ids[ordem[i]] = r.id; }
+            }
+        }
+
+        return {
+            lugar: function (destino) {
+                var n = destino.pastas.length;
+                while (n > 0 && !ids[destino.pastas.slice(0, n).join('/')]) { n--; }
+                var resto = destino.pastas.slice(n);
+                var descricao = resto.concat(destino.descricao ? [destino.descricao] : []).join('/');
+
+                return { secaoId: n > 0 ? ids[destino.pastas.slice(0, n).join('/')] : null, descricao: descricao };
+            }
+        };
     }
 
     /* Motivo curto da recusa do upload, sem repetir o nome do arquivo (o servidor manda '"nome": excede ...'). */
@@ -431,12 +526,14 @@
                 continue;
             }
 
+            var secoes = await criarSubpastas(p, criada);
             for (var j = 0; j < p.files.length; j++) {
-                var arq = new FormData();
+                var arq = new FormData(), destino = destinoDo(p, p.files[j]), lugar = secoes.lugar(destino);
                 arq.append('_token', criada.uploadToken);
                 arq.append('arquivo', p.files[j]);
                 arq.append('categoria', 'DEMAIS');
-                if (descricaoDo(p, p.files[j])) { arq.append('descricao', descricaoDo(p, p.files[j])); }
+                if (lugar.secaoId) { arq.append('secao_id', String(lugar.secaoId)); }
+                if (lugar.descricao) { arq.append('descricao', lugar.descricao); }
                 var r;
                 try {
                     r = await postar(criada.uploadUrl, arq);
@@ -489,6 +586,7 @@
             render();
         }
         if (acao === 'sugerir') { sugerir(); }
+        if (acao === 'sugerir-pergunta') { sugerirDaPergunta(); }
         if (acao === 'voltar-regra') { voltarARegra(); }
         if ((acao === 'sim' || acao === 'nao') && s.pergunta) { responder(acao === 'sim'); }
         if (acao === 'importar') { importar(); }

@@ -171,6 +171,10 @@ final class ImportarLoteController extends AbstractController
             'cliente'     => mb_strtoupper((string) $pasta->getNomeCliente()),
             'uploadUrl'   => $podeAnexar ? $this->generateUrl('pasta_peticionar_upload', ['id' => $id]) : null,
             'uploadToken' => $podeAnexar ? $this->csrfTokenManager->getToken('peticionar_upload_' . $id)->getValue() : null,
+            // As pastas do computador viram subpastas dos Documentos pela mesma rota do explorador
+            // (`PastaSecaoController::criar`, que reconfere escritório, permissão e o teto de 10 níveis).
+            'secaoUrl'    => $podeAnexar ? $this->generateUrl('pasta_secao_criar', ['id' => $id]) : null,
+            'secaoToken'  => $podeAnexar ? $this->csrfTokenManager->getToken('pasta_secao_criar_' . $id)->getValue() : null,
         ]);
     }
 

@@ -134,8 +134,8 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         self::assertSame(PastaDocumento::CATEGORIA_DEMAIS, $docs[0]->getCategoria());
     }
 
-    #[TestDox('D11, pasta de um cliente só: o caminho da subpasta vai na descrição do documento ("Processo/Inicial.pdf")')]
-    public function testCaminhoDaSubpastaVaiNaDescricao(): void
+    #[TestDox('importar copia a organização: Processo > Recursos viram subpastas pela rota do explorador, e o arquivo vai para a sua')]
+    public function testPastasDoComputadorViramSubpastas(): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -143,8 +143,18 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         $admin  = $this->criarAdministrador($tenant);
 
         $this->logarComTenant($client, $admin, $tenant);
-        $client->request('POST', self::URL, ['nome_cliente' => 'JOSE PEREIRA', '_token' => $this->tokenDaTela($client)]);
+        $client->request('POST', self::URL, ['nome_cliente' => 'ANA TESTE', '_token' => $this->tokenDaTela($client)]);
         $criada = $this->json($client);
+        self::assertSame('/pasta/' . $criada['id'] . '/secao', $criada['secaoUrl']);
+        self::assertNotEmpty($criada['secaoToken']);
+
+        // Clientes/ANA TESTE/Processo/Recursos/apelacao.pdf: o navegador cria Processo e, dentro dela, Recursos.
+        $client->request('POST', $criada['secaoUrl'], ['_token' => $criada['secaoToken'], 'nome' => 'Processo'], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        self::assertResponseStatusCodeSame(201);
+        $processo = $this->json($client)['id'];
+        $client->request('POST', $criada['secaoUrl'], ['_token' => $criada['secaoToken'], 'nome' => 'Recursos', 'paiId' => (string) $processo], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        self::assertResponseStatusCodeSame(201);
+        $recursos = $this->json($client)['id'];
 
         $tmp = (string) tempnam(sys_get_temp_dir(), 'lote_pdf_');
         file_put_contents($tmp, '%PDF-1.4 dummy');
@@ -152,16 +162,18 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         $client->request(
             'POST',
             $criada['uploadUrl'],
-            ['_token' => $criada['uploadToken'], 'categoria' => 'DEMAIS', 'descricao' => 'Processo/Inicial.pdf'],
-            ['arquivo' => new UploadedFile($tmp, 'Inicial.pdf', 'application/pdf', null, true)],
+            ['_token' => $criada['uploadToken'], 'categoria' => 'DEMAIS', 'secao_id' => (string) $recursos],
+            ['arquivo' => new UploadedFile($tmp, 'apelacao.pdf', 'application/pdf', null, true)],
             ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
         );
 
         self::assertResponseIsSuccessful();
         $docs = $this->em()->getRepository(PastaDocumento::class)->findBy(['pasta' => $this->em()->find(Pasta::class, $criada['id'])]);
         self::assertCount(1, $docs);
-        self::assertSame('Processo/Inicial.pdf', $docs[0]->getDescricao());
-        self::assertSame(PastaDocumento::CATEGORIA_DEMAIS, $docs[0]->getCategoria());
+        self::assertSame('RECURSOS', $docs[0]->getSecao()?->getNome(), 'a subpasta segue a regra do explorador (maiúsculas)');
+        self::assertSame('PROCESSO', $docs[0]->getSecao()?->getPai()?->getNome());
+        self::assertNull($docs[0]->getSecao()?->getPai()?->getPai());
+        self::assertNull($docs[0]->getDescricao(), 'o caminho não vai mais na descrição');
     }
 
     #[TestDox('pastas seguidas recebem números seguidos')]
@@ -217,6 +229,8 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         self::assertSame('ok', $criada['status']);
         self::assertNull($criada['uploadUrl']);
         self::assertNull($criada['uploadToken']);
+        self::assertNull($criada['secaoUrl']);
+        self::assertNull($criada['secaoToken']);
     }
 
     #[TestDox('o número segue o escritório: pasta de outro escritório não conta')]
@@ -269,12 +283,15 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         self::assertStringContainsString('Ou selecionar arquivos soltos (vira uma pasta só)', $modal->text());
         self::assertCount(1, $crawler->filter('script[src*="js/expediente-importar-lote.js"]'));
 
-        // D11: pergunta "cliente só" no visual do próprio modal (sem Bootstrap), escondida até ser preciso.
+        // D11: pergunta no visual do próprio modal (sem Bootstrap), escondida até ser preciso. Os rótulos
+        // ("Criar N pastas" primeiro, '1 pasta só, "X"' depois) vêm do JS, com a contagem das subpastas.
         $pergunta = $modal->filter('.il-corpo > .il-pergunta[data-il="pergunta"][hidden]');
         self::assertCount(1, $pergunta);
         self::assertSame('Esta é a pasta de um cliente só?', trim($pergunta->filter('b')->text()));
-        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-importar[data-il="sim"]'));
-        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-trocar[data-il="nao"]'));
+        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-importar[data-il="sim"] > span[data-il="sim-txt"]'));
+        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-trocar[data-il="nao"] > span[data-il="nao-txt"]'));
+        $botoes = $pergunta->filter('.il-pergunta-botoes > button')->extract(['data-il']);
+        self::assertLessThan(array_search('sim', $botoes, true), array_search('nao', $botoes, true), '"Criar N pastas" vem antes de "1 pasta só"');
         self::assertCount(0, $pergunta->filter('.btn, .modal'), 'componente do modal, não do Bootstrap');
     }
 }
