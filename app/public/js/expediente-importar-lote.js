@@ -89,30 +89,65 @@
         return p.comCaminho ? caminhoNaSubpasta(fl) : '';
     }
 
-    /* D11: arquivo solto direto na pasta escolhida E arquivo dentro de subpasta. Aí não dá para saber se é a
-       pasta de um cliente (com subpastas de organização) ou a pasta de vários clientes: pergunta. */
-    function precisaPerguntar(files) {
-        var soltos = 0, emSubpasta = 0;
+    /* D11 (04/11/2026, pedido do Farlei): a pasta escolhida tem subpasta com arquivo. Aí não dá para saber se é a
+       pasta de um cliente (com subpastas de organização, como Documentos e Processo) ou a pasta de vários clientes:
+       pergunta sempre. Devolve as subpastas (em ordem) e quantos arquivos estão soltos na raiz. */
+    function estruturaDa(files) {
+        var subpastas = {}, soltos = 0;
         Array.prototype.forEach.call(files, function (fl) {
             var partes = partesDe(fl);
             if (ignorado(partes)) { return; }
             if (partes.length === 2) { soltos++; }
-            if (partes.length > 2) { emSubpasta++; }
+            if (partes.length > 2) { subpastas[partes[1]] = true; }
         });
 
-        return soltos > 0 && emSubpasta > 0;
+        return { subpastas: Object.keys(subpastas).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); }), soltos: soltos };
+    }
+
+    function plural(n, um, varios) {
+        return n + ' ' + (n === 1 ? um : varios);
+    }
+
+    /* "A pasta "X" tem 2 subpastas (Documentos, Processo). Criar 2 pastas, uma por subpasta, ou 1 pasta só, "X", com
+       tudo?" Com arquivo solto na raiz, a regra cria mais uma pasta com o nome da escolhida para eles: o texto conta. */
+    function textoDaPergunta(nome, e) {
+        var n = e.subpastas.length, MAX = 5;
+        var nomes = e.subpastas.slice(0, MAX).join(', ') + (n > MAX ? ', ...' : '');
+        var pastas = n + (e.soltos > 0 ? 1 : 0);
+        var comSoltos = e.soltos > 0 ? ' e ' + plural(e.soltos, 'arquivo solto', 'arquivos soltos') : '';
+        var criar = 'Criar ' + plural(pastas, 'pasta', 'pastas') + (n === 1 ? ', uma para a subpasta' : ', uma por subpasta')
+            + (e.soltos > 0 ? ' e uma "' + nome + '" com ' + (e.soltos === 1 ? 'o arquivo solto' : 'os arquivos soltos') : '');
+
+        return {
+            texto: 'A pasta "' + nome + '" tem ' + plural(n, 'subpasta', 'subpastas') + ' (' + nomes + ')' + comSoltos + '. '
+                + criar + ', ou 1 pasta só, "' + nome + '", com tudo?',
+            nao: 'Criar ' + plural(pastas, 'pasta', 'pastas'),
+            sim: '1 pasta só, "' + nome + '"'
+        };
     }
 
     function lerPasta(files) {
-        if (!precisaPerguntar(files)) { montar(files, false, false); return; }
+        var e = estruturaDa(files);
+        if (e.subpastas.length === 0) { montar(files, false, false); return; }
         var lista = Array.prototype.slice.call(files);
         var nome = partesDe(lista[0])[0];
+        var t = textoDaPergunta(nome, e);
         s.pergunta = { files: lista };
         s.erro = '';
-        // Pasta = caso: o mesmo cliente pode ter várias pastas. Por isso o texto pede "Não" quando as subpastas são casos diferentes.
-        el('pergunta-txt').textContent = 'A pasta "' + nome + '" tem arquivos soltos e subpastas. Sim: é um caso só; tudo vira uma pasta, com o nome "'
-            + nome + '", e o caminho da subpasta vai na descrição de cada documento. Não: cada subpasta vira uma pasta (use Não também quando as subpastas forem casos diferentes do mesmo cliente).';
+        // Pasta = caso: o mesmo cliente pode ter várias pastas. "1 pasta só" leva o caminho da subpasta na descrição.
+        el('pergunta-txt').textContent = t.texto;
+        el('nao-txt').textContent = t.nao;
+        el('sim-txt').textContent = t.sim;
         render();
+    }
+
+    /* O botão da IA na pergunta: monta pela regra (uma pasta por subpasta) e já pede a sugestão. */
+    function sugerirDaPergunta() {
+        if (!s.pergunta || s.analisando) { return; }
+        var files = s.pergunta.files;
+        s.pergunta = null;
+        montar(files, false, false);
+        sugerir();
     }
 
     function responder(umCliente) {
@@ -260,6 +295,8 @@
             sugerir.disabled = s.analisando;
             el('sugerir-txt').textContent = s.analisando ? 'Analisando...' : 'Sugerir agrupamento com IA';
         }
+        var daPergunta = el('sugerir-pergunta');
+        if (daPergunta) { daPergunta.hidden = !s.pergunta; }
         if (voltar) { voltar.hidden = !(pode && s.modo === 'ia') || s.analisando; }
         el('aviso-ia').hidden = !(s.lote && s.modo === 'ia' && s.aviso);
         el('aviso-ia').textContent = s.aviso;
@@ -489,6 +526,7 @@
             render();
         }
         if (acao === 'sugerir') { sugerir(); }
+        if (acao === 'sugerir-pergunta') { sugerirDaPergunta(); }
         if (acao === 'voltar-regra') { voltarARegra(); }
         if ((acao === 'sim' || acao === 'nao') && s.pergunta) { responder(acao === 'sim'); }
         if (acao === 'importar') { importar(); }

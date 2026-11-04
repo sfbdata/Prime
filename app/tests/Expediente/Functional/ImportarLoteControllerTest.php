@@ -269,12 +269,15 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         self::assertStringContainsString('Ou selecionar arquivos soltos (vira uma pasta só)', $modal->text());
         self::assertCount(1, $crawler->filter('script[src*="js/expediente-importar-lote.js"]'));
 
-        // D11: pergunta "cliente só" no visual do próprio modal (sem Bootstrap), escondida até ser preciso.
+        // D11: pergunta no visual do próprio modal (sem Bootstrap), escondida até ser preciso. Os rótulos
+        // ("Criar N pastas" primeiro, '1 pasta só, "X"' depois) vêm do JS, com a contagem das subpastas.
         $pergunta = $modal->filter('.il-corpo > .il-pergunta[data-il="pergunta"][hidden]');
         self::assertCount(1, $pergunta);
         self::assertSame('Esta é a pasta de um cliente só?', trim($pergunta->filter('b')->text()));
-        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-importar[data-il="sim"]'));
-        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-trocar[data-il="nao"]'));
+        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-importar[data-il="sim"] > span[data-il="sim-txt"]'));
+        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-trocar[data-il="nao"] > span[data-il="nao-txt"]'));
+        $botoes = $pergunta->filter('.il-pergunta-botoes > button')->extract(['data-il']);
+        self::assertLessThan(array_search('sim', $botoes, true), array_search('nao', $botoes, true), '"Criar N pastas" vem antes de "1 pasta só"');
         self::assertCount(0, $pergunta->filter('.btn, .modal'), 'componente do modal, não do Bootstrap');
     }
 }

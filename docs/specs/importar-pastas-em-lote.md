@@ -65,20 +65,26 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
 - **D9 Gancho.** O botão é da bluejus-17 (`data-acao="importar-lote"`) e dispara `bj:importar-lote`
   no `document`. O nosso JS só ouve o evento; não edita o modal Nova Pasta.
 
-- **D11 Pasta de um cliente só (pedido do Samuel, 03/11/2026).** Quando a pasta escolhida tem
-  arquivos soltos direto nela **e** arquivos em subpastas, o modal pergunta, no visual do próprio
-  modal (`.il-pergunta`, sem Bootstrap): "Esta é a pasta de um cliente só?".
-  - **Sim**: tudo vira **uma** pasta, com o nome da pasta escolhida como cliente. O arquivo que estava
+- **D11 Pasta de um cliente só (pedido do Samuel, 03/11/2026; ampliada em 04/11/2026 a pedido do
+  Farlei).** Quando a pasta escolhida tem **qualquer** subpasta com arquivo (com ou sem arquivo solto
+  direto nela), o modal pergunta, no visual do próprio
+  modal (`.il-pergunta`, sem Bootstrap): "Esta é a pasta de um cliente só?", com o texto
+  'A pasta "X" tem N subpastas (A, B, C...). Criar N pastas, uma por subpasta, ou 1 pasta só, "X", com
+  tudo?' (até 5 nomes; com arquivo solto, conta mais uma pasta "X" para os soltos). Os botões são
+  "Criar N pastas" (primeiro) e '1 pasta só, "X"'. O botão da IA (etapa 2) aparece junto, quando a IA
+  está disponível: monta uma pasta por subpasta e já pede a sugestão.
+  - **1 pasta só** (antes "Sim"): tudo vira **uma** pasta, com o nome da pasta escolhida como cliente. O arquivo que estava
     numa subpasta leva o caminho dentro da pasta escolhida na **descrição** do documento
     (`descricao` do upload, que já existe; coluna `text`): ex. `Processo/Inicial.pdf`. Arquivo solto
     fica sem descrição. Sem migration.
-  - **Não**: comportamento de antes (cada subpasta de 1º nível vira uma pasta; os soltos, outra com o
+  - **Criar N pastas** (antes "Não"): comportamento de antes (cada subpasta de 1º nível vira uma pasta; os soltos, outra com o
     nome da pasta escolhida).
-  - **Pasta = caso** (regra do Samuel, 03/11/2026): o mesmo cliente pode ter várias pastas. O texto da
-    pergunta diz que o Sim é para **um caso só** e pede Não quando as subpastas são casos diferentes do
-    mesmo cliente. Quem decide é a pessoa; o sistema nunca junta casos sozinho.
-  - Só arquivos soltos, ou só subpastas: não pergunta (nada muda). A seleção de "arquivos soltos"
-    também não pergunta.
+  - **Pasta = caso** (regra do Samuel, 03/11/2026): o mesmo cliente pode ter várias pastas. O "1 pasta
+    só" é para **um caso só**; quando as subpastas são casos diferentes do mesmo cliente, a resposta é
+    "Criar N pastas". Quem decide é a pessoa; o sistema nunca junta casos sozinho.
+  - Só arquivos soltos: não pergunta. Só subpastas: **pergunta** desde 04/11 (antes não perguntava, e
+    "PAULO/Documentos" e "PAULO/Processo" viravam 2 clientes, DOCUMENTOS e PROCESSO). A seleção de
+    "arquivos soltos" também não pergunta.
 
 ## Arquivos
 
