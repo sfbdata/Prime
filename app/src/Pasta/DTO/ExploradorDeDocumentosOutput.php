@@ -47,6 +47,8 @@ use App\Pasta\Service\SugestoesDeLimpeza;
  *
  * Lixeira (L7, D7): o topo traz `urlRestaurar` (POST, o MESMO token do lote, `csrfLote`) — o
  * "Desfazer" do toast e o Restaurar do modal — e `urlLixeira` (GET, JSON) — a lista da lixeira.
+ * `urlExcluirDeVez` (POST, o mesmo `csrfLote`) é o "Excluir de vez" do modal (03/11/2026); como
+ * `urlRestaurar`, a tela só a usa quando pode escrever na lixeira.
  *
  * Só leitura (DOC-118): o topo traz `podeEditar` — permissão de EDITAR a pasta e pasta fora da
  * lápide, decidido por quem monta (o `PastaController::show`, pelo `PermissionChecker`). Falso, a
@@ -104,6 +106,7 @@ final readonly class ExploradorDeDocumentosOutput
         public string $urlLixeira = '',
         public bool $podeEditar = false,
         public bool $podeVerLixeira = false,
+        public string $urlExcluirDeVez = '',
     ) {
     }
 
@@ -199,6 +202,7 @@ final readonly class ExploradorDeDocumentosOutput
             urlLixeira: $url('pasta_documentos_lixeira', ['id' => $pastaId]),
             podeEditar: $podeEditar,
             podeVerLixeira: $podeVerLixeira,
+            urlExcluirDeVez: $url('pasta_documentos_excluir_de_vez', ['id' => $pastaId]),
         );
     }
 
@@ -293,6 +297,7 @@ final readonly class ExploradorDeDocumentosOutput
             'urlLixeira'     => $this->urlLixeira,
             'podeEditar'     => $this->podeEditar,
             'podeVerLixeira' => $this->podeVerLixeira,
+            'urlExcluirDeVez' => $this->urlExcluirDeVez,
         ], self::FLAGS_JSON);
     }
 

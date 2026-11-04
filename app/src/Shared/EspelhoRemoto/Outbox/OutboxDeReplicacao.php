@@ -50,16 +50,22 @@ final class OutboxDeReplicacao
     public const ESTADO_REGISTRADO  = 'registrado';
 
     public const OPERACAO_ENVIAR   = 'enviar';
+    /** Exclusão de antes da frente D6: só evento, nunca processada. Linhas antigas ficam como estão. */
     public const OPERACAO_EXCLUSAO = 'exclusao_registrada';
+    /** Exclusão que o worker leva ao R2 (frente D6): nasce `pendente` e termina `verificado` quando o objeto saiu. */
+    public const OPERACAO_EXCLUIR  = 'excluir';
+
+    /** As operações que o worker processa. */
+    public const OPERACOES_PROCESSADAS = [self::OPERACAO_ENVIAR, self::OPERACAO_EXCLUIR];
 
     private const TABELA = 'armazenamento_replicacao';
 
-    /** Os estados finais de um envio: só eles saem pela retenção. */
+    /** Os estados finais de um envio ou de uma exclusão: só eles saem pela retenção. */
     public const ESTADOS_CONCLUIDOS = [self::ESTADO_VERIFICADO, self::ESTADO_SUPERADO, self::ESTADO_DESCARTADO];
 
-    private const CONCLUIDAS_ANTES_DE = 'operacao = :enviar AND estado IN (:estados) AND atualizado_em < :limite';
+    private const CONCLUIDAS_ANTES_DE = 'operacao IN (:operacoes) AND estado IN (:estados) AND atualizado_em < :limite';
 
-    private const TIPOS_DA_RETENCAO = ['estados' => ArrayParameterType::STRING];
+    private const TIPOS_DA_RETENCAO = ['operacoes' => ArrayParameterType::STRING, 'estados' => ArrayParameterType::STRING];
 
     /** Identificador da trava consultiva da reivindicação ("replica" em decimal, sem colisão prática). */
     private const TRAVA_DA_REIVINDICACAO = 7_202_610_150;
@@ -75,10 +81,13 @@ final class OutboxDeReplicacao
         return $this->registrar($chave, self::OPERACAO_ENVIAR, self::ESTADO_PENDENTE, $sha256, $tamanhoBytes, $mimeType);
     }
 
-    /** A exclusão vira evento — **nunca** chamada ao R2 (regra 0 da P2). */
+    /**
+     * A exclusão entra na fila como `pendente` e o worker a leva ao R2 (frente D6): o que o sistema
+     * apagou de verdade (purga da lixeira, exclusão LGPD) sai também do espelho.
+     */
     public function registrarExclusao(ChaveDeArquivo $chave): int
     {
-        return $this->registrar($chave, self::OPERACAO_EXCLUSAO, self::ESTADO_REGISTRADO, null, null, null);
+        return $this->registrar($chave, self::OPERACAO_EXCLUIR, self::ESTADO_PENDENTE, null, null, null);
     }
 
     /**
@@ -113,7 +122,7 @@ final class OutboxDeReplicacao
     }
 
     /**
-     * A próxima linha de envio vencida (pendente na hora, ou em processamento com a posse vencida),
+     * A próxima linha de envio ou de exclusão vencida (pendente na hora, ou em processamento com a posse vencida),
      * sem outra em processamento válido para a mesma chave remota, de uma das categorias (null = todas).
      *
      * @param list<string>|null $categorias
@@ -126,7 +135,7 @@ final class OutboxDeReplicacao
 
         return $c->fetchAssociative(
             'SELECT * FROM ' . self::TABELA . ' r
-              WHERE r.operacao = :enviar
+              WHERE r.operacao IN (:operacoes)
                 AND ((r.estado = :pendente AND r.proxima_tentativa_em <= :agora)
                      OR (r.estado = :processando AND r.processando_ate < :agora))' . $soAsLigadas . '
                 AND NOT EXISTS (
@@ -136,14 +145,14 @@ final class OutboxDeReplicacao
               ORDER BY r.id
               LIMIT 1
               FOR UPDATE SKIP LOCKED',
-            ['enviar' => self::OPERACAO_ENVIAR, 'pendente' => self::ESTADO_PENDENTE, 'processando' => self::ESTADO_PROCESSANDO, 'agora' => $agora]
+            ['operacoes' => self::OPERACOES_PROCESSADAS, 'pendente' => self::ESTADO_PENDENTE, 'processando' => self::ESTADO_PROCESSANDO, 'agora' => $agora]
                 + ($categorias === null ? [] : ['categorias' => $categorias]),
-            ['categorias' => ArrayParameterType::STRING],
+            ['operacoes' => ArrayParameterType::STRING, 'categorias' => ArrayParameterType::STRING],
         );
     }
 
     /**
-     * A chave da linha, se ela ainda deve ser enviada; senão a linha muda de estado (superada por uma
+     * A chave da linha, se ela ainda deve ser processada; senão a linha muda de estado (superada por uma
      * mais nova, falhou pelo teto de tentativas ou por chave inválida) e volta null.
      *
      * @param array<string, mixed> $linha
@@ -196,6 +205,7 @@ final class OutboxDeReplicacao
             (string) ($linha['mime_type'] ?? 'application/octet-stream'),
             (int) $linha['tentativas'] + 1,
             $posse,
+            (string) $linha['operacao'],
         );
     }
 
@@ -252,10 +262,10 @@ final class OutboxDeReplicacao
     }
 
     /**
-     * Retenção (decisão do dono de 23/10, I4 da P2.3, LGPD): quantas linhas de envio CONCLUÍDAS
-     * (verificado, superado, descartado) estão paradas há mais de `$dias` dias, por estado. É o que
-     * `apagarConcluidasHaMaisDe()` apagaria. Pendente, processando, falhou e as exclusões
-     * (registrado, a fila da futura lixeira do espelho) nunca entram.
+     * Retenção (decisão do dono de 23/10, I4 da P2.3, LGPD): quantas linhas de envio ou de exclusão
+     * CONCLUÍDAS (verificado, superado, descartado) estão paradas há mais de `$dias` dias, por estado.
+     * É o que `apagarConcluidasHaMaisDe()` apagaria. Pendente, processando, falhou e os eventos antigos
+     * de exclusão (`exclusao_registrada`, estado registrado) nunca entram.
      *
      * @return array<string, int> estado => quantidade
      */
@@ -294,13 +304,13 @@ final class OutboxDeReplicacao
         }
 
         return [
-            'enviar'  => self::OPERACAO_ENVIAR,
-            'estados' => self::ESTADOS_CONCLUIDOS,
+            'operacoes' => self::OPERACOES_PROCESSADAS,
+            'estados'   => self::ESTADOS_CONCLUIDOS,
             'limite'  => $this->agora(-$dias * 86_400),
         ];
     }
 
-    /** @return array<string, int> estado => quantidade, das linhas de envio */
+    /** @return array<string, int> estado => quantidade, de todas as linhas (envios e exclusões) */
     public function contarPorEstado(): array
     {
         $contagem = [];
@@ -321,7 +331,7 @@ final class OutboxDeReplicacao
     }
 
     /**
-     * Linhas de envio em `falhou`, por categoria (alerta da reconciliação, P2.7). Só contagem: nome e
+     * Linhas de envio ou de exclusão em `falhou`, por categoria (alerta da reconciliação, P2.7). Só contagem: nome e
      * chave remota não saem daqui. `$soCategorias`: só estas (as ligadas na política); null = todas.
      *
      * @param list<string>|null $soCategorias
@@ -336,10 +346,10 @@ final class OutboxDeReplicacao
 
         $contagem = [];
         foreach ($this->conexao->fetchAllAssociative(
-            'SELECT categoria, count(*) AS n FROM ' . self::TABELA . ' WHERE operacao = :enviar AND estado = :falhou'
+            'SELECT categoria, count(*) AS n FROM ' . self::TABELA . ' WHERE operacao IN (:operacoes) AND estado = :falhou'
                 . ($soCategorias === null ? '' : ' AND categoria IN (:categorias)') . ' GROUP BY categoria ORDER BY categoria',
-            ['enviar' => self::OPERACAO_ENVIAR, 'falhou' => self::ESTADO_FALHOU] + ($soCategorias === null ? [] : ['categorias' => $soCategorias]),
-            ['categorias' => ArrayParameterType::STRING],
+            ['operacoes' => self::OPERACOES_PROCESSADAS, 'falhou' => self::ESTADO_FALHOU] + ($soCategorias === null ? [] : ['categorias' => $soCategorias]),
+            ['operacoes' => ArrayParameterType::STRING, 'categorias' => ArrayParameterType::STRING],
         ) as $linha) {
             $contagem[(string) $linha['categoria']] = (int) $linha['n'];
         }
@@ -348,7 +358,7 @@ final class OutboxDeReplicacao
     }
 
     /**
-     * Volta as linhas de envio em `falhou` das categorias dadas (as ligadas, ou uma delas) para
+     * Volta as linhas de envio ou de exclusão em `falhou` das categorias dadas (as ligadas, ou uma delas) para
      * `pendente`, com tentativas zeradas e próxima tentativa agora. Devolve quantas voltaram. O worker
      * trata cada uma como envio novo: se já houver linha mais nova da mesma chave, ela vira `superado`
      * na reivindicação.
@@ -364,18 +374,19 @@ final class OutboxDeReplicacao
 
         return (int) $this->conexao->executeStatement(
             'UPDATE ' . self::TABELA . ' SET estado = :pendente, tentativas = 0, proxima_tentativa_em = :agora, processando_ate = NULL, posse = NULL, atualizado_em = :agora
-              WHERE operacao = :enviar AND estado = :falhou AND categoria IN (:categorias)',
-            ['pendente' => self::ESTADO_PENDENTE, 'agora' => $agora, 'enviar' => self::OPERACAO_ENVIAR, 'falhou' => self::ESTADO_FALHOU, 'categorias' => $categorias],
-            ['categorias' => ArrayParameterType::STRING],
+              WHERE operacao IN (:operacoes) AND estado = :falhou AND categoria IN (:categorias)',
+            ['pendente' => self::ESTADO_PENDENTE, 'agora' => $agora, 'operacoes' => self::OPERACOES_PROCESSADAS, 'falhou' => self::ESTADO_FALHOU, 'categorias' => $categorias],
+            ['operacoes' => ArrayParameterType::STRING, 'categorias' => ArrayParameterType::STRING],
         );
     }
 
-    /** Há quantos segundos espera o envio pendente mais antigo, ou null se não há pendente. */
+    /** Há quantos segundos espera o envio ou a exclusão pendente mais antiga, ou null se não há pendente. */
     public function idadeDaPendenteMaisAntigaEmSegundos(): ?int
     {
         $maisAntiga = $this->conexao->fetchOne(
-            'SELECT min(criado_em) FROM ' . self::TABELA . ' WHERE operacao = ? AND estado = ?',
-            [self::OPERACAO_ENVIAR, self::ESTADO_PENDENTE],
+            'SELECT min(criado_em) FROM ' . self::TABELA . ' WHERE operacao IN (?) AND estado = ?',
+            [self::OPERACOES_PROCESSADAS, self::ESTADO_PENDENTE],
+            [ArrayParameterType::STRING],
         );
         if ($maisAntiga === false || $maisAntiga === null) {
             return null;
@@ -396,6 +407,22 @@ final class OutboxDeReplicacao
         );
 
         return $estado === false ? null : (string) $estado;
+    }
+
+    /**
+     * Há exclusão (a de hoje, `excluir`, ou o evento antigo) registrada para a chave remota, mais nova
+     * que o último envio dela? A restauração de um lote liberado não devolve ao disco um arquivo que o
+     * sistema mandou apagar (spec `leitura-pelo-r2-e-liberacao-de-disco.md` D6, etapa C).
+     */
+    public function temExclusaoDepoisDoUltimoEnvio(string $chaveRemota): bool
+    {
+        $operacao = $this->conexao->fetchOne(
+            'SELECT operacao FROM ' . self::TABELA . ' WHERE chave_remota = ? AND operacao IN (?) ORDER BY id DESC LIMIT 1',
+            [$chaveRemota, [self::OPERACAO_ENVIAR, self::OPERACAO_EXCLUIR, self::OPERACAO_EXCLUSAO]],
+            [1 => ArrayParameterType::STRING],
+        );
+
+        return $operacao !== false && $operacao !== self::OPERACAO_ENVIAR;
     }
 
     /**

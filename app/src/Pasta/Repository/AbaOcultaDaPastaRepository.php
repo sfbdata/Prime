@@ -93,4 +93,22 @@ class AbaOcultaDaPastaRepository extends ServiceEntityRepository
 
         return $regras;
     }
+
+    /**
+     * Todas as regras do escritório, numa consulta só (lixeira do escritório: a regra de cada pasta
+     * para uma lista inteira de pastas, sem uma consulta por pasta).
+     *
+     * @return list<AbaOcultaDaPasta>
+     */
+    public function doEscritorio(Tenant $tenant): array
+    {
+        /** @var list<AbaOcultaDaPasta> $regras */
+        $regras = $this->createQueryBuilder('r')
+            ->andWhere('r.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getResult();
+
+        return $regras;
+    }
 }

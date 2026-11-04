@@ -104,6 +104,8 @@
         // Lixeira (L7, D7): restaurar usa o MESMO token do lote; a lista é um GET em JSON.
         urlRestaurar:        dados.urlRestaurar || '',
         urlLixeira:          dados.urlLixeira || '',
+        // "Excluir de vez" (03/11/2026): apaga NA HORA o que está na lixeira; o mesmo token do lote.
+        urlExcluirDeVez:     dados.urlExcluirDeVez || '',
         // Zip e cópia (L8, D5/D6): o MESMO token do lote, o mesmo corpo de ids.
         urlZip:              dados.urlZip || '',
         urlCopiar:           dados.urlCopiar || '',
@@ -386,10 +388,7 @@
         const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
         return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : formatarData(s);
     }
-    function extensaoDe(nome) {
-        const m = String(nome || '').match(/\.([^.\/\\]+)$/);
-        return m ? m[1] : '';
-    }
+    const extensaoDe = window.BJ_TiposDeArquivo.extensaoDe;
     function nomeSemExtensao(nome) {
         const ext = extensaoDe(nome);
         return ext ? String(nome).slice(0, -(ext.length + 1)) : String(nome || '');
@@ -418,54 +417,9 @@
         return Promise.resolve(copiarPorExec(t));
     }
 
-    /* ---- Tipo pela extensão (dc `expTipo`, L4675-4680): rótulo, ícone e cor. ---- */
-    const TIPO_ALIAS = { DOCM: 'DOCX', DOTX: 'DOCX', XLSM: 'XLSX', XLS: 'XLSX', XLSB: 'XLSX', JPEG: 'JPG', JFIF: 'JPG', WEBP: 'PNG', GIF: 'PNG', BMP: 'PNG', SVG: 'PNG' };
-    const TIPOS = {
-        PDF:  ['bi-file-earmark-pdf-fill',   'pdf',    BJ_T.t('pasta_scripts.js.explorador.tipo_pdf')],
-        DOCX: ['bi-file-earmark-word-fill',  'word',   BJ_T.t('pasta_scripts.js.explorador.tipo_word')],
-        DOC:  ['bi-file-earmark-word-fill',  'word',   BJ_T.t('pasta_scripts.js.explorador.tipo_word')],
-        ODT:  ['bi-file-earmark-word-fill',  'word',   BJ_T.t('pasta_scripts.js.explorador.tipo_odt')],
-        RTF:  ['bi-file-earmark-richtext-fill', 'word', BJ_T.t('pasta_scripts.js.explorador.tipo_rtf')],
-        TXT:  ['bi-file-earmark-text-fill',  'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_texto')],
-        XLSX: ['bi-file-earmark-excel-fill', 'excel',  BJ_T.t('pasta_scripts.js.explorador.tipo_excel')],
-        CSV:  ['bi-filetype-csv',            'excel',  BJ_T.t('pasta_scripts.js.explorador.tipo_csv')],
-        ODS:  ['bi-file-earmark-spreadsheet-fill', 'excel', BJ_T.t('pasta_scripts.js.explorador.tipo_ods')],
-        PPTX: ['bi-file-earmark-slides-fill', 'slides', BJ_T.t('pasta_scripts.js.explorador.tipo_apresentacao')],
-        PPT:  ['bi-file-earmark-slides-fill', 'slides', BJ_T.t('pasta_scripts.js.explorador.tipo_apresentacao')],
-        ODP:  ['bi-file-earmark-slides-fill', 'slides', BJ_T.t('pasta_scripts.js.explorador.tipo_apresentacao')],
-        ZIP:  ['bi-file-earmark-zip-fill',   'zip',    BJ_T.t('pasta_scripts.js.explorador.tipo_compactada')],
-        RAR:  ['bi-file-earmark-zip-fill',   'zip',    BJ_T.t('pasta_scripts.js.explorador.tipo_compactada')],
-        '7Z': ['bi-file-earmark-zip-fill',   'zip',    BJ_T.t('pasta_scripts.js.explorador.tipo_compactada')],
-        JPG:  ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_jpeg')],
-        PNG:  ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_png')],
-        TIF:  ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_tiff')],
-        TIFF: ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_tiff')],
-        HEIC: ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_heic')],
-        MP3:  ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio')],
-        WAV:  ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio')],
-        OGG:  ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio')],
-        OPUS: ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio_whatsapp')],
-        M4A:  ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio')],
-        MP4:  ['bi-file-earmark-play-fill',  'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_video')],
-        MOV:  ['bi-file-earmark-play-fill',  'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_video')],
-        WEBM: ['bi-file-earmark-play-fill',  'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_video')],
-        EML:  ['bi-envelope-paper-fill',     'email',  BJ_T.t('pasta_scripts.js.explorador.tipo_email')],
-        MSG:  ['bi-envelope-paper-fill',     'email',  BJ_T.t('pasta_scripts.js.explorador.tipo_email_outlook')],
-        P7S:  ['bi-patch-check-fill',        'assin',  BJ_T.t('pasta_scripts.js.explorador.tipo_assinatura')],
-        P7M:  ['bi-patch-check-fill',        'assin',  BJ_T.t('pasta_scripts.js.explorador.tipo_assinado')],
-        JSON: ['bi-filetype-json',           'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_json')],
-        XML:  ['bi-filetype-xml',            'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_xml')],
-        HTML: ['bi-filetype-html',           'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_html')],
-        KML:  ['bi-geo-alt-fill',            'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_kml')],
-    };
-    function tipoDe(nome) {
-        const ext = extensaoDe(nome).toUpperCase();
-        if (TIPOS[ext]) return TIPOS[ext];
-        const alias = TIPO_ALIAS[ext];
-        if (alias && TIPOS[alias]) { const b = TIPOS[alias]; return [b[0], b[1], BJ_T.t('pasta_scripts.js.explorador.tipo_com_extensao', { tipo: b[2], ext: ext })]; }
-        return ['bi-file-earmark-fill', 'outro', ext ? BJ_T.t('pasta_scripts.js.explorador.tipo_arquivo_ext', { ext: ext }) : BJ_T.t('pasta_scripts.js.explorador.tipo_arquivo')];
-    }
-    const TIPO_PASTA = ['bi-folder-fill', 'pasta', BJ_T.t('pasta_scripts.js.explorador.tipo_pasta')];
+    /* ---- Tipo pela extensão: mora em pasta-tipos-de-arquivo.js (o modal da lixeira também usa). ---- */
+    const tipoDe     = window.BJ_TiposDeArquivo.tipoDe;
+    const TIPO_PASTA = window.BJ_TiposDeArquivo.TIPO_PASTA;
 
     /* ---- Ícone "estilo Office" (dc `FI` + `fi()`, L3055-3070): [classe de cor, sigla do selo].
        Extensão fora do mapa: cinza com as 3 primeiras letras, como o desenho. ---- */
@@ -2693,25 +2647,15 @@
     }
 
     // ------------------------------------------------------------ lixeira ---
-    /* A lixeira da pasta (L7, D7). O desenho é omisso (no protótipo a exclusão é só memória):
-       "Lixeira (N)" no menu do fundo e no Organizar abre um modal Bootstrap montado AQUI e
-       pendurado no <body> — fora do painel animado da aba, pelo mesmo motivo dos outros modais
-       do explorador (show.html.twig). Tudo por createElement/textContent: nome é dado do usuário.
-       Os itens vêm de `urlLixeira` (GET) e o que foi excluído DENTRO de uma pasta que também está
-       na lixeira (`paiNaLixeira`/`secaoNaLixeira`) aparece agrupado embaixo dela. Restaurar (um ou
-       os selecionados) vai a `urlRestaurar` com o csrfLote; como a lixeira não traz URL nem token
-       dos itens, a lista de documentos é recarregada ao fechar o modal. */
+    /* A lixeira da pasta (L7, D7): o modal mora em pasta-lixeira.js (03/11/2026), o mesmo que a Lixeira
+       do Expediente abre. Aqui fica o que é da aba: o "Lixeira (N)" do Organizar e do menu do fundo, o
+       foco de volta e a lista de documentos recarregada ao fechar depois de restaurar (a lixeira não
+       traz URL nem token dos itens). */
     let lixeiraContagem = null;      // N do rótulo "Lixeira (N)"; null = ainda não sabemos
     let lixeiraContando = null;      // o GET em voo (um por vez)
-    let lixeiraModal = null;         // { raiz, bs, lista, vazio, aviso, restaurarSel }
-    let lixeiraItens = [];
-    const lixeiraMarcados = new Set();
-    let lixeiraRestaurou = false;    // algo voltou: recarrega a lista ao fechar
-    let lixeiraOcupada = false;
+    let lixeiraFocoDeVolta = null;
 
-    function podeEscreverNaLixeira() { return !cfg.pastaExcluida && !!cfg.urlRestaurar && !!cfg.csrfLote; }
     function rotuloLixeira() { return lixeiraContagem == null ? BJ_T.t('pasta_scripts.js.explorador.lixeira') : BJ_T.t('pasta_scripts.js.explorador.lixeira_n', { n: formatarInteiro(lixeiraContagem) }); }
-    function chaveDaLixeira(it) { return (it.tipo === 'pasta' ? 'pasta' : 'arquivo') + ':' + Number(it.id); }
     function invalidarContagemDaLixeira() {
         lixeiraContagem = null;
         renderizarContagemDaLixeira();
@@ -2720,72 +2664,17 @@
         if (!el.lixeiraN) return;
         el.lixeiraN.textContent = lixeiraContagem == null ? '' : '(' + formatarInteiro(lixeiraContagem) + ')';
     }
-    function lerLixeira() {
-        return fetch(cfg.urlLixeira, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(lerResposta).then(function (res) {
-            if (!res.ok || !res.j.ok || !Array.isArray(res.j.itens)) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.lix_erro_abrir'));
-            lixeiraContagem = res.j.itens.length;
-            renderizarContagemDaLixeira();
-            return res.j.itens;
-        });
+    function contarLixeira(itens) {
+        lixeiraContagem = itens.length;
+        renderizarContagemDaLixeira();
     }
     // Só a contagem, para o rótulo: em silêncio (sem permissão de editar o GET responde 403).
     function atualizarContagemDaLixeira() {
         if (!veLixeira() || lixeiraContagem != null || lixeiraContando) return;
-        lixeiraContando = lerLixeira().catch(function () { /* o rótulo fica sem número */ }).then(function () { lixeiraContando = null; });
+        lixeiraContando = window.BJ_LixeiraDaPasta.ler(cfg.urlLixeira).then(contarLixeira).catch(function () { /* o rótulo fica sem número */ }).then(function () { lixeiraContando = null; });
     }
-
-    function montarModalDaLixeira() {
-        if (lixeiraModal) return lixeiraModal;
-        const lista        = h('ul', { class: 'pex-lix-lista', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.lix_itens') });
-        const vazio        = h('div', { class: 'pex-lix-vazio', hidden: true }, [icone('bi-trash3'), h('span', { text: BJ_T.t('pasta_scripts.js.explorador.lix_vazia') })]);
-        const aviso        = h('p', { class: 'pex-lix-aviso', role: 'status', 'aria-live': 'polite', hidden: true });
-        const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: BJ_T.t('pasta_scripts.js.explorador.lix_nota') })]);
-        const somenteVer   = h('p', { class: 'pex-lix-nota pex-lix-nota--lapide', hidden: !cfg.pastaExcluida }, [icone('bi-lock'), h('span', { text: BJ_T.t('pasta_scripts.js.explorador.lix_lapide') })]);
-        const restaurarSel = h('button', { type: 'button', class: 'btn btn-primary', id: 'pexLixeiraRestaurarSel', disabled: true, hidden: !podeEscreverNaLixeira() }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados') })]);
-        const fechar       = h('button', { type: 'button', class: 'btn btn-outline-secondary', 'data-bs-dismiss': 'modal', text: BJ_T.t('pasta_scripts.js.explorador.fechar') });
-        const raizModal = h('div', { class: 'modal fade pex-modal pex-lix', id: 'pexLixeiraModal', tabindex: '-1', 'aria-labelledby': 'pexLixeiraTitulo', 'aria-hidden': 'true' }, [
-            h('div', { class: 'modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg' }, [
-                h('div', { class: 'modal-content' }, [
-                    h('div', { class: 'modal-header' }, [
-                        h('h5', { class: 'modal-title', id: 'pexLixeiraTitulo' }, [icone('bi-trash3 me-1'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lixeira') })]),
-                        h('button', { type: 'button', class: 'btn-close', 'data-bs-dismiss': 'modal', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.fechar') }),
-                    ]),
-                    h('div', { class: 'modal-body' }, [nota, somenteVer, aviso, vazio, lista]),
-                    h('div', { class: 'modal-footer' }, [fechar, restaurarSel]),
-                ]),
-            ]),
-        ]);
-        document.body.appendChild(raizModal);
-        lixeiraModal = { raiz: raizModal, bs: window.bootstrap ? bootstrap.Modal.getOrCreateInstance(raizModal) : null, lista: lista, vazio: vazio, aviso: aviso, restaurarSel: restaurarSel };
-
-        lista.addEventListener('change', function (e) {
-            const cx = e.target.closest('input[data-pex-lix]');
-            if (!cx) return;
-            if (cx.checked) lixeiraMarcados.add(cx.dataset.pexLix); else lixeiraMarcados.delete(cx.dataset.pexLix);
-            atualizarBotaoRestaurarSelecionados();
-        });
-        lista.addEventListener('click', function (e) {
-            const b = e.target.closest('button[data-pex-lix-restaurar]');
-            if (!b || b.disabled) return;
-            restaurarDaLixeira([b.dataset.pexLixRestaurar]);
-        });
-        restaurarSel.addEventListener('click', function () {
-            if (restaurarSel.disabled) return;
-            restaurarDaLixeira(Array.from(lixeiraMarcados));
-        });
-        raizModal.addEventListener('hidden.bs.modal', function () {
-            if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos(BJ_T.t('pasta_scripts.js.explorador.atualizando_documentos')); return; }
-            // O foco volta a quem abriu (o Bootstrap não devolve); o item de menu já sumiu.
-            const volta = lixeiraFocoDeVolta;
-            lixeiraFocoDeVolta = null;
-            if (volta && volta.isConnected && typeof volta.focus === 'function') volta.focus({ preventScroll: true });
-        });
-        return lixeiraModal;
-    }
-
-    let lixeiraFocoDeVolta = null;
     function abrirLixeira() {
-        if (!cfg.urlLixeira || !window.bootstrap) return;
+        if (!cfg.urlLixeira || !window.bootstrap || !window.BJ_LixeiraDaPasta) return;
         // Quem abriu: do Organizar, o botão Organizar (o item fica num popover que fecha); do menu
         // de contexto, a lista (o menu é refeito a cada abertura); senão, o que tinha o foco.
         const ativo = document.activeElement;
@@ -2793,134 +2682,25 @@
             : (el.menu && el.menu.contains(ativo) ? el.lista : (ativo && ativo !== document.body ? ativo : el.lista));
         fecharPopovers();
         fecharMenu();
-        const m = montarModalDaLixeira();
-        lixeiraItens = [];
-        lixeiraMarcados.clear();
-        m.lista.textContent = '';
-        m.vazio.hidden = true;
-        avisarNaLixeira(BJ_T.t('pasta_scripts.js.explorador.carregando'));
-        atualizarBotaoRestaurarSelecionados();
-        if (m.bs) m.bs.show();
-        recarregarLixeira();
-    }
-    function recarregarLixeira() {
-        lerLixeira().then(function (itens) {
-            lixeiraItens = itens;
-            avisarNaLixeira('');
-            renderizarLixeira();
-        }).catch(function (err) { avisarNaLixeira(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao'), true); });
-    }
-    function avisarNaLixeira(texto, erro) {
-        if (!lixeiraModal) return;
-        lixeiraModal.aviso.hidden = !texto;
-        lixeiraModal.aviso.textContent = texto || '';
-        lixeiraModal.aviso.classList.toggle('pex-lix-aviso--erro', !!erro);
-    }
-    function atualizarBotaoRestaurarSelecionados() {
-        if (!lixeiraModal) return;
-        const n = lixeiraMarcados.size;
-        const b = lixeiraModal.restaurarSel;
-        b.disabled = lixeiraOcupada || n === 0 || !podeEscreverNaLixeira();
-        b.lastChild.textContent = ' ' + (n ? BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados_n', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados'));
-    }
-
-    /* Agrupamento: o item excluído dentro de uma pasta que TAMBÉM está na lixeira fica embaixo
-       dela (pai/seção presente na lista). O resto é raiz da lista, na ordem do servidor (do mais
-       recente ao mais antigo). Ciclo gravado no banco não trava: cada id entra uma vez. */
-    function arvoreDaLixeira(itens) {
-        const pastasNaLista = {};
-        itens.forEach(function (it) { if (it.tipo === 'pasta') pastasNaLista[Number(it.id)] = it; });
-        const filhos = {};
-        const raizes = [];
-        itens.forEach(function (it) {
-            const pai = it.tipo === 'pasta'
-                ? (it.paiNaLixeira && it.paiId != null ? Number(it.paiId) : null)
-                : (it.secaoNaLixeira && it.secaoId != null ? Number(it.secaoId) : null);
-            if (pai != null && pastasNaLista[pai] && !(it.tipo === 'pasta' && pai === Number(it.id))) (filhos[pai] = filhos[pai] || []).push(it);
-            else raizes.push(it);
+        window.BJ_LixeiraDaPasta.abrir({
+            urlLixeira:      cfg.urlLixeira,
+            urlRestaurar:    cfg.urlRestaurar,
+            urlExcluirDeVez: cfg.urlExcluirDeVez,
+            csrfLote:        cfg.csrfLote,
+            pastaExcluida:   cfg.pastaExcluida,
+            teto:            TETO_LOTE,
+            acimaDoTeto:     acimaDoTeto,
+            listaAoFechar:   true,
+            aoLer:           contarLixeira,
+            aoFechar:        aoFecharLixeira,
         });
-        return { raizes: raizes, filhos: filhos };
     }
-    function renderizarLixeira() {
-        if (!lixeiraModal) return;
-        const m = lixeiraModal;
-        const arvore = arvoreDaLixeira(lixeiraItens);
-        const frag = document.createDocumentFragment();
-        const vistos = {};
-        const escrever = podeEscreverNaLixeira();
-        const montar = function (it, nivel, pai) {
-            const chave = chaveDaLixeira(it);
-            if (vistos[chave] || nivel > 50) return;
-            vistos[chave] = true;
-            frag.appendChild(linhaDaLixeira(it, nivel, pai, escrever));
-            if (it.tipo === 'pasta') (arvore.filhos[Number(it.id)] || []).forEach(function (f) { montar(f, nivel + 1, it); });
-        };
-        arvore.raizes.forEach(function (it) { montar(it, 0, null); });
-        // O que sobrou de um ciclo (nenhuma raiz o alcança) entra no nível de cima.
-        lixeiraItens.forEach(function (it) { if (!vistos[chaveDaLixeira(it)]) montar(it, 0, null); });
-        m.lista.textContent = '';
-        m.lista.appendChild(frag);
-        m.vazio.hidden = lixeiraItens.length > 0;
-        atualizarBotaoRestaurarSelecionados();
-    }
-    function linhaDaLixeira(it, nivel, pai, escrever) {
-        const chave = chaveDaLixeira(it);
-        const ehPasta = it.tipo === 'pasta';
-        const junto = !!pai && pai.excluidoEm != null && pai.excluidoEm === it.excluidoEm;
-        const partes = [ehPasta ? TIPO_PASTA[2] : tipoDe(it.nome)[2]];
-        if (!ehPasta && it.tamanho != null) partes.push(formatarBytes(it.tamanho));
-        const dataExclusao = formatarDataHora(it.excluidoEm);
-        const excluido = dataExclusao ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_em', { data: dataExclusao }) : BJ_T.t('pasta_scripts.js.explorador.lix_excluido_sem_data');
-        const quando = it.excluidoPor && it.excluidoPor.nome ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_por', { quando: excluido, nome: it.excluidoPor.nome }) : excluido;
-        const origem = junto
-            ? BJ_T.t('pasta_scripts.js.explorador.lix_junto_com', { nome: pai.nome })
-            : (pai ? BJ_T.t('pasta_scripts.js.explorador.lix_pai_na_lixeira', { nome: pai.nome }) : BJ_T.t('pasta_scripts.js.explorador.lix_local_original', { local: it.caminho || BJ_T.t('pasta_scripts.js.explorador.raiz') }));
-        const nomeId = 'pex-lix-' + chave.replace(':', '-');
-        return h('li', { class: 'pex-lix-item' + (nivel ? ' pex-lix-item--dentro' : ''), style: '--pex-lix-nivel:' + Math.min(nivel, 6), 'data-pex-lix-item': chave }, [
-            escrever ? h('input', { type: 'checkbox', class: 'form-check-input pex-lix-marcar', 'data-pex-lix': chave, 'aria-labelledby': nomeId, checked: lixeiraMarcados.has(chave) }) : null,
-            ehPasta ? icone(TIPO_PASTA[0] + ' pex-lix-ico pex-ico-pasta') : h('span', { class: 'pex-lix-ico' }, [iconeArquivo(it.nome, 16)]),
-            h('div', { class: 'pex-lix-txt' }, [
-                h('span', { class: 'pex-lix-nome', id: nomeId, text: it.nome, title: it.nome }),
-                h('span', { class: 'pex-lix-sub', text: partes.join(' · ') + ' · ' + quando }),
-                h('span', { class: 'pex-lix-sub', text: origem }),
-            ]),
-            escrever ? h('button', {
-                type: 'button',
-                class: 'btn btn-sm btn-outline-primary pex-lix-restaurar',
-                'data-pex-lix-restaurar': chave,
-                title: pai ? BJ_T.t('pasta_scripts.js.explorador.lix_volta_raiz') : BJ_T.t('pasta_scripts.js.explorador.lix_volta_para', { local: it.caminho || BJ_T.t('pasta_scripts.js.explorador.raiz') }),
-                disabled: lixeiraOcupada,
-            }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lix_restaurar') })]) : null,
-        ]);
-    }
-    function restaurarDaLixeira(chaves) {
-        if (!chaves.length || lixeiraOcupada || !podeEscreverNaLixeira()) return;
-        const lote = separarChaves(chaves);
-        if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
-        lixeiraOcupada = true;
-        lixeiraModal.lista.querySelectorAll('button[data-pex-lix-restaurar]').forEach(function (b) { b.disabled = true; });
-        atualizarBotaoRestaurarSelecionados();
-        avisarNaLixeira(BJ_T.t('pasta_scripts.js.explorador.restaurando'));
-        postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
-            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.lix_erro_restaurar'));
-            lixeiraRestaurou = true;
-            const r = res.j.restaurados || {};
-            const n = (Number(r.documentos) || 0) + (Number(r.secoes) || 0);
-            const naRaiz = Number(res.j.paraARaiz) || 0;
-            chaves.forEach(function (k) { lixeiraMarcados.delete(k); });
-            const restaurados = n === 1 ? BJ_T.t('pasta_scripts.js.explorador.lix_restaurado_um') : BJ_T.t('pasta_scripts.js.explorador.lix_restaurados_varios', { n: formatarInteiro(n) });
-            avisarNaLixeira(BJ_T.t('pasta_scripts.js.explorador.lix_restaurado_fim', { texto: naRaiz ? BJ_T.t('pasta_scripts.js.explorador.lix_restaurado_na_raiz', { texto: restaurados, n: formatarInteiro(naRaiz) }) : restaurados }));
-            invalidarContagemDaLixeira();
-            return lerLixeira().then(function (itens) { lixeiraItens = itens; });
-        }).catch(function (err) {
-            avisarNaLixeira(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao'), true);
-        }).then(function () {
-            lixeiraOcupada = false;
-            Array.from(lixeiraMarcados).forEach(function (k) {
-                if (!lixeiraItens.some(function (it) { return chaveDaLixeira(it) === k; })) lixeiraMarcados.delete(k);
-            });
-            renderizarLixeira();
-        });
+    function aoFecharLixeira(restaurou) {
+        if (restaurou) { recarregarDocumentos(BJ_T.t('pasta_scripts.js.explorador.atualizando_documentos')); return; }
+        // O foco volta a quem abriu (o Bootstrap não devolve); o item de menu já sumiu.
+        const volta = lixeiraFocoDeVolta;
+        lixeiraFocoDeVolta = null;
+        if (volta && volta.isConnected && typeof volta.focus === 'function') volta.focus({ preventScroll: true });
     }
     if (el.btnLixeira) {
         el.btnLixeira.hidden = !veLixeira();
@@ -3785,6 +3565,18 @@
         if (!valor || !/^[1-9]\d{0,17}$/.test(valor)) return null;
         return pastaPorId(valor) ? Number(valor) : null;
     }
+    /* `?pex_lixeira=1` (lixeira do escritório, 03/11/2026): abre a lixeira desta pasta ao chegar.
+       Lido uma vez e tirado da barra de endereço, como o `?pex`. Quem não pode ver a lixeira
+       (`veLixeira()`) fica na aba de sempre, sem aviso. */
+    function lixeiraDoLink() {
+        try {
+            const url = new URL(window.location.href);
+            if (url.searchParams.get('pex_lixeira') === null) return false;
+            url.searchParams.delete('pex_lixeira');
+            window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+            return true;
+        } catch (e) { return false; }
+    }
     (function inicializar() {
         let salvo = null;
         try { salvo = JSON.parse(sessionStorage.getItem(CHAVE_CAMINHO) || 'null'); } catch (e) { /* formato inválido */ }
@@ -3802,5 +3594,7 @@
         }
         atualizarBotaoLimpar();
         renderizar();
+        // `?pex_lixeira=1`: o link "Abrir a lixeira da pasta" da lixeira do escritório (Expediente).
+        if (lixeiraDoLink() && veLixeira()) abrirLixeira();
     })();
 })();

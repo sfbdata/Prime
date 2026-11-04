@@ -11,6 +11,11 @@
     <div class="container-fluid d-flex justify-content-between align-items-center">
         {# Título do desenho (dc L.57): 40px, pasta azul que fecha e abre ao carregar. #}
         <h1 class="exp-titulo"><span class="exp-titulo-icone" aria-hidden="true"><i class="bi bi-folder-fill"></i><i class="bi bi-folder2-open"></i></span>{{ 'expediente.titulo'|trans }}</h1>
+        {# Lixeira do escritório (03/11/2026): para quem usa o Expediente; a lista só traz as pastas em que a
+           pessoa pode restaurar (vazia, diz que não há nada). Mesmo visual do "Nova Pasta". #}
+        <button type="button" class="exp-nova-pasta exp-lix-abrir" id="expLixeiraAbrir" aria-haspopup="dialog" data-tip="{{ 'expediente.lixeira.botao_dica'|trans }}">
+            <i class="bi bi-trash3" aria-hidden="true"></i>{{ 'expediente.lixeira.botao'|trans }}
+        </button>
     </div>
 </section>
 
@@ -49,6 +54,7 @@
             {% if can_access_module('pastas') %}{{ include('expediente/_importar_lote_modal.html.twig') }}{% endif %}
 
             {{ include('expediente/_modais_lista.html.twig') }}
+            {{ include('expediente/_lixeira_modal.html.twig') }}
 
             {# E12: "Alterar marcador" é o menu MARCADOR do desenho, na própria linha (expediente-lista.js). #}
 
@@ -223,6 +229,10 @@ section.content-header > .container-fluid {
 {# E8: o visual do desenho de 13/10 vem por último, para ganhar dos estilos antigos acima. #}
 <link rel="stylesheet" href="{{ asset('css/expediente-lista.css') }}">
 <link rel="stylesheet" href="{{ asset('css/expediente-lista-12.css') }}">
+{# O modal da lixeira da pasta (pasta-lixeira.js) abre aqui também: o visual dele mora no CSS do explorador,
+   todo preso a .pex/.pex-modal/.pex-lix (nada global). #}
+<link rel="stylesheet" href="{{ asset('css/pasta-explorador.css') }}">
+<link rel="stylesheet" href="{{ asset('css/expediente-lixeira.css') }}">
 {% endblock %}
 
 {% block javascripts %}
@@ -882,4 +892,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/expediente-lista.js') }}"></script>
 <script src="{{ asset('js/expediente-trilho.js') }}"></script>
 <script src="{{ asset('js/expediente-importar-lote.js') }}"></script>
+{{ catalogo_js('pasta_scripts.js.explorador') }}
+<script src="{{ asset('js/pasta-tipos-de-arquivo.js') }}"></script>
+<script src="{{ asset('js/pasta-lixeira.js') }}"></script>
+<script src="{{ asset('js/expediente-lixeira.js') }}"></script>
 {% endblock %}

@@ -8,6 +8,58 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.33.1] - 2026-11-03
+
+### Corrigido
+
+- Modal da lixeira (pasta e Lixeira do Expediente): o fundo da tela ficava todo branco. Causa: no `pasta-explorador.css` o bloco que dá os tokens ao `.pex-lix` também aplicava o cartão (`background: var(--pex-card-bg)`, borda, sombra) e o `.pex-lix` é a raiz do `.modal` do Bootstrap, que cobre a tela inteira. O cartão ficou só no `.pex`; o `.pex-lix` recebe só os tokens. Teste em `PastaExploradorLixeiraTest`.
+
+## [2.33.0] - 2026-11-03
+
+### Adicionado
+
+- Lixeira do Expediente: "Abrir a lixeira da pasta" abre ali mesmo o modal da lixeira da pasta (Restaurar, Excluir de vez, selecionados), sem ir para a pasta. A cada leitura da lista a linha da pasta é refeita com a contagem nova (ou sai, se a lixeira dela esvaziou).
+- O modal da lixeira saiu do `pasta-explorador.js` para `pasta-lixeira.js` (o mesmo na pasta e no Expediente); o mapa de tipos de arquivo foi para `pasta-tipos-de-arquivo.js`. Sem mudança de comportamento na aba Documentos.
+- Abrir arquivo excluído: nova rota `pasta_documentos_lixeira_abrir` (GET `/pasta/{id}/documentos/lixeira/{documento}`), só leitura, com a permissão da lixeira da pasta (EDITAR), tenant conferido, contrato oculto respeitado e o arquivo lido pela chave (vale o espelho no R2). No modal, o nome do arquivo e o botão "Abrir" abrem numa aba nova.
+
+## [2.32.0] - 2026-11-03
+
+### Adicionado
+
+- Ajuda: ícone "?" no cabeçalho de todas as telas logadas (antes do Indicar e do sino), página `/ajuda` com o manual do usuário aberto inteiro no leitor de PDF do navegador e o botão "Baixar manual", e o atalho "Manual do usuário" no Service Desk. O PDF é estático (`public/manual/manual-do-usuario.pdf`), igual para todos os escritórios.
+- Expediente: botão "Lixeira" no cabeçalho abre a lixeira do escritório inteiro, agrupada pela pasta de onde cada item saiu. Cada grupo mostra o número e o nome da pasta, quantos documentos e subpastas estão na lixeira (a subpasta conta com a subárvore, como na lixeira da pasta), a exclusão mais antiga e a mais recente, quem excluiu, o link "Abrir a lixeira da pasta" (`?pex_lixeira=1` abre a janela da lixeira no explorador) e as ações "Restaurar tudo" e "Excluir de vez tudo", com confirmação.
+- Nova rota `GET /expediente/lixeira` (`expediente_lixeira`, JSON, só leitura, módulo Expediente), `LixeiraDoEscritorioController` + `ListarLixeiraDoEscritorioUseCase`. A contagem é uma agregação no banco (GROUP BY pasta, categoria e autor; `excluido_em IS NOT NULL` e tenant na consulta, dentro do `AcessoALixeira`). Só entra a pasta em que a pessoa pode EDITAR (`PermissionChecker`, a mesma permissão da lixeira da pasta) e vê a aba Documentos; o contrato de honorários com o Financeiro oculto não conta. Páginas de 50 pastas, da exclusão visível mais recente para a mais antiga, continuando por chave estável (`?apos=<data>|<id>`), com número fixo de consultas por página: regras de aba do escritório, acessos item a item e vínculo carregados em lote (`AbaOcultaDaPastaRepository::doEscritorio`, `VisibilidadeDasAbasDaPasta::abasOcultasPorPasta`, `ResourceAccessRepository::findForUserAndResources`, `PermissionChecker::idsPermitidosComVinculo`, a mesma regra do `canAccessResourceComVinculo`).
+- As ações usam as rotas que já existem por pasta (`pasta_documentos_restaurar` e `pasta_documentos_excluir_de_vez`, token `pex_lote_<id>`), com os ids lidos da lixeira da própria pasta: só as raízes de cada bloco (o critério da lixeira da pasta), em lotes de até 2.000 itens, relendo a lixeira entre uma rodada e outra. Pasta excluída aparece só para olhar.
+- Lixeira da aba Documentos: botão "Excluir de vez" por item e "Excluir de vez os selecionados" no rodapé, sempre com confirmação. Nova rota `POST /pasta/{id}/documentos/excluir-de-vez` (`pasta_documentos_excluir_de_vez`), com a mesma permissão, token e prova de posse do restaurar (pasta `edit`, CSRF `pex_lote_<id>`, só item na lixeira desta pasta e deste escritório). Apaga na hora a linha e, depois do COMMIT, o arquivo, pelo mesmo laço da purga de 30 dias (`PurgarLixeiraUseCase::purgarSelecao`, via `ExcluirDeVezDaLixeiraUseCase`): subpasta leva a subárvore, arquivo com outra referência fica, subpasta com contrato de honorários oculto (aba Financeiro) em qualquer nível é 404 sem efeito; banco que recusa um lote de 100 não tira do disco nada daquele lote (os lotes anteriores, já confirmados, ficam apagados). Com o espelho R2 ligado, a cópia remota sai pelo decorador do armazenamento.
+
+### Alterado
+
+- Painel do Master, Segurança e auditoria: a trilha passa a ser paginada no servidor (`GET /master/dados/auditoria` com `pagina`, `porPagina` 20/50/100, padrão 50, `tipo`, `conta` e `todas=1`). Filtro de ação, pílulas e contagem valem para o filtro inteiro; o PDF pede `todas=1` e continua com o filtro inteiro. A lista ganha rolagem própria com o cabeçalho fixo.
+- Importar pastas em lote: o número no começo do nome da subpasta sai do nome do cliente ("001 - Fulano", "01_Fulano", "1. Fulano" viram "FULANO"). Nome só com número fica como está. O gerador `scripts/lote-teste/gerar.py` segue a mesma regra (cenário 04).
+- Espelho R2 (frente D6): a exclusão de arquivo em categoria espelhada passa a apagar também a cópia no R2. A outbox grava `excluir`/`pendente` e o worker da réplica apaga o objeto (uma chave por vez, conferida por HEAD), a não ser que o arquivo tenha voltado ao disco. Exclusões em falha entram no alerta da conferência e no `reenfileirar-falhas`; as concluídas saem pela retenção de 90 dias.
+- Agendador: `app:documentos:purgar-lixeira` roda todo dia às 0h50 (lixeira de 30 dias da aba Documentos).
+- Prazo do deploy (decisão do Farlei, 03/11/2026): migration `Version20261103170000` cria `lixeira_purga_inicio` (1 linha, hora do deploy no fuso de São Paulo). O que já estava na lixeira conta os 30 dias a partir dela; até lá a purga não apaga nada e avisa a data (`aguardando_ate=` no log).
+- Espelho R2 (etapa C, sem esvaziar): `armazenamento:liberar-disco --categoria=pasta_documento [--frio-dias=90] [--lote=200] [--sem-acesso] [--executar --confirmo-reconciliacao-limpa]`. Simula por padrão. Na execução, cada arquivo frio já provado no R2 é baixado e conferido por SHA, ganha a linha em `armazenamento_liberacao` e sai do lugar para `uploads/pastas/.liberados/<lote>/`, sem apagar nada. Manifesto em `var/liberacao/<lote>.tsv`.
+- `armazenamento:restaurar-lote (--lote=ID | --chave=CHAVE) [--executar] [--baixar-para=PASTA]`: devolve os arquivos ao lugar (dos liberados ou baixando do R2), nunca sobrescreve e fecha a linha. `--baixar-para` só confere o R2 numa pasta do operador.
+- Exclusão de um arquivo liberado (pelo usuário ou pela purga) apaga também a cópia em `.liberados` e registra a exclusão para o R2. Documento na lixeira nunca é liberado. Os dois comandos têm trava de execução única.
+- O esvaziamento dos liberados continua bloqueado. Nenhum comando novo roda sozinho: nada entra no agendador.
+- Espelho R2 (etapa B da liberação do disco): migration `Version20261103180000` cria `armazenamento_liberacao` (registro de liberação, só aditiva, com índice único parcial de uma linha aberta por chave). Nada grava nela ainda: o comando de liberar é a etapa C.
+- Reconciliação (`armazenamento:reconciliar-espelho`): arquivo ausente no disco com liberação aberta e o R2 conferindo vira `liberado` (não alerta, contado à parte); presente no disco com liberação aberta vira `restaurado_sem_registro` (aviso, sem falhar a rodada). Sem liberação, nada muda.
+- Leitura de recuperação: aceita como prova também a liberação aberta, quando a outbox já não tem linha da chave (retenção de 90 dias), conferindo o SHA do que vem do R2.
+
+### Corrigido
+
+- Expediente, Importar pastas em lote: pasta escolhida com arquivos soltos e subpastas pergunta "Esta é a pasta de um cliente só?". Sim junta tudo numa pasta com o nome da pasta escolhida e grava o caminho da subpasta na descrição do documento; Não mantém o agrupamento por subpasta (spec D11).
+- Importar pastas em lote: arquivos dentro de pasta oculta (nome começando com ponto), em qualquer nível abaixo da pasta escolhida, passam a ser ignorados, como já eram os arquivos ocultos. Antes, a pasta oculta virava um cliente (".OCULTOS").
+- Importar pastas em lote: a mensagem final lista cada arquivo recusado com nome e motivo curto ("passa de 3 MB", "tipo não aceito"), até 5 pelo nome e "e mais N" depois. Antes, o nome saía repetido e os outros recusados sumiam em "e outros".
+
+## [2.31.0] - 2026-11-03
+
+### Alterado
+
+- Espelho R2: `armazenamento:carregar-acervo --do-disco` carrega as categorias sem tabela no banco (imagens do editor das pastas) listando a subpasta de cada escritório. Só vale para `pasta_imagem_editor` e `cobranca_documento`; idempotente, com `--simular` e `--limite`.
+- Leitura pelo R2 (§5.0 da spec): a espera pela trava do cache de leitura termina em 60 s, com 503, em vez de prender o worker; o download que deixaria o disco do cache com menos de 5 GiB livres é recusado (503); o cálculo de hash e de páginas dos documentos lê só o disco local, sem buscar no R2.
+
 ## [2.30.0] - 2026-11-03
 
 ### Alterado
@@ -1369,7 +1421,11 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.30.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.33.1...HEAD
+[2.33.1]: https://github.com/sfbdata/Prime/compare/v2.33.0...v2.33.1
+[2.33.0]: https://github.com/sfbdata/Prime/compare/v2.32.0...v2.33.0
+[2.32.0]: https://github.com/sfbdata/Prime/compare/v2.31.0...v2.32.0
+[2.31.0]: https://github.com/sfbdata/Prime/compare/v2.30.0...v2.31.0
 [2.30.0]: https://github.com/sfbdata/Prime/compare/v2.29.0...v2.30.0
 [2.29.0]: https://github.com/sfbdata/Prime/compare/v2.28.0...v2.29.0
 [2.28.0]: https://github.com/sfbdata/Prime/compare/v2.27.0...v2.28.0

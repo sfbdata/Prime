@@ -58,4 +58,12 @@ interface EspelhoRemoto
      *                              não tem o tamanho ou o SHA-256 esperados
      */
     public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void;
+
+    /**
+     * Apaga o objeto remoto e confere que ele saiu (frente D6, exclusão chegando ao R2). Idempotente:
+     * objeto que já não existe conta como apagado.
+     *
+     * @throws FalhaNoEspelhoRemoto quando o destino recusa, não responde, ou o objeto continua lá
+     */
+    public function excluir(ChaveDeArquivo $chave): void;
 }

@@ -1,0 +1,40 @@
+{% extends 'base.html.twig' %}
+
+{# Ajuda: o manual do usuário inteiro no leitor de PDF do navegador e o botão "Baixar manual" (desvio do
+   desenho aprovado pelo Samuel em 03/11/2026). Visual pelos tokens do cabeçalho e dos botões do Service Desk
+   (#0a6fa0, borda #c5d2db, raio 2px). #}
+
+{% block title %}{{ 'ajuda.titulo'|trans }} | BlueJus{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .aj-pagina { display: flex; flex-direction: column; gap: 12px; padding: 16px 0 24px; }
+    .aj-cabeca { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .aj-cabeca > i { font-size: 30px; color: #12242f; }
+    .aj-cabeca-texto { flex: 1; min-width: 220px; }
+    .aj-cabeca h1 { margin: 0; font-size: 28px; font-weight: normal; }
+    .aj-cabeca-sub { font-size: 13px; color: #5b7383; }
+    .aj-btn-azul { height: 38px; padding: 0 16px; border-radius: 2px; background: #0a6fa0; color: #fff !important; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+    .aj-btn-azul:hover { background: #0b5f86; }
+    .aj-btn-claro { height: 38px; padding: 0 14px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f !important; font-size: 13px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+    .aj-leitor { width: 100%; height: calc(100vh - 200px); min-height: 480px; border: 1px solid #dde5eb; border-radius: 2px; background: #f5f8fa; }
+    .aj-leitor p { padding: 24px; font-size: 14px; color: #34505f; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="aj-pagina">
+    <div class="aj-cabeca">
+        <i class="bi bi-question-circle"></i>
+        <div class="aj-cabeca-texto">
+            <h1>{{ 'ajuda.manual'|trans }}</h1>
+            <div class="aj-cabeca-sub">{{ 'ajuda.intro'|trans }}</div>
+        </div>
+        <a class="aj-btn-claro" href="{{ asset(manual) }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>{{ 'ajuda.abrir_aba'|trans }}</a>
+        <a class="aj-btn-azul" href="{{ asset(manual) }}" download="{{ nomeDoDownload }}" data-aj-baixar><i class="bi bi-download"></i>{{ 'ajuda.baixar'|trans }}</a>
+    </div>
+    <object class="aj-leitor" data="{{ asset(manual) }}" type="application/pdf" aria-label="{{ 'ajuda.manual'|trans }}">
+        <p>{{ 'ajuda.sem_leitor'|trans }}</p>
+    </object>
+</div>
+{% endblock %}

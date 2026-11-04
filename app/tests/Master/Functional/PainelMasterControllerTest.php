@@ -264,6 +264,36 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('@', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('Trilha de auditoria: o JSON vem paginado (por página 20, 50 ou 100; padrão 50) e todas=1 devolve o filtro inteiro')]
+    public function testTrilhaPaginada(): void
+    {
+        $client = $this->clienteMaster();
+
+        $client->request('GET', '/master/dados/auditoria');
+        self::assertResponseIsSuccessful();
+        $padrao = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(50, $padrao['porPagina']);
+        self::assertSame(1, $padrao['pagina']);
+        self::assertLessThanOrEqual(50, count($padrao['registros']));
+        foreach (['total', 'totalGeral', 'paginas', 'tipos', 'resumo', 'limite', 'meses', 'truncado'] as $chave) {
+            self::assertArrayHasKey($chave, $padrao);
+        }
+
+        $client->request('GET', '/master/dados/auditoria?porPagina=20&pagina=1&tipo=&conta=0');
+        self::assertResponseIsSuccessful();
+        $vinte = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(20, $vinte['porPagina']);
+        self::assertLessThanOrEqual(20, count($vinte['registros']));
+
+        $client->request('GET', '/master/dados/auditoria?porPagina=7');
+        self::assertSame(50, json_decode((string) $client->getResponse()->getContent(), true)['porPagina']);
+
+        $client->request('GET', '/master/dados/auditoria?porPagina=20&todas=1');
+        $todas = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(1, $todas['paginas']);
+        self::assertCount($todas['total'], $todas['registros']);
+    }
+
     #[TestDox('IBGE fora do ar e sem retrato: 503 com a mensagem do desenho')]
     public function testMunicipiosIbgeFora(): void
     {

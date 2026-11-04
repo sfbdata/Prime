@@ -204,7 +204,7 @@ pasta_scripts:
             favorito_falha_padrao: Não foi possível atualizar o favorito.
             favorito_falha_varios_um: 'Não foi possível atualizar {favoritos} de {total}; esse voltou como estava.'
             favorito_falha_varios: 'Não foi possível atualizar {favoritos} de {total}; esses voltaram como estavam.'
-            aviso_lixeira: Os itens vão para a lixeira e podem ser restaurados.
+            aviso_lixeira: Os itens vão para a lixeira e podem ser restaurados por 30 dias. Depois disso, são apagados de vez.
             lista_e: '{a} e {b}'
             excluir_pasta_vazia: 'A pasta "{nome}" está vazia. Excluir mesmo assim? {lixeira}'
             excluir_pasta: 'Excluir a pasta "{nome}" e todo o conteúdo dela? Ao todo: {conteudo}. {lixeira}'
@@ -223,7 +223,7 @@ pasta_scripts:
             lix_erro_abrir: Não foi possível abrir a lixeira.
             lix_itens: Itens na lixeira
             lix_vazia: A lixeira está vazia.
-            lix_nota: Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.
+            lix_nota: Itens na lixeira podem ser restaurados por 30 dias. Depois disso, são apagados de vez automaticamente.
             lix_lapide: 'Esta pasta está excluída: restaure a pasta para restaurar os documentos dela.'
             lix_restaurar_selecionados: Restaurar selecionados
             lix_restaurar_selecionados_n: 'Restaurar selecionados ({n})'
@@ -237,6 +237,8 @@ pasta_scripts:
             lix_volta_raiz: 'Sozinho, volta para a raiz da pasta: a pasta de origem está na lixeira'
             lix_volta_para: 'Volta para: {local}'
             lix_restaurar: Restaurar
+            lix_abrir: Abrir
+            lix_abrir_titulo: 'Abrir "{nome}" numa aba nova, só para ver (continua na lixeira)'
             lix_restaurado_um: 1 item restaurado
             lix_restaurados_varios: '{n} itens restaurados'
             lix_restaurado_na_raiz: '{texto} ({n} na raiz da pasta: a pasta de origem continua na lixeira)'
@@ -247,6 +249,16 @@ pasta_scripts:
             carregando: Carregando…
             restaurando: Restaurando…
             lix_erro_restaurar: Não foi possível restaurar.
+            lix_excluir_de_vez: Excluir de vez
+            lix_excluir_de_vez_titulo: 'Apaga agora do sistema, sem poder restaurar'
+            lix_excluir_de_vez_sel: Excluir de vez os selecionados
+            lix_excluir_de_vez_sel_n: 'Excluir de vez os selecionados ({n})'
+            lix_confirmar_excluir_de_vez: 'Excluir de vez {n} item(ns)? Eles saem do sistema e não podem ser restaurados.'
+            lix_excluindo_de_vez: Excluindo de vez…
+            lix_excluido_de_vez_um: 1 item excluído de vez
+            lix_excluidos_de_vez_varios: '{n} itens excluídos de vez'
+            lix_excluido_de_vez_pulados: '{texto}. {n} item(ns) não puderam ser excluídos e continuam na lixeira.'
+            lix_erro_excluir_de_vez: Não foi possível excluir de vez.
             ren_nome_arquivo: Novo nome do arquivo
             ren_nome_pasta: Nome da pasta
             falha_renomear: Falha ao renomear.

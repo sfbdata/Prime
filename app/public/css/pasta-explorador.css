@@ -256,7 +256,12 @@
     --pex-ck-modelos-bd:  #eef2f5;
 
     --pex-fonte-num: Arial, Helvetica, sans-serif;
+}
 
+/* O cartão é só do `.pex`. O `.pex-lix` recebe só os tokens acima: ele está na raiz do modal da lixeira
+   (o `.modal` do Bootstrap ocupa a tela inteira), e o fundo branco do cartão ali escondia a página atrás
+   (03/11/2026). */
+.pex {
     background: var(--pex-card-bg);
     border: 1px solid var(--pex-card-bd);
     border-radius: 4px;
@@ -1612,11 +1617,25 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 .pex-lix-nome { font-size: 13px; font-weight: 600; color: var(--bs-body-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pex-lix-sub { font-size: 11.5px; color: var(--bs-secondary-color); overflow-wrap: anywhere; }
 .pex-lix-restaurar { flex-shrink: 0; white-space: nowrap; }
+/* Abrir o arquivo excluído numa aba nova (03/11/2026): o nome vira link e há o botão "Abrir" antes do Restaurar. */
+a.pex-lix-nome--link { text-decoration: none; }
+a.pex-lix-nome--link:hover,
+a.pex-lix-nome--link:focus-visible { text-decoration: underline; color: var(--bs-link-color); }
+.pex-lix-abrir { flex-shrink: 0; white-space: nowrap; }
+/* "Excluir de vez" (03/11/2026): as cores do "Excluir definitivamente" da lixeira do chat
+   (desenho 06 - Trabalho Externo, :596): texto #a3232b, borda #f0c9cd, fundo branco; no hover,
+   fundo #fdecee. O tamanho segue o do Restaurar ao lado (btn-sm na linha, btn no rodapé). */
+.pex-lix-excluir-de-vez { flex-shrink: 0; white-space: nowrap; border: 1px solid #f0c9cd; background: #fff; color: #a3232b; }
+.pex-lix-excluir-de-vez:hover,
+.pex-lix-excluir-de-vez:focus-visible { border-color: #f0c9cd; background: #fdecee; color: #a3232b; }
+.pex-lix-excluir-de-vez:disabled { border-color: #f0c9cd; background: #fff; color: #a3232b; opacity: .6; }
 .pex-lix-n { color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
 /* 375px: o botão desce para baixo do texto, alinhado com ele; o recuo do grupo encolhe. */
 @media (max-width: 575.98px) {
     .pex-lix-item { flex-wrap: wrap; padding-left: calc(6px + var(--pex-lix-nivel, 0) * 12px); }
     .pex-lix-txt { flex-basis: calc(100% - 56px); }
+    .pex-lix-abrir { margin-left: 46px; }
+    .pex-lix-abrir + .pex-lix-restaurar { margin-left: 0; }
     .pex-lix-restaurar { margin-left: 46px; }
     .pex-lix .modal-footer { flex-wrap: wrap; }
 }

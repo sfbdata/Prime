@@ -10,6 +10,7 @@ final class ResumoDaRodada
     public int $reivindicados = 0;
     public int $enviados = 0;
     public int $jaEstavamNoEspelho = 0;
+    public int $excluidos = 0;
     public int $superados = 0;
     public int $descartados = 0;
     public int $reagendados = 0;
@@ -23,6 +24,7 @@ final class ResumoDaRodada
             'reivindicados'         => $this->reivindicados,
             'enviados'              => $this->enviados,
             'já estavam no espelho' => $this->jaEstavamNoEspelho,
+            'apagados do espelho'   => $this->excluidos,
             'superados'             => $this->superados,
             'descartados'           => $this->descartados,
             'reagendados'           => $this->reagendados,

@@ -1,6 +1,15 @@
 # ---- Expediente (lista, acervo, paginação, modais, trilho, relatório de processos, pastas paradas)
 expediente:
     titulo: Expediente
+    # Lixeira do escritório (03/11/2026): o botão do cabeçalho e a janela (expediente/_lixeira_modal.html.twig).
+    lixeira:
+        botao: Lixeira
+        botao_dica: Ver o que foi excluído nas pastas do escritório
+        titulo: Lixeira do escritório
+        nota: 'Aqui aparecem as pastas com itens na lixeira em que você pode restaurar, da exclusão mais recente para a mais antiga. Os itens ficam na lixeira por 30 dias; depois disso, são apagados de vez automaticamente.'
+        vazia: Nenhum item na lixeira das pastas em que você pode restaurar.
+        carregar_mais: Carregar mais pastas
+        fechar: Fechar
     lista:
         arquivada_dica: Pasta arquivada
         placeholder: Selecione um grupo para visualizar os expedientes
@@ -151,6 +160,37 @@ expediente:
             entendi: Entendi
             pedir_acesso: Pedir acesso
     js:
+        lixeira:
+            carregando: Carregando a lixeira…
+            erro_carregar: Não foi possível abrir a lixeira do escritório.
+            erro_comunicacao: Falha de comunicação com o servidor.
+            pasta: 'Pasta {nup}'
+            sem_nome: Sem cliente
+            documentos_um: 1 documento
+            documentos_n: '{n} documentos'
+            subpastas_um: 1 subpasta
+            subpastas_n: '{n} subpastas'
+            conjunto: '{a} e {b}'
+            excluido_em: 'Excluído em {data}'
+            excluidos_entre: 'Excluídos entre {antiga} e {recente}'
+            por: 'Por {nomes}'
+            sem_registro: 'Quem excluiu: sem registro'
+            abrir: Abrir a lixeira da pasta
+            restaurar_tudo: Restaurar tudo
+            restaurar_tudo_titulo: Cada item volta para o lugar de onde saiu
+            excluir_de_vez_tudo: Excluir de vez tudo
+            excluir_de_vez_titulo: 'Apaga agora do sistema, sem poder restaurar'
+            lapide: 'Esta pasta está excluída: restaure a pasta para restaurar os documentos dela.'
+            confirmar_restaurar: 'Restaurar tudo o que está na lixeira da pasta {nup}? Ao todo: {n} item(ns). Cada item volta para o lugar de onde saiu.'
+            confirmar_excluir_de_vez: 'Excluir de vez {n} item(ns)? Eles saem do sistema e não podem ser restaurados.'
+            restaurando: Restaurando…
+            excluindo_de_vez: Excluindo de vez…
+            restaurados: '{n} item(ns) restaurado(s) na pasta {nup}.'
+            excluidos_de_vez: '{n} item(ns) excluído(s) de vez na pasta {nup}.'
+            pulados: '{texto} {n} item(ns) não puderam ser excluídos e continuam na lixeira.'
+            ja_vazia: A lixeira desta pasta já está vazia.
+            erro_restaurar: Não foi possível restaurar.
+            erro_excluir_de_vez: Não foi possível excluir de vez.
         lista:
             situacao:
                 titulo: SITUAÇÃO DA PASTA

@@ -13,6 +13,7 @@ use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\EspelhoRemoto\ArmazenamentoEspelhado;
 use App\Shared\EspelhoRemoto\CacheDeLeituraDoEspelho;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
@@ -326,6 +327,7 @@ final class LeituraDeRecuperacaoTest extends KernelTestCase
             $this->logger,
             $this->provedor,
             new CacheDeLeituraDoEspelho($this->diretorioDoCache, 10_000_000),
+            new RegistroDeLiberacao($this->conexao, new MockClock()),
         );
     }
 

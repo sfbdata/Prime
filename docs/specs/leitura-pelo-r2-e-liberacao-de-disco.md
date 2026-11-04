@@ -77,6 +77,11 @@ e SHA na fatia diária.
 - Regra: nenhuma categoria tem a cópia local liberada antes de essa frente estar no ar.
 - Motivo: depois de liberado, o R2 é a única cópia, e a exclusão pedida pela pessoa tem de apagar lá.
   Sem isso, o pedido LGPD deixaria o arquivo no R2.
+- **Entregue em 03/11/2026 (PR da branch `r2-d6-exclusao`):** a exclusão grava `excluir`/`pendente` na
+  outbox e o worker apaga o objeto no R2 (uma chave, conferida por HEAD); se o arquivo voltou ao disco,
+  a exclusão vira `superado` e nada sai. A purga da lixeira (`app:documentos:purgar-lixeira`, 30 dias)
+  roda às 0h50 (decisão do Samuel de 03/11/2026, que substitui a "lixeira para sempre" de 23/10). Etapa C: ao restaurar um lote, conferir que não há exclusão pendente da mesma chave, e
+  a exclusão de um arquivo liberado tem de apagar também o registro de liberação.
 
 ## 3. Etapa A: leitura de recuperação
 
@@ -155,6 +160,21 @@ Uma migration (número pedido ao Coordenador), só aditiva: tabela `armazenament
 - A leitura (§3) passa a aceitar como prova **ou** o `verificado` da outbox **ou** a linha de
   liberação. Assim a retenção de 90 dias da outbox não apaga a prova.
 
+**Entregue em 03/11/2026 (branch `r2-registro-liberacao`):** migration `Version20261103180000`,
+entidade só de mapeamento `LiberacaoDeArquivo` e `Liberacao\RegistroDeLiberacao` (DBAL: `abertaDe`,
+`registrar`, `fechar`). O tenant fica em `escopo_tenant_id` (nulo = global), como na outbox.
+- Reconciliação: o `liberado` só sai com o R2 conferido contra a linha (presença, tamanho e SHA do
+  metadado, D5); faltando o objeto, sem SHA no metadado ou divergindo, a classe é a de sempre. No
+  `restaurado_sem_registro`, uma divergência que exige ação ou o suspeito do Drive vale mais. O aviso
+  leve sai na saída do comando, sem falhar a rodada.
+- Exclusão: `excluir()` e `excluirPrefixo()` do `ArmazenamentoEspelhado` fecham a linha de liberação
+  logo depois de gravar o `excluir` na outbox. Sem isso, a retenção de 90 dias apagaria o `excluir` e
+  a linha voltaria a provar um arquivo excluído. Na purga por prefixo, os liberados (fora do disco,
+  fora da listagem) só têm a linha fechada: o `excluir` deles na outbox fica para a etapa C (D6).
+- Leitura: a linha de liberação só prova quando a outbox não tem linha **nenhuma** da chave. Qualquer
+  linha mais nova (exclusão, reenvio pendente, falha) vale mais. Sem MIME na linha, `metadados()`
+  responde `application/octet-stream` (a entrega adivinha o tipo pelo conteúdo).
+
 ## 5. Etapa C: liberar disco
 
 ### 5.0 Condições da 2ª revisão da Etapa A (fechar antes do primeiro lote)
@@ -230,6 +250,64 @@ Uma migration (número pedido ao Coordenador), só aditiva: tabela `armazenament
   - Se já foi esvaziado: baixa do R2 e confere o SHA.
   - Nos dois casos, fecha as linhas (`restaurado_em`).
 - **Restaurar um arquivo:** `--chave=` para restaurar só ele.
+
+### Estado em 03/11/2026 (branch `r2-liberar-disco`): liberar e restaurar, sem esvaziar
+
+Entregues `armazenamento:liberar-disco` e `armazenamento:restaurar-lote`. O `--esvaziar-lote` **não
+existe** e continua bloqueado: nada é apagado do disco nesta etapa.
+
+- **Onde ficam os liberados:** `<uploads_dir>/.liberados/<lote>/<caminho relativo ao uploads_dir>`
+  (em produção, `public/uploads/pastas/.liberados/`). Fica dentro da raiz das duas categorias aceitas,
+  então o `rename` não troca de sistema de arquivos (o comando confere o dispositivo e recusa se
+  trocar). O caminho sai do `ResolvedorDeCaminhoLocal::caminhoNosLiberados()`, e o disco é tocado só
+  pela `Shared/Armazenamento/AreaDeLiberados`. O lote é `AAAAMMDD-HHMMSS` no horário de Brasília.
+- **P2 (7 dias de reconciliação limpa):** o sistema não guarda as rodadas boas da reconciliação; só a
+  `falha_agendada` (as que falharam). Sem tabela nova, a execução exige `--confirmo-reconciliacao-limpa`
+  (o operador confere os logs do agendador) e, além disso, recusa sozinha quando há falha da
+  `armazenamento:reconciliar-espelho` em `falha_agendada` nos últimos 7 dias, ou envio da categoria em
+  `falhou` na outbox. A D6 já está no ar: sem checagem.
+- **Critério de acesso (`atime`):** com `relatime` (o padrão do ext4 e o que o contêiner de dev mostra),
+  qualquer leitura renova o `atime` uma vez por dia. A fatia semanal do SHA da reconciliação lê cada
+  arquivo uma vez por semana, então o critério "sem acesso há 30 dias" deixa **tudo** de fora. O
+  critério fica ligado por padrão, como pede o §5.2, e `--sem-acesso` o desliga (fica só a data do banco
+  ou o `mtime`). A medição do próprio comando não aquece o arquivo: o `atime` volta ao que era depois do
+  SHA. **Antes do primeiro lote:** medir a montagem do volume na VPS e decidir se o lote roda com
+  `--sem-acesso`.
+- **Data do banco:** documento da pasta usa o mais novo entre `uploaded_at` e `modificado_em`; sem data
+  no banco, vale o `mtime`. Várias linhas da mesma chave: vale a mais nova.
+- **Imagens do editor:** a categoria é aceita, mas não tem referência no banco (mora no HTML da peça),
+  então nunca há candidato (item 1 do §5.2). A simulação avisa.
+- **Exclusão de um liberado (D6, etapa C; revisão de 03/11):** `excluir()` do `ArmazenamentoEspelhado`
+  apaga a cópia em `.liberados/<lote>/` (pela `AreaDeLiberados`) e depois fecha a linha; é a mesma
+  exclusão de sempre, não o esvaziamento. Na purga por prefixo, cada linha aberta do escritório na
+  categoria tem a cópia apagada e, com a categoria espelhada, o `excluir` registrado na outbox (o objeto
+  sai também do R2). Falha ao apagar a cópia fica no log, e a linha fecha mesmo assim. A restauração
+  não devolve ao disco uma chave com exclusão registrada depois do último envio.
+- **Lixeira fora:** documento com `excluido_em` preenchido nunca é candidato (motivo `na_lixeira`); a
+  purga dos 30 dias o apaga.
+- **Risco anotado (caminho repetido):** em produção (03/11/2026) nenhum `caminho_arquivo` se repete em
+  `pasta_documento`. Se uma cópia de documento um dia repetir o caminho de outro, as duas linhas apontam
+  para o mesmo arquivo e a mesma linha de liberação: excluir um apagaria a cópia liberada e fecharia a
+  linha do outro.
+- **Por arquivo:** além dos passos do §5.3, o SHA da cópia é medido de novo **depois** do movimento;
+  se mudou (regravação no meio), a cópia volta ao lugar e a linha fecha. Com o lugar já ocupado de novo,
+  a cópia fica presa nos liberados com a linha aberta (`copia_presa_nos_liberados`). Destino ocupado, SHA local
+  diferente, R2 que não confere: pula e a linha fecha. Falha depois de mover deixa a cópia nos liberados
+  e a linha aberta (o restaurar a devolve). Esses dois casos entram no manifesto com a coluna
+  `situacao`; os liberados entram como `liberado`.
+- **Execução única:** liberar e restaurar (com `--executar`) dividem a trava `armazenamento-liberacao-do-disco`
+  (tabela `lock_keys`, vale entre contêineres), renovada a cada arquivo. Manifesto que não grava: o
+  resumo sai mesmo assim e o comando termina com falha.
+- **Custo da simulação:** a categoria é filtrada antes de qualquer consulta; as datas saem por bloco de
+  mil ids, só das linhas da categoria; a saída mostra o tempo da seleção. Erro do banco na seleção sai com
+  mensagem genérica (os parâmetros trazem o nome do arquivo).
+- **Restaurar:** devolve por `link` e `unlink` da cópia (o `link` falha com o original presente, então
+  nunca sobrescreve, nem numa corrida com um upload); fora dos liberados, baixa do R2 para um parcial em
+  `.liberados/.parciais` (mesmo sistema de arquivos, fora do diretório dos documentos), confere SHA e
+  tamanho da linha e publica do mesmo jeito. Original presente com o SHA da linha: fecha a linha
+  (`ja_no_lugar`). Com outro SHA: pula e avisa, e a linha fica aberta. `--baixar-para=PASTA` (com `--chave`) baixa para a pasta do operador e
+  imprime OK ou DIVERGE, sem tocar no disco do sistema nem na linha.
+- **Tela:** só contagens e bytes. A chave remota (que traz o nome do arquivo) fica só no manifesto.
 
 ### 5.5 Antes do primeiro lote
 

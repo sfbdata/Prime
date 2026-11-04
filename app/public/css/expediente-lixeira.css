@@ -1,0 +1,38 @@
+/* Lixeira do escritório no Expediente (03/11/2026; sem desenho). A moldura é a dos modais da Lista
+   (expediente-lista-12.css: .exp-modal-fundo, .exp-modal, .exp-btn); aqui só a largura, a lista de
+   pastas e os botões das ações. Cores do próprio Expediente; o vermelho do "Excluir de vez" é o da
+   lixeira da pasta (pasta-explorador.css, .pex-lix-excluir-de-vez). */
+.exp-modal--lixeira { width: min(760px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.exp-lix-corpo { overflow-y: auto; min-height: 0; }
+.exp-lix-nota { margin: 0; font-size: 13px; color: var(--ex-rotulo, #4a6373); }
+.exp-lix-aviso { font-size: 13px; color: var(--ex-texto, #12242f); background: #eef4f8; border-radius: 4px; padding: 8px 11px; }
+.exp-lix-aviso--erro { color: #a3232b; background: #fdecee; }
+.exp-lix-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.exp-lix-grupo {
+    display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap;
+    border: 1px solid #d6e0e7; border-radius: 4px; padding: 11px 13px;
+    background: var(--ex-card, #fff);
+}
+.exp-lix-ico { font-size: 20px; color: var(--ex-azul, #0a6fa0); line-height: 1.2; }
+.exp-lix-txt { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.exp-lix-titulo { font-size: 14px; font-weight: 700; color: var(--ex-texto, #12242f); overflow-wrap: anywhere; }
+.exp-lix-sub { font-size: 12px; color: #62798a; overflow-wrap: anywhere; }
+.exp-lix-link { font-size: 12px; font-weight: 700; color: var(--ex-azul, #0a6fa0); text-decoration: none; align-self: flex-start; margin-top: 3px; }
+.exp-lix-link:hover, .exp-lix-link:focus-visible { text-decoration: underline; }
+button.exp-lix-link { background: none; border: 0; padding: 0; cursor: pointer; }
+/* O modal da lixeira da pasta (Bootstrap, z-index 1055) abre por cima desta janela (.exp-modal-fundo, 1065). */
+.modal.pex-lix { z-index: 1075; }
+.exp-lix-acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.exp-lix-acoes .exp-btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.exp-lix-restaurar { background: #fff; color: var(--ex-azul, #0a6fa0); border: 1px solid #b9d3e2; }
+.exp-lix-restaurar:hover, .exp-lix-restaurar:focus-visible { background: #eaf3f9; }
+.exp-lix-excluir-de-vez { background: #fff; color: #a3232b; border: 1px solid #f0c9cd; }
+.exp-lix-excluir-de-vez:hover, .exp-lix-excluir-de-vez:focus-visible { background: #fdecee; }
+.exp-lix-lapide { font-size: 12px; color: #62798a; font-style: italic; }
+.exp-lix-vazia { margin: 8px 0; font-size: 14px; color: #62798a; text-align: center; }
+.exp-lix-mais { align-self: center; }
+.exp-lix-mais[hidden] { display: none; }
+[data-bs-theme="dark"] .exp-lix-grupo { border-color: var(--bs-border-color-translucent); }
+[data-bs-theme="dark"] .exp-lix-restaurar,
+[data-bs-theme="dark"] .exp-lix-excluir-de-vez { background: transparent; }
+[data-bs-theme="dark"] .exp-lix-aviso { background: var(--bs-secondary-bg); color: var(--bs-body-color); }

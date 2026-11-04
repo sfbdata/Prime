@@ -373,6 +373,10 @@
 .mp-audit-lin > span:nth-child(3) > span:first-child > .bi { color: var(--cor); }
 .mp-audit-lin > span:nth-child(3) > span:last-child { font-size: 12px; color: #5b7383; }
 .mp-audit-lin > span:nth-child(4) { color: #34505f; }
+.mp-audit-rolagem { max-height: 560px; overflow: auto; }
+.mp-audit-rolagem > .mp-audit-titulos { position: sticky; top: 0; z-index: 1; background: #fff; }
+.mp .mp-audit-pag { border-top: 1px solid #e6edf2; }
+.mp-audit-pag > .mp-audit-por { display: inline-flex; align-items: center; gap: 8px; margin: 0 auto 0 0; font-weight: normal; }
 
 /* ---------- Permissões do Master ---------- */
 .mp-masters { overflow: hidden; }

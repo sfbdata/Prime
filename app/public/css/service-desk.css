@@ -33,6 +33,7 @@
 .sd-saldo-texto { flex: 999 1 320px; font-size: 13px; color: #34505f; line-height: 1.55; }
 .sd-saldo-acoes { display: flex; gap: 8px; }
 .sd-btn-claro { height: 34px; padding: 0 12px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font-size: 13px; cursor: pointer; }
+.sd-btn-manual { height: 38px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
 .sd-btn-verde { height: 34px; padding: 0 14px; border: none; border-radius: 2px; background: #1e7b45; color: #fff; font-size: 13px; font-weight: bold; cursor: pointer; }
 .sd-btn-verde:hover { background: #18663a; }
 

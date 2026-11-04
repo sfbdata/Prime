@@ -14,6 +14,7 @@ use App\Shared\EspelhoRemoto\Command\ReconciliarEspelhoCommand;
 use App\Shared\EspelhoRemoto\Command\ReplicarEspelhoCommand;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\FabricaDoEspelhoRemoto;
+use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
 use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Shared\EspelhoRemoto\ProvedorDoEspelhoRemoto;
@@ -317,6 +318,6 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
             }
         };
 
-        return new ReconciliadorDoEspelho($fonte, $this->local, $this->outbox, hash('sha256', self::CONTEUDO_SUSPEITO));
+        return new ReconciliadorDoEspelho($fonte, $this->local, $this->outbox, new RegistroDeLiberacao($this->conexao, new MockClock()), hash('sha256', self::CONTEUDO_SUSPEITO));
     }
 }

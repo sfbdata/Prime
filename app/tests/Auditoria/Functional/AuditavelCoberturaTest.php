@@ -332,6 +332,18 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // mascarados quando aparecem literais) é o registro da réplica.
         ReplicacaoDeArquivo::class,
 
+        // Registro de liberação do disco (etapa B, spec `leitura-pelo-r2-e-liberacao-de-disco.md` §4): o
+        // mesmo caso da outbox acima. O mapeamento existe só para o Doctrine conhecer a tabela, toda
+        // escrita é por DBAL (`RegistroDeLiberacao`) e o listener do ORM nunca a veria. Auditar copiaria
+        // `nome`/`chave_remota` para o audit_log; a própria linha (lote, liberado_em, restaurado_em) é o
+        // registro da liberação.
+        \App\Shared\EspelhoRemoto\Entity\LiberacaoDeArquivo::class,
+
+        // Início da contagem dos 30 dias da lixeira (03/11/2026): uma linha só, gravada pela migration
+        // Version20261103170000 na hora do deploy. Nenhuma tela nem comando a altera; a própria linha
+        // é o registro de quando a contagem começou.
+        \App\Pasta\Entity\InicioDaPurgaDaLixeira::class,
+
         // Trabalho Externo (spec docs/specs/trabalho-externo.md): domínio novo, mesma decisão de
         // Processo/Cliente/DJEN. A demanda já tem o LOG DE DOMÍNIO próprio (HistoricoDemanda: de, para,
         // quem, quando, motivo; e os registros de sistema no chat), visível a quem atende, como o

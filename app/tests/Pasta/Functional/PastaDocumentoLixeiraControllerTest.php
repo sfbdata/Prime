@@ -17,21 +17,28 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Service\PastaTimelineAssembler;
+use App\Pasta\UseCase\AbrirDocumentoDaLixeiraUseCase;
+use App\Pasta\UseCase\ExcluirDeVezDaLixeiraUseCase;
 use App\Pasta\UseCase\ListarLixeiraDaPastaUseCase;
 use App\Pasta\UseCase\RestaurarItensDaPastaUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Doctrine\Filter\LixeiraFilter;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Event\OnFlushEventArgs;
+use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * As duas rotas da lixeira (D7): `pasta_documentos_restaurar` e `pasta_documentos_lixeira`.
+ * As rotas da lixeira (D7): `pasta_documentos_restaurar`, `pasta_documentos_lixeira` e (03/11/2026)
+ * `pasta_documentos_excluir_de_vez`.
  *
  * Tudo ponta a ponta: o item vai para a lixeira pelo `excluir-lote` real e volta pelo `restaurar`
  * real. Isolamento provado pelos dois lados (outro escritório → 404; pasta IRMÃ do mesmo
@@ -44,6 +51,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PastaDocumentoController::class)]
 #[CoversClass(RestaurarItensDaPastaUseCase::class)]
 #[CoversClass(ListarLixeiraDaPastaUseCase::class)]
+#[CoversClass(ExcluirDeVezDaLixeiraUseCase::class)]
+#[CoversClass(AbrirDocumentoDaLixeiraUseCase::class)]
 #[CoversClass(LixeiraDaPastaOutput::class)]
 final class PastaDocumentoLixeiraControllerTest extends JusPrimeWebTestCase
 {
@@ -277,6 +286,160 @@ final class PastaDocumentoLixeiraControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->naLixeira('pasta_documento', (int) $vivo->getId()));
     }
 
+    // ── excluir de vez ─────────────────────────────────────────────────────────
+
+    #[TestDox('excluir de vez: o documento e a subpasta (com a subárvore) saem NA HORA, linha e arquivo; o vizinho da lixeira fica')]
+    public function testExcluirDeVezApagaLinhaEArquivo(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'sai.pdf', $this->gravarArquivo($tenant, 'sai'));
+        $secao           = $this->criarSecao($pasta, $tenant, 'SAI');
+        $dentro          = $this->criarDocumento($pasta, $tenant, $secao, 'dentro.pdf', $this->gravarArquivo($tenant, 'dentro'));
+        $vizinho         = $this->criarDocumento($pasta, $tenant, null, 'fica.pdf', $this->gravarArquivo($tenant, 'fica'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->mandarParaALixeira($client, $pasta, [(int) $doc->getId(), (int) $vizinho->getId()], [(int) $secao->getId()]);
+
+        $this->limpar();
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-de-vez", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $doc->getId()],
+            'secoes'     => [(string) $secao->getId()],
+        ]);
+
+        self::assertResponseIsSuccessful((string) $client->getResponse()->getContent());
+        $json = $this->json($client);
+        self::assertTrue($json['ok']);
+        self::assertSame(['documentos' => 2, 'secoes' => 1], $json['excluidos'], 'a subárvore conta junto');
+        self::assertSame(['documentos' => 0, 'secoes' => 0], $json['pulados']);
+
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $doc->getId()));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $dentro->getId()));
+        self::assertFalse($this->existeLinha('pasta_secao', (int) $secao->getId()));
+        self::assertFalse($this->arquivoExiste($tenant, $doc), 'o arquivo sai do disco na hora');
+        self::assertFalse($this->arquivoExiste($tenant, $dentro), 'o arquivo de dentro da subpasta sai junto');
+        self::assertNotNull($this->naLixeira('pasta_documento', (int) $vizinho->getId()), 'o que não foi selecionado continua na lixeira');
+        self::assertTrue($this->arquivoExiste($tenant, $vizinho));
+        self::assertTrue($this->em()->getFilters()->isEnabled(LixeiraFilter::NOME), 'o filtro volta ligado depois da resposta');
+    }
+
+    #[TestDox('excluir de vez: arquivo que outra linha ainda usa fica no disco; só a linha selecionada sai')]
+    public function testExcluirDeVezArquivoComOutraReferenciaFica(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $caminho         = $this->gravarArquivo($tenant, 'compartilhado');
+        $naLixeira       = $this->criarDocumento($pasta, $tenant, null, 'copia-a.pdf', $caminho);
+        $viva            = $this->criarDocumento($pasta, $tenant, null, 'copia-b.pdf', $caminho);
+        $this->logarComTenant($client, $user, $tenant);
+        $this->mandarParaALixeira($client, $pasta, [(int) $naLixeira->getId()], []);
+
+        $this->limpar();
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-de-vez", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $naLixeira->getId()],
+        ]);
+
+        self::assertResponseIsSuccessful((string) $client->getResponse()->getContent());
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $naLixeira->getId()));
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $viva->getId()));
+        self::assertTrue($this->arquivoExiste($tenant, $viva), 'a outra linha ainda aponta para o arquivo');
+    }
+
+    #[TestDox('excluir de vez: outro escritório 404; item VIVO 404 sem efeito; pasta irmã 404; CSRF 400; sem permissão 403; teto 422')]
+    public function testExcluirDeVezRecusas(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        [, $outro]       = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $irma            = $this->criarPasta($tenant);
+        $alheia          = $this->criarPasta($outro);
+        $naLixeira       = $this->criarDocumento($pasta, $tenant, null, 'na-lixeira.pdf', $this->gravarArquivo($tenant, 'na-lixeira'));
+        $vivo            = $this->criarDocumento($pasta, $tenant, null, 'vivo.pdf', $this->gravarArquivo($tenant, 'vivo'));
+        $daIrma          = $this->criarDocumento($irma, $tenant, null, 'da-irma.pdf');
+        $docAlheio       = $this->criarDocumento($alheia, $outro, null, 'alheio.pdf');
+        $leitor          = $this->criarUsuarioSoLeitura($tenant, (int) $pasta->getId());
+        $this->logarComTenant($client, $user, $tenant);
+        $this->mandarParaALixeira($client, $pasta, [(int) $naLixeira->getId()], []);
+        $this->mandarParaALixeira($client, $irma, [(int) $daIrma->getId()], []);
+        $this->marcarDireto($docAlheio, $user);
+
+        $url  = "/pasta/{$pasta->getId()}/documentos/excluir-de-vez";
+        $tok  = $this->csrf('pex_lote_' . $pasta->getId());
+        $pede = function (string $caminho, string $token, array $documentos) use ($client): void {
+            $this->limpar();
+            $client->request('POST', $caminho, ['_token' => $token, 'documentos' => array_map('strval', $documentos)]);
+        };
+
+        $pede("/pasta/{$alheia->getId()}/documentos/excluir-de-vez", $this->csrf('pex_lote_' . $alheia->getId()), [(int) $docAlheio->getId()]);
+        self::assertResponseStatusCodeSame(404, 'pasta de outro escritório');
+
+        $pede($url, $tok, [(int) $docAlheio->getId()]);
+        self::assertResponseStatusCodeSame(404, 'documento de outro escritório na seleção');
+
+        $pede($url, $tok, [(int) $naLixeira->getId(), (int) $daIrma->getId()]);
+        self::assertResponseStatusCodeSame(404, 'documento de pasta irmã na seleção');
+
+        $pede($url, $tok, [(int) $naLixeira->getId(), (int) $vivo->getId()]);
+        self::assertResponseStatusCodeSame(404, 'item vivo não está na lixeira: não se exclui de vez');
+
+        $pede($url, 'errado', [(int) $naLixeira->getId()]);
+        self::assertResponseStatusCodeSame(400);
+
+        $pede($url, $tok, array_fill(0, PastaDocumentoController::TETO_DE_ITENS_POR_LOTE + 1, (int) $naLixeira->getId()));
+        self::assertResponseStatusCodeSame(422, 'teto antes de qualquer consulta');
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $pede($url, $tok, [(int) $naLixeira->getId()]);
+        self::assertResponseStatusCodeSame(403, 'quem só vê não exclui de vez');
+
+        self::assertNotNull($this->naLixeira('pasta_documento', (int) $naLixeira->getId()), 'nenhuma recusa teve efeito');
+        self::assertTrue($this->arquivoExiste($tenant, $naLixeira));
+        self::assertNull($this->naLixeira('pasta_documento', (int) $vivo->getId()));
+        self::assertTrue($this->arquivoExiste($tenant, $vivo));
+        self::assertNotNull($this->naLixeira('pasta_documento', (int) $daIrma->getId()));
+        self::assertNotNull($this->naLixeira('pasta_documento', (int) $docAlheio->getId()));
+    }
+
+    #[TestDox('excluir de vez com o banco recusando: responde 500 em JSON, a linha fica e nada sai do disco')]
+    public function testExcluirDeVezBancoQueRecusa(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'fica.pdf', $this->gravarArquivo($tenant, 'fica'));
+        $this->logarComTenant($client, $user, $tenant);
+        $this->mandarParaALixeira($client, $pasta, [(int) $doc->getId()], []);
+
+        $recusa = new class {
+            public function onFlush(OnFlushEventArgs $args): void
+            {
+                if ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityDeletions() !== []) {
+                    throw new class('banco recusou') extends \RuntimeException implements \Doctrine\DBAL\Exception {};
+                }
+            }
+        };
+        $this->em()->getEventManager()->addEventListener([Events::onFlush], $recusa);
+
+        try {
+            $this->limpar();
+            $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-de-vez", [
+                '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+                'documentos' => [(string) $doc->getId()],
+            ]);
+        } finally {
+            $this->em()->getEventManager()->removeEventListener([Events::onFlush], $recusa);
+        }
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertArrayHasKey('erro', $this->json($client));
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $doc->getId()), 'o banco recusou: a linha fica');
+        self::assertTrue($this->arquivoExiste($tenant, $doc), 'nada sai do disco antes de o banco confirmar');
+    }
+
     // ── lixeira (GET) ──────────────────────────────────────────────────────────
 
     #[TestDox('lixeira: lista nome, tipo, excluído em/por e o caminho original; só desta pasta; 404 fora do escritório; 403 para quem só vê')]
@@ -350,6 +513,50 @@ final class PastaDocumentoLixeiraControllerTest extends JusPrimeWebTestCase
         $this->limpar();
         $client->request('GET', "/pasta/{$pasta->getId()}/documentos/lixeira");
         self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('abrir da lixeira: o arquivo excluído abre (200, inline) sem sair da lixeira; vivo, pasta irmã e outro escritório 404; quem só vê 403')]
+    public function testAbreArquivoDaLixeira(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        [, $outro]       = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $irma            = $this->criarPasta($tenant);
+        $alheia          = $this->criarPasta($outro);
+        $excluido        = $this->criarDocumento($pasta, $tenant, null, 'excluido.pdf', $this->gravarArquivo($tenant, 'conteudo-excluido'));
+        $vivo            = $this->criarDocumento($pasta, $tenant, null, 'vivo.pdf', $this->gravarArquivo($tenant, 'conteudo-vivo'));
+        $daIrma          = $this->criarDocumento($irma, $tenant, null, 'da-irma.pdf', $this->gravarArquivo($tenant, 'conteudo-irma'));
+        $alheio          = $this->criarDocumento($alheia, $outro, null, 'alheio.pdf', $this->gravarArquivo($outro, 'conteudo-alheio'));
+        $leitor          = $this->criarUsuarioSoLeitura($tenant, (int) $pasta->getId());
+        $this->logarComTenant($client, $user, $tenant);
+        $this->mandarParaALixeira($client, $pasta, [(int) $excluido->getId()], []);
+        $this->mandarParaALixeira($client, $irma, [(int) $daIrma->getId()], []);
+        $this->marcarDireto($alheio, $user);
+
+        $this->limpar();
+        $client->request('GET', "/pasta/{$pasta->getId()}/documentos/lixeira/{$excluido->getId()}");
+        self::assertResponseIsSuccessful();
+        self::assertSame('conteudo-excluido', $this->conteudoEntregue($client));
+        self::assertStringStartsWith('inline', (string) $client->getResponse()->headers->get('Content-Disposition'));
+        self::assertNotNull($this->naLixeira('pasta_documento', (int) $excluido->getId()), 'abrir não restaura');
+
+        $recusas = [
+            'documento vivo'                  => "/pasta/{$pasta->getId()}/documentos/lixeira/{$vivo->getId()}",
+            'documento da pasta irmã'         => "/pasta/{$pasta->getId()}/documentos/lixeira/{$daIrma->getId()}",
+            'documento de outro escritório'   => "/pasta/{$pasta->getId()}/documentos/lixeira/{$alheio->getId()}",
+            'pasta de outro escritório'       => "/pasta/{$alheia->getId()}/documentos/lixeira/{$alheio->getId()}",
+        ];
+        foreach ($recusas as $caso => $url) {
+            $this->limpar();
+            $client->request('GET', $url);
+            self::assertResponseStatusCodeSame(404, $caso);
+        }
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $this->limpar();
+        $client->request('GET', "/pasta/{$pasta->getId()}/documentos/lixeira/{$excluido->getId()}");
+        self::assertResponseStatusCodeSame(403, 'quem só vê a pasta não vê a lixeira');
     }
 
     #[TestDox('o histórico da pasta mostra a ida e a volta do documento E da subpasta, com nome próprio e ator')]
@@ -578,6 +785,21 @@ final class PastaDocumentoLixeiraControllerTest extends JusPrimeWebTestCase
         return $chave->nome;
     }
 
+    /** O corpo entregue: a entrega pode ser em stream (BinaryFileResponse/StreamedResponse). */
+    private function conteudoEntregue(KernelBrowser $client): string
+    {
+        $resposta = $client->getResponse();
+        if ($resposta instanceof BinaryFileResponse) {
+            return (string) file_get_contents($resposta->getFile()->getPathname());
+        }
+        $conteudo = $resposta->getContent();
+        if ($conteudo !== false && $conteudo !== '') {
+            return $conteudo;
+        }
+
+        return (string) $client->getInternalResponse()->getContent();
+    }
+
     /** @return array<string, mixed> */
     private function json(KernelBrowser $client): array
     {
@@ -599,6 +821,18 @@ final class PastaDocumentoLixeiraControllerTest extends JusPrimeWebTestCase
     private function idsDosArquivosDoExplorador(string $html): array
     {
         return array_map(static fn (array $a): int => (int) $a['id'], $this->explorador($html)['arquivos']);
+    }
+
+    private function existeLinha(string $tabela, int $id): bool
+    {
+        return (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM {$tabela} WHERE id = :id", ['id' => $id]) === 1;
+    }
+
+    private function arquivoExiste(Tenant $tenant, PastaDocumento $doc): bool
+    {
+        return static::getContainer()->get(ArmazenamentoDeArquivos::class)->existe(
+            ChavesDePasta::documentoPorNome((int) $tenant->getId(), (string) $doc->getCaminhoArquivo()),
+        );
     }
 
     private function naLixeira(string $tabela, int $id): ?string

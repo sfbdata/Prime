@@ -109,10 +109,11 @@ final class S3Simulado
         }
 
         return match ($metodo) {
-            'PUT'   => $this->put($chave, $corpo, $cabecalhos),
-            'HEAD'  => $this->head($chave),
-            'GET'   => $this->get($chave),
-            default => self::erro(405, 'MethodNotAllowed'),
+            'PUT'    => $this->put($chave, $corpo, $cabecalhos),
+            'HEAD'   => $this->head($chave),
+            'GET'    => $this->get($chave),
+            'DELETE' => $this->delete($chave),
+            default  => self::erro(405, 'MethodNotAllowed'),
         };
     }
 
@@ -143,6 +144,14 @@ final class S3Simulado
         ];
 
         return new MockResponse('', ['http_code' => 200, 'response_headers' => ['etag' => $this->objetos[$chave]['etag']]]);
+    }
+
+    /** Como o S3 e o R2: 204 também para a chave que não existe. */
+    private function delete(string $chave): MockResponse
+    {
+        unset($this->objetos[$chave]);
+
+        return new MockResponse('', ['http_code' => 204]);
     }
 
     private function head(string $chave): MockResponse

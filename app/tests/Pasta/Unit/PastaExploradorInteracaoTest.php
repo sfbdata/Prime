@@ -221,7 +221,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString('const pasta = Number(pastaId);', $encaminha);
         self::assertStringContainsString('const id = Number(alvo && alvo.id);', $encaminha);
         // Item na lixeira não entra na lista (o servidor monta o #pexDados só com os vivos; LixeiraFilter).
-        self::assertStringNotContainsString('opEncaminhar', $this->funcao('montarModalDaLixeira'));
+        self::assertStringNotContainsString('opEncaminhar', (string) file_get_contents(__DIR__ . '/../../../public/js/pasta-lixeira.js'), 'o modal da lixeira mora em pasta-lixeira.js');
 
         // A "pasta" do explorador é uma PastaSecao; o arquivo, um PastaDocumento (spec §3).
         self::assertStringContainsString("const tipo = alvo.tipo === 'pasta' ? 'secao' : 'documento';", $encaminha);
@@ -318,7 +318,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("return BJ_T.t('pasta_scripts.js.explorador.excluir_lote', { n: itens.length, conteudo: juntarComE(partes), lixeira: AVISO_LIXEIRA });", $js);
         self::assertTextoDoScript('Excluir {n} itens? Ao todo: {conteudo}. {lixeira}', 'explorador.excluir_lote', $js);
         self::assertStringContainsString("const AVISO_LIXEIRA = BJ_T.t('pasta_scripts.js.explorador.aviso_lixeira');", $js);
-        self::assertTextoDoScript('Os itens vão para a lixeira e podem ser restaurados.', 'explorador.aviso_lixeira', $js);
+        self::assertTextoDoScript('Os itens vão para a lixeira e podem ser restaurados por 30 dias. Depois disso, são apagados de vez.', 'explorador.aviso_lixeira', $js);
         self::assertStringNotContainsString('não pode ser desfeita', $js, 'com a lixeira (L7) a frase deixou de ser verdade');
         self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.excluido_um', { nome: itens[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.excluidos_varios', { n: itens.length }));", $js);
         self::assertTextoDoScript('Excluído: {nome}', 'explorador.excluido_um', $js);

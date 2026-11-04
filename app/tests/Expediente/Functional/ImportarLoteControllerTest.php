@@ -134,6 +134,36 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         self::assertSame(PastaDocumento::CATEGORIA_DEMAIS, $docs[0]->getCategoria());
     }
 
+    #[TestDox('D11, pasta de um cliente só: o caminho da subpasta vai na descrição do documento ("Processo/Inicial.pdf")')]
+    public function testCaminhoDaSubpastaVaiNaDescricao(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdministrador($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('POST', self::URL, ['nome_cliente' => 'JOSE PEREIRA', '_token' => $this->tokenDaTela($client)]);
+        $criada = $this->json($client);
+
+        $tmp = (string) tempnam(sys_get_temp_dir(), 'lote_pdf_');
+        file_put_contents($tmp, '%PDF-1.4 dummy');
+        $this->temporarios[] = $tmp;
+        $client->request(
+            'POST',
+            $criada['uploadUrl'],
+            ['_token' => $criada['uploadToken'], 'categoria' => 'DEMAIS', 'descricao' => 'Processo/Inicial.pdf'],
+            ['arquivo' => new UploadedFile($tmp, 'Inicial.pdf', 'application/pdf', null, true)],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful();
+        $docs = $this->em()->getRepository(PastaDocumento::class)->findBy(['pasta' => $this->em()->find(Pasta::class, $criada['id'])]);
+        self::assertCount(1, $docs);
+        self::assertSame('Processo/Inicial.pdf', $docs[0]->getDescricao());
+        self::assertSame(PastaDocumento::CATEGORIA_DEMAIS, $docs[0]->getCategoria());
+    }
+
     #[TestDox('pastas seguidas recebem números seguidos')]
     public function testNumerosSeguidos(): void
     {
@@ -238,5 +268,13 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         self::assertStringContainsString('Selecionar a pasta dos clientes', $modal->text());
         self::assertStringContainsString('Ou selecionar arquivos soltos (vira uma pasta só)', $modal->text());
         self::assertCount(1, $crawler->filter('script[src*="js/expediente-importar-lote.js"]'));
+
+        // D11: pergunta "cliente só" no visual do próprio modal (sem Bootstrap), escondida até ser preciso.
+        $pergunta = $modal->filter('.il-corpo > .il-pergunta[data-il="pergunta"][hidden]');
+        self::assertCount(1, $pergunta);
+        self::assertSame('Esta é a pasta de um cliente só?', trim($pergunta->filter('b')->text()));
+        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-importar[data-il="sim"]'));
+        self::assertCount(1, $pergunta->filter('.il-pergunta-botoes > button.il-trocar[data-il="nao"]'));
+        self::assertCount(0, $pergunta->filter('.btn, .modal'), 'componente do modal, não do Bootstrap');
     }
 }

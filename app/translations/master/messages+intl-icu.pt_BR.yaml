@@ -869,6 +869,13 @@ master:
                 acao: AÇÃO E CONTA
                 detalhe: DETALHE
             vazio: Nenhum registro ainda. Alterações de limite, suspensões e exclusões aparecem aqui. Entradas no sistema (login) não são auditadas.
+            # Paginação no servidor (mesmo componente da lista de artigos do Blog: Anterior, Página X de Y, Próxima).
+            por_pagina: Por página
+            pagina: 'Página {pagina} de {paginas}'
+            anterior: Anterior
+            proxima: Próxima
+            gerando_pdf: Gerando o PDF...
+            erro_pdf: Não foi possível gerar o PDF agora. Tente de novo.
         # PDF da trilha (janela de impressão); o cabeçalho da tabela é audit.cab.
         pdf:
             titulo_janela: Auditoria BlueJus

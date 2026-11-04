@@ -42,6 +42,8 @@ final class AgendaDeTarefasTest extends TestCase
             // Nova: retenção de 90 dias dos eventos de desempenho do Master (LGPD).
             'app:desempenho:purgar' => ['app:desempenho:purgar --no-interaction', '40 0 * * *', '40 3 * * *'],
             // Não estava no crontab real: o UTC é o da linha do DEPLOY.md, ligada por decisão do dono (23/10).
+            // Nova (frente D6 do R2): a lixeira da aba Documentos, 30 dias (decisão do dono de 23/10/2026).
+            'app:documentos:purgar-lixeira' => ['app:documentos:purgar-lixeira --no-interaction', '50 0 * * *', '50 3 * * *'],
             'app:importar-indices-monetarios' => ['app:importar-indices-monetarios --no-interaction', '0 1 11 * *', '0 4 11 * *'],
             'app:djen:sincronizar' => ['app:djen:sincronizar --dias=2 --no-interaction', '0 3 * * *', '0 6 * * *'],
             // Novas (espelho R2, P2.5 e P2.7): o "UTC antigo" é a mesma hora em UTC, para a prova do fuso.

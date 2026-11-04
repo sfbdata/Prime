@@ -12,8 +12,10 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
    (`webkitdirectory`) e o link "Ou selecionar arquivos soltos (vira uma pasta só)".
 3. Agrupamento (`montar`): cada subpasta de 1º nível vira uma pasta; arquivo solto direto na pasta
    escolhida entra numa pasta com o nome dela (fiel ao `montar` do desenho); seleção de arquivos
-   soltos vira "NOVA PASTA". Ignora `.oculto`, `Thumbs.db`, `desktop.ini`. Nome do cliente =
-   nome da subpasta, `_`/`-` viram espaço, maiúsculas. Ordem alfabética pt-BR.
+   soltos vira "NOVA PASTA". Ignora `.oculto`, `Thumbs.db`, `desktop.ini`, e tudo que está dentro de pasta oculta em qualquer nível
+   abaixo da escolhida (`.ocultos/rascunho.pdf`; correção de 03/11/2026). Nome do cliente =
+   nome da subpasta sem o número da frente ("001 - ", "01_", "1. "; nome só com número fica;
+   03/11/2026), `_`/`-` viram espaço, maiúsculas. Ordem alfabética pt-BR.
 4. Tabela: marcar/desmarcar, Nº PASTA previsto (a partir do próximo número), CLIENTE editável,
    ARQUIVOS (qtd · tamanho), SITUAÇÃO (Pronta, Ignorada, Importada). Resumo
    "N pasta(s) · N arquivo(s) · numeração a partir de X" e "Escolher outra pasta".
@@ -48,7 +50,8 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
 - **D5 Número real é o do servidor.** A coluna Nº PASTA mostra a previsão; depois de importada,
   mostra o número gravado. A mensagem final usa os números reais.
 - **D6 Falhas (desenho omisso, convenção do sistema).** Arquivo recusado (tipo, tamanho) não para o
-  lote: conta e entra na mensagem final ("N arquivo(s) não foram anexados (motivo)"). Espaço esgotado
+  lote: conta e entra na mensagem final, cada um com nome e motivo curto ("2 arquivos não foram
+  anexados: foto.jpg (passa de 3 MB) e app.exe (tipo não aceito)"; até 5 pelo nome, depois "e mais N"). Espaço esgotado
   ou falha ao criar a pasta interrompe o lote e mostra o erro no lugar do `lotErro`, junto do que já
   foi criado. Pasta criada nunca volta para a fila: o botão Importar retoma só as que faltam, e a
   pasta que parou no meio do envio fica "Incompleta".
@@ -61,6 +64,21 @@ Pedido do Samuel em 30/10/2026, aprovado pelo dono. Desenho:
   no topo e ordena por número decrescente).
 - **D9 Gancho.** O botão é da bluejus-17 (`data-acao="importar-lote"`) e dispara `bj:importar-lote`
   no `document`. O nosso JS só ouve o evento; não edita o modal Nova Pasta.
+
+- **D11 Pasta de um cliente só (pedido do Samuel, 03/11/2026).** Quando a pasta escolhida tem
+  arquivos soltos direto nela **e** arquivos em subpastas, o modal pergunta, no visual do próprio
+  modal (`.il-pergunta`, sem Bootstrap): "Esta é a pasta de um cliente só?".
+  - **Sim**: tudo vira **uma** pasta, com o nome da pasta escolhida como cliente. O arquivo que estava
+    numa subpasta leva o caminho dentro da pasta escolhida na **descrição** do documento
+    (`descricao` do upload, que já existe; coluna `text`): ex. `Processo/Inicial.pdf`. Arquivo solto
+    fica sem descrição. Sem migration.
+  - **Não**: comportamento de antes (cada subpasta de 1º nível vira uma pasta; os soltos, outra com o
+    nome da pasta escolhida).
+  - **Pasta = caso** (regra do Samuel, 03/11/2026): o mesmo cliente pode ter várias pastas. O texto da
+    pergunta diz que o Sim é para **um caso só** e pede Não quando as subpastas são casos diferentes do
+    mesmo cliente. Quem decide é a pessoa; o sistema nunca junta casos sozinho.
+  - Só arquivos soltos, ou só subpastas: não pergunta (nada muda). A seleção de "arquivos soltos"
+    também não pergunta.
 
 ## Arquivos
 

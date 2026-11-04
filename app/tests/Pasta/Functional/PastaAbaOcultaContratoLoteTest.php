@@ -12,6 +12,7 @@ use App\Pasta\Controller\PeticionarController;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -103,7 +104,7 @@ final class PastaAbaOcultaContratoLoteTest extends JusPrimeWebTestCase
         self::assertNotSame(404, $this->pedir($this->primario, 'POST', $caminho, $corpo));
     }
 
-    #[TestDox('Lixeira e restaurar: o contrato na lixeira não aparece para quem tem o Financeiro oculto e restaurá-lo é 404')]
+    #[TestDox('Lixeira e restaurar: o contrato na lixeira não aparece para quem tem o Financeiro oculto; restaurá-lo ou excluí-lo de vez é 404')]
     public function testLixeiraERestaurar(): void
     {
         $this->cenario();
@@ -117,6 +118,45 @@ final class PastaAbaOcultaContratoLoteTest extends JusPrimeWebTestCase
 
         $corpo = ['_token' => 'TOKEN_pex_lote_' . $this->pasta->getId(), 'documentos' => [(string) $this->contrato->getId()]];
         self::assertSame(404, $this->pedir($this->ana, 'POST', '/documentos/restaurar', $corpo));
+        self::assertSame(404, $this->pedir($this->ana, 'POST', '/documentos/excluir-de-vez', $corpo), 'excluir de vez segue a mesma guarda');
+        self::assertNotNull($this->em()->getConnection()->fetchOne('SELECT id FROM pasta_documento WHERE id = ?', [$this->contrato->getId()]) ?: null, 'o contrato continua no banco');
+    }
+
+    #[TestDox('Excluir de vez uma subpasta com o contrato lá no fundo: 404 sem efeito para quem tem o Financeiro oculto')]
+    public function testExcluirDeVezSubpastaComContratoDentro(): void
+    {
+        $this->cenario();
+        $agora = new \DateTimeImmutable();
+        $secao = $this->secao('SAI', null);
+        $filha = $this->secao('FUNDO', $secao);
+        $this->contrato->setSecao($filha);
+        $secao->marcarExcluido($this->primario, $agora);
+        $filha->marcarExcluido($this->primario, $agora);
+        $this->contrato->marcarExcluido($this->primario, $agora);
+        $this->em()->flush();
+        $this->em()->clear(); // as coleções `documentos`/`filhas` das seções releem o banco
+
+        $corpo = ['_token' => 'TOKEN_pex_lote_' . $this->pasta->getId(), 'secoes' => [(string) $secao->getId()]];
+        self::assertSame(404, $this->pedir($this->ana, 'POST', '/documentos/excluir-de-vez', $corpo));
+        $conexao = $this->em()->getConnection();
+        self::assertNotFalse($conexao->fetchOne('SELECT id FROM pasta_documento WHERE id = ?', [$this->contrato->getId()]), 'o contrato continua no banco');
+        self::assertNotFalse($conexao->fetchOne('SELECT id FROM pasta_secao WHERE id = ?', [$secao->getId()]), 'a subpasta continua no banco');
+    }
+
+    private function secao(string $nome, ?PastaSecao $pai): PastaSecao
+    {
+        $secao = new PastaSecao();
+        $secao->setPasta($this->pasta);
+        $secao->setTenant($this->tenant);
+        $secao->setNome($nome);
+        $secao->setOrdem(1);
+        if ($pai !== null) {
+            $secao->setPai($pai);
+        }
+        $this->em()->persist($secao);
+        $this->em()->flush();
+
+        return $secao;
     }
 
     #[TestDox('Estrela no contrato: 404 para quem tem o Financeiro oculto; o primário marca')]

@@ -283,6 +283,22 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
         }
     }
 
+    public function excluir(ChaveDeArquivo $chave): void
+    {
+        $chaveRemota = LayoutDeChaveRemota::chaveDe($chave);
+
+        try {
+            // O S3 (e o R2) responde 204 também para chave que não existe: a exclusão é idempotente.
+            $this->cliente->deleteObject(['Bucket' => $this->bucket, 'Key' => $chaveRemota])->resolve();
+        } catch (ExcecaoDoAsyncAws $e) {
+            throw self::falha('apagar', $chaveRemota, $e);
+        }
+
+        if ($this->consultar($chave) !== null) {
+            throw new FalhaNoEspelhoRemoto(sprintf('O objeto remoto %s continua no espelho depois da exclusão.', $chaveRemota));
+        }
+    }
+
     /** Status HTTP + código S3 + chave. Nada de mensagem crua: ela pode trazer URL assinada ou corpo. */
     private static function falha(string $operacao, string $chaveRemota, ExcecaoDoAsyncAws $e): FalhaNoEspelhoRemoto
     {

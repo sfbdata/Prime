@@ -1,6 +1,37 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.33.1"
+  data: "2026-11-03"
+  itens:
+    - "A lixeira da pasta agora abre por cima da tela, com a página visível e escurecida atrás, como as outras janelas do sistema. Antes o fundo ficava todo branco."
+- versao: "2.33.0"
+  data: "2026-11-03"
+  itens:
+    - "Na Lixeira do Expediente, cada pasta abre a lixeira dela na mesma tela, com as mesmas opções de restaurar e excluir de vez, sem precisar sair da página."
+    - "Na lixeira (da pasta e do Expediente), dá para abrir o arquivo excluído numa aba nova para conferir antes de restaurar ou excluir de vez. Abrir não tira o arquivo da lixeira."
+- versao: "2.32.0"
+  data: "2026-11-03"
+  itens:
+    - "Novo botão de Ajuda (o \"?\" no topo, perto do sino): abre o manual do BlueJus inteiro na tela, com a opção de baixar o arquivo. O manual também está no Service Desk."
+    - "No Painel do Master, a Trilha de auditoria agora mostra os registros em páginas (20, 50 ou 100 por página), com rolagem própria e o cabeçalho da tabela sempre visível. O filtro de ações, os totais e o Gerar PDF continuam valendo para todos os registros do filtro."
+    - "Ao importar pastas em lote, se a pasta escolhida tiver arquivos soltos e subpastas, o sistema pergunta se é a pasta de um cliente só. Respondendo Sim, tudo entra numa pasta só e cada documento mostra na descrição de qual subpasta veio (por exemplo \"Processo/Inicial.pdf\")."
+    - "Na tela Expediente há agora um botão \"Lixeira\" que mostra, num lugar só, tudo o que foi excluído nas pastas do escritório, separado por pasta: quantos documentos, quando e por quem foram excluídos. Dali dá para restaurar tudo de uma pasta, excluir de vez (com confirmação) ou abrir a lixeira da pasta. Cada pessoa só vê as pastas em que já podia restaurar documentos."
+    - "Na lixeira dos documentos da pasta, agora dá para apagar de vez um item (ou vários selecionados) sem esperar os 30 dias. O sistema pede confirmação antes, e o que é excluído de vez não pode mais ser restaurado. Quem pode é quem já podia excluir e restaurar documentos da pasta."
+    - "Ao importar pastas em lote, pastas ocultas do computador (as que começam com ponto) e o que está dentro delas não entram mais na importação, nem viram uma pasta de cliente por engano."
+    - "Ao importar pastas em lote, o aviso do fim mostra cada arquivo que não entrou e o porquê, por exemplo \"foto.jpg (passa de 3 MB) e app.exe (tipo não aceito)\"."
+    - "Ao importar pastas em lote, pastas numeradas como \"001 - Maria\" passam a sugerir o cliente \"MARIA\", sem o número na frente. O nome continua editável antes de importar."
+    - "Documentos que ficam mais de 30 dias na lixeira das pastas passam a ser apagados de vez, todo dia, automaticamente. O que já estava na lixeira antes desta versão ganha 30 dias contados a partir de hoje. Quando um arquivo é apagado de vez, a cópia de segurança dele na nuvem também é apagada. A lixeira e o aviso de exclusão passam a informar o prazo de 30 dias."
+    - "Documentos antigos, que ninguém abre há meses, passam a poder ficar guardados só na nuvem e continuam abrindo normalmente pelo sistema. O primeiro acesso a um deles pode levar alguns segundos a mais."
+    - "Quando um documento é apagado de vez, a cópia guardada também é apagada."
+    - "Preparação para tirar do servidor os arquivos que já estão guardados com segurança na nuvem, abrindo espaço sem perder nada. Por enquanto nenhum arquivo sai do lugar, e documentos, fotos e anexos continuam abrindo como sempre."
+- versao: "2.31.0"
+  data: "2026-11-03"
+  itens:
+    - "No Painel do Master, a equipe do BlueJus passa a pôr imagens nos artigos dos blogs e a escolher a imagem que aparece quando o artigo é compartilhado."
+    - "No Painel do Master, a equipe do BlueJus passa a escrever, revisar e organizar os artigos do Blog BlueJus e do Blog BlueJus Grátis, com etiquetas por assunto para facilitar a busca dos textos."
+    - "As imagens antigas coladas no texto das pastas passam a ter cópia de segurança na nuvem, como os documentos."
+    - "A abertura de documentos antigos guardados na cópia na nuvem ficou mais segura quando várias pessoas abrem o mesmo arquivo ao mesmo tempo: o sistema não fica mais travado esperando."
 - versao: "2.30.0"
   data: "2026-11-03"
   itens:
