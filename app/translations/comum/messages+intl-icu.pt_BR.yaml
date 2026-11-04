@@ -30,6 +30,8 @@ comum:
         acao_placeholder: Informe primeiro o nome do cliente
         importar_lote: Importar em lote
         importar_lote_dica: 'Importar várias pastas de uma vez: cada subpasta vira uma pasta nova com os documentos anexados'
+        importar_drive: Importar do Google Drive
+        importar_drive_dica: 'Importar uma pasta do Google Drive do escritório, com as mesmas regras do Importar em lote'
     mover_marcador:
         titulo: Marcadores da pasta
         buscar: Buscar marcador…

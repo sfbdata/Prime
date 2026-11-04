@@ -88,6 +88,32 @@ final class FakeGoogleDriveClient implements GoogleDriveClientInterface
         $this->simularFalhaDeDownload($fileId, $destinoLocal);
     }
 
+    /** @var list<array{fileId: string, mimeType: string}> Rastro das exportações, para asserção. */
+    public array $exportacoes = [];
+
+    public function exportarArquivo(string $fileId, string $mimeTypeDestino, string $destinoLocal): void
+    {
+        $this->exportacoes[] = ['fileId' => $fileId, 'mimeType' => $mimeTypeDestino];
+        file_put_contents($destinoLocal, 'exportado-fake-' . $fileId);
+        $this->simularFalhaDeDownload($fileId, $destinoLocal);
+    }
+
+    public function metadados(string $id): ?array
+    {
+        if (isset($this->pastas[$id])) {
+            $p = $this->pastas[$id];
+
+            return ['id' => $id, 'nome' => $p['nome'], 'mimeType' => 'application/vnd.google-apps.folder', 'tamanho' => 0, 'pais' => $p['parent'] !== '' ? [$p['parent']] : []];
+        }
+        if (isset($this->arquivos[$id])) {
+            $a = $this->arquivos[$id];
+
+            return ['id' => $id, 'nome' => $a['nome'], 'mimeType' => $a['mimeType'], 'tamanho' => $a['tamanho'], 'pais' => [$a['folder']]];
+        }
+
+        return null;
+    }
+
     /** @var list<array{folderId: string, nome: string}> Rastro das renomeações, para asserção. */
     public array $renomeacoes = [];
 

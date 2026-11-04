@@ -50,8 +50,8 @@
                 {{ include('expediente/_trilho.html.twig') }}
             </div>
 
-            {{ include('_partials/modal_nova_pasta.html.twig', {desenho11: true, importarLote: can_access_module('pastas')}) }}
-            {% if can_access_module('pastas') %}{{ include('expediente/_importar_lote_modal.html.twig') }}{% endif %}
+            {{ include('_partials/modal_nova_pasta.html.twig', {desenho11: true, importarLote: can_access_module('pastas'), importarDoDrive: can_access_module('pastas') and driveConectado}) }}
+            {% if can_access_module('pastas') %}{{ include('expediente/_importar_lote_modal.html.twig', {importarDoDrive: driveConectado}) }}{% endif %}
 
             {{ include('expediente/_modais_lista.html.twig') }}
             {{ include('expediente/_lixeira_modal.html.twig') }}
