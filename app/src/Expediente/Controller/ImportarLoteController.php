@@ -15,6 +15,9 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Sync\Exception\ImportacaoDoDriveRecusadaException;
+use App\Sync\Exception\TenantSemDriveException;
+use App\Sync\UseCase\LigarPastaImportadaDoDriveUseCase;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\JsonException;
@@ -46,6 +49,7 @@ final class ImportarLoteController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly SugerirAgrupamentoDoLoteUseCase $sugerirAgrupamento,
+        private readonly LigarPastaImportadaDoDriveUseCase $ligarAoDrive,
     ) {
     }
 
@@ -63,6 +67,19 @@ final class ImportarLoteController extends AbstractController
             return $recusa ?? $this->erro('Você não tem permissão para acessar o módulo de pastas.', Response::HTTP_FORBIDDEN);
         }
 
+        // "Importar do Google Drive": a pasta de origem precisa estar dentro da pasta do escritório; a conferência
+        // vem antes de criar, para não sobrar pasta sem arquivo.
+        $driveFolderId = trim((string) $request->request->get('drive_folder_id', ''));
+        if ($driveFolderId !== '') {
+            try {
+                $this->ligarAoDrive->conferir($tenant, $driveFolderId);
+            } catch (ImportacaoDoDriveRecusadaException $e) {
+                return $this->erro($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            } catch (TenantSemDriveException) {
+                return $this->erro(ImportarDoDriveController::SEM_DRIVE, Response::HTTP_CONFLICT);
+            }
+        }
+
         // Sem o aviso de pasta duplicada do modal Nova Pasta: o desenho do lote não tem a etapa e
         // cliente repetido é caso real (D3). O número é sempre o do servidor (D5).
         $pasta = $this->criarPastaUseCase->executar(
@@ -71,6 +88,10 @@ final class ImportarLoteController extends AbstractController
             $tenant,
         );
 
+        // Ligada antes do despacho: o envio automático usa a pasta de origem em vez de criar outra.
+        if ($driveFolderId !== '') {
+            $this->ligarAoDrive->ligar($pasta, $driveFolderId);
+        }
         $this->syncDispatcher->despachar($pasta, $user, $tenant);
 
         return $this->criada($pasta, $user, $tenant);

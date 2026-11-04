@@ -299,9 +299,54 @@ final class GoogleDriveClient implements GoogleDriveClientInterface
         }
     }
 
-    private function transferir(string $fileId, string $destinoLocal): void
+    public function exportarArquivo(string $fileId, string $mimeTypeDestino, string $destinoLocal): void
     {
-        $url = sprintf('https://www.googleapis.com/drive/v3/files/%s?alt=media&supportsAllDrives=true', rawurlencode($fileId));
+        $url = sprintf(
+            'https://www.googleapis.com/drive/v3/files/%s/export?mimeType=%s',
+            rawurlencode($fileId),
+            rawurlencode($mimeTypeDestino),
+        );
+        try {
+            $this->transferir($fileId, $destinoLocal, $url);
+        } catch (\Throwable $e) {
+            $this->descartar($destinoLocal);
+
+            throw $e;
+        }
+    }
+
+    public function metadados(string $id): ?array
+    {
+        try {
+            $item = $this->drive()->files->get($id, [
+                'fields'            => 'id,name,mimeType,size,parents,trashed',
+                'supportsAllDrives' => true,
+            ]);
+        } catch (\Google\Service\Exception $e) {
+            // 404: não existe ou a conta do escritório não enxerga. Qualquer outro erro sobe.
+            if ($e->getCode() === 404) {
+                return null;
+            }
+
+            throw $e;
+        }
+
+        if ($item->getTrashed() === true) {
+            return null;
+        }
+
+        return [
+            'id'       => (string) $item->getId(),
+            'nome'     => (string) $item->getName(),
+            'mimeType' => (string) $item->getMimeType(),
+            'tamanho'  => (int) $item->getSize(),
+            'pais'     => array_values(array_map('strval', $item->getParents() ?? [])),
+        ];
+    }
+
+    private function transferir(string $fileId, string $destinoLocal, ?string $url = null): void
+    {
+        $url ??= sprintf('https://www.googleapis.com/drive/v3/files/%s?alt=media&supportsAllDrives=true', rawurlencode($fileId));
 
         try {
             $client = $this->client();

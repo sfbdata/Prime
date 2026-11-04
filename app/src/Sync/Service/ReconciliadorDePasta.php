@@ -126,11 +126,15 @@ final class ReconciliadorDePasta
         }
         $conn = $this->em->getConnection();
         $row  = $conn->fetchAssociative(
-            'SELECT drive_folder_id, nup, nome_cliente, nome_acao FROM pasta WHERE id = :id',
+            'SELECT drive_folder_id, nup, nome_cliente, nome_acao, drive_manter_nome FROM pasta WHERE id = :id',
             ['id' => $pastaId],
         );
 
         if ($row === false || $row['drive_folder_id'] === null || $row['drive_folder_id'] === '') {
+            return;
+        }
+        // Pasta ligada pelo "Importar do Google Drive": o nome que ela tem no Drive fica (decisão do Samuel).
+        if ((bool) $row['drive_manter_nome']) {
             return;
         }
 

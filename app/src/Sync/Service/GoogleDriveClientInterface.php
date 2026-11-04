@@ -35,6 +35,20 @@ interface GoogleDriveClientInterface
     public function baixarArquivo(string $fileId, string $destinoLocal): void;
 
     /**
+     * Converte um arquivo nativo do Google (Docs, Planilhas, Apresentações) para $mimeTypeDestino e grava em
+     * $destinoLocal (`files.export`). Mesmo contrato de falha do {@see baixarArquivo()}.
+     */
+    public function exportarArquivo(string $fileId, string $mimeTypeDestino, string $destinoLocal): void;
+
+    /**
+     * Nome, tipo, tamanho e pastas-mãe de um item (pasta ou arquivo). Null quando o item não existe, está na
+     * lixeira ou a conta do escritório não o enxerga.
+     *
+     * @return array{id: string, nome: string, mimeType: string, tamanho: int, pais: list<string>}|null
+     */
+    public function metadados(string $id): ?array;
+
+    /**
      * Renomeia a pasta $folderId no Drive (spec fase2 §12.5/D12.4 — requisito R3).
      *
      * O sistema é a fonte: quando o número/cliente/ação da pasta muda aqui, o Drive tem de

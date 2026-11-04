@@ -28,7 +28,16 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Entity\Tenant\Tenant;
+use App\Expediente\Controller\ImportarDoDriveController;
+use App\Sync\Exception\DownloadDoDriveFalhouException;
+use App\Sync\Exception\ImportacaoDoDriveRecusadaException;
+use App\Sync\Exception\TenantSemDriveException;
+use App\Sync\Exception\TokenDoDriveRecusadoException;
+use App\Sync\Service\GoogleDriveClientFactoryInterface;
+use App\Sync\Service\LoteDoDrive;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -56,6 +65,8 @@ final class PeticionarController extends AbstractController
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
         private readonly LoggerInterface $logger,
         private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
+        private readonly GoogleDriveClientFactoryInterface $drives,
+        private readonly LoteDoDrive $loteDoDrive,
     ) {}
 
     #[Route('/{id}/peticionar', name: 'pasta_peticionar', methods: ['GET'])]
@@ -170,6 +181,67 @@ final class PeticionarController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
+        $recusa = $this->recusaDoUpload($pasta, $request, $currentUser, $tenant);
+        if ($recusa !== null) {
+            return $recusa;
+        }
+
+        $arquivo = $request->files->get('arquivo');
+        if ($arquivo === null) {
+            return new JsonResponse(['success' => false, 'error' => 'Nenhum arquivo enviado.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        return $this->anexar($pasta, $request, $arquivo, $currentUser, $tenant);
+    }
+
+    /**
+     * "Importar do Google Drive" (spec importar-do-drive.md): o mesmo upload, com o arquivo vindo do Drive do
+     * escritório (`drive_file_id`) em vez do navegador. Permissão, CSRF, seção, limites, duplicado e cota são os
+     * do upload comum; a porta a mais é o módulo Pastas, a mesma do lote que cria as pastas.
+     */
+    #[Route('/{id}/peticionar/upload-drive', name: 'pasta_peticionar_upload_drive', methods: ['POST'])]
+    public function uploadDoDrive(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        $recusa = $this->recusaDoUpload($pasta, $request, $currentUser, $tenant);
+        if ($recusa !== null) {
+            return $recusa;
+        }
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($currentUser, $tenant, 'pastas')) {
+            return new JsonResponse(['success' => false, 'error' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $driveFileId = trim((string) $request->request->get('drive_file_id', ''));
+        $temporario  = tempnam(sys_get_temp_dir(), 'drive-lote-');
+        if ($driveFileId === '' || $temporario === false) {
+            return new JsonResponse(['success' => false, 'error' => 'Nenhum arquivo enviado.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            try {
+                $nome = $this->loteDoDrive->baixar($this->drives->paraTenant($tenant), $driveFileId, $temporario);
+            } catch (ImportacaoDoDriveRecusadaException $e) {
+                return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            } catch (TenantSemDriveException) {
+                return new JsonResponse(['success' => false, 'error' => ImportarDoDriveController::SEM_DRIVE], Response::HTTP_CONFLICT);
+            } catch (TokenDoDriveRecusadoException|DownloadDoDriveFalhouException|\Google\Service\Exception) {
+                return new JsonResponse(['success' => false, 'error' => ImportarDoDriveController::FALHA_NO_DRIVE], Response::HTTP_BAD_GATEWAY);
+            }
+
+            return $this->anexar($pasta, $request, new UploadedFile($temporario, $nome, null, null, true), $currentUser, $tenant, $driveFileId);
+        } finally {
+            if (is_file($temporario)) {
+                @unlink($temporario);
+            }
+        }
+    }
+
+    /** Por que o pedido de upload não segue, ou null. Comum ao upload do navegador e ao do Drive. */
+    private function recusaDoUpload(Pasta $pasta, Request $request, User $currentUser, ?Tenant $tenant): ?JsonResponse
+    {
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
             return new JsonResponse(['success' => false, 'error' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
@@ -178,11 +250,12 @@ final class PeticionarController extends AbstractController
             return new JsonResponse(['success' => false, 'error' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $arquivo = $request->files->get('arquivo');
-        if ($arquivo === null) {
-            return new JsonResponse(['success' => false, 'error' => 'Nenhum arquivo enviado.'], Response::HTTP_BAD_REQUEST);
-        }
+        return null;
+    }
 
+    /** Grava o arquivo na pasta e monta a resposta. Comum ao upload do navegador e ao do Drive. */
+    private function anexar(Pasta $pasta, Request $request, UploadedFile $arquivo, User $currentUser, ?Tenant $tenant, ?string $driveFileId = null): JsonResponse
+    {
         $categoriaRaw     = strtoupper(trim((string) $request->request->get('categoria', 'PECA')));
         $categoriasValidas = [
             PastaDocumento::CATEGORIA_PECA,
@@ -215,7 +288,7 @@ final class PeticionarController extends AbstractController
         }
 
         try {
-            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho, $currentUser, avisarQuemAcompanha: true);
+            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho, $currentUser, avisarQuemAcompanha: true, driveFileIdDeOrigem: $driveFileId);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
