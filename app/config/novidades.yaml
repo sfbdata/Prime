@@ -1,6 +1,16 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.34.0"
+  data: "2026-11-04"
+  itens:
+    - "No Painel do Master, a equipe do BlueJus passa a publicar e tirar do ar os artigos dos blogs com um clique e acompanha se cada publicação já está no ar."
+    - "Na página Contribua, quem precisa de muito espaço pode dobrar o maior pacote no próprio pagamento: o botão + dobra o espaço e o valor, e o − volta pela metade."
+    - "No pagamento do espaço há uma nova chave \"Ampliação de GB automática\", que fica guardada para o escritório."
+    - "O crédito ganho por indicar o BlueJus passa a valer por 3 meses. O saldo que você já tem vale por 3 meses a partir de hoje."
+    - "A explicação do \"Indique o BlueJus\" agora aparece ao passar o mouse sobre o título."
+    - "O BlueJus passou a guardar, uma vez por dia, apenas o registro de que cada pessoa entrou no sistema naquele dia (sem horário nem outra informação), para acompanhar o uso da plataforma. O registro é apagado junto com a conta. A entrada no sistema continua igual."
+    - "As fotos das pastas, a logo do escritório, os anexos do chat da IA e as imagens dos artigos já podem ganhar uma cópia de segurança na nuvem, como os documentos. A cópia passa a ser feita quando cada uma for ativada."
 - versao: "2.33.1"
   data: "2026-11-03"
   itens:

@@ -8,6 +8,25 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.34.0] - 2026-11-04
+
+### Adicionado
+
+- Contribua (desenho 08 VS 03.11.26): botões + e − no checkout do maior pacote dobram o espaço e o valor mensal (×2, ×4, até ×16); a assinatura e o espaço do escritório guardam o multiplicador e o limite sai multiplicado.
+- Contribua: chave "Ampliação de GB automática" no checkout, gravada por escritório (só o primário liga); a dobra automática em si vem no próximo PR.
+- Recompensa: o crédito de indicação expira em 3 meses. O saldo que já existia conta a partir desta versão; o crédito novo, da data em que foi ganho. Vale no cartão do Contribua e no painel de Recompensas do Master.
+- Contribua: o texto do "Indique o BlueJus" virou balão no título, com a validade de 3 meses.
+- Migration Version20261104110000 (multiplicador, ampliação automática e validade do crédito).
+- Painel do Master > Perfis, gráfico Crescimento (desenho 05 - Perfis 1.2, VS 03.11.26): visão "Diário" (linha fina, referência de 30 dias atrás e ponto final verde ou vermelho) e botão "Acessos ao sistema" (linha com escala própria à direita, tracejada por mês e na linha contínua, média de 7 dias no Diário, oculta em "Por ano").
+- Foto diária das métricas (contas, usuários, pastas, armazenamento) na tabela `master_metrica_diaria`, gravada pela tarefa agendada `app:master:retratar-metricas` às 23h50; o passado é reconstruído pela data de criação.
+- Registro de acesso por pessoa e por dia (`master_acesso_diario`, uma linha por pessoa por dia) no login bem-sucedido; uma falha ao gravar nunca impede o login. A linha de acessos começa no dia da publicação.
+- Migration `Version20261104100000` (as duas tabelas).
+
+### Alterado
+
+- Espelho R2 (etapa 6): a reconciliação, a carga do acervo e a liberação de disco passam a conhecer as referências de seis categorias que ainda não eram espelhadas: `pasta_foto` (`pasta.foto`), `tenant_logo` (`tenant.logo_chave`), `chat_ia_anexo` (`chat_ia_anexo.chave`), `inteligencia_documento_juridico` (`inteligencia_documento_juridico_versao.nome_arquivo`), `recompensa_comprovante` (`lancamento_de_recompensa.comprovante_chave`) e `blog_imagem` (`artigo_blog_imagem.chave`). As quatro últimas são globais. Fecha a pendência da P4 do blog em `FontesDeReferencia`.
+- Nenhuma categoria é ligada por este PR: elas continuam desligadas até entrarem em `ARMAZENAMENTO_ESPELHO_CATEGORIAS`.
+
 ## [2.33.1] - 2026-11-03
 
 ### Corrigido
@@ -1421,7 +1440,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.33.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.34.0...HEAD
+[2.34.0]: https://github.com/sfbdata/Prime/compare/v2.33.1...v2.34.0
 [2.33.1]: https://github.com/sfbdata/Prime/compare/v2.33.0...v2.33.1
 [2.33.0]: https://github.com/sfbdata/Prime/compare/v2.32.0...v2.33.0
 [2.32.0]: https://github.com/sfbdata/Prime/compare/v2.31.0...v2.32.0
