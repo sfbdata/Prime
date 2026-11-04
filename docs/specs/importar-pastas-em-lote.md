@@ -118,13 +118,9 @@ cliente. A pessoa confere na tabela de sempre e clica Importar.
   habilitado pelo admin, pessoa com o módulo `inteligencia`, cota e orçamento com folga. Fora disso o
   botão não aparece e o lote segue por regra, como hoje.
 - **Clique explícito, nunca automático.** Cada clique é 1 análise na cota do escritório.
-- **Aceite só desta função (decisão do Samuel, 04/11).** Não há termo v3 para todos: o aceite de
-  `VersaoDoAceiteDaIa` continua como está para os outros usos. No primeiro clique no botão de IA do
-  lote, a pessoa vê um aviso curto: o que vai ao provedor (nomes de arquivos e pastas da importação,
-  sem o conteúdo, com CPF, CNPJ, telefone e e-mail mascarados) e que a sugestão pode errar. Ao
-  confirmar, o aceite fica registrado por **usuário e escritório** (quem, quando, versão do texto). Sem
-  esse registro, o clique abre o aviso em vez de chamar a IA. Texto revisável depois pelos advogados
-  (mudar o texto sobe a versão e pede o aviso de novo).
+- **Sem aceite novo (decisão do Samuel, 04/11).** Nem versão 3 de `VersaoDoAceiteDaIa` nem aviso
+  próprio desta função. O botão segue só as regras que a IA já tem hoje:
+  `DisponibilidadeDeInteligencia::para()` (que já inclui o aceite atual do admin) e a cota.
 - **ZDR:** igual ao resto da IA. Piloto com a retenção padrão (decisão de 26/10), ZDR antes de abrir a
   outros escritórios. Nada de Batch nem Files API.
 
@@ -182,15 +178,15 @@ cliente. A pessoa confere na tabela de sempre e clica Importar.
 - `SugerirAgrupamentoDoLoteUseCase` no domínio Inteligencia, pela porta `ProvedorDeLinguagem`; tipo
   novo de análise `agrupamento_lote` (conta na cota). Teste unitário com `ProvedorFalso` (resposta
   boa, nó aninhado, nó irmão juntado, índice inválido, JSON quebrado) e functional da rota
-  (sem módulo, sem o aceite desta função, cota esgotada, sucesso). Nenhum teste chama a Anthropic de verdade.
-- Migration `Version20261104120000` (reservada pelo Coordenador): tabela do aceite desta função
-  (usuário, escritório, versão do texto, data), e o tipo de análise novo, se for enum no banco.
+  (sem módulo, IA indisponível para o escritório, cota esgotada, sucesso). Nenhum teste chama a Anthropic de verdade.
+- Sem migration: `tipo` da análise é `varchar(40)` com o enum só no PHP (`TipoDeAnalise`), então
+  `agrupamento_lote` entra sem mudar o banco.
 
 ### Decisões do Samuel (04/11/2026)
 
 O jurídico não trava a função; os advogados ajustam os termos depois.
 
-1. **Aceite só nesta função:** aviso curto no clique do botão de IA do lote, registrado por usuário e
-   escritório. Sem termo v3 para todos.
+1. **Sem aceite novo:** nem v3 nem aviso na função. Valem só `DisponibilidadeDeInteligencia::para()`
+   e a cota, como no resto da IA.
 2. **Clique explícito:** a IA só roda quando a pessoa clica. Nunca automática.
 3. **Teto de 2.000 caminhos** por pedido. Lote maior: a IA sugere os primeiros 2.000 e a tela avisa.
