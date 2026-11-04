@@ -409,7 +409,29 @@ class PainelMasterRepository
      */
     public function entradasPorMes(): array
     {
-        $porMes = function (string $sql): array {
+        return $this->entradasPor('YYYY-MM');
+    }
+
+    /**
+     * Entradas por DIA ('YYYY-MM-DD' => quantidade), com as mesmas regras do {@see self::entradasPorMes()}: a
+     * reconstrução do passado da visão "Diário" do gráfico Crescimento e a foto do dia (a soma de tudo).
+     *
+     * @return array{contas: array<string, float>, usuarios: array<string, float>, pastas: array<string, float>, bytes: array<string, float>}
+     */
+    public function entradasPorDia(): array
+    {
+        return $this->entradasPor('YYYY-MM-DD');
+    }
+
+    /**
+     * @param 'YYYY-MM'|'YYYY-MM-DD' $formato o período do `to_char` (valor fixo, nunca vindo de fora)
+     *
+     * @return array{contas: array<string, float>, usuarios: array<string, float>, pastas: array<string, float>, bytes: array<string, float>}
+     */
+    private function entradasPor(string $formato): array
+    {
+        $porMes = function (string $sql) use ($formato): array {
+            $sql = str_replace("'YYYY-MM'", "'" . $formato . "'", $sql);
             $saida = [];
             foreach ($this->conexao->fetchAllAssociative($sql) as $l) {
                 $saida[(string) $l['mes']] = (float) $l['n'];

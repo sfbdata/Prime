@@ -7,7 +7,10 @@ namespace App\Master\UseCase;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Indicacao\Repository\IndicacaoRepository;
+use App\Master\Repository\AcessoDiarioRepository;
+use App\Master\Repository\MetricaDiariaDoSistemaRepository;
 use App\Master\Repository\PainelMasterRepository;
+use App\Master\Service\CrescimentoDiario;
 use App\Master\Service\FaixaEtaria;
 use App\Master\Service\InscricaoOab;
 use App\Master\Service\MapaDeAtuacao;
@@ -35,6 +38,8 @@ final class ConsultarVisaoGeralUseCase
         private readonly SituacaoDoEspaco $situacaoDoEspaco,
         private readonly ConfiguracaoDoEspacoRepository $configuracoes,
         private readonly IndicacaoRepository $indicacoes,
+        private readonly MetricaDiariaDoSistemaRepository $fotosDoDia,
+        private readonly AcessoDiarioRepository $acessos,
     ) {
     }
 
@@ -52,6 +57,9 @@ final class ConsultarVisaoGeralUseCase
         return [
             'kpis'        => $this->kpis($escritorios, $pessoas, $consumo, $pastas),
             'crescimento' => self::crescimento($this->repositorio->entradasPorMes(), $hoje),
+            // Visão "Diário" e linha "Acessos ao sistema" do gráfico (desenho 05 - Perfis 1.2, VS 03.11.26).
+            'crescimentoDiario' => CrescimentoDiario::metricas($this->repositorio->entradasPorDia(), $this->fotosDoDia->porMetricaEDia(), $hoje),
+            'acessos'     => CrescimentoDiario::acessos($this->acessos->pessoasPorDia(), $hoje),
             'mapa'        => MapaDeAtuacao::montar($pessoas, $escritorios, $hoje, $this->saidasDaTendencia($hoje), $this->indicacoes->paraOMapa()),
             'idades'      => FaixaEtaria::distribuir(array_column($pessoas, 'nascimento'), $hoje),
             'armazenamento' => $this->armazenamentoContratado($escritorios, $consumo),
