@@ -60,33 +60,34 @@ class LancamentoDeRecompensaRepository extends ServiceEntityRepository
         return array_values($consulta->getQuery()->getResult());
     }
 
-    /** @return array<int, int> soma dos lançamentos `bonus` por indicador (com sinal); quem foi apagado fica de fora */
-    public function somaDoBonusPorIndicador(): array
+    /**
+     * Os lançamentos `bonus` (com sinal) e `pago` de cada indicador, com a data, em UMA consulta (sem N+1): a validade
+     * do crédito ({@see \App\Recompensa\Service\SaldoComValidade}) precisa da data de cada um. Quem foi apagado (user
+     * nulo) fica de fora. Com `$userId`, só os dele.
+     *
+     * @return array<int, list<array{tipo: string, valorCentavos: int, criadoEm: \DateTimeImmutable}>>
+     */
+    public function porIndicador(?int $userId = null): array
     {
-        return $this->somaPorIndicador(LancamentoDeRecompensa::TIPO_BONUS);
-    }
-
-    /** @return array<int, int> soma dos pagamentos (`pago`, sempre positivos) por indicador */
-    public function somaDoPagoPorIndicador(): array
-    {
-        return $this->somaPorIndicador(LancamentoDeRecompensa::TIPO_PAGO);
-    }
-
-    /** @return array<int, int> */
-    private function somaPorIndicador(string $tipo): array
-    {
-        $linhas = $this->createQueryBuilder('l')
-            ->select('IDENTITY(l.user) AS usuario', 'SUM(l.valorCentavos) AS soma')
-            ->where('l.tipo = :tipo')->andWhere('l.user IS NOT NULL')
-            ->setParameter('tipo', $tipo)
-            ->groupBy('l.user')
-            ->getQuery()->getArrayResult();
-
-        $soma = [];
-        foreach ($linhas as $linha) {
-            $soma[(int) $linha['usuario']] = (int) $linha['soma'];
+        $consulta = $this->createQueryBuilder('l')
+            ->select('IDENTITY(l.user) AS usuario', 'l.tipo', 'l.valorCentavos', 'l.criadoEm')
+            ->where('l.tipo IN (:tipos)')->andWhere('l.user IS NOT NULL')
+            ->setParameter('tipos', [LancamentoDeRecompensa::TIPO_BONUS, LancamentoDeRecompensa::TIPO_PAGO])
+            ->orderBy('l.criadoEm', 'ASC')->addOrderBy('l.id', 'ASC');
+        if ($userId !== null) {
+            $consulta->andWhere('IDENTITY(l.user) = :usuario')->setParameter('usuario', $userId);
         }
 
-        return $soma;
+        $porIndicador = [];
+        foreach ($consulta->getQuery()->getArrayResult() as $linha) {
+            $em = $linha['criadoEm'];
+            $porIndicador[(int) $linha['usuario']][] = [
+                'tipo' => (string) $linha['tipo'],
+                'valorCentavos' => (int) $linha['valorCentavos'],
+                'criadoEm' => $em instanceof \DateTimeImmutable ? $em : new \DateTimeImmutable((string) $em),
+            ];
+        }
+
+        return $porIndicador;
     }
 }

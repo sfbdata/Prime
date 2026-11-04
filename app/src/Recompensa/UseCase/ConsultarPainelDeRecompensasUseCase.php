@@ -11,11 +11,13 @@ use App\Recompensa\DTO\IndicadorDeRecompensaOutput;
 use App\Recompensa\DTO\PainelDeRecompensasOutput;
 use App\Recompensa\Entity\CondicaoDeRecompensa;
 use App\Recompensa\Entity\DadosDeRecebimentoDeRecompensa;
+use App\Recompensa\Entity\LancamentoDeRecompensa;
 use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Recompensa\Repository\CondicaoDeRecompensaRepository;
 use App\Recompensa\Repository\DadosDeRecebimentoDeRecompensaRepository;
 use App\Recompensa\Repository\LancamentoDeRecompensaRepository;
 use App\Recompensa\Repository\ProgramaDeRecompensaRepository;
+use App\Recompensa\Service\SaldoComValidade;
 use App\Recompensa\Service\SuspeitaDeConta;
 use Psr\Clock\ClockInterface;
 
@@ -27,10 +29,15 @@ use Psr\Clock\ClockInterface;
  * Fluxo principal: indicador é quem tem ao menos uma indicação. Contas = indicações com conta criada, cada conta uma vez
  * (para quem indicou primeiro). "Ativa" = a carência (dias desde a criação da conta) já passou e, se o programa exige
  * pasta, o escritório da conta tem ao menos uma. A condição individual sobrepõe a regra geral campo a campo.
- * Crédito = ativas x valor + soma dos lançamentos manuais (F2, com sinal); liberado com ativas >= "libera com". O saldo
- * é calculado na leitura, nunca fica negativo (estorno maior que o crédito zera) e desconta o que já foi pago pela baixa
- * manual (F4). Seis consultas no total (indicadores, contas, condições, lançamentos de bônus e de pago, dados de
- * recebimento), sem consulta por indicador.
+ * Crédito = ativas x valor + lançamentos manuais (F2, com sinal); liberado com ativas >= "libera com". O saldo é
+ * calculado na leitura, nunca fica negativo (estorno maior que o crédito zera) e desconta o que já foi pago pela baixa
+ * manual (F4). Validade (decisão do dono, 04/11/2026): cada crédito vale {@see ProgramaDeRecompensa::VALIDADE_MESES}
+ * meses. O de uma conta ativa é ganho quando a carência dela termina (criação + carência); o bônus, na data do
+ * lançamento; o ganho antes de {@see ProgramaDeRecompensa::getValidadeDesde()} (o deploy) conta a partir dela. Pagamento
+ * e estorno consomem o crédito que vence primeiro (regra e desempates em {@see SaldoComValidade}); o que venceu sem uso
+ * sai do saldo e aparece em `expiradoCentavos`. Sem `validadeDesde` (programa só em memória), nada vence. Cinco
+ * consultas no total (indicadores, contas, condições, lançamentos com data, dados de recebimento), sem consulta por
+ * indicador.
  * Antifraude (F3): conta suspeita (regra em {@see SuspeitaDeConta}) que o Master não aprovou não conta, nem como ativa
  * nem como carência, e entra só na contagem de suspeitas com os motivos agregados. Aceitas nos últimos 7 dias em número
  * igual ou acima do alerta do programa mostram "Alerta" (só sinaliza). Indicador apagado da lista não aparece (nem nos
@@ -54,8 +61,7 @@ final class ConsultarPainelDeRecompensasUseCase
         $programa = $this->programas->buscarUnico() ?? new ProgramaDeRecompensa();
         $condicoes = $this->condicoes->todasPorIndicador();
         $contas = $this->contasPorIndicador();
-        $bonus = $this->lancamentos->somaDoBonusPorIndicador();
-        $pagos = $this->lancamentos->somaDoPagoPorIndicador();
+        $lancamentos = $this->lancamentos->porIndicador();
         $recebimentos = $this->recebimentos->todosPorIndicador();
         $agora = $this->relogio->now();
 
@@ -65,7 +71,7 @@ final class ConsultarPainelDeRecompensasUseCase
             if ($condicao?->isApagada()) {
                 continue;
             }
-            $linhas[] = $this->linha($i, $programa, $condicao, $contas[$i['user_id']] ?? [], $bonus[$i['user_id']] ?? 0, $pagos[$i['user_id']] ?? 0, $recebimentos[$i['user_id']] ?? null, $agora);
+            $linhas[] = $this->linha($i, $programa, $condicao, $contas[$i['user_id']] ?? [], $lancamentos[$i['user_id']] ?? [], $recebimentos[$i['user_id']] ?? null, $agora);
         }
         usort($linhas, static fn (IndicadorDeRecompensaOutput $a, IndicadorDeRecompensaOutput $b): int
             => [$b->saldoCentavos, $b->ativos, $a->userId] <=> [$a->saldoCentavos, $a->ativos, $b->userId]);
@@ -83,8 +89,7 @@ final class ConsultarPainelDeRecompensasUseCase
 
     /**
      * A linha de UMA pessoa, com as mesmas regras do painel (o cartão "Seu saldo de recompensa" do Contribua). Nulo
-     * para quem nunca indicou ou foi apagado da lista. As somas de lançamentos são de todos (tabela pequena, uma
-     * consulta cada); as de indicação já vêm filtradas.
+     * para quem nunca indicou ou foi apagado da lista. Os lançamentos e as indicações já vêm filtrados pela pessoa.
      */
     public function doIndicador(int $userId): ?IndicadorDeRecompensaOutput
     {
@@ -96,7 +101,7 @@ final class ConsultarPainelDeRecompensasUseCase
 
         return $this->linha(
             $indicador, $this->programas->buscarUnico() ?? new ProgramaDeRecompensa(), $condicao, $this->contasPorIndicador($userId)[$userId] ?? [],
-            $this->lancamentos->somaDoBonusPorIndicador()[$userId] ?? 0, $this->lancamentos->somaDoPagoPorIndicador()[$userId] ?? 0, null, $this->relogio->now(),
+            $this->lancamentos->porIndicador($userId)[$userId] ?? [], null, $this->relogio->now(),
         );
     }
 
@@ -115,36 +120,52 @@ final class ConsultarPainelDeRecompensasUseCase
     /**
      * @param array{user_id: int, nome: string, email: string, escritorio: ?string, envios: int}                  $indicador
      * @param list<array{criada_em: \DateTimeImmutable, tem_pasta: bool, suspeita: list<string>}> $contas
-     * @param int                                                                                                  $bonus  soma dos créditos e estornos manuais, com sinal
-     * @param int                                                                                                  $pago   soma dos pagamentos já registrados (baixa manual)
+     * @param list<array{tipo: string, valorCentavos: int, criadoEm: \DateTimeImmutable}>                     $lancamentos bônus (com sinal) e pagos do indicador
      */
-    private function linha(array $indicador, ProgramaDeRecompensa $programa, ?CondicaoDeRecompensa $condicao, array $contas, int $bonus, int $pago, ?DadosDeRecebimentoDeRecompensa $recebimento, \DateTimeImmutable $agora): IndicadorDeRecompensaOutput
+    private function linha(array $indicador, ProgramaDeRecompensa $programa, ?CondicaoDeRecompensa $condicao, array $contas, array $lancamentos, ?DadosDeRecebimentoDeRecompensa $recebimento, \DateTimeImmutable $agora): IndicadorDeRecompensaOutput
     {
         $carencia = $condicao?->getCarenciaDias() ?? $programa->getCarenciaDias();
         $minimo = $condicao?->getMinEscritorios() ?? $programa->getMinEscritorios();
         $valor = $condicao?->getValorCentavos() ?? $programa->getValorCentavos();
-        $a = $this->apurar($contas, $agora->modify('-' . $carencia . ' days'), $agora->modify('-7 days'), $programa->isExigePasta());
+        $a = $this->apurar($contas, $carencia, $agora->modify('-' . $carencia . ' days'), $agora->modify('-7 days'), $programa->isExigePasta());
+        $creditos = array_map(static fn (\DateTimeImmutable $ganho): array => ['valor' => $valor, 'em' => $ganho], $a['ganhos']);
+        $estornos = [];
+        $pagos = [];
+        foreach ($lancamentos as $l) {
+            if ($l['tipo'] === LancamentoDeRecompensa::TIPO_PAGO) {
+                $pagos[] = ['valor' => $l['valorCentavos'], 'em' => $l['criadoEm']];
+            } elseif ($l['valorCentavos'] > 0) {
+                $creditos[] = ['valor' => $l['valorCentavos'], 'em' => $l['criadoEm']];
+            } else {
+                $estornos[] = ['valor' => -$l['valorCentavos'], 'em' => $l['criadoEm']];
+            }
+        }
+        $saldo = SaldoComValidade::apurar($creditos, $estornos, $pagos, $programa->getValidadeDesde(), $agora);
+        $pago = array_sum(array_column($pagos, 'valor'));
         $liberado = $a['ativos'] >= $minimo;
         $bloqueado = $condicao?->isBloqueada() ?? false;
 
         return new IndicadorDeRecompensaOutput(
             $indicador['user_id'], $indicador['nome'], $indicador['email'], $indicador['escritorio'], $indicador['envios'],
-            count($contas), $a['ativos'], $a['carencia'], $minimo, $valor, max(0, max(0, $a['ativos'] * $valor + $bonus) - $pago), $pago,
+            count($contas), $a['ativos'], $a['carencia'], $minimo, $valor, $saldo['saldo'], $pago,
             $this->situacao($bloqueado, $a['suspeitas'], $a['seteDias'] >= $programa->getAlertaQtd(), $liberado, $a['carencia']),
             $condicao?->temCondicaoPropria() ? CondicaoIndividualOutput::da($condicao) : null,
             $liberado, $bloqueado, $a['suspeitas'], $a['motivos'], $a['seteDias'],
             $recebimento === null ? null : DadosDeRecebimentoOutput::da($recebimento),
+            $saldo['expirado'],
         );
     }
 
     /**
+     * `ganhos`: para cada conta ativa, quando o crédito dela foi ganho (fim da carência = criação + carência).
+     *
      * @param list<array{criada_em: \DateTimeImmutable, tem_pasta: bool, suspeita: list<string>}> $contas
      *
-     * @return array{ativos: int, carencia: int, suspeitas: int, motivos: array<string, int>, seteDias: int}
+     * @return array{ativos: int, carencia: int, suspeitas: int, motivos: array<string, int>, seteDias: int, ganhos: list<\DateTimeImmutable>}
      */
-    private function apurar(array $contas, \DateTimeImmutable $limiteDaCarencia, \DateTimeImmutable $limiteDosSeteDias, bool $exigePasta): array
+    private function apurar(array $contas, int $carenciaDias, \DateTimeImmutable $limiteDaCarencia, \DateTimeImmutable $limiteDosSeteDias, bool $exigePasta): array
     {
-        $r = ['ativos' => 0, 'carencia' => 0, 'suspeitas' => 0, 'motivos' => [], 'seteDias' => 0];
+        $r = ['ativos' => 0, 'carencia' => 0, 'suspeitas' => 0, 'motivos' => [], 'seteDias' => 0, 'ganhos' => []];
         foreach ($contas as $conta) {
             if ($conta['criada_em'] > $limiteDosSeteDias) {
                 ++$r['seteDias'];
@@ -158,6 +179,7 @@ final class ConsultarPainelDeRecompensasUseCase
                 ++$r['carencia'];
             } elseif (!$exigePasta || $conta['tem_pasta']) {
                 ++$r['ativos'];
+                $r['ganhos'][] = $conta['criada_em']->modify('+' . $carenciaDias . ' days');
             }
         }
 

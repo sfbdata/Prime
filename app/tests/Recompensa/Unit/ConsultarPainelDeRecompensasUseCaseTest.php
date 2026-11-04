@@ -34,6 +34,8 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
     private int $proximaConta = 1000;
     /** @var array<int, int> */
     private array $bonus = [];
+    /** @var array<int, list<array{tipo: string, valorCentavos: int, criadoEm: \DateTimeImmutable}>> lançamentos com data (validade) */
+    private array $lancamentos = [];
 
     private function executar(): \App\Recompensa\DTO\PainelDeRecompensasOutput
     {
@@ -46,7 +48,10 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
         $condicoes->method('todasPorIndicador')->willReturnCallback(fn (): array => $this->condicoes);
 
         $lancamentos = $this->createStub(LancamentoDeRecompensaRepository::class);
-        $lancamentos->method('somaDoBonusPorIndicador')->willReturnCallback(fn (): array => $this->bonus);
+        $lancamentos->method('porIndicador')->willReturnCallback(fn (): array => array_map(
+            static fn (int $soma): array => [['tipo' => 'bonus', 'valorCentavos' => $soma, 'criadoEm' => new \DateTimeImmutable(self::AGORA)]],
+            $this->bonus,
+        ) + $this->lancamentos);
 
         $recebimentos = $this->createStub(DadosDeRecebimentoDeRecompensaRepository::class);
         $recebimentos->method('todosPorIndicador')->willReturn([]);
@@ -250,7 +255,7 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
 
         $chaves = array_keys($this->executar()->paraArray()['indicadores'][0]);
 
-        self::assertSame(['userId', 'nome', 'email', 'escritorio', 'envios', 'contas', 'ativos', 'emCarencia', 'minEscritorios', 'valorCentavos', 'saldoCentavos', 'pagoCentavos', 'liberado', 'situacao', 'bloqueado', 'suspeitas', 'motivosDeSuspeita', 'emSeteDias', 'condicao', 'recebimento'], $chaves);
+        self::assertSame(['userId', 'nome', 'email', 'escritorio', 'envios', 'contas', 'ativos', 'emCarencia', 'minEscritorios', 'valorCentavos', 'saldoCentavos', 'pagoCentavos', 'expiradoCentavos', 'liberado', 'situacao', 'bloqueado', 'suspeitas', 'motivosDeSuspeita', 'emSeteDias', 'condicao', 'recebimento'], $chaves);
     }
 
     #[TestDox('F2: o saldo soma os lançamentos manuais (crédito e estorno) ao crédito das contas; os KPIs refletem')]
@@ -388,5 +393,43 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
 
         self::assertSame([2], array_map(static fn (IndicadorDeRecompensaOutput $i): int => $i->userId, $p->indicadores));
         self::assertSame(['indicadores' => 1, 'contasAbertas' => 3, 'liberados' => 0, 'aPagarCentavos' => 3000, 'jaPagoCentavos' => 0], $p->paraArray()['kpis']);
+    }
+
+    #[TestDox('validade: crédito de conta é ganho no fim da carência e vale 3 meses; o ganho antes do deploy conta do deploy; o vencido sai do saldo e vai para o expirado')]
+    public function testValidadeDoCredito(): void
+    {
+        $agora = new \DateTimeImmutable(self::AGORA);
+        $this->programa = new ProgramaDeRecompensa();
+        $this->programa->definirValidadeDesde($agora->modify('-6 months'));
+        $this->indicador(1);
+        $this->contasHaDias(1, 1, 130); // ganha há 100 dias (mais de 3 meses): venceu
+        $this->contasHaDias(1, 1, 100); // ganha há 70 dias: vale
+        $this->contasHaDias(1, 1, 400); // ganha antes do deploy: conta do deploy (há 6 meses), venceu
+        $this->lancamentos[1] = [
+            ['tipo' => 'bonus', 'valorCentavos' => 500, 'criadoEm' => $agora->modify('-1 month')],
+            ['tipo' => 'pago', 'valorCentavos' => 300, 'criadoEm' => $agora->modify('-10 days')],
+        ];
+
+        $l = $this->linha(1);
+
+        self::assertSame(3, $l->ativos, 'a validade não muda a contagem de ativas');
+        self::assertSame(1500, $l->saldoCentavos, 'R$ 10,00 + R$ 5,00 válidos; o pagamento saiu do crédito que vencia primeiro');
+        self::assertSame(1700, $l->expiradoCentavos, 'R$ 10,00 do pré-deploy + R$ 7,00 que sobraram do que venceu dia 18');
+        self::assertSame(300, $l->pagoCentavos);
+        self::assertSame(1500, $this->executar()->paraArray()['kpis']['aPagarCentavos'], 'o A PAGAR já sem o expirado');
+    }
+
+    #[TestDox('validade: o mesmo crédito ainda dentro dos 3 meses do deploy segue no saldo')]
+    public function testValidadeDentroDoPrazoDoDeploy(): void
+    {
+        $this->programa = new ProgramaDeRecompensa();
+        $this->programa->definirValidadeDesde((new \DateTimeImmutable(self::AGORA))->modify('-2 months'));
+        $this->indicador(1);
+        $this->contasHaDias(1, 2, 400);
+
+        $l = $this->linha(1);
+
+        self::assertSame(2000, $l->saldoCentavos);
+        self::assertSame(0, $l->expiradoCentavos);
     }
 }
