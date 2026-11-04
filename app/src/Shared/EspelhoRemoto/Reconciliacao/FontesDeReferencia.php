@@ -14,7 +14,9 @@ use Doctrine\DBAL\Connection;
  * Os arquivos que o BANCO diz que existem — as dez fontes (oito colunas da P1, mais os documentos de
  * acordo e de carteira da cobrança, hoje vazios em produção) (spec P2 §3.4), e as três que vieram
  * depois: documento de demanda e arquivos do currículo do Trabalho Externo e imagem da campanha do
- * Comercial (decisão do dono de 23/10), e a foto do cliente (coluna `cliente.foto`, #345).
+ * Comercial (decisão do dono de 23/10), e a foto do cliente (coluna `cliente.foto`, #345). Em 04/11, as seis que faltavam para ligar
+ * o espelho: foto da pasta, logo do escritório, anexo do chat da IA, versão de documento jurídico,
+ * comprovante de recompensa e imagem de artigo do blog (as quatro últimas sem escritório: escopo global).
  *
  * Anexo de tarefa: só os valores LEGADOS (caminho público, começa por `/`). O anexo novo do despacho
  * é documento da pasta (`pasta_documento:<id>` na coluna) e já entra pela fonte `pasta_documento`.
@@ -49,6 +51,12 @@ final class FontesDeReferencia implements FonteDeReferencias
         'trabalho_externo_curriculo' => ['sql' => "SELECT c.id, NULL AS tenant, a.value->>'chave' AS valor FROM trabalho_externo_curriculo c CROSS JOIN LATERAL json_each(CASE WHEN json_typeof(c.arquivos) = 'object' THEN c.arquivos ELSE '{}'::json END) a WHERE a.value->>'chave' IS NOT NULL ORDER BY c.id, a.key", 'categoria' => CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO],
         'cliente_foto' => ['sql' => 'SELECT id, tenant_id AS tenant, foto AS valor FROM cliente WHERE foto IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::CLIENTE_FOTO],
         'comercial_imagem' => ['sql' => 'SELECT id, NULL AS tenant, nome_arquivo AS valor FROM comercial_imagem ORDER BY id', 'categoria' => CategoriaDeArquivo::COMERCIAL_IMAGEM],
+        'pasta_foto' => ['sql' => 'SELECT id, tenant_id AS tenant, foto AS valor FROM pasta WHERE foto IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::PASTA_FOTO],
+        'tenant_logo' => ['sql' => "SELECT id, id AS tenant, logo_chave AS valor FROM tenant WHERE logo_chave IS NOT NULL AND logo_chave <> '' ORDER BY id", 'categoria' => CategoriaDeArquivo::TENANT_LOGO],
+        'chat_ia_anexo' => ['sql' => 'SELECT id, tenant_id AS tenant, chave AS valor FROM chat_ia_anexo ORDER BY id', 'categoria' => CategoriaDeArquivo::CHAT_IA_ANEXO],
+        'inteligencia_documento_juridico_versao' => ['sql' => 'SELECT id, NULL AS tenant, nome_arquivo AS valor FROM inteligencia_documento_juridico_versao ORDER BY id', 'categoria' => CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO],
+        'lancamento_de_recompensa' => ['sql' => 'SELECT id, NULL AS tenant, comprovante_chave AS valor FROM lancamento_de_recompensa WHERE comprovante_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::RECOMPENSA_COMPROVANTE],
+        'artigo_blog_imagem' => ['sql' => 'SELECT id, NULL AS tenant, chave AS valor FROM artigo_blog_imagem ORDER BY id', 'categoria' => CategoriaDeArquivo::BLOG_IMAGEM],
     ];
 
     /** As categorias sem escritório: o escopo é global, e a coluna de escritório não existe (vem NULL). */
@@ -56,6 +64,9 @@ final class FontesDeReferencia implements FonteDeReferencias
         CategoriaDeArquivo::FOTO_PERFIL,
         CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
         CategoriaDeArquivo::COMERCIAL_IMAGEM,
+        CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO,
+        CategoriaDeArquivo::RECOMPENSA_COMPROVANTE,
+        CategoriaDeArquivo::BLOG_IMAGEM,
     ];
 
     public function __construct(
