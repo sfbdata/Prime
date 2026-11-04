@@ -565,13 +565,172 @@
         updateButtonState();
     }
 
+    // Códigos de `GeolocationPositionError`. Antes todo erro virava "Permita o acesso à
+    // localização", e quem JÁ tinha permitido (o erro era posição indisponível ou demora) ia
+    // procurar uma permissão que estava concedida. Spec: `docs/specs/ponto-gps-erro-que-explica.md`.
+    const GPS_PERMISSAO_NEGADA = 1;
+    const GPS_POSICAO_INDISPONIVEL = 2;
+    const GPS_DEMOROU = 3;
+
+    // iPad com iPadOS 13 ou mais novo se identifica como "Macintosh": a tela de toque denuncia.
+    const ehCelular = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')
+        || (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1);
+    const VERBO_TOQUE = ehCelular ? 'Toque' : 'Clique';
+
+    const TEXTO_GPS_INDISPONIVEL = 'Não foi possível descobrir sua localização agora. Tente de novo; no computador, deixe o Wi-Fi ligado.';
+    const TEXTO_GPS_DEMOROU = 'A busca pela sua localização demorou demais. Tente de novo; no computador, deixe o Wi-Fi ligado.';
+    const TEXTO_GPS_PEDIR = 'Para registrar o ponto, o navegador precisa da sua localização. ' + VERBO_TOQUE + ' em "Permitir localização" e escolha Permitir na janela do navegador.';
+    const TEXTO_GPS_SISTEMA = 'O navegador tem permissão, mas a localização do aparelho está desligada ou bloqueada para o navegador. Ligue a localização nas configurações do aparelho e ' + VERBO_TOQUE.toLowerCase() + ' em "Tentar de novo".';
+    const TEXTO_GPS_API = 'A localização do navegador não está funcionando nesta tela. Tente outro navegador ou fale com o gestor.';
+    const TEXTO_GPS_BLOQUEADO = 'A localização está bloqueada para este site. Para liberar:';
+    const PASSOS_GPS_COMPUTADOR = [
+        'Clique no ícone à esquerda do endereço do site (o cadeado ou os controles).',
+        'Em Localização, escolha Permitir.',
+        'Recarregue esta página.',
+    ];
+    // Caminho alternativo, fora da lista numerada (não é o passo seguinte).
+    const OUTRO_CAMINHO_GPS_COMPUTADOR = 'No Safari do Mac: menu Safari, Ajustes, Sites, Localização, e escolha Permitir para este site.';
+    const PASSOS_GPS_CELULAR = [
+        'Toque no ícone à esquerda do endereço do site (o cadeado ou os controles).',
+        'Toque em Permissões (ou Configurações do site) e depois em Localização.',
+        'Escolha Permitir e recarregue esta página.',
+    ];
+    const OUTRO_CAMINHO_GPS_CELULAR = 'No iPhone ou iPad, se não aparecer: Ajustes, Privacidade e Segurança, Serviços de Localização, ligue e escolha "Ao Usar o App" para o navegador.';
+
+    // Monta `#gps-status` por DOM: texto só por `textContent`, botão com handler próprio.
+    function mostrarGps(nivel, icone, texto, extra) {
+        const i = document.createElement('i');
+        i.className = 'bi ' + icone;
+        const partes = [i, ' ' + texto];
+        if (extra) {
+            partes.push(extra);
+        }
+        gpsStatus.replaceChildren(...partes);
+        gpsStatus.className = 'alert alert-' + nivel + ' small mb-3';
+    }
+
+    function botaoDoGps(id, rotulo, aoClicar) {
+        const botao = document.createElement('button');
+        botao.type = 'button';
+        botao.id = id;
+        botao.className = 'btn btn-sm btn-outline-secondary d-block mt-2';
+        botao.textContent = rotulo;
+        botao.addEventListener('click', aoClicar);
+
+        return botao;
+    }
+
+    function tentarGpsDeNovo() {
+        mostrarGps('info', 'bi-geo-alt', 'Buscando sua localização...');
+        // Mesma guarda da carga: a API pode lançar de forma síncrona.
+        try {
+            iniciarGps();
+        } catch (erro) {
+            mostrarGps('danger', 'bi-exclamation-triangle', TEXTO_GPS_API);
+            console.log('API de geolocalização lançou de forma síncrona:', erro && erro.message);
+        }
+    }
+
+    function mostrarErroDeBusca(texto) {
+        mostrarGps('danger', 'bi-exclamation-triangle', texto, botaoDoGps('btn-gps-tentar', 'Tentar de novo', tentarGpsDeNovo));
+    }
+
+    // Estado "prompt": o navegador ainda pergunta. O botão chama `getCurrentPosition`, que é o que
+    // abre a janela de permissão.
+    function mostrarPedidoDePermissao() {
+        mostrarGps('warning', 'bi-geo-alt', TEXTO_GPS_PEDIR, botaoDoGps('btn-gps-permitir', 'Permitir localização', () => {
+            jaPediuPeloBotao = true;
+            tentarGpsDeNovo();
+        }));
+    }
+
+    // Estado "denied": o navegador NÃO abre a janela de novo; só a pessoa libera nas configurações.
+    function mostrarPermissaoBloqueada() {
+        const lista = document.createElement('ol');
+        lista.id = 'gps-passos';
+        lista.className = 'mb-0 mt-1 ps-3';
+        for (const passo of (ehCelular ? PASSOS_GPS_CELULAR : PASSOS_GPS_COMPUTADOR)) {
+            const item = document.createElement('li');
+            item.textContent = passo;
+            lista.appendChild(item);
+        }
+        const outroCaminho = document.createElement('div');
+        outroCaminho.className = 'mt-1';
+        outroCaminho.textContent = ehCelular ? OUTRO_CAMINHO_GPS_CELULAR : OUTRO_CAMINHO_GPS_COMPUTADOR;
+        const bloco = document.createElement('div');
+        bloco.append(lista, outroCaminho);
+        mostrarGps('danger', 'bi-exclamation-triangle', TEXTO_GPS_BLOQUEADO, bloco);
+    }
+
+    // Lê o estado da permissão uma vez e passa a ouvir a troca: quando vira "granted" (a pessoa
+    // liberou no cadeado com a página aberta), a busca recomeça sozinha. O Safari antigo não tem
+    // `navigator.permissions`: aí o erro 1 cai no passo a passo, que serve para os dois casos.
+    let permissaoDoGps = null;
+    // O clique em "Permitir localização" já pediu e o erro 1 voltou com o estado ainda em "prompt"
+    // (Firefox com "Bloquear" sem lembrar, por exemplo): desenhar o mesmo botão de novo seria um
+    // laço sem saída, então vai o passo a passo.
+    let jaPediuPeloBotao = false;
+
+    // `vindoDoErro`: a leitura acabou de falhar com o erro 1. Com o site em "granted" isso é o
+    // aparelho bloqueando (localização do sistema desligada): tentar de novo sozinho entraria em
+    // laço, então explica e deixa o botão. Na troca (`onchange`) para "granted", busca sozinha.
+    function reagirAPermissao(estado, vindoDoErro) {
+        if (currentLocation) {
+            return;
+        }
+        if (estado === 'granted') {
+            if (vindoDoErro) {
+                mostrarErroDeBusca(TEXTO_GPS_SISTEMA);
+
+                return;
+            }
+            tentarGpsDeNovo();
+
+            return;
+        }
+        if (estado === 'prompt' && !(vindoDoErro && jaPediuPeloBotao)) {
+            mostrarPedidoDePermissao();
+
+            return;
+        }
+        mostrarPermissaoBloqueada();
+    }
+
+    function explicarPermissaoNegada() {
+        if (permissaoDoGps) {
+            reagirAPermissao(permissaoDoGps.state, true);
+
+            return;
+        }
+        if (!navigator.permissions || typeof navigator.permissions.query !== 'function') {
+            mostrarPermissaoBloqueada();
+
+            return;
+        }
+        navigator.permissions.query({ name: 'geolocation' }).then((status) => {
+            permissaoDoGps = status;
+            status.onchange = () => reagirAPermissao(status.state, false);
+            reagirAPermissao(status.state, true);
+        }).catch(() => mostrarPermissaoBloqueada());
+    }
+
     function erroGps(error) {
-        gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Permita o acesso à localização para registrar o ponto.`;
-        gpsStatus.className = 'alert alert-danger small mb-3';
+        const codigo = error && error.code;
+        console.log('GPS não disponível:', error && error.message);
         // O botão NÃO é desabilitado aqui: ele precisa continuar respondendo ao toque. Quem
         // aperta sem posição recebe "A localização é obrigatória para registrar o ponto." no
         // handler, em `#batida-aviso`. Desabilitar aqui devolvia o botão morto por outra porta.
-        console.log('GPS não disponível:', error.message);
+        if (codigo === GPS_PERMISSAO_NEGADA) {
+            explicarPermissaoNegada();
+
+            return;
+        }
+        // Uma posição boa já chegou (pela atualização contínua): a falha desta leitura não apaga o
+        // que já está na mão.
+        if (currentLocation) {
+            return;
+        }
+        mostrarErroDeBusca(codigo === GPS_DEMOROU ? TEXTO_GPS_DEMOROU : TEXTO_GPS_INDISPONIVEL);
     }
 
     // Texto dos casos em que a resposta não voltou. Afirmar "não foi registrada" seria mentira: a
@@ -702,20 +861,32 @@
 
     setInterval(conferirViradaDoDia, INTERVALO_CHECAGEM_DIA_MS);
 
-    if (homeOfficeHoje) {
-        gpsStatus.innerHTML = `<i class="bi bi-house-laptop"></i> Home Office hoje: o ponto será registrado sem exigir localização.`;
-        gpsStatus.className = 'alert alert-info small mb-3';
-        updateButtonState();
-    } else if ("geolocation" in navigator) {
-        // A API pode lancar de forma SINCRONA (extensao de privacidade que a stuba, WebView de MDM).
-        // Sem este try o script morre aqui, ANTES de registrar o handler do botao: a tela fica com
-        // um botao que nao faz nada e sem erro nenhum na cara da pessoa.
-        try {
+    // Pede a posição e liga a atualização contínua. Chamada na carga, no "Tentar de novo", no
+    // "Permitir localização" e quando a permissão vira "granted" com a página aberta (o watch de
+    // quem estava bloqueado já morreu, por isso é refeito).
+    let idDoWatch = null;
+    // Cada busca ganha um número; o erro de uma busca antiga (dois cliques seguidos em "Tentar de
+    // novo", com o pedido anterior ainda correndo até 20 s) não troca o aviso da busca nova.
+    let tentativaDoGps = 0;
+
+    function iniciarGps() {
+        const estaTentativa = ++tentativaDoGps;
+        const erroDestaTentativa = (error) => {
+            if (estaTentativa === tentativaDoGps) {
+                erroGps(error);
+            }
+        };
         navigator.geolocation.getCurrentPosition(
             aplicarPosicao,
             (error) => {
+                // Permissão negada não melhora sem alta precisão: explica na hora.
+                if (error && error.code === GPS_PERMISSAO_NEGADA) {
+                    erroDestaTentativa(error);
+
+                    return;
+                }
                 // Fallback sem alta precisão caso o primeiro tente atingir timeout
-                navigator.geolocation.getCurrentPosition(aplicarPosicao, erroGps, { timeout: 10000 });
+                navigator.geolocation.getCurrentPosition(aplicarPosicao, erroDestaTentativa, { timeout: 10000 });
             },
             { enableHighAccuracy: true, timeout: 10000 }
         );
@@ -731,18 +902,32 @@
         // `watchPosition` resolve na raiz: a posição se atualiza sozinha enquanto a pessoa se
         // desloca, e o botão destrava quando ela chega. De quebra, a batida deixa de depender da
         // leitura feita no clique, que é o que travava antes da Frente 1.
-        navigator.geolocation.watchPosition(
+        if (idDoWatch !== null) {
+            navigator.geolocation.clearWatch(idDoWatch);
+        }
+        idDoWatch = navigator.geolocation.watchPosition(
             aplicarPosicao,
-            // Erro aqui NÃO derruba o que já temos: `erroGps` desabilitaria o botão de quem está no
-            // escritório com uma posição boa na mão, por causa de uma leitura ruim no meio do dia.
+            // Erro aqui só vai ao console: trocar o aviso por causa de uma leitura ruim no meio do
+            // dia assustaria quem está no escritório com uma posição boa na mão.
             (error) => console.log('Atualização contínua de GPS falhou:', error && error.message),
             { enableHighAccuracy: true, maximumAge: 30000 }
         );
+    }
+
+    if (homeOfficeHoje) {
+        gpsStatus.innerHTML = `<i class="bi bi-house-laptop"></i> Home Office hoje: o ponto será registrado sem exigir localização.`;
+        gpsStatus.className = 'alert alert-info small mb-3';
+        updateButtonState();
+    } else if ("geolocation" in navigator) {
+        // A API pode lancar de forma SINCRONA (extensao de privacidade que a stuba, WebView de MDM).
+        // Sem este try o script morre aqui, ANTES de registrar o handler do botao: a tela fica com
+        // um botao que nao faz nada e sem erro nenhum na cara da pessoa.
+        try {
+            iniciarGps();
         } catch (erro) {
             // Diagnóstico PRÓPRIO: mandar "permita o acesso à localização" aqui é mentira, e a
             // pessoa vai procurar uma permissão que está concedida. A causa é a API ter lançado.
-            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> A localização do navegador não está funcionando nesta tela. Tente outro navegador ou fale com o gestor.`;
-            gpsStatus.className = 'alert alert-danger small mb-3';
+            mostrarGps('danger', 'bi-exclamation-triangle', TEXTO_GPS_API);
             // Idem `erroGps`: quem impede responde no clique, não apagando o botão.
             console.log('API de geolocalização lançou de forma síncrona:', erro && erro.message);
         }
