@@ -171,7 +171,7 @@ final class LeitorDeDatas
     /** Texto do editor rico para o leitor: parágrafo e quebra viram fim de linha, o resto das tags some. */
     public static function textoDoHtml(string $html): string
     {
-        $t = (string) preg_replace('#</(p|div|li|h[1-6])>|<br\s*/?>#i', "\n", $html);
+        $t = (string) preg_replace('#</(p|div|li|h[1-6]|td|tr)>|<br\s*/?>#i', "\n", $html);
         $t = html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $t = str_replace("\u{00A0}", ' ', $t);
         $t = (string) preg_replace('/[ \t]+/u', ' ', $t);

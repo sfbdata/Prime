@@ -36,6 +36,7 @@ final class EditorRicoBarraTest extends TestCase
     public static function botoesNovos(): iterable
     {
         yield 'símbolos' => ['simbolo'];
+        yield 'tabela' => ['tabela'];
         yield 'data de hoje' => ['data'];
         yield 'revisão' => ['revisar'];
     }
@@ -54,12 +55,12 @@ final class EditorRicoBarraTest extends TestCase
         self::assertMatchesRegularExpression("/'ql-" . $nome . "': '[^']+'/", $js, "botão {$nome} sem dica");
     }
 
-    #[TestDox('a ordem dos grupos segue o desenho: citação, símbolo e data; depois revisão, localizar e limpar')]
+    #[TestDox('a ordem dos grupos segue o desenho: citação, símbolo, tabela (pedido do Samuel, 04/11/2026) e data; depois revisão, localizar e limpar')]
     public function testOrdemDosGruposSegueODesenho(): void
     {
         $js = $this->js();
 
-        self::assertStringContainsString("['blockquote', 'simbolo', 'data'],", $js);
+        self::assertStringContainsString("['blockquote', 'simbolo', 'tabela', 'data'],", $js);
         self::assertStringContainsString("['revisar', 'localizar', 'clean'],", $js);
     }
 
@@ -169,5 +170,27 @@ final class EditorRicoBarraTest extends TestCase
             self::assertLessThan($editor[0][1], $modulo[0][1], $arquivo->getPathname() . ' carrega o módulo depois do editor');
         }
         self::assertGreaterThan(0, $achou);
+    }
+
+    #[TestDox('tabela simples: módulo table do Quill ligado, formato table na lista e ícone bi-table')]
+    public function testTabelaSimples(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString("'table',", $js, 'sem o formato, o Quill descarta a tabela');
+        self::assertStringContainsString('table: true,', $js, 'módulo table do Quill');
+        self::assertStringContainsString("'ql-tabela': 'bi-table',", $js);
+        foreach (['insertTable', 'insertRowAbove', 'insertRowBelow', 'insertColumnLeft', 'insertColumnRight', 'deleteRow', 'deleteColumn', 'deleteTable'] as $acao) {
+            self::assertStringContainsString($acao, $js, "ação {$acao}");
+        }
+        self::assertStringNotContainsString('colspan', $js, 'sem mesclar células');
+    }
+
+    #[TestDox('a tabela que o editor gera sobrevive ao sanitizador')]
+    public function testTabelaSobreviveAoSanitizador(): void
+    {
+        $html = '<table><tbody><tr><td data-row="row-a1">Prazo</td><td data-row="row-a1">05/11</td></tr><tr><td data-row="row-b2"><strong>Valor</strong></td><td data-row="row-b2">R$ 10</td></tr></tbody></table>';
+
+        self::assertSame($html, $this->criarSanitizadorTextoRico()->limpar($html));
     }
 }

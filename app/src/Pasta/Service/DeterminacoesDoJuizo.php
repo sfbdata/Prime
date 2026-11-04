@@ -298,7 +298,7 @@ final class DeterminacoesDoJuizo
     /** Sem marcação HTML, entidades decodificadas, espaços (inclusive o não separável) colapsados. */
     private static function textoCorrido(string $texto): string
     {
-        $semMarcacao = (string) preg_replace('#<\s*(br|/p|/div|/li|/tr|/h[1-6])\b[^>]*>#i', "\n", $texto);
+        $semMarcacao = (string) preg_replace('#<\s*(br|/p|/div|/li|/tr|/td|/h[1-6])\b[^>]*>#i', "\n", $texto);
         $semMarcacao = html_entity_decode(strip_tags($semMarcacao), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         return trim((string) preg_replace('/[\s\x{00A0}]+/u', ' ', $semMarcacao));
