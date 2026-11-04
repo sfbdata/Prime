@@ -74,6 +74,7 @@
         'ql-strike': 'Tachado',
         'ql-blockquote': 'Citação',
         'ql-simbolo': 'Inserir símbolo',
+        'ql-tabela': 'Inserir tabela',
         'ql-data': 'Inserir data de hoje',
         'ql-revisar': 'Revisar texto',
         'ql-localizar': 'Localizar e substituir (Ctrl+H)',
@@ -115,6 +116,7 @@
         'ql-indent:-1': 'bi-text-indent-right',
         'ql-indent:+1': 'bi-text-indent-left',
         'ql-blockquote': 'bi-quote',
+        'ql-tabela': 'bi-table',
         'ql-data': 'bi-calendar-plus',
         'ql-revisar': 'bi-spellcheck',
         'ql-localizar': 'bi-search',
@@ -130,6 +132,9 @@
     var FORMATOS = [
         'header', 'bold', 'italic', 'underline', 'strike',
         'color', 'background', 'list', 'indent', 'align', 'blockquote',
+        // Tabela simples (módulo `table` do Quill 2): sem mesclar células. O nome `table` traz junto
+        // a linha, o corpo e a caixa da tabela (o `requiredContainer` de cada um).
+        'table',
     ];
 
     /** Formatos de trecho (não de linha) — os que o substituir preserva no texto novo. */
@@ -148,7 +153,7 @@
         [{ header: [false, 2, 3, ESTILO_CITACAO] }],
         ['bold', 'italic', 'underline', 'strike', { color: PALETA_TEXTO }, { background: PALETA_REALCE }],
         [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }, { align: [] }],
-        ['blockquote', 'simbolo', 'data'],
+        ['blockquote', 'simbolo', 'tabela', 'data'],
         ['revisar', 'localizar', 'clean'],
     ];
 
@@ -553,6 +558,95 @@
                 grade.appendChild(b);
             });
             caixa.appendChild(grade);
+
+            return caixa;
+        });
+    }
+
+    // ── Tabela ─────────────────────────────────────────────────────────────────────────────
+    //
+    // Fora de uma tabela, a janela é uma grade: passar o mouse escolhe linhas × colunas e o clique
+    // insere. Dentro de uma tabela (o Quill não aceita tabela dentro de tabela), a janela vira a
+    // lista de ações: inserir ou remover linha e coluna, ou remover a tabela. Mesclar células não
+    // existe, de propósito: o HTML continua só table/tbody/tr/td, o que o sanitizador aceita.
+
+    var TABELA_MAX = 8;
+
+    var ACOES_DA_TABELA = [
+        ['bi-arrow-bar-up', 'Inserir linha acima', 'insertRowAbove'],
+        ['bi-arrow-bar-down', 'Inserir linha abaixo', 'insertRowBelow'],
+        ['bi-arrow-bar-left', 'Inserir coluna à esquerda', 'insertColumnLeft'],
+        ['bi-arrow-bar-right', 'Inserir coluna à direita', 'insertColumnRight'],
+        ['bi-dash-square', 'Remover linha', 'deleteRow'],
+        ['bi-dash-square-dotted', 'Remover coluna', 'deleteColumn'],
+        ['bi-trash3', 'Remover tabela', 'deleteTable'],
+    ];
+
+    function rotuloDaTabela(linhas, colunas) {
+        return linhas + (linhas === 1 ? ' linha' : ' linhas') + ' × ' + colunas + (colunas === 1 ? ' coluna' : ' colunas');
+    }
+
+    function abrirTabela(refs) {
+        var quill = refs.quill;
+        var modulo = quill.getModule('table');
+        refs.faixaSalva = quill.getSelection(true);
+        var naTabela = !!(modulo && modulo.getTable(refs.faixaSalva)[0]);
+
+        alternarJanela(refs, refs.botaoTabela, function () {
+            var caixa = el('div');
+            if (naTabela) {
+                caixa.appendChild(cabecalhoDaJanela('Tabela'));
+                var lista = el('div', 'editor-rico-tabela-acoes');
+                ACOES_DA_TABELA.forEach(function (acao) {
+                    var b = semRoubarFoco(el('button'));
+                    b.type = 'button';
+                    b.innerHTML = icone(acao[0]);
+                    b.appendChild(document.createTextNode(' ' + acao[1]));
+                    b.addEventListener('click', function () {
+                        fecharJanela(refs);
+                        quill.focus();
+                        quill.setSelection(refs.faixaSalva, 'silent');
+                        modulo[acao[2]]();
+                    });
+                    lista.appendChild(b);
+                });
+                caixa.appendChild(lista);
+
+                return caixa;
+            }
+
+            caixa.appendChild(cabecalhoDaJanela('Inserir tabela'));
+            var grade = el('div', 'editor-rico-tabela-grade');
+            var legenda = el('div', 'editor-rico-tabela-legenda', 'Escolha linhas e colunas');
+            var celulas = [];
+            var marcar = function (linhas, colunas) {
+                celulas.forEach(function (c) {
+                    c.botao.classList.toggle('on', c.linha <= linhas && c.coluna <= colunas);
+                });
+                legenda.textContent = linhas ? rotuloDaTabela(linhas, colunas) : 'Escolha linhas e colunas';
+            };
+            for (var l = 1; l <= TABELA_MAX; l++) {
+                for (var c = 1; c <= TABELA_MAX; c++) {
+                    (function (linha, coluna) {
+                        var b = semRoubarFoco(el('button'));
+                        b.type = 'button';
+                        b.setAttribute('aria-label', 'Inserir tabela de ' + rotuloDaTabela(linha, coluna));
+                        b.addEventListener('mouseenter', function () { marcar(linha, coluna); });
+                        b.addEventListener('focus', function () { marcar(linha, coluna); });
+                        b.addEventListener('click', function () {
+                            fecharJanela(refs);
+                            quill.focus();
+                            quill.setSelection(refs.faixaSalva, 'silent');
+                            modulo.insertTable(linha, coluna);
+                        });
+                        celulas.push({ botao: b, linha: linha, coluna: coluna });
+                        grade.appendChild(b);
+                    })(l, c);
+                }
+            }
+            grade.addEventListener('mouseleave', function () { marcar(0, 0); });
+            caixa.appendChild(grade);
+            caixa.appendChild(legenda);
 
             return caixa;
         });
@@ -1961,6 +2055,7 @@
             modules: {
                 // `userOnly`: só o que a pessoa fez entra no desfazer — carregar conteúdo não.
                 history: { delay: 1000, maxStack: 200, userOnly: true },
+                table: true,
                 toolbar: {
                     container: BARRA,
                     handlers: {
@@ -1969,6 +2064,7 @@
                         header: function (valor) { aplicarEstilo(this.quill, valor); },
                         localizar: function () { fecharJanela(refs); refs.busca.alternar(); },
                         simbolo: function () { abrirSimbolos(refs); },
+                        tabela: function () { abrirTabela(refs); },
                         data: function () { inserirDataDeHoje(refs); },
                         revisar: function () { abrirRevisao(refs); },
                         // A cor/realce escolhidos ficam lembrados para a mini barra do botão direito.
@@ -2027,6 +2123,7 @@
             refs.botaoRefazer = barraFerramentas.querySelector('button.ql-redo');
             refs.botaoLocalizar = barraFerramentas.querySelector('button.ql-localizar');
             refs.botaoSimbolo = barraFerramentas.querySelector('button.ql-simbolo');
+            refs.botaoTabela = barraFerramentas.querySelector('button.ql-tabela');
             refs.botaoRevisar = barraFerramentas.querySelector('button.ql-revisar');
         }
 

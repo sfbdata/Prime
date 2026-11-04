@@ -102,7 +102,7 @@ final class ItensEncaminhaveisDaPasta
     {
         $texto = (string) preg_replace_callback(MencoesDoRegistro::PADRAO, static fn (array $m): string => '@' . $m[1], (string) $html);
         // Quebra de bloco vira espaço, senão "linha um</p><p>linha dois" grudaria.
-        $texto = (string) preg_replace('#<br\s*/?>|</(p|li|div|h[1-6]|blockquote|pre)>#i', ' ', $texto);
+        $texto = (string) preg_replace('#<br\s*/?>|</(p|li|div|h[1-6]|blockquote|pre|td|tr)>#i', ' ', $texto);
         $texto = html_entity_decode(strip_tags($texto), \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
         $texto = trim((string) preg_replace('/[\s\p{Z}]+/u', ' ', $texto));
 

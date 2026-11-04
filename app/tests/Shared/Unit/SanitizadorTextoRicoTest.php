@@ -56,6 +56,9 @@ final class SanitizadorTextoRicoTest extends TestCase
         yield 'imagem com onerror' => ['<img src=x onerror="alert(1)">', 'onerror'];
         yield 'svg com script' => ['<svg><script>alert(1)</script></svg>', '<script'];
         yield 'form' => ['<form action="/x"><input name="a"></form>', '<form'];
+        yield 'célula com style' => ['<table><tbody><tr><td style="background:url(x)">a</td></tr></tbody></table>', 'style'];
+        yield 'célula mesclada' => ['<table><tbody><tr><td colspan="2">a</td></tr></tbody></table>', 'colspan'];
+        yield 'handler na tabela' => ['<table onmouseover="alert(1)"><tbody><tr><td>a</td></tr></tbody></table>', 'onmouseover'];
     }
 
     #[TestDox('descarta classe que não é do editor — senão dá para injetar utilitário do Bootstrap')]
@@ -112,6 +115,7 @@ final class SanitizadorTextoRicoTest extends TestCase
         yield 'alinhamento por classe' => ['<p class="ql-align-center">meio</p>', 'ql-align-center'];
         yield 'recuo por classe' => ['<p class="ql-indent-1">recuado</p>', 'ql-indent-1'];
         yield 'cor por classe' => ['<span class="ql-color-red">vermelho</span>', 'ql-color-red'];
+        yield 'tabela simples' => ['<table><tbody><tr><td data-row="row-1">a</td><td data-row="row-1">b</td></tr></tbody></table>', '<table><tbody><tr><td data-row="row-1">a</td><td data-row="row-1">b</td></tr></tbody></table>'];
     }
 
     // ── Legado em texto puro (não pode regredir) ─────────────────────────────────────────────

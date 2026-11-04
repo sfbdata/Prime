@@ -152,7 +152,7 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
     /** Texto puro e curto: sem HTML do usuário (tags e entidades saem), espaços colapsados, truncado. */
     public static function trecho(string $conteudo): string
     {
-        $texto = html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '<br/>', '<br />', '</li>'], ' ', $conteudo)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $texto = html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '<br/>', '<br />', '</li>', '</td>', '</tr>'], ' ', $conteudo)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $texto = trim((string) preg_replace('/\s+/u', ' ', $texto));
 
         return mb_strlen($texto) > self::TRECHO_MAXIMO ? rtrim(mb_substr($texto, 0, self::TRECHO_MAXIMO)) . '…' : $texto;
