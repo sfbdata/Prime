@@ -19,7 +19,7 @@ use Symfony\Component\Yaml\Yaml;
 #[CoversNothing]
 final class ComposeDoBlogBuilderTest extends TestCase
 {
-    #[TestDox('O blog_builder roda como 33:33, sem porta, com cpus 1, mem_limit 1g e teto de memória do node')]
+    #[TestDox('O blog_builder roda como 33:33, sem porta, com cpus 1, mem_limit 1536m e teto de 1024 MB no node')]
     public function testServicoDoBuilder(): void
     {
         $builder = $this->compose()['services']['blog_builder'] ?? null;
@@ -30,12 +30,12 @@ final class ComposeDoBlogBuilderTest extends TestCase
         self::assertArrayNotHasKey('ports', $builder, 'o builder não abre porta');
         self::assertArrayNotHasKey('expose', $builder);
         self::assertSame(1, $builder['cpus']);
-        self::assertSame('1g', $builder['mem_limit']);
+        self::assertSame('1536m', $builder['mem_limit']);
         self::assertSame('unless-stopped', $builder['restart']);
         self::assertArrayNotHasKey('profiles', $builder, 'serviço em profile não sobe no `up -d` do deploy');
         self::assertSame(['saas_net'], $builder['networks']);
         self::assertSame('/cache', $builder['environment']['HOME']);
-        self::assertMatchesRegularExpression('/^--max-old-space-size=\d+$/', $builder['environment']['NODE_OPTIONS']);
+        self::assertSame('--max-old-space-size=1024', $builder['environment']['NODE_OPTIONS']);
     }
 
     #[TestDox('O blog_builder monta os pedidos, sites-publicados (escrita), o cache e a deploy key só leitura')]

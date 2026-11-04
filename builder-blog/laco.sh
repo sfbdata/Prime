@@ -34,11 +34,14 @@ agora() {
     date -u +%Y-%m-%dT%H:%M:%SZ
 }
 
-# Lê o arquivo do 1º argumento e imprime o conteúdo como string JSON (com as aspas). Tira os caracteres de
-# controle (menos tab e quebra de linha) e escapa barra invertida, aspas, tab e quebra de linha. LC_ALL=C
-# faz o awk andar por bytes: o UTF-8 passa intacto.
+# Lê o arquivo do 1º argumento e imprime o conteúdo como string JSON (com as aspas). Tira as cores ANSI do
+# npm/Astro (ESC[...m e o "[32m" que sobra quando o ESC já se perdeu), os caracteres de controle (menos tab e
+# quebra de linha) e escapa barra invertida, aspas, tab e quebra de linha. LC_ALL=C faz o awk andar por bytes:
+# o UTF-8 passa intacto.
 string_json() {
-    LC_ALL=C tr -d '\000-\010\013-\037\177' < "$1" | LC_ALL=C awk '
+    esc=$(printf '\033')
+    LC_ALL=C sed -e "s/${esc}\[[0-9;?]*[A-Za-z]//g" -e 's/\[[0-9][0-9;]*m//g' < "$1" \
+        | LC_ALL=C tr -d '\000-\010\013-\037\177' | LC_ALL=C awk '
         BEGIN { printf "%s", "\"" }
         {
             if (NR > 1) printf "%s", "\\n"
@@ -145,6 +148,18 @@ processar() {
 
 uma_vez=0
 [ "${1:-}" = "--uma-vez" ] && uma_vez=1
+
+# Um builder por vez: dois laços (um `docker compose run` manual ao lado do serviço, por exemplo) gerariam o
+# mesmo pedido e brigariam pelo rsync. A trava fica em $PEDIDOS/.trava (nome com ponto: o laço a ignora) e vale
+# enquanto este processo viver; o descritor 9 fica aberto até o fim.
+if ! exec 9>>"$PEDIDOS/.trava"; then
+    echo "builder: não consegui abrir a trava $PEDIDOS/.trava; saindo" >&2
+    exit 1
+fi
+if ! flock -n 9; then
+    echo "builder: outro builder já está rodando (trava $PEDIDOS/.trava ocupada); saindo sem processar nada" >&2
+    exit 1
+fi
 
 while :; do
     id=$(proximo_pedido)

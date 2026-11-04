@@ -147,6 +147,102 @@ final class LacoDoBlogBuilderTest extends TestCase
         self::assertStringContainsString("erro \"aspas\" e \\barra\\ com\ttab\nsegunda linha: ação", $resultado['log']);
     }
 
+    #[TestDox('As cores ANSI do npm (ESC[...m e o "[32m" que sobra) saem do log')]
+    public function testCoresAnsiSaemDoLog(): void
+    {
+        $this->criarPedido('13');
+
+        $this->rodar();
+
+        $log = $this->resultado('13')['log'];
+        self::assertStringContainsString('verde e sobra', $log);
+        self::assertStringNotContainsString("\e", $log);
+        self::assertDoesNotMatchRegularExpression('/\[\d+m/', $log);
+    }
+
+    #[TestDox('Pedido apagado pelo BlueJus durante a geração não vai ao ar')]
+    public function testPedidoApagadoAntesDoRsyncNaoPublica(): void
+    {
+        $this->criarPedido('14');
+
+        $processo = $this->rodar(['APAGAR_PEDIDO' => $this->raiz . '/pedidos/14']);
+
+        self::assertDirectoryDoesNotExist($this->raiz . '/pedidos/14');
+        self::assertSame([], array_filter($this->chamadas(), static fn (string $c): bool => str_starts_with($c, 'rsync ')));
+        self::assertStringContainsString('pedido 14', $processo->getOutput() . $processo->getErrorOutput());
+    }
+
+    #[TestDox('rsync do gratis que falha depois do rsync do blog: o resultado é falhou')]
+    public function testRsyncDoGratisQueFalhaViraFalhou(): void
+    {
+        $this->criarPedido('15');
+
+        $this->rodar(['FALHAR_RSYNC' => 'gratis']);
+
+        $resultado = $this->resultado('15');
+        self::assertSame('falhou', $resultado['situacao']);
+        self::assertStringContainsString('falhou: rsync gratis', $resultado['log']);
+        self::assertCount(2, array_filter($this->chamadas(), static fn (string $c): bool => str_starts_with($c, 'rsync ')));
+    }
+
+    #[TestDox('Blog sem artigos no pacote: ARTIGOS aponta para a pasta vazia e o laço repassa normalmente')]
+    public function testPastaDeBlogVaziaERepassada(): void
+    {
+        $this->criarPedido('16');
+        $vazia = $this->raiz . '/pedidos/16/artigos/blog-gratis';
+        self::assertSame([], array_values(array_diff((array) scandir($vazia), ['.', '..'])));
+
+        $this->rodar();
+
+        self::assertContains('npm run build [blog-gratis] ARTIGOS=' . $vazia, $this->chamadas());
+        self::assertSame('no_ar', $this->resultado('16')['situacao']);
+    }
+
+    #[TestDox('Pedido cujo resultado não pôde ser gravado vai para IGNORADOS: o laço segue para o próximo e não o refaz')]
+    public function testPedidoSemResultadoGravadoNaoERefeito(): void
+    {
+        $this->criarPedido('5');
+        $this->criarPedido('6');
+        $quebrado = $this->raiz . '/pedidos/5';
+
+        $processo = $this->processo(['QUEBRAR_PEDIDO' => $quebrado, 'INTERVALO' => '0.1'], false);
+        $processo->start();
+        $limite = microtime(true) + 15;
+        while (!is_file($this->raiz . '/pedidos/6/resultado.json') && microtime(true) < $limite) {
+            usleep(50_000);
+        }
+        usleep(800_000); // várias voltas do laço (INTERVALO 0,1 s) depois do pedido 6
+        $processo->stop(2);
+
+        self::assertSame('no_ar', $this->resultado('6')['situacao']);
+        self::assertFileDoesNotExist($quebrado . '/resultado.json');
+        $builds = array_filter($this->chamadas(), static fn (string $c): bool => $c === "npm run build [blog] ARTIGOS=$quebrado/artigos/blog");
+        self::assertCount(1, $builds, 'o pedido 5 foi gerado mais de uma vez');
+        self::assertStringContainsString('pedido 5: erro ao processar', $processo->getErrorOutput());
+    }
+
+    #[TestDox('Com a trava ocupada por outro builder, o segundo laço sai sem processar nada')]
+    public function testTravaOcupadaNaoProcessa(): void
+    {
+        $this->criarPedido('8');
+        $trava = fopen($this->raiz . '/pedidos/.trava', 'c');
+        self::assertNotFalse($trava);
+        self::assertTrue(flock($trava, \LOCK_EX | \LOCK_NB));
+
+        try {
+            $processo = $this->processo();
+            $processo->run();
+        } finally {
+            flock($trava, \LOCK_UN);
+            fclose($trava);
+        }
+
+        self::assertFalse($processo->isSuccessful());
+        self::assertStringContainsString('outro builder já está rodando', $processo->getErrorOutput());
+        self::assertSame([], $this->chamadas());
+        self::assertFileDoesNotExist($this->raiz . '/pedidos/8/iniciado');
+    }
+
     private function criarPedido(string $id): void
     {
         $fs = new Filesystem();
@@ -158,7 +254,22 @@ final class LacoDoBlogBuilderTest extends TestCase
     /** @param array<string, string> $env */
     private function rodar(array $env = []): Process
     {
-        $processo = new Process(['sh', \dirname(__DIR__, 4) . '/builder-blog/laco.sh', '--uma-vez'], null, [
+        $processo = $this->processo($env);
+        $processo->run();
+
+        self::assertTrue($processo->isSuccessful(), $processo->getErrorOutput() . $processo->getOutput());
+
+        return $processo;
+    }
+
+    /** @param array<string, string> $env */
+    private function processo(array $env = [], bool $umaVez = true): Process
+    {
+        $comando = ['sh', \dirname(__DIR__, 4) . '/builder-blog/laco.sh'];
+        if ($umaVez) {
+            $comando[] = '--uma-vez';
+        }
+        $processo = new Process($comando, null, [
             'PATH' => $this->raiz . '/bin:' . (getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin'),
             'PEDIDOS' => $this->raiz . '/pedidos',
             'PUBLICADOS' => $this->raiz . '/publicados',
@@ -170,12 +281,12 @@ final class LacoDoBlogBuilderTest extends TestCase
             'ARTIGOS' => '/nao-pode-chegar-ao-npm-test',
             'FALHAR_NPM' => '',
             'FALHAR_GIT' => '',
+            'FALHAR_RSYNC' => '',
+            'APAGAR_PEDIDO' => '',
+            'QUEBRAR_PEDIDO' => '',
             ...$env,
         ]);
         $processo->setTimeout(30);
-        $processo->run();
-
-        self::assertTrue($processo->isSuccessful(), $processo->getErrorOutput() . $processo->getOutput());
 
         return $processo;
     }
@@ -225,15 +336,29 @@ final class LacoDoBlogBuilderTest extends TestCase
                 if [ "$1" = run ]; then sub="run $2"; else sub=$1; fi
                 echo "npm $sub [$(basename "$PWD")] ARTIGOS=${ARTIGOS:-}" >> "$CHAMADAS"
                 echo "saída do npm $sub"
+                printf '\033[32mverde\033[0m e [33msobra[0m\n'
+                # APAGAR_PEDIDO=<pasta>: o BlueJus apaga o pedido (deu como falho) durante o build do blog-gratis.
+                if [ -n "$APAGAR_PEDIDO" ] && [ "$sub" = "run build" ] && [ "$(basename "$PWD")" = blog-gratis ]; then
+                    rm -rf "$APAGAR_PEDIDO"
+                fi
+                # QUEBRAR_PEDIDO=<pasta>: resultado.json.tmp vira pasta, e o resultado não pode ser gravado.
+                if [ -n "$QUEBRAR_PEDIDO" ] && [ "$sub" = "run build" ]; then
+                    case "${ARTIGOS:-}" in "$QUEBRAR_PEDIDO"/*) mkdir -p "$QUEBRAR_PEDIDO/resultado.json.tmp" ;; esac
+                fi
                 if [ -n "$FALHAR_NPM" ] && [ "$1" = "$FALHAR_NPM" ]; then
                     printf 'erro "aspas" e \\barra\\ com\ttab\r\nsegunda linha: ação\n' >&2
                     exit 1
                 fi
                 exit 0
                 SH,
+            // FALHAR_RSYNC=<destino>: falha o rsync para sites-publicados/<destino>/.
             'rsync' => <<<'SH'
                 #!/bin/sh
                 echo "rsync $*" >> "$CHAMADAS"
+                for a in "$@"; do destino=$a; done
+                if [ -n "$FALHAR_RSYNC" ]; then
+                    case "$destino" in */"$FALHAR_RSYNC"/) echo "rsync: falhou" >&2; exit 23 ;; esac
+                fi
                 exit 0
                 SH,
             'ssh' => <<<'SH'

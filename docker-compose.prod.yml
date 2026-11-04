@@ -121,9 +121,10 @@ services:
   # key SÓ LEITURA) e, só se os testes e o build passarem, troca sites-publicados/{blog,gratis}. Sem porta.
   # Roda como 33:33 (o www-data do php), para ele e o worker lerem e escreverem os mesmos arquivos.
   # Dono dos volumes: volume nomeado vazio herda o dono do ponto de montagem da imagem do contêiner que o monta
-  # com o caminho existindo. A imagem do builder cria /pedidos e /cache com 33:33; a do php não tem
-  # /var/publicacao-blogs, então o worker não "carimba" root no volume, e ele vira 33:33 quando o builder o monta.
-  # Limites: o build do Astro já passou de 13 GB numa máquina sem teto (NODE_OPTIONS + cpus + mem_limit).
+  # primeiro. As duas imagens já trazem o ponto com 33:33 (a do builder cria /pedidos e /cache; a do php cria
+  # /var/publicacao-blogs com www-data), então tanto faz quem monta primeiro: o volume nasce 33:33.
+  # Limites: o build do Astro já passou de 13 GB numa máquina sem teto, e com o sharp pode passar de 1 GB
+  # (NODE_OPTIONS + cpus + mem_limit). Um builder por vez: trava em /pedidos/.trava (laco.sh).
   blog_builder:
     build: ./builder-blog
     container_name: jusprime_blog_builder_prod
@@ -131,14 +132,14 @@ services:
     user: "33:33"
     environment:
       HOME: /cache
-      NODE_OPTIONS: --max-old-space-size=768
+      NODE_OPTIONS: --max-old-space-size=1024
     volumes:
       - publicacao_blogs:/pedidos
       - ./sites-publicados:/sites-publicados
       - blog_builder_cache:/cache
       - /opt/jusprime/secrets/sites_deploy_key:/chave:ro
     cpus: 1
-    mem_limit: 1g
+    mem_limit: 1536m
     networks:
       - saas_net
 
