@@ -123,11 +123,29 @@ final class MontarPaginaDoContribuaUseCase
         $limiteGb = intdiv((int) $r->bytesLimite - $r->bytesBonus, RetratoDoEspaco::BYTES_POR_GB);
         $usoGb = $r->bytesUsados / RetratoDoEspaco::BYTES_POR_GB;
         $recomendado = self::recomendado($planos, $limiteGb, $usoGb);
+        $maior = self::maiorPago($planos);
 
         return array_map(
-            static fn (Plano $p): array => self::pacote($p, $r->planoCodigo === $p->getCodigo(), $limiteGb, $recomendado === $p->getCodigo()),
+            static fn (Plano $p): array => ['maior' => $maior === $p->getCodigo()] + self::pacote($p, $r->planoCodigo === $p->getCodigo(), $limiteGb, $recomendado === $p->getCodigo()),
             $planos,
         );
+    }
+
+    /**
+     * O maior pacote pago: só ele tem os botões + e − no checkout para dobrar o espaço e o valor (desenho 08 VS 03.11.26).
+     *
+     * @param list<Plano> $planos
+     */
+    private static function maiorPago(array $planos): ?string
+    {
+        $maior = null;
+        foreach ($planos as $plano) {
+            if (!$plano->ehGratuito() && ($maior === null || $plano->getCotaGb() > $maior->getCotaGb())) {
+                $maior = $plano;
+            }
+        }
+
+        return $maior?->getCodigo();
     }
 
     /** O primeiro plano pago com pelo menos o dobro do uso e mais que o limite; senão o maior. */

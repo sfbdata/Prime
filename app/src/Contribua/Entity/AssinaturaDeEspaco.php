@@ -32,6 +32,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\HasLifecycleCallbacks]
 class AssinaturaDeEspaco implements TenantAware, Auditavel
 {
+    /** Os + e − do maior pacote dobram e reduzem pela metade; o teto (×16) é trava do servidor contra valor sem fim. */
+    public const MULTIPLICADORES = [1, 2, 4, 8, 16];
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -82,6 +85,13 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $atualizadaEm = null;
 
+    /**
+     * Quantas vezes o pacote foi dobrado no checkout (+ e − do maior pacote, desenho 08 VS 03.11.26): 1, 2, 4...
+     * O `valorCentavos` já vem multiplicado; o GB sai de {@see self::gigabytes()}.
+     */
+    #[ORM\Column(type: 'integer', options: ['default' => 1])]
+    private int $multiplicador = 1;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
         #[ORM\JoinColumn(nullable: false)]
@@ -98,8 +108,24 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
         #[ORM\ManyToOne(targetEntity: User::class)]
         #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
         private ?User $pedidaPor,
+        int $multiplicador = 1,
     ) {
+        if (!\in_array($multiplicador, self::MULTIPLICADORES, true)) {
+            throw new \DomainException('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 ou 16.');
+        }
+        $this->multiplicador = $multiplicador;
         $this->criadaEm = new \DateTimeImmutable();
+    }
+
+    public function getMultiplicador(): int
+    {
+        return $this->multiplicador;
+    }
+
+    /** O GB que a assinatura dá: o do plano vezes o multiplicador. */
+    public function gigabytes(): int
+    {
+        return $this->plano->getCotaGb() * $this->multiplicador;
     }
 
     #[ORM\PreUpdate]

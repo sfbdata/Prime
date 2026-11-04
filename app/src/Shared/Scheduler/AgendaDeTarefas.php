@@ -120,6 +120,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:pastas:relatorio-pastas-paradas --no-interaction',
             'cron'    => '15 10 * * *',
         ],
+        // 23h50: foto diária das métricas do sistema (contas, usuários, pastas, armazenamento) para a visão
+        // "Diário" do gráfico Crescimento do Painel do Master. Roda no fim do dia (Brasília), como a do Dashboard.
+        'app:master:retratar-metricas' => [
+            'comando' => 'app:master:retratar-metricas --no-interaction',
+            'cron'    => '50 23 * * *',
+        ],
         // 23h55: foto do estoque do Dashboard. O comando fotografa "hoje" no fuso do PHP
         // (Brasília), então roda no fim do dia, para a foto ter o dia inteiro.
         'app:dashboard:fotografar' => [

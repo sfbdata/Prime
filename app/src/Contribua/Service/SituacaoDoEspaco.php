@@ -144,7 +144,8 @@ final class SituacaoDoEspaco
         if ($espaco?->isSemLimite() === true) {
             return [null, OrigemDoLimite::SemLimite];
         }
-        $doPlano = $plano->getCotaGb();
+        // O GB do plano já com o multiplicador do maior pacote dobrado (desenho 08 VS 03.11.26).
+        $doPlano = $plano->getCotaGb() * ($espaco?->getMultiplicador() ?? 1);
         $doMaster = $espaco?->getCotaGb();
         if ($doMaster !== null && ($plano->ehGratuito() || $doMaster > $doPlano)) {
             return [$doMaster * RetratoDoEspaco::BYTES_POR_GB, OrigemDoLimite::Master];

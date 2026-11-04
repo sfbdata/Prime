@@ -270,7 +270,7 @@ final class ConsultasDeRecompensaNoBancoTest extends KernelTestCase
 
         $linha = $this->sinaisDaConta($ana, $conta);
 
-        self::assertSame(['indicador_id', 'conta_id', 'conta_criada_em', 'tem_pasta', 'aprovada', 'escritorios_conta', 'escritorios_indicador', 'cnpjs_conta', 'cnpjs_indicador', 'dominio_conta', 'dominio_indicador'], array_keys($linha));
+        self::assertSame(['indicador_id', 'conta_id', 'conta_criada_em', 'tem_pasta', 'aprovada', 'primeira_pasta_em', 'aprovada_em', 'escritorios_conta', 'escritorios_indicador', 'cnpjs_conta', 'cnpjs_indicador', 'dominio_conta', 'dominio_indicador'], array_keys($linha));
         self::assertStringNotContainsString('Secreta', (string) json_encode($linha));
         self::assertStringNotContainsString($conta->getEmail(), (string) json_encode($linha));
     }

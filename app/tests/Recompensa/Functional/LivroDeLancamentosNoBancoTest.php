@@ -6,6 +6,7 @@ namespace App\Tests\Recompensa\Functional;
 
 use App\Entity\Auth\User;
 use App\Recompensa\Entity\LancamentoDeRecompensa;
+use App\Recompensa\Enum\FormaDePagamento;
 use App\Recompensa\Repository\LancamentoDeRecompensaRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -14,7 +15,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-/** O livro de lançamentos contra o banco (DAMA desfaz no fim de cada teste): chave única, soma, ordem, SET NULL e imutabilidade. */
+/** O livro de lançamentos contra o banco (DAMA desfaz no fim de cada teste): chave única, lançamentos por indicador, ordem, SET NULL e imutabilidade. */
 #[CoversClass(LancamentoDeRecompensaRepository::class)]
 #[CoversClass(LancamentoDeRecompensa::class)]
 final class LivroDeLancamentosNoBancoTest extends KernelTestCase
@@ -85,24 +86,30 @@ final class LivroDeLancamentosNoBancoTest extends KernelTestCase
         }
     }
 
-    #[TestDox('soma por indicador: crédito e estorno com sinal, cada um no seu; quem foi apagado (user nulo) fica de fora')]
-    public function testSomaPorIndicador(): void
+    #[TestDox('lançamentos por indicador: bônus com sinal e pago, com a data e em ordem de data; quem foi apagado (user nulo) fica de fora; com o id, só os dele')]
+    public function testLancamentosPorIndicador(): void
     {
         $ana = $this->usuario('Ana');
         $bia = $this->usuario('Bia');
-        $this->lancar($ana, 2500);
-        $this->lancar($ana, -1000);
+        $this->lancar($ana, -1000, quando: '2026-10-27 09:00:00');
+        $this->lancar($ana, 2500, quando: '2026-10-26 12:00:00');
         $this->lancar($bia, 300);
+        $pago = LancamentoDeRecompensa::pagamento($ana, 700, FormaDePagamento::PIX, null, null, null, 'chave-do-livro-pago-0001', null, new \DateTimeImmutable('2026-10-28 10:00:00'));
+        static::getContainer()->get(EscopoDeAuditoriaDePlataforma::class)->executar(function () use ($pago): void {
+            $this->repo->salvar($pago, flush: true);
+        });
         $apagada = $this->usuario('Apagada');
         $this->lancar($apagada, 9999);
         $this->em->getConnection()->executeStatement('UPDATE lancamento_de_recompensa SET user_id = NULL WHERE user_id = ?', [$apagada->getId()]);
 
-        $soma = $this->repo->somaDoBonusPorIndicador();
+        $todos = $this->repo->porIndicador();
+        $resumo = static fn (array $ls): array => array_map(static fn (array $l): string => $l['tipo'] . ' ' . $l['valorCentavos'] . ' ' . $l['criadoEm']->format('Y-m-d H:i'), $ls);
 
-        self::assertSame(1500, $soma[(int) $ana->getId()]);
-        self::assertSame(300, $soma[(int) $bia->getId()]);
-        self::assertArrayNotHasKey(0, $soma);
-        self::assertNotContains(9999, $soma);
+        self::assertSame(['bonus 2500 2026-10-26 12:00', 'bonus -1000 2026-10-27 09:00', 'pago 700 2026-10-28 10:00'], $resumo($todos[(int) $ana->getId()]));
+        self::assertSame(['bonus 300 2026-10-26 12:00'], $resumo($todos[(int) $bia->getId()]));
+        self::assertArrayNotHasKey(0, $todos);
+        self::assertArrayNotHasKey((int) $apagada->getId(), $todos);
+        self::assertSame([(int) $bia->getId()], array_keys($this->repo->porIndicador((int) $bia->getId())));
     }
 
     #[TestDox('extrato: do mais novo ao mais antigo (empate pelo id), com limite e filtro por indicador')]

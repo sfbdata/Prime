@@ -97,8 +97,10 @@ final class ObterMeuSaldoDeRecompensaUseCaseTest extends TestCase
         $programas->method('buscarUnico')->willReturnCallback(fn (): ?ProgramaDeRecompensa => $this->programa);
         $condicoes = $this->createStub(CondicaoDeRecompensaRepository::class);
         $lancamentos = $this->createStub(LancamentoDeRecompensaRepository::class);
-        $lancamentos->method('somaDoBonusPorIndicador')->willReturn([]);
-        $lancamentos->method('somaDoPagoPorIndicador')->willReturnCallback(fn (): array => $this->pagos);
+        $lancamentos->method('porIndicador')->willReturnCallback(fn (): array => array_map(
+            static fn (int $soma): array => [['tipo' => 'pago', 'valorCentavos' => $soma, 'criadoEm' => new \DateTimeImmutable(self::AGORA)]],
+            $this->pagos,
+        ));
         $painel = new ConsultarPainelDeRecompensasUseCase($indicacoes, $programas, $condicoes, $lancamentos, $this->createStub(DadosDeRecebimentoDeRecompensaRepository::class), new MockClock(new \DateTimeImmutable(self::AGORA)));
         $codigos = $this->createStub(IndicacaoCodigoRepository::class);
         $codigos->method('codigoDoUsuario')->willReturn('ABCDEFGH');

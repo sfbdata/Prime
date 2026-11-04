@@ -34,10 +34,10 @@ final class RegistrarRetornoDoPagamentoUseCase
                     $this->assinaturas->salvar($assinatura, flush: true);
                 }
 
-                return ['gb' => $assinatura->getPlano()->getCotaGb() . ' GB', 'proxima' => $assinatura->getCriadaEm()->modify('+1 month')->format('d/m/Y')];
+                return ['gb' => $assinatura->gigabytes() . ' GB', 'proxima' => $assinatura->getCriadaEm()->modify('+1 month')->format('d/m/Y')];
             }
             if ($assinatura->getSituacao() === SituacaoDaAssinatura::Ativa) {
-                return ['gb' => $assinatura->getPlano()->getCotaGb() . ' GB', 'proxima' => $assinatura->getPagaAte()?->format('d/m/Y') ?? ''];
+                return ['gb' => $assinatura->gigabytes() . ' GB', 'proxima' => $assinatura->getPagaAte()?->format('d/m/Y') ?? ''];
             }
         }
 

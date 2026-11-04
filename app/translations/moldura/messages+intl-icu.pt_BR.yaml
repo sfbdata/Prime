@@ -107,6 +107,7 @@ moldura:
             pastas_relatorio_sem_processo: Relatório de pastas sem processo
             pastas_relatorio_pastas_paradas: Relatório de pastas paradas
             dashboard_fotografar: Foto diária do Dashboard
+            master_retratar_metricas: Foto diária das métricas do Painel do Master
             sync_reconciliar: Envio para o Google Drive
             contribua_conciliar_assinaturas: Conciliação das assinaturas de espaço
             pagamento_conciliar: Conciliação dos pagamentos com o banco

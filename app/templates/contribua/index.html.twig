@@ -33,7 +33,8 @@
             <div class="ct-indique-situacao">{{ rc.situacao }}</div>
         </div>
         <div class="ct-indique-corpo">
-            <div><b class="ct-indique-titulo">Indique o BlueJus e ganhe R$ {{ rc.premio }} por escritório</b><div class="ct-indique-texto">Quem abrir a conta com o seu cupom ganha 5 GB extras no 1º mês, e você ganha crédito quando o escritório indicado começar a usar o BlueJus. O saldo fica guardado e nunca expira.</div></div>
+            {% set dica_convite = 'Quem abrir a conta com o seu cupom ganha 5 GB extras no 1º mês, e você ganha crédito quando o escritório indicado começar a usar o BlueJus. O saldo fica guardado e expira em 3 meses.' %}
+            <div><b class="ct-indique-titulo" data-tip="{{ dica_convite }}" title="{{ dica_convite }}">Indique o BlueJus e ganhe R$ {{ rc.premio }} por escritório</b></div>
             <div class="ct-indique-cupom">
                 <span class="ct-indique-rotulo-cupom">SEU CUPOM</span>
                 <span class="ct-indique-codigo" data-cupom>{{ rc.cupom }}</span>
@@ -87,7 +88,7 @@
             {% for pac in p.pacotes %}
                 <div class="ct-pacote{{ pac.recomendado ? ' ct-pacote--recomendado' }}{{ pac.atual ? ' ct-pacote--atual' }}">
                     {% if pac.recomendado %}<span class="ct-pacote-selo"><i class="bi bi-check2-circle"></i>RECOMENDADO PARA VOCÊ</span>{% endif %}
-                    <div class="ct-pacote-cabeca"><b>{{ pac.rotulo }}</b>{% if pac.temGanho %}<span class="ct-pacote-ganho">{{ pac.ganho }}</span>{% endif %}</div>
+                    <div class="ct-pacote-cabeca"><b>{{ pac.rotulo }}</b><span class="ct-pacote-cabeca-selos">{% if pac.temGanho %}<span class="ct-pacote-ganho">{{ pac.ganho }}</span>{% endif %}</span></div>
                     <b class="ct-pacote-gb">{{ pac.gb }}</b>
                     <div class="ct-pacote-preco"><b>{{ pac.preco }}</b><span>{{ pac.periodo }}</span></div>
                     <div class="ct-pacote-dia">{{ pac.porDia }}</div>
@@ -106,7 +107,7 @@
                         </div>
                     {% endif %}
                     <button type="button" class="ct-pacote-botao" data-pedir-plano="{{ pac.codigo }}"
-                            data-plano-nome="{{ pac.nome }}" data-plano-gb="{{ pac.gbNumero }}" data-plano-hoje="{{ pac.hojeGb }}" data-plano-preco="{{ pac.preco }}" data-plano-centavos="{{ pac.centavos }}"
+                            data-plano-nome="{{ pac.nome }}" data-plano-gb="{{ pac.gbNumero }}" data-plano-hoje="{{ pac.hojeGb }}" data-plano-preco="{{ pac.preco }}" data-plano-centavos="{{ pac.centavos }}" data-plano-maior="{{ (pac.maior ?? false) ? '1' : '0' }}"
                             {{ pac.desabilitado or not p.podePedirEspaco ? 'disabled' }}>{{ pac.botao }}</button>
                 </div>
             {% endfor %}
