@@ -17,8 +17,8 @@
     const soDigitos = (t) => String(t || '').replace(/\D/g, '');
     const MODULOS = { stripe: 'ContribuaStripe', mercado_pago: 'ContribuaMercadoPago', pagarme: 'ContribuaPagarme' };
     let plano = null;
-    /* VS 03.11.26: quantas vezes o maior pacote foi dobrado (+ e −); o servidor aceita 1, 2, 4, 8 e 16 */
-    const MUL_MAX = 16;
+    /* VS 03.11.26: quantas vezes o maior pacote foi dobrado (+ e −); o teto vem do servidor (data-mul-max) */
+    const MUL_MAX = +modal.dataset.mulMax || 1;
     let mul = 1;
     let processando = false;
     let montado = null;

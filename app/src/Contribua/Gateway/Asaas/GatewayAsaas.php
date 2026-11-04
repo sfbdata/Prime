@@ -166,6 +166,24 @@ final class GatewayAsaas implements GatewayDeAssinatura, EmiteNotaFiscalDaAssina
     }
 
     /**
+     * `updatePendingPayments` leva o valor novo também para a cobrança já gerada e ainda pendente (a próxima). Para
+     * assinatura no cartão, o Asaas só aceita mudar o valor com a tokenização habilitada na conta.
+     *
+     * Doc: https://docs.asaas.com/reference/atualizar-assinatura-existente
+     */
+    public function alterarValor(string $idDaAssinatura, int $valorCentavos): void
+    {
+        if ($valorCentavos <= 0) {
+            throw new FalhaNoGateway('Valor da assinatura inválido para o Asaas: ' . $valorCentavos . ' centavos.');
+        }
+
+        $this->chamar('PUT', '/subscriptions/' . rawurlencode($idDaAssinatura), ['json' => [
+            'value' => $valorCentavos / 100,
+            'updatePendingPayments' => true,
+        ]]);
+    }
+
+    /**
      * Liga a NFS-e automática da assinatura (`EmiteNotaFiscalDaAssinatura`). Sem o código do
      * serviço municipal configurado, a configuração fiscal ainda não foi feita: não chama nada.
      *

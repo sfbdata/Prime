@@ -68,6 +68,17 @@ final class ApuracaoDeCustosTest extends TestCase
         self::assertSame(53, $r['categorias'][0]['percentual']);
     }
 
+    #[TestDox('receita: o pacote dobrado paga o preço do plano vezes o multiplicador')]
+    public function testReceitaComMultiplicador(): void
+    {
+        $dobrada = $this->conta('avancado', 0, 1);
+        $dobrada['espaco']['multiplicador'] = 4;
+
+        $r = ApuracaoDeCustos::apurar('2026-11', [], [$dobrada, $this->conta('avancado', 0, 1)], [$this->plano('avancado', 100, 6990)]);
+
+        self::assertSame(6990 * 4 + 6990, $r['kpis']['receitaCentavos']);
+    }
+
     #[TestDox('margem negativa, percentual da receita e projeção de 3, 6 e 12 meses')]
     public function testMargemEProjecao(): void
     {

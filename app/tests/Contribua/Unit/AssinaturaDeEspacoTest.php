@@ -165,6 +165,25 @@ final class AssinaturaDeEspacoTest extends TestCase
         new AssinaturaDeEspaco(new Tenant(), $plano, 'falso', 6990 * 3, null, 3);
     }
 
+    #[TestDox('Dobra automática: ampliar sobe o multiplicador e o valor na proporção do contratado; nunca reduz nem passa do teto')]
+    public function testAmpliarPara(): void
+    {
+        $plano = new Plano('avancado', 'Avançado', 100, 6990, 'Para quem precisa de muito', 15, 15);
+        $assinatura = new AssinaturaDeEspaco(new Tenant(), $plano, 'falso', 6000, null, 2);
+        self::assertSame(12000, $assinatura->valorCom(4), 'o preço de uma vez é o do pedido (3000), não o do catálogo hoje');
+
+        $assinatura->ampliarPara(4);
+        self::assertSame(4, $assinatura->getMultiplicador());
+        self::assertSame(12000, $assinatura->getValorCentavos());
+        self::assertSame(400, $assinatura->gigabytes());
+        self::assertTrue(AssinaturaDeEspaco::multiplicadorValido(AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO));
+        self::assertFalse(AssinaturaDeEspaco::multiplicadorValido(AssinaturaDeEspaco::MULTIPLICADOR_MAXIMO * 2));
+        self::assertFalse(AssinaturaDeEspaco::multiplicadorValido(6));
+
+        $this->expectException(\DomainException::class);
+        $assinatura->ampliarPara(2);
+    }
+
     #[TestDox('VS 03.11.26: o espaço guarda o multiplicador da assinatura e a chave da ampliação automática')]
     public function testEspacoComMultiplicadorEChave(): void
     {

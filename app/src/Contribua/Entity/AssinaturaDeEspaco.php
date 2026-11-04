@@ -32,8 +32,12 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\HasLifecycleCallbacks]
 class AssinaturaDeEspaco implements TenantAware, Auditavel
 {
-    /** Os + e − do maior pacote dobram e reduzem pela metade; o teto (×16) é trava do servidor contra valor sem fim. */
-    public const MULTIPLICADORES = [1, 2, 4, 8, 16];
+    /**
+     * O teto do multiplicador, num ponto só: os + e − do maior pacote, a ampliação automática e o JS do checkout
+     * (via `data-mul-max`) leem daqui. Trava do servidor contra valor sem fim; o desenho diz "sem limite de vezes"
+     * (desvio em decisão com o Samuel, 04/11/2026).
+     */
+    public const MULTIPLICADOR_MAXIMO = 16;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -110,9 +114,7 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
         private ?User $pedidaPor,
         int $multiplicador = 1,
     ) {
-        if (!\in_array($multiplicador, self::MULTIPLICADORES, true)) {
-            throw new \DomainException('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 ou 16.');
-        }
+        self::exigirMultiplicadorValido($multiplicador);
         $this->multiplicador = $multiplicador;
         $this->criadaEm = new \DateTimeImmutable();
     }
@@ -120,6 +122,41 @@ class AssinaturaDeEspaco implements TenantAware, Auditavel
     public function getMultiplicador(): int
     {
         return $this->multiplicador;
+    }
+
+    /** 1, 2, 4... até o teto: só potência de 2, porque o + dobra e o − reduz pela metade. */
+    public static function multiplicadorValido(int $multiplicador): bool
+    {
+        return $multiplicador >= 1 && $multiplicador <= self::MULTIPLICADOR_MAXIMO && ($multiplicador & ($multiplicador - 1)) === 0;
+    }
+
+    /** @throws \DomainException fora de 1, 2, 4... até o teto */
+    public static function exigirMultiplicadorValido(int $multiplicador): void
+    {
+        if (!self::multiplicadorValido($multiplicador)) {
+            throw new \DomainException(sprintf('Escolha quantas vezes dobrar o espaço: de 1 a %d, sempre dobrando.', self::MULTIPLICADOR_MAXIMO));
+        }
+    }
+
+    /**
+     * A ampliação automática (desenho 08 VS 03.11.26): o multiplicador sobe e o valor mensal acompanha, na mesma
+     * proporção do que foi contratado (o preço de uma vez é o valor do pedido dividido pelo multiplicador, nunca o
+     * preço de hoje do catálogo). Só chamado depois que o gateway aceitou o valor novo.
+     */
+    public function ampliarPara(int $multiplicador): void
+    {
+        self::exigirMultiplicadorValido($multiplicador);
+        if ($multiplicador <= $this->multiplicador) {
+            throw new \DomainException('A ampliação só aumenta o espaço.');
+        }
+        $this->valorCentavos = intdiv($this->valorCentavos, $this->multiplicador) * $multiplicador;
+        $this->multiplicador = $multiplicador;
+    }
+
+    /** O valor mensal com outro multiplicador, na proporção do contratado (o que vai ao gateway antes de ampliar). */
+    public function valorCom(int $multiplicador): int
+    {
+        return intdiv($this->valorCentavos, $this->multiplicador) * $multiplicador;
     }
 
     /** O GB que a assinatura dá: o do plano vezes o multiplicador. */

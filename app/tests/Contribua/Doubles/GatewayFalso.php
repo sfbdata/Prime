@@ -100,6 +100,24 @@ final class GatewayFalso implements GatewayDeAssinatura
         $this->canceladas[] = $idDaAssinatura;
     }
 
+    /** @var array<string, int> idDaAssinatura → valor novo, na ordem das chamadas a `alterarValor` */
+    public array $valoresAlterados = [];
+
+    public bool $recusarValor = false;
+
+    public function alterarValor(string $idDaAssinatura, int $valorCentavos): void
+    {
+        $this->exigirNoAr();
+        if ($this->recusarValor) {
+            throw new FalhaNoGateway('Gateway falso recusou o valor novo.');
+        }
+        $this->valoresAlterados[$idDaAssinatura] = $valorCentavos;
+        $atual = $this->assinaturas[$idDaAssinatura] ?? null;
+        if ($atual !== null) {
+            $this->assinaturas[$idDaAssinatura] = new SituacaoNoGateway($idDaAssinatura, $atual->situacao, $atual->pagaAte, $atual->referencia, $atual->idDoCliente, $valorCentavos);
+        }
+    }
+
     /** Simula o pagamento confirmado (o que o gateway real faria ao cobrar o cartão). */
     public function marcarComoPaga(string $idDaAssinatura, \DateTimeImmutable $pagaAte): void
     {
