@@ -245,6 +245,13 @@ pedidos/{id}/                  id = PublicacaoDosBlogs.id
 
 - O pacote leva **todos** os artigos `publicado` de cada blog, não só o que mudou: o build gera o blog inteiro
   e o `rsync --delete` tira do ar o que saiu (despublicado ou excluído).
+- De cada artigo vai a **versão publicada**, nunca o texto atual (D7): no Publicar, o artigo congela em
+  `artigo_blog.versao_publicada` (jsonb) o `.md` de cada pasta de destino e os ids das imagens usadas;
+  Despublicar zera. A limpeza de imagens não apaga imagem da versão publicada. Assim, uma alteração guardada
+  de um artigo não vai ao ar quando outro artigo é publicado.
+- As pastas `artigos/blog/`, `artigos/blog-gratis/` e as `imagens/` existem sempre, mesmo vazias.
+- Pacote sem nenhum artigo publicado (somando os dois blogs) é recusado: o pedido vira `falhou` ("Nenhum artigo
+  publicado: o pacote tiraria todos os artigos do ar").
 - Escrita atômica: o worker monta em `pedidos/.{id}.montando/` e no fim faz `rename` para `pedidos/{id}/`. O
   builder ignora nome que começa com `.`.
 - `pedido.json`:
@@ -300,6 +307,8 @@ pedidos/{id}/                  id = PublicacaoDosBlogs.id
 - O zod dos dois blogs aceitar `canonical` opcional (URL que começa com `https://bluejus.com.br/blog/`), e o
   `Base.astro` usar esse valor no `<link rel="canonical">` e no `og:url` quando vier.
 - `npm test` passar sem `ARTIGOS` (com os artigos de teste do próprio repositório).
+- `ARTIGOS` apontando para uma pasta **vazia** gerar o blog sem artigos, sem quebrar o build (o Grátis pode não
+  ter nenhum artigo publicado).
 - `imagem: ./imagens/{id}.{ext}` relativo ao `.md` (já é o formato do zod).
 
 **Quem escreve em `sites-publicados` (dono dos arquivos)**
@@ -390,8 +399,10 @@ Todos os comandos vão em bloco "Execute manualmente" na fatia P4, com o passo a
    e `docker compose -f docker-compose.prod.yml up -d --force-recreate blog_builder`).
 4. Depois do merge da P4, rodar o deploy normal: ele sobe o contêiner `blog_builder` (o `up -d` cria o
    serviço novo).
-5. Rodar uma vez a importação dos artigos atuais (P2), com a raiz do repositório dos sites copiada para dentro do
-   contêiner: `bin/console blog:importar-do-repositorio <pasta-dos-sites> --simular` para conferir, depois sem `--simular`.
+5. **Antes de qualquer Publicar** (o primeiro pacote troca o blog inteiro pelo que está no banco), rodar uma vez
+   a importação dos artigos atuais (P2). A capa não é importada: artigo que tinha imagem de compartilhamento
+   precisa dela enviada de novo pelo editor antes de publicar. Com a raiz do repositório dos sites copiada para
+   dentro do contêiner: `bin/console blog:importar-do-repositorio <pasta-dos-sites> --simular` para conferir, depois sem `--simular`.
 
 Nada disso precisa ser repetido depois: publicar e agendar passam a ser cliques do Farlei.
 
