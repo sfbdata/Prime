@@ -105,13 +105,17 @@ final class ConsultarPainelDeRecompensasUseCase
         );
     }
 
-    /** @return array<int, list<array{criada_em: \DateTimeImmutable, tem_pasta: bool, suspeita: list<string>}>> `suspeita` vazia: conta limpa ou já aprovada */
+    /** @return array<int, list<array{criada_em: \DateTimeImmutable, tem_pasta: bool, pasta_em: ?\DateTimeImmutable, aprovada_em: ?\DateTimeImmutable, suspeita: list<string>}>> `suspeita` vazia: conta limpa ou já aprovada */
     private function contasPorIndicador(?int $indicadorId = null): array
     {
         $porIndicador = [];
         foreach ($this->indicacoes->contasParaRecompensas($indicadorId) as $conta) {
             $motivos = $conta['aprovada'] ? [] : SuspeitaDeConta::daLinha($conta);
-            $porIndicador[$conta['indicador_id']][] = ['criada_em' => new \DateTimeImmutable($conta['conta_criada_em']), 'tem_pasta' => $conta['tem_pasta'], 'suspeita' => $motivos];
+            $porIndicador[$conta['indicador_id']][] = [
+                'criada_em' => new \DateTimeImmutable($conta['conta_criada_em']), 'tem_pasta' => $conta['tem_pasta'], 'suspeita' => $motivos,
+                'pasta_em' => isset($conta['primeira_pasta_em']) ? new \DateTimeImmutable($conta['primeira_pasta_em']) : null,
+                'aprovada_em' => isset($conta['aprovada_em']) ? new \DateTimeImmutable($conta['aprovada_em']) : null,
+            ];
         }
 
         return $porIndicador;
@@ -157,9 +161,11 @@ final class ConsultarPainelDeRecompensasUseCase
     }
 
     /**
-     * `ganhos`: para cada conta ativa, quando o crédito dela foi ganho (fim da carência = criação + carência).
+     * `ganhos`: para cada conta ativa, quando o crédito dela foi ganho: o mais tarde entre o fim da carência (criação +
+     * carência de hoje; a de antes não fica guardada), a primeira pasta (se o programa exige pasta) e a aprovação do
+     * Master. Assim a conta que só ganhou pasta ou foi aprovada depois não nasce com o crédito já vencido.
      *
-     * @param list<array{criada_em: \DateTimeImmutable, tem_pasta: bool, suspeita: list<string>}> $contas
+     * @param list<array{criada_em: \DateTimeImmutable, tem_pasta: bool, pasta_em?: ?\DateTimeImmutable, aprovada_em?: ?\DateTimeImmutable, suspeita: list<string>}> $contas
      *
      * @return array{ativos: int, carencia: int, suspeitas: int, motivos: array<string, int>, seteDias: int, ganhos: list<\DateTimeImmutable>}
      */
@@ -179,7 +185,11 @@ final class ConsultarPainelDeRecompensasUseCase
                 ++$r['carencia'];
             } elseif (!$exigePasta || $conta['tem_pasta']) {
                 ++$r['ativos'];
-                $r['ganhos'][] = $conta['criada_em']->modify('+' . $carenciaDias . ' days');
+                $r['ganhos'][] = max(array_filter([
+                    $conta['criada_em']->modify('+' . $carenciaDias . ' days'),
+                    $exigePasta ? ($conta['pasta_em'] ?? null) : null,
+                    $conta['aprovada_em'] ?? null,
+                ]));
             }
         }
 

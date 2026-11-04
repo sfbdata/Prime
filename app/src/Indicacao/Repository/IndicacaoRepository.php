@@ -284,11 +284,13 @@ class IndicacaoRepository extends ServiceEntityRepository
     /**
      * As contas criadas por indicação, para as recompensas: UMA linha por conta (a mesma conta indicada por e-mail e pelo
      * link, ou por duas pessoas, vale uma vez só, para quem indicou primeiro). Traz quando a conta foi criada, se o
-     * escritório dela tem ao menos uma pasta não excluída e os SINAIS do antifraude: escritórios e CNPJs da conta e do
+     * escritório dela tem ao menos uma pasta não excluída (e quando a mais antiga delas foi criada), quando o Master
+     * aprovou a conta (a data do ganho do crédito, para a validade de 3 meses) e os SINAIS do antifraude: escritórios e CNPJs da conta e do
      * indicador (todos os vínculos de cada um), o domínio do e-mail de cada um e se o Master já aprovou a conta. Nome e
      * e-mail de ninguém saem daqui; o domínio é só insumo da regra de suspeita.
      *
      * @return list<array{indicador_id: int, conta_id: int, conta_criada_em: string, tem_pasta: bool, aprovada: bool,
+     *     primeira_pasta_em: ?string, aprovada_em: ?string,
      *     escritorios_conta: list<int>, escritorios_indicador: list<int>, cnpjs_conta: list<string>, cnpjs_indicador: list<string>,
      *     dominio_conta: string, dominio_indicador: string}>
      *
@@ -305,6 +307,10 @@ class IndicacaoRepository extends ServiceEntityRepository
                              WHERE ut.user_id = conta.id AND p.excluida_em IS NULL) AS tem_pasta,
                     EXISTS (SELECT 1 FROM aprovacao_de_conta_de_recompensa a
                              WHERE a.indicador_id = i.indicado_por_id AND a.conta_id = conta.id) AS aprovada,
+                    (SELECT MIN(p.created_at) FROM user_tenant ut JOIN pasta p ON p.tenant_id = ut.tenant_id
+                             WHERE ut.user_id = conta.id AND p.excluida_em IS NULL) AS primeira_pasta_em,
+                    (SELECT MAX(a.aprovada_em) FROM aprovacao_de_conta_de_recompensa a
+                             WHERE a.indicador_id = i.indicado_por_id AND a.conta_id = conta.id) AS aprovada_em,
                     (' . sprintf($escritorios, 'conta.id') . ') AS escritorios_conta,
                     (' . sprintf($escritorios, 'i.indicado_por_id') . ') AS escritorios_indicador,
                     (' . sprintf($cnpjs, 'conta.id') . ') AS cnpjs_conta,
@@ -320,6 +326,8 @@ class IndicacaoRepository extends ServiceEntityRepository
         return array_map(static fn (array $l): array => [
             'indicador_id' => (int) $l['indicador_id'], 'conta_id' => (int) $l['conta_id'], 'conta_criada_em' => (string) $l['conta_criada_em'],
             'tem_pasta' => (bool) $l['tem_pasta'], 'aprovada' => (bool) $l['aprovada'],
+            'primeira_pasta_em' => $l['primeira_pasta_em'] === null ? null : (string) $l['primeira_pasta_em'],
+            'aprovada_em' => $l['aprovada_em'] === null ? null : (string) $l['aprovada_em'],
             'escritorios_conta' => array_map('intval', self::lista($l['escritorios_conta'])),
             'escritorios_indicador' => array_map('intval', self::lista($l['escritorios_indicador'])),
             'cnpjs_conta' => self::lista($l['cnpjs_conta']), 'cnpjs_indicador' => self::lista($l['cnpjs_indicador']),

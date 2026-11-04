@@ -215,7 +215,12 @@
 
     /* Chave "Ampliação de GB automática": grava na hora, por escritório; se o servidor recusar, volta como estava */
     const chave = $('[data-co-auto]', modal);
+    let gravandoChave = false;
     chave.addEventListener('click', () => {
+        if (gravandoChave) {
+            return;
+        }
+        gravandoChave = true;
         const ligar = chave.getAttribute('aria-checked') !== 'true';
         chave.setAttribute('aria-checked', ligar ? 'true' : 'false');
         enviar(modal.dataset.urlAmpliacao, { ligada: ligar ? '1' : '0' })
@@ -228,7 +233,8 @@
             .catch((e) => {
                 chave.setAttribute('aria-checked', ligar ? 'false' : 'true');
                 erro(e.message || 'Não foi possível salvar. Tente de novo.');
-            });
+            })
+            .finally(() => { gravandoChave = false; });
     });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !modal.hidden) {

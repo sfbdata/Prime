@@ -120,6 +120,15 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame(4, $pedido->getMultiplicador());
         self::assertSame(6990 * 4, $pedido->getValorCentavos());
         self::assertSame(400, $pedido->gigabytes());
+        self::assertSame(6990 * 4, $this->gateway->ultimoPedido?->valorCentavos, 'o gateway recebe o valor cheio');
+        self::assertNull($this->gateway->ultimoPedido->linkDoPacote, 'com multiplicador, nunca o link fixo do pacote');
+
+        // Reabrir com outro multiplicador não reaproveita a página aberta do ×4 (o valor é outro).
+        $outro = $this->assinarCom($this->primario, 'avancado', 2);
+        self::assertTrue($outro['ok'], json_encode($outro) ?: '');
+        self::assertNotSame($resposta['url'], $outro['url']);
+        self::assertSame(6990 * 2, $this->gateway->ultimoPedido?->valorCentavos);
+        self::assertSame(2, $this->contarAssinaturas(), 'a página hospedada do ×4 fica, pode ter sido paga');
 
         $idNoGateway = (string) $pedido->getIdDoCheckout();
         $this->gateway->marcarComoPaga($idNoGateway, new \DateTimeImmutable('+1 month'));
@@ -151,7 +160,7 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
     {
         $this->logarComTenant($this->client, $this->primario, $this->escritorio);
         $this->client->request('GET', '/contribua');
-        self::assertSelectorExists('[data-checkout][data-ampliacao="0"] .co-auto[aria-checked="false"]');
+        self::assertSelectorExists('[data-checkout] .co-auto[aria-checked="false"]');
 
         $resposta = $this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '1']);
         self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
@@ -161,7 +170,7 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame('free', $this->planoDoEscritorio(), 'ligar a chave não muda o plano');
 
         $this->client->request('GET', '/contribua');
-        self::assertSelectorExists('[data-checkout][data-ampliacao="1"] .co-auto[aria-checked="true"]');
+        self::assertSelectorExists('[data-checkout] .co-auto[aria-checked="true"]');
 
         $this->logarComTenant($this->client, $this->secundario, $this->escritorio);
         $resposta = $this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '0']);

@@ -432,4 +432,28 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
         self::assertSame(2000, $l->saldoCentavos);
         self::assertSame(0, $l->expiradoCentavos);
     }
+
+    #[TestDox('validade: a conta que só ganhou pasta (ou foi aprovada pelo Master) depois conta o crédito dessa data, sem nascer vencida')]
+    public function testValidadeContaDaPastaEDaAprovacao(): void
+    {
+        $agora = new \DateTimeImmutable(self::AGORA);
+        $this->programa = new ProgramaDeRecompensa();
+        $this->programa->definirValidadeDesde($agora->modify('-1 year'));
+        $this->indicador(1);
+        $comPastaTarde = $this->conta(1, $agora->modify('-200 days')->format('Y-m-d H:i:s'));
+        $comPastaTarde['primeira_pasta_em'] = $agora->modify('-10 days')->format('Y-m-d H:i:s');
+        $aprovadaTarde = $this->conta(1, $agora->modify('-200 days')->format('Y-m-d H:i:s'));
+        $aprovadaTarde['primeira_pasta_em'] = $agora->modify('-190 days')->format('Y-m-d H:i:s');
+        $aprovadaTarde['aprovada'] = true;
+        $aprovadaTarde['aprovada_em'] = $agora->modify('-5 days')->format('Y-m-d H:i:s');
+        $vencida = $this->conta(1, $agora->modify('-200 days')->format('Y-m-d H:i:s'));
+        $vencida['primeira_pasta_em'] = $agora->modify('-190 days')->format('Y-m-d H:i:s');
+        $this->contas = [$comPastaTarde, $aprovadaTarde, $vencida];
+
+        $l = $this->linha(1);
+
+        self::assertSame(3, $l->ativos);
+        self::assertSame(2 * $l->valorCentavos, $l->saldoCentavos, 'pasta há 10 dias e aprovação há 5 dias: ainda valem');
+        self::assertSame($l->valorCentavos, $l->expiradoCentavos, 'a que ganhou há mais de 3 meses venceu');
+    }
 }
