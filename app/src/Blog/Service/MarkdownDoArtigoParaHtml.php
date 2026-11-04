@@ -23,7 +23,10 @@ use App\Blog\Exception\ArtigoDoRepositorioRecusado;
  * Tabela GFM (`| a | b |` + `| --- | --- |` + linhas): sai na forma que a lista branca guarda,
  * `<table><thead><tr><th>a</th>...</tr></thead><tbody><tr><td>...</td></tr></tbody></table>` (sem tbody quando só há o
  * cabeçalho). O alinhamento (`:---:`) não é guardado; linha com menos células ganha células vazias e a com mais perde
- * as que sobram, como no GFM. `\|` é a barra dentro da célula.
+ * as que sobram, como no GFM. `\|` é a barra dentro da célula. A tabela fecha na linha em branco, na linha horizontal
+ * e no começo de outro bloco (item de lista, título, citação, diretiva); o parágrafo para antes da linha que começa
+ * uma tabela, como no cmark-gfm. Tabela dentro de diretiva, citação ou lista é RECUSADA: no blog ela só fica solta no
+ * corpo (a lista branca a transformaria em texto, e nada pode sumir calado na importação).
  *
  * O que fica fora do subconjunto é RECUSADO com mensagem, para nada sumir calado na importação: imagem (as imagens
  * entram pela P3), bloco de código, título de nível 1, 4, 5 ou 6, linha horizontal, HTML no meio do texto e diretiva
@@ -38,6 +41,10 @@ final class MarkdownDoArtigoParaHtml
     private const DIRETIVAS_DE_BLOCO = ['aviso', 'etapas', 'checklist'];
     private const REGEX_ITEM = '/^( {0,3})([-*+]|(\d{1,9})[.)])( +|$)/';
     private const PONTUACAO_ESCAPAVEL = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+    private const REGEX_LINHA_HORIZONTAL = '/^ {0,3}([-*_])( *\1){2,} *$/';
+
+    /** Quantos blocos (diretiva, citação, item de lista) envolvem o que está sendo lido: tabela só vale no 0. */
+    private int $profundidade = 0;
 
     public function converter(string $markdown): string
     {
@@ -104,6 +111,10 @@ final class MarkdownDoArtigoParaHtml
             return $this->lista($linhas, $i);
         }
         if ($this->comecaTabela($linhas, $i)) {
+            if ($this->profundidade > 0) {
+                throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('tabela dentro de citação, lista ou bloco (:::aviso, :::etapas, :::checklist); no blog a tabela fica solta no corpo');
+            }
+
             return $this->tabela($linhas, $i);
         }
 
@@ -118,7 +129,7 @@ final class MarkdownDoArtigoParaHtml
         if (preg_match('/^ {0,3}(#|#{4,6})(\s|$)/', $linha) === 1) {
             throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('título de nível 1, 4, 5 ou 6 (o blog usa só ## e ###)');
         }
-        if (preg_match('/^ {0,3}([-*_])( *\1){2,} *$/', $linha) === 1) {
+        if (preg_match(self::REGEX_LINHA_HORIZONTAL, $linha) === 1) {
             throw ArtigoDoRepositorioRecusado::foraDoSubconjunto('linha horizontal');
         }
     }
@@ -144,7 +155,7 @@ final class MarkdownDoArtigoParaHtml
             throw ArtigoDoRepositorioRecusado::diretivaSemFechamento($nome);
         }
 
-        return ['<div data-bj="' . $nome . '">' . implode('', $this->blocos($dentro)) . '</div>', $i + 1];
+        return ['<div data-bj="' . $nome . '">' . implode('', $this->blocosDeDentro($dentro)) . '</div>', $i + 1];
     }
 
     private function diretivaDeLinha(string $linha): string
@@ -175,13 +186,30 @@ final class MarkdownDoArtigoParaHtml
             $dentro[] = $m[1];
             ++$i;
         }
-        $html = implode('', $this->blocos($dentro));
+        $html = implode('', $this->blocosDeDentro($dentro));
 
         return [$html === '' ? '' : '<blockquote>' . $html . '</blockquote>', $i];
     }
 
     /**
-     * Parágrafo: as linhas seguidas até uma linha em branco ou o começo de outro bloco.
+     * Os blocos de dentro de uma diretiva, citação ou item de lista (onde tabela é recusada).
+     *
+     * @param list<string> $linhas
+     *
+     * @return list<string>
+     */
+    private function blocosDeDentro(array $linhas): array
+    {
+        ++$this->profundidade;
+        try {
+            return $this->blocos($linhas);
+        } finally {
+            --$this->profundidade;
+        }
+    }
+
+    /**
+     * Parágrafo: as linhas seguidas até uma linha em branco, o começo de outro bloco ou de uma tabela.
      *
      * @param list<string> $linhas
      *
@@ -193,7 +221,7 @@ final class MarkdownDoArtigoParaHtml
         do {
             $texto[] = $linhas[$i];
             ++$i;
-        } while ($i < \count($linhas) && !$this->fechaParagrafo($linhas[$i]));
+        } while ($i < \count($linhas) && !$this->fechaParagrafo($linhas[$i]) && !$this->comecaTabela($linhas, $i));
 
         return ['<p>' . $this->inline(implode("\n", $texto)) . '</p>', $i];
     }
@@ -248,13 +276,21 @@ final class MarkdownDoArtigoParaHtml
 
         $corpo = '';
         $total = \count($linhas);
-        while ($i < $total && !$this->fechaParagrafo($linhas[$i])) {
+        while ($i < $total && !$this->fechaTabela($linhas[$i])) {
             $celulas = \array_slice(array_pad(self::celulasDaLinha($linhas[$i]), $colunas, ''), 0, $colunas);
             $corpo .= $this->linhaDaTabela($celulas, 'td');
             ++$i;
         }
 
         return [$html . ($corpo === '' ? '' : '<tbody>' . $corpo . '</tbody>') . '</table>', $i];
+    }
+
+    /** Linha em branco, linha horizontal ou começo de outro bloco (item de lista com qualquer número, título, citação, diretiva). */
+    private function fechaTabela(string $linha): bool
+    {
+        return $this->fechaParagrafo($linha)
+            || preg_match(self::REGEX_LINHA_HORIZONTAL, $linha) === 1
+            || preg_match(self::REGEX_ITEM, $linha) === 1;
     }
 
     /** @param list<string> $celulas */
@@ -407,7 +443,7 @@ final class MarkdownDoArtigoParaHtml
             ++$i;
         }
         $inline = $this->inline(trim(implode("\n", $texto)));
-        $resto = implode('', $this->blocos(\array_slice($conteudo, $i)));
+        $resto = implode('', $this->blocosDeDentro(\array_slice($conteudo, $i)));
 
         return $inline . $resto;
     }

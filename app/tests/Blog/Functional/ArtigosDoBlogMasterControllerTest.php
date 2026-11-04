@@ -363,6 +363,9 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         }
         self::assertStringContainsString("tabela: 'Inserir tabela'", $js);
         self::assertStringContainsString("'bjtabela'", $js);
+        // Tabela só solta no corpo: o botão fica desabilitado em tabela, item de lista, citação e bloco BlueJus.
+        self::assertStringContainsString("ed.dom.getParent(ed.selection.getNode(), 'table,li,blockquote,div[data-bj]', ed.getBody())", $js);
+        self::assertStringContainsString('api.setEnabled(podeInserirTabela())', $js);
         self::assertStringContainsString("headerRows: 1", $js);
         self::assertStringContainsString("table_header_type: 'sectionCells'", $js);
         foreach (['table_appearance_options', 'table_advtab', 'table_cell_advtab', 'table_row_advtab', 'table_resize_bars', 'table_use_colgroups'] as $opcao) {

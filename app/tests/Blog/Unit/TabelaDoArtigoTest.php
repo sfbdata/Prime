@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Blog\Unit;
 
+use App\Blog\Exception\ArtigoDoRepositorioRecusado;
 use App\Blog\Service\HtmlDoArtigoParaMarkdown;
 use App\Blog\Service\ListaBrancaDoArtigo;
 use App\Blog\Service\MarkdownDoArtigoParaHtml;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ListaBrancaDoArtigo::class)]
 #[CoversClass(HtmlDoArtigoParaMarkdown::class)]
 #[CoversClass(MarkdownDoArtigoParaHtml::class)]
+#[CoversClass(ArtigoDoRepositorioRecusado::class)]
 final class TabelaDoArtigoTest extends TestCase
 {
     private const TABELA = '<table><thead><tr><th>Prazo</th><th>Dias</th></tr></thead>'
@@ -159,6 +161,30 @@ final class TabelaDoArtigoTest extends TestCase
             "| A |\n| --- |\n| 1 |\n\nDepois",
             "<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>\n<p>Depois</p>",
         ];
+        yield 'fecha no item de lista com qualquer número' => [
+            "| A |\n| --- |\n| 1 |\n2. item\n",
+            '<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>' . "\n" . '<ol><li>item</li></ol>',
+        ];
+        yield 'fecha no item de lista com traço' => [
+            "| A |\n| --- |\n- item\n",
+            '<table><thead><tr><th>A</th></tr></thead></table>' . "\n" . '<ul><li>item</li></ul>',
+        ];
+        yield 'fecha no título' => [
+            "| A |\n| --- |\n| 1 |\n## Título\n",
+            '<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>' . "\n" . '<h2>Título</h2>',
+        ];
+        yield 'fecha na citação' => [
+            "| A |\n| --- |\n> cit\n",
+            '<table><thead><tr><th>A</th></tr></thead></table>' . "\n" . '<blockquote><p>cit</p></blockquote>',
+        ];
+        yield 'fecha na diretiva' => [
+            "| A |\n| --- |\n:::aviso\nCuidado.\n:::\n",
+            '<table><thead><tr><th>A</th></tr></thead></table>' . "\n" . '<div data-bj="aviso"><p>Cuidado.</p></div>',
+        ];
+        yield 'o parágrafo para antes da tabela' => [
+            "Texto\n| a |\n| --- |\n| 1 |\n",
+            '<p>Texto</p>' . "\n" . '<table><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>',
+        ];
         yield 'separação com número de células diferente não é tabela' => ["| A | B |\n| --- |\n", '<p>| A | B | | --- |</p>'];
     }
 
@@ -167,6 +193,31 @@ final class TabelaDoArtigoTest extends TestCase
     public function testGfmParaHtml(string $markdown, string $html): void
     {
         self::assertSame($html, $this->markdown->converter($markdown));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function gfmRecusado(): iterable
+    {
+        $tabela = "| A |\n| --- |\n| 1 |";
+        yield 'tabela dentro de :::aviso' => [":::aviso\n" . $tabela . "\n:::\n", 'tabela dentro de citação, lista ou bloco'];
+        yield 'tabela dentro de :::checklist' => [":::checklist\n- item\n\n" . $tabela . "\n:::\n", 'tabela dentro de citação, lista ou bloco'];
+        yield 'tabela dentro de citação' => ["> | A |\n> | --- |\n> | 1 |\n", 'tabela dentro de citação, lista ou bloco'];
+        yield 'tabela dentro de item de lista' => ["- item\n  - sub\n\n  | A |\n  | --- |\n", 'tabela dentro de citação, lista ou bloco'];
+        yield 'linha horizontal fecha a tabela e continua recusada' => [$tabela . "\n---\n", 'linha horizontal'];
+        yield 'linha horizontal com asteriscos' => [$tabela . "\n***\n", 'linha horizontal'];
+        yield 'linha horizontal com sublinhado' => [$tabela . "\n___\n", 'linha horizontal'];
+    }
+
+    #[DataProvider('gfmRecusado')]
+    #[TestDox('GFM recusado na importação: $_dataName')]
+    public function testGfmRecusado(string $markdown, string $trecho): void
+    {
+        try {
+            $this->markdown->converter($markdown);
+            self::fail('a importação deveria recusar');
+        } catch (ArtigoDoRepositorioRecusado $e) {
+            self::assertStringContainsString($trecho, $e->getMessage());
+        }
     }
 
     #[TestDox('Ida e volta: HTML da tabela, Markdown e HTML de novo saem iguais')]

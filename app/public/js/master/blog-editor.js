@@ -801,9 +801,10 @@
 
     /* Inserir tabela: fora de tabela, a grade linhas × colunas do plugin table (fancymenuitem inserttable); a tabela
        nasce com a primeira linha como cabeçalho (thead > tr > th, table_header_type sectionCells), que é a linha de
-       cabeçalho da tabela no Markdown. Dentro de tabela o botão fica desabilitado (sem tabela dentro de tabela) e
-       as ações aparecem na barra de contexto (table_toolbar), com os ícones e textos da pasta. */
-    const naTabela = () => !!ed.dom.getParent(ed.selection.getNode(), 'table');
+       cabeçalho da tabela no Markdown. A tabela só fica solta no corpo: dentro de tabela, item de lista, citação ou
+       bloco BlueJus o botão fica desabilitado (a lista branca do servidor a transformaria em texto). Dentro da
+       tabela, as ações aparecem na barra de contexto (table_toolbar), com os ícones e textos da pasta. */
+    const podeInserirTabela = () => !ed.dom.getParent(ed.selection.getNode(), 'table,li,blockquote,div[data-bj]', ed.getBody());
     ed.ui.registry.addMenuButton('bjtabela', {
       icon: 'bj-table',
       tooltip: DICAS.tabela,
@@ -811,13 +812,14 @@
         type: 'fancymenuitem',
         fancytype: 'inserttable',
         onAction: d => {
+          if (!podeInserirTabela()) return;
           fecharJanela();
           ed.execCommand('mceInsertTable', false, { rows: d.numRows, columns: d.numColumns, options: { headerRows: 1 } });
           sujo = true;
         },
       }]),
       onSetup: api => {
-        const atualizar = () => api.setEnabled(!naTabela());
+        const atualizar = () => api.setEnabled(podeInserirTabela());
         atualizar();
         ed.on('NodeChange', atualizar);
         return () => ed.off('NodeChange', atualizar);

@@ -24,7 +24,8 @@ use App\Blog\Entity\ArtigoDoBlog;
  *    há o cabeçalho). O cabeçalho é a primeira linha do thead; sem thead, a primeira linha da tabela. As outras linhas
  *    do thead e as do tfoot vão para o tbody, na ordem. Linha sem célula e tabela sem linha somem. Na célula só fica
  *    texto, strong, em, a e br: bloco (parágrafo, título, lista, citação, outra tabela) vira texto e imagem cai.
- *    Tabela fora do nível de cima (dentro de lista, citação ou bloco BlueJus) vira texto.
+ *    Tabela fora do nível de cima (dentro de lista, citação ou bloco BlueJus) vira texto. Dentro da tabela, só as
+ *    linhas (tr) contam: caption, colgroup e texto solto fora de tr caem.
  *
  * Uso interno do {@see HtmlDoArtigoParaMarkdown}.
  */
