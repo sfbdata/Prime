@@ -37,6 +37,8 @@ use App\Sync\Exception\TokenDoDriveRecusadoException;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Sync\Service\LoteDoDrive;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
+use App\Sync\UseCase\LigarPastaImportadaDoDriveUseCase;
+use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -67,6 +69,7 @@ final class PeticionarController extends AbstractController
         private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         private readonly GoogleDriveClientFactoryInterface $drives,
         private readonly LoteDoDrive $loteDoDrive,
+        private readonly LigarPastaImportadaDoDriveUseCase $ligarAoDrive,
     ) {}
 
     #[Route('/{id}/peticionar', name: 'pasta_peticionar', methods: ['GET'])]
@@ -215,12 +218,13 @@ final class PeticionarController extends AbstractController
         }
 
         $driveFileId = trim((string) $request->request->get('drive_file_id', ''));
-        $temporario  = tempnam(sys_get_temp_dir(), 'drive-lote-');
-        if ($driveFileId === '' || $temporario === false) {
+        if ($driveFileId === '') {
             return new JsonResponse(['success' => false, 'error' => 'Nenhum arquivo enviado.'], Response::HTTP_BAD_REQUEST);
         }
 
+        $area = AreaTemporariaPrivada::criar('importardodrive');
         try {
+            $temporario = $area->gravar('');
             try {
                 $nome = $this->loteDoDrive->baixar($this->drives->paraTenant($tenant), $driveFileId, $temporario);
             } catch (ImportacaoDoDriveRecusadaException $e) {
@@ -233,9 +237,7 @@ final class PeticionarController extends AbstractController
 
             return $this->anexar($pasta, $request, new UploadedFile($temporario, $nome, null, null, true), $currentUser, $tenant, $driveFileId);
         } finally {
-            if (is_file($temporario)) {
-                @unlink($temporario);
-            }
+            $area->liberar();
         }
     }
 
@@ -288,13 +290,16 @@ final class PeticionarController extends AbstractController
         }
 
         try {
-            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho, $currentUser, avisarQuemAcompanha: true, driveFileIdDeOrigem: $driveFileId);
+            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho, $currentUser, avisarQuemAcompanha: true);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
 
         $doc        = $resultado->documento;
         $compressao = $resultado->compressao;
+        if ($driveFileId !== null) {
+            $this->ligarAoDrive->ligarDocumento($doc, $driveFileId);
+        }
 
         // Aviso, não bloqueio: o documento já está gravado. Só pastas do MESMO escritório que o
         // usuário pode ver entram na lista (ListarDuplicadosDoDocumentoUseCase).

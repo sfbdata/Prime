@@ -7,6 +7,8 @@
    rodapé. O clique fecha esta modal e, depois de fechada, dispara `bj:importar-lote` no document; quem abre o lote
    é expediente/_importar_lote_modal.html.twig (expediente-importar-lote.js). #}
 {% set importarLote = importarLote ?? false %}
+{# `importarDoDrive` (spec importar-do-drive.md): ao lado do lote, só quando o escritório tem o Google Drive conectado. #}
+{% set importarDoDrive = importarLote and (importarDoDrive ?? false) %}
 {# As Minhas Demandas (desenho 15) usam o mesmo modal com as sugestões da rota delas (módulo `pastas`) e
    `criadorResponsavel`: a pasta nasce com quem cria como responsável. Sem os dois, o Expediente de sempre. #}
 {% set urlSugestoesNova = urlSugestoesNova ?? (desenho11 ? path('expediente_nova_pasta_sugestoes') : null) %}
@@ -48,6 +50,7 @@
                 </div>
                 <div class="exp-nova-rodape">
                     {% if importarLote %}<button type="button" class="exp-nova-lote" data-acao="importar-lote" data-tip="{{ 'comum.nova_pasta.importar_lote_dica'|trans }}"><i class="bi bi-folder-symlink" aria-hidden="true"></i>{{ 'comum.nova_pasta.importar_lote'|trans }}</button>{% endif %}
+                    {% if importarDoDrive %}<button type="button" class="exp-nova-lote exp-nova-drive" data-acao="importar-drive" data-tip="{{ 'comum.nova_pasta.importar_drive_dica'|trans }}"><i class="bi bi-google" aria-hidden="true"></i>{{ 'comum.nova_pasta.importar_drive'|trans }}</button>{% endif %}
                     <button type="button" class="exp-btn exp-btn--cinza" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
                     <button type="submit" class="exp-btn exp-btn--azul js-nova-salvar" disabled><i class="bi bi-check-lg" aria-hidden="true"></i>{{ 'comum.salvar'|trans }}</button>
                 </div>
@@ -120,9 +123,11 @@
     {#- Botão do lote (desenho 03): fecha a Nova Pasta e só então avisa o lote, para as duas não ficarem abertas. #}
     {% if importarLote %}
     form.addEventListener('click', function (e) {
-        if (!e.target.closest('[data-acao="importar-lote"]')) { return; }
+        var botao = e.target.closest('[data-acao="importar-lote"], [data-acao="importar-drive"]');
+        if (!botao) { return; }
         var inst = novaEl && window.bootstrap ? bootstrap.Modal.getInstance(novaEl) : null;
-        var avisar = function () { document.dispatchEvent(new CustomEvent('bj:importar-lote')); };
+        var drive = botao.getAttribute('data-acao') === 'importar-drive';
+        var avisar = function () { document.dispatchEvent(new CustomEvent('bj:importar-lote', { detail: { drive: drive } })); };
         if (!inst) { avisar(); return; }
         novaEl.addEventListener('hidden.bs.modal', avisar, { once: true });
         inst.hide();

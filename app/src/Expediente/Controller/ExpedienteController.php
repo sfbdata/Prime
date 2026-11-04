@@ -42,6 +42,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use App\Sync\Repository\TenantDriveConexaoRepository;
 
 final class ExpedienteController extends AbstractController
 {
@@ -74,6 +75,7 @@ final class ExpedienteController extends AbstractController
         private readonly CsvDaListaDoExpediente $csvDaLista,
         private readonly AcessoAPasta $acessoAPasta,
         private readonly GravarColunasDoExpedienteUseCase $gravarColunasUseCase,
+        private readonly TenantDriveConexaoRepository $conexoesDoDrive,
         private readonly ObterColunasDoExpedienteUseCase $obterColunasUseCase,
     ) {
     }
@@ -98,6 +100,8 @@ final class ExpedienteController extends AbstractController
         return $this->render('expediente/index.html.twig', $this->dadosDoTrilho($tenant) + [
             'painelInicial'    => $this->painelInicialDoDeepLink($request),
             'souAdministrador' => $this->acessoAPasta->podeConfigurar($user, $tenant),
+            // "Importar do Google Drive" só aparece com o Drive do escritório conectado (spec importar-do-drive.md).
+            'driveConectado'   => $this->conexoesDoDrive->findAtivaDoTenant($tenant) !== null,
         ]);
     }
 

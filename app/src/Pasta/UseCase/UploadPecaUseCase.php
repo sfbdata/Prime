@@ -163,7 +163,6 @@ final class UploadPecaUseCase
         ?User $enviadoPor = null,
         ?\Closure $aoGravar = null,
         bool $avisarQuemAcompanha = false,
-        ?string $driveFileIdDeOrigem = null,
     ): ResultadoUploadPeca {
         if ($secao !== null && $secao->getTenant() !== $tenant) {
             throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
@@ -242,7 +241,6 @@ final class UploadPecaUseCase
         $doc->setSecao($secao)->setPaginas($paginas);
         $doc->setEnviadoPor($enviadoPor);
         $doc->marcarAssinaturaDoUpload($assinado, $compressao->comprimido, $enviadoPor);
-        $this->ligarAoArquivoDoDrive($doc, $driveFileIdDeOrigem);
 
         $this->vincularAoArquivo($doc, $tenant, $codigo, $nomeUnico, $compressao->tamanhoFinal, $sha256);
         $this->gravarEAvisar($avisarQuemAcompanha, $doc, $pasta, $tenant, $enviadoPor);
@@ -259,22 +257,6 @@ final class UploadPecaUseCase
         $arquivo = new ArquivoArmazenado($tenant, $codigo, $chave, $tamanho, $sha256);
         $this->em->persist($arquivo);
         $doc->setArquivo($arquivo);
-    }
-
-    /**
-     * "Importar do Google Drive" (spec importar-do-drive.md): o documento fica ligado ao arquivo de origem, para o
-     * envio automático não copiá-lo de volta. O vínculo é único no sistema inteiro; se o mesmo arquivo do Drive já
-     * está ligado a outro documento, este entra só como cópia.
-     */
-    private function ligarAoArquivoDoDrive(PastaDocumento $doc, ?string $driveFileId): void
-    {
-        if ($driveFileId === null || $driveFileId === '') {
-            return;
-        }
-        if ($this->em->getRepository(PastaDocumento::class)->count(['driveFileId' => $driveFileId]) > 0) {
-            return;
-        }
-        $doc->setDriveFileId($driveFileId);
     }
 
     /**

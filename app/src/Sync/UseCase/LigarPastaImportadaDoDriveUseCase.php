@@ -6,6 +6,7 @@ namespace App\Sync\UseCase;
 
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Sync\Exception\ImportacaoDoDriveRecusadaException;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Sync\Service\LoteDoDrive;
@@ -49,6 +50,21 @@ final class LigarPastaImportadaDoDriveUseCase
             return false;
         }
         $pasta->ligarAPastaDoDrive($driveFolderId);
+        $this->em->flush();
+
+        return true;
+    }
+
+    /**
+     * O documento importado fica ligado ao arquivo de origem, para o envio automático não copiá-lo de volta. O vínculo
+     * é único no sistema inteiro: se o arquivo do Drive já está ligado a outro documento, este entra só como cópia.
+     */
+    public function ligarDocumento(PastaDocumento $documento, string $driveFileId): bool
+    {
+        if ($this->em->getRepository(PastaDocumento::class)->count(['driveFileId' => $driveFileId]) > 0) {
+            return false;
+        }
+        $documento->setDriveFileId($driveFileId);
         $this->em->flush();
 
         return true;

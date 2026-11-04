@@ -304,7 +304,8 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
 
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString("novaEl.addEventListener('hidden.bs.modal', avisar, { once: true });", $html);
-        self::assertStringContainsString("document.dispatchEvent(new CustomEvent('bj:importar-lote'))", $html);
+        // O mesmo evento abre o lote do computador e o do Google Drive (`detail.drive`, spec importar-do-drive.md).
+        self::assertStringContainsString("document.dispatchEvent(new CustomEvent('bj:importar-lote', { detail: { drive: drive } }))", $html);
         self::assertCount(1, $crawler->filter('script[src$="/js/expediente-importar-lote.js"]'), 'a linha do e5 continua');
     }
 

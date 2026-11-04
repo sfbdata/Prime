@@ -9,7 +9,9 @@ use App\Expediente\Controller\ImportarLoteController;
 use App\Pasta\Controller\PeticionarController;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Sync\Entity\TenantDriveConexao;
 use App\Sync\Exception\ImportacaoDoDriveRecusadaException;
+use App\Sync\Service\CifradorDeSegredo;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Sync\UseCase\LigarPastaImportadaDoDriveUseCase;
 use App\Tests\Sync\Support\FakeGoogleDriveClient;
@@ -74,6 +76,31 @@ final class ImportarDoDriveControllerTest extends BuscaRapidaWebTestCase
         $client->request('POST', self::CRIAR, ['nome_cliente' => 'ANA', '_token' => $this->tokenDaTela($client), 'drive_folder_id' => $driveFolderId]);
 
         return $this->json($client);
+    }
+
+    #[TestDox('tela: o botão "Importar do Google Drive" e a entrada do modal só aparecem com o Drive do escritório conectado')]
+    public function testBotaoSoComDriveConectado(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdministrador($tenant);
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $crawler = $client->request('GET', '/expediente');
+        self::assertCount(0, $crawler->filter('.exp-nova-rodape > [data-acao="importar-drive"]'));
+        self::assertNull($crawler->filter('#il-raiz')->attr('data-url-arvore'));
+
+        $conexao = new TenantDriveConexao($tenant);
+        $conexao->registrarCredenciais(self::getContainer()->get(CifradorDeSegredo::class)->cifrar('tok'), 'a@b.com', 'drive', $admin);
+        $conexao->definirRootFolder('root-abcdefghij');
+        $this->em()->persist($conexao);
+        $this->em()->flush();
+
+        $crawler = $client->request('GET', '/expediente');
+        self::assertCount(1, $crawler->filter('.exp-nova-rodape > [data-acao="importar-lote"] + [data-acao="importar-drive"]'), 'ao lado do Importar em lote');
+        self::assertSame(self::ARVORE, $crawler->filter('#il-raiz')->attr('data-url-arvore'));
+        self::assertCount(1, $crawler->filter('#il-raiz [data-il="drive"] [data-il="drive-link"]'));
     }
 
     #[TestDox('árvore: sem o módulo Pastas (a permissão de criar pasta), 403')]
@@ -149,6 +176,7 @@ final class ImportarDoDriveControllerTest extends BuscaRapidaWebTestCase
 
         $pasta = $this->em()->find(Pasta::class, $criada['id']);
         self::assertNotNull($pasta);
+        self::assertSame('/pasta/' . $criada['id'] . '/peticionar/upload-drive', $criada['uploadDriveUrl']);
         self::assertSame('pasta_ana_01', $pasta->getDriveFolderId());
         self::assertTrue($pasta->isDriveManterNome());
 

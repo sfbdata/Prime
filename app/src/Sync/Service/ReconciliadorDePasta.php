@@ -118,6 +118,8 @@ final class ReconciliadorDePasta
      * lá — aqui não há leitura do Drive para comparar.
      *
      * No-op silencioso se a pasta ainda não tem vínculo (o envio normal cria com o nome certo).
+     * Também no-op para a pasta ligada pelo "Importar do Google Drive" (`drive_manter_nome`): o nome que ela tem
+     * no Drive fica (decisão do Samuel, 04/11/2026).
      */
     public function renomearNoDrive(int $pastaId, GoogleDriveClientInterface $client, bool $dryRun, ResultadoReconciliacaoPasta $r): void
     {
@@ -126,15 +128,11 @@ final class ReconciliadorDePasta
         }
         $conn = $this->em->getConnection();
         $row  = $conn->fetchAssociative(
-            'SELECT drive_folder_id, nup, nome_cliente, nome_acao, drive_manter_nome FROM pasta WHERE id = :id',
+            'SELECT drive_folder_id, nup, nome_cliente, nome_acao FROM pasta WHERE id = :id AND drive_manter_nome = false',
             ['id' => $pastaId],
         );
 
         if ($row === false || $row['drive_folder_id'] === null || $row['drive_folder_id'] === '') {
-            return;
-        }
-        // Pasta ligada pelo "Importar do Google Drive": o nome que ela tem no Drive fica (decisão do Samuel).
-        if ((bool) $row['drive_manter_nome']) {
             return;
         }
 

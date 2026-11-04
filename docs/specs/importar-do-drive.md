@@ -53,8 +53,12 @@ IA, subpastas e recusados não mudam e não são copiados.
 ## Decisões
 
 - Síncrono, um arquivo por POST, como o lote do computador (já sequencial, com progresso). Sem worker.
-- Sem migration. Não grava `drive_file_id` de origem no documento: o arquivo é **copiado** para a pasta
-  (a exportação ao acervo do Drive segue como em qualquer upload).
+- **Pasta ligada à origem** (Samuel, 04/11/2026): a pasta criada grava o `drive_folder_id` da pasta de origem e cada
+  documento o `drive_file_id` do arquivo de origem. O envio automático usa essa pasta e não a renomeia para
+  "NUP - CLIENTE - AÇÃO" (`pasta.drive_manter_nome`, migration `Version20261104120000`). O JS só liga quando a pasta
+  do Drive tem os arquivos daquela linha e de nenhuma outra (ligar a pasta de vários clientes a um deles traria os
+  arquivos dos outros de volta). Vínculo já usado por outra pasta ou documento: entra como cópia, sem vínculo.
+- O relatório de divergência do `app:sync:reconciliar` ignora as pastas ligadas (o nome do Drive é o certo).
 - Erros: Drive sem conexão, pasta não encontrada ou sem acesso viram mensagem curta no modal.
 
 ## Testes
