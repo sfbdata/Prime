@@ -41,6 +41,9 @@ final class MontadorDoPacoteDosBlogs
     /** As pastas dos blogs no pacote, na ordem do `pedido.json`. */
     public const PASTAS = ['blog', 'blog-gratis'];
 
+    /** O nome de cada pasta para quem lê o motivo da falha. */
+    private const ROTULOS = ['blog' => 'Blog BlueJus', 'blog-gratis' => 'Blog BlueJus Grátis'];
+
     public function __construct(
         private readonly ArtigoDoBlogRepository $artigos,
         private readonly ImagemDoArtigoRepository $imagens,
@@ -60,7 +63,7 @@ final class MontadorDoPacoteDosBlogs
                 $this->pasta->criarPastaNaMontagem($id, 'artigos/' . $pastaDoBlog . '/imagens');
             }
             foreach ($this->artigos->publicados() as $artigo) {
-                foreach ($this->gravarArtigo($id, $artigo) as $pastaDoBlog => $slug) {
+                foreach ($this->gravarArtigo($id, $artigo, $slugs) as $pastaDoBlog => $slug) {
                     $slugs[$pastaDoBlog][] = $slug;
                 }
             }
@@ -78,8 +81,15 @@ final class MontadorDoPacoteDosBlogs
         return $slugs;
     }
 
-    /** @return array<string, string> pasta do blog => slug com que o artigo entrou */
-    private function gravarArtigo(int $id, ArtigoDoBlog $artigo): array
+    /**
+     * Rede de segurança contra slug repetido na mesma pasta (o segundo `.md` sobrescreveria o primeiro e um artigo
+     * sumiria do site): recusa o pacote inteiro.
+     *
+     * @param array<string, list<string>> $jaNoPacote pasta do blog => slugs já gravados
+     *
+     * @return array<string, string> pasta do blog => slug com que o artigo entrou
+     */
+    private function gravarArtigo(int $id, ArtigoDoBlog $artigo, array $jaNoPacote): array
     {
         $versao = $artigo->getVersaoPublicada() ?? throw new \RuntimeException(sprintf(
             'O artigo "%s" está publicado sem a versão publicada guardada: publique-o de novo pelo editor.',
@@ -90,6 +100,9 @@ final class MontadorDoPacoteDosBlogs
         foreach ($versao['arquivos'] as $pastaDoBlog => $md) {
             if (!\in_array($pastaDoBlog, self::PASTAS, true)) {
                 throw new \RuntimeException(sprintf('Pasta "%s" desconhecida na versão publicada de "%s".', $pastaDoBlog, $versao['slug']));
+            }
+            if (\in_array($versao['slug'], $jaNoPacote[$pastaDoBlog], true)) {
+                throw new \RuntimeException(sprintf('Dois artigos publicados com o slug %s no %s.', $versao['slug'], self::ROTULOS[$pastaDoBlog]));
             }
             $this->pasta->gravarNaMontagem($id, 'artigos/' . $pastaDoBlog . '/' . $versao['slug'] . '.md', $md);
             foreach ($imagens as $imagem) {

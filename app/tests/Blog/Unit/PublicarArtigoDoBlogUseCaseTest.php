@@ -149,6 +149,24 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
         self::assertSame([], $this->bus->mensagens);
     }
 
+    #[TestDox('Slug que é de outro artigo (ou da versão no ar de outro artigo): recusa sem publicar')]
+    public function testRecusaSlugDeOutroArtigo(): void
+    {
+        $artigo = ArtigosDeTeste::rascunhoCompleto('slug-tomado');
+        $this->comArtigo($artigo);
+        $this->artigos->method('existeSlug')->with('slug-tomado', 7)->willReturn(true);
+        $this->publicacoes->expects(self::never())->method('salvar');
+
+        try {
+            $this->publicar()->executar(7, null);
+            self::fail('Deveria recusar.');
+        } catch (ArtigoDoBlogNaoPublicavel $e) {
+            self::assertSame(['slug' => ['O slug "slug-tomado" é de outro artigo (ou da versão que está no ar de outro artigo).']], $e->erros);
+        }
+        self::assertSame(SituacaoDoArtigo::Rascunho, $artigo->getSituacao());
+        self::assertNull($artigo->getVersaoPublicada());
+    }
+
     #[TestDox('Republicar com texto novo: mantém publicadoEm e muda atualizadoEm; sem alterações, recusa')]
     public function testRepublicar(): void
     {

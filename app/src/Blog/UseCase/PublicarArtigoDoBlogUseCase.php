@@ -47,6 +47,9 @@ final class PublicarArtigoDoBlogUseCase
         $artigo = $this->artigos->porId($id) ?? throw ArtigoDoBlogNaoEncontrado::comId($id);
         $erros = $this->validador->validar($artigo, $this->artigos->slugsExistentes());
         unset($erros['publicarEm']);
+        if ($this->artigos->existeSlug($artigo->getSlug(), $id)) {
+            $erros['slug'][] = sprintf('O slug "%s" é de outro artigo (ou da versão que está no ar de outro artigo).', $artigo->getSlug());
+        }
         if ($erros !== []) {
             throw new ArtigoDoBlogNaoPublicavel($erros);
         }

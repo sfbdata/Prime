@@ -194,6 +194,23 @@ final class MontadorDoPacoteDosBlogsTest extends TestCase
         self::assertSame(['11.png'], array_values(array_diff(scandir($this->raiz . '/7/artigos/blog/imagens') ?: [], ['.', '..'])));
     }
 
+    #[TestDox('Rede de segurança: dois publicados com o mesmo slug na mesma pasta recusam o pacote, sem deixar pasta')]
+    public function testSlugRepetidoNaMesmaPasta(): void
+    {
+        $a = $this->publicado('repetido', BlogsDoArtigo::Normal, 1);
+        $b = $this->publicado('repetido', BlogsDoArtigo::Ambos, 2);
+        $this->noAr($a, $b);
+        $this->artigos->method('publicados')->willReturn([$a, $b]);
+
+        try {
+            $this->sut()->montar($this->publicacao(9));
+            self::fail('Deveria recusar.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Dois artigos publicados com o slug repetido no Blog BlueJus.', $e->getMessage());
+        }
+        self::assertSame(['.', '..'], scandir($this->raiz));
+    }
+
     #[TestDox('Artigo publicado sem versão guardada (anterior à P4): a montagem falha pedindo para publicá-lo de novo')]
     public function testPublicadoSemVersao(): void
     {

@@ -402,8 +402,9 @@ Todos os comandos vão em bloco "Execute manualmente" na fatia P4, com o passo a
 4. Depois do merge da P4, rodar o deploy normal: ele sobe o contêiner `blog_builder` (o `up -d` cria o
    serviço novo).
 5. **Antes de qualquer Publicar** (o primeiro pacote troca o blog inteiro pelo que está no banco), rodar uma vez
-   a importação dos artigos atuais (P2). A capa não é importada: artigo que tinha imagem de compartilhamento
-   precisa dela enviada de novo pelo editor antes de publicar. Com a raiz do repositório dos sites copiada para
+   a importação dos artigos atuais (P2). A capa não é importada: o artigo importado vai ao ar sem imagem de
+   compartilhamento até ganhar a capa pelo editor **e** um Publicar próprio (enviar a capa sozinha não basta,
+   porque o pacote leva a versão congelada na importação). Com a raiz do repositório dos sites copiada para
    dentro do contêiner: `bin/console blog:importar-do-repositorio <pasta-dos-sites> --simular` para conferir, depois sem `--simular`.
 
 Nada disso precisa ser repetido depois: publicar e agendar passam a ser cliques do Farlei.

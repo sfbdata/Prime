@@ -52,18 +52,23 @@ class ArtigoDoBlogRepository extends ServiceEntityRepository
         return $this->findOneBy(['slug' => $slug]);
     }
 
-    /** O slug já é de outro artigo? `excetoId` é o próprio artigo, na edição. */
+    /**
+     * O slug já é de outro artigo? `excetoId` é o próprio artigo, na edição.
+     *
+     * Conta também o slug da VERSÃO PUBLICADA de outro artigo (`versao_publicada->>'slug'`, D7): depois de uma troca
+     * de slug guardada e ainda não publicada, o slug antigo continua no ar e não pode ser tomado por outro artigo
+     * (os dois gravariam o mesmo `.md` no pacote e um sumiria do site).
+     */
     public function existeSlug(string $slug, ?int $excetoId = null): bool
     {
-        $qb = $this->createQueryBuilder('a')
-            ->select('COUNT(a.id)')
-            ->andWhere('a.slug = :slug')
-            ->setParameter('slug', $slug);
+        $sql = "SELECT 1 FROM artigo_blog WHERE (slug = :slug OR versao_publicada->>'slug' = :slug)";
+        $parametros = ['slug' => $slug];
         if ($excetoId !== null) {
-            $qb->andWhere('a.id <> :excetoId')->setParameter('excetoId', $excetoId);
+            $sql .= ' AND id <> :excetoId';
+            $parametros['excetoId'] = $excetoId;
         }
 
-        return (int) $qb->getQuery()->getSingleScalarResult() > 0;
+        return $this->getEntityManager()->getConnection()->fetchOne($sql . ' LIMIT 1', $parametros) !== false;
     }
 
     /**
