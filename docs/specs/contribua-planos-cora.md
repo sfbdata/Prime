@@ -18,14 +18,34 @@ deu o escopo). Branch `contribua-0311`, migration `Version20261104110000` (esper
 - Validade do crédito de indicação: 3 meses (`ProgramaDeRecompensa::VALIDADE_MESES`). Crédito ganho antes do deploy
   conta de `validade_desde` (gravada pela migration, que cria a linha do programa se faltar); o novo, da data em
   que foi ganho. Débitos (pagos e estornos) consomem o crédito que vence primeiro. Vale no painel do Master também.
-- Botões + e − no checkout do MAIOR pacote pago: multiplicador 1, 2, 4, 8 ou 16 (teto do servidor) gravado na
+- Botões + e − no checkout do MAIOR pacote pago: multiplicador 1, 2, 4, 8... sem limite de vezes (decisão do Samuel, 04/11) gravado na
   assinatura e no espaço; valor e GB multiplicados; com multiplicador o gateway não recebe o "Link do pacote".
   O desenho exportado tem a marcação embaralhada nesse trecho; seguida a ordem do arquivo: + no topo do cartão azul,
   − e ×N na linha "Precisa de mais?".
 - Chave "Ampliação de GB automática": gravada por escritório (`contribua_espaco_do_escritorio.ampliacao_automatica`),
   POST `contribua_ampliacao_automatica`, só o primário.
-- **Pendente (PR seguinte, decisão do Coordenador 04/11):** a dobra automática de verdade: detectar uso acima do
-  limite, dobrar espaço e valor na assinatura do gateway, avisar o escritório.
+- **Dobra automática (PR `contribua-dobra`, regras do Coordenador 04/11):** `AmpliarEspacoAutomaticamenteUseCase`,
+  depois do commit do envio. Com o bloqueio ligado, o `ArmazenamentoComCota` deixa entrar o envio que passaria do
+  limite com a folga de UMA dobra (`FolgaDaAmpliacao`) e pede a ampliação (`EspacoPassouDoContratado`, uma vez por
+  escritório na requisição); com o bloqueio desligado, ela vem pelo `UsoDoEspacoSubiu`. Se o gateway recusar, o
+  escritório fica com no máximo uma dobra sem pagar até o Master resolver. Dispara quando o uso passa de 100% do espaço
+  CONTRATADO (plano × multiplicador, sem bônus nem limite do Master), com a chave ligada e uma assinatura Ativa e
+  ligada no gateway; Free, Aguardando e Inadimplente ficam de fora. O multiplicador dobra quantas vezes for preciso
+  para caber o uso, sem limite de vezes. Ordem: o gateway recebe o valor novo primeiro (`alterarValor`; no Asaas
+  `PUT /subscriptions/{id}` com `updatePendingPayments`, vale da próxima cobrança, sem proporcional); aceito, o espaço
+  dobra na hora e o primário recebe "Seu espaço passou de X GB: dobramos para Y GB. O valor passa para R$ Z/mês a
+  partir da próxima cobrança." Gateway recusou: nada muda, log de erro e aviso ao Master
+  (`contribua.ampliacao_falhou`); o próximo envio acima do limite tenta de novo. Banco falhou depois de o gateway
+  aceitar: o valor antigo volta ao gateway e o Master é avisado. Concorrência: `FOR UPDATE` na assinatura. E-mail fica para a frente
+  de e-mails.
+- Sem limite de vezes (igual ao desenho; Samuel decidiu em 04/11 tirar o teto ×16). O único limite é técnico:
+  `AssinaturaDeEspaco::VALOR_MAXIMO_CENTAVOS` (coluna `integer`, R$ 21.474.836,47/mês); passar dele vira erro claro
+  no checkout e aviso ao Master na dobra automática.
+- Receita do Master (`ApuracaoDeCustos`): preço do plano × multiplicador da conta. O custo por plano continua por
+  plano do catálogo (cota × custo por GB).
+- **Pendente do dono:** no Asaas, assinatura no cartão só aceita mudar o valor com a **tokenização habilitada** na
+  conta; sem ela a dobra cai no caminho "gateway recusou". Os adaptadores em rascunho (#92 Stripe, #93 Mercado Pago,
+  #94 Pagar.me) precisam implementar `alterarValor`.
 
 **Pilha de PRs e ordem de merge** (cada um só depois do anterior):
 1. **#64** `contribua-cora` (C1: planos, espaço, bloqueio, evento, contrato b5, catálogo). **No master (20/10).**

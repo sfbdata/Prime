@@ -31,6 +31,8 @@ final readonly class EspacoDaContaOutput
         public ?int $bonusGb = null,
         public ?string $bonusOrigem = null,
         public ?string $bonusAte = null,
+        /** Quantas vezes o pacote foi dobrado: a receita do painel de custos multiplica o preço por ele. */
+        public int $multiplicador = 1,
     ) {
     }
 
@@ -49,11 +51,12 @@ final readonly class EspacoDaContaOutput
             $retrato->bytesBonus > 0 ? intdiv($retrato->bytesBonus, RetratoDoEspaco::BYTES_POR_GB) : null,
             $retrato->bytesBonus > 0 ? $retrato->bonusOrigem : null,
             $retrato->bytesBonus > 0 ? $retrato->bonusAte?->format('d/m/Y') : null,
+            $retrato->multiplicador,
         );
     }
 
     /**
-     * @return array{planoCodigo: string, planoNome: string, limiteGb: ?int, percentual: ?int, faixa: string, semLimite: bool, limiteUsuarios: ?int, origemDoLimite: string, origemDoLimiteDeUsuarios: string, bonusGb: ?int, bonusOrigem: ?string, bonusAte: ?string}
+     * @return array{planoCodigo: string, planoNome: string, limiteGb: ?int, percentual: ?int, faixa: string, semLimite: bool, limiteUsuarios: ?int, origemDoLimite: string, origemDoLimiteDeUsuarios: string, bonusGb: ?int, bonusOrigem: ?string, bonusAte: ?string, multiplicador: int}
      */
     public function paraArray(): array
     {

@@ -106,6 +106,7 @@ final class SituacaoDoEspaco
             $bytesBonus,
             $bonus === [] ? null : max(array_map(static fn (BonusDeEspaco $b): \DateTimeImmutable => $b->getExpiraEm(), $bonus)),
             $bonus === [] ? null : $bonus[0]->getOrigem(),
+            $espaco?->getMultiplicador() ?? 1,
         );
     }
 

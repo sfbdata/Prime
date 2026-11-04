@@ -26,6 +26,8 @@ final class AvisoAoMaster
     public const TIPO_APOIO = 'contribua.apoio';
     public const TIPO_MOTIVO = 'contribua.motivo';
     public const TIPO_PEDIDO_DE_ESPACO = 'contribua.pedido_espaco';
+    /** A ampliação de GB automática não foi aplicada: o gateway recusou o valor novo (desenho 08 VS 03.11.26). */
+    public const TIPO_AMPLIACAO_FALHOU = 'contribua.ampliacao_falhou';
     /** C4: o banco (Cora) confirmou um apoio por PIX. */
     public const TIPO_APOIO_CONFIRMADO = 'contribua.apoio_confirmado';
     /** Gateway de pagamentos (M0b): dinheiro que não bate com a cobrança, ou teste do sandbox. O Master decide. */

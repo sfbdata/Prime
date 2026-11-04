@@ -17,8 +17,7 @@
     const soDigitos = (t) => String(t || '').replace(/\D/g, '');
     const MODULOS = { stripe: 'ContribuaStripe', mercado_pago: 'ContribuaMercadoPago', pagarme: 'ContribuaPagarme' };
     let plano = null;
-    /* VS 03.11.26: quantas vezes o maior pacote foi dobrado (+ e −); o servidor aceita 1, 2, 4, 8 e 16 */
-    const MUL_MAX = 16;
+    /* VS 03.11.26: quantas vezes o maior pacote foi dobrado (+ e −), sem limite de vezes */
     let mul = 1;
     let processando = false;
     let montado = null;
@@ -69,7 +68,6 @@
         $('[data-co-largura-novo]', modal).style.left = largura;
         $('[data-co-mais]', modal).hidden = !plano.maior;
         $('[data-co-dobrar]', modal).hidden = !plano.maior;
-        $('[data-co-mais]', modal).disabled = mul >= MUL_MAX;
         $('[data-co-menos]', modal).classList.toggle('co-menos--ativo', mul > 1);
         const vezes = $('[data-co-mul]', modal);
         vezes.hidden = mul === 1;
@@ -79,7 +77,7 @@
     }
 
     function multiplicar(novo) {
-        if (processando || !plano || !plano.maior || novo < 1 || novo > MUL_MAX || novo === mul) {
+        if (processando || !plano || !plano.maior || novo < 1 || novo === mul) {
             return;
         }
         mul = novo;

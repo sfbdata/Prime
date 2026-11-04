@@ -7,6 +7,9 @@ namespace App\Tests\Contribua\Functional;
 use App\Contribua\Controller\AssinaturaDeEspacoController;
 use App\Contribua\Controller\WebhookDoGatewayController;
 use App\Contribua\Entity\AssinaturaDeEspaco;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use App\Contribua\Event\UsoDoEspacoSubiu;
+use App\Contribua\UseCase\AmpliarEspacoAutomaticamenteUseCase;
 use App\Contribua\Gateway\InicioDoCheckout;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
@@ -151,7 +154,7 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
 
         $resposta = $this->assinarCom($this->primario, 'avancado', 3);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 ou 16.', $resposta['erro']);
+        self::assertSame('Escolha quantas vezes dobrar o espaço: 1, 2, 4, 8 e assim por diante, sempre dobrando.', $resposta['erro']);
         self::assertSame(0, $this->contarAssinaturas());
     }
 
@@ -194,6 +197,77 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSelectorTextSame('.co-auto > b', 'Ampliação de GB automática');
         self::assertSame(['0', '0', '0', '1'], $crawler->filter('[data-pedir-plano]')->each(static fn ($b): string => (string) $b->attr('data-plano-maior')));
         self::assertSame(4, $crawler->filter('.ct-pacote > .ct-pacote-cabeca > .ct-pacote-cabeca-selos')->count(), 'o selo de ganho fica dentro do span do desenho, em todo pacote');
+    }
+
+    #[TestDox('Dobra automática: com a chave ligada, passar do contratado dobra espaço e valor no gateway e avisa o primário')]
+    public function testDobraAutomatica(): void
+    {
+        $this->assinaturaPaga('essencial');
+        $this->ligarAmpliacao();
+        self::assertSame(20 * 1024 ** 3, $this->folga(), 'com a chave ligada, o envio pode passar uma dobra (20 GB) do limite');
+
+        $resultado = $this->ampliar(25);
+
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::AMPLIOU, $resultado);
+        $pedido = $this->pedido();
+        self::assertSame(2, $pedido->getMultiplicador());
+        self::assertSame(3980, $pedido->getValorCentavos());
+        self::assertSame([(string) $pedido->getIdDaAssinatura() => 3980], $this->gateway->valoresAlterados);
+        self::assertSame(40 * 1024 ** 3, $this->limiteEmBytes(), 'o espaço dobra na hora');
+        self::assertStringContainsString('Seu espaço passou de 20 GB: dobramos para 40 GB. O valor passa para R$ 39,80/mês a partir da próxima cobrança.', $this->ultimaNotificacaoDoPrimario());
+
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::NADA, $this->ampliar(30), 'dentro do novo limite, nada');
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::AMPLIOU, $this->ampliar(150), 'uso muito acima dobra quantas vezes precisar');
+        self::assertSame(8, $this->pedido()->getMultiplicador());
+        self::assertSame(1990 * 8, $this->pedido()->getValorCentavos());
+    }
+
+    #[TestDox('Dobra automática: chave desligada, sem assinatura ligada ou gateway recusando não muda nada (o Master é avisado da recusa)')]
+    public function testDobraAutomaticaNaoAcontece(): void
+    {
+        $this->ligarAmpliacao();
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::NADA, $this->ampliar(25), 'Free não tem assinatura para dobrar');
+
+        $this->assinaturaPaga('essencial');
+        $this->desligarAmpliacao();
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::NADA, $this->ampliar(25), 'chave desligada');
+        self::assertSame(0, $this->folga(), 'chave desligada não dá folga');
+
+        $this->ligarAmpliacao();
+        $this->gateway->recusarValor = true;
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::FALHOU, $this->ampliar(25));
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::FALHOU, $this->ampliar(26), 'o envio seguinte tenta de novo');
+        $ampliar = static::getContainer()->get(AmpliarEspacoAutomaticamenteUseCase::class);
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::NADA, $ampliar->executar((int) $this->escritorio->getId(), 27 * 1024 ** 3), 'na mesma requisição, uma tentativa só');
+        self::assertSame(1, $this->pedido()->getMultiplicador());
+        self::assertSame(1990, $this->pedido()->getValorCentavos());
+        self::assertSame(20 * 1024 ** 3, $this->limiteEmBytes());
+        self::assertSame(1, (int) static::getContainer()->get(Connection::class)->fetchOne("SELECT COUNT(*) FROM notificacao WHERE usuario_id = ? AND tipo = 'contribua.ampliacao_falhou'", [$this->master->getId()]), 'o mesmo aviso ao Master no máximo uma vez por dia');
+    }
+
+    #[TestDox('Dobra automática: sem limite de vezes, dobra de novo mesmo com o pacote já dobrado muitas vezes')]
+    public function testDobraAutomaticaSemLimite(): void
+    {
+        $this->assinaturaPaga('avancado', 16);
+        $this->ligarAmpliacao();
+        self::assertSame(1600 * 1024 ** 3, $this->folga(), 'a folga continua sendo de uma dobra');
+
+        self::assertSame(AmpliarEspacoAutomaticamenteUseCase::AMPLIOU, $this->ampliar(1601));
+        self::assertSame(32, $this->pedido()->getMultiplicador());
+        self::assertSame(6990 * 32, $this->pedido()->getValorCentavos());
+    }
+
+    #[TestDox('Dobra automática: o envio que passa do limite chega pelo evento UsoDoEspacoSubiu')]
+    public function testDobraPeloEvento(): void
+    {
+        $this->assinaturaPaga('essencial');
+        $this->ligarAmpliacao();
+        $tenantId = (int) $this->escritorio->getId();
+        $retrato = static::getContainer()->get(SituacaoDoEspaco::class)->retratar($tenantId, 25 * 1024 ** 3);
+
+        static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new UsoDoEspacoSubiu($tenantId, 90, 125, $retrato));
+
+        self::assertSame(2, $this->pedido()->getMultiplicador());
     }
 
     #[TestDox('Gateway fora do ar no checkout: mensagem amigável e nenhum pedido fica para trás')]
@@ -489,6 +563,56 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $quem, $this->escritorio);
 
         return $this->post('/contribua/assinatura', ['plano' => $plano, 'documento' => '123.456.789-09']);
+    }
+
+    private function assinaturaPaga(string $plano, int $multiplicador = 1): void
+    {
+        $resposta = $this->assinarCom($this->primario, $plano, $multiplicador);
+        self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
+        $idNoGateway = (string) $this->pedido()->getIdDoCheckout();
+        $this->gateway->marcarComoPaga($idNoGateway, new \DateTimeImmutable('+1 month'));
+        $this->webhook('evt-pago-' . uniqid(), $idNoGateway);
+        self::assertSame(SituacaoDaAssinatura::Ativa, $this->pedido()->getSituacao());
+    }
+
+    private function ligarAmpliacao(): void
+    {
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        self::assertTrue($this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '1'])['ok']);
+    }
+
+    private function desligarAmpliacao(): void
+    {
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        self::assertTrue($this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '0'])['ok']);
+    }
+
+    private function ampliar(int $gbUsados): string
+    {
+        $this->em->clear();
+        $ampliar = static::getContainer()->get(AmpliarEspacoAutomaticamenteUseCase::class);
+        $ampliar->reset();
+
+        return $ampliar->executar((int) $this->escritorio->getId(), $gbUsados * 1024 ** 3);
+    }
+
+    private function folga(): int
+    {
+        $this->em->clear();
+
+        return static::getContainer()->get(AmpliarEspacoAutomaticamenteUseCase::class)->folgaDaAmpliacao((int) $this->escritorio->getId());
+    }
+
+    private function limiteEmBytes(): ?int
+    {
+        $this->em->clear();
+
+        return static::getContainer()->get(SituacaoDoEspaco::class)->doEscritorio((int) $this->escritorio->getId())->bytesLimite;
+    }
+
+    private function ultimaNotificacaoDoPrimario(): string
+    {
+        return (string) static::getContainer()->get(Connection::class)->fetchOne("SELECT titulo FROM notificacao WHERE usuario_id = ? AND tipo = 'contribua.assinatura' ORDER BY id DESC LIMIT 1", [$this->primario->getId()]);
     }
 
     /** @return array<string, mixed> */

@@ -36,7 +36,23 @@ final readonly class RetratoDoEspaco
         /** Até quando vale o bônus (o que vence por último); nulo sem bônus vigente. */
         public ?\DateTimeImmutable $bonusAte = null,
         public ?string $bonusOrigem = null,
+        /** Quantas vezes o pacote foi dobrado (desenho 08 VS 03.11.26): o preço do plano vezes ele é o valor mensal. */
+        public int $multiplicador = 1,
     ) {
+    }
+
+    /**
+     * Cabe mais `$bytes` contando `$folga` a mais no teto? É a ampliação automática: o envio que passaria do limite
+     * entra quando a dobra seguinte daria `$folga` bytes; a dobra roda depois do commit.
+     */
+    public function cabeComFolga(int $bytes, int $folga): bool
+    {
+        $teto = $this->bytesBloqueio ?? $this->bytesLimite;
+        if (!$this->bloqueioAtivo || $teto === null) {
+            return true;
+        }
+
+        return $this->bytesUsados + $bytes <= $teto + $folga;
     }
 
     /** Cabe mais `$bytes`? Sem limite, ou com o bloqueio desligado, sempre cabe. */

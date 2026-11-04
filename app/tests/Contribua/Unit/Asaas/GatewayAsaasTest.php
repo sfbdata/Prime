@@ -242,6 +242,32 @@ final class GatewayAsaasTest extends TestCase
         self::assertSame(['DELETE /subscriptions/' . self::ID], $api->rotasChamadas());
     }
 
+    #[TestDox('Alterar o valor faz PUT /subscriptions/{id} em reais, levando o valor também à cobrança pendente')]
+    public function testAlterarValor(): void
+    {
+        $api = new ApiAsaasFalsa(['PUT /subscriptions/' . self::ID => [200, ['id' => self::ID, 'value' => 139.8]]]);
+
+        $api->gateway()->alterarValor(self::ID, 13980);
+
+        self::assertSame(['PUT /subscriptions/' . self::ID], $api->rotasChamadas());
+        self::assertSame(['value' => 139.8, 'updatePendingPayments' => true], $api->chamadas[0]['corpo']);
+    }
+
+    #[TestDox('Alterar o valor: recusa do Asaas vira FalhaNoGateway; valor zero nem chega a chamar')]
+    public function testAlterarValorRecusado(): void
+    {
+        $api = new ApiAsaasFalsa(['PUT /subscriptions/' . self::ID => [400, ['errors' => [['code' => 'invalid_action', 'description' => 'tokenização']]]]]);
+        try {
+            $api->gateway()->alterarValor(self::ID, 0);
+            self::fail('valor zero tem que falhar');
+        } catch (FalhaNoGateway) {
+            self::assertSame([], $api->chamadas);
+        }
+
+        $this->expectException(FalhaNoGateway::class);
+        $api->gateway()->alterarValor(self::ID, 13980);
+    }
+
     #[TestDox('Cancelar assinatura que o Asaas já removeu (404) não é erro')]
     public function testCancelarComNaoEncontradoNaoLanca(): void
     {
