@@ -49,6 +49,7 @@ services:
       TZ: ${TZ:-America/Sao_Paulo}
       APP_ENV: prod
       APP_DEBUG: 0
+      PUBLICACAO_BLOGS_DIR: /var/publicacao-blogs
     working_dir: /var/www/app
     entrypoint: []
     # --time-limit + --memory-limit fazem o consumidor sair periodicamente; o restart o traz de volta
@@ -64,6 +65,9 @@ services:
       # enviá-lo ao Drive (Via A) e GRAVAR os que baixar (Via B) no armazenamento compartilhado.
       # Sem isto, o caminho aponta para o filesystem efêmero da imagem → doc não sobe / arquivo quebrado.
       - uploads_prod:/var/www/app/public/uploads
+      # Pedidos de geração dos blogs (spec painel-artigos-blogs, seção 6.1): o worker monta o pacote aqui e o
+      # blog_builder o lê em /pedidos.
+      - publicacao_blogs:/var/publicacao-blogs
     depends_on:
       db:
         condition: service_healthy
@@ -92,6 +96,7 @@ services:
       TZ: ${TZ:-America/Sao_Paulo}
       APP_ENV: prod
       APP_DEBUG: 0
+      PUBLICACAO_BLOGS_DIR: /var/publicacao-blogs
     working_dir: /var/www/app
     entrypoint: []
     # -d memory_limit=256M como no worker: o padrão da imagem (128M) cairia antes do --memory-limit=192M.
@@ -101,11 +106,39 @@ services:
     volumes:
       # Os comandos agendados leem e gravam arquivos no mesmo armazenamento do php e do worker (envio ao Drive).
       - uploads_prod:/var/www/app/public/uploads
+      # A tarefa blog:conferir-publicacoes lê aqui o resultado do blog_builder e apaga a pasta do pedido.
+      - publicacao_blogs:/var/publicacao-blogs
     depends_on:
       db:
         condition: service_healthy
       php:
         condition: service_healthy
+    networks:
+      - saas_net
+
+  # Builder dos blogs (spec docs/specs/painel-artigos-blogs.md, seção 6 opção A e 6.1): vigia os pedidos que o
+  # worker monta em publicacao_blogs, gera o Blog BlueJus e o Grátis com o código do sfbdata/sites-bluejus (deploy
+  # key SÓ LEITURA) e, só se os testes e o build passarem, troca sites-publicados/{blog,gratis}. Sem porta.
+  # Roda como 33:33 (o www-data do php), para ele e o worker lerem e escreverem os mesmos arquivos.
+  # Dono dos volumes: volume nomeado vazio herda o dono do ponto de montagem da imagem do contêiner que o monta
+  # com o caminho existindo. A imagem do builder cria /pedidos e /cache com 33:33; a do php não tem
+  # /var/publicacao-blogs, então o worker não "carimba" root no volume, e ele vira 33:33 quando o builder o monta.
+  # Limites: o build do Astro já passou de 13 GB numa máquina sem teto (NODE_OPTIONS + cpus + mem_limit).
+  blog_builder:
+    build: ./builder-blog
+    container_name: jusprime_blog_builder_prod
+    restart: unless-stopped
+    user: "33:33"
+    environment:
+      HOME: /cache
+      NODE_OPTIONS: --max-old-space-size=768
+    volumes:
+      - publicacao_blogs:/pedidos
+      - ./sites-publicados:/sites-publicados
+      - blog_builder_cache:/cache
+      - /opt/jusprime/secrets/sites_deploy_key:/chave:ro
+    cpus: 1
+    mem_limit: 1g
     networks:
       - saas_net
 
@@ -167,6 +200,8 @@ volumes:
   db_data_prod:
   uploads_prod:
   static_prod:
+  publicacao_blogs:
+  blog_builder_cache:
 
 # Credencial usada SÓ durante o build (composer install), nunca em runtime.
 # O arquivo mora na VPS, fora do git — ver .composer-auth.json.example.

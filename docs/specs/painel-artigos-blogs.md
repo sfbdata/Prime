@@ -276,6 +276,9 @@ pedidos/{id}/                  id = PublicacaoDosBlogs.id
 ```
 
    `situacao`: `no_ar` ou `falhou`. O `site/` não é gerado pelo builder (só muda com o `publicar.sh`).
+   Antes do `rsync`, o builder confere se a pasta do pedido ainda existe (o BlueJus pode tê-la apagado por
+   prazo); se não existe, não publica. Se o `rsync` do `blog` passar e o do `gratis` falhar, o resultado é
+   `falhou` com o `blog` já trocado (sem reversão: o próximo pedido acerta os dois).
 
 **O BlueJus lê o resultado**
 
@@ -382,6 +385,9 @@ Todos os comandos vão em bloco "Execute manualmente" na fatia P4, com o passo a
    `chown 33:33 /opt/jusprime/secrets/sites_deploy_key && chmod 400 /opt/jusprime/secrets/sites_deploy_key`.
    Fazer **depois** do merge do PR dos sites que tira os blogs do `publicar.sh` (seção 6.1), senão o próximo
    `publicar.sh` desfaz o `chown`.
+   Os passos 1 e 3 vêm **antes** do deploy da P4: se a chave não existir no `up -d`, o Docker cria uma pasta com
+   o nome dela e todo pedido falha no `git fetch` (conserto: `rmdir` da pasta, gerar a chave, o `chown`/`chmod`
+   e `docker compose -f docker-compose.prod.yml up -d --force-recreate blog_builder`).
 4. Depois do merge da P4, rodar o deploy normal: ele sobe o contêiner `blog_builder` (o `up -d` cria o
    serviço novo).
 5. Rodar uma vez a importação dos artigos atuais (P2), com a raiz do repositório dos sites copiada para dentro do
