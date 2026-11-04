@@ -34,6 +34,19 @@ final class ArtigosDeTeste
         $artigo->editarTextos($artigo->getTitulo(), $artigo->getTituloCurto(), $artigo->getTituloSeo(), $artigo->getDescricao(), $artigo->getLinhaFina(), $artigo->getResumo() . ' ');
         $artigo->registrarAlteracao(null, new \DateTimeImmutable('2026-10-30 08:00'));
         $artigo->publicar(new \DateTimeImmutable('2026-10-30 08:10'));
+        // A versão congelada no Publicar (P4, D7); o conteúdo exato não importa aos testes que usam este artigo.
+        $artigo->registrarVersaoPublicada(['blog' => "---\nslug: controle-de-prazos-processuais\n---\n\n" . $corpoMarkdown], []);
+
+        return $artigo;
+    }
+
+    /** Rascunho sem data, com tudo o que o zod pede para ir ao ar (Publicar agora). */
+    public static function rascunhoCompleto(string $slug = 'rascunho-completo', BlogsDoArtigo $blogs = BlogsDoArtigo::Normal): ArtigoDoBlog
+    {
+        $artigo = new ArtigoDoBlog($slug, $blogs, null, new \DateTimeImmutable('2026-11-01 10:00'));
+        $artigo->editarTextos('Título completo', 'Título curto', 'Título SEO', 'Descrição do artigo.', 'Linha fina do artigo.', 'Resumo do artigo.');
+        $artigo->classificar('prazos-processuais', 'equipe-editorial-bluejus', null, null, '3 min', false);
+        $artigo->definirCorpo('<p>Texto.</p>', "Texto.\n");
 
         return $artigo;
     }

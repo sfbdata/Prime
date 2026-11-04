@@ -32,8 +32,13 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *    mesma criou com nome aleatório; nunca toca no armazenamento. É onde as imagens do export
      *    são materializadas, e é por isso que o `chroot` do Dompdf pode ser um diretório só daquela
      *    execução.
+     *  - `PastaDosPedidos` (painel de artigos dos blogs, P4, 03/11) — escreve o pacote do pedido ao builder dos blogs
+     *    (`.md` gerado do banco e `pedido.json`) no volume `publicacao_blogs`, numa pasta `.{id}.montando` renomeada no
+     *    fim. Não é arquivo do usuário: é cópia gerada para o build; as imagens saem do armazenamento por chave, em
+     *    stream, e o original continua só no armazenamento.
      */
     private const QUEM_ESCREVE_CRU = [
+        'src/Blog/Service/PastaDosPedidos.php',
         'src/Shared/Armazenamento/AreaTemporariaPrivada.php',
         // P2.3: grava o RELATÓRIO da reconciliação (JSON de contagens, ids e classes) no caminho que
         // o operador pediu com `--saida` — não é arquivo do usuário nem passa pelo armazenamento.
@@ -63,10 +68,13 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *  - `CacheDeLeituraDoEspelho` (leitura pelo R2, D3) — lê a cópia que ele mesmo publicou no cache de
      *    leitura, já conferida por SHA; quem pede é o `ArmazenamentoEspelhado::ler()`, por chave;
      *  - `ImportarArtigosDoRepositorioCommand` (painel de artigos dos blogs, P2, 03/11) — lê os `.md` da cópia do
-     *    repositório dos sites que o operador aponta, uma vez; vira linha no banco, nunca arquivo do armazenamento.
+     *    repositório dos sites que o operador aponta, uma vez; vira linha no banco, nunca arquivo do armazenamento;
+     *  - `PastaDosPedidos` (painel de artigos dos blogs, P4, 03/11) — lê o `iniciado` e o `resultado.json` que o builder
+     *    dos blogs escreve na pasta do pedido (volume `publicacao_blogs`); arquivo pequeno da integração, não do usuário.
      */
     private const QUEM_LE_CRU = [
         'src/Blog/Command/ImportarArtigosDoRepositorioCommand.php',
+        'src/Blog/Service/PastaDosPedidos.php',
         'src/Cobranca/DTO/ImportarRelatorioInput.php',
         'src/Comercial/Controller/CampanhaDoMasterController.php',
         'src/Command/MapearAcervoCommand.php',

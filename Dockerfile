@@ -152,6 +152,11 @@ RUN mkdir -p /var/www/app/var/cache \
 RUN mkdir -p /var/www/static \
     && chown -R www-data:www-data /var/www/static
 
+# Pedidos de publicação dos blogs (spec painel-artigos-blogs, 6.1): o volume nomeado vazio herda o dono deste
+# ponto de montagem, então o worker (www-data, uid 33) escreve mesmo quando monta o volume antes do blog_builder.
+RUN mkdir -p /var/publicacao-blogs \
+    && chown www-data:www-data /var/publicacao-blogs
+
 # Entrypoint (onde garantimos tudo em runtime)
 COPY app/bin/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

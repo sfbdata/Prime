@@ -68,6 +68,21 @@ final class ArtigoDoBlogRepositoryTest extends KernelTestCase
         self::assertSame(['controle-de-prazos', 'gestao-da-equipe', 'prazo-em-dobro'], $this->artigos->slugsExistentes());
     }
 
+    #[TestDox('existeSlug conta o slug da versão publicada de outro artigo depois de uma troca de slug guardada')]
+    public function testSlugDaVersaoPublicadaFicaOcupado(): void
+    {
+        $a = $this->artigo('slug-no-ar', 'No ar', BlogsDoArtigo::Normal, '2026-11-01');
+        $a->publicar(new \DateTimeImmutable('2026-11-02'));
+        $a->registrarVersaoPublicada(['blog' => "---\nslug: slug-no-ar\n---\n"], []);
+        $a->trocarSlug('slug-novo');
+        $this->em()->flush();
+
+        self::assertTrue($this->artigos->existeSlug('slug-no-ar'), 'o slug antigo continua no ar');
+        self::assertTrue($this->artigos->existeSlug('slug-novo'));
+        self::assertFalse($this->artigos->existeSlug('slug-no-ar', $a->getId()), 'o próprio artigo pode voltar ao slug antigo');
+        self::assertFalse($this->artigos->existeSlug('slug-livre'));
+    }
+
     #[TestDox('Lista: os alterados por último primeiro, busca no título e no slug sem diferenciar maiúsculas, e % é texto')]
     public function testListaComBusca(): void
     {

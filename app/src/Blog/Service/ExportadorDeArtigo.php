@@ -15,18 +15,23 @@ use Symfony\Component\Yaml\Yaml;
  * Campos opcionais (revisor, atualizadoEm, imagem, imagemAlt, destaque) só saem quando têm valor, como no modelo.
  * `rascunho` não sai: o pacote do build (P4) só leva artigos publicados.
  *
- * D5 ("os dois"): o mesmo `.md` vai para cada pasta de {@see blogsDeDestino()}. O canonical para o Blog BlueJus é
- * trabalho do repositório dos sites na P4; nenhum campo novo entra no frontmatter, porque o zod de hoje não o conhece.
+ * D5 ("os dois"): o mesmo `.md` vai para cada pasta de {@see blogsDeDestino()}. Na cópia do `blog-gratis`, quem monta o
+ * pacote (P4, seção 6.1) passa `$canonical` com o endereço do artigo no Blog BlueJus ({@see canonicalNoBlog()}), e ele
+ * sai como a última chave do frontmatter. Sem `$canonical`, a chave não sai.
  *
  * A imagem de compartilhamento sai com o caminho relativo que o builder vai usar (`./imagens/{id}.{ext}`), recebido
  * em `$caminhoDaImagem`: quem monta o pacote sabe qual ImagemDoArtigo é a capa. Sem o caminho, imagem e alt não saem.
  */
 final class ExportadorDeArtigo
 {
-    public function exportar(ArtigoDoBlog $artigo, ?string $caminhoDaImagem = null): string
+    public function exportar(ArtigoDoBlog $artigo, ?string $caminhoDaImagem = null, ?string $canonical = null): string
     {
+        $frontmatter = $this->frontmatter($artigo, $caminhoDaImagem);
+        if ($canonical !== null) {
+            $frontmatter['canonical'] = $canonical;
+        }
         $yaml = Yaml::dump(
-            $this->frontmatter($artigo, $caminhoDaImagem),
+            $frontmatter,
             4,
             2,
             Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE | Yaml::DUMP_COMPACT_NESTED_MAPPING | Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK,
@@ -43,6 +48,12 @@ final class ExportadorDeArtigo
     public function blogsDeDestino(ArtigoDoBlog $artigo): array
     {
         return $artigo->getBlogs()->pastasDosSites();
+    }
+
+    /** Endereço do artigo no Blog BlueJus: o `canonical` da cópia do grátis de um artigo "os dois" (D5). */
+    public function canonicalNoBlog(ArtigoDoBlog $artigo): string
+    {
+        return sprintf('https://bluejus.com.br/blog/%s/%s', $artigo->getCategoria(), $artigo->getSlug());
     }
 
     /** @return array<string, mixed> */

@@ -6,7 +6,7 @@
 
    Duas colunas: à esquerda Título, Linha fina, o corpo no TinyMCE restrito e as Referências; à direita os cartões
    Publicação, SEO, Classificação, Marcadores, Imagem de compartilhamento (P3), Relacionados, Resumo e título curto.
-   Ainda não entram: Agendar, Publicar, Despublicar e a data de publicação (P4/P5).
+   Publicar agora e Despublicar (P4) pedem a geração dos blogs ao builder; Agendar e a data de publicação ficam para a P5.
    Imagens (P3): o corpo e a capa enviam para /master/blog/artigos/{id}/imagens e mostram de /master/blog/imagens/{id};
    só um artigo já salvo recebe imagem (o envio precisa do id).
 
@@ -28,6 +28,8 @@
     editar: path('master_blog_artigos_editar', {id: 0}),
     verificar: path('master_blog_artigos_verificar', {id: 0}),
     excluir: path('master_blog_artigos_excluir', {id: 0}),
+    publicar: path('master_blog_artigos_publicar', {id: 0}),
+    despublicar: path('master_blog_artigos_despublicar', {id: 0}),
     previa: path('master_blog_artigos_previa', {id: 0}),
     listar: path('master_blog_artigos_listar'),
     marcadores: path('master_blog_marcadores'),
@@ -99,11 +101,13 @@
                     </div>
                     <div class="be-botoes">
                         <button type="button" class="be-btn" data-be-salvar><i class="bi bi-floppy"></i>Salvar rascunho</button>
+                        <button type="button" class="be-btn" data-be-publicar{{ artigo.id ? '' : ' disabled' }}><i class="bi bi-send"></i><span data-be-publicar-rotulo>{{ artigo.situacao == 'publicado' ? 'Publicar alterações' : 'Publicar agora' }}</span></button>
+                        <button type="button" class="be-btn-sec" data-be-despublicar{{ artigo.situacao == 'publicado' ? '' : ' hidden' }}><i class="bi bi-eye-slash"></i>Despublicar</button>
                         <button type="button" class="be-btn-sec" data-be-verificar{{ artigo.id ? '' : ' disabled' }}><i class="bi bi-check2-square"></i>Verificar</button>
                         <button type="button" class="be-btn-sec" data-be-previa{{ artigo.id ? '' : ' disabled' }}><i class="bi bi-eye"></i>Pré-visualizar</button>
                         <button type="button" class="be-btn-sec be-btn-perigo" data-be-excluir{{ artigo.id ? '' : ' disabled' }}><i class="bi bi-trash3"></i>Excluir</button>
                     </div>
-                    <div class="be-dica">Salvar não muda o site. Publicar e agendar chegam numa próxima etapa.</div>
+                    <div class="be-dica">Salvar não muda o site. Publicar gera os blogs de novo, e o artigo entra no ar em poucos minutos.</div>
                 </div>
             </div>
 

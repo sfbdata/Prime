@@ -1035,7 +1035,7 @@
     if (!el || !window.BJBlogArtigos) return;
     window.BJBlogArtigos.montar(el, {
       url: URLS.blogArtigos, token: URLS.blogToken, urlNovo: URLS.blogNovo, urlEditar: URLS.blogEditar,
-      urlDuplicar: URLS.blogDuplicar, urlExcluir: URLS.blogExcluir, site: URLS.blogSite,
+      urlDuplicar: URLS.blogDuplicar, urlExcluir: URLS.blogExcluir, urlPublicacoes: URLS.blogPublicacoes, site: URLS.blogSite,
     });
   }
 

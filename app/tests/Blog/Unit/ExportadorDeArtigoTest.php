@@ -93,6 +93,23 @@ final class ExportadorDeArtigoTest extends TestCase
         self::assertSame(['blog-gratis'], $sut->blogsDeDestino($artigo));
     }
 
+    #[TestDox('D5: com o canonical, a chave sai no fim do frontmatter apontando para o Blog BlueJus; sem ele, não sai')]
+    public function testCanonical(): void
+    {
+        $sut = new ExportadorDeArtigo();
+        $artigo = ArtigosDeTeste::controleDePrazos();
+        $artigo->definirBlogs(BlogsDoArtigo::Ambos);
+
+        $canonical = $sut->canonicalNoBlog($artigo);
+        [$frontmatter] = self::separar($sut->exportar($artigo, null, $canonical));
+        $dados = Yaml::parse($frontmatter, Yaml::PARSE_DATETIME);
+
+        self::assertSame('https://bluejus.com.br/blog/prazos-processuais/controle-de-prazos-processuais', $dados['canonical']);
+        self::assertSame('canonical', array_key_last($dados));
+        [$semCanonical] = self::separar($sut->exportar($artigo));
+        self::assertStringNotContainsString('canonical', $semCanonical);
+    }
+
     /** @return array{string, string} frontmatter (sem os ---) e corpo */
     private static function separar(string $md): array
     {

@@ -55,6 +55,11 @@ parameters:
     # descartável (fica na camada do contêiner e some no recreate). O teto em bytes tem padrão aqui
     # (512 MB) para valer mesmo sem a variável no ambiente.
     espelho_cache_dir: '%kernel.project_dir%/var/espelho-cache'
+    # Pasta dos pedidos de geração dos blogs (spec painel-artigos-blogs, seção 6.1): o volume `publicacao_blogs`, que o
+    # worker e o scheduler dividem com o contêiner blog_builder. Em produção vem de PUBLICACAO_BLOGS_DIR
+    # (/var/publicacao-blogs); o padrão mora AQUI porque o build de produção faz `rm .env`.
+    publicacao_blogs_dir: '%env(default:default_publicacao_blogs_dir:PUBLICACAO_BLOGS_DIR)%'
+    default_publicacao_blogs_dir: '%kernel.project_dir%/var/publicacao-blogs'
     espelho_cache_max_bytes_padrao: 536870912
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'

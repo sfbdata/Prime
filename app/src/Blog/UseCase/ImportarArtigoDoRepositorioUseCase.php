@@ -14,6 +14,7 @@ use App\Blog\Service\ArquivoDoArtigo;
 use App\Blog\Service\HtmlDoArtigoParaMarkdown;
 use App\Blog\Service\MarkdownDoArtigoParaHtml;
 use App\Blog\Service\ValidadorDoArtigo;
+use App\Blog\Service\VersaoPublicadaDoArtigo;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Psr\Clock\ClockInterface;
 
@@ -53,6 +54,7 @@ final class ImportarArtigoDoRepositorioUseCase
         private readonly ValidadorDoArtigo $validador,
         private readonly ClockInterface $relogio,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
+        private readonly VersaoPublicadaDoArtigo $versaoPublicada,
     ) {
     }
 
@@ -69,6 +71,10 @@ final class ImportarArtigoDoRepositorioUseCase
         $avisos = $this->preencher($artigo, $arquivo);
         $this->definirSituacao($artigo, $arquivo->frontmatter, $agora);
         $this->exigirRegras($artigo, $input);
+        if (SituacaoDoArtigo::Publicado === $artigo->getSituacao()) {
+            // O artigo importado já está no ar: congela a versão que o pacote do builder leva (P4, D7).
+            $this->versaoPublicada->congelar($artigo);
+        }
 
         if (!$input->simular) {
             $this->escopoDePlataforma->executar(fn () => $this->artigos->salvar($artigo, flush: true));

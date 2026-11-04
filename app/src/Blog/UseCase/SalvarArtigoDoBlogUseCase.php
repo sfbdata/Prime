@@ -33,7 +33,7 @@ use Psr\Clock\ClockInterface;
  * confirmar (422); capa (`imagemChave`) que não é uma imagem deste artigo (422).
  * Capa: `imagemChave` guarda o ID da {@see ImagemDoArtigo} (texto), não a chave do armazenamento. É dele que o pacote do
  * build (P4) tira `./imagens/{id}.{ext}` para o {@see \App\Blog\Service\ExportadorDeArtigo}, igual às imagens do corpo.
- * Limpeza (seção 4): imagem do artigo que não está no corpo nem na capa sai junto, no mesmo flush; o arquivo sai só
+ * Limpeza (seção 4): imagem do artigo que não está no corpo, na capa nem na versão publicada (D7) sai junto, no mesmo flush; o arquivo sai só
  * DEPOIS do COMMIT ({@see RemocaoAposTransacao}), e falha física vira log, não erro. Imagem enviada há menos de
  * {@see self::CARENCIA_DA_IMAGEM_NOVA} fica (envio em andamento). `<img>` de imagem que não é deste artigo sai do HTML.
  * Pós-condições: a situação NÃO muda (D7). Num artigo publicado ou despublicado, texto novo fica como
@@ -157,7 +157,8 @@ final class SalvarArtigoDoBlogUseCase
      */
     private function semUso(ArtigoDoBlog $artigo, array $imagens): array
     {
-        $usadas = $this->conversor->idsDasImagens($artigo->getCorpoHtml());
+        // A versão no ar também usa imagens (D7): elas ficam até a próxima publicação ou o Despublicar.
+        $usadas = [...$this->conversor->idsDasImagens($artigo->getCorpoHtml()), ...$artigo->idsDasImagensPublicadas()];
         if ($artigo->getImagemChave() !== null) {
             $usadas[] = (int) $artigo->getImagemChave();
         }

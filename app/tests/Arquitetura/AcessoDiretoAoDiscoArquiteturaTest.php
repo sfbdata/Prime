@@ -87,6 +87,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         // Commands de operador: leem arquivos do operador ou abrem lock/saída, fora do armazenamento.
         'src/AtualizacaoMonetaria/Command/ImportarIndicesMonetariosCommand.php' => 'planilha do operador',
         'src/Blog/Command/ImportarArtigosDoRepositorioCommand.php' => 'cópia do repositório dos sites que o operador aponta',
+        'src/Blog/Service/PastaDosPedidos.php'                     => 'pasta dos pedidos ao builder dos blogs (volume publicacao_blogs, P4): pacote gerado do banco e resultado do builder, não arquivo do usuário; as imagens saem do armazenamento por stream',
         'src/AtualizacaoMonetaria/Service/ImportadorDeIndices.php' => 'lock file da importação dos índices (cron e botão da tela)',
         'src/Cobranca/Command/CarregarEspelhoRelatorioCommand.php'  => 'planilha do operador',
         'src/Cobranca/Command/ImportarRelatorioCobrancaCommand.php' => 'planilha do operador',

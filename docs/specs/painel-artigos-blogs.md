@@ -182,8 +182,8 @@ Testes de ida: um HTML de cada bloco vira exatamente o Markdown da tabela; um ar
   salvar que sai enquanto a capa sobe, ou numa segunda aba, não apaga a imagem recém-enviada).
 - Capa: `imagemChave` guarda o **id** da `ImagemDoArtigo` (ex.: `"12"`), não a chave do armazenamento; só vale
   id de imagem do próprio artigo (422 no salvar). O pacote da P4 lê esse id para gerar `./imagens/{id}.{ext}`.
-- No build, a exportação copia cada imagem do R2 para `src/content/artigos/{slug}/imagens/` (ao lado do
-  `.md`), onde o `image()` do zod e o `<Image>` do Astro já sabem tratar.
+- No build, o pacote leva cada imagem para `artigos/{pasta}/imagens/{id}.{ext}`, ao lado dos `.md` do blog
+  (contrato na seção 6.1), onde o `image()` do zod e o `<Image>` do Astro já sabem tratar.
 
 ## 5. Permissão
 
@@ -216,6 +216,112 @@ banco** em `src/content/artigos/` dos blogs, rodar `npm ci`, `npm test`, `npm ru
 - Prós: tudo dentro da VPS, nenhum segredo da VPS sai para o GitHub, não depende do GitHub para publicar,
   ~1 a 2 min por publicação (com o cache do npm). Contras: o build usa CPU/RAM da VPS (Astro de 2 blogs é
   leve; limitar `cpus: 1`, `mem_limit: 1g`), e é um contêiner a mais para manter.
+
+### 6.1 Contrato do pacote (P4, 03/11)
+
+Vale para os dois lados: o BlueJus (worker que monta o pacote e lê o resultado) e o repositório dos sites
+(build que aceita a pasta de artigos de fora). Versão do contrato: `1`.
+
+**Pastas e permissões**
+
+- Volume nomeado `publicacao_blogs`, montado em `/var/publicacao-blogs` no `worker` e no `scheduler` (o php não
+  precisa) e em `/pedidos` no `blog_builder`. Parâmetro do BlueJus: `publicacao_blogs_dir` (em dev e teste,
+  `%kernel.project_dir%/var/publicacao-blogs`).
+- O `blog_builder` roda como `33:33` (o `www-data` do php), para os dois lados lerem e escreverem os mesmos
+  arquivos. `HOME=/cache` (volume `blog_builder_cache`: clone do repositório, cache do npm e `known_hosts`).
+- `./sites-publicados` montado em `/sites-publicados` (escrita) no `blog_builder`; o nginx continua `:ro`.
+- Deploy key em `/opt/jusprime/secrets/sites_deploy_key`, montada só leitura em `/chave` no `blog_builder`.
+
+**O pedido (BlueJus escreve)**
+
+```
+pedidos/{id}/                  id = PublicacaoDosBlogs.id
+  pedido.json
+  artigos/blog/{slug}.md        artigos do Blog BlueJus (situação publicado)
+  artigos/blog/imagens/{id}.{ext}
+  artigos/blog-gratis/{slug}.md artigos do Blog BlueJus Grátis
+  artigos/blog-gratis/imagens/{id}.{ext}
+```
+
+- O pacote leva **todos** os artigos `publicado` de cada blog, não só o que mudou: o build gera o blog inteiro
+  e o `rsync --delete` tira do ar o que saiu (despublicado ou excluído).
+- De cada artigo vai a **versão publicada**, nunca o texto atual (D7): no Publicar, o artigo congela em
+  `artigo_blog.versao_publicada` (jsonb) o `.md` de cada pasta de destino e os ids das imagens usadas;
+  Despublicar zera. A limpeza de imagens não apaga imagem da versão publicada. A importação congela a versão do
+  artigo que vem publicado; o agendador da P5 também precisa congelar (`VersaoPublicadaDoArtigo::congelar`).
+  Despublicar o último artigo publicado dá pedido `falhou` (pacote vazio) e o site fica como estava. Assim, uma alteração guardada
+  de um artigo não vai ao ar quando outro artigo é publicado.
+- As pastas `artigos/blog/`, `artigos/blog-gratis/` e as `imagens/` existem sempre, mesmo vazias.
+- Pacote sem nenhum artigo publicado (somando os dois blogs) é recusado: o pedido vira `falhou` ("Nenhum artigo
+  publicado: o pacote tiraria todos os artigos do ar").
+- Escrita atômica: o worker monta em `pedidos/.{id}.montando/` e no fim faz `rename` para `pedidos/{id}/`. O
+  builder ignora nome que começa com `.`.
+- `pedido.json`:
+
+```json
+{ "versao": 1, "id": 12, "pedidaEm": "2026-11-03T14:05:00-03:00", "motivo": "publicar",
+  "artigos": { "blog": ["controle-de-prazos-processuais"], "blog-gratis": [] } }
+```
+
+- Artigo com `blogs = ambos` sai nas duas pastas. Na cópia do `blog-gratis`, o frontmatter leva
+  `canonical: "https://bluejus.com.br/blog/{categoria}/{slug}"` (D5). Nos outros casos a chave não sai.
+
+**O builder (laço, um pedido por vez)**
+
+1. A cada 5 s, pega o menor `{id}` em `/pedidos` sem `resultado.json` e sem nome começando com `.`.
+2. Escreve `iniciado` (data ISO) na pasta do pedido.
+3. `git fetch` do `main` no clone de `/cache` (`GIT_SSH_COMMAND="ssh -i /chave -o
+   StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/cache/known_hosts"`) e cópia limpa numa pasta
+   temporária. Guarda o hash do commit.
+4. Para `blog` e depois `blog-gratis`: `npm ci`, `npm test` (os testes do repositório, **sem** `ARTIGOS`) e
+   `ARTIGOS=/pedidos/{id}/artigos/{pasta} npm run build`.
+5. Só se tudo passar nos dois: `rsync -a --delete dist/ /sites-publicados/{blog|gratis}/` (`blog-gratis` publica em
+   `gratis`). Falha em qualquer passo: nada é copiado, o site no ar fica como estava.
+6. Escreve `resultado.json` (em `resultado.json.tmp` e `rename`):
+
+```json
+{ "versao": 1, "id": 12, "situacao": "no_ar", "iniciadaEm": "...", "terminadaEm": "...",
+  "commit": "a1b2c3d", "log": "últimas 200 linhas" }
+```
+
+   `situacao`: `no_ar` ou `falhou`. O `site/` não é gerado pelo builder (só muda com o `publicar.sh`).
+   Antes do `rsync`, o builder confere se a pasta do pedido ainda existe (o BlueJus pode tê-la apagado por
+   prazo); se não existe, não publica. Se o `rsync` do `blog` passar e o do `gratis` falhar, o resultado é
+   `falhou` com o `blog` já trocado (sem reversão: o próximo pedido acerta os dois).
+
+**O BlueJus lê o resultado**
+
+- Tarefa `blog:conferir-publicacoes` na `AgendaDeTarefas`, a cada minuto: para cada `PublicacaoDosBlogs` `na_fila`
+  ou `gerando`, `iniciado` presente vira `gerando`; `resultado.json` presente atualiza situação, commit, log e
+  `terminadaEm` e apaga a pasta do pedido. Pedido sem resultado 30 min depois de `iniciado`, ou 30 min depois
+  de pedido sem o builder ter começado, vira `falhou` e a pasta é apagada (o builder não publica depois um
+  pedido já dado como falho). Geração que falha na rodada faz o comando sair com erro, e o aviso de falha do
+  agendador avisa o Master.
+- Duas gerações ao mesmo tempo: Publicar só reaproveita a `PublicacaoDosBlogs` `na_fila` cujo pacote ainda não
+  foi montado; com o pacote já montado, cria outra, para a mudança nova não ficar para depois.
+- Falha ao montar o pacote (imagem que sumiu do armazenamento, por exemplo): o pedido vira `falhou` com o motivo
+  no log, sem nova tentativa do Messenger.
+
+**O repositório dos sites precisa**
+
+- `blog/src/content.config.ts` e `blog/src/lib/diretivas.mjs` (o `::leia-tambem`) honrarem `ARTIGOS`, como o
+  `blog-gratis` já faz no `content.config.ts`; o `diretivas.mjs` do `blog-gratis` também.
+- O zod dos dois blogs aceitar `canonical` opcional (URL que começa com `https://bluejus.com.br/blog/`), e o
+  `Base.astro` usar esse valor no `<link rel="canonical">` e no `og:url` quando vier.
+- `npm test` passar sem `ARTIGOS` (com os artigos de teste do próprio repositório).
+- `ARTIGOS` apontando para uma pasta **vazia** gerar o blog sem artigos, sem quebrar o build (o Grátis pode não
+  ter nenhum artigo publicado).
+- `imagem: ./imagens/{id}.{ext}` relativo ao `.md` (já é o formato do zod).
+
+**Quem escreve em `sites-publicados` (dono dos arquivos)**
+
+- Depois que a P4 for ao ar, `blog/` e `gratis/` são **só do builder** (uid 33). O `scripts/publicar.sh` dos sites
+  passa a publicar **só o `site/`**: se ele continuasse enviando os blogs, o `rsync -a` devolveria os arquivos ao
+  dono da máquina do Samuel, o builder perderia a escrita, e o `--delete` trocaria os artigos do banco pelos do
+  repositório. Mudança no repositório dos sites, junto com a P4 (antecipa o item do `publicar.sh` da P5).
+- Mudança de **código** dos blogs (layout, componentes) vai ao ar pedindo uma geração ao builder: comando
+  `bin/console blog:gerar-de-novo` no BlueJus (cria uma `PublicacaoDosBlogs` com motivo `manual`). O
+  `publicar.sh` mostra esse lembrete no fim quando houve mudança em `blog/` ou `blog-gratis/`.
 
 ### Opção B: GitHub Action disparada pelo BlueJus
 
@@ -284,11 +390,22 @@ Todos os comandos vão em bloco "Execute manualmente" na fatia P4, com o passo a
 1. Na VPS, gerar a chave do builder: `ssh-keygen -t ed25519 -N '' -f /opt/jusprime/secrets/sites_deploy_key`.
 2. No GitHub, em `sfbdata/sites-bluejus` → **Settings** → **Deploy keys** → **Add deploy key**: colar o
    `.pub`, título "builder da VPS", **sem** marcar "Allow write access".
-3. Conferir que `/opt/jusprime/sites-publicados/{site,blog,gratis}` existem (já existem desde o PR #580).
+3. Conferir que `/opt/jusprime/sites-publicados/{site,blog,gratis}` existem (já existem desde o PR #580) e dar
+   ao builder (uid 33) a escrita nos blogs e a leitura da chave:
+   `chown -R 33:33 /opt/jusprime/sites-publicados/blog /opt/jusprime/sites-publicados/gratis` e
+   `chown 33:33 /opt/jusprime/secrets/sites_deploy_key && chmod 400 /opt/jusprime/secrets/sites_deploy_key`.
+   Fazer **depois** do merge do PR dos sites que tira os blogs do `publicar.sh` (seção 6.1), senão o próximo
+   `publicar.sh` desfaz o `chown`.
+   Os passos 1 e 3 vêm **antes** do deploy da P4: se a chave não existir no `up -d`, o Docker cria uma pasta com
+   o nome dela e todo pedido falha no `git fetch` (conserto: `rmdir` da pasta, gerar a chave, o `chown`/`chmod`
+   e `docker compose -f docker-compose.prod.yml up -d --force-recreate blog_builder`).
 4. Depois do merge da P4, rodar o deploy normal: ele sobe o contêiner `blog_builder` (o `up -d` cria o
    serviço novo).
-5. Rodar uma vez a importação dos artigos atuais (P2), com a raiz do repositório dos sites copiada para dentro do
-   contêiner: `bin/console blog:importar-do-repositorio <pasta-dos-sites> --simular` para conferir, depois sem `--simular`.
+5. **Antes de qualquer Publicar** (o primeiro pacote troca o blog inteiro pelo que está no banco), rodar uma vez
+   a importação dos artigos atuais (P2). A capa não é importada: o artigo importado vai ao ar sem imagem de
+   compartilhamento até ganhar a capa pelo editor **e** um Publicar próprio (enviar a capa sozinha não basta,
+   porque o pacote leva a versão congelada na importação). Com a raiz do repositório dos sites copiada para
+   dentro do contêiner: `bin/console blog:importar-do-repositorio <pasta-dos-sites> --simular` para conferir, depois sem `--simular`.
 
 Nada disso precisa ser repetido depois: publicar e agendar passam a ser cliques do Farlei.
 

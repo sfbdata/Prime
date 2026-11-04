@@ -99,6 +99,7 @@ final class ArtigoDoBlogTest extends TestCase
     {
         $artigo = $this->rascunho();
         $artigo->publicar(new \DateTimeImmutable('2026-11-03 10:00'));
+        $artigo->registrarVersaoPublicada(['blog' => '---'], []);
 
         $this->expectException(\DomainException::class);
         $artigo->publicar(new \DateTimeImmutable('2026-11-03 11:00'));
