@@ -29,10 +29,13 @@ final class Version20261104130000 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX uniq_sync_drive_reconhecimento_folder ON sync_drive_reconhecimento (tenant_id, drive_folder_id)');
         $this->addSql('ALTER TABLE sync_drive_reconhecimento ADD CONSTRAINT FK_29030331497D8AA3 FOREIGN KEY (decidido_por_id) REFERENCES "user" (id) ON DELETE SET NULL NOT DEFERRABLE');
         $this->addSql('ALTER TABLE sync_drive_reconhecimento ADD CONSTRAINT FK_290303319033212A FOREIGN KEY (tenant_id) REFERENCES tenant (id) ON DELETE CASCADE NOT DEFERRABLE');
+        // Trava do envio até o 1º reconhecimento. Conexões que já existem ficam null: seguem enviando como antes.
+        $this->addSql('ALTER TABLE sync_drive_conexao ADD reconhecimento VARCHAR(20) DEFAULT NULL');
     }
 
     public function down(Schema $schema): void
     {
+        $this->addSql('ALTER TABLE sync_drive_conexao DROP reconhecimento');
         $this->addSql('DROP TABLE sync_drive_reconhecimento');
     }
 }

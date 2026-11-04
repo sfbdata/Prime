@@ -8,7 +8,12 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Sync\Command\ReconciliarCommand;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
+use App\Sync\DTO\DriveDoTenant;
 use App\Sync\Entity\ReconhecimentoPendente;
+use App\Sync\Entity\TenantDriveConexao;
+use App\Sync\Message\ReconhecerPastasDoDrive;
+use App\Sync\MessageHandler\ReconhecerPastasDoDriveHandler;
+use App\Sync\Service\CifradorDeSegredo;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Sync\Service\ReconciliadorDePasta;
 use App\Tests\Factory\Auth\UserFactory;
@@ -30,6 +35,7 @@ use Zenstruck\Foundry\Test\Factories;
  */
 #[CoversClass(ReconciliadorDePasta::class)]
 #[CoversClass(ReconciliarCommand::class)]
+#[CoversClass(ReconhecerPastasDoDriveHandler::class)]
 final class ReconhecimentoBloqueiaEnvioTest extends KernelTestCase
 {
     use Factories;
@@ -75,6 +81,80 @@ final class ReconhecimentoBloqueiaEnvioTest extends KernelTestCase
         self::assertSame(1, $r->criadasNoDrive);
         $this->em()->clear();
         self::assertNotNull($this->em()->find(Pasta::class, $pastaId)?->getDriveFolderId());
+    }
+
+    private function conexaoPronta(Tenant $tenant): TenantDriveConexao
+    {
+        $conexao = new TenantDriveConexao($tenant);
+        $conexao->registrarCredenciais(self::getContainer()->get(CifradorDeSegredo::class)->cifrar('tok'), 'a@b.com', 'drive', UserFactory::createOne()->_real());
+        $conexao->definirRootFolder('root-abcdefghij');
+        $this->em()->persist($conexao);
+        $this->em()->flush();
+
+        return $conexao;
+    }
+
+    #[TestDox('até o 1º reconhecimento terminar (ou com ele em falha) o envio não cria pasta no Drive; concluído, cria')]
+    public function testTravaAtePrimeiroReconhecimento(): void
+    {
+        self::bootKernel();
+        $tenant  = TenantFactory::createOne()->_real();
+        $pastaId = (int) PastaFactory::createOne(['tenant' => $tenant, 'nup' => '81', 'nomeCliente' => 'LIA'])->getId();
+        $conexao = $this->conexaoPronta($tenant);
+        self::assertSame(TenantDriveConexao::RECONHECIMENTO_AGUARDANDO, $conexao->getReconhecimento());
+        $fake          = new FakeGoogleDriveClient();
+        $reconciliador = self::getContainer()->get(ReconciliadorDePasta::class);
+
+        $r = new ResultadoReconciliacaoPasta();
+        $reconciliador->garantirFolderDaPasta($pastaId, self::ROOT, $fake, false, $r);
+        self::assertSame([], $fake->pastas, 'aguardando');
+
+        $conexao->marcarFalhaDoReconhecimento();
+        $this->em()->flush();
+        $reconciliador->garantirFolderDaPasta($pastaId, self::ROOT, $fake, false, $r);
+        self::assertSame([], $fake->pastas, 'falhou');
+        self::assertStringContainsString('1º reconhecimento', implode("\n", $r->mensagens));
+
+        $conexao->concluirReconhecimento();
+        $this->em()->flush();
+        $reconciliador->garantirFolderDaPasta($pastaId, self::ROOT, $fake, false, $r);
+        self::assertSame(1, $r->criadasNoDrive);
+    }
+
+    #[TestDox('o worker marca o reconhecimento concluído; se ele falha, marca falhou (trava continua) e relança')]
+    public function testHandlerMarcaConcluidoOuFalhou(): void
+    {
+        self::bootKernel();
+        $tenant  = TenantFactory::createOne()->_real();
+        $conexao = $this->conexaoPronta($tenant);
+        $id      = (int) $conexao->getId();
+        $estado  = fn (): mixed => $this->em()->getConnection()->fetchOne('SELECT reconhecimento FROM sync_drive_conexao WHERE id = :id', ['id' => $id]);
+
+        $fabrica = new class () implements GoogleDriveClientFactoryInterface {
+            public bool $foraDoAr = true;
+
+            public function paraTenant(Tenant $tenant): DriveDoTenant
+            {
+                if ($this->foraDoAr) {
+                    throw new \RuntimeException('Drive fora do ar');
+                }
+
+                return new DriveDoTenant(new FakeGoogleDriveClient(), 'ROOT');
+            }
+        };
+        self::getContainer()->set(GoogleDriveClientFactoryInterface::class, $fabrica);
+        $handler = self::getContainer()->get(ReconhecerPastasDoDriveHandler::class);
+        try {
+            $handler(new ReconhecerPastasDoDrive((int) $tenant->getId()));
+            self::fail('deveria relançar');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Drive fora do ar', $e->getMessage());
+        }
+        self::assertSame(TenantDriveConexao::RECONHECIMENTO_FALHOU, $estado());
+
+        $fabrica->foraDoAr = false;
+        $handler(new ReconhecerPastasDoDrive((int) $tenant->getId()));
+        self::assertSame(TenantDriveConexao::RECONHECIMENTO_CONCLUIDO, $estado());
     }
 
     #[TestDox('a importação (Drive para o sistema) não cria pasta a partir de subpasta com dúvida pendente')]

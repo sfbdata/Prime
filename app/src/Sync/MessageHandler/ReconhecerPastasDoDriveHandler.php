@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Sync\MessageHandler;
 
 use App\Entity\Tenant\Tenant;
+use App\Sync\Entity\TenantDriveConexao;
 use App\Sync\Exception\TenantSemDriveException;
 use App\Sync\Message\ReconhecerPastasDoDrive;
 use App\Sync\UseCase\ReconhecerPastasDoDriveUseCase;
@@ -31,7 +32,24 @@ final class ReconhecerPastasDoDriveHandler
         try {
             $this->reconhecer->executar($tenant);
         } catch (TenantSemDriveException) {
-            // desconectado entre o pedido e o worker: nada a reconhecer
+            return; // desconectado entre o pedido e o worker: nada a reconhecer
+        } catch (\Throwable $e) {
+            // A trava do envio continua e a tela mostra "tentar de novo". Gravado por SQL: o EntityManager pode ter
+            // fechado com o erro. Relança para o Messenger registrar (e tentar de novo, se houver retry).
+            $this->marcar($mensagem->tenantId, TenantDriveConexao::RECONHECIMENTO_FALHOU);
+
+            throw $e;
         }
+        $this->marcar($mensagem->tenantId, TenantDriveConexao::RECONHECIMENTO_CONCLUIDO);
+    }
+
+    /** Concluído vale sempre; falha só não desfaz um reconhecimento que já terminou antes. */
+    private function marcar(int $tenantId, string $estado): void
+    {
+        $this->em->getConnection()->executeStatement(
+            'UPDATE sync_drive_conexao SET reconhecimento = :e WHERE tenant_id = :t AND ativo = true'
+            . ($estado === TenantDriveConexao::RECONHECIMENTO_FALHOU ? " AND reconhecimento IS DISTINCT FROM 'concluido'" : ''),
+            ['e' => $estado, 't' => $tenantId],
+        );
     }
 }

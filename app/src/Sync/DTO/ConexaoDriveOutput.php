@@ -18,6 +18,7 @@ final readonly class ConexaoDriveOutput
         public ?string $contaEmail,
         public ?string $rootFolderId,
         public ?\DateTimeImmutable $conectadoEm,
+        public ?string $reconhecimento = null,
     ) {
     }
 
@@ -33,6 +34,7 @@ final readonly class ConexaoDriveOutput
             contaEmail: $conexao->getContaEmail(),
             rootFolderId: $conexao->getRootFolderId(),
             conectadoEm: $conexao->getConectadoEm(),
+            reconhecimento: $conexao->getReconhecimento(),
         );
     }
 }

@@ -40,3 +40,12 @@ Antes de o envio automático criar pastas no Drive, o sistema reconhece as pasta
   Consequência: entre ativar e o worker rodar, o envio por evento pode criar pasta antes do reconhecimento.
 - Número digitado = NUP da pasta (como a tela mostra). Vale também quando as sugeridas já não servem.
 - Pasta na lixeira não é candidata. Documento na lixeira não é ligado.
+
+## Trava até o 1º reconhecimento (Coordenador, 04/11/2026)
+
+- `sync_drive_conexao.reconhecimento`: `aguardando` ao definir a pasta-raiz, `concluido` quando o worker termina,
+  `falhou` se ele lança (gravado por SQL, e a exceção sobe para o Messenger). Null = conexão anterior a esta regra,
+  sem trava.
+- Fora de `concluido`, `garantirFolderDaPasta` não cria pasta nova no Drive (worker e cron), com log `[reconhecimento]`.
+- Em `falhou`, a tela /sync/drive/conexao avisa e "Reconhecer de novo" volta para `aguardando` (a trava continua).
+- Mesma migration `Version20261104130000`.

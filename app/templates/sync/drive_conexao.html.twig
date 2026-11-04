@@ -96,6 +96,13 @@
                         <div class="card-body">
                             <p class="text-muted">{{ 'sync.drive.reconhecimento.explicacao'|trans }}</p>
 
+                            {# Trava do envio até o 1º reconhecimento terminar (spec drive-reconhecimento). #}
+                            {% if conexao.reconhecimento == 'falhou' %}
+                                <div class="alert alert-danger py-2 small" data-reconhecimento-estado="falhou"><i class="bi bi-exclamation-triangle me-1"></i>{{ 'sync.drive.reconhecimento.falhou'|trans }}</div>
+                            {% elseif conexao.reconhecimento == 'aguardando' %}
+                                <div class="alert alert-info py-2 small" data-reconhecimento-estado="aguardando"><i class="bi bi-hourglass-split me-1"></i>{{ 'sync.drive.reconhecimento.aguardando'|trans }}</div>
+                            {% endif %}
+
                             {% if reconhecimentos is empty %}
                                 <p class="text-muted small mb-0">{{ 'sync.drive.reconhecimento.vazio'|trans }}</p>
                             {% else %}

@@ -192,7 +192,24 @@ final class ReconciliadorDePasta
             return false; // pasta inexistente ou já vinculada
         }
 
-        return !$this->aguardaReconhecimento($pastaId, $r);
+        return !$this->aguardaReconhecimento($pastaId, $r) && !$this->aguardaPrimeiroReconhecimento($pastaId, $r);
+    }
+
+    /**
+     * Até o 1º reconhecimento do escritório terminar (ou enquanto ele está em falha), nenhuma pasta nova vai para o
+     * Drive: a pasta dela pode já estar lá, ainda não reconhecida.
+     */
+    private function aguardaPrimeiroReconhecimento(int $pastaId, ResultadoReconciliacaoPasta $r): bool
+    {
+        $aguarda = $this->em->getConnection()->fetchOne(
+            "SELECT 1 FROM sync_drive_conexao c JOIN pasta p ON p.tenant_id = c.tenant_id WHERE p.id = :id AND c.ativo = true AND c.reconhecimento IN ('aguardando', 'falhou') LIMIT 1",
+            ['id' => $pastaId],
+        ) !== false;
+        if ($aguarda) {
+            $r->log(sprintf('[reconhecimento] pasta_id=%d sem pasta nova no Drive: o 1º reconhecimento ainda não terminou.', $pastaId));
+        }
+
+        return $aguarda;
     }
 
     /**

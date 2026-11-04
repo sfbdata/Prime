@@ -302,4 +302,22 @@ final class DriveReconhecimentoControllerTest extends JusPrimeWebTestCase
         self::assertCount(2, $mensagens);
         self::assertSame($tenant->getId(), $mensagens[0]->tenantId);
     }
+
+    #[TestDox('reconhecimento em falha: a tela avisa e "Reconhecer de novo" volta a aguardar, com a trava mantida')]
+    public function testFalhaAvisaETentaDeNovo(): void
+    {
+        [$client, $tenant] = $this->logado();
+        $conexao = $this->em()->getRepository(TenantDriveConexao::class)->findOneBy(['tenant' => $tenant]);
+        self::assertNotNull($conexao);
+        $conexao->marcarFalhaDoReconhecimento();
+        $this->em()->flush();
+
+        $client->request('GET', '/sync/drive/conexao');
+        self::assertSelectorTextContains('[data-reconhecimento-estado="falhou"]', 'Reconhecer de novo');
+
+        $client->request('POST', '/sync/drive/conexao/reconhecer', ['_token' => 'TOKEN_sync_drive_reconhecer']);
+        $this->em()->clear();
+        $depois = $this->em()->getRepository(TenantDriveConexao::class)->findOneBy(['tenant' => $tenant]);
+        self::assertSame(TenantDriveConexao::RECONHECIMENTO_AGUARDANDO, $depois?->getReconhecimento());
+    }
 }
