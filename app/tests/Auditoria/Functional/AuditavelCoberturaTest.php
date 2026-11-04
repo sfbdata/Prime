@@ -96,6 +96,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // carga, ping ou login. Auditar encheria o audit_log de ruído sem valor de prova; incidentes e registros
         // de backup, que são decisão do Master, são Auditavel.
         \App\Master\Entity\EventoDeDesempenho::class,
+        // Gráfico Crescimento do Master (desenho 05 - Perfis 1.2, VS 03.11.26): a foto diária das métricas é gravada pela
+        // tarefa agendada e o acesso do dia pelo login (uma linha por pessoa por dia). Telemetria, sem decisão de ninguém:
+        // auditar daria uma linha de audit_log por login.
+        \App\Master\Entity\MetricaDiariaDoSistema::class,
+        \App\Master\Entity\AcessoDiario::class,
         // Aprendizado de Minhas Metas (Fase 4, D4): texto de despacho e linhas de pendência guardados só para as
         // sugestões da própria pessoa. Auditar daria uma linha por despacho e deixaria metadados no audit_log depois do
         // "Apagar o que foi aprendido"; o ato que importa (o despacho, a passagem) já é auditado na meta.
