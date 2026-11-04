@@ -8,6 +8,28 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.35.0] - 2026-11-04
+
+### Adicionado
+
+- Editor de artigos dos blogs (Painel do Master): botões Revisar texto, Localizar e substituir (Ctrl+H, plugin searchreplace do TinyMCE), Diminuir/Aumentar recuo (só dentro de lista, gera sublista `ul`/`ol` dentro do `li`) e Inserir símbolo, com os mesmos ícones, dicas e textos do editor da pasta.
+- A parte pura da revisão (dicionários, símbolos, correção, sugestão e as regras de ortografia, palavra repetida e espaço duplo) saiu do `editor-rico.js` para o módulo comum `public/js/revisao-de-texto.js`, carregado antes dos dois editores; o comportamento do editor da pasta não muda.
+- Teste de ida e volta da sublista: a lista branca do artigo mantém `ul`/`ol` dentro do `li` e o conversor gera o Markdown recuado.
+- Editor de artigos dos blogs (Painel do Master): botão Inserir tabela (plugin `table` do TinyMCE, ícone bi-table, ao lado do Inserir símbolo). Fora da tabela abre a grade linhas × colunas; a tabela nasce com a primeira linha como cabeçalho (`thead > tr > th`). Dentro da tabela, a barra de contexto traz as ações da tabela da pasta (inserir linha acima/abaixo, coluna à esquerda/direita, remover linha, coluna e tabela) com os mesmos ícones e textos. Sem mesclar células, propriedades, largura, estilo nem atributo.
+- `ListaBrancaDoArtigo` aceita a tabela só no nível de cima do corpo e sempre na mesma forma (`table > thead > tr > th` + `tbody > tr > td`, sem atributos); na célula só ficam texto, strong, em, a e br (bloco vira texto, imagem cai, tabela dentro de tabela vira texto).
+- `HtmlDoArtigoParaMarkdown` exporta a tabela como tabela GFM (`| a | b |`, `| --- | --- |`, uma linha por linha), com `|` escapado, br virando espaço e as linhas completadas com células vazias; `MarkdownDoArtigoParaHtml` (importação) lê a tabela GFM e devolve o mesmo HTML, fechando a ida e volta.
+- A tabela só fica solta no corpo: o botão fica desabilitado dentro de lista, citação, bloco BlueJus ou outra tabela, e a importação recusa, com mensagem, tabela dentro de diretiva, citação ou lista. Na importação, a tabela fecha em linha horizontal e no começo de outro bloco, e o parágrafo para antes da linha que começa uma tabela.
+- Estilo simples da tabela (borda clara) no editor e na pré-visualização.
+- Contribua: dobra automática do espaço. Com a chave "Ampliação de GB automática" ligada e assinatura ativa, o envio que passa do espaço contratado dobra o multiplicador (quantas vezes precisar, sem limite de vezes, como no desenho), muda o valor da assinatura no gateway (vale da próxima cobrança, sem proporcional) e avisa o primário.
+- Contribua: gateway recusou o valor novo: espaço e valor continuam os de antes, vai ao log e o Master recebe aviso; o próximo envio acima do limite tenta de novo.
+- Contribua: os botões + e − do maior pacote deixam de parar em ×16 (decisão do Samuel, igual ao desenho 08); o único limite é o valor que a coluna guarda (R$ 21.474.836,47 por mês).
+- Gateway: novo `alterarValor` no contrato; no Asaas, `PUT /subscriptions/{id}` com `updatePendingPayments`.
+- Master: a receita da apuração de custos considera o multiplicador (preço do plano vezes as vezes que o pacote foi dobrado).
+- Editor rico (registro da pasta, Detalhes, Financeiro, nota técnica, anotação de cobrança, despacho da meta): botão "Inserir tabela" (ícone `bi-table`, ao lado de "Inserir símbolo"), com o módulo `table` do Quill 2. Grade para escolher linhas e colunas (até 8 × 8); dentro da tabela, inserir linha acima ou abaixo, coluna à esquerda ou à direita, remover linha, coluna ou a tabela. Sem mesclar células.
+- Sanitizador `textoRico`: passa a aceitar `table`, `tbody`, `tr` e `td` (só o atributo `data-row`); `style`, `colspan`, `rowspan` e `th` continuam fora.
+- Tabela com borda clara no texto exibido (inclusive no tema escuro), no resumo para impressão e PDF e no extrato da meta.
+- Textos derivados (sino, cartão encaminhado à Central, relatório de registros, linha do tempo, leitor de prazos, determinações do juízo) separam as células em vez de grudá-las.
+
 ## [2.34.0] - 2026-11-04
 
 ### Adicionado
@@ -1440,7 +1462,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.34.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.35.0...HEAD
+[2.35.0]: https://github.com/sfbdata/Prime/compare/v2.34.0...v2.35.0
 [2.34.0]: https://github.com/sfbdata/Prime/compare/v2.33.1...v2.34.0
 [2.33.1]: https://github.com/sfbdata/Prime/compare/v2.33.0...v2.33.1
 [2.33.0]: https://github.com/sfbdata/Prime/compare/v2.32.0...v2.33.0

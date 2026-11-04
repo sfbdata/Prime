@@ -1,6 +1,18 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.35.0"
+  data: "2026-11-04"
+  itens:
+    - "No Painel do Master, o editor de artigos dos blogs ganhou a revisão de texto do editor da pasta: ela aponta erros de digitação, palavras repetidas e espaços duplos, e corrige com um clique (cada correção pode ser desfeita)."
+    - "O mesmo editor agora localiza e substitui palavras (Ctrl+H), cria sublistas com os botões de recuo e insere símbolos como §, º e R$."
+    - "No Painel do Master, o editor de artigos dos blogs ganhou o botão Inserir tabela: escolha quantas linhas e colunas, e a primeira linha já vem como cabeçalho."
+    - "Com o cursor dentro da tabela, aparecem os botões para inserir ou remover linhas e colunas e para remover a tabela, iguais aos do editor da pasta."
+    - "A tabela vai para o artigo publicado no blog do jeito que foi escrita."
+    - "Quem ligou a \"Ampliação de GB automática\" não fica mais sem espaço: quando os arquivos passam do contratado, o espaço dobra na hora."
+    - "O valor novo vale a partir da próxima cobrança, sem cobrança extra no mês, e o escritório recebe um aviso com o espaço e o valor novos."
+    - "Se o pagamento não aceitar o valor novo, o espaço e o valor continuam os mesmos, a equipe do BlueJus é avisada e tentamos de novo no próximo envio."
+    - "O editor de texto dos registros e observações ganhou o botão \"Inserir tabela\": escolha quantas linhas e colunas quer e depois inclua ou remova linhas e colunas quando precisar. A tabela aparece no registro, no resumo para impressão e no PDF."
 - versao: "2.34.0"
   data: "2026-11-04"
   itens:
