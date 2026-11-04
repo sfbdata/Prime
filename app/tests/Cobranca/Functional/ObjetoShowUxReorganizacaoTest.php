@@ -82,6 +82,12 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         self::assertSelectorExists('#tab-cobranca textarea[name="registrar_anotacao[texto]"][data-editor-rico]');
         self::assertSelectorExists('#modalEditarAnotacao textarea[data-editor-rico]');
 
+        // O editor depende do módulo comum da revisão (revisao-de-texto.js), que tem de vir ANTES dele.
+        $html = (string) $client->getResponse()->getContent();
+        $posModulo = strpos($html, '/js/revisao-de-texto.js');
+        self::assertIsInt($posModulo, 'a página carrega o editor sem o revisao-de-texto.js');
+        self::assertLessThan(strpos($html, '/js/editor-rico.js'), $posModulo, 'o revisao-de-texto.js precisa vir antes do editor-rico.js');
+
         // Estruturados seguem simples — a SPEC proíbe editor rico em canal/data/resultado.
         self::assertCount(0, $crawler->filter('#modalRegistrarTentativa select[data-editor-rico]'), 'seletor não leva editor rico');
         self::assertCount(0, $crawler->filter('#modalRegistrarTentativa input[data-editor-rico]'), 'data/hora não leva editor rico');

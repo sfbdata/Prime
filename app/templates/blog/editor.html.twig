@@ -19,6 +19,8 @@
 {% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('css/master.css') }}">
     <link rel="stylesheet" href="{{ asset('css/master-blog.css') }}">
+    {# As janelas de Revisar texto e de símbolos são as do editor da pasta (classes editor-rico-*). #}
+    <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -66,7 +68,10 @@
                 </div>
                 <div class="be-campo" data-be-campo="corpo">
                     <label for="be-corpo">Texto do artigo</label>
-                    <textarea id="be-corpo" rows="20" data-be-corpo>{{ artigo.corpoHtml }}</textarea>
+                    {# Casca .editor-rico: onde abrem as janelas de revisão e de símbolos (posicionadas como na pasta). #}
+                    <div class="editor-rico be-editor-casca" data-be-casca>
+                        <textarea id="be-corpo" rows="20" data-be-corpo>{{ artigo.corpoHtml }}</textarea>
+                    </div>
                     <div class="be-erro be-corpo-erro" data-erro="corpo"></div>
                 </div>
             </div>
@@ -264,5 +269,6 @@
 
 {% block javascripts %}
     <script src="{{ asset('js/tinymce/tinymce.min.js') }}"></script>
+    <script src="{{ asset('js/revisao-de-texto.js') }}"></script>
     <script src="{{ asset('js/master/blog-editor.js') }}"></script>
 {% endblock %}

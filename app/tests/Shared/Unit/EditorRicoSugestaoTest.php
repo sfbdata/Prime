@@ -56,7 +56,9 @@ final class EditorRicoSugestaoTest extends TestCase
 
         self::assertStringContainsString('return VOCABULARIO.filter(', $this->funcao($js, 'opcoesDeSugestao'));
         // O vocabulário sai só das duas listas fixas do arquivo (o `VOCAB` do desenho).
-        self::assertSame(1, preg_match('/var VOCABULARIO = (.*?);\n/s', $js, $m));
+        // O vocabulário mora no módulo comum (revisao-de-texto.js); o editor só o reaproveita.
+        self::assertStringContainsString('var VOCABULARIO = Revisao.VOCABULARIO;', $js);
+        self::assertSame(1, preg_match('/var VOCABULARIO = (.*?);\n/s', $this->ler(self::APP . '/public/js/revisao-de-texto.js'), $m));
         self::assertStringContainsString('Object.keys(AUTOCORRECAO)', $m[1]);
         self::assertStringContainsString('.concat(VOCABULARIO_EXTRA)', $m[1]);
         self::assertStringNotContainsString('fetch(', $this->funcao($js, 'sugerir'));
