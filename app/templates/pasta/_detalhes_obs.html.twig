@@ -43,6 +43,7 @@
    O bj-traducao.js vem no fim do corpo (base): os scripts só pedem texto na hora do uso, nunca ao carregar. #}
 {{ catalogo_js('pasta_detalhes.js') }}
 <script src="{{ asset('js/quill/quill.js') }}"></script>
+<script src="{{ asset('js/revisao-de-texto.js') }}" defer></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 {# "continuar lendo (N parágrafos)" / "mostrar menos" (desenho 1.2.3): a lista abaixo é
    opt-in por `data-ler-mais`; o script observa a lista, então o cartão montado em JS

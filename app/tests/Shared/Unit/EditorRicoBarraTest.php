@@ -26,6 +26,8 @@ final class EditorRicoBarraTest extends TestCase
 
     private const JS = __DIR__ . '/../../../public/js/editor-rico.js';
     private const CSS = __DIR__ . '/../../../public/css/editor-rico.css';
+    /** Símbolos e dicionários moram no módulo comum, que o editor de artigos dos blogs também usa. */
+    private const MODULO = __DIR__ . '/../../../public/js/revisao-de-texto.js';
 
     /** Os símbolos de `popSimbolo` do desenho, na mesma ordem. */
     private const SIMBOLOS_DO_DESENHO = ['§', 'º', 'ª', 'nº', 'R$', '°', '½', '¼', '©', '®', '™', '€', '•', '✓', '«', '»', '±', '×'];
@@ -88,7 +90,7 @@ final class EditorRicoBarraTest extends TestCase
     #[TestDox('a autocorreção traz o dicionário do desenho')]
     public function testAutocorrecaoTrazODicionarioDoDesenho(): void
     {
-        $js = $this->js();
+        $js = (string) file_get_contents(self::MODULO);
 
         self::assertSame(1, preg_match('/var AUTOCORRECAO = \{(.*?)\n    \};/s', $js, $m), 'AUTOCORRECAO não encontrada');
         foreach (["nao: 'não'", "vc: 'você'", "peticao: 'petição'", "concerteza: 'com certeza'", "brasilia: 'Brasília'"] as $par) {
@@ -132,10 +134,42 @@ final class EditorRicoBarraTest extends TestCase
     /** @return list<string> */
     private function simbolosDoJs(): array
     {
-        self::assertSame(1, preg_match('/var SIMBOLOS = \[([^\]]*)\];/u', $this->js(), $m), 'SIMBOLOS não encontrada');
+        self::assertSame(1, preg_match('/var SIMBOLOS = \[([^\]]*)\];/u', (string) file_get_contents(self::MODULO), $m), 'SIMBOLOS não encontrada');
         preg_match_all("/'([^']*)'/u", $m[1], $nomes);
 
         return $nomes[1];
+    }
+
+    #[TestDox('o editor usa os símbolos e os dicionários do módulo comum, sem cópia própria')]
+    public function testUsaOModuloComum(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString('var Revisao = window.RevisaoDeTexto;', $js);
+        self::assertStringContainsString('var SIMBOLOS = Revisao.SIMBOLOS;', $js);
+        self::assertStringContainsString('var AUTOCORRECAO = Revisao.AUTOCORRECAO;', $js);
+        self::assertStringNotContainsString('var VOCABULARIO_EXTRA', $js);
+        self::assertStringNotContainsString('function problemasDoTexto', $js);
+    }
+
+    #[TestDox('toda tela que carrega o editor carrega antes o módulo comum da revisão')]
+    public function testTelasCarregamOModuloAntes(): void
+    {
+        $templates = __DIR__ . '/../../../templates';
+        $achou = 0;
+        $arquivos = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($templates, \FilesystemIterator::SKIP_DOTS));
+        foreach ($arquivos as $arquivo) {
+            $twig = (string) file_get_contents((string) $arquivo);
+            // aspas simples ou duplas
+            if (preg_match('/asset\\([\'"]js\/editor-rico\.js[\'"]\\)/', $twig, $editor, \PREG_OFFSET_CAPTURE) !== 1) {
+                continue;
+            }
+            ++$achou;
+            $achouModulo = preg_match('/asset\\([\'"]js\/revisao-de-texto\.js[\'"]\\)/', $twig, $modulo, \PREG_OFFSET_CAPTURE);
+            self::assertSame(1, $achouModulo, $arquivo->getPathname() . ' carrega o editor sem o revisao-de-texto.js');
+            self::assertLessThan($editor[0][1], $modulo[0][1], $arquivo->getPathname() . ' carrega o módulo depois do editor');
+        }
+        self::assertGreaterThan(0, $achou);
     }
 
     #[TestDox('tabela simples: módulo table do Quill ligado, formato table na lista e ícone bi-table')]

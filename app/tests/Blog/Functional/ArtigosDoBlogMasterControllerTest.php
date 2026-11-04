@@ -305,6 +305,44 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('rascunho', $artigo['situacao']);
     }
 
+    #[TestDox('Páginas: o editor traz Revisar texto, Localizar, recuo da lista e símbolo do editor da pasta')]
+    public function testPaginaComOsBotoesDaPasta(): void
+    {
+        $client = $this->clienteMaster();
+
+        $client->request('GET', '/master/blog/artigos/novo');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        // O módulo comum da revisão vem antes do blog-editor.js, que o usa; as janelas usam o CSS do editor da pasta.
+        $posModulo = strpos($html, '/js/revisao-de-texto.js');
+        self::assertIsInt($posModulo, 'a página do editor não carrega o revisao-de-texto.js');
+        self::assertLessThan(strpos($html, '/js/master/blog-editor.js'), $posModulo, 'o revisao-de-texto.js precisa vir antes do blog-editor.js');
+        self::assertStringContainsString('/css/editor-rico.css', $html);
+        // As janelas abrem dentro da casca .editor-rico que envolve o corpo.
+        self::assertSelectorExists('.editor-rico[data-be-casca] > textarea[data-be-corpo]');
+
+        $js = (string) file_get_contents(__DIR__ . '/../../../public/js/master/blog-editor.js');
+        self::assertSame(1, preg_match("/toolbar: '([^']*)'/", $js, $m), 'toolbar do TinyMCE não encontrada');
+        self::assertStringContainsString('bullist numlist bjdiminuirrecuo bjaumentarrecuo blockquote bjsimbolo', $m[1]);
+        self::assertStringContainsString('| bjrevisar bjlocalizar | bjblocos', $m[1]);
+        self::assertSame(1, preg_match("/plugins: '([^']*)'/", $js, $p));
+        self::assertContains('searchreplace', explode(' ', $p[1]));
+        foreach (['bjrevisar', 'bjlocalizar', 'bjdiminuirrecuo', 'bjaumentarrecuo', 'bjsimbolo'] as $botao) {
+            self::assertStringContainsString("'" . $botao . "'", $js, "botão {$botao} sem registro");
+        }
+        // As dicas são as do editor da pasta (editor-rico.js), e o Ctrl+H abre o Localizar.
+        $pasta = (string) file_get_contents(__DIR__ . '/../../../public/js/editor-rico.js');
+        foreach (["'Revisar texto'", "'Localizar e substituir (Ctrl+H)'", "'Diminuir recuo (Shift+Tab)'", "'Aumentar recuo (Tab)'", "'Inserir símbolo'"] as $dica) {
+            self::assertStringContainsString($dica, $js);
+            self::assertStringContainsString($dica, $pasta);
+        }
+        self::assertStringContainsString("ed.addShortcut('meta+h'", $js);
+        self::assertStringContainsString('browser_spellcheck: true', $js);
+        // Cada correção da revisão é um passo de desfazer.
+        self::assertStringContainsString('editor.undoManager.transact(', $js);
+    }
+
     #[TestDox('Páginas: editar mostra o artigo (título, marcadores e o corpo como texto, nunca HTML cru)')]
     public function testPaginaEditar(): void
     {

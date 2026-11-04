@@ -11,6 +11,8 @@
    - TinyMCE restrito (seção 3): Parágrafo, Seção (h2), Subseção (h3), negrito, itálico, link, listas, citação,
      desfazer/refazer e o menu Blocos BlueJus, que gera exatamente o HTML da tabela da seção 3 (div[data-bj]). Os
      blocos ficam não editáveis por fora e editáveis por dentro (contenteditable só na tela; sai ao salvar).
+     Do editor da pasta vêm Revisar texto, Localizar (Ctrl+H), Diminuir/Aumentar recuo (só em lista: sublista) e
+     Inserir símbolo; ver a seção "Revisar texto, Localizar, recuo da lista e símbolos" abaixo.
      Imagem (P3): botão de imagem do TinyMCE (plugin image), com o texto alternativo no diálogo; o envio vai ao
      servidor pelo images_upload_handler (POST imagens, multipart). O servidor passa o HTML pela lista branca de novo
      (ListaBrancaDoArtigo) e, ao salvar, apaga a imagem que não está mais no corpo nem na capa.
@@ -486,6 +488,280 @@
     }).catch(() => editor.notificationManager.open({ text: 'Não foi possível carregar os artigos. Recarregue a página.', type: 'error', timeout: 5000 }));
   }
 
+  /* ---------- Revisar texto, Localizar, recuo da lista e símbolos (os do editor da pasta) ----------
+     Os mesmos botões, dicas e ícones (Bootstrap Icons) do editor da pasta (public/js/editor-rico.js). O motor da
+     revisão, os dicionários e os símbolos vêm do módulo comum public/js/revisao-de-texto.js; as janelas usam as
+     classes do editor da pasta (css/editor-rico.css: editor-rico-janela, editor-rico-revisao*, editor-rico-simbolos),
+     abertas dentro da casca .editor-rico que envolve o TinyMCE no template.
+     - Revisar texto: lista os problemas (Ortografia, Palavra repetida, Espaço duplo); cada "Corrigir" troca só os
+       nós de texto (a marcação fica) dentro de um undoManager.transact, então cada correção é um passo de desfazer.
+     - Localizar: o plugin searchreplace do TinyMCE, aberto pelo botão próprio e por Ctrl+H.
+     - Recuo: só dentro de lista, e vira sublista (ul/ol dentro do li, pelo plugin lists). Fora de lista o botão fica
+       desabilitado: recuo de parágrafo seria style, que o valid_elements e a lista branca do servidor descartam.
+     - Símbolo: a grade de símbolos da pasta; o escolhido entra como texto no cursor. */
+  const Revisao = window.RevisaoDeTexto || null;
+  const casca = qs('[data-be-casca]');
+  const svgBi = caminhos => '<svg width="24" height="24" viewBox="-2 -2 20 20" focusable="false">'
+    + caminhos.map(d => '<path d="' + d + '"/>').join('') + '</svg>';
+  const ICONES_BI = {
+    'bj-spellcheck': svgBi([
+      'M8.217 11.068c1.216 0 1.948-.869 1.948-2.31v-.702c0-1.44-.727-2.305-1.929-2.305-.742 0-1.328.347-1.499.889h-.063V3.983h-1.29V11h1.27v-.791h.064c.21.532.776.86 1.499.86zm-.43-1.025c-.66 0-1.113-.518-1.113-1.28V8.12c0-.825.42-1.343 1.098-1.343.684 0 1.075.518 1.075 1.416v.45c0 .888-.386 1.401-1.06 1.401zm-5.583 1.035c.767 0 1.201-.356 1.406-.737h.059V11h1.216V7.519c0-1.314-.947-1.783-2.11-1.783C1.355 5.736.75 6.42.69 7.27h1.216c.064-.323.313-.552.84-.552s.864.249.864.771v.464H2.346C1.145 7.953.5 8.568.5 9.496c0 .977.693 1.582 1.704 1.582m.42-.947c-.44 0-.845-.235-.845-.718 0-.395.269-.684.84-.684h.991v.538c0 .503-.444.864-.986.864m8.897.567c-.577-.4-.9-1.088-.9-1.983v-.65c0-1.42.894-2.338 2.305-2.338 1.352 0 2.119.82 2.139 1.806h-1.187c-.04-.351-.283-.776-.918-.776-.674 0-1.045.517-1.045 1.328v.625c0 .468.121.834.343 1.067z',
+      'M14.469 9.414a.75.75 0 0 1 .117 1.055l-4 5a.75.75 0 0 1-1.116.061l-2.5-2.5a.75.75 0 1 1 1.06-1.06l1.908 1.907 3.476-4.346a.75.75 0 0 1 1.055-.117',
+    ]),
+    'bj-search': svgBi([
+      'M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0',
+    ]),
+    'bj-text-indent-right': svgBi([
+      'M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m10.646 2.146a.5.5 0 0 1 .708.708L11.707 8l1.647 1.646a.5.5 0 0 1-.708.708l-2-2a.5.5 0 0 1 0-.708zM2 6.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5m0 3a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5m0 3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5',
+    ]),
+    'bj-text-indent-left': svgBi([
+      'M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m.646 2.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1 0 .708l-2 2a.5.5 0 0 1-.708-.708L4.293 8 2.646 6.354a.5.5 0 0 1 0-.708M7 6.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5m0 3a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5m-5 3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5',
+    ]),
+    // O botão de símbolos da pasta mostra o próprio "§" (editor-rico-icone-simbolo).
+    'bj-simbolo': '<svg width="24" height="24" viewBox="0 0 24 24" focusable="false"><text x="12" y="17.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">§</text></svg>',
+  };
+  const DICAS = {
+    revisar: 'Revisar texto',
+    localizar: 'Localizar e substituir (Ctrl+H)',
+    diminuirRecuo: 'Diminuir recuo (Shift+Tab)',
+    aumentarRecuo: 'Aumentar recuo (Tab)',
+    simbolo: 'Inserir símbolo',
+  };
+  let janela = null;
+
+  const elemento = (tag, classe, texto) => {
+    const e = document.createElement(tag);
+    if (classe) e.className = classe;
+    if (texto !== undefined) e.textContent = texto;
+    return e;
+  };
+  // Clicar na janela não tira a seleção do texto (o cursor fica onde estava, como na pasta).
+  const semRoubarFoco = botao => { botao.addEventListener('mousedown', e => e.preventDefault()); return botao; };
+  const botaoDaBarra = dica => (editor ? editor.getContainer().querySelector('.tox-tbtn[aria-label="' + dica + '"]') : null);
+
+  function fecharJanela() {
+    if (!janela) return;
+    janela.elemento.remove();
+    document.removeEventListener('mousedown', janela.foraDela, true);
+    janela = null;
+  }
+
+  // A posição segue a da pasta (abrirJanela): logo abaixo do botão, sem passar da largura da casca.
+  function abrirJanela(dica, conteudo) {
+    fecharJanela();
+    const el = elemento('div', 'editor-rico-janela');
+    el.setAttribute('role', 'dialog');
+    el.appendChild(conteudo);
+    casca.appendChild(el);
+    const botao = botaoDaBarra(dica);
+    const caixa = casca.getBoundingClientRect();
+    const b = botao ? botao.getBoundingClientRect() : caixa;
+    let esquerda = b.left - caixa.left;
+    if (esquerda + el.offsetWidth > caixa.width) esquerda = Math.max(0, caixa.width - el.offsetWidth);
+    el.style.left = esquerda + 'px';
+    el.style.top = (b.bottom - caixa.top + 4) + 'px';
+    const foraDela = e => { if (!el.contains(e.target) && !(botao && botao.contains(e.target))) fecharJanela(); };
+    document.addEventListener('mousedown', foraDela, true);
+    janela = { elemento: el, dica, foraDela };
+  }
+
+  // Clicar de novo no botão da janela aberta fecha a janela (como na pasta).
+  function alternarJanela(dica, montar) {
+    if (janela && janela.dica === dica) { fecharJanela(); editor.focus(); return; }
+    abrirJanela(dica, montar());
+  }
+
+  const BLOCO_DE_TEXTO = /^(P|H[1-6]|LI|UL|OL|BLOCKQUOTE|DIV|BR)$/;
+
+  /* O texto do corpo como a revisão o lê: cada bloco numa linha ("\n", para "palavra repetida" não juntar fim e
+     começo de parágrafos) e, para cada nó de texto editável, onde ele começa nesse texto. */
+  function textoDoCorpo() {
+    const partes = [];
+    const segmentos = [];
+    let total = 0;
+    const quebra = () => { if (total > 0 && partes[partes.length - 1] !== '\n') { partes.push('\n'); total += 1; } };
+    const andar = no => {
+      for (let f = no.firstChild; f; f = f.nextSibling) {
+        if (f.nodeType === 3) {
+          if (!f.parentNode.isContentEditable) continue;
+          segmentos.push({ no: f, inicio: total, tamanho: f.data.length });
+          partes.push(f.data);
+          total += f.data.length;
+        } else if (f.nodeType === 1 && f.getAttribute('data-mce-bogus') !== 'all') {
+          const bloco = BLOCO_DE_TEXTO.test(f.nodeName);
+          if (bloco) quebra();
+          andar(f);
+          if (bloco) quebra();
+        }
+      }
+    };
+    andar(editor.getBody());
+    return { texto: partes.join(''), segmentos };
+  }
+
+  /* Troca os trechos ([{inicio, tamanho, para}], índices de textoDoCorpo) direto nos nós de texto: a marcação em
+     volta (negrito, link, bloco) fica como estava. Do fim para o começo, para os índices não andarem. Trecho que
+     atravessa nós: o texto novo entra no primeiro e o resto do trecho sai dos seguintes. */
+  function trocarTrechos(trechos, segmentos) {
+    trechos.slice().sort((a, b) => b.inicio - a.inicio).forEach(t => {
+      const fim = t.inicio + t.tamanho;
+      let primeiro = true;
+      segmentos.forEach(s => {
+        if (s.inicio >= fim || s.inicio + s.tamanho <= t.inicio) return;
+        const de = Math.max(0, t.inicio - s.inicio);
+        const ate = Math.min(s.tamanho, fim - s.inicio);
+        s.no.data = s.no.data.slice(0, de) + (primeiro ? t.para : '') + s.no.data.slice(ate);
+        primeiro = false;
+      });
+    });
+  }
+
+  // Cada clique é um passo de desfazer ("Corrigir tudo" também é um só); cada problema relê o texto
+  // (a troca anterior pode ter mudado as posições).
+  function corrigirProblemas(problemas) {
+    editor.undoManager.transact(() => {
+      problemas.forEach(problema => {
+        const lido = textoDoCorpo();
+        trocarTrechos(problema.trechos.call(problema, lido.texto), lido.segmentos);
+      });
+    });
+    editor.nodeChanged();
+    sujo = true;
+  }
+  const corrigirProblema = problema => corrigirProblemas([problema]);
+
+  // A janela da pasta (conteudoDaRevisao), com os mesmos textos.
+  function conteudoDaRevisao() {
+    const caixa = elemento('div', 'editor-rico-revisao');
+    caixa.appendChild(elemento('div', 'editor-rico-janela-titulo', 'Revisão do texto'));
+    const problemas = Revisao.problemasDoTexto(textoDoCorpo().texto);
+
+    if (problemas.length === 0) {
+      const ok = elemento('div', 'editor-rico-revisao-ok');
+      ok.innerHTML = '<i class="bi bi-check-circle-fill" aria-hidden="true"></i>';
+      ok.appendChild(document.createTextNode('Nenhum problema encontrado.'));
+      caixa.appendChild(ok);
+      return caixa;
+    }
+
+    problemas.forEach(p => {
+      const item = semRoubarFoco(elemento('button', 'editor-rico-revisao-item'));
+      item.type = 'button';
+      const corpo = elemento('span', 'editor-rico-revisao-corpo');
+      corpo.appendChild(elemento('span', 'editor-rico-revisao-tipo', p.tipo));
+      const troca = elemento('span');
+      troca.appendChild(elemento('s', 'editor-rico-revisao-de', p.de));
+      troca.insertAdjacentHTML('beforeend', ' <i class="bi bi-arrow-right editor-rico-revisao-seta" aria-hidden="true"></i> ');
+      troca.appendChild(elemento('b', 'editor-rico-revisao-para', p.para));
+      corpo.appendChild(troca);
+      item.appendChild(corpo);
+      item.appendChild(elemento('span', 'editor-rico-revisao-acao', 'Corrigir'));
+      item.addEventListener('click', () => {
+        corrigirProblema(p);
+        abrirJanela(DICAS.revisar, conteudoDaRevisao());
+      });
+      caixa.appendChild(item);
+    });
+
+    const todos = semRoubarFoco(elemento('button', 'editor-rico-busca-botao editor-rico-busca-botao-principal editor-rico-revisao-todos',
+      'Corrigir tudo (' + problemas.length + ')'));
+    todos.type = 'button';
+    todos.addEventListener('click', () => {
+      corrigirProblemas(problemas);
+      abrirJanela(DICAS.revisar, conteudoDaRevisao());
+    });
+    caixa.appendChild(todos);
+    return caixa;
+  }
+
+  // A grade de símbolos da pasta (abrirSimbolos): o escolhido entra como texto no cursor.
+  function conteudoDosSimbolos() {
+    const caixa = elemento('div');
+    caixa.appendChild(elemento('div', 'editor-rico-janela-titulo', 'Símbolos'));
+    const grade = elemento('div', 'editor-rico-simbolos');
+    Revisao.SIMBOLOS.forEach(s => {
+      const b = semRoubarFoco(elemento('button', '', s));
+      b.type = 'button';
+      b.title = 'Inserir ' + s;
+      b.setAttribute('aria-label', 'Inserir ' + s);
+      b.addEventListener('click', () => {
+        fecharJanela();
+        editor.focus();
+        editor.insertContent(esc(s));
+        sujo = true;
+      });
+      grade.appendChild(b);
+    });
+    caixa.appendChild(grade);
+    return caixa;
+  }
+
+  /* Recuo só em item de lista: aumentar pede um item anterior (a sublista entra dentro dele); diminuir, um item
+     que já está numa sublista. Assim o recuo nunca sai da lista nem vira style. */
+  function itensSelecionados(ed) {
+    const blocos = ed.selection.getSelectedBlocks();
+    return blocos.length && blocos.every(b => b.nodeName === 'LI') ? blocos : null;
+  }
+  const podeAumentar = ed => { const itens = itensSelecionados(ed); return !!itens && !!itens[0].previousElementSibling; };
+  const podeDiminuir = ed => {
+    const itens = itensSelecionados(ed);
+    return !!itens && itens.every(li => li.parentNode && li.parentNode.parentNode && li.parentNode.parentNode.nodeName === 'LI');
+  };
+
+  function configurarBotoesDaPasta(ed) {
+    Object.keys(ICONES_BI).forEach(nome => ed.ui.registry.addIcon(nome, ICONES_BI[nome]));
+
+    ed.ui.registry.addButton('bjrevisar', {
+      icon: 'bj-spellcheck',
+      tooltip: DICAS.revisar,
+      onAction: () => { if (Revisao) alternarJanela(DICAS.revisar, conteudoDaRevisao); },
+    });
+    ed.ui.registry.addButton('bjlocalizar', {
+      icon: 'bj-search',
+      tooltip: DICAS.localizar,
+      onAction: () => { fecharJanela(); ed.execCommand('SearchReplace'); },
+    });
+    ed.addShortcut('meta+h', DICAS.localizar, () => { fecharJanela(); ed.execCommand('SearchReplace'); });
+    // O plugin searchreplace também liga o Ctrl+F; a pasta só tem o Ctrl+H, e o Ctrl+F fica com o navegador.
+    ed.on('init', () => ed.shortcuts.remove('meta+f'));
+
+    [['bjdiminuirrecuo', 'bj-text-indent-right', DICAS.diminuirRecuo, 'Outdent', podeDiminuir],
+      ['bjaumentarrecuo', 'bj-text-indent-left', DICAS.aumentarRecuo, 'Indent', podeAumentar]].forEach(([nome, icone, dica, comando, pode]) => {
+      ed.ui.registry.addButton(nome, {
+        icon: icone,
+        tooltip: dica,
+        onAction: () => { if (pode(ed)) ed.execCommand(comando); },
+        onSetup: api => {
+          const atualizar = () => api.setEnabled(pode(ed));
+          atualizar();
+          ed.on('NodeChange', atualizar);
+          return () => ed.off('NodeChange', atualizar);
+        },
+      });
+    });
+
+    // Tab e Shift+Tab na lista seguem a mesma regra dos botões (o plugin lists trataria a tecla sem trava e
+    // deixaria um item vazio por cima da sublista). Entra antes do plugin (prepend) e o barra quando não pode.
+    ed.on('keydown', e => {
+      if (e.key !== 'Tab' || !itensSelecionados(ed)) return;
+      if (!(e.shiftKey ? podeDiminuir(ed) : podeAumentar(ed))) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }, true);
+
+    ed.ui.registry.addButton('bjsimbolo', {
+      icon: 'bj-simbolo',
+      tooltip: DICAS.simbolo,
+      onAction: () => { if (Revisao) alternarJanela(DICAS.simbolo, conteudoDosSimbolos); },
+    });
+
+    // Clique no texto ou Esc fecham a janela aberta (o clique dentro do iframe não chega ao document).
+    ed.on('mousedown', fecharJanela);
+    ed.on('keydown', e => { if (e.key === 'Escape' && janela) { e.preventDefault(); fecharJanela(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && janela) fecharJanela(); });
+  }
+
   function configurar(ed) {
     ed.on('PreInit', () => {
       ed.parser.addAttributeFilter('data-bj', nos => nos.forEach(marcarBloco));
@@ -516,6 +792,8 @@
       ]),
     });
 
+    configurarBotoesDaPasta(ed);
+
     ed.on('input change undo redo', () => { sujo = true; });
   }
 
@@ -537,11 +815,11 @@
       promotion: false,
       branding: false,
       language: 'pt_BR',
-      plugins: 'lists link autolink image',
+      plugins: 'lists link autolink image searchreplace',
       menubar: false,
       contextmenu: false,
       browser_spellcheck: true,
-      toolbar: 'bjp bjh2 bjh3 | bold italic | link image | bullist numlist blockquote | undo redo | bjblocos',
+      toolbar: 'bjp bjh2 bjh3 | bold italic | link image | bullist numlist bjdiminuirrecuo bjaumentarrecuo blockquote bjsimbolo | undo redo | bjrevisar bjlocalizar | bjblocos',
       toolbar_mode: 'wrap',
       height: 620,
       elementpath: false,

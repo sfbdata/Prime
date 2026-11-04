@@ -154,4 +154,20 @@ final class HtmlDoArtigoParaMarkdownTest extends TestCase
     {
         return trim((string) preg_replace('/\s+/', ' ', $texto));
     }
+
+    #[TestDox('Sublista do botão de recuo (ul/ol dentro do li) sobrevive à lista branca e vira Markdown recuado')]
+    public function testSublistaDoRecuoIdaEVolta(): void
+    {
+        // O que o TinyMCE produz ao aumentar o recuo de um item: a sublista entra dentro do item anterior.
+        $html = '<ul><li>Documentos<ul><li>RG</li><li>CPF<ol><li>frente</li><li>verso</li></ol></li></ul></li><li>Custas</li></ul>'
+            . '<ol><li>Petição<ul><li>assinada</li></ul></li><li>Protocolo</li></ol>';
+
+        $limpo = $this->sut->sanitizar($html);
+        self::assertSame($html, $limpo, 'a lista branca precisa manter a sublista como está');
+
+        self::assertSame(
+            "- Documentos\n  - RG\n  - CPF\n    1. frente\n    2. verso\n- Custas\n\n1. Petição\n   - assinada\n2. Protocolo\n",
+            $this->sut->converter($limpo),
+        );
+    }
 }
