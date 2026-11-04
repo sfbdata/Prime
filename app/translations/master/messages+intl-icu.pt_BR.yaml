@@ -513,12 +513,17 @@ master:
                 met_usuarios: Usuários
                 met_pastas: Pastas
                 met_gb: Armazenamento (GB)
+                diario: Diário
                 por_mes: Por mês
                 por_ano: Por ano
                 continua: Linha contínua
                 acumulado: Acumulado
                 novos: Novos no mês
                 todos_anos: Todos os anos
+                acessos: Acessos ao sistema
+                acessos_max_dia: 'Acessos ao sistema · máx {n}/dia'
+                acessos_max_mes: 'Acessos ao sistema · máx {n}/mês'
+                acessos_dica: Mostrar ou ocultar a linha de acessos (escala própria)
                 mes:
                     jan: jan
                     fev: fev

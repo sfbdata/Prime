@@ -19,6 +19,7 @@ use App\Master\Fontes\ClienteQuadroOab;
 use App\Master\Fontes\FontesPublicas;
 use App\Master\Fontes\LeitorQuadroOab;
 use App\Master\Fontes\SementeQuadroOab;
+use App\Master\UseCase\RegistrarAcessoDoDiaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -262,6 +263,24 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('@', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('Gráfico Crescimento: o JSON da visão geral traz a série por dia e os acessos do dia (o login do Master conta)')]
+    public function testVisaoGeralComDiarioEAcessos(): void
+    {
+        $client = $this->clienteMaster($master);
+        static::getContainer()->get(RegistrarAcessoDoDiaUseCase::class)->executar($master);
+        $client->request('GET', '/master/dados/visao-geral');
+
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        $hoje  = new \DateTimeImmutable();
+        $ano   = $hoje->format('Y');
+        $dia   = (int) $hoje->format('z');
+        self::assertSame(['contas', 'usuarios', 'pastas', 'gb'], array_keys($dados['crescimentoDiario'][$ano]));
+        self::assertCount((int) $hoje->format('L') === 1 ? 366 : 365, $dados['crescimentoDiario'][$ano]['contas']);
+        self::assertNotNull($dados['crescimentoDiario'][$ano]['usuarios'][$dia], 'hoje tem valor');
+        self::assertGreaterThanOrEqual(1, $dados['acessos'][$ano][$dia], 'o acesso do Master hoje entrou na linha');
     }
 
     #[TestDox('Trilha de auditoria: o JSON vem paginado (por página 20, 50 ou 100; padrão 50) e todas=1 devolve o filtro inteiro')]
