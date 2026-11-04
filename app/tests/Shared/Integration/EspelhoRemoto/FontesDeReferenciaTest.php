@@ -179,6 +179,55 @@ final class FontesDeReferenciaTest extends KernelTestCase
         self::assertArrayNotHasKey('cliente_foto#' . $semFoto->getId(), $porLinha, 'cliente sem foto não gera referência');
     }
 
+    #[TestDox('foto da pasta e logo do escritório: viram chave com o escritório da própria linha; sem arquivo, não geram referência')]
+    public function testFotoDaPastaELogoDoEscritorio(): void
+    {
+        self::bootKernel();
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $tenant  = TenantFactory::createOne()->_real();
+        $semLogo = TenantFactory::createOne()->_real();
+        $comFoto = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        $semFoto = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        $conexao->executeStatement('UPDATE pasta SET foto = ? WHERE id = ?', ['a1b2c3d4.jpg', $comFoto->getId()]);
+        $conexao->executeStatement('UPDATE pasta SET foto = NULL WHERE id = ?', [$semFoto->getId()]);
+        $conexao->executeStatement('UPDATE tenant SET logo_chave = ? WHERE id = ?', ['e5f6a7b8.png', $tenant->getId()]);
+        $conexao->executeStatement("UPDATE tenant SET logo_chave = '' WHERE id = ?", [$semLogo->getId()]);
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $foto = $porLinha['pasta_foto#' . $comFoto->getId()] ?? self::fail('foto da pasta não listada');
+        self::assertSame(CategoriaDeArquivo::PASTA_FOTO, $foto->chave?->categoria);
+        self::assertSame($tenant->getId(), $foto->chave?->escopo->tenantIdOuNull());
+        self::assertSame('a1b2c3d4.jpg', $foto->chave?->nome);
+        self::assertArrayNotHasKey('pasta_foto#' . $semFoto->getId(), $porLinha, 'pasta sem foto não gera referência');
+
+        $logo = $porLinha['tenant_logo#' . $tenant->getId()] ?? self::fail('logo do escritório não listada');
+        self::assertSame(CategoriaDeArquivo::TENANT_LOGO, $logo->chave?->categoria);
+        self::assertSame($tenant->getId(), $logo->chave?->escopo->tenantIdOuNull());
+        self::assertSame('e5f6a7b8.png', $logo->chave?->nome);
+        self::assertArrayNotHasKey('tenant_logo#' . $semLogo->getId(), $porLinha, 'logo vazia não gera referência');
+    }
+
+    #[TestDox('anexo do chat, versão de documento jurídico, comprovante de recompensa e imagem do blog: as consultas rodam contra o esquema de teste; as linhas que houver saem com o escopo certo')]
+    public function testFontesDasCategoriasNovas(): void
+    {
+        self::bootKernel();
+        $fontes = [];
+        foreach ($this->referencias() as $referencia) {
+            $fontes[$referencia->fonte][] = $referencia;
+        }
+
+        foreach (['inteligencia_documento_juridico_versao', 'lancamento_de_recompensa', 'artigo_blog_imagem'] as $global) {
+            foreach ($fontes[$global] ?? [] as $referencia) {
+                self::assertNull($referencia->chave?->escopo->tenantIdOuNull(), $global . ' é global');
+            }
+        }
+        foreach ($fontes['chat_ia_anexo'] ?? [] as $referencia) {
+            self::assertNotNull($referencia->chave?->escopo->tenantIdOuNull(), 'anexo do chat tem escritório');
+        }
+        self::addToAssertionCount(1); // chegar aqui prova que as seis consultas rodam no esquema de teste
+    }
+
     /** @return \Generator<string, ReferenciaDeArquivo> */
     private function referencias(): \Generator
     {
