@@ -24,6 +24,8 @@ use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\ResolvedorDeCaminhoLocal;
 use App\Shared\EspelhoRemoto\Command\LiberarDiscoCommand;
 use App\Shared\EspelhoRemoto\Command\RestaurarLoteCommand;
+use App\Shared\EspelhoRemoto\Command\EsvaziarLoteCommand;
+use App\Shared\EspelhoRemoto\Liberacao\EsvaziadorDeLote;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\Liberacao\ArquivosDoOperador;
 use App\Shared\EspelhoRemoto\Liberacao\DatasDasReferencias;
@@ -55,6 +57,8 @@ use Zenstruck\Foundry\Test\Factories;
 #[CoversClass(RestaurarLoteCommand::class)]
 #[CoversClass(LiberadorDeDisco::class)]
 #[CoversClass(RestauradorDeLote::class)]
+#[CoversClass(EsvaziarLoteCommand::class)]
+#[CoversClass(EsvaziadorDeLote::class)]
 #[CoversClass(AreaDeLiberados::class)]
 #[CoversClass(ArquivosDoOperador::class)]
 #[CoversClass(DatasDasReferencias::class)]
@@ -635,6 +639,179 @@ final class LiberarDiscoTest extends KernelTestCase
         self::assertInstanceOf(DiscoDaLiberacao::class, (new \ReflectionProperty(ArmazenamentoEspelhado::class, 'liberados'))->getValue($decorador));
     }
 
+    // ------------------------------------------------------------- esvaziar
+
+    #[TestDox('esvaziar antes de 7 dias: nada sai; a simulação depois de 7 dias conta sem apagar')]
+    public function testEsvaziarRespeitaOsSeteDiasESimula(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+
+        $cedo = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+        self::assertStringContainsString(EsvaziadorDeLote::RECENTE, $cedo->getDisplay());
+        self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
+
+        $this->relogio->modify('+8 days');
+        $simulado = $this->esvaziar(['--lote' => self::LOTE]);
+        self::assertSame(Command::SUCCESS, $simulado->getStatusCode());
+        self::assertStringContainsString(EsvaziadorDeLote::ESVAZIARIA, $simulado->getDisplay());
+        self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
+        self::assertStringNotContainsString($this->prefixo, $simulado->getDisplay(), 'a tela não traz nome de arquivo');
+    }
+
+    #[TestDox('esvaziar com --executar exige --confirmo-backup-testado')]
+    public function testEsvaziarExigeOBackup(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+        $this->relogio->modify('+8 days');
+
+        $tester = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('--confirmo-backup-testado', $tester->getDisplay());
+        self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
+    }
+
+    #[TestDox('esvaziar apaga a cópia, a linha fica aberta, e o restaurar traz de volta pelo R2')]
+    public function testEsvaziarApagaERestauraPeloR2(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+        $this->relogio->modify('+8 days');
+
+        $tester = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('Esvaziados: 1 arquivo(s)', $tester->getDisplay());
+        self::assertFalse($this->area->estaNosLiberados($chave, self::LOTE));
+        self::assertNull($this->area->noDisco($chave));
+        self::assertNotNull($this->liberacoes->abertaDe($this->remota($chave)), 'a linha continua aberta');
+
+        $denovo = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+        self::assertStringContainsString(EsvaziadorDeLote::JA_FORA, $denovo->getDisplay());
+
+        $restaurado = $this->restaurar(['--lote' => self::LOTE, '--executar' => true]);
+        self::assertStringContainsString(RestauradorDeLote::BAIXADO, $restaurado->getDisplay());
+        self::assertSame('conteúdo frio', $this->local->ler($chave));
+    }
+
+    #[TestDox('esvaziar não apaga quando o R2 entrega outro conteúdo, a cópia mudou, ou a outbox não prova mais o envio')]
+    public function testEsvaziarSoComTodasAsProvas(): void
+    {
+        $mente   = $this->arquivoProvado('mente.pdf', 'conteúdo frio');
+        $copia   = $this->arquivoProvado('copia.pdf', 'outro frio');
+        $apagado = $this->arquivoProvado('apagado.pdf', 'mais um frio');
+        $this->executar();
+        $this->relogio->modify('+8 days');
+        file_put_contents($this->resolvedor->caminhoNosLiberados($copia, self::LOTE), 'mexido no disco');
+        $this->outbox->registrarExclusao($apagado);
+
+        $this->espelhoDosComandos = $this->espelhoQueMente();
+        $tester = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+
+        self::assertStringContainsString(EsvaziadorDeLote::R2_DIVERGENTE, $tester->getDisplay());
+        self::assertStringContainsString(EsvaziadorDeLote::COPIA_DIVERGENTE, $tester->getDisplay());
+        self::assertStringContainsString(EsvaziadorDeLote::EXCLUSAO_REGISTRADA, $tester->getDisplay());
+        self::assertStringContainsString('Esvaziados: 0 arquivo(s)', $tester->getDisplay());
+        foreach ([$mente, $copia, $apagado] as $chave) {
+            self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
+        }
+    }
+
+    #[TestDox('esvaziar não apaga com um envio mais novo ainda não verificado (regravação em curso)')]
+    public function testEsvaziarComEnvioPendentePula(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+        $this->relogio->modify('+8 days');
+        $this->outbox->registrarEnvio($chave, hash('sha256', 'novo'), 4, 'application/pdf');
+
+        $tester = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+
+        self::assertStringContainsString(EsvaziadorDeLote::SEM_ENVIO_VERIFICADO, $tester->getDisplay());
+        self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
+    }
+
+    #[TestDox('esvaziar divide a trava com liberar e restaurar')]
+    public function testEsvaziarRespeitaATrava(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+        $this->relogio->modify('+8 days');
+        $trava = $this->travas->createLock(LiberadorDeDisco::TRAVA);
+        self::assertTrue($trava->acquire());
+
+        $tester = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('em andamento', $tester->getDisplay());
+        self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
+        $trava->release();
+    }
+
+    #[TestDox('esvaziar com a outbox limpa (envio apagado pela limpeza de 90 dias): a linha vira a prova, como na leitura')]
+    public function testEsvaziarComOutboxLimpa(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+        $this->relogio->modify('+100 days');
+        $this->conexao->executeStatement('DELETE FROM armazenamento_replicacao');
+
+        $tester = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+
+        self::assertStringContainsString('Esvaziados: 1 arquivo(s)', $tester->getDisplay());
+        self::assertFalse($this->area->estaNosLiberados($chave, self::LOTE));
+    }
+
+    #[TestDox('esvaziar não apaga com o original de volta no lugar, nem com o R2 fora do ar; a simulação não chama o R2')]
+    public function testEsvaziarComOriginalOuR2ForaDoAr(): void
+    {
+        $volta = $this->arquivoProvado('volta.pdf', 'conteúdo frio');
+        $fora  = $this->arquivoProvado('fora.pdf', 'outro frio');
+        $this->executar();
+        $this->relogio->modify('+8 days');
+        $this->local->gravar($volta, FonteDeConteudo::deTexto('conteúdo frio'));
+        $this->espelho->excluir($fora);
+        $this->espelhoDosComandos = $this->espelhoQueLanca();
+
+        $simulado = $this->esvaziar(['--lote' => self::LOTE]);
+        self::assertStringContainsString(EsvaziadorDeLote::ESVAZIARIA, $simulado->getDisplay(), 'a simulação não baixa');
+
+        $this->espelhoDosComandos = null;
+        $tester = $this->esvaziar(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+
+        self::assertStringContainsString(EsvaziadorDeLote::ORIGINAL_NO_LUGAR, $tester->getDisplay());
+        self::assertStringContainsString(EsvaziadorDeLote::FALHA_NO_R2, $tester->getDisplay());
+        self::assertTrue($this->area->estaNosLiberados($volta, self::LOTE));
+        self::assertTrue($this->area->estaNosLiberados($fora, self::LOTE));
+    }
+
+    #[TestDox('esvaziar com o espelho não configurado: falha e não apaga nada')]
+    public function testEsvaziarSemEspelho(): void
+    {
+        $chave = $this->arquivoProvado('a.pdf', 'conteúdo frio');
+        $this->executar();
+        $this->relogio->modify('+8 days');
+        $comando = new EsvaziarLoteCommand(
+            new EsvaziadorDeLote($this->outbox, $this->area, $this->relogio, new NullLogger()),
+            $this->liberacoes,
+            ProvedorDoEspelhoFixo::naoConfigurado(),
+            $this->travas,
+        );
+        $tester = new CommandTester($comando);
+        $tester->execute(['--lote' => self::LOTE, '--executar' => true, '--confirmo-backup-testado' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertTrue($this->area->estaNosLiberados($chave, self::LOTE));
+    }
+
+    #[TestDox('no container, o comando de esvaziar está registrado')]
+    public function testEsvaziarNoContainer(): void
+    {
+        self::assertInstanceOf(EsvaziarLoteCommand::class, static::getContainer()->get(EsvaziarLoteCommand::class));
+    }
+
     // ------------------------------------------------------------- apoio
 
     /**
@@ -743,6 +920,52 @@ final class LiberarDiscoTest extends KernelTestCase
         $tester->execute($opcoes);
 
         return $tester;
+    }
+
+    /** @param array<string, mixed> $opcoes */
+    private function esvaziar(array $opcoes): CommandTester
+    {
+        $comando = new EsvaziarLoteCommand(
+            new EsvaziadorDeLote($this->outbox, $this->discoDosComandos ?? $this->area, $this->relogio, new NullLogger()),
+            $this->liberacoes,
+            ProvedorDoEspelhoFixo::com($this->espelhoDosComandos ?? $this->espelho),
+            $this->travas,
+        );
+        $tester = new CommandTester($comando);
+        $tester->execute($opcoes);
+
+        return $tester;
+    }
+
+    /** Um espelho que falha o teste se for chamado (a simulação não pode baixar). */
+    private function espelhoQueLanca(): EspelhoRemoto
+    {
+        return new class implements EspelhoRemoto {
+            public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
+            {
+                throw new \LogicException('não devia chamar o R2');
+            }
+
+            public function consultar(ChaveDeArquivo $chave): ?MetadadosRemotos
+            {
+                throw new \LogicException('não devia chamar o R2');
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                throw new \LogicException('não devia chamar o R2');
+            }
+
+            public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+            {
+                throw new \LogicException('não devia chamar o R2');
+            }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                throw new \LogicException('não devia chamar o R2');
+            }
+        };
     }
 
     /** Um espelho que responde como o em memória, mas no download entrega bytes errados do mesmo tamanho, sem lançar. */

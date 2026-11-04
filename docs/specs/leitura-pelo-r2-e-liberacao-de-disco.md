@@ -298,6 +298,26 @@ existe** e continua bloqueado: nada é apagado do disco nesta etapa.
 - **Execução única:** liberar e restaurar (com `--executar`) dividem a trava `armazenamento-liberacao-do-disco`
   (tabela `lock_keys`, vale entre contêineres), renovada a cada arquivo. Manifesto que não grava: o
   resumo sai mesmo assim e o comando termina com falha.
+
+### Estado em 04/11/2026 (branch `r2-esvaziar-lote`): esvaziar
+
+- **Comando próprio:** `armazenamento:esvaziar-lote --lote=ID [--executar --confirmo-backup-testado]`,
+  em vez de `liberar-disco --esvaziar-lote` (o liberar exige `--categoria` e recusas que aqui não se
+  aplicam). Simula por padrão, sem baixar do R2.
+- **Decisão do Samuel (04/11):** backup pelo caminho 2 (cópia de base nova a cada 90 dias, a anterior
+  sai; `diario/` com 90 dias). O esvaziamento deixou de esperar a decisão LGPD; exige
+  `--confirmo-backup-testado` (cópia diária rodando e teste de restauração do backup feito).
+- **Provas por cópia, na hora:** linha com mais de 7 dias; sem exclusão registrada; original fora do
+  lugar; o último registro da outbox é envio `verificado` com o SHA e o tamanho da linha (ou a outbox não
+  tem linha nenhuma da chave, porque a limpeza de 90 dias apagou o envio: a mesma regra da leitura); a cópia nos
+  liberados tem o SHA da linha; e, com `--executar`, um download inteiro do R2 com o SHA e o tamanho da
+  linha. Falhou uma: a cópia fica e o motivo entra na contagem (falha de disco ou do R2 vai
+  para o log com o id da linha, sem o nome do arquivo).
+- **A linha continua aberta** (sem coluna nova): esvaziado = linha aberta sem cópia nos liberados. A
+  leitura segue pelo R2 e o `restaurar-lote` baixa do R2 (já previsto). A trava é a mesma da liberação.
+- **Cópia de base nova do backup:** o arquivo esvaziado não está mais no disco, então a base nova feita
+  do disco não o tem. O roteiro copia, dentro do bucket do backup, os arquivos das linhas abertas da
+  base antiga para a nova antes de apagar a antiga (`bluejus-coordenacao/r2-backup-roteiro.md`).
 - **Custo da simulação:** a categoria é filtrada antes de qualquer consulta; as datas saem por bloco de
   mil ids, só das linhas da categoria; a saída mostra o tempo da seleção. Erro do banco na seleção sai com
   mensagem genérica (os parâmetros trazem o nome do arquivo).
