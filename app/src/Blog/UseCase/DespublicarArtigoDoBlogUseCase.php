@@ -19,7 +19,7 @@ use Psr\Clock\ClockInterface;
  * Fluxo principal: {@see \App\Blog\Entity\ArtigoDoBlog::despublicar()} e o pedido de geração dos blogs
  * ({@see PedirPublicacaoDosBlogs}): o pacote leva só os publicados, e o `rsync --delete` do builder tira a página.
  * Fluxos alternativos: id inexistente (404); artigo que não está publicado (409, \DomainException da entidade).
- * Pós-condições: artigo despublicado (o texto e as datas ficam) e um pedido na fila. Depois disso ele pode ser excluído.
+ * Pós-condições: artigo despublicado (o texto e as datas ficam; a versão publicada é zerada) e um pedido na fila. Depois disso ele pode ser excluído.
  */
 final class DespublicarArtigoDoBlogUseCase
 {

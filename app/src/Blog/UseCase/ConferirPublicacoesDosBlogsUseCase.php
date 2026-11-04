@@ -23,11 +23,17 @@ use Psr\Clock\ClockInterface;
  *    e a pasta do pedido é apagada, para o builder não publicar depois um pedido dado como falho.
  *
  * Datas do builder em ISO 8601 viram o fuso do PHP (o banco guarda sem fuso). Resultado que não se entende (situação
- * fora de no_ar/falhou) conta como falha.
+ * fora de no_ar/falhou) conta como falha. O log perde as sequências de cor do terminal (ANSI), inclusive o `[32m` que
+ * sobra quando o ESC se perde.
+ *
+ * Antes de tudo, apaga as montagens `.{id}.montando` paradas há mais de {@see self::MONTAGEM_ABANDONADA} (o worker caiu
+ * no meio): o builder as ignora, mas elas ocupariam o volume para sempre.
  */
 final class ConferirPublicacoesDosBlogsUseCase
 {
     public const PRAZO_DO_BUILDER = '+30 minutes';
+    public const MONTAGEM_ABANDONADA = '-1 hour';
+    private const COR_ANSI = '/\x1b?\[[0-9;]*m/';
 
     public function __construct(
         private readonly PublicacaoDosBlogsRepository $publicacoes,
@@ -41,6 +47,7 @@ final class ConferirPublicacoesDosBlogsUseCase
     public function executar(): array
     {
         $resumo = ['gerando' => 0, 'noAr' => 0, 'falhou' => 0];
+        $this->pasta->apagarMontagensAbandonadas($this->relogio->now()->modify(self::MONTAGEM_ABANDONADA));
         foreach ($this->publicacoes->abertas() as $publicacao) {
             $antes = $publicacao->getSituacao();
             $apagar = $this->conferir($publicacao);
@@ -100,7 +107,7 @@ final class ConferirPublicacoesDosBlogsUseCase
         $publicacao->concluir(
             SituacaoDaPublicacao::NoAr->value === $situacao,
             \is_string($resultado['commit'] ?? null) ? $resultado['commit'] : null,
-            \is_string($resultado['log'] ?? null) ? $resultado['log'] : '',
+            \is_string($resultado['log'] ?? null) ? (string) preg_replace(self::COR_ANSI, '', $resultado['log']) : '',
             self::data($resultado['iniciadaEm'] ?? null) ?? $iniciado,
             self::data($resultado['terminadaEm'] ?? null) ?? $agora,
         );

@@ -260,6 +260,23 @@ final class SalvarArtigoDoBlogUseCaseTest extends TestCase
         self::assertNull($artigo->getImagemChave());
     }
 
+    #[TestDox('D7: a imagem da versão publicada sobrevive à limpeza, mesmo tirada do corpo do texto guardado')]
+    public function testImagemDaVersaoPublicadaFica(): void
+    {
+        $artigo = $this->existente(7, SituacaoDoArtigo::Publicado);
+        $this->artigos->method('existeSlug')->willReturn(false);
+        [$publicada, $semUso] = [$this->imagem($artigo, 4), $this->imagem($artigo, 5)];
+        $artigo->registrarVersaoPublicada(['blog' => "---\n---\n\n![Tela](./imagens/4.png)\n"], [4]);
+        $this->imagens->method('doArtigo')->willReturn([$publicada, $semUso]);
+        $this->imagens->expects(self::once())->method('remover')->with($semUso);
+
+        $this->sut()->executar($this->input(['corpoHtml' => '<p>Texto novo, sem imagem.</p>'], 7));
+
+        self::assertTrue($artigo->temAlteracoesPendentes());
+        self::assertTrue($this->armazenamento->existe(ChavesDoBlog::imagem($publicada)));
+        self::assertFalse($this->armazenamento->existe(ChavesDoBlog::imagem($semUso)));
+    }
+
     /** @return iterable<string, array{string}> */
     public static function capasRecusadas(): iterable
     {

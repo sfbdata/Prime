@@ -10,13 +10,14 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Painel de artigos dos blogs, fatia P4 (spec painel-artigos-blogs, seções 1 e 6.1): tabela `publicacao_blogs`, o
  * histórico das gerações dos blogs pelo builder. Global, sem tenant; quem pediu fica nulo se o usuário sair (e é nulo
- * quando o pedido vem do agendador ou do console).
+ * quando o pedido vem do agendador ou do console). E a coluna `versao_publicada` (jsonb) em `artigo_blog`: a versão
+ * congelada no Publicar, que é o que o pacote leva (D7). Artigo já publicado fica nulo até ser publicado de novo.
  */
 final class Version20261103160000 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Tabela publicacao_blogs (gerações dos blogs pelo builder)';
+        return 'Tabela publicacao_blogs (gerações dos blogs pelo builder) e versao_publicada em artigo_blog';
     }
 
     public function up(Schema $schema): void
@@ -25,10 +26,12 @@ final class Version20261103160000 extends AbstractMigration
         $this->addSql('CREATE INDEX idx_publicacao_blogs_situacao ON publicacao_blogs (situacao)');
         $this->addSql('CREATE INDEX idx_publicacao_blogs_pedida_por ON publicacao_blogs (pedida_por_id)');
         $this->addSql('ALTER TABLE publicacao_blogs ADD CONSTRAINT FK_76A4DBA348AB9BA5 FOREIGN KEY (pedida_por_id) REFERENCES "user" (id) ON DELETE SET NULL NOT DEFERRABLE');
+        $this->addSql('ALTER TABLE artigo_blog ADD versao_publicada JSONB DEFAULT NULL');
     }
 
     public function down(Schema $schema): void
     {
+        $this->addSql('ALTER TABLE artigo_blog DROP versao_publicada');
         $this->addSql('DROP TABLE publicacao_blogs');
     }
 }

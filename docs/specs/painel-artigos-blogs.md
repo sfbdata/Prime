@@ -247,7 +247,9 @@ pedidos/{id}/                  id = PublicacaoDosBlogs.id
   e o `rsync --delete` tira do ar o que saiu (despublicado ou excluído).
 - De cada artigo vai a **versão publicada**, nunca o texto atual (D7): no Publicar, o artigo congela em
   `artigo_blog.versao_publicada` (jsonb) o `.md` de cada pasta de destino e os ids das imagens usadas;
-  Despublicar zera. A limpeza de imagens não apaga imagem da versão publicada. Assim, uma alteração guardada
+  Despublicar zera. A limpeza de imagens não apaga imagem da versão publicada. A importação congela a versão do
+  artigo que vem publicado; o agendador da P5 também precisa congelar (`VersaoPublicadaDoArtigo::congelar`).
+  Despublicar o último artigo publicado dá pedido `falhou` (pacote vazio) e o site fica como estava. Assim, uma alteração guardada
   de um artigo não vai ao ar quando outro artigo é publicado.
 - As pastas `artigos/blog/`, `artigos/blog-gratis/` e as `imagens/` existem sempre, mesmo vazias.
 - Pacote sem nenhum artigo publicado (somando os dois blogs) é recusado: o pedido vira `falhou` ("Nenhum artigo

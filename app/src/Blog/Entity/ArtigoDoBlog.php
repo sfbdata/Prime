@@ -115,6 +115,17 @@ class ArtigoDoBlog implements Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $atualizadoEm = null;
 
+    /**
+     * A versão que está (ou vai) no ar, congelada no Publicar (D7): o slug, o `.md` exportado de cada pasta dos sites
+     * (já com o canonical da cópia do grátis) e os ids das imagens usadas no corpo e na capa. O pacote do builder lê só
+     * isto, nunca o texto atual: uma alteração guardada e não publicada não vai ao ar quando outro artigo é publicado.
+     * Nulo fora do ar (Despublicar zera).
+     *
+     * @var array{slug: string, arquivos: array<string, string>, imagens: list<int>}|null
+     */
+    #[ORM\Column(type: 'json', nullable: true, options: ['jsonb' => true])]
+    private ?array $versaoPublicada = null;
+
     /** Texto guardado depois da última publicação e ainda fora do site (D7). */
     #[ORM\Column(type: 'boolean')]
     private bool $alteracoesPendentes = false;
@@ -272,6 +283,20 @@ class ArtigoDoBlog implements Auditavel
     {
         $this->exigirSituacao([SituacaoDoArtigo::Publicado], 'Só um artigo publicado pode ser despublicado.');
         $this->situacao = SituacaoDoArtigo::Despublicado;
+        $this->versaoPublicada = null;
+    }
+
+    /**
+     * Congela a versão que vai ao ar (logo depois de {@see publicar()}; quem exporta é o
+     * {@see \App\Blog\Service\VersaoPublicadaDoArtigo}).
+     *
+     * @param array<string, string> $arquivos pasta dos sites => conteúdo do `.md`
+     * @param list<int>             $imagens  ids das imagens do corpo e da capa
+     */
+    public function registrarVersaoPublicada(array $arquivos, array $imagens): void
+    {
+        $this->exigirSituacao([SituacaoDoArtigo::Publicado], 'Só um artigo publicado tem versão publicada.');
+        $this->versaoPublicada = ['slug' => $this->slug, 'arquivos' => $arquivos, 'imagens' => array_values(array_unique($imagens))];
     }
 
     /** Publicado pede despublicar antes de excluir (o link do site cairia sem aviso). */
@@ -284,7 +309,8 @@ class ArtigoDoBlog implements Auditavel
 
     private function republicar(\DateTimeImmutable $agora): void
     {
-        if (SituacaoDoArtigo::Publicado === $this->situacao && !$this->alteracoesPendentes) {
+        // Publicado sem versão congelada (anterior à P4): Publicar de novo a congela.
+        if (SituacaoDoArtigo::Publicado === $this->situacao && !$this->alteracoesPendentes && $this->versaoPublicada !== null) {
             throw new \DomainException('O artigo já está publicado e não tem alterações a publicar.');
         }
 
@@ -455,6 +481,18 @@ class ArtigoDoBlog implements Auditavel
     public function getAtualizadoEm(): ?\DateTimeImmutable
     {
         return $this->atualizadoEm;
+    }
+
+    /** @return array{slug: string, arquivos: array<string, string>, imagens: list<int>}|null */
+    public function getVersaoPublicada(): ?array
+    {
+        return $this->versaoPublicada;
+    }
+
+    /** @return list<int> as imagens que a versão no ar usa (a limpeza do Salvar não as apaga) */
+    public function idsDasImagensPublicadas(): array
+    {
+        return $this->versaoPublicada['imagens'] ?? [];
     }
 
     public function temAlteracoesPendentes(): bool

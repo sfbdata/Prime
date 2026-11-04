@@ -15,7 +15,10 @@ use App\Blog\Message\MontarPacoteDosBlogs;
 use App\Blog\Repository\ArtigoDoBlogRepository;
 use App\Blog\Repository\PublicacaoDosBlogsRepository;
 use App\Blog\Service\PedirPublicacaoDosBlogs;
+use App\Blog\Repository\ImagemDoArtigoRepository;
+use App\Blog\Service\ExportadorDeArtigo;
 use App\Blog\Service\ValidadorDoArtigo;
+use App\Blog\Service\VersaoPublicadaDoArtigo;
 use App\Blog\UseCase\DespublicarArtigoDoBlogUseCase;
 use App\Blog\UseCase\PublicarArtigoDoBlogUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
@@ -66,7 +69,9 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
 
     private function publicar(): PublicarArtigoDoBlogUseCase
     {
-        return new PublicarArtigoDoBlogUseCase($this->artigos, new ValidadorDoArtigo(), $this->pedir(), $this->relogio);
+        $versao = new VersaoPublicadaDoArtigo($this->createStub(ImagemDoArtigoRepository::class), new ExportadorDeArtigo());
+
+        return new PublicarArtigoDoBlogUseCase($this->artigos, new ValidadorDoArtigo(), $versao, $this->pedir(), $this->relogio);
     }
 
     private function despublicar(): DespublicarArtigoDoBlogUseCase
@@ -97,6 +102,11 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
         self::assertSame(SituacaoDoArtigo::Publicado, $artigo->getSituacao());
         self::assertEquals($this->relogio->now(), $artigo->getPublicadoEm());
         self::assertNull($artigo->getAtualizadoEm());
+        $versao = $artigo->getVersaoPublicada();
+        self::assertNotNull($versao, 'D7: a versão que vai ao ar fica congelada');
+        self::assertSame('rascunho-completo', $versao['slug']);
+        self::assertSame(['blog'], array_keys($versao['arquivos']));
+        self::assertStringContainsString('publicadoEm: 2026-11-03', $versao['arquivos']['blog']);
         self::assertCount(1, $this->gravadas);
         self::assertSame(MotivoDaPublicacao::Publicar, $this->gravadas[0]->getMotivo());
         self::assertSame(SituacaoDaPublicacao::NaFila, $this->gravadas[0]->getSituacao());
@@ -160,6 +170,7 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
 
         self::assertEquals($publicadoEm, $artigo->getPublicadoEm());
         self::assertEquals($this->relogio->now(), $artigo->getAtualizadoEm());
+        self::assertStringContainsString('Título novo', $artigo->getVersaoPublicada()['arquivos']['blog'] ?? '');
         self::assertFalse($saida->alteracoesPendentes);
     }
 
@@ -173,6 +184,7 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
         $saida = $this->despublicar()->executar(7, null);
 
         self::assertSame(SituacaoDoArtigo::Despublicado, $artigo->getSituacao());
+        self::assertNull($artigo->getVersaoPublicada(), 'Despublicar zera a versão publicada');
         self::assertSame('despublicado', $saida->situacao);
         self::assertSame(MotivoDaPublicacao::Despublicar, $this->gravadas[0]->getMotivo());
         self::assertCount(1, $this->bus->mensagens);
@@ -201,6 +213,21 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
 
         self::assertSame(SituacaoDoArtigo::Publicado, $artigo->getSituacao());
         self::assertEquals($atualizadoEm, $artigo->getAtualizadoEm());
+    }
+
+    #[TestDox('Publicado antes da P4, sem versão guardada: Publicar de novo é aceito e congela a versão')]
+    public function testPublicadoSemVersaoPodeSerPublicadoDeNovo(): void
+    {
+        $artigo = ArtigosDeTeste::rascunhoCompleto();
+        $artigo->publicar(new \DateTimeImmutable('2026-10-01 10:00'));
+        $this->comArtigo($artigo);
+        $this->publicacoes->method('naFilaSemPacote')->willReturn(null);
+
+        $this->publicar()->executar(7, null);
+
+        self::assertNotNull($artigo->getVersaoPublicada());
+        self::assertNull($artigo->getAtualizadoEm(), 'sem texto novo, atualizadoEm não muda');
+        self::assertCount(1, $this->bus->mensagens);
     }
 
     #[TestDox('Id inexistente: ArtigoDoBlogNaoEncontrado (404)')]

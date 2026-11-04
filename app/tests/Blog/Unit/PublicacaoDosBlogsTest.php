@@ -24,7 +24,11 @@ final class PublicacaoDosBlogsTest extends TestCase
     {
         $p = $this->nova();
         self::assertSame(SituacaoDaPublicacao::NaFila, $p->getSituacao());
+        self::assertFalse($p->montagemIniciada());
+        $p->marcarEmMontagem();
+        self::assertTrue($p->montagemIniciada(), 'em montagem: um Publicar novo não o reaproveita');
         self::assertFalse($p->pacoteMontado());
+        self::assertSame([], $p->getArtigos());
         $p->registrarPacote(['blog' => ['a'], 'blog-gratis' => []]);
         self::assertTrue($p->pacoteMontado());
 
@@ -53,6 +57,7 @@ final class PublicacaoDosBlogsTest extends TestCase
 
         foreach ([
             fn () => $p->registrarPacote([]),
+            fn () => $p->marcarEmMontagem(),
             fn () => $p->marcarGerando(new \DateTimeImmutable()),
             fn () => $p->concluir(true, null, '', null, new \DateTimeImmutable()),
             fn () => $p->falhar('de novo', new \DateTimeImmutable()),

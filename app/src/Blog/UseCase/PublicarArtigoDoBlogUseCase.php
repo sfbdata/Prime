@@ -11,6 +11,7 @@ use App\Blog\Exception\ArtigoDoBlogNaoPublicavel;
 use App\Blog\Repository\ArtigoDoBlogRepository;
 use App\Blog\Service\PedirPublicacaoDosBlogs;
 use App\Blog\Service\ValidadorDoArtigo;
+use App\Blog\Service\VersaoPublicadaDoArtigo;
 use App\Entity\Auth\User;
 use Psr\Clock\ClockInterface;
 
@@ -22,7 +23,8 @@ use Psr\Clock\ClockInterface;
  * Pré-condições: o artigo salvo passa em todas as regras do zod ({@see ValidadorDoArtigo}), menos a da data: Publicar
  * agora dá a data ao artigo (a de agora, ou a marcada, se já passou).
  * Fluxo principal: valida; {@see \App\Blog\Entity\ArtigoDoBlog::publicar()} (o `publicadoEm` e o `atualizadoEm` seguem
- * a entidade: `atualizadoEm` só muda em republicação com texto novo); pede a geração dos blogs
+ * a entidade: `atualizadoEm` só muda em republicação com texto novo); congela a versão publicada (o `.md` de cada
+ * pasta e as imagens, {@see VersaoPublicadaDoArtigo}, D7: é só ela que o pacote leva); pede a geração dos blogs
  * ({@see PedirPublicacaoDosBlogs}, que grava tudo num flush só, no escopo de plataforma).
  * Fluxos alternativos: id inexistente (404); regras do zod (422 com os erros por campo); artigo publicado sem
  * alterações (409, \DomainException da entidade).
@@ -33,6 +35,7 @@ final class PublicarArtigoDoBlogUseCase
     public function __construct(
         private readonly ArtigoDoBlogRepository $artigos,
         private readonly ValidadorDoArtigo $validador,
+        private readonly VersaoPublicadaDoArtigo $versaoPublicada,
         private readonly PedirPublicacaoDosBlogs $pedir,
         private readonly ClockInterface $relogio,
     ) {
@@ -50,6 +53,7 @@ final class PublicarArtigoDoBlogUseCase
 
         $agora = $this->relogio->now();
         $artigo->publicar($agora);
+        $this->versaoPublicada->congelar($artigo);
         $publicacao = $this->pedir->pedir(MotivoDaPublicacao::Publicar, $ator, $agora);
 
         return ArtigoPublicadoOutput::de($artigo, $publicacao);

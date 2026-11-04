@@ -11,11 +11,13 @@ use App\Blog\Enum\BlogsDoArtigo;
 use App\Blog\Enum\SituacaoDoArtigo;
 use App\Blog\Exception\ArtigoDoRepositorioRecusado;
 use App\Blog\Repository\ArtigoDoBlogRepository;
+use App\Blog\Repository\ImagemDoArtigoRepository;
 use App\Blog\Service\ArquivoDoArtigo;
 use App\Blog\Service\ExportadorDeArtigo;
 use App\Blog\Service\HtmlDoArtigoParaMarkdown;
 use App\Blog\Service\MarkdownDoArtigoParaHtml;
 use App\Blog\Service\ValidadorDoArtigo;
+use App\Blog\Service\VersaoPublicadaDoArtigo;
 use App\Blog\UseCase\ImportarArtigoDoRepositorioUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -60,6 +62,7 @@ final class ImportarArtigoDoRepositorioUseCaseTest extends TestCase
             new ValidadorDoArtigo(),
             new MockClock('2026-11-03 10:00:00'),
             $this->escopo,
+            new VersaoPublicadaDoArtigo($this->createStub(ImagemDoArtigoRepository::class), new ExportadorDeArtigo()),
         );
     }
 
@@ -193,6 +196,11 @@ final class ImportarArtigoDoRepositorioUseCaseTest extends TestCase
 
         self::assertSame(SituacaoDoArtigo::Publicado, $this->salvos[0]->getSituacao());
         self::assertNull($this->salvos[0]->getAtualizadoEm());
+        // P4 (D7): o importado já no ar tem a versão publicada congelada, que é o que o pacote do builder leva.
+        $versao = $this->salvos[0]->getVersaoPublicada();
+        self::assertNotNull($versao);
+        self::assertSame(['blog'], array_keys($versao['arquivos']));
+        self::assertStringContainsString('publicadoEm: 2026-11-03', $versao['arquivos']['blog']);
     }
 
     #[TestDox('rascunho: true vira rascunho; com data futura, a data fica guardada')]
@@ -203,6 +211,7 @@ final class ImportarArtigoDoRepositorioUseCaseTest extends TestCase
 
         self::assertSame(SituacaoDoArtigo::Rascunho, $this->salvos[0]->getSituacao());
         self::assertNull($this->salvos[0]->getPublicarEm());
+        self::assertNull($this->salvos[0]->getVersaoPublicada());
         self::assertSame(SituacaoDoArtigo::Rascunho, $this->salvos[1]->getSituacao());
         self::assertSame('2026-12-01', $this->salvos[1]->getPublicarEm()?->format('Y-m-d'));
     }

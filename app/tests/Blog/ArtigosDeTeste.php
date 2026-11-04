@@ -34,6 +34,8 @@ final class ArtigosDeTeste
         $artigo->editarTextos($artigo->getTitulo(), $artigo->getTituloCurto(), $artigo->getTituloSeo(), $artigo->getDescricao(), $artigo->getLinhaFina(), $artigo->getResumo() . ' ');
         $artigo->registrarAlteracao(null, new \DateTimeImmutable('2026-10-30 08:00'));
         $artigo->publicar(new \DateTimeImmutable('2026-10-30 08:10'));
+        // A versão congelada no Publicar (P4, D7); o conteúdo exato não importa aos testes que usam este artigo.
+        $artigo->registrarVersaoPublicada(['blog' => "---\nslug: controle-de-prazos-processuais\n---\n\n" . $corpoMarkdown], []);
 
         return $artigo;
     }

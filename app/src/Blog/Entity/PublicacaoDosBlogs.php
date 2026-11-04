@@ -19,9 +19,10 @@ use Doctrine\ORM\Mapping as ORM;
  * GLOBAL, sem tenant, como o {@see ArtigoDoBlog}: conteúdo da plataforma, só o Master pede. Auditável (o UseCase abre
  * o escopo de plataforma).
  *
- * `artigos` nulo quer dizer que o pacote ainda não foi montado: só esse pedido na fila é reaproveitado por um Publicar
- * novo, porque o worker ainda vai ler os artigos do banco. Depois de montado, o pacote já tem o estado antigo, e um
- * Publicar novo pede outra geração (o builder faz uma por vez, na ordem).
+ * `artigos` nulo quer dizer que a montagem do pacote ainda não começou: só esse pedido na fila é reaproveitado por um
+ * Publicar novo, porque o worker ainda vai ler os artigos do banco. O worker marca o início da montagem
+ * ({@see marcarEmMontagem()}, `artigos = []`, com flush) ANTES de ler os artigos: um Publicar durante a montagem já não
+ * reaproveita o pedido e pede outra geração (o builder faz uma por vez, na ordem).
  *
  * Ciclo: na_fila, gerando (o builder escreveu `iniciado`), no_ar ou falhou (o `resultado.json`, ou 30 minutos sem
  * resposta). `pedidaPor` nulo = o agendador ou o console.
@@ -58,7 +59,7 @@ class PublicacaoDosBlogs implements Auditavel
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $log = null;
 
-    /** @var array<string, list<string>>|null pasta do blog => slugs que entraram; nulo = pacote ainda não montado */
+    /** @var array<string, list<string>>|null pasta do blog => slugs que entraram; nulo = montagem não começou; [] = montando */
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $artigos = null;
 
@@ -73,10 +74,17 @@ class PublicacaoDosBlogs implements Auditavel
     ) {
     }
 
+    /** O worker vai ler os artigos: daqui em diante um Publicar novo não reaproveita este pedido. */
+    public function marcarEmMontagem(): void
+    {
+        $this->exigirSituacao([SituacaoDaPublicacao::NaFila], 'Só um pedido na fila é montado.');
+        $this->artigos = [];
+    }
+
     /** @param array<string, list<string>> $artigos pasta do blog => slugs que entraram no pacote */
     public function registrarPacote(array $artigos): void
     {
-        $this->exigirSituacao([SituacaoDaPublicacao::NaFila], 'Só um pedido na fila recebe o pacote.');
+        $this->exigirSituacao([SituacaoDaPublicacao::NaFila, SituacaoDaPublicacao::Gerando], 'Só um pedido aberto recebe o pacote.');
         $this->artigos = $artigos;
     }
 
@@ -113,9 +121,16 @@ class PublicacaoDosBlogs implements Auditavel
         return $this->situacao->estaAberta();
     }
 
-    public function pacoteMontado(): bool
+    /** A montagem começou (ou terminou): o pedido já não leva mudanças novas. */
+    public function montagemIniciada(): bool
     {
         return $this->artigos !== null;
+    }
+
+    /** O pacote está montado: os slugs que entraram já foram guardados. */
+    public function pacoteMontado(): bool
+    {
+        return $this->artigos !== null && $this->artigos !== [];
     }
 
     /** @param list<SituacaoDaPublicacao> $permitidas */

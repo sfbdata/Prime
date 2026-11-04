@@ -33,6 +33,12 @@ final class PastaDosPedidos
         $this->criarPasta($this->montando($id));
     }
 
+    /** Pasta vazia no pacote (as `artigos/{blog}/imagens` existem sempre, mesmo sem artigo ou imagem). */
+    public function criarPastaNaMontagem(int $id, string $relativo): void
+    {
+        $this->criarPasta(\dirname($this->destinoNaMontagem($id, $relativo . '/.')));
+    }
+
     public function gravarNaMontagem(int $id, string $relativo, string $conteudo): void
     {
         $destino = $this->destinoNaMontagem($id, $relativo);
@@ -101,9 +107,51 @@ final class PastaDosPedidos
         if (!is_file($arquivo)) {
             return null;
         }
-        $dados = json_decode((string) file_get_contents($arquivo), true);
+        // O log do builder pode trazer byte que não é UTF-8 (saída do npm): sem o scrub, o json_decode falharia.
+        $dados = json_decode(mb_scrub((string) file_get_contents($arquivo), 'UTF-8'), true);
 
         return \is_array($dados) ? $dados : [];
+    }
+
+    /**
+     * Os slugs do `pedido.json` de um pedido já montado (o handler que caiu depois do rename os grava); nulo se a pasta
+     * ou o arquivo não existem ou não se entendem.
+     *
+     * @return array<string, list<string>>|null
+     */
+    public function slugsDoPedido(int $id): ?array
+    {
+        $arquivo = $this->doPedido($id) . '/pedido.json';
+        if (!is_file($arquivo)) {
+            return null;
+        }
+        $dados = json_decode((string) file_get_contents($arquivo), true);
+        if (!\is_array($dados) || !\is_array($dados['artigos'] ?? null)) {
+            return null;
+        }
+        $slugs = [];
+        foreach ($dados['artigos'] as $pasta => $lista) {
+            $slugs[(string) $pasta] = \is_array($lista) ? array_values(array_map('strval', $lista)) : [];
+        }
+
+        return $slugs;
+    }
+
+    /**
+     * Apaga as montagens `.{id}.montando` paradas desde antes de `$antesDe` (o worker caiu no meio). Devolve quantas.
+     */
+    public function apagarMontagensAbandonadas(\DateTimeImmutable $antesDe): int
+    {
+        $apagadas = 0;
+        foreach (is_dir($this->raiz) ? (scandir($this->raiz) ?: []) : [] as $nome) {
+            $caminho = rtrim($this->raiz, '/') . '/' . $nome;
+            if (preg_match('/^\.\d+\.montando$/', $nome) === 1 && !is_link($caminho) && (int) filemtime($caminho) < $antesDe->getTimestamp()) {
+                $this->apagarArvore($caminho);
+                ++$apagadas;
+            }
+        }
+
+        return $apagadas;
     }
 
     /** Apaga a pasta do pedido (depois de ler o resultado, ou quando o builder não respondeu). */

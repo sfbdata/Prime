@@ -155,6 +155,50 @@ final class ConferirPublicacoesDosBlogsCommandTest extends KernelTestCase
         self::assertSame('O builder devolveu um resultado que o BlueJus não entende.', $this->reler($p)->getLog());
     }
 
+    #[TestDox('Log do builder com byte que não é UTF-8 e com as cores do terminal (com e sem o ESC): lido limpo')]
+    public function testLogSujo(): void
+    {
+        $p = $this->pedido('2026-11-03 14:55');
+        // O ESC vai como \u001b (json_encode); o byte \xC3 solto entra cru, depois do encode.
+        $log = "\x1b[32m✔ build\x1b[0m pronto\n[32mverde sem ESC[0m BYTE fim";
+        $json = (string) json_encode(['versao' => 1, 'situacao' => 'no_ar', 'commit' => 'a1b2c3d', 'log' => $log], \JSON_UNESCAPED_UNICODE);
+        $this->builderEscreve($p, 'resultado.json', str_replace('BYTE', "\xC3", $json));
+
+        self::assertSame(Command::SUCCESS, $this->comando->execute([]), $this->comando->getDisplay());
+
+        $lida = $this->reler($p);
+        self::assertSame(SituacaoDaPublicacao::NoAr, $lida->getSituacao());
+        self::assertSame("✔ build pronto\nverde sem ESC ? fim", (string) $lida->getLog());
+    }
+
+    #[TestDox('Montagem .{id}.montando parada há mais de 1 hora é apagada; a recente fica')]
+    public function testMontagemAbandonada(): void
+    {
+        mkdir($this->raiz . '/.90.montando/artigos', 0o775, true);
+        mkdir($this->raiz . '/.91.montando', 0o775, true);
+        touch($this->raiz . '/.90.montando', $this->relogio->now()->modify('-61 minutes')->getTimestamp());
+        touch($this->raiz . '/.91.montando', $this->relogio->now()->modify('-59 minutes')->getTimestamp());
+
+        self::assertSame(Command::SUCCESS, $this->comando->execute([]));
+
+        self::assertDirectoryDoesNotExist($this->raiz . '/.90.montando');
+        self::assertDirectoryExists($this->raiz . '/.91.montando');
+    }
+
+    #[TestDox('Pedido na fila já em montagem (artigos = []) não é reaproveitado: blog:gerar-de-novo pede outro')]
+    public function testPedidoEmMontagemNaoEReaproveitado(): void
+    {
+        $emMontagem = new PublicacaoDosBlogs(new \DateTimeImmutable('2026-11-03 14:59'), null, MotivoDaPublicacao::Publicar);
+        $emMontagem->marcarEmMontagem();
+        $this->publicacoes->salvar($emMontagem, flush: true);
+        self::assertNull($this->publicacoes->naFilaSemPacote());
+
+        $gerar = new CommandTester((new Application(self::$kernel))->find('blog:gerar-de-novo'));
+        self::assertSame(Command::SUCCESS, $gerar->execute([]));
+
+        self::assertCount(2, $this->publicacoes->abertas());
+    }
+
     #[TestDox('blog:gerar-de-novo: cria um pedido manual na fila e manda montar; com um na fila sem pacote, reaproveita')]
     public function testGerarDeNovo(): void
     {

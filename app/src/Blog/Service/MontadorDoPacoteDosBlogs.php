@@ -8,7 +8,7 @@ use App\Blog\Armazenamento\ChavesDoBlog;
 use App\Blog\Entity\ArtigoDoBlog;
 use App\Blog\Entity\ImagemDoArtigo;
 use App\Blog\Entity\PublicacaoDosBlogs;
-use App\Blog\Enum\BlogsDoArtigo;
+use App\Blog\Exception\PacoteDosBlogsVazio;
 use App\Blog\Repository\ArtigoDoBlogRepository;
 use App\Blog\Repository\ImagemDoArtigoRepository;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
@@ -23,10 +23,13 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
  * {id}/artigos/blog-gratis/{slug}.md   {id}/artigos/blog-gratis/imagens/{imagem}.{ext}
  * ```
  *
- * Leva TODOS os artigos publicados (o build gera o blog inteiro e o `rsync --delete` tira do ar o que saiu). Cada
- * artigo vai para as pastas de {@see ExportadorDeArtigo::blogsDeDestino()}; a cópia do grátis de um artigo "os dois"
- * leva o `canonical` do Blog BlueJus (D5). As imagens (as citadas no corpo como `./imagens/{id}.{ext}` e a capa) saem
- * do armazenamento por chave, em stream, para a pasta `imagens/` ao lado do `.md`.
+ * Leva TODOS os artigos publicados (o build gera o blog inteiro e o `rsync --delete` tira do ar o que saiu), cada um
+ * pela VERSÃO PUBLICADA congelada no Publicar ({@see VersaoPublicadaDoArtigo}, D7): o `.md` de cada pasta e as imagens
+ * pelos ids guardados, lidas do armazenamento por chave, em stream. Nunca o texto atual: uma alteração guardada e não
+ * publicada não vai ao ar quando outro artigo é publicado.
+ *
+ * As quatro pastas (`artigos/{blog,blog-gratis}` e as `imagens/` de cada uma) existem sempre, mesmo vazias. Nenhum
+ * artigo publicado nos dois blogs é recusado ({@see PacoteDosBlogsVazio}): o build tiraria tudo do ar.
  *
  * Escrita atômica: tudo é montado em `.{id}.montando/` e renomeado no fim ({@see PastaDosPedidos}). Uma falha no meio
  * apaga a montagem e sobe a exceção.
@@ -38,12 +41,9 @@ final class MontadorDoPacoteDosBlogs
     /** As pastas dos blogs no pacote, na ordem do `pedido.json`. */
     public const PASTAS = ['blog', 'blog-gratis'];
 
-    private const IMAGEM_NO_CORPO = '#\./imagens/(\d+)\.(?:jpg|png|webp)\b#';
-
     public function __construct(
         private readonly ArtigoDoBlogRepository $artigos,
         private readonly ImagemDoArtigoRepository $imagens,
-        private readonly ExportadorDeArtigo $exportador,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly PastaDosPedidos $pasta,
     ) {
@@ -56,10 +56,16 @@ final class MontadorDoPacoteDosBlogs
         $slugs = array_fill_keys(self::PASTAS, []);
         $this->pasta->comecarMontagem($id);
         try {
+            foreach (self::PASTAS as $pastaDoBlog) {
+                $this->pasta->criarPastaNaMontagem($id, 'artigos/' . $pastaDoBlog . '/imagens');
+            }
             foreach ($this->artigos->publicados() as $artigo) {
-                foreach ($this->gravarArtigo($id, $artigo) as $pastaDoBlog) {
-                    $slugs[$pastaDoBlog][] = $artigo->getSlug();
+                foreach ($this->gravarArtigo($id, $artigo) as $pastaDoBlog => $slug) {
+                    $slugs[$pastaDoBlog][] = $slug;
                 }
+            }
+            if (array_merge(...array_values($slugs)) === []) {
+                throw new PacoteDosBlogsVazio();
             }
             $this->pasta->gravarNaMontagem($id, 'pedido.json', $this->pedidoJson($publicacao, $slugs));
             $this->pasta->concluirMontagem($id);
@@ -72,48 +78,45 @@ final class MontadorDoPacoteDosBlogs
         return $slugs;
     }
 
-    /** @return list<string> as pastas dos blogs em que o artigo entrou */
+    /** @return array<string, string> pasta do blog => slug com que o artigo entrou */
     private function gravarArtigo(int $id, ArtigoDoBlog $artigo): array
     {
-        $usadas = $this->imagensUsadas($artigo);
-        $capa = $usadas[(string) $artigo->getImagemChave()] ?? null;
-        $caminhoDaCapa = $capa === null ? null : './imagens/' . $capa->getId() . '.' . $capa->extensao();
-        $pastas = $this->exportador->blogsDeDestino($artigo);
-        foreach ($pastas as $pastaDoBlog) {
-            $canonical = ('blog-gratis' === $pastaDoBlog && BlogsDoArtigo::Ambos === $artigo->getBlogs())
-                ? $this->exportador->canonicalNoBlog($artigo)
-                : null;
-            $md = $this->exportador->exportar($artigo, $caminhoDaCapa, $canonical);
-            $this->pasta->gravarNaMontagem($id, 'artigos/' . $pastaDoBlog . '/' . $artigo->getSlug() . '.md', $md);
-            foreach ($usadas as $imagem) {
+        $versao = $artigo->getVersaoPublicada() ?? throw new \RuntimeException(sprintf(
+            'O artigo "%s" está publicado sem a versão publicada guardada: publique-o de novo pelo editor.',
+            $artigo->getSlug(),
+        ));
+        $imagens = $this->imagensDaVersao($artigo, $versao['imagens']);
+        $entrou = [];
+        foreach ($versao['arquivos'] as $pastaDoBlog => $md) {
+            if (!\in_array($pastaDoBlog, self::PASTAS, true)) {
+                throw new \RuntimeException(sprintf('Pasta "%s" desconhecida na versão publicada de "%s".', $pastaDoBlog, $versao['slug']));
+            }
+            $this->pasta->gravarNaMontagem($id, 'artigos/' . $pastaDoBlog . '/' . $versao['slug'] . '.md', $md);
+            foreach ($imagens as $imagem) {
                 $this->copiarImagem($id, $pastaDoBlog, $imagem);
             }
+            $entrou[$pastaDoBlog] = $versao['slug'];
         }
 
-        return $pastas;
+        return $entrou;
     }
 
     /**
-     * As imagens do artigo que o pacote leva: as citadas no corpo e a capa. Imagem citada que não é do artigo não entra
-     * (o conversor já a tira do HTML ao salvar).
+     * @param list<int> $ids
      *
-     * @return array<string, ImagemDoArtigo> id da imagem (texto) => imagem
+     * @return list<ImagemDoArtigo>
      */
-    private function imagensUsadas(ArtigoDoBlog $artigo): array
+    private function imagensDaVersao(ArtigoDoBlog $artigo, array $ids): array
     {
-        preg_match_all(self::IMAGEM_NO_CORPO, $artigo->getCorpoMarkdown(), $achados);
-        $ids = $achados[1];
-        if ($artigo->getImagemChave() !== null) {
-            $ids[] = $artigo->getImagemChave();
+        if ($ids === []) {
+            return [];
         }
-        $usadas = [];
-        foreach ($this->imagens->doArtigo($artigo) as $imagem) {
-            if (\in_array((string) $imagem->getId(), $ids, true)) {
-                $usadas[(string) $imagem->getId()] = $imagem;
-            }
+        $imagens = array_values(array_filter($this->imagens->doArtigo($artigo), static fn (ImagemDoArtigo $i): bool => \in_array((int) $i->getId(), $ids, true)));
+        if (\count($imagens) !== \count($ids)) {
+            throw new \RuntimeException(sprintf('Uma imagem da versão publicada de "%s" não existe mais: publique o artigo de novo.', $artigo->getSlug()));
         }
 
-        return $usadas;
+        return $imagens;
     }
 
     private function copiarImagem(int $id, string $pastaDoBlog, ImagemDoArtigo $imagem): void

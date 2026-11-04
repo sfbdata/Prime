@@ -35,7 +35,10 @@ class PublicacaoDosBlogsRepository extends ServiceEntityRepository
         return $this->find($id);
     }
 
-    /** O pedido na fila cujo pacote ainda não foi montado: um Publicar novo o reaproveita (seção 6.1). */
+    /**
+     * O pedido na fila cuja montagem ainda não começou (`artigos` nulo; o worker grava `[]` antes de ler os artigos): um
+     * Publicar novo o reaproveita (seção 6.1).
+     */
     public function naFilaSemPacote(): ?PublicacaoDosBlogs
     {
         return $this->createQueryBuilder('p')
