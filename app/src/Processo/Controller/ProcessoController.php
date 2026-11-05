@@ -9,6 +9,9 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\AssuntoProcesso;
 use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
+use App\Entity\Auth\User;
+use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tenant\Tenant;
 use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
@@ -273,9 +276,9 @@ class ProcessoController extends AbstractController
      * As metas da aba Tarefas. Cadeado (spec pasta-cadeado D1, auditoria 1.03): as da pasta oculta para quem olha
      * não aparecem nem contam. Sem escritório no contexto, nenhuma (como as pastas vinculadas).
      *
-     * @return \App\Entity\Tarefa\Tarefa[]
+     * @return Tarefa[]
      */
-    private function metasDoProcesso(Processo $processo, ?\App\Entity\Tenant\Tenant $tenant, \App\Entity\Auth\User $quemOlha, TarefaRepository $tarefaRepository, AcessoAPasta $acessoAPasta): array
+    private function metasDoProcesso(Processo $processo, ?Tenant $tenant, User $quemOlha, TarefaRepository $tarefaRepository, AcessoAPasta $acessoAPasta): array
     {
         if ($tenant === null) {
             return [];

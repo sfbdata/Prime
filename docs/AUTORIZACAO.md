@@ -572,7 +572,8 @@ Expediente pergunta ao `AcessoAPasta::podeConfigurar()`.
    - o processo cujas pastas vinculadas são TODAS ocultas para a pessoa não abre (403 no
      `processo_show` e recusa no `canAccessResource` de `processo`, o que fecha também as notas
      técnicas) e some da lista de processos; com pelo menos uma pasta visível, abre, e a pasta oculta
-     aparece nele só com o número, o cliente e o cadeado (K3);
+     aparece nele só com o número, o cliente e o cadeado, e a aba Tarefas do processo não mostra nem conta
+     as metas dela (K3);
    - as Minhas Metas (lista, abas, KPIs, trilho), as metas da equipe e a Agenda (prazos e audiências
      da pasta) não mostram nem contam o que é dela; o Push global esconde o processo cujas pastas são
      todas ocultas (a regra do processo); os avisos da meta não vão para quem está oculto, e o sino e
@@ -590,7 +591,8 @@ pasta inteira; a aba oculta é **organização** e tira abas dentro do que o cad
 `Oculto`, a aba não importa (a pasta toda está fechada); com `Visualizar`, as abas visíveis ficam em
 leitura; com `Editar`, vale só o que a aba oculta tirar. Quem configura os dois é o mesmo grupo.
 
-**Ainda não cobre:** na auditoria, `CasoCobranca`, `NotaTecnica` e `Notificacao` (que citam pasta mas são
+**Ainda não cobre:** o envio automático do relatório de pastas paradas (aviso à Controladoria e ao
+responsável) ainda leva a pasta oculta, com o responsável; na auditoria, `CasoCobranca`, `NotaTecnica` e `Notificacao` (que citam pasta mas são
 da Cobrança, do processo e da pessoa); a janela do cliente (`ClienteResumoController`) segue escondendo
 inteira a pasta que a pessoa não pode abrir.
 
@@ -598,7 +600,7 @@ inteira a pasta que a pessoa não pode abrir.
 
 A meta não tem recurso-item próprio: o item que ela protege é a pasta. A guarda única das rotas por id da
 meta é `App\Tarefa\Service\AcessoAMeta::exigir` (página `tarefa_show`, despacho, responsáveis, acompanhar,
-prazo, concluir, excluir, anexos dos despachos, e também Extrato, Lembrar, passagem de etapa, duplicar,
+prazo, concluir, excluir, anexos dos despachos, certificar o despacho, e também Extrato, Lembrar, passagem de etapa, duplicar,
 redistribuir e a guarda do desfazer). Depois do escritório (404) e do cadeado (`Oculto` → 404), ela exige:
 
 - poder **ver a pasta** (`AcessoAPasta::podeVer`, o `canAccessResource` completo: `resources.pasta.view`,

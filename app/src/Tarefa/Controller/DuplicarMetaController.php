@@ -24,7 +24,8 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * "Duplicar" no ⋮ da meta (desenho 02, D:3725/D:3736; PMC-032). A cópia é uma meta nova da mesma pasta, então as
  * guardas são as da criação de meta (`TarefaController::criarParaPasta`): módulo Tarefas, meta do escritório da
- * sessão (404 fora dele, e na pasta oculta pelo cadeado: `AcessoAMeta`), poder VER a pasta (403) e o CSRF por id.
+ * sessão (404 fora dele, na pasta oculta pelo cadeado e para quem não vê a pasta nem cuida da meta: `AcessoAMeta`),
+ * poder VER a pasta (403 para quem cuida da meta mas não vê a pasta) e o CSRF por id.
  * A lápide e o cadeado em "Visualizar" são recusados antes, pelos listeners da pasta (a action recebe a `Tarefa`,
  * filha da pasta).
  *
