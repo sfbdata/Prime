@@ -126,12 +126,14 @@
                         {% endif %}
                     </div>
                     <div class="card-footer">
+                        {% if podeGerenciar ?? false %}
                         <a href="{{ path('agenda_editar', {id: evento.id}) }}"
                            class="btn btn-outline-primary btn-sm"
                            title="{{ 'agenda.comum.editar_evento'|trans }}"
                            aria-label="{{ 'agenda.comum.editar_evento'|trans }}">
                             <i class="bi bi-pencil me-1"></i> {{ 'agenda.comum.editar'|trans }}
                         </a>
+                        {% endif %}
                         <a href="{{ path('agenda_index') }}" class="btn btn-secondary">
                             <i class="bi bi-arrow-left me-1"></i> {{ 'agenda.show.voltar_calendario'|trans }}
                         </a>
@@ -157,7 +159,7 @@
                     </div>
                 </div>
 
-                {% if evento.status != 'cancelado' %}
+                {% if evento.status != 'cancelado' and (podeGerenciar ?? false) %}
                 <div class="card card-outline card-danger">
                     <div class="card-header">
                         <h3 class="card-title"><i class="bi bi-exclamation-triangle me-1"></i> {{ 'agenda.comum.acoes'|trans }}</h3>

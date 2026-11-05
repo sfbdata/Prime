@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Agenda\Entity\Evento;
+use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Tenant\Tenant;
 use App\Form\EventoType;
 use App\Repository\EventoRepository;
 use App\Repository\UserRepository;
@@ -39,6 +41,7 @@ class AgendaController extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
+        private readonly EventoDaAgendaRepository $eventosDaAgenda,
     ) {
     }
 
@@ -177,9 +180,12 @@ class AgendaController extends AbstractController
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
             return $this->redirectToRoute('homepage');
         }
+        $this->exigirVisivel($evento, $currentUser, $tenant);
 
         return $this->render('agenda/show.html.twig', [
             'evento' => $evento,
+            // Mesma regra das rotas de cancelar e excluir: só o criador ou quem administra usuários recebe os botões e os tokens.
+            'podeGerenciar' => $evento->getCriador() === $currentUser || $this->permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'),
         ]);
     }
 
@@ -192,6 +198,12 @@ class AgendaController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
+
+        $semModulo = $this->semModuloAgenda($user, $tenant);
+        if ($semModulo !== null) {
+            return $semModulo;
+        }
+        $this->exigirVisivel($evento, $user, $tenant);
 
         // Apenas admin ou criador pode editar
         if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
@@ -240,6 +252,12 @@ class AgendaController extends AbstractController
         $user = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
+        $semModulo = $this->semModuloAgenda($user, $tenant);
+        if ($semModulo !== null) {
+            return $semModulo;
+        }
+        $this->exigirVisivel($evento, $user, $tenant);
+
         // Apenas admin ou criador pode excluir
         if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
             $this->addFlash('danger', 'Você não tem permissão para excluir este evento.');
@@ -264,6 +282,12 @@ class AgendaController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
+
+        $semModulo = $this->semModuloAgenda($user, $tenant);
+        if ($semModulo !== null) {
+            return $semModulo;
+        }
+        $this->exigirVisivel($evento, $user, $tenant);
 
         // Apenas admin ou criador pode cancelar
         if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
@@ -290,6 +314,29 @@ class AgendaController extends AbstractController
         }
 
         return $this->redirectToRoute('agenda_index');
+    }
+
+    /**
+     * A mesma visibilidade da Agenda nova em todo acesso por id (auditoria 3.02/3.03): "Só eu" só para o
+     * criador; "Para Todos" com participantes só para criador e participantes. Quem não vê recebe 404, sem
+     * confirmar que o evento existe, até o administrador (como `SalvarCompromissoUseCase` e companhia).
+     */
+    private function exigirVisivel(Evento $evento, User $user, ?Tenant $tenant): void
+    {
+        if ($tenant === null || $this->eventosDaAgenda->visivelPara((int) $evento->getId(), $tenant, $user) === null) {
+            throw $this->createNotFoundException('Evento não encontrado.');
+        }
+    }
+
+    /** Mesmo tratamento do detalhe para quem não tem o módulo agenda: aviso e volta ao início. */
+    private function semModuloAgenda(User $user, ?Tenant $tenant): ?Response
+    {
+        if ($this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
+            return null;
+        }
+        $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
+
+        return $this->redirectToRoute('homepage');
     }
 
     /**

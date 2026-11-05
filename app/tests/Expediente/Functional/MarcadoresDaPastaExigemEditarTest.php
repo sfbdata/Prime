@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Expediente\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Controller\ExpedienteController;
 use App\Expediente\Entity\Marcador;
+use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Controller\DemandasLinhaController;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -81,6 +83,54 @@ final class MarcadoresDaPastaExigemEditarTest extends JusPrimeWebTestCase
     }
 
     #[DataProvider('rotas')]
+    #[TestDox('acesso item a item com edição (ResourceAccess can_edit) grava em $rota e vê o botão na Lista')]
+    public function testAcessoItemAItemComEdicaoGrava(string $rota): void
+    {
+        $this->prepararCliente();
+        [$primario, $tenant] = $this->criarEscritorio();
+        $leitor = $this->criarColaborador($tenant, 'Lia Leitora', self::SO_VE);
+        $pasta = $this->criarPasta($tenant);
+        $marcador = $this->marcador($tenant, $primario, 'Item');
+        $acesso = new ResourceAccess();
+        $acesso->setUser($leitor);
+        $acesso->setTenant($tenant);
+        $acesso->setResourceType(ResourceAccess::RESOURCE_PASTA);
+        $acesso->setResourceId((int) $pasta->getId());
+        $acesso->setCanView(true);
+        $acesso->setCanEdit(true);
+        $this->em()->persist($acesso);
+        $this->em()->flush();
+
+        $this->entrar($leitor, $tenant);
+        $this->enviar($rota, $pasta, [$marcador]);
+        self::assertResponseIsSuccessful();
+        self::assertSame([$marcador->getId()], $this->idsGravados($pasta));
+
+        $crawler = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+        self::assertCount(1, $crawler->filter(sprintf('td.pasta-marcadores-col[data-pasta-id="%d"] [data-csrf-token]', $pasta->getId())));
+    }
+
+    #[DataProvider('rotas')]
+    #[TestDox('o cadeado em Visualizar é teto: quem edita pelo papel recebe 403 em $rota e não vê o botão')]
+    public function testCadeadoEmVisualizarETeto(string $rota): void
+    {
+        $this->prepararCliente();
+        [$primario, $tenant] = $this->criarEscritorio();
+        $editor = $this->criarColaborador($tenant, 'Edu Editor', self::EDITA);
+        $pasta = $this->criarPasta($tenant);
+        $marcador = $this->marcador($tenant, $primario, 'Teto');
+        $this->trancar($pasta, $primario, [[$editor, NivelDeAcesso::Visualizar]]);
+
+        $this->entrar($editor, $tenant);
+        $crawler = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+        self::assertCount(0, $crawler->filter(sprintf('td.pasta-marcadores-col[data-pasta-id="%d"] [data-csrf-token]', $pasta->getId())));
+
+        $this->enviar($rota, $pasta, [$marcador]);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame([], $this->idsGravados($pasta));
+    }
+
+    #[DataProvider('rotas')]
     #[TestDox('pasta de outro escritório continua 404 em $rota, sem gravar')]
     public function testOutroEscritorio404(string $rota): void
     {
@@ -122,6 +172,32 @@ final class MarcadoresDaPastaExigemEditarTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter($botao));
         self::assertGreaterThan(0, $crawler->filter($chip)->count());
+    }
+
+    #[TestDox('a Lista das Demandas também só entrega o botão e o token a quem edita')]
+    public function testListaDasDemandasSoMostraOBotaoAQuemEdita(): void
+    {
+        $this->prepararCliente();
+        [, $tenant] = $this->criarEscritorio();
+        $leitor = $this->criarColaborador($tenant, 'Lia Leitora', self::SO_VE);
+        $editor = $this->criarColaborador($tenant, 'Edu Editor', self::EDITA);
+        // As Demandas são as pastas de que a pessoa é responsável: uma para cada.
+        $daLeitora = $this->criarPasta($tenant);
+        $daLeitora->setResponsavel($leitor);
+        $doEditor = $this->criarPasta($tenant);
+        $doEditor->setResponsavel($editor);
+        $this->em()->flush();
+        $celula = 'td.pasta-marcadores-col[data-pasta-id="%d"]';
+
+        $this->entrar($leitor, $tenant);
+        $crawler = $this->client->request('GET', '/demandas');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter(sprintf($celula, $daLeitora->getId())), 'a pasta aparece nas Demandas');
+        self::assertCount(0, $crawler->filter(sprintf($celula, $daLeitora->getId()) . ' [data-csrf-token]'));
+
+        $this->entrar($editor, $tenant);
+        $crawler = $this->client->request('GET', '/demandas');
+        self::assertCount(1, $crawler->filter(sprintf($celula, $doEditor->getId()) . ' [data-csrf-token]'));
     }
 
     #[TestDox('o "+" de marcadores do cabeçalho da pasta só aparece para quem edita')]
