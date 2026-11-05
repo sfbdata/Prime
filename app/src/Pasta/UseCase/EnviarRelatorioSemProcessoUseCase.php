@@ -7,11 +7,13 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\DTO\AnaliseSemProcessoDaPasta;
 use App\Pasta\DTO\RelatorioSemProcessoOutput;
 use App\Pasta\DTO\ResultadoDoEnvioSemProcesso;
 use App\Pasta\DTO\ResumoSemProcesso;
 use App\Pasta\Entity\EnvioDoRelatorioSemProcesso;
 use App\Pasta\Repository\EnvioDoRelatorioSemProcessoRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\MontagemDoRelatorioSemProcesso;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserTenantRepository;
@@ -46,6 +48,11 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * os primários e os responsáveis. Sem ninguém na Controladoria com o módulo, o aviso vai só aos
  * primários e a mensagem é a do desenho (L2718).
  *
+ * Cadeado (spec pasta-cadeado D1; auditoria 2ª rodada, 1.20): a análise é feita uma vez, do escritório inteiro, e
+ * filtrada por destinatário. Quem está Oculto numa pasta (`AcessoAPasta::idsOcultosPara`) não a vê no resumo (as
+ * contagens são refeitas com `ResumoSemProcesso::deAnalises`) nem recebe o número dela no aviso ao responsável.
+ * Primário e Master recebem tudo. O histórico mensal continua com o resumo do escritório inteiro.
+ *
  * Teto do envio MANUAL: um a cada 30 minutos por escritório (revisão de permissão); o que diz se
  * houve envio recente é o próprio aviso gravado, sem configuração nova.
  * `$simular` (o `--dry-run` do comando) faz tudo menos gravar e avisar.
@@ -75,6 +82,7 @@ final class EnviarRelatorioSemProcessoUseCase
         private readonly ClockInterface $clock,
         private readonly PermissionChecker $permissionChecker,
         private readonly NotificacaoRepository $notificacaoRepository,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -94,8 +102,8 @@ final class EnviarRelatorioSemProcessoUseCase
         $controladoria = $this->usuariosComExpediente($this->userTenantRepository->findUsuariosDaControladoria($tenant), $tenant);
 
         $avisos = array_merge(
-            $this->avisosGerais($relatorio, array_merge($controladoria, $this->primarios($vinculos)), $quem),
-            $this->avisosAosResponsaveis($relatorio, $vinculos, $quem),
+            $this->avisosGerais($relatorio, array_merge($controladoria, $this->primarios($vinculos)), $quem, $tenant),
+            $this->avisosAosResponsaveis($relatorio, $vinculos, $quem, $tenant),
         );
         if (!$simular) {
             $this->gravar($tenant, $avisos, $relatorio->resumo, $agora, $automatico);
@@ -173,13 +181,46 @@ final class EnviarRelatorioSemProcessoUseCase
     }
 
     /**
-     * Um aviso por pessoa (quem é Controladoria E primário recebe um só), menos quem enviou.
+     * Um aviso por pessoa (quem é Controladoria E primário recebe um só), menos quem enviou. Cada uma recebe o
+     * resumo sem as pastas Ocultas para ela (1.20).
      *
      * @param list<User> $pessoas
      *
      * @return list<array{0: User, 1: string, 2: string}> [destinatário, título, mensagem]
      */
-    private function avisosGerais(RelatorioSemProcessoOutput $relatorio, array $pessoas, ?User $quem): array
+    private function avisosGerais(RelatorioSemProcessoOutput $relatorio, array $pessoas, ?User $quem, Tenant $tenant): array
+    {
+        $avisos = [];
+        foreach (self::semRepetir($pessoas, $quem) as $pessoa) {
+            $avisos[] = [$pessoa, ...self::resumoGeral($this->semAsOcultas($relatorio, $pessoa, $tenant))];
+        }
+
+        return $avisos;
+    }
+
+    /**
+     * O relatório sem as pastas Ocultas para a pessoa, com as contagens refeitas. O histórico (a evolução) fica
+     * como está, igual à tela da Controladoria. Sem nenhuma oculta, o mesmo relatório.
+     */
+    private function semAsOcultas(RelatorioSemProcessoOutput $relatorio, User $pessoa, Tenant $tenant): RelatorioSemProcessoOutput
+    {
+        $fora = $this->ocultasPara($pessoa, $tenant);
+        if ($fora === []) {
+            return $relatorio;
+        }
+        $analises = array_values(array_filter($relatorio->analises, static fn (AnaliseSemProcessoDaPasta $a): bool => !isset($fora[$a->pastaId])));
+
+        return new RelatorioSemProcessoOutput($relatorio->hoje, $analises, ResumoSemProcesso::deAnalises($analises), $relatorio->historico, $relatorio->totalDecisoes);
+    }
+
+    /** @return array<int, int> ids das pastas Ocultas para a pessoa, como chaves (Master e primário: nenhuma) */
+    private function ocultasPara(User $pessoa, Tenant $tenant): array
+    {
+        return array_flip($this->acessoAPasta->idsOcultosPara($pessoa, (int) $tenant->getId()));
+    }
+
+    /** @return array{0: string, 1: string} [título, mensagem] do resumo geral */
+    private static function resumoGeral(RelatorioSemProcessoOutput $relatorio): array
     {
         $r      = $relatorio->resumo;
         $titulo = 'Relatório mensal: ' . $r->sem . ' pasta(s) sem processo';
@@ -194,12 +235,7 @@ final class EnviarRelatorioSemProcessoUseCase
             self::evolucao($relatorio),
         );
 
-        $avisos = [];
-        foreach (self::semRepetir($pessoas, $quem) as $pessoa) {
-            $avisos[] = [$pessoa, $titulo, $texto];
-        }
-
-        return $avisos;
+        return [$titulo, $texto];
     }
 
     /** L3227: a evolução desde o último envio automático, ou o primeiro envio. */
@@ -226,13 +262,13 @@ final class EnviarRelatorioSemProcessoUseCase
 
     /**
      * L3230: cada responsável recebe as pastas dele que pedem ação. Só quem tem vínculo ativo e conta
-     * ativa no escritório; quem enviou não avisa a si mesmo.
+     * ativa no escritório; quem enviou não avisa a si mesmo. A pasta Oculta para ele fica fora (1.20).
      *
      * @param list<UserTenant> $vinculos
      *
      * @return list<array{0: User, 1: string, 2: string}>
      */
-    private function avisosAosResponsaveis(RelatorioSemProcessoOutput $relatorio, array $vinculos, ?User $quem): array
+    private function avisosAosResponsaveis(RelatorioSemProcessoOutput $relatorio, array $vinculos, ?User $quem, Tenant $tenant): array
     {
         $ativos = [];
         foreach ($vinculos as $v) {
@@ -241,10 +277,16 @@ final class EnviarRelatorioSemProcessoUseCase
             }
         }
 
+        $ocultas        = [];
         $porResponsavel = [];
         foreach ($relatorio->analises as $analise) {
-            if ($analise->pedeAcao() && $analise->responsavelId !== null && isset($ativos[$analise->responsavelId])) {
-                $porResponsavel[$analise->responsavelId][] = $analise->numero;
+            $id = $analise->responsavelId;
+            if (!$analise->pedeAcao() || $id === null || !isset($ativos[$id])) {
+                continue;
+            }
+            $ocultas[$id] ??= $this->ocultasPara($ativos[$id], $tenant);
+            if (!isset($ocultas[$id][$analise->pastaId])) {
+                $porResponsavel[$id][] = $analise->numero;
             }
         }
 

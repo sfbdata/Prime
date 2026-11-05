@@ -590,7 +590,11 @@ Expediente pergunta ao `AcessoAPasta::podeConfigurar()`.
    - o envio automático do relatório de pastas paradas é montado uma vez e filtrado por destinatário:
      a Controladoria e o responsável não recebem a pasta Oculta para eles (nem o número, nem o responsável,
      nem a contagem) nem a que não veem pela visibilidade do relatório; primário e Master recebem tudo;
-     quem fica sem pasta não é avisado.
+     quem fica sem pasta não é avisado;
+   - o envio do relatório de pastas sem processo (automático e "Enviar à Controladoria") segue a mesma regra
+     (auditoria 2ª rodada, 1.20): o resumo de cada destinatário é refeito sem as pastas Ocultas para ele, e o
+     responsável Oculto não recebe o número da pasta trancada; primário e Master recebem o total; o histórico
+     mensal (`relatorio_sem_processo_envio`) continua com o resumo do escritório inteiro.
 
 **Precedência com o "ocultar aba"** (#68): são dois eixos e os dois só subtraem. O cadeado é o teto da
 pasta inteira; a aba oculta é **organização** e tira abas dentro do que o cadeado permite. Com
