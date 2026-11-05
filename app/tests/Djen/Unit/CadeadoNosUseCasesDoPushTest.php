@@ -17,7 +17,10 @@ use App\Djen\UseCase\PararDeAcompanharProcessoUseCase;
 use App\Djen\UseCase\ReconciliarPublicacoesComProcessosUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Repository\PastaPrazoRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Pasta\UseCase\CumprirPrazoDaPastaUseCase;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\ProcessoRepository;
@@ -77,8 +80,31 @@ final class CadeadoNosUseCasesDoPushTest extends TestCase
     {
         $this->expectException(AcompanhamentoInvalidoException::class);
         try {
-            (new PararDeAcompanharProcessoUseCase($this->processos(), $this->acompanhadosQueNaoGravam()))
-                ->executar($this->tenant, $this->usuario, [self::NUMERO], [self::ID]);
+            (new PararDeAcompanharProcessoUseCase($this->processos(), $this->acompanhadosQueNaoGravam(), $this->pastasDoProcesso()))
+                ->executar($this->tenant, $this->usuario, [self::NUMERO], [self::ID], static fn (): bool => true);
+        } finally {
+            self::assertTrue($this->processo->monitoramentoAtivo());
+        }
+    }
+
+    /** Uma pasta (NUP CAD1) ligada ao processo. */
+    private function pastasDoProcesso(): PastaRepository
+    {
+        $pasta = (new Pasta())->setNup('CAD1');
+        $pastas = $this->createStub(PastaRepository::class);
+        $pastas->method('vinculosDosProcessos')->willReturn([new PastaProcesso($pasta, $this->processo)]);
+
+        return $pastas;
+    }
+
+    #[Test]
+    public function pararRecusaQuemNaoEditaAlgumaPastaDoProcesso(): void
+    {
+        $this->expectException(AcompanhamentoInvalidoException::class);
+        $this->expectExceptionMessage('Você não tem permissão para pausar o processo da Pasta CAD1. Nada foi pausado.');
+        try {
+            (new PararDeAcompanharProcessoUseCase($this->processos(), $this->acompanhadosQueNaoGravam(), $this->pastasDoProcesso()))
+                ->executar($this->tenant, $this->usuario, [self::NUMERO], [], static fn (): bool => false);
         } finally {
             self::assertTrue($this->processo->monitoramentoAtivo());
         }
@@ -157,8 +183,8 @@ final class CadeadoNosUseCasesDoPushTest extends TestCase
         $acompanhados = $this->createMock(ProcessoAcompanhadoRepository::class);
         $acompanhados->expects(self::once())->method('gravar');
 
-        $parados = (new PararDeAcompanharProcessoUseCase($this->processos(), $acompanhados))
-            ->executar($this->tenant, $this->usuario, [self::NUMERO], [99]);
+        $parados = (new PararDeAcompanharProcessoUseCase($this->processos(), $acompanhados, $this->pastasDoProcesso()))
+            ->executar($this->tenant, $this->usuario, [self::NUMERO], [99], static fn (): bool => true);
 
         self::assertSame(1, $parados);
         self::assertFalse($this->processo->monitoramentoAtivo());
