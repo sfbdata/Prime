@@ -1250,6 +1250,58 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Carrega de uma vez, para a página inteira da Lista do expediente, as coleções que cada linha lê
+     * (clientes, marcadores, metas e os vínculos de processo, de onde sai a ação quando a pasta não tem nome de
+     * ação). Sem isto, cada pasta disparava uma consulta avulsa por coleção ao ser desenhada.
+     *
+     * Uma consulta por coleção, e não um fetch join só com todas: juntas, as linhas se multiplicariam
+     * (clientes × marcadores × metas). E não junto da busca paginada: fetch join de coleção com
+     * `setMaxResults` corta as linhas da coleção, não as pastas.
+     *
+     * As coleções voltam INTEIRAS, como no carregamento preguiçoso: qualquer filtro (meta concluída que
+     * não conta, por exemplo) continua no template. Clientes e marcadores saem na ordem do id, a mesma que
+     * o banco devolve ao carregar uma pasta só pelo índice da tabela de vínculo.
+     *
+     * @param Pasta[] $pastas já filtradas pelo escritório e pelo cadeado; aqui só se completa o que elas têm
+     */
+    public function carregarColecoesDaLista(array $pastas, Tenant $tenant): void
+    {
+        $ids = array_values(array_filter(array_map(static fn (Pasta $p): ?int => $p->getId(), $pastas)));
+
+        if ($ids === []) {
+            return;
+        }
+
+        foreach (['clientes', 'marcadores', 'tarefas'] as $colecao) {
+            $this->createQueryBuilder('p')
+                ->select('p', 'c')
+                ->leftJoin('p.' . $colecao, 'c')
+                ->where('p.tenant = :tenant')
+                ->andWhere('p.id IN (:ids)')
+                ->setParameter('tenant', $tenant)
+                ->setParameter('ids', $ids)
+                ->orderBy('p.id', 'ASC')
+                ->addOrderBy('c.id', 'ASC')
+                ->getQuery()
+                ->getResult();
+        }
+
+        // Os vínculos saem com o processo junto (a ação lê o processo principal) e na ordem do mapeamento
+        // (principal primeiro), que o Doctrine acrescenta depois do `p.id`.
+        $this->createQueryBuilder('p')
+            ->select('p', 'pp', 'pr')
+            ->leftJoin('p.pastaProcessos', 'pp')
+            ->leftJoin('pp.processo', 'pr')
+            ->where('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Quantas pastas (sem lápide) cada cliente principal tem no escritório: o selo "Nx" ao lado do cliente
      * na Lista (E12). O cliente principal é o cadastro com CPF/CNPJ, então "mesmo nome e CPF" é ele.
      *
