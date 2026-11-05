@@ -9,6 +9,6 @@ tipo: seguranca
 - Testes que faltavam do teto de tentativas por conta (#652): a troca de senha pelo código do e-mail abre o login de novo, e no teto um e-mail que não existe recebe a mesma resposta da conta real.
 
 ## Para o cliente
-- No Meu Perfil, em Segurança, há o botão "Sair de todos os aparelhos". Depois de confirmar, todos os outros computadores e celulares onde você entrou saem da sua conta, inclusive os que usam "Manter conectado". O aparelho onde você apertou continua conectado até você sair ou fechar o navegador; depois, entre com a senha. A senha não muda.
+- No Meu Perfil, em Segurança, há o botão "Sair de todos os aparelhos". Depois de confirmar, todos os outros computadores e celulares onde você entrou saem da sua conta, inclusive os que usam "Manter conectado". O aparelho onde você apertou continua conectado até você sair ou fechar o navegador; depois, entre com a senha. A senha continua a mesma.
 - Útil quando você entrou num computador de outra pessoa, perdeu o celular ou esqueceu a conta aberta em algum lugar.
 - Conferimos com testes novos que, depois de muitas tentativas erradas, trocar a senha pelo código do e-mail libera a entrada de novo, e que a tela de login não revela se um e-mail tem conta.
