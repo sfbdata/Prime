@@ -22,10 +22,17 @@ final class AtualizarAnotacoesDoProcessoUseCase
     }
 
     /**
+     * @param ?int      $processoId       o processo cadastrado com este número, se houver
+     * @param list<int> $processosOcultos {@see \App\Pasta\Service\AcessoAPasta::idsDosProcessosOcultos()}: o processo
+     *                                    cujas pastas são todas ocultas para a pessoa não abre para ela (K3)
+     *
      * @throws AcompanhamentoInvalidoException com a mensagem da tela
      */
-    public function executar(Tenant $tenant, User $usuario, string $numero, string $observacao, string $area, string $fase, string $email, bool $temProcessoCadastrado): void
+    public function executar(Tenant $tenant, User $usuario, string $numero, string $observacao, string $area, string $fase, string $email, ?int $processoId, array $processosOcultos): void
     {
+        if ($processoId !== null && \in_array($processoId, $processosOcultos, true)) {
+            throw new AcompanhamentoInvalidoException('Processo não encontrado.');
+        }
         $digitos = (string) preg_replace('/\D/', '', $numero);
         if (\strlen($digitos) !== 20) {
             throw new AcompanhamentoInvalidoException('Número de processo inválido.');
@@ -46,7 +53,7 @@ final class AtualizarAnotacoesDoProcessoUseCase
         }
 
         $linha = $this->acompanhados->findOneDoTenantPorNumero($tenant, $digitos)
-            ?? new ProcessoAcompanhado($tenant, $digitos, !$temProcessoCadastrado, $usuario);
+            ?? new ProcessoAcompanhado($tenant, $digitos, $processoId === null, $usuario);
         $linha->anotar($email, $observacao, $area, $fase);
         $this->acompanhados->salvar($linha);
     }

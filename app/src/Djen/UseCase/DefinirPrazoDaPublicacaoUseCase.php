@@ -20,10 +20,14 @@ final class DefinirPrazoDaPublicacaoUseCase
     {
     }
 
-    /** @throws VinculoDaPublicacaoInvalidoException */
-    public function executar(Tenant $tenant, int $publicacaoId, ?int $dias): void
+    /**
+     * @param list<string> $numerosOcultos processos que a pessoa não enxerga pelo cadeado: a publicação deles não existe para ela
+     *
+     * @throws VinculoDaPublicacaoInvalidoException
+     */
+    public function executar(Tenant $tenant, int $publicacaoId, ?int $dias, array $numerosOcultos): void
     {
-        $publicacao = $this->publicacoes->findOneByIdDoTenant($publicacaoId, $tenant)
+        $publicacao = $this->publicacoes->findOneByIdVisivelDoTenant($publicacaoId, $tenant, $numerosOcultos)
             ?? throw new VinculoDaPublicacaoInvalidoException('Publicação não encontrada.');
         if ($dias !== null && ($dias < 1 || $dias > self::MAXIMO_DE_DIAS)) {
             throw new VinculoDaPublicacaoInvalidoException(sprintf('Informe um prazo entre 1 e %d dias úteis.', self::MAXIMO_DE_DIAS));

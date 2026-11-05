@@ -24,21 +24,33 @@ final class IncluirProcessoCadastradoNoPushUseCase
     ) {
     }
 
-    /** @throws AcompanhamentoInvalidoException */
-    public function executarPorNumero(Tenant $tenant, User $usuario, string $numero): Processo
+    /**
+     * @param list<int> $processosOcultos {@see \App\Pasta\Service\AcessoAPasta::idsDosProcessosOcultos()}
+     *
+     * @throws AcompanhamentoInvalidoException
+     */
+    public function executarPorNumero(Tenant $tenant, User $usuario, string $numero, array $processosOcultos): Processo
     {
         $digitos = (string) preg_replace('/\D/', '', $numero);
         $processo = $digitos === '' ? null : $this->processos->findByNumeroProcessoDoTenant($digitos, $tenant);
         if ($processo === null) {
             throw new AcompanhamentoInvalidoException('Selecione um processo da lista.');
         }
-        $this->executar($tenant, $usuario, $processo);
+        $this->executar($tenant, $usuario, $processo, $processosOcultos);
 
         return $processo;
     }
 
-    public function executar(Tenant $tenant, User $usuario, Processo $processo): void
+    /**
+     * @param list<int> $processosOcultos o processo cujas pastas são todas ocultas para a pessoa não abre para ela (K3)
+     *
+     * @throws AcompanhamentoInvalidoException
+     */
+    public function executar(Tenant $tenant, User $usuario, Processo $processo, array $processosOcultos): void
     {
+        if (\in_array((int) $processo->getId(), $processosOcultos, true)) {
+            throw new AcompanhamentoInvalidoException('Processo não encontrado.');
+        }
         $processo->retomarMonitoramento($usuario, new \DateTimeImmutable());
         $linha = $this->acompanhados->findOneDoTenantPorNumero($tenant, (string) preg_replace('/\D/', '', $processo->getNumeroProcesso()));
         $linha?->limparExclusao();

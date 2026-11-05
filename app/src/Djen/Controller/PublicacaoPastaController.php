@@ -11,6 +11,7 @@ use App\Djen\UseCase\VincularPublicacaoAPastaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,6 +33,7 @@ final class PublicacaoPastaController extends AbstractController
         private readonly PublicacaoDjenRepository $publicacoes,
         private readonly VincularPublicacaoAPastaUseCase $vincular,
         private readonly DesvincularPublicacaoDaPastaUseCase $desvincular,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -54,7 +56,8 @@ final class PublicacaoPastaController extends AbstractController
         if ($tenant === null || $usuario === null) {
             return new JsonResponse([], Response::HTTP_FORBIDDEN);
         }
-        $publicacao = $this->publicacoes->findOneByIdDoTenant($id, $tenant);
+        // As partes do processo de pasta oculta ficam fora (K3, D1): a publicação dele não existe para a pessoa.
+        $publicacao = $this->publicacoes->findOneByIdVisivelDoTenant($id, $tenant, $this->acessoAPasta->numerosDeProcessoOcultos($usuario, $tenant));
         if ($publicacao === null) {
             return new JsonResponse([], Response::HTTP_NOT_FOUND);
         }

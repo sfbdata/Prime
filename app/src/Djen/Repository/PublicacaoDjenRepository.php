@@ -68,6 +68,22 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * A publicação pelo id, como a pessoa a enxerga: a do processo cujas pastas são todas ocultas para ela pelo
+     * cadeado (K3, D3) volta `null`, como a de outro escritório. Toda porta de uma publicação só passa por aqui.
+     *
+     * @param list<string> $numerosOcultos {@see \App\Pasta\Service\AcessoAPasta::numerosDeProcessoOcultos()}
+     */
+    public function findOneByIdVisivelDoTenant(int $id, Tenant $tenant, array $numerosOcultos): ?PublicacaoDjen
+    {
+        $publicacao = $this->findOneByIdDoTenant($id, $tenant);
+        if ($publicacao === null || \in_array($publicacao->getNumeroProcesso(), $numerosOcultos, true)) {
+            return null;
+        }
+
+        return $publicacao;
+    }
+
+    /**
      * Deduplicação em lote: dado um conjunto de djenId, retorna os que JÁ existem no escritório.
      * Uma query só (evita N consultas na sincronização). Escopa por tenant explicitamente.
      *
