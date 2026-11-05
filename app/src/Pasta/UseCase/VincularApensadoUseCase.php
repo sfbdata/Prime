@@ -8,6 +8,8 @@ use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Pasta\Exception\ApensadoInvalidoException;
+use App\Pasta\Exception\ProcessoOcultoPeloCadeadoException;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Processo\Entity\Processo;
 use App\Twig\NumeroProcessoExtension;
@@ -20,7 +22,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * Quem: quem pode editar a pasta (o controller confere). O quê: juntar à pasta um processo que depende
  * do principal (embargos, agravo, execução...), com o tipo escolhido, para que ele apareça em Processo,
  * Dados da pasta e Push processual. Pré-condição: processo do mesmo escritório da pasta (o controller
- * já resolve o processo pelo escritório; aqui reforçamos).
+ * já resolve o processo pelo escritório; aqui reforçamos). Cadeado (regra K3, achado 3.04 da auditoria): o
+ * processo cujas pastas são TODAS ocultas para quem vincula é recusado ({@see ProcessoOcultoPeloCadeadoException}),
+ * como no {@see VincularProcessoUseCase}.
  *
  * Fluxo: confere o escritório, vincula como apensado (a entidade recusa o principal e o repetido com o
  * texto do desenho, {@see ApensadoInvalidoException}), escreve o cartão do sistema na timeline de Dados
@@ -33,12 +37,18 @@ final class VincularApensadoUseCase
         private readonly EntityManagerInterface $em,
         private readonly RegistroDoSistemaNaPasta $registro,
         private readonly NumeroProcessoExtension $numero,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
     public function executar(Pasta $pasta, Processo $processo, TipoDeApenso $tipo, User $usuario): void
     {
         $this->garantirMesmoTenant($pasta, $processo);
+        $tenant = $pasta->getTenant();
+        if ($tenant !== null && $processo->getId() !== null
+            && in_array($processo->getId(), $this->acessoAPasta->idsDosProcessosOcultos($usuario, $tenant), true)) {
+            throw new ProcessoOcultoPeloCadeadoException('Processo não encontrado.');
+        }
 
         $pasta->vincularApensado($processo, $tipo, $usuario);
         $this->registro->registrar($pasta, $usuario, 'proc', $this->textoDoRegistro($pasta, $processo, $tipo));

@@ -102,6 +102,7 @@ use App\Processo\Service\TribunalCnjResolver;
 use App\Pasta\DTO\ProcessoParaVincularOutput;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Pasta\Exception\ApensadoInvalidoException;
+use App\Pasta\Exception\ProcessoOcultoPeloCadeadoException;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\AlterarProBonoDaPastaUseCase;
@@ -1458,6 +1459,9 @@ class PastaController extends AbstractController
             $this->vincularApensadoComDados($pasta, $processo, $tipo, $usuario, $vincularApensado, $dadosDoCadastro);
         } catch (ApensadoInvalidoException|DadosDoProcessoInvalidosException $e) {
             return $this->respostaErroProcesso($isXhr, $e->getMessage(), (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (ProcessoOcultoPeloCadeadoException) {
+            // K3 (achado 3.04): o mesmo 422 do id inexistente, por id e pelo número já cadastrado.
+            return $this->respostaErroProcesso($isXhr, 'Processo não encontrado.', (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return null;
