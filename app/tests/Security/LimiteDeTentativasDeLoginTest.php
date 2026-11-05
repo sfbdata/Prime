@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Security;
 
+use App\Auth\Entity\RedefinicaoSenha;
 use App\Entity\Auth\User;
 use App\Master\Entity\ConfiguracaoGlobal;
 use App\Master\Repository\ConfiguracaoGlobalRepository;
@@ -132,5 +133,73 @@ final class LimiteDeTentativasDeLoginTest extends JusPrimeWebTestCase
         // Sem o reset a contagem seria 3 + 2 e a próxima já estaria barrada; com ele, é a 3ª da janela nova.
         $this->errar($client, $user, 2);
         self::assertTrue($this->entrou($client, (string) $user->getEmail(), self::SENHA));
+    }
+
+    #[TestDox('Teto da conta (auditoria 3.28): falhas de IPs diferentes somam pelo e-mail e, no teto, nem a senha certa entra')]
+    public function testTetoDaContaSomaIpsDiferentes(): void
+    {
+        $client = $this->cliente();
+        $this->tentativas(1);
+        $user = $this->conta();
+
+        // Limite 1: o usuário+IP barra na 2ª do mesmo IP; cada falha vem de um IP novo, e o teto da conta é 10.
+        for ($i = 1; $i <= 10 * 1; ++$i) {
+            $client->setServerParameter('REMOTE_ADDR', '10.9.0.' . $i);
+            self::assertFalse($this->entrou($client, strtoupper((string) $user->getEmail()), 'errada'));
+        }
+
+        $client->setServerParameter('REMOTE_ADDR', '10.9.1.1');
+        self::assertFalse($this->entrou($client, (string) $user->getEmail(), self::SENHA), 'no teto, a senha certa de um IP novo é barrada');
+    }
+
+    #[TestDox('Abaixo do teto da conta, a senha certa de outro IP entra e zera o contador da conta')]
+    public function testAbaixoDoTetoEntraEZera(): void
+    {
+        $client = $this->cliente();
+        $this->tentativas(1);
+        $user = $this->conta();
+
+        for ($i = 1; $i <= 9; ++$i) {
+            $client->setServerParameter('REMOTE_ADDR', '10.8.0.' . $i);
+            self::assertFalse($this->entrou($client, (string) $user->getEmail(), 'errada'));
+        }
+        $client->setServerParameter('REMOTE_ADDR', '10.8.1.1');
+        self::assertTrue($this->entrou($client, (string) $user->getEmail(), self::SENHA), 'a 10ª, certa, entra');
+
+        // Sem o reset da conta, a próxima falha fecharia o teto (9 + 1) e a senha certa seguinte seria barrada.
+        $client->setServerParameter('REMOTE_ADDR', '10.8.2.1');
+        self::assertFalse($this->entrou($client, (string) $user->getEmail(), 'errada'));
+        $client->setServerParameter('REMOTE_ADDR', '10.8.3.1');
+        self::assertTrue($this->entrou($client, (string) $user->getEmail(), self::SENHA));
+    }
+
+    #[TestDox('No teto da conta, a troca de senha pelo link do e-mail abre o login por senha de novo')]
+    public function testRecuperacaoPeloLinkAbreOTeto(): void
+    {
+        $client = $this->cliente();
+        $this->tentativas(1);
+        $user = $this->conta();
+        for ($i = 1; $i <= 10; ++$i) {
+            $client->setServerParameter('REMOTE_ADDR', '10.7.0.' . $i);
+            $this->entrou($client, (string) $user->getEmail(), 'errada');
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->persist(new RedefinicaoSenha(
+            user: $em->find(User::class, $user->getId()),
+            tokenHash: RedefinicaoSenha::hashDoToken($token),
+            expiraEm: new \DateTimeImmutable('+1 hour'),
+            ip: '10.7.9.9',
+        ));
+        $em->flush();
+        $form = $client->request('GET', '/senha/redefinir/' . $token)->selectButton('Salvar nova senha')->form();
+        $form['redefinir_senha[senha][first]'] = 'senha-nova-456';
+        $form['redefinir_senha[senha][second]'] = 'senha-nova-456';
+        $client->submit($form);
+        self::assertResponseRedirects('/login');
+
+        $client->setServerParameter('REMOTE_ADDR', '10.7.1.1');
+        self::assertTrue($this->entrou($client, (string) $user->getEmail(), 'senha-nova-456'));
     }
 }

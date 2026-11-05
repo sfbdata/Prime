@@ -30,9 +30,9 @@ final class LimitadorDeTentativasDeLoginTest extends TestCase
         return new LimitadorDeTentativasDeLogin($config, $this->armazenamento, 'segredo-de-teste');
     }
 
-    private function pedido(string $usuario, string $ip = '10.0.0.1'): Request
+    private function pedido(string $usuario, string $ip = '10.0.0.1', string $caminho = '/login'): Request
     {
-        $pedido = Request::create('/login', 'POST', server: ['REMOTE_ADDR' => $ip]);
+        $pedido = Request::create($caminho, 'POST', server: ['REMOTE_ADDR' => $ip]);
         $pedido->attributes->set(SecurityRequestAttributes::LAST_USERNAME, $usuario);
 
         return $pedido;
@@ -201,5 +201,59 @@ final class LimitadorDeTentativasDeLoginTest extends TestCase
         self::assertSame(2, $this->aceitas($limitador, $this->pedido('novo@adv.com')));
         // Janela aberta antes da mudança: segue com o limite com que nasceu (10), 1 já gasto.
         self::assertSame(9, $this->aceitas($limitador, $this->pedido('antigo@adv.com')));
+    }
+
+    #[TestDox('Teto da conta (auditoria 3.28): com n = 2, 20 falhas de IPs diferentes no mesmo e-mail barram a próxima, de qualquer IP')]
+    public function testTetoDaContaPorEmail(): void
+    {
+        $limitador = $this->limitador(new ConfiguracaoDaPlataformaFalsa(['tentativas' => '2']));
+        for ($i = 1; $i <= 20; ++$i) {
+            self::assertTrue($limitador->consume($this->pedido($i % 2 === 0 ? 'Ana@Adv.com' : ' ana@adv.com ', '10.1.0.' . $i))->isAccepted(), 'falha ' . $i);
+        }
+
+        self::assertFalse($limitador->consume($this->pedido('ana@adv.com', '10.2.0.1'))->isAccepted());
+        self::assertSame(0, $limitador->peek($this->pedido('ana@adv.com', '10.3.0.1'))->getRemainingTokens(), 'o peek de um IP novo já barra');
+        self::assertSame(2, $limitador->peek($this->pedido('outra@adv.com', '10.3.0.1'))->getRemainingTokens(), 'outra conta segue livre');
+    }
+
+    #[TestDox('Fora do formulário de senha (Google, Facebook), o teto da conta não conta nem barra')]
+    public function testTetoDaContaSoNoFormulario(): void
+    {
+        $limitador = $this->limitador(new ConfiguracaoDaPlataformaFalsa(['tentativas' => '1']));
+        for ($i = 1; $i <= 10; ++$i) {
+            $limitador->consume($this->pedido('ana@adv.com', '10.4.0.' . $i));
+        }
+
+        self::assertSame(0, $limitador->peek($this->pedido('ana@adv.com', '10.5.0.1'))->getRemainingTokens());
+        self::assertSame(1, $limitador->peek($this->pedido('ana@adv.com', '10.5.0.1', '/login/google/volta'))->getRemainingTokens());
+    }
+
+    #[TestDox('O reset do login certo zera também o contador da conta')]
+    public function testResetZeraAConta(): void
+    {
+        $limitador = $this->limitador(new ConfiguracaoDaPlataformaFalsa(['tentativas' => '1']));
+        for ($i = 1; $i <= 9; ++$i) {
+            $limitador->consume($this->pedido('ana@adv.com', '10.6.0.' . $i));
+        }
+        $limitador->reset($this->pedido('ana@adv.com', '10.6.1.1'));
+
+        // Sem o reset, a 10ª falha fecharia o teto (10) e a 11ª seria barrada; com ele, as 10 seguintes passam.
+        for ($i = 1; $i <= 10; ++$i) {
+            self::assertTrue($limitador->consume($this->pedido('ana@adv.com', '10.6.2.' . $i))->isAccepted(), 'falha ' . $i . ' depois do reset');
+        }
+    }
+
+    #[TestDox('zerarConta (troca de senha pela recuperação) abre o teto da conta, com o e-mail em qualquer caixa')]
+    public function testZerarContaAbreOTeto(): void
+    {
+        $limitador = $this->limitador(new ConfiguracaoDaPlataformaFalsa(['tentativas' => '1']));
+        for ($i = 1; $i <= 10; ++$i) {
+            $limitador->consume($this->pedido('ana@adv.com', '10.7.0.' . $i));
+        }
+        self::assertSame(0, $limitador->peek($this->pedido('ana@adv.com', '10.7.1.1'))->getRemainingTokens());
+
+        $limitador->zerarConta(' ANA@adv.com ');
+
+        self::assertSame(1, $limitador->peek($this->pedido('ana@adv.com', '10.7.1.1'))->getRemainingTokens());
     }
 }

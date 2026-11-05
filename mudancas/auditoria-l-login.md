@@ -1,0 +1,11 @@
+---
+tipo: seguranca
+---
+## Changelog
+- Troca de senha no perfil (auditoria 3.27): a conferência da senha atual no POST /perfil/senha tem limite por conta, 5 tentativas em 15 minutos (limitador `perfil_senha_atual`, chave = id do usuário, em `config/packages/limites_de_acesso.yaml`). O `AlterarSenhaUseCase` consome antes do `isPasswordValid`; passado o limite, nem a senha atual certa troca, e a tela mostra "Muitas tentativas. Tente de novo em alguns minutos.".
+- Login por senha (auditoria 3.28): além dos limites de usuário+IP e de IP, o `LimitadorDeTentativasDeLogin` soma as falhas pelo e-mail normalizado, de qualquer IP: `10 * n` por hora (`_login_conta_main`, n = tentativas do Master, padrão 5, então 50). No teto, nem a senha certa entra, com o mesmo aviso de "Muitas tentativas" do limite usuário+IP (a chave é o e-mail digitado, então o aviso não revela se a conta existe). Vale só para o formulário (POST /login); Google e Facebook não passam por ele. O login certo zera o contador da conta, e a troca de senha pela recuperação (link ou código) também (`zerarConta`), para a dona entrar com a senha nova na hora. Troca aceita: quem erra de propósito (POSTs anônimos, sem sessão nem CSRF válido) fecha o login por senha da conta alheia enquanto mantiver 50 falhas por hora; a recuperação de senha segue aberta. E-mails que só diferem na caixa dividem o teto. A defesa contra quem troca de IP só vale com o proxy confiável configurado (`SYMFONY_TRUSTED_PROXIES`); sem ele, todo pedido chega com o IP do nginx.
+- Anotações do lote G (PR #651), sem mudança de código: o limite de 10 por hora por e-mail na confirmação do código da recuperação pode ser gasto por terceiros e fechar a recuperação por código da vítima por 1 hora (troca aceita, igual ao teto por conta). Com "manter conectado", a sessão não expira por inatividade e vale até 1 dia.
+
+## Para o cliente
+- Na troca de senha pelo Meu Perfil, depois de 5 tentativas com a senha atual errada, a troca fica fechada por alguns minutos. Isso impede que alguém com o computador aberto descubra a senha atual por tentativa.
+- Na entrada com e-mail e senha, muitas senhas erradas na mesma conta, mesmo vindas de lugares diferentes, fecham a entrada por senha dessa conta por até 1 hora. Quem precisar entrar nesse tempo pode trocar a senha em "Esqueci minha senha" e entrar com a senha nova na hora.
