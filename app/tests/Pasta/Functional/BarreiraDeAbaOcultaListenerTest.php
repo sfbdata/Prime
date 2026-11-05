@@ -40,6 +40,15 @@ final class BarreiraDeAbaOcultaListenerTest extends JusPrimeWebTestCase
         yield 'processo: buscar processos' => [AbaDaPasta::Processo, 'GET', '/pasta/{id}/processo/buscar?q=1', []];
         yield 'processo: vincular' => [AbaDaPasta::Processo, 'POST', '/pasta/{id}/processo/vincular', []];
         yield 'tarefas: novo prazo' => [AbaDaPasta::Tarefas, 'POST', '/pasta/{id}/prazos', []];
+        // Auditoria 2.05: rotas criadas depois dentro das abas Push e Modelos (id `detalhes`).
+        yield 'push: avisar cliente' => [AbaDaPasta::Push, 'GET', '/pasta/{id}/push/cliente', []];
+        yield 'push: cadastrar e-mail do cliente' => [AbaDaPasta::Push, 'POST', '/pasta/{id}/push/cliente/emails', ['email' => 'x@exemplo.com']];
+        yield 'push: envio automático' => [AbaDaPasta::Push, 'POST', '/pasta/{id}/push/cliente/automatico', ['chave' => 'x', 'ligado' => '1']];
+        yield 'push: monitoramento' => [AbaDaPasta::Push, 'POST', '/pasta/{id}/push/monitoramento', []];
+        yield 'push: buscar' => [AbaDaPasta::Push, 'POST', '/pasta/{id}/push/buscar', []];
+        yield 'push: avisos' => [AbaDaPasta::Push, 'POST', '/pasta/{id}/push/avisos', []];
+        yield 'modelos: lista' => [AbaDaPasta::Detalhes, 'GET', '/pasta/{id}/modelos', []];
+        yield 'modelos: excluir' => [AbaDaPasta::Detalhes, 'POST', '/pasta/{id}/modelos/1/excluir', []];
     }
 
     /** @param array<string, mixed> $corpo */

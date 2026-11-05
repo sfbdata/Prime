@@ -10,6 +10,8 @@ use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Pasta\Controller\PeticionarController;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -173,6 +175,76 @@ final class PeticionarUploadDuplicadoControllerTest extends JusPrimeWebTestCase
     // ----------------------------------------------------------------- helpers
 
     /** @return array<string, mixed> JSON decodificado da resposta 200 */
+    /**
+     * Aba oculta na pasta onde o duplicado mora (auditoria 1.12): a Ana vê e edita A, só vê B, e o primário ocultou
+     * para ela uma aba de B. B tem um contrato e uma peça idênticos ao arquivo enviado em A.
+     *
+     * @return array{KernelBrowser, Tenant, User, User, int, Pasta}
+     */
+    private function cenarioDaAbaOculta(AbaDaPasta $aba): array
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $tenant   = $this->criarTenant();
+        $primario = $this->criarUsuario($tenant, isSystem: true);
+        $ana      = $this->criarUsuario($tenant, isSystem: false);
+        $pastaA   = $this->criarPasta($tenant, 'NUP-A');
+        $pastaB   = $this->criarPasta($tenant, 'NUP-B');
+        $this->concederAcesso($ana, $tenant, (int) $pastaA->getId(), view: true, edit: true);
+        $this->concederAcesso($ana, $tenant, (int) $pastaB->getId(), view: true, edit: false);
+        $this->documentoExistente($pastaB, $tenant, self::PDF, 'Contrato de honorários', PastaDocumento::CATEGORIA_CONTRATO);
+        $this->documentoExistente($pastaB, $tenant, self::PDF, 'Petição inicial', PastaDocumento::CATEGORIA_PECA);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->persist(AbaOcultaDaPasta::paraAlguns($tenant, $pastaB, $aba, [(int) $ana->getId()], $primario, new \DateTimeImmutable()));
+        $em->flush();
+        $this->limparIdentityMap();
+
+        return [$client, $tenant, $primario, $ana, (int) $pastaA->getId(), $pastaB];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return list<string>
+     */
+    private static function titulosDe(array $data): array
+    {
+        return array_map(static fn (array $d): string => (string) $d['titulo'], $data['duplicadoDe']);
+    }
+
+    #[TestDox('Financeiro oculto na pasta do duplicado: o contrato some do aviso, a peça continua')]
+    public function testFinanceiroOcultoTiraOContratoDoAviso(): void
+    {
+        [$client, $tenant, , $ana, $idA] = $this->cenarioDaAbaOculta(AbaDaPasta::Financeiro);
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $titulos = self::titulosDe($this->enviar($client, $idA, self::PDF, 'copia.pdf'));
+
+        self::assertSame(['PETIÇÃO INICIAL'], $titulos);
+    }
+
+    #[TestDox('Documentos oculto na pasta do duplicado: nenhum documento dela entra no aviso')]
+    public function testDocumentosOcultoTiraTudoDaquelaPasta(): void
+    {
+        [$client, $tenant, , $ana, $idA] = $this->cenarioDaAbaOculta(AbaDaPasta::Documentos);
+
+        $this->logarComTenant($client, $ana, $tenant);
+
+        self::assertSame([], self::titulosDe($this->enviar($client, $idA, self::PDF, 'copia.pdf')));
+    }
+
+    #[TestDox('o primário, que configura as abas, continua vendo o contrato no aviso')]
+    public function testPrimarioContinuaVendoOContrato(): void
+    {
+        [$client, $tenant, $primario, , $idA] = $this->cenarioDaAbaOculta(AbaDaPasta::Financeiro);
+
+        $this->logarComTenant($client, $primario, $tenant);
+
+        self::assertEqualsCanonicalizing(['CONTRATO DE HONORÁRIOS', 'PETIÇÃO INICIAL'], self::titulosDe($this->enviar($client, $idA, self::PDF, 'copia.pdf')));
+    }
+
     private function enviar(KernelBrowser $client, int $pastaId, string $conteudo, string $nome): array
     {
         $origem = sys_get_temp_dir() . '/petic_dup_' . bin2hex(random_bytes(6));
@@ -290,14 +362,14 @@ final class PeticionarUploadDuplicadoControllerTest extends JusPrimeWebTestCase
     }
 
     /** Linha de documento já existente, só com o hash — não precisa de arquivo para a busca. */
-    private function documentoExistente(Pasta $pasta, Tenant $tenant, string $conteudo, string $titulo): PastaDocumento
+    private function documentoExistente(Pasta $pasta, Tenant $tenant, string $conteudo, string $titulo, string $categoria = PastaDocumento::CATEGORIA_DEMAIS): PastaDocumento
     {
         $em  = static::getContainer()->get(EntityManagerInterface::class);
         $doc = (new PastaDocumento())
             ->setTenant($tenant)
             ->setPasta($pasta)
             ->setTitulo($titulo)
-            ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
+            ->setCategoria($categoria)
             ->setCaminhoArquivo('legado-' . bin2hex(random_bytes(8)) . '.pdf')
             ->setNomeOriginal($titulo . '.pdf')
             ->setMimeType('application/pdf')
