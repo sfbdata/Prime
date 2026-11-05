@@ -336,7 +336,9 @@ class FolhaPontoBuilder
         $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, $mes);
 
         $jornada = $this->jornadaNoEscritorio($user, $tenantNorm);
-        if ($jornada === null) {
+        // Sem escritório não há jornada (`jornadaNoEscritorio`): a checagem de $tenantNorm só deixa explícito que as
+        // consultas do laço abaixo levam sempre um escritório.
+        if ($jornada === null || $tenantNorm === null) {
             return $horasPagas;
         }
 
@@ -372,8 +374,8 @@ class FolhaPontoBuilder
             $inicioEfetivo = $inicio > $inicioMes ? $inicio : $inicioMes;
             $fimEfetivo    = $fim < $fimMes ? $fim : $fimMes;
 
-            $batidas = $this->registroPontoRepository->findByUserAndCompetencia($user, $anoAtual, $mesAtual);
-            $justificativas = $this->justificativaPontoRepository->findByUserAndCompetenciaIndexed($user, $anoAtual, $mesAtual);
+            $batidas = $this->registroPontoRepository->findByUserAndCompetencia($user, $tenantNorm, $anoAtual, $mesAtual);
+            $justificativas = $this->justificativaPontoRepository->findByUserAndCompetenciaIndexed($user, $tenantNorm, $anoAtual, $mesAtual);
 
             $rows = $this->buildRows(
                 $inicioEfetivo->setTime(0, 0, 0),
@@ -429,7 +431,9 @@ class FolhaPontoBuilder
         $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, 12);
 
         $jornada = $this->jornadaNoEscritorio($user, $tenantNorm);
-        if ($jornada === null) {
+        // Sem escritório não há jornada (`jornadaNoEscritorio`): a checagem de $tenantNorm só deixa explícito que as
+        // consultas do laço abaixo levam sempre um escritório.
+        if ($jornada === null || $tenantNorm === null) {
             return $horasPagas;
         }
 
@@ -464,8 +468,8 @@ class FolhaPontoBuilder
             $inicioEfetivo = $inicio > $inicioMes ? $inicio : $inicioMes;
             $fimEfetivo    = $fim < $fimMes ? $fim : $fimMes;
 
-            $batidas = $this->registroPontoRepository->findByUserAndCompetencia($user, $anoAtual, $mesAtual);
-            $justificativas = $this->justificativaPontoRepository->findByUserAndCompetenciaIndexed($user, $anoAtual, $mesAtual);
+            $batidas = $this->registroPontoRepository->findByUserAndCompetencia($user, $tenantNorm, $anoAtual, $mesAtual);
+            $justificativas = $this->justificativaPontoRepository->findByUserAndCompetenciaIndexed($user, $tenantNorm, $anoAtual, $mesAtual);
 
             $rows = $this->buildRows(
                 $inicioEfetivo->setTime(0, 0, 0),
