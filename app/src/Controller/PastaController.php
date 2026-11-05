@@ -937,7 +937,7 @@ class PastaController extends AbstractController
         if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException();
         }
-        if ($recusa = $this->recusaDaBuscaDeClientes($pasta, $tenant)) {
+        if ($recusa = $this->recusaDaBuscaParaVincular($pasta, $tenant)) {
             return $recusa;
         }
 
@@ -1012,8 +1012,11 @@ class PastaController extends AbstractController
         return $this->json($resultado);
     }
 
-    /** A guarda do vincular (EDIT na pasta, com o cadeado) e a lápide, como a tela (achado 2.01): 403 ou nada. */
-    private function recusaDaBuscaDeClientes(Pasta $pasta, Tenant $tenant): ?JsonResponse
+    /**
+     * As buscas que só servem para vincular (clientes e processos): a guarda do vincular (EDIT na pasta, com o
+     * cadeado) e a lápide, como a tela (achado 2.01 e a revisão do 3.04): 403 ou nada.
+     */
+    private function recusaDaBuscaParaVincular(Pasta $pasta, Tenant $tenant): ?JsonResponse
     {
         $pastaId = (int) $pasta->getId();
         if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
@@ -1427,19 +1430,18 @@ class PastaController extends AbstractController
 
     /**
      * Lista "Processo já cadastrado" da janela "Vincular processo" (desenho 02, N:299-302): sem termo, os 8
-     * primeiros do escritório (a lista abre ao focar); com termo, filtra. Cada item traz a origem.
+     * primeiros do escritório (a lista abre ao focar); com termo, filtra. Cada item traz a origem. Só serve para
+     * vincular: exige EDIT na pasta e recusa a lápide (403), como a busca de clientes; outro escritório, 404.
      */
     #[Route('/{id}/processo/buscar', name: 'pasta_buscar_processos', methods: ['GET'])]
     public function buscarProcessos(Pasta $pasta, Request $request, BuscarProcessosParaVincularUseCase $buscarProcessos): Response
     {
-        $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $redirect;
-        }
-
         $tenant = $this->tenantContext->getCurrentTenant();
-        if ($tenant === null) {
+        if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException();
+        }
+        if ($recusa = $this->recusaDaBuscaParaVincular($pasta, $tenant)) {
+            return $recusa;
         }
 
         try {
