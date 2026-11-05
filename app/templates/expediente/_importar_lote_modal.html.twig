@@ -47,6 +47,9 @@
 .il-barra div { height:100%; width:0; background:#0a6fa0; transition:width .2s; }
 .il-fim { font-size:13.5px; color:#1e7b45; background:#e9f6ee; border:1px solid #bfe3cc; border-radius:3px; padding:10px 12px; }
 .il-erro { font-size:13px; color:#a3232b; }
+.il-drive-linha { display:flex; gap:8px; }
+.il-drive-link { flex:1; min-width:0; height:36px; border:1px solid #d3dde4; border-radius:3px; padding:0 10px; font:inherit; font-size:13.5px; }
+.il-importar:disabled { opacity:.6; cursor:default; }
 .il-pergunta { display:flex; flex-direction:column; gap:10px; background:#f5fafd; border:1px solid #9fc3d8; border-radius:4px; padding:14px 16px; }
 .il-pergunta b { font-size:15px; color:#12242f; }
 .il-pergunta span { font-size:13px; color:#34505f; line-height:1.5; }
@@ -59,7 +62,8 @@
      data-url-pasta="{{ path('expediente_importar_lote_pasta') }}"
      data-url-proximo="{{ path('expediente_nova_pasta_sugestoes') }}"
      data-url-sugerir="{{ path('expediente_importar_lote_sugerir') }}"
-     data-token="{{ csrf_token('expediente_importar_lote') }}">
+     data-token="{{ csrf_token('expediente_importar_lote') }}"
+     {%- if importarDoDrive ?? false %} data-url-arvore="{{ path('expediente_importar_lote_drive_arvore') }}"{% endif %}>
   <div class="il-fundo" data-il="fechar"></div>
   <div class="il-centro"><div class="il-caixa" role="dialog" aria-modal="true" aria-label="Importar pastas em lote">
     <div class="il-topo"><i class="bi bi-folder-symlink"></i><b>Importar pastas em lote</b><button type="button" class="il-x" data-il="fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>
@@ -69,6 +73,12 @@
         <div class="il-arvore"><span>📁 Clientes<br>&nbsp;&nbsp;📁 MARIA DA SILVA → pasta nova<br>&nbsp;&nbsp;&nbsp;&nbsp;📄 procuração.pdf<br>&nbsp;&nbsp;&nbsp;&nbsp;📄 RG.jpg<br>&nbsp;&nbsp;📁 JOÃO SOUZA → pasta nova</span></div>
         <label class="il-soltar"><i class="bi bi-folder2-open"></i><b>Selecionar a pasta dos clientes</b><span>Todas as subpastas e arquivos são lidos de uma vez</span><input type="file" webkitdirectory directory multiple data-il="ler-pasta" style="display:none;"></label>
         <label class="il-soltos"><i class="bi bi-files"></i>Ou selecionar arquivos soltos (vira uma pasta só)<input type="file" multiple data-il="ler-arquivos" style="display:none;"></label>
+      </div>
+      {# "Importar do Google Drive" (spec importar-do-drive.md): o botão do modal Nova Pasta abre o lote com esta entrada no
+         lugar da do computador. Depois de ler a pasta, segue tudo igual (pergunta, tabela, IA, importar). #}
+      <div class="il-vazio" data-il="drive" hidden>
+        <div class="il-explica">Cole o link de uma pasta do <b>Google Drive do escritório</b>. As regras são as do lote do computador: <b>cada subpasta vira uma pasta nova</b> no BlueJus e os arquivos vão para <b>Documentos</b>. Documentos, Planilhas e Apresentações do Google entram como DOCX, XLSX e PDF.</div>
+        <div class="il-drive-linha"><input type="text" class="il-drive-link" data-il="drive-link" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off" aria-label="Link da pasta do Google Drive"><button type="button" class="il-importar" data-il="ler-drive"><i class="bi bi-google"></i> <span data-il="ler-drive-txt">Ler a pasta</span></button></div>
       </div>
       {# D11 (04/11/2026): pasta escolhida com subpasta pergunta sempre. "Criar N pastas": uma por subpasta; "1 pasta só": tudo vira uma pasta. Nas duas, as pastas do computador viram subpastas dos Documentos (D12). O texto e os rótulos vêm do JS. #}
       <div class="il-pergunta" data-il="pergunta" hidden>

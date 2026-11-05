@@ -302,7 +302,7 @@
     "Pasta/Controller/PeticionarController.php::editarTexto": 42,
     "Pasta/Controller/PeticionarController.php::exportarTexto": 44,
     "Pasta/Controller/PeticionarController.php::show": 43,
-    "Pasta/Controller/PeticionarController.php::upload": 102,
+    "Pasta/Controller/PeticionarController.php::anexar": 88,
     "Pasta/DTO/AndamentoDaPastaOutput.php::de": 80,
     "Pasta/DTO/ExploradorDeDocumentosOutput.php::montar": 83,
     "Pasta/DTO/PastaMetaRelatorioOutput.php::historico": 44,

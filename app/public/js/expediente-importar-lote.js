@@ -1,7 +1,10 @@
 /* "Importar pastas em lote" do Expediente (desenho 03 de 30/10, `montar`/`importar` do dc; spec
    docs/specs/importar-pastas-em-lote.md). Abre pelo evento `bj:importar-lote`, que o botão do modal
    Nova Pasta dispara. Cada subpasta escolhida vira uma pasta (rota expediente_importar_lote_pasta) e
-   os arquivos sobem um a um pela rota de upload da aba Documentos, na categoria Demais documentos. */
+   os arquivos sobem um a um pela rota de upload da aba Documentos, na categoria Demais documentos.
+   "Importar do Google Drive" (spec docs/specs/importar-do-drive.md) usa este mesmo código: o servidor devolve a
+   árvore da pasta do Drive e cada arquivo vira um item com a forma de um File do navegador (`webkitRelativePath`,
+   `name`, `size`) mais o `driveId`. Pergunta, níveis, número, IA e recusados são os mesmos; só o envio muda. */
 (function () {
     'use strict';
 
@@ -17,14 +20,14 @@
         return partes.slice(1, -1).some(function (pasta) { return pasta.charAt(0) === '.'; });
     }
     // Só estes disparam ação; o rótulo dentro do botão também tem data-il e não pode interceptar o clique.
-    var ACOES = '[data-il="fechar"], [data-il="trocar"], [data-il="importar"], [data-il="sim"], [data-il="nao"], [data-il="sugerir"], [data-il="voltar-regra"]';
+    var ACOES = '[data-il="fechar"], [data-il="trocar"], [data-il="importar"], [data-il="sim"], [data-il="nao"], [data-il="sugerir"], [data-il="voltar-regra"], [data-il="ler-drive"]';
     var FALHA_IA = 'A IA não conseguiu sugerir agora. O agrupamento por pasta continua valendo.';
     var el = function (nome) { return raiz.querySelector('[data-il="' + nome + '"]'); };
     /* Etapa 2 (IA): `origem` guarda os arquivos e a regra do último `montar`, para a IA e o "Voltar"; `modo` é
        'regra' ou 'ia'; `iniciou` some com os botões da IA assim que o Importar começa. */
     function estadoInicial() {
         return { lote: null, base: null, rodando: false, criou: false, fim: '', erro: '', pergunta: null,
-            origem: null, modo: 'regra', aviso: '', analisando: false, iniciou: false, vezIa: 0 };
+            origem: null, modo: 'regra', aviso: '', analisando: false, iniciou: false, vezIa: 0, doDrive: false, drive: null, lendo: false };
     }
     var s = estadoInicial();
 
@@ -41,8 +44,9 @@
         return lista.reduce(function (a, p) { return a + p.files.length; }, 0);
     }
 
-    function abrir() {
+    function abrir(e) {
         s = estadoInicial();
+        s.doDrive = !!(e && e.detail && e.detail.drive && raiz.dataset.urlArvore);
         raiz.hidden = false;
         render();
         raiz.querySelector('.il-x').focus();
@@ -272,7 +276,10 @@
 
     function render() {
         var sel = pendentes();
-        el('vazio').hidden = !!s.lote || !!s.pergunta;
+        el('vazio').hidden = s.doDrive || !!s.lote || !!s.pergunta;
+        el('drive').hidden = !s.doDrive || !!s.lote || !!s.pergunta;
+        el('ler-drive').disabled = s.lendo;
+        el('ler-drive-txt').textContent = s.lendo ? 'Lendo a pasta…' : 'Ler a pasta';
         el('pergunta').hidden = !s.pergunta;
         el('tem').hidden = !s.lote;
         if (s.lote) {
@@ -382,6 +389,61 @@
         s.vezIa++;
         s.analisando = false;
         montar(s.origem.files, s.origem.solta, s.origem.umCliente);
+    }
+
+    /* Drive: a árvore do servidor vira a mesma lista que o navegador dá no lote do computador. */
+    function lerDrive() {
+        var link = el('drive-link').value.trim();
+        if (!link || s.lendo) { return; }
+        s.lendo = true;
+        s.erro = '';
+        render();
+        fetch(raiz.dataset.urlArvore + '?pasta=' + encodeURIComponent(link), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json().catch(function () { return { status: 'erro' }; }); })
+            .catch(function () { return { status: 'erro' }; })
+            .then(function (d) {
+                s.lendo = false;
+                if (!d || d.status !== 'ok') {
+                    s.erro = (d && d.mensagem) || 'Não foi possível ler a pasta do Google Drive.';
+                    render();
+
+                    return;
+                }
+                s.drive = d;
+                var itens = d.itens.map(function (i) {
+                    return { webkitRelativePath: i.caminho, name: nomeDaPasta(i.caminho), size: i.tamanho, driveId: i.id, recusa: i.recusa };
+                });
+                if (!itens.length) {
+                    s.erro = 'Nenhum arquivo encontrado na pasta escolhida.';
+                    render();
+
+                    return;
+                }
+                lerPasta(itens);
+                if (d.truncado) {
+                    s.erro = 'A pasta passa de 2.000 arquivos: só os primeiros entraram. Importe as subpastas em partes.';
+                    render();
+                }
+            });
+    }
+
+    /* A pasta do Drive que corresponde à linha, para a pasta criada ficar ligada a ela (o envio automático usa a
+       pasta de origem e não a renomeia). Só quando a pasta do Drive tem os arquivos desta linha e de nenhuma outra:
+       ligar a pasta de vários clientes a um deles traria os arquivos dos outros de volta. */
+    function pastaDoDrive(p) {
+        if (!s.drive || !p.files.length || !p.files[0].driveId) { return ''; }
+        var partes = partesDe(p.files[0]);
+        var prefixo = partes.slice(0, baseDa(p, partes)).join('/');
+        if (!prefixo) { return ''; }
+        var dentro = function (fl) { return caminhoDe(fl).indexOf(prefixo + '/') === 0; };
+        if (!p.files.every(dentro)) { return ''; }
+        var naPasta = s.drive.itens.filter(function (i) {
+            return i.caminho.indexOf(prefixo + '/') === 0 && !ignorado(i.caminho.split('/'));
+        }).length;
+        if (naPasta !== p.files.length) { return ''; }
+        var achada = s.drive.pastas.filter(function (x) { return x.caminho === prefixo; })[0];
+
+        return achada ? achada.id : '';
     }
 
     function progresso(texto, fracao) {
@@ -500,6 +562,8 @@
             var dados = new FormData();
             dados.append('_token', raiz.dataset.token);
             dados.append('nome_cliente', p.cli.trim());
+            var origemNoDrive = pastaDoDrive(p);
+            if (origemNoDrive) { dados.append('drive_folder_id', origemNoDrive); }
             var criada;
             try {
                 criada = await postar(raiz.dataset.urlPasta, dados);
@@ -528,15 +592,28 @@
 
             var secoes = await criarSubpastas(p, criada);
             for (var j = 0; j < p.files.length; j++) {
-                var arq = new FormData(), destino = destinoDo(p, p.files[j]), lugar = secoes.lugar(destino);
+                var fl = p.files[j];
+                if (fl.recusa) {
+                    // Drive: o que não dá para baixar (formulário, atalho, grande demais) nem sai do Drive.
+                    recusados.push({ nome: fl.name, motivo: fl.recusa });
+                    feitos++;
+                    progresso(null, feitos / tot);
+                    continue;
+                }
+                var arq = new FormData(), destino = destinoDo(p, fl), lugar = secoes.lugar(destino);
                 arq.append('_token', criada.uploadToken);
-                arq.append('arquivo', p.files[j]);
+                // A única diferença entre as origens: o arquivo do computador sobe; o do Drive o servidor baixa.
+                if (fl.driveId) {
+                    arq.append('drive_file_id', fl.driveId);
+                } else {
+                    arq.append('arquivo', fl);
+                }
                 arq.append('categoria', 'DEMAIS');
                 if (lugar.secaoId) { arq.append('secao_id', String(lugar.secaoId)); }
                 if (lugar.descricao) { arq.append('descricao', lugar.descricao); }
                 var r;
                 try {
-                    r = await postar(criada.uploadUrl, arq);
+                    r = await postar(fl.driveId ? criada.uploadDriveUrl : criada.uploadUrl, arq);
                 } catch (e) {
                     r = { success: false, error: 'falha de conexão' };
                 }
@@ -590,6 +667,10 @@
         if (acao === 'voltar-regra') { voltarARegra(); }
         if ((acao === 'sim' || acao === 'nao') && s.pergunta) { responder(acao === 'sim'); }
         if (acao === 'importar') { importar(); }
+        if (acao === 'ler-drive') { lerDrive(); }
+    });
+    el('drive-link').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); lerDrive(); }
     });
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !raiz.hidden) { fechar(); }

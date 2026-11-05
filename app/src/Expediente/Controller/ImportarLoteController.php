@@ -15,6 +15,9 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Sync\Exception\ImportacaoDoDriveRecusadaException;
+use App\Sync\Exception\TenantSemDriveException;
+use App\Sync\UseCase\LigarPastaImportadaDoDriveUseCase;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\JsonException;
@@ -46,6 +49,7 @@ final class ImportarLoteController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly SugerirAgrupamentoDoLoteUseCase $sugerirAgrupamento,
+        private readonly LigarPastaImportadaDoDriveUseCase $ligarAoDrive,
     ) {
     }
 
@@ -63,6 +67,12 @@ final class ImportarLoteController extends AbstractController
             return $recusa ?? $this->erro('Você não tem permissão para acessar o módulo de pastas.', Response::HTTP_FORBIDDEN);
         }
 
+        $driveFolderId = trim((string) $request->request->get('drive_folder_id', ''));
+        $recusaDoDrive = $this->recusaDaPastaDoDrive($tenant, $driveFolderId);
+        if ($recusaDoDrive !== null) {
+            return $recusaDoDrive;
+        }
+
         // Sem o aviso de pasta duplicada do modal Nova Pasta: o desenho do lote não tem a etapa e
         // cliente repetido é caso real (D3). O número é sempre o do servidor (D5).
         $pasta = $this->criarPastaUseCase->executar(
@@ -71,6 +81,10 @@ final class ImportarLoteController extends AbstractController
             $tenant,
         );
 
+        // Ligada antes do despacho: o envio automático usa a pasta de origem em vez de criar outra.
+        if ($driveFolderId !== '') {
+            $this->ligarAoDrive->ligar($pasta, $driveFolderId);
+        }
         $this->syncDispatcher->despachar($pasta, $user, $tenant);
 
         return $this->criada($pasta, $user, $tenant);
@@ -115,6 +129,26 @@ final class ImportarLoteController extends AbstractController
         return new JsonResponse($sugestao->paraJson());
     }
 
+    /**
+     * "Importar do Google Drive": a pasta de origem precisa estar dentro da pasta do escritório. A conferência vem
+     * antes de criar, para não sobrar pasta sem arquivo. Null quando pode seguir (ou não veio pasta do Drive).
+     */
+    private function recusaDaPastaDoDrive(Tenant $tenant, string $driveFolderId): ?JsonResponse
+    {
+        if ($driveFolderId === '') {
+            return null;
+        }
+        try {
+            $this->ligarAoDrive->conferir($tenant, $driveFolderId);
+        } catch (ImportacaoDoDriveRecusadaException $e) {
+            return $this->erro($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (TenantSemDriveException) {
+            return $this->erro(ImportarDoDriveController::SEM_DRIVE, Response::HTTP_CONFLICT);
+        }
+
+        return null;
+    }
+
     /** Por que o pedido não cria pasta, ou null quando pode criar. */
     private function recusa(Request $request, User $user, ?Tenant $tenant, string $nomeCliente): ?JsonResponse
     {
@@ -150,6 +184,8 @@ final class ImportarLoteController extends AbstractController
             'cliente'     => mb_strtoupper((string) $pasta->getNomeCliente()),
             'uploadUrl'   => $podeAnexar ? $this->generateUrl('pasta_peticionar_upload', ['id' => $id]) : null,
             'uploadToken' => $podeAnexar ? $this->csrfTokenManager->getToken('peticionar_upload_' . $id)->getValue() : null,
+            // "Importar do Google Drive": o mesmo upload, com o arquivo baixado do Drive pelo servidor (mesmo token).
+            'uploadDriveUrl' => $podeAnexar ? $this->generateUrl('pasta_peticionar_upload_drive', ['id' => $id]) : null,
             // As pastas do computador viram subpastas dos Documentos pela mesma rota do explorador
             // (`PastaSecaoController::criar`, que reconfere escritório, permissão e o teto de 10 níveis).
             'secaoUrl'    => $podeAnexar ? $this->generateUrl('pasta_secao_criar', ['id' => $id]) : null,

@@ -285,12 +285,13 @@ final class ReconciliarCommand extends Command
         $conn = $this->em->getConnection();
         // Map escalar drive_folder_id → nome esperado (não hidrata entidades).
         $rows = $conn->fetchAllAssociative(
-            'SELECT drive_folder_id, nup, nome_cliente, nome_acao FROM pasta WHERE tenant_id = :t AND drive_folder_id IS NOT NULL',
+            'SELECT drive_folder_id, nup, nome_cliente, nome_acao, drive_manter_nome FROM pasta WHERE tenant_id = :t AND drive_folder_id IS NOT NULL',
             ['t' => $tenantId],
         );
+        // null = pasta ligada pelo "Importar do Google Drive", que mantém o nome do Drive (sem divergência).
         $linkadas = [];
         foreach ($rows as $rw) {
-            $linkadas[(string) $rw['drive_folder_id']] = ReconciliadorDePasta::nomeEsperado(
+            $linkadas[(string) $rw['drive_folder_id']] = (bool) $rw['drive_manter_nome'] ? null : ReconciliadorDePasta::nomeEsperado(
                 (string) $rw['nup'],
                 $rw['nome_cliente'] !== null ? (string) $rw['nome_cliente'] : null,
                 $rw['nome_acao'] !== null ? (string) $rw['nome_acao'] : null,
@@ -303,8 +304,8 @@ final class ReconciliarCommand extends Command
         }
 
         foreach ($subs as $sub) {
-            if (isset($linkadas[$sub['id']])) {
-                if ($linkadas[$sub['id']] !== $sub['nome']) {
+            if (array_key_exists($sub['id'], $linkadas)) {
+                if ($linkadas[$sub['id']] !== null && $linkadas[$sub['id']] !== $sub['nome']) {
                     $totais['divergencias']++;
                     $io->writeln(sprintf(
                         '  <comment>[divergência]</comment> drive_folder_id=%s: sistema="%s" drive="%s"',

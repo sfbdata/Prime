@@ -233,6 +233,26 @@ final class ReconciliadorDePastaTest extends KernelTestCase
         self::assertSame(0, $r->erros);
     }
 
+    #[TestDox('pasta ligada pelo "Importar do Google Drive" mantém o nome que tem no Drive')]
+    public function testPastaImportadaDoDriveNaoRenomeia(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '1228', 'nomeCliente' => 'JORGE']);
+
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedPasta('DRV-ORIGEM', 'Jorge (contratos)', 'RAIZ');
+        $pasta->_real()->ligarAPastaDoDrive('DRV-ORIGEM');
+        $this->em()->flush();
+
+        $r = new ResultadoReconciliacaoPasta();
+        self::getContainer()->get(ReconciliadorDePasta::class)->renomearNoDrive($pasta->getId(), $fake, false, $r);
+
+        self::assertSame('Jorge (contratos)', $fake->pastas['DRV-ORIGEM']['nome']);
+        self::assertSame([], $fake->renomeacoes);
+        self::assertSame(0, $r->renomeadasNoDrive);
+    }
+
     #[TestDox('R3: pasta SEM vínculo no Drive é no-op silencioso (não inventa pasta)')]
     public function testRenomearSemVinculoEhNoOp(): void
     {

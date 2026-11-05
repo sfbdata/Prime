@@ -61,6 +61,13 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(name: 'drive_synced_at', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $driveSyncedAt = null;
 
+    /**
+     * Pasta trazida pelo "Importar do Google Drive" e ligada à pasta de origem: o envio automático usa a pasta
+     * como ela está no Drive e nunca a renomeia para "NUP - CLIENTE - AÇÃO" (decisão do Samuel, 04/11/2026).
+     */
+    #[ORM\Column(name: 'drive_manter_nome', options: ['default' => false])]
+    private bool $driveManterNome = false;
+
     #[Assert\Choice(choices: self::SITUACOES)]
     #[ORM\Column(length: 20, options: ['default' => self::SITUACAO_ATIVA])]
     private string $situacao = self::SITUACAO_ATIVA;
@@ -1069,6 +1076,20 @@ $this->documentos = new ArrayCollection();
     public function setDriveFolderId(?string $driveFolderId): self
     {
         $this->driveFolderId = $driveFolderId;
+
+        return $this;
+    }
+
+    public function isDriveManterNome(): bool
+    {
+        return $this->driveManterNome;
+    }
+
+    /** Liga a pasta a uma pasta já existente no Drive, mantendo o nome que ela tem lá. */
+    public function ligarAPastaDoDrive(string $driveFolderId): self
+    {
+        $this->driveFolderId   = $driveFolderId;
+        $this->driveManterNome = true;
 
         return $this;
     }
