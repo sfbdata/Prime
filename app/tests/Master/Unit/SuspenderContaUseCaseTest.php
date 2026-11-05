@@ -13,6 +13,7 @@ use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Master\UseCase\SuspenderContaUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Tests\Security\Doubles\ManterConectadoDoEscritorioEspiao;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -27,6 +28,7 @@ final class SuspenderContaUseCaseTest extends TestCase
 {
     private ContasDoSistemaRepository&MockObject $contas;
     private EscopoDeAuditoriaDePlataforma $escopo;
+    private ManterConectadoDoEscritorioEspiao $manterConectado;
     private SuspenderContaUseCase $useCase;
     private User $master;
 
@@ -34,7 +36,8 @@ final class SuspenderContaUseCaseTest extends TestCase
     {
         $this->contas  = $this->createMock(ContasDoSistemaRepository::class);
         $this->escopo  = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase = new SuspenderContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo);
+        $this->manterConectado = new ManterConectadoDoEscritorioEspiao();
+        $this->useCase = new SuspenderContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, $this->manterConectado);
         $this->master  = self::usuario(['ROLE_SUPER_ADMIN']);
     }
 
@@ -53,6 +56,7 @@ final class SuspenderContaUseCaseTest extends TestCase
         self::assertSame('Suspensa', $saida->situacao);
         self::assertSame('Escritório 42', $saida->nome);
         self::assertFalse($this->escopo->estaLigado(), 'o escopo fecha depois do flush');
+        self::assertSame([42], $this->manterConectado->escritorios, 'o "Manter conectado" da equipe acaba junto (auditoria 3.29)');
     }
 
     #[TestDox('sem criador registrado e sem Master vinculado: suspende')]

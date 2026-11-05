@@ -6,6 +6,7 @@ namespace App\Tenant\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Contract\ManterConectadoDoEscritorio;
 use App\Tenant\DTO\PedidoDeExclusaoInput;
 use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use App\Tenant\Exception\PedidoDeExclusaoRecusado;
@@ -14,7 +15,6 @@ use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use App\Tenant\Service\AvisoAoMasterDoPedidoDeExclusao;
 use App\Tenant\Service\GuardaDaExclusaoPeloPrimario;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -38,7 +38,7 @@ final class PedirExclusaoDaContaUseCase
         private readonly PedidoDeExclusaoDeContaRepository $pedidos,
         private readonly CodigoDeExclusaoDeContaRepository $codigos,
         private readonly AvisoAoMasterDoPedidoDeExclusao $avisoAoMaster,
-        private readonly EntityManagerInterface $em,
+        private readonly ManterConectadoDoEscritorio $manterConectado,
         private readonly ClockInterface $relogio,
         #[Autowire('%kernel.secret%')]
         private readonly string $segredo,
@@ -68,7 +68,8 @@ final class PedirExclusaoDaContaUseCase
         $pedido = new PedidoDeExclusaoDeConta($tenant, $usuario, $input->motivo . ($observacao !== '' ? ' · ' . $observacao : ''), $agora);
 
         try {
-            $this->em->wrapInTransaction(function () use ($registro, $agora, $pedido): void {
+            // A conta fica suspensa a pedido: o "Manter conectado" da equipe acaba junto (auditoria 3.29).
+            $this->manterConectado->encerrarJunto((int) $tenant->getId(), function () use ($registro, $agora, $pedido): void {
                 if (!$this->codigos->consumir($registro, $agora)) {
                     throw new PedidoDeExclusaoRecusado(self::CODIGO_INVALIDO);
                 }

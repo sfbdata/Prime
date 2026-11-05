@@ -35,6 +35,14 @@ security:
                 secure: true
                 httponly: true
                 samesite: lax
+                # Token persistente (auditoria 3.29): cada cookie é uma série na tabela rememberme_token. Sair apaga a
+                # série, então o cookie copiado antes do logout não entra mais. O banco guarda só o HMAC do valor
+                # (TokenDoManterConectado). A senha segue no token (signature_properties padrão): trocar a senha
+                # continua derrubando todos os cookies.
+                token_provider:
+                    service: App\Security\TokenDoManterConectado
+                # O mesmo serviço confere o valor (pelo HMAC); sem isto o Symfony põe o CacheTokenVerifier, que compara em claro.
+                token_verifier: App\Security\TokenDoManterConectado # segredo:permitido (nome de classe, não é credencial)
             logout:
                 path: app_logout
                 # A raiz (/) é o site institucional estático (nginx de produção): sair volta à tela de entrada.

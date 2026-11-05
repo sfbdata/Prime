@@ -13,6 +13,7 @@ use App\Master\Exception\OperacaoDeContaRecusada;
 use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Shared\Contract\ManterConectadoDoEscritorio;
 use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use Psr\Clock\ClockInterface;
 
@@ -47,6 +48,7 @@ final class ExcluirContaPeloMasterUseCase
         private readonly ClockInterface $relogio,
         private readonly PedidoDeExclusaoDeContaRepository $pedidos,
         private readonly int $carenciaPurgaDias,
+        private readonly ManterConectadoDoEscritorio $manterConectado,
     ) {
     }
 
@@ -60,7 +62,8 @@ final class ExcluirContaPeloMasterUseCase
         $conta->setIsActive(false);
         $conta->setExcluidoEm($this->relogio->now());
         // Pedido de exclusão PENDENTE (PR 5, C4): decidido aqui, na mesma transação da conta (o flush abaixo).
-        $gravar = fn () => $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
+        // O "Manter conectado" da equipe acaba junto (auditoria 3.29), na mesma transação da exclusão.
+        $gravar = fn () => $this->manterConectado->encerrarJunto((int) $conta->getId(), fn () => $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true)));
         $pedido = $this->pedidos->pendenteDoEscritorio($conta);
         if ($pedido === null) {
             $gravar();
