@@ -96,6 +96,18 @@ enum AcaoDemanda: string
         return in_array($this, [self::Recusar, self::Cancelar, self::RecusarProposta, self::ExcluirRascunho], true);
     }
 
+    /**
+     * O registro desta ação é da negociação da Central com o cliente (achado 2.09): grava como
+     * {@see TipoMensagem::Negociacao}, que o Convidado não lê. São as ações da fase de análise e proposta.
+     */
+    public function registraNegociacao(): bool
+    {
+        return in_array($this, [
+            self::Recusar, self::SolicitarInformacoes, self::ResponderInformacoes, self::Cancelar,
+            self::AceitarProposta, self::SolicitarAjustes, self::RecusarProposta, self::Reabrir,
+        ], true);
+    }
+
     /** Texto que vai para o chat como registro (`aplicarConf`, segundo item de cada par). */
     public function registro(): string
     {
