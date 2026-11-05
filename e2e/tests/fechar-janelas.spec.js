@@ -6,6 +6,7 @@
 //   FECHAR_E2E_URL=http://127.0.0.1:8101 FECHAR_E2E_EMAIL=... FECHAR_E2E_SENHA=... npx playwright test --project=fechar-janelas
 
 const { test, expect } = require('@playwright/test');
+const { senhaDoAmbiente } = require('../senha-do-ambiente');
 
 const BASE = process.env.FECHAR_E2E_URL || 'http://127.0.0.1:8101';
 
@@ -17,7 +18,7 @@ test.beforeAll(async ({ browser }) => {
     const pagina = await contexto.newPage();
     await pagina.goto(BASE + '/login');
     await pagina.fill('#inputEmail', process.env.FECHAR_E2E_EMAIL || '');
-    await pagina.fill('#senha', process.env.FECHAR_E2E_SENHA || '');
+    await pagina.fill('#senha', senhaDoAmbiente('FECHAR_E2E_SENHA'));
     await Promise.all([pagina.waitForNavigation(), pagina.click('#entrar')]);
     if (pagina.url().includes('escritorio/selecionar')) {
         await pagina.locator('form button, a.escritorio-opcao, [data-escritorio]').first().click();

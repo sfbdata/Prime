@@ -14,13 +14,14 @@
  * Sem as variáveis, o arquivo é pulado.
  */
 const { test, expect } = require('@playwright/test');
+const { senhaDoAmbiente } = require('../senha-do-ambiente');
 
 const BASE = process.env.E2E_VISUAL_BASE || 'http://127.0.0.1:8000';
 const EMAIL = process.env.E2E_VISUAL_EMAIL || '';
-const SENHA = process.env.E2E_VISUAL_SENHA || '';
+const SENHA = () => senhaDoAmbiente('E2E_VISUAL_SENHA');
 const ESCRITORIO = process.env.E2E_VISUAL_ESCRITORIO || '';
 
-test.skip(!EMAIL || !SENHA, 'defina E2E_VISUAL_EMAIL e E2E_VISUAL_SENHA (ver o cabeçalho deste arquivo)');
+test.skip(!EMAIL || !process.env.E2E_VISUAL_SENHA, 'defina E2E_VISUAL_EMAIL e E2E_VISUAL_SENHA (ver o cabeçalho deste arquivo)');
 // Sem o storage/auth.json do `auth.setup` (outro usuário, outro servidor): a sessão é a do login abaixo.
 test.use({ baseURL: BASE, storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial' });
@@ -33,7 +34,7 @@ const abertos = [];
 async function entrar(page) {
     await page.goto('/login');
     await page.fill('input[name="email"]', EMAIL);
-    await page.fill('input[name="password"]', SENHA);
+    await page.fill('input[name="password"]', SENHA());
     await Promise.all([page.waitForURL(u => !u.pathname.includes('/login'), { waitUntil: 'domcontentloaded' }), page.click('button[type="submit"]')]);
     if (page.url().includes('selecionar')) {
         const alvo = ESCRITORIO ? page.getByText(ESCRITORIO, { exact: false }).first() : page.locator('main a, main button').first();
