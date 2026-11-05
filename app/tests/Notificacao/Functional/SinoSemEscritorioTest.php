@@ -12,6 +12,11 @@ use App\Service\NotificacaoService;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\CriaCenarioDoCadeadoFuncionalTrait;
+use App\TrabalhoExterno\DTO\Autor;
+use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
+use App\TrabalhoExterno\Entity\ConviteDemanda;
+use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Enum\Perfil;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
@@ -83,6 +88,62 @@ final class SinoSemEscritorioTest extends JusPrimeWebTestCase
         self::assertStringContainsString('ANDAMENTO DA DEMANDA TE', $html);
         self::assertStringNotContainsString('META NOVA EM B', $html);
         self::assertSame('1', $this->contagemDoSino());
+    }
+
+    #[TestDox('Convidado sem vínculo nenhum, com convite vigente: vê o aviso do Trabalho Externo daquele escritório e nenhum outro')]
+    public function testConvidadoSoComConviteVigente(): void
+    {
+        [$convidado, $doConvite, $outro] = $this->cenarioDoConvidado();
+
+        $html = $this->abrirSelecaoSemEscritorio($convidado);
+
+        self::assertStringContainsString('ANDAMENTO DO CONVITE', $html);
+        self::assertStringNotContainsString('META NO ESCRITORIO DO CONVITE', $html, 'só os avisos do Trabalho Externo');
+        self::assertStringNotContainsString('ANDAMENTO DE OUTRO ESCRITORIO', $html, 'só do escritório do convite');
+        self::assertSame('1', $this->contagemDoSino());
+        self::assertNotSame($doConvite->getId(), $outro->getId());
+    }
+
+    #[TestDox('Convidado sem vínculo nenhum, com o convite vencido: o sino não mostra nenhum aviso')]
+    public function testConvidadoComConviteVencidoNaoVe(): void
+    {
+        [$convidado] = $this->cenarioDoConvidado();
+        $this->em()->getConnection()->executeStatement(
+            "UPDATE trabalho_externo_convite SET validade = CURRENT_DATE - INTERVAL '1 day' WHERE convidado_id = ?",
+            [$convidado->getId()],
+        );
+        $this->em()->clear();
+
+        $html = $this->abrirSelecaoSemEscritorio($convidado);
+
+        self::assertStringNotContainsString('ANDAMENTO DO CONVITE', $html);
+        self::assertSame('0', $this->contagemDoSino());
+    }
+
+    /** @return array{0: User, 1: Tenant, 2: Tenant} o convidado (sem vínculo), o escritório do convite e outro */
+    private function cenarioDoConvidado(): array
+    {
+        [$primario, $doConvite] = $this->criarEscritorio();
+        [, $outro] = $this->criarEscritorio();
+        $convidado = $this->novoUsuario('Carlos Convidado');
+        $this->em()->flush();
+
+        $demanda = new DemandaExterna($doConvite, $primario);
+        $dados = new DadosDaSolicitacao();
+        $dados->descricao = 'Audiência';
+        $dados->cidadeExecucao = 'Brasília';
+        $demanda->preencher($dados);
+        $this->em()->persist($demanda);
+        $convite = new ConviteDemanda($demanda, 'Carlos Convidado', (string) $convidado->getEmail(), null, new \DateTimeImmutable('+30 days'), str_repeat('c', 64), ['chat' => true], new Autor($primario, 'Paula Primária', Perfil::Master));
+        $convite->aceitar($convidado, new \DateTimeImmutable('today'));
+        $this->em()->persist($convite);
+        $this->em()->flush();
+
+        $this->aviso($convidado, $doConvite, 'ANDAMENTO DO CONVITE', 'TEXTO DO ANDAMENTO', Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO, '/trabalho-externo?te=TE-1');
+        $this->aviso($convidado, $doConvite, 'META NO ESCRITORIO DO CONVITE', 'TEXTO DA META', Notificacao::TIPO_TAREFA_CRIADA, null);
+        $this->aviso($convidado, $outro, 'ANDAMENTO DE OUTRO ESCRITORIO', 'TEXTO DE OUTRO', Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO, '/trabalho-externo?te=TE-2');
+
+        return [$convidado, $doConvite, $outro];
     }
 
     #[TestDox('regressão: o Master sem escritório continua vendo e contando o sino como hoje')]
