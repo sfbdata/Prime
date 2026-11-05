@@ -10,6 +10,7 @@ use App\ChatIa\Entity\MensagemDeChat;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -104,6 +105,62 @@ class ConversaDeChatRepository extends ServiceEntityRepository
             ->andWhere(sprintf('NOT EXISTS (SELECT 1 FROM %s m WHERE m.conversa = c AND m.tenant = :tenant)', MensagemDeChat::class))
             ->setParameter('tenant', $tenant)
             ->setParameter('dono', $dono);
+    }
+
+    /**
+     * Retenção ({@see \App\ChatIa\Service\ExpiracaoDoChatIa}): trava (`FOR UPDATE`, em ordem de id) as conversas `$ids`
+     * e devolve as que estão sem fala nenhuma. A conferência vem DEPOIS da trava, então enxerga a fala confirmada antes
+     * dela; e fala ou anexo novo nessas conversas espera o fim da transação. Exige transação aberta. Varre qualquer
+     * escritório (rotina do agendador, sem sessão).
+     *
+     * @param list<int> $ids
+     *
+     * @return list<int>
+     */
+    public function travarVaziasEntre(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $this->createQueryBuilder('c')
+            ->select('c.id')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getScalarResult();
+
+        return array_map('intval', $this->createQueryBuilder('c')
+            ->select('c.id')
+            ->andWhere('c.id IN (:ids)')
+            ->andWhere(sprintf('NOT EXISTS (SELECT 1 FROM %s m WHERE m.conversa = c)', MensagemDeChat::class))
+            ->setParameter('ids', $ids)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult());
+    }
+
+    /**
+     * Retenção: apaga as conversas que {@see travarVaziasEntre} devolveu, na MESMA transação (sem conferir de novo: as
+     * chaves dos anexos soltos já foram montadas para exatamente estas). O banco leva em cascata os anexos soltos e as
+     * propostas delas. Devolve quantas apagou.
+     *
+     * @param list<int> $ids
+     */
+    public function apagarVaziasTravadas(array $ids): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->createQueryBuilder('c')
+            ->delete()
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
     }
 
     public function salvar(ConversaDeChat $conversa): void

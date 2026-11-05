@@ -6,6 +6,7 @@ namespace App\Tests\Inteligencia\Unit;
 
 use App\Entity\Auth\User;
 use App\Inteligencia\Contract\ConversaDaIaNaCentral;
+use App\Inteligencia\Contract\RetencaoDoChatIa;
 use App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
@@ -17,12 +18,20 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ExpirarConteudoDaInteligenciaUseCase::class)]
 final class ExpirarConteudoDaInteligenciaUseCaseTest extends TestCase
 {
-    private function sut(AnaliseDeInteligenciaRepository $analises, ConfiguracaoDaPlataformaDeIa $configuracao, ?ConversaDaIaNaCentral $central = null): ExpirarConteudoDaInteligenciaUseCase
-    {
+    private function sut(
+        AnaliseDeInteligenciaRepository $analises,
+        ConfiguracaoDaPlataformaDeIa $configuracao,
+        ?ConversaDaIaNaCentral $central = null,
+        ?RetencaoDoChatIa $chatIa = null,
+    ): ExpirarConteudoDaInteligenciaUseCase {
         $plataforma = $this->createStub(ConfiguracaoDaPlataformaDeIaRepository::class);
         $plataforma->method('obter')->willReturn($configuracao);
+        if ($chatIa === null) {
+            $chatIa = $this->createStub(RetencaoDoChatIa::class);
+            $chatIa->method('apagarAntesDe')->willReturn(['mensagens' => 0, 'anexos' => 0, 'conversas' => 0]);
+        }
 
-        return new ExpirarConteudoDaInteligenciaUseCase($analises, $plataforma, $central ?? $this->createStub(ConversaDaIaNaCentral::class));
+        return new ExpirarConteudoDaInteligenciaUseCase($analises, $plataforma, $central ?? $this->createStub(ConversaDaIaNaCentral::class), $chatIa);
     }
 
     #[TestDox('sem escolha do Master: o limite é 12 meses antes de agora e as contagens vêm do repositório')]
@@ -41,13 +50,22 @@ final class ExpirarConteudoDaInteligenciaUseCaseTest extends TestCase
             ->with(new \DateTimeImmutable('2025-10-24 00:20:00'))
             ->willReturn(5);
 
-        $resultado = $this->sut($repositorio, new ConfiguracaoDaPlataformaDeIa(), $central)->executar($agora);
+        $chatIa = $this->createMock(RetencaoDoChatIa::class);
+        $chatIa->expects(self::once())
+            ->method('apagarAntesDe')
+            ->with(new \DateTimeImmutable('2025-10-24 00:20:00'))
+            ->willReturn(['mensagens' => 7, 'anexos' => 2, 'conversas' => 1]);
+
+        $resultado = $this->sut($repositorio, new ConfiguracaoDaPlataformaDeIa(), $central, $chatIa)->executar($agora);
 
         self::assertSame(12, $resultado['meses']);
         self::assertEquals(new \DateTimeImmutable('2025-10-24 00:20:00'), $resultado['limite']);
         self::assertSame(3, $resultado['analises']);
         self::assertSame(2, $resultado['perguntas']);
         self::assertSame(5, $resultado['mensagens'], 'as mensagens do chat saem com o MESMO limite');
+        self::assertSame(7, $resultado['mensagensDoChatIa'], 'as falas do Chat I.A saem com o MESMO limite');
+        self::assertSame(2, $resultado['anexosDoChatIa']);
+        self::assertSame(1, $resultado['conversasDoChatIa']);
     }
 
     #[TestDox('o Master escolheu 3 meses: o limite acompanha')]
