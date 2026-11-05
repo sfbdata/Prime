@@ -6,6 +6,7 @@ namespace App\Expediente\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Expediente\DTO\CriarMarcadorDTO;
 use App\Expediente\Exception\ColunasDoExpedienteInvalidasException;
 use App\Expediente\Repository\MarcadorRepository;
@@ -78,6 +79,7 @@ final class ExpedienteController extends AbstractController
         private readonly GravarColunasDoExpedienteUseCase $gravarColunasUseCase,
         private readonly TenantDriveConexaoRepository $conexoesDoDrive,
         private readonly ObterColunasDoExpedienteUseCase $obterColunasUseCase,
+        private readonly ResolvedorIdentificadorDaPasta $identificadorDaPasta,
     ) {
     }
 
@@ -653,6 +655,11 @@ final class ExpedienteController extends AbstractController
      */
     private function extrasDaLista(array $pastas, User $user, Tenant $tenant): array
     {
+        // Antes de qualquer leitura das linhas: clientes, marcadores, metas e o nome da pasta (identificador)
+        // da página inteira em poucas consultas, em vez de três ou quatro por pasta.
+        $this->pastaRepository->carregarColecoesDaLista($pastas, $tenant);
+        $this->identificadorDaPasta->primeParaPastas($pastas);
+
         $ids      = array_map(static fn (Pasta $p): int => (int) $p->getId(), $pastas);
         $clientes = array_values(array_unique(array_filter(array_map(
             static fn (Pasta $p): ?int => $p->getClientePrincipal()?->getId(),
