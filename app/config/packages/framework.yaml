@@ -100,6 +100,24 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '1 hour'
+        # Senha por código, conferência (auditoria 3.14). Teto da CONTA (chave = id), somando os pedidos: cada pedido
+        # novo abre 5 tentativas, e sem este teto eram 600 palpites por dia. O valor é a constante TETO_DA_CONTA do ConfirmarCodigoSenhaUseCase.
+        senha_codigo_erros_conta:
+            policy: sliding_window
+            limit: 15
+            interval: '24 hours'
+            lock_factory: 'lock.recuperacao_codigo.factory'
+        # O aviso do teto à dona da conta: no máximo um por dia, mesmo que a janela deslizante cruze o teto de novo.
+        senha_codigo_aviso_teto:
+            policy: fixed_window
+            limit: 1
+            interval: '24 hours'
+            lock_factory: 'lock.recuperacao_codigo.factory'
+        # E por e-mail normalizado no POST /senha/codigo/confirmar: vale também para conta inexistente (RN02).
+        senha_codigo_email:
+            policy: sliding_window
+            limit: 10
+            interval: '1 hour'
         # Excluir conta (PR 5, docs/specs/conta-pedido-exclusao.md E4): envios do código de 6 dígitos,
         # chave = id do usuário. Cada envio invalida o anterior; 3 em 15 min bastam para quem errou o e-mail.
         exclusao_conta_codigo:

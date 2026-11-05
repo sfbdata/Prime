@@ -114,6 +114,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Shared/EspelhoRemoto/Liberacao/ArquivosDoOperador.php' => 'manifesto do lote em var/liberacao e a cópia de conferência de --baixar-para, fora do acervo',
         'src/Shared/EspelhoRemoto/CacheDeLeituraDoEspelho.php'     => 'cache de leitura do que veio do R2, nome = SHA, publicado só depois de conferido (leitura de recuperação, D3)',
         'src/Shared/EspelhoRemoto/R2/EspelhoRemotoR2.php'          => 'fwrite só no stream de destino que o chamador entregou ao baixar',
+        'src/Shared/Command/ConferirSegredosCommand.php'           => 'só lê o .env.prod.example do repositório (--modelo) para comparar o APP_SECRET; não é arquivo de usuário (auditoria 4.11)',
     ];
 
     /** Os oito diretórios de upload e os binds: só o resolvedor os conhece. */

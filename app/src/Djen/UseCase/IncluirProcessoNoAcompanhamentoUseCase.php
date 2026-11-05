@@ -9,6 +9,8 @@ use App\Djen\Exception\AcompanhamentoInvalidoException;
 use App\Djen\Repository\ProcessoAcompanhadoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\PastaRepository;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\ProcessoRepository;
 
@@ -25,16 +27,19 @@ final class IncluirProcessoNoAcompanhamentoUseCase
     public function __construct(
         private readonly ProcessoRepository $processos,
         private readonly ProcessoAcompanhadoRepository $acompanhados,
+        private readonly PastaRepository $pastas,
     ) {
     }
 
     /**
      * @param list<int> $processosOcultos {@see \App\Pasta\Service\AcessoAPasta::idsDosProcessosOcultos()}: o processo
      *                                    cujas pastas são todas ocultas para a pessoa não abre para ela (K3)
+     * @param callable(Pasta): bool $podeEditar {@see \App\Pasta\Service\AcessoAPasta::podeEditar()} da pessoa: retomar muda
+     *                                     o estado da pasta, então exige editar cada pasta do processo
      *
      * @throws AcompanhamentoInvalidoException com a mensagem da tela
      */
-    public function executar(Tenant $tenant, User $usuario, string $numero, array $processosOcultos, string $emailAlternativo = '', string $observacao = ''): void
+    public function executar(Tenant $tenant, User $usuario, string $numero, array $processosOcultos, callable $podeEditar, string $emailAlternativo = '', string $observacao = ''): void
     {
         $digitos = (string) preg_replace('/\D/', '', $numero);
         if (\strlen($digitos) !== 20) {
@@ -50,9 +55,7 @@ final class IncluirProcessoNoAcompanhamentoUseCase
         }
 
         $processo = $this->processoCadastrado($tenant, $digitos);
-        if ($processo !== null && \in_array((int) $processo->getId(), $processosOcultos, true)) {
-            throw new AcompanhamentoInvalidoException('Processo não encontrado.');
-        }
+        $this->exigirAcessoAoProcesso($tenant, $processo, $processosOcultos, $podeEditar);
         if ($processo?->getDataBaixa() !== null) {
             throw new AcompanhamentoInvalidoException('Este processo tem baixa e não pode ser acompanhado.');
         }
@@ -75,8 +78,37 @@ final class IncluirProcessoNoAcompanhamentoUseCase
         $this->acompanhados->salvar($linha);
     }
 
+    /**
+     * O processo cujas pastas são todas ocultas para a pessoa não abre para ela (K3), e retomar exige editar cada pasta dele.
+     * Número sem processo cadastrado passa.
+     *
+     * @param list<int>             $processosOcultos
+     * @param callable(Pasta): bool $podeEditar
+     */
+    private function exigirAcessoAoProcesso(Tenant $tenant, ?Processo $processo, array $processosOcultos, callable $podeEditar): void
+    {
+        if ($processo === null) {
+            return;
+        }
+        if (\in_array((int) $processo->getId(), $processosOcultos, true)) {
+            throw new AcompanhamentoInvalidoException('Processo não encontrado.');
+        }
+        $this->exigirEdicaoDasPastas($tenant, (int) $processo->getId(), $podeEditar);
+    }
+
     private function processoCadastrado(Tenant $tenant, string $digitos): ?Processo
     {
         return $this->processos->findByNumeroProcessoDoTenant($digitos, $tenant);
+    }
+
+    /** A mesma regra do "Parar de acompanhar" e do "Excluir processo": cada pasta não excluída do processo precisa ser editável. */
+    private function exigirEdicaoDasPastas(Tenant $tenant, int $processoId, callable $podeEditar): void
+    {
+        foreach ($this->pastas->vinculosDosProcessos([$processoId], $tenant) as $vinculo) {
+            $pasta = $vinculo->getPasta();
+            if ($pasta->getExcluidaEm() === null && !$podeEditar($pasta)) {
+                throw new AcompanhamentoInvalidoException(sprintf('Você não tem permissão para retomar o acompanhamento do processo da Pasta %s.', $pasta->getNup() ?? '#' . $pasta->getId()));
+            }
+        }
     }
 }

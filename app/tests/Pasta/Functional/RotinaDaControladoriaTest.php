@@ -6,6 +6,8 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Command\RotinaDaControladoriaCommand;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaPrazo;
@@ -40,6 +42,7 @@ final class RotinaDaControladoriaTest extends KernelTestCase
             $c->get(\App\Pasta\Service\RegistroDoSistemaNaPasta::class),
             $this->em(),
             new MockClock($agora),
+            $c->get(\App\Pasta\Repository\CadeadoDaPastaRepository::class),
         );
     }
 
@@ -209,6 +212,31 @@ final class RotinaDaControladoriaTest extends KernelTestCase
         self::assertCount(2, $cartoes);
         self::assertStringContainsString('Prescrição próxima', $cartoes[1]->getConteudo());
         self::assertStringContainsString('data-controladoria="contrato,prescricao"', $cartoes[1]->getConteudo());
+    }
+
+    /**
+     * Auditoria 1.21: o cartão fica gravado no Registro e qualquer um que vê a pasta o lê. Calcular pelo cadeado
+     * do autor (o primário não tem pasta oculta) citaria o contrato de pasta trancada. Pasta com cadeado não é citada.
+     */
+    #[TestDox('o cartão gravado não cita pasta com cadeado no mesmo contrato, mesmo com o primário como autor')]
+    public function testCartaoNaoCitaPastaComCadeado(): void
+    {
+        $tenant = $this->escritorio('Cadeado');
+        $user   = $this->primeiroUsuario($tenant);
+        $pasta  = $this->pastaAbertaEm($tenant, '21', '2026-10-30', $user);
+        $vista  = $this->pastaAbertaEm($tenant, '22', '2026-10-30', $user);
+        $trancada = $this->pastaAbertaEm($tenant, '23', '2026-10-30', $user);
+        foreach ([$pasta, $vista, $trancada] as $p) {
+            $p->setContrato('CT-88');
+        }
+        $this->em()->persist(new CadeadoDaPasta($tenant, $trancada, ModoDoCadeado::Todos, $user, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $this->rotina()->executar($tenant);
+
+        $texto = $this->cartoes($pasta)[0]->getConteudo();
+        self::assertStringContainsString('A Pasta 22 usa o mesmo contrato', $texto);
+        self::assertStringNotContainsString('23', $texto);
     }
 
     #[TestDox('--simular lista escritório e tipo e não grava cartão')]

@@ -35,7 +35,9 @@ final class SolicitarCodigoSenhaUseCase
      * Teto diário por conta + IP de origem, além dos limitadores por hora do controller: passado dele, nada é criado
      * nem enviado (silêncio, RN02). Conta os pedidos das últimas 24 h daquela conta vindos daquele IP pelas linhas de
      * `redefinicao_senha`. Por IP, e não só por conta, para que um atacante não tranque a recuperação de senha de
-     * outra pessoa: ele só se tranca a si mesmo, e o dono, de outro IP, continua recebendo código.
+     * outra pessoa: ele só se tranca a si mesmo, e o dono, de outro IP, continua recebendo código. A conferência
+     * do código tem outro teto, por conta e de qualquer IP (ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA): ali a troca
+     * foi aceita, e quem erra de propósito fecha a recuperação por código da conta alheia por até um dia.
      */
     public const TETO_DIARIO = 10;
     public const JANELA_DO_TETO = RedefinicaoSenhaRepository::JANELA_DO_TETO;

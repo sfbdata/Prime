@@ -16,6 +16,9 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class NotificacaoRepository extends ServiceEntityRepository
 {
+    /** Os tipos de aviso do Trabalho Externo começam assim (`Notificacao::TIPO_TRABALHO_EXTERNO_*`). */
+    private const PREFIXO_DO_TRABALHO_EXTERNO = 'trabalho_externo_';
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Notificacao::class);
@@ -70,6 +73,38 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * O escritório do sino é EXPLÍCITO (achado 1.15): sem escritório na sessão, o TenantFilter está desligado e a
+     * leitura só pelo usuário juntava os avisos de todos os escritórios da pessoa.
+     * - Tenant: só os avisos desse escritório (o da sessão).
+     * - lista de ids: sem escritório na sessão, quem não é Master vê só os avisos do Trabalho Externo dos
+     *   escritórios em que tem vínculo ativo ou convite vigente (lista vazia: nenhum aviso). Esses avisos não
+     *   levam meta nem link de pasta, então o cadeado não tem o que cortar neles.
+     * - nulo: sem corte, só para o Master sem escritório na sessão (como sempre foi).
+     *
+     * @param Tenant|list<int>|null $escritorio
+     */
+    private function doEscritorio(QueryBuilder $qb, Tenant|array|null $escritorio): void
+    {
+        if ($escritorio instanceof Tenant) {
+            $qb->andWhere('n.tenant = :escritorioDoSino')->setParameter('escritorioDoSino', $escritorio);
+
+            return;
+        }
+        if ($escritorio === null) {
+            return;
+        }
+        if ($escritorio === []) {
+            $qb->andWhere('1 = 0');
+
+            return;
+        }
+        $qb->andWhere('IDENTITY(n.tenant) IN (:escritoriosDoSino)')
+            ->andWhere('n.tipo LIKE :tiposDoTrabalhoExterno')
+            ->setParameter('escritoriosDoSino', $escritorio)
+            ->setParameter('tiposDoTrabalhoExterno', addcslashes(self::PREFIXO_DO_TRABALHO_EXTERNO, '%_\\') . '%');
+    }
+
+    /**
      * Aplica o filtro de categoria (derivada do tipo) ao QueryBuilder.
      * null = todas as categorias.
      */
@@ -89,9 +124,10 @@ class NotificacaoRepository extends ServiceEntityRepository
      *
      * @return Notificacao[]
      *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10, array $pastasOcultas = [], ?array $soTipos = null): array
+    public function findNaoLidasByUsuario(User $usuario, Tenant|array|null $escritorio, ?string $categoria = null, int $limit = 10, array $pastasOcultas = [], ?array $soTipos = null): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -99,6 +135,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->setParameter('usuario', $usuario)
             ->orderBy('n.criadaEm', 'DESC')
             ->setMaxResults($limit);
+        $this->doEscritorio($qb, $escritorio);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
         $this->soDosTipos($qb, $soTipos);
@@ -109,15 +146,17 @@ class NotificacaoRepository extends ServiceEntityRepository
     /**
      * Conta notificações não lidas do usuário (opcionalmente de uma categoria)
      *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = [], ?array $soTipos = null): int
+    public function countNaoLidasByUsuario(User $usuario, Tenant|array|null $escritorio, ?string $categoria = null, array $pastasOcultas = [], ?array $soTipos = null): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->andWhere('n.lida = false')
             ->setParameter('usuario', $usuario);
+        $this->doEscritorio($qb, $escritorio);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
         $this->soDosTipos($qb, $soTipos);
@@ -131,9 +170,10 @@ class NotificacaoRepository extends ServiceEntityRepository
      *
      * @return Notificacao[]
      *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function findPaginadasByUsuario(User $usuario, ?string $categoria, int $page, int $perPage, array $pastasOcultas = []): array
+    public function findPaginadasByUsuario(User $usuario, Tenant|array|null $escritorio, ?string $categoria, int $page, int $perPage, array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -141,6 +181,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->orderBy('n.criadaEm', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
+        $this->doEscritorio($qb, $escritorio);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
 
@@ -151,14 +192,16 @@ class NotificacaoRepository extends ServiceEntityRepository
      * Conta o total de notificações do usuário (opcionalmente de uma categoria),
      * para o cálculo de páginas.
      *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function countByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = []): int
+    public function countByUsuario(User $usuario, Tenant|array|null $escritorio, ?string $categoria = null, array $pastasOcultas = []): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->setParameter('usuario', $usuario);
+        $this->doEscritorio($qb, $escritorio);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
 
@@ -167,19 +210,20 @@ class NotificacaoRepository extends ServiceEntityRepository
 
     /**
      * Indica se o usuário possui alguma notificação de gestão (para liberar a aba)
+     *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      */
-    public function temNotificacaoGestao(User $usuario): bool
+    public function temNotificacaoGestao(User $usuario, Tenant|array|null $escritorio): bool
     {
-        $count = (int) $this->createQueryBuilder('n')
+        $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->andWhere('n.tipo IN (:tiposGestao)')
             ->setParameter('usuario', $usuario)
-            ->setParameter('tiposGestao', Notificacao::TIPOS_GESTAO)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('tiposGestao', Notificacao::TIPOS_GESTAO);
+        $this->doEscritorio($qb, $escritorio);
 
-        return $count > 0;
+        return (int) $qb->getQuery()->getSingleScalarResult() > 0;
     }
 
     /**

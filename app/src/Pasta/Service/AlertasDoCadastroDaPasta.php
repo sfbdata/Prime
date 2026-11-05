@@ -27,12 +27,17 @@ final class AlertasDoCadastroDaPasta
     ) {
     }
 
-    /** @return list<AlertaDaPasta> */
-    public function montar(Pasta $pasta, Tenant $tenant, User $pessoa, \DateTimeImmutable $hoje): array
+    /**
+     * @param list<int> $semCitar pastas que não podem ser citadas além das ocultas para a pessoa (a rotina da
+     *                            Controladoria passa todas as com cadeado: o cartão gravado é lido por qualquer um)
+     *
+     * @return list<AlertaDaPasta>
+     */
+    public function montar(Pasta $pasta, Tenant $tenant, User $pessoa, \DateTimeImmutable $hoje, array $semCitar = []): array
     {
         $reu = $this->reus->daPasta($pasta, $tenant)[0] ?? null;
         $daCobranca = $this->cobranca->da($pasta, $tenant);
-        $ocultas = $this->acesso->idsDasPastasOcultas($pessoa, $tenant);
+        $ocultas = array_values(array_unique(array_merge($this->acesso->idsDasPastasOcultas($pessoa, $tenant), $semCitar)));
 
         return array_values(array_filter([
             $this->repetida('contrato', ['no mesmo contrato', 'usa o mesmo contrato', 'usam o mesmo contrato'], AlertaDaPasta::ALTA, 'Confira se não é duplicidade e una ou arquive uma delas.', $pasta, $tenant, $pasta->getContrato(), $ocultas),

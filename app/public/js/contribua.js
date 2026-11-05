@@ -68,9 +68,12 @@
     const esperaQr = setInterval(() => { if (desenharQr()) { clearInterval(esperaQr); } }, 400);
 
     function atualizarPix(valor) {
-        fetch(raiz.dataset.urlPix + '?valor=' + encodeURIComponent(valor), { headers: { Accept: 'application/json' } })
-            .then((r) => r.json())
+        /* POST com o token da página: gerar o código pode criar a cobrança no banco (Contribua pix). */
+        enviar(raiz.dataset.urlPix, { valor: valor })
             .then((d) => {
+                if (!d.codigo) {
+                    return;
+                }
                 qr.dataset.codigo = d.codigo;
                 $('[data-pix-valido]').hidden = !d.valido;
                 desenharQr();

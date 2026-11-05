@@ -30,4 +30,12 @@ interface RedefinicaoSenhaMailerInterface
      * @throws \RuntimeException se o transporte falhar
      */
     public function enviarCodigo(User $user, string $codigo): void;
+
+    /**
+     * Avisa a dona da conta que o código da senha errou tantas vezes que a recuperação ficou fechada por um dia
+     * (teto da conta, auditoria 3.14). Sai uma vez por teto atingido.
+     *
+     * @throws \RuntimeException se o transporte falhar
+     */
+    public function avisarTetoDeTentativas(User $user): void;
 }

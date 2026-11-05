@@ -9,6 +9,10 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\RelatorioPastasParadasOutput;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
+use App\Pasta\Entity\NivelDeAcesso;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\EnvioDoRelatorioPastasParadasRepository;
 use App\Pasta\Service\MontagemDoRelatorioPastasParadas;
 use App\Pasta\UseCase\EnviarRelatorioPastasParadasUseCase;
@@ -45,6 +49,8 @@ final class EnviarRelatorioPastasParadasUseCaseTest extends KernelTestCase
     private User $rui;
     private User $nina;
     private User $ivo;
+    private Pasta $p1180;
+    private Pasta $p1182;
 
     protected function setUp(): void
     {
@@ -58,9 +64,9 @@ final class EnviarRelatorioPastasParadasUseCaseTest extends KernelTestCase
         $this->nina   = $this->novaPessoa($this->tenant, 'Nina Sem Módulo', $this->novoPerfil($this->tenant, false));
         $this->ivo    = $this->novaPessoa($this->tenant, 'Ivo Inativo', $secundario, vinculoAtivo: false);
 
-        $this->pastaAbertaEm($this->tenant, '1180', '2026-06-01', $this->rui);
+        $this->p1180 = $this->pastaAbertaEm($this->tenant, '1180', '2026-06-01', $this->rui);
         $this->pastaAbertaEm($this->tenant, '1181', '2026-08-01', $this->rui);
-        $this->pastaAbertaEm($this->tenant, '1182', '2026-07-01', $this->nina);
+        $this->p1182 = $this->pastaAbertaEm($this->tenant, '1182', '2026-07-01', $this->nina);
         $this->pastaAbertaEm($this->tenant, '1183', '2026-09-20', $this->rui);
         $this->pastaAbertaEm($this->tenant, '1184', '2026-07-15', $this->ivo);
     }
@@ -264,5 +270,77 @@ final class EnviarRelatorioPastasParadasUseCaseTest extends KernelTestCase
         self::assertStringStartsWith('Pasta 3002 (', (string) $avisos[$com->getId()][0]->getMensagem());
         self::assertStringNotContainsString('3003', (string) $avisos[$com->getId()][0]->getMensagem());
         self::assertStringContainsString('3001', (string) $avisos[$this->carla->getId()][0]->getMensagem(), 'a Controladoria continua com a lista inteira');
+    }
+
+    // ── Cadeado (auditoria lote B, sobras; spec pasta-cadeado D1) ──────
+
+    #[TestDox('Cadeado: a Controladoria fora do cadeado não recebe a pasta trancada (nem número, nem responsável, nem contagem); a primária recebe')]
+    public function testControladoriaForaDoCadeadoNaoRecebeAPastaTrancada(): void
+    {
+        $this->trancar($this->p1182);
+
+        $resultado = $this->useCase()->executar($this->tenant);
+
+        self::assertSame(4, $resultado->paradas, 'a análise é a do escritório inteiro');
+        $avisos  = $this->avisosDasParadas($this->tenant);
+        $daCarla = $avisos[$this->carla->getId()][0];
+        self::assertSame('Relatório mensal: 3 pasta(s) paradas', $daCarla->getTitulo());
+        self::assertStringNotContainsString('1182', (string) $daCarla->getMensagem());
+        self::assertStringNotContainsString('Nina', (string) $daCarla->getMensagem());
+        $daPaula = $avisos[$this->paula->getId()][0];
+        self::assertSame('Relatório mensal: 4 pasta(s) paradas', $daPaula->getTitulo());
+        self::assertStringContainsString('1182 · CLIENTE 1182 · 96 dias · Nina Sem Módulo', (string) $daPaula->getMensagem());
+    }
+
+    #[TestDox('Cadeado: o responsável fora do cadeado não recebe a pasta trancada, só as outras dele')]
+    public function testResponsavelForaDoCadeadoNaoRecebeAPastaTrancada(): void
+    {
+        $this->trancar($this->p1180);
+
+        $this->useCase()->executar($this->tenant);
+
+        $doRui = $this->avisosDasParadas($this->tenant)[$this->rui->getId()][0];
+        self::assertSame('Pastas paradas: 1 sob sua responsabilidade', $doRui->getTitulo());
+        self::assertStringStartsWith('Pasta 1181 (', (string) $doRui->getMensagem());
+        self::assertStringNotContainsString('1180', (string) $doRui->getMensagem());
+    }
+
+    #[TestDox('Cadeado por pessoa com Visualizar: a Controladoria e o responsável liberados recebem a pasta')]
+    public function testPorPessoaComVisualizarRecebe(): void
+    {
+        $this->trancar($this->p1180, [[$this->carla, NivelDeAcesso::Visualizar], [$this->rui, NivelDeAcesso::Visualizar]]);
+
+        $this->useCase()->executar($this->tenant);
+
+        $avisos = $this->avisosDasParadas($this->tenant);
+        self::assertSame('Relatório mensal: 4 pasta(s) paradas', $avisos[$this->carla->getId()][0]->getTitulo());
+        self::assertStringStartsWith('1180 · CLIENTE 1180 · 126 dias · Rui Responsável | ', (string) $avisos[$this->carla->getId()][0]->getMensagem());
+        self::assertSame('Pastas paradas: 2 sob sua responsabilidade', $avisos[$this->rui->getId()][0]->getTitulo());
+    }
+
+    #[TestDox('Cadeado em todas as pastas paradas: a Controladoria fica sem aviso (lista vazia); a primária recebe a lista')]
+    public function testListaVaziaParaAControladoriaNaoGeraAviso(): void
+    {
+        foreach ($this->em()->getRepository(Pasta::class)->findBy(['tenant' => $this->tenant]) as $pasta) {
+            $this->trancar($pasta);
+        }
+
+        $resultado = $this->useCase()->executar($this->tenant);
+
+        $avisos = $this->avisosDasParadas($this->tenant);
+        self::assertSame([(int) $this->paula->getId()], array_keys($avisos));
+        self::assertSame('Relatório mensal: 4 pasta(s) paradas', $avisos[$this->paula->getId()][0]->getTitulo());
+        self::assertSame(1, $resultado->avisados);
+    }
+
+    /** @param list<array{0: User, 1: NivelDeAcesso}> $grade vazia = "Ocultar para todos" */
+    private function trancar(Pasta $pasta, array $grade = []): void
+    {
+        $cadeado = new CadeadoDaPasta($this->tenant, $pasta, $grade === [] ? ModoDoCadeado::Todos : ModoDoCadeado::PorPessoa, $this->paula, new \DateTimeImmutable());
+        if ($grade !== []) {
+            $cadeado->definirPorPessoa($grade, $this->paula, new \DateTimeImmutable());
+        }
+        $this->em()->persist($cadeado);
+        $this->em()->flush();
     }
 }

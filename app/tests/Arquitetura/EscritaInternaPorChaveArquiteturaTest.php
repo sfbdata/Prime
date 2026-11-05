@@ -83,6 +83,8 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
         'src/Inteligencia/Juridico/DocumentosJuridicosAtuais.php',
         'src/Master/Controller/FontesPublicasController.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
+        // Auditoria 4.11: lê o .env.prod.example do go-live (modelo de configuração, não arquivo de usuário).
+        'src/Shared/Command/ConferirSegredosCommand.php',
         'src/Shared/EspelhoRemoto/CacheDeLeituraDoEspelho.php',
         'src/Shared/Service/GeradorDePdfComDompdf.php',
     ];

@@ -3,6 +3,7 @@ const { test: setup, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
+const { senhaDoAmbiente } = require('../senha-do-ambiente');
 
 const STORAGE_FILE = path.join(__dirname, '../storage/auth.json');
 
@@ -65,7 +66,7 @@ setup('autenticar usuário de teste', async ({ page }) => {
 
     await page.fill('input[name="email"], input[name="_username"]', 'e2e@jusprime.local');
     await page.fill('input[name="password"], input[name="_password"]',
-        process.env.E2E_USER_PASSWORD ?? 'e2e_local_placeholder');
+        senhaDoAmbiente('E2E_USER_PASSWORD'));
     await page.click('button[type="submit"]');
 
     // Aguarda redirecionar para fora do login (aumentado para 20s)

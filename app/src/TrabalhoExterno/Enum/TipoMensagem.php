@@ -17,6 +17,12 @@ enum TipoMensagem: string
     case Arquivo = 'arquivo';
     /** Registro do dinheiro (aviso do PIX, comprovante, recebimento): traz o valor, então o Convidado nunca o lê. */
     case Pagamento = 'pagamento';
+    /**
+     * Registro da negociação da Central com o cliente (proposta com o valor, motivos de reabrir, de pedir e responder
+     * informações, de pedir ajustes, de recusar e de aceitar a proposta): o Convidado nunca o lê, nem quando a
+     * demanda é reaberta e renegociada depois do aceite do convite (achado 2.09).
+     */
+    case Negociacao = 'negociacao';
 
     /** Sufixo do cabeçalho da mensagem no chat (`m.tipo` do desenho). */
     public function sufixo(): string
@@ -24,7 +30,7 @@ enum TipoMensagem: string
         return match ($this) {
             self::Normal => '',
             self::Interna => '· nota interna (só equipe)',
-            self::Sistema, self::Pagamento => '· registro',
+            self::Sistema, self::Pagamento, self::Negociacao => '· registro',
             self::Andamento => '· andamento',
             self::Arquivo => '· arquivo',
         };
@@ -33,6 +39,6 @@ enum TipoMensagem: string
     /** Registro gravado pelo sistema (não se apaga; estilo "registro" no chat). */
     public function ehRegistroDoSistema(): bool
     {
-        return $this === self::Sistema || $this === self::Pagamento;
+        return $this === self::Sistema || $this === self::Pagamento || $this === self::Negociacao;
     }
 }

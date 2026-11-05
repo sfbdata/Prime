@@ -12,6 +12,7 @@
 //     npx playwright test --project=ponto-atalho
 
 const { test, expect } = require('@playwright/test');
+const { senhaDoAmbiente } = require('../senha-do-ambiente');
 
 const BASE = process.env.PONTO_ATALHO_E2E_URL || 'http://127.0.0.1:8101';
 const SEDE = { nome: 'Sede de teste', latitude: -15.81100086, longitude: -48.06479935, raio: 100 };
@@ -31,7 +32,7 @@ test.beforeAll(async ({ browser }) => {
     const pagina = await contexto.newPage();
     await pagina.goto(BASE + '/login');
     await pagina.fill('#inputEmail', process.env.PONTO_ATALHO_E2E_EMAIL || '');
-    await pagina.fill('#senha', process.env.PONTO_ATALHO_E2E_SENHA || '');
+    await pagina.fill('#senha', senhaDoAmbiente('PONTO_ATALHO_E2E_SENHA'));
     await Promise.all([pagina.waitForNavigation(), pagina.click('#entrar')]);
     if (pagina.url().includes('escritorio/selecionar')) {
         await pagina.locator('form button, a.escritorio-opcao, [data-escritorio]').first().click();

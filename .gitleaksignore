@@ -3,9 +3,11 @@
 # nem a mesma linha em outro commit). O CI só varre os commits do PR/push; esta lista existe para
 # que uma auditoria do histórico inteiro (`gitleaks git .`) mostre só o que importa.
 #
-# 🔴 NÃO está aqui, de propósito: 3ee0082a app/.env:14 e :15 (url-com-credencial) — a senha REAL
-# do Gmail que ficou no repositório público de 15/02 a 12/10/2026. Ela continua aparecendo na
-# auditoria completa até o dono confirmar a revogação na conta Google. Só então pode entrar aqui.
+# 3ee0082a app/.env:14 e :15 (url-com-credencial): a senha REAL do Gmail que ficou no repositório
+# público de 15/02 a 12/10/2026. Entrou aqui em 05/11/2026 (auditoria 4.06, passo 2), depois de o
+# Samuel conferir em "Senhas de app" da conta Google antiga que ela não existe mais.
+3ee0082a29c67221558f792d8b27bfde9d7520d3:app/.env:url-com-credencial:14
+3ee0082a29c67221558f792d8b27bfde9d7520d3:app/.env:url-com-credencial:15
 
 # .env.prod.example: placeholder do modelo de produção
 b846f68cdde58bf306d53b3644dd252fb822e8c9:.env.prod.example:generic-api-key:8

@@ -71,7 +71,8 @@ final class DemandaExternaTest extends TestCase
         $d->aplicar(AcaoDemanda::SolicitarInformacoes, Apoio::autor(), 'Falta a procuração');
         $ultima = $d->getMensagens()[count($d->getMensagens()) - 1];
         self::assertSame('Informações solicitadas: Falta a procuração', $ultima->getTexto());
-        self::assertSame(TipoMensagem::Sistema, $ultima->getTipo());
+        // Registro da negociação com o cliente: o Convidado não lê (achado 2.09).
+        self::assertSame(TipoMensagem::Negociacao, $ultima->getTipo());
         $h = $d->getHistorico()[count($d->getHistorico()) - 1];
         self::assertSame(['analise', 'info', 'Falta a procuração'], [$h->getDe(), $h->getPara(), $h->getMotivo()]);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
@@ -29,7 +30,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * O documento (prévia, Word, Imprimir) é UM só HTML, montado no servidor. Outro voluntário, outro escritório ou
  * termo inexistente: 404.
  */
-#[Route('/trabalho-externo')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class TermosController extends AbstractController
 {
     use RespondeJsonTrait;

@@ -59,6 +59,27 @@ final class BarreiraDeAbaOcultaMapaTest extends KernelTestCase
         self::assertGreaterThan(40, $alcancadas, 'o mapa alcança as rotas das seis abas');
     }
 
+    /**
+     * Auditoria 2.05: rotas novas das abas Push e Modelos nasceram fora do mapa e passavam pela
+     * barreira. Toda rota cujo caminho mora dentro dessas abas precisa cair numa aba.
+     */
+    #[TestDox('Toda rota em /pasta/{id}/push/... e /pasta/{id}/modelos... está no mapa')]
+    public function testRotasDasAbasPushEModelosEstaoNoMapa(): void
+    {
+        $esperado = ['#^/pasta/\{id\}/push/#' => AbaDaPasta::Push, '#^/pasta/\{id\}/modelos#' => AbaDaPasta::Detalhes];
+        $conferidas = 0;
+        foreach ($this->rotas() as $nome => $rota) {
+            foreach ($esperado as $caminho => $aba) {
+                if (preg_match($caminho, $rota->getPath()) === 1) {
+                    ++$conferidas;
+                    self::assertSame($aba, BarreiraDeAbaOcultaListener::abaDaRota($nome), "a rota {$nome} ({$rota->getPath()}) está fora do mapa da barreira");
+                }
+            }
+        }
+
+        self::assertGreaterThan(10, $conferidas);
+    }
+
     #[TestDox('Fora do mapa: meta (tarefa_*), tela, ocultar aba e réus; checklist é Documentos, busca de processos é Processo')]
     public function testForaDoMapa(): void
     {

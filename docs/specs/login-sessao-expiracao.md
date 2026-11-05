@@ -13,7 +13,8 @@ Risco ALTO (acesso). Parte 1 da spec `login-config-sessao-e-login-novo.md`. Depe
 
 ### Como fica
 - Listener `App\Security\ExpiracaoDaSessaoListener` (kernel.request, depois do firewall): se há
-  usuário autenticado POR SESSÃO (não por remember_me) e `agora - session.getMetadataBag()->getLastUsed()`
+  usuário autenticado POR SESSÃO (não por remember_me) e `agora - carimbo próprio` (`_bj_ultimo_uso`, só o
+  pedido autenticado de dentro e o login o renovam; o `getLastUsed()` é só reserva de sessão antiga, auditoria 3.20)
   passa de `sessao` minutos, invalida a sessão e manda para `/login` com aviso por tradução
   ("Sua sessão expirou por inatividade. Entre novamente."). Requisições em `/api` e XHR devolvem 401
   (o `base.html.twig` já trata 401 no sino).
@@ -33,5 +34,5 @@ não expira; anônimo ignorado; valor inválido usa o padrão. Funcional: sessã
 ### Ajustes da revisão
 - Prazo efetivo = min(`sessao`, `app.sessao_gc_segundos` / 60). O `gc_maxlifetime` do PHP é o mesmo parâmetro (padrão 86400 s,
   1 dia; env `SESSAO_GC_SEGUNDOS`). Acima de 1440 min é preciso subir a env. Risco operacional: sessões anônimas de /login ficam 1 dia em var/sessions.
-- O listener não age em rotas PUBLIC_ACCESS do `access_control` (derivadas do `security.access_map`) nem com o cookie REMEMBERME na requisição.
+- O listener não age em rotas PUBLIC_ACCESS do `access_control` (derivadas do `security.access_map`) nem quando a sessão traz a marca `_bj_manter_conectado`, gravada pelo servidor no login quando o badge do lembrar-me ficou ligado (`MarcaDaSessaoNoLoginListener`). O cookie REMEMBERME sozinho não conta: o cliente o cria com qualquer valor (auditoria 3.19). Rota ignorada não renova o carimbo.
 - O Master só grava `sessao` quando difere do padrão do ambiente.
