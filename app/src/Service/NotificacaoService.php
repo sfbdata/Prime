@@ -57,7 +57,8 @@ class NotificacaoService
         if ($tenant !== null) {
             return $tenant;
         }
-        if (in_array('ROLE_SUPER_ADMIN', $usuario->getRoles(), true)) {
+        // Sem escritório, só o Master global responde sim aqui (PermissionChecker::isAdministradorDoEscritorio).
+        if ($this->permissionChecker->isAdministradorDoEscritorio($usuario, null)) {
             return null;
         }
 
