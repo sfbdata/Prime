@@ -8,6 +8,31 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.37.0] - 2026-11-04
+
+### Adicionado
+
+- Reconhecimento do Drive antes de qualquer envio: ao definir a pasta-raiz (e pelo botão "Reconhecer de novo" em `/sync/drive/conexao`), o worker (`ReconhecerPastasDoDrive`, `ReconhecerPastasDoDriveUseCase`) casa as subpastas diretas da raiz com as pastas sem vínculo pelo nome do envio ("NUP - CLIENTE - AÇÃO") ou pelo cliente sozinho, sem diferença de caixa, acento e espaços e ignorando o número da frente (`NormalizadorDeNomeDoDrive`).
+- Casamento único grava `drive_folder_id` na pasta e `drive_file_id` nos documentos de mesmo nome e tamanho (pasta do Drive e subpastas, até 10 níveis), respeitando o vínculo único do arquivo (`LigadorDeArquivosDoDrive`). Nada é criado, apagado ou renomeado no Drive.
+- Dúvida (nenhuma candidata, várias, ou pasta disputada) vira `ReconhecimentoPendente` (tabela `sync_drive_reconhecimento`, migration `Version20261104130000`), decidida na tela: "Ligar a esta pasta" (candidata ou número digitado) ou "Ignorar".
+- Enquanto a dúvida está pendente, o envio automático não cria pasta nova no Drive para as candidatas e a importação não cria pasta a partir da subpasta.
+- Trava: até o 1º reconhecimento terminar (`sync_drive_conexao.reconhecimento`), o envio não cria pasta nova no Drive. Se ele falhar, a trava continua e a tela pede para tentar de novo.
+- "Importar do Google Drive" no modal Nova Pasta do Expediente, ao lado do "Importar em lote", só com o Drive do escritório conectado. O mesmo `expediente-importar-lote.js` recebe a árvore do Drive (`expediente_importar_lote_drive_arvore`, `LoteDoDrive`) com os caminhos no formato do navegador: pergunta, subpastas até 10 níveis, número da frente, ignorados, recusados e IA são os do lote do computador.
+- Cada arquivo vai por `pasta_peticionar_upload_drive`: o servidor baixa do Drive (ou exporta Docs, Planilhas e Apresentações como DOCX, XLSX e PDF) e grava pelo mesmo `UploadPecaUseCase`. O trecho comum do upload foi para `PeticionarController::anexar`.
+- Segurança: só vale pasta e arquivo dentro da pasta-raiz conectada (conferido pelos `parents`, na árvore e em cada envio) e com o módulo Pastas.
+- A pasta criada fica ligada à pasta de origem (`drive_folder_id`) e cada documento ao arquivo de origem (`drive_file_id`); o envio automático usa essa pasta e não a renomeia (`pasta.drive_manter_nome`, migration `Version20261104120000`).
+
+### Alterado
+
+- Importar pastas em lote: a pergunta D11 aparece sempre que a pasta escolhida tem subpasta com arquivo (antes, só com arquivo solto e subpasta juntos). Texto com os nomes e a contagem: "A pasta "X" tem N subpastas (A, B, C...). Criar N pastas, uma por subpasta, ou 1 pasta só, "X", com tudo?". Botões "Criar N pastas" (primeiro) e "1 pasta só, "X"". O botão da IA aparece junto da pergunta.
+- `scripts/lote-teste/gerar.py` segue a regra nova (pergunta, texto e resposta certa em cada cenário).
+- Importar pastas em lote copia a organização do computador (D12): as pastas abaixo de cada pasta criada viram subpastas dos Documentos, pela rota do explorador (`pasta_secao_criar`, `CriarPastaSecaoUseCase`), e cada arquivo vai com `secao_id` para a sua. A criação da pasta devolve `secaoUrl` e `secaoToken` só para quem pode editar. Até 10 níveis; o que passar fica no 10º, com o resto na descrição. O caminho na descrição (D11) deixa de ser o padrão.
+- `scripts/lote-teste/gerar.py` mostra a subpasta de cada arquivo e ganha o cenário 11 (subpastas fundas).
+
+### Corrigido
+
+- Ponto (`templates/ponto/index.html.twig`): o aviso de GPS distingue o erro do navegador. Erro 2 (posição indisponível) e 3 (demora) dizem "Não foi possível descobrir sua localização agora" / "demorou demais", com botão "Tentar de novo". Erro 1 consulta `navigator.permissions`: em "prompt", botão "Permitir localização" (abre a janela do navegador); em "denied", passo a passo para liberar no cadeado (com variação para celular); em "granted", o aparelho está bloqueando e o aviso manda ligar a localização do sistema. Quando a permissão vira "granted" com a página aberta, a busca recomeça sozinha. A validação de raio do servidor não mudou.
+
 ## [2.36.0] - 2026-11-04
 
 ### Adicionado
@@ -1475,7 +1500,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.36.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.37.0...HEAD
+[2.37.0]: https://github.com/sfbdata/Prime/compare/v2.36.0...v2.37.0
 [2.36.0]: https://github.com/sfbdata/Prime/compare/v2.35.0...v2.36.0
 [2.35.0]: https://github.com/sfbdata/Prime/compare/v2.34.0...v2.35.0
 [2.34.0]: https://github.com/sfbdata/Prime/compare/v2.33.1...v2.34.0

@@ -1,6 +1,17 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.37.0"
+  data: "2026-11-04"
+  itens:
+    - "Quem já tem o acervo no Google Drive pode conectar sem medo de pastas em dobro: ao conectar, o BlueJus procura as pastas que já estão no Drive e liga cada uma à pasta do escritório de mesmo nome, junto com os documentos que já estão lá."
+    - "Quando o BlueJus não tem certeza de qual pasta é qual, ele pergunta na tela \"Conectar meu Drive\": você escolhe a pasta certa ou manda ignorar. Até você decidir, ele não cria pasta nova no Drive para aquele caso."
+    - "Enquanto o sistema reconhece as pastas do Drive, nenhuma pasta nova é criada lá. Se o reconhecimento não terminar, a tela do Drive avisa e mostra o botão para tentar de novo."
+    - "Agora dá para trazer uma pasta do Google Drive do escritório direto para o BlueJus: em Nova Pasta, clique em \"Importar do Google Drive\" e cole o link da pasta. Tudo funciona como no Importar em lote do computador: cada subpasta vira uma pasta, a organização das subpastas vem junto e Documentos, Planilhas e Apresentações do Google entram como Word, Excel e PDF."
+    - "A pasta importada continua ligada à pasta do Drive: o envio automático guarda os documentos nela, sem criar outra pasta nem trocar o nome que ela tem no Drive."
+    - "Ao importar pastas em lote, quando a pasta escolhida tem subpastas, o BlueJus agora sempre pergunta: criar uma pasta para cada subpasta, ou uma pasta só com tudo. Assim a pasta de um cliente organizada em \"Documentos\" e \"Processo\" não vira mais dois clientes por engano."
+    - "Ao importar pastas em lote, a organização do seu computador vem junto: se a pasta do cliente tem \"Processo\" e, dentro dela, \"Recursos\", os documentos aparecem nas mesmas subpastas dentro de Documentos, em vez de ficarem todos soltos."
+    - "Na tela do ponto, quando a localização falha, o aviso agora diz o motivo certo. Se o navegador não conseguiu achar a posição ou demorou, aparece um botão \"Tentar de novo\". Se a localização ainda não foi permitida, aparece o botão \"Permitir localização\". Se ela foi bloqueada, a tela mostra o passo a passo para liberar, no computador e no celular, e volta a buscar sozinha assim que for liberada."
 - versao: "2.36.0"
   data: "2026-11-04"
   itens:
