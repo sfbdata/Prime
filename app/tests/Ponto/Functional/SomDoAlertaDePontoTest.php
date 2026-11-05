@@ -100,6 +100,12 @@ final class SomDoAlertaDePontoTest extends JusPrimeWebTestCase
         self::assertStringContainsString("getAttribute('data-perfil-sons') !== '0'", $som);
         self::assertStringContainsString("addEventListener('pointerdown', liberarAudio", $som);
         self::assertStringContainsString('catch (e)', $som);
+        // Revisão: a batida do intervalo recarrega a página; o alerta que abre antes de qualquer clique fica
+        // pendente e toca na primeira interação, se o aviso ainda estiver aberto. O dia só é marcado com o som saído.
+        self::assertStringContainsString('pendente = { tipo: tipo, modal: modal };', $som);
+        self::assertStringContainsString('if (avisoAberto(agora.modal))', $som);
+        self::assertStringContainsString("if (ctx.state !== 'running' || jaTocouHoje(tipo)) { return; }", $som);
+        self::assertStringContainsString("navigator.getAutoplayPolicy('audiocontext') === 'allowed'", $som);
 
         $modal = (string) file_get_contents($dir . '/templates/ponto/_modal_alerta_ponto.html.twig');
         self::assertStringContainsString('window.BJSomDoAlertaDePonto', $modal, 'o modal chama o som ao abrir');

@@ -6,10 +6,15 @@
  * de ir embora ("saida"), chama window.BJSomDoAlertaDePonto.tocar(tipo, modal). Só esses dois tipos tocam.
  *
  * - "Sons de alerta" do Meu Perfil desligado: o modal sai com data-perfil-sons="0" e nada toca.
- * - O navegador só deixa tocar depois da primeira interação com a página (clique, tecla ou toque). Antes
- *   disso, ou com o áudio bloqueado, fica só o modal, sem erro no console.
- * - Um toque por tipo por dia (localStorage, mesma chave do aviso com o sufixo "_som"): a consulta de 60 s
- *   não repete o som enquanto o modal continua aberto.
+ * - O navegador só deixa tocar depois de uma interação com a PÁGINA ATUAL (clique, tecla ou toque); cada
+ *   recarga zera isso, e a batida do intervalo recarrega a tela do ponto. Por isso:
+ *   1. se o navegador já permite som sem interação (getAutoplayPolicy, onde existe), o áudio é ligado ao
+ *      carregar a página;
+ *   2. senão, o alerta que abriu antes da primeira interação fica PENDENTE e toca nessa interação, se o
+ *      aviso ainda estiver aberto.
+ *   Bloqueado de vez, fica só o modal (e o título piscando e a notificação do navegador), sem erro no console.
+ * - Um toque por tipo por dia (localStorage, mesma chave do aviso com o sufixo "_som"), marcado só depois
+ *   que o som de fato saiu: a consulta de 60 s não repete o som enquanto o modal continua aberto.
  * - Som sintetizado (AudioContext), como em lembretes.js: nenhum arquivo de áudio.
  */
 (function () {
@@ -21,17 +26,57 @@
 
     var ctx = null;
     var liberado = false;
+    var pendente = null; // { tipo, modal } do alerta que abriu antes da primeira interação
+
+    function semErro() {}
+
+    // resume() do webkitAudioContext antigo pode não devolver promessa.
+    function retomar(depois) {
+        var promessa = null;
+        try { promessa = ctx.resume(); } catch (e) { promessa = null; }
+        if (promessa && typeof promessa.then === 'function') {
+            promessa.then(depois, semErro);
+
+            return;
+        }
+        depois();
+    }
+
+    function criarContexto() {
+        if (ctx) { return true; }
+        try {
+            var Classe = window.AudioContext || window.webkitAudioContext;
+            if (!Classe) { return false; }
+            ctx = new Classe();
+
+            return true;
+        } catch (e) {
+            ctx = null;
+
+            return false;
+        }
+    }
 
     function liberarAudio() {
         liberado = true;
-        try {
-            ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-            if (ctx.state === 'suspended') { ctx.resume().catch(function () {}); }
-        } catch (e) { ctx = null; }
+        if (!criarContexto()) { return; }
+        if (pendente) {
+            var agora = pendente;
+            pendente = null;
+            // O aviso pode ter sido fechado nesse meio-tempo: aí não toca (e o dia não fica marcado).
+            if (avisoAberto(agora.modal)) { tocar(agora.tipo, agora.modal); }
+        }
     }
     addEventListener('pointerdown', liberarAudio, { once: true, capture: true });
     addEventListener('keydown', liberarAudio, { once: true, capture: true });
     addEventListener('touchend', liberarAudio, { once: true, capture: true });
+
+    // Onde o navegador conta que o som já é permitido sem interação, liga logo (sem aviso no console).
+    try {
+        if (navigator.getAutoplayPolicy && navigator.getAutoplayPolicy('audiocontext') === 'allowed') {
+            liberarAudio();
+        }
+    } catch (e) { /* política indisponível: espera a interação */ }
 
     function chaveDeHoje(tipo) {
         var d = new Date();
@@ -67,16 +112,28 @@
         });
     }
 
+    function avisoAberto(modal) {
+        return !!modal && modal.classList.contains('show');
+    }
+
     function tocar(tipo, modal) {
         var frequencias = TIPOS_COM_SOM[tipo];
-        if (!frequencias) { return; }
         var perfilSons = !!modal && modal.getAttribute('data-perfil-sons') !== '0';
-        if (!perfilSons || !liberado || !ctx || jaTocouHoje(tipo)) { return; }
-        try {
-            if (ctx.state === 'suspended') { ctx.resume().catch(function () {}); }
-            notas(frequencias);
-            marcarQueTocou(tipo);
-        } catch (e) { /* áudio bloqueado: fica só o modal */ }
+        if (!frequencias || !perfilSons || jaTocouHoje(tipo)) { return; }
+        if (!liberado || !ctx) {
+            // Ainda sem interação nesta página: toca quando ela vier, se o aviso continuar aberto.
+            pendente = { tipo: tipo, modal: modal };
+
+            return;
+        }
+        retomar(function () {
+            // Só marca o dia quando o som saiu de fato (contexto rodando).
+            if (ctx.state !== 'running' || jaTocouHoje(tipo)) { return; }
+            try {
+                notas(frequencias);
+                marcarQueTocou(tipo);
+            } catch (e) { /* áudio bloqueado: fica só o modal */ }
+        });
     }
 
     window.BJSomDoAlertaDePonto = { tocar: tocar };
