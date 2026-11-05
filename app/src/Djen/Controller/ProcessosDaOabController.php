@@ -177,7 +177,7 @@ final class ProcessosDaOabController extends AbstractController
         $usuario = $this->getUser();
         $numero = (string) $request->request->get('numero', '');
         try {
-            $this->incluir->executar($tenant, $usuario, $numero, $this->idsOcultos(), (string) $request->request->get('email', ''), (string) $request->request->get('observacao', ''));
+            $this->incluir->executar($tenant, $usuario, $numero, $this->idsOcultos(), fn (Pasta $pasta): bool => $this->acessoAPasta->podeEditar($usuario, $pasta), (string) $request->request->get('email', ''), (string) $request->request->get('observacao', ''));
         } catch (AcompanhamentoInvalidoException $e) {
             return $this->voltar('danger', $e->getMessage());
         }
@@ -201,7 +201,7 @@ final class ProcessosDaOabController extends AbstractController
         $incluidos = 0;
         foreach ($this->numeros($request) as $numero) {
             try {
-                $this->incluir->executar($tenant, $usuario, $numero, $this->idsOcultos());
+                $this->incluir->executar($tenant, $usuario, $numero, $this->idsOcultos(), fn (Pasta $pasta): bool => $this->acessoAPasta->podeEditar($usuario, $pasta));
                 ++$incluidos;
             } catch (AcompanhamentoInvalidoException) {
                 // já acompanhado, com baixa ou de pasta oculta: segue com os demais
@@ -264,7 +264,7 @@ final class ProcessosDaOabController extends AbstractController
         $usuario = $this->getUser();
         $numero = (string) $request->request->get('numero', '');
         try {
-            $this->incluirCadastrado->executarPorNumero($tenant, $usuario, $numero, $this->idsOcultos());
+            $this->incluirCadastrado->executarPorNumero($tenant, $usuario, $numero, $this->idsOcultos(), fn (Pasta $pasta): bool => $this->acessoAPasta->podeEditar($usuario, $pasta));
         } catch (AcompanhamentoInvalidoException $e) {
             return $this->voltar('danger', $e->getMessage());
         }
@@ -323,7 +323,7 @@ final class ProcessosDaOabController extends AbstractController
             default => null,
         };
         try {
-            $this->cadastrar->executar($tenant, $usuario, $entrada, $this->idsOcultos(), $consulta, [
+            $this->cadastrar->executar($tenant, $usuario, $entrada, $this->idsOcultos(), fn (Pasta $pasta): bool => $this->acessoAPasta->podeEditar($usuario, $pasta), $consulta, [
                 'valorCausa' => (string) $request->request->get('valorCausa', ''),
                 'jurisdicao' => (string) $request->request->get('jurisdicao', ''),
                 'segredo' => $sn('segredo'),
