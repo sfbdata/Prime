@@ -52,7 +52,7 @@ ou de template = opus.
   🚫 **Nunca `doctrine:schema:update --force`**: ele quer **dropar 3 índices funcionais**
   (`idx_cobranca_pessoa_tenant_cpf_digitos`, `..._cnpj_digitos`, `uniq_cobranca_obrigacao_ref_externa` = a
   idempotência do import). Crie só o que falta, via psql.
-- **Smoke:** `http://localhost:8080` · `farlei.rocha@gmail.com` / `Prime123!` · objetos bons: **297** (acordo
+- **Smoke:** `http://localhost:8080` · `farlei.rocha@gmail.com` / `<senha de dev>` · objetos bons: **297** (acordo
   vigente + substituída), **108** (95 obrigações acordáveis, bom p/ acordo), **296**.
   Gotcha: `#modalAlertaPonto` intercepta cliques → remova via `browser_evaluate`.
 - **Dado do dev é dump de PROD** — não semeie/altere à toa.

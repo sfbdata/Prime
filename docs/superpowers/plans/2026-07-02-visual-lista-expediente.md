@@ -430,7 +430,7 @@ O botão já está no DOM (Task 1). Falta o comportamento: alternar a classe de 
 
 - [ ] **Step 2: Verificar manualmente no app** (o comportamento é JS; sem asserção PHPUnit). Subir o app e conferir:
 
-Run: navegar em `/expediente` → "Todas as pastas" (dataset real do dev; login `Prime123!`).
+Run: navegar em `/expediente` → "Todas as pastas" (dataset real do dev; login `<senha de dev>`).
 Expected: botões Tabela/Lista aparecem no desktop; clicar em **Lista** troca para cartões e destaca o botão; **F5** mantém o modo Lista; filtrar/paginar mantém o modo.
 
 - [ ] **Step 3: Commit** (humano executa)
@@ -632,7 +632,7 @@ Expected: OK — total ≥ 1062 (os 1061 atuais + 1 novo), 0 falhas.
 ```ts
 import { test, expect } from '@playwright/test';
 
-// Smoke do modo lista das pastas do Expediente (dataset real do dev; senha Prime123!).
+// Smoke do modo lista das pastas do Expediente (dataset real do dev; senha <senha de dev>).
 test('alterna tabela/lista, persiste e mantém ação inline', async ({ page }) => {
   await page.goto('/expediente');
   // abre "Todas as pastas"

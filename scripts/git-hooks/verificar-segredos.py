@@ -136,6 +136,14 @@ VALORES_DE_TESTE_DECLARADOS = {
 # Banco do container de DEV: usuário e senha são o padrão público do docker-compose.yml.
 CREDENCIAIS_DE_DEV = {('symfony', 'symfony')}
 
+# Senhas que já vazaram no repositório público e NUNCA podem voltar, nem com `segredo:permitido`
+# (auditoria 4.04, 04/11/2026). Guarda só o sha256 do valor em minúsculas e o tamanho: a busca
+# compara cada trecho da linha com esse tamanho, sem diferenciar maiúsculas.
+SENHAS_VAZADAS_SHA256 = {
+    # Senha de dev publicada com o e-mail do dono em docs/ e no help do app:create-super-admin.
+    'eefd77d3820ea744f9271b91b52625cc3d1428fd50098ea2432584d6d41d35fd': 9,
+}
+
 
 @dataclass(frozen=True)
 class Achado:
@@ -200,10 +208,24 @@ def verificar_nome(arquivo: str) -> str | None:
     return None
 
 
-def verificar_linha(arquivo: str, texto: str) -> list[tuple[str, int | None]]:
-    if any(marca in texto for marca in MARCA_PERMITIDO):
-        return []
+def senhas_vazadas(texto: str) -> list[tuple[str, int | None]]:
+    """Trechos da linha cujo sha256 (em minúsculas) é de uma senha que já vazou."""
+    minusculo = texto.lower()
     achados: list[tuple[str, int | None]] = []
+    for tamanho in sorted(set(SENHAS_VAZADAS_SHA256.values())):
+        for i in range(len(minusculo) - tamanho + 1):
+            if hashlib.sha256(minusculo[i:i + tamanho].encode()).hexdigest() in SENHAS_VAZADAS_SHA256:
+                achados.append(('senha-vazada', tamanho))
+                break
+
+    return achados
+
+
+def verificar_linha(arquivo: str, texto: str) -> list[tuple[str, int | None]]:
+    vazadas = senhas_vazadas(texto)  # antes da marca: senha vazada não tem exceção
+    if any(marca in texto for marca in MARCA_PERMITIDO):
+        return vazadas
+    achados: list[tuple[str, int | None]] = list(vazadas)
 
     for regra, padrao in REGRAS_FORMATO:
         m = padrao.search(texto)

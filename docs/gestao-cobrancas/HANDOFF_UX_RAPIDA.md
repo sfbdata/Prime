@@ -220,7 +220,7 @@ mostrar para quem tem vários. **Ficou fora por ser ampliação de escopo, não 
 
 ## Como conferir no navegador
 
-`http://localhost:8090/cobrancas/objetos/84` (senha do dev: `Prime123!`).
+`http://localhost:8090/cobrancas/objetos/84` (senha do dev: `<senha de dev>`).
 
 1. Salvar anotação com negrito → aparece na lista de **Anotações** → editar (badge **Editada**) →
    excluir (o modal mostra um trecho). `Ctrl+Enter` salva. Com mais de ~5 anotações o bloco passa a
