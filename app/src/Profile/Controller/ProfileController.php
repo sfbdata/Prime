@@ -147,7 +147,7 @@ final class ProfileController extends AbstractController
         $corte = $this->sairDeTodos->executar($user);
         // Esta sessão fica marcada como entrada logo depois do corte: o listener derruba quem entrou até o segundo dele.
         $request->getSession()->set(SessaoEncerradaEmTodosOsAparelhosListener::ENTROU_EM, $corte->getTimestamp() + 1);
-        $this->addFlash('success', 'Pronto. Você saiu de todos os outros aparelhos. Este continua conectado.');
+        $this->addFlash('success', 'Pronto. Você saiu de todos os outros aparelhos. Este continua conectado até você sair.');
 
         return $this->redirectToRoute('app_profile');
     }

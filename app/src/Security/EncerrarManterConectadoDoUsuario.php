@@ -23,10 +23,10 @@ final class EncerrarManterConectadoDoUsuario implements ManterConectadoDoUsuario
     public function encerrarJunto(string $identificador, callable $gravar): mixed
     {
         return $this->conexao->transactional(function () use ($identificador, $gravar): mixed {
-            $resultado = $gravar();
+            // Primeiro o DELETE: quem grava (o corte) lê a hora depois dele.
             $this->conexao->executeStatement('DELETE FROM rememberme_token WHERE username = ?', [$identificador]);
 
-            return $resultado;
+            return $gravar();
         });
     }
 }

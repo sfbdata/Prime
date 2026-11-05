@@ -16,7 +16,7 @@ use Symfony\Component\Clock\MockClock;
 #[CoversClass(SairDeTodosOsAparelhosUseCase::class)]
 final class SairDeTodosOsAparelhosUseCaseTest extends TestCase
 {
-    #[TestDox('Grava o corte em segundos inteiros e salva dentro da transação que apaga as séries do e-mail da pessoa')]
+    #[TestDox('Grava o corte em segundos inteiros, lido e salvo dentro da transação que apaga as séries do e-mail da pessoa')]
     public function testGravaOCorteJuntoComAsSeries(): void
     {
         $user = (new User())->setEmail('ana@adv.com');
@@ -32,7 +32,7 @@ final class SairDeTodosOsAparelhosUseCaseTest extends TestCase
             public function encerrarJunto(string $identificador, callable $gravar): mixed
             {
                 $this->identificadores[] = $identificador;
-                $this->dentro = true;
+                $this->dentro = true; // a implementação real já apagou as séries aqui
                 try {
                     return $gravar();
                 } finally {
@@ -48,7 +48,7 @@ final class SairDeTodosOsAparelhosUseCaseTest extends TestCase
 
         $corte = (new SairDeTodosOsAparelhosUseCase($repositorio, $manterConectado, new MockClock('2026-11-05 10:00:00.600000')))->executar($user);
 
-        self::assertSame('2026-11-05 10:00:00.000000', $corte->format('Y-m-d H:i:s.u'), 'sem fração: o banco arredondaria para cima');
+        self::assertSame('2026-11-05 10:00:00.000000', $corte->format('Y-m-d H:i:s.u'), 'sem fração: igual ao que o banco guarda');
         self::assertSame($corte, $user->getSessoesEncerradasEm());
         self::assertSame(['ana@adv.com'], $manterConectado->identificadores);
     }

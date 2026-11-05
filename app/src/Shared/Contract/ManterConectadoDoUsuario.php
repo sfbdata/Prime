@@ -8,7 +8,7 @@ namespace App\Shared\Contract;
 interface ManterConectadoDoUsuario
 {
     /**
-     * Roda `$gravar` e apaga as séries do usuário na MESMA transação.
+     * Apaga as séries do usuário e, em seguida, roda `$gravar`, na MESMA transação.
      *
      * @template T
      *

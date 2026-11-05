@@ -17,9 +17,8 @@ use Psr\Clock\ClockInterface;
  * Fluxo: grava o corte (`sessoesEncerradasEm` = agora) e apaga todas as séries do "Manter conectado" dela, na mesma
  * transação. Pós-condições: cada outra sessão cai no pedido seguinte dela
  * (`SessaoEncerradaEmTodosOsAparelhosListener`); nenhum cookie antigo entra de novo. A sessão de quem apertou o
- * botão continua: o controller grava nela a entrada no mesmo instante do corte.
- *
- * @return \DateTimeImmutable o instante do corte
+ * botão continua (o controller a marca como entrada logo depois do corte) até ela sair ou fechar o navegador: o
+ * "Manter conectado" dela também acaba.
  */
 final class SairDeTodosOsAparelhosUseCase
 {
@@ -30,15 +29,23 @@ final class SairDeTodosOsAparelhosUseCase
     ) {
     }
 
+    /** @return \DateTimeImmutable o instante do corte */
     public function executar(User $user): \DateTimeImmutable
     {
-        // Em segundos inteiros: a coluna é TIMESTAMP(0) e o Postgres ARREDONDA a fração (10:00:00.6 vira 10:00:01). Sem
-        // cortar aqui, o corte relido do banco passaria a marca que o controller grava na sessão de quem apertou.
-        $agora = $this->relogio->now();
-        $agora = $agora->setTime((int) $agora->format('H'), (int) $agora->format('i'), (int) $agora->format('s'));
-        $user->encerrarSessoes($agora);
-        $this->manterConectado->encerrarJunto($user->getUserIdentifier(), fn () => $this->userRepository->salvar($user, flush: true));
+        // O corte é lido DEPOIS de apagar as séries, dentro da transação: um aparelho que voltou pelo "Manter conectado"
+        // antes do DELETE entrou num segundo menor ou igual ao do corte, e o listener o derruba (empate também cai).
+        return $this->manterConectado->encerrarJunto($user->getUserIdentifier(), function () use ($user): \DateTimeImmutable {
+            $agora = $this->emSegundosInteiros($this->relogio->now());
+            $user->encerrarSessoes($agora);
+            $this->userRepository->salvar($user, flush: true);
 
-        return $agora;
+            return $agora;
+        });
+    }
+
+    /** A coluna guarda só segundos (o DBAL grava 'Y-m-d H:i:s'): sem a fração, o usuário em memória fica igual ao do banco. */
+    private function emSegundosInteiros(\DateTimeImmutable $instante): \DateTimeImmutable
+    {
+        return $instante->setTime((int) $instante->format('H'), (int) $instante->format('i'), (int) $instante->format('s'));
     }
 }
