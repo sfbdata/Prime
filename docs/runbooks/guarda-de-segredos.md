@@ -46,7 +46,9 @@ Roda no `pre-commit` e no CI.
 - no pre-commit, só as linhas **adicionadas** no stage e os arquivos **novos**. Remover um segredo
   nunca é barrado;
 - a detecção de renomeação fica desligada, para que `git mv x chave.pem` seja visto como arquivo novo;
-- no CI, em commits de merge, olha só o que a **resolução** introduziu (`--remerge-diff`).
+- no CI, em commits de merge, olha só o que a **resolução** introduziu (`--remerge-diff`): as linhas
+  adicionadas, o **nome** dos arquivos criados só na resolução (ausentes em todos os pais) e, se um
+  deles for binário, recusa com `binario-na-resolucao` (auditoria 4.10, 05/11/2026).
 
 **Regras:**
 
@@ -54,19 +56,30 @@ Roda no `pre-commit` e no CI.
 |---|---|
 | Senha em URL/DSN (aceita `@` no usuário e senha codificada com `%`) | qualquer arquivo |
 | Chave privada | qualquer arquivo |
-| Tokens de formato conhecido (AWS, GitHub, Google, Slack, Stripe, Anthropic, OpenAI, npm) | qualquer arquivo |
-| `NOME=valor` para chaves com `PASSWORD`, `SENHA`, `SECRET`, `TOKEN`, `API_KEY`… e `PASS`/`PWD` como pedaço do nome (`DB_PASS`, não `BYPASS`); valor entre aspas lido inteiro (senha do Gmail com espaços) | **só arquivo de configuração**: `.env*`, yaml, json, toml, ini, conf, sh, Dockerfile, compose |
+| Tokens de formato conhecido (AWS, GitHub, Google, Slack, Stripe, Anthropic, OpenAI, npm, chave do Asaas `$aact_…`) | qualquer arquivo |
+| `NOME=valor` para chaves com `PASSWORD`, `SENHA`, `SECRET`, `TOKEN`, `API_KEY`, `CREDENCIAL`/`CREDENTIAL`… e `PASS`/`PWD` como pedaço do nome (`DB_PASS`, não `BYPASS`); `CHAVE` e `SEGREDO` só em maiúsculas (`ESPELHO_R2_CHAVE`); valor entre aspas lido inteiro (senha do Gmail com espaços) | **só arquivo de configuração**: `.env*`, yaml, json, toml, ini, conf, sh, Dockerfile, compose |
+| Binário criado só na resolução de um merge (`binario-na-resolucao`) | só no CI (`--intervalo`) |
 | Nome de arquivo proibido (`.env` fora de `app/`, `.env.local`, `.env.prod*`, `*.pem`/`*.key`, `id_rsa*`, `client_secret*.json`, `*.dump`, `*.sql.gz`, `rclone.conf`, `.netrc`, `app/auth.json`…). Também cobre `git add -f` | qualquer caminho |
 
 **Nunca imprime o valor**, só `arquivo:linha [regra] (N caracteres)`.
 
 ### 2. gitleaks v8.21.2
 
-Roda só no CI, com a imagem fixada por digest. Soma as cerca de 150 regras da comunidade a três
-regras do `.gitleaks.toml`, que espelham a camada 1:
+Roda só no CI, com a imagem fixada por digest. Soma as cerca de 150 regras da comunidade às regras
+do `.gitleaks.toml`, que espelham a camada 1:
 - `url-com-credencial`;
 - `senha-em-variavel`;
-- `senha-em-variavel-entre-aspas`.
+- `senha-em-variavel-entre-aspas`;
+- `asaas-api-key` (`$aact_…`, em qualquer arquivo e sem a exceção de `$`);
+- `segredo-em-variavel-pt` (`*_CHAVE`, `*_SEGREDO`, `*_CREDENCIAL`, em maiúsculas, só em arquivo de
+  configuração).
+
+São dois passos no workflow:
+1. `gitleaks git` sobre os commits do intervalo;
+2. `gitleaks dir` sobre a **resolução dos merges** do intervalo. O
+   `scripts/git-hooks/extrair-resolucao-merges.py` roda `git show --remerge-diff` em cada merge e grava
+   só as linhas adicionadas, com o caminho original, numa pasta temporária. O número da linha no
+   relatório desse passo é o do arquivo extraído, não o do repositório.
 
 🔴 As regras **padrão** do gitleaks **não** pegam senha em DSN nem senha em `*_PASS`. Isso foi medido
 duas vezes: a varredura do histórico não acusava o vazamento, e a revisão adversarial mostrou senhas
@@ -75,7 +88,10 @@ duas vezes: a varredura do histórico não acusava o vazamento, e a revisão adv
 ### O que conta como placeholder (as duas camadas aceitam)
 
 - **Referências:**
-  - `$VAR` e `${VAR}`;
+  - `$VAR` e `${VAR}`, só quando o valor **inteiro** é uma variável curta (até 41 caracteres) e nunca
+    `$aact_…`. Antes da auditoria 4.09 todo valor começado por `$` passava, e a chave do Asaas tem
+    esse formato. As regras antigas do gitleaks (`url-com-credencial` e `senha-em-variavel*`) ainda
+    aceitam qualquer `$` no início;
   - `%env(...)%`, `%parametro%` e `%s` do `printf`;
   - `@servico`, `{{ twig }}` e `<valor>`.
 - **Placeholders escritos:**
@@ -129,7 +145,7 @@ Achados antigos do gitleaks já conferidos ficam no `.gitleaksignore`. A impress
 ## Comandos
 
 ```bash
-# testes da guarda, do hook e do intervalo do CI (52) — rodam também no CI
+# testes da guarda, do hook, do intervalo do CI e da extração da resolução (66): rodam também no CI
 python3 -m unittest discover -s scripts/git-hooks -p 'test_*.py' -v
 
 # auditar a árvore atual inteira (só caminho/linha/regra)
@@ -145,8 +161,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/repo:ro" -w /r
 Estado medido em 12/10/2026 na branch de publicação `seguranca-s1-publicacao`, base `origin/master`
 @ `ea71ad4e`:
 - **Histórico inteiro (gitleaks):** exatamente 2 achados, `3ee0082a app/.env:14` e `:15`, o vazamento
-  original. Eles ficam fora do `.gitleaksignore` até decisão do dono, agora que a revogação foi
-  confirmada.
+  original. Desde 05/11/2026 estão no `.gitleaksignore` (revogação conferida pelo Samuel).
 - **Árvore atual, camada 1:** limpa.
 - **Intervalo `origin/master..HEAD` (só os commits da S1), nas duas camadas:** limpo.
 - **Casos da revisão:** os 9 de segredo são pegos pelas duas camadas, e os 11 legítimos passam.
@@ -167,12 +182,30 @@ Estado medido em 12/10/2026 na branch de publicação `seguranca-s1-publicacao`,
 - **Em código-fonte e testes, senha em constante não é avaliada.** Isso é de propósito: medimos 23
   falsos positivos no histórico. Lá valem só a regra de URL, as de formato e as regras padrão do
   gitleaks.
-- **O gitleaks varre merges com `git log -p`, que não mostra a resolução de conflito.** Isso é
-  dedução pela documentação do git, não foi medido no gitleaks. Quem cobre
-  esse caso é a camada 1, com `--remerge-diff`.
-- A camada 1 ignora arquivo binário.
+- **Resolução de merge (auditoria 4.10).** O `gitleaks git` lê `git log -p`, que não mostra a
+  resolução de conflito. Medido em 05/11/2026: num repositório sintético, um token SendGrid digitado
+  só na resolução passou no `gitleaks git` (saída 0) e foi pego pelo passo novo `gitleaks dir` sobre a
+  resolução extraída (saída 1, `sendgrid-api-token`). No merge real `885d9fc66`, `git log -p` traz 0
+  arquivos e o `--remerge-diff` traz 2 (`app/.env` e `app/config/services.yaml`). Nos 1.297 merges
+  do histórico, 4 criaram arquivo na resolução e nenhum seria acusado (nem pelo nome nem como
+  binário); a árvore atual segue limpa na camada 1 com as regras de 4.09 e 4.10.
+  - O passo novo só vê **linhas adicionadas em texto**. Binário criado na resolução é recusado pela
+    camada 1 (`binario-na-resolucao`), sem ler o conteúdo; binário **alterado** na resolução não é
+    acusado por nenhuma das duas.
+  - O `.gitleaksignore` não vale no passo novo (a impressão digital do modo `dir` é outra). Falso
+    positivo lá se resolve com `segredo:permitido`/`gitleaks:allow` na linha.
+  - O pre-commit cobre o nome do arquivo novo da resolução quando está ativo (`modo_stage` lista os
+    arquivos novos do índice). Merge feito pelo botão *Resolve conflicts* do GitHub não passa por
+    hook: fica só o CI.
+- A camada 1 ignora o **conteúdo** de arquivo binário (só olha o nome e, em merge, o binário novo da
+  resolução).
+- `CHAVE` e `SEGREDO` só contam em **maiúsculas**, nas duas camadas: em minúsculas, "chave" é rótulo
+  comum nas traduções, no JSON de questões e em comentários (17 falsos positivos medidos na árvore
+  em 05/11/2026). Um `chave_api: <valor real>` em yaml minúsculo não é acusado por nome.
 - Os valores de dev versionados de propósito continuam no repositório: `APP_SECRET` em `.env.dev` e
-  `.env.test`, `SYNC_CRYPTO_KEY` em `.env.test` e a chave pública do DataJud. Nenhum deles pode ser
+  `.env.test`, `SYNC_CRYPTO_KEY` em `.env.test` e a chave pública do DataJud. Em
+  `.env.prod.example`, o `GOOGLE_DRIVE_CREDENTIALS` (caminho do JSON da credencial, não a
+  credencial) está declarado por hash em `VALORES_DE_TESTE_DECLARADOS`. Nenhum deles pode ser
   usado em produção. A camada 1 aceita **qualquer** valor novo nessas três chaves desses arquivos.
 - `*.sql` cru não é ignorado nem barrado pelo nome, porque é legítimo em `docs/`. Dump é barrado pelo
   nome compactado (`.sql.gz`…) e pelo conteúdo.
@@ -186,6 +219,10 @@ Estado medido em 12/10/2026 na branch de publicação `seguranca-s1-publicacao`,
 1. ✅ **Revogação confirmada pelo dono em 12/10/2026.** Falta decidir se as linhas `3ee0082a` entram no
    `.gitleaksignore`. A condição para isso era exatamente esta revogação. Se entrarem, a auditoria do
    histórico inteiro passa a dar zero achados.
+   - 05/11/2026: conferido pelo Samuel em Senhas de app da conta Google antiga. A senha de fevereiro
+     não existe mais. A 'Bluejus producao' (criada em 23/09, sem uso desde 08/10) foi apagada.
+   - ✅ 05/11/2026 (auditoria 4.06, passo 2): as impressões digitais `3ee0082a:app/.env:url-com-credencial:14`
+     e `:15` entraram no `.gitleaksignore`.
 2. Conferir na VPS, por hash, que `APP_SECRET`, a senha do banco e a `SYNC_CRYPTO_KEY` de produção
    **diferem** das versionadas.
 3. No GitHub: ligar *secret scanning* e *push protection* e exigir o check **Segredos** na proteção da

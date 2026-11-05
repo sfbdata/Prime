@@ -154,7 +154,8 @@ final class DesfazerAlteracaoAuditLogUseCase
 
     /**
      * A permissão de edição que desfazer esta linha exige do ator, além de `admin.audit.view`; null quando não exige.
-     * Evento segue a regra do `agenda_editar`: `admin.users.manage` OU ser o criador. Para o criador, nada a mais.
+     * Evento segue a regra do `agenda_editar`: `admin.users.manage` OU ser o criador. Para o criador, nada a mais. Ver o
+     * evento (visibilidade) é exigido à parte, na `GuardaDaTelaNoDesfazer`.
      */
     public function permissaoDeEdicao(AuditLog $log, User $ator): ?string
     {

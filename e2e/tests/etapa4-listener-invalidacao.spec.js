@@ -1,6 +1,7 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 const { execSync } = require('child_process');
+const { senhaDoAmbiente } = require('../senha-do-ambiente');
 
 function runSQL(sql) {
     return execSync(
@@ -39,7 +40,7 @@ test.describe('Etapa 4 — TenantContextValidatorListener detecta UserTenant ina
         await page.goto('/login');
         await page.fill('input[name="email"], input[name="_username"]', 'e2e@jusprime.local');
         await page.fill('input[name="password"], input[name="_password"]',
-            process.env.E2E_USER_PASSWORD ?? 'e2e_local_placeholder');
+            senhaDoAmbiente('E2E_USER_PASSWORD'));
         await page.click('button[type="submit"]');
         await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 20000 });
 

@@ -271,6 +271,23 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         self::assertSame([], $this->armazenamento->gravadas);
     }
 
+    #[TestDox('5.06: script, on* e href javascript: não chegam ao arquivo; sha256 e tamanho são do HTML limpo')]
+    public function testConteudoPerigosoEhGravadoLimpo(): void
+    {
+        $payload = '<p onclick="alert(1)">Texto <a href="javascript:alert(2)">link</a></p>'
+            . '<script>alert(3)</script><img src=x onerror=alert(4)><iframe src="https://atacante.exemplo"></iframe>';
+
+        $resultado = $this->useCase->executar($this->pasta, null, $payload, 'Título', 'PECA', $this->tenant);
+
+        $gravado = $this->armazenamento->ler($this->armazenamento->ultimaGravada());
+        foreach (['<script', 'onclick', 'onerror', 'javascript:', '<iframe'] as $proibido) {
+            self::assertStringNotContainsStringIgnoringCase($proibido, $gravado);
+        }
+        self::assertStringContainsString('Texto', $gravado);
+        self::assertSame(hash('sha256', $gravado), $resultado->getSha256());
+        self::assertSame(strlen($gravado), $resultado->getTamanhoBytes());
+    }
+
     private function tenant(int $id): Tenant
     {
         $tenant = new Tenant();

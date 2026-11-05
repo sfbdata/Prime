@@ -88,6 +88,17 @@ for service in php nginx db; do
   fi
 done
 
+echo "==> Conferindo segredos de produção (sem mostrar valores)"
+# app:conferir-segredos recusa APP_SECRET curto ou igual ao do modelo e chave de cifra que não decodifica
+# para 32 bytes (auditoria 4.11). O contêiner não tem o .env.prod.example: ele vai pela entrada padrão.
+if [[ ! -f ".env.prod.example" ]]; then
+  fail ".env.prod.example não encontrado; sem ele não dá para comparar o APP_SECRET com o do modelo"
+elif $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod exec -T php php /var/www/app/bin/console app:conferir-segredos --modelo=- --no-interaction < .env.prod.example; then
+  pass "segredos de produção conferidos"
+else
+  fail "app:conferir-segredos recusou os segredos (veja a lista acima)"
+fi
+
 echo "==> Validando saúde do banco"
 if $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod exec -T db pg_isready -U "${POSTGRES_USER:-symfony}" -d "${POSTGRES_DB:-saas}" >/dev/null 2>&1; then
   pass "PostgreSQL responde ao pg_isready"

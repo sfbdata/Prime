@@ -8,9 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\DocumentoDuplicadoOutput;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Repository\PastaDocumentoRepository;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\PermissionChecker;
 
 /**
@@ -25,7 +27,9 @@ use App\Service\PermissionChecker;
  *   2. a consulta é por `(tenant, sha256)`, filtro explícito no repositório;
  *   3. só entram pastas que o usuário PODE VER (`PermissionChecker::canAccessResource` com
  *      `view`): um arquivo idêntico numa pasta restrita não é revelado — nem o título, nem o
- *      número da pasta. A verificação é uma por pasta, não por documento.
+ *      número da pasta. A verificação é uma por pasta, não por documento;
+ *   4. as abas ocultas de cada pasta (auditoria 1.12): com Documentos oculta, nada daquela pasta
+ *      entra; com Financeiro oculta, o contrato de honorários não entra.
  *
  * Documento sem `sha256` (NULL) não tem com o que ser comparado: devolve vazio.
  */
@@ -37,8 +41,12 @@ final class ListarDuplicadosDoDocumentoUseCase
     ) {
     }
 
-    /** @return list<DocumentoDuplicadoOutput> */
-    public function executar(PastaDocumento $documento, User $usuario, Tenant $tenant): array
+    /**
+     * @param array<int, list<AbaDaPasta>> $abasOcultasPorPasta id da pasta → abas ocultas para o usuário
+     *
+     * @return list<DocumentoDuplicadoOutput>
+     */
+    public function executar(PastaDocumento $documento, User $usuario, Tenant $tenant, array $abasOcultasPorPasta = []): array
     {
         if ($documento->getTenant() !== $tenant) {
             throw new PastaDeOutroEscritorioException('Documento não encontrado.');
@@ -69,7 +77,7 @@ final class ListarDuplicadosDoDocumentoUseCase
                 AccessRequest::ACTION_VIEW,
             );
 
-            if (!$podeVer[$pastaId]) {
+            if (!$podeVer[$pastaId] || self::escondidoPelaAba($candidato, $abasOcultasPorPasta[$pastaId] ?? [])) {
                 continue;
             }
 
@@ -77,5 +85,22 @@ final class ListarDuplicadosDoDocumentoUseCase
         }
 
         return $duplicados;
+    }
+
+    /** @param list<AbaDaPasta> $abasOcultas */
+    private static function escondidoPelaAba(PastaDocumento $candidato, array $abasOcultas): bool
+    {
+        if ($abasOcultas === []) {
+            return false;
+        }
+
+        if (\in_array(AbaDaPasta::Documentos, $abasOcultas, true)) {
+            return true;
+        }
+
+        return !VisibilidadeDasAbasDaPasta::documentoVisivel(
+            $candidato->getCategoria(),
+            array_map(static fn (AbaDaPasta $aba): string => $aba->value, $abasOcultas),
+        );
     }
 }

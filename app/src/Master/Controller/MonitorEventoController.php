@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Master\DTO\RegistrarEventoDeDesempenhoInput;
 use App\Master\UseCase\RegistrarEventoDeDesempenhoUseCase;
 use Psr\Cache\CacheItemPoolInterface;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,6 +33,7 @@ final class MonitorEventoController extends AbstractController
         private readonly RegistrarEventoDeDesempenhoUseCase $useCase,
         #[Autowire(service: 'cache.app')]
         private readonly CacheItemPoolInterface $cache,
+        private readonly ClockInterface $relogio,
     ) {
     }
 
@@ -63,7 +65,7 @@ final class MonitorEventoController extends AbstractController
     /** Contador por usuário e por minuto no cache da aplicação; sem estado no banco. */
     private function dentroDoLimite(?User $usuario): bool
     {
-        $item = $this->cache->getItem(sprintf('monitor_evento.%d.%s', $usuario?->getId() ?? 0, gmdate('YmdHi')));
+        $item = $this->cache->getItem(sprintf('monitor_evento.%d.%s', $usuario?->getId() ?? 0, $this->relogio->now()->setTimezone(new \DateTimeZone('UTC'))->format('YmdHi')));
         $n = (int) ($item->isHit() ? $item->get() : 0);
         if ($n >= self::LIMITE_POR_MINUTO) {
             return false;

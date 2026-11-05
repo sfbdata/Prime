@@ -28,6 +28,7 @@ final class RegistrarPagamentoDaPastaUseCase
      * @param string $vencimento data no formato do campo `date` do navegador (AAAA-MM-DD)
      *
      * @throws \InvalidArgumentException quando descrição, valor ou data não servem
+     * @throws \DomainException          quando a pasta não é do escritório da sessão
      */
     public function executar(
         Pasta $pasta,
@@ -37,6 +38,11 @@ final class RegistrarPagamentoDaPastaUseCase
         string $valor,
         string $vencimento,
     ): PastaPagamento {
+        // Defesa em profundidade (auditoria 3.18): a pasta tem de ser do escritório da sessão.
+        if (!self::mesmoTenant($pasta->getTenant(), $tenant)) {
+            throw new \DomainException('Pasta não encontrada.');
+        }
+
         $descricao = trim($descricao);
 
         if ($descricao === '') {
@@ -89,5 +95,18 @@ final class RegistrarPagamentoDaPastaUseCase
         }
 
         return $data;
+    }
+
+    private static function mesmoTenant(?Tenant $a, Tenant $b): bool
+    {
+        if ($a === null) {
+            return false;
+        }
+
+        if ($a === $b) {
+            return true;
+        }
+
+        return $a->getId() !== null && $a->getId() === $b->getId();
     }
 }

@@ -7,6 +7,7 @@ namespace App\Tests\Djen\Unit;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Djen\Service\DjenPublicacaoMapper;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -110,5 +111,30 @@ final class DjenPublicacaoMapperTest extends TestCase
     {
         self::assertSame('50636766220224047000', DjenPublicacaoMapper::soDigitos('5063676-62.2022.4.04.7000'));
         self::assertSame('', DjenPublicacaoMapper::soDigitos('abc'));
+    }
+
+    /** @return iterable<string, array{0: string, 1: ?string}> */
+    public static function linksDoInteiroTeor(): iterable
+    {
+        yield 'https' => ['https://comunica.pje.jus.br/consulta/123', 'https://comunica.pje.jus.br/consulta/123'];
+        yield 'http' => ['http://eproctnu.cjf.jus.br/x', 'http://eproctnu.cjf.jus.br/x'];
+        yield 'esquema em maiúsculas' => ['HTTPS://comunica.pje.jus.br/x', 'HTTPS://comunica.pje.jus.br/x'];
+        yield 'javascript:' => ['javascript:alert(1)', null];
+        yield 'javascript: com espaço antes' => ['  javascript:alert(1)', null];
+        yield 'data:' => ['data:text/html,<script>alert(1)</script>', null];
+        yield 'vbscript:' => ['vbscript:msgbox(1)', null];
+        yield 'relativo' => ['/consulta/123', null];
+        yield 'sem esquema' => ['comunica.pje.jus.br/x', null];
+    }
+
+    /** Auditoria 5.09: o link vai para o href do botão "Inteiro teor na origem"; só http e https passam. */
+    #[Test]
+    #[DataProvider('linksDoInteiroTeor')]
+    public function linkDoInteiroTeorSoAceitaHttpOuHttps(string $link, ?string $esperado): void
+    {
+        $publicacao = new PublicacaoDjen();
+        $this->sut->mapearItem($publicacao, ['id' => 1, 'link' => $link]);
+
+        self::assertSame($esperado, $publicacao->getLink());
     }
 }

@@ -76,6 +76,7 @@ final class DesenhoMandaTrabalhoExternoTest extends TestCase
         self::assertStringNotContainsString('if (!vazio(X.pdfUrl))', $f);
         $b = $this->funcao('    function baixarPdfDoCv(');
         self::assertStringContainsString('baixar(X.pdfUrl)', $b);
-        self::assertStringContainsString('w.print()', $b);
+        // Sem pdfUrl imprime pelo iframe sandbox (auditoria I-xss 5.03, ImpressaoDoTrabalhoExternoArquiteturaTest).
+        self::assertStringContainsString('imprimirEmQuadro(X.html)', $b);
     }
 }

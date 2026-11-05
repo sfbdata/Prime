@@ -4,8 +4,9 @@
 # falha fechado quando não sabe o que é novo — ex.: push forçado no master):
 #   1. scripts/git-hooks/verificar-segredos.py — a mesma guarda do pre-commit (DSN com senha, nomes
 #      de arquivo proibidos, regras do projeto). Pega quem commitou sem o hook.
-#   2. gitleaks — ~150 regras de formato da comunidade + a regra url-com-credencial do
-#      .gitleaks.toml (as padrão não reconhecem senha em DSN; medido em 12/10/2026).
+#   2. gitleaks: ~150 regras de formato da comunidade + as regras próprias do
+#      .gitleaks.toml (as padrão não reconhecem senha em DSN; medido em 12/10/2026). Roda sobre os
+#      commits do intervalo e, num passo à parte, sobre a resolução dos merges.
 #
 # O histórico antigo tem um segredo conhecido (3ee0082a). Ele não trava PR nenhum porque nenhum
 # PR o reintroduz no intervalo varrido; ver .gitleaksignore.
@@ -77,3 +78,23 @@ jobs:
             -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo "$GITLEAKS_IMAGE" \
             git . --config .gitleaks.toml --gitleaks-ignore-path .gitleaksignore \
             --log-opts="$INTERVALO" --redact --verbose --no-banner --exit-code 1
+
+      # O modo `git` acima lê `git log -p`, que não mostra o diff de merge: o que foi digitado ao
+      # resolver um conflito não chegava ao gitleaks (auditoria 4.10, medido no merge 885d9fc66).
+      # Aqui a resolução de cada merge do intervalo (git show --remerge-diff, só as linhas
+      # adicionadas, com o caminho original) vira arquivos e passa pelo `gitleaks dir` com o mesmo
+      # .gitleaks.toml. O número da linha no relatório é o do arquivo extraído.
+      - name: gitleaks na resolução dos merges
+        env:
+          INTERVALO: ${{ steps.intervalo.outputs.valor }}
+        run: |
+          destino="$RUNNER_TEMP/resolucao-merges"
+          python3 -I scripts/git-hooks/extrair-resolucao-merges.py "$INTERVALO" "$destino"
+          if [ -z "$(find "$destino" -type f -print -quit)" ]; then
+            echo "Nenhuma linha adicionada por resolução de merge no intervalo."
+            exit 0
+          fi
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$GITHUB_WORKSPACE/.gitleaks.toml:/config/.gitleaks.toml:ro" \
+            -v "$destino:/resolucao:ro" -w /resolucao "$GITLEAKS_IMAGE" \
+            dir . --config /config/.gitleaks.toml --redact --verbose --no-banner --exit-code 1
