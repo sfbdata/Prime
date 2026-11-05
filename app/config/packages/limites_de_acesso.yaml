@@ -1,0 +1,10 @@
+# Limites da conferência de senha fora do formulário de login (auditoria 3.27 e 3.28). Bloco próprio, fora do
+# framework.yaml (arquivo quente entre sessões); o Symfony junta os limitadores dos arquivos.
+framework:
+    rate_limiter:
+        # Troca de senha no perfil: a senha atual errada, por conta (chave = id do usuário). Consumido no
+        # AlterarSenhaUseCase antes do isPasswordValid.
+        perfil_senha_atual:
+            policy: sliding_window
+            limit: 5
+            interval: '15 minutes'

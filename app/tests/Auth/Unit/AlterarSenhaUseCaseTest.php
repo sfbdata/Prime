@@ -13,6 +13,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
 #[CoversClass(AlterarSenhaUseCase::class)]
 final class AlterarSenhaUseCaseTest extends TestCase
@@ -21,16 +23,22 @@ final class AlterarSenhaUseCaseTest extends TestCase
     private RedefinicaoSenhaRepository&MockObject $redefinicaoRepository;
     private UserPasswordHasherInterface&MockObject $hasher;
     private AlterarSenhaUseCase $useCase;
+    private RateLimiterFactory $limitador;
 
     protected function setUp(): void
     {
         $this->userRepository        = $this->createMock(UserRepository::class);
         $this->redefinicaoRepository = $this->createMock(RedefinicaoSenhaRepository::class);
         $this->hasher                = $this->createMock(UserPasswordHasherInterface::class);
+        $this->limitador             = new RateLimiterFactory(
+            ['id' => 'perfil_senha_atual', 'policy' => 'sliding_window', 'limit' => 5, 'interval' => '15 minutes'],
+            new InMemoryStorage(),
+        );
         $this->useCase               = new AlterarSenhaUseCase(
             $this->userRepository,
             $this->redefinicaoRepository,
             $this->hasher,
+            $this->limitador,
         );
     }
 
@@ -39,8 +47,36 @@ final class AlterarSenhaUseCaseTest extends TestCase
         $user = new User();
         $user->setEmail('ana@adv.com');
         $user->setPassword('HASH_ANTIGO');
+        (new \ReflectionProperty(User::class, 'id'))->setValue($user, 7);
 
         return $user;
+    }
+
+    #[TestDox('Com o limitador da conta esgotado, a senha atual nem é conferida (auditoria 3.27)')]
+    public function testLimiteEsgotadoNaoConfereASenha(): void
+    {
+        $user = $this->usuario();
+        $this->limitador->create('7')->consume(5);
+        $this->hasher->expects($this->never())->method('isPasswordValid');
+        $this->userRepository->expects($this->never())->method('salvar');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage(AlterarSenhaUseCase::MUITAS_TENTATIVAS);
+
+        $this->useCase->executar($user, 'senha-atual', 'senha-nova-123');
+    }
+
+    #[TestDox('O limite é por conta: o esgotado de uma conta não afeta outra')]
+    public function testLimiteEPorConta(): void
+    {
+        $this->limitador->create('99')->consume(5);
+        $this->hasher->method('isPasswordValid')->willReturn(true);
+        $this->hasher->method('hashPassword')->willReturn('HASH_NOVO');
+        $user = $this->usuario();
+
+        $this->useCase->executar($user, 'senha-atual', 'senha-nova-123');
+
+        self::assertSame('HASH_NOVO', $user->getPassword());
     }
 
     #[TestDox('Troca a senha quando a senha atual confere')]
