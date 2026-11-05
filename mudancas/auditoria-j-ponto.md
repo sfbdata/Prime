@@ -9,4 +9,5 @@ tipo: correcao
   - Defesa em profundidade: antes o escritório dependia só do `TenantFilter`, que não age fora de requisição. Sem migration, sem mudança de entidade nem de rota.
 
 ## Para o cliente
-- A folha de ponto, o espelho em PDF e em planilha e a ficha do funcionário passam a buscar batidas e justificativas sempre só do escritório aberto, também nas rotinas automáticas. Quem trabalha em dois escritórios continua vendo em cada um só o que é dele, e nada muda na tela.
+- A folha de ponto, o espelho em PDF e em planilha e a ficha do funcionário passam a buscar batidas e justificativas sempre só do escritório aberto, também nas rotinas automáticas. Quem trabalha em dois escritórios vê, em cada um, só as batidas e justificativas daquele escritório.
+- Os avisos automáticos de ponto esquecido e de horário passam a olhar só o escritório de onde o aviso sai.
