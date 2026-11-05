@@ -79,6 +79,8 @@ final class PastaPagamentoController extends AbstractController
             );
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (\DomainException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
 
         return $this->json([

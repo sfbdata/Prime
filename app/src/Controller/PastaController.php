@@ -11,6 +11,7 @@ use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
@@ -223,6 +224,8 @@ class PastaController extends AbstractController
         private readonly PublicacaoDjenRepository $publicacaoDjenRepository,
         private readonly LoggerInterface $logger,
         private readonly PastaPrazoRepository $pastaPrazoRepository,
+        private readonly AcessoAPasta $acessoAPasta,
+        private readonly VisibilidadeDoFinanceiroDaPasta $financeiroDaPasta,
         private readonly AndamentoDaPasta $andamentoDaPasta,
         private readonly DefinirSituacaoDaPastaUseCase $definirSituacao,
         private readonly HistoricoDoCliente $historicoDoCliente,
@@ -271,16 +274,8 @@ class PastaController extends AbstractController
         // Aqui o sistema AVISA e pede confirmação; nunca bloqueia, porque o mesmo cliente pode ter
         // vários casos parecidos de verdade.
         if (!$request->request->getBoolean('confirmar') && $tenant !== null) {
-            $semelhantes = $this->pastaRepository->findSemelhantesPorClienteEAcao($tenant, $nomeCliente, $nomeAcao);
-            if ($semelhantes !== []) {
-                $dados = [
-                    'semelhantes' => $semelhantes,
-                    // O TOTAL não é o tamanho da lista: ela é truncada em 5 e há par com 27
-                    // pastas em produção. A tela mostra as 5 mais recentes e diz o total real.
-                    'total'       => $this->pastaRepository->contarSemelhantesPorClienteEAcao($tenant, $nomeCliente, $nomeAcao),
-                    'nomeCliente' => $nomeCliente,
-                    'nomeAcao'    => $nomeAcao,
-                ];
+            $dados = $this->avisoDeDuplicada($currentUser, $tenant, $nomeCliente, $nomeAcao);
+            if ($dados !== null) {
                 if ($ajax) {
                     // Devolve só o miolo da modal, pronto para o JS injetar e exibir.
                     return new JsonResponse([
@@ -445,7 +440,7 @@ class PastaController extends AbstractController
         // inventar um número.
         $primeiroCliente = $pasta->getClientePrincipal();
         $mediaCpf        = $primeiroCliente !== null && $tenant !== null
-            ? $this->pastaRepository->mediaValorCausaPorCliente($primeiroCliente, $tenant)
+            ? $this->mediaParaQuemOlha($primeiroCliente, $tenant)
             : null;
 
         // Aba Push Processual: as publicações captadas do DJEN para os processos DESTA pasta.
@@ -870,6 +865,30 @@ class PastaController extends AbstractController
     }
 
     /**
+     * Dados do aviso de pasta duplicada (D12.5), ou `null` se não há semelhante. Pasta oculta pelo
+     * cadeado para quem cria fica fora da lista e do total (auditoria 1.07).
+     *
+     * @return array{semelhantes: list<Pasta>, total: int, nomeCliente: ?string, nomeAcao: ?string}|null
+     */
+    private function avisoDeDuplicada(User $usuario, Tenant $tenant, ?string $nomeCliente, ?string $nomeAcao): ?array
+    {
+        $ocultas     = $this->acessoAPasta->idsDasPastasOcultas($usuario, $tenant);
+        $semelhantes = $this->pastaRepository->findSemelhantesPorClienteEAcao($tenant, $nomeCliente, $nomeAcao, 5, $ocultas);
+        if ($semelhantes === []) {
+            return null;
+        }
+
+        return [
+            'semelhantes' => $semelhantes,
+            // O TOTAL não é o tamanho da lista: ela é truncada em 5 e há par com 27
+            // pastas em produção. A tela mostra as 5 mais recentes e diz o total real.
+            'total'       => $this->pastaRepository->contarSemelhantesPorClienteEAcao($tenant, $nomeCliente, $nomeAcao, $ocultas),
+            'nomeCliente' => $nomeCliente,
+            'nomeAcao'    => $nomeAcao,
+        ];
+    }
+
+    /**
      * O estado do cliente principal como a tela precisa dele — para a troca pela estrela e para o
      * vínculo de um cliente novo.
      *
@@ -883,17 +902,33 @@ class PastaController extends AbstractController
     {
         $tenant    = $this->tenantContext->getCurrentTenant();
         $principal = $pasta->getClientePrincipal();
-        $mediaCpf  = $principal !== null && $tenant !== null
-            ? $this->pastaRepository->mediaValorCausaPorCliente($principal, $tenant)
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        // A média é dado do Financeiro: com a aba oculta para quem pede, ela não volta (auditoria 2.04).
+        $veFinanceiro = $tenant !== null && $this->financeiroDaPasta->podeVer($usuario, $tenant, $pasta);
+        $mediaCpf     = $principal !== null && $veFinanceiro
+            ? $this->mediaParaQuemOlha($principal, $tenant)
             : null;
 
         return [
             'sucesso'        => true,
             'clienteId'      => $principal?->getId(),
-            'mediaFormatada' => PastaFinanceiroOutput::formatarReais($mediaCpf),
-            'mediaRotulo'    => PastaFinanceiroOutput::montar($pasta, $principal, $mediaCpf)->mediaRotulo,
+            'mediaFormatada' => $veFinanceiro ? PastaFinanceiroOutput::formatarReais($mediaCpf) : null,
+            'mediaRotulo'    => $veFinanceiro ? PastaFinanceiroOutput::montar($pasta, $principal, $mediaCpf)->mediaRotulo : null,
             'clienteNome'    => $principal?->getNomeExibicao(),
         ];
+    }
+
+    /**
+     * Média do valor da causa do cliente sem as pastas ocultas pelo cadeado para quem olha
+     * (auditoria 1.11): com elas na conta, a média deixaria deduzir o valor da pasta trancada.
+     */
+    private function mediaParaQuemOlha(Cliente $cliente, Tenant $tenant): ?string
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+
+        return $this->pastaRepository->mediaValorCausaPorCliente($cliente, $tenant, $this->acessoAPasta->idsDasPastasOcultas($usuario, $tenant));
     }
 
     private function respostaErroClientePrincipal(bool $isXhr, string $mensagem, int $pastaId, int $status): Response
@@ -2050,7 +2085,7 @@ class PastaController extends AbstractController
         // número exibido, então ele volta recalculado para a tela não ficar defasada.
         $primeiroCliente = $pasta->getClientePrincipal();
         $mediaCpf        = $primeiroCliente !== null && $tenant !== null
-            ? $this->pastaRepository->mediaValorCausaPorCliente($primeiroCliente, $tenant)
+            ? $this->mediaParaQuemOlha($primeiroCliente, $tenant)
             : null;
 
         return $this->json([
