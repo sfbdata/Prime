@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\DTO\DadosDaVaga;
 use App\TrabalhoExterno\Enum\AcaoVaga;
@@ -32,7 +33,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * A aba Vagas (spec VS 18.10.26 §4.1), toda em JSON. Escritas com CSRF no header `X-CSRF-Token`,
  * como o `DemandaExternaController`. Leitura aceita `?como=` da prévia do Master; escrita, nunca.
  */
-#[Route('/trabalho-externo/api/vagas')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api/vagas', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class VagasController extends AbstractController
 {
     use RespondeJsonTrait;

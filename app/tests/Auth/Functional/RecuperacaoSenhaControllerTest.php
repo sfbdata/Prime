@@ -20,6 +20,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
@@ -817,5 +819,82 @@ final class RecuperacaoSenhaControllerTest extends JusPrimeWebTestCase
                 $client->getCookieJar()->expire($cookie->getName());
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Teto de tentativas por conta e limite por e-mail no confirmar (auditoria 3.14)
+    // ------------------------------------------------------------------
+
+    /**
+     * O pool `cache.rate_limiter` do teste zera a cada requisição; o teto da conta precisa somar várias. Troca o
+     * limitador por um real com armazenamento que sobrevive ao fim da requisição (antes de o serviço ser criado).
+     */
+    private function tetoDaContaQueSoma(): void
+    {
+        static::getContainer()->set('limiter.senha_codigo_erros_conta', new RateLimiterFactory(
+            ['id' => 'senha_codigo_erros_conta', 'policy' => 'sliding_window', 'limit' => ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA, 'interval' => '24 hours'],
+            new InMemoryStorage(),
+        ));
+    }
+
+    /** Erra o código do pedido mais novo `$vezes` vezes, cada uma com um pedido novo e de um IP diferente. */
+    private function errarDeVariosIps(KernelBrowser $client, User $user, int $vezes): void
+    {
+        for ($i = 0; $i < $vezes; ++$i) {
+            $this->criarPedidoDeCodigo($user, sprintf('%06d', 100000 + $i));
+            $client->setServerParameter('REMOTE_ADDR', '10.0.0.' . ($i + 1));
+            self::assertSame(['erro' => self::ERRO_CODIGO], $this->confirmar($client, (string) $user->getEmail(), '999999'));
+        }
+    }
+
+    #[TestDox('Passado o teto de tentativas da conta, o código certo de um pedido novo é recusado mesmo de outro IP')]
+    public function testTetoDaContaValeDeOutroIp(): void
+    {
+        $client = $this->clienteJson();
+        $this->tetoDaContaQueSoma();
+        $user = $this->criarUsuario();
+        $this->errarDeVariosIps($client, $user, ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA);
+
+        $this->criarPedidoDeCodigo($user, '123456');
+        $client->setServerParameter('REMOTE_ADDR', '10.9.9.9');
+        $resposta = $this->confirmar($client, (string) $user->getEmail(), '123456');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => self::ERRO_CODIGO], $resposta);
+        self::assertTrue($this->senhaValeNoBanco($user, self::SENHA_ORIGINAL), 'a senha não muda depois do teto');
+    }
+
+    #[TestDox('Conta bloqueada pelo teto e conta inexistente recebem a mesma resposta (RN02)')]
+    public function testContaBloqueadaRespondeComoInexistente(): void
+    {
+        $client = $this->clienteJson();
+        $this->tetoDaContaQueSoma();
+        $user = $this->criarUsuario();
+        $this->errarDeVariosIps($client, $user, ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA);
+        $this->criarPedidoDeCodigo($user, '123456');
+
+        $bloqueada = $this->confirmar($client, (string) $user->getEmail(), '123456');
+        $statusBloqueada = $client->getResponse()->getStatusCode();
+        $inexistente = $this->confirmar($client, 'ninguem_' . uniqid() . '@adv.com', '123456');
+
+        self::assertSame($statusBloqueada, $client->getResponse()->getStatusCode());
+        self::assertSame($bloqueada, $inexistente);
+    }
+
+    #[TestDox('O confirmar tem limite por e-mail normalizado: estourado, 429 e o código nem é conferido')]
+    public function testConfirmarTemLimitePorEmail(): void
+    {
+        $client = $this->clienteJson();
+        $porEmail = new RateLimiterFactoryEspiao(aceita: false);
+        static::getContainer()->set('limiter.senha_codigo_email', $porEmail);
+        $user = $this->criarUsuario(email: 'limite_' . uniqid() . '@adv.com');
+        $this->criarPedidoDeCodigo($user, '123456');
+
+        $resposta = $this->confirmar($client, '  ' . strtoupper((string) $user->getEmail()) . ' ', '123456');
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => 'Muitas tentativas. Tente de novo mais tarde.'], $resposta);
+        self::assertSame([mb_strtolower((string) $user->getEmail())], $porEmail->chavesConsumidas);
+        self::assertTrue($this->senhaValeNoBanco($user, self::SENHA_ORIGINAL));
     }
 }

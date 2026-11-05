@@ -637,6 +637,24 @@ todas as ações da meta antes da regra própria de cada uma.
 
 ---
 
+### Rotas que funcionam sem escritório na sessão (auditoria 1.09, 05/11/2026)
+
+Logado sem escritório na sessão, o `TenantContextValidatorListener` manda à seleção de escritório, exceto:
+
+- `ROTAS_IGNORADAS` do listener: login, saída, seleção e criação de escritório, Termos, páginas públicas, o convite
+  do Trabalho Externo (por token) e as vagas públicas. Cada entrada tem o motivo escrito ao lado;
+- `ROTAS_SEM_ESCRITORIO`: a janela do gênero (grava só o dado do próprio usuário);
+- o painel do Master (prefixos `admin_`, `master_`...), só para `ROLE_SUPER_ADMIN`;
+- as rotas do Trabalho Externo, liberadas pelo default de rota `_sem_escritorio`
+  (`TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO`, posto no `#[Route]` da classe de cada controller do TE).
+  O nome `trabalho_externo_*` sozinho não libera nada.
+
+Sem escritório o filtro de tenant fica desligado. A guarda dessas rotas é da ação: cada uma resolve o perfil pela
+`FabricaDeContexto` (`contextoOuNulo()` do `RespondeJsonTrait`), que sem escritório só devolve contexto ao Master ou
+a quem tem convite vigente, e só para as demandas do convite. `TrabalhoExternoSemEscritorioArquiteturaTest` exige as
+duas coisas (toda rota `trabalho_externo_*` liberada ou ignorada; toda liberada chama o `contextoOuNulo()`), e
+`SemEscritorioNemConviteTest` prova que quem não tem escritório nem convite é recusado em todas.
+
 ## 8. Falhas Conhecidas
 
 ### F1 — show/edit/delete não verificam o módulo (COMPORTAMENTO ACEITO, não é falha)

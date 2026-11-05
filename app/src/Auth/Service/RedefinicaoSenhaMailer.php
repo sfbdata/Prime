@@ -70,6 +70,21 @@ final class RedefinicaoSenhaMailer implements RedefinicaoSenhaMailerInterface
         $this->enviar($email);
     }
 
+    public function avisarTetoDeTentativas(User $user): void
+    {
+        $html = $this->twig->render('email/teto_codigo_senha.html.twig', [
+            'nome' => $user->getFullName() ?? $user->getEmail(),
+        ]);
+
+        $email = (new Email())
+            ->to((string) $user->getEmail())
+            ->html($html);
+
+        $this->identidadeDeEmail->aplicar($email, 'Tentativas de trocar a sua senha no BlueJus');
+
+        $this->enviar($email);
+    }
+
     private function enviar(Email $email): void
     {
         try {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
@@ -24,7 +25,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * Aba WhatsApp da demanda (F2). Nenhuma rota envia mensagem: o BlueJus prepara o texto e o link
  * `wa.me`, e quem envia é a pessoa, pelo próprio WhatsApp (D4). Mesmas guardas das demais escritas.
  */
-#[Route('/trabalho-externo/api/demandas/{codigo}/whatsapp', requirements: ['codigo' => 'TE-\d{1,9}'])]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api/demandas/{codigo}/whatsapp', requirements: ['codigo' => 'TE-\d{1,9}'], defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class WhatsappDaDemandaController extends AbstractController
 {
     use RespondeJsonTrait;

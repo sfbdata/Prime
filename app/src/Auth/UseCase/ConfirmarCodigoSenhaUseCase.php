@@ -10,6 +10,7 @@ use App\Auth\Event\EmailDaContaConfirmado;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Repository\RedefinicaoSenhaRepository;
 use App\Auth\Service\ForcaDaSenha;
+use App\Auth\Service\RedefinicaoSenhaMailerInterface;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
 use App\Termo\Repository\AceiteTermoRepository;
@@ -18,6 +19,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -30,7 +32,14 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  *
  * Força bruta: o pedido é buscado pela conta (nunca pelo hash) e cada código errado conta
  * uma tentativa; na quinta o pedido queima e nenhum código passa mais. Código fora do
- * formato (não 6 dígitos) é recusado sem gastar tentativa.
+ * formato (não 6 dígitos) é recusado sem gastar tentativa. Por cima disso, o teto da conta
+ * (TETO_DA_CONTA em 24 h, somando os pedidos, com trava entre pedidos paralelos): na tentativa que
+ * o atinge sem acertar, os pedidos pendentes são encerrados e a dona recebe um aviso (no máximo um
+ * por dia); passado o teto, nem o código certo passa, com o mesmo texto neutro.
+ *
+ * Troca aceita (auditoria 3.14): o teto é por CONTA, de qualquer IP, então quem erra de propósito
+ * fecha a recuperação por código da conta alheia por até um dia. É o preço de tirar os 600 palpites
+ * por dia; o aviso diz à dona o que aconteceu, e a senha atual dela continua valendo.
  *
  * Trocar o hash da senha derruba sozinho as outras sessões e os cookies "lembrar-me" (ver
  * RedefinirSenhaUseCase); o RecuperacaoSenhaControllerTest prova os dois.
@@ -47,6 +56,12 @@ final class ConfirmarCodigoSenhaUseCase
     public const ERRO_CONFIRMACAO = 'As senhas não conferem.';
     public const MAX_TENTATIVAS = 5;
 
+    /**
+     * Tentativas por CONTA somando todos os pedidos (limitador `senha_codigo_erros_conta`, 24 h): cada pedido novo
+     * abria outras 5, e sem este teto a conta aguentava 600 palpites por dia (auditoria 3.14).
+     */
+    public const TETO_DA_CONTA = 15;
+
     /** Acima disso o hasher do Symfony recusa a senha (proteção contra DoS no hash). */
     private const SENHA_MAXIMA = 4096;
 
@@ -62,6 +77,9 @@ final class ConfirmarCodigoSenhaUseCase
         private readonly LoggerInterface $logger,
         private readonly AceiteTermoRepository $aceiteTermoRepository,
         private readonly CienciaPoliticaRepository $cienciaPoliticaRepository,
+        private readonly RateLimiterFactoryInterface $senhaCodigoErrosContaLimiter,
+        private readonly RateLimiterFactoryInterface $senhaCodigoAvisoTetoLimiter,
+        private readonly RedefinicaoSenhaMailerInterface $mailer,
     ) {
     }
 
@@ -99,6 +117,13 @@ final class ConfirmarCodigoSenhaUseCase
 
         // Reserva a tentativa no banco ANTES de comparar: com POSTs paralelos, só os que ganharam uma das 5 vagas
         // chegam a comparar o código. Ler, comparar e só depois contar deixaria N requisições simultâneas chutarem.
+        // O teto da conta vem antes da vaga do pedido: passado ele, nada é comparado.
+        $cota = $this->senhaCodigoErrosContaLimiter->create((string) $user->getId())->consume();
+        if (!$cota->isAccepted()) {
+            $this->redefinicaoRepository->encerrarPendentesDoUsuario($user, new \DateTimeImmutable());
+
+            throw new \DomainException(self::ERRO_CODIGO);
+        }
         if (!$this->redefinicaoRepository->reservarTentativa($pedido, self::MAX_TENTATIVAS)) {
             throw new \DomainException(self::ERRO_CODIGO);
         }
@@ -107,11 +132,34 @@ final class ConfirmarCodigoSenhaUseCase
 
         if (!hash_equals($pedido->getTokenHash(), $esperado)) {
             $this->redefinicaoRepository->queimarSeEsgotado($pedido, self::MAX_TENTATIVAS, new \DateTimeImmutable());
+            if ($cota->getRemainingTokens() === 0) {
+                $this->fecharAContaNoTeto($user);
+            }
 
             throw new \DomainException(self::ERRO_CODIGO);
         }
 
         return $pedido;
+    }
+
+    /**
+     * A tentativa que esgotou o teto errou: encerra os pedidos pendentes (encerra, não apaga: a linha segue contando
+     * no teto diário do SolicitarCodigoSenhaUseCase) e avisa a dona. O aviso tem limitador próprio, um por dia: a
+     * janela deslizante pode cruzar o teto de novo. Falha no envio não muda a resposta neutra.
+     */
+    private function fecharAContaNoTeto(User $user): void
+    {
+        $this->redefinicaoRepository->encerrarPendentesDoUsuario($user, new \DateTimeImmutable());
+
+        if (!$this->senhaCodigoAvisoTetoLimiter->create((string) $user->getId())->consume()->isAccepted()) {
+            return;
+        }
+
+        try {
+            $this->mailer->avisarTetoDeTentativas($user);
+        } catch (\Throwable $e) {
+            $this->logger->error('Aviso do teto de tentativas do código da senha não saiu.', ['exception' => $e, 'userId' => $user->getId()]);
+        }
     }
 
     private function pedidoAindaVale(RedefinicaoSenha $pedido): bool

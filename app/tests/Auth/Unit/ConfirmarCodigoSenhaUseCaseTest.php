@@ -10,6 +10,7 @@ use App\Auth\Event\EmailDaContaConfirmado;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Repository\RedefinicaoSenhaRepository;
 use App\Auth\Service\ForcaDaSenha;
+use App\Auth\Service\RedefinicaoSenhaMailerInterface;
 use App\Auth\UseCase\ConfirmarCodigoSenhaUseCase;
 use App\Auth\UseCase\SolicitarCodigoSenhaUseCase;
 use App\Entity\Auth\User;
@@ -24,6 +25,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -45,6 +48,7 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
     private EventDispatcherInterface&MockObject $eventDispatcher;
     private AceiteTermoRepository&MockObject $aceiteTermoRepository;
     private CienciaPoliticaRepository&MockObject $cienciaPoliticaRepository;
+    private RedefinicaoSenhaMailerInterface&MockObject $mailer;
     private ConfirmarCodigoSenhaUseCase $useCase;
 
     /** Resultado do UPDATE condicional: false = outra requisição consumiu o código antes. */
@@ -63,6 +67,7 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         $this->eventDispatcher       = $this->createMock(EventDispatcherInterface::class);
         $this->aceiteTermoRepository = $this->createMock(AceiteTermoRepository::class);
         $this->cienciaPoliticaRepository = $this->createMock(CienciaPoliticaRepository::class);
+        $this->mailer                = $this->createMock(RedefinicaoSenhaMailerInterface::class);
         $this->useCase               = new ConfirmarCodigoSenhaUseCase(
             $this->em,
             $this->userRepository,
@@ -74,6 +79,15 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
             $this->createStub(LoggerInterface::class),
             $this->aceiteTermoRepository,
             $this->cienciaPoliticaRepository,
+            new RateLimiterFactory(
+                ['id' => 'senha_codigo_erros_conta', 'policy' => 'sliding_window', 'limit' => ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA, 'interval' => '24 hours'],
+                new InMemoryStorage(),
+            ),
+            new RateLimiterFactory(
+                ['id' => 'senha_codigo_aviso_teto', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '24 hours'],
+                new InMemoryStorage(),
+            ),
+            $this->mailer,
         );
         // Faz no objeto o que o UPDATE condicional faz no banco: só ganha quem encontra o e-mail ainda a confirmar.
         $this->confirmacaoEmailRepository->method('confirmarEmailDaConta')
@@ -479,5 +493,73 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         }
 
         self::assertSame('HASH_ANTIGO', $pedido->getUser()->getPassword());
+    }
+
+    /** Um pedido novo e pendente para a mesma conta (id 42) a cada chamada, como se a pessoa pedisse outro código. */
+    private function pedidosNovosACadaVez(User $user): void
+    {
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([$user]);
+        $this->redefinicaoRepository->method('encontrarPendenteMaisNovoDoUsuario')->willReturnCallback(
+            static fn (): RedefinicaoSenha => new RedefinicaoSenha(
+                user: $user,
+                tokenHash: SolicitarCodigoSenhaUseCase::hashDoCodigo(42, self::CODIGO, self::SEGREDO),
+                expiraEm: new \DateTimeImmutable('+15 minutes'),
+                ip: '1.2.3.4',
+            ),
+        );
+    }
+
+    private function errarNVezes(int $vezes): void
+    {
+        for ($i = 0; $i < $vezes; ++$i) {
+            try {
+                $this->useCase->executar($this->input('999999'));
+                self::fail('o código errado passou');
+            } catch (\DomainException $e) {
+                self::assertSame(ConfirmarCodigoSenhaUseCase::ERRO_CODIGO, $e->getMessage());
+            }
+        }
+    }
+
+    #[TestDox('Teto da conta: 15 erros somados em pedidos diferentes, o código certo de um pedido novo é recusado')]
+    public function testTetoDaContaSomaOsPedidos(): void
+    {
+        $user = $this->usuario();
+        $this->pedidosNovosACadaVez($user);
+        $this->errarNVezes(ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA);
+        $this->hasher->expects($this->never())->method('hashPassword');
+
+        try {
+            $this->useCase->executar($this->input());
+            self::fail('o código certo passou depois do teto');
+        } catch (\DomainException $e) {
+            self::assertSame(ConfirmarCodigoSenhaUseCase::ERRO_CODIGO, $e->getMessage());
+        }
+        self::assertSame('HASH_ANTIGO', $user->getPassword());
+    }
+
+    #[TestDox('Atingir o teto encerra (sem apagar) os pedidos pendentes da conta e manda um único aviso à dona')]
+    public function testTetoAvisaUmaVezEQueimaOsPendentes(): void
+    {
+        $user = $this->usuario();
+        $this->pedidosNovosACadaVez($user);
+        $this->mailer->expects($this->once())->method('avisarTetoDeTentativas')->with($user);
+        $this->redefinicaoRepository->expects($this->atLeastOnce())->method('encerrarPendentesDoUsuario')->with($user);
+        $this->redefinicaoRepository->expects($this->never())->method('invalidarPendentesDoUsuario');
+
+        $this->errarNVezes(ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA + 5);
+    }
+
+    #[TestDox('Abaixo do teto, nenhum aviso: 14 erros e o código certo ainda troca a senha')]
+    public function testAbaixoDoTetoNaoAvisa(): void
+    {
+        $user = $this->usuario();
+        $this->pedidosNovosACadaVez($user);
+        $this->mailer->expects($this->never())->method('avisarTetoDeTentativas');
+
+        $this->errarNVezes(ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA - 1);
+        $this->useCase->executar($this->input());
+
+        self::assertSame('HASH_NOVO', $user->getPassword());
     }
 }
