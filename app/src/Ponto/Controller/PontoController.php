@@ -143,19 +143,19 @@ final class PontoController extends AbstractController
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
 
         /** @var RegistroPonto[] $batidas */
-        $batidas = $repository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
+        $batidas = $repository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
         $jornadaDoEscritorio = $this->jornadas->findByUserETenant($user, $tenant);
         $jornada = $jornadaDoEscritorio ?? (new JornadaColaborador())->setUser($user);
         $feriados = $feriadoRepository->findByTenant($tenant);
 
-        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
+        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);
         $inicioContagem = $this->inicioContagemResolver->resolver($user, $tenant);
         $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagem);
 
         $hojeStr = $agora->format('Y-m-d');
         $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
             ? $batidas
-            : $repository->findByUserAndCompetencia($user, $ano, $mes);
+            : $repository->findByUserAndCompetencia($user, $tenant, $ano, $mes);
         $batidasHoje = array_filter(
             $batidasParaHoje,
             fn($b) => $b->getDataHora()->format('Y-m-d') === $hojeStr
@@ -204,7 +204,7 @@ final class PontoController extends AbstractController
         // delimitam nada e ficam de fora nos dois lados. Mesmo serviço do atalho do cabeçalho.
         $sedesDaTela = $sedesDaCerca->doEscritorio($tenant);
 
-        $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
+        $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         // Atalho "+" da folha: célula que já tem esquecimento pendente ou abonado não oferece o
         // botão de novo (condição 8). Reaproveita a lista acima; nenhuma query nova. Mesma regra do
@@ -584,7 +584,7 @@ final class PontoController extends AbstractController
             return $this->json(['alertar' => false]);   // fora do público dos avisos de ponto
         }
 
-        return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant, $jornada));
+        return $this->json($this->verificadorAlerta->verificar($user, $tenant, new \DateTimeImmutable(), $jornadaTenant, $jornada));
     }
 
     /**
@@ -1058,10 +1058,10 @@ final class PontoController extends AbstractController
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
 
         /** @var \App\Ponto\Entity\RegistroPonto[] $batidas */
-        $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
+        $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
         $jornada  = $this->jornadas->findByUserETenant($targetUser, $tenant);
         $feriados = $feriadoRepository->findByTenant($tenant);
-        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
+        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);
         $jornadaTenantPdf = $tenant->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
@@ -1142,10 +1142,10 @@ final class PontoController extends AbstractController
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
 
         /** @var RegistroPonto[] $batidas */
-        $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
+        $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
         $jornada  = $this->jornadas->findByUserETenant($targetUser, $tenant);
         $feriados = $feriadoRepository->findByTenant($tenant);
-        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
+        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);
         $jornadaTenantXlsx = $tenant->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));

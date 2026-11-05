@@ -99,14 +99,14 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
         $mes = (int) $dia->format('n');
         $jornada = $container->get(JornadaColaboradorRepository::class)->findByUserETenant($colaborador, $tenant);
         $feriados = $container->get(FeriadoRepository::class)->findByTenant($tenant);
-        $justificativas = $container->get(JustificativaPontoRepository::class)->findByUserAndCompetenciaIndexed($colaborador, $ano, $mes);
+        $justificativas = $container->get(JustificativaPontoRepository::class)->findByUserAndCompetenciaIndexed($colaborador, $tenant, $ano, $mes);
         $jornadaTenant = $tenant->getJornadaTenant();
         $inicioContagem = $container->get(InicioContagemResolver::class)->resolver($colaborador, $tenant);
         $inicio = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $rows = $builder->buildRows(
             $inicio,
             $inicio->modify('last day of this month')->setTime(23, 59, 59),
-            $container->get(RegistroPontoRepository::class)->findByUserAndCompetencia($colaborador, $ano, $mes),
+            $container->get(RegistroPontoRepository::class)->findByUserAndCompetencia($colaborador, $tenant, $ano, $mes),
             true,
             false,
             $jornada,

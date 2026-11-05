@@ -783,18 +783,18 @@ final class TenantController extends AbstractController
         $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         if (in_array($competenciaSelecionada, $competenciasComBatida, true)) {
-            $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
+            $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
             $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
             $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
             $feriados = $feriadoRepository->findByTenant($tenant);
-            $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
+            $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);
             $inicioContagemPonto = $this->inicioContagemResolver->resolver($user, $tenant);
             $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($jornada, $jornadaTenant);
-        $justificativas = $justificativaRepository->findByTenantUser($user);
+        $justificativas = $justificativaRepository->findByTenantUser($user, $tenant);
 
         $perfil            = $obterOuCriarPerfil->executar($user);
         $inputDados        = new DadosPessoaisInput();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
@@ -24,13 +25,14 @@ class VerificadorAlertaPonto
     /**
      * @return array{alertar: bool, mensagem: string, tipo: string, horario: string}
      */
-    public function verificar(User $user, \DateTimeImmutable $agora, ?JornadaTenant $jornadaTenant = null, ?JornadaColaborador $jornada = null): array
+    public function verificar(User $user, Tenant $tenant, \DateTimeImmutable $agora, ?JornadaTenant $jornadaTenant = null, ?JornadaColaborador $jornada = null): array
     {
         if (!$this->jornadaResolver->resolverAlertaHabilitado($jornada, $jornadaTenant)) {
             return $this->semAlerta();
         }
 
-        $batidasDoDia = $this->registroRepository->findBatidasDoDia($user, $agora);
+        // As batidas de hoje NESTE escritório (auditoria 1.13): a de outro escritório da pessoa não muda o aviso daqui.
+        $batidasDoDia = $this->registroRepository->findBatidasDoDia($user, $tenant, $agora);
 
         // As MESMAS batidas que a folha e o quadro de hoje contam (a escolha única). Até 21/09/2026 o
         // aviso ficava com a ÚLTIMA de cada tipo e podia mandar sair com a folha ainda devendo horas

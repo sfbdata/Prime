@@ -35,6 +35,9 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
     /** A jornada pessoal que o repositório devolve para o escritório da folha. */
     private ?JornadaColaborador $jornadaNoEscritorio = null;
 
+    /** @var list<Tenant> o escritório que cada consulta de batidas e justificativas do saldo recebeu */
+    private array $escritoriosConsultados = [];
+
     /** 08:00→09:00 + 13:00→18:00: o dia ambíguo conta o PRIMEIRO repouso, nas duas regras. */
     private const MINUTOS_DIA_AMBIGUO = 360;
 
@@ -128,6 +131,26 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
         self::assertSame(2 * $mes, $builder->calcularSaldoAnual($user, 2026, [], null, new \DateTimeImmutable('2026-04-01'), $this->tenant()));
     }
 
+    /**
+     * Auditoria 1.13: o saldo mês a mês busca batidas e justificativas no MESMO escritório da folha, explícito, sem
+     * depender do filtro `tenant` (o colaborador pode ter ponto em outro escritório).
+     */
+    public function testSaldoConsultaBatidasEJustificativasNoEscritorioDaFolha(): void
+    {
+        $builder = $this->builder();
+        $user = $this->jornadaNeutra()->getUser();
+        $escritorio = $this->tenant();
+
+        $builder->calcularSaldoAteMes($user, 2026, 5, [], null, new \DateTimeImmutable('2026-04-01'), $escritorio);
+        $builder->calcularSaldoAnual($user, 2026, [], null, new \DateTimeImmutable('2026-04-01'), $escritorio);
+
+        // Abril e maio nos dois cálculos, batidas e justificativas: ao menos 8 consultas.
+        self::assertGreaterThanOrEqual(8, count($this->escritoriosConsultados));
+        foreach ($this->escritoriosConsultados as $consultado) {
+            self::assertSame($escritorio, $consultado, 'consulta da folha fora do escritório da folha');
+        }
+    }
+
     /** @return list<RegistroPonto> */
     private function batidasDaCompetencia(string $competencia): array
     {
@@ -152,12 +175,22 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
     {
         $registros = $this->createStub(RegistroPontoRepository::class);
         $registros->method('findByUserAndCompetencia')->willReturnCallback(
-            fn (User $u, int $ano, int $mes): array => $ano === 2026 && in_array($mes, [4, 5], true)
-                ? $this->batidasDaCompetencia(sprintf('%04d-%02d', $ano, $mes))
-                : []
+            function (User $u, Tenant $t, int $ano, int $mes): array {
+                $this->escritoriosConsultados[] = $t;
+
+                return $ano === 2026 && in_array($mes, [4, 5], true)
+                    ? $this->batidasDaCompetencia(sprintf('%04d-%02d', $ano, $mes))
+                    : [];
+            }
         );
         $justificativas = $this->createStub(JustificativaPontoRepository::class);
-        $justificativas->method('findByUserAndCompetenciaIndexed')->willReturn([]);
+        $justificativas->method('findByUserAndCompetenciaIndexed')->willReturnCallback(
+            function (User $u, Tenant $t, int $ano, int $mes): array {
+                $this->escritoriosConsultados[] = $t;
+
+                return [];
+            }
+        );
         $lancamentos = $this->createStub(LancamentoHorasPagasRepository::class);
         $lancamentos->method('somarPorPeriodo')->willReturn(0);
         $lancamentos->method('somarPorCompetencia')->willReturn(0);

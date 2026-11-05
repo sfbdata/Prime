@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JustificativaPontoRepository;
 
 /**
@@ -20,10 +21,10 @@ final class EsquecimentosRegistrados
     ) {
     }
 
-    /** @return array<string, true> chave "AAAA-MM-DD|tipo" */
-    public function daCompetencia(User $user, int $ano, int $mes): array
+    /** @return array<string, true> chave "AAAA-MM-DD|tipo", só os pedidos NESTE escritório */
+    public function daCompetencia(User $user, Tenant $tenant, int $ano, int $mes): array
     {
-        return self::dasJustificativas($this->justificativas->findByUserAndCompetencia($user, $ano, $mes));
+        return self::dasJustificativas($this->justificativas->findByUserAndCompetencia($user, $tenant, $ano, $mes));
     }
 
     /**

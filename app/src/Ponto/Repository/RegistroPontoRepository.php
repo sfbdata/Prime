@@ -67,17 +67,22 @@ SQL;
     }
 
     /**
+     * As batidas da competência NESTE escritório: alimentam a folha, o espelho exportado e o saldo do banco de horas.
+     *
      * @return RegistroPonto[]
      */
-    public function findByUserAndCompetencia(User $user, int $ano, int $mes): array
+    public function findByUserAndCompetencia(User $user, Tenant $tenant, int $ano, int $mes): array
     {
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
 
+        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO, auditoria 1.13).
         return $this->createQueryBuilder('r')
             ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
             ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
             ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
             ->setParameter('inicio', $inicioMes)
             ->setParameter('fim', $fimMes)
             ->orderBy('r.dataHora', 'ASC')
@@ -141,14 +146,19 @@ SQL;
     }
 
     /**
+     * As batidas do dia NESTE escritório (aviso de horário do ponto).
+     *
      * @return RegistroPonto[]
      */
-    public function findBatidasDoDia(User $user, \DateTimeImmutable $dia): array
+    public function findBatidasDoDia(User $user, Tenant $tenant, \DateTimeImmutable $dia): array
     {
+        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO, auditoria 1.13).
         return $this->createQueryBuilder('r')
             ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
             ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
             ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
             ->setParameter('inicio', $dia->setTime(0, 0, 0))
             ->setParameter('fim', $dia->setTime(23, 59, 59))
             ->orderBy('r.dataHora', 'ASC')

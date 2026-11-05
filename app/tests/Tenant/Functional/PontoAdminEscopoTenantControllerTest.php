@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,6 +48,29 @@ final class PontoAdminEscopoTenantControllerTest extends JusPrimeWebTestCase
         $body = (string) $client->getResponse()->getContent();
         self::assertStringContainsString("/ponto/{$registroB->getId()}/edit", $body, 'a folha de B deveria listar a batida de B');
         self::assertStringNotContainsString("/ponto/{$registroA->getId()}/edit", $body, 'a folha de B vazou a batida do escritório A (tenant da sessão)');
+    }
+
+    #[TestDox('ALTO (auditoria 1.13): a ficha lista só as justificativas do escritório da URL, não as do outro escritório da pessoa')]
+    public function testFichaListaSoJustificativasDoTenantDaUrl(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $admin   = $this->criarUsuario('admin', [$tenantA, $tenantB], admin: true);
+        $alvo    = $this->criarUsuario('alvo', [$tenantA, $tenantB], admin: false);
+
+        $deA = $this->criarJustificativa($alvo, $tenantA, '2026-03-10');
+        $deB = $this->criarJustificativa($alvo, $tenantB, '2026-03-11');
+        $this->limparIdentityMap();
+
+        // sessão = B, mas a ficha é a do escritório A (URL)
+        $this->logarComTenant($client, $admin, $tenantB);
+        $client->request('GET', "/tenant/{$tenantA->getId()}/user/{$alvo->getId()}/edit-role?tab=justificativas");
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString("/justificativa/{$deA->getId()}/aprovar", $body, 'a ficha de A deveria listar a justificativa de A');
+        self::assertStringNotContainsString("/justificativa/{$deB->getId()}/aprovar", $body, 'a ficha de A vazou a justificativa do escritório B');
     }
 
     #[TestDox('C6: super-admin sem tenant na sessão não carrega batida de outro tenant pela URL errada (404)')]
@@ -193,6 +217,21 @@ final class PontoAdminEscopoTenantControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $user;
+    }
+
+    private function criarJustificativa(User $user, Tenant $tenant, string $data): JustificativaPonto
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $justificativa = new JustificativaPonto();
+        $justificativa->setUser($user);
+        $justificativa->setTenant($tenant);
+        $justificativa->setData(new \DateTime($data));
+        $justificativa->setStatus('pendente');
+        $em->persist($justificativa);
+        $em->flush();
+
+        return $justificativa;
     }
 
     private function criarBatida(User $user, Tenant $tenant, string $dataHora, string $tipo = RegistroPonto::TIPO_ENTRADA): RegistroPonto

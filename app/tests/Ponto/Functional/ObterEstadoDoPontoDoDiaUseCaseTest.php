@@ -129,6 +129,24 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertNull($this->casoDeUsoEm('2026-10-20 10:00')->executar($user4, $tenant4)->ontemSemSaida, 'esquecimento pendente (condição 8)');
     }
 
+    #[TestDox('Regularizar ontem: o esquecimento da saída pedido em OUTRO escritório da pessoa não esconde o aviso deste (auditoria 1.13)')]
+    public function testEsquecimentoDeOutroEscritorioNaoEscondeORegularizar(): void
+    {
+        [$user, $tenant] = $this->pessoa();
+        $outro = new Tenant();
+        $outro->setName('Outro escritório da pessoa ' . uniqid());
+        $this->em->persist($outro);
+        $this->em->flush();
+        $this->batida($user, $tenant, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');
+        $this->esquecimento($user, $outro, RegistroPonto::TIPO_SAIDA, 'pendente');
+
+        // Fora de requisição o filtro `tenant` não está ligado: o escritório explícito é a única guarda.
+        $saida = $this->casoDeUsoEm('2026-10-20 10:00')->executar($user, $tenant);
+
+        self::assertSame('2026-10-19', $saida->ontemSemSaida, 'o pedido feito no outro escritório não regulariza a saída deste');
+        self::assertSame(EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM, $saida->aviso);
+    }
+
     #[TestDox('Descanso mínimo do aviso da saída: o do escritório, 660 sem configuração, null com a validação desligada')]
     public function testInterjornadaMinima(): void
     {

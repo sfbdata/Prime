@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -20,6 +21,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     private MockObject $jornadaResolver;
     private MockObject $registroRepository;
     private MockObject $user;
+    private Tenant $tenant;
     private VerificadorAlertaPonto $sut;
 
     protected function setUp(): void
@@ -27,6 +29,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         $this->jornadaResolver    = $this->createMock(JornadaResolver::class);
         $this->registroRepository = $this->createMock(RegistroPontoRepository::class);
         $this->user               = $this->createMock(User::class);
+        $this->tenant             = new Tenant();
         $this->sut = new VerificadorAlertaPonto($this->jornadaResolver, $this->registroRepository);
     }
 
@@ -43,9 +46,22 @@ final class VerificadorAlertaPontoTest extends TestCase
     {
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(false);
 
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 08:00:00'), null);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 08:00:00'), null);
 
         self::assertFalse($resultado['alertar']);
+    }
+
+    public function testConsultaAsBatidasDoDiaSoNoEscritorioDoAviso(): void
+    {
+        // Auditoria 1.13: o escritório vai explícito para a consulta, sem depender do filtro `tenant`.
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $agora = new \DateTimeImmutable('2026-04-30 14:00:00');
+        $this->registroRepository->expects(self::once())
+            ->method('findBatidasDoDia')
+            ->with($this->user, self::identicalTo($this->tenant), $agora)
+            ->willReturn([]);
+
+        $this->sut->verificar($this->user, $this->tenant, $agora, null);
     }
 
     public function testAlertaEntradaQuandoNaoRegistradaHoje(): void
@@ -53,7 +69,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
         $this->registroRepository->method('findBatidasDoDia')->willReturn([]);
 
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 14:00:00'), null);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 14:00:00'), null);
 
         self::assertTrue($resultado['alertar']);
         self::assertSame('entrada', $resultado['tipo']);
@@ -70,7 +86,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         ]);
 
         // 12:02 — dentro de ±5 min do repouso configurado (12:00)
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 12:02:00'), null);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 12:02:00'), null);
 
         self::assertTrue($resultado['alertar']);
         self::assertSame('repouso', $resultado['tipo']);
@@ -89,7 +105,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         ]);
 
         // 14:01 — 361 min desde entrada às 08:00 → supera 360 min (6h CLT)
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 14:01:00'), null);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 14:01:00'), null);
 
         self::assertTrue($resultado['alertar']);
         self::assertSame('aviso_repouso_6h', $resultado['tipo']);
@@ -107,7 +123,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         ]);
 
         // 14:00 — simultaneamente 6h desde entrada E dentro de ±5 min do repouso configurado
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 14:00:00'), null);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 14:00:00'), null);
 
         self::assertTrue($resultado['alertar']);
         self::assertSame('repouso', $resultado['tipo']); // schedule ganha
@@ -125,7 +141,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         ]);
 
         // 13:01 — 61 min desde repouso às 12:00 → supera mínimo de 60 min
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 13:01:00'), $jornadaTenant);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 13:01:00'), $jornadaTenant);
 
         self::assertTrue($resultado['alertar']);
         self::assertSame('retorno', $resultado['tipo']);
@@ -143,7 +159,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         ]);
 
         // 12:30 — apenas 30 min desde repouso, mínimo é 60 min
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 12:30:00'), $jornadaTenant);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 12:30:00'), $jornadaTenant);
 
         self::assertFalse($resultado['alertar']);
     }
@@ -164,7 +180,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         $this->jornadaResolver->method('resolverMetaDia')->willReturn(480);
 
         // 17:30 — anteRepouso=240, aposRetorno=240, total=480 >= 480
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 17:30:00'), $jornadaTenant);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 17:30:00'), $jornadaTenant);
 
         self::assertTrue($resultado['alertar']);
         self::assertSame('saida', $resultado['tipo']);
@@ -188,7 +204,7 @@ final class VerificadorAlertaPontoTest extends TestCase
 
         // 17:00 — a folha conta 08:00→09:00 (60) + 13:00→17:00 (240) = 300 < 480. Pelo último
         // repouso seriam 240 + 240 = 480 e o aviso mandaria sair.
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 17:00:00'), null);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 17:00:00'), null);
 
         self::assertNotSame('saida', $resultado['tipo']);
         self::assertFalse($resultado['alertar']);
@@ -209,11 +225,11 @@ final class VerificadorAlertaPontoTest extends TestCase
         $this->jornadaResolver->method('resolverMetaDia')->willReturn(480);
 
         // 15:00 — span 08:00→15:00 = 420 < 480. Somando o par invertido seriam 240 + 240 = 480.
-        $as15 = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 15:00:00'), null);
+        $as15 = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 15:00:00'), null);
         self::assertFalse($as15['alertar']);
 
         // 16:00 — span 480: aí sim, como a folha.
-        $as16 = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 16:00:00'), null);
+        $as16 = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 16:00:00'), null);
         self::assertTrue($as16['alertar']);
         self::assertSame('saida', $as16['tipo']);
     }
@@ -232,7 +248,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         ]);
 
         // 13:05 — 65 min desde o primeiro repouso (o da folha); só 25 desde o último.
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 13:05:00'), $jornadaTenant);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 13:05:00'), $jornadaTenant);
 
         self::assertTrue($resultado['alertar']);
         self::assertSame('retorno', $resultado['tipo']);
@@ -251,7 +267,7 @@ final class VerificadorAlertaPontoTest extends TestCase
         $this->jornadaResolver->method('resolverMetaDia')->willReturn(480);
 
         // 17:00 — anteRepouso=240, aposRetorno=210, total=450 < 480
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 17:00:00'), $jornadaTenant);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 17:00:00'), $jornadaTenant);
 
         self::assertFalse($resultado['alertar']);
     }
@@ -266,7 +282,7 @@ final class VerificadorAlertaPontoTest extends TestCase
             $this->criarBatida(RegistroPonto::TIPO_SAIDA, '17:00:00'),
         ]);
 
-        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 17:05:00'), null);
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 17:05:00'), null);
 
         self::assertFalse($resultado['alertar']);
     }

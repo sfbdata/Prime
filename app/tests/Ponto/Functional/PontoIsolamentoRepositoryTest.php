@@ -51,16 +51,18 @@ final class PontoIsolamentoRepositoryTest extends KernelTestCase
         /** @var RegistroPontoRepository $repo */
         $repo = static::getContainer()->get(RegistroPontoRepository::class);
 
-        // sem filtro: vê as duas (estado de vazamento)
-        self::assertCount(2, $repo->findByUserAndCompetencia($usuario, 2026, 3));
+        // sem filtro: o escritório explícito do método já isola (auditoria 1.13; antes, aqui vinham as duas)
+        $semFiltro = $repo->findByUserAndCompetencia($usuario, $tenantA, 2026, 3);
+        self::assertCount(1, $semFiltro);
+        self::assertSame($regA->getId(), $semFiltro[0]->getId());
 
         $this->ligarFiltro((int) $tenantA->getId());
-        $doA = $repo->findByUserAndCompetencia($usuario, 2026, 3);
+        $doA = $repo->findByUserAndCompetencia($usuario, $tenantA, 2026, 3);
         self::assertCount(1, $doA);
         self::assertSame($regA->getId(), $doA[0]->getId());
 
         $this->ligarFiltro((int) $tenantB->getId());
-        $doB = $repo->findByUserAndCompetencia($usuario, 2026, 3);
+        $doB = $repo->findByUserAndCompetencia($usuario, $tenantB, 2026, 3);
         self::assertCount(1, $doB);
         self::assertSame($regB->getId(), $doB[0]->getId());
     }

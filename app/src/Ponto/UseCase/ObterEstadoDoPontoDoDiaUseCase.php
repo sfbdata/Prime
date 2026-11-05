@@ -95,7 +95,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
             || $linha['fimSemana'] || $linha['isFeriado'] || $linha['antesDoPrimeiroRegistro']) {
             return null;
         }
-        $jaPedido = $this->esquecimentos->daCompetencia($eu, (int) $ontem->format('Y'), (int) $ontem->format('n'));
+        $jaPedido = $this->esquecimentos->daCompetencia($eu, $tenant, (int) $ontem->format('Y'), (int) $ontem->format('n'));
 
         return isset($jaPedido[$dia . '|' . RegistroPonto::TIPO_SAIDA]) ? null : $dia;
     }
@@ -116,7 +116,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
             false,
             $jornada,
             $this->feriados->findByTenant($tenant),
-            $this->justificativas->findByUserAndCompetenciaIndexed($eu, (int) $dia->format('Y'), (int) $dia->format('n')),
+            $this->justificativas->findByUserAndCompetenciaIndexed($eu, $tenant, (int) $dia->format('Y'), (int) $dia->format('n')),
             $tenant->getJornadaTenant(),
             $this->inicioContagem->resolver($eu, $tenant),
         );

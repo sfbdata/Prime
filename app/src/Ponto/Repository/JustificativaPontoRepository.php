@@ -177,19 +177,22 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Retorna todas as justificativas do usuário no mês/ano, ordenadas por data desc.
+     * Retorna todas as justificativas do usuário no mês/ano NESTE escritório, ordenadas por data desc.
      *
      * @return JustificativaPonto[]
      */
-    public function findByUserAndCompetencia(User $user, int $ano, int $mes): array
+    public function findByUserAndCompetencia(User $user, Tenant $tenant, int $ano, int $mes): array
     {
         $inicio = new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes));
         $fim    = $inicio->modify('last day of this month')->setTime(23, 59, 59);
 
+        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO, auditoria 1.13).
         return $this->createQueryBuilder('j')
             ->where('j.user = :user')
+            ->andWhere('j.tenant = :tenant')
             ->andWhere('j.data BETWEEN :inicio AND :fim')
             ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
             ->setParameter('inicio', $inicio)
             ->setParameter('fim', $fim)
             ->orderBy('j.data', 'DESC')
@@ -207,9 +210,9 @@ class JustificativaPontoRepository extends ServiceEntityRepository
      *
      * @return array<string, JustificativaPonto>
      */
-    public function findByUserAndCompetenciaIndexed(User $user, int $ano, int $mes): array
+    public function findByUserAndCompetenciaIndexed(User $user, Tenant $tenant, int $ano, int $mes): array
     {
-        return $this->indexarPorDia($this->findByUserAndCompetencia($user, $ano, $mes));
+        return $this->indexarPorDia($this->findByUserAndCompetencia($user, $tenant, $ano, $mes));
     }
 
     /**
@@ -272,15 +275,18 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Retorna todas as justificativas do usuário, ordenadas por data desc.
+     * Retorna todas as justificativas do usuário NESTE escritório, ordenadas por data desc (ficha do funcionário).
      *
      * @return JustificativaPonto[]
      */
-    public function findByTenantUser(User $targetUser): array
+    public function findByTenantUser(User $targetUser, Tenant $tenant): array
     {
+        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO, auditoria 1.13).
         return $this->createQueryBuilder('j')
             ->where('j.user = :user')
+            ->andWhere('j.tenant = :tenant')
             ->setParameter('user', $targetUser)
+            ->setParameter('tenant', $tenant)
             ->orderBy('j.data', 'DESC')
             ->addOrderBy('j.batchId', 'ASC')
             ->getQuery()
