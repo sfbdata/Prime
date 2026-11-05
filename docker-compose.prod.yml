@@ -156,7 +156,6 @@ services:
       # — e o passo de reload no script de deploy é o que faz o nginx passar a usá-lo.
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - static_prod:/var/www/app/public:ro
-      - uploads_prod:/var/www/app/public/uploads:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
       # Página de manutenção + flag (maintenance.on). O :ro só impede escrita pelo
