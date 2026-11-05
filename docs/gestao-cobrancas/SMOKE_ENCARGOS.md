@@ -23,7 +23,7 @@ cd /home/prime/projetos/jusprime && git switch cobranca-encargos-cascata
 docker exec jusprime_php_dev bash -c 'cd app && php bin/console cache:clear'
 ```
 
-- URL: **http://localhost:8080** · login **farlei.rocha@gmail.com** / **Prime123!**
+- URL: **http://localhost:8080** · login **farlei.rocha@gmail.com** / **<senha de dev>**
 - ⚠️ **Gotcha:** o modal `#modalAlertaPonto` ("registrou sua entrada hoje?") intercepta cliques. É só
   fechá-lo (X) ao entrar; ele não atrapalha a leitura das telas.
 

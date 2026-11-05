@@ -92,9 +92,11 @@ class ProcessosDaOabRepository
     /**
      * Relatório: números que a OAB trouxe em publicação e que ainda não são acompanhados.
      *
+     * @param list<int> $processosOcultos ids de processo que a pessoa não pode ver (cadeado da pasta)
+     *
      * @return list<LinhaDoProcessoDaOab>
      */
-    public function relatorio(Tenant $tenant): array
+    public function relatorio(Tenant $tenant, array $processosOcultos = []): array
     {
         $sql = <<<'SQL'
             WITH acompanhado AS (
@@ -106,17 +108,20 @@ class ProcessosDaOabRepository
                 UNION
                 SELECT a.numero_processo FROM djen_processo_acompanhado a WHERE a.tenant_id = :t AND a.excluido_em IS NOT NULL
             ),
-            base AS (
+            candidato AS (
                 SELECT DISTINCT regexp_replace(d.numero_processo, '\D', '', 'g') AS num,
                        (SELECT p2.id FROM processo p2 WHERE p2.tenant_id = :t AND regexp_replace(p2.numero_processo, '\D', '', 'g') = regexp_replace(d.numero_processo, '\D', '', 'g') ORDER BY p2.id LIMIT 1) AS processo_id,
                        NULL::varchar AS sigla_tribunal, NULL::varchar AS orgao_julgador
                 FROM publicacao_djen d
                 WHERE d.tenant_id = :t AND d.oab_monitorada_id IS NOT NULL
                   AND regexp_replace(d.numero_processo, '\D', '', 'g') NOT IN (SELECT num FROM acompanhado)
+            ),
+            base AS (
+                SELECT * FROM candidato WHERE NOT (COALESCE(processo_id, 0) = ANY(CAST(:ocultos AS int[])))
             )
             SQL . $this->complemento();
 
-        return $this->linhas($sql, ['t' => $tenant->getId(), 'ocultos' => '{}']);
+        return $this->linhas($sql, ['t' => $tenant->getId(), 'ocultos' => '{' . implode(',', $processosOcultos) . '}']);
     }
 
     /**

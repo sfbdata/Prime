@@ -187,7 +187,7 @@ D7 `semMetas`; D8 extrator de texto; D9 token do MCP; link da Central no menu la
   que mudam código: `f118f3c7`, `66b67c9c`, `7de93350`, `007c7876`, `04ced658` (os demais são documentação).
 - Servida em `http://127.0.0.1:8001` (servidor embutido no container + proxy `smoke-demo-proxy`); **cai a cada
   reinício da máquina** — religar com os comandos de §9. Contas: `farlei.rocha@gmail.com` e
-  `jusprime.samuel@gmail.com`, senha `Prime123!` (dev, conferida pelo hash).
+  `jusprime.samuel@gmail.com`, senha `<senha de dev>` (dev, conferida pelo hash).
 - A `fidelidade-designer` andou depois da demo (`2467352e` → `5fe26dfc`): a demo não tem a E8b.
 
 ---

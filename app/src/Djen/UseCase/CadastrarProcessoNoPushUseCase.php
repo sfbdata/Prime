@@ -29,12 +29,14 @@ final class CadastrarProcessoNoPushUseCase
     }
 
     /**
+     * @param list<int>                                                                                                                              $processosOcultos número que já existe em processo oculto para a pessoa não volta ao monitoramento (K3)
      * @param array<mixed>|null                                                                                                                      $consultaDoCnj
      * @param array{valorCausa?: string, jurisdicao?: string, segredo?: ?bool, digital?: ?bool, gratuita?: ?bool, tutela?: ?bool, prioridade?: ?bool} $extras
      *
      * @throws DadosDoProcessoInvalidosException
+     * @throws \App\Djen\Exception\AcompanhamentoInvalidoException
      */
-    public function executar(Tenant $tenant, User $usuario, CadastroDoProcessoInput $input, ?array $consultaDoCnj = null, array $extras = []): ProcessoDoCadastro
+    public function executar(Tenant $tenant, User $usuario, CadastroDoProcessoInput $input, array $processosOcultos, ?array $consultaDoCnj = null, array $extras = []): ProcessoDoCadastro
     {
         $cadastro = $this->cadastrar->executar($input, $tenant, $usuario, $consultaDoCnj);
         $processo = $cadastro->processo;
@@ -55,7 +57,7 @@ final class CadastrarProcessoNoPushUseCase
             $this->processos->save($processo, true);
         }
 
-        $this->incluir->executar($tenant, $usuario, $processo);
+        $this->incluir->executar($tenant, $usuario, $processo, $processosOcultos);
 
         return $cadastro;
     }

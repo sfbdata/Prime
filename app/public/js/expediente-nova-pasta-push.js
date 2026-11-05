@@ -1,15 +1,30 @@
 /* Vem do Push Processual (desenho 11, "Abrir nova pasta" do modal Vincular): abre a Nova Pasta do Expediente e,
    depois de criada, vincula o processo à pasta nova. Contexto no hash: #nova-pasta=<processo>&token=<csrf> e
-   &publicacao=<id> (aba Publicações) ou &acao=<url do POST> (aba Processos da OAB). */
+   &publicacao=<id> (aba Publicações) ou &processo=1 (aba Processos da OAB).
+   Segurança (auditoria 5.01): o hash leva só identificadores. A URL do POST sai dos data-atributos que o Twig
+   grava na própria tag <script>; nunca de texto vindo da URL (javascript: ou outro site). */
 (function () {
     'use strict';
 
+    var tag = document.currentScript;
     var partes = {};
     window.location.hash.replace(/^#/, '').split('&').forEach(function (par) {
         var i = par.indexOf('=');
-        if (i > 0) { partes[par.slice(0, i)] = decodeURIComponent(par.slice(i + 1)); }
+        if (i > 0) {
+            try { partes[par.slice(0, i)] = decodeURIComponent(par.slice(i + 1)); } catch (erro) { /* par malformado: ignora */ }
+        }
     });
-    var acao = partes.acao || (partes.publicacao ? '/push-processual/publicacoes/' + encodeURIComponent(partes.publicacao) + '/vincular' : '');
+
+    function urlDoVinculo() {
+        if (!tag) { return ''; }
+        if (partes.publicacao !== undefined) {
+            return /^\d+$/.test(partes.publicacao) ? (tag.dataset.urlVincularPublicacao || '').replace('%id%', partes.publicacao) : '';
+        }
+
+        return partes.processo === '1' ? (tag.dataset.urlVincularProcesso || '') : '';
+    }
+
+    var acao = urlDoVinculo();
     if (!partes['nova-pasta'] || !acao || !partes.token) { return; }
 
     function abrir() {

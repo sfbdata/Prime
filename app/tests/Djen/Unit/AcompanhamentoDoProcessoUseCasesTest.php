@@ -53,7 +53,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
     public function incluiNumeroSemProcessoCadastradoComAnotacoes(): void
     {
         $salvo = null;
-        $this->incluirCom(null, null, $salvo)->executar($this->tenant, $this->usuario, '0702222-22.2026.8.07.0001', 'adv@exemplo.com', ' Cliente X ');
+        $this->incluirCom(null, null, $salvo)->executar($this->tenant, $this->usuario, '0702222-22.2026.8.07.0001', [], 'adv@exemplo.com', ' Cliente X ');
 
         self::assertNotNull($salvo);
         self::assertSame(self::NUMERO, $salvo->getNumeroProcesso());
@@ -69,7 +69,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $this->expectException(AcompanhamentoInvalidoException::class);
         $this->expectExceptionMessage($mensagem);
 
-        $this->incluirCom(null, null)->executar($this->tenant, $this->usuario, $numero, $email, $observacao);
+        $this->incluirCom(null, null)->executar($this->tenant, $this->usuario, $numero, [], $email, $observacao);
     }
 
     /** @return iterable<string, array{string, string, string, string}> */
@@ -86,7 +86,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $this->expectException(AcompanhamentoInvalidoException::class);
         $this->expectExceptionMessage('já está sendo acompanhado');
 
-        $this->incluirCom(null, new ProcessoAcompanhado($this->tenant, self::NUMERO))->executar($this->tenant, $this->usuario, self::NUMERO);
+        $this->incluirCom(null, new ProcessoAcompanhado($this->tenant, self::NUMERO))->executar($this->tenant, $this->usuario, self::NUMERO, []);
     }
 
     #[Test]
@@ -96,7 +96,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $processo->pausarMonitoramento($this->usuario, new \DateTimeImmutable('-1 day'));
         $salvo = null;
 
-        $this->incluirCom($processo, null, $salvo)->executar($this->tenant, $this->usuario, self::NUMERO, '', 'Importante');
+        $this->incluirCom($processo, null, $salvo)->executar($this->tenant, $this->usuario, self::NUMERO, [], '', 'Importante');
 
         self::assertTrue($processo->monitoramentoAtivo());
         self::assertNotNull($salvo);
@@ -111,7 +111,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $this->expectException(AcompanhamentoInvalidoException::class);
         $this->expectExceptionMessage('baixa');
 
-        $this->incluirCom($processo, null)->executar($this->tenant, $this->usuario, self::NUMERO);
+        $this->incluirCom($processo, null)->executar($this->tenant, $this->usuario, self::NUMERO, []);
     }
 
     #[Test]
@@ -125,7 +125,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $acompanhados->method('findOneDoTenantPorNumero')->willReturnCallback(static fn ($t, string $n) => $n === '07022222220268070002' ? $linha : null);
         $acompanhados->expects(self::once())->method('gravar');
 
-        $parados = (new PararDeAcompanharProcessoUseCase($processos, $acompanhados))->executar($this->tenant, $this->usuario, [self::NUMERO, '0702222-22.2026.8.07.0002', self::NUMERO]);
+        $parados = (new PararDeAcompanharProcessoUseCase($processos, $acompanhados))->executar($this->tenant, $this->usuario, [self::NUMERO, '0702222-22.2026.8.07.0002', self::NUMERO], []);
 
         self::assertSame(2, $parados);
         self::assertFalse($processo->monitoramentoAtivo());
@@ -142,7 +142,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
             $salvo = $l;
         });
 
-        (new AtualizarAnotacoesDoProcessoUseCase($repo))->executar($this->tenant, $this->usuario, self::NUMERO, 'Obs', 'Cível', 'Recurso protocolado', '', true);
+        (new AtualizarAnotacoesDoProcessoUseCase($repo))->executar($this->tenant, $this->usuario, self::NUMERO, 'Obs', 'Cível', 'Recurso protocolado', '', 7, []);
 
         self::assertNotNull($salvo);
         self::assertSame('Cível', $salvo->getArea());
@@ -157,6 +157,6 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $this->expectException(AcompanhamentoInvalidoException::class);
 
         (new AtualizarAnotacoesDoProcessoUseCase($this->createMock(ProcessoAcompanhadoRepository::class)))
-            ->executar($this->tenant, $this->usuario, self::NUMERO, '', 'Espacial', '', '', false);
+            ->executar($this->tenant, $this->usuario, self::NUMERO, '', 'Espacial', '', '', null, []);
     }
 }

@@ -103,7 +103,7 @@
         if (usar && alvo) { enviar('Vincular', alvo.linha, '', alvo.trocarDe, usar.dataset.nup); return; }
         if (e.target.closest('[data-pp-modal-nova]') && alvo) {
             window.location.href = modal.dataset.urlNovaPasta + '#nova-pasta=' + encodeURIComponent(alvo.linha.dataset.numero) +
-                '&acao=' + encodeURIComponent(modal.dataset.urlVincular) + '&token=' + encodeURIComponent(modal.dataset.token);
+                '&processo=1&token=' + encodeURIComponent(modal.dataset.token);
         }
     });
     modal.querySelector('[data-pp-modal-q]').addEventListener('input', function () {

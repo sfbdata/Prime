@@ -29,9 +29,12 @@ final class IncluirProcessoNoAcompanhamentoUseCase
     }
 
     /**
+     * @param list<int> $processosOcultos {@see \App\Pasta\Service\AcessoAPasta::idsDosProcessosOcultos()}: o processo
+     *                                    cujas pastas são todas ocultas para a pessoa não abre para ela (K3)
+     *
      * @throws AcompanhamentoInvalidoException com a mensagem da tela
      */
-    public function executar(Tenant $tenant, User $usuario, string $numero, string $emailAlternativo = '', string $observacao = ''): void
+    public function executar(Tenant $tenant, User $usuario, string $numero, array $processosOcultos, string $emailAlternativo = '', string $observacao = ''): void
     {
         $digitos = (string) preg_replace('/\D/', '', $numero);
         if (\strlen($digitos) !== 20) {
@@ -47,6 +50,9 @@ final class IncluirProcessoNoAcompanhamentoUseCase
         }
 
         $processo = $this->processoCadastrado($tenant, $digitos);
+        if ($processo !== null && \in_array((int) $processo->getId(), $processosOcultos, true)) {
+            throw new AcompanhamentoInvalidoException('Processo não encontrado.');
+        }
         if ($processo?->getDataBaixa() !== null) {
             throw new AcompanhamentoInvalidoException('Este processo tem baixa e não pode ser acompanhado.');
         }

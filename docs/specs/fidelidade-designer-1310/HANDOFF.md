@@ -43,7 +43,7 @@ E8d. Quando o dono autorizar, um único commit de docs ("Registra a evidência d
   `APP_ENV=dev`, banco `saas_ux`) + proxy `smoke-fidelidade-proxy` (alpine/socat) em `127.0.0.1:8000`. IP do
   container `172.20.0.3`.
 - `http://127.0.0.1:8765/`: protótipo (`python3 -m http.server` em `/home/prime/projetos/bluejus-designer/REPOSITORIO_BLUEJUS/prototipo`).
-- Login de dev `farlei.rocha@gmail.com` / `Prime123!`, escritório "Farlei Assis da Rocha Sociedade Individual de
+- Login de dev `farlei.rocha@gmail.com` / `<senha de dev>`, escritório "Farlei Assis da Rocha Sociedade Individual de
   Advocacia"; o aviso do ponto aparece: fechar **sem registrar**.
 - **O WSL reiniciou 3 vezes nesta sessão** e derrubou tudo (containers não sobem sozinhos). Religar: §12 "Smoke pelo
   navegador do Windows". Outras sessões usam `smoke-demo-proxy` (8001) e demos 8002: **não tocar**. Há outros `php -S`
@@ -62,7 +62,7 @@ E8d. Quando o dono autorizar, um único commit de docs ("Registra a evidência d
   ```bash
   cd /home/prime/projetos/jusprime/.claude/worktrees/fidelidade-designer/e2e && \
   NODE_PATH=/home/prime/projetos/jusprime/e2e/node_modules E2E_VISUAL_BASE=http://172.20.0.3:8000 \
-  E2E_VISUAL_EMAIL=farlei.rocha@gmail.com E2E_VISUAL_SENHA='Prime123!' E2E_VISUAL_ESCRITORIO='Farlei Assis da Rocha Sociedade' \
+  E2E_VISUAL_EMAIL=farlei.rocha@gmail.com E2E_VISUAL_SENHA='<senha de dev>' E2E_VISUAL_ESCRITORIO='Farlei Assis da Rocha Sociedade' \
   /home/prime/projetos/jusprime/e2e/node_modules/.bin/playwright test tests/expediente-lista-visual.spec.js --project=chromium --no-deps --workers=1
   ```
   O login do `php -S` às vezes demora (intermitente); o spec entra uma vez só (`beforeAll`). A worktree não tem
@@ -518,7 +518,7 @@ docker exec -d -e APP_ENV=dev -e PHP_CLI_SERVER_WORKERS=4 jusprime_php_dev bash 
 docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' jusprime_php_dev   # era 172.20.0.3
 python3 -m http.server 8765 --bind 127.0.0.1 --directory /home/prime/projetos/bluejus-designer/REPOSITORIO_BLUEJUS/prototipo
 #   protótipo em http://127.0.0.1:8765/<arquivo>.dc.html (não abre por file://)
-#   login dev: farlei.rocha@gmail.com / Prime123! (escritório "Farlei Assis da Rocha Sociedade Individual")
+#   login dev: farlei.rocha@gmail.com / <senha de dev> (escritório "Farlei Assis da Rocha Sociedade Individual")
 #   Playwright sem navegador → npx @playwright/mcp install-browser chrome-for-testing
 # Encerrar depois: matar o php -S pelo /proc no container; parar o http.server; fechar o navegador.
 ```
@@ -545,7 +545,7 @@ docker rm -f smoke-fidelidade-proxy
 ```
 
 - URL para o dono: **`http://127.0.0.1:8000/expediente`** (não `localhost`: no Windows resolve para IPv6 e trava).
-- Login de dev: `farlei.rocha@gmail.com` / `Prime123!`, escritório "Farlei Assis da Rocha Sociedade Individual de Advocacia".
+- Login de dev: `farlei.rocha@gmail.com` / `<senha de dev>`, escritório "Farlei Assis da Rocha Sociedade Individual de Advocacia".
   O aviso "Você ainda não registrou sua entrada hoje" aparece: fechar sem registrar (gravaria batida no `saas_ux`).
 - Dados do `saas_ux` úteis (14/10): 1.060 pastas no escritório, 57 sem responsável, 1 excluída (NUP 1214); pasta 304
   (Duplicar, Editar dados), 588 (processo vinculado), 1170/1171 (itens de checklist), 433 (comentário do Financeiro);

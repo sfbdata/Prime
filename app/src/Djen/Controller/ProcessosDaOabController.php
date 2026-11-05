@@ -84,7 +84,7 @@ final class ProcessosDaOabController extends AbstractController
         $criterios = $this->criterios($request);
 
         $acompanhados = $this->acompanhados($tenant);
-        $relatorio = $this->processosDaOab->relatorio($tenant);
+        $relatorio = $this->processosDaOab->relatorio($tenant, $this->idsOcultos());
         $filtroDoAcervo = $this->filtroDoAcervo($request);
         $acervo = $this->acervoPorJurisdicao->executar($tenant, $hoje, $filtroDoAcervo['grupo'], $filtroDoAcervo['orgao'], $filtroDoAcervo['q'], $this->idsOcultos());
         $conjunto = $sub === 'relatorio' ? $relatorio : $acompanhados;
@@ -176,7 +176,7 @@ final class ProcessosDaOabController extends AbstractController
         $usuario = $this->getUser();
         $numero = (string) $request->request->get('numero', '');
         try {
-            $this->incluir->executar($tenant, $usuario, $numero, (string) $request->request->get('email', ''), (string) $request->request->get('observacao', ''));
+            $this->incluir->executar($tenant, $usuario, $numero, $this->idsOcultos(), (string) $request->request->get('email', ''), (string) $request->request->get('observacao', ''));
         } catch (AcompanhamentoInvalidoException $e) {
             return $this->voltar('danger', $e->getMessage());
         }
@@ -200,10 +200,10 @@ final class ProcessosDaOabController extends AbstractController
         $incluidos = 0;
         foreach ($this->numeros($request) as $numero) {
             try {
-                $this->incluir->executar($tenant, $usuario, $numero);
+                $this->incluir->executar($tenant, $usuario, $numero, $this->idsOcultos());
                 ++$incluidos;
             } catch (AcompanhamentoInvalidoException) {
-                // já acompanhado ou com baixa: segue com os demais
+                // já acompanhado, com baixa ou de pasta oculta: segue com os demais
             }
         }
 
@@ -223,7 +223,11 @@ final class ProcessosDaOabController extends AbstractController
 
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $parados = $this->parar->executar($tenant, $usuario, $this->numeros($request));
+        try {
+            $parados = $this->parar->executar($tenant, $usuario, $this->numeros($request), $this->idsOcultos());
+        } catch (AcompanhamentoInvalidoException $e) {
+            return $this->voltar('danger', $e->getMessage());
+        }
 
         return $this->voltar('success', sprintf('%d processo(s) deixaram de ser acompanhados. As publicações já recebidas continuam.', $parados));
     }
@@ -259,7 +263,7 @@ final class ProcessosDaOabController extends AbstractController
         $usuario = $this->getUser();
         $numero = (string) $request->request->get('numero', '');
         try {
-            $this->incluirCadastrado->executarPorNumero($tenant, $usuario, $numero);
+            $this->incluirCadastrado->executarPorNumero($tenant, $usuario, $numero, $this->idsOcultos());
         } catch (AcompanhamentoInvalidoException $e) {
             return $this->voltar('danger', $e->getMessage());
         }
@@ -280,7 +284,7 @@ final class ProcessosDaOabController extends AbstractController
         }
 
         try {
-            $busca = $this->buscar->executar($tenant, new \DateTimeImmutable('today'));
+            $busca = $this->buscar->executar($tenant, new \DateTimeImmutable('today'), $this->idsOcultos());
         } catch (AcompanhamentoInvalidoException $e) {
             $this->addFlash('warning', $e->getMessage());
 
@@ -318,7 +322,7 @@ final class ProcessosDaOabController extends AbstractController
             default => null,
         };
         try {
-            $this->cadastrar->executar($tenant, $usuario, $entrada, $consulta, [
+            $this->cadastrar->executar($tenant, $usuario, $entrada, $this->idsOcultos(), $consulta, [
                 'valorCausa' => (string) $request->request->get('valorCausa', ''),
                 'jurisdicao' => (string) $request->request->get('jurisdicao', ''),
                 'segredo' => $sn('segredo'),
@@ -327,7 +331,7 @@ final class ProcessosDaOabController extends AbstractController
                 'tutela' => $sn('tutela'),
                 'prioridade' => $sn('prioridade'),
             ]);
-        } catch (DadosDoProcessoInvalidosException $e) {
+        } catch (DadosDoProcessoInvalidosException|AcompanhamentoInvalidoException $e) {
             return $this->voltar('danger', $e->getMessage());
         }
 
@@ -379,7 +383,8 @@ final class ProcessosDaOabController extends AbstractController
                 (string) $request->request->get('area', ''),
                 (string) $request->request->get('fase', ''),
                 (string) $request->request->get('email', ''),
-                $this->processoRepository->findByNumeroProcessoDoTenant((string) preg_replace('/\D/', '', $numero), $tenant) !== null,
+                $this->processoRepository->findByNumeroProcessoDoTenant((string) preg_replace('/\D/', '', $numero), $tenant)?->getId(),
+                $this->idsOcultos(),
             );
         } catch (AcompanhamentoInvalidoException $e) {
             return $this->voltar('danger', $e->getMessage());
