@@ -22,6 +22,7 @@ use App\Djen\UseCase\IncluirProcessoNoAcompanhamentoUseCase;
 use App\Djen\UseCase\PararDeAcompanharProcessoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\AcessoAPasta;
 use App\Processo\DTO\CadastroDoProcessoInput;
 use App\Processo\Exception\DadosDoProcessoInvalidosException;
@@ -224,7 +225,7 @@ final class ProcessosDaOabController extends AbstractController
         /** @var User $usuario */
         $usuario = $this->getUser();
         try {
-            $parados = $this->parar->executar($tenant, $usuario, $this->numeros($request), $this->idsOcultos());
+            $parados = $this->parar->executar($tenant, $usuario, $this->numeros($request), $this->idsOcultos(), fn (Pasta $pasta): bool => $this->acessoAPasta->podeEditar($usuario, $pasta));
         } catch (AcompanhamentoInvalidoException $e) {
             return $this->voltar('danger', $e->getMessage());
         }

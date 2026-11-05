@@ -268,6 +268,18 @@ final class CadeadoNoPushTest extends JusPrimeWebTestCase
     }
 
     #[Test]
+    public function quemSoVisualizaAPastaNaoPausaOProcesso(): void
+    {
+        $this->cenario(NivelDeAcesso::Visualizar);
+        $this->entrar($this->ana, $this->tenant);
+
+        $this->client->request('POST', '/push-processual/processos/parar', ['_token' => 'TOKEN_push_processos', 'numeros' => [self::NUMERO]]);
+
+        self::assertStringContainsString('Nada foi pausado.', (string) $this->client->followRedirect()->filter('.alert')->text(''));
+        self::assertNull($this->processoDoBanco()->getMonitoramentoPausadoEm());
+    }
+
+    #[Test]
     public function quemEditaAPastaPausaERetomaNormalmente(): void
     {
         $this->cenario(NivelDeAcesso::Editar);

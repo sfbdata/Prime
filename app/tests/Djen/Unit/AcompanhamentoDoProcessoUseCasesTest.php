@@ -12,6 +12,7 @@ use App\Djen\UseCase\IncluirProcessoNoAcompanhamentoUseCase;
 use App\Djen\UseCase\PararDeAcompanharProcessoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Repository\PastaRepository;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\ProcessoRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -125,7 +126,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $acompanhados->method('findOneDoTenantPorNumero')->willReturnCallback(static fn ($t, string $n) => $n === '07022222220268070002' ? $linha : null);
         $acompanhados->expects(self::once())->method('gravar');
 
-        $parados = (new PararDeAcompanharProcessoUseCase($processos, $acompanhados))->executar($this->tenant, $this->usuario, [self::NUMERO, '0702222-22.2026.8.07.0002', self::NUMERO], []);
+        $parados = (new PararDeAcompanharProcessoUseCase($processos, $acompanhados, $this->createStub(PastaRepository::class)))->executar($this->tenant, $this->usuario, [self::NUMERO, '0702222-22.2026.8.07.0002', self::NUMERO], [], static fn (): bool => true);
 
         self::assertSame(2, $parados);
         self::assertFalse($processo->monitoramentoAtivo());
