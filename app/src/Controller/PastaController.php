@@ -933,16 +933,12 @@ class PastaController extends AbstractController
     #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
     public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias): JsonResponse
     {
-        $pastaId = (int) $pasta->getId();
-        $tenant  = $this->tenantContext->getCurrentTenant();
+        $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException();
         }
-        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
-        }
-        if ($pasta->getExcluidaEm() !== null) {
-            return $this->json(['erro' => 'Esta pasta foi excluída e está somente para leitura.'], Response::HTTP_FORBIDDEN);
+        if ($recusa = $this->recusaDaBuscaDeClientes($pasta, $tenant)) {
+            return $recusa;
         }
 
         $termo = trim((string) $request->query->get('q', ''));
@@ -1014,6 +1010,20 @@ class PastaController extends AbstractController
         }
 
         return $this->json($resultado);
+    }
+
+    /** A guarda do vincular (EDIT na pasta, com o cadeado) e a lápide, como a tela (achado 2.01): 403 ou nada. */
+    private function recusaDaBuscaDeClientes(Pasta $pasta, Tenant $tenant): ?JsonResponse
+    {
+        $pastaId = (int) $pasta->getId();
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+        if ($pasta->getExcluidaEm() !== null) {
+            return $this->json(['erro' => 'Esta pasta foi excluída e está somente para leitura.'], Response::HTTP_FORBIDDEN);
+        }
+
+        return null;
     }
 
     /**
