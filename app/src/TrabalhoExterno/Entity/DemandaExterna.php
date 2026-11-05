@@ -330,7 +330,7 @@ class DemandaExterna
         }
 
         if ($acao->confirma()) {
-            $this->registrar($autor, $acao->registro() . ($motivo !== null ? ': ' . $motivo : '.'), TipoMensagem::Sistema);
+            $this->registrar($autor, $acao->registro() . ($motivo !== null ? ': ' . $motivo : '.'), $acao->registraNegociacao() ? TipoMensagem::Negociacao : TipoMensagem::Sistema);
         }
     }
 
@@ -513,7 +513,8 @@ class DemandaExterna
         if ($this->situacao !== Situacao::Proposta) {
             $this->mudarPara(Situacao::Proposta, $autor, null);
         }
-        $this->registrar($autor, sprintf('Proposta v%d enviada: %s.', $proposta->getVersao(), $proposta->valorFormatado()), TipoMensagem::Sistema);
+        // O valor é da Central com o cliente: o Convidado não lê este registro (achado 2.09).
+        $this->registrar($autor, sprintf('Proposta v%d enviada: %s.', $proposta->getVersao(), $proposta->valorFormatado()), TipoMensagem::Negociacao);
     }
 
     public function proximaVersaoDeProposta(): int
@@ -533,7 +534,7 @@ class DemandaExterna
     {
         $mensagem = new MensagemDemanda($this, $autor, $tipo, $texto);
         $this->mensagens->add($mensagem);
-        if (in_array($tipo, [TipoMensagem::Sistema, TipoMensagem::Pagamento, TipoMensagem::Arquivo, TipoMensagem::Andamento], true)) {
+        if (in_array($tipo, [TipoMensagem::Sistema, TipoMensagem::Pagamento, TipoMensagem::Negociacao, TipoMensagem::Arquivo, TipoMensagem::Andamento], true)) {
             $this->andamentosParaAvisar[] = ['texto' => $texto, 'mensagem' => $mensagem];
         }
 

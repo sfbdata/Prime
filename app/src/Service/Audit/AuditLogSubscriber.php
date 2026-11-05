@@ -12,6 +12,7 @@ use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Recompensa\Entity\DadosDeRecebimentoDeRecompensa;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Shared\Contract\Auditavel;
@@ -69,6 +70,11 @@ class AuditLogSubscriber
         // Proposta de cadastro da I.A: `dados` é o JSON do cliente/pasta a criar (CPF, nome, endereço). A trilha guarda quem
         // propôs, confirmou ou cancelou, o estado e o id do criado, nunca o valor (spec chat-ia-cadastro).
         PropostaDeCadastro::class => ['dados'],
+        // Análise da BlueJus IA: o texto do modelo (e a versão editada pelo advogado) nunca vai para o audit_log, em
+        // nenhum tipo de análise. A expiração diária do conteúdo (app:inteligencia:expirar-conteudo) limpa só a linha
+        // da análise, por DQL, sem passar por aqui: a cópia no audit_log sobreviveria ao prazo. A trilha guarda status,
+        // provedor, modelo, tokens, datas, quem pediu e quem editou (item 1.18 da auditoria).
+        AnaliseDeInteligencia::class => ['resumo', 'pontos', 'quemAge', 'textoDaAnalise', 'textoBruto', 'resumoEditado', 'pontosEditados'],
     ];
 
     /**

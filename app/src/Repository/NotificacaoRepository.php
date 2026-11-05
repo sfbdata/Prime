@@ -16,6 +16,9 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class NotificacaoRepository extends ServiceEntityRepository
 {
+    /** Os tipos de aviso do Trabalho Externo começam assim (`Notificacao::TIPO_TRABALHO_EXTERNO_*`). */
+    private const PREFIXO_DO_TRABALHO_EXTERNO = 'trabalho_externo_';
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Notificacao::class);
@@ -57,16 +60,103 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->andWhere('n_meta.id IS NULL OR IDENTITY(n_meta.pasta) NOT IN (:pastasOcultasDoAviso) OR n.tipo = :avisoDecidido')
             ->setParameter('pastasOcultasDoAviso', $pastasOcultas)
             ->setParameter('avisoDecidido', Notificacao::TIPO_PASTA_ACESSO_DECIDIDO);
-        foreach ($pastasOcultas as $i => $pastaId) {
+        $this->semLinksDasPastas($qb, $pastasOcultas, 'avisoUrl');
+    }
+
+    /**
+     * Auditoria 1.17: a mesma pergunta da Timeline da pasta ({@see findDoUsuarioLigadasAPasta()}), refeita na
+     * leitura, porque o aviso só conferiu a visibilidade quando nasceu e guarda a prévia do texto.
+     * - semLeitura: pastas que a pessoa não pode mais ver (permissão, sem cadeado). Corta pelo LINK `/pasta/{id}`,
+     *   não pela meta: o responsável pela meta continua vendo a meta sem ver a pasta (`AcessoAMeta`).
+     * - semFinanceiro: pastas com a aba Financeiro oculta para a pessoa. Corta o aviso com âncora `#financeiro`.
+     * A resposta ao pedido de acesso (`pasta_acesso_decidido`) sempre sai: é para quem está do lado de fora.
+     *
+     * @param array{semLeitura?: list<int>, semFinanceiro?: list<int>} $cortes
+     */
+    private function semAvisosSemLeitura(QueryBuilder $qb, array $cortes): void
+    {
+        $semLeitura    = $cortes['semLeitura'] ?? [];
+        $semFinanceiro = $cortes['semFinanceiro'] ?? [];
+        if ($semLeitura !== []) {
+            $qb->setParameter('avisoDecididoLeitura', Notificacao::TIPO_PASTA_ACESSO_DECIDIDO);
+            $this->semLinksDasPastas($qb, $semLeitura, 'avisoSemLeitura', 'avisoDecididoLeitura');
+        }
+        foreach ($semFinanceiro as $i => $pastaId) {
+            $qb->andWhere(sprintf('n.url IS NULL OR (n.url NOT LIKE :avisoFinAncora%1$d AND n.url NOT LIKE :avisoFinQuery%1$d)', $i))
+                ->setParameter('avisoFinAncora' . $i, '/pasta/' . $pastaId . '#financeiro%')
+                ->setParameter('avisoFinQuery' . $i, '/pasta/' . $pastaId . '?%#financeiro%');
+        }
+    }
+
+    /**
+     * Tira os avisos cujo link é a pasta (`/pasta/{id}`, com barra, âncora ou query), menos a resposta ao pedido.
+     *
+     * @param list<int> $pastas
+     */
+    private function semLinksDasPastas(QueryBuilder $qb, array $pastas, string $prefixo, string $parametroDoDecidido = 'avisoDecidido'): void
+    {
+        foreach ($pastas as $i => $pastaId) {
             $qb->andWhere(sprintf(
-                'n.tipo = :avisoDecidido OR n.url IS NULL OR (n.url <> :avisoUrl%1$d AND n.url NOT LIKE :avisoUrlBarra%1$d AND n.url NOT LIKE :avisoUrlAncora%1$d AND n.url NOT LIKE :avisoUrlQuery%1$d)',
+                'n.tipo = :%2$s OR n.url IS NULL OR (n.url <> :%1$s%3$d AND n.url NOT LIKE :%1$sBarra%3$d AND n.url NOT LIKE :%1$sAncora%3$d AND n.url NOT LIKE :%1$sQuery%3$d)',
+                $prefixo,
+                $parametroDoDecidido,
                 $i,
             ))
-                ->setParameter('avisoUrl' . $i, '/pasta/' . $pastaId)
-                ->setParameter('avisoUrlBarra' . $i, '/pasta/' . $pastaId . '/%')
-                ->setParameter('avisoUrlAncora' . $i, '/pasta/' . $pastaId . '#%')
-                ->setParameter('avisoUrlQuery' . $i, '/pasta/' . $pastaId . '?%');
+                ->setParameter($prefixo . $i, '/pasta/' . $pastaId)
+                ->setParameter($prefixo . 'Barra' . $i, '/pasta/' . $pastaId . '/%')
+                ->setParameter($prefixo . 'Ancora' . $i, '/pasta/' . $pastaId . '#%')
+                ->setParameter($prefixo . 'Query' . $i, '/pasta/' . $pastaId . '?%');
         }
+    }
+
+    /**
+     * Os ids das pastas que aparecem no link (`/pasta/{id}`, com barra, âncora ou query) dos avisos da pessoa
+     * neste escritório, para {@see \App\Pasta\Service\LeituraDasPastasDosAvisos}. Tenant explícito.
+     *
+     * @return list<int>
+     */
+    public function idsDasPastasNosLinksDoUsuario(User $usuario, Tenant $tenant): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT DISTINCT CAST(substring(url from '^/pasta/([0-9]+)(?:[/?#]|$)') AS INTEGER)
+               FROM notificacao
+              WHERE usuario_id = :usuario AND tenant_id = :tenant AND url ~ '^/pasta/[0-9]+([/?#]|$)'",
+            ['usuario' => $usuario->getId(), 'tenant' => $tenant->getId()],
+        );
+
+        return array_map('intval', $ids);
+    }
+
+    /**
+     * O escritório do sino é EXPLÍCITO (achado 1.15): sem escritório na sessão, o TenantFilter está desligado e a
+     * leitura só pelo usuário juntava os avisos de todos os escritórios da pessoa.
+     * - Tenant: só os avisos desse escritório (o da sessão).
+     * - lista de ids: sem escritório na sessão, quem não é Master vê só os avisos do Trabalho Externo dos
+     *   escritórios em que tem vínculo ativo ou convite vigente (lista vazia: nenhum aviso). Esses avisos não
+     *   levam meta nem link de pasta, então o cadeado não tem o que cortar neles.
+     * - nulo: sem corte, só para o Master sem escritório na sessão (como sempre foi).
+     *
+     * @param Tenant|list<int>|null $escritorio
+     */
+    private function doEscritorio(QueryBuilder $qb, Tenant|array|null $escritorio): void
+    {
+        if ($escritorio instanceof Tenant) {
+            $qb->andWhere('n.tenant = :escritorioDoSino')->setParameter('escritorioDoSino', $escritorio);
+
+            return;
+        }
+        if ($escritorio === null) {
+            return;
+        }
+        if ($escritorio === []) {
+            $qb->andWhere('1 = 0');
+
+            return;
+        }
+        $qb->andWhere('IDENTITY(n.tenant) IN (:escritoriosDoSino)')
+            ->andWhere('n.tipo LIKE :tiposDoTrabalhoExterno')
+            ->setParameter('escritoriosDoSino', $escritorio)
+            ->setParameter('tiposDoTrabalhoExterno', addcslashes(self::PREFIXO_DO_TRABALHO_EXTERNO, '%_\\') . '%');
     }
 
     /**
@@ -89,9 +179,11 @@ class NotificacaoRepository extends ServiceEntityRepository
      *
      * @return Notificacao[]
      *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
+     * @param array{semLeitura?: list<int>, semFinanceiro?: list<int>} $cortesDaLeitura ver {@see semAvisosSemLeitura()}
      */
-    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10, array $pastasOcultas = [], ?array $soTipos = null): array
+    public function findNaoLidasByUsuario(User $usuario, Tenant|array|null $escritorio, ?string $categoria = null, int $limit = 10, array $pastasOcultas = [], ?array $soTipos = null, array $cortesDaLeitura = []): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -99,8 +191,10 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->setParameter('usuario', $usuario)
             ->orderBy('n.criadaEm', 'DESC')
             ->setMaxResults($limit);
+        $this->doEscritorio($qb, $escritorio);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->semAvisosSemLeitura($qb, $cortesDaLeitura);
         $this->soDosTipos($qb, $soTipos);
 
         return $qb->getQuery()->getResult();
@@ -109,17 +203,21 @@ class NotificacaoRepository extends ServiceEntityRepository
     /**
      * Conta notificações não lidas do usuário (opcionalmente de uma categoria)
      *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
+     * @param array{semLeitura?: list<int>, semFinanceiro?: list<int>} $cortesDaLeitura ver {@see semAvisosSemLeitura()}
      */
-    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = [], ?array $soTipos = null): int
+    public function countNaoLidasByUsuario(User $usuario, Tenant|array|null $escritorio, ?string $categoria = null, array $pastasOcultas = [], ?array $soTipos = null, array $cortesDaLeitura = []): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->andWhere('n.lida = false')
             ->setParameter('usuario', $usuario);
+        $this->doEscritorio($qb, $escritorio);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->semAvisosSemLeitura($qb, $cortesDaLeitura);
         $this->soDosTipos($qb, $soTipos);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
@@ -131,9 +229,11 @@ class NotificacaoRepository extends ServiceEntityRepository
      *
      * @return Notificacao[]
      *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
+     * @param array{semLeitura?: list<int>, semFinanceiro?: list<int>} $cortesDaLeitura ver {@see semAvisosSemLeitura()}
      */
-    public function findPaginadasByUsuario(User $usuario, ?string $categoria, int $page, int $perPage, array $pastasOcultas = []): array
+    public function findPaginadasByUsuario(User $usuario, Tenant|array|null $escritorio, ?string $categoria, int $page, int $perPage, array $pastasOcultas = [], array $cortesDaLeitura = []): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -141,8 +241,10 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->orderBy('n.criadaEm', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
+        $this->doEscritorio($qb, $escritorio);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->semAvisosSemLeitura($qb, $cortesDaLeitura);
 
         return $qb->getQuery()->getResult();
     }
@@ -151,35 +253,40 @@ class NotificacaoRepository extends ServiceEntityRepository
      * Conta o total de notificações do usuário (opcionalmente de uma categoria),
      * para o cálculo de páginas.
      *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
+     * @param array{semLeitura?: list<int>, semFinanceiro?: list<int>} $cortesDaLeitura ver {@see semAvisosSemLeitura()}
      */
-    public function countByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = []): int
+    public function countByUsuario(User $usuario, Tenant|array|null $escritorio, ?string $categoria = null, array $pastasOcultas = [], array $cortesDaLeitura = []): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->setParameter('usuario', $usuario);
+        $this->doEscritorio($qb, $escritorio);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->semAvisosSemLeitura($qb, $cortesDaLeitura);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
      * Indica se o usuário possui alguma notificação de gestão (para liberar a aba)
+     *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
      */
-    public function temNotificacaoGestao(User $usuario): bool
+    public function temNotificacaoGestao(User $usuario, Tenant|array|null $escritorio): bool
     {
-        $count = (int) $this->createQueryBuilder('n')
+        $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->andWhere('n.tipo IN (:tiposGestao)')
             ->setParameter('usuario', $usuario)
-            ->setParameter('tiposGestao', Notificacao::TIPOS_GESTAO)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('tiposGestao', Notificacao::TIPOS_GESTAO);
+        $this->doEscritorio($qb, $escritorio);
 
-        return $count > 0;
+        return (int) $qb->getQuery()->getSingleScalarResult() > 0;
     }
 
     /**

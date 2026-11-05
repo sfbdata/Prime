@@ -459,6 +459,65 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('SEGREDO-AJUSTE', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('2.09: reaberta e renegociada com o convite vigente, o convidado não lê a proposta nova nem os motivos (chat, painel e avisos)')]
+    public function testRenegociacaoDepoisDoAceiteNaoChegaAoConvidado(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaEmExecucao();
+        $token = $this->convidar($client, $codigo, 'reaberta@test.com', ['ver' => false, 'baixar' => false, 'enviar' => false, 'chat' => true, 'andamento' => true, 'concluir' => false]);
+        $convidado = $this->contaDoConvidado($client, $token, 'reaberta@test.com');
+        $url = static fn (string $acao): string => "/trabalho-externo/api/demandas/$codigo/acoes/$acao";
+        $passos = [
+            [$master, $central, $url('validar'), []],
+            [$master, $central, $url('concluir'), []],
+            [$master, $central, $url('reabrir'), ['motivo' => 'SEGREDO-REABRIR cliente quer rever o valor']],
+            [$master, $central, $url('info'), ['motivo' => 'SEGREDO-INFO qual o teto?']],
+            [$solicitante, $escritorio, $url('responderInfo'), ['motivo' => 'SEGREDO-RESPOSTA até 600']],
+            [$master, $central, "/trabalho-externo/api/demandas/$codigo/propostas", ['valor' => '7771']],
+            [$solicitante, $escritorio, $url('ajustes'), ['motivo' => 'SEGREDO-AJUSTE baixar mais']],
+            [$master, $central, "/trabalho-externo/api/demandas/$codigo/propostas", ['valor' => '5553']],
+            [$solicitante, $escritorio, $url('aceitar'), []],
+        ];
+        foreach ($passos as [$quem, $onde, $endereco, $corpo]) {
+            $this->logarComTenant($client, $quem, $onde);
+            $this->postarJson($client, $endereco, $corpo);
+            self::assertResponseIsSuccessful($endereco);
+        }
+        $segredos = ['7.771,00', '5.553,00', 'Proposta v', 'SEGREDO-REABRIR', 'SEGREDO-INFO', 'SEGREDO-RESPOSTA', 'SEGREDO-AJUSTE'];
+
+        $this->logarComoConvidado($client, $convidado);
+        $client->request('GET', '/trabalho-externo/api/painel');
+        self::assertResponseIsSuccessful();
+        $painel = (string) $client->getResponse()->getContent();
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertResponseIsSuccessful();
+        // O chat (as mensagens) e o histórico: os marcos da renegociação aparecem, mas sem o motivo, mesmo depois do
+        // aceite (decisão do Coordenador para o 2.09).
+        $demanda = $this->json($client)['demanda'];
+        $chat = (string) json_encode([$demanda['mensagens'], $demanda['historico']], \JSON_UNESCAPED_UNICODE);
+        $marcos = array_column($demanda['historico'], 'para');
+        self::assertContains('Aceita', $marcos, 'o marco da renegociação continua no histórico');
+        foreach ($segredos as $segredo) {
+            self::assertStringNotContainsString($segredo, $chat, "o chat do convidado entrega \"$segredo\"");
+            self::assertStringNotContainsString($segredo, $painel, "o painel do convidado entrega \"$segredo\"");
+        }
+        $avisos = $this->em()->getRepository(\App\Entity\Notificacao::class)->findBy(['usuario' => $convidado]);
+        foreach ($avisos as $aviso) {
+            foreach ($segredos as $segredo) {
+                self::assertStringNotContainsString($segredo, $aviso->getTitulo() . ' ' . $aviso->getMensagem(), "o aviso do convidado entrega \"$segredo\"");
+            }
+        }
+
+        // O Solicitante e a Central continuam lendo os mesmos registros.
+        foreach ([[$solicitante, $escritorio], [$master, $central]] as [$quem, $onde]) {
+            $this->logarComTenant($client, $quem, $onde);
+            $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+            $conteudo = (string) $client->getResponse()->getContent();
+            self::assertStringContainsString('SEGREDO-REABRIR', $conteudo);
+            self::assertStringContainsString('Proposta v3 enviada', $conteudo);
+            self::assertContains('SEGREDO-AJUSTE baixar mais', array_column($this->json($client)['demanda']['historico'], 'motivo'), 'o motivo segue no histórico de quem negocia');
+        }
+    }
+
     #[TestDox('C: sem "ver", a lista não entrega a descrição da atividade ao convidado')]
     public function testListaSemVerNaoEntregaDescricao(): void
     {

@@ -55,11 +55,18 @@ final class ContribuaController extends AbstractController
         ]);
     }
 
-    /** O "copia e cola" para o valor escolhido (R$ 20, 50, 100 ou outro). */
-    #[Route('/pix', name: 'contribua_pix', methods: ['GET'])]
+    /**
+     * O "copia e cola" para o valor escolhido (R$ 20, 50, 100 ou outro). POST com CSRF (Contribua pix): com a
+     * integração bancária, gerar o código cria e registra uma cobrança no banco (até o teto do dia), então um
+     * `<img>` de outro site não pode disparar isso por GET.
+     */
+    #[Route('/pix', name: 'contribua_pix', methods: ['POST'])]
     public function pix(Request $request, CodigoPixDaConta $codigoPix): JsonResponse
     {
-        $centavos = min(Apoio::VALOR_MAXIMO_CENTAVOS, max(0, (int) round((float) str_replace(',', '.', (string) $request->query->get('valor', '0')) * 100)));
+        if (!$this->csrfValido($request)) {
+            return $this->json(['ok' => false, 'erro' => 'Sessão expirada. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+        }
+        $centavos = min(Apoio::VALOR_MAXIMO_CENTAVOS, max(0, (int) round((float) str_replace(',', '.', (string) $request->request->get('valor', '0')) * 100)));
 
         return $this->json($codigoPix->para($this->solicitante(), $centavos));
     }

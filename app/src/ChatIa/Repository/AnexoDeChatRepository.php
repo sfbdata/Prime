@@ -15,6 +15,12 @@ use Doctrine\Persistence\ManagerRegistry;
 /**
  * Toda consulta filtra por escritório. O anexo é de quem o enviou: `soltosDoDono` exige escritório, dono e conversa.
  *
+ * EXCEÇÃO: as consultas da retenção diária (`dasMensagensAntesDe`, `apagarDasMensagensAntesDe`, `dasConversas`) varrem
+ * TODOS os escritórios de propósito (console, sem sessão nem TenantFilter), e a remoção em massa (DQL) não passa pelo
+ * `AuditLogSubscriber`: não há trilha no `audit_log`, o rastro é o log do comando com as contagens. Regra 2 de
+ * `src/ChatIa/CLAUDE.md` e decisão 17 da spec `docs/specs/chat-pagina-inteira.md`. Método novo sem escritório = só
+ * para a retenção, com este mesmo aviso.
+ *
  * @extends ServiceEntityRepository<AnexoDeChat>
  */
 class AnexoDeChatRepository extends ServiceEntityRepository
@@ -109,6 +115,56 @@ class AnexoDeChatRepository extends ServiceEntityRepository
             ->andWhere('a.tenant = :tenant')
             ->setParameter('conversa', $conversa)
             ->setParameter('tenant', $tenant)
+            ->orderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * Retenção ({@see \App\ChatIa\Service\ExpiracaoDoChatIa}): os anexos amarrados a falas criadas antes de `$limite`,
+     * de TODOS os escritórios (rotina do agendador, sem sessão). Quem chama monta as chaves ANTES de apagar as linhas.
+     *
+     * @return list<AnexoDeChat>
+     */
+    public function dasMensagensAntesDe(\DateTimeImmutable $limite): array
+    {
+        return array_values($this->createQueryBuilder('a')
+            ->join('a.mensagem', 'm')
+            ->andWhere('m.criadaEm < :limite')
+            ->setParameter('limite', $limite)
+            ->orderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /** Retenção: apaga as linhas dos anexos amarrados a falas criadas antes de `$limite`, de TODOS os escritórios. */
+    public function apagarDasMensagensAntesDe(\DateTimeImmutable $limite): int
+    {
+        return (int) $this->createQueryBuilder('a')
+            ->delete()
+            ->andWhere(sprintf('a.mensagem IN (SELECT m.id FROM %s m WHERE m.criadaEm < :limite)', MensagemDeChat::class))
+            ->setParameter('limite', $limite)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Retenção: todos os anexos (amarrados ou soltos) das conversas `$conversaIds`, de qualquer escritório. Só para as
+     * conversas que a retenção já travou ({@see ConversaDeChatRepository::travarVaziasEntre}).
+     *
+     * @param list<int> $conversaIds
+     *
+     * @return list<AnexoDeChat>
+     */
+    public function dasConversas(array $conversaIds): array
+    {
+        if ($conversaIds === []) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('a')
+            ->andWhere('a.conversa IN (:ids)')
+            ->setParameter('ids', $conversaIds)
             ->orderBy('a.id', 'ASC')
             ->getQuery()
             ->getResult());
