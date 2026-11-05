@@ -18,6 +18,7 @@ use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Repository\UserRepository;
 
@@ -29,6 +30,10 @@ use App\Repository\UserRepository;
  *
  * A pessoa tem de ser colaboradora ATIVA do escritório corrente: fora disso,
  * ColaboradorForaDoEscritorioException (IDOR: o id chega pela URL).
+ *
+ * O TEXTO de qualquer aba exige que quem olha possa abrir a pasta (`AcessoAPasta::podeVer`, o mesmo
+ * canAccessResource pasta/view do pasta_show, com o cadeado), decidido uma vez por pasta (achado 3.05 da
+ * auditoria); depois vale a regra da aba. A contagem não muda (B12).
  */
 final class ObterRelatorioDeRegistrosDoColaboradorUseCase
 {
@@ -45,11 +50,15 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
         private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly ResolvedorIdentificadorDaPasta $identificador,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
     /** @var array<string, bool> pasta + aba => a pessoa logada vê a aba (uma decisão por pasta e aba) */
     private array $abaVisivel = [];
+
+    /** @var array<int, bool> id da pasta => a pessoa logada pode abrir a pasta (uma decisão por pasta) */
+    private array $lePasta = [];
 
     /**
      * A CONTAGEM e a lista incluem as três abas (paridade com a célula); o TEXTO do registro só aparece onde
@@ -60,7 +69,8 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
      */
     public function executar(Tenant $tenant, int $userId, array $filtrosDoPainel, array $pastasOcultas, User $quemOlha): RelatorioDoColaboradorOutput
     {
-        $this->abaVisivel = []; // a decisão vale só nesta execução (o serviço é compartilhado entre requisições)
+        $this->abaVisivel = []; // as decisões valem só nesta execução (o serviço é compartilhado entre requisições)
+        $this->lePasta = [];
         $pessoa = $this->colaborador($tenant, $userId);
         $cortes = CortesDoDashboard::deZeramentos($this->zeramentos->listarAtivos($tenant));
         $corte  = $cortes->corte(Extras::RELATORIO, $userId);
@@ -118,7 +128,6 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
         }, $grupos));
     }
 
-    /** A pessoa que olha vê esta aba nesta pasta? Decide uma vez por pasta e aba. Na dúvida (pasta não achada), não vê. */
     /** O nome que a tela mostra para a pasta (derivado da carteira ou cliente principal); o gravado é a reserva. */
     private function nomeDaPasta(int $pastaId, ?string $gravado): ?string
     {
@@ -127,6 +136,7 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
         return $pasta instanceof Pasta ? ($this->identificador->para($pasta) ?? $gravado) : $gravado;
     }
 
+    /** A pessoa que olha vê esta aba nesta pasta? Decide uma vez por pasta e aba. Na dúvida (pasta não achada), não vê. */
     private function vePasta(User $quemOlha, int $pastaId, string $aba): bool
     {
         $chave = $pastaId . ':' . $aba;
@@ -140,6 +150,11 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
 
     private function decidirAba(User $quemOlha, Pasta $pasta, string $aba): bool
     {
+        // Primeiro a leitura da pasta (achado 3.05): sem ela, nenhuma aba mostra o texto.
+        if (!($this->lePasta[(int) $pasta->getId()] ??= $this->acessoAPasta->podeVer($quemOlha, $pasta))) {
+            return false;
+        }
+
         $tenant = $pasta->getTenant();
         if ($aba === AbaDaPasta::Financeiro->value) {
             // A mesma pergunta da aba Financeiro da tela (permissão de ler a pasta + aba não oculta para a pessoa).

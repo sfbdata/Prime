@@ -12,6 +12,7 @@ use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Dashboard\UseCase\ObterRelatorioDeRegistrosDoColaboradorUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\AbaOcultaDaPasta;
@@ -237,6 +238,64 @@ final class RelatorioDoDashboardControllerTest extends JusPrimeWebTestCase
         $json = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString('SEGREDO-FINANCEIRO', $json);
         self::assertStringContainsString('SEGREDO-DETALHES', $json);
+    }
+
+    #[TestDox('3.05: com bi e sem ler a pasta (sem resources.pasta.view nem ResourceAccess), Dados e Detalhes vêm sem o texto; o total = célula do Painel')]
+    public function testSemLerAPastaNaoVazaOTexto(): void
+    {
+        $c = $this->cenario();
+        $leitor = $this->criarColaborador($c['tenant'], 'Leitor So BI', ['modules.bi.view']);
+        $this->registro(PastaMensagem::class, $c['a'], $c['bruno'], '2026-09-21 10:00', 'SEGREDO-DADOS');
+        $this->registro(PastaObservacaoDetalhes::class, $c['a'], $c['bruno'], '2026-09-22 10:00', 'SEGREDO-DETALHES');
+
+        $dados = $this->modal($leitor, $c['tenant'], $c['bruno']->getId());
+        $json = (string) $this->client->getResponse()->getContent();
+
+        self::assertSame(3, $dados['total']);
+        self::assertSame($this->celulaDoPainel($leitor, $c['tenant'], $c['bruno']), $dados['total'], 'paridade B12');
+        self::assertSame($dados['total'], $this->itens($dados));
+        self::assertStringNotContainsString('SEGREDO-DADOS', $json);
+        self::assertStringNotContainsString('SEGREDO-DETALHES', $json);
+        self::assertStringNotContainsString('Registro de teste', $json);
+        foreach ($dados['grupos'][0]['itens'] as $item) {
+            self::assertTrue($item['oculto']);
+            self::assertSame('', $item['trecho']);
+        }
+
+        // A gestora (resources.pasta.view) segue recebendo o texto.
+        $this->modal($c['gestora'], $c['tenant'], $c['bruno']->getId());
+        self::assertStringContainsString('SEGREDO-DETALHES', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('3.05: com ResourceAccess de ver uma pasta, o trecho dessa pasta volta; o das outras continua oculto')]
+    public function testResourceAccessLiberaSoAPasta(): void
+    {
+        $c = $this->cenario();
+        $leitor = $this->criarColaborador($c['tenant'], 'Leitor So BI', ['modules.bi.view']);
+        $liberada = $this->criarPasta($c['tenant'], 'CLIENTE LIBERADO');
+        $this->registro(PastaMensagem::class, $c['a'], $c['bruno'], '2026-09-21 10:00', 'SEGREDO-DADOS');
+        $this->registro(PastaObservacaoDetalhes::class, $liberada, $c['bruno'], '2026-09-22 10:00', 'TEXTO-LIBERADO');
+        $acesso = new ResourceAccess();
+        $acesso->setUser($leitor);
+        $acesso->setTenant($c['tenant']);
+        $acesso->setResourceType(ResourceAccess::RESOURCE_PASTA);
+        $acesso->setResourceId((int) $liberada->getId());
+        $acesso->setCanView(true);
+        $this->em()->persist($acesso);
+        $this->em()->flush();
+
+        $dados = $this->modal($leitor, $c['tenant'], $c['bruno']->getId());
+        $json = (string) $this->client->getResponse()->getContent();
+
+        self::assertSame(3, $dados['total']);
+        self::assertSame($this->celulaDoPainel($leitor, $c['tenant'], $c['bruno']), $dados['total']);
+        self::assertStringContainsString('TEXTO-LIBERADO', $json);
+        self::assertStringNotContainsString('SEGREDO-DADOS', $json);
+        $porPasta = array_column($dados['grupos'], null, 'pastaId');
+        self::assertFalse($porPasta[$liberada->getId()]['itens'][0]['oculto']);
+        foreach ($porPasta[$c['a']->getId()]['itens'] as $item) {
+            self::assertTrue($item['oculto']);
+        }
     }
 
     #[TestDox('data_de e data_ate malformados: contagem do Painel = total do modal (a data inválida é ignorada dos dois lados)')]
