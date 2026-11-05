@@ -1,0 +1,5 @@
+bootstrap 5.3.3
+Origem: https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js (sem alteração)
+sha384 (bootstrap.bundle.min.js): YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz (confere com o SRI publicado em getbootstrap.com e com o pacote npm bootstrap@5.3.3, tarball conferido pelo integrity do registro npm)
+sha256 (bootstrap.bundle.min.js): 0833b2e9c3a26c258476c46266e6877fc75218625162e0460be9a3a098a61c6c
+Licença: MIT (LICENSE)

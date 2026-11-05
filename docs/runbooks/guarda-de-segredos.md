@@ -161,8 +161,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/repo:ro" -w /r
 Estado medido em 12/10/2026 na branch de publicação `seguranca-s1-publicacao`, base `origin/master`
 @ `ea71ad4e`:
 - **Histórico inteiro (gitleaks):** exatamente 2 achados, `3ee0082a app/.env:14` e `:15`, o vazamento
-  original. Eles ficam fora do `.gitleaksignore` até decisão do dono, agora que a revogação foi
-  confirmada.
+  original. Desde 05/11/2026 estão no `.gitleaksignore` (revogação conferida pelo Samuel).
 - **Árvore atual, camada 1:** limpa.
 - **Intervalo `origin/master..HEAD` (só os commits da S1), nas duas camadas:** limpo.
 - **Casos da revisão:** os 9 de segredo são pegos pelas duas camadas, e os 11 legítimos passam.
@@ -220,6 +219,10 @@ Estado medido em 12/10/2026 na branch de publicação `seguranca-s1-publicacao`,
 1. ✅ **Revogação confirmada pelo dono em 12/10/2026.** Falta decidir se as linhas `3ee0082a` entram no
    `.gitleaksignore`. A condição para isso era exatamente esta revogação. Se entrarem, a auditoria do
    histórico inteiro passa a dar zero achados.
+   - 05/11/2026: conferido pelo Samuel em Senhas de app da conta Google antiga. A senha de fevereiro
+     não existe mais. A 'Bluejus producao' (criada em 23/09, sem uso desde 08/10) foi apagada.
+   - ✅ 05/11/2026 (auditoria 4.06, passo 2): as impressões digitais `3ee0082a:app/.env:url-com-credencial:14`
+     e `:15` entraram no `.gitleaksignore`.
 2. Conferir na VPS, por hash, que `APP_SECRET`, a senha do banco e a `SYNC_CRYPTO_KEY` de produção
    **diferem** das versionadas.
 3. No GitHub: ligar *secret scanning* e *push protection* e exigir o check **Segredos** na proteção da
