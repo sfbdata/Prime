@@ -87,14 +87,21 @@ final class EditarEscritorioDadosSoPrimarioTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Invasão Secreta', json_encode($negados[0]->getChanges(), \JSON_UNESCAPED_UNICODE) ?: '');
     }
 
-    #[TestDox('O secundário abre a página sem o formulário de dados, com cargos e lotações')]
-    public function testSecundarioNaoVeOFormularioDeDados(): void
+    #[TestDox('O secundário vê a aba Dados somente leitura (campos desabilitados, sem salvar), com cargos e lotações')]
+    public function testSecundarioVeOsDadosSomenteLeitura(): void
     {
         $this->logarComTenant($this->client, $this->secundario, $this->tenant);
         $crawler = $this->client->request('GET', $this->urlEditar());
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('form[name=tenant_name]'));
+        self::assertCount(1, $crawler->filter('#tab-dados-btn'));
+        $dados = $crawler->filter('#tab-dados form[name=tenant_name]');
+        self::assertCount(1, $dados);
+        $campos = $dados->filter('input:not([type=hidden]), select, textarea');
+        self::assertGreaterThan(0, $campos->count());
+        self::assertSame($campos->count(), $dados->filter('input[disabled]:not([type=hidden]), select[disabled], textarea[disabled]')->count(), 'todo campo dos dados desabilitado');
+        self::assertCount(0, $dados->filter('button'), 'sem botão de salvar');
+        self::assertSame($this->tenant->getName(), $dados->filter('input[name="tenant_name[name]"]')->attr('value'));
         self::assertCount(1, $crawler->filter('form[name=tenant_cargos]'));
         self::assertCount(1, $crawler->filter('form[name=tenant_lotacoes]'));
         self::assertSame([], $this->negados(), 'abrir a página não é tentativa');

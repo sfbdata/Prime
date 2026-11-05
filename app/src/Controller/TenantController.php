@@ -305,7 +305,7 @@ final class TenantController extends AbstractController
 
         // Dados do escritório (nome, CNPJ, endereço): D1 do Meu Escritório, só o primário ou o Master.
         $nameForm = $this->formDosDadosDoEscritorio($request, $tenant, $user, $guardaDaEdicao, $acessoNegado);
-        if ($nameForm?->isSubmitted() && $nameForm->isValid()) {
+        if ($nameForm->isSubmitted() && $nameForm->isValid()) {
             $entityManager->flush();
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.nome_atualizado'));
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId()]);
@@ -348,16 +348,16 @@ final class TenantController extends AbstractController
 
         return $this->render('tenant/edit.html.twig', [
             'tenant'        => $tenant,
-            'nameForm'      => $nameForm?->createView(),
+            'nameForm'      => $nameForm->createView(),
             'cargosForm'    => $cargosForm->createView(),
             'lotacoesForm'  => $lotacoesForm->createView(),
         ]);
     }
 
     /**
-     * Form dos dados do escritório na edição legada, só para quem passa na D1 (primário ou Master). Sem o poder não há
-     * form; o POST dele vira 403 com a tentativa no audit_log, como no Meu Escritório. A recusa vem antes de qualquer
-     * handleRequest: nada do POST chega à entidade.
+     * Form dos dados do escritório na edição legada: só quem passa na D1 (primário ou Master) salva. Sem o poder, o form
+     * vem desabilitado (somente leitura) e sem handleRequest; o POST dele vira 403 com a tentativa no audit_log, como no
+     * Meu Escritório. A recusa vem antes de qualquer handleRequest: nada do POST chega à entidade.
      */
     private function formDosDadosDoEscritorio(
         Request $request,
@@ -365,7 +365,7 @@ final class TenantController extends AbstractController
         User $user,
         GuardaDaEdicaoDoEscritorio $guardaDaEdicao,
         RegistroDeAcessoNegadoAoEscritorio $acessoNegado,
-    ): ?FormInterface {
+    ): FormInterface {
         if ($guardaDaEdicao->pode($user, $tenant)) {
             return $this->createForm(TenantNameType::class, $tenant)->handleRequest($request);
         }
@@ -374,7 +374,8 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Só o primário do escritório altera os dados do escritório.');
         }
 
-        return null;
+        // Somente leitura: a aba continua (função do sistema não sai), com os campos desabilitados e sem salvar.
+        return $this->createForm(TenantNameType::class, $tenant, ['disabled' => true]);
     }
 
     #[Route('/{tenantId}', name: 'app_tenant_delete', methods: ['POST'])]
