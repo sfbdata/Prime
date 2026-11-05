@@ -28,7 +28,7 @@ máximo. Trabalhe delegando a subagentes para manter ESTE contexto leve. NUNCA f
 4) FAÇA NA ORDEM:
 
    PASSO 0 — SMOKE do Ajuste 1 (já implementado, commit f33b538). Prove no navegador que funciona antes de seguir:
-   dev http://localhost:8080 · farlei.rocha@gmail.com / Prime123! (dado é de TESTE; gotcha: #modalAlertaPonto
+   dev http://localhost:8080 · farlei.rocha@gmail.com / <senha de dev> (dado é de TESTE; gotcha: #modalAlertaPonto
    intercepta cliques, remover via browser_evaluate). Teste: criar uma obrigação com vencimento ANTIGO na
    carteira TOPLIFE I (id 1, objeto 117) → os juros/multa/honorários aparecem NA HORA (não zero); depois editar
    o vencimento para mais atrás → os valores recalculam na hora. Se falhar, é bug do Ajuste 1 — investigue.

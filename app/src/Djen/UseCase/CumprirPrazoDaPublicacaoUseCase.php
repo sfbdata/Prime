@@ -25,10 +25,14 @@ final class CumprirPrazoDaPublicacaoUseCase
     ) {
     }
 
-    /** @throws VinculoDaPublicacaoInvalidoException */
-    public function executar(Tenant $tenant, User $usuario, int $publicacaoId, bool $cumprido): void
+    /**
+     * @param list<string> $numerosOcultos processos que a pessoa não enxerga pelo cadeado: a publicação deles não existe para ela
+     *
+     * @throws VinculoDaPublicacaoInvalidoException
+     */
+    public function executar(Tenant $tenant, User $usuario, int $publicacaoId, bool $cumprido, array $numerosOcultos): void
     {
-        $publicacao = $this->publicacoes->findOneByIdDoTenant($publicacaoId, $tenant)
+        $publicacao = $this->publicacoes->findOneByIdVisivelDoTenant($publicacaoId, $tenant, $numerosOcultos)
             ?? throw new VinculoDaPublicacaoInvalidoException('Publicação não encontrada.');
         $naPasta = $this->prazosDaPasta->doPushDaPublicacao($publicacaoId, $tenant);
 

@@ -9,6 +9,7 @@ própria guarda e do gitleaks no CI.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import os
 import random
@@ -66,6 +67,21 @@ class ConteudoTest(unittest.TestCase):
     def test_dsn_em_codigo_fonte_tambem_e_pego(self):
         linha = "$dsn = 'redis://admin:" + aleatorio(20) + "@cache:6379';"
         self.assertEqual(['url-com-credencial'], regras('app/src/Algo.php', linha))
+
+    def test_senha_vazada_e_recusada_em_qualquer_arquivo_e_sem_excecao(self):
+        # Auditoria 4.04: o literal real não entra no teste; troca-se a lista por uma senha sorteada
+        # do mesmo tamanho e confere-se que a senha de verdade continua na lista.
+        self.assertIn(9, guarda.SENHAS_VAZADAS_SHA256.values())
+        falsa = aleatorio(9)
+        original = guarda.SENHAS_VAZADAS_SHA256
+        guarda.SENHAS_VAZADAS_SHA256 = {hashlib.sha256(falsa.lower().encode()).hexdigest(): 9}
+        try:
+            self.assertEqual(['senha-vazada'], regras('docs/HANDOFF.md', 'login dono@exemplo.com / ' + falsa))
+            self.assertEqual(['senha-vazada'], regras('scripts/x.sh', "create-super-admin a@b.com '" + falsa.upper() + "'"))
+            self.assertEqual(['senha-vazada'], regras('docs/x.md', 'senha ' + falsa + ' # segredo:permitido'))
+            self.assertEqual([], regras('docs/x.md', 'senha <senha de dev>'))
+        finally:
+            guarda.SENHAS_VAZADAS_SHA256 = original
 
     def test_banco_de_dev_do_compose_e_aceito(self):
         self.assertEqual([], regras('app/.env', 'DATABASE_URL="pgsql://symfony:symfony@db:5432/saas"'))

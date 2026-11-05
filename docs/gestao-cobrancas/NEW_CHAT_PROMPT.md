@@ -57,7 +57,7 @@ e os `ReabreModal`) depois de mexer.
 - Tudo no container `jusprime_php_dev`; phpunit/cache pedem `-d memory_limit=512M`.
 - Banco de teste = `saas_test` (schema:create, NÃO replay de migrations). Nunca
   `doctrine:schema:update --force` (quer dropar 3 índices funcionais).
-- Smoke dev: http://localhost:8080 · farlei.rocha@gmail.com / Prime123! · objetos
+- Smoke dev: http://localhost:8080 · farlei.rocha@gmail.com / <senha de dev> · objetos
   bons: 296, 297, 108. Gotcha: `#modalAlertaPonto` intercepta cliques → remover
   via browser_evaluate. Dado do dev é dump de PROD — não semeie/altere à toa.
   Cache de JS/CSS no dev agora revalida (nginx no-cache) — mas se um asset teimar

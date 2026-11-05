@@ -237,7 +237,7 @@ section.content-header > .container-fluid {
 
 {% block javascripts %}
 {{ parent() }}
-<script src="{{ asset('js/expediente-nova-pasta-push.js') }}"></script>
+<script src="{{ asset('js/expediente-nova-pasta-push.js') }}" data-url-vincular-processo="{{ path('push_processual_processo_vincular') }}" data-url-vincular-publicacao="{{ path('push_processual_publicacao_vincular', {id: 999999999})|replace({'999999999': '%id%'}) }}"></script>
 <script>
 /* ── Linhas clicáveis da tabela de pastas (delegado no document) ── */
 document.addEventListener('click', function (e) {

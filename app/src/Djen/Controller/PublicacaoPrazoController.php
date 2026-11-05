@@ -14,6 +14,7 @@ use App\Djen\UseCase\CumprirPrazoDaPublicacaoUseCase;
 use App\Djen\UseCase\DefinirPrazoDaPublicacaoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\AcessoAPasta;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -34,6 +35,7 @@ final class PublicacaoPrazoController extends AbstractController
         private readonly DefinirPrazoDaPublicacaoUseCase $definirPrazo,
         private readonly CumprirPrazoDaPublicacaoUseCase $cumprirPrazo,
         private readonly CriarMetaDoPrazoDaPublicacaoUseCase $criarMeta,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -45,7 +47,8 @@ final class PublicacaoPrazoController extends AbstractController
         if ($tenant === null || $usuario === null) {
             return new Response('', Response::HTTP_FORBIDDEN);
         }
-        $publicacao = $this->publicacoes->findOneByIdDoTenant($id, $tenant);
+        // O processo cujas pastas são todas ocultas para a pessoa não abre (K3): nem o teor, nem a marca de lida.
+        $publicacao = $this->publicacoes->findOneByIdVisivelDoTenant($id, $tenant, $this->acessoAPasta->numerosDeProcessoOcultos($usuario, $tenant));
         if ($publicacao === null) {
             return new Response('', Response::HTTP_NOT_FOUND);
         }
@@ -79,7 +82,7 @@ final class PublicacaoPrazoController extends AbstractController
     {
         return $this->agir($request, $id, function (Tenant $tenant, User $usuario) use ($id, $request): string {
             $dias = (int) $request->request->get('dias', 0);
-            $this->definirPrazo->executar($tenant, $id, $dias > 0 ? $dias : null);
+            $this->definirPrazo->executar($tenant, $id, $dias > 0 ? $dias : null, $this->acessoAPasta->numerosDeProcessoOcultos($usuario, $tenant));
 
             return $dias > 0 ? sprintf('Prazo de %d dias úteis definido.', $dias) : 'Prazo removido.';
         });
@@ -90,7 +93,7 @@ final class PublicacaoPrazoController extends AbstractController
     {
         return $this->agir($request, $id, function (Tenant $tenant, User $usuario) use ($id, $request): string {
             $cumprido = $request->request->get('cumprido') === '1';
-            $this->cumprirPrazo->executar($tenant, $usuario, $id, $cumprido);
+            $this->cumprirPrazo->executar($tenant, $usuario, $id, $cumprido, $this->acessoAPasta->numerosDeProcessoOcultos($usuario, $tenant));
 
             return $cumprido ? 'Prazo marcado como cumprido.' : 'Prazo reaberto.';
         });

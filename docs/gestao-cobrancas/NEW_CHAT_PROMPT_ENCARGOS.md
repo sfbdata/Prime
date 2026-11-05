@@ -39,7 +39,7 @@ NUNCA faça push/merge/deploy (isso é do humano). Risco ALTO (dinheiro): rigor 
 - Onde a spec deixa uma decisão "a confirmar", adote o DEFAULT recomendado da spec (§13) e siga; registre no
   ledger para o humano ver. Não trave esperando resposta.
 - Faça o SMOKE visual você mesmo (subagentes não têm navegador). Dev: http://localhost:8080 ·
-  farlei.rocha@gmail.com / Prime123! (dado é de TESTE). Gotcha: #modalAlertaPonto intercepta cliques.
+  farlei.rocha@gmail.com / <senha de dev> (dado é de TESTE). Gotcha: #modalAlertaPonto intercepta cliques.
 
 ## 5. As fases (spec §14) — implemente NA ORDEM, uma estável antes da próxima
 F1 Motor `CalculadoraEncargos` (puro, testes round-trip + prova contra as linhas reais do Apêndice A da spec) +
