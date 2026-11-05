@@ -8,6 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Controller\PastasParadasController;
 use App\Pasta\DTO\RelatorioPastasParadasOutput;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
+use App\Pasta\Entity\NivelDeAcesso;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\PastasVisiveisNoRelatorio;
 use App\Pasta\UseCase\GerarRelatorioPastasParadasUseCase;
 use App\Shared\Service\GeradorDePdf;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -43,6 +48,7 @@ final class PastasParadasControllerTest extends JusPrimeWebTestCase
     private User $carla;
     private User $vera;
     private User $nina;
+    private Pasta $p1180;
 
     protected function setUp(): void
     {
@@ -56,6 +62,7 @@ final class PastasParadasControllerTest extends JusPrimeWebTestCase
         $this->nina  = $this->novaPessoa($this->tenant, 'Nina Sem Módulo', $this->novoPerfil($this->tenant, false, ['resources.pasta.view']));
 
         $p1180 = $this->pastaAbertaEm($this->tenant, '1180', '-100 days', $this->paula);
+        $this->p1180 = $p1180;
         $this->pagamento($p1180, '-50 days');
         $p1181 = $this->pastaAbertaEm($this->tenant, '1181', '-50 days', $this->vera);
         $this->darAcessoAPasta($this->vera, $p1181);
@@ -222,5 +229,126 @@ final class PastasParadasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('1180', $pagina);
         self::assertStringNotContainsString('8888', $pagina);
         self::assertStringNotContainsString('7777', $pagina);
+    }
+
+    // ── Cadeado (auditoria 1.02; spec pasta-cadeado D1) ─────────────────
+
+    /** @param list<array{0: User, 1: NivelDeAcesso}> $grade vazia = "Ocultar para todos" */
+    private function trancar(Pasta $pasta, array $grade = []): void
+    {
+        $cadeado = new CadeadoDaPasta($this->tenant, $pasta, $grade === [] ? ModoDoCadeado::Todos : ModoDoCadeado::PorPessoa, $this->paula, new \DateTimeImmutable());
+        if ($grade !== []) {
+            $cadeado->definirPorPessoa($grade, $this->paula, new \DateTimeImmutable());
+        }
+        $this->em()->persist($cadeado);
+        $this->em()->flush();
+    }
+
+    /** @return list<string> os números das pastas na tabela da folha */
+    private function numerosNaFolha(User $quem): array
+    {
+        $this->abrir($quem);
+        self::assertResponseIsSuccessful();
+
+        return $this->client->getCrawler()->filter('.ppd-tabela td.ppd-num')->each(static fn ($n): string => trim($n->text()));
+    }
+
+    /**
+     * O PDF sai comprimido: um espião no lugar do gerador guarda o HTML do modo pdf. Instalado antes da
+     * primeira requisição do teste (depois dela o gerador já foi criado e não pode ser trocado).
+     */
+    private function espiaoDoPdf(): object
+    {
+        $espiao = new class () implements GeradorDePdf {
+            public string $html = '';
+
+            public function gerar(string $html): string
+            {
+                $this->html = $html;
+
+                return '%PDF-espiao';
+            }
+
+            public function logoEmbutido(): ?string
+            {
+                return null;
+            }
+
+            public function resposta(string $pdf, string $titulo, \DateTimeImmutable $hoje): Response
+            {
+                return new Response($pdf, Response::HTTP_OK, ['Content-Type' => 'application/pdf']);
+            }
+        };
+        $this->client->disableReboot();
+        static::getContainer()->set(GeradorDePdf::class, $espiao);
+
+        return $espiao;
+    }
+
+    private function htmlDoPdf(object $espiao, User $quem): string
+    {
+        $this->abrir($quem, '/pdf');
+        self::assertResponseIsSuccessful();
+
+        return $espiao->html;
+    }
+
+    #[TestDox('Cadeado Todos: quem tem resources.pasta.view não vê a pasta trancada na página nem no PDF')]
+    public function testCadeadoTodosEscondeDeQuemVeTodasAsPastas(): void
+    {
+        $espiao = $this->espiaoDoPdf();
+        $rita   = $this->novaPessoa($this->tenant, 'Rita Equipe', $this->novoPerfil($this->tenant, false, ['modules.expediente.view', 'resources.pasta.view']));
+        self::assertSame(['1180', '1181'], $this->numerosNaFolha($rita), 'sem cadeado, as duas');
+
+        $this->trancar($this->p1180);
+
+        self::assertSame(['1181'], $this->numerosNaFolha($rita));
+        self::assertStringNotContainsString('Paula Primária', (string) $this->client->getResponse()->getContent(), 'nem o responsável da trancada');
+        $pdf = $this->htmlDoPdf($espiao, $rita);
+        self::assertStringContainsString('>1181<', $pdf);
+        self::assertStringNotContainsString('>1180<', $pdf);
+    }
+
+    #[TestDox('Cadeado Todos: a Controladoria também não vê a pasta trancada, na página nem no PDF')]
+    public function testCadeadoTodosEscondeDaControladoria(): void
+    {
+        $espiao = $this->espiaoDoPdf();
+        $this->trancar($this->p1180);
+
+        self::assertSame(['1181'], $this->numerosNaFolha($this->carla));
+        $pdf = $this->htmlDoPdf($espiao, $this->carla);
+        self::assertStringContainsString('>1181<', $pdf);
+        self::assertStringNotContainsString('>1180<', $pdf);
+    }
+
+    #[TestDox('Cadeado Todos: o Usuário Primário continua vendo a pasta trancada')]
+    public function testCadeadoNaoEscondeDoPrimario(): void
+    {
+        $this->trancar($this->p1180);
+
+        self::assertSame(['1180', '1181'], $this->numerosNaFolha($this->paula));
+    }
+
+    #[TestDox('Cadeado por pessoa com Visualizar: a pasta continua no relatório de quem pode vê-la')]
+    public function testCadeadoPorPessoaComVisualizarMantemAPasta(): void
+    {
+        $rita = $this->novaPessoa($this->tenant, 'Rita Equipe', $this->novoPerfil($this->tenant, false, ['modules.expediente.view', 'resources.pasta.view']));
+        $this->trancar($this->p1180, [[$rita, NivelDeAcesso::Visualizar]]);
+
+        self::assertSame(['1180', '1181'], $this->numerosNaFolha($rita));
+        self::assertSame(['1181'], $this->numerosNaFolha($this->carla), 'quem não está na lista continua sem vê-la');
+    }
+
+    #[TestDox('UseCase: as pastas ocultas saem também quando a visibilidade do relatório é "todas" (ids nulo)')]
+    public function testUseCaseTiraAsOcultasMesmoComVisaoAmpla(): void
+    {
+        $this->trancar($this->p1180);
+        $container = static::getContainer();
+        self::assertNull($container->get(PastasVisiveisNoRelatorio::class)->ids($this->carla, $this->tenant), 'a Controladoria vê o escritório inteiro');
+
+        $relatorio = $container->get(GerarRelatorioPastasParadasUseCase::class)->executar($this->tenant, $this->carla);
+
+        self::assertSame(['1181'], array_map(static fn ($p): string => $p->numero, $relatorio->pastas));
+        self::assertSame(1, $relatorio->cartoes()[0]['valor'], 'o cartão "Pastas paradas" também não conta a trancada');
     }
 }
