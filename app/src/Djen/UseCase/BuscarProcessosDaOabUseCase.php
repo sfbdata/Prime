@@ -27,7 +27,8 @@ final class BuscarProcessosDaOabUseCase
     ) {
     }
 
-    public function executar(Tenant $tenant, \DateTimeImmutable $hoje): BuscaDeProcessosDaOabOutput
+    /** @param list<int> $processosOcultos ids de processo que a pessoa não pode ver (cadeado da pasta): ficam fora da contagem */
+    public function executar(Tenant $tenant, \DateTimeImmutable $hoje, array $processosOcultos): BuscaDeProcessosDaOabOutput
     {
         $ativas = $this->oabRepository->listarAtivasDoTenant($tenant);
         if ($ativas === []) {
@@ -35,7 +36,7 @@ final class BuscarProcessosDaOabUseCase
         }
 
         $resultado = $this->sincronizar->executar($tenant, PeriodoConsulta::ultimosDias(self::DIAS_DE_HISTORICO, $hoje), false, false);
-        $processos = \count($this->processosDaOab->acompanhados($tenant)) + \count($this->processosDaOab->relatorio($tenant));
+        $processos = \count($this->processosDaOab->acompanhados($tenant, $processosOcultos)) + \count($this->processosDaOab->relatorio($tenant, $processosOcultos));
 
         return new BuscaDeProcessosDaOabOutput(
             $processos,
