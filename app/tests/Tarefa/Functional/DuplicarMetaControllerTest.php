@@ -394,8 +394,8 @@ final class DuplicarMetaControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contarMetasDaPasta($pastaId));
     }
 
-    #[TestDox('com o módulo Tarefas mas SEM ver a pasta → 403, nenhuma cópia')]
-    public function testSemVerAPastaRetorna403(): void
+    #[TestDox('com o módulo Tarefas mas SEM ver a pasta nem cuidar da meta → 404 (AcessoAMeta, auditoria 3.12), nenhuma cópia')]
+    public function testSemVerAPastaRetorna404(): void
     {
         $client   = static::createClient();
         $tenant   = $this->criarTenant();
@@ -408,7 +408,7 @@ final class DuplicarMetaControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $soModulo, $tenant);
         $this->duplicar($client, (int) $meta->getId());
 
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(404);
         self::assertSame(1, $this->contarMetasDaPasta((int) $pasta->getId()));
     }
 
@@ -596,7 +596,7 @@ final class DuplicarMetaControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $soModulo, $tenant);
         $this->duplicar($client, $metaId, false);
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(404, 'sem ver a pasta nem cuidar da meta: AcessoAMeta (auditoria 3.12)');
         self::assertStringNotContainsString('application/json', (string) $client->getResponse()->headers->get('Content-Type'));
 
         $this->logarComTenant($client, $dono, $tenant);

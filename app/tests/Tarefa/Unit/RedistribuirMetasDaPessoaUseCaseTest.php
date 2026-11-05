@@ -28,6 +28,7 @@ use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Service\AcessoAMeta;
 use App\Tarefa\Service\AuditoriaDaRedistribuicao;
 use App\Tarefa\Service\GuardaDaRedistribuicao;
+use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\UseCase\RedistribuirMetasDaPessoaUseCase;
 use App\Tenant\Service\RegraDosPrimarios;
@@ -154,7 +155,7 @@ final class RedistribuirMetasDaPessoaUseCaseTest extends TestCase
         return new RedistribuirMetasDaPessoaUseCase(
             new GuardaDaRedistribuicao($this->users, $regra, $this->notificacoes),
             $this->tarefas,
-            new AcessoAMeta($vinculos, new AcessoAPasta($nivel, $this->createStub(PermissionChecker::class))),
+            new AcessoAMeta($vinculos, new AcessoAPasta($nivel, $this->createStub(PermissionChecker::class)), new QuemCuidaDaMeta()),
             $this->transacao,
             $this->mensagens,
             new TextoDoDespacho($this->criarSanitizadorTextoRico()),

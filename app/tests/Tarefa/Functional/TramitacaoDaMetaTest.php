@@ -285,6 +285,11 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
         $despacho->certificar($this->responsavel, 'Certifico que juntei.', new \DateTimeImmutable('2026-10-21 11:00'));
         $this->em->flush();
 
+        // Quem não cuida da meta precisa ver a pasta (AcessoAMeta, auditoria 3.12).
+        $papel = $this->vinculoDe($this->colega)->getTenantRole();
+        self::assertNotNull($papel);
+        $this->darPermissao($papel, 'resources.pasta.view');
+        $this->em->flush();
         $this->logarComTenant($this->client, $this->colega, $this->escritorio);
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId() . '/extrato');
 
@@ -628,6 +633,14 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
         $this->em->flush();
 
         return $user;
+    }
+
+    private function vinculoDe(User $user): UserTenant
+    {
+        $vinculo = $this->em->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $this->escritorio]);
+        self::assertInstanceOf(UserTenant::class, $vinculo);
+
+        return $vinculo;
     }
 
     private function darPermissao(TenantRole $role, string $codigo): void

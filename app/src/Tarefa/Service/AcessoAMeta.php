@@ -23,17 +23,24 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * Cadeado (spec pasta-cadeado D3): a meta de pasta OCULTA para quem acessa também é 404, a mesma regra da lista
  * (`AcessoAPasta::idsOcultosPara`, nível `Oculto`). Vale para tudo que passa por aqui: a página da meta, o despacho
  * (com ou sem anexo), a ciência, a certidão, o Extrato e o Lembrar.
+ *
+ * Recurso-item (auditoria 3.12; docs/AUTORIZACAO.md, seção 7, "Meta aberta por id"): passado o cadeado, só abre
+ * quem pode VER a pasta (`AcessoAPasta::podeVer`, o `canAccessResource` completo) OU cuida da meta (responsável ou
+ * criador, {@see QuemCuidaDaMeta}). Os demais recebem 404, como a meta de pasta oculta: quem só tem o módulo
+ * Tarefas não lê nem escreve na meta de uma pasta que não pode abrir (o mesmo limiar do SEC-015 e das rotas irmãs).
  */
 final class AcessoAMeta
 {
     public function __construct(
         private readonly UserTenantRepository $vinculos,
         private readonly AcessoAPasta $acessoAPasta,
+        private readonly QuemCuidaDaMeta $quemCuida,
     ) {
     }
 
     /**
-     * @throws NotFoundHttpException meta de outro escritório, ou de pasta oculta pelo cadeado para quem acessa
+     * @throws NotFoundHttpException meta de outro escritório, de pasta oculta pelo cadeado para quem acessa, ou de
+     *                               pasta que a pessoa não pode ver sem cuidar da meta
      * @throws AccessDeniedException nem o criador nem o responsável da pasta têm vínculo ativo com o escritório
      */
     public function exigir(Tarefa $meta, Tenant $escritorio, User $quemAcessa): void
@@ -44,6 +51,9 @@ final class AcessoAMeta
 
         $pasta = $meta->getPasta();
         if ($this->acessoAPasta->nivel($quemAcessa, $pasta) === NivelDeAcesso::Oculto) {
+            throw new NotFoundHttpException('Meta não encontrada.');
+        }
+        if (!$this->quemCuida->ehResponsavelOuCriador($meta, $quemAcessa) && !$this->acessoAPasta->podeVer($quemAcessa, $pasta)) {
             throw new NotFoundHttpException('Meta não encontrada.');
         }
 

@@ -594,6 +594,27 @@ leitura; com `Editar`, vale só o que a aba oculta tirar. Quem configura os dois
 da Cobrança, do processo e da pessoa); a janela do cliente (`ClienteResumoController`) segue escondendo
 inteira a pasta que a pessoa não pode abrir.
 
+### Meta aberta por id: ver a pasta ou cuidar da meta (auditoria 3.12, 05/11/2026)
+
+A meta não tem recurso-item próprio: o item que ela protege é a pasta. A guarda única das rotas por id da
+meta é `App\Tarefa\Service\AcessoAMeta::exigir` (página `tarefa_show`, despacho, responsáveis, acompanhar,
+prazo, concluir, excluir, anexos dos despachos, e também Extrato, Lembrar, passagem de etapa, duplicar,
+redistribuir e a guarda do desfazer). Depois do escritório (404) e do cadeado (`Oculto` → 404), ela exige:
+
+- poder **ver a pasta** (`AcessoAPasta::podeVer`, o `canAccessResource` completo: `resources.pasta.view`,
+  `ResourceAccess` de ver aquela pasta, perfil de sistema ou Master, com o teto do cadeado), **ou**
+- **cuidar da meta**: ser responsável ou criador (`QuemCuidaDaMeta::ehResponsavelOuCriador`).
+
+Os demais recebem **404** (não 403, para não confirmar que o id existe), como a meta de pasta oculta. Quem só
+tem o módulo Tarefas não lê nem escreve na meta de uma pasta que não pode abrir: é o mesmo limiar do SEC-015
+(a aba Metas por XHR só volta para quem vê a pasta) e das rotas irmãs (renomear, reabrir, alertar, duplicar e
+criar meta exigem ver a pasta). O responsável sem acesso à pasta continua abrindo, despachando e concluindo a
+própria meta. Teste: `tests/Tarefa/Functional/MetaSemVerAPastaTest.php`.
+
+**D-PERM-META** (quem renomeia e reabre meta) segue **aberta** e não muda com isso: o código continua com a
+recomendação (a guarda do "concluir"). A regra acima é só o piso de leitura e escrita por id, que vale para
+todas as ações da meta antes da regra própria de cada uma.
+
 ---
 
 ## 8. Falhas Conhecidas
