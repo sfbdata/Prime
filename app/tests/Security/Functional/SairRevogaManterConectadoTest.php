@@ -9,6 +9,9 @@ use App\Security\TokenDoManterConectado;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Monolog\Handler\TestHandler;
+use Monolog\Level;
+use Monolog\LogRecord;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -61,10 +64,13 @@ final class SairRevogaManterConectadoTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->seriesDe($com));
     }
 
-    #[TestDox('O banco não guarda o valor do cookie: um cookie montado com o que está na tabela não entra')]
+    #[TestDox('O banco não guarda o valor do cookie: um cookie montado com o que está na tabela não entra, a série acaba e o aviso vai ao log sem e-mail nem valor')]
     public function testCookieMontadoPeloBancoNaoEntra(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
+        $log = new TestHandler();
+        static::getContainer()->get('monolog.logger')->pushHandler($log);
         $user = $this->criarUsuario();
         $real = $this->entrar($client, $user, manter: true);
         self::assertNotNull($real);
@@ -78,6 +84,15 @@ final class SairRevogaManterConectadoTest extends JusPrimeWebTestCase
         $client->getCookieJar()->set(new Cookie('REMEMBERME', $detalhes->withValue($serie . ':' . $guardado)->toString()));
         $client->request('GET', '/termos/aceitar');
         self::assertResponseRedirects('http://localhost/login', null, 'quem só leu o banco não entra');
+        self::assertSame(0, $this->seriesDe($user), 'o valor errado numa série que existe encerra a série');
+
+        $avisos = array_values(array_filter($log->getRecords(), static fn (LogRecord $r): bool => str_starts_with($r->message, 'Manter conectado:')));
+        self::assertCount(1, $avisos, 'o roubo de cookie fica no log');
+        self::assertSame(Level::Warning, $avisos[0]->level);
+        $registro = json_encode([$avisos[0]->message, $avisos[0]->context, $avisos[0]->extra], \JSON_THROW_ON_ERROR);
+        foreach ([(string) $user->getEmail(), $serie, $valor, $guardado] as $proibido) {
+            self::assertStringNotContainsString($proibido, $registro, 'o aviso não leva e-mail, série nem valor do token');
+        }
     }
 
     #[TestDox('Série sem uso há mais de 30 dias é apagada quando nasce outra')]
