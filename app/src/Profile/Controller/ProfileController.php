@@ -5,6 +5,7 @@ namespace App\Profile\Controller;
 use App\Auth\DTO\AlterarSenhaInput;
 use App\Auth\Form\AlterarSenhaType;
 use App\Auth\UseCase\AlterarSenhaUseCase;
+use App\Auth\UseCase\SairDeTodosOsAparelhosUseCase;
 use App\Auth\UseCase\VerificarOabUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -24,6 +25,7 @@ use App\Profile\UseCase\AtualizarStatusUseCase;
 use App\Profile\UseCase\ObterInscricoesOabUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Profile\UseCase\ObterPreferenciasDoPerfilUseCase;
+use App\Security\SessaoEncerradaEmTodosOsAparelhosListener;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
@@ -56,6 +58,7 @@ final class ProfileController extends AbstractController
         private readonly VinculoNoEscritorioRepository $vinculos,
         private readonly ObterPreferenciasDoPerfilUseCase $obterPreferencias,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly SairDeTodosOsAparelhosUseCase $sairDeTodos,
     ) {
     }
 
@@ -126,6 +129,25 @@ final class ProfileController extends AbstractController
         // Medido em smoke (2026-08-05): mandar para o login aqui era pior que inútil — o
         // usuário era jogado de volta para dentro, sem entender por que passou pelo login.
         $this->addFlash('success', 'Senha alterada com sucesso. As outras sessões conectadas foram encerradas.');
+
+        return $this->redirectToRoute('app_profile');
+    }
+
+    /** "Sair de todos os aparelhos": encerra as outras sessões e todo "Manter conectado"; esta sessão continua. */
+    #[Route('/sair-de-todos-os-aparelhos', name: '_sair_todos', methods: ['POST'])]
+    public function sairDeTodosOsAparelhos(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('perfil_sair_todos', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'A página ficou aberta por muito tempo. Tente de novo.');
+
+            return $this->redirectToRoute('app_profile');
+        }
+        /** @var User $user */
+        $user = $this->getUser();
+        $corte = $this->sairDeTodos->executar($user);
+        // Esta sessão fica marcada como entrada logo depois do corte: o listener derruba quem entrou até o segundo dele.
+        $request->getSession()->set(SessaoEncerradaEmTodosOsAparelhosListener::ENTROU_EM, $corte->getTimestamp() + 1);
+        $this->addFlash('success', 'Pronto. Você saiu de todos os outros aparelhos. Este continua conectado.');
 
         return $this->redirectToRoute('app_profile');
     }

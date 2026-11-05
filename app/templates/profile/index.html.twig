@@ -436,6 +436,8 @@ input[type="range"].img-slider {
         <div class="mp-seguranca">
             <div>{{ 'perfil.seguranca.aviso'|trans }}</div>
             <button class="mp-btn-azul" type="button" data-bs-toggle="modal" data-bs-target="#modalSenha"><i class="bi bi-key"></i>{{ 'perfil.seguranca.alterar_senha'|trans }}</button>
+            {# Sem desenho (aprovado pelo Samuel em 05/11/2026): botão de contorno do próprio perfil, confirmação no modal abaixo. #}
+            <button class="mp-btn-contorno" type="button" data-bs-toggle="modal" data-bs-target="#modalSairTodos"><i class="bi bi-box-arrow-right"></i>{{ 'perfil.seguranca.sair_todos'|trans }}</button>
         </div>
     </section>
 
@@ -753,6 +755,26 @@ input[type="range"].img-slider {
                     <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>{{ 'perfil.acoes.salvar'|trans }}</button>
                 </div>
             {{ form_end(form_senha) }}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade mp-modal" id="modalSairTodos" tabindex="-1" aria-labelledby="modalSairTodosLabel" aria-hidden="true">
+    {# Confirmação do "Sair de todos os aparelhos": o mesmo modal do perfil (topo azul, Cancelar e a ação). #}
+    <div class="modal-dialog modal-dialog-centered mp-modal-largo">
+        <div class="modal-content">
+            <div class="mp-modal-topo">
+                <i class="bi bi-box-arrow-right"></i><b id="modalSairTodosLabel">{{ 'perfil.sair_todos.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form method="post" action="{{ path('app_profile_sair_todos') }}" id="formSairTodos">
+                <input type="hidden" name="_token" value="{{ csrf_token('perfil_sair_todos') }}">
+                <div class="mp-seguranca"><div>{{ 'perfil.sair_todos.texto'|trans }}</div></div>
+                <div class="mp-modal-rodape">
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">{{ 'perfil.acoes.cancelar'|trans }}</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-box-arrow-right"></i>{{ 'perfil.sair_todos.confirmar'|trans }}</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
