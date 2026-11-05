@@ -11,13 +11,15 @@ use App\TrabalhoExterno\UseCase\ConvidarProfissionalUseCase;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\ReenviarConviteUseCase;
 use App\TrabalhoExterno\UseCase\RevogarConviteUseCase;
+use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
 /** "PROFISSIONAIS CONVIDADOS" da aba Execução (F3): convidar, reenviar e revogar. Mesmas guardas das demais escritas. */
-#[Route('/trabalho-externo/api/demandas/{codigo}/convites', requirements: ['codigo' => 'TE-\d{1,9}'])]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api/demandas/{codigo}/convites', requirements: ['codigo' => 'TE-\d{1,9}'], defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class ConvitesDaDemandaController extends AbstractController
 {
     use RespondeJsonTrait;

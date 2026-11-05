@@ -22,6 +22,7 @@ use App\TrabalhoExterno\UseCase\RegistrarVisitaAsVagasUseCase;
 use App\TrabalhoExterno\UseCase\ListarVagasUseCase;
 use App\TrabalhoExterno\UseCase\MarcarVagasEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\SalvarVagaUseCase;
+use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,7 +33,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * A aba Vagas (spec VS 18.10.26 §4.1), toda em JSON. Escritas com CSRF no header `X-CSRF-Token`,
  * como o `DemandaExternaController`. Leitura aceita `?como=` da prévia do Master; escrita, nunca.
  */
-#[Route('/trabalho-externo/api/vagas')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api/vagas', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class VagasController extends AbstractController
 {
     use RespondeJsonTrait;

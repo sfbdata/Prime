@@ -16,6 +16,7 @@ use App\TrabalhoExterno\Service\RegistroDaCampanha;
 use App\TrabalhoExterno\UseCase\ExportarDestinatariosDaCampanhaUseCase;
 use App\TrabalhoExterno\UseCase\ExportarEmailDaCampanhaUseCase;
 use App\TrabalhoExterno\UseCase\MontarCampanhaUseCase;
+use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,7 +32,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * (o log; o HTML também o link de vagas), então é POST com CSRF no `X-CSRF-Token`: o CSV, o HTML e o
  * registro do "Copiar HTML".
  */
-#[Route('/trabalho-externo')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class CampanhaController extends AbstractController
 {
     use RespondeJsonTrait;

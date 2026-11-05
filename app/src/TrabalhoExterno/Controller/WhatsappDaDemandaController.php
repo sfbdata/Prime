@@ -15,6 +15,7 @@ use App\TrabalhoExterno\UseCase\DescartarAvisoWhatsappUseCase;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\MarcarAvisoEnviadoUseCase;
 use App\TrabalhoExterno\UseCase\RemoverContatoWhatsappUseCase;
+use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,7 +25,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * Aba WhatsApp da demanda (F2). Nenhuma rota envia mensagem: o BlueJus prepara o texto e o link
  * `wa.me`, e quem envia é a pessoa, pelo próprio WhatsApp (D4). Mesmas guardas das demais escritas.
  */
-#[Route('/trabalho-externo/api/demandas/{codigo}/whatsapp', requirements: ['codigo' => 'TE-\d{1,9}'])]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api/demandas/{codigo}/whatsapp', requirements: ['codigo' => 'TE-\d{1,9}'], defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class WhatsappDaDemandaController extends AbstractController
 {
     use RespondeJsonTrait;

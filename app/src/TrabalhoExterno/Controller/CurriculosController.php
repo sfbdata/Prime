@@ -36,6 +36,7 @@ use App\TrabalhoExterno\UseCase\MudarStatusDoCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\PreVisualizarCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\RemoverArquivoDoCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\SalvarCurriculoECandidatarUseCase;
+use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -49,7 +50,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * CSRF no header `X-CSRF-Token`, leituras aceitam o `?como=` da prévia do Master, escritas nunca.
  * Arquivos, documento, PDF e CSV saem por aqui, depois da política, como download (a foto, inline).
  */
-#[Route('/trabalho-externo')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class CurriculosController extends AbstractController
 {
     use RespondeJsonTrait;

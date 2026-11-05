@@ -17,6 +17,7 @@ use App\TrabalhoExterno\UseCase\EnviarCandidatosAoEscritorioUseCase;
 use App\TrabalhoExterno\UseCase\MarcarCandidaturasEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\MudarStatusDaCandidaturaUseCase;
 use App\TrabalhoExterno\UseCase\RecusarOfertaUseCase;
+use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,7 +28,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * nunca pela prévia do Master (a escrita não lê `?como=`). As respostas trazem a vaga atualizada no
  * recorte de quem pediu.
  */
-#[Route('/trabalho-externo/api')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class CandidaturasController extends AbstractController
 {
     use RespondeJsonTrait;

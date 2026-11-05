@@ -17,6 +17,7 @@ use App\TrabalhoExterno\UseCase\EnviarTermoParaAceiteUseCase;
 use App\TrabalhoExterno\UseCase\GerarDocumentoDoTermoUseCase;
 use App\TrabalhoExterno\UseCase\GerarRascunhoDoTermoUseCase;
 use App\TrabalhoExterno\UseCase\PreVisualizarTermoUseCase;
+use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,7 +30,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * O documento (prévia, Word, Imprimir) é UM só HTML, montado no servidor. Outro voluntário, outro escritório ou
  * termo inexistente: 404.
  */
-#[Route('/trabalho-externo')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class TermosController extends AbstractController
 {
     use RespondeJsonTrait;

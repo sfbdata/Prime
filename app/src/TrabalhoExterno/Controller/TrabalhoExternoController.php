@@ -18,6 +18,7 @@ use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\ListarAndamentosRecebidosUseCase;
 use App\TrabalhoExterno\UseCase\MontarExtratoDeDespachosUseCase;
 use App\TrabalhoExterno\UseCase\MontarPainelUseCase;
+use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,7 +32,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * link de documento mostram o aviso de acesso negado (403, página do módulo) e a API responde 403
  * em JSON. Demanda de outro escritório é 404.
  */
-#[Route('/trabalho-externo')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class TrabalhoExternoController extends AbstractController
 {
     use RespondeJsonTrait;
