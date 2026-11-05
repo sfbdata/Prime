@@ -106,10 +106,16 @@ final class ExpiracaoDaSessaoListener
             return;
         }
 
+        $this->expirar($event, $sessao);
+    }
+
+    /** Invalida a sessão e responde: navegação vai ao /login com o aviso; pedido de dados recebe 401 em JSON. */
+    private function expirar(RequestEvent $event, SessionInterface $sessao): void
+    {
         $this->tokenStorage->setToken(null);
         $sessao->invalidate();
 
-        if (!PedidoDeNavegacao::eNavegacao($request)) {
+        if (!PedidoDeNavegacao::eNavegacao($event->getRequest())) {
             $event->setResponse(new JsonResponse(['erro' => PedidoDeNavegacao::MENSAGEM_SESSAO_VENCIDA], 401));
 
             return;

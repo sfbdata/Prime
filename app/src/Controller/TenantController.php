@@ -1450,7 +1450,6 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Sem permissão para abonar justificativas.');
         }
 
-        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
         if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
             throw $this->createNotFoundException();
         }
