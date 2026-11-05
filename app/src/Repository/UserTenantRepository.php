@@ -157,16 +157,19 @@ class UserTenantRepository extends ServiceEntityRepository
     }
 
     /**
-     * Vínculos ativos do escritório, com usuário e perfil já carregados, em ordem de nome.
-     * Base da tela de edição do perfil primário (primários e secundários promovíveis).
+     * Vínculos ativos do escritório, com usuário, perfil de acesso (tenantRole) e perfil do usuário
+     * (UserProfile, lado inverso de OneToOne que sem o join custaria uma consulta por pessoa) já
+     * carregados, em ordem de nome. Base da tela de edição do perfil primário (primários e secundários
+     * promovíveis).
      *
      * @return UserTenant[]
      */
     public function findAtivosComPerfilPorTenant(Tenant $tenant): array
     {
         return $this->createQueryBuilder('ut')
-            ->addSelect('u', 'r')
+            ->addSelect('u', 'r', 'pf')
             ->join('ut.user', 'u')
+            ->leftJoin('u.profile', 'pf')
             ->leftJoin('ut.tenantRole', 'r')
             ->andWhere('ut.tenant = :tenant')
             ->andWhere('ut.isActive = true')
@@ -207,8 +210,8 @@ class UserTenantRepository extends ServiceEntityRepository
     }
 
     /**
-     * Vínculos ativos de contas ativas do escritório, com usuário, perfil, cargo e lotação já carregados
-     * (uma consulta, sem N+1), em ordem de nome. Base da lista "Ocultar aba" da pasta (spec
+     * Vínculos ativos de contas ativas do escritório, com usuário, perfil do usuário (UserProfile), perfil
+     * de acesso, cargo e lotação já carregados (uma consulta, sem N+1), em ordem de nome. Base da lista "Ocultar aba" da pasta (spec
      * pasta-ocultar-aba §2.4): a "função · setor" de cada pessoa é cargo · lotação.
      *
      * @return UserTenant[]
@@ -216,8 +219,9 @@ class UserTenantRepository extends ServiceEntityRepository
     public function findAtivosComCargoELotacaoPorTenant(Tenant $tenant): array
     {
         return $this->createQueryBuilder('ut')
-            ->addSelect('u', 'r', 'c', 'l')
+            ->addSelect('u', 'pf', 'r', 'c', 'l')
             ->join('ut.user', 'u')
+            ->leftJoin('u.profile', 'pf')
             ->leftJoin('ut.tenantRole', 'r')
             ->leftJoin('ut.cargo', 'c')
             ->leftJoin('ut.lotacao', 'l')
