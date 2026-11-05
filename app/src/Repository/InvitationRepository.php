@@ -44,6 +44,29 @@ class InvitationRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Convites de escritório pendentes e não expirados para o e-mail, sem diferença de maiúsculas (o aceite pelo id
+     * compara assim). Inclui o de escritório fora do ar: quem consulta é a regra C8 da senha, que erra para o lado de
+     * recusar (auditoria 1.04).
+     *
+     * @return Invitation[]
+     */
+    public function encontrarDeEscritorioPendentesPorEmail(string $email): array
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('LOWER(i.email) = :email')
+            ->andWhere('i.type = :tipo')
+            ->andWhere('i.status = :status')
+            ->andWhere('i.expiresAt > :now')
+            ->andWhere('i.tenant IS NOT NULL')
+            ->setParameter('email', mb_strtolower($email))
+            ->setParameter('tipo', Invitation::TIPO_ESCRITORIO)
+            ->setParameter('status', 'pending')
+            ->setParameter('now', new \DateTimeImmutable())
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return Invitation[] */
     public function listarDePlataforma(): array
     {

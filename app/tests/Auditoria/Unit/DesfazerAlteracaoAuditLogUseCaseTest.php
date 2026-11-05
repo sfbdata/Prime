@@ -837,4 +837,120 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         self::assertFalse($resultado->sucesso);
         self::assertSame('Esta alteração não pode ser desfeita automaticamente.', $resultado->erro);
     }
+
+    // ── Auditoria 3.01: posse da entidade, prova positiva para TODA classe reversível ──
+
+    /** @return iterable<string, array{class-string}> */
+    public static function entidadesReversiveis(): iterable
+    {
+        $lista = (new \ReflectionClassConstant(DesfazerAlteracaoAuditLogUseCase::class, 'ENTIDADES_REVERSIVEIS'))->getValue();
+        self::assertIsArray($lista);
+        foreach ($lista as $classe) {
+            yield $classe => [$classe];
+        }
+    }
+
+    /**
+     * A entidade reversível com o dono dado: o escritório direto (`tenant`) ou, no que pende do chamado, o chamado do
+     * escritório. Classe sem um desses dois caminhos derruba o teste: quem a pôs na lista tem de dizer como ela prova
+     * a posse.
+     *
+     * @param class-string $classe
+     */
+    private function entidadeDoEscritorio(string $classe, ?Tenant $dono): object
+    {
+        $reflexao = new \ReflectionClass($classe);
+        $entidade = $this->comId($reflexao->newInstanceWithoutConstructor(), 5);
+        if ($reflexao->hasProperty('tenant')) {
+            $reflexao->getProperty('tenant')->setValue($entidade, $dono);
+
+            return $entidade;
+        }
+        if ($reflexao->hasProperty('chamado')) {
+            $chamado = new \App\Entity\ServiceDesk\Chamado();
+            if ($dono !== null) {
+                $chamado->setTenant($dono);
+            }
+            $reflexao->getProperty('chamado')->setValue($entidade, $chamado);
+
+            return $entidade;
+        }
+        self::fail(sprintf('%s não tem dono conhecido (tenant ou chamado): sem prova de posse no desfazer.', $classe));
+    }
+
+    private function cenarioDaPosse(string $classe, object $entidade): void
+    {
+        $log = $this->criarLog('update', $classe, '5', []);
+        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
+        $this->em->method('find')->willReturnCallback(
+            static fn (string $c, mixed $id): ?object => $c === $classe && (string) $id === '5' ? $entidade : null,
+        );
+        $this->em->expects($this->never())->method('flush');
+    }
+
+    /** @param class-string $classe */
+    #[DataProvider('entidadesReversiveis')]
+    #[TestDox('3.01: $classe do MESMO escritório passa pela posse (prova positiva existe para a classe)')]
+    public function testTodaDoMesmoEscritorioPassaPelaPosse(string $classe): void
+    {
+        $this->cenarioDaPosse($classe, $this->entidadeDoEscritorio($classe, $this->tenant(1)));
+
+        $resultado = $this->sut->executar(10, 1);
+
+        // Passou da posse: o diff vazio é a recusa seguinte.
+        self::assertSame('Nada a reverter.', $resultado->erro, sprintf('%s não prova posse no carregarEntidade().', $classe));
+    }
+
+    /** @param class-string $classe */
+    #[DataProvider('entidadesReversiveis')]
+    #[TestDox('3.01: $classe de OUTRO escritório, com log do escritório da sessão: "Registro não encontrado."')]
+    public function testTodaDeOutroEscritorioRecusa(string $classe): void
+    {
+        $this->cenarioDaPosse($classe, $this->entidadeDoEscritorio($classe, $this->tenant(2)));
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame('Registro não encontrado.', $resultado->erro);
+    }
+
+    /** @param class-string $classe */
+    #[DataProvider('entidadesReversiveis')]
+    #[TestDox('3.01: $classe sem dono não prova posse: "Registro não encontrado." (fail-closed)')]
+    public function testTodaSemDonoRecusa(string $classe): void
+    {
+        $this->cenarioDaPosse($classe, $this->entidadeDoEscritorio($classe, null));
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame('Registro não encontrado.', $resultado->erro);
+    }
+
+    /** @return iterable<string, array{class-string<Cargo|Sede|Lotacao>, string, string}> */
+    public static function cadastrosComNome(): iterable
+    {
+        yield 'sede' => [Sede::class, 'Sede de B', 'Sede antiga'];
+        yield 'cargo' => [Cargo::class, 'Cargo de B', 'Cargo antigo'];
+        yield 'lotação' => [Lotacao::class, 'Lotação de B', 'Lotação antiga'];
+    }
+
+    /** @param class-string<Cargo|Sede|Lotacao> $classe */
+    #[DataProvider('cadastrosComNome')]
+    #[TestDox('3.01: log do escritório A com $classe do escritório B não desfaz: "Registro não encontrado." e o nome fica')]
+    public function testCadastroDeOutroEscritorioNaoSeDesfaz(string $classe, string $atual, string $antigo): void
+    {
+        $cadastro = $this->comId((new $classe())->setTenant($this->tenant(2)), 5);
+        $cadastro->setNome($atual);
+        $log = $this->criarLog('update', $classe, '5', ['nome' => ['from' => $antigo, 'to' => $atual]]);
+        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
+        $this->em->method('find')->willReturn($cadastro);
+        $this->em->expects($this->never())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame('Registro não encontrado.', $resultado->erro);
+        self::assertSame($atual, $cadastro->getNome());
+    }
 }

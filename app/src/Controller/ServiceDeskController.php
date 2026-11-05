@@ -237,6 +237,7 @@ class ServiceDeskController extends AbstractController
 
         return $this->render('servicedesk/show.html.twig', [
             'chamado' => $chamado,
+            'interacoes' => $chamado->interacoesVisiveis($isAdmin),
             'interacaoForm' => $interacaoForm->createView(),
             'isAdmin' => $isAdmin,
             'tecnicos' => $tecnicos,

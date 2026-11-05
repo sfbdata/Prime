@@ -545,16 +545,27 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * As metas das pastas vinculadas ao processo (aba Tarefas do processo), deste escritório.
+     * Filtro de tenant explícito: não depende de o TenantFilter estar ligado.
+     *
+     * `$pastasOcultas`: ids das pastas ocultas pelo cadeado para quem olha (spec pasta-cadeado D1, auditoria
+     * 1.03); as metas delas não entram.
+     *
+     * @param list<int> $pastasOcultas
      * @return Tarefa[]
      */
-    public function findByProcesso(Processo $processo): array
+    public function findByProcesso(Processo $processo, Tenant $tenant, array $pastasOcultas = []): array
     {
-        return $this->createQueryBuilder('t')
+        $qb = $this->createQueryBuilder('t')
             ->join('t.pasta', 'p')
             ->join('p.pastaProcessos', 'pp')
             ->where('pp.processo = :processo')
+            ->andWhere('t.tenant = :tenant')
             ->setParameter('processo', $processo)
-            ->orderBy('t.dataCriacao', 'DESC')
+            ->setParameter('tenant', $tenant);
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        return $qb->orderBy('t.dataCriacao', 'DESC')
             ->getQuery()
             ->getResult();
     }

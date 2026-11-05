@@ -12,6 +12,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\ProcessoRepository;
 use App\Service\PermissionChecker;
@@ -31,6 +32,9 @@ use App\Service\PermissionChecker;
  *
  * Guarda: a pasta é do escritório da sessão, senão {@see PastaDeOutroEscritorioException}. A busca e os
  * vínculos filtram pelo tenant; quem chama já conferiu a permissão de VER a pasta.
+ *
+ * Cadeado (regra K3, achado 3.04 da auditoria): o processo cujas pastas são TODAS ocultas para quem busca não
+ * abre para ela e fica fora da lista (somado aos já vinculados na exclusão da consulta).
  */
 final class BuscarProcessosParaVincularUseCase
 {
@@ -40,6 +44,7 @@ final class BuscarProcessosParaVincularUseCase
         private readonly ProcessoRepository $processoRepository,
         private readonly PastaRepository $pastaRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -55,7 +60,9 @@ final class BuscarProcessosParaVincularUseCase
             $pasta->getProcessos(),
         )));
 
-        $processos = array_values($this->processoRepository->buscarPorTermoDoTenant(trim($termo), $tenant, $idsVinculados, self::LIMITE));
+        $idsExcluir = array_values(array_unique([...$idsVinculados, ...$this->acessoAPasta->idsDosProcessosOcultos($usuario, $tenant)]));
+
+        $processos = array_values($this->processoRepository->buscarPorTermoDoTenant(trim($termo), $tenant, $idsExcluir, self::LIMITE));
         $ids = array_values(array_filter(array_map(static fn (Processo $p): ?int => $p->getId(), $processos)));
         $origens = $this->origens($this->pastaRepository->vinculosDosProcessos($ids, $tenant), $tenant, $usuario);
 

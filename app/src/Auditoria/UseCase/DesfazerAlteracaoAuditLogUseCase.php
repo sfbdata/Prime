@@ -7,6 +7,8 @@ namespace App\Auditoria\UseCase;
 use App\Auditoria\Service\EstadoDaTelaNoDesfazer;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
+use App\Entity\ServiceDesk\ChamadoAnexo;
+use App\Entity\ServiceDesk\ChamadoInteracao;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
@@ -226,9 +228,10 @@ final class DesfazerAlteracaoAuditLogUseCase
             return new DesfazerResultado(false, 'Entidade não existe mais.');
         }
 
-        // Defesa em profundidade: o log é do tenant, mas a entidade também tem de ser — o
-        // `find()` pode vir do identity map, que não passa pelo TenantFilter.
-        if ($entity instanceof TenantAware && $entity->getTenant()?->getId() !== $tenantId) {
+        // Prova positiva de posse, fail-closed (auditoria 3.01): o tenant_id do log não basta, porque o log de
+        // Sede/Cargo/Lotação de outro escritório pode ter nascido com o escritório da sessão. E o `find()` pode vir do
+        // identity map, que não passa pelo TenantFilter. Sem prova, a entidade não é tocada.
+        if (!$this->entidadeDoTenant($entity, $tenantId)) {
             return new DesfazerResultado(false, 'Registro não encontrado.');
         }
 
@@ -562,6 +565,23 @@ final class DesfazerAlteracaoAuditLogUseCase
         }
 
         return [$relacionado];
+    }
+
+    /**
+     * A entidade do log é do escritório? `pertenceAoTenant()` cobre a TenantAware e os cadastros Cargo, Sede e
+     * Lotação; o anexo e a interação do chamado não têm escritório próprio e provam pelo chamado (TenantAware).
+     * Classe reversível sem dono conhecido não prova posse e recusa (o teste percorre `ENTIDADES_REVERSIVEIS`).
+     */
+    private function entidadeDoTenant(object $entity, int $tenantId): bool
+    {
+        if ($entity instanceof ChamadoAnexo || $entity instanceof ChamadoInteracao) {
+            $chamado = $entity->getChamado();
+
+            return $chamado !== null && $this->pertenceAoTenant($chamado, $tenantId);
+        }
+
+        // Usuário não é entidade reversível: a posse por vínculo vale só para associação.
+        return !$entity instanceof User && $this->pertenceAoTenant($entity, $tenantId);
     }
 
     /**

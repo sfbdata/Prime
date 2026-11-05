@@ -102,6 +102,7 @@ use App\Processo\Service\TribunalCnjResolver;
 use App\Pasta\DTO\ProcessoParaVincularOutput;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Pasta\Exception\ApensadoInvalidoException;
+use App\Pasta\Exception\ProcessoOcultoPeloCadeadoException;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\AlterarProBonoDaPastaUseCase;
@@ -924,14 +925,20 @@ class PastaController extends AbstractController
      *
      * Vinculados: o modal antigo nunca os recebe (contrato dele). A busca do trilho pede
      * `incluirVinculados=1` para mostrar o selo "Já vinculado", como o desenho.
+     *
+     * Guarda (achado 2.01 da auditoria): a busca percorre a carteira do escritório e só serve para vincular,
+     * então exige o mesmo que o vincular (EDIT na pasta, com o cadeado) e recusa a pasta excluída, como a tela
+     * (`podeMexerNoCliente`). Pasta de outro escritório: 404.
      */
     #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
     public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias): JsonResponse
     {
-        $pastaId = (int) $pasta->getId();
-        $tenant  = $this->tenantContext->getCurrentTenant();
-        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
+            throw $this->createNotFoundException();
+        }
+        if ($recusa = $this->recusaDaBuscaParaVincular($pasta, $tenant)) {
+            return $recusa;
         }
 
         $termo = trim((string) $request->query->get('q', ''));
@@ -949,7 +956,7 @@ class PastaController extends AbstractController
         foreach ($this->clienteRepository->findAll() as $cliente) {
             // Defesa em profundidade: o TenantFilter já restringe o findAll, mas um cliente de
             // outro escritório aqui vazaria nome e documento — conferir de novo custa nada.
-            if ($tenant !== null && $cliente->getTenant()?->getId() !== $tenant->getId()) {
+            if ($cliente->getTenant()?->getId() !== $tenant->getId()) {
                 continue;
             }
 
@@ -1003,6 +1010,23 @@ class PastaController extends AbstractController
         }
 
         return $this->json($resultado);
+    }
+
+    /**
+     * As buscas que só servem para vincular (clientes e processos): a guarda do vincular (EDIT na pasta, com o
+     * cadeado) e a lápide, como a tela (achado 2.01 e a revisão do 3.04): 403 ou nada.
+     */
+    private function recusaDaBuscaParaVincular(Pasta $pasta, Tenant $tenant): ?JsonResponse
+    {
+        $pastaId = (int) $pasta->getId();
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+        if ($pasta->getExcluidaEm() !== null) {
+            return $this->json(['erro' => 'Esta pasta foi excluída e está somente para leitura.'], Response::HTTP_FORBIDDEN);
+        }
+
+        return null;
     }
 
     /**
@@ -1406,19 +1430,18 @@ class PastaController extends AbstractController
 
     /**
      * Lista "Processo já cadastrado" da janela "Vincular processo" (desenho 02, N:299-302): sem termo, os 8
-     * primeiros do escritório (a lista abre ao focar); com termo, filtra. Cada item traz a origem.
+     * primeiros do escritório (a lista abre ao focar); com termo, filtra. Cada item traz a origem. Só serve para
+     * vincular: exige EDIT na pasta e recusa a lápide (403), como a busca de clientes; outro escritório, 404.
      */
     #[Route('/{id}/processo/buscar', name: 'pasta_buscar_processos', methods: ['GET'])]
     public function buscarProcessos(Pasta $pasta, Request $request, BuscarProcessosParaVincularUseCase $buscarProcessos): Response
     {
-        $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $redirect;
-        }
-
         $tenant = $this->tenantContext->getCurrentTenant();
-        if ($tenant === null) {
+        if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException();
+        }
+        if ($recusa = $this->recusaDaBuscaParaVincular($pasta, $tenant)) {
+            return $recusa;
         }
 
         try {
@@ -1458,6 +1481,9 @@ class PastaController extends AbstractController
             $this->vincularApensadoComDados($pasta, $processo, $tipo, $usuario, $vincularApensado, $dadosDoCadastro);
         } catch (ApensadoInvalidoException|DadosDoProcessoInvalidosException $e) {
             return $this->respostaErroProcesso($isXhr, $e->getMessage(), (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (ProcessoOcultoPeloCadeadoException) {
+            // K3 (achado 3.04): o mesmo 422 do id inexistente, por id e pelo número já cadastrado.
+            return $this->respostaErroProcesso($isXhr, 'Processo não encontrado.', (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return null;

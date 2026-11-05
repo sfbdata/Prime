@@ -138,6 +138,45 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Ação sigilosa', $item->text());
     }
 
+    #[TestDox('D1 processo, aba Tarefas (auditoria 1.03): as metas da pasta oculta não aparecem nem contam; o primário vê as duas')]
+    public function testProcessoNaoMostraMetasDaPastaOculta(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana      = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'resources.processo.view']);
+        $oculta   = $this->criarPasta($tenant, 'JOANA SIGILOSA');
+        $processo = $this->vincularProcesso($oculta, '0700011-11.2026.8.07.0001');
+        $livre    = $this->criarPasta($tenant, 'PEDRO LIVRE');
+        $livre->vincularProcesso($processo);
+        foreach ([[$oculta, 'Meta da pasta trancada', 'Descrição sigilosa da trancada'], [$livre, 'Meta da pasta livre', 'Descrição da livre']] as [$pasta, $titulo, $descricao]) {
+            $meta = new Tarefa();
+            $meta->setTitulo($titulo);
+            $meta->setDescricao($descricao);
+            $meta->setPasta($pasta);
+            $meta->setTenant($tenant);
+            $meta->setCriadoPor($primario);
+            $this->em()->persist($meta);
+        }
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+        $this->entrar($ana, $tenant);
+
+        $c = $this->client->request('GET', '/processos/' . $processo->getId());
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('Meta da pasta trancada', $html);
+        self::assertStringNotContainsString('Descrição sigilosa da trancada', $html);
+        self::assertStringContainsString('Meta da pasta livre', $html);
+        self::assertCount(1, $c->filter('#tarefas .tarefa-card'));
+        self::assertSame('1', trim($c->filter('#tarefas-tab .badge')->text()), 'o badge da aba conta só a meta visível');
+
+        $this->entrar($primario, $tenant);
+        $c = $this->client->request('GET', '/processos/' . $processo->getId());
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $c->filter('#tarefas .tarefa-card'), 'o primário vê as metas das duas pastas');
+        self::assertSame('2', trim($c->filter('#tarefas-tab .badge')->text()));
+    }
+
     #[TestDox('K3 processo: o processo cujas pastas são todas ocultas não abre (403) e some da lista de processos; sem pasta, abre')]
     public function testProcessoDePastasTodasOcultas(): void
     {

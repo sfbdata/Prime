@@ -83,9 +83,30 @@ final class TarefaIsolamentoRepositoryTest extends KernelTestCase
         $repo = $this->em->getRepository(Tarefa::class);
 
         $this->ligarFiltro((int) $tenantA->getId());
-        $resultado = $repo->findByProcesso($processo);
+        $resultado = $repo->findByProcesso($processo, $tenantA);
         self::assertCount(1, $resultado, 'findByProcesso vazou tarefa de pasta de outro tenant');
         self::assertSame($tarefaA->getId(), $resultado[0]->getId());
+    }
+
+    #[TestDox('findByProcesso com o TenantFilter desligado: só metas do escritório pedido e fora das pastas ocultas (auditoria 1.03)')]
+    public function testFindByProcessoSemFiltroRespeitaTenantEPastasOcultas(): void
+    {
+        $tenantA  = $this->criarTenant();
+        $tenantB  = $this->criarTenant();
+        $processo = $this->criarProcesso($tenantA);
+
+        $visivel = $this->criarTarefa($this->criarPasta($tenantA, $processo), $this->criarUser());
+        $pastaOculta = $this->criarPasta($tenantA, $processo);
+        $this->criarTarefa($pastaOculta, $this->criarUser());
+        $this->criarTarefa($this->criarPasta($tenantB, $processo), $this->criarUser());
+
+        /** @var TarefaRepository $repo */
+        $repo = $this->em->getRepository(Tarefa::class);
+        self::assertFalse($this->em->getFilters()->isEnabled('tenant'), 'o filtro de tenant está desligado neste teste');
+
+        self::assertCount(2, $repo->findByProcesso($processo, $tenantA), 'sem ocultas: as duas metas do escritório A, nenhuma do B');
+        $resultado = $repo->findByProcesso($processo, $tenantA, [(int) $pastaOculta->getId()]);
+        self::assertSame([$visivel->getId()], array_map(static fn (Tarefa $t): ?int => $t->getId(), $resultado));
     }
 
     #[TestDox('find() por id de Tarefa de outro tenant retorna null (fecha IDOR da raiz)')]

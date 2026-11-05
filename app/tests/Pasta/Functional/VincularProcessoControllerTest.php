@@ -645,9 +645,9 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         $pastaB          = $this->criarPasta($tenant);
         $processo        = $this->criarProcesso($tenant, '70000000000000000007', 'ORIGEMRESTRITA');
         $this->vincular($pastaB, $processo, principal: true);
-        // Papel sem `resources.pasta.view`: vê só a pasta A, por acesso ao recurso.
+        // Papel sem `resources.pasta.view`: edita só a pasta A, por acesso ao recurso (a busca exige EDIT).
         $usuario = $this->criarUsuarioComPermissoes($tenant, []);
-        $this->darAcessoDeLeitura($usuario, $tenant, $pastaA);
+        $this->darAcessoDeLeitura($usuario, $tenant, $pastaA, editar: true);
 
         $this->autenticar($client, $usuario, $tenant);
         $client->request('GET', "/pasta/{$pastaA->getId()}/processo/buscar?q=origemrestrita", [], [], self::XHR);
@@ -676,7 +676,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         $this->vincular($invisivel, $processo, principal: true);
         $this->vincular($visivel, $processo, principal: true);
         $usuario = $this->criarUsuarioComPermissoes($tenant, []);
-        $this->darAcessoDeLeitura($usuario, $tenant, $pastaA);
+        $this->darAcessoDeLeitura($usuario, $tenant, $pastaA, editar: true);
         $this->darAcessoDeLeitura($usuario, $tenant, $visivel);
 
         $this->autenticar($client, $usuario, $tenant);
@@ -711,7 +711,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         return static::getContainer()->get(EntityManagerInterface::class);
     }
 
-    private function darAcessoDeLeitura(User $user, Tenant $tenant, Pasta $pasta): void
+    private function darAcessoDeLeitura(User $user, Tenant $tenant, Pasta $pasta, bool $editar = false): void
     {
         $acesso = new ResourceAccess();
         $acesso->setUser($user);
@@ -719,6 +719,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         $acesso->setResourceType(ResourceAccess::RESOURCE_PASTA);
         $acesso->setResourceId((int) $pasta->getId());
         $acesso->setCanView(true);
+        $acesso->setCanEdit($editar);
         $this->em()->persist($acesso);
         $this->em()->flush();
     }
