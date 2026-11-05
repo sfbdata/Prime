@@ -1,0 +1,5 @@
+select2 4.1.0-rc.0
+Origem: https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js (sem alteração)
+sha384 (select2.min.js): d3UHjPdzJkZuk5H3qKYMLRyWLAQBJbby2yr2Q58hXXtAGF8RSNO9jpLDlKKPv5v3 (byte a byte igual ao do pacote npm select2@4.1.0-rc.0, tarball conferido pelo integrity do registro npm)
+sha256 (select2.min.js): f7244fff610595b944f76bf3080d74e3af42b5dd234f8f079e698cc39ac966b0
+Licença: MIT (LICENSE)

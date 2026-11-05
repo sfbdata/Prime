@@ -1,0 +1,5 @@
+jquery 3.6.0
+Origem: https://code.jquery.com/jquery-3.6.0.min.js (sem alteração)
+sha384 (jquery.min.js): vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK (byte a byte igual ao dist/jquery.min.js do pacote npm jquery@3.6.0, tarball conferido pelo integrity do registro npm; sha256 confere com o SRI publicado em code.jquery.com)
+sha256 (jquery.min.js): ff1523fb7389539c84c65aba19260648793bb4f5e29329d2ee8804bc37a3fe6e
+Licença: MIT (LICENSE)
