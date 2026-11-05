@@ -168,15 +168,37 @@ final class ExpiracaoDaSessaoListenerTest extends TestCase
         self::assertNotNull($this->executar([], self::PADRAO + 1, leitor: $leitor)->getResponse());
     }
 
-    #[TestDox('Token de formulário com o cookie REMEMBERME não expira; sem o cookie, expira')]
-    public function testCookieLembrarMeProtege(): void
+    #[TestDox('Marca "manter conectado" gravada pelo servidor no login protege; o cookie REMEMBERME sozinho, não')]
+    public function testManterConectadoVemDaSessaoNaoDoCookie(): void
     {
         $this->entrar();
-        self::assertNull($this->executar(['sessao' => '60'], 600, cookies: ['REMEMBERME' => 'x'])->getResponse());
+        $this->sessao->set(ExpiracaoDaSessaoListener::MANTER_CONECTADO, true);
+        self::assertNull($this->executar(['sessao' => '60'], 600)->getResponse());
 
         $this->setUp();
         $this->entrar();
-        self::assertNotNull($this->executar(['sessao' => '60'], 600)->getResponse());
+        self::assertNotNull($this->executar(['sessao' => '60'], 600, cookies: ['REMEMBERME' => 'x'])->getResponse());
+    }
+
+    #[TestDox('O carimbo próprio mede a pausa: renovado aos 50 min, o pedido aos 100 não expira com prazo de 60')]
+    public function testCarimboProprioRenovaNoPedidoAutenticado(): void
+    {
+        $this->entrar();
+        self::assertNull($this->executar(['sessao' => '60'], 50)->getResponse());
+        self::assertSame($this->inicio + 50 * 60, $this->sessao->get(ExpiracaoDaSessaoListener::CARIMBO));
+
+        self::assertNull($this->executar(['sessao' => '60'], 100)->getResponse());
+    }
+
+    #[TestDox('Rota pública não renova o carimbo próprio: o pedido autenticado seguinte mede desde o último de dentro')]
+    public function testRotaPublicaNaoRenovaOCarimbo(): void
+    {
+        $this->entrar();
+        $this->sessao->set(ExpiracaoDaSessaoListener::CARIMBO, $this->inicio);
+        self::assertNull($this->executar(['sessao' => '60'], 50, caminho: '/senha/esqueci', publicas: ['/senha/esqueci'])->getResponse());
+        self::assertSame($this->inicio, $this->sessao->get(ExpiracaoDaSessaoListener::CARIMBO));
+
+        self::assertNotNull($this->executar(['sessao' => '60'], 61)->getResponse());
     }
 
     /** @return iterable<string, array{string}> */

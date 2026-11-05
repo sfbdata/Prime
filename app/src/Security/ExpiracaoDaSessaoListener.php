@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -26,15 +27,18 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * Roda depois do firewall (prioridade 8; aqui 7). Só conta usuário autenticado POR SESSÃO: quem entrou pelo
  * "lembrar-me" (RememberMeToken) não expira aqui, e requisição sem sessão anterior nem toca a sessão. A inatividade é
- * `agora - MetadataBag::getLastUsed()`. O `getLastUsed()` guarda o instante do pedido ANTERIOR (o MetadataBag carrega o
- * carimbo gravado e só então atualiza o `u` da sessão), então a leitura feita agora, com o carimbo desta requisição já
- * regravado, ainda mede a pausa real entre dois pedidos.
+ * `agora - CARIMBO`, um carimbo próprio na sessão que só o pedido autenticado de dentro renova (e o login, pelo
+ * `MarcaDaSessaoNoLoginListener`). Nunca o `MetadataBag`: o Symfony o regrava em toda abertura da sessão, e abrir o
+ * /login ou outra rota pública renovaria a sessão vencida (auditoria 3.20). Sessão de antes do carimbo usa o
+ * `getLastUsed()` só como reserva, e a rota ignorada o copia para o carimbo sem renovar.
  *
  * Passou do prazo: invalida a sessão, limpa o token e responde. Navegação vai a /login com o aviso (flash); pedido de
  * dados (XHR, `fetch`) recebe 401 em JSON, como o `PedidoDeNavegacao` já faz para sessão vencida.
  *
- * "Manter conectado" pelo formulário deixa um token comum na sessão: se a requisição traz o cookie REMEMBERME, não
- * derruba. Rotas PUBLIC_ACCESS do access_control (derivadas do `security.access_map`) também ficam de fora.
+ * "Manter conectado" pelo formulário deixa um token comum na sessão: o que o distingue é a marca MANTER_CONECTADO,
+ * gravada pelo servidor no login quando o badge do lembrar-me ficou ligado. Nunca o cookie REMEMBERME, que o cliente
+ * cria com qualquer valor (auditoria 3.19). Rotas PUBLIC_ACCESS do access_control (derivadas do
+ * `security.access_map`) também ficam de fora.
  *
  * Teto operacional: o prazo efetivo é min(`sessao`, `app.sessao_gc_segundos` em minutos). O `gc_maxlifetime` do PHP é o
  * mesmo parâmetro, e o arquivo da sessão some depois dele; acima de 1 dia (padrão) é preciso subir a env
@@ -49,8 +53,11 @@ final class ExpiracaoDaSessaoListener
     public const MINIMO_MINUTOS = 5;
     public const MAXIMO_MINUTOS = 43200;
 
-    /** Cookie do "lembrar-me" do firewall main (`debug:config security firewalls.main.remember_me`: name REMEMBERME). */
-    private const COOKIE_LEMBRAR_ME = 'REMEMBERME';
+    /** Carimbo próprio do último pedido autenticado de dentro (segundos Unix). Rota ignorada nunca o renova. */
+    public const CARIMBO = '_bj_ultimo_uso';
+
+    /** Marca do servidor, gravada no login: a pessoa marcou "manter conectado" (o badge do lembrar-me ficou ligado). */
+    public const MANTER_CONECTADO = '_bj_manter_conectado';
 
     /** Prefixos que a expiração nunca atinge além das rotas PUBLIC_ACCESS: o sair e os arquivos estáticos/ferramentas. */
     private const IGNORADOS = ['/login', '/logout', '/assets', '/build', '/bundles', '/_wdt', '/_profiler'];
@@ -73,7 +80,12 @@ final class ExpiracaoDaSessaoListener
     public function __invoke(RequestEvent $event): void
     {
         $request = $event->getRequest();
-        if (!$event->isMainRequest() || $this->ignorada($request) || !$request->hasPreviousSession()) {
+        if (!$event->isMainRequest() || !$request->hasPreviousSession()) {
+            return;
+        }
+        if ($this->ignorada($request)) {
+            $this->guardarCarimboSemRenovar($request);
+
             return;
         }
 
@@ -82,14 +94,15 @@ final class ExpiracaoDaSessaoListener
             return;
         }
 
-        // "Manter conectado" pelo formulário deixa um token comum na sessão: o cookie do lembrar-me é o que o distingue.
-        if ($request->cookies->has(self::COOKIE_LEMBRAR_ME)) {
+        $sessao = $request->getSession();
+        if ($sessao->get(self::MANTER_CONECTADO) === true) {
             return;
         }
 
-        $sessao = $request->getSession();
-        $inativoSegundos = $this->clock->now()->getTimestamp() - $sessao->getMetadataBag()->getLastUsed();
-        if ($inativoSegundos <= $this->prazoEfetivoMinutos() * 60) {
+        $agora = $this->clock->now()->getTimestamp();
+        if ($agora - $this->ultimoUso($sessao) <= $this->prazoEfetivoMinutos() * 60) {
+            $sessao->set(self::CARIMBO, $agora);
+
             return;
         }
 
@@ -107,6 +120,26 @@ final class ExpiracaoDaSessaoListener
             $sessao->getFlashBag()->add('error', $this->translator->trans('entrada.sessao.expirada'));
         }
         $event->setResponse(new RedirectResponse($this->urlGenerator->generate('app_login')));
+    }
+
+    /** O carimbo próprio; sessão aberta antes dele existir: o `getLastUsed()` (o instante do pedido anterior). */
+    private function ultimoUso(SessionInterface $sessao): int
+    {
+        $carimbo = $sessao->get(self::CARIMBO);
+
+        return is_int($carimbo) ? $carimbo : $sessao->getMetadataBag()->getLastUsed();
+    }
+
+    /**
+     * Rota ignorada nunca renova. Sessão ainda sem o carimbo próprio recebe o `getLastUsed()` de agora (o instante do
+     * pedido ANTERIOR), antes que esta abertura o regrave: assim o /login não renova nem a sessão de antes do deploy.
+     */
+    private function guardarCarimboSemRenovar(Request $request): void
+    {
+        $sessao = $request->getSession();
+        if (!$sessao->has(self::CARIMBO)) {
+            $sessao->set(self::CARIMBO, $sessao->getMetadataBag()->getLastUsed());
+        }
     }
 
     private function ignorada(Request $request): bool
