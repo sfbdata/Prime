@@ -10,6 +10,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\ProcessoOcultoPeloCadeadoException;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
@@ -19,6 +20,7 @@ use App\Processo\Entity\Processo;
 use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\Repository\ProcessoRepository;
 use App\Processo\UseCase\CadastrarProcessoPelaPastaUseCase;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * "Vincular a uma pasta" (e "Trocar a pasta vinculada") na linha da publicação do Push (desenho 11).
@@ -27,6 +29,11 @@ use App\Processo\UseCase\CadastrarProcessoPelaPastaUseCase;
  * Vinculadas. Se o escritório ainda não cadastrou o processo, ele nasce do que a própria publicação traz
  * (órgão e classe; o assunto fica "Não informado" e se completa depois na pasta), pelo mesmo caminho do
  * "Vincular processo" da pasta. Só vincula quem EDITA a pasta (cadeado incluído).
+ *
+ * Cadeado (K3, revisão do achado 3.04 da auditoria): o processo cujas pastas são todas ocultas para a pessoa não
+ * existe para ela, e o vínculo é recusado como "Processo não encontrado." (a recusa do Push, nunca 403). Na troca,
+ * o vínculo novo vem ANTES do desvincular e os dois rodam numa transação: a recusa acontece com o processo ainda na
+ * pasta anterior (não por ter ficado só na oculta no meio do caminho) e nada fica desvinculado pela metade.
  */
 final class VincularPublicacaoAPastaUseCase
 {
@@ -41,6 +48,7 @@ final class VincularPublicacaoAPastaUseCase
         private readonly VincularProcessoUseCase $vincular,
         private readonly DesvincularProcessoUseCase $desvincular,
         private readonly ReconciliarPublicacoesComProcessosUseCase $reconciliar,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -55,14 +63,7 @@ final class VincularPublicacaoAPastaUseCase
             ?? throw new VinculoDaPublicacaoInvalidoException('Publicação não encontrada.');
         $pasta = $this->pastaEditavel($tenant, $usuario, $pastaId);
         $processo = $publicacao->getProcesso() ?? $this->processoDaPublicacao($tenant, $usuario, $publicacao);
-
-        if ($trocarDaPastaId !== null && $trocarDaPastaId !== $pastaId) {
-            $anterior = $this->pastaEditavel($tenant, $usuario, $trocarDaPastaId);
-            $this->desvincular->executar($anterior, $processo, $usuario);
-        }
-
-        $this->vincular->executar($pasta, $processo, $usuario);
-        $this->reconciliar->executar($tenant);
+        $this->vincularOuTrocar($tenant, $usuario, $pasta, $processo, $trocarDaPastaId);
 
         return $pasta;
     }
@@ -81,14 +82,7 @@ final class VincularPublicacaoAPastaUseCase
         }
         $pasta = $this->pastaEditavel($tenant, $usuario, $pastaId);
         $processo = $this->processos->findByNumeroProcessoDoTenant($numero, $tenant) ?? $this->cadastrarPeloNumero($tenant, $usuario, $numero);
-
-        if ($trocarDaPastaId !== null && $trocarDaPastaId !== $pastaId) {
-            $anterior = $this->pastaEditavel($tenant, $usuario, $trocarDaPastaId);
-            $this->desvincular->executar($anterior, $processo, $usuario);
-        }
-
-        $this->vincular->executar($pasta, $processo, $usuario);
-        $this->reconciliar->executar($tenant);
+        $this->vincularOuTrocar($tenant, $usuario, $pasta, $processo, $trocarDaPastaId);
 
         return $pasta;
     }
@@ -122,6 +116,40 @@ final class VincularPublicacaoAPastaUseCase
         }
 
         return $this->executar($tenant, $usuario, $publicacaoId, (int) $pasta->getId(), $trocarDaPastaId);
+    }
+
+    /**
+     * Vincula à pasta e, na troca, tira da anterior: vínculo novo primeiro (com a recusa do cadeado), desvincular
+     * depois, na mesma transação.
+     *
+     * @throws VinculoDaPublicacaoInvalidoException
+     */
+    private function vincularOuTrocar(Tenant $tenant, User $usuario, Pasta $pasta, Processo $processo, ?int $trocarDaPastaId): void
+    {
+        $anterior = $trocarDaPastaId !== null && $trocarDaPastaId !== $pasta->getId()
+            ? $this->pastaEditavel($tenant, $usuario, $trocarDaPastaId)
+            : null;
+
+        // Transação pela conexão (o padrão do VincularProcessoUseCase), não `wrapInTransaction`: este fecha o
+        // EntityManager na falha, e a recusa aqui é caminho normal (vira aviso no redirect).
+        $conexao = $this->em->getConnection();
+        $conexao->beginTransaction();
+        try {
+            $this->vincular->executar($pasta, $processo, $usuario);
+            if ($anterior !== null) {
+                $this->desvincular->executar($anterior, $processo, $usuario);
+            }
+            $conexao->commit();
+        } catch (\Throwable $e) {
+            $conexao->rollBack();
+            if ($e instanceof ProcessoOcultoPeloCadeadoException) {
+                throw new VinculoDaPublicacaoInvalidoException('Processo não encontrado.');
+            }
+
+            throw $e;
+        }
+
+        $this->reconciliar->executar($tenant);
     }
 
     private function pastaEditavel(Tenant $tenant, User $usuario, int $pastaId): Pasta
