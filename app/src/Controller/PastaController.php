@@ -935,7 +935,7 @@ class PastaController extends AbstractController
     {
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
-        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+        if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException();
         }
         if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
@@ -960,7 +960,7 @@ class PastaController extends AbstractController
         foreach ($this->clienteRepository->findAll() as $cliente) {
             // Defesa em profundidade: o TenantFilter já restringe o findAll, mas um cliente de
             // outro escritório aqui vazaria nome e documento — conferir de novo custa nada.
-            if ($tenant !== null && $cliente->getTenant()?->getId() !== $tenant->getId()) {
+            if ($cliente->getTenant()?->getId() !== $tenant->getId()) {
                 continue;
             }
 
