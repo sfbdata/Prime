@@ -9,6 +9,7 @@ use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Profile\Service\SilencioDoSininho;
+use App\Pasta\Service\LeituraDasPastasDosAvisos;
 use App\Repository\NotificacaoRepository;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\UserRepository;
@@ -39,6 +40,7 @@ class NotificacaoService
         private readonly ?TenantContext $tenantContext = null,
         private readonly ?UserTenantRepository $userTenantRepository = null,
         private readonly ?ConviteDemandaRepository $conviteDemandaRepository = null,
+        private readonly ?LeituraDasPastasDosAvisos $leituraDasPastas = null,
     ) {
     }
 
@@ -86,6 +88,25 @@ class NotificacaoService
     public function pastasOcultasDe(User $usuario): array
     {
         return $this->nivelNoCadeado?->idsDasPastasOcultasNaSessao($usuario) ?? [];
+    }
+
+    /**
+     * Auditoria 1.17: as pastas dos links de aviso que a pessoa não lê mais e as com a aba Financeiro oculta para
+     * ela, no escritório da sessão (sem escritório na sessão, nenhuma: ver {@see escritorioDoSino()}).
+     *
+     * @return array{semLeitura?: list<int>, semFinanceiro?: list<int>}
+     */
+    public function cortesDaLeituraDe(User $usuario): array
+    {
+        $tenant = $this->tenantContext?->getCurrentTenant();
+        if ($tenant === null || $this->leituraDasPastas === null) {
+            return [];
+        }
+
+        return [
+            'semLeitura'    => $this->leituraDasPastas->semLeitura($usuario, $tenant),
+            'semFinanceiro' => $this->leituraDasPastas->semFinanceiro($usuario, $tenant),
+        ];
     }
 
     public function veAPastaDaMeta(Tarefa $tarefa, User $usuario): bool
@@ -274,7 +295,7 @@ class NotificacaoService
      */
     public function getNotificacoesNaoLidas(User $usuario, ?string $categoria = null, int $limit = 10): array
     {
-        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $this->escritorioDoSino($usuario), $categoria, $limit, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
+        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $this->escritorioDoSino($usuario), $categoria, $limit, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario), $this->cortesDaLeituraDe($usuario));
     }
 
     /**
@@ -283,7 +304,7 @@ class NotificacaoService
     public function contarNaoLidas(User $usuario, ?string $categoria = null): int
     {
         // Sininho em silêncio (preferência do Meu Perfil): só os tipos que pedem ação contam; "Ver todas" mostra tudo.
-        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $this->escritorioDoSino($usuario), $categoria, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
+        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $this->escritorioDoSino($usuario), $categoria, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario), $this->cortesDaLeituraDe($usuario));
     }
 
     /**
