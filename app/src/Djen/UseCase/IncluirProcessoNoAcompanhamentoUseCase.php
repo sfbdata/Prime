@@ -55,9 +55,7 @@ final class IncluirProcessoNoAcompanhamentoUseCase
         }
 
         $processo = $this->processoCadastrado($tenant, $digitos);
-        if ($processo !== null && \in_array((int) $processo->getId(), $processosOcultos, true)) {
-            throw new AcompanhamentoInvalidoException('Processo não encontrado.');
-        }
+        $this->exigirAcessoAoProcesso($tenant, $processo, $processosOcultos, $podeEditar);
         if ($processo?->getDataBaixa() !== null) {
             throw new AcompanhamentoInvalidoException('Este processo tem baixa e não pode ser acompanhado.');
         }
@@ -69,10 +67,6 @@ final class IncluirProcessoNoAcompanhamentoUseCase
             throw new AcompanhamentoInvalidoException('Este processo já está sendo acompanhado.');
         }
 
-        if ($processo !== null) {
-            $this->exigirEdicaoDasPastas($tenant, (int) $processo->getId(), $podeEditar);
-        }
-
         $linha ??= new ProcessoAcompanhado($tenant, $digitos, $processo === null, $usuario);
         $linha->limparExclusao();
         if ($processo !== null) {
@@ -82,6 +76,24 @@ final class IncluirProcessoNoAcompanhamentoUseCase
         }
         $linha->anotar($email !== '' ? $email : $linha->getEmailAlternativo(), $observacao !== '' ? $observacao : $linha->getObservacao(), $linha->getArea(), $linha->getFase());
         $this->acompanhados->salvar($linha);
+    }
+
+    /**
+     * O processo cujas pastas são todas ocultas para a pessoa não abre para ela (K3), e retomar exige editar cada pasta dele.
+     * Número sem processo cadastrado passa.
+     *
+     * @param list<int>             $processosOcultos
+     * @param callable(Pasta): bool $podeEditar
+     */
+    private function exigirAcessoAoProcesso(Tenant $tenant, ?Processo $processo, array $processosOcultos, callable $podeEditar): void
+    {
+        if ($processo === null) {
+            return;
+        }
+        if (\in_array((int) $processo->getId(), $processosOcultos, true)) {
+            throw new AcompanhamentoInvalidoException('Processo não encontrado.');
+        }
+        $this->exigirEdicaoDasPastas($tenant, (int) $processo->getId(), $podeEditar);
     }
 
     private function processoCadastrado(Tenant $tenant, string $digitos): ?Processo
