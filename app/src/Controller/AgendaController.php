@@ -199,11 +199,9 @@ class AgendaController extends AbstractController
         $user = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        $semModulo = $this->semModuloAgenda($user, $tenant);
-        if ($semModulo !== null) {
-            return $semModulo;
+        if (($barrado = $this->barrarSemAgendaOuInvisivel($evento, $user, $tenant)) !== null) {
+            return $barrado;
         }
-        $this->exigirVisivel($evento, $user, $tenant);
 
         // Apenas admin ou criador pode editar
         if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
@@ -252,11 +250,9 @@ class AgendaController extends AbstractController
         $user = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        $semModulo = $this->semModuloAgenda($user, $tenant);
-        if ($semModulo !== null) {
-            return $semModulo;
+        if (($barrado = $this->barrarSemAgendaOuInvisivel($evento, $user, $tenant)) !== null) {
+            return $barrado;
         }
-        $this->exigirVisivel($evento, $user, $tenant);
 
         // Apenas admin ou criador pode excluir
         if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
@@ -283,11 +279,9 @@ class AgendaController extends AbstractController
         $user = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        $semModulo = $this->semModuloAgenda($user, $tenant);
-        if ($semModulo !== null) {
-            return $semModulo;
+        if (($barrado = $this->barrarSemAgendaOuInvisivel($evento, $user, $tenant)) !== null) {
+            return $barrado;
         }
-        $this->exigirVisivel($evento, $user, $tenant);
 
         // Apenas admin ou criador pode cancelar
         if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
@@ -326,6 +320,17 @@ class AgendaController extends AbstractController
         if ($tenant === null || $this->eventosDaAgenda->visivelPara((int) $evento->getId(), $tenant, $user) === null) {
             throw $this->createNotFoundException('Evento não encontrado.');
         }
+    }
+
+    /** Editar, excluir e cancelar: primeiro o módulo (aviso e volta ao início), depois a visibilidade (404). */
+    private function barrarSemAgendaOuInvisivel(Evento $evento, User $user, ?Tenant $tenant): ?Response
+    {
+        $semModulo = $this->semModuloAgenda($user, $tenant);
+        if ($semModulo === null) {
+            $this->exigirVisivel($evento, $user, $tenant);
+        }
+
+        return $semModulo;
     }
 
     /** Mesmo tratamento do detalhe para quem não tem o módulo agenda: aviso e volta ao início. */
