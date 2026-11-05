@@ -8,7 +8,10 @@ use App\Controller\TarefaController;
 use App\Entity\Auth\User;
 use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tarefa\Tarefa;
+use App\ChatIa\Service\ContextoDasMetasNoChat;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
+use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Service\PastasSoAcompanhadasSemVer;
@@ -21,8 +24,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 /**
  * Auditoria 3.12, sobra do lote B (docs/AUTORIZACAO.md, seção 7, "Meta aberta por id"): nas Minhas Metas, a meta
  * só ACOMPANHADA aparece para quem pode ver a pasta dela; quem cuida da meta (responsável ou criador) continua
- * vendo. Vale para a aba Acompanhando, a aba Todas, as contagens das abas, o trilho ("Precisa de atenção") e as
- * contagens que voltam do clique em "acompanhar". É a mesma regra do `AcessoAMeta::exigir`, que já dá 404 na
+ * vendo. Vale para a aba Acompanhando, a aba Todas, as contagens das abas, o trilho ("Seu andamento" e "Precisa
+ * de atenção"), as atrasadas que o chat da I.A lê e as contagens que voltam do clique em "acompanhar". É a mesma regra do `AcessoAMeta::exigir`, que já dá 404 na
  * página da meta para esse acompanhante.
  *
  * Cada caso negativo tem o positivo ao lado (com `resources.pasta.view`, com acesso item a item, ou cuidando da
@@ -31,6 +34,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(TarefaController::class)]
 #[CoversClass(TarefaRepository::class)]
 #[CoversClass(PastasSoAcompanhadasSemVer::class)]
+#[CoversClass(ContextoDasMetasNoChat::class)]
 #[Group('tarefa')]
 final class AcompanhandoSemVerAPastaTest extends JusPrimeWebTestCase
 {
@@ -108,6 +112,19 @@ final class AcompanhandoSemVerAPastaTest extends JusPrimeWebTestCase
         return trim($this->client->getCrawler()->filter('.mm-aba[data-aba="' . $aba . '"] .mm-aba-badge')->text());
     }
 
+    /** @return array{0: string, 1: string} o "X de Y" do "Seu andamento" e a fatia das atrasadas */
+    private function andamento(): array
+    {
+        $trilho = $this->client->getCrawler()->filter('.mm-trilho-andamento');
+
+        return [trim($trilho->filter('.mm-progresso-numero')->text()), trim($trilho->filter('.mm-fatia.tom-danger')->text())];
+    }
+
+    private function atencao(): string
+    {
+        return $this->client->getCrawler()->filter('.mm-trilho-atencao')->text();
+    }
+
     #[TestDox('Acompanhante que não vê a pasta: a meta some da aba Acompanhando, da aba Todas, das contagens e do trilho')]
     public function testAcompanhanteSemVerAPastaNaoVe(): void
     {
@@ -125,6 +142,20 @@ final class AcompanhandoSemVerAPastaTest extends JusPrimeWebTestCase
 
         $padrao = $this->abrir($soModulo, $tenant, 'responsavel');
         self::assertStringNotContainsString(self::TITULO, $padrao, 'o trilho "Precisa de atenção" olha a aba Todas');
+        self::assertStringNotContainsString(self::TITULO, $this->atencao());
+        self::assertSame(['0 de 0', '0 atrasada(s)'], $this->andamento(), '"Seu andamento" não conta a meta');
+    }
+
+    #[TestDox('Positivo do trilho: com resources.pasta.view, a meta acompanhada aparece no "Precisa de atenção" da aba Sou responsável e conta no "Seu andamento"')]
+    public function testTrilhoDoAcompanhanteQueVeAPasta(): void
+    {
+        [, $tenant, , $meta] = $this->cenario();
+        $veTodas = $this->criarColaborador($tenant, 'Acompanha Vendo', ['modules.tarefas.view', 'resources.pasta.view']);
+        $this->acompanhar($meta, $veTodas);
+
+        $this->abrir($veTodas, $tenant, 'responsavel');
+        self::assertStringContainsString(self::TITULO, $this->atencao());
+        self::assertSame(['0 de 1', '1 atrasada(s)'], $this->andamento());
     }
 
     #[TestDox('Acompanhante com resources.pasta.view: vê a meta na aba Acompanhando, na Todas e na contagem')]
@@ -199,5 +230,85 @@ final class AcompanhandoSemVerAPastaTest extends JusPrimeWebTestCase
         self::assertTrue($dados['acompanhando']);
         self::assertSame(1, $dados['contagens']['acompanhando'], 'só a própria; a da pasta que não vê fica fora');
         self::assertSame(1, $dados['contagens']['todas']);
+    }
+
+    #[TestDox('Criador que não é responsável e não vê a pasta continua vendo a meta que acompanha')]
+    public function testCriadorSemVerAPastaContinuaVendo(): void
+    {
+        [$primario, $tenant] = $this->cenario();
+        $criador = $this->criarColaborador($tenant, 'Criador Sem Ver', ['modules.tarefas.view']);
+        $pasta   = $this->criarPasta($tenant, 'CLIENTE DO CRIADOR');
+        $pasta->setCriadoPor($primario);
+        $meta = $this->novaMeta($pasta, $criador, 'Meta criada e delegada');
+        $meta->removeResponsavel($criador);
+        $meta->addResponsavel($primario);
+        $this->acompanhar($meta, $criador);
+        // Outra meta da MESMA pasta, só acompanhada: põe a pasta na lista das que ele não vê, e a meta que ele
+        // criou precisa continuar pelo ramo do criador.
+        $alheia = $this->novaMeta($pasta, $primario, 'Meta alheia da mesma pasta');
+        $this->acompanhar($alheia, $criador);
+
+        $corpo = $this->abrir($criador, $tenant, 'acompanhando');
+        self::assertStringContainsString('Meta criada e delegada', $corpo);
+        self::assertStringNotContainsString('Meta alheia da mesma pasta', $corpo);
+        self::assertSame('1', $this->badge('acompanhando'));
+        self::assertStringContainsString('Meta criada e delegada', $this->abrir($criador, $tenant, 'todas'));
+    }
+
+    #[TestDox('Master (ROLE_SUPER_ADMIN) vê a meta que acompanha, mesmo sem permissão de ver pasta no perfil')]
+    public function testMasterVeTudo(): void
+    {
+        [, $tenant, , $meta] = $this->cenario();
+        $master = $this->criarColaborador($tenant, 'Master Da Plataforma', ['modules.tarefas.view']);
+        $master->setRoles(['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $this->acompanhar($meta, $master);
+
+        self::assertStringContainsString(self::TITULO, $this->abrir($master, $tenant, 'acompanhando'));
+        self::assertSame('1', $this->badge('acompanhando'));
+    }
+
+    /**
+     * Regra do `AcessoAMeta::exigir`: o cadeado é só o teto. Estar em `Visualizar` no cadeado não dá a permissão de
+     * ver a pasta; sem `resources.pasta.view` (ou acesso item a item) a pessoa não vê a pasta, então a meta só
+     * acompanhada NÃO aparece (e a página dela dá 404). Com `resources.pasta.view`, aparece.
+     */
+    #[TestDox('Cadeado em Visualizar sem resources.pasta.view: a meta só acompanhada não aparece (404 na página); com a permissão, aparece')]
+    public function testCadeadoEmVisualizar(): void
+    {
+        [$primario, $tenant, $pasta, $meta] = $this->cenario();
+        $sem = $this->criarColaborador($tenant, 'Visualizar Sem Permissao', ['modules.tarefas.view']);
+        $com = $this->criarColaborador($tenant, 'Visualizar Com Permissao', ['modules.tarefas.view', 'resources.pasta.view']);
+        $this->trancar($pasta, $primario, [[$sem, NivelDeAcesso::Visualizar], [$com, NivelDeAcesso::Visualizar]]);
+        $this->acompanhar($meta, $sem);
+        $this->acompanhar($meta, $com);
+
+        self::assertStringNotContainsString(self::TITULO, $this->abrir($sem, $tenant, 'acompanhando'));
+        self::assertSame('0', $this->badge('acompanhando'));
+        $this->client->request('GET', '/tarefas/' . $meta->getId());
+        self::assertResponseStatusCodeSame(404, 'a página da meta segue a mesma regra');
+
+        self::assertStringContainsString(self::TITULO, $this->abrir($com, $tenant, 'acompanhando'));
+        self::assertSame('1', $this->badge('acompanhando'));
+    }
+
+    #[TestDox('Chat da I.A: a meta só acompanhada de pasta que a pessoa não vê sai das atrasadas; com resources.pasta.view entra')]
+    public function testAtrasadasDoChat(): void
+    {
+        [$primario, $tenant, , $meta] = $this->cenario();
+        $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->atualizar(true, 10, 100, false, $primario);
+        $this->em()->persist($configuracao);
+        $sem = $this->criarColaborador($tenant, 'Chat Sem Ver', ['modules.tarefas.view']);
+        $com = $this->criarColaborador($tenant, 'Chat Vendo', ['modules.tarefas.view', 'resources.pasta.view']);
+        $this->acompanhar($meta, $sem);
+        $this->acompanhar($meta, $com);
+        $contexto = static::getContainer()->get(ContextoDasMetasNoChat::class);
+
+        $doSem = implode("\n", $contexto->ler($sem, $tenant));
+        self::assertStringContainsString('<metas>', $doSem);
+        self::assertStringNotContainsString(self::TITULO, $doSem);
+
+        $doCom = implode("\n", $contexto->ler($com, $tenant));
+        self::assertStringContainsString(self::TITULO, $doCom);
     }
 }
