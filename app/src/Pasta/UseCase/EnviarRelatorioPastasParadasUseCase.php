@@ -11,6 +11,7 @@ use App\Pasta\DTO\PastaParada;
 use App\Pasta\DTO\RelatorioPastasParadasOutput;
 use App\Pasta\DTO\ResultadoDoEnvioPastasParadas;
 use App\Pasta\Repository\EnvioDoRelatorioPastasParadasRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\MontagemDoRelatorioPastasParadas;
 use App\Pasta\Service\PastasVisiveisNoRelatorio;
 use App\Repository\UserTenantRepository;
@@ -40,7 +41,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *     gravou não avisa (dois crons não duplicam); gravação e avisos numa transação só;
  *  4. cada responsável com vínculo ativo: as pastas dele QUE ELE PODE VER (o link abre a página com
  *     as pastas visíveis a ele; sem nenhuma, não há aviso); Controladoria e primários, sem repetir: a
- *     lista inteira. Só quem tem o módulo Expediente (é onde o relatório abre).
+ *     lista inteira QUE CADA UM PODE VER. Só quem tem o módulo Expediente (é onde o relatório abre).
+ *
+ * Cadeado (spec pasta-cadeado D1, auditoria lote B): o relatório é montado uma vez, com todas as pastas, e
+ * filtrado por destinatário: sai a pasta Oculta para ele (`AcessoAPasta::idsOcultosPara`) e a que ele não
+ * vê pela visibilidade do relatório (`PastasVisiveisNoRelatorio`). Primário e Master recebem tudo. Quem
+ * fica sem nenhuma pasta não é avisado (como a lista vazia).
  *
  * Sem pasta parada, o mês é gravado e ninguém é avisado. `$simular` (o `--dry-run` do comando)
  * faz tudo menos gravar e avisar.
@@ -71,6 +77,7 @@ final class EnviarRelatorioPastasParadasUseCase
         private readonly ClockInterface $clock,
         private readonly PermissionChecker $permissionChecker,
         private readonly PastasVisiveisNoRelatorio $visiveis,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -89,7 +96,7 @@ final class EnviarRelatorioPastasParadasUseCase
             fn (User $u): bool => $this->permissionChecker->canAccessModule($u, $tenant, 'expediente'),
         );
         $avisos = array_merge(
-            self::avisosGerais($relatorio, array_merge(array_values($gerais), $this->primarios($vinculos))),
+            $this->avisosGerais($relatorio, array_merge(array_values($gerais), $this->primarios($vinculos)), $tenant),
             $this->avisosAosResponsaveis($relatorio, $vinculos, $tenant),
         );
 
@@ -151,35 +158,62 @@ final class EnviarRelatorioPastasParadasUseCase
     }
 
     /**
-     * L3245: Controladoria e primários, um aviso por pessoa, com a lista inteira. Sem pasta parada,
-     * nenhum.
+     * L3245: Controladoria e primários, um aviso por pessoa, com a lista inteira que cada um pode ver
+     * (sem a pasta Oculta pelo cadeado). Sem pasta parada visível, nenhum.
      *
      * @param list<User> $pessoas
      *
      * @return list<array{0: User, 1: string, 2: string}> [destinatário, título, mensagem]
      */
-    private static function avisosGerais(RelatorioPastasParadasOutput $relatorio, array $pessoas): array
+    private function avisosGerais(RelatorioPastasParadasOutput $relatorio, array $pessoas, Tenant $tenant): array
     {
         if ($relatorio->pastas === []) {
             return [];
         }
-        $titulo = 'Relatório mensal: ' . \count($relatorio->pastas) . ' pasta(s) paradas';
-        $texto  = self::cortar(implode(' | ', array_map(
-            static fn (PastaParada $p): string => $p->numero . ' · ' . $p->cliente . ' · ' . $p->dias . ' dias · ' . $p->responsavel,
-            $relatorio->pastas,
-        )), self::TAMANHO_DO_AVISO);
 
         $unicas = [];
         foreach ($pessoas as $pessoa) {
-            $unicas[(int) $pessoa->getId()] = [$pessoa, $titulo, $texto];
+            $id = (int) $pessoa->getId();
+            if (isset($unicas[$id])) {
+                continue;
+            }
+            $unicas[$id] = null;
+            $pastas      = array_values(array_filter($relatorio->pastas, $this->podeReceber($pessoa, $tenant)));
+            if ($pastas === []) {
+                continue;
+            }
+            $unicas[$id] = [
+                $pessoa,
+                'Relatório mensal: ' . \count($pastas) . ' pasta(s) paradas',
+                self::cortar(implode(' | ', array_map(
+                    static fn (PastaParada $p): string => $p->numero . ' · ' . $p->cliente . ' · ' . $p->dias . ' dias · ' . $p->responsavel,
+                    $pastas,
+                )), self::TAMANHO_DO_AVISO),
+            ];
         }
 
-        return array_values($unicas);
+        return array_values(array_filter($unicas));
+    }
+
+    /**
+     * O filtro de cada destinatário: a pasta que ele pode abrir. Sai a Oculta pelo cadeado (Master e
+     * primário: nenhuma) e a que ele não vê pela visibilidade do relatório. Duas consultas por pessoa, não
+     * por pasta.
+     *
+     * @return \Closure(PastaParada): bool
+     */
+    private function podeReceber(User $pessoa, Tenant $tenant): \Closure
+    {
+        $ocultas  = array_flip($this->acessoAPasta->idsOcultosPara($pessoa, (int) $tenant->getId()));
+        $visiveis = $this->visiveis->ids($pessoa, $tenant);
+        $visiveis = $visiveis === null ? null : array_flip($visiveis);
+
+        return static fn (PastaParada $p): bool => !isset($ocultas[$p->pastaId]) && ($visiveis === null || isset($visiveis[$p->pastaId]));
     }
 
     /**
      * L3244: cada responsável (vínculo ativo, conta ativa, módulo Expediente) recebe as pastas dele
-     * que pode ver, com a primeira sugestão de cada uma (nunca a do financeiro).
+     * que pode ver (e que o cadeado não esconde dele), com a primeira sugestão de cada uma (nunca a do financeiro).
      *
      * @param list<UserTenant> $vinculos
      *
@@ -194,17 +228,15 @@ final class EnviarRelatorioPastasParadasUseCase
             }
         }
 
-        $visiveis       = [];
+        $filtros        = [];
         $porResponsavel = [];
         foreach ($relatorio->pastas as $pasta) {
             $id = $pasta->responsavelId;
             if ($id === null || !isset($ativos[$id])) {
                 continue;
             }
-            if (!\array_key_exists($id, $visiveis)) {
-                $visiveis[$id] = $this->visiveis->ids($ativos[$id], $tenant);
-            }
-            if ($visiveis[$id] === null || \in_array($pasta->pastaId, $visiveis[$id], true)) {
+            $filtros[$id] ??= $this->podeReceber($ativos[$id], $tenant);
+            if ($filtros[$id]($pasta)) {
                 $porResponsavel[$pasta->responsavelId][] = 'Pasta ' . $pasta->numero . ' (' . $pasta->cliente . '), ' . $pasta->dias . ' dias. ' . $pasta->primeiraSugestaoSemFinanceiro();
             }
         }
