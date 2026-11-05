@@ -27,8 +27,9 @@ use Symfony\Component\Routing\RouterInterface;
  *
  * O recorte é `Request` não-segura (POST/PUT/PATCH/DELETE) que receba uma `Pasta` — direta ou por
  * uma filha dela (documento, seção, mensagem, checklist, observação, processo, pagamento: todas
- * têm `getPasta()`) ou uma neta pela meta (`TarefaMensagem`: `getTarefa()->getPasta()`). Rota de leitura é GET e passa reto; as buscas da tela (`pasta_clientes_buscar`,
- * `pasta_buscar_processos`) são GET de propósito e continuam funcionando na pasta riscada.
+ * têm `getPasta()`) ou uma neta pela meta (`TarefaMensagem`: `getTarefa()->getPasta()`). Rota de leitura é GET e passa reto.
+ * As buscas que só servem para vincular (`pasta_clientes_buscar`, `pasta_buscar_processos`) são GET e por isso não
+ * passam por aqui: a própria action recusa a pasta riscada com 403 (achado 2.01 da auditoria e a revisão do 3.04).
  *
  * Rota que recebe só o id (`int`) de uma filha — documento, seção — declara de onde vem a pasta com
  * `#[PastaPelaFilha]`; rota que recebe o id cru da PRÓPRIA pasta (marcadores do Expediente, meta

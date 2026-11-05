@@ -7,8 +7,15 @@ namespace App\Tests\Pasta\Unit;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
+use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\NivelNoCadeado;
 use App\Pasta\UseCase\VincularProcessoUseCase;
 use App\Processo\Entity\Processo;
+use App\Repository\UserTenantRepository;
+use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -26,7 +33,7 @@ final class VincularProcessoUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new VincularProcessoUseCase($this->em);
+        $this->useCase = new VincularProcessoUseCase($this->em, $this->acessoSemCadeado());
         $this->tenant  = $this->createStub(Tenant::class);
         $this->usuario = $this->createStub(User::class);
     }
@@ -78,6 +85,17 @@ final class VincularProcessoUseCaseTest extends TestCase
         $this->expectException(AccessDeniedException::class);
 
         $this->useCase->executar($pasta, $processo, $this->usuario);
+    }
+
+    /** O `AcessoAPasta` de verdade (final), sem pasta oculta para a pessoa: o cadeado não interfere aqui. */
+    private function acessoSemCadeado(): AcessoAPasta
+    {
+        $vinculos = $this->createStub(UserTenantRepository::class);
+
+        return new AcessoAPasta(
+            new NivelNoCadeado($this->createStub(CadeadoDaPastaRepository::class), $vinculos, new RegraDosPrimarios($vinculos), (new \ReflectionClass(TenantContext::class))->newInstanceWithoutConstructor()),
+            $this->createStub(PermissionChecker::class),
+        );
     }
 
     private function novaPasta(): Pasta

@@ -11,11 +11,17 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\NivelNoCadeado;
 use App\Pasta\UseCase\BuscarProcessosParaVincularUseCase;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\ProcessoRepository;
+use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\RegraDosPrimarios;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -32,12 +38,25 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
     private BuscarProcessosParaVincularUseCase $useCase;
     private Tenant $tenant;
 
+    /** @var list<int> processos de pastas todas ocultas para o usuário (K3) */
+    private array $processosOcultos = [];
+
     protected function setUp(): void
     {
         $this->processos = $this->createMock(ProcessoRepository::class);
         $this->pastas    = $this->createMock(PastaRepository::class);
         $this->permissoes = $this->createMock(PermissionChecker::class);
-        $this->useCase   = new BuscarProcessosParaVincularUseCase($this->processos, $this->pastas, $this->permissoes);
+        // O AcessoAPasta de verdade (final), sobre um repositório de cadeados dublê: o usuário não é primário
+        // nem Master; os processos de pastas todas ocultas para ele são `$processosOcultos`.
+        $cadeados = $this->createStub(CadeadoDaPastaRepository::class);
+        $cadeados->method('idsDasPastasOcultasPara')->willReturn([900]);
+        $cadeados->method('processosSoDestasPastas')->willReturnCallback(fn (): array => $this->processosOcultos);
+        $vinculos = $this->createStub(UserTenantRepository::class);
+        $acesso = new AcessoAPasta(
+            new NivelNoCadeado($cadeados, $vinculos, new RegraDosPrimarios($vinculos), (new \ReflectionClass(TenantContext::class))->newInstanceWithoutConstructor()),
+            $this->permissoes,
+        );
+        $this->useCase   = new BuscarProcessosParaVincularUseCase($this->processos, $this->pastas, $this->permissoes, $acesso);
         $this->usuario   = new User();
         $this->tenant    = new Tenant();
     }
@@ -55,6 +74,21 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
         $this->pastas->expects(self::once())->method('vinculosDosProcessos')->with([], $this->tenant)->willReturn([]);
 
         self::assertSame([], $this->useCase->executar($pasta, '  execução ', $this->tenant, $this->usuario));
+    }
+
+    #[TestDox('K3 (achado 3.04): os processos de pastas todas ocultas para o usuário somam-se aos vinculados na exclusão')]
+    public function testExcluiOsProcessosOcultosPeloCadeado(): void
+    {
+        $pasta = $this->pasta('0100');
+        $pasta->vincularProcesso($this->processo(7, '11111111111111111111'));
+        $this->processosOcultos = [40, 7];
+
+        $this->processos->expects(self::once())->method('buscarPorTermoDoTenant')
+            ->with('', $this->tenant, [7, 40], BuscarProcessosParaVincularUseCase::LIMITE)
+            ->willReturn([]);
+        $this->pastas->method('vinculosDosProcessos')->willReturn([]);
+
+        self::assertSame([], $this->useCase->executar($pasta, '', $this->tenant, $this->usuario));
     }
 
     #[TestDox('Origem: "pasta" quando é processo de uma pasta, "apensado" quando só é apensado, "push" fora de pasta')]

@@ -90,7 +90,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     {
         $meta = $this->meta($this->pasta(), $this->colega);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']]);
-        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::VER_PASTA, self::EDITAR_PASTA]);
 
         $this->assertComBotao($logId);
         $this->desfazer($logId);
@@ -104,7 +104,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     {
         $meta = $this->meta($this->pasta(semCriador: true), $this->colega);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']]);
-        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::VER_PASTA, self::EDITAR_PASTA]);
 
         $this->assertSemBotao($logId);
         $this->desfazer($logId);
@@ -146,7 +146,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     {
         $meta = $this->meta($this->pasta(), $this->colega);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDaReabertura());
-        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::VER_PASTA, self::EDITAR_PASTA]);
 
         $this->assertSemBotao($logId);
         $this->desfazer($logId);
@@ -245,7 +245,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     {
         $meta = $this->meta($this->pasta(), $this->colega);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['etapasSaltadas' => ['from' => [EtapaDaPasta::Comercial->value], 'to' => []]]);
-        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::VER_PASTA, self::EDITAR_PASTA]);
 
         $this->assertSemBotao($logId);
         $this->desfazer($logId);

@@ -6,6 +6,8 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\ProcessoOcultoPeloCadeadoException;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\PrazosDoPush;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Processo\DTO\DadosDoProcessoInput;
@@ -25,7 +27,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * vinculado vira automaticamente o principal (representante da pasta nos resumos).
  *
  * Segurança: o processo precisa ser do mesmo escritório (tenant) da pasta — o controller já
- * resolve o processo com lookup tenant-scoped, e aqui reforçamos (defesa em profundidade).
+ * resolve o processo com lookup tenant-scoped, e aqui reforçamos (defesa em profundidade). Cadeado (regra K3,
+ * achado 3.04 da auditoria): o processo cujas pastas são TODAS ocultas para quem vincula não abre para ela, e o
+ * vínculo daria a ele uma pasta visível; por isso é recusado ({@see ProcessoOcultoPeloCadeadoException}).
  *
  * Registro (P5d, desenho `autoReg('proc', …)`): o vínculo novo escreve o cartão do sistema "processo N
  * vinculado à pasta (classe · tribunal)." na timeline, em nome de quem vinculou. O cartão (PastaMensagem) é
@@ -47,6 +51,7 @@ final class VincularProcessoUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly AcessoAPasta $acessoAPasta,
         private readonly ?RegistroDoSistemaNaPasta $registro = null,
         private readonly NumeroProcessoExtension $numero = new NumeroProcessoExtension(),
         private readonly ?SalvarDadosManuaisDoProcessoUseCase $dadosManuais = null,
@@ -55,10 +60,14 @@ final class VincularProcessoUseCase
     ) {
     }
 
-    /** @throws DadosDoProcessoInvalidosException dado manual do cadastro que não passa (nada é gravado) */
+    /**
+     * @throws DadosDoProcessoInvalidosException  dado manual do cadastro que não passa (nada é gravado)
+     * @throws ProcessoOcultoPeloCadeadoException processo de pastas todas ocultas para quem vincula (nada é gravado)
+     */
     public function executar(Pasta $pasta, Processo $processo, User $usuario, ?DadosDoProcessoInput $dadosDoCadastro = null): void
     {
         $this->garantirMesmoTenant($pasta, $processo);
+        $this->garantirProcessoVisivel($pasta, $processo, $usuario);
 
         if ($dadosDoCadastro === null || $this->dadosManuais === null || $pasta->getTenant() === null) {
             $this->vincular($pasta, $processo, $usuario);
@@ -113,6 +122,15 @@ final class VincularProcessoUseCase
 
         return 'processo ' . $numeroCnj . ' vinculado à pasta'
             . ($detalhes !== [] ? ' (' . implode(' · ', $detalhes) . ')' : '') . '.';
+    }
+
+    private function garantirProcessoVisivel(Pasta $pasta, Processo $processo, User $usuario): void
+    {
+        $tenant = $pasta->getTenant();
+        if ($tenant !== null && $processo->getId() !== null
+            && in_array($processo->getId(), $this->acessoAPasta->idsDosProcessosOcultos($usuario, $tenant), true)) {
+            throw new ProcessoOcultoPeloCadeadoException('Processo não encontrado.');
+        }
     }
 
     private function garantirMesmoTenant(Pasta $pasta, Processo $processo): void

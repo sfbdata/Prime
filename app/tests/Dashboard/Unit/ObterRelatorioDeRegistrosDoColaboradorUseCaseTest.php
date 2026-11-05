@@ -15,8 +15,15 @@ use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\AbaOcultaDaPastaRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
+use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\NivelNoCadeado;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Repository\UserRepository;
+use App\Repository\UserTenantRepository;
+use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\RegraDosPrimarios;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -24,6 +31,12 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ObterRelatorioDeRegistrosDoColaboradorUseCase::class)]
 final class ObterRelatorioDeRegistrosDoColaboradorUseCaseTest extends TestCase
 {
+    /** @var array<int, bool> leitura da pasta (canAccessResource pasta/view) por id; sem entrada, lê */
+    private array $leitura = [];
+
+    /** @var array<int, int> quantas vezes a leitura de cada pasta foi consultada */
+    private array $consultasDeLeitura = [];
+
     private function usuario(int $id, string $nome): User
     {
         $u = new User();
@@ -37,9 +50,17 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCaseTest extends TestCase
     private function useCase(MetricasExtrasDoDashboardRepository $metricas, array $zeramentos = [], array $equipe = [], bool $veFinanceiro = true): ObterRelatorioDeRegistrosDoColaboradorUseCase
     {
         $pastas = $this->createStub(PastaRepository::class);
-        $pasta = new Pasta();
-        $pasta->setTenant(new Tenant());
-        $pastas->method('find')->willReturn($pasta);
+        $tenantDasPastas = new Tenant();
+        $porId = [];
+        $pastas->method('find')->willReturnCallback(static function (int $id) use (&$porId, $tenantDasPastas): Pasta {
+            if (!isset($porId[$id])) {
+                $porId[$id] = new Pasta();
+                $porId[$id]->setTenant($tenantDasPastas);
+                (new \ReflectionProperty(Pasta::class, 'id'))->setValue($porId[$id], $id);
+            }
+
+            return $porId[$id];
+        });
         // A classe é final: sem regra de aba oculta na pasta (o caso comum), ninguém tem aba oculta. As regras reais
         // (Dados e Detalhes ocultos) são provadas no teste funcional.
         $regras = $this->createStub(AbaOcultaDaPastaRepository::class);
@@ -54,7 +75,28 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCaseTest extends TestCase
         $zer = $this->createStub(DashboardZeramentoRepository::class);
         $zer->method('listarAtivos')->willReturn($zeramentos);
 
-        return new ObterRelatorioDeRegistrosDoColaboradorUseCase($users, $metricas, $zer, $pastas, $abas, $fin, new \App\Cobranca\Service\ResolvedorIdentificadorDaPasta($this->createStub(\App\Cobranca\Repository\CasoCobrancaRepository::class), new \App\Cobranca\Service\ComporNomeDaPastaJudicial()));
+        return new ObterRelatorioDeRegistrosDoColaboradorUseCase($users, $metricas, $zer, $pastas, $abas, $fin, new \App\Cobranca\Service\ResolvedorIdentificadorDaPasta($this->createStub(\App\Cobranca\Repository\CasoCobrancaRepository::class), new \App\Cobranca\Service\ComporNomeDaPastaJudicial()), $this->acessoAPasta());
+    }
+
+    /**
+     * O `AcessoAPasta` de verdade (final): o `podeVer` é o canAccessResource de pasta/view, aqui um dublê que
+     * responde por `$leitura` e conta as consultas por pasta.
+     */
+    private function acessoAPasta(): AcessoAPasta
+    {
+        $permissoes = $this->createStub(PermissionChecker::class);
+        $permissoes->method('canAccessResource')->willReturnCallback(function (User $u, ?Tenant $t, string $tipo, int $id, string $acao): bool {
+            self::assertSame(['pasta', 'view'], [$tipo, $acao]);
+            $this->consultasDeLeitura[$id] = ($this->consultasDeLeitura[$id] ?? 0) + 1;
+
+            return $this->leitura[$id] ?? true;
+        });
+        $vinculos = $this->createStub(UserTenantRepository::class);
+
+        return new AcessoAPasta(
+            new NivelNoCadeado($this->createStub(CadeadoDaPastaRepository::class), $vinculos, new RegraDosPrimarios($vinculos), (new \ReflectionClass(TenantContext::class))->newInstanceWithoutConstructor()),
+            $permissoes,
+        );
     }
 
     private function linha(int $id, int $pasta, string $quando, string $conteudo = 'texto', string $aba = 'dados'): array
@@ -164,6 +206,47 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCaseTest extends TestCase
         self::assertSame('texto fin', $saida->grupos[0]['itens'][0]['trecho']);
         self::assertSame('/p/100#financeiro', $arr['grupos'][0]['url']);
         self::assertSame('/p/200#dados', $arr['grupos'][1]['url'], 'abas misturadas: Dados');
+    }
+
+    #[TestDox('3.05: sem a leitura da pasta, Dados e Detalhes também escondem o trecho; total e linhas ficam (B12)')]
+    public function testSemLeituraDaPastaEscondeTodasAsAbas(): void
+    {
+        $this->leitura = [100 => false];
+        $metricas = $this->createStub(MetricasExtrasDoDashboardRepository::class);
+        $metricas->method('listarRegistrosDoAutor')->willReturn(['total' => 4, 'registros' => [
+            $this->linha(1, 100, '2026-09-05 09:00', 'SEGREDO-DADOS', 'dados'),
+            $this->linha(2, 100, '2026-09-05 08:00', 'SEGREDO-DETALHES', 'detalhes'),
+            $this->linha(3, 200, '2026-09-04 08:00', 'texto livre', 'dados'),
+        ]]);
+
+        $saida = $this->useCase($metricas)->executar(new Tenant(), 5, [], [], $this->usuario(1, 'Quem olha'));
+        $json = json_encode($saida->paraArray(static fn (int $id): string => '/p/' . $id), JSON_THROW_ON_ERROR);
+
+        self::assertSame(4, $saida->total);
+        self::assertSame(1, $saida->restantes);
+        self::assertStringNotContainsString('SEGREDO', $json);
+        foreach ($saida->grupos[0]['itens'] as $item) {
+            self::assertTrue($item['oculto']);
+            self::assertSame('', $item['trecho']);
+        }
+        self::assertSame('texto livre', $saida->grupos[1]['itens'][0]['trecho'], 'a pasta que a pessoa lê segue com o trecho');
+    }
+
+    #[TestDox('3.05: a leitura da pasta (AcessoAPasta::podeVer) é consultada no máximo uma vez por pasta')]
+    public function testLeituraUmaVezPorPasta(): void
+    {
+        $metricas = $this->createStub(MetricasExtrasDoDashboardRepository::class);
+        $metricas->method('listarRegistrosDoAutor')->willReturn(['total' => 5, 'registros' => [
+            $this->linha(1, 100, '2026-09-05 09:00', 'a', 'dados'),
+            $this->linha(2, 100, '2026-09-05 08:00', 'b', 'detalhes'),
+            $this->linha(3, 100, '2026-09-05 07:00', 'c', 'dados'),
+            $this->linha(4, 200, '2026-09-04 08:00', 'd', 'financeiro'),
+            $this->linha(5, 200, '2026-09-04 07:00', 'e', 'dados'),
+        ]]);
+
+        $this->useCase($metricas)->executar(new Tenant(), 5, [], [], $this->usuario(1, 'Quem olha'));
+
+        self::assertSame([100 => 1, 200 => 1], $this->consultasDeLeitura);
     }
 
     #[TestDox('trecho: sem HTML, entidades decodificadas, espaços colapsados e truncado com reticências')]
