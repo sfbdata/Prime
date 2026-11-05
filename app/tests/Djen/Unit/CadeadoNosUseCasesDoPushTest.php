@@ -116,8 +116,8 @@ final class CadeadoNosUseCasesDoPushTest extends TestCase
         $this->processo->pausarMonitoramento($this->usuario, new \DateTimeImmutable('-1 day'));
         $this->expectException(AcompanhamentoInvalidoException::class);
         try {
-            (new IncluirProcessoNoAcompanhamentoUseCase($this->processos(), $this->acompanhadosQueNaoGravam()))
-                ->executar($this->tenant, $this->usuario, self::NUMERO, [self::ID]);
+            (new IncluirProcessoNoAcompanhamentoUseCase($this->processos(), $this->acompanhadosQueNaoGravam(), $this->pastasDoProcesso()))
+                ->executar($this->tenant, $this->usuario, self::NUMERO, [self::ID], static fn (): bool => true);
         } finally {
             self::assertFalse($this->processo->monitoramentoAtivo());
         }
@@ -130,8 +130,37 @@ final class CadeadoNosUseCasesDoPushTest extends TestCase
         $reconciliar = (new \ReflectionClass(ReconciliarPublicacoesComProcessosUseCase::class))->newInstanceWithoutConstructor();
         $this->expectException(AcompanhamentoInvalidoException::class);
         try {
-            (new IncluirProcessoCadastradoNoPushUseCase($this->processos(), $this->acompanhadosQueNaoGravam(), $reconciliar))
-                ->executarPorNumero($this->tenant, $this->usuario, self::NUMERO, [self::ID]);
+            (new IncluirProcessoCadastradoNoPushUseCase($this->processos(), $this->acompanhadosQueNaoGravam(), $reconciliar, $this->pastasDoProcesso()))
+                ->executarPorNumero($this->tenant, $this->usuario, self::NUMERO, [self::ID], static fn (): bool => true);
+        } finally {
+            self::assertFalse($this->processo->monitoramentoAtivo());
+        }
+    }
+
+    #[Test]
+    public function incluirRecusaQuemNaoEditaAlgumaPastaDoProcesso(): void
+    {
+        $this->processo->pausarMonitoramento($this->usuario, new \DateTimeImmutable('-1 day'));
+        $this->expectException(AcompanhamentoInvalidoException::class);
+        $this->expectExceptionMessage('Você não tem permissão para retomar o acompanhamento do processo da Pasta CAD1.');
+        try {
+            (new IncluirProcessoNoAcompanhamentoUseCase($this->processos(), $this->acompanhadosQueNaoGravam(), $this->pastasDoProcesso()))
+                ->executar($this->tenant, $this->usuario, self::NUMERO, [], static fn (): bool => false);
+        } finally {
+            self::assertFalse($this->processo->monitoramentoAtivo());
+        }
+    }
+
+    #[Test]
+    public function incluirCadastradoRecusaQuemNaoEditaAlgumaPastaDoProcesso(): void
+    {
+        $this->processo->pausarMonitoramento($this->usuario, new \DateTimeImmutable('-1 day'));
+        $reconciliar = (new \ReflectionClass(ReconciliarPublicacoesComProcessosUseCase::class))->newInstanceWithoutConstructor();
+        $this->expectException(AcompanhamentoInvalidoException::class);
+        $this->expectExceptionMessage('Você não tem permissão para retomar o acompanhamento do processo da Pasta CAD1.');
+        try {
+            (new IncluirProcessoCadastradoNoPushUseCase($this->processos(), $this->acompanhadosQueNaoGravam(), $reconciliar, $this->pastasDoProcesso()))
+                ->executarPorNumero($this->tenant, $this->usuario, self::NUMERO, [], static fn (): bool => false);
         } finally {
             self::assertFalse($this->processo->monitoramentoAtivo());
         }
