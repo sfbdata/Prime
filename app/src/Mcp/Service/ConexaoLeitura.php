@@ -129,26 +129,54 @@ final class ConexaoLeitura
      * derrubaria o processo por memória numa consulta grande — e aí o teto não teria servido
      * para nada.
      *
+     * Cada consulta roda numa transação própria e descartável: `SET TRANSACTION READ ONLY`,
+     * `SET LOCAL statement_timeout` com o teto configurado, a consulta, e ROLLBACK no `finally`.
+     * Motivo (auditoria, item 1.10): a conexão é memoizada e dura o processo `mcp:server`
+     * inteiro, e os `SET` de `conexao()` são parâmetros de sessão que qualquer chamador muda sem
+     * privilégio. Uma chamada com `SELECT set_config('statement_timeout','0',false)` desligava o
+     * teto para todas as chamadas seguintes. Agora um `SET` ou `set_config` feito dentro da
+     * consulta é desfeito pelo ROLLBACK, e o teto e o modo somente leitura são reaplicados a
+     * cada consulta mesmo que a sessão tenha sido alterada por outro caminho.
+     *
+     * Isso só segura porque o SQL recebido é UM comando: o `pdo_pgsql` prepara no servidor e o
+     * PostgreSQL recusa mais de um comando num comando preparado (provado em
+     * `ConexaoLeituraTest::testSqlComDoisComandosERecusado`).
+     *
      * @param array<string, mixed> $parametros Parâmetros ligados (`:nome` no SQL)
      *
      * @return array{colunas: list<string>, linhas: list<array<string, mixed>>, truncado: bool}
      */
     public function consultar(string $sql, int $limite, array $parametros = []): array
     {
-        $resultado = $this->conexao()->executeQuery($sql, $parametros);
+        $conexao = $this->conexao();
 
         $linhas = [];
         $truncado = false;
 
-        while (($linha = $resultado->fetchAssociative()) !== false) {
-            if (count($linhas) >= $limite) {
-                $truncado = true;
-                break;
-            }
-            $linhas[] = $linha;
-        }
+        $conexao->beginTransaction();
 
-        $resultado->free();
+        try {
+            // `SET TRANSACTION` tem de vir antes de qualquer consulta da transação.
+            $conexao->executeStatement('SET TRANSACTION READ ONLY');
+            $conexao->executeStatement(sprintf('SET LOCAL statement_timeout = %d', $this->timeoutSegundos * 1000));
+
+            $resultado = $conexao->executeQuery($sql, $parametros);
+
+            while (($linha = $resultado->fetchAssociative()) !== false) {
+                if (count($linhas) >= $limite) {
+                    $truncado = true;
+                    break;
+                }
+                $linhas[] = $linha;
+            }
+
+            $resultado->free();
+        } finally {
+            // Sempre ROLLBACK, inclusive no sucesso: a consulta é só leitura, não há o que
+            // gravar, e o ROLLBACK é o que desfaz qualquer mudança de sessão feita por ela. No
+            // SQL inválido a transação fica abortada no servidor, e o ROLLBACK também a encerra.
+            $conexao->rollBack();
+        }
 
         return [
             'colunas'  => $linhas === [] ? [] : array_keys($linhas[0]),
