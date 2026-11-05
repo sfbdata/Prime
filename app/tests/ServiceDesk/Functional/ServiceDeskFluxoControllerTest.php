@@ -59,6 +59,49 @@ final class ServiceDeskFluxoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    #[TestDox('Solicitante sem gestão não vê o comentário interno nem o conta no histórico')]
+    public function testShowEscondeInteracaoInternaDoSolicitante(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $dono    = $this->criarComum($tenant, 'dono_' . uniqid() . '@test.com');
+        $gestor  = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $chamado = $this->criarChamado($tenant, $dono);
+        $this->adicionarInteracaoInterna($chamado, $gestor, 'Nota reservada da TI xyz123');
+        $id = (int) $chamado->getId();
+
+        $this->logarComTenant($client, $dono, $tenant);
+        $client->request('GET', "/servicedesk/{$id}");
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('Nota reservada da TI xyz123', $html);
+        // Só a interação de abertura conta.
+        self::assertStringContainsString('Histórico (1)', $html);
+    }
+
+    #[TestDox('Gestor do Service Desk vê o comentário interno com o selo Interno')]
+    public function testShowMostraInteracaoInternaAoGestor(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $dono    = $this->criarComum($tenant, 'dono_' . uniqid() . '@test.com');
+        $gestor  = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $chamado = $this->criarChamado($tenant, $dono);
+        $this->adicionarInteracaoInterna($chamado, $gestor, 'Nota reservada da TI xyz123');
+        $id = (int) $chamado->getId();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+        $crawler = $client->request('GET', "/servicedesk/{$id}");
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Nota reservada da TI xyz123', $html);
+        self::assertStringContainsString('Histórico (2)', $html);
+        self::assertGreaterThan(0, $crawler->filter('.timeline-item.border-warning .badge.text-bg-warning')->count());
+        self::assertStringContainsString('Interno', $crawler->filter('.timeline-item.border-warning .badge.text-bg-warning')->text());
+    }
+
     #[TestDox('Interação do solicitante cria comentário e redireciona')]
     public function testInteracaoSolicitanteCriaComentario(): void
     {
@@ -277,6 +320,21 @@ final class ServiceDeskFluxoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $chamado;
+    }
+
+    private function adicionarInteracaoInterna(Chamado $chamado, User $autor, string $mensagem): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $interacao = new ChamadoInteracao();
+        $interacao->setAutor($autor);
+        $interacao->setTipo(ChamadoInteracao::TIPO_COMENTARIO);
+        $interacao->setMensagem($mensagem);
+        $interacao->setInterno(true);
+        $chamado->addInteracao($interacao);
+
+        $em->persist($interacao);
+        $em->flush();
     }
 
     private function instalarCsrfStorage(): void

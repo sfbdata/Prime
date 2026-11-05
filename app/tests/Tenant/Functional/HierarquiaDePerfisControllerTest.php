@@ -18,6 +18,10 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\HierarquiaDePerfis;
+use App\TrabalhoExterno\DTO\Autor;
+use App\TrabalhoExterno\Entity\ConviteDemanda;
+use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Enum\Perfil;
 use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -401,6 +405,45 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('C8 (auditoria 1.04): convite de escritório pendente de B para o e-mail da pessoa bloqueia a troca da senha pelo primário de A')]
+    public function testSenhaDeQuemTemConvitePendenteDeOutroEscritorio(): void
+    {
+        $alvo = $this->criarUsuario('Convidada por B', $this->perfilRestrito);
+        $this->em->flush();
+        $convite = new Invitation((string) $alvo->getEmail(), str_repeat('d', 64), Invitation::TIPO_ESCRITORIO, new \DateTimeImmutable('+7 days'));
+        $convite->setTenant($this->outroEscritorio());
+        $this->em->persist($convite);
+        $this->em->flush();
+
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $this->submeterEditRole($alvo, $this->perfilRestrito, 'SenhaNova#2026');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(HierarquiaDePerfis::RECUSA_SENHA_DE_OUTRO_ESCRITORIO, (string) $this->client->getResponse()->getContent());
+        self::assertTrue($this->senhaConfere($alvo, 'senha123'), 'o hash da senha não muda');
+    }
+
+    #[TestDox('C8 (auditoria 1.04): convite do Trabalho Externo aceito e vigente em demanda de B bloqueia a troca da senha pelo primário de A')]
+    public function testSenhaDeQuemEConvidadoEmDemandaDeOutroEscritorio(): void
+    {
+        $alvo = $this->criarUsuario('Convidada no TE de B', $this->perfilRestrito);
+        $this->em->flush();
+        $demanda = new DemandaExterna($this->outroEscritorio(), null);
+        $this->em->persist($demanda);
+        $todas = array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true);
+        $convite = new ConviteDemanda($demanda, 'Convidada', (string) $alvo->getEmail(), null, new \DateTimeImmutable('+30 days'), str_repeat('e', 64), $todas, new Autor(null, 'Fulano', Perfil::Master));
+        $convite->aceitar($alvo, new \DateTimeImmutable('today'));
+        $this->em->persist($convite);
+        $this->em->flush();
+
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $this->submeterEditRole($alvo, $this->perfilRestrito, 'SenhaNova#2026');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(HierarquiaDePerfis::RECUSA_SENHA_DE_OUTRO_ESCRITORIO, (string) $this->client->getResponse()->getContent());
+        self::assertTrue($this->senhaConfere($alvo, 'senha123'), 'o hash da senha não muda');
+    }
+
     #[TestDox('C8: vínculo SUSPENSO em outro escritório também bloqueia (pode voltar a valer); o Master troca a senha de quem usa outro escritório')]
     public function testSenhaComVinculoSuspensoEPeloMaster(): void
     {
@@ -548,6 +591,16 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
             'SELECT p.code FROM tenant_role_permission trp JOIN permission p ON p.id = trp.permission_id WHERE trp.tenant_role_id = :r ORDER BY p.code',
             ['r' => $perfil->getId()]
         ));
+    }
+
+    private function outroEscritorio(): Tenant
+    {
+        $outro = new Tenant();
+        $outro->setName('Escritório B ' . uniqid());
+        $this->em->persist($outro);
+        $this->em->flush();
+
+        return $outro;
     }
 
     /** Vínculo do usuário num escritório B, onde ele é primário; ativo ou não. */

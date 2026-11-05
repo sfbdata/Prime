@@ -69,12 +69,12 @@
                 {# Timeline de interações #}
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-chat-dots me-2"></i>{{ 'servicedesk.show.historico'|trans({total: chamado.interacoes|length ~ ''}) }}</h3>
+                        <h3 class="card-title"><i class="bi bi-chat-dots me-2"></i>{{ 'servicedesk.show.historico'|trans({total: interacoes|length ~ ''}) }}</h3>
                     </div>
                     <div class="card-body">
-                        {% if chamado.interacoes|length > 0 %}
+                        {% if interacoes|length > 0 %}
                         <div class="timeline">
-                            {% for interacao in chamado.interacoes %}
+                            {% for interacao in interacoes %}
                             <div class="time-label">
                                 <span class="text-bg-secondary">{{ interacao.criadoEm|data }}</span>
                             </div>
