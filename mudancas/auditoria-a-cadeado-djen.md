@@ -9,4 +9,5 @@ tipo: correcao
   - Testes: `CadeadoNoPushTest` (funcional, 15 casos) e `CadeadoNosUseCasesDoPushTest` (unitário).
 
 ## Para o cliente
-- Quando uma pasta está trancada pelo cadeado para alguém, essa pessoa não vê mais as publicações, as partes nem o processo dessa pasta no Push Processual, nem no Relatório da aba Processos da OAB. Ela também não consegue mudar o prazo dessas publicações nem ligar ou desligar o acompanhamento e as anotações desse processo. Para quem pode ver a pasta, nada muda.
+- Quem não pode abrir uma pasta trancada pelo cadeado também não vê mais, no Push Processual, os processos e as publicações dela. Ficam fora o texto da intimação, as partes e o processo no Relatório da aba Processos da OAB.
+- Essa pessoa também não consegue mais mudar o prazo dessas publicações, marcar o prazo como cumprido, ligar ou desligar o acompanhamento do processo nem gravar anotações nele.
