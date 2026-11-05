@@ -7,6 +7,7 @@ namespace App\Tests\Twig;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Service\PermissionChecker;
 use App\Tests\Pasta\Functional\CriaFixturesPushDaPastaTrait;
 use App\Tests\Pasta\Functional\CriaUsuarioComPermissoesTrait;
 use App\Twig\PermissionExtension;
@@ -106,7 +107,8 @@ final class PermissionExtensionMemoriaTest extends KernelTestCase
             self::assertFalse($ext->canAccessResource('pasta', $id, 'delete'));
         });
 
-        self::assertSame(4, $this->consultasDePermissao($sqls));
+        // 2 de resource_access (uma por ação) + 1 de user_tenant: o vínculo fica guardado no PermissionChecker.
+        self::assertSame(3, $this->consultasDePermissao($sqls));
     }
 
     #[TestDox('reset() esvazia a memória: a requisição seguinte consulta de novo')]
@@ -116,8 +118,11 @@ final class PermissionExtensionMemoriaTest extends KernelTestCase
         $id = (int) $pasta->getId();
         $ext->canAccessResource('pasta', $id, 'edit');
 
-        $sqls = $this->consultasDurante(static function () use ($ext, $id): void {
+        $checker = static::getContainer()->get(PermissionChecker::class);
+        $sqls = $this->consultasDurante(static function () use ($ext, $id, $checker): void {
+            // No kernel.reset os dois zeram juntos: a extensão e o vínculo guardado no PermissionChecker.
             $ext->reset();
+            $checker->reset();
             $ext->canAccessResource('pasta', $id, 'edit');
         });
 

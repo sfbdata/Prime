@@ -21,7 +21,11 @@ class TenantRolePermission implements Auditavel
     #[ORM\JoinColumn(nullable: false)]
     private ?TenantRole $tenantRole = null;
 
-    #[ORM\ManyToOne(inversedBy: 'tenantRolePermissions')]
+    /**
+     * EAGER: a coleção do papel vem com as permissões numa consulta só, e não uma por item, que é o que a
+     * sidebar faz a cada página (spec `permission-checker-memoria.md`, D2).
+     */
+    #[ORM\ManyToOne(inversedBy: 'tenantRolePermissions', fetch: 'EAGER')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Permission $permission = null;
 
