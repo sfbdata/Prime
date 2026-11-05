@@ -20,7 +20,9 @@ use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Service\PermissionChecker;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\AcessoDaContaForaDoEscritorio;
 use App\Tenant\Service\HierarquiaDePerfis;
+use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -309,6 +311,7 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
             new RegraDosPrimarios($this->userTenantRepo),
             $this->userTenantRepo,
             $this->createMock(PermissionChecker::class),
+            new AcessoDaContaForaDoEscritorio($this->userTenantRepo, $this->invitationRepo, $this->createMock(ConviteDemandaRepository::class)),
         );
     }
 

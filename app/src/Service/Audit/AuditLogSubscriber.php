@@ -7,6 +7,9 @@ use App\ChatIa\Entity\ConversaDeChat;
 use App\ChatIa\Entity\PropostaDeCadastro;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
+use App\Entity\Tenant\Cargo;
+use App\Entity\Tenant\Lotacao;
+use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Recompensa\Entity\DadosDeRecebimentoDeRecompensa;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
@@ -22,6 +25,7 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\PersistentCollection;
 use Doctrine\ORM\UnitOfWork;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Contract\TenantAware;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -419,21 +423,42 @@ class AuditLogSubscriber
     }
 
     /**
-     * O escritório do registro de auditoria: o da sessão. Em resposta em fluxo (SSE, Chat I.A) a sessão já foi fechada e os
-     * cabeçalhos já saíram, então ler a sessão estoura `RuntimeException` ("headers already sent"); nesse caso o escritório
-     * é o da própria entidade gravada (toda entidade auditável do chat é do escritório de quem agiu).
+     * O escritório do registro de auditoria: o da sessão, salvo quando a entidade tem dono (TenantAware, ou os cadastros
+     * Cargo, Sede e Lotação, que têm escritório sem ser TenantAware) e a sessão tem escritório: aí vale o DONO
+     * (auditoria 3.01). Quem tem vínculo em A e B edita, com a sessão em A, a sede de B pela URL de B, e o log nascia em
+     * A, visível e desfazível pela trilha de A. Lista fechada, como a posse do desfazer: classe nova só entra depois de
+     * conferida.
+     *
+     * Sem escritório na sessão (comando, worker, fila) o registro segue sem escritório, como antes: preencher o dono ali
+     * poria na trilha de cada escritório o que o sistema fez sozinho, mudança que não é desta correção.
+     *
+     * Em resposta em fluxo (SSE, Chat I.A) a sessão já foi fechada e os cabeçalhos já saíram, então ler a sessão estoura
+     * `RuntimeException` ("headers already sent"); nesse caso o escritório é o da própria entidade gravada (toda entidade
+     * auditável do chat é do escritório de quem agiu).
      *
      * @param callable(): ?int $daSessao
      */
     public static function tenantDoRegistro(callable $daSessao, object $entity): ?int
     {
         try {
-            return $daSessao();
+            $daSessaoAtual = $daSessao();
         } catch (\RuntimeException) {
             $tenant = method_exists($entity, 'getTenant') ? $entity->getTenant() : null;
 
             return $tenant instanceof \App\Entity\Tenant\Tenant ? $tenant->getId() : null;
         }
+
+        return $daSessaoAtual === null ? null : (self::tenantDoDono($entity) ?? $daSessaoAtual);
+    }
+
+    /** O escritório dono da entidade, ou nulo quando ela não tem dono conhecido (ou ainda não o tem). */
+    private static function tenantDoDono(object $entity): ?int
+    {
+        if ($entity instanceof TenantAware || $entity instanceof Cargo || $entity instanceof Sede || $entity instanceof Lotacao) {
+            return $entity->getTenant()?->getId();
+        }
+
+        return null;
     }
 
     private function resolveEntityId(object $entity, UnitOfWork $unitOfWork): ?string

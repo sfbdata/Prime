@@ -58,6 +58,7 @@ final class HierarquiaDePerfis implements ResetInterface
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly AcessoDaContaForaDoEscritorio $acessoDaContaForaDoEscritorio,
     ) {
     }
 
@@ -241,9 +242,10 @@ final class HierarquiaDePerfis implements ResetInterface
     /**
      * As barreiras desta frente para a senha no edit-role, ou nulo quando passa:
      *  - C8: a senha é da CONTA (vale em todos os escritórios), mas quem a troca aqui só responde por este. Quem não é
-     *    Master não troca a senha de quem tem vínculo em outro escritório (qualquer perfil e situação), senão um gestor
-     *    deste escritório entraria, com a senha nova, num escritório onde a pessoa é primária. A própria pessoa troca
-     *    a dela;
+     *    Master não troca a senha de quem tem acesso a outro escritório, senão um gestor deste escritório entraria, com
+     *    a senha nova, num escritório onde a pessoa é primária. Acesso fora é o que a `AcessoDaContaForaDoEscritorio`
+     *    enxerga: vínculo (qualquer perfil e situação), convite de escritório pendente e convite do Trabalho Externo
+     *    aceito e vigente (auditoria 1.04). A própria pessoa troca a dela;
      *  - C5: quem não é primário nem Master não troca a senha de quem tem perfil fora do subconjunto dele.
      */
     public function recusaDaSenha(User $ator, Tenant $tenant, UserTenant $alvo): ?string
@@ -251,7 +253,7 @@ final class HierarquiaDePerfis implements ResetInterface
         if ($this->regraDosMasters->ehMaster($ator) || self::mesmoUsuario($ator, $alvo->getUser())) {
             return null;
         }
-        if ($this->userTenantRepository->existeVinculoEmOutroEscritorio($alvo->getUser(), $tenant)) {
+        if ($this->acessoDaContaForaDoEscritorio->existe($alvo->getUser(), $tenant)) {
             return self::RECUSA_SENHA_DE_OUTRO_ESCRITORIO;
         }
 

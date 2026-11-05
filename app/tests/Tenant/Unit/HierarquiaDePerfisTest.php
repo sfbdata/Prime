@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
@@ -12,10 +13,17 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
+use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
+use App\Tenant\Service\AcessoDaContaForaDoEscritorio;
 use App\Tenant\Service\HierarquiaDePerfis;
 use App\Tenant\Service\RegraDosPrimarios;
+use App\TrabalhoExterno\DTO\Autor;
+use App\TrabalhoExterno\Entity\ConviteDemanda;
+use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Enum\Perfil;
+use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -25,6 +33,7 @@ use PHPUnit\Framework\TestCase;
  * Hierarquia de perfis (spec perfis-1.2-permissoes-e-hierarquia C1 a C5; desenho 05 - Perfis 1.2, L720-724).
  */
 #[CoversClass(HierarquiaDePerfis::class)]
+#[CoversClass(AcessoDaContaForaDoEscritorio::class)]
 final class HierarquiaDePerfisTest extends TestCase
 {
     private UserTenantRepository&MockObject $vinculos;
@@ -36,6 +45,10 @@ final class HierarquiaDePerfisTest extends TestCase
     private array $vinculosAtivos = [];
     /** @var array<int, true> usuários com vínculo em outro escritório */
     private array $emOutroEscritorio = [];
+    /** @var list<Invitation> o que a consulta de convites pendentes devolve */
+    private array $convitesPendentes = [];
+    /** @var list<ConviteDemanda> o que a consulta de convites do Trabalho Externo vigentes devolve */
+    private array $convitesDeDemanda = [];
 
     protected function setUp(): void
     {
@@ -47,13 +60,14 @@ final class HierarquiaDePerfisTest extends TestCase
             fn (User $u): bool => isset($this->emOutroEscritorio[spl_object_id($u)])
         );
         $this->checker  = $this->createMock(PermissionChecker::class);
+        $this->tenant = $this->escritorio(1);
         $this->hierarquia = new HierarquiaDePerfis(
             new RegraDosMasters($this->createMock(ContasDoSistemaRepository::class)),
             new RegraDosPrimarios($this->vinculos),
             $this->vinculos,
             $this->checker,
+            $this->acesso($this->vinculos),
         );
-        $this->tenant = new Tenant();
         $this->perfilDoSistema = (new TenantRole())->setIsSystem(true);
     }
 
@@ -217,6 +231,7 @@ final class HierarquiaDePerfisTest extends TestCase
             new RegraDosPrimarios($vinculos),
             $vinculos,
             $this->checker,
+            $this->acesso($vinculos),
         );
         $ator = $this->usuario();
         (new \ReflectionProperty(User::class, 'id'))->setValue($ator, 10);
@@ -291,6 +306,7 @@ final class HierarquiaDePerfisTest extends TestCase
             new RegraDosPrimarios($vinculos),
             $vinculos,
             $this->checker,
+            $this->acesso($vinculos),
         );
 
         $alcance = $hierarquia->alcanceDoAtor($user, $this->tenant);
@@ -310,5 +326,117 @@ final class HierarquiaDePerfisTest extends TestCase
             self::assertTrue($alcance($this->perfilDoSistema));
             self::assertTrue($alcance($this->perfil(['admin.roles.manage'])));
         }
+    }
+
+    /** A regra de acesso fora de verdade, com as consultas dubladas. */
+    private function acesso(UserTenantRepository $vinculos): AcessoDaContaForaDoEscritorio
+    {
+        $convites = $this->createMock(InvitationRepository::class);
+        $convites->method('encontrarDeEscritorioPendentesPorEmail')->willReturnCallback(
+            fn (string $email): array => array_values(array_filter(
+                $this->convitesPendentes,
+                static fn (Invitation $c): bool => strtolower($c->getEmail()) === strtolower($email),
+            )),
+        );
+        $demandas = $this->createMock(ConviteDemandaRepository::class);
+        $demandas->method('vigentesDo')->willReturnCallback(
+            fn (User $u): array => array_values(array_filter(
+                $this->convitesDeDemanda,
+                static fn (ConviteDemanda $c): bool => $c->getConvidado() === $u,
+            )),
+        );
+
+        return new AcessoDaContaForaDoEscritorio($vinculos, $convites, $demandas);
+    }
+
+    private function escritorio(int $id): Tenant
+    {
+        $tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, $id);
+
+        return $tenant;
+    }
+
+    private function conviteDeEscritorio(User $para, Tenant $de, string $validade = '+7 days'): Invitation
+    {
+        $convite = new Invitation(strtoupper((string) $para->getEmail()), str_repeat('a', 64), Invitation::TIPO_ESCRITORIO, new \DateTimeImmutable($validade));
+        $convite->setTenant($de);
+        $this->convitesPendentes[] = $convite;
+
+        return $convite;
+    }
+
+    private function conviteDeDemanda(User $para, Tenant $de, bool $aceitar = true): ConviteDemanda
+    {
+        $todas = array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true);
+        $convite = new ConviteDemanda(new DemandaExterna($de, null), 'Convidado', (string) $para->getEmail(), null, new \DateTimeImmutable('+30 days'), str_repeat('b', 64), $todas, new Autor(null, 'Fulano', Perfil::Master));
+        if ($aceitar) {
+            $convite->aceitar($para, new \DateTimeImmutable('today'));
+        }
+        $this->convitesDeDemanda[] = $convite;
+
+        return $convite;
+    }
+
+    /** @return array{User, UserTenant} o colaborador comum deste escritório, alvo da troca de senha */
+    private function alvoComum(): array
+    {
+        $alvo = $this->usuario();
+
+        return [$alvo, (new UserTenant($alvo, $this->tenant))->setTenantRole($this->perfil(['modules.clientes.view']))];
+    }
+
+    #[TestDox('1.04: convite de escritório pendente de OUTRO escritório recusa a senha; o Master e a própria pessoa passam')]
+    public function testConvitePendenteDeOutroEscritorioRecusaASenha(): void
+    {
+        $primario = $this->primario();
+        [$alvo, $vinculo] = $this->alvoComum();
+        self::assertNull($this->hierarquia->recusaDaSenha($primario, $this->tenant, $vinculo), 'controle: sem convite, passa');
+
+        $this->conviteDeEscritorio($alvo, $this->escritorio(2));
+
+        self::assertSame(HierarquiaDePerfis::RECUSA_SENHA_DE_OUTRO_ESCRITORIO, $this->hierarquia->recusaDaSenha($primario, $this->tenant, $vinculo));
+        self::assertNull($this->hierarquia->recusaDaSenha($this->master(), $this->tenant, $vinculo));
+        self::assertNull($this->hierarquia->recusaDaSenha($alvo, $this->tenant, $vinculo), 'a própria senha passa');
+    }
+
+    #[TestDox('1.04: convite de escritório do PRÓPRIO escritório, expirado, aceito ou revogado não recusa')]
+    public function testConviteDeEscritorioQueNaoDaAcessoNaoRecusa(): void
+    {
+        $primario = $this->primario();
+        [$alvo, $vinculo] = $this->alvoComum();
+        $this->conviteDeEscritorio($alvo, $this->escritorio(1));
+        $this->conviteDeEscritorio($alvo, $this->escritorio(2), '-1 day');
+        $this->conviteDeEscritorio($alvo, $this->escritorio(3))->aceitar($alvo);
+        $this->conviteDeEscritorio($alvo, $this->escritorio(4))->revogar();
+        $plataforma = new Invitation((string) $alvo->getEmail(), str_repeat('c', 64), Invitation::TIPO_PLATAFORMA, new \DateTimeImmutable('+7 days'));
+        $this->convitesPendentes[] = $plataforma;
+
+        self::assertNull($this->hierarquia->recusaDaSenha($primario, $this->tenant, $vinculo));
+    }
+
+    #[TestDox('1.04: convite do Trabalho Externo aceito e vigente de demanda de OUTRO escritório recusa a senha')]
+    public function testConviteDeDemandaVigenteDeOutroEscritorioRecusaASenha(): void
+    {
+        $primario = $this->primario();
+        [$alvo, $vinculo] = $this->alvoComum();
+
+        $this->conviteDeDemanda($alvo, $this->escritorio(2));
+
+        self::assertSame(HierarquiaDePerfis::RECUSA_SENHA_DE_OUTRO_ESCRITORIO, $this->hierarquia->recusaDaSenha($primario, $this->tenant, $vinculo));
+        self::assertNull($this->hierarquia->recusaDaSenha($this->master(), $this->tenant, $vinculo));
+    }
+
+    #[TestDox('1.04: convite do Trabalho Externo do próprio escritório, revogado ou vencido não recusa')]
+    public function testConviteDeDemandaQueNaoDaAcessoNaoRecusa(): void
+    {
+        $primario = $this->primario();
+        [$alvo, $vinculo] = $this->alvoComum();
+        $this->conviteDeDemanda($alvo, $this->escritorio(1));
+        $this->conviteDeDemanda($alvo, $this->escritorio(2))->revogar();
+        $vencido = $this->conviteDeDemanda($alvo, $this->escritorio(3));
+        (new \ReflectionProperty(ConviteDemanda::class, 'validade'))->setValue($vencido, new \DateTimeImmutable('-1 day'));
+
+        self::assertNull($this->hierarquia->recusaDaSenha($primario, $this->tenant, $vinculo));
     }
 }
