@@ -44,7 +44,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *    também a regra da tela de edição dela (`EditarObservacaoDetalhesUseCase::podeEditar`: autor e janela);
  *  - mensagem da pasta: o que a rota de edição pede. Ver a pasta (`AcessoAPasta::podeVer`), a barreira do cadeado
  *    para escrita e a regra da edição (`EditarMensagemPastaUseCase::podeEditar`);
- *  - evento da agenda: além do mapa (`admin.users.manage` ou o criador), ver o evento
+ *  - evento da agenda: além do mapa (`admin.users.manage` ou o criador), o módulo agenda e ver o evento
  *    (`EventoDaAgendaRepository::visivelPara`), como `agenda_editar` e a Agenda nova (auditoria 3.02/3.03).
  *
  * As guardas são CHAMADAS, nunca copiadas: mudou a regra da tela, mudou a do desfazer. A linha ou a entidade que não
@@ -139,8 +139,7 @@ final class GuardaDaTelaNoDesfazer
         return match (true) {
             $entidade instanceof Tarefa => $this->permiteAMeta($entidade, $this->camposDoDiff($log), $ator, $tenant),
             $entidade instanceof PastaMensagem => $this->permiteAMensagem($entidade, $ator, $tenant),
-            // "Só eu" alheio e reunião com participantes de que o ator não faz parte: nem o administrador desfaz.
-            $entidade instanceof Evento => $this->eventosDaAgenda->visivelPara((int) $entidade->getId(), $tenant, $ator) !== null,
+            $entidade instanceof Evento => $this->permiteOEvento($entidade, $ator, $tenant),
             $entidade instanceof PastaObservacaoDetalhes => $this->permiteAPasta($entidade, $ator)
                 && $this->editarObservacaoDetalhes->podeEditar($entidade, $ator, $tenant),
             default => $this->permiteAPasta($entidade, $ator),
@@ -184,6 +183,16 @@ final class GuardaDaTelaNoDesfazer
         }
 
         return true;
+    }
+
+    /**
+     * As barreiras do `agenda_editar`: o módulo agenda e ver o evento. "Só eu" alheio e reunião com participantes de
+     * que o ator não faz parte: nem o administrador desfaz.
+     */
+    private function permiteOEvento(Evento $evento, User $ator, Tenant $tenant): bool
+    {
+        return $this->permissionChecker->canAccessModule($ator, $tenant, 'agenda')
+            && $this->eventosDaAgenda->visivelPara((int) $evento->getId(), $tenant, $ator) !== null;
     }
 
     /** A rota de edição pede ver a pasta, e a barreira do cadeado recusa a escrita de quem só visualiza. */

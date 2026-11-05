@@ -329,7 +329,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     #[TestDox('Evento sem admin.users.manage: o criador desfaz, como na tela agenda_editar')]
     public function testCriadorDoEventoDesfaz(): void
     {
-        $criador = $this->entrarCom(self::SO_AUDITORIA);
+        $criador = $this->entrarCom([...self::SO_AUDITORIA, 'modules.agenda.view']);
         [$id, $logId] = $this->cenarioEvento($criador);
 
         $this->desfazer($logId);
@@ -342,7 +342,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     public function testOutraPessoaNaoDesfazEvento(): void
     {
         [$id, $logId] = $this->cenarioEvento($this->solicitante());
-        $this->entrarCom(self::SO_AUDITORIA);
+        $this->entrarCom([...self::SO_AUDITORIA, 'modules.agenda.view']);
 
         $this->desfazer($logId);
 
@@ -354,7 +354,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     public function testComPermissaoDesfazEventoDeOutro(): void
     {
         [$id, $logId] = $this->cenarioEvento($this->solicitante());
-        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage', 'modules.agenda.view']);
 
         $this->desfazer($logId);
 
@@ -366,7 +366,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     public function testAdministradorForaDaReuniaoNaoDesfaz(): void
     {
         [$id, $logId] = $this->cenarioEvento($this->solicitante(), [$this->solicitante()]);
-        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage', 'modules.agenda.view']);
 
         $this->desfazer($logId);
 
@@ -378,7 +378,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     public function testAdministradorParticipanteDesfaz(): void
     {
         $evento = $this->cenarioEvento($this->solicitante(), [$this->solicitante()]);
-        $admin = $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+        $admin = $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage', 'modules.agenda.view']);
         $participante = $this->em->find(Evento::class, $evento[0]);
         self::assertNotNull($participante);
         $participante->addParticipante($admin);
@@ -394,6 +394,18 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     public function testSoEuDeOutroNaoSeDesfaz(): void
     {
         [$id, $logId] = $this->cenarioEvento($this->solicitante(), [], Evento::VISIBILIDADE_SOMENTE_EU);
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage', 'modules.agenda.view']);
+
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Titulo novo', $this->valorAtual(Evento::class, $id));
+    }
+
+    #[TestDox('Evento sem o módulo agenda: quem tem admin.users.manage recebe 403, como no agenda_editar')]
+    public function testSemModuloAgendaNaoDesfaz(): void
+    {
+        [$id, $logId] = $this->cenarioEvento($this->solicitante());
         $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
 
         $this->desfazer($logId);
@@ -422,7 +434,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     {
         [, $logFechado] = $this->cenarioEvento($this->solicitante(), [$this->solicitante()]);
         [, $logAberto] = $this->cenarioEvento($this->solicitante());
-        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage', 'modules.agenda.view']);
 
         $this->client->request('GET', '/auditoria');
 
