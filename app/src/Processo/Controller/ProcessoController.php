@@ -225,7 +225,7 @@ class ProcessoController extends AbstractController
 
         $historicoTarefas = [];
 
-        foreach ($tarefaRepository->findByProcesso($processo) as $tarefa) {
+        foreach ($this->metasDoProcesso($processo, $tenant, $currentUser, $tarefaRepository, $acessoAPasta) as $tarefa) {
             $usuariosAtribuidos = [];
 
             foreach ($tarefa->getResponsaveis() as $usuario) {
@@ -267,6 +267,21 @@ class ProcessoController extends AbstractController
             'historicoTarefas' => $historicoTarefas,
             'pastasVinculadas' => $pastasVinculadas,
         ]);
+    }
+
+    /**
+     * As metas da aba Tarefas. Cadeado (spec pasta-cadeado D1, auditoria 1.03): as da pasta oculta para quem olha
+     * não aparecem nem contam. Sem escritório no contexto, nenhuma (como as pastas vinculadas).
+     *
+     * @return \App\Entity\Tarefa\Tarefa[]
+     */
+    private function metasDoProcesso(Processo $processo, ?\App\Entity\Tenant\Tenant $tenant, \App\Entity\Auth\User $quemOlha, TarefaRepository $tarefaRepository, AcessoAPasta $acessoAPasta): array
+    {
+        if ($tenant === null) {
+            return [];
+        }
+
+        return $tarefaRepository->findByProcesso($processo, $tenant, $acessoAPasta->idsDasPastasOcultas($quemOlha, $tenant));
     }
 
     #[Route('/{id}/deletar', name: 'processo_delete', methods: ['POST'])]
