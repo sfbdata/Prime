@@ -69,11 +69,16 @@ class TarefaRepository extends ServiceEntityRepository
      * de toda a equipe"), no lugar do papel da aba. Só com o `$escritorio` explícito: o escopo deixa de ser o
      * usuário, e o filtro de tenant não fica só a cargo do TenantFilter.
      *
+     * `$pastasSoAcompanhadasSemVer` (auditoria 3.12): pastas que o usuário não pode ver e em que ele só ACOMPANHA
+     * meta (de `PastasSoAcompanhadasSemVer`); nas abas Acompanhando e Todas, a meta acompanhada dessas pastas sai,
+     * a não ser que ele cuide dela (responsável ou criador). O mesmo vale nas contagens e no trilho abaixo.
+     *
      * @param array<string, string> $filtros  busca, prioridade (da meta), prazo, etapa
      * @param list<int>             $pastasOcultas
+     * @param list<int>             $pastasSoAcompanhadasSemVer
      * @return Tarefa[]
      */
-    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = [], ?Tenant $escritorio = null): array
+    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = [], ?Tenant $escritorio = null, array $pastasSoAcompanhadasSemVer = []): array
     {
         $qb = $this->createQueryBuilder('t');
 
@@ -82,7 +87,7 @@ class TarefaRepository extends ServiceEntityRepository
             $this->escoparPelaEtapa($qb, $etapa, $escritorio);
         } else {
             $qb->setParameter('usuario', $usuario);
-            $this->escoparPelaAba($qb, $aba);
+            $this->escoparPelaAba($qb, $aba, $pastasSoAcompanhadasSemVer);
         }
         $this->semPastasOcultas($qb, $pastasOcultas);
         $this->cortarConcluidasAntigas($qb);
@@ -100,9 +105,10 @@ class TarefaRepository extends ServiceEntityRepository
      * número crescer para sempre sem dizer nada sobre a carga de hoje.
      *
      * @param list<int> $pastasOcultas
+     * @param list<int> $pastasSoAcompanhadasSemVer ver `findParaMinhasMetas`
      * @return array<string, int>  chave = valor do enum AbaMetas
      */
-    public function contarPorAba(User $usuario, array $pastasOcultas = []): array
+    public function contarPorAba(User $usuario, array $pastasOcultas = [], array $pastasSoAcompanhadasSemVer = []): array
     {
         $contagens = [];
 
@@ -113,7 +119,7 @@ class TarefaRepository extends ServiceEntityRepository
                 ->setParameter('usuario', $usuario)
                 ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
 
-            $this->escoparPelaAba($qb, $aba);
+            $this->escoparPelaAba($qb, $aba, $pastasSoAcompanhadasSemVer);
             $this->semPastasOcultas($qb, $pastasOcultas);
 
             $contagens[$aba->value] = (int) $qb->getQuery()->getSingleScalarResult();
@@ -166,10 +172,11 @@ class TarefaRepository extends ServiceEntityRepository
      * hoje), e "hoje" vem do relógio do PHP, como no resto da tela, nunca do `NOW()` do banco.
      *
      * @param list<int> $pastasOcultas
+     * @param list<int> $pastasSoAcompanhadasSemVer ver `findParaMinhasMetas`
      */
-    public function contarAndamento(User $usuario, array $pastasOcultas = []): AndamentoDasMetasOutput
+    public function contarAndamento(User $usuario, array $pastasOcultas = [], array $pastasSoAcompanhadasSemVer = []): AndamentoDasMetasOutput
     {
-        $qb = $this->universoDoAndamento($usuario, $pastasOcultas)
+        $qb = $this->universoDoAndamento($usuario, $pastasOcultas, $pastasSoAcompanhadasSemVer)
             ->select('COUNT(t.id) AS total')
             ->addSelect('COALESCE(SUM(CASE WHEN t.status = :concluida THEN 1 ELSE 0 END), 0) AS concluidas')
             ->addSelect('COALESCE(SUM(CASE WHEN t.status = :emRevisao THEN 1 ELSE 0 END), 0) AS emRevisao')
@@ -229,11 +236,12 @@ class TarefaRepository extends ServiceEntityRepository
      * coleção) e depois as metas com pasta e criador já carregados, que o cartão lê.
      *
      * @param list<int> $pastasOcultas
+     * @param list<int> $pastasSoAcompanhadasSemVer ver `findParaMinhasMetas`
      * @return Tarefa[]
      */
-    public function findAtrasadasParaAtencao(User $usuario, int $limite, array $pastasOcultas = []): array
+    public function findAtrasadasParaAtencao(User $usuario, int $limite, array $pastasOcultas = [], array $pastasSoAcompanhadasSemVer = []): array
     {
-        $ids = $this->universoDoAndamento($usuario, $pastasOcultas)
+        $ids = $this->universoDoAndamento($usuario, $pastasOcultas, $pastasSoAcompanhadasSemVer)
             ->select('t.id')
             // Pasta excluída (lápide) não pede atenção: o item abre a pasta, e ela não existe mais na tela.
             ->innerJoin('t.pasta', 'pastaDaAtencao', 'WITH', 'pastaDaAtencao.excluidaEm IS NULL')
@@ -268,12 +276,13 @@ class TarefaRepository extends ServiceEntityRepository
      * concluídas antigas. Sem filtro da tela de propósito.
      *
      * @param list<int> $pastasOcultas
+     * @param list<int> $pastasSoAcompanhadasSemVer
      */
-    private function universoDoAndamento(User $usuario, array $pastasOcultas): QueryBuilder
+    private function universoDoAndamento(User $usuario, array $pastasOcultas, array $pastasSoAcompanhadasSemVer): QueryBuilder
     {
         $qb = $this->createQueryBuilder('t')->setParameter('usuario', $usuario);
 
-        $this->escoparPelaAba($qb, AbaMetas::TODAS);
+        $this->escoparPelaAba($qb, AbaMetas::TODAS, $pastasSoAcompanhadasSemVer);
         $this->semPastasOcultas($qb, $pastasOcultas);
         $this->cortarConcluidasAntigas($qb);
 
@@ -433,17 +442,58 @@ class TarefaRepository extends ServiceEntityRepository
      *
      * `MEMBER OF` vira `EXISTS (...)` no SQL, não JOIN — é por isso que TODAS não duplica a
      * meta em que o usuário é criador E responsável ao mesmo tempo.
+     *
+     * Auditoria 3.12 (a regra do `AcessoAMeta::exigir`): só acompanhar não basta para ver a meta. Com
+     * `$pastasSoAcompanhadasSemVer`, a meta acompanhada dessas pastas só entra se o usuário cuida dela.
+     *
+     * @param list<int> $pastasSoAcompanhadasSemVer
      */
-    private function escoparPelaAba(QueryBuilder $qb, AbaMetas $aba): void
+    private function escoparPelaAba(QueryBuilder $qb, AbaMetas $aba, array $pastasSoAcompanhadasSemVer = []): void
     {
+        $acompanha = ':usuario MEMBER OF t.acompanhantes';
+        if ($pastasSoAcompanhadasSemVer !== [] && \in_array($aba, [AbaMetas::ACOMPANHANDO, AbaMetas::TODAS], true)) {
+            $acompanha = '(' . $acompanha . ' AND (IDENTITY(t.pasta) NOT IN (:pastasSoAcompanhadasSemVer)'
+                . ' OR :usuario MEMBER OF t.responsaveis OR t.criadoPor = :usuario))';
+            $qb->setParameter('pastasSoAcompanhadasSemVer', $pastasSoAcompanhadasSemVer);
+        }
+
         $qb->andWhere(match ($aba) {
             AbaMetas::RESPONSAVEL  => ':usuario MEMBER OF t.responsaveis',
             AbaMetas::CRIEI        => 't.criadoPor = :usuario',
-            AbaMetas::ACOMPANHANDO => ':usuario MEMBER OF t.acompanhantes',
+            AbaMetas::ACOMPANHANDO => $acompanha,
             AbaMetas::TODAS        => '(:usuario MEMBER OF t.responsaveis'
                                       . ' OR t.criadoPor = :usuario'
-                                      . ' OR :usuario MEMBER OF t.acompanhantes)',
+                                      . ' OR ' . $acompanha . ')',
         });
+    }
+
+    /**
+     * As pastas do escritório em que o usuário ACOMPANHA alguma meta sem cuidar dela (não é responsável nem
+     * criador). São as candidatas a sair das abas Acompanhando e Todas: quem decide é
+     * `PastasSoAcompanhadasSemVer`, em lote, pelo `canAccessResource` de ver a pasta. Uma consulta.
+     *
+     * @return list<Pasta>
+     */
+    public function pastasSoAcompanhadasPor(User $usuario, Tenant $escritorio): array
+    {
+        $metas = $this->getEntityManager()->createQueryBuilder()
+            ->select('IDENTITY(ta.pasta)')
+            ->from(Tarefa::class, 'ta')
+            ->andWhere('ta.tenant = :escritorio')
+            ->andWhere(':usuario MEMBER OF ta.acompanhantes')
+            ->andWhere(':usuario NOT MEMBER OF ta.responsaveis')
+            ->andWhere('ta.criadoPor IS NULL OR ta.criadoPor != :usuario');
+
+        /** @var list<Pasta> */
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('p')
+            ->from(Pasta::class, 'p')
+            ->andWhere('p.tenant = :escritorio')
+            ->andWhere('p.id IN (' . $metas->getDQL() . ')')
+            ->setParameter('escritorio', $escritorio)
+            ->setParameter('usuario', $usuario)
+            ->getQuery()
+            ->getResult();
     }
 
     /**
