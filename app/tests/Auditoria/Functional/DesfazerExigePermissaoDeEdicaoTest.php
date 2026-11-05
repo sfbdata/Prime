@@ -172,7 +172,8 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     }
 
     /** @return array{0: int, 1: int} [id do evento, id da linha de auditoria] */
-    private function cenarioEvento(User $criador): array
+    /** @param list<User> $participantes */
+    private function cenarioEvento(User $criador, array $participantes = [], string $visibilidade = Evento::VISIBILIDADE_TODOS): array
     {
         $evento = new Evento();
         $evento->setTitulo('Titulo novo');
@@ -180,8 +181,11 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         $evento->setCriador($criador);
         $evento->setDataInicio(new \DateTimeImmutable('2026-11-10 10:00'));
         $evento->setDataFim(new \DateTimeImmutable('2026-11-10 11:00'));
-        $evento->setVisibilidade(Evento::VISIBILIDADE_TODOS);
+        $evento->setVisibilidade($visibilidade);
         $evento->setStatus(Evento::STATUS_AGENDADO);
+        foreach ($participantes as $participante) {
+            $evento->addParticipante($participante);
+        }
         $this->em->persist($evento);
         $this->em->flush();
         $id = (int) $evento->getId();
@@ -356,6 +360,76 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame('Titulo anterior', $this->valorAtual(Evento::class, $id));
+    }
+
+    #[TestDox('Evento "Para Todos" com participantes: o administrador que não participa recebe 403 e nada muda')]
+    public function testAdministradorForaDaReuniaoNaoDesfaz(): void
+    {
+        [$id, $logId] = $this->cenarioEvento($this->solicitante(), [$this->solicitante()]);
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Titulo novo', $this->valorAtual(Evento::class, $id));
+    }
+
+    #[TestDox('Evento "Para Todos" com participantes: o administrador que participa desfaz')]
+    public function testAdministradorParticipanteDesfaz(): void
+    {
+        $evento = $this->cenarioEvento($this->solicitante(), [$this->solicitante()]);
+        $admin = $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+        $participante = $this->em->find(Evento::class, $evento[0]);
+        self::assertNotNull($participante);
+        $participante->addParticipante($admin);
+        $this->em->flush();
+
+        $this->desfazer($evento[1]);
+
+        self::assertResponseRedirects();
+        self::assertSame('Titulo anterior', $this->valorAtual(Evento::class, $evento[0]));
+    }
+
+    #[TestDox('Evento "Só eu" de outra pessoa: nem o administrador desfaz')]
+    public function testSoEuDeOutroNaoSeDesfaz(): void
+    {
+        [$id, $logId] = $this->cenarioEvento($this->solicitante(), [], Evento::VISIBILIDADE_SOMENTE_EU);
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Titulo novo', $this->valorAtual(Evento::class, $id));
+    }
+
+    #[TestDox('Evento "Só eu" de outra pessoa: nem o Master (super admin) desfaz')]
+    public function testMasterNaoDesfazSoEuDeOutro(): void
+    {
+        [$id, $logId] = $this->cenarioEvento($this->solicitante(), [], Evento::VISIBILIDADE_SOMENTE_EU);
+        $master = $this->entrarCom(self::SO_AUDITORIA);
+        $master->setRoles(['ROLE_SUPER_ADMIN']);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $master, $this->tenant);
+
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Titulo novo', $this->valorAtual(Evento::class, $id));
+    }
+
+    #[TestDox('o botão de desfazer some na linha do evento que o ator não vê e fica na do evento que ele vê')]
+    public function testBotaoSomeNoEventoInvisivel(): void
+    {
+        [, $logFechado] = $this->cenarioEvento($this->solicitante(), [$this->solicitante()]);
+        [, $logAberto] = $this->cenarioEvento($this->solicitante());
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+
+        $this->client->request('GET', '/auditoria');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString("/auditoria/{$logAberto}/desfazer", $html, 'controle: o evento aberto tem o botão');
+        self::assertStringNotContainsString("/auditoria/{$logFechado}/desfazer", $html, 'a reunião com participantes, sem o ator, não tem o botão');
     }
 
     #[TestDox('LegendaCor não se desfaz: a recusa é a de entidade não reversível e nada muda')]
