@@ -45,6 +45,12 @@ emails:
         use_codigo: Use este código para criar uma nova senha no
         vale: Ele vale por 15 minutos.
         nao_pediu: Se você não pediu uma nova senha, ignore este e-mail. Sua senha atual continua valendo.
+    teto_codigo_senha:
+        titulo: Tentativas de trocar a sua senha
+        ola: 'Olá, {nome}!'
+        aconteceu: Alguém digitou o código errado muitas vezes ao tentar trocar a senha da sua conta no BlueJus.
+        fechou: Por segurança, a troca de senha por código ficou fechada por 24 horas. Sua senha atual continua valendo e você entra normalmente com ela.
+        nao_foi_voce: Se não foi você, nada precisa ser feito agora. Se esqueceu a senha, peça um código novo amanhã.
     convite_escritorio:
         titulo: Convite para colaborar no BlueJus
         ola_nome: 'Olá, {nome}!'
