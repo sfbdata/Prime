@@ -256,6 +256,19 @@ final class CadeadoNoPushTest extends JusPrimeWebTestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\DataProvider('retomadas')]
+    /** @param array<string, string|list<string>> $campos */
+    public function quemSoVisualizaAPastaNaoRetomaOProcesso(string $rota, array $campos): void
+    {
+        $this->cenario(NivelDeAcesso::Visualizar, pausado: true);
+        $this->entrar($this->ana, $this->tenant);
+
+        $this->client->request('POST', $rota, ['_token' => 'TOKEN_push_processos'] + $campos);
+
+        self::assertNotNull($this->processoDoBanco()->getMonitoramentoPausadoEm());
+    }
+
+    #[Test]
     public function anotacoesNaoGravamNoProcessoOculto(): void
     {
         $this->cenario(NivelDeAcesso::Oculto);

@@ -31,7 +31,7 @@ final class DjenPublicacaoMapper
         $publicacao->setMeio($this->nullableString($item['meio'] ?? null));
         $publicacao->setMeioCompleto($this->nullableString($item['meiocompleto'] ?? null));
         $publicacao->setTexto($this->nullableString($item['texto'] ?? null));
-        $publicacao->setLink($this->nullableString($item['link'] ?? null));
+        $publicacao->setLink(self::linkHttp($this->nullableString($item['link'] ?? null)));
         $publicacao->setTipoDocumento($this->nullableString($item['tipoDocumento'] ?? null));
         $publicacao->setNomeClasse($this->nullableString($item['nomeClasse'] ?? null));
         $publicacao->setCodigoClasse($this->nullableString($item['codigoClasse'] ?? null));
@@ -59,6 +59,15 @@ final class DjenPublicacaoMapper
     public static function soDigitos(string $valor): string
     {
         return preg_replace('/\D+/', '', $valor) ?? '';
+    }
+
+    /**
+     * O link do inteiro teor vai para o href do botão "Inteiro teor na origem" (auditoria 5.09): só
+     * `http://` e `https://` passam; `javascript:`, `data:`, relativo ou sem esquema viram null.
+     */
+    private static function linkHttp(?string $link): ?string
+    {
+        return $link !== null && preg_match('#^https?://#i', $link) === 1 ? $link : null;
     }
 
     private function nullableString(mixed $valor): ?string

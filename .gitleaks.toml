@@ -8,6 +8,7 @@
 #     histórico inteiro não acusou a senha do Gmail que ficou meses em app/.env;
 #   - senha em variável *_PASS / *_PWD / SENHA, nem a senha de app do Gmail com espaços
 #     ("abcd efgh ijkl mnop") — medido na revisão adversarial do mesmo dia.
+#   - a chave do Asaas ($aact_...) nem nomes em português (ESPELHO_R2_CHAVE/SEGREDO), auditoria 4.09.
 # Daí as regras abaixo, as mesmas da camada 1.
 #
 # As allowlists são deliberadamente ESTREITAS (revisão de 12/10): `%` só vale como %env(..)% ou
@@ -99,6 +100,41 @@ keywords = ["pass", "pwd", "senha"]
         '''^[a-z0-9_.\-]*(troque|change|exemplo|example|placeholder|dummy|fake|sua_|seu_|senha|password|segredo|secret|aqui)[a-z0-9_.\-]*$''',
         '''^[A-Z0-9_.\-]*(TROQUE|CHANGE|EXEMPLO|EXAMPLE|PLACEHOLDER|DUMMY|FAKE|SUA_|SEU_|SENHA|PASSWORD|SEGREDO|SECRET|AQUI)[A-Z0-9_.\-]*$''',
         '''^!ChangeMe!$''',
+        '''^(\*+|x+)$''',
+    ]
+
+[[rules]]
+id = "asaas-api-key"
+description = "Chave de API do Asaas (Contribua), formato $aact_..."
+# Sem allowlist de '$' (auditoria 4.09): o '$' faz parte do formato real da chave, e as allowlists
+# das regras acima, que aceitam '$' como variável, deixavam a chave passar. Vale em qualquer arquivo.
+regex = '''(?:\$|\b)aact_[A-Za-z0-9_\-+/=]{20,}'''
+keywords = ["aact_"]
+
+[[rules]]
+id = "segredo-em-variavel-pt"
+# Nomes em português que as regras padrão não conhecem: ESPELHO_R2_CHAVE, ESPELHO_R2_SEGREDO,
+# *_CREDENCIAL (auditoria 4.09). Só em MAIÚSCULAS e só em arquivo de configuração, como na camada 1:
+# em minúsculas "chave" é rótulo comum nas traduções e no JSON de questões.
+path = '''(?i)(^|/)(\.env[^/]*|[^/]*\.env(\.[^/]*)?|[^/]*\.(ini|ya?ml|toml|conf|cfg|properties|json|sh|bash)|Dockerfile[^/]*|docker-compose[^/]*)$'''
+description = "Segredo em variável CHAVE, SEGREDO ou CREDENCIAL (com ou sem aspas)"
+regex = '''\b(?:[A-Z0-9]+_)*(?:CHAVE|SEGREDO|CREDENCIA[A-Z]*)(?:_[A-Z0-9]+)*["']?[ \t]*[:=][ \t]*["']?([^\s"'#,;]{8,})'''
+secretGroup = 1
+keywords = ["chave", "segredo", "credencia"]
+
+    [rules.allowlist]
+    description = "Placeholders e referências ($ só como variável inteira e curta)"
+    regexTarget = "secret"
+    regexes = [
+        '''^\$\{?[A-Za-z_][A-Za-z0-9_]{0,40}\}?$''',
+        '''^(%env\(|\{\{|@[A-Za-z]|![a-z]+/)''',
+        '''^%[A-Za-z0-9_.]+%$''',
+        '''(x{8,}|X{8,}|\*{8,}|0{8,}|\.{8,})''',  # sem retrorreferência: o gitleaks usa RE2 (Go)
+        '''^<.*>$''',
+        '''[()\[\]{}]''',
+        '''\$\(|\$\{|`''',
+        '''^[a-z0-9_.\-]*(troque|change|exemplo|example|placeholder|dummy|fake|sua_|seu_|senha|password|segredo|secret|aqui)[a-z0-9_.\-]*$''',
+        '''^[A-Z0-9_.\-]*(TROQUE|CHANGE|EXEMPLO|EXAMPLE|PLACEHOLDER|DUMMY|FAKE|SUA_|SEU_|SENHA|PASSWORD|SEGREDO|SECRET|AQUI)[A-Z0-9_.\-]*$''',
         '''^(\*+|x+)$''',
     ]
 

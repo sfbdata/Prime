@@ -235,11 +235,13 @@ class PastaRepository extends ServiceEntityRepository
      * NÃO bloqueia nada — o mesmo cliente pode legitimamente ter vários casos parecidos. Quem
      * decide é o usuário, na confirmação.
      *
+     * @param list<int> $pastasOcultas ids das pastas ocultas para quem pergunta (cadeado, regra D1): ficam de fora
+     *
      * @return list<Pasta>
      */
-    public function findSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao, int $limite = 5): array
+    public function findSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao, int $limite = 5, array $pastasOcultas = []): array
     {
-        $qb = $this->qbSemelhantes($tenant, $cliente, $acao);
+        $qb = $this->qbSemelhantes($tenant, $cliente, $acao, $pastasOcultas);
 
         if ($qb === null) {
             return [];
@@ -255,10 +257,12 @@ class PastaRepository extends ServiceEntityRepository
      * par (cliente, ação) com **27 pastas**. Contar `|length` da lista truncada faria a tela
      * anunciar "5 pastas já cadastradas" quando são 27 — número errado com cara de certo, que é
      * exatamente o tipo de defeito que este projeto já pagou caro.
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas para quem pergunta: não entram na conta
      */
-    public function contarSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao): int
+    public function contarSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao, array $pastasOcultas = []): int
     {
-        $qb = $this->qbSemelhantes($tenant, $cliente, $acao);
+        $qb = $this->qbSemelhantes($tenant, $cliente, $acao, $pastasOcultas);
 
         if ($qb === null) {
             return 0;
@@ -271,8 +275,10 @@ class PastaRepository extends ServiceEntityRepository
      * Base comum das duas consultas de semelhança. Devolve `null` quando não há o que procurar —
      * sem cliente sobrariam TODAS as pastas sem cliente do escritório, e o aviso viraria ruído
      * que o usuário aprende a ignorar.
+     *
+     * @param list<int> $pastasOcultas
      */
-    private function qbSemelhantes(Tenant $tenant, ?string $cliente, ?string $acao): ?QueryBuilder
+    private function qbSemelhantes(Tenant $tenant, ?string $cliente, ?string $acao, array $pastasOcultas): ?QueryBuilder
     {
         $cliente = trim((string) $cliente);
 
@@ -280,7 +286,14 @@ class PastaRepository extends ServiceEntityRepository
             return null;
         }
 
-        return $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p');
+        // Pasta oculta pelo cadeado não entra no aviso nem no total (auditoria 1.07): citar a ação
+        // e a data dela seria revelar a pasta trancada a quem não a vê.
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:ocultas)')->setParameter('ocultas', $pastasOcultas);
+        }
+
+        return $qb
             ->andWhere('p.tenant = :tenant')
             // Pasta excluída (lápide) não é pasta duplicada: avisar "já existe uma pasta deste
             // cliente" apontando para uma que a pessoa acabou de excluir faria ela desistir de
@@ -1623,10 +1636,20 @@ class PastaRepository extends ServiceEntityRepository
      * O float aparece só no arredondamento final de um número que já é derivado
      * (uma média nunca é exata em centavos); os valores somados vêm e ficam em
      * decimal no banco.
+     *
+     * Pasta oculta para quem olha (cadeado) fica fora da conta (auditoria 1.11): com ela dentro, a
+     * média deixaria deduzir o valor da causa da pasta trancada.
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas para quem olha
      */
-    public function mediaValorCausaPorCliente(Cliente $cliente, Tenant $tenant): ?string
+    public function mediaValorCausaPorCliente(Cliente $cliente, Tenant $tenant, array $pastasOcultas = []): ?string
     {
-        $media = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p');
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:ocultas)')->setParameter('ocultas', $pastasOcultas);
+        }
+
+        $media = $qb
             ->select('AVG(p.valorCausa)')
             ->innerJoin('p.clientes', 'cli_media')
             ->andWhere('cli_media = :cliente')

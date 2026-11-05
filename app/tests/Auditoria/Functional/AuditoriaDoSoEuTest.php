@@ -175,7 +175,8 @@ final class AuditoriaDoSoEuTest extends JusPrimeWebTestCase
     #[TestDox('O desfazer continua funcionando nos campos que ficaram (a situação de um "Só eu")')]
     public function testDesfazerNosOutrosCampos(): void
     {
-        $evento = $this->evento(Evento::VISIBILIDADE_SOMENTE_EU);
+        // Quem desfaz é quem criou: o "Só eu" de outra pessoa não se desfaz nem pelo Master (visibilidade, 3.02/3.03).
+        $evento = $this->evento(Evento::VISIBILIDADE_SOMENTE_EU, $this->admin);
         $evento->setStatus(Evento::STATUS_CANCELADO)->setTitulo('Outro título');
         $this->em->flush();
         $log = array_values(array_filter($this->logsDo((int) $evento->getId()), static fn (array $l): bool => 'update' === $l['action']))[0];
@@ -209,12 +210,12 @@ final class AuditoriaDoSoEuTest extends JusPrimeWebTestCase
         self::assertStringContainsString('AÇÃO DE COBRANÇA', $this->texto((string) $daPasta));
     }
 
-    private function evento(string $visibilidade): Evento
+    private function evento(string $visibilidade, ?User $criador = null): Evento
     {
         $inicio = new \DateTimeImmutable('+3 days 09:00');
         $evento = (new Evento())->setTitulo(self::SEGREDO)->setDescricao('Levar exames')->setLocal('Rua do segredo, 10')
             ->setDataInicio($inicio)->setDataFim($inicio->modify('+1 hour'))->setVisibilidade($visibilidade)
-            ->setCriador($this->pessoa)->setTenant($this->tenant);
+            ->setCriador($criador ?? $this->pessoa)->setTenant($this->tenant);
         $this->em->persist($evento);
         $this->em->flush();
 

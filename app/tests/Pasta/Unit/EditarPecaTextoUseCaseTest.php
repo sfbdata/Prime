@@ -278,6 +278,23 @@ final class EditarPecaTextoUseCaseTest extends TestCase
         self::assertSame(strlen($conteudoMaior), $this->doc->getTamanhoBytes());
     }
 
+    #[TestDox('5.06: a edição grava o HTML limpo e o sha256 é do conteúdo limpo')]
+    public function testEdicaoComConteudoPerigosoGravaLimpo(): void
+    {
+        $payload = '<p onclick="alert(1)">Texto <a href="javascript:alert(2)">link</a></p>'
+            . '<script>alert(3)</script><img src=x onerror=alert(4)><iframe src="https://atacante.exemplo"></iframe>';
+
+        $this->useCase->executar($this->doc, $payload);
+
+        $gravado = $this->armazenamento->ler(ChavesDePasta::documento($this->doc));
+        foreach (['<script', 'onclick', 'onerror', 'javascript:', '<iframe'] as $proibido) {
+            self::assertStringNotContainsStringIgnoringCase($proibido, $gravado);
+        }
+        self::assertStringContainsString('Texto', $gravado);
+        self::assertSame(hash('sha256', $gravado), $this->doc->getSha256());
+        self::assertSame(strlen($gravado), $this->doc->getTamanhoBytes());
+    }
+
     private function documento(string $caminho): PastaDocumento
     {
         $tenant = new Tenant();
