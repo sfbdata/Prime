@@ -16,13 +16,16 @@
 
                 {# Nav tabs #}
                 <ul class="nav nav-tabs mb-0" id="editTabs" role="tablist">
+                    {# Dados do escritório: só o primário ou o Master (D1 do Meu Escritório). #}
+                    {% if nameForm %}
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-dados-btn" data-bs-toggle="tab" data-bs-target="#tab-dados" type="button" role="tab">
                             <i class="bi bi-building me-1"></i>{{ 'escritorio.editar.aba_dados'|trans }}
                         </button>
                     </li>
+                    {% endif %}
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-cargos-btn" data-bs-toggle="tab" data-bs-target="#tab-cargos" type="button" role="tab">
+                        <button class="nav-link{% if not nameForm %} active{% endif %}" id="tab-cargos-btn" data-bs-toggle="tab" data-bs-target="#tab-cargos" type="button" role="tab">
                             <i class="bi bi-briefcase me-1"></i>{{ 'escritorio.editar.aba_cargos'|trans }}
                         </button>
                     </li>
@@ -36,6 +39,7 @@
                 <div class="tab-content border border-top-0 rounded-bottom bg-body p-4 mb-4" id="editTabsContent">
 
                     {# Aba: Dados do Escritório #}
+                    {% if nameForm %}
                     <div class="tab-pane fade show active" id="tab-dados" role="tabpanel">
                         {{ form_start(nameForm) }}
                             <div class="mb-3">
@@ -112,9 +116,10 @@
                             </div>
                         {{ form_end(nameForm) }}
                     </div>
+                    {% endif %}
 
                     {# Aba: Cargos #}
-                    <div class="tab-pane fade" id="tab-cargos" role="tabpanel">
+                    <div class="tab-pane fade{% if not nameForm %} show active{% endif %}" id="tab-cargos" role="tabpanel">
                         <p class="text-muted small mb-3">{{ 'escritorio.editar.cargos_dica'|trans }}</p>
 
                         {{ form_start(cargosForm) }}
@@ -227,10 +232,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ---------- CEP mask + ViaCEP ----------
     const cepInput = document.querySelector('[data-cep]');
-    const idLogradouro = '{{ nameForm.logradouro.vars.id }}';
-    const idBairro     = '{{ nameForm.bairro.vars.id }}';
-    const idCidade     = '{{ nameForm.cidade.vars.id }}';
-    const idEstado     = '{{ nameForm.estado.vars.id }}';
+    const idLogradouro = '{{ nameForm ? nameForm.logradouro.vars.id }}';
+    const idBairro     = '{{ nameForm ? nameForm.bairro.vars.id }}';
+    const idCidade     = '{{ nameForm ? nameForm.cidade.vars.id }}';
+    const idEstado     = '{{ nameForm ? nameForm.estado.vars.id }}';
 
     if (cepInput) {
         cepInput.addEventListener('input', function () {

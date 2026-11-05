@@ -226,6 +226,25 @@ class Chamado implements Auditavel, TenantAware
         return $this->interacoes;
     }
 
+    /**
+     * Interações que o leitor pode ver. O comentário interno é só da equipe de TI (quem tem
+     * admin.servicedesk.manage): sem esse poder, ele sai da lista no servidor, inclusive da contagem.
+     *
+     * @return list<ChamadoInteracao>
+     */
+    public function interacoesVisiveis(bool $verInternas): array
+    {
+        $interacoes = $this->interacoes->toArray();
+        if ($verInternas) {
+            return array_values($interacoes);
+        }
+
+        return array_values(array_filter(
+            $interacoes,
+            static fn (ChamadoInteracao $interacao): bool => !$interacao->isInterno(),
+        ));
+    }
+
     public function addInteracao(ChamadoInteracao $interacao): self
     {
         if (!$this->interacoes->contains($interacao)) {
