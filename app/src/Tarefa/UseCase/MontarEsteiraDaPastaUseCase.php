@@ -29,7 +29,8 @@ use App\Tarefa\Service\QuemConfiguraACaixa;
  * GARGALO e o que o escritório mudou nela (nome da caixa, nome da etapa, avisados).
  *
  * **Regras:** GARGALO é a caixa com MAIS atrasadas, só se houver alguma; no empate, a primeira da esteira
- * (dc L165). Meta de pasta oculta pelo cadeado para quem olha não entra nos números (spec pasta-cadeado D3).
+ * (dc L165). Meta de pasta oculta pelo cadeado para quem olha não entra nos números (spec pasta-cadeado D3), nem a
+ * de pasta que ele não pode ver, a não ser que cuide dela (a mesma regra do `AcessoAMeta`).
  * A equipe para o @ do modal só vem para quem pode configurar caixa (D2): os outros nem recebem a lista.
  * O avisado aparece como "Primeiro Último"; quem tem OAB e gênero declarado ganha o "Dr./Dra." do `trat()` do
  * desenho (spec genero-no-cadastro, regra 4), sem adivinhar o gênero pelo nome como o protótipo.
@@ -46,10 +47,14 @@ final class MontarEsteiraDaPastaUseCase
     ) {
     }
 
-    /** @param list<int> $pastasOcultas */
-    public function executar(User $usuario, Tenant $escritorio, \DateTimeImmutable $hoje, array $pastasOcultas = []): EsteiraDaPastaOutput
+    /**
+     * @param list<int>      $pastasOcultas
+     * @param list<int>|null $pastasVisiveis as pastas que o usuário pode ver (`PastasVisiveisNaEsteira`); nulo = todas.
+     *                                       Sem informar: só as metas de que ele cuida (o padrão fecha)
+     */
+    public function executar(User $usuario, Tenant $escritorio, \DateTimeImmutable $hoje, array $pastasOcultas = [], ?array $pastasVisiveis = []): EsteiraDaPastaOutput
     {
-        $contagens     = $this->tarefas->contarEsteira($escritorio, $hoje, $pastasOcultas);
+        $contagens     = $this->tarefas->contarEsteira($escritorio, $hoje, $pastasOcultas, $usuario, $pastasVisiveis);
         $configuradas  = $this->caixas->configuradasDoEscritorio($escritorio);
         $gargalo       = $this->gargalo($contagens);
         $podeConfigurar = $this->quemConfigura->pode($usuario, $escritorio);

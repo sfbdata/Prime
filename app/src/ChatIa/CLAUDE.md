@@ -1,12 +1,13 @@
 # src/ChatIa/ — Chat I.A em página inteira
 
-Spec: `docs/specs/chat-pagina-inteira.md` (decisões 1 a 16 e o contrato HTTP). Guia do dono: `docs/guias/chat-ia-dev.md`.
+Spec: `docs/specs/chat-pagina-inteira.md` (decisões 1 a 17 e o contrato HTTP). Guia do dono: `docs/guias/chat-ia-dev.md`.
 Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módulo de permissão `inteligencia`
 (`modules.inteligencia.view`). Reaproveita serviços de `Inteligencia` e `Central`; NÃO usa `central_conversa`.
 
 ## Regras inegociáveis
 
-1. **Conversa é particular de quem a criou.** Toda consulta filtra por escritório E dono (`ConversaDeChatRepository::doDono`).
+1. **Conversa é particular de quem a criou.** Toda consulta filtra por escritório E dono (`ConversaDeChatRepository::doDono`),
+   salvo as da retenção diária (exceção única, descrita na regra 2).
    Conversa alheia, de outro escritório ou inexistente é o MESMO 404 (`ConversaDeChatNaoEncontradaException`), nem o
    administrador lê. Isolamento entre usuários do mesmo escritório conta tanto quanto entre escritórios.
 2. **Auditoria sem conteúdo.** `ConversaDeChat` e `AnexoDeChat` são `Auditavel` (criar, renomear, fixar, trocar o modelo,
@@ -16,6 +17,18 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
    `AuditavelCoberturaTest`. As três entidades estão na purga do escritório (`PurgarEscritorioUseCase`, tabelas e arquivos).
    Texto de pergunta, resposta, título e nome de arquivo nunca vão para log, notificação nem audit. Campo novo de texto livre
    nessas entidades = entrar na lista de ignorados e no `AuditoriaDoChatTest`.
+   EXCEÇÃO: a **retenção diária** (`Service\ExpiracaoDoChatIa`, pela porta `Inteligencia\Contract\RetencaoDoChatIa`, chamada
+   por `app:inteligencia:expirar-conteudo` com o prazo do Master; spec decisão 17, auditoria 1.19, decisões do Coordenador de
+   05/11/2026). Ela apaga as falas criadas antes do prazo (pergunta, resposta, registro `substituida` e a cópia importada da
+   Central com a data original), os anexos delas (linha e arquivo), a conversa que ficou sem fala nenhuma (com os anexos soltos
+   dela, linha e arquivo) e, em cascata do banco, as propostas de cadastro dessas falas e conversas. Conversa que nunca teve
+   fala não é tocada. Arquivo só sai depois do COMMIT. Roda no console, sem sessão nem `TenantFilter`, e varre TODOS os
+   escritórios de propósito (`MensagemDeChatRepository::conversasComMensagemAntesDe`/`apagarAntesDe`,
+   `AnexoDeChatRepository::dasMensagensAntesDe`/`apagarDasMensagensAntesDe`/`dasConversas`,
+   `ConversaDeChatRepository::travarVaziasEntre`/`apagarVaziasTravadas`). Por ser em massa (DQL e cascata), NÃO passa pelo
+   `AuditLogSubscriber` e NÃO grava trilha no `audit_log` de conversa, anexo nem proposta: o rastro é o log do comando com as
+   contagens (falas, anexos, conversas) e a data limite, nunca o texto. Método novo sem escritório nesses repositórios = só
+   para a retenção, com o mesmo aviso no docblock.
 3. **Guardas na ordem** (`AcessoAoChat` + `EnviarMensagemNoChatUseCase`): login, vínculo ativo, módulo da I.A, posse da
    conversa, provedor configurado (503 `sem_chave`), `DisponibilidadeDeInteligencia::para`, teto diário (429 `teto_diario`),
    pasta (aceite 409 `sem_aceite`, 404, segredo 409 `contexto_bloqueado`), anexos. Tudo recusa ANTES de abrir o SSE.

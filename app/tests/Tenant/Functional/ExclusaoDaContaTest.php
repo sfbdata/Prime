@@ -623,7 +623,7 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         // Mesmo com o escritório B na sessão, a barreira da rota olha o escritório da URL e segura a rota de A
         // antes do controller (achado de auditoria interna F9).
         $this->logarComTenant($this->client, $secundario, $outra);
-        $this->client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+        $this->client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_escritorio_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
 
         self::assertResponseStatusCodeSame(403);
         self::assertStringContainsString(BloqueioPorPedidoDeExclusao::MENSAGEM, (string) $this->client->getResponse()->getContent());

@@ -24,6 +24,7 @@ const { test, expect } = require('@playwright/test');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { senhaDoAmbiente } = require('../senha-do-ambiente');
 
 const PROTOTIPO_DIR = process.env.CENTRAL_PROTOTIPO_DIR
     || '/home/prime/projetos/bluejus-designer/REPOSITORIO_BLUEJUS/prototipo';
@@ -31,7 +32,7 @@ const PAGINA_PROTOTIPO = '02 - EXPEDIENTES 1.2.3.dc.html';
 const APP = process.env.CENTRAL_BASE_URL || 'http://127.0.0.1:8002';
 const PAGINA_APP = process.env.CENTRAL_E2E_PAGINA || '/expediente';
 const EMAIL = process.env.CENTRAL_E2E_EMAIL || '';
-const SENHA = process.env.CENTRAL_E2E_SENHA || '';
+const SENHA = () => senhaDoAmbiente('CENTRAL_E2E_SENHA');
 const ESCRITORIO = process.env.CENTRAL_E2E_ESCRITORIO || '';
 // Nome da chave de localStorage em que o PROTÓTIPO guarda o banco fictício dele (não é segredo: o gitleaks lia
 // `{ key: '...' }` como chave de API; ver .gitleaksignore, 16/10/2026).
@@ -57,7 +58,7 @@ const S = {
 test.describe.configure({ mode: 'serial', timeout: 120000 });   // servidor embutido de dev: a 1ª página de cada contexto é lenta
 test.use({ viewport: { width: 1366, height: 800 }, reducedMotion: 'no-preference', locale: 'pt-BR' });
 
-const pular = !fs.existsSync(path.join(PROTOTIPO_DIR, PAGINA_PROTOTIPO)) || !EMAIL || !SENHA;
+const pular = !fs.existsSync(path.join(PROTOTIPO_DIR, PAGINA_PROTOTIPO)) || !EMAIL || !process.env.CENTRAL_E2E_SENHA;
 
 // ── servidor estático do protótipo ─────────────────────────────────────────────────────────────────────────────
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
@@ -187,7 +188,7 @@ async function entrar(browser) {
     for (let tentativa = 1; ; tentativa++) {
         await page.goto(APP + '/login', { timeout: 120000 });
         await page.fill('input[name="email"], input[name="_username"]', EMAIL);
-        await page.fill('input[name="password"], input[name="_password"]', SENHA);
+        await page.fill('input[name="password"], input[name="_password"]', SENHA());
         await page.click('button[type="submit"]');
         try {
             await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 45000 });

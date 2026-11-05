@@ -50,7 +50,8 @@
                     </div>
                 </div>
 
-                {% if can_administer('admin.tenant.settings.manage') and tenant.isActive %}
+                {# A rota antiga só aceita o Master (auditoria 2.06): o cartão segue o mesmo critério do servidor. #}
+                {% if is_granted('ROLE_SUPER_ADMIN') and tenant.isActive %}
                     <div class="card card-outline card-danger mt-3">
                         <div class="card-header">
                             <h3 class="card-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>{{ 'escritorio.ver.perigo'|trans }}</h3>
@@ -61,7 +62,7 @@
                                 {{ 'escritorio.ver.perigo_depois'|trans }}
                             </p>
                             <form method="post" action="{{ path('escritorio_excluir', {id: tenant.id}) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('excluir_' ~ tenant.id) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('escritorio_excluir_' ~ tenant.id) }}">
                                 <label class="form-label small mb-1">{{ 'escritorio.ver.confirmar_antes'|trans }} <strong>{{ tenant.name }}</strong> {{ 'escritorio.ver.confirmar_depois'|trans }}</label>
                                 <div class="input-group">
                                     <input type="text" name="confirmar_nome" class="form-control" autocomplete="off"

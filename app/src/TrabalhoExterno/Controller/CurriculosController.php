@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
@@ -49,7 +50,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * CSRF no header `X-CSRF-Token`, leituras aceitam o `?como=` da prévia do Master, escritas nunca.
  * Arquivos, documento, PDF e CSV saem por aqui, depois da política, como download (a foto, inline).
  */
-#[Route('/trabalho-externo')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class CurriculosController extends AbstractController
 {
     use RespondeJsonTrait;

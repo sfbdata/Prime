@@ -49,19 +49,39 @@ final class NotificacaoIsolamentoRepositoryTest extends KernelTestCase
         $this->criarNotificacao($usuario, $tenantB, 'De B');
 
         // sem filtro: vê as duas (estado de vazamento, pré-M4)
-        self::assertCount(2, $this->repo->findNaoLidasByUsuario($usuario));
+        self::assertCount(2, $this->repo->findNaoLidasByUsuario($usuario, null));
 
         $this->ligarFiltro((int) $tenantA->getId());
-        $naoLidasA = $this->repo->findNaoLidasByUsuario($usuario);
+        $naoLidasA = $this->repo->findNaoLidasByUsuario($usuario, null);
         self::assertCount(1, $naoLidasA);
         self::assertSame('De A', $naoLidasA[0]->getTitulo());
-        self::assertSame(1, $this->repo->countNaoLidasByUsuario($usuario));
-        self::assertCount(1, $this->repo->findPaginadasByUsuario($usuario, null, 1, 20));
+        self::assertSame(1, $this->repo->countNaoLidasByUsuario($usuario, null));
+        self::assertCount(1, $this->repo->findPaginadasByUsuario($usuario, null, null, 1, 20));
 
         $this->ligarFiltro((int) $tenantB->getId());
-        $naoLidasB = $this->repo->findNaoLidasByUsuario($usuario);
+        $naoLidasB = $this->repo->findNaoLidasByUsuario($usuario, null);
         self::assertCount(1, $naoLidasB);
         self::assertSame('De B', $naoLidasB[0]->getTitulo());
+    }
+
+    #[TestDox('1.15: com o TenantFilter DESLIGADO, a leitura do sino com o escritório A não devolve nem conta o aviso de B')]
+    public function testLeituraComEscritorioExplicitoSemFiltro(): void
+    {
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $usuario = $this->criarUser();
+        $this->criarNotificacao($usuario, $tenantA, 'De A');
+        $this->criarNotificacao($usuario, $tenantB, 'De B');
+        $this->em->getFilters()->isEnabled('tenant') && $this->em->getFilters()->disable('tenant');
+
+        $naoLidasA = $this->repo->findNaoLidasByUsuario($usuario, $tenantA);
+        self::assertCount(1, $naoLidasA);
+        self::assertSame('De A', $naoLidasA[0]->getTitulo());
+        self::assertSame(1, $this->repo->countNaoLidasByUsuario($usuario, $tenantA));
+        self::assertCount(1, $this->repo->findPaginadasByUsuario($usuario, $tenantA, null, 1, 20));
+        self::assertSame(1, $this->repo->countByUsuario($usuario, $tenantA));
+        // Master sem escritório (nulo): sem corte, como hoje.
+        self::assertSame(2, $this->repo->countNaoLidasByUsuario($usuario, null));
     }
 
     #[TestDox('find() por id de notificação de outro tenant retorna null (fecha o IDOR do marcar-como-lida)')]

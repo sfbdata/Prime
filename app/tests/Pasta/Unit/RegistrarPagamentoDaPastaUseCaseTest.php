@@ -33,6 +33,23 @@ final class RegistrarPagamentoDaPastaUseCaseTest extends TestCase
         $this->pasta  = new Pasta();
         $this->autor  = new User();
         $this->tenant = new Tenant();
+        $this->pasta->setTenant($this->tenant);
+    }
+
+    /**
+     * Auditoria 3.18: o use case confiava que a pasta era do escritório da sessão. Quem chama
+     * com a pasta de outro escritório não pode gravar um pagamento nela.
+     */
+    #[TestDox('recusa pasta de outro escritório e não grava nada')]
+    public function testRecusaPastaDeOutroEscritorio(): void
+    {
+        $this->pasta->setTenant(new Tenant());
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Pasta não encontrada.');
+        $this->registrar();
     }
 
     private function registrar(

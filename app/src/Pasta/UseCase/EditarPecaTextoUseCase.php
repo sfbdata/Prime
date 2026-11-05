@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Exception\TituloDePecaLongoDemaisException;
+use App\Pasta\Service\SanitizadorDePecaDeTexto;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\FonteDeConteudo;
@@ -16,6 +17,9 @@ use Psr\Clock\ClockInterface;
 
 /**
  * Regrava o HTML de uma peça existente, na MESMA chave, e atualiza tamanho, título e `sha256`.
+ *
+ * O HTML passa pelo {@see SanitizadorDePecaDeTexto} antes de gravar (auditoria 5.06); tamanho e
+ * `sha256` são do HTML já limpo.
  *
  * O hash acompanha o conteúdo: é a substituição do arquivo, e um `sha256` antigo numa peça
  * editada diria "duplicado" de um conteúdo que não existe mais.
@@ -60,6 +64,7 @@ final class EditarPecaTextoUseCase
         private readonly EntityManagerInterface $em,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ClockInterface $clock,
+        private readonly SanitizadorDePecaDeTexto $sanitizador = new SanitizadorDePecaDeTexto(),
     ) {}
 
     /**
@@ -82,9 +87,10 @@ final class EditarPecaTextoUseCase
             throw ArquivoNaoEncontrado::para($chave);
         }
 
-        $armazenado = $this->armazenamento->gravar($chave, FonteDeConteudo::deTexto($conteudoHtml));
+        $htmlLimpo  = $this->sanitizador->sanitizar($conteudoHtml, $doc->getTenant()?->getId());
+        $armazenado = $this->armazenamento->gravar($chave, FonteDeConteudo::deTexto($htmlLimpo));
         $doc->setTamanhoBytes($armazenado->tamanhoBytes);
-        $doc->setSha256(Sha256DeArquivo::deTexto($conteudoHtml));
+        $doc->setSha256(Sha256DeArquivo::deTexto($htmlLimpo));
         $doc->marcarModificadoEm($this->clock->now());
 
         if ($novoTitulo !== null) {

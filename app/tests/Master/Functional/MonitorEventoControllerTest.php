@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 use Zenstruck\Foundry\Test\Factories;
@@ -112,6 +113,11 @@ final class MonitorEventoControllerTest extends JusPrimeWebTestCase
     #[TestDox('depois de 60 eventos no minuto responde 429 e não grava o excedente')]
     public function testLimite(): void
     {
+        // Relógio parado no minuto corrente: o contador é por minuto, e com o relógio de verdade a
+        // janela podia virar no meio das 61 requisições (o 61º passava com 204 em vez de 429).
+        $relogio = new MockClock((new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:00'));
+        static::getContainer()->set('clock', $relogio);
+
         for ($i = 0; $i < MonitorEventoController::LIMITE_POR_MINUTO; ++$i) {
             $this->enviar(['tipo' => 'ping', 'ok' => true, 'ms' => 10]);
         }
@@ -119,6 +125,11 @@ final class MonitorEventoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(429);
         self::assertCount(MonitorEventoController::LIMITE_POR_MINUTO, $this->em->getRepository(EventoDeDesempenho::class)->findAll());
+
+        // No minuto seguinte a janela recomeça (e prova que o limite lê o relógio injetado).
+        $relogio->sleep(60);
+        $this->enviar(['tipo' => 'ping', 'ok' => true, 'ms' => 10]);
+        self::assertResponseStatusCodeSame(204);
     }
 
     #[TestDox('app:desempenho:purgar apaga só o que passou de 90 dias')]

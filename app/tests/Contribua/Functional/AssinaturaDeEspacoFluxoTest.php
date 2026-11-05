@@ -551,7 +551,7 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
     public function testPixComTeto(): void
     {
         $this->logarComTenant($this->client, $this->primario, $this->escritorio);
-        $this->client->request('GET', '/contribua/pix?valor=999999999');
+        $this->client->request('POST', '/contribua/pix', ['_token' => self::TOKEN, 'valor' => '999999999']);
 
         self::assertResponseIsSuccessful();
         self::assertTrue(json_decode((string) $this->client->getResponse()->getContent(), true)['valido'] ?? false);

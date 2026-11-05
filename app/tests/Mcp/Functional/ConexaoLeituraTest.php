@@ -8,6 +8,7 @@ use App\Mcp\Service\ConexaoLeitura;
 use App\Tests\Mcp\BancoDeLeituraDeTeste;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Tools\DsnParser;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -138,6 +139,120 @@ final class ConexaoLeituraTest extends TestCase
 
         self::assertSame('7s', $timeout);
         self::assertSame('on', $somenteLeitura);
+    }
+
+    /**
+     * O buraco do item 1.10 da auditoria: a conexão é memoizada e dura o processo `mcp:server`
+     * inteiro, e o `statement_timeout` é um parâmetro que a própria sessão muda sem privilégio.
+     * Uma chamada com `set_config('statement_timeout','0',false)` desligava o teto para todas as
+     * chamadas seguintes. Agora cada `consultar()` roda numa transação própria que termina em
+     * ROLLBACK: o `set_config` feito ali dentro é desfeito, e a consulta seguinte ainda estoura.
+     */
+    public function testSetConfigDoTimeoutNumaConsultaNaoDesligaOTetoDaSeguinte(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura, 1);
+
+        $conexao->consultar("SELECT set_config('statement_timeout','0',false)", 10);
+
+        $this->expectException(\Doctrine\DBAL\Exception::class);
+        $this->expectExceptionMessageMatches('/statement timeout/i');
+
+        $conexao->consultar('SELECT pg_sleep(3)', 10);
+    }
+
+    /**
+     * Mesmo ataque, pelo modo somente leitura: o `set_config` da primeira consulta é desfeito
+     * pelo ROLLBACK e a segunda transação nasce com `SET TRANSACTION READ ONLY`.
+     */
+    public function testSetConfigDoReadOnlyNumaConsultaNaoDesligaOModoDaSeguinte(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura);
+
+        $conexao->consultar("SELECT set_config('default_transaction_read_only','off',false)", 10);
+
+        $resultado = $conexao->consultar('SHOW transaction_read_only', 10);
+
+        self::assertSame([['transaction_read_only' => 'on']], $resultado['linhas']);
+    }
+
+    /**
+     * Prova o `SET LOCAL statement_timeout` sozinho, sem a ajuda do ROLLBACK: aqui o teto da
+     * sessão é desligado por fora de `consultar()`, direto na conexão, e a consulta ainda tem
+     * de estourar. Sem este teste, apagar o `SET LOCAL` não deixaria nada vermelho, porque o
+     * ROLLBACK já desfaz o `set_config` do teste acima.
+     */
+    public function testCadaConsultaReaplicaOTetoMesmoComASessaoSemTeto(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura, 1);
+        $conexao->conexao()->executeStatement('SET statement_timeout = 0');
+
+        $this->expectException(\Doctrine\DBAL\Exception::class);
+        $this->expectExceptionMessageMatches('/statement timeout/i');
+
+        $conexao->consultar('SELECT pg_sleep(3)', 10);
+    }
+
+    /**
+     * Par do teste acima para o `SET TRANSACTION READ ONLY`: a sessão perde o modo somente
+     * leitura por fora de `consultar()`, e a transação da consulta continua somente leitura.
+     */
+    public function testCadaConsultaRodaEmTransacaoSomenteLeituraMesmoComASessaoLiberada(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura);
+        $conexao->conexao()->executeStatement('SET default_transaction_read_only = off');
+
+        $resultado = $conexao->consultar('SHOW transaction_read_only', 10);
+
+        self::assertSame([['transaction_read_only' => 'on']], $resultado['linhas']);
+    }
+
+    /**
+     * Depois de QUALQUER `consultar()` (sucesso, SQL inválido ou tentativa de mexer na sessão)
+     * não fica transação aberta e a sessão continua com o teto e o modo configurados. O caso
+     * do SQL inválido prova o `finally`: sem o ROLLBACK, a transação ficaria abortada e o
+     * `SHOW` abaixo falharia com "current transaction is aborted".
+     */
+    #[DataProvider('consultasQueNaoPodemDeixarRastroNaSessao')]
+    public function testConsultarNaoDeixaTransacaoAbertaNemMudaASessao(string $sql): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura, 7);
+
+        try {
+            $conexao->consultar($sql, 10);
+        } catch (\Doctrine\DBAL\Exception) {
+            // o SQL inválido lança de propósito; o que está sob prova é o estado depois
+        }
+
+        self::assertFalse($conexao->conexao()->isTransactionActive());
+        self::assertSame('7s', $conexao->conexao()->fetchOne('SHOW statement_timeout'));
+        self::assertSame('on', $conexao->conexao()->fetchOne('SHOW default_transaction_read_only'));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function consultasQueNaoPodemDeixarRastroNaSessao(): iterable
+    {
+        yield 'consulta que dá certo' => ['SELECT 1 AS n'];
+        yield 'sql inválido' => ['SELECT * FROM tabela_que_nao_existe_nenhuma'];
+        yield 'set_config do timeout' => ["SELECT set_config('statement_timeout','0',false)"];
+        yield 'set_config do read only' => ["SELECT set_config('default_transaction_read_only','off',false)"];
+    }
+
+    /**
+     * A transação descartável só segura se o SQL recebido for UM comando: com dois, o primeiro
+     * poderia ser um `ROLLBACK` que encerra a transação e o segundo rodaria fora dela, com a
+     * sessão já alterada. Este teste fixa essa premissa: o `pdo_pgsql` prepara o comando no
+     * servidor, e o PostgreSQL recusa mais de um comando num comando preparado.
+     */
+    public function testSqlComDoisComandosERecusado(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura);
+
+        $this->expectException(\Doctrine\DBAL\Exception::class);
+        $this->expectExceptionMessageMatches('/multiple commands/i');
+
+        $conexao->consultar("SELECT 1; SELECT set_config('statement_timeout','0',false)", 10);
     }
 
     public function testLeituraFunciona(): void

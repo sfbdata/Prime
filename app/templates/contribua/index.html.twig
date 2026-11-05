@@ -264,7 +264,7 @@
 
 {% block javascripts %}
     {{ parent() }}
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
+    <script src="{{ asset('js/vendor/qrcode-generator/qrcode.js') }}" defer></script>
     <script src="{{ asset('js/contribua.js') }}" defer></script>
     {% if pagamento.modo == 'formulario' and pagamento.script %}<script src="{{ asset(pagamento.script) }}" defer></script>{% endif %}
     <script src="{{ asset('js/contribua-checkout.js') }}" defer></script>

@@ -94,11 +94,11 @@ configura (403 com `{erro: 'Só o usuário primário pode ocultar abas'}`), aba 
 ## 4. Barreira nas rotas (listener `BarreiraDeAbaOcultaListener`, kernel.controller)
 
 Mapa nome de rota → aba, para rotas com `{id}` = pasta:
-- push: `pasta_push_teor`, `pasta_push_texto`, `pasta_push_lida`, `pasta_push_links_*`, `inteligencia_push_*`
+- push: `pasta_push_teor`, `pasta_push_texto`, `pasta_push_lida`, `pasta_push_links_*`, `pasta_push_cliente*`, `pasta_push_monitoramento`, `pasta_push_buscar`, `pasta_push_avisos`, `inteligencia_push_*`
 - financeiro: `pasta_financeiro_*`, `pasta_pagamento_*`, `pasta_alternar_situacao_contrato`,
   `pasta_atualizar_pro_bono`, `pasta_atualizar_valor_causa`
 - documentos: `pasta_documento*`, `pasta_secao*`, `pasta_secoes_*`, `pasta_peticionar*`
-- detalhes: `pasta_detalhes_*`
+- detalhes: `pasta_detalhes_*`, `pasta_modelos_*` (Modelos usa o id `detalhes`)
 - processo: `pasta_vincular_processo`, `pasta_desvincular_processo`, `pasta_definir_processo_principal`,
   `pasta_administrativa_definir`
 - tarefas: `pasta_prazo_*` (as rotas `tarefa_*` são da meta, não da pasta: fora)

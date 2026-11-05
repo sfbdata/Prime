@@ -61,7 +61,7 @@ services:
     # não pode atrasar o relógio das varreduras.
     command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "scheduler_cadeias", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
     volumes:
-      # MESMO volume de uploads do php/nginx: o worker precisa LER o arquivo recém-anexado para
+      # MESMO volume de uploads do php: o worker precisa LER o arquivo recém-anexado para
       # enviá-lo ao Drive (Via A) e GRAVAR os que baixar (Via B) no armazenamento compartilhado.
       # Sem isto, o caminho aponta para o filesystem efêmero da imagem → doc não sobe / arquivo quebrado.
       - uploads_prod:/var/www/app/public/uploads
@@ -156,7 +156,6 @@ services:
       # — e o passo de reload no script de deploy é o que faz o nginx passar a usá-lo.
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - static_prod:/var/www/app/public:ro
-      - uploads_prod:/var/www/app/public/uploads:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
       # Página de manutenção + flag (maintenance.on). O :ro só impede escrita pelo

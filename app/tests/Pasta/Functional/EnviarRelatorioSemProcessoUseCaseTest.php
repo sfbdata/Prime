@@ -9,6 +9,9 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\EnvioDoRelatorioSemProcesso;
 use App\Pasta\DTO\ResumoSemProcesso;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\MontagemDoRelatorioSemProcesso;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -41,6 +44,7 @@ final class EnviarRelatorioSemProcessoUseCaseTest extends KernelTestCase
     private User $carla;
     private User $rui;
     private User $sergio;
+    private Pasta $p1180;
 
     protected function setUp(): void
     {
@@ -54,6 +58,7 @@ final class EnviarRelatorioSemProcessoUseCaseTest extends KernelTestCase
         $this->sergio  = $this->novaPessoa($this->tenant, 'Sérgio Sócio', $primario);
 
         $p1180 = $this->novaPasta($this->tenant, '1180', $this->rui);
+        $this->p1180 = $p1180;
         $this->registrar($p1180, $this->rui, 'Distribuída a ação, processo 0701134-57.2025.8.07.0007 na vara cível.');
         $p1181 = $this->novaPasta($this->tenant, '1181', $this->rui, administrativa: true);
         $this->registrar($p1181, $this->rui, 'Parecer de consultoria');
@@ -221,5 +226,58 @@ final class EnviarRelatorioSemProcessoUseCaseTest extends KernelTestCase
         self::assertArrayNotHasKey((int) $this->rui->getId(), $avisos);
         self::assertArrayHasKey((int) $this->paula->getId(), $avisos, 'primária tem todos os módulos');
         self::assertTrue($resultado->semControladoria, 'Controladoria sem o módulo não conta como Controladoria');
+    }
+
+    // ── Cadeado (auditoria 2ª rodada, 1.20; spec pasta-cadeado D1) ──────
+
+    #[TestDox('1.20: a Controladoria (não primária) fora do cadeado não conta a pasta trancada; o primário recebe o total')]
+    public function testControladoriaForaDoCadeadoNaoContaAPastaTrancada(): void
+    {
+        $this->trancar($this->p1180);
+
+        $this->useCase()->executar($this->tenant, $this->sergio, false);
+
+        $avisos  = $this->avisosDoRelatorio($this->tenant);
+        $daCarla = $avisos[$this->carla->getId()][0];
+        self::assertSame('Relatório mensal: 2 pasta(s) sem processo', $daCarla->getTitulo());
+        self::assertSame(
+            'Relatório de pastas sem processo (05/10/2026): 2 sem processo vinculado: 0 deveriam ter, 0 precisam de revisão, 1 sem classificação e 1 administrativas coerentes. Primeiro envio.',
+            $daCarla->getMensagem(),
+        );
+        $daPaula = $avisos[$this->paula->getId()][0];
+        self::assertSame('Relatório mensal: 3 pasta(s) sem processo', $daPaula->getTitulo());
+        self::assertStringContainsString('3 sem processo vinculado: 1 deveriam ter', (string) $daPaula->getMensagem());
+    }
+
+    #[TestDox('1.20: o responsável Oculto na pasta trancada não recebe o número dela')]
+    public function testResponsavelOcultoNaoRecebeONumeroDaPastaTrancada(): void
+    {
+        $this->trancar($this->p1180);
+
+        $this->useCase()->executar($this->tenant, $this->sergio, false);
+
+        $avisos = $this->avisosDoRelatorio($this->tenant);
+        self::assertArrayNotHasKey((int) $this->rui->getId(), $avisos, 'a 1180 era a única dele que pedia ação');
+        self::assertSame('1 pasta(s) sua(s) sem processo precisam de atenção: 1182.', $avisos[$this->paula->getId()][1]->getMensagem(), 'a primária segue com as dela');
+    }
+
+    #[TestDox('1.20: o histórico mensal grava o resumo do escritório inteiro, com a pasta trancada')]
+    public function testHistoricoGravaOTotalDoEscritorio(): void
+    {
+        $this->trancar($this->p1180);
+
+        $this->useCase()->executar($this->tenant, null, true);
+
+        $envio = $this->em()->getRepository(EnvioDoRelatorioSemProcesso::class)->findOneBy(['tenant' => $this->tenant->getId()]);
+        self::assertNotNull($envio);
+        self::assertSame(3, $envio->resumo()->sem);
+        self::assertSame(1, $envio->resumo()->deveria);
+        self::assertSame('Relatório mensal: 2 pasta(s) sem processo', $this->avisosDoRelatorio($this->tenant)[$this->carla->getId()][0]->getTitulo());
+    }
+
+    private function trancar(Pasta $pasta): void
+    {
+        $this->em()->persist(new CadeadoDaPasta($this->tenant, $pasta, ModoDoCadeado::Todos, $this->paula, new \DateTimeImmutable()));
+        $this->em()->flush();
     }
 }

@@ -7,8 +7,6 @@ namespace App\Tenant\Controller;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RegraDosMasters;
-use App\Repository\UserTenantRepository;
-use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\DTO\CriarEscritorioInput;
 use App\Tenant\Form\CriarEscritorioType;
@@ -26,6 +24,9 @@ final class EscritorioController extends AbstractController
 {
     private const CHAVE_CONFIRMACAO_NAO_CONFERE = 'escritorio.flash.confirmacao_nao_confere';
 
+    /** Id do token CSRF da rota antiga de exclusão (+ id do escritório). */
+    public const CSRF_EXCLUIR = 'escritorio_excluir_';
+
     public function __construct(
         private readonly SairDoEscritorioUseCase $sairDoEscritorio,
         private readonly CriarEscritorioUseCase $criarEscritorio,
@@ -40,13 +41,9 @@ final class EscritorioController extends AbstractController
      * {@see RegraDosMasters::recusaParaExcluir()}) e a confirmação com o nome errado.
      */
     #[Route('/escritorio/{id}/excluir', name: 'escritorio_excluir', methods: ['POST'])]
-    public function excluir(
-        Tenant $tenant,
-        Request $request,
-        PermissionChecker $permissionChecker,
-        UserTenantRepository $userTenantRepository,
-    ): Response {
-        $usuario = $this->exigirQuemPodeExcluir($tenant, $request, $permissionChecker, $userTenantRepository);
+    public function excluir(Tenant $tenant, Request $request): Response
+    {
+        $usuario = $this->exigirQuemPodeExcluir($tenant, $request);
 
         $recusa = $this->regraDosMasters->recusaParaExcluir($tenant) ?? ($request->request->getString('confirmar_nome') !== (string) $tenant->getName() ? $this->tradutor->trans(self::CHAVE_CONFIRMACAO_NAO_CONFERE) : null);
         if ($recusa !== null) {
@@ -73,24 +70,24 @@ final class EscritorioController extends AbstractController
         return $this->redirectToRoute('tenant_selecionar');
     }
 
-    /** Usuário logado, CSRF válido e SuperAdmin ou admin do escritório (vínculo ativo + admin.tenant.settings.manage). */
-    private function exigirQuemPodeExcluir(Tenant $tenant, Request $request, PermissionChecker $permissionChecker, UserTenantRepository $userTenantRepository): User
+    /**
+     * Usuário logado, CSRF válido e só o Master (como `app_tenant_delete`). O escritório exclui a própria conta pelo
+     * pedido de exclusão do Meu Perfil, que o Master decide: o admin do escritório não pula esse caminho por aqui
+     * (auditoria 2.06). O id do token é desta rota, nunca o genérico `excluir_{id}` que outra tela poderia emitir.
+     */
+    private function exigirQuemPodeExcluir(Tenant $tenant, Request $request): User
     {
         $usuario = $this->getUser();
         if (!$usuario instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
-        if (!$this->isCsrfTokenValid('excluir_' . $tenant->getId(), $request->request->getString('_token'))) {
+        if (!$this->isCsrfTokenValid(self::CSRF_EXCLUIR . $tenant->getId(), $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $isSuperAdmin    = in_array('ROLE_SUPER_ADMIN', $usuario->getRoles(), true);
-        $isAdminDoTenant = $userTenantRepository->existeVinculoAtivo($usuario, $tenant)
-            && $permissionChecker->canAdminister($usuario, $tenant, 'admin.tenant.settings.manage');
-
-        if (!$isSuperAdmin && !$isAdminDoTenant) {
-            throw $this->createAccessDeniedException();
+        if (!in_array('ROLE_SUPER_ADMIN', $usuario->getRoles(), true)) {
+            throw $this->createAccessDeniedException('Somente o Master exclui o escritório por esta rota.');
         }
 
         return $usuario;

@@ -18,6 +18,7 @@
 
 const { test, expect } = require('@playwright/test');
 const path = require('path');
+const { senhaDoAmbiente } = require('../senha-do-ambiente');
 
 // Sede real do escritório ativo no banco da tela (QND 14). A cerca é de 100 m.
 const SEDE = { latitude: -15.81100086, longitude: -48.06479935 };
@@ -39,7 +40,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
     }
 
     await pagina.fill('input[name="email"]', process.env.SMOKE_EMAIL ?? '');
-    await pagina.fill('input[name="password"]', process.env.SMOKE_SENHA ?? '');
+    await pagina.fill('input[name="password"]', senhaDoAmbiente('SMOKE_SENHA'));
 
     // 🪤 `click()` no botão NÃO envia este formulário (o `<svg>` dentro do botão e o
     // `aria-busy`/`pointer-events` do próprio script da tela de login atrapalham). `requestSubmit`

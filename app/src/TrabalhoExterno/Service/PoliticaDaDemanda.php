@@ -411,7 +411,7 @@ final class PoliticaDaDemanda
      * O leitor lê esta mensagem no chat? É a regra ÚNICA: o chat, o contador de não lidas e o aviso
      * "Abrir conversa" passam todos por aqui. Nota interna nunca sai da Central. O Convidado lê só
      * da aceitação do convite em diante (o que veio antes, inclusive o registro da proposta com o
-     * valor, é da Central com o cliente), não lê os registros de pagamento (têm o valor) e, sem "Ver instruções", não lê os registros de arquivo
+     * valor, é da Central com o cliente), não lê os registros de pagamento (têm o valor) nem os da negociação e, sem "Ver instruções", não lê os registros de arquivo
      * (eles nomeiam os documentos).
      */
     public function mensagemVisivel(Contexto $ctx, DemandaExterna $d, MensagemDemanda $m): bool
@@ -425,8 +425,10 @@ final class PoliticaDaDemanda
         if ($ctx->perfil !== Perfil::Convidado) {
             return true;
         }
-        // Dinheiro (valor do PIX, comprovante): o Convidado não lê, como não lê a proposta.
-        if ($m->getTipo() === TipoMensagem::Pagamento) {
+        // Dinheiro (valor do PIX, comprovante): o Convidado não lê, como não lê a proposta. A negociação da
+        // Central com o cliente (proposta, motivos de reabrir, informações e ajustes) também não, nem a de uma
+        // demanda reaberta depois do aceite do convite (achado 2.09).
+        if ($m->getTipo() === TipoMensagem::Pagamento || $m->getTipo() === TipoMensagem::Negociacao) {
             return false;
         }
 

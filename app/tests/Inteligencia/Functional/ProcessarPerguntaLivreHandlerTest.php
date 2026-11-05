@@ -233,8 +233,8 @@ final class ProcessarPerguntaLivreHandlerTest extends KernelTestCase
         self::assertStringContainsString('• Advogado: E as metas?', $texto, 'a que não leu o Push continua no histórico');
     }
 
-    #[TestDox('regressão do audit_log: a análise de agente (analise_pasta) continua gravando resumo e texto; só a pergunta_livre fica sem eles')]
-    public function testAuditLogSoEscondeAPerguntaLivre(): void
+    #[TestDox('audit_log (1.18): nem a análise de agente (analise_pasta) nem a pergunta_livre gravam o resumo e o texto do modelo; as duas seguem na trilha com o status')]
+    public function testAuditLogEscondeOTextoDoModeloNosDoisTipos(): void
     {
         self::bootKernel();
         [$user, $tenant] = $this->criarAdmin();
@@ -254,8 +254,9 @@ final class ProcessarPerguntaLivreHandlerTest extends KernelTestCase
             ['classe' => AnaliseDeInteligencia::class, 'id' => (string) $id],
         ));
         $doAgenteNaTrilha = $trilha((int) $doAgente->getId());
-        self::assertStringContainsString('RESUMO-DO-AGENTE', $doAgenteNaTrilha);
-        self::assertStringContainsString('TEXTO-DO-AGENTE', $doAgenteNaTrilha);
+        self::assertStringContainsString('concluida', $doAgenteNaTrilha, 'a análise de agente continua na trilha, com o status');
+        self::assertStringNotContainsString('RESUMO-DO-AGENTE', $doAgenteNaTrilha);
+        self::assertStringNotContainsString('TEXTO-DO-AGENTE', $doAgenteNaTrilha);
         $daPerguntaNaTrilha = $trilha((int) $pergunta->getAnalise()->getId());
         self::assertStringContainsString('concluida', $daPerguntaNaTrilha, 'a pergunta continua na trilha, com o status');
         self::assertStringNotContainsString('RESUMO-DA-PERGUNTA', $daPerguntaNaTrilha);

@@ -861,15 +861,16 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar nomes de usuário.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         if (!$regraDosPrimarios->podeAlterarConta($currentUser, $user)) {
@@ -1018,15 +1019,16 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para lançar batidas.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         // CSRF por-intenção stateful (form tem csrf_protection=>false). Token renderizado no
@@ -1111,15 +1113,16 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para editar batidas.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         // CSRF por-intenção stateful só no POST (form tem csrf_protection=>false; no GET não há
@@ -1208,15 +1211,16 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para excluir batidas.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         if (!$this->isCsrfTokenValid('delete_ponto_' . $registroId, (string) $request->request->get('_token'))) {
@@ -1266,10 +1270,6 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $currentUser = $this->getUser();
 
         if (!$currentUser) {
@@ -1280,6 +1280,11 @@ final class TenantController extends AbstractController
 
         if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para abonar justificativas.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         if (!$this->isCsrfTokenValid('justificativa_aprovar_' . $justificativaId, (string) $request->request->get('_token'))) {
@@ -1356,10 +1361,6 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $currentUser = $this->getUser();
 
         if (!$currentUser) {
@@ -1370,6 +1371,11 @@ final class TenantController extends AbstractController
 
         if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para rejeitar justificativas.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         if (!$this->isCsrfTokenValid('justificativa_rejeitar_' . $justificativaId, (string) $request->request->get('_token'))) {
@@ -1434,10 +1440,6 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $currentUser = $this->getUser();
         if (!$currentUser) {
             throw $this->createAccessDeniedException();
@@ -1446,6 +1448,10 @@ final class TenantController extends AbstractController
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para abonar justificativas.');
+        }
+
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         if (!$this->isCsrfTokenValid('justificativa_aprovar_todos_' . $batchId, (string) $request->request->get('_token'))) {
@@ -1502,10 +1508,6 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $currentUser = $this->getUser();
         if (!$currentUser) {
             throw $this->createAccessDeniedException();
@@ -1514,6 +1516,11 @@ final class TenantController extends AbstractController
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para reverter justificativas.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         if (!$this->isCsrfTokenValid('justificativa_reverter_' . $justificativaId, (string) $request->request->get('_token'))) {
@@ -1617,10 +1624,6 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $currentUser = $this->getUser();
 
         if (!$currentUser) {
@@ -1631,6 +1634,11 @@ final class TenantController extends AbstractController
 
         if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para lançar justificativas.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         if (!$this->isCsrfTokenValid('admin_nova_justificativa_' . $user->getId(), (string) $request->request->get('_token'))) {
@@ -1808,10 +1816,6 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $currentUser = $this->getUser();
 
         if (!$currentUser) {
@@ -1822,6 +1826,11 @@ final class TenantController extends AbstractController
 
         if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão.');
+        }
+
+        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         // Remendo (B5 frente 3): escopa o filtro no tenant da URL antes de carregar a justificativa

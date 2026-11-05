@@ -15,6 +15,12 @@ use Doctrine\Persistence\ManagerRegistry;
 /**
  * Toda consulta filtra por escritório (o dono da conversa já foi conferido por quem a entregou).
  *
+ * EXCEÇÃO: as consultas da retenção diária (`conversasComMensagemAntesDe`, `apagarAntesDe`) varrem TODOS os escritórios
+ * de propósito (console, sem sessão nem TenantFilter). A fala não é `Auditavel`, mas a cascata do banco leva junto
+ * anexos e propostas sem passar pelo `AuditLogSubscriber`: não há trilha no `audit_log`, o rastro é o log do comando
+ * com as contagens. Regra 2 de `src/ChatIa/CLAUDE.md` e decisão 17 da spec `docs/specs/chat-pagina-inteira.md`. Método
+ * novo sem escritório = só para a retenção, com este mesmo aviso.
+ *
  * @extends ServiceEntityRepository<MensagemDeChat>
  */
 class MensagemDeChatRepository extends ServiceEntityRepository
@@ -98,6 +104,38 @@ class MensagemDeChatRepository extends ServiceEntityRepository
             ->setParameter('desde', $desde)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * Retenção ({@see \App\ChatIa\Service\ExpiracaoDoChatIa}): os ids das conversas que têm fala criada antes de
+     * `$limite`. Varre TODOS os escritórios de propósito, como {@see apagarAntesDe}.
+     *
+     * @return list<int>
+     */
+    public function conversasComMensagemAntesDe(\DateTimeImmutable $limite): array
+    {
+        return array_map('intval', $this->createQueryBuilder('m')
+            ->select('DISTINCT IDENTITY(m.conversa)')
+            ->andWhere('m.criadaEm < :limite')
+            ->setParameter('limite', $limite)
+            ->getQuery()
+            ->getSingleColumnResult());
+    }
+
+    /**
+     * Retenção: apaga TODA fala criada antes de `$limite` (pergunta, resposta, registro de custo de resposta substituída
+     * e a cópia importada da Central, que guarda a data original). Varre TODOS os escritórios de propósito: roda no
+     * console, sem sessão e sem o TenantFilter, como `ConversaDaIaDaCentral::apagarMensagensDaIaAntesDe`. O banco leva
+     * em cascata o que aponta para a fala (anexo e proposta); os arquivos dos anexos são de quem chama. Devolve quantas.
+     */
+    public function apagarAntesDe(\DateTimeImmutable $limite): int
+    {
+        return (int) $this->createQueryBuilder('m')
+            ->delete()
+            ->andWhere('m.criadaEm < :limite')
+            ->setParameter('limite', $limite)
+            ->getQuery()
+            ->execute();
     }
 
     public function salvar(MensagemDeChat $mensagem): void

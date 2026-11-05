@@ -10,6 +10,7 @@ use App\Pasta\DTO\AlertaDaPasta;
 use App\Pasta\DTO\ResultadoDaRotinaDaControladoria;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Pasta\Repository\PastaMensagemRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AlertasDaPasta;
@@ -31,6 +32,8 @@ use Psr\Clock\ClockInterface;
  * Alerta de nível BAIXO não entra no Registro (nem no estado): só médio e alto. Sem esse corte, um alerta baixo que vale
  * para quase toda pasta (ex.: cadastro do réu incompleto) lançaria um cartão em cada pasta na primeira segunda.
  * O cartão é escrito em nome do responsável da pasta (ou de quem a criou); pasta sem os dois é pulada.
+ * O cartão fica no Registro e qualquer um que vê a pasta o lê: por isso ele não cita nenhuma pasta com cadeado, nem
+ * quando o autor a vê (auditoria 1.21). O painel, que calcula pelo leitor, continua mostrando as que ele vê.
  */
 final class LancarAlertasDaControladoriaUseCase
 {
@@ -45,6 +48,7 @@ final class LancarAlertasDaControladoriaUseCase
         private readonly RegistroDoSistemaNaPasta $registro,
         private readonly EntityManagerInterface $em,
         private readonly ClockInterface $relogio,
+        private readonly CadeadoDaPastaRepository $cadeados,
     ) {
     }
 
@@ -56,15 +60,16 @@ final class LancarAlertasDaControladoriaUseCase
         $comNovo  = 0;
         $novos    = 0;
         $porTipo  = [];
+        $trancadas = $this->cadeados->idsDasPastasComCadeado($tenant);
 
         foreach ($pastas as $pasta) {
-            // Os alertas de cadastro respeitam o cadeado de QUEM os vê: aqui, o autor do cartão.
+            // Os alertas de cadastro respeitam o cadeado do autor do cartão e, por ser gravado, não citam pasta trancada.
             $autor = $pasta->getResponsavel() ?? $pasta->getCriadoPor();
             if ($autor === null) {
                 continue;
             }
             $achados = array_values(array_filter(
-                $this->alertas->montar($pasta, $tenant, $autor, $hoje),
+                $this->alertas->montar($pasta, $tenant, $autor, $hoje, $trancadas),
                 static fn (AlertaDaPasta $a): bool => $a->nivel !== AlertaDaPasta::BAIXA,
             ));
             $novosDaPasta = $this->processar($pasta, $autor, $achados, $ultimos[(int) $pasta->getId()] ?? null, $simular);

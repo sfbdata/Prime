@@ -100,6 +100,24 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '1 hour'
+        # Senha por código, conferência (auditoria 3.14). Teto da CONTA (chave = id), somando os pedidos: cada pedido
+        # novo abre 5 tentativas, e sem este teto eram 600 palpites por dia. O valor é a constante TETO_DA_CONTA do ConfirmarCodigoSenhaUseCase.
+        senha_codigo_erros_conta:
+            policy: sliding_window
+            limit: 15
+            interval: '24 hours'
+            lock_factory: 'lock.recuperacao_codigo.factory'
+        # O aviso do teto à dona da conta: no máximo um por dia, mesmo que a janela deslizante cruze o teto de novo.
+        senha_codigo_aviso_teto:
+            policy: fixed_window
+            limit: 1
+            interval: '24 hours'
+            lock_factory: 'lock.recuperacao_codigo.factory'
+        # E por e-mail normalizado no POST /senha/codigo/confirmar: vale também para conta inexistente (RN02).
+        senha_codigo_email:
+            policy: sliding_window
+            limit: 10
+            interval: '1 hour'
         # Excluir conta (PR 5, docs/specs/conta-pedido-exclusao.md E4): envios do código de 6 dígitos,
         # chave = id do usuário. Cada envio invalida o anterior; 3 em 15 min bastam para quem errou o e-mail.
         exclusao_conta_codigo:
@@ -163,6 +181,14 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 hour'
+        # Aviso da Cora (POST /api/webhooks/cora/pix): rota pública, sem corpo e sem assinatura, e o id do evento
+        # é escolhido por quem envia. Chave = IP do cliente. Acima do limite a rota responde 200 sem gravar nem
+        # enfileirar (a Cora não deve receber 429); o aviso que ficar de fora é coberto pela conciliação de
+        # 15 em 15 minutos. 60 por minuto passa folgado pelo volume real e põe teto num laço de avisos inventados.
+        webhook_cora:
+            policy: sliding_window
+            limit: 60
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     # gc_maxlifetime = app.sessao_gc_segundos (padrão 1 dia): o arquivo da sessão não some antes do

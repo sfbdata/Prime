@@ -96,6 +96,27 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('BEGIN CERTIFICATE', $html);
     }
 
+    #[TestDox('Contribua pix: GET não cria cobrança (405); POST sem token ou com token errado é recusado sem criar cobrança; com o token cria')]
+    public function testPixExigePostComCsrf(): void
+    {
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        $this->conectar();
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $cobrancas = fn (): int => count(array_filter($this->cora->pedidos, static fn (array $p): bool => 'POST' === $p['metodo'] && str_ends_with($p['url'], '/v2/invoices/')));
+
+        // Um <img src="/contribua/pix?valor=20"> de outro site chega como GET.
+        $this->client->request('GET', '/contribua/pix?valor=20');
+        self::assertResponseStatusCodeSame(405);
+        $this->client->request('POST', '/contribua/pix', ['valor' => '20'], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        self::assertResponseStatusCodeSame(403);
+        $this->client->request('POST', '/contribua/pix', ['valor' => '20', '_token' => 'errado'], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, $cobrancas(), 'nenhuma cobrança criada sem o token');
+
+        self::assertStringContainsString('cora.com.br', $this->pix(20)['codigo']);
+        self::assertSame(1, $cobrancas());
+    }
+
     #[TestDox('PIX da conta: dinâmico da Cora com a integração; reaproveita a cobrança do mesmo valor; abaixo de R$ 5 e sem CNPJ cai no estático')]
     public function testPixDinamico(): void
     {
@@ -342,7 +363,7 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
     /** @return array{codigo: string, valido: bool} */
     private function pix(int $reais): array
     {
-        $this->client->request('GET', '/contribua/pix?valor=' . $reais);
+        $this->client->request('POST', '/contribua/pix', ['_token' => self::TOKEN, 'valor' => (string) $reais], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
 
         return json_decode((string) $this->client->getResponse()->getContent(), true);
     }
