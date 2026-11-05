@@ -32,6 +32,9 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 
 /**
  * ClienteController - Gerencia a ficha do cliente (PF e PJ).
@@ -121,18 +124,41 @@ class ClienteController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW, 'homepage', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW, 'homepage', self::rotuloDoPedido($id))) {
             return $redirect;
         }
 
         return $this->render('cliente/show.html.twig', [
             'cliente' => $cliente,
-            'pastas' => $this->pastaRepository->findByCliente($cliente, $tenant),
+            'pastas' => $this->pastasQueAPessoaVe($cliente, $currentUser, $tenant),
             // Cadeado (spec pasta-cadeado D1): da pasta oculta, só o número (sem a situação).
             'pastasOcultas' => $tenant !== null ? array_flip($acessoAPasta->idsOcultosPara($currentUser, (int) $tenant->getId())) : [],
             'documentTypeOptions' => self::DOCUMENT_TYPES,
             'documentosPorTipo' => $this->groupDocumentsByType($this->documentosVisiveis->de($cliente, $currentUser, $tenant)),
         ]);
+    }
+
+    /**
+     * Quem não pode ver o cliente não recebe o nome dele na URL do pedido de acesso (auditoria 3.15): o rótulo é só o
+     * número do cadastro. Quem decide o pedido vê o nome na tela dele.
+     */
+    private static function rotuloDoPedido(int $id): string
+    {
+        return 'Cliente #' . $id;
+    }
+
+    /**
+     * As pastas do cliente que a pessoa pode ver, a mesma regra da janela do cliente (auditoria 1.06): a permissão de
+     * ver a pasta, SEM o teto do cadeado. A pasta trancada continua na lista só com o número (D1, `pastasOcultas`).
+     *
+     * @return list<Pasta>
+     */
+    private function pastasQueAPessoaVe(Cliente $cliente, User $usuario, ?Tenant $tenant): array
+    {
+        return array_values(array_filter(
+            $this->pastaRepository->findByCliente($cliente, $tenant),
+            fn (Pasta $pasta): bool => $this->permissionChecker->canAccessResourceIgnoringPastaLock($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW),
+        ));
     }
 
     #[Route('/{id}/editar', name: 'cliente_edit', methods: ['GET', 'POST'])]
@@ -148,7 +174,7 @@ class ClienteController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT, 'homepage', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT, 'homepage', self::rotuloDoPedido($id))) {
             return $redirect;
         }
 
@@ -193,7 +219,7 @@ class ClienteController extends AbstractController
             throw $this->createNotFoundException('Cliente não encontrado');
         }
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_DELETE, 'homepage', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_DELETE, 'homepage', self::rotuloDoPedido($id))) {
             return $redirect;
         }
 

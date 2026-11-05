@@ -148,6 +148,34 @@ final class EditarEscritorioDadosSoPrimarioTest extends JusPrimeWebTestCase
         self::assertSame('Escritório Renomeado', $this->em->find(Tenant::class, $this->tenant->getId())?->getName());
     }
 
+    #[TestDox('O Master segue alterando os dados na edição legada (D1: primário ou Master)')]
+    public function testMasterAlteraOsDados(): void
+    {
+        $master = (new User())->setEmail('master_' . uniqid() . '@test.com')->setFullName('Mário Master')
+            ->setRoles(['ROLE_SUPER_ADMIN'])->setIsActive(true);
+        $master->setPassword('x');
+        $this->em->persist($master);
+        $this->em->flush();
+        // O Master entra sem escritório na sessão: a rota traz o escritório.
+        $this->client->loginUser($master);
+        $this->marcarTermosAceitos($this->client);
+
+        $url     = $this->urlEditar();
+        $crawler = $this->client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        $form = $crawler->filter('#tab-dados form[name=tenant_name]');
+        self::assertCount(0, $form->filter('input[disabled]:not([type=hidden])'), 'para o Master os dados são editáveis');
+
+        $valores = $form->form()->getPhpValues();
+        $valores['tenant_name']['name'] = 'Escritório do Master';
+        $this->client->request('POST', $url, $valores, [], ['HTTP_REFERER' => 'http://localhost' . $url]);
+
+        self::assertResponseRedirects();
+        $this->em->clear();
+        self::assertSame('Escritório do Master', $this->em->find(Tenant::class, $this->tenant->getId())?->getName());
+        self::assertSame([], $this->negados());
+    }
+
     // ── apoio ──────────────────────────────────────────────────────────────
 
     private function urlEditar(): string

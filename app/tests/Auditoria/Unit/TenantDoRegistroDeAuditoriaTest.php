@@ -75,6 +75,22 @@ final class TenantDoRegistroDeAuditoriaTest extends TestCase
         yield 'lotação' => [new Lotacao()];
     }
 
+    #[TestDox('Vínculo (UserTenant) grava o escritório do vínculo, não o da sessão')]
+    public function testVinculoGravaOEscritorioDoVinculo(): void
+    {
+        $vinculo = new UserTenant(new User(), $this->escritorio(9));
+
+        self::assertSame(9, AuditLogSubscriber::tenantDoRegistro(static fn (): ?int => 7, $vinculo));
+        self::assertNull(AuditLogSubscriber::tenantDoRegistro(static fn (): ?int => null, $vinculo), 'sem sessão segue sem escritório');
+    }
+
+    #[TestDox('O próprio escritório (Tenant) grava o id dele; ainda sem id, vale a sessão')]
+    public function testEscritorioGravaOProprioId(): void
+    {
+        self::assertSame(9, AuditLogSubscriber::tenantDoRegistro(static fn (): ?int => 7, $this->escritorio(9)));
+        self::assertSame(7, AuditLogSubscriber::tenantDoRegistro(static fn (): ?int => 7, new Tenant()));
+    }
+
     #[DataProvider('entidadesComDono')]
     #[TestDox('Auditoria 3.01: entidade com dono grava o escritório do DONO, não o da sessão ($_dataName)')]
     public function testEntidadeComDonoGravaODono(object $entidade): void
@@ -91,12 +107,22 @@ final class TenantDoRegistroDeAuditoriaTest extends TestCase
         self::assertSame(7, AuditLogSubscriber::tenantDoRegistro(static fn (): ?int => 7, $entidade));
     }
 
-    #[TestDox('Classe fora da lista, mesmo com getTenant() (vínculo, convite): vale a sessão')]
+    #[TestDox('Classe fora da lista, mesmo com getTenant() (ex.: convite): vale a sessão')]
     public function testForaDaListaUsaASessao(): void
     {
-        $vinculo = new UserTenant(new User(), $this->escritorio(9));
+        $dono = $this->escritorio(9);
+        $foraDaLista = new class ($dono) {
+            public function __construct(private readonly Tenant $tenant)
+            {
+            }
 
-        self::assertSame(7, AuditLogSubscriber::tenantDoRegistro(static fn (): ?int => 7, $vinculo));
+            public function getTenant(): Tenant
+            {
+                return $this->tenant;
+            }
+        };
+
+        self::assertSame(7, AuditLogSubscriber::tenantDoRegistro(static fn (): ?int => 7, $foraDaLista));
     }
 
     #[DataProvider('entidadesComDono')]
