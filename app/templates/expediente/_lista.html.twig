@@ -648,12 +648,23 @@
         document.querySelectorAll('.clientes-resumo[data-clientes]').forEach(function (el) {
             if (bootstrap.Tooltip.getInstance(el)) return;
             var nomes = el.dataset.clientes.split('||');
-            var html = nomes.map(function (n) { return '<div>' + n + '</div>'; }).join('');
+            // Auditoria 5.10: o nome do cliente é texto livre. A dica é montada com nós DOM e
+            // textContent (nunca string HTML), então um nome como <img src=...> aparece como texto.
+            // O Tooltip recebe um elemento: com html: true ele só o anexa, sem interpretar o nome.
+            function montarDica() {
+                var dica = document.createElement('div');
+                nomes.forEach(function (n) {
+                    var linha = document.createElement('div');
+                    linha.textContent = n;
+                    dica.appendChild(linha);
+                });
+                return dica;
+            }
             new bootstrap.Tooltip(el, {
                 html: true,
                 trigger: 'hover',
                 placement: el.dataset.bsPlacement || 'right',
-                title: function () { return html; }
+                title: montarDica
             });
         });
     }

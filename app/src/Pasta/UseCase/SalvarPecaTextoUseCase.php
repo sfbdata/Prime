@@ -11,6 +11,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Exception\TituloDePecaLongoDemaisException;
 use App\Pasta\Service\AvisoDePastaAcompanhada;
+use App\Pasta\Service\SanitizadorDePecaDeTexto;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\FonteDeConteudo;
@@ -20,6 +21,10 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Cria uma peça escrita no editor: o HTML vira um arquivo novo e um `PastaDocumento`.
+ *
+ * O HTML passa pelo {@see SanitizadorDePecaDeTexto} antes de gravar (auditoria 5.06): o editor é do
+ * navegador e um POST feito à mão gravaria script ou atributo `on*`. Tamanho e `sha256` são do HTML
+ * já limpo, que é o que fica no arquivo.
  *
  * O `sha256` é do HTML gravado — o storage guarda o texto byte a byte, então o hash do texto é o
  * hash do arquivo. Peça não passa por compressão.
@@ -49,6 +54,7 @@ final class SalvarPecaTextoUseCase
         private readonly EntityManagerInterface $em,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ?AvisoDePastaAcompanhada $avisoDeAcompanhamento = null,
+        private readonly SanitizadorDePecaDeTexto $sanitizador = new SanitizadorDePecaDeTexto(),
     ) {}
 
     public function executar(
@@ -82,9 +88,10 @@ final class SalvarPecaTextoUseCase
             throw new TituloDePecaLongoDemaisException();
         }
 
+        $htmlLimpo = $this->sanitizador->sanitizar($conteudoHtml, $tenant->getId());
         $armazenado = $this->armazenamento->gravar(
             ChavesDePasta::novoDocumento($doc, 'html'),
-            FonteDeConteudo::deTexto($conteudoHtml),
+            FonteDeConteudo::deTexto($htmlLimpo),
         );
 
         $doc->setPasta($pasta);
@@ -92,7 +99,7 @@ final class SalvarPecaTextoUseCase
         $doc->setCaminhoArquivo($armazenado->chave->nome);
         $doc->setMimeType(self::MIME_DA_PECA);
         $doc->setTamanhoBytes($armazenado->tamanhoBytes);
-        $doc->setSha256(Sha256DeArquivo::deTexto($conteudoHtml));
+        $doc->setSha256(Sha256DeArquivo::deTexto($htmlLimpo));
         $doc->setSecao($secao);
 
         $this->em->persist($doc);

@@ -90,6 +90,27 @@ final class PecaTextoArmazenamentoTest extends JusPrimeWebTestCase
         self::assertSame(strlen('<p>Conteúdo da peça</p>'), $doc->getTamanhoBytes());
     }
 
+    #[TestDox('criar (5.06): conteúdo com img onerror enviado direto, sem passar pelo editor, é gravado sem o atributo')]
+    public function testCriarComPayloadGravaLimpo(): void
+    {
+        [$client, $duble, , $pasta] = $this->cenarioEmMemoria();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
+            '_token'    => 'TOKEN_peticionar_texto_' . $pasta->getId(),
+            'titulo'    => 'Petição',
+            'categoria' => 'PECA',
+            'conteudo'  => '<p>Peça</p><img src=x onerror=alert(1)><script>alert(2)</script>',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $doc     = $this->documentosDaPasta((int) $pasta->getId())[0];
+        $gravado = $duble->memoria->ler(ChavesDePasta::documento($doc));
+        self::assertStringNotContainsString('onerror', $gravado);
+        self::assertStringNotContainsString('<script', $gravado);
+        self::assertStringContainsString('<p>Peça</p>', $gravado);
+        self::assertSame(hash('sha256', $gravado), $doc->getSha256());
+    }
+
     #[TestDox('criar: falha do storage responde erro (não 404) e nenhum documento é registrado')]
     public function testCriarComFalhaDoStorageNaoRegistraDocumento(): void
     {
