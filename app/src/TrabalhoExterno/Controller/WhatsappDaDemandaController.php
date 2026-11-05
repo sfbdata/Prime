@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
@@ -15,7 +16,6 @@ use App\TrabalhoExterno\UseCase\DescartarAvisoWhatsappUseCase;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\MarcarAvisoEnviadoUseCase;
 use App\TrabalhoExterno\UseCase\RemoverContatoWhatsappUseCase;
-use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

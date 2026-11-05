@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\DTO\DadosDaVaga;
 use App\TrabalhoExterno\Enum\AcaoVaga;
@@ -22,7 +23,6 @@ use App\TrabalhoExterno\UseCase\RegistrarVisitaAsVagasUseCase;
 use App\TrabalhoExterno\UseCase\ListarVagasUseCase;
 use App\TrabalhoExterno\UseCase\MarcarVagasEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\SalvarVagaUseCase;
-use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

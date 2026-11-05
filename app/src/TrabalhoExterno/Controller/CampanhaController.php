@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\DTO\FiltroDaCampanha;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
@@ -16,7 +17,6 @@ use App\TrabalhoExterno\Service\RegistroDaCampanha;
 use App\TrabalhoExterno\UseCase\ExportarDestinatariosDaCampanhaUseCase;
 use App\TrabalhoExterno\UseCase\ExportarEmailDaCampanhaUseCase;
 use App\TrabalhoExterno\UseCase\MontarCampanhaUseCase;
-use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

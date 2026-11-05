@@ -49,8 +49,8 @@ emails:
         titulo: Tentativas de trocar a sua senha
         ola: 'Olá, {nome}!'
         aconteceu: Alguém digitou o código errado muitas vezes ao tentar trocar a senha da sua conta no BlueJus.
-        fechou: Por segurança, a troca de senha por código ficou fechada por 24 horas. Sua senha atual continua valendo e você entra normalmente com ela.
-        nao_foi_voce: Se não foi você, nada precisa ser feito agora. Se esqueceu a senha, peça um código novo amanhã.
+        fechou: Por segurança, a troca de senha por código ficou fechada por um tempo. Sua senha atual continua valendo e você entra normalmente com ela.
+        nao_foi_voce: Se não foi você, nada precisa ser feito agora. Se esqueceu a senha, peça um código novo mais tarde.
     convite_escritorio:
         titulo: Convite para colaborar no BlueJus
         ola_nome: 'Olá, {nome}!'

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
@@ -36,7 +37,6 @@ use App\TrabalhoExterno\UseCase\MudarStatusDoCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\PreVisualizarCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\RemoverArquivoDoCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\SalvarCurriculoECandidatarUseCase;
-use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\DefinirAlertaDeVagasUseCase;
 use App\TrabalhoExterno\UseCase\MontarEngajamentoUseCase;
-use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

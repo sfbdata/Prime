@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
@@ -17,7 +18,6 @@ use App\TrabalhoExterno\UseCase\EnviarTermoParaAceiteUseCase;
 use App\TrabalhoExterno\UseCase\GerarDocumentoDoTermoUseCase;
 use App\TrabalhoExterno\UseCase\GerarRascunhoDoTermoUseCase;
 use App\TrabalhoExterno\UseCase\PreVisualizarTermoUseCase;
-use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

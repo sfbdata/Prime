@@ -106,6 +106,13 @@ framework:
             policy: sliding_window
             limit: 15
             interval: '24 hours'
+            lock_factory: 'lock.recuperacao_codigo.factory'
+        # O aviso do teto à dona da conta: no máximo um por dia, mesmo que a janela deslizante cruze o teto de novo.
+        senha_codigo_aviso_teto:
+            policy: fixed_window
+            limit: 1
+            interval: '24 hours'
+            lock_factory: 'lock.recuperacao_codigo.factory'
         # E por e-mail normalizado no POST /senha/codigo/confirmar: vale também para conta inexistente (RN02).
         senha_codigo_email:
             policy: sliding_window

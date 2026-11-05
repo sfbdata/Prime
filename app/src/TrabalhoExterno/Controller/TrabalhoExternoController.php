@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Http\EntregaDeArquivo;
@@ -18,7 +19,6 @@ use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\ListarAndamentosRecebidosUseCase;
 use App\TrabalhoExterno\UseCase\MontarExtratoDeDespachosUseCase;
 use App\TrabalhoExterno\UseCase\MontarPainelUseCase;
-use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

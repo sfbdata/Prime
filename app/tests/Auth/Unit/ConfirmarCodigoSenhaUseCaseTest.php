@@ -83,6 +83,10 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
                 ['id' => 'senha_codigo_erros_conta', 'policy' => 'sliding_window', 'limit' => ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA, 'interval' => '24 hours'],
                 new InMemoryStorage(),
             ),
+            new RateLimiterFactory(
+                ['id' => 'senha_codigo_aviso_teto', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '24 hours'],
+                new InMemoryStorage(),
+            ),
             $this->mailer,
         );
         // Faz no objeto o que o UPDATE condicional faz no banco: só ganha quem encontra o e-mail ainda a confirmar.
@@ -534,13 +538,14 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         self::assertSame('HASH_ANTIGO', $user->getPassword());
     }
 
-    #[TestDox('Atingir o teto queima os pedidos pendentes da conta e manda um único aviso à dona')]
+    #[TestDox('Atingir o teto encerra (sem apagar) os pedidos pendentes da conta e manda um único aviso à dona')]
     public function testTetoAvisaUmaVezEQueimaOsPendentes(): void
     {
         $user = $this->usuario();
         $this->pedidosNovosACadaVez($user);
         $this->mailer->expects($this->once())->method('avisarTetoDeTentativas')->with($user);
-        $this->redefinicaoRepository->expects($this->atLeastOnce())->method('invalidarPendentesDoUsuario')->with($user, null);
+        $this->redefinicaoRepository->expects($this->atLeastOnce())->method('encerrarPendentesDoUsuario')->with($user);
+        $this->redefinicaoRepository->expects($this->never())->method('invalidarPendentesDoUsuario');
 
         $this->errarNVezes(ConfirmarCodigoSenhaUseCase::TETO_DA_CONTA + 5);
     }

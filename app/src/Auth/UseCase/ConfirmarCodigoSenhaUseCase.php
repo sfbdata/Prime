@@ -33,9 +33,13 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * Força bruta: o pedido é buscado pela conta (nunca pelo hash) e cada código errado conta
  * uma tentativa; na quinta o pedido queima e nenhum código passa mais. Código fora do
  * formato (não 6 dígitos) é recusado sem gastar tentativa. Por cima disso, o teto da conta
- * (TETO_DA_CONTA em 24 h, somando os pedidos): na tentativa que o atinge sem acertar, os pedidos
- * pendentes queimam e a dona recebe um único aviso; passado o teto, nem o código certo passa,
- * com o mesmo texto neutro.
+ * (TETO_DA_CONTA em 24 h, somando os pedidos, com trava entre pedidos paralelos): na tentativa que
+ * o atinge sem acertar, os pedidos pendentes são encerrados e a dona recebe um aviso (no máximo um
+ * por dia); passado o teto, nem o código certo passa, com o mesmo texto neutro.
+ *
+ * Troca aceita (auditoria 3.14): o teto é por CONTA, de qualquer IP, então quem erra de propósito
+ * fecha a recuperação por código da conta alheia por até um dia. É o preço de tirar os 600 palpites
+ * por dia; o aviso diz à dona o que aconteceu, e a senha atual dela continua valendo.
  *
  * Trocar o hash da senha derruba sozinho as outras sessões e os cookies "lembrar-me" (ver
  * RedefinirSenhaUseCase); o RecuperacaoSenhaControllerTest prova os dois.
@@ -74,6 +78,7 @@ final class ConfirmarCodigoSenhaUseCase
         private readonly AceiteTermoRepository $aceiteTermoRepository,
         private readonly CienciaPoliticaRepository $cienciaPoliticaRepository,
         private readonly RateLimiterFactoryInterface $senhaCodigoErrosContaLimiter,
+        private readonly RateLimiterFactoryInterface $senhaCodigoAvisoTetoLimiter,
         private readonly RedefinicaoSenhaMailerInterface $mailer,
     ) {
     }
@@ -115,7 +120,7 @@ final class ConfirmarCodigoSenhaUseCase
         // O teto da conta vem antes da vaga do pedido: passado ele, nada é comparado.
         $cota = $this->senhaCodigoErrosContaLimiter->create((string) $user->getId())->consume();
         if (!$cota->isAccepted()) {
-            $this->redefinicaoRepository->invalidarPendentesDoUsuario($user);
+            $this->redefinicaoRepository->encerrarPendentesDoUsuario($user, new \DateTimeImmutable());
 
             throw new \DomainException(self::ERRO_CODIGO);
         }
@@ -138,12 +143,17 @@ final class ConfirmarCodigoSenhaUseCase
     }
 
     /**
-     * A tentativa que esgotou o teto errou: queima os pedidos pendentes e avisa a dona uma vez (as seguintes são
-     * recusadas antes de chegar aqui). Falha no envio não muda a resposta neutra.
+     * A tentativa que esgotou o teto errou: encerra os pedidos pendentes (encerra, não apaga: a linha segue contando
+     * no teto diário do SolicitarCodigoSenhaUseCase) e avisa a dona. O aviso tem limitador próprio, um por dia: a
+     * janela deslizante pode cruzar o teto de novo. Falha no envio não muda a resposta neutra.
      */
     private function fecharAContaNoTeto(User $user): void
     {
-        $this->redefinicaoRepository->invalidarPendentesDoUsuario($user);
+        $this->redefinicaoRepository->encerrarPendentesDoUsuario($user, new \DateTimeImmutable());
+
+        if (!$this->senhaCodigoAvisoTetoLimiter->create((string) $user->getId())->consume()->isAccepted()) {
+            return;
+        }
 
         try {
             $this->mailer->avisarTetoDeTentativas($user);

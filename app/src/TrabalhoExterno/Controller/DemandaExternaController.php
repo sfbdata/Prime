@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\DTO\DadosDaProposta;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
@@ -41,7 +42,6 @@ use App\TrabalhoExterno\UseCase\RegistrarAndamentoUseCase;
 use App\TrabalhoExterno\UseCase\ResponderAoDespachoUseCase;
 use App\TrabalhoExterno\UseCase\SalvarSolicitacaoUseCase;
 use App\TrabalhoExterno\UseCase\SolicitarPeloMasterUseCase;
-use App\EventListener\TenantContextValidatorListener;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
