@@ -302,9 +302,9 @@ final class PeticionarController extends AbstractController
         }
 
         // Aviso, não bloqueio: o documento já está gravado. Só pastas do MESMO escritório que o
-        // usuário pode ver entram na lista (ListarDuplicadosDoDocumentoUseCase).
+        // usuário pode ver entram na lista, sem o que as abas ocultas escondem dele (ListarDuplicadosDoDocumentoUseCase).
         $duplicados = $tenant !== null
-            ? $this->listarDuplicadosDoDocumentoUseCase->executar($doc, $currentUser, $tenant)
+            ? $this->listarDuplicadosDoDocumentoUseCase->executar($doc, $currentUser, $tenant, $this->visibilidadeDasAbas->abasOcultasPorPasta($currentUser, $tenant))
             : [];
 
         if ($tenant !== null) {

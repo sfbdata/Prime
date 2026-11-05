@@ -263,12 +263,16 @@
 }
 </style>
 
+{# Auditoria 5.07: JSON dentro de <script> leva as flags HEX (como ExploradorDeDocumentosOutput::FLAGS_JSON).
+   O nome do marcador é texto livre: sem elas, um nome como "<!--<script>" faz o navegador engolir o resto da
+   tela como texto deste script. Com elas, < > & ' " viram \u003C e afins e o JS recebe o nome exato. #}
+{% set flagsJsonNoScript = constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT') %}
 <script>
 (function () {
-    var urlPastaMarcadores = '{{ urlPastaMarcadores }}';
-    var todosMarcadores    = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor, paiId: m.pai ? m.pai.id : null})|json_encode|raw }};
-    var delegateSelector   = {{ delegateSelector is defined ? delegateSelector|json_encode|raw : 'null' }};
-    var callbackNome       = {{ onSucessoCallback is defined ? onSucessoCallback|json_encode|raw : 'null' }};
+    var urlPastaMarcadores = {{ urlPastaMarcadores|json_encode(flagsJsonNoScript)|raw }};
+    var todosMarcadores    = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor, paiId: m.pai ? m.pai.id : null})|json_encode(flagsJsonNoScript)|raw }};
+    var delegateSelector   = {{ delegateSelector is defined ? delegateSelector|json_encode(flagsJsonNoScript)|raw : 'null' }};
+    var callbackNome       = {{ onSucessoCallback is defined ? onSucessoCallback|json_encode(flagsJsonNoScript)|raw : 'null' }};
     // E12: o trilho do Expediente avisa quando a lista de marcadores mudou (criar, editar, excluir, reordenar).
     window.atualizarMarcadoresDoMoverPara = function (lista) { todosMarcadores = lista; };
 

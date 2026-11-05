@@ -27,6 +27,10 @@
     var MARCADOR_VAGA = 'VG-0';
     var MARCADOR_CV = 'CV-0';
     var FALHA = 'Não foi possível concluir. Tente de novo.';
+    /* Impressão do currículo e do termo (auditoria I-xss 5.03): iframe oculto sandbox sem permissão de script, como o visor
+       da pasta (pasta-explorador-visor.js). allow-same-origin deixa chamar o print() do quadro e carregar as imagens do
+       sistema; allow-modals impede o navegador de ignorar o print(). Nada do HTML do documento roda. */
+    var SANDBOX_IMPRESSAO = 'allow-same-origin allow-modals';
 
     var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
     var FECHADAS = ['concluida', 'arquivada', 'recusada', 'cancelada', 'rascunho'];
@@ -6655,14 +6659,45 @@
             baixar(X.pdfUrl);
             return;
         }
-        var w = window.open('', '_blank');
-        if (!w) {
-            toastErro('O navegador bloqueou a janela de impressão. Permita pop-ups.');
-            return;
-        }
-        w.document.write(X.html);
-        w.document.close();
-        setTimeout(function () { w.focus(); w.print(); }, 400);
+        imprimirEmQuadro(X.html);
+    }
+
+    /**
+     * Imprime o HTML do servidor num iframe fora da tela, sandbox sem scripts e preenchido por srcdoc (nunca
+     * escrita numa janela da mesma origem). O quadro sai depois da impressão (ou em 60s, se o navegador
+     * não avisar o fim).
+     */
+    function imprimirEmQuadro(html) {
+        var quadro = document.createElement('iframe');
+        quadro.setAttribute('aria-hidden', 'true');
+        quadro.tabIndex = -1;
+        quadro.title = 'Impressão';
+        quadro.style.cssText = 'position:fixed;left:-10000px;top:0;width:800px;height:600px;border:0;pointer-events:none';
+        var removido = false;
+        var remover = function () {
+            if (!removido) {
+                removido = true;
+                quadro.remove();
+            }
+        };
+        quadro.addEventListener('load', function () {
+            setTimeout(function () {
+                try {
+                    var w = quadro.contentWindow;
+                    w.addEventListener('afterprint', function () { setTimeout(remover, 100); });
+                    w.focus();
+                    w.print();
+                } catch (e) {
+                    remover();
+                    toastErro('Não foi possível abrir a impressão. Tente de novo.');
+                    return;
+                }
+                setTimeout(remover, 60000);
+            }, 300);
+        }, { once: true });
+        quadro.setAttribute('sandbox', SANDBOX_IMPRESSAO);
+        quadro.srcdoc = html;
+        document.body.appendChild(quadro);
     }
 
     function abrirDocCv(html, pdfUrl, volta, voltaVaga) {
@@ -6696,7 +6731,7 @@
             : X.voltaVaga
                 ? botaoTlm('Voltar a editar', 'bi-arrow-left', '', function () { abrirVaga(X.voltaVaga); })
                 : botaoTlm('Fechar', 'bi-x', '', fecharTlm)];
-        // Sempre o botão, como o desenho (l.1197). Sem `pdfUrl`, abre o documento numa janela e imprime (`imprimirCv`, l.1164).
+        // Sempre o botão, como o desenho (l.1197). Sem `pdfUrl`, imprime o documento por um iframe sandbox (`imprimirCv`, l.1164; imprimirEmQuadro).
         botoes.push(botaoTlm('Baixar PDF', 'bi-file-earmark-pdf', 'pri', function () { baixarPdfDoCv(X); }));
         modalVaga({ icone: 'bi-file-earmark-person', titulo: 'Currículo · pré-visualização', largura: '960px', corpo: [quadro], botoes: botoes });
     }
@@ -6881,22 +6916,14 @@
         });
     }
 
-    /** Imprimir / PDF (`imprimir`, l.1133): a janela abre no clique (senão o navegador bloqueia) e recebe o HTML depois. */
+    /** Imprimir / PDF (`imprimir`, l.1133): busca o HTML do termo e imprime pelo iframe sandbox (imprimirEmQuadro). */
     function imprimirTermo() {
-        var w = window.open('', '_blank');
-        if (!w) {
-            mostrarToast({ tit: 'Permita pop-ups', txt: 'O navegador bloqueou a janela de impressão.', hora: '' });
-            return;
-        }
         htmlDoTermo().then(function (r) {
             if (!r.ok) {
-                w.close();
                 toastErro(r.mensagem);
                 return;
             }
-            w.document.write(r.html);
-            w.document.close();
-            setTimeout(function () { w.focus(); w.print(); }, 300);
+            imprimirEmQuadro(r.html);
         });
     }
 

@@ -6,7 +6,7 @@
         <meta name="color-scheme" content="light">
         {# Anti-flash: aplica o tema salvo antes do render, evitando piscar branco #}
         {% if recurso_visivel('tema') %}
-        <script>
+        <script nonce="{{ csp_nonce() }}">
             (function () {
                 try {
                     if (localStorage.getItem('tema') === 'dark') {
@@ -19,7 +19,7 @@
         {# CSRF para AJAX: token único 'ajax' + interceptador que injeta o header X-CSRF-Token
            em toda requisição same-origin de método inseguro (fetch e XMLHttpRequest/jQuery). #}
         <meta name="csrf-token" content="{{ csrf_token('ajax') }}">
-        <script>
+        <script nonce="{{ csp_nonce() }}">
             (function () {
                 var meta = document.querySelector('meta[name="csrf-token"]');
                 var token = meta ? meta.getAttribute('content') : '';
@@ -421,13 +421,14 @@
         {% endif %}
 
         {# Scripts #}
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-rc3/dist/js/adminlte.min.js" crossorigin="anonymous"></script>
+        {# Bibliotecas servidas daqui, na versão exata que vinha do CDN (origem e hash no VERSION de cada pasta). #}
+        <script src="{{ asset('js/vendor/jquery/jquery.min.js') }}"></script>
+        <script src="{{ asset('js/vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+        <script src="{{ asset('js/vendor/overlayscrollbars/overlayscrollbars.browser.es6.min.js') }}"></script>
+        <script src="{{ asset('js/vendor/select2/select2.min.js') }}"></script>
+        <script src="{{ asset('js/vendor/admin-lte/adminlte.min.js') }}"></script>
 
-        <script>
+        <script nonce="{{ csp_nonce() }}">
             document.addEventListener('DOMContentLoaded', function () {
 
                 // O tema claro/escuro (chave no menu do usuário) mora em public/js/menu-usuario.js.
@@ -563,7 +564,7 @@
             </div>
         </div>
 
-        <script>
+        <script nonce="{{ csp_nonce() }}">
             (function () {
                 const btnHeader   = document.getElementById('btnInstalarApp');
                 const linkDropdown = document.getElementById('linkInstalarApp');

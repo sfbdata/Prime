@@ -148,6 +148,42 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('DJEN', $titulo, 'o título da tela voltou ao nome antigo do módulo');
     }
 
+    /**
+     * Auditoria 5.09: o link vem da API do DJEN. Publicação gravada antes da checagem do mapper (ou por
+     * outro caminho) com esquema que não é http/https não vira botão; a tela usa a mesma regra do
+     * `pasta/_push_teor`.
+     */
+    #[Test]
+    public function showSoMostraOInteiroTeorComLinkHttpOuHttps(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com');
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+
+        $perigosa = $this->criarPublicacao($tenant, '900011', '50636766220224047000');
+        $perigosa->setLink('javascript:alert(1)');
+        $segura = $this->criarPublicacao($tenant, '900012', '50636766220224047000');
+        $segura->setLink('https://comunica.pje.jus.br/consulta?x=1&y=2');
+        $em->flush();
+        $idPerigosa = (int) $perigosa->getId();
+        $idSegura   = (int) $segura->getId();
+        $this->logarComTenant($client, $gestor, $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/' . $idPerigosa);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('a[href^="javascript"]'));
+        self::assertStringNotContainsString('javascript:alert', (string) $client->getResponse()->getContent());
+        self::assertCount(0, $crawler->filter('a:contains("Inteiro teor na origem")'));
+
+        $crawler = $client->request('GET', '/push-processual/' . $idSegura);
+        self::assertResponseIsSuccessful();
+        $botao = $crawler->filter('a:contains("Inteiro teor na origem")');
+        self::assertCount(1, $botao);
+        self::assertSame('https://comunica.pje.jus.br/consulta?x=1&y=2', $botao->attr('href'));
+    }
+
     #[Test]
     public function sincronizarAgoraRedirecionaComClienteMockado(): void
     {

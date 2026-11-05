@@ -47,14 +47,14 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
             $salvo = $l;
         });
 
-        return new IncluirProcessoNoAcompanhamentoUseCase($processos, $acompanhados);
+        return new IncluirProcessoNoAcompanhamentoUseCase($processos, $acompanhados, $this->createStub(PastaRepository::class));
     }
 
     #[Test]
     public function incluiNumeroSemProcessoCadastradoComAnotacoes(): void
     {
         $salvo = null;
-        $this->incluirCom(null, null, $salvo)->executar($this->tenant, $this->usuario, '0702222-22.2026.8.07.0001', [], 'adv@exemplo.com', ' Cliente X ');
+        $this->incluirCom(null, null, $salvo)->executar($this->tenant, $this->usuario, '0702222-22.2026.8.07.0001', [], static fn (): bool => true, 'adv@exemplo.com', ' Cliente X ');
 
         self::assertNotNull($salvo);
         self::assertSame(self::NUMERO, $salvo->getNumeroProcesso());
@@ -70,7 +70,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $this->expectException(AcompanhamentoInvalidoException::class);
         $this->expectExceptionMessage($mensagem);
 
-        $this->incluirCom(null, null)->executar($this->tenant, $this->usuario, $numero, [], $email, $observacao);
+        $this->incluirCom(null, null)->executar($this->tenant, $this->usuario, $numero, [], static fn (): bool => true, $email, $observacao);
     }
 
     /** @return iterable<string, array{string, string, string, string}> */
@@ -87,7 +87,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $this->expectException(AcompanhamentoInvalidoException::class);
         $this->expectExceptionMessage('já está sendo acompanhado');
 
-        $this->incluirCom(null, new ProcessoAcompanhado($this->tenant, self::NUMERO))->executar($this->tenant, $this->usuario, self::NUMERO, []);
+        $this->incluirCom(null, new ProcessoAcompanhado($this->tenant, self::NUMERO))->executar($this->tenant, $this->usuario, self::NUMERO, [], static fn (): bool => true);
     }
 
     #[Test]
@@ -97,7 +97,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $processo->pausarMonitoramento($this->usuario, new \DateTimeImmutable('-1 day'));
         $salvo = null;
 
-        $this->incluirCom($processo, null, $salvo)->executar($this->tenant, $this->usuario, self::NUMERO, [], '', 'Importante');
+        $this->incluirCom($processo, null, $salvo)->executar($this->tenant, $this->usuario, self::NUMERO, [], static fn (): bool => true, '', 'Importante');
 
         self::assertTrue($processo->monitoramentoAtivo());
         self::assertNotNull($salvo);
@@ -112,7 +112,7 @@ final class AcompanhamentoDoProcessoUseCasesTest extends TestCase
         $this->expectException(AcompanhamentoInvalidoException::class);
         $this->expectExceptionMessage('baixa');
 
-        $this->incluirCom($processo, null)->executar($this->tenant, $this->usuario, self::NUMERO, []);
+        $this->incluirCom($processo, null)->executar($this->tenant, $this->usuario, self::NUMERO, [], static fn (): bool => true);
     }
 
     #[Test]

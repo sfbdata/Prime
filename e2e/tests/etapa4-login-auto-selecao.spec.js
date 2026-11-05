@@ -1,5 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
+const { senhaDoAmbiente } = require('../senha-do-ambiente');
 
 test.describe('Etapa 4 — auto-seleção de tenant no login', () => {
     // Anula o storageState do projeto chromium: inicia sem nenhuma sessão
@@ -17,7 +18,7 @@ test.describe('Etapa 4 — auto-seleção de tenant no login', () => {
 
         await page.fill('input[name="email"], input[name="_username"]', 'e2e@jusprime.local');
         await page.fill('input[name="password"], input[name="_password"]',
-            process.env.E2E_USER_PASSWORD ?? 'e2e_local_placeholder');
+            senhaDoAmbiente('E2E_USER_PASSWORD'));
         await page.click('button[type="submit"]');
 
         // Aguarda sair da tela de login
