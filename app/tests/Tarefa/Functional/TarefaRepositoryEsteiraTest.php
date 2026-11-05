@@ -154,9 +154,9 @@ final class TarefaRepositoryEsteiraTest extends KernelTestCase
         };
 
         $esperados = $ids([$daVisivel, $minhaNaAlheia, $criadaPorMim]);
-        self::assertSame($esperados, $ids($this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['etapa' => 'protocolo'], [], $tenant, [(int) $visivel->getId()])));
+        self::assertSame($esperados, $ids($this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['etapa' => 'protocolo'], [], $tenant, [], [(int) $visivel->getId()])));
         self::assertSame(3, $this->repo->contarEsteira($tenant, $this->hoje, [], $eu, [(int) $visivel->getId()])['protocolo']['total']);
-        self::assertSame($ids([$minhaNaAlheia, $criadaPorMim]), $ids($this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['etapa' => 'protocolo'], [], $tenant, [])));
+        self::assertSame($ids([$minhaNaAlheia, $criadaPorMim]), $ids($this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['etapa' => 'protocolo'], [], $tenant, [], [])));
         self::assertSame(2, $this->repo->contarEsteira($tenant, $this->hoje, [], $eu, [])['protocolo']['total']);
         self::assertSame(4, $this->repo->contarEsteira($tenant, $this->hoje, [], $eu, null)['protocolo']['total'], 'nulo: vê todas');
     }

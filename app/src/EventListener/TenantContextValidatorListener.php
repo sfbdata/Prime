@@ -92,12 +92,13 @@ final class TenantContextValidatorListener
     private const ROTAS_SEM_ESCRITORIO = ['app_profile_genero', 'app_profile_genero_fechar'];
 
     /**
-     * Prefixo de rotas que funcionam SEM escritório: o Trabalho Externo atende o Convidado, que só
-     * tem convite para uma demanda e nenhum vínculo com escritório. As rotas não confiam nesta
-     * liberação: cada uma resolve o perfil (`FabricaDeContexto`) e, sem escritório, só o Convidado
-     * passa, e só para as demandas do convite.
+     * Default de rota que a libera SEM escritório (auditoria 1.09): o Trabalho Externo atende o Convidado, que só tem
+     * convite para uma demanda e nenhum vínculo com escritório. Vai no `#[Route]` da classe de cada controller do TE;
+     * o nome da rota não libera nada. Sem escritório o filtro de tenant fica desligado, então a guarda é da ação: cada
+     * uma resolve o perfil pela `FabricaDeContexto`, que só devolve contexto ao Master ou ao Convidado, e só para as
+     * demandas do convite. `TrabalhoExternoSemEscritorioArquiteturaTest` exige as duas coisas.
      */
-    private const PREFIXO_SEM_ESCRITORIO = 'trabalho_externo_';
+    public const ATRIBUTO_SEM_ESCRITORIO = '_sem_escritorio';
 
     /** Rotas do painel do Master: funcionam sem escritório na sessão. */
     private const PREFIXOS_DO_PAINEL_DO_MASTER = ['admin_', 'master_', 'inteligencia_admin_', 'auth_suporte_'];
@@ -137,7 +138,7 @@ final class TenantContextValidatorListener
             }
             // Só no ramo SEM escritório: com escritório na sessão, o vínculo continua conferido
             // abaixo, para o Trabalho Externo também.
-            if (str_starts_with($route, self::PREFIXO_SEM_ESCRITORIO) || in_array($route, self::ROTAS_SEM_ESCRITORIO, true)) {
+            if ($event->getRequest()->attributes->get(self::ATRIBUTO_SEM_ESCRITORIO) === true || in_array($route, self::ROTAS_SEM_ESCRITORIO, true)) {
                 return;
             }
 

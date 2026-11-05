@@ -30,6 +30,10 @@ use App\Tarefa\Service\AgrupadorDeMetas;
  * **Cadeado** (spec pasta-cadeado D3): meta de pasta oculta pelo cadeado para o usuário (`$pastasOcultas`,
  * de `AcessoAPasta::idsOcultosPara()`) não entra na lista, nas contagens das abas, nos KPIs nem no trilho.
  *
+ * **Só acompanhar não basta** (auditoria 3.12): a meta acompanhada de pasta que o usuário não pode ver
+ * (`$pastasSoAcompanhadasSemVer`, de `PastasSoAcompanhadasSemVer`) sai das abas Acompanhando e Todas, das
+ * contagens das abas e do trilho, a não ser que ele seja responsável ou criador dela.
+ *
  * **Esteira** (desenho 04 de 22/10): com o filtro `etapa` (clique numa caixa) e o `$escritorio`, a lista é a das
  * metas abertas daquela caixa de toda a equipe que o usuário pode ver (a pasta visível para ele ou a meta de que
  * cuida), no lugar do papel da aba. O nome que o escritório deu a cada
@@ -56,6 +60,7 @@ final class ListarMinhasMetasUseCase
      *                           jogadas fora — a cada tecla digitada na busca.
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      * @param Tenant|null $escritorio  o escritório da sessão; sem ele não há filtro por etapa nem nomes da esteira
+     * @param list<int> $pastasSoAcompanhadasSemVer pastas em que o usuário só acompanha meta e que não pode ver
      * @param list<int>|null $pastasVisiveisNaEsteira as pastas que o usuário pode ver (`PastasVisiveisNaEsteira`),
      *                                               para a lista da etapa; nulo = todas. Sem informar: só as metas de
      *                                               que ele cuida (o padrão fecha)
@@ -67,9 +72,11 @@ final class ListarMinhasMetasUseCase
         bool $soAListagem = false,
         array $pastasOcultas = [],
         ?Tenant $escritorio = null,
+        array $pastasSoAcompanhadasSemVer = [],
         ?array $pastasVisiveisNaEsteira = [],
     ): MinhasMetasOutput {
-        $metas = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros, $pastasOcultas, $escritorio, $pastasVisiveisNaEsteira);
+        $semVer = $pastasSoAcompanhadasSemVer;
+        $metas  = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros, $pastasOcultas, $escritorio, $semVer, $pastasVisiveisNaEsteira);
 
         $ids        = array_map(static fn (Tarefa $m): int => (int) $m->getId(), $metas);
         $marcadores = $this->repository->carregarMarcadoresDaLista($usuario, $ids);
@@ -77,14 +84,14 @@ final class ListarMinhasMetasUseCase
         return new MinhasMetasOutput(
             aba: $aba,
             grupos: $this->agrupador->agrupar($metas, $aba),
-            contagensPorAba: $soAListagem ? [] : $this->repository->contarPorAba($usuario, $pastasOcultas),
+            contagensPorAba: $soAListagem ? [] : $this->repository->contarPorAba($usuario, $pastasOcultas, $semVer),
             kpis: $soAListagem ? self::KPIS_VAZIOS : $this->repository->contarPainelMinhasMetas($usuario, $pastasOcultas),
             filtros: $filtros,
             acompanhadas: $marcadores['acompanhadas'],
             // O trilho também é redesenhado na recarga parcial (ele mora no fragmento), então estes dois não
             // dependem de `$soAListagem`.
-            andamento: $this->repository->contarAndamento($usuario, $pastasOcultas),
-            atencao: $this->repository->findAtrasadasParaAtencao($usuario, MinhasMetasOutput::TETO_ATENCAO, $pastasOcultas),
+            andamento: $this->repository->contarAndamento($usuario, $pastasOcultas, $semVer),
+            atencao: $this->repository->findAtrasadasParaAtencao($usuario, MinhasMetasOutput::TETO_ATENCAO, $pastasOcultas, $semVer),
             nomesDasEtapas: $this->nomesDasEtapas($escritorio),
             prioridades: $soAListagem ? [] : $this->repository->findPrioridadesDoDia($usuario, MinhasMetasOutput::TETO_PRIORIDADES, $pastasOcultas),
         );

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
@@ -20,7 +21,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * aviso de vaga nova. A leitura aceita `?como=` da prévia do Master; a escrita, nunca, e tem CSRF no
  * header `X-CSRF-Token`.
  */
-#[Route('/trabalho-externo/api')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class EngajamentoController extends AbstractController
 {
     use RespondeJsonTrait;

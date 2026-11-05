@@ -46,16 +46,17 @@ final class TenantUserProfileController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        // Guarda 1: target user pertence ao tenant da URL (válido pra todos, incl. SUPER_ADMIN).
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
 
         if (!$isSuperAdmin && !($isOwnTenant && $this->permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar dados de usuário.');
+        }
+
+        // Guarda 2, só depois de quem executa (auditoria 1.08): o alvo pertence ao tenant da URL (vale para todos,
+        // incl. SUPER_ADMIN). De fora do escritório, a resposta é 403 com ou sem vínculo do alvo.
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
         }
 
         // Conta do Master: só o próprio Master mexe (spec perfis-master D2, RegraDosPrimarios).

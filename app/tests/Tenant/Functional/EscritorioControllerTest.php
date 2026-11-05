@@ -65,6 +65,29 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         return [$user, $vinculo];
     }
 
+    /**
+     * Master com vínculo ativo no escritório (sem vínculo, o validador do escritório o manda à seleção), num escritório
+     * criado por outra pessoa: senão a conta é "do Master" e a RegraDosMasters recusa a exclusão.
+     */
+    private function criarMaster(Tenant $tenant): User
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$criador] = $this->criarUsuarioComVinculo($tenant, admin: true);
+        $em->find(Tenant::class, $tenant->getId())?->setCriadoPor($criador);
+
+        $user = new User();
+        $user->setEmail('master_' . uniqid() . '@test.com');
+        $user->setFullName('Master da Plataforma');
+        $user->setRoles(['ROLE_SUPER_ADMIN']);
+        $user->setIsActive(true);
+        $user->setPassword('x');
+        $em->persist($user);
+        $em->persist(new UserTenant($user, $em->find(Tenant::class, $tenant->getId())));
+        $em->flush();
+
+        return $user;
+    }
+
     private function instalarCsrfStorage(): void
     {
         $storage = new class implements ClearableTokenStorageInterface {
@@ -437,8 +460,8 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         self::assertSame('RJ', $u->getOabUf());
     }
 
-    #[TestDox('Admin exclui o próprio escritório: soft delete + excluidoEm + sessão limpa')]
-    public function testExcluirSoftDelete(): void
+    #[TestDox('Admin não primário com admin.tenant.settings.manage e token válido: 403 na rota antiga e o escritório segue ativo (auditoria 2.06)')]
+    public function testExcluirNegadoParaAdminDoEscritorio(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
@@ -447,7 +470,46 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', "/escritorio/{$tenant->getId()}/excluir", [
+            '_token'         => $this->gerarCsrf('escritorio_excluir_' . $tenant->getId()),
+            'confirmar_nome' => $tenant->getName(),
+        ]);
+
+        self::assertResponseStatusCodeSame(403);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $t = $em->getRepository(Tenant::class)->find($tenant->getId());
+        self::assertTrue($t->isActive());
+        self::assertNull($t->getExcluidoEm());
+    }
+
+    #[TestDox('O token genérico excluir_{id} não vale mais na rota antiga, nem para o Master')]
+    public function testTokenGenericoNaoVale(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $master = $this->criarMaster($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $master, $tenant);
+        $client->request('POST', "/escritorio/{$tenant->getId()}/excluir", [
             '_token'         => $this->gerarCsrf('excluir_' . $tenant->getId()),
+            'confirmar_nome' => $tenant->getName(),
+        ]);
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Master exclui pela rota antiga: soft delete + excluidoEm + sessão limpa')]
+    public function testExcluirSoftDelete(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $master = $this->criarMaster($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $master, $tenant);
+        $client->request('POST', "/escritorio/{$tenant->getId()}/excluir", [
+            '_token'         => $this->gerarCsrf('escritorio_excluir_' . $tenant->getId()),
             'confirmar_nome' => $tenant->getName(),
         ]);
 
@@ -470,7 +532,7 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', "/escritorio/{$tenant->getId()}/excluir", [
-            '_token'         => $this->gerarCsrf('excluir_' . $tenant->getId()),
+            '_token'         => $this->gerarCsrf('escritorio_excluir_' . $tenant->getId()),
             'confirmar_nome' => $tenant->getName(),
         ]);
 
@@ -485,12 +547,12 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
-        [$user] = $this->criarUsuarioComVinculo($tenant, admin: true);
+        $user   = $this->criarMaster($tenant);
 
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', "/escritorio/{$tenant->getId()}/excluir", [
-            '_token'         => $this->gerarCsrf('excluir_' . $tenant->getId()),
+            '_token'         => $this->gerarCsrf('escritorio_excluir_' . $tenant->getId()),
             'confirmar_nome' => 'nome errado',
         ]);
 

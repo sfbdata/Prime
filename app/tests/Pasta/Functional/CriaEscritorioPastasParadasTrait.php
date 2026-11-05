@@ -12,6 +12,7 @@ use App\Pasta\Entity\PastaAndamento;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Repository\EnvioDoRelatorioPastasParadasRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\AndamentoDaPasta;
 use App\Pasta\Service\MontagemDoRelatorioPastasParadas;
 use App\Pasta\Service\PastasVisiveisNoRelatorio;
@@ -181,6 +182,7 @@ trait CriaEscritorioPastasParadasTrait
             new MockClock(new \DateTimeImmutable($agora)),
             $c->get(PermissionChecker::class),
             $c->get(PastasVisiveisNoRelatorio::class),
+            $c->get(AcessoAPasta::class),
         );
     }
 }

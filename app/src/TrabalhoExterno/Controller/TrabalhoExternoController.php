@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Http\EntregaDeArquivo;
@@ -31,7 +32,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * link de documento mostram o aviso de acesso negado (403, página do módulo) e a API responde 403
  * em JSON. Demanda de outro escritório é 404.
  */
-#[Route('/trabalho-externo')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class TrabalhoExternoController extends AbstractController
 {
     use RespondeJsonTrait;

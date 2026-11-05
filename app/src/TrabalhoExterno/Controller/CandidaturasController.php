@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\Enum\OperacaoDeMarcacao;
 use App\TrabalhoExterno\Enum\StatusCandidatura;
@@ -27,7 +28,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * nunca pela prévia do Master (a escrita não lê `?como=`). As respostas trazem a vaga atualizada no
  * recorte de quem pediu.
  */
-#[Route('/trabalho-externo/api')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class CandidaturasController extends AbstractController
 {
     use RespondeJsonTrait;

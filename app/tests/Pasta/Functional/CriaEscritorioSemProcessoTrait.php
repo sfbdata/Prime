@@ -15,6 +15,7 @@ use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Repository\EnvioDoRelatorioSemProcessoRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\MontagemDoRelatorioSemProcesso;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Repository\NotificacaoRepository;
@@ -221,6 +222,7 @@ trait CriaEscritorioSemProcessoTrait
             new MockClock(new \DateTimeImmutable($agora)),
             $c->get(PermissionChecker::class),
             $c->get(NotificacaoRepository::class),
+            $c->get(AcessoAPasta::class),
         );
     }
 }
