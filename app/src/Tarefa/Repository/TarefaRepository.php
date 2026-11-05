@@ -1276,6 +1276,10 @@ class TarefaRepository extends ServiceEntityRepository
             ->andWhere('t.tenant = :tenant')
             ->setParameter('pasta', $pasta)
             ->setParameter('tenant', $tenant)
+            // Responsáveis na ordem do id do usuário: a leitura preguiçosa de antes percorria o índice da chave de
+            // `tarefa_responsaveis` (tarefa_id, user_id). A tela junta os nomes e "Próximos prazos" usa o primeiro.
+            ->addOrderBy('t.id', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
             ->getQuery()
             ->getResult();
 

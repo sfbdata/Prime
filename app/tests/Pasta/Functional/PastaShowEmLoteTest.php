@@ -116,6 +116,13 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
         $this->em()->flush();
         self::assertSame([AbaDaPasta::Financeiro], $abas->abasOcultasPara($pasta, $ana), 'gravar a regra esquece a memória');
 
+        $bruno = $this->criarColaborador($tenant, 'Bruno Equipe', self::PERMISSOES);
+        self::assertSame([AbaDaPasta::Financeiro], $abas->abasOcultasPara($pasta, $bruno));
+        $regra->ocultarPara([(int) $ana->getId()], $primario, new \DateTimeImmutable());
+        $this->em()->flush();
+        self::assertSame([], $abas->abasOcultasPara($pasta, $bruno), 'alterar a regra (postUpdate) esquece a memória');
+        self::assertSame([AbaDaPasta::Financeiro], $abas->abasOcultasPara($pasta, $ana), 'a regra alterada ainda alcança a Ana');
+
         $this->em()->remove($regra);
         $this->em()->flush();
         self::assertSame([], $abas->abasOcultasPara($pasta, $ana), 'apagar a regra esquece a memória');
@@ -301,6 +308,12 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
      * O retrato tirado do código de ANTES da leitura em lote (este mesmo teste, rodado no master): a tela tem de
      * continuar igual.
      *
+     * Uma exceção, a ordem dos responsáveis da "Petição inicial" (Ana e Paula). A coleção não tem ORDER BY. A
+     * leitura antiga devolvia a ordem física da tabela quando ela é pequena (a de inserção, como no banco de teste)
+     * e a do índice da chave (tarefa_id, user_id) quando ela é grande (como em produção, conferido no banco de dev).
+     * A leitura em lote ordena pelo id do usuário, a ordem que produção já mostrava. O retrato segue essa ordem:
+     * Paula (id menor) antes de Ana.
+     *
      * @return array<string, array<string, mixed>>
      */
     private function esperadoDaPastaLivre(): array
@@ -331,7 +344,7 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     [
                         'titulo' => 'Petição inicial',
                         'estado' => 'aberta',
-                        'linha' => 'Paula Primária Ana Equipe, Paula Primária vence DATA',
+                        'linha' => 'Paula Primária Paula Primária, Ana Equipe vence DATA',
                         'status' => 'Pendente',
                         'excluir' => 1,
                         'despacho' => '',
@@ -375,14 +388,14 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     ],
                 ],
                 'relatorio' => [
-                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Ana Equipe, Paula Primária Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe, Paula Primária DATA Prazo definido para DATA DATA Outras metas desta pasta',
+                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Paula Primária, Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Paula Primária, Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Atrasada Juntar documentos 2 dias em atraso · prazo DATA Criada por Ana Equipe Responsáveis Bruno Leitor Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Atrasada Histórico Meta criada por Ana Equipe para Bruno Leitor DATA Prazo definido para DATA DATA 2 dias em atraso até hoje DATA Outras metas desta pasta',
                     'Pendente Despacho registrado Vence DATA Criada por Paula Primária Responsáveis Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Pendente Nota sem código Criada por Ana Equipe Responsáveis Não informado Prazo Sem prazo Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Ana Equipe DATA Outras metas desta pasta',
                     'Concluída Meta concluída Concluída no prazo DATA Criada por Paula Primária Responsáveis Paula Primária Prazo DATA Última modificação DATA Pasta SHOW-LOTE Situação Concluída Histórico Meta criada por Paula Primária para Paula Primária DATA Prazo definido para DATA DATA Concluída DATA Outras metas desta pasta',
                 ],
                 'trilho' => 'Andamento das metas 1/5 concluídas 1 concluída 3 pendentes 1 atrasada Precisa de atenção Juntar documentos prazo DATA · 2 dias em atraso · Bruno Leitor Metas atrasadas continuam contando dias até serem concluídas. Responsáveis nas metas AE Ana Equipe 2 metas PP Paula Primária 2 metas BL Bruno Leitor 1 meta',
-                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Alertar Bruno Adicionar à agenda (.ics) Copiar Petição inicial Ana Equipe · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar',
+                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Alertar Bruno Adicionar à agenda (.ics) Copiar Petição inicial Paula Primária · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar',
                 'andamento' => [
                     'atual' => '5',
                     'fases' => 'Abertura Documentação Contrato Distribuído Protocolo Em andamento Decisão Sentença Cumprimento Finalizada',
@@ -418,7 +431,7 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     [
                         'titulo' => 'Petição inicial',
                         'estado' => 'aberta',
-                        'linha' => 'Paula Primária Ana Equipe, Paula Primária vence DATA',
+                        'linha' => 'Paula Primária Paula Primária, Ana Equipe vence DATA',
                         'status' => 'Pendente',
                         'excluir' => 0,
                         'despacho' => '',
@@ -462,14 +475,14 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     ],
                 ],
                 'relatorio' => [
-                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Ana Equipe, Paula Primária Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe, Paula Primária DATA Prazo definido para DATA DATA Outras metas desta pasta',
+                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Paula Primária, Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Paula Primária, Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Atrasada Juntar documentos 2 dias em atraso · prazo DATA Criada por Ana Equipe Responsáveis Bruno Leitor Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Atrasada Histórico Meta criada por Ana Equipe para Bruno Leitor DATA Prazo definido para DATA DATA 2 dias em atraso até hoje DATA Outras metas desta pasta',
                     'Pendente Despacho registrado Vence DATA Criada por Paula Primária Responsáveis Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Pendente Nota sem código Criada por Ana Equipe Responsáveis Não informado Prazo Sem prazo Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Ana Equipe DATA Outras metas desta pasta',
                     'Concluída Meta concluída Concluída no prazo DATA Criada por Paula Primária Responsáveis Paula Primária Prazo DATA Última modificação DATA Pasta SHOW-LOTE Situação Concluída Histórico Meta criada por Paula Primária para Paula Primária DATA Prazo definido para DATA DATA Concluída DATA Outras metas desta pasta',
                 ],
                 'trilho' => 'Andamento das metas 1/5 concluídas 1 concluída 3 pendentes 1 atrasada Precisa de atenção Juntar documentos prazo DATA · 2 dias em atraso · Bruno Leitor Metas atrasadas continuam contando dias até serem concluídas. Responsáveis nas metas AE Ana Equipe 2 metas PP Paula Primária 2 metas BL Bruno Leitor 1 meta',
-                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Alertar Bruno Adicionar à agenda (.ics) Copiar Petição inicial Ana Equipe · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Alertar Paula Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar',
+                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Alertar Bruno Adicionar à agenda (.ics) Copiar Petição inicial Paula Primária · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Alertar Paula Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar',
                 'andamento' => [
                     'atual' => '5',
                     'fases' => 'Abertura Documentação Contrato Distribuído Protocolo Em andamento Decisão Sentença Cumprimento Finalizada',
@@ -505,7 +518,7 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     [
                         'titulo' => 'Petição inicial',
                         'estado' => 'aberta',
-                        'linha' => 'Paula Primária Ana Equipe, Paula Primária vence DATA',
+                        'linha' => 'Paula Primária Paula Primária, Ana Equipe vence DATA',
                         'status' => 'Pendente',
                         'excluir' => 0,
                         'despacho' => '',
@@ -549,14 +562,14 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     ],
                 ],
                 'relatorio' => [
-                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Ana Equipe, Paula Primária Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe, Paula Primária DATA Prazo definido para DATA DATA Outras metas desta pasta',
+                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Paula Primária, Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Paula Primária, Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Atrasada Juntar documentos 2 dias em atraso · prazo DATA Criada por Ana Equipe Responsáveis Bruno Leitor Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Atrasada Histórico Meta criada por Ana Equipe para Bruno Leitor DATA Prazo definido para DATA DATA 2 dias em atraso até hoje DATA Outras metas desta pasta',
                     'Pendente Despacho registrado Vence DATA Criada por Paula Primária Responsáveis Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Pendente Nota sem código Criada por Ana Equipe Responsáveis Não informado Prazo Sem prazo Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Ana Equipe DATA Outras metas desta pasta',
                     'Concluída Meta concluída Concluída no prazo DATA Criada por Paula Primária Responsáveis Paula Primária Prazo DATA Última modificação DATA Pasta SHOW-LOTE Situação Concluída Histórico Meta criada por Paula Primária para Paula Primária DATA Prazo definido para DATA DATA Concluída DATA Outras metas desta pasta',
                 ],
                 'trilho' => 'Andamento das metas 1/5 concluídas 1 concluída 3 pendentes 1 atrasada Precisa de atenção Juntar documentos prazo DATA · 2 dias em atraso · Bruno Leitor Metas atrasadas continuam contando dias até serem concluídas. Responsáveis nas metas AE Ana Equipe 2 metas PP Paula Primária 2 metas BL Bruno Leitor 1 meta',
-                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar Petição inicial Ana Equipe · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Alertar Ana Alertar Paula Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar',
+                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar Petição inicial Paula Primária · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Alertar Paula Alertar Ana Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar',
                 'andamento' => [
                     'atual' => '5',
                     'fases' => 'Abertura Documentação Contrato Distribuído Protocolo Em andamento Decisão Sentença Cumprimento Finalizada',
@@ -605,7 +618,7 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     [
                         'titulo' => 'Petição inicial',
                         'estado' => 'aberta',
-                        'linha' => 'Paula Primária Ana Equipe, Paula Primária vence DATA',
+                        'linha' => 'Paula Primária Paula Primária, Ana Equipe vence DATA',
                         'status' => 'Pendente',
                         'excluir' => 1,
                         'despacho' => '',
@@ -649,14 +662,14 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     ],
                 ],
                 'relatorio' => [
-                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Ana Equipe, Paula Primária Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe, Paula Primária DATA Prazo definido para DATA DATA Outras metas desta pasta',
+                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Paula Primária, Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Paula Primária, Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Atrasada Juntar documentos 2 dias em atraso · prazo DATA Criada por Ana Equipe Responsáveis Bruno Leitor Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Atrasada Histórico Meta criada por Ana Equipe para Bruno Leitor DATA Prazo definido para DATA DATA 2 dias em atraso até hoje DATA Outras metas desta pasta',
                     'Pendente Despacho registrado Vence DATA Criada por Paula Primária Responsáveis Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Pendente Nota sem código Criada por Ana Equipe Responsáveis Não informado Prazo Sem prazo Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Ana Equipe DATA Outras metas desta pasta',
                     'Concluída Meta concluída Concluída no prazo DATA Criada por Paula Primária Responsáveis Paula Primária Prazo DATA Última modificação DATA Pasta SHOW-LOTE Situação Concluída Histórico Meta criada por Paula Primária para Paula Primária DATA Prazo definido para DATA DATA Concluída DATA Outras metas desta pasta',
                 ],
                 'trilho' => 'Andamento das metas 1/5 concluídas 1 concluída 3 pendentes 1 atrasada Precisa de atenção Juntar documentos prazo DATA · 2 dias em atraso · Bruno Leitor Metas atrasadas continuam contando dias até serem concluídas. Responsáveis nas metas AE Ana Equipe 2 metas PP Paula Primária 2 metas BL Bruno Leitor 1 meta',
-                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Alertar Bruno Adicionar à agenda (.ics) Copiar Petição inicial Ana Equipe · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar',
+                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Alertar Bruno Adicionar à agenda (.ics) Copiar Petição inicial Paula Primária · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Alertar Ana Adicionar à agenda (.ics) Copiar',
                 'andamento' => [
                     'atual' => '5',
                     'fases' => 'Abertura Documentação Contrato Distribuído Protocolo Em andamento Decisão Sentença Cumprimento Finalizada',
@@ -693,7 +706,7 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     [
                         'titulo' => 'Petição inicial',
                         'estado' => 'aberta',
-                        'linha' => 'Paula Primária Ana Equipe, Paula Primária vence DATA',
+                        'linha' => 'Paula Primária Paula Primária, Ana Equipe vence DATA',
                         'status' => 'Pendente',
                         'excluir' => 0,
                         'despacho' => '',
@@ -737,14 +750,14 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
                     ],
                 ],
                 'relatorio' => [
-                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Ana Equipe, Paula Primária Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe, Paula Primária DATA Prazo definido para DATA DATA Outras metas desta pasta',
+                    'Pendente Petição inicial Vence DATA Criada por Paula Primária Responsáveis Paula Primária, Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Paula Primária, Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Atrasada Juntar documentos 2 dias em atraso · prazo DATA Criada por Ana Equipe Responsáveis Bruno Leitor Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Atrasada Histórico Meta criada por Ana Equipe para Bruno Leitor DATA Prazo definido para DATA DATA 2 dias em atraso até hoje DATA Outras metas desta pasta',
                     'Pendente Despacho registrado Vence DATA Criada por Paula Primária Responsáveis Ana Equipe Prazo DATA Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Paula Primária para Ana Equipe DATA Prazo definido para DATA DATA Outras metas desta pasta',
                     'Pendente Nota sem código Criada por Ana Equipe Responsáveis Não informado Prazo Sem prazo Última modificação Sem alterações Pasta SHOW-LOTE Situação Pendente Histórico Meta criada por Ana Equipe DATA Outras metas desta pasta',
                     'Concluída Meta concluída Concluída no prazo DATA Criada por Paula Primária Responsáveis Paula Primária Prazo DATA Última modificação DATA Pasta SHOW-LOTE Situação Concluída Histórico Meta criada por Paula Primária para Paula Primária DATA Prazo definido para DATA DATA Concluída DATA Outras metas desta pasta',
                 ],
                 'trilho' => 'Andamento das metas 1/5 concluídas 1 concluída 3 pendentes 1 atrasada Precisa de atenção Juntar documentos prazo DATA · 2 dias em atraso · Bruno Leitor Metas atrasadas continuam contando dias até serem concluídas. Responsáveis nas metas AE Ana Equipe 2 metas PP Paula Primária 2 metas BL Bruno Leitor 1 meta',
-                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar Petição inicial Ana Equipe · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar',
+                'prazos' => 'Próximos prazos 3 Juntar documentos Bruno Leitor · DATA · Meta Vencido há 2 dias Juntar documentos Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar Petição inicial Paula Primária · DATA · Meta Faltam 3 dias Petição inicial Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar Despacho registrado Ana Equipe · DATA · Meta Faltam 10 dias Despacho registrado Ver nas metas Encaminhar via Chat I.A Adicionar à agenda (.ics) Copiar',
                 'andamento' => [
                     'atual' => '5',
                     'fases' => 'Abertura Documentação Contrato Distribuído Protocolo Em andamento Decisão Sentença Cumprimento Finalizada',

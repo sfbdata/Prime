@@ -19,7 +19,8 @@ use App\Pasta\Repository\PastaRepository;
 final class HistoricoDaTrilhaDaPasta
 {
     public const LIMITE = 8;
-    private const PUBLICACOES_LIDAS = 50;
+    /** O mesmo limite do andamento: a tela da pasta passa as publicações que o andamento já leu. */
+    private const PUBLICACOES_LIDAS = AndamentoDaPasta::PUBLICACOES_RECENTES;
     private const PUSH_QUE_ENTRA = '/decis|senten|despach|intima/u';
 
     public function __construct(
