@@ -51,11 +51,13 @@ final class MontarEsteiraDaPastaUseCase
      * @param list<int>      $pastasOcultas
      * @param list<int>|null $pastasVisiveis as pastas que o usuário pode ver (`PastasVisiveisNaEsteira`); nulo = todas.
      *                                       Sem informar: só as metas de que ele cuida (o padrão fecha)
+     * @param array<string, CaixaDaEsteira>|null $configuradas as caixas já lidas por quem chama
+     *                                       (`CaixaDaEsteiraRepository::configuradasDoEscritorio`); nulo = ler aqui
      */
-    public function executar(User $usuario, Tenant $escritorio, \DateTimeImmutable $hoje, array $pastasOcultas = [], ?array $pastasVisiveis = []): EsteiraDaPastaOutput
+    public function executar(User $usuario, Tenant $escritorio, \DateTimeImmutable $hoje, array $pastasOcultas = [], ?array $pastasVisiveis = [], ?array $configuradas = null): EsteiraDaPastaOutput
     {
         $contagens     = $this->tarefas->contarEsteira($escritorio, $hoje, $pastasOcultas, $usuario, $pastasVisiveis);
-        $configuradas  = $this->caixas->configuradasDoEscritorio($escritorio);
+        $configuradas ??= $this->caixas->configuradasDoEscritorio($escritorio);
         $gargalo       = $this->gargalo($contagens);
         $podeConfigurar = $this->quemConfigura->pode($usuario, $escritorio);
 

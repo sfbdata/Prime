@@ -6,6 +6,11 @@ namespace App\Tests\Tarefa\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Tarefa\Entity\CaixaDaEsteira;
+use App\Tarefa\Enum\EtapaDaPasta;
+use App\Tarefa\Repository\CaixaDaEsteiraRepository;
 use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\DTO\MinhasMetasOutput;
 use App\Tarefa\Enum\AbaMetas;
@@ -32,12 +37,12 @@ final class ListarMinhasMetasUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->repo = $this->createMock(TarefaRepository::class);
-        $this->repo->method('findParaMinhasMetas')->willReturn([]);
         $this->repo->method('carregarMarcadoresDaLista')->willReturn(['acompanhadas' => []]);
     }
 
     private function executar(bool $soAListagem): MinhasMetasOutput
     {
+        $this->repo->method('findParaMinhasMetas')->willReturn([]);
         $useCase = new ListarMinhasMetasUseCase($this->repo, new AgrupadorDeMetas());
 
         return $useCase->executar(new User(), AbaMetas::CRIEI, ['busca' => 'x', 'prazo' => 'sem'], $soAListagem, [7]);
@@ -58,5 +63,55 @@ final class ListarMinhasMetasUseCaseTest extends TestCase
 
         self::assertSame($andamento, $painel->andamento);
         self::assertSame([$atrasada], $painel->metasQuePrecisamDeAtencao());
+    }
+
+    #[TestDox('Com o escritório, o cartão de cada meta da lista vem de uma leitura em lote, presa ao escritório')]
+    public function testCartoesDaListaEmLote(): void
+    {
+        $tenant = new Tenant();
+        $meta   = $this->metaComId(42);
+        $this->repo->method('findParaMinhasMetas')->willReturn([$meta]);
+        $this->repo->expects(self::once())->method('carregarCartoesDasMetas')->with([42], $tenant);
+        $this->repo->method('contarAndamento')->willReturn(new AndamentoDasMetasOutput(concluidas: 0, total: 0, atrasadas: 0, emRevisao: 0));
+
+        $useCase = new ListarMinhasMetasUseCase($this->repo, new AgrupadorDeMetas());
+        $useCase->executar(new User(), AbaMetas::TODAS, [], true, [], $tenant);
+    }
+
+    #[TestDox('Sem metas na lista, não há leitura em lote')]
+    public function testSemMetasNaoCarregaCartoes(): void
+    {
+        $this->repo->method('findParaMinhasMetas')->willReturn([]);
+        $this->repo->expects(self::never())->method('carregarCartoesDasMetas');
+        $this->repo->method('contarAndamento')->willReturn(new AndamentoDasMetasOutput(concluidas: 0, total: 0, atrasadas: 0, emRevisao: 0));
+
+        $useCase = new ListarMinhasMetasUseCase($this->repo, new AgrupadorDeMetas());
+        $useCase->executar(new User(), AbaMetas::TODAS, [], true, [], new Tenant());
+    }
+
+    #[TestDox('As caixas da esteira já lidas por quem chama dão o nome da etapa sem ler de novo')]
+    public function testCaixasProntasNaoLeemDeNovo(): void
+    {
+        $tenant = new Tenant();
+        $caixa  = new CaixaDaEsteira($tenant, EtapaDaPasta::Protocolo);
+        $caixa->configurar(null, 'Protocolar já', []);
+        $caixas = $this->createMock(CaixaDaEsteiraRepository::class);
+        $caixas->expects(self::never())->method('configuradasDoEscritorio');
+        $this->repo->method('contarAndamento')->willReturn(new AndamentoDasMetasOutput(concluidas: 0, total: 0, atrasadas: 0, emRevisao: 0));
+        $this->repo->method('findParaMinhasMetas')->willReturn([]);
+
+        $useCase = new ListarMinhasMetasUseCase($this->repo, new AgrupadorDeMetas(), $caixas);
+        $painel  = $useCase->executar(new User(), AbaMetas::TODAS, [], true, [], $tenant, [], null, ['protocolo' => $caixa]);
+
+        self::assertSame(['protocolo' => 'Protocolar já'], $painel->nomesDasEtapas);
+    }
+
+    private function metaComId(int $id): Tarefa
+    {
+        $meta = new Tarefa();
+        $meta->setPasta(new Pasta());
+        (new \ReflectionProperty(Tarefa::class, 'id'))->setValue($meta, $id);
+
+        return $meta;
     }
 }
