@@ -925,14 +925,24 @@ class PastaController extends AbstractController
      *
      * Vinculados: o modal antigo nunca os recebe (contrato dele). A busca do trilho pede
      * `incluirVinculados=1` para mostrar o selo "Já vinculado", como o desenho.
+     *
+     * Guarda (achado 2.01 da auditoria): a busca percorre a carteira do escritório e só serve para vincular,
+     * então exige o mesmo que o vincular (EDIT na pasta, com o cadeado) e recusa a pasta excluída, como a tela
+     * (`podeMexerNoCliente`). Pasta de outro escritório: 404.
      */
     #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
     public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias): JsonResponse
     {
         $pastaId = (int) $pasta->getId();
         $tenant  = $this->tenantContext->getCurrentTenant();
-        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            throw $this->createNotFoundException();
+        }
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+        if ($pasta->getExcluidaEm() !== null) {
+            return $this->json(['erro' => 'Esta pasta foi excluída e está somente para leitura.'], Response::HTTP_FORBIDDEN);
         }
 
         $termo = trim((string) $request->query->get('q', ''));
