@@ -12,7 +12,10 @@ use App\Profile\Service\SilencioDoSininho;
 use App\Repository\NotificacaoRepository;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\UserRepository;
+use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
+use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -33,7 +36,40 @@ class NotificacaoService
         private readonly PermissionChecker $permissionChecker,
         private readonly ?NivelNoCadeado $nivelNoCadeado = null,
         private readonly ?SilencioDoSininho $silencio = null,
+        private readonly ?TenantContext $tenantContext = null,
+        private readonly ?UserTenantRepository $userTenantRepository = null,
+        private readonly ?ConviteDemandaRepository $conviteDemandaRepository = null,
     ) {
+    }
+
+    /**
+     * De qual escritório o sino lê (achado 1.15). Com escritório na sessão, só dele. Sem escritório na sessão
+     * (a seleção de escritório, logo depois do login), o TenantFilter está desligado e o cadeado não tem
+     * escritório para cortar: só o Master continua sem corte, como sempre foi; quem não é Master vê apenas os
+     * avisos do Trabalho Externo dos escritórios com vínculo ativo (vínculo suspenso não entra) ou com convite
+     * vigente, que é o que o Convidado sem escritório precisa.
+     *
+     * @return Tenant|list<int>|null nulo = sem corte (só o Master sem escritório)
+     */
+    public function escritorioDoSino(User $usuario): Tenant|array|null
+    {
+        $tenant = $this->tenantContext?->getCurrentTenant();
+        if ($tenant !== null) {
+            return $tenant;
+        }
+        if (in_array('ROLE_SUPER_ADMIN', $usuario->getRoles(), true)) {
+            return null;
+        }
+
+        $ids = [];
+        foreach ($this->userTenantRepository?->findActiveByUser($usuario) ?? [] as $vinculo) {
+            $ids[(int) $vinculo->getTenant()->getId()] = true;
+        }
+        foreach ($this->conviteDemandaRepository?->vigentesDo($usuario, new \DateTimeImmutable()) ?? [] as $convite) {
+            $ids[(int) $convite->getDemanda()->getTenant()->getId()] = true;
+        }
+
+        return array_keys($ids);
     }
 
     /**
@@ -237,7 +273,7 @@ class NotificacaoService
      */
     public function getNotificacoesNaoLidas(User $usuario, ?string $categoria = null, int $limit = 10): array
     {
-        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
+        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $this->escritorioDoSino($usuario), $categoria, $limit, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
     }
 
     /**
@@ -246,7 +282,7 @@ class NotificacaoService
     public function contarNaoLidas(User $usuario, ?string $categoria = null): int
     {
         // Sininho em silêncio (preferência do Meu Perfil): só os tipos que pedem ação contam; "Ver todas" mostra tudo.
-        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
+        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $this->escritorioDoSino($usuario), $categoria, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
     }
 
     /**
@@ -254,7 +290,13 @@ class NotificacaoService
      */
     public function podeVerGestao(User $usuario): bool
     {
-        return $this->notificacaoRepository->temNotificacaoGestao($usuario);
+        $escritorio = $this->escritorioDoSino($usuario);
+        // Sem escritório na sessão e sem ser Master, o sino só tem avisos do Trabalho Externo: aba Gestão fechada.
+        if (is_array($escritorio)) {
+            return false;
+        }
+
+        return $this->notificacaoRepository->temNotificacaoGestao($usuario, $escritorio);
     }
 
     /**
