@@ -586,15 +586,22 @@ Expediente pergunta ao `AcessoAPasta::podeConfigurar()`.
      da pasta (D4);
    - a imagem embutida em peça dela é recusada (D5); pasta com cadeado sai do sync do Drive (D6);
    - na Cobrança, a busca de pasta para judicializar só oferece pasta que a pessoa edita pelo cadeado,
-     e vincular um caso a uma pasta em que ela não edita é recusado.
+     e vincular um caso a uma pasta em que ela não edita é recusado;
+   - o envio automático do relatório de pastas paradas é montado uma vez e filtrado por destinatário:
+     a Controladoria e o responsável não recebem a pasta Oculta para eles (nem o número, nem o responsável,
+     nem a contagem) nem a que não veem pela visibilidade do relatório; primário e Master recebem tudo;
+     quem fica sem pasta não é avisado;
+   - o envio do relatório de pastas sem processo (automático e "Enviar à Controladoria") segue a mesma regra
+     (auditoria 2ª rodada, 1.20): o resumo de cada destinatário é refeito sem as pastas Ocultas para ele, e o
+     responsável Oculto não recebe o número da pasta trancada; primário e Master recebem o total; o histórico
+     mensal (`relatorio_sem_processo_envio`) continua com o resumo do escritório inteiro.
 
 **Precedência com o "ocultar aba"** (#68): são dois eixos e os dois só subtraem. O cadeado é o teto da
 pasta inteira; a aba oculta é **organização** e tira abas dentro do que o cadeado permite. Com
 `Oculto`, a aba não importa (a pasta toda está fechada); com `Visualizar`, as abas visíveis ficam em
 leitura; com `Editar`, vale só o que a aba oculta tirar. Quem configura os dois é o mesmo grupo.
 
-**Ainda não cobre:** o envio automático do relatório de pastas paradas (aviso à Controladoria e ao
-responsável) ainda leva a pasta oculta, com o responsável; na auditoria, `CasoCobranca`, `NotaTecnica` e `Notificacao` (que citam pasta mas são
+**Ainda não cobre:** na auditoria, `CasoCobranca`, `NotaTecnica` e `Notificacao` (que citam pasta mas são
 da Cobrança, do processo e da pessoa); a janela do cliente (`ClienteResumoController`) segue escondendo
 inteira a pasta que a pessoa não pode abrir.
 
@@ -614,6 +621,15 @@ tem o módulo Tarefas não lê nem escreve na meta de uma pasta que não pode ab
 (a aba Metas por XHR só volta para quem vê a pasta) e das rotas irmãs (renomear, reabrir, alertar, duplicar e
 criar meta exigem ver a pasta). O responsável sem acesso à pasta continua abrindo, despachando e concluindo a
 própria meta. Teste: `tests/Tarefa/Functional/MetaSemVerAPastaTest.php`.
+
+**Nas listas: só acompanhar não basta** (sobra do lote B, 05/11/2026). A mesma regra vale nas Minhas Metas: a
+meta que a pessoa só **acompanha** aparece só se ela pode ver a pasta; quem cuida da meta (responsável ou criador)
+continua vendo. Vale para a aba Acompanhando, a aba Todas, as contagens das abas (também as que voltam do clique em
+"acompanhar"), o trilho ("Seu andamento" e "Precisa de atenção") e as atrasadas que o chat da BlueJus I.A lê. É em
+lote: `App\Tarefa\Service\PastasSoAcompanhadasSemVer` pega as pastas em que a pessoa só acompanha meta (uma
+consulta), carrega os cadeados delas e pergunta ao `PermissionChecker::idsPermitidosComVinculo` (ver a pasta); as
+que sobram saem por `TarefaRepository::escoparPelaAba`. Primário e Master veem tudo. Teste:
+`tests/Tarefa/Functional/AcompanhandoSemVerAPastaTest.php`.
 
 **D-PERM-META** (quem renomeia e reabre meta) segue **aberta** e não muda com isso: o código continua com a
 recomendação (a guarda do "concluir"). A regra acima é só o piso de leitura e escrita por id, que vale para

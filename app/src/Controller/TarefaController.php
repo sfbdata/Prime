@@ -39,6 +39,7 @@ use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Tarefa\DTO\AnalisarPrazoDaMetaInput;
 use App\Tarefa\UseCase\GravarMetaNovaUseCase;
 use App\Tarefa\UseCase\RegistrarAnaliseDoPrazoNaMetaUseCase;
+use App\Tarefa\Service\PastasSoAcompanhadasSemVer;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
 use App\Tarefa\UseCase\MontarEsteiraDaPastaUseCase;
 use App\Service\NotificacaoService;
@@ -85,7 +86,7 @@ final class TarefaController extends AbstractController
      * atalhos que apontam para uma aba já filtrada, e o usuário precisa poder guardar o link.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
-    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, MontarEsteiraDaPastaUseCase $esteira, AcessoAPasta $acessoAPasta): Response
+    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, MontarEsteiraDaPastaUseCase $esteira, AcessoAPasta $acessoAPasta, PastasSoAcompanhadasSemVer $soAcompanhadasSemVer): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -106,6 +107,8 @@ final class TarefaController extends AbstractController
                 $soAListagem,
                 $ocultas,
                 $tenant,
+                // Auditoria 3.12: só acompanhar não mostra a meta de pasta que o usuário não pode ver.
+                $soAcompanhadasSemVer->ids($usuario, $tenant),
             ),
             'filtros' => $filtros,
         ];
@@ -150,6 +153,8 @@ final class TarefaController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         TarefaRepository $tarefaRepository,
+        AcessoAPasta $acessoAPasta,
+        PastasSoAcompanhadasSemVer $soAcompanhadasSemVer,
     ): JsonResponse {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -170,7 +175,12 @@ final class TarefaController extends AbstractController
         return $this->json([
             'sucesso'      => true,
             'acompanhando' => $acompanhando,
-            'contagens'    => $tarefaRepository->contarPorAba($usuario),
+            // Mesmo universo da tela: sem as pastas do cadeado e sem a meta só acompanhada de pasta que não vê.
+            'contagens'    => $tarefaRepository->contarPorAba(
+                $usuario,
+                $acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId()),
+                $soAcompanhadasSemVer->ids($usuario, $tenant),
+            ),
         ]);
     }
 

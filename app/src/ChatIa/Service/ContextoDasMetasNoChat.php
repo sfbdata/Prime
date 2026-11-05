@@ -12,6 +12,7 @@ use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\DTO\MinhasMetasOutput;
 use App\Tarefa\Repository\TarefaRepository;
+use App\Tarefa\Service\PastasSoAcompanhadasSemVer;
 
 /**
  * O contexto das metas de quem pergunta, lido AGORA pelo servidor (o cliente só sinaliza `contexto: metas`, nunca manda
@@ -31,6 +32,7 @@ final class ContextoDasMetasNoChat
         private readonly TarefaRepository $metas,
         private readonly AcessoAPasta $acessoAPasta,
         private readonly ProtecaoDoTextoDoChat $protecao,
+        private readonly PastasSoAcompanhadasSemVer $soAcompanhadasSemVer,
     ) {
     }
 
@@ -48,7 +50,8 @@ final class ContextoDasMetasNoChat
         $ocultas = $this->acessoAPasta->idsOcultosPara($eu, (int) $tenant->getId());
         $kpis = $this->metas->contarPainelMinhasMetas($eu, $ocultas);
         $primeiro = $this->metas->findPrioridadesDoDia($eu, MinhasMetasOutput::TETO_PRIORIDADES, $ocultas);
-        $atrasadas = $this->metas->findAtrasadasParaAtencao($eu, self::TETO_POR_LISTA, $ocultas);
+        // Auditoria 3.12: as atrasadas olham a aba Todas; a meta só acompanhada de pasta que a pessoa não vê fica fora.
+        $atrasadas = $this->metas->findAtrasadasParaAtencao($eu, self::TETO_POR_LISTA, $ocultas, $this->soAcompanhadasSemVer->ids($eu, $tenant));
         $revisao = $this->metas->findAguardandoRevisao($eu, self::TETO_POR_LISTA, $ocultas);
 
         $hoje = new \DateTimeImmutable('today');
