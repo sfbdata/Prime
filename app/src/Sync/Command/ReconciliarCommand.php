@@ -14,6 +14,7 @@ use App\Sync\DTO\DriveDoTenant;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
 use App\Sync\Exception\TenantSemDriveException;
+use App\Sync\Repository\ReconhecimentoPendenteRepository;
 use App\Sync\Repository\TenantDriveConexaoRepository;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Sync\Service\GoogleDriveClientInterface;
@@ -52,6 +53,7 @@ final class ReconciliarCommand extends Command
         private readonly CriarPastaUseCase $criarPasta,
         private readonly AcervoNomesParser $parser,
         private readonly ReconciliadorDePasta $reconciliador,
+        private readonly ReconhecimentoPendenteRepository $reconhecimentos,
     ) {
         parent::__construct();
     }
@@ -299,6 +301,7 @@ final class ReconciliarCommand extends Command
         }
 
         $subs = $drive->client->listarSubpastas($drive->rootFolderId);
+        $aguardando = $this->reconhecimentos->driveFolderIdsPendentes($this->em->getReference(Tenant::class, $tenantId));
         if ($limit !== null) {
             $subs = array_slice($subs, 0, $limit);
         }
@@ -313,6 +316,9 @@ final class ReconciliarCommand extends Command
                     ));
                 }
 
+                continue;
+            }
+            if ($this->aguardaReconhecimento($sub, $aguardando, $io)) {
                 continue;
             }
 
@@ -385,6 +391,23 @@ final class ReconciliarCommand extends Command
         $this->absorver($r, $totais, $io);
 
         return $r->fatal;
+    }
+
+    /**
+     * Reconhecimento do Drive (spec drive-reconhecimento): a subpasta com dúvida pendente pode ser de uma pasta que
+     * já existe no sistema. Criar outra agora deixaria o caso em dobro; espera a decisão do administrador.
+     *
+     * @param array{id: string, nome: string} $sub
+     * @param array<string, true>             $aguardando
+     */
+    private function aguardaReconhecimento(array $sub, array $aguardando, SymfonyStyle $io): bool
+    {
+        if (!isset($aguardando[$sub['id']])) {
+            return false;
+        }
+        $io->writeln(sprintf('  <comment>[reconhecimento]</comment> "%s": espera a decisão na tela do Drive, pulada', $sub['nome']));
+
+        return true;
     }
 
     /**

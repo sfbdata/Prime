@@ -19,3 +19,16 @@ sync:
         desconectar_confirmar: Desconectar o Drive deste escritório? A sincronização para até reconectar.
         desconectar: Desconectar
         conectar: Conectar conta Google
+        reconhecimento:
+            cartao: Pastas que já estavam no Drive
+            explicacao: Ao conectar, o sistema procura na pasta-raiz as pastas que já existem e liga cada uma à pasta do escritório de mesmo nome, para não criar pastas em dobro. Quando não tem certeza, a pasta aparece aqui para você decidir. Enquanto você não decide, o envio não cria pasta nova no Drive para as pastas sugeridas.
+            vazio: Nenhuma pasta do Drive esperando decisão.
+            aguardando: As pastas do Drive estão sendo reconhecidas. Até terminar, o envio não cria pasta nova no Drive.
+            falhou: 'O reconhecimento falhou e o envio não cria pasta nova no Drive até ele terminar. Clique em "Reconhecer de novo" para tentar de novo.'
+            nome_no_drive: Pasta no Drive
+            ligar_a: Pasta do escritório
+            candidata: "Nº {numero}: {cliente}"
+            numero_da_pasta: Nº da pasta
+            ligar: Ligar a esta pasta
+            ignorar: Ignorar
+            reconhecer_de_novo: Reconhecer de novo

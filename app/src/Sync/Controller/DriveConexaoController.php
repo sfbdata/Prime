@@ -13,8 +13,11 @@ use App\Sync\DTO\ConexaoDriveOutput;
 use App\Sync\Repository\TenantDriveConexaoRepository;
 use App\Sync\Service\GoogleDriveOAuthInterface;
 use App\Sync\UseCase\ConectarDriveUseCase;
+use App\Sync\UseCase\DecidirReconhecimentoUseCase;
 use App\Sync\UseCase\DefinirRootFolderDriveUseCase;
 use App\Sync\UseCase\DesconectarDriveUseCase;
+use App\Sync\UseCase\ListarReconhecimentosPendentesUseCase;
+use App\Sync\UseCase\PedirReconhecimentoDoDriveUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -39,6 +42,9 @@ final class DriveConexaoController extends AbstractController
         private readonly ConectarDriveUseCase $conectar,
         private readonly DefinirRootFolderDriveUseCase $definirRootFolder,
         private readonly DesconectarDriveUseCase $desconectar,
+        private readonly ListarReconhecimentosPendentesUseCase $listarReconhecimentos,
+        private readonly PedirReconhecimentoDoDriveUseCase $pedirReconhecimento,
+        private readonly DecidirReconhecimentoUseCase $decidirReconhecimento,
     ) {
     }
 
@@ -49,6 +55,7 @@ final class DriveConexaoController extends AbstractController
 
         return $this->render('sync/drive_conexao.html.twig', [
             'conexao' => ConexaoDriveOutput::fromEntity($this->conexoes->findDoTenant($tenant)),
+            'reconhecimentos' => $this->listarReconhecimentos->executar($tenant),
         ]);
     }
 
@@ -108,7 +115,7 @@ final class DriveConexaoController extends AbstractController
 
         try {
             $this->definirRootFolder->executar($tenant, $request->request->getString('pasta_raiz'));
-            $this->addFlash('success', 'Pasta-raiz definida. A sincronização deste escritório está ativa.');
+            $this->addFlash('success', 'Pasta-raiz definida. A sincronização deste escritório está ativa. As pastas que já estão no Drive serão reconhecidas em alguns minutos.');
         } catch (\InvalidArgumentException | \DomainException $e) {
             $this->addFlash('danger', $e->getMessage());
         }
@@ -129,6 +136,71 @@ final class DriveConexaoController extends AbstractController
         $this->addFlash('success', 'Drive desconectado.');
 
         return $this->redirectToRoute('app_sync_drive_conexao');
+    }
+
+    /** "Reconhecer de novo": pede outra rodada do reconhecimento das pastas que já estão no Drive. */
+    #[Route('/sync/drive/conexao/reconhecer', name: 'app_sync_drive_reconhecer', methods: ['POST'])]
+    public function reconhecer(Request $request): Response
+    {
+        $tenant = $this->tenantAdministravel();
+        $this->exigirCsrf($request, 'sync_drive_reconhecer');
+
+        try {
+            $this->pedirReconhecimento->executar($tenant);
+            $this->addFlash('success', 'Reconhecimento pedido. As dúvidas aparecem nesta página em alguns minutos.');
+        } catch (\DomainException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_sync_drive_conexao');
+    }
+
+    /** Liga a pasta do Drive de uma dúvida a uma candidata (ou à pasta do número digitado). */
+    #[Route('/sync/drive/conexao/reconhecimento/{id}/ligar', name: 'app_sync_drive_reconhecimento_ligar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function ligarReconhecimento(Request $request, int $id): Response
+    {
+        $tenant = $this->tenantAdministravel();
+        $this->exigirCsrf($request, 'sync_drive_reconhecimento_' . $id);
+        $pastaId = $request->request->getString('pasta_id');
+
+        try {
+            $this->decidirReconhecimento->ligar(
+                $tenant,
+                $this->usuarioAtual(),
+                $id,
+                ctype_digit($pastaId) ? (int) $pastaId : null,
+                $request->request->getString('nup'),
+            );
+            $this->addFlash('success', 'Pasta ligada à pasta do Drive.');
+        } catch (\DomainException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_sync_drive_conexao');
+    }
+
+    /** Ignora uma dúvida: as pastas sugeridas seguem o envio normal. */
+    #[Route('/sync/drive/conexao/reconhecimento/{id}/ignorar', name: 'app_sync_drive_reconhecimento_ignorar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function ignorarReconhecimento(Request $request, int $id): Response
+    {
+        $tenant = $this->tenantAdministravel();
+        $this->exigirCsrf($request, 'sync_drive_reconhecimento_' . $id);
+
+        try {
+            $this->decidirReconhecimento->ignorar($tenant, $this->usuarioAtual(), $id);
+            $this->addFlash('success', 'Pasta do Drive ignorada.');
+        } catch (\DomainException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_sync_drive_conexao');
+    }
+
+    private function exigirCsrf(Request $request, string $tokenId): void
+    {
+        if (!$this->isCsrfTokenValid($tokenId, $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
     }
 
     /** URL absoluta do callback — deve bater com o redirect_uri registrado no app `bluejus-sync`. */

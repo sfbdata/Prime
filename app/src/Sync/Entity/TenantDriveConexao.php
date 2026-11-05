@@ -67,6 +67,14 @@ class TenantDriveConexao implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $atualizadoEm = null;
 
+    /**
+     * Reconhecimento das pastas que já estavam no Drive (spec drive-reconhecimento): `aguardando` desde que a
+     * pasta-raiz é definida, `concluido` quando o 1º reconhecimento termina, `falhou` se ele não terminou. Fora de
+     * `concluido` o envio não cria pasta nova no Drive. Null = conexão anterior a esta regra (sem trava).
+     */
+    #[ORM\Column(name: 'reconhecimento', length: 20, nullable: true)]
+    private ?string $reconhecimento = null;
+
     public function __construct(Tenant $tenant)
     {
         $this->tenant = $tenant;
@@ -96,6 +104,38 @@ class TenantDriveConexao implements TenantAware, Auditavel
     {
         $this->rootFolderId = $rootFolderId;
         $this->ativo = $this->refreshTokenCifrado !== '' && $rootFolderId !== '';
+        if ($this->ativo) {
+            $this->reconhecimento = self::RECONHECIMENTO_AGUARDANDO;
+        }
+    }
+
+    public const RECONHECIMENTO_AGUARDANDO = 'aguardando';
+    public const RECONHECIMENTO_CONCLUIDO  = 'concluido';
+    public const RECONHECIMENTO_FALHOU     = 'falhou';
+
+    public function getReconhecimento(): ?string
+    {
+        return $this->reconhecimento;
+    }
+
+    /** "Tentar de novo" depois da falha: volta a aguardar (a trava continua até terminar). */
+    public function pedirReconhecimentoDeNovo(): void
+    {
+        if ($this->reconhecimento === self::RECONHECIMENTO_FALHOU) {
+            $this->reconhecimento = self::RECONHECIMENTO_AGUARDANDO;
+        }
+    }
+
+    public function concluirReconhecimento(): void
+    {
+        $this->reconhecimento = self::RECONHECIMENTO_CONCLUIDO;
+    }
+
+    public function marcarFalhaDoReconhecimento(): void
+    {
+        if ($this->reconhecimento !== self::RECONHECIMENTO_CONCLUIDO) {
+            $this->reconhecimento = self::RECONHECIMENTO_FALHOU;
+        }
     }
 
     /** Desconecta: some com o token e desativa. Mantém a linha para histórico de quem/quando. */

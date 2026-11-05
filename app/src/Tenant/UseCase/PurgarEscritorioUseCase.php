@@ -133,6 +133,9 @@ final class PurgarEscritorioUseCase
         ['djen_processo_acompanhado', 'tenant_id = :tenant'],
         // Diário da OAB registrado à mão (tenant_id direto; FK tenant e usuário NO ACTION): deleção explícita.
         ['djen_diario_oab', 'tenant_id = :tenant'],
+        // Sync: dúvidas do reconhecimento do Drive (tenant_id direto; FK tenant CASCADE, decidido_por SET NULL).
+        // Deleção explícita para o dry-run contar e não depender da cascata.
+        ['sync_drive_reconhecimento', 'tenant_id = :tenant'],
         // Sync — conexão de Drive do escritório (guarda o refresh_token CIFRADO). FK tenant NO ACTION
         // (bloqueia apagar o tenant) + tenant_id direto → deleção explícita. Apaga o segredo junto.
         ['sync_drive_conexao', 'tenant_id = :tenant'],
