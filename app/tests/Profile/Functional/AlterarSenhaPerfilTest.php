@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Profile\Functional;
 
+use App\Auth\UseCase\AlterarSenhaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -13,6 +14,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
 /**
  * Troca de senha do usuário autenticado, na tela de perfil.
@@ -134,6 +137,33 @@ final class AlterarSenhaPerfilTest extends JusPrimeWebTestCase
 
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
         self::assertTrue($hasher->isPasswordValid($this->recarregar($user), self::SENHA_ATUAL));
+    }
+
+    #[TestDox('Cinco senhas atuais erradas e a sexta, certa, é recusada com o aviso de muitas tentativas (auditoria 3.27)')]
+    public function testLimiteDeTentativasDaSenhaAtual(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        // O pool do limitador zera a cada requisição no teste; este soma as seis.
+        static::getContainer()->set('limiter.perfil_senha_atual', new RateLimiterFactory(
+            ['id' => 'perfil_senha_atual', 'policy' => 'sliding_window', 'limit' => 5, 'interval' => '15 minutes'],
+            new InMemoryStorage(),
+        ));
+        [$user, $tenant] = $this->criarUsuarioComTenant();
+        $this->logarComTenant($client, $user, $tenant);
+
+        foreach ([...array_fill(0, 5, 'chute-errado'), self::SENHA_ATUAL] as $senhaAtual) {
+            $form = $client->request('GET', '/perfil')->filter('#formSenha')->form();
+            $form['alterar_senha[senhaAtual]']    = $senhaAtual;
+            $form['alterar_senha[senha][first]']  = self::SENHA_NOVA;
+            $form['alterar_senha[senha][second]'] = self::SENHA_NOVA;
+            $client->submit($form);
+        }
+
+        self::assertResponseRedirects('/perfil');
+        self::assertContains(AlterarSenhaUseCase::MUITAS_TENTATIVAS, $client->getRequest()->getSession()->getFlashBag()->peek('error'));
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        self::assertTrue($hasher->isPasswordValid($this->recarregar($user), self::SENHA_ATUAL), 'a senha não muda no sexto pedido');
     }
 
     /** @return array{0: User, 1: Tenant} */

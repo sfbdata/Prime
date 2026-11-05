@@ -1,6 +1,28 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.37.2"
+  data: "2026-11-05"
+  itens:
+    - "Quem perde o acesso a uma pasta deixa de ver, no sino e em \"Ver todas\", os avisos antigos que mostravam trechos daquela pasta."
+    - "Quando a aba Financeiro de uma pasta fica oculta para alguém, os avisos antigos de observações financeiras dessa pasta somem do sino e da lista dessa pessoa."
+    - "O número do sino passa a contar só os avisos que a pessoa consegue ver na lista."
+    - "O registro de auditoria deixa de guardar trechos do texto das análises da BlueJus IA, e os trechos antigos foram apagados."
+    - "Passado o prazo de guarda, as conversas do Chat I.A também são apagadas, com os arquivos anexados nelas, como já acontecia com as análises."
+    - "Os arquivos enviados ao sistema só são entregues a quem está logado no escritório certo, também por uma segunda barreira no servidor."
+    - "O aviso de pagamento do banco Cora fica protegido contra excesso de chamadas, sem mudar nada para quem apoia pelo PIX."
+    - "A ferramenta interna de consulta da equipe técnica ficou mais segura contra consultas que travariam o banco."
+    - "A folha de ponto, o espelho em PDF e em planilha e a ficha do funcionário passam a buscar batidas e justificativas sempre só do escritório aberto, também nas rotinas automáticas. Quem trabalha em dois escritórios vê, em cada um, só as batidas e justificativas daquele escritório."
+    - "Os avisos automáticos de ponto esquecido e de horário passam a olhar só o escritório de onde o aviso sai."
+    - "Na tela de escolher o escritório, o sino não mostra mais avisos de escritórios em que a pessoa foi suspensa nem avisos de pastas trancadas para ela."
+    - "O profissional convidado para um trabalho externo não vê mais, no chat nem no histórico, o valor de uma nova proposta nem os motivos da renegociação entre a Central e o escritório."
+    - "O código PIX da página Contribua só é gerado pelo próprio botão da página, o que evita cobranças criadas por links de outros sites."
+    - "Na esteira de Minhas Metas, cada pessoa vê nas caixas só as metas das pastas que pode abrir, além das que são dela."
+    - "Na troca de senha pelo Meu Perfil, depois de 5 tentativas com a senha atual errada, a troca fica fechada por alguns minutos. Isso impede que alguém com o computador aberto descubra a senha atual por tentativa."
+    - "Na entrada com e-mail e senha, muitas senhas erradas na mesma conta, mesmo vindas de lugares diferentes, fecham a entrada por senha dessa conta por até 1 hora. Quem precisar entrar nesse tempo pode trocar a senha em \"Esqueci minha senha\" e entrar com a senha nova na hora."
+    - "Ao clicar em Sair, o \"Manter conectado\" daquele navegador acaba de verdade: nem uma cópia guardada do acesso consegue entrar depois. Logo depois desta versão, quem usava \"Manter conectado\" precisa entrar com a senha uma vez."
+    - "Quando um escritório é suspenso ou excluído, o \"Manter conectado\" de todas as pessoas da equipe acaba na hora, em todos os navegadores."
+    - "Saiu do sistema uma busca antiga de justificativas de ponto que não separava os escritórios. Ela não era usada por nenhuma tela, e assim não pode ser usada por engano no futuro."
 - versao: "2.37.1"
   data: "2026-11-05"
   itens:

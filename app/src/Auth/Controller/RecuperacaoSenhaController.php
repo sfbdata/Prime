@@ -12,6 +12,7 @@ use App\Auth\Repository\RedefinicaoSenhaRepository;
 use App\Auth\UseCase\ConfirmarCodigoSenhaUseCase;
 use App\Auth\UseCase\RedefinirSenhaUseCase;
 use App\Auth\UseCase\SolicitarCodigoSenhaUseCase;
+use App\Security\LimitadorDeTentativasDeLogin;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\JsonException;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -87,7 +88,7 @@ final class RecuperacaoSenhaController extends AbstractController
     }
 
     #[Route('/senha/codigo/confirmar', name: 'auth_senha_codigo_confirmar', methods: ['POST'])]
-    public function confirmarCodigo(Request $request): JsonResponse
+    public function confirmarCodigo(Request $request, LimitadorDeTentativasDeLogin $limitadorDeLogin): JsonResponse
     {
         $dados = $this->corpoJson($request);
 
@@ -115,12 +116,14 @@ final class RecuperacaoSenhaController extends AbstractController
         } catch (\DomainException $e) {
             return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+        // Quem trocou a senha pelo código provou que é a dona: o teto de falhas da conta (auditoria 3.28) não a barra.
+        $limitadorDeLogin->zerarConta($this->texto($dados, 'email'));
 
         return new JsonResponse(['ok' => true]);
     }
 
     #[Route('/senha/redefinir/{token}', name: 'auth_senha_redefinir', methods: ['GET', 'POST'], requirements: ['token' => '[a-f0-9]{64}'])]
-    public function redefinirSenha(string $token, Request $request): Response
+    public function redefinirSenha(string $token, Request $request, LimitadorDeTentativasDeLogin $limitadorDeLogin): Response
     {
         if ($this->getUser() !== null) {
             $this->addFlash('warning', 'Saia da sua conta atual para redefinir a senha por este link.');
@@ -144,7 +147,9 @@ final class RecuperacaoSenhaController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $this->redefinir->executar($token, $input->senha);
+                $user = $this->redefinir->executar($token, $input->senha);
+                // Quem trocou a senha pelo link provou que é a dona: o teto de falhas da conta (auditoria 3.28) não a barra.
+                $limitadorDeLogin->zerarConta((string) $user->getEmail());
                 $this->addFlash('success', 'Senha redefinida! Entre com a senha nova.');
 
                 return $this->redirectToRoute('app_login');
