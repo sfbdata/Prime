@@ -9,7 +9,12 @@
 #   2. Derruba conexões, DROP + CREATE do banco de dev (destrutivo NO DEV).
 #   3. Carrega o dump no container jusprime_db_dev.
 #   4. Roda as migrations pendentes (caso o dev esteja à frente de prod).
-#   5. Limpa o cache do Symfony.
+#   5. Regrava a senha de TODOS os usuários com uma senha só, a de
+#      DEV_SENHA_USUARIOS em app/.env.local (os hashes de produção não ficam no dev).
+#   6. Limpa o cache do Symfony.
+#
+# Pré-requisito: a linha abaixo em app/.env.local (arquivo fora do git):
+#   DEV_SENHA_USUARIOS=<uma senha forte só para o dev>
 #
 # Uso:
 #   ./scripts/carregar-fixture-dev.sh [caminho-do-backup]
@@ -21,9 +26,9 @@
 #   ./scripts/carregar-fixture-dev.sh
 #   ./scripts/carregar-fixture-dev.sh ~/Downloads/jusprime_20260702_020000.tar.gz
 #
-# ATENÇÃO — cópia CRUA de produção: os dados de cliente (PII, hashes de senha)
-# ficam no seu banco de dev local. Não é anonimizado. Trate o disco como
-# sensível e nunca suba o dump pro git.
+# ATENÇÃO: cópia CRUA de produção. Os dados de cliente (PII) ficam no seu
+# banco de dev local; não é anonimizado. Os hashes de senha de produção são
+# trocados no passo 5. Trate o disco como sensível e nunca suba o dump pro git.
 # =============================================================================
 
 set -euo pipefail
@@ -57,6 +62,29 @@ trap cleanup EXIT
 if [[ ! -f "${BACKUP_FILE}" ]]; then
     error "Arquivo não encontrado: ${BACKUP_FILE}"
     echo "  Passe o caminho do backup ou coloque o snapshot em ${DEFAULT_FIXTURE}"
+    exit 1
+fi
+
+# Senha única dos usuários do dev (auditoria 4.04): lida só de app/.env.local,
+# que fica fora do git. Nunca é impressa nem vai para argumento de comando.
+ENV_LOCAL="${PROJECT_DIR}/app/.env.local"
+COMO_DEFINIR="  Defina a senha em app/.env.local (fora do git), numa linha assim:
+    DEV_SENHA_USUARIOS=<uma senha forte só para o dev>
+  e rode o script de novo. Todos os usuários do dev passam a entrar com ela."
+
+if [[ ! -f "${ENV_LOCAL}" ]] || ! git -C "${PROJECT_DIR}" check-ignore -q "${ENV_LOCAL}"; then
+    error "app/.env.local não existe ou não está fora do git; a senha dos usuários do dev só pode vir dele."
+    echo "${COMO_DEFINIR}"
+    exit 1
+fi
+
+DEV_SENHA_USUARIOS=$(grep -E '^DEV_SENHA_USUARIOS=' "${ENV_LOCAL}" | tail -n1 | cut -d= -f2- || true)
+# Aceita o valor entre aspas, como o Symfony lê o .env.
+DEV_SENHA_USUARIOS="${DEV_SENHA_USUARIOS%\"}"; DEV_SENHA_USUARIOS="${DEV_SENHA_USUARIOS#\"}"
+DEV_SENHA_USUARIOS="${DEV_SENHA_USUARIOS%\'}"; DEV_SENHA_USUARIOS="${DEV_SENHA_USUARIOS#\'}"
+if [[ -z "${DEV_SENHA_USUARIOS}" ]]; then
+    error "DEV_SENHA_USUARIOS não está definida em app/.env.local."
+    echo "${COMO_DEFINIR}"
     exit 1
 fi
 
@@ -182,6 +210,28 @@ docker exec "${PHP_CONTAINER}" bash -c \
     'cd app && php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration'
 
 # ---------------------------------------------------------------------------
+# 5b. Senha única para todos os usuários do dev
+# ---------------------------------------------------------------------------
+
+# O hash sai do hasher do Symfony configurado para o User (security.yaml). A
+# senha entra pela entrada padrão do comando, nunca como argumento (que aparece
+# na lista de processos): o primeiro argumento vai vazio de propósito, e aí o
+# comando pergunta a senha. A saída só é lida para tirar o hash.
+log "Regravando a senha de todos os usuários com DEV_SENHA_USUARIOS..."
+HASH=$(printf '%s\n' "${DEV_SENHA_USUARIOS}" | docker exec -i "${PHP_CONTAINER}" bash -c \
+    'cd app && php bin/console security:hash-password "" "App\Entity\Auth\User" 2>/dev/null' \
+    | awk '/Password hash/ {print $3}')
+unset DEV_SENHA_USUARIOS
+if [[ "${HASH}" != \$* ]]; then
+    error "Não consegui gerar o hash da senha com o security:hash-password; os usuários do dev ficaram com os hashes de produção."
+    exit 1
+fi
+TOTAL=$(printf 'WITH trocados AS (UPDATE "user" SET password = :%s RETURNING 1) SELECT count(*) FROM trocados;\n' "'hash'" \
+    | docker exec -i "${DB_CONTAINER}" psql -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -v hash="${HASH}" -q -t \
+    | tr -d '[:space:]')
+log "Senha única gravada em ${TOTAL:-0} usuário(s)."
+
+# ---------------------------------------------------------------------------
 # 6. Limpa o cache
 # ---------------------------------------------------------------------------
 
@@ -195,9 +245,7 @@ docker exec "${PHP_CONTAINER}" bash -c 'cd app && php bin/console cache:clear' >
 log "Fixture de produção carregado no DEV com sucesso."
 echo ""
 echo "  Observações:"
-echo "   • Uploads (fotos, documentos) NÃO vêm no dump — linhas do banco podem"
+echo "   • Uploads (fotos, documentos) NÃO vêm no dump: linhas do banco podem"
 echo "     apontar para arquivos inexistentes em app/public/uploads/."
-echo "   • Cópia crua: os hashes de senha são os de produção. Para entrar com"
-echo "     uma senha conhecida, crie/atualize um super-admin no dev:"
-echo "       docker exec -it ${PHP_CONTAINER} bash -c \\"
-echo "         'cd app && php bin/console app:create-super-admin admin@prime.com <senha-forte>'"
+echo "   • Senhas: todos os usuários entram com a senha de DEV_SENHA_USUARIOS"
+echo "     (app/.env.local). Os hashes de produção não ficaram no dev."
