@@ -39,14 +39,18 @@ final class AlertasDaPasta
     ) {
     }
 
-    /** @return list<AlertaDaPasta> da mais grave para a menos */
-    public function montar(Pasta $pasta, Tenant $tenant, User $pessoa, \DateTimeImmutable $hoje): array
+    /**
+     * @param list<int> $semCitar pastas que os alertas do Cadastro não citam além das ocultas para a pessoa
+     *
+     * @return list<AlertaDaPasta> da mais grave para a menos
+     */
+    public function montar(Pasta $pasta, Tenant $tenant, User $pessoa, \DateTimeImmutable $hoje, array $semCitar = []): array
     {
         $alertas = array_merge(array_values(array_filter([
             $this->metasVencidas($pasta, $hoje),
             $this->prazosVencidos($pasta, $tenant, $hoje),
             $this->pastaParada($pasta, $tenant, $hoje),
-        ])), $this->doCadastro->montar($pasta, $tenant, $pessoa, $hoje));
+        ])), $this->doCadastro->montar($pasta, $tenant, $pessoa, $hoje, $semCitar));
         usort($alertas, static fn (AlertaDaPasta $a, AlertaDaPasta $b): int => self::ORDEM[$a->nivel] <=> self::ORDEM[$b->nivel]);
 
         return $alertas;
