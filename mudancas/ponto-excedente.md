@@ -6,6 +6,7 @@ tipo: novidade
   - `PontoController::index` passa `metaDiaMinutos`: `JornadaResolver::resolverMetaDia` (a mesma meta do alerta de saída, já sem o almoço), zerada em feriado como na folha.
   - `ponto/index.html.twig`: `#excedente-hoje` logo abaixo do relógio, verde `#1e7b45` (desenho do Expediente), com `data-meta-dia-minutos`. O JS da página mostra `+HH:MM` quando o trabalhado passa da meta em pelo menos 1 minuto; pausa no intervalo e fica parado depois da saída (mesma conta da folha: retorno sem repouso não conta em dobro). Abaixo da meta ou com meta 0, escondido.
   - Nada é gravado; banco de horas e folha seguem as regras de sempre.
+  - Limite aceito: na jornada legada (sem blocos), a meta do alerta e da tela pode diferir da folha em casos raros (sábado em `diasSemana` sem `cargaHorariaSabado`, sábado fora de `diasSemana` com carga de sábado, pessoa sem jornada cadastrada). Fica a meta do alerta. Com blocos, as duas batem.
   - Testes: `ExcedenteDoDiaNaTelaTest`.
 
 ## Para o cliente
