@@ -15,6 +15,12 @@ use Doctrine\Persistence\ManagerRegistry;
 /**
  * Toda consulta filtra por escritório (o dono da conversa já foi conferido por quem a entregou).
  *
+ * EXCEÇÃO: as consultas da retenção diária (`conversasComMensagemAntesDe`, `apagarAntesDe`) varrem TODOS os escritórios
+ * de propósito (console, sem sessão nem TenantFilter). A fala não é `Auditavel`, mas a cascata do banco leva junto
+ * anexos e propostas sem passar pelo `AuditLogSubscriber`: não há trilha no `audit_log`, o rastro é o log do comando
+ * com as contagens. Regra 2 de `src/ChatIa/CLAUDE.md` e decisão 17 da spec `docs/specs/chat-pagina-inteira.md`. Método
+ * novo sem escritório = só para a retenção, com este mesmo aviso.
+ *
  * @extends ServiceEntityRepository<MensagemDeChat>
  */
 class MensagemDeChatRepository extends ServiceEntityRepository

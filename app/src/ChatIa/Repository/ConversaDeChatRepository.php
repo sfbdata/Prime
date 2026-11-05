@@ -17,6 +17,12 @@ use Doctrine\Persistence\ManagerRegistry;
  * Toda consulta filtra por escritório E por dono: o `TenantFilter` é só a segunda barreira, e a conversa é particular
  * (a do colega, mesmo no mesmo escritório, é "não encontrada").
  *
+ * EXCEÇÃO: as consultas da retenção diária (`travarVaziasEntre`, `apagarVaziasTravadas`) não filtram por escritório
+ * nem por dono e alcançam TODOS os escritórios de propósito (console, sem sessão nem TenantFilter). A remoção em massa
+ * (DQL e cascata) não passa pelo `AuditLogSubscriber`: não há trilha no `audit_log` da conversa, o rastro é o log do
+ * comando com as contagens. Regra 2 de `src/ChatIa/CLAUDE.md` e decisão 17 da spec `docs/specs/chat-pagina-inteira.md`.
+ * Método novo sem escritório = só para a retenção, com este mesmo aviso.
+ *
  * @extends ServiceEntityRepository<ConversaDeChat>
  */
 class ConversaDeChatRepository extends ServiceEntityRepository

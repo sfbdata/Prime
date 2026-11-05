@@ -15,6 +15,12 @@ use Doctrine\Persistence\ManagerRegistry;
 /**
  * Toda consulta filtra por escritório. O anexo é de quem o enviou: `soltosDoDono` exige escritório, dono e conversa.
  *
+ * EXCEÇÃO: as consultas da retenção diária (`dasMensagensAntesDe`, `apagarDasMensagensAntesDe`, `dasConversas`) varrem
+ * TODOS os escritórios de propósito (console, sem sessão nem TenantFilter), e a remoção em massa (DQL) não passa pelo
+ * `AuditLogSubscriber`: não há trilha no `audit_log`, o rastro é o log do comando com as contagens. Regra 2 de
+ * `src/ChatIa/CLAUDE.md` e decisão 17 da spec `docs/specs/chat-pagina-inteira.md`. Método novo sem escritório = só
+ * para a retenção, com este mesmo aviso.
+ *
  * @extends ServiceEntityRepository<AnexoDeChat>
  */
 class AnexoDeChatRepository extends ServiceEntityRepository
