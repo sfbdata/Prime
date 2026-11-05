@@ -43,9 +43,9 @@ final class UserCheckerTest extends TestCase
         $this->contaAConfirmar = new ContaAConfirmar($this->relogio);
     }
 
-    private function checker(?RequestStack $pilha = null): UserChecker
+    private function checker(?RequestStack $pilha = null, string $ambiente = 'test'): UserChecker
     {
-        return new UserChecker($pilha ?? $this->pilha, $this->contaAConfirmar);
+        return new UserChecker($pilha ?? $this->pilha, $this->contaAConfirmar, $ambiente);
     }
 
     private static function conta(bool $aConfirmar, int $id = 42): User
@@ -106,6 +106,30 @@ final class UserCheckerTest extends TestCase
         $this->expectException(DisabledException::class);
 
         ($this->checker())->checkPreAuth(self::conta(aConfirmar: false)->setIsActive(false));
+    }
+
+    #[TestDox('Em produção, conta do domínio reservado de testes (@jusprime.local) é recusada antes da senha')]
+    public function testDominioDeTestesRecusadoEmProducao(): void
+    {
+        $this->expectException(DisabledException::class);
+
+        ($this->checker(ambiente: 'prod'))->checkPreAuth(self::conta(aConfirmar: false)->setEmail('E2E@JusPrime.Local'));
+    }
+
+    #[TestDox('Fora de produção, a conta de testes (@jusprime.local) entra normalmente')]
+    public function testDominioDeTestesEntraForaDeProducao(): void
+    {
+        ($this->checker(ambiente: 'dev'))->checkPreAuth(self::conta(aConfirmar: false)->setEmail('e2e@jusprime.local'));
+
+        self::assertNull($this->contaAConfirmar->idNaSessao($this->sessao));
+    }
+
+    #[TestDox('Em produção, conta de outro domínio passa pela trava do domínio de testes')]
+    public function testOutroDominioEntraEmProducao(): void
+    {
+        ($this->checker(ambiente: 'prod'))->checkPreAuth(self::conta(aConfirmar: false));
+
+        self::assertNull($this->contaAConfirmar->idNaSessao($this->sessao));
     }
 
     #[TestDox('Usuário que não é a entidade User passa sem verificação')]
