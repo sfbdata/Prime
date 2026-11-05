@@ -173,6 +173,22 @@ final class MontarEsteiraDaPastaUseCaseTest extends TestCase
         $this->useCase($tarefas, [], false, null)->executar($this->usuario, $this->escritorio, $this->hoje, [3, 5]);
     }
 
+    #[TestDox('O "ver a pasta" segue para a contagem com quem olha; sem informar, o padrão fecha (só as metas de que cuida)')]
+    public function testRepassaPastasVisiveis(): void
+    {
+        $tarefas = $this->createMock(TarefaRepository::class);
+        $tarefas->expects(self::exactly(2))->method('contarEsteira')
+            ->willReturnCallback(function (Tenant $escritorio, \DateTimeImmutable $hoje, array $ocultas, ?User $quem, ?array $visiveis): array {
+                self::assertSame($this->usuario, $quem);
+                self::assertContains($visiveis, [[7], []]);
+
+                return [];
+            });
+
+        $this->useCase($tarefas, [], false, null)->executar($this->usuario, $this->escritorio, $this->hoje, [], [7]);
+        $this->useCase($tarefas, [], false, null)->executar($this->usuario, $this->escritorio, $this->hoje);
+    }
+
     /**
      * @param array<string, array{total: int, atrasadas: int}> $contagens
      * @param array<string, CaixaDaEsteira>                    $configuradas

@@ -42,6 +42,7 @@ use App\Tarefa\UseCase\RegistrarAnaliseDoPrazoNaMetaUseCase;
 use App\Tarefa\Service\PastasSoAcompanhadasSemVer;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
 use App\Tarefa\UseCase\MontarEsteiraDaPastaUseCase;
+use App\Tarefa\Service\PastasVisiveisNaEsteira;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -86,7 +87,7 @@ final class TarefaController extends AbstractController
      * atalhos que apontam para uma aba já filtrada, e o usuário precisa poder guardar o link.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
-    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, MontarEsteiraDaPastaUseCase $esteira, AcessoAPasta $acessoAPasta, PastasSoAcompanhadasSemVer $soAcompanhadasSemVer): Response
+    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, MontarEsteiraDaPastaUseCase $esteira, AcessoAPasta $acessoAPasta, PastasSoAcompanhadasSemVer $soAcompanhadasSemVer, PastasVisiveisNaEsteira $pastasVisiveisNaEsteira): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -96,6 +97,8 @@ final class TarefaController extends AbstractController
         $aba         = AbaMetas::deQueryString($request->query->get('aba'));
         $soAListagem = $request->isXmlHttpRequest();
         $ocultas     = $acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId());
+        // A esteira (lista da etapa e contagens) aplica também o "ver a pasta" da lista normal e do AcessoAMeta.
+        $visiveis    = $pastasVisiveisNaEsteira->ids($usuario, $tenant);
 
         $dados = [
             'painel'  => $useCase->executar(
@@ -109,6 +112,7 @@ final class TarefaController extends AbstractController
                 $tenant,
                 // Auditoria 3.12: só acompanhar não mostra a meta de pasta que o usuário não pode ver.
                 $soAcompanhadasSemVer->ids($usuario, $tenant),
+                $visiveis,
             ),
             'filtros' => $filtros,
         ];
@@ -118,7 +122,7 @@ final class TarefaController extends AbstractController
         }
 
         // A esteira é GERAL DO ESCRITÓRIO (desenho 04 de 22/10) e fica fora do fragmento que o filtro recarrega.
-        $dados['esteira'] = $esteira->executar($usuario, $tenant, new \DateTimeImmutable('today'), $ocultas);
+        $dados['esteira'] = $esteira->executar($usuario, $tenant, new \DateTimeImmutable('today'), $ocultas, $visiveis);
 
         return $this->render('tarefa/minhas.html.twig', $dados);
     }

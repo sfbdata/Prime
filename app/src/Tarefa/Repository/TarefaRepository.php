@@ -73,18 +73,22 @@ class TarefaRepository extends ServiceEntityRepository
      * meta (de `PastasSoAcompanhadasSemVer`); nas abas Acompanhando e Todas, a meta acompanhada dessas pastas sai,
      * a não ser que ele cuide dela (responsável ou criador). O mesmo vale nas contagens e no trilho abaixo.
      *
+     * `$pastasVisiveisNaEsteira` (só com a etapa): as pastas que o usuário pode VER ({@see \App\Tarefa\Service\PastasVisiveisNaEsteira});
+     * nulo = todas. Fora delas, só a meta de que ele cuida (criador ou responsável).
+     *
      * @param array<string, string> $filtros  busca, prioridade (da meta), prazo, etapa
      * @param list<int>             $pastasOcultas
      * @param list<int>             $pastasSoAcompanhadasSemVer
+     * @param list<int>|null        $pastasVisiveisNaEsteira
      * @return Tarefa[]
      */
-    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = [], ?Tenant $escritorio = null, array $pastasSoAcompanhadasSemVer = []): array
+    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = [], ?Tenant $escritorio = null, array $pastasSoAcompanhadasSemVer = [], ?array $pastasVisiveisNaEsteira = null): array
     {
         $qb = $this->createQueryBuilder('t');
 
         $etapa = EtapaDaPasta::tryFrom((string) ($filtros['etapa'] ?? ''));
         if ($etapa !== null && $escritorio !== null) {
-            $this->escoparPelaEtapa($qb, $etapa, $escritorio);
+            $this->escoparPelaEtapa($qb, $etapa, $escritorio, $usuario, $pastasVisiveisNaEsteira);
         } else {
             $qb->setParameter('usuario', $usuario);
             $this->escoparPelaAba($qb, $aba, $pastasSoAcompanhadasSemVer);
@@ -391,9 +395,15 @@ class TarefaRepository extends ServiceEntityRepository
         }
     }
 
-    /** As metas abertas de uma caixa da esteira, de todo o escritório. */
-    private function escoparPelaEtapa(QueryBuilder $qb, EtapaDaPasta $etapa, Tenant $escritorio): void
+    /**
+     * As metas abertas de uma caixa da esteira, de todo o escritório, que quem olha pode ver: a pasta está entre as
+     * que ele vê (nulo = todas) ou ele cuida da meta.
+     *
+     * @param list<int>|null $pastasVisiveis
+     */
+    private function escoparPelaEtapa(QueryBuilder $qb, EtapaDaPasta $etapa, Tenant $escritorio, User $quemOlha, ?array $pastasVisiveis): void
     {
+        $this->soAsQueQuemOlhaVe($qb, $quemOlha, $pastasVisiveis);
         // Pasta excluída (lápide) fica fora, como na contagem da caixa e no Dashboard.
         $qb->innerJoin('t.pasta', 'pastaDaEtapa', 'WITH', 'pastaDaEtapa.excluidaEm IS NULL')
            ->andWhere('t.tenant = :escritorioDaEtapa')
@@ -405,14 +415,45 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * O "ver a pasta" da esteira (a mesma regra do `AcessoAMeta`): com a lista de pastas visíveis, a meta entra se a
+     * pasta é uma delas ou se quem olha cuida dela (criador ou responsável). Nulo = vê todas. A raiz é `t`.
+     *
+     * @param list<int>|null $pastasVisiveis
+     */
+    private function soAsQueQuemOlhaVe(QueryBuilder $qb, ?User $quemOlha, ?array $pastasVisiveis): void
+    {
+        if ($pastasVisiveis === null) {
+            return;
+        }
+        if ($quemOlha === null) {
+            $qb->andWhere('1 = 0');
+
+            return;
+        }
+        $cuida = 't.criadoPor = :quemOlhaNaEsteira OR :quemOlhaNaEsteira MEMBER OF t.responsaveis';
+        $qb->setParameter('quemOlhaNaEsteira', $quemOlha);
+        if ($pastasVisiveis === []) {
+            $qb->andWhere($cuida);
+
+            return;
+        }
+        $qb->andWhere($cuida . ' OR IDENTITY(t.pasta) IN (:pastasVisiveisNaEsteira)')
+           ->setParameter('pastasVisiveisNaEsteira', $pastasVisiveis);
+    }
+
+    /**
      * A esteira da pasta (desenho 04 de 22/10, dc L163-167): por caixa, quantas metas ABERTAS o escritório tem
      * (em revisão conta) e quantas delas estão atrasadas, pelo mesmo recorte dos KPIs (`FORA_DA_FILA`, prazo
      * antes de hoje), sem pasta excluída. Uma consulta agregada; caixa sem meta não vem (quem lê completa com zero).
      *
+     * Com `$pastasVisiveis` (lista), só contam as metas que `$quemOlha` pode ver ({@see soAsQueQuemOlhaVe()}); nulo =
+     * todas.
+     *
      * @param list<int> $pastasOcultas
+     * @param list<int>|null $pastasVisiveis
      * @return array<string, array{total: int, atrasadas: int}> chave = valor de `EtapaDaPasta`
      */
-    public function contarEsteira(Tenant $escritorio, \DateTimeImmutable $hoje, array $pastasOcultas = []): array
+    public function contarEsteira(Tenant $escritorio, \DateTimeImmutable $hoje, array $pastasOcultas = [], ?User $quemOlha = null, ?array $pastasVisiveis = null): array
     {
         $qb = $this->createQueryBuilder('t')
             ->select('t.etapa AS etapa')
@@ -427,6 +468,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->setParameter('hoje', $hoje->setTime(0, 0))
             ->groupBy('t.etapa');
         $this->semPastasOcultas($qb, $pastasOcultas);
+        $this->soAsQueQuemOlhaVe($qb, $quemOlha, $pastasVisiveis);
 
         $porEtapa = [];
         foreach ($qb->getQuery()->getArrayResult() as $linha) {

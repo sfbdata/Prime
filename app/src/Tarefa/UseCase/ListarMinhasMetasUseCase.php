@@ -35,7 +35,8 @@ use App\Tarefa\Service\AgrupadorDeMetas;
  * contagens das abas e do trilho, a não ser que ele seja responsável ou criador dela.
  *
  * **Esteira** (desenho 04 de 22/10): com o filtro `etapa` (clique numa caixa) e o `$escritorio`, a lista é a das
- * metas abertas daquela caixa de toda a equipe, no lugar do papel da aba. O nome que o escritório deu a cada
+ * metas abertas daquela caixa de toda a equipe que o usuário pode ver (a pasta visível para ele ou a meta de que
+ * cuida), no lugar do papel da aba. O nome que o escritório deu a cada
  * etapa (`CaixaDaEsteira`) vai junto, para o chip "i/8 · Etapa" da linha usar o mesmo nome da esteira.
  *
  * **Erros:** não lança. Aba desconhecida cai no padrão (`Sou responsável`) — é uma tela de
@@ -60,6 +61,9 @@ final class ListarMinhasMetasUseCase
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      * @param Tenant|null $escritorio  o escritório da sessão; sem ele não há filtro por etapa nem nomes da esteira
      * @param list<int> $pastasSoAcompanhadasSemVer pastas em que o usuário só acompanha meta e que não pode ver
+     * @param list<int>|null $pastasVisiveisNaEsteira as pastas que o usuário pode ver (`PastasVisiveisNaEsteira`),
+     *                                               para a lista da etapa; nulo = todas. Sem informar: só as metas de
+     *                                               que ele cuida (o padrão fecha)
      */
     public function executar(
         User $usuario,
@@ -69,9 +73,10 @@ final class ListarMinhasMetasUseCase
         array $pastasOcultas = [],
         ?Tenant $escritorio = null,
         array $pastasSoAcompanhadasSemVer = [],
+        ?array $pastasVisiveisNaEsteira = [],
     ): MinhasMetasOutput {
         $semVer = $pastasSoAcompanhadasSemVer;
-        $metas  = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros, $pastasOcultas, $escritorio, $semVer);
+        $metas  = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros, $pastasOcultas, $escritorio, $semVer, $pastasVisiveisNaEsteira);
 
         $ids        = array_map(static fn (Tarefa $m): int => (int) $m->getId(), $metas);
         $marcadores = $this->repository->carregarMarcadoresDaLista($usuario, $ids);

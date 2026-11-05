@@ -45,16 +45,17 @@ class NotificacaoController extends AbstractController
 
         $page = max(1, $request->query->getInt('page', 1));
         $ocultas = $this->notificacaoService->pastasOcultasDe($usuario); // cadeado: avisos de pasta oculta não saem
+        $escritorio = $this->notificacaoService->escritorioDoSino($usuario); // o escritório explícito (achado 1.15)
 
         // Monta itens + metadados de paginação de uma categoria. O ?page= só
         // vale para a aba ativa; a outra aba sempre renderiza a primeira página.
-        $montarPaginacao = function (string $categoria) use ($usuario, $page, $abaAtiva, $ocultas): array {
-            $total      = $this->notificacaoRepository->countByUsuario($usuario, $categoria, $ocultas);
+        $montarPaginacao = function (string $categoria) use ($usuario, $escritorio, $page, $abaAtiva, $ocultas): array {
+            $total      = $this->notificacaoRepository->countByUsuario($usuario, $escritorio, $categoria, $ocultas);
             $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
             $atual      = $categoria === $abaAtiva ? min($page, $totalPages) : 1;
 
             return [
-                'itens' => $this->notificacaoRepository->findPaginadasByUsuario($usuario, $categoria, $atual, self::PER_PAGE, $ocultas),
+                'itens' => $this->notificacaoRepository->findPaginadasByUsuario($usuario, $escritorio, $categoria, $atual, self::PER_PAGE, $ocultas),
                 'meta'  => [
                     'current_page' => $atual,
                     'per_page'     => self::PER_PAGE,

@@ -250,7 +250,7 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
     public function testPixPorValor(): void
     {
         $this->logarComTenant($this->client, $this->primario, $this->escritorio);
-        $this->client->request('GET', '/contribua/pix?valor=50');
+        $this->client->request('POST', '/contribua/pix', ['_token' => self::TOKEN, 'valor' => '50']);
 
         $dados = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertTrue($dados['valido']);
