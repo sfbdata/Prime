@@ -11,16 +11,32 @@ final class Version20260508170000 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Criar usuário dedicado para testes E2E (e2e@jusprime.local) — no-op em produção';
+        return 'Criar usuário dedicado para testes E2E (e2e@jusprime.local), só em banco de teste/e2e';
+    }
+
+    /**
+     * Trava da auditoria 4.07. A antiga olhava o APP_ENV pelo getenv, que não enxerga o APP_ENV vindo só do .env
+     * (o Dotenv do Symfony não faz putenv): um banco com dado real migrado assim ganhava um Master de senha conhecida.
+     * Agora só semeia quando o banco é de teste/e2e pelo nome (termina em _test ou _e2e, com o número do paratest
+     * opcional) ou quando E2E_SEMEAR_USUARIO=1 é variável REAL do processo (getenv não vê o .env).
+     */
+    public static function podeSemearUsuarioE2e(string $nomeDoBanco, string|false $semear): bool
+    {
+        return $semear === '1' || preg_match('/_(test|e2e)\d*$/', $nomeDoBanco) === 1;
+    }
+
+    private function podeSemear(): bool
+    {
+        return self::podeSemearUsuarioE2e((string) $this->connection->getDatabase(), getenv('E2E_SEMEAR_USUARIO'));
     }
 
     public function up(Schema $schema): void
     {
-        if (getenv('APP_ENV') === 'prod') {
+        if (!$this->podeSemear()) {
             return;
         }
 
-        // Senha: e2e_local_placeholder (hash BCrypt calculado via Docker no momento da criação)
+        // Hash BCrypt calculado via Docker no momento da criação. A senha fica com quem roda o e2e (E2E_USER_PASSWORD).
         $this->addSql(<<<'SQL'
             INSERT INTO "user" (email, password, roles, full_name, is_active, created_at)
             SELECT
@@ -64,7 +80,7 @@ final class Version20260508170000 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        if (getenv('APP_ENV') === 'prod') {
+        if (!$this->podeSemear()) {
             return;
         }
 

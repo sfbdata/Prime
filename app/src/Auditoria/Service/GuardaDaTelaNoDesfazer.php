@@ -19,6 +19,8 @@ use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\UseCase\EditarMensagemPastaUseCase;
 use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
+use App\Agenda\Entity\Evento;
+use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Repository\AuditLogRepository;
 use App\Service\PermissionChecker;
 use App\Shared\Contract\TenantAware;
@@ -41,7 +43,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *  - pasta e filhas: `AcessoAPasta::podeEditar` na pasta-mãe (com o teto do cadeado); a observação dos Detalhes,
  *    também a regra da tela de edição dela (`EditarObservacaoDetalhesUseCase::podeEditar`: autor e janela);
  *  - mensagem da pasta: o que a rota de edição pede. Ver a pasta (`AcessoAPasta::podeVer`), a barreira do cadeado
- *    para escrita e a regra da edição (`EditarMensagemPastaUseCase::podeEditar`).
+ *    para escrita e a regra da edição (`EditarMensagemPastaUseCase::podeEditar`);
+ *  - evento da agenda: além do mapa (`admin.users.manage` ou o criador), o módulo agenda e ver o evento
+ *    (`EventoDaAgendaRepository::visivelPara`), como `agenda_editar` e a Agenda nova (auditoria 3.02/3.03).
  *
  * As guardas são CHAMADAS, nunca copiadas: mudou a regra da tela, mudou a do desfazer. A linha ou a entidade que não
  * existe, está na lixeira ou é de outro escritório não exige nada aqui: o `executar()` a recusa sem tocar em nada.
@@ -90,6 +94,7 @@ final class GuardaDaTelaNoDesfazer
         private readonly AcessoAPasta $acessoAPasta,
         private readonly EditarMensagemPastaUseCase $editarMensagemPasta,
         private readonly EditarObservacaoDetalhesUseCase $editarObservacaoDetalhes,
+        private readonly EventoDaAgendaRepository $eventosDaAgenda,
     ) {
     }
 
@@ -119,7 +124,7 @@ final class GuardaDaTelaNoDesfazer
     private function permiteATelaDaEntidade(AuditLog $log, User $ator, ?Tenant $tenant): bool
     {
         $classe = $log->getEntityClass();
-        if ($classe !== Tarefa::class && $classe !== PastaMensagem::class && !in_array($classe, self::PASTA_E_FILHAS, true)) {
+        if ($classe !== Tarefa::class && $classe !== PastaMensagem::class && $classe !== Evento::class && !in_array($classe, self::PASTA_E_FILHAS, true)) {
             return true;
         }
         if ($tenant === null) {
@@ -134,6 +139,7 @@ final class GuardaDaTelaNoDesfazer
         return match (true) {
             $entidade instanceof Tarefa => $this->permiteAMeta($entidade, $this->camposDoDiff($log), $ator, $tenant),
             $entidade instanceof PastaMensagem => $this->permiteAMensagem($entidade, $ator, $tenant),
+            $entidade instanceof Evento => $this->permiteOEvento($entidade, $ator, $tenant),
             $entidade instanceof PastaObservacaoDetalhes => $this->permiteAPasta($entidade, $ator)
                 && $this->editarObservacaoDetalhes->podeEditar($entidade, $ator, $tenant),
             default => $this->permiteAPasta($entidade, $ator),
@@ -177,6 +183,16 @@ final class GuardaDaTelaNoDesfazer
         }
 
         return true;
+    }
+
+    /**
+     * As barreiras do `agenda_editar`: o módulo agenda e ver o evento. "Só eu" alheio e reunião com participantes de
+     * que o ator não faz parte: nem o administrador desfaz.
+     */
+    private function permiteOEvento(Evento $evento, User $ator, Tenant $tenant): bool
+    {
+        return $this->permissionChecker->canAccessModule($ator, $tenant, 'agenda')
+            && $this->eventosDaAgenda->visivelPara((int) $evento->getId(), $tenant, $ator) !== null;
     }
 
     /** A rota de edição pede ver a pasta, e a barreira do cadeado recusa a escrita de quem só visualiza. */

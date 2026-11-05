@@ -153,7 +153,7 @@ class ConteudoTest(unittest.TestCase):
 
     def test_referencias_continuam_aceitas(self):
         for linha in ("password: '%env(DB_SENHA)%'", "password: '%senha_do_banco%'",
-                      'DB_PASS=$DB_PASS', "secret: !php/const App\\X::Y"):
+                      'DB_PASS=$DB_PASS', 'DB_PASS=${DB_PASS}', "secret: !php/const App\\X::Y"):
             with self.subTest(linha=linha):
                 self.assertEqual([], regras('config/x.yaml', linha))
 
@@ -207,6 +207,64 @@ class ConteudoTest(unittest.TestCase):
 
     def test_mesmo_valor_em_outra_chave_do_ci_e_pego(self):
         self.assertEqual(['atribuicao-sensivel'], regras('.github/workflows/ci.yml', '      API_TOKEN: ' + self.VALOR_CI))
+
+    # --- Auditoria 4.09: chave do Asaas ($aact_) e credenciais do R2 (CHAVE/SEGREDO) ---
+
+    @staticmethod
+    def chave_asaas() -> str:
+        return '$' + 'aact_' + aleatorio(80)
+
+    def test_chave_do_asaas_e_pega_com_e_sem_aspas_em_config_e_em_codigo(self):
+        chave = self.chave_asaas()
+        casos = (
+            ('app/.env', "CONTRIBUA_ASAAS_API_KEY='" + chave + "'"),
+            ('app/.env', 'CONTRIBUA_ASAAS_API_KEY="' + chave + '"'),
+            ('app/.env', 'CONTRIBUA_ASAAS_API_KEY=' + chave),
+            ('config/x.yaml', "    api_key: '" + chave + "'"),
+            ('app/src/Contribua/X.php', "$chave = '" + chave + "';"),
+            ('app/src/Contribua/X.php', "$chave = '" + chave[1:] + "';"),  # sem o '$'
+        )
+        for arquivo, linha in casos:
+            with self.subTest(arquivo=arquivo, linha=linha[:30]):
+                self.assertIn('asaas-api-key', regras(arquivo, linha))
+
+    def test_saida_da_chave_do_asaas_nao_imprime_o_valor(self):
+        chave = self.chave_asaas()
+        achados = guarda.verificar_linha('app/.env', "CONTRIBUA_ASAAS_API_KEY='" + chave + "'")
+        texto = '\n'.join(guarda.Achado('app/.env', 1, r, t).formatar() for r, t in achados)
+        self.assertTrue(achados)
+        self.assertNotIn(chave[1:], texto)
+
+    def test_credenciais_do_r2_chave_e_segredo_sao_sensiveis(self):
+        hexa = string.digits + 'abcdef'
+        for arquivo in ('app/.env', '.env.prod.example', 'docker-compose.prod.yml'):
+            for chave, valor in (('ESPELHO_R2_CHAVE', aleatorio(32, hexa)), ('ESPELHO_R2_SEGREDO', aleatorio(64, hexa))):
+                with self.subTest(arquivo=arquivo, chave=chave):
+                    self.assertEqual(['atribuicao-sensivel'], regras(arquivo, chave + '=' + valor))
+
+    def test_credencial_em_portugues_e_ingles_e_sensivel(self):
+        for chave in ('ACESSO_CREDENCIAL', 'GOOGLE_CREDENTIALS', 'CREDENCIAIS_SMTP'):
+            with self.subTest(chave=chave):
+                self.assertEqual(['atribuicao-sensivel'], regras('app/.env', chave + '=' + aleatorio(24)))
+
+    def test_chave_e_segredo_em_minusculas_sao_rotulo_e_nao_sao_avaliados(self):
+        # Traduções, JSON de questões e comentários usam "chave" como palavra comum.
+        for arquivo, linha in (('app/translations/x.pt_BR.yaml', "    chave_rotulo: 'Ligar ou desligar {tema}'"),
+                               ('app/config/x.json', '        "chave": "transferencia_internacional",'),
+                               ('app/config/services.yaml', '    # segredo do hash da chave: kernel.secret')):
+            with self.subTest(arquivo=arquivo):
+                self.assertEqual([], regras(arquivo, linha))
+
+    def test_cifrao_so_e_referencia_quando_o_valor_inteiro_e_uma_variavel(self):
+        for valor in ('$DB_PASS', '${DB_PASS}', '$x'):
+            with self.subTest(valor=valor):
+                self.assertTrue(guarda.eh_referencia(valor))
+        for valor in ('$' + 'aact_' + aleatorio(30), '$' + aleatorio(30) + '!x', '$' + 'A' + 'b' * 50):
+            with self.subTest(valor=valor[:8]):
+                self.assertFalse(guarda.eh_referencia(valor))
+
+    def test_senha_que_comeca_com_cifrao_e_pega(self):
+        self.assertEqual(['atribuicao-sensivel'], regras('app/.env', "DB_PASSWORD='$" + aleatorio(20) + "#x'"))
 
     def test_marca_de_permissao_aceita_a_linha(self):
         linha = 'TOKEN_FIXO=' + aleatorio(30) + '  # segredo:permitido — valor público do fornecedor'
@@ -341,6 +399,85 @@ class RepositorioTest(unittest.TestCase):
         self.assertEqual(1, codigo)
         self.assertIn('config.yaml', saida)
         self.assertNotIn(senha, saida)
+
+    # --- Auditoria 4.10: arquivo novo criado só na resolução do merge ---
+
+    def merge_com_conflito(self, resolver) -> str:
+        """Monta um merge com conflito, chama resolver() antes de concluir e devolve a base."""
+        base = self.git('rev-parse', 'HEAD').strip()
+        self.escrever('config.yaml', 'valor: 1\n')
+        self.commitar('base do conflito')
+        self.git('switch', '-q', '-c', 'lado')
+        self.escrever('config.yaml', 'valor: 2\n')
+        self.commitar('lado')
+        self.git('switch', '-q', 'master')
+        self.escrever('config.yaml', 'valor: 3\n')
+        self.commitar('master')
+        subprocess.run(['git', 'merge', '-q', 'lado'], cwd=self.repo, capture_output=True)  # conflita
+        self.escrever('config.yaml', 'valor: 4\n')
+        resolver()
+        self.git('add', '-A')
+        # Sem hook: é o cenário do botão "Resolve conflicts" do GitHub ou de um clone sem a guarda.
+        self.git('-c', 'core.hooksPath=/dev/null', 'commit', '-q', '--no-edit')
+        self.assertEqual(3, len(self.git('rev-list', '--parents', '-n', '1', 'HEAD').split()))
+        return base
+
+    def test_binario_adicionado_so_na_resolucao_do_merge_e_recusado(self):
+        conteudo = bytes(_rng.randrange(256) for _ in range(64)) + b'\x00'
+        base = self.merge_com_conflito(lambda: (self.repo / 'chave.p12').write_bytes(conteudo))
+        codigo, saida = self.rodar('--intervalo', f'{base}..HEAD')
+        self.assertEqual(1, codigo)
+        self.assertIn('arquivo-proibido', saida)
+        self.assertIn('chave.p12', saida)
+        self.assertIn('binario-na-resolucao', saida)
+
+    def test_pem_de_texto_adicionado_so_na_resolucao_do_merge_e_recusado_pelo_nome(self):
+        corpo = aleatorio(40)
+        base = self.merge_com_conflito(lambda: self.escrever('certs/chave.pem', corpo + '\n'))
+        codigo, saida = self.rodar('--intervalo', f'{base}..HEAD')
+        self.assertEqual(1, codigo)
+        self.assertIn('arquivo-proibido', saida)
+        self.assertIn('certs/chave.pem', saida)
+        self.assertNotIn(corpo, saida)
+
+    def test_arquivo_que_ja_vinha_de_um_dos_lados_nao_e_acusado_no_merge(self):
+        # O nome de quem veio de um lado é conferido no commit daquele lado; no merge, só o que é novo.
+        base = self.git('rev-parse', 'HEAD').strip()
+        self.git('switch', '-q', '-c', 'outro')
+        self.escrever('docs/novo.txt', 'texto\n')
+        self.commitar('novo')
+        self.git('switch', '-q', 'master')
+        self.merge_com_conflito(lambda: None)
+        self.git('-c', 'core.hooksPath=/dev/null', 'merge', '-q', '--no-edit', 'outro')
+        self.assertEqual(0, self.rodar('--intervalo', f'{base}..HEAD')[0])
+
+    def test_merge_com_conflito_sem_arquivo_novo_passa(self):
+        base = self.merge_com_conflito(lambda: None)
+        self.assertEqual(0, self.rodar('--intervalo', f'{base}..HEAD')[0])
+
+    def test_resolucao_e_extraida_para_o_gitleaks_so_com_as_linhas_da_resolucao(self):
+        senha = aleatorio(24)
+        base = self.merge_com_conflito(
+            lambda: self.escrever('config.yaml', 'valor: 4\ndb_password: ' + senha + '\n'))
+        destino = self.repo / '.git' / 'resolucao-extraida'  # some no tearDown, fora da árvore
+        r = subprocess.run([sys.executable, '-I', str(AQUI / 'extrair-resolucao-merges.py'),
+                            f'{base}..HEAD', str(destino)], cwd=self.repo, capture_output=True, text=True)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertNotIn(senha, r.stdout + r.stderr)
+        arquivos = [p for p in destino.rglob('*') if p.is_file()]
+        self.assertEqual(['config.yaml'], [p.name for p in arquivos])
+        self.assertIn('db_password: ' + senha, arquivos[0].read_text())
+        self.assertNotIn('valor: 3', arquivos[0].read_text())
+
+    def test_extracao_sem_merge_no_intervalo_nao_cria_nada(self):
+        base = self.git('rev-parse', 'HEAD').strip()
+        self.escrever('x.txt', 'x\n')
+        self.commitar('sem merge')
+        destino = self.repo / '.git' / 'resolucao-extraida'  # some no tearDown, fora da árvore
+        r = subprocess.run([sys.executable, '-I', str(AQUI / 'extrair-resolucao-merges.py'),
+                            f'{base}..HEAD', str(destino)], cwd=self.repo, capture_output=True, text=True)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual([], [p for p in destino.rglob('*') if p.is_file()])
 
     def test_intervalo_nao_e_travado_pelo_segredo_do_historico(self):
         # O caso do 3ee0082a: segredo num commit ANTIGO, já na base. O PR novo, limpo, tem de passar.

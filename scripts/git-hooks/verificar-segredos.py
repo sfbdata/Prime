@@ -29,6 +29,7 @@ import hashlib
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 MARCA_PERMITIDO = ('segredo:permitido', 'gitleaks:allow')
@@ -67,6 +68,9 @@ REGRAS_FORMATO = [
     ('anthropic-key', re.compile(r'\bsk-ant-[A-Za-z0-9_\-]{20,}')),
     ('openai-key', re.compile(r'\bsk-(?:proj-)?[A-Za-z0-9_\-]{32,}')),
     ('npm-token', re.compile(r'\bnpm_[A-Za-z0-9]{36}\b')),
+    # Chave de API do Asaas (Contribua): o formato real começa com '$aact_'. Antes da auditoria 4.09 o
+    # '$' a fazia passar por variável. O '\b' evita casar 'aact_' no meio de outra palavra.
+    ('asaas-api-key', re.compile(r'\$?\baact_[A-Za-z0-9_\-+/=]{20,}')),
 ]
 
 # usuario:senha@ dentro de URL (DSN de SMTP, banco, Redis, AMQP...). O usuário ACEITA `@`: o DSN que
@@ -85,8 +89,12 @@ ATRIBUICAO = re.compile(
     r'(?:"(?P<v1>[^"\n]*)"|\'(?P<v2>[^\'\n]*)\'|(?P<v3>[^\s"\'#,;]+))'
 )
 # PASS e PWD só como PEDAÇO da chave (DB_PASS, MAILER_PWD), não como substring (BYPASS, PASSO).
+# CHAVE e SEGREDO (auditoria 4.09): as credenciais do R2 se chamam ESPELHO_R2_CHAVE e ESPELHO_R2_SEGREDO.
+# Só em MAIÚSCULAS (nome de variável de ambiente): em minúsculas, "chave" é rótulo comum nas traduções,
+# no JSON de questões e em comentários (medido: 17 falsos positivos na árvore em 05/11/2026).
 CHAVE_SENSIVEL = re.compile(
     r'PASSWORD|PASSWD|SENHA|SECRET|TOKEN|API_?KEY|ACCESS_KEY|PRIVATE_KEY|CRYPTO_KEY|'
+    r'(?-i:CHAVE|SEGREDO)|CREDENCIA|CREDENTIAL|'
     r'(?:^|_)(?:PASS|PWD)(?:_|$)',
     re.I,
 )
@@ -131,6 +139,10 @@ VALORES_DE_TESTE_DECLARADOS = {
     # do CI (banco postgres:15 descartável), nunca em ambiente real. Conferido em 12/10/2026.
     ('.github/workflows/ci.yml', 'APP_SECRET',
      'c5a5fc5f3ec2c639d6c947ae4994c86624a6b9bc1513f704c50ae2acd9b445c9'),
+    # .env.prod.example: GOOGLE_DRIVE_CREDENTIALS é o CAMINHO do arquivo JSON da credencial no modelo,
+    # não a credencial. Passou a ser avaliado quando CREDENTIAL entrou na lista (auditoria 4.09).
+    ('.env.prod.example', 'GOOGLE_DRIVE_CREDENTIALS',
+     'a4c35a3ad54701e74c5772e8910c8461736c7f0299e031ce5d9ea654447b8536'),
 }
 
 # Banco do container de DEV: usuário e senha são o padrão público do docker-compose.yml.
@@ -161,14 +173,22 @@ class Achado:
         return f'  {onde}  [{self.regra}]{extra}'
 
 
+VARIAVEL_CURTA = re.compile(r'\$\{?[A-Za-z_][A-Za-z0-9_]{0,40}\}?')
+
+
 def eh_referencia(v: str) -> bool:
     """Aponta para outro lugar em vez de conter o valor: variável, parâmetro, serviço, Twig.
 
     `%` sozinho NÃO é referência: senha que começa com símbolo vai codificada no DSN (`%21...`),
     e tratar todo `%` como parâmetro deixava essa senha passar.
+
+    `$` também não: só vale quando o valor INTEIRO é uma variável curta ($VAR, ${VAR}). A chave do
+    Asaas começa com '$aact_' e, com todo `$` aceito, passava como variável (auditoria 4.09).
     """
+    if v.startswith('$'):
+        return not v.startswith('$aact_') and bool(VARIAVEL_CURTA.fullmatch(v))
     return bool(
-        v.startswith(('$', '{{'))
+        v.startswith('{{')
         or v.startswith('%env(')
         or re.fullmatch(r'%[A-Za-z0-9_.]+%', v)
         or re.fullmatch(r'%[-+ #0]*\d*(?:\.\d+)?[sdfuxi]', v)  # printf/sprintf: '%s:%s@'
@@ -271,6 +291,17 @@ def git(*args: str) -> str:
 def ler_diff(texto_diff: str, commit: str | None = None) -> list[Achado]:
     """Varre as linhas '+' de um diff unificado com -U0."""
     achados: list[Achado] = []
+    for arquivo, linha, texto in linhas_adicionadas(texto_diff):
+        for regra, tamanho in verificar_linha(arquivo, texto):
+            achados.append(Achado(arquivo, linha, regra, tamanho, commit))
+    return achados
+
+
+def linhas_adicionadas(texto_diff: str) -> Iterator[tuple[str, int, str]]:
+    """(arquivo, número da linha, texto) de cada linha '+' de um diff unificado com -U0.
+
+    Também usado por extrair-resolucao-merges.py, que entrega a resolução dos merges ao gitleaks.
+    """
     arquivo: str | None = None
     linha = 0
     anterior = ''
@@ -293,10 +324,8 @@ def ler_diff(texto_diff: str, commit: str | None = None) -> list[Achado]:
         if arquivo is None or bruta.startswith(('---', 'diff ', 'index ', 'new file', 'deleted file')):
             continue
         if bruta.startswith('+'):
-            for regra, tamanho in verificar_linha(arquivo, bruta[1:]):
-                achados.append(Achado(arquivo, linha, regra, tamanho, commit))
+            yield arquivo, linha, bruta[1:]
             linha += 1
-    return achados
 
 
 def nomes_adicionados(diff_nomes: str, commit: str | None = None) -> list[Achado]:
@@ -311,6 +340,37 @@ def nomes_adicionados(diff_nomes: str, commit: str | None = None) -> list[Achado
 # --no-renames: com detecção de renomeação, `git mv x.txt chave.pem` vira R e escapava da checagem
 # de nome; sem ela vira A (+ D). T (mudança de tipo, ex.: link virando arquivo) também entra.
 SEM_RENOMEACAO = ('--no-renames', '--no-color', '--no-ext-diff', '-U0')
+
+
+# Arquivo NOVO criado na resolução: o --remerge-diff mostra o binário só nesta linha, sem '+++'.
+BINARIO_NOVO = re.compile(r'^Binary files /dev/null and (?P<alvo>"b/.*"|b/.*) differ$')
+
+
+def binarios_na_resolucao(texto_diff: str, commit: str | None = None) -> list[Achado]:
+    """Binário que a resolução do merge criou: a camada 1 não lê o conteúdo, então recusa."""
+    achados: list[Achado] = []
+    for bruta in texto_diff.splitlines():
+        m = BINARIO_NOVO.match(bruta)
+        if m:
+            alvo = m.group('alvo').strip('"')[2:]
+            achados.append(Achado(alvo, None, 'binario-na-resolucao', None, commit))
+    return achados
+
+
+def novos_na_resolucao(commit: str, pais: list[str]) -> str:
+    """Arquivos do merge ausentes em TODOS os pais (criados na resolução), separados por NUL.
+
+    `diff-tree -c` lista só o que difere de todos os pais; disso, fica o que nenhum pai tem.
+    """
+    candidatos = [c for c in git('diff-tree', '-r', '-c', '--no-commit-id', '--name-only', '-z',
+                                 commit).split('\x00') if c]
+    if not candidatos:
+        return ''
+    existentes: set[str] = set()
+    for pai in pais:
+        saida = git('--literal-pathspecs', 'ls-tree', '-r', '--name-only', '-z', pai, '--', *candidatos)
+        existentes.update(filter(None, saida.split('\x00')))
+    return '\x00'.join(c for c in candidatos if c not in existentes)
 
 
 def modo_stage() -> list[Achado]:
@@ -328,6 +388,10 @@ def modo_intervalo(intervalo: str) -> list[Achado]:
             # Sem isto, um segredo digitado ao resolver conflito passava sem ser visto.
             diff = git('show', '--remerge-diff', *SEM_RENOMEACAO, '--format=', commit)
             achados += ler_diff(diff, commit)
+            # Arquivo criado só na resolução não aparece em commit de nenhum dos lados: o nome dele
+            # também passa pela checagem, e binário novo é recusado (auditoria 4.10).
+            achados += nomes_adicionados(novos_na_resolucao(commit, pais), commit)
+            achados += binarios_na_resolucao(diff, commit)
             continue
         nomes = git('diff-tree', '--no-commit-id', '--no-renames', '--name-only', '-r',
                     '--diff-filter=A', '-z', '--root', commit)

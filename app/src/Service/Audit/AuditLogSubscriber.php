@@ -7,6 +7,7 @@ use App\ChatIa\Entity\ConversaDeChat;
 use App\ChatIa\Entity\PropostaDeCadastro;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Sede;
@@ -454,7 +455,11 @@ class AuditLogSubscriber
     /** O escritório dono da entidade, ou nulo quando ela não tem dono conhecido (ou ainda não o tem). */
     private static function tenantDoDono(object $entity): ?int
     {
-        if ($entity instanceof TenantAware || $entity instanceof Cargo || $entity instanceof Sede || $entity instanceof Lotacao) {
+        if ($entity instanceof Tenant) {
+            return $entity->getId(); // o próprio escritório é o dono do seu registro
+        }
+        if ($entity instanceof TenantAware || $entity instanceof Cargo || $entity instanceof Sede || $entity instanceof Lotacao
+            || $entity instanceof UserTenant) {
             return $entity->getTenant()?->getId();
         }
 
