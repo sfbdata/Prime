@@ -181,6 +181,14 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 hour'
+        # Aviso da Cora (POST /api/webhooks/cora/pix): rota pública, sem corpo e sem assinatura, e o id do evento
+        # é escolhido por quem envia. Chave = IP do cliente. Acima do limite a rota responde 200 sem gravar nem
+        # enfileirar (a Cora não deve receber 429); o aviso que ficar de fora é coberto pela conciliação de
+        # 15 em 15 minutos. 60 por minuto passa folgado pelo volume real e põe teto num laço de avisos inventados.
+        webhook_cora:
+            policy: sliding_window
+            limit: 60
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     # gc_maxlifetime = app.sessao_gc_segundos (padrão 1 dia): o arquivo da sessão não some antes do

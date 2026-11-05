@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Inteligencia\Functional;
 
 use App\Inteligencia\Controller\AnalisePushController;
+use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Agente;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -144,6 +145,39 @@ final class EditarAnaliseControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Sentença de procedência publicada.', $txt);
         self::assertStringContainsString('Editado por ', $txt);
         self::assertStringNotContainsString('Custas pagas.', $txt);
+    }
+
+    #[TestDox('1.18: a edição deixa no audit_log a ação, quem editou e quando, nunca o texto editado')]
+    public function testAuditLogDaEdicaoSemOTexto(): void
+    {
+        $client = $this->cliente();
+        [$admin, $tenant, $pasta, $id] = $this->cenario();
+        $adminId = (int) $admin->getId();
+        $tenantId = (int) $tenant->getId();
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $this->editar($client, (int) $pasta->getId(), $id, ['resumo' => 'RESUMO-EDITADO-SIGILOSO.', 'pontos' => [0 => 'PONTO-EDITADO-SIGILOSO.']]);
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->editada($id));
+        $linhas = $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT action, actor_user_id, tenant_id, created_at, changes::text AS changes FROM audit_log WHERE entity_class = :classe AND entity_id = :id ORDER BY id',
+            ['classe' => AnaliseDeInteligencia::class, 'id' => (string) $id],
+        );
+        self::assertStringNotContainsString('EDITADO-SIGILOSO', implode("\n", array_column($linhas, 'changes')));
+        $edicoes = array_values(array_filter(
+            $linhas,
+            static fn (array $l): bool => isset(json_decode((string) $l['changes'], true)['diff']['changes']['editadaEm']),
+        ));
+        self::assertCount(1, $edicoes, 'a edição continua na trilha');
+        self::assertSame('update', $edicoes[0]['action']);
+        self::assertSame($adminId, (int) $edicoes[0]['actor_user_id'], 'quem editou');
+        self::assertSame($tenantId, (int) $edicoes[0]['tenant_id']);
+        self::assertNotEmpty($edicoes[0]['created_at'], 'quando');
+        $mudancas = json_decode((string) $edicoes[0]['changes'], true)['diff']['changes'];
+        self::assertSame((string) $adminId, $mudancas['editadaPor']['to']['id'] ?? null);
+        self::assertArrayNotHasKey('resumoEditado', $mudancas);
+        self::assertArrayNotHasKey('pontosEditados', $mudancas);
     }
 
     #[TestDox('sem CSRF → 403; quem só vê a pasta → 403 e não recebe o "Editar"; nada é gravado')]

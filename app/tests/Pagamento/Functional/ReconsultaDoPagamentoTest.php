@@ -24,6 +24,7 @@ use App\Pagamento\Repository\PagamentoEventoRepository;
 use App\Pagamento\Repository\PagamentoRepository;
 use App\Pagamento\UseCase\ConfirmarPagamentoPeloBancoUseCase;
 use App\Pagamento\UseCase\CriarPagamentoUseCase;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Contribua\Banco\CoraFalsa;
 use App\Tests\Contribua\Banco\ParDeCertificado;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -96,6 +97,60 @@ final class ReconsultaDoPagamentoTest extends JusPrimeWebTestCase
         self::assertSame([], $this->enfileiradas());
         self::assertSame(1, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM contribua_notificacao_recebida WHERE origem = 'cora'"), 'só o aviso nosso foi gravado');
         self::assertSame(StatusDoPagamento::Aguardando, $this->recarregar($pagamento['id'])->getStatus(), 'o aviso sozinho não confirma nada');
+    }
+
+    #[TestDox('Dois avisos do mesmo recurso com ids de evento diferentes, dentro da janela, enfileiram uma reconsulta só e gravam um aviso só')]
+    public function testAvisosDoMesmoRecursoNaJanelaEnfileiramUmaVez(): void
+    {
+        $this->conectar();
+        $pagamento = $this->cobranca(2000);
+
+        // O transporte em memória é zerado a cada requisição: conferir depois de cada uma.
+        $this->webhook('evt_1', 'invoice.paid', $pagamento['id']);
+        $primeira = $this->enfileiradas();
+        $this->webhook('evt_inventado', 'invoice.paid', $pagamento['id']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['success' => true], json_decode((string) $this->client->getResponse()->getContent(), true));
+        $segunda = $this->enfileiradas();
+
+        self::assertEquals([new ReconsultarPagamentoNoBanco('cora', $pagamento['id'], 'evt_1')], $primeira);
+        self::assertSame([], $segunda, 'já há reconsulta pendente do mesmo recurso: o id de evento novo não enfileira outra');
+        self::assertSame(1, $this->avisosDoRecurso($pagamento['id']), 'nem grava outro aviso');
+    }
+
+    #[TestDox('Acima do limite por IP o aviso responde 200 com success, sem gravar nem enfileirar; a chave do limite é o IP do cliente')]
+    public function testAcimaDoLimitePorIpNaoGravaNemEnfileira(): void
+    {
+        // Antes de qualquer requisição ao webhook: depois de usado, o container recusa a troca do limitador.
+        $limitador = new RateLimiterFactoryEspiao(aceita: false);
+        static::getContainer()->set('limiter.webhook_cora', $limitador);
+        $this->conectar();
+        $pagamento = $this->cobranca(2000);
+
+        $this->webhook('evt_1', 'invoice.paid', $pagamento['id'], ['REMOTE_ADDR' => '203.0.113.7']);
+
+        self::assertResponseStatusCodeSame(200, 'a Cora não recebe 429: só para de gerar trabalho');
+        self::assertSame(['success' => true], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame([], $this->enfileiradas(), 'acima do limite não enfileira');
+        self::assertSame(0, $this->avisosDoRecurso($pagamento['id']), 'acima do limite não grava');
+        self::assertSame(['203.0.113.7'], $limitador->chavesConsumidas);
+    }
+
+    #[TestDox('Depois que o aviso é processado, um aviso novo do mesmo recurso volta a enfileirar a reconsulta')]
+    public function testAvisoDepoisDeProcessadoVoltaAEnfileirar(): void
+    {
+        $this->conectar();
+        $pagamento = $this->cobranca(2000);
+        $this->webhook('evt_1', 'invoice.paid', $pagamento['id']);
+        $primeira = $this->enfileiradas();
+        self::assertCount(1, $primeira);
+        static::getContainer()->get(ReconsultarPagamentoNoBancoHandler::class)($primeira[0]);
+        self::assertNotNull($this->banco()->fetchOne("SELECT processada_em FROM contribua_notificacao_recebida WHERE origem = 'cora' AND id_evento = 'evt_1'"));
+
+        $this->webhook('evt_2', 'invoice.paid', $pagamento['id']);
+
+        self::assertEquals([new ReconsultarPagamentoNoBanco('cora', $pagamento['id'], 'evt_2')], $this->enfileiradas());
+        self::assertSame(2, $this->avisosDoRecurso($pagamento['id']));
     }
 
     #[TestDox('A reconsulta confirma uma vez: paga, trilha do banco, aviso processado; repetir não muda nada')]
@@ -438,9 +493,15 @@ final class ReconsultaDoPagamentoTest extends JusPrimeWebTestCase
         return array_values(array_map(static fn ($e) => $e->getMessage(), $fila->getSent()));
     }
 
-    private function webhook(string $evento, string $tipo, string $recurso): void
+    /** @param array<string, string> $servidor parâmetros extras do servidor (por exemplo, REMOTE_ADDR) */
+    private function webhook(string $evento, string $tipo, string $recurso, array $servidor = []): void
     {
-        $this->client->request('POST', '/api/webhooks/cora/pix', [], [], ['HTTP_WEBHOOK_EVENT_ID' => $evento, 'HTTP_WEBHOOK_EVENT_TYPE' => $tipo, 'HTTP_WEBHOOK_RESOURCE_ID' => $recurso, 'HTTP_USER_AGENT' => 'Cora-Webhook']);
+        $this->client->request('POST', '/api/webhooks/cora/pix', [], [], ['HTTP_WEBHOOK_EVENT_ID' => $evento, 'HTTP_WEBHOOK_EVENT_TYPE' => $tipo, 'HTTP_WEBHOOK_RESOURCE_ID' => $recurso, 'HTTP_USER_AGENT' => 'Cora-Webhook'] + $servidor);
+    }
+
+    private function avisosDoRecurso(string $idNoBanco): int
+    {
+        return (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM contribua_notificacao_recebida WHERE origem = 'cora' AND id_recurso = :r", ['r' => $idNoBanco]);
     }
 
     private function conectar(string $ambiente = 'producao'): void

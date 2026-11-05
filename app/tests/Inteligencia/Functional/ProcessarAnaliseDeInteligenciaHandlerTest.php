@@ -55,6 +55,9 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
 {
     use CriaFixturesInteligenciaTrait;
 
+    /** O texto do modelo, nas formas que a linha da análise guarda: nunca vai para o audit_log (1.18). */
+    private const TEXTO_DO_MODELO = ['resumo', 'pontos', 'quemAge', 'textoDaAnalise', 'textoBruto', 'resumoEditado', 'pontosEditados'];
+
     private function handler(ProvedorDeLinguagem $provedor, ?LoggerInterface $logger = null, bool $iaHabilitada = true, ?LeitorDeDocumentosDaPasta $leitor = null): ProcessarAnaliseDeInteligenciaHandler
     {
         $c = static::getContainer();
@@ -763,6 +766,78 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertCount(1, $notificacoes);
         self::assertStringContainsString('#ia', (string) $notificacoes[0]->getUrl());
         self::assertStringContainsString('Agente Gestor', (string) $notificacoes[0]->getMensagem());
+    }
+
+    #[TestDox('1.18: o audit_log da análise de agente concluída no worker guarda status, modelo e tokens, nunca o texto do modelo')]
+    public function testAgenteConcluidoNaoLevaOTextoAoAuditLog(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor);
+        $falso = new ProvedorFalso();
+        $falso->responderCom((string) json_encode([
+            'resumo' => 'RESUMO-SIGILOSO da pasta.',
+            'pontos' => [['tipo' => 'prazo', 'texto' => 'PONTO-SIGILOSO.']],
+            'quem' => 'QUEM-SIGILOSO',
+            'texto' => 'TEXTO-SIGILOSO da análise.',
+        ], JSON_UNESCAPED_UNICODE));
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertSame(StatusDaAnalise::Concluida, $this->reler($analise)->getStatus());
+        $trilha = $this->trilhaDaAnalise((int) $analise->getId());
+        self::assertNotEmpty($trilha, 'a análise continua na trilha');
+        self::assertStringNotContainsString('SIGILOSO', implode("\n", array_column($trilha, 'texto')));
+        $mudancas = [];
+        foreach ($trilha as $linha) {
+            foreach (['changes', 'after', 'before'] as $momento) {
+                $campos = is_array($linha['diff'][$momento] ?? null) ? $linha['diff'][$momento] : [];
+                foreach (self::TEXTO_DO_MODELO as $campo) {
+                    self::assertArrayNotHasKey($campo, $campos, sprintf('%s fora de diff.%s', $campo, $momento));
+                }
+            }
+            // A linha mais nova vale: o status passa por "processando" antes de "concluida".
+            $mudancas = array_replace($mudancas, is_array($linha['diff']['changes'] ?? null) ? $linha['diff']['changes'] : []);
+        }
+        self::assertSame('concluida', $mudancas['status']['to'] ?? null, 'o status continua na trilha');
+        self::assertSame(ProvedorFalso::MODELO, $mudancas['modelo']['to'] ?? null, 'o modelo continua na trilha');
+        self::assertSame(120, $mudancas['tokensEntrada']['to'] ?? null, 'os tokens continuam na trilha');
+        self::assertSame(40, $mudancas['tokensSaida']['to'] ?? null);
+    }
+
+    #[TestDox('1.18: resposta inválida guarda o texto bruto na análise, mas o audit_log leva só o status e o motivo')]
+    public function testRespostaInvalidaNaoLevaOTextoBrutoAoAuditLog(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderCom('BRUTO-SIGILOSO sem JSON.');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertSame('BRUTO-SIGILOSO sem JSON.', $this->reler($analise)->getTextoBruto());
+        $trilha = $this->trilhaDaAnalise((int) $analise->getId());
+        self::assertStringNotContainsString('BRUTO-SIGILOSO', implode("\n", array_column($trilha, 'texto')));
+        $comFalha = array_filter($trilha, static fn (array $l): bool => ($l['diff']['changes']['status']['to'] ?? null) === 'falhou');
+        self::assertCount(1, $comFalha, 'a falha continua na trilha');
+        self::assertArrayHasKey('erroMotivo', array_values($comFalha)[0]['diff']['changes']);
+        self::assertArrayNotHasKey('textoBruto', array_values($comFalha)[0]['diff']['changes']);
+    }
+
+    /** @return list<array{texto: string, diff: array<string, mixed>}> as linhas do audit_log da análise, na ordem */
+    private function trilhaDaAnalise(int $id): array
+    {
+        $linhas = $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT changes::text FROM audit_log WHERE entity_class = :classe AND entity_id = :id ORDER BY id',
+            ['classe' => AnaliseDeInteligencia::class, 'id' => (string) $id],
+        );
+
+        return array_map(static fn (string $texto): array => ['texto' => $texto, 'diff' => json_decode($texto, true)['diff'] ?? []], $linhas);
     }
 
     #[TestDox('comando: o worker monta o PEDIDO do comando, usa a anterior do MESMO comando e conclui; a de outro comando do agente não vira anterior')]

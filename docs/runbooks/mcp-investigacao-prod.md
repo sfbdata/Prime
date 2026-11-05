@@ -62,6 +62,42 @@ docker exec jusprime_db_prod psql -U jusprime -d prime -c "REVOKE CREATE ON SCHE
 
 E rode a consulta de novo para confirmar que o `C` sumiu.
 
+### 1.2. Fixar na role os limites que a sessão não consegue desfazer
+
+O teto de 15 s por consulta é aplicado pelo `ConexaoLeitura` a cada chamada: cada consulta roda
+numa transação própria (`SET TRANSACTION READ ONLY` e `SET LOCAL statement_timeout`) que termina
+em `ROLLBACK`, e por isso um `set_config` ou `SET` feito por uma consulta não sobrevive à
+seguinte. Esse teto é do código. Os dois limites abaixo são do banco e a role de leitura não
+consegue mexer neles:
+
+```bash
+docker exec jusprime_db_prod psql -U jusprime -d prime -c "
+ALTER ROLE jusprime_leitura SET temp_file_limit = '2GB';
+ALTER ROLE jusprime_leitura CONNECTION LIMIT 2;
+"
+```
+
+- `temp_file_limit`: teto de disco em arquivos temporários (ordenação e hash grandes) por
+  sessão. É parâmetro de superusuário: a role de leitura recebe
+  `permission denied to set parameter "temp_file_limit"` se tentar mudar (medido no dev,
+  PostgreSQL 15). Pelo mesmo motivo o `ALTER ROLE` acima precisa rodar como superusuário; se o
+  `jusprime` não for, a resposta é a mesma mensagem de permissão.
+- `CONNECTION LIMIT 2`: no máximo duas conexões simultâneas da role. O MCP usa uma conexão por
+  processo `mcp:server`; duas cobrem duas conversas abertas ao mesmo tempo.
+
+Conferir:
+
+```bash
+docker exec jusprime_db_prod psql -U jusprime -d prime -c "SELECT rolconfig, rolconnlimit FROM pg_roles WHERE rolname = 'jusprime_leitura';"
+```
+
+**Esperado:** `rolconfig` com `temp_file_limit=2GB` e `rolconnlimit` = `2`.
+
+**Não use `ALTER ROLE jusprime_leitura SET statement_timeout` como proteção.** Ele é só o valor
+inicial da sessão: a própria role o sobrescreve com um `SET` comum, sem privilégio nenhum. Não
+trava nada; quem segura o teto de tempo é o `SET LOCAL` que o `ConexaoLeitura` reaplica a cada
+consulta.
+
 ---
 
 ## 2. Definir a variável no `.env.prod` da VPS
@@ -229,7 +265,8 @@ redirecionando a saída de erro para fora (`2>/tmp/stderr.log`) e confira o `std
 
 ## Ordem resumida
 
-1. Role de leitura no Postgres + conferir `CREATE` de `PUBLIC` no schema `public` (1 e 1.1)
+1. Role de leitura no Postgres + conferir `CREATE` de `PUBLIC` no schema `public` + limites
+   da role (`temp_file_limit` e `CONNECTION LIMIT`) (1, 1.1 e 1.2)
 2. `DATABASE_URL_LEITURA` no `.env.prod` da VPS (2)
 3. Alias SSH local (3)
 4. Deploy (4)

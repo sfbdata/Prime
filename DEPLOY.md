@@ -92,7 +92,7 @@ Esse script:
 - exibe as portas ativas.
 
 Uploads em produção:
-- arquivos em `public/uploads` são persistidos no volume Docker `uploads_prod`, compartilhado entre PHP e Nginx.
+- arquivos em `public/uploads` são persistidos no volume Docker `uploads_prod`, montado no PHP, no worker e no scheduler. O Nginx não monta esse volume: todo `/uploads/` vai ao PHP, que confere login e escritório.
 
 ## Let's Encrypt (emissão e renovação via webroot)
 

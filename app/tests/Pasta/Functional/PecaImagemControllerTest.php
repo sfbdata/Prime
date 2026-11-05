@@ -54,6 +54,24 @@ final class PecaImagemControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('/login', (string) $client->getResponse()->headers->get('Location'));
     }
 
+    #[TestDox('Anônimo pedindo o nome de uma imagem que EXISTE no disco recebe redirect p/ login, nunca 200')]
+    public function testAnonimoComArquivoExistenteNaoRecebeOArquivo(): void
+    {
+        // Auditoria 3.13: o nome hex aparece em claro no HTML das peças e em logs. Saber o nome de um arquivo que
+        // existe (na subpasta do escritório e solto no plano, resíduo legado) não basta: sem login é o firewall que
+        // responde, antes do controller, e o conteúdo nunca sai.
+        $client = static::createClient();
+        [, $tenant] = $this->criarUsuarioComTenant();
+        $nome = $this->criarArquivoNaSubpasta((int) $tenant->getId(), '.png');
+        $this->criarArquivoNoFlat('.png', $nome);
+
+        $client->request('GET', '/uploads/pastas/' . $nome);
+
+        self::assertResponseStatusCodeSame(302, 'sem login o firewall deve redirecionar, não servir');
+        self::assertStringContainsString('/login', (string) $client->getResponse()->headers->get('Location'));
+        self::assertStringNotContainsString('conteudo-de-teste', (string) $client->getResponse()->getContent());
+    }
+
     #[TestDox('Nome que o armazenamento se recusa a endereçar (".." embutido) responde 404, nunca 500')]
     public function testNomeQueOArmazenamentoRecusaRetorna404(): void
     {

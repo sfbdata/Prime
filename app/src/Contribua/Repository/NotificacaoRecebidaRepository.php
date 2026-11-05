@@ -38,6 +38,26 @@ class NotificacaoRecebidaRepository extends ServiceEntityRepository
         return $gravadas === 1;
     }
 
+    /**
+     * Já existe aviso do mesmo `(origem, idRecurso)` ainda não processado e recebido a partir de `$desde`?
+     * Quem chama usa para não enfileirar outra reconsulta do mesmo recurso enquanto a anterior está na fila
+     * (aviso sem assinatura com id de evento inventado não multiplica as chamadas ao banco).
+     *
+     * Sem índice próprio em `id_recurso`: o filtro `processada_em IS NULL` usa o `idx_contribua_notificacao_pendente`,
+     * e os avisos pendentes são poucos.
+     */
+    public function haPendenteDoRecurso(string $origem, string $idRecurso, \DateTimeImmutable $desde): bool
+    {
+        $achado = $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1 FROM contribua_notificacao_recebida
+             WHERE processada_em IS NULL AND origem = :origem AND id_recurso = :recurso AND recebida_em >= :desde
+             LIMIT 1',
+            ['origem' => $origem, 'recurso' => $idRecurso, 'desde' => $desde->format('Y-m-d H:i:s')],
+        );
+
+        return false !== $achado;
+    }
+
     public function marcarProcessada(string $origem, string $idEvento): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(

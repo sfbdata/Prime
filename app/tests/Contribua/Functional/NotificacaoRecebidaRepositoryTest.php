@@ -37,4 +37,29 @@ final class NotificacaoRecebidaRepositoryTest extends KernelTestCase
             self::assertLessThan(120, abs((new \DateTimeImmutable((string) $linha[$coluna]))->getTimestamp() - time()), $coluna);
         }
     }
+
+    #[TestDox('Aviso pendente do recurso: só conta o da mesma origem e do mesmo recurso, ainda não processado e recebido dentro da janela')]
+    public function testHaPendenteDoRecurso(): void
+    {
+        self::bootKernel();
+        $repositorio = static::getContainer()->get(NotificacaoRecebidaRepository::class);
+        $banco = static::getContainer()->get(Connection::class);
+        $recurso = 'inv_' . uniqid();
+        $desde = new \DateTimeImmutable('-60 seconds');
+
+        self::assertFalse($repositorio->haPendenteDoRecurso('cora', $recurso, $desde), 'sem aviso nenhum');
+        $repositorio->registrarSeNova(new NotificacaoRecebida('cora', 'evt_' . uniqid(), 'invoice.paid', $recurso));
+        self::assertTrue($repositorio->haPendenteDoRecurso('cora', $recurso, $desde));
+        self::assertFalse($repositorio->haPendenteDoRecurso('cora', $recurso . '_outro', $desde), 'outro recurso');
+        self::assertFalse($repositorio->haPendenteDoRecurso('inter', $recurso, $desde), 'outra origem');
+
+        // Recebido antes da janela (a reconsulta falhou e ficou pendente): não segura o aviso novo.
+        $banco->executeStatement('UPDATE contribua_notificacao_recebida SET recebida_em = :antes WHERE id_recurso = :r', ['antes' => (new \DateTimeImmutable('-2 minutes'))->format('Y-m-d H:i:s'), 'r' => $recurso]);
+        self::assertFalse($repositorio->haPendenteDoRecurso('cora', $recurso, $desde), 'fora da janela');
+
+        $evento = 'evt_' . uniqid();
+        $repositorio->registrarSeNova(new NotificacaoRecebida('cora', $evento, 'invoice.paid', $recurso));
+        $repositorio->marcarProcessada('cora', $evento);
+        self::assertFalse($repositorio->haPendenteDoRecurso('cora', $recurso, $desde), 'já processado');
+    }
 }
