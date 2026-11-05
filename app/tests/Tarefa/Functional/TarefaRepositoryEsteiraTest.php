@@ -129,6 +129,38 @@ final class TarefaRepositoryEsteiraTest extends KernelTestCase
         self::assertSame($esperados, $ids);
     }
 
+    #[TestDox('Com as pastas visíveis, a etapa e a contagem só trazem as metas dessas pastas e as de que quem olha cuida')]
+    public function testFiltroEtapaComPastasVisiveis(): void
+    {
+        $tenant  = TenantFactory::createOne()->_real();
+        $visivel = $this->pasta($tenant);
+        $alheia  = $this->pasta($tenant);
+        $eu      = UserFactory::createOne()->_real();
+        $colega  = UserFactory::createOne()->_real();
+        $daVisivel = $this->meta($visivel, EtapaDaPasta::Protocolo);
+        $daVisivel->addResponsavel($colega);
+        $minhaNaAlheia = $this->meta($alheia, EtapaDaPasta::Protocolo);
+        $minhaNaAlheia->addResponsavel($eu);
+        $criadaPorMim = $this->meta($alheia, EtapaDaPasta::Protocolo);
+        $criadaPorMim->setCriadoPor($eu);
+        $criadaPorMim->addResponsavel($colega);
+        $this->meta($alheia, EtapaDaPasta::Protocolo)->addResponsavel($colega);
+        $this->em->flush();
+        $ids = static function (array $metas): array {
+            $ids = array_map(static fn (Tarefa $t): int => (int) $t->getId(), $metas);
+            sort($ids);
+
+            return $ids;
+        };
+
+        $esperados = $ids([$daVisivel, $minhaNaAlheia, $criadaPorMim]);
+        self::assertSame($esperados, $ids($this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['etapa' => 'protocolo'], [], $tenant, [(int) $visivel->getId()])));
+        self::assertSame(3, $this->repo->contarEsteira($tenant, $this->hoje, [], $eu, [(int) $visivel->getId()])['protocolo']['total']);
+        self::assertSame($ids([$minhaNaAlheia, $criadaPorMim]), $ids($this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['etapa' => 'protocolo'], [], $tenant, [])));
+        self::assertSame(2, $this->repo->contarEsteira($tenant, $this->hoje, [], $eu, [])['protocolo']['total']);
+        self::assertSame(4, $this->repo->contarEsteira($tenant, $this->hoje, [], $eu, null)['protocolo']['total'], 'nulo: vê todas');
+    }
+
     #[TestDox('Filtro etapa sem o escritório explícito cai no escopo da aba (só as do usuário)')]
     public function testFiltroEtapaSemEscritorioUsaAAba(): void
     {
