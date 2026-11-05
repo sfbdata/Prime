@@ -66,6 +66,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     private ?\DateTimeImmutable $emailAConfirmarDesde = null;
 
     /**
+     * "Sair de todos os aparelhos": toda sessão aberta antes deste instante é encerrada no pedido seguinte dela
+     * (`SessaoEncerradaEmTodosOsAparelhosListener`). Nulo: a pessoa nunca usou o botão.
+     */
+    #[ORM\Column(name: 'sessoes_encerradas_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $sessoesEncerradasEm = null;
+
+    /**
      * Identificador estável da conta Google ligada (`sub` do OpenID Connect), gravado no primeiro "Entrar com o
      * Google" (spec entrar-com-google). Único: um `sub` pertence a uma conta só.
      */
@@ -231,6 +238,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     {
         $this->isActive = $isActive;
         return $this;
+    }
+
+    public function getSessoesEncerradasEm(): ?\DateTimeImmutable
+    {
+        return $this->sessoesEncerradasEm;
+    }
+
+    /** Encerra, a partir de `$agora`, toda sessão que entrou antes (o botão "Sair de todos os aparelhos"). */
+    public function encerrarSessoes(\DateTimeImmutable $agora): void
+    {
+        $this->sessoesEncerradasEm = $agora;
     }
 
     public function getInvitationToken(): ?string

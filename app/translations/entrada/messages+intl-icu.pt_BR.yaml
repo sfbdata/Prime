@@ -7,6 +7,8 @@ entrada:
     # Aviso da expiração por inatividade (spec login-sessao-expiracao): flash no /login.
     sessao:
         expirada: Sua sessão expirou por inatividade. Entre novamente.
+        # "Sair de todos os aparelhos" no Meu Perfil: o aparelho que ficou de fora vê isto no /login.
+        encerrada_em_todos: Sua sessão foi encerrada em todos os aparelhos. Entre novamente.
     # Aviso da política de cadastro do Master (spec login-config-cadastro): no lugar do "Criar conta" e na recusa das portas.
     cadastro:
         aviso:

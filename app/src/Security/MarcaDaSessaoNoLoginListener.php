@@ -16,6 +16,8 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
  *  - "manter conectado" = o badge do lembrar-me ficou ligado. Decide o servidor, nunca o cookie REMEMBERME que o
  *    cliente pode criar com qualquer valor.
  *
+ * E o instante da entrada, que o `SessaoEncerradaEmTodosOsAparelhosListener` compara com o corte do usuário.
+ *
  * Prioridade -40: depois do `CheckRememberMeConditionsListener` (-32), que liga o badge quando a pessoa marcou a caixa.
  */
 #[AsEventListener(event: LoginSuccessEvent::class, priority: -40, dispatcher: 'security.event_dispatcher.main')]
@@ -35,6 +37,7 @@ final class MarcaDaSessaoNoLoginListener
         $badge = $event->getPassport()->getBadge(RememberMeBadge::class);
         $sessao = $request->getSession();
         $sessao->set(ExpiracaoDaSessaoListener::CARIMBO, $this->clock->now()->getTimestamp());
+        $sessao->set(SessaoEncerradaEmTodosOsAparelhosListener::ENTROU_EM, $this->clock->now()->getTimestamp());
         $sessao->set(ExpiracaoDaSessaoListener::MANTER_CONECTADO, $badge instanceof RememberMeBadge && $badge->isEnabled());
     }
 }

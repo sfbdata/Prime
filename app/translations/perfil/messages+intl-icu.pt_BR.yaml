@@ -86,6 +86,12 @@ perfil:
         sub: Senha de acesso à sua conta
         aviso: 'Ao alterar a senha, todas as outras sessões conectadas são encerradas, inclusive as que usam "manter conectado".'
         alterar_senha: Alterar senha
+        sair_todos: Sair de todos os aparelhos
+    # Modal de confirmação do "Sair de todos os aparelhos" (sem desenho; aprovado pelo Samuel em 05/11/2026).
+    sair_todos:
+        titulo: Sair de todos os aparelhos
+        texto: 'Todos os outros aparelhos onde você entrou saem da conta, inclusive os que usam "manter conectado". Neste aparelho você continua conectado até sair ou fechar o navegador; depois, entre com a senha. A senha não muda.'
+        confirmar: Sair de todos
     exclusao:
         titulo: Excluir conta do escritório
         pendente_sub: 'Pedido feito em {data} · motivo: {motivo}. A equipe está sem acesso até o Master concluir.'
