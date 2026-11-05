@@ -172,11 +172,18 @@ class UserRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** @return User[] */
+    /**
+     * Colaboradores ativos do escritório, com o perfil já carregado. O perfil é o lado inverso de um
+     * OneToOne (não vira proxy): sem o join, o Doctrine faria uma consulta a mais por colega.
+     *
+     * @return User[]
+     */
     public function findColaboradoresAtivosPorTenant(Tenant $tenant): array
     {
         return $this->createQueryBuilder('u')
             ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true')
+            ->leftJoin('u.profile', 'pf')
+            ->addSelect('pf')
             ->setParameter('tenant', $tenant)
             ->orderBy('u.fullName', 'ASC')
             ->getQuery()
