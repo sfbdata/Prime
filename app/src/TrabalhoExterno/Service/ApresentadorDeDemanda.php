@@ -15,6 +15,7 @@ use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Enum\FaseWhatsapp;
+use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\Situacao;
 use App\TrabalhoExterno\Enum\SituacaoConvite;
@@ -374,7 +375,8 @@ final class ApresentadorDeDemanda
 
     /**
      * De antes do aceite, o Convidado recebe só os marcos administrativos, sem origem, autor nem
-     * motivo ({@see PoliticaDaDemanda::marcoReservado}); o resto nem entra no JSON.
+     * motivo ({@see PoliticaDaDemanda::marcoReservado}); o resto nem entra no JSON. Depois do aceite, os marcos
+     * da negociação (destinos de {@see AcaoDemanda::destinosDaNegociacao()}) chegam a ele sem o motivo.
      *
      * @return list<array<string, mixed>>
      */
@@ -398,8 +400,10 @@ final class ApresentadorDeDemanda
                 'de' => $h->getDe() !== null ? 'de ' . $this->marco($h->getDe())[0] : '',
                 'quem' => $this->politica->nomeVisivel($ctx, $h->getNomeAutor(), $h->getPerfilAutor()),
                 'em' => $this->dataHora($h->getEm()),
-                // O motivo do marco "pago" traz o valor do PIX ("PIX R$ x"): o Convidado não o lê.
-                'motivo' => $ctx->perfil === Perfil::Convidado && $h->getPara() === Situacao::MARCO_PAGO ? '' : (string) $h->getMotivo(),
+                // O motivo do marco "pago" traz o valor do PIX ("PIX R$ x"), e o dos marcos da negociação (reabrir,
+                // informações, ajustes, recusa) é da Central com o cliente (achado 2.09): o Convidado não os lê, mesmo
+                // depois do aceite do convite. O marco aparece, sem o motivo.
+                'motivo' => $ctx->perfil === Perfil::Convidado && ($h->getPara() === Situacao::MARCO_PAGO || in_array($h->getPara(), AcaoDemanda::destinosDaNegociacao(), true)) ? '' : (string) $h->getMotivo(),
                 'cor' => $cor,
                 'ic' => $icone,
             ];

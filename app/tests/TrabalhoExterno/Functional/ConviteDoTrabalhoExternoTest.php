@@ -490,8 +490,12 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $painel = (string) $client->getResponse()->getContent();
         $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
         self::assertResponseIsSuccessful();
-        // O chat (as mensagens). O histórico depois do aceite vem completo, por decisão do dono (fora do achado).
-        $chat = (string) json_encode($this->json($client)['demanda']['mensagens'], \JSON_UNESCAPED_UNICODE);
+        // O chat (as mensagens) e o histórico: os marcos da renegociação aparecem, mas sem o motivo, mesmo depois do
+        // aceite (decisão do Coordenador para o 2.09).
+        $demanda = $this->json($client)['demanda'];
+        $chat = (string) json_encode([$demanda['mensagens'], $demanda['historico']], \JSON_UNESCAPED_UNICODE);
+        $marcos = array_column($demanda['historico'], 'para');
+        self::assertContains('Aceita', $marcos, 'o marco da renegociação continua no histórico');
         foreach ($segredos as $segredo) {
             self::assertStringNotContainsString($segredo, $chat, "o chat do convidado entrega \"$segredo\"");
             self::assertStringNotContainsString($segredo, $painel, "o painel do convidado entrega \"$segredo\"");
@@ -510,6 +514,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
             $conteudo = (string) $client->getResponse()->getContent();
             self::assertStringContainsString('SEGREDO-REABRIR', $conteudo);
             self::assertStringContainsString('Proposta v3 enviada', $conteudo);
+            self::assertContains('SEGREDO-AJUSTE baixar mais', array_column($this->json($client)['demanda']['historico'], 'motivo'), 'o motivo segue no histórico de quem negocia');
         }
     }
 

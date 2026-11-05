@@ -108,6 +108,25 @@ enum AcaoDemanda: string
         ], true);
     }
 
+    /**
+     * As situações a que as ações da negociação levam ({@see registraNegociacao()}). O histórico guarda só de onde e
+     * para onde a demanda foi: o marco com um destes destinos é da negociação, e o Convidado não lê o motivo dele.
+     *
+     * @return list<string>
+     */
+    public static function destinosDaNegociacao(): array
+    {
+        $destinos = [];
+        foreach (self::cases() as $acao) {
+            $destino = $acao->destino();
+            if ($destino !== null && $acao->registraNegociacao()) {
+                $destinos[$destino->value] = true;
+            }
+        }
+
+        return array_keys($destinos);
+    }
+
     /** Texto que vai para o chat como registro (`aplicarConf`, segundo item de cada par). */
     public function registro(): string
     {
