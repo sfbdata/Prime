@@ -31,7 +31,7 @@ final class ExclusaoDaContaDoMasterTest extends JusPrimeWebTestCase
 {
     use Factories;
 
-    #[TestDox('escritorio_excluir: nem o admin do escritório nem o próprio Master excluem a conta do Master')]
+    #[TestDox('escritorio_excluir: o admin do escritório não passa (só o Master usa a rota) e o Master não exclui a conta do Master')]
     public function testEscritorioExcluirRecusa(): void
     {
         $client = static::createClient();
@@ -43,14 +43,15 @@ final class ExclusaoDaContaDoMasterTest extends JusPrimeWebTestCase
         $this->vincularComoAdmin($admin, $conta);
         $this->vincularComoAdmin($master, $conta);
 
-        foreach ([$admin, $master] as $quem) {
-            $this->logarComTenant($client, $quem, $conta);
-            $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+        $this->logarComTenant($client, $admin, $conta);
+        $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_escritorio_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+        self::assertResponseStatusCodeSame(403);
 
-            self::assertResponseRedirects('/tenant/' . $conta->getId());
-            $client->followRedirect();
-            self::assertStringContainsString(RegraDosMasters::RECUSA_EXCLUIR_CONTA_DO_MASTER, (string) $client->getResponse()->getContent());
-        }
+        $this->logarComTenant($client, $master, $conta);
+        $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_escritorio_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+        self::assertResponseRedirects('/tenant/' . $conta->getId());
+        $client->followRedirect();
+        self::assertStringContainsString(RegraDosMasters::RECUSA_EXCLUIR_CONTA_DO_MASTER, (string) $client->getResponse()->getContent());
 
         $this->assertContaIntacta($conta);
     }
@@ -88,8 +89,8 @@ final class ExclusaoDaContaDoMasterTest extends JusPrimeWebTestCase
         $admin = UserFactory::createOne(['roles' => ['ROLE_USER'], 'isActive' => true])->_real();
         $this->vincularComoAdmin($admin, $conta);
 
-        $this->logarComTenant($client, $admin, $conta);
-        $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+        $this->logarComTenant($client, $master, $conta);
+        $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_escritorio_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
         self::assertResponseRedirects('/tenant/' . $conta->getId());
         self::assertContains(RegraDosMasters::RECUSA_EXCLUIR_CONTA_DO_MASTER, $client->getRequest()->getSession()->getFlashBag()->peek('danger'));
 
@@ -102,8 +103,8 @@ final class ExclusaoDaContaDoMasterTest extends JusPrimeWebTestCase
         $this->assertContaIntacta($conta);
     }
 
-    #[TestDox('conta SEM criador e sem Master vinculado: a rota antiga exclui como antes')]
-    public function testContaSemCriadorSemMasterExclui(): void
+    #[TestDox('conta SEM criador e sem Master vinculado: o admin do escritório não exclui mais pela rota antiga (auditoria 2.06)')]
+    public function testContaSemCriadorSemMasterRecusaOAdmin(): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -116,11 +117,10 @@ final class ExclusaoDaContaDoMasterTest extends JusPrimeWebTestCase
         $this->vincularComoAdmin($admin, $conta);
 
         $this->logarComTenant($client, $admin, $conta);
-        $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+        $client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_escritorio_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
 
-        self::assertResponseRedirects('/escritorio/selecionar');
-        $em->clear();
-        self::assertNotNull($em->find(Tenant::class, $conta->getId())?->getExcluidoEm());
+        self::assertResponseStatusCodeSame(403);
+        $this->assertContaIntacta($conta);
     }
 
     private function contaDoMaster(User $master): Tenant

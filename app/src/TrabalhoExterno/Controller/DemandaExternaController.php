@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\EventListener\TenantContextValidatorListener;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\DTO\DadosDaProposta;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
@@ -54,7 +55,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * perfil (404) e confere a política (403). A resposta traz a demanda já atualizada no recorte de
  * quem pediu, para a tela redesenhar sem segunda chamada.
  */
-#[Route('/trabalho-externo/api')]
+// Passa sem escritório na sessão (o Convidado); a guarda é o contextoOuNulo() de cada ação (auditoria 1.09).
+#[Route('/trabalho-externo/api', defaults: [TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO => true])]
 final class DemandaExternaController extends AbstractController
 {
     use RespondeJsonTrait;

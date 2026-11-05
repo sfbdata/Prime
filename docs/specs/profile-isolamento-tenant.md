@@ -20,6 +20,11 @@ validar vínculo). **Refutado na leitura do código**: o `User` é entidade comp
 por id não é vazamento de dado de tenant), e em **todas** as rotas que tocam o perfil os guards
 rodam **antes** de qualquer leitura/mutação do `UserProfile`:
 
+> **Ordem (auditoria 1.08, 05/11/2026):** nas rotas `/tenant/{tenantId}/user/{id}/...` (dados pessoais, nome, batidas,
+> justificativas e anexo) a guarda de quem executa (403) roda ANTES da do alvo (404). Na ordem antiga, quem era de
+> outro escritório distinguia 404 de 403 e mapeava os vínculos por id. A tabela abaixo é da revisão anterior; os
+> números de linha mudaram. Prova: `OrdemDasGuardasDoUsuarioDoEscritorioTest`.
+
 | Rota | Guard 1 (user-alvo ∈ tenant) | Guard 2 (admin controla tenant) | Toca perfil |
 |---|---|---|---|
 | `TenantUserProfileController::salvarDadosPessoais` | `existeVinculoAtivo` (l.47) → 404 | super-admin OU (próprio tenant + `admin.users.manage`) (l.54) → 403 | l.58 (depois) |

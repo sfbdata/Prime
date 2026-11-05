@@ -47,6 +47,7 @@ final class RecuperacaoSenhaController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly RateLimiterFactoryInterface $senhaEsqueciIpLimiter,
         private readonly RateLimiterFactoryInterface $senhaEsqueciEmailLimiter,
+        private readonly RateLimiterFactoryInterface $senhaCodigoEmailLimiter,
     ) {
     }
 
@@ -97,6 +98,11 @@ final class RecuperacaoSenhaController extends AbstractController
 
         // As 5 tentativas por código são a defesa do código; o limite por IP põe teto em quem varre contas.
         if (!$this->senhaEsqueciIpLimiter->create((string) $request->getClientIp())->consume()->isAccepted()) {
+            return new JsonResponse(['erro' => self::ERRO_LIMITE], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
+        // E por e-mail, de qualquer IP (auditoria 3.14); o teto por conta, somando os pedidos, fica no UseCase.
+        if (!$this->senhaCodigoEmailLimiter->create(mb_strtolower(trim($this->texto($dados, 'email'))))->consume()->isAccepted()) {
             return new JsonResponse(['erro' => self::ERRO_LIMITE], Response::HTTP_TOO_MANY_REQUESTS);
         }
 
