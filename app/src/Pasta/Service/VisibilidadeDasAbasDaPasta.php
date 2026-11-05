@@ -14,6 +14,9 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Exception\AbaOcultaRecusadaException;
 use App\Pasta\Repository\AbaOcultaDaPastaRepository;
 use App\Tenant\Service\RegraDosPrimarios;
+use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
+use Doctrine\ORM\Events;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * A regra única de "esta pessoa vê esta aba desta pasta?" (spec pasta-ocultar-aba §1, D2).
@@ -25,9 +28,20 @@ use App\Tenant\Service\RegraDosPrimarios;
  *
  * Usada pela tela (abas e painéis não renderizados), pela barreira das rotas
  * (`BarreiraDeAbaOcultaListener`) e pela visibilidade do financeiro (`VisibilidadeDoFinanceiroDaPasta`).
+ *
+ * Memória por request (zerada entre requisições pelo `ResetInterface`): as regras de cada pasta são lidas uma vez,
+ * por escritório e pasta (a regra não depende de quem olha; quem ela alcança é decidido na hora, com a pessoa). A
+ * tela da pasta, a análise da IA e o destaque do comentário perguntavam a mesma coisa. Gravar ou apagar uma regra
+ * (`AbaOcultaDaPasta`) esquece a memória pelo ouvinte de entidade, sem depender de quem grava lembrar.
  */
-final class VisibilidadeDasAbasDaPasta
+#[AsEntityListener(event: Events::postPersist, method: 'esquecer', entity: AbaOcultaDaPasta::class)]
+#[AsEntityListener(event: Events::postUpdate, method: 'esquecer', entity: AbaOcultaDaPasta::class)]
+#[AsEntityListener(event: Events::postRemove, method: 'esquecer', entity: AbaOcultaDaPasta::class)]
+final class VisibilidadeDasAbasDaPasta implements ResetInterface
 {
+    /** @var array<string, list<AbaOcultaDaPasta>> regras por "escritório:pasta" */
+    private array $regrasPorPasta = [];
+
     public function __construct(
         private readonly AbaOcultaDaPastaRepository $regras,
         private readonly RegraDosPrimarios $primarios,
@@ -105,7 +119,7 @@ final class VisibilidadeDasAbasDaPasta
             return [];
         }
 
-        return $this->ocultasEntre($this->regras->daPasta($pasta, $tenant), $user, $tenant);
+        return $this->ocultasEntre($this->regrasDaPasta($pasta, $tenant), $user, $tenant);
     }
 
     /**
@@ -131,6 +145,27 @@ final class VisibilidadeDasAbasDaPasta
         return $porPasta;
     }
 
+    /** Depois de gravar ou apagar uma regra de aba oculta (o ouvinte de entidade chama). */
+    public function esquecer(): void
+    {
+        $this->regrasPorPasta = [];
+    }
+
+    public function reset(): void
+    {
+        $this->regrasPorPasta = [];
+    }
+
+    /** @return list<AbaOcultaDaPasta> */
+    private function regrasDaPasta(Pasta $pasta, Tenant $tenant): array
+    {
+        if ($pasta->getId() === null || $tenant->getId() === null) {
+            return $this->regras->daPasta($pasta, $tenant);
+        }
+
+        return $this->regrasPorPasta[$tenant->getId() . ':' . $pasta->getId()] ??= $this->regras->daPasta($pasta, $tenant);
+    }
+
     /** O estado das abas para a tela da pasta: o que esconder e, para quem configura, as regras. */
     public function estadoParaTela(Pasta $pasta, User $user): AbasDaPastaOutput
     {
@@ -139,7 +174,7 @@ final class VisibilidadeDasAbasDaPasta
             return AbasDaPastaOutput::todasVisiveis();
         }
 
-        $regras = $this->regras->daPasta($pasta, $tenant);
+        $regras = $this->regrasDaPasta($pasta, $tenant);
         $configura = $this->podeConfigurar($user, $tenant);
 
         if ($configura) {
