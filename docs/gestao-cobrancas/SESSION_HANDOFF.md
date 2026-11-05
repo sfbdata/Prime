@@ -80,7 +80,7 @@ Spec: [`docs/specs/cobranca-ajuste2-objeto-caso-unificado.md`](../specs/cobranca
 ### ✅ ITEM 2 COMPLETO (Fatias 1–7). Follow-ups pós-prod (decisão do humano — NÃO feitos):
 1. **Aposentar de vez a rota `cobranca_caso_index` + `caso/index.html.twig`/`_resultado.html.twig`** (a lista "Casos", hoje órfã do menu mas ainda acessível por URL; `_resultado` ainda linka `caso_show` e ainda diz "caso(s)" — intocado de propósito p/ não quebrar `testCasoIndexXhrFragmento`). A spec já lista isso como follow-up pós-validação em prod.
 2. **Card "Cobranças judicializadas" do dashboard** (`dashboard/index.html.twig:92`) ainda aponta pra `cobranca_caso_index?status=judicializado` — único link vivo de navegação pra lista de casos. Permitido pela invariante (rota = deep-link), mas repontar/neutralizar quando a lista for aposentada (segue o follow-up 1).
-- **Gotcha smoke Playwright dev:** modal `#modalAlertaPonto` intercepta cliques → remover via `browser_evaluate` antes de interagir. Login dev: `farlei.rocha@gmail.com`/`Prime123!`, `localhost:8080`. Objetos de teste criados no smoke: 296/297/carteira 3.
+- **Gotcha smoke Playwright dev:** modal `#modalAlertaPonto` intercepta cliques → remover via `browser_evaluate` antes de interagir. Login dev: `farlei.rocha@gmail.com`/`<senha de dev>`, `localhost:8080`. Objetos de teste criados no smoke: 296/297/carteira 3.
 
 ### Itens seguintes do backlog (ideias fechadas; ainda não iniciados)
 **3** tentativa→registro de contato · **5** editar+excluir obrigação · **6** pagamento auto-alocação FIFO · **7** acordo inteligente (**SPEC própria**) · **8** parcelas na aba Obrigações.

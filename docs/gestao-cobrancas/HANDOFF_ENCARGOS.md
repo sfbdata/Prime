@@ -149,7 +149,7 @@ e ele quer continuar num chat novo. Itens abertos (só Twig/CSS, risco BAIXO; ar
 
 **Como retomar:** carregar a skill `workflow`, ler esta seção + a memória `project_cobranca_encargos.md` +
 o ledger `.superpowers/sdd/progress-encargos.md`; confirmar git (HEAD `5a3928c`, branch limpa); dev em
-http://localhost:8080 (login farlei.rocha@gmail.com / Prime123!; gotcha `#modalAlertaPonto` intercepta
+http://localhost:8080 (login farlei.rocha@gmail.com / <senha de dev>; gotcha `#modalAlertaPonto` intercepta
 cliques — remover via browser_evaluate; **cache do navegador engana** — navegar com `?nocache=N` e forçar
 reload do `cobrancas.css`; **cache do Twig no dev** — rodar `cache:clear --env=dev` após editar template).
 Objeto de teste do dono: carteira TOPLIFE I, objeto **117** (caso âncora **116**, 161 obrigações congeladas).

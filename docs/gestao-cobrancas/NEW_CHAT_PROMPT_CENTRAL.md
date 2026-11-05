@@ -46,7 +46,7 @@ Fonte única: `cobranca_evento_historico` agregado **no banco** (`GROUP BY usuar
 4. Migração do índice `(tenant_id, ocorrido_em)` — aplique em `saas_test` e no dev; **produção é do
    humano**.
 5. Rode `tests/Cobranca` e a suíte global.
-6. Smoke real no dev (login `jusprime.samuel@gmail.com` / `Prime123!`), tema claro **e** escuro.
+6. Smoke real no dev (login `jusprime.samuel@gmail.com` / `<senha de dev>`), tema claro **e** escuro.
 7. `/review` com o `feature-review-agent` contra a spec, corrija o que aparecer, commit local.
 
 **Cuidados específicos desta feature:**

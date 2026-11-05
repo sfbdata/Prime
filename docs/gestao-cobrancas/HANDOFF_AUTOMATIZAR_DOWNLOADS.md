@@ -1413,7 +1413,7 @@ sed -i 's#/saas_ux"#/saas_ux_f15"#' app/.env.local
 sed -i 's#/saas_ux_f15"#/saas_ux"#' app/.env.local
 ```
 
-Login: `farlei.rocha@gmail.com` · senha `Prime123!` (todas as senhas do dev). URL:
+Login: `farlei.rocha@gmail.com` · senha `<senha de dev>` (todas as senhas do dev). URL:
 `http://localhost:8080/cobrancas/objetos/<id>`.
 
 **Os 4 casos que o smoke tem de separar** (a 5ª coluna é o que deve aparecer):

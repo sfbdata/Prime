@@ -36,7 +36,7 @@ class CreateSuperAdminCommand extends Command
     {
         $this
             ->addArgument('email', InputArgument::REQUIRED, 'admin@prime.com')
-            ->addArgument('password', InputArgument::REQUIRED, 'Prime123!');
+            ->addArgument('password', InputArgument::REQUIRED, 'Senha do Master');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
