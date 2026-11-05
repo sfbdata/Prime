@@ -1059,10 +1059,13 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
+        // Auditoria 3.17: o cliente é do escritório (tenant explícito, não só o TenantFilter) e a pessoa pode vê-lo.
+        // Sem isso, enumerar ids devolveria o CPF/CNPJ inteiro de quem ela não pode ver; a recusa é o mesmo 404.
         $clienteId = (int) $request->request->get('cliente_id', 0);
-        $cliente = $this->clienteRepository->find($clienteId);
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $cliente = $tenant !== null ? $this->clienteRepository->findOneBy(['id' => $clienteId, 'tenant' => $tenant]) : null;
 
-        if (!$cliente) {
+        if (!$cliente || !$this->permissionChecker->canAccessResource($currentUser, $tenant, AccessRequest::RESOURCE_CLIENTE, $clienteId, AccessRequest::ACTION_VIEW)) {
             return $this->json(['erro' => 'Cliente não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
