@@ -13,7 +13,6 @@ use App\Pasta\Exception\CadeadoRecusadoException;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
-use App\Pasta\Repository\PastaRepository;
 use App\Pasta\UseCase\AlternarTrancaDaPastaUseCase;
 use App\Pasta\UseCase\DestacarPastaUseCase;
 use App\Pasta\UseCase\RenomearClienteDaPastaUseCase;
@@ -39,7 +38,6 @@ final class DemandasLinhaController extends AbstractController
         private readonly AlternarTrancaDaPastaUseCase $alternarTranca,
         private readonly DestacarPastaUseCase $destacarPasta,
         private readonly SincronizarMarcadoresDaPastaUseCase $sincronizarMarcadores,
-        private readonly PastaRepository $pastaRepository,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
     ) {
@@ -117,21 +115,20 @@ final class DemandasLinhaController extends AbstractController
     #[PastaPorId('id')]
     public function marcadores(int $id, Request $request): JsonResponse
     {
-        [, $tenant] = $this->exigirModulo();
+        [$usuario, $tenant] = $this->exigirModulo();
         if (!$this->isCsrfTokenValid('pasta_marcadores_' . $id, (string) $request->request->get('_token'))) {
             return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
-        }
-        // O UseCase do Expediente acha a pasta só pelo id: a posse do escritório é conferida aqui, antes.
-        if ($this->pastaRepository->findOneBy(['id' => $id, 'tenant' => $tenant]) === null) {
-            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
         $ids = array_map('intval', array_filter($request->request->all('marcadores'), static fn ($v): bool => $v !== '' && $v !== null));
 
         try {
-            $pasta = $this->sincronizarMarcadores->executar($id, $ids, $tenant);
+            // O UseCase confere a posse do escritório (404) e a permissão de editar a pasta (403).
+            $pasta = $this->sincronizarMarcadores->executar($id, $ids, $usuario, $tenant);
         } catch (NotFoundHttpException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaEditarPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         }
 
         return $this->json([
