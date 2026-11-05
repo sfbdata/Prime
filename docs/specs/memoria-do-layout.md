@@ -28,6 +28,13 @@ O sino (`NotificacaoExtension`) faz 1 lista e 3 contagens; cada uma pedia as pas
 Com a memória do `NivelNoCadeado` a pergunta sai uma vez; o silêncio (`SilencioDoSininho`) e os cortes de leitura
 (`LeituraDasPastasDosAvisos`) já eram guardados. A contagem agrupada (3 contagens numa consulta) ficou de fora.
 
+## Invalidação do cadeado
+
+`NivelNoCadeado` é ouvinte de entidade (`AsEntityListener`, postPersist/postUpdate/postRemove) de `CadeadoDaPasta` e
+`AcessoAPastaTrancada`: qualquer gravação pela entidade no mesmo processo (UseCase, comando, worker, teste) chama
+`esquecer()`. Antes valia só o `esquecer()` dos UseCases; a sincronia de prazos com o Google tranca a pasta e
+sincroniza no mesmo processo (`SincronizacaoDePrazosComGoogleTest::testTrancadaDepois`).
+
 ## Limites conhecidos
 
 - `PurgarEscritorioUseCase` apaga `preferencia_usuario`, `central_configuracao_presenca` e `pedido_exclusao_conta`

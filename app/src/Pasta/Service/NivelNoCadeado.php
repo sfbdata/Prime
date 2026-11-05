@@ -16,6 +16,8 @@ use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Service\RegraDosPrimarios;
+use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
+use Doctrine\ORM\Events;
 use Doctrine\ORM\QueryBuilder;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\Service\ResetInterface;
@@ -41,6 +43,12 @@ use Symfony\Contracts\Service\ResetInterface;
  * pasta, uma por vínculo e uma de pastas ocultas por pessoa e escritório. A pergunta "Master ou primário?"
  * reaproveita o vínculo guardado (spec memoria-do-layout). Quem grava um cadeado chama `esquecer()`.
  */
+#[AsEntityListener(event: Events::postPersist, method: 'aoGravarCadeado', entity: CadeadoDaPasta::class)]
+#[AsEntityListener(event: Events::postUpdate, method: 'aoGravarCadeado', entity: CadeadoDaPasta::class)]
+#[AsEntityListener(event: Events::postRemove, method: 'aoGravarCadeado', entity: CadeadoDaPasta::class)]
+#[AsEntityListener(event: Events::postPersist, method: 'aoGravarCadeado', entity: AcessoAPastaTrancada::class)]
+#[AsEntityListener(event: Events::postUpdate, method: 'aoGravarCadeado', entity: AcessoAPastaTrancada::class)]
+#[AsEntityListener(event: Events::postRemove, method: 'aoGravarCadeado', entity: AcessoAPastaTrancada::class)]
 final class NivelNoCadeado implements ResetInterface
 {
     /** @var array<int, CadeadoDaPasta|false> por id de pasta; `false` = sem cadeado */
@@ -325,6 +333,15 @@ final class NivelNoCadeado implements ResetInterface
     public function idsDasPastasOcultasPorTenantId(User $pessoa, int $tenantId): array
     {
         return $this->idsDasPastasOcultas($pessoa, $this->cadeadoRepository->escritorioPorId($tenantId));
+    }
+
+    /**
+     * Ouvinte de entidade: qualquer cadeado ou acesso à pasta trancada gravado no mesmo processo (UseCase, comando,
+     * worker, teste) esquece a memória, sem depender de quem grava lembrar de chamar `esquecer()`.
+     */
+    public function aoGravarCadeado(): void
+    {
+        $this->esquecer();
     }
 
     /** Depois de gravar um cadeado na mesma requisição. */

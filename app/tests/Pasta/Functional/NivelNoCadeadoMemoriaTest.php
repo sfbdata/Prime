@@ -233,6 +233,34 @@ final class NivelNoCadeadoMemoriaTest extends JusPrimeWebTestCase
         self::assertSame($esperadas, $ocultas);
     }
 
+    #[TestDox('Cadeado gravado direto pela entidade (sem UseCase, como num comando ou teste): o ouvinte esquece a memória')]
+    public function testCadeadoGravadoDiretoPelaEntidade(): void
+    {
+        $c       = $this->cenario();
+        $servico = $this->servico();
+        $servico->reset();
+        $dentro  = $c['pessoas']['dentro'];
+        self::assertSame([(int) $c['pastas']['todos']->getId()], $servico->idsDasPastasOcultas($dentro, $c['tenant']));
+        self::assertTrue($servico->nivel($dentro, $c['pastas']['livre'])->podeVer());
+
+        $this->trancar($c['pastas']['livre'], $c['pessoas']['primario']);
+
+        $ocultas = $servico->idsDasPastasOcultas($dentro, $c['tenant']);
+        sort($ocultas);
+        $esperadas = [(int) $c['pastas']['todos']->getId(), (int) $c['pastas']['livre']->getId()];
+        sort($esperadas);
+        self::assertSame($esperadas, $ocultas, 'cadeado novo');
+        self::assertFalse($servico->nivel($dentro, $c['pastas']['livre'])->podeVer(), 'nível da pasta trancada');
+
+        $em = static::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
+        $cadeado = $servico->cadeadoDe($c['pastas']['livre']);
+        self::assertNotNull($cadeado);
+        $em->remove($cadeado);
+        $em->flush();
+
+        self::assertSame([(int) $c['pastas']['todos']->getId()], $servico->idsDasPastasOcultas($dentro, $c['tenant']), 'cadeado removido');
+    }
+
     #[TestDox('Perfil trocado na mesma requisição vale na hora: o vínculo guardado é lido de novo a cada pergunta')]
     public function testPerfilTrocadoNaMesmaRequisicao(): void
     {
