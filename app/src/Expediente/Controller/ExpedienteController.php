@@ -62,6 +62,7 @@ final class ExpedienteController extends AbstractController
         private readonly ExcluirMarcadorUseCase $excluirMarcadorUseCase,
         private readonly EditarMarcadorUseCase $editarMarcadorUseCase,
         private readonly SincronizarMarcadoresDaPastaUseCase $sincronizarMarcadoresUseCase,
+        private readonly \App\Pasta\Service\PastasEditaveisDaPagina $pastasEditaveis,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly ValidatorInterface $validator,
         private readonly PermissionChecker $permissionChecker,
@@ -339,9 +340,11 @@ final class ExpedienteController extends AbstractController
         $marcadorIds = array_map('intval', array_filter($marcadorIds, fn($v) => $v !== '' && $v !== null));
 
         try {
-            $pasta = $this->sincronizarMarcadoresUseCase->executar($id, $marcadorIds, $tenant);
+            $pasta = $this->sincronizarMarcadoresUseCase->executar($id, $marcadorIds, $user, $tenant);
         } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (\App\Pasta\Exception\SemPermissaoParaEditarPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         }
 
         return $this->json([
@@ -662,6 +665,7 @@ final class ExpedienteController extends AbstractController
             'destaques'         => $this->destaqueRepository->coresDoUsuario($user, $tenant),
             'souAdministrador'  => $this->acessoAPasta->podeConfigurar($user, $tenant),
             'cadeados'          => $this->cadeadosDaPagina($pastas, $user, $tenant),
+            'pastasEditaveis'   => $this->pastasEditaveis->para($pastas, $user, $tenant),
             'csrfLista'         => $this->csrfTokenManager->getToken(self::CSRF_LISTA)->getValue(),
             'colunasSalvas'     => $this->obterColunasUseCase->executar($tenant, $user),
         ];

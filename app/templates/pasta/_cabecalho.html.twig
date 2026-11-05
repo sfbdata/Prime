@@ -100,13 +100,15 @@
             {% for marcador in pasta.marcadores %}
                 {# A cor cadastrada do marcador tinge o chip (desenho); sem cor, cinza neutro. #}
                 <button type="button" class="ps-etiqueta js-etiqueta-abrir{{ marcador.cor ? ' ps-etiqueta--cor' : '' }}"
-                        title="{{ 'pasta_cabecalho.cabecalho.marcadores_editar'|trans }}"{% if marcador.cor %} style="--etq: {{ marcador.cor|e('html_attr') }}"{% endif %}>
+                        {% if podeEditarPasta %}title="{{ 'pasta_cabecalho.cabecalho.marcadores_editar'|trans }}"{% else %}title="{{ marcador.nome }}"{% endif %}{% if marcador.cor %} style="--etq: {{ marcador.cor|e('html_attr') }}"{% endif %}>
                     <i class="bi bi-tag-fill"></i>{{ marcador.nome }}
                 </button>
             {% endfor %}
 
             {# O "+" das etiquetas: só ícone, quadrado tracejado (desenho). O contrato
                com o JS das etiquetas (`.js-mover-para` + data-*) é o mesmo da lista. #}
+            {# Só para quem edita a pasta: trocar marcador é editar (auditoria 3.10/3.11). #}
+            {% if podeEditarPasta %}
             {% set marcadoresAtivos = pasta.marcadores|map(m => m.id)|join(',') %}
             <button type="button" class="ps-etiqueta-add js-mover-para"
                     title="{{ 'pasta_cabecalho.cabecalho.marcadores'|trans }}" aria-label="{{ 'pasta_cabecalho.cabecalho.marcadores'|trans }}"
@@ -116,6 +118,7 @@
                     data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}">
                 <i class="bi bi-plus"></i>
             </button>
+            {% endif %}
             </div>
         </div>
 

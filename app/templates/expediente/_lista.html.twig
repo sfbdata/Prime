@@ -263,13 +263,15 @@
                             <span class="exp-sem-metas"><span class="visually-hidden">{{ 'expediente.lista.sem_metas'|trans }}</span></span>
                         {% endif %}
                     </td>
+                    {# Botão e token dos marcadores só para quem EDITA a pasta (auditoria 3.10/3.11); sem a lista, ninguém. #}
+                    {% set editaMarcadores = (pastasEditaveis ?? {})[pasta.id] is defined %}
                     <td data-col="marc" class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ 0 < pasta.marcadores|length ? (pasta.marcadores|first).nome : '' }}">
                         <div class="d-flex flex-nowrap gap-1 align-items-center">
                             {% if pasta.marcadores|length > 0 %}
                                 {% set primeiro = pasta.marcadores|first %}
                                 {% set corChip = primeiro.cor|cor_marcador %}
                                 {%- set nomesMarcadores = pasta.marcadores|map(m => m.nome)|join(', ') %}
-                                <button type="button" class="exp-chip-marc marcador-principal js-marc-pop" data-chip="1" style="--mk-cor: {{ corChip }};"
+                                <button type="button" class="exp-chip-marc marcador-principal{% if editaMarcadores %} js-marc-pop{% endif %}" data-chip="1" style="--mk-cor: {{ corChip }};"
                                         data-tip="{{ primeiro.descricao ?: nomesMarcadores }}">
                                     <i class="bi bi-folder-fill" aria-hidden="true"></i><span>{{ primeiro.nome }}</span>
                                 </button>
@@ -282,6 +284,7 @@
                                 {% endif %}
                             {% endif %}
                             {%- set idsMarcadores = pasta.marcadores|map(m => m.id)|join(',') %}
+                            {% if editaMarcadores %}
                             <button type="button"
                                     class="exp-tag-vazio js-marc-pop{% if 0 < pasta.marcadores|length %} is-escondido{% endif %}"
                                     data-tagvazio="1"
@@ -293,6 +296,7 @@
                                     data-tip="{{ 'expediente.lista.adicionar_marcador'|trans }}" aria-label="{{ 'expediente.lista.adicionar_marcador'|trans }}">
                                 <i class="bi bi-tag" aria-hidden="true"></i>
                             </button>
+                            {% endif %}
                         </div>
                     </td>
                     <td data-col="sit" class="align-middle">

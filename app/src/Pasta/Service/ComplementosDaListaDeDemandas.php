@@ -27,6 +27,7 @@ final class ComplementosDaListaDeDemandas
         private readonly PastaDestaqueRepository $destaqueRepository,
         private readonly AcessoAPasta $acessoAPasta,
         private readonly ObterColunasDasDemandasUseCase $obterColunas,
+        private readonly PastasEditaveisDaPagina $pastasEditaveis,
     ) {
     }
 
@@ -44,6 +45,7 @@ final class ComplementosDaListaDeDemandas
             'destaques'         => $this->destaqueRepository->coresDoUsuario($user, $tenant),
             'souAdministrador'  => $this->acessoAPasta->podeConfigurar($user, $tenant),
             'cadeados'          => $this->cadeadosDaPagina($pastas, $user),
+            'pastasEditaveis'   => $this->pastasEditaveis->para($pastas, $user, $tenant),
             'colunasSalvas'     => $this->obterColunas->executar($tenant, $user),
             'responsaveis'      => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
             'fotosResponsaveis' => $this->userRepository->findFotoPorColaboradores($tenant),
