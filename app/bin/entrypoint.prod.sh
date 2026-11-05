@@ -24,10 +24,10 @@ echo "🔥 Recriando cache..."
 php -d memory_limit=512M bin/console cache:warmup --env=prod --no-debug
 
 echo "📦 Copiando assets estáticos (SEM uploads)..."
-# Copia só os assets buildados (build/bundles/css/js/index.php), NUNCA public/uploads: o nginx serve
-# uploads do volume uploads_prod (montado por cima de public/uploads) e o bloqueio /uploads/ do C5.1
-# ainda roteia tudo ao PHP — então copiar uploads p/ o static era trabalho 100% inútil (centenas de
-# MB a cada deploy). Esse era o principal gargalo da lentidão do deploy.
+# Copia só os assets buildados (build/bundles/css/js/index.php), NUNCA public/uploads: os uploads
+# moram no volume uploads_prod, que só o php, o worker e o scheduler montam (o nginx não, desde a
+# auditoria 3.13), e o bloqueio /uploads/ do C5.1 roteia tudo ao PHP. Copiar uploads p/ o static
+# seria expor arquivo ao nginx, além de trabalho inútil (centenas de MB a cada deploy).
 find public -mindepth 1 -maxdepth 1 ! -name uploads -exec cp -rf {} /var/www/static/ \;
 
 echo "🗄️ Rodando migrations..."
