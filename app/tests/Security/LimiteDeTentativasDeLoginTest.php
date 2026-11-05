@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Security;
 
 use App\Auth\Entity\RedefinicaoSenha;
+use App\Auth\UseCase\SolicitarCodigoSenhaUseCase;
 use App\Entity\Auth\User;
 use App\Master\Entity\ConfiguracaoGlobal;
 use App\Master\Repository\ConfiguracaoGlobalRepository;
@@ -201,5 +202,74 @@ final class LimiteDeTentativasDeLoginTest extends JusPrimeWebTestCase
 
         $client->setServerParameter('REMOTE_ADDR', '10.7.1.1');
         self::assertTrue($this->entrou($client, (string) $user->getEmail(), 'senha-nova-456'));
+    }
+
+    #[TestDox('No teto da conta, a troca de senha pelo código do e-mail (POST /senha/codigo/confirmar) abre o login por senha de novo')]
+    public function testRecuperacaoPeloCodigoAbreOTeto(): void
+    {
+        $client = $this->cliente();
+        $this->tentativas(1);
+        $user = $this->conta();
+        $this->fecharTeto($client, (string) $user->getEmail(), '10.6.0.');
+        $client->setServerParameter('REMOTE_ADDR', '10.6.1.1');
+        self::assertFalse($this->entrou($client, (string) $user->getEmail(), self::SENHA), 'o teto está fechado');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $segredo = (string) static::getContainer()->getParameter('kernel.secret');
+        $em->persist(new RedefinicaoSenha(
+            user: $em->find(User::class, $user->getId()),
+            tokenHash: SolicitarCodigoSenhaUseCase::hashDoCodigo((int) $user->getId(), '123456', $segredo),
+            expiraEm: new \DateTimeImmutable('+15 minutes'),
+            ip: '10.6.9.9',
+        ));
+        $em->flush();
+        $token = (string) $client->request('GET', '/login')->filter('[data-token-senha]')->attr('data-token-senha');
+        $client->request('POST', '/senha/codigo/confirmar', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'], json_encode([
+            'email' => (string) $user->getEmail(), 'codigo' => '123456', 'senha' => 'senha-nova-456', 'confirmacao' => 'senha-nova-456', '_token' => $token,
+        ], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+
+        $client->setServerParameter('REMOTE_ADDR', '10.6.2.1');
+        self::assertTrue($this->entrou($client, (string) $user->getEmail(), 'senha-nova-456'));
+    }
+
+    #[TestDox('No teto, e-mail que não existe recebe a mesma resposta que a conta real com a senha certa (não revela quem tem conta)')]
+    public function testTetoNaoRevelaSeAContaExiste(): void
+    {
+        $client = $this->cliente();
+        $this->tentativas(1);
+        $user = $this->conta();
+        $inexistente = 'ninguem_' . uniqid() . '@adv.com';
+        $this->fecharTeto($client, (string) $user->getEmail(), '10.5.0.');
+        $this->fecharTeto($client, $inexistente, '10.5.1.');
+
+        $client->setServerParameter('REMOTE_ADDR', '10.5.2.1');
+        $real = $this->respostaDoLogin($client, (string) $user->getEmail(), self::SENHA);
+        $client->setServerParameter('REMOTE_ADDR', '10.5.2.2');
+        $falso = $this->respostaDoLogin($client, $inexistente, self::SENHA);
+
+        self::assertStringContainsString(self::EXCESSO, $real[1]);
+        self::assertSame($real, $falso, 'mesmo destino e mesmo aviso');
+    }
+
+    /** Dez falhas, cada uma de um IP novo (o usuário+IP com limite 1 não barra antes): fecha o teto da conta. */
+    private function fecharTeto(KernelBrowser $client, string $email, string $prefixoIp): void
+    {
+        for ($i = 1; $i <= 10; ++$i) {
+            $client->setServerParameter('REMOTE_ADDR', $prefixoIp . $i);
+            self::assertFalse($this->entrou($client, $email, 'errada'));
+        }
+    }
+
+    /** @return array{string, string} o destino do redirecionamento e o aviso da tela de login */
+    private function respostaDoLogin(KernelBrowser $client, string $email, string $senha): array
+    {
+        $form = $client->request('GET', '/login')->selectButton('Entrar')->form();
+        $form['email'] = $email;
+        $form['password'] = $senha;
+        $client->submit($form);
+        $destino = (string) $client->getResponse()->headers->get('Location');
+
+        return [$destino, trim($client->followRedirect()->filter('#lgErro')->text())];
     }
 }
