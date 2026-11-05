@@ -346,22 +346,6 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Verifica se já existe uma justificativa pendente ou abonada para o usuário nessa data.
-     */
-    public function findOneByUserAndData(User $user, \DateTimeInterface $data): ?JustificativaPonto
-    {
-        return $this->createQueryBuilder('j')
-            ->where('j.user = :user')
-            ->andWhere('j.data = :data')
-            ->andWhere("j.status IN ('pendente', 'abonado')")
-            ->setParameter('user', $user)
-            ->setParameter('data', $data)
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
-    }
-
-    /**
      * O status do registro COMO ESTÁ NO BANCO, com a linha travada até o fim da transação.
      *
      * É a pergunta que decide se o colaborador ainda pode editar a justificativa
