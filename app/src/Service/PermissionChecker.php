@@ -9,9 +9,20 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\UserTenantRepository;
+use Symfony\Contracts\Service\ResetInterface;
 
-class PermissionChecker
+/**
+ * Quem pode o quê (docs/AUTORIZACAO.md). O vínculo da pessoa com o escritório é guardado para o request
+ * (spec `permission-checker-memoria.md`, D1): a sidebar pergunta dezenas de vezes por página. Só a entidade
+ * encontrada é guardada; `isActive()`, o papel e as permissões continuam lidos ao vivo nela, e a entrada que
+ * o EntityManager não gerencia mais (removida, solta) é consultada de novo. Zera entre requests e entre
+ * mensagens do worker (`ResetInterface`).
+ */
+class PermissionChecker implements ResetInterface
 {
+    /** @var array<string, UserTenant> vínculo encontrado, por "usuário:escritório" */
+    private array $vinculos = [];
+
     public function __construct(
         private readonly ResourceAccessRepository $resourceAccessRepository,
         private readonly UserTenantRepository $userTenantRepository,
@@ -257,9 +268,26 @@ class PermissionChecker
 
     private function resolveUserTenant(User $user, Tenant $tenant): ?UserTenant
     {
-        $ut = $this->userTenantRepository->findOneBy(['user' => $user, 'tenant' => $tenant]);
+        $chave = ($user->getId() !== null && $tenant->getId() !== null) ? $user->getId() . ':' . $tenant->getId() : null;
+
+        $ut = $chave !== null ? ($this->vinculos[$chave] ?? null) : null;
+        if ($ut !== null && !$this->userTenantRepository->continuaGerenciado($ut)) {
+            unset($this->vinculos[$chave]);
+            $ut = null;
+        }
+        if ($ut === null) {
+            $ut = $this->userTenantRepository->findOneBy(['user' => $user, 'tenant' => $tenant]);
+            if ($ut !== null && $chave !== null) {
+                $this->vinculos[$chave] = $ut;
+            }
+        }
 
         return ($ut?->isActive() === true) ? $ut : null;
+    }
+
+    public function reset(): void
+    {
+        $this->vinculos = [];
     }
 
     private function hasPermissionFromUserTenant(UserTenant $userTenant, string $permission): bool

@@ -20,6 +20,15 @@ class UserTenantRepository extends ServiceEntityRepository
     }
 
     /**
+     * O vínculo ainda é gerenciado pelo EntityManager deste request: não foi removido nem ficou solto
+     * (`clear`/`detach`). O `PermissionChecker` usa para descartar o vínculo que guardou.
+     */
+    public function continuaGerenciado(UserTenant $vinculo): bool
+    {
+        return $this->getEntityManager()->contains($vinculo);
+    }
+
+    /**
      * Vínculos ativos do usuário cujo ESCRITÓRIO também está ativo. Um tenant
      * excluído (soft delete, isActive=false) some do switcher, da seleção e do
      * roteamento de login mesmo que o vínculo em si continue ativo (RS06).
