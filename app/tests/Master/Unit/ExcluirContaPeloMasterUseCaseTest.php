@@ -14,6 +14,7 @@ use App\Master\Service\RegraDosMasters;
 use App\Master\UseCase\ExcluirContaPeloMasterUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
+use App\Tests\Security\Doubles\ManterConectadoDoEscritorioEspiao;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -31,6 +32,7 @@ final class ExcluirContaPeloMasterUseCaseTest extends TestCase
 
     private ContasDoSistemaRepository&MockObject $contas;
     private EscopoDeAuditoriaDePlataforma $escopo;
+    private ManterConectadoDoEscritorioEspiao $manterConectado;
     private ExcluirContaPeloMasterUseCase $useCase;
     private User $master;
 
@@ -38,7 +40,8 @@ final class ExcluirContaPeloMasterUseCaseTest extends TestCase
     {
         $this->contas  = $this->createMock(ContasDoSistemaRepository::class);
         $this->escopo  = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase = new ExcluirContaPeloMasterUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, new MockClock(self::AGORA), $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365);
+        $this->manterConectado = new ManterConectadoDoEscritorioEspiao();
+        $this->useCase = new ExcluirContaPeloMasterUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, new MockClock(self::AGORA), $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365, $this->manterConectado);
         $this->master  = self::usuario(['ROLE_SUPER_ADMIN']);
     }
 
@@ -57,6 +60,7 @@ final class ExcluirContaPeloMasterUseCaseTest extends TestCase
         self::assertSame('Em quarentena', $saida->situacao);
         self::assertSame('2027-10-19', $saida->purgaEm);
         self::assertFalse($this->escopo->estaLigado());
+        self::assertSame([42], $this->manterConectado->escritorios, 'o "Manter conectado" da equipe acaba junto (auditoria 3.29)');
     }
 
     #[TestDox('exclui a conta SUSPENSA também (o ExcluirEscritorioUseCase antigo saía cedo nesse caso)')]
@@ -100,7 +104,7 @@ final class ExcluirContaPeloMasterUseCaseTest extends TestCase
             $contas = $this->createMock(ContasDoSistemaRepository::class);
             $contas->method('buscar')->willReturn($conta);
             $contas->expects($this->never())->method('salvar');
-            $useCase = new ExcluirContaPeloMasterUseCase($contas, new RegraDosMasters($contas), $this->escopo, new MockClock(self::AGORA), $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365);
+            $useCase = new ExcluirContaPeloMasterUseCase($contas, new RegraDosMasters($contas), $this->escopo, new MockClock(self::AGORA), $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365, new ManterConectadoDoEscritorioEspiao());
 
             try {
                 $useCase->executar(new ExcluirContaInput($this->master, 42, $digitado));

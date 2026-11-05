@@ -13,6 +13,7 @@ use App\Master\Exception\OperacaoDeContaRecusada;
 use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Shared\Contract\ManterConectadoDoEscritorio;
 
 /**
  * Suspende uma conta (escritório) pelo painel do Master (spec docs/specs/perfis-1.2-contas.md C1, C2, C5, C6).
@@ -37,6 +38,7 @@ final class SuspenderContaUseCase
         private readonly ContasDoSistemaRepository $contas,
         private readonly RegraDosMasters $regraDosMasters,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDeAuditoria,
+        private readonly ManterConectadoDoEscritorio $manterConectado,
     ) {
     }
 
@@ -47,7 +49,8 @@ final class SuspenderContaUseCase
         $this->exigirContaAtivaQueNaoEhDoMaster($conta);
 
         $conta->setIsActive(false);
-        $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
+        // O "Manter conectado" da equipe acaba junto (auditoria 3.29), na mesma transação da suspensão.
+        $this->manterConectado->encerrarJunto((int) $conta->getId(), fn () => $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true)));
 
         // Suspensa não tem excluidoEm: a carência não entra na saída.
         return ContaAlteradaOutput::fromEntity($conta, 0);

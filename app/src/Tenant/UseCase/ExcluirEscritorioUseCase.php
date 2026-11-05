@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RegraDosMasters;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Shared\Contract\ManterConectadoDoEscritorio;
 use App\Tenant\Exception\PedidoDeExclusaoRecusado;
 use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -34,6 +35,7 @@ final class ExcluirEscritorioUseCase
         private readonly PedidoDeExclusaoDeContaRepository $pedidos,
         private readonly RegraDosMasters $regraDosMasters,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDeAuditoria,
+        private readonly ManterConectadoDoEscritorio $manterConectado,
     ) {}
 
     /** @throws PedidoDeExclusaoRecusado 403 com pedido pendente e ator que não é Master; 409 pedido já decidido */
@@ -50,7 +52,8 @@ final class ExcluirEscritorioUseCase
 
         $tenant->setIsActive(false);
         $tenant->setExcluidoEm(new \DateTimeImmutable());
-        $gravar = fn () => $this->escopoDeAuditoria->executarComoConta((int) $tenant->getId(), fn () => $this->em->flush());
+        // O "Manter conectado" da equipe acaba junto (auditoria 3.29), na mesma transação da exclusão.
+        $gravar = fn () => $this->manterConectado->encerrarJunto((int) $tenant->getId(), fn () => $this->escopoDeAuditoria->executarComoConta((int) $tenant->getId(), fn () => $this->em->flush()));
 
         if ($pedido === null) {
             $gravar();

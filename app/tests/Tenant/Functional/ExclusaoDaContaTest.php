@@ -16,6 +16,9 @@ use App\Master\DTO\ExcluirContaInput;
 use App\Master\DTO\SituacaoDaContaInput;
 use App\Master\UseCase\ExcluirContaPeloMasterUseCase;
 use App\Master\UseCase\ReativarContaUseCase;
+use App\Master\UseCase\SuspenderContaUseCase;
+use App\Security\EncerrarManterConectadoDoEscritorio;
+use App\Shared\Contract\ManterConectadoDoEscritorio;
 use App\Tenant\Controller\ExclusaoDaContaController;
 use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use App\Tenant\Enum\EstadoDoPedidoDeExclusao;
@@ -26,6 +29,7 @@ use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use App\Tenant\UseCase\PedirExclusaoDaContaUseCase;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -44,6 +48,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(TenantContextValidatorListener::class)]
 #[CoversClass(ExcluirEscritorioUseCase::class)]
 #[CoversClass(PedidoDeExclusaoDeContaRepository::class)]
+#[CoversClass(EncerrarManterConectadoDoEscritorio::class)]
 final class ExclusaoDaContaTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -727,5 +732,105 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         );
         self::assertNotSame([], $linhas, 'a exclusão da conta é auditada');
         self::assertSame([(int) $conta->getId()], array_values(array_unique(array_map(static fn (array $l): int => (int) $l['tenant_id'], $linhas))));
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // "Manter conectado" da equipe acaba junto (auditoria 3.29)
+    // ------------------------------------------------------------------------------------------------
+
+    private function serie(User $user): void
+    {
+        static::getContainer()->get(Connection::class)->insert('rememberme_token', [
+            'series' => 'serie-' . uniqid(), 'value' => 'x', 'lastUsed' => date('Y-m-d H:i:s'), 'class' => '', 'username' => $user->getEmail(),
+        ]);
+    }
+
+    private function seriesDe(User $user): int
+    {
+        return (int) static::getContainer()->get(Connection::class)
+            ->fetchOne('SELECT COUNT(*) FROM rememberme_token WHERE username = ?', [$user->getEmail()]);
+    }
+
+    /** @return array{0: Tenant, 1: User, 2: User, 3: User, 4: User} conta, primário, equipe, quem é de outra conta e o Master */
+    private function cenarioComSeries(): array
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $equipe = $this->pessoa($conta, false);
+        $outra = $this->pessoa($this->conta(), false);
+        $master = $this->pessoa($this->conta(), true, ['ROLE_SUPER_ADMIN']);
+        foreach ([$primario, $equipe, $outra] as $user) {
+            $this->serie($user);
+        }
+
+        return [$conta, $primario, $equipe, $outra, $master];
+    }
+
+    private function assertSoAEquipeSaiu(User $primario, User $equipe, User $outra): void
+    {
+        self::assertSame(0, $this->seriesDe($primario));
+        self::assertSame(0, $this->seriesDe($equipe));
+        self::assertSame(1, $this->seriesDe($outra), 'quem é de outra conta segue conectado');
+    }
+
+    #[TestDox('Master exclui a conta: o "Manter conectado" de toda a equipe acaba (auditoria 3.29)')]
+    public function testMasterExcluiEncerraManterConectado(): void
+    {
+        [$conta, $primario, $equipe, $outra, $master] = $this->cenarioComSeries();
+
+        static::getContainer()->get(ExcluirContaPeloMasterUseCase::class)->executar(new ExcluirContaInput($master, (int) $conta->getId(), 'EXCLUIR'));
+
+        $this->assertSoAEquipeSaiu($primario, $equipe, $outra);
+    }
+
+    #[TestDox('Master suspende a conta: o "Manter conectado" de toda a equipe acaba')]
+    public function testMasterSuspendeEncerraManterConectado(): void
+    {
+        [$conta, $primario, $equipe, $outra, $master] = $this->cenarioComSeries();
+
+        static::getContainer()->get(SuspenderContaUseCase::class)->executar(new SituacaoDaContaInput($master, (int) $conta->getId()));
+
+        $this->assertSoAEquipeSaiu($primario, $equipe, $outra);
+    }
+
+    #[TestDox('Excluir o escritório (rota antiga): o "Manter conectado" de toda a equipe acaba, também com pedido pendente')]
+    public function testExcluirEscritorioEncerraManterConectado(): void
+    {
+        [$conta, $primario, $equipe, $outra, $master] = $this->cenarioComSeries();
+        $this->suspenderAPedido($conta, $primario);
+
+        static::getContainer()->get(ExcluirEscritorioUseCase::class)->executar($this->em->find(Tenant::class, $conta->getId()), $this->em->find(User::class, $master->getId()));
+
+        $this->assertSoAEquipeSaiu($primario, $equipe, $outra);
+    }
+
+    #[TestDox('Pedido de exclusão do primário: a conta fica suspensa e o "Manter conectado" de toda a equipe acaba')]
+    public function testPedidoDoPrimarioEncerraManterConectado(): void
+    {
+        [$conta, $primario, $equipe, $outra] = $this->cenarioComSeries();
+        $this->logarComTenant($this->client, $primario, $conta);
+        $codigo = $this->pedirCodigo();
+
+        $this->postar('pedir', ['motivo' => 'Achei caro', 'codigo' => $codigo, 'palavra' => 'EXCLUIR']);
+
+        self::assertResponseIsSuccessful();
+        $this->assertSoAEquipeSaiu($primario, $equipe, $outra);
+    }
+
+    #[TestDox('Mesma transação: se a gravação falha, as séries ficam')]
+    public function testFalhaNaGravacaoMantemAsSeries(): void
+    {
+        [$conta, $primario] = $this->cenarioComSeries();
+
+        try {
+            static::getContainer()->get(ManterConectadoDoEscritorio::class)->encerrarJunto((int) $conta->getId(), static function (): never {
+                throw new \RuntimeException('falha na gravação');
+            });
+            self::fail('a falha da gravação sobe');
+        } catch (\RuntimeException $e) {
+            self::assertSame('falha na gravação', $e->getMessage());
+        }
+
+        self::assertSame(1, $this->seriesDe($primario));
     }
 }
