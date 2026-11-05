@@ -187,6 +187,12 @@ final class PontoController extends AbstractController
 
         $jornadaInfo = $this->resolverJornadaInfo($jornadaDoEscritorio, $jornadaTenant);
         $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($jornadaDoEscritorio, $agora, $jornadaTenant);
+        // Contador de horas excedentes (05/11/2026): a meta do dia é a do alerta de "hora de ir embora",
+        // já sem o almoço. Feriado zera, como na folha (`CalculadoraJornada::calcularSaldoDiaDaEscolha`).
+        // Meta 0 (feriado ou dia fora da escala): a tela não mostra contador.
+        $metaDiaMinutos = $calculadoraJornada->getFeriadoDoDia($agora, $feriados) !== null
+            ? 0
+            : $this->jornadaResolver->resolverMetaDia($jornadaDoEscritorio, $agora, $jornadaTenant);
 
         $justificativaForm = $this->createForm(JustificativaPontoType::class);
 
@@ -230,6 +236,7 @@ final class PontoController extends AbstractController
             'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
             'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,
             'duracaoJornadaDiariaMinutos'    => $duracaoJornadaDiariaMinutos,
+            'metaDiaMinutos'                 => $metaDiaMinutos,
             'justificativas'     => $justificativasDaCompetencia,
             'justificativaForm'  => $justificativaForm->createView(),
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),

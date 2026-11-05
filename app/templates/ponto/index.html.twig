@@ -43,6 +43,13 @@
                         <div id="clock" class="h1 mb-0" title="Tempo trabalhado hoje">00:00:00</div>
                     </div>
 
+                    {# Horas excedentes do dia: verde do desenho do Expediente ("Em jornada desde"). Aparece só
+                       depois de cumprida a meta; o JS abaixo conta ao vivo. #}
+                    <div id="excedente-hoje" class="fw-bold mb-2 d-none" style="color:#1e7b45;" title="Tempo além da jornada de hoje"
+                         data-meta-dia-minutos="{{ metaDiaMinutos }}">
+                        <span id="excedente-hoje-valor"></span> <span class="small fw-normal">a mais hoje</span>
+                    </div>
+
                     <div id="previsao-saida" class="text-muted small d-none mb-2" style="font-size:0.75rem;">
                         Previsão de saída: <strong id="previsao-saida-horario"></strong>
                     </div>
@@ -386,6 +393,48 @@
             }
         }
 
+        // Horas excedentes: trabalhado menos a meta do dia. Abaixo da meta ou com meta 0, escondido.
+        // A conta segue a da folha (`CalculadoraJornada::calcularMinutosDaEscolha`), não a do relógio:
+        // com intervalo válido (retorno depois do repouso), conta os dois trechos; sem ele, o span da
+        // entrada até a saída (ou agora). Em repouso sem retorno e sem saída, para no repouso. Assim o
+        // número verde nunca promete hora a mais que a folha não vai creditar (retorno sem repouso
+        // dobrava no relógio). Depois da saída, fica parado.
+        const excedenteEl      = document.getElementById('excedente-hoje');
+        const excedenteValorEl = document.getElementById('excedente-hoje-valor');
+        const metaDiaMinutos   = excedenteEl ? (Number(excedenteEl.getAttribute('data-meta-dia-minutos')) || 0) : 0;
+
+        function segundosComoNaFolha(agora) {
+            if (!tEntrada) return 0;
+            const fim = tSaida || agora;
+            let total;
+            if (tRepouso && tRetorno && tRetorno > tRepouso) {
+                total = Math.max(0, tRepouso - tEntrada) + Math.max(0, fim - tRetorno);
+            } else if (tRepouso && !tRetorno && !tSaida) {
+                total = Math.max(0, tRepouso - tEntrada);
+            } else {
+                total = Math.max(0, fim - tEntrada);
+            }
+
+            return Math.floor(total / 1000);
+        }
+
+        function formatarHorasMinutos(segundos) {
+            const h = Math.floor(segundos / 3600);
+            const m = Math.floor((segundos % 3600) / 60);
+            return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        }
+
+        function updateExcedente(agora) {
+            if (!excedenteEl || !excedenteValorEl) return;
+            const excedente = segundosComoNaFolha(agora) - metaDiaMinutos * 60;
+            if (metaDiaMinutos > 0 && excedente >= 60) {
+                excedenteValorEl.textContent = '+' + formatarHorasMinutos(excedente);
+                excedenteEl.classList.remove('d-none');
+                return;
+            }
+            excedenteEl.classList.add('d-none');
+        }
+
         function updateClock() {
             const agora = new Date();
             let label = '';
@@ -409,6 +458,7 @@
 
             labelEl.textContent = label;
             updateContadorRepouso();
+            updateExcedente(agora);
         }
 
         setInterval(updateClock, 1000);
