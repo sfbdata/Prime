@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Preferências pessoais de tela. Toda consulta é por escritório E por usuário: o ajuste de um
@@ -17,10 +18,22 @@ use Doctrine\Persistence\ManagerRegistry;
  * Este repositório não valida chave nem valor — quem decide o que pode ser gravado é o catálogo
  * do domínio, chamado pelo UseCase antes de chegar aqui.
  *
+ * Memória por requisição (spec memoria-do-layout): o layout lê as mesmas chaves várias vezes por página (animações,
+ * sons, sininho, Meu Perfil). O que {@see valoresDoUsuario()} já leu fica guardado por escritório, pessoa e chave;
+ * {@see gravar()} e {@see apagarDoUsuario()} esquecem a pessoa naquele escritório. `ResetInterface` (tag
+ * `kernel.reset`) zera entre requisições e entre mensagens do worker.
+ *
  * @extends ServiceEntityRepository<PreferenciaDoUsuario>
  */
-class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
+class PreferenciaDoUsuarioRepository extends ServiceEntityRepository implements ResetInterface
 {
+    /**
+     * Por "escritorio:pessoa": as chaves já consultadas (com valor ou sem linha) e os valores achados.
+     *
+     * @var array<string, array{consultadas: array<string, true>, valores: array<string, mixed>}>
+     */
+    private array $guardado = [];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, PreferenciaDoUsuario::class);
@@ -42,6 +55,47 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
             return [];
         }
 
+        $tenantId  = $tenant->getId();
+        $usuarioId = $usuario->getId();
+        if ($tenantId === null || $usuarioId === null) {
+            return $this->consultar($tenant, $usuario, $chaves);
+        }
+
+        $chave = $tenantId . ':' . $usuarioId;
+        $this->guardado[$chave] ??= ['consultadas' => [], 'valores' => []];
+        $faltam = array_values(array_filter($chaves, fn (string $c): bool => !isset($this->guardado[$chave]['consultadas'][$c])));
+        if ($faltam !== []) {
+            foreach ($this->consultar($tenant, $usuario, $faltam) as $c => $valor) {
+                $this->guardado[$chave]['valores'][$c] = $valor;
+            }
+            foreach ($faltam as $c) {
+                $this->guardado[$chave]['consultadas'][$c] = true;
+            }
+        }
+
+        // Mesma forma da consulta: só as chaves pedidas que têm linha.
+        $valores = [];
+        foreach ($chaves as $c) {
+            if (array_key_exists($c, $this->guardado[$chave]['valores'])) {
+                $valores[$c] = $this->guardado[$chave]['valores'][$c];
+            }
+        }
+
+        return $valores;
+    }
+
+    public function reset(): void
+    {
+        $this->guardado = [];
+    }
+
+    /**
+     * @param list<string> $chaves
+     *
+     * @return array<string, mixed>
+     */
+    private function consultar(Tenant $tenant, User $usuario, array $chaves): array
+    {
         $linhas = $this->createQueryBuilder('p')
             ->select('p.chave AS chave', 'p.valor AS valor')
             ->andWhere('p.tenant = :tenant')
@@ -86,6 +140,7 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
      */
     public function gravar(Tenant $tenant, User $usuario, string $chave, mixed $valor): void
     {
+        $this->esquecer($tenant, $usuario);
         $this->getEntityManager()->getConnection()->executeStatement(
             'INSERT INTO preferencia_usuario (atualizado_em, chave, valor, tenant_id, user_id)
              VALUES (:atualizado_em, :chave, CAST(:valor AS JSON), :tenant, :usuario)
@@ -112,6 +167,7 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
         if ($chaves === []) {
             return 0;
         }
+        $this->esquecer($tenant, $usuario);
 
         return (int) $this->getEntityManager()->createQueryBuilder()
             ->delete(PreferenciaDoUsuario::class, 'p')
@@ -123,5 +179,10 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
             ->setParameter('chaves', $chaves)
             ->getQuery()
             ->execute();
+    }
+
+    private function esquecer(Tenant $tenant, User $usuario): void
+    {
+        unset($this->guardado[$tenant->getId() . ':' . $usuario->getId()]);
     }
 }

@@ -38,7 +38,8 @@ use Symfony\Contracts\Service\ResetInterface;
  * `BarreiraDoCadeadoListener`.
  *
  * Memória por request (o serviço é zerado entre requisições pelo `ResetInterface`): uma consulta por
- * pasta e uma por vínculo. Quem grava um cadeado chama `esquecer()`.
+ * pasta, uma por vínculo e uma de pastas ocultas por pessoa e escritório. A pergunta "Master ou primário?"
+ * reaproveita o vínculo guardado (spec memoria-do-layout). Quem grava um cadeado chama `esquecer()`.
  */
 final class NivelNoCadeado implements ResetInterface
 {
@@ -50,6 +51,9 @@ final class NivelNoCadeado implements ResetInterface
 
     /** @var array<string, list<int>> processos ocultos por "user:tenant" */
     private array $processosOcultos = [];
+
+    /** @var array<string, list<int>> pastas ocultas por "user:tenant" (só de quem não é Master nem primário) */
+    private array $pastasOcultas = [];
 
     /** Sufixo dos parâmetros do critério de DQL: dois critérios no mesmo QueryBuilder não colidem. */
     private int $criterios = 0;
@@ -104,7 +108,7 @@ final class NivelNoCadeado implements ResetInterface
     /** Quem abre, altera e remove o cadeado e decide os pedidos (K1): o Master e o primário ativo. */
     public function podeConfigurar(User $pessoa, Tenant $tenant): bool
     {
-        return $this->regraDosPrimarios->podeGerirPrimarios($pessoa, $tenant);
+        return $this->podeGerirPrimarios($pessoa, $tenant);
     }
 
     public function cadeadoDe(Pasta $pasta): ?CadeadoDaPasta
@@ -209,7 +213,7 @@ final class NivelNoCadeado implements ResetInterface
     private function criterio(QueryBuilder $qb, string $aliasPasta, User $pessoa, bool $soQuemEdita): ?string
     {
         $tenant = $this->tenantContext->getCurrentTenant();
-        if ($tenant !== null && $this->regraDosPrimarios->podeGerirPrimarios($pessoa, $tenant)) {
+        if ($tenant !== null && $this->podeGerirPrimarios($pessoa, $tenant)) {
             return null;
         }
         if ($tenant === null && $this->regraDosPrimarios->ehMaster($pessoa)) {
@@ -245,7 +249,7 @@ final class NivelNoCadeado implements ResetInterface
      */
     public function numerosDeProcessoOcultos(User $pessoa, Tenant $tenant): array
     {
-        if ($this->regraDosPrimarios->podeGerirPrimarios($pessoa, $tenant)) {
+        if ($this->podeGerirPrimarios($pessoa, $tenant)) {
             return [];
         }
 
@@ -267,9 +271,11 @@ final class NivelNoCadeado implements ResetInterface
      */
     public function idsDasPastasOcultas(User $pessoa, Tenant $tenant): array
     {
-        return $this->regraDosPrimarios->podeGerirPrimarios($pessoa, $tenant)
-            ? []
-            : $this->cadeadoRepository->idsDasPastasOcultasPara($pessoa, $tenant);
+        if ($this->podeGerirPrimarios($pessoa, $tenant)) {
+            return [];
+        }
+
+        return $this->pastasOcultas[$pessoa->getId() . ':' . $tenant->getId()] ??= $this->cadeadoRepository->idsDasPastasOcultasPara($pessoa, $tenant);
     }
 
     /**
@@ -326,6 +332,7 @@ final class NivelNoCadeado implements ResetInterface
     {
         $this->cadeados = [];
         $this->processosOcultos = [];
+        $this->pastasOcultas = [];
     }
 
     public function reset(): void
@@ -333,6 +340,23 @@ final class NivelNoCadeado implements ResetInterface
         $this->cadeados = [];
         $this->vinculos = [];
         $this->processosOcultos = [];
+        $this->pastasOcultas = [];
+    }
+
+    /**
+     * O mesmo `RegraDosPrimarios::podeGerirPrimarios()` (Master, ou vínculo ativo com o perfil de sistema), lendo o
+     * vínculo da memória: o critério, as pastas ocultas e o `podeConfigurar` perguntam isso várias vezes por página.
+     * O perfil e o "ativo" são lidos do vínculo na hora (a entidade gerenciada), então a troca de perfil feita na
+     * mesma requisição vale aqui como valia na consulta.
+     */
+    private function podeGerirPrimarios(User $pessoa, Tenant $tenant): bool
+    {
+        if ($this->regraDosPrimarios->ehMaster($pessoa)) {
+            return true;
+        }
+        $vinculo = $this->vinculoAtivo($pessoa, $tenant);
+
+        return $vinculo !== null && $this->regraDosPrimarios->ehPrimario($vinculo);
     }
 
     private function cadeadoPorId(int $pastaId, Tenant $tenant): ?CadeadoDaPasta
