@@ -1,6 +1,13 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.39.1"
+  data: "2026-11-06"
+  itens:
+    - "A tela Expedientes ganhou uma trava automática que impede que ela volte a ficar lenta em atualizações futuras: se alguma mudança fizer a tela buscar dados repetidos, o sistema avisa antes de a versão chegar ao cliente."
+    - "O aviso sonoro da ida ao intervalo, da volta e do fim da jornada agora toca mesmo com o BlueJus em outra aba ou com o navegador minimizado, desde que a tela do ponto onde você registrou continue aberta. Antes, depois de registrar o intervalo, o som da volta só saía depois de um clique na tela."
+    - "Depois de registrar o ponto, a tela se atualiza na hora, sem piscar nem recarregar: as batidas do dia, o banco de horas e o botão já com o próximo registro."
+    - "Ao registrar o ponto, o navegador pergunta se pode mostrar notificações. Permitindo, o lembrete do ponto aparece no canto da tela mesmo com o navegador minimizado."
 - versao: "2.39.0"
   data: "2026-11-06"
   itens:
