@@ -8,6 +8,16 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.39.1] - 2026-11-06
+
+### Corrigido
+
+- Tela do ponto: depois da batida com sucesso, a tela não recarrega mais. Ela busca o próprio HTML (`PontoBatida.buscarTelaDoPonto`, com prazo de 15 s) e troca só a lista do dia, o banco de horas, as pendências, o card da folha, o estado do relógio (previsão de saída, repouso, excedente) e a sugestão do tipo. A troca é tudo ou nada; se falhar, recarrega como antes.
+- A recarga zerava a liberação de som do navegador, e o toque da volta do intervalo e da saída não tocava sem um clique.
+- A permissão de notificação do sistema passa a ser pedida no clique da batida (tela do ponto e atalho do cabeçalho), só quando a pessoa ainda não respondeu.
+- A notificação do alerta não mostra mais "Horário:" vazio no retorno e na saída, e a da saída não substitui mais a do retorno (cada tipo com sua `tag`).
+- Spec: `docs/specs/ponto-atualiza-sem-recarregar.md`.
+
 ## [2.39.0] - 2026-11-06
 
 ### Adicionado
@@ -1644,7 +1654,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.39.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.39.1...HEAD
+[2.39.1]: https://github.com/sfbdata/Prime/compare/v2.39.0...v2.39.1
 [2.39.0]: https://github.com/sfbdata/Prime/compare/v2.38.0...v2.39.0
 [2.38.0]: https://github.com/sfbdata/Prime/compare/v2.37.2...v2.38.0
 [2.37.2]: https://github.com/sfbdata/Prime/compare/v2.37.1...v2.37.2
