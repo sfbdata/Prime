@@ -146,9 +146,39 @@ Não há desenho do Claude Design para esta aba: segue o estilo dela (Bootstrap 
    `SalvarVersaoDeJornadaUseCase` e `ExcluirVersaoDeJornadaUseCase` com unit e functional.
 3. **PR 3 (opcional):** padrão do escritório com vigência.
 
-## 8. Decisões pendentes
+## 8. Decisões do Coordenador (06/11/2026)
 
-1. Padrão do escritório: etapa própria (recomendado) ou junto?
-2. Data de migração: primeiro registro da pessoa no escritório (recomendado; com a regra 3.1.3 é só
-   rótulo) ou uma data fixa ("desde sempre")?
-3. "Limpar escala" apaga todas as versões (recomendado, é o que faz hoje) ou só a vigente?
+1. Padrão do escritório com vigência: **etapa própria, depois** (PR 3).
+2. Data da migração: **primeiro registro da pessoa no escritório**; sem registro, a data de criação
+   da jornada. A tabela não tem coluna de criação: usar a data do `create` no `audit_log` quando houver,
+   senão a data da migration. Em produção as 10 jornadas têm registro, então o caso não ocorre lá.
+3. "Limpar escala" **apaga todas as versões**. A confirmação avisa, em texto simples, que a folha
+   passada volta a usar o padrão do escritório.
+4. PR 1 não muda nenhum saldo: **teste prova que a folha antes e depois da migração é igual**.
+
+## 9. Estado (06/11/2026, pausa a pedido do Samuel)
+
+Feito: spec e decisões. Nenhum código ainda.
+
+Falta no PR 1, nesta ordem:
+
+1. Testes primeiro: unit de `HistoricoDeJornadas` (vigente em cada dia; a mais antiga vale para
+   trás; futura não vale hoje); unit da folha com duas versões; integração "folha igual antes e
+   depois" (mesma pessoa e registros: `buildRows` com a jornada solta, como hoje, contra o histórico
+   com `vale_a_partir_de` preenchido pela regra da migration, em datas antes, no meio e depois dos
+   registros; o mesmo para `calcularSaldoAnual`).
+2. Entidade `JornadaColaborador`: `valeAPartirDe` (`date_immutable`, padrão hoje no construtor) e o
+   único trocado para `uq_jornada_colaborador_vigencia (user_id, tenant_id, vale_a_partir_de)`.
+3. Migration `Version20261107100000` (skill `criar-migration`), conforme o §4.
+4. `HistoricoDeJornadas` (`final`, em `src/Ponto/Service/`) e `JornadaColaboradorRepository::historicoDe()`;
+   `findByUserETenant()` devolve a vigente hoje.
+5. `FolhaPontoBuilder::buildRows` aceita `JornadaColaborador|HistoricoDeJornadas|null` e usa a
+   versão do dia; `calcularSaldoAteMes`/`calcularSaldoAnual` carregam o histórico.
+6. Chamadores de `buildRows` passam o histórico: `PontoController` (linhas ~153, ~1077, ~1161),
+   `TenantController` (~793). Cabeçalho do PDF/XLSX: versão vigente no último dia do mês.
+7. `mudancas/ponto-jornada-vigencia.md`, `qa.sh`, suíte do Ponto, revisão independente, PR.
+
+Mapa já feito: pendências (`ListarPendenciasDeRegistroUseCase`), `SaidaDeEsquecimento` e
+`EscolhaDasBatidasDoDia` não leem jornada. `IntervalosDeTrabalho`/choque, alerta e tela do ponto
+usam a de hoje (ficam certos com `findByUserETenant` = vigente hoje). `PurgarEscritorioUseCase`
+apaga por `tenant_id` (sem mudança).
