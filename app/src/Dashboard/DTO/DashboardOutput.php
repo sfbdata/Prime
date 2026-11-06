@@ -81,5 +81,13 @@ final class DashboardOutput
         public readonly array  $zeramentos = [],
         /** @var array{atual: array<string, int>, anterior: array<string, int|null>}|null estoque com seta pela foto (ver a classe) */ public readonly ?array $totaisEstoque = null,
         public readonly ?MetaDePastasDoMesOutput $metaDePastas = null, // meta de pastas do mês (DASH-016)
+        // EQUIPE já lida pelo UseCase, para o controller montar as opções dos filtros sem consultar de novo.
+        // Null = o UseCase não leu (o controller consulta, como antes). Só o render completo usa.
+        /** @var list<array{id: int|null, nome: string|null}>|null colaboradores ativos, na ordem do repositório, antes de qualquer filtro */
+        public readonly ?array $colaboradoresAtivos = null,
+        /** @var array<int, string|null>|null userId => nome do cargo (UserRepository::findCargoPorColaboradores) */
+        public readonly ?array $cargoPorColaborador = null,
+        /** @var array<int, string|null>|null userId => fotoUrl (UserRepository::findFotoPorColaboradores) */
+        public readonly ?array $fotoPorColaborador = null,
     ) {}
 }

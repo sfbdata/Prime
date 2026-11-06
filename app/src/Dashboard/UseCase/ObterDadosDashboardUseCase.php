@@ -94,6 +94,9 @@ final class ObterDadosDashboardUseCase
 
         $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant); // lista canônica: todos os ativos do tenant
         $mCargo        = $colaboradores === [] ? [] : $this->userRepository->findCargoPorColaboradores($tenant);
+        // A equipe inteira, antes dos filtros, vai no output: o controller monta as opções dos filtros com ela.
+        $equipeAtiva = array_map(static fn ($u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()], $colaboradores);
+        $cargoLido   = $colaboradores === [] ? null : $mCargo;
         $todosIds      = array_map(static fn ($u): int => (int) $u->getId(), $colaboradores); // universo do troféu: antes de busca, responsável e cargo
 
         // 7 mapas userId => count (mapasDaTabela), já com o corte do "Zerar" (DASH-014) de quem tem.
@@ -242,6 +245,9 @@ final class ObterDadosDashboardUseCase
             // O realizado da meta é o número do card (antes da busca), sem regra de contagem própria.
             totaisEstoque:              $estoqueHoje === [] ? null : $this->totaisDoEstoque($linhas, array_keys($estoqueHoje)),
             metaDePastas:               $this->metaDoMes($tenant, $referencia, $filtros, $totalPastasCriadas, $pastasOcultas),
+            colaboradoresAtivos:        $equipeAtiva,
+            cargoPorColaborador:        $cargoLido,
+            fotoPorColaborador:         $colaboradores === [] ? null : $mFoto,
         );
     }
 

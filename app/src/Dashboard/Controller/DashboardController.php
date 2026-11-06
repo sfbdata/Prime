@@ -94,18 +94,23 @@ final class DashboardController extends AbstractController
         // simples ao template (convenção: nunca entidade Doctrine crua na view).
         // Os mapas de cargo e foto são do escritório atual (filtro por tenant no repositório):
         // nada de outro escritório entra nas opções.
-        $mapaCargo = $this->userRepository->findCargoPorColaboradores($tenant);
-        $mapaFoto  = $this->userRepository->findFotoPorColaboradores($tenant);
+        // A equipe que o UseCase já leu vem no output; só o que ele não leu (null) é consultado aqui.
+        $mapaCargo = $output->cargoPorColaborador ?? $this->userRepository->findCargoPorColaboradores($tenant);
+        $mapaFoto  = $output->fotoPorColaborador ?? $this->userRepository->findFotoPorColaboradores($tenant);
+        $equipe    = $output->colaboradoresAtivos ?? array_map(
+            static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
+            $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
+        );
         // `foto` e `cargo` alimentam só o select próprio do desenho (avatar + cargo abaixo do
         // nome); o <select> nativo do parcial continua lendo `id`/`nome`.
         $responsaveis = array_map(
-            static fn (User $u): array => [
-                'id'    => $u->getId(),
-                'nome'  => $u->getFullName(),
-                'foto'  => $mapaFoto[(int) $u->getId()] ?? null,
-                'cargo' => $mapaCargo[(int) $u->getId()] ?? null,
+            static fn (array $u): array => [
+                'id'    => $u['id'],
+                'nome'  => $u['nome'],
+                'foto'  => $mapaFoto[(int) $u['id']] ?? null,
+                'cargo' => $mapaCargo[(int) $u['id']] ?? null,
             ],
-            $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
+            $equipe,
         );
         $cargos    = array_values(array_unique(array_filter($mapaCargo)));
         sort($cargos);
