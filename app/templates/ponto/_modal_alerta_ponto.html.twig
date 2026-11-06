@@ -3,7 +3,7 @@
   Incluído em base.html.twig apenas para usuários autenticados com acesso ao módulo ponto.
 #}
 
-{#- "Sons de alerta" do Meu Perfil (perfil_sons()): com "0" o som do alerta (volta do intervalo e fim da jornada) não toca. #}
+{#- "Sons de alerta" do Meu Perfil (perfil_sons()): com "0" o som do alerta (ida ao intervalo, volta dele e fim da jornada) não toca. #}
 <div class="modal fade" id="modalAlertaPonto" tabindex="-1"
      data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}"
      aria-labelledby="modalAlertaPontoLabel" aria-hidden="true"
@@ -162,8 +162,8 @@
         // Título piscando como fallback (funciona sem permissão)
         iniciarPiscarTitulo(dados.mensagem);
 
-        // Som da volta do intervalo e do fim da jornada (ponto-alerta-som.js): só "retorno" e "saida",
-        // respeita "Sons de alerta" do Meu Perfil e, bloqueado pelo navegador, fica só o modal.
+        // Som da ida ao intervalo, da volta dele e do fim da jornada (ponto-alerta-som.js): só "repouso",
+        // "retorno" e "saida", cada um com seu toque; respeita "Sons de alerta" do Meu Perfil e, bloqueado pelo navegador, fica só o modal.
         if (window.BJSomDoAlertaDePonto) {
             window.BJSomDoAlertaDePonto.tocar(dados.tipo, modalEl);
         }

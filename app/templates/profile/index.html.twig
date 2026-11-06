@@ -407,6 +407,17 @@ input[type="range"].img-slider {
                     <span class="mp-pref-texto"><span>{{ p.rotulo }}</span><small>{{ p.sub }}</small></span>
                     <span class="mp-chave" aria-hidden="true"><span></span></span>
                 </button>
+                {# Ouvir os toques do alerta de ponto (pedido do Samuel, 06/11/2026). O desenho 07 não tem esta linha:
+                   botões de contorno do próprio perfil. Só para quem recebe o alerta (mesmo critério do modal em
+                   base.html.twig). O clique toca na hora (ponto-alerta-som.js), sem depender da chave acima. #}
+                {% if p.chave == 'perfil.sons' and can_access_module('ponto') and tem_jornada_no_escritorio() %}
+                    <div class="mp-ouvir" role="group" aria-labelledby="mp-ouvir-rotulo">
+                        <span class="mp-ouvir-rotulo" id="mp-ouvir-rotulo">{{ 'perfil.preferencias.ouvir_rotulo'|trans }}</span>
+                        {% for tipo in ['repouso', 'retorno', 'saida'] %}
+                            <button type="button" class="mp-btn-contorno mp-btn-ouvir" data-ouvir-som="{{ tipo }}" title="{{ 'perfil.preferencias.ouvir_titulo'|trans }}"><i class="bi bi-play-fill" aria-hidden="true"></i>{{ ('perfil.preferencias.ouvir_' ~ tipo)|trans }}</button>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             {% endfor %}
             {# D4 de Minhas Metas (Fase 4): o desenho 07 não tem; a linha segue a do "Idioma do sistema" (linha inteira
                clicável, com a seta). Confirmação do navegador (data-confirmar, menu-usuario.js) e CSRF. #}
@@ -783,6 +794,9 @@ input[type="range"].img-slider {
 {% block javascripts %}
 {{ catalogo_js('perfil.js') }}
 <script src="{{ asset('js/meu-perfil.js') }}" defer></script>
+{% if can_access_module('ponto') and tem_jornada_no_escritorio() %}
+<script src="{{ asset('js/ponto-alerta-som.js') }}" defer></script>
+{% endif %}
 <script src="{{ asset('js/conta-exclusao.js') }}" defer></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js" crossorigin="anonymous"></script>

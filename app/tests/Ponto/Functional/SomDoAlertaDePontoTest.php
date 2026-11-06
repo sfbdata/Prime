@@ -94,9 +94,10 @@ final class SomDoAlertaDePontoTest extends JusPrimeWebTestCase
         $dir = static::getContainer()->getParameter('kernel.project_dir');
         $som = (string) file_get_contents($dir . '/public/js/ponto-alerta-som.js');
 
-        self::assertStringContainsString("TIPOS_COM_SOM = { retorno:", $som);
+        // 06/11: a ida ao intervalo (`repouso`) ganhou o 3º toque, distinto dos outros dois.
+        self::assertStringContainsString('TIPOS_COM_SOM = { repouso: [784, 784], retorno: [660, 880], saida: [880, 740, 587] };', $som);
         self::assertStringNotContainsString('entrada:', $som, 'a entrada não toca');
-        self::assertStringNotContainsString('repouso:', $som, 'a ida ao intervalo não toca');
+        self::assertStringNotContainsString('aviso_repouso_6h:', $som, 'o aviso das 6 horas não toca');
         self::assertStringContainsString("getAttribute('data-perfil-sons') !== '0'", $som);
         self::assertStringContainsString("addEventListener('pointerdown', liberarAudio", $som);
         self::assertStringContainsString('catch (e)', $som);
@@ -106,6 +107,11 @@ final class SomDoAlertaDePontoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('if (avisoAberto(agora.modal))', $som);
         self::assertStringContainsString("if (ctx.state !== 'running' || jaTocouHoje(tipo)) { return; }", $som);
         self::assertStringContainsString("navigator.getAutoplayPolicy('audiocontext') === 'allowed'", $som);
+
+        // "Ouvir" do Meu Perfil: toca na hora (o clique libera o áudio), sem marcar o dia nem olhar o perfil.sons.
+        self::assertStringContainsString('function ouvir(tipo)', $som);
+        self::assertStringContainsString("closest('[data-ouvir-som]')", $som);
+        self::assertStringContainsString('if (window.BJSomDoAlertaDePonto) { return; }', $som, 'carregado duas vezes (modal + Meu Perfil), liga uma vez só');
 
         $modal = (string) file_get_contents($dir . '/templates/ponto/_modal_alerta_ponto.html.twig');
         self::assertStringContainsString('window.BJSomDoAlertaDePonto', $modal, 'o modal chama o som ao abrir');
