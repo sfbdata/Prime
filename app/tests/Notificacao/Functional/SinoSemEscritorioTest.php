@@ -108,9 +108,12 @@ final class SinoSemEscritorioTest extends JusPrimeWebTestCase
     public function testConvidadoComConviteVencidoNaoVe(): void
     {
         [$convidado] = $this->cenarioDoConvidado();
+        // Ontem pelo relógio do PHP, que é o que o sistema compara (`ConviteDemanda::vigente`). O
+        // CURRENT_DATE do Postgres do CI está em UTC: das 21h à meia-noite em Brasília, o "ontem" dele é o
+        // "hoje" do PHP, o convite ainda vale e o teste falhava (Suíte completa de 06/11 por volta de 00:00Z).
         $this->em()->getConnection()->executeStatement(
-            "UPDATE trabalho_externo_convite SET validade = CURRENT_DATE - INTERVAL '1 day' WHERE convidado_id = ?",
-            [$convidado->getId()],
+            'UPDATE trabalho_externo_convite SET validade = ? WHERE convidado_id = ?',
+            [(new \DateTimeImmutable('yesterday'))->format('Y-m-d'), $convidado->getId()],
         );
         $this->em()->clear();
 
