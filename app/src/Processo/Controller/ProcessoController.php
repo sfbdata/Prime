@@ -284,7 +284,14 @@ class ProcessoController extends AbstractController
             return [];
         }
 
-        return $tarefaRepository->findByProcesso($processo, $tenant, $acessoAPasta->idsDasPastasOcultas($quemOlha, $tenant));
+        $metas = $tarefaRepository->findByProcesso($processo, $tenant, $acessoAPasta->idsDasPastasOcultas($quemOlha, $tenant));
+        // Os responsáveis de todas de uma vez: a lista lê os nomes de cada meta.
+        $tarefaRepository->carregarResponsaveisDasMetasDoProcesso(
+            array_values(array_map(static fn (Tarefa $t): int => (int) $t->getId(), $metas)),
+            $tenant,
+        );
+
+        return $metas;
     }
 
     #[Route('/{id}/deletar', name: 'processo_delete', methods: ['POST'])]

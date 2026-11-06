@@ -1347,4 +1347,38 @@ class TarefaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Carrega de uma vez, no EntityManager, os responsáveis das metas da aba Tarefas do processo. Antes cada meta
+     * disparava a leitura dos responsáveis na hora de montar a lista.
+     *
+     * Os ids vêm de `findByProcesso` (já presos ao escritório e sem as metas das pastas ocultas pelo cadeado); aqui
+     * só se completa o que elas têm, presas ao escritório de novo. Sem paginação: a aba não é paginada.
+     *
+     * O perfil vem junto do usuário porque o lado inverso do um-para-um não vira proxy: sem o join, o Doctrine o
+     * buscaria numa consulta por responsável.
+     *
+     * @param list<int> $metaIds
+     */
+    public function carregarResponsaveisDasMetasDoProcesso(array $metaIds, Tenant $tenant): void
+    {
+        if ($metaIds === []) {
+            return;
+        }
+
+        $this->createQueryBuilder('t')
+            ->select('t', 'r', 'perfil')
+            ->leftJoin('t.responsaveis', 'r')
+            ->leftJoin('r.profile', 'perfil')
+            ->andWhere('t.tenant = :tenant')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $metaIds)
+            // Responsáveis na ordem do id do usuário: a leitura preguiçosa de antes percorria o índice da chave de
+            // `tarefa_responsaveis` (tarefa_id, user_id), a ordem que produção mostra.
+            ->addOrderBy('t.id', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }
