@@ -34,12 +34,15 @@ class NotificacaoExtension extends AbstractExtension implements GlobalsInterface
             ];
         }
 
+        // Selo, aba "Minhas" e aba "Gestão" numa consulta só (antes eram três, em toda página).
+        $contagens = $this->notificacaoService->contarNaoLidasDoSino($user);
+
         return [
             // Lista inicial (aba "Minhas"); a aba "Gestão" carrega via AJAX ao abrir
             'notificacoes' => $this->notificacaoService->getNotificacoesNaoLidas($user, Notificacao::CATEGORIA_PESSOAL, 10),
-            'notificacoesCount' => $this->notificacaoService->contarNaoLidas($user),
-            'notificacoesPessoaisCount' => $this->notificacaoService->contarNaoLidas($user, Notificacao::CATEGORIA_PESSOAL),
-            'notificacoesGestaoCount' => $this->notificacaoService->contarNaoLidas($user, Notificacao::CATEGORIA_GESTAO),
+            'notificacoesCount' => $contagens['total'],
+            'notificacoesPessoaisCount' => $contagens['pessoal'],
+            'notificacoesGestaoCount' => $contagens['gestao'],
             'podeVerGestao' => $this->notificacaoService->podeVerGestao($user),
         ];
     }
