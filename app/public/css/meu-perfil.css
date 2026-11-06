@@ -85,6 +85,14 @@
 .mp-chave > span { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
 .mp-pref[aria-checked="true"] .mp-chave { background: #0a6fa0; }
 .mp-pref[aria-checked="true"] .mp-chave > span { left: 19px; }
+/* "Ouvir" os toques do ponto, logo abaixo de "Sons de alerta" (06/11/2026): sem desenho, segue o contorno do perfil. */
+.mp-ouvir { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 20px 13px 50px; border-bottom: 1px solid #f0f4f7; background: #fff; }
+.mp-pref:has(+ .mp-ouvir) { border-bottom: none; }
+.mp-ouvir-rotulo { font-size: 12px; color: #5b7383; }
+.mp-btn-contorno.mp-btn-ouvir { height: 28px; padding: 0 10px; font-size: 12.5px; gap: 5px; }
+html[data-bs-theme="dark"] .mp-btn-contorno.mp-btn-ouvir { background: transparent; }
+html[data-bs-theme="dark"] .mp-btn-contorno.mp-btn-ouvir:hover { background: #0a6fa0; }
+html[data-bs-theme="dark"] .mp-ouvir-rotulo { color: var(--bs-secondary-color); }
 .mp-seguranca { padding: 18px 20px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .mp-seguranca > div { flex: 1; min-width: 240px; font-size: 13px; color: #34505f; line-height: 1.5; }
 
@@ -203,7 +211,7 @@
 
 /* tema escuro */
 html[data-bs-theme="dark"] .mp-pagina { color: var(--bs-body-color); }
-html[data-bs-theme="dark"] .mp-card, html[data-bs-theme="dark"] .mp-pref, html[data-bs-theme="dark"] .mp-modal .modal-content { background: var(--bs-body-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mp-card, html[data-bs-theme="dark"] .mp-pref, html[data-bs-theme="dark"] .mp-ouvir, html[data-bs-theme="dark"] .mp-modal .modal-content { background: var(--bs-body-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
 html[data-bs-theme="dark"] .mp-card-topo { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }
 html[data-bs-theme="dark"] .mp-nome, html[data-bs-theme="dark"] .mp-card-topo b, html[data-bs-theme="dark"] .mp-linha > b, html[data-bs-theme="dark"] .mp-linha > span,
 html[data-bs-theme="dark"] .mp-pref, html[data-bs-theme="dark"] .mp-texto, html[data-bs-theme="dark"] .mp-frase { color: var(--bs-body-color); }

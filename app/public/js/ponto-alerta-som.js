@@ -2,8 +2,9 @@
  * Som do alerta de ponto (pedido do Samuel, 05/11/2026).
  *
  * O alerta de ponto (templates/ponto/_modal_alerta_ponto.html.twig) aparece em toda página e consulta
- * /ponto/alerta-horario a cada 60 s. Quando ele abre a hora de voltar do intervalo ("retorno") ou a hora
- * de ir embora ("saida"), chama window.BJSomDoAlertaDePonto.tocar(tipo, modal). Só esses dois tipos tocam.
+ * /ponto/alerta-horario a cada 60 s. Quando ele abre a hora de ir para o intervalo ("repouso", desde 06/11), a de
+ * voltar dele ("retorno") ou a de ir embora ("saida"), chama window.BJSomDoAlertaDePonto.tocar(tipo, modal). Só esses
+ * três tipos tocam, cada um com um toque próprio; a entrada e o aviso das 6 horas, não.
  *
  * - "Sons de alerta" do Meu Perfil desligado: o modal sai com data-perfil-sons="0" e nada toca.
  * - O navegador só deixa tocar depois de uma interação com a PÁGINA ATUAL (clique, tecla ou toque); cada
@@ -16,12 +17,18 @@
  * - Um toque por tipo por dia (localStorage, mesma chave do aviso com o sufixo "_som"), marcado só depois
  *   que o som de fato saiu: a consulta de 60 s não repete o som enquanto o modal continua aberto.
  * - Som sintetizado (AudioContext), como em lembretes.js: nenhum arquivo de áudio.
+ * - "Ouvir" do Meu Perfil (botões [data-ouvir-som]): toca o toque na hora, porque o próprio clique libera o
+ *   áudio. Não marca o dia e não olha "Sons de alerta": é a pessoa pedindo para ouvir.
+ * - O Meu Perfil carrega este arquivo, e o modal também: carregado duas vezes, liga uma vez só.
  */
 (function () {
     'use strict';
 
-    // Volta do intervalo: duas notas subindo. Fim da jornada: três notas descendo.
-    var TIPOS_COM_SOM = { retorno: [660, 880], saida: [880, 740, 587] };
+    if (window.BJSomDoAlertaDePonto) { return; }
+
+    // Ida ao intervalo: duas notas iguais, agudas. Volta do intervalo: duas notas subindo. Fim da jornada: três
+    // notas descendo.
+    var TIPOS_COM_SOM = { repouso: [784, 784], retorno: [660, 880], saida: [880, 740, 587] };
     var PREFIXO = 'alerta_ponto_';
 
     var ctx = null;
@@ -136,5 +143,21 @@
         });
     }
 
-    window.BJSomDoAlertaDePonto = { tocar: tocar };
+    function ouvir(tipo) {
+        var frequencias = TIPOS_COM_SOM[tipo];
+        if (!frequencias) { return; }
+        liberarAudio();
+        if (!ctx) { return; }
+        retomar(function () {
+            if (ctx.state !== 'running') { return; }
+            try { notas(frequencias); } catch (e) { /* áudio bloqueado */ }
+        });
+    }
+
+    document.addEventListener('click', function (evento) {
+        var botao = evento.target && evento.target.closest ? evento.target.closest('[data-ouvir-som]') : null;
+        if (botao) { ouvir(botao.getAttribute('data-ouvir-som')); }
+    });
+
+    window.BJSomDoAlertaDePonto = { tocar: tocar, ouvir: ouvir };
 }());

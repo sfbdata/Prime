@@ -73,6 +73,11 @@ perfil:
         notificacoes_sub: Sininho de prazos, metas e menções
         sons_rotulo: Sons de alerta
         sons_sub: Toque ao receber mensagem ou alerta
+        ouvir_rotulo: 'Ouvir os toques do ponto:'
+        ouvir_titulo: Tocar este som agora
+        ouvir_repouso: Ida ao intervalo
+        ouvir_retorno: Volta do intervalo
+        ouvir_saida: Fim da jornada
         resumo_email_rotulo: Resumo diário por e-mail
         resumo_email_sub: Prazos e metas do dia, às 8h
         sugestoes_despachos_rotulo: Sugestões a partir dos meus despachos
