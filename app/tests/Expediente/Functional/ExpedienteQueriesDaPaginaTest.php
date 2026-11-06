@@ -29,8 +29,8 @@ final class ExpedienteQueriesDaPaginaTest extends JusPrimeWebTestCase
 {
     use CriaCenarioDoCadeadoFuncionalTrait;
 
-    /** Teto medido em 06/11/2026 neste cenário: subir exige motivo. */
-    private const TETO = ['primario' => 35, 'colaborador' => 31];
+    /** Teto medido em 06/11/2026 neste cenário, já com as contagens EXPEDIENTES numa consulta (#679): subir exige motivo. */
+    private const TETO = ['primario' => 30, 'colaborador' => 26];
 
     /** @return iterable<string, array{string}> */
     public static function personas(): iterable
