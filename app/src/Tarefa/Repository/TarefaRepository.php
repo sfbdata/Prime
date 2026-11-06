@@ -1297,6 +1297,58 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Carrega de uma vez, no EntityManager, o que o cartão de Minhas Metas lê de cada meta da lista: a pasta (com o
+     * cliente principal), o criador, os responsáveis ("Concluir etapa" pergunta se a pessoa cuida da meta) e os
+     * clientes da pasta (o identificador). Antes cada cartão disparava essas leituras uma a uma.
+     *
+     * Duas consultas, uma por coleção, para não multiplicar as linhas. Nada muda no que a tela mostra: as coleções
+     * são as mesmas, só chegam já carregadas. Os ids vêm da lista já filtrada (aba ou esteira, cadeado, "ver a
+     * pasta"); aqui só se completa o que elas têm, presas ao escritório. Sem paginação: a lista não é paginada.
+     *
+     * O cliente principal vem junto da pasta porque `Cliente` tem subclasses: sem o join, o Doctrine o buscaria
+     * numa consulta por pasta ao montar cada uma.
+     *
+     * @param list<int> $metaIds
+     */
+    public function carregarCartoesDasMetas(array $metaIds, Tenant $tenant): void
+    {
+        if ($metaIds === []) {
+            return;
+        }
+
+        $this->createQueryBuilder('t')
+            ->select('t', 'p', 'principal', 'criador', 'r')
+            ->leftJoin('t.pasta', 'p')
+            ->leftJoin('p.clientePrincipal', 'principal')
+            ->leftJoin('t.criadoPor', 'criador')
+            ->leftJoin('t.responsaveis', 'r')
+            ->andWhere('t.tenant = :tenant')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $metaIds)
+            // Responsáveis na ordem do id do usuário: a leitura preguiçosa de antes percorria o índice da chave de
+            // `tarefa_responsaveis` (tarefa_id, user_id), a ordem que produção mostra.
+            ->addOrderBy('t.id', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        // Clientes na ordem do id, a mesma que o banco devolve ao carregar uma pasta só pelo índice de `pasta_cliente`.
+        $this->createQueryBuilder('t')
+            ->select('t', 'p', 'cli')
+            ->leftJoin('t.pasta', 'p')
+            ->leftJoin('p.clientes', 'cli')
+            ->andWhere('t.tenant = :tenant')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $metaIds)
+            ->addOrderBy('t.id', 'ASC')
+            ->addOrderBy('cli.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Carrega de uma vez, no EntityManager, os responsáveis das metas da aba Tarefas do processo. Antes cada meta
      * disparava a leitura dos responsáveis na hora de montar a lista.
      *

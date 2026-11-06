@@ -224,6 +224,45 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * As três contagens do sino (total, aba "Minhas" e aba "Gestão") numa consulta só, com os mesmos filtros de
+     * {@see countNaoLidasByUsuario()}: escritório, cadeado, cortes da leitura e silêncio do sininho. A categoria sai
+     * do tipo, como em {@see aplicarCategoria()}: Gestão é o tipo na lista {@see Notificacao::TIPOS_GESTAO}; Minhas,
+     * o tipo fora dela.
+     *
+     * @param Tenant|list<int>|null $escritorio ver {@see doEscritorio()}
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
+     * @param list<string>|null $soTipos ver {@see soDosTipos()}
+     * @param array{semLeitura?: list<int>, semFinanceiro?: list<int>} $cortesDaLeitura ver {@see semAvisosSemLeitura()}
+     *
+     * @return array{total: int, pessoal: int, gestao: int}
+     */
+    public function contarNaoLidasPorCategoria(User $usuario, Tenant|array|null $escritorio, array $pastasOcultas = [], ?array $soTipos = null, array $cortesDaLeitura = []): array
+    {
+        $qb = $this->createQueryBuilder('n')
+            ->select('COUNT(n.id) AS total')
+            ->addSelect('SUM(CASE WHEN n.tipo NOT IN (:tiposGestaoDoSino) THEN 1 ELSE 0 END) AS pessoal')
+            ->addSelect('SUM(CASE WHEN n.tipo IN (:tiposGestaoDoSino) THEN 1 ELSE 0 END) AS gestao')
+            ->where('n.usuario = :usuario')
+            ->andWhere('n.lida = false')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tiposGestaoDoSino', Notificacao::TIPOS_GESTAO);
+        $this->doEscritorio($qb, $escritorio);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->semAvisosSemLeitura($qb, $cortesDaLeitura);
+        $this->soDosTipos($qb, $soTipos);
+
+        /** @var array{total: int|string|null, pessoal: int|string|null, gestao: int|string|null} $linha */
+        $linha = $qb->getQuery()->getSingleResult();
+
+        // Sem nenhuma linha, o SUM devolve nulo: vira zero, como o COUNT.
+        return [
+            'total'   => (int) $linha['total'],
+            'pessoal' => (int) $linha['pessoal'],
+            'gestao'  => (int) $linha['gestao'],
+        ];
+    }
+
+    /**
      * Retorna uma página de notificações do usuário (opcionalmente de uma categoria),
      * ordenadas da mais recente para a mais antiga.
      *

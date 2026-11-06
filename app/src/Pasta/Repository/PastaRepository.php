@@ -167,11 +167,56 @@ class PastaRepository extends ServiceEntityRepository
         $qb = $this->buildQbByFilters($filters, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
-        return $qb
+        return $this->paginarComClientePrincipal($qb, $tenant, $page, $perPage);
+    }
+
+    /**
+     * Pagina a listagem e devolve as pastas da página com o cliente principal já carregado.
+     *
+     * Duas consultas, e não uma: a primeira é a busca de sempre (mesmos filtros, GROUP BY, ordem e
+     * LIMIT/OFFSET), mas só com o id; a segunda traz essas pastas com o cliente principal junto. Cliente tem
+     * herança (PF/PJ) e o Doctrine não cria proxy para ele: sem isto, cada pasta da página disparava uma
+     * consulta ao ser montada. O fetch join não cabe na própria busca: o GROUP BY p.id do Postgres exigiria
+     * também as colunas das tabelas da herança, que o DQL não alcança.
+     *
+     * A ordem e a paginação saem só da primeira consulta; a segunda não filtra nada além do escritório.
+     *
+     * @return Pasta[]
+     */
+    private function paginarComClientePrincipal(QueryBuilder $qb, Tenant $tenant, int $page, int $perPage): array
+    {
+        $ids = array_map('intval', $qb
+            ->select('p.id')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage)
             ->getQuery()
-            ->getResult();
+            ->getSingleColumnResult());
+
+        $porId = [];
+        // Em lotes: a exportação pede todas as pastas de uma vez, e o Postgres limita os parâmetros por consulta.
+        foreach (array_chunk($ids, 1000) as $lote) {
+            $pastas = $this->createQueryBuilder('p')
+                ->select('p', 'cp')
+                ->leftJoin('p.clientePrincipal', 'cp')
+                ->where('p.tenant = :tenant')
+                ->andWhere('p.id IN (:ids)')
+                ->setParameter('tenant', $tenant)
+                ->setParameter('ids', $lote)
+                ->getQuery()
+                ->getResult();
+            foreach ($pastas as $pasta) {
+                $porId[(int) $pasta->getId()] = $pasta;
+            }
+        }
+
+        $ordenadas = [];
+        foreach ($ids as $id) {
+            if (isset($porId[$id])) {
+                $ordenadas[] = $porId[$id];
+            }
+        }
+
+        return $ordenadas;
     }
 
     /**
@@ -511,11 +556,7 @@ class PastaRepository extends ServiceEntityRepository
         $qb = $this->buildQbPorMarcador([], $marcador, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
-        return $qb
-            ->setFirstResult(($page - 1) * $perPage)
-            ->setMaxResults($perPage)
-            ->getQuery()
-            ->getResult();
+        return $this->paginarComClientePrincipal($qb, $tenant, $page, $perPage);
     }
 
     public function countPorMarcador(Marcador $marcador, Tenant $tenant, ?User $quemBusca = null): int
@@ -544,11 +585,7 @@ class PastaRepository extends ServiceEntityRepository
         $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
-        return $qb
-            ->setFirstResult(($page - 1) * $perPage)
-            ->setMaxResults($perPage)
-            ->getQuery()
-            ->getResult();
+        return $this->paginarComClientePrincipal($qb, $tenant, $page, $perPage);
     }
 
     /**

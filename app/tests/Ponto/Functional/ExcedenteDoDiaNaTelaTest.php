@@ -126,9 +126,9 @@ final class ExcedenteDoDiaNaTelaTest extends JusPrimeWebTestCase
         $dir = static::getContainer()->getParameter('kernel.project_dir');
         $tela = (string) file_get_contents($dir . '/templates/ponto/index.html.twig');
 
-        self::assertStringContainsString('const excedente = segundosComoNaFolha(agora) - metaDiaMinutos * 60;', $tela);
-        // Revisão: segue a folha, não o relógio. Retorno sem repouso não dobra; sem intervalo válido, span inteiro.
-        self::assertStringContainsString('if (tRepouso && tRetorno && tRetorno > tRepouso)', $tela);
+        self::assertStringContainsString('const excedente = calcSegundosTrabalhados(agora) - metaDiaMinutos * 60;', $tela);
+        // O relógio e o contador usam a mesma conta, a da folha (RelogioContaComoAFolhaTest).
+        self::assertStringContainsString('if (intervaloValido) {', $tela);
         self::assertStringContainsString('if (!excedenteEl || !excedenteValorEl) return;', $tela);
         self::assertStringContainsString('if (metaDiaMinutos > 0 && excedente >= 60)', $tela);
         self::assertStringContainsString("'+' + formatarHorasMinutos(excedente)", $tela);

@@ -16,6 +16,7 @@ use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
+use App\Tarefa\Repository\CaixaDaEsteiraRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\DesfazerReaberturaRecusadoException;
 use App\Tarefa\Exception\MetaComDespachoSemConfirmacaoException;
@@ -85,9 +86,11 @@ final class TarefaController extends AbstractController
      *
      * A aba e os filtros vêm da query string porque precisam ser linkáveis — os KPIs do topo são
      * atalhos que apontam para uma aba já filtrada, e o usuário precisa poder guardar o link.
+     *
+     * As caixas que o escritório mudou são lidas uma vez só, para a lista (nome da etapa no cartão) e para a esteira.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
-    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, MontarEsteiraDaPastaUseCase $esteira, AcessoAPasta $acessoAPasta, PastasSoAcompanhadasSemVer $soAcompanhadasSemVer, PastasVisiveisNaEsteira $pastasVisiveisNaEsteira): Response
+    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, MontarEsteiraDaPastaUseCase $esteira, AcessoAPasta $acessoAPasta, PastasSoAcompanhadasSemVer $soAcompanhadasSemVer, PastasVisiveisNaEsteira $pastasVisiveisNaEsteira, CaixaDaEsteiraRepository $caixasDaEsteira): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -99,8 +102,8 @@ final class TarefaController extends AbstractController
         $ocultas     = $acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId());
         // A esteira (lista da etapa e contagens) aplica também o "ver a pasta" da lista normal e do AcessoAMeta.
         $visiveis    = $pastasVisiveisNaEsteira->ids($usuario, $tenant);
-
-        $dados = [
+        $caixas      = $caixasDaEsteira->configuradasDoEscritorio($tenant);
+        $dados       = [
             'painel'  => $useCase->executar(
                 $usuario,
                 $aba,
@@ -113,6 +116,7 @@ final class TarefaController extends AbstractController
                 // Auditoria 3.12: só acompanhar não mostra a meta de pasta que o usuário não pode ver.
                 $soAcompanhadasSemVer->ids($usuario, $tenant),
                 $visiveis,
+                $caixas,
             ),
             'filtros' => $filtros,
         ];
@@ -122,7 +126,7 @@ final class TarefaController extends AbstractController
         }
 
         // A esteira é GERAL DO ESCRITÓRIO (desenho 04 de 22/10) e fica fora do fragmento que o filtro recarrega.
-        $dados['esteira'] = $esteira->executar($usuario, $tenant, new \DateTimeImmutable('today'), $ocultas, $visiveis);
+        $dados['esteira'] = $esteira->executar($usuario, $tenant, new \DateTimeImmutable('today'), $ocultas, $visiveis, $caixas);
 
         return $this->render('tarefa/minhas.html.twig', $dados);
     }
