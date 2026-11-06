@@ -62,7 +62,7 @@
        "Alertar" do ⋮ do prazo e o sino das Metas, que o servidor só aceita com edit. #}
     {% set podeEditarPasta = can_access_resource('pasta', pasta.id, 'edit') %}
     {# Cadeado (spec pasta-cadeado): o estado para quem olha, montado uma vez e lido pelo cabeçalho, pela faixa e pelo modal. #}
-    {% set cad = cadeado_da_pasta(pasta) %}
+    {% set cad = cad ?? cadeado_da_pasta(pasta) %}
 
     {# Abas ocultas (spec pasta-ocultar-aba §5): a aba que está oculta para quem vê não tem painel
        renderizado, e a primeira visível nasce ativa. `#push` na URL com o Push oculto não acha gatilho

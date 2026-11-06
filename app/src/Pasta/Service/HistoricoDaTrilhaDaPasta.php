@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Service;
 
+use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
@@ -18,7 +19,8 @@ use App\Pasta\Repository\PastaRepository;
 final class HistoricoDaTrilhaDaPasta
 {
     public const LIMITE = 8;
-    private const PUBLICACOES_LIDAS = 50;
+    /** O mesmo limite do andamento: a tela da pasta passa as publicações que o andamento já leu. */
+    private const PUBLICACOES_LIDAS = AndamentoDaPasta::PUBLICACOES_RECENTES;
     private const PUSH_QUE_ENTRA = '/decis|senten|despach|intima/u';
 
     public function __construct(
@@ -28,11 +30,13 @@ final class HistoricoDaTrilhaDaPasta
     }
 
     /**
-     * @param list<string> $abasOcultas abas que o usuário não vê: a ocorrência cuja aba some também não aparece
+     * @param list<string>                       $abasOcultas abas que o usuário não vê: a ocorrência cuja aba some também não aparece
+     * @param list<PublicacaoDjenListaItem>|null $publicacoes as publicações recentes já lidas pela tela
+     *                                                        ({@see AndamentoDaPasta::publicacoesRecentes()}); sem elas, lê aqui
      *
      * @return list<array{aba: string, icone: string, tom: string, data: string, chave: string, tipo: string, detalhe: string}>
      */
-    public function montar(Pasta $pasta, Tenant $tenant, array $abasOcultas = []): array
+    public function montar(Pasta $pasta, Tenant $tenant, array $abasOcultas = [], ?array $publicacoes = null): array
     {
         $itens = [];
         if (!in_array('tarefas', $abasOcultas, true)) {
@@ -41,7 +45,7 @@ final class HistoricoDaTrilhaDaPasta
             }
         }
         if (!in_array('push', $abasOcultas, true)) {
-            $itens = array_merge($itens, $this->doPush($pasta, $tenant));
+            $itens = array_merge($itens, $this->doPush($pasta, $tenant, $publicacoes));
         }
 
         usort($itens, static fn (array $a, array $b): int => $b['_quando'] <=> $a['_quando']);
@@ -66,16 +70,15 @@ final class HistoricoDaTrilhaDaPasta
         ];
     }
 
-    /** @return list<array<string, mixed>> */
-    private function doPush(Pasta $pasta, Tenant $tenant): array
+    /**
+     * @param list<PublicacaoDjenListaItem>|null $publicacoes
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function doPush(Pasta $pasta, Tenant $tenant, ?array $publicacoes): array
     {
-        $numeros = $this->pastas->numerosDosProcessosVinculados($pasta, $tenant);
-        if ($numeros === []) {
-            return [];
-        }
-
         $itens = [];
-        foreach ($this->publicacoes->listarItensPorNumerosDoTenant($tenant, $numeros, self::PUBLICACOES_LIDAS) as $pub) {
+        foreach ($publicacoes ?? $this->lerPublicacoes($pasta, $tenant) as $pub) {
             $tipo = trim(($pub->tipoComunicacao ?? '') . ' ' . ($pub->tipoDocumento ?? ''));
             if ($pub->dataIso === null || preg_match(self::PUSH_QUE_ENTRA, mb_strtolower($tipo)) !== 1) {
                 continue;
@@ -90,5 +93,13 @@ final class HistoricoDaTrilhaDaPasta
         }
 
         return $itens;
+    }
+
+    /** @return list<PublicacaoDjenListaItem> */
+    private function lerPublicacoes(Pasta $pasta, Tenant $tenant): array
+    {
+        $numeros = $this->pastas->numerosDosProcessosVinculados($pasta, $tenant);
+
+        return $numeros === [] ? [] : $this->publicacoes->listarItensPorNumerosDoTenant($tenant, $numeros, self::PUBLICACOES_LIDAS);
     }
 }

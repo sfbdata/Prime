@@ -1258,6 +1258,45 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Carrega de uma vez, no EntityManager, os responsáveis (com o perfil) e as respostas de todas as metas da pasta:
+     * a tela da pasta lê `getResponsaveis()` e `getMensagens()` de cada meta (relatório, prazos, "pode excluir"), e
+     * cada leitura era uma consulta por meta. São duas consultas, uma por coleção, para não multiplicar as linhas.
+     * Nada muda no que a tela mostra: as coleções são as mesmas, só chegam já carregadas. Sem paginação (é a pasta
+     * inteira), presa ao escritório como a coleção `Pasta::$tarefas`.
+     */
+    public function carregarResponsaveisEDespachosDaPasta(Pasta $pasta, Tenant $tenant): void
+    {
+        $this->createQueryBuilder('t')
+            ->select('t', 'criador', 'perfilDoCriador', 'r', 'perfil')
+            ->leftJoin('t.criadoPor', 'criador')
+            ->leftJoin('criador.profile', 'perfilDoCriador')
+            ->leftJoin('t.responsaveis', 'r')
+            ->leftJoin('r.profile', 'perfil')
+            ->andWhere('t.pasta = :pasta')
+            ->andWhere('t.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            // Responsáveis na ordem do id do usuário: a leitura preguiçosa de antes percorria o índice da chave de
+            // `tarefa_responsaveis` (tarefa_id, user_id). A tela junta os nomes e "Próximos prazos" usa o primeiro.
+            ->addOrderBy('t.id', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $this->createQueryBuilder('t')
+            ->select('t', 'm')
+            ->leftJoin('t.mensagens', 'm')
+            ->andWhere('t.pasta = :pasta')
+            ->andWhere('t.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->addOrderBy('m.criadoEm', 'ASC')
+            ->addOrderBy('m.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Carrega de uma vez, no EntityManager, os responsáveis das metas da aba Tarefas do processo. Antes cada meta
      * disparava a leitura dos responsáveis na hora de montar a lista.
      *

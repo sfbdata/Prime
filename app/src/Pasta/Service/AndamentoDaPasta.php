@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Service;
 
+use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Entity\Auth\User;
@@ -50,6 +51,7 @@ final class AndamentoDaPasta
     private const IDX_CONTRATO = 2;
     private const CONTRATO_ASSINADO = 'REGULAR';
     private const CONTRATO_PENDENTE = 'PENDENTE';
+    public const PUBLICACOES_RECENTES = 50;
 
     public function __construct(
         private readonly PastaAndamentoRepository $repository,
@@ -242,11 +244,17 @@ final class AndamentoDaPasta
      * regular. No Push vale também o TIPO DO DOCUMENTO da publicação: a comunicação costuma vir como "Intimação" e
      * quem diz "Sentença" ou "Decisão" é o documento.
      *
+     * A tela da pasta já leu o estado e as publicações recentes ({@see publicacoesRecentes()}) e os entrega aqui, para
+     * não repetir as consultas; sem eles, lê de novo.
+     *
+     * @param array{via: string, fases: list<array{0: string, 1: string}>, atual: int}|null $estado
+     * @param list<PublicacaoDjenListaItem>|null                                         $publicacoes
+     *
      * @return list<array{nome: string, indice: int, motivo: string, icone: string}>
      */
-    public function sugestoes(Pasta $pasta, Tenant $tenant): array
+    public function sugestoes(Pasta $pasta, Tenant $tenant, ?array $estado = null, ?array $publicacoes = null): array
     {
-        $e = $this->estado($pasta, $tenant);
+        $e = $estado ?? $this->estado($pasta, $tenant);
         $out = [];
         $add = function (string $nome, string $motivo, string $icone) use ($e, &$out): void {
             foreach ($e['fases'] as $i => $f) {
@@ -260,8 +268,7 @@ final class AndamentoDaPasta
             }
         };
 
-        $numeros = $this->pastaRepository->numerosDosProcessosVinculados($pasta, $tenant);
-        foreach ($this->publicacoes->listarItensPorNumerosDoTenant($tenant, $numeros, 50) as $pub) {
+        foreach ($publicacoes ?? $this->publicacoesRecentes($pasta, $tenant) as $pub) {
             $t = mb_strtolower(($pub->tipoComunicacao ?? '') . ' ' . ($pub->tipoDocumento ?? '') . ' ' . ($pub->textoResumo ?? ''));
             $tipo = mb_strtolower(($pub->tipoComunicacao ?? '') . ' ' . ($pub->tipoDocumento ?? ''));
             $dia = $pub->dataDisponibilizacao ?? '';
@@ -291,6 +298,21 @@ final class AndamentoDaPasta
         usort($lista, static fn (array $a, array $b): int => $a['indice'] <=> $b['indice']);
 
         return $lista;
+    }
+
+    /**
+     * As 50 publicações mais recentes do Push dos processos vinculados à pasta, as que as sugestões e a faixa histórico
+     * da trilha ({@see HistoricoDaTrilhaDaPasta}) leem: a tela da pasta as lê uma vez e entrega às duas.
+     *
+     * @return list<PublicacaoDjenListaItem>
+     */
+    public function publicacoesRecentes(Pasta $pasta, Tenant $tenant): array
+    {
+        return $this->publicacoes->listarItensPorNumerosDoTenant(
+            $tenant,
+            $this->pastaRepository->numerosDosProcessosVinculados($pasta, $tenant),
+            self::PUBLICACOES_RECENTES,
+        );
     }
 
     /** @param array{via: string, fases: list<array{0: string, 1: string}>, atual: int, em: array<int, string>, pul: list<int>, extra: list<array{0: string, 1: string}>} $e */
