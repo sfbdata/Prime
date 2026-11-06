@@ -47,6 +47,11 @@
     // desiste sozinho quando o sistema operacional decide, o que pode não acontecer nunca.
     const ENVIO_PRAZO_MS = 15000;
 
+    // Teto da busca da tela do ponto depois de uma batida com sucesso. Mesmo motivo do prazo do
+    // envio: sem ele, uma conexão pendurada deixaria o botão travado para sempre esperando a tela
+    // atualizar. Estourou: quem chama trata como falha e cai no plano B (recarregar).
+    const TELA_PRAZO_MS = 15000;
+
     function distanciaEmMetros(lat1, lon1, lat2, lon2) {
         const raioTerra = 6371000;
         const rad = (g) => g * Math.PI / 180;
@@ -273,13 +278,69 @@
         }
     }
 
+    /**
+     * Busca o HTML atual da tela do ponto (mesma URL, `GET`, sem cache) e devolve o documento
+     * lido, para quem chama trocar só as regiões que mudaram com a batida, sem recarregar a página.
+     * Recarregar zerava a liberação de áudio do navegador e o toque seguinte do alerta do ponto
+     * ficava mudo (`docs/specs/ponto-atualiza-sem-recarregar.md`).
+     *
+     * Rejeita quando a resposta não é 200, veio de redirecionamento (sessão caiu, troca de
+     * escritório) ou estourou `TELA_PRAZO_MS`. Não toca na tela.
+     */
+    async function buscarTelaDoPonto(url) {
+        const aborto = new AbortController();
+        const prazo  = setTimeout(() => aborto.abort(), TELA_PRAZO_MS);
+        try {
+            const resposta = await fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: { 'Accept': 'text/html' },
+                signal: aborto.signal,
+            });
+            if (!resposta.ok || resposta.redirected) {
+                throw new Error('Tela do ponto respondeu ' + resposta.status
+                    + (resposta.redirected ? ' (redirecionada)' : ''));
+            }
+            const html = await resposta.text();
+            return new DOMParser().parseFromString(html, 'text/html');
+        } finally {
+            clearTimeout(prazo);
+        }
+    }
+
+    /**
+     * Pede a permissão de notificação do sistema (a "janelinha" do alerta do ponto, que aparece
+     * mesmo com o navegador minimizado), só se a pessoa ainda não respondeu (`default`).
+     *
+     * Precisa ser chamada DENTRO do clique da pessoa, antes de qualquer `await`: pedida sem gesto
+     * (como o aviso fazia ao abrir sozinho), o Chrome esconde o pedido e a notificação nunca sai.
+     * Não espera a resposta e nunca lança: a batida segue igual, com ou sem permissão.
+     */
+    function pedirPermissaoDeNotificacao() {
+        try {
+            if (!('Notification' in window) || Notification.permission !== 'default') {
+                return;
+            }
+            const pedido = Notification.requestPermission();
+            if (pedido && typeof pedido.catch === 'function') {
+                pedido.catch(() => {});
+            }
+        } catch (erro) {
+            // Navegador sem a API ou que recusa o pedido: fica só o aviso dentro da página.
+        }
+    }
+
     window.PontoBatida = Object.freeze({
         GPS_PRAZO_ATUALIZACAO_MS,
         LIMITE_ATRASO_ENVIO_MS,
         ENVIO_PRAZO_MS,
+        TELA_PRAZO_MS,
         distanciaEmMetros,
         avaliarPosicao,
         lerPosicaoComPrazo,
         enviarBatida,
+        buscarTelaDoPonto,
+        pedirPermissaoDeNotificacao,
     });
 })();

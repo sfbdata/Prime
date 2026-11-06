@@ -257,17 +257,27 @@ test.describe('A batida não se perde e a falha nunca passa calada', () => {
         await contexto.close();
     });
 
-    test('sucesso mostra a confirmação e mantém o botão travado até recarregar', async ({ browser }) => {
+    test('sucesso atualiza a tela sem recarregar e devolve o botão com a próxima sugestão', async ({ browser }) => {
         const { contexto, pagina } = await abrirPonto(browser, { ...SEDE, accuracy: 10 });
+
+        // Marca na página: some se ela recarregar. Recarregar zerava a liberação de áudio e o
+        // toque da volta do intervalo não tocava (spec ponto-atualiza-sem-recarregar).
+        // A batida é do mock (nada grava), então a releitura traz o MESMO estado do servidor: o teste prova a troca
+        // (o nó da lista é novo) e a página que ficou, não a batida nova. O conteúdo do HTML depois da batida é do
+        // TelaDoPontoAtualizaSemRecarregarTest (PHPUnit).
+        await pagina.evaluate(() => {
+            window.__semRecarga = true;
+            document.getElementById('batidas-de-hoje').__listaAntiga = true;
+        });
 
         await pagina.selectOption('#tipo-registro', 'entrada');
         await pagina.click('#btn-bater-ponto');
 
         await expect(pagina.locator('#batida-aviso')).toContainText('sucesso', { timeout: 20000 });
-        // Trocar o tipo durante o 1,5 s até o recarregamento não pode reabilitar o botão: era o
-        // caminho de batida duplicada que a revisão achou.
-        await pagina.selectOption('#tipo-registro', 'saida');
-        await expect(pagina.locator('#btn-bater-ponto')).toBeDisabled();
+        await expect(pagina.locator('#btn-bater-ponto')).toBeEnabled({ timeout: 20000 });
+        expect(await pagina.evaluate(() => document.getElementById('batidas-de-hoje').__listaAntiga === undefined))
+            .toBe(true);
+        expect(await pagina.evaluate(() => window.__semRecarga === true)).toBe(true);
 
         await contexto.close();
     });

@@ -27,6 +27,8 @@
             <div class="card card-primary card-outline">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <h3 class="card-title mb-0">Registrar Ponto</h3>
+                    {# Wrapper sempre presente: depois da batida a tela troca este bloco pelo do servidor (sem recarregar). #}
+                    <div id="ponto-banco-horas" class="ms-auto">
                     {% if saldoMes is not null %}
                         {% set absAcum = saldoMes < 0 ? -saldoMes : saldoMes %}
                         <div class="text-end ms-auto">
@@ -36,11 +38,14 @@
                             </span>
                         </div>
                     {% endif %}
+                    </div>
                 </div>
                 <div class="card-body text-center">
                     <div id="clock-label" class="text-muted small mb-1"></div>
                     <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
-                        <div id="clock" class="h1 mb-0" title="Tempo trabalhado hoje">00:00:00</div>
+                        <div id="clock" class="h1 mb-0" title="Tempo trabalhado hoje"
+                             data-dia="{{ dataHoje|e('html_attr') }}"
+                             data-ponto-do-dia="{{ pontoHoje|default({})|json_encode|e('html_attr') }}">00:00:00</div>
                     </div>
 
                     {# Horas excedentes do dia: verde do desenho do Expediente ("Em jornada desde"). Aparece só
@@ -161,7 +166,9 @@
                 </div>
             </div>
 
-            {% include 'ponto/_pendencias.html.twig' with {pendencias: pendencias} only %}
+            <div id="ponto-regiao-pendencias">
+                {% include 'ponto/_pendencias.html.twig' with {pendencias: pendencias} only %}
+            </div>
 
             {% if jornadaInfo is not null %}
                 {% set horas = jornadaInfo.cargaHorariaSemanal // 60 %}
@@ -182,6 +189,8 @@
         </div>
 
         <div class="col-md-8">
+            {# Depois da batida a tela troca o card da folha (o primeiro filho) pelo do servidor, sem recarregar. #}
+            <div id="ponto-regiao-folha">
             {% include 'ponto/_folha_table.html.twig' with {
                 titulo: 'Folha de Ponto - ' ~ ('%02d'|format(mesAtual)) ~ '/' ~ anoAtual,
                 folhaRows: folhaRows,
@@ -199,6 +208,7 @@
                 horasPagasMinutos: horasPagasMinutos,
                 saldoMesMinutos: saldoMesMinutos
             } only %}
+            </div>
 
             {% include 'ponto/_justificativas_list.html.twig' with {justificativas: justificativas} only %}
         </div>
@@ -306,10 +316,13 @@
     // pior de notar. Fechar isso exige o servidor mandar o próprio deslocamento; não está feito.
     const [anoHoje, mesHoje, diaHoje] = JSON.parse('{{ dataHoje|json_encode|e('js') }}').split('-').map(Number);
 
+    // Troca o estado do dia que o relógio usa (entrada, repouso, retorno, saída) e redesenha relógio, previsão de saída,
+    // contador do repouso e excedente. A tela chama depois da batida, com o `data-ponto-do-dia` que o servidor entregou
+    // (spec ponto-atualiza-sem-recarregar). Antes, o estado era `const` lido uma vez na carga.
+    let aplicarPontoDoDia = function () {};
+
     // Contador de tempo trabalhado no dia
     (function() {
-        const pontoHoje = {{ pontoHoje|default({})|json_encode|raw }};
-
         const clockEl = document.getElementById('clock');
         const labelEl = document.getElementById('clock-label');
 
@@ -319,21 +332,37 @@
             return new Date(anoHoje, mesHoje - 1, diaHoje, hora, minuto, segundo || 0);
         }
 
-        const tEntrada = parseHMS(pontoHoje.entrada);
-        const tRepouso = parseHMS(pontoHoje.repouso);
-        const tRetorno = parseHMS(pontoHoje.retorno);
-        const tSaida   = parseHMS(pontoHoje.saida);
+        let tEntrada = null;
+        let tRepouso = null;
+        let tRetorno = null;
+        let tSaida   = null;
 
-        (function() {
-            const duracaoMinutos = {{ duracaoJornadaDiariaMinutos is not null ? duracaoJornadaDiariaMinutos : 'null' }};
-            if (!tEntrada || tSaida || duracaoMinutos === null) return;
+        const duracaoMinutos = {{ duracaoJornadaDiariaMinutos is not null ? duracaoJornadaDiariaMinutos : 'null' }};
+        const previsaoSaidaEl = document.getElementById('previsao-saida');
+
+        // Mesma regra do servidor na carga: só com entrada, sem saída e com jornada definida. Fora disso, escondida.
+        function atualizarPrevisaoSaida() {
+            if (!tEntrada || tSaida || duracaoMinutos === null) {
+                previsaoSaidaEl.classList.add('d-none');
+                return;
+            }
 
             const saidaPrevista = new Date(tEntrada.getTime() + duracaoMinutos * 60 * 1000);
             const hh = String(saidaPrevista.getHours()).padStart(2, '0');
             const mm = String(saidaPrevista.getMinutes()).padStart(2, '0');
             document.getElementById('previsao-saida-horario').textContent = `${hh}:${mm}`;
-            document.getElementById('previsao-saida').classList.remove('d-none');
-        })();
+            previsaoSaidaEl.classList.remove('d-none');
+        }
+
+        function definirPontoDoDia(pontoHoje) {
+            tEntrada = parseHMS(pontoHoje.entrada);
+            tRepouso = parseHMS(pontoHoje.repouso);
+            tRetorno = parseHMS(pontoHoje.retorno);
+            tSaida   = parseHMS(pontoHoje.saida);
+            atualizarPrevisaoSaida();
+        }
+
+        definirPontoDoDia(JSON.parse(clockEl.dataset.pontoDoDia || '{}'));
 
         // Tempo trabalhado do dia, com a mesma conta da folha (`CalculadoraJornada::calcularMinutosDaEscolha`):
         // com intervalo válido (retorno depois do repouso), os dois trechos; sem ele, o span da entrada até a
@@ -453,6 +482,11 @@
 
         setInterval(updateClock, 1000);
         updateClock();
+
+        aplicarPontoDoDia = function (pontoHoje) {
+            definirPontoDoDia(pontoHoje);
+            updateClock();
+        };
     })();
 
     const btnPonto = document.getElementById('btn-bater-ponto');
@@ -1027,11 +1061,65 @@
     });
 
     // Botão de Bater Ponto
+    // Depois da batida, a tela se atualiza SEM recarregar (spec ponto-atualiza-sem-recarregar): recarregar zerava a
+    // liberação de áudio do navegador, e o toque seguinte do alerta (retorno, saída) ficava esperando um clique que
+    // não vem com a pessoa longe do computador. A tela busca o próprio HTML e troca só o que a batida muda; os
+    // números são os do servidor, os mesmos que a recarga mostraria. Tudo ou nada: falta uma região, o dia mudou ou
+    // a resposta não é a tela, nada é trocado e quem chamou decide o plano B (recarregar, como antes).
+    const REGIOES_TROCADAS = ['batidas-de-hoje', 'ponto-banco-horas', 'ponto-regiao-pendencias'];
+
+    async function atualizarTelaDoPonto() {
+        // A busca mora no módulo, com prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest).
+        const novo = await window.PontoBatida.buscarTelaDoPonto(window.location.href);
+
+        const relogioNovo = novo.getElementById('clock');
+        const relogio = document.getElementById('clock');
+        if (!relogioNovo || relogioNovo.dataset.dia !== relogio.dataset.dia) {
+            throw new Error('O dia da tela mudou: recarregar.');
+        }
+        const trocas = REGIOES_TROCADAS.map((id) => [document.getElementById(id), novo.getElementById(id)]);
+        // Da folha, só o card: o modal de pré-visualização e o script dele ficam como estão, com os listeners.
+        const folha = document.querySelector('#ponto-regiao-folha > .card');
+        const folhaNova = novo.querySelector('#ponto-regiao-folha > .card');
+        trocas.push([folha, folhaNova]);
+        const tipoNovo = novo.getElementById('tipo-registro');
+        if (!tipoNovo || trocas.some(([atual, nova]) => !atual || !nova)) {
+            throw new Error('A tela do ponto veio sem uma das regiões: recarregar.');
+        }
+
+        // Lido antes da primeira troca: um JSON que não lê lança aqui, com a tela ainda intacta (tudo ou nada).
+        const pontoDoDiaNovo = relogioNovo.dataset.pontoDoDia || '{}';
+        const pontoDoDia = JSON.parse(pontoDoDiaNovo);
+
+        trocas.forEach(([atual, nova]) => atual.replaceWith(document.importNode(nova, true)));
+        relogio.dataset.pontoDoDia = pontoDoDiaNovo;
+        aplicarPontoDoDia(pontoDoDia);
+        tipoRegistro.value = tipoNovo.value;
+    }
+
+    // `recarregarSeFalhar`: o caminho sem avisos recarrega como antes; com avisos, não (dá tempo de ler), e o botão
+    // fica travado com o "Atualizar" oferecido, como antes.
+    async function atualizarDepoisDaBatida(recarregarSeFalhar) {
+        try {
+            await atualizarTelaDoPonto();
+        } catch (erro) {
+            console.error('Falha ao atualizar a tela depois da batida:', erro);
+            if (recarregarSeFalhar) {
+                setTimeout(() => window.location.reload(), 1500);
+            }
+            return;
+        }
+        liberarBotaoBatida();
+    }
+
     btnPonto.addEventListener('click', async function() {
         if (!window.PontoBatida) {
             mostrarAvisoBatida(AVISO_PAGINA_INCOMPLETA, 'danger', true);
             return;
         }
+        // Ainda no gesto, antes de qualquer `await`: a janelinha do alerta do ponto (navegador minimizado) precisa da
+        // permissão, e o Chrome esconde o pedido feito sem clique.
+        window.PontoBatida.pedirPermissaoDeNotificacao();
         if (!tipoRegistro.value) {
             mostrarAvisoBatida('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).', 'warning');
             return;
@@ -1097,8 +1185,8 @@
         }
 
         // `sucesso` existe por causa do `finally`: no caminho bom o botão fica desabilitado de
-        // propósito até a página recarregar, senão ele volta a clicável por 1,5 s e aceita uma
-        // segunda batida do mesmo tipo.
+        // propósito até a tela se atualizar (`atualizarDepoisDaBatida`), senão ele volta a clicável
+        // antes da sugestão nova e aceita uma segunda batida do mesmo tipo.
         let sucesso = false;
 
         try {
@@ -1119,8 +1207,10 @@
                     mostrarSucessoComAvisos(resultado.mensagem, avisos);
                 } else {
                     mostrarAvisoBatida(resultado.mensagem, 'success');
-                    setTimeout(() => window.location.reload(), 1500);
                 }
+                // Sem `await`: um erro da atualização não pode cair no `catch` abaixo, que diria "sem confirmação"
+                // de uma batida que o servidor confirmou.
+                atualizarDepoisDaBatida(avisos.length === 0);
             } else if (resultado.tipo === 'recusa') {
                 mostrarAvisoBatida(resultado.mensagem, 'danger');
             } else if (resultado.tipo === 'nao_entrou') {

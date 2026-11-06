@@ -113,7 +113,10 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString("mostrarAvisoBatida(texto, 'warning', true);", $tela, 'aviso, não erro (danger), com o botão de atualizar');
         self::assertStringContainsString("aviso.link.startsWith('/') && !aviso.link.startsWith('//')", $tela, 'só link interno');
         self::assertStringContainsString('link.textContent = String(aviso.rotulo);', $tela, 'DOM só com textContent');
-        $sucesso = substr($tela, (int) strpos($tela, "} else if (resultado.tipo === 'sucesso') {"), 600);
-        self::assertMatchesRegularExpression('/if \(avisos\.length > 0\) \{\s+mostrarSucessoComAvisos\(resultado\.mensagem, avisos\);\s+\} else \{\s+mostrarAvisoBatida\(resultado\.mensagem, \'success\'\);\s+setTimeout/', $sucesso, 'o recarregamento automático só sem aviso');
+        $sucesso = substr($tela, (int) strpos($tela, "} else if (resultado.tipo === 'sucesso') {"), 900);
+        self::assertMatchesRegularExpression('/if \(avisos\.length > 0\) \{\s+mostrarSucessoComAvisos\(resultado\.mensagem, avisos\);\s+\} else \{\s+mostrarAvisoBatida\(resultado\.mensagem, \'success\'\);\s+\}/', $sucesso);
+        // A tela se atualiza sem recarregar (spec ponto-atualiza-sem-recarregar); se a atualização falhar, o plano B
+        // (recarregar sozinho) é só do caminho sem aviso.
+        self::assertStringContainsString('atualizarDepoisDaBatida(avisos.length === 0);', $sucesso, 'o recarregamento de plano B só sem aviso');
     }
 }
