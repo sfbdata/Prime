@@ -11,6 +11,8 @@ use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\DTO\CadeadoNaTelaOutput;
+use App\Tarefa\Repository\TarefaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
@@ -344,20 +346,24 @@ class PastaController extends AbstractController
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         MontarPainelDoPushUseCase $montarPainelDoPush,
         ColaboradoresAtribuiveis $atribuiveis,
-        TribunalCnjResolver $tribunalCnjResolver, HistoricoDaTrilhaDaPasta $historicoDaTrilha,
+        TribunalCnjResolver $tribunalCnjResolver, HistoricoDaTrilhaDaPasta $historicoDaTrilha, TarefaRepository $tarefas,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->telaDaPastaTrancada($pasta, $currentUser) ?? $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        $cadeado = $this->cadeadoNaTela($pasta, $currentUser); // montado uma vez: a tela trancada e o cabeçalho leem o mesmo
+        if ($redirect = $this->telaDaPastaTrancada($pasta, $currentUser, $cadeado) ?? $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
         $tenant    = $this->tenantContext->getCurrentTenant();
         $tenantId  = $tenant?->getId() ?? 0;
         $processoId = $pasta->getProcessoPrincipal()?->getId();
+        if ($tenant !== null) {
+            $tarefas->carregarResponsaveisEDespachosDaPasta($pasta, $tenant); // as metas leem responsáveis e despachos em lote
+        }
 
         $abasDaPasta     = $visibilidadeDasAbas->estadoParaTela($pasta, $currentUser); // abas ocultas (spec pasta-ocultar-aba §5)
         $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId, abasOcultas: $abasDaPasta->ocultas);
@@ -504,12 +510,7 @@ class PastaController extends AbstractController
             'anotacoes'                   => $anotacoes,
             'eventosHistorico'            => $eventosHistorico,
             'proximosPrazos'              => $proximosPrazos,
-            // Andamento da pasta em fases (desenho 1.2.3, E12b): a trilha sob o nome.
-            'andamento'                   => $tenant !== null ? AndamentoDaPastaOutput::de(
-                $this->andamentoDaPasta->estado($pasta, $tenant), $pasta->getMensagens(),
-                $this->andamentoDaPasta->sugestoes($pasta, $tenant), $this->andamentoDaPasta->rotulos($pasta, $tenant),
-            ) : null,
-            'historicoDaTrilha'           => $tenant !== null ? $historicoDaTrilha->montar($pasta, $tenant, $abasDaPasta->ocultas) : [],
+            ...$this->andamentoEHistorico($pasta, $tenant, $historicoDaTrilha, $abasDaPasta->ocultas),
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
             'fotosResponsaveis'           => $fotosResponsaveis,
@@ -538,6 +539,7 @@ class PastaController extends AbstractController
                 $cobrancasDoChecklist->cobradosPendentes($pasta)),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             'abasDaPasta'                 => $abasDaPasta,
+            'cad'                         => $cadeado,
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho
             // simplesmente não desenha o campo.
@@ -2839,18 +2841,56 @@ class PastaController extends AbstractController
      * a pasta de outro escritório e a pasta sem cadeado seguem o caminho de sempre (o
      * `denyResourceAccessUnlessGranted`, com o redirect, e o 404).
      */
-    private function telaDaPastaTrancada(Pasta $pasta, \App\Entity\Auth\User $pessoa): ?Response
+    private function telaDaPastaTrancada(Pasta $pasta, \App\Entity\Auth\User $pessoa, ?CadeadoNaTelaOutput $cadeado): ?Response
     {
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+        if ($cadeado === null) {
             return null;
         }
-
-        $cadeado = $this->telaDoCadeado->montar($pasta, $pessoa, $tenant);
 
         return $this->telaDoCadeado->mostraATelaTrancada($pasta, $pessoa, $cadeado)
             ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado])
             : null;
+    }
+
+    /**
+     * O cadeado da pasta para quem olha, montado UMA vez por página: decide a tela trancada e vai ao template como
+     * `cad` (o cabeçalho, a faixa e o modal o leem), em vez de o `cadeado_da_pasta()` montar de novo. Null para a
+     * pasta de outro escritório (segue para o 404 de sempre), como no `cadeado_da_pasta()`.
+     */
+    private function cadeadoNaTela(Pasta $pasta, \App\Entity\Auth\User $pessoa): ?CadeadoNaTelaOutput
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || $pasta->getTenant() !== $tenant || $pasta->getId() === null) {
+            return null;
+        }
+
+        return $this->telaDoCadeado->montar($pasta, $pessoa, $tenant);
+    }
+
+    /**
+     * Andamento da pasta em fases (desenho 1.2.3, E12b), a trilha sob o nome, e a faixa histórico dela. O estado do
+     * andamento e as publicações recentes do Push são lidos uma vez e servem às sugestões e ao histórico.
+     *
+     * @param list<string> $abasOcultas
+     *
+     * @return array{andamento: ?AndamentoDaPastaOutput, historicoDaTrilha: list<array<string, string>>}
+     */
+    private function andamentoEHistorico(Pasta $pasta, ?Tenant $tenant, HistoricoDaTrilhaDaPasta $historicoDaTrilha, array $abasOcultas): array
+    {
+        if ($tenant === null) {
+            return ['andamento' => null, 'historicoDaTrilha' => []];
+        }
+
+        $estado      = $this->andamentoDaPasta->estado($pasta, $tenant);
+        $publicacoes = $this->andamentoDaPasta->publicacoesRecentes($pasta, $tenant);
+
+        return [
+            'andamento' => AndamentoDaPastaOutput::de(
+                $estado, $pasta->getMensagens(),
+                $this->andamentoDaPasta->sugestoes($pasta, $tenant, $estado, $publicacoes), $this->andamentoDaPasta->rotulos($pasta, $tenant),
+            ),
+            'historicoDaTrilha' => $historicoDaTrilha->montar($pasta, $tenant, $abasOcultas, $publicacoes),
+        ];
     }
 
     /**
