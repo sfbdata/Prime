@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Dashboard\UseCase;
 
 use App\Dashboard\DTO\DashboardOutput;
+use App\Dashboard\DTO\EquipeDoDashboardOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
 use App\Dashboard\DTO\MetaDePastasDoMesOutput;
 use App\Dashboard\Meta\MontarMetaDePastasDoMes;
@@ -94,6 +95,7 @@ final class ObterDadosDashboardUseCase
 
         $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant); // lista canônica: todos os ativos do tenant
         $mCargo        = $colaboradores === [] ? [] : $this->userRepository->findCargoPorColaboradores($tenant);
+        $equipeLida    = EquipeDoDashboardOutput::antesDosFiltros($colaboradores, $mCargo); // opções dos filtros no controller
         $todosIds      = array_map(static fn ($u): int => (int) $u->getId(), $colaboradores); // universo do troféu: antes de busca, responsável e cargo
 
         // 7 mapas userId => count (mapasDaTabela), já com o corte do "Zerar" (DASH-014) de quem tem.
@@ -113,15 +115,9 @@ final class ObterDadosDashboardUseCase
         // Período anterior de mesma duração (só com período completo): os MESMOS count* de Total e Criadas, com as datas trocadas.
         $periodoAnterior = $this->periodoAnterior($filtros, $referencia);
         $comAnterior     = $periodoAnterior !== null;
-        $mAntTarefa      = [];
-        $mAntPasta       = [];
-        $mAntCriadas     = [];
-        if ($comAnterior && $colaboradores !== []) {
-            $filtrosAnteriores = array_merge($filtros, $periodoAnterior);
-            $mAntTarefa        = $this->tarefaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
-            $mAntPasta         = $this->pastaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
-            $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores, $pastasOcultas);
-        }
+        [$mAntTarefa, $mAntPasta, $mAntCriadas] = $comAnterior && $colaboradores !== []
+            ? $this->contagensDoPeriodoAnterior($tenant, array_merge($filtros, $periodoAnterior), $pastasOcultas)
+            : [[], [], []];
 
         // Estoque anterior (vencidas, prazos, ativas, revisão, urgentes): não se reconstrói do passado, então vem
         // da foto diária de `data_de − 1`. Sem foto da pessoa (ou coluna NULL), sem tendência. Cadeado: a foto é
@@ -242,7 +238,25 @@ final class ObterDadosDashboardUseCase
             // O realizado da meta é o número do card (antes da busca), sem regra de contagem própria.
             totaisEstoque:              $estoqueHoje === [] ? null : $this->totaisDoEstoque($linhas, array_keys($estoqueHoje)),
             metaDePastas:               $this->metaDoMes($tenant, $referencia, $filtros, $totalPastasCriadas, $pastasOcultas),
+            equipe:                     $equipeLida->comFoto($colaboradores === [] ? null : $mFoto),
         );
+    }
+
+    /**
+     * Os MESMOS count* de Total, Demandas e Criadas, com as datas do período anterior.
+     *
+     * @param array<string, mixed> $filtrosAnteriores
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array{0: array<int, int>, 1: array<int, int>, 2: array<int, int>}
+     */
+    private function contagensDoPeriodoAnterior(Tenant $tenant, array $filtrosAnteriores, array $pastasOcultas): array
+    {
+        return [
+            $this->tarefaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas),
+            $this->pastaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas),
+            $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores, $pastasOcultas),
+        ];
     }
 
     /**

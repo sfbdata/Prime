@@ -81,5 +81,6 @@ final class DashboardOutput
         public readonly array  $zeramentos = [],
         /** @var array{atual: array<string, int>, anterior: array<string, int|null>}|null estoque com seta pela foto (ver a classe) */ public readonly ?array $totaisEstoque = null,
         public readonly ?MetaDePastasDoMesOutput $metaDePastas = null, // meta de pastas do mês (DASH-016)
+        public readonly ?EquipeDoDashboardOutput $equipe = null, // equipe já lida pelo UseCase (opções dos filtros; null = o controller consulta)
     ) {}
 }

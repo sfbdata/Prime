@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dashboard\Controller;
 
+use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\Inteligencia\MontarLeituraDoDashboard;
 use App\Dashboard\Periodo\PeriodoDoDashboard;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
@@ -90,29 +91,48 @@ final class DashboardController extends AbstractController
             );
         }
 
-        // Opções das facetas — só no render completo (a barra vive na casca). Passa arrays
-        // simples ao template (convenção: nunca entidade Doctrine crua na view).
-        // Os mapas de cargo e foto são do escritório atual (filtro por tenant no repositório):
-        // nada de outro escritório entra nas opções.
-        $mapaCargo = $this->userRepository->findCargoPorColaboradores($tenant);
-        $mapaFoto  = $this->userRepository->findFotoPorColaboradores($tenant);
-        // `foto` e `cargo` alimentam só o select próprio do desenho (avatar + cargo abaixo do
-        // nome); o <select> nativo do parcial continua lendo `id`/`nome`.
-        $responsaveis = array_map(
-            static fn (User $u): array => [
-                'id'    => $u->getId(),
-                'nome'  => $u->getFullName(),
-                'foto'  => $mapaFoto[(int) $u->getId()] ?? null,
-                'cargo' => $mapaCargo[(int) $u->getId()] ?? null,
-            ],
+        // As preferências (lidas acima) viram classe no `.db-page` já no HTML, sem esperar o JS.
+        // Só no render completo — o XHR troca o fragmento DENTRO do `.db-page`, que mantém as
+        // classes.
+        return $this->render('dashboard/index.html.twig', [
+            'dashboard'      => $output,
+            'preferencias'   => $preferencias,
+            'filtros'        => $filtros,
+            'inteligencia'   => $leitura,
+            'marcasAlertas'  => $marcasAlertas,
+            ...$this->opcoesDosFiltros($output, $tenant), // responsaveis, cargos, existeSemCargo, contagemCargo, contagemSemCargo
+            'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
+            'podeZerar'      => $podeGerir, // "Zerar" (DASH-014): Master ou primário ativo
+            'podeMeta'       => $podeGerir, // meta de pastas do mês (DASH-016)
+            'podeAnalisarPessoa' => $podeGerir, // análise individual da pessoa (botão da linha): Master ou primário ativo
+        ]);
+    }
+
+    /**
+     * Opções das facetas Responsável e Cargo, só no render completo (a barra vive na casca). Arrays simples ao
+     * template (nunca entidade crua na view). Os mapas são do escritório atual (filtro por tenant no
+     * repositório): nada de outro escritório entra. A equipe que o UseCase já leu vem no output; só o que ele
+     * não leu (null) é consultado aqui. `foto` e `cargo` alimentam o select próprio do desenho; o nativo lê
+     * `id`/`nome`. "Sem cargo" (CARGO_SEM) só com colaborador ativo sem cargo; "N pessoas" conta os ativos.
+     *
+     * @return array{responsaveis: list<array<string, mixed>>, cargos: list<string>, existeSemCargo: bool, contagemCargo: array<string, int>, contagemSemCargo: int}
+     */
+    private function opcoesDosFiltros(DashboardOutput $output, Tenant $tenant): array
+    {
+        $mapaCargo = $output->equipe->cargo ?? $this->userRepository->findCargoPorColaboradores($tenant);
+        $mapaFoto  = $output->equipe->foto ?? $this->userRepository->findFotoPorColaboradores($tenant);
+        $equipe    = $output->equipe->colaboradores ?? array_map(
+            static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
             $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
         );
-        $cargos    = array_values(array_unique(array_filter($mapaCargo)));
+        $responsaveis = array_map(static fn (array $u): array => [
+            'id'    => $u['id'],
+            'nome'  => $u['nome'],
+            'foto'  => $mapaFoto[(int) $u['id']] ?? null,
+            'cargo' => $mapaCargo[(int) $u['id']] ?? null,
+        ], $equipe);
+        $cargos = array_values(array_unique(array_filter($mapaCargo)));
         sort($cargos);
-        // Há colaborador ativo sem cargo? A opção "Sem cargo" (valor CARGO_SEM) só faz sentido aí.
-        $existeSemCargo = array_filter($mapaCargo, static fn (?string $c): bool => trim((string) $c) === '') !== [];
-        // "N pessoas" de cada cargo no select próprio: contagem dos colaboradores ATIVOS, a
-        // mesma base das opções (o mapa já vem só com vínculos ativos do escritório).
         $contagemCargo    = [];
         $contagemSemCargo = 0;
         foreach ($mapaCargo as $cargoNome) {
@@ -123,26 +143,9 @@ final class DashboardController extends AbstractController
                 $contagemCargo[$cargoNome] = ($contagemCargo[$cargoNome] ?? 0) + 1;
             }
         }
+        $existeSemCargo = array_filter($mapaCargo, static fn (?string $c): bool => trim((string) $c) === '') !== [];
 
-        // As preferências (lidas acima) viram classe no `.db-page` já no HTML, sem esperar o JS.
-        // Só no render completo — o XHR troca o fragmento DENTRO do `.db-page`, que mantém as
-        // classes.
-        return $this->render('dashboard/index.html.twig', [
-            'dashboard'      => $output,
-            'preferencias'   => $preferencias,
-            'filtros'        => $filtros,
-            'inteligencia'   => $leitura,
-            'marcasAlertas'  => $marcasAlertas,
-            'responsaveis'   => $responsaveis,
-            'cargos'         => $cargos,
-            'existeSemCargo' => $existeSemCargo,
-            'contagemCargo'    => $contagemCargo,
-            'contagemSemCargo' => $contagemSemCargo,
-            'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
-            'podeZerar'      => $podeGerir, // "Zerar" (DASH-014): Master ou primário ativo
-            'podeMeta'       => $podeGerir, // meta de pastas do mês (DASH-016)
-            'podeAnalisarPessoa' => $podeGerir, // análise individual da pessoa (botão da linha): Master ou primário ativo
-        ]);
+        return compact('responsaveis', 'cargos', 'existeSemCargo', 'contagemCargo', 'contagemSemCargo');
     }
 
     /**
