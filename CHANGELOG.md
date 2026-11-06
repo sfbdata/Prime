@@ -8,6 +8,25 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.39.0] - 2026-11-06
+
+### Adicionado
+
+- Ponto: o alerta da ida ao intervalo (`repouso`) também toca som, com um 3º toque (duas notas iguais, agudas), distinto da volta (duas subindo) e do fim da jornada (três descendo). Mesmas regras: um toque por tipo por dia, "Sons de alerta" do Meu Perfil e `alertaHabilitado` da jornada. A entrada e o aviso das 6 horas continuam sem som.
+- Meu Perfil: logo abaixo de "Sons de alerta", "Ouvir os toques do ponto" com um botão por toque (Ida ao intervalo, Volta do intervalo, Fim da jornada). Só para quem recebe o alerta de ponto (módulo ponto e jornada no escritório). O desenho 07 não tem esta linha: botões de contorno do próprio perfil (`mp-btn-contorno`, compacto). - `ponto-alerta-som.js`: `ouvir(tipo)` toca na hora (o clique libera o áudio), sem marcar o dia e sem olhar a chave; carregado no Meu Perfil e no modal, liga uma vez só. - Testes: `SomDoAlertaDePontoTest` ajustado, `OuvirSonsDoPontoNoPerfilTest`.
+
+### Alterado
+
+- /expediente: as 6 contagens da seção EXPEDIENTES do trilho (Respondidos nos últimos 10 dias, Prazo findou, Audiências, Prazos, Metas sem resposta, A protocolar) saem numa consulta só (`PastaRepository::contagensDosFiltrosDoExpediente`, com `SUM(CASE WHEN ...)`). Antes eram 6 consultas.
+- A condição de cada filtro continua vindo do mesmo `aplicarFiltroDoExpediente`. A base também é a mesma: escritório, só as pastas que a pessoa vê pelo cadeado e sem as excluídas. Nenhum número muda.
+- Teste: `ContagensDosFiltrosDoExpedienteTest` compara, filtro por filtro, com o caminho de antes para o Master, o primário, o colaborador liberado e o de fora do cadeado e para alguém de outro escritório. Também trava em uma consulta.
+- /expediente: os submarcadores do trilho vêm na consulta dos marcadores (`MarcadorRepository::findRaizPorTenant` com join em `filhos`). Antes, uma consulta por marcador de topo. A tela Demandas usa o mesmo método e ganha o mesmo.
+- `ia_disponibilidade()` guarda a resposta durante a requisição (por usuário e escritório, `reset()` no kernel.reset). A página chamava duas vezes, e cada chamada eram até 5 consultas.
+- Preferências do usuário: a primeira leitura da requisição traz todas as linhas da pessoa naquele escritório (no máximo 3 em produção). O layout pedia chaves diferentes em consultas separadas.
+- Aviso da cota de e-mail (Master): o total de enviados nas últimas 24 horas é contado uma vez só.
+- Medido no dev (Master, escritório com 6 marcadores): de 53 para cerca de 41 consultas. No teste: primário 35, colaborador 31, e o total não cresce com o número de marcadores.
+- Testes: `ExpedienteQueriesDaPaginaTest` (trava a contagem), `InteligenciaExtensionMemoriaTest`, novo caso em `CotaDeEnvioTest`.
+
 ## [2.38.0] - 2026-11-06
 
 ### Adicionado
@@ -1625,7 +1644,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.38.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.39.0...HEAD
+[2.39.0]: https://github.com/sfbdata/Prime/compare/v2.38.0...v2.39.0
 [2.38.0]: https://github.com/sfbdata/Prime/compare/v2.37.2...v2.38.0
 [2.37.2]: https://github.com/sfbdata/Prime/compare/v2.37.1...v2.37.2
 [2.37.1]: https://github.com/sfbdata/Prime/compare/v2.37.0...v2.37.1
