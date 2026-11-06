@@ -20,7 +20,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 
 /**
  * O painel "Acervo geral" do expediente carrega clientes, marcadores, metas e o nome de todas as pastas da
- * página de uma vez (PR 4a da revisão de queries). Trava duas coisas: o número de consultas não cresce com o
+ * página de uma vez (PR 4a da revisão de queries), e o cliente principal junto das pastas. Trava duas coisas: o número de consultas não cresce com o
  * número de pastas, e a Lista mostra exatamente o mesmo que mostrava quando cada linha consultava sozinha.
  */
 #[CoversClass(ExpedienteController::class)]
@@ -53,16 +53,9 @@ final class AcervoGeralEmLoteTest extends JusPrimeWebTestCase
 
         self::assertSame(1, $comUma['linhas']);
         self::assertSame(8, $comOito['linhas']);
-        // Sobra UMA consulta por pasta, e só ela: o cliente principal (`Pasta::$clientePrincipal`). Cliente tem
-        // herança (PF/PJ), e o Doctrine não adia nem agrupa a carga de um "para um" com subclasses; ela sai na
-        // própria busca paginada, pasta a pasta. Clientes, marcadores, metas, processos e o nome da pasta não
-        // crescem mais. Se este número cair para zero, troque por assertSame($comUma, $comOito).
-        $porPastaComCliente = 1;
-        self::assertSame(
-            $comUma['consultas'] + 7 * $porPastaComCliente,
-            $comOito['consultas'],
-            'O acervo geral voltou a consultar por pasta.',
-        );
+        // Nada cresce com as pastas, nem o cliente principal (`Pasta::$clientePrincipal`): Cliente tem herança
+        // (PF/PJ), o Doctrine não cria proxy para ele e o carregava pasta a pasta. Agora ele vem junto das pastas.
+        self::assertSame($comUma['consultas'], $comOito['consultas'], 'O acervo geral voltou a consultar por pasta.');
     }
 
     #[TestDox('a Lista mostra os mesmos nomes, metas abertas e marcadores, e respeita o cadeado e o escritório')]
