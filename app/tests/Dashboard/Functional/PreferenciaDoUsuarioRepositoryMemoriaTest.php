@@ -81,8 +81,8 @@ final class PreferenciaDoUsuarioRepositoryMemoriaTest extends KernelTestCase
         }
     }
 
-    #[TestDox('Chave nova pede só o que falta; chave já lida (com ou sem linha) não consulta de novo')]
-    public function testChaveNovaConsultaSoOQueFalta(): void
+    #[TestDox('Uma consulta traz todas as chaves da pessoa: chave nova, com ou sem linha, não consulta de novo')]
+    public function testChaveNovaNaoConsultaDeNovo(): void
     {
         $tenant  = $this->criarTenant();
         $usuario = $this->criarUser();
@@ -95,7 +95,8 @@ final class PreferenciaDoUsuarioRepositoryMemoriaTest extends KernelTestCase
             self::assertSame(['b' => 2], $this->repo->valoresDoUsuario($tenant, $usuario, ['z', 'b']));
         });
 
-        self::assertSame(2, $consultas);
+        // A primeira pergunta traz todas as linhas da pessoa no escritório: chave nova não consulta de novo.
+        self::assertSame(1, $consultas);
     }
 
     #[TestDox('gravar() e apagarDoUsuario() na mesma requisição: a leitura seguinte vê o banco')]

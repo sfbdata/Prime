@@ -15,6 +15,7 @@ use App\Inteligencia\UseCase\ObterAnalisesRecolhidasUseCase;
 use App\Pasta\Entity\Pasta;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Contracts\Service\ResetInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -37,9 +38,16 @@ use Twig\TwigFunction;
  * `ia_push_recolhidas()` — ids das análises do Push que o usuário logado recolheu neste escritório
  * (IA-010, `preferencia_usuario`). Função, e não variável do controller, pelo mesmo motivo: o
  * fragmento da lista é incluído pelo `_push_processual.html.twig` com `only`. Sem sessão, lista vazia.
+ *
+ * `ia_disponibilidade()` guarda a resposta durante a requisição (por usuário e escritório): a mesma página a chama
+ * em mais de um lugar (modal de importação, cabeçalho e drawer da pasta) e cada chamada eram até 5 consultas.
+ * Nada que a página desenha cria análise; o `reset()` (kernel.reset) esvazia a memória a cada requisição.
  */
-final class InteligenciaExtension extends AbstractExtension
+final class InteligenciaExtension extends AbstractExtension implements ResetInterface
 {
+    /** @var array<string, Disponibilidade> "userId:tenantId" => resposta desta requisição */
+    private array $disponibilidadeLida = [];
+
     public function __construct(
         private readonly DisponibilidadeDeInteligencia $disponibilidade,
         private readonly Security $security,
@@ -113,6 +121,13 @@ final class InteligenciaExtension extends AbstractExtension
             return Disponibilidade::SemPermissao;
         }
 
-        return $this->disponibilidade->para($user, $tenant);
+        $chave = $user->getId() . ':' . $tenant->getId();
+
+        return $this->disponibilidadeLida[$chave] ??= $this->disponibilidade->para($user, $tenant);
+    }
+
+    public function reset(): void
+    {
+        $this->disponibilidadeLida = [];
     }
 }

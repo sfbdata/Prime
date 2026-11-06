@@ -17,7 +17,11 @@ class MarcadorRepository extends ServiceEntityRepository
     /** @return Marcador[] */
     public function findRaizPorTenant(Tenant $tenant): array
     {
+        // Os submarcadores vêm na mesma consulta (o trilho e o Demandas leem `filhos` de cada um): sem o join, uma
+        // consulta por marcador. A ordem deles é a do mapeamento (`ordem`, `nome`), que o Doctrine aplica no join.
         return $this->createQueryBuilder('m')
+            ->leftJoin('m.filhos', 'f')
+            ->addSelect('f')
             ->where('m.pai IS NULL')
             ->andWhere('m.tenant = :tenant')
             ->setParameter('tenant', $tenant)
