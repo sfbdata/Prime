@@ -335,16 +335,25 @@
             document.getElementById('previsao-saida').classList.remove('d-none');
         })();
 
+        // Tempo trabalhado do dia, com a mesma conta da folha (`CalculadoraJornada::calcularMinutosDaEscolha`):
+        // com intervalo válido (retorno depois do repouso), os dois trechos; sem ele, o span da entrada até a
+        // saída (ou agora). Ao vivo, em repouso sem retorno, para no repouso. Antes, o retorno sem repouso
+        // somava o trecho do retorno por cima do span (13 h na tela contra 9 h na folha). Serve o relógio e o
+        // contador de horas excedentes.
         function calcSegundosTrabalhados(agora) {
             if (!tEntrada) return 0;
-
-            let total = 0;
-            const fim1 = tRepouso || tSaida || agora;
-            total += Math.max(0, fim1 - tEntrada);
-
-            if (tRetorno) {
-                const fim2 = tSaida || agora;
-                total += Math.max(0, fim2 - tRetorno);
+            const fim = tSaida || agora;
+            const intervaloValido = tRepouso && tRetorno && tRetorno > tRepouso;
+            // Par invertido com a saída batida (saída antes da entrada, repouso antes da entrada ou saída antes
+            // do retorno): a folha deixa o dia incompleto e conta 0 (`CalculadoraJornada::parInvertido`).
+            if (tSaida && (tSaida < tEntrada || (intervaloValido && (tRepouso < tEntrada || tSaida < tRetorno)))) return 0;
+            let total;
+            if (intervaloValido) {
+                total = Math.max(0, tRepouso - tEntrada) + Math.max(0, fim - tRetorno);
+            } else if (tRepouso && !tRetorno && !tSaida) {
+                total = Math.max(0, tRepouso - tEntrada);
+            } else {
+                total = Math.max(0, fim - tEntrada);
             }
 
             return Math.floor(total / 1000);
@@ -393,30 +402,11 @@
             }
         }
 
-        // Horas excedentes: trabalhado menos a meta do dia. Abaixo da meta ou com meta 0, escondido.
-        // A conta segue a da folha (`CalculadoraJornada::calcularMinutosDaEscolha`), não a do relógio:
-        // com intervalo válido (retorno depois do repouso), conta os dois trechos; sem ele, o span da
-        // entrada até a saída (ou agora). Em repouso sem retorno e sem saída, para no repouso. Assim o
-        // número verde nunca promete hora a mais que a folha não vai creditar (retorno sem repouso
-        // dobrava no relógio). Depois da saída, fica parado.
+        // Horas excedentes: trabalhado (a conta da folha, acima) menos a meta do dia. Abaixo da meta ou com
+        // meta 0, escondido. Pausa no intervalo e fica parado depois da saída, como o relógio.
         const excedenteEl      = document.getElementById('excedente-hoje');
         const excedenteValorEl = document.getElementById('excedente-hoje-valor');
         const metaDiaMinutos   = excedenteEl ? (Number(excedenteEl.getAttribute('data-meta-dia-minutos')) || 0) : 0;
-
-        function segundosComoNaFolha(agora) {
-            if (!tEntrada) return 0;
-            const fim = tSaida || agora;
-            let total;
-            if (tRepouso && tRetorno && tRetorno > tRepouso) {
-                total = Math.max(0, tRepouso - tEntrada) + Math.max(0, fim - tRetorno);
-            } else if (tRepouso && !tRetorno && !tSaida) {
-                total = Math.max(0, tRepouso - tEntrada);
-            } else {
-                total = Math.max(0, fim - tEntrada);
-            }
-
-            return Math.floor(total / 1000);
-        }
 
         function formatarHorasMinutos(segundos) {
             const h = Math.floor(segundos / 3600);
@@ -426,7 +416,7 @@
 
         function updateExcedente(agora) {
             if (!excedenteEl || !excedenteValorEl) return;
-            const excedente = segundosComoNaFolha(agora) - metaDiaMinutos * 60;
+            const excedente = calcSegundosTrabalhados(agora) - metaDiaMinutos * 60;
             if (metaDiaMinutos > 0 && excedente >= 60) {
                 excedenteValorEl.textContent = '+' + formatarHorasMinutos(excedente);
                 excedenteEl.classList.remove('d-none');
