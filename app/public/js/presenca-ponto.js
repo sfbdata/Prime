@@ -137,6 +137,7 @@
         var base = estado;
         var atual = linhaDe(base);
         if (envioEmAndamento || !atual || !atual.acao) { return; }
+        PB.pedirPermissaoDeNotificacao();   // ainda no gesto: a janelinha do alerta precisa da permissão
         envioEmAndamento = true;   // (1)
         avisosDaBatida = [];
         var sucesso = false;

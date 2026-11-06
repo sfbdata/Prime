@@ -128,9 +128,11 @@
         solicitarPermissaoNotificacao(function (permitido) {
             if (!permitido) return;
             var notif = new Notification('Registro de Ponto', {
-                body:    dados.mensagem + '\nHorário: ' + dados.horario,
+                // Retorno e saída chegam sem horário configurado: sem ele, a linha "Horário:" sairia vazia.
+                body:    dados.mensagem + (dados.horario ? '\nHorário: ' + dados.horario : ''),
                 icon:    '/icons/icon-192x192.png',
-                tag:     'alerta-ponto-' + dados.horario,
+                // Com o tipo na tag: retorno e saída chegam sem horário e, com a mesma tag, um substituía o outro.
+                tag:     'alerta-ponto-' + dados.tipo + '-' + (dados.horario || ''),
                 requireInteraction: true
             });
             notif.addEventListener('click', function () {
