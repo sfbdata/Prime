@@ -17,7 +17,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 /**
  * Trava de consultas do layout (spec `permission-checker-memoria.md`, Testes): Meu Perfil é a página mais
  * simples, então quase tudo o que ela consulta vem do layout (sidebar e `base.html.twig`). O teto é o valor
- * medido depois da memória do vínculo e do EAGER das permissões, com uma folga pequena.
+ * medido depois da memória do vínculo e do EAGER das permissões, com uma folga pequena. Remedido em 05/11/2026
+ * com a memória do layout (`memoria-do-layout.md`) e a do vínculo ativo (`memoria-do-vinculo-ativo.md`): 57 e 55 viraram 40 e 37.
  */
 #[CoversClass(PermissionChecker::class)]
 final class QueriesDoLayoutTest extends JusPrimeWebTestCase
@@ -40,8 +41,8 @@ final class QueriesDoLayoutTest extends JusPrimeWebTestCase
     /** @return iterable<string, array{string, int}> */
     public static function pessoas(): iterable
     {
-        yield 'primário' => ['primario', 57];
-        yield 'colaborador' => ['colaborador', 55];
+        yield 'primário' => ['primario', 40];
+        yield 'colaborador' => ['colaborador', 37];
     }
 
     #[DataProvider('pessoas')]
