@@ -1223,15 +1223,43 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Contagem de cada filtro do sistema da seção EXPEDIENTES do trilho (E12).
+     * Contagem de cada filtro do sistema da seção EXPEDIENTES do trilho (E12), numa consulta só.
+     *
+     * É o mesmo que `countByFilters(['expediente' => $filtro], $tenant, $quemBusca)` para cada filtro: a base é a
+     * dele (escritório, só as visíveis para quem busca, porque o filtro é atributo, e sem a lápide) e a condição de
+     * cada filtro vem do próprio `aplicarFiltroDoExpediente`, lida de um QueryBuilder à parte e posta num
+     * `SUM(CASE WHEN ...)`. Sem join na base, cada pasta é uma linha: a soma conta o mesmo que o COUNT(DISTINCT).
+     * Os parâmetros dos filtros têm nomes próprios ou o mesmo valor quando o nome se repete (`exp_hoje`, `exp_concluida`).
      *
      * @return array<string, int>
      */
     public function contagensDosFiltrosDoExpediente(Tenant $tenant, ?User $quemBusca = null): array
     {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
+        $this->soAsVisiveis($qb, $quemBusca);
+        $qb->andWhere('p.excluidaEm IS NULL');
+
+        $somas = [];
+        foreach (self::FILTROS_EXPEDIENTE as $i => $filtro) {
+            $parcial = $this->createQueryBuilder('p');
+            $this->aplicarFiltroDoExpediente($parcial, $filtro);
+            foreach ($parcial->getParameters() as $parametro) {
+                // Mesmo nome com outro valor faria o último valer para todos os filtros, sem erro: melhor quebrar.
+                $existente = $qb->getParameter($parametro->getName());
+                if ($existente !== null && $existente->getValue() != $parametro->getValue()) {
+                    throw new \LogicException(sprintf('Filtro "%s" repete o parâmetro "%s" com outro valor.', $filtro, $parametro->getName()));
+                }
+                $qb->setParameter($parametro->getName(), $parametro->getValue(), $parametro->typeWasSpecified() ? $parametro->getType() : null);
+            }
+            $somas[] = sprintf('SUM(CASE WHEN %s THEN 1 ELSE 0 END) AS f%d', (string) $parcial->getDQLPart('where'), $i);
+        }
+
+        $linha = $qb->select($somas)->getQuery()->getSingleResult();
         $contagens = [];
-        foreach (self::FILTROS_EXPEDIENTE as $filtro) {
-            $contagens[$filtro] = $this->countByFilters(['expediente' => $filtro], $tenant, $quemBusca);
+        foreach (self::FILTROS_EXPEDIENTE as $i => $filtro) {
+            $contagens[$filtro] = (int) ($linha['f' . $i] ?? 0);
         }
 
         return $contagens;
