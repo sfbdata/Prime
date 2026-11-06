@@ -308,6 +308,18 @@ class NotificacaoService
     }
 
     /**
+     * As três contagens do sino do topo (selo, aba "Minhas" e aba "Gestão") numa consulta só: os mesmos números de
+     * {@see contarNaoLidas()} sem categoria, com {@see Notificacao::CATEGORIA_PESSOAL} e com
+     * {@see Notificacao::CATEGORIA_GESTAO}, com os mesmos filtros (escritório, cadeado, silêncio e cortes da leitura).
+     *
+     * @return array{total: int, pessoal: int, gestao: int}
+     */
+    public function contarNaoLidasDoSino(User $usuario): array
+    {
+        return $this->notificacaoRepository->contarNaoLidasPorCategoria($usuario, $this->escritorioDoSino($usuario), $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario), $this->cortesDaLeituraDe($usuario));
+    }
+
+    /**
      * Indica se o usuário deve ver a aba de Gestão (recebe notificações de gestão)
      */
     public function podeVerGestao(User $usuario): bool
