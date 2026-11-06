@@ -28,9 +28,9 @@ use Symfony\Contracts\Service\ResetInterface;
 class PreferenciaDoUsuarioRepository extends ServiceEntityRepository implements ResetInterface
 {
     /**
-     * Por "escritorio:pessoa": as chaves já consultadas (com valor ou sem linha) e os valores achados.
+     * Por "escritorio:pessoa": todas as linhas da pessoa naquele escritório (chave => valor), lidas uma vez.
      *
-     * @var array<string, array{consultadas: array<string, true>, valores: array<string, mixed>}>
+     * @var array<string, array<string, mixed>>
      */
     private array $guardado = [];
 
@@ -61,23 +61,16 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository implements 
             return $this->consultar($tenant, $usuario, $chaves);
         }
 
+        // Na primeira pergunta da requisição vêm TODAS as linhas da pessoa neste escritório (são poucas): o layout pede
+        // chaves diferentes em lugares diferentes (perfil, animações, painéis) e cada pedido era uma consulta.
         $chave = $tenantId . ':' . $usuarioId;
-        $this->guardado[$chave] ??= ['consultadas' => [], 'valores' => []];
-        $faltam = array_values(array_filter($chaves, fn (string $c): bool => !isset($this->guardado[$chave]['consultadas'][$c])));
-        if ($faltam !== []) {
-            foreach ($this->consultar($tenant, $usuario, $faltam) as $c => $valor) {
-                $this->guardado[$chave]['valores'][$c] = $valor;
-            }
-            foreach ($faltam as $c) {
-                $this->guardado[$chave]['consultadas'][$c] = true;
-            }
-        }
+        $this->guardado[$chave] ??= $this->consultar($tenant, $usuario, null);
 
         // Mesma forma da consulta: só as chaves pedidas que têm linha.
         $valores = [];
         foreach ($chaves as $c) {
-            if (array_key_exists($c, $this->guardado[$chave]['valores'])) {
-                $valores[$c] = $this->guardado[$chave]['valores'][$c];
+            if (array_key_exists($c, $this->guardado[$chave])) {
+                $valores[$c] = $this->guardado[$chave][$c];
             }
         }
 
@@ -90,22 +83,22 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository implements 
     }
 
     /**
-     * @param list<string> $chaves
+     * @param list<string>|null $chaves null = todas as chaves da pessoa neste escritório
      *
      * @return array<string, mixed>
      */
-    private function consultar(Tenant $tenant, User $usuario, array $chaves): array
+    private function consultar(Tenant $tenant, User $usuario, ?array $chaves): array
     {
-        $linhas = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select('p.chave AS chave', 'p.valor AS valor')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.usuario = :usuario')
-            ->andWhere('p.chave IN (:chaves)')
             ->setParameter('tenant', $tenant)
-            ->setParameter('usuario', $usuario)
-            ->setParameter('chaves', $chaves)
-            ->getQuery()
-            ->getArrayResult();
+            ->setParameter('usuario', $usuario);
+        if ($chaves !== null) {
+            $qb->andWhere('p.chave IN (:chaves)')->setParameter('chaves', $chaves);
+        }
+        $linhas = $qb->getQuery()->getArrayResult();
 
         $valores = [];
         foreach ($linhas as $linha) {

@@ -9,6 +9,7 @@ use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Repository\DestinoDaCampanhaRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
@@ -27,6 +28,7 @@ final class CotaDeEnvioTest extends TestCase
     /** @var list<array{origem: string, situacao: string, criado: string, enviado: ?string}> */
     private array $linhas = [];
     private bool $haPendentes = false;
+    private int $contagensDoTotal = 0;
 
     #[TestDox('Janela corrida, não calendário: o que saiu ontem às 11:00 ainda conta às 10:00 de hoje; o de ontem às 09:59, não')]
     public function testJanelaCorrida(): void
@@ -122,6 +124,27 @@ final class CotaDeEnvioTest extends TestCase
         self::assertSame('pausadas:2030-01-16', $situacao->chaveDoEpisodio(new \DateTimeImmutable(self::AGORA)));
     }
 
+    /** @return iterable<string, array{int, bool}> enviados gerais e se as campanhas ficam pausadas */
+    public static function situacoesComPendente(): iterable
+    {
+        yield 'pausa pela guarda do handler' => [8, true];
+        yield 'passa pela folga do expansor' => [2, false];
+    }
+
+    #[DataProvider('situacoesComPendente')]
+    #[TestDox('Aviso com campanha esperando ($_dataName): o total da janela é contado uma vez só')]
+    public function testSituacaoContaOTotalUmaVez(int $enviados, bool $pausadas): void
+    {
+        $this->enviados($enviados, '2030-01-15 08:00:00', 'sistema');
+        $this->registrados(2, '2030-01-15 09:00:00');
+        $this->haPendentes = true;
+        $cota = $this->cota();
+        $this->contagensDoTotal = 0;
+
+        self::assertSame($pausadas, $cota->situacao()->campanhasPausadas);
+        self::assertSame(1, $this->contagensDoTotal);
+    }
+
     #[TestDox('Sem campanha esperando, vaga zero não é pausa')]
     public function testSemPendenteNaoPausa(): void
     {
@@ -136,7 +159,11 @@ final class CotaDeEnvioTest extends TestCase
     private function cota(int $porMinuto = 100): CotaDeEnvio
     {
         $envios = $this->createStub(EnvioDeEmailRepository::class);
-        $envios->method('contarEnviadosDesde')->willReturnCallback(fn (\DateTimeImmutable $d): int => \count($this->enviadosDesde($d, false)));
+        $envios->method('contarEnviadosDesde')->willReturnCallback(function (\DateTimeImmutable $d): int {
+            ++$this->contagensDoTotal;
+
+            return \count($this->enviadosDesde($d, false));
+        });
         $envios->method('contarEnviadosDeCampanhaDesde')->willReturnCallback(fn (\DateTimeImmutable $d): int => \count($this->enviadosDesde($d, true)));
         $envios->method('enviadoMaisAntigoDesde')->willReturnCallback(function (\DateTimeImmutable $d, bool $soCampanha): ?\DateTimeImmutable {
             $datas = array_map(static fn (array $l): string => (string) $l['enviado'], $this->enviadosDesde($d, $soCampanha));

@@ -81,7 +81,7 @@ final class CotaDeEnvio
     {
         $agora = $this->relogio->now();
         $enviados = $this->envios->contarEnviadosDesde($agora->modify(self::JANELA));
-        $liberaEm = $this->campanhasPausadasAte($agora);
+        $liberaEm = $this->campanhasPausadasAte($agora, $enviados);
 
         return new SituacaoDaCota(
             $enviados,
@@ -96,11 +96,12 @@ final class CotaDeEnvio
     /**
      * As campanhas estão pausadas quando há campanha esperando e sem vaga: envio de campanha na fila que o handler não
      * pode mandar, ou destinatário pendente que o expansor não pode liberar. Devolve quando a vaga volta, ou null.
+     * `$enviadosNaJanela`: o total da janela que o aviso já contou no mesmo `$agora` (evita contar de novo).
      */
-    private function campanhasPausadasAte(\DateTimeImmutable $agora): ?\DateTimeImmutable
+    private function campanhasPausadasAte(\DateTimeImmutable $agora, int $enviadosNaJanela): ?\DateTimeImmutable
     {
         $pendentes = $this->destinos->haPendentes();
-        $doHandler = $this->campanhaBloqueadaAte($agora);
+        $doHandler = $this->campanhaBloqueadaAte($agora, $enviadosNaJanela);
         if ($doHandler !== null && ($pendentes || $this->envios->contarDeCampanhaNaFila() > 0)) {
             return $doHandler;
         }
@@ -108,7 +109,7 @@ final class CotaDeEnvio
         if (!$pendentes) {
             return null;
         }
-        $folgas = $this->folgasDoExpansor($agora);
+        $folgas = $this->folgasDoExpansor($agora, $enviadosNaJanela);
 
         return self::vagas($folgas) === 0 ? $this->expansorLiberaEm($agora, $folgas[0]) : null;
     }
@@ -123,15 +124,18 @@ final class CotaDeEnvio
         return $this->volta($this->envios->enviadoMaisAntigoDesde($agora->modify(self::JANELA), false), $agora);
     }
 
-    /** Campanha: abaixo do próprio teto E sem tomar a reserva dos demais (nem o que eles já passaram dela). */
-    private function campanhaBloqueadaAte(\DateTimeImmutable $agora): ?\DateTimeImmutable
+    /**
+     * Campanha: abaixo do próprio teto E sem tomar a reserva dos demais (nem o que eles já passaram dela).
+     * `$enviadosNaJanela`: total da janela já contado no mesmo `$agora`; null = conta aqui.
+     */
+    private function campanhaBloqueadaAte(\DateTimeImmutable $agora, ?int $enviadosNaJanela = null): ?\DateTimeImmutable
     {
         $desde = $agora->modify(self::JANELA);
         $deCampanha = $this->envios->contarEnviadosDeCampanhaDesde($desde);
         if ($deCampanha >= $this->tetoDiarioDeCampanhas) {
             return $this->volta($this->envios->enviadoMaisAntigoDesde($desde, true), $agora);
         }
-        $demais = $this->envios->contarEnviadosDesde($desde) - $deCampanha;
+        $demais = ($enviadosNaJanela ?? $this->envios->contarEnviadosDesde($desde)) - $deCampanha;
         if ($deCampanha + max($demais, $this->reserva()) >= $this->tetoDiario) {
             return $this->volta($this->envios->enviadoMaisAntigoDesde($desde, false), $agora);
         }
@@ -142,14 +146,15 @@ final class CotaDeEnvio
     /**
      * As duas folgas do expansor: a do teto das campanhas e a do teto total sem a reserva (ou sem o que os demais já
      * passaram dela), ambas descontando os envios de campanha já registrados na janela (inclusive os ainda na fila).
+     * `$enviadosNaJanela`: total da janela já contado no mesmo `$agora`; null = conta aqui.
      *
      * @return array{int, int}
      */
-    private function folgasDoExpansor(\DateTimeImmutable $agora): array
+    private function folgasDoExpansor(\DateTimeImmutable $agora, ?int $enviadosNaJanela = null): array
     {
         $desde = $agora->modify(self::JANELA);
         $registrados = $this->envios->contarDeCampanhaDesde($desde);
-        $demais = $this->envios->contarEnviadosDesde($desde) - $this->envios->contarEnviadosDeCampanhaDesde($desde);
+        $demais = ($enviadosNaJanela ?? $this->envios->contarEnviadosDesde($desde)) - $this->envios->contarEnviadosDeCampanhaDesde($desde);
 
         return [
             $this->tetoDiarioDeCampanhas - $registrados,
