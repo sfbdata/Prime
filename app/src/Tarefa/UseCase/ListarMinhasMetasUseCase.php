@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tarefa\UseCase;
 
+use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Tarefa\DTO\MinhasMetasOutput;
+use App\Tarefa\Entity\CaixaDaEsteira;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\CaixaDaEsteiraRepository;
 use App\Tarefa\Repository\TarefaRepository;
@@ -39,6 +42,10 @@ use App\Tarefa\Service\AgrupadorDeMetas;
  * cuida), no lugar do papel da aba. O nome que o escritório deu a cada
  * etapa (`CaixaDaEsteira`) vai junto, para o chip "i/8 · Etapa" da linha usar o mesmo nome da esteira.
  *
+ * **Leitura em lote** (PR 4c da revisão de queries): a pasta, o criador, os responsáveis e os clientes das metas da
+ * lista e o identificador das pastas vêm de uma vez, para o cartão não consultar por meta. As caixas da esteira podem
+ * vir prontas de quem chama (`$caixasDoEscritorio`), para a tela não as ler duas vezes.
+ *
  * **Erros:** não lança. Aba desconhecida cai no padrão (`Sou responsável`) — é uma tela de
  * leitura, e derrubar a página por um parâmetro estranho na URL seria pior que ignorá-lo.
  */
@@ -50,6 +57,7 @@ final class ListarMinhasMetasUseCase
         private readonly TarefaRepository $repository,
         private readonly AgrupadorDeMetas $agrupador,
         private readonly ?CaixaDaEsteiraRepository $caixas = null,
+        private readonly ?ResolvedorIdentificadorDaPasta $identificadores = null,
     ) {
     }
 
@@ -64,6 +72,8 @@ final class ListarMinhasMetasUseCase
      * @param list<int>|null $pastasVisiveisNaEsteira as pastas que o usuário pode ver (`PastasVisiveisNaEsteira`),
      *                                               para a lista da etapa; nulo = todas. Sem informar: só as metas de
      *                                               que ele cuida (o padrão fecha)
+     * @param array<string, CaixaDaEsteira>|null $caixasDoEscritorio as caixas já lidas
+     *                                               (`CaixaDaEsteiraRepository::configuradasDoEscritorio`); nulo = ler aqui
      */
     public function executar(
         User $usuario,
@@ -74,12 +84,14 @@ final class ListarMinhasMetasUseCase
         ?Tenant $escritorio = null,
         array $pastasSoAcompanhadasSemVer = [],
         ?array $pastasVisiveisNaEsteira = [],
+        ?array $caixasDoEscritorio = null,
     ): MinhasMetasOutput {
         $semVer = $pastasSoAcompanhadasSemVer;
         $metas  = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros, $pastasOcultas, $escritorio, $semVer, $pastasVisiveisNaEsteira);
 
         $ids        = array_map(static fn (Tarefa $m): int => (int) $m->getId(), $metas);
         $marcadores = $this->repository->carregarMarcadoresDaLista($usuario, $ids);
+        $this->carregarCartoes($metas, $ids, $escritorio);
 
         return new MinhasMetasOutput(
             aba: $aba,
@@ -92,20 +104,41 @@ final class ListarMinhasMetasUseCase
             // dependem de `$soAListagem`.
             andamento: $this->repository->contarAndamento($usuario, $pastasOcultas, $semVer),
             atencao: $this->repository->findAtrasadasParaAtencao($usuario, MinhasMetasOutput::TETO_ATENCAO, $pastasOcultas, $semVer),
-            nomesDasEtapas: $this->nomesDasEtapas($escritorio),
+            nomesDasEtapas: $this->nomesDasEtapas($escritorio, $caixasDoEscritorio),
             prioridades: $soAListagem ? [] : $this->repository->findPrioridadesDoDia($usuario, MinhasMetasOutput::TETO_PRIORIDADES, $pastasOcultas),
         );
     }
 
-    /** @return array<string, string> valor de `EtapaDaPasta` → nome dado pelo escritório (só as renomeadas) */
-    private function nomesDasEtapas(?Tenant $escritorio): array
+    /**
+     * Pasta, criador, responsáveis e clientes de cada cartão, e o identificador das pastas, em poucas consultas para a
+     * lista inteira. Sem o escritório (só em teste) o cartão lê como antes, preguiçoso: mais lento, mesmo resultado.
+     *
+     * @param Tarefa[]  $metas
+     * @param list<int> $ids
+     */
+    private function carregarCartoes(array $metas, array $ids, ?Tenant $escritorio): void
     {
-        if ($escritorio === null || $this->caixas === null) {
-            return [];
+        if ($escritorio === null || $ids === []) {
+            return;
         }
 
+        $this->repository->carregarCartoesDasMetas($ids, $escritorio);
+        $this->identificadores?->primeParaPastas(array_map(static fn (Tarefa $m): Pasta => $m->getPasta(), $metas));
+    }
+
+    /**
+     * @param array<string, CaixaDaEsteira>|null $caixasDoEscritorio
+     * @return array<string, string> valor de `EtapaDaPasta` → nome dado pelo escritório (só as renomeadas)
+     */
+    private function nomesDasEtapas(?Tenant $escritorio, ?array $caixasDoEscritorio): array
+    {
+        if ($escritorio === null) {
+            return [];
+        }
+        $caixas = $caixasDoEscritorio ?? $this->caixas?->configuradasDoEscritorio($escritorio) ?? [];
+
         $nomes = [];
-        foreach ($this->caixas->configuradasDoEscritorio($escritorio) as $etapa => $caixa) {
+        foreach ($caixas as $etapa => $caixa) {
             if ($caixa->getNomeDaEtapa() !== null) {
                 $nomes[$etapa] = $caixa->getNomeDaEtapa();
             }

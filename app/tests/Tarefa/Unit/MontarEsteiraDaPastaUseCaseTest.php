@@ -51,6 +51,23 @@ final class MontarEsteiraDaPastaUseCaseTest extends TestCase
         self::assertSame(4, $saida->totalDeAbertas());
     }
 
+    #[TestDox('As caixas já lidas por quem chama valem sem ler de novo')]
+    public function testCaixasProntasNaoLeemDeNovo(): void
+    {
+        $caixa = new CaixaDaEsteira($this->escritorio, EtapaDaPasta::Protocolo);
+        $caixa->configurar('Caixa do protocolo', 'Protocolar já', []);
+        $tarefas = $this->createStub(TarefaRepository::class);
+        $tarefas->method('contarEsteira')->willReturn([]);
+        $caixas = $this->createMock(CaixaDaEsteiraRepository::class);
+        $caixas->expects(self::never())->method('configuradasDoEscritorio');
+        $useCase = new MontarEsteiraDaPastaUseCase($tarefas, $caixas, $this->createStub(UserTenantRepository::class), $this->createStub(QuemConfiguraACaixa::class));
+
+        $saida = $useCase->executar($this->usuario, $this->escritorio, $this->hoje, [], null, ['protocolo' => $caixa]);
+
+        self::assertSame('Protocolar já', $saida->caixa(EtapaDaPasta::Protocolo)?->nomeDaEtapa);
+        self::assertSame('Caixa do protocolo', $saida->caixa(EtapaDaPasta::Protocolo)?->nomeDaCaixa);
+    }
+
     #[TestDox('GARGALO é a caixa com mais atrasadas')]
     public function testGargaloEhAMaisAtrasada(): void
     {
