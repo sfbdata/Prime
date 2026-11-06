@@ -14,6 +14,7 @@ use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Pasta\UseCase\ConfigurarCadeadoDaPastaUseCase;
+use App\Repository\UserTenantRepository;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -204,8 +205,11 @@ final class NivelNoCadeadoMemoriaTest extends JusPrimeWebTestCase
         $pessoa  = $c['pessoas']['fora'];
         $servico->idsDasPastasOcultas($pessoa, $c['tenant']);
 
-        $sqls = $this->consultasDurante(static function () use ($servico, $pessoa, $c): void {
+        $vinculos = static::getContainer()->get(UserTenantRepository::class);
+        $sqls = $this->consultasDurante(static function () use ($servico, $vinculos, $pessoa, $c): void {
+            // O kernel.reset zera as duas memórias: a do cadeado e a do vínculo ativo no repositório.
             $servico->reset();
+            $vinculos->reset();
             $servico->idsDasPastasOcultas($pessoa, $c['tenant']);
         });
 

@@ -8,12 +8,23 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * @extends ServiceEntityRepository<UserTenant>
  */
-class UserTenantRepository extends ServiceEntityRepository
+class UserTenantRepository extends ServiceEntityRepository implements ResetInterface
 {
+    /**
+     * Vínculos ativos já achados neste request, por "userId:tenantId". O layout pede o mesmo
+     * vínculo de 4 a 7 serviços diferentes; sem isto, cada um ia ao banco. Só guarda vínculo
+     * achado (o "não achou" sempre consulta de novo: um vínculo criado no meio do request
+     * aparece). Ver docs/specs/memoria-do-vinculo-ativo.md.
+     *
+     * @var array<string, UserTenant>
+     */
+    private array $ativos = [];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, UserTenant::class);
@@ -92,6 +103,10 @@ class UserTenantRepository extends ServiceEntityRepository
 
     public function existeVinculoAtivo(User $user, Tenant $tenant): bool
     {
+        if ($this->lembrado($user, $tenant) !== null) {
+            return true;
+        }
+
         return $this->createQueryBuilder('ut')
             ->select('COUNT(ut.id)')
             ->andWhere('ut.user = :user')
@@ -105,7 +120,57 @@ class UserTenantRepository extends ServiceEntityRepository
 
     public function findAtivoPorUserETenant(User $user, Tenant $tenant): ?UserTenant
     {
-        return $this->findOneBy(['user' => $user, 'tenant' => $tenant, 'isActive' => true]);
+        $lembrado = $this->lembrado($user, $tenant);
+        if ($lembrado !== null) {
+            return $lembrado;
+        }
+
+        $vinculo = $this->findOneBy(['user' => $user, 'tenant' => $tenant, 'isActive' => true]);
+        $chave = $this->chave($user, $tenant);
+        if ($vinculo !== null && $chave !== null) {
+            $this->ativos[$chave] = $vinculo;
+        }
+
+        return $vinculo;
+    }
+
+    /** Zera a memória entre requests e entre mensagens do worker (`kernel.reset`). */
+    public function reset(): void
+    {
+        $this->ativos = [];
+    }
+
+    /**
+     * O vínculo guardado, se ele ainda daria o mesmo resultado que a consulta: continua no
+     * EntityManager (não foi removido, nem houve `clear`/`detach`) e o `isActive` que está no
+     * BANCO (o dado original do UnitOfWork, que o flush atualiza) é true. A consulta de hoje
+     * filtra pelo banco e devolve a entidade do identity map; esta conferência reproduz as duas
+     * coisas sem ir ao banco.
+     */
+    private function lembrado(User $user, Tenant $tenant): ?UserTenant
+    {
+        $chave = $this->chave($user, $tenant);
+        if ($chave === null || !isset($this->ativos[$chave])) {
+            return null;
+        }
+
+        $vinculo = $this->ativos[$chave];
+        $em = $this->getEntityManager();
+        if ($em->contains($vinculo) && ($em->getUnitOfWork()->getOriginalEntityData($vinculo)['isActive'] ?? false) === true) {
+            return $vinculo;
+        }
+
+        unset($this->ativos[$chave]);
+
+        return null;
+    }
+
+    private function chave(User $user, Tenant $tenant): ?string
+    {
+        $userId = $user->getId();
+        $tenantId = $tenant->getId();
+
+        return $userId === null || $tenantId === null ? null : $userId . ':' . $tenantId;
     }
 
     public function findPorUserETenant(User $user, Tenant $tenant): ?UserTenant

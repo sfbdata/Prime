@@ -11,6 +11,7 @@ use App\Central\UseCase\AlterarAusenciaDoEscritorioUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Repository\UserTenantRepository;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\CriaCenarioDoCadeadoFuncionalTrait;
@@ -104,8 +105,11 @@ final class MemoriaDaCentralNoLayoutTest extends JusPrimeWebTestCase
         self::assertTrue($ext->disponivel());
         self::assertTrue($ext->souPrimario());
 
-        $sqls = $this->consultasDurante(static function () use ($ext): void {
+        $vinculos = static::getContainer()->get(UserTenantRepository::class);
+        $sqls = $this->consultasDurante(static function () use ($ext, $vinculos): void {
+            // O kernel.reset zera as duas memórias: a da extensão e a do vínculo ativo no repositório.
             $ext->reset();
+            $vinculos->reset();
             $ext->disponivel();
             $ext->souPrimario();
         });
