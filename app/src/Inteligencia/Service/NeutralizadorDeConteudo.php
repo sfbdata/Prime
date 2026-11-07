@@ -33,6 +33,8 @@ final class NeutralizadorDeConteudo
         'historico', 'pessoa',
         // Chat I.A em página inteira (`chat-livre-v1`): texto extraído de arquivo DOCX anexado.
         'anexo_texto',
+        // Chat I.A (`chat-livre-v5`): o resultado da consulta de prazos e metas da pessoa.
+        'prazos_e_metas',
         // Importar pastas em lote (etapa 2): a árvore de nomes de pasta e arquivo do computador.
         'arvore_do_lote',
     ];
