@@ -50,6 +50,11 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
         [$semRegistro, $escritorioSemRegistro] = $this->pessoaComJornadaDe44Horas();
         $criadaEm = sprintf('%04d-05-20', $ano);
         $this->criacaoNoAuditLog($semRegistro, $escritorioSemRegistro, $criadaEm);
+        $semRastro = $this->pessoaComJornadaDe44Horas()[0];
+        $this->banco()->executeStatement(
+            "DELETE FROM audit_log WHERE (changes -> 'diff' -> 'after' -> 'user' ->> 'id') = ?",
+            [(string) $semRastro->getId()],
+        );
 
         // A contagem começa ANTES do primeiro registro (como no abono anterior à primeira batida,
         // `InicioContagemResolver`): fevereiro inteiro conta e fica antes da data que a versão vai ganhar.
@@ -83,6 +88,11 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
             $criadaEm,
             $this->banco()->fetchOne('SELECT vale_a_partir_de FROM jornada_colaborador WHERE user_id = ?', [$semRegistro->getId()]),
             'sem registro de ponto, a versão começa no dia em que a jornada foi criada (audit_log)',
+        );
+        self::assertSame(
+            (new \DateTimeImmutable('today', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m-d'),
+            $this->banco()->fetchOne('SELECT vale_a_partir_de FROM jornada_colaborador WHERE user_id = ?', [$semRastro->getId()]),
+            'sem registro e sem audit_log, a versão começa no dia da migration, no horário de Brasília',
         );
         self::assertSame(1, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'uq_jornada_colaborador_vigencia'"));
         self::assertSame(0, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'uq_jornada_colaborador_user_tenant'"));
@@ -189,8 +199,8 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
     private function criacaoNoAuditLog(User $pessoa, Tenant $escritorio, string $dia): void
     {
         $this->banco()->executeStatement(
-            "INSERT INTO audit_log (id, action, entity_class, changes, tenant_id, created_at)
-             VALUES (nextval('audit_log_id_seq'), 'create', 'App\\Ponto\\Entity\\JornadaColaborador', ?, ?, ?)",
+            "INSERT INTO audit_log (action, entity_class, changes, tenant_id, created_at)
+             VALUES ('create', 'App\\Ponto\\Entity\\JornadaColaborador', ?, ?, ?)",
             [
                 json_encode(['diff' => ['after' => ['user' => ['class' => User::class, 'id' => (string) $pessoa->getId(), 'label' => null]]]], JSON_THROW_ON_ERROR),
                 $escritorio->getId(),
