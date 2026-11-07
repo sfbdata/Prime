@@ -26,7 +26,8 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
    anterior do modelo) entra no prompt dentro de um bloco delimitado — `<processo>`, `<equipe>`,
    `<movimentacoes>`, `<analise_anterior>` (Push) e `<pasta>`, `<processos_vinculados>`, `<clientes>`,
    `<metas>`, `<anotacoes>`, `<observacoes>`, `<documentos>`, `<checklist>`, `<financeiro>` (agentes),
-   `<conversa_anterior>`, `<pergunta>` (aba Perguntar) e `<pessoa>`, `<historico>`, `<pergunta>` (chat da Central) — e
+   `<conversa_anterior>`, `<pergunta>` (aba Perguntar), `<pessoa>`, `<historico>`, `<pergunta>` (chat da Central) e
+   `<prazos_e_metas>` (consulta do Chat I.A), e
    passa pelo `NeutralizadorDeConteudo` (tag delimitadora vira texto inerte; controle/zero-width/bidi
    saem). Campo novo no prompt = campo neutralizado, dentro de um bloco, com o nome do bloco em
    `NeutralizadorDeConteudo::DELIMITADORES`. A resposta é renderizada **escapada** (sem `|raw`).

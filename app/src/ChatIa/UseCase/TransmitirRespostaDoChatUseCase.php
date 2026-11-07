@@ -9,10 +9,13 @@ use App\ChatIa\Entity\MensagemDeChat;
 use App\ChatIa\Entity\PropostaDeCadastro;
 use App\ChatIa\Repository\MensagemDeChatRepository;
 use App\ChatIa\Repository\PropostaDeCadastroRepository;
+use App\ChatIa\Service\ConsultasDoChat;
 use App\ChatIa\Service\MontadorDoCartaoDaProposta;
 use App\ChatIa\Service\RegistradorDasPropostas;
 use App\ChatIa\Service\TituloAutomaticoDoChat;
 use App\ChatIa\Service\TransacaoDoChat;
+use App\Inteligencia\DTO\ChamadaDeFerramenta;
+use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\UsoDaTransmissao;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
@@ -31,6 +34,12 @@ use Psr\Log\LoggerInterface;
  * - `fim {mensagemId, tokensEntrada, tokensSaida, titulo?, cortada?}`: a resposta inteira foi gravada (tokens REAIS do
  *   provedor); `titulo` só vem na primeira resposta (automático, ou o início da pergunta se a chamada curta falhar);
  * - `erro {codigo, mensagem}`: o provedor falhou. O que já chegou é gravado como resposta interrompida.
+ *
+ * Consulta (spec `chat-ia-prazos-e-metas`): se o modelo pedir uma ferramenta de CONSULTA (só leitura, {@see ConsultasDoChat}), o
+ * servidor roda a consulta e faz UMA segunda chamada, com o resultado em bloco delimitado e sem ferramentas (não há laço). O texto
+ * das duas sai no mesmo fluxo e é gravado como uma resposta, com os tokens das duas somados; as propostas são as da primeira.
+ * Se a resposta terminar sem texto nenhum (a segunda falhou ou voltou vazia), o consumo já conhecido vira um registro de custo
+ * sem texto ({@see guardarSoOCusto()}): o teto diário não perde a primeira chamada.
  *
  * Parar (o cliente abortou o fetch): `$clienteSaiu` é consultado depois de cada trecho entregue; se verdadeiro, o texto
  * parcial é gravado com `interrompida = true` e o gerador termina em silêncio. Nesse caso o provedor não informa o
@@ -58,6 +67,7 @@ final class TransmitirRespostaDoChatUseCase
         private readonly TransacaoDoChat $transacao,
         private readonly ClockInterface $relogio,
         private readonly LoggerInterface $logger,
+        private readonly ConsultasDoChat $consultas,
     ) {
     }
 
@@ -69,29 +79,120 @@ final class TransmitirRespostaDoChatUseCase
     public function executar(RespostaPreparada $preparada, callable $clienteSaiu): \Generator
     {
         $texto = '';
-        $fluxo = $this->provedor->transmitir($preparada->pedido);
+        $pedido = $preparada->pedido;
+        $anterior = null;   // o consumo da primeira chamada, quando houve consulta
+        $inicio = 0;        // onde começa, no texto, o que a chamada em curso escreveu
         try {
-            foreach ($fluxo as $trecho) {
-                $texto .= $trecho;
-                yield ['evento' => 'delta', 'dados' => ['t' => $trecho]];
-                if ($clienteSaiu()) {
-                    $this->gravar($preparada, $texto, null, true);
-
-                    return;
-                }
+            $uso = yield from $this->umaChamada($pedido, $texto, $clienteSaiu);
+            $comResultado = $uso === null ? null : $this->pedidoDaConsulta($preparada, $uso);
+            if ($comResultado !== null) {
+                [$pedido, $anterior] = [$comResultado, $uso];
+                yield from $this->separarAsChamadas($texto);
+                $inicio = \strlen($texto);
+                $uso = yield from $this->umaChamada($pedido, $texto, $clienteSaiu);
             }
-            $uso = $fluxo->getReturn();
         } catch (FalhaDoProvedorException|ProvedorIndisponivelException $e) {
-            yield $this->falhou($preparada, $texto, $e);
+            yield $this->falhou($preparada, $texto, $e, $this->estimativa($pedido, substr($texto, $inicio), $anterior), $anterior);
+
+            return;
+        }
+        if ($uso === null) {
+            $this->gravar($preparada, $texto, $this->estimativa($pedido, substr($texto, $inicio), $anterior), true);
 
             return;
         }
 
-        yield from $this->terminou($preparada, $texto, $uso);
+        yield from $this->terminou($preparada, $texto, self::somar($anterior, $uso), $anterior !== null);
     }
 
-    /** @return \Generator<int, array{evento: string, dados: array<string, mixed>}> */
-    private function terminou(RespostaPreparada $preparada, string $texto, UsoDaTransmissao $uso): \Generator
+    /**
+     * Uma chamada ao provedor em fluxo: cada trecho vira `delta` e entra no texto. Devolve o consumo, ou nulo se o cliente saiu
+     * (consultado depois de cada trecho entregue).
+     *
+     * @param callable(): bool $clienteSaiu
+     *
+     * @return \Generator<int, array{evento: string, dados: array<string, mixed>}, mixed, ?UsoDaTransmissao>
+     */
+    private function umaChamada(PedidoDeLinguagem $pedido, string &$texto, callable $clienteSaiu): \Generator
+    {
+        $fluxo = $this->provedor->transmitir($pedido);
+        foreach ($fluxo as $trecho) {
+            $texto .= $trecho;
+            yield $this->evento('delta', ['t' => $trecho]);
+            if ($clienteSaiu()) {
+                return null;
+            }
+        }
+
+        return $fluxo->getReturn();
+    }
+
+    /**
+     * A segunda chamada, quando o modelo pediu uma ferramenta de CONSULTA (só leitura): o mesmo pedido com o resultado e sem
+     * ferramentas ({@see ConsultasDoChat}). Nulo = nenhuma consulta pedida.
+     */
+    private function pedidoDaConsulta(RespostaPreparada $preparada, UsoDaTransmissao $uso): ?PedidoDeLinguagem
+    {
+        $consultas = array_values(array_filter($uso->chamadasDeFerramenta, fn (ChamadaDeFerramenta $c): bool => $this->consultas->ehConsulta($c)));
+
+        return $consultas === [] ? null : $this->consultas->pedidoComResultado($preparada, $consultas);
+    }
+
+    /**
+     * O texto da primeira chamada ("vou consultar...") e o da segunda viram uma resposta só, separados por uma linha em branco.
+     *
+     * @return \Generator<int, array{evento: string, dados: array<string, mixed>}>
+     */
+    private function separarAsChamadas(string &$texto): \Generator
+    {
+        if (trim($texto) === '') {
+            return;
+        }
+        $texto .= "\n\n";
+        yield $this->evento('delta', ['t' => "\n\n"]);
+    }
+
+    /**
+     * Parou ou falhou na SEGUNDA chamada: a primeira entra com os tokens reais e a segunda, estimada (o provedor não informou).
+     * Na primeira chamada, nulo: o {@see gravar()} estima tudo, como sempre.
+     */
+    private function estimativa(PedidoDeLinguagem $pedido, string $textoDaChamada, ?UsoDaTransmissao $anterior): ?UsoDaTransmissao
+    {
+        if ($anterior === null) {
+            return null;
+        }
+
+        return new UsoDaTransmissao(
+            modelo: $anterior->modelo,
+            tokensEntrada: ($anterior->tokensEntrada ?? 0) + self::estimarAEntrada($pedido),
+            tokensSaida: ($anterior->tokensSaida ?? 0) + self::estimar($textoDaChamada),
+        );
+    }
+
+    /** As duas chamadas somadas (o teto diário vê as duas); as chamadas de ferramenta são as da primeira (a segunda não tem). */
+    private static function somar(?UsoDaTransmissao $anterior, UsoDaTransmissao $uso): UsoDaTransmissao
+    {
+        if ($anterior === null) {
+            return $uso;
+        }
+        $somar = static fn (?int $a, ?int $b): ?int => $a === null && $b === null ? null : ($a ?? 0) + ($b ?? 0);
+
+        return new UsoDaTransmissao(
+            modelo: $uso->modelo,
+            tokensEntrada: $somar($anterior->tokensEntrada, $uso->tokensEntrada),
+            tokensSaida: $somar($anterior->tokensSaida, $uso->tokensSaida),
+            duracaoMs: $somar($anterior->duracaoMs, $uso->duracaoMs),
+            cortadaNoLimite: $uso->cortadaNoLimite,
+            chamadasDeFerramenta: $anterior->chamadasDeFerramenta,
+        );
+    }
+
+    /**
+     * @param bool $comConsulta houve a segunda chamada (consulta): resposta vazia ainda guarda o custo das duas
+     *
+     * @return \Generator<int, array{evento: string, dados: array<string, mixed>}>
+     */
+    private function terminou(RespostaPreparada $preparada, string $texto, UsoDaTransmissao $uso, bool $comConsulta): \Generator
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
         [$propostas, $aviso] = $this->registrarPropostas($preparada, $texto, $uso, $agora);
@@ -102,6 +203,9 @@ final class TransmitirRespostaDoChatUseCase
             yield $this->evento('delta', ['t' => $aviso]);
         }
         if (trim($texto) === '') {
+            if ($comConsulta) {
+                $this->guardarSoOCusto($preparada, $uso);
+            }
             yield $this->evento('erro', ['codigo' => 'resposta_vazia', 'mensagem' => 'A IA não devolveu texto. Tente de novo.']);
 
             return;
@@ -124,15 +228,18 @@ final class TransmitirRespostaDoChatUseCase
     }
 
     /**
+     * Só as chamadas de PROPOSTA viram cartão; a de consulta já foi respondida na segunda chamada e não gera aviso.
+     *
      * @return array{0: list<PropostaDeCadastro>, 1: string}
      */
     private function registrarPropostas(RespostaPreparada $preparada, string $texto, UsoDaTransmissao $uso, \DateTimeImmutable $agora): array
     {
-        if ($uso->chamadasDeFerramenta === []) {
+        $chamadas = array_values(array_filter($uso->chamadasDeFerramenta, fn (ChamadaDeFerramenta $c): bool => !$this->consultas->ehConsulta($c)));
+        if ($chamadas === []) {
             return [[], ''];
         }
         $conversa = $preparada->conversa;
-        $propostas = $this->registrador->preparar($conversa->getUsuario(), $preparada->tenant, $conversa, $uso->chamadasDeFerramenta, $agora);
+        $propostas = $this->registrador->preparar($conversa->getUsuario(), $preparada->tenant, $conversa, $chamadas, $agora);
         $aviso = match (true) {
             $propostas === [] => self::AVISO_SEM_PROPOSTA,
             trim($texto) === '' => self::AVISO_COM_PROPOSTA,
@@ -143,12 +250,17 @@ final class TransmitirRespostaDoChatUseCase
     }
 
     /**
+     * @param UsoDaTransmissao|null $estimativa o consumo da resposta parcial ({@see estimativa()}); nulo = o gravar estima
+     * @param UsoDaTransmissao|null $anterior   o consumo REAL da primeira chamada, quando a falha veio na segunda (consulta)
+     *
      * @return array{evento: string, dados: array<string, mixed>}
      */
-    private function falhou(RespostaPreparada $preparada, string $texto, FalhaDoProvedorException|ProvedorIndisponivelException $e): array
+    private function falhou(RespostaPreparada $preparada, string $texto, FalhaDoProvedorException|ProvedorIndisponivelException $e, ?UsoDaTransmissao $estimativa, ?UsoDaTransmissao $anterior): array
     {
         if (trim($texto) !== '') {
-            $this->gravar($preparada, $texto, null, true);
+            $this->gravar($preparada, $texto, $estimativa, true);
+        } elseif ($anterior !== null) {
+            $this->guardarSoOCusto($preparada, $anterior);
         }
         $transitoria = $e instanceof FalhaDoProvedorException && $e->transitoria;
         $this->logger->warning('Chat I.A: o provedor falhou durante a resposta.', [
@@ -175,7 +287,7 @@ final class TransmitirRespostaDoChatUseCase
     private function gravar(RespostaPreparada $preparada, string $texto, ?UsoDaTransmissao $uso, bool $interrompida, array $propostas = []): MensagemDeChat
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
-        $entrada = $uso->tokensEntrada ?? self::estimar($preparada->pedido->sistema . $this->conteudoDoPedido($preparada)) + self::estimarOsAnexos($preparada);
+        $entrada = $uso->tokensEntrada ?? self::estimarAEntrada($preparada->pedido);
         $saida = $uso->tokensSaida ?? self::estimar($texto);
         $mensagem = MensagemDeChat::doAssistente($preparada->conversa, $texto, $uso->modelo ?? $preparada->modelo->value, $entrada, $saida, $interrompida, $agora);
 
@@ -195,6 +307,27 @@ final class TransmitirRespostaDoChatUseCase
         return $mensagem;
     }
 
+    /**
+     * Resposta que terminou sem texto depois de uma consulta: o consumo conhecido vira um registro de custo, como a resposta
+     * substituída (sem texto, fora da conversa e do histórico, dentro da soma do teto do dia).
+     */
+    private function guardarSoOCusto(RespostaPreparada $preparada, UsoDaTransmissao $uso): void
+    {
+        $registro = MensagemDeChat::doAssistente(
+            $preparada->conversa,
+            '',
+            $uso->modelo,
+            $uso->tokensEntrada,
+            $uso->tokensSaida,
+            true,
+            \DateTimeImmutable::createFromInterface($this->relogio->now()),
+        );
+        $registro->substituir();
+        $this->transacao->executar(function () use ($registro): void {
+            $this->mensagens->salvar($registro);
+        });
+    }
+
     private function tituloDaPrimeiraResposta(RespostaPreparada $preparada, string $texto): ?string
     {
         if (!$preparada->primeiraResposta) {
@@ -208,15 +341,18 @@ final class TransmitirRespostaDoChatUseCase
         return $preparada->conversa->getTitulo();
     }
 
-    private function conteudoDoPedido(RespostaPreparada $preparada): string
+    /** Sistema, mensagens e anexos do pedido, estimados (texto: caracteres / 3,5; anexo: bytes / 3, com teto por arquivo). */
+    private static function estimarAEntrada(PedidoDeLinguagem $pedido): int
     {
-        return implode('', array_map(static fn (array $m): string => $m['conteudo'], $preparada->pedido->mensagens));
+        $conteudo = implode('', array_map(static fn (array $m): string => $m['conteudo'], $pedido->mensagens));
+
+        return self::estimar($pedido->sistema . $conteudo) + self::estimarOsAnexos($pedido);
     }
 
-    private static function estimarOsAnexos(RespostaPreparada $preparada): int
+    private static function estimarOsAnexos(PedidoDeLinguagem $pedido): int
     {
         $total = 0;
-        foreach ($preparada->pedido->anexos as $anexo) {
+        foreach ($pedido->anexos as $anexo) {
             $total += min(self::TETO_DE_TOKENS_POR_ANEXO, (int) ceil(\strlen($anexo->bytes) / self::BYTES_POR_TOKEN_DE_ANEXO));
         }
 
