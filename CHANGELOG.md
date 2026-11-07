@@ -8,6 +8,12 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.41.0] - 2026-11-07
+
+### Alterado
+
+- Contribua: no checkout de página hospedada (Asaas), a janela de assinatura de espaço deixa de mostrar e de exigir o campo "CPF/CNPJ do titular"; o pagador o informa na página do gateway. No formulário de cartão (Stripe, Mercado Pago, Pagar.me) o campo continua obrigatório. O `Pagador` aceita documento nulo e o modo da janela sai de `MontarPagamentoDoContribuaUseCase::modoDoGateway`, usado também pelo `IniciarAssinaturaUseCase`.
+
 ## [2.40.1] - 2026-11-07
 
 ### Corrigido
@@ -1682,7 +1688,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.40.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.41.0...HEAD
+[2.41.0]: https://github.com/sfbdata/Prime/compare/v2.40.1...v2.41.0
 [2.40.1]: https://github.com/sfbdata/Prime/compare/v2.40.0...v2.40.1
 [2.40.0]: https://github.com/sfbdata/Prime/compare/v2.39.1...v2.40.0
 [2.39.1]: https://github.com/sfbdata/Prime/compare/v2.39.0...v2.39.1
