@@ -63,7 +63,7 @@ final class MontarPagamentoDoContribuaUseCase
             'gateway' => $gateway?->codigo() ?? '',
             'gatewayNome' => $gateway === null ? '' : self::nome($gateway->codigo()),
             // Página hospedada (o cartão é digitado no gateway) ou o formulário do desenho com token no navegador.
-            'modo' => $gateway === null || \in_array($gateway->codigo(), self::SEM_LINK_DO_PACOTE, true) ? InicioDoCheckout::REDIRECIONAR : InicioDoCheckout::FORMULARIO,
+            'modo' => self::modoDoGateway($gateway?->codigo()),
             'documento' => preg_replace('/\D/', '', (string) $quem->escritorio->getCnpj()) ?? '',
             // O formulário de cartão do gateway (Stripe, Mercado Pago, Pagar.me) é montado ao abrir o checkout
             // com a chave pública que o Master cadastrou; nome e e-mail vão ao campo seguro do gateway.
@@ -200,5 +200,15 @@ final class MontarPagamentoDoContribuaUseCase
     public static function nome(string $codigo): string
     {
         return self::NOMES[$codigo] ?? $codigo;
+    }
+
+    /**
+     * Como a janela de pagamento trabalha com o gateway: página hospedada (sem gateway ou Asaas: o pagador
+     * digita cartão e CPF/CNPJ na página dele) ou o formulário do desenho com token no navegador. O
+     * `IniciarAssinaturaUseCase` usa a mesma resposta para saber se exige o CPF/CNPJ do titular.
+     */
+    public static function modoDoGateway(?string $codigo): string
+    {
+        return $codigo === null || \in_array($codigo, self::SEM_LINK_DO_PACOTE, true) ? InicioDoCheckout::REDIRECIONAR : InicioDoCheckout::FORMULARIO;
     }
 }

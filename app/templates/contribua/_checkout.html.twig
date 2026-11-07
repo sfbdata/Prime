@@ -2,7 +2,8 @@
    O cartão nunca passa pelo BlueJus. Modo formulário (Stripe, Mercado Pago, Pagar.me): o campo seguro do
    gateway é montado em [data-co-elemento] pelo módulo do gateway (contribua-<gateway>.js: ContribuaStripe,
    ContribuaMercadoPago, ContribuaPagarme; montar/tokenizar/concluirAcao/desmontar) e só o token sobe.
-   Modo hospedado (Asaas): o botão leva à página segura do gateway. #}
+   Modo hospedado (Asaas): o botão leva à página segura do gateway, que pede cartão e CPF/CNPJ; a janela não
+   mostra o campo do documento. #}
 {% set pg = pagamento %}
 <div class="co-modal" data-checkout hidden
      data-modo="{{ pg.modo }}"
@@ -46,7 +47,7 @@
                         <div class="co-elemento" data-co-elemento></div>
                         <label class="co-campo">CPF/CNPJ DO TITULAR<input data-cartao-documento inputmode="numeric" placeholder="do titular" value="{{ pg.documento }}"></label>
                     {% else %}
-                        <label class="co-campo">CPF/CNPJ DO TITULAR<input data-cartao-documento inputmode="numeric" placeholder="só números" value="{{ pg.documento }}"></label>
+                        {# Sem o CPF/CNPJ do titular: a página do gateway já pede (decisão de 07/11/2026, desvio aprovado do desenho 08). #}
                         <div class="co-hospedado"><i class="bi bi-box-arrow-up-right"></i>Você digita o cartão na página segura do {{ pg.gatewayNome }} e volta para o BlueJus quando terminar.</div>
                     {% endif %}
                     <div class="co-erro" data-co-erro hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>

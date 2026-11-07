@@ -11,7 +11,12 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\UseCase\AmpliarEspacoAutomaticamenteUseCase;
 use App\Contribua\Entity\Plano;
+use App\Contribua\DTO\Solicitante;
+use App\Contribua\Gateway\AvisoDoGateway;
+use App\Contribua\Gateway\GatewayDeAssinatura;
+use App\Contribua\Gateway\GatewaysDeAssinatura;
 use App\Contribua\Gateway\InicioDoCheckout;
+use App\Contribua\Gateway\PedidoDeCheckout;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Gateway\SituacaoNoGateway;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
@@ -22,6 +27,7 @@ use App\Contribua\Service\AtualizacaoDaAssinatura;
 use App\Contribua\Service\PlanoVigenteDoEscritorio;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Contribua\UseCase\ConciliarAssinaturasUseCase;
+use App\Contribua\UseCase\IniciarAssinaturaUseCase;
 use App\Contribua\UseCase\MontarPagamentoDoContribuaUseCase;
 use App\Contribua\UseCase\ReceberAvisoDoGatewayUseCase;
 use App\Entity\Auth\User;
@@ -33,9 +39,13 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use Psr\Log\LoggerInterface;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
+use Twig\Environment;
 
 /**
  * O caminho do cartão de ponta a ponta com o gateway falso: checkout, retorno, webhook com reconsulta,
@@ -47,6 +57,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PlanoVigenteDoEscritorio::class)]
 #[CoversClass(ReceberAvisoDoGatewayUseCase::class)]
 #[CoversClass(ConciliarAssinaturasUseCase::class)]
+#[CoversClass(IniciarAssinaturaUseCase::class)]
 final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
 {
     private const TOKEN = 'TOKEN_contribua';
@@ -407,6 +418,138 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422, 'o mesmo pedido não assina duas vezes');
     }
 
+    #[TestDox('Página hospedada (Asaas): a janela não mostra o campo CPF/CNPJ do titular; a página do gateway pede')]
+    public function testHospedadoSemCampoDeDocumento(): void
+    {
+        $config = static::getContainer()->get(ConfiguracaoDePagamentoRepository::class)->atual();
+        $config->configurar('asaas', null, [], 7);
+        $this->em->flush();
+
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $crawler = $this->client->request('GET', '/contribua');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $crawler->filter('[data-checkout][data-modo="redirecionar"][data-gateway="asaas"]')->count());
+        self::assertSame(0, $crawler->filter('[data-checkout] [data-cartao-documento]')->count());
+        self::assertStringNotContainsString('CPF/CNPJ DO TITULAR', $crawler->filter('[data-checkout] [data-co-form]')->text());
+        self::assertSame(1, $crawler->filter('[data-co-form] > .co-meio + .co-hospedado')->count(), 'o aviso da página segura fica logo abaixo de "Cartão de crédito"');
+        self::assertStringContainsString('página segura do Asaas', $crawler->filter('[data-co-form] > .co-hospedado')->text());
+    }
+
+    #[TestDox('Página hospedada: iniciar sem documento funciona, e o que vier no pedido é ignorado (o gateway não recebe)')]
+    public function testIniciarHospedadoSemDocumento(): void
+    {
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+
+        $resposta = $this->post('/contribua/assinatura', ['plano' => 'essencial']);
+
+        self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
+        self::assertSame('redirecionar', $resposta['modo']);
+        self::assertNotNull($this->gateway->ultimoPedido);
+        self::assertNull($this->gateway->ultimoPedido->pagador->documento);
+        self::assertSame(SituacaoDaAssinatura::Aguardando, $this->pedido()->getSituacao());
+
+        $denovo = $this->post('/contribua/assinatura', ['plano' => 'essencial', 'documento' => '123']);
+        self::assertTrue($denovo['ok'], 'documento inválido (tela antiga em cache) não trava a página hospedada');
+        self::assertSame($resposta['url'], $denovo['url'], 'reabre o mesmo checkout');
+    }
+
+    #[TestDox('Formulário de cartão (Stripe, Mercado Pago, Pagar.me): a janela mostra o campo CPF/CNPJ do titular')]
+    public function testFormularioMostraCampoDeDocumento(): void
+    {
+        $pagamento = static::getContainer()->get(MontarPagamentoDoContribuaUseCase::class)->executar($this->solicitante());
+        $pagamento['modo'] = MontarPagamentoDoContribuaUseCase::modoDoGateway('stripe');
+        $pagamento['gateway'] = 'stripe';
+        $pagamento['gatewayNome'] = 'Stripe';
+
+        $html = static::getContainer()->get(Environment::class)->render('contribua/_checkout.html.twig', ['pagamento' => $pagamento, 'retorno' => null]);
+        $crawler = new Crawler($html);
+
+        self::assertSame(1, $crawler->filter('[data-checkout][data-modo="formulario"]')->count());
+        self::assertSame(1, $crawler->filter('[data-co-form] > [data-co-elemento] + label.co-campo > input[data-cartao-documento]')->count());
+        self::assertStringContainsString('CPF/CNPJ DO TITULAR', $crawler->filter('[data-co-form] > label.co-campo')->text());
+        self::assertSame(0, $crawler->filter('.co-hospedado')->count());
+    }
+
+    #[TestDox('Formulário de cartão: iniciar continua exigindo o CPF/CNPJ do titular e o envia ao gateway')]
+    public function testFormularioExigeDocumentoAoIniciar(): void
+    {
+        $config = static::getContainer()->get(ConfiguracaoDePagamentoRepository::class)->atual();
+        $config->configurar('stripe', 'pk_test_formulario', [], 7);
+        $this->em->flush();
+        // Um gateway de formulário com o código do Stripe: o 'falso' do container é página hospedada para a janela.
+        $stripe = new class () implements GatewayDeAssinatura {
+            public ?PedidoDeCheckout $ultimoPedido = null;
+
+            public function codigo(): string
+            {
+                return 'stripe';
+            }
+
+            public function iniciar(PedidoDeCheckout $pedido): InicioDoCheckout
+            {
+                $this->ultimoPedido = $pedido;
+
+                return InicioDoCheckout::formulario('pk_test_formulario');
+            }
+
+            public function assinarComToken(PedidoDeCheckout $pedido, string $tokenDoCartao): SituacaoNoGateway
+            {
+                throw new \LogicException('Fora deste teste.');
+            }
+
+            public function consultar(string $idDaAssinatura): SituacaoNoGateway
+            {
+                throw new \LogicException('Fora deste teste.');
+            }
+
+            public function interpretarAviso(array $cabecalhos, string $corpo): ?AvisoDoGateway
+            {
+                return null;
+            }
+
+            public function cancelar(string $idDaAssinatura): void
+            {
+            }
+
+            public function alterarValor(string $idDaAssinatura, int $valorCentavos): void
+            {
+            }
+        };
+        $iniciar = $this->iniciarCom($stripe);
+
+        foreach (['', '123'] as $documento) {
+            try {
+                $iniciar->executar($this->solicitante(), 'essencial', $documento, null);
+                self::fail('iniciou sem o CPF/CNPJ do titular: "' . $documento . '"');
+            } catch (\DomainException $recusa) {
+                self::assertSame('Informe o CPF ou CNPJ do titular.', $recusa->getMessage());
+            }
+        }
+        self::assertSame(0, $this->contarAssinaturas(), 'sem documento nada é gravado');
+        self::assertNull($stripe->ultimoPedido, 'sem documento nada vai ao gateway');
+
+        $inicio = $iniciar->executar($this->solicitante(), 'essencial', '123.456.789-09', null);
+
+        self::assertSame(InicioDoCheckout::FORMULARIO, $inicio->modo);
+        self::assertNotNull($stripe->ultimoPedido);
+        self::assertSame('12345678909', $stripe->ultimoPedido->pagador->documento);
+    }
+
+    #[TestDox('Formulário de cartão: o token sem CPF/CNPJ do titular é recusado e o pedido segue aguardando')]
+    public function testFormularioExigeDocumentoNoToken(): void
+    {
+        $this->gateway->modo = InicioDoCheckout::FORMULARIO;
+        $inicio = $this->assinar($this->primario);
+
+        $resposta = $this->post('/contribua/assinatura/' . $inicio['pedido'] . '/token', ['token' => 'tok_falso']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Informe o CPF ou CNPJ do titular.', $resposta['erro']);
+        self::assertSame(SituacaoDaAssinatura::Aguardando, $this->pedido()->getSituacao());
+        self::assertNull($this->pedido()->getIdDaAssinatura(), 'nada foi ao gateway');
+    }
+
     #[TestDox('Confirmado à mão antes do aviso: a assinatura do gateway se liga ao pedido e o cancelar chega ao gateway')]
     public function testConfirmacaoManualDepoisWebhook(): void
     {
@@ -651,6 +794,29 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $quem, $this->escritorio);
 
         return $this->post('/contribua/assinatura', ['plano' => $plano, 'documento' => '123.456.789-09']);
+    }
+
+    private function solicitante(): Solicitante
+    {
+        return new Solicitante($this->primario, $this->escritorio, false, true);
+    }
+
+    /** O caso de uso real com só o gateway trocado (o resto vem do container de teste). */
+    private function iniciarCom(GatewayDeAssinatura $gateway): IniciarAssinaturaUseCase
+    {
+        $c = static::getContainer();
+        $configuracao = $c->get(ConfiguracaoDePagamentoRepository::class);
+
+        return new IniciarAssinaturaUseCase(
+            new GatewaysDeAssinatura([$gateway], $configuracao),
+            $c->get(PlanoRepository::class),
+            $c->get(SituacaoDoEspaco::class),
+            $c->get(AssinaturaDeEspacoRepository::class),
+            $configuracao,
+            $c->get(UrlGeneratorInterface::class),
+            $c->get(LoggerInterface::class),
+            $c->get(Connection::class),
+        );
     }
 
     private function assinaturaPaga(string $plano, int $multiplicador = 1): void

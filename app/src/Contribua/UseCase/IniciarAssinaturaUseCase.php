@@ -77,7 +77,7 @@ final class IniciarAssinaturaUseCase
         $plano = $this->planoQueAmplia($quem->tenantId(), $codigoDoPlano, $multiplicador);
         $valor = $plano->getPrecoCentavos() * $multiplicador;
         $this->exigirSemAssinaturaViva($quem->tenantId());
-        $pagador = new Pagador($quem->escritorio->getName() ?? $quem->nome(), preg_replace('/\D/', '', $documento) ?? '', (string) $quem->usuario->getEmail());
+        $pagador = new Pagador($quem->escritorio->getName() ?? $quem->nome(), self::documentoDoTitular($gateway, $documento), (string) $quem->usuario->getEmail());
 
         $pedido = $this->pedidoAberto($quem, $gateway, $plano, $valor);
         if ($pedido?->getUrlDoCheckout() !== null) {
@@ -197,6 +197,20 @@ final class IniciarAssinaturaUseCase
         }
         $assinatura->cancelar();
         $this->assinaturas->salvar($assinatura, flush: true);
+    }
+
+    /**
+     * O CPF/CNPJ do titular só é exigido no formulário de cartão (Stripe, Mercado Pago, Pagar.me), que o
+     * envia ao gateway. Na página hospedada (Asaas) o pagador o digita lá: a janela não mostra o campo e o
+     * que vier no pedido é ignorado (null no `Pagador`).
+     */
+    private static function documentoDoTitular(GatewayDeAssinatura $gateway, string $documento): ?string
+    {
+        if (MontarPagamentoDoContribuaUseCase::modoDoGateway($gateway->codigo()) === InicioDoCheckout::REDIRECIONAR) {
+            return null;
+        }
+
+        return preg_replace('/\D/', '', $documento) ?? '';
     }
 
     private function pedidoDeCheckout(AssinaturaDeEspaco $pedido, Pagador $pagador, ?string $ip): PedidoDeCheckout

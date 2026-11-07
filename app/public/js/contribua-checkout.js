@@ -139,12 +139,15 @@
         }
     }
 
+    /* O campo do CPF/CNPJ só existe no modo formulário; na página hospedada o gateway pede o documento */
+    const campoDocumento = $('[data-cartao-documento]', modal);
+
     function documento() {
-        return soDigitos($('[data-cartao-documento]', modal).value);
+        return campoDocumento ? soDigitos(campoDocumento.value) : '';
     }
 
     function pagar() {
-        if (![11, 14].includes(documento().length)) {
+        if (campoDocumento && ![11, 14].includes(documento().length)) {
             erro('Informe o CPF ou CNPJ do titular.');
             return;
         }
