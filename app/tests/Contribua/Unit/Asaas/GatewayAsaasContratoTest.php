@@ -18,10 +18,7 @@ final class GatewayAsaasContratoTest extends TesteDeContratoDoGatewayDeAssinatur
 
     protected function gatewayQueIniciaComSucesso(): GatewayDeAssinatura
     {
-        return (new ApiAsaasFalsa([
-            'GET /customers' => [200, ApiAsaasFalsa::listaDeClientes([ApiAsaasFalsa::cliente()])],
-            'POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado()],
-        ]))->gateway();
+        return (new ApiAsaasFalsa(['POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado()]]))->gateway();
     }
 
     protected function gatewayForaDoAr(): GatewayDeAssinatura
@@ -47,7 +44,6 @@ final class GatewayAsaasContratoTest extends TesteDeContratoDoGatewayDeAssinatur
         $api = new ApiAsaasFalsa([
             'GET /subscriptions/' . self::ID => [200, ApiAsaasFalsa::assinatura($status)],
             'GET /subscriptions/' . self::ID . '/payments' => [200, ApiAsaasFalsa::cobrancasDaAssinatura($cobrancas)],
-            'GET /customers/' . ApiAsaasFalsa::ID_DO_CLIENTE => [200, ApiAsaasFalsa::cliente()],
         ]);
 
         return [$api->gateway(), self::ID];

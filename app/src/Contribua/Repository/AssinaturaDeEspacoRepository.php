@@ -65,8 +65,18 @@ class AssinaturaDeEspacoRepository extends ServiceEntityRepository
     }
 
     /**
+     * O pedido que abriu este checkout no gateway (o id que `iniciar` devolveu), em qualquer situação: quem
+     * chama decide se ele ainda pode receber a assinatura. Sem filtro de tenant de propósito, como o
+     * `porIdNoGateway`: o id do checkout é do gateway e o pedido achado traz o próprio escritório.
+     */
+    public function porIdDoCheckout(string $gateway, string $idDoCheckout): ?AssinaturaDeEspaco
+    {
+        return $this->findOneBy(['gateway' => $gateway, 'idDoCheckout' => $idDoCheckout]);
+    }
+
+    /**
      * Os pedidos ainda sem assinatura ligada, do mais novo para o mais antigo: é a eles que um aviso de
-     * "assinatura criada" se prende (o Asaas não devolve a referência do pedido, só o cliente). Inclui o
+     * "assinatura criada" se prende quando o gateway não diz o checkout de origem, só a referência. Inclui o
      * pedido que o Master confirmou à mão antes do aviso chegar (Ativa sem assinatura ligada).
      *
      * @return list<AssinaturaDeEspaco>

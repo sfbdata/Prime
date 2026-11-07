@@ -19,8 +19,14 @@ use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * Adaptador do Asaas (API v3) pelo caminho hospedado: um cliente Asaas por escritório e, a cada pedido, um
- * Asaas Checkout recorrente. O cartão nunca passa pelo BlueJus (spec contribua-planos-cora, §6).
+ * Adaptador do Asaas (API v3) pelo caminho hospedado: a cada pedido, um Asaas Checkout recorrente. O cartão
+ * nunca passa pelo BlueJus (spec contribua-planos-cora, §6).
+ *
+ * O checkout vai SEM `customer` e sem `customerData`: o pagador preenche os próprios dados na página do
+ * Asaas. Com um cliente pré-criado só com nome, CPF/CNPJ e e-mail o Asaas recusa o checkout (HTTP 400,
+ * pede telefone e endereço; provado no sandbox em 07/11/2026). O vínculo com o pedido vem do próprio
+ * checkout: `externalReference` com a referência do pedido e o id do checkout, que a assinatura criada
+ * devolve em `checkoutSession` (https://docs.asaas.com/docs/how-to-provide-customer-data).
  *
  * As variáveis de ambiente são lidas com `default::`: o build de produção apaga o `.env`, e o gateway sem
  * configuração não pode derrubar o container; ele responde `FalhaNoGateway` ao ser usado.
@@ -96,8 +102,7 @@ final class GatewayAsaas implements GatewayDeAssinatura, EmiteNotaFiscalDaAssina
 
     public function iniciar(PedidoDeCheckout $pedido): InicioDoCheckout
     {
-        $idDoCliente = $this->clienteDoEscritorio($pedido);
-        $checkout = $this->chamar('POST', '/checkouts', ['json' => $this->corpoDoCheckout($pedido, $idDoCliente)]);
+        $checkout = $this->chamar('POST', '/checkouts', ['json' => $this->corpoDoCheckout($pedido)]);
         $id = self::texto($checkout, 'id') ?? throw new FalhaNoGateway('Asaas criou o checkout sem devolver o id.');
         $link = self::texto($checkout, 'link') ?? $this->enderecoDoCheckout() . '/checkoutSession/show?id=' . rawurlencode($id);
         if (!str_starts_with($link, 'https://')) {
@@ -120,17 +125,20 @@ final class GatewayAsaas implements GatewayDeAssinatura, EmiteNotaFiscalDaAssina
             return new SituacaoNoGateway($idDaAssinatura, SituacaoDaAssinatura::Cancelada, null);
         }
         $cobrancas = $this->cobrancasDaAssinatura($idDaAssinatura);
-        $idDoCliente = self::texto($assinatura, 'customer');
         $ultimaPaga = self::ultimaCobrancaPaga($cobrancas);
         $valor = $assinatura['value'] ?? null;
 
+        // O cliente NÃO diz de que escritório é a assinatura: quem o cadastra é o pagador, na página do
+        // checkout. O vínculo vem do checkout (`checkoutSession`) e, se o Asaas a levar à assinatura, da
+        // referência do pedido (`externalReference`).
         return new SituacaoNoGateway(
             $idDaAssinatura,
             self::traduzirSituacao($assinatura, $cobrancas, $ultimaPaga),
             $ultimaPaga === null ? null : self::fimDoPeriodoPago($ultimaPaga),
-            $idDoCliente === null ? null : $this->referenciaDoCliente($idDoCliente),
-            $idDoCliente,
+            self::texto($assinatura, 'externalReference'),
+            self::texto($assinatura, 'customer'),
             is_numeric($valor) ? (int) round((float) $valor * 100) : null,
+            idDoCheckout: self::texto($assinatura, 'checkoutSession'),
         );
     }
 
@@ -214,53 +222,16 @@ final class GatewayAsaas implements GatewayDeAssinatura, EmiteNotaFiscalDaAssina
         ]]);
     }
 
-    /** O cliente Asaas do escritório (externalReference `BJ<conta>`), criado na primeira vez. */
-    private function clienteDoEscritorio(PedidoDeCheckout $pedido): string
-    {
-        $referencia = self::referenciaDaConta($pedido->referencia);
-        $lista = $this->chamar('GET', '/customers', ['query' => ['externalReference' => $referencia]]);
-        foreach (self::lista($lista) as $cliente) {
-            $id = self::texto($cliente, 'id');
-            if ($id !== null && ($cliente['deleted'] ?? false) !== true) {
-                $this->atualizarClienteSeMudou($id, $cliente, $pedido);
-
-                return $id;
-            }
-        }
-
-        $novo = $this->chamar('POST', '/customers', ['json' => [
-            'name' => $pedido->pagador->nome,
-            'cpfCnpj' => $pedido->pagador->documento,
-            'email' => $pedido->pagador->email,
-            'externalReference' => $referencia,
-            'notificationDisabled' => false,
-        ]]);
-
-        return self::texto($novo, 'id') ?? throw new FalhaNoGateway('Asaas criou o cliente ' . $referencia . ' sem devolver o id.');
-    }
-
     /**
-     * O cliente reaproveitado leva o CPF/CNPJ e o e-mail do pagador de agora (a nota sai em nome dele).
-     * Doc: https://docs.asaas.com/reference/update-existing-customer
+     * Sem `customer` e sem `customerData`: a página do Asaas pede os dados ao pagador. O `externalReference`
+     * leva a referência do pedido (até 200 caracteres), como a doc recomenda para ligar o checkout ao pedido.
      *
-     * @param array<mixed> $cliente
+     * Doc: https://docs.asaas.com/reference/create-new-checkout
+     * Doc: https://docs.asaas.com/docs/how-to-provide-customer-data
+     *
+     * @return array<string, mixed>
      */
-    private function atualizarClienteSeMudou(string $idDoCliente, array $cliente, PedidoDeCheckout $pedido): void
-    {
-        $documentoAtual = preg_replace('/\D/', '', (string) ($cliente['cpfCnpj'] ?? ''));
-        $emailAtual = mb_strtolower(trim((string) ($cliente['email'] ?? '')));
-        if ($documentoAtual === $pedido->pagador->documento && $emailAtual === mb_strtolower(trim($pedido->pagador->email))) {
-            return;
-        }
-
-        $this->chamar('POST', '/customers/' . rawurlencode($idDoCliente), ['json' => [
-            'cpfCnpj' => $pedido->pagador->documento,
-            'email' => $pedido->pagador->email,
-        ]]);
-    }
-
-    /** @return array<string, mixed> */
-    private function corpoDoCheckout(PedidoDeCheckout $pedido, string $idDoCliente): array
+    private function corpoDoCheckout(PedidoDeCheckout $pedido): array
     {
         // A imagem do item (`items[].imageBase64`) NÃO é enviada: a documentação do Checkout se contradiz (a
         // referência da API a marca como obrigatória e o exemplo do guia de assinatura recorrente a omite).
@@ -286,7 +257,7 @@ final class GatewayAsaas implements GatewayDeAssinatura, EmiteNotaFiscalDaAssina
                 'cycle' => 'MONTHLY',
                 'nextDueDate' => $this->relogio->now()->setTimezone(new \DateTimeZone(self::FUSO))->format('Y-m-d'),
             ],
-            'customer' => $idDoCliente,
+            'externalReference' => $pedido->referencia,
         ];
     }
 
@@ -330,15 +301,6 @@ final class GatewayAsaas implements GatewayDeAssinatura, EmiteNotaFiscalDaAssina
             <=> [(string) ($a['dueDate'] ?? ''), (string) ($a['dateCreated'] ?? '')]);
 
         return $cobrancas;
-    }
-
-    /** O `externalReference` do cliente (`BJ<conta>`), que liga a assinatura ao escritório. */
-    private function referenciaDoCliente(string $idDoCliente): ?string
-    {
-        // 404: cliente removido no Asaas; a assinatura segue ligada pelo id do cliente.
-        $cliente = $this->chamarOuNulo('GET', '/customers/' . rawurlencode($idDoCliente));
-
-        return $cliente === null ? null : self::texto($cliente, 'externalReference');
     }
 
     /** @param array<string, string> $cabecalhos */
@@ -533,14 +495,6 @@ final class GatewayAsaas implements GatewayDeAssinatura, EmiteNotaFiscalDaAssina
         }
 
         return [null, null];
-    }
-
-    /** `BJ<conta>`: o prefixo da referência do pedido, antes do primeiro hífen. */
-    private static function referenciaDaConta(string $referenciaDoPedido): string
-    {
-        $conta = strstr($referenciaDoPedido, '-', true);
-
-        return $conta === false || $conta === '' ? $referenciaDoPedido : $conta;
     }
 
     /** Alíquota de imposto da nota (decimal, vírgula ou ponto); vazio vale 0. */
