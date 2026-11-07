@@ -186,12 +186,9 @@ final class JornadaColaboradorController extends AbstractController
         if (($choque = $this->choqueDaProposta($user, $urlTenant, $historico?->vigenteEm($valeAPartirDe), $blocosPropostos)) !== null) {
             return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // regra 3: quem marcou primeiro fica
         }
-        // Levar a versão de hoje para uma data futura deixa valendo hoje a anterior: ela também passa pela conferência.
-        $hoje        = $this->relogio->now();
-        $vigenteHoje = $historico?->vigenteEm($hoje);
-        if ($historico !== null && $vigenteHoje !== null && $vigenteHoje->getId() === $versaoId
-            && $valeAPartirDe->format('Y-m-d') > $hoje->format('Y-m-d')
-            && ($choque = $this->choqueDoQuePassaAValerHoje($user, $urlTenant, $historico, $vigenteHoje)) !== null) {
+        // Mudar a data de uma versão pode deixar valendo hoje outra (a anterior): ela também passa pela conferência.
+        if ($historico !== null && $versaoId !== null
+            && ($choque = $this->choqueDoQueValeHojeDepoisDeMudarAData($user, $urlTenant, $historico, $versaoId, $valeAPartirDe)) !== null) {
             return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
@@ -353,12 +350,44 @@ final class JornadaColaboradorController extends AbstractController
         return $this->choque->mensagem($user, $tenant, $this->intervalos->daJornada($proposta, $this->padroes->doEscritorio($tenant)));
     }
 
-    /** Sem a versão de hoje (excluída ou levada para frente), vale hoje a vizinha, ou a padrão: ela não pode bater com outro escritório. */
+    /** Sem a versão de hoje (excluída), vale hoje a vizinha, ou a padrão: ela não pode bater com outro escritório. */
     private function choqueDoQuePassaAValerHoje(User $user, Tenant $tenant, HistoricoDeJornadas $historico, JornadaColaborador $sai): ?string
     {
         $passaAValer = $historico->semA($sai)?->vigenteEm($this->relogio->now());
 
         return $this->choqueDaProposta($user, $tenant, $passaAValer, $passaAValer?->getBlocos()->toArray() ?? []);
+    }
+
+    /**
+     * O que vale hoje depois de a versão `$versaoId` passar para `$data`, conferido contra os outros escritórios. Nada a
+     * conferir quando segue valendo o mesmo de antes, ou quando passa a valer a própria editada (os blocos propostos já
+     * foram conferidos). Versão que não é do histórico fica para o UseCase recusar.
+     */
+    private function choqueDoQueValeHojeDepoisDeMudarAData(
+        User $user,
+        Tenant $tenant,
+        HistoricoDeJornadas $historico,
+        int $versaoId,
+        \DateTimeImmutable $data,
+    ): ?string {
+        $editada = null;
+        foreach ($historico->versoes() as $versao) {
+            if ($versao->getId() === $versaoId) {
+                $editada = $versao;
+            }
+        }
+        if ($editada === null) {
+            return null;
+        }
+
+        $hoje   = $this->relogio->now();
+        $movida = $editada->propostaComBlocos([])->setValeAPartirDe($data);
+        $depois = HistoricoDeJornadas::das([...($historico->semA($editada)?->versoes() ?? []), $movida])?->vigenteEm($hoje);
+        if ($depois === $movida || $depois === $historico->vigenteEm($hoje)) {
+            return null;
+        }
+
+        return $this->choqueDaProposta($user, $tenant, $depois, $depois?->getBlocos()->toArray() ?? []);
     }
 
     /** @param array<string, mixed> $blocoData */

@@ -34,6 +34,8 @@ final class JornadaComVersoesPelaTelaTest extends JusPrimeWebTestCase
     /** 40h: segunda a sexta 8h. */
     private const QUARENTA = [[[1, 2, 3, 4, 5], '08:00', '12:00', '13:00', '17:00']];
     private const FUTURO = '2099-03-02';
+    private const MANHA = [[[1, 2, 3, 4, 5], '08:00', null, null, '12:00']];
+    private const TARDE = [[[1, 2, 3, 4, 5], '13:00', null, null, '17:00']];
 
     private KernelBrowser $client;
     private Tenant $escritorio;
@@ -251,6 +253,48 @@ final class JornadaComVersoesPelaTelaTest extends JusPrimeWebTestCase
         self::assertCount(2, $this->jornadas()->historicoDe($outra, $this->escritorio)?->versoes() ?? []);
     }
 
+    #[TestDox('Levar a versão de hoje para frente: 422 quando a que passa a valer hoje bate com o outro escritório')]
+    public function testChoqueAoLevarAVersaoDeHojeParaFrente(): void
+    {
+        $this->pessoaTambemNoEscritorioDaTarde();
+        $this->jornadaAntiga($this->pessoa, self::TARDE, '2026-01-05');
+        $manhaId = $this->jornadaAntiga($this->pessoa, self::MANHA, '2026-10-01')->getId();
+
+        $resposta = $this->salvar(self::MANHA, '2099-01-05', $manhaId);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertNotEmpty($resposta['erro'] ?? null);
+        self::assertSame('2026-10-01', $this->historico()->versoes()[1]->getValeAPartirDe()->format('Y-m-d'));
+    }
+
+    #[TestDox('Levar a versão de hoje para frente sem deixar de ser a que vale hoje não é recusado')]
+    public function testLevarParaFrenteContinuandoAValerHoje(): void
+    {
+        $this->pessoaTambemNoEscritorioDaTarde();
+        $manhaId = $this->jornadaAntiga($this->pessoa, self::MANHA, '2026-04-01')->getId();
+        $this->jornadaAntiga($this->pessoa, self::TARDE, self::FUTURO);
+
+        // A da manhã continua a mais antiga e cobre os dias de antes: segue valendo hoje, e a da tarde não entra hoje.
+        $this->salvar(self::MANHA, '2099-01-05', $manhaId);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($manhaId, $this->historico()->vigenteEm(new \DateTimeImmutable('today'))?->getId());
+    }
+
+    #[TestDox('Excluir a versão de hoje: 422 quando a que passa a valer hoje bate com o outro escritório')]
+    public function testChoqueAoExcluirAVersaoDeHoje(): void
+    {
+        $this->pessoaTambemNoEscritorioDaTarde();
+        $this->jornadaAntiga($this->pessoa, self::TARDE, '2026-01-05');
+        $manhaId = $this->jornadaAntiga($this->pessoa, self::MANHA, '2026-10-01')->getId();
+
+        $resposta = $this->chamarJson($this->client, 'DELETE', $this->url() . '/versao/' . $manhaId);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertNotEmpty($resposta['erro'] ?? null);
+        self::assertCount(2, $this->historico()->versoes());
+    }
+
     #[TestDox('Excluir uma versão sem o token CSRF: 403')]
     public function testExcluirVersaoSemToken(): void
     {
@@ -303,6 +347,14 @@ final class JornadaComVersoesPelaTelaTest extends JusPrimeWebTestCase
         $this->jornadaAntiga($this->pessoa, self::QUARENTA, '2026-04-22');
         $crawler = $this->client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $this->escritorio->getId(), $this->pessoa->getId()));
         self::assertCount(1, $crawler->filter('#tab-escala #btnLimparEscala:not(.d-none)'));
+    }
+
+    /** A pessoa registra ponto também noutro escritório, onde a jornada dela é à tarde. */
+    private function pessoaTambemNoEscritorioDaTarde(): void
+    {
+        $tarde = $this->escritorio('Escritório da tarde');
+        $this->vincular($this->pessoa, $tarde);
+        $this->jornadaPessoal($this->pessoa, $tarde, self::TARDE);
     }
 
     /** Os 22 dias úteis de abril de 2026, de 08:00 às 18:00 (10 horas, sem intervalo). */
