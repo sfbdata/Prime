@@ -790,7 +790,8 @@ final class TenantController extends AbstractController
             $feriados = $feriadoRepository->findByTenant($tenant);
             $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);
             $inicioContagemPonto = $this->inicioContagemResolver->resolver($user, $tenant);
-            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
+            // Cada dia usa a versão da jornada que valia nele (spec ponto-jornada-vigencia §3.2).
+            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornadaColaboradorRepository->historicoDe($user, $tenant), $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($jornada, $jornadaTenant);

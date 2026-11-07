@@ -16,6 +16,7 @@ use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\EscolhaDasBatidasDoDia;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -195,7 +196,9 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
         $lancamentos->method('somarPorPeriodo')->willReturn(0);
         $lancamentos->method('somarPorCompetencia')->willReturn(0);
         $jornadas = $this->createStub(JornadaColaboradorRepository::class);
-        $jornadas->method('findByUserETenant')->willReturnCallback(fn (): ?JornadaColaborador => $this->jornadaNoEscritorio);
+        $jornadas->method('historicoDe')->willReturnCallback(
+            fn (): ?HistoricoDeJornadas => $this->jornadaNoEscritorio === null ? null : HistoricoDeJornadas::deUma($this->jornadaNoEscritorio)
+        );
 
         return new FolhaPontoBuilder(
             new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia('2026-05-01')),

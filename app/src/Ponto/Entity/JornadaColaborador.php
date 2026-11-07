@@ -13,10 +13,13 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * A jornada pessoal de um colaborador NUM escritório (spec `docs/specs/seguranca-b-jornada.md`, regra 1): cada
  * escritório tem a sua, e um escritório nunca altera a do outro. Por cima dela vale a padrão do escritório.
+ *
+ * Cada linha é uma VERSÃO: vale a partir de `valeAPartirDe` até a véspera da versão seguinte da mesma pessoa no mesmo
+ * escritório (spec `docs/specs/ponto-jornada-vigencia.md`). Quem varre dias usa `HistoricoDeJornadas`.
  */
 #[ORM\Entity(repositoryClass: \App\Ponto\Repository\JornadaColaboradorRepository::class)]
 #[ORM\Table(name: 'jornada_colaborador')]
-#[ORM\UniqueConstraint(name: 'uq_jornada_colaborador_user_tenant', columns: ['user_id', 'tenant_id'])]
+#[ORM\UniqueConstraint(name: 'uq_jornada_colaborador_vigencia', columns: ['user_id', 'tenant_id', 'vale_a_partir_de'])]
 class JornadaColaborador implements Auditavel, TenantAware
 {
     #[ORM\Id]
@@ -74,9 +77,26 @@ class JornadaColaborador implements Auditavel, TenantAware
     #[ORM\OneToMany(targetEntity: BlocoJornadaColaborador::class, mappedBy: 'jornadaColaborador', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $blocos;
 
+    /** O dia em que esta versão passa a valer (só a data). A versão mais antiga vale também para os dias anteriores. */
+    #[ORM\Column(name: 'vale_a_partir_de', type: 'date_immutable')]
+    private \DateTimeImmutable $valeAPartirDe;
+
     public function __construct()
     {
         $this->blocos = new ArrayCollection();
+        $this->valeAPartirDe = new \DateTimeImmutable('today');
+    }
+
+    public function getValeAPartirDe(): \DateTimeImmutable
+    {
+        return $this->valeAPartirDe;
+    }
+
+    public function setValeAPartirDe(\DateTimeInterface $valeAPartirDe): static
+    {
+        $this->valeAPartirDe = \DateTimeImmutable::createFromInterface($valeAPartirDe)->setTime(0, 0);
+
+        return $this;
     }
 
     public function getId(): ?int

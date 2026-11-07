@@ -17,6 +17,7 @@ use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +33,9 @@ final class FolhaPontoBuilderTest extends TestCase
     protected function setUp(): void
     {
         $jornadas = $this->createStub(JornadaColaboradorRepository::class);
-        $jornadas->method('findByUserETenant')->willReturnCallback(fn (): ?JornadaColaborador => $this->jornadaNoEscritorio);
+        $jornadas->method('historicoDe')->willReturnCallback(
+            fn (): ?HistoricoDeJornadas => $this->jornadaNoEscritorio === null ? null : HistoricoDeJornadas::deUma($this->jornadaNoEscritorio)
+        );
 
         $this->builder = new FolhaPontoBuilder(
             new CalculadoraJornada(new JornadaResolver()),

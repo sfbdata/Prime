@@ -21,12 +21,21 @@ final class MigracaoDaJornadaPorEscritorioTest extends KernelTestCase
 {
     private const VERSAO = 'DoctrineMigrations\\Version20261020150700';
 
+    /**
+     * A jornada com data de início (spec ponto-jornada-vigencia §4) troca o índice único que esta cria: ela sai antes do
+     * down daqui e volta depois do up, na ordem da pilha de migrations.
+     */
+    private const VERSAO_DA_VIGENCIA = 'DoctrineMigrations\\Version20261107100000';
+
     #[TestDox('down tira a coluna da jornada e a chave; up devolve as duas, com o índice único por pessoa e escritório')]
     public function testDownEUp(): void
     {
         self::bootKernel();
         $banco = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
 
+        self::assertSame(0, $this->executar('--down', self::VERSAO_DA_VIGENCIA));
+        self::ensureKernelShutdown();
+        self::bootKernel();
         self::assertSame(0, $this->executar('--down'));
         self::assertFalse($this->coluna($banco, 'jornada_colaborador', 'tenant_id'));
         self::assertFalse($this->coluna($banco, 'user_tenant', 'registra_ponto'));
@@ -40,14 +49,18 @@ final class MigracaoDaJornadaPorEscritorioTest extends KernelTestCase
         self::assertTrue($this->coluna($banco, 'jornada_colaborador', 'tenant_id'));
         self::assertTrue($this->coluna($banco, 'user_tenant', 'registra_ponto'));
         self::assertSame(1, (int) $banco->fetchOne("SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'uq_jornada_colaborador_user_tenant'"));
+
+        self::ensureKernelShutdown();
+        self::bootKernel();
+        self::assertSame(0, $this->executar('--up', self::VERSAO_DA_VIGENCIA));
     }
 
-    private function executar(string $sentido): int
+    private function executar(string $sentido, string $versao = self::VERSAO): int
     {
         $application = new Application(self::$kernel);
         $tester = new CommandTester($application->find('doctrine:migrations:execute'));
 
-        return $tester->execute(['versions' => [self::VERSAO], $sentido => true], ['interactive' => false]);
+        return $tester->execute(['versions' => [$versao], $sentido => true], ['interactive' => false]);
     }
 
     private function coluna(Connection $banco, string $tabela, string $coluna): bool

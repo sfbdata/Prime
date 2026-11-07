@@ -145,7 +145,8 @@ final class PontoController extends AbstractController
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
         $jornadaDoEscritorio = $this->jornadas->findByUserETenant($user, $tenant);
-        $jornada = $jornadaDoEscritorio ?? (new JornadaColaborador())->setUser($user);
+        // A folha usa a versão da jornada de cada dia (spec ponto-jornada-vigencia §3.2); a meta de hoje, a de hoje.
+        $jornada = $this->jornadas->historicoDe($user, $tenant) ?? (new JornadaColaborador())->setUser($user);
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);
@@ -1066,15 +1067,17 @@ final class PontoController extends AbstractController
 
         /** @var \App\Ponto\Entity\RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
-        $jornada  = $this->jornadas->findByUserETenant($targetUser, $tenant);
         $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);
         $jornadaTenantPdf = $tenant->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
+        // Cada dia usa a versão da jornada que valia nele; o cabeçalho, a do último dia do mês (spec ponto-jornada-vigencia §3.2).
+        $historico = $this->jornadas->historicoDe($targetUser, $tenant);
+        $jornada   = $historico?->vigenteEm($fimMes);
         $inicioContagemPdf = $this->inicioContagemResolver->resolver($targetUser, $tenant);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioContagemPdf);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $historico, $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioContagemPdf);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -1150,15 +1153,17 @@ final class PontoController extends AbstractController
 
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
-        $jornada  = $this->jornadas->findByUserETenant($targetUser, $tenant);
         $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);
         $jornadaTenantXlsx = $tenant->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
+        // Cada dia usa a versão da jornada que valia nele; o cabeçalho, a do último dia do mês (spec ponto-jornada-vigencia §3.2).
+        $historico = $this->jornadas->historicoDe($targetUser, $tenant);
+        $jornada   = $historico?->vigenteEm($fimMes);
         $inicioContagemXlsx = $this->inicioContagemResolver->resolver($targetUser, $tenant);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioContagemXlsx);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $historico, $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioContagemXlsx);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
