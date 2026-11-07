@@ -97,8 +97,8 @@ final class IniciarAssinaturaUseCase
      * O checkout aberto há menos de uma hora (o do gateway expira em 60 minutos) que ainda não foi pago:
      * do mesmo plano, é reaproveitado (a página hospedada reabre; no formulário, nova tentativa depois de
      * um cartão recusado). De outro plano: no formulário (nada foi ao gateway) é substituído; na página
-     * hospedada fica como está, porque pode ter sido pago e o aviso ainda não chegou (o vínculo é pelo valor),
-     * e se o pagador já voltou de lá a compra nova espera a confirmação.
+     * hospedada fica como está, porque pode ter sido pago e o aviso ainda não chegou (o vínculo é pelo checkout
+     * de origem, que este pedido guardou), e se o pagador já voltou de lá a compra nova espera a confirmação.
      */
     private function pedidoAberto(Solicitante $quem, GatewayDeAssinatura $gateway, Plano $plano, int $valor): ?AssinaturaDeEspaco
     {
@@ -124,8 +124,7 @@ final class IniciarAssinaturaUseCase
 
     private function exigirGateway(Solicitante $quem): GatewayDeAssinatura
     {
-        // D4: quem compra é o primário. O Master não assina pelo cliente: o pagador (e o e-mail da nota)
-        // seria ele.
+        // D4: quem compra é o primário. O Master não assina pelo cliente: o pedido sairia em nome dele.
         if (!$quem->ehPrimario) {
             throw new \DomainException('Quem amplia o espaço é o usuário primário do escritório.');
         }

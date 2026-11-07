@@ -10,11 +10,14 @@ use App\Contribua\Entity\AssinaturaDeEspaco;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\UseCase\AmpliarEspacoAutomaticamenteUseCase;
+use App\Contribua\Entity\Plano;
 use App\Contribua\Gateway\InicioDoCheckout;
 use App\Contribua\Gateway\SituacaoDaAssinatura;
+use App\Contribua\Gateway\SituacaoNoGateway;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDePagamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
+use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\AtualizacaoDaAssinatura;
 use App\Contribua\Service\PlanoVigenteDoEscritorio;
 use App\Contribua\Service\SituacaoDoEspaco;
@@ -462,6 +465,91 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame('essencial', $this->planoDoEscritorio());
     }
 
+    #[TestDox('Checkout sem cliente (Asaas): a assinatura se liga ao pedido do checkout de origem, não ao aberto mais novo do escritório')]
+    public function testAssinaturaLigadaPeloCheckoutDeOrigem(): void
+    {
+        $primeiro = $this->assinar($this->primario);
+        $outro = $this->assinar($this->primario, 'profissional');
+        self::assertTrue($outro['ok'], json_encode($outro) ?: '');
+        // Referência só do escritório e sem valor: pelo palpite antigo, iria ao pedido aberto mais novo (profissional).
+        $this->assinaturaNoGateway('sub_do_checkout', $this->checkoutDoPedido((int) $primeiro['pedido']), sprintf('BJ%06d', (int) $this->escritorio->getId()));
+
+        self::assertSame('processado', $this->webhook('evt-checkout', 'sub_do_checkout')['resultado']);
+
+        $ligado = $this->pedidoNoBanco((int) $primeiro['pedido']);
+        self::assertSame('sub_do_checkout', $ligado['id_da_assinatura']);
+        self::assertSame('cus_do_pagador', $ligado['id_do_cliente']);
+        self::assertSame(SituacaoDaAssinatura::Ativa->value, $ligado['situacao']);
+        self::assertSame(SituacaoDaAssinatura::Aguardando->value, $this->pedidoNoBanco((int) $outro['pedido'])['situacao']);
+        self::assertNull($this->pedidoNoBanco((int) $outro['pedido'])['id_da_assinatura']);
+        self::assertSame('essencial', $this->planoDoEscritorio());
+    }
+
+    #[TestDox('Checkout de pedido cancelado: a assinatura não vai a outro pedido e o Master é avisado pelo escritório do checkout')]
+    public function testCheckoutDePedidoCanceladoNaoLigaAOutro(): void
+    {
+        $primeiro = $this->assinar($this->primario);
+        $checkoutDoPrimeiro = $this->checkoutDoPedido((int) $primeiro['pedido']);
+        static::getContainer()->get(Connection::class)->executeStatement("UPDATE contribua_assinatura SET situacao = 'cancelada', cancelada_em = NOW() WHERE id = ?", [(int) $primeiro['pedido']]);
+        $segundo = $this->assinar($this->primario);
+        self::assertNotSame($primeiro['pedido'], $segundo['pedido']);
+
+        // Sem referência nenhuma: o escritório do aviso ao Master vem do pedido que abriu o checkout.
+        $this->assinaturaNoGateway('sub_sem_pedido', $checkoutDoPrimeiro, null);
+        $this->webhook('evt-sem-pedido', 'sub_sem_pedido');
+        // Com a referência do escritório: nem assim vai ao pedido aberto de mesmo valor.
+        $this->assinaturaNoGateway('sub_sem_pedido_2', $checkoutDoPrimeiro, sprintf('BJ%06d', (int) $this->escritorio->getId()));
+        $this->webhook('evt-sem-pedido-2', 'sub_sem_pedido_2');
+
+        self::assertSame(SituacaoDaAssinatura::Cancelada->value, $this->pedidoNoBanco((int) $primeiro['pedido'])['situacao']);
+        self::assertNull($this->pedidoNoBanco((int) $primeiro['pedido'])['id_da_assinatura']);
+        self::assertNull($this->pedidoNoBanco((int) $segundo['pedido'])['id_da_assinatura']);
+        self::assertSame('free', $this->planoDoEscritorio());
+        self::assertSame(2, $this->avisosSemPedidoAoMaster('Assinatura paga sem pedido no BlueJus: ' . $this->escritorio->getName() . ', '), 'os dois avisos levam o nome deste escritório');
+    }
+
+    #[TestDox('Checkout que o BlueJus não conhece e assinatura sem referência: o Master é avisado sem escritório, uma vez só')]
+    public function testAssinaturaSemPedidoNemEscritorioAvisaOMaster(): void
+    {
+        $this->assinaturaNoGateway('sub_de_ninguem', 'chk_que_o_bluejus_nao_abriu', null);
+
+        self::assertSame('processado', $this->webhook('evt-de-ninguem', 'sub_de_ninguem')['resultado']);
+        $this->webhook('evt-de-ninguem-2', 'sub_de_ninguem');
+
+        self::assertSame(1, $this->avisosSemPedidoAoMaster('Assinatura paga sem pedido no BlueJus e sem escritório identificado: sub_de_ninguem '));
+        self::assertSame('free', $this->planoDoEscritorio());
+    }
+
+    #[TestDox('Cross-tenant: checkout de outro escritório com a referência deste não liga a nenhum dos dois')]
+    public function testCheckoutDeOutroEscritorioNaoLiga(): void
+    {
+        $proprio = $this->assinar($this->primario);
+        $outroEscritorio = $this->tenant();
+        $plano = static::getContainer()->get(PlanoRepository::class)->findOneBy(['codigo' => 'essencial']);
+        self::assertInstanceOf(Plano::class, $plano);
+        $alheio = new AssinaturaDeEspaco($outroEscritorio, $plano, 'falso', $plano->getPrecoCentavos(), null);
+        $alheio->registrarInicio('chk_de_outro_escritorio', 'https://gateway.falso/checkout/chk_de_outro_escritorio');
+        $this->em->persist($alheio);
+        $this->em->flush();
+        $idDoAlheio = (int) $alheio->getId();
+
+        $this->assinaturaNoGateway('sub_cruzada', 'chk_de_outro_escritorio', sprintf('BJ%06d', (int) $this->escritorio->getId()));
+        // O webhook chega sem sessão: em produção o filtro de tenant está desligado. Aqui o kernel não reinicia
+        // entre as requisições e o filtro do primário ficaria ligado, escondendo o pedido do outro escritório.
+        if ($this->em->getFilters()->isEnabled('tenant')) {
+            $this->em->getFilters()->disable('tenant');
+        }
+        $this->webhook('evt-cruzado', 'sub_cruzada');
+
+        self::assertNull($this->pedidoNoBanco($idDoAlheio)['id_da_assinatura']);
+        self::assertSame(SituacaoDaAssinatura::Aguardando->value, $this->pedidoNoBanco($idDoAlheio)['situacao']);
+        self::assertNull($this->pedidoNoBanco((int) $proprio['pedido'])['id_da_assinatura']);
+        self::assertSame('free', $this->planoDoEscritorio());
+        // Referência e checkout discordam: o aviso leva o escritório da referência (vem antes do checkout).
+        self::assertSame(1, $this->avisosSemPedidoAoMaster('Assinatura paga sem pedido no BlueJus: ' . $this->escritorio->getName() . ', sub_cruzada '));
+        self::assertSame(0, $this->avisosSemPedidoAoMaster('Assinatura paga sem pedido no BlueJus: ' . $outroEscritorio->getName() . ', '));
+    }
+
     #[TestDox('Voltou da página do gateway: outro plano espera a confirmação do pagamento anterior')]
     public function testVoltouEspera(): void
     {
@@ -648,6 +736,46 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertNotEmpty($lista);
 
         return $lista[0];
+    }
+
+    /**
+     * A linha do pedido lida direto no banco: o filtro de tenant que ficou no EntityManager não esconde o
+     * pedido de outro escritório.
+     *
+     * @return array<string, mixed>
+     */
+    private function pedidoNoBanco(int $id): array
+    {
+        $linha = static::getContainer()->get(Connection::class)->fetchAssociative('SELECT situacao, id_da_assinatura, id_do_cliente, id_do_checkout FROM contribua_assinatura WHERE id = ?', [$id]);
+        self::assertIsArray($linha, 'pedido ' . $id . ' não existe');
+
+        return $linha;
+    }
+
+    /** Avisos "assinatura paga sem pedido" do Master cujo título começa pelo texto dado. */
+    private function avisosSemPedidoAoMaster(string $inicioDoTitulo): int
+    {
+        return (int) static::getContainer()->get(Connection::class)->fetchOne(
+            'SELECT COUNT(*) FROM notificacao WHERE usuario_id = ? AND tipo = ? AND LEFT(titulo, ?) = ?',
+            [$this->master->getId(), 'contribua.assinatura', mb_strlen($inicioDoTitulo), $inicioDoTitulo],
+        );
+    }
+
+    private function checkoutDoPedido(int $id): string
+    {
+        $checkout = $this->pedidoNoBanco($id)['id_do_checkout'];
+        self::assertIsString($checkout);
+
+        return $checkout;
+    }
+
+    /**
+     * A assinatura como o Asaas a devolve quando nasce do checkout sem cliente: com o checkout de origem, o
+     * cliente que o pagador cadastrou e, talvez, uma referência; sem valor, para não ajudar o palpite antigo.
+     */
+    private function assinaturaNoGateway(string $id, string $checkout, ?string $referencia): void
+    {
+        $this->gateway->assinaturas[$id] = new SituacaoNoGateway($id, SituacaoDaAssinatura::Ativa, new \DateTimeImmutable('+1 month'), $referencia, 'cus_do_pagador', null, idDoCheckout: $checkout);
     }
 
     private function planoDoEscritorio(): string

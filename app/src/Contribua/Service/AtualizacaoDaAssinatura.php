@@ -25,8 +25,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * plano vigente, grava e avisa o primário.
  *
  * Achar o pedido: pelo id da assinatura no gateway; na primeira vez (a assinatura acabou de nascer no
- * gateway), pelo escritório da referência (`BJ<conta>...`), no pedido aguardando mais novo daquele
- * gateway, de preferência o de mesmo valor.
+ * gateway), pelo checkout de onde ela veio (o id que o pedido guardou ao abrir a página hospedada) e, quando
+ * o gateway não diz o checkout, pelo escritório da referência (`BJ<conta>...`), no pedido aguardando mais
+ * novo daquele gateway, de preferência o de mesmo valor.
  */
 final class AtualizacaoDaAssinatura
 {
@@ -94,21 +95,27 @@ final class AtualizacaoDaAssinatura
 
     /**
      * Assinatura paga no gateway sem pedido no BlueJus (checkout substituído e pago mesmo assim, valor
-     * diferente): o espaço não é liberado por palpite, mas o Master precisa ver para ligar à mão ou estornar.
+     * diferente, checkout que o BlueJus não conhece): o espaço não é liberado por palpite, mas o Master precisa
+     * ver para ligar à mão ou estornar. Nenhum pagamento fica sem espaço e sem aviso: sem escritório
+     * identificado, o aviso sai mesmo assim, no escritório do próprio Master.
      */
     private function avisarSemPedido(string $codigoDoGateway, SituacaoNoGateway $noGateway): void
     {
         $this->logger->warning('Contribua: assinatura do gateway sem pedido no BlueJus', ['gateway' => $codigoDoGateway, 'assinatura' => $noGateway->idDaAssinatura]);
-        $tenantId = self::tenantDaReferencia($noGateway->referencia);
-        if ($tenantId === null || $noGateway->situacao !== SituacaoDaAssinatura::Ativa) {
+        if ($noGateway->situacao !== SituacaoDaAssinatura::Ativa) {
             return;
         }
         // Uma vez por assinatura (o gateway avisa a cada cobrança): a trava de idempotência dos avisos serve.
-        $primeiraVez = $this->notificacoes->registrarSeNova(new NotificacaoRecebida('contribua', 'sem-pedido:' . $codigoDoGateway . ':' . $noGateway->idDaAssinatura, 'assinatura_sem_pedido', $noGateway->idDaAssinatura));
-        $escritorio = $primeiraVez ? $this->em->find(Tenant::class, $tenantId) : null;
-        if ($escritorio !== null) {
-            $this->avisoAoMaster->avisar($escritorio, AvisoAoPrimario::TIPO_ASSINATURA, sprintf('Assinatura paga sem pedido no BlueJus: %s, %s (%s). Confira no painel do gateway.', (string) $escritorio->getName(), $noGateway->idDaAssinatura, $codigoDoGateway), $this->urls->generate('contribua_index') . '#espaco');
+        if (!$this->notificacoes->registrarSeNova(new NotificacaoRecebida('contribua', 'sem-pedido:' . $codigoDoGateway . ':' . $noGateway->idDaAssinatura, 'assinatura_sem_pedido', $noGateway->idDaAssinatura))) {
+            return;
         }
+        // O escritório da referência; sem ela (o Asaas pode não a levar à assinatura), o do pedido que abriu o checkout.
+        $tenantId = self::tenantDaReferencia($noGateway->referencia) ?? $this->pedidoDoCheckout($codigoDoGateway, $noGateway)?->getTenant()->getId();
+        $escritorio = $tenantId === null ? null : $this->em->find(Tenant::class, $tenantId);
+        $mensagem = $escritorio === null
+            ? sprintf('Assinatura paga sem pedido no BlueJus e sem escritório identificado: %s (%s). Confira no painel do gateway.', $noGateway->idDaAssinatura, $codigoDoGateway)
+            : sprintf('Assinatura paga sem pedido no BlueJus: %s, %s (%s). Confira no painel do gateway.', (string) $escritorio->getName(), $noGateway->idDaAssinatura, $codigoDoGateway);
+        $this->avisoAoMaster->avisar($escritorio, AvisoAoPrimario::TIPO_ASSINATURA, $mensagem, $this->urls->generate('contribua_index') . '#espaco');
     }
 
     /**
@@ -150,8 +157,21 @@ final class AtualizacaoDaAssinatura
     {
         $ligado = $this->assinaturas->porIdNoGateway($codigoDoGateway, $noGateway->idDaAssinatura);
         $tenantId = self::tenantDaReferencia($noGateway->referencia);
-        if ($ligado !== null || $tenantId === null) {
+        if ($ligado !== null) {
             return $ligado;
+        }
+
+        // O checkout de origem é o vínculo exato. O pedido que o abriu recebe a assinatura só se ainda espera
+        // uma (e se a referência, quando vem, é do mesmo escritório); cancelado ou já ligado a outra, a
+        // assinatura não vai a outro pedido por palpite.
+        $doCheckout = $this->pedidoDoCheckout($codigoDoGateway, $noGateway);
+        if ($doCheckout !== null) {
+            $mesmoEscritorio = $tenantId === null || $tenantId === $doCheckout->getTenant()->getId();
+
+            return $mesmoEscritorio && self::esperaAssinatura($doCheckout) ? $doCheckout : null;
+        }
+        if ($tenantId === null) {
+            return null;
         }
 
         $candidatos = $this->assinaturas->semAssinaturaNoGateway($tenantId, $codigoDoGateway);
@@ -163,6 +183,18 @@ final class AtualizacaoDaAssinatura
 
         // Valor diferente do de qualquer pedido: não libera plano nenhum por palpite (fica no log para o Master).
         return null;
+    }
+
+    private function pedidoDoCheckout(string $codigoDoGateway, SituacaoNoGateway $noGateway): ?AssinaturaDeEspaco
+    {
+        return $noGateway->idDoCheckout === null ? null : $this->assinaturas->porIdDoCheckout($codigoDoGateway, $noGateway->idDoCheckout);
+    }
+
+    /** Sem assinatura ligada e ainda aguardando (ou confirmado à mão pelo Master): o critério do `semAssinaturaNoGateway`. */
+    private static function esperaAssinatura(AssinaturaDeEspaco $pedido): bool
+    {
+        return $pedido->getIdDaAssinatura() === null
+            && \in_array($pedido->getSituacao(), [SituacaoDaAssinatura::Aguardando, SituacaoDaAssinatura::Ativa], true);
     }
 
     /** `BJ000007-essencial-42` ou `BJ000007` → 7. */
