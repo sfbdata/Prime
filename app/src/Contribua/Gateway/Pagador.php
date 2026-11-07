@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Contribua\Gateway;
 
-/** Quem paga a assinatura de um escritório: dados que o gateway exige para criar o cliente e a nota. */
+/**
+ * Quem paga a assinatura de um escritório, como o BlueJus conhece. O CPF/CNPJ do titular é validado aqui e
+ * segue no `PedidoDeCheckout` para o gateway que precisar; o Asaas não recebe estes dados (o pagador os
+ * preenche na página do checkout).
+ */
 final readonly class Pagador
 {
     public function __construct(

@@ -505,7 +505,19 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertNull($this->pedidoNoBanco((int) $primeiro['pedido'])['id_da_assinatura']);
         self::assertNull($this->pedidoNoBanco((int) $segundo['pedido'])['id_da_assinatura']);
         self::assertSame('free', $this->planoDoEscritorio());
-        self::assertSame(2, (int) static::getContainer()->get(Connection::class)->fetchOne("SELECT COUNT(*) FROM notificacao WHERE usuario_id = ? AND titulo LIKE 'Assinatura paga sem pedido%'", [$this->master->getId()]));
+        self::assertSame(2, $this->avisosSemPedidoAoMaster('Assinatura paga sem pedido no BlueJus: ' . $this->escritorio->getName() . ', '), 'os dois avisos levam o nome deste escritório');
+    }
+
+    #[TestDox('Checkout que o BlueJus não conhece e assinatura sem referência: o Master é avisado sem escritório, uma vez só')]
+    public function testAssinaturaSemPedidoNemEscritorioAvisaOMaster(): void
+    {
+        $this->assinaturaNoGateway('sub_de_ninguem', 'chk_que_o_bluejus_nao_abriu', null);
+
+        self::assertSame('processado', $this->webhook('evt-de-ninguem', 'sub_de_ninguem')['resultado']);
+        $this->webhook('evt-de-ninguem-2', 'sub_de_ninguem');
+
+        self::assertSame(1, $this->avisosSemPedidoAoMaster('Assinatura paga sem pedido no BlueJus e sem escritório identificado: sub_de_ninguem '));
+        self::assertSame('free', $this->planoDoEscritorio());
     }
 
     #[TestDox('Cross-tenant: checkout de outro escritório com a referência deste não liga a nenhum dos dois')]
@@ -533,6 +545,9 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame(SituacaoDaAssinatura::Aguardando->value, $this->pedidoNoBanco($idDoAlheio)['situacao']);
         self::assertNull($this->pedidoNoBanco((int) $proprio['pedido'])['id_da_assinatura']);
         self::assertSame('free', $this->planoDoEscritorio());
+        // Referência e checkout discordam: o aviso leva o escritório da referência (vem antes do checkout).
+        self::assertSame(1, $this->avisosSemPedidoAoMaster('Assinatura paga sem pedido no BlueJus: ' . $this->escritorio->getName() . ', sub_cruzada '));
+        self::assertSame(0, $this->avisosSemPedidoAoMaster('Assinatura paga sem pedido no BlueJus: ' . $outroEscritorio->getName() . ', '));
     }
 
     #[TestDox('Voltou da página do gateway: outro plano espera a confirmação do pagamento anterior')]
@@ -735,6 +750,15 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertIsArray($linha, 'pedido ' . $id . ' não existe');
 
         return $linha;
+    }
+
+    /** Avisos "assinatura paga sem pedido" do Master cujo título começa pelo texto dado. */
+    private function avisosSemPedidoAoMaster(string $inicioDoTitulo): int
+    {
+        return (int) static::getContainer()->get(Connection::class)->fetchOne(
+            'SELECT COUNT(*) FROM notificacao WHERE usuario_id = ? AND tipo = ? AND LEFT(titulo, ?) = ?',
+            [$this->master->getId(), 'contribua.assinatura', mb_strlen($inicioDoTitulo), $inicioDoTitulo],
+        );
     }
 
     private function checkoutDoPedido(int $id): string
