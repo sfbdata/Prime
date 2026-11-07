@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.40.1"
+  data: "2026-11-07"
+  itens:
+    - "A assinatura de mais espaço no cartão passa a abrir a página de pagamento do Asaas, onde o titular preenche os próprios dados (inclusive telefone e endereço) e paga. O pagamento é ligado ao seu pedido assim que o Asaas confirma."
 - versao: "2.40.0"
   data: "2026-11-07"
   itens:

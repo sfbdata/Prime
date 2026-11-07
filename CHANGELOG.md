@@ -8,6 +8,14 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.40.1] - 2026-11-07
+
+### Corrigido
+
+- Contribua (Asaas): o checkout da assinatura de espaço vai sem `customer` e sem `customerData`. Com um cliente pré-criado só com nome, CPF/CNPJ e e-mail, o Asaas recusava o checkout com HTTP 400 (pedia telefone e endereço; provado no sandbox). Agora o pagador preenche os próprios dados na página do Asaas, e o BlueJus não cria nem atualiza cliente no Asaas.
+- O checkout leva a referência do pedido em `externalReference`; a consulta da assinatura lê o `checkoutSession` e a liga ao pedido exato pelo id do checkout que o pedido já guardava.
+- Checkout de pedido cancelado ou de outro escritório não liga a assinatura a outro pedido. Toda assinatura paga sem pedido avisa o Master: com o escritório da referência ou, sem ela, o do pedido que abriu o checkout; sem nenhum dos dois, o aviso sai sem escritório.
+
 ## [2.40.0] - 2026-11-07
 
 ### Adicionado
@@ -1674,7 +1682,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.40.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.40.1...HEAD
+[2.40.1]: https://github.com/sfbdata/Prime/compare/v2.40.0...v2.40.1
 [2.40.0]: https://github.com/sfbdata/Prime/compare/v2.39.1...v2.40.0
 [2.39.1]: https://github.com/sfbdata/Prime/compare/v2.39.0...v2.39.1
 [2.39.0]: https://github.com/sfbdata/Prime/compare/v2.38.0...v2.39.0
