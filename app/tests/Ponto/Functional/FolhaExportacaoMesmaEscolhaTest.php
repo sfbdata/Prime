@@ -149,6 +149,8 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
         $jornada->setUser($colaborador);
         $jornada->setTenant($tenant);
         $jornada->setDiasSemana([]);
+        // Jornada de antes das versões: vale também nos dias antes da data dela (spec ponto-jornada-vigencia §10.1).
+        $jornada->setCobreDiasAnteriores(true);
         $em->persist($jornada);
 
         // Sempre ONTEM, mesmo no dia 1º: a exportação é pedida pelo mês do próprio dia, e dia futuro

@@ -129,7 +129,8 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
         $pessoa->setRoles(['ROLE_USER']);
         $pessoa->setIsActive(true);
 
-        $jornada = (new JornadaColaborador())->setUser($pessoa)->setTenant($escritorio)->setCargaHorariaSemanal(2640);
+        // Uma jornada de antes das versões: a `Version20261107110000` a marca como cobrindo os dias anteriores.
+        $jornada = (new JornadaColaborador())->setUser($pessoa)->setTenant($escritorio)->setCargaHorariaSemanal(2640)->setCobreDiasAnteriores(true);
         foreach ([[[1, 2, 3, 4], '18:00', 540], [[5], '17:00', 480]] as [$dias, $saida, $minutos]) {
             $jornada->addBloco(
                 (new BlocoJornadaColaborador())

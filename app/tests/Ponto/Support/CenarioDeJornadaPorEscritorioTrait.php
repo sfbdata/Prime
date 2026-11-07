@@ -102,7 +102,9 @@ trait CenarioDeJornadaPorEscritorioTrait
     /** @param list<array{0: list<int>, 1: string, 2: ?string, 3: ?string, 4: string}> $blocos */
     private function jornadaPessoal(User $user, Tenant $tenant, array $blocos): JornadaColaborador
     {
-        $jornada = (new JornadaColaborador())->setUser($user)->setTenant($tenant);
+        // Uma jornada que já existia antes das versões: vale também para os dias antes da data dela (spec
+        // ponto-jornada-vigencia §10.1), como os cenários de 2025 destes testes pedem.
+        $jornada = (new JornadaColaborador())->setUser($user)->setTenant($tenant)->setCobreDiasAnteriores(true);
         foreach ($blocos as [$dias, $entrada, $repouso, $retorno, $saida]) {
             $bloco = (new BlocoJornadaColaborador())->setDiasSemana($dias)->setEntrada($entrada)->setRepouso($repouso)
                 ->setRetorno($retorno)->setSaida($saida)->setMinutosBloco($this->minutos($entrada, $repouso, $retorno, $saida));

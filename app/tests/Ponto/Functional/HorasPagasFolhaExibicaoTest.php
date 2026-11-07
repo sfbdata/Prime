@@ -712,6 +712,8 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $jornada->setUser($user);
         $jornada->setTenant($tenant);
         $jornada->setDiasSemana([]);
+        // Jornada de antes das versões: vale também nos dias antes da data dela (spec ponto-jornada-vigencia §10.1).
+        $jornada->setCobreDiasAnteriores(true);
         $em->persist($jornada);
         $em->flush();
     }

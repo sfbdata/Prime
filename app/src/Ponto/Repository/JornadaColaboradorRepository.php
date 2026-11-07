@@ -10,6 +10,7 @@ use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Service\HistoricoDeJornadas;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Psr\Clock\ClockInterface;
 
 /**
  * Sem `final`: os testes de serviço e de UseCase mockam este repositório (skill criar-repository).
@@ -18,7 +19,7 @@ class JornadaColaboradorRepository extends ServiceEntityRepository
 {
     use ConsultaSemFiltroDeEscritorio;
 
-    public function __construct(ManagerRegistry $registry)
+    public function __construct(ManagerRegistry $registry, private readonly ClockInterface $relogio)
     {
         parent::__construct($registry, JornadaColaborador::class);
     }
@@ -32,7 +33,7 @@ class JornadaColaboradorRepository extends ServiceEntityRepository
      */
     public function findByUserETenant(User $user, Tenant $tenant): ?JornadaColaborador
     {
-        return $this->historicoDe($user, $tenant)?->vigenteEm(new \DateTimeImmutable('today'));
+        return $this->historicoDe($user, $tenant)?->vigenteEm($this->relogio->now());
     }
 
     /** Todas as versões da jornada pessoal da pessoa naquele escritório, com os blocos, numa consulta só. */
@@ -61,5 +62,16 @@ class JornadaColaboradorRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    public function remover(JornadaColaborador $jornada): void
+    {
+        $this->getEntityManager()->remove($jornada);
+    }
+
+    /** Grava o que os UseCases da jornada mudaram (versões novas, editadas e removidas) numa transação só. */
+    public function gravar(): void
+    {
+        $this->getEntityManager()->flush();
     }
 }

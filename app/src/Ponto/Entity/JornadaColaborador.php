@@ -81,6 +81,13 @@ class JornadaColaborador implements Auditavel, TenantAware
     #[ORM\Column(name: 'vale_a_partir_de', type: 'date_immutable')]
     private \DateTimeImmutable $valeAPartirDe;
 
+    /**
+     * Esta versão vale também para os dias anteriores à data dela (spec ponto-jornada-vigencia §10.1). Vem `true` nas
+     * jornadas que existiam antes das versões; a versão criada pela tela nasce `false` e vale só da data em diante.
+     */
+    #[ORM\Column(name: 'cobre_dias_anteriores', options: ['default' => false])]
+    private bool $cobreDiasAnteriores = false;
+
     public function __construct()
     {
         $this->blocos = new ArrayCollection();
@@ -90,6 +97,18 @@ class JornadaColaborador implements Auditavel, TenantAware
     public function getValeAPartirDe(): \DateTimeImmutable
     {
         return $this->valeAPartirDe;
+    }
+
+    public function cobreDiasAnteriores(): bool
+    {
+        return $this->cobreDiasAnteriores;
+    }
+
+    public function setCobreDiasAnteriores(bool $cobre): static
+    {
+        $this->cobreDiasAnteriores = $cobre;
+
+        return $this;
     }
 
     public function setValeAPartirDe(\DateTimeInterface $valeAPartirDe): static
@@ -280,6 +299,21 @@ class JornadaColaborador implements Auditavel, TenantAware
         }
 
         return $proposta;
+    }
+
+    /**
+     * Uma versão nova desta jornada, valendo a partir da data (spec ponto-jornada-vigencia §10.2): leva os campos
+     * legados e o alerta, sem blocos e sem cobrir os dias anteriores. Os blocos são de quem grava.
+     */
+    public function novaVersao(\DateTimeInterface $valeAPartirDe): self
+    {
+        $nova = clone $this;
+        $nova->id = null;
+        $nova->blocos = new ArrayCollection();
+        $nova->cobreDiasAnteriores = false;
+        $nova->setValeAPartirDe($valeAPartirDe);
+
+        return $nova;
     }
 
     public function removeBloco(BlocoJornadaColaborador $bloco): static
