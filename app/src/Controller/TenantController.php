@@ -6,6 +6,7 @@ use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Ponto\Entity\JornadaColaborador;
+use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
@@ -521,6 +522,42 @@ final class TenantController extends AbstractController
     /**
      * @return array{cargaHorariaSemanal: int, fonte: string}|null
      */
+    /**
+     * A folha da competência na ficha do colaborador. Cada dia usa a versão da jornada que valia nele
+     * (spec ponto-jornada-vigencia §3.2).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function folhaDaCompetenciaNaFicha(
+        User $user,
+        Tenant $tenant,
+        int $ano,
+        int $mes,
+        ?JornadaTenant $jornadaTenant,
+        RegistroPontoRepository $registroPontoRepository,
+        FeriadoRepository $feriadoRepository,
+        JustificativaPontoRepository $justificativaRepository,
+        FolhaPontoBuilder $folhaPontoBuilder,
+        JornadaColaboradorRepository $jornadaColaboradorRepository,
+    ): array {
+        $batidas = $registroPontoRepository->findByUserAndCompetencia($user, $tenant, $ano, $mes);
+        $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
+        $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
+
+        return $folhaPontoBuilder->buildRows(
+            $inicioMes,
+            $fimMes,
+            $batidas,
+            true,
+            false,
+            $jornadaColaboradorRepository->historicoDe($user, $tenant),
+            $feriadoRepository->findByTenant($tenant),
+            $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $ano, $mes),
+            $jornadaTenant,
+            $this->inicioContagemResolver->resolver($user, $tenant),
+        );
+    }
+
     private function resolverJornadaInfoAdmin(?JornadaColaborador $jornada, ?\App\Ponto\Entity\JornadaTenant $jornadaTenant): ?array
     {
         if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
@@ -783,15 +820,7 @@ final class TenantController extends AbstractController
         $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         if (in_array($competenciaSelecionada, $competenciasComBatida, true)) {
-            $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
-
-            $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
-            $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-            $feriados = $feriadoRepository->findByTenant($tenant);
-            $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);
-            $inicioContagemPonto = $this->inicioContagemResolver->resolver($user, $tenant);
-            // Cada dia usa a versão da jornada que valia nele (spec ponto-jornada-vigencia §3.2).
-            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornadaColaboradorRepository->historicoDe($user, $tenant), $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
+            $folhaRowsPonto = $this->folhaDaCompetenciaNaFicha($user, $tenant, $anoSelecionado, $mesSelecionado, $jornadaTenant, $registroPontoRepository, $feriadoRepository, $justificativaRepository, $folhaPontoBuilder, $jornadaColaboradorRepository);
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($jornada, $jornadaTenant);
