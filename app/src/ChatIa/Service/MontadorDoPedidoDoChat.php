@@ -21,7 +21,8 @@ use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 /**
  * Monta o {@see PedidoDeLinguagem} de uma pergunta do chat: o histórico recente (protegido pelo escritório), a pergunta,
  * os blocos da pasta citada e os arquivos anexados (relidos do armazenamento por chave). O histórico é limitado em
- * número de falas e em caracteres, sempre pelas mais recentes.
+ * número de falas e em caracteres, sempre pelas mais recentes. As ferramentas são as que a pessoa pode usar: as de
+ * proposta de cadastro ({@see GuardaDasPropostas}) e a de consulta de prazos e metas ({@see GuardaDaConsultaDePrazos}).
  */
 final class MontadorDoPedidoDoChat
 {
@@ -38,6 +39,7 @@ final class MontadorDoPedidoDoChat
         private readonly TetoDeUsoDoChat $teto,
         private readonly GuardaDasPropostas $guardaDasPropostas,
         private readonly PropostaDeCadastroRepository $propostas,
+        private readonly GuardaDaConsultaDePrazos $guardaDaConsulta,
     ) {
     }
 
@@ -67,7 +69,7 @@ final class MontadorDoPedidoDoChat
             $documentos,
             $this->teto->porResposta(),
             $modelo,
-            $this->guardaDasPropostas->ferramentasPara($eu, $tenant),
+            [...$this->guardaDasPropostas->ferramentasPara($eu, $tenant), ...$this->guardaDaConsulta->ferramentasPara($eu, $tenant)],
         );
     }
 
