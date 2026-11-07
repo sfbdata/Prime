@@ -29,6 +29,9 @@ class FolhaPontoBuilder
      * @param RegistroPonto[] $batidas
      * @param Feriado[] $feriados
      * @param array<string, JustificativaPonto> $justificativasDoMes Justificativas indexadas por 'Y-m-d'
+     * @param JornadaColaborador|HistoricoDeJornadas|null $jornada As versões da jornada pessoal (cada dia usa a que
+     *                                            valia nele, spec ponto-jornada-vigencia §3.2). Uma jornada solta vale
+     *                                            para todos os dias, como antes das versões.
      * @param ?\DateTimeInterface $inicioContagem Data da primeira batida do colaborador — início da contagem.
      *                                            `null` significa colaborador sem nenhum registro de ponto: nenhum
      *                                            dia conta. Dias anteriores a ela ficam fora (sem saldo, sem somar
@@ -41,13 +44,14 @@ class FolhaPontoBuilder
         array $batidas,
         bool $includeEmptyDays = true,
         bool $orderDesc = false,
-        ?JornadaColaborador $jornada = null,
+        JornadaColaborador|HistoricoDeJornadas|null $jornada = null,
         array $feriados = [],
         array $justificativasDoMes = [],
         ?JornadaTenant $jornadaTenant = null,
         \DateTimeInterface|null|false $inicioContagem = false
     ): array {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+        $historico = $jornada instanceof JornadaColaborador ? HistoricoDeJornadas::deUma($jornada) : $jornada;
 
         // Todas as batidas de cada dia, na ordem em que chegaram. Quais delas valem é decidido pela
         // escolha única (`CalculadoraJornada::escolherBatidas`), e células, links, intervalo, minutos e
@@ -128,7 +132,8 @@ class FolhaPontoBuilder
                 'homeOffice'     => $this->diaTeveHomeOffice($escolha->escolhidas()),
             ];
 
-            if ($jornada !== null) {
+            $jornadaDoDia = $historico?->vigenteEm($dia);
+            if ($jornadaDoDia !== null) {
                 $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriados);
                 if ($diaFuturo || $diaForaDaContagem) {
                     // Dia futuro ou anterior ao primeiro registro: não exibe saldo nem soma no banco
@@ -164,7 +169,7 @@ class FolhaPontoBuilder
                         $row['saldoAcumulado']        = null;
                     } else {
                         $minutos = $this->calculadora->calcularMinutosDaEscolha($escolha);
-                        $saldoDia = $this->calculadora->calcularSaldoDiaDaEscolha($jornada->getUser(), $dia, $escolha, $jornada, $feriados, $jornadaTenant);
+                        $saldoDia = $this->calculadora->calcularSaldoDiaDaEscolha($jornadaDoDia->getUser(), $dia, $escolha, $jornadaDoDia, $feriados, $jornadaTenant);
 
                         $registroIncompleto = $this->calculadora->registroIncompletoDaEscolha($escolha);
 
@@ -298,10 +303,13 @@ class FolhaPontoBuilder
      * chamador que esquecesse o tenant perdia os lançamentos de horas pagas em SILÊNCIO — sem
      * exceção, sem log, com a folha aparentemente normal e o banco de horas errado.
      */
-    /** A jornada pessoal do escritório da folha (spec seguranca-b-jornada §3.2); sem escritório, nenhuma. */
-    private function jornadaNoEscritorio(User $user, ?Tenant $tenant): ?JornadaColaborador
+    /**
+     * As versões da jornada pessoal no escritório da folha (spec seguranca-b-jornada §3.2 e ponto-jornada-vigencia
+     * §3.2); sem escritório, nenhuma.
+     */
+    private function jornadaNoEscritorio(User $user, ?Tenant $tenant): ?HistoricoDeJornadas
     {
-        return $tenant === null ? null : $this->jornadaColaboradorRepository->findByUserETenant($user, $tenant);
+        return $tenant === null ? null : $this->jornadaColaboradorRepository->historicoDe($user, $tenant);
     }
 
     private function exigirTenant(Tenant|null|false $tenant, string $metodo): ?Tenant

@@ -14,6 +14,7 @@ use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -541,8 +542,10 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     private function jornadas(): JornadaColaboradorRepository
     {
         $jornadas = $this->createStub(JornadaColaboradorRepository::class);
-        $jornadas->method('findByUserETenant')->willReturnCallback(
-            fn (User $u): ?JornadaColaborador => $this->jornadaNoEscritorio[spl_object_id($u)] ?? null
+        $jornadas->method('historicoDe')->willReturnCallback(
+            fn (User $u): ?HistoricoDeJornadas => isset($this->jornadaNoEscritorio[spl_object_id($u)])
+                ? HistoricoDeJornadas::deUma($this->jornadaNoEscritorio[spl_object_id($u)])
+                : null
         );
 
         return $jornadas;

@@ -107,7 +107,8 @@ final class ObterEstadoDoPontoDoDiaUseCase
      */
     private function linhaDaFolha(User $eu, Tenant $tenant, \DateTimeImmutable $dia, array $batidas): ?array
     {
-        $jornada = $this->jornadas->findByUserETenant($eu, $tenant) ?? (new JornadaColaborador())->setUser($eu);
+        // A versão da jornada que vale NO dia da linha (spec ponto-jornada-vigencia §3.2).
+        $jornada = $this->jornadas->historicoDe($eu, $tenant)?->vigenteEm($dia) ?? (new JornadaColaborador())->setUser($eu);
         $linhas = $this->folha->buildRows(
             $dia->setTime(0, 0, 0),
             $dia->setTime(23, 59, 59),
