@@ -125,7 +125,7 @@ final class TransmitirRespostaDoChatTest extends TestCase
                 return $chamada->nome === FerramentasDaConsulta::PRAZOS_E_METAS;
             }
 
-            public function pedidoComResultado(RespostaPreparada $preparada, array $chamadas): ?PedidoDeLinguagem
+            public function pedidoComResultado(RespostaPreparada $preparada, array $chamadas): PedidoDeLinguagem
             {
                 $p = $preparada->pedido;
                 $ultima = ['papel' => 'usuario', 'conteudo' => "<prazos_e_metas>\n• resultado\n</prazos_e_metas>\n\n" . $p->mensagens[\count($p->mensagens) - 1]['conteudo']];
@@ -371,5 +371,43 @@ final class TransmitirRespostaDoChatTest extends TestCase
         self::assertSame("Vou olhar.\n\nParcial", $this->salvas[0]->getConteudo());
         self::assertTrue($this->salvas[0]->foiInterrompida());
         self::assertSame(50 + 2, $this->salvas[0]->getTokensSaida(), 'a primeira real + ceil(7 / 3,5)');
+    }
+
+    #[TestDox('Consulta: a segunda falha sem texto e a primeira não escreveu nada; o custo real da primeira fica no teto do dia')]
+    public function testFalhaSemTextoGuardaOCustoDaPrimeira(): void
+    {
+        $caso = $this->caso([], [self::consultaDoModelo()], seguintes: [['trechos' => [], 'falha' => true]]);
+
+        $eventos = iterator_to_array($caso->executar($this->preparada(), static fn (): bool => false), false);
+
+        self::assertSame(['erro'], array_column($eventos, 'evento'));
+        self::assertCount(1, $this->salvas);
+        $registro = $this->salvas[0];
+        self::assertTrue($registro->foiSubstituida(), 'registro de custo: fora da conversa e do histórico');
+        self::assertSame('', $registro->getConteudo());
+        self::assertSame([100, 50], [$registro->getTokensEntrada(), $registro->getTokensSaida()], 'os tokens reais da primeira');
+    }
+
+    #[TestDox('Consulta: as duas chamadas sem texto (resposta_vazia) guardam o custo real das duas no teto do dia')]
+    public function testRespostaVaziaGuardaOCusto(): void
+    {
+        $caso = $this->caso([], [self::consultaDoModelo()], seguintes: [['trechos' => [], 'entrada' => 300, 'saida' => 2]]);
+
+        $eventos = iterator_to_array($caso->executar($this->preparada(), static fn (): bool => false), false);
+
+        self::assertSame(['erro'], array_column($eventos, 'evento'));
+        self::assertSame('resposta_vazia', $eventos[0]['dados']['codigo']);
+        self::assertCount(1, $this->salvas);
+        self::assertTrue($this->salvas[0]->foiSubstituida());
+        self::assertSame([400, 52], [$this->salvas[0]->getTokensEntrada(), $this->salvas[0]->getTokensSaida()]);
+    }
+
+    #[TestDox('Sem consulta, resposta vazia continua sem registro, como antes')]
+    public function testRespostaVaziaSemConsultaNaoGrava(): void
+    {
+        $eventos = iterator_to_array($this->caso([])->executar($this->preparada(), static fn (): bool => false), false);
+
+        self::assertSame(['erro'], array_column($eventos, 'evento'));
+        self::assertSame([], $this->salvas);
     }
 }

@@ -38,6 +38,8 @@ use Psr\Log\LoggerInterface;
  * Consulta (spec `chat-ia-prazos-e-metas`): se o modelo pedir uma ferramenta de CONSULTA (só leitura, {@see ConsultasDoChat}), o
  * servidor roda a consulta e faz UMA segunda chamada, com o resultado em bloco delimitado e sem ferramentas (não há laço). O texto
  * das duas sai no mesmo fluxo e é gravado como uma resposta, com os tokens das duas somados; as propostas são as da primeira.
+ * Se a resposta terminar sem texto nenhum (a segunda falhou ou voltou vazia), o consumo já conhecido vira um registro de custo
+ * sem texto ({@see guardarSoOCusto()}): o teto diário não perde a primeira chamada.
  *
  * Parar (o cliente abortou o fetch): `$clienteSaiu` é consultado depois de cada trecho entregue; se verdadeiro, o texto
  * parcial é gravado com `interrompida = true` e o gerador termina em silêncio. Nesse caso o provedor não informa o
@@ -90,7 +92,7 @@ final class TransmitirRespostaDoChatUseCase
                 $uso = yield from $this->umaChamada($pedido, $texto, $clienteSaiu);
             }
         } catch (FalhaDoProvedorException|ProvedorIndisponivelException $e) {
-            yield $this->falhou($preparada, $texto, $e, $this->estimativa($pedido, substr($texto, $inicio), $anterior));
+            yield $this->falhou($preparada, $texto, $e, $this->estimativa($pedido, substr($texto, $inicio), $anterior), $anterior);
 
             return;
         }
@@ -100,7 +102,7 @@ final class TransmitirRespostaDoChatUseCase
             return;
         }
 
-        yield from $this->terminou($preparada, $texto, self::somar($anterior, $uso));
+        yield from $this->terminou($preparada, $texto, self::somar($anterior, $uso), $anterior !== null);
     }
 
     /**
@@ -185,8 +187,12 @@ final class TransmitirRespostaDoChatUseCase
         );
     }
 
-    /** @return \Generator<int, array{evento: string, dados: array<string, mixed>}> */
-    private function terminou(RespostaPreparada $preparada, string $texto, UsoDaTransmissao $uso): \Generator
+    /**
+     * @param bool $comConsulta houve a segunda chamada (consulta): resposta vazia ainda guarda o custo das duas
+     *
+     * @return \Generator<int, array{evento: string, dados: array<string, mixed>}>
+     */
+    private function terminou(RespostaPreparada $preparada, string $texto, UsoDaTransmissao $uso, bool $comConsulta): \Generator
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
         [$propostas, $aviso] = $this->registrarPropostas($preparada, $texto, $uso, $agora);
@@ -197,6 +203,9 @@ final class TransmitirRespostaDoChatUseCase
             yield $this->evento('delta', ['t' => $aviso]);
         }
         if (trim($texto) === '') {
+            if ($comConsulta) {
+                $this->guardarSoOCusto($preparada, $uso);
+            }
             yield $this->evento('erro', ['codigo' => 'resposta_vazia', 'mensagem' => 'A IA não devolveu texto. Tente de novo.']);
 
             return;
@@ -242,13 +251,16 @@ final class TransmitirRespostaDoChatUseCase
 
     /**
      * @param UsoDaTransmissao|null $estimativa o consumo da resposta parcial ({@see estimativa()}); nulo = o gravar estima
+     * @param UsoDaTransmissao|null $anterior   o consumo REAL da primeira chamada, quando a falha veio na segunda (consulta)
      *
      * @return array{evento: string, dados: array<string, mixed>}
      */
-    private function falhou(RespostaPreparada $preparada, string $texto, FalhaDoProvedorException|ProvedorIndisponivelException $e, ?UsoDaTransmissao $estimativa): array
+    private function falhou(RespostaPreparada $preparada, string $texto, FalhaDoProvedorException|ProvedorIndisponivelException $e, ?UsoDaTransmissao $estimativa, ?UsoDaTransmissao $anterior): array
     {
         if (trim($texto) !== '') {
             $this->gravar($preparada, $texto, $estimativa, true);
+        } elseif ($anterior !== null) {
+            $this->guardarSoOCusto($preparada, $anterior);
         }
         $transitoria = $e instanceof FalhaDoProvedorException && $e->transitoria;
         $this->logger->warning('Chat I.A: o provedor falhou durante a resposta.', [
@@ -293,6 +305,27 @@ final class TransmitirRespostaDoChatUseCase
         });
 
         return $mensagem;
+    }
+
+    /**
+     * Resposta que terminou sem texto depois de uma consulta: o consumo conhecido vira um registro de custo, como a resposta
+     * substituída (sem texto, fora da conversa e do histórico, dentro da soma do teto do dia).
+     */
+    private function guardarSoOCusto(RespostaPreparada $preparada, UsoDaTransmissao $uso): void
+    {
+        $registro = MensagemDeChat::doAssistente(
+            $preparada->conversa,
+            '',
+            $uso->modelo,
+            $uso->tokensEntrada,
+            $uso->tokensSaida,
+            true,
+            \DateTimeImmutable::createFromInterface($this->relogio->now()),
+        );
+        $registro->substituir();
+        $this->transacao->executar(function () use ($registro): void {
+            $this->mensagens->salvar($registro);
+        });
     }
 
     private function tituloDaPrimeiraResposta(RespostaPreparada $preparada, string $texto): ?string
