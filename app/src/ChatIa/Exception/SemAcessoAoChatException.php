@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\ChatIa\Exception;
 
-/** Sem vínculo ativo no escritório ou sem a permissão do módulo da I.A (403). */
+/** Sem vínculo ativo no escritório, sem a permissão do módulo da I.A ou, no contexto `metas`, sem o módulo Tarefas (403). */
 final class SemAcessoAoChatException extends \DomainException
 {
     public const CODIGO = 'sem_acesso';

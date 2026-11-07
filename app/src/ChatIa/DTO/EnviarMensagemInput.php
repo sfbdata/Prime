@@ -17,7 +17,7 @@ use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
  * um pedido contraditório.
  *
  * `contexto` é só um SINAL (`metas`): o servidor monta ele mesmo o bloco das metas da própria pessoa; o cliente nunca
- * manda o texto do contexto.
+ * manda o texto do contexto. Quem pode usá-lo (módulo Tarefas e aceite) é conferido no `ContextoDasMetasNoChat`.
  */
 final readonly class EnviarMensagemInput
 {

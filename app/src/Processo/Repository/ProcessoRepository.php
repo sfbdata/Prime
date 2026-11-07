@@ -136,6 +136,45 @@ class ProcessoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Das pastas informadas, as que têm ALGUM processo vinculado em segredo de justiça, para quem não pode deixar o conteúdo
+     * sair (a consulta de prazos e metas do Chat I.A, regra 4 da Inteligencia). A regra é a da entidade
+     * (`Processo::emSegredoDeJustica`: o sigilo do tribunal ou o "Sim" manual do cartão), aplicada em lote: uma consulta traz
+     * os vínculos com os processos. Pasta presa ao escritório explícito: não depende do filtro de sessão.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return list<int>
+     */
+    public function idsDasPastasEmSegredoDeJustica(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        /** @var list<PastaProcesso> $vinculos */
+        $vinculos = $this->getEntityManager()->createQueryBuilder()
+            ->select('pp', 'pr')
+            ->from(PastaProcesso::class, 'pp')
+            ->join('pp.processo', 'pr')
+            ->join('pp.pasta', 'pa')
+            ->andWhere('pa.id IN (:pastas)')
+            ->andWhere('pa.tenant = :tenant')
+            ->setParameter('pastas', $pastaIds)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getResult();
+
+        $emSegredo = [];
+        foreach ($vinculos as $vinculo) {
+            if ($vinculo->getProcesso()->emSegredoDeJustica()) {
+                $emSegredo[(int) $vinculo->getPasta()->getId()] = true;
+            }
+        }
+
+        return array_keys($emSegredo);
+    }
+
+    /**
      * Grava a última verificação no DJEN dos processos do escritório com estes números (spec
      * push-painel-monitoramento §1). Os números chegam só com dígitos (é o que a captação consulta)
      * e o cadastro pode guardá-los com a máscara CNJ: a comparação é com as DUAS formas, por `IN`,
