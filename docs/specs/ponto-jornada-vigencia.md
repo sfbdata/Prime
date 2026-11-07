@@ -64,7 +64,7 @@ Hoje são 10 jornadas pessoais (9 com blocos) e 1 jornada padrão do escritório
 | `VerificadorAlertaPonto`, tela do ponto (meta do dia, excedente), `IntervalosDeTrabalho`, `ChoqueDeJornadaEntreEscritorios` | a jornada | a vigente **hoje** (ou na data consultada) |
 | `ListarPendenciasDeRegistroUseCase`, `SaidaDeEsquecimento`, `EscolhaDasBatidasDoDia` | a jornada | a vigente no dia da batida |
 | Saldo no Meu Escritório / Dashboard (`TenantController`, `PontoController`) | via `FolhaPontoBuilder` | idem, sem código próprio |
-| Twig `tem_jornada_no_escritorio()` | existe jornada | existe alguma versão |
+| Twig `tem_jornada_no_escritorio()` | existe jornada | existe versão valendo hoje (§10.4) |
 
 Peça central: `HistoricoDeJornadas` (objeto de valor, `final`) carregado uma vez por pessoa e
 escritório, com `vigenteEm(\DateTimeInterface $dia): ?JornadaColaborador`. O repositório ganha
@@ -185,3 +185,77 @@ jornada. `IntervalosDeTrabalho`/choque, alerta e tela do ponto usam a de hoje. `
    `ClockInterface` para testar "vigente hoje" com relógio fixo.
 5. **Cabeçalho do PDF/XLSX:** falta a linha "Jornada alterada em dd/mm" quando o mês tem troca (§3.2).
 6. **Consultas:** `/ponto` carrega o histórico 3 vezes (tela, folha, saldo do ano). Só desempenho; juntar se pesar.
+
+## 10. PR 2 (tela): desenho decidido em 07/11/2026
+
+### 10.1 O achado que muda a regra 3.1.3
+
+Hoje quem não tem linha em `jornada_colaborador` não tem saldo calculado (`calcularSaldoAnual` devolve só as horas
+pagas), e o "Limpar escala" **não apaga** a linha: tira os blocos e a carga, e a pessoa passa a seguir o padrão do
+escritório, com saldo. Se a primeira versão criada pela tela valesse para trás (3.1.3), criar a jornada de alguém
+"a partir de 01/12" mudaria todo o passado dela. Por isso:
+
+- Coluna nova `jornada_colaborador.cobre_dias_anteriores` (boolean, padrão `false`). A migration do PR 2 marca
+  `true` em todas as linhas existentes (as versões que vieram do PR 1, uma por pessoa).
+- `HistoricoDeJornadas::vigenteEm()` passa a devolver `?JornadaColaborador`: antes da versão mais antiga, devolve a
+  mais antiga **só se alguma versão do histórico tiver `cobre_dias_anteriores`**; senão `null` (sem jornada pessoal
+  naquele dia, como era antes de ela existir).
+- Versão criada pela tela nasce com `false`. Assim a primeira jornada de alguém vale só da data dela em diante,
+  futura ou passada.
+
+### 10.2 Regras da tela
+
+1. Ao abrir a aba, o formulário vem no modo **nova versão**: os blocos e a carga da versão vigente hoje (ou da
+   padrão, se não houver), e "Vale a partir de" com a data de hoje.
+2. "Editar" no histórico carrega aquela versão no formulário (com a data dela). Salvar atualiza aquela versão; a
+   data pode mudar, desde que não colida com outra (422 "Já existe uma versão da jornada que começa em dd/mm/aaaa.").
+3. Salvar no modo nova versão com a data de uma versão existente atualiza aquela versão (§3.4).
+4. "Excluir" no histórico: só com mais de uma versão. Se a excluída tinha `cobre_dias_anteriores`, a mais antiga
+   que sobrar herda a marca (os dias de antes continuam cobertos).
+5. "Limpar escala": se alguma versão tem `cobre_dias_anteriores`, apaga todas menos a mais antiga, que fica sem
+   blocos, sem carga e com a marca (a pessoa segue o padrão do escritório em todos os dias, como o botão faz hoje).
+   Se nenhuma tem a marca (só versões criadas pela tela), apaga todas: a pessoa volta a não ter linha, como antes
+   de a jornada existir, e o saldo dela volta a ser o de antes.
+   Confirmação: "A jornada personalizada e todo o histórico dela serão apagados. A folha de todos os meses,
+   inclusive os passados, volta a usar a jornada padrão do escritório. Continuar?"
+6. Data no passado (salvar ou editar): confirmação "A folha e o saldo serão recalculados desde dd/mm/aaaa.
+   Continuar?".
+7. "Habilitar alertas de ponto" não mede o passado: ao salvar, vale para todas as versões da pessoa.
+8. O choque entre escritórios continua conferindo os blocos propostos, em qualquer versão.
+
+### 10.3 Código
+
+- UseCases: `SalvarVersaoDaJornadaUseCase`, `ExcluirVersaoDaJornadaUseCase`, `LimparJornadaPessoalUseCase`, com
+  unit e functional. O controller guarda as validações de bloco e o choque, como hoje.
+- API: GET devolve `versoes[]` (id, valeAPartirDe, ate, vigente, agendada, carga, blocos); POST aceita
+  `valeAPartirDe` (`Y-m-d`; sem ele, hoje) e `versaoId` (opcional); DELETE
+  `/jornada-colaborador/versao/{versaoId}` (`app_jornada_colaborador_versao_delete`, CSRF como as outras).
+- `JornadaColaboradorRepository::findByUserETenant()` usa `ClockInterface` (pendência 4 do §9).
+- Cabeçalho do PDF/XLSX com "Jornada alterada em dd/mm" (pendência 5): fica para um PR seguinte, para este não
+  crescer.
+
+### 10.4 Ajustes da revisão do PR 2 (07/11/2026)
+
+- **Tela /ponto do colaborador.** Quem não tem linha em `jornada_colaborador` tem o dia calculado ali com uma
+  jornada vazia (a padrão do escritório). Para agendar a primeira jornada não tirar esse saldo dos dias de antes,
+  o `PontoController::index` usa `HistoricoDeJornadas::comJornadaAntesDaPrimeira()` com a mesma jornada vazia. A
+  ficha do admin, o PDF, o XLSX e o banco do ano seguem sem saldo nesses dias, como antes de a pessoa ter jornada.
+- **Ajuda do campo** "Vale a partir de": o texto literal do §5.1, sem acréscimo.
+- **"Limpar escala"**: o texto da confirmação fica o do §10.2.5 (decisão 3 do §8). Quando só há versões da tela, as
+  linhas saem e a pessoa volta ao estado de antes de ter jornada (a /ponto calcula pela padrão; o banco do ano, só
+  as horas pagas, como antes).
+- **`tem_jornada_no_escritorio()`** olha a versão que vale hoje: quem só tem versão agendada fica como quem não tem
+  jornada até a data dela.
+- **Choque entre escritórios**: além dos blocos propostos, quando o Editar leva a versão de hoje para uma data
+  futura, a versão que passa a valer hoje também é conferida (o Excluir já fazia isso).
+- **Data**: entre 2000 e 2099; editar uma versão exige a data (sem ela, 422), para a versão não mudar de data sem
+  aviso.
+- **`down` da `Version20261107110000`** recusa quando há jornada sem a marca (criada pela tela): o `up` seguinte a
+  faria cobrir os dias anteriores e mudaria o saldo.
+- **Histórico**: abaixo do formulário, da mais nova para a mais antiga, período no formato do §5.2 ("a partir de
+  dd/mm/aaaa (atual)", "de ... a ...", "(agendada)"). Sem versão valendo hoje, a nova versão abre com os blocos da
+  padrão.
+- **Pendente (PR seguinte)**: duas gravações ao mesmo tempo nas versões da mesma pessoa não têm trava além do
+  índice único (dois admins excluindo as duas últimas versões no mesmo instante; editar uma versão enquanto outro a
+  exclui dá 500). Caminho: `SELECT ... FOR UPDATE` nas versões da pessoa dentro de uma transação nos três UseCases.
+- **Pendente (PR seguinte)**: cabeçalho do PDF/XLSX com "Jornada alterada em dd/mm" (§10.3).

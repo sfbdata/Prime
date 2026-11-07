@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ponto\Controller;
 
+use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Entity\Auth\User;
@@ -11,9 +12,16 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JornadaTenantRepository;
 use App\Ponto\DTO\AlterarRegistroDePontoInput;
+use App\Ponto\DTO\VersaoDaJornadaInput;
 use App\Ponto\Exception\ChoqueDeJornadaException;
+use App\Ponto\Exception\VersaoDaJornadaNaoEncontradaException;
+use App\Ponto\Exception\VersaoDaJornadaRecusadaException;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\UseCase\AlterarRegistroDePontoUseCase;
+use App\Ponto\UseCase\ExcluirVersaoDaJornadaUseCase;
+use App\Ponto\UseCase\LimparJornadaPessoalUseCase;
+use App\Ponto\UseCase\SalvarVersaoDaJornadaUseCase;
 use App\Ponto\Service\IntervalosDeTrabalho;
 use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
@@ -21,7 +29,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -44,6 +52,7 @@ final class JornadaColaboradorController extends AbstractController
         private readonly JornadaTenantRepository $padroes,
         private readonly IntervalosDeTrabalho $intervalos,
         private readonly ChoqueDeJornadaEntreEscritorios $choque,
+        private readonly ClockInterface $relogio,
     ) {}
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_get', methods: ['GET'])]
@@ -73,22 +82,12 @@ final class JornadaColaboradorController extends AbstractController
             throw $this->createNotFoundException('Usuário não pertence a este tenant.');
         }
 
-        $jornada       = $this->jornadas->findByUserETenant($user, $urlTenant);
+        $hoje          = $this->relogio->now();
+        $historico     = $this->jornadas->historicoDe($user, $urlTenant);
+        $jornada       = $historico?->vigenteEm($hoje);
         $jornadaTenant = $urlTenant->getJornadaTenant();
 
-        $blocosTenant = [];
-        if ($jornadaTenant !== null) {
-            foreach ($jornadaTenant->getBlocos() as $b) {
-                $blocosTenant[] = [
-                    'diasSemana'   => $b->getDiasSemana(),
-                    'entrada'      => $b->getEntrada(),
-                    'repouso'      => $b->getRepouso(),
-                    'retorno'      => $b->getRetorno(),
-                    'saida'        => $b->getSaida(),
-                    'minutosBloco' => $b->getMinutosBloco(),
-                ];
-            }
-        }
+        $blocosTenant = $jornadaTenant !== null ? $this->blocosEmLista($jornadaTenant->getBlocos()) : [];
 
         $cargaUsuario = $jornada?->getCargaHorariaSemanal();
         $cargaEfetiva = $cargaUsuario ?? $jornadaTenant?->getCargaHorariaSemanal() ?? 2400;
@@ -98,21 +97,12 @@ final class JornadaColaboradorController extends AbstractController
             $jornada->getEntrada1() !== null || $jornada->getSaida1() !== null
         );
 
-        $blocosUsuario = [];
-        if ($temBlocosUsuario) {
-            foreach ($jornada->getBlocos() as $b) {
-                $blocosUsuario[] = [
-                    'diasSemana'   => $b->getDiasSemana(),
-                    'entrada'      => $b->getEntrada(),
-                    'repouso'      => $b->getRepouso(),
-                    'retorno'      => $b->getRetorno(),
-                    'saida'        => $b->getSaida(),
-                    'minutosBloco' => $b->getMinutosBloco(),
-                ];
-            }
-        }
+        $blocosUsuario = $temBlocosUsuario ? $this->blocosEmLista($jornada->getBlocos()) : [];
 
         return $this->json([
+            'hoje'                 => $hoje->format('Y-m-d'),
+            'versaoVigenteId'      => $jornada?->getId(),
+            'versoes'              => $this->versoesEmLista($historico, $jornada, $hoje),
             'cargaHorariaSemanal'  => $cargaEfetiva,
             'alertaHabilitado'     => $jornada?->isAlertaHabilitado() ?? true,
             'blocos'               => $blocosUsuario,
@@ -132,8 +122,7 @@ final class JornadaColaboradorController extends AbstractController
         User $user,
         Request $request,
         PermissionChecker $permissionChecker,
-        JornadaColaboradorRepository $jornadaColaboradorRepository,
-        EntityManagerInterface $entityManager
+        SalvarVersaoDaJornadaUseCase $salvarVersao,
     ): JsonResponse {
         $currentUser = $this->getUser();
 
@@ -182,27 +171,42 @@ final class JornadaColaboradorController extends AbstractController
             return $this->json(['erro' => $erros], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $jornada = $this->jornadas->findByUserETenant($user, $urlTenant);
-        if (($choque = $this->choqueDaProposta($user, $urlTenant, $jornada, array_map($this->blocoDaRequisicao(...), $blocos))) !== null) {
+        // Spec ponto-jornada-vigencia §10.2: sem a data, a nova versão vale a partir de hoje; editar exige a data.
+        $versaoId      = $data['versaoId'] ?? null;
+        $valeAPartirDe = $this->dataDaRequisicao($data['valeAPartirDe'] ?? null, $versaoId === null);
+        if ($valeAPartirDe === null) {
+            return $this->json(['erro' => 'Informe a data em que a jornada passa a valer (dd/mm/aaaa).'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if ($versaoId !== null && (!is_int($versaoId) || $versaoId < 1)) {
+            return $this->json(['erro' => 'Payload inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $blocosPropostos = array_map($this->blocoDaRequisicao(...), $blocos);
+        $historico       = $this->jornadas->historicoDe($user, $urlTenant);
+        if (($choque = $this->choqueDaProposta($user, $urlTenant, $historico?->vigenteEm($valeAPartirDe), $blocosPropostos)) !== null) {
             return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // regra 3: quem marcou primeiro fica
         }
-        if ($jornada === null) {
-            $jornada = (new JornadaColaborador())->setUser($user)->setTenant($urlTenant);
-            $entityManager->persist($jornada);
+        // Levar a versão de hoje para uma data futura deixa valendo hoje a anterior: ela também passa pela conferência.
+        $hoje        = $this->relogio->now();
+        $vigenteHoje = $historico?->vigenteEm($hoje);
+        if ($historico !== null && $vigenteHoje !== null && $vigenteHoje->getId() === $versaoId
+            && $valeAPartirDe->format('Y-m-d') > $hoje->format('Y-m-d')
+            && ($choque = $this->choqueDoQuePassaAValerHoje($user, $urlTenant, $historico, $vigenteHoje)) !== null) {
+            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $jornada->setCargaHorariaSemanal($carga);
-        $jornada->setAlertaHabilitado($alerta);
-
-        foreach ($jornada->getBlocos()->toArray() as $blocoAntigo) {
-            $jornada->removeBloco($blocoAntigo);
+        try {
+            $salvarVersao->executar($user, $urlTenant, new VersaoDaJornadaInput($valeAPartirDe, $carga, $alerta, $blocosPropostos, $versaoId));
+        } catch (VersaoDaJornadaNaoEncontradaException $naoEncontrada) {
+            return $this->json(['erro' => $naoEncontrada->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (VersaoDaJornadaRecusadaException $recusada) {
+            return $this->json(['erro' => $recusada->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (UniqueConstraintViolationException) {
+            // Dois salvamentos ao mesmo tempo na mesma data: 409, não 500.
+            return $this->json(['erro' => self::JORNADA_ALTERADA_AO_MESMO_TEMPO], Response::HTTP_CONFLICT);
         }
 
-        foreach ($blocos as $blocoData) {
-            $jornada->addBloco($this->blocoDaRequisicao($blocoData));
-        }
-
-        return $this->gravarJornada($entityManager);   // dois salvamentos ao mesmo tempo: 409, não 500
+        return $this->json(['ok' => true]);
     }
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_delete', methods: ['DELETE'])]
@@ -211,7 +215,7 @@ final class JornadaColaboradorController extends AbstractController
         User $user,
         Request $request,
         PermissionChecker $permissionChecker,
-        EntityManagerInterface $entityManager
+        LimparJornadaPessoalUseCase $limparJornada,
     ): JsonResponse {
         $currentUser = $this->getUser();
 
@@ -237,20 +241,47 @@ final class JornadaColaboradorController extends AbstractController
         // CSRF após os guards de autorização (a falha de autz/tenant tem prioridade e fica testável).
         $this->validarCsrfAjax($request);
 
-        $jornada = $this->jornadas->findByUserETenant($user, $urlTenant);
-        if ($jornada === null) {
-            return $this->json(['ok' => true]);
-        }
-        if (($choque = $this->choqueDaProposta($user, $urlTenant, $jornada, [])) !== null) {
+        // Spec ponto-jornada-vigencia §10.2.5: apaga todas as versões; a folha volta a usar a padrão.
+        $vigenteHoje = $this->jornadas->findByUserETenant($user, $urlTenant);
+        if ($vigenteHoje !== null && ($choque = $this->choqueDaProposta($user, $urlTenant, $vigenteHoje, [])) !== null) {
             return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // sem a pessoal vale a padrão
         }
 
-        foreach ($jornada->getBlocos()->toArray() as $bloco) {
-            $jornada->removeBloco($bloco);
+        $limparJornada->executar($user, $urlTenant);
+
+        return $this->json(['ok' => true]);
+    }
+
+    /**
+     * Exclui uma versão do histórico (spec ponto-jornada-vigencia §10.2.4): os dias dela passam para a versão vizinha.
+     * Quando a excluída é a que vale hoje, a que passa a valer hoje passa pela conferência de choque entre escritórios.
+     */
+    #[Route('/jornada-colaborador/versao/{versaoId}', name: 'app_jornada_colaborador_versao_delete', requirements: ['versaoId' => '\d+'], methods: ['DELETE'])]
+    public function excluirVersao(
+        int $tenantId,
+        User $user,
+        int $versaoId,
+        Request $request,
+        PermissionChecker $permissionChecker,
+        ExcluirVersaoDaJornadaUseCase $excluirVersao,
+    ): JsonResponse {
+        $urlTenant = $this->exigirAdminDoEscritorioDaPessoa($tenantId, $user, $permissionChecker);
+        $this->validarCsrfAjax($request);
+
+        $historico   = $this->jornadas->historicoDe($user, $urlTenant);
+        $vigenteHoje = $historico?->vigenteEm($this->relogio->now());
+        if ($historico !== null && $vigenteHoje !== null && $vigenteHoje->getId() === $versaoId
+            && ($choque = $this->choqueDoQuePassaAValerHoje($user, $urlTenant, $historico, $vigenteHoje)) !== null) {
+            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $jornada->setCargaHorariaSemanal(null);
-        $entityManager->flush();
+        try {
+            $excluirVersao->executar($user, $urlTenant, $versaoId);
+        } catch (VersaoDaJornadaNaoEncontradaException $naoEncontrada) {
+            return $this->json(['erro' => $naoEncontrada->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (VersaoDaJornadaRecusadaException $recusada) {
+            return $this->json(['erro' => $recusada->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         return $this->json(['ok' => true]);
     }
@@ -322,6 +353,14 @@ final class JornadaColaboradorController extends AbstractController
         return $this->choque->mensagem($user, $tenant, $this->intervalos->daJornada($proposta, $this->padroes->doEscritorio($tenant)));
     }
 
+    /** Sem a versão de hoje (excluída ou levada para frente), vale hoje a vizinha, ou a padrão: ela não pode bater com outro escritório. */
+    private function choqueDoQuePassaAValerHoje(User $user, Tenant $tenant, HistoricoDeJornadas $historico, JornadaColaborador $sai): ?string
+    {
+        $passaAValer = $historico->semA($sai)?->vigenteEm($this->relogio->now());
+
+        return $this->choqueDaProposta($user, $tenant, $passaAValer, $passaAValer?->getBlocos()->toArray() ?? []);
+    }
+
     /** @param array<string, mixed> $blocoData */
     private function blocoDaRequisicao(array $blocoData): BlocoJornadaColaborador
     {
@@ -336,15 +375,74 @@ final class JornadaColaboradorController extends AbstractController
         return $bloco;
     }
 
-    private function gravarJornada(EntityManagerInterface $entityManager): JsonResponse
+    /** `Y-m-d` válido entre 2000 e 2099 vira a data; ausente vira hoje quando `$hojeSeAusente`; o resto, `null`. */
+    private function dataDaRequisicao(mixed $valor, bool $hojeSeAusente): ?\DateTimeImmutable
     {
-        try {
-            $entityManager->flush();
-        } catch (UniqueConstraintViolationException) {
-            return $this->json(['erro' => self::JORNADA_ALTERADA_AO_MESMO_TEMPO], Response::HTTP_CONFLICT);
+        if ($valor === null || $valor === '') {
+            return $hojeSeAusente ? $this->relogio->now()->setTime(0, 0) : null;
+        }
+        if (!is_string($valor)) {
+            return null;
+        }
+        $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        if ($data === false || $data->format('Y-m-d') !== $valor) {
+            return null;
         }
 
-        return $this->json(['ok' => true]);
+        return $valor >= '2000-01-01' && $valor <= '2099-12-31' ? $data : null;
+    }
+
+    /**
+     * As versões para o histórico da aba, da mais antiga para a mais nova. `ate` é a véspera da seguinte (`null` na
+     * última); `valeParaTras` marca a mais antiga quando ela cobre os dias antes da data dela (§10.1).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function versoesEmLista(?HistoricoDeJornadas $historico, ?JornadaColaborador $vigente, \DateTimeImmutable $hoje): array
+    {
+        if ($historico === null) {
+            return [];
+        }
+        $versoes = $historico->versoes();
+        $lista   = [];
+        foreach ($versoes as $i => $versao) {
+            $inicio  = $versao->getValeAPartirDe();
+            $seguinte = $versoes[$i + 1] ?? null;
+            $lista[] = [
+                'id'                  => $versao->getId(),
+                'valeAPartirDe'       => $inicio->format('Y-m-d'),
+                'ate'                 => $seguinte?->getValeAPartirDe()->modify('-1 day')->format('Y-m-d'),
+                'valeParaTras'        => $i === 0 && $historico->vigenteEm($inicio->modify('-1 day')) === $versao,
+                'vigente'             => $versao === $vigente,
+                'agendada'            => $inicio->format('Y-m-d') > $hoje->format('Y-m-d'),
+                'cargaHorariaSemanal' => $versao->getCargaHorariaSemanal(),
+                'blocos'              => $this->blocosEmLista($versao->getBlocos()),
+            ];
+        }
+
+        return $lista;
+    }
+
+    /**
+     * @param iterable<BlocoJornada|BlocoJornadaColaborador> $blocos blocos da jornada pessoal ou da padrão
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function blocosEmLista(iterable $blocos): array
+    {
+        $lista = [];
+        foreach ($blocos as $b) {
+            $lista[] = [
+                'diasSemana'   => $b->getDiasSemana(),
+                'entrada'      => $b->getEntrada(),
+                'repouso'      => $b->getRepouso(),
+                'retorno'      => $b->getRetorno(),
+                'saida'        => $b->getSaida(),
+                'minutosBloco' => $b->getMinutosBloco(),
+            ];
+        }
+
+        return $lista;
     }
 
     private function validarBlocos(array $blocos, int $cargaSemanal): ?string

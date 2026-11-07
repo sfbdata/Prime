@@ -1,11 +1,10 @@
 <div class="card card-outline card-warning mb-3">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h3 class="card-title mb-0"><i class="bi bi-clock me-2"></i>Jornada Personalizada</h3>
-        {% if userHasCustomEscala %}
-            <button type="button" class="btn btn-sm btn-outline-danger" id="btnLimparEscala">
-                <i class="bi bi-arrow-counterclockwise me-1"></i>Limpar jornada personalizada
-            </button>
-        {% endif %}
+        {# Aparece também quando só há versão agendada (o JS confere o histórico ao carregar). #}
+        <button type="button" class="btn btn-sm btn-outline-danger{{ userHasCustomEscala ? '' : ' d-none' }}" id="btnLimparEscala">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Limpar jornada personalizada
+        </button>
     </div>
     <div class="card-body">
 
@@ -38,18 +37,29 @@
         </div>
 
         <div id="escalaFormContainer" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0" id="escalaModoTitulo">Nova versão da jornada</h6>
+                <button type="button" class="btn btn-sm btn-link d-none" id="btnCancelarEdicaoEscala">Cancelar edição</button>
+            </div>
+
             <div class="row g-3 mb-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold" for="escalaValeAPartirDe">Vale a partir de</label>
+                    <input type="date" id="escalaValeAPartirDe" class="form-control">
+                    <div class="form-text">A folha usa esta jornada a partir desta data. Os dias anteriores seguem a versão anterior.</div>
+                </div>
+                <div class="col-md-4">
                     <label class="form-label fw-semibold">Carga horária semanal</label>
                     <input type="text" id="escalaCargaSemanal" class="form-control" placeholder="40:00" maxlength="5">
                     <div class="form-text">Formato HH:MM (ex.: 40:00 para 40 horas)</div>
                 </div>
-                <div class="col-md-6 d-flex align-items-center">
+                <div class="col-md-4 d-flex align-items-center">
                     <div class="form-check mt-4">
                         <input class="form-check-input" type="checkbox" id="escalaAlertaHabilitado">
                         <label class="form-check-label" for="escalaAlertaHabilitado">
                             Habilitar alertas de ponto
                         </label>
+                        <div class="form-text">Vale para todas as versões.</div>
                     </div>
                 </div>
             </div>
@@ -69,6 +79,24 @@
             </div>
 
             <div id="escalaErro" class="alert alert-danger mt-3 d-none" style="white-space: pre-line"></div>
+
+            {# Versões da jornada, da mais nova para a mais antiga (spec ponto-jornada-vigencia §5.2 e §10.2) #}
+            <div id="escalaHistorico" class="mt-4 d-none">
+                <h6 class="mb-2">Histórico da jornada</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Período</th>
+                                <th>Carga semanal</th>
+                                <th>Blocos</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="escalaHistoricoLinhas"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -285,19 +313,143 @@
         document.getElementById('escalaResumoCargaTenant').textContent =
             ' ' + toHHMM(jornada.cargaHorariaSemanal || 0) + ' semanais';
 
+        document.getElementById('escalaResumoBlocosTenant').innerHTML =
+            resumoDosBlocos(jornada.blocos).map(l => `<div>${l}</div>`).join('');
+
+        resumoEl.classList.remove('d-none');
+    }
+
+    function resumoDosBlocos(blocos) {
         const diasNomes = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-        const linhas = jornada.blocos.map(b => {
+        return blocos.map(b => {
             const dias = (b.diasSemana || []).map(d => diasNomes[d] || d).join(', ');
             const horario = b.repouso
                 ? `${b.entrada} às ${b.repouso} / ${b.retorno} às ${b.saida}`
                 : `${b.entrada} às ${b.saida}`;
             return `${dias}: ${horario} (${toHHMM(b.minutosBloco)}/dia)`;
         });
+    }
 
-        document.getElementById('escalaResumoBlocosTenant').innerHTML =
-            linhas.map(l => `<div>${l}</div>`).join('');
+    // Versões da jornada (spec ponto-jornada-vigencia §10.2). O formulário abre no modo "nova versão" com a data de
+    // hoje; "Editar" no histórico carrega aquela versão, e salvar muda só ela.
+    let estadoEscala = null;
+    let versaoEmEdicao = null;
 
-        resumoEl.classList.remove('d-none');
+    function dataBr(iso) {
+        const [ano, mes, dia] = iso.split('-');
+        return `${dia}/${mes}/${ano}`;
+    }
+
+    function temJornadaPessoal(versao) {
+        return Boolean(versao.cargaHorariaSemanal) || versao.blocos.length > 0;
+    }
+
+    function preencherFormulario(carga, blocos, valeAPartirDe, versao) {
+        versaoEmEdicao = versao;
+        document.getElementById('escalaCargaSemanal').value = toHHMM(carga || 2400);
+        document.getElementById('escalaValeAPartirDe').value = valeAPartirDe;
+        document.getElementById('escalaBlocos').innerHTML = '';
+        blocos.forEach(b => adicionarBlocoEscala(b));
+        document.getElementById('escalaModoTitulo').textContent = versao
+            ? `Editando a versão que vale a partir de ${dataBr(versao.valeAPartirDe)}`
+            : 'Nova versão da jornada';
+        document.getElementById('btnCancelarEdicaoEscala').classList.toggle('d-none', !versao);
+        document.getElementById('escalaErro').classList.add('d-none');
+        atualizarCheckboxesDisabledEscala();
+        atualizarAcumuladorEscala();
+    }
+
+    // Sem versão valendo hoje, a nova versão parte da jornada do escritório (§10.2.1).
+    function abrirNovaVersao() {
+        const blocos = estadoEscala.versaoVigenteId ? (estadoEscala.blocos || []) : (estadoEscala.jornadaTenant?.blocos || []);
+        preencherFormulario(estadoEscala.cargaHorariaSemanal, blocos, estadoEscala.hoje, null);
+    }
+
+    function editarVersao(versao) {
+        preencherFormulario(versao.cargaHorariaSemanal || estadoEscala.cargaHorariaSemanal, versao.blocos, versao.valeAPartirDe, versao);
+        document.getElementById('escalaModoTitulo').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function botaoDoHistorico(texto, classes, icone, aoClicar) {
+        const botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'btn btn-sm ' + classes;
+        const i = document.createElement('i');
+        i.className = 'bi ' + icone + ' me-1';
+        botao.append(i, texto);
+        botao.addEventListener('click', aoClicar);
+        return botao;
+    }
+
+    function periodoDaVersao(versao) {
+        let periodo;
+        if (versao.valeParaTras) {
+            periodo = versao.ate ? 'até ' + dataBr(versao.ate) : 'todos os dias';
+        } else {
+            periodo = versao.ate
+                ? `de ${dataBr(versao.valeAPartirDe)} a ${dataBr(versao.ate)}`
+                : 'a partir de ' + dataBr(versao.valeAPartirDe);
+        }
+        if (versao.vigente) periodo += ' (atual)';
+        if (versao.agendada) periodo += ' (agendada)';
+        return periodo;
+    }
+
+    function exibirHistorico(versoes) {
+        const caixa = document.getElementById('escalaHistorico');
+        const linhas = document.getElementById('escalaHistoricoLinhas');
+        linhas.innerHTML = '';
+        caixa.classList.toggle('d-none', !versoes.some(temJornadaPessoal));
+
+        versoes.slice().reverse().forEach(versao => {
+            const periodo = document.createElement('td');
+            periodo.textContent = periodoDaVersao(versao);
+
+            const carga = document.createElement('td');
+            carga.textContent = temJornadaPessoal(versao)
+                ? toHHMM(versao.cargaHorariaSemanal || 0)
+                : 'jornada do escritório';
+
+            const blocos = document.createElement('td');
+            blocos.className = 'small text-muted';
+            resumoDosBlocos(versao.blocos).forEach(texto => {
+                const linha = document.createElement('div');
+                linha.textContent = texto;
+                blocos.appendChild(linha);
+            });
+
+            const acoes = document.createElement('td');
+            acoes.className = 'text-end text-nowrap';
+            acoes.appendChild(botaoDoHistorico('Editar', 'btn-outline-primary', 'bi-pencil', () => editarVersao(versao)));
+            if (versoes.length > 1) {
+                acoes.appendChild(botaoDoHistorico('Excluir', 'btn-outline-danger ms-1', 'bi-trash', ev => excluirVersao(versao, ev.currentTarget)));
+            }
+
+            const tr = document.createElement('tr');
+            tr.append(periodo, carga, blocos, acoes);
+            linhas.appendChild(tr);
+        });
+    }
+
+    async function excluirVersao(versao, botao) {
+        if (!confirm(`Excluir a versão que vale a partir de ${dataBr(versao.valeAPartirDe)}? Os dias dela passam a seguir a versão vizinha, e a folha e o saldo desses dias serão recalculados.`)) return;
+
+        botao.disabled = true;
+        try {
+            const resp = await fetch(escalaUrl + '/versao/' + versao.id, {
+                method:  'DELETE',
+                headers: { 'Accept': 'application/json' },
+            });
+            if (resp.ok) {
+                window.location.href = window.location.pathname + '?tab=escala';
+                return;
+            }
+            const result = await resp.json().catch(() => ({}));
+            alert(result.erro || 'Erro ao excluir a versão da jornada.');
+        } catch (err) {
+            alert('Falha na comunicação com o servidor.');
+        }
+        botao.disabled = false;
     }
 
     async function carregarEscala() {
@@ -309,8 +461,8 @@
         try {
             const resp = await fetch(escalaUrl, { headers: { 'Accept': 'application/json' } });
             const dados = await resp.json();
+            estadoEscala = dados;
 
-            document.getElementById('escalaCargaSemanal').value = toHHMM(dados.cargaHorariaSemanal || 2400);
             document.getElementById('escalaAlertaHabilitado').checked = dados.alertaHabilitado !== false;
 
             if (dados.temCamposLegados && !dados.temBlocosUsuario) {
@@ -318,8 +470,11 @@
             }
 
             exibirResumoTenant(dados.jornadaTenant);
-
-            (dados.blocos || []).forEach(b => adicionarBlocoEscala(b));
+            exibirHistorico(dados.versoes || []);
+            if ((dados.versoes || []).some(temJornadaPessoal)) {
+                document.getElementById('btnLimparEscala').classList.remove('d-none');
+            }
+            abrirNovaVersao();
 
             document.getElementById('escalaLoadingMsg').classList.add('d-none');
             document.getElementById('escalaFormContainer').classList.remove('d-none');
@@ -331,6 +486,7 @@
     }
 
     document.getElementById('btnAdicionarBlocoEscala').addEventListener('click', () => adicionarBlocoEscala(null));
+    document.getElementById('btnCancelarEdicaoEscala').addEventListener('click', abrirNovaVersao);
     document.getElementById('escalaCargaSemanal').addEventListener('input', atualizarAcumuladorEscala);
 
     document.getElementById('btnSalvarEscala').addEventListener('click', async function () {
@@ -339,6 +495,19 @@
 
         const cargaMin = parseHHMM(document.getElementById('escalaCargaSemanal').value);
         const alerta   = document.getElementById('escalaAlertaHabilitado').checked;
+        const valeAPartirDe = document.getElementById('escalaValeAPartirDe').value;
+
+        if (!valeAPartirDe) {
+            erroEl.textContent = 'Informe a data em que a jornada passa a valer.';
+            erroEl.classList.remove('d-none');
+            return;
+        }
+        // Data no passado: a folha e o saldo mudam desde a mais antiga entre a data nova e a antiga da versão.
+        const desde = versaoEmEdicao && versaoEmEdicao.valeAPartirDe < valeAPartirDe ? versaoEmEdicao.valeAPartirDe : valeAPartirDe;
+        if (estadoEscala && desde < estadoEscala.hoje
+            && !confirm(`A folha e o saldo serão recalculados desde ${dataBr(desde)}. Continuar?`)) {
+            return;
+        }
 
         const blocos = [];
         document.querySelectorAll('#escalaBlocos .bloco-escala').forEach(el => {
@@ -361,7 +530,10 @@
             const resp = await fetch(escalaUrl, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body:    JSON.stringify({ cargaHorariaSemanal: cargaMin, alertaHabilitado: alerta, blocos }),
+                body:    JSON.stringify(Object.assign(
+                    { cargaHorariaSemanal: cargaMin, alertaHabilitado: alerta, blocos, valeAPartirDe },
+                    versaoEmEdicao ? { versaoId: versaoEmEdicao.id } : {},
+                )),
             });
 
             const result = await resp.json();
@@ -385,7 +557,7 @@
     const btnLimpar = document.getElementById('btnLimparEscala');
     if (btnLimpar) {
         btnLimpar.addEventListener('click', async function () {
-            if (!confirm('Limpar a jornada personalizada deste colaborador? Ele voltará a usar a jornada do escritório.')) return;
+            if (!confirm('A jornada personalizada e todo o histórico dela serão apagados. A folha de todos os meses, inclusive os passados, volta a usar a jornada padrão do escritório. Continuar?')) return;
 
             this.disabled = true;
 

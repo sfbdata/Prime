@@ -146,7 +146,9 @@ final class PontoController extends AbstractController
         $batidas = $repository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
         $jornadaDoEscritorio = $this->jornadas->findByUserETenant($user, $tenant);
         // A folha usa a versão da jornada de cada dia (spec ponto-jornada-vigencia §3.2); a meta de hoje, a de hoje.
-        $jornada = $this->jornadas->historicoDe($user, $tenant) ?? (new JornadaColaborador())->setUser($user);
+        // Sem jornada pessoal no dia, a jornada vazia (a padrão do escritório), como antes de a pessoa ter uma (§10.4).
+        $semJornadaPessoal = (new JornadaColaborador())->setUser($user);
+        $jornada = $this->jornadas->historicoDe($user, $tenant)?->comJornadaAntesDaPrimeira($semJornadaPessoal) ?? $semJornadaPessoal;
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);

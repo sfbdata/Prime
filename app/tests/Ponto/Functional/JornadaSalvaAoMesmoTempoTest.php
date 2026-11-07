@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\JornadaColaboradorController;
 use App\Ponto\Controller\JornadaTenantController;
+use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JornadaTenantRepository;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -48,7 +49,12 @@ final class JornadaSalvaAoMesmoTempoTest extends JusPrimeWebTestCase
         $pessoa = $this->pessoa('Pessoa');
         $this->vincular($pessoa, $this->escritorio);
         $this->jornadaPessoal($pessoa, $this->escritorio, self::MANHA);
-        static::getContainer()->set(JornadaColaboradorRepository::class, $this->createStub(JornadaColaboradorRepository::class));
+        // A leitura não vê a jornada que o outro salvamento gravou; a gravação vai ao banco de verdade.
+        $em = $this->em();
+        $jornadas = $this->createStub(JornadaColaboradorRepository::class);
+        $jornadas->method('salvar')->willReturnCallback(static fn (JornadaColaborador $jornada) => $em->persist($jornada));
+        $jornadas->method('gravar')->willReturnCallback(static fn () => $em->flush());
+        static::getContainer()->set(JornadaColaboradorRepository::class, $jornadas);
 
         $url = sprintf('/tenant/%d/user/%d/jornada-colaborador', $this->escritorio->getId(), $pessoa->getId());
         $resposta = $this->chamarJson($this->client, 'POST', $url, $this->corpoDaJornada(self::MANHA));
