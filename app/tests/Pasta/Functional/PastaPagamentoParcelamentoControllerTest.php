@@ -315,7 +315,11 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         $pastaId         = (int) $this->criarPasta($tenant)->getId();
         $this->logarComTenant($client, $user, $tenant);
 
-        $this->parcelar($client, $pastaId, ['entrada' => '2.000,00', 'parcelas' => '10', 'juros' => '1', 'taxa' => '1,5']);
+        // 1º vencimento no dia 6 do mês que vem: sempre no futuro, então o resumo
+        // nunca conta parcela vencida, seja qual for o dia em que a suíte roda.
+        $primeiro = (new \DateTimeImmutable('today'))->modify('first day of next month')->modify('+5 days');
+
+        $this->parcelar($client, $pastaId, ['entrada' => '2.000,00', 'parcelas' => '10', 'juros' => '1', 'taxa' => '1,5', 'vencimento' => $primeiro->format('Y-m-d')]);
 
         self::assertResponseStatusCodeSame(201);
         $dados  = $this->json($client);
@@ -331,7 +335,8 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
 
         $hoje     = (new \DateTimeImmutable('today'))->format('Y-m-d');
         $esperado = [['Entrada · honorários', '2000.00', $hoje, null, null]];
-        $datas    = ['2026-11-06', '2026-12-06', '2027-01-06', '2027-02-06', '2027-03-06', '2027-04-06', '2027-05-06', '2027-06-06', '2027-07-06', '2027-08-06'];
+        // Dia 6 existe em todo mês: somar meses nunca transborda para o mês seguinte.
+        $datas = array_map(static fn (int $k): string => $primeiro->modify("+{$k} months")->format('Y-m-d'), range(0, 9));
         foreach ($datas as $k => $data) {
             $esperado[] = [($k + 1) . 'ª parcela · honorários', $k === 9 ? '1084.36' : '1084.34', $data, null, '1.5000'];
         }
