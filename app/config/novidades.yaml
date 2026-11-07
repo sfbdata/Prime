@@ -1,6 +1,15 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.40.0"
+  data: "2026-11-07"
+  itens:
+    - "Na ficha do colaborador, aba \"Jornada Personalizada\", agora dá para dizer a partir de que dia a jornada nova vale. Exemplo: quem passou de 40 para 44 horas em maio fica com 40 horas até 30 de abril e 44 horas a partir de 1º de maio. A folha e o banco de horas de abril continuam contando 40 horas."
+    - "A aba mostra o histórico das jornadas da pessoa: o período de cada uma, qual vale hoje e qual está agendada para começar depois. Cada jornada do histórico pode ser corrigida ou excluída."
+    - "Ao escolher uma data no passado, o sistema avisa que a folha e o saldo serão recalculados desde aquele dia, antes de gravar."
+    - "\"Limpar jornada personalizada\" apaga a jornada e todo o histórico dela, e a folha de todos os meses volta a usar a jornada do escritório. O aviso de confirmação explica isso antes."
+    - "O BlueJus passa a guardar a data em que cada jornada de trabalho começa a valer. É o primeiro passo para que uma troca de jornada (por exemplo, de 40 para 44 horas por semana) valha só dali em diante, sem recalcular a folha e o banco de horas dos meses anteriores."
+    - "Nesta versão todas as folhas e todos os saldos, de qualquer mês, ficam exatamente com os mesmos números. O campo para escolher a data de início da nova jornada chega em seguida, na tela de jornada do colaborador."
 - versao: "2.39.1"
   data: "2026-11-06"
   itens:
