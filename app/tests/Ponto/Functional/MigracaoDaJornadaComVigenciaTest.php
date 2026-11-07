@@ -10,10 +10,12 @@ use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\HistoricoDeJornadas;
-use App\Ponto\Service\InicioContagemResolver;
 use Doctrine\DBAL\Connection;
 use Doctrine\Migrations\Exception\AbortMigration;
 use Doctrine\ORM\EntityManagerInterface;
@@ -45,11 +47,17 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
         $ano = (int) (new \DateTimeImmutable())->format('Y') - 1;
         [$pessoa, $escritorio, $jornada] = $this->pessoaComJornadaDe44Horas();
         $primeiroRegistro = $this->registrosDeMarcoEAbril($pessoa, $escritorio, $ano);
-        $semRegistro = $this->pessoaComJornadaDe44Horas()[0];
+        [$semRegistro, $escritorioSemRegistro] = $this->pessoaComJornadaDe44Horas();
+        $criadaEm = sprintf('%04d-05-20', $ano);
+        $this->criacaoNoAuditLog($semRegistro, $escritorioSemRegistro, $criadaEm);
 
-        $inicioContagem = $this->servico(InicioContagemResolver::class)->resolver($pessoa, $escritorio);
-        $antes = $this->folhaDoBimestre($pessoa, $escritorio, $ano, $jornada, $inicioContagem);
-        $saldoAntes = $this->servico(FolhaPontoBuilder::class)->calcularSaldoAnual($pessoa, $ano, [], null, $inicioContagem, $escritorio);
+        // A contagem começa ANTES do primeiro registro (como no abono anterior à primeira batida,
+        // `InicioContagemResolver`): fevereiro inteiro conta e fica antes da data que a versão vai ganhar.
+        $inicioContagem = new \DateTimeImmutable(sprintf('%04d-02-01', $ano));
+
+        // "Antes": o cálculo de até aqui, UMA jornada aplicada a todos os dias.
+        $antes = $this->folhaDoTrimestre($pessoa, $escritorio, $ano, $jornada, $inicioContagem);
+        $saldoAntes = $this->construtorComUmaJornadaSo($jornada)->calcularSaldoAnual($pessoa, $ano, [], null, $inicioContagem, $escritorio);
         self::assertNotSame(0, $saldoAntes, 'o cenário precisa de saldo, senão a comparação não prova nada');
 
         self::assertSame(0, $this->executar('--down'));
@@ -67,13 +75,15 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
         self::assertCount(1, $historico->versoes(), 'cada jornada vira uma versão só');
         self::assertSame($primeiroRegistro, $historico->versoes()[0]->getValeAPartirDe()->format('Y-m-d'), 'a versão começa no primeiro registro');
 
-        $inicioContagem = $this->servico(InicioContagemResolver::class)->resolver($pessoa, $escritorio);
-        self::assertEquals($antes, $this->folhaDoBimestre($pessoa, $escritorio, $ano, $historico, $inicioContagem));
+        // "Depois": o histórico que a migration deixou no banco, pelo serviço de verdade.
+        self::assertEquals($antes, $this->folhaDoTrimestre($pessoa, $escritorio, $ano, $historico, $inicioContagem));
         self::assertSame($saldoAntes, $this->servico(FolhaPontoBuilder::class)->calcularSaldoAnual($pessoa, $ano, [], null, $inicioContagem, $escritorio));
 
-        $dataSemRegistro = $this->banco()->fetchOne('SELECT vale_a_partir_de FROM jornada_colaborador WHERE user_id = ?', [$semRegistro->getId()]);
-        self::assertIsString($dataSemRegistro, 'quem não tem registro também ganha a data (criação da jornada ou o dia da migration)');
-        self::assertLessThanOrEqual(1, abs((new \DateTimeImmutable($dataSemRegistro))->diff(new \DateTimeImmutable('today'))->days));
+        self::assertSame(
+            $criadaEm,
+            $this->banco()->fetchOne('SELECT vale_a_partir_de FROM jornada_colaborador WHERE user_id = ?', [$semRegistro->getId()]),
+            'sem registro de ponto, a versão começa no dia em que a jornada foi criada (audit_log)',
+        );
         self::assertSame(1, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'uq_jornada_colaborador_vigencia'"));
         self::assertSame(0, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'uq_jornada_colaborador_user_tenant'"));
     }
@@ -157,11 +167,43 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
         return $primeiro;
     }
 
-    /** @return list<array<int, array<string, mixed>>> as linhas de março e abril */
-    private function folhaDoBimestre(User $pessoa, Tenant $escritorio, int $ano, JornadaColaborador|HistoricoDeJornadas $jornada, ?\DateTimeInterface $inicioContagem): array
+    /**
+     * O mesmo serviço de saldo, mas com a jornada solta valendo para todos os dias: é o cálculo de antes das versões.
+     * O repositório de jornadas é nosso e pode ser trocado por um dublê (tests/CLAUDE.md).
+     */
+    private function construtorComUmaJornadaSo(JornadaColaborador $jornada): FolhaPontoBuilder
+    {
+        $jornadas = $this->createStub(JornadaColaboradorRepository::class);
+        $jornadas->method('historicoDe')->willReturn(HistoricoDeJornadas::deUma($jornada));
+
+        return new FolhaPontoBuilder(
+            $this->servico(CalculadoraJornada::class),
+            $this->servico(RegistroPontoRepository::class),
+            $this->servico(JustificativaPontoRepository::class),
+            $this->servico(LancamentoHorasPagasRepository::class),
+            $jornadas,
+        );
+    }
+
+    /** Um `create` antigo da jornada, no formato que o `AuditLogSubscriber` grava. */
+    private function criacaoNoAuditLog(User $pessoa, Tenant $escritorio, string $dia): void
+    {
+        $this->banco()->executeStatement(
+            "INSERT INTO audit_log (id, action, entity_class, changes, tenant_id, created_at)
+             VALUES (nextval('audit_log_id_seq'), 'create', 'App\\Ponto\\Entity\\JornadaColaborador', ?, ?, ?)",
+            [
+                json_encode(['diff' => ['after' => ['user' => ['class' => User::class, 'id' => (string) $pessoa->getId(), 'label' => null]]]], JSON_THROW_ON_ERROR),
+                $escritorio->getId(),
+                $dia . ' 10:00:00',
+            ],
+        );
+    }
+
+    /** @return list<array<int, array<string, mixed>>> as linhas de fevereiro, março e abril */
+    private function folhaDoTrimestre(User $pessoa, Tenant $escritorio, int $ano, JornadaColaborador|HistoricoDeJornadas $jornada, ?\DateTimeInterface $inicioContagem): array
     {
         $folha = [];
-        foreach ([3, 4] as $mes) {
+        foreach ([2, 3, 4] as $mes) {
             $inicio = new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes));
             $folha[] = $this->servico(FolhaPontoBuilder::class)->buildRows(
                 $inicio,

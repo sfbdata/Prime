@@ -10,4 +10,4 @@ tipo: alteracao
 
 ## Para o cliente
 - O BlueJus passa a guardar a data em que cada jornada de trabalho começa a valer. É o primeiro passo para que uma troca de jornada (por exemplo, de 40 para 44 horas por semana) valha só dali em diante, sem recalcular a folha e o banco de horas dos meses anteriores.
-- Nesta versão as folhas e os saldos já fechados ficam exatamente com os mesmos números. O campo para escolher a data de início da nova jornada chega em seguida, na tela de jornada do colaborador.
+- Nesta versão todas as folhas e todos os saldos, de qualquer mês, ficam exatamente com os mesmos números. O campo para escolher a data de início da nova jornada chega em seguida, na tela de jornada do colaborador.

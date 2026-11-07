@@ -15,7 +15,7 @@ use Doctrine\Migrations\AbstractMigration;
  * **Não muda saldo:** cada jornada existente vira UMA versão, e a versão mais antiga vale também para os dias
  * anteriores à sua data (`HistoricoDeJornadas`). A data é só o rótulo do início: o primeiro registro de ponto da
  * pessoa naquele escritório; sem registro, o dia em que a jornada foi criada (o `create` do `audit_log`, que existe
- * desde 22/04/2026); sem os dois, o dia da migration.
+ * desde 22/04/2026); sem os dois, o dia da migration no horário de Brasília (o banco roda em UTC).
  *
  * **down:** recusa quando alguma pessoa já tem mais de uma versão no mesmo escritório, para não apagar histórico em
  * silêncio.
@@ -38,7 +38,7 @@ final class Version20261107100000 extends AbstractMigration
                     AND a.entity_class IN ('App\Entity\Ponto\JornadaColaborador', 'App\Ponto\Entity\JornadaColaborador')
                     AND (a.tenant_id IS NULL OR a.tenant_id = j.tenant_id)
                     AND (a.changes -> 'diff' -> 'after' -> 'user' ->> 'id') = j.user_id::text),
-                CURRENT_DATE
+                (now() AT TIME ZONE 'America/Sao_Paulo')::date
             )
             SQL);
         $this->addSql('ALTER TABLE jornada_colaborador ALTER vale_a_partir_de SET NOT NULL');

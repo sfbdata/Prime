@@ -156,29 +156,32 @@ Não há desenho do Claude Design para esta aba: segue o estilo dela (Bootstrap 
    passada volta a usar o padrão do escritório.
 4. PR 1 não muda nenhum saldo: **teste prova que a folha antes e depois da migração é igual**.
 
-## 9. Estado (06/11/2026, pausa a pedido do Samuel)
+## 9. Estado (07/11/2026)
 
-Feito: spec e decisões. Nenhum código ainda.
+**PR 1 (motor): pronto.** Migration `Version20261107100000`, `JornadaColaborador::valeAPartirDe`,
+`HistoricoDeJornadas`, `JornadaColaboradorRepository::historicoDe()` (`findByUserETenant()` = vigente hoje),
+`FolhaPontoBuilder` com a versão de cada dia, chamadores (`PontoController` folha/PDF/XLSX, `TenantController`,
+`ObterEstadoDoPontoDoDiaUseCase`). Provas: `HistoricoDeJornadasTest`, `FolhaComVersoesDaJornadaTest` (caso do
+Samuel: 20/04 cobra 8h, 23/04 cobra 9h) e `MigracaoDaJornadaComVigenciaTest` (folha de fev a abr e saldo do ano
+iguais antes e depois; fevereiro contado antes da data da versão; data pelo `create` do `audit_log`; down recusa
+com versões). `MigracaoDaJornadaPorEscritorioTest` passa a desfazer e refazer esta migration em volta da dela.
 
-Falta no PR 1, nesta ordem:
+Mapa: pendências (`ListarPendenciasDeRegistroUseCase`), `SaidaDeEsquecimento` e `EscolhaDasBatidasDoDia` não leem
+jornada. `IntervalosDeTrabalho`/choque, alerta e tela do ponto usam a de hoje. `PurgarEscritorioUseCase` apaga por
+`tenant_id`.
 
-1. Testes primeiro: unit de `HistoricoDeJornadas` (vigente em cada dia; a mais antiga vale para
-   trás; futura não vale hoje); unit da folha com duas versões; integração "folha igual antes e
-   depois" (mesma pessoa e registros: `buildRows` com a jornada solta, como hoje, contra o histórico
-   com `vale_a_partir_de` preenchido pela regra da migration, em datas antes, no meio e depois dos
-   registros; o mesmo para `calcularSaldoAnual`).
-2. Entidade `JornadaColaborador`: `valeAPartirDe` (`date_immutable`, padrão hoje no construtor) e o
-   único trocado para `uq_jornada_colaborador_vigencia (user_id, tenant_id, vale_a_partir_de)`.
-3. Migration `Version20261107100000` (skill `criar-migration`), conforme o §4.
-4. `HistoricoDeJornadas` (`final`, em `src/Ponto/Service/`) e `JornadaColaboradorRepository::historicoDe()`;
-   `findByUserETenant()` devolve a vigente hoje.
-5. `FolhaPontoBuilder::buildRows` aceita `JornadaColaborador|HistoricoDeJornadas|null` e usa a
-   versão do dia; `calcularSaldoAteMes`/`calcularSaldoAnual` carregam o histórico.
-6. Chamadores de `buildRows` passam o histórico: `PontoController` (linhas ~153, ~1077, ~1161),
-   `TenantController` (~793). Cabeçalho do PDF/XLSX: versão vigente no último dia do mês.
-7. `mudancas/ponto-jornada-vigencia.md`, `qa.sh`, suíte do Ponto, revisão independente, PR.
+### Para o PR 2 (tela), vindos da revisão do PR 1
 
-Mapa já feito: pendências (`ListarPendenciasDeRegistroUseCase`), `SaidaDeEsquecimento` e
-`EscolhaDasBatidasDoDia` não leem jornada. `IntervalosDeTrabalho`/choque, alerta e tela do ponto
-usam a de hoje (ficam certos com `findByUserETenant` = vigente hoje). `PurgarEscritorioUseCase`
-apaga por `tenant_id` (sem mudança).
+1. **Primeira versão com data futura.** Pela regra 3.1.3 uma versão única vale para trás, então criar a PRIMEIRA
+   jornada pessoal "a partir de 01/12" mudaria a folha passada de quem segue o padrão. Decidir: ou a primeira
+   versão nunca vale antes da sua data quando a pessoa seguia o padrão (o histórico precisa saber disso), ou a
+   tela não aceita data futura na primeira versão.
+2. **Salvar e "Limpar escala" com versões.** Hoje o POST edita a vigente no lugar (reescreve desde a data dela) e
+   o DELETE só limpa a vigente. No PR 2: POST com `valeAPartirDe`/`versaoId` (§3.4) e DELETE apagando todas as
+   versões (§8.3). O GET (`app_jornada_colaborador_get`) passa a devolver `versoes[]`.
+3. **Concorrência:** o 409 de `JornadaSalvaAoMesmoTempoTest` sai porque as duas criações recebem a mesma data;
+   com a data vinda do formulário, conferir a corrida de novo.
+4. **Relógio:** `findByUserETenant()` usa `new \DateTimeImmutable('today')`; com versão futura, injetar
+   `ClockInterface` para testar "vigente hoje" com relógio fixo.
+5. **Cabeçalho do PDF/XLSX:** falta a linha "Jornada alterada em dd/mm" quando o mês tem troca (§3.2).
+6. **Consultas:** `/ponto` carrega o histórico 3 vezes (tela, folha, saldo do ano). Só desempenho; juntar se pesar.

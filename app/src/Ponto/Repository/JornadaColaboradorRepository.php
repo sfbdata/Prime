@@ -47,6 +47,8 @@ class JornadaColaboradorRepository extends ServiceEntityRepository
             ->setParameter('user', $user)
             ->setParameter('tenant', $tenant)
             ->orderBy('j.valeAPartirDe', 'ASC')
+            // Ordem fixa dos blocos: o cabeçalho do PDF/XLSX mostra o horário do primeiro bloco com dia útil.
+            ->addOrderBy('b.id', 'ASC')
             ->getQuery()
             ->getResult());
 
