@@ -137,7 +137,7 @@ ponto de inclusão no #60, marcação `mp-card`) na C3.
 2. Confirmar no sandbox do Asaas: o checkout aceita item sem `imageBase64` (a doc se contradiz); a
    assinatura do checkout aceita a NFS-e (`invoiceSettings`) e se a nota do 1º mês sai; o
    `GET /subscriptions/{id}` depois do cancelamento.
-3. Ver na tela (smoke): checkout do Asaas com CPF/CNPJ e botão "Assinar" que leva à página do Asaas (o
+3. Ver na tela (smoke): checkout do Asaas sem o campo CPF/CNPJ e botão "Assinar" que leva à página do Asaas (o
    desenho mostra o formulário de cartão; desvio já aprovado para o caminho hospedado); modal do Master com o
    texto do gateway hospedado no lugar do pedido de links; "Pagamento enviado" ao voltar.
 4. Desvio inerente aos SDKs: nos gateways de formulário o campo do cartão é o do gateway (iframe), com
@@ -468,8 +468,10 @@ Mercado Pago, Pagar.me). No Asaas:
   preenche os próprios dados na página do Asaas (docs.asaas.com/docs/how-to-provide-customer-data). O
   desenho anterior (um cliente Asaas por escritório, com CPF/CNPJ e e-mail, `externalReference` = `BJ<conta>`)
   foi recusado no sandbox: com `customer` só com nome, CPF/CNPJ e e-mail o Asaas responde HTTP 400 pedindo
-  telefone e endereço, e o `customerData` só com esses três campos também dá 400. O CPF/CNPJ do titular
-  continua na janela de assinatura (desenho 08) e é só validado; não vai ao Asaas nem é gravado;
+  telefone e endereço, e o `customerData` só com esses três campos também dá 400. O campo CPF/CNPJ do titular
+  sai da janela de assinatura no modo hospedado (desvio do desenho 08 aprovado pelo Samuel em 07/11/2026:
+  o pagador já digita o documento na página do Asaas); no modo formulário (cartão tokenizado no BlueJus)
+  o campo continua e é obrigatório. O documento não vai ao Asaas nem é gravado;
 - o vínculo com o pedido vem do checkout: a assinatura criada traz o id dele em `checkoutSession`
   (docs.asaas.com/reference/retrieve-a-single-subscription), e o pedido guardou esse id ao abrir o checkout.
   O `externalReference` da assinatura é lido como reserva, mas a doc não garante que o Asaas o copie do
