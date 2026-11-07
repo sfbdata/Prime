@@ -10,7 +10,7 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 /**
- * A API do Asaas de mentira para os testes do adaptador: responde por rota ('GET /customers') com os
+ * A API do Asaas de mentira para os testes do adaptador: responde por rota ('POST /checkouts') com os
  * exemplos da documentação oficial e guarda cada chamada recebida para conferência.
  *
  * As fixtures foram montadas a partir dos exemplos de resposta da documentação (outubro de 2026), com os
@@ -24,6 +24,7 @@ final class ApiAsaasFalsa
     public const ID_DO_CLIENTE = 'cus_000005401844';
     public const ID_DA_ASSINATURA = 'sub_VXJBYgP2u0eO';
     public const ID_DO_CHECKOUT = '5bf7ac24-0b3b-4b64-9b5f-6c12e7a6f2a1';
+    public const REFERENCIA_DO_PEDIDO = 'BJ000007-essencial-42';
 
     /** @var list<array{metodo: string, caminho: string, query: array<mixed>, corpo: mixed, cabecalhos: list<string>}> */
     public array $chamadas = [];
@@ -104,46 +105,13 @@ final class ApiAsaasFalsa
     // ------------------------------------------------------------------ fixtures da documentação
 
     /**
-     * Lista de clientes filtrada por externalReference.
-     * Doc: https://docs.asaas.com/reference/list-customers
-     *
-     * @param list<array<mixed>> $clientes
-     *
-     * @return array<mixed>
-     */
-    public static function listaDeClientes(array $clientes): array
-    {
-        return ['object' => 'list', 'hasMore' => false, 'totalCount' => \count($clientes), 'limit' => 10, 'offset' => 0, 'data' => $clientes];
-    }
-
-    /**
-     * Um cliente (criação e consulta devolvem o mesmo objeto).
-     * Doc: https://docs.asaas.com/reference/create-new-customer
-     * Doc: https://docs.asaas.com/reference/retrieve-a-single-customer
-     *
-     * @return array<mixed>
-     */
-    public static function cliente(string $id = self::ID_DO_CLIENTE, ?string $referencia = 'BJ000007'): array
-    {
-        return [
-            'object' => 'customer', 'id' => $id, 'dateCreated' => '2026-10-19', 'name' => 'Escritório de Teste',
-            'email' => 'financeiro@escritorio.test', 'company' => null, 'phone' => null, 'mobilePhone' => null,
-            'address' => null, 'addressNumber' => null, 'complement' => null, 'province' => null, 'postalCode' => null,
-            'cpfCnpj' => '12345678000195', 'personType' => 'JURIDICA', 'deleted' => false, 'additionalEmails' => null,
-            'externalReference' => $referencia, 'notificationDisabled' => false, 'observations' => null,
-            'municipalInscription' => null, 'stateInscription' => null, 'canDelete' => true, 'cannotBeDeletedReason' => null,
-            'canEdit' => true, 'cannotEditReason' => null, 'city' => null, 'cityName' => null, 'state' => null, 'country' => 'Brasil',
-        ];
-    }
-
-    /**
-     * Checkout criado.
+     * Checkout criado sem cliente (o pagador preenche os dados na página do Asaas), com a referência do pedido.
      * Doc: https://docs.asaas.com/reference/create-new-checkout
      * Doc: https://docs.asaas.com/docs/checkout-com-assinatura-recorrente
      *
      * @return array<mixed>
      */
-    public static function checkoutCriado(bool $comLink = true): array
+    public static function checkoutCriado(bool $comLink = true, ?string $cliente = null): array
     {
         $checkout = [
             'id' => self::ID_DO_CHECKOUT, 'status' => 'ACTIVE', 'minutesToExpire' => 60,
@@ -151,7 +119,7 @@ final class ApiAsaasFalsa
             'callback' => ['successUrl' => 'https://bluejus.com.br/contribua?assinatura=ok', 'cancelUrl' => 'https://bluejus.com.br/contribua#espaco', 'expiredUrl' => 'https://bluejus.com.br/contribua#espaco'],
             'items' => [['name' => 'BlueJus Essencial', 'description' => 'Espaço do plano Essencial', 'quantity' => 1, 'value' => 19.9]],
             'subscription' => ['cycle' => 'MONTHLY', 'nextDueDate' => '2026-10-19', 'endDate' => null],
-            'customer' => self::ID_DO_CLIENTE, 'customerData' => null, 'installment' => null, 'externalReference' => null,
+            'customer' => $cliente, 'customerData' => null, 'installment' => null, 'externalReference' => self::REFERENCIA_DO_PEDIDO,
         ];
         if ($comLink) {
             $checkout['link'] = 'https://sandbox.asaas.com/checkoutSession/show?id=' . self::ID_DO_CHECKOUT;
@@ -161,12 +129,13 @@ final class ApiAsaasFalsa
     }
 
     /**
-     * Uma assinatura.
+     * Uma assinatura nascida do checkout (`checkoutSession` é o id do checkout). O `externalReference` vem
+     * null por padrão: a doc não garante que o Asaas leve a referência do checkout para a assinatura.
      * Doc: https://docs.asaas.com/reference/retrieve-a-single-subscription
      *
      * @return array<mixed>
      */
-    public static function assinatura(string $status = 'ACTIVE', bool $removida = false): array
+    public static function assinatura(string $status = 'ACTIVE', bool $removida = false, ?string $referencia = null, ?string $checkout = self::ID_DO_CHECKOUT): array
     {
         return [
             'object' => 'subscription', 'id' => self::ID_DA_ASSINATURA, 'dateCreated' => '2026-09-19',
@@ -174,7 +143,7 @@ final class ApiAsaasFalsa
             'value' => 19.9, 'nextDueDate' => '2026-11-19', 'endDate' => null, 'description' => 'BlueJus Essencial',
             'status' => $status, 'discount' => ['value' => 0, 'limitDate' => null, 'dueDateLimitDays' => 0, 'type' => 'FIXED'],
             'fine' => ['value' => 0, 'type' => 'FIXED'], 'interest' => ['value' => 0, 'type' => 'PERCENTAGE'],
-            'deleted' => $removida, 'maxPayments' => null, 'externalReference' => null, 'checkoutSession' => self::ID_DO_CHECKOUT,
+            'deleted' => $removida, 'maxPayments' => null, 'externalReference' => $referencia, 'checkoutSession' => $checkout,
         ];
     }
 
@@ -270,16 +239,16 @@ final class ApiAsaasFalsa
     }
 
     /**
-     * Webhook do Checkout (CHECKOUT_PAID e afins).
-     * Doc: https://docs.asaas.com/docs/eventos-de-checkout
+     * Webhook do Checkout (CHECKOUT_PAID e afins). `customer` só vem quando o checkout tem cliente.
+     * Doc: https://docs.asaas.com/docs/checkout-events
      */
-    public static function avisoDeCheckout(string $evento = 'CHECKOUT_PAID'): string
+    public static function avisoDeCheckout(string $evento = 'CHECKOUT_PAID', ?string $cliente = null): string
     {
         return (string) json_encode([
             'id' => 'evt_37260be8159d4472b4458d3de13efc2d&15370',
             'event' => $evento,
             'dateCreated' => '2026-10-19 12:01:51',
-            'checkout' => array_merge(self::checkoutCriado(), ['status' => 'PAID']),
+            'checkout' => array_merge(self::checkoutCriado(true, $cliente), ['status' => 'PAID']),
         ]);
     }
 }

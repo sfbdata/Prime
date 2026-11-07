@@ -21,51 +21,28 @@ use Symfony\Component\HttpClient\Exception\TimeoutException;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
-/** O que é só do Asaas: cliente por escritório, corpo do Checkout, token do webhook, 404 e nota fiscal. */
+/** O que é só do Asaas: checkout sem cliente, corpo do Checkout, vínculo pelo checkout, token do webhook, 404 e nota fiscal. */
 #[CoversClass(GatewayAsaas::class)]
 final class GatewayAsaasTest extends TestCase
 {
     private const ID = ApiAsaasFalsa::ID_DA_ASSINATURA;
 
-    #[TestDox('O cliente Asaas do escritório já existe: é reaproveitado, sem POST /customers')]
-    public function testClienteExistenteReaproveitado(): void
+    #[TestDox('O checkout vai sem cliente: nenhuma chamada a /customers e o POST /checkouts sem customer nem customerData')]
+    public function testCheckoutSemCliente(): void
     {
-        $api = new ApiAsaasFalsa([
-            'GET /customers' => [200, ApiAsaasFalsa::listaDeClientes([ApiAsaasFalsa::cliente()])],
-            'POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado()],
-        ]);
+        $api = self::apiQueIniciaComSucesso();
 
         $api->gateway()->iniciar(self::pedido());
 
-        self::assertSame(['GET /customers', 'POST /checkouts'], $api->rotasChamadas());
-        self::assertSame(['externalReference' => 'BJ000007'], $api->chamadas[0]['query']);
+        self::assertSame(['POST /checkouts'], $api->rotasChamadas());
         self::assertContains('access_token: ' . ApiAsaasFalsa::CHAVE, $api->chamadas[0]['cabecalhos']);
-        self::assertSame(ApiAsaasFalsa::ID_DO_CLIENTE, $api->corpoEnviado('POST /checkouts')['customer']);
+        $corpo = $api->corpoEnviado('POST /checkouts');
+        self::assertArrayNotHasKey('customer', $corpo, 'cliente pré-criado faz o Asaas pedir telefone e endereço (HTTP 400)');
+        self::assertArrayNotHasKey('customerData', $corpo, 'só nome, CPF/CNPJ e e-mail também dá 400');
+        self::assertStringNotContainsString('12345678000195', (string) json_encode($corpo), 'o CPF/CNPJ do titular não vai ao Asaas');
     }
 
-    #[TestDox('Escritório sem cliente Asaas: cria o cliente com externalReference BJ<conta>')]
-    public function testClienteNovoCriado(): void
-    {
-        $api = new ApiAsaasFalsa([
-            'GET /customers' => [200, ApiAsaasFalsa::listaDeClientes([])],
-            'POST /customers' => [200, ApiAsaasFalsa::cliente('cus_000009999999')],
-            'POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado()],
-        ]);
-
-        $api->gateway()->iniciar(self::pedido());
-
-        self::assertSame(['GET /customers', 'POST /customers', 'POST /checkouts'], $api->rotasChamadas());
-        self::assertSame([
-            'name' => 'Escritório de Teste',
-            'cpfCnpj' => '12345678000195',
-            'email' => 'financeiro@escritorio.test',
-            'externalReference' => 'BJ000007',
-            'notificationDisabled' => false,
-        ], $api->corpoEnviado('POST /customers'));
-        self::assertSame('cus_000009999999', $api->corpoEnviado('POST /checkouts')['customer']);
-    }
-
-    #[TestDox('O POST /checkouts leva cartão, recorrência mensal, valor em reais, retorno e o cliente')]
+    #[TestDox('O POST /checkouts leva cartão, recorrência mensal, valor em reais, retorno e a referência do pedido')]
     public function testCorpoDoCheckoutCampoACampo(): void
     {
         $api = self::apiQueIniciaComSucesso();
@@ -88,7 +65,8 @@ final class GatewayAsaasTest extends TestCase
             'value' => 19.9,
         ]], $corpo['items']);
         self::assertSame(['cycle' => 'MONTHLY', 'nextDueDate' => '2026-10-19'], $corpo['subscription']);
-        self::assertSame(ApiAsaasFalsa::ID_DO_CLIENTE, $corpo['customer']);
+        self::assertSame('BJ000007-essencial-42', $corpo['externalReference']);
+        self::assertSame(['billingTypes', 'chargeTypes', 'minutesToExpire', 'callback', 'items', 'subscription', 'externalReference'], array_keys($corpo));
     }
 
     #[TestDox('O link do checkout vem do JSON do Asaas quando ele traz "link"')]
@@ -104,17 +82,14 @@ final class GatewayAsaasTest extends TestCase
     #[TestDox('Sem "link" no JSON, o link é montado pelo id no host do mesmo ambiente da API')]
     public function testLinkMontadoPeloId(): void
     {
-        $api = new ApiAsaasFalsa([
-            'GET /customers' => [200, ApiAsaasFalsa::listaDeClientes([ApiAsaasFalsa::cliente()])],
-            'POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado(false)],
-        ]);
+        $api = new ApiAsaasFalsa(['POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado(false)]]);
 
         $inicio = $api->gateway()->iniciar(self::pedido());
 
         self::assertSame('https://sandbox.asaas.com/checkoutSession/show?id=' . ApiAsaasFalsa::ID_DO_CHECKOUT, $inicio->urlDeRedirecionamento);
     }
 
-    #[TestDox('Ativa: pagaAte é o vencimento da última cobrança paga + 1 mês, com referência, cliente e valor')]
+    #[TestDox('Ativa: pagaAte é o vencimento da última cobrança paga + 1 mês, com o checkout de origem, cliente e valor')]
     public function testConsultarAtivaComDetalhes(): void
     {
         $api = self::apiDaAssinatura('ACTIVE', [
@@ -127,9 +102,38 @@ final class GatewayAsaasTest extends TestCase
 
         self::assertSame(SituacaoDaAssinatura::Ativa, $situacao->situacao);
         self::assertSame('2026-11-19', $situacao->pagaAte?->format('Y-m-d'));
-        self::assertSame('BJ000007', $situacao->referencia);
+        self::assertSame(ApiAsaasFalsa::ID_DO_CHECKOUT, $situacao->idDoCheckout, 'o checkoutSession liga a assinatura ao pedido');
+        self::assertNull($situacao->referencia, 'sem externalReference na assinatura, sem referência');
         self::assertSame(ApiAsaasFalsa::ID_DO_CLIENTE, $situacao->idDoCliente);
         self::assertSame(1990, $situacao->valorCentavos);
+    }
+
+    #[TestDox('Consultar não lê o cliente: a referência vem só do externalReference da própria assinatura')]
+    public function testConsultarSemLerOCliente(): void
+    {
+        $api = new ApiAsaasFalsa([
+            'GET /subscriptions/' . self::ID => [200, ApiAsaasFalsa::assinatura('ACTIVE', false, 'BJ000007-essencial-42')],
+            'GET /subscriptions/' . self::ID . '/payments' => [200, ApiAsaasFalsa::cobrancasDaAssinatura([ApiAsaasFalsa::cobranca('pay_1', 'CONFIRMED', '2026-10-19')])],
+        ]);
+
+        $situacao = $api->gateway()->consultar(self::ID);
+
+        self::assertSame('BJ000007-essencial-42', $situacao->referencia);
+        self::assertSame(['GET /subscriptions/' . self::ID, 'GET /subscriptions/' . self::ID . '/payments'], $api->rotasChamadas());
+    }
+
+    #[TestDox('Assinatura criada fora do checkout (sem checkoutSession): idDoCheckout null')]
+    public function testConsultarSemCheckoutDeOrigem(): void
+    {
+        $api = new ApiAsaasFalsa([
+            'GET /subscriptions/' . self::ID => [200, ApiAsaasFalsa::assinatura('ACTIVE', false, null, null)],
+            'GET /subscriptions/' . self::ID . '/payments' => [200, ApiAsaasFalsa::cobrancasDaAssinatura([])],
+        ]);
+
+        $situacao = $api->gateway()->consultar(self::ID);
+
+        self::assertNull($situacao->idDoCheckout);
+        self::assertNull($situacao->referencia);
     }
 
     #[TestDox('Assinatura removida (deleted true) é Cancelada mesmo com status ACTIVE')]
@@ -138,7 +142,6 @@ final class GatewayAsaasTest extends TestCase
         $api = new ApiAsaasFalsa([
             'GET /subscriptions/' . self::ID => [200, ApiAsaasFalsa::assinatura('ACTIVE', true)],
             'GET /subscriptions/' . self::ID . '/payments' => [200, ApiAsaasFalsa::cobrancasDaAssinatura([])],
-            'GET /customers/' . ApiAsaasFalsa::ID_DO_CLIENTE => [200, ApiAsaasFalsa::cliente()],
         ]);
 
         self::assertSame(SituacaoDaAssinatura::Cancelada, $api->gateway()->consultar(self::ID)->situacao);
@@ -158,15 +161,14 @@ final class GatewayAsaasTest extends TestCase
     public function testErroDeValidacaoLevaSoOCodigo(): void
     {
         $api = new ApiAsaasFalsa([
-            'GET /customers' => [200, ApiAsaasFalsa::listaDeClientes([])],
-            'POST /customers' => [400, ['errors' => [['code' => 'invalid_cpfCnpj', 'description' => 'O CPF/CNPJ 12345678000195 é inválido.']]]],
+            'POST /checkouts' => [400, ['errors' => [['code' => 'invalid_object', 'description' => 'O campo phone deve existir para o customer 12345678000195.']]]],
         ]);
 
         try {
             $api->gateway()->iniciar(self::pedido());
             self::fail('deveria lançar FalhaNoGateway');
         } catch (FalhaNoGateway $falha) {
-            self::assertStringContainsString('invalid_cpfCnpj', $falha->getMessage());
+            self::assertStringContainsString('invalid_object', $falha->getMessage());
             self::assertStringNotContainsString('12345678000195', $falha->getMessage());
         }
     }
@@ -204,7 +206,8 @@ final class GatewayAsaasTest extends TestCase
         yield 'cobrança da assinatura confirmada' => [ApiAsaasFalsa::avisoDeCobranca('PAYMENT_CONFIRMED', self::ID, ApiAsaasFalsa::ID_DO_CLIENTE), 'PAYMENT_CONFIRMED', self::ID, ApiAsaasFalsa::ID_DO_CLIENTE];
         yield 'cobrança vencida' => [ApiAsaasFalsa::avisoDeCobranca('PAYMENT_OVERDUE', self::ID, ApiAsaasFalsa::ID_DO_CLIENTE), 'PAYMENT_OVERDUE', self::ID, ApiAsaasFalsa::ID_DO_CLIENTE];
         yield 'assinatura removida' => [ApiAsaasFalsa::avisoDeAssinatura('SUBSCRIPTION_DELETED'), 'SUBSCRIPTION_DELETED', self::ID, ApiAsaasFalsa::ID_DO_CLIENTE];
-        yield 'checkout pago' => [ApiAsaasFalsa::avisoDeCheckout(), 'CHECKOUT_PAID', null, ApiAsaasFalsa::ID_DO_CLIENTE];
+        yield 'checkout pago com o cliente que o pagador cadastrou' => [ApiAsaasFalsa::avisoDeCheckout('CHECKOUT_PAID', ApiAsaasFalsa::ID_DO_CLIENTE), 'CHECKOUT_PAID', null, ApiAsaasFalsa::ID_DO_CLIENTE];
+        yield 'checkout sem cliente (só a assinatura liga ao pedido)' => [ApiAsaasFalsa::avisoDeCheckout(), null, null, null];
         yield 'cobrança avulsa com cliente' => [ApiAsaasFalsa::avisoDeCobranca('PAYMENT_RECEIVED', null, ApiAsaasFalsa::ID_DO_CLIENTE), 'PAYMENT_RECEIVED', null, ApiAsaasFalsa::ID_DO_CLIENTE];
         yield 'cobrança avulsa sem assinatura nem cliente' => [ApiAsaasFalsa::avisoDeCobranca('PAYMENT_RECEIVED', null, null), null, null, null];
         yield 'evento que o Contribua não usa' => [ApiAsaasFalsa::avisoDeCobranca('PAYMENT_CREATED', self::ID, ApiAsaasFalsa::ID_DO_CLIENTE), null, null, null];
@@ -327,25 +330,6 @@ final class GatewayAsaasTest extends TestCase
         self::assertInstanceOf(EmiteNotaFiscalDaAssinatura::class, (new ApiAsaasFalsa())->gateway());
     }
 
-    #[TestDox('Cliente reaproveitado com CPF/CNPJ ou e-mail diferente do pagador é atualizado antes do checkout')]
-    public function testClienteReaproveitadoAtualizado(): void
-    {
-        $antigo = array_merge(ApiAsaasFalsa::cliente(), ['cpfCnpj' => '98765432000110', 'email' => 'antigo@escritorio.test']);
-        $api = new ApiAsaasFalsa([
-            'GET /customers' => [200, ApiAsaasFalsa::listaDeClientes([$antigo])],
-            'POST /customers/' . ApiAsaasFalsa::ID_DO_CLIENTE => [200, ApiAsaasFalsa::cliente()],
-            'POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado()],
-        ]);
-
-        $api->gateway()->iniciar(self::pedido());
-
-        self::assertSame(['GET /customers', 'POST /customers/' . ApiAsaasFalsa::ID_DO_CLIENTE, 'POST /checkouts'], $api->rotasChamadas());
-        self::assertSame(
-            ['cpfCnpj' => '12345678000195', 'email' => 'financeiro@escritorio.test'],
-            $api->corpoEnviado('POST /customers/' . ApiAsaasFalsa::ID_DO_CLIENTE),
-        );
-    }
-
     #[TestDox('O nome do item do checkout é cortado em 30 caracteres, sem imagem')]
     public function testNomeDoItemLimitadoA30(): void
     {
@@ -372,7 +356,6 @@ final class GatewayAsaasTest extends TestCase
     public function testLinkNaoHttpsViraFalha(): void
     {
         $api = new ApiAsaasFalsa([
-            'GET /customers' => [200, ApiAsaasFalsa::listaDeClientes([ApiAsaasFalsa::cliente()])],
             'POST /checkouts' => [200, array_merge(ApiAsaasFalsa::checkoutCriado(), ['link' => 'http://sandbox.asaas.com/checkoutSession/show?id=x'])],
         ]);
 
@@ -488,22 +471,6 @@ final class GatewayAsaasTest extends TestCase
         self::assertSame(['GET /subscriptions/' . self::ID], $api->rotasChamadas());
     }
 
-    #[TestDox('Cliente removido no Asaas (404) na consulta: referência null, o id do cliente continua')]
-    public function testClienteNaoEncontradoNaConsulta(): void
-    {
-        $api = new ApiAsaasFalsa([
-            'GET /subscriptions/' . self::ID => [200, ApiAsaasFalsa::assinatura()],
-            'GET /subscriptions/' . self::ID . '/payments' => [200, ApiAsaasFalsa::cobrancasDaAssinatura([ApiAsaasFalsa::cobranca('pay_1', 'CONFIRMED', '2026-10-19')])],
-            'GET /customers/' . ApiAsaasFalsa::ID_DO_CLIENTE => [404, ApiAsaasFalsa::naoEncontrado()],
-        ]);
-
-        $situacao = $api->gateway()->consultar(self::ID);
-
-        self::assertNull($situacao->referencia);
-        self::assertSame(ApiAsaasFalsa::ID_DO_CLIENTE, $situacao->idDoCliente);
-        self::assertSame(SituacaoDaAssinatura::Ativa, $situacao->situacao);
-    }
-
     /** @return iterable<string, array{0: string, 1: string}> */
     public static function vencimentosNoFimDoMes(): iterable
     {
@@ -558,7 +525,6 @@ final class GatewayAsaasTest extends TestCase
                 200,
                 array_merge(ApiAsaasFalsa::cobrancasDaAssinatura($paginas[(int) ($query['offset'] ?? 0)] ?? []), ['hasMore' => true]),
             ],
-            'GET /customers/' . ApiAsaasFalsa::ID_DO_CLIENTE => [200, ApiAsaasFalsa::cliente()],
         ]);
     }
 
@@ -569,10 +535,7 @@ final class GatewayAsaasTest extends TestCase
 
     private static function apiQueIniciaComSucesso(): ApiAsaasFalsa
     {
-        return new ApiAsaasFalsa([
-            'GET /customers' => [200, ApiAsaasFalsa::listaDeClientes([ApiAsaasFalsa::cliente()])],
-            'POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado()],
-        ]);
+        return new ApiAsaasFalsa(['POST /checkouts' => [200, ApiAsaasFalsa::checkoutCriado()]]);
     }
 
     /** @param list<array<mixed>> $cobrancas */
@@ -581,7 +544,6 @@ final class GatewayAsaasTest extends TestCase
         return new ApiAsaasFalsa([
             'GET /subscriptions/' . self::ID => [200, ApiAsaasFalsa::assinatura($status)],
             'GET /subscriptions/' . self::ID . '/payments' => [200, ApiAsaasFalsa::cobrancasDaAssinatura($cobrancas)],
-            'GET /customers/' . ApiAsaasFalsa::ID_DO_CLIENTE => [200, ApiAsaasFalsa::cliente()],
         ]);
     }
 

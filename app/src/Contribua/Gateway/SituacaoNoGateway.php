@@ -16,11 +16,11 @@ final readonly class SituacaoNoGateway
         /** Até quando o mês pago vale (fim do período pago); null enquanto nada foi pago. */
         public ?\DateTimeImmutable $pagaAte,
         /**
-         * A referência do pedido (`BJ<conta>-<plano>-<id>`) ou, nos gateways em que o vínculo passa pelo
-         * cliente (Asaas), a do escritório (`BJ<conta>`). Basta começar por `BJ<conta>`.
+         * A referência do pedido (`BJ<conta>-<plano>-<id>`) ou a do escritório (`BJ<conta>`), quando o
+         * gateway a devolve. Basta começar por `BJ<conta>`.
          */
         public ?string $referencia = null,
-        /** O cliente no gateway, quando o vínculo com o escritório passa por ele (Asaas). */
+        /** O cliente no gateway (no Asaas, quem o pagador cadastrou na página do checkout). Só informativo. */
         public ?string $idDoCliente = null,
         /** Valor da cobrança vigente, em centavos, para conferir com o plano. */
         public ?int $valorCentavos = null,
@@ -30,6 +30,12 @@ final readonly class SituacaoNoGateway
          * `concluirAcao()`. Null quando não há nada a fazer no navegador.
          */
         public ?string $acaoNoNavegador = null,
+        /**
+         * O checkout (página hospedada) de onde a assinatura nasceu, quando o gateway informa (Asaas:
+         * `checkoutSession`). Liga a assinatura ao pedido exato na primeira vez, pelo id que o `iniciar`
+         * devolveu e o pedido guardou.
+         */
+        public ?string $idDoCheckout = null,
     ) {
     }
 }

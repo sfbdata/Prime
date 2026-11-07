@@ -68,8 +68,9 @@ sem limite); D2 Asaas é o primeiro gateway, os quatro do desenho continuam no e
 Tecnologia LTDA, CNPJ 66.803.163/0001-10, mantenedora, controladora, recebe e emite nota; a Prime sai da
 política, troca num PR próprio só com OK final do dono e do advogado).
 **Decisões da coordenação:** acima de 100% com o bloqueio desligado usa a variante de uso alto do desenho
-(pendente de confirmação do dono no smoke); Asaas pelo caminho hospedado (cliente por escritório + Checkout
-recorrente, cartão nunca no servidor); e-mail de 90%/100% fica com a frente de e-mails (evento
+(pendente de confirmação do dono no smoke); Asaas pelo caminho hospedado (Checkout recorrente sem cliente
+pré-criado, desde 07/11: o pagador preenche os próprios dados na página do Asaas; cartão nunca no
+servidor); e-mail de 90%/100% fica com a frente de e-mails (evento
 `EspacoAtingiuFaixa`); bloco "Assinatura" no Meu Perfil (parcial `contribua/_assinatura_no_perfil.html.twig`,
 ponto de inclusão no #60, marcação `mp-card`) na C3.
 
@@ -116,10 +117,14 @@ ponto de inclusão no #60, marcação `mp-card`) na C3.
   com menos). Muda a regra da C1 só para plano pago; avisado à b5.
 - Webhook `/api/webhooks/<codigo>`: 401 sem credencial, 404 para gateway desconhecido, 200 no resto (aviso
   repetido, ignorado ou pendente); a falha na reconsulta fica para a conciliação de hora em hora.
-- Primeira ligação de uma assinatura do gateway: pelo escritório da referência `BJ<conta>` (no Asaas é o
-  `externalReference` do cliente), no pedido aguardando mais novo daquele gateway, de preferência o de mesmo
-  valor. Nota fiscal pela interface opcional `EmiteNotaFiscalDaAssinatura` (só o Asaas), ligada nessa hora;
-  falha vira log, não segura o espaço.
+- Primeira ligação de uma assinatura do gateway: pelo checkout de origem, quando o gateway o informa (no
+  Asaas, o `checkoutSession` da assinatura é o id que o pedido guardou ao abrir o checkout), só se o pedido
+  ainda espera assinatura. Sem checkout de origem, pelo escritório da referência `BJ<conta>` (no Asaas, o
+  `externalReference` da própria assinatura, se o Asaas o copiar do checkout), no pedido aguardando mais novo
+  daquele gateway, de preferência o de mesmo valor. Assinatura paga sem pedido avisa o Master (com o
+  escritório da referência ou do pedido do checkout; sem nenhum dos dois, sem escritório). Nota fiscal pela
+  interface opcional `EmiteNotaFiscalDaAssinatura` (só o Asaas), ligada nessa hora; falha vira log, não
+  segura o espaço.
 - Formulário de cartão (Stripe, Mercado Pago, Pagar.me): é o campo seguro do SDK de cada gateway, montado
   pelo módulo JS da 4b (`ContribuaStripe`, `ContribuaMercadoPago`, `ContribuaPagarme`: montar, tokenizar,
   concluirAcao, desmontar). 3-D Secure pelo campo opcional `SituacaoNoGateway::acaoNoNavegador`.
@@ -454,18 +459,25 @@ interface. Mais um **adaptador falso** para os testes, que já entra na C3.
 Asaas é chamada pelo servidor com a chave secreta (docs.asaas.com/reference/tokenizacao-de-cartao-de-credito),
 então o formulário de cartão do desenho fica para os adaptadores que tokenizam no navegador (Stripe,
 Mercado Pago, Pagar.me). No Asaas:
-- um **cliente Asaas por escritório** (`POST /v3/customers`, CPF/CNPJ e e-mail do pagador,
-  `externalReference` = `BJ<conta>`);
 - a cada "Quero +N GB", um **Asaas Checkout recorrente** (`POST /v3/checkouts`: `billingTypes`
-  CREDIT_CARD, `chargeTypes` RECURRENT, `subscription.cycle` MONTHLY, `customer` = o do escritório,
-  `callback.successUrl` = a página de retorno). Fontes: docs.asaas.com/docs/introdu%C3%A7%C3%A3o-1 e
-  docs.asaas.com/docs/checkout-com-assinatura-recorrente;
-- o vínculo com o escritório vem do `customer` do `SUBSCRIPTION_CREATED`, porque o `externalReference` do
-  link fixo não é documentado como copiado para a assinatura (no exemplo oficial vem `null`:
-  docs.asaas.com/docs/eventos-para-assinaturas). Por isso o link fixo colado pelo Master não serve ao Asaas.
+  CREDIT_CARD, `chargeTypes` RECURRENT, `subscription.cycle` MONTHLY, `externalReference` = a referência do
+  pedido `BJ<conta>-<plano>-<id>`, `callback.successUrl` = a página de retorno). Fontes:
+  docs.asaas.com/docs/introdu%C3%A7%C3%A3o-1, docs.asaas.com/docs/checkout-com-assinatura-recorrente e
+  docs.asaas.com/reference/create-new-checkout;
+- **sem cliente pré-criado (07/11/2026):** o checkout vai sem `customer` e sem `customerData`, e o pagador
+  preenche os próprios dados na página do Asaas (docs.asaas.com/docs/how-to-provide-customer-data). O
+  desenho anterior (um cliente Asaas por escritório, com CPF/CNPJ e e-mail, `externalReference` = `BJ<conta>`)
+  foi recusado no sandbox: com `customer` só com nome, CPF/CNPJ e e-mail o Asaas responde HTTP 400 pedindo
+  telefone e endereço, e o `customerData` só com esses três campos também dá 400. O CPF/CNPJ do titular
+  continua na janela de assinatura (desenho 08) e é só validado; não vai ao Asaas nem é gravado;
+- o vínculo com o pedido vem do checkout: a assinatura criada traz o id dele em `checkoutSession`
+  (docs.asaas.com/reference/retrieve-a-single-subscription), e o pedido guardou esse id ao abrir o checkout.
+  O `externalReference` da assinatura é lido como reserva, mas a doc não garante que o Asaas o copie do
+  checkout. O cliente da assinatura não serve para achar o escritório: quem o cadastra é o pagador. Por isso
+  o link fixo colado pelo Master não serve ao Asaas.
   **Desvio do desenho aprovado pelo dono (19/10):** com o gateway Asaas, o campo "Link do pacote" some do
-  modal "Pagamento por cartão" do Master (o sistema cria o cliente e o Checkout pela API); para Mercado
-  Pago, Stripe e Pagar.me o campo continua, como no desenho;
+  modal "Pagamento por cartão" do Master (o sistema cria o Checkout pela API); para Mercado Pago, Stripe e
+  Pagar.me o campo continua, como no desenho;
 - webhook com o token no header `asaas-access-token`, entrega "at least once" (idempotência pelo `id` do
   evento), e o aviso nunca muda nada sozinho: o servidor reconsulta a assinatura.
 
