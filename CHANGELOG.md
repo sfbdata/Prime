@@ -8,6 +8,26 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.40.0] - 2026-11-07
+
+### Adicionado
+
+- Ponto, aba "Jornada Personalizada" do colaborador: campo "Vale a partir de" (padrão: hoje) e "Histórico da jornada", com o período de cada versão, a que vale hoje, as agendadas e os botões Editar e Excluir.
+- Salvar com uma data nova cria uma versão e deixa as anteriores como estavam; com a data de uma versão existente, atualiza aquela. "Editar" muda a versão escolhida, inclusive a data, desde que não caia no dia de outra (422). "Excluir" passa os dias da versão para a vizinha e não apaga a única (422). "Habilitar alertas de ponto" vale para todas as versões.
+- "Limpar jornada personalizada" apaga todo o histórico. A confirmação avisa que a folha de todos os meses volta a usar a jornada do escritório. Data no passado pede confirmação de que a folha e o saldo serão recalculados desde aquele dia.
+- Coluna nova `jornada_colaborador.cobre_dias_anteriores` (migration `Version20261107110000`, `true` em todas as linhas existentes). A primeira jornada criada pela tela vale só da data dela em diante, então criar a jornada de alguém não muda o passado dele.
+- API: o GET devolve `hoje`, `versaoVigenteId` e `versoes[]`. O POST aceita `valeAPartirDe` e `versaoId`. Rota nova `DELETE /tenant/{tenantId}/user/{id}/jornada-colaborador/versao/{versaoId}`. UseCases `SalvarVersaoDaJornadaUseCase`, `ExcluirVersaoDaJornadaUseCase` e `LimparJornadaPessoalUseCase`. O choque entre escritórios continua conferido em toda gravação.
+- Na tela do ponto do colaborador, os dias antes da primeira jornada criada pela tela continuam calculados pela jornada do escritório, como antes de ela existir (`HistoricoDeJornadas::comJornadaAntesDaPrimeira`). O `down` da migration recusa quando há jornada criada pela tela.
+- Spec: `docs/specs/ponto-jornada-vigencia.md` §10.
+
+### Alterado
+
+- Ponto: a jornada pessoal de cada colaborador passa a ter versões, cada uma com a data em que começa a valer (`jornada_colaborador.vale_a_partir_de`, migration `Version20261107100000`). O índice único passa a ser pessoa, escritório e data.
+- A folha (tela, PDF e XLSX), o saldo do mês e o banco de horas do ano usam, em cada dia, a versão que valia nele (`HistoricoDeJornadas`, `JornadaColaboradorRepository::historicoDe`). O cabeçalho do PDF e do XLSX mostra a versão do último dia do mês. A tela do ponto, o alerta e o choque entre escritórios usam a versão de hoje.
+- A migration transforma cada jornada existente em uma versão só, com a data do primeiro registro de ponto da pessoa no escritório. A versão mais antiga vale também para os dias anteriores à sua data, por isso nenhum saldo muda (teste `MigracaoDaJornadaComVigenciaTest` compara a folha e o saldo do ano antes e depois).
+- Ainda sem tela para criar versões: o campo "Vale a partir de" e o histórico chegam na próxima etapa.
+- Spec: `docs/specs/ponto-jornada-vigencia.md`.
+
 ## [2.39.1] - 2026-11-06
 
 ### Corrigido
@@ -1654,7 +1674,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.39.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.40.0...HEAD
+[2.40.0]: https://github.com/sfbdata/Prime/compare/v2.39.1...v2.40.0
 [2.39.1]: https://github.com/sfbdata/Prime/compare/v2.39.0...v2.39.1
 [2.39.0]: https://github.com/sfbdata/Prime/compare/v2.38.0...v2.39.0
 [2.38.0]: https://github.com/sfbdata/Prime/compare/v2.37.2...v2.38.0
