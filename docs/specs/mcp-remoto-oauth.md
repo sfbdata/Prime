@@ -29,7 +29,7 @@ a página mostra data, ela vem ao lado do link.
 | Ferramentas | 5 de leitura e 3 de escrita, desenhadas sem base | 12 de leitura e 5 de escrita, quase todas sobre UseCase que já existe (6) |
 | Cliente e Processo | "legado sem UseCase" | `Processo` está no domínio; Cliente tem 8 UseCases; Tarefa continua legado (7) |
 | nginx | "chega ao Symfony sem mudança" | **errado já em agosto**: o `location ~ /\. { deny all; }` do HTTPS barra `/.well-known/oauth-*` (3.3) |
-| `mcp/sdk` | 0.7.0 | 0.7.1; traz DCR por delegação, elicitation do lado do servidor e anotações `readOnlyHint`; continua sem servidor de autorização (3.1) |
+| `mcp/sdk` | 0.7.0 | 0.7.1 instalada; o DCR por delegação existe desde a 0.5.0 (`CHANGELOG.md`, "Add OAuth 2.0 Dynamic Client Registration middleware"), e a versão instalada também tem elicitation do lado do servidor e anotações `readOnlyHint`; continua sem servidor de autorização (3.1) |
 | `symfony/mcp-bundle` como servidor de autorização | proposta aberta | PR fechado sem merge em 12/07/2026; segue o `league` (3.2) |
 | `league/oauth2-server-bundle` | "testado até Symfony 8.0" | v2.0.0 (out/2026) pede Symfony `^7.4` ou `^8.1` e PHP `^8.2`: serve (3.2) |
 | Especificação MCP | 2025-06-18, DCR recomendado | a atual é **2026-07-28**: CIMD é o preferido, DCR está **deprecated**, protocolo sem estado (3.4, 3.5) |
@@ -246,8 +246,13 @@ https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/cli
    (SSRF), tempo curto, tamanho máximo, cache pelos cabeçalhos. **Lista de domínios confiáveis** ligada desde o começo
    (`claude.ai`, `chatgpt.com`, `antigravity.google`); domínio fora dela é recusado até decisão (14.d).
 2. **DCR no mesmo PR, apesar de deprecated.** É o único caminho do app Gemini e do Gemini CLI e o fallback do Claude. Com
-   limite de taxa por IP, `redirect_uris` só https ou loopback, e expiração em 24 h do cliente que não autorizou ninguém (o
-   Claude registra um cliente por conexão).
+   limite de taxa por IP e expiração em 24 h do cliente que não autorizou ninguém (o Claude registra um cliente por conexão).
+   **`redirect_uris` só de host da mesma lista permitida do CIMD** (uma lista só, num lugar só, para os dois caminhos:
+   `claude.ai`, `chatgpt.com` e `antigravity.google` enquanto a 14.d não mudar) ou de loopback (`127.0.0.1` e `localhost`,
+   para as ferramentas de linha de comando, RFC 8252). Qualquer outro host é recusado no próprio registro com
+   `invalid_redirect_uri` (RFC 7591). Sem isso, o DCR anula a lista do CIMD: quem quisesse fugir dela registraria um cliente
+   com redirect para o próprio domínio e mandaria o link de autorização para a vítima. A tela de consentimento continua
+   mostrando o host do redirect (9.4).
 3. **Pré-registrado por comando de console, sem tela**, quando um escritório pedir o Gemini Enterprise, que só aceita
    client ID e segredo digitados pelo admin dele. Cliente confidencial, segredo guardado só como hash, preso ao escritório
    que pediu.
@@ -292,10 +297,34 @@ a pessoa autoriza outra conexão.
 1. **Na autorização**, conferir o mesmo que o navegador confere ao escolher escritório: `User` ativo, `UserTenant` ativo,
    `Tenant` ativo (`TenantContext::setCurrentTenant`, `app/src/Service/Tenant/TenantContext.php:55-76`), o bloqueio por
    pedido de exclusão (`:71-73`) e as barreiras do `TenantContextValidatorListener` (4.1).
+
+   **O primário de escritório suspenso a pedido é recusado pelo conector**, ao contrário do que o `TenantContext` faz.
+   `BloqueioPorPedidoDeExclusao::bloqueia()` (`app/src/Tenant/Service/BloqueioPorPedidoDeExclusao.php:66`, chamado em
+   `TenantContext.php:71`) barra só quem **não** é primário: o primário entra porque, no navegador, o
+   `TenantContextValidatorListener` o prende ao Meu Perfil (`:156`, pelo `primarioNaContaSuspensaAPedido`, `:210-230`: só
+   `/perfil` passa; chamada de fundo recebe 403 com a `BloqueioPorPedidoDeExclusao::MENSAGEM`; navegação vai para
+   `app_profile`). O conector não tem Meu Perfil: o serviço extraído do listener (4.1) devolve esse caso como **recusa** para
+   o portão, com a mesma `MENSAGEM`, na autorização e a cada requisição, e o listener continua mandando o primário ao Meu
+   Perfil, sem mudar o navegador. Teste em 12.3.
 2. **A cada requisição MCP**, resolver `User`, `Tenant` e `UserTenant` a partir do token, repetir essas barreiras, ligar o
    filtro Doctrine explicitamente e conferir que ficou ligado (fail-closed).
 3. **Revogação:** vínculo, usuário ou escritório desativado, suspenso ou em quarentena, ou consentimento revogado, e os tokens
-   param de funcionar na requisição seguinte (9.2).
+   param de funcionar na requisição seguinte (9.2). **"Sair de todos os aparelhos" e a troca de senha também derrubam o
+   conector**, inclusive o token de renovação, porque a pessoa usa os dois justamente quando desconfia que alguém entrou
+   na conta dela:
+   - "Sair de todos os aparelhos" (`SairDeTodosOsAparelhosUseCase.php:39`) grava o corte em `User::sessoesEncerradasEm`
+     (`User::getSessoesEncerradasEm()`, `app/src/Entity/Auth/User.php:243`). No navegador quem aplica o corte é o
+     `SessaoEncerradaEmTodosOsAparelhosListener`, que só age com sessão (`hasPreviousSession`), então não vê o bearer. O
+     conector grava em cada token e renovação o instante da autorização que os originou (`autorizado_em`, que a rotação da
+     renovação **copia**, nunca renova) e recusa, no `/mcp` e no `/oauth/token`, todo token ou renovação com
+     `autorizado_em` menor ou igual ao corte (o mesmo "no mesmo segundo também cai" do listener). O consentimento fica: a
+     pessoa refaz o login e a conexão volta.
+   - Troca de senha: não há data de troca no `User`, e os caminhos que gravam senha são vários (`AlterarSenhaUseCase`,
+     `RedefinirSenhaUseCase`, `ConfirmarCodigoSenhaUseCase`, `CriarSenhaPeloLinkUseCase`, `LigarContaAoGoogleUseCase`,
+     entre outros). No navegador as outras sessões caem porque o `User` não implementa `EquatableInterface` e o Symfony
+     compara o hash da senha a cada pedido. O conector faz o mesmo: grava no token e na renovação uma **impressão da senha**
+     (HMAC, com o segredo da aplicação, do hash atual) e recusa quando ela não bate com a do hash de agora. Assim nenhum
+     caminho de troca de senha precisa lembrar do conector. Teste em 12.16.
 
 ### 4.1 🔴 O `TenantFilter` continua falhando ABERTO
 
@@ -405,11 +434,14 @@ anunciado se a decisão 14.c escolher renovação.
 
 | Guarda | Onde mora hoje | O que a ferramenta faz |
 |---|---|---|
-| Barreiras do escritório (conta suspensa ou excluída, pedido de exclusão, vínculo, situação na equipe) | `TenantContextValidatorListener` (`kernel.request`) | o portão, pelo serviço extraído (4.1) |
+| Barreiras do escritório (conta suspensa ou excluída, pedido de exclusão, vínculo, situação na equipe) | `TenantContextValidatorListener` (`kernel.request`) | o portão, pelo serviço extraído (4.1); o primário de escritório suspenso a pedido é **recusado** (regra 1 da seção 4) |
+| Termos de uso aceitos na versão vigente | `TermoAceiteListener` (prioridade 7, `app/src/EventListener/TermoAceiteListener.php:90-121`), que usa a sessão (`:111`) | o `/oauth/authorize` passa pelo listener como hoje (a pessoa aceita na tela); no `/mcp`, o portão confere `AceiteTermoRepository::existeAceiteVigente` (`app/src/Termo/Repository/AceiteTermoRepository.php:39`) a cada requisição e recusa com "aceite os Termos de Uso no BlueJus" (8) |
+| "Sair de todos os aparelhos" | `SessaoEncerradaEmTodosOsAparelhosListener` (prioridade 7), que só age com sessão | `autorizado_em` do token e da renovação contra `User::getSessoesEncerradasEm()` (regra 3 da seção 4) |
+| Troca de senha | o Symfony, ao reler o `User` da sessão (sem `EquatableInterface`, compara o hash da senha) | impressão da senha no token e na renovação (regra 3 da seção 4) |
 | Cadeado da pasta | `BarreiraDoCadeadoListener` (`kernel.controller_arguments`, `app/src/Pasta/EventListener/BarreiraDoCadeadoListener.php:39`) | `AcessoAPasta::podeVer`/`podeEditar` (`app/src/Pasta/Service/AcessoAPasta.php:42`, `:47`) no item; `idsOcultosPara` (`:118`) e `idsDosProcessosOcultos` em lista. `podeVer` usa o escritório **da pasta**: conferir antes que a pasta é do escritório do token |
-| Aba oculta | `BarreiraDeAbaOcultaListener` (`app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:37`, que lê o escritório da sessão) | `VisibilidadeDasAbasDaPasta::abasOcultasPara` (`app/src/Pasta/Service/VisibilidadeDasAbasDaPasta.php:115`) |
+| Aba oculta | `BarreiraDeAbaOcultaListener` (`app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:37`, que lê o escritório da sessão), pelo nome da rota (`MAPA`, `:50-79`) | `VisibilidadeDasAbasDaPasta::abasOcultasPara` (`app/src/Pasta/Service/VisibilidadeDasAbasDaPasta.php:115`), com a aba que a tabela de 6.2 dá para cada ferramenta |
 | Pasta excluída é só leitura | `PastaSomenteLeituraListener` | escrita confere `Pasta::estaExcluida()` (`app/src/Pasta/Entity/Pasta.php:450`) |
-| Tela ou função desligada pelo Master | `BloqueioDeRecursoDesativado`, por nome de rota (`CatalogoDeRecursos::ROTAS`, `app/src/Master/Service/CatalogoDeRecursos.php:59-70`: `peticionar`, `metas`, `expedientes`, `assistente`...) | `RecursosDoSistema::estaAtivo(chave)` (`app/src/Master/Service/RecursosDoSistema.php:58`) na ferramenta, com a chave equivalente; chave nova `conector_ia` no catálogo para o Master desligar o conector inteiro |
+| Tela ou função desligada pelo Master | `BloqueioDeRecursoDesativado`, por prefixo do nome da rota (`CatalogoDeRecursos::ROTAS`, `app/src/Master/Service/CatalogoDeRecursos.php:59-74`: `peticionar`, `metas`, `expedientes`, `assistente`...); o Master passa (`BloqueioDeRecursoDesativado.php:50`) | `RecursosDoSistema::estaAtivo(chave)` (`app/src/Master/Service/RecursosDoSistema.php:58`) na ferramenta, com a chave que a tabela de 6.2 dá; chave nova `conector_ia` no catálogo para o Master desligar o conector inteiro |
 | Meta aberta por id | `AcessoAMeta::exigir` (`docs/AUTORIZACAO.md`, "Meta aberta por id") | a mesma guarda antes de ler ou escrever meta por id |
 | Só acompanhar meta não basta | `PastasSoAcompanhadasSemVer::ids` (`app/src/Tarefa/Service/PastasSoAcompanhadasSemVer.php:40`) | já vem dentro de `ListaDasMinhasMetasDaTela` |
 
@@ -446,10 +478,14 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
    o documento da pasta e a resposta da ferramenta leva só id e título.
 5. **Financeiro** só se `VisibilidadeDoFinanceiroDaPasta::podeVer(User, Tenant, Pasta)`
    (`app/src/Inteligencia/Service/VisibilidadeDoFinanceiroDaPasta.php:37`) disser sim.
-6. **Texto livre do banco** (anotação, observação, título e descrição de meta, texto de movimentação) passa por
-   `ProtecaoDoTextoDoChat::rotulo` (máscara de CPF, CNPJ, telefone e e-mail conforme a preferência do escritório, pelo
-   `MascaradorDeDadosPessoais`) e por `NeutralizadorDeConteudo::neutralizar`, dentro de blocos com os nomes de
-   `NeutralizadorDeConteudo::DELIMITADORES` (`app/src/Inteligencia/Service/NeutralizadorDeConteudo.php:28`).
+6. **Texto livre do banco** passa pelo `ProtecaoDoTextoDoChat` (`app/src/ChatIa/Service/ProtecaoDoTextoDoChat.php`), que
+   neutraliza (`NeutralizadorDeConteudo::neutralizar`) e mascara CPF, CNPJ, telefone e e-mail conforme a preferência do
+   escritório (`MascaradorDeDadosPessoais`), e sai dentro de blocos com os nomes de `NeutralizadorDeConteudo::DELIMITADORES`
+   (`app/src/Inteligencia/Service/NeutralizadorDeConteudo.php:28`). O método depende do tamanho:
+   - texto de **várias linhas** (anotação, observação, descrição de meta, texto de movimentação, texto de documento):
+     `comoDado` (`:38`), que neutraliza linha a linha e mantém as quebras;
+   - valor **de uma linha** (nome de arquivo, nome da pessoa, título de meta): `rotulo` (`:49`), com valor padrão quando
+     fica vazio.
 7. **Resposta**: JSON estruturado (`structuredContent`) mais um texto curto. Cabe no menor cliente: até 100 mil caracteres por
    resultado (o Claude aceita cerca de 150 mil; o Claude Code, 25 mil tokens, o que o guia do usuário avisa), com paginação
    (`pagina`, `proxima_pagina`). Tempo-alvo abaixo de 10 s (o Claude espera 240 s; o Antigravity, 180 s).
@@ -460,6 +496,38 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
    Inteligencia).
 10. **Entrada fechada**: JSON Schema com `additionalProperties: false`; valor fora da lista vira erro de ferramenta com
     mensagem fixa em português, nunca "todas as pastas" em silêncio.
+11. **Aba oculta e chave do Master, ferramenta por ferramenta** (tabela abaixo). A tela barra pela rota; o conector não tem
+    rota de tela, então cada ferramenta confere a aba e a chave da tela de onde a informação vem. Aba oculta faz a
+    ferramenta responder "não encontrado" quando o pedido é por id na aba inteira (a mesma resposta de 6.2.1); a chave
+    desligada responde "função desligada pelo administrador do sistema". Toda ferramenta exige também a chave nova
+    `conector_ia`.
+
+A coluna "rota da tela" diz o que a barreira de hoje cobre. "Nenhuma" quer dizer que a tela também não barra.
+`BarreiraDeAbaOcultaListener::MAPA` está em `app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:50-79`;
+`CatalogoDeRecursos::ROTAS`, em `app/src/Master/Service/CatalogoDeRecursos.php:59-74`. A Lista (`lista`) e o Meu Perfil são
+essenciais (`base: true`, `:35` e `:39`) e não desligam.
+
+| Ferramenta | Rota da tela | Aba (`AbaDaPasta`) | Chave do Master | Observação |
+|---|---|---|---|---|
+| `quem_sou_eu` | nenhuma | nenhuma | só `conector_ia` | |
+| `buscar_pastas` | `inteligencia_agente_pastas_buscar` (o Agente) e a Lista | nenhuma | nenhuma além de `conector_ia` | a busca é a da Lista, que é essencial; `assistente` desliga o Agente, não a Lista, então não vale aqui |
+| `minhas_demandas` | `demandas_index` | nenhuma | nenhuma | |
+| `detalhar_pasta` | `pasta_show` | cada bloco segue a sua aba (o `PastaDoContextoDaIa`, `app/src/Central/Service/PastaDoContextoDaIa.php:60-63`, passa as abas ocultas ao montador) | `expedientes` | |
+| `listar_prazos_e_metas` | `tarefa_minhas` | nenhuma (Minhas Metas não passa pela barreira de aba) | `metas` | |
+| `listar_agenda` | `agenda_index` | nenhuma | nenhuma | |
+| `buscar_processos`, `detalhar_processo` | `processo_index`, `processo_show` | nenhuma (a tela de processos não é rota de pasta) | nenhuma | o cadeado entra por `idsDosProcessosOcultos` (5.2) |
+| `listar_documentos_da_pasta` | aba Documentos de `pasta_show`; no Agente, `inteligencia_agente_pastas_documentos` | **Documentos** | `expedientes` | o UseCase reaproveitado **não** barra a aba inteira (6.4) |
+| `ler_documento` | `pasta_documento_view`, `pasta_documento_download` (`pasta_documento*`) | **Documentos** | `expedientes` | o `LeitorDeDocumentosDaPasta` já barra (`:119-121`) |
+| `listar_modelos_de_peca`, `ler_modelo_de_peca` | `pasta_modelos_listar`, `pasta_modelos_abrir` (`pasta_modelos_*`) | **Detalhes** | `expedientes` | o banco de modelos mora na aba Detalhes da pasta (`app/templates/pasta/show.html.twig:323`); nenhuma chave cobre `pasta_modelos_*` hoje, e `peticionar` não vale aqui |
+| `gerar_minuta_de_modelo` | `pasta_modelos_usar` | **Detalhes**, como a tela, e **Documentos**, a mais que a tela | `expedientes` | Documentos a mais porque a resposta devolve o documento criado, que fica na aba Documentos |
+| `salvar_minuta_na_pasta` | `pasta_peticionar_texto` | **Documentos** | `peticionar` | |
+| `anotar_na_pasta` | anotação: `pasta_enviar_mensagem`; observação: `pasta_detalhes_observacao_enviar` | anotação: nenhuma; observação: **Detalhes** | `expedientes` | |
+| `criar_meta` | `tarefa_criar_para_pasta` | nenhuma | nenhuma | |
+| `criar_compromisso` | `agenda_*` | nenhuma | nenhuma | |
+
+Onde a tabela pede `expedientes` sem que a rota da tela o peça (`pasta_modelos_*`, `pasta_documento*`,
+`pasta_enviar_mensagem`), é porque a informação só aparece dentro da tela da pasta, que a chave desliga. A conferência
+fica junto da ferramenta, num lugar só, e o teste 12.9 percorre a tabela linha por linha.
 
 ### 6.3 Leitura, fatia L1 (UseCases já prontos para rodar sem sessão)
 
@@ -531,8 +599,10 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
   (`app/src/Agenda/UseCase/ListarCompromissosUseCase.php:47`), com `verPrazos` = `resources.agenda.ver_prazos` e
   `verPastas` = módulo `pastas` (`PermissoesDaAgenda.php:19-30`).
 - Permissão: módulo `agenda` (`app/src/Agenda/Controller/AgendaNovaController.php:58`).
-- Regras: **aniversários de clientes ficam fora** (data de nascimento é dado pessoal); compromisso ligado a pasta oculta ou a
-  processo em segredo sai e é contado; conferir no PR se o UseCase aplica o cadeado.
+- Regras: os aniversários que a agenda mostra são **da equipe**, não de clientes (`ListarCompromissosUseCase.php:25` e
+  `:174`, pelo `AniversariosDaEquipe`). No conector **ficam fora**: a ferramenta descarta esses itens, porque data de
+  nascimento de colega é dado pessoal e não ajuda no trabalho que o assistente faz; se o piloto pedir, voltam por decisão.
+  Compromisso ligado a pasta oculta ou a processo em segredo sai e é contado; conferir no PR se o UseCase aplica o cadeado.
 - Grava: não. Coordenar com a etapa 2 do chat (agenda), que precisa da mesma ferramenta.
 
 ### 6.4 Leitura, fatia L2 (falta um pedaço em cada)
@@ -562,26 +632,47 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
 **`listar_documentos_da_pasta`**
 - Entrada: `pasta_id`.
 - Saída: documentos (id, nome, categoria, seção, data, tamanho, tipo), sem conteúdo.
-- Reusa: `ListarDocumentosDaPastaDoAgenteUseCase::executar(int, User, Tenant)` (`:41`: id e escritório, `view`, abas
-  ocultas; a lixeira sai pelo `LixeiraFilter`, ligado por padrão).
-- Permissão: recurso `pasta` view.
+- Reusa: `ListarDocumentosDaPastaDoAgenteUseCase::executar(int, User, Tenant)` (`:41`: id e escritório, `view`; a lixeira
+  sai pelo `LixeiraFilter`, ligado por padrão).
+- Falta: a **barreira da aba Documentos inteira**. O UseCase só tira o contrato de honorários quando o Financeiro está oculto
+  (`documentosVisiveis`, `:53-58`); o próprio comentário (`:53-54`) diz que a aba Documentos oculta "já é barrada na rota",
+  e quem barra é o `BarreiraDeAbaOcultaListener` pela rota `inteligencia_agente_pastas_documentos` (`MAPA`, `:68`), que o
+  conector não atravessa. A ferramenta confere `abasOcultasPara` antes de chamar o UseCase e, com Documentos oculta,
+  responde "não encontrado". Também falta o cadeado: o UseCase confere só `canAccessResource`, então a ferramenta aplica
+  `AcessoAPasta::podeVer` (5.2).
+- Permissão: recurso `pasta` view, aba Documentos e chave `expedientes` (tabela de 6.2).
 - Regras: segredo recusa (o UseCase do Agente não confere: acrescentar).
 - Grava: não.
 
 **`ler_documento`**
 - Entrada: `documento_id`.
-- Saída: peça do editor (HTML) e DOCX como **texto** (até 60 mil caracteres, com aviso de corte); PDF e imagem conforme 14.f.
-- Reusa: `LeitorDeDocumentosDaPasta::anexos(Tenant, Pasta, ids, abasOcultas, ?User)`
-  (`app/src/Inteligencia/Contexto/LeitorDeDocumentosDaPasta.php:73`: recurso de quem pede, abas gravadas e de agora, aceite,
-  escritório e pasta, lixeira, tipo pelo conteúdo, teto e páginas), os limites de `RegraDaLeituraDeDocumentos`
-  (`app/src/Inteligencia/Service/RegraDaLeituraDeDocumentos.php:32-40`: PDF 10 MB, imagem 3 MB, 100 páginas) e
-  `ExtratorDeTextoDocx::extrair` (`app/src/ChatIa/Service/ExtratorDeTextoDocx.php:35`).
+- Saída: conforme 14.f. Na recomendação, PDF e imagem como binário marcado "experimental" (PR 7), e peça do editor (HTML) e
+  DOCX como **texto** (até 60 mil caracteres, com aviso de corte, PR 7b).
+- Reusa, para PDF e imagem: `LeitorDeDocumentosDaPasta::anexos(Tenant, Pasta, ids, abasOcultas, ?User)`
+  (`app/src/Inteligencia/Contexto/LeitorDeDocumentosDaPasta.php:73`: recurso de quem pede, abas gravadas e de agora com a
+  aba Documentos barrada (`:119-121`), aceite, escritório e pasta, lixeira, tipo pelo conteúdo, teto e páginas) e os limites
+  de `RegraDaLeituraDeDocumentos` (`app/src/Inteligencia/Service/RegraDaLeituraDeDocumentos.php:32-40`: PDF 10 MB, imagem
+  3 MB, 100 páginas). Duas travas desse leitor mudam o plano de agosto:
+  - **só PDF e imagem**: o tipo sai do conteúdo (`RegraDaLeituraDeDocumentos::tipoPeloConteudo`) e o resto é recusado com
+    "o conteúdo não é PDF nem imagem" (`:145`). HTML e DOCX não têm caminho pronto;
+  - **exige o aceite atual da I.A.** (`RegraDaLeituraDeDocumentos::aceiteCobre`, `:122`, que lê
+    `ConfiguracaoDeInteligencia::aceiteCobreDocumentos`). Esse aceite fala do provedor que o BlueJus contrata, não do que a
+    pessoa escolhe (14.a).
+- HTML e DOCX: **fora da primeira fatia (PR 7)**. Entram no PR 7b, com um método novo no mesmo leitor (nome sugerido
+  `textos`) que reusa a conferência do pedido (`conferirPedido`, `:109`) e as conferências de escritório, pasta, lixeira e
+  teto do `anexo` (`:130`), reconhece HTML da peça e DOCX pelo conteúdo, converte a peça em texto sem as imagens embutidas
+  e o DOCX pelo `ExtratorDeTextoDocx::extrair` (`app/src/ChatIa/Service/ExtratorDeTextoDocx.php:35`, hoje só dos anexos do
+  chat; vai para um lugar comum aos dois domínios), e passa o resultado por `ProtecaoDoTextoDoChat::comoDado` (6.2.6).
+  Não é uma guarda nova: é o mesmo portão do leitor com outro tipo de saída, para que a I.A. e o conector não tenham duas
+  regras de quem lê o quê.
 - Armazenamento (skill `armazenamento-de-arquivos`): leitura sempre pela porta `ArmazenamentoDeArquivos::ler`
   (`app/src/Shared/Armazenamento/ArmazenamentoDeArquivos.php:76`), com a chave da fábrica `ChavesDePasta::documento`
   (`app/src/Pasta/Armazenamento/ChavesDePasta.php:62`), nunca caminho. O serviço ativo é o `ArmazenamentoEspelhado`: lê do
   disco e recupera do R2 o que saiu do disco. A autorização vem antes de montar a chave.
-- Falta: converter o HTML da peça em texto.
-- Permissão: recurso `pasta` view e aba Documentos visível.
+- Falta (PR 7): a conferência do aceite vira uma porta do leitor, com a implementação de hoje para a I.A. (sem mudar nada
+  nela) e a do conector conforme 14.a; se a 14.a escolher a opção 3, a porta não é necessária. Falta (PR 7b): o método
+  `textos` descrito acima, o reconhecimento de HTML e DOCX pelo conteúdo e a conversão da peça em texto.
+- Permissão: recurso `pasta` view, aba Documentos e chave `expedientes` (tabela de 6.2).
 - Regras: segredo recusa; aceite que cubra documentos (14.a); o log guarda só id e sha256, como o
   `contexto_resumo.documentosLidos` da I.A.; imagem embutida na peça não sai (é servida hoje sem isolamento por escritório,
   `docs/specs/peca-imagem-isolamento-tenant.md`).
@@ -592,8 +683,11 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
 - Saída: modelos (id, título, matéria, tipo, usos).
 - Reusa: `ListarModelosDePecaUseCase::executar(Tenant, User, FiltroDosModelosInput)`
   (`app/src/Pasta/UseCase/ListarModelosDePecaUseCase.php:41`).
-- Permissão: recurso `pasta` view na pasta-âncora, a mesma guarda da tela de modelos (`app/src/Pasta/Controller/PastaModelosController.php:265-277`),
-  e a função `peticionar` ativa no Master. Não existe módulo "peticionar".
+- Permissão: recurso `pasta` view na pasta-âncora, a mesma guarda da tela de modelos (`app/src/Pasta/Controller/PastaModelosController.php:265-277`);
+  **aba Detalhes** da pasta-âncora visível, porque a tela barra `pasta_modelos_*` pela aba Detalhes
+  (`BarreiraDeAbaOcultaListener::MAPA`, `:71`) e o banco de modelos mora nela (`app/templates/pasta/show.html.twig:323`);
+  chave `expedientes` (tabela de 6.2). Correção da versão anterior desta spec: a chave `peticionar` **não** vale aqui, porque
+  ela cobre só as rotas `pasta_peticionar*`. Não existe módulo "peticionar".
 - Grava: não.
 
 **`ler_modelo_de_peca`**
@@ -616,8 +710,9 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
   (`app/src/Pasta/UseCase/PrepararDadosDaPecaUseCase.php:27`) e
   `UsarModeloNaPastaUseCase::executar(ModeloDePeca, Pasta, Tenant, User, array $valores)`
   (`app/src/Pasta/UseCase/UsarModeloNaPastaUseCase.php:42`), que grava pelo `SalvarPecaTextoUseCase` com categoria de peça.
-- Permissão: recurso `pasta` edit (como "usar modelo" na tela, `PastaModelosController.php:166`), aba Documentos visível,
-  pasta não excluída, `peticionar` ativo no Master, escopo `mcp:escrita`.
+- Permissão: recurso `pasta` edit (como "usar modelo" na tela, `PastaModelosController.php:166`); aba **Detalhes** visível,
+  como a tela (`pasta_modelos_usar`, `MAPA`, `:71`), e aba **Documentos** visível, a mais que a tela, porque a resposta
+  devolve o documento criado; pasta não excluída; chave `expedientes` (tabela de 6.2); escopo `mcp:escrita`.
 - Regras: o preenchimento é **no servidor**; CPF e qualificação vão para o documento, nunca para a resposta.
 - Grava: sim, um documento novo na pasta (desfaz pela lixeira).
 
@@ -629,7 +724,8 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
   (`app/src/Pasta/UseCase/SalvarPecaTextoUseCase.php:60`), que já saneia o HTML (`SanitizadorDePecaDeTexto`, `:91`), grava pela
   chave de `ChavesDePasta::novoDocumento` e calcula o sha256.
 - Falta: converter Markdown em HTML antes do saneador.
-- Permissão: a de `gerar_minuta_de_modelo`.
+- Permissão: recurso `pasta` edit; aba **Documentos** visível, como a tela (`pasta_peticionar_texto`, `MAPA`, `:67`); pasta
+  não excluída; chave `peticionar`, a mesma da tela; escopo `mcp:escrita`.
 - Regras: categoria fixa entre as de `PastaDocumento` (`app/src/Pasta/Entity/PastaDocumento.php:27-33`); autor é a pessoa
   (nunca "IA"), com a marca "pelo conector de I.A." no registro da pasta.
 - Grava: sim, um documento novo na pasta (desfaz pela lixeira).
@@ -640,7 +736,8 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
 - Reusa: `EnviarMensagemPastaUseCase::executar(Pasta, User, string, Tenant, ?PastaMensagem)`
   (`app/src/Pasta/UseCase/EnviarMensagemPastaUseCase.php:96`) para anotação, ou
   `EnviarObservacaoDetalhesUseCase::executar(Pasta, User, string, Tenant, ?PastaObservacaoDetalhes)` (`:42`) para observação.
-- Permissão: recurso `pasta` edit e aba; pasta não excluída. Regras: visível à equipe e pode notificar; o texto passa pelo
+- Permissão: recurso `pasta` edit; aba conforme a tabela de 6.2 (anotação: nenhuma; observação: Detalhes); chave
+  `expedientes`; pasta não excluída. Regras: visível à equipe e pode notificar; o texto passa pelo
   saneamento do UseCase. Grava: sim.
 
 **`criar_meta`**
@@ -723,8 +820,26 @@ extrair UseCase e dizer isso no PR.
 - **Sessão MCP**: `Psr16SessionStore` com pool próprio (3.5); o `InMemorySessionStore` padrão não serve com vários workers.
 - **Firewall**: um firewall novo para `^/mcp`, sem sessão (`stateless`), com autenticador de bearer, declarado antes do
   `main`. `/.well-known/oauth-*`, `/oauth/token` e `/oauth/register` com `PUBLIC_ACCESS`, como `^/api/webhooks/`
-  (`security.yaml:71`). `/oauth/authorize` fica no `main` (login, "lembrar de mim") e entra nas rotas que o
-  `TenantContextValidatorListener` deixa passar sem escritório na sessão, porque a própria tela escolhe o escritório.
+  (`security.yaml:71`). `/oauth/authorize` fica no `main` (login, "lembrar de mim").
+- **Listeners de `kernel.request` que precisam deixar as rotas novas passar** (a lista é por nome de rota; os nomes abaixo
+  são sugestão):
+  - `TenantContextValidatorListener::ROTAS_IGNORADAS` (`app/src/EventListener/TenantContextValidatorListener.php:31`)
+    recebe a rota do `/mcp`, a do `/oauth/authorize`, a do `/oauth/token`, a do `/oauth/register` e as duas do
+    `/.well-known/oauth-*`. **Por quê:** no `/mcp` o firewall de bearer autentica a pessoa, mas não há sessão, então
+    `hasCurrentTenant()` é falso e o listener responde com redirecionamento para `tenant_selecionar` (`:135-145`): o
+    cliente de I.A. recebe um 302 para uma página HTML em vez da resposta MCP, e a conexão quebra. As barreiras que o
+    listener aplicaria são do portão (4.1), que as aplica com o escritório do token. No `/oauth/authorize`, a pessoa ainda
+    não tem escritório escolhido para o conector, e é a própria tela que o escolhe. Token, registro e metadados são chamados
+    de servidor para servidor, sem pessoa logada (o listener já sai cedo sem `User`), mas entram na lista para que uma sessão
+    de navegador logada e sem escritório também não seja redirecionada.
+  - `TermoAceiteListener::ROTAS_IGNORADAS` (`app/src/EventListener/TermoAceiteListener.php:34`) recebe as mesmas, **menos
+    o `/oauth/authorize`**. **Por quê:** o listener guarda o aceite na sessão (`:111`) e, sem ela, responderia 302 para
+    `termo_aceite` ou 403 em JSON para quem não aceitou a versão vigente; no `/mcp` essa conferência passa a ser do portão
+    (5.2). O `/oauth/authorize` continua passando por ele: quem não aceitou os termos aceita na tela, antes de conectar.
+  - O `SessaoEncerradaEmTodosOsAparelhosListener` sai cedo sem sessão anterior e não precisa de mudança; a regra dele vai
+    para o validador do token (seção 4, regra 3).
+  - Teste funcional (12.18): bearer válido no `/mcp`, sem cookie, recebe a resposta MCP, nunca 302, e a resposta não traz
+    `Set-Cookie`.
 - **Limites de taxa** (no `framework.yaml`, junto dos limitadores que já existem): `conector_registro` (DCR, por IP), `conector_token` (por
   cliente e IP), `conector_chamada` (por pessoa) e `conector_cimd` (buscas de documento, por domínio).
 - **nginx**: os dois ajustes de 3.3.
@@ -746,8 +861,18 @@ extrair UseCase e dizer isso no PR.
    - `User::isActive` (`app/src/Entity/Auth/User.php:38`; o `UserChecker` só barra no login);
    - `UserTenant::isActive` e a situação na equipe aprovada (`app/src/Entity/Auth/UserTenant.php:40`, `:44`);
    - `Tenant::isActive` e `excluidoEm` nulo (`app/src/Entity/Tenant/Tenant.php:56`, `:59`);
-   - pedido de exclusão (`BloqueioPorPedidoDeExclusao`, `app/src/Tenant/Service/BloqueioPorPedidoDeExclusao.php:43`);
+   - pedido de exclusão (`BloqueioPorPedidoDeExclusao`, `app/src/Tenant/Service/BloqueioPorPedidoDeExclusao.php:43`),
+     **inclusive para o primário**: `bloqueia()` (`:66`) deixa o primário passar porque o navegador o prende ao Meu Perfil,
+     e o conector, que não tem Meu Perfil, recusa (seção 4, regra 1);
+   - termos de uso aceitos na versão vigente (5.2);
+   - "Sair de todos os aparelhos": token e renovação com `autorizado_em` menor ou igual a `User::getSessoesEncerradasEm()`
+     são recusados (seção 4, regra 3);
+   - troca de senha: impressão da senha gravada no token e na renovação diferente da do hash atual é recusada (seção 4,
+     regra 3);
    - consentimento e token não revogados.
+
+   Tudo isso vale também no `/oauth/token` ao trocar a renovação: renovação que falha em qualquer item é revogada com a
+   cadeia inteira e responde `invalid_grant`, que é o que os clientes esperam para pedir login de novo (3.4).
 
    São as mesmas barreiras do navegador (4.1); a lista de agosto (só os dois `isActive`) ficou curta. Custa uma leitura dos
    registros que o servidor já carrega para aplicar permissão. **Sem isso, um token de 7 dias significa 7 dias de acesso
@@ -758,7 +883,8 @@ extrair UseCase e dizer isso no PR.
    mostra o nome do cliente e o host do redirect, com aviso quando só há redirect de loopback (Claude Code, CLIs).
 5. **CIMD**: proteção de SSRF e lista de domínios confiáveis (3.4).
 6. **Redirect e código**: igualdade exata do `redirect_uri`; loopback com porta livre só para `127.0.0.1` e `localhost`
-   (RFC 8252). PKCE S256 obrigatório para todo cliente. Código de uso único, válido por até 10 minutos, preso ao
+   (RFC 8252). No **DCR**, o registro só aceita `redirect_uris` de host da mesma lista permitida do CIMD ou de loopback, e
+   recusa o resto com `invalid_redirect_uri` (3.4, item 2); a tela de consentimento continua mostrando o host (item 4). PKCE S256 obrigatório para todo cliente. Código de uso único, válido por até 10 minutos, preso ao
    `redirect_uri` e ao `code_challenge`. Renovação (se houver) com rotação e `invalid_grant`.
 7. **Auditoria**: escrita registrada pelo `audit_log` com o escritório certo (4.3); chamadas no canal `mcp` sem conteúdo
    (6.2.9). Correção da spec de agosto: "registrar os argumentos" vira registrar ids e valores de lista, nunca texto
@@ -787,7 +913,7 @@ extrair UseCase e dizer isso no PR.
 | Risco | Por que importa |
 |---|---|
 | **`TenantFilter` falha aberto** | Rota nova que esqueça de amarrar o escritório devolve tudo, sem erro. Item nº 1 do plano (PR 1). |
-| **Guardas em listeners HTTP** | Cadeado, aba oculta, pasta excluída, função desligada e barreiras do escritório não rodam no conector; cada uma precisa ser refeita e testada (5.2). |
+| **Guardas em listeners HTTP** | Cadeado, aba oculta, pasta excluída, função desligada, termos de uso, "Sair de todos os aparelhos" e barreiras do escritório não rodam no conector; cada uma precisa ser refeita e testada (5.2). E dois desses listeners quebram o `/mcp` se não o deixarem passar: redirecionam para `tenant_selecionar` ou `termo_aceite` (8). |
 | **Auditoria sem escritório** | Escrita pelo conector gravaria `audit_log` com escritório nulo (4.3). |
 | **nginx barra `.well-known`** | Falha silenciosa: o cliente só diz "não consegui conectar" (3.3). |
 | **`mcp/sdk` experimental (0.7.1)** | API muda entre versões menores; a 2026-07-28 vai exigir atualização. Versão fixa, como na v1. |
@@ -810,7 +936,9 @@ erradas do plano, todas invisíveis à leitura):
 2. **Sem escritório resolvível**, a requisição é recusada; o filtro nunca fica desligado. Com o filtro desligado à força, a
    ferramenta ainda não devolve dado de outro escritório (guarda explícita), e o portão recusa.
 3. **Vínculo inativo, situação suspensa, escritório suspenso ou em quarentena, pedido de exclusão, pessoa desativada**: cada
-   um recusa o token na requisição seguinte.
+   um recusa o token na requisição seguinte. Caso próprio: o **primário** de escritório suspenso a pedido é recusado no
+   `/oauth/authorize` e no `/mcp` com a `BloqueioPorPedidoDeExclusao::MENSAGEM`, enquanto o mesmo primário, no navegador,
+   continua chegando ao Meu Perfil (o teste do listener segue verde).
 4. **Permissão**: pessoa sem o módulo recebe negativa mesmo com escopo `mcp:leitura`.
 5. **Escopo**: token só com `mcp:leitura` não executa ferramenta de escrita (403 `insufficient_scope`), mesmo que a pessoa
    tenha a permissão.
@@ -818,15 +946,28 @@ erradas do plano, todas invisíveis à leitura):
 7. **Fluxo OAuth completo** ponta a ponta, com PKCE, contra o servidor de verdade: CIMD, DCR e pré-registrado.
 8. **Escrita** exige o escopo e gera registro de auditoria com o escritório e a pessoa do token.
 9. **Cada guarda de 5.2** recusada pelo conector: cadeado, aba oculta, pasta excluída na escrita, função desligada no Master,
-   meta por id.
+   meta por id, termos de uso. Para aba e chave, o teste percorre a **tabela de 6.2 linha por linha**: com a aba da linha
+   oculta, a ferramenta recusa (inclusive `listar_documentos_da_pasta` com a aba Documentos oculta, que o UseCase sozinho
+   deixaria passar); com a chave da linha desligada, recusa; e uma ferramenta nova sem linha na tabela derruba o teste.
 10. **Segredo de justiça** (do tribunal e manual): lista omite e conta; por id recusa.
 11. **Cliente só pelo nome**: nenhuma resposta de leitura traz CPF, CNPJ, e-mail, telefone ou endereço (teste que procura
     esses padrões nas respostas de todas as ferramentas, com dados de fábrica).
 12. **CIMD**: `client_id` diferente da URL, redirect fora do documento, domínio fora da lista e endereço privado são recusados.
+    **DCR**: registro com `redirect_uris` de host fora da lista permitida recebe `invalid_redirect_uri` e não cria cliente;
+    host da lista e loopback passam; a tela de consentimento de um cliente registrado por DCR mostra o host do redirect.
 13. **Metadados**: as duas URLs `.well-known` respondem pelo Symfony (funcional) e o `nginx.prod.conf` tem a location
     `^~ /.well-known/oauth-` antes do bloqueio de arquivos ocultos (arquitetura).
 14. **Anotações**: toda ferramenta de leitura tem `readOnlyHint: true` e toda de escrita exige `mcp:escrita` (arquitetura).
 15. **Log `mcp`** sem conteúdo: nenhuma linha leva texto de busca, título, nome ou conteúdo.
+16. **"Sair de todos os aparelhos" e troca de senha**: depois de cada um, o token de acesso é recusado no `/mcp` e a
+    renovação recebe `invalid_grant` no `/oauth/token`, inclusive a renovação já rodada uma vez depois da autorização (prova
+    que a rotação copia o `autorizado_em`). Troca de senha testada pelo perfil (`AlterarSenhaUseCase`) e pelo link
+    (`RedefinirSenhaUseCase`); autorização feita depois do corte ou da troca funciona.
+17. **`ler_documento`**: HTML e DOCX recusados na primeira fatia com mensagem fixa (até o PR 7b); PDF e imagem recusados
+    sem o aceite que a 14.a definir; documento da aba Documentos oculta recusado.
+18. **`/mcp` sem sessão**: bearer válido, sem cookie, recebe a resposta MCP, nunca 302 para `tenant_selecionar` ou
+    `termo_aceite`, e a resposta não traz `Set-Cookie`. Pessoa sem o aceite da versão vigente dos termos é recusada pelo
+    portão com mensagem fixa.
 
 ---
 
@@ -839,22 +980,29 @@ revisão.
 
 | # | Branch sugerida | Entrega | Depende de | Risco | Estimativa |
 |---|---|---|---|---|---|
-| 1 | `conector-portao` | Portão sem HTTP: barreiras do escritório extraídas do `TenantContextValidatorListener` para um serviço sem sessão (o listener passa a usá-lo, sem mudar comportamento); filtro ligado e conferido (fail-closed); escopo de auditoria do conector; teste de arquitetura | nada | ALTO | 2 dias |
-| 2 | `conector-tabelas` | `composer` (`league/oauth2-server-bundle` ^2.0, `symfony/psr-http-message-bridge`), entidades e **uma** migration com as tabelas de 13.2, purga do escritório | nada (paralelo ao 1) | ALTO | 1,5 dia |
-| 3 | `conector-autorizacao` | `/oauth/authorize` (login, escolha do escritório, consentimento com escopos), `/oauth/token`, metadado RFC 8414, PKCE S256, `resource` para `aud`, `iss`, regras de redirect, chaves de assinatura (passo do Samuel), forma da decisão 14.c | 1, 2 | ALTO, com re-revisão | 3 dias |
-| 4 | `conector-registro` | CIMD (busca segura, lista de domínios, cache), DCR em `/oauth/register` (limite, expiração) e comando de console para cliente pré-registrado | 3 | ALTO | 2 dias |
-| 5 | `conector-mcp` | Firewall do `/mcp`, validador do token com o portão a cada requisição, metadado RFC 9728 nas duas URLs, `StreamableHttpTransport`, sessão MCP, nginx (3.3), limites de taxa, log `mcp`, chave `conector_ia` do Master, ferramenta `quem_sou_eu` | 1, 3 (o 4 para cliente real) | ALTO, com re-revisão | 2,5 dias |
-| 6 | `conector-leitura-1` | Registro de ferramentas compartilhado com o chat (mover sem reescrever); `buscar_pastas`, `minhas_demandas`, `detalhar_pasta`, `listar_prazos_e_metas`, `listar_agenda`; teste cross-tenant em cada | 5 | MÉDIO | 3 dias |
-| 7 | `conector-leitura-2` | UseCase de processo e movimentações recentes; `buscar_processos`, `detalhar_processo`, `listar_documentos_da_pasta`, `ler_documento`, `listar_modelos_de_peca`, `ler_modelo_de_peca` | 6 | MÉDIO | 3 dias |
+| 1 | `conector-portao` | Portão sem HTTP: barreiras do escritório extraídas do `TenantContextValidatorListener` para um serviço sem sessão (o listener passa a usá-lo, sem mudar comportamento), com o primário de escritório suspenso a pedido recusado no conector (seção 4, regra 1) e a conferência dos termos de uso (5.2); filtro ligado e conferido (fail-closed); escopo de auditoria do conector; teste de arquitetura | nada | ALTO | 2,5 dias |
+| 2 | `conector-tabelas` | `composer` (`league/oauth2-server-bundle` ^2.0, `symfony/psr-http-message-bridge`), entidades e **uma** migration com as tabelas de 13.2 (precisa das decisões 14.a e 14.c, ver abaixo), purga do escritório | nada (paralelo ao 1) | ALTO | 1,5 dia |
+| 3 | `conector-autorizacao` | `/oauth/authorize` (login, escolha do escritório, consentimento com escopos), `/oauth/token`, metadado RFC 8414, PKCE S256, `resource` para `aud`, `iss`, regras de redirect, `autorizado_em` e impressão da senha gravados no token e na renovação e conferidos na renovação (seção 4, regra 3), rotas nas listas dos dois listeners (8), chaves de assinatura (passo do Samuel), forma da decisão 14.c | 1, 2 | ALTO, com re-revisão | 3 dias |
+| 4 | `conector-registro` | CIMD (busca segura, lista de domínios, cache), DCR em `/oauth/register` (limite, expiração, redirect só da lista permitida ou loopback) e comando de console para cliente pré-registrado | 3 | ALTO | 2 dias |
+| 5 | `conector-mcp` | Firewall do `/mcp`, validador do token com o portão a cada requisição (inclusive corte de "Sair de todos os aparelhos" e impressão da senha), metadado RFC 9728 nas duas URLs, `/mcp` nas listas dos dois listeners (8), `StreamableHttpTransport`, sessão MCP, nginx (3.3), limites de taxa, log `mcp`, chave `conector_ia` do Master, ferramenta `quem_sou_eu` | 1, 3 (o 4 para cliente real) | ALTO, com re-revisão | 3 dias |
+| 6 | `conector-leitura-1` | Registro de ferramentas compartilhado com o chat (mover sem reescrever); `buscar_pastas`, `minhas_demandas`, `detalhar_pasta`, `listar_prazos_e_metas`, `listar_agenda`; aba e chave de cada uma pela tabela de 6.2; teste cross-tenant em cada | 5 | MÉDIO | 3 dias |
+| 7 | `conector-leitura-2` | UseCase de processo e movimentações recentes; `buscar_processos`, `detalhar_processo`, `listar_documentos_da_pasta` (com a barreira da aba Documentos), `ler_documento` só com PDF e imagem (porta do aceite conforme 14.a), `listar_modelos_de_peca`, `ler_modelo_de_peca` (aba Detalhes) | 6 | MÉDIO | 3 dias |
+| 7b | `conector-leitura-texto` | `ler_documento` com peça do editor (HTML) e DOCX como texto: método novo no `LeitorDeDocumentosDaPasta` que reusa a conferência do pedido, reconhecimento pelo conteúdo, conversão da peça, `ExtratorDeTextoDocx` num lugar comum (6.4); só se a 14.f escolher a opção 2 | 7 | MÉDIO | 1,5 dia |
 | 8 | `conector-telas` | "Conexões de I.A." no Meu Perfil (listar e revogar), chave e aceite do escritório conforme 14.a, item no painel do Master; depende do desenho (14.e) | 3 | MÉDIO | 2 dias |
 | 9 | `conector-escrita-1` | `gerar_minuta_de_modelo`, `salvar_minuta_na_pasta`, escopo `mcp:escrita`, auditoria com escritório | 7 e decisão 14.b | ALTO | 2 dias |
 | 10 | `conector-escrita-2` | O que a decisão 14.b escolher entre `anotar_na_pasta`, `criar_meta` (com o `CriarMetaUseCase` extraído do `TarefaController`) e `criar_compromisso` | 9 | MÉDIO | 3 dias |
 | 11 | `conector-abertura` | Guia passo a passo do usuário (Claude, ChatGPT e, se decidido, Gemini Enterprise), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel), diretórios se 14.d pedir | todos | BAIXO | 1,5 dia |
 
-**Total: cerca de 25,5 dias de trabalho** (22,5 sem o PR 10). Caminho crítico 1 → 3 → 5 → 6 → 7 → 9 → 11, com o PR 2 em
-paralelo ao 1: **cerca de 17 dias**; os PRs 4, 8 e 10 correm ao lado.
+**Total: cerca de 28 dias de trabalho** (25 sem o PR 10; 26,5 se a 14.f não escolher o PR 7b). Caminho crítico
+1 → 3 → 5 → 6 → 7 → 9 → 11, com o PR 2 em paralelo ao 1: **cerca de 18 dias**; os PRs 4, 7b, 8 e 10 correm ao lado. A
+revisão de 08/11 somou 2,5 dias à versão anterior desta seção: 0,5 no PR 1 (primário recusado e termos), 0,5 no PR 5
+(corte de "Sair de todos os aparelhos" e senha) e 1,5 no PR 7b (HTML e DOCX, que o leitor de hoje recusa).
 
-- Uma migration só (PR 2), seguindo a regra de uma migration por vez entre os PRs abertos.
+- **Uma migration só (PR 2), desde que as decisões 14.a e 14.c venham antes do PR 2.** As duas decidem se entram
+  `conector_ia_escritorio` (14.a, opção 2) e `conector_ia_renovacao` (14.c, opção 2 ou 3). Se alguma não vier a tempo, o
+  PR 2 sai sem a tabela correspondente e ela entra numa **segunda migration**, no PR que a usa primeiro:
+  `conector_ia_renovacao` no PR 3, `conector_ia_escritorio` no PR 7 (porta do aceite) ou no PR 8 (telas), o que vier antes.
+  Cada migration pede número ao Coordenador e respeita a regra de uma migration por vez entre os PRs abertos.
 - Arquivos quentes (avisar o Coordenador no início de cada PR que os toca): `composer.json`/`composer.lock`,
   `security.yaml`, `framework.yaml`, `nginx.prod.conf`, a migration.
 - Os PRs 1, 3, 4, 5 e 9 mexem em identidade ou abrem escrita: revisão contra esta spec e re-revisão antes do seguinte.
@@ -869,8 +1017,8 @@ de o bundle aceitar gerenciadores próprios (3.2); a recomendação é gerenciad
 |---|---|---|---|
 | `conector_ia_cliente` | o app de I.A. registrado (CIMD, DCR ou pré-registrado) | `identificador` (único; a URL no CIMD), `tipo` (`cimd`, `dcr`, `pre_registrado`), `nome`, `redirect_uris` (JSON), `segredo_hash` (só pré-registrado confidencial), `tenant_id` (nulo, salvo pré-registrado de um escritório), `metadados_buscados_em`, `metadados_validos_ate`, `ativo`, `criado_em`, `ultimo_uso_em` | **global por natureza** (o ChatGPT é o mesmo cliente para todos os escritórios): exceção declarada à regra "toda consulta filtra tenant"; nenhum dado de escritório passa por ela |
 | `conector_ia_codigo` | código de autorização | `identificador_hash`, `cliente_id`, `user_id`, `tenant_id`, `redirect_uri`, `code_challenge`, `escopos`, `resource`, `expira_em` (até 10 min), `usado_em` | sim |
-| `conector_ia_token` | token de acesso | `identificador_hash` (jti), `cliente_id`, `user_id`, `tenant_id`, `consentimento_id`, `escopos`, `audiencia`, `criado_em`, `expira_em`, `revogado_em`, `ultimo_uso_em` | sim |
-| `conector_ia_renovacao` | token de renovação, só se 14.c escolher renovação | `identificador_hash`, `token_id`, `expira_em` (limite absoluto da autorização), `revogado_em`, `substituido_por` | sim (pelo token) |
+| `conector_ia_token` | token de acesso | `identificador_hash` (jti), `cliente_id`, `user_id`, `tenant_id`, `consentimento_id`, `escopos`, `audiencia`, `autorizado_em` (instante do login que originou a cadeia), `impressao_da_senha` (HMAC do hash da senha), `criado_em`, `expira_em`, `revogado_em`, `ultimo_uso_em` | sim |
+| `conector_ia_renovacao` | token de renovação, só se 14.c escolher renovação | `identificador_hash`, `token_id`, `autorizado_em` (copiado na rotação), `impressao_da_senha`, `expira_em` (limite absoluto da autorização), `revogado_em`, `substituido_por` | sim (pelo token) |
 | `conector_ia_consentimento` | a "conexão" que a pessoa vê e revoga | `user_id`, `tenant_id`, `cliente_id`, `escopos`, `concedido_em`, `revogado_em`, `ultimo_uso_em`; uma ativa por pessoa, escritório e cliente; `Auditavel` (conceder, revogar) | sim |
 | `conector_ia_escritorio` | chave e aceite do escritório, só se 14.a escolher a opção 2 | `tenant_id` (único), `ligado`, `aceite_em`, `aceite_versao`, `aceito_por_user_id`; `Auditavel` | sim |
 
@@ -895,7 +1043,8 @@ Toda tabela com escritório entra no `PurgarEscritorioUseCase`.
 
 **Ainda em aberto (para o Samuel; cada uma com opções e recomendação):**
 
-**a) Dado pessoal saindo para o provedor do modelo (LGPD).** Antes do PR 8 e antes de abrir a outros escritórios.
+**a) Dado pessoal saindo para o provedor do modelo (LGPD).** **Antes do PR 2**, porque decide se a tabela
+`conector_ia_escritorio` entra na migration única (13.1); e antes de abrir a outros escritórios.
 
 O que já está decidido para a I.A. de hoje: ela fala só com a Anthropic, que o BlueJus contrata; o dado só sai com o aceite do
 escritório (tela `/admin/inteligencia`, "nos termos do Anexo I"; versão 2 para documentos, `VersaoDoAceiteDaIa`); do cliente
@@ -931,7 +1080,8 @@ novo que se desfaz pela lixeira, e o dado sensível é preenchido no servidor. D
 o PR 10 pelo que mais apareceu (o log `mcp` conta chamadas por ferramenta, sem conteúdo), com `anotar_na_pasta` e
 `criar_meta` como favoritas. Prazo jurídico e andamento ficam fora. **Escolher pelo uso real, não pelo custo de implementar.**
 
-**c) Como os 7 dias funcionam na prática.** Antes do PR 3. A decisão de 11/08 fica; a dúvida é técnica, com efeito na
+**c) Como os 7 dias funcionam na prática.** **Antes do PR 2**, porque decide se a tabela `conector_ia_renovacao` entra na
+migration única (13.1). A decisão de 11/08 fica; a dúvida é técnica, com efeito na
 experiência: os clientes renovam o token sozinhos se houver token de renovação (o Claude pede `offline_access` quando ele é
 anunciado).
 
@@ -957,6 +1107,7 @@ anunciado).
 - Opção 3: a 2 mais publicação nos diretórios do Claude e do ChatGPT.
 
 **Recomendação: opção 1 no piloto**, com a lista de domínios do CIMD em `claude.ai`, `chatgpt.com` e `antigravity.google`.
+A mesma lista vale para os `redirect_uris` do DCR (3.4, item 2): incluir um cliente novo é mexer nela, num lugar só.
 Gemini Enterprise quando o primeiro escritório pedir (comando de console do PR 4). Diretórios depois do piloto (exigem conta
 de teste, revisão e textos próprios).
 
@@ -972,14 +1123,17 @@ Perfil, listar e revogar; para o administrador, ligar e dar o aceite; no Master,
 **Recomendação:** pedir o desenho já. A tela de autorização do PR 3 sai pela convenção da tela de login (é passagem, não tela
 de uso); a de conexões (PR 8) espera o desenho.
 
-**f) Documento em PDF e imagem pelo conector.** Antes do PR 7. Decisão nova.
+**f) Que documentos o `ler_documento` entrega.** Antes do PR 7. Decisão nova, refeita na revisão de 08/11.
 
-O MCP manda imagem como conteúdo padrão; PDF só como recurso embutido, e não achei confirmação oficial de que Claude, ChatGPT e
-Gemini leem PDF devolvido por ferramenta.
+O leitor que existe (`LeitorDeDocumentosDaPasta::anexos`) já faz PDF e imagem com todas as guardas, e recusa o resto (6.4). A
+peça do editor (HTML) e o DOCX precisam de um caminho novo no mesmo leitor (PR 7b, 1,5 dia). O MCP manda imagem como
+conteúdo padrão; PDF só como recurso embutido, e não achei confirmação oficial de que Claude, ChatGPT e Gemini leem PDF
+devolvido por ferramenta.
 
-- Opção 1: mandar o binário e testar no piloto.
-- Opção 2: extrair o texto do PDF no servidor (dependência nova; PDF escaneado continua sem texto, porque não fazemos OCR).
-- Opção 3: só texto (peça do editor e DOCX) na primeira entrega.
+- Opção 1: só PDF e imagem, como binário marcado "experimental", pelo leitor de hoje. HTML e DOCX ficam fora.
+- Opção 2: a 1 mais peça do editor e DOCX como texto (PR 7b).
+- Opção 3: extrair o texto do PDF no servidor (dependência nova; PDF escaneado continua sem texto, porque não fazemos OCR).
 
-**Recomendação: opções 3 e 1 juntas.** Texto para peça e DOCX; PDF e imagem como binário marcado "experimental". A escolha de
-extrair texto sai do teste com o piloto.
+**Recomendação: opção 2.** A peça do editor é o formato das minutas que o próprio conector grava (6.5): sem o PR 7b, o
+assistente cria a minuta e não consegue relê-la. O PR 7b corre ao lado do PR 9 e não atrasa o caminho crítico. A escolha de
+extrair texto do PDF sai do teste com o piloto.
