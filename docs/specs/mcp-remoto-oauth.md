@@ -638,8 +638,8 @@ fica junto da ferramenta, num lugar só, e o teste 12.9 percorre a tabela linha 
   (`documentosVisiveis`, `:53-58`); o próprio comentário (`:53-54`) diz que a aba Documentos oculta "já é barrada na rota",
   e quem barra é o `BarreiraDeAbaOcultaListener` pela rota `inteligencia_agente_pastas_documentos` (`MAPA`, `:68`), que o
   conector não atravessa. A ferramenta confere `abasOcultasPara` antes de chamar o UseCase e, com Documentos oculta,
-  responde "não encontrado". Também falta o cadeado: o UseCase confere só `canAccessResource`, então a ferramenta aplica
-  `AcessoAPasta::podeVer` (5.2).
+  responde "não encontrado". O cadeado já vem do `canAccessResource` do UseCase (`PermissionChecker.php:116-118`,
+  `cabeNoCadeadoDaPasta`); a ferramenta chama `AcessoAPasta::podeVer` (5.2), que é a mesma checagem, por uniformidade.
 - Permissão: recurso `pasta` view, aba Documentos e chave `expedientes` (tabela de 6.2).
 - Regras: segredo recusa (o UseCase do Agente não confere: acrescentar).
 - Grava: não.
