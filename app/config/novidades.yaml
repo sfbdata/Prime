@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.42.0"
+  data: "2026-11-07"
+  itens:
+    - "No chat da I.A., você pode perguntar o que vence hoje, nesta semana ou o que está atrasado. Ela responde só com os seus prazos e metas, os mesmos da tela Minhas Metas, e não cria nem altera nenhuma meta."
+    - "O assistente de I.A. de Minhas Metas deixa de considerar as metas de processos em segredo de justiça. Ele só avisa quantas ficaram de fora, e você continua vendo todas na tela Minhas Metas."
+    - "O assistente de I.A. de Minhas Metas só responde a quem tem acesso às metas do escritório."
 - versao: "2.41.0"
   data: "2026-11-07"
   itens:
