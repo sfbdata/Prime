@@ -8,6 +8,17 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.42.0] - 2026-11-07
+
+### Adicionado
+
+- Chat I.A: ferramenta de leitura `consultar_prazos_e_metas` (períodos hoje, próximos 7 dias e atrasadas; papéis da tela Minhas Metas). Reusa a consulta da tela (`TarefaRepository::findParaMinhasMetas` com cadeado e "só acompanhar não basta"), tira meta de outro escritório e de processo em segredo de justiça, e devolve o resultado numa segunda chamada sem ferramentas, em bloco `<prazos_e_metas>` neutralizado e mascarado. Oferecida só a quem tem o módulo Tarefas num escritório com o aceite de envio. Prompt `chat-livre-v5`. Spec `docs/specs/chat-ia-prazos-e-metas.md`.
+
+### Corrigido
+
+- Chat I.A, contexto `metas` (painel da IA em Minhas Metas): a meta de pasta com algum processo em segredo de justiça (sigilo do tribunal ou "Sim" manual do cartão, regra 4 da Inteligencia) sai das listas antes de o bloco `<metas>` ser montado; o modelo recebe só quantas ficaram de fora, nunca título, NUP ou cliente. As listas também passam a tirar, por guarda explícita, meta de outro escritório. Novo `ProcessoRepository::idsDasPastasEmSegredoDeJustica` (o mesmo da branch `chat-ia-prazos-e-metas`).
+- O contexto `metas` passa a exigir o módulo Tarefas, como a tela Minhas Metas: sem ele, o envio é recusado com 403 `sem_acesso` antes de qualquer leitura.
+
 ## [2.41.0] - 2026-11-07
 
 ### Alterado
@@ -1688,7 +1699,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.41.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.42.0...HEAD
+[2.42.0]: https://github.com/sfbdata/Prime/compare/v2.41.0...v2.42.0
 [2.41.0]: https://github.com/sfbdata/Prime/compare/v2.40.1...v2.41.0
 [2.40.1]: https://github.com/sfbdata/Prime/compare/v2.40.0...v2.40.1
 [2.40.0]: https://github.com/sfbdata/Prime/compare/v2.39.1...v2.40.0
