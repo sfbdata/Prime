@@ -478,7 +478,9 @@ final class ChatIaTest extends JusPrimeWebTestCase
     #[TestDox('contexto metas: o servidor monta as metas da PRÓPRIA pessoa (atrasada e a que vence, com pasta, cliente e dias) e não as de outra')]
     public function testContextoMetasLeAsMetasDaPropriaPessoa(): void
     {
-        [$client, $tenant, $ana, $bruno] = $this->cenario();
+        [$client, $tenant, , $bruno] = $this->cenario();
+        // O contexto metas exige o módulo Tarefas, como a tela Minhas Metas.
+        $ana = $this->criarUsuarioComPermissoes($tenant, ['modules.inteligencia.view', 'modules.tarefas.view'], 'ana');
         [$pasta] = $this->criarPastaComPublicacao($tenant);
         $pasta->setNomeCliente('Cliente Fulano da Silva');
         $this->em()->flush();

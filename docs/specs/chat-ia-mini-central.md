@@ -55,7 +55,10 @@ evento `bj-central:perguntar-ia` preservado). Os testes `EncaminharNaJanelaJsTes
    Link discreto "Abrir em página inteira" para `/chat-ia/{id}`. O evento `bj-central:perguntar-ia` segue existindo (reserva se o mini não
    carregar, e para outros emissores).
 2. **Contexto de metas no servidor.** O corpo do envio ganha `contexto: "metas"` (SINAL; o cliente nunca manda texto). `ContextoDasMetasNoChat`
-   exige o aceite do escritório, usa só as metas da própria pessoa (mesmos recortes da tela: cadeado, `findPrioridadesDoDia`,
+   exige o aceite do escritório e o módulo Tarefas (`AcessoAoModuloTarefas`, o mesmo de Minhas Metas; sem ele, 403
+   `sem_acesso` antes de qualquer leitura; correção de 07/11/2026), tira a meta de outro escritório (guarda explícita, vale sem
+   `TenantFilter`) e a de pasta com processo em segredo de justiça (`ProcessoRepository::idsDasPastasEmSegredoDeJustica`; o modelo
+   recebe só quantas ficaram de fora), usa só as metas da própria pessoa (mesmos recortes da tela: cadeado, `findPrioridadesDoDia`,
    `findAtrasadasParaAtencao`, novo `findAguardandoRevisao`) e entrega UM bloco `<metas>` (delimitador já em `NeutralizadorDeConteudo::DELIMITADORES`),
    com cada valor por `ProtecaoDoTextoDoChat::rotulo`. Prompt vira `chat-livre-v4` (parágrafo sobre o bloco de metas).
 3. **Markdown no mini.** O renderizador seguro saiu de `chat-ia.js` para `public/js/chat-ia-markdown.js` (`window.BJMarkdown.criar`), usado pela
