@@ -1,7 +1,7 @@
 /* =============================================================================
-   assinatura.css: tela Assinatura de documentos, etapa 1.
+   assinatura.css: tela Assinatura de documentos, etapas 1 e 2 (a tela pública tem o próprio assinatura-publica.css).
    Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html (CSS das linhas 28 a 110 e os
-   estilos em linha da marcação). Contrato: docs/specs/assinatura-documentos-etapa-1.md.
+   estilos em linha da marcação). Contratos: docs/specs/assinatura-documentos-etapa-1.md e -etapa-2.md.
 
    Tudo vive sob `.bja`, com prefixo `bja`. Os componentes são os do desenho (cartão, botões, chips, tabela, selo,
    menu de contexto, janela e aviso); nada de .card, .modal ou .btn do sistema.
@@ -294,11 +294,14 @@
 .bja .bjaSigTop > b { flex: 1; min-width: 0; font-size: 14px; }
 .bja .bjaSigPapel { font-size: 12.5px; color: var(--bja-mudo); }
 .bja .bjaSigInfo { font-size: 12.5px; color: var(--bja-t2); }
+/* Copiar link, E-mail, WhatsApp e Tela do signatário (linha 221 do desenho). */
+.bja .bjaSigBts { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
 .bja .bjaCodCard { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .bja .bjaCodRot { font-size: 12px; font-weight: bold; color: var(--bja-t3); }
 .bja .bjaCodVal { font: bold 17px monospace; color: #a3232b; letter-spacing: 1px; }
 [data-bs-theme="dark"] .bja .bjaCodVal { color: var(--bja-verm-tx); }
 .bja .bjaCodBts { display: flex; gap: 6px; flex-wrap: wrap; }
+.bja .bjaCodBts .bjaB { height: 38px; }
 .bja .bjaTrilha { max-height: 300px; overflow-y: auto; }
 .bja .bjaEv { padding: 8px 14px; border-bottom: 1px solid var(--bja-div); font-size: 12.5px; }
 .bja .bjaEv > div { color: var(--bja-mudo); }

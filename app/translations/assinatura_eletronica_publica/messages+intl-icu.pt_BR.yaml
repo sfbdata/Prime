@@ -1,0 +1,58 @@
+assinatura_eletronica_publica:
+    js:
+        fechar_previa: 'Fechar pré-visualização'
+        bloqueio:
+            ja_assinado:
+                titulo: 'Assinatura já registrada'
+                texto: 'Este link já foi utilizado.'
+            recusado:
+                titulo: 'Assinatura recusada'
+                texto: 'A recusa foi registrada no documento.'
+            cancelado:
+                titulo: 'Envio cancelado'
+                texto: 'Este documento não está mais disponível para assinatura.'
+            prazo_encerrado:
+                titulo: 'Prazo encerrado'
+                texto: 'Peça ao remetente um novo envio.'
+            aguardando_anterior:
+                titulo: 'Aguardando assinatura anterior'
+                texto: 'Você receberá o aviso quando {nome} assinar.'
+            invalido:
+                titulo: 'Link inválido'
+                texto: 'Peça ao remetente um novo envio.'
+        assinar_documento: 'Assinar documento'
+        ola: 'Olá, {nome}.'
+        sem_mensagem: 'Leia o documento e confirme sua assinatura.'
+        nome_completo: 'Nome completo'
+        cpf: 'CPF'
+        cpf_exemplo: '000.000.000-00'
+        desenhar: 'Desenhar' # segredo:permitido rótulo da aba (a palavra contém "senha")
+        digitar: 'Digitar'
+        area_desenho: 'Área para desenhar a assinatura'
+        limpar: 'Limpar'
+        codigo_rotulo: 'Código enviado ao e-mail'
+        enviar_codigo: 'Enviar código'
+        reenviar: 'Reenviar'
+        assinar: 'Assinar'
+        recusar_assinatura: 'Recusar assinatura'
+        erro:
+            nome: 'Informe o nome completo.'
+            cpf: 'Informe um CPF válido.'
+            cpf_cadastro: 'O CPF não corresponde ao cadastrado para este signatário.'
+            rubrica: 'Desenhe ou digite a sua assinatura.'
+            pedir_codigo: 'Solicite o código de confirmação.'
+            codigo: 'Código incorreto.'
+            aceite: 'Marque a confirmação de leitura.'
+            geral: 'Não foi possível concluir. Tente de novo.'
+        recusa:
+            rotulo: 'Recusar assinatura'
+            titulo: 'Recusar assinatura'
+            motivo: 'Motivo'
+            voltar: 'Voltar'
+            recusar: 'Recusar'
+            informe: 'Informe o motivo.'
+        ok:
+            titulo: 'Assinatura registrada'
+            todas: 'Todas as assinaturas foram coletadas.'
+            demais: 'Aguardando os demais signatários.'
+            concluir: 'Concluir'

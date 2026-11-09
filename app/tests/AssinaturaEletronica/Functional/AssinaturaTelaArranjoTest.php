@@ -19,18 +19,19 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 
 /**
- * Tela Assinatura de documentos, etapa 1 (docs/specs/assinatura-documentos-etapa-1.md, seção 4.2): o esqueleto que o
- * servidor entrega e o arranjo do desenho por combinador de filho direto. Linhas, chips com contagem, aba Modelos,
- * assistente e detalhe são desenhados pelo public/js/assinatura.js.
+ * Tela Assinatura de documentos, etapas 1 e 2 (docs/specs/assinatura-documentos-etapa-1.md, seção 4.2, e
+ * assinatura-documentos-etapa-2.md, seção 5.1): o esqueleto que o servidor entrega e o arranjo do desenho por
+ * combinador de filho direto. Linhas, chips com contagem, aba Modelos, assistente e detalhe são desenhados pelo
+ * public/js/assinatura.js.
  */
 #[CoversNothing]
 final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
 {
-    private const URLS_DA_ETAPA = ['documentos', 'documento', 'criar', 'salvar', 'duplicar', 'lixeira', 'restaurar', 'excluir', 'cor', 'arquivo', 'logo', 'logo-padrao'];
+    private const URLS_DA_ETAPA = ['documentos', 'documento', 'criar', 'salvar', 'duplicar', 'lixeira', 'restaurar', 'excluir', 'cor', 'arquivo', 'logo', 'logo-padrao', 'enviar', 'lembrete', 'cancelar', 'previa', 'rubrica'];
 
     private KernelBrowser $clienteAtual;
 
-    #[TestDox('GET /assinatura com o módulo responde 200 e a raiz .bja traz eu, padrao, logos e uma URL por rota da etapa, sem a de enviar')]
+    #[TestDox('GET /assinatura com o módulo responde 200 e a raiz .bja traz eu, padrao, logos e uma URL por rota das etapas 1 e 2')]
     public function testRaizComOsAtributosDoContrato(): void
     {
         $crawler = $this->abrir();
@@ -59,7 +60,14 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         foreach (self::URLS_DA_ETAPA as $nome) {
             self::assertNotSame('', (string) $raiz->attr('data-url-' . $nome), 'data-url-' . $nome);
         }
-        self::assertNull($raiz->attr('data-url-enviar'), 'Gerar links e enviar é da etapa 2');
+        // Etapa 2: marcador 0 no lugar do {id} e, na prévia e na rubrica, também da {ordem}.
+        self::assertStringEndsWith('/assinatura/documentos/0/enviar', (string) $raiz->attr('data-url-enviar'));
+        self::assertStringEndsWith('/assinatura/documentos/0/lembrete', (string) $raiz->attr('data-url-lembrete'));
+        self::assertStringEndsWith('/assinatura/documentos/0/cancelar', (string) $raiz->attr('data-url-cancelar'));
+        self::assertStringEndsWith('/assinatura/documentos/0/previa/0', (string) $raiz->attr('data-url-previa'));
+        self::assertStringEndsWith('/assinatura/documentos/0/rubrica/0', (string) $raiz->attr('data-url-rubrica'));
+        // Uma vez cada: o mapa da etapa 2 entra no mesmo laço, sem atributo repetido.
+        self::assertSame(1, substr_count((string) $this->clienteAtual->getResponse()->getContent(), 'data-url-enviar='));
         self::assertStringEndsWith('/assinatura/documentos', (string) $raiz->attr('data-url-documentos'));
         self::assertStringEndsWith('/assinatura/documentos/0', (string) $raiz->attr('data-url-documento'));
         self::assertStringEndsWith('/assinatura/documentos/0', (string) $raiz->attr('data-url-salvar'));
@@ -183,13 +191,15 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         $catalogo = implode('', $crawler->filter('script[type="application/json"][data-bj-t]')->each(static fn (Crawler $s): string => $s->text()));
         self::assertStringContainsString('assinatura_eletronica_tela.js.chip', $catalogo);
         self::assertStringContainsString('assinatura_eletronica_tela.js.folha.previa', $catalogo);
+        self::assertStringContainsString('assinatura_eletronica_tela.js.canc.texto', $catalogo);
+        self::assertStringContainsString('assinatura_eletronica_tela.js.toast.link_copiado', $catalogo);
     }
 
     #[TestDox('Os arquivos da tela não levam travessão (regra do dono)')]
     public function testSemTravessao(): void
     {
         $app = \dirname(__DIR__, 3);
-        foreach (['public/js/assinatura.js', 'public/js/assinatura-folha.js', 'public/js/assinatura-modelos.js', 'public/css/assinatura.css', 'templates/assinatura_eletronica/index.html.twig', 'translations/assinatura_eletronica_tela/messages+intl-icu.pt_BR.yaml'] as $arquivo) {
+        foreach (['public/js/assinatura.js', 'public/js/assinatura-folha.js', 'public/js/assinatura-modelos.js', 'public/js/assinatura-publica.js', 'public/css/assinatura.css', 'public/css/assinatura-publica.css', 'templates/assinatura_eletronica/index.html.twig', 'translations/assinatura_eletronica_tela/messages+intl-icu.pt_BR.yaml', 'translations/assinatura_eletronica_publica/messages+intl-icu.pt_BR.yaml'] as $arquivo) {
             self::assertDoesNotMatchRegularExpression('/[\x{2014}\x{2013}]/u', (string) file_get_contents($app . '/' . $arquivo), $arquivo);
         }
     }

@@ -1152,5 +1152,11 @@
             "assinatura-folha.js"
         ],
         "permitidos": ["bja-body", "Content-Type", "Escape"]
+    },
+    "assinatura_eletronica_publica": {
+        "js": [
+            "assinatura-publica.js"
+        ],
+        "permitidos": ["Content-Type", "Escape"]
     }
 }

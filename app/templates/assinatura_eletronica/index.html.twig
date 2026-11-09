@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 
 {#
-    Assinatura de documentos, etapa 1. Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html
+    Assinatura de documentos, etapas 1 e 2. Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html
     (contrato docs/specs/assinatura-documentos-etapa-1.md, seção 4.2). O cabeçalho azul e a faixa EXPEDIENTE,
     DEMANDAS, PONTO, ASSINATURA e VOTO do desenho são a moldura do sistema (base.html.twig); daqui para baixo é o
     <main> do desenho.
@@ -22,6 +22,15 @@
 {% endblock %}
 
 {% block body %}
+{# Etapa 2 (docs/specs/assinatura-documentos-etapa-2.md, seção 5.1): envio, lembrete, Cancelar envio, prévia do
+   signatário e rubrica, com o marcador 0 no lugar do {id} e da {ordem}. Entram no mesmo mapa, um atributo por rota. #}
+{%- set urls = urls|merge({
+    enviar: path('assinatura_eletronica_enviar', {id: 0}),
+    lembrete: path('assinatura_eletronica_lembrete', {id: 0}),
+    cancelar: path('assinatura_eletronica_cancelar', {id: 0}),
+    previa: path('assinatura_eletronica_previa', {id: 0, ordem: 0}),
+    rubrica: path('assinatura_eletronica_rubrica', {id: 0, ordem: 0})
+}) %}
 <div class="bja" id="bjaPagina"
      data-eu="{{ eu|json_encode|e('html_attr') }}"
      data-padrao="{{ padrao|json_encode|e('html_attr') }}"

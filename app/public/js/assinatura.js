@@ -1,14 +1,16 @@
 /* =============================================================================
-   assinatura.js: tela Assinatura de documentos, etapa 1 (lista, modelos prontos, assistente com rascunho e detalhe).
+   assinatura.js: tela Assinatura de documentos (lista, modelos prontos, assistente com rascunho e detalhe).
    Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html (classe Component e renderVals).
-   Contrato: docs/specs/assinatura-documentos-etapa-1.md (seções 2, 3.3, 4.1 e 4.2).
+   Contratos: docs/specs/assinatura-documentos-etapa-1.md (seções 2, 3.3, 4.1 e 4.2) e
+   docs/specs/assinatura-documentos-etapa-2.md (seções 5.1 e 7: envio, links, lembrete, prévia e Cancelar envio).
 
    O Twig monta só o esqueleto da lista e os atributos data-* da raiz; o resto é desenhado aqui a partir de
    GET /assinatura/documentos e GET /assinatura/documentos/{id}. Os blocos do documento são montados no navegador,
    como no desenho (modelos, [[campo]], cláusulas, condições), e o servidor valida e guarda.
 
-   Etapas futuras: o botão só aparece quando a URL dele existe na raiz (data-url-*). Nesta etapa não há Copiar link,
-   Enviar lembrete, Baixar PDF, Vincular à pasta, Cancelar envio, aba Validar, Criar novo modelo nem Duplicar e adaptar.
+   O botão só aparece quando a URL dele existe na raiz (data-url-*). Etapa 2: "Gerar links e enviar", Copiar link,
+   E-mail (mailto), WhatsApp, Tela do signatário (prévia em nova aba), Enviar lembrete e Cancelar envio. Ficam para
+   depois: código BJA, Baixar PDF com selo, Vincular à pasta, aba Validar, Criar novo modelo e Duplicar e adaptar.
    ============================================================================= */
 (function () {
     'use strict';
@@ -35,11 +37,21 @@
         cor: ds.urlCor || '',
         logo: ds.urlLogo || '',
         enviar: ds.urlEnviar || '',
+        lembrete: ds.urlLembrete || '',
+        cancelar: ds.urlCancelar || '',
+        previa: ds.urlPrevia || '',
     };
     /* Troca o marcador 0 (último trecho "0" do caminho) pelo id real, como a Agenda 1A. */
     const comId = (modelo, id) => {
         const p = String(modelo).split('/');
         for (let i = p.length - 1; i >= 0; i--) { if (p[i] === '0') { p[i] = encodeURIComponent(String(id)); break; } }
+        return p.join('/');
+    };
+    /* Prévia do signatário: /assinatura/documentos/0/previa/0, o último 0 é a ordem e o anterior é o id. */
+    const comIdOrdem = (modelo, id, ordem) => {
+        const p = String(modelo).split('/');
+        let falta = 2;
+        for (let i = p.length - 1; i >= 0 && falta; i--) { if (p[i] === '0') { p[i] = encodeURIComponent(String(falta === 2 ? ordem : id)); falta--; } }
         return p.join('/');
     };
 
@@ -98,6 +110,7 @@
         arqSt: '',
         mBusca: '',
         det: null,
+        canc: false,
     };
     let seqArquivo = 0;
 
@@ -121,6 +134,9 @@
     const doc = id => s.docs.find(d => String(d.id) === String(id));
     const idsReais = lista => lista.map(k => (doc(k) || {}).id).filter(v => v != null);
     const stAtual = d => (d.situacao === 'aguardando' && d.venceEm && new Date(d.venceEm) < new Date() ? 'expirado' : d.situacao);
+    /* p1 do desenho: o primeiro pendente da lista, alvo do Copiar link e do Enviar lembrete (só com o documento Aguardando). */
+    const primeiroPendente = d => (d.signatarios || []).find(x => x.situacao === 'pendente') || null;
+    const temLink = d => !!d && !d.naLixeira && stAtual(d) === 'aguardando' && !!primeiroPendente(d);
 
     async function carregar() {
         if (!url.documentos) { return; }
@@ -276,8 +292,13 @@
             + '<td class="bjaNw">' + esc(data(d.criadoEm)) + '</td>'
             + '<td class="bjaNw">' + (d.stA === 'aguardando' ? esc(data(d.venceEm)) : '') + '</td>'
             + '<td>' + seloHtml(d.stA) + '</td>'
-            + '<td class="bjaTdAc"><button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
+            + '<td class="bjaTdAc">' + (temLink(d) ? acoesDaLinha() : '') + '<button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
             + '<button type="button" class="bjaB bjaI bjaN" data-bja-acao="ctx" aria-label="' + esc(T('mais_opcoes')) + '"><i class="bi bi-three-dots-vertical"></i></button></td></tr>';
+    }
+
+    function acoesDaLinha() {
+        const bt = (acao, ic, rot) => '<button type="button" class="bjaB bjaI" data-bja-acao="' + acao + '" aria-label="' + esc(rot) + '" data-tip="' + esc(rot) + '"><i class="bi ' + ic + '"></i></button> ';
+        return (url.documento ? bt('lin-copiar', 'bi-link-45deg', T('linha.copiar')) : '') + (url.lembrete ? bt('lin-lembrete', 'bi-bell', T('linha.lembrete')) : '');
     }
 
     /* ── Modelos prontos (aba Modelos e passo 1) ────────────────────────── */
@@ -698,15 +719,20 @@
         });
     }
 
-    /* "Gerar links e enviar" só existe quando a raiz traz data-url-enviar (etapa 2). Mesmas conferências do desenho. */
+    /* "Gerar links e enviar" (passo 4 e "Continuar e enviar"): as mesmas conferências do desenho, depois salva o rascunho
+       pela rota da etapa 1 e só então envia. O servidor confere o resto (e-mail do Simples, nível, CPF) e a recusa
+       aparece na linha de erro do assistente. Se o envio for recusado, o rascunho já salvo continua sendo o mesmo. */
     function enviar(botao) {
-        const w = s.w;
+        const w = s.w, destino = w.rasc ? comId(url.salvar, w.rasc) : url.criar;
         if (w.sign.some(x => !String(x.nome || '').trim())) { erroW(T('p3.nomes')); return; }
         if (w.sign.some(x => x.cpf && !cpfOk(x.cpf))) { erroW(T('p3.cpf_invalido')); return; }
-        gravar(comId(url.enviar, w.rasc || 0), botao, async r => {
+        if (!destino || !url.enviar) { return; }
+        gravar(destino, botao, async r => {
+            if (r && r.id != null) { w.rasc = r.id; }
+            const e = await pedir(comId(url.enviar, w.rasc), { method: 'POST' });
             s.w = null;
+            mostrarDetalhe(e.documento);
             avisar(T('toast.pronto'));
-            if (r && r.id != null) { await abrirDetalhe(r.id); } else { irParaLista(); }
             await carregar();
         });
     }
@@ -714,10 +740,14 @@
     /* ── Detalhe do documento ───────────────────────────────────────────── */
     async function abrirDetalhe(id) {
         if (!url.documento) { return; }
-        try {
-            s.det = await pedir(comId(url.documento, id));
-        } catch (e) { falha(e); return; }
-        s.tela = 'det'; s.w = null; s.ctx = null;
+        let d = null;
+        try { d = await pedir(comId(url.documento, id)); } catch (e) { falha(e); return; }
+        mostrarDetalhe(d);
+    }
+
+    function mostrarDetalhe(d) {
+        if (!d) { irParaLista(); return; }
+        s.det = d; s.tela = 'det'; s.w = null; s.ctx = null; s.canc = false;
         desenharCamadas();
         mostrarTela();
         desenharDetalhe();
@@ -728,15 +758,38 @@
         try { retomar(await pedir(comId(url.documento, id))); } catch (e) { falha(e); }
     }
 
+    /* Método gravado pelo servidor ('simples') no rótulo do desenho ('E-mail e código'); valor desconhecido sai como veio. */
+    const metodoRotulo = m => (m === 'simples' ? T('metodo.simples') : m || '');
+
+    /* Barra de ações do signatário pendente (C9 a C13): só com o documento Aguardando e dentro do prazo, para todos os
+       pendentes (mesmo com ordem). E-mail (mailto) e WhatsApp (sem número) levam o link do próprio signatário. */
+    function acoesDoSignatario(d, x, i) {
+        const link = x.link || '';
+        const assunto = T('det.assunto', { nome: d.nome });
+        const mail = 'mailto:' + (x.email || '') + '?subject=' + encodeURIComponent(assunto) + '&body=' + encodeURIComponent((d.mensagem ? d.mensagem + '\n\n' : '') + link);
+        const wa = 'https://wa.me/?text=' + encodeURIComponent(T('det.whatsapp_msg', { nome: x.nome, documento: d.nome, link: link }));
+        // Sem link (servidor sem a chave da assinatura), E-mail e WhatsApp avisam em vez de abrir uma mensagem sem endereço.
+        const ancora = (href, extra) => (link ? 'href="' + esc(href) + '"' + extra : 'href="#" data-bja-acao="sem-link"');
+        return '<div class="bjaSigBts" data-bja-sig="' + i + '">'
+            + '<button type="button" class="bjaB" data-bja-acao="sig-copiar"><i class="bi bi-link-45deg"></i>' + esc(T('det.copiar')) + '</button>'
+            + '<a class="bjaB" ' + ancora(mail, '') + '><i class="bi bi-envelope"></i>' + esc(T('det.email')) + '</a>'
+            + '<a class="bjaB" ' + ancora(wa, ' target="_blank" rel="noopener"') + '><i class="bi bi-whatsapp"></i>' + esc(T('det.whatsapp')) + '</a>'
+            + (url.previa ? '<button type="button" class="bjaB bjaN" data-bja-acao="sig-previa"><i class="bi bi-box-arrow-up-right"></i>' + esc(T('det.tela_signatario')) + '</button>' : '')
+            + '</div>';
+    }
+
     function desenharDetalhe() {
         const d = s.det, st = stAtual(d);
-        const sigs = (d.signatarios || []).map(x => {
+        const sigs = (d.signatarios || []).map((x, i) => {
             const sg = x.situacao === 'assinado' ? 'assinado' : x.situacao === 'recusado' ? 'recusado' : 'pendente';
-            const info = sg === 'assinado' ? dataHora(x.assinadoEm) + (x.metodo ? ' · ' + x.metodo : '') : (x.email || T('det.sem_email'));
+            const metodo = metodoRotulo(x.metodo);
+            const info = sg === 'assinado' ? dataHora(x.assinadoEm) + (metodo ? ' · ' + metodo : '') : (x.email || T('det.sem_email'));
             return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(x.nome) + '</b><span class="bjaSeloSig sg-' + sg + '">' + esc(T('sig.' + sg)) + '</span></div>'
-                + '<div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(nivelRotulo(x.nivel)) + '</div><div class="bjaSigInfo">' + esc(info) + '</div></div>';
+                + '<div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(nivelRotulo(x.nivel)) + '</div><div class="bjaSigInfo">' + esc(info) + '</div>'
+                + (sg === 'pendente' && st === 'aguardando' ? acoesDoSignatario(d, x, i) : '') + '</div>';
         }).join('');
-        const bts = st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '';
+        const bts = (st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '')
+            + (st === 'aguardando' && !d.naLixeira && url.cancelar ? '<button type="button" class="bjaB bjaR" data-bja-acao="det-cancelar">' + esc(T('det.cancelar')) + '</button>' : '');
         const evs = (d.eventos || []).map(e => '<div class="bjaEv"><b>' + esc(e.texto) + '</b><div>' + esc(dataHora(e.em)) + '</div></div>').join('');
         el.telaDet.innerHTML = '<div class="bjaTopoDet"><button type="button" class="bjaB bjaN" data-bja-acao="voltar-lista"><i class="bi bi-arrow-left"></i>' + esc(T('voltar_documentos')) + '</button>'
             + '<h1 class="bjaH1Det">' + esc(d.nome) + '</h1><span class="bjaSeloDet st-' + esc(st) + '">' + esc(T('situacao.' + st)) + '</span></div>'
@@ -763,7 +816,7 @@
                     const d = s.det;
                     F.pintar(pv, {
                         blocos: d.blocos || [], sign: d.signatarios || [], logo: logoDoDocumento(d.logo, d.id).url, layout: d.layout || '', lateral: d.lateral || '',
-                        limpa: !!d.folhaBranca, cod: d.codigo || '', hash: d.hash || '', fonte: d.arquivo && d.arquivo.url ? F.fonteDaUrl(d.arquivo.url) : null,
+                        limpa: !!d.folhaBranca, cod: d.codigo || '', hash: d.hashEnviado || '', fonte: d.arquivo && d.arquivo.url ? F.fonteDaUrl(d.arquivo.url) : null,
                     });
                 }
             });
@@ -793,7 +846,7 @@
 
     function desenharCamadas() {
         el.ctx.innerHTML = s.ctx ? ctxHtml() : '';
-        el.modal.innerHTML = s.exc ? excHtml() : '';
+        el.modal.innerHTML = s.exc ? excHtml() : s.canc ? cancHtml() : '';
     }
 
     function ctxHtml() {
@@ -803,6 +856,8 @@
         if (um) {
             L.push(['bi-box-arrow-up-right', T('ctx.abrir'), 'ctx-abrir']);
             if (d0.stA === 'rascunho' && !d0.naLixeira && url.documento) { L.push(['bi-pencil', T('ctx.continuar'), 'ctx-continuar']); }
+            if (temLink(d0) && url.documento) { L.push(['bi-link-45deg', T('ctx.copiar'), 'ctx-copiar']); }
+            if (temLink(d0) && url.lembrete) { L.push(['bi-bell', T('ctx.lembrete'), 'ctx-lembrete']); }
             if (url.duplicar) { L.push(['bi-copy', T('ctx.duplicar'), 'ctx-duplicar']); }
         }
         L.push(['bi-check2-square', s.sel[String(d0.id)] ? T('ctx.desmarcar') : T('ctx.selecionar'), 'ctx-sel']);
@@ -828,6 +883,22 @@
             + '<div class="bjaModalTx">' + esc(def ? T('exc.texto_def') : T('exc.texto_lixeira', { n: s.exc.ids.length })) + '</div>'
             + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="exc-nao">' + esc(T('exc.voltar')) + '</button>'
             + '<button type="button" class="bjaB bjaR" data-bja-acao="exc-sim">' + esc(def ? T('exc.botao_def') : T('exc.botao')) + '</button></div></div></div>';
+    }
+
+    /* Confirmação do Cancelar envio: a janela do Excluir (D), com o ícone de Cancelado (bi-slash-circle). */
+    function cancHtml() {
+        return '<div class="bjaModal"><div class="bjaCard bjaOculto bjaModalCx" role="dialog" aria-modal="true" aria-label="' + esc(T('canc.rotulo')) + '">'
+            + '<div class="bjaHd is-perigo"><i class="bi bi-slash-circle"></i>' + esc(T('canc.titulo')) + '</div>'
+            + '<div class="bjaModalTx">' + esc(T('canc.texto')) + '</div>'
+            + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="canc-nao">' + esc(T('canc.voltar')) + '</button>'
+            + '<button type="button" class="bjaB bjaR" data-bja-acao="canc-sim">' + esc(T('canc.botao')) + '</button></div></div></div>';
+    }
+
+    function pedirCancelamento() {
+        s.canc = true;
+        desenharCamadas();
+        const b = el.modal.querySelector('[data-bja-acao="canc-nao"]');
+        if (b) { b.focus(); }
     }
 
     function pedirExclusao(ids, def) {
@@ -872,6 +943,63 @@
         await carregar();
     }
 
+    /* Cópia do link (copiar e copiaF do desenho): área de transferência; senão a seleção de texto; senão o link no aviso azul. */
+    function copiarTexto(t) {
+        const ok = () => avisar(T('toast.link_copiado'));
+        const reserva = () => {
+            const a = document.createElement('textarea');
+            a.value = t;
+            document.body.appendChild(a);
+            a.select();
+            let foi = false;
+            try { foi = document.execCommand('copy'); } catch (e) { foi = false; }
+            a.remove();
+            if (foi) { ok(); } else { avisar(t, 'info'); }
+        };
+        try { navigator.clipboard.writeText(t).then(ok, reserva); } catch (e) { reserva(); }
+    }
+
+    function copiarLink(link) {
+        if (!link) { avisar(T('toast.sem_chave'), 'erro'); return; }
+        copiarTexto(link);
+    }
+
+    /* Copiar link da lista: o resumo não traz o link, então o detalhe é lido na hora e o alvo é o primeiro pendente. */
+    async function copiarDaLista(id) {
+        let d = null;
+        try { d = await pedir(comId(url.documento, id)); } catch (e) { falha(e); return; }
+        const p1 = primeiroPendente(d);
+        if (!p1 || stAtual(d) !== 'aguardando') { await carregar(); return; }
+        copiarLink(p1.link);
+    }
+
+    async function lembrar(id) {
+        const d0 = doc(id), p1 = d0 && primeiroPendente(d0);
+        if (!d0 || !url.lembrete) { return; }
+        let r = null;
+        try { r = await pedir(comId(url.lembrete, d0.id), { method: 'POST' }); } catch (e) { falha(e); return; }
+        avisar(T('toast.lembrete', { nome: (r && r.para) || (p1 ? p1.nome : '') }));
+    }
+
+    async function cancelarEnvio() {
+        const d = s.det;
+        s.canc = false;
+        desenharCamadas();
+        if (!d || !url.cancelar) { return; }
+        let r = null;
+        try { r = await pedir(comId(url.cancelar, d.id), { method: 'POST' }); } catch (e) { falha(e); return; }
+        if (s.tela !== 'det' || !s.det || s.det.id !== d.id) { await carregar(); return; }
+        if (r && r.documento) { s.det = r.documento; }
+        desenharDetalhe();
+        avisar(T('toast.cancelado'), 'aviso');
+        await carregar();
+    }
+
+    function signatarioDoBotao(alvo) {
+        const caixa = alvo.closest('[data-bja-sig]');
+        return caixa && s.det ? (s.det.signatarios || [])[+caixa.getAttribute('data-bja-sig')] || null : null;
+    }
+
     async function duplicar(id) {
         try { await pedir(comId(url.duplicar, (doc(id) || {}).id), { method: 'POST' }); } catch (e) { falha(e); return; }
         s.ctx = null; s.filtro = 'rascunho';
@@ -911,6 +1039,16 @@
             case 'add-sig': s.w.sign = s.w.sign.concat([sigVazio()]); erroW(''); redesenharCorpo(); break;
             case 'tira-sig': { const cx = alvo.closest('[data-bja-i]'); if (cx) { const i = +cx.getAttribute('data-bja-i'); s.w.sign = s.w.sign.filter((_, j) => j !== i); erroW(''); redesenharCorpo(); } break; }
             case 'det-retomar': if (s.det) { retomar(s.det); } break;
+            case 'lin-copiar': if (idLinha) { copiarDaLista((doc(idLinha) || {}).id); } break;
+            case 'lin-lembrete': if (idLinha) { lembrar(idLinha); } break;
+            case 'ctx-copiar': { const d = doc(s.ctx.id); fecharCtx(); if (d) { copiarDaLista(d.id); } break; }
+            case 'ctx-lembrete': { const id = s.ctx.id; fecharCtx(); lembrar(id); break; }
+            case 'sig-copiar': { const x = signatarioDoBotao(alvo); if (x) { copiarLink(x.link); } break; }
+            case 'sig-previa': { const x = signatarioDoBotao(alvo); if (x && s.det) { window.open(comIdOrdem(url.previa, s.det.id, x.ordem), '_blank', 'noopener'); } break; }
+            case 'sem-link': ev.preventDefault(); avisar(T('toast.sem_chave'), 'erro'); break;
+            case 'det-cancelar': pedirCancelamento(); break;
+            case 'canc-nao': s.canc = false; desenharCamadas(); break;
+            case 'canc-sim': cancelarEnvio(); break;
             default: break;
         }
     }
@@ -1011,7 +1149,7 @@
 
     document.addEventListener('keydown', ev => {
         if (ev.key !== 'Escape') { return; }
-        if (s.ctx) { fecharCtx(); } else if (s.exc) { s.exc = null; desenharCamadas(); }
+        if (s.ctx) { fecharCtx(); } else if (s.exc) { s.exc = null; desenharCamadas(); } else if (s.canc) { s.canc = false; desenharCamadas(); }
     });
 
     /* ── Início ─────────────────────────────────────────────────────────── */

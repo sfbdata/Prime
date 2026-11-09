@@ -1,0 +1,175 @@
+/* =============================================================================
+   assinatura-publica.css: tela do signatário (/assinar/{token}) da Assinatura de documentos, etapa 2.
+   Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html (CSS das linhas 28 a 110 e os estilos
+   em linha dos blocos tAss, mRec, ovOk e do aviso). Contrato: docs/specs/assinatura-documentos-etapa-2.md, seção 7.
+   Inventário: docs/design/redesign-08-11-26/inventario-assinatura-etapa2-0911.md (regiões F a M).
+
+   Só esta página carrega este arquivo: a tela não tem a moldura do sistema nem o tema escuro. Tudo vive sob `.bjaPub`
+   (a raiz que o assinatura-publica.js desenha), com os componentes e os valores do desenho; a folha A4 repete os
+   valores do assinatura.css, que a página pública não carrega.
+
+   Camadas: valores do desenho (recusa 2147483100, tela verde 2147483646, aviso 2147483647).
+   ============================================================================= */
+
+body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+
+@keyframes bjaBarOk { from { opacity: 0; transform: translateY(calc(var(--r) * .42)) scaleY(.3); } to { opacity: 1; transform: none; } }
+@keyframes bjaDraw { to { stroke-dashoffset: 0; } }
+@keyframes bjaWipe { from { clip-path: circle(0 at 50% 42%); } to { clip-path: circle(150vmax at 50% 42%); } }
+/* O aviso do desenho usa bjaUp com transform:none no fim, o que desfaz o translateX(-50%) da centralização (mesma
+   correção da etapa 1). */
+@keyframes bjaToastUp { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Página (F1): coluna da altura da janela. */
+.bjaPub { min-height: 100vh; display: flex; flex-direction: column; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: normal; color: #12242f; }
+.bjaPub :where(*:not(button, input, select, textarea)) { box-sizing: content-box; }
+.bjaPub [hidden] { display: none !important; }
+.bjaPub a { color: #0a6fa0; }
+.bjaPub a:hover { color: #0b5f86; }
+
+/* ── Componentes do desenho ─────────────────────────────────────────── */
+.bjaPub .bjaCard { background: #fff; border: 1px solid #d3dde4; border-radius: 3px; box-shadow: 0 1px 3px rgba(18, 36, 47, .06); }
+.bjaPub .bjaOculto { overflow: hidden; }
+.bjaPub .bjaHd { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 10px 16px; color: #fff; font-size: 15.5px; font-weight: bold; background: #0a6fa0; }
+.bjaPub .bjaHd.is-perigo { background: #a3232b; }
+
+.bjaPub .bjaB { height: 32px; padding: 0 11px; border: 1px solid #0a6fa0; border-radius: 3px; background: #fff; color: #0a6fa0; font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; text-decoration: none; box-sizing: border-box; margin: 0; }
+.bjaPub .bjaB:hover { background: #e5f1f7; color: #0a6fa0; }
+.bjaPub .bjaB[disabled] { opacity: .5; cursor: default; }
+.bjaPub .bjaN { border-color: #d3dde4; color: #34505f; }
+.bjaPub .bjaN:hover { background: #f3f6f8; color: #34505f; }
+.bjaPub .bjaR { border-color: #a3232b; color: #7f1c23; }
+.bjaPub .bjaR:hover { background: #fdecee; color: #7f1c23; }
+.bjaPub .bjaP { height: 38px; padding: 0 16px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; margin: 0; }
+.bjaPub .bjaP:hover { background: #0b5f86; }
+.bjaPub .bjaP[disabled] { background: #7a8e9b; cursor: default; }
+
+.bjaPub .bjaL { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: bold; color: #4a6373; min-width: 0; margin: 0; }
+.bjaPub .bjaF { height: 34px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 8px; font: inherit; font-size: 13.5px; font-weight: normal; color: #12242f; background: #fff; box-sizing: border-box; width: 100%; margin: 0; }
+.bjaPub textarea.bjaF { height: auto; padding: 7px 8px; resize: vertical; }
+
+/* ── Cabeçalho do signatário (F2 a F6): sem moldura do sistema, não fixo ── */
+.bjaPub .bjaPubCab { background: #0a76a8; color: #fff; min-height: 58px; display: flex; align-items: center; gap: 14px; padding: 0 clamp(10px, 2vw, 24px); }
+.bjaPub .bjaPubMarca { height: 28px; }
+.bjaPub .bjaPubSep { width: 1px; height: 20px; background: rgba(255, 255, 255, .45); }
+.bjaPub .bjaPubNome { font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* No desenho o fundo e a cor vêm em linha: o hover do .bjaB não muda este botão. */
+.bjaPub .bjaPubFechar,
+.bjaPub .bjaPubFechar:hover { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .6); }
+
+/* Conteúdo (F7). */
+.bjaPub .bjaPubMain { width: 100%; max-width: 1400px; margin: 0 auto; padding: 16px clamp(10px, 2vw, 24px) 40px; box-sizing: border-box; }
+
+/* ── Bloqueio (G1 a G4) ─────────────────────────────────────────────── */
+.bjaPub .bjaBloq { padding: 30px; text-align: center; max-width: 560px; margin: 24px auto; }
+.bjaPub .bjaBloq > .bi { font-size: 38px; color: #0a6fa0; }
+.bjaPub .bjaBloqT { font-size: 19px; font-weight: bold; margin: 8px 0 4px; }
+.bjaPub .bjaBloqD { font-size: 14px; color: #4a6373; }
+
+/* ── Formulário Simples (H1 a H20) ──────────────────────────────────── */
+.bjaPub .bjaGrid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.bjaPub .bjaCent { flex: 999 1 520px; min-width: 0; }
+/* max-width:420px em linha no desenho: vence também o @media de 980px (decisão G1). */
+.bjaPub .bjaLat { flex: 1 1 320px; max-width: 420px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.bjaPub .bjaPainel { padding: 12px 14px; display: flex; flex-direction: column; gap: 11px; }
+.bjaPub .bjaOla { font-size: 13px; color: #34505f; line-height: 1.5; }
+
+.bjaPub .bjaAbasAss { display: flex; gap: 4px; margin-bottom: 6px; }
+/* Abas Desenhar e Digitar: fundo em linha no desenho, sem mudança no hover. */
+.bjaPub .bjaAbaAss,
+.bjaPub .bjaAbaAss:hover { flex: 1; background: #fff; }
+.bjaPub .bjaAbaAss.is-on,
+.bjaPub .bjaAbaAss.is-on:hover { background: #e5f1f7; }
+.bjaPub .bjaRubTela { width: 100%; height: 120px; border: 1px solid #9fc3d8; background: #fff; touch-action: none; display: block; cursor: crosshair; }
+.bjaPub .bjaLimpar { margin-top: 4px; }
+.bjaPub .bjaDigitada { border: 1px solid #9fc3d8; padding: 14px; text-align: center; font: italic 30px Georgia, serif; color: #0b3550; min-height: 44px; }
+
+.bjaPub .bjaCodLin { display: flex; gap: 6px; align-items: flex-end; }
+.bjaPub .bjaCodLin > .bjaL { flex: 1; }
+.bjaPub .bjaCodIn { font: bold 16px monospace; letter-spacing: 4px; }
+.bjaPub .bjaCodBt { height: 34px; }
+
+.bjaPub .bjaAceite { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #243845; line-height: 1.4; margin: 0; font-weight: normal; }
+.bjaPub .bjaAceite input { width: 16px; height: 16px; margin: 1px 3px 3px 4px; flex: none; }
+.bjaPub .bjaErroA { font-size: 13px; color: #a3232b; }
+.bjaPub .bjaAssinar { height: 46px; font-size: 16px; }
+
+/* ── Recusa (I1 a I5): a janela do desenho ──────────────────────────── */
+.bjaPub .bjaModal { position: fixed; inset: 0; z-index: 2147483100; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.bjaPub .bjaModalCx { width: 100%; max-width: 440px; box-sizing: border-box; }
+.bjaPub .bjaModalCorpo { padding: 14px 16px; }
+.bjaPub .bjaModalPe { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; background: #f7f9fb; }
+
+/* ── Tela "Assinatura registrada" (J1 a J13) ────────────────────────── */
+.bjaPub .bjaOk { position: fixed; inset: 0; z-index: 2147483646; overflow-y: auto; background: #1e7b45; color: #fff; font-family: Arial, Helvetica, sans-serif; animation: bjaWipe .6s ease-out both; }
+.bjaPub .bjaOkCorpo { min-height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 16px; text-align: center; }
+.bjaPub .bjaRing { --r: min(19vmin, 96px); position: relative; width: calc(var(--r) * 2.3); height: calc(var(--r) * 2.3); flex: none; }
+.bjaPub .bjaRaio { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.bjaPub .bjaBar { position: absolute; left: calc(var(--r) * -.0375); top: calc(var(--r) * -1.13); width: calc(var(--r) * .075); height: calc(var(--r) * .26); background: #fff; animation: bjaBarOk .5s cubic-bezier(.2, .8, .3, 1.25) both; }
+.bjaPub .bjaRing svg { position: absolute; inset: 22%; width: 56%; height: 56%; }
+.bjaPub .bjaRing path { fill: none; stroke: #fff; stroke-width: 7; stroke-dasharray: 1; stroke-dashoffset: 1; animation: bjaDraw .4s ease-out .3s forwards; }
+.bjaPub .bjaOkT { font-size: clamp(28px, 5vw, 42px); font-weight: bold; }
+.bjaPub .bjaOkD { font-size: 16px; }
+.bjaPub .bjaOkBts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.bjaPub .bjaOkFim { height: 44px; padding: 0 18px; border: 1px solid rgba(255, 255, 255, .7); border-radius: 3px; background: transparent; color: #fff; font: inherit; font-size: 15px; cursor: pointer; margin: 0; }
+
+/* ── Aviso (K1) ─────────────────────────────────────────────────────── */
+.bjaPub .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); box-sizing: border-box; background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }
+.bjaPub .bjaToast.is-erro { background: #a3232b; }
+.bjaPub .bjaToast.is-aviso { background: #8a6200; }
+.bjaPub .bjaToast.is-info { background: #0a6fa0; }
+
+/* ── Prévia e folha A4 (mesmos valores do assinatura.css) ───────────── */
+.bjaPub .bjaPv { background: #dfe6ec; padding: 14px; max-height: 84vh; overflow: auto; box-sizing: border-box; }
+.bjaPub .bjaPag { position: relative; aspect-ratio: 1 / 1.414; box-sizing: border-box; background: #fff; box-shadow: 0 2px 8px rgba(18, 36, 47, .2); padding: clamp(34px, 7%, 60px); max-width: 720px; margin: 0 auto; font-size: 14px; line-height: 1.55; color: #12242f; }
+.bjaPub .bjaPag[data-bja-fundo] { background-color: #fff; background-position: center; background-size: 100% 100%; background-repeat: no-repeat; }
+.bjaPub .bjaPag.com-rodape { padding-bottom: 170px; }
+.bjaPub .bjaPag p { margin: 0 0 11px; text-align: justify; }
+.bjaPub .bjaPag .m { background: #fff3cd; color: #7a5200; }
+.bjaPub .bjaFlogo { max-height: 58px; max-width: 220px; display: block; margin-bottom: 14px; }
+.bjaPub .bjaFt { text-align: center; font-weight: bold; font-size: 18px; margin-bottom: 2px; }
+.bjaPub .bjaFs { text-align: center; font-weight: bold; margin-bottom: 14px; }
+.bjaPub .bjaFh { font-weight: bold; margin: 12px 0 6px; }
+.bjaPub .bjaFl { font-weight: bold; }
+.bjaPub .bjaPag p.bjaFd { text-align: right; margin-top: 14px; }
+.bjaPub .bjaPag p.bjaFd2 { text-align: right; }
+.bjaPub .bjaPgImg { width: 100%; display: block; margin-bottom: 8px; }
+.bjaPub .bjaPgImg:not([src]) { aspect-ratio: 1 / 1.414; background: #f3f6f8; }
+.bjaPub .bjaAss { margin: 26px auto 14px; max-width: 380px; text-align: center; font-size: 12.5px; }
+.bjaPub .bjaAss .l { border-top: 1px solid #12242f; padding-top: 4px; }
+.bjaPub .bjaAss img { max-height: 60px; max-width: 220px; display: block; margin: 0 auto -4px; }
+.bjaPub .bjaAssVao { height: 26px; }
+.bjaPub .bjaSt { color: #1e7b45; font-weight: bold; font-size: 11.5px; }
+.bjaPub .bjaV { position: absolute; left: 7.5%; right: 7.5%; bottom: 3.4%; font-size: 11px; line-height: 1.3; color: #243845; }
+.bjaPub .bjaV .lin { display: flex; gap: 12px; align-items: center; padding-right: 16%; }
+.bjaPub .bjaV img { width: 82px; height: 82px; background: #fff; padding: 3px; flex: none; image-rendering: pixelated; box-sizing: content-box; }
+.bjaPub .bjaV .tx b { font-size: 10px; color: #4a6373; }
+.bjaPub .bjaV .cod { font: bold 15px "Courier New", monospace; color: #a3232b; letter-spacing: .4px; line-height: 1.25; white-space: nowrap; }
+.bjaPub .bjaV .sha { font: 10px "Courier New", monospace; color: #34505f; margin-bottom: 2px; word-break: break-all; }
+.bjaPub .bjaC { position: relative; max-width: 860px; padding: 40px 56px 170px 78px; font-size: 12.6px; line-height: 1.2; }
+.bjaPub .bjaC.is-limpa { padding-bottom: 40px; }
+.bjaPub .bjaC .lat { position: absolute; left: 40px; top: 44px; bottom: 44px; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 27px; color: #44546a; text-align: center; white-space: nowrap; overflow: hidden; }
+.bjaPub .bjaC .cab { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+.bjaPub .bjaC .cab img { height: 68px; }
+.bjaPub .bjaC .num { text-align: right; font-size: 17px; color: #44546a; margin-bottom: -2px; }
+.bjaPub .bjaC .tit { flex: 1; text-align: center; font-weight: bold; font-size: 13.6px; letter-spacing: .2px; }
+.bjaPub .bjaC p { margin: 0 0 8px; }
+.bjaPub .bjaC .cols { column-count: 2; column-gap: 26px; margin-top: 10px; }
+.bjaPub .bjaC .cols .hd { font-weight: bold; break-after: avoid; margin: 0 0 3px; }
+.bjaPub .bjaC .cols .bjaAss { break-inside: avoid; margin: 16px auto 6px; }
+
+/* ── Telas menores (M1 a M4) ────────────────────────────────────────── */
+@media (max-width: 980px) {
+    .bjaPub .bjaLat { flex-basis: 100%; }
+}
+@media (max-width: 760px) {
+    .bjaPub .bjaOc { display: none !important; }
+    .bjaPub .bjaC { padding: 16px; }
+    .bjaPub .bjaC .lat { display: none; }
+    .bjaPub .bjaC .cols { column-count: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .bjaPub .bjaBar,
+    .bjaPub .bjaMov,
+    .bjaPub .bjaToast { animation-duration: .01ms !important; animation-delay: 0s !important; }
+}
