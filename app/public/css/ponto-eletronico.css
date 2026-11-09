@@ -782,3 +782,64 @@
 /* --- E17: aba Banco de Horas, aviso do limite e triângulo do topo (P51 a, P52, P2). --- */
 
 /* --- E15: aba Comprovantes, comprovante em imagem e validação (P48, P49, P50). --- */
+/* Aba Comprovantes (L193 a L197): a linha da explicação com "Validar código", a lista com rolagem e "Baixar". */
+.pe-comp-topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-comp-texto { flex: 1 1 220px; font-size: 12.5px; color: var(--pe-mudo); }
+.pe-comp-btn {
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--pe-link);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-link);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    text-decoration: none;
+}
+.pe-comp-btn:hover { background: var(--pe-info-bg); }
+.pe-comp-btn--baixar { height: 30px; padding: 0 11px; font-size: 12.5px; gap: 6px; }
+.pe-page a.pe-comp-btn:not(.btn),
+.pe-page a.pe-comp-btn:not(.btn):hover { color: var(--pe-link); text-decoration: none; }
+.pe-comp-lista { max-height: 360px; overflow-y: auto; }
+.pe-comp {
+    display: flex;
+    align-items: center;
+    gap: 6px 14px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--pe-div);
+    font-size: 13.5px;
+}
+.pe-comp-dh { font-variant-numeric: tabular-nums; }
+.pe-comp-metodo { font-size: 12.5px; color: var(--pe-mudo); }
+.pe-comp-codigo { flex: 1; min-width: 150px; padding: 0; background: none; font-size: 12.5px; color: var(--pe-info-cor); }
+
+/* Janela "Validar comprovante" (L297 a L302): o campo do código e as caixas do resultado. */
+.pe-comp-campo {
+    height: 38px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 0 10px;
+    background: var(--pe-card);
+    color: var(--pe-texto);
+    font: bold 15px monospace;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.pe-comp-ok,
+.pe-comp-erro { padding: 10px 12px; border-radius: 3px; font-size: 13.5px; }
+.pe-comp-ok { line-height: 1.45; border: 1px solid var(--pe-ok-bd); border-left: 4px solid var(--pe-ok-forte); background: var(--pe-ok-bg); color: var(--pe-ok-cor); }
+.pe-comp-erro { border: 1px solid var(--pe-erro-bd); border-left: 4px solid var(--pe-erro-esq); background: var(--pe-erro-bg); color: var(--pe-erro-cor); }
+.pe-comp-ok[hidden],
+.pe-comp-erro[hidden] { display: none; }

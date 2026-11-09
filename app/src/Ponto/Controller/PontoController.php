@@ -21,6 +21,8 @@ use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
+use App\Ponto\Service\AbaDosComprovantes;
+use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Ponto\Service\InicioContagemResolver;
@@ -114,6 +116,7 @@ final class PontoController extends AbstractController
         FolhaPontoBuilder $folhaPontoBuilder,
         HomeOfficeResolver $homeOfficeResolver,
         SedesDaCercaDoPonto $sedesDaCerca,
+        AbaDosComprovantes $abaDosComprovantes,
         CalculadoraJornada $calculadoraJornada,
         ListarPendenciasDeRegistroUseCase $pendencias,
         AnaliseDaPropriaJustificativa $analiseDaPropria,
@@ -255,8 +258,8 @@ final class PontoController extends AbstractController
             'abaAberta'                => $this->abaAberta($request),
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
             // Aba "Comprovantes" (E15): só com o comprovante ligado; a lista é da pessoa, neste escritório.
-            'comprovantesVisiveis'     => false,
-            'comprovantes'             => [],
+            'comprovantesVisiveis'     => $abaDosComprovantes->visivel(),
+            'comprovantes'             => $abaDosComprovantes->linhas($user, $tenant),
             // Aba "Banco de Horas" (E17): nulo esconde a aba.
             'bancoDeHoras'             => null,
         ]);
@@ -684,12 +687,12 @@ final class PontoController extends AbstractController
     #[Route('/batida', name: 'ponto_batida', methods: ['POST'])]
     public function batida(
         Request $request,
-        EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
         HomeOfficeResolver $homeOfficeResolver,
         EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
+        RegistrarBatidaDaPessoaUseCase $registrarBatida,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -876,8 +879,7 @@ final class PontoController extends AbstractController
             $registro->setPrecisaoGps((string) $precisaoGpsFloat);
         }
 
-        $entityManager->persist($registro);
-        $entityManager->flush();
+        $comprovante = $registrarBatida->executar($registro);   // E15: NSR (D2) e comprovante na mesma transação
 
         $dados = [
             'hora' => $registro->getDataHora()->format('H:i:s'),
@@ -890,7 +892,7 @@ final class PontoController extends AbstractController
 
         return $this->json([
             'success' => true,
-            'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
+            'message' => ($homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!') . ($comprovante !== null ? ' Comprovante na aba Comprovantes.' : ''),
             'data'    => $dados,
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);

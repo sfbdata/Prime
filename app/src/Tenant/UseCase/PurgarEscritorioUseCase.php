@@ -379,6 +379,10 @@ final class PurgarEscritorioUseCase
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['jornada_colaborador', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
+        // Comprovante do ponto (E15): FK tenant_id sem cascata; o registro_ponto_id já cai em cascata com a batida,
+        // mas a linha sai antes por ser do escritório. O contador de NSR não é referenciado por ninguém.
+        ['ponto_comprovante', 'tenant_id = :tenant'],
+        ['ponto_contador_nsr', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],
         // Horas pagas (ajuste manual do banco de horas): FK tenant_id/user_id NOT DEFERRABLE, sem
         // ON DELETE CASCADE (NO ACTION) — deleção explícita, no mesmo bloco das outras tabelas de

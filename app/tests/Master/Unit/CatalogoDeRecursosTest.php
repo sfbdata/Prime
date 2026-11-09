@@ -16,11 +16,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeRecursos::class)]
 final class CatalogoDeRecursosTest extends TestCase
 {
-    #[TestDox('21 linhas, 20 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
+    #[TestDox('22 linhas, 21 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(21, CatalogoDeRecursos::LINHAS);
-        self::assertCount(20, CatalogoDeRecursos::chaves());
+        self::assertCount(22, CatalogoDeRecursos::LINHAS);
+        self::assertCount(21, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
@@ -31,15 +31,16 @@ final class CatalogoDeRecursosTest extends TestCase
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura: 12 Telas, 7 Menu do usuário, 2 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura e o comprovante do Ponto: 12 Telas, 7 Menu do usuário, 3 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 12, 'Menu do usuário' => 7, 'Funções' => 2], $porGrupo);
+        self::assertSame(['Telas' => 12, 'Menu do usuário' => 7, 'Funções' => 3], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
         self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[11]['chave']);
         self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
         self::assertSame('assistente', CatalogoDeRecursos::LINHAS[20]['chave']);
+        self::assertSame('ponto-comprovante', CatalogoDeRecursos::LINHAS[21]['chave'], 'comprovante do Ponto (E15) nas Funções, depois do assistente');
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');
         self::assertSame('Voto', CatalogoDeRecursos::titulo('voto'), 'Voto entra nas Telas, depois do Contribua (bj-recursos.js do desenho 18)');
         self::assertNull(CatalogoDeRecursos::titulo('inexistente'));

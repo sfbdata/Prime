@@ -55,6 +55,9 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_MENU, 'chave' => 'contribua', 't' => 'Contribua (atalho)', 'ic' => 'bi-heart', 'd' => null, 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'chat', 't' => 'Chat I.A', 'ic' => 'bi-chat-dots', 'd' => 'Botão flutuante de conversas e assistente', 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'assistente', 't' => 'Assistente de pastas', 'ic' => 'bi-stars', 'd' => 'Agente que lê e organiza pastas', 'tela' => false, 'base' => false],
+        // Ponto (spec ponto-desenho-0811 §7 e E15): rótulo e descrição do bj-recursos.js. Nasce ligada (sem linha em
+        // `recurso_estado`); só emite com o segredo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoComprovante}).
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-comprovante', 't' => 'Ponto: comprovante em imagem', 'ic' => 'bi-receipt', 'd' => "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", 'tela' => false, 'base' => false],
     ];
 
     /**
