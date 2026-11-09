@@ -345,11 +345,13 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - consequência do P25 a conhecer: o "Saldo mês" da última linha visível pode diferir do "Saldo do mês" do rodapé
     (que só aparece com horas pagas). O rodapé é o acumulado da última linha que o motor entrega (dia com batida ou com
     justificativa), como antes da E2; o P25 esconde o dia só com justificativa, e o desconto dos dias sem batida até ele
-    entra no rodapé sem aparecer em linha nenhuma. O número certo é o do rodapé, que é o de antes;
+    entra no rodapé sem aparecer em linha nenhuma. O número certo é o do rodapé, que é o de antes. (Mudou na E17: o
+    rodapé da /ponto e o da ficha passam a vir do banco da competência, sem as horas pagas, e contam também os dias sem
+    batida depois da última batida do mês; ver E17, "Rodapé".);
   - com a lista do P23 e o "+" do P30 a, o atalho do esquecimento aparece em meses antigos; o servidor já aceitava
     qualquer dia passado pelo modal completo e o sistema não tem mês fechado, então não há exposição nova;
   - os números são os do motor: o rodapé e o "Saldo mês" de cada linha vêm das linhas sem o filtro; o PDF, o XLSX e
-    `montarDadosFolha` não mudaram.
+    `montarDadosFolha` não mudaram (na E17 o PDF, o XLSX e a ficha passam a usar a jornada da folha; ver E17, "Jornada").
 - Depende de: E1 (CSS e grade).
 - Migration: não.
 - Arquivos: `templates/ponto/_folha_table.html.twig` com as células em `_folha_saldo_dia.html.twig`,
@@ -874,6 +876,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   do escritório (spec da jornada, §10.4). Vale em toda tela, no PDF, no XLSX e na ficha do gestor. Antes, quem não tinha
   jornada pessoal não tinha as faltas contadas no banco. Medição em produção em 09/11/2026: muda 1 pessoa, em 1
   escritório, com o novo saldo em -24h.
+- Rodapé (decisão do Coordenador de 09/11/2026): o "Saldo do mês" da /ponto e o da ficha do gestor vêm do banco da
+  competência, sem as horas pagas (que somam à parte). A /ponto esconde os dias sem batida e eles contam, então a
+  última linha visível não serve. Em toda competência que a tela deixa escolher, o total bate entre a /ponto, a
+  ficha, o PDF e o XLSX, inclusive no mês só com lançamento de horas pagas.
 - Textos da aba (decididos na revisão):
   - Selos no singular quando cabe: "Vence hoje", "Vence em 1 dia", "1 mês".
   - Os dias contam corridos.
