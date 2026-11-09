@@ -1133,6 +1133,14 @@
         "permitidos": ["·", "×", "Content-Type"]
     },
 
+    "voto": {
+        "templates": [
+            "voto/index.html.twig"
+        ],
+        "permitidos": [
+            "voto-body"
+        ]
+    },
     "assinatura_eletronica_tela": {
         "templates": [
             "assinatura_eletronica/index.html.twig"

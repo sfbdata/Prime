@@ -9,9 +9,9 @@ namespace App\Master\Service;
  * (spec docs/specs/perfis-1.2-telas-e-recursos.md, R1, R3, R8 e §4).
  *
  * Ordem, rótulos, ícones, grupos e descrições copiados do `bj-recursos.js` do desenho
- * (docs/design/perfis-1.2/bj-recursos.js): 19 linhas e 18 chaves, porque "Contribua" (tela) e
+ * (docs/design/perfis-1.2/bj-recursos.js): 20 linhas e 19 chaves (com o Voto, do desenho 18), porque "Contribua" (tela) e
  * "Contribua (atalho)" dividem a chave `contribua` e mudam juntas. Depois do desenho entrou a tela
- * "Assinatura de documentos" (spec assinatura-documentos-etapa-1.md, seção 5): 20 linhas e 19 chaves.
+ * "Assinatura de documentos" (spec assinatura-documentos-etapa-1.md, seção 5): 21 linhas e 20 chaves.
  *
  * O mapa de rotas (§4) mora aqui também, para haver uma fonte só: o guarda de rota
  * ({@see \App\Master\EventListener\BloqueioDeRecursoDesativado}) e a faixa do Master perguntam
@@ -39,6 +39,9 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_TELAS, 'chave' => 'peticionar', 't' => 'Peticionar', 'ic' => 'bi-file-earmark-text', 'd' => null, 'tela' => true, 'base' => false],
         ['g' => self::GRUPO_TELAS, 'chave' => 'meuperfil', 't' => 'Meu Perfil', 'ic' => 'bi-person', 'd' => null, 'tela' => true, 'base' => true],
         ['g' => self::GRUPO_TELAS, 'chave' => 'contribua', 't' => 'Contribua', 'ic' => 'bi-heart', 'd' => null, 'tela' => true, 'base' => false],
+        // BlueJus Voto (docs/specs/bluejus-voto.md): rótulo e ícone do bj-recursos.js de docs/design/redesign-08-11-26.
+        // Nasce desligado pela Version20261109120000: só o Master vê até a liberação.
+        ['g' => self::GRUPO_TELAS, 'chave' => 'voto', 't' => 'Voto', 'ic' => 'bi-archive', 'd' => null, 'tela' => true, 'base' => false],
         ['g' => self::GRUPO_TELAS, 'chave' => 'pushpub', 't' => 'Push compartilhado (link público)', 'ic' => 'bi-link-45deg', 'd' => null, 'tela' => true, 'base' => false],
         ['g' => self::GRUPO_TELAS, 'chave' => 'vagaspub', 't' => 'Vagas públicas (link)', 'ic' => 'bi-megaphone', 'd' => null, 'tela' => true, 'base' => false],
         // Nasce desligada (a M1 grava `ativo = false`) até a etapa 3 da Assinatura.
@@ -74,6 +77,8 @@ final class CatalogoDeRecursos
         'vagaspub'    => ['trabalho_externo_vagas_publicas', 'trabalho_externo_vagas_link', 'trabalho_externo_vagas_compartilhar'],
         // Contribua (frentes da f6): a página e as ações dela. O webhook do banco fica sempre aberto (abaixo).
         'contribua'   => ['contribua_'],
+        // BlueJus Voto: toda rota do domínio começa com `voto_`.
+        'voto'        => ['voto_'],
         // Assinatura de documentos: a página, o JSON e os arquivos da tela.
         'assinatura'  => ['assinatura_eletronica_'],
     ];
@@ -97,7 +102,7 @@ final class CatalogoDeRecursos
         'pasta_push_links_revogar',
     ];
 
-    /** @return list<string> as 18 chaves, na ordem da primeira aparição. */
+    /** @return list<string> as 19 chaves, na ordem da primeira aparição. */
     public static function chaves(): array
     {
         return array_values(array_unique(array_column(self::LINHAS, 'chave')));

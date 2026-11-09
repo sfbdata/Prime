@@ -30,6 +30,7 @@ class PermissionFixture extends Fixture
         ['code' => 'modules.inteligencia.view',  'description' => 'Usar a BlueJus IA',                          'group' => 'modules'],
         ['code' => 'modules.trabalho_externo.view', 'description' => 'Acesso ao módulo Trabalho Externo (solicitar e acompanhar demandas)', 'group' => 'modules'],
         ['code' => 'modules.calculo.view',       'description' => 'Acesso ao módulo Cálculo (atualização monetária)', 'group' => 'modules'],
+        ['code' => 'modules.voto.view',          'description' => 'Acesso ao módulo Voto (eleições e votações)', 'group' => 'modules'],
         ['code' => 'modules.assinatura_eletronica.view', 'description' => 'Acesso ao módulo Assinatura de documentos', 'group' => 'modules'],
 
         // --- recursos ---

@@ -8,6 +8,15 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.42.1] - 2026-11-09
+
+### Corrigido
+
+- `symfony/process` passa de dependência só de desenvolvimento para `require` (mesma versão, v7.4.21). A imagem de produção instala com `--no-dev`, então o `ExecucaoDoGhostscript` não achava a classe `Process` e o Ghostscript nunca rodava em produção. A falha caía só no log, porque compressão e contagem de páginas são de melhor esforço.
+- Efeito medido em produção (09/11/2026): nenhum dos 15.472 PDFs de `pasta_documento` tem `paginas` preenchido.
+- Teste de arquitetura novo `DependenciasDeProducaoArquiteturaTest`: falha quando `src/` usa classe de pacote que só existe em `require-dev` (fixtures e Story ficam de fora: carregam só em dev e test).
+- Depois de publicar, preencher as páginas do acervo com `app:documentos:calcular-hash --paginas`, fatiado com `--limite`.
+
 ## [2.42.0] - 2026-11-07
 
 ### Adicionado
@@ -1699,7 +1708,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.42.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.42.1...HEAD
+[2.42.1]: https://github.com/sfbdata/Prime/compare/v2.42.0...v2.42.1
 [2.42.0]: https://github.com/sfbdata/Prime/compare/v2.41.0...v2.42.0
 [2.41.0]: https://github.com/sfbdata/Prime/compare/v2.40.1...v2.41.0
 [2.40.1]: https://github.com/sfbdata/Prime/compare/v2.40.0...v2.40.1
