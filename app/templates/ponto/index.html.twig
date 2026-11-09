@@ -518,16 +518,15 @@
             return m === 0 ? h + 'h' : h + 'h' + String(m).padStart(2, '0');
         }
 
-        // Antes do repouso batido, a conta do sistema: entrada + duração da escala de hoje, com o almoço da escala (a 1h
-        // do protótipo é valor de exemplo). Depois do repouso: entrada + meta do dia + intervalo, o batido se houver;
-        // senão o mínimo da Jornada do escritório, só quando a escala tem almoço (duração maior que a meta). Sem meta
-        // (feriado, dia fora da escala), sem previsão.
+        // Sem meta (feriado, dia fora da escala), sem previsão nem lembrete de saída, antes ou depois do repouso. Antes
+        // do repouso batido, a conta do sistema: entrada + duração da escala de hoje, com o almoço da escala (a 1h do
+        // protótipo é valor de exemplo). Depois do repouso: entrada + meta do dia + intervalo, o batido se houver;
+        // senão o mínimo da Jornada do escritório, só quando a escala tem almoço (duração maior que a meta).
         function saidaPrevista() {
-            if (!tEntrada) return null;
+            if (!tEntrada || metaDiaMinutos <= 0) return null;
             if (!tRepouso) {
                 return duracaoMinutos === null ? null : new Date(tEntrada.getTime() + duracaoMinutos * 60000);
             }
-            if (metaDiaMinutos <= 0) return null;
             const escalaTemIntervalo = duracaoMinutos === null || duracaoMinutos > metaDiaMinutos;
             let intervaloMs = escalaTemIntervalo ? intervaloPrevistoMinutos * 60000 : 0;
             if (tRepouso && tRetorno && tRetorno > tRepouso) {
@@ -1041,10 +1040,10 @@
 
     // Falha em que dá para afirmar que nada entrou: o servidor recusou antes de gravar.
     const AVISO_NAO_ENTROU = 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.';
-    // O módulo da batida (`ponto-batida.js`) é arquivo à parte: se ele não carregou (rede, cache, bloqueador), o toque
-    // responde em vez de ficar mudo.
     // Virada do dia com a página aberta: os botões dos tipos já começam o dia novo, mas a folha e o banco são de ontem.
     const AVISO_VIRADA_DO_DIA = 'O dia virou com esta página aberta: os botões acima já são do dia novo, mas a folha e o banco de horas ainda são de ontem. Atualize a página antes de conferir.';
+    // O módulo da batida (`ponto-batida.js`) é arquivo à parte: se ele não carregou (rede, cache, bloqueador), o toque
+    // responde em vez de ficar mudo.
     const AVISO_PAGINA_INCOMPLETA = 'A página não carregou por inteiro e a batida não foi enviada. Atualize a página e tente de novo.';
 
     btnAtualizarPagina.addEventListener('click', () => window.location.reload());

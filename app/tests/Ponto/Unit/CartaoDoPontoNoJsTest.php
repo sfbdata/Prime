@@ -101,7 +101,7 @@ final class CartaoDoPontoNoJsTest extends TestCase
         self::assertStringNotContainsStringIgnoringCase('lista abaixo', $tela);
     }
 
-    #[TestDox('Saída prevista antes do repouso batido: entrada mais a duração da escala, com o almoço da escala')]
+    #[TestDox('Saída prevista antes do repouso batido: entrada mais a duração da escala, com o almoço da escala; sem meta, nenhuma')]
     public function testSaidaPrevistaPelaEscala(): void
     {
         $prevista = $this->corpoDaFuncao('function saidaPrevista(');
@@ -111,10 +111,17 @@ final class CartaoDoPontoNoJsTest extends TestCase
             $prevista,
             'antes do repouso, a previsão voltou a sair de valor que não é a escala'
         );
-        self::assertLessThan(
-            (int) strpos($prevista, 'metaDiaMinutos <= 0'),
-            (int) strpos($prevista, 'if (!tRepouso)'),
-            'a escala decide antes da meta: a meta (sem almoço) só entra depois do repouso batido'
+        // Sem meta (feriado, dia fora da escala): sem previsão nem lembrete "Passou da saída prevista", também
+        // antes do repouso batido. A guarda da meta vem ANTES do ramo da escala.
+        $guarda = strpos($prevista, 'if (!tEntrada || metaDiaMinutos <= 0) return null;');
+        self::assertIsInt($guarda, 'dia sem meta voltou a ter saída prevista');
+        self::assertLessThan((int) strpos($prevista, 'if (!tRepouso)'), $guarda, 'o ramo antes do repouso escapa da guarda da meta');
+        self::assertSame(1, substr_count($prevista, 'metaDiaMinutos <= 0'));
+
+        // O lembrete de saída só sai de uma previsão: sem previsão, a caixa some.
+        self::assertMatchesRegularExpression(
+            "/const previsao = tSaida \? null : saidaPrevista\(\);\s*if \(!previsao\) \{\s*mostrarAvisoDoDia\('', '', ''\);/",
+            $this->corpoDaFuncao('function atualizarAvisoDoDia(')
         );
     }
 

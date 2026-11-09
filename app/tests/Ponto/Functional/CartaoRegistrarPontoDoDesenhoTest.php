@@ -12,6 +12,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\BlocoJornadaColaborador;
+use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
@@ -263,6 +264,31 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         // A conta (entrada + duração, antes do repouso batido) é do JS: `CartaoDoPontoNoJsTest::testSaidaPrevistaPelaEscala`.
         // 08:00 + 600 min = 18:00, e não 08:00 + 8 h + 1 h do protótipo (17:00).
         self::assertStringContainsString('const duracaoMinutos = 600;', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('Feriado hoje: a tela recebe meta 0, e o JS não mostra saída prevista nem o lembrete, mesmo com a escala')]
+    public function testFeriadoSemSaidaPrevista(): void
+    {
+        $jornada = (new JornadaColaborador())->setUser($this->user)->setTenant($this->x);
+        $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1, 2, 3, 4, 5, 6, 7])->setEntrada('08:00')
+            ->setRepouso('12:00')->setRetorno('14:00')->setSaida('18:00')->setMinutosBloco(480));
+        $feriado = new Feriado();
+        $feriado->setNome('Feriado de teste');
+        $feriado->setData(new \DateTime('today'));
+        $feriado->setRecorrente(false);
+        $feriado->setTenant($this->x);
+        $this->em()->persist($jornada);
+        $this->em()->persist($feriado);
+        $this->em()->flush();
+
+        $this->batida('entrada', new \DateTimeImmutable('today 08:00:00'));
+        $tela = $this->tela();
+
+        // O JS lê a meta deste atributo; com 0, `saidaPrevista` devolve null antes do ramo da escala
+        // (`CartaoDoPontoNoJsTest::testSaidaPrevistaPelaEscala`). A escala continua chegando: quem esconde é a meta.
+        self::assertSame('0', $tela->filter(self::CORPO . ' > #excedente-hoje')->attr('data-meta-dia-minutos'));
+        self::assertStringContainsString('const duracaoMinutos = 600;', (string) $this->client->getResponse()->getContent());
+        self::assertStringContainsString('d-none', (string) $tela->filter(self::CORPO . ' > #ponto-aviso-dia')->attr('class'));
     }
 
     #[TestDox('Home Office hoje: a caixa da localização diz que não exige posição e não tem o botão de atualizar')]
