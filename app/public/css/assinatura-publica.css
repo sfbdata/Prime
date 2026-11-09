@@ -9,6 +9,10 @@
    valores do assinatura.css, que a página pública não carrega.
 
    Camadas: valores do desenho (recusa 2147483100, tela verde 2147483646, aviso 2147483647).
+
+   Tema comemorativo (M18): o template inclui layout/_globais/tema_comemorativo.html.twig. As cores que o bj-tema.js
+   do desenho recolore usam as variáveis dele, com o valor do desenho como reserva: fundo e texto #0a76a8/#0a6fa0
+   viram --bjt-p, fundo #0b5f86 vira --bjt-d e fundo #e5f1f7 vira --bjt-l. Os ícones do tema entram no cabeçalho.
    ============================================================================= */
 
 body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
@@ -24,24 +28,24 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 .bjaPub { min-height: 100vh; display: flex; flex-direction: column; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: normal; color: #12242f; }
 .bjaPub :where(*:not(button, input, select, textarea)) { box-sizing: content-box; }
 .bjaPub [hidden] { display: none !important; }
-.bjaPub a { color: #0a6fa0; }
-.bjaPub a:hover { color: #0b5f86; }
+.bjaPub a { color: var(--bjt-p, #0a6fa0); }
+.bjaPub a:hover { color: var(--bjt-d, #0b5f86); }
 
 /* ── Componentes do desenho ─────────────────────────────────────────── */
 .bjaPub .bjaCard { background: #fff; border: 1px solid #d3dde4; border-radius: 3px; box-shadow: 0 1px 3px rgba(18, 36, 47, .06); }
 .bjaPub .bjaOculto { overflow: hidden; }
-.bjaPub .bjaHd { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 10px 16px; color: #fff; font-size: 15.5px; font-weight: bold; background: #0a6fa0; }
+.bjaPub .bjaHd { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 10px 16px; color: #fff; font-size: 15.5px; font-weight: bold; background: var(--bjt-p, #0a6fa0); }
 .bjaPub .bjaHd.is-perigo { background: #a3232b; }
 
-.bjaPub .bjaB { height: 32px; padding: 0 11px; border: 1px solid #0a6fa0; border-radius: 3px; background: #fff; color: #0a6fa0; font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; text-decoration: none; box-sizing: border-box; margin: 0; }
-.bjaPub .bjaB:hover { background: #e5f1f7; color: #0a6fa0; }
+.bjaPub .bjaB { height: 32px; padding: 0 11px; border: 1px solid var(--bjt-p, #0a6fa0); border-radius: 3px; background: #fff; color: var(--bjt-p, #0a6fa0); font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; text-decoration: none; box-sizing: border-box; margin: 0; }
+.bjaPub .bjaB:hover { background: var(--bjt-l, #e5f1f7); color: var(--bjt-p, #0a6fa0); }
 .bjaPub .bjaB[disabled] { opacity: .5; cursor: default; }
 .bjaPub .bjaN { border-color: #d3dde4; color: #34505f; }
 .bjaPub .bjaN:hover { background: #f3f6f8; color: #34505f; }
 .bjaPub .bjaR { border-color: #a3232b; color: #7f1c23; }
 .bjaPub .bjaR:hover { background: #fdecee; color: #7f1c23; }
-.bjaPub .bjaP { height: 38px; padding: 0 16px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; margin: 0; }
-.bjaPub .bjaP:hover { background: #0b5f86; }
+.bjaPub .bjaP { height: 38px; padding: 0 16px; border: none; border-radius: 3px; background: var(--bjt-p, #0a6fa0); color: #fff; font: inherit; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; margin: 0; }
+.bjaPub .bjaP:hover { background: var(--bjt-d, #0b5f86); }
 .bjaPub .bjaP[disabled] { background: #7a8e9b; cursor: default; }
 
 .bjaPub .bjaL { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: bold; color: #4a6373; min-width: 0; margin: 0; }
@@ -49,8 +53,12 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 .bjaPub textarea.bjaF { height: auto; padding: 7px 8px; resize: vertical; }
 
 /* ── Cabeçalho do signatário (F2 a F6): sem moldura do sistema, não fixo ── */
-.bjaPub .bjaPubCab { background: #0a76a8; color: #fff; min-height: 58px; display: flex; align-items: center; gap: 14px; padding: 0 clamp(10px, 2vw, 24px); }
+.bjaPub .bjaPubCab { background: var(--bjt-p, #0a76a8); color: #fff; min-height: 58px; display: flex; align-items: center; gap: 14px; padding: 0 clamp(10px, 2vw, 24px); }
 .bjaPub .bjaPubMarca { height: 28px; }
+/* Tema comemorativo: o cabeçalho segura os ícones (.bjtDeco, z-index -1) acima do fundo e abaixo do conteúdo,
+   como a tarja da entrada (auth/entrada.css). */
+.bjaPub .bjaPubCab { position: relative; z-index: 1; }
+.bjaPub .bjaPubCab .bjtDeco { height: auto; bottom: 0; }
 .bjaPub .bjaPubSep { width: 1px; height: 20px; background: rgba(255, 255, 255, .45); }
 .bjaPub .bjaPubNome { font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* No desenho o fundo e a cor vêm em linha: o hover do .bjaB não muda este botão. */
@@ -62,7 +70,7 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 
 /* ── Bloqueio (G1 a G4) ─────────────────────────────────────────────── */
 .bjaPub .bjaBloq { padding: 30px; text-align: center; max-width: 560px; margin: 24px auto; }
-.bjaPub .bjaBloq > .bi { font-size: 38px; color: #0a6fa0; }
+.bjaPub .bjaBloq > .bi { font-size: 38px; color: var(--bjt-p, #0a6fa0); }
 .bjaPub .bjaBloqT { font-size: 19px; font-weight: bold; margin: 8px 0 4px; }
 .bjaPub .bjaBloqD { font-size: 14px; color: #4a6373; }
 
@@ -79,7 +87,7 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 .bjaPub .bjaAbaAss,
 .bjaPub .bjaAbaAss:hover { flex: 1; background: #fff; }
 .bjaPub .bjaAbaAss.is-on,
-.bjaPub .bjaAbaAss.is-on:hover { background: #e5f1f7; }
+.bjaPub .bjaAbaAss.is-on:hover { background: var(--bjt-l, #e5f1f7); }
 .bjaPub .bjaRubTela { width: 100%; height: 120px; border: 1px solid #9fc3d8; background: #fff; touch-action: none; display: block; cursor: crosshair; }
 .bjaPub .bjaLimpar { margin-top: 4px; }
 .bjaPub .bjaDigitada { border: 1px solid #9fc3d8; padding: 14px; text-align: center; font: italic 30px Georgia, serif; color: #0b3550; min-height: 44px; }
@@ -117,7 +125,7 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 .bjaPub .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); box-sizing: border-box; background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }
 .bjaPub .bjaToast.is-erro { background: #a3232b; }
 .bjaPub .bjaToast.is-aviso { background: #8a6200; }
-.bjaPub .bjaToast.is-info { background: #0a6fa0; }
+.bjaPub .bjaToast.is-info { background: var(--bjt-p, #0a6fa0); }
 
 /* ── Prévia e folha A4 (mesmos valores do assinatura.css) ───────────── */
 .bjaPub .bjaPv { background: #dfe6ec; padding: 14px; max-height: 84vh; overflow: auto; box-sizing: border-box; }

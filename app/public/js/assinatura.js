@@ -778,13 +778,16 @@
             + '</div>';
     }
 
+    /* C5: o nome digitado ao assinar (nomeDigitado, do Detalhe) quando vier; senão o cadastrado (desenho: nomeAss || nome). */
+    function nomeDoSignatario(x) { return x.nomeDigitado || x.nome || ''; }
+
     function desenharDetalhe() {
         const d = s.det, st = stAtual(d);
         const sigs = (d.signatarios || []).map((x, i) => {
             const sg = x.situacao === 'assinado' ? 'assinado' : x.situacao === 'recusado' ? 'recusado' : 'pendente';
             const metodo = metodoRotulo(x.metodo);
             const info = sg === 'assinado' ? dataHora(x.assinadoEm) + (metodo ? ' · ' + metodo : '') : (x.email || T('det.sem_email'));
-            return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(x.nome) + '</b><span class="bjaSeloSig sg-' + sg + '">' + esc(T('sig.' + sg)) + '</span></div>'
+            return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(nomeDoSignatario(x)) + '</b><span class="bjaSeloSig sg-' + sg + '">' + esc(T('sig.' + sg)) + '</span></div>'
                 + '<div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(nivelRotulo(x.nivel)) + '</div><div class="bjaSigInfo">' + esc(info) + '</div>'
                 + (sg === 'pendente' && st === 'aguardando' ? acoesDoSignatario(d, x, i) : '') + '</div>';
         }).join('');
@@ -815,7 +818,7 @@
                 } else if (t === 'd' && s.det) {
                     const d = s.det;
                     F.pintar(pv, {
-                        blocos: d.blocos || [], sign: d.signatarios || [], logo: logoDoDocumento(d.logo, d.id).url, layout: d.layout || '', lateral: d.lateral || '',
+                        blocos: d.blocos || [], sign: (d.signatarios || []).map(x => Object.assign({}, x, { nome: nomeDoSignatario(x) })), logo: logoDoDocumento(d.logo, d.id).url, layout: d.layout || '', lateral: d.lateral || '',
                         limpa: !!d.folhaBranca, cod: d.codigo || '', hash: d.hashEnviado || '', fonte: d.arquivo && d.arquivo.url ? F.fonteDaUrl(d.arquivo.url) : null,
                     });
                 }

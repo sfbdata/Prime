@@ -76,9 +76,16 @@
     /* ── Página ─────────────────────────────────────────────────────────── */
     function desenhar() {
         raiz.classList.add('bjaPub');
+        /* Tema comemorativo (M18): o tema-comemorativo.js põe os ícones (.bjtDeco) no [data-bjt-cabecalho] e o brilho
+           no [data-bjt-logo] uma vez só; ao redesenhar, os dois passam para o cabeçalho novo. */
+        const deco = raiz.querySelector('[data-bjt-cabecalho] > .bjtDeco');
+        const brilho = !!raiz.querySelector('[data-bjt-logo].bjt-logo-anim');
         raiz.innerHTML = cabecalho()
             + '<main class="bjaPubMain">' + (comFormulario() ? formulario() : bloqueio()) + '</main>'
             + '<div class="bjaCamada" data-bja-cam="modal"></div><div class="bjaCamada" data-bja-cam="ok"></div><div class="bjaCamada" data-bja-cam="toast"></div>';
+        const cab = raiz.querySelector('[data-bjt-cabecalho]');
+        if (deco && cab) { cab.insertBefore(deco, cab.firstChild); }
+        if (brilho) { raiz.querySelector('[data-bjt-logo]').classList.add('bjt-logo-anim'); }
         canv = null; vazio = true;
         if (comFormulario()) {
             ligarCanvas();
@@ -91,7 +98,7 @@
     /* Cabeçalho do signatário (F2 a F6): logo, separador, nome do documento e, na prévia, "Fechar pré-visualização". */
     function cabecalho() {
         const d = est.documento;
-        return '<header class="bjaPubCab"><img class="bjaPubMarca" src="' + esc(MARCA) + '" alt="BlueJus"><span class="bjaOc bjaPubSep"></span>'
+        return '<header class="bjaPubCab" data-bjt-cabecalho><img class="bjaPubMarca" src="' + esc(MARCA) + '" alt="BlueJus" data-bjt-logo><span class="bjaOc bjaPubSep"></span>'
             + '<span class="bjaPubNome">' + esc(d ? d.nome : '') + '</span>'
             + (est.previa ? '<button type="button" class="bjaB bjaPubFechar" data-bja-acao="fechar-previa">' + esc(T('fechar_previa')) + '</button>' : '')
             + '</header>';
