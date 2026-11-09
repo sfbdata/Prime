@@ -41,6 +41,12 @@ final class LimitesDaConferencia
     /** Saída do inflate (defesa contra bomba de compressão). */
     public const INFLADO_MAXIMO_EM_BYTES = 10 * 1024 * 1024;
 
+    /**
+     * Trabalho somado de uma leitura de objeto: bytes copiados (janelas do dicionário, dados do fluxo) mais bytes
+     * inflados. Cinco vezes o teto do PDF: cabe um PDF real e para o arquivo feito para gastar CPU (M22).
+     */
+    public const TRABALHO_MAXIMO_EM_BYTES = 100 * 1024 * 1024;
+
     public const CARACTERES_MAXIMOS_DE_NOME = 256;
 
     private function __construct()

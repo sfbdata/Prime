@@ -198,6 +198,7 @@ arquivo recebeu acréscimos depois da última assinatura, e esse trecho não foi
 | `BYTES_DE_TAMANHO_MAXIMOS_DER` | 4 (tamanho até 4 GB) | `naoverif` ("Formato de assinatura não reconhecido") |
 | `OBJETOS_MAXIMOS` | 10.000 (cabeçalhos `obj` vistos, `/ObjStm` e `/N` de cada um) | `objeto` devolve null |
 | `INFLADO_MAXIMO_EM_BYTES` | 10 MB | `inflar` e `objeto` devolvem null |
+| `TRABALHO_MAXIMO_EM_BYTES` | 100 MB somados por leitura (copiados mais inflados) | `objeto` devolve null |
 | `CARACTERES_MAXIMOS_DE_NOME` | 256 | o nome é cortado |
 
 Leitura sem regex que volta atrás (quantificadores possessivos e busca por `strpos`), avisos do PHP silenciados só em
@@ -265,6 +266,11 @@ Decisões da revisão do motor (feature-review-agent):
   `naoverif` ("Não foi possível conferir a chave do certificado"), em vez de o motor aceitar o que vier depois. Chave
   RSA com menos de 512 bits no RSA-PSS fica `naoverif` com "Chave curta demais para conferir" (antes saía `alterada`,
   o que acusava alteração sem prova).
+- **M22. Teto de trabalho do `objeto`**: cada `/Type/ObjStm` refazia a busca do `endstream`, a cópia e o inflate do
+  mesmo fluxo (1.000 marcadores e um fluxo de 15 MB levavam 20 s). Agora o fluxo é identificado pela posição da
+  palavra `stream` e lido uma vez só; o ` obj` precisa estar até 4.096 bytes antes do marcador e o `stream` até 4.096
+  bytes depois (senão o fluxo é ilegível e `objeto` devolve null, como antes); e a leitura inteira soma o que copia e
+  o que infla, parando com null ao passar de `TRABALHO_MAXIMO_EM_BYTES` (100 MB).
 
 ## 7. Testes
 
