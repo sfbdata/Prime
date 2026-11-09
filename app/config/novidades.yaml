@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.42.1"
+  data: "2026-11-09"
+  itens:
+    - "A redução de tamanho dos PDFs enviados para a pasta passa a funcionar no sistema publicado. Antes, o PDF era guardado sempre do tamanho original."
+    - "O sistema passa a contar as páginas de cada PDF enviado. Sem essa contagem, a leitura de PDF pela IA da pasta recusava o documento."
+    - "Começamos a preparar a nova tela do Ponto Eletrônico: registro com comprovante, folha mensal com aceite, banco de horas e gestão da equipe numa tela só. Ela chega em etapas nas próximas versões."
 - versao: "2.42.0"
   data: "2026-11-07"
   itens:
