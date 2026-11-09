@@ -449,6 +449,74 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   permissão no perfil vê a aba; isolamento por escritório; abono em lote não abona justificativa de outro escritório, e
   a própria só para o primário e o Master (P43 a); trocar a escala grava versão nova a partir de hoje, não muda os dias
   anteriores e aparece no histórico da ficha.
+- Decisões da etapa (implementada em 09/11/2026, branch `ponto-desenho-e5`, sobre o contrato da E5 e E6; decisões do
+  Coordenador na delegação):
+  - o painel (`EquipeDoPontoController::painel`, `ConsultarEquipeDoPontoUseCase`) é buscado quando a aba abre
+    (`ponto-paineis.js`); a guarda do contrato fica (escritório da sessão, módulo ponto, `GestaoDoPonto::veEquipe`; sem
+    ela, 403). A nota "Dados de exemplo" (L211) não entra (D16);
+  - equipe: vínculos ativos do escritório da sessão com a chave do ponto ligada, por nome. Quem vê vem primeiro, com o
+    subtítulo "Você"; os outros, com o nome do cargo (sem cargo, sem subtítulo);
+  - situação de hoje (P54, regra do desenho sobre as batidas que a folha escolhe para o dia, `SituacaoDeHojeNaEquipe`):
+    sem entrada, "Sem registro"; com saída, "Encerrada"; repouso sem retorno, "Em intervalo"; senão, "Em jornada".
+    Entrada "HH:MM"; último registro "HH:MM · Tipo"; sem batida, "Sem registro" nas duas colunas (seção 8). As batidas
+    de hoje do escritório vêm numa consulta só (`RegistroPontoRepository::batidasDoDiaDaEquipe`);
+  - Banco: o mesmo número do topo da /ponto da pessoa (`FolhaPontoBuilder::calcularSaldoAnual`, mesmos feriados, jornada
+    do escritório e início da contagem). Pendências: as de registro da pessoa neste escritório
+    (`ListarPendenciasDeRegistroUseCase::soNoEscritorio`). O cálculo do banco é a parte cara (umas 26 consultas por
+    pessoa): por isso o painel só é buscado quando a aba abre;
+  - 5 indicadores, na ordem do desenho: Em jornada, Em intervalo, Sem registro, Pendências (a soma da coluna) e A
+    analisar (o tamanho da lista);
+  - Escala (P56 a): as 4 escalas do desenho (`CatalogoDeEscalas`, ids e rótulos do `ESC`, L409). Vem marcada a que tem
+    os mesmos minutos em cada dia que a jornada de hoje (a pessoal com blocos ou, sem ela, a do escritório; o horário não
+    conta). Nenhuma igual: entra antes uma opção marcada e desligada, "Personalizada (Xh)" ou "Jornada do escritório
+    (Xh)", com a carga semanal da própria jornada (sem ela, a soma dos dias; "42h30" quando tem minutos);
+  - trocar a escala: POST JSON `/ponto/equipe/{id}/escala` (`ponto_equipe_escala`, token `X-CSRF-Token` da página),
+    `TrocarEscalaNaEquipeUseCase`: a pessoa precisa ter vínculo ativo no escritório (senão 404), a escala precisa ser do
+    catálogo (senão 422), e grava pelo `SalvarVersaoDaJornadaUseCase` uma versão valendo a partir de hoje com o modelo
+    (entrada 09:00, repouso 12:00, retorno 13:00, saída pela carga do dia: 17:20, 18:48, 18:00 ou 16:00). O alerta de
+    ponto fica como está na jornada pessoal (sem ela, ligado). A versão que já começa hoje é atualizada; a primeira nasce
+    sem cobrir os dias de antes. A conferência de choque com outro escritório é a da ficha, extraída para
+    `ChoqueDaJornadaProposta` (a ficha passa a usá-la, mesmo comportamento); na aba, choque responde 409 com a mensagem
+    (a ficha segue com 422). Na tela: deu certo, "Escala de NOME alterada." só para leitor de tela; recusa ou sem
+    resposta (prazo de 15 s), a frase no topo do painel (`role="alert"`) e a escolha volta. O painel não é buscado de
+    novo depois da troca;
+  - "Justificativas a analisar (N)" (P57): as em análise do escritório, de quem tem vínculo ativo nele
+    (`JustificativaPontoRepository::aAnalisarNoEscritorio`). As de quem vê entram só quando ele pode analisar a própria
+    (P43 a, `AnaliseDaPropriaJustificativa`) e vêm primeiro; depois as da equipe, da data mais nova para a mais antiga e
+    por nome. O subtítulo é o da E3, num macro só (`_justificativa_macros.html.twig`, a saída da E3 não muda). O número
+    da aba é `JustificativasAAnalisarDaEquipe::contarAAnalisar(User, Tenant): int` (uma contagem, sem carregar a lista);
+  - "Abonar selecionadas" é um formulário (POST `/ponto/equipe/abonar`, `ponto_equipe_abonar`, `ids[]`, token
+    `ponto_equipe_abonar`) que volta para a /ponto na aba Equipe. Desligado sem nada marcado (o JS liga). O lote
+    (`AbonarJustificativasDaEquipeUseCase`) passa cada id pelas portas da ficha: só do escritório da sessão e de quem tem
+    vínculo ativo ("Justificativa não encontrada neste escritório."), a própria só com o P43 a; o abono em si é o da
+    ficha, pela interface `AbonoDeJustificativa` (uma função: abona a justificativa já conferida, ou devolve o motivo
+    de não ter abonado). Mensagens: "1 justificativa abonada." ou "N justificativas abonadas." e uma por recusa
+    ("Nome (dd/mm/aaaa): motivo"); nada marcado, "Selecione ao menos uma justificativa.";
+  - PENDENTE de ligar: o adaptador de hoje (`AbonoDeJustificativaProvisorio`) lança `LogicException("ligar ao
+    AnalisarJustificativaUseCase")`, que outra frente extrai do TenantController (decisão do Coordenador, 09/11/2026:
+    esta etapa não mexe no TenantController). Até lá, "Abonar selecionadas" falha com erro 500;
+  - do sistema, no molde do desenho: a linha "Ninguém registra ponto neste escritório." na tabela vazia, o botão
+    desligado mais claro, a frase de erro no topo e o aviso só para leitor de tela. A tabela não tem `pe-resp`: no
+    celular rola para o lado. CSS num bloco só no fim de `ponto-eletronico.css`, com os tokens da tela (sem token novo);
+  - o número de Banco segue uma regra de hoje do `calcularSaldoAnual`: quem não tem jornada pessoal no escritório tem
+    só as horas pagas no saldo. A primeira troca de escala cria a jornada pessoal e o número passa a ser o saldo do ano,
+    na aba e no topo da /ponto da pessoa (a ficha faz o mesmo hoje).
+- Arquivos: `EquipeDoPontoController`, `ConsultarEquipeDoPontoUseCase`, `TrocarEscalaNaEquipeUseCase`,
+  `AbonarJustificativasDaEquipeUseCase`, `src/Ponto/Service/` (`CatalogoDeEscalas`, `EscalaDoCatalogo`,
+  `EscalaDaPessoaNaEquipe`, `HojeDaPessoaNaEquipe`, `JustificativasAAnalisarDaEquipe`, `ChoqueDaJornadaProposta`,
+  `AbonoDeJustificativa` e o provisório), `SituacaoDeHojeNaEquipe`, DTOs de saída, exceções `ForaDaEquipeException` e
+  `EscalaDesconhecidaException`; consultas novas em `RegistroPontoRepository`, `JustificativaPontoRepository` e
+  `UserTenantRepository` (legado, só acrescenta); `ListarPendenciasDeRegistroUseCase::soNoEscritorio`;
+  `JornadaColaboradorController` (usa `ChoqueDaJornadaProposta`); `_abas_equipe.html.twig`,
+  `_justificativa_macros.html.twig`, `_abas_justificativas.html.twig` (usa o macro); `public/js/ponto-equipe.js`; bloco
+  da E5 em `ponto-eletronico.css`.
+- Testes: `SituacaoDeHojeNaEquipeTest`, `CatalogoDeEscalasTest`, `TrocarEscalaNaEquipeUseCaseTest`,
+  `AbonarJustificativasDaEquipeUseCaseTest` (com o dublê do abono e o provisório), `EquipeDoPontoTelaTest` (arranjo por
+  filho direto e textos, quem entra, situações, escala marcada, banco e pendências iguais aos da /ponto da pessoa,
+  gestor pelo perfil, lista vazia, outro escritório), `TrocarEscalaNaEquipeTest` (versão de hoje, passado sem mudança
+  com e sem jornada pessoal, duas trocas no mesmo dia, histórico na ficha, choque 409, guardas),
+  `AbonoEmLoteDaEquipeTest` (dublê do abono: abonadas, recusa, isolamento, P43 a no lote, guardas),
+  `EquipeDoDesenhoCssTest`, `PontoEquipeJsTest`.
 
 **E6. Configurações, parte 1: sedes e feriados na aba.**
 - Entra: P68, P69 (fica: mapa e busca por CEP ou endereço), P70 (a: sede nova nasce com 150 m; as sedes de hoje não
@@ -699,6 +767,8 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   (seção 5).
 - E3 implementada na branch `ponto-desenho-e3` (empilhada na E2), sem migration, em parciais novos (a tela antiga fica
   intocada). Decisões e os pontos de liga e desliga do P40, P43 a e P41 registrados na E3 (seção 5).
+- E5 implementada na branch `ponto-desenho-e5`, sem migration. Decisões registradas na E5 (seção 5). Falta ligar o
+  "Abonar selecionadas" ao AnalisarJustificativaUseCase (adaptador provisório).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
   saldo de antes dos lotes (E17).
