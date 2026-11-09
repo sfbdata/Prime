@@ -10,8 +10,14 @@ use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Ponto\Repository\RegistroPontoRepository::class)]
+// O mesmo envio (E13) não entra duas vezes para a mesma pessoa; as batidas sem identificador (antigas, do gestor e do
+// esquecimento) ficam com NULL, que o PostgreSQL deixa repetir.
+#[ORM\UniqueConstraint(name: self::INDICE_DO_ENVIO, columns: ['user_id', 'id_envio'])]
 class RegistroPonto implements Auditavel, TenantAware
 {
+    /** O índice único do envio: a batida reconhece pela mensagem do banco a violação que é dele. */
+    public const INDICE_DO_ENVIO = 'uniq_registro_ponto_user_envio';
+
     public const TIPO_ENTRADA = 'entrada';
     public const TIPO_REPOUSO = 'repouso';
     public const TIPO_RETORNO = 'retorno';
@@ -71,6 +77,23 @@ class RegistroPonto implements Auditavel, TenantAware
     // Batida registrada em home office (fora do raio das sedes, sem GPS). sede/lat/lng ficam nulos.
     #[ORM\Column(options: ['default' => false])]
     private bool $homeOffice = false;
+
+    // E13 (spec ponto-desenho-0811): a hora do relógio do aparelho no toque. Na batida normal é só informação; na
+    // guardada sem internet (E14) é ela que vale. Nula nas batidas antigas, nas do gestor e quando o aparelho não mandou.
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $horaAparelho = null;
+
+    // A hora oficial (relógio do servidor) em que a batida chegou. Nula nas batidas anteriores à E13.
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $horaChegada = null;
+
+    // A batida veio da fila do aparelho, guardada sem internet (E14): a folha marca o dia "Sem internet".
+    #[ORM\Column(options: ['default' => false])]
+    private bool $enviadaSemInternet = false;
+
+    // O identificador do envio feito pelo navegador no toque (UUID v4), o mesmo em toda nova tentativa da batida.
+    #[ORM\Column(length: 36, nullable: true)]
+    private ?string $idEnvio = null;
 
     public function __construct()
     {
@@ -204,6 +227,50 @@ class RegistroPonto implements Auditavel, TenantAware
     public function setHomeOffice(bool $homeOffice): static
     {
         $this->homeOffice = $homeOffice;
+        return $this;
+    }
+
+    public function getHoraAparelho(): ?\DateTimeImmutable
+    {
+        return $this->horaAparelho;
+    }
+
+    public function setHoraAparelho(?\DateTimeImmutable $horaAparelho): static
+    {
+        $this->horaAparelho = $horaAparelho;
+        return $this;
+    }
+
+    public function getHoraChegada(): ?\DateTimeImmutable
+    {
+        return $this->horaChegada;
+    }
+
+    public function setHoraChegada(?\DateTimeImmutable $horaChegada): static
+    {
+        $this->horaChegada = $horaChegada;
+        return $this;
+    }
+
+    public function isEnviadaSemInternet(): bool
+    {
+        return $this->enviadaSemInternet;
+    }
+
+    public function setEnviadaSemInternet(bool $enviadaSemInternet): static
+    {
+        $this->enviadaSemInternet = $enviadaSemInternet;
+        return $this;
+    }
+
+    public function getIdEnvio(): ?string
+    {
+        return $this->idEnvio;
+    }
+
+    public function setIdEnvio(?string $idEnvio): static
+    {
+        $this->idEnvio = $idEnvio;
         return $this;
     }
 }

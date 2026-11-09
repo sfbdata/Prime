@@ -210,6 +210,25 @@ SQL;
     }
 
     /**
+     * A batida da pessoa NESTE escritório que já entrou com este identificador de envio (E13, spec ponto-desenho-0811):
+     * a nova tentativa do mesmo toque responde "já registrada" em vez de gravar de novo. Tenant explícito além do filtro;
+     * o mesmo envio gravado em outro escritório não aparece aqui, e quem o barra é o índice único (user_id, id_envio).
+     */
+    public function doEnvio(User $user, Tenant $tenant, string $idEnvio): ?RegistroPonto
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.idEnvio = :idEnvio')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('idEnvio', $idEnvio)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * O primeiro repouso do dia NESTE escritório (repouso mínimo, regra da batida): tenant explícito além do filtro
      * (spec `ponto-por-escritorio.md` §2.1).
      */

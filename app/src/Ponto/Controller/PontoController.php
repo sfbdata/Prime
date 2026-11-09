@@ -39,6 +39,8 @@ use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\PublicoDosAvisosDePonto;
 use App\Ponto\Service\CartaoDePendenciaDoPonto;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\EnvioDaBatida;
+use App\Ponto\Service\EnvioLidoDaBatida;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
@@ -52,6 +54,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\VerificadorAlertaPonto;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -100,6 +103,7 @@ final class PontoController extends AbstractController
         private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
         private readonly PublicoDosAvisosDePonto $publico,
+        private readonly EnvioDaBatida $envioDaBatida,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -713,6 +717,11 @@ final class PontoController extends AbstractController
             ], 400);
         }
 
+        $envio = $this->envioDaBatida->ler($data, new \DateTimeImmutable());   // E13: um único instante na chegada
+        if (($resposta = $this->respostaAntesDasRegras($envio, $user, $tenant, $registroRepository)) !== null) {
+            return $resposta;
+        }
+
         $latitude    = $data['latitude'] ?? null;
         $longitude   = $data['longitude'] ?? null;
         $precisaoGps = $data['precisaoGps'] ?? null;
@@ -732,7 +741,7 @@ final class PontoController extends AbstractController
             ], 422);
         }
 
-        $hoje = new \DateTimeImmutable();
+        $hoje = $envio->momento;   // todas as regras abaixo valem no momento da batida
         if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $choque, $registroRepository)) !== null) {
             return $this->json(['success' => false, 'message' => $recusa], 422);   // chave ou choque de horário
         }
@@ -832,7 +841,7 @@ final class PontoController extends AbstractController
             if ($repousoDoDia !== null) {
                 $minimoMin   = $jornadaTenant?->getMinimoMinutosRepouso() ?? 60;
                 $diffMinutos = (int) round(
-                    ((new \DateTime())->getTimestamp() - $repousoDoDia->getDataHora()->getTimestamp()) / 60
+                    ($hoje->getTimestamp() - $repousoDoDia->getDataHora()->getTimestamp()) / 60
                 );
                 if ($diffMinutos < $minimoMin) {
                     return $this->json([
@@ -847,7 +856,7 @@ final class PontoController extends AbstractController
             }
         }
 
-        $interjornada = $tipo === RegistroPonto::TIPO_ENTRADA ? $this->interjornada($user, $tenant, $jornadaTenant, $registroRepository) : null;
+        $interjornada = $tipo === RegistroPonto::TIPO_ENTRADA ? $this->interjornada($user, $tenant, $jornadaTenant, $registroRepository, $hoje) : null;
         if (isset($interjornada['recusa'])) {
             return $this->json(['success' => false, 'message' => $interjornada['recusa']], 422);
         }
@@ -857,7 +866,7 @@ final class PontoController extends AbstractController
         $registro->setUser($user);
         $registro->setTenant($tenant);
         $registro->setTipo($tipo);
-        $registro->setDataHora(new \DateTime());
+        $envio->gravarEm($registro);
         $registro->setHomeOffice($homeOfficeHoje);
 
         if (!$homeOfficeHoje) {
@@ -869,7 +878,9 @@ final class PontoController extends AbstractController
         }
 
         $entityManager->persist($registro);
-        $entityManager->flush();
+        if (!$this->gravouSemRepetirOEnvio($entityManager, $envio)) {
+            return $this->respostaJaRegistrada($tipo, null);
+        }
 
         $dados = [
             'hora' => $registro->getDataHora()->format('H:i:s'),
@@ -885,6 +896,55 @@ final class PontoController extends AbstractController
             'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
             'data'    => $dados,
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
+        ]);
+    }
+
+    /**
+     * O envio antes de qualquer regra da batida (spec ponto-desenho-0811 §5 E13): o pedido malformado recusa, e a nova
+     * tentativa de um envio que já entrou neste escritório responde "já registrada" sem gravar de novo.
+     */
+    private function respostaAntesDasRegras(EnvioLidoDaBatida $envio, User $user, Tenant $tenant, RegistroPontoRepository $registros): ?JsonResponse
+    {
+        if ($envio->recusaDoPedido !== null) {
+            return $this->json(['success' => false, 'message' => $envio->recusaDoPedido->mensagem], $envio->recusaDoPedido->status);
+        }
+        $jaRegistrada = $envio->idEnvio !== null ? $registros->doEnvio($user, $tenant, $envio->idEnvio) : null;
+        if ($jaRegistrada !== null) {
+            return $this->respostaJaRegistrada((string) $jaRegistrada->getTipo(), $jaRegistrada->getDataHora());
+        }
+
+        return null;
+    }
+
+    /**
+     * Grava a batida. Dois pedidos do mesmo envio ao mesmo tempo (E13): o índice único barra o segundo, que volta false
+     * e responde "já registrada" sem consultar de novo (o EntityManager fecha depois da violação).
+     */
+    private function gravouSemRepetirOEnvio(EntityManagerInterface $entityManager, EnvioLidoDaBatida $envio): bool
+    {
+        try {
+            $entityManager->flush();
+        } catch (UniqueConstraintViolationException $violacao) {
+            if ($envio->idEnvio === null || !str_contains($violacao->getMessage(), RegistroPonto::INDICE_DO_ENVIO)) {
+                throw $violacao;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /** A resposta da batida que já tinha entrado com o mesmo envio; sem a hora quando quem barrou foi o índice único. */
+    private function respostaJaRegistrada(string $tipo, ?\DateTimeInterface $hora): JsonResponse
+    {
+        $dados = $hora !== null ? ['hora' => $hora->format('H:i:s')] : [];
+
+        return $this->json([
+            'success' => true,
+            'message' => EnvioDaBatida::MENSAGEM_JA_REGISTRADA,
+            'data'    => $dados + ['tipo' => $tipo, 'jaRegistrada' => true],
+            'avisos'  => [],
         ]);
     }
 
@@ -946,7 +1006,7 @@ final class PontoController extends AbstractController
      *
      * @return array{recusa?: string, aviso?: string}|null
      */
-    private function interjornada(User $user, Tenant $tenant, ?JornadaTenant $jornadaTenant, RegistroPontoRepository $registroRepository): ?array
+    private function interjornada(User $user, Tenant $tenant, ?JornadaTenant $jornadaTenant, RegistroPontoRepository $registroRepository, \DateTimeImmutable $agora): ?array
     {
         if (!($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
             return null;
@@ -956,7 +1016,7 @@ final class PontoController extends AbstractController
             return null;
         }
         $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
-        $diffMinutos = (int) round(((new \DateTime())->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60);
+        $diffMinutos = (int) round(($agora->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60);
         if ($diffMinutos >= $minimoInterjornada) {
             return null;
         }
