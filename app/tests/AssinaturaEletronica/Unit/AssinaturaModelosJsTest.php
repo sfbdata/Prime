@@ -239,6 +239,8 @@ final class AssinaturaModelosJsTest extends TestCase
         self::assertStringContainsString('c.nodeType === 3 ? esc(c.nodeValue)', $importar);
         self::assertStringNotContainsString("createElement('div')", $importar);
         self::assertStringContainsString("avisar(T('mod.importar_erro'), 'erro');", $importar);
+        self::assertStringContainsString("s.m.t = f.name.replace(/\\.[^.]+$/, '');", $importar, 'o nome do arquivo entra inteiro, como no desenho');
+        self::assertStringNotContainsString('.slice(', $importar, 'acima de 200, o Salvar recusa com o texto em vez de cortar');
 
         $lerEd = $this->funcao('lerEd');
         self::assertStringContainsString('visto = new Set()', $lerEd);

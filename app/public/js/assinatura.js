@@ -1117,7 +1117,7 @@
             ed.innerHTML = h || novoHtml();
             edRng = null;
             if (!s.m.t) {
-                s.m.t = f.name.replace(/\.[^.]+$/, '').slice(0, 200);
+                s.m.t = f.name.replace(/\.[^.]+$/, '');
                 const nome = el.telaMod.querySelector('[data-bja-md="t"]');
                 if (nome) { nome.value = s.m.t; }
             }
