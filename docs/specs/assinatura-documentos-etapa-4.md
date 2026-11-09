@@ -63,6 +63,14 @@ Desvios novos, desta implementação (para a revisão do Coordenador):
 - **D-e.** O `htmlDe` escapa também aspas e apóstrofo (o do desenho escapa só `&` e `<`, e uma chave de campo com
   aspas quebraria o atributo `data-c`), e separa as chaves antes de escapar (o do desenho escapa duas vezes uma chave
   com `&`).
+- **D-f.** De cada signatário o servidor guarda só o `papel` (nome e e-mail são do documento); outras chaves do
+  objeto são ignoradas, e a tela já manda só `{papel}`.
+- **D-g.** No Duplicar e adaptar, `[[^campo]]` (maiúsculas) vira `[[campo]]`, como o `htmlDe` do desenho; a cópia é
+  um texto do escritório, sem as regras dos prontos.
+- **D-h.** Os títulos dentro do editor neutralizam o padrão do Bootstrap (negrito, entrelinha e cor herdadas), para
+  ficarem como no desenho, que usa o padrão do navegador.
+- **D-i.** "Salvar modelo" fica desligado enquanto o pedido corre (evita o mesmo modelo em dobro); volta a valer se o
+  servidor recusar. A área de texto tem `role="textbox"` e a linha de erro `aria-live`, para leitor de tela.
 
 ## 3. Tabela (M3 `Version20261109260000`)
 
@@ -189,41 +197,46 @@ categoria 80, texto lateral 20.000, novo campo 60, papel 120.
 
 | # | Região | Item | Desenho | ✓/✗ |
 |---|---|---|---|---|
-| 1 | Aba Modelos | barra do topo | flex, gap 10px, wrap, padding 12px 16px, borda inferior #e6edf2 (dc:155) | |
-| 2 | Aba Modelos | texto | "Use um modelo pronto, duplique para adaptar ou crie o seu.", flex 1 1 240px, 13px, #5b7383 | |
-| 3 | Aba Modelos | botão | `.bjaP` bi-plus-lg "Criar novo modelo" abre o editor novo | |
-| 4 | Aba Modelos | corpo | padding 14px 16px, coluna, gap 16px (dc:156) | |
-| 5 | Aba Modelos | título do grupo | 14px #0b3550 mb 8px; categorias na ordem da 1ª aparição em meus + prontos; grupo vazio some | |
-| 6 | Aba Modelos | cartão | flex stretch, borda #d3dde4, raio 3px, #fff, overflow hidden | |
-| 7 | Aba Modelos | botão do modelo | `.bjaMod` flex 1 sem borda; ícone 20px #0a6fa0; título 13.5px; descrição 12px #5b7383 "Modelo do escritório"; clique usa o modelo (passo 2) | |
-| 8 | Aba Modelos | coluna de ações | flex coluna, gap 3px, padding 6px, borda esquerda #e6edf2, centro | |
-| 9 | Aba Modelos | pronto | `.bjaB.bjaI` bi-copy, aria e dica "Duplicar e adaptar"; abre "{nome} (cópia)" em "Meus modelos" | |
-| 10 | Aba Modelos | do escritório | `.bjaB.bjaI` bi-pencil (aria "Editar modelo", dica "Editar"); `.bjaB.bjaI.bjaR` bi-trash3 (aria "Excluir modelo", dica "Excluir") | |
-| 11 | Aba Modelos | Editar | reabre pelo `htmlDe`, com a folha branca (decisão 5) | |
-| 12 | Aba Modelos | Excluir | janela do Excluir (D5) e aviso amarelo "Modelo excluído. Os documentos já enviados não mudam." | |
-| 13 | Passo 1 | linha de busca | flex gap 8px wrap; "Buscar modelo" flex 1 1 240px; `.bjaB` 34px bi-plus-lg "Criar novo modelo" | |
-| 14 | Passo 1 | lista | só `.bjaMod`, sem coluna de ações; inclui os do escritório; filtro pelo título | |
-| 15 | Passo 1 | Criar novo modelo | sai do assistente; o editor volta à aba Modelos | |
-| 16 | Passo 1 a 4 | modelo do escritório | nome, campos, signatários (papel, nome e e-mail vazios), folha branca, formato e lateral do modelo; `modelo_chave = esc-<id>` | |
-| 17 | Editor | topo | flex gap 12px wrap mb 12px; `.bjaB.bjaN` bi-arrow-left "Modelos"; h1 clamp(22px,3vw,30px) normal flex 1 1 220px "Novo modelo"/"Editar modelo"; label `.bjaB` 38px bi-file-earmark-word "Importar Word" (.docx escondido); `.bjaP` bi-check2 "Salvar modelo" | |
-| 18 | Editor | arranjo | `.bjaGrid`; `.bjaCent` 560px (editor, `.bjaCard` overflow hidden) e 460px (prévia) | |
-| 19 | Editor | linha de campos | grid auto-fit minmax(170px,1fr) gap 8px padding 12px 14px borda inferior #e6edf2 | |
-| 20 | Editor | Nome | "Nome do modelo"; digitar limpa o erro | |
-| 21 | Editor | Categoria | "Categoria" com datalist "Meus modelos" + categorias existentes; padrão "Meus modelos" | |
-| 22 | Editor | Formato | "Página inteira" ('') e "Folha única em duas colunas" ('2col') | |
-| 23 | Editor | Folha branca | `.bjaChk` align-self center padding-top 16px: "**Folha branca** (sem marcas, selo e código)" | |
-| 24 | Editor | Texto lateral | "Texto lateral", só no formato de duas colunas | |
-| 25 | Editor | barra | flex gap 4px wrap padding 8px 14px #eef3f6 borda inferior #d3dde4; Negrito, Título, Subtítulo, Seção, Parágrafo e alinhar à direita (só ícone, dica "Alinhar à direita"), sem tirar o foco do texto | |
-| 26 | Editor | divisor | 1px × 22px #d3dde4 margin 0 4px | |
-| 27 | Editor | Inserir campo | select 170 × 32px "Inserir campo..." com Cliente, Escritório, Local e data; insere o campo e volta ao vazio | |
-| 28 | Editor | linha criar | flex gap 8px wrap padding 8px 14px; "Novo campo (ex.: Número do processo)" + "Criar campo" (34px); "Quem assina (ex.: Outorgante)" + bi-pen "Assinatura" (34px); papel vazio vira "Signatário" | |
-| 29 | Editor | área | `.bjaEd` editável, "Texto do modelo"; CSS dc:85-90 (380px a 62vh, 18px 22px, 14px/1.55, foco, h1, h2, h3, p, `p[data-d]`, `p[data-n]`, `.ch`, `div[data-ass]`) | |
-| 30 | Editor | conteúdo inicial | "TÍTULO DO DOCUMENTO" + "Digite aqui o texto do modelo. Use Inserir campo para o que muda em cada documento." | |
-| 31 | Editor | campo e assinatura | `span.ch` não editável com o rótulo e um espaço; "Assinatura: {papel}" | |
-| 32 | Editor | erro | 12.5px #a3232b mt 6px abaixo do cartão; os quatro textos na ordem do desenho | |
-| 33 | Editor | Salvar | grava, volta à aba Modelos, aviso verde "Modelo salvo."; o salvo sobe | |
-| 34 | Editor | prévia | `.bjaPv[data-folha=m]` a cada mudança; escritório preenchido, campo do cliente em amarelo; duas colunas com a fonte de 12.6px a 8.6px | |
-| 35 | Editor | Importar Word | cada parágrafo vira `<p>`, só negrito fica; vazio volta ao conteúdo inicial; nome vazio recebe o nome do arquivo; aviso "Texto importado. Marque título, campos e assinaturas."; erro "Não foi possível ler este arquivo." | |
-| 36 | Avisos | toast | fixo, 22px do pé, 3,4 s; verde, vermelho, amarelo | |
-| 37 | Janela do Excluir | modelo | camada do Excluir (D5), cabeçalho #a3232b bi-trash3 "Excluir modelo", "Voltar" e "Excluir" | |
-| 38 | Texto | travessão | nenhum na aba, no editor e no passo 1 | |
+| 1 | Aba Modelos | barra do topo | flex, gap 10px, wrap, padding 12px 16px, borda inferior #e6edf2 (dc:155) | ✓ |
+| 2 | Aba Modelos | texto | "Use um modelo pronto, duplique para adaptar ou crie o seu.", flex 1 1 240px, 13px, #5b7383 | ✓ |
+| 3 | Aba Modelos | botão | `.bjaP` bi-plus-lg "Criar novo modelo" abre o editor novo | ✓ |
+| 4 | Aba Modelos | corpo | padding 14px 16px, coluna, gap 16px (dc:156) | ✓ |
+| 5 | Aba Modelos | título do grupo | 14px #0b3550 mb 8px; categorias na ordem da 1ª aparição em meus + prontos; grupo vazio some | ✓ |
+| 6 | Aba Modelos | cartão | flex stretch, borda #d3dde4, raio 3px, #fff, overflow hidden | ✓ |
+| 7 | Aba Modelos | botão do modelo | `.bjaMod` flex 1 sem borda; ícone 20px #0a6fa0; título 13.5px; descrição 12px #5b7383 "Modelo do escritório"; clique usa o modelo (passo 2) | ✓ |
+| 8 | Aba Modelos | coluna de ações | flex coluna, gap 3px, padding 6px, borda esquerda #e6edf2, centro | ✓ |
+| 9 | Aba Modelos | pronto | `.bjaB.bjaI` bi-copy, aria e dica "Duplicar e adaptar"; abre "{nome} (cópia)" em "Meus modelos" | ✓ |
+| 10 | Aba Modelos | do escritório | `.bjaB.bjaI` bi-pencil (aria "Editar modelo", dica "Editar"); `.bjaB.bjaI.bjaR` bi-trash3 (aria "Excluir modelo", dica "Excluir") | ✓ |
+| 11 | Aba Modelos | Editar | reabre pelo `htmlDe`, com a folha branca (decisão 5) | ✓ |
+| 12 | Aba Modelos | Excluir | janela do Excluir (D5) e aviso amarelo "Modelo excluído. Os documentos já enviados não mudam." | ✓ |
+| 13 | Passo 1 | linha de busca | flex gap 8px wrap; "Buscar modelo" flex 1 1 240px; `.bjaB` 34px bi-plus-lg "Criar novo modelo" | ✓ |
+| 14 | Passo 1 | lista | só `.bjaMod`, sem coluna de ações; inclui os do escritório; filtro pelo título | ✓ |
+| 15 | Passo 1 | Criar novo modelo | sai do assistente; o editor volta à aba Modelos | ✓ |
+| 16 | Passo 1 a 4 | modelo do escritório | nome, campos, signatários (papel, nome e e-mail vazios), folha branca, formato e lateral do modelo; `modelo_chave = esc-<id>` | ✓ |
+| 17 | Editor | topo | flex gap 12px wrap mb 12px; `.bjaB.bjaN` bi-arrow-left "Modelos"; h1 clamp(22px,3vw,30px) normal flex 1 1 220px "Novo modelo"/"Editar modelo"; label `.bjaB` 38px bi-file-earmark-word "Importar Word" (.docx escondido); `.bjaP` bi-check2 "Salvar modelo" | ✓ |
+| 18 | Editor | arranjo | `.bjaGrid`; `.bjaCent` 560px (editor, `.bjaCard` overflow hidden) e 460px (prévia) | ✓ |
+| 19 | Editor | linha de campos | grid auto-fit minmax(170px,1fr) gap 8px padding 12px 14px borda inferior #e6edf2 | ✓ |
+| 20 | Editor | Nome | "Nome do modelo"; digitar limpa o erro | ✓ |
+| 21 | Editor | Categoria | "Categoria" com datalist "Meus modelos" + categorias existentes; padrão "Meus modelos" | ✓ |
+| 22 | Editor | Formato | "Página inteira" ('') e "Folha única em duas colunas" ('2col') | ✓ |
+| 23 | Editor | Folha branca | `.bjaChk` align-self center padding-top 16px: "**Folha branca** (sem marcas, selo e código)" | ✓ |
+| 24 | Editor | Texto lateral | "Texto lateral", só no formato de duas colunas | ✓ |
+| 25 | Editor | barra | flex gap 4px wrap padding 8px 14px #eef3f6 borda inferior #d3dde4; Negrito, Título, Subtítulo, Seção, Parágrafo e alinhar à direita (só ícone, dica "Alinhar à direita"), sem tirar o foco do texto | ✓ |
+| 26 | Editor | divisor | 1px × 22px #d3dde4 margin 0 4px | ✓ |
+| 27 | Editor | Inserir campo | select 170 × 32px "Inserir campo..." com Cliente, Escritório, Local e data; insere o campo e volta ao vazio | ✓ |
+| 28 | Editor | linha criar | flex gap 8px wrap padding 8px 14px; "Novo campo (ex.: Número do processo)" + "Criar campo" (34px); "Quem assina (ex.: Outorgante)" + bi-pen "Assinatura" (34px); papel vazio vira "Signatário" | ✓ |
+| 29 | Editor | área | `.bjaEd` editável, "Texto do modelo"; CSS dc:85-90 (380px a 62vh, 18px 22px, 14px/1.55, foco, h1, h2, h3, p, `p[data-d]`, `p[data-n]`, `.ch`, `div[data-ass]`) | ✓ |
+| 30 | Editor | conteúdo inicial | "TÍTULO DO DOCUMENTO" + "Digite aqui o texto do modelo. Use Inserir campo para o que muda em cada documento." | ✓ |
+| 31 | Editor | campo e assinatura | `span.ch` não editável com o rótulo e um espaço; "Assinatura: {papel}" | ✓ |
+| 32 | Editor | erro | 12.5px #a3232b mt 6px abaixo do cartão; os quatro textos na ordem do desenho | ✓ |
+| 33 | Editor | Salvar | grava, volta à aba Modelos, aviso verde "Modelo salvo."; o salvo sobe | ✓ |
+| 34 | Editor | prévia | `.bjaPv[data-folha=m]` a cada mudança; escritório preenchido, campo do cliente em amarelo; duas colunas com a fonte de 12.6px a 8.6px | ✓ |
+| 35 | Editor | Importar Word | cada parágrafo vira `<p>`, só negrito fica; vazio volta ao conteúdo inicial; nome vazio recebe o nome do arquivo; aviso "Texto importado. Marque título, campos e assinaturas."; erro "Não foi possível ler este arquivo." | ✓ |
+| 36 | Avisos | toast | fixo, 22px do pé, 3,4 s; verde, vermelho, amarelo | ✓ |
+| 37 | Janela do Excluir | modelo | camada do Excluir (D5), cabeçalho #a3232b bi-trash3 "Excluir modelo", "Voltar" e "Excluir" | ✓ |
+| 38 | Texto | travessão | nenhum na aba, no editor e no passo 1 | ✓ |
+
+Conferência de 09/11: os 38 itens ✓, nenhum ✗. Arranjo e textos provados por leitura do JS e do CSS
+(`tests/AssinaturaEletronica/Unit/AssinaturaModelosJsTest.php`, sem navegador no PHPUnit) e pelo esqueleto do
+template (`AssinaturaTelaArranjoTest`); o comportamento no navegador (foco, cursor, prévia ao vivo, Importar Word)
+fica para o smoke do dono.
