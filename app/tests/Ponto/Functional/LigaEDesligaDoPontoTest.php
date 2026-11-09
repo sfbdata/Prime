@@ -13,6 +13,7 @@ use App\Ponto\Controller\ConfiguracoesDoPontoController;
 use App\Ponto\Controller\FuncaoDoPontoController;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
+use App\Ponto\Repository\ConfiguracaoDoPontoRepository;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\GestaoDoPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -31,6 +32,7 @@ use Symfony\Component\DomCrawler\Crawler;
 #[CoversClass(FuncaoDoPontoController::class)]
 #[CoversClass(ConfiguracoesDoPontoController::class)]
 #[CoversClass(PontoController::class)]
+#[CoversClass(ConfiguracaoDoPontoRepository::class)]
 #[Group('ponto')]
 final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
 {
@@ -173,7 +175,7 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         self::assertSame($this->primario->getId(), $linha['atualizado_por_id']);
         self::assertSame([150, 120, 6, true], [$linha['raio_padrao_metros'], $linha['banco_limite_horas'], $linha['banco_prazo_meses'], $linha['permite_trabalho_externo']]);
         $trilha = $this->emSemFiltro()->getRepository(AuditLog::class)->findBy(['entityClass' => ConfiguracaoDoPonto::class, 'tenantId' => $this->escritorio->getId()]);
-        self::assertCount(1, $trilha, 'a criação da linha vai para a trilha do escritório');
+        self::assertCount(1, $trilha, 'a primeira mudança vai para a trilha do escritório (a linha nasce vazia, por SQL)');
 
         $tela = $this->linha($this->primario);
         self::assertSame(['false', '0'], [$tela->filter('[data-config-escritorio]')->attr('aria-checked'), $tela->filter('[data-config-escritorio]')->attr('data-ligada')]);
@@ -184,6 +186,47 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         self::assertTrue($this->json()['escritorio']);
         self::assertSame(['ponto-geo' => true], $this->configuracao($this->escritorio)['chaves']);
         self::assertCount(2, $this->emSemFiltro()->getRepository(AuditLog::class)->findBy(['entityClass' => ConfiguracaoDoPonto::class, 'tenantId' => $this->escritorio->getId()]));
+    }
+
+    #[TestDox('Sem linha, o repositório cria a do escritório com os padrões e a trava (SELECT ... FOR UPDATE); de novo, devolve a mesma, sem duplicar nem sobrescrever')]
+    public function testLinhaGarantidaETravadaSemDuplicar(): void
+    {
+        $repositorio = static::getContainer()->get(ConfiguracaoDoPontoRepository::class);
+        self::assertFalse($this->tabelaTravadaPorMim(), 'controle: nada travado antes');
+
+        $criada = $repositorio->emTransacao(fn (): ConfiguracaoDoPonto => $repositorio->garantidaETravada($this->escritorio, new \DateTimeImmutable('2026-11-09 10:00:00')));
+
+        self::assertTrue($this->tabelaTravadaPorMim(), 'a linha garantida sai travada');
+        $linha = $this->configuracao($this->escritorio);
+        self::assertSame(
+            [$criada->getId(), [], 150, 120, 6, true, null, '2026-11-09 10:00:00'],
+            [$linha['id'], $linha['chaves'], $linha['raio_padrao_metros'], $linha['banco_limite_horas'], $linha['banco_prazo_meses'], $linha['permite_trabalho_externo'], $linha['atualizado_por_id'], $linha['atualizado_em']],
+            'os padrões da entidade e da migration; mapa vazio (tudo ligado, P96)',
+        );
+
+        $denovo = $repositorio->emTransacao(fn (): ConfiguracaoDoPonto => $repositorio->garantidaETravada($this->escritorio, new \DateTimeImmutable('2026-11-09 11:00:00')));
+
+        self::assertSame($criada->getId(), $denovo->getId());
+        self::assertSame(1, $this->linhasDe($this->escritorio), 'a segunda chamada não duplica');
+        self::assertSame('2026-11-09 10:00:00', $this->configuracao($this->escritorio)['atualizado_em'], 'nem sobrescreve a linha que existe');
+    }
+
+    #[TestDox('Corrida do primeiro salvamento: a linha que outro pedido gravou por fora do ORM não estoura a gravação (ON CONFLICT), volta relida e recebe a mudança, sem duplicar')]
+    public function testLinhaGravadaPorOutroPedidoNaoEstoura(): void
+    {
+        $this->emSemFiltro()->getConnection()->executeStatement(
+            'INSERT INTO ponto_config_escritorio (tenant_id, chaves, atualizado_em) VALUES (?, ?, LOCALTIMESTAMP(0))',
+            [$this->escritorio->getId(), '{"ponto-geo":false}'],
+        );
+        $this->entrar($this->primario);
+
+        $this->client->request('POST', '/ponto/configuracoes/funcoes/ponto-geo', server: $this->ajax(), content: '{"ligada":true}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['chave' => 'ponto-geo', 'global' => true, 'escritorio' => true], $this->json());
+        self::assertSame(1, $this->linhasDe($this->escritorio));
+        $linha = $this->configuracao($this->escritorio);
+        self::assertSame([['ponto-geo' => true], $this->primario->getId()], [$linha['chaves'], $linha['atualizado_por_id']], 'a mudança entrou na linha do outro pedido, relida do banco');
     }
 
     #[TestDox('Global desligado pelo Master trava a chave do escritório: desligada na tela, com a frase do Master, e a gravação recusada (422)')]
@@ -201,7 +244,7 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         $this->entrar($this->primario);
         $this->client->request('POST', '/ponto/configuracoes/funcoes/ponto-geo', server: $this->ajax(), content: '{"ligada":false}');
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(self::TRAVA, $this->json()['erro']);
+        self::assertSame(['erro' => self::TRAVA, 'global' => false], $this->json(), 'a tela trava a chave na hora com o `global: false`');
         self::assertNull($this->configuracao($this->escritorio), 'nada gravou');
 
         $global = $this->linha($master)->filter('[data-config-global]');
@@ -219,7 +262,7 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
         $this->client->request('POST', '/ponto/configuracoes/funcoes/ponto-facial', server: $this->ajax(), content: '{"ligada":false}');
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Função do ponto desconhecida.', $this->json()['erro']);
+        self::assertSame(['erro' => 'Função do ponto desconhecida.'], $this->json(), 'só a trava do Master leva o `global`');
         $this->client->request('POST', '/ponto/configuracoes/funcoes/ponto', server: $this->ajax(), content: '{"ligada":false}');
         self::assertResponseStatusCodeSame(422, 'a tela não tem camada Escritório');
         self::assertNull($this->configuracao($this->escritorio));
@@ -246,7 +289,7 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         self::assertTrue($funcoes->vale(FuncoesDoPonto::GEO, $outro));
     }
 
-    #[TestDox('Geolocalização desligada no escritório: a batida sem posição entra, sem sede e sem home office; o outro escritório (ligado) continua exigindo a cerca')]
+    #[TestDox('Geolocalização desligada no escritório: a batida sem posição entra, sem sede e sem home office; a posição que vier é descartada; o outro escritório (ligado) continua exigindo a cerca')]
     public function testBatidaComAGeolocalizacaoDesligada(): void
     {
         $outro = $this->escritorio('Escritório Com Cerca');
@@ -266,14 +309,15 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         $registro = $this->ultimaBatida($ana);
         self::assertSame([false, null, null, null], [$registro['home_office'], $registro['sede_id'], $registro['latitude'], $registro['sede_nome_snapshot']]);
 
-        // A posição que vier fica gravada, longe de qualquer sede e sem recusa.
-        $resposta = $this->bater(['tipo' => 'repouso', 'latitude' => -10.0, 'longitude' => -40.0, 'precisaoGps' => 25.0]);
+        // A posição que vier é descartada, como no home office (o escritório escolheu não usar localização), sem recusa.
+        $resposta = $this->bater(['tipo' => 'repouso', 'latitude' => -23.55, 'longitude' => -46.63, 'precisaoGps' => 25.0]);
         self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertArrayNotHasKey('sede', $resposta['data'], 'nem dentro do raio da sede a cerca é conferida');
         $registro = $this->ultimaBatida($ana);
-        self::assertSame([null, false], [$registro['sede_id'], $registro['home_office']]);
-        self::assertEqualsWithDelta(-10.0, (float) $registro['latitude'], 0.0001);
-        self::assertEqualsWithDelta(-40.0, (float) $registro['longitude'], 0.0001);
-        self::assertEqualsWithDelta(25.0, (float) $registro['precisao_gps'], 0.0001);
+        self::assertSame(
+            [null, false, null, null, null, null],
+            [$registro['sede_id'], $registro['home_office'], $registro['latitude'], $registro['longitude'], $registro['precisao_gps'], $registro['sede_nome_snapshot']],
+        );
 
         $this->logarComTenant($this->client, $bia, $outro);
         self::assertSame('Geolocalização é obrigatória para registrar o ponto.', $this->bater(['tipo' => 'entrada'])['message']);
@@ -378,6 +422,22 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         $configuracao->definir(FuncoesDoPonto::GEO, false, $this->primario, new \DateTimeImmutable());
         $this->em()->persist($configuracao);
         $this->em()->flush();
+    }
+
+    private function linhasDe(Tenant $tenant): int
+    {
+        return (int) $this->emSemFiltro()->getConnection()->fetchOne('SELECT COUNT(*) FROM ponto_config_escritorio WHERE tenant_id = ?', [$tenant->getId()]);
+    }
+
+    /**
+     * O SELECT ... FOR UPDATE deixa um RowShareLock na tabela até o fim da transação do teste (o DAMA não a fecha), e
+     * só ele o pega: o INSERT pega RowExclusiveLock.
+     */
+    private function tabelaTravadaPorMim(): bool
+    {
+        return (bool) $this->em()->getConnection()->fetchOne(
+            "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE pid = pg_backend_pid() AND relation = 'ponto_config_escritorio'::regclass AND mode = 'RowShareLock')",
+        );
     }
 
     /** @return array<string, mixed>|null a linha crua, sem o filtro do escritório */

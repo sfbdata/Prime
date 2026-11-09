@@ -549,13 +549,21 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     com a tela desligada o atalho mostra o estado do dia sem o botão de registrar (e sem o "Regularizar ponto de
     ontem", que leva à tela fechada);
   - tabela `ponto_config_escritorio` (Version20261109180000, entidade `ConfiguracaoDoPonto`): uma linha por escritório,
-    criada no primeiro salvamento que muda algo; mapa `chaves` (chave ausente vale ligada), `raio_padrao_metros` 150
+    criada no primeiro salvamento (o repositório a garante com `INSERT ... ON CONFLICT (tenant_id) DO NOTHING`, vazia e
+    com os padrões, e só depois a trava com `SELECT ... FOR UPDATE`: dois primeiros salvamentos ao mesmo tempo não
+    duplicam a linha nem dão erro; a linha vazia vale o mesmo que não ter linha e não entra na trilha, a mudança
+    entra); mapa `chaves` (chave ausente vale ligada), `raio_padrao_metros` 150
     (P70), `banco_limite_horas` 120 e `banco_prazo_meses` 6 (P73; a faixa de 1 a 24 é da E17) e
     `permite_trabalho_externo` ligado (P74), com os padrões em constantes da entidade; nenhuma tela edita os ajustes
     na E7. Entra na purga do escritório;
   - `ponto-geo` desligada (Global ou Escritório): a batida não exige posição nem confere sede, não grava sede e não
-    vira home office; a posição que vier válida fica gravada. A tela e o atalho não pedem a posição e a caixa da
-    localização some (`geoLigado` no estado do dia e na tela).
+    vira home office; com a geolocalização desligada, a posição é descartada (latitude, longitude e precisão
+    ficam vazias, como no home office: o escritório escolheu não usar localização). A tela e o atalho não pedem a
+    posição e a caixa da localização some (`geoLigado` no estado do dia e na tela);
+  - tela `ponto` fechada para quem vê (desligada e quem vê não é Master, o mesmo critério do guarda de rota): o
+    cartão diário de pendência não sai, porque o link dele leva à /ponto em preparação;
+  - chave "Escritório" recusada porque o Master desligou o Global depois que a aba carregou: a resposta 422 leva
+    `global: false` e a tela trava a chave na hora (`js/ponto-configuracoes.js`).
 
 **E8. Tela cheia, aviso flutuante, sons, vibração e lembrete.**
 - Entra: P79 a P83 (e P84 a P86, que ficam). As chaves `ponto-animacao`, `ponto-sons` e `ponto-lembrete` entram no
@@ -799,6 +807,15 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   `motivo` em `justificativa_ponto`). Decisões registradas na E4 (seção 5).
 - E7 implementada na branch `ponto-desenho-e7`, com a migration Version20261109180000 (`ponto_config_escritorio`).
   Decisões registradas na E7 (seção 5).
+- Aceitos na E7 (links que ainda levam à /ponto fechada quando o Master desliga a tela `ponto`; quem não é Master vê
+  a página "em preparação", sem erro nem dado exposto): o botão "Ir para o Ponto Eletrônico" da janela de alerta de
+  horário (`templates/ponto/_modal_alerta_ponto.html.twig`); a volta da análise da própria justificativa pela aba
+  "Minhas Justificativas" (`TenantController::voltaDaAnalise`, redirect para `ponto_index`); e os links das
+  notificações de justificativa abonada, recusada e do "aprovar todos" (`TenantController`,
+  `generateUrl('ponto_index')`). O cartão diário de pendência, esse sim, some com a tela fechada.
+- Para a E15: a futura página pública de validação NÃO pode ter nome de rota com o prefixo `ponto_` (o catálogo do
+  Master derruba toda rota `ponto_*` quando a tela `ponto` é desligada), ou precisa entrar em
+  `CatalogoDeRecursos::ROTAS_SEMPRE_ABERTAS`.
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
   saldo de antes dos lotes (E17).

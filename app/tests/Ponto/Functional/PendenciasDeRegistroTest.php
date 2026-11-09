@@ -10,12 +10,15 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\RecursoEstado;
+use App\Master\Service\RegraDosMasters;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Service\BatidaJaRegistrada;
+use App\Ponto\Service\CartaoDePendenciaDoPonto;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,6 +38,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PontoController::class)]
 #[CoversClass(ListarPendenciasDeRegistroUseCase::class)]
 #[CoversClass(BatidaJaRegistrada::class)]
+#[CoversClass(CartaoDePendenciaDoPonto::class)]
 final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -353,6 +357,30 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 
         self::assertStringNotContainsString('id="bjPontoPendente"', $this->htmlDoPonto());
         self::assertNull($this->cartao());
+    }
+
+    #[TestDox('E7: com a tela `ponto` desligada pelo Master, o cartão não sai para quem não é Master (o link levaria à /ponto em preparação); o Master passa, como no guarda de rota')]
+    public function testCartaoDiarioComATelaDesligada(): void
+    {
+        $dia = $this->diaUtilAtras(3);
+        $this->batida($this->x, 'entrada', $dia->setTime(8, 0));
+        $ligada = $this->cartao();
+        self::assertNotNull($ligada, 'controle: com a tela ligada o cartão sai');
+        self::assertStringStartsWith('/ponto/?competencia=', (string) $ligada['link']);
+
+        $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => 'ponto']) ?? new RecursoEstado('ponto');
+        $estado->desativar(null, null, null, new \DateTimeImmutable());
+        $this->em()->persist($estado);
+        $this->em()->flush();
+
+        self::assertNull($this->cartao(), 'sem cartão para a tela fechada');
+        $this->client->request('GET', '/ponto/', server: ['HTTP_ACCEPT' => 'text/html']);
+        self::assertResponseStatusCodeSame(503, 'controle: a /ponto do link está mesmo fechada para esta pessoa');
+
+        $papeis = ['ROLE_USER', RegraDosMasters::PAPEL_MASTER];
+        $this->user->setRoles($papeis);   // o token do login e o banco, que o refresh do usuário relê
+        $this->em()->getConnection()->executeStatement('UPDATE "user" SET roles = ? WHERE id = ?', [json_encode($papeis), $this->user->getId()]);
+        self::assertSame($ligada, $this->cartao(), 'o Master recebe o cartão de sempre');
     }
 
     /** @return array<string, ?string>|null */
