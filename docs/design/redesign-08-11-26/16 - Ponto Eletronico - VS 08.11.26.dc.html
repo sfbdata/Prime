@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ponto Eletrônico</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./bj-monitor.js"></script>
+<script src="./bj-lembretes.js"></script>
+<script src="./bj-recursos.js"></script>
+<script src="./bj-tema.js"></script>
+<script src="./bj-plano.js"></script>
+<script src="./bj-idioma.js"></script>
+<script src="./bj-dica.js"></script>
+<link href="./bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script src="./bj-contas.js"></script>
+<script src="./bj-compartilhar.js"></script>
+<script src="./bluejus-central.js"></script>
+<style>
+/* BlueJus · Ponto Eletrônico. Protótipo: estado em localStorage (bj-ponto-*).
+   Sistema real: a hora vem do servidor; raio, facial e código são validados no backend; o comprovante é gerado e assinado (HMAC) no servidor
+   e a rota pública /ponto/validar/{codigo} consulta o registro. Tabelas: ponto_batida, ponto_comprovante, ponto_config_global (Master), ponto_config_escritorio (primário). */
+body { margin:0; background:#f3f6f8; font-family:Arial, Helvetica, sans-serif; color:#12242f; }
+a { color:#0a6fa0; } a:hover { color:#0b5f86; }
+.bjpGrid { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; }
+.bjpEsq { flex:1 1 340px; max-width:430px; min-width:0; display:flex; flex-direction:column; gap:16px; }
+.bjpDir { flex:999 1 560px; min-width:0; display:flex; flex-direction:column; gap:16px; }
+.bjpT { width:100%; border-collapse:collapse; font-size:14px; }
+.bjpT th { text-align:left; padding:10px 12px; font-size:12px; letter-spacing:.3px; color:#34505f; background:#eef3f6; border-bottom:1px solid #d3dde4; white-space:nowrap; }
+.bjpT td { padding:9px 12px; border-bottom:1px solid #e6edf2; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.bjpLin:nth-child(odd) { background:#eef2f5; }
+.bjpLin:hover td { background:#3b8fc2; color:#fff; }
+.bjpLin:hover td button { color:#fff; }
+.bjpLin:hover td.bjpSm, .bjpLin:hover .bjpPl { color:#fff !important; }
+.bjpMais { width:24px; height:24px; border:none; background:transparent; color:#5b7383; cursor:pointer; padding:0; font-size:15px; border-radius:3px; }
+.bjpMais:hover { background:rgba(255,255,255,.25); }
+.bjpOk { position:relative; z-index:1; min-height:100%; box-sizing:border-box; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:clamp(20px, 5vw, 76px); padding:clamp(20px, 5vh, 56px) clamp(16px, 5vw, 56px) 40px; }
+.bjpRing { --r:min(31vmin, 168px); position:relative; width:calc(var(--r) * 2.3); height:calc(var(--r) * 2.3); flex:none; }
+.bjpRing.mini { --r:min(19vmin, 96px); }
+.bjpRaio { position:absolute; left:50%; top:50%; width:0; height:0; }
+.bjpBar { position:absolute; left:calc(var(--r) * -.0375); top:calc(var(--r) * -1.13); width:calc(var(--r) * .075); height:calc(var(--r) * .26); background:#fff; opacity:.18; transform:scaleY(.6); }
+.bjpBarOn { animation:bjpBarOn .28s ease-out forwards; }
+.bjpBarOk { opacity:1; transform:none; animation:bjpBarOk .5s cubic-bezier(.2,.8,.3,1.25) both; }
+.bjpEtapas { display:flex; flex-wrap:wrap; justify-content:center; gap:10px 26px; }
+@keyframes bjpBarOn { 0% { opacity:.18; transform:scaleY(.6); } 60% { opacity:1; transform:scaleY(1.22); } 100% { opacity:1; transform:scaleY(1); } }
+@keyframes bjpBarOk { from { opacity:0; transform:translateY(calc(var(--r) * .42)) scaleY(.3); } to { opacity:1; transform:none; } }
+@keyframes bjpDraw { to { stroke-dashoffset:0; } }
+@keyframes bjpWipe { from { clip-path:circle(0 at 50% 42%); } to { clip-path:circle(150vmax at 50% 42%); } }
+@keyframes bjpIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+@keyframes bjpBarra { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+@keyframes bjpTreme { 0%,100% { transform:translateX(0); } 20%,60% { transform:translateX(-9px); } 40%,80% { transform:translateX(9px); } }
+@keyframes bjpEtapa { to { opacity:1; } }
+@keyframes bjpScan { 0%,100% { top:8%; } 50% { top:88%; } }
+@keyframes bjpUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@media (max-width:980px) { .bjpEsq { max-width:none; flex-basis:100%; } .bjpOculta980 { display:none !important; } }
+@media (max-width:760px) {
+  .bjpOculta { display:none !important; }
+  .bjpT.resp thead { display:none; }
+  .bjpT.resp, .bjpT.resp tbody { display:block; }
+  .bjpT.resp tr { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px 6px; padding:10px 12px; border-bottom:1px solid #e6edf2; }
+  .bjpT.resp td { display:block; padding:0; border:none; white-space:normal; font-size:13px; min-width:0; }
+  .bjpT.resp td[data-r]::before { content:attr(data-r); display:block; font-size:10.5px; font-weight:bold; color:#5b7383; letter-spacing:.2px; }
+  .bjpT.resp td.larga { grid-column:span 2; }
+  .bjpT.resp td.toda { grid-column:1 / -1; }
+  .bjpT.resp td.bjpVazia { display:none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bjpBarOn, .bjpBarOk, .bjpMov { animation-duration:.01ms !important; animation-delay:0s !important; }
+  .bjpScanL { display:none; }
+}
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column;">
+  <header data-screen-label="Cabeçalho" style="position:sticky; top:0; z-index:60; background:#0a76a8; color:#fff; height:64px; display:flex; align-items:center; gap:clamp(8px, 1.6vw, 18px); padding:0 clamp(10px, 2vw, 24px);">
+    <i class="bi bi-list" data-tip="Menu" style="font-size:24px; cursor:pointer;"></i>
+    <a href="./03 - EXPEDIENTE - VS 30.10.26.dc.html" style="display:flex;"><img src="./bluejus-favicons/bluejus-logo-nav-branco.png" alt="BlueJus" style="height:30px; display:block;"></a>
+    <span class="bjpOculta" style="width:1px; height:22px; background:rgba(255,255,255,.45);"></span>
+    <span class="bjpOculta" style="font-size:17px; white-space:nowrap;">Ponto Eletrônico</span>
+    <div style="flex:1;"></div>
+    <div class="bjpOculta980" data-tip="{{ escritorio }}" style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:15px; min-width:0;"><i class="bi bi-building"></i><span style="max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ escritorio }}</span></div>
+    <button onClick="{{ telaCheia }}" aria-label="Tela cheia" data-tip="Tela cheia" style="width:34px; height:34px; border:none; border-radius:3px; background:transparent; color:#fff; font-size:17px; cursor:pointer;" style-hover="background:rgba(255,255,255,.16);"><i class="bi bi-arrows-fullscreen"></i></button>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; line-height:1.2; min-width:0;"><span style="font-weight:bold; font-size:clamp(12px, 1.5vw, 15px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:44vw;">{{ usuario }}</span><span style="font-size:10.5px; letter-spacing:.5px; opacity:.9; white-space:nowrap;">{{ papelTxt }}</span></div>
+  </header>
+  <nav style="background:#fff; display:flex; gap:4px; padding:0 clamp(8px, 2vw, 22px); box-shadow:0 1px 3px rgba(18,36,47,.08); overflow-x:auto;">
+    <a href="./03 - EXPEDIENTE - VS 30.10.26.dc.html" style="padding:15px 12px 12px; font-size:13px; font-weight:bold; letter-spacing:.3px; color:#34505f; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent;" style-hover="color:#0a6fa0;">EXPEDIENTE</a>
+    <a href="./15 - Demandas - VS 30.10.26.dc.html" style="padding:15px 12px 12px; font-size:13px; font-weight:bold; letter-spacing:.3px; color:#34505f; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent;" style-hover="color:#0a6fa0;">DEMANDAS</a>
+    <a href="./04 - Minhas Metas - VS 29.10.26.dc.html" style="padding:15px 12px 12px; font-size:13px; font-weight:bold; letter-spacing:.3px; color:#34505f; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent;" style-hover="color:#0a6fa0;">MINHAS METAS</a>
+    <a href="./09 - Agenda - VS 18.10.26.dc.html" style="padding:15px 12px 12px; font-size:13px; font-weight:bold; letter-spacing:.3px; color:#34505f; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent;" style-hover="color:#0a6fa0;">AGENDA</a>
+    <a href="./06 - Trabalho Externo -25.10.26.dc.html" data-recurso="trabalho" style="padding:15px 12px 12px; font-size:13px; font-weight:bold; letter-spacing:.3px; color:#34505f; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent;" style-hover="color:#0a6fa0;">TRABALHO EXTERNO</a>
+    <a href="./17 - Assinatura - VS 08.11.26.dc.html" data-recurso="assinatura" style="padding:15px 12px 12px; font-size:13px; font-weight:bold; letter-spacing:.3px; color:#34505f; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent;" style-hover="color:#0a6fa0;">ASSINATURA</a>
+    <a href="./18 - Voto - VS 08.11.26.dc.html" data-recurso="voto" style="padding:15px 12px 12px; font-size:13px; font-weight:bold; letter-spacing:.3px; color:#34505f; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent;" style-hover="color:#0a6fa0;">VOTO</a>
+  </nav>
+
+  <main style="width:100%; max-width:1560px; margin:0 auto; padding:20px clamp(10px, 2vw, 24px) 40px; box-sizing:border-box;">
+    <h1 style="margin:0 0 14px; font-size:clamp(26px, 3.4vw, 36px); font-weight:normal;">Ponto Eletrônico</h1>
+    <div class="bjpGrid">
+
+      <div class="bjpEsq">
+        <section data-screen-label="Registrar Ponto" style="background:#fff; border:1px solid #d3dde4; border-radius:3px; overflow:hidden; box-shadow:0 1px 3px rgba(18,36,47,.06);">
+          <div style="display:flex; align-items:center; gap:9px; padding:11px 16px; background:#0a6fa0; color:#fff;"><i class="bi bi-fingerprint" style="font-size:18px;"></i><span style="flex:1; font-size:16px; font-weight:bold;">Registrar Ponto</span><span style="text-align:right; line-height:1.15;"><span style="display:block; font-size:10.5px; opacity:.9;">Banco de horas</span><b style="font-size:15px; font-variant-numeric:tabular-nums;">{{ banco }}</b><sc-if value="{{ bancoAcima }}" hint-placeholder-val="{{ false }}"> <i class="bi bi-exclamation-triangle-fill" data-tip="Saldo acima do limite configurado" style="font-size:12px; color:#ffd666;"></i></sc-if></span></div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px;">
+            <div style="text-align:center;">
+              <div style="font-size:12.5px; color:#4a6373;">{{ statusTxt }}</div>
+              <div style="font-size:clamp(44px, 7vw, 54px); line-height:1.15; font-variant-numeric:tabular-nums; letter-spacing:1px;">{{ timer }}</div>
+              <div style="font-size:12.5px; color:#5b7383;">Hora oficial <b style="color:#243845; font-variant-numeric:tabular-nums;">{{ horaOf }}</b> · {{ dataExt }}</div>
+            </div>
+
+            <div>
+              <div style="font-size:12.5px; font-weight:bold; color:#34505f; margin-bottom:6px;">Tipo de registro <span style="color:#a3232b;">*</span></div>
+              <div role="radiogroup" aria-label="Tipo de registro" style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:4px;">
+                <sc-for list="{{ tipos }}" as="t" hint-placeholder-count="4"><button role="radio" aria-checked="{{ t.sel }}" disabled="{{ t.feito }}" onClick="{{ t.pick }}" style="min-height:54px; padding:6px 2px; border:1px solid {{ t.bd }}; border-radius:3px; background:{{ t.bg }}; color:{{ t.cor }}; font:inherit; font-size:12.5px; font-weight:bold; cursor:{{ t.cur }}; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;"><span>{{ t.r }}</span><span style="font-size:11.5px; font-weight:normal; font-variant-numeric:tabular-nums;">{{ t.h }}</span></button></sc-for>
+              </div>
+            </div>
+
+            <sc-if value="{{ geoVis }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex; align-items:flex-start; gap:8px; padding:9px 11px; border:1px solid {{ geoBd }}; border-left:4px solid {{ geoBd }}; border-radius:3px; background:{{ geoBg }}; color:{{ geoCor }}; font-size:12.5px; line-height:1.4;"><i class="bi {{ geoIc }}" style="font-size:15px;"></i><span style="flex:1;">{{ geoTxt }}</span><button onClick="{{ lerGeo }}" aria-label="Atualizar localização" data-tip="Atualizar localização" style="width:24px; height:24px; border:none; background:transparent; color:inherit; cursor:pointer; padding:0; border-radius:3px;"><i class="bi bi-arrow-clockwise"></i></button></div>
+            </sc-if>
+
+            <sc-if value="{{ avisoVis }}" hint-placeholder-val="{{ false }}"><div style="display:flex; align-items:flex-start; gap:8px; padding:9px 11px; border:1px solid {{ avisoBd }}; border-left:4px solid {{ avisoBd }}; border-radius:3px; background:{{ avisoBg }}; color:{{ avisoCor }}; font-size:12.5px; line-height:1.4;"><i class="bi {{ avisoIc }}" style="font-size:15px;"></i><span style="flex:1;">{{ avisoTxt }}</span></div></sc-if>
+            <sc-if value="{{ filaVis }}" hint-placeholder-val="{{ false }}"><div style="display:flex; align-items:center; gap:8px; padding:9px 11px; border:1px solid #9fc3d8; border-left:4px solid #0a6fa0; border-radius:3px; background:#e5f1f7; color:#0b4f75; font-size:12.5px;"><i class="bi bi-wifi-off" style="font-size:15px;"></i>{{ filaTxt }}</div></sc-if>
+            <sc-if value="{{ ultPendVis }}" hint-placeholder-val="{{ false }}"><div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 11px; border:1px solid #e0c36a; border-radius:3px; background:#fff8e1; color:#7a5200; font-size:12.5px;"><span style="flex:1 1 160px;">{{ ultPendTxt }}</span><button onClick="{{ ultPendGo }}" style="height:26px; padding:0 9px; border:1px solid #d9a300; border-radius:3px; background:#fff; color:#7a5200; font:inherit; font-size:12px; cursor:pointer;">Regularizar</button></div></sc-if>
+            <button onClick="{{ bater }}" disabled="{{ concluida }}" style="height:54px; border:none; border-radius:3px; background:{{ btnBg }}; color:#fff; font:inherit; font-size:18px; cursor:{{ btnCur }}; display:flex; align-items:center; justify-content:center; gap:10px;" style-hover="filter:brightness(.92);" style-active="transform:scale(.99);"><sc-if value="{{ iconeDigital }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 16 16" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8.06 6.5a.5.5 0 0 1 .5.5v.776a11.5 11.5 0 0 1-.552 3.519l-1.331 4.14a.5.5 0 0 1-.952-.305l1.33-4.141a10.5 10.5 0 0 0 .504-3.213V7a.5.5 0 0 1 .5-.5Z"></path><path d="M6.06 7a2 2 0 1 1 4 0 .5.5 0 1 1-1 0 1 1 0 1 0-2 0v.332q0 .613-.066 1.221A.5.5 0 0 1 6 8.447q.06-.555.06-1.115zm3.509 1a.5.5 0 0 1 .487.513 11.5 11.5 0 0 1-.587 3.339l-1.266 3.8a.5.5 0 0 1-.949-.317l1.267-3.8a10.5 10.5 0 0 0 .535-3.048A.5.5 0 0 1 9.569 8m-3.356 2.115a.5.5 0 0 1 .33.626L5.24 14.939a.5.5 0 1 1-.955-.296l1.303-4.199a.5.5 0 0 1 .625-.329"></path><path d="M4.759 5.833A3.501 3.501 0 0 1 11.559 7a.5.5 0 0 1-1 0 2.5 2.5 0 0 0-4.857-.833.5.5 0 1 1-.943-.334m.3 1.67a.5.5 0 0 1 .449.546 10.7 10.7 0 0 1-.4 2.031l-1.222 4.072a.5.5 0 1 1-.958-.287L4.15 9.793a9.7 9.7 0 0 0 .363-1.842.5.5 0 0 1 .546-.449Zm6 .647a.5.5 0 0 1 .5.5c0 1.28-.213 2.552-.632 3.762l-1.09 3.145a.5.5 0 0 1-.944-.327l1.089-3.145c.382-1.105.578-2.266.578-3.435a.5.5 0 0 1 .5-.5Z"></path><path d="M3.902 4.222a5 5 0 0 1 5.202-2.113.5.5 0 0 1-.208.979 4 4 0 0 0-4.163 1.69.5.5 0 0 1-.831-.556m6.72-.955a.5.5 0 0 1 .705-.052A4.99 4.99 0 0 1 13.059 7v1.5a.5.5 0 1 1-1 0V7a3.99 3.99 0 0 0-1.386-3.028.5.5 0 0 1-.051-.705M3.68 5.842a.5.5 0 0 1 .422.568q-.044.289-.044.59c0 .71-.1 1.417-.298 2.1l-1.14 3.923a.5.5 0 1 1-.96-.279L2.8 8.821A6.5 6.5 0 0 0 3.058 7q0-.375.054-.736a.5.5 0 0 1 .568-.422m8.882 3.66a.5.5 0 0 1 .456.54c-.084 1-.298 1.986-.64 2.934l-.744 2.068a.5.5 0 0 1-.941-.338l.745-2.07a10.5 10.5 0 0 0 .584-2.678.5.5 0 0 1 .54-.456"></path><path d="M4.81 1.37A6.5 6.5 0 0 1 14.56 7a.5.5 0 1 1-1 0 5.5 5.5 0 0 0-8.25-4.765.5.5 0 0 1-.5-.865m-.89 1.257a.5.5 0 0 1 .04.706A5.48 5.48 0 0 0 2.56 7a.5.5 0 0 1-1 0c0-1.664.626-3.184 1.655-4.333a.5.5 0 0 1 .706-.04ZM1.915 8.02a.5.5 0 0 1 .346.616l-.779 2.767a.5.5 0 1 1-.962-.27l.778-2.767a.5.5 0 0 1 .617-.346m12.15.481a.5.5 0 0 1 .49.51c-.03 1.499-.161 3.025-.727 4.533l-.07.187a.5.5 0 0 1-.936-.351l.07-.187c.506-1.35.634-2.74.663-4.202a.5.5 0 0 1 .51-.49"></path></svg></sc-if><sc-if value="{{ iconeFace }}" hint-placeholder-val="{{ false }}"><i class="bi bi-person-bounding-box" style="font-size:21px;"></i></sc-if>{{ btnTxt }}</button>
+            <sc-if value="{{ faceOpc }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ baterFace }}" style="height:40px; border:1px solid #0a6fa0; border-radius:3px; background:#fff; color:#0a6fa0; font:inherit; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;" style-hover="background:#e5f1f7;"><i class="bi bi-person-bounding-box"></i>Registrar com reconhecimento facial</button>
+            </sc-if>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; border-top:1px solid #e6edf2; padding-top:12px;">
+              <button onClick="{{ abrirJust }}" style="flex:1 1 150px; height:36px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font:inherit; font-size:13.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;" style-hover="background:#f3f6f8;"><i class="bi bi-calendar-check"></i>Justificar falta</button>
+              <sc-if value="{{ sonsVis }}" hint-placeholder-val="{{ true }}"><button onClick="{{ tgMudo }}" aria-label="{{ mudoTip }}" data-tip="{{ mudoTip }}" style="width:36px; height:36px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;" style-hover="background:#f3f6f8;"><sc-if value="{{ somLigado }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M11.536 14.01A8.47 8.47 0 0 0 14.026 8a8.47 8.47 0 0 0-2.49-6.01l-.708.707A7.48 7.48 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303z"></path><path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.48 5.48 0 0 1 11.025 8a5.48 5.48 0 0 1-1.61 3.89z"></path><path d="M10.025 8a4.5 4.5 0 0 1-1.318 3.182L8 10.475A3.5 3.5 0 0 0 9.025 8c0-.966-.392-1.841-1.025-2.475l.707-.707A4.5 4.5 0 0 1 10.025 8M7 4a.5.5 0 0 0-.812-.39L3.825 5.5H1.5A.5.5 0 0 0 1 6v4a.5.5 0 0 0 .5.5h2.325l2.363 1.89A.5.5 0 0 0 7 12zM4.312 6.39 6 5.04v5.92L4.312 9.61A.5.5 0 0 0 4 9.5H2v-3h2a.5.5 0 0 0 .312-.11"></path></svg></sc-if><sc-if value="{{ somMudo }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06M6 5.04 4.312 6.39A.5.5 0 0 1 4 6.5H2v3h2a.5.5 0 0 1 .312.11L6 10.96zm7.854.606a.5.5 0 0 1 0 .708L12.207 8l1.647 1.646a.5.5 0 0 1-.708.708L11.5 8.707l-1.646 1.647a.5.5 0 0 1-.708-.708L10.793 8 9.146 6.354a.5.5 0 1 1 .708-.708L11.5 7.293l1.646-1.647a.5.5 0 0 1 .708 0"></path></svg></sc-if></button></sc-if>
+              <span style="font-size:12px; color:#5b7383; white-space:nowrap;">Jornada semanal <b style="color:#243845;">44h00m</b></span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="bjpDir">
+        <section data-screen-label="Folha de Ponto" style="background:#fff; border:1px solid #d3dde4; border-radius:3px; box-shadow:0 1px 3px rgba(18,36,47,.06);">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:9px 16px; background:#0a6fa0; color:#fff; position:relative;"><i class="bi bi-table" style="font-size:17px;"></i><span style="font-size:16px; font-weight:bold;">Folha de Ponto</span><select aria-label="Competência" value="{{ mes }}" onChange="{{ trocaMes }}" style="height:30px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#12242f; font:inherit; font-size:13px; padding:0 6px;"><sc-for list="{{ meses }}" as="m" hint-placeholder-count="2"><option value="{{ m.v }}">{{ m.r }}</option></sc-for></select><sc-if value="{{ aceTem }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 8px; border-radius:3px; background:{{ aceBg }}; color:#fff; font-size:12px; font-weight:bold; white-space:nowrap;"><i class="bi bi-pen"></i>{{ aceTxt }}</span></sc-if><span style="flex:1;"></span>
+            <sc-if value="{{ podeAss }}" hint-placeholder-val="{{ false }}"><button onClick="{{ abrirAss }}" style="height:30px; padding:0 11px; border:1px solid rgba(255,255,255,.65); border-radius:3px; background:transparent; color:#fff; font:inherit; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:7px;" style-hover="background:rgba(255,255,255,.16);"><i class="bi bi-pen"></i>Assinar folha</button></sc-if><button onClick="{{ baixarPdf }}" style="height:30px; padding:0 11px; border:1px solid rgba(255,255,255,.65); border-radius:3px; background:transparent; color:#fff; font:inherit; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:7px;" style-hover="background:rgba(255,255,255,.16);"><i class="bi bi-file-earmark-pdf"></i>Baixar PDF</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="bjpT resp">
+              <thead><tr><th>Dia</th><th>Semana</th><th>Entrada</th><th>Repouso</th><th>Retorno</th><th>Saída</th><th>Trabalhado</th><th>Saldo dia</th><th>Saldo mês</th><th>Justificativa</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ folha }}" as="l" hint-placeholder-count="3"><tr class="bjpLin">
+                  <td class="larga"><b>{{ l.dia }}</b></td><td class="larga">{{ l.sem }}</td>
+                  <sc-for list="{{ l.cels }}" as="c" hint-placeholder-count="4"><td data-r="{{ c.r }}"><sc-if value="{{ c.tem }}" hint-placeholder-val="{{ true }}">{{ c.h }}<sc-if value="{{ c.aj }}" hint-placeholder-val="{{ false }}"> <span class="bjpPl" data-tip="{{ c.ajTip }}" aria-label="{{ c.ajTip }}" style="font-size:10.5px; font-weight:bold; color:#0a6fa0; cursor:help;">aj</span></sc-if></sc-if><sc-if value="{{ c.mais }}" hint-placeholder-val="{{ false }}"><button class="bjpMais" onClick="{{ c.add }}" aria-label="{{ c.tip }}" data-tip="{{ c.tip }}"><i class="bi bi-plus-circle"></i></button></sc-if><sc-if value="{{ c.tr }}" hint-placeholder-val="{{ false }}">—</sc-if></td></sc-for>
+                  <td class="{{ l.trC }}" data-r="Trabalhado">{{ l.trab }}</td>
+                  <td class="larga" data-r="Saldo dia"><sc-if value="{{ l.plano }}" hint-placeholder-val="{{ false }}"><b class="bjpPl" style="color:{{ l.tagCor }};">{{ l.tag }}</b></sc-if><sc-if value="{{ l.selo }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 7px; border:1px solid {{ l.tagBd }}; border-radius:3px; background:{{ l.tagBg }}; color:{{ l.tagCor }}; font-size:12px; white-space:nowrap;"><i class="bi {{ l.tagIc }}"></i>{{ l.tag }}</span></sc-if></td>
+                  <td class="bjpSm" data-r="Saldo mês" style="font-weight:bold; color:{{ l.smCor }};">{{ l.sm }}</td>
+                  <td class="{{ l.jC }}" data-r="Justificativa"><sc-if value="{{ l.temJ }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 8px; border-radius:3px; background:{{ l.jBg }}; color:#fff; font-size:12px; font-weight:bold; white-space:nowrap;"><i class="bi {{ l.jIc }}"></i>{{ l.just }}</span></sc-if></td>
+                </tr></sc-for>
+                <sc-if value="{{ folhaVazia }}" hint-placeholder-val="{{ false }}"><tr><td colspan="10" class="toda" style="padding:18px; color:#5b7383; text-align:center;">Nenhuma batida nesta competência.</td></tr></sc-if>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section data-screen-label="Registros e comprovantes" style="background:#fff; border:1px solid #d3dde4; border-radius:3px; overflow:hidden; box-shadow:0 1px 3px rgba(18,36,47,.06);">
+          <div role="tablist" style="display:flex; gap:2px; overflow-x:auto; background:#eef3f6; border-bottom:1px solid #d3dde4;">
+            <sc-for list="{{ abas }}" as="a" hint-placeholder-count="4"><button role="tab" aria-selected="{{ a.sel }}" onClick="{{ a.pick }}" style="padding:12px 14px 9px; border:none; border-bottom:3px solid {{ a.bd }}; background:{{ a.bg }}; color:{{ a.cor }}; font:inherit; font-size:13.5px; font-weight:bold; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:7px;"><i class="bi {{ a.ic }}"></i>{{ a.r }}<sc-if value="{{ a.tem }}" hint-placeholder-val="{{ false }}"><span style="min-width:18px; height:18px; padding:0 4px; box-sizing:border-box; border-radius:3px; background:{{ a.nBg }}; color:#fff; font-size:11px; display:inline-flex; align-items:center; justify-content:center;">{{ a.n }}</span></sc-if></button></sc-for>
+          </div>
+
+          <sc-if value="{{ abaPend }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:10px 16px; font-size:12.5px; color:#5b7383; border-bottom:1px solid #e6edf2;">Dias dos últimos 30 em que faltou uma batida. Elas não impedem o registro do ponto: envie o registro de esquecimento para regularizar.</div>
+            <div style="max-height:360px; overflow-y:auto;">
+              <sc-for list="{{ pend }}" as="p" hint-placeholder-count="5"><div style="display:flex; align-items:center; gap:6px 14px; flex-wrap:wrap; padding:8px 16px; border-bottom:1px solid #e6edf2;"><b style="font-size:13.5px; font-variant-numeric:tabular-nums;">{{ p.data }}</b><span style="font-size:13.5px; color:#243845;">{{ p.falta }}</span><span class="bjpOculta" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12.5px; color:#5b7383;">{{ escritorio }}</span><button onClick="{{ p.env }}" style="margin-left:auto; height:30px; padding:0 11px; border:1px solid #d9a300; border-radius:3px; background:#fff; color:#7a5200; font:inherit; font-size:12.5px; cursor:pointer; display:flex; align-items:center; gap:6px;" style-hover="background:#fff3cd;"><i class="bi bi-plus-circle"></i>Enviar registro de esquecimento</button></div></sc-for>
+              <sc-if value="{{ pendVazia }}" hint-placeholder-val="{{ false }}"><div style="padding:22px; text-align:center; font-size:13.5px; color:#5b7383;">Nenhuma pendência de registro.</div></sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ abaJust }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ justTem }}" hint-placeholder-val="{{ true }}"><div style="overflow-x:auto;"><table class="bjpT">
+              <thead><tr><th>Data(s)</th><th>Tipo</th><th>Status</th><th>Atestado</th><th>Obs. da Análise</th><th>Analisado em</th><th></th></tr></thead>
+              <tbody><sc-for list="{{ justs }}" as="j" hint-placeholder-count="2"><tr class="bjpJ">
+                <td><span style="display:inline-block; padding:3px 8px; border:1px solid #d3dde4; border-radius:3px; background:#f3f6f8; font-size:12.5px; font-weight:bold;">{{ j.data }}</span></td>
+                <td style="white-space:normal; min-width:170px;"><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#bfeaf7; color:#0b3550; font-size:11.5px; font-weight:bold;">{{ j.tipo }}</span><div style="font-size:12.5px; color:#5b7383; margin-top:3px;">{{ j.sub }}</div><sc-if value="{{ j.temMot }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px; color:#5b7383;">{{ j.mot }}</div></sc-if></td>
+                <td><span style="display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 8px; border-radius:3px; background:{{ j.stBg }}; color:#fff; font-size:12px; font-weight:bold;"><i class="bi {{ j.stIc }}"></i>{{ j.st }}</span></td>
+                <td style="color:#34505f;">{{ j.anexo }}</td><td style="color:#34505f;">{{ j.obs }}</td><td style="color:#34505f;">{{ j.em }}</td>
+                <td style="text-align:right;"><sc-if value="{{ j.trava }}" hint-placeholder-val="{{ true }}"><span data-tip="Análise concluída: não pode ser alterada." aria-label="Análise concluída" style="color:#5b6a9a; font-size:16px;"><i class="bi bi-lock"></i></span></sc-if><sc-if value="{{ j.gere }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex; gap:4px;"><button onClick="{{ j.abonar }}" style="height:28px; padding:0 9px; border:1px solid #1e7b45; border-radius:3px; background:#fff; color:#145a32; font:inherit; font-size:12.5px; cursor:pointer;" style-hover="background:#e8f5ee;">Abonar</button><button onClick="{{ j.recusar }}" style="height:28px; padding:0 9px; border:1px solid #a3232b; border-radius:3px; background:#fff; color:#7f1c23; font:inherit; font-size:12.5px; cursor:pointer;" style-hover="background:#fdecee;">Recusar</button></span></sc-if><sc-if value="{{ j.aberta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ j.tirar }}" aria-label="Excluir justificativa" data-tip="Excluir enquanto não analisada" style="width:28px; height:28px; margin-left:4px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#a3232b; cursor:pointer; padding:0;" style-hover="background:#fdecee;"><i class="bi bi-trash3"></i></button></sc-if></td>
+              </tr></sc-for></tbody>
+            </table></div></sc-if>
+            <sc-if value="{{ justVazia }}" hint-placeholder-val="{{ true }}"><div style="padding:22px; text-align:center; font-size:13.5px; color:#5b7383;">Nenhuma justificativa enviada nesta competência.</div></sc-if>
+          </sc-if>
+
+          <sc-if value="{{ abaComp }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 16px; border-bottom:1px solid #e6edf2;"><span style="flex:1 1 220px; font-size:12.5px; color:#5b7383;">Cada comprovante é uma imagem única, com código, QR Code e padrões de segurança gerados a partir do próprio registro.</span><button onClick="{{ abrirVal }}" style="height:32px; padding:0 12px; border:1px solid #0a6fa0; border-radius:3px; background:#fff; color:#0a6fa0; font:inherit; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:7px;" style-hover="background:#e5f1f7;"><i class="bi bi-shield-check"></i>Validar código</button></div>
+            <div style="max-height:360px; overflow-y:auto;">
+              <sc-for list="{{ comps }}" as="c" hint-placeholder-count="3"><div style="display:flex; align-items:center; gap:6px 14px; flex-wrap:wrap; padding:8px 16px; border-bottom:1px solid #e6edf2; font-size:13.5px;"><b style="font-variant-numeric:tabular-nums;">{{ c.dh }}</b><span>{{ c.tipo }}</span><span style="color:#5b7383; font-size:12.5px;">{{ c.met }}</span><code style="flex:1; min-width:150px; font-size:12.5px; color:#0b4f75;">{{ c.cod }}</code><button onClick="{{ c.ver }}" aria-label="Baixar comprovante {{ c.cod }}" style="height:30px; padding:0 11px; border:1px solid #0a6fa0; border-radius:3px; background:#fff; color:#0a6fa0; font:inherit; font-size:12.5px; cursor:pointer; display:flex; align-items:center; gap:6px;" style-hover="background:#e5f1f7;"><i class="bi bi-download"></i>Baixar</button></div></sc-for>
+              <sc-if value="{{ compVazia }}" hint-placeholder-val="{{ true }}"><div style="padding:22px; text-align:center; font-size:13.5px; color:#5b7383;">Os comprovantes aparecem aqui depois do primeiro registro.</div></sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ abaBanco }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:1px; background:#e6edf2; border-bottom:1px solid #e6edf2;">
+              <sc-for list="{{ bancoKpi }}" as="k" hint-placeholder-count="3"><div style="background:#fff; padding:12px 16px;"><div style="font-size:11.5px; font-weight:bold; letter-spacing:.3px; color:#4a6373;">{{ k.r }}</div><b style="display:block; font-size:22px; color:{{ k.cor }}; font-variant-numeric:tabular-nums; margin-top:2px;">{{ k.v }}</b></div></sc-for>
+            </div>
+            <sc-if value="{{ bancoAcima }}" hint-placeholder-val="{{ false }}"><div style="padding:9px 16px; background:#fff3cd; color:#7a5200; font-size:13px; border-bottom:1px solid #e0c36a;"><i class="bi bi-exclamation-triangle"></i> Saldo acima do limite configurado. Planeje a compensação para evitar passivo.</div></sc-if>
+            <div style="overflow-x:auto;"><table class="bjpT"><thead><tr><th>Competência</th><th>Crédito</th><th>Compensado</th><th>Saldo</th><th>Vence em</th><th>Situação</th></tr></thead><tbody><sc-for list="{{ lotes }}" as="l" hint-placeholder-count="3"><tr class="bjpJ"><td><b>{{ l.r }}</b></td><td>{{ l.cred }}</td><td>{{ l.comp }}</td><td style="font-weight:bold;">{{ l.sal }}</td><td>{{ l.venc }}</td><td><span style="display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:3px; background:{{ l.bg }}; color:#fff; font-size:12px; font-weight:bold;">{{ l.st }}</span></td></tr></sc-for></tbody></table></div>
+            <div style="padding:10px 16px; font-size:12px; color:#5b7383; line-height:1.5;">Horas negativas abatem primeiro os créditos mais antigos. O prazo padrão é de 6 meses, próprio do acordo individual (art. 59, § 5º, da CLT), e pode ser ajustado em Configurações conforme o acordo do escritório.</div>
+          </sc-if>
+
+          <sc-if value="{{ abaEq }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:8px 16px; background:#f7f9fb; border-bottom:1px solid #e6edf2; font-size:12px; color:#5b7383;">Dados de exemplo: exceto a sua linha, os colaboradores abaixo são fictícios até a integração com o cadastro da equipe.</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:1px; background:#e6edf2; border-bottom:1px solid #e6edf2;">
+              <sc-for list="{{ eqKpi }}" as="k" hint-placeholder-count="5"><div style="background:#fff; padding:10px 14px;"><div style="font-size:11.5px; font-weight:bold; color:#4a6373;">{{ k.r }}</div><b style="display:block; font-size:24px; color:{{ k.cor }};">{{ k.v }}</b></div></sc-for>
+            </div>
+            <div style="overflow-x:auto;"><table class="bjpT"><thead><tr><th>Colaborador</th><th>Situação</th><th>Entrada</th><th>Último registro</th><th>Banco</th><th>Pendências</th><th>Escala</th></tr></thead><tbody><sc-for list="{{ equipe }}" as="q" hint-placeholder-count="5"><tr class="bjpJ"><td><b>{{ q.n }}</b><div style="font-size:12px; color:#5b7383;">{{ q.c }}</div></td><td><span style="display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:3px; background:{{ q.bg }}; color:#fff; font-size:12px; font-weight:bold;">{{ q.st }}</span></td><td>{{ q.e }}</td><td>{{ q.u }}</td><td style="font-weight:bold;">{{ q.b }}</td><td>{{ q.p }}</td><td><select aria-label="Escala de {{ q.n }}" value="{{ q.esc }}" onChange="{{ q.troca }}" style="height:30px; border:1px solid #d3dde4; border-radius:3px; background:#fff; font:inherit; font-size:12.5px; color:#12242f;"><sc-for list="{{ escalas }}" as="o" hint-placeholder-count="4"><option value="{{ o.id }}">{{ o.r }}</option></sc-for></select></td></tr></sc-for></tbody></table></div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 16px; background:#eef3f6; border-top:1px solid #d3dde4; border-bottom:1px solid #d3dde4;"><b style="flex:1 1 200px; font-size:14px;">Justificativas a analisar ({{ eqNJ }})</b><button onClick="{{ loteAbonar }}" disabled="{{ loteOff }}" style="height:30px; padding:0 11px; border:1px solid #1e7b45; border-radius:3px; background:#fff; color:#145a32; font:inherit; font-size:12.5px; cursor:pointer;">Abonar selecionadas</button></div>
+            <sc-for list="{{ eqJ }}" as="j" hint-placeholder-count="3"><label style="display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; padding:9px 16px; border-bottom:1px solid #e6edf2; font-size:13.5px; cursor:pointer;"><input type="checkbox" checked="{{ j.sel }}" onChange="{{ j.tg }}" style="width:16px; height:16px;"><b>{{ j.n }}</b><span style="font-variant-numeric:tabular-nums;">{{ j.data }}</span><span>{{ j.tipo }}</span><span style="color:#5b7383; font-size:12.5px; flex:1; min-width:120px;">{{ j.sub }}</span></label></sc-for>
+            <sc-if value="{{ eqJVazia }}" hint-placeholder-val="{{ false }}"><div style="padding:18px; text-align:center; font-size:13.5px; color:#5b7383;">Nenhuma justificativa aguardando análise.</div></sc-if>
+          </sc-if>
+
+          <sc-if value="{{ abaLog }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; gap:8px; padding:10px 16px; font-size:12.5px; color:{{ logCor }}; border-bottom:1px solid #e6edf2;"><i class="bi {{ logIc }}" style="font-size:15px;"></i>{{ logTxt }}</div>
+            <sc-if value="{{ logTem }}" hint-placeholder-val="{{ true }}"><div style="max-height:380px; overflow:auto;"><table class="bjpT"><thead><tr><th>Data e hora</th><th>Autor</th><th>Ação</th><th>Detalhe</th><th>Selo</th></tr></thead><tbody><sc-for list="{{ logs }}" as="l" hint-placeholder-count="4"><tr class="bjpJ"><td>{{ l.dh }}</td><td>{{ l.por }}</td><td><b>{{ l.acao }}</b></td><td style="white-space:normal; min-width:200px;">{{ l.det }}</td><td><code style="font-size:12px; color:#0b4f75;">{{ l.h }}</code></td></tr></sc-for></tbody></table></div></sc-if>
+            <sc-if value="{{ logVazio }}" hint-placeholder-val="{{ false }}"><div style="padding:22px; text-align:center; font-size:13.5px; color:#5b7383;">Os eventos aparecem aqui a partir do próximo registro.</div></sc-if>
+          </sc-if>
+
+          <sc-if value="{{ abaCfg }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ euMaster }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex; align-items:center; gap:10px 18px; flex-wrap:wrap; padding:10px 16px; background:#f7f9fb; border-bottom:1px solid #e6edf2; font-size:12.5px; color:#34505f;">
+                <label style="display:flex; align-items:center; gap:7px;"><b>Ver como</b><select value="{{ verComo }}" onChange="{{ trocaVer }}" style="height:30px; border:1px solid #d3dde4; border-radius:3px; background:#fff; font:inherit; font-size:13px; color:#12242f;"><option value="master">Master</option><option value="primario">Usuário primário</option><option value="colaborador">Colaborador</option></select></label>
+                <label style="display:flex; align-items:center; gap:7px;"><b>Próxima batida</b><select value="{{ sim }}" onChange="{{ trocaSim }}" style="height:30px; border:1px solid #d3dde4; border-radius:3px; background:#fff; font:inherit; font-size:13px; color:#12242f;"><option value="ok">Sucesso</option><option value="fora">Erro: fora do raio</option><option value="rosto">Erro: rosto não reconhecido</option><option value="gps">Erro: sem localização</option></select></label>
+                <span style="color:#5b7383;">Controles de teste do protótipo.</span>
+              </div>
+            </sc-if>
+            <div style="padding:10px 16px; font-size:12.5px; color:#4a6373; border-bottom:1px solid #e6edf2;">{{ cfgTxt }}</div>
+            <sc-for list="{{ feats }}" as="f" hint-placeholder-count="5">
+              <div style="display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; padding:11px 16px; border-bottom:1px solid #e6edf2;">
+                <i class="bi {{ f.ic }}" style="font-size:18px; color:#0a6fa0; width:20px; text-align:center;"></i>
+                <div style="flex:1 1 240px; min-width:0;"><b style="display:block; font-size:14px;">{{ f.t }}</b><span style="font-size:12.5px; color:#5b7383;">{{ f.d }}</span></div>
+                <sc-if value="{{ f.vM }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:7px; font-size:12px; color:#34505f;"><span>Global</span><button role="switch" aria-checked="{{ f.g }}" aria-label="{{ f.t }}: liberar para todos" onClick="{{ f.tgG }}" style="width:42px; height:22px; border:none; border-radius:3px; padding:2px; background:{{ f.gBg }}; cursor:pointer; display:flex; justify-content:{{ f.gJ }};"><span style="width:18px; height:18px; background:#fff; border-radius:2px; display:block;"></span></button></div></sc-if>
+                <div style="display:flex; align-items:center; gap:7px; font-size:12px; color:#34505f;"><span>Escritório</span><button role="switch" aria-checked="{{ f.e }}" aria-label="{{ f.t }}: usar no escritório" disabled="{{ f.bloq }}" onClick="{{ f.tgE }}" style="width:42px; height:22px; border:none; border-radius:3px; padding:2px; background:{{ f.eBg }}; cursor:{{ f.eCur }}; display:flex; justify-content:{{ f.eJ }};"><span style="width:18px; height:18px; background:#fff; border-radius:2px; display:block;"></span></button></div>
+                <sc-if value="{{ f.bloq }}" hint-placeholder-val="{{ false }}"><span style="flex-basis:100%; font-size:12px; color:#a3232b; padding-left:30px;">Desativado pelo Master para todos os escritórios.</span></sc-if>
+              </div>
+            </sc-for>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:12px 16px; background:#f7f9fb;">
+              <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Uso da facial<select value="{{ faceModo }}" onChange="{{ trocaFace }}" disabled="{{ faceOff }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; background:#fff; padding:0 6px; font:inherit; font-size:14px; font-weight:normal; color:#12242f;"><option value="opcional">Opcional: a pessoa escolhe</option><option value="obrigatoria">Obrigatória em toda batida</option></select></label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#34505f; align-self:end; min-height:34px;"><input type="checkbox" checked="{{ fotoOn }}" onChange="{{ tgFoto }}" disabled="{{ faceOff }}" style="width:16px; height:16px;">Guardar foto de cada batida facial</label>
+              <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Guardar fotos por<select value="{{ fotoMeses }}" onChange="{{ trocaFotoM }}" disabled="{{ faceOff }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"><option value="6">6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option></select></label>
+              <div style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; font-size:12.5px; color:#34505f;"><span style="flex:1 1 120px;">{{ faceStatus }}</span><button onClick="{{ excluirFace }}" style="height:30px; padding:0 11px; border:1px solid #0a6fa0; border-radius:3px; background:#fff; color:#0a6fa0; font:inherit; font-size:12.5px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;"><i class="bi bi-trash3"></i>Excluir meu cadastro</button></div>
+              <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Limite do banco (horas)<input type="number" min="0" step="10" value="{{ bcLim }}" onInput="{{ trocaLim }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"></label>
+              <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Prazo de compensação (meses)<input type="number" min="1" max="24" value="{{ bcMes }}" onInput="{{ trocaMesB }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"></label>
+            </div>
+            <div style="padding:12px 16px; border-top:1px solid #e6edf2;"><div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;"><b style="flex:1 1 160px; font-size:14px;">Sedes e raio de registro</b><label style="display:flex; align-items:center; gap:7px; font-size:12.5px; color:#34505f;"><input type="checkbox" checked="{{ extOn }}" onChange="{{ tgExt }}" style="width:16px; height:16px;">Permitir trabalho externo, com motivo e análise</label><button onClick="{{ addSede }}" style="height:30px; padding:0 11px; border:1px solid #0a6fa0; border-radius:3px; background:#fff; color:#0a6fa0; font:inherit; font-size:12.5px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;"><i class="bi bi-plus-lg"></i>Adicionar sede</button></div>
+              <div style="overflow-x:auto;"><table class="bjpT"><thead><tr><th>Sede</th><th>Latitude</th><th>Longitude</th><th>Raio (m)</th><th></th></tr></thead><tbody><sc-for list="{{ sedes }}" as="q" hint-placeholder-count="2"><tr class="bjpJ"><td style="min-width:150px;"><input aria-label="Nome da sede" value="{{ q.n }}" onInput="{{ q.setN }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"></td><td style="min-width:110px;"><input aria-label="Latitude" value="{{ q.lat }}" onInput="{{ q.setLat }}" placeholder="informar" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"></td><td style="min-width:110px;"><input aria-label="Longitude" value="{{ q.lng }}" onInput="{{ q.setLng }}" placeholder="informar" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"></td><td style="min-width:80px;"><input type="number" aria-label="Raio em metros" value="{{ q.r }}" onInput="{{ q.setR }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"></td><td style="text-align:right;"><button onClick="{{ q.aqui }}" style="height:30px; padding:0 11px; border:1px solid #0a6fa0; border-radius:3px; background:#fff; color:#0a6fa0; font:inherit; font-size:12.5px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;"><i class="bi bi-crosshair"></i>Usar minha posição</button> <button onClick="{{ q.tira }}" aria-label="Remover sede" style="width:30px; height:30px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#a3232b; cursor:pointer; padding:0;"><i class="bi bi-trash3"></i></button></td></tr></sc-for></tbody></table></div>
+            </div>
+            <div style="padding:12px 16px; border-top:1px solid #e6edf2;"><b style="display:block; font-size:14px; margin-bottom:8px;">Feriados do escritório</b><div style="font-size:12.5px; color:#5b7383; margin-bottom:8px;">Os nacionais já estão incluídos. Cadastre aqui os estaduais e municipais, por sede.</div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; align-items:end;"><label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Data<input type="date" value="{{ feD }}" onInput="{{ setFeD }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"></label><label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Nome<input value="{{ feN }}" onInput="{{ setFeN }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"></label><label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Abrangência<select value="{{ feS }}" onChange="{{ setFeS }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"><option value="Todas">Todas as sedes</option><sc-for list="{{ sedes }}" as="q" hint-placeholder-count="2"><option value="{{ q.n }}">{{ q.n }}</option></sc-for></select></label><button onClick="{{ addFer }}" style="height:34px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font:inherit; font-size:13px; cursor:pointer;">Adicionar</button></div>
+              <sc-for list="{{ ferExtra }}" as="f" hint-placeholder-count="1"><div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid #e6edf2; font-size:13px;"><b>{{ f.d }}</b><span style="flex:1;">{{ f.n }}</span><span style="color:#5b7383;">{{ f.sede }}</span><button onClick="{{ f.tira }}" aria-label="Remover feriado" style="width:26px; height:26px; border:none; background:transparent; color:#a3232b; cursor:pointer;"><i class="bi bi-x-lg"></i></button></div></sc-for>
+            </div>
+          </sc-if>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <sc-if value="{{ temToast }}" hint-placeholder-val="{{ false }}"><div role="status" style="position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:2147483000; max-width:calc(100vw - 28px); background:{{ toastBg }}; color:#fff; padding:11px 16px; border-radius:3px; box-shadow:0 8px 24px rgba(18,36,47,.25); font-size:14px; animation:bjpUp .2s ease both;">{{ toast }}</div></sc-if>
+
+  <!-- MODAIS -->
+  <sc-if value="{{ temModal }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:2147483100; background:rgba(11,53,80,.55); display:flex; align-items:center; justify-content:center; padding:14px; overflow-y:auto;">
+      <div role="dialog" aria-modal="true" aria-label="{{ modalTit }}" style="width:100%; max-width:480px; background:#fff; border-radius:3px; box-shadow:0 18px 50px rgba(0,0,0,.35); overflow:hidden; animation:bjpUp .2s ease both;">
+        <div style="display:flex; align-items:center; gap:9px; padding:12px 16px; background:#0a6fa0; color:#fff;"><i class="bi {{ modalIc }}" style="font-size:17px;"></i><b style="flex:1; font-size:16px;">{{ modalTit }}</b><button onClick="{{ fecharModal }}" aria-label="Fechar" style="width:28px; height:28px; border:none; border-radius:3px; background:transparent; color:#fff; font-size:17px; cursor:pointer;" style-hover="background:rgba(255,255,255,.16);"><i class="bi bi-x-lg"></i></button></div>
+
+        <sc-if value="{{ mEsq }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 16px; display:flex; flex-direction:column; gap:11px;">
+            <div style="font-size:13.5px; color:#34505f;">{{ esqInfo }}</div>
+            <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Horário <input type="time" step="1" value="{{ fHora }}" onInput="{{ setHora }}" style="height:36px; border:1px solid #d3dde4; border-radius:3px; padding:0 10px; font:inherit; font-size:14px; font-weight:normal;"></label>
+            <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Motivo <textarea rows="3" value="{{ fMot }}" onInput="{{ setMot }}" style="border:1px solid #d3dde4; border-radius:3px; padding:8px 10px; font:inherit; font-size:14px; font-weight:normal; resize:vertical;"></textarea></label>
+          </div>
+        </sc-if>
+        <sc-if value="{{ mJust }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 16px; display:flex; flex-direction:column; gap:11px;">
+            <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Data da falta <input type="date" value="{{ fData }}" onInput="{{ setData }}" style="height:36px; border:1px solid #d3dde4; border-radius:3px; padding:0 10px; font:inherit; font-size:14px; font-weight:normal;"></label>
+            <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Motivo <textarea rows="3" value="{{ fMot }}" onInput="{{ setMot }}" style="border:1px solid #d3dde4; border-radius:3px; padding:8px 10px; font:inherit; font-size:14px; font-weight:normal; resize:vertical;"></textarea></label>
+            <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Atestado ou documento (opcional) <input type="file" accept="image/*,application/pdf" onChange="{{ setArq }}" style="font:inherit; font-size:13px; font-weight:normal;"></label>
+          </div>
+        </sc-if>
+        <sc-if value="{{ mAlerta }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px; font-size:14px; line-height:1.5; color:#243845;">{{ alertaTxt }}<div style="margin-top:8px; font-size:12.5px; color:#5b7383;">O alerta não impede o registro: a folha deve refletir o horário real.</div></div></sc-if>
+        <sc-if value="{{ mExt }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px; display:flex; flex-direction:column; gap:11px;"><div style="font-size:13.5px; color:#34505f;">O registro será feito fora do raio e seguirá para análise do gestor.</div><label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Local e motivo <textarea rows="3" value="{{ fMot }}" onInput="{{ setMot }}" style="border:1px solid #d3dde4; border-radius:3px; padding:8px 10px; font:inherit; font-size:14px; font-weight:normal; resize:vertical;"></textarea></label></div></sc-if>
+        <sc-if value="{{ mAss }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px; display:flex; flex-direction:column; gap:11px;"><div style="font-size:13.5px; line-height:1.5; color:#243845;">Competência <b>{{ mesTxt }}</b>. Confira os registros antes de confirmar.</div><label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Sua posição<select value="{{ fAss }}" onChange="{{ setAss }}" style="height:34px; border:1px solid #d3dde4; border-radius:3px; padding:0 8px; font:inherit; font-size:13.5px; font-weight:normal; color:#12242f; background:#fff; box-sizing:border-box; width:100%;"><option value="ok">Concordo: os registros representam fielmente minha jornada</option><option value="ressalva">Discordo de parte dos registros (ressalva)</option></select></label><label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Ressalva <textarea rows="3" value="{{ fMot }}" onInput="{{ setMot }}" style="border:1px solid #d3dde4; border-radius:3px; padding:8px 10px; font:inherit; font-size:14px; font-weight:normal; resize:vertical;"></textarea></label></div></sc-if>
+        <sc-if value="{{ mAna }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 16px; display:flex; flex-direction:column; gap:11px;">
+            <div style="font-size:13.5px; color:#34505f;">{{ anaInfo }}</div>
+            <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Observação da análise <textarea rows="3" value="{{ fMot }}" onInput="{{ setMot }}" style="border:1px solid #d3dde4; border-radius:3px; padding:8px 10px; font:inherit; font-size:14px; font-weight:normal; resize:vertical;"></textarea></label>
+          </div>
+        </sc-if>
+        <sc-if value="{{ mVal }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 16px; display:flex; flex-direction:column; gap:11px;">
+            <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373;">Código do comprovante <input value="{{ fCod }}" onInput="{{ setCod }}" placeholder="BJP-XXXX-XXXX-XXXX" style="height:38px; border:1px solid #d3dde4; border-radius:3px; padding:0 10px; font:bold 15px monospace; letter-spacing:1px; color:#12242f; text-transform:uppercase;"></label>
+            <sc-if value="{{ valOk }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 12px; border:1px solid #9fd0b2; border-left:4px solid #1e7b45; border-radius:3px; background:#e8f5ee; color:#145a32; font-size:13.5px; line-height:1.45;"><b>Comprovante autêntico.</b><br>{{ valTxt }}</div></sc-if>
+            <sc-if value="{{ valErr }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 12px; border:1px solid #f1c4c9; border-left:4px solid #a3232b; border-radius:3px; background:#fdecee; color:#7f1c23; font-size:13.5px;"><b>Código não localizado.</b> Confira a digitação. Comprovante sem registro correspondente não é válido.</div></sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ mCons }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px; font-size:13.5px; line-height:1.5; color:#243845;">
+            <div>Para registrar com o rosto, é preciso um cadastro facial único. A imagem do rosto é dado biométrico, classificado como dado pessoal sensível pela LGPD (art. 5º, II).</div>
+            <div>O BlueJus usa esse dado somente para confirmar a sua identidade no registro de ponto. Ele não é compartilhado com terceiros para outra finalidade, e o cadastro pode ser excluído a seu pedido.</div>
+            <label style="display:flex; align-items:flex-start; gap:8px; padding:9px 11px; background:#f7f9fb; border:1px solid #d3dde4; border-radius:3px;"><input type="checkbox" checked="{{ consOk }}" onChange="{{ tgCons }}" style="width:16px; height:16px; margin-top:2px;"><span>Li e autorizo o uso do reconhecimento facial para o registro do meu ponto.</span></label>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ erroForm }}" hint-placeholder-val="{{ false }}"><div style="padding:0 16px 10px; font-size:13px; color:#a3232b;">{{ fErroTxt }}</div></sc-if>
+        <div style="display:flex; justify-content:flex-end; gap:8px; padding:10px 16px; background:#f7f9fb; border-top:1px solid #e6edf2;">
+          <sc-if value="{{ mCons }}" hint-placeholder-val="{{ false }}"><button onClick="{{ recusarFace }}" style="height:36px; padding:0 14px; border:1px solid #a3232b; border-radius:3px; background:#fff; color:#7f1c23; font:inherit; font-size:14px; cursor:pointer; margin-right:auto;">Não autorizo</button></sc-if>
+          <button onClick="{{ fecharModal }}" style="height:36px; padding:0 14px; border:1px solid #d3dde4; border-radius:3px; background:#fff; color:#34505f; font:inherit; font-size:14px; cursor:pointer;">{{ modalNao }}</button>
+          <sc-if value="{{ modalAcao }}" hint-placeholder-val="{{ true }}"><button onClick="{{ modalOk }}" style="height:36px; padding:0 16px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font:inherit; font-size:14px; cursor:pointer;" style-hover="background:#0b5f86;">{{ modalSim }}</button></sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TELA CHEIA DE VALIDAÇÃO -->
+  <sc-if value="{{ ov }}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-modal="true" aria-label="Registro de ponto" style="position:fixed; inset:0; z-index:2147483646; overflow-y:auto; background:#0b3550; color:#fff; font-family:Arial, Helvetica, sans-serif;">
+
+      <sc-if value="{{ fFace }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px 16px; text-align:center;">
+          <div style="font-size:clamp(20px, 3.6vw, 28px);">{{ faceTit }}</div>
+          <div style="position:relative; width:min(68vmin, 320px); aspect-ratio:3 / 4; border-radius:50%; overflow:hidden; border:4px solid {{ faceBd }}; background:#072538; transition:border-color .25s;">
+            <video ref="{{ videoRef }}" autoplay="true" playsinline="true" muted="true" style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:block;"></video>
+            <sc-if value="{{ semCam }}" hint-placeholder-val="{{ true }}"><i class="bi bi-person-fill" aria-hidden="true" style="position:absolute; left:50%; top:52%; transform:translate(-50%, -50%); font-size:min(52vmin, 240px); line-height:1; color:#1c5475;"></i></sc-if>
+            <span class="bjpScanL bjpMov" style="position:absolute; left:6%; right:6%; height:2px; background:#59d98e; box-shadow:0 0 14px 3px rgba(89,217,142,.65); animation:bjpScan 2.2s ease-in-out infinite;"></span>
+          </div>
+          <div style="font-size:14px; color:#c7dce9; max-width:420px;">{{ faceSub }}</div>
+          <button onClick="{{ fechar }}" style="height:38px; padding:0 18px; border:1px solid rgba(255,255,255,.55); border-radius:3px; background:transparent; color:#fff; font:inherit; font-size:14px; cursor:pointer;" style-hover="background:rgba(255,255,255,.12);">Cancelar</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ fVal }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(16px, 4vh, 34px); padding:24px 16px; text-align:center;">
+          <div class="bjpRing">
+            <sc-for list="{{ barras }}" as="d" hint-placeholder-count="24"><span class="bjpRaio" style="transform:rotate({{ d.a }}deg);"><span class="bjpBar bjpBarOn" style="animation-delay:{{ d.dl }}ms;"></span></span></sc-for>
+            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:calc(var(--r) * .29); font-variant-numeric:tabular-nums;">{{ horaAtual }}</div>
+          </div>
+          <div aria-live="assertive"><div style="font-size:clamp(22px, 4vw, 32px);">Validando {{ tipoAtual }}</div><div style="font-size:15px; color:#c7dce9; margin-top:4px; font-variant-numeric:tabular-nums;">{{ dataExt }}</div></div>
+          <div class="bjpEtapas">
+            <sc-for list="{{ etapas }}" as="e" hint-placeholder-count="3"><span class="bjpMov" style="display:flex; align-items:center; gap:7px; font-size:14px; opacity:.35; animation:bjpEtapa .2s linear {{ e.dl }}ms forwards;"><i class="bi bi-check-circle-fill" style="color:#59d98e;"></i>{{ e.t }}</span></sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ fOk }}" hint-placeholder-val="{{ false }}">
+        <div class="bjpMov" style="position:fixed; inset:0; background:#1e7b45; animation:bjpWipe .6s ease-out both;"></div>
+        <div class="bjpOk">
+          <div style="flex:0 1 560px; min-width:0; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;">
+            <div class="bjpRing mini">
+              <sc-for list="{{ barras }}" as="d" hint-placeholder-count="24"><span class="bjpRaio" style="transform:rotate({{ d.a }}deg);"><span class="bjpBar bjpBarOk" style="animation-delay:{{ d.dlB }}ms;"></span></span></sc-for>
+              <svg viewBox="0 0 64 64" aria-hidden="true" style="position:absolute; inset:22%; width:56%; height:56%;"><path d="M12 34 L27 49 L54 17" fill="none" stroke="#fff" stroke-width="7" pathLength="1" class="bjpMov" style="stroke-dasharray:1; stroke-dashoffset:1; animation:bjpDraw .4s ease-out .25s forwards;"></path></svg>
+            </div>
+            <div class="bjpMov" style="animation:bjpIn .4s ease .2s both;">
+              <div style="font-size:clamp(28px, 5vw, 42px); font-weight:bold;">Ponto registrado</div>
+              <div style="font-size:clamp(48px, 9vw, 76px); line-height:1.1; font-variant-numeric:tabular-nums;">{{ horaAtual }}</div>
+              <div style="font-size:clamp(15px, 2.4vw, 18px);">{{ tipoAtual }} · {{ dataExt }}</div>
+              <div style="font-size:13.5px; margin-top:8px; opacity:.95;">{{ okMet }}</div>
+              <sc-if value="{{ temCod }}" hint-placeholder-val="{{ true }}"><div style="margin-top:12px; display:inline-block; padding:7px 12px; border:1px solid rgba(255,255,255,.55); border-radius:3px; font:bold 15px monospace; letter-spacing:1px;">{{ okCod }}</div></sc-if>
+            </div>
+            <div class="bjpMov" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:8px; animation:bjpIn .4s ease .35s both;">
+              <sc-if value="{{ temCod }}" hint-placeholder-val="{{ true }}"><button onClick="{{ baixarAtual }}" style="height:44px; padding:0 18px; border:none; border-radius:3px; background:#fff; color:#145a32; font:inherit; font-size:15px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px;" style-hover="background:#e8f5ee;"><i class="bi bi-download"></i>Baixar comprovante</button></sc-if>
+              <button onClick="{{ fechar }}" style="height:44px; padding:0 18px; border:1px solid rgba(255,255,255,.7); border-radius:3px; background:transparent; color:#fff; font:inherit; font-size:15px; cursor:pointer;" style-hover="background:rgba(255,255,255,.14);">Concluir</button>
+            </div>
+          </div>
+        </div>
+        <sc-if value="{{ auto }}" hint-placeholder-val="{{ true }}"><span class="bjpMov" style="position:fixed; left:0; right:0; bottom:0; height:4px; background:#fff; transform-origin:left; animation:bjpBarra 10s linear both;"></span></sc-if>
+      </sc-if>
+
+      <sc-if value="{{ fErro }}" hint-placeholder-val="{{ false }}">
+        <div class="bjpMov" style="position:fixed; inset:0; background:#a3232b; animation:bjpWipe .45s ease-out both;"></div>
+        <div class="bjpMov" style="position:relative; z-index:1; min-height:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px 16px; text-align:center; animation:bjpTreme .45s ease .15s;">
+          <svg viewBox="0 0 64 64" width="110" height="110" aria-hidden="true"><path d="M14 14 L50 50" fill="none" stroke="#fff" stroke-width="7" pathLength="1" class="bjpMov" style="stroke-dasharray:1; stroke-dashoffset:1; animation:bjpDraw .22s ease-out .15s forwards;"></path><path d="M50 14 L14 50" fill="none" stroke="#fff" stroke-width="7" pathLength="1" class="bjpMov" style="stroke-dasharray:1; stroke-dashoffset:1; animation:bjpDraw .22s ease-out .34s forwards;"></path></svg>
+          <div style="font-size:clamp(28px, 5vw, 42px); font-weight:bold;">Ponto não registrado</div>
+          <div style="font-size:clamp(16px, 2.6vw, 20px);">{{ erroTit }}</div>
+          <div style="font-size:14.5px; max-width:520px; line-height:1.5;">{{ erroDet }}</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:8px;">
+            <button onClick="{{ tentar }}" style="height:44px; padding:0 18px; border:none; border-radius:3px; background:#fff; color:#7f1c23; font:inherit; font-size:15px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px;" style-hover="background:#fdecee;"><i class="bi bi-arrow-repeat"></i>Tentar novamente</button>
+            <sc-if value="{{ erroExt }}" hint-placeholder-val="{{ false }}"><button onClick="{{ irExterno }}" style="height:44px; padding:0 18px; border:1px solid #fff; border-radius:3px; background:transparent; color:#fff; font:inherit; font-size:15px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px;" style-hover="background:rgba(255,255,255,.14);"><i class="bi bi-briefcase"></i>Registrar como trabalho externo</button></sc-if>
+            <button onClick="{{ fechar }}" style="height:44px; padding:0 18px; border:1px solid rgba(255,255,255,.7); border-radius:3px; background:transparent; color:#fff; font:inherit; font-size:15px; cursor:pointer;" style-hover="background:rgba(255,255,255,.14);">Fechar</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  static K = { dia: 'bj-ponto-dia', comp: 'bj-ponto-comprovantes', just: 'bj-ponto-justificativas', g: 'bj-ponto-global', e: 'bj-ponto-escritorio', face: 'bj-ponto-face', mudo: 'bj-ponto-mudo', fol: 'bj-ponto-folhas', aj: 'bj-ponto-ajustes', log: 'bj-ponto-log', ace: 'bj-ponto-aceites', esc: 'bj-ponto-escalas', eqj: 'bj-ponto-eq-just', fila: 'bj-ponto-fila' };
+  static ler(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
+  static grava(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  static TIPOS = [['entrada', 'Entrada'], ['repouso', 'Repouso'], ['retorno', 'Retorno'], ['saida', 'Saída']];
+  static SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+  static SEED = { '2026-11-03': { entrada: '09:37:38', repouso: '12:03:22', retorno: '13:07:44' }, '2026-11-04': { entrada: '09:29:04', repouso: '19:31:43' }, '2026-11-06': { entrada: '09:31:30' } };
+  static JUST = [{ data: '2026-10-21', chave: '2026-10-21saida', tipo: 'Esquecimento de Registro', sub: 'Saída às 23:59', mot: '', st: 'abonado', anexo: '', obsA: '', em: '2026-10-22', seed: 1 }];
+  static FERIADOS = { '2026-10-12': 'Nossa Senhora Aparecida', '2026-11-02': 'Finados', '2026-11-15': 'Proclamação da República', '2026-11-20': 'Consciência Negra' };
+  static ANT = { '2026-10': 1671000, '2026-11': 1905840 };
+  static OUT = (() => { const m = t => { const n = t[0] === '-', p = t.replace(/^[+-]/, '').split(':').map(Number), v = p[0] * 3600 + p[1] * 60; return n ? -v : v; }, o = {}; `01 08:02 15:01 15:02 19:20 11:15 3:55 +3:55|02 07:59 12:26 14:05 23:05 13:26 6:06 +10:01|03 08:53 13:05 15:02 22:50 11:59 4:39 +14:40|04 08:50 14:02 15:02 17:00 7:10 7:10 +21:50|05 08:20 13:45 15:49 20:25 10:00 2:40 +24:30|06 07:34 11:55 12:56 19:52 11:16 3:56 +28:26|07 09:43 13:48 14:48 21:05 10:20 3:00 +31:26|08 08:59 12:05 13:05 22:05 12:05 4:45 +36:11|09 08:32 13:05 14:05 19:52 10:19 2:59 +39:10|10 - - - - 0:00 0:00 +31:50|11 - - - - 0:00 0:00 +31:50|12 - - - - 8:44 8:44 +40:34|13 08:22 12:02 14:05 23:59 13:33 6:13 +46:47|14 08:45 15:08 16:05 21:59 12:17 4:57 +51:44|15 08:09 12:08 13:08 23:05 13:55 6:35 +58:19|16 08:06 15:08 16:09 21:59 12:52 5:32 +63:51|17 08:26 13:06 14:05 17:18 7:53 0:33 +64:24|18 - - - - 0:00 0:00 +64:24|19 07:51 15:05 17:05 20:53 11:02 3:42 +68:06|20 08:26 13:05 14:06 23:59 14:31 7:11 +75:17|21 08:59 15:02 16:05 23:59 13:56 6:36 +81:53|22 18:53 12:05 13:02 18:55 12:41 5:21 +87:14|23 - - - - 0:00 0:00 +79:54|24 - - - - 0:00 0:00 +72:34|25 13:58 - - - 0:00 0:00 +72:34|26 09:17 - - - 0:00 0:00 +72:34|27 09:50 21:21 - - 0:00 0:00 +72:34|28 09:39 - - - 0:00 0:00 +72:34|29 09:00 - - - 0:00 0:00 +72:34|30 09:52 - - - 0:00 0:00 +72:34|31 - - - - 0:00 0:00 +65:14`.split('|').forEach(l => { const c = l.split(' '), p = {}; ['entrada', 'repouso', 'retorno', 'saida'].forEach((id, i) => { if (c[i + 1] !== '-') p[id] = c[i + 1]; }); o['2026-10-' + c[0]] = { p, tr: m(c[5]), ex: m(c[6]), sa: m(c[7]), obs: '' }; }); return o; })();
+  static PEND = [['2026-11-06', 'saida'], ['2026-11-04', 'retorno'], ['2026-11-04', 'saida'], ['2026-11-03', 'saida'], ['2026-10-30', 'saida'], ['2026-10-29', 'saida'], ['2026-10-28', 'saida'], ['2026-10-27', 'retorno'], ['2026-10-27', 'saida'], ['2026-10-26', 'saida']];
+  static sg(t) { const p = String(t).split(':').map(Number); return p[0] * 3600 + p[1] * 60 + (p[2] || 0); }
+  static ESC = [{ id: '44-6', r: '44h · seg a sáb (7h20)', sem: '44h', dist: 'Segunda a Sábado', b: [0, 26400, 26400, 26400, 26400, 26400, 26400] }, { id: '44-5', r: '44h · seg a sex (8h48)', sem: '44h', dist: 'Segunda a Sexta', b: [0, 31680, 31680, 31680, 31680, 31680, 0] }, { id: '40-5', r: '40h · seg a sex (8h)', sem: '40h', dist: 'Segunda a Sexta', b: [0, 28800, 28800, 28800, 28800, 28800, 0] }, { id: '30-5', r: '30h · seg a sex (6h)', sem: '30h', dist: 'Segunda a Sexta', b: [0, 21600, 21600, 21600, 21600, 21600, 0] }];
+  static AJ_SEED = { '2026-10-21': { saida: { hora: '23:59', por: 'Gestor', em: '2026-10-22' } } };
+  static EQ = [{ n: 'Ana Souza', c: 'Advogada', st: 'jornada', e: '08:58', u: '08:58 · Entrada', b: '+12h40m', p: 1 }, { n: 'Bruno Lima', c: 'Estagiário', st: 'intervalo', e: '09:02', u: '12:31 · Repouso', b: '-2h10m', p: 0 }, { n: 'Carla Mendes', c: 'Controladoria', st: 'jornada', e: '08:45', u: '13:30 · Retorno', b: '+3h05m', p: 2 }, { n: 'Diego Rocha', c: 'Advogado', st: 'sem', e: '—', u: '—', b: '+0h40m', p: 4 }, { n: 'Elisa Prado', c: 'Secretária', st: 'encerrada', e: '07:58', u: '17:21 · Saída', b: '+1h15m', p: 0 }];
+  static EQJ = [{ id: 'e1', n: 'Carla Mendes', data: '2026-11-05', tipo: 'Esquecimento de Registro', sub: 'Saída às 18:02' }, { id: 'e2', n: 'Diego Rocha', data: '2026-11-04', tipo: 'Falta', sub: 'Atestado anexado' }, { id: 'e3', n: 'Ana Souza', data: '2026-11-03', tipo: 'Trabalho Externo', sub: 'Entrada às 09:10, audiência' }];
+  static hx(t) { let a = 2166136261; for (let i = 0; i < t.length; i++) { a ^= t.charCodeAt(i); a = Math.imul(a, 16777619) >>> 0; } return a.toString(16).padStart(8, '0'); }
+  static FEATS = [
+    { id: 'animacao', ic: 'bi-clock-history', t: 'Validação em tela cheia', d: 'Relógio completando a volta e confirmação ocupando toda a tela.' },
+    { id: 'sons', ic: 'bi-volume-up', t: 'Sons de confirmação e erro', d: 'Plim no registro e alerta diferente quando o ponto falha.' },
+    { id: 'comprovante', ic: 'bi-receipt', t: 'Comprovante em imagem', d: 'Imagem em alta definição com código de validação, QR Code, marca d\'água e padrões de segurança.' },
+    { id: 'geo', ic: 'bi-geo-alt', t: 'Geolocalização', d: 'Exige que o registro seja feito dentro do raio de uma sede.' },
+    { id: 'facial', ic: 'bi-person-bounding-box', t: 'Reconhecimento facial', d: 'Confirma a identidade pela câmera, com cadastro e autorização prévios.' },
+    { id: 'lembrete', ic: 'bi-bell', t: 'Lembrete de saída', d: 'Avisa quando passar do horário previsto e a saída não foi registrada.' },
+    { id: 'alertas', ic: 'bi-exclamation-triangle', t: 'Alertas de intervalo', d: 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.' },
+    { id: 'aceite', ic: 'bi-pen', t: 'Aceite mensal da folha', d: 'O colaborador confirma ou registra ressalva na folha fechada.' }
+  ];
+  static ALF = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  static VAL_T = 2800;
+
+  state = {
+    agora: Date.now(), dia: Component.ler(Component.K.dia, {}), comp: Component.ler(Component.K.comp, []), just: Component.ler(Component.K.just, []),
+    g: Component.ler(Component.K.g, {}), e: Component.ler(Component.K.e, { faceModo: 'opcional', raio: 150, foto: false }),
+    mudo: !!Component.ler(Component.K.mudo, false), tipo: '', geo: { st: 'lendo' }, mes: '2026-11', aba: 'pend', aj: Component.ler(Component.K.aj, {}), log: Component.ler(Component.K.log, []), ace: Component.ler(Component.K.ace, {}), esc: Component.ler(Component.K.esc, {}), eqj: Component.ler(Component.K.eqj, Component.EQJ), eqSel: {}, fila: Component.ler(Component.K.fila, []), fAss: 'ok', feD: '', feN: '', feS: 'Todas', toast: '', toastBg: '#1e7b45',
+    ver: '', sim: 'ok', fase: '', tipoAt: '', hora: '', faceEt: 0, semCam: true, faceBd: 'rgba(255,255,255,.55)', prev: '', rec: null, auto: true,
+    modal: '', ctx: null, fHora: '', fMot: '', fData: '', fCod: '', fErro: '', consOk: false, valR: null
+  };
+  videoRef = el => { this._video = el; if (el && this._stream) { el.srcObject = this._stream; try { el.play(); } catch (e) {} } };
+
+  componentDidMount() {
+    this._t = setInterval(() => { this.setState({ agora: Date.now() }); this.checarLembrete(); }, 1000);
+    this._on = () => { const Y = Component, f = Y.ler(Y.K.fila, []); if (f.length) { Y.grava(Y.K.fila, []); this.setState({ fila: [] }); this.reg('Sincronização', f.length + ' batida(s) enviada(s) ao voltar a internet'); this.avisar('Batidas sem internet enviadas.'); } }; window.addEventListener('online', this._on);
+    this.lerGeo();
+    this._k = e => { if (e.key === 'Escape') { if (this.state.fase === 'ok' || this.state.fase === 'erro' || this.state.fase === 'face') this.fechar(); else if (this.state.modal) this.setState({ modal: '' }); } };
+    window.addEventListener('keydown', this._k);
+  }
+  componentWillUnmount() { clearInterval(this._t); window.removeEventListener('keydown', this._k); window.removeEventListener('online', this._on); this.limpar(); }
+  ymd(d) { return (d || new Date()).toLocaleDateString('sv-SE'); }
+  hms(d) { return (d || new Date()).toLocaleTimeString('pt-BR', { hour12: false }); }
+  br(s) { return s.split('-').reverse().join('/'); }
+  gl(id) { const R = window.BJRecursos; return R ? R.ativo('ponto-' + id) : this.state.g[id] !== false; }
+  ef(id) { return this.gl(id) && this.state.e[id] !== false; }
+  escala(nome) { const Y = Component, id = this.state.esc[nome] || '44-6'; return Y.ESC.find(x => x.id === id) || Y.ESC[0]; }
+  sedes() { const e = this.state.e; return e.sedes || [{ n: 'Brasília/DF', lat: '', lng: '', r: e.raio || 150 }, { n: 'Maceió/AL', lat: '', lng: '', r: e.raio || 150 }]; }
+  maisProx() { const g = this.state.geo; if (g.lat == null) return null; let m = null; this.sedes().forEach(q => { const la = parseFloat(String(q.lat).replace(',', '.')), lo = parseFloat(String(q.lng).replace(',', '.')); if (isNaN(la) || isNaN(lo)) return; const R0 = Math.PI / 180, a = Math.sin((la - g.lat) * R0 / 2) ** 2 + Math.cos(g.lat * R0) * Math.cos(la * R0) * Math.sin((lo - g.lng) * R0 / 2) ** 2, d = 12742000 * Math.asin(Math.sqrt(a)); if (!m || d < m.d) m = { n: q.n, d, r: +q.r || 150 }; }); return m; }
+  reg(acao, det) { const Y = Component, L = Y.ler(Y.K.log, []), em = new Date().toISOString(), por = this.conta().nome, ant = L[0] ? L[0].h : '00000000', n = { em, por, acao, det, h: Y.hx(ant + em + por + acao + det) }, log = [n].concat(L).slice(0, 300); Y.grava(Y.K.log, log); this.setState({ log }); }
+  saidaPrev(b) { const Y = Component, w = new Date().getDay(), base = this.escala(this.conta().nome).b[w]; if (!b.entrada || !base) return null; const iv = b.repouso && b.retorno ? Y.sg(b.retorno) - Y.sg(b.repouso) : 3600; return Y.sg(b.entrada) + base + iv; }
+  checarLembrete() { const b = this.batidasHoje(), k = this.ymd(); if (!this.ef('lembrete') || b.saida || this._lemb === k) return; const pv = this.saidaPrev(b), n = new Date(), ns = n.getHours() * 3600 + n.getMinutes() * 60; if (pv == null || ns < pv) return; this._lemb = k; this.audio(); this.somOk(); this.avisar('Passou do horário previsto. Não esqueça de registrar a saída.', '#8a6200'); try { if (window.Notification && Notification.permission === 'granted') new Notification('BlueJus Ponto', { body: 'Não esqueça de registrar a saída.' }); } catch (e) {} }
+  alertaPre(t) {
+    const Y = Component, n = new Date(), ns = n.getHours() * 3600 + n.getMinutes() * 60 + n.getSeconds(), b = this.batidasHoje(), ft = v => { const m = Math.ceil(v / 60); return m >= 60 ? Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0') : m + ' minuto' + (m > 1 ? 's' : ''); };
+    if (t === 'retorno' && b.repouso) { const g = ns - Y.sg(b.repouso); if (g < 3600) return 'Faltam ' + ft(3600 - g) + ' para completar o intervalo mínimo de 1h. Se registrar agora, a folha marcará o intervalo intrajornada como não conforme.'; }
+    if (t === 'entrada') {
+      const ont = d => { const x = new Date(n); x.setDate(x.getDate() - d); return this.ymd(x); }, dia = k => Object.assign({}, Y.SEED[k], Y.OUT[k] && Y.OUT[k].p, this.state.dia[k], this.state.aj[k] ? Object.fromEntries(Object.entries(this.state.aj[k]).map(([c, v]) => [c, v.hora])) : null), y = dia(ont(1));
+      if (y.saida) { const g = 86400 - Y.sg(y.saida) + ns; if (g < 39600) return 'Faltam ' + ft(39600 - g) + ' para completar 11h de descanso desde a saída de ontem. Se registrar agora, a folha marcará a interjornada como não conforme.'; }
+      let run = 0; for (let d = 1; d <= 7; d++) { if (Object.keys(dia(ont(d))).length) run++; else break; } if (run >= 6) return 'Este será o ' + (run + 1) + 'º dia seguido com registro, sem o descanso semanal.';
+    }
+    return '';
+  }
+  nomeT(t) { const x = Component.TIPOS.find(y => y[0] === t); return x ? x[1] : t; }
+  conta() { const K = window.BJContas, eu = (K && K.usuario && K.usuario()) || {}, ct = K && K.conta ? K.conta() : {}, D = K && K.dadosEscritorio ? K.dadosEscritorio() : {}; const es0 = ct.escritorio || D.nome || 'Farlei Assis da Rocha Sociedade Individual de Advocacia'; return { nome: eu.nome || 'Farlei Assis da Rocha', email: eu.email || '', esc: /^farlei assis da rocha sociedade de advogados$/i.test(es0) ? 'Farlei Assis da Rocha Sociedade Individual de Advocacia' : es0, cnpj: D.cnpj || (/farlei/i.test(ct.escritorio || D.nome || 'farlei') ? '46.819.282/0001-54' : '') }; }
+  papel() { if (this.state.ver) return this.state.ver; const R = window.BJRecursos, K = window.BJContas; if (!R || R.master()) return 'master'; return !K || !K.souPrimario || K.souPrimario() ? 'primario' : 'colaborador'; }
+  avisar(t, bg) { clearTimeout(this._tt); this.setState({ toast: t, toastBg: bg || '#1e7b45' }); this._tt = setTimeout(() => this.setState({ toast: '' }), 3400); }
+  faceAtiva() { return this.ef('facial'); }
+  faceModo() { return this.state.e.faceModo || 'opcional'; }
+  batidasHoje() { return this.state.dia[this.ymd()] || {}; }
+  proximo() { const b = this.batidasHoje(); const x = Component.TIPOS.find(t => !b[t[0]]); return x ? x[0] : ''; }
+
+  lerGeo = () => {
+    this.setState({ geo: { st: 'lendo' } });
+    const falha = () => this.setState({ geo: { st: 'demo', acc: 106 } });
+    if (!navigator.geolocation) return falha();
+    try { navigator.geolocation.getCurrentPosition(p => this.setState({ geo: { st: p.coords.accuracy <= 50 ? 'ok' : 'impreciso', acc: p.coords.accuracy, lat: p.coords.latitude, lng: p.coords.longitude } }), falha, { enableHighAccuracy: true, timeout: 7000, maximumAge: 30000 }); } catch (e) { falha(); }
+  };
+
+  /* Áudio gerado no navegador: não depende de arquivo externo. */
+  audio() { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; if (!this._ac) this._ac = new AC(); if (this._ac.state === 'suspended') this._ac.resume(); } catch (e) {} }
+  tom(f, ini, dur, vol, tipo) { const c = this._ac; if (!c) return; const t = c.currentTime + ini, o = c.createOscillator(), g = c.createGain(); o.type = tipo || 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.05); }
+  somOk() { if (!this.ef('sons') || this.state.mudo) return; this.tom(1568, 0, .55, .26); this.tom(3136, 0, .25, .06); this.tom(2093, .1, .85, .3); this.tom(4186, .1, .35, .07); }
+  somErro() { if (!this.ef('sons') || this.state.mudo) return; this.tom(233, 0, .2, .3, 'square'); this.tom(185, .24, .36, .3, 'square'); }
+  vibra(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+
+  limpar() { (this._ts || []).forEach(clearTimeout); this._ts = []; this.pararCam(); }
+  depois(fn, ms) { (this._ts = this._ts || []).push(setTimeout(fn, ms)); }
+  pararCam() { if (this._stream) { this._stream.getTracks().forEach(t => t.stop()); this._stream = null; } }
+  fechar = () => { this.limpar(); this.setState({ fase: '', prev: '' }); };
+
+  iniciar(face, forcar) {
+    const t = this.state.tipo && !this.batidasHoje()[this.state.tipo] ? this.state.tipo : this.proximo(), Y = Component, fc = Y.ler(Y.K.face, null);
+    if (!t || this.state.fase) return;
+    this.audio(); if (fc && fc.recusa) face = false;
+    try { if (this.ef('lembrete') && window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
+    if (!forcar && this.ef('alertas')) { const tx = this.alertaPre(t); if (tx) return this.setState({ modal: 'alerta', ctx: { t, face, txt: tx }, fErro: '' }); }
+    if (face && !fc) return this.setState({ modal: 'cons', ctx: { t }, consOk: false, fErro: '' });
+    this.seguir(t, face);
+  }
+  seguir(t, face) { this._ult = [t, face]; if (face) this.abrirFace(t); else this.validar(t, false); }
+
+  async abrirFace(t) {
+    this.setState({ fase: 'face', tipoAt: this.nomeT(t), faceEt: 0, semCam: true, faceBd: 'rgba(255,255,255,.55)', hora: '' });
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const s = await Promise.race([navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640 }, audio: false }), new Promise((_, r) => setTimeout(() => r(new Error('tempo')), 2500))]);
+        if (this.state.fase !== 'face') { s.getTracks().forEach(x => x.stop()); return; }
+        this._stream = s; if (this._video) { this._video.srcObject = s; try { this._video.play(); } catch (e) {} } this.setState({ semCam: false });
+      }
+    } catch (e) {}
+    this.depois(() => this.setState({ faceEt: 1 }), 1200);
+    this.depois(() => this.setState({ faceEt: 2 }), 2400);
+    this.depois(() => { this.setState({ faceBd: '#59d98e' }); this.depois(() => { this._foto = null; try { const v = this._video; if (v && v.videoWidth && this.state.e.foto) { const c = document.createElement('canvas'); c.width = 240; c.height = Math.round(240 * v.videoHeight / v.videoWidth); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); this._foto = c.toDataURL('image/jpeg', .7); } } catch (e) {} this.pararCam(); this.validar(t, true); }, 420); }, 3400);
+  }
+
+  async hash(txt) { try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt)); return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''); } catch (e) { let h = '', s = 2166136261; for (let i = 0; i < 8; i++) { for (let j = 0; j < txt.length; j++) { s ^= txt.charCodeAt(j) + i; s = Math.imul(s, 16777619) >>> 0; } h += s.toString(16).padStart(8, '0'); } return h; } }
+
+  async validar(t, face, opt) {
+    const s = this.state, d = new Date(), C = this.conta(), geoOn = this.ef('geo'), g = s.geo, anim = this.ef('animacao') || face;
+    const nsr = String(s.comp.length + 1).padStart(9, '0'), nonce = Math.random().toString(36).slice(2);
+    const base = { nsr, tipo: t, iso: d.toISOString(), nome: C.nome, esc: C.esc, cnpj: C.cnpj, lat: g.lat ?? null, lng: g.lng ?? null, acc: g.acc ?? null, geo: geoOn, face };
+    const hx = await this.hash(JSON.stringify(base) + nonce); let cod = 'BJP';
+    for (let i = 0; i < 12; i++) { if (i % 4 === 0) cod += '-'; cod += Component.ALF[parseInt(hx.substr(i * 2, 2), 16) % 32]; }
+    const rec = Object.assign({}, base, { hash: hx, cod, off: !navigator.onLine, ext: (opt && opt.ext) || '' }), compOn = this.ef('comprovante');
+    let prev = ''; if (compOn) { try { prev = this.desenhar(rec); } catch (e) { console.error(e); } }
+    const px = this.maisProx(), foraR = geoOn && !(opt && opt.ext) && (s.sim === 'fora' || (px && px.d > px.r)), f = foraR ? ['Você está fora do raio permitido', (px ? 'A sede mais próxima é ' + px.n + ', a ' + Math.round(px.d).toLocaleString('pt-BR') + ' m. O raio permitido é de ' + px.r + ' m.' : 'O registro exige estar dentro do raio de uma sede do escritório.') + ' Aproxime-se ou informe o trabalho externo.', s.e.ext !== false] : s.sim === 'gps' && geoOn ? ['Não foi possível obter a sua localização', 'Ative o GPS do aparelho, permita a localização no navegador e tente de novo.'] : s.sim === 'rosto' && face ? ['Rosto não reconhecido', 'Procure um lugar bem iluminado, retire boné ou óculos escuros e tente de novo.'] : null;
+    const HH = this.hms(d), T = Component.VAL_T;
+    if (f) this.setState({ sim: 'ok' });
+    if (!anim) {
+      if (f) { this.somErro(); this.vibra([80, 60, 80]); return this.avisar(this.nomeT(t) + ' não registrada: ' + f[0] + '.', '#a3232b'); }
+      this.concluir(rec); this.somOk(); this.vibra(40); return this.avisar(this.nomeT(t) + ' registrada às ' + HH + (compOn ? '. Comprovante na aba Comprovantes.' : '.'));
+    }
+    this.setState({ fase: 'val', tipoAt: this.nomeT(t), hora: HH, prev, rec, auto: true, erroT: f, ctx: { t, face } });
+    if (f) return this.depois(() => { this.somErro(); this.vibra([80, 60, 80]); this.setState({ fase: 'erro' }); }, T * .55);
+    this.depois(() => { this.concluir(rec); this.somOk(); this.vibra(40); this.setState({ fase: 'ok' }); this.depois(this.fechar, 10000); }, T);
+  }
+
+  concluir(rec) {
+    const d = new Date(rec.iso), k = this.ymd(d), dia = Object.assign({}, this.state.dia), b = Object.assign({}, dia[k]); b[rec.tipo] = this.hms(d); dia[k] = b; Component.grava(Component.K.dia, dia);
+    const comp = this.ef('comprovante') ? [rec].concat(this.state.comp).slice(0, 120) : this.state.comp; Component.grava(Component.K.comp, comp);
+    this.setState({ dia, comp, tipo: '' });
+    const Y0 = Component, hh = this.hms(d).slice(0, 5); this.reg('Batida registrada', this.nomeT(rec.tipo) + ' às ' + this.hms(d) + (rec.face ? ' · facial' : '') + (rec.ext ? ' · trabalho externo' : '') + (rec.off ? ' · sem internet' : ''));
+    if (rec.ext) { const just = [{ data: k, chave: 'x' + k + rec.tipo, tipo: 'Trabalho Externo', sub: this.nomeT(rec.tipo) + ' às ' + hh, mot: rec.ext, st: 'pendente', anexo: '', obsA: '', em: '' }].concat(this.state.just); Y0.grava(Y0.K.just, just); this.setState({ just }); }
+    if (rec.off) { const fila = [rec.cod].concat(Y0.ler(Y0.K.fila, [])); Y0.grava(Y0.K.fila, fila); this.setState({ fila }); }
+  }
+
+  /* Comprovante em PNG. Cada padrão deriva do hash do registro: alterar um dado deixa de corresponder ao desenho e ao código. */
+  desenhar(rec) {
+    const W = 1000, H = 1480, S0 = 2.48, c = document.createElement('canvas'); c.width = Math.round(W * S0); c.height = Math.round(H * S0); const g = c.getContext('2d'); g.scale(S0, S0);
+    const F = 'Arial, Helvetica, sans-serif', M = '"Courier New", Courier, monospace', d = new Date(rec.iso);
+    let sem = parseInt(rec.hash.slice(0, 8), 16) || 7; const rnd = () => { sem ^= sem << 13; sem ^= sem >>> 17; sem ^= sem << 5; return (sem >>> 0) / 4294967296; };
+    const iris = g.createLinearGradient(0, 0, W, H); ['#e8f3fa', '#ebf7ee', '#fbf4e6', '#f2ecf9', '#e8f3fa'].forEach((x, i) => iris.addColorStop(i / 4, x)); g.fillStyle = iris; g.fillRect(0, 0, W, H);
+    const p1 = rnd() * 6, f1 = .012 + rnd() * .012, f2 = .03 + rnd() * .02; g.lineWidth = .7;
+    for (let k = -2; k < 62; k++) { const y0 = k * H / 58; g.strokeStyle = k % 2 ? 'rgba(10,111,160,.17)' : 'rgba(30,123,69,.13)'; g.beginPath(); for (let x = 0; x <= W; x += 5) { const y = y0 + 15 * Math.sin(x * f1 + p1 + k * .32) + 6 * Math.sin(x * f2 + k * .7); x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+    const rosa = (cx, cy, R, m, n, cor, lw) => { g.strokeStyle = cor; g.lineWidth = lw; const fase = rnd() * 3; for (let j = 0; j < n; j++) { const a0 = j / n * Math.PI * 2; g.beginPath(); for (let i = 0; i <= 240; i++) { const t = i / 240 * Math.PI * 2, r = R * (.66 + .34 * Math.sin(m * t + fase)), a = t + a0; const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); g.stroke(); } };
+    rosa(770, 245, 150, 7 + Math.floor(rnd() * 4), 26, 'rgba(10,111,160,.17)', .55);
+    rosa(500, 790, 340, 9 + Math.floor(rnd() * 5), 34, 'rgba(11,53,80,.075)', .55);
+    rosa(205, 1240, 118, 5 + Math.floor(rnd() * 4), 22, 'rgba(30,123,69,.17)', .5);
+    const simbolo = (cx, cy, s, a, b, lw) => { g.lineWidth = lw; g.strokeStyle = a; g.beginPath(); g.arc(cx, cy, s / 2, -2.6, .55); g.stroke(); g.strokeStyle = b; g.beginPath(); g.arc(cx, cy, s / 2, .85, 3.35); g.stroke(); g.fillStyle = b; const q = s * .46, x = cx - q / 2, y = cy - q * .36; g.beginPath(); g.moveTo(x, y); g.lineTo(x + q * .42, y); g.lineTo(x + q * .52, y + q * .13); g.lineTo(x + q, y + q * .13); g.lineTo(x + q, y + q * .76); g.lineTo(x, y + q * .76); g.closePath(); g.fill(); };
+    simbolo(500, 790, 500, 'rgba(11,53,80,.08)', 'rgba(10,111,160,.08)', 34);
+    g.save(); g.translate(W / 2, H / 2); g.rotate(-Math.PI / 6.4); g.font = 'bold 21px ' + F; g.fillStyle = 'rgba(11,53,80,.065)'; const lin = ('BLUEJUS · ' + rec.cod + ' · ' + rec.nome.toUpperCase() + ' · ').repeat(5); for (let y = -1100, i = 0; y < 1100; y += 74, i++) g.fillText(lin, -1500 + (i % 2) * 90, y); g.restore();
+    g.strokeStyle = '#0b3550'; g.lineWidth = 3; g.strokeRect(24, 24, W - 48, H - 48); g.lineWidth = 1; g.strokeRect(56, 56, W - 112, H - 112);
+    const borda = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L, nx = -uy, ny = ux; [[0, '#0a6fa0'], [2.1, '#1e7b45'], [4.2, '#8a6d1f']].forEach(([ph, cor]) => { g.strokeStyle = cor; g.lineWidth = .9; g.beginPath(); for (let s = 0; s <= L; s += 2) { const o = 12 * Math.sin(s * .085 + ph), x = x0 + ux * s + nx * o, y = y0 + uy * s + ny * o; s ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }); };
+    borda(40, 40, W - 40, 40); borda(W - 40, 40, W - 40, H - 40); borda(W - 40, H - 40, 40, H - 40); borda(40, H - 40, 40, 40);
+    const micro = 'BLUEJUS PONTO ELETRONICO COMPROVANTE AUTENTICO ' + rec.cod + ' '; g.fillStyle = '#0b3550'; g.font = '7px ' + F; g.textBaseline = 'alphabetic';
+    let mt = micro.repeat(6); while (g.measureText(mt).width > 830) mt = mt.slice(0, -1); g.fillText(mt, 66, 70); g.fillText(mt, 66, H - 62);
+    g.save(); g.translate(910, 54); for (let y = 0; y + 84 < H - 108; y += 112) { const gr = g.createLinearGradient(0, y, 16, y + 72); ['#7fb4cf', '#d9eef7', '#8fcaa5', '#e8dca8', '#7fb4cf'].forEach((x, i) => gr.addColorStop(i / 4, x)); g.fillStyle = gr; g.fillRect(0, y + 12, 16, 72); g.save(); g.translate(11, y + 80); g.rotate(-Math.PI / 2); g.fillStyle = '#0b3550'; g.font = 'bold 8px ' + F; g.fillText('BLUEJUS PONTO', 0, 0); g.restore(); } g.restore();
+
+    const X = 92; let y = 128;
+    simbolo(X + 34, y - 8, 62, '#0b3550', '#0a6fa0', 6.5);
+    g.textBaseline = 'alphabetic'; g.font = 'bold 48px ' + F; g.fillStyle = '#0b3550'; g.fillText('Blue', X + 80, y + 8); const bw = g.measureText('Blue').width; g.fillStyle = '#0a6fa0'; g.fillText('Jus', X + 80 + bw, y + 8); g.font = '16px ' + F; g.fillStyle = '#34505f'; g.fillText('sistema de gestão jurídica e de arquivos', X + 80, y + 32);
+    y = 210; g.fillStyle = '#0b3550'; g.fillRect(X, y, 770, 3);
+    y += 50; g.font = 'bold 30px ' + F; g.fillStyle = '#0b3550'; g.fillText('COMPROVANTE DE REGISTRO DE PONTO', X, y);
+    y += 62; g.font = 'bold 34px ' + F; g.fillStyle = '#0a6fa0'; g.fillText(this.nomeT(rec.tipo).toUpperCase(), X, y);
+    y += 122; const hg = g.createLinearGradient(X, y - 110, X, y); hg.addColorStop(0, '#0b3550'); hg.addColorStop(1, '#0a6fa0'); g.fillStyle = hg; g.font = 'bold 132px ' + F; g.fillText(this.hms(d), X, y);
+    y += 40; g.font = '26px ' + F; g.fillStyle = '#12242f'; g.fillText(d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }), X, y);
+    y += 26; g.fillStyle = 'rgba(11,53,80,.3)'; g.fillRect(X, y, 770, 1);
+    const campo = (r, v, cy) => { g.font = 'bold 14px ' + F; g.fillStyle = '#4a6373'; g.fillText(r, X, cy); let tam = 24; g.font = tam + 'px ' + F; while (g.measureText(v).width > 770 && tam > 14) { tam--; g.font = tam + 'px ' + F; } g.fillStyle = '#12242f'; g.fillText(v, X, cy + 29); };
+    y += 42; campo('TRABALHADOR', rec.nome, y); y += 70; campo('EMPREGADOR', rec.esc + (rec.cnpj ? ' · CNPJ ' + rec.cnpj : ''), y); y += 70;
+    const lo = rec.geo ? (rec.lat != null ? rec.lat.toFixed(5) + ', ' + rec.lng.toFixed(5) + ' · precisão ' + Math.round(rec.acc) + ' m' : 'Localização não disponível nesta pré-visualização') : 'Geolocalização não exigida';
+    campo('LOCAL DO REGISTRO', lo, y); y += 70;
+    campo('MÉTODO · NSR', (rec.face ? 'Reconhecimento facial' : 'Registro no sistema') + (rec.ext ? ' · Trabalho externo' : '') + (rec.off ? ' · Sem internet' : '') + ' · ' + rec.nsr, y); y += 74;
+    const k = 1.4, q0 = 116 * k, y0 = H - 252, xT = X + q0 + 24 * k, M2 = '"Courier New", Courier, monospace'; if (window.qrcode) { try { const q = window.qrcode(0, 'M'); q.addData('https://www.bluejus.com.br/ponto/validar/' + rec.cod); q.make(); const n = q.getModuleCount(), u = q0 / n; g.fillStyle = '#fff'; g.fillRect(X, y0, q0 + 8, q0 + 8); g.fillStyle = '#0b3550'; for (let r = 0; r < n; r++) for (let j = 0; j < n; j++) if (q.isDark(r, j)) g.fillRect(X + 4 + j * u, y0 + 4 + r * u, u + .25, u + .25); } catch (e) {} }
+    for (let xx = X; xx + 96 <= X + 812; xx += 104) { const gr = g.createLinearGradient(xx, 0, xx + 96, 0); ['#7fb4cf', '#d9eef7', '#8fcaa5', '#e8dca8', '#7fb4cf'].forEach((c0, i) => gr.addColorStop(i / 4, c0)); g.fillStyle = gr; g.fillRect(xx, y0 - 22, 96, 13); g.font = 'bold 9.5px ' + F; g.fillStyle = '#0b3550'; g.textAlign = 'center'; g.fillText('BLUEJUS', xx + 48, y0 - 12); g.textAlign = 'left'; }
+    g.font = 'bold ' + 11 * k + 'px ' + F; g.fillStyle = '#4a6373'; g.fillText('CÓDIGO DE VALIDAÇÃO', xT, y0 + 14 * k); let sx0 = xT; rec.cod.split('').forEach((ch, i) => { g.font = 'bold ' + (20 + i * .85) * k + 'px ' + M2; g.fillStyle = '#a3232b'; g.fillText(ch, sx0, y0 + 42 * k); sx0 += g.measureText(ch).width + 1.5 * k; }); g.font = 10.5 * k + 'px ' + M2; g.fillStyle = '#34505f'; g.fillText('SHA-256 ' + rec.hash.slice(0, 32), xT, y0 + 60 * k); g.fillText('        ' + rec.hash.slice(32), xT, y0 + 73 * k); g.font = 11 * k + 'px ' + F; g.fillStyle = '#243845'; g.fillText('Confira em bluejus.com.br/ponto/validar ou leia o QR Code.', xT, y0 + 94 * k); g.font = 9.4 * k + 'px ' + F; g.fillText('Emitido em ' + d.toLocaleString('pt-BR') + '. Vale somente com registro no BlueJus.', xT, y0 + 110 * k);
+    const sr = 58, sx1 = X + 812 - sr * k, sy1 = y0 + 60 * k; g.save(); g.translate(sx1, sy1); g.scale(k, k); g.beginPath(); for (let i = 0; i < 64; i++) { const a0 = i / 64 * Math.PI * 2, r = i % 2 ? sr : sr * .914; g[i ? 'lineTo' : 'moveTo'](r * Math.cos(a0), r * Math.sin(a0)); } g.closePath(); let fg; if (g.createConicGradient) { fg = g.createConicGradient(rnd() * 6, 0, 0); ['#7fd0e8', '#b4e7a8', '#f4e08a', '#f2b0c8', '#b7a6f0', '#7fd0e8'].forEach((x, i) => fg.addColorStop(i / 5, x)); } else { fg = g.createRadialGradient(0, 0, 8, 0, 0, sr); fg.addColorStop(0, '#f4e08a'); fg.addColorStop(1, '#7fd0e8'); } g.fillStyle = fg; g.fill(); g.strokeStyle = 'rgba(11,53,80,.4)'; g.lineWidth = .45; for (let j = 0; j < 36; j++) { g.save(); g.rotate(j / 36 * Math.PI * 2); g.beginPath(); g.ellipse(0, 0, sr - 8, 17, 0, 0, Math.PI * 2); g.stroke(); g.restore(); } g.fillStyle = 'rgba(255,255,255,.84)'; g.beginPath(); g.arc(0, 0, 32, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#1e7b45'; g.lineWidth = 5; g.beginPath(); g.moveTo(-15, 0); g.lineTo(-4, 12); g.lineTo(16, -12); g.stroke(); Component.seloAneis(g, sr, rec.cod); g.restore();
+    return c.toDataURL('image/jpeg', .93);
+  }
+  /* Selo: nome em anel e microtexto circular com o código do próprio documento. */
+  static anelTxt(g, base, r, fnt, cor, a0) { g.save(); g.font = fnt; g.fillStyle = cor; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; const w0 = g.measureText(base).width, n = Math.max(1, Math.round(2 * Math.PI * r / w0)), chars = Array.from(base.repeat(n)), ws = chars.map(ch => g.measureText(ch).width), tot = ws.reduce((a, b) => a + b, 0), esc = 2 * Math.PI / tot; let a = a0 === undefined ? -Math.PI / 2 - g.measureText('BLUEJUS').width * esc / 2 : a0; chars.forEach((ch, i) => { const m = a + ws[i] * esc / 2; g.save(); g.rotate(m + Math.PI / 2); g.fillText(ch, 0, -r); g.restore(); a += ws[i] * esc; }); g.restore(); }
+  static seloAneis(g, sr, cod) { const c0 = String(cod || ''), sem = Array.from(c0).reduce((a, ch, i) => a + ch.charCodeAt(0) * (i + 3), 7); g.save(); g.fillStyle = 'rgba(255,255,255,.76)'; g.beginPath(); g.arc(0, 0, sr * .83, 0, Math.PI * 2); g.arc(0, 0, sr * .72, 0, Math.PI * 2, true); g.fill(); g.restore(); Component.anelTxt(g, 'BLUEJUS AUTENTICO ' + c0 + ' ', sr * .745, (sr * .088) + 'px Arial', '#0b3550', sem * .137); Component.anelTxt(g, 'BLUEJUS \u00b7 ', sr * .405, 'bold ' + (sr * .15) + 'px Arial', '#0b3550'); }
+  baixar(rec, url) { const a = document.createElement('a'); a.href = url || this.desenhar(rec); a.download = 'comprovante-ponto-' + rec.cod + '.jpg'; document.body.appendChild(a); a.click(); a.remove(); this.avisar('Comprovante baixado em imagem.'); }
+
+  justs() { return this.state.just.map(j => Object.assign({}, j, { tipo: j.tipo || (String(j.chave)[0] === 'f' ? 'Falta' : 'Esquecimento de Registro'), sub: j.sub != null ? j.sub : String(j.det || '').replace(/^Esquecimento: /, ''), st: j.st === 'abonado' || j.st === 'recusado' ? j.st : 'pendente' })).concat(Component.JUST); }
+  analisar(chave, acao, obs) {
+    const Y = Component, st = this.state, hoje = this.ymd(), just = st.just.map(j => j.chave === chave ? Object.assign({}, j, { st: acao, obsA: obs, em: hoje }) : j), j0 = st.just.find(j => j.chave === chave);
+    Y.grava(Y.K.just, just); const patch = { just, modal: '' };
+    if (acao === 'abonado' && j0 && j0.campo && j0.hora) { const aj = Object.assign({}, st.aj), b = Object.assign({}, aj[j0.data]); b[j0.campo] = { hora: j0.hora.length === 5 ? j0.hora + ':00' : j0.hora, por: this.conta().nome, em: hoje, chave }; aj[j0.data] = b; Y.grava(Y.K.aj, aj); patch.aj = aj; }
+    this.setState(patch); this.reg(acao === 'abonado' ? 'Justificativa abonada' : 'Justificativa recusada', (j0 ? this.br(j0.data) + ' · ' + j0.tipo + (j0.sub ? ' · ' + j0.sub : '') : chave) + (obs ? ' · ' + obs : '')); this.avisar(acao === 'abonado' ? 'Justificativa abonada.' : 'Justificativa recusada.', acao === 'abonado' ? '#1e7b45' : '#a3232b');
+  }
+  static fHm(v) { const a = Math.abs(v); return Math.floor(a / 3600) + ':' + String(Math.floor(a / 60) % 60).padStart(2, '0'); }
+  static fSin(v) { return (v < 0 ? '-' : '+') + Component.fHm(v); }
+
+  /* Motor da folha. Regra extraída da folha atual: 44h em 6 dias = 7h20 de segunda a sábado; dia sem batida desconta; dia com batida incompleta não desconta. */
+  linhasMes(mes) {
+    const Y = Component, s = this.state, [a, m] = mes.split('-').map(Number), n = new Date(a, m, 0).getDate(), hoje = this.ymd(new Date()), BASE = 26400, ids = Y.TIPOS.map(t => t[0]);
+    const sg = t => { const p = String(t).split(':').map(Number); return p[0] * 3600 + p[1] * 60 + (p[2] || 0); };
+    const nomeC = this.conta().nome, esc0 = this.escala(nomeC), lot = this.folhaDados(this.conta()).lot.toUpperCase(), extra = s.e.feriados || []; const rows = [], intra = [], inter = []; let sal = 0, tt = 0, te = 0, feri = 0, fds = 0, run = 0, maxRun = 0, inc = 0, rev = 0, prev = null;
+    for (let d = 1; d <= n; d++) {
+      const dd = String(d).padStart(2, '0'), k = mes + '-' + dd, w = new Date(a, m - 1, d, 12).getDay(), fx = extra.find(f => f.d === k && (f.sede === 'Todas' || String(f.sede).toUpperCase() === lot)), fer = Y.FERIADOS[k] || (fx && fx.n) || '', off = Y.OUT[k], ajK = Object.assign({}, Y.AJ_SEED[k], s.aj[k]), p = Object.assign({}, Y.SEED[k], off && off.p, s.dia[k]); Object.keys(ajK).forEach(c => { p[c] = ajK[c].hora; }); const algum = ids.some(i => p[i]), comp = ids.every(i => p[i]), base = off ? (w === 0 ? 0 : BASE) : esc0.b[w];
+      let tr = 0, ex = 0, st = '';
+      if (off && !s.dia[k] && !s.aj[k]) { tr = off.tr; ex = off.ex; sal = off.sa; st = comp ? 'comp' : algum ? 'parc' : fer ? 'feriado' : 'vazio'; }
+      else if (k > hoje) st = 'fut';
+      else if (comp) { tr = Math.max(0, sg(p.saida) - sg(p.entrada) - (sg(p.retorno) - sg(p.repouso))); ex = Math.max(0, tr - base); sal += tr - base; st = 'comp'; }
+      else if (k === hoje) st = algum ? 'hoje' : 'vazio';
+      else if (algum) st = 'parc';
+      else if (fer) st = 'feriado';
+      else { st = 'vazio'; sal -= base; }
+      const vals = ids.filter(i => p[i]).map(i => sg(p[i])), ruim = vals.some((v, i) => i && v < vals[i - 1]), obs = [];
+      Object.keys(ajK).forEach(c => obs.push(this.nomeT(c) + ' ajustada em ' + this.br(ajK[c].em))); if (fer) obs.push('Feriado: ' + fer); if (off && off.obs) obs.push(off.obs); if (ruim) obs.push('Horário fora de sequência: revisar'); else if (st === 'parc') obs.push('Registro incompleto'); this.justs().filter(j => j.data === k).forEach(j => obs.push(j.st === 'abonado' ? j.tipo : j.tipo + (j.st === 'recusado' ? ': recusada' : ': em análise')));
+      if (comp && !ruim && sg(p.retorno) - sg(p.repouso) < 3600) intra.push(dd);
+      if (prev != null && p.entrada && !ruim && 86400 - prev + sg(p.entrada) < 39600) inter.push(dd);
+      prev = p.saida && !ruim ? sg(p.saida) : null;
+      run = algum ? run + 1 : 0; maxRun = Math.max(maxRun, run); tt += tr; te += ex; if (fer && tr > 0) feri++; if ((w === 0 || w === 6) && algum) fds++; if (st === 'parc') inc++; if (ruim) rev++;
+      rows.push({ k, dd, w, sem: Y.SEMANA[w], fer, p, aj: ajK, tr, ex, sal, st, ruim, algum, base, obs: obs.join(' · ') });
+    }
+    return { rows, tt, te, sal, intra, inter, feri, fds, maxRun, inc, rev };
+  }
+
+  folhaDados(C) { const f = /farlei/i.test(C.nome); return f ? { cod: '0001', cargo: 'ADVOGADO (A)', cpf: '***.547.725-**', ctps: '***2329', serie: '0060', lot: 'MACEIÓ/AL', adm: '15/02/2020', end1: 'Quadra QNF 3, 31', end2: 'Taguatinga Norte, Taguatinga/DF CEP 72125-530', resp: 'FARLEI ASSIS DA ROCHA OAB/DF 49.613' } : { cod: '', cargo: '', cpf: '', ctps: '', serie: '', lot: '', adm: '', end1: '', end2: '', resp: '' }; }
+
+  /* Folha em imagem, com as mesmas camadas do comprovante, depois embutida em PDF: o texto não é editável e os padrões derivam do hash. */
+  desenharFolha(M, rec, C) {
+    const W = 1000, H = 1414, S = 2.48, c = document.createElement('canvas'); c.width = Math.round(W * S); c.height = Math.round(H * S); const g = c.getContext('2d'); g.scale(S, S);
+    const F = 'Arial, Helvetica, sans-serif', NV = '#0b3550', AZ = '#e5f1f7', LN = 'rgba(11,53,80,.32)', D = this.folhaDados(C), Y = Component, [ano, ms] = rec.mes.split('-');
+    let sem = parseInt(rec.hash.slice(0, 8), 16) || 7; const rnd = () => { sem ^= sem << 13; sem ^= sem >>> 17; sem ^= sem << 5; return (sem >>> 0) / 4294967296; };
+    const iris = g.createLinearGradient(0, 0, W, H); ['#eef6fb', '#f0f9f2', '#fcf7ec', '#f5f0fb', '#eef6fb'].forEach((x, i) => iris.addColorStop(i / 4, x)); g.fillStyle = iris; g.fillRect(0, 0, W, H);
+    const p1 = rnd() * 6, f1 = .012 + rnd() * .012, f2 = .03 + rnd() * .02; g.lineWidth = .5;
+    for (let k = -2; k < 64; k++) { const y0 = k * H / 60; g.strokeStyle = k % 2 ? 'rgba(10,111,160,.13)' : 'rgba(30,123,69,.1)'; g.beginPath(); for (let x = 0; x <= W; x += 5) { const y = y0 + 13 * Math.sin(x * f1 + p1 + k * .32) + 5 * Math.sin(x * f2 + k * .7); x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+    const rosa = (cx, cy, R, mm, n, cor, lw) => { g.strokeStyle = cor; g.lineWidth = lw; const fase = rnd() * 3; for (let j = 0; j < n; j++) { const a0 = j / n * Math.PI * 2; g.beginPath(); for (let i = 0; i <= 200; i++) { const t = i / 200 * Math.PI * 2, r = R * (.66 + .34 * Math.sin(mm * t + fase)), a = t + a0, x = cx + r * Math.cos(a), y = cy + r * Math.sin(a); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); g.stroke(); } };
+    rosa(500, 640, 330, 9 + Math.floor(rnd() * 5), 34, 'rgba(11,53,80,.06)', .45); rosa(780, 1250, 120, 6 + Math.floor(rnd() * 4), 22, 'rgba(30,123,69,.13)', .45);
+    g.save(); g.translate(500, 640); g.lineWidth = 30; g.strokeStyle = 'rgba(11,53,80,.05)'; g.beginPath(); g.arc(0, 0, 230, -2.6, .55); g.stroke(); g.strokeStyle = 'rgba(10,111,160,.05)'; g.beginPath(); g.arc(0, 0, 230, .85, 3.35); g.stroke(); g.restore();
+    g.save(); g.translate(W / 2, H / 2); g.rotate(-Math.PI / 6.4); g.font = 'bold 18px ' + F; g.fillStyle = 'rgba(11,53,80,.05)'; const lin = ('BLUEJUS · ' + rec.cod + ' · ' + rec.nome.toUpperCase() + ' · ').repeat(5); for (let y = -1050, i = 0; y < 1050; y += 62, i++) g.fillText(lin, -1400 + (i % 2) * 80, y); g.restore();
+    g.strokeStyle = NV; g.lineWidth = 2; g.strokeRect(12, 12, W - 24, H - 24); g.lineWidth = .8; g.strokeRect(34, 34, W - 68, H - 68);
+    const borda = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L, nx = -uy, ny = ux; [[0, '#0a6fa0'], [2.1, '#1e7b45'], [4.2, '#8a6d1f']].forEach(([ph, cor]) => { g.strokeStyle = cor; g.lineWidth = .7; g.beginPath(); for (let s = 0; s <= L; s += 2) { const o = 8 * Math.sin(s * .1 + ph), x = x0 + ux * s + nx * o, y = y0 + uy * s + ny * o; s ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }); };
+    borda(23, 23, W - 23, 23); borda(W - 23, 23, W - 23, H - 23); borda(W - 23, H - 23, 23, H - 23); borda(23, H - 23, 23, 23);
+    g.fillStyle = NV; g.font = '5px ' + F; let mt = ('BLUEJUS PONTO ELETRONICO FOLHA AUTENTICA ' + rec.cod + ' ').repeat(9); while (g.measureText(mt).width > 890) mt = mt.slice(0, -1); g.fillText(mt, 46, 42); g.fillText(mt, 46, H - 39);
+    g.save(); g.translate(945, 48); for (let y = 0; y + 74 < H - 96; y += 100) { const gr = g.createLinearGradient(0, y, 12, y + 62); ['#7fb4cf', '#d9eef7', '#8fcaa5', '#e8dca8', '#7fb4cf'].forEach((x, i) => gr.addColorStop(i / 4, x)); g.fillStyle = gr; g.fillRect(0, y + 8, 12, 62); g.save(); g.translate(8.5, y + 66); g.rotate(-Math.PI / 2); g.fillStyle = NV; g.font = 'bold 6.5px ' + F; g.fillText('BLUEJUS PONTO', 0, 0); g.restore(); } g.restore();
+
+    const X = 46, R = 936, LG = R - X;
+    const t = (s, x, y, f, cor, al) => { g.font = f; g.fillStyle = cor || '#12242f'; g.textAlign = al || 'left'; g.fillText(s, x, y); g.textAlign = 'left'; };
+    const cap = (s, f, max) => { g.font = f; let v = String(s); if (g.measureText(v).width <= max) return v; while (v.length && g.measureText(v + '...').width > max) v = v.slice(0, -1); return v + '...'; };
+    const quadro = (x, y, w, h) => { g.strokeStyle = LN; g.lineWidth = .7; g.strokeRect(x, y, w, h); };
+    const cabeca = (s, x, y, w, al) => { g.fillStyle = 'rgba(214,230,241,.92)'; g.fillRect(x, y, w, 20); quadro(x, y, w, 20); t(s, al ? x + w / 2 : x + 7, y + 14, 'bold 11.5px ' + F, NV, al ? 'center' : 'left'); };
+    const rot = (r, v, x, y, max) => { const f = 'bold 11px ' + F; g.font = f; const w = g.measureText(r + ' ').width; t(r, x, y, f, '#12242f'); t(cap(v, '11px ' + F, max - w), x + w, y, '11px ' + F, '#12242f'); };
+    let y = 46;
+    g.fillStyle = NV; g.fillRect(X, y, LG, 32); t('FOLHA DE PONTO · ' + ms + '/' + ano, 500, y + 22, 'bold 17px ' + F, '#fff', 'center');
+    y += 32; g.fillStyle = 'rgba(229,241,247,.92)'; g.fillRect(X, y, LG, 20); quadro(X, y, LG, 20);
+    const ult = String(new Date(+ano, +ms, 0).getDate()).padStart(2, '0'); t('Período: 01/' + ms + '/' + ano + ' a ' + ult + '/' + ms + '/' + ano, 500, y + 14, '11.5px ' + F, '#12242f', 'center');
+    y = 104; let fz = 16; const rz = C.esc.toUpperCase(); g.font = 'bold ' + fz + 'px ' + F; while (g.measureText(rz).width > 580 && fz > 11) { fz--; g.font = 'bold ' + fz + 'px ' + F; } t(rz, X, y + 16, 'bold ' + fz + 'px ' + F); g.fillStyle = NV; g.fillRect(X, y + 22, Math.min(580, g.measureText(rz).width), 1.4);
+    if (C.cnpj) t('CNPJ: ' + C.cnpj, X, y + 42, '12.5px ' + F); t(D.end1, X, y + 61, '12.5px ' + F); t(D.end2, X, y + 80, '12.5px ' + F);
+    const rx = 640, rw = R - rx; cabeca('REGIME DE JORNADA', rx, y, rw, 1); quadro(rx, y + 20, rw, 72); [['Jornada:', this.escala(C.nome).sem + ' semanais'], ['Distribuição:', this.escala(C.nome).dist], ['Banco de Horas:', 'Sim (acordo individual)'], ['Intervalo Intrajornada:', '1h00 (mínimo)'], ['Intervalo Interjornada:', 'mínimo 11h00']].forEach((l, i) => rot(l[0], l[1], rx + 7, y + 34 + i * 13.5, rw - 14));
+    y = 204; cabeca('DADOS DO EMPREGADO', X, y, LG); y += 20;
+    [[[180, 'Código:', D.cod], [430, 'Nome:', rec.nome.toUpperCase()], [280, 'CPF:', D.cpf]], [[180, 'Cargo:', D.cargo], [250, 'CTPS:', D.ctps], [180, 'Série:', D.serie], [280, 'Lotação:', D.lot]], [[180, 'Jornada Semanal:', this.escala(C.nome).sem], [250, 'Horário Contratual:', this.escala(C.nome).id === '44-6' ? '09:00 às 17:20' : ''], [180, 'Intervalo:', '12:00 às 13:00'], [280, 'Tipo de Ponto:', 'Eletrônico']], [[430, 'Escala:', this.escala(C.nome).id === '44-6' ? 'Segunda a Sábado (STQQSS)' : this.escala(C.nome).dist], [460, 'Data de admissão:', D.adm]]].forEach(l => { let x = X; l.forEach(([w, r, v]) => { quadro(x, y, w, 19); rot(r, v, x + 6, y + 13.5, w - 12); x += w; }); y += 19; });
+    y = 308; const cols = [34, 76, 66, 66, 66, 66, 72, 62, 66, 316], xs = [X]; cols.forEach((w, i) => xs[i + 1] = xs[i] + w);
+    g.fillStyle = 'rgba(214,230,241,.92)'; g.fillRect(X, y, LG, 36); quadro(X, y, LG, 36);
+    const cx = i => xs[i] + cols[i] / 2, hf = 'bold 10.5px ' + F;
+    [['Dia', 0], ['Dia da', 1, 'Semana'], ['Horas', 6, 'Trabalhadas'], ['Horas', 7, 'Extras'], ['Saldo do', 8, 'Mês']].forEach(([a0, i, b0]) => { if (b0) { t(a0, cx(i), y + 15, hf, NV, 'center'); t(b0, cx(i), y + 28, hf, NV, 'center'); } else t(a0, cx(i), y + 22, hf, NV, 'center'); });
+    t('Horários Registrados', (xs[2] + xs[6]) / 2, y + 13, hf, NV, 'center'); g.fillStyle = LN; g.fillRect(xs[2], y + 18, xs[6] - xs[2], .7);
+    [['Entrada', 2], ['Início Int.', 3], ['Fim Int.', 4], ['Saída', 5]].forEach(([a0, i]) => t(a0, cx(i), y + 31, '10px ' + F, NV, 'center')); t('Justificativa / Observações', xs[9] + 6, y + 22, hf, NV);
+    y += 36; const rh = 19.6, fc = '11px ' + F, cinza = '#12242f';
+    M.rows.forEach((r, i) => {
+      if (i % 2 === 0) { g.fillStyle = 'rgba(11,53,80,.085)'; g.fillRect(X, y, LG, rh); }
+      const fut = r.st === 'fut', corL = r.ruim ? '#a3232b' : cinza, b = y + 13.8, pu = r.p;
+      t(r.dd, cx(0), b, fc, cinza, 'center');
+      const semPunch = r.fer && !r.algum;
+      t(semPunch ? 'FERIADO' : r.sem, cx(1), b, semPunch ? 'bold 11px ' + F : fc, semPunch ? '#a3232b' : cinza, 'center');
+      if (semPunch) t('FERIADO', (xs[2] + xs[6]) / 2, b, 'bold 11px ' + F, '#a3232b', 'center');
+      else ['entrada', 'repouso', 'retorno', 'saida'].forEach((id, j) => t(pu[id] ? pu[id].slice(0, 5) : '–', cx(j + 2), b, fc, corL, 'center'));
+      t(fut ? '–' : Y.fHm(r.tr), cx(6), b, fc, cinza, 'center'); t(fut ? '–' : Y.fHm(r.ex), cx(7), b, fc, cinza, 'center'); t(fut ? '–' : Y.fSin(r.sal), cx(8), b, fc, r.sal < 0 && !fut ? '#a3232b' : cinza, 'center');
+      if (r.obs) t(cap(r.obs, '10px ' + F, cols[9] - 12), xs[9] + 6, b, '10px ' + F, r.ruim ? '#a3232b' : r.st === 'parc' ? '#7a5200' : '#243845');
+      g.fillStyle = LN; g.fillRect(X, y + rh, LG, .5); y += rh;
+    });
+    g.strokeStyle = LN; g.lineWidth = .6; const yT = 344; xs.forEach(x => { g.beginPath(); g.moveTo(x, yT); g.lineTo(x, y); g.stroke(); });
+    y += 6; if (y < 964) y = 964; const by = y, bh = 116, w1 = 296, w2 = 300, w3 = LG - w1 - w2 - 16, x2 = X + w1 + 8, x3 = x2 + w2 + 8, ant = Y.ANT[rec.mes] != null ? Y.ANT[rec.mes] : Y.ANT['2026-11'], atual = ant + M.sal;
+    cabeca('RESUMO DO MÊS', X, by, w1, 1); quadro(X, by + 20, w1, bh - 20); [['Horas Trabalhadas no Mês:', Y.fHm(M.tt)], ['Total de Horas Extras no Mês:', Y.fHm(M.te)], ['Saldo do Banco de Horas Anterior:', Y.fSin(ant)], ['Saldo do Banco de Horas Atual:', Y.fSin(atual)], ['Horas a Compensar:', atual < 0 ? Y.fHm(atual) : '0:00'], ['Dias incompletos · a revisar:', M.inc + ' · ' + M.rev]].forEach((l, i) => rot(l[0], l[1], X + 8, by + 36 + i * 15, w1 - 16));
+    cabeca('CONTROLE DE INTERVALOS', x2, by, w2, 1); quadro(x2, by + 20, w2, bh - 20);
+    const conf = (r, ok, x0, cy, det) => { const f = '11px ' + F; g.font = f; const w = g.measureText(r + ' ').width; t(r, x0, cy, f); t(ok ? 'Conforme' : 'Não conforme', x0 + w, cy, 'bold 11px ' + F, ok ? '#1e7b45' : '#a3232b'); if (det) t(cap(det, '9.5px ' + F, w2 - 16), x0, cy + 12, '9.5px ' + F, '#4a6373'); };
+    conf('Intrajornada (mín. 1h00):', !M.intra.length, x2 + 8, by + 35, M.intra.length ? 'Dias ' + M.intra.join(', ') : '');
+    conf('Interjornada (mín. 11h00):', !M.inter.length, x2 + 8, by + 62, M.inter.length ? 'Dias ' + M.inter.join(', ') : '');
+    conf('Descanso Semanal Remunerado:', M.maxRun <= 6, x2 + 8, by + 89, ''); t('Feriados trabalhados: ' + M.feri + ' · Finais de semana: ' + M.fds + (M.maxRun > 6 ? ' · ' + M.maxRun + ' dias seguidos' : ''), x2 + 8, by + 106, '10.5px ' + F);
+    cabeca('OBSERVAÇÕES GERAIS', x3, by, w3, 1); quadro(x3, by + 20, w3, bh - 20);
+    let oy = by + 34; g.font = '10px ' + F; ['As horas extras foram autorizadas previamente pela gestão e serão compensadas conforme acordo de banco de horas.', 'Feriados trabalhados serão compensados.', 'Registros realizados pelo sistema eletrônico de ponto BlueJus.'].forEach(tx => { let lh = '• '; tx.split(' ').forEach(p => { if (g.measureText(lh + p).width > w3 - 14) { t(lh, x3 + 7, oy, '10px ' + F); oy += 12.6; g.font = '10px ' + F; lh = '  ' + p + ' '; } else lh += p + ' '; }); t(lh, x3 + 7, oy, '10px ' + F); oy += 13.6; g.font = '10px ' + F; });
+    y = by + bh + 8; quadro(X, y, LG, 84); t('Declaro que os registros acima representam fielmente minha jornada de trabalho.', X + 10, y + 17, '11px ' + F); t('Local: ______________________________     Data: ____/____/' + ano, X + 10, y + 34, '11px ' + F);
+    [[X + 16, R - 500 - 10], [R - 430, R - 16]].forEach(([a0, b0], i) => { g.fillStyle = '#12242f'; g.fillRect(a0, y + 56, b0 - a0, .8); t(i ? 'Assinatura do Responsável' : 'Assinatura do Empregado', (a0 + b0) / 2, y + 68, 'bold 11px ' + F, '#12242f', 'center'); t(i ? D.resp : rec.nome.toUpperCase(), (a0 + b0) / 2, y + 80, '10px ' + F, '#12242f', 'center'); if (!i && rec.ace) t(rec.ace.st === 'ok' ? 'Aceite eletrônico em ' + new Date(rec.ace.em).toLocaleString('pt-BR') : 'Aceite com ressalva em ' + new Date(rec.ace.em).toLocaleString('pt-BR'), (a0 + b0) / 2, y + 51, 'bold 10.5px ' + F, rec.ace.st === 'ok' ? '#1e7b45' : '#a3232b', 'center'); }); if (rec.ace && rec.ace.obs) t(cap('Ressalva: ' + rec.ace.obs, '10px ' + F, 480), R - 496, y + 34, '10px ' + F, '#a3232b');
+    y += 92; for (let xx = X; xx + 86 <= R + 1; xx += 92) { const gr = g.createLinearGradient(xx, 0, xx + 86, 0); ['#7fb4cf', '#d9eef7', '#8fcaa5', '#e8dca8', '#7fb4cf'].forEach((c0, i) => gr.addColorStop(i / 4, c0)); g.fillStyle = gr; g.fillRect(xx, y - 7.5, 86, 6.5); t('BLUEJUS', xx + 43, y - 2.6, 'bold 5.2px ' + F, NV, 'center'); } const qs = 116; let qx = X; if (window.qrcode) { try { const q = window.qrcode(0, 'M'); q.addData('https://www.bluejus.com.br/ponto/validar/' + rec.cod); q.make(); const n = q.getModuleCount(), u = qs / n; g.fillStyle = '#fff'; g.fillRect(X, y, qs + 8, qs + 8); g.fillStyle = NV; for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(X + 4 + k * u, y + 4 + r * u, u + .25, u + .25); qx = X + qs + 24; } catch (e) {} }
+    t('CÓDIGO DE VALIDAÇÃO', qx, y + 14, 'bold 11px ' + F, '#4a6373'); let sx = qx; rec.cod.split('').forEach((ch, i) => { const fs = 'bold ' + (20 + i * .85) + 'px "Courier New", Courier, monospace'; g.font = fs; g.fillStyle = '#a3232b'; g.fillText(ch, sx, y + 42); sx += g.measureText(ch).width + 1.5; });
+    t('SHA-256 ' + rec.hash.slice(0, 32), qx, y + 60, '10.5px "Courier New", monospace', '#34505f'); t('        ' + rec.hash.slice(32), qx, y + 73, '10.5px "Courier New", monospace', '#34505f');
+    t('Confira em bluejus.com.br/ponto/validar ou leia o QR Code.', qx, y + 94, '11px ' + F, '#243845'); t('Emitida em ' + new Date(rec.iso).toLocaleString('pt-BR') + '. Vale somente com registro correspondente no BlueJus.', qx, y + 110, '10px ' + F, '#243845');
+    const sxC = 866, syC = y + 60, sr = 58; g.save(); g.translate(sxC, syC); g.beginPath(); for (let i = 0; i < 64; i++) { const a0 = i / 64 * Math.PI * 2, r = i % 2 ? sr : sr - 5; g[i ? 'lineTo' : 'moveTo'](r * Math.cos(a0), r * Math.sin(a0)); } g.closePath(); let fg; if (g.createConicGradient) { fg = g.createConicGradient(rnd() * 6, 0, 0); ['#7fd0e8', '#b4e7a8', '#f4e08a', '#f2b0c8', '#b7a6f0', '#7fd0e8'].forEach((x, i) => fg.addColorStop(i / 5, x)); } else { fg = g.createRadialGradient(0, 0, 8, 0, 0, sr); fg.addColorStop(0, '#f4e08a'); fg.addColorStop(1, '#7fd0e8'); } g.fillStyle = fg; g.fill(); g.strokeStyle = 'rgba(11,53,80,.4)'; g.lineWidth = .45; for (let j = 0; j < 36; j++) { g.save(); g.rotate(j / 36 * Math.PI * 2); g.beginPath(); g.ellipse(0, 0, sr - 8, 17, 0, 0, Math.PI * 2); g.stroke(); g.restore(); } g.fillStyle = 'rgba(255,255,255,.84)'; g.beginPath(); g.arc(0, 0, 32, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#1e7b45'; g.lineWidth = 5; g.beginPath(); g.moveTo(-15, 0); g.lineTo(-4, 12); g.lineTo(16, -12); g.stroke(); Component.seloAneis(g, sr, rec.cod); g.restore();
+    y += 130; quadro(X, y, LG, 38); t('Base Legal:', X + 8, y + 15, 'bold 10.5px ' + F); t('Art. 74, §2º da CLT  |  Portaria MTP nº 671/2021  |  Art. 13 da Portaria nº 3.626/91', X + 72, y + 15, '10.5px ' + F); t('(Esta folha de ponto substitui o Quadro de Horário de Trabalho, inclusive o de menores.)', X + 8, y + 30, '10px ' + F);
+    return c;
+  }
+  pdfImagem(jpeg, w, h, titulo) {
+    const en = s => new TextEncoder().encode(s), parts = [], off = []; let n = 0; const push = b => { parts.push(b); n += b.length; }, ps = s => push(en(s));
+    push(new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52, 10, 37, 226, 227, 207, 211, 10]));
+    const obj = (i, b) => { off[i] = n; ps(i + ' 0 obj\n' + b + '\nendobj\n'); };
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>'); obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'); obj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
+    off[4] = n; ps('4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + w + ' /Height ' + h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpeg.length + ' >>\nstream\n'); push(jpeg); ps('\nendstream\nendobj\n');
+    const ct = 'q 595.28 0 0 841.89 0 0 cm /Im0 Do Q'; obj(5, '<< /Length ' + ct.length + ' >>\nstream\n' + ct + '\nendstream');
+    obj(6, '<< /Title (' + titulo + ') /Producer (BlueJus) /Creator (BlueJus Ponto Eletronico) >>');
+    const xr = n; let x = 'xref\n0 7\n0000000000 65535 f \n'; for (let i = 1; i <= 6; i++) x += String(off[i]).padStart(10, '0') + ' 00000 n \n'; ps(x + 'trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n' + xr + '\n%%EOF\n');
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+  baixarPdf = async () => {
+    if (this._pdf) return; this._pdf = true; this.avisar('Gerando a folha em PDF...', '#0a6fa0');
+    try {
+      await new Promise(r => setTimeout(r, 40));
+      const s = this.state, C = this.conta(), M = this.linhasMes(s.mes), Y = Component, nonce = Math.random().toString(36).slice(2), iso = new Date().toISOString();
+      const hx = await this.hash(JSON.stringify({ mes: s.mes, ace: s.ace[s.mes] || null, nome: C.nome, esc: C.esc, rows: M.rows.map(r => [r.k, r.p, r.tr, r.ex, r.sal, r.obs]), iso }) + nonce);
+      let cod = 'BJF'; for (let i = 0; i < 12; i++) { if (i % 4 === 0) cod += '-'; cod += Y.ALF[parseInt(hx.substr(i * 2, 2), 16) % 32]; }
+      const rec = { folha: s.mes.split('-').reverse().join('/'), mes: s.mes, cod, hash: hx, nome: C.nome, iso, ace: s.ace[s.mes] || null }, cv = this.desenharFolha(M, rec, C), bin = atob(cv.toDataURL('image/jpeg', .92).split(',')[1]), jp = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) jp[i] = bin.charCodeAt(i);
+      const bl = this.pdfImagem(jp, cv.width, cv.height, 'Folha de Ponto ' + rec.folha), a = document.createElement('a'), [ano, ms] = s.mes.split('-'); a.href = URL.createObjectURL(bl); a.download = 'folha_ponto_' + C.nome.normalize('NFD').replace(/[^A-Za-z]/g, '').toUpperCase() + '-' + ms + '-' + ano + '.pdf'; document.body.appendChild(a); a.click(); a.remove();
+      const fol = [rec].concat(Y.ler(Y.K.fol, [])).slice(0, 60); Y.grava(Y.K.fol, fol); this.reg('Folha emitida', rec.folha + ' · ' + cod); this.avisar('Folha baixada em PDF. Código ' + cod + '.');
+    } catch (e) { console.error(e); this.avisar('Não foi possível gerar o PDF.', '#a3232b'); }
+    this._pdf = false;
+  };
+
+  renderVals() {
+    const s = this.state, now = new Date(s.agora), hoje = this.ymd(now), C = this.conta(), Y = Component;
+    const b = this.batidasHoje(), prox = this.proximo(), sel = s.tipo && !b[s.tipo] ? s.tipo : prox, ro = this.papel();
+    const sg = t => { const p = String(t).split(':').map(Number); return p[0] * 3600 + p[1] * 60 + (p[2] || 0); };
+    const fmtT = v => [Math.floor(v / 3600), Math.floor(v / 60) % 60, v % 60].map(x => String(x).padStart(2, '0')).join(':');
+    const nowS = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const trabS = x => { if (!x.entrada) return 0; let v = (x.saida ? sg(x.saida) : nowS) - sg(x.entrada); if (x.repouso) v -= (x.retorno ? sg(x.retorno) : (x.saida ? sg(x.saida) : nowS)) - sg(x.repouso); return Math.max(0, v); };
+    const statusTxt = !b.entrada ? 'Aguardando entrada' : b.saida ? 'Jornada encerrada' : b.repouso && !b.retorno ? 'Em repouso' : 'Em jornada';
+    const faceReg = Y.ler(Y.K.face, null), recusou = !!(faceReg && faceReg.recusa), facAt = this.faceAtiva() && !recusou, obrig = facAt && this.faceModo() === 'obrigatoria', concluida = !sel, geoOn = this.ef('geo'), g = s.geo;
+    const geoM = { lendo: ['#9fc3d8', '#e5f1f7', '#0b4f75', 'bi-crosshair', 'Obtendo a sua localização...'], ok: ['#9fd0b2', '#e8f5ee', '#145a32', 'bi-geo-alt-fill', 'Localização confirmada. Precisão de ' + Math.round(g.acc || 0) + ' m.'], impreciso: ['#e0c36a', '#fff8e1', '#7a5200', 'bi-exclamation-triangle', 'GPS impreciso (' + Math.round(g.acc || 0).toLocaleString('pt-BR') + ' m). O sistema ainda validará se você está dentro do raio de alguma sede.'], demo: ['#e0c36a', '#fff8e1', '#7a5200', 'bi-exclamation-triangle', 'O navegador não liberou o GPS nesta pré-visualização. No sistema, o registro validará o raio de cada sede.'] }[g.st] || [];
+    const tipos = Y.TIPOS.map(([id, r]) => { const f = !!b[id], on = sel === id && !f; return { r, h: b[id] || '--:--:--', feito: f, sel: on, bd: on ? '#0a6fa0' : f ? '#9fd0b2' : '#d3dde4', bg: on ? '#0a6fa0' : f ? '#e8f5ee' : '#fff', cor: on ? '#fff' : f ? '#145a32' : '#34505f', cur: f ? 'default' : 'pointer', pick: () => { if (!f) this.setState({ tipo: id }); } }; });
+    const allJ = this.justs(), acharJ = k => allJ.find(j => j.data === k), JM = { abonado: ['Abonada', 'Abonado', '#1e7b45', 'bi-check-circle'], pendente: ['Em análise', 'Em análise', '#0a6fa0', 'bi-hourglass-split'], recusado: ['Recusada', 'Recusado', '#a3232b', 'bi-x-circle'] }, podeA = ro !== 'colaborador';
+    const somaDias = Object.assign({}, Y.SEED); Object.keys(Y.OUT).forEach(k => somaDias[k] = Y.OUT[k].p); Object.keys(s.dia).forEach(k => somaDias[k] = Object.assign({}, somaDias[k], s.dia[k]));
+    const fDur = v => { const a = Math.abs(v); return Math.floor(a / 3600) + 'h' + String(Math.floor(a / 60) % 60).padStart(2, '0') + 'm'; }, fSal = v => v === 0 ? '0h' : (v < 0 ? '-' : '+') + fDur(v);
+    const mA = hoje.slice(0, 7), banco = fSal((Y.ANT[mA] != null ? Y.ANT[mA] : Y.ANT['2026-11']) + this.linhasMes(mA).sal);
+    const folha = this.linhasMes(s.mes).rows.filter(r => r.algum || (r.st === 'feriado' && r.tr > 0)).map(r => {
+      const h0 = r.st === 'hoje' || r.st === 'feriado', dif = r.tr - r.base, J0 = acharJ(r.k);
+      const cels = Y.TIPOS.map(([id, nm]) => ({ r: nm, h: r.p[id] || '', tem: !!r.p[id], aj: !!r.aj[id], ajTip: r.aj[id] ? 'Ajustado por ' + r.aj[id].por + ' em ' + this.br(r.aj[id].em) + '. Registro original preservado.' : '', mais: !r.p[id] && !h0, tr: !r.p[id] && h0, tip: 'Enviar registro de esquecimento: ' + nm, add: () => this.abrirEsq(r.k, id) }));
+      const tag = r.ruim ? ['Fora de sequência', '#f1c4c9', '#fdecee', '#7f1c23', 'bi-exclamation-octagon'] : r.st === 'comp' ? [fSal(dif), '', '', dif >= 0 ? '#1e7b45' : '#a3232b', ''] : r.st === 'feriado' ? ['Feriado', '#9fc3d8', '#e5f1f7', '#0b4f75', 'bi-calendar-event'] : r.st === 'hoje' ? ['Em andamento', '#9fc3d8', '#e5f1f7', '#0b4f75', 'bi-clock'] : ['Registro incompleto', '#e0c36a', '#fff3cd', '#7a5200', 'bi-exclamation-triangle'];
+      return { dia: r.dd, sem: r.sem, cels, trab: r.tr > 0 ? fDur(r.tr) : '', tag: tag[0], tagBd: tag[1], tagBg: tag[2], tagCor: tag[3], tagIc: tag[4], sm: fSal(r.sal), smCor: r.sal < 0 ? '#a3232b' : r.sal > 0 ? '#1e7b45' : '#34505f', plano: r.st === 'comp' && !r.ruim, selo: !(r.st === 'comp' && !r.ruim), temJ: !!J0, just: J0 ? JM[J0.st][0] : '', jBg: J0 ? JM[J0.st][2] : '', jIc: J0 ? JM[J0.st][3] : '', trC: r.tr > 0 ? '' : 'bjpVazia', jC: J0 ? '' : 'bjpVazia' };
+    });
+    const pendF = Y.PEND.filter(([k, t]) => !allJ.some(j => j.chave === k + t && j.st !== 'recusado') && !(somaDias[k] && somaDias[k][t]));
+    const pend = pendF.map(([k, t]) => ({ data: this.br(k), falta: t === 'retorno' ? 'Falta o retorno do repouso' : 'Falta a saída', env: () => this.abrirEsq(k, t) }));
+    const justsF = allJ.filter(j => j.data.indexOf(s.mes) === 0).map(j => ({ data: this.br(j.data), tipo: j.tipo, sub: j.sub || '', mot: j.mot || '', temMot: !!j.mot, st: JM[j.st][1], stBg: JM[j.st][2], stIc: JM[j.st][3], anexo: j.anexo || 'Sem anexo', obs: j.st === 'pendente' ? '—' : (j.obsA || 'Não informado'), em: j.em ? this.br(j.em) : '—', trava: j.st !== 'pendente', aberta: j.st === 'pendente', gere: j.st === 'pendente' && podeA, abonar: () => this.setState({ modal: 'ana', ctx: { chave: j.chave, acao: 'abonado', info: this.br(j.data) + ' · ' + j.tipo + (j.sub ? ' · ' + j.sub : '') }, fMot: '', fErro: '' }), recusar: () => this.setState({ modal: 'ana', ctx: { chave: j.chave, acao: 'recusado', info: this.br(j.data) + ' · ' + j.tipo + (j.sub ? ' · ' + j.sub : '') }, fMot: '', fErro: '' }), tirar: () => { const just = this.state.just.filter(x => x.chave !== j.chave); Y.grava(Y.K.just, just); this.setState({ just }); } }));
+    const eqPend = s.eqj.filter(j => !j.st), eqOwn = allJ.filter(j => j.st === 'pendente');
+    const compOn = this.ef('comprovante'), cfgVis = ro !== 'colaborador', aba = ((s.aba === 'cfg' || s.aba === 'eq' || s.aba === 'log') && !cfgVis) || (s.aba === 'comp' && !compOn) ? 'pend' : s.aba;
+    const A = [['pend', 'Pendências', 'bi-exclamation-triangle', pendF.length, '#b8860b'], ['just', 'Minhas Justificativas', 'bi-calendar-check', justsF.length, '#0a6fa0']]; if (compOn) A.push(['comp', 'Comprovantes', 'bi-receipt', s.comp.length, '#0a6fa0']); A.push(['banco', 'Banco de Horas', 'bi-piggy-bank', 0, '#0a6fa0']); if (cfgVis) { A.push(['eq', 'Equipe', 'bi-people', eqPend.length + eqOwn.length, '#8a6200']); A.push(['log', 'Auditoria', 'bi-shield-lock', 0, '#0a6fa0']); A.push(['cfg', 'Configurações', 'bi-sliders', 0, '#0a6fa0']); }
+    const abas = A.map(([id, r, ic, n, nBg]) => ({ r, ic, n, nBg: nBg === '#b8860b' ? '#8a6200' : nBg, tem: n > 0, sel: aba === id, bd: aba === id ? '#0a6fa0' : 'transparent', bg: aba === id ? '#fff' : 'transparent', cor: aba === id ? '#0a6fa0' : '#34505f', pick: () => this.setState({ aba: id }) }));
+    const euM = ro === 'master', saveE = (x) => { const e = Object.assign({}, this.state.e, x); Y.grava(Y.K.e, e); this.setState({ e }); };
+    const feats = Y.FEATS.map(f => { const g0 = this.gl(f.id), e0 = s.e[f.id] !== false, bloq = !g0; return Object.assign({}, f, { vM: euM, g: g0, e: e0 && !bloq, bloq, gBg: g0 ? '#1e7b45' : '#9aabb7', gJ: g0 ? 'flex-end' : 'flex-start', eBg: bloq ? '#c4ced6' : (e0 ? '#1e7b45' : '#9aabb7'), eJ: e0 && !bloq ? 'flex-end' : 'flex-start', eCur: bloq ? 'not-allowed' : 'pointer', tgG: () => { const R0 = window.BJRecursos; if (R0) R0.set('ponto-' + f.id, !g0); const n = Object.assign({}, this.state.g, { [f.id]: !g0 }); Y.grava(Y.K.g, n); this.setState({ g: n }); this.reg('Configuração global', f.t + (g0 ? ' desativado' : ' ativado')); this.avisar(f.t + (g0 ? ' desativado para todos os escritórios.' : ' liberado para todos os escritórios.')); }, tgE: () => { if (!bloq) { saveE({ [f.id]: !e0 }); this.reg('Configuração do escritório', f.t + (e0 ? ' desativado' : ' ativado')); } } }); });
+    const barras = Array.from({ length: 24 }, (_, i) => ({ a: i * 15, dl: Math.round(i / 24 * Y.VAL_T * .94), dlB: 100 + i * 14 }));
+    const etapasB = ['Horário oficial confirmado']; if (geoOn) etapasB.push(s.rec && s.rec.lat != null ? 'Localização validada' : 'Localização simulada'); if (s.rec && s.rec.face) etapasB.push('Identidade confirmada'); etapasB.push('Registro selado');
+    const etapas = etapasB.map((t, i) => ({ t, dl: Math.round((i + 1) / etapasB.length * Y.VAL_T * .94) }));
+    const rc = s.rec, faceTits = ['Posicione o rosto na área de marcação', 'Pisque os olhos', 'Mantenha a posição'];
+    const m = s.modal, mt = { esq: ['Registro de esquecimento', 'bi-plus-circle', 'Enviar'], just: ['Justificar falta', 'bi-calendar-check', 'Enviar'], val: ['Validar comprovante', 'bi-shield-check', 'Validar'], cons: ['Cadastro facial', 'bi-person-bounding-box', 'Continuar'], alerta: ['Antes de registrar', 'bi-exclamation-triangle', 'Registrar assim mesmo'], ext: ['Trabalho externo', 'bi-briefcase', 'Registrar'], ass: ['Assinar folha', 'bi-pen', 'Confirmar'], ana: [(s.ctx && s.ctx.acao === 'recusado') ? 'Recusar justificativa' : 'Abonar justificativa', 'bi-clipboard-check', (s.ctx && s.ctx.acao === 'recusado') ? 'Recusar' : 'Abonar'] }[m] || [];
+    const ctx = s.ctx || {}, setF = k => e => this.setState({ [k]: e.target.value, fErro: '', valR: null });
+    const addJ = o => { const just = [o].concat(this.state.just); Y.grava(Y.K.just, just); this.setState({ just, modal: '' }); this.reg('Justificativa enviada', this.br(o.data) + ' · ' + o.tipo + (o.sub ? ' · ' + o.sub : '')); this.avisar('Enviado para aprovação do gestor.'); };
+    const K0 = s.fase, nsAg = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    let av = null; const hmS = v => String(Math.floor(v / 3600)).padStart(2, '0') + ':' + String(Math.floor(v / 60) % 60).padStart(2, '0');
+    if (this.ef('alertas') && b.repouso && !b.retorno) { const g0 = nsAg - Y.sg(b.repouso); av = g0 < 3600 ? ['#9fc3d8', '#e5f1f7', '#0b4f75', 'bi-hourglass-split', 'Intervalo em andamento. O mínimo de 1h se completa em ' + hmS(3600 - g0) + '.'] : ['#9fd0b2', '#e8f5ee', '#145a32', 'bi-check-circle', 'Intervalo mínimo de 1h cumprido.']; }
+    else if (this.ef('lembrete') && b.entrada && !b.saida) { const pv = this.saidaPrev(b); if (pv != null) av = nsAg > pv ? ['#e0c36a', '#fff8e1', '#7a5200', 'bi-bell', 'Passou da saída prevista (' + hmS(pv) + '). Não esqueça de registrar a saída.'] : ['#9fc3d8', '#e5f1f7', '#0b4f75', 'bi-bell', 'Saída prevista às ' + hmS(pv) + '.']; }
+    const mesList = []; { let [ya, ma] = [2026, 10]; const [yb, mb] = mA.split('-').map(Number); while (ya < yb || (ya === yb && ma <= mb)) { const v = ya + '-' + String(ma).padStart(2, '0'); mesList.unshift({ v, r: String(ma).padStart(2, '0') + '/' + ya }); ma++; if (ma > 12) { ma = 1; ya++; } } }
+    const lim = s.e.bancoLim != null ? s.e.bancoLim : 120, przM = s.e.bancoMeses || 6, salBan = (Y.ANT[mA] != null ? Y.ANT[mA] : Y.ANT['2026-11']) + this.linhasMes(mA).sal, acima = salBan > lim * 3600;
+    const LT = [{ r: 'Anterior a 10/2026', cred: Y.ANT['2026-10'], venc: null }].concat(mesList.slice().reverse().map(x => { const v = this.linhasMes(x.v).sal, [a0, m0] = x.v.split('-').map(Number); return { r: x.r, cred: Math.max(0, v), deb: Math.max(0, -v), venc: new Date(a0, m0 + przM, 0, 12) }; }));
+    let deb = LT.reduce((t0, x) => t0 + (x.deb || 0), 0); const lotes = LT.filter(x => x.cred > 0 || x.deb).map(x => { const usa = Math.min(deb, x.cred); deb -= usa; const sa = x.cred - usa, dias = x.venc ? Math.ceil((x.venc - now) / 86400000) : null, si = !x.cred ? ['Compensação', '#5b7383'] : sa === 0 ? ['Compensado', '#5b7383'] : dias == null ? ['Sem data de origem', '#8a6200'] : dias < 0 ? ['Vencido', '#a3232b'] : dias <= 30 ? ['Vence em ' + dias + ' dias', '#8a6200'] : ['No prazo', '#1e7b45']; return { r: x.r, cred: x.cred ? fSal(x.cred) : '—', comp: usa ? fDur(usa) : (x.deb ? fDur(x.deb) : '—'), sal: x.cred ? fSal(sa) : '—', venc: x.venc && x.cred ? x.venc.toLocaleDateString('pt-BR') : '—', st: si[0], bg: si[1] }; });
+    const STQ = { jornada: ['Em jornada', '#1e7b45'], intervalo: ['Em intervalo', '#0a6fa0'], sem: ['Sem registro', '#8a6200'], encerrada: ['Encerrada', '#5b7383'] }, meuSt = !b.entrada ? 'sem' : b.saida ? 'encerrada' : b.repouso && !b.retorno ? 'intervalo' : 'jornada', ult = [...Y.TIPOS].reverse().find(t0 => b[t0[0]]);
+    const trocaEsc = (nm, v) => { const esc = Object.assign({}, this.state.esc, { [nm]: v }); Y.grava(Y.K.esc, esc); this.setState({ esc }); this.reg('Escala alterada', nm + ' · ' + (Y.ESC.find(x => x.id === v) || {}).r); };
+    const equipe = [{ n: C.nome, c: 'Você', st: meuSt, e: b.entrada ? b.entrada.slice(0, 5) : '—', u: ult ? b[ult[0]].slice(0, 5) + ' · ' + ult[1] : '—', b: fSal(salBan), p: pendF.length }].concat(Y.EQ).map(q => ({ n: q.n, c: q.c, st: STQ[q.st][0], bg: STQ[q.st][1], e: q.e, u: q.u, b: q.b, p: q.p, esc: s.esc[q.n] || '44-6', troca: e => trocaEsc(q.n, e.target.value) }));
+    const eqKpi = [['Em jornada', 'Em jornada', '#1e7b45'], ['Em intervalo', 'Em intervalo', '#0a6fa0'], ['Sem registro', 'Sem registro', '#8a6200']].map(([r, st, cor]) => ({ r, v: equipe.filter(q => q.st === st).length, cor })).concat([{ r: 'Pendências', v: equipe.reduce((t0, q) => t0 + q.p, 0), cor: '#34505f' }, { r: 'A analisar', v: eqPend.length + eqOwn.length, cor: '#a3232b' }]);
+    const eqJ = eqOwn.map(j => ({ id: 'own:' + j.chave, n: C.nome, data: j.data, tipo: j.tipo, sub: j.sub })).concat(eqPend).map(j => ({ n: j.n, data: this.br(j.data), tipo: j.tipo, sub: j.sub, sel: !!s.eqSel[j.id], tg: e => this.setState({ eqSel: Object.assign({}, this.state.eqSel, { [j.id]: e.target.checked }) }) , id: j.id }));
+    const nSel = eqJ.filter(j => j.sel);
+    let ant0 = null, integra = true; [...s.log].reverse().forEach(l => { if (Y.hx((ant0 || '00000000') + l.em + l.por + l.acao + l.det) !== l.h) integra = false; ant0 = l.h; });
+    const sedes0 = this.sedes(), saveSedes = v => saveE({ sedes: v }), upS = (i, o) => saveSedes(sedes0.map((q, j) => j === i ? Object.assign({}, q, o) : q));
+    const ace = s.ace[s.mes], ultPend = pendF[0];
+    return {
+      escritorio: C.esc, usuario: C.nome.toUpperCase(), papelTxt: ro === 'master' ? 'MASTER · USUÁRIO PRIMÁRIO' : ro === 'primario' ? 'USUÁRIO PRIMÁRIO' : 'COLABORADOR',
+      telaCheia: () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) {} },
+      statusTxt, timer: fmtT(trabS(b)), horaOf: this.hms(now), dataExt: now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }), tipos,
+      geoVis: geoOn, geoBd: geoM[0], geoBg: geoM[1], geoCor: geoM[2], geoIc: geoM[3], geoTxt: geoM[4], lerGeo: this.lerGeo,
+      concluida, btnBg: concluida ? '#7a8e9b' : '#0a6fa0', btnCur: concluida ? 'default' : 'pointer', iconeDigital: !obrig, iconeFace: obrig, btnTxt: concluida ? 'Jornada de hoje concluída' : (obrig ? 'Bater Ponto com facial: ' : 'Bater Ponto: ') + this.nomeT(sel),
+      bater: () => this.iniciar(obrig), baterFace: () => this.iniciar(true), faceOpc: facAt && !obrig && !concluida,
+      abrirJust: () => this.setState({ modal: 'just', fData: hoje, fMot: '', fErro: '', fArq: '' }), sonsVis: this.ef('sons'), mudoTip: s.mudo ? 'Ativar sons' : 'Silenciar sons', somLigado: !s.mudo, somMudo: s.mudo, tgMudo: () => { Y.grava(Y.K.mudo, !s.mudo); this.setState({ mudo: !s.mudo }); },
+      mes: s.mes, trocaMes: e => this.setState({ mes: e.target.value }), folha, folhaVazia: !folha.length, baixarPdf: this.baixarPdf, banco,
+      abas, abaPend: aba === 'pend', abaJust: aba === 'just', abaComp: aba === 'comp', abaCfg: aba === 'cfg', pend, pendVazia: !pend.length, justs: justsF, justVazia: !justsF.length, justTem: !!justsF.length,
+      comps: s.comp.map(r => { const d = new Date(r.iso); return { dh: d.toLocaleDateString('pt-BR') + ' ' + this.hms(d), tipo: this.nomeT(r.tipo), met: r.face ? 'Facial' : 'Sistema', cod: r.cod, ver: () => this.baixar(r) }; }), compVazia: !s.comp.length, abrirVal: () => this.setState({ modal: 'val', fCod: '', valR: null, fErro: '' }),
+      euMaster: !s.ver ? ro === 'master' : true, verComo: ro, trocaVer: e => this.setState({ ver: e.target.value }), sim: s.sim, trocaSim: e => this.setState({ sim: e.target.value }),
+      cfgTxt: euM ? 'Master: a chave Global libera ou bloqueia a função para todos os escritórios. Com a função liberada, cada usuário primário decide o uso no seu escritório.' : 'Usuário primário: define como o ponto funciona no seu escritório, dentro do que o Master liberou.',
+      feats, raio: s.e.raio == null ? 150 : s.e.raio, raioOff: !geoOn, trocaRaio: e => saveE({ raio: Math.max(0, parseInt(e.target.value, 10) || 0) }), faceModo: this.faceModo(), faceOff: !facAt, trocaFace: e => saveE({ faceModo: e.target.value }), fotoOn: !!s.e.foto, tgFoto: e => saveE({ foto: e.target.checked }),
+      temToast: !!s.toast, toast: s.toast, toastBg: s.toastBg,
+      temModal: !!m, modalTit: mt[0], modalIc: mt[1], modalSim: mt[2], modalNao: m === 'val' ? 'Fechar' : m === 'alerta' ? 'Aguardar' : 'Cancelar', modalAcao: !!m, mEsq: m === 'esq', mJust: m === 'just', mVal: m === 'val', mAna: m === 'ana', anaInfo: ctx.info || '', setArq: e => this.setState({ fArq: e.target.files && e.target.files[0] ? e.target.files[0].name : '' }), mCons: m === 'cons', fecharModal: () => this.setState({ modal: '' }),
+      esqInfo: ctx.d ? this.br(ctx.d) + ' · ' + this.nomeT(ctx.t) : '', fHora: s.fHora, setHora: setF('fHora'), fMot: s.fMot, setMot: setF('fMot'), fData: s.fData, setData: setF('fData'), fCod: s.fCod, setCod: setF('fCod'), erroForm: !!s.fErro, fErroTxt: s.fErro, consOk: s.consOk, tgCons: e => this.setState({ consOk: e.target.checked, fErro: '' }),
+      valOk: !!(s.valR && s.valR.ok), valErr: !!(s.valR && !s.valR.ok), valTxt: s.valR && s.valR.ok ? (s.valR.r.folha ? 'Folha de Ponto ' + s.valR.r.folha : this.nomeT(s.valR.r.tipo)) + ' de ' + s.valR.r.nome + ' em ' + new Date(s.valR.r.iso).toLocaleString('pt-BR') + (s.valR.r.nsr ? ', NSR ' + s.valR.r.nsr : '') + '.' : '',
+      modalOk: () => {
+        if (m === 'esq') { if (!s.fHora || !s.fMot.trim()) return this.setState({ fErro: 'Informe o horário e o motivo.' }); addJ({ data: ctx.d, chave: ctx.d + ctx.t, tipo: 'Esquecimento de Registro', sub: this.nomeT(ctx.t) + ' às ' + s.fHora.slice(0, 5), campo: ctx.t, hora: s.fHora, mot: s.fMot.trim(), st: 'pendente', anexo: '', obsA: '', em: '' }); }
+        else if (m === 'just') { if (!s.fData || !s.fMot.trim()) return this.setState({ fErro: 'Informe a data e o motivo.' }); addJ({ data: s.fData, chave: 'f' + s.fData, tipo: 'Falta', sub: '', mot: s.fMot.trim(), st: 'pendente', anexo: s.fArq || '', obsA: '', em: '' }); }
+        else if (m === 'alerta') { this.setState({ modal: '' }); setTimeout(() => this.iniciar(ctx.face, true), 30); }
+        else if (m === 'ext') { if (!s.fMot.trim()) return this.setState({ fErro: 'Informe o local e o motivo.' }); this.setState({ modal: '' }); this.audio(); this.validar(ctx.t, false, { ext: s.fMot.trim() }); }
+        else if (m === 'ass') { if (s.fAss === 'ressalva' && !s.fMot.trim()) return this.setState({ fErro: 'Descreva a ressalva.' }); const ace0 = Object.assign({}, s.ace, { [s.mes]: { st: s.fAss, em: new Date().toISOString(), nome: C.nome, obs: s.fAss === 'ressalva' ? s.fMot.trim() : '' } }); Y.grava(Y.K.ace, ace0); this.setState({ ace: ace0, modal: '' }); this.reg(s.fAss === 'ok' ? 'Folha assinada' : 'Folha assinada com ressalva', s.mes.split('-').reverse().join('/')); this.avisar('Folha assinada.'); }
+        else if (m === 'ana') { if (ctx.acao === 'recusado' && !s.fMot.trim()) return this.setState({ fErro: 'Informe o motivo da recusa.' }); this.analisar(ctx.chave, ctx.acao, s.fMot.trim()); }
+        else if (m === 'val') { const c0 = s.fCod.trim().toUpperCase(), r = s.comp.concat(Y.ler(Y.K.fol, [])).find(x => x.cod === c0); this.setState({ valR: { ok: !!r, r } }); }
+        else if (m === 'cons') { if (!s.consOk) return this.setState({ fErro: 'É preciso marcar a autorização para continuar.' }); Y.grava(Y.K.face, { em: new Date().toISOString() }); this.reg('Facial autorizada', C.nome); this.setState({ modal: '' }); this.seguir(ctx.t, true); }
+      },
+      avisoVis: !!av, avisoBd: av ? av[0] : '', avisoBg: av ? av[1] : '', avisoCor: av ? av[2] : '', avisoIc: av ? av[3] : '', avisoTxt: av ? av[4] : '',
+      filaVis: s.fila.length > 0, filaTxt: 'Sem internet: ' + s.fila.length + ' batida(s) aguardando envio.', ultPendVis: !b.entrada && !!ultPend, ultPendTxt: ultPend ? 'Última pendência: ' + this.br(ultPend[0]) + ', ' + (ultPend[1] === 'retorno' ? 'falta o retorno do repouso' : 'falta a saída') + '.' : '', ultPendGo: () => { if (ultPend) this.abrirEsq(ultPend[0], ultPend[1]); },
+      meses: mesList, mesTxt: s.mes.split('-').reverse().join('/'), aceTem: !!ace, aceBg: ace && ace.st !== 'ok' ? '#8a6200' : '#1e7b45', aceTxt: ace ? (ace.st === 'ok' ? 'Assinada em ' : 'Ressalva em ') + new Date(ace.em).toLocaleDateString('pt-BR') : '', podeAss: this.ef('aceite') && s.mes < mA && !ace, abrirAss: () => this.setState({ modal: 'ass', fAss: 'ok', fMot: '', fErro: '' }), fAss: s.fAss, setAss: setF('fAss'),
+      bancoAcima: acima, abaBanco: aba === 'banco', lotes, bancoKpi: [{ r: 'SALDO ATUAL', v: fSal(salBan), cor: salBan < 0 ? '#a3232b' : '#1e7b45' }, { r: 'LIMITE CONFIGURADO', v: lim + 'h', cor: acima ? '#a3232b' : '#34505f' }, { r: 'PRAZO DE COMPENSAÇÃO', v: przM + ' meses', cor: '#34505f' }], bcLim: lim, bcMes: przM, trocaLim: e => saveE({ bancoLim: Math.max(0, parseInt(e.target.value, 10) || 0) }), trocaMesB: e => saveE({ bancoMeses: Math.max(1, parseInt(e.target.value, 10) || 1) }),
+      abaEq: aba === 'eq', equipe, eqKpi, escalas: Y.ESC, eqJ, eqNJ: eqJ.length, eqJVazia: !eqJ.length, loteOff: !nSel.length, loteAbonar: () => { const own = nSel.filter(j => j.id.indexOf('own:') === 0), oth = nSel.filter(j => j.id.indexOf('own:') !== 0).map(j => j.id); own.forEach(j => this.analisar(j.id.slice(4), 'abonado', '')); if (oth.length) { const eqj = this.state.eqj.map(j => oth.indexOf(j.id) >= 0 ? Object.assign({}, j, { st: 'abonado' }) : j); Y.grava(Y.K.eqj, eqj); this.setState({ eqj }); this.reg('Abono em lote', oth.length + ' justificativa(s) da equipe'); } this.setState({ eqSel: {} }); this.avisar(nSel.length + ' justificativa(s) abonada(s).'); },
+      abaLog: aba === 'log', logs: s.log.map(l => ({ dh: new Date(l.em).toLocaleString('pt-BR'), por: l.por, acao: l.acao, det: l.det, h: l.h })), logTem: s.log.length > 0, logVazio: !s.log.length, logCor: integra ? '#145a32' : '#a3232b', logIc: integra ? 'bi-shield-check' : 'bi-shield-exclamation', logTxt: integra ? 'Cadeia de eventos íntegra: cada evento é selado com o anterior. Registros originais nunca são sobrescritos.' : 'Atenção: a cadeia de eventos foi alterada.',
+      sedes: sedes0.map((q, i) => ({ n: q.n, lat: q.lat, lng: q.lng, r: q.r, setN: e => upS(i, { n: e.target.value }), setLat: e => upS(i, { lat: e.target.value }), setLng: e => upS(i, { lng: e.target.value }), setR: e => upS(i, { r: parseInt(e.target.value, 10) || 0 }), aqui: () => { if (s.geo.lat != null) upS(i, { lat: s.geo.lat.toFixed(6), lng: s.geo.lng.toFixed(6) }); else this.avisar('Localização indisponível neste aparelho.', '#a3232b'); }, tira: () => saveSedes(sedes0.filter((_, j) => j !== i)) })), addSede: () => saveSedes(sedes0.concat([{ n: 'Nova sede', lat: '', lng: '', r: 150 }])), extOn: s.e.ext !== false, tgExt: e => saveE({ ext: e.target.checked }),
+      feD: s.feD, feN: s.feN, feS: s.feS, setFeD: setF('feD'), setFeN: setF('feN'), setFeS: setF('feS'), addFer: () => { if (!s.feD || !s.feN.trim()) return this.avisar('Informe a data e o nome do feriado.', '#a3232b'); saveE({ feriados: (s.e.feriados || []).concat([{ d: s.feD, n: s.feN.trim(), sede: s.feS }]) }); this.setState({ feD: '', feN: '', feS: 'Todas' }); }, ferExtra: (s.e.feriados || []).map((f, i) => ({ d: this.br(f.d), n: f.n, sede: f.sede === 'Todas' ? 'Todas as sedes' : f.sede, tira: () => saveE({ feriados: s.e.feriados.filter((_, j) => j !== i) }) })),
+      fotoMeses: String(s.e.fotoMeses || 12), trocaFotoM: e => saveE({ fotoMeses: +e.target.value }), faceStatus: recusou ? 'Você não autorizou a facial.' : faceReg ? 'Cadastro facial ativo desde ' + new Date(faceReg.em).toLocaleDateString('pt-BR') + '.' : 'Sem cadastro facial.', excluirFace: () => { try { localStorage.removeItem(Y.K.face); } catch (e) {} this.reg('Cadastro facial excluído', C.nome); this.avisar('Cadastro facial excluído.'); },
+      recusarFace: () => { Y.grava(Y.K.face, { recusa: new Date().toISOString() }); this.reg('Facial não autorizada', C.nome); this.setState({ modal: '' }); this.seguir(ctx.t, false); },
+      mAlerta: m === 'alerta', alertaTxt: ctx.txt || '', mExt: m === 'ext', mAss: m === 'ass', erroExt: !!(s.erroT && s.erroT[2]), irExterno: () => { const c0 = s.ctx || {}; this.limpar(); this.setState({ fase: '', prev: '', modal: 'ext', ctx: c0, fMot: '', fErro: '' }); },
+      videoRef: this.videoRef, ov: !!K0, fFace: K0 === 'face', fVal: K0 === 'val', fOk: K0 === 'ok', fErro: K0 === 'erro', fechar: this.fechar,
+      faceTit: faceTits[s.faceEt] || faceTits[0], faceBd: s.faceBd, semCam: s.semCam, faceSub: s.semCam ? 'Câmera indisponível nesta pré-visualização: a leitura está sendo simulada.' : 'A imagem é usada somente para confirmar a sua identidade.',
+      barras, etapas, tipoAtual: s.tipoAt, horaAtual: s.hora,
+      okMet: rc ? (rc.face ? 'Identidade confirmada por facial' : 'Registrado no sistema') + (rc.geo ? (rc.lat != null ? ' · localização validada' : ' · localização simulada') : '') : '', temCod: !!(s.prev && rc), okCod: rc ? rc.cod : '', prev: s.prev, auto: s.auto,
+      baixarAtual: () => { if (rc && s.prev) { this.limparAuto(); this.baixar(rc, s.prev); } }, erroTit: s.erroT ? s.erroT[0] : '', erroDet: s.erroT ? s.erroT[1] : '', tentar: () => { this.limpar(); const u = this._ult; this.setState({ fase: '', prev: '' }); if (u) setTimeout(() => this.seguir(u[0], u[1]), 60); }
+    };
+  }
+  limparAuto() { (this._ts || []).forEach(clearTimeout); this._ts = []; this.setState({ auto: false }); }
+  abrirEsq(d, t) { this.setState({ modal: 'esq', ctx: { d, t }, fHora: '', fMot: '', fErro: '' }); }
+}
+</script>
+</body>
+</html>
