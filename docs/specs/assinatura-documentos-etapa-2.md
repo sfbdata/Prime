@@ -56,7 +56,20 @@ aprovado pelo Coordenador).
   "Assinatura eletrônica sem chave configurada. Fale com o suporte."; a página pública abre (só precisa do sha256).
 - **Token** = hex(HMAC-SHA256(segredo, `assinar|v{versao}|token|{signatario_id}|{enviado_em ISO 8601 UTC}`)), 64
   caracteres. Banco: `token_hash` = sha256(token). Rota: requisito `[a-f0-9]{64}`. O token nunca é gravado, logado nem
-  posto em fila; só aparece no Detalhe (`link`), no e-mail e na URL. Trocar o segredo derruba os links abertos (runbook).
+  posto em fila; só aparece no Detalhe (`link`), no e-mail e na URL.
+- **Token conferido**: todo lugar que recalcula o token (Copiar link do Detalhe, convite, lembrete, aviso da vez) usa
+  `ChaveDaAssinatura::tokenConferido`, que só devolve o token quando `sha256(token) === token_hash` do envio. Não bateu
+  (segredo trocado depois do envio): `link` nulo no Detalhe (Copiar link, E-mail e WhatsApp mostram o aviso de sem
+  chave) e o e-mail não sai (log sem o token e o evento `email_nao_enviado`; o lembrete recusa com o aviso de sem chave).
+- **Trocar o segredo não derruba os links já enviados**: a página acha o signatário pelo `token_hash` guardado e abre
+  até o fim do prazo. Nesses documentos param o Copiar link, o lembrete e o aviso da vez; o código pedido antes da troca
+  deixa de conferir (o signatário pede outro). Para cortar um link vazado: Cancelar envio e enviar de novo (Duplicar).
+  Detalhes no runbook `docs/runbooks/assinatura-segredo-em-producao.md`.
+- **Token fora do log**: o processador Monolog `App\AssinaturaEletronica\Log\MascaraDoTokenNoLog`
+  (`#[AsMonologProcessor]`, todos os canais) troca `/assinar/<64 hex>` por `/assinar/****` na mensagem, no contexto e
+  no extra, em qualquer profundidade, e dentro de `route_parameters` troca o `token` por `****` (e qualquer sequência
+  de 64 hex, como o `resto` da rota de reserva). É o "Matched route" do RouterListener, que o `fingers_crossed` de
+  produção despeja junto com um erro. Objetos de exceção no contexto não são reescritos.
 - **Código**: `random_int` de 6 dígitos; `codigo_hash` = HMAC-SHA256(segredo, `assinar|v{versao}|codigo|{signatario_id}|{codigo}`);
   vale 15 min a partir de `codigo_enviado_em`; 5 erros queimam o código (`codigo_hash` nulo, pede outro); teto de 10
   envios e 15 erros em 24 h por signatário, contados pelos eventos da trilha; passado o teto, `bloqueado_ate` até o fim
@@ -108,6 +121,11 @@ novos em `TipoDeEvento` (valor = nome em snake_case) e o texto no detalhe, no es
 
 O código, o token e o link nunca entram em `dados`.
 
+Os eventos de entrega (`convite_enviado`, `codigo_enviado`, `lembrete_enviado`) só são gravados depois que o e-mail
+saiu. Falhou o envio ou o link não confere com o segredo (seção 3): só `email_nao_enviado` (o `motivo` continua
+`falha_no_envio`; o log diz `link_indisponivel` ou a classe da exceção). Por isso o lembrete que falhou não gasta a
+regra de 1 por hora, que conta os `lembrete_enviado`.
+
 ## 5. Rotas
 
 ### 5.1 Internas (prefixo de nome `assinatura_eletronica_`, `canAccessModule`, CSRF como a etapa 1)
@@ -134,22 +152,27 @@ digitado ao assinar, item C5 do inventário; ou nulo). `data-url-enviar`,
 | POST `/assinar/{token}/codigo` | `publica_codigo` | | `{ok: true}` ou 422/429 `{erro}` |
 | POST `/assinar/{token}` | `publica_assinar` | JSON `{nome, cpf, codigo, modo, rubrica (data URL PNG), aceite: true}` | `{ok: true, estado: Publico}` ou 422/429 `{erro}` |
 | POST `/assinar/{token}/recusa` | `publica_recusa` | JSON `{motivo}` (1 a 500) | `{ok: true, estado: Publico}` ou 422 |
-| GET `/assinar/{token}/arquivo` | `publica_arquivo` | | PDF enviado (inline) |
+| GET `/assinar/{token}/arquivo` | `publica_arquivo` | | PDF enviado (inline, nome neutro `documento.pdf`) |
 | GET `/assinar/{token}/logo` | `publica_logo` | | logo própria do documento |
 | GET `/assinar/{token}/rubrica/{ordem}` | `publica_rubrica` | | PNG da rubrica de quem já assinou |
 
 - `security.yaml`: `^/assinar/` com `PUBLIC_ACCESS`. Os 7 nomes entram nas listas de `TenantContextValidatorListener`
-  e `TermoAceiteListener`. Um listener (prioridade 3, como o do Push) desliga o filtro de escritório pelo prefixo
-  `assinatura_eletronica_publica_`; o documento é achado por `token_hash` com a Lixeira visível.
+  e `TermoAceiteListener`. Um listener (prioridade 3, como o do Push) desliga o filtro de escritório pelo nome da rota:
+  exatamente `assinatura_eletronica_publica` ou começando com `assinatura_eletronica_publica_` (com o sublinhado; um
+  nome como `assinatura_eletronica_publicacao_x` não desliga); o documento é achado por `token_hash` com a Lixeira
+  visível.
 - Token malformado, desconhecido, de documento purgado ou de signatário que não existe: a mesma página "Link
   inválido." com 404. Documento na Lixeira ou Cancelado: "Envio cancelado". O token malformado cai numa rota de
   reserva, `publica_invalido` (GET e POST `/assinar/{resto}`, prioridade -10), que também entra nas duas listas.
-- Toda resposta pública (inclusive 404, 422 e 429): `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`,
+- Toda resposta de rota pública ou cujo caminho começa com `/assinar` (inclusive 404, 405, 422 e 429, e o 404 de
+  `/assinar` sem barra, que não casa rota nenhuma): `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`,
   `Referrer-Policy: no-referrer`.
 - CSRF: token de sessão com id `assinar_{token_hash}` (nunca o token cru), no cabeçalho `X-CSRF-Token`.
-- Limitadores em `config/packages/assinatura_eletronica.yaml`: `assinatura_publica` 30/min por IP em toda rota
-  pública; `assinatura_publica_token` 60 por 10 min por `token_hash`; `assinatura_codigo_envio` 3 por 15 min por
-  signatário; teto diário pela trilha (seção 3). Estourou: 429 com "Muitas tentativas. Aguarde alguns minutos e tente
+- Limitadores em `config/packages/assinatura_eletronica.yaml`: na página e nos POST, `assinatura_publica` 30/min por
+  IP e `assinatura_publica_token` 60 por 10 min por `token_hash`; nos arquivos (GET `arquivo`, `logo` e `rubrica`, que
+  a página pede várias vezes), o par próprio `assinatura_publica_arquivos` 600/min por IP e
+  `assinatura_publica_arquivos_token` 300 por 10 min por `token_hash`, sem gastar a cota da página;
+  `assinatura_codigo_envio` 3 por 15 min por signatário; teto diário pela trilha (seção 3). Estourou: 429 com "Muitas tentativas. Aguarde alguns minutos e tente
   de novo.".
 - Rubrica: PNG (assinatura de arquivo conferida), até 200 KB, gravada na categoria `ASSINATURA_DOCUMENTO` pela
   fábrica `ChavesDeAssinatura` e `TransacaoComArquivoNovo`; `rubrica_chave` no signatário; sha256 no evento. A rubrica
@@ -178,17 +201,21 @@ papel ou nível; sem e-mail, CPF, papel, situação ou motivo de outros signatá
 Texto do aceite versionado (`aceite.versao` = 1) no catálogo, sha256 na trilha.
 
 `estado` = `recusado` só quando ESTE signatário recusou (texto G6). Documento recusado por OUTRO signatário devolve
-`cancelado` (texto G7, sem dizer quem recusou). Nos estados de bloqueio, `documento` vem só com o nome e o hash (o
-cabeçalho), sem blocos, mensagem, logo nem arquivo; `lugares` vazio e `eu` nulo. Os arquivos públicos (PDF, logo,
+`cancelado` (texto G7, sem dizer quem recusou). Nos estados de bloqueio, `documento` vem só com `nome` e `hashEnviado`
+(o cabeçalho), sem blocos, mensagem, layout, logo nem arquivo; `lugares` vazio e `eu` nulo. Os arquivos públicos (PDF, logo,
 rubricas) só abrem no estado `pronto`.
 
 ## 6. E-mails (Mailer síncrono, depois do COMMIT)
 
-Remetente pelo serviço de identidade do sistema; nome "{Escritório} via BlueJus" e Reply-To do usuário que enviou.
+Remetente pelo serviço de identidade do sistema; nome "{Escritório} via BlueJus". Reply-To: no convite e no lembrete,
+o usuário que clicou; no aviso da vez e no código, quem enviou o documento (o `usuario` do último `documento_enviado`);
+sem ele, sem Reply-To.
 Molde de `templates/email`. Convite (assunto "Documento para assinatura: {nome do documento}", mensagem do escritório
 escapada, link), código (6 dígitos, validade de 15 min, sem link), lembrete, aviso ao próximo da fila (com `em_ordem`),
 recusa e conclusão ao remetente (`criado_por`; nulo, não manda). Com `em_ordem` o convite vai só ao primeiro; sem,
-a todos. Falha num destinatário vira log e o evento `email_nao_enviado`, sem desfazer nada.
+a todos. Falha num destinatário (ou link que não confere com o segredo, seção 3) vira log sem o token e o evento
+`email_nao_enviado`, sem desfazer nada; o evento de entrega só é gravado depois do envio (seção 4.3). O nome do
+escritório no cabeçalho da moldura sai escapado uma vez só (nada de filtro sobre `block()`).
 
 ## 7. Tela interna e tela pública (JS e CSS)
 
