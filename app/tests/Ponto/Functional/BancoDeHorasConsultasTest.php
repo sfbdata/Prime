@@ -12,11 +12,13 @@ use App\Ponto\Entity\LancamentoHorasPagas;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\LimitesDoBancoDeHoras;
 use Doctrine\Bundle\DoctrineBundle\Middleware\BacktraceDebugDataHolder;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * O banco por lotes atravessa os anos e os meses crescem sem teto; a /ponto abre várias vezes por dia. O número de
@@ -57,6 +59,11 @@ final class BancoDeHorasConsultasTest extends KernelTestCase
         $tenant = $em->find(Tenant::class, $escritorio);
         self::assertNotNull($user);
         self::assertNotNull($tenant);
+        // Cada conta é um pedido novo: a leitura dos limites guarda a configuração do escritório só durante um pedido.
+        $limites = static::getContainer()->get(LimitesDoBancoDeHoras::class);
+        if ($limites instanceof ResetInterface) {
+            $limites->reset();
+        }
         $holder->reset();
 
         $banco = static::getContainer()->get(BancoDeHorasPorLotes::class)->calcular($user, $tenant, new \DateTimeImmutable('today'));

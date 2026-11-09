@@ -7,8 +7,8 @@ namespace App\Ponto\Service;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Os valores padrão do desenho (L774 e L817): 120 horas de limite e 6 meses de prazo, iguais para todo escritório,
- * enquanto a configuração de cada escritório (E7) não existe.
+ * Os valores padrão do desenho (L774 e L817): 120 horas de limite e 6 meses de prazo. Valem para o escritório que
+ * nunca salvou as Configurações do Ponto (`LimitesDoBancoDeHorasDoEscritorio`, que é quem a tela usa) e nos testes.
  */
 final class LimitesPadraoDoBancoDeHoras implements LimitesDoBancoDeHoras
 {
