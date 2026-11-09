@@ -86,7 +86,8 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertSame('0h', trim($tela->filter($barra . ' > #ponto-banco-horas > span + b.pe-banco-valor')->text()), 'P2: o zero do desenho');
 
         self::assertSame(
-            ['pe-relogio', 'excedente-hoje', 'ponto-tipo', 'gps-status', 'ponto-aviso-dia', 'btn-bater-ponto', 'batida-aviso', 'btn-atualizar-pagina', 'pe-rodape'],
+            // E14: a caixa da fila sem internet (L127) entra entre o aviso do dia e o botão, na ordem do desenho.
+            ['pe-relogio', 'excedente-hoje', 'ponto-tipo', 'gps-status', 'ponto-aviso-dia', 'ponto-fila', 'btn-bater-ponto', 'batida-aviso', 'btn-atualizar-pagina', 'pe-rodape'],
             $tela->filter(self::CORPO . ' > *')->each(static fn (Crawler $no): string => (string) ($no->attr('id') ?: explode(' ', (string) $no->attr('class'))[0])),
             'o corpo do cartão na ordem do desenho'
         );
@@ -359,6 +360,47 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(1, $tela->filter('#pendencias-ponto'), 'controle: a lista de pendências mostra a de Y');
         self::assertCount(0, $tela->filter('#ponto-ultima-pendencia'), 'a faixa é só deste escritório');
         self::assertStringNotContainsString((string) $y->getName(), $tela->filter(self::CARTAO)->text());
+    }
+
+    #[TestDox('E14: a caixa da fila sem internet nasce escondida, no lugar do desenho (L127), com a pessoa e o escritório da sessão')]
+    public function testCaixaDaFilaSemInternet(): void
+    {
+        $tela = $this->tela();
+
+        $caixa = $tela->filter(self::CORPO . ' > #ponto-aviso-dia + #ponto-fila.pe-fila');
+        self::assertCount(1, $caixa, 'filho direto do corpo, logo depois do aviso do dia');
+        self::assertCount(1, $tela->filter(self::CORPO . ' > #ponto-fila + button#btn-bater-ponto'), 'sem pendência, o botão vem logo depois');
+        self::assertStringContainsString('d-none', (string) $caixa->attr('class'), 'some com a fila vazia');
+        self::assertCount(1, $caixa->filter('#ponto-fila > i.bi-wifi-off:first-child'), 'o ícone do desenho');
+        self::assertCount(1, $caixa->filter('#ponto-fila > i + span.pe-fila-texto > span#ponto-fila-pendentes.pe-fila-linha.d-none'));
+        self::assertCount(1, $caixa->filter('#ponto-fila > i + span.pe-fila-texto > span#ponto-fila-pendentes + span#ponto-fila-outro-escritorio.pe-fila-linha.d-none'));
+        self::assertSame('', trim($caixa->text()), 'o texto é do JS, contado no aparelho');
+        self::assertSame((string) $this->user->getId(), $caixa->attr('data-usuario-id'));
+        self::assertSame((string) $this->x->getId(), $caixa->attr('data-escritorio-id'));
+    }
+
+    #[TestDox('E14: com a última pendência, a caixa da fila fica entre o aviso do dia e a pendência, como no desenho')]
+    public function testCaixaDaFilaAntesDaUltimaPendencia(): void
+    {
+        $this->batida('entrada', $this->diaUtilAtras(3)->setTime(8, 0));
+
+        self::assertCount(1, $this->tela()->filter(self::CORPO . ' > #ponto-aviso-dia + #ponto-fila + #ponto-ultima-pendencia + button#btn-bater-ponto'));
+    }
+
+    #[TestDox('E14 entre escritórios: o escritório da caixa da fila é o da sessão, nunca o de outro vínculo da pessoa')]
+    public function testCaixaDaFilaComOEscritorioDaSessao(): void
+    {
+        $y = $this->tenant('Escritório Y');
+        $this->vincular($y);
+
+        $this->logarComTenant($this->client, $this->user, $y);
+        $tela = $this->client->request('GET', '/ponto/');
+        self::assertResponseIsSuccessful();
+
+        $caixa = $tela->filter(self::CORPO . ' > #ponto-fila');
+        self::assertSame((string) $y->getId(), $caixa->attr('data-escritorio-id'));
+        self::assertNotSame((string) $this->x->getId(), $caixa->attr('data-escritorio-id'));
+        self::assertSame((string) $this->user->getId(), $caixa->attr('data-usuario-id'));
     }
 
     private function tela(): Crawler
