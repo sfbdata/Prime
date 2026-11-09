@@ -7,8 +7,11 @@ namespace App\Ponto\UseCase;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -91,6 +94,7 @@ final class SubstituirAnexoDoLoteUseCase
         private readonly RemocaoAposTransacao $remocao,
         private readonly ValidatorInterface $validator,
         private readonly LoggerInterface $logger,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -165,6 +169,7 @@ final class SubstituirAnexoDoLoteUseCase
                 }
 
                 $this->em->flush();
+                $this->registrarNaTrilha($justificativa, $tenant, \count($lote));
 
                 return \count($lote);
             },
@@ -307,6 +312,17 @@ final class SubstituirAnexoDoLoteUseCase
         }
 
         $conn->executeStatement('SELECT pg_advisory_xact_lock(?, ?)', [$classe, $chave]);
+    }
+
+    /** Trilha do Ponto (E9): a edição com troca do atestado, pelo próprio colaborador, no mesmo COMMIT. */
+    private function registrarNaTrilha(JustificativaPonto $justificativa, Tenant $tenant, int $diasDoLote): void
+    {
+        $this->trilha->registrar(
+            $tenant,
+            $justificativa->getUser(),
+            AcaoDaTrilhaDoPonto::JustificativaEditada->value,
+            DetalheDaTrilhaDoPonto::daJustificativa($justificativa) + ['atestado_trocado' => true, 'dias_do_lote' => $diasDoLote],
+        );
     }
 
     private function chaveDoLote(JustificativaPonto $justificativa, Tenant $tenant): int

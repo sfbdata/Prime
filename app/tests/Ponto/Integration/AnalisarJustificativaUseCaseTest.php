@@ -66,7 +66,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         $this->excluirPorFora($abonada);
 
         $naRecusa   = $this->recusaDe(fn () => $this->analisar->recusar($pendente, $this->tenant, $this->gestor, 'Sem prova'));
-        $naReversao = $this->recusaDe(fn () => $this->analisar->reverter($abonada, $this->tenant));
+        $naReversao = $this->recusaDe(fn () => $this->analisar->reverter($abonada, $this->tenant, $this->gestor));
 
         self::assertSame(AnaliseDeJustificativaRecusadaException::MENSAGEM_EXCLUIDA, $naRecusa->getMessage());
         self::assertSame(AnaliseDeJustificativaRecusadaException::MENSAGEM_EXCLUIDA, $naReversao->getMessage());

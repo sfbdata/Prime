@@ -8,10 +8,13 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\AbonoDoLoteOutput;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
+use App\Ponto\Service\TrilhaDoPonto;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -33,6 +36,12 @@ use Doctrine\ORM\EntityManagerInterface;
  * As recusas não mudam nada: a transação comita vazia (solta a trava) e a recusa sobe depois, com o EntityManager
  * aberto para o resto da requisição, como em `ExcluirJustificativaEmAnaliseUseCase`.
  *
+ * ## Trilha de auditoria (E9)
+ *
+ * Cada análise gravada entra na trilha do Ponto ({@see TrilhaDoPonto}) na mesma transação, depois da trava da linha:
+ * abonada, recusada, voltou para análise e, no "aprovar todos", um evento "Abono em lote" com as abonadas. A batida
+ * do esquecimento entra pelo `RegistrarBatidaDoEsquecimentoUseCase`. Recusa não grava evento.
+ *
  * ## Contrato com a aba Equipe (E5)
  *
  * `abonarPorId` é a porta estável para abonar UMA justificativa sem a ficha: busca pelo escritório, aplica a regra da
@@ -49,6 +58,7 @@ final class AnalisarJustificativaUseCase
         private readonly JustificativaPontoRepository $repositorio,
         private readonly RegistrarBatidaDoEsquecimentoUseCase $registrarBatida,
         private readonly AnaliseDaPropriaJustificativa $analiseDaPropria,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -87,6 +97,7 @@ final class AnalisarJustificativaUseCase
     {
         $this->gravarSobATrava($justificativa, $tenant, true, 'analise.so_para_abonar', function () use ($justificativa, $tenant, $analista, $observacao): void {
             $this->marcarAbonada($justificativa, $analista, $observacao);
+            $this->registrarNaTrilha(AcaoDaTrilhaDoPonto::JustificativaAbonada, $justificativa, $tenant, $analista);
             ($this->registrarBatida)($justificativa, $tenant);
         });
     }
@@ -94,11 +105,12 @@ final class AnalisarJustificativaUseCase
     /** @throws AnaliseDeJustificativaRecusadaException excluída pelo colaborador ou já analisada */
     public function recusar(JustificativaPonto $justificativa, Tenant $tenant, User $analista, string $observacao): void
     {
-        $this->gravarSobATrava($justificativa, $tenant, true, 'analise.so_para_recusar', static function () use ($justificativa, $analista, $observacao): void {
+        $this->gravarSobATrava($justificativa, $tenant, true, 'analise.so_para_recusar', function () use ($justificativa, $tenant, $analista, $observacao): void {
             $justificativa->setStatus('rejeitado');
             $justificativa->setDataAnalise(new \DateTime());
             $justificativa->setAnalisadoPor($analista);
             $justificativa->setObservacaoAnalise($observacao);
+            $this->registrarNaTrilha(AcaoDaTrilhaDoPonto::JustificativaRecusada, $justificativa, $tenant, $analista);
         });
     }
 
@@ -109,14 +121,15 @@ final class AnalisarJustificativaUseCase
      *
      * @throws AnaliseDeJustificativaRecusadaException excluída ou já em análise
      */
-    public function reverter(JustificativaPonto $justificativa, Tenant $tenant): string
+    public function reverter(JustificativaPonto $justificativa, Tenant $tenant, User $analista): string
     {
         $anterior = (string) $justificativa->getStatus();
-        $this->gravarSobATrava($justificativa, $tenant, false, 'reverter.ja_esta', static function () use ($justificativa): void {
+        $this->gravarSobATrava($justificativa, $tenant, false, 'reverter.ja_esta', function () use ($justificativa, $tenant, $analista, &$anterior): void {
             $justificativa->setStatus('pendente');
             $justificativa->setAnalisadoPor(null);
             $justificativa->setDataAnalise(null);
             $justificativa->setObservacaoAnalise(null);
+            $this->registrarNaTrilha(AcaoDaTrilhaDoPonto::JustificativaReaberta, $justificativa, $tenant, $analista, ['situacao_anterior' => $anterior]);
         }, $anterior);
 
         return $anterior;
@@ -141,6 +154,9 @@ final class AnalisarJustificativaUseCase
                 }
             }
 
+            if ($emAnalise !== []) {
+                $this->trilha->registrar($tenant, $analista, AcaoDaTrilhaDoPonto::AbonoEmLote->value, DetalheDaTrilhaDoPonto::doLote($emAnalise));
+            }
             foreach ($emAnalise as $justificativa) {
                 $this->marcarAbonada($justificativa, $analista, '');
                 ($this->registrarBatida)($justificativa, $tenant);
@@ -191,6 +207,12 @@ final class AnalisarJustificativaUseCase
         if ($this->registrarBatida->pedeHorarioFuturo($justificativa)) {
             throw AnaliseDeJustificativaRecusadaException::horarioFuturo();
         }
+    }
+
+    /** @param array<string, mixed> $extra */
+    private function registrarNaTrilha(AcaoDaTrilhaDoPonto $acao, JustificativaPonto $justificativa, Tenant $tenant, User $analista, array $extra = []): void
+    {
+        $this->trilha->registrar($tenant, $analista, $acao->value, DetalheDaTrilhaDoPonto::daJustificativa($justificativa) + $extra);
     }
 
     private function marcarAbonada(JustificativaPonto $justificativa, User $analista, string $observacao): void

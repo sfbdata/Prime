@@ -26,6 +26,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(LimparJornadaPessoalUseCase::class)]
 final class VersoesDaJornadaUseCaseTest extends TestCase
 {
+    use TrilhaDoPontoDeTesteTrait;
+
     /** @var list<JornadaColaborador> o que o banco teria */
     private array $banco = [];
     /** @var list<JornadaColaborador> */
@@ -40,6 +42,7 @@ final class VersoesDaJornadaUseCaseTest extends TestCase
     {
         $this->pessoa = (new User())->setEmail('ana@teste.com')->setFullName('Ana');
         $this->escritorio = (new Tenant())->setName('Escritório');
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->escritorio, 7);   // a trilha (E9) é por escritório gravado
 
         $jornadas = $this->createStub(JornadaColaboradorRepository::class);
         $jornadas->method('historicoDe')->willReturnCallback(fn (): ?HistoricoDeJornadas => HistoricoDeJornadas::das($this->banco));
@@ -144,7 +147,7 @@ final class VersoesDaJornadaUseCaseTest extends TestCase
         $migrada = $this->migrada('2026-04-01', 2400, [[[1, 2, 3, 4, 5], 480]]);
         $nova = $this->salvar('2026-05-01', 2640, [[[1, 2, 3, 4], 540], [[5], 480]]);
 
-        (new ExcluirVersaoDaJornadaUseCase($this->jornadas))->executar($this->pessoa, $this->escritorio, (int) $migrada->getId());
+        (new ExcluirVersaoDaJornadaUseCase($this->jornadas, $this->trilhaDeTeste()))->executar($this->pessoa, $this->escritorio, (int) $migrada->getId());
 
         self::assertSame([$nova], $this->banco);
         self::assertTrue($nova->cobreDiasAnteriores());
@@ -156,7 +159,7 @@ final class VersoesDaJornadaUseCaseTest extends TestCase
         $unica = $this->migrada('2026-04-01', 2400, [[[1, 2, 3, 4, 5], 480]]);
 
         $this->expectException(VersaoDaJornadaRecusadaException::class);
-        (new ExcluirVersaoDaJornadaUseCase($this->jornadas))->executar($this->pessoa, $this->escritorio, (int) $unica->getId());
+        (new ExcluirVersaoDaJornadaUseCase($this->jornadas, $this->trilhaDeTeste()))->executar($this->pessoa, $this->escritorio, (int) $unica->getId());
     }
 
     #[TestDox('Limpar com jornada de antes das versões deixa uma versão sem blocos cobrindo todos os dias')]
@@ -165,7 +168,7 @@ final class VersoesDaJornadaUseCaseTest extends TestCase
         $migrada = $this->migrada('2026-04-01', 2400, [[[1, 2, 3, 4, 5], 480]]);
         $nova = $this->salvar('2026-05-01', 2640, [[[1, 2, 3, 4], 540], [[5], 480]]);
 
-        (new LimparJornadaPessoalUseCase($this->jornadas))->executar($this->pessoa, $this->escritorio);
+        (new LimparJornadaPessoalUseCase($this->jornadas, $this->trilhaDeTeste()))->executar($this->pessoa, $this->escritorio);
 
         self::assertSame([$migrada], $this->banco);
         self::assertSame([$nova], $this->removidas);
@@ -179,15 +182,33 @@ final class VersoesDaJornadaUseCaseTest extends TestCase
     {
         $this->salvar('2026-12-01', 2640, [[[1, 2, 3, 4, 5], 528]]);
 
-        (new LimparJornadaPessoalUseCase($this->jornadas))->executar($this->pessoa, $this->escritorio);
+        (new LimparJornadaPessoalUseCase($this->jornadas, $this->trilhaDeTeste()))->executar($this->pessoa, $this->escritorio);
 
         self::assertSame([], $this->banco);
+    }
+
+    #[TestDox('Trilha do Ponto (E9): salvar, excluir e limpar a escala entram como "Escala alterada", cada um com a operação')]
+    public function testTrocasDeEscalaEntramNaTrilha(): void
+    {
+        $migrada = $this->migrada('2026-04-01', 2400, [[[1, 2, 3, 4, 5], 480]]);
+        $this->salvar('2026-05-01', 2640, [[[1, 2, 3, 4], 540], [[5], 480]]);
+        (new ExcluirVersaoDaJornadaUseCase($this->jornadas, $this->trilhaDeTeste()))->executar($this->pessoa, $this->escritorio, (int) $migrada->getId());
+        (new LimparJornadaPessoalUseCase($this->jornadas, $this->trilhaDeTeste()))->executar($this->pessoa, $this->escritorio);
+
+        self::assertSame(['escala_alterada'], array_values(array_unique(array_column($this->eventosDaTrilha, 'acao'))));
+        self::assertSame(
+            [['versao_salva', '2026-05-01'], ['versao_excluida', '2026-04-01'], ['escala_limpa', null]],
+            array_map(static fn (array $e): array => [$e['detalhe']['operacao'], $e['detalhe']['vale_a_partir_de']], $this->eventosDaTrilha),
+        );
+        self::assertSame([1, 2, 3], array_column($this->eventosDaTrilha, 'sequencia'), 'uma cadeia só, sem buraco');
+        self::assertSame(7, $this->eventosDaTrilha[0]['tenant_id']);
+        self::assertSame('Ana', $this->eventosDaTrilha[0]['detalhe']['colaborador']);
     }
 
     /** @param list<array{0: list<int>, 1: int}> $blocos */
     private function salvar(string $data, int $carga, array $blocos, bool $alerta = true, ?int $versaoId = null): JornadaColaborador
     {
-        return (new SalvarVersaoDaJornadaUseCase($this->jornadas))->executar(
+        return (new SalvarVersaoDaJornadaUseCase($this->jornadas, $this->trilhaDeTeste()))->executar(
             $this->pessoa,
             $this->escritorio,
             new VersaoDaJornadaInput(new \DateTimeImmutable($data), $carga, $alerta, $this->blocos($blocos), $versaoId),

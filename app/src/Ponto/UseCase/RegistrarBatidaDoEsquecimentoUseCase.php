@@ -7,9 +7,12 @@ namespace App\Ponto\UseCase;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Exception\BatidaEmHorarioFuturoException;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\BatidaJaRegistrada;
+use App\Ponto\Service\TrilhaDoPonto;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -23,6 +26,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * O esquecimento só vale para a batida que falta (spec `ponto-esquecimento-nao-trava.md` R1): com uma batida do mesmo
  * tipo naquele dia, escritório e pessoa, `recusa()` devolve a mensagem de `BatidaJaRegistrada` e quem chama deixa o
  * pedido pendente, para o admin decidir. Por segurança, `__invoke` também não grava nesse caso.
+ *
+ * A batida gravada entra na trilha de auditoria do Ponto (E9) como "Batida do esquecimento abonado", com quem abonou
+ * como autor, na transação de quem chama (`AnalisarJustificativaUseCase`).
  */
 final class RegistrarBatidaDoEsquecimentoUseCase
 {
@@ -32,6 +38,7 @@ final class RegistrarBatidaDoEsquecimentoUseCase
         private readonly EntityManagerInterface $em,
         private readonly HorarioFuturoDaBatida $horarioFuturo,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -83,6 +90,12 @@ final class RegistrarBatidaDoEsquecimentoUseCase
         $registro->setTipo($justificativa->getTipoRegistroEsquecido());
         $registro->setObservacao(self::OBSERVACAO);
         $this->em->persist($registro);
+        $this->trilha->registrar(
+            $tenant,
+            $justificativa->getAnalisadoPor(),
+            AcaoDaTrilhaDoPonto::BatidaDoEsquecimento->value,
+            DetalheDaTrilhaDoPonto::daBatida($registro) + ['justificativa_id' => $justificativa->getId()],
+        );
 
         return $registro;
     }

@@ -6,8 +6,11 @@ namespace App\Ponto\UseCase;
 
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Exception\JustificativaJaAnalisadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -38,6 +41,7 @@ final class ConfirmarEdicaoDeJustificativaUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly JustificativaPontoRepository $repositorio,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -68,6 +72,8 @@ final class ConfirmarEdicaoDeJustificativaUseCase
             if ($status !== self::STATUS_EDITAVEL) {
                 throw new JustificativaJaAnalisadaException();
             }
+            // Trilha do Ponto (E9): a edição, pelo próprio colaborador, comita junto com o evento.
+            $this->trilha->registrar($tenant, $justificativa->getUser(), AcaoDaTrilhaDoPonto::JustificativaEditada->value, DetalheDaTrilhaDoPonto::daJustificativa($justificativa));
         });
     }
 }

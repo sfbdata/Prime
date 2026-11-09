@@ -8,8 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use Doctrine\ORM\EntityManagerInterface;
@@ -45,6 +48,7 @@ final class ExcluirJustificativaEmAnaliseUseCase
         private readonly JustificativaPontoRepository $repositorio,
         private readonly RemocaoAposTransacao $remocao,
         private readonly LoggerInterface $logger,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -105,6 +109,8 @@ final class ExcluirJustificativaEmAnaliseUseCase
         }
 
         $anexo = $this->repositorio->anexoNoBancoPorId($id, $tenant);
+        // Trilha do Ponto (E9): o detalhe sai antes do remove (o id some da entidade depois do flush).
+        $this->trilha->registrar($tenant, $justificativa->getUser(), AcaoDaTrilhaDoPonto::JustificativaExcluida->value, DetalheDaTrilhaDoPonto::daJustificativa($justificativa));
         $this->em->remove($justificativa);
 
         return [$status, $anexo];

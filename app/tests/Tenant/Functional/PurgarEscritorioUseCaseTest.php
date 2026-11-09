@@ -56,6 +56,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         self::assertSame(0, $this->existeTenant((int) $tenant->getId()), 'o tenant deve ser apagado');
         self::assertSame(0, array_sum($this->contarPorTenant((int) $tenant->getId())), 'nenhuma linha tenant-scoped pode sobrar');
         self::assertSame(1, $resultado->linhasPorTabela['voto.liberacao'] ?? 0, 'a liberação do Voto sai pela ordem de deleção, não pela cascata');
+        self::assertSame(1, $resultado->linhasPorTabela['ponto_auditoria'] ?? 0, 'a trilha do Ponto (E9) sai pela ordem de deleção');
         self::assertGreaterThan(0, $resultado->totalLinhas());
         self::assertFalse($resultado->simulado);
     }
@@ -79,6 +80,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
 
         self::assertSame(1, $this->existeTenant((int) $tenantB->getId()), 'tenant B intacto');
         self::assertSame($antesB, $this->contarPorTenant((int) $tenantB->getId()), 'nenhuma linha de B pode mudar');
+        self::assertSame(1, $antesB['ponto_auditoria'], 'a trilha do Ponto de B fica inteira');
         self::assertSame($permsB, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM permission'), 'catálogo global permission preservado');
     }
 
@@ -505,6 +507,8 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->ins('feriado', ['nome' => 'F', 'data' => $d, 'recorrente' => false, 'tenant_id' => $t]);
         $this->ins('registro_ponto', ['data_hora' => $ts, 'tipo' => 'entrada', 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('justificativa_ponto', ['data' => $d, 'status' => 'pendente', 'user_id' => $u, 'abono_parcial' => false, 'tenant_id' => $t, 'anexo_path' => $hex()]);
+        // Trilha de auditoria do Ponto (E9): a cadeia do escritório sai com ele, e a do outro fica (isolamento).
+        $this->ins('ponto_auditoria', ['sequencia' => 1, 'em' => $ts, 'autor_id' => $u, 'autor_nome' => 'Autor', 'acao' => 'batida_registrada', 'detalhe' => '{}', 'tenant_id' => $t]);
         $this->ins('aceite_termo', ['versao' => 'v-' . $uid, 'aceito_em' => $ts, 'ip' => '127.0.0.1', 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('invitation', ['email' => 'inv' . $uid . '@x.com', 'token_hash' => hash('sha256', 'tok-' . $uid), 'type' => 'office', 'status' => 'pending', 'created_at' => $ts, 'expires_at' => $ts, 'tenant_id' => $t]);
         $this->ins('access_request', ['resource_type' => 'pasta', 'resource_id' => $pasta, 'action' => 'view', 'requested_at' => $ts, 'user_id' => $u, 'tenant_id' => $t]);

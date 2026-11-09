@@ -261,6 +261,7 @@ final class TrocaDeAnexoDeLoteAnalisadoTest extends KernelTestCase
                 $remocao,
                 $container->get(ValidatorInterface::class),
                 $logger,
+                $container->get(\App\Ponto\Service\TrilhaDoPonto::class),
             ),
             $espiao,
         ];

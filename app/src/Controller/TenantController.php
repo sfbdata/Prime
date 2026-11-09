@@ -39,6 +39,10 @@ use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Ponto\UseCase\AnalisarJustificativaUseCase;
 use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\SedeRepository;
@@ -1608,7 +1612,7 @@ final class TenantController extends AbstractController
         }
 
         try {
-            $statusAnterior = $analisar->reverter($justificativa, $tenant);   // relê sob a trava (P41)
+            $statusAnterior = $analisar->reverter($justificativa, $tenant, $currentUser);   // relê sob a trava (P41)
         } catch (AnaliseDeJustificativaRecusadaException $e) {
             $this->addFlash('warning', $e->getMessage());
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
@@ -1625,6 +1629,26 @@ final class TenantController extends AbstractController
             'id'       => $user->getId(),
             'tab'      => 'justificativas',
         ]);
+    }
+
+    /**
+     * Confirma o lote lançado já abonado pelo gestor (novaJustificativaAdmin) com o evento da trilha do Ponto (E9) no
+     * mesmo COMMIT. O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver PROVADO que nada
+     * foi confirmado; num COMMIT de resultado incerto as justificativas podem existir e apontar para ele, e o arquivo
+     * fica (E2.5, INV-6). A exceção original sobe.
+     *
+     * @param list<JustificativaPonto> $lancadas
+     */
+    private function confirmarLancamento(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, Tenant $tenant, User $gestor, array $lancadas, ?ChaveDeArquivo $chaveAnexo): void
+    {
+        $this->transacao->executar(
+            static function () use ($entityManager, $trilha, $tenant, $gestor, $lancadas): void {
+                $entityManager->flush();
+                $trilha->registrar($tenant, $gestor, AcaoDaTrilhaDoPonto::JustificativaLancada->value, DetalheDaTrilhaDoPonto::doLote($lancadas));
+            },
+            static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
+            'TenantController::novaJustificativaAdmin: atestado do lote',
+        );
     }
 
     /**
@@ -1694,7 +1718,8 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
-        ValidatorInterface $validator
+        ValidatorInterface $validator,
+        TrilhaDoPonto $trilha
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1703,7 +1728,7 @@ final class TenantController extends AbstractController
 
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1820,6 +1845,7 @@ final class TenantController extends AbstractController
 
         $batchId    = bin2hex(random_bytes(16));
         $isFaltaNaoJustificada = $tipo === 'falta_nao_justificada';
+        $lancadas   = [];
 
         foreach ($datasValidas as $dataObj) {
             $justificativa = new JustificativaPonto();
@@ -1842,6 +1868,7 @@ final class TenantController extends AbstractController
                 $justificativa->setHoraRegistroEsquecido($horaRegEsquecida);
             }
             $entityManager->persist($justificativa);
+            $lancadas[] = $justificativa;
 
             if ($tipo === 'esquecimento_registro' && $horaRegEsquecida !== null && $tipoRegEsquecido !== '') {
                 $dataHora = new \DateTime(
@@ -1857,13 +1884,7 @@ final class TenantController extends AbstractController
             }
         }
 
-        // O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver
-        // PROVADO que nada foi confirmado; num COMMIT de resultado incerto as justificativas podem
-        // existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original sobe.
-        $this->transacao->confirmar(
-            static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
-            'TenantController::novaJustificativaAdmin: atestado do lote',
-        );
+        $this->confirmarLancamento($entityManager, $trilha, $tenant, $currentUser, $lancadas, $chaveAnexo);
 
         if ($isFaltaNaoJustificada) {
             $this->addFlash('success', sprintf('Falta registrada como não justificada para %d dia(s).', count($datasValidas)));
