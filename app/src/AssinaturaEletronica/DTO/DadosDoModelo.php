@@ -20,6 +20,11 @@ final readonly class DadosDoModelo
     public const CATEGORIA_PADRAO = 'Meus modelos';
     public const LATERAL_MAXIMO = 20000;
     public const LAYOUTS = ['', '2col'];
+    /**
+     * Teto do corpo cru do pedido, conferido antes de ler o JSON. O maior modelo válido (texto de 300.000, 100 campos
+     * cheios, 50 papéis, lateral e nome) tem cerca de 476 mil caracteres: com 4 bytes cada, perto de 1,9 MB.
+     */
+    public const PEDIDO_MAXIMO = 4 * 1024 * 1024;
     /** As chaves da `Entrada`: qualquer outra (um `html`, por exemplo) recusa o pedido. */
     public const CHAVES = ['nome', 'categoria', 'layout', 'lateral', 'folhaBranca', 'campos', 'signatarios', 'corpo'];
     private const ERRO = 'assinatura_eletronica.modelo.erro.';
@@ -39,6 +44,26 @@ final readonly class DadosDoModelo
         public array $signatarios,
         public array $corpo,
     ) {
+    }
+
+    /**
+     * O corpo cru do pedido: o tamanho antes de ler o JSON, depois a `Entrada`.
+     *
+     * @throws AcaoRecusada
+     */
+    public static function doPedido(string $conteudo): self
+    {
+        if (\strlen($conteudo) > self::PEDIDO_MAXIMO) {
+            throw new AcaoRecusada(self::ERRO . 'pedido_grande');
+        }
+
+        try {
+            $json = json_decode($conteudo, true, 512, \JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new AcaoRecusada(self::ERRO . 'dados_invalidos');
+        }
+
+        return self::deJson($json);
     }
 
     /**

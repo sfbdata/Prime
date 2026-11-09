@@ -15,7 +15,6 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Exception\JsonException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,8 +23,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * O JSON dos modelos do escritório (contrato da etapa 4, seção 4): listar, criar, salvar e excluir. POST com CSRF no
- * cabeçalho X-CSRF-Token (injetado pelo base.html.twig). Sem o módulo: 403; modelo de outro escritório: 404; dado
- * fora do contrato: 422 com `{erro}`.
+ * cabeçalho X-CSRF-Token (injetado pelo base.html.twig). Sem o módulo: 403; modelo de outro escritório: 404; pedido
+ * acima do teto ou dado fora do contrato: 422 com `{erro}` (o tamanho é conferido antes de ler o JSON).
  */
 final class ModelosDaAssinaturaController extends AbstractController
 {
@@ -47,7 +46,7 @@ final class ModelosDaAssinaturaController extends AbstractController
     public function criar(Request $request, SalvarModeloUseCase $salvar): JsonResponse
     {
         return $this->comAcesso($request, static fn (User $eu, Tenant $tenant): array => [
-            'id' => $salvar->executar($eu, $tenant, null, DadosDoModelo::deJson($request->toArray())),
+            'id' => $salvar->executar($eu, $tenant, null, DadosDoModelo::doPedido($request->getContent())),
         ], Response::HTTP_CREATED);
     }
 
@@ -55,7 +54,7 @@ final class ModelosDaAssinaturaController extends AbstractController
     public function salvar(int $id, Request $request, SalvarModeloUseCase $salvar): JsonResponse
     {
         return $this->comAcesso($request, static fn (User $eu, Tenant $tenant): array => [
-            'id' => $salvar->executar($eu, $tenant, $id, DadosDoModelo::deJson($request->toArray())),
+            'id' => $salvar->executar($eu, $tenant, $id, DadosDoModelo::doPedido($request->getContent())),
         ]);
     }
 
@@ -91,8 +90,6 @@ final class ModelosDaAssinaturaController extends AbstractController
             return $this->erro('assinatura_eletronica.modelo.erro.nao_encontrado', [], Response::HTTP_NOT_FOUND);
         } catch (AcaoRecusada $e) {
             return $this->erro($e->getMessage(), $e->parametros, Response::HTTP_UNPROCESSABLE_ENTITY);
-        } catch (JsonException) {
-            return $this->erro('assinatura_eletronica.modelo.erro.dados_invalidos', [], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
     }
 
