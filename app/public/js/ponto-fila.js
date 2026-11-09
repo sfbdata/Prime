@@ -22,9 +22,16 @@
     'use strict';
 
     const BANCO = 'bj-ponto-fila';
-    const VERSAO_DO_BANCO = 1;
+    // Versão 2: a loja das recusas (`LOJA_RECUSAS`). O banco da versão 1 ganha a loja nova e mantém a chave e as
+    // entradas; outra aba aberta com a versão 1 fecha o banco dela (`onversionchange`) para não travar a troca.
+    const VERSAO_DO_BANCO = 2;
     const LOJA_CHAVE = 'chave';
     const LOJA_ENTRADAS = 'entradas';
+    // Recusas definitivas ainda não mostradas na tela (ver `recusar`). Cifradas como as entradas; sem posição.
+    const LOJA_RECUSAS = 'recusas';
+    // Dado autenticado da recusa: `recusa:` antes do identificador do envio. Um registro levado da loja das entradas
+    // para a das recusas (ou o contrário) não abre.
+    const PREFIXO_DA_RECUSA = 'recusa:';
     const ID_DA_CHAVE = 'aes-gcm-1';
     // IV de 12 bytes, o tamanho recomendado para o AES-GCM. Novo a cada entrada: repetir o IV com a mesma chave
     // quebra o sigilo do AES-GCM.
@@ -75,6 +82,9 @@
                     }
                     if (!banco.objectStoreNames.contains(LOJA_ENTRADAS)) {
                         banco.createObjectStore(LOJA_ENTRADAS, { keyPath: 'idEnvio' });
+                    }
+                    if (!banco.objectStoreNames.contains(LOJA_RECUSAS)) {
+                        banco.createObjectStore(LOJA_RECUSAS, { keyPath: 'idEnvio' });
                     }
                 };
                 pedido.onsuccess = () => {
@@ -195,6 +205,51 @@
         return decifrarCom(await obterChave(), registro);
     }
 
+    /** A recusa, cifrada como a entrada (IV próprio, identificador em claro), com o dado autenticado da recusa. */
+    async function cifrarRecusa(recusa) {
+        const chave = await obterChave();
+        const iv = crypto.getRandomValues(new Uint8Array(TAMANHO_DO_IV));
+        const dados = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv, additionalData: bytesDoTexto(PREFIXO_DA_RECUSA + recusa.idEnvio) },
+            chave,
+            bytesDoTexto(JSON.stringify(recusa))
+        );
+
+        return { idEnvio: recusa.idEnvio, iv, dados };
+    }
+
+    /** A recusa guardada, ou `null` se o que abriu não é uma recusa completa. Lança quando não abre. */
+    async function decifrarRecusaCom(chave, registro) {
+        const claro = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: registro.iv, additionalData: bytesDoTexto(PREFIXO_DA_RECUSA + registro.idEnvio) },
+            chave,
+            registro.dados
+        );
+        const recusa = normalizarRecusa(JSON.parse(new TextDecoder().decode(claro)));
+
+        return recusa && recusa.idEnvio === registro.idEnvio ? recusa : null;
+    }
+
+    /**
+     * Só os campos da recusa: `{ idEnvio, tipo, horaAparelho, mensagem, usuarioId, escritorioId }`. Nada de posição:
+     * a recusa só precisa dizer à pessoa qual batida não entrou e por quê. Null quando falta o essencial.
+     */
+    function normalizarRecusa(recusa) {
+        const base = normalizar(recusa);
+        if (!base || typeof recusa.mensagem !== 'string') {
+            return null;
+        }
+
+        return {
+            idEnvio: base.idEnvio,
+            tipo: base.tipo,
+            horaAparelho: base.horaAparelho,
+            mensagem: recusa.mensagem,
+            usuarioId: base.usuarioId,
+            escritorioId: base.escritorioId,
+        };
+    }
+
     /**
      * Só os campos do contrato, com os tipos dele: `{ idEnvio, tipo, horaAparelho, latitude?, longitude?,
      * precisaoGps?, usuarioId, escritorioId }`. Nada da tela entra por acaso. Null quando falta o essencial.
@@ -221,7 +276,10 @@
 
     /** Todas as entradas que abrem, da mais antiga para a mais nova (a ordem em que as batidas aconteceram). */
     async function todas() {
-        const registros = await naLoja(LOJA_ENTRADAS, 'readonly', (loja) => loja.getAll());
+        return abrirEntradas(await naLoja(LOJA_ENTRADAS, 'readonly', (loja) => loja.getAll()));
+    }
+
+    async function abrirEntradas(registros) {
         const entradas = [];
         for (const registro of registros || []) {
             try {
@@ -236,6 +294,79 @@
         }
 
         return entradas.sort((a, b) => a.horaAparelho - b.horaAparelho);
+    }
+
+    /** As recusas que abrem, da batida mais antiga para a mais nova. A que não abre fica para a limpeza da carga. */
+    async function abrirRecusas(registros) {
+        const chave = await obterChave();
+        const recusas = [];
+        for (const registro of registros || []) {
+            try {
+                const recusa = await decifrarRecusaCom(chave, registro);
+                if (recusa) {
+                    recusas.push(recusa);
+                }
+            } catch (erro) {
+                console.warn('Recusa guardada que não pôde ser lida:', registro && registro.idEnvio);
+            }
+        }
+
+        return recusas.sort((a, b) => a.horaAparelho - b.horaAparelho);
+    }
+
+    /**
+     * As entradas e as recusas numa só transação de leitura: as duas listas são do mesmo instante. Lidas em duas
+     * vezes, a recusa gravada por outra aba entre uma e outra podia ficar de fora das duas (a entrada já tinha saído
+     * e a recusa ainda não estava lá).
+     */
+    async function lerFilaERecusas() {
+        const banco = await abrirBanco();
+
+        return new Promise((resolve, reject) => {
+            const transacao = banco.transaction([LOJA_ENTRADAS, LOJA_RECUSAS], 'readonly');
+            const lido = { entradas: [], recusas: [] };
+            const entradas = transacao.objectStore(LOJA_ENTRADAS).getAll();
+            const recusas = transacao.objectStore(LOJA_RECUSAS).getAll();
+            entradas.onsuccess = () => { lido.entradas = entradas.result || []; };
+            recusas.onsuccess = () => { lido.recusas = recusas.result || []; };
+            transacao.oncomplete = () => resolve(lido);
+            transacao.onerror = () => reject(transacao.error);
+            transacao.onabort = () => reject(transacao.error || new Error('A leitura da fila foi desfeita.'));
+        });
+    }
+
+    /**
+     * 🔑 Recusa definitiva: tira a entrada da fila e grava a recusa dela na loja das recusas, na MESMA transação. Ou as
+     * duas coisas acontecem, ou nenhuma. A recusa guardada só na memória da página sumia numa recarga no meio da
+     * rodada (F5, "Atualizar e conferir", a recarga depois de uma batida), com a entrada já apagada: a pessoa nunca
+     * sabia que a batida não entrou. Daqui ela só sai depois de a tela mostrá-la (`apagarRecusas`) ou pela limpeza.
+     *
+     * A recusa é cifrada antes de a transação abrir: uma espera fora do IndexedDB no meio dela a encerraria.
+     * Resolve com `true` se as duas mudaram; nunca rejeita (`false`: nada mudou, a entrada continua na fila).
+     */
+    async function recusar(entrada, mensagem) {
+        try {
+            const recusa = normalizarRecusa(Object.assign({}, entrada, { mensagem: String(mensagem) }));
+            if (!recusa) {
+                return false;
+            }
+            const registro = await cifrarRecusa(recusa);
+            const banco = await abrirBanco();
+            await new Promise((resolve, reject) => {
+                const transacao = banco.transaction([LOJA_ENTRADAS, LOJA_RECUSAS], 'readwrite', ESCRITA_DURAVEL);
+                transacao.objectStore(LOJA_ENTRADAS).delete(entrada.idEnvio);
+                transacao.objectStore(LOJA_RECUSAS).put(registro);
+                transacao.oncomplete = () => resolve();
+                transacao.onerror = () => reject(transacao.error);
+                transacao.onabort = () => reject(transacao.error || new Error('A transação da recusa foi desfeita.'));
+            });
+
+            return true;
+        } catch (erro) {
+            console.error('Não foi possível guardar a recusa da batida:', erro);
+
+            return false;
+        }
     }
 
     function daPessoaEDoEscritorio(entrada, usuarioId, escritorioId) {
@@ -283,22 +414,26 @@
     }
 
     /**
-     * O estado da fila para a tela, de UMA leitura nova do IndexedDB: `{ entradas, pendentes, emOutroEscritorio }`.
-     * `entradas`: as desta pessoa neste escritório (inclusive as retidas por 409), da mais antiga para a mais nova; as
-     * contagens são as de `contagemDe`. A tela monta tudo dela a partir daqui, depois de cada rodada e de cada gravação,
-     * e nunca do retrato que uma rodada tirou no começo (uma batida guardada no meio dela ficaria de fora). Nunca
-     * rejeita: `null` quando não deu para ler.
+     * O estado da fila para a tela, de UMA leitura nova do IndexedDB: `{ entradas, pendentes, emOutroEscritorio,
+     * recusas }`. `entradas`: as desta pessoa neste escritório (inclusive as retidas por 409), da mais antiga para a
+     * mais nova; as contagens são as de `contagemDe`; `recusas`: as recusas ainda não mostradas desta pessoa neste
+     * escritório (a de outro escritório espera a pessoa abrir aquele). A tela monta tudo dela a partir daqui, depois de
+     * cada rodada e de cada gravação, e nunca do retrato que uma rodada tirou no começo (uma batida guardada no meio
+     * dela ficaria de fora). Nunca rejeita: `null` quando não deu para ler.
      */
     async function estado(usuarioId, escritorioId) {
         try {
             if (!disponivel()) {
                 return null;
             }
-            const guardadas = await todas();
+            const lido = await lerFilaERecusas();
+            const guardadas = await abrirEntradas(lido.entradas);
+            const recusas = await abrirRecusas(lido.recusas);
 
             return Object.assign(
                 { entradas: guardadas.filter((entrada) => daPessoaEDoEscritorio(entrada, usuarioId, escritorioId)) },
-                contagemDe(guardadas, usuarioId, escritorioId)
+                contagemDe(guardadas, usuarioId, escritorioId),
+                { recusas: recusas.filter((recusa) => daPessoaEDoEscritorio(recusa, usuarioId, escritorioId)) }
             );
         } catch (erro) {
             console.error('Não foi possível ler as batidas guardadas:', erro);
@@ -312,7 +447,8 @@
      * trocada ou dado corrompido: ninguém consegue mais enviá-las) e as guardadas há mais de 7 dias (`IDADE_MAXIMA_MS`),
      * de QUALQUER pessoa. Uma entrada guarda a hora e a posição de alguém; num aparelho que várias pessoas usam, ela não
      * pode ficar esquecida para sempre só porque o dono dela não voltou a abrir a tela aqui. O servidor já recusa acima
-     * de 72 h, então nada que ainda poderia ser registrado é apagado.
+     * de 72 h, então nada que ainda poderia ser registrado é apagado. Vale igual para as recusas (`LOJA_RECUSAS`): a que
+     * não abre e a de batida de mais de 7 dias saem, de qualquer pessoa.
      *
      * `agoraMs` é o agora do SERVIDOR (a tela passa `agoraNoServidorMs()`): o relógio do aparelho pulando para a frente
      * apagaria batida de menos de 72 h. Sem ele (`null`), não apaga por idade, só as que não abrem. Sem a chave (falha
@@ -325,20 +461,22 @@
             }
             const porIdade = typeof agoraMs === 'number' && Number.isFinite(agoraMs);
             const chave = await obterChave();
-            const registros = await naLoja(LOJA_ENTRADAS, 'readonly', (loja) => loja.getAll());
             let apagadas = 0;
-            for (const registro of registros || []) {
-                let entrada = null;
-                try {
-                    entrada = await decifrarCom(chave, registro);
-                } catch (erro) {
-                    entrada = null;   // não abre: apagar
-                }
-                if (entrada && (!porIdade || agoraMs - Number(entrada.horaAparelho) <= IDADE_MAXIMA_MS)) {
-                    continue;
-                }
-                if (await remover(registro.idEnvio)) {
-                    apagadas++;
+            for (const [nomeDaLoja, abrir] of [[LOJA_ENTRADAS, decifrarCom], [LOJA_RECUSAS, decifrarRecusaCom]]) {
+                const registros = await naLoja(nomeDaLoja, 'readonly', (loja) => loja.getAll());
+                for (const registro of registros || []) {
+                    let guardado = null;
+                    try {
+                        guardado = await abrir(chave, registro);
+                    } catch (erro) {
+                        guardado = null;   // não abre: apagar
+                    }
+                    if (guardado && (!porIdade || agoraMs - Number(guardado.horaAparelho) <= IDADE_MAXIMA_MS)) {
+                        continue;
+                    }
+                    if (await removerDa(nomeDaLoja, [registro.idEnvio])) {
+                        apagadas++;
+                    }
                 }
             }
 
@@ -350,17 +488,36 @@
         }
     }
 
-    /** Tira a entrada da fila. Resolve com `true` se tirou; nunca rejeita. */
-    async function remover(idEnvio) {
+    /** Apaga os registros da loja numa transação. Resolve com `true` se apagou; nunca rejeita. */
+    async function removerDa(nomeDaLoja, idsEnvio) {
         try {
-            await naLoja(LOJA_ENTRADAS, 'readwrite', (loja) => loja.delete(idEnvio));
+            await naLoja(nomeDaLoja, 'readwrite', (loja) => {
+                idsEnvio.forEach((idEnvio) => loja.delete(idEnvio));
+            });
 
             return true;
         } catch (erro) {
-            console.error('Não foi possível tirar a batida da fila:', erro);
+            console.error('Não foi possível apagar da fila:', erro);
 
             return false;
         }
+    }
+
+    /** Tira a entrada da fila. Resolve com `true` se tirou; nunca rejeita. */
+    function remover(idEnvio) {
+        return removerDa(LOJA_ENTRADAS, [idEnvio]);
+    }
+
+    /**
+     * Apaga as recusas que a tela JÁ mostrou (`idsEnvio`); antes disso, nunca. Resolve com `true` se apagou; nunca
+     * rejeita. Não apagou: ela aparece de novo na próxima carga, em vez de sumir sem ninguém ver.
+     */
+    function apagarRecusas(idsEnvio) {
+        if (!Array.isArray(idsEnvio) || idsEnvio.length === 0 || !disponivel()) {
+            return Promise.resolve(false);
+        }
+
+        return removerDa(LOJA_RECUSAS, idsEnvio.map(String));
     }
 
     function payloadDe(entrada) {
@@ -419,9 +576,10 @@
     }
 
     async function enviarAgora(url, usuarioId, escritorioId) {
-        // Só o que esta rodada fez (para os avisos). O estado da fila NÃO sai daqui: `guardadas` é o retrato do começo da
-        // rodada, e uma batida guardada no meio dela ficaria de fora (ver `estado`).
-        const resultado = { enviadas: 0, recusadas: [] };
+        // Só o que esta rodada fez, em números. O estado da fila NÃO sai daqui: `guardadas` é o retrato do começo da
+        // rodada, e uma batida guardada no meio dela ficaria de fora (ver `estado`). As recusas também não: ficam na loja
+        // delas (`recusar`), e a tela as lê de lá.
+        const resultado = { enviadas: 0, recusadas: 0 };
         const guardadas = await todas();
 
         for (const entrada of guardadas) {
@@ -437,8 +595,12 @@
                 await remover(entrada.idEnvio);
                 resultado.enviadas++;
             } else if (destino === 'recusada') {
-                await remover(entrada.idEnvio);
-                resultado.recusadas.push({ idEnvio: entrada.idEnvio, tipo: entrada.tipo, horaAparelho: entrada.horaAparelho, mensagem: String(resposta.mensagem) });
+                // A entrada sai da fila e a recusa entra na loja dela, na mesma transação. Não deu: nada mudou, e a
+                // entrada volta na próxima rodada (o servidor recusa de novo e a recusa é gravada então).
+                if (!(await recusar(entrada, resposta.mensagem))) {
+                    break;
+                }
+                resultado.recusadas++;
             } else if (destino === 'retida') {
                 retidasNestaPagina.add(entrada.idEnvio);
             } else {
@@ -464,8 +626,8 @@
      * vez: o segundo disparo enquanto o primeiro corre (o evento `online` junto do relógio de um minuto) volta com
      * `null` sem mandar nada, e a mesma entrada nunca sai duas vezes desta página.
      *
-     * Resolve com o que a rodada fez, `{ enviadas, recusadas: [{ idEnvio, tipo, horaAparelho, mensagem }] }`, ou `null`
-     * quando não rodou; nunca com o estado da fila, que a tela lê de novo depois (`estado`). Nunca rejeita.
+     * Resolve com o que a rodada fez, em números (`{ enviadas, recusadas }`), ou `null` quando não rodou; nunca com o
+     * estado da fila nem com as recusas, que a tela lê de novo depois (`estado`). Nunca rejeita.
      */
     async function enviarPendentes(url, usuarioId, escritorioId) {
         if (envioEmAndamento) {
@@ -494,5 +656,6 @@
         remover,
         limpar,
         enviarPendentes,
+        apagarRecusas,
     });
 })();
