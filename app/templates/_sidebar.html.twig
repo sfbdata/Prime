@@ -176,8 +176,9 @@
                 {% endif %}
 
                 {# BlueJus Voto (spec bluejus-voto.md): logo depois do Ponto, como no menu do desenho 18. Nasce desligado
-                   no catálogo do Master; `recurso_marca` mostra ao Master que a tela está desligada. #}
-                {% if can_access_module('voto') and recurso_visivel('voto') %}
+                   no catálogo do Master; `recurso_marca` mostra ao Master que a tela está desligada. `voto_liberado()`:
+                   o Master liberou o Voto para este escritório (A1b; o Master passa sempre). #}
+                {% if can_access_module('voto') and recurso_visivel('voto') and voto_liberado() %}
                     <li class="pje-menu-item {{ recurso_marca('voto') }}">
                         <a href="{{ path('voto_index') }}"
                            data-busca-alias="eleição votação assembleia urna"
