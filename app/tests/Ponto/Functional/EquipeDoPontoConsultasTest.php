@@ -20,10 +20,10 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
  * Custo do painel da aba "Equipe" (spec `docs/specs/ponto-desenho-0811.md`, E5, "Custo do painel"): o número de
  * consultas por pessoa da equipe. Trava o teto medido em 09/11/2026 para o painel não ficar mais caro sem ninguém ver.
  *
- * A pessoa do teste é o caso caro: jornada pessoal e batida desde o ano passado, então o banco do ano
- * (`FolhaPontoBuilder::calcularSaldoAnual`) percorre todos os meses do ano até hoje, com 2 consultas por mês. Por
- * isso o teto é uma parte fixa mais 2 por mês do ano corrido: em dezembro, o mesmo painel faz 2 consultas a mais por
- * pessoa que em novembro, sem nada ter piorado.
+ * A pessoa do teste é o caso caro: jornada pessoal e batida desde junho do ano passado, então o banco
+ * (`BancoDeHorasPorLotes`, E17: desde o início da contagem, sem zerar em janeiro) percorre todos os meses desde
+ * junho do ano passado até hoje. O banco lê os meses todos de uma vez: o teto por pessoa não depende da data em que
+ * o teste roda.
  */
 #[CoversClass(EquipeDoPontoController::class)]
 #[CoversClass(ConsultarEquipeDoPontoUseCase::class)]
@@ -36,12 +36,11 @@ final class EquipeDoPontoConsultasTest extends JusPrimeWebTestCase
     private const QUARENTA = [[[1, 2, 3, 4, 5], '08:00', '12:00', '13:00', '17:00']];
 
     /**
-     * Consultas por pessoa que não dependem do mês. Medido em 09/11/2026: 31 por pessoa em novembro (9 + 2 x 11 meses);
-     * em dezembro, 33. Subir este número pede rever antes a seção "Custo do painel" da E5 na spec.
+     * Consultas por pessoa. Medido em 09/11/2026: 31 com o banco do ano (9 fixas mais 2 por mês); 12 com o banco por
+     * lotes (E17), que lê as batidas e as justificativas de todos os meses de uma vez e não cresce com o número de
+     * meses. Subir este número pede rever antes a seção "Custo do painel" da E5 na spec.
      */
-    private const FIXAS_POR_PESSOA = 9;
-    /** O banco do ano: as batidas e as justificativas de cada mês. */
-    private const POR_MES = 2;
+    private const TETO_POR_PESSOA = 12;
 
     private KernelBrowser $client;
 
@@ -61,23 +60,21 @@ final class EquipeDoPontoConsultasTest extends JusPrimeWebTestCase
         $comTres = $this->contarConsultas($gestoraDeTres, $escritorioDeTres, 3);
 
         $porPessoa = intdiv($comTres - $comUma, 2);
-        $meses = (int) (new \DateTimeImmutable('today'))->format('n');
         self::assertLessThanOrEqual(
-            self::FIXAS_POR_PESSOA + self::POR_MES * $meses,
+            self::TETO_POR_PESSOA,
             $porPessoa,
             sprintf(
-                'O painel da Equipe passou a fazer %d consultas por pessoa (teto: %d fixas + %d por mês). Antes de subir o '
-                . 'teto, reveja a seção "Custo do painel" da E5 em docs/specs/ponto-desenho-0811.md.',
+                'O painel da Equipe passou a fazer %d consultas por pessoa (teto: %d). Antes de subir o teto, reveja a '
+                . 'seção "Custo do painel" da E5 em docs/specs/ponto-desenho-0811.md.',
                 $porPessoa,
-                self::FIXAS_POR_PESSOA,
-                self::POR_MES,
+                self::TETO_POR_PESSOA,
             ),
         );
     }
 
     /**
      * Um escritório com a jornada padrão, uma gestora que não registra ponto (a equipe do painel é só quem o teste põe)
-     * e as pessoas no caso caro: jornada pessoal, batida no ano passado (o banco percorre o ano todo), um dia batido há
+     * e as pessoas no caso caro: jornada pessoal, batida no ano passado (o banco atravessa a virada do ano), um dia batido há
      * 3 dias (as pendências dos últimos 30 dias leem os feriados e os esquecimentos, em vez de sair cedo) e o dia de
      * hoje aberto. A batida antiga é de junho do ano passado: em qualquer data, fica antes de 1º de janeiro.
      *

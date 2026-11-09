@@ -575,7 +575,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     `calcularSaldoAnual`, que faz 2 por mês do ano corrido. Medido no `EquipeDoPontoConsultasTest` (1 pessoa contra 3,
     no caso caro: jornada pessoal, batida desde o ano passado e batida nos últimos 30 dias, que faz as pendências lerem
     os feriados e os esquecimentos): 31 por pessoa em novembro, 9 fixas mais 2 por mês (33 em dezembro). O teste trava esse teto; subir o teto pede rever este item antes. Em produção, em 09/11/2026, o maior
-    escritório tem 7 pessoas que registram ponto: umas 210 consultas, bem dentro do prazo de 20 s do carregador. Sem
+    escritório tem 7 pessoas que registram ponto: umas 210 consultas, bem dentro do prazo de 20 s do carregador.
+    **Mudou na E17:** o banco da coluna é o `BancoDeHorasPorLotes` (o mesmo número do topo da /ponto, desde o início da
+    contagem), que lê os meses todos de uma vez: 12 consultas por pessoa, sem crescer com os meses (teto 12). Sem
     limite de pessoas no painel por enquanto; rever quando um escritório passar de 30 pessoas no ponto. Duas sobras
     pequenas ficam anotadas: os feriados relidos por pessoa nas pendências (`ListarPendenciasDeRegistroUseCase`, que a
     E6 mexe; fica para depois dela) e o `historicoDe` lido duas vezes por pessoa (no banco e na escala);

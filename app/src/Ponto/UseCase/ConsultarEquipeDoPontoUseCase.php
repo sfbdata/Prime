@@ -9,15 +9,12 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\MembroDaEquipeOutput;
 use App\Ponto\DTO\PainelDaEquipeOutput;
-use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\RegistroPonto;
-use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\EscalaDaPessoaNaEquipe;
-use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\HojeDaPessoaNaEquipe;
-use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\Service\JustificativasAAnalisarDaEquipe;
 use App\Repository\UserTenantRepository;
 use Psr\Clock\ClockInterface;
@@ -33,8 +30,9 @@ use Psr\Clock\ClockInterface;
  * - Equipe: vínculos ativos com a chave do ponto ligada, por nome; quem vê vem primeiro, com o subtítulo "Você";
  *   os outros, com o cargo (sem cargo, sem subtítulo).
  * - Hoje: as batidas do dia de todos numa consulta só, escolhidas como na folha (`HojeDaPessoaNaEquipe`).
- * - Banco: o mesmo número do topo da /ponto da pessoa (`FolhaPontoBuilder::calcularSaldoAnual`). É a parte cara
- *   (umas 31 consultas por pessoa, com teto fixado em EquipeDoPontoConsultasTest): por isso o painel é buscado só quando a aba abre.
+ * - Banco: o mesmo número do topo da /ponto da pessoa (`BancoDeHorasPorLotes`, E17: o banco desde o início da
+ *   contagem, sem zerar em janeiro). É a parte cara (2 consultas por mês desde o início da contagem, com teto fixado
+ *   em EquipeDoPontoConsultasTest): por isso o painel é buscado só quando a aba abre.
  * - Pendências: as de registro da pessoa neste escritório (`ListarPendenciasDeRegistroUseCase::soNoEscritorio`).
  */
 final class ConsultarEquipeDoPontoUseCase
@@ -42,10 +40,8 @@ final class ConsultarEquipeDoPontoUseCase
     public function __construct(
         private readonly UserTenantRepository $vinculos,
         private readonly RegistroPontoRepository $registros,
-        private readonly FeriadoRepository $feriados,
         private readonly CalculadoraJornada $calculadora,
-        private readonly FolhaPontoBuilder $folha,
-        private readonly InicioContagemResolver $inicioContagem,
+        private readonly BancoDeHorasPorLotes $banco,
         private readonly ListarPendenciasDeRegistroUseCase $pendencias,
         private readonly EscalaDaPessoaNaEquipe $escalas,
         private readonly JustificativasAAnalisarDaEquipe $aAnalisar,
@@ -57,11 +53,10 @@ final class ConsultarEquipeDoPontoUseCase
     {
         $agora = $this->relogio->now();
         $batidasDeHoje = $this->batidasDeHojePorPessoa($escritorio, $agora);
-        $feriados = $this->feriados->doEscritorio($escritorio);
 
         $membros = [];
         foreach ($this->equipeComQuemVePrimeiro($eu, $escritorio) as $vinculo) {
-            $membros[] = $this->membro($vinculo, $eu, $escritorio, $batidasDeHoje[(int) $vinculo->getUser()->getId()] ?? [], $feriados, $agora);
+            $membros[] = $this->membro($vinculo, $eu, $escritorio, $batidasDeHoje[(int) $vinculo->getUser()->getId()] ?? [], $agora);
         }
 
         return new PainelDaEquipeOutput($membros, $this->aAnalisar->listar($eu, $escritorio));
@@ -94,11 +89,8 @@ final class ConsultarEquipeDoPontoUseCase
         return $porPessoa;
     }
 
-    /**
-     * @param list<RegistroPonto> $batidasDeHoje
-     * @param list<Feriado>       $feriados
-     */
-    private function membro(UserTenant $vinculo, User $eu, Tenant $escritorio, array $batidasDeHoje, array $feriados, \DateTimeImmutable $agora): MembroDaEquipeOutput
+    /** @param list<RegistroPonto> $batidasDeHoje */
+    private function membro(UserTenant $vinculo, User $eu, Tenant $escritorio, array $batidasDeHoje, \DateTimeImmutable $agora): MembroDaEquipeOutput
     {
         $pessoa = $vinculo->getUser();
         $hoje = HojeDaPessoaNaEquipe::daEscolha($this->calculadora->escolherBatidas($batidasDeHoje, $agora));
@@ -111,26 +103,9 @@ final class ConsultarEquipeDoPontoUseCase
             $hoje->situacao,
             $hoje->entrada,
             $hoje->ultimoRegistro,
-            $this->banco($pessoa, $escritorio, $feriados, $agora),
+            $this->banco->calcular($pessoa, $escritorio, $agora)->saldoAtualMinutos,
             count($this->pendencias->soNoEscritorio($pessoa, $escritorio)),
             $this->escalas->opcoes($pessoa, $escritorio),
-        );
-    }
-
-    /**
-     * O número do topo da /ponto da pessoa (PontoController::index): o saldo do ano até hoje, com as horas pagas.
-     *
-     * @param list<Feriado> $feriados
-     */
-    private function banco(User $pessoa, Tenant $escritorio, array $feriados, \DateTimeImmutable $agora): int
-    {
-        return $this->folha->calcularSaldoAnual(
-            $pessoa,
-            (int) $agora->format('Y'),
-            $feriados,
-            $escritorio->getJornadaTenant(),
-            $this->inicioContagem->resolver($pessoa, $escritorio),
-            $escritorio,
         );
     }
 }
