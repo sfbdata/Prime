@@ -87,7 +87,7 @@ final class ConferenciaDaCadeiaDoPontoTest extends TestCase
 
         self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_SEM_SELO, $resultado->situacao);
         self::assertSame([[1, 2]], $resultado->trechosSemSelo);
-        self::assertSame('Os eventos nº 1 a 2 foram gravados sem selo. Os demais eventos conferem com o selo.', $resultado->texto());
+        self::assertSame('Os eventos nº 1 a 2 estão sem selo e não podem ser conferidos. Os demais eventos conferem com o selo.', $resultado->texto());
     }
 
     #[TestDox('Falta do segredo no meio (selada, duas sem selo, selada): trecho sem selo nº 2 a 3, não alterada')]
@@ -99,7 +99,7 @@ final class ConferenciaDaCadeiaDoPontoTest extends TestCase
 
         self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_SEM_SELO, $resultado->situacao);
         self::assertSame([[2, 3]], $resultado->trechosSemSelo);
-        self::assertSame('Os eventos nº 2 a 3 foram gravados sem selo. Os demais eventos conferem com o selo.', $resultado->texto());
+        self::assertSame('Os eventos nº 2 a 3 estão sem selo e não podem ser conferidos. Os demais eventos conferem com o selo.', $resultado->texto());
         self::assertSame($cadeia[0]['selo'], $cadeia[3]['selo_anterior'], 'a selada depois do trecho se prende à última selada antes dele');
     }
 
@@ -136,7 +136,7 @@ final class ConferenciaDaCadeiaDoPontoTest extends TestCase
         $resultado = $this->conferir($cadeia);
 
         self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_SEM_SELO, $resultado->situacao);
-        self::assertSame('O evento nº 3 foi gravado sem selo. Os demais eventos conferem com o selo.', $resultado->texto());
+        self::assertSame('O evento nº 3 está sem selo e não pode ser conferido. Os demais eventos conferem com o selo.', $resultado->texto());
     }
 
     #[TestDox('Vários trechos: o texto cita três faixas e conta o resto; tudo sem selo não diz que os demais conferem')]
@@ -146,8 +146,8 @@ final class ConferenciaDaCadeiaDoPontoTest extends TestCase
         $tudoSemSelo = $this->conferir($this->cadeia([null, null]));
 
         self::assertSame([[1, 1], [3, 4], [6, 6], [8, 8]], $varios->trechosSemSelo);
-        self::assertSame('Os eventos nº 1, nº 3 a 4, nº 6 e mais 1 trecho foram gravados sem selo. Os demais eventos conferem com o selo.', $varios->texto());
-        self::assertSame('Os eventos nº 1 a 2 foram gravados sem selo.', $tudoSemSelo->texto());
+        self::assertSame('Os eventos nº 1, nº 3 a 4, nº 6 e mais 1 trecho estão sem selo e não podem ser conferidos. Os demais eventos conferem com o selo.', $varios->texto());
+        self::assertSame('Os eventos nº 1 a 2 estão sem selo e não podem ser conferidos.', $tudoSemSelo->texto());
     }
 
     #[TestDox('Trecho inicial sem selo e uma selada mexida depois: alterada vence')]

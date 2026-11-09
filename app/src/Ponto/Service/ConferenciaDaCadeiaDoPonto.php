@@ -27,9 +27,11 @@ use App\Ponto\DTO\ConferenciaDaTrilhaDoPontoOutput;
  *
  * ## Trecho sem selo
  *
- * Linhas gravadas sem selo (antes de o segredo existir, ou numa falta temporária dele) não são alteração: o elo delas
- * confere e a conferência devolve "trecho sem selo" com as faixas dos números, nunca "íntegra". O selo apagado da
- * ÚLTIMA linha também aparece assim, com o número dela (não há linha depois para quebrar o elo).
+ * Linhas sem selo (gravadas antes de o segredo existir, ou numa falta temporária dele) não são alteração: o elo delas
+ * confere e a conferência devolve "trecho sem selo" com as faixas dos números, nunca "íntegra". Limite aceito (não há
+ * âncora fora do banco): um fim de cadeia com o selo tirado (e o conteúdo trocado), ou um evento sem selo acrescentado
+ * no fim, também aparece assim, e continua assim depois dos eventos seguintes. Por isso o texto não afirma a origem.
+ * O meio selado continua protegido: alteração, remoção e inserção dão "alterada".
  */
 final class ConferenciaDaCadeiaDoPonto
 {

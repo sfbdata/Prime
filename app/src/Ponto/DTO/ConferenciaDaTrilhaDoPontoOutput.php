@@ -6,8 +6,10 @@ namespace App\Ponto\DTO;
 
 /**
  * O resultado da conferência da trilha de auditoria de um escritório (E9): íntegra, alterada (com a sequência do
- * primeiro evento que não confere), trecho sem selo (as faixas de eventos gravados sem selo; o resto confere) ou não
- * selada (o servidor não tem o segredo: nada pode ser conferido). O texto é o do cabeçalho da aba Auditoria.
+ * primeiro evento que não confere), trecho sem selo (as faixas de eventos sem selo, que não podem ser conferidos; o
+ * resto confere) ou não selada (o servidor não tem o segredo: nada pode ser conferido). O texto é o do cabeçalho da aba
+ * Auditoria. O texto do trecho não diz por que os eventos estão sem selo: o sistema não sabe se foram gravados sem o
+ * segredo ou se o selo foi tirado depois.
  */
 final class ConferenciaDaTrilhaDoPontoOutput
 {
@@ -15,7 +17,7 @@ final class ConferenciaDaTrilhaDoPontoOutput
     public const ALTERADA = 'alterada';
     public const NAO_SELADA = 'nao_selada';
 
-    /** Há eventos gravados sem selo (antes do segredo ou numa falta dele); os selados conferem. */
+    /** Há eventos sem selo, que não podem ser conferidos; os selados conferem. */
     public const TRECHO_SEM_SELO = 'trecho_sem_selo';
 
     /** Não selada porque o servidor não tem `PONTO_HMAC_SECRET`: nada pode ser conferido. */
@@ -52,7 +54,7 @@ final class ConferenciaDaTrilhaDoPontoOutput
     }
 
     /**
-     * @param list<array{0: int, 1: int}> $trechos   faixas [primeiro, último] dos eventos gravados sem selo
+     * @param list<array{0: int, 1: int}> $trechos   faixas [primeiro, último] dos eventos sem selo
      * @param bool                        $temSelados se a cadeia tem eventos selados (todos conferiram)
      */
     public static function trechoSemSelo(array $trechos, bool $temSelados): self
@@ -83,7 +85,9 @@ final class ConferenciaDaTrilhaDoPontoOutput
 
         $umSo  = \count($this->trechosSemSelo) === 1 && $this->trechosSemSelo[0][0] === $this->trechosSemSelo[0][1];
         $lista = \count($faixas) === 1 ? $faixas[0] : implode(', ', \array_slice($faixas, 0, -1)) . ' e ' . $faixas[\count($faixas) - 1];
-        $texto = $umSo ? sprintf('O evento %s foi gravado sem selo.', $lista) : sprintf('Os eventos %s foram gravados sem selo.', $lista);
+        $texto = $umSo
+            ? sprintf('O evento %s está sem selo e não pode ser conferido.', $lista)
+            : sprintf('Os eventos %s estão sem selo e não podem ser conferidos.', $lista);
 
         return $this->temSelados ? $texto . ' Os demais eventos conferem com o selo.' : $texto;
     }
