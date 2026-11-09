@@ -116,6 +116,7 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO => 'trabalho-externo',
             CategoriaDeArquivo::TENANT_LOGO         => 'pastas/logos',
             CategoriaDeArquivo::CHAT_IA_ANEXO       => 'pastas/chat-ia',
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO => 'pastas/assinatura/' . $tenant,
             CategoriaDeArquivo::FOTO_PERFIL,
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
             CategoriaDeArquivo::COMERCIAL_IMAGEM,
