@@ -13,7 +13,6 @@ use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\HistoricoDeJornadas;
-use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\UseCase\TrocarEscalaNaEquipeUseCase;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -28,8 +27,8 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
  * Trocar a escala na aba Equipe (spec `docs/specs/ponto-desenho-0811.md`, E5, P56 a): grava uma versão nova da jornada
  * pessoal valendo a partir de hoje, os dias de antes não mudam (saldo e folha), a versão aparece no histórico da ficha
  * do colaborador, e as guardas: quem não gere a equipe, pessoa de fora, suspensa ou que saiu, escala desconhecida,
- * choque, duas trocas ao mesmo tempo e CSRF. Sem jornada pessoal, o banco só tem as horas pagas; a primeira troca passa
- * a contá-lo do dia dela em diante, e os dias de antes continuam de fora (regra do `calcularSaldoAnual`, a mesma da ficha).
+ * choque, duas trocas ao mesmo tempo e CSRF. O número do Banco não tem regra própria na aba: é o do motor do saldo, o
+ * mesmo do topo da /ponto da pessoa (EquipeDoPontoTelaTest::testBancoEPendenciasComoNaPontoDaPessoa).
  */
 #[CoversClass(EquipeDoPontoController::class)]
 #[CoversClass(TrocarEscalaNaEquipeUseCase::class)]
@@ -110,29 +109,6 @@ final class TrocarEscalaNaEquipeTest extends JusPrimeWebTestCase
         self::assertNull($historico->vigenteEm($this->hoje->modify('-1 day')), 'ontem segue a jornada do escritório');
         self::assertSame(1800, $historico->vigenteEm($this->hoje)?->getCargaHorariaSemanal());
         self::assertSame($folhaAntes, $this->folhaDoMesPassadoDaAna());
-    }
-
-    #[TestDox('Sem jornada pessoal, o banco do ano só tem as horas pagas; a primeira troca passa a contar do dia dela em diante, e os dias de antes continuam de fora')]
-    public function testPrimeiraTrocaPassaAContarOBancoDeHoras(): void
-    {
-        $this->jornadaPadrao($this->escritorio, self::QUARENTA);
-        // Dezembro de 2025, um ano que já fechou: os números não dependem de hoje. A Ana fez 10 horas numa segunda
-        // antes da troca (01/12) e noutra no dia dela (15/12); a troca é feita em 15/12/2025, com o relógio parado.
-        foreach (['2025-12-01', '2025-12-15'] as $dia) {
-            $this->registrarBatida($this->ana, $this->escritorio, 'entrada', new \DateTimeImmutable($dia . ' 08:00'));
-            $this->registrarBatida($this->ana, $this->escritorio, 'saida', new \DateTimeImmutable($dia . ' 18:00'));
-        }
-
-        $antes = $this->saldoDe2025DaAna();
-        self::mockTime(new \DateTimeImmutable('2025-12-15 10:00'));
-        $this->trocar($this->ana, '30-5');
-        self::assertResponseIsSuccessful();
-        $depois = $this->saldoDe2025DaAna();
-
-        self::assertSame(0, $antes, 'sem jornada pessoal, só as horas pagas (nenhuma aqui)');
-        // 15/12: 10h contra 6h, +240. De 16/12 a 31/12, 12 dias de segunda a sexta sem batida, -360 cada (sem feriados
-        // nesta conta): -4080. O 01/12 e os dias até 14/12 ficam de fora; pela jornada do escritório seriam mais -4200.
-        self::assertSame(-4080, $depois, 'de 15/12 em diante pela escala de 30h; de 01/12 a 14/12 continua de fora');
     }
 
     #[TestDox('Trocar de novo no mesmo dia atualiza a versão de hoje, sem criar outra')]
@@ -290,26 +266,6 @@ final class TrocarEscalaNaEquipeTest extends JusPrimeWebTestCase
             [],
             $escritorio->getJornadaTenant(),
             new \DateTimeImmutable('2026-01-01'),
-            $escritorio,
-        );
-    }
-
-    /** O número do Banco da aba e do topo da /ponto, no ano de 2025: `calcularSaldoAnual` com o início da contagem da pessoa. */
-    private function saldoDe2025DaAna(): int
-    {
-        $this->em()->clear();
-        $ana = $this->em()->find(User::class, $this->ana->getId());
-        $escritorio = $this->em()->find(Tenant::class, $this->escritorio->getId());
-        self::assertNotNull($ana);
-        self::assertNotNull($escritorio);
-        $container = static::getContainer();
-
-        return $container->get(FolhaPontoBuilder::class)->calcularSaldoAnual(
-            $ana,
-            2025,
-            [],
-            $escritorio->getJornadaTenant(),
-            $container->get(InicioContagemResolver::class)->resolver($ana, $escritorio),
             $escritorio,
         );
     }

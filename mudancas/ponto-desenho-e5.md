@@ -9,5 +9,5 @@ tipo: novidade
 
 ## Para o cliente
 - No Ponto Eletrônico, quem gere a equipe passa a ver, numa aba "Equipe", quem está trabalhando, quem está no intervalo, quem ainda não registrou o ponto hoje e quem já encerrou o dia, com o horário de entrada, o último registro, o banco de horas e as pendências de cada pessoa.
-- Na mesma aba, o gestor troca a escala de trabalho de uma pessoa escolhendo uma das escalas da lista. A escala nova vale a partir de hoje, e a folha dos dias anteriores não muda. Se a pessoa ainda não tinha escala própria, o banco de horas dela passa a ser calculado a partir do dia da troca.
+- Na mesma aba, o gestor troca a escala de trabalho de uma pessoa escolhendo uma das escalas da lista. A escala nova vale a partir de hoje, e a folha dos dias anteriores não muda.
 - As justificativas que aguardam análise aparecem numa lista na mesma aba, com a opção de marcar várias e abonar de uma vez. Cada uma passa pelas mesmas regras de hoje: o gestor que não é o administrador principal não abona a própria justificativa.
