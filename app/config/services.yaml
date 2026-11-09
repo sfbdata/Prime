@@ -13,6 +13,9 @@ parameters:
     # Assinatura de documentos (etapa 2): segredo próprio do token do link e do código (nunca o APP_SECRET), no mínimo
     # 32 bytes. Vazio: o envio, o link e o código recusam com "sem chave configurada". Runbook da troca no contrato.
     assinatura.segredo: '%env(string:default::ASSINATURA_SEGREDO)%'
+    # Assinatura Reforçada (etapa 7): chave da cifra da selfie, 64 hexadecimais (32 bytes), nunca o APP_SECRET nem o
+    # segredo acima. Vazia: o envio e o "Assinar" Reforçado recusam. Runbook: assinatura-selfie-chave-em-producao.md.
+    assinatura.selfie_chave: '%env(string:default::ASSINATURA_SELFIE_CHAVE)%'
     uploads_dir: '%kernel.project_dir%/public/uploads/pastas'
     # Uploads ficam em public/uploads/* (volume persistido uploads_prod). A defesa contra
     # acesso direto é o bloqueio de /uploads/ estático no nginx (C5.1) — todos são servidos
