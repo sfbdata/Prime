@@ -30,7 +30,7 @@ Arquivo:linha citados foram conferidos em 08/11/2026 no commit `a53a77b1c` e, na
 | `PermissionChecker` | 4 métodos | 8 públicos, cache por vínculo e cadeado da pasta; `canActOnResource` saiu em 30/06; `resources.*` está vivo (5) |
 | Guardas em listener HTTP | não citadas | cadeado, aba oculta, pasta excluída, recurso desligado pelo Master e barreiras do escritório: o conector pula todas e tem de refazer (5.2) |
 | Ferramentas | 5 de leitura e 3 de escrita, desenhadas sem base | **17** (7 de leitura, 9 de gravação, 1 de confirmação) sobre as 187 ações do inventário, com teto próprio contra o bypass do Master e do primário (6, 6.3) |
-| Exclusão e cadastro | escrita direta | só com uma confirmação presa à proposta, de validade curta e uso único, conferida de novo no servidor; gravar por cima de peça ou anotação conta como exclusão (6.6, 6.7) |
+| Exclusão e cadastro | escrita direta | só com uma confirmação presa à proposta, de validade curta e uso único, conferida de novo no servidor; gravar por cima (substituir um valor que já existe) conta como exclusão, em toda ferramenta; preencher vazio, acrescentar e marcar ou desmarcar são diretos (6.6, 6.7) |
 | Documentos | PDF e imagem | todos os tipos da aba Documentos, menos áudio e vídeo (6.5) |
 | Cliente e Processo | "legado sem UseCase" | `Processo` está no domínio; Cliente tem 8 UseCases; Tarefa continua legado (7) |
 | nginx | "chega ao Symfony sem mudança" | **errado já em agosto**: o `location ~ /\. { deny all; }` do HTTPS barra `/.well-known/oauth-*` (3.3) |
@@ -500,7 +500,7 @@ entre ler e gravar).
 | Grupo | O que | Por quê |
 |---|---|---|
 | Administrador | as 13 ações da seção 5 do inventário: cadeado da pasta (`ConfigurarCadeadoDaPastaUseCase`, `RemoverCadeadoDaPastaUseCase`, `AlternarTrancaDaPastaUseCase`), pedidos de acesso (`DecidirPedidoDeAcessoUseCase` e o fluxo antigo `app_access_request_approve`/`_deny`), abas ocultas (`OcultarAbaParaTodosUseCase`, `DefinirQuemNaoVeAbaUseCase`, `MostrarAbaParaTodosUseCase`, `ListarEquipeParaOcultarAbaUseCase`), desfazer pela Auditoria (`DesfazerAlteracaoAuditLogUseCase`), Google Drive do escritório (`ConectarDriveUseCase`, `DefinirRootFolderDriveUseCase`, `DesconectarDriveUseCase`), datas da Agenda (`AcrescentarDataUseCase`, `RenomearDataUseCase`, `OcultarDataUseCase`, `RestaurarDatasDoSistemaUseCase`), feriados do escritório, mexer em compromisso de outra pessoa, agenda vista como administrador | decisão 14.b; o teto da 6.3 garante, mesmo para Master e primário |
-| Manda algo ao cliente ou a terceiro | e-mails do cliente para avisos (`pasta_push_cliente_email_*`: `CadastrarEmailDoClienteUseCase`, cujo e-mail "nasce recebendo avisos", `TornarEmailDoClientePrincipalUseCase`, `DefinirAvisosDoEmailDoClienteUseCase`, `RemoverEmailDoClienteUseCase`); todo envio do Push ao cliente (`EnviarAnaliseAoClienteUseCase`, `DefinirEnvioAutomaticoDoClienteUseCase`, links públicos `GerarLinkExternoDoPushUseCase` e renovação); encaminhar pela Central (`EncaminharItemDaPastaUseCase`); gravar o e-mail de cliente que tem o envio automático ligado (`atualizar_cliente` recusa, 6.6) | decisão de 09/11/2026 (14.h) |
+| Manda algo ao cliente ou a terceiro | e-mails do cliente para avisos (`pasta_push_cliente_email_*`: `CadastrarEmailDoClienteUseCase`, cujo e-mail "nasce recebendo avisos", `TornarEmailDoClientePrincipalUseCase`, `DefinirAvisosDoEmailDoClienteUseCase`, `RemoverEmailDoClienteUseCase`); todo envio do Push ao cliente (`EnviarAnaliseAoClienteUseCase`, `DefinirEnvioAutomaticoDoClienteUseCase`, links públicos `GerarLinkExternoDoPushUseCase` e renovação); encaminhar pela Central (`EncaminharItemDaPastaUseCase`); todo caminho que estende o envio automático a um cliente que o tem ligado: gravar o e-mail dele, vinculá-lo a uma pasta, torná-lo principal, desvincular o principal quando ele seria promovido, vincular processo a pasta cujo principal o tem ligado, reativar ou restaurar essa pasta (recusam e mandam fazer pela tela; lista e código na abertura da 6.6) | decisão de 09/11/2026 (14.h) |
 | Outros módulos | a BlueJus I.A. dentro da pasta (análises, comandos, conversa); o Push além de ler as publicações (marcar lida, monitoramento, buscar agora, "Avisar quando chegar", vincular publicação); Cobrança; Minhas Metas além de criar meta para a pasta e de ler a lista (`ler_agenda`, `minhas_metas`, 14.i): concluir, despachar e as demais ações de meta; Kanban, Ponto e o resto da seção 7 do inventário | decisão de 09/11/2026 (14.h, 14.i) e 14.b |
 | Arquivo binário ou tela | enviar arquivo (documento da pasta, do Financeiro, do cliente, imagem do editor, trazer do Google Drive); foto com recorte (pasta e cliente); exportar peça, Word do modelo, resumo em PDF, .zip e CSV; conectar o Google Agenda, notificações do navegador, dispensar o aviso do Google; colunas da lista; registrar a visita da Timeline; importar pastas em lote do Drive | enviar arquivo exigiria o conteúdo em base64 dentro do argumento da ferramenta, com o teto de 4 MiB do corpo no SDK (`maxBodyBytes`, 3.1), e não há fonte oficial de que Claude e ChatGPT repassem um anexo da conversa assim (decisão 14.j: fica fora do piloto); exportar e baixar viram leitura de dados (`ler_pasta`, `buscar_pastas`, `ler_documentos_e_modelos`); o resto só existe no navegador |
 | Tela antiga com versão nova que entra | agenda antiga (`agenda_lista`, `agenda_show`, `agenda_novo`, `agenda_editar`, `agenda_cancelar`, `agenda_excluir`); ficha antiga do cliente (`cliente_show`, `cliente_edit`); formulário antigo PF/PJ (`pasta_cliente_novo`); tela antiga de processo (`processo_new`, `processo_edit`); pedido de acesso antigo (`app_access_request_submit`) | regra no controller e a versão nova entra (Agenda nova, janela Cadastro, aba Processo, `pasta_acesso_pedir`); o inventário, seção 6, itens 3 e 4 |
@@ -865,11 +865,56 @@ Todas: escopo `mcp:escrita` (sem ele, 403 `insufficient_scope`, 5.1); `readOnlyH
 pasta excluída é só leitura (`Pasta::estaExcluida()`, `app/src/Pasta/Entity/Pasta.php:450`), salvo restaurar; segredo recusa
 (6.2.3); toda **exclusão** devolve uma proposta e só a `confirmar_acao` executa (6.7). "Exclusão" é toda ação que apaga, manda
 para a lixeira, exclui de vez, remove ou desvincula um item, inclusive tirar um marcador da pasta, apagar o nome de uma etapa
-e trocar um valor já preenchido no cadastro do cliente. **Gravar por cima também conta como exclusão**, porque o texto
-anterior se perde: `editar_peca` (o `EditarPecaTextoUseCase` regrava o HTML na mesma chave, sem versão,
-`app/src/Pasta/UseCase/EditarPecaTextoUseCase.php:19`, `:84-91`), `registrar_na_pasta` com `editar` (anotação do Registro e
-dos relatórios inicial e financeiro) e `atualizar_pasta` com `marcadores_da_pasta` quando a lista tira um marcador que a
-pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma proposta e uma confirmação (6.7, item 5).
+e trocar um valor já preenchido no cadastro do cliente.
+
+**Gravar por cima é regra geral e também conta como exclusão** (decisão de 09/11/2026), porque o valor anterior se perde:
+
+- **Proposta:** substituir um valor que já existe, isto é, trocar um texto, um número, um valor em dinheiro ou uma data já
+  preenchidos por outro, e tirar um item de uma lista (marcador).
+- **Direto:** preencher campo vazio, acrescentar (escrever, responder, criar, adicionar, vincular) e marcar ou desmarcar um
+  item (favoritar, acompanhar, destacar, cumprir prazo, marcar item do checklist, quitação, documento assinado, pro bono).
+  Também direto, por coerência com o que já foi decidido para a esteira e o arquivar: escolher numa lista fechada
+  (situação, prioridade, responsável, carteira, fase, via, destino da peça, contrato pendente ou regular) e mudar a ordem ou o
+  lugar (reordenar, mover documento ou subpasta), que não apagam texto de ninguém e voltam pelo mesmo caminho.
+- **O que a regra cobre**, ferramenta por ferramenta (o detalhe fica em cada uma, abaixo): `atualizar_pasta`
+  (`editar_dados` sobre campo preenchido, `nome_do_cliente`, `cadastro_da_pasta` sobre campo preenchido, `marcador` editar e
+  `marcadores_da_pasta` que tira um marcador); `mudar_andamento` (`nomear_etapa` que troca um nome já dado);
+  `registrar_na_pasta` (`editar`); `prazos_e_metas_da_pasta` (`salvar_prazo` que edita prazo ou audiência existente);
+  `documentos_e_pecas` (`editar_documento`, `editar_peca`, que regrava o HTML na mesma chave, sem versão,
+  `app/src/Pasta/UseCase/EditarPecaTextoUseCase.php:19`, `:84-91`, `subpasta` renomear, `salvar_modelo` sobre modelo
+  existente, `checklist_item` editar o texto e `checklist_modelo` renomear); `financeiro_da_pasta` (`valor_da_causa` já
+  preenchido e corrigir o valor de um pagamento); `atualizar_cliente` (`completar` e `contato` que trocam valor, como já
+  estava); `processos_da_pasta` (`dados_do_cartao` sobre campo preenchido, `acao_da_pasta` já preenchida e `nota_tecnica`
+  editar); `gravar_na_agenda` (`salvar` que edita compromisso existente e `mover`, que troca a data).
+- **Lote** (vários documentos, vários marcadores, vários campos numa chamada) é uma proposta e uma confirmação (6.7,
+  item 5). Numa chamada que preenche campos vazios e troca um preenchido, a chamada inteira vira proposta, com o resumo
+  dizendo o que é novo e o que é troca, para nada ser gravado pela metade.
+
+**Envio automático ao cliente: nenhum caminho do conector o estende** (decisão de 09/11/2026, 14.h). O envio automático
+manda, por pasta viva, ativa e sem cadeado, as publicações dos processos vinculados ao **cliente principal** da pasta, se
+ele tem alguma chave ligada (`GruposDoEnvioAutomatico::agrupar`, `app/src/Pasta/Service/GruposDoEnvioAutomatico.php:43`,
+`pastaLiberada` `:81`; `PastaRepository::listarVinculosDePastasVivasDosProcessos`, `:1719`, que exige `excluidaEm` nulo;
+`EmailsDoClienteDaPasta::cliente`, `app/src/Pasta/Service/EmailsDoClienteDaPasta.php:35-40`, que usa
+`Pasta::getClientePrincipal`, `app/src/Pasta/Entity/Pasta.php:755`). "Cliente com envio ligado" é o que tem a linha
+`EnvioAutomaticoDoCliente` com qualquer chave ligada (`EnvioAutomaticoDoClienteRepository::doClienteDoTenant`,
+`app/src/Cliente/Repository/EnvioAutomaticoDoClienteRepository.php:37`; `EnvioAutomaticoDoCliente::ligada`,
+`app/src/Cliente/Entity/EnvioAutomaticoDoCliente.php:74`). Recusam a chamada inteira, sem gravar nada, com a mensagem fixa
+"este cliente recebe o envio automático do Push: faça isso pela tela do BlueJus", conferido na proposta e de novo na
+confirmação:
+
+- gravar o e-mail de cliente com envio ligado (`atualizar_cliente`, `completar` e `contato`);
+- `vincular_a_pasta` de cliente com envio ligado (`Pasta::addCliente`, `:725-736`, o torna principal quando a pasta não
+  tem principal; a recusa vale sempre, sem depender disso);
+- `principal` para cliente com envio ligado (`DefinirClientePrincipalUseCase::executar`, `:30`);
+- desvincular o principal quando o cliente que seria promovido tem envio ligado (`Pasta::removeCliente`, `:815-824`,
+  promove o de cadastro mais antigo; `PastaController.php:802-807`);
+- `processos_da_pasta` `vincular` (novo, já cadastrado ou apensado; todos criam `PastaProcesso`, `Pasta.php:618` e `:642`)
+  em pasta cujo principal tem envio ligado;
+- `atualizar_pasta` `situacao` para Ativo e `restaurar` da lixeira, em pasta cujo principal tem envio ligado: a pasta
+  volta a entrar no envio (`pastaLiberada` exige Ativo; a consulta exige `excluidaEm` nulo).
+
+Não estendem: `cadastrar` (cliente novo não tem a linha), `criar` pasta (nasce sem processo) e `duplicar` (copia os
+clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php:30-39`).
 
 **`atualizar_pasta`** (PR 10)
 - Ações e UseCases: `criar` (`CriarPastaUseCase`), `editar_dados` (`EditarPastaUseCase`), `situacao`
@@ -890,6 +935,11 @@ pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma pro
   resumo da proposta traz o número), excluir marcador (`ExcluirMarcadorUseCase`, sai de todas as pastas), tirar marcador da
   pasta (`marcadores_da_pasta` com lista sem ele; tirar vários numa chamada é uma proposta só), remover réu
   (`GerenciarReusDaPastaUseCase`).
+- Gravar por cima, por proposta (abertura da 6.6): `editar_dados` que troca campo preenchido (`EditarPastaUseCase::executar`,
+  `app/src/Pasta/UseCase/EditarPastaUseCase.php:31`), `nome_do_cliente`, `cadastro_da_pasta` que troca campo preenchido e
+  `marcador` editar (o marcador é do escritório: a troca vale em todas as pastas). Preencher campo vazio é direto.
+- Envio automático: `situacao` para Ativo e `restaurar` recusam em pasta cujo cliente principal tem o envio ligado
+  (abertura da 6.6).
 - **Atenção ao contrato no arquivar:** `situacao` com Arquivado passa por
   `DefinirSituacaoDaPastaUseCase::executar` (`app/src/Pasta/UseCase/DefinirSituacaoDaPastaUseCase.php:43`, `:65-66`) e
   `AndamentoDaPasta::finalizarPorArquivamento` (`app/src/Pasta/Service/AndamentoDaPasta.php:192`), que marca Finalizada com
@@ -916,7 +966,8 @@ pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma pro
     recomenda (seção 6, item 13); o resumo diz o que acontece com o contrato;
   - o que a resposta e o resumo dizem do contrato só aparece para quem vê o Financeiro da pasta (6.2.5); para os demais,
     nenhuma palavra sobre o contrato, como na tela;
-  - `nomear_etapa` com texto vazio remove o nome: é exclusão, vai por proposta.
+  - `nomear_etapa` com texto vazio remove o nome, e com texto diferente troca um nome já dado: os dois vão por proposta
+    (abertura da 6.6); dar nome a uma etapa sem nome é direto.
 - Permissão: recurso `pasta` edit; nenhuma aba (as rotas do andamento não estão no `MAPA`); chave `expedientes`.
 
 **`registrar_na_pasta`** (PR 10)
@@ -942,7 +993,9 @@ pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma pro
   (`app/src/Controller/TarefaController.php:201`, rota `tarefa_criar_para_pasta`) e no privado `novaMetaDaPasta` (`:282`), que
   grava pelo `GravarMetaNovaUseCase` (`app/src/Tarefa/UseCase/GravarMetaNovaUseCase.php:39`), registra a análise pelo
   `RegistrarAnaliseDoPrazoNaMetaUseCase` e avisa pelo `NotificacaoService::notificarTarefaCriada` (`:265`).
-- Exclusão por proposta: excluir prazo (`CumprirPrazoDaPastaUseCase` com excluir).
+- Por proposta: excluir prazo (`CumprirPrazoDaPastaUseCase` com excluir) e editar prazo ou audiência que já existe
+  (`salvar_prazo` com id: data, tipo, responsável ou texto trocados; o resumo mostra antes e depois). Criar prazo e
+  cumprir são diretos.
 - Regras: prazo jurídico com data errada causa dano: a resposta repete data, tipo, responsável e que o prazo já aparece na
   Agenda; responsável e meta só para colega ativo do escritório; delegar avisa.
 - Permissão: prazo, recurso `pasta` edit e aba Metas (`tarefas`, `MAPA` `pasta_prazo_*`) e chave `expedientes`; meta, módulo
@@ -969,8 +1022,13 @@ pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma pro
   `checklist_modelo` (salvar como modelo, aplicar, renomear: `SalvarChecklistComoModeloUseCase`,
   `AplicarChecklistModeloUseCase`, `RenomearChecklistModeloUseCase`); listar os modelos de checklist, com UseCase extraído do
   controller (PR 14).
-- Exclusões por proposta: `editar_peca` (gravar por cima), documento e vários documentos para a lixeira
-  (`ExcluirItensDaPastaUseCase`), subpasta
+- Gravar por cima, por proposta (abertura da 6.6): `editar_documento` (`EditarDocumentoDaPastaUseCase::executar`,
+  `app/src/Pasta/UseCase/EditarDocumentoDaPastaUseCase.php:44`), `editar_peca`, `subpasta` renomear, `salvar_modelo`
+  sobre modelo existente (`SalvarModeloDePecaUseCase::executar` com `$existente`,
+  `app/src/Pasta/UseCase/SalvarModeloDePecaUseCase.php:33`; o modelo é do escritório), `checklist_item` editar o texto
+  (`EditarChecklistItemUseCase::executar`, `app/src/Pasta/UseCase/EditarChecklistItemUseCase.php:17`) e `checklist_modelo`
+  renomear. Mover, copiar, reordenar, favoritar, marcar item e salvar modelo novo são diretos.
+- Exclusões por proposta: documento e vários documentos para a lixeira (`ExcluirItensDaPastaUseCase`), subpasta
   (`ExcluirPastaSecaoUseCase`), excluir de vez da lixeira (`ExcluirDeVezDaLixeiraUseCase`, irreversível), item de checklist
   (`ExcluirChecklistItemUseCase`), modelo de checklist (`ExcluirChecklistModeloUseCase`), modelo de peça
   (`ExcluirModeloDePecaUseCase`).
@@ -986,6 +1044,9 @@ pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma pro
   `RegistrarPagamentoDaPastaUseCase`, `RegistrarParcelamentoDaPastaUseCase`, `AlternarQuitacaoDoPagamentoUseCase`,
   `CorrigirValorDoPagamentoUseCase`), `documento_assinado` (marcar ou desmarcar: `AlterarAssinaturaDoDocumentoUseCase`) e
   `renomear_documento` (regra no controller, UseCase extraído no PR 14).
+- Gravar por cima, por proposta (abertura da 6.6): `valor_da_causa` já preenchido e corrigir o valor de um pagamento
+  (`CorrigirValorDoPagamentoUseCase`). Registrar, parcelar, marcar recebido, contrato, pro bono e documento assinado são
+  diretos.
 - Exclusões por proposta: excluir pagamento (`ExcluirPagamentoDaPastaUseCase`, irreversível) e documento do Financeiro para a
   lixeira (`ExcluirItensDaPastaUseCase`).
 - Permissão: recurso `pasta` edit; aba Financeiro; chave `expedientes`.
@@ -1012,17 +1073,19 @@ pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma pro
 - Duplicidade: `CamposDoCadastro::aplicar` recusa CPF ou CNPJ que já é de outro cadastro do escritório
   (`DocumentoJaCadastradoException`). Na proposta, o servidor confere cada item antes e tira da lista, com o motivo e o nome
   do cadastro existente, o que já está cadastrado; na confirmação, confere de novo (6.7).
-- **E-mail de cliente com envio automático: recusa, sem exceção.** O e-mail do cadastro aparece como principal na lista de
-  avisos do cliente até a primeira mudança (inventário 0.C); se o escritório já ligou o envio automático para aquele
-  cliente, gravar o e-mail faria os avisos do Push irem para ele, e o conector não manda nada ao cliente (14.h). Por isso
-  `completar` e `contato` com o campo `email` (`CamposDoCadastro::ROTULOS`, `AtualizarContatoDoClienteUseCase::CAMPO_EMAIL`)
-  conferem antes a linha do cliente (`EnvioAutomaticoDoClienteRepository::doClienteDoTenant`,
-  `app/src/Cliente/Repository/EnvioAutomaticoDoClienteRepository.php:37`) e, com qualquer chave ligada
-  (`EnvioAutomaticoDoCliente::ligada`, `app/src/Cliente/Entity/EnvioAutomaticoDoCliente.php:74`, para cada
-  `ChaveDoEnvioAutomatico`), recusam a chamada inteira, sem gravar nada, com a mensagem fixa "este cliente recebe o envio
-  automático do Push: o e-mail dele só muda pela tela do BlueJus". Na troca por proposta, a confirmação confere de novo
-  (6.7, item 4). Sem linha, ou com as três chaves desligadas (o padrão, `ChaveDoEnvioAutomatico::PADRAO`), grava como a
-  tela. `cadastrar` não é afetado: cliente novo não tem a linha.
+- **Envio automático: recusa, sem exceção** (regra comum na abertura da 6.6, com as referências ao código). O e-mail do
+  cadastro aparece como principal na lista de avisos do cliente até a primeira mudança (inventário 0.C); se o escritório
+  já ligou o envio automático para aquele cliente, gravar o e-mail faria os avisos do Push irem para ele. Por isso, para
+  cliente com o envio ligado, recusam a chamada inteira, sem gravar nada, com a mensagem fixa da regra comum:
+  - `completar` e `contato` com o campo `email` (`CamposDoCadastro::ROTULOS`, `AtualizarContatoDoClienteUseCase::CAMPO_EMAIL`);
+  - `vincular_a_pasta` desse cliente (pode virar principal, `Pasta::addCliente`);
+  - `principal` para esse cliente (`DefinirClientePrincipalUseCase`);
+  - desvincular o principal de uma pasta quando o cliente que seria promovido em seu lugar tem o envio ligado
+    (`Pasta::removeCliente`).
+
+  A proposta já recusa, e a confirmação confere de novo (6.7, item 4), porque a chave pode ser ligada nesse meio tempo.
+  Sem linha, ou com as três chaves desligadas (o padrão, `ChaveDoEnvioAutomatico::PADRAO`), grava como a tela.
+  `cadastrar` não é afetado: cliente novo não tem a linha.
 - Permissão: com pasta, recurso `pasta` edit; completar e contato, recurso `cliente` edit; sem pasta,
   `resources.carteira.gerenciar`. Pasta na lixeira recusa.
 - Saída: ids e nomes criados ou alterados, e os nomes dos campos mudados, nunca os valores (o Registro e o Histórico do
@@ -1034,6 +1097,11 @@ pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma pro
   segredo**: a entrada não o aceita, e o conector nunca liga nem desliga segredo), `acao_da_pasta` (`EditarAcaoDaPastaUseCase`),
   `via_administrativa` (`DefinirPastaAdministrativaUseCase`; troca a trilha do andamento) e `nota_tecnica` (criar e editar:
   `CriarNotaTecnicaUseCase`, `EditarNotaTecnicaUseCase`; menção avisa).
+- Gravar por cima, por proposta (abertura da 6.6): `dados_do_cartao` que troca campo preenchido, `acao_da_pasta` já
+  preenchida e `nota_tecnica` editar (`EditarNotaTecnicaUseCase`). Criar nota técnica é direto.
+- Envio automático: `vincular` (novo, já cadastrado, `VincularProcessoUseCase::executar`,
+  `app/src/Pasta/UseCase/VincularProcessoUseCase.php:67`, ou apensado) recusa em pasta cujo cliente principal tem o envio
+  ligado: as publicações do processo passariam a ir para ele (abertura da 6.6).
 - Exclusões por proposta: desvincular processo (`DesvincularProcessoUseCase`; o processo continua existindo), excluir nota
   técnica (`ExcluirNotaTecnicaUseCase`) e excluir processo (`processo_delete`, regra no controller: UseCase extraído no PR 14).
 - Permissão: recurso `pasta` edit e aba Processo, como a tela (`MAPA`, `:72-78`); nota técnica e excluir processo, recurso
@@ -1044,7 +1112,8 @@ pasta tem. Lote (vários documentos, vários marcadores numa chamada) é uma pro
   `SalvarCompromissoUseCase::executar(CompromissoInput, ?int, User, Tenant, bool)`, `:45`), `mover` (`MoverCompromissoUseCase`,
   `:29`), `status` (concluir, cancelar, reabrir: `AlterarStatusDoCompromissoUseCase`, `:35`; cancelar avisa os participantes)
   e `avisar` (`AvisarNoChatUseCase`, `AvisarPrazoNoChatUseCase`: avisos do sino a colegas pelo `AvisoDoCompromisso`).
-- Exclusão por proposta: `ExcluirCompromissoUseCase` (`:27`).
+- Por proposta: `ExcluirCompromissoUseCase` (`:27`) e, por gravar por cima (abertura da 6.6), `salvar` que edita
+  compromisso existente e `mover` (troca a data). Criar compromisso e mudar o status são diretos.
 - Teto (6.3): editar, mover, mudar status e excluir só de compromisso que a pessoa criou, conferido pela ferramenta.
 - **Google Agenda:** o `MudancaNaAgendaParaOGoogleListener` (`app/src/Agenda/EventListener/MudancaNaAgendaParaOGoogleListener.php`)
   sincroniza, depois do flush, a agenda Google de quem criou e dos participantes **que conectaram a própria conta**. É efeito
@@ -1099,9 +1168,11 @@ chave desliga. A conferência fica num lugar só, e o teste 12.9 percorre a tabe
 ### 6.7 Confirmação: cadastrar cliente e qualquer exclusão (decisão de 08/11/2026)
 
 **O que exige confirmação da pessoa no próprio chat:** cadastrar cliente (um ou uma lista) e **toda exclusão** (definição na
-abertura da 6.6), inclusive gravar por cima: `editar_peca` (`documentos_e_pecas`), `editar` em `registrar_na_pasta` e a
-lista de `marcadores_da_pasta` que tira um marcador (`atualizar_pasta`). Por regra desta spec, também voltar fase e
-reativar pasta (`mudar_andamento`), porque mexem no contrato.
+abertura da 6.6), inclusive **gravar por cima**, que é regra geral: substituir um valor que já existe vai por proposta, em
+qualquer ferramenta; preencher campo vazio, acrescentar e marcar ou desmarcar um item são diretos. A lista de ações
+cobertas, ferramenta por ferramenta, está na abertura da 6.6. Por regra desta spec, também voltar fase e reativar pasta
+(`mudar_andamento`), porque mexem no contrato. Lote, ou uma chamada que mistura campo vazio e troca, é uma proposta e uma
+confirmação (item 5).
 
 **O que as fontes oficiais dizem** (lidas em 09/11/2026; as páginas da especificação e do claude.com não mostram data):
 
@@ -1322,7 +1393,8 @@ extrair UseCase e dizer isso no PR.
    revoga consentimentos e tokens.
 10. **Injeção indireta pelo conteúdo**: 6.7.
 11. **Teto**: nenhuma função de administrador pelo conector, nem para Master e primário (6.3).
-12. **Confirmação**: cadastro de cliente e toda exclusão (gravar por cima inclusive) só com uma confirmação presa à
+12. **Confirmação**: cadastro de cliente e toda exclusão, inclusive gravar por cima (substituir um valor que já existe,
+    regra geral da 6.6; preencher vazio, acrescentar e marcar ou desmarcar são diretos), só com uma confirmação presa à
     proposta, conferida de novo no servidor; o servidor não confia nas anotações para isso, mas não prova que uma pessoa
     leu: com "Permitir sempre" ou "lembrar", o modelo pode confirmar sozinho (6.7, limite; 14.g).
 
@@ -1332,9 +1404,9 @@ extrair UseCase e dizer isso no PR.
 
 - `consultar_sql` remoto (6.1); a v1 STDIO/SSH continua, só para o dono.
 - Funções de administrador dos quatro módulos (6.1), garantidas pelo teto (6.3).
-- Ponto eletrônico, Cobrança, a BlueJus I.A. dentro da pasta, todo envio ao cliente ou a terceiro (inclusive gravar o
-  e-mail de cliente com envio automático ligado), o encaminhar pela Central, o Push além de ler as publicações e Minhas
-  Metas além de criar meta para a pasta e de ler a lista (14.h, 14.i).
+- Ponto eletrônico, Cobrança, a BlueJus I.A. dentro da pasta, todo envio ao cliente ou a terceiro (inclusive todo caminho
+  que estende o envio automático a um cliente que o tem ligado, 6.6), o encaminhar pela Central,
+  o Push além de ler as publicações e Minhas Metas além de criar meta para a pasta e de ler a lista (14.h, 14.i).
 - Enviar arquivo e baixar arquivo binário (6.1; decisão 14.j).
 - Áudio e vídeo (14.f).
 - Gemini (app, Enterprise, CLI e Antigravity) e a publicação nos diretórios do Claude e do ChatGPT, no piloto (14.d).
@@ -1442,12 +1514,17 @@ erradas do plano, todas invisíveis à leitura):
     sem processo pedido pelo conector continua avisando os outros primários; uma requisição do navegador depois de uma do
     conector, no mesmo processo, tem os bypasses de volta.
 20. **Confirmação** (6.7): cada ação marcada como exclusão, o cadastro e voltar ou reativar a fase devolvem proposta e não
-    gravam nada (teste que percorre a lista de ações), inclusive gravar por cima: `editar_peca` não muda o arquivo nem o
-    `sha256` antes da confirmação, `registrar_na_pasta` `editar` não muda o texto, e `marcadores_da_pasta` com lista que tira
-    um marcador vira proposta (lista que só acrescenta executa direto; tirar vários é uma proposta e uma confirmação); a
-    proposta é recusada vencida, já usada, de outra pessoa, de outro escritório, de outro cliente OAuth, de consentimento
-    revogado e com resumo diferente; duas confirmações ao mesmo tempo
-    gravam uma vez; na confirmação, permissão retirada, aba ocultada ou pasta excluída nesse meio tempo recusam; com
+    gravam nada (teste que percorre a lista de ações), inclusive **gravar por cima**, com cada ação da lista da abertura da
+    6.6 (`editar_dados`, `nome_do_cliente`, `cadastro_da_pasta`, `marcador` editar, `marcadores_da_pasta` que tira um
+    marcador, `nomear_etapa` que troca o nome, `registrar_na_pasta` `editar`, `salvar_prazo` que edita, `editar_documento`,
+    `editar_peca`, `subpasta` renomear, `salvar_modelo` sobre modelo existente, `checklist_item` editar, `checklist_modelo`
+    renomear, `valor_da_causa`, corrigir valor de pagamento, `completar` e `contato` que trocam, `dados_do_cartao`,
+    `acao_da_pasta`, `nota_tecnica` editar, `salvar` de compromisso existente e `mover`): antes da confirmação nada muda
+    (`editar_peca` não muda o arquivo nem o `sha256`); a mesma ação sobre campo vazio, acrescentar e marcar ou desmarcar
+    executam direto; uma chamada que mistura campo vazio e troca vira uma proposta só, e um lote, uma proposta e uma
+    confirmação; a proposta é recusada vencida, já usada, de outra pessoa, de outro escritório, de outro cliente OAuth, de
+    consentimento revogado e com resumo diferente; duas confirmações ao mesmo tempo gravam uma vez;
+    na confirmação, permissão retirada, aba ocultada ou pasta excluída nesse meio tempo recusam; com
     elicitation, `accept` com "Confirmo" executa e `decline`, `cancel` e tempo esgotado não executam; sem a capacidade
     declarada, o servidor nunca manda `elicitation/create`; depois de decidida ou vencida, a proposta não guarda dados.
 21. **Esteira** (6.6, `mudar_andamento`): fase pelo nome e pelo número, nas duas vias; avançar até Contrato marca o contrato
@@ -1458,10 +1535,12 @@ erradas do plano, todas invisíveis à leitura):
 22. **Cadastro em lote** (6.6, `atualizar_cliente`): 1 a 50 itens, 51 recusado; CPF ou CNPJ já cadastrado, ou repetido
     dentro da própria lista, sai da proposta com o motivo; CPF que vira repetido entre a proposta e a confirmação dá resultado
     parcial, item por item; sem pasta exige `resources.carteira.gerenciar`; `completar` não troca valor existente sem
-    proposta; a resposta traz nomes de campo, nunca valores. **E-mail e envio automático:** `completar` e `contato` com
-    `email` de cliente com qualquer chave do envio automático ligada recusam a chamada inteira com a mensagem fixa e não
-    gravam nada; com a linha ausente ou as três chaves desligadas, gravam; a chave ligada entre a proposta de troca e a
-    confirmação recusa na confirmação.
+    proposta; a resposta traz nomes de campo, nunca valores. **Envio automático** (abertura da 6.6), com cliente que tem
+    qualquer chave ligada: `completar` e `contato` com `email`, `vincular_a_pasta`, `principal`, desvincular o principal
+    quando ele seria o promovido, `processos_da_pasta` `vincular` (novo, já cadastrado e apensado) em pasta cujo principal
+    o tem ligado e `atualizar_pasta` `situacao` para Ativo e `restaurar` dessa pasta: cada um recusa a chamada inteira com
+    a mensagem fixa e não grava nada; com a linha ausente ou as três chaves desligadas, todos gravam; a chave ligada entre a
+    proposta e a confirmação recusa na confirmação; `cadastrar`, `criar` e `duplicar` não são afetados.
 23. **Publicações**: ler a lista e o texto não muda o `lida` de nenhuma publicação; publicação de processo de outra pasta é
     recusada; aba Push oculta recusa.
 24. **Liberação** (14.a): chave geral desligada, escritório não liberado pelo Master, conector não ligado no escritório ou
@@ -1497,24 +1576,25 @@ revisão.
 | 7c | `conector-leitura-formatos` | XLSX, XLS, ODS, PPTX, ODP, EML, ZIP, `.p7s`, TIFF e HEIC (6.5); a extensão de imagem nova é arquivo quente e passo de deploy | 7b | MÉDIO | 2,5 dias |
 | 8 | `conector-telas` | Pela convenção do sistema (14.e): "Conexões de I.A." no Meu Perfil (listar e revogar); liberar por escritório na aba "Configurações da I.A." do Master; ligar e dar o aceite do conector, para o administrador do escritório | 2, 3 | MÉDIO | 2,5 dias |
 | 9 | `conector-confirmacao` | Proposta (`conector_ia_proposta`), `confirmar_acao`, elicitation pelo `ClientGateway::elicit`, `_meta` de interação, escopo `mcp:escrita`, varredura das vencidas (6.7) | 5 | ALTO, com re-revisão | 2,5 dias |
-| 10 | `conector-escrita-pasta` | `atualizar_pasta`, `mudar_andamento`, `registrar_na_pasta`, `prazos_e_metas_da_pasta` (com o `CriarMetaUseCase` extraído do `TarefaController`) | 6, 9 | ALTO | 4 dias |
-| 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO | 4 dias |
-| 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO | 3,5 dias |
-| 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO | 3,5 dias |
+| 10 | `conector-escrita-pasta` | `atualizar_pasta`, `mudar_andamento`, `registrar_na_pasta`, `prazos_e_metas_da_pasta` (com o `CriarMetaUseCase` extraído do `TarefaController`) | 6, 9 | ALTO | 4,5 dias |
+| 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO | 4,5 dias |
+| 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO | 4 dias |
+| 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO | 4 dias |
 | 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist | 11, 12, 13 | MÉDIO | 3 dias |
 | 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir"), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 | BAIXO | 1,5 dia |
 
-**Total: cerca de 49,5 dias de trabalho** de uma sessão (o meio dia a mais é a leitura de Minhas Metas no PR 6, 14.i). Com
-sessões em paralelo:
+**Total: cerca de 51,5 dias de trabalho** de uma sessão (meio dia no PR 6 pela leitura de Minhas Metas, 14.i, e meio dia
+em cada um dos PRs 10 a 13 pela regra geral de gravar por cima e pelos caminhos do envio automático, 6.6). Com sessões em
+paralelo:
 
 - **Caminho crítico até a abertura: 1 → 3 → 5 → 6 → 7 → 7b → 7c → 15, cerca de 23 dias.** O PR 2 corre ao lado do 1; o 4
-  e o 8 ao lado do 5; o 9 ao lado do 6; os PRs 10 a 13 terminam até o dia 20,5. O PR 14 termina perto do dia 23,5 e não
+  e o 8 ao lado do 5; o 9 ao lado do 6; os PRs 10 a 13 terminam até o dia 21. O PR 14 termina perto do dia 24 e não
   segura a abertura: **a abertura do piloto sai sem o PR 14**, ou seja, sem excluir cliente, excluir processo e os
   documentos do cliente (lista e exclusão), nem o resto da linha 14 da tabela; essas ações entram depois, quando o PR 14
   for integrado.
 - **Piloto com os três pedidos do Samuel** (A: pasta e esteira; B: documentos; C: cliente), no escritório do Farlei: depois
-  dos PRs 1 a 7b, 8, 9, 10 e 11 (sem o PR 14), **cerca de 19 dias** (A e C perto do dia 17,5; B com PDF e imagem no dia 17
-  e com Word e peça do editor no dia 19). Com uma sessão só, o mesmo piloto leva cerca de 35,5 dias.
+  dos PRs 1 a 7b, 8, 9, 10 e 11 (sem o PR 14), **cerca de 19 dias** (A e C perto do dia 18; B com PDF e imagem no dia 17
+  e com Word e peça do editor no dia 19). Com uma sessão só, o mesmo piloto leva cerca de 36,5 dias.
 - A versão de 08/11 somava 28 dias e 18 de caminho crítico. A diferença é o escopo novo (14.b): de 17 ferramentas de uma
   ação cada para as 187 ações do usuário comum nos quatro módulos, menos as que a 6.1 deixa fora; mais a confirmação (PR 9),
   o teto (PR 1), a liberação (PRs 3, 5 e 8) e os tipos de documento (PRs 7b e 7c).
@@ -1653,8 +1733,10 @@ absoluta.
   encaminhar pela Central; a Cobrança. O resto do Push que a seção 1.13 lista (marcar lida, monitoramento, buscar agora,
   "Avisar quando chegar", vincular publicação) não foi posto dentro e fica fora.
 - **A mesma regra vale para qualquer ação dos quatro módulos que mande algo ao cliente ou a terceiro** (ex.: escolher os
-  avisos por e-mail do cliente), **sem exceção para o Push automático**: `atualizar_cliente` recusa gravar o e-mail de
-  cliente que já tem o envio automático ligado, e a resposta diz para fazer pela tela (6.6). A **única exceção** é o Google
+  avisos por e-mail do cliente), **sem exceção para o Push automático**: todo caminho que estende o envio automático a um
+  cliente que já o tem ligado recusa e a resposta diz para fazer pela tela (lista e código na abertura da 6.6): gravar o
+  e-mail dele, `vincular_a_pasta`, `principal`, desvincular o principal quando ele seria promovido, `vincular` processo em
+  pasta cujo principal o tem ligado, e reativar ou restaurar essa pasta. A **única exceção** é o Google
   Agenda: compromisso gravado vai para a agenda Google de quem criou e dos participantes que ligaram a conta, que são da
   equipe (`gravar_na_agenda`), e a resposta da ferramenta avisa.
 
