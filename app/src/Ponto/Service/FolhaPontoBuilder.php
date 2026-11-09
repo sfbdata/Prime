@@ -23,6 +23,7 @@ class FolhaPontoBuilder
         private readonly JustificativaPontoRepository $justificativaPontoRepository,
         private readonly LancamentoHorasPagasRepository $lancamentoHorasPagasRepository,
         private readonly JornadaColaboradorRepository $jornadaColaboradorRepository,
+        private readonly FeriadosDaPessoa $feriadosDaPessoa,
     ) {}
 
     /**
@@ -78,6 +79,8 @@ class FolhaPontoBuilder
         $rows = [];
         $saldoAcumulado = null;
         $hoje = $hoje?->setTime(0, 0) ?? new \DateTimeImmutable('today');
+        $feriadosDaPessoa = null;   // os que valem para a pessoa da jornada (abrangência por lotação, E6)
+
         $inicioContagemNorm = $inicioContagem !== null
             ? \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0)
             : null;
@@ -137,7 +140,8 @@ class FolhaPontoBuilder
 
             $jornadaDoDia = $historico?->vigenteEm($dia);
             if ($jornadaDoDia !== null) {
-                $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriados);
+                $feriadosDaPessoa ??= $this->feriadosDaPessoa->filtrar($feriados, $jornadaDoDia->getUser());
+                $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriadosDaPessoa);
                 if ($diaFuturo || $diaForaDaContagem) {
                     // Dia futuro ou anterior ao primeiro registro: não exibe saldo nem soma no banco
                     $row['minutosTrabalhadosDia'] = null;
@@ -173,7 +177,7 @@ class FolhaPontoBuilder
                         $row['saldoAcumuladoAteOntem'] = $saldoAcumulado;   // null sem dia apurado antes (dia 1º)
                     } else {
                         $minutos = $this->calculadora->calcularMinutosDaEscolha($escolha);
-                        $saldoDia = $this->calculadora->calcularSaldoDiaDaEscolha($jornadaDoDia->getUser(), $dia, $escolha, $jornadaDoDia, $feriados, $jornadaTenant);
+                        $saldoDia = $this->calculadora->calcularSaldoDiaDaEscolha($jornadaDoDia->getUser(), $dia, $escolha, $jornadaDoDia, $feriadosDaPessoa, $jornadaTenant);
 
                         $registroIncompleto = $this->calculadora->registroIncompletoDaEscolha($escolha);
 

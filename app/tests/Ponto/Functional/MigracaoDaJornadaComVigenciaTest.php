@@ -24,6 +24,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
+use App\Ponto\Service\FeriadosDaPessoa;
 
 /**
  * A migration `Version20261107100000` (spec `docs/specs/ponto-jornada-vigencia.md` §4) não muda a folha de ninguém.
@@ -193,6 +194,7 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
             $this->servico(JustificativaPontoRepository::class),
             $this->servico(LancamentoHorasPagasRepository::class),
             $jornadas,
+            $this->servico(FeriadosDaPessoa::class),
         );
     }
 

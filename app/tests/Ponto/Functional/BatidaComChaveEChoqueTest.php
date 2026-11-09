@@ -26,6 +26,7 @@ use App\Tests\Ponto\Support\CenarioDeJornadaPorEscritorioTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use App\Ponto\Service\FeriadosDaPessoa;
 
 /**
  * A batida com a chave do ponto e o choque de horário (spec `docs/specs/seguranca-b-jornada.md` §4, regras 2 e 3): em
@@ -309,6 +310,7 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
             $c->get(JustificativaPontoRepository::class),
             $c->get(LancamentoHorasPagasRepository::class),
             $c->get(JornadaColaboradorRepository::class),
+            $c->get(FeriadosDaPessoa::class),
         );
         $linhas = $folha->buildRows(
             $hoje,

@@ -19,6 +19,8 @@ use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use App\Ponto\Service\FeriadosDaPessoa;
+use App\Repository\UserTenantRepository;
 
 /**
  * Spec `docs/specs/ponto-jornada-vigencia.md` §3.2: a folha cobra de cada dia a jornada que valia nele. O caso é o do
@@ -40,6 +42,7 @@ final class FolhaComVersoesDaJornadaTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
             $this->createStub(JornadaColaboradorRepository::class),
+            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
         );
         $this->pessoa = (new User())->setEmail('samuel@teste.com')->setFullName('Samuel');
     }
