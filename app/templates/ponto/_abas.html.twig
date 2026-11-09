@@ -6,28 +6,60 @@
     endereço (`?aba=justificativas`): a busca da tela depois da batida e a troca do mês voltam na mesma aba. O painel das
     pendências e a aba dele (o número) são regiões trocadas depois da batida (REGIOES_TROCADAS no index).
 
-    Recebe: pendencias, justificativas, abaAberta ('pendencias' ou 'justificativas'), podeAnalisarAPropria e
-    competenciaSelecionada (a volta da exclusão reabre a aba no mesmo mês).
+    Abas de gestão (desenho L757 e L758; P58: quem gere pelo perfil continua vendo, `GestaoDoPonto`): "Equipe" (E5) e
+    "Configurações" (E6 em diante). O painel delas vem vazio e é buscado na primeira vez que a aba abre
+    (js/ponto-paineis.js, `data-carregar`): a Equipe calcula o saldo de cada pessoa, e a /ponto é buscada de novo
+    depois de cada batida. Sem permissão, a aba não aparece e o endereço `?aba=equipe` cai em Pendências.
+
+    Recebe: pendencias, justificativas, abaAberta ('pendencias', 'justificativas', 'equipe' ou 'configuracoes'),
+    podeAnalisarAPropria, competenciaSelecionada (a volta da exclusão reabre a aba no mesmo mês) e, das abas de gestão,
+    veEquipe, veConfiguracoes e equipeAAnalisar (o número da aba Equipe).
 #}
-{% set naJustificativas = abaAberta == 'justificativas' %}
+{% set veEquipe = veEquipe|default(false) %}
+{% set veConfiguracoes = veConfiguracoes|default(false) %}
+{% set aberta = abaAberta %}
+{% if (aberta == 'equipe' and not veEquipe) or (aberta == 'configuracoes' and not veConfiguracoes) %}
+    {% set aberta = 'pendencias' %}
+{% endif %}
 <section class="pe-abas" data-screen-label="Registros e comprovantes"
          data-url-volta="{{ path('ponto_index', {competencia: competenciaSelecionada, aba: 'justificativas'}) }}">
     <div class="pe-abas-barra" role="tablist" aria-label="Registros e comprovantes">
         <button type="button" role="tab" class="pe-aba" id="ponto-aba-pendencias" data-aba="pendencias"
-                aria-controls="ponto-regiao-pendencias" aria-selected="{{ naJustificativas ? 'false' : 'true' }}" tabindex="{{ naJustificativas ? '-1' : '0' }}">
+                aria-controls="ponto-regiao-pendencias" aria-selected="{{ aberta == 'pendencias' ? 'true' : 'false' }}" tabindex="{{ aberta == 'pendencias' ? '0' : '-1' }}">
             <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Pendências
             {%- if pendencias|length > 0 %}<span class="pe-aba-num pe-aba-num--pend">{{ pendencias|length }}</span>{% endif -%}
         </button>
         <button type="button" role="tab" class="pe-aba" id="ponto-aba-justificativas" data-aba="justificativas"
-                aria-controls="ponto-painel-justificativas" aria-selected="{{ naJustificativas ? 'true' : 'false' }}" tabindex="{{ naJustificativas ? '0' : '-1' }}">
+                aria-controls="ponto-painel-justificativas" aria-selected="{{ aberta == 'justificativas' ? 'true' : 'false' }}" tabindex="{{ aberta == 'justificativas' ? '0' : '-1' }}">
             <i class="bi bi-calendar-check" aria-hidden="true"></i>Minhas Justificativas
             {%- if justificativas|length > 0 %}<span class="pe-aba-num">{{ justificativas|length }}</span>{% endif -%}
         </button>
+        {% if veEquipe %}
+            <button type="button" role="tab" class="pe-aba" id="ponto-aba-equipe" data-aba="equipe"
+                    aria-controls="ponto-painel-equipe" aria-selected="{{ aberta == 'equipe' ? 'true' : 'false' }}" tabindex="{{ aberta == 'equipe' ? '0' : '-1' }}">
+                <i class="bi bi-people" aria-hidden="true"></i>Equipe
+                {%- if equipeAAnalisar|default(0) > 0 %}<span class="pe-aba-num pe-aba-num--pend">{{ equipeAAnalisar }}</span>{% endif -%}
+            </button>
+        {% endif %}
+        {% if veConfiguracoes %}
+            <button type="button" role="tab" class="pe-aba" id="ponto-aba-configuracoes" data-aba="configuracoes"
+                    aria-controls="ponto-painel-configuracoes" aria-selected="{{ aberta == 'configuracoes' ? 'true' : 'false' }}" tabindex="{{ aberta == 'configuracoes' ? '0' : '-1' }}">
+                <i class="bi bi-sliders" aria-hidden="true"></i>Configurações
+            </button>
+        {% endif %}
     </div>
-    <div class="pe-abas-painel" role="tabpanel" id="ponto-regiao-pendencias" aria-labelledby="ponto-aba-pendencias"{{ naJustificativas ? ' hidden' }}>
+    <div class="pe-abas-painel" role="tabpanel" id="ponto-regiao-pendencias" aria-labelledby="ponto-aba-pendencias"{{ aberta == 'pendencias' ? '' : ' hidden' }}>
         {% include 'ponto/_abas_pendencias.html.twig' with {pendencias: pendencias} only %}
     </div>
-    <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-justificativas" aria-labelledby="ponto-aba-justificativas"{{ naJustificativas ? '' : ' hidden' }}>
+    <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-justificativas" aria-labelledby="ponto-aba-justificativas"{{ aberta == 'justificativas' ? '' : ' hidden' }}>
         {% include 'ponto/_abas_justificativas.html.twig' with {justificativas: justificativas, podeAnalisarAPropria: podeAnalisarAPropria} only %}
     </div>
+    {% if veEquipe %}
+        <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-equipe" aria-labelledby="ponto-aba-equipe"
+             data-carregar="{{ path('ponto_equipe') }}"{{ aberta == 'equipe' ? '' : ' hidden' }}></div>
+    {% endif %}
+    {% if veConfiguracoes %}
+        <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-configuracoes" aria-labelledby="ponto-aba-configuracoes"
+             data-carregar="{{ path('ponto_configuracoes') }}"{{ aberta == 'configuracoes' ? '' : ' hidden' }}></div>
+    {% endif %}
 </section>
