@@ -269,6 +269,25 @@
 .pe-aviso-link { margin-left: 4px; font-weight: bold; color: inherit; text-decoration: underline; }
 .pe-page a.pe-aviso-link:not(.btn) { color: inherit; }
 
+/* Fila sem internet (L127, E14): borda #9fc3d8 com a faixa esquerda #0a6fa0, fundo #e5f1f7, texto #0b4f75 e o
+   `bi-wifi-off` de 15px. Some com a fila vazia (`d-none`). A segunda linha (guardadas em outro escritório) não está no
+   desenho: decisão do Coordenador, no mesmo molde. */
+.pe-fila {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 11px;
+    border: 1px solid var(--pe-info-bd);
+    border-left: 4px solid var(--pe-azul);
+    border-radius: 3px;
+    background: var(--pe-info-bg);
+    color: var(--pe-info-cor);
+    font-size: 12.5px;
+}
+.pe-fila > .bi { font-size: 15px; }
+.pe-fila-texto { flex: 1; min-width: 0; }
+.pe-fila-linha { display: block; }
+
 /* Última pendência (L128). */
 .pe-pendencia {
     display: flex;
