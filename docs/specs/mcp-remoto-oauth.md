@@ -1,10 +1,13 @@
 # Conector de I.A. (MCP remoto com OAuth 2.1) para todos os escritórios
 
 **Data:** 11/08/2026 (desenho original). **Revisão:** 08/11/2026, conferida contra o master `a53a77b1c` (v2.42.0).
+**Escopo e decisões do dono:** 09/11/2026, conferidos contra o master `940e82dfd`, com o inventário
+`bluejus-coordenacao/conector-inventario-tudo.md`.
 **Risco:** **ALTO**. Mexe em identidade (`User`/`Tenant`) e abre um caminho novo de acesso aos dados de todos os
 escritórios, fora do navegador. Pelo ciclo do projeto: spec (este documento), revisão contra a spec e **re-revisão antes de
 seguir** em cada PR de identidade.
-**Status:** desenho revisado em 08/11/2026, não implementado. Não existe código, tabela nem migration desta feature.
+**Status:** pronto para o PR 1 de código (09/11/2026); decisões do dono na seção 14. Não existe código, tabela nem
+migration desta feature.
 
 **Predecessor:** [MCP de investigação em produção (v1)](../superpowers/specs/2026-08-10-mcp-investigacao-prod-design.md),
 em produção; a seção 10 dele previa esta etapa.
@@ -12,30 +15,32 @@ em produção; a seção 10 dele previa esta etapa.
 (D9 "token pessoal por usuário" e Fase 4 "conector MCP": esta spec é o caminho delas), `ia-anthropic-ligar.md`,
 `inteligencia-provedor-anthropic.md`, `pasta-cadeado.md`, `docs/AUTORIZACAO.md`.
 
-Arquivo:linha citados foram conferidos em 08/11/2026 no commit acima. Páginas da web foram lidas em 07 e 08/11/2026; quando
-a página mostra data, ela vem ao lado do link.
+Arquivo:linha citados foram conferidos em 08/11/2026 no commit `a53a77b1c` e, nas seções 6 e 13, em 09/11/2026 no
+`940e82dfd`. Páginas da web foram lidas em 07, 08 e 09/11/2026; quando a página mostra data, ela vem ao lado do link.
 
 ---
 
 ## 0. O que mudou de 11/08 para cá
 
-| Ponto | Em 11/08/2026 | Em 08/11/2026 |
+| Ponto | Em 11/08/2026 | Em 08 e 09/11/2026 |
 |---|---|---|
-| Objetivo | ler e operar o que a conta permite | o mesmo, com o foco do Samuel: ler documentos e dados, automatizar rotinas, **criar peças e minutas**, acompanhar prazos (seção 2) |
+| Objetivo | ler e operar o que a conta permite | **tudo o que a pessoa faz em Pastas, Agenda, Clientes e Processos, menos funções de administrador**, com três pedidos à frente: pasta e esteira, documentos, cadastro de cliente (seção 2, 14.b) |
 | `TenantFilter` | falha aberto | **continua** falhando aberto; há três listeners de tenant no `kernel.request` e nenhuma trava fail-closed (4.1) |
 | Tenant explícito sem sessão | não existia | é o padrão do worker da I.A., do Chat I.A e do Agente de Pastas; o Agente foi escrito pensando neste conector (4.2) |
 | `PermissionChecker` | 4 métodos | 8 públicos, cache por vínculo e cadeado da pasta; `canActOnResource` saiu em 30/06; `resources.*` está vivo (5) |
 | Guardas em listener HTTP | não citadas | cadeado, aba oculta, pasta excluída, recurso desligado pelo Master e barreiras do escritório: o conector pula todas e tem de refazer (5.2) |
-| Ferramentas | 5 de leitura e 3 de escrita, desenhadas sem base | 12 de leitura e 5 de escrita, quase todas sobre UseCase que já existe (6) |
+| Ferramentas | 5 de leitura e 3 de escrita, desenhadas sem base | **17** (7 de leitura, 9 de gravação, 1 de confirmação) sobre as 187 ações do inventário, com teto próprio contra o bypass do Master e do primário (6, 6.3) |
+| Exclusão e cadastro | escrita direta | só depois que a pessoa confirma no chat: proposta com validade curta e uso único, conferida de novo no servidor (6.7) |
+| Documentos | PDF e imagem | todos os tipos da aba Documentos, menos áudio e vídeo (6.5) |
 | Cliente e Processo | "legado sem UseCase" | `Processo` está no domínio; Cliente tem 8 UseCases; Tarefa continua legado (7) |
 | nginx | "chega ao Symfony sem mudança" | **errado já em agosto**: o `location ~ /\. { deny all; }` do HTTPS barra `/.well-known/oauth-*` (3.3) |
 | `mcp/sdk` | 0.7.0 | 0.7.1 instalada; o DCR por delegação existe desde a 0.5.0 (`CHANGELOG.md`, "Add OAuth 2.0 Dynamic Client Registration middleware"), e a versão instalada também tem elicitation do lado do servidor e anotações `readOnlyHint`; continua sem servidor de autorização (3.1) |
 | `symfony/mcp-bundle` como servidor de autorização | proposta aberta | PR fechado sem merge em 12/07/2026; segue o `league` (3.2) |
 | `league/oauth2-server-bundle` | "testado até Symfony 8.0" | v2.0.0 (out/2026) pede Symfony `^7.4` ou `^8.1` e PHP `^8.2`: serve (3.2) |
 | Especificação MCP | 2025-06-18, DCR recomendado | a atual é **2026-07-28**: CIMD é o preferido, DCR está **deprecated**, protocolo sem estado (3.4, 3.5) |
-| Clientes | só o Claude em mente | Claude, ChatGPT e Gemini pesquisados; cada um aceita um jeito de registro (3.4) |
+| Clientes | só o Claude em mente | Claude, ChatGPT e Gemini pesquisados; cada um aceita um jeito de registro (3.4); o piloto atende Claude e ChatGPT (14.d) |
 | Auditoria | "usar o domínio Auditoria" | o `AuditLogSubscriber` tira o escritório da sessão: com bearer, grava sem escritório se nada for feito (4.3) |
-| Decisões em aberto | 2 | 6 (seção 14) |
+| Decisões | 2 tomadas | 10 tomadas e 2 perguntas pequenas (seção 14) |
 
 ---
 
@@ -61,11 +66,11 @@ Duas portas novas surgiram depois de agosto, e também não servem como estão:
   leitura para o Designer. Autentica por **sessão** (firewall `main`, `app/config/packages/security.yaml:83`), tira o
   escritório da sessão e exige o módulo `expediente` (`AgenteDePastasController.php:99`). Os UseCases dele já recebem
   `User` e `Tenant` explícitos "porque o conector MCP da Fase 4 roda sem sessão" (`app/src/Inteligencia/CLAUDE.md`, seção
-  Agente de Pastas). São reaproveitados aqui (6.3).
+  Agente de Pastas). São reaproveitados aqui (6.4).
 - **Chat I.A** (`/chat-ia`, `app/src/ChatIa/`): o modelo é o da Anthropic, contratado pelo BlueJus, e as ferramentas
   (`propor_cliente`, `propor_pasta`, `consultar_prazos_e_metas`) rodam dentro do nosso servidor. O conector é o inverso: o
   modelo é o da conta da pessoa (Claude, ChatGPT, Gemini) e o BlueJus só responde às ferramentas. As peças de ferramenta do
-  chat são reaproveitadas (6.7).
+  chat são reaproveitadas (6.8).
 
 **Consequência de projeto, e é a decisão mais importante deste documento:** a versão remota **não é a v1 com transporte
 novo**. É outro conjunto de ferramentas. `consultar_sql` **não vai para o servidor remoto** (6.1). A v1 continua, por STDIO e
@@ -82,18 +87,23 @@ peças, minutas, acompanhar prazos etc."*
 Em termos de sistema: qualquer pessoa com conta e vínculo ativo num escritório conecta o assistente de I.A. dela ao BlueJus,
 entra **como ela mesma**, escolhe o escritório, e o assistente passa a:
 
-- **ler** pastas, processos e movimentações, prazos e metas, agenda, documentos da pasta e modelos de peça;
-- **criar** minutas e peças como documento da pasta (a partir de um modelo ou redigidas pelo assistente) e, depois, as
-  escritas que a decisão 14.b escolher;
+- **ler e atualizar tudo da pasta**, inclusive a esteira de andamento do topo (pedido A, 14.b);
+- **ler os documentos da pasta**, de todos os tipos menos áudio e vídeo (pedido B, 14.f);
+- **cadastrar cliente e completar os dados**, um ou uma lista (pedido C);
+- e fazer o resto do que a pessoa faz em **Pastas, Agenda, Clientes e Processos**: processos e movimentações, prazos e metas
+  da pasta, agenda, peças e modelos, financeiro da pasta, publicações do Diário da pasta;
 
-sempre dentro do que a conta dela já permite na interface web, nem mais, nem menos.
+sempre dentro do que a conta dela já permite na interface web, nem mais, nem menos, **e nunca uma função de administrador**,
+mesmo para o Master e o primário do escritório (6.3).
 
 Critérios de aceitação centrais:
 
 1. **Um usuário do escritório A não consegue, por nenhum caminho, ler ou alterar dado do escritório B.** Provado por teste
    cross-tenant em cada ferramenta, não por inspeção.
-2. **Nenhuma ferramenta devolve o que a tela não mostraria à mesma pessoa**, nem o que as regras da I.A. proíbem sair
-   (segredo de justiça, dado do cliente além do nome, financeiro sem permissão).
+2. **Nenhuma ferramenta devolve o que a tela não mostraria à mesma pessoa**, nem o que as regras de saída proíbem (6.2:
+   segredo de justiça, documento e contato do cliente, financeiro sem permissão).
+3. **Nada é excluído e nenhum cliente é cadastrado sem a confirmação da pessoa no chat** (6.7), e nenhuma ação manda algo ao
+   cliente ou a terceiro além do efeito normal de uma ação que entra (14.h).
 
 ---
 
@@ -143,8 +153,8 @@ mantenedores. Caminhos abaixo em `app/vendor/mcp/sdk/`.
   simples um validador próprio: o token é nosso, e a conferência no banco a cada requisição é obrigatória (9.2).
 - Sessão MCP em `src/Server/Session/`: `InMemorySessionStore` (padrão), `FileSessionStore`, `Psr16SessionStore`.
 - `src/Schema/ToolAnnotations.php` com `readOnlyHint` e `destructiveHint` (o ChatGPT e o Gemini Enterprise usam para pedir
-  confirmação, 6.6) e `src/Server/ClientGateway.php::elicit()` (pedir confirmação ao usuário pelo protocolo; suporte varia
-  por cliente).
+  confirmação, 6.7) e `src/Server/ClientGateway.php::elicit()` (pedir confirmação ao usuário pelo protocolo; suporte varia
+  por cliente; usado na 6.7).
 - Versões de protocolo até `2025-11-25` (`src/Schema/Enum/ProtocolVersion.php:21-24`).
 
 **Falta, e é trabalho nosso:**
@@ -243,28 +253,29 @@ https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/cli
 1. **CIMD é o caminho principal.** Cobre Claude, Claude Code, ChatGPT e Antigravity sem tabela de clientes crescendo.
    Anunciar `client_id_metadata_document_supported: true` **e** `"none"` em `token_endpoint_auth_methods_supported` (sem o
    `none` o Claude cai para DCR). A busca do documento: só https com caminho, nunca IP privado, loopback ou link-local
-   (SSRF), tempo curto, tamanho máximo, cache pelos cabeçalhos. **Lista de domínios confiáveis** ligada desde o começo
-   (`claude.ai`, `chatgpt.com`, `antigravity.google`); domínio fora dela é recusado até decisão (14.d).
-2. **DCR no mesmo PR, apesar de deprecated.** É o único caminho do app Gemini e do Gemini CLI e o fallback do Claude. Com
+   (SSRF), tempo curto, tamanho máximo, cache pelos cabeçalhos. **Lista de domínios confiáveis** ligada desde o começo:
+   `claude.ai` (cobre o Claude e o Claude Code) e `chatgpt.com` (decisão 14.d); domínio fora dela é recusado.
+2. **DCR no mesmo PR, apesar de deprecated.** É o fallback do Claude (e o único caminho do Gemini, fora do piloto). Com
    limite de taxa por IP e expiração em 24 h do cliente que não autorizou ninguém (o Claude registra um cliente por conexão).
    **`redirect_uris` só de host da mesma lista permitida do CIMD** (uma lista só, num lugar só, para os dois caminhos:
-   `claude.ai`, `chatgpt.com` e `antigravity.google` enquanto a 14.d não mudar) ou de loopback (`127.0.0.1` e `localhost`,
+   `claude.ai` e `chatgpt.com`, 14.d) ou de loopback (`127.0.0.1` e `localhost`,
    para as ferramentas de linha de comando, RFC 8252). Qualquer outro host é recusado no próprio registro com
    `invalid_redirect_uri` (RFC 7591). Sem isso, o DCR anula a lista do CIMD: quem quisesse fugir dela registraria um cliente
    com redirect para o próprio domínio e mandaria o link de autorização para a vítima. A tela de consentimento continua
    mostrando o host do redirect (9.4).
-3. **Pré-registrado por comando de console, sem tela**, quando um escritório pedir o Gemini Enterprise, que só aceita
-   client ID e segredo digitados pelo admin dele. Cliente confidencial, segredo guardado só como hash, preso ao escritório
-   que pediu.
+3. **Pré-registrado: fora do piloto** (14.d). Só o Gemini Enterprise precisa dele (client ID e segredo digitados pelo
+   admin do escritório). Quando entrar: comando de console, sem tela, cliente confidencial, segredo guardado só como hash,
+   preso ao escritório que pediu. A tabela `conector_ia_cliente` já nasce com o tipo e o `segredo_hash` (13.2).
 
 **Metadado do servidor de autorização** (mínimo para os três): `issuer`, `authorization_endpoint`, `token_endpoint`,
-`registration_endpoint`, `response_types_supported: ["code"]`, `grant_types_supported` (`authorization_code` e, conforme
-14.c, `refresh_token`), `code_challenge_methods_supported: ["S256"]`,
+`registration_endpoint`, `response_types_supported: ["code"]`, `grant_types_supported` (`authorization_code` e
+`refresh_token`, decisão 14.c), `code_challenge_methods_supported: ["S256"]`,
 `token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"]`,
 `client_id_metadata_document_supported: true`, `authorization_response_iss_parameter_supported: true`, `scopes_supported`.
 
 **Metadado do recurso:** `resource: "https://bluejus.com.br/mcp"` (igual à URL que a pessoa digita),
-`authorization_servers: ["https://bluejus.com.br"]` (um só), `scopes_supported: ["mcp:leitura", "mcp:escrita"]`.
+`authorization_servers: ["https://bluejus.com.br"]` (um só), `scopes_supported: ["mcp:leitura", "mcp:escrita",
+"offline_access"]` (5.1).
 
 ### 3.5 Versão do protocolo
 
@@ -404,11 +415,14 @@ Métodos públicos hoje: `canAccessModule` (`:32`), `canAdminister` (`:55`), `ca
 **Toda ferramenta passa pelo `PermissionChecker` com a pessoa e o escritório do token.** O que o implementador precisa saber,
 com `docs/AUTORIZACAO.md` ao lado:
 
-1. **Os bypasses continuam**: `ROLE_SUPER_ADMIN` (global) e `TenantRole::isSystem()` (por escritório). Um Master conectando
-   enxerga tudo do escritório escolhido, **desde que tenha vínculo ativo com ele** (decisão 1).
+1. **Os bypasses não valem no conector** (teto, 6.3). Nem o de `ROLE_SUPER_ADMIN` (global,
+   `PermissionChecker::isGlobalSuperAdmin`, primeiro passo de todo método público) nem o de `TenantRole::isSystem()`
+   (primário, por escritório): para a pessoa do token, os dois respondem falso, e ela conta pelo perfil do vínculo e pelas
+   regras de item (cadeado, abas ocultas), como qualquer colega. O inventário classifica esse passe como função de
+   administrador (seção 5, última linha), e a decisão 14.b tira as funções de administrador.
 2. **Módulo e recurso são eixos paralelos** (`docs/AUTORIZACAO.md` seção 7, decisão de 30/06/2026): listagem e criação pedem
-   o módulo; item por id pede o recurso. As ferramentas seguem isso: `buscar_*` e `listar_*` sem id exigem o módulo;
-   `detalhar_*` e `ler_*` por id exigem o recurso daquele item.
+   o módulo; item por id pede o recurso. As ferramentas seguem isso: busca, lista e criação exigem o módulo; leitura e
+   gravação de um item por id exigem o recurso daquele item.
 3. **Correção da spec de agosto:** `canActOnResource` **não existe** (saiu em 30/06/2026; `docs/AUTORIZACAO.md` F2 ainda o
    cita, e está desatualizado nesse ponto). E `resources.{x}.{y}` **não é código morto**: é o fallback do
    `canAccessResource` e é conferido por `hasPermission` em `resources.carteira.gerenciar`
@@ -426,9 +440,10 @@ São eixos diferentes e **os dois valem**:
 - **Permissão** diz o que *aquela pessoa* pode fazer naquele escritório.
 
 A ferramenta só executa se **ambos** permitirem. Escopo nunca amplia permissão. `mcp:escrita` só entra no token se a pessoa
-marcar a caixa na tela de consentimento (desmarcada por padrão). Ferramenta de escrita chamada sem o escopo responde 403 com
-`error="insufficient_scope"` e `scope="mcp:leitura mcp:escrita"` (step-up da especificação atual). `offline_access` só é
-anunciado se a decisão 14.c escolher renovação.
+marcar a caixa na tela de consentimento (desmarcada por padrão). Ferramenta de gravação ou a `confirmar_acao` chamada sem o
+escopo responde 403 com `error="insufficient_scope"` e `scope="mcp:leitura mcp:escrita"` (step-up da especificação atual).
+`offline_access` é anunciado (decisão 14.c), porque o Claude o pede quando ele é anunciado; ele não amplia nada, só deixa
+o cliente renovar o token dentro dos 7 dias.
 
 ### 5.2 As guardas que o conector pula, e como refazer cada uma
 
@@ -439,11 +454,13 @@ anunciado se a decisão 14.c escolher renovação.
 | "Sair de todos os aparelhos" | `SessaoEncerradaEmTodosOsAparelhosListener` (prioridade 7), que só age com sessão | `autorizado_em` do token e da renovação contra `User::getSessoesEncerradasEm()` (regra 3 da seção 4) |
 | Troca de senha | o Symfony, ao reler o `User` da sessão (sem `EquatableInterface`, compara o hash da senha) | impressão da senha no token e na renovação (regra 3 da seção 4) |
 | Cadeado da pasta | `BarreiraDoCadeadoListener` (`kernel.controller_arguments`, `app/src/Pasta/EventListener/BarreiraDoCadeadoListener.php:39`) | `AcessoAPasta::podeVer`/`podeEditar` (`app/src/Pasta/Service/AcessoAPasta.php:42`, `:47`) no item; `idsOcultosPara` (`:118`) e `idsDosProcessosOcultos` em lista. `podeVer` usa o escritório **da pasta**: conferir antes que a pasta é do escritório do token |
-| Aba oculta | `BarreiraDeAbaOcultaListener` (`app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:37`, que lê o escritório da sessão), pelo nome da rota (`MAPA`, `:50-79`) | `VisibilidadeDasAbasDaPasta::abasOcultasPara` (`app/src/Pasta/Service/VisibilidadeDasAbasDaPasta.php:115`), com a aba que a tabela de 6.2 dá para cada ferramenta |
+| Aba oculta | `BarreiraDeAbaOcultaListener` (`app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:37`, que lê o escritório da sessão), pelo nome da rota (`MAPA`, `:50-79`) | `VisibilidadeDasAbasDaPasta::abasOcultasPara` (`app/src/Pasta/Service/VisibilidadeDasAbasDaPasta.php:115`), com a aba que a tabela de 6.6 dá para cada ferramenta e ação |
 | Pasta excluída é só leitura | `PastaSomenteLeituraListener` | escrita confere `Pasta::estaExcluida()` (`app/src/Pasta/Entity/Pasta.php:450`) |
-| Tela ou função desligada pelo Master | `BloqueioDeRecursoDesativado`, por prefixo do nome da rota (`CatalogoDeRecursos::ROTAS`, `app/src/Master/Service/CatalogoDeRecursos.php:59-74`: `peticionar`, `metas`, `expedientes`, `assistente`...); o Master passa (`BloqueioDeRecursoDesativado.php:50`) | `RecursosDoSistema::estaAtivo(chave)` (`app/src/Master/Service/RecursosDoSistema.php:58`) na ferramenta, com a chave que a tabela de 6.2 dá; chave nova `conector_ia` no catálogo para o Master desligar o conector inteiro |
+| Tela ou função desligada pelo Master | `BloqueioDeRecursoDesativado`, por prefixo do nome da rota (`CatalogoDeRecursos::ROTAS`, `app/src/Master/Service/CatalogoDeRecursos.php:59-74`: `peticionar`, `metas`, `expedientes`, `assistente`...); o Master passa (`BloqueioDeRecursoDesativado.php:50`) | `RecursosDoSistema::estaAtivo(chave)` (`app/src/Master/Service/RecursosDoSistema.php:58`) na ferramenta, com a chave que a tabela de 6.6 dá; no conector a chave desligada vale **também para o Master** (teto, 6.3); chave nova `conector_ia` no catálogo para o Master desligar o conector inteiro (14.a) |
 | Meta aberta por id | `AcessoAMeta::exigir` (`docs/AUTORIZACAO.md`, "Meta aberta por id") | a mesma guarda antes de ler ou escrever meta por id |
 | Só acompanhar meta não basta | `PastasSoAcompanhadasSemVer::ids` (`app/src/Tarefa/Service/PastasSoAcompanhadasSemVer.php:40`) | já vem dentro de `ListaDasMinhasMetasDaTela` |
+| Funções de administrador | o bypass do Master e do primário no `PermissionChecker` e na `RegraDosPrimarios` | teto do conector (6.3): lista fechada de ferramentas, modo do conector sem os dois bypasses e sem `admin.*` para a pessoa do token, ramos de administrador da Agenda fechados pela ferramenta |
+| Confirmação de exclusão | a tela pede (caixa de confirmação; excluir pasta exige digitar o número) | proposta e confirmação no chat, conferidas no servidor (6.7) |
 
 Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
 
@@ -451,336 +468,636 @@ Cada linha ganha um teste funcional do conector que prova a recusa (seção 12).
 
 ## 6. Superfície de ferramentas
 
-### 6.1 O que NÃO entra
+**Escopo (decisão 14.b, 08/11/2026):** tudo o que o usuário comum faz nos módulos **Pastas, Agenda, Clientes e Processos**,
+menos as funções de administrador, mais as partes de outros módulos que a decisão de 09/11/2026 pôs dentro (14.h). A base
+é o inventário `bluejus-coordenacao/conector-inventario-tudo.md` (levantado no master `940e82dfd`): 187 ações do usuário
+comum nos quatro módulos (51 de leitura, 136 de gravação), mais 13 de administrador (seção 5 dele) e 24 de outros módulos
+que aparecem dentro da pasta (seção 1.13 dele).
 
-- **`consultar_sql`**: não há como oferecer SQL livre e garantir isolamento entre escritórios; filtrar SQL arbitrário por
-  texto é exatamente o que a v1 rejeitou por ser burlável. Nenhuma ferramenta aceita SQL, DQL ou nome de tabela.
-- **Arquivo bruto por link**: o armazenamento não tem URL assinada, e `EntregaDeArquivo` responde dentro de uma requisição de
-  sessão. O conteúdo sai só por `ler_documento` (6.4).
-- **Ponto eletrônico** (risco ALTO por definição), **cobrança** (os UseCases de leitura existem, mas a guarda, o trait
-  `AutorizacaoCobranca`, lê a sessão), **exclusões**, **cadastro direto de cliente** (6.5).
+**17 ferramentas, não 187.** Clientes de I.A. escolhem pior com dezenas de ferramentas (inventário, seção 6, item 9), então
+as ações se agrupam pelo que o advogado pede, com um parâmetro `acao`. Duas regras dos clientes decidem o corte:
+
+- **Leitura e gravação nunca na mesma ferramenta.** O diretório da Anthropic exige `title` e as anotações em toda
+  ferramenta e a separação entre ler e gravar ("Read-only tools can run without per-call confirmation, and destructive tools
+  always prompt", https://claude.com/docs/connectors/building/review-criteria.md); o ChatGPT trata como escrita, com
+  confirmação, toda ferramenta sem `readOnlyHint` ("Tools without this hint are treated as write actions",
+  https://developers.openai.com/api/docs/guides/custom-mcp-server.md). Uma ferramenta que lesse e gravasse pediria
+  confirmação a cada leitura.
+- **O que pede confirmação passa por uma proposta** (6.7). A ferramenta de gravação nunca exclui nem cadastra cliente
+  direto: devolve uma proposta, e só a `confirmar_acao` executa.
+
+Por isso são 7 de leitura, 9 de gravação e 1 de confirmação; o inventário sugeria cerca de 14 (as 3 a mais vêm da separação
+entre ler e gravar).
+
+### 6.1 O que fica fora no piloto
+
+| Grupo | O que | Por quê |
+|---|---|---|
+| Administrador | as 13 ações da seção 5 do inventário: cadeado da pasta (`ConfigurarCadeadoDaPastaUseCase`, `RemoverCadeadoDaPastaUseCase`, `AlternarTrancaDaPastaUseCase`), pedidos de acesso (`DecidirPedidoDeAcessoUseCase` e o fluxo antigo `app_access_request_approve`/`_deny`), abas ocultas (`OcultarAbaParaTodosUseCase`, `DefinirQuemNaoVeAbaUseCase`, `MostrarAbaParaTodosUseCase`, `ListarEquipeParaOcultarAbaUseCase`), desfazer pela Auditoria (`DesfazerAlteracaoAuditLogUseCase`), Google Drive do escritório (`ConectarDriveUseCase`, `DefinirRootFolderDriveUseCase`, `DesconectarDriveUseCase`), datas da Agenda (`AcrescentarDataUseCase`, `RenomearDataUseCase`, `OcultarDataUseCase`, `RestaurarDatasDoSistemaUseCase`), feriados do escritório, mexer em compromisso de outra pessoa, agenda vista como administrador | decisão 14.b; o teto da 6.3 garante, mesmo para Master e primário |
+| Manda algo ao cliente ou a terceiro | e-mails do cliente para avisos (`pasta_push_cliente_email_*`: `CadastrarEmailDoClienteUseCase`, cujo e-mail "nasce recebendo avisos", `TornarEmailDoClientePrincipalUseCase`, `DefinirAvisosDoEmailDoClienteUseCase`, `RemoverEmailDoClienteUseCase`); todo envio do Push ao cliente (`EnviarAnaliseAoClienteUseCase`, `DefinirEnvioAutomaticoDoClienteUseCase`, links públicos `GerarLinkExternoDoPushUseCase` e renovação); encaminhar pela Central (`EncaminharItemDaPastaUseCase`) | decisão de 09/11/2026 (14.h) |
+| Outros módulos | a BlueJus I.A. dentro da pasta (análises, comandos, conversa); o Push além de ler as publicações (marcar lida, monitoramento, buscar agora, "Avisar quando chegar", vincular publicação); Cobrança; Minhas Metas além de criar meta para a pasta (pergunta 14.i); Kanban, Ponto e o resto da seção 7 do inventário | decisão de 09/11/2026 (14.h) e 14.b |
+| Arquivo binário ou tela | enviar arquivo (documento da pasta, do Financeiro, do cliente, imagem do editor, trazer do Google Drive); foto com recorte (pasta e cliente); exportar peça, Word do modelo, resumo em PDF, .zip e CSV; conectar o Google Agenda, notificações do navegador, dispensar o aviso do Google; colunas da lista; registrar a visita da Timeline; importar pastas em lote do Drive | enviar arquivo exigiria o conteúdo em base64 dentro do argumento da ferramenta, com o teto de 4 MiB do corpo no SDK (`maxBodyBytes`, 3.1), e não há fonte oficial de que Claude e ChatGPT repassem um anexo da conversa assim (pergunta 14.j); exportar e baixar viram leitura de dados (`ler_pasta`, `buscar_pastas`, `ler_documentos_e_modelos`); o resto só existe no navegador |
+| Tela antiga com versão nova que entra | agenda antiga (`agenda_lista`, `agenda_show`, `agenda_novo`, `agenda_editar`, `agenda_cancelar`, `agenda_excluir`); ficha antiga do cliente (`cliente_show`, `cliente_edit`); formulário antigo PF/PJ (`pasta_cliente_novo`); tela antiga de processo (`processo_new`, `processo_edit`); pedido de acesso antigo (`app_access_request_submit`) | regra no controller e a versão nova entra (Agenda nova, janela Cadastro, aba Processo, `pasta_acesso_pedir`); o inventário, seção 6, itens 3 e 4 |
+| SQL livre | `consultar_sql` | não há como oferecer SQL livre e garantir isolamento entre escritórios; filtrar SQL arbitrário por texto é exatamente o que a v1 rejeitou por ser burlável. Nenhuma ferramenta aceita SQL, DQL ou nome de tabela |
+| Áudio e vídeo | MP3, OGG, M4A, OPUS, MP4, MOV | decisão 14.f |
+| Ponto eletrônico | tudo | risco ALTO por definição; fora dos 4 módulos |
 
 ### 6.2 Regras comuns a toda ferramenta
 
 1. **Despacho único pelo portão** (4.1). Pessoa, escritório e vínculo vêm do token; o modelo nunca escolhe pessoa nem
-   escritório. Todo id (pasta, processo, documento, modelo, meta) é buscado por id **e** escritório; alheio, inexistente ou
-   oculto dá a mesma resposta "não encontrado".
-2. **Permissão**: módulo para lista, recurso para item (5); as guardas de 5.2; o escopo (5.1); a chave do Master.
-3. **Segredo de justiça nunca sai** (regra 4 de `app/src/Inteligencia/CLAUDE.md`; `Processo::emSegredoDeJustica()`,
-   `app/src/Processo/Entity/Processo.php:686`: `nivelSigilo > 0` ou "Sim" manual). Em lista, pasta, processo, meta ou
-   compromisso ligados a processo em segredo saem e só a **contagem** aparece (`ProcessoRepository::idsDasPastasEmSegredoDeJustica`,
-   `app/src/Processo/Repository/ProcessoRepository.php:148`). Por id, a ferramenta recusa com "em segredo de justiça: não sai
-   pelo conector" (`MontadorDeContextoDaPasta::para` já lança `ContextoBloqueadoException`). A pessoa continua vendo na tela.
-   Regra derivada da regra 4, porque o destino é um modelo de I.A.; mudá-la é decisão do Samuel.
-4. **Do cliente sai só o nome** (regra 7): CPF/CNPJ, RG, e-mail, telefone e endereço nunca entram em lista nem em detalhe.
-   Duas exceções, ambas já previstas pela regra 7 ou fora do modelo: o conteúdo de documento lido por `ler_documento` (com o
-   aceite que cubra documentos, 14.a) e a peça **preenchida no servidor** por `gerar_minuta_de_modelo`, em que o dado vai para
-   o documento da pasta e a resposta da ferramenta leva só id e título.
+   escritório. Todo id (pasta, processo, documento, modelo, meta, cliente, compromisso, publicação) é buscado por id **e**
+   escritório; alheio, inexistente ou oculto dá a mesma resposta "não encontrado".
+2. **Permissão**: módulo para lista e criação, recurso para item (5); as guardas de 5.2; o escopo (5.1); o teto (6.3); a
+   liberação em três níveis (14.a).
+3. **Segredo de justiça nunca sai, e pasta ou processo em segredo não existe para o conector** (regra 4 de
+   `app/src/Inteligencia/CLAUDE.md`, a regra D4; `Processo::emSegredoDeJustica()`,
+   `app/src/Processo/Entity/Processo.php:686-689`: `nivelSigilo > 0` do tribunal **ou** `segredoManual` marcado no cartão).
+   Em lista, pasta, processo, meta, publicação ou compromisso ligados a processo em segredo saem e só a **contagem** aparece
+   (`ProcessoRepository::idsDasPastasEmSegredoDeJustica`, `app/src/Processo/Repository/ProcessoRepository.php:148`). Por id,
+   leitura **e gravação** recusam com "em segredo de justiça: não sai pelo conector" (`MontadorDeContextoDaPasta::para` já
+   lança `ContextoBloqueadoException`). A pessoa continua vendo e mexendo na tela. O conector nunca muda o campo de segredo
+   manual do processo (6.5, `processos_da_pasta`). Mudar a regra é decisão do Samuel.
+4. **Do cliente sai só o necessário** (regra 7 da Inteligencia, adaptada ao escopo novo):
+   - em lista, pasta, processo, agenda e publicação, o cliente sai **só pelo nome** (e PF ou PJ);
+   - `ler_clientes` (`acao: ler`) devolve nome, tipo, estado civil, profissão, nacionalidade, cidade e UF, e **quais**
+     campos de `CamposDoCadastro::ROTULOS` (`app/src/Cliente/Service/CamposDoCadastro.php:29`) estão preenchidos e quais
+     faltam (`PendenciasDoCadastro`), **sem o valor** de CPF ou CNPJ, RG, data de nascimento, e-mail, telefones e endereço;
+     o mesmo vale para o réu e o representante legal no cadastro da pasta;
+   - `conferir_documento` diz só se o CPF ou CNPJ informado já é de um cadastro do escritório, e de qual (nome e id);
+   - duas exceções, já previstas antes: o **conteúdo do documento** lido por `ler_documentos_e_modelos` (com o aceite do
+     conector, 14.a) e a peça **preenchida no servidor** (`documentos_e_pecas`, `acao: usar_modelo`), em que o dado vai para o
+     documento da pasta e a resposta leva só id e título;
+   - no cadastro e no completar, os valores que o próprio assistente mandou voltam no resumo da proposta (6.7) para a pessoa
+     conferir; o servidor não acrescenta nenhum valor que o assistente não mandou.
 5. **Financeiro** só se `VisibilidadeDoFinanceiroDaPasta::podeVer(User, Tenant, Pasta)`
-   (`app/src/Inteligencia/Service/VisibilidadeDoFinanceiroDaPasta.php:37`) disser sim.
+   (`app/src/Inteligencia/Service/VisibilidadeDoFinanceiroDaPasta.php:37`) disser sim, para ler e para gravar.
 6. **Texto livre do banco** passa pelo `ProtecaoDoTextoDoChat` (`app/src/ChatIa/Service/ProtecaoDoTextoDoChat.php`), que
    neutraliza (`NeutralizadorDeConteudo::neutralizar`) e mascara CPF, CNPJ, telefone e e-mail conforme a preferência do
-   escritório (`MascaradorDeDadosPessoais`), e sai dentro de blocos com os nomes de `NeutralizadorDeConteudo::DELIMITADORES`
-   (`app/src/Inteligencia/Service/NeutralizadorDeConteudo.php:28`). O método depende do tamanho:
-   - texto de **várias linhas** (anotação, observação, descrição de meta, texto de movimentação, texto de documento):
-     `comoDado` (`:38`), que neutraliza linha a linha e mantém as quebras;
-   - valor **de uma linha** (nome de arquivo, nome da pessoa, título de meta): `rotulo` (`:49`), com valor padrão quando
-     fica vazio.
+   escritório (`MascaradorDeDadosPessoais`; sem configuração da I.A. no escritório, mascara), e sai dentro de blocos com os
+   nomes de `NeutralizadorDeConteudo::DELIMITADORES` (`app/src/Inteligencia/Service/NeutralizadorDeConteudo.php:28`):
+   - texto de **várias linhas** (anotação, observação, descrição de meta, texto de movimentação, teor de publicação):
+     `ProtecaoDoTextoDoChat::comoDado` (`ProtecaoDoTextoDoChat.php:38`), que neutraliza linha a linha e mantém as quebras;
+   - valor **de uma linha** (nome de arquivo, nome da pessoa, título de meta): `ProtecaoDoTextoDoChat::rotulo` (`ProtecaoDoTextoDoChat.php:49`), com valor padrão quando
+     fica vazio;
+   - **texto extraído de documento** (6.5): só neutralizado, linha a linha, **sem a máscara**, porque o conteúdo do documento
+     é a exceção da regra 4 coberta pelo aceite, e o PDF e a imagem já vão inteiros. Sem isso, o assistente não conseguiria
+     cadastrar o cliente a partir de um DOCX (pedido C, 14.b).
 7. **Resposta**: JSON estruturado (`structuredContent`) mais um texto curto. Cabe no menor cliente: até 100 mil caracteres por
    resultado (o Claude aceita cerca de 150 mil; o Claude Code, 25 mil tokens, o que o guia do usuário avisa), com paginação
-   (`pagina`, `proxima_pagina`). Tempo-alvo abaixo de 10 s (o Claude espera 240 s; o Antigravity, 180 s).
-8. **Anotações MCP**: leitura com `readOnlyHint: true`; escrita com `readOnlyHint: false`, `destructiveHint: false` (só cria)
-   e `idempotentHint: false`.
+   (`pagina`, `proxima_pagina`). Tempo-alvo abaixo de 10 s (o Claude espera 240 s).
+8. **Anotações MCP** (`ToolAnnotations` do SDK, `app/vendor/mcp/sdk/src/Schema/ToolAnnotations.php:38-42`), todas com
+   valor explícito, porque o padrão da especificação para quem não declara é `destructiveHint: true` e `openWorldHint: true`:
+   - leitura: `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: false` (salvo `ler_processos`, que consulta o
+     CNJ: `openWorldHint: true`);
+   - gravação: `readOnlyHint: false`, `destructiveHint: true` (todas as 9 mudam ou sobrescrevem algo que já existe; pela
+     especificação, `false` quer dizer "só acrescenta"), `idempotentHint: false`, `openWorldHint: false` (salvo
+     `gravar_na_agenda`, que sincroniza com o Google: `true`);
+   - `confirmar_acao`: como a gravação, mais `_meta["anthropic/requiresUserInteraction"]: true` (6.7);
+   - `title` em português em toda ferramenta (exigência do diretório da Anthropic).
+   As anotações são **dicas**: a especificação diz que o cliente não deve decidir por elas quando o servidor não é confiável
+   (https://modelcontextprotocol.io/specification/2025-06-18/schema#toolannotations). Nenhuma regra de segurança depende delas
+   (6.7).
 9. **Log** no canal `mcp`, que já existe (`app/config/packages/monolog.yaml`, arquivo `mcp.log`): pessoa, escritório, cliente
-   OAuth, ferramenta, ids, contagens, duração e resultado. **Nunca** texto de busca, título, nome ou conteúdo (regra 3 da
-   Inteligencia).
-10. **Entrada fechada**: JSON Schema com `additionalProperties: false`; valor fora da lista vira erro de ferramenta com
-    mensagem fixa em português, nunca "todas as pastas" em silêncio.
-11. **Aba oculta e chave do Master, ferramenta por ferramenta** (tabela abaixo). A tela barra pela rota; o conector não tem
-    rota de tela, então cada ferramenta confere a aba e a chave da tela de onde a informação vem. Aba oculta faz a
-    ferramenta responder "não encontrado" quando o pedido é por id na aba inteira (a mesma resposta de 6.2.1); a chave
-    desligada responde "função desligada pelo administrador do sistema". Toda ferramenta exige também a chave nova
-    `conector_ia`.
+   OAuth, ferramenta, ação, ids, contagens, duração e resultado. **Nunca** texto de busca, título, nome, valor de campo ou
+   conteúdo (regra 3 da Inteligencia).
+10. **Entrada fechada**: JSON Schema plano, com `acao` em lista fechada e os campos opcionais de cada ação, e
+    `additionalProperties: false`; o servidor valida por ação e recusa campo que a ação não usa. Sem `oneOf`, para não
+    depender de como cada cliente o trata. Valor fora da lista vira erro de ferramenta com mensagem fixa em português, nunca
+    "todas as pastas" em silêncio.
+11. **Aba oculta e chave do Master, ação por ação** (tabela da 6.6). A tela barra pela rota; o conector não tem rota de tela,
+    então cada ação confere a aba e a chave da tela de onde a informação vem. Aba oculta responde "não encontrado" quando o
+    pedido é por id na aba inteira; a chave desligada responde "função desligada pelo administrador do sistema".
+12. **Lote**: no máximo 50 itens por chamada (mover, copiar, restaurar, excluir documentos; aplicar modelo de checklist;
+    cadastrar clientes). Mais que isso é erro com mensagem fixa (inventário, seção 6, item 6).
+13. **Quem fez**: a gravação sai com a pessoa como autora, como na tela (os UseCases não mudam). O `audit_log` já grava o nome
+    da rota da requisição (`AuditLogSubscriber.php:343` e `:429`): com a rota do `/mcp` com nome próprio (sugestão
+    `conector_mcp`), toda alteração auditada fica marcada como feita pelo conector, sem coluna nova; a ferramenta e o cliente
+    OAuth vão para o log `mcp`. Selo "pelo conector" no Registro da pasta fica fora do piloto (exigiria coluna nova em
+    `pasta_mensagem` e mudança de tela sem desenho).
+14. **Efeitos internos continuam**: avisos do sino a colegas (menção, responsável, quem acompanha, participante), Registro
+    da pasta e Histórico do cadastro saem como na tela. São da equipe do próprio escritório, não do cliente.
 
-A coluna "rota da tela" diz o que a barreira de hoje cobre. "Nenhuma" quer dizer que a tela também não barra.
-`BarreiraDeAbaOcultaListener::MAPA` está em `app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:50-79`;
-`CatalogoDeRecursos::ROTAS`, em `app/src/Master/Service/CatalogoDeRecursos.php:59-74`. A Lista (`lista`) e o Meu Perfil são
-essenciais (`base: true`, `:35` e `:39`) e não desligam.
+### 6.3 Teto próprio do conector
 
-| Ferramenta | Rota da tela | Aba (`AbaDaPasta`) | Chave do Master | Observação |
-|---|---|---|---|---|
-| `quem_sou_eu` | nenhuma | nenhuma | só `conector_ia` | |
-| `buscar_pastas` | `inteligencia_agente_pastas_buscar` (o Agente) e a Lista | nenhuma | nenhuma além de `conector_ia` | a busca é a da Lista, que é essencial; `assistente` desliga o Agente, não a Lista, então não vale aqui |
-| `minhas_demandas` | `demandas_index` | nenhuma | nenhuma | |
-| `detalhar_pasta` | `pasta_show` | cada bloco segue a sua aba (o `PastaDoContextoDaIa`, `app/src/Central/Service/PastaDoContextoDaIa.php:60-63`, passa as abas ocultas ao montador) | `expedientes` | |
-| `listar_prazos_e_metas` | `tarefa_minhas` | nenhuma (Minhas Metas não passa pela barreira de aba) | `metas` | |
-| `listar_agenda` | `agenda_index` | nenhuma | nenhuma | |
-| `buscar_processos`, `detalhar_processo` | `processo_index`, `processo_show` | nenhuma (a tela de processos não é rota de pasta) | nenhuma | o cadeado entra por `idsDosProcessosOcultos` (5.2) |
-| `listar_documentos_da_pasta` | aba Documentos de `pasta_show`; no Agente, `inteligencia_agente_pastas_documentos` | **Documentos** | `expedientes` | o UseCase reaproveitado **não** barra a aba inteira (6.4) |
-| `ler_documento` | `pasta_documento_view`, `pasta_documento_download` (`pasta_documento*`) | **Documentos** | `expedientes` | o `LeitorDeDocumentosDaPasta` já barra (`:119-121`) |
-| `listar_modelos_de_peca`, `ler_modelo_de_peca` | `pasta_modelos_listar`, `pasta_modelos_abrir` (`pasta_modelos_*`) | **Detalhes** | `expedientes` | o banco de modelos mora na aba Detalhes da pasta (`app/templates/pasta/show.html.twig:323`); nenhuma chave cobre `pasta_modelos_*` hoje, e `peticionar` não vale aqui |
-| `gerar_minuta_de_modelo` | `pasta_modelos_usar` | **Detalhes**, como a tela, e **Documentos**, a mais que a tela | `expedientes` | Documentos a mais porque a resposta devolve o documento criado, que fica na aba Documentos |
-| `salvar_minuta_na_pasta` | `pasta_peticionar_texto` | **Documentos** | `peticionar` | |
-| `anotar_na_pasta` | anotação: `pasta_enviar_mensagem`; observação: `pasta_detalhes_observacao_enviar` | anotação: nenhuma; observação: **Detalhes** | `expedientes` | |
-| `criar_meta` | `tarefa_criar_para_pasta` | nenhuma | nenhuma | |
-| `criar_compromisso` | `agenda_*` | nenhuma | nenhuma | |
+O conector age como a pessoa, e o Master (`ROLE_SUPER_ADMIN`) e o primário do escritório (perfil de sistema,
+`TenantRole::isSystem()`) passam por toda checagem (`docs/AUTORIZACAO.md` seção 2; `PermissionChecker`, primeiro passo de
+cada método público, ex. `canAccessResourceComVinculo`, `app/src/Service/PermissionChecker.php:103-118`). O inventário põe
+esse passe entre as funções de administrador ("Ver e mexer em qualquer pasta, cliente ou processo sem acesso item a item",
+última linha da seção 5) e avisa que, sem teto próprio, "exceto funções de administrador" não se cumpre (seção 6, item 1);
+no piloto isso pesa já, porque o Farlei é Master. Pela decisão 14.b, o teto vale **mesmo para Master e primário**, em
+quatro partes:
 
-Onde a tabela pede `expedientes` sem que a rota da tela o peça (`pasta_modelos_*`, `pasta_documento*`,
-`pasta_enviar_mensagem`), é porque a informação só aparece dentro da tela da pasta, que a chave desliga. A conferência
-fica junto da ferramenta, num lugar só, e o teste 12.9 percorre a tabela linha por linha.
+1. **Lista fechada.** Só existem as 17 ferramentas desta seção, e nenhuma ação delas chama um UseCase da lista de
+   administrador da 6.1. Teste de arquitetura: nenhuma classe do conector depende desses UseCases, e ferramenta nova sem
+   linha na tabela da 6.6 derruba o teste.
+2. **Modo do conector: sem os bypasses, para a pessoa do token.** Um serviço por requisição (nome sugerido `ModoDoConector`,
+   com `ResetInterface`), ligado pelo portão com a pessoa e o vínculo do token, faz responder falso, **só quando a pergunta é
+   sobre essa pessoa**:
+   - `PermissionChecker::isGlobalSuperAdmin` e o passe do perfil de sistema (`TenantRole::isSystem()`) em todos os métodos
+     públicos do `PermissionChecker`;
+   - `PermissionChecker::canAdminister`, `hasPermission` com permissão `admin.*` e `isAdministradorDoEscritorio` (usado,
+     por exemplo, por `PastasVisiveisNoRelatorio` e `LeituraDasPastasDosAvisos` para mostrar tudo ao administrador);
+   - `RegraDosPrimarios::ehMaster` (`app/src/Tenant/Service/RegraDosPrimarios.php:53`) e `ehPrimario` (`:157`), que o cadeado
+     (`NivelNoCadeado`, `:91`, `:109`, `:304`) e as abas ocultas (`VisibilidadeDasAbasDaPasta::podeConfigurar`, que passa por
+     `RegraDosPrimarios::podeGerirPrimarios`: quem configura não tem aba oculta) usam para deixar passar.
 
-### 6.3 Leitura, fatia L1 (UseCases já prontos para rodar sem sessão)
+   "Só sobre essa pessoa" importa: `ehPrimario` também escolhe **quem recebe** aviso (ex.:
+   `EnviarRelatorioSemProcessoUseCase.php:179`, `EnviarRelatorioPastasParadasUseCase.php:156`), e esses colegas continuam
+   recebendo. Fora do `/mcp` nada muda; o modo zera no `reset()` e um teste prova que a requisição seguinte do mesmo processo,
+   no navegador, tem os bypasses de volta.
+3. **A pessoa conta pelo perfil do vínculo e pelas regras de item**, como qualquer colega: módulo e recurso pelo perfil;
+   cadeado (pasta trancada só para quem está na lista dela) e abas ocultas como para os outros. O perfil de sistema recebe
+   todas as permissões ao nascer o escritório (`TenantBootstrapService::attachAllPermissions`), então o primário continua
+   vendo e mexendo nas pastas, clientes e processos sem cadeado; o que perde é o passe pelas pastas trancadas em que não está
+   e toda função `admin.*`. Como o bypass escondia a falta, permissão criada depois do escritório pode não estar ligada ao
+   perfil de sistema: o PR 1 confere isso na produção (só `SELECT`, pelo MCP `jusprime-prod`) e, se faltar, o modo trata o
+   perfil de sistema como tendo todas as `modules.*` e `resources.*` do catálogo (`PermissionFixture`), nunca as `admin.*`.
+   O Master conta pelo perfil do vínculo dele naquele escritório (a decisão 1 já exige o vínculo ativo); existem Masters
+   secundários com vínculo comum (`docs/AUTORIZACAO.md`, 2a).
+4. **Ramos de administrador dentro de UseCase reaproveitado ficam fechados pela ferramenta**, para quem tem `admin.*` num
+   perfil comum: `ListarCompromissosUseCase` sempre com `administra = false` (`:47`); editar, mover, mudar status e excluir
+   compromisso só de quem o criou, conferido pela ferramenta antes do UseCase, porque `SalvarCompromissoUseCase` (`:70`),
+   `MoverCompromissoUseCase` (`:49`), `AlterarStatusDoCompromissoUseCase` (`:41`) e `ExcluirCompromissoUseCase` (`:31`)
+   deixam passar quem tem `admin.users.manage`. Nos UseCases e serviços de Pasta, Cliente, Processo, Agenda, Expediente,
+   Tarefa e Inteligencia, o grep de `canAdminister`, `isAdministradorDoEscritorio`, `ehPrimario`, `ehMaster`,
+   `isGlobalSuperAdmin` e `admin.` (09/11/2026) só acha estas checagens, as do item 2 e as de funções que ficam fora
+   (cadeado, abas ocultas, envio ao cliente); o PR que trouxer um UseCase novo para o conector repete o grep.
 
-**`quem_sou_eu`**
-- Entrada: nenhuma.
-- Saída: nome da pessoa, escritório, escopos e validade da conexão, e os módulos que ela tem (para o assistente não oferecer o
-  que vai ser recusado).
+O escopo continua valendo junto (5.1): `mcp:escrita` desmarcado por padrão, e escopo nunca amplia permissão.
+
+**Consequência a dizer ao piloto:** o Farlei, que é Master, vê pelo conector o que o perfil dele no escritório vê; pasta
+trancada em que ele não está na lista não aparece, mesmo que apareça na tela. O guia do usuário (PR 15) diz isso.
+
+Testes em 12.19.
+
+### 6.4 Leitura (7 ferramentas)
+
+Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
+
+**`quem_sou_eu`** (PR 5)
+- Saída: nome da pessoa, escritório, escopos e validade da conexão, as ferramentas e ações que ela pode usar (pelos módulos que
+  tem) e se o cliente de I.A. declarou `elicitation` (para o assistente saber como a confirmação vai acontecer, 6.7).
 - Reusa: o portão e `PermissionChecker::canAccessModule` (`:32`) para cada módulo do catálogo
   (`app/src/DataFixtures/PermissionFixture.php:17-32`).
-- Permissão: só o token. Grava: não. É a ferramenta que prova a cadeia no PR 5.
 
-**`buscar_pastas`**
-- Entrada: `texto?` (a busca livre da Lista), os filtros do Agente de Pastas (`FiltroDoAgenteInput`: situação, marcador,
-  responsável, etc.), `pagina?`.
-- Saída: `total`, `omitidas_por_segredo` e pastas (id, número, NUPs, clientes só pelo nome, ação, situação, responsáveis,
-  data da última movimentação).
-- Reusa: `BuscarPastasDoAgenteUseCase::executar(FiltroDoAgenteInput, Tenant, ?User $quem)`
-  (`app/src/Inteligencia/UseCase/BuscarPastasDoAgenteUseCase.php:40`), sobre `ConsultaDePastasDoAgente` (`:42`), a mesma
-  consulta da Lista. **Passar sempre `$quem`**: sem ele o cadeado não entra. Filtro inválido é erro
-  (`FiltroDoAgenteInvalidoException`), nunca lista inteira.
-- Permissão: módulo `expediente`, como o `/api/agente` (`AgenteDePastasController.php:99`).
-- Regras: segredo omitido e contado (a busca do Agente hoje não tira: acrescentar no conector); cliente só pelo nome.
-- Grava: não.
+**`buscar_pastas`** (PR 6)
+- Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`minhas: true`), busca rápida por número ou NUP, as
+  pastas de um marcador, a contagem, os valores de filtro (`opcoes`: marcadores, situações, responsáveis) e a lixeira do
+  escritório (`lixeira: true`); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
+- Reusa: a API do Agente de Pastas, que já roda com tenant explícito "porque o conector MCP da Fase 4 roda sem sessão"
+  (`app/src/Inteligencia/CLAUDE.md`, seção Agente de Pastas; `AgenteDePastasController`, rotas
+  `inteligencia_agente_pastas_buscar`, `inteligencia_agente_pastas_documentos` e `inteligencia_agente_opcoes`):
+  `BuscarPastasDoAgenteUseCase::executar(FiltroDoAgenteInput, Tenant, ?User $quem)` (`:40`), `ContarPastasDoAgenteUseCase`,
+  `ListarOpcoesDoAgenteUseCase`, sobre `ConsultaDePastasDoAgente` (`:42`, `:59`), a mesma consulta da Lista. Mais
+  `ListarMinhasDemandasUseCase::executar` (`app/src/Pasta/UseCase/ListarMinhasDemandasUseCase.php:35`),
+  `BuscarRapidoUseCase::executar(string, User, Tenant)` (`app/src/Expediente/UseCase/BuscarRapidoUseCase.php:49`) e
+  `ListarLixeiraDoEscritorioUseCase::executar(User, Tenant, ?string)` (`app/src/Pasta/UseCase/ListarLixeiraDoEscritorioUseCase.php:71`).
+  **Passar sempre `$quem`**: sem ele o cadeado não entra. Filtro inválido é erro (`FiltroDoAgenteInvalidoException`), nunca
+  lista inteira.
+- Falta: tirar e contar o segredo de justiça (a busca do Agente hoje não tira); conferir no PR se `ListarMinhasDemandasUseCase`
+  aplica o cadeado (senão, `AcessoAPasta::idsOcultosPara`); relatórios do Expediente com UseCase extraído (regra hoje no
+  controller, PR 14).
+- Permissão: módulo `expediente` (como o `/api/agente`, `AgenteDePastasController.php:99`); Minhas demandas, módulo `pastas`
+  (`app/src/Pasta/Controller/DemandasController.php:240`).
 
-**`minhas_demandas`**
-- Entrada: `pagina?`, `ordenar?`.
-- Saída: as pastas na mão da pessoa, com os campos de `buscar_pastas`.
-- Reusa: `ListarMinhasDemandasUseCase::executar(User, Tenant, filtros, pagina, porPagina, ordenar, direcao)`
-  (`app/src/Pasta/UseCase/ListarMinhasDemandasUseCase.php:35`); o responsável é sempre a própria pessoa (`:44`).
-- Permissão: módulo `pastas` (`app/src/Pasta/Controller/DemandasController.php:240`).
-- Regras: segredo omitido e contado; conferir no PR se o UseCase aplica o cadeado (senão, `AcessoAPasta::idsOcultosPara`).
-- Grava: não.
-
-**`detalhar_pasta`**
-- Entrada: `pasta_id`.
-- Saída: os blocos do contexto da pasta (pasta, clientes só com nome e natureza, processos vinculados, movimentações
-  recentes, metas, anotações, observações, checklist, documentos só com metadados, financeiro quando pode), dentro do
-  orçamento de 60 mil caracteres (`MontadorDeContextoDaPasta::ORCAMENTO_TOTAL`, `app/src/Inteligencia/Contexto/MontadorDeContextoDaPasta.php:74`).
+**`ler_pasta`** (PR 6; publicações no PR 7)
+- Entrada: `pasta_id`, `partes` (padrão `resumo`), `publicacao_id?`, `pagina?`.
+- Partes:
+  - `resumo`: número, ação, situação, prioridade, responsável, carteira, marcadores, clientes só pelo nome, processos
+    vinculados;
+  - `andamento` (pedido A): a via (judicial ou administrativa), a trilha de fases com nome e número
+    (`AndamentoDaPasta::FASES` e `FASES_ADM`, `app/src/Pasta/Service/AndamentoDaPasta.php:36`, `:42`), a fase atual, as datas,
+    as puladas, se é estimada ou gravada, os nomes de etapa do "+" e as sugestões de próxima fase;
+  - `registro` (mensagens do Registro, paginado), `prazos` (prazos e audiências), `metas` (metas da pasta), `detalhes`
+    (Relatório inicial), `checklist`, `financeiro`, `cadastro` (cadastro da pasta e réus, pela regra 4 da 6.2);
+  - `publicacoes` (14.h): as publicações do Diário ligadas à pasta; com `publicacao_id`, o texto inteiro;
+  - `equipe`: os colegas que podem ser mencionados no Registro (`ListarMencionaveisDaPastaUseCase::executar`,
+    `app/src/Pasta/UseCase/ListarMencionaveisDaPastaUseCase.php:58`), só nome e id;
+  - `timeline` e `controladoria` (alertas e pontos do relatório inicial): depois do PR 14, com UseCase extraído (regra hoje no
+    controller).
 - Reusa: `PastaDoContextoDaIa::liberar(User, Tenant, int)` (`app/src/Central/Service/PastaDoContextoDaIa.php:52`: id e
   escritório, pasta excluída, `podeVer`, decide financeiro e abas, confere sigilo) e `MontadorDeContextoDaPasta::para(...)`
-  (`:108`), como o `ContextoDaPastaNoChat::ler` (`app/src/ChatIa/Service/ContextoDaPastaNoChat.php:45`) já junta. Diferença:
-  o `ContextoDaPastaNoChat` exige o aceite de envio da I.A. do escritório (`:47`); no conector vale o aceite da decisão 14.a.
-  A primeira versão devolve os blocos como texto (já neutralizados e com orçamento); JSON por seção fica para quando um
-  cliente precisar.
-- Permissão: recurso `pasta` view (`AcessoAPasta::podeVer`) e abas ocultas.
-- Regras: segredo recusa; financeiro conforme 6.2.5.
-- Grava: não.
+  (`app/src/Inteligencia/Contexto/MontadorDeContextoDaPasta.php:108`), como o `ContextoDaPastaNoChat::ler`
+  (`app/src/ChatIa/Service/ContextoDaPastaNoChat.php:45`) já junta, com o orçamento de 60 mil caracteres (`MontadorDeContextoDaPasta::ORCAMENTO_TOTAL`, `:74`). A primeira
+  versão devolve esses blocos como texto já neutralizado; JSON por parte fica para quando um cliente precisar.
+- Falta:
+  - **um UseCase de leitura do andamento** (nome sugerido `LerAndamentoDaPastaUseCase`), que junte `AndamentoDaPasta::estado`
+    (`:100`), `rotulos` (`:115`) e `sugestoes` (`:255`), os mesmos dados que a tela monta em
+    `AndamentoDaPastaOutput::de` (`app/src/Pasta/DTO/AndamentoDaPastaOutput.php:35`), com nome e número de cada fase. Não
+    existe hoje rota só de leitura do andamento (inventário 0.A);
+  - **publicações sem marcar "lida"**: abrir o teor na tela (`pasta_push_teor`) grava `lida` para o escritório todo
+    (`app/src/Pasta/Controller/PastaPushProcessualController.php:88`). O conector **lê sem marcar**, pelo caminho do
+    `pasta_push_texto` (`:146`), que "NÃO há efeito colateral nenhum, nem `lida`, nem flush":
+    `PublicacaoDjenRepository::findOneByIdENumerosDoTenant` com os números dos processos da pasta e
+    `PublicacaoDjenListaItem::resumirTexto`. A lista sai de `MontarPainelDoPushUseCase::executar(Pasta, Tenant)` (conferir no PR
+    que não grava). A guarda é a do `texto`, num UseCase sem sessão: escritório da pasta, VER a pasta, publicação casada com
+    um processo desta pasta. O teor passa por `comoDado` (6.2.6).
+- Permissão: recurso `pasta` view (`AcessoAPasta::podeVer`); cada parte segue a aba de onde vem (6.6), como o
+  `PastaDoContextoDaIa` já passa as abas ocultas ao montador (`:60-63`); chave `expedientes`.
+- Regras: segredo recusa; financeiro conforme 6.2.5; o contexto da pasta pelo chat exige o aceite da BlueJus I.A.
+  (`ContextoDaPastaNoChat.php:47`), e no conector vale o aceite do conector (14.a).
 
-**`listar_prazos_e_metas`**
-- Entrada: a mesma do chat: `periodo` (`hoje`, `proximos_7_dias`, `atrasadas`) e `papel?` (`responsavel`, `criei`,
-  `acompanhando`, `todas`), com o schema de `app/src/ChatIa/Service/FerramentasDaConsulta.php:18-44`.
-- Saída: `PrazosEMetasOutput` (`app/src/ChatIa/DTO/PrazosEMetasOutput.php:18-24`): total, até 20 metas (número, título,
-  pasta, cliente só pelo nome, prazo, dias, prioridade, quem) e `omitidasPorSegredo`.
-- Reusa: `ConsultarPrazosEMetasUseCase::executar(User, Tenant, ConsultaDePrazosInput)`
-  (`app/src/ChatIa/UseCase/ConsultarPrazosEMetasUseCase.php:53`), pela porta `ListaDasMinhasMetas` e a implementação
-  `ListaDasMinhasMetasDaTela` (cadeado e "só acompanhar não basta" já aplicados).
-- Permissão: módulo `tarefas` (`AcessoAoModuloTarefas::pode`, `app/src/Tarefa/Service/AcessoAoModuloTarefas.php:24`). A
-  `GuardaDaConsultaDePrazos` (`app/src/ChatIa/Service/GuardaDaConsultaDePrazos.php:32`) também exige o aceite de envio da
-  I.A.; no conector vale a decisão 14.a.
-- Regras: outro escritório e segredo já saem dentro do UseCase.
-- Grava: não. Extensão natural, que também serve ao chat: `sem_prazo`, `aguardando_revisao` e o prazo jurídico da pasta
-  (`PastaPrazo`).
-
-**`listar_agenda`**
-- Entrada: `de`, `ate` (até 31 dias), `so_minha?` (padrão `true`).
-- Saída: compromissos (data, hora, título, local, tipo, número da pasta vinculada) e prazos de pasta quando a pessoa pode
-  vê-los.
-- Reusa: `ListarCompromissosUseCase::executar(Tenant, User, de, ate, soMinha, verPastas, verPrazos, administra)`
-  (`app/src/Agenda/UseCase/ListarCompromissosUseCase.php:47`), com `verPrazos` = `resources.agenda.ver_prazos` e
-  `verPastas` = módulo `pastas` (`PermissoesDaAgenda.php:19-30`).
-- Permissão: módulo `agenda` (`app/src/Agenda/Controller/AgendaNovaController.php:58`).
-- Regras: os aniversários que a agenda mostra são **da equipe**, não de clientes (`ListarCompromissosUseCase.php:25` e
-  `:174`, pelo `AniversariosDaEquipe`). No conector **ficam fora**: a ferramenta descarta esses itens, porque data de
-  nascimento de colega é dado pessoal e não ajuda no trabalho que o assistente faz; se o piloto pedir, voltam por decisão.
-  Compromisso ligado a pasta oculta ou a processo em segredo sai e é contado; conferir no PR se o UseCase aplica o cadeado.
-- Grava: não. Coordenar com a etapa 2 do chat (agenda), que precisa da mesma ferramenta.
-
-### 6.4 Leitura, fatia L2 (falta um pedaço em cada)
-
-**`buscar_processos`**
-- Entrada: `numero?` (CNJ) ou `termo?`.
-- Saída: processos (id, NUP, classe, assunto, tribunal, órgão, situação, números das pastas vinculadas visíveis) e
-  `omitidos_por_segredo`.
-- Reusa: `ProcessoRepository::findByNumeroProcessoDoTenant(string, Tenant)` (`:212`), `buscarPorTermoDoTenant(string, Tenant, ...)`
-  (`:255`), `PastaRepository::listarVinculadasAoProcesso(Processo, Tenant, ?User)` (`app/src/Pasta/Repository/PastaRepository.php:495`).
-- Falta: um UseCase de leitura sem sessão (a regra está no `ProcessoController`).
-- Permissão: módulo `processos` (`app/src/Processo/Controller/ProcessoController.php:85`); processos de pasta oculta saem
-  (`AcessoAPasta::idsDosProcessosOcultos`).
-- Regras: segredo omitido e contado; partes só pelo nome.
-- Grava: não.
-
-**`detalhar_processo`**
-- Entrada: `processo_id`, `movimentacoes?` (padrão 20, máximo 50).
-- Saída: dados do processo e as últimas movimentações (data, tipo, texto curto, fonte).
-- Reusa: `ProcessoRepository::findOneByIdDoTenant` (`:53`) e `Processo::getMovimentacoes()` (`Processo.php:326`).
-- Falta: um método paginado de "movimentações recentes" no `MovimentacaoProcessoRepository` (hoje só há `ultimasPorProcesso`,
-  que devolve datas, `app/src/Processo/Repository/MovimentacaoProcessoRepository.php:46`).
-- Permissão: `idsDosProcessosOcultos` e recurso `processo` view, na ordem de `ProcessoController.php:222-225`.
-- Regras: segredo recusa.
-- Grava: não.
-
-**`listar_documentos_da_pasta`**
-- Entrada: `pasta_id`.
-- Saída: documentos (id, nome, categoria, seção, data, tamanho, tipo), sem conteúdo.
-- Reusa: `ListarDocumentosDaPastaDoAgenteUseCase::executar(int, User, Tenant)` (`:41`: id e escritório, `view`; a lixeira
-  sai pelo `LixeiraFilter`, ligado por padrão).
-- Falta: a **barreira da aba Documentos inteira**. O UseCase só tira o contrato de honorários quando o Financeiro está oculto
-  (`documentosVisiveis`, `:53-58`); o próprio comentário (`:53-54`) diz que a aba Documentos oculta "já é barrada na rota",
-  e quem barra é o `BarreiraDeAbaOcultaListener` pela rota `inteligencia_agente_pastas_documentos` (`MAPA`, `:68`), que o
-  conector não atravessa. A ferramenta confere `abasOcultasPara` antes de chamar o UseCase e, com Documentos oculta,
-  responde "não encontrado". O cadeado já vem do `canAccessResource` do UseCase (`PermissionChecker.php:116-118`,
-  `cabeNoCadeadoDaPasta`); a ferramenta chama `AcessoAPasta::podeVer` (5.2), que é a mesma checagem, por uniformidade.
-- Permissão: recurso `pasta` view, aba Documentos e chave `expedientes` (tabela de 6.2).
-- Regras: segredo recusa (o UseCase do Agente não confere: acrescentar).
-- Grava: não.
-
-**`ler_documento`**
-- Entrada: `documento_id`.
-- Saída: conforme 14.f. Na recomendação, PDF e imagem como binário marcado "experimental" (PR 7), e peça do editor (HTML) e
-  DOCX como **texto** (até 60 mil caracteres, com aviso de corte, PR 7b).
-- Reusa, para PDF e imagem: `LeitorDeDocumentosDaPasta::anexos(Tenant, Pasta, ids, abasOcultas, ?User)`
-  (`app/src/Inteligencia/Contexto/LeitorDeDocumentosDaPasta.php:73`: recurso de quem pede, abas gravadas e de agora com a
-  aba Documentos barrada (`:119-121`), aceite, escritório e pasta, lixeira, tipo pelo conteúdo, teto e páginas) e os limites
-  de `RegraDaLeituraDeDocumentos` (`app/src/Inteligencia/Service/RegraDaLeituraDeDocumentos.php:32-40`: PDF 10 MB, imagem
-  3 MB, 100 páginas). Duas travas desse leitor mudam o plano de agosto:
-  - **só PDF e imagem**: o tipo sai do conteúdo (`RegraDaLeituraDeDocumentos::tipoPeloConteudo`) e o resto é recusado com
-    "o conteúdo não é PDF nem imagem" (`:145`). HTML e DOCX não têm caminho pronto;
-  - **exige o aceite atual da I.A.** (`RegraDaLeituraDeDocumentos::aceiteCobre`, `:122`, que lê
-    `ConfiguracaoDeInteligencia::aceiteCobreDocumentos`). Esse aceite fala do provedor que o BlueJus contrata, não do que a
-    pessoa escolhe (14.a).
-- HTML e DOCX: **fora da primeira fatia (PR 7)**. Entram no PR 7b, com um método novo no mesmo leitor (nome sugerido
-  `textos`) que reusa a conferência do pedido (`conferirPedido`, `:109`) e as conferências de escritório, pasta, lixeira e
-  teto do `anexo` (`:130`), reconhece HTML da peça e DOCX pelo conteúdo, converte a peça em texto sem as imagens embutidas
-  e o DOCX pelo `ExtratorDeTextoDocx::extrair` (`app/src/ChatIa/Service/ExtratorDeTextoDocx.php:35`, hoje só dos anexos do
-  chat; vai para um lugar comum aos dois domínios), e passa o resultado por `ProtecaoDoTextoDoChat::comoDado` (6.2.6).
-  Não é uma guarda nova: é o mesmo portão do leitor com outro tipo de saída, para que a I.A. e o conector não tenham duas
-  regras de quem lê o quê.
+**`ler_documentos_e_modelos`** (PR 7; outros tipos nos PRs 7b e 7c)
+- Ações: `listar` (documentos e subpastas da pasta, sem conteúdo: id, nome, categoria, subpasta, data, tamanho, tipo),
+  `ler` (`documento_id`: o conteúdo, pela tabela da 6.5), `lixeira` (o que está na lixeira da pasta,
+  `ListarLixeiraDaPastaUseCase`), `modelos` (modelos de peça do escritório) e `modelo` (corpo de um modelo, **sem preencher**).
+- Reusa:
+  - lista: `ListarDocumentosDaPastaDoAgenteUseCase::executar(int, User, Tenant)`
+    (`app/src/Inteligencia/UseCase/ListarDocumentosDaPastaDoAgenteUseCase.php:41`), que tira a lixeira e o contrato quando o
+    Financeiro está oculto (`:53-58`);
+  - conteúdo: `LeitorDeDocumentosDaPasta::anexos(Tenant, Pasta, ids, abasOcultas, ?User)`
+    (`app/src/Inteligencia/Contexto/LeitorDeDocumentosDaPasta.php:73`: recurso de quem pede, abas gravadas e de agora com a
+    aba Documentos barrada (`:119-121`), escritório e pasta, lixeira, tipo pelo conteúdo, teto e páginas) e os limites de
+    `RegraDaLeituraDeDocumentos` (`app/src/Inteligencia/Service/RegraDaLeituraDeDocumentos.php:32-40`);
+  - modelos: `ListarModelosDePecaUseCase::executar(Tenant, User, FiltroDosModelosInput)`
+    (`app/src/Pasta/UseCase/ListarModelosDePecaUseCase.php:41`) e `ModeloDePeca` (`app/src/Pasta/Entity/ModeloDePeca.php`, com
+    escritório) lido por id e escritório, com as variáveis (`app/src/Pasta/Service/PreenchedorDeModelo.php:19`) sem
+    preencher.
+- Falta:
+  - a **barreira da aba Documentos inteira** na lista: o UseCase confia na rota para isso (comentário em `:53-54`), e quem
+    barra é o `BarreiraDeAbaOcultaListener` pela rota `inteligencia_agente_pastas_documentos` (`MAPA`, `:68`), que o conector
+    não atravessa. A ferramenta confere `VisibilidadeDasAbasDaPasta::abasOcultasPara` antes e, com Documentos oculta,
+    responde "não encontrado";
+  - o segredo de justiça (o UseCase do Agente não confere);
+  - a **porta do aceite** no leitor: hoje ele exige o aceite da BlueJus I.A. (`RegraDaLeituraDeDocumentos::aceiteCobre`,
+    `:51`, que lê o aceite em `ConfiguracaoDeInteligencia`). Vira uma porta, com a implementação de hoje para a I.A. (sem
+    mudar nada nela) e a do conector, que lê o aceite do conector (14.a);
+  - os tipos novos (6.5).
 - Armazenamento (skill `armazenamento-de-arquivos`): leitura sempre pela porta `ArmazenamentoDeArquivos::ler`
-  (`app/src/Shared/Armazenamento/ArmazenamentoDeArquivos.php:76`), com a chave da fábrica `ChavesDePasta::documento`
-  (`app/src/Pasta/Armazenamento/ChavesDePasta.php:62`), nunca caminho. O serviço ativo é o `ArmazenamentoEspelhado`: lê do
-  disco e recupera do R2 o que saiu do disco. A autorização vem antes de montar a chave.
-- Falta (PR 7): a conferência do aceite vira uma porta do leitor, com a implementação de hoje para a I.A. (sem mudar nada
-  nela) e a do conector conforme 14.a; se a 14.a escolher a opção 3, a porta não é necessária. Falta (PR 7b): o método
-  `textos` descrito acima, o reconhecimento de HTML e DOCX pelo conteúdo e a conversão da peça em texto.
-- Permissão: recurso `pasta` view, aba Documentos e chave `expedientes` (tabela de 6.2).
-- Regras: segredo recusa; aceite que cubra documentos (14.a); o log guarda só id e sha256, como o
-  `contexto_resumo.documentosLidos` da I.A.; imagem embutida na peça não sai (é servida hoje sem isolamento por escritório,
-  `docs/specs/peca-imagem-isolamento-tenant.md`).
-- Grava: não.
+  (`app/src/Shared/Armazenamento/ArmazenamentoDeArquivos.php:76`), com a chave de `ChavesDePasta::documento`
+  (`app/src/Pasta/Armazenamento/ChavesDePasta.php:62`), nunca caminho. A autorização vem antes de montar a chave.
+- Regras: segredo recusa; o log guarda só id e sha256, como o `contexto_resumo.documentosLidos` da I.A.; imagem embutida na
+  peça não sai (é servida hoje sem isolamento por escritório, `docs/specs/peca-imagem-isolamento-tenant.md`); conteúdo de
+  documento que está na lixeira não sai (o leitor tira a lixeira de propósito; restaurar entra em `documentos_e_pecas`).
+- Permissão: recurso `pasta` view; aba Documentos (e Detalhes para `modelos` e `modelo`, como a tela `pasta_modelos_*`,
+  `MAPA` `:71`); chave `expedientes`. A chave `peticionar` não vale aqui: cobre só `pasta_peticionar*`.
 
-**`listar_modelos_de_peca`**
-- Entrada: `pasta_id` (âncora da permissão), `materia?`, `tipo?`, `texto?`.
-- Saída: modelos (id, título, matéria, tipo, usos).
-- Reusa: `ListarModelosDePecaUseCase::executar(Tenant, User, FiltroDosModelosInput)`
-  (`app/src/Pasta/UseCase/ListarModelosDePecaUseCase.php:41`).
-- Permissão: recurso `pasta` view na pasta-âncora, a mesma guarda da tela de modelos (`app/src/Pasta/Controller/PastaModelosController.php:265-277`);
-  **aba Detalhes** da pasta-âncora visível, porque a tela barra `pasta_modelos_*` pela aba Detalhes
-  (`BarreiraDeAbaOcultaListener::MAPA`, `:71`) e o banco de modelos mora nela (`app/templates/pasta/show.html.twig:323`);
-  chave `expedientes` (tabela de 6.2). Correção da versão anterior desta spec: a chave `peticionar` **não** vale aqui, porque
-  ela cobre só as rotas `pasta_peticionar*`. Não existe módulo "peticionar".
-- Grava: não.
+**`ler_processos`** (PR 7; CNJ no PR 13)
+- Ações: `buscar` (no escritório, por número CNJ ou termo), `para_vincular` (processos já cadastrados que podem ir para uma
+  pasta), `cnj` (consulta ao DataJud pelo número) e `detalhar` (`processo_id`: dados, últimas movimentações paginadas, notas
+  técnicas, números das pastas vinculadas visíveis).
+- Reusa: `ProcessoRepository::findByNumeroProcessoDoTenant(string, Tenant)` (`:212`), `buscarPorTermoDoTenant` (`:255`),
+  `findOneByIdDoTenant` (`:53`), `PastaRepository::listarVinculadasAoProcesso(Processo, Tenant, ?User)`
+  (`app/src/Pasta/Repository/PastaRepository.php:495`), `BuscarProcessosParaVincularUseCase::executar(Pasta, string, Tenant,
+  User)` (`app/src/Pasta/UseCase/BuscarProcessosParaVincularUseCase.php:52`).
+- Falta: um UseCase de leitura sem sessão (a regra está no `ProcessoController`); um método paginado de movimentações recentes
+  no `MovimentacaoProcessoRepository` (hoje só `ultimasPorProcesso`, que devolve datas, `:46`); a consulta ao CNJ com UseCase
+  extraído do controller (`api_datajud_search` e `pasta_processo_buscar_cnj`, 116 linhas no controller, inventário seção 4),
+  que manda ao CNJ só o número do processo (consulta pública; é o que a tela já faz).
+- Permissão: módulo `processos` (`app/src/Processo/Controller/ProcessoController.php:85`); por id,
+  `idsDosProcessosOcultos` e recurso `processo` view, na ordem de `ProcessoController.php:222-225`; `para_vincular` e `cnj`,
+  recurso `pasta` view e aba Processo, como a tela.
+- Regras: segredo omitido e contado na lista, recusa por id; partes só pelo nome. `openWorldHint: true` (CNJ).
 
-**`ler_modelo_de_peca`**
-- Entrada: `modelo_id`, `pasta_id`.
-- Saída: o corpo do modelo em texto, com as variáveis (`cliente`, `cpf`, `processo`, `pasta`, `cidade`, `data`, `advogado`,
-  `oab`; `app/src/Pasta/Service/PreenchedorDeModelo.php:19`) **sem preencher**.
-- Reusa: `ModeloDePeca` (`app/src/Pasta/Entity/ModeloDePeca.php`, tabela `modelo_de_peca`, com escritório), lido por id e
-  escritório.
-- Permissão e regras: as de `listar_modelos_de_peca`.
-- Grava: não. Serve para o assistente redigir uma minuta no estilo do escritório, que volta por `salvar_minuta_na_pasta`.
+**`ler_clientes`** (PR 11; documentos do cliente no PR 14)
+- Ações: `buscar` (por nome), `ler` (`cliente_id`), `conferir_documento` (CPF ou CNPJ), `documentos_de_identidade` (os
+  documentos de identidade achados nas pastas do cliente, por metadado; o conteúdo sai pelo `ler_documentos_e_modelos`) e
+  `documentos_do_cliente` (lista).
+- Reusa: `MontarInteligenciaCadastralUseCase::executar(Cliente, User, Tenant)`
+  (`app/src/Cliente/UseCase/MontarInteligenciaCadastralUseCase.php:46`); `CamposDoCadastro` e `PendenciasDoCadastro`
+  (`app/src/Cliente/Service/`) para preenchidos e pendências; a guarda do `ClienteResumoController` (recurso `cliente` view,
+  `:73`; cada pasta da lista por `canAccessResource('pasta', view)`, `:139`).
+- Falta: UseCases de leitura sem sessão, porque hoje a regra está no controller: buscar (`pasta_clientes_buscar`), ler
+  (`cliente_cadastro`, `cliente_resumo`), conferir documento (`cliente_cadastro_documento`, `pasta_cadastro_novo_documento`,
+  `cliente_cadastro_novo_documento`) e documentos do cliente (`cliente_documento_view`).
+- Regras: a regra 4 da 6.2 (sem valores de documento, contato e endereço); pastas do cliente em segredo saem e são contadas.
+- Permissão: recurso `cliente` view; buscar e conferir documento, módulo `clientes`.
 
-### 6.5 Escrita
+**`ler_agenda`** (PR 6)
+- Entrada: `de`, `ate` (até 31 dias), `so_minha?` (padrão `true`), `incluir?` (compromissos, prazos, datas do sistema,
+  lembretes).
+- Reusa: `ListarCompromissosUseCase::executar(Tenant, User, de, ate, soMinha, verPastas, verPrazos, administra)`
+  (`app/src/Agenda/UseCase/ListarCompromissosUseCase.php:47`), com `verPrazos` = `resources.agenda.ver_prazos`, `verPastas` =
+  módulo `pastas` (`app/src/Agenda/Service/PermissoesDaAgenda.php:19-30`) e **`administra` sempre falso** (6.3);
+  `ListarDatasDoSistemaUseCase` e `ListarLembretesUseCase`.
+- Permissão: módulo `agenda` (`app/src/Agenda/Controller/AgendaNovaController.php:58`).
+- Regras: os aniversários que a agenda mostra são **da equipe**, não de clientes (`ListarCompromissosUseCase.php:25`, pelo
+  `AniversariosDaEquipe`): ficam fora, porque data de nascimento de colega é dado pessoal e não ajuda no trabalho. Compromisso
+  ligado a pasta oculta ou a processo em segredo sai e é contado; conferir no PR se o UseCase aplica o cadeado.
 
-**Recomendadas para entrar primeiro (W1, decisão 14.b):**
+### 6.5 Que documento sai e como (decisão 14.f)
 
-**`gerar_minuta_de_modelo`**
-- Entrada: `pasta_id`, `modelo_id`.
-- Saída: id e título do documento criado, link para abrir no BlueJus, e as variáveis que ficaram vazias (`___`).
-- Reusa: `PrepararDadosDaPecaUseCase::executar(ModeloDePeca, Pasta, User, Tenant, agora)`
-  (`app/src/Pasta/UseCase/PrepararDadosDaPecaUseCase.php:27`) e
-  `UsarModeloNaPastaUseCase::executar(ModeloDePeca, Pasta, Tenant, User, array $valores)`
-  (`app/src/Pasta/UseCase/UsarModeloNaPastaUseCase.php:42`), que grava pelo `SalvarPecaTextoUseCase` com categoria de peça.
-- Permissão: recurso `pasta` edit (como "usar modelo" na tela, `PastaModelosController.php:166`); aba **Detalhes** visível,
-  como a tela (`pasta_modelos_usar`, `MAPA`, `:71`), e aba **Documentos** visível, a mais que a tela, porque a resposta
-  devolve o documento criado; pasta não excluída; chave `expedientes` (tabela de 6.2); escopo `mcp:escrita`.
-- Regras: o preenchimento é **no servidor**; CPF e qualificação vão para o documento, nunca para a resposta.
-- Grava: sim, um documento novo na pasta (desfaz pela lixeira).
+Todos os tipos que a aba Documentos aceita, menos áudio e vídeo. A lista de tipos é a de `UploadPecaUseCase::MIME_LIMITS`
+(`app/src/Pasta/UseCase/UploadPecaUseCase.php:77-111`), conferida pelo conteúdo do arquivo; a peça escrita no editor é
+gravada como `text/html` (`SalvarPecaTextoUseCase`, `MIME_DA_PECA`, `app/src/Pasta/UseCase/SalvarPecaTextoUseCase.php:48`).
 
-**`salvar_minuta_na_pasta`**
-- Entrada: `pasta_id`, `titulo` (até 200 caracteres), `conteudo` (Markdown simples ou HTML, até 200 mil caracteres),
-  `secao_id?`.
-- Saída: id, título e link do documento.
-- Reusa: `SalvarPecaTextoUseCase::executar(Pasta, ?PastaSecao, string $conteudoHtml, string $titulo, string $categoria, Tenant, ?User)`
-  (`app/src/Pasta/UseCase/SalvarPecaTextoUseCase.php:60`), que já saneia o HTML (`SanitizadorDePecaDeTexto`, `:91`), grava pela
-  chave de `ChavesDePasta::novoDocumento` e calcula o sha256.
-- Falta: converter Markdown em HTML antes do saneador.
-- Permissão: recurso `pasta` edit; aba **Documentos** visível, como a tela (`pasta_peticionar_texto`, `MAPA`, `:67`); pasta
-  não excluída; chave `peticionar`, a mesma da tela; escopo `mcp:escrita`.
-- Regras: categoria fixa entre as de `PastaDocumento` (`app/src/Pasta/Entity/PastaDocumento.php:27-33`); autor é a pessoa
-  (nunca "IA"), com a marca "pelo conector de I.A." no registro da pasta.
-- Grava: sim, um documento novo na pasta (desfaz pela lixeira).
+| Tipo | Como sai | Caminho | PR |
+|---|---|---|---|
+| PDF (até 10 MB, 100 páginas) | o arquivo, como recurso embutido, marcado "experimental" | `LeitorDeDocumentosDaPasta::anexos`, como hoje | 7 |
+| Imagem PNG, JPEG, GIF, WEBP (até 3 MB) | a imagem, como conteúdo de imagem do MCP | o mesmo leitor (`RegraDaLeituraDeDocumentos::tipoPeloConteudo`, `:116-126`) | 7 |
+| Imagem TIFF, HEIC, HEIF | convertida em JPEG no servidor e entregue como imagem | o leitor de hoje não reconhece esses tipos (`tipoPeloConteudo` só aceita PNG, JPEG, GIF, WEBP e PDF) e a extensão GD da imagem PHP não lê TIFF nem HEIC: precisa de dependência nova na imagem Docker (ex.: `ext-imagick` com suporte a HEIC), arquivo quente | 7c |
+| Peça do editor (`text/html`) | texto, sem as imagens embutidas | método novo no leitor (nome sugerido `textos`) que reusa `conferirPedido` (`:109`) e as conferências do `anexo` (`:130`) | 7b |
+| DOCX | texto | `ExtratorDeTextoDocx::extrair` (`app/src/ChatIa/Service/ExtratorDeTextoDocx.php:35`, hoje só do chat), levado a um lugar comum aos dois domínios | 7b |
+| DOC, ODT, RTF | texto | leitores `MsDoc`, `ODText` e `RTF` do `phpoffice/phpword`, que já está instalado (`app/composer.json:35`) | 7b |
+| TXT, CSV, XML, KML | texto, com a codificação conferida; XML e KML lidos como texto, nunca interpretados (sem risco de entidade externa) | leitura direta | 7b |
+| XLSX, XLS, ODS | tabela em texto, com o teto de linhas e colunas da prévia (`PreviaDeDocumentoOffice::LINHAS` 500 e `COLUNAS` 40, `app/src/Pasta/Service/PreviaDeDocumentoOffice.php:25-26`) | leitores `Xlsx`, `Xls` e `Ods` do `phpoffice/phpspreadsheet`, já instalado (`app/composer.json:34`), com a mesma proteção de pacote da prévia (`pacoteSeguro`, `:37`) | 7c |
+| PPTX, ODP | o texto dos slides | XML de dentro do pacote pelo `ZipArchive` (`ext-zip` já está no `composer.json`), com a mesma proteção de pacote; não há biblioteca de apresentação instalada | 7c |
+| E-mail (.eml) | remetente, destinatários, assunto, data e o corpo em texto; anexos só pelo nome | leitor pequeno no servidor ou dependência nova, a decidir no PR | 7c |
+| ZIP | a lista do que tem dentro (nome e tamanho), sem abrir os arquivos | `ZipArchive`, com a proteção de pacote | 7c |
+| Assinatura `.p7s` | só a informação de que é um arquivo de assinatura digital, sem conteúdo | o arquivo é a assinatura, não um texto a ler | 7c |
+| Áudio (MP3, OGG, M4A, OPUS) e vídeo (MP4, MOV) | recusa com mensagem fixa | decisão 14.f | n/a |
 
-**Candidatas da segunda leva (W2, conforme o uso do piloto):**
+Regras de todos: as mesmas guardas do leitor (recurso, abas, escritório, pasta, lixeira, aceite); teto de 60 mil caracteres
+de texto por documento, com aviso de corte; texto pela regra 6.2.6 (neutralizado, sem máscara); o MCP manda imagem como
+conteúdo padrão e PDF só como recurso embutido, e não há fonte oficial de que Claude e ChatGPT leem PDF devolvido por
+ferramenta: o piloto confere, e se não lerem, extrair o texto do PDF no servidor vira pergunta nova (sem OCR, PDF escaneado
+continua sem texto).
 
-**`anotar_na_pasta`**
+### 6.6 Gravação (9 ferramentas)
+
+Todas: escopo `mcp:escrita` (sem ele, 403 `insufficient_scope`, 5.1); `readOnlyHint: false`, `destructiveHint: true`;
+pasta excluída é só leitura (`Pasta::estaExcluida()`, `app/src/Pasta/Entity/Pasta.php:450`), salvo restaurar; segredo recusa
+(6.2.3); toda **exclusão** devolve uma proposta e só a `confirmar_acao` executa (6.7). "Exclusão" é toda ação que apaga, manda
+para a lixeira, exclui de vez, remove ou desvincula um item, inclusive tirar um marcador da pasta, apagar o nome de uma etapa
+e trocar um valor já preenchido no cadastro do cliente.
+
+**`atualizar_pasta`** (PR 10)
+- Ações e UseCases: `criar` (`CriarPastaUseCase`), `editar_dados` (`EditarPastaUseCase`), `situacao`
+  (`DefinirSituacaoDaPastaUseCase`; arquivar leva o andamento a Finalizada, `AndamentoDaPasta::finalizarPorArquivamento`,
+  `:192`), `responsavel` (`AlterarResponsavelDaPastaUseCase`; só colega ativo do escritório), `prioridade`
+  (`AlterarPrioridadeUseCase`), `carteira` (`MoverPastaDeCarteiraUseCase`), `duplicar` (`DuplicarPastaUseCase`), `restaurar`
+  (`RestaurarPastaUseCase`), `favoritar`, `acompanhar` e `destacar` (só para a pessoa: `AlternarFavoritoDaPastaUseCase`,
+  `AlternarAcompanhamentoDaPastaUseCase`, `DestacarPastaUseCase`), `marcadores_da_pasta`
+  (`SincronizarMarcadoresDaPastaUseCase`), `marcador` (do escritório: `CriarMarcadorUseCase`, `EditarMarcadorUseCase`,
+  `ReordenarMarcadorUseCase`), `nome_do_cliente` (`RenomearClienteDaPastaUseCase`), `cadastro_da_pasta`
+  (`SalvarCadastroDaPastaUseCase`), `reu` (adicionar e subir na ordem: `GerenciarReusDaPastaUseCase`), `pedir_acesso`
+  (`PedirAcessoAPastaUseCase`; avisa os primários) e `enviar_relatorio_sem_processo` (`EnviarRelatorioSemProcessoUseCase`;
+  avisa a Controladoria, os primários e cada responsável).
+- Exclusões por proposta: excluir a pasta (vai para a lixeira, `ExcluirPastaUseCase`; a tela exige digitar o número, e o
+  resumo da proposta traz o número), excluir marcador (`ExcluirMarcadorUseCase`, sai de todas as pastas), tirar marcador da
+  pasta, remover réu (`GerenciarReusDaPastaUseCase`).
+- Permissão: recurso `pasta` edit (cadeado em "Visualizar" recusa); `criar`, módulo `expediente` ou `pastas`, como a tela.
+
+**`mudar_andamento`** (PR 10; pedido A)
+- Ações: `mudar_fase` (`pasta_id`, `fase` pelo nome da trilha da via da pasta ou pelo número, `sem_pular?`, `motivo?`) e
+  `nomear_etapa` (`fase_de_inicio`, `texto` até 12 letras, `RotuloDeEtapa::TAMANHO_MAXIMO`,
+  `app/src/Pasta/Entity/RotuloDeEtapa.php:25`).
+- Reusa: `MudarFaseDaPastaUseCase::executar(Pasta, User, Tenant, int $fase, bool $semPular, string $motivo)`
+  (`app/src/Pasta/UseCase/MudarFaseDaPastaUseCase.php:34`, que já confere escritório e `canAccessResource` edit) e
+  `NomearEtapaDaPastaUseCase::executar(Pasta, User, Tenant, int, string)` (`app/src/Pasta/UseCase/NomearEtapaDaPastaUseCase.php:37`).
+  Nenhum dos dois manda aviso, Push, e-mail ou Google (inventário 0.A); escrevem no Registro e na auditoria.
+- **Atenção ao contrato:** chegar a Contrato marca o contrato do Financeiro como assinado, e voltar para antes de Contrato o
+  reabre como pendente (`AndamentoDaPasta::marcar`, `:148`, com `sincronizarContrato`, `:179-180` e `:376`), **mesmo para quem
+  tem o Financeiro oculto**, porque a rota do andamento não passa pela barreira do Financeiro. Por isso:
+  - avançar executa direto, e a resposta diz quando o contrato foi marcado como assinado;
+  - **voltar fase e reativar pasta finalizada** (Finalizada sobre Finalizada) **devolvem proposta** (6.7), como o inventário
+    recomenda (seção 6, item 13); o resumo diz o que acontece com o contrato;
+  - o que a resposta e o resumo dizem do contrato só aparece para quem vê o Financeiro da pasta (6.2.5); para os demais,
+    nenhuma palavra sobre o contrato, como na tela;
+  - `nomear_etapa` com texto vazio remove o nome: é exclusão, vai por proposta.
+- Permissão: recurso `pasta` edit; nenhuma aba (as rotas do andamento não estão no `MAPA`); chave `expedientes`.
+
+**`registrar_na_pasta`** (PR 10)
+- Onde: `registro` (aba Dados), `relatorio_inicial` (aba Detalhes) e `relatorio_financeiro` (aba Financeiro, com 6.2.5).
+- Ações: `escrever` e `responder` (com menção por id de colega, da parte `equipe` de `ler_pasta`), `editar` e `destacar`.
 - Reusa: `EnviarMensagemPastaUseCase::executar(Pasta, User, string, Tenant, ?PastaMensagem)`
-  (`app/src/Pasta/UseCase/EnviarMensagemPastaUseCase.php:96`) para anotação, ou
-  `EnviarObservacaoDetalhesUseCase::executar(Pasta, User, string, Tenant, ?PastaObservacaoDetalhes)` (`:42`) para observação.
-- Permissão: recurso `pasta` edit; aba conforme a tabela de 6.2 (anotação: nenhuma; observação: Detalhes); chave
-  `expedientes`; pasta não excluída. Regras: visível à equipe e pode notificar; o texto passa pelo
-  saneamento do UseCase. Grava: sim.
+  (`app/src/Pasta/UseCase/EnviarMensagemPastaUseCase.php:96`), `EditarMensagemPastaUseCase`,
+  `EnviarObservacaoDetalhesUseCase::executar` (`:42`), `EditarObservacaoDetalhesUseCase`, `EnviarObservacaoFinanceiraUseCase`,
+  `EditarObservacaoFinanceiraUseCase`, `DestacarComentarioUseCase`.
+- Exclusões por proposta: `ExcluirMensagemPastaUseCase` (apaga a linha), `ExcluirObservacaoDetalhesUseCase`,
+  `ExcluirObservacaoFinanceiraUseCase`.
+- Efeito: avisa o respondido, os mencionados e quem acompanha (colegas, 6.2.14).
+- Permissão: recurso `pasta` edit; aba conforme o lugar (6.6, tabela); chave `expedientes`.
 
-**`criar_meta`**
-- Falta: um `CriarMetaUseCase`. A montagem está no `TarefaController::novaMetaDaPasta`, privado
-  (`app/src/Controller/TarefaController.php:282`); o `GravarMetaNovaUseCase` (`app/src/Tarefa/UseCase/GravarMetaNovaUseCase.php:39`)
-  só numera e grava a entidade pronta.
-- Permissão: módulo `tarefas` e ver a pasta (`TarefaController.php:211`, `:226`). Regras: responsável só da equipe do
-  escritório; delegar notifica. Grava: sim.
+**`prazos_e_metas_da_pasta`** (PR 10; 14.h)
+- Ações: `salvar_prazo` (criar ou editar prazo ou audiência, com responsável: `SalvarPrazoDaPastaUseCase`,
+  `app/src/Pasta/UseCase/SalvarPrazoDaPastaUseCase.php:37`; aparece na Agenda da equipe), `cumprir_prazo`
+  (`CumprirPrazoDaPastaUseCase`), `analisar_prazo_da_meta` (`AnalisarPrazoDaMetaNovaUseCase::executar`,
+  `app/src/Tarefa/UseCase/AnalisarPrazoDaMetaNovaUseCase.php:22`; não grava) e `criar_meta` (com responsáveis e prazo).
+- Falta, para `criar_meta`: um `CriarMetaUseCase`. A montagem está no `TarefaController::criarParaPasta`
+  (`app/src/Controller/TarefaController.php:201`, rota `tarefa_criar_para_pasta`) e no privado `novaMetaDaPasta` (`:282`), que
+  grava pelo `GravarMetaNovaUseCase` (`app/src/Tarefa/UseCase/GravarMetaNovaUseCase.php:39`), registra a análise pelo
+  `RegistrarAnaliseDoPrazoNaMetaUseCase` e avisa pelo `NotificacaoService::notificarTarefaCriada` (`:265`).
+- Exclusão por proposta: excluir prazo (`CumprirPrazoDaPastaUseCase` com excluir).
+- Regras: prazo jurídico com data errada causa dano: a resposta repete data, tipo, responsável e que o prazo já aparece na
+  Agenda; responsável e meta só para colega ativo do escritório; delegar avisa.
+- Permissão: prazo, recurso `pasta` edit e aba Metas (`tarefas`, `MAPA` `pasta_prazo_*`) e chave `expedientes`; meta, módulo
+  `tarefas` (`AcessoAoModuloTarefas::pode`, `app/src/Tarefa/Service/AcessoAoModuloTarefas.php:24`) e ver a pasta, como a
+  rota. A chave `metas` cobre só `tarefa_minhas` e não vale aqui.
 
-**`criar_compromisso`**
-- Reusa: `SalvarCompromissoUseCase::executar(CompromissoInput, ?int, User, Tenant, bool)`
-  (`app/src/Agenda/UseCase/SalvarCompromissoUseCase.php:45`).
-- Permissão: módulo `agenda`. Efeito: sincroniza com o Google de quem tem a agenda ligada. Grava: sim.
+**`documentos_e_pecas`** (PR 12)
+- Documentos (aba Documentos): `editar_documento` (`EditarDocumentoDaPastaUseCase`), `mover` (`MoverItensDaPastaUseCase`,
+  `MoverDocumentoParaSecaoUseCase`), `copiar` (`CopiarDocumentosDaPastaUseCase`), `favoritar`
+  (`AlternarFavoritoDeDocumentoUseCase`), `subpasta` (criar, renomear, mover: `CriarPastaSecaoUseCase`,
+  `RenomearPastaSecaoUseCase`, `MoverPastaSecaoUseCase`), `reordenar` (`ReordenarDocumentosUseCase`, `ReordenarSecoesUseCase`) e
+  `restaurar` da lixeira (`RestaurarItensDaPastaUseCase`).
+- Peças: `escrever_peca` (`SalvarPecaTextoUseCase::executar`, `:60`, que saneia o HTML e grava pela chave de
+  `ChavesDePasta::novoDocumento`; falta converter Markdown em HTML antes do saneador), `editar_peca`
+  (`EditarPecaTextoUseCase`), `usar_modelo` (`PrepararDadosDaPecaUseCase::executar`, `:27`, e
+  `UsarModeloNaPastaUseCase::executar`, `:42`; preenchido **no servidor**, 6.2.4) e `destino_da_peca`
+  (`DefinirDestinoDaPecaUseCase`).
+- Modelos do escritório (aba Detalhes): `salvar_modelo` (`SalvarModeloDePecaUseCase`; o banco de modelos é do escritório) e
+  `favoritar_modelo` (`AlternarFavoritoDeModeloUseCase`, `AlternarMateriaFavoritaUseCase`).
+- Checklist de documentação (mora na aba Documentos, `MAPA` `pasta_checklist_*`): `checklist_item` (adicionar, marcar,
+  editar, reordenar: `AdicionarChecklistItemUseCase`, `ToggleChecklistItemUseCase`, `EditarChecklistItemUseCase`,
+  `ReordenarChecklistItensUseCase`), `checklist_estado` (ligar ou desligar com motivo, `AlterarEstadoDoChecklistUseCase`) e
+  `checklist_modelo` (salvar como modelo, aplicar, renomear: `SalvarChecklistComoModeloUseCase`,
+  `AplicarChecklistModeloUseCase`, `RenomearChecklistModeloUseCase`); listar os modelos de checklist, com UseCase extraído do
+  controller (PR 14).
+- Exclusões por proposta: documento e vários documentos para a lixeira (`ExcluirItensDaPastaUseCase`), subpasta
+  (`ExcluirPastaSecaoUseCase`), excluir de vez da lixeira (`ExcluirDeVezDaLixeiraUseCase`, irreversível), item de checklist
+  (`ExcluirChecklistItemUseCase`), modelo de checklist (`ExcluirChecklistModeloUseCase`), modelo de peça
+  (`ExcluirModeloDePecaUseCase`).
+- Permissão: recurso `pasta` edit; aba Documentos (Detalhes para modelos e `usar_modelo`, como a tela, e Documentos também em
+  `usar_modelo`, porque a resposta devolve o documento criado); chave `expedientes`, e `peticionar` em `escrever_peca`, a
+  mesma da tela (`pasta_peticionar_texto`).
 
-**Fora por agora:**
+**`financeiro_da_pasta`** (PR 12)
+- Só com `VisibilidadeDoFinanceiroDaPasta::podeVer` sim e a aba Financeiro visível.
+- Ações: `contrato` (pendente ou regular: `AlterarSituacaoContratoUseCase`, que também move o andamento,
+  `AndamentoDaPasta::aoMudarContrato`, `:212`), `pro_bono` (`AlterarProBonoDaPastaUseCase`), `valor_da_causa`
+  (`AtualizarValorCausaUseCase`), `pagamento` (registrar, parcelar, marcar recebido ou desfazer, corrigir valor:
+  `RegistrarPagamentoDaPastaUseCase`, `RegistrarParcelamentoDaPastaUseCase`, `AlternarQuitacaoDoPagamentoUseCase`,
+  `CorrigirValorDoPagamentoUseCase`), `documento_assinado` (marcar ou desmarcar: `AlterarAssinaturaDoDocumentoUseCase`) e
+  `renomear_documento` (regra no controller, UseCase extraído no PR 14).
+- Exclusões por proposta: excluir pagamento (`ExcluirPagamentoDaPastaUseCase`, irreversível) e documento do Financeiro para a
+  lixeira (`ExcluirItensDaPastaUseCase`).
+- Permissão: recurso `pasta` edit; aba Financeiro; chave `expedientes`.
 
-- `registrar_prazo`: o `SalvarPrazoDaPastaUseCase` existe (`app/src/Pasta/UseCase/SalvarPrazoDaPastaUseCase.php:37`), mas uma
-  data de prazo jurídico errada causa dano. Só com decisão.
-- `registrar_andamento`: não existe UseCase (`MovimentacaoProcesso` só nasce no `ProcessoController`, no mapper do Datajud e
-  no cadastro); `anotar_na_pasta` cobre o uso.
-- Cadastro de cliente e pasta: o chat já faz com proposta e clique (`docs/specs/chat-ia-cadastro.md`); no conector, só se a
-  decisão 14.b pedir, e pelo mesmo caminho da proposta (a I.A. nunca grava cadastro direto).
-- Excluir, arquivar, concluir meta, cobrança, ponto.
+**`atualizar_cliente`** (PR 11; pedido C)
+- Ações:
+  - `cadastrar` (**sempre por proposta**, decisão de 08/11/2026): lista de 1 a 50 clientes, cada um com `tipo` (`pf` ou
+    `pj`), `campos` (só as chaves de `CamposDoCadastro::ROTULOS`; nenhum é obrigatório) e `pasta_id?`. Com pasta,
+    `CriarClienteDaPastaUseCase::executar(Pasta, string, array, User, Tenant)`
+    (`app/src/Cliente/UseCase/CriarClienteDaPastaUseCase.php:44`; exige editar a pasta e liga o cliente a ela); sem pasta,
+    `CriarClienteAvulsoUseCase`, que exige `resources.carteira.gerenciar`, exatamente como o Chat I.A faz pelo
+    `ConversorDaProposta`. Cadastro em massa (o assistente varre pastas, acha documentos de clientes e cadastra vários) é
+    **uma proposta com a lista e uma confirmação para a lista toda**;
+  - `completar` (`cliente_id`, `campos`: `SalvarCadastroDoClienteUseCase::executar(Cliente, array, User, Tenant, ?Pasta)`,
+    `app/src/Cliente/UseCase/SalvarCadastroDoClienteUseCase.php:50`): campo vazio é preenchido direto; **trocar um valor
+    que já existe vai por proposta** (é exclusão do valor antigo);
+  - `contato` (celular ou e-mail: `AtualizarContatoDoClienteUseCase`, `:61`), com a mesma regra de troca;
+  - `vincular_a_pasta` (regra hoje no controller, `pasta_cliente_vincular`: UseCase extraído), `principal`
+    (`DefinirClientePrincipalUseCase`) e `ligar_documento` (documento de uma pasta ao cadastro:
+    `VincularDocumentoDaPastaAoClienteUseCase`).
+- Exclusões por proposta: desvincular o cliente da pasta (`pasta_cliente_desvincular`, UseCase extraído), excluir o cliente
+  (`cliente_delete`, regra no controller, apaga os arquivos dele: UseCase extraído no PR 14) e excluir documento do cliente
+  (`cliente_documento_delete`, PR 14).
+- Duplicidade: `CamposDoCadastro::aplicar` recusa CPF ou CNPJ que já é de outro cadastro do escritório
+  (`DocumentoJaCadastradoException`). Na proposta, o servidor confere cada item antes e tira da lista, com o motivo e o nome
+  do cadastro existente, o que já está cadastrado; na confirmação, confere de novo (6.7).
+- Efeito a avisar: o e-mail do cadastro aparece como principal na lista de avisos do cliente até a primeira mudança
+  (inventário 0.C); se o escritório já ligou o envio automático para aquele cliente, completar o e-mail faz os avisos irem
+  para ele. É o efeito normal do cadastro na tela, e a resposta da ferramenta diz isso.
+- Permissão: com pasta, recurso `pasta` edit; completar e contato, recurso `cliente` edit; sem pasta,
+  `resources.carteira.gerenciar`. Pasta na lixeira recusa.
+- Saída: ids e nomes criados ou alterados, e os nomes dos campos mudados, nunca os valores (o Registro e o Histórico do
+  cadastro já guardam só o nome do campo).
 
-### 6.6 Confirmação da escrita e injeção pelo conteúdo
+**`processos_da_pasta`** (PR 13)
+- Ações: `vincular` (novo, já cadastrado ou apensado: `CadastrarProcessoPelaPastaUseCase`, `VincularApensadoUseCase`),
+  `principal` (`DefinirProcessoPrincipalUseCase`), `dados_do_cartao` (`SalvarDadosManuaisDoProcessoUseCase`, **sem o campo de
+  segredo**: a entrada não o aceita, e o conector nunca liga nem desliga segredo), `acao_da_pasta` (`EditarAcaoDaPastaUseCase`),
+  `via_administrativa` (`DefinirPastaAdministrativaUseCase`; troca a trilha do andamento) e `nota_tecnica` (criar e editar:
+  `CriarNotaTecnicaUseCase`, `EditarNotaTecnicaUseCase`; menção avisa).
+- Exclusões por proposta: desvincular processo (`DesvincularProcessoUseCase`; o processo continua existindo), excluir nota
+  técnica (`ExcluirNotaTecnicaUseCase`) e excluir processo (`processo_delete`, regra no controller: UseCase extraído no PR 14).
+- Permissão: recurso `pasta` edit e aba Processo, como a tela (`MAPA`, `:72-78`); nota técnica e excluir processo, recurso
+  `processo` edit; chave `expedientes`.
 
-Uma escrita disparada por interpretação errada do modelo, ou por texto plantado num documento, tem de passar por um humano.
-São três camadas, e nenhuma sozinha basta:
+**`gravar_na_agenda`** (PR 13)
+- Ações: `salvar` (criar ou editar compromisso: tipo, horário, "Equipe" ou "Só eu", pasta, participantes, lembrete;
+  `SalvarCompromissoUseCase::executar(CompromissoInput, ?int, User, Tenant, bool)`, `:45`), `mover` (`MoverCompromissoUseCase`,
+  `:29`), `status` (concluir, cancelar, reabrir: `AlterarStatusDoCompromissoUseCase`, `:35`; cancelar avisa os participantes)
+  e `avisar` (`AvisarNoChatUseCase`, `AvisarPrazoNoChatUseCase`: avisos do sino a colegas pelo `AvisoDoCompromisso`).
+- Exclusão por proposta: `ExcluirCompromissoUseCase` (`:27`).
+- Teto (6.3): editar, mover, mudar status e excluir só de compromisso que a pessoa criou, conferido pela ferramenta.
+- **Google Agenda:** o `MudancaNaAgendaParaOGoogleListener` (`app/src/Agenda/EventListener/MudancaNaAgendaParaOGoogleListener.php`)
+  sincroniza, depois do flush, a agenda Google de quem criou e dos participantes **que conectaram a própria conta**. É efeito
+  normal da gravação, também pelo conector, e fica: vai para a conta Google de cada colega, não para o cliente nem para
+  terceiro. A resposta diz que o compromisso vai para o Google de quem tem a agenda ligada. `openWorldHint: true`.
+- Permissão: módulo `agenda`; com pasta, ver a pasta.
 
-1. **Escopo `mcp:escrita` desmarcado por padrão** na tela de consentimento.
-2. **Confirmação no cliente**: ChatGPT e Gemini pedem confirmação para toda ferramenta sem `readOnlyHint` (fontes em 3.4); o
-   Claude deixa a pessoa escolher, ferramenta por ferramenta, se pergunta sempre. Não dá para depender só disso.
-3. **Só escrita que cria e se desfaz**: documento novo, que vai para a lixeira; a resposta diz o que foi criado e dá o link.
+**Aba e chave do Master por ferramenta e ação** (regra 11 da 6.2). A coluna "rota da tela" diz o que a barreira de hoje cobre;
+"nenhuma" quer dizer que a tela também não barra. `BarreiraDeAbaOcultaListener::MAPA` está em
+`app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:49-80`; `CatalogoDeRecursos::ROTAS`, em
+`app/src/Master/Service/CatalogoDeRecursos.php:59-74`. Toda ferramenta exige também a liberação do conector nos três níveis
+(14.a), conferida pelo portão.
 
-A *elicitation* do protocolo (`ClientGateway::elicit` no SDK) só está documentada no Claude Code, em terminal; não serve de
-barreira única. Escrita que não se desfaz (cadastro, prazo) só entra pelo caminho "preparar no conector, confirmar na tela do
-BlueJus", como a proposta do chat.
+| Ferramenta e ação | Rota da tela | Aba (`AbaDaPasta`) | Chave do Master |
+|---|---|---|---|
+| `quem_sou_eu` | nenhuma | nenhuma | nenhuma |
+| `buscar_pastas` | `inteligencia_agente_pastas_buscar`, a Lista, `demandas_index`, `expediente_busca_rapida`, `expediente_lixeira` | nenhuma | nenhuma (a Lista é essencial, `base: true`; `assistente` desliga o Agente, não a Lista) |
+| `ler_pasta`: resumo, andamento, registro, equipe, cadastro | `pasta_show` | nenhuma (Dados não tem rota no `MAPA`) | `expedientes` |
+| `ler_pasta`: prazos | `pasta_show` | Metas (`tarefas`) | `expedientes` |
+| `ler_pasta`: metas | `pasta_show` | Metas (`tarefas`) | `expedientes` |
+| `ler_pasta`: detalhes, controladoria | `pasta_show` | Detalhes | `expedientes` |
+| `ler_pasta`: checklist | `pasta_show` | Documentos | `expedientes` |
+| `ler_pasta`: financeiro | `pasta_show` | Financeiro | `expedientes` |
+| `ler_pasta`: publicacoes | `pasta_push_texto` | Push | `expedientes` |
+| `ler_documentos_e_modelos`: listar, ler, lixeira | `pasta_documento*`, `inteligencia_agente_pastas_documentos` | Documentos | `expedientes` |
+| `ler_documentos_e_modelos`: modelos, modelo | `pasta_modelos_listar` | Detalhes | `expedientes` |
+| `ler_processos`: buscar, detalhar | `processo_index`, `processo_show` | nenhuma (não é rota de pasta) | nenhuma |
+| `ler_processos`: para_vincular, cnj | `pasta_buscar_processos`, `pasta_processo_buscar_cnj` | Processo | `expedientes` |
+| `ler_clientes` | `cliente_cadastro`, `cliente_resumo`, `pasta_clientes_buscar` | nenhuma | nenhuma |
+| `ler_agenda` | `agenda_index` | nenhuma | nenhuma |
+| `atualizar_pasta` | `pasta_edit`, `pasta_alternar_situacao` e as demais do cabeçalho, `expediente_marcador_*`, `pasta_reu_*`, `pasta_controladoria_cadastro` | nenhuma (`pasta_reu_*` fica fora do `MAPA` de propósito) | `expedientes` (na criação, nenhuma: `pasta_new` não é `pasta_show`) |
+| `mudar_andamento` | `pasta_andamento_mudar`, `pasta_andamento_etapa` | nenhuma | `expedientes` |
+| `registrar_na_pasta`: registro | `pasta_enviar_mensagem` | nenhuma | `expedientes` |
+| `registrar_na_pasta`: relatorio_inicial | `pasta_detalhes_observacao_*` | Detalhes | `expedientes` |
+| `registrar_na_pasta`: relatorio_financeiro | `pasta_financeiro_observacao_*` | Financeiro | `expedientes` |
+| `prazos_e_metas_da_pasta`: prazo | `pasta_prazo_*` | Metas (`tarefas`) | `expedientes` |
+| `prazos_e_metas_da_pasta`: meta, analise | `tarefa_criar_para_pasta`, `tarefa_analise_do_prazo` | nenhuma (rotas `tarefa_*` ficam fora do `MAPA`) | nenhuma |
+| `documentos_e_pecas`: documentos, checklist | `pasta_documento*`, `pasta_secao*`, `pasta_checklist_*` | Documentos | `expedientes` |
+| `documentos_e_pecas`: escrever_peca | `pasta_peticionar_texto` | Documentos | `peticionar` e `expedientes` |
+| `documentos_e_pecas`: modelos, usar_modelo | `pasta_modelos_*` | Detalhes (e Documentos em `usar_modelo`) | `expedientes` |
+| `financeiro_da_pasta` | `pasta_financeiro_*`, `pasta_pagamento_*`, `pasta_alternar_situacao_contrato` | Financeiro | `expedientes` |
+| `atualizar_cliente` | `cliente_cadastro_salvar`, `pasta_cadastro_novo_salvar`, `pasta_cliente_vincular` | nenhuma | `expedientes` quando age pela pasta; nenhuma sem pasta |
+| `processos_da_pasta` | `pasta_vincular_processo`, `pasta_definir_processo_principal`, `pasta_acao_salvar`, `pasta_administrativa_definir`, `processo_nota_tecnica_*` | Processo (nota técnica: nenhuma) | `expedientes` (nota técnica: nenhuma) |
+| `gravar_na_agenda` | `app_agenda_compromisso_*` | nenhuma | nenhuma |
+| `confirmar_acao` | a da ação confirmada | a da ação confirmada | a da ação confirmada |
 
-**Injeção indireta:** documento, anotação ou movimentação pode trazer texto que tenta mandar o assistente gravar algo. Não
-controlamos o prompt do cliente; as defesas são as três camadas acima e a marcação de dado (6.2.6) em toda resposta de
-leitura.
+Onde a tabela pede `expedientes` sem que a rota da tela o peça, é porque a informação só aparece dentro da tela da pasta, que a
+chave desliga. A conferência fica num lugar só, e o teste 12.9 percorre a tabela linha por linha.
 
-### 6.7 Reuso com o Chat I.A
+### 6.7 Confirmação: cadastrar cliente e qualquer exclusão (decisão de 08/11/2026)
+
+**O que exige confirmação da pessoa no próprio chat:** cadastrar cliente (um ou uma lista) e **toda exclusão** (definição na
+abertura da 6.6). Por regra desta spec, também voltar fase e reativar pasta (`mudar_andamento`), porque mexem no contrato.
+
+**O que as fontes oficiais dizem** (lidas em 09/11/2026; as páginas da especificação e do claude.com não mostram data):
+
+- A especificação MCP tem a *elicitation*: o servidor pede à pessoa, pelo cliente, uma resposta num formulário
+  (`elicitation/create`; resposta `accept`, `decline` ou `cancel`). É opcional: "Clients that support elicitation MUST
+  declare the `elicitation` capability"; o servidor "MUST NOT use elicitation to request sensitive information"
+  (https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation). A 2025-11-25 acrescentou o modo URL e proíbe
+  mandar um modo que o cliente não declarou (https://modelcontextprotocol.io/specification/2025-11-25/client/elicitation). Na
+  2026-07-28, sem estado, a elicitation volta como resultado `input_required` e o cliente reenvia a mesma chamada com as
+  respostas; o `requestState` "MUST" ter integridade protegida (HMAC ou AEAD) quando influencia autorização, com uso único
+  garantido no servidor (https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr).
+- **Claude Code** mostra o formulário de elicitation (https://code.claude.com/docs/en/mcp, "Respond to MCP elicitation
+  requests"), mas um hook `Elicitation` pode responder sozinho, sem diálogo (https://code.claude.com/docs/en/hooks.md); e
+  `_meta["anthropic/requiresUserInteraction"]: true` no `tools/list` faz pedir aprovação a cada chamada, sem "não perguntar de
+  novo" (mesma página do MCP).
+- **claude.ai, Desktop e celular:** o diretório diz que "destructive tools always prompt"
+  (https://claude.com/docs/connectors/building/review-criteria.md), mas a pessoa pode pôr cada ferramenta em "Always allow"
+  (https://claude.com/docs/connectors/getting-started).
+- **ChatGPT:** "Write actions by default require confirmation"; ferramenta sem `readOnlyHint` é escrita; a pessoa pode
+  "remember the approve or deny choice for a given tool for a conversation"
+  (https://developers.openai.com/api/docs/guides/custom-mcp-server.md). As anotações "do not replace authorization,
+  validation, or confirmation in your server" (https://developers.openai.com/plugins/build/mcp-server).
+- As anotações são dicas, e o `tools/call` não traz nenhum campo que diga ao servidor que a pessoa aprovou
+  (https://modelcontextprotocol.io/specification/2025-06-18/schema). Conclusão: **o servidor não consegue provar que uma
+  pessoa leu**. Ele consegue garantir que nada acontece sem um passo que o cliente mostra à pessoa, e que esse passo vale só
+  para aquilo, por pouco tempo, uma vez.
+
+**Não confirmado em fonte oficial:** se claude.ai, Desktop e celular suportam elicitation (a palavra não aparece em
+https://claude.com/docs/llms-full.txt; dois terceiros dizem que não: Relativity, atualizada em 06/11/2026,
+https://help.relativity.com/RelativityOne/Content/Relativity/MCP/Anthropic_Claude.htm, e Consilio, sem data,
+https://mcp-docs.ai.consilio.com/docs/integrations/claude-ai/); se o "Always allow" do Claude vale para ferramenta com
+`destructiveHint: true`; se a caixa de aprovação do Claude e do ChatGPT mostra os argumentos da chamada; se o ChatGPT
+clássico na web e no celular mostra a elicitation padrão (a OpenAI documenta formulários no Desktop e na web "Work",
+https://github.com/openai/mcp-extensions/blob/main/docs/spec.md, último commit em 05/11/2026); se o claude.ai respeita
+`anthropic/requiresUserInteraction` (confirmado só no Claude Code).
+
+**Desenho:**
+
+1. **Proposta.** A ação que exige confirmação nunca executa na primeira chamada. O servidor grava uma proposta
+   (`conector_ia_proposta`, 13.2): pessoa, escritório, consentimento e cliente OAuth do token, ferramenta e ação, os dados
+   exatos (JSON) e o hash deles, um **resumo** em português do que vai acontecer (ex.: "Excluir 3 documentos da pasta 2024/118:
+   procuracao.pdf, rg.jpg, contrato.docx"; ou a lista dos clientes com os valores que o assistente mandou), estado
+   `pendente`, validade de **10 minutos** e uso único. O identificador é aleatório e só o hash dele é gravado. A resposta
+   leva o id, o resumo e a instrução fixa "mostre o resumo à pessoa e só chame `confirmar_acao` se ela disser sim".
+2. **Com elicitation** (o cliente declarou a capacidade `elicitation` ao iniciar a sessão): a própria ferramenta pede a
+   confirmação pelo protocolo antes de responder (`ClientGateway::elicit(string $message, ElicitationSchema, int $timeout)`,
+   `app/vendor/mcp/sdk/src/Server/ClientGateway.php:178`): modo formulário, o resumo na `message` e um único campo booleano
+   "Confirmo". `accept` com `true` executa na mesma chamada; `decline`, `cancel` ou tempo esgotado cancelam a proposta. A
+   elicitation nunca pede dado (só sim ou não). Conferir no PR 9 que o `elicit` do SDK funciona com o transporte HTTP e a
+   sessão em cache (3.5).
+3. **Sem elicitation** (o caso esperado no claude.ai e no ChatGPT clássico): a confirmação é a ferramenta separada
+   `confirmar_acao(proposta_id, resumo)`, anotada `destructiveHint: true` e com `_meta["anthropic/requiresUserInteraction"]:
+   true`, que o Claude e o ChatGPT mostram para aprovação antes de chamar. Ela exige o **resumo exato** além do id: se a caixa
+   de aprovação mostrar os argumentos (não confirmado), a pessoa lê o que vai acontecer, e não só um número; e o modelo não
+   consegue mudar o resumo sem que a confirmação falhe.
+4. **Na confirmação o servidor reconfere tudo**, com trava de linha numa transação, como o
+   `ConfirmarPropostaDeCadastroUseCase` do Chat I.A (`app/src/ChatIa/UseCase/ConfirmarPropostaDeCadastroUseCase.php:72`):
+   proposta `pendente` e no prazo (vencida vira `expirada`); mesma pessoa, escritório, consentimento e cliente OAuth do token
+   atual; resumo e hash iguais; e de novo toda a permissão, o teto, as abas, a chave, a liberação, o segredo e o estado do
+   item (pasta excluída, CPF que virou repetido). Usada, vencida, de outra pessoa ou de outra conexão: recusa com mensagem
+   fixa, sem dizer se existe. Dois `confirmar_acao` ao mesmo tempo gravam uma vez.
+5. **Lote:** uma proposta leva até 50 itens; **uma confirmação vale para a lista toda** (decisão de 08/11/2026). Cada item roda
+   na própria transação, e a resposta diz o resultado de cada um (criado, excluído, recusado e por quê). Os itens que já
+   falham na proposta (CPF repetido, sem permissão) saem da lista antes, com o motivo, para a pessoa não confirmar o que não
+   vai acontecer.
+6. **Dados zerados:** depois de confirmada, cancelada ou vencida, a proposta guarda só estado, datas e ids do resultado; os
+   dados (que podem ter CPF) somem, como a `PropostaDeCadastro` do chat (`app/src/ChatIa/Entity/PropostaDeCadastro.php:22`). As
+   vencidas são varridas ao registrar uma proposta nova, como no chat. `dados` e `resumo` nunca vão para log nem auditoria.
+7. **Na versão 2026-07-28** (PR próprio, 3.5): a confirmação vira `input_required`, com o `requestState` assinado por HMAC,
+   preso à pessoa e à proposta, com validade curta e uso único conferido no servidor, como a especificação manda.
+
+**Alternativas recusadas:** recusar cadastro e exclusão quando o cliente não declara elicitation (na 2026-07-28, erro
+`MissingRequiredClientCapabilityError`, -32021) deixaria o pedido sem efeito no claude.ai; o modo URL (uma página do BlueJus
+onde a pessoa confirma, com conferência da sessão) é a prova mais forte, mas tira a confirmação do chat, contra a decisão, e
+o suporte nos clientes não está confirmado. Fica como reforço futuro, se o piloto mostrar abuso.
+
+**O guia do usuário** (PR 15) pede para nunca marcar "sempre permitir" na `confirmar_acao` e explica o que é a proposta.
+
+**Injeção indireta:** documento, anotação, publicação ou movimentação pode trazer texto que tenta mandar o assistente gravar
+algo. Não controlamos o prompt do cliente; as defesas são o escopo `mcp:escrita` desmarcado por padrão, a proposta com
+confirmação para o que apaga ou cadastra, a resposta que diz exatamente o que foi gravado e a marcação de dado (6.2.6) em
+toda resposta de leitura.
+
+### 6.8 Reuso com o Chat I.A
 
 Hoje uma ferramenta do chat são quatro peças separadas: a definição (`FerramentaDeLinguagem(nome, descricao, esquemaDaEntrada)`,
 `app/src/Inteligencia/DTO/FerramentaDeLinguagem.php`, neutra de fornecedor; só `paraAnthropic()` é acoplado), a guarda
@@ -789,21 +1106,32 @@ Hoje uma ferramenta do chat são quatro peças separadas: a definição (`Ferram
 
 **Recomendação:** um registro de ferramentas com `nome`, `schema`, `anotacoes`, `guarda(User, Tenant)` e
 `executar(User, Tenant, array)`, usado pelo chat e pelo conector, para a mesma ferramenta não ter duas regras. Entra no PR 6
+movendo o que existe, sem mudar o comportamento do chat. A proposta do conector (6.7) é parecida com a do chat, mas não
+reaproveita a `PropostaDeCadastro`, que é presa a uma conversa do chat (`ConversaDeChat` no construtor) e só cadastra; os
+validadores e o conversor do chat (`ValidadorDaProposta`, `ConversorDaProposta`) são reaproveitados no cadastro.
+
 movendo o que existe, sem mudar o comportamento do chat.
 
 ---
 
 ## 7. Legado que a feature encosta
 
+Com o escopo novo (14.b), o conector encosta em cerca de 50 ações cuja regra está no controller (inventário, seção 6, item
+3). Cada uma ganha UseCase antes de entrar, no PR que a usa; as que sobram vão juntas no PR 14 (13.1). Onde a tela antiga tem
+versão nova, entra só a nova (6.1).
+
 - **`Processo` está no domínio** (`app/src/Processo/Entity/Processo.php`, com escritório), mas a regra da tela continua no
-  `ProcessoController` (814 linhas). Faltam UseCases de leitura (6.4).
-- **`Cliente`** tem 8 UseCases em `app/src/Cliente/UseCase/`; o `ClienteController` (572 linhas) não tem listagem, e o
-  `ClienteRepository::findByFilters` não recebe escritório e não tem chamador. Busca de cliente fica fora da primeira entrega:
-  as pastas já trazem o nome. `Cliente` usa herança JOINED (`ClientePF`/`ClientePJ`); consulta nova considera as duas.
-- **`Tarefa` é legado** (`app/src/Entity/Tarefa/Tarefa.php`); criar meta exige extrair UseCase do controller (6.5).
-- **`PastaController`** (2944 linhas) tem o detalhe da pasta e o download, presos à sessão. O conector não passa por ele.
-- **Cobrança**: `MontarDetalheObjetoUseCase` e `ListarCasosUseCase` existem, mas a guarda lê a sessão. Fora até ter guarda
-  sem sessão.
+  `ProcessoController`. Faltam UseCases de leitura (PR 7), da consulta ao CNJ (PR 13) e de excluir processo (PR 14).
+- **`Cliente`** tem UseCases em `app/src/Cliente/UseCase/` para cadastro e contato; o `ClienteController` não tem listagem, e
+  o `ClienteRepository::findByFilters` não recebe escritório e não tem chamador. Buscar, ler e conferir documento ganham
+  UseCase de leitura no PR 11; vincular e desvincular da pasta, também; excluir cliente e os documentos do cliente, no PR 14.
+  `Cliente` usa herança JOINED (`ClientePF`/`ClientePJ`); consulta nova considera as duas.
+- **`Tarefa` é legado** (`app/src/Entity/Tarefa/Tarefa.php`); criar meta para a pasta ganha o `CriarMetaUseCase` extraído do
+  `TarefaController` (PR 10).
+- **`PastaController`** tem o detalhe da pasta e o download, presos à sessão. O conector não passa por ele; a leitura da pasta
+  vem do `MontadorDeContextoDaPasta` e da API do Agente de Pastas (6.4), que já rodam sem sessão.
+- **Agenda antiga** (`agenda_*`): fica fora; entra a Agenda nova, que já tem UseCases (6.6).
+- **Cobrança**: fora (14.h).
 
 Não refatorar o legado por causa desta feature, e não replicar regra de negócio dentro da ferramenta: se precisar de regra,
 extrair UseCase e dizer isso no PR.
@@ -854,7 +1182,8 @@ extrair UseCase e dizer isso no PR.
 ## 9. Segurança
 
 1. **Vida do token: 7 dias. Decidido pelo dono (11/08/2026).** Escolha de comodidade: a pessoa autoriza uma vez por semana,
-   não todo dia. Como isso vira token e renovação é a decisão 14.c.
+   não todo dia. Na prática (decisão 14.c, 08/11/2026): token de acesso de 1 hora e renovação com rotação, sem passar de 7
+   dias da autorização. Renovação já usada que volta é sinal de roubo: a cadeia inteira é revogada.
 2. **Revogação imediata, e ela é o que torna os 7 dias aceitáveis. Decidido.** O token é um papel assinado: diz "pessoa X,
    escritório Y" e **não se atualiza** quando a realidade muda. Por isso, **a cada requisição MCP** (não uma vez na conexão),
    o servidor confere **no banco**, e recusa se qualquer um falhar, mesmo com token dentro da validade:
@@ -869,7 +1198,9 @@ extrair UseCase e dizer isso no PR.
      são recusados (seção 4, regra 3);
    - troca de senha: impressão da senha gravada no token e na renovação diferente da do hash atual é recusada (seção 4,
      regra 3);
-   - consentimento e token não revogados.
+   - consentimento e token não revogados;
+   - a liberação do conector nos três níveis (chave geral, escritório liberado pelo Master, ligado com o aceite vigente,
+     14.a).
 
    Tudo isso vale também no `/oauth/token` ao trocar a renovação: renovação que falha em qualquer item é revogada com a
    cadeia inteira e responde `invalid_grant`, que é o que os clientes esperam para pedir login de novo (3.4).
@@ -885,25 +1216,34 @@ extrair UseCase e dizer isso no PR.
 6. **Redirect e código**: igualdade exata do `redirect_uri`; loopback com porta livre só para `127.0.0.1` e `localhost`
    (RFC 8252). No **DCR**, o registro só aceita `redirect_uris` de host da mesma lista permitida do CIMD ou de loopback, e
    recusa o resto com `invalid_redirect_uri` (3.4, item 2); a tela de consentimento continua mostrando o host (item 4). PKCE S256 obrigatório para todo cliente. Código de uso único, válido por até 10 minutos, preso ao
-   `redirect_uri` e ao `code_challenge`. Renovação (se houver) com rotação e `invalid_grant`.
+   `redirect_uri` e ao `code_challenge`. Renovação com rotação e `invalid_grant` (14.c).
 7. **Auditoria**: escrita registrada pelo `audit_log` com o escritório certo (4.3); chamadas no canal `mcp` sem conteúdo
    (6.2.9). Correção da spec de agosto: "registrar os argumentos" vira registrar ids e valores de lista, nunca texto
    (regra 3 da Inteligencia).
-8. **Dado pessoal e provedor do modelo**: decisão 14.a.
+8. **Dado pessoal e provedor do modelo**: decisão 14.a (piloto num escritório, liberação pelo Master, aceite próprio do
+   conector) e as regras de saída da 6.2.
 9. **Purga e exclusão**: as tabelas novas com escritório entram no `PurgarEscritorioUseCase`; excluir a conta ou o vínculo
    revoga consentimentos e tokens.
-10. **Injeção indireta pelo conteúdo**: 6.6.
+10. **Injeção indireta pelo conteúdo**: 6.7.
+11. **Teto**: nenhuma função de administrador pelo conector, nem para Master e primário (6.3).
+12. **Confirmação**: cadastro de cliente e toda exclusão só com proposta confirmada pela pessoa no chat, conferida de novo no
+    servidor; o servidor não confia no modelo nem nas anotações para isso (6.7).
 
 ---
 
 ## 10. O que fica fora desta spec
 
 - `consultar_sql` remoto (6.1); a v1 STDIO/SSH continua, só para o dono.
-- Ponto eletrônico, cobrança, exclusões, prazo jurídico, andamento manual (6.5).
-- Cadastro de cliente direto; o cadastro por proposta já existe no chat.
-- Arquivo bruto por link.
-- O app Gemini de consumidor, enquanto for só dos EUA (3.4).
-- A versão 2026-07-28 do protocolo (PR próprio, 3.5).
+- Funções de administrador dos quatro módulos (6.1), garantidas pelo teto (6.3).
+- Ponto eletrônico, Cobrança, a BlueJus I.A. dentro da pasta, todo envio ao cliente ou a terceiro, o encaminhar pela Central,
+  o Push além de ler as publicações e Minhas Metas além de criar meta para a pasta (14.h; a leitura de Minhas Metas é a
+  pergunta 14.i).
+- Enviar arquivo e baixar arquivo binário (6.1; pergunta 14.j).
+- Áudio e vídeo (14.f).
+- Gemini (app, Enterprise, CLI e Antigravity) e a publicação nos diretórios do Claude e do ChatGPT, no piloto (14.d).
+- A versão 2026-07-28 do protocolo (PR próprio, 3.5), com a confirmação por `input_required` (6.7, item 7).
+- Confirmação pelo modo URL da elicitation (6.7, alternativas recusadas).
+- Selo "pelo conector" no Registro da pasta (6.2, regra 13).
 - Cliente MCP próprio do BlueJus (aqui somos só servidor).
 
 ---
@@ -914,15 +1254,23 @@ extrair UseCase e dizer isso no PR.
 |---|---|
 | **`TenantFilter` falha aberto** | Rota nova que esqueça de amarrar o escritório devolve tudo, sem erro. Item nº 1 do plano (PR 1). |
 | **Guardas em listeners HTTP** | Cadeado, aba oculta, pasta excluída, função desligada, termos de uso, "Sair de todos os aparelhos" e barreiras do escritório não rodam no conector; cada uma precisa ser refeita e testada (5.2). E dois desses listeners quebram o `/mcp` se não o deixarem passar: redirecionam para `tenant_selecionar` ou `termo_aceite` (8). |
+| **Bypass do Master e do primário** | Sem o teto (6.3), "exceto funções de administrador" não se cumpre: o Master passa por toda checagem e o primário também. O modo do conector mexe em `PermissionChecker` e `RegraDosPrimarios`, código de identidade: se valer para outra pessoa que não a do token, um colega deixa de receber aviso de primário; se vazar para a requisição seguinte do mesmo processo, o Master perde o bypass no navegador. Só para a pessoa do token, zerado no `reset()` e testado (12.19). Perfil de sistema sem alguma permissão criada depois do escritório perderia acesso pelo conector: o PR 1 confere na produção. |
+| **Confirmação depende do cliente** | O servidor garante que nada é excluído ou cadastrado sem a proposta e a confirmação, mas não prova que uma pessoa leu: "Always allow" no Claude, "lembrar" no ChatGPT e um hook do Claude Code tiram a pergunta, e a elicitation no claude.ai não está confirmada (6.7). |
+| **Contrato mexido pela esteira** | Mudar a fase marca ou reabre o contrato do Financeiro, mesmo para quem não vê o Financeiro (6.6, `mudar_andamento`). Voltar e reativar vão por proposta. |
+| **Cadastro em massa** | Um erro do assistente se repete em até 50 cadastros de uma vez. Limite, proposta com a lista, duplicados tirados antes e resultado por item (6.7, item 5). |
+| **UseCases extraídos de controller** | Cerca de 50 ações do escopo têm a regra no controller (inventário, seção 6, item 3). Cada extração muda a tela também; mover sem reescrever, com os testes da tela escritos antes. |
 | **Auditoria sem escritório** | Escrita pelo conector gravaria `audit_log` com escritório nulo (4.3). |
 | **nginx barra `.well-known`** | Falha silenciosa: o cliente só diz "não consegui conectar" (3.3). |
-| **`mcp/sdk` experimental (0.7.1)** | API muda entre versões menores; a 2026-07-28 vai exigir atualização. Versão fixa, como na v1. |
+| **`mcp/sdk` experimental (0.7.1)** | API muda entre versões menores; a 2026-07-28 vai exigir atualização. Versão fixa, como na v1. A elicitation do SDK com o transporte HTTP precisa de prova no PR 9 (6.7, item 2). |
 | **Servidor de autorização dentro da aplicação** | Uma falha nele é uma falha no sistema inteiro, não num serviço isolado. |
 | **DCR deprecated, mas necessário** | O Claude registra um cliente por conexão; sem expiração, a tabela cresce sem limite. |
-| **Clientes mudam rápido** | Nomes, planos e regras de ChatGPT e Gemini mudaram várias vezes em 2026; o guia do usuário leva data e é revisto a cada trimestre. |
-| **Injeção indireta** | Texto de documento pode instruir o assistente a gravar (6.6). |
-| **Limites de tamanho por cliente** | Resposta grande demais é cortada ou recusada pelo cliente (6.2.7). |
-| **Dado pessoal saindo para o provedor do modelo** | Decisão de negócio e de termos de uso, não só técnica (14.a). |
+| **Clientes mudam rápido** | Nomes, planos e regras de Claude e ChatGPT mudaram várias vezes em 2026; o guia do usuário leva data e é revisto a cada trimestre. |
+| **Injeção indireta** | Texto de documento pode instruir o assistente a gravar (6.7). |
+| **Limites de tamanho por cliente** | Resposta grande demais é cortada ou recusada pelo cliente (6.2, regra 7). |
+| **Dado pessoal saindo para o provedor do modelo** | O provedor é o da conta da pessoa, sem contrato com o BlueJus. Piloto num escritório, liberação pelo Master e aceite próprio do conector (14.a); o texto está com o jurídico. |
+| **Arquivo malicioso na leitura** | DOCX, planilha, apresentação e ZIP são pacotes: arquivo forjado pode estourar memória. Mesma proteção de pacote da prévia, tetos de tamanho, XML lido como texto (6.5). |
+| **Dependência nova para TIFF e HEIC** | Converter exige extensão nova na imagem PHP (arquivo quente, passo de deploy). Se não puder entrar, esses dois tipos ficam recusados com mensagem fixa (6.5). |
+| **Google Agenda dos colegas** | Compromisso gravado pelo conector vai para a agenda Google de quem criou e dos participantes que ligaram a conta, como na tela (6.6, `gravar_na_agenda`). |
 
 ---
 
@@ -931,8 +1279,9 @@ extrair UseCase e dizer isso no PR.
 Escritos **antes** da implementação, e cada um provado reintroduzindo o defeito (disciplina que na v1 pegou seis premissas
 erradas do plano, todas invisíveis à leitura):
 
-1. **Cross-tenant**: pessoa do escritório A pede recurso do escritório B, por **cada** ferramenta, e recebe negativa (não
-   lista vazia por acaso: negativa). Este é o teste que sustenta a spec.
+1. **Cross-tenant**: pessoa do escritório A pede recurso do escritório B, por **cada** ferramenta e **cada** ação, e recebe
+   negativa (não lista vazia por acaso: negativa). Este é o teste que sustenta a spec. Vale também para a `confirmar_acao`
+   com proposta do escritório B.
 2. **Sem escritório resolvível**, a requisição é recusada; o filtro nunca fica desligado. Com o filtro desligado à força, a
    ferramenta ainda não devolve dado de outro escritório (guarda explícita), e o portão recusa.
 3. **Vínculo inativo, situação suspensa, escritório suspenso ou em quarentena, pedido de exclusão, pessoa desativada**: cada
@@ -940,34 +1289,72 @@ erradas do plano, todas invisíveis à leitura):
    `/oauth/authorize` e no `/mcp` com a `BloqueioPorPedidoDeExclusao::MENSAGEM`, enquanto o mesmo primário, no navegador,
    continua chegando ao Meu Perfil (o teste do listener segue verde).
 4. **Permissão**: pessoa sem o módulo recebe negativa mesmo com escopo `mcp:leitura`.
-5. **Escopo**: token só com `mcp:leitura` não executa ferramenta de escrita (403 `insufficient_scope`), mesmo que a pessoa
-   tenha a permissão.
+5. **Escopo**: token só com `mcp:leitura` não executa ferramenta de gravação nem a `confirmar_acao` (403
+   `insufficient_scope`), mesmo que a pessoa tenha a permissão.
 6. **Revogação**: revogado o consentimento ou desativado o vínculo, o token para de funcionar.
-7. **Fluxo OAuth completo** ponta a ponta, com PKCE, contra o servidor de verdade: CIMD, DCR e pré-registrado.
-8. **Escrita** exige o escopo e gera registro de auditoria com o escritório e a pessoa do token.
-9. **Cada guarda de 5.2** recusada pelo conector: cadeado, aba oculta, pasta excluída na escrita, função desligada no Master,
-   meta por id, termos de uso. Para aba e chave, o teste percorre a **tabela de 6.2 linha por linha**: com a aba da linha
-   oculta, a ferramenta recusa (inclusive `listar_documentos_da_pasta` com a aba Documentos oculta, que o UseCase sozinho
-   deixaria passar); com a chave da linha desligada, recusa; e uma ferramenta nova sem linha na tabela derruba o teste.
-10. **Segredo de justiça** (do tribunal e manual): lista omite e conta; por id recusa.
-11. **Cliente só pelo nome**: nenhuma resposta de leitura traz CPF, CNPJ, e-mail, telefone ou endereço (teste que procura
-    esses padrões nas respostas de todas as ferramentas, com dados de fábrica).
+7. **Fluxo OAuth completo** ponta a ponta, com PKCE, contra o servidor de verdade: CIMD e DCR. Renovação: o token de acesso
+   vence em 1 hora, a renovação gira (a antiga, reusada, derruba a cadeia inteira) e nenhuma renovação passa dos 7 dias da
+   autorização (14.c).
+8. **Gravação** exige o escopo e gera registro de auditoria com o escritório, a pessoa do token e a rota do `/mcp`.
+9. **Cada guarda de 5.2** recusada pelo conector: cadeado, aba oculta, pasta excluída na gravação, função desligada no
+   Master (também para o Master), meta por id, termos de uso. Para aba e chave, o teste percorre a **tabela de 6.6 linha por
+   linha**: com a aba da linha oculta, a ação recusa (inclusive `ler_documentos_e_modelos` com a aba Documentos oculta, que
+   o UseCase sozinho deixaria passar); com a chave da linha desligada, recusa; e uma ferramenta ou ação nova sem linha na
+   tabela derruba o teste.
+10. **Segredo de justiça** (do tribunal e manual): lista omite e conta; por id recusa, **na leitura e na gravação** (cada
+    ferramenta de gravação com pasta ligada a processo em segredo); `processos_da_pasta` não aceita o campo de segredo.
+11. **Cliente só pelo necessário**: nenhuma resposta, fora o conteúdo de documento lido, traz CPF, CNPJ, RG, data de
+    nascimento, e-mail, telefone ou endereço (teste que procura esses padrões nas respostas de todas as ferramentas, com dados
+    de fábrica). `ler_clientes` diz quais campos estão preenchidos sem o valor; `conferir_documento` diz só se existe e de
+    quem; o resumo da proposta de cadastro traz só o que o assistente mandou.
 12. **CIMD**: `client_id` diferente da URL, redirect fora do documento, domínio fora da lista e endereço privado são recusados.
     **DCR**: registro com `redirect_uris` de host fora da lista permitida recebe `invalid_redirect_uri` e não cria cliente;
     host da lista e loopback passam; a tela de consentimento de um cliente registrado por DCR mostra o host do redirect.
 13. **Metadados**: as duas URLs `.well-known` respondem pelo Symfony (funcional) e o `nginx.prod.conf` tem a location
-    `^~ /.well-known/oauth-` antes do bloqueio de arquivos ocultos (arquitetura).
-14. **Anotações**: toda ferramenta de leitura tem `readOnlyHint: true` e toda de escrita exige `mcp:escrita` (arquitetura).
-15. **Log `mcp`** sem conteúdo: nenhuma linha leva texto de busca, título, nome ou conteúdo.
+    `^~ /.well-known/oauth-` antes do bloqueio de arquivos ocultos (arquitetura). O metadado anuncia `refresh_token` e
+    `offline_access`.
+14. **Anotações** (arquitetura): toda ferramenta tem `title` e as quatro dicas com valor explícito; as de leitura têm
+    `readOnlyHint: true`; as de gravação e a `confirmar_acao` exigem `mcp:escrita`; a `confirmar_acao` tem
+    `_meta["anthropic/requiresUserInteraction"]: true`; nenhuma ferramenta lê e grava.
+15. **Log `mcp`** sem conteúdo: nenhuma linha leva texto de busca, título, nome, valor de campo, resumo de proposta ou
+    conteúdo.
 16. **"Sair de todos os aparelhos" e troca de senha**: depois de cada um, o token de acesso é recusado no `/mcp` e a
     renovação recebe `invalid_grant` no `/oauth/token`, inclusive a renovação já rodada uma vez depois da autorização (prova
     que a rotação copia o `autorizado_em`). Troca de senha testada pelo perfil (`AlterarSenhaUseCase`) e pelo link
     (`RedefinirSenhaUseCase`); autorização feita depois do corte ou da troca funciona.
-17. **`ler_documento`**: HTML e DOCX recusados na primeira fatia com mensagem fixa (até o PR 7b); PDF e imagem recusados
-    sem o aceite que a 14.a definir; documento da aba Documentos oculta recusado.
+17. **Tipos de documento** (6.5): cada linha da tabela com um arquivo de fábrica sai do jeito descrito; áudio e vídeo
+    recusados com mensagem fixa; ZIP lista sem abrir; XML com entidade externa não é resolvido; planilha cortada no teto com
+    aviso; pacote forjado recusado; documento na lixeira e documento com a aba Documentos oculta recusados; sem o aceite do
+    conector, nenhum conteúdo sai.
 18. **`/mcp` sem sessão**: bearer válido, sem cookie, recebe a resposta MCP, nunca 302 para `tenant_selecionar` ou
     `termo_aceite`, e a resposta não traz `Set-Cookie`. Pessoa sem o aceite da versão vigente dos termos é recusada pelo
     portão com mensagem fixa.
+19. **Teto** (6.3): Master secundário com vínculo comum não vê pasta sem acesso; Master e primário não veem pasta trancada
+    em que não estão na lista, e aba oculta para todos também some para eles; nenhuma ação de administrador da 6.1 é
+    alcançável por Master ou primário (teste de arquitetura sobre as dependências das classes do conector); compromisso
+    criado por outra pessoa é recusado para quem tem `admin.users.manage`; a agenda nunca sai com `administra`; o relatório
+    sem processo pedido pelo conector continua avisando os outros primários; uma requisição do navegador depois de uma do
+    conector, no mesmo processo, tem os bypasses de volta.
+20. **Confirmação** (6.7): cada ação marcada como exclusão, o cadastro e voltar ou reativar a fase devolvem proposta e não
+    gravam nada (teste que percorre a lista de ações); a proposta é recusada vencida, já usada, de outra pessoa, de outro
+    escritório, de outro cliente OAuth, de consentimento revogado e com resumo diferente; duas confirmações ao mesmo tempo
+    gravam uma vez; na confirmação, permissão retirada, aba ocultada ou pasta excluída nesse meio tempo recusam; com
+    elicitation, `accept` com "Confirmo" executa e `decline`, `cancel` e tempo esgotado não executam; sem a capacidade
+    declarada, o servidor nunca manda `elicitation/create`; depois de decidida ou vencida, a proposta não guarda dados.
+21. **Esteira** (6.6, `mudar_andamento`): fase pelo nome e pelo número, nas duas vias; avançar até Contrato marca o contrato
+    e a resposta diz isso só para quem vê o Financeiro; voltar e reativar viram proposta; cadeado em "Visualizar" recusa;
+    pasta excluída recusa; nome de etapa com mais de 12 letras recusado e nome vazio vira proposta.
+22. **Cadastro em lote** (6.6, `atualizar_cliente`): 1 a 50 itens, 51 recusado; CPF ou CNPJ já cadastrado, ou repetido
+    dentro da própria lista, sai da proposta com o motivo; CPF que vira repetido entre a proposta e a confirmação dá resultado
+    parcial, item por item; sem pasta exige `resources.carteira.gerenciar`; `completar` não troca valor existente sem
+    proposta; a resposta traz nomes de campo, nunca valores.
+23. **Publicações**: ler a lista e o texto não muda o `lida` de nenhuma publicação; publicação de processo de outra pasta é
+    recusada; aba Push oculta recusa.
+24. **Liberação** (14.a): chave geral desligada, escritório não liberado pelo Master, conector não ligado no escritório ou
+    aceite em versão antiga: cada um recusa no `/oauth/authorize` e no `/mcp`; desligar depois de conectar derruba na
+    requisição seguinte; liberar o escritório A não libera o B.
+25. **Tela que ganhou UseCase**: cada UseCase extraído de controller (6.4 e 6.6, "Falta") tem os testes funcionais da tela
+    escritos antes e verdes depois, sem mudar o comportamento.
 
 ---
 
@@ -980,53 +1367,71 @@ revisão.
 
 | # | Branch sugerida | Entrega | Depende de | Risco | Estimativa |
 |---|---|---|---|---|---|
-| 1 | `conector-portao` | Portão sem HTTP: barreiras do escritório extraídas do `TenantContextValidatorListener` para um serviço sem sessão (o listener passa a usá-lo, sem mudar comportamento), com o primário de escritório suspenso a pedido recusado no conector (seção 4, regra 1) e a conferência dos termos de uso (5.2); filtro ligado e conferido (fail-closed); escopo de auditoria do conector; teste de arquitetura | nada | ALTO | 2,5 dias |
-| 2 | `conector-tabelas` | `composer` (`league/oauth2-server-bundle` ^2.0, `symfony/psr-http-message-bridge`), entidades e **uma** migration com as tabelas de 13.2 (precisa das decisões 14.a e 14.c, ver abaixo), purga do escritório | nada (paralelo ao 1) | ALTO | 1,5 dia |
-| 3 | `conector-autorizacao` | `/oauth/authorize` (login, escolha do escritório, consentimento com escopos), `/oauth/token`, metadado RFC 8414, PKCE S256, `resource` para `aud`, `iss`, regras de redirect, `autorizado_em` e impressão da senha gravados no token e na renovação e conferidos na renovação (seção 4, regra 3), rotas nas listas dos dois listeners (8), chaves de assinatura (passo do Samuel), forma da decisão 14.c | 1, 2 | ALTO, com re-revisão | 3 dias |
-| 4 | `conector-registro` | CIMD (busca segura, lista de domínios, cache), DCR em `/oauth/register` (limite, expiração, redirect só da lista permitida ou loopback) e comando de console para cliente pré-registrado | 3 | ALTO | 2 dias |
-| 5 | `conector-mcp` | Firewall do `/mcp`, validador do token com o portão a cada requisição (inclusive corte de "Sair de todos os aparelhos" e impressão da senha), metadado RFC 9728 nas duas URLs, `/mcp` nas listas dos dois listeners (8), `StreamableHttpTransport`, sessão MCP, nginx (3.3), limites de taxa, log `mcp`, chave `conector_ia` do Master, ferramenta `quem_sou_eu` | 1, 3 (o 4 para cliente real) | ALTO, com re-revisão | 3 dias |
-| 6 | `conector-leitura-1` | Registro de ferramentas compartilhado com o chat (mover sem reescrever); `buscar_pastas`, `minhas_demandas`, `detalhar_pasta`, `listar_prazos_e_metas`, `listar_agenda`; aba e chave de cada uma pela tabela de 6.2; teste cross-tenant em cada | 5 | MÉDIO | 3 dias |
-| 7 | `conector-leitura-2` | UseCase de processo e movimentações recentes; `buscar_processos`, `detalhar_processo`, `listar_documentos_da_pasta` (com a barreira da aba Documentos), `ler_documento` só com PDF e imagem (porta do aceite conforme 14.a), `listar_modelos_de_peca`, `ler_modelo_de_peca` (aba Detalhes) | 6 | MÉDIO | 3 dias |
-| 7b | `conector-leitura-texto` | `ler_documento` com peça do editor (HTML) e DOCX como texto: método novo no `LeitorDeDocumentosDaPasta` que reusa a conferência do pedido, reconhecimento pelo conteúdo, conversão da peça, `ExtratorDeTextoDocx` num lugar comum (6.4); só se a 14.f escolher a opção 2 | 7 | MÉDIO | 1,5 dia |
-| 8 | `conector-telas` | "Conexões de I.A." no Meu Perfil (listar e revogar), chave e aceite do escritório conforme 14.a, item no painel do Master; depende do desenho (14.e) | 3 | MÉDIO | 2 dias |
-| 9 | `conector-escrita-1` | `gerar_minuta_de_modelo`, `salvar_minuta_na_pasta`, escopo `mcp:escrita`, auditoria com escritório | 7 e decisão 14.b | ALTO | 2 dias |
-| 10 | `conector-escrita-2` | O que a decisão 14.b escolher entre `anotar_na_pasta`, `criar_meta` (com o `CriarMetaUseCase` extraído do `TarefaController`) e `criar_compromisso` | 9 | MÉDIO | 3 dias |
-| 11 | `conector-abertura` | Guia passo a passo do usuário (Claude, ChatGPT e, se decidido, Gemini Enterprise), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel), diretórios se 14.d pedir | todos | BAIXO | 1,5 dia |
+| 1 | `conector-portao` | Portão sem HTTP: barreiras do escritório extraídas do `TenantContextValidatorListener` para um serviço sem sessão (o listener passa a usá-lo, sem mudar comportamento), com o primário de escritório suspenso a pedido recusado no conector (seção 4, regra 1) e a conferência dos termos de uso (5.2); filtro ligado e conferido (fail-closed); escopo de auditoria do conector; **modo do conector** (6.3, item 2) com o teste de que o navegador não muda; teste de arquitetura | nada | ALTO, com re-revisão | 3 dias |
+| 2 | `conector-tabelas` | `composer` (`league/oauth2-server-bundle` ^2.0, `symfony/psr-http-message-bridge`), entidades e **a única migration** (número dado pelo Coordenador) com as 7 tabelas de 13.2, purga do escritório | nada (paralelo ao 1) | ALTO | 2 dias |
+| 3 | `conector-autorizacao` | `/oauth/authorize` (login, escolha do escritório, consentimento com escopos, tela pela convenção do sistema, 14.e), `/oauth/token` com token de 1 hora e renovação com rotação até 7 dias (14.c), metadado RFC 8414, PKCE S256, `resource` para `aud`, `iss`, regras de redirect, `autorizado_em` e impressão da senha (seção 4, regra 3), liberação nos três níveis conferida na autorização (14.a), rotas nas listas dos dois listeners (8), chaves de assinatura (passo do Samuel) | 1, 2 | ALTO, com re-revisão | 3 dias |
+| 4 | `conector-registro` | CIMD (busca segura, lista `claude.ai` e `chatgpt.com`, cache) e DCR em `/oauth/register` (limite, expiração, redirect só da lista ou loopback); sem cliente pré-registrado no piloto (14.d) | 3 | ALTO | 1,5 dia |
+| 5 | `conector-mcp` | Firewall do `/mcp`, validador do token com o portão a cada requisição (inclusive corte de "Sair de todos os aparelhos", impressão da senha e liberação nos três níveis), metadado RFC 9728 nas duas URLs, `/mcp` nas listas dos dois listeners (8), `StreamableHttpTransport`, sessão MCP, nginx (3.3), limites de taxa, log `mcp`, rota com nome próprio para a auditoria, chave `conector_ia` no catálogo, `quem_sou_eu`, teste de arquitetura da lista fechada e das anotações | 1, 3 (o 4 para cliente real) | ALTO, com re-revisão | 3 dias |
+| 6 | `conector-leitura-pasta` | Registro de ferramentas compartilhado com o chat (6.8); `buscar_pastas`, `ler_pasta` (menos publicações, timeline e controladoria), `ler_agenda`; `LerAndamentoDaPastaUseCase`; segredo nas listas; tabela de aba e chave (6.6) com o teste que a percorre | 5 | MÉDIO | 4 dias |
+| 7 | `conector-leitura-documentos` | `ler_documentos_e_modelos` com PDF e imagem (porta do aceite do conector, barreira da aba Documentos); `ler_pasta` parte `publicacoes`, sem marcar lida; `ler_processos` (buscar, detalhar, para vincular), com UseCase de leitura e movimentações paginadas | 6 | MÉDIO | 3,5 dias |
+| 7b | `conector-leitura-texto` | Peça do editor, DOCX, DOC, ODT, RTF, TXT, CSV, XML e KML como texto (6.5): método novo no leitor, `ExtratorDeTextoDocx` num lugar comum | 7 | MÉDIO | 2 dias |
+| 7c | `conector-leitura-formatos` | XLSX, XLS, ODS, PPTX, ODP, EML, ZIP, `.p7s`, TIFF e HEIC (6.5); a extensão de imagem nova é arquivo quente e passo de deploy | 7b | MÉDIO | 2,5 dias |
+| 8 | `conector-telas` | Pela convenção do sistema (14.e): "Conexões de I.A." no Meu Perfil (listar e revogar); liberar por escritório na aba "Configurações da I.A." do Master; ligar e dar o aceite do conector, para o administrador do escritório | 2, 3 | MÉDIO | 2,5 dias |
+| 9 | `conector-confirmacao` | Proposta (`conector_ia_proposta`), `confirmar_acao`, elicitation pelo `ClientGateway::elicit`, `_meta` de interação, escopo `mcp:escrita`, varredura das vencidas (6.7) | 5 | ALTO, com re-revisão | 2,5 dias |
+| 10 | `conector-escrita-pasta` | `atualizar_pasta`, `mudar_andamento`, `registrar_na_pasta`, `prazos_e_metas_da_pasta` (com o `CriarMetaUseCase` extraído do `TarefaController`) | 6, 9 | ALTO | 4 dias |
+| 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO | 4 dias |
+| 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO | 3,5 dias |
+| 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO | 3,5 dias |
+| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist | 11, 12, 13 | MÉDIO | 3 dias |
+| 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir"), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 | BAIXO | 1,5 dia |
 
-**Total: cerca de 28 dias de trabalho** (25 sem o PR 10; 26,5 se a 14.f não escolher o PR 7b). Caminho crítico
-1 → 3 → 5 → 6 → 7 → 9 → 11, com o PR 2 em paralelo ao 1: **cerca de 18 dias**; os PRs 4, 7b, 8 e 10 correm ao lado. A
-revisão de 08/11 somou 2,5 dias à versão anterior desta seção: 0,5 no PR 1 (primário recusado e termos), 0,5 no PR 5
-(corte de "Sair de todos os aparelhos" e senha) e 1,5 no PR 7b (HTML e DOCX, que o leitor de hoje recusa).
+**Total: cerca de 49 dias de trabalho** de uma sessão. Com sessões em paralelo:
 
-- **Uma migration só (PR 2), desde que as decisões 14.a e 14.c venham antes do PR 2.** As duas decidem se entram
-  `conector_ia_escritorio` (14.a, opção 2) e `conector_ia_renovacao` (14.c, opção 2 ou 3). Se alguma não vier a tempo, o
-  PR 2 sai sem a tabela correspondente e ela entra numa **segunda migration**, no PR que a usa primeiro:
-  `conector_ia_renovacao` no PR 3, `conector_ia_escritorio` no PR 7 (porta do aceite) ou no PR 8 (telas), o que vier antes.
-  Cada migration pede número ao Coordenador e respeita a regra de uma migration por vez entre os PRs abertos.
-- Arquivos quentes (avisar o Coordenador no início de cada PR que os toca): `composer.json`/`composer.lock`,
-  `security.yaml`, `framework.yaml`, `nginx.prod.conf`, a migration.
-- Os PRs 1, 3, 4, 5 e 9 mexem em identidade ou abrem escrita: revisão contra esta spec e re-revisão antes do seguinte.
-- **Piloto:** depois do PR 7 o escritório piloto já usa só leitura, pelo Claude e pelo ChatGPT; escrita depois do PR 9.
+- **Caminho crítico até a abertura: 1 → 3 → 5 → 6 → 7 → 7b → 7c → 15, cerca de 22,5 dias.** O PR 2 corre ao lado do 1; o 4
+  e o 8 ao lado do 5; o 9 ao lado do 6; os PRs 10 a 13 terminam até o dia 20. O PR 14 termina perto do dia 23 e não segura
+  a abertura.
+- **Piloto com os três pedidos do Samuel** (A: pasta e esteira; B: documentos; C: cliente), no escritório do Farlei: depois
+  dos PRs 1 a 7b, 8, 9, 10 e 11, **cerca de 18,5 dias** (A e C perto do dia 17; B com PDF e imagem no dia 16,5 e com Word e
+  peça do editor no dia 18,5). Com uma sessão só, o mesmo piloto leva cerca de 35 dias.
+- A versão de 08/11 somava 28 dias e 18 de caminho crítico. A diferença é o escopo novo (14.b): de 17 ferramentas de uma
+  ação cada para as 187 ações do usuário comum nos quatro módulos, menos as que a 6.1 deixa fora; mais a confirmação (PR 9),
+  o teto (PR 1), a liberação (PRs 3, 5 e 8) e os tipos de documento (PRs 7b e 7c).
+
+Regras do plano:
+
+- **Uma migration só, no PR 2**, com as 7 tabelas de 13.2 (as decisões 14.a, 14.c e 14.g já estão tomadas). Número dado pelo
+  Coordenador, respeitando a regra de uma migration por vez entre os PRs abertos. Se um PR seguinte descobrir que precisa de
+  coluna nova, pede ao Coordenador antes.
+- Arquivos quentes (avisar o Coordenador no início de cada PR que os toca): `composer.json`/`composer.lock` (PR 2),
+  `security.yaml` (PR 5), `framework.yaml` (PR 5), `nginx.prod.conf` (PR 5), a migration (PR 2), o `Dockerfile` da imagem PHP
+  (PR 7c).
+- Os PRs 1, 3, 5 e 9 mexem em identidade ou na garantia da confirmação: revisão contra esta spec e re-revisão antes do
+  seguinte. Os de gravação (10 a 14) são revisados contra a tabela da 6.6 e a lista de exclusões da 6.7.
+- **Liberação no piloto:** o Master liga a chave geral, libera só o escritório do Farlei e o administrador dele dá o aceite.
+  Abrir a outro escritório espera o texto dos advogados (14.a).
 
 ### 13.2 Tabelas novas
 
-Sem número de migration: o Coordenador numera. Guardar só o **hash** de código e token, nunca o valor. Os nomes finais dependem
-de o bundle aceitar gerenciadores próprios (3.2); a recomendação é gerenciadores próprios, para ter escritório e consentimento.
+Sem número de migration: o Coordenador numera. Guardar só o **hash** de código, token e id de proposta, nunca o valor. Os
+nomes finais dependem de o bundle aceitar gerenciadores próprios (3.2); a recomendação é gerenciadores próprios, para ter
+escritório e consentimento.
 
 | Tabela | Para quê | Colunas principais | Escritório |
 |---|---|---|---|
-| `conector_ia_cliente` | o app de I.A. registrado (CIMD, DCR ou pré-registrado) | `identificador` (único; a URL no CIMD), `tipo` (`cimd`, `dcr`, `pre_registrado`), `nome`, `redirect_uris` (JSON), `segredo_hash` (só pré-registrado confidencial), `tenant_id` (nulo, salvo pré-registrado de um escritório), `metadados_buscados_em`, `metadados_validos_ate`, `ativo`, `criado_em`, `ultimo_uso_em` | **global por natureza** (o ChatGPT é o mesmo cliente para todos os escritórios): exceção declarada à regra "toda consulta filtra tenant"; nenhum dado de escritório passa por ela |
+| `conector_ia_cliente` | o app de I.A. registrado (CIMD ou DCR) | `identificador` (único; a URL no CIMD), `tipo` (`cimd`, `dcr`, `pre_registrado`; o último fica sem uso no piloto, 14.d), `nome`, `redirect_uris` (JSON), `segredo_hash` (só pré-registrado confidencial), `tenant_id` (nulo, salvo pré-registrado de um escritório), `metadados_buscados_em`, `metadados_validos_ate`, `ativo`, `criado_em`, `ultimo_uso_em` | **global por natureza** (o ChatGPT é o mesmo cliente para todos os escritórios): exceção declarada à regra "toda consulta filtra tenant"; nenhum dado de escritório passa por ela |
 | `conector_ia_codigo` | código de autorização | `identificador_hash`, `cliente_id`, `user_id`, `tenant_id`, `redirect_uri`, `code_challenge`, `escopos`, `resource`, `expira_em` (até 10 min), `usado_em` | sim |
-| `conector_ia_token` | token de acesso | `identificador_hash` (jti), `cliente_id`, `user_id`, `tenant_id`, `consentimento_id`, `escopos`, `audiencia`, `autorizado_em` (instante do login que originou a cadeia), `impressao_da_senha` (HMAC do hash da senha), `criado_em`, `expira_em`, `revogado_em`, `ultimo_uso_em` | sim |
-| `conector_ia_renovacao` | token de renovação, só se 14.c escolher renovação | `identificador_hash`, `token_id`, `autorizado_em` (copiado na rotação), `impressao_da_senha`, `expira_em` (limite absoluto da autorização), `revogado_em`, `substituido_por` | sim (pelo token) |
+| `conector_ia_token` | token de acesso (1 hora, 14.c) | `identificador_hash` (jti), `cliente_id`, `user_id`, `tenant_id`, `consentimento_id`, `escopos`, `audiencia`, `autorizado_em` (instante do login que originou a cadeia), `impressao_da_senha` (HMAC do hash da senha), `criado_em`, `expira_em`, `revogado_em`, `ultimo_uso_em` | sim |
+| `conector_ia_renovacao` | token de renovação, com rotação (14.c) | `identificador_hash`, `token_id`, `autorizado_em` (copiado na rotação), `impressao_da_senha`, `expira_em` (limite absoluto: 7 dias do `autorizado_em`), `revogado_em`, `substituido_por` | sim (pelo token) |
 | `conector_ia_consentimento` | a "conexão" que a pessoa vê e revoga | `user_id`, `tenant_id`, `cliente_id`, `escopos`, `concedido_em`, `revogado_em`, `ultimo_uso_em`; uma ativa por pessoa, escritório e cliente; `Auditavel` (conceder, revogar) | sim |
-| `conector_ia_escritorio` | chave e aceite do escritório, só se 14.a escolher a opção 2 | `tenant_id` (único), `ligado`, `aceite_em`, `aceite_versao`, `aceito_por_user_id`; `Auditavel` | sim |
+| `conector_ia_escritorio` | liberação do Master e aceite do escritório (14.a) | `tenant_id` (único), `liberado_pelo_master` (padrão falso), `ligado` (padrão falso), `aceite_em`, `aceite_versao`, `aceito_por_user_id`; `Auditavel` (quem liberou, ligou ou aceitou, e quando, fica no `audit_log`, como na `ConfiguracaoDeInteligencia`) | sim |
+| `conector_ia_proposta` | a ação que espera confirmação (6.7) | `identificador_hash`, `user_id`, `tenant_id`, `consentimento_id`, `cliente_id`, `ferramenta`, `acao`, `dados` (JSON, zerado ao decidir ou vencer), `dados_hash`, `resumo` (zerado junto), `estado` (`pendente`, `confirmada`, `cancelada`, `expirada`), `resultado` (ids, sem texto), `criada_em`, `expira_em` (10 min), `decidida_em` | sim |
 
-Toda tabela com escritório entra no `PurgarEscritorioUseCase`.
+A chave geral `conector_ia` não precisa de tabela: entra no `CatalogoDeRecursos` e usa o registro que o `RecursosDoSistema`
+já tem. Toda tabela com escritório entra no `PurgarEscritorioUseCase`.
 
 ---
 
-## 14. Decisões do dono e o que ainda falta
+## 14. Decisões do dono
 
 **Decidido em 11/08/2026 (mantido):**
 
@@ -1041,99 +1446,102 @@ Toda tabela com escritório entra no `PurgarEscritorioUseCase`.
 2. **Vida do token: 7 dias, com conferência do vínculo a cada requisição** (seção 9, itens 1 e 2). As duas metades são
    inseparáveis.
 
+**Decidido em 07, 08 e 09/11/2026:**
+
+**a) Dado pessoal saindo para o provedor do modelo (LGPD). Decidido em 07 e 08/11/2026: opção 2, com ajuste.**
+
+Pelo conector, o provedor é o que a pessoa escolheu (Anthropic ou OpenAI), pela conta dela e sob o contrato dela; o BlueJus
+não tem contrato, ZDR nem DPA com esse provedor, e um plano de consumidor pode usar a conversa para treino, conforme a
+configuração da conta. O aceite da BlueJus I.A. não cobre isso, porque o texto dele fala do provedor que o BlueJus contrata.
+
+Como fica, no mesmo molde da BlueJus I.A. (`DisponibilidadeDeInteligencia`, três níveis, todos conferidos na autorização e a
+cada requisição):
+
+1. **Chave geral** do Master: `conector_ia` no `CatalogoDeRecursos`, que desliga o conector de todos de uma vez.
+2. **Liberação por escritório, pelo Master**, quando ele quiser, na aba "Configurações da I.A." do painel Master, ao lado da
+   liberação da BlueJus I.A. (`master_ia_escritorio`): `conector_ia_escritorio.liberado_pelo_master`, padrão falso, como o campo `liberadaPeloMaster` da
+   `ConfiguracaoDeInteligencia` (`ConfiguracaoDeInteligencia::isLiberadaPeloMaster`). Sem a liberação, o aceite do administrador não basta.
+3. **Ligado pelo administrador do escritório**, com um **aceite próprio do conector**, com versão (enum novo, nome sugerido
+   `VersaoDoAceiteDoConector`; a versão 1 já cobre documentos, porque a 14.f os inclui). O texto diz que o dado vai para a
+   conta de I.A. de cada pessoa e recomenda plano empresarial ou sem treino. A guarda é a mesma da tela da BlueJus I.A.
+   (`admin.inteligencia.manage`).
+
+Piloto no escritório do Farlei. Regras de saída da 6.2. O conector não reaproveita o aceite da BlueJus I.A. A chave é do
+escritório, não um filtro por pessoa, então não contraria a decisão 1. O texto do aceite e a linha nos termos de uso vão para
+o pacote jurídico (`bluejus-coordenacao/pacote-juridico.md`) sem travar a implementação; abrir a outro escritório espera o
+texto dos advogados.
+
+**b) Escopo. Decidido em 08/11/2026, e muda a recomendação antiga** (que era só as duas ferramentas de minuta).
+
+"Criar peças, minutas" foi só exemplo, não uma função especial. O escopo do piloto é **tudo o que os módulos Pastas, Agenda,
+Clientes e Processos fazem, menos as funções de administrador** (inventário, seção 5), só no escritório piloto. Com pedido
+explícito e prioritário de três coisas:
+
+- **A.** Ler e atualizar tudo da pasta, inclusive a esteira de andamento (`MudarFaseDaPastaUseCase`; mudar a fase pode marcar
+  o contrato como assinado ou reaberto): `ler_pasta`, `atualizar_pasta`, `mudar_andamento` e as demais da 6.6.
+- **B.** Ler os documentos da pasta: `ler_documentos_e_modelos`, com os tipos da 14.f.
+- **C.** Cadastrar cliente e completar os dados: `ler_clientes` e `atualizar_cliente`.
+
+Como fica: 17 ferramentas (6), plano de 17 PRs (13.1) e teto próprio (6.3), que tira pelo conector os dois bypasses, como
+o inventário classifica (seção 5, última linha). Para o Farlei, que é Master, isso quer dizer: pelo conector ele vê o que o
+perfil dele no escritório vê, sem as pastas trancadas em que não está na lista.
+
+**c) Como os 7 dias funcionam. Decidido em 08/11/2026: opção 2.** Token de acesso de 1 hora, com renovação e rotação até
+completar 7 dias da autorização. A pessoa faz login uma vez por semana, e um token vazado vale 1 hora. O metadado anuncia
+`refresh_token` e `offline_access` (3.4, 5.1); a tabela `conector_ia_renovacao` entra na migration do PR 2.
+
+**d) Clientes atendidos. Decidido em 08/11/2026: opção 1.** Claude e ChatGPT como conector personalizado (a pessoa cola a URL
+`https://bluejus.com.br/mcp`). Gemini fica fora no piloto. A lista de domínios do CIMD e dos `redirect_uris` do DCR fica em
+`claude.ai` e `chatgpt.com`, mais loopback para o Claude Code (3.4). Sem cliente pré-registrado e sem diretórios no piloto.
+
+**e) Telas sem desenho. Decidido em 08/11/2026: opção 2.** As duas telas (autorização, PR 3, e Conexões de I.A., PR 8) saem
+pela convenção do sistema, sem esperar desenho. Se um desenho vier depois, troca-se a tela.
+
+**f) Documentos que saem. Decidido em 08/11/2026:** todos os tipos que a aba Documentos aceita, menos áudio e vídeo. Como cada
+tipo sai está na tabela da 6.5.
+
+**g) Confirmação no chat. Decidido em 08/11/2026.** Cadastrar cliente e **qualquer exclusão** só acontecem depois que a pessoa
+confirma no próprio chat; cadastro em massa vale uma confirmação para a lista toda. Como o servidor garante isso sem confiar
+só no modelo, e o que não deu para confirmar em fonte oficial: 6.7.
+
+**h) Partes da pasta que são de outro módulo (inventário, seção 1.13). Decidido em 09/11/2026.**
+
+- **Entram:** criar meta para a pasta (`tarefa_criar_para_pasta` e a análise do prazo, em `prazos_e_metas_da_pasta`) e ler
+  as publicações do Diário da pasta (em `ler_pasta`), **sem marcar lida**.
+- **Ficam fora:** a BlueJus I.A. dentro da pasta; todo envio ao cliente pelo Push (e-mail, link público, envio automático); o
+  encaminhar pela Central; a Cobrança. O resto do Push que a seção 1.13 lista (marcar lida, monitoramento, buscar agora,
+  "Avisar quando chegar", vincular publicação) não foi posto dentro e fica fora.
+- **A mesma regra vale para qualquer ação dos quatro módulos que mande algo ao cliente ou a terceiro** (ex.: escolher os
+  avisos por e-mail do cliente), salvo o efeito normal de uma ação que entra. Os dois casos do escopo: compromisso gravado
+  vai para o Google Agenda de quem criou e dos participantes que ligaram a conta (`gravar_na_agenda`); e-mail completado no
+  cadastro do cliente pode passar a receber o envio automático que o escritório já ligou (`atualizar_cliente`). Nos dois, a
+  resposta da ferramenta avisa.
+
 **Ainda em aberto (para o Samuel; cada uma com opções e recomendação):**
 
-**a) Dado pessoal saindo para o provedor do modelo (LGPD).** **Antes do PR 2**, porque decide se a tabela
-`conector_ia_escritorio` entra na migration única (13.1); e antes de abrir a outros escritórios.
+**i) Ler a lista de Minhas Metas.** Antes do PR 6.
 
-O que já está decidido para a I.A. de hoje: ela fala só com a Anthropic, que o BlueJus contrata; o dado só sai com o aceite do
-escritório (tela `/admin/inteligencia`, "nos termos do Anexo I"; versão 2 para documentos, `VersaoDoAceiteDaIa`); do cliente
-sai só o nome; CPF, e-mail e telefone digitados são mascarados; segredo de justiça nunca sai. A retenção zero (ZDR) foi
-decidida como pedido à Anthropic (24/10/2026), mas o piloto roda com a retenção padrão, só no escritório do Farlei, com todos
-cientes (26/10/2026); a base legal do art. 33 da LGPD está com o jurídico (`docs/specs/ia-anthropic-ligar.md`).
+`ler_pasta` lê as metas **de uma pasta**. A lista pessoal de Minhas Metas (todas as metas da pessoa, de todas as pastas, com
+prazo) é do módulo Tarefas, fora dos quatro módulos, e a decisão h) só pôs dentro criar meta para a pasta. O Chat I.A já
+tem essa leitura pronta e sem sessão (`ConsultarPrazosEMetasUseCase`, 4.2).
 
-**Pelo conector é diferente:** o provedor é o que a pessoa escolheu (OpenAI, Google ou Anthropic), pela conta dela e sob o
-contrato dela. O BlueJus não tem contrato, ZDR nem DPA com esse provedor, e um plano de consumidor pode usar a conversa para
-treino, conforme a configuração da conta. O aceite atual da I.A. não cobre isso: o texto fala do provedor que o BlueJus
-contrata.
+- Opção 1: fica fora. O assistente acha prazos pela agenda (`ler_agenda`, com prazos) e pela pasta.
+- Opção 2: entra só a leitura, como parte `minhas_metas` de `ler_agenda`, pelo UseCase do chat (meio dia no PR 6). Concluir,
+  despachar e as demais ações de meta continuam fora.
 
-- Opção 1: abrir a todos os escritórios com as regras de saída de 6.2 e uma linha nos termos de uso.
-- Opção 2: piloto no escritório do Farlei. Para os demais, o conector nasce desligado e o administrador do escritório liga
-  com um **aceite próprio do conector** (texto novo e com versão, dizendo que o dado vai para a conta de I.A. de cada pessoa e
-  recomendando plano empresarial ou sem treino); o Master tem a chave geral (`conector_ia`); regras de saída de 6.2; conteúdo
-  de documento só com a versão do aceite que cobre documentos.
-- Opção 3: como a 2, mas reaproveitando o aceite atual da I.A. (`ConfiguracaoDeInteligencia::aceiteDeEnvioDado`). Mais
-  simples, mas o texto não cobre provedor escolhido pela pessoa.
+**Recomendação: opção 2.** "Acompanhar prazos" estava no pedido original (seção 2), o UseCase está pronto e testado, e é só
+leitura.
 
-**Recomendação: opção 2.** A chave é do escritório, não um filtro por pessoa, então não contraria a decisão 1; confirmar.
-Pela regra de 04/11/2026 (o jurídico não trava a implementação), o trabalho segue e o texto do aceite e dos termos vai para o
-pacote jurídico (`bluejus-coordenacao/pacote-juridico.md`); abrir a outro escritório espera o texto dos advogados.
+**j) Enviar arquivo para a pasta.** Antes do PR 12.
 
-**b) Quais escritas entram primeiro.** Antes do PR 9.
+Enviar documento (da pasta, do Financeiro, do cliente) é função do módulo Pastas e, pela decisão b), estaria dentro. Mas o
+conector teria de receber o arquivo dentro do argumento da ferramenta, em base64, com o teto de 4 MiB do corpo da requisição
+(3.1), e não há fonte oficial de que Claude e ChatGPT repassem um anexo da conversa assim.
 
-- Candidatas (6.5): minutas (`gerar_minuta_de_modelo`, `salvar_minuta_na_pasta`); anotar na pasta; criar meta (exige extrair
-  o UseCase, mais 1 dia); criar compromisso; registrar prazo jurídico; registrar andamento (não existe); cadastro por
-  proposta, como no chat.
+- Opção 1: fica fora no piloto. A pessoa envia o arquivo pela tela; o conector lê, organiza, move e renomeia depois. Peça
+  redigida pelo assistente já entra como documento (`escrever_peca`).
+- Opção 2: entra com arquivo em base64, até cerca de 3 MB, pelo `UploadPecaUseCase` (1,5 dia no PR 12), sabendo que pode não
+  funcionar nos clientes.
 
-**Recomendação:** o PR 9 só com as **duas de minuta**. São o pedido direto do Samuel ("criar peças, minutas"), criam documento
-novo que se desfaz pela lixeira, e o dado sensível é preenchido no servidor. Depois de duas semanas de uso do piloto, escolher
-o PR 10 pelo que mais apareceu (o log `mcp` conta chamadas por ferramenta, sem conteúdo), com `anotar_na_pasta` e
-`criar_meta` como favoritas. Prazo jurídico e andamento ficam fora. **Escolher pelo uso real, não pelo custo de implementar.**
-
-**c) Como os 7 dias funcionam na prática.** **Antes do PR 2**, porque decide se a tabela `conector_ia_renovacao` entra na
-migration única (13.1). A decisão de 11/08 fica; a dúvida é técnica, com efeito na
-experiência: os clientes renovam o token sozinhos se houver token de renovação (o Claude pede `offline_access` quando ele é
-anunciado).
-
-- Opção 1: token de acesso de 7 dias, sem renovação. A pessoa refaz o login a cada 7 dias (leitura literal da decisão).
-- Opção 2: token de acesso de 1 hora, com renovação e rotação até completar 7 dias da autorização. Mesma experiência (um
-  login por semana); um token vazado vale 1 hora.
-- Opção 3: renovação que se estende enquanto a pessoa usa (conexão sem fim). Muda a decisão de 11/08.
-
-**Recomendação: opção 2.**
-
-**d) Quais clientes atender primeiro e onde publicar.** Antes do PR 11. Decisão nova, vinda da pesquisa (3.4).
-
-- Claude: todos os planos (o Free com 1 conector personalizado); no Team e no Enterprise, só o Owner adiciona, e cada pessoa
-  conecta com a própria conta (https://support.claude.com/en/articles/11175166).
-- ChatGPT: o MCP completo, com escrita, está em beta para Business, Enterprise e Edu pelo modo desenvolvedor, liberado pelo
-  admin do workspace (https://help.openai.com/en/articles/12584461; vista só pelo trecho da busca, porque a página devolveu
-  403). Plus e Pro: fontes não oficiais divergem; conferir no piloto. Publicar no diretório exige revisão e verificação da
-  organização.
-- Gemini: o app de consumidor só funciona nos EUA, então fica fora para o Brasil. O Gemini Enterprise funciona, mas o admin do
-  escritório configura no Google Cloud com um client ID e um segredo nossos (cliente pré-registrado).
-- Opção 1: Claude e ChatGPT como conector personalizado (a pessoa cola a URL `https://bluejus.com.br/mcp`).
-- Opção 2: a 1 mais Gemini Enterprise.
-- Opção 3: a 2 mais publicação nos diretórios do Claude e do ChatGPT.
-
-**Recomendação: opção 1 no piloto**, com a lista de domínios do CIMD em `claude.ai`, `chatgpt.com` e `antigravity.google`.
-A mesma lista vale para os `redirect_uris` do DCR (3.4, item 2): incluir um cliente novo é mexer nela, num lugar só.
-Gemini Enterprise quando o primeiro escritório pedir (comando de console do PR 4). Diretórios depois do piloto (exigem conta
-de teste, revisão e textos próprios).
-
-**e) Telas novas sem desenho.** Antes dos PRs 3 e 8. Decisão nova.
-
-São duas telas que não existem no sistema nem em desenho: a de **autorização** (o login já existe; falta escolher o
-escritório, marcar "permitir criar documentos", ver o nome do app e o endereço de retorno) e a de **Conexões de I.A.** (no Meu
-Perfil, listar e revogar; para o administrador, ligar e dar o aceite; no Master, a chave geral).
-
-- Opção 1: pedir desenho ao Farlei antes dos dois PRs.
-- Opção 2: fazer pela convenção do sistema e trocar quando o desenho vier.
-
-**Recomendação:** pedir o desenho já. A tela de autorização do PR 3 sai pela convenção da tela de login (é passagem, não tela
-de uso); a de conexões (PR 8) espera o desenho.
-
-**f) Que documentos o `ler_documento` entrega.** Antes do PR 7. Decisão nova, refeita na revisão de 08/11.
-
-O leitor que existe (`LeitorDeDocumentosDaPasta::anexos`) já faz PDF e imagem com todas as guardas, e recusa o resto (6.4). A
-peça do editor (HTML) e o DOCX precisam de um caminho novo no mesmo leitor (PR 7b, 1,5 dia). O MCP manda imagem como
-conteúdo padrão; PDF só como recurso embutido, e não achei confirmação oficial de que Claude, ChatGPT e Gemini leem PDF
-devolvido por ferramenta.
-
-- Opção 1: só PDF e imagem, como binário marcado "experimental", pelo leitor de hoje. HTML e DOCX ficam fora.
-- Opção 2: a 1 mais peça do editor e DOCX como texto (PR 7b).
-- Opção 3: extrair o texto do PDF no servidor (dependência nova; PDF escaneado continua sem texto, porque não fazemos OCR).
-
-**Recomendação: opção 2.** A peça do editor é o formato das minutas que o próprio conector grava (6.5): sem o PR 7b, o
-assistente cria a minuta e não consegue relê-la. O PR 7b corre ao lado do PR 9 e não atrasa o caminho crítico. A escolha de
-extrair texto do PDF sai do teste com o piloto.
+**Recomendação: opção 1.** O piloto mostra se faz falta; se fizer, a opção 2 entra num PR próprio depois de testada nos dois
+clientes.
