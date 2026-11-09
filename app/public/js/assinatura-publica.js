@@ -47,8 +47,9 @@
     };
 
     function normalizar(e) {
-        const o = Object.assign({ estado: 'invalido', previa: false, anterior: null, documento: null, lugares: [], eu: null, aceite: null, codigo: null }, e && typeof e === 'object' ? e : {});
+        const o = Object.assign({ estado: 'invalido', previa: false, anterior: null, documento: null, lugares: [], eu: null, aceite: null, codigo: null, reforcada: false }, e && typeof e === 'object' ? e : {});
         o.lugares = Array.isArray(o.lugares) ? o.lugares : [];
+        o.reforcada = o.reforcada === true;
         o.aceite = o.aceite || { versao: 0, texto: '' };
         o.codigo = o.codigo || { enviado: false, validoAte: null, bloqueadoAte: null };
         return o;
@@ -56,8 +57,9 @@
 
     let est = normalizar(lerJson(ds.estado, null));
     const eu0 = est.eu || {};
-    /* Estado do formulário: nome e CPF cadastrados preenchidos (decisão B), aba Desenhar, código e aceite vazios. */
-    const a = { nome: String(eu0.nome || ''), cpf: String(eu0.cpf || ''), tab: 'des', cod: '', li: false, erro: '', pediu: !!est.codigo.enviado, recusa: false, motivo: '' };
+    /* Estado do formulário: nome e CPF cadastrados preenchidos (decisão B), aba Desenhar, código e aceite vazios.
+       Reforçada (etapa 7): selfie em data URL JPEG ('' sem foto) e geo nula (esperando), '' (recusada) ou a posição. */
+    const a = { nome: String(eu0.nome || ''), cpf: String(eu0.cpf || ''), tab: 'des', cod: '', li: false, erro: '', pediu: !!est.codigo.enviado, recusa: false, motivo: '', selfie: '', geo: null };
     let canv = null, vazio = true, ctxSom = null, tToast = null;
 
     const comFormulario = () => est.estado === 'pronto' && !!est.documento && !!est.eu;
@@ -127,11 +129,72 @@
             + '<div class="bjaRubCx"><div class="bjaAbasAss">' + abaHtml('des', T('desenhar')) + abaHtml('txt', T('digitar')) + '</div><div data-bja-rub>' + areaRubrica() + '</div></div>'
             + '<div class="bjaCodLin"><label class="bjaL">' + esc(T('codigo_rotulo')) + '<input class="bjaF bjaCodIn" type="text" inputmode="numeric" maxlength="6" data-bja-a="cod" value="' + esc(a.cod) + '"></label>'
             + '<button type="button" class="bjaB bjaCodBt" data-bja-acao="codigo"' + dis + '>' + esc(a.pediu ? T('reenviar') : T('enviar_codigo')) + '</button></div>'
+            + reforco()
             + '<label class="bjaAceite"><input type="checkbox" data-bja-a="li"' + (a.li ? ' checked' : '') + '><span>' + esc(est.aceite.texto) + '</span></label>'
             + '<div class="bjaErroA" data-bja-erro' + (a.erro ? '' : ' hidden') + '>' + esc(a.erro) + '</div>'
             + '<button type="button" class="bjaP bjaAssinar" data-bja-acao="assinar"' + dis + '><i class="bi bi-pen"></i>' + esc(T('assinar')) + '</button>'
             + '<button type="button" class="bjaB bjaR" data-bja-acao="recusar"' + dis + '>' + esc(T('recusar_assinatura')) + '</button>'
             + '</div></section></div></div>';
+    }
+
+    /* ── Reforçada (etapa 7, desenho linha 251): aviso de LGPD, botão da selfie (câmera frontal) e a localização,
+       soltos no painel entre a linha do código e o aceite. Na prévia, o botão fica visível e desabilitado. ── */
+    function reforco() {
+        if (!est.reforcada) { return ''; }
+        const dis = est.previa ? ' disabled' : '', bloqueado = est.previa ? ' aria-disabled="true"' : '';
+        return '<div class="bjaSelfieAviso">' + esc(T('selfie.aviso')) + '</div>'
+            + '<label class="bjaB bjaN bjaSelfie"' + bloqueado + '><i class="bi bi-camera"></i><span data-bja-selfie-rotulo>' + esc(T(a.selfie ? 'selfie.anexada' : 'selfie.enviar')) + '</span>'
+            + '<input type="file" accept="image/*" capture="user" data-bja-selfie' + dis + '></label>'
+            + '<div class="bjaGeo" data-bja-geo>' + esc(textoGeo()) + '</div>';
+    }
+
+    /* A linha da localização: 5 casas com ponto (desenho, linha 376); na prévia, o texto do desenho enquanto não há. */
+    function textoGeo() {
+        if (a.geo && typeof a.geo === 'object') { return T('local.obtida', { local: a.geo.latitude.toFixed(5) + ', ' + a.geo.longitude.toFixed(5) }); }
+        if (est.previa) { return T('local.previa'); }
+        return a.geo === null ? T('local.buscando') : T('local.recusada');
+    }
+
+    function mostrarReforco() {
+        const rotulo = raiz.querySelector('[data-bja-selfie-rotulo]'), geo = raiz.querySelector('[data-bja-geo]');
+        if (rotulo) { rotulo.textContent = T(a.selfie ? 'selfie.anexada' : 'selfie.enviar'); }
+        if (geo) { geo.textContent = textoGeo(); }
+    }
+
+    /* Localização pedida ao abrir (desenho, linha 376: sem alta precisão, 6 s de espera) e de novo no "Assinar" sem ela. */
+    function pedirLocal() {
+        if (!est.reforcada || !comFormulario()) { return; }
+        if (!navigator.geolocation) { a.geo = ''; mostrarReforco(); return; }
+        a.geo = null;
+        mostrarReforco();
+        navigator.geolocation.getCurrentPosition(p => {
+            a.geo = { latitude: p.coords.latitude, longitude: p.coords.longitude, precisao: p.coords.accuracy };
+            mostrarReforco();
+            if (a.erro === T('erro.localizacao')) { erro(''); }
+        }, () => { a.geo = ''; mostrarReforco(); }, { timeout: 6000 });
+    }
+
+    /* Foto escolhida: reduzida no navegador (lado maior até 1600 px, JPEG 0,85, fundo branco) antes de ir ao servidor,
+       que confere e regrava de novo. Escolher outra troca a foto e limpa o erro do painel (desenho, linha 465). */
+    function lerSelfie(campo) {
+        const arq = campo.files && campo.files[0];
+        if (!arq) { return; }
+        const img = new Image(), endereco = URL.createObjectURL(arq);
+        img.onload = () => {
+            URL.revokeObjectURL(endereco);
+            const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight, 1));
+            const c = document.createElement('canvas');
+            c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+            const g = c.getContext('2d');
+            g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+            g.drawImage(img, 0, 0, c.width, c.height);
+            a.selfie = c.toDataURL('image/jpeg', 0.85);
+            erro('');
+            mostrarReforco();
+        };
+        img.onerror = () => { URL.revokeObjectURL(endereco); a.selfie = ''; mostrarReforco(); erro(T('selfie.ilegivel')); };
+        img.src = endereco;
+        campo.value = '';
     }
 
     function abaHtml(k, rotulo) {
@@ -241,11 +304,15 @@
         if (!rub) { erro(T('erro.rubrica')); return; }
         if (!a.pediu) { erro(T('erro.pedir_codigo')); return; }
         if (!/^\d{6}$/.test(cod)) { erro(T('erro.codigo')); return; }
+        if (est.reforcada && !a.selfie) { erro(T('erro.selfie')); return; }
+        if (est.reforcada && !(a.geo && typeof a.geo === 'object')) { erro(T('erro.localizacao')); pedirLocal(); return; }
         if (!a.li) { erro(T('erro.aceite')); return; }
+        const corpo = { nome: nome, cpf: cpf, codigo: cod, modo: a.tab === 'txt' ? 'digitada' : 'desenhada', rubrica: rub, aceite: true };
+        if (est.reforcada) { corpo.selfie = a.selfie; corpo.localizacao = a.geo; }
         prepararSom();
         botao.disabled = true;
         try {
-            const r = await postar(url.assinar, { nome: nome, cpf: cpf, codigo: cod, modo: a.tab === 'txt' ? 'digitada' : 'desenhada', rubrica: rub, aceite: true });
+            const r = await postar(url.assinar, corpo);
             est = normalizar(r.estado || Object.assign({}, est, { estado: 'ja_assinado' }));
             som();
             try { if (navigator.vibrate) { navigator.vibrate(40); } } catch (e) { /* sem vibração */ }
@@ -371,6 +438,7 @@
     raiz.addEventListener('change', ev => {
         const t = ev.target;
         if (t.getAttribute && t.getAttribute('data-bja-a') === 'li') { a.li = t.checked; erro(''); }
+        if (t.hasAttribute && t.hasAttribute('data-bja-selfie') && !est.previa) { lerSelfie(t); }
     });
 
     document.addEventListener('keydown', ev => {
@@ -378,4 +446,5 @@
     });
 
     desenhar();
+    pedirLocal();
 })();

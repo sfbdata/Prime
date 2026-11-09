@@ -97,6 +97,13 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 .bjaPub .bjaCodIn { font: bold 16px monospace; letter-spacing: 4px; }
 .bjaPub .bjaCodBt { height: 34px; }
 
+/* Reforçada (etapa 7, desenho linha 251): o botão da selfie (label.bjaB.bjaN, 38 px, com o campo de arquivo escondido)
+   e as duas linhas de texto pequeno (o aviso de LGPD e a localização). Na prévia, o botão fica como o .bjaB desabilitado. */
+.bjaPub .bjaSelfie { height: 38px; cursor: pointer; }
+.bjaPub .bjaSelfie > input { display: none; }
+.bjaPub .bjaSelfie[aria-disabled="true"] { opacity: .5; cursor: default; }
+.bjaPub .bjaSelfieAviso, .bjaPub .bjaGeo { font-size: 12px; color: #5b7383; }
+
 .bjaPub .bjaAceite { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #243845; line-height: 1.4; margin: 0; font-weight: normal; }
 .bjaPub .bjaAceite input { width: 16px; height: 16px; margin: 1px 3px 3px 4px; flex: none; }
 .bjaPub .bjaErroA { font-size: 13px; color: #a3232b; }

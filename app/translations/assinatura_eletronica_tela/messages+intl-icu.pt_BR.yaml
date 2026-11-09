@@ -204,3 +204,7 @@ assinatura_eletronica_tela:
             faixa: 'BLUEJUS ASSINA'
             anel: 'BLUEJUS AUTENTICO {codigo} '
             anel_interno: 'BLUEJUS · '
+        # Etapa 7 (detalhe): método de quem assinou Reforçada, com a localização de 5 casas (desenho, linha 387).
+        reforcada:
+            metodo: 'E-mail e código, selfie, localização {local}'
+            metodo_sem_local: 'E-mail e código, selfie'
