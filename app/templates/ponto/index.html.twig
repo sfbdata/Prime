@@ -30,12 +30,14 @@
                     <i class="bi bi-fingerprint" aria-hidden="true"></i>
                     <span class="pe-registrar-titulo">Registrar Ponto</span>
                     {# Wrapper sempre presente: depois da batida a tela troca este bloco pelo do servidor (sem recarregar).
-                       P2: até a E17 o número é o saldo de hoje (o do ano), em branco, sem verde nem vermelho; formato
-                       do desenho: "0h" no zero, senão sinal e XhYYm. O triângulo do limite não entra: não há limite. #}
+                       P2 (E17): o saldo atual dos lotes (P51 a, não zera em janeiro), em branco, sem verde nem vermelho;
+                       formato do desenho: "0h" no zero, senão sinal e XhYYm. O triângulo amarelo (L106) só acima do
+                       limite (P52); a dica do desenho (`data-tip`) é o `title`. #}
                     {% set absBanco = saldoMes < 0 ? -saldoMes : saldoMes %}
                     <span id="ponto-banco-horas" class="pe-banco">
                         <span class="pe-banco-rotulo">Banco de horas</span>
                         <b class="pe-banco-valor">{{ saldoMes == 0 ? '0h' : (saldoMes < 0 ? '-' : '+') ~ (absBanco // 60) ~ 'h' ~ ('%02d'|format(absBanco % 60)) ~ 'm' }}</b>
+                        {%- if bancoDeHoras is not null and bancoDeHoras.acimaDoLimite %} <i class="bi bi-exclamation-triangle-fill pe-banco-alerta" role="img" title="Saldo acima do limite configurado" aria-label="Saldo acima do limite configurado"></i>{% endif %}
                     </span>
                 </div>
 

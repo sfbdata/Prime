@@ -324,26 +324,26 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertSame(-480, $rows[0]['saldoDia']);
     }
 
-    public function testCalcularSaldoAnualIgnoraMesesAnterioresAoPrimeiroRegistro(): void
+    public function testCalcularSaldoAteDezembroIgnoraMesesAnterioresAoPrimeiroRegistro(): void
     {
         // Cenário do veterano: admitido há anos, mas só passou a registrar ponto no fim de 2025.
         $user = $this->usuarioComJornada();
 
         // O stub de horas pagas soma zero e mantém a comparação isolada nas batidas: a diferença
         // medida vem só da janela de contagem.
-        $soNovembroEDezembro = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'), new Tenant());
-        $anoInteiro          = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-01-01'), new Tenant());
+        $soNovembroEDezembro = $this->builder->calcularSaldoAteMes($user, 2025, 12, [], null, new \DateTimeImmutable('2025-11-01'), new Tenant());
+        $anoInteiro          = $this->builder->calcularSaldoAteMes($user, 2025, 12, [], null, new \DateTimeImmutable('2025-01-01'), new Tenant());
 
         self::assertLessThan(0, $soNovembroEDezembro);
         // Contar o ano inteiro seria MUITO mais negativo — é exatamente o débito fantasma que a regra evita.
         self::assertLessThan($soNovembroEDezembro, $anoInteiro);
     }
 
-    public function testCalcularSaldoAnualSemPrimeiroRegistroRetornaZero(): void
+    public function testCalcularSaldoAteDezembroSemPrimeiroRegistroRetornaZero(): void
     {
         $user = $this->usuarioComJornada();
 
-        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, [], null, null, new Tenant()));
+        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2025, 12, [], null, null, new Tenant()));
     }
 
     public function testCalcularSaldoAteMesSemPrimeiroRegistroRetornaZero(): void

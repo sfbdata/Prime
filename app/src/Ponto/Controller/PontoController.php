@@ -112,6 +112,7 @@ final class PontoController extends AbstractController
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
+        \App\Ponto\Service\BancoDeHorasPorLotes $bancoDeHorasPorLotes,
         HomeOfficeResolver $homeOfficeResolver,
         SedesDaCercaDoPonto $sedesDaCerca,
         CalculadoraJornada $calculadoraJornada,
@@ -184,8 +185,8 @@ final class PontoController extends AbstractController
             }
         }
 
-        $anoAtual = (int) $agora->format('Y');
-        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem, $tenant);
+        $bancoDeHoras = $bancoDeHorasPorLotes->calcular($user, $tenant, $agora);   // E17: lotes, não zera em janeiro (P51 a)
+        $saldoMes = $bancoDeHoras->saldoAtualMinutos;
         $horasPagasMinutos = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         $jornadaInfo = $this->resolverJornadaInfo($jornadaDoEscritorio, $jornadaTenant);
@@ -258,7 +259,7 @@ final class PontoController extends AbstractController
             'comprovantesVisiveis'     => false,
             'comprovantes'             => [],
             // Aba "Banco de Horas" (E17): nulo esconde a aba.
-            'bancoDeHoras'             => null,
+            'bancoDeHoras'             => $bancoDeHoras,
         ]);
     }
 
@@ -1361,40 +1362,32 @@ final class PontoController extends AbstractController
             }
         }
 
-        // O BANCO DE HORAS ZERA EM 1º DE JANEIRO (regra do dono, confirmada em 2026-07-31). Por isso
-        // janeiro não tem competência anterior: pedir dezembro do ano passado traria para o documento
-        // assinado um saldo que a virada do ano extinguiu.
-        //
-        // Isto NÃO é detalhe de exibição, é o que mantém o campo coerente de um mês para o outro.
-        // `calcularSaldoAteMes` nunca olha antes de 1º/jan do ano que recebe (`FolhaPontoBuilder`
-        // limita o início em `$inicioAno`, e `somarPorPeriodo` filtra `l.ano = :ano`). Pedindo
-        // (dezembro, ano-1) em janeiro e (mês-1, ano) nos demais, o "anterior" saltava do ano passado
-        // INTEIRO em janeiro para só janeiro em fevereiro: uma dívida de 100h aparecia num papel
-        // assinado e sumia no seguinte, sem nenhuma hora trabalhada que explicasse.
+        // O banco de horas NÃO zera mais em 1º de janeiro (E17, spec ponto-desenho-0811, P51 a; até então zerava, regra
+        // do dono de 2026-07-31). O "anterior" é o banco até o fim do mês passado, atravessando o ano: em janeiro, até
+        // dezembro do ano anterior. `calcularSaldoAteMes` soma as mesmas competências dos lotes da aba "Banco de Horas",
+        // então o papel assinado e a tela dão o mesmo número.
         // Guarda própria, não herdada: hoje os dois chamadores (`:789` e `:873`) já fazem
-        // `max(1, min(12, ...))`, mas o `$mes - 1` abaixo depende disso silenciosamente. Um chamador
+        // `max(1, min(12, ...))`, mas o mês anterior abaixo depende disso silenciosamente. Um chamador
         // novo que esquecesse o clamp levaria `mes = 0` a somar período vazio e devolver ZERO SEM
         // BARULHO — número errado num documento assinado —, e `mes = 13` a estourar 500 lá dentro.
         if ($mes < 1 || $mes > 12) {
             throw new \InvalidArgumentException(sprintf('montarDadosFolha: mês fora de 1..12 (%d)', $mes));
         }
 
-        // Nota sobre o ramo `? 0`: ele é a regra do reset, não um curto-circuito de jornada. O ramo de
-        // baixo NÃO condiciona em $jornada de propósito — `calcularSaldoAteMes` já se protege sozinho
+        // NÃO condiciona em $jornada de propósito: `calcularSaldoAteMes` já se protege sozinho
         // (devolve só os lançamentos quando não há jornada), e curto-circuitar ali apagaria as horas
         // pagas de quem não tem JornadaColaborador: o painel /ponto mostraria -10h00 e o espelho do mês
         // seguinte "Saldo anterior: 0h00", para o mesmo colaborador.
-        $saldoBancoAnteriorMinutos = $mes === 1
-            ? 0
-            : $builder->calcularSaldoAteMes(
-                $targetUser,
-                $ano,
-                $mes - 1,
-                $feriados,
-                $jornadaTenant,
-                $inicioContagem,
-                $tenant,
-            );
+        $mesAnterior = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->modify('-1 month');
+        $saldoBancoAnteriorMinutos = $builder->calcularSaldoAteMes(
+            $targetUser,
+            (int) $mesAnterior->format('Y'),
+            (int) $mesAnterior->format('n'),
+            $feriados,
+            $jornadaTenant,
+            $inicioContagem,
+            $tenant,
+        );
 
         $horasPagasMinutos = $builder->somarHorasPagasDaCompetencia($targetUser, $tenant, $ano, $mes);
 

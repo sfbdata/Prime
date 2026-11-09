@@ -31,7 +31,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     private array $jornadaNoEscritorio = [];
 
     // ──────────────────────────────────────────────────────────────────
-    // calcularSaldoAnual
+    // calcularSaldoAteMes até dezembro (o antigo calcularSaldoAnual, que a E17 tirou: o banco não zera em janeiro)
     // ──────────────────────────────────────────────────────────────────
 
     #[TestDox('lancamento negativo reduz o saldo anual')]
@@ -39,9 +39,10 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     {
         $builder = $this->builderComLancamentos([2026 => [1 => -600]]);
 
-        $saldo = $builder->calcularSaldoAnual(
+        $saldo = $builder->calcularSaldoAteMes(
             $this->userComJornada(),
             2026,
+            12,
             [],
             null,
             new \DateTimeImmutable('2026-01-01'),
@@ -56,9 +57,10 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     {
         $builder = $this->builderComLancamentos([2026 => [1 => 480]]);
 
-        $saldo = $builder->calcularSaldoAnual(
+        $saldo = $builder->calcularSaldoAteMes(
             $this->userComJornada(),
             2026,
+            12,
             [],
             null,
             new \DateTimeImmutable('2026-01-01'),
@@ -71,13 +73,14 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     #[TestDox('lancamento de dezembro entra no saldo anual (limite superior do periodo)')]
     public function testLancamentoDeDezembroEntraNoSaldoAnual(): void
     {
-        // Prova o limite superior "12" de somarHorasPagasDoPeriodo em calcularSaldoAnual: um
-        // lançamento no último mês do ano não pode ficar de fora da varredura de jan a dez.
+        // Prova o limite superior: um lançamento no último mês do ano não pode ficar de fora do
+        // banco até dezembro.
         $builder = $this->builderComLancamentos([2026 => [12 => -600]]);
 
-        $saldo = $builder->calcularSaldoAnual(
+        $saldo = $builder->calcularSaldoAteMes(
             $this->userComJornada(),
             2026,
+            12,
             [],
             null,
             new \DateTimeImmutable('2026-01-01'),
@@ -91,7 +94,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     public function testLancamentoAnteriorAoInicioDaContagemAindaConta(): void
     {
         // Início da contagem no FUTURO relativo ao relógio (nunca uma data fixa): garante
-        // $inicio > $fim em calcularSaldoAnual não importa quando a suíte rodar. Com uma data
+        // $inicio > $fim no banco não importa quando a suíte rodar. Com uma data
         // fixa (ex.: 2026-12-01), o teste pararia de cobrir esse desvio silenciosamente assim
         // que o relógio passasse dessa data — teste que expira é pior que teste ausente.
         $anoAtual = (int) (new \DateTimeImmutable())->format('Y');
@@ -99,9 +102,10 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
 
         $builder = $this->builderComLancamentos([$anoAtual => [1 => -300]]);
 
-        $saldo = $builder->calcularSaldoAnual(
+        $saldo = $builder->calcularSaldoAteMes(
             $this->userComJornada(),
             $anoAtual,
+            12,
             [],
             null,
             $inicioContagemFutura,
@@ -118,7 +122,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
 
         $userSemJornada = $this->createStub(User::class);
 
-        $saldo = $builder->calcularSaldoAnual($userSemJornada, 2026, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
+        $saldo = $builder->calcularSaldoAteMes($userSemJornada, 2026, 12, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
 
         self::assertSame(-120, $saldo, 'sem jornada o saldo é 0, mas o lançamento manual continua valendo');
     }
@@ -129,7 +133,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $builder = $this->builderComLancamentos([2026 => [3 => 240]]);
 
         // inicioContagem null = colaborador sem nenhum registro de ponto
-        $saldo = $builder->calcularSaldoAnual($this->userComJornada(), 2026, [], null, null, $this->tenant());
+        $saldo = $builder->calcularSaldoAteMes($this->userComJornada(), 2026, 12, [], null, null, $this->tenant());
 
         self::assertSame(240, $saldo);
     }
@@ -140,7 +144,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         // o repositório já devolve a soma; aqui o contrato é: o builder usa o valor como veio
         $builder = $this->builderComLancamentos([2026 => [1 => -6000 + 480]]);
 
-        $saldo = $builder->calcularSaldoAnual($this->userComJornada(), 2026, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
+        $saldo = $builder->calcularSaldoAteMes($this->userComJornada(), 2026, 12, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
 
         self::assertSame(-5520, $saldo);
     }
@@ -150,7 +154,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     {
         $builder = $this->builderComLancamentos([]);
 
-        $saldo = $builder->calcularSaldoAnual($this->userComJornada(), 2026, [], null, null, $this->tenant());
+        $saldo = $builder->calcularSaldoAteMes($this->userComJornada(), 2026, 12, [], null, null, $this->tenant());
 
         self::assertSame(0, $saldo);
     }
@@ -160,13 +164,13 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     {
         $builder = $this->builderComLancamentos([2026 => [1 => -600]]);
 
-        $saldo = $builder->calcularSaldoAnual($this->userComJornada(), 2026, [], null, null, null);
+        $saldo = $builder->calcularSaldoAteMes($this->userComJornada(), 2026, 12, [], null, null, null);
 
         self::assertSame(0, $saldo, 'sem tenant não há como filtrar com segurança: não soma');
     }
 
-    #[TestDox('omitir o tenant em calcularSaldoAnual falha em vez de perder o lancamento calado')]
-    public function testOmitirTenantNoSaldoAnualFalha(): void
+    #[TestDox('omitir o tenant em calcularSaldoAteMes falha em vez de perder o lancamento calado')]
+    public function testOmitirTenantNoSaldoAteMesFalha(): void
     {
         // `null` é resposta ("não há tenant"); OMITIR é erro de chamada. Sem esta sentinela, um
         // chamador futuro que esquecesse o tenant zeraria as horas pagas em silêncio — sem
@@ -174,20 +178,11 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $builder = $this->builderComLancamentos([2026 => [1 => -600]]);
 
         $this->expectException(\InvalidArgumentException::class);
-        $builder->calcularSaldoAnual($this->userComJornada(), 2026, [], null, new \DateTimeImmutable('2026-01-01'));
-    }
-
-    #[TestDox('omitir o tenant em calcularSaldoAteMes falha em vez de perder o lancamento calado')]
-    public function testOmitirTenantNoSaldoAteMesFalha(): void
-    {
-        $builder = $this->builderComLancamentos([2026 => [1 => -600]]);
-
-        $this->expectException(\InvalidArgumentException::class);
         $builder->calcularSaldoAteMes($this->userComJornada(), 2026, 3, [], null, new \DateTimeImmutable('2026-01-01'));
     }
 
     // ──────────────────────────────────────────────────────────────────
-    // calcularSaldoAteMes — espelha as mesmas 3 saídas antecipadas de calcularSaldoAnual
+    // calcularSaldoAteMes: o corte no mês pedido e as mesmas 3 saídas antecipadas
     // ──────────────────────────────────────────────────────────────────
 
     #[TestDox('calcularSaldoAteMes inclui os meses ate o pedido e exclui os posteriores')]
@@ -234,7 +229,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     #[TestDox('calcularSaldoAteMes: inicio de contagem posterior ao fim do periodo ainda recebe o lancamento')]
     public function testAteMesInicioPosteriorAoFimAindaRecebeLancamento(): void
     {
-        // Mesmo cuidado do teste equivalente de calcularSaldoAnual: data de início relativa ao
+        // Mesmo cuidado do teste equivalente de dezembro: data de início relativa ao
         // relógio (+2 anos), nunca fixa, para $inicio > $fim valer sempre, em qualquer execução.
         $anoAtual = (int) (new \DateTimeImmutable())->format('Y');
         $mesAtual = (int) (new \DateTimeImmutable())->format('n');
@@ -262,7 +257,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     #[TestDox('somarHorasPagasDaCompetencia (metodo publico da tela) tambem nao soma sem tenant')]
     public function testSomarHorasPagasDaCompetenciaSemTenantNaoSoma(): void
     {
-        // calcularSaldoAnual/AteMes usam o agregador PRIVADO (somarHorasPagasDoPeriodo); este
+        // calcularSaldoAteMes usa a soma por competência do colaborador inteiro; este
         // método público é o que as telas chamam para exibir a linha "Horas pagas" do mês — tem
         // sua própria guarda de tenant e merece prova própria, senão o guard fica sem cobertura.
         $builder = $this->builderComLancamentos([2026 => [3 => -600]]);
@@ -272,20 +267,20 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         self::assertSame(0, $saldo, 'sem tenant não há como filtrar com segurança: não soma');
     }
 
-    #[TestDox('calcularSaldoAteMes pede UMA soma de periodo (jan ate o mes), nao uma por mes')]
+    #[TestDox('calcularSaldoAteMes pede UMA soma por competencia do colaborador e corta no mes pedido')]
     public function testSaldoAteMesUsaUmaQuerySoComOIntervaloCerto(): void
     {
-        // Mock (não stub): prova que o agregador resolve o intervalo numa chamada só e com as
-        // pontas certas. O painel /ponto é caminho quente — voltar ao laço mês a mês (12
-        // round-trips por load) faria este teste falhar por excesso de chamadas.
+        // Mock (não stub): prova que as horas pagas vêm numa chamada só. O painel /ponto é caminho
+        // quente: voltar ao laço mês a mês (um round-trip por mês, sem teto desde a E17) faria este
+        // teste falhar por excesso de chamadas. Maio fica de fora do saldo até abril.
         $user   = $this->userComJornada();
         $tenant = $this->tenant();
 
         $repo = $this->createMock(LancamentoHorasPagasRepository::class);
         $repo->expects(self::once())
-            ->method('somarPorPeriodo')
-            ->with($user, $tenant, 2026, 1, 4)
-            ->willReturn(-600);
+            ->method('somarPorCompetenciaDoColaborador')
+            ->with($user, $tenant)
+            ->willReturn(['2026-01' => -600, '2026-05' => -100]);
 
         $builder = new FolhaPontoBuilder(
             new CalculadoraJornada(new JornadaResolver()),
@@ -300,17 +295,18 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         self::assertSame(-600, $saldo);
     }
 
-    #[TestDox('calcularSaldoAnual pede UMA soma de periodo cobrindo o ano inteiro')]
-    public function testSaldoAnualUsaUmaQuerySoComOAnoInteiro(): void
+    #[TestDox('o banco atravessa o ano: o credito de dezembro chega a janeiro (E17, P51 a)')]
+    public function testSaldoAteMesAtravessaOAno(): void
     {
+        // Até a E17 o banco zerava em 1º de janeiro: o saldo até janeiro/2026 seria só -600.
         $user   = $this->userComJornada();
         $tenant = $this->tenant();
 
         $repo = $this->createMock(LancamentoHorasPagasRepository::class);
         $repo->expects(self::once())
-            ->method('somarPorPeriodo')
-            ->with($user, $tenant, 2026, 1, 12)
-            ->willReturn(-600);
+            ->method('somarPorCompetenciaDoColaborador')
+            ->with($user, $tenant)
+            ->willReturn(['2025-12' => 6000, '2026-01' => -600]);
 
         $builder = new FolhaPontoBuilder(
             new CalculadoraJornada(new JornadaResolver()),
@@ -320,7 +316,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->jornadas(),
         );
 
-        self::assertSame(-600, $builder->calcularSaldoAnual($user, 2026, [], null, null, $tenant));
+        self::assertSame(5400, $builder->calcularSaldoAteMes($user, 2026, 1, [], null, null, $tenant));
     }
 
     #[TestDox('somarHorasPagasDaCompetencia devolve o valor do repositorio na competencia certa')]
@@ -469,13 +465,10 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $saida->setDataHora(new \DateTimeImmutable('2020-01-30 14:00:00')); // 5h = 300 min
 
         $registroRepo = $this->createStub(RegistroPontoRepository::class);
-        $registroRepo->method('findByUserAndCompetencia')->willReturn([$entrada, $saida]);
+        $registroRepo->method('batidasDoPeriodoNoEscritorio')->willReturn([$entrada, $saida]);
 
         $lancamentoRepo = $this->createStub(LancamentoHorasPagasRepository::class);
-        $lancamentoRepo->method('somarPorPeriodo')->willReturnCallback(
-            static fn (User $u, Tenant $t, int $ano, int $mesInicial, int $mesFinal): int
-                => ($ano === 2020 && $mesInicial <= 1 && $mesFinal >= 1) ? -300 : 0
-        );
+        $lancamentoRepo->method('somarPorCompetenciaDoColaborador')->willReturn(['2020-01' => -300]);
 
         $builder = new FolhaPontoBuilder(
             new CalculadoraJornada(new JornadaResolver()),
@@ -508,19 +501,15 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $repo->method('somarPorCompetencia')->willReturnCallback(
             static fn (User $u, Tenant $t, int $ano, int $mes): int => $porAnoMes[$ano][$mes] ?? 0
         );
-        // Os agregadores usam somarPorPeriodo (uma query por intervalo, não uma por mês). O stub
-        // reproduz a mesma semântica somando o intervalo INCLUSIVE nas duas pontas — se o builder
-        // pedir um intervalo errado, o valor esperado do teste não fecha.
-        $repo->method('somarPorPeriodo')->willReturnCallback(
-            static function (User $u, Tenant $t, int $ano, int $mesInicial, int $mesFinal) use ($porAnoMes): int {
-                $total = 0;
-                for ($mes = $mesInicial; $mes <= $mesFinal; $mes++) {
-                    $total += $porAnoMes[$ano][$mes] ?? 0;
-                }
-
-                return $total;
+        // O banco usa somarPorCompetenciaDoColaborador (uma query só, 'AAAA-MM' => minutos, como o
+        // GROUP BY do repositório: só as competências com lançamento).
+        $porCompetencia = [];
+        foreach ($porAnoMes as $ano => $meses) {
+            foreach ($meses as $mes => $minutos) {
+                $porCompetencia[sprintf('%04d-%02d', $ano, $mes)] = $minutos;
             }
-        );
+        }
+        $repo->method('somarPorCompetenciaDoColaborador')->willReturn($porCompetencia);
 
         return new FolhaPontoBuilder(
             new CalculadoraJornada(new JornadaResolver()),
@@ -559,7 +548,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     /**
      * NÃO é cópia verbatim do jornadaSimples() de FolhaPontoBuilderTest — o brief pedia a cópia
      * verbatim, mas ela quebra estes testes (ver relatório da Tarefa 3): com dias úteis reais
-     * (padrão da entidade é segunda-sexta, 480 min/dia) e sem nenhuma batida, calcularSaldoAnual
+     * (padrão da entidade é segunda-sexta, 480 min/dia) e sem nenhuma batida, o banco
      * soma um déficit real de falta em CADA dia útil entre 01/jan e "hoje" — um número que muda
      * com a data do relógio e teria ofuscado por completo os poucos minutos do lançamento sob
      * teste. Aqui a jornada é neutra de propósito (usuário setado para não quebrar

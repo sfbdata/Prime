@@ -389,8 +389,6 @@
     "Ponto/Form/LancamentoHorasPagasType.php::buildForm": 48,
     "Ponto/Service/CalculadoraJornada.php::calcularSaldoDiaDaEscolha": 51,
     "Ponto/Service/FolhaPontoBuilder.php::buildRows": 195,
-    "Ponto/Service/FolhaPontoBuilder.php::calcularSaldoAnual": 80,
-    "Ponto/Service/FolhaPontoBuilder.php::calcularSaldoAteMes": 80,
     "Ponto/Service/FolhaPontoXlsxExporter.php::escreverAssinaturas": 53,
     "Ponto/Service/FolhaPontoXlsxExporter.php::escreverBlocoInferior": 97,
     "Ponto/Service/FolhaPontoXlsxExporter.php::escreverCabecalhoEmpresa": 70,
