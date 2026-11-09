@@ -46,6 +46,13 @@ final readonly class ArquivosDoRascunho
         $documento->definirArquivo($chave->nome, $nome !== '' ? $nome : 'documento.pdf', $paginas);
     }
 
+    /** Rascunho sem página do PDF (bloco `pg`) não guarda o PDF: o atual perde o uso e sai depois do COMMIT. */
+    public function descartarPdf(DocumentoParaAssinar $documento, TrocaDeArquivos $troca): void
+    {
+        $troca->semUso(ChavesDeAssinaturaEletronica::arquivo($documento));
+        $documento->descartarArquivo();
+    }
+
     /**
      * Logo própria sem imagem enviada só vale se já houver uma: a do documento ou a padrão do escritório (copiada).
      */
@@ -57,9 +64,16 @@ final readonly class ArquivosDoRascunho
             || ($configuracao !== null && ChavesDeAssinaturaEletronica::logoPadrao($configuracao) !== null);
     }
 
+    /**
+     * A logo do documento. "Meu Escritório" sem logo cadastrada em Meu Escritório vira a da BlueJus: o documento nunca
+     * fica apontando para uma imagem que não existe.
+     */
     public function aplicarLogo(DocumentoParaAssinar $documento, TipoDeLogo $tipo, ?UploadedFile $logo, ?ConfiguracaoDaAssinatura $configuracao, TrocaDeArquivos $troca): void
     {
         $atual = ChavesDeAssinaturaEletronica::logo($documento);
+        if ($tipo === TipoDeLogo::Escritorio && !self::escritorioTemLogo($documento)) {
+            $tipo = TipoDeLogo::Bluejus;
+        }
 
         if ($tipo !== TipoDeLogo::Propria) {
             $troca->semUso($atual);
@@ -107,5 +121,23 @@ final readonly class ArquivosDoRascunho
         $chave = $this->copia->copiar($logo, static fn (string $extensao) => ChavesDeAssinaturaEletronica::novaLogoPadrao($configuracao, $extensao));
         $troca->gravada($chave);
         $configuracao->definirLogoPadrao(TipoDeLogo::Propria, $chave->nome);
+    }
+
+    /**
+     * "Usar esta logo nos próximos documentos" desmarcada: os próximos documentos voltam a nascer com a logo da BlueJus
+     * (o `tgLogoFix` do desenho). A imagem da logo própria padrão é sempre uma cópia só dela ({@see tornarPadrao()}):
+     * perde o uso e sai depois do COMMIT.
+     */
+    public function limparPadrao(ConfiguracaoDaAssinatura $configuracao, TrocaDeArquivos $troca): void
+    {
+        $troca->semUso(ChavesDeAssinaturaEletronica::logoPadrao($configuracao));
+        $configuracao->definirLogoPadrao(TipoDeLogo::Bluejus, null);
+    }
+
+    private static function escritorioTemLogo(DocumentoParaAssinar $documento): bool
+    {
+        $chave = $documento->getTenant()->getLogoChave();
+
+        return $chave !== null && $chave !== '';
     }
 }

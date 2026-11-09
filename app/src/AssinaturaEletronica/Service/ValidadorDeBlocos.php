@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\Service;
 
+use App\AssinaturaEletronica\DTO\DadosDoSignatario;
 use App\AssinaturaEletronica\DTO\LeitorDeCampos;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 
@@ -15,7 +16,11 @@ final class ValidadorDeBlocos
 {
     public const BLOCOS_MAXIMO = 2000;
     public const TEXTO_MAXIMO = 20000;
-    public const PAPEL_MAXIMO = 120;
+    /**
+     * O papel no lugar de assinatura (`r` do bloco `a`) sai dos campos do modelo, que trazem dado do cliente (a razão
+     * social vai até 150): por isso o teto é maior que o do papel do signatário ({@see DadosDoSignatario::PAPEL_MAXIMO}).
+     */
+    public const PAPEL_DO_BLOCO_MAXIMO = 500;
     /** Sem contagem de páginas (PDF que o contador não leu), vale este teto. */
     public const PAGINAS_SEM_CONTAGEM = 2000;
     public const TIPOS_DE_TEXTO = ['t', 's', 'h', 'l', 'p', 'd', 'n'];
@@ -110,7 +115,7 @@ final class ValidadorDeBlocos
             throw new AcaoRecusada('assinatura_eletronica.erro.bloco_invalido', ['posicao' => $posicao]);
         }
 
-        LeitorDeCampos::exigirTamanho($papel, self::PAPEL_MAXIMO, 'assinatura_eletronica.erro.bloco_invalido', ['posicao' => $posicao]);
+        LeitorDeCampos::exigirTamanho($papel, self::PAPEL_DO_BLOCO_MAXIMO, 'assinatura_eletronica.erro.bloco_invalido', ['posicao' => $posicao]);
 
         return ['k' => 'a', 'i' => $indice, 'r' => $papel];
     }

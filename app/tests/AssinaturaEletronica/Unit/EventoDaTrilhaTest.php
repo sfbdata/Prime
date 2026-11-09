@@ -6,6 +6,8 @@ namespace App\Tests\AssinaturaEletronica\Unit;
 
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
+use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
@@ -62,6 +64,25 @@ final class EventoDaTrilhaTest extends TestCase
         (new \ReflectionProperty(EventoDaTrilha::class, 'dados'))->setValue($evento, ['nome' => 'B']);
 
         self::assertFalse($evento->hashConfere());
+    }
+
+    #[TestDox('o hash usa os ids guardados de quem agiu: continua conferindo depois que o SET NULL anula usuário e signatário')]
+    public function testHashConfereDepoisDoSetNull(): void
+    {
+        $documento = self::documento(42);
+        $signatario = new Signatario($documento, 0, 'Ana', null, null, 'Contratante', NivelDeAssinatura::Simples);
+        (new \ReflectionProperty(Signatario::class, 'id'))->setValue($signatario, 3);
+        $evento = new EventoDaTrilha($documento, TipoDeEvento::RascunhoSalvo, [], new \DateTimeImmutable('2026-11-09 10:00:00', new \DateTimeZone('UTC')), null, self::usuario(7), $signatario);
+        $hash = $evento->getHash();
+
+        self::assertSame([3, 7], [$evento->getSignatarioRef(), $evento->getUsuarioRef()]);
+        self::assertSame(hash('sha256', implode('|', ['', '42', 'rascunho_salvo', '[]', '2026-11-09T10:00:00+00:00', '3', '7', '', ''])), $hash);
+
+        (new \ReflectionProperty(EventoDaTrilha::class, 'usuario'))->setValue($evento, null);
+        (new \ReflectionProperty(EventoDaTrilha::class, 'signatario'))->setValue($evento, null);
+
+        self::assertTrue($evento->hashConfere());
+        self::assertSame($hash, $evento->calcularHash());
     }
 
     #[TestDox('evento sem documento gravado é recusado')]

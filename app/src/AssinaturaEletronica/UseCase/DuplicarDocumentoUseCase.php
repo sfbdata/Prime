@@ -60,9 +60,10 @@ final readonly class DuplicarDocumentoUseCase
         );
     }
 
+    /** O PDF só vem junto quando algum bloco é página dele (rascunho sem página não guarda PDF). */
     private function copiarArquivos(DocumentoParaAssinar $origem, DocumentoParaAssinar $copia, TrocaDeArquivos $troca): void
     {
-        $pdf = ChavesDeAssinaturaEletronica::arquivo($origem);
+        $pdf = $origem->temPaginaDoArquivo() ? ChavesDeAssinaturaEletronica::arquivo($origem) : null;
         if ($pdf !== null) {
             $chave = $this->copia->copiar($pdf, static fn (string $extensao) => ChavesDeAssinaturaEletronica::novoArquivo($copia, $extensao));
             $troca->gravada($chave);

@@ -16,8 +16,12 @@ use Doctrine\ORM\Mapping as ORM;
  * corrente dali para a frente (contrato da etapa 1, seção 3.2).
  *
  * `hash = sha256(hash_anterior | documento_id | tipo | dados (JSON, chaves ordenadas) | criado_em (ISO 8601, UTC) |
- * signatario_id | usuario_id | ip | user_agent)`, com nulo como texto vazio. A hora é a do servidor, em segundos
+ * signatario_ref | usuario_ref | ip | user_agent)`, com nulo como texto vazio. A hora é a do servidor, em segundos
  * (é o que a coluna guarda), para o hash recalculado depois de reler bater com o gravado.
+ *
+ * `signatario_ref` e `usuario_ref` guardam o id de quem agiu no momento do evento e nunca mudam. As relações
+ * `signatario` e `usuario` (que dão o nome na tela) têm FK `SET NULL`: apagar o usuário ou o signatário anula a FK, e
+ * por isso o hash usa as colunas imutáveis, senão a corrente antiga deixaria de conferir.
  */
 #[ORM\Entity(repositoryClass: EventoDaTrilhaRepository::class, readOnly: true)]
 #[ORM\Table(name: 'assinatura_eletronica_evento')]
@@ -40,6 +44,14 @@ class EventoDaTrilha
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $usuario;
+
+    /** O id do signatário no momento do evento, sem FK: entra no hash e sobrevive à exclusão do signatário. */
+    #[ORM\Column(name: 'signatario_ref', type: 'integer', nullable: true)]
+    private ?int $signatarioRef;
+
+    /** O id do usuário no momento do evento, sem FK: entra no hash e sobrevive à exclusão do usuário. */
+    #[ORM\Column(name: 'usuario_ref', type: 'integer', nullable: true)]
+    private ?int $usuarioRef;
 
     #[ORM\Column(length: 60, enumType: TipoDeEvento::class)]
     private TipoDeEvento $tipo;
@@ -88,6 +100,8 @@ class EventoDaTrilha
         $this->hashAnterior = $hashAnterior;
         $this->usuario = $usuario;
         $this->signatario = $signatario;
+        $this->usuarioRef = $usuario?->getId();
+        $this->signatarioRef = $signatario?->getId();
         $this->ip = $ip;
         $this->userAgent = $userAgent;
         $this->hash = $this->calcularHash();
@@ -107,8 +121,8 @@ class EventoDaTrilha
             $this->tipo->value,
             json_encode(self::ordenar($this->dados), \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES | \JSON_THROW_ON_ERROR),
             $this->criadoEm->setTimezone(new \DateTimeZone('UTC'))->format(\DATE_ATOM),
-            (string) $this->signatario?->getId(),
-            (string) $this->usuario?->getId(),
+            (string) $this->signatarioRef,
+            (string) $this->usuarioRef,
             $this->ip ?? '',
             $this->userAgent ?? '',
         ];
@@ -134,6 +148,16 @@ class EventoDaTrilha
     public function getUsuario(): ?User
     {
         return $this->usuario;
+    }
+
+    public function getSignatarioRef(): ?int
+    {
+        return $this->signatarioRef;
+    }
+
+    public function getUsuarioRef(): ?int
+    {
+        return $this->usuarioRef;
     }
 
     public function getTipo(): TipoDeEvento

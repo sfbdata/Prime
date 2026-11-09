@@ -44,9 +44,10 @@ final class ValidadorDeBlocosTest extends TestCase
         self::assertCount(7, ValidadorDeBlocos::normalizar($blocos, false, null));
     }
 
-    #[TestDox('no limite: 2.000 blocos, texto de 20.000 caracteres e página até 2.000 sem contagem')]
+    #[TestDox('no limite: 2.000 blocos, texto de 20.000 caracteres, papel do bloco de 500 e página até 2.000 sem contagem')]
     public function testNoLimite(): void
     {
+        self::assertCount(1, ValidadorDeBlocos::normalizar([['k' => 'a', 'i' => 0, 'r' => str_repeat('é', 500)]], false, null));
         self::assertCount(2000, ValidadorDeBlocos::normalizar(array_fill(0, 2000, ['k' => 'l', 'x' => '']), false, null));
         self::assertCount(1, ValidadorDeBlocos::normalizar([['k' => 'p', 'x' => str_repeat('á', 20000)]], false, null));
         self::assertCount(1, ValidadorDeBlocos::normalizar([['k' => 'pg', 'n' => 2000]], true, null));
@@ -65,7 +66,7 @@ final class ValidadorDeBlocosTest extends TestCase
         yield 'índice negativo' => [[['k' => 'a', 'i' => -1]], false, null, 'bloco_invalido'];
         yield 'índice em texto' => [[['k' => 'a', 'i' => '1']], false, null, 'bloco_invalido'];
         yield 'sem índice' => [[['k' => 'a']], false, null, 'bloco_invalido'];
-        yield 'papel com 121' => [[['k' => 'a', 'i' => 0, 'r' => str_repeat('a', 121)]], false, null, 'bloco_invalido'];
+        yield 'papel do bloco com 501' => [[['k' => 'a', 'i' => 0, 'r' => str_repeat('a', 501)]], false, null, 'bloco_invalido'];
         yield 'página sem PDF' => [[['k' => 'pg', 'n' => 1]], false, null, 'pagina_sem_arquivo'];
         yield 'página 0' => [[['k' => 'pg', 'n' => 0]], true, 3, 'pagina_invalida'];
         yield 'página além do PDF' => [[['k' => 'pg', 'n' => 4]], true, 3, 'pagina_invalida'];
@@ -84,6 +85,17 @@ final class ValidadorDeBlocosTest extends TestCase
         } catch (AcaoRecusada $e) {
             self::assertSame('assinatura_eletronica.erro.' . $erro, $e->getMessage());
         }
+    }
+
+    #[TestDox('o papel do lugar de assinatura aceita dado do cliente maior que o papel do signatário (razão social de 150, por exemplo)')]
+    public function testPapelDoBlocoComDadoDoCliente(): void
+    {
+        $papel = mb_substr('Contratante: ' . str_repeat('Razão Social Ltda ', 20), 0, 300);
+        self::assertSame(300, mb_strlen($papel));
+
+        $blocos = ValidadorDeBlocos::normalizar([['k' => 'a', 'i' => 0, 'r' => $papel]], false, null);
+
+        self::assertSame(['k' => 'a', 'i' => 0, 'r' => $papel], $blocos[0]);
     }
 
     #[TestDox('o erro do bloco diz a posição, a partir de 1')]

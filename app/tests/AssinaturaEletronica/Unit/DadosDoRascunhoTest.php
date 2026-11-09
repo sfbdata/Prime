@@ -34,7 +34,16 @@ final class DadosDoRascunhoTest extends TestCase
         self::assertNull($dados->pasta);
         self::assertSame('', $dados->layout);
         self::assertSame([], $dados->signatarios);
-        self::assertFalse($dados->usarLogoComoPadrao);
+        self::assertNull($dados->usarLogoComoPadrao, 'ausente não mexe na logo padrão');
+    }
+
+    #[TestDox('usarLogoComoPadrao: verdadeiro grava, falso limpa, ausente ou nulo não mexe')]
+    public function testUsarLogoComoPadraoTemTresEstados(): void
+    {
+        self::assertTrue(DadosDoRascunho::deJson(['usarLogoComoPadrao' => true])->usarLogoComoPadrao);
+        self::assertFalse(DadosDoRascunho::deJson(['usarLogoComoPadrao' => false])->usarLogoComoPadrao);
+        self::assertNull(DadosDoRascunho::deJson(['usarLogoComoPadrao' => null])->usarLogoComoPadrao);
+        self::assertNull(DadosDoRascunho::deJson(['nome' => 'X'])->usarLogoComoPadrao);
     }
 
     #[TestDox('lê todos os campos do Rascunho')]

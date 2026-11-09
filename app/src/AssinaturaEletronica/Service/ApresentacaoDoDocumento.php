@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\Service;
 
+use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Entity\Signatario;
@@ -28,26 +29,28 @@ final readonly class ApresentacaoDoDocumento
     ) {
     }
 
-    /** @return array<string, mixed> */
-    public function resumo(DocumentoParaAssinar $documento): array
+    /**
+     * O `Resumo` da lista e do detalhe: a mesma forma, venha da consulta da lista ou da entidade.
+     *
+     * @return array<string, mixed>
+     */
+    public function resumo(ResumoDoDocumento $resumo): array
     {
-        $signatarios = $documento->getSignatarios();
-
         return [
-            'id' => $documento->getId(),
-            'nome' => $documento->getNome(),
-            'categoria' => $documento->getCategoria(),
-            'pasta' => $documento->getPastaRotulo(),
-            'situacao' => $documento->getSituacao()->value,
-            'criadoEm' => self::iso($documento->getCriadoEm()),
-            'venceEm' => self::iso($documento->getVenceEm()),
-            'cor' => $documento->getCor()->value,
-            'naLixeira' => $documento->estaNaLixeira(),
-            'assinados' => $documento->contarAssinados(),
-            'total' => \count($signatarios),
+            'id' => $resumo->id,
+            'nome' => $resumo->nome,
+            'categoria' => $resumo->categoria,
+            'pasta' => $resumo->pasta,
+            'situacao' => $resumo->situacao->value,
+            'criadoEm' => self::iso($resumo->criadoEm),
+            'venceEm' => self::iso($resumo->venceEm),
+            'cor' => $resumo->cor->value,
+            'naLixeira' => $resumo->naLixeira,
+            'assinados' => $resumo->contarAssinados(),
+            'total' => \count($resumo->signatarios),
             'signatarios' => array_map(
-                static fn (Signatario $s): array => ['nome' => $s->getNome(), 'situacao' => $s->getSituacao()->value],
-                $signatarios,
+                static fn (array $s): array => ['nome' => $s['nome'], 'situacao' => $s['situacao']->value],
+                $resumo->signatarios,
             ),
         ];
     }
@@ -59,7 +62,7 @@ final readonly class ApresentacaoDoDocumento
      */
     public function detalhe(DocumentoParaAssinar $documento, array $eventos): array
     {
-        return array_merge($this->resumo($documento), [
+        return array_merge($this->resumo(ResumoDoDocumento::deDocumento($documento)), [
             'modelo' => $documento->getModeloChave(),
             'blocos' => $documento->getBlocos(),
             'layout' => $documento->getLayout(),

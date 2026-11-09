@@ -50,7 +50,22 @@ final class LeitorDeCampos
     /** @param array<mixed> $json */
     public static function booleano(array $json, string $campo): bool
     {
-        return filter_var($json[$campo] ?? false, \FILTER_VALIDATE_BOOL, \FILTER_NULL_ON_FAILURE) ?? false;
+        return self::booleanoOuNulo($json, $campo) ?? false;
+    }
+
+    /**
+     * Ausente ou nulo devolve nulo (quem chama distingue "não veio" de "veio falso"); o resto vira booleano.
+     *
+     * @param array<mixed> $json
+     */
+    public static function booleanoOuNulo(array $json, string $campo): ?bool
+    {
+        $valor = $json[$campo] ?? null;
+        if ($valor === null) {
+            return null;
+        }
+
+        return filter_var($valor, \FILTER_VALIDATE_BOOL, \FILTER_NULL_ON_FAILURE) ?? false;
     }
 
     /**

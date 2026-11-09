@@ -16,8 +16,9 @@ use App\Shared\Armazenamento\RemocaoAposTransacao;
 
 /**
  * "Excluir definitivamente" na Lixeira (desenho): só rascunho, e tudo ou nada. Se algum marcado foi enviado, nada sai
- * e a resposta é "Documentos enviados permanecem na Lixeira para preservar as evidências.". Documento, signatários e
- * eventos saem no banco; o PDF e a logo própria, só depois do COMMIT.
+ * e a resposta é "Documentos enviados permanecem na Lixeira para preservar as evidências.". A conferência é feita
+ * dentro da transação, com as linhas travadas e relidas: um envio ou uma restauração que chegou antes não é apagado.
+ * Documento, signatários e eventos saem no banco; o PDF e a logo própria, só depois do COMMIT.
  */
 final readonly class ExcluirRascunhosUseCase
 {
@@ -37,38 +38,53 @@ final readonly class ExcluirRascunhosUseCase
     public function executar(Tenant $tenant, array $ids): void
     {
         $documentos = $this->selecao->carregar($ids, $tenant);
-        self::exigirRascunhosNaLixeira($documentos);
-        $chaves = self::arquivosDe($documentos);
 
-        $this->documentos->emTransacao(function () use ($documentos): void {
+        // A recusa volta do trabalho em vez de ser lançada lá dentro: nada foi mudado, a transação só solta as travas
+        // (exceção dentro dela fecharia o EntityManager por uma simples recusa).
+        $resultado = $this->documentos->emTransacao(function () use ($documentos, $tenant): array|AcaoRecusada {
+            $this->selecao->travar($documentos, $tenant);
+            $recusa = self::recusa($documentos);
+            if ($recusa !== null) {
+                return $recusa;
+            }
+
+            $chaves = self::arquivosDe($documentos);
             foreach ($documentos as $documento) {
                 $this->documentos->remover($documento);
             }
+
+            return $chaves;
         });
 
-        if ($chaves !== []) {
-            $this->remocao->remover($chaves, 'assinatura_eletronica_excluir_rascunho');
+        if ($resultado instanceof AcaoRecusada) {
+            throw $resultado;
+        }
+
+        if ($resultado !== []) {
+            $this->remocao->remover($resultado, 'assinatura_eletronica_excluir_rascunho');
         }
     }
 
     /**
-     * @param list<DocumentoParaAssinar> $documentos
+     * Enviado no lote recusa primeiro (o texto do desenho); depois, o que não está na Lixeira.
      *
-     * @throws AcaoRecusada
+     * @param list<DocumentoParaAssinar> $documentos já travados e relidos
      */
-    private static function exigirRascunhosNaLixeira(array $documentos): void
+    private static function recusa(array $documentos): ?AcaoRecusada
     {
         foreach ($documentos as $documento) {
             if (!$documento->ehRascunho()) {
-                throw new AcaoRecusada('assinatura_eletronica.erro.excluir_enviado');
+                return new AcaoRecusada('assinatura_eletronica.erro.excluir_enviado');
             }
         }
 
         foreach ($documentos as $documento) {
             if (!$documento->podeSairDeVez()) {
-                throw new AcaoRecusada('assinatura_eletronica.erro.excluir_fora_da_lixeira');
+                return new AcaoRecusada('assinatura_eletronica.erro.excluir_fora_da_lixeira');
             }
         }
+
+        return null;
     }
 
     /**

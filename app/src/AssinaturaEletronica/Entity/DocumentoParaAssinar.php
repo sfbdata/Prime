@@ -208,6 +208,20 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
     }
 
     /**
+     * Tira o PDF do documento (rascunho sem página do PDF não o guarda). O arquivo sai do disco no UseCase, depois do
+     * COMMIT.
+     *
+     * @throws AcaoRecusada fora do rascunho
+     */
+    public function descartarArquivo(): void
+    {
+        $this->exigirRascunho();
+        $this->arquivoEnviadoChave = null;
+        $this->arquivoEnviadoNome = null;
+        $this->arquivoEnviadoPaginas = null;
+    }
+
+    /**
      * A logo do documento. A chave só existe na logo própria: nas outras, a imagem não é deste documento.
      *
      * @throws AcaoRecusada fora do rascunho
@@ -422,6 +436,18 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
     public function temArquivo(): bool
     {
         return $this->arquivoEnviadoChave !== null;
+    }
+
+    /** Se algum bloco é página do PDF enviado (`pg`): sem nenhum, o documento não guarda o PDF. */
+    public function temPaginaDoArquivo(): bool
+    {
+        foreach ($this->blocos as $bloco) {
+            if (($bloco['k'] ?? null) === 'pg') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return list<Signatario> */

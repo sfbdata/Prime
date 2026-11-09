@@ -41,10 +41,15 @@ A tela fica atrás da chave `assinatura` do Master, desligada, até a etapa 3.
 - **.docx**: só o texto, no navegador, com o `mammoth` já vendorizado em `public/js/vendor/mammoth` (como o desenho).
   O arquivo .docx não é enviado.
 - **Arquivo vai junto do rascunho.** Não existe upload solto: "Salvar rascunho" manda `multipart` com o JSON e, se
-  houver, o PDF e a logo própria. Nada fica gravado antes de salvar (o desenho também não grava).
+  houver, o PDF e a logo própria. Nada fica gravado antes de salvar (o desenho também não grava). O PDF só fica
+  guardado enquanto algum bloco é página dele (`pg`): salvar sem nenhum bloco `pg` tira o PDF do documento (o arquivo
+  sai do disco depois do COMMIT) e o `Detalhe` volta com `arquivo: null`; Duplicar só copia o PDF quando há `pg`.
 - **Logo**: `bluejus` (arquivo estático), `escritorio` (a logo de Meu Escritório, se houver) ou `propria` (enviada
-  no documento). "Usar esta logo nos próximos documentos" grava a logo padrão **do escritório** numa tabela própria
-  (não mexe em `Tenant`).
+  no documento). `escritorio` sem logo cadastrada em Meu Escritório é gravado como `bluejus` (a tela nem oferece a
+  opção). "Usar esta logo nos próximos documentos" grava a logo padrão **do escritório** numa tabela própria
+  (não mexe em `Tenant`) e, desmarcada, limpa o padrão (volta à BlueJus), como o `tgLogoFix` do desenho. A imagem da
+  logo própria padrão é sempre uma cópia só dela: ao ser trocada ou limpa, sai do disco depois do COMMIT (nenhum
+  documento aponta para ela).
 - **Cor da linha**: por documento, como o protótipo.
 - **Expirado**: calculado no JS (Aguardando com prazo vencido), como o desenho.
 - **Trilha**: só acréscimo, encadeada por `hash_anterior`. Texto de cada evento sai do servidor.
@@ -82,10 +87,14 @@ Todas com `tenant_id` entram no `PurgarEscritorioUseCase`.
   assinado_em, nome_digitado, cpf_digitado, rubrica_chave, metodo, motivo_recusa, ip, user_agent, latitude, longitude,
   precisao.
 - `assinatura_eletronica_evento` (`EventoDaTrilha`): id, documento_id (CASCADE), signatario_id (SET NULL, nulo),
-  usuario_id (SET NULL, nulo), tipo (enum), dados (JSON), ip (nulo), user_agent (nulo), criado_em (hora do servidor),
-  hash_anterior (char 64, nulo no primeiro), hash (char 64). Sem setter: só se cria.
-  `hash = sha256(hash_anterior | documento_id | tipo | dados em JSON com chaves ordenadas | criado_em ISO 8601 | signatario_id | usuario_id | ip | user_agent)`.
-  O acréscimo trava a linha do documento (`PESSIMISTIC_WRITE`) para a corrente não bifurcar.
+  usuario_id (SET NULL, nulo), signatario_ref (int, nulo, sem FK), usuario_ref (int, nulo, sem FK), tipo (enum),
+  dados (JSON), ip (nulo), user_agent (nulo), criado_em (hora do servidor), hash_anterior (char 64, nulo no primeiro),
+  hash (char 64). Sem setter: só se cria. `signatario_ref` e `usuario_ref` guardam, no construtor, o id de quem agiu e
+  nunca mudam; as relações ficam só para mostrar o nome.
+  `hash = sha256(hash_anterior | documento_id | tipo | dados em JSON com chaves ordenadas | criado_em ISO 8601 | signatario_ref | usuario_ref | ip | user_agent)`.
+  O hash usa as colunas `_ref` porque o `SET NULL` das FKs (usuário ou signatário apagado) não pode quebrar a
+  conferência dos eventos antigos. O acréscimo trava a linha do documento (`PESSIMISTIC_WRITE`) para a corrente não
+  bifurcar.
 - `assinatura_eletronica_configuracao` (`ConfiguracaoDaAssinatura`, TenantAware): id, tenant_id (único),
   logo_padrao_tipo (enum), logo_padrao_chave (nulo).
 - Permissão `modules.assinatura_eletronica.view`: INSERT idempotente e concessão aos perfis que já têm
@@ -103,17 +112,19 @@ Apagar rascunho de vez apaga o documento, os signatários e os eventos (CASCADE)
 ```
 
 Validação no servidor: no máximo 2.000 blocos; `x` até 20.000 caracteres; `k` fora da lista recusa; `i` inteiro
-maior ou igual a 0; `n` entre 1 e o número de páginas do PDF guardado; nenhum outro campo é guardado.
+maior ou igual a 0; `r` até 500 caracteres (vem dos campos do modelo, com dado do cliente: a razão social vai até 150;
+o papel do signatário continua até 120); `n` entre 1 e o número de páginas do PDF guardado; nenhum outro campo é
+guardado.
 
 ## 4. Rotas (prefixo de nome `assinatura_eletronica_`, todas com `canAccessModule('assinatura_eletronica')`)
 
 | Método e caminho | Nome | Entrada | Saída |
 |---|---|---|---|
 | GET `/assinatura` | `index` | | página (Twig `assinatura_eletronica/index.html.twig`) |
-| GET `/assinatura/documentos` | `documentos` | | `{documentos: [Resumo], pastas: [string]}` (inclui os da Lixeira) |
+| GET `/assinatura/documentos` | `documentos` | | `{documentos: [Resumo], pastas: [string]}` (inclui os da Lixeira; a consulta lê só os campos do `Resumo`, sem `blocos` nem `lateral`) |
 | GET `/assinatura/documentos/{id}` | `documento` | | `Detalhe` |
 | POST `/assinatura/documentos` | `criar` | multipart: `dados` (JSON `Rascunho`), `arquivo` (PDF, opcional), `logo` (PNG ou JPEG, opcional) | `{id}` 201 |
-| POST `/assinatura/documentos/{id}` | `salvar` | igual; só rascunho; sem `arquivo` mantém o atual | `{id}` |
+| POST `/assinatura/documentos/{id}` | `salvar` | igual; só rascunho; com bloco `pg` e sem `arquivo`, mantém o PDF atual; sem bloco `pg`, o PDF sai | `{id}` |
 | POST `/assinatura/documentos/{id}/duplicar` | `duplicar` | | `{id}` 201 |
 | POST `/assinatura/documentos/lixeira` | `lixeira` | JSON `{ids}` | `{ok: true}` |
 | POST `/assinatura/documentos/restaurar` | `restaurar` | JSON `{ids}` | `{ok: true}` |
@@ -131,6 +142,10 @@ Textos de erro (literais do desenho): "Documentos enviados permanecem na Lixeira
 recusa excluir o que não está na Lixeira: "Só documentos na Lixeira podem ser excluídos definitivamente." (a tela só
 oferece a exclusão definitiva dentro da Lixeira; o texto protege a rota).
 
+As ações em lote (Lixeira, restaurar, excluir de vez) travam a linha de cada documento (`PESSIMISTIC_WRITE`) e releem
+o estado dentro da transação antes de decidir pela situação ou pela Lixeira: o que já está na Lixeira não ganha evento
+novo, e um envio ou uma restauração que chegou antes não é apagado.
+
 ### 4.1 Formas do JSON
 
 ```
@@ -143,9 +158,13 @@ Detalhe = Resumo + { modelo (string|null), blocos: [Bloco], layout, lateral, fol
            eventos: [{em (ISO), texto}] }   eventos do mais recente para o mais antigo
 
 Rascunho = { nome, pasta, categoria, modelo, blocos, layout, lateral, folhaBranca, emOrdem, mensagem, prazoDias,
-             logo: {tipo}, usarLogoComoPadrao (bool),
+             logo: {tipo}, usarLogoComoPadrao (bool, opcional),
              signatarios: [{nome, email, cpf, papel, nivel}] }
 ```
+
+`usarLogoComoPadrao`: `true` grava a logo do documento como padrão do escritório; `false` limpa o padrão (volta à
+BlueJus); ausente não mexe no padrão. A tela só manda o campo quando a caixa "Usar esta logo nos próximos documentos"
+esteve à vista (passo 2); rascunho retomado e arquivo enviado pulam o passo 2 e não o mandam.
 
 Limites do `Rascunho`: nome até 200 (vazio vira "Documento"), pasta até 200, mensagem até 2.000, prazoDias 1 a 90,
 até 50 signatários, nome e papel até 200 e 120, e-mail válido quando preenchido, CPF só dígitos (11) quando

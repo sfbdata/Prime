@@ -23,13 +23,12 @@ final readonly class ListarDocumentosUseCase
     /** @return array{documentos: list<array<string, mixed>>, pastas: list<string>} */
     public function executar(Tenant $tenant): array
     {
-        $documentos = $this->documentos->listarDoEscritorio($tenant);
+        $documentos = $this->documentos->resumosDoEscritorio($tenant);
 
         $pastas = [];
         foreach ($documentos as $documento) {
-            $pasta = $documento->getPastaRotulo();
-            if ($pasta !== null && !\in_array($pasta, $pastas, true)) {
-                $pastas[] = $pasta;
+            if ($documento->pasta !== null && !\in_array($documento->pasta, $pastas, true)) {
+                $pastas[] = $documento->pasta;
             }
         }
 

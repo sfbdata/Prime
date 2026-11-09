@@ -14,7 +14,8 @@ use App\Entity\Tenant\Tenant;
 
 /**
  * "Restaurar" da Lixeira (desenho): volta à lista com "Restaurado da Lixeira" na trilha. O envio cancelado pela
- * exclusão não é reativado. O que não estava na Lixeira fica como está.
+ * exclusão não é reativado. O que não estava na Lixeira fica como está, sem evento novo (conferido com a linha travada
+ * e relida).
  */
 final readonly class RestaurarDaLixeiraUseCase
 {
@@ -34,7 +35,8 @@ final readonly class RestaurarDaLixeiraUseCase
     {
         $documentos = $this->selecao->carregar($ids, $tenant);
 
-        $this->documentos->emTransacao(function () use ($documentos, $ator): void {
+        $this->documentos->emTransacao(function () use ($documentos, $tenant, $ator): void {
+            $this->selecao->travar($documentos, $tenant);
             foreach ($documentos as $documento) {
                 if (!$documento->estaNaLixeira()) {
                     continue;

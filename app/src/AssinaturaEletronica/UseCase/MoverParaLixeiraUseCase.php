@@ -16,7 +16,8 @@ use Psr\Clock\ClockInterface;
 /**
  * "Excluir" da lista: leva para a Lixeira (desenho). O que aguardava assinatura tem o envio cancelado ("Envio
  * cancelado pela exclusão. Links desativados") e todo documento movido registra "Movido para a Lixeira. Evidências
- * preservadas". O que já estava na Lixeira fica como está.
+ * preservadas". O que já estava na Lixeira fica como está, sem evento novo: a conferência é feita com a linha travada
+ * e relida, então dois cliques ao mesmo tempo não registram a mudança duas vezes.
  */
 final readonly class MoverParaLixeiraUseCase
 {
@@ -38,7 +39,8 @@ final readonly class MoverParaLixeiraUseCase
         $documentos = $this->selecao->carregar($ids, $tenant);
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
 
-        $this->documentos->emTransacao(function () use ($documentos, $ator, $agora): void {
+        $this->documentos->emTransacao(function () use ($documentos, $tenant, $ator, $agora): void {
+            $this->selecao->travar($documentos, $tenant);
             foreach ($documentos as $documento) {
                 if ($documento->estaNaLixeira()) {
                     continue;

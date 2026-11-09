@@ -28,6 +28,9 @@ final readonly class DadosDoRascunho
 
     /**
      * @param array<mixed>             $blocos
+     * @param bool|null                $usarLogoComoPadrao verdadeiro grava a logo do documento como padrão do
+     *                                                     escritório, falso limpa o padrão, nulo (campo ausente) não
+     *                                                     mexe nele
      * @param list<DadosDoSignatario> $signatarios
      */
     private function __construct(
@@ -43,7 +46,7 @@ final readonly class DadosDoRascunho
         public string $mensagem,
         public int $prazoDias,
         public TipoDeLogo $logo,
-        public bool $usarLogoComoPadrao,
+        public ?bool $usarLogoComoPadrao,
         public array $signatarios,
     ) {
     }
@@ -77,7 +80,7 @@ final readonly class DadosDoRascunho
             self::mensagem($json),
             self::prazo($json),
             self::logo($json),
-            LeitorDeCampos::booleano($json, 'usarLogoComoPadrao'),
+            LeitorDeCampos::booleanoOuNulo($json, 'usarLogoComoPadrao'),
             self::signatarios($json),
         );
     }

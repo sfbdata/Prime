@@ -42,7 +42,7 @@ final class ArquivosDaAssinaturaControllerTest extends JusPrimeWebTestCase
     {
         [, $tenant] = $this->entrar(true);
         $this->diretorioDoEscritorio = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/') . '/assinatura/' . $tenant->getId();
-        $id = $this->salvar(null, ['nome' => 'Contrato', 'logo' => ['tipo' => 'propria'], 'usarLogoComoPadrao' => true], $this->pdf(), $this->png());
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'logo' => ['tipo' => 'propria'], 'usarLogoComoPadrao' => true, 'blocos' => [['k' => 'pg', 'n' => 1]]], $this->pdf(), $this->png());
         self::assertResponseStatusCodeSame(201);
         self::assertDirectoryExists($this->diretorioDoEscritorio, 'o escritório tem diretório próprio');
 

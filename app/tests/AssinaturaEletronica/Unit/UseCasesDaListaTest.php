@@ -48,12 +48,18 @@ final class UseCasesDaListaTest extends TestCase
 
     private Tenant $tenant;
 
+    /** @var array<int, callable(DocumentoParaAssinar): void|false> */
+    private array $relidosPorId = [];
+
+    private bool $travaConfigurada = false;
+
     protected function setUp(): void
     {
         $this->tenant = new Tenant();
         (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->tenant, 9);
         $this->documentos = $this->createMock(DocumentoParaAssinarRepository::class);
         $this->documentos->method('emTransacao')->willReturnCallback(static fn (callable $trabalho): mixed => $trabalho());
+        $this->relidos([]);
     }
 
     #[TestDox('Lixeira: o que aguardava assinatura registra o cancelamento e depois a ida para a Lixeira; o que já estava lá fica como está')]
@@ -77,6 +83,47 @@ final class UseCasesDaListaTest extends TestCase
             [1, TipoDeEvento::MovidoParaLixeira],
             [2, TipoDeEvento::MovidoParaLixeira],
         ], $this->eventosGravados());
+    }
+
+    #[TestDox('Lixeira: o que outra ação levou para a Lixeira depois da leitura não ganha evento de novo (decide com a linha travada e relida)')]
+    public function testMoverParaLixeiraDecideComALinhaRelida(): void
+    {
+        $doc = $this->documento(1);
+        $this->selecionar([1], [$doc]);
+        $this->relidos([1 => static function (DocumentoParaAssinar $d): void {
+            $d->moverParaLixeira(null, new \DateTimeImmutable('2026-11-09 09:59:00'));
+        }]);
+
+        $this->moverParaLixeira()->executar(new User(), $this->tenant, [1]);
+
+        self::assertSame('2026-11-09 09:59:00', $doc->getExcluidoEm()?->format('Y-m-d H:i:s'), 'não é carimbado de novo');
+        self::assertSame([], $this->eventos, 'nenhum evento repetido');
+    }
+
+    #[TestDox('restaurar: o que outra ação já tirou da Lixeira não ganha "Restaurado" de novo')]
+    public function testRestaurarDecideComALinhaRelida(): void
+    {
+        $doc = $this->documento(1);
+        $doc->moverParaLixeira(null, new \DateTimeImmutable('2026-11-01'));
+        $this->selecionar([1], [$doc]);
+        $this->relidos([1 => static function (DocumentoParaAssinar $d): void {
+            $d->restaurar();
+        }]);
+
+        (new RestaurarDaLixeiraUseCase(new DocumentosDaSelecao($this->documentos), $this->documentos, $this->trilha()))
+            ->executar(new User(), $this->tenant, [1]);
+
+        self::assertSame([], $this->eventos);
+    }
+
+    #[TestDox('documento que sumiu entre a leitura e a trava: o lote inteiro vira 404, dentro da transação')]
+    public function testDocumentoQueSumiuAntesDaTrava(): void
+    {
+        $this->selecionar([1, 2], [$this->documento(1), $this->documento(2)]);
+        $this->relidos([2 => false]);
+
+        $this->expectException(DocumentoNaoEncontrado::class);
+        $this->moverParaLixeira()->executar(new User(), $this->tenant, [1, 2]);
     }
 
     #[TestDox('lote com um id de outro escritório: 404 e nada muda')]
@@ -140,6 +187,36 @@ final class UseCasesDaListaTest extends TestCase
         $this->excluir(new ArmazenamentoEmMemoria())->executar($this->tenant, [1]);
     }
 
+    #[TestDox('excluir de vez: a conferência é feita com a linha travada e relida; o que foi enviado depois da leitura não sai')]
+    public function testExcluirDecideComALinhaRelida(): void
+    {
+        $rascunho = $this->documento(1);
+        $rascunho->moverParaLixeira(null, new \DateTimeImmutable());
+        $this->selecionar([1], [$rascunho]);
+        $this->relidos([1 => static function (DocumentoParaAssinar $d): void {
+            (new \ReflectionProperty(DocumentoParaAssinar::class, 'situacao'))->setValue($d, SituacaoDoDocumento::Aguardando);
+        }]);
+        $this->documentos->expects(self::never())->method('remover');
+
+        $this->expectExceptionObject(new AcaoRecusada('assinatura_eletronica.erro.excluir_enviado'));
+        $this->excluir(new ArmazenamentoEmMemoria())->executar($this->tenant, [1]);
+    }
+
+    #[TestDox('excluir de vez: restaurado depois da leitura também não sai')]
+    public function testExcluirRestauradoDepoisDaLeitura(): void
+    {
+        $rascunho = $this->documento(1);
+        $rascunho->moverParaLixeira(null, new \DateTimeImmutable());
+        $this->selecionar([1], [$rascunho]);
+        $this->relidos([1 => static function (DocumentoParaAssinar $d): void {
+            $d->restaurar();
+        }]);
+        $this->documentos->expects(self::never())->method('remover');
+
+        $this->expectExceptionObject(new AcaoRecusada('assinatura_eletronica.erro.excluir_fora_da_lixeira'));
+        $this->excluir(new ArmazenamentoEmMemoria())->executar($this->tenant, [1]);
+    }
+
     #[TestDox('excluir de vez: os rascunhos saem do banco e, depois, o PDF e a logo própria saem do disco')]
     public function testExcluirApagaArquivosDepois(): void
     {
@@ -196,6 +273,34 @@ final class UseCasesDaListaTest extends TestCase
         });
 
         return new TrilhaDoDocumento($repositorio, new MockClock('2026-11-09 10:00:00'));
+    }
+
+    /**
+     * Simula a trava com releitura: por id, o que o banco mostra ao travar (callable que muda o documento) ou `false`
+     * quando o documento sumiu. O que não está no mapa volta como estava.
+     *
+     * @param array<int, callable(DocumentoParaAssinar): void|false> $porId
+     */
+    private function relidos(array $porId): void
+    {
+        $this->relidosPorId = $porId;
+        if ($this->travaConfigurada) {
+            return;
+        }
+
+        $this->travaConfigurada = true;
+        $this->documentos->method('travarERecarregar')->willReturnCallback(function (DocumentoParaAssinar $d, Tenant $t): bool {
+            self::assertSame($this->tenant, $t);
+            $relido = $this->relidosPorId[(int) $d->getId()] ?? null;
+            if ($relido === false) {
+                return false;
+            }
+            if ($relido !== null) {
+                $relido($d);
+            }
+
+            return true;
+        });
     }
 
     /**

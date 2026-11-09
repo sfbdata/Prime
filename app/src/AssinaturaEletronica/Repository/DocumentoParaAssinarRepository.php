@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\Repository;
 
+use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
+use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Enum\CorDaLinha;
+use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
+use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -67,22 +74,75 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     }
 
     /**
-     * A lista da tela, Lixeira incluída, do mais novo para o mais antigo, com os signatários já carregados.
+     * A lista da tela, Lixeira incluída, do mais novo para o mais antigo. Só os campos do `Resumo`: os blocos e o texto
+     * lateral (que podem ser grandes) não são lidos. Os signatários vêm numa segunda consulta, pelos ids da primeira.
      *
-     * @return list<DocumentoParaAssinar>
+     * @return list<ResumoDoDocumento>
      */
-    public function listarDoEscritorio(Tenant $tenant): array
+    public function resumosDoEscritorio(Tenant $tenant): array
     {
-        return $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
-            ->addSelect('s')
-            ->leftJoin('d.signatarios', 's')
+        /** @var list<array<string, mixed>> $linhas */
+        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
+            ->select('d.id', 'd.nome', 'd.categoria', 'd.pastaRotulo', 'd.situacao', 'd.criadoEm', 'd.venceEm', 'd.cor', 'd.excluidoEm')
             ->andWhere('d.tenant = :tenant')
             ->setParameter('tenant', $tenant)
             ->orderBy('d.criadoEm', 'DESC')
             ->addOrderBy('d.id', 'DESC')
-            ->addOrderBy('s.ordem', 'ASC')
             ->getQuery()
             ->getResult());
+
+        $signatarios = $this->signatariosDaLista($tenant, array_map(static fn (array $l): int => (int) $l['id'], $linhas));
+
+        return array_map(static fn (array $l): ResumoDoDocumento => self::resumo($l, $signatarios[(int) $l['id']] ?? []), $linhas);
+    }
+
+    /**
+     * Dos nomes de arquivo dados, os que algum documento do escritório ainda usa (PDF ou logo própria), Lixeira
+     * incluída. Quem apaga arquivo depois do COMMIT confere aqui antes: arquivo em uso não sai.
+     *
+     * @param list<string> $nomes
+     *
+     * @return list<string>
+     */
+    public function arquivosEmUso(Tenant $tenant, array $nomes): array
+    {
+        if ($nomes === []) {
+            return [];
+        }
+
+        /** @var list<array{pdf: ?string, logo: ?string}> $linhas */
+        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
+            ->select('d.arquivoEnviadoChave AS pdf', 'd.logoChave AS logo')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.arquivoEnviadoChave IN (:nomes) OR d.logoChave IN (:nomes)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nomes', $nomes)
+            ->getQuery()
+            ->getScalarResult());
+
+        $usados = array_merge(array_column($linhas, 'pdf'), array_column($linhas, 'logo'));
+
+        return array_values(array_filter($nomes, static fn (string $nome): bool => \in_array($nome, $usados, true)));
+    }
+
+    /**
+     * Trava a linha do documento (`SELECT ... FOR UPDATE`) e relê o estado gravado por cima do que está em memória,
+     * Lixeira incluída: quem decide pela situação ou pela Lixeira decide com o que está no banco, não com o que leu
+     * antes da transação. Falso quando o documento não existe mais neste escritório. Exige transação aberta.
+     */
+    public function travarERecarregar(DocumentoParaAssinar $documento, Tenant $tenant): bool
+    {
+        $relido = $this->lixeira->comLixeiraVisivel(fn (): ?DocumentoParaAssinar => $this->createQueryBuilder('d')
+            ->andWhere('d.id = :id')
+            ->andWhere('d.tenant = :tenant')
+            ->setParameter('id', $documento->getId())
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->setHint(Query::HINT_REFRESH, true)
+            ->getOneOrNullResult());
+
+        return $relido === $documento;
     }
 
     /** Grava e confirma o documento (o id nasce aqui no documento novo). */
@@ -97,6 +157,69 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     public function remover(DocumentoParaAssinar $documento): void
     {
         $this->getEntityManager()->remove($documento);
+    }
+
+    /**
+     * Nome e situação dos signatários de cada documento da lista, na ordem do documento.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, list<array{nome: string, situacao: SituacaoDoSignatario}>> por id do documento
+     */
+    private function signatariosDaLista(Tenant $tenant, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<array<string, mixed>> $linhas */
+        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->getEntityManager()->createQueryBuilder()
+            ->select('IDENTITY(s.documento) AS documento', 's.nome', 's.situacao')
+            ->from(Signatario::class, 's')
+            ->innerJoin('s.documento', 'd')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->orderBy('s.ordem', 'ASC')
+            ->addOrderBy('s.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+
+        $porDocumento = [];
+        foreach ($linhas as $l) {
+            $porDocumento[(int) $l['documento']][] = [
+                'nome' => (string) $l['nome'],
+                'situacao' => $l['situacao'] instanceof SituacaoDoSignatario ? $l['situacao'] : SituacaoDoSignatario::from((string) $l['situacao']),
+            ];
+        }
+
+        return $porDocumento;
+    }
+
+    /**
+     * @param array<string, mixed>                                      $linha
+     * @param list<array{nome: string, situacao: SituacaoDoSignatario}> $signatarios
+     */
+    private static function resumo(array $linha, array $signatarios): ResumoDoDocumento
+    {
+        return new ResumoDoDocumento(
+            id: (int) $linha['id'],
+            nome: (string) $linha['nome'],
+            categoria: (string) $linha['categoria'],
+            pasta: isset($linha['pastaRotulo']) ? (string) $linha['pastaRotulo'] : null,
+            situacao: $linha['situacao'] instanceof SituacaoDoDocumento ? $linha['situacao'] : SituacaoDoDocumento::from((string) $linha['situacao']),
+            criadoEm: self::data($linha['criadoEm']) ?? throw new \LogicException('Documento sem data de criação.'),
+            venceEm: self::data($linha['venceEm'] ?? null),
+            cor: $linha['cor'] instanceof CorDaLinha ? $linha['cor'] : CorDaLinha::from((string) $linha['cor']),
+            naLixeira: ($linha['excluidoEm'] ?? null) !== null,
+            signatarios: $signatarios,
+        );
+    }
+
+    private static function data(mixed $valor): ?\DateTimeImmutable
+    {
+        return $valor instanceof \DateTimeInterface ? \DateTimeImmutable::createFromInterface($valor) : null;
     }
 
     /**

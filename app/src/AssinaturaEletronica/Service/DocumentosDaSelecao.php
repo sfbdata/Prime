@@ -36,4 +36,22 @@ final readonly class DocumentosDaSelecao
 
         return $documentos;
     }
+
+    /**
+     * Dentro da transação da ação: trava a linha de cada documento (na ordem de id em que vieram, para dois lotes não
+     * se travarem em cruz) e relê o estado gravado. A decisão pela situação ou pela Lixeira vem depois disto. Se um
+     * documento sumiu nesse meio-tempo, o lote inteiro vira 404 e a transação desfaz o que já foi feito.
+     *
+     * @param list<DocumentoParaAssinar> $documentos
+     *
+     * @throws DocumentoNaoEncontrado
+     */
+    public function travar(array $documentos, Tenant $tenant): void
+    {
+        foreach ($documentos as $documento) {
+            if (!$this->documentos->travarERecarregar($documento, $tenant)) {
+                throw new DocumentoNaoEncontrado();
+            }
+        }
+    }
 }

@@ -19,6 +19,7 @@ use App\AssinaturaEletronica\Service\TrocaDeArquivos;
 use App\AssinaturaEletronica\Service\ValidadorDeBlocos;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Psr\Clock\ClockInterface;
@@ -26,8 +27,11 @@ use Psr\Clock\ClockInterface;
 /**
  * "Salvar rascunho" (criar e salvar, contrato da etapa 1, seção 4): o JSON, o PDF e a logo vão juntos, e nada fica
  * gravado antes de salvar. Tudo é conferido antes de gravar o primeiro arquivo; o arquivo novo só sai se a transação
- * comprovadamente não confirmou, e o que perdeu o uso só sai depois do COMMIT. Todo salvamento acrescenta "Rascunho
- * salvo" à trilha.
+ * comprovadamente não confirmou, e o que perdeu o uso só sai depois do COMMIT (e só se nenhum documento do escritório
+ * ainda aponta para ele). Todo salvamento acrescenta "Rascunho salvo" à trilha.
+ *
+ * O PDF só fica guardado enquanto algum bloco é página dele (`pg`): rascunho sem página perde o PDF. A logo padrão do
+ * escritório segue a caixa "Usar esta logo nos próximos documentos": marcada grava, desmarcada limpa, ausente não mexe.
  */
 final readonly class SalvarRascunhoUseCase
 {
@@ -61,13 +65,9 @@ final readonly class SalvarRascunhoUseCase
         $id = $this->transacao->executar(
             function () use ($ator, $tenant, $documento, $configuracao, $entrada, $blocos, $agora, $troca): int {
                 $documento->aplicarRascunho($entrada->dados, $blocos['blocos'], $agora);
-                if ($entrada->arquivo !== null) {
-                    $this->arquivos->gravarPdf($documento, $entrada->arquivo, $blocos['paginas'], $troca);
-                }
+                $this->aplicarPdf($documento, $entrada, $blocos['paginas'], $troca);
                 $this->arquivos->aplicarLogo($documento, $entrada->dados->logo, $entrada->logo, $configuracao, $troca);
-                if ($entrada->dados->usarLogoComoPadrao) {
-                    $this->guardarPadrao($documento, $configuracao ?? new ConfiguracaoDaAssinatura($tenant), $troca);
-                }
+                $this->aplicarPadrao($tenant, $documento, $configuracao, $entrada->dados->usarLogoComoPadrao, $troca);
                 $this->documentos->salvar($documento);
                 $this->trilha->acrescentar($documento, TipoDeEvento::RascunhoSalvo, [], $ator);
 
@@ -77,9 +77,7 @@ final readonly class SalvarRascunhoUseCase
             'assinatura_eletronica_salvar_rascunho',
         );
 
-        if ($troca->antigas() !== []) {
-            $this->remocao->remover($troca->antigas(), 'assinatura_eletronica_rascunho_trocou_arquivo');
-        }
+        $this->removerSemUso($tenant, $troca->antigas());
 
         return $id;
     }
@@ -126,9 +124,47 @@ final readonly class SalvarRascunhoUseCase
         ];
     }
 
-    private function guardarPadrao(DocumentoParaAssinar $documento, ConfiguracaoDaAssinatura $configuracao, TrocaDeArquivos $troca): void
+    /** Com página do PDF, o enviado agora troca o guardado (sem envio, fica o atual); sem nenhuma, o PDF sai. */
+    private function aplicarPdf(DocumentoParaAssinar $documento, EntradaDoRascunho $entrada, ?int $paginas, TrocaDeArquivos $troca): void
     {
-        $this->arquivos->tornarPadrao($documento, $configuracao, $troca);
+        if (!$documento->temPaginaDoArquivo()) {
+            $this->arquivos->descartarPdf($documento, $troca);
+        } elseif ($entrada->arquivo !== null) {
+            $this->arquivos->gravarPdf($documento, $entrada->arquivo, $paginas, $troca);
+        }
+    }
+
+    /** @param bool|null $usar a caixa "Usar esta logo nos próximos documentos"; nulo quando a tela não a mostrou */
+    private function aplicarPadrao(Tenant $tenant, DocumentoParaAssinar $documento, ?ConfiguracaoDaAssinatura $configuracao, ?bool $usar, TrocaDeArquivos $troca): void
+    {
+        if ($usar === null || (!$usar && $configuracao === null)) {
+            return;
+        }
+
+        $configuracao ??= new ConfiguracaoDaAssinatura($tenant);
+        if ($usar) {
+            $this->arquivos->tornarPadrao($documento, $configuracao, $troca);
+        } else {
+            $this->arquivos->limparPadrao($configuracao, $troca);
+        }
         $this->configuracoes->salvar($configuracao);
+    }
+
+    /**
+     * Depois do COMMIT: apaga o que perdeu o uso, menos o que algum documento do escritório ainda usa.
+     *
+     * @param list<ChaveDeArquivo> $antigas
+     */
+    private function removerSemUso(Tenant $tenant, array $antigas): void
+    {
+        if ($antigas === []) {
+            return;
+        }
+
+        $emUso = $this->documentos->arquivosEmUso($tenant, array_map(static fn (ChaveDeArquivo $c): string => $c->nome, $antigas));
+        $semUso = array_values(array_filter($antigas, static fn (ChaveDeArquivo $c): bool => !\in_array($c->nome, $emUso, true)));
+        if ($semUso !== []) {
+            $this->remocao->remover($semUso, 'assinatura_eletronica_rascunho_trocou_arquivo');
+        }
     }
 }
