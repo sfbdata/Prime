@@ -52,7 +52,7 @@
                             {%- if j.labelTipo %}<span class="pe-just-tipo">{{ j.labelTipo }}</span>{% endif -%}
                             {%- if sub %}<div class="pe-just-sub">{{ sub }}</div>{% endif -%}
                             {#- E4 (L184): o motivo escrito na janela, abaixo do tipo. As de antes da E4 não têm. -#}
-                            {%- if j.motivo %}<div class="pe-just-mot">{{ j.motivo }}</div>{% endif -%}
+                            {%- if j.motivo is not empty %}<div class="pe-just-mot">{{ j.motivo }}</div>{% endif -%}
                         </td>
                         <td><span class="pe-just pe-just--{{ selo[0] }}"><i class="bi {{ selo[1] }}" aria-hidden="true"></i>{{ selo[2] }}</span></td>
                         <td class="pe-just-cel">

@@ -47,6 +47,9 @@ final class JanelasDoDesenhoCssTest extends TestCase
         yield 'dia do calendário' => ['.pe-cal-dia', ['height' => '30px', 'border-radius' => '3px', 'font' => 'inherit', 'cursor' => 'pointer']];
         yield 'dia escolhido: o azul do desenho' => ['.pe-cal-dia[aria-pressed="true"],.pe-cal-dia[aria-pressed="true"]:hover', ['background' => 'var(--pe-azul)', 'color' => '#fff', 'font-weight' => 'bold']];
         yield 'motivo na aba (L184)' => ['.pe-just-mot', ['font-size' => '12px', 'color' => 'var(--pe-mudo)']];
+        // Desvio necessário (E4): a janela da falta, com o calendário, passa da altura da tela. Centraliza quando cabe e
+        // rola quando não cabe; com `margin: 0` o topo sumia sem rolagem (1366x768 e celular).
+        yield 'janela alta rola (desvio necessário)' => ['.pe-janela', ['margin' => 'auto']];
     }
 
     #[TestDox('Bloco escondido some mesmo com display próprio (o par em grade, a caixa em flex)')]

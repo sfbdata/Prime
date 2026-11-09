@@ -388,8 +388,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     esquecimento" abre o "+" da folha com o mês aberto, senão o link `?esquecimento=` (o mesmo caminho do "Regularizar");
   - ficam do sistema, no molde do desenho: "Trocar de escritório" e a explicação da pendência de outro escritório (P38),
     o "Ver" do atestado, o lápis de editar (P42), "Não abonado" (vermelho da recusada) e o horário do abono parcial
-    (subtítulo "Parcial: 08:00 às 12:00", P45). O "Motivo" do desenho (L184) não entra: a justificativa não tem o
-    campo (P44, E4; entrou na E4, com a coluna nova). Obs. da análise em análise: "Aguardando análise"; "Analisado em" vazio (seção 8);
+    (subtítulo "Parcial: 08:00 às 12:00", P45). O "Motivo" do desenho (L184) ficou para a E4, que criou o campo (coluna
+    nova `motivo`) e o mostra abaixo do tipo. Obs. da análise em análise: "Aguardando análise"; "Analisado em" vazio (seção 8);
   - P41 e D4: a lixeira abre a janela "Excluir justificativa" na moldura do desenho (L269 a L318); o "Excluir" da janela
     faz o POST (`ponto_justificativa_excluir`, JSON, token da página). `ExcluirJustificativaEmAnaliseUseCase`: busca
     pelo escritório da sessão (outro escritório: 404), só o dono (403), status lido com a linha travada (já analisada:
@@ -436,8 +436,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     `--pe-*` e tema escuro). Esc fecha, clicar fora não fecha, o foco não sai (moldura em `js/ponto-abas.js`, agora
     exposta em `window.PontoAbas`); o comportamento de cada janela mora em `js/ponto-janelas.js`;
   - "Justificar falta" (P44 e P45): "Data da falta" vira o calendário de vários dias do sistema na moldura do desenho
-    (abre com hoje do servidor marcado; dia futuro desligado), depois o tipo (os tipos de hoje, lista plana como a
-    tela antiga), o aviso da falta não justificada, o bloco do esquecimento (horário com segundos), o abono parcial,
+    (abre com hoje do servidor marcado; dia futuro desligado), depois o tipo (os 45 tipos nos 6 grupos, em `<optgroup>`,
+    decisão P45 do Coordenador, 09/11/2026; o desenho não tem o campo, então os rótulos e a ordem dos grupos são os do
+    sistema, `CategoriaJustificativa`: "Legais (CLT / Legislação)", "Operacionais", "Intercorrências", "Técnicas do
+    Sistema", "Situações Críticas" e "Feriados e Regimes Especiais"; a janela "Editar justificativa" usa os mesmos
+    grupos), o aviso da falta não justificada, o bloco do esquecimento (horário com segundos), o abono parcial,
     "Motivo" (obrigatório) e "Atestado ou documento (opcional)" (`accept` do servidor: PDF, JPG ou PNG). A conferência
     antes do envio põe a frase na linha de erro: "Informe a data e o motivo." (do desenho) e as do servidor; o alerta
     do navegador do abono com vários dias virou a linha de erro;
@@ -446,15 +449,21 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     janela saiu; o aviso flutuante "Enviado para aprovação do gestor." fica para a E8 (P80). `?esquecimento=` continua
     clicando o "+" da folha, agora sem esperar o Bootstrap;
   - "Editar justificativa" (P47): os campos de hoje na moldura nova, mais o "Motivo" (a edição recusa motivo em branco
-    ou longo demais; pedido sem o campo não mexe no motivo). O horário do esquecimento na edição segue em minutos. O
-    lápis abre por delegação (`data-justificativa-editar`), sem `onclick`;
+    ou longo demais; pedido sem o campo não mexe no motivo). O horário do esquecimento na edição segue em minutos: com o
+    mesmo tipo de batida e o mesmo H:i do gravado, o horário gravado fica intacto, com os segundos (editar só o motivo
+    não troca 14:32:10 por 14:32:00); só um H:i novo é regravado, com :00 (revisão da E4). O motivo editado vai para
+    todos os dias em análise do mesmo lote (mesmo `batchId`, mesma pessoa e mesmo escritório); dia já analisado do lote
+    guarda o motivo dele (revisão da E4). O lápis abre por delegação (`data-justificativa-editar`), sem `onclick`;
   - o motivo aparece na aba "Minhas Justificativas" abaixo do tipo (L184) e, na ficha do gestor, uma linha "Motivo" no
     resumo do lote (decisão da implementação: quem analisa precisa ver o que foi escrito). Os parciais da ficha
     (`_justificativa_calendario`, `_justificativa_campos`) ficaram intactos;
   - achado da revisão da E3: depois da edição (salva ou recusada), a tela volta na aba "Minhas Justificativas", no mês
     da justificativa (`PontoController::voltaDaEdicao`, `?competencia=AAAA-MM&aba=justificativas`);
   - motivo: até 2000 caracteres (`JustificativaPontoType::MOTIVO_MAXIMO`), sem os espaços das pontas, o mesmo em cada
-    dia do lote.
+    dia do lote. Um motivo "0" aparece (o teste é `is not empty`, na aba e na ficha);
+  - desvio necessário: a janela da falta, com o calendário, passa da altura da tela (cerca de 780px; em 1366x768 e no
+    celular o topo sumia sem rolagem). A janela usa `margin: auto` no lugar do `margin: 0`: centraliza quando cabe e o
+    fundo rola quando não cabe. Os outros valores da moldura seguem o desenho.
 - Arquivos: `_justificativa_form`, `_justificativa_esquecimento_modal`, `_abas_justificativas`, `index.html.twig`,
   `tenant/_justificativas_tab`, `public/js/ponto-abas.js`, `public/js/ponto-janelas.js` (novo),
   `public/css/ponto-eletronico.css` (campos das janelas e calendário), `JustificativaPonto`, `JustificativaPontoType`,
@@ -462,7 +471,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: `JanelasDoPontoTelaTest` (moldura por filho direto nas três janelas, nada do Bootstrap, campos e ordem,
   motivo na aba e no lápis, motivo de outro escritório não aparece, `?esquecimento=` com o "+", motivo na ficha),
   `MotivoDaJustificativaControllerTest` (motivo em cada dia do lote; sem, em branco e longo: nada nasce; segundos;
-  edição grava, recusa e volta na aba; de outra pessoa: 403), `PontoJanelasJsTest`, `JanelasDoDesenhoCssTest`;
+  edição grava, recusa e volta na aba; de outra pessoa: 403; edição só do motivo guarda os segundos; motivo editado vai
+  aos dias em análise do lote, não ao dia abonado nem ao lote de outra pessoa ou de outro escritório; recusa não grava
+  em dia nenhum), `PontoJanelasJsTest`, `JanelasDoDesenhoCssTest` (inclui o `margin: auto` da janela);
+  `JanelasDoPontoTelaTest` confere os 6 grupos por filho direto (`select > optgroup[label] > option`) nas duas janelas;
   ajustados com o motivo e a volta nova: `BatidaEmHorarioFuturoControllerTest`, `JustificativaEsquecimentoControllerTest`,
   `PendenciasDeRegistroTest`, `NovaJustificativaComAnexoControllerTest`, `EdicaoDeJustificativaAnalisadaControllerTest`,
   `EditarJustificativaAnexoControllerTest`.

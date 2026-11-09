@@ -100,6 +100,7 @@ final class PontoController extends AbstractController
         private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
         private readonly PublicoDosAvisosDePonto $publico,
+        private readonly JustificativaPontoRepository $justificativas,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -239,7 +240,8 @@ final class PontoController extends AbstractController
             'metaDiaMinutos'                 => $metaDiaMinutos,
             'justificativas'     => $justificativasDaCompetencia,
             'justificativaForm'  => $justificativaForm->createView(),
-            'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
+            // P45 (decisão do Coordenador, 09/11): os 45 tipos nos 6 grupos (`<optgroup>`), nas janelas de justificar e de editar.
+            'tiposJustificativa' => TipoJustificativa::asGroupedChoices(),
             'esquecimentosRegistrados' => $esquecimentosRegistrados,
             'esquecimentosEmAnalise'   => EsquecimentosRegistrados::diasEmAnalise($justificativasDaCompetencia),
             'dataHoje'                 => $hojeStr,
@@ -491,7 +493,7 @@ final class PontoController extends AbstractController
         $justificativa->setHoraInicioAbono($abonoParcial ? $horaInicio : null);
         $justificativa->setHoraFimAbono($abonoParcial ? $horaFim : null);
 
-        $recusa = $this->aplicarMotivoDaEdicao($request, $justificativa)
+        $recusa = $this->aplicarMotivoDaEdicao($request, $justificativa, $user, $tenant)
             ?? $this->aplicarEsquecimentoDaEdicao($request, $justificativa, $tipo === 'esquecimento_registro', $user, $tenant);
         if ($recusa !== null) {
             $this->addFlash('warning', $recusa);
@@ -555,9 +557,10 @@ final class PontoController extends AbstractController
 
     /**
      * E4: a janela "Editar justificativa" sempre manda o motivo, e em branco não sai (o desenho o pede ao criar). Sem o
-     * campo no pedido, o motivo gravado fica como está. Devolve a recusa, ou null.
+     * campo no pedido, o motivo gravado fica como está. O motivo é do lote (nasce o mesmo em cada dia e a ficha do gestor
+     * mostra o do primeiro dia): vai para os dias em análise do lote (`diasEmAnaliseDoLote`). Devolve a recusa, ou null.
      */
-    private function aplicarMotivoDaEdicao(Request $request, JustificativaPonto $justificativa): ?string
+    private function aplicarMotivoDaEdicao(Request $request, JustificativaPonto $justificativa, User $user, Tenant $tenant): ?string
     {
         if (!$request->request->has('motivo')) {
             return null;
@@ -569,14 +572,44 @@ final class PontoController extends AbstractController
         if (mb_strlen($motivo) > JustificativaPontoType::MOTIVO_MAXIMO) {
             return sprintf('O motivo pode ter até %d caracteres.', JustificativaPontoType::MOTIVO_MAXIMO);
         }
-        $justificativa->setMotivo($motivo);
+        foreach ($this->diasEmAnaliseDoLote($justificativa, $user, $tenant) as $dia) {
+            $dia->setMotivo($motivo);
+        }
 
         return null;
     }
 
     /**
+     * O dia editado (já conferido: é da pessoa e está em análise) e os outros dias do mesmo lote (`batchId`) no escritório
+     * da sessão, da mesma pessoa e ainda em análise. Dia já analisado fica como está. Sem `batchId`, só o dia editado.
+     * A gravação é a do flush da edição (ConfirmarEdicaoDeJustificativaUseCase ou SubstituirAnexoDoLoteUseCase): uma
+     * recusa antes dele não grava o motivo em dia nenhum.
+     *
+     * @return list<JustificativaPonto>
+     */
+    private function diasEmAnaliseDoLote(JustificativaPonto $justificativa, User $user, Tenant $tenant): array
+    {
+        $batchId = $justificativa->getBatchId();
+        if ($batchId === null || $batchId === '') {
+            return [$justificativa];
+        }
+        $outros = array_filter(
+            $this->justificativas->findLotePorBatchId($batchId, $tenant),
+            static fn (JustificativaPonto $dia): bool => $dia !== $justificativa
+                && $dia->getUser()?->getId() === $user->getId()
+                && $dia->getStatus() === 'pendente',
+        );
+
+        return [$justificativa, ...array_values($outros)];
+    }
+
+    /**
      * Tipo e horário da batida esquecida na edição, ou os dois limpos em outro tipo. Movido de editarJustificativa sem
      * mudar a regra (E4: o método estava no teto da catraca de métodos longos). Devolve a recusa, ou null.
+     *
+     * A edição é em minutos (o campo lê H:i). Com o mesmo tipo de batida e o mesmo H:i do gravado, o horário gravado
+     * fica intacto, com os segundos do envio (P46): editar só o motivo não troca 14:32:10 por 14:32:00. Só um H:i novo
+     * é regravado (com :00).
      */
     private function aplicarEsquecimentoDaEdicao(Request $request, JustificativaPonto $justificativa, bool $ehEsquecimento, User $user, Tenant $tenant): ?string
     {
@@ -590,8 +623,14 @@ final class PontoController extends AbstractController
             if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
                 return $jaBatida;   // a edição não troca para uma batida que existe
             }
+            $gravada = $justificativa->getHoraRegistroEsquecido();
+            $mesmoHorario = $gravada !== null
+                && $justificativa->getTipoRegistroEsquecido() === $tipoRegEsquecido
+                && $gravada->format('H:i') === $horaReg->format('H:i');
             $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
-            $justificativa->setHoraRegistroEsquecido($horaReg);
+            if (!$mesmoHorario) {
+                $justificativa->setHoraRegistroEsquecido($horaReg);
+            }
         } else {
             $justificativa->setTipoRegistroEsquecido(null);
             $justificativa->setHoraRegistroEsquecido(null);
