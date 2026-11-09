@@ -15,7 +15,13 @@ use App\AssinaturaEletronica\UseCase\AssinarDocumentoUseCase;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Tests\AssinaturaEletronica\Support\OficinaDosUseCasesDaAssinatura;
+use App\Tests\Shared\Doubles\ConsultaDeDestinoFixa;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -127,6 +133,29 @@ final class AssinarReforcadaUseCaseTest extends TestCase
         self::assertNull($ana->getLatitude());
     }
 
+    #[TestDox('flush que falha depois de gravar: a transação REAL tira do disco a selfie cifrada e a rubrica, e a falha sobe')]
+    public function testFalhaDepoisDeGravarTiraASelfieDoDisco(): void
+    {
+        $ana = $this->anaReforcada();
+        $recusa = new \RuntimeException('flush recusado');
+        $consulta = new ConsultaDeDestinoFixa(DestinoDaTransacao::NaoConfirmada);
+        $this->transacaoReal = new TransacaoComArquivoNovo($this->emQueFalhaNoFlush($recusa), $consulta, new RemocaoAposTransacao($this->disco, $this->logger), $this->logger);
+
+        try {
+            $this->assinar()->executar($this->chave->token($ana), self::entrada(), self::evidencia());
+            self::fail('a falha do flush deveria subir');
+        } catch (\RuntimeException $e) {
+            self::assertSame($recusa, $e);
+        }
+
+        $selfie = array_values(array_filter($this->disco->gravadas, static fn (ChaveDeArquivo $c): bool => str_ends_with($c->nome, '.cifrado')));
+        self::assertCount(1, $selfie, 'a selfie cifrada chegou ao disco antes do flush');
+        self::assertCount(2, $this->disco->gravadas, 'rubrica e selfie');
+        foreach ($this->disco->gravadas as $chave) {
+            self::assertFalse($this->disco->existe($chave), 'não fica órfão no disco: ' . $chave->nome);
+        }
+    }
+
     #[TestDox('quem é Simples e manda selfie e localização: nada disso é gravado e a trilha fica a do Simples')]
     public function testSimplesIgnoraSelfie(): void
     {
@@ -177,6 +206,27 @@ final class AssinarReforcadaUseCaseTest extends TestCase
         imagejpeg($imagem, null, 90);
 
         return (string) ob_get_clean();
+    }
+
+    /** EntityManager e conexão como a transação real os usa (nível, BEGIN, ROLLBACK); o `flush` falha. */
+    private function emQueFalhaNoFlush(\Throwable $falha): EntityManagerInterface
+    {
+        $nivel = 0;
+        $conexao = $this->createStub(Connection::class);
+        $conexao->method('getTransactionNestingLevel')->willReturnCallback(static function () use (&$nivel): int {
+            return $nivel;
+        });
+        $conexao->method('beginTransaction')->willReturnCallback(static function () use (&$nivel): void {
+            ++$nivel;
+        });
+        $conexao->method('rollBack')->willReturnCallback(static function () use (&$nivel): void {
+            --$nivel;
+        });
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('getConnection')->willReturn($conexao);
+        $em->method('flush')->willThrowException($falha);
+
+        return $em;
     }
 
     private static function chaveDoDisco(string $nome): ChaveDeArquivo
