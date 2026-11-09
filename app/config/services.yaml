@@ -10,6 +10,9 @@ parameters:
     mailer_from: '%env(MAILER_FROM)%'
     # Opcional: vazio omite o cabeçalho Reply-To. Em produção, usar uma caixa monitorada.
     mailer_reply_to: '%env(string:default::MAILER_REPLY_TO)%'
+    # Assinatura de documentos (etapa 2): segredo próprio do token do link e do código (nunca o APP_SECRET), no mínimo
+    # 32 bytes. Vazio: o envio, o link e o código recusam com "sem chave configurada". Runbook da troca no contrato.
+    assinatura.segredo: '%env(string:default::ASSINATURA_SEGREDO)%'
     uploads_dir: '%kernel.project_dir%/public/uploads/pastas'
     # Uploads ficam em public/uploads/* (volume persistido uploads_prod). A defesa contra
     # acesso direto é o bloqueio de /uploads/ estático no nginx (C5.1) — todos são servidos

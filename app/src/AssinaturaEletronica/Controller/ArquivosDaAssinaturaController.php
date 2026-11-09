@@ -16,7 +16,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Os arquivos da tela Assinatura, abertos no navegador: o PDF enviado (a prévia do pdf.js), a logo própria do
- * documento e a logo padrão do escritório. Documento de outro escritório: 404.
+ * documento, a rubrica de quem assinou (etapa 2) e a logo padrão do escritório. Documento de outro escritório: 404.
  */
 final class ArquivosDaAssinaturaController extends AbstractController
 {
@@ -37,6 +37,12 @@ final class ArquivosDaAssinaturaController extends AbstractController
     public function logo(int $id): Response
     {
         return $this->entregar(fn (Tenant $tenant): ArquivoParaEntregar => $this->arquivos->logo($tenant, $id));
+    }
+
+    #[Route('/assinatura/documentos/{id}/rubrica/{ordem}', name: 'assinatura_eletronica_rubrica', requirements: ['id' => '\d+', 'ordem' => '\d+'], methods: ['GET'])]
+    public function rubrica(int $id, int $ordem): Response
+    {
+        return $this->entregar(fn (Tenant $tenant): ArquivoParaEntregar => $this->arquivos->rubrica($tenant, $id, $ordem));
     }
 
     #[Route('/assinatura/logo-padrao', name: 'assinatura_eletronica_logo_padrao', methods: ['GET'])]

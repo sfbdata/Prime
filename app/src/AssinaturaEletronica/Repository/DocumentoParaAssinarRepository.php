@@ -145,6 +145,39 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
         return $relido === $documento;
     }
 
+    /**
+     * A porta da tela pública: o signatário do hash do token, com o documento, mesmo na Lixeira (a página mostra "Envio
+     * cancelado", não "Link inválido."). Sem escritório na consulta: o token é a chave, e o escritório sai do próprio
+     * documento daí em diante. O filtro de escritório já foi desligado nas rotas públicas pelo listener.
+     */
+    public function signatarioPeloTokenHash(string $tokenHash): ?Signatario
+    {
+        return $this->lixeira->comLixeiraVisivel(fn (): ?Signatario => $this->getEntityManager()->createQueryBuilder()
+            ->select('s', 'd')
+            ->from(Signatario::class, 's')
+            ->innerJoin('s.documento', 'd')
+            ->andWhere('s.tokenHash = :hash')
+            ->setParameter('hash', $tokenHash)
+            ->getQuery()
+            ->getOneOrNullResult());
+    }
+
+    /**
+     * Relê do banco os signatários do documento, por cima do que está em memória. Vem depois de
+     * {@see travarERecarregar()}: a decisão (vez, código, situação) usa o que está gravado. Exige transação aberta.
+     */
+    public function recarregarSignatarios(DocumentoParaAssinar $documento): void
+    {
+        $this->getEntityManager()->createQueryBuilder()
+            ->select('s')
+            ->from(Signatario::class, 's')
+            ->andWhere('s.documento = :documento')
+            ->setParameter('documento', $documento)
+            ->getQuery()
+            ->setHint(Query::HINT_REFRESH, true)
+            ->getResult();
+    }
+
     /** Grava e confirma o documento (o id nasce aqui no documento novo). */
     public function salvar(DocumentoParaAssinar $documento): void
     {

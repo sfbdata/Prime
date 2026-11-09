@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Entity;
 
 use App\AssinaturaEletronica\DTO\DadosDoRascunho;
 use App\AssinaturaEletronica\Enum\CorDaLinha;
+use App\AssinaturaEletronica\Enum\EstadoDaPagina;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
@@ -26,6 +27,11 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Lixeira (desenho): mover cancela o envio que aguardava assinatura; restaurar não o reativa. Só rascunho na Lixeira
  * sai de vez (os enviados ficam para preservar as evidências).
+ *
+ * Etapa 2 (contrato da etapa 2, seção 4.1): enviar congela o conteúdo (Rascunho vira Aguardando, com o hash do conteúdo
+ * canônico e o prazo contado da hora do envio); cada signatário assina na vez dele (com "em ordem", depois de todos os
+ * anteriores) e o último conclui; a recusa de um encerra o documento; cancelar o envio para os links. Prazo vencido não
+ * muda a situação: é calculado. Quem chama decide com a linha travada e relida.
  */
 #[ORM\Entity(repositoryClass: DocumentoParaAssinarRepository::class)]
 #[ORM\Table(name: 'assinatura_eletronica_documento')]
@@ -255,6 +261,160 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         return $cancelou;
     }
 
+    /**
+     * "Gerar links e enviar": só rascunho fora da Lixeira, com ao menos um signatário. O prazo conta da hora do envio.
+     *
+     * @throws AcaoRecusada
+     */
+    public function enviar(string $hash, \DateTimeImmutable $agora): void
+    {
+        $this->exigirEnviavel();
+
+        $agora = self::emSegundos($agora);
+        $this->situacao = SituacaoDoDocumento::Aguardando;
+        $this->enviadoEm = $agora;
+        $this->venceEm = $agora->modify(sprintf('+%d days', $this->prazoDias));
+        $this->hashEnviado = $hash;
+    }
+
+    /**
+     * O que a situação exige para enviar, antes das conferências dos signatários: rascunho, fora da Lixeira e com ao
+     * menos um signatário.
+     *
+     * @throws AcaoRecusada
+     */
+    public function exigirEnviavel(): void
+    {
+        if (!$this->ehRascunho()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.envio_ja_feito');
+        }
+        if ($this->estaNaLixeira()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.envio_na_lixeira');
+        }
+        if ($this->signatarios->isEmpty()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.envio_sem_signatarios');
+        }
+    }
+
+    /** "Cancelar envio" do detalhe: só o que aguarda assinatura. Documento e evidências ficam. */
+    public function cancelarEnvio(): void
+    {
+        if ($this->situacao !== SituacaoDoDocumento::Aguardando) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.cancelar_fora_do_envio');
+        }
+
+        $this->situacao = SituacaoDoDocumento::Cancelado;
+    }
+
+    /** Aguardando com o prazo passado: a tela mostra Expirado e o link, "Prazo encerrado". */
+    public function estaVencido(\DateTimeImmutable $agora): bool
+    {
+        return $this->situacao === SituacaoDoDocumento::Aguardando && $this->venceEm !== null && $agora > $this->venceEm;
+    }
+
+    /**
+     * O que a tela pública mostra a este signatário, na precedência do desenho (inventário G10): já assinou > recusou >
+     * cancelado (inclusive na Lixeira e recusado por outro) > concluído > prazo > ordem.
+     */
+    public function estadoPara(Signatario $signatario, \DateTimeImmutable $agora): EstadoDaPagina
+    {
+        return match (true) {
+            $signatario->getSituacao() === SituacaoDoSignatario::Assinado => $this->situacao === SituacaoDoDocumento::Concluido
+                ? EstadoDaPagina::Concluido
+                : EstadoDaPagina::JaAssinado,
+            $signatario->getSituacao() === SituacaoDoSignatario::Recusado => EstadoDaPagina::Recusado,
+            $this->estaNaLixeira() || $this->situacao === SituacaoDoDocumento::Cancelado => EstadoDaPagina::Cancelado,
+            // Recusado por outro signatário: "Envio cancelado", sem dizer quem recusou (texto G7).
+            $this->situacao === SituacaoDoDocumento::Recusado => EstadoDaPagina::Cancelado,
+            $this->situacao === SituacaoDoDocumento::Concluido => EstadoDaPagina::Concluido,
+            $this->situacao !== SituacaoDoDocumento::Aguardando => EstadoDaPagina::Invalido,
+            $this->estaVencido($agora) => EstadoDaPagina::PrazoEncerrado,
+            $this->anteriorPendente($signatario) !== null => EstadoDaPagina::AguardandoAnterior,
+            default => EstadoDaPagina::Pronto,
+        };
+    }
+
+    /** Com "em ordem": o primeiro signatário antes deste que ainda não assinou. Sem ordem, ninguém espera ninguém. */
+    public function anteriorPendente(Signatario $signatario): ?Signatario
+    {
+        if (!$this->emOrdem) {
+            return null;
+        }
+
+        foreach ($this->getSignatarios() as $outro) {
+            if ($outro->getOrdem() >= $signatario->getOrdem()) {
+                break;
+            }
+            if ($outro->getSituacao() !== SituacaoDoSignatario::Assinado) {
+                return $outro;
+            }
+        }
+
+        return null;
+    }
+
+    /** O primeiro pendente na ordem da lista: o alvo do lembrete e, com "em ordem", quem tem a vez. */
+    public function primeiroPendente(): ?Signatario
+    {
+        foreach ($this->getSignatarios() as $signatario) {
+            if ($signatario->estaPendente()) {
+                return $signatario;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Registra a assinatura de quem tem a vez. O último a assinar conclui o documento.
+     *
+     * @return bool se o documento foi concluído agora
+     *
+     * @throws AcaoRecusada fora da vez
+     */
+    public function assinar(Signatario $signatario, string $nome, string $cpf, string $rubricaChave, string $metodo, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): bool
+    {
+        $this->exigirVez($signatario, $agora);
+        $signatario->registrarAssinatura($nome, $cpf, $rubricaChave, $metodo, $ip, $userAgent, $agora);
+        if ($this->contarAssinados() < $this->signatarios->count()) {
+            return false;
+        }
+
+        $this->situacao = SituacaoDoDocumento::Concluido;
+        $this->concluidoEm = self::emSegundos($agora);
+
+        return true;
+    }
+
+    /**
+     * A recusa de quem tem a vez encerra o documento: os links dos demais deixam de valer.
+     *
+     * @throws AcaoRecusada fora da vez
+     */
+    public function recusar(Signatario $signatario, string $motivo, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): void
+    {
+        $this->exigirVez($signatario, $agora);
+        $signatario->registrarRecusa($motivo, $ip, $userAgent);
+        $this->situacao = SituacaoDoDocumento::Recusado;
+    }
+
+    /**
+     * Só quem está "pronto" age: documento aguardando, no prazo, signatário pendente e, com ordem, a vez dele.
+     *
+     * @throws AcaoRecusada com o texto do estado em que o signatário está
+     */
+    public function exigirVez(Signatario $signatario, \DateTimeImmutable $agora): void
+    {
+        if ($signatario->getDocumento() !== $this) {
+            throw new \LogicException('O signatário não é deste documento.');
+        }
+
+        $estado = $this->estadoPara($signatario, $agora);
+        if ($estado !== EstadoDaPagina::Pronto) {
+            throw new AcaoRecusada($estado->chaveDoTexto());
+        }
+    }
+
     /** Tira da Lixeira. A situação fica como está: o envio cancelado não volta. */
     public function restaurar(): void
     {
@@ -462,6 +622,12 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
             $this->getSignatarios(),
             static fn (Signatario $s): bool => $s->getSituacao() === SituacaoDoSignatario::Assinado,
         ));
+    }
+
+    /** As colunas guardam segundos: o objeto em memória fica igual ao que volta do banco (e o token, igual). */
+    private static function emSegundos(\DateTimeImmutable $agora): \DateTimeImmutable
+    {
+        return (new \DateTimeImmutable('@' . $agora->getTimestamp()))->setTimezone(new \DateTimeZone(date_default_timezone_get()));
     }
 
     /** @throws AcaoRecusada */

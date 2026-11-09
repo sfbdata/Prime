@@ -8,6 +8,7 @@ use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
 use App\Entity\Tenant\Tenant;
 use Symfony\Component\Asset\Packages;
@@ -16,7 +17,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * As formas `Resumo` e `Detalhe` do JSON da tela (contrato da etapa 1, seção 4.1). Datas em ISO 8601; o texto de cada
- * evento sai do catálogo, com os parâmetros guardados no próprio evento.
+ * evento sai do catálogo, com os parâmetros guardados no próprio evento e o `{nome}` de quem o evento trata.
+ *
+ * Etapa 2 (contrato da etapa 2, seção 5.1): o `Detalhe` traz o hash e as datas do envio e, por signatário, o link do
+ * signatário (só enquanto ele pode assinar e com o segredo configurado), a rubrica, o motivo da recusa e o nome
+ * digitado ao assinar.
  */
 final readonly class ApresentacaoDoDocumento
 {
@@ -26,6 +31,7 @@ final readonly class ApresentacaoDoDocumento
         private UrlGeneratorInterface $urls,
         private TranslatorInterface $tradutor,
         private Packages $assets,
+        private ChaveDaAssinatura $chave,
     ) {
     }
 
@@ -73,11 +79,58 @@ final readonly class ApresentacaoDoDocumento
             'prazoDias' => $documento->getPrazoDias(),
             'logo' => ['tipo' => $documento->getLogoTipo()->value, 'url' => $this->urlDaLogo($documento)],
             'arquivo' => $this->arquivo($documento),
-            'signatarios' => array_map(self::signatario(...), $documento->getSignatarios()),
+            'hashEnviado' => $documento->getHashEnviado(),
+            'enviadoEm' => self::iso($documento->getEnviadoEm()),
+            'concluidoEm' => self::iso($documento->getConcluidoEm()),
+            'signatarios' => array_map($this->signatario(...), $documento->getSignatarios()),
             'eventos' => array_map(fn (EventoDaTrilha $e): array => [
                 'em' => self::iso($e->getCriadoEm()),
-                'texto' => $this->tradutor->trans($e->getTipo()->chaveDoTexto(), $e->getDados()),
+                'texto' => $this->tradutor->trans($e->getTipo()->chaveDoTexto(), self::parametrosDoTexto($e)),
             ], $eventos),
+        ]);
+    }
+
+    /**
+     * O link do signatário (URL absoluta com o token): só com o documento aguardando, o signatário pendente e o segredo
+     * configurado. O token é derivado a cada chamada, nunca guardado.
+     */
+    public function linkDoSignatario(Signatario $signatario): ?string
+    {
+        $documento = $signatario->getDocumento();
+        if ($documento->getSituacao() !== SituacaoDoDocumento::Aguardando || $documento->getEnviadoEm() === null
+            || $documento->estaNaLixeira() || !$signatario->estaPendente() || !$this->chave->configurada()) {
+            return null;
+        }
+
+        return $this->urls->generate(
+            'assinatura_eletronica_publica',
+            ['token' => $this->chave->token($signatario)],
+            UrlGeneratorInterface::ABSOLUTE_URL,
+        );
+    }
+
+    /** A logo da folha vista de dentro do escritório (detalhe e prévia). */
+    public function urlDaLogo(DocumentoParaAssinar $documento): ?string
+    {
+        return match ($documento->getLogoTipo()) {
+            TipoDeLogo::Bluejus => $this->urlDaLogoBluejus(),
+            TipoDeLogo::Escritorio => $this->urlDaLogoDoEscritorio($documento->getTenant()),
+            TipoDeLogo::Propria => $documento->getLogoChave() !== null
+                ? $this->urls->generate('assinatura_eletronica_logo', ['id' => $documento->getId()])
+                : null,
+        };
+    }
+
+    /** A rubrica de quem assinou, vista de dentro do escritório. */
+    public function urlDaRubrica(Signatario $signatario): ?string
+    {
+        if ($signatario->getRubricaChave() === null) {
+            return null;
+        }
+
+        return $this->urls->generate('assinatura_eletronica_rubrica', [
+            'id' => $signatario->getDocumento()->getId(),
+            'ordem' => $signatario->getOrdem(),
         ]);
     }
 
@@ -98,17 +151,6 @@ final readonly class ApresentacaoDoDocumento
         return $this->urls->generate('meu_escritorio_logo', ['tenantId' => $tenant->getId()]);
     }
 
-    private function urlDaLogo(DocumentoParaAssinar $documento): ?string
-    {
-        return match ($documento->getLogoTipo()) {
-            TipoDeLogo::Bluejus => $this->urlDaLogoBluejus(),
-            TipoDeLogo::Escritorio => $this->urlDaLogoDoEscritorio($documento->getTenant()),
-            TipoDeLogo::Propria => $documento->getLogoChave() !== null
-                ? $this->urls->generate('assinatura_eletronica_logo', ['id' => $documento->getId()])
-                : null,
-        };
-    }
-
     /** @return array{url: string, nome: string, paginas: ?int}|null */
     private function arquivo(DocumentoParaAssinar $documento): ?array
     {
@@ -124,7 +166,7 @@ final readonly class ApresentacaoDoDocumento
     }
 
     /** @return array<string, mixed> */
-    private static function signatario(Signatario $s): array
+    private function signatario(Signatario $s): array
     {
         return [
             'id' => $s->getId(),
@@ -137,7 +179,30 @@ final readonly class ApresentacaoDoDocumento
             'situacao' => $s->getSituacao()->value,
             'assinadoEm' => self::iso($s->getAssinadoEm()),
             'metodo' => $s->getMetodo(),
+            'link' => $this->linkDoSignatario($s),
+            'rubrica' => $this->urlDaRubrica($s),
+            'recusadoMotivo' => $s->getMotivoRecusa(),
+            'nomeDigitado' => $s->getNomeDigitado(),
         ];
+    }
+
+    /**
+     * Os parâmetros do texto do evento: os valores simples de `dados` (o ICU não recebe lista) e o `{nome}` do
+     * signatário ou do usuário do evento, quando o evento não traz um nome próprio (o "Duplicado de {nome}" traz).
+     *
+     * @return array<string, scalar>
+     */
+    private static function parametrosDoTexto(EventoDaTrilha $evento): array
+    {
+        $parametros = array_filter($evento->getDados(), is_scalar(...));
+        if (!isset($parametros['nome'])) {
+            $nome = $evento->getSignatario()?->getNome() ?? $evento->getUsuario()?->getFullName();
+            if ($nome !== null) {
+                $parametros['nome'] = $nome;
+            }
+        }
+
+        return $parametros;
     }
 
     private static function iso(?\DateTimeImmutable $data): ?string

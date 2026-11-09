@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\Enum;
 
 /**
- * Os eventos da trilha de auditoria do documento (contrato da etapa 1, seção 3.1). O texto de cada um sai do catálogo
- * (`assinatura_eletronica.evento.<valor>`), com os parâmetros guardados em `dados`. As etapas seguintes acrescentam casos.
+ * Os eventos da trilha de auditoria do documento (contrato da etapa 1, seção 3.1; etapa 2, seção 4.3). O texto de cada
+ * um sai do catálogo (`assinatura_eletronica.evento.<valor>`), com os parâmetros guardados em `dados` e o `{nome}` do
+ * signatário (ou do usuário) do próprio evento.
  */
 enum TipoDeEvento: string
 {
@@ -17,9 +18,38 @@ enum TipoDeEvento: string
     case Restaurado = 'restaurado';
     case EnvioCanceladoPelaExclusao = 'envio_cancelado_pela_exclusao';
 
+    // Etapa 2: envio e assinatura Simples.
+    case DocumentoEnviado = 'documento_enviado';
+    case ConviteEnviado = 'convite_enviado';
+    case EmailNaoEnviado = 'email_nao_enviado';
+    case LinkAberto = 'link_aberto';
+    case CodigoEnviado = 'codigo_enviado';
+    case CodigoErrado = 'codigo_errado';
+    case Assinado = 'assinado';
+    case Recusado = 'recusado';
+    case DocumentoConcluido = 'documento_concluido';
+    case LembreteEnviado = 'lembrete_enviado';
+    case EnvioCancelado = 'envio_cancelado';
+
     /** A chave do texto do evento no catálogo de idioma. */
     public function chaveDoTexto(): string
     {
         return 'assinatura_eletronica.evento.' . $this->value;
+    }
+
+    /**
+     * Evidência da etapa 2: leva `dados.chave` com a versão do segredo que gerou o link e o código (contrato da etapa 2,
+     * seção 3). Os eventos da etapa 1 ficam como nasceram.
+     */
+    public function levaVersaoDaChave(): bool
+    {
+        return !\in_array($this, [
+            self::RascunhoSalvo,
+            self::DocumentoCriado,
+            self::Duplicado,
+            self::MovidoParaLixeira,
+            self::Restaurado,
+            self::EnvioCanceladoPelaExclusao,
+        ], true);
     }
 }

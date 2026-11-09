@@ -73,6 +73,16 @@ final class TermoAceiteListener
         'push_compartilhado',
         'push_compartilhado_codigo',
         'push_compartilhado_renovacao',
+        // Link do signatário da Assinatura de documentos: página pública de terceiro, não depende de termo nem de
+        // escritório (o escritório sai do documento achado pelo hash do token).
+        'assinatura_eletronica_publica',
+        'assinatura_eletronica_publica_codigo',
+        'assinatura_eletronica_publica_assinar',
+        'assinatura_eletronica_publica_recusa',
+        'assinatura_eletronica_publica_arquivo',
+        'assinatura_eletronica_publica_logo',
+        'assinatura_eletronica_publica_rubrica',
+        'assinatura_eletronica_publica_invalido',
         // Página pública de vagas: sem login por desenho; quem está logado lê igual a quem não está.
         'trabalho_externo_vagas_publicas',
         'trabalho_externo_vagas_link',

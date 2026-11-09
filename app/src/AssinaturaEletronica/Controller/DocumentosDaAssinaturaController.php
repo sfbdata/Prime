@@ -10,7 +10,10 @@ use App\AssinaturaEletronica\DTO\SelecaoDeDocumentos;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Service\AcessoAAssinatura;
+use App\AssinaturaEletronica\UseCase\CancelarEnvioUseCase;
 use App\AssinaturaEletronica\UseCase\DuplicarDocumentoUseCase;
+use App\AssinaturaEletronica\UseCase\EnviarDocumentoUseCase;
+use App\AssinaturaEletronica\UseCase\EnviarLembreteUseCase;
 use App\AssinaturaEletronica\UseCase\ExcluirRascunhosUseCase;
 use App\AssinaturaEletronica\UseCase\ListarDocumentosUseCase;
 use App\AssinaturaEletronica\UseCase\MoverParaLixeiraUseCase;
@@ -31,7 +34,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * O JSON da tela Assinatura (contrato da etapa 1, seção 4): lista, detalhe, salvar rascunho e as ações da lista. POST
+ * O JSON da tela Assinatura (contrato da etapa 1, seção 4): lista, detalhe, salvar rascunho e as ações da lista; e, na
+ * etapa 2 (seção 5.1), enviar, lembrete e cancelar o envio. POST
  * com CSRF no cabeçalho X-CSRF-Token (injetado pelo base.html.twig). Sem o módulo: 403; documento de outro escritório:
  * 404; ação que a situação não permite: 422 com `{erro}`.
  */
@@ -120,6 +124,30 @@ final class DocumentosDaAssinaturaController extends AbstractController
 
             return ['ok' => true];
         });
+    }
+
+    #[Route('/assinatura/documentos/{id}/enviar', name: 'assinatura_eletronica_enviar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function enviar(int $id, Request $request, EnviarDocumentoUseCase $enviar): JsonResponse
+    {
+        return $this->comAcesso($request, static fn (User $eu, Tenant $tenant): array => [
+            'ok' => true,
+            'documento' => $enviar->executar($eu, $tenant, $id),
+        ]);
+    }
+
+    #[Route('/assinatura/documentos/{id}/lembrete', name: 'assinatura_eletronica_lembrete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function lembrete(int $id, Request $request, EnviarLembreteUseCase $lembrete): JsonResponse
+    {
+        return $this->comAcesso($request, static fn (User $eu, Tenant $tenant): array => $lembrete->executar($eu, $tenant, $id));
+    }
+
+    #[Route('/assinatura/documentos/{id}/cancelar', name: 'assinatura_eletronica_cancelar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function cancelar(int $id, Request $request, CancelarEnvioUseCase $cancelar): JsonResponse
+    {
+        return $this->comAcesso($request, static fn (User $eu, Tenant $tenant): array => [
+            'ok' => true,
+            'documento' => $cancelar->executar($eu, $tenant, $id),
+        ]);
     }
 
     /**

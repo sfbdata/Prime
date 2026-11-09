@@ -122,7 +122,8 @@ O código, o token e o link nunca entram em `dados`.
 
 O JS salva o rascunho (rota da etapa 1) antes de chamar `enviar`. `Detalhe` ganha `hashEnviado`, `enviadoEm`,
 `venceEm`, `concluidoEm` e, por signatário, `link` (URL absoluta; só com documento Aguardando, signatário Pendente e
-segredo configurado; senão nulo), `rubrica` (URL ou nulo) e `recusadoMotivo` (ou nulo). `data-url-enviar`,
+segredo configurado; senão nulo), `rubrica` (URL ou nulo), `recusadoMotivo` (ou nulo) e `nomeDigitado` (o nome
+digitado ao assinar, item C5 do inventário; ou nulo). `data-url-enviar`,
 `-lembrete`, `-cancelar`, `-previa`, `-rubrica` entram na raiz `.bja` (marcadores `0` para id e ordem).
 
 ### 5.2 Públicas (prefixo de nome `assinatura_eletronica_publica_`)
@@ -141,7 +142,8 @@ segredo configurado; senão nulo), `rubrica` (URL ou nulo) e `recusadoMotivo` (o
   e `TermoAceiteListener`. Um listener (prioridade 3, como o do Push) desliga o filtro de escritório pelo prefixo
   `assinatura_eletronica_publica_`; o documento é achado por `token_hash` com a Lixeira visível.
 - Token malformado, desconhecido, de documento purgado ou de signatário que não existe: a mesma página "Link
-  inválido." com 404. Documento na Lixeira ou Cancelado: "Envio cancelado".
+  inválido." com 404. Documento na Lixeira ou Cancelado: "Envio cancelado". O token malformado cai numa rota de
+  reserva, `publica_invalido` (GET e POST `/assinar/{resto}`, prioridade -10), que também entra nas duas listas.
 - Toda resposta pública (inclusive 404, 422 e 429): `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`,
   `Referrer-Policy: no-referrer`.
 - CSRF: token de sessão com id `assinar_{token_hash}` (nunca o token cru), no cabeçalho `X-CSRF-Token`.
@@ -174,6 +176,11 @@ Nada além disso (inventário L): sem nome do escritório, usuário, pasta, cate
 papel ou nível; sem e-mail, CPF, papel, situação ou motivo de outros signatários; sem ids internos. `rotulo` = texto
 `r` do bloco de assinatura daquele signatário ou, sem ele, o nome cadastrado. Estado `invalido` não traz `documento`.
 Texto do aceite versionado (`aceite.versao` = 1) no catálogo, sha256 na trilha.
+
+`estado` = `recusado` só quando ESTE signatário recusou (texto G6). Documento recusado por OUTRO signatário devolve
+`cancelado` (texto G7, sem dizer quem recusou). Nos estados de bloqueio, `documento` vem só com o nome e o hash (o
+cabeçalho), sem blocos, mensagem, logo nem arquivo; `lugares` vazio e `eu` nulo. Os arquivos públicos (PDF, logo,
+rubricas) só abrem no estado `pronto`.
 
 ## 6. E-mails (Mailer síncrono, depois do COMMIT)
 

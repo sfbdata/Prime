@@ -12,13 +12,22 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Quem assina um documento (contrato da etapa 1, seção 3.2). As colunas da assinatura em si (token, código, rubrica,
  * IP, localização...) já nascem aqui, nulas, para a etapa 2 não precisar de outra migration nesta tabela.
+ *
+ * Etapa 2 (contrato da etapa 2, seções 3 e 4.1): o hash do token do link, o código de 6 dígitos (só o HMAC, 15 minutos,
+ * 5 erros queimam), o bloqueio do teto diário e o registro da assinatura ou da recusa. Quem decide a vez e a situação
+ * do documento é o {@see DocumentoParaAssinar}; aqui só se guarda o que aconteceu com este signatário.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'assinatura_eletronica_signatario')]
 #[ORM\UniqueConstraint(name: 'uniq_assinatura_eletronica_signatario_token', columns: ['token_hash'])]
-#[SemIsolamentoDeTenant('Filho do documento (TenantAware, CASCADE): só é lido pela coleção do documento já filtrado')]
+#[SemIsolamentoDeTenant('Filho do documento (TenantAware, CASCADE): lido pela coleção do documento já filtrado ou, na tela pública, pelo hash do token, com o escritório tirado do próprio documento')]
 class Signatario
 {
+    /** Validade do código de 6 dígitos, a partir do envio. */
+    public const CODIGO_VALIDADE = '+15 minutes';
+    /** Erros seguidos que queimam o código (o signatário pede outro). */
+    public const CODIGO_ERROS_MAXIMO = 5;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -179,5 +188,166 @@ class Signatario
     public function getTentativas(): int
     {
         return $this->tentativas;
+    }
+
+    public function getTokenHash(): ?string
+    {
+        return $this->tokenHash;
+    }
+
+    public function getCodigoHash(): ?string
+    {
+        return $this->codigoHash;
+    }
+
+    public function getCodigoEnviadoEm(): ?\DateTimeImmutable
+    {
+        return $this->codigoEnviadoEm;
+    }
+
+    public function getBloqueadoAte(): ?\DateTimeImmutable
+    {
+        return $this->bloqueadoAte;
+    }
+
+    public function getNomeDigitado(): ?string
+    {
+        return $this->nomeDigitado;
+    }
+
+    public function getCpfDigitado(): ?string
+    {
+        return $this->cpfDigitado;
+    }
+
+    public function getRubricaChave(): ?string
+    {
+        return $this->rubricaChave;
+    }
+
+    public function getMotivoRecusa(): ?string
+    {
+        return $this->motivoRecusa;
+    }
+
+    public function getIp(): ?string
+    {
+        return $this->ip;
+    }
+
+    public function getUserAgent(): ?string
+    {
+        return $this->userAgent;
+    }
+
+    public function estaPendente(): bool
+    {
+        return $this->situacao === SituacaoDoSignatario::Pendente;
+    }
+
+    /** No envio: o banco guarda só o sha256 do token do link. */
+    public function definirTokenHash(string $hash): void
+    {
+        $this->tokenHash = $hash;
+    }
+
+    /** Código novo: o anterior deixa de valer e os erros voltam a zero. */
+    public function registrarCodigo(string $hash, \DateTimeImmutable $agora): void
+    {
+        $this->codigoHash = $hash;
+        $this->codigoEnviadoEm = self::emSegundos($agora);
+        $this->tentativas = 0;
+    }
+
+    public function temCodigo(): bool
+    {
+        return $this->codigoHash !== null;
+    }
+
+    /** Até quando o código pedido vale; nulo sem código. */
+    public function codigoValidoAte(): ?\DateTimeImmutable
+    {
+        if ($this->codigoHash === null || $this->codigoEnviadoEm === null) {
+            return null;
+        }
+
+        return $this->codigoEnviadoEm->modify(self::CODIGO_VALIDADE);
+    }
+
+    public function codigoVencido(\DateTimeImmutable $agora): bool
+    {
+        $ate = $this->codigoValidoAte();
+
+        return $ate === null || $agora > $ate;
+    }
+
+    /**
+     * Um código errado. No quinto, o código queima: o signatário pede outro.
+     *
+     * @return bool se o código queimou agora
+     */
+    public function errarCodigo(): bool
+    {
+        ++$this->tentativas;
+        if ($this->tentativas < self::CODIGO_ERROS_MAXIMO) {
+            return false;
+        }
+
+        $this->codigoHash = null;
+
+        return true;
+    }
+
+    /** Teto diário estourado: nada de código novo nem de conferência até lá. */
+    public function bloquearAte(\DateTimeImmutable $ate): void
+    {
+        $this->bloqueadoAte = self::emSegundos($ate);
+    }
+
+    public function estaBloqueado(\DateTimeImmutable $agora): bool
+    {
+        return $this->bloqueadoAte !== null && $this->bloqueadoAte > $agora;
+    }
+
+    /**
+     * O registro da assinatura: nome e CPF como digitados, a rubrica guardada, o método e a evidência da requisição.
+     * O código usado deixa de valer. Só pela transição do documento, que confere a vez antes.
+     */
+    public function registrarAssinatura(string $nome, string $cpf, string $rubricaChave, string $metodo, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): void
+    {
+        $this->exigirPendente();
+        $this->situacao = SituacaoDoSignatario::Assinado;
+        $this->assinadoEm = self::emSegundos($agora);
+        $this->nomeDigitado = $nome;
+        $this->cpfDigitado = $cpf;
+        $this->rubricaChave = $rubricaChave;
+        $this->metodo = $metodo;
+        $this->ip = $ip;
+        $this->userAgent = $userAgent;
+        $this->codigoHash = null;
+    }
+
+    /** O registro da recusa, com o motivo e a evidência da requisição. Só pela transição do documento. */
+    public function registrarRecusa(string $motivo, ?string $ip, ?string $userAgent): void
+    {
+        $this->exigirPendente();
+        $this->situacao = SituacaoDoSignatario::Recusado;
+        $this->motivoRecusa = $motivo;
+        $this->ip = $ip;
+        $this->userAgent = $userAgent;
+        $this->codigoHash = null;
+    }
+
+    private function exigirPendente(): void
+    {
+        if (!$this->estaPendente()) {
+            throw new \LogicException('Só signatário pendente assina ou recusa.');
+        }
+    }
+
+    /** As colunas guardam segundos: o objeto em memória fica igual ao que volta do banco. */
+    private static function emSegundos(\DateTimeImmutable $data): \DateTimeImmutable
+    {
+        return (new \DateTimeImmutable('@' . $data->getTimestamp()))->setTimezone(new \DateTimeZone(date_default_timezone_get()));
     }
 }

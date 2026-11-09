@@ -1,0 +1,59 @@
+{#
+    Tela do signatário da Assinatura de documentos (/assinar/{token}) e a prévia do escritório ("Tela do signatário").
+    Contrato docs/specs/assinatura-documentos-etapa-2.md, seções 5.2, 5.3 e 7; desenho "17 - Assinatura - VS 08.11.26"
+    (inventário F a M).
+
+    Standalone de propósito (não estende base.html.twig): sem a moldura do sistema, sem nada do escritório além do que
+    o desenho mostra. O servidor entrega só a raiz #bjaPublica com o JSON `Publico` em data-estado, o token CSRF e as
+    URLs; o public/js/assinatura-publica.js desenha cabeçalho, folha, formulário e bloqueios.
+
+    Contexto: `publico` (o JSON Publico), `csrf` (nulo no link inválido e na prévia), `urls` (nome curto => URL; na
+    prévia, nenhuma URL de POST) e `limite` (o limitador recusou: 429, a página só diz para esperar e o JS não roda).
+#}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>{{ 'assinatura_eletronica.publica.titulo'|trans }}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ asset('css/assinatura-publica.css') }}">
+</head>
+<body>
+{% set marca = asset('images/logo/bluejus-white-transparent-nav.png') %}
+{% if limite ?? false %}
+<div class="bjaPub">
+    <header class="bjaPubCab" data-bjt-cabecalho><img class="bjaPubMarca" src="{{ marca }}" alt="BlueJus" data-bjt-logo></header>
+    <main class="bjaPubMain">
+        <div class="bjaCard bjaBloq"><i class="bi bi-hourglass-split"></i>
+            <div class="bjaBloqT">{{ 'assinatura_eletronica.publica.limite'|trans }}</div>
+            <div class="bjaBloqD">{{ 'assinatura_eletronica.erro.muitas_tentativas'|trans }}</div>
+        </div>
+    </main>
+</div>
+{% else %}
+<div class="bjaPub" id="bjaPublica"
+     data-estado="{{ publico|json_encode|e('html_attr') }}"
+     {%- if csrf %} data-csrf="{{ csrf|e('html_attr') }}"{% endif %}
+     {%- for nome, endereco in urls %} data-url-{{ nome|replace({'_': '-'}) }}="{{ endereco|e('html_attr') }}"{% endfor %}
+     data-url-marca="{{ marca|e('html_attr') }}"></div>
+{# Sem defer: o tema comemorativo (incluído depois) procura o cabeçalho [data-bjt-cabecalho] uma vez, ao carregar, e
+   o assinatura-publica.js precisa tê-lo desenhado antes. O bj-traducao.js lê os catálogos no primeiro uso. #}
+<script src="{{ asset('js/bj-traducao.js') }}"></script>
+{{ catalogo_js('assinatura_eletronica_publica.js', 'assinatura_eletronica_tela.js.folha') }}
+<script src="{{ asset('js/vendor/qrcode-generator/qrcode.js') }}"></script>
+{# pdf.js 3.11.174, o mesmo da tela interna (etapa 1), com SRI; o worker é baixado pelo assinatura-folha.js. #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+        integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{{ asset('js/assinatura-folha.js') }}"></script>
+<script src="{{ asset('js/assinatura-publica.js') }}"></script>
+{% endif %}
+{# Tema comemorativo (regra 1: o desenho aplica o tema na página pública), depois do script da tela. #}
+{% include 'layout/_globais/tema_comemorativo.html.twig' only %}
+</body>
+</html>

@@ -12,8 +12,9 @@ use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Os arquivos que a tela abre: o PDF enviado e a logo própria do documento (mesmo na Lixeira) e a logo padrão do
- * escritório. A chave sai sempre do registro do escritório logado, nunca de parâmetro da requisição.
+ * Os arquivos que a tela abre: o PDF enviado, a logo própria do documento e a rubrica de quem assinou (mesmo na
+ * Lixeira) e a logo padrão do escritório. A chave sai sempre do registro do escritório logado, nunca de parâmetro da
+ * requisição.
  */
 final readonly class ObterArquivoDaAssinaturaUseCase
 {
@@ -39,6 +40,19 @@ final readonly class ObterArquivoDaAssinaturaUseCase
         $chave = ChavesDeAssinaturaEletronica::logo($documento) ?? throw new DocumentoNaoEncontrado();
 
         return new ArquivoParaEntregar($chave, 'logo');
+    }
+
+    /**
+     * A rubrica de quem já assinou (etapa 2), vista de dentro do escritório.
+     *
+     * @throws DocumentoNaoEncontrado
+     */
+    public function rubrica(Tenant $tenant, int $id, int $ordem): ArquivoParaEntregar
+    {
+        $signatario = ObterPreviaDoSignatarioUseCase::signatario($this->documentos, $tenant, $id, $ordem);
+        $chave = ChavesDeAssinaturaEletronica::rubrica($signatario) ?? throw new DocumentoNaoEncontrado();
+
+        return new ArquivoParaEntregar($chave, 'rubrica.png');
     }
 
     /** @throws DocumentoNaoEncontrado */

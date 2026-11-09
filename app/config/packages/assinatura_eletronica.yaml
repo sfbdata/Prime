@@ -1,0 +1,21 @@
+# Assinatura de documentos, etapa 2 (contrato docs/specs/assinatura-documentos-etapa-2.md, seção 5.2): os limitadores
+# da tela pública do signatário (/assinar/{token}). Bloco próprio, fora do framework.yaml (arquivo quente entre
+# sessões); o Symfony junta os limitadores dos arquivos. O teto diário de códigos e de erros por signatário é contado
+# pela trilha, não aqui.
+framework:
+    rate_limiter:
+        # Toda rota pública, por IP.
+        assinatura_publica:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
+        # Toda rota pública com token, pelo sha256 do token (nunca o token cru).
+        assinatura_publica_token:
+            policy: sliding_window
+            limit: 60
+            interval: '10 minutes'
+        # "Enviar código" e "Reenviar", por signatário (a chave é o sha256 do token, um por signatário).
+        assinatura_codigo_envio:
+            policy: sliding_window
+            limit: 3
+            interval: '15 minutes'

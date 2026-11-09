@@ -11,6 +11,17 @@ assinatura_eletronica:
         movido_para_lixeira: Movido para a Lixeira. Evidências preservadas
         restaurado: Restaurado da Lixeira
         envio_cancelado_pela_exclusao: Envio cancelado pela exclusão. Links desativados
+        documento_enviado: Documento enviado para assinatura
+        convite_enviado: Convite enviado por e-mail a {nome}
+        email_nao_enviado: E-mail não enviado a {nome}
+        link_aberto: '{nome} abriu o link'
+        codigo_enviado: Código de verificação enviado a {nome}
+        codigo_errado: Código incorreto informado por {nome}
+        assinado: '{nome} assinou (Simples)'
+        recusado: '{nome} recusou: {motivo}'
+        documento_concluido: 'Documento concluído: todas as assinaturas registradas'
+        lembrete_enviado: Lembrete enviado a {nome}
+        envio_cancelado: Envio cancelado
     erro:
         sem_permissao: Você não tem acesso à Assinatura de documentos.
         nao_encontrado: Documento não encontrado.
@@ -46,3 +57,79 @@ assinatura_eletronica:
         logo_grande: A logo pode ter até 2 MB.
         logo_propria_sem_arquivo: Envie a imagem da logo própria.
         upload_falhou: Não foi possível receber o arquivo. Tente de novo.
+        sem_chave: Assinatura eletrônica sem chave configurada. Fale com o suporte.
+        envio_ja_feito: Este documento já foi enviado.
+        envio_na_lixeira: Restaure o documento da Lixeira para enviar.
+        envio_sem_signatarios: Adicione ao menos um signatário para enviar.
+        envio_nome: Informe o nome de todos os signatários.
+        envio_cpf: Confira o CPF informado.
+        envio_nivel: 'A assinatura de {nome} ainda não está disponível. Use a assinatura Simples.'
+        envio_email: Informe o e-mail de {nome} para enviar o código de assinatura.
+        cancelar_fora_do_envio: Só documentos aguardando assinatura podem ter o envio cancelado.
+        lembrete_fora_do_envio: Só documentos aguardando assinatura, dentro do prazo, recebem lembrete.
+        lembrete_sem_pendente: Nenhum signatário aguarda assinatura.
+        lembrete_recente: Um lembrete já foi enviado na última hora. Tente mais tarde.
+        email_nao_enviado: 'Não foi possível enviar o e-mail a {nome}. Tente de novo mais tarde.'
+        link_invalido: Link inválido.
+        muitas_tentativas: Muitas tentativas. Aguarde alguns minutos e tente de novo.
+        sessao_expirada: A página expirou. Recarregue a página e tente de novo.
+        assinar_nome: Informe o nome completo.
+        assinar_nome_longo: O nome pode ter até 200 caracteres.
+        assinar_cpf: Informe um CPF válido.
+        assinar_cpf_cadastro: O CPF não corresponde ao cadastrado para este signatário.
+        assinar_sem_rubrica: Desenhe ou digite a sua assinatura.
+        assinar_pedir_codigo: Solicite o código de confirmação.
+        assinar_aceite: Marque a confirmação de leitura.
+        rubrica_invalida: A assinatura desenhada não pôde ser lida. Desenhe de novo.
+        rubrica_grande: A imagem da assinatura passa de 200 KB. Desenhe de novo.
+        codigo_errado: Código incorreto.
+        codigo_queimado: Código incorreto. Solicite um novo código.
+        codigo_vencido: O código expirou. Solicite um novo código.
+        codigo_nao_enviado: Não foi possível enviar o código por e-mail. Tente de novo mais tarde.
+        recusa_sem_motivo: Informe o motivo.
+        recusa_motivo_longo: O motivo pode ter até 500 caracteres.
+    publica:
+        titulo: Assinatura de documento
+        limite: Aguarde um pouco
+        estado:
+            pronto: Pronto para assinar.
+            aguardando_anterior: Aguardando assinatura anterior.
+            prazo_encerrado: Prazo encerrado. Peça ao remetente um novo envio.
+            cancelado: Envio cancelado. Este documento não está mais disponível para assinatura.
+            recusado: Assinatura recusada.
+            concluido: Assinatura já registrada.
+            ja_assinado: Assinatura já registrada.
+            invalido: Link inválido.
+    aceite:
+        v1: Li o documento e concordo em assiná-lo eletronicamente. Serão registrados data, hora, localização autorizada e dados de identificação.
+    email:
+        ola: Olá, {nome}.
+        abrir_documento: Abrir o documento
+        link_pessoal: Este link é pessoal. Não o encaminhe a outra pessoa.
+        rodape: Você recebeu este e-mail porque foi indicado como signatário de um documento. Se não esperava por ele, ignore-o.
+        rodape_remetente: Aviso automático da Assinatura de documentos do BlueJus.
+        convite:
+            assunto: 'Documento para assinatura: {documento}'
+            texto: '{escritorio} enviou o documento "{documento}" para a sua assinatura.'
+            codigo: Na página, peça o código de confirmação. Ele chega neste e-mail e vale por 15 minutos.
+        vez:
+            assunto: 'Sua vez de assinar: {documento}'
+            texto: 'Chegou a sua vez de assinar o documento "{documento}", enviado por {escritorio}.'
+        lembrete:
+            assunto: 'Lembrete de assinatura: {documento}'
+            texto: 'O documento "{documento}", enviado por {escritorio}, ainda aguarda a sua assinatura.'
+        codigo:
+            assunto: Código de confirmação da assinatura
+            texto: 'Use este código para confirmar a assinatura do documento "{documento}":'
+            validade: O código vale por 15 minutos. Um código novo substitui o anterior.
+            nao_pediu: Se você não pediu este código, ignore este e-mail.
+        recusa:
+            assunto: 'Assinatura recusada: {documento}'
+            titulo: Assinatura recusada
+            texto: '{nome} recusou a assinatura do documento "{documento}".'
+            motivo: 'Motivo: {motivo}'
+            efeito: O documento foi encerrado e os links dos demais signatários deixaram de valer.
+        conclusao:
+            assunto: 'Documento assinado: {documento}'
+            titulo: Todas as assinaturas registradas
+            texto: 'O documento "{documento}" foi assinado por todos os signatários.'
