@@ -28,9 +28,12 @@ use Doctrine\DBAL\Tools\DsnParser;
 final class ConexaoLeitura
 {
     /**
-     * `bool_or` sobre as tabelas (comuns, particionadas e foreign tables — `relkind IN
-     * ('r','p','f')`) do schema `public`: verdadeiro se o usuário conectado puder gravar em
+     * `bool_or` sobre as tabelas (comuns, particionadas e foreign tables, `relkind IN
+     * ('r','p','f')`) de todos os schemas da aplicação (todos menos `information_schema` e os
+     * `pg_*`; spec voto-redes-do-schema §2): verdadeiro se o usuário conectado puder gravar em
      * QUALQUER uma delas, por QUALQUER caminho de escrita (`INSERT, UPDATE, DELETE, TRUNCATE`).
+     * Só o `public` não bastava: um `GRANT voto_acesso TO` a role de leitura daria escrita no
+     * schema `voto` sem alarme.
      *
      * `has_table_privilege` aceita uma lista separada por vírgula e devolve verdadeiro se o
      * usuário detiver QUALQUER privilégio da lista (semântica OR) — confirmado contra o banco
@@ -44,13 +47,17 @@ final class ConexaoLeitura
      * O que esta checagem NÃO cobre, por decisão consciente e não por esquecimento: sequências
      * (`nextval`/`setval` alteram estado sem passar por `has_table_privilege` de tabela),
      * funções/procedures (uma function `SECURITY DEFINER` pode escrever independente de GRANT em
-     * tabela) e qualquer schema além de `public`. A garantia real continua sendo a role do
+     * tabela). A garantia real continua sendo a role do
      * PostgreSQL ter só `SELECT` — isto aqui é a checagem de sanidade que confirma essa garantia,
      * não um substituto para ela.
      */
-    private const SQL_PODE_ESCREVER = "SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
-             FROM pg_class c
-             WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p', 'f')";
+    private const SQL_PODE_ESCREVER = <<<'SQL'
+        SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relkind IN ('r', 'p', 'f')
+           AND n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\_%'
+        SQL;
 
     private ?Connection $conexao = null;
 
@@ -98,23 +105,22 @@ final class ConexaoLeitura
     {
         $podeEscrever = $conexao->fetchOne(self::SQL_PODE_ESCREVER);
 
-        // `bool_or` sobre conjunto vazio devolve NULL: não existe UMA tabela sequer no schema
-        // `public`. Isso não é "seguro", é banco anômalo (sem migração aplicada, schema errado
-        // no DSN) — e nesse estado a verificação não conseguiu concluir nada. A invariante falha
+        // `bool_or` sobre conjunto vazio devolve NULL: não existe UMA tabela sequer nos schemas
+        // da aplicação. Isso não é "seguro", é banco anômalo (sem migração aplicada, banco errado
+        // no DSN) e nesse estado a verificação não conseguiu concluir nada. A invariante falha
         // FECHADA: recusa, em vez de deixar passar um DSN que nunca chegou a ser conferido.
         if ($podeEscrever === null) {
             throw new \RuntimeException(
-                'Não há nenhuma tabela no schema "public" do banco apontado por '
-                . 'DATABASE_URL_LEITURA, então não foi possível conferir se o usuário é mesmo '
-                . 'somente-leitura. O servidor MCP se recusa a consultar sem essa conferência — '
-                . 'confira o banco e o schema no DSN.',
+                'Não há nenhuma tabela no banco apontado por DATABASE_URL_LEITURA, então não foi '
+                . 'possível conferir se o usuário é mesmo somente-leitura. O servidor MCP se recusa a '
+                . 'consultar sem essa conferência: confira o banco no DSN.',
             );
         }
 
         if (in_array($podeEscrever, [true, 't', 'true', '1', 1], true)) {
             throw new \RuntimeException(sprintf(
-                'DATABASE_URL_LEITURA aponta para um usuário com permissão de ESCRITA no schema '
-                . '"public" (usuário conectado: "%s"). O servidor MCP se recusa a consultar assim: a '
+                'DATABASE_URL_LEITURA aponta para um usuário com permissão de ESCRITA em alguma tabela '
+                . 'do banco (usuário conectado: "%s"). O servidor MCP se recusa a consultar assim: a '
                 . 'única garantia de que este servidor não grava é a role restrita do PostgreSQL, '
                 . 'não o texto do SQL. Refaça o Passo 2 do runbook '
                 . '(docs/runbooks/mcp-investigacao-prod.md) apontando o DSN para a role de '

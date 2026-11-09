@@ -19,8 +19,9 @@ use Doctrine\ORM\Mapping as ORM;
  * Mora no schema `voto` (D1-B). É a única entidade do Voto que é auditável: quem liberou e quem bloqueou fica no
  * `audit_log` do escritório alterado. As entidades da votação não serão (o sigilo do voto vem antes da trilha).
  *
- * A chave estrangeira para `tenant` apaga a linha junto com o escritório: a purga definitiva
- * (PurgarEscritorioUseCase) só enxerga o schema `public` e não teria como apagá-la antes do tenant.
+ * A purga definitiva (PurgarEscritorioUseCase) apaga a linha pela ordem de deleção, antes do tenant, e a
+ * conferência dela enxerga o schema `voto` (spec docs/specs/voto-redes-do-schema.md). A chave estrangeira
+ * para `tenant` com ON DELETE CASCADE fica como segunda rede: é a exceção da D1-B registrada na spec do Voto.
  */
 #[ORM\Entity(repositoryClass: LiberacaoDoVotoRepository::class)]
 #[ORM\Table(name: 'liberacao', schema: 'voto')]
