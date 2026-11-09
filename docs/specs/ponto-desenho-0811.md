@@ -415,9 +415,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: serviço novo de trilha; chamadas nos fluxos de batida, justificativa, análise e chaves; cada etapa seguinte
   chama a trilha nos eventos dela. Frente: a escala alterada (o desenho grava "Escala alterada") toca os 3 UseCases de
   versão (avisar).
-- Chave do selo: o selo é HMAC com chave só do servidor (seção 3). O arquivo de decisões só lista como pendência o
-  segredo do comprovante e da folha; perguntar ao Coordenador, antes de abrir a E9, se a trilha usa a mesma
-  `PONTO_HMAC_SECRET` (seção 10) e o que faz com ela vazia.
+- Chave do selo (decidido pelo Coordenador em 09/11/2026): o selo é HMAC com a chave da finalidade "trilha", derivada
+  do segredo único `PONTO_HMAC_SECRET` (seção 10, "Chaves por finalidade"). Cada linha guarda a versão da chave. Com o
+  segredo vazio, a etapa segue a regra da seção 10 (a trilha grava sem selo e a conferência diz que a cadeia não foi
+  selada); a confirmar ao abrir a E9.
 - Testes: dois eventos ao mesmo tempo no mesmo escritório mantêm a cadeia; adulterar uma linha acusa "a cadeia foi
   alterada"; escritórios não se misturam; purga do escritório apaga a cadeia dele; mudança de sede ou feriado não entra
   na trilha e continua no `audit_log`.
@@ -615,6 +616,13 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
 ## 10. Pendências do dono e ganchos
 
 Nenhuma destas trava o código: cada etapa entra pronta com o gancho abaixo e passa a valer quando o dono resolver.
+
+**Chaves por finalidade (decidido pelo Coordenador em 09/11/2026).** O dono cria em produção um segredo só, o
+`PONTO_HMAC_SECRET`. O código nunca usa o segredo direto: deriva uma chave por finalidade com
+`hash_hkdf('sha256', $segredo, 32, '<finalidade>')`. Finalidades: `ponto-comprovante` (comprovante da batida, E15),
+`ponto-folha` (folha emitida, E16) e `ponto-trilha` (selo da trilha encadeada, E9). Cada registro selado guarda a versão
+da chave usada (começa em 1), para que uma troca futura do segredo não quebre a conferência do que já foi selado: a
+conferência escolhe a chave pela versão gravada na linha.
 
 | Pendência (itens) | Por que é do dono | Gancho no código | Etapa que precisa |
 |---|---|---|---|
