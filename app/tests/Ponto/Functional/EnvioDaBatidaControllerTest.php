@@ -118,6 +118,30 @@ final class EnvioDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, (int) $conexao->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE user_id = ?', [$this->user->getId()]), 'nada entrou aqui');
     }
 
+    #[TestDox('O mesmo identificador usado por OUTRA pessoa do escritório grava normal e não responde "já registrada"')]
+    public function testMesmoEnvioDeOutraPessoaGravaNormal(): void
+    {
+        $outraPessoa = $this->criarUsuario($this->tenant);
+        $daOutra = new RegistroPonto();
+        $daOutra->setUser($outraPessoa);
+        $daOutra->setTenant($this->tenant);
+        $daOutra->setTipo(RegistroPonto::TIPO_ENTRADA);
+        $daOutra->setDataHora(new \DateTime('-2 hours'));
+        $daOutra->setIdEnvio(self::ID);
+        $this->em()->persist($daOutra);
+        $this->em()->flush();
+
+        $resposta = $this->postarBatida(['tipo' => 'entrada', 'idEnvio' => self::ID]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Ponto (home office) registrado com sucesso!', $resposta['message']);
+        self::assertArrayNotHasKey('jaRegistrada', $resposta['data']);
+        $registro = $this->unicaBatida();
+        self::assertSame(self::ID, $registro->getIdEnvio(), 'o índice único é por pessoa');
+        self::assertSame($registro->getDataHora()->format('H:i:s'), $resposta['data']['hora']);
+        self::assertSame(2, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE id_envio = ?', [self::ID]), 'a da outra pessoa continua lá');
+    }
+
     #[TestDox('Identificador fora do formato recusa com 422 e não grava')]
     public function testIdentificadorInvalidoRecusa(): void
     {
