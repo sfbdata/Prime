@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Functional;
 use App\Controller\TenantController;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\DTO\BancoDeHorasOutput;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Ponto\Entity\JornadaColaborador;
@@ -23,10 +24,10 @@ use Symfony\Component\DomCrawler\Crawler;
  * E17 do desenho do Ponto (spec ponto-desenho-0811, P2, P51 a, P52; desenho 16 L106 e L200 a L208): o número do topo
  * vem dos lotes e ganha o triângulo acima do limite; a aba "Banco de Horas" tem os três quadros, a faixa do limite, a
  * tabela de lotes e a nota da lei. Arranjo por filho direto. O dia em andamento repete o "Saldo mês" de ontem também
- * na ficha do gestor.
+ * na ficha do gestor. O banco usa a jornada da folha da /ponto (item 12 da E17): a soma dos meses da folha é o banco.
  *
- * Os lotes daqui saem só de horas pagas (pessoa sem jornada pessoal: a folha não soma nada), para os números não
- * dependerem do dia em que a suíte roda.
+ * Nos cenários de lotes a pessoa não tem batida nem abono (sem início da contagem, a folha não soma dia nenhum): os
+ * lotes saem só de horas pagas, para os números não dependerem do dia em que a suíte roda.
  */
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
@@ -87,10 +88,11 @@ final class BancoDeHorasNaTelaTest extends JusPrimeWebTestCase
         self::assertSame(
             [
                 [$antigo->format('m/Y'), '+10h00m', '1h00m', '+9h00m', $antigo->modify('+6 months')->modify('last day of this month')->format('d/m/Y'), 'Vencido'],
-                [$passado->format('m/Y'), '+150h00m', '', '+150h00m', $passado->modify('+6 months')->modify('last day of this month')->format('d/m/Y'), 'No prazo'],
-                [$this->mes->format('m/Y'), '', '1h00m', '', '', 'Compensação'],
+                [$passado->format('m/Y'), '+150h00m', '0h', '+150h00m', $passado->modify('+6 months')->modify('last day of this month')->format('d/m/Y'), 'No prazo'],
+                [$this->mes->format('m/Y'), '0h', '1h00m', '0h', 'Sem prazo', 'Compensação'],
             ],
             $linhas->each(static fn (Crawler $tr): array => $tr->filter('td')->each(static fn (Crawler $td): string => trim($td->text()))),
+            'célula sem valor: "0h" e "Sem prazo" (spec, seção 8, item 7)',
         );
         self::assertSame(
             ['background-color: #a3232b;', 'background-color: #1e7b45;', 'background-color: #5b7383;'],
@@ -141,6 +143,38 @@ final class BancoDeHorasNaTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $tela->filter('.pe-banco-alerta'));
     }
 
+    #[TestDox('Prazo de 1 mês, no singular')]
+    public function testPrazoDeUmMes(): void
+    {
+        $html = static::getContainer()->get('twig')->render('ponto/_abas_banco.html.twig', [
+            'bancoDeHoras' => new BancoDeHorasOutput(0, 7200, 1, false, []),
+        ]);
+
+        self::assertSame('1 mês', (new Crawler($html))->filter('div.pe-bh-kpis > div.pe-bh-kpi:nth-child(3) > b.pe-bh-kpi-valor')->text());
+    }
+
+    /**
+     * Item 12 da E17: quem não tem jornada pessoal conta os dias pela jornada do escritório, a mesma da folha da /ponto
+     * (até aqui o banco não contava dia nenhum). O último dia de cada mês aparece na folha (a /ponto esconde o dia sem
+     * batida, e o "Saldo do mês" é o da última linha), e as horas pagas fazem os totais do mês aparecerem.
+     */
+    #[TestDox('Sem jornada pessoal: o banco é a soma dos meses da folha da /ponto, contada pela jornada do escritório')]
+    public function testSemJornadaPessoalOBancoEASomaDaFolha(): void
+    {
+        $this->mesesTrabalhados();
+
+        $this->assertBancoIgualASomaDaFolha();
+    }
+
+    #[TestDox('Primeira versão da jornada no meio do mês: os dias de antes contam pela do escritório, no banco e na folha')]
+    public function testDiasAntesDaPrimeiraVersaoContamNoBanco(): void
+    {
+        $this->jornadaDeOitoHorasTodoDia($this->mes->modify('-1 month')->modify('+14 days'));
+        $this->mesesTrabalhados();
+
+        $this->assertBancoIgualASomaDaFolha();
+    }
+
     #[TestDox('Na ficha do gestor, o "Saldo mês" do dia em andamento repete o de ontem (desenho L157); no dia 1º, vazio')]
     public function testFichaRepeteOSaldoMesDeOntem(): void
     {
@@ -165,6 +199,50 @@ final class BancoDeHorasNaTelaTest extends JusPrimeWebTestCase
         }
         self::assertNotSame('', trim($saldoMes($hoje->modify('-1 day'))->text()), 'controle: ontem tem Saldo mês');
         self::assertSame(trim($saldoMes($hoje->modify('-1 day'))->text()), trim($saldoMes($hoje)->text()));
+    }
+
+    /**
+     * Batidas no 1º e no último dia do mês passado e ontem (se ontem é deste mês); hoje, nenhuma (dia sem saída não
+     * conta). Horas pagas nos dois meses, para a folha mostrar os totais.
+     */
+    private function mesesTrabalhados(): void
+    {
+        $passado = $this->mes->modify('-1 month');
+        $ontem = new \DateTimeImmutable('yesterday');
+        foreach (array_unique([$passado, $passado->modify('last day of this month'), $ontem], SORT_REGULAR) as $dia) {
+            $this->batida($dia->setTime(8, 0), RegistroPonto::TIPO_ENTRADA);
+            $this->batida($dia->setTime(17, 0), RegistroPonto::TIPO_SAIDA);
+        }
+        $this->horasPagas($this->escritorio, $passado, 60);
+        $this->horasPagas($this->escritorio, $this->mes, 60);
+    }
+
+    /** O número do topo é a soma do "Saldo do mês" e das "Horas pagas" da folha do mês passado e deste. */
+    private function assertBancoIgualASomaDaFolha(): void
+    {
+        $saldosDaFolha = 0;
+        $topos = [];
+        foreach ([$this->mes->modify('-1 month'), $this->mes] as $competencia) {
+            $tela = $this->tela('?competencia=' . $competencia->format('Y-m'));
+            $totais = $tela->filter('#ponto-regiao-folha div.pe-folha-totais > div.pe-folha-total > b.pe-folha-total-valor');
+            self::assertCount(3, $totais, 'Saldo do mês, Horas pagas e Total do mês de ' . $competencia->format('m/Y'));
+            self::assertSame(60, $this->minutos($totais->eq(1)->text()));
+            $saldosDaFolha += $this->minutos($totais->eq(0)->text());
+            $topos[] = $this->minutos($tela->filter(self::TOPO . ' > b.pe-banco-valor')->text());
+        }
+
+        self::assertNotSame(0, $saldosDaFolha, 'controle: a folha contou os dias pela jornada do escritório');
+        self::assertSame([$saldosDaFolha + 120, $saldosDaFolha + 120], $topos);
+    }
+
+    /** "+1h00m", "-7h00m", "0h00m" e "0h" em minutos. */
+    private function minutos(string $texto): int
+    {
+        self::assertMatchesRegularExpression('/^[+-]?\d+h(\d{2}m)?$/D', trim($texto));
+        preg_match('/^([+-]?)(\d+)h(?:(\d{2})m)?$/D', trim($texto), $partes);
+        $minutos = (int) $partes[2] * 60 + (int) ($partes[3] ?? 0);
+
+        return $partes[1] === '-' ? -$minutos : $minutos;
     }
 
     private function tela(string $consulta = ''): Crawler
@@ -193,10 +271,10 @@ final class BancoDeHorasNaTelaTest extends JusPrimeWebTestCase
     }
 
     /** Os sete dias da semana, 8h por dia: ontem tem saldo qualquer que seja o dia da semana. */
-    private function jornadaDeOitoHorasTodoDia(): void
+    private function jornadaDeOitoHorasTodoDia(?\DateTimeImmutable $valeAPartirDe = null): void
     {
         $jornada = (new JornadaColaborador())->setUser($this->eu)->setTenant($this->escritorio)->setCargaHorariaSemanal(3360);
-        $jornada->setValeAPartirDe(new \DateTimeImmutable('first day of -6 months'));
+        $jornada->setValeAPartirDe($valeAPartirDe ?? new \DateTimeImmutable('first day of -6 months'));
         $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1, 2, 3, 4, 5, 6, 7])->setEntrada('08:00')
             ->setRepouso('12:00')->setRetorno('13:00')->setSaida('17:00')->setMinutosBloco(480));
         $this->em()->persist($jornada);

@@ -235,11 +235,11 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
     /**
      * Até a E17 o banco zerava em 1º de janeiro e o aviso mandava lançar na competência do ano em que
      * as horas foram acumuladas. Desde a E17 (spec ponto-desenho-0811, P51 a) o banco atravessa o ano:
-     * o aviso fica só para o desconto que deixa o banco negativo, sem a virada do ano no texto.
+     * o aviso fica só para o desconto que deixa negativo o banco inteiro até hoje, sem a virada do ano.
      *
      * Decisão do dono: AVISAR, sem bloquear — o lançamento já está gravado quando o aviso aparece.
      */
-    #[TestDox('desconto que deixa o ano negativo grava e AVISA, sem bloquear')]
+    #[TestDox('desconto que deixa o banco negativo grava e AVISA, sem bloquear')]
     public function testDescontoQueNaoCabeNoAnoAvisaSemBloquear(): void
     {
         $client = static::createClient();
@@ -402,6 +402,34 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
             $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? [],
             'com 20h de crédito no ano, descontar 10h30 não deixa nada negativo — nada a avisar',
         );
+    }
+
+    /**
+     * Desde a E17 o aviso confere o banco inteiro até hoje (o "Saldo atual" da aba), não o saldo até a competência
+     * lançada. Aqui o desconto vai três meses para trás e o crédito de 20h é do mês passado: até aquele mês o banco
+     * ficaria em -10h30 (a conta antiga avisava), mas o banco de hoje fica em +9h30.
+     */
+    #[TestDox('desconto numa competencia antiga confere o banco inteiro ate hoje, nao o saldo ate aquele mes')]
+    public function testDescontoNumaCompetenciaAntigaConfereOBancoDeHoje(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+        $this->criarLancamento($tenant, $colaborador, $admin, 1200);   // +20h no mês passado
+        $antiga = new \DateTimeImmutable('first day of -3 months');
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaLancar($tenant, $colaborador),
+            $this->payload($this->tokenLancar($colaborador), ['ano' => (int) $antiga->format('Y'), 'mes' => (int) $antiga->format('n')]),
+        );
+
+        self::assertResponseRedirects();
+        self::assertCount(2, $this->lancamentosDe($colaborador), 'o desconto grava na competência antiga');
+        self::assertSame([], $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? [], 'o banco de hoje fica em +9h30');
     }
 
     #[TestDox('operacao fora do catalogo nao grava nada (o sinal nao pode ser invertido por typo)')]

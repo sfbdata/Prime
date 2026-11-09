@@ -7,7 +7,10 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Command\CompararViradaDoBancoDeHorasCommand;
+use App\Ponto\Entity\BlocoJornadaColaborador;
+use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\LancamentoHorasPagas;
+use App\Ponto\Entity\RegistroPonto;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -18,8 +21,8 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 /**
  * `app:ponto:banco:comparar-virada` (E17, P51 a): o banco de cada pessoa antes (só o ano corrente, como era) e depois
- * (lotes, atravessando o ano), por escritório, só com ids. Somente leitura. Os cenários usam só horas pagas, para os
- * números não dependerem do dia em que a suíte roda.
+ * (lotes, atravessando o ano), por escritório, só com ids. Somente leitura. Os cenários de números usam só horas
+ * pagas, para não dependerem do dia em que a suíte roda. Quem muda também pela jornada da folha (item 12) fica à parte.
  */
 #[CoversClass(CompararViradaDoBancoDeHorasCommand::class)]
 final class CompararViradaDoBancoDeHorasCommandTest extends KernelTestCase
@@ -75,6 +78,38 @@ final class CompararViradaDoBancoDeHorasCommandTest extends KernelTestCase
         self::assertStringContainsString('2 pessoas; 1 com saldo diferente.', $saida);
     }
 
+    #[TestDox('À parte, com a contagem: quem não tem jornada pessoal e quem tem dias antes da primeira versão')]
+    public function testListaAParteQuemMudaPelaJornadaDaFolha(): void
+    {
+        self::bootKernel();
+        $escritorio = $this->escritorio();
+        $semJornada = $this->pessoa('Sem Jornada');
+        $versaoNoMeio = $this->pessoa('Versão no Meio');
+        $comJornada = $this->pessoa('Com Jornada');
+        $semBatida = $this->pessoa('Sem Batida');
+        $primeiroDia = new \DateTimeImmutable('first day of last month');
+        foreach ([$semJornada, $versaoNoMeio, $comJornada] as $pessoa) {
+            $this->diaTrabalhado($escritorio, $pessoa, $primeiroDia);
+        }
+        $this->jornada($escritorio, $versaoNoMeio, $primeiroDia->modify('+10 days')); // o dia trabalhado fica antes dela
+        $this->jornada($escritorio, $comJornada, $primeiroDia->modify('-1 month'));   // cobre a contagem inteira
+        $this->horasPagas($escritorio, $semBatida, (int) $primeiroDia->format('Y'), (int) $primeiroDia->format('n'), 60); // sem início da contagem
+        $id = static fn (object $entidade): int => (int) $entidade->getId();
+
+        $saida = $this->rodar(['--escritorio' => (string) $id($escritorio)])->getDisplay();
+
+        [$lista, $aParte] = explode('À parte: mudam também pela jornada da folha', $saida, 2);
+        foreach ([$comJornada, $semBatida] as $pessoa) {
+            self::assertMatchesRegularExpression(sprintf('/^\s*%d\s+%d\s+\S/m', $id($escritorio), $id($pessoa)), $lista);
+        }
+        self::assertMatchesRegularExpression('/^\s*2 pessoas; [01] com saldo diferente\.$/m', $lista);
+        foreach ([[$semJornada, 'sem jornada pessoal'], [$versaoNoMeio, 'dias antes da primeira versão']] as [$pessoa, $motivo]) {
+            self::assertDoesNotMatchRegularExpression(sprintf('/^\s*%d\s+%d\s/m', $id($escritorio), $id($pessoa)), $lista);
+            self::assertMatchesRegularExpression(sprintf('/^\s*%d\s+%d\s+%s\s+\S/m', $id($escritorio), $id($pessoa), $motivo), $aParte);
+        }
+        self::assertMatchesRegularExpression('/^\s*2 pessoas à parte; [012] com saldo diferente\.$/m', $aParte);
+    }
+
     /** @param array<string, string|bool> $opcoes */
     private function rodar(array $opcoes): CommandTester
     {
@@ -125,6 +160,30 @@ final class CompararViradaDoBancoDeHorasCommandTest extends KernelTestCase
         $lancamento->setCriadoPor($user);
         $lancamento->setCriadoEm(new \DateTimeImmutable());
         $this->em()->persist($lancamento);
+        $this->em()->flush();
+    }
+
+    private function diaTrabalhado(Tenant $tenant, User $user, \DateTimeImmutable $dia): void
+    {
+        foreach ([RegistroPonto::TIPO_ENTRADA => '08:00', RegistroPonto::TIPO_SAIDA => '17:00'] as $tipo => $hora) {
+            $registro = new RegistroPonto();
+            $registro->setUser($user);
+            $registro->setTenant($tenant);
+            $registro->setTipo($tipo);
+            $registro->setDataHora(new \DateTime($dia->format('Y-m-d ') . $hora));
+            $registro->setSedeNomeSnapshot('Teste');
+            $this->em()->persist($registro);
+        }
+        $this->em()->flush();
+    }
+
+    private function jornada(Tenant $tenant, User $user, \DateTimeImmutable $valeAPartirDe): void
+    {
+        $jornada = (new JornadaColaborador())->setUser($user)->setTenant($tenant)->setCargaHorariaSemanal(2400);
+        $jornada->setValeAPartirDe($valeAPartirDe);
+        $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1, 2, 3, 4, 5])->setEntrada('08:00')
+            ->setRepouso('12:00')->setRetorno('13:00')->setSaida('17:00')->setMinutosBloco(480));
+        $this->em()->persist($jornada);
         $this->em()->flush();
     }
 

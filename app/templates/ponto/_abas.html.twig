@@ -1,12 +1,13 @@
 {#
     Cartão de abas da coluna da direita, logo abaixo da Folha (E3, desenho 16 L166 a L191, ordem da L758): "Pendências"
     (P37, primeira e aberta ao entrar), "Minhas Justificativas" (P39), "Comprovantes" (E15, só com o comprovante
-    ligado: `comprovantesVisiveis`) e "Banco de Horas" (E17: `bancoDeHoras`, nulo até a etapa entrar). As abas das
+    ligado: `comprovantesVisiveis`) e "Banco de Horas" (E17: `bancoDeHoras`, sempre presente na /ponto). As abas das
     etapas seguintes (Equipe, Auditoria, Configurações) entram depois do Banco de Horas, nessa ordem.
 
     As duas abas vêm prontas do servidor; a troca é no navegador (js/ponto-abas.js), sem recarregar, e grava a aba no
     endereço (`?aba=justificativas`): a busca da tela depois da batida e a troca do mês voltam na mesma aba. O painel das
-    pendências e a aba dele (o número) são regiões trocadas depois da batida (REGIOES_TROCADAS no index).
+    pendências, a aba dele (o número) e o painel do Banco de Horas (E17) são regiões trocadas depois da batida
+    (REGIOES_TROCADAS no index).
 
     Abas de gestão (desenho L757 e L758; P58: quem gere pelo perfil continua vendo, `GestaoDoPonto`): "Equipe" (E5) e
     "Configurações" (E6 em diante). O painel delas vem vazio e é buscado na primeira vez que a aba abre
@@ -27,7 +28,8 @@
 {% set veConfiguracoes = veConfiguracoes|default(false) %}
 {% set veAuditoria = veAuditoria|default(false) %}
 {% set aberta = abaAberta %}
-{# A aba pedida que não está desenhada para esta pessoa abre Pendências: sempre há uma aberta. #}
+{# A aba pedida que não está desenhada para esta pessoa abre Pendências: sempre há uma aberta. O Banco só some sem
+   `bancoDeHoras`, que a /ponto sempre manda desde a E17. #}
 {% if (aberta == 'comprovantes' and not comprovantesVisiveis) or (aberta == 'banco' and bancoDeHoras is null)
     or (aberta == 'equipe' and not veEquipe) or (aberta == 'auditoria' and not veAuditoria)
     or (aberta == 'configuracoes' and not veConfiguracoes) %}

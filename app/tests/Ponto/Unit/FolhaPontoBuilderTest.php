@@ -206,17 +206,23 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertTrue($rows[0]['justificadoDia']);
     }
 
-    public function testCalcularSaldoAteMesRetornaZeroSemJornada(): void
+    /**
+     * Item 12 da E17: sem jornada pessoal no escritório, o banco conta os dias pela jornada vazia, que o JornadaResolver
+     * completa com a padrão (aqui, sem jornada do escritório: 8h de segunda a sexta), a mesma regra da folha da /ponto.
+     * Até a E17 o resultado era zero. Sem batida nenhuma, cada dia útil é falta.
+     */
+    public function testCalcularSaldoAteMesSemJornadaPessoalContaPelaPadrao(): void
     {
         $user = new User();
         $user->setEmail('a@b.com')->setFullName('Teste');
 
-        // Início da contagem válido: isola o guard de jornada como ÚNICO motivo do zero. O stub de
-        // horas pagas soma zero, então o zero continua vindo só do guard de jornada, que é o que
-        // este teste prova (o escritório não tem jornada pessoal da pessoa).
         $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, $this->contagemAntiga(), new Tenant());
 
-        self::assertSame(0, $resultado);
+        $diasUteis = 0;
+        for ($dia = $this->contagemAntiga(); $dia <= new \DateTimeImmutable('2026-03-31'); $dia = $dia->modify('+1 day')) {
+            $diasUteis += (int) $dia->format('N') <= 5 ? 1 : 0;
+        }
+        self::assertSame(-480 * $diasUteis, $resultado);
     }
 
     public function testOmitirInicioContagemFalhaEmVezDeZerarASilenciosamente(): void

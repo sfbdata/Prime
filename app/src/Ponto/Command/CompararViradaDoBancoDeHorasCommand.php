@@ -7,8 +7,10 @@ namespace App\Ponto\Command;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\FeriadoRepository;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\Service\InicioContagemResolver;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -23,9 +25,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * pede o número de todo mundo registrado no PR, porque a troca muda o saldo de todos.
  *
  * "Antes" é o banco como era até a E17: só as competências do ano corrente (zerava em 1º de janeiro), com as horas
- * pagas lançadas em qualquer mês do ano. "Depois" é o saldo atual dos lotes, o número que a tela passa a mostrar.
- * As duas colunas saem dos mesmos meses (`FolhaPontoBuilder::saldosDoBancoPorCompetencia`), então a diferença é só a
- * virada do ano.
+ * pagas lançadas em qualquer mês do ano, contado só com as versões da jornada pessoal. "Depois" é o saldo atual dos
+ * lotes, o número que a tela passa a mostrar, contado com a jornada da folha da /ponto
+ * (`FolhaPontoBuilder::jornadaDaFolha`). Para quase todos, a diferença é só a virada do ano.
+ *
+ * Ficam **à parte**, com a contagem, as pessoas que mudam também pela jornada (decisão do Coordenador, E17 item 12):
+ * quem não tem jornada pessoal (antes o banco não contava dia nenhum; agora conta pela jornada do escritório) e quem
+ * tem dias contados antes da primeira versão da jornada (antes ficavam fora; agora contam pela do escritório).
  *
  * **Somente leitura.** Não grava nada. A saída tem só ids (escritório e pessoa), sem nome nem CPF.
  */
@@ -51,6 +57,7 @@ final class CompararViradaDoBancoDeHorasCommand extends Command
         private readonly BancoDeHorasPorLotes $lotes,
         private readonly InicioContagemResolver $inicioContagem,
         private readonly FeriadoRepository $feriados,
+        private readonly JornadaColaboradorRepository $jornadas,
     ) {
         parent::__construct();
     }
@@ -68,20 +75,47 @@ final class CompararViradaDoBancoDeHorasCommand extends Command
         $hoje = new \DateTimeImmutable('today');
         $escritorio = $input->getOption('escritorio');
         $linhas = $this->comparar($escritorio === null ? null : (int) $escritorio, $hoje);
-        $diferentes = array_values(array_filter($linhas, static fn (array $linha): bool => $linha[4] !== 0));
+        $soDiferentes = (bool) $input->getOption('so-diferentes');
+        $resto = array_values(array_filter($linhas, static fn (array $linha): bool => $linha[5] === null));
+        $diferentes = array_values(array_filter($resto, static fn (array $linha): bool => $linha[4] !== 0));
 
         $io->title(sprintf('Banco de horas: antes (só %d) e depois (lotes, sem zerar em janeiro)', (int) $hoje->format('Y')));
         $io->text('Somente leitura. Nenhum saldo é gravado. Minutos entre parênteses.');
         $io->table(
             ['Escritório', 'Pessoa', 'Antes', 'Depois', 'Diferença'],
-            array_map(fn (array $linha): array => $this->formatar($linha), $input->getOption('so-diferentes') ? $diferentes : $linhas),
+            array_map(fn (array $linha): array => $this->formatar($linha), $soDiferentes ? $diferentes : $resto),
         );
-        $io->text(sprintf('%d pessoas; %d com saldo diferente.', count($linhas), count($diferentes)));
+        $io->text(sprintf('%d pessoas; %d com saldo diferente.', count($resto), count($diferentes)));
+        $this->listarAParte($io, array_values(array_filter($linhas, static fn (array $linha): bool => $linha[5] !== null)), $soDiferentes);
 
         return Command::SUCCESS;
     }
 
-    /** @return list<array{int, int, int, int, int}> escritório, pessoa, antes, depois e diferença, em minutos */
+    /**
+     * As pessoas que mudam também porque o banco passa a usar a jornada da folha, numa tabela própria com o motivo.
+     *
+     * @param list<array{int, int, int, int, int, ?string}> $aParte
+     */
+    private function listarAParte(SymfonyStyle $io, array $aParte, bool $soDiferentes): void
+    {
+        $diferentes = array_values(array_filter($aParte, static fn (array $linha): bool => $linha[4] !== 0));
+        $io->section('À parte: mudam também pela jornada da folha (sem jornada pessoal ou com dias antes da primeira versão)');
+        $io->table(
+            ['Escritório', 'Pessoa', 'Motivo', 'Antes', 'Depois', 'Diferença'],
+            array_map(function (array $linha): array {
+                $formatada = $this->formatar($linha);
+                array_splice($formatada, 2, 0, [(string) $linha[5]]);
+
+                return $formatada;
+            }, $soDiferentes ? $diferentes : $aParte),
+        );
+        $io->text(sprintf('%d pessoas à parte; %d com saldo diferente.', count($aParte), count($diferentes)));
+    }
+
+    /**
+     * @return list<array{int, int, int, int, int, ?string}> escritório, pessoa, antes, depois e diferença, em minutos, e o
+     *                                                       motivo de a pessoa ficar à parte (null: não fica)
+     */
     private function comparar(?int $escritorio, \DateTimeImmutable $hoje): array
     {
         $sql = self::PESSOAS_COM_BANCO . ($escritorio === null ? '' : ' AND tenant_id = :escritorio');
@@ -97,37 +131,61 @@ final class CompararViradaDoBancoDeHorasCommand extends Command
             if ($tenant === null || $user === null) {
                 continue;
             }
-            $antes = $this->saldoDoAno($user, $tenant, (int) $hoje->format('Y'));
-            $depois = $this->lotes->calcular($user, $tenant, $hoje)->saldoAtualMinutos;
-            $linhas[] = [(int) $tenant->getId(), (int) $user->getId(), $antes, $depois, $depois - $antes];
+            $linhas[] = $this->linha($user, $tenant, $hoje);
             $this->em->clear();
         }
 
         return $linhas;
     }
 
-    /** O banco como era: só as competências do ano pedido. */
-    private function saldoDoAno(User $user, Tenant $tenant, int $ano): int
+    /** @return array{int, int, int, int, int, ?string} */
+    private function linha(User $user, Tenant $tenant, \DateTimeImmutable $hoje): array
     {
-        $saldos = $this->folha->saldosDoBancoPorCompetencia(
+        $inicio = $this->inicioContagem->resolver($user, $tenant);
+        $historico = $this->jornadas->historicoDe($user, $tenant);
+        $antes = $this->saldoDoAno($user, $tenant, $historico, $inicio, $hoje);
+        $depois = $this->lotes->calcular($user, $tenant, $hoje)->saldoAtualMinutos;
+
+        return [(int) $tenant->getId(), (int) $user->getId(), $antes, $depois, $depois - $antes, $this->motivoAParte($historico, $inicio, $hoje)];
+    }
+
+    /** Por que a pessoa muda também pela jornada da folha; null quando a jornada não muda nada para ela. */
+    private function motivoAParte(?HistoricoDeJornadas $historico, ?\DateTimeImmutable $inicio, \DateTimeImmutable $hoje): ?string
+    {
+        if ($inicio === null || $inicio > $hoje) {
+            return null; // nenhum dia contado, nas duas regras
+        }
+        if ($historico === null) {
+            return 'sem jornada pessoal';
+        }
+
+        return $historico->vigenteEm($inicio) === null ? 'dias antes da primeira versão' : null;
+    }
+
+    /** O banco como era: só as competências do ano de hoje, contadas só com as versões da jornada pessoal. */
+    private function saldoDoAno(User $user, Tenant $tenant, ?HistoricoDeJornadas $historico, ?\DateTimeImmutable $inicio, \DateTimeImmutable $hoje): int
+    {
+        $saldos = $this->folha->saldosDoBancoComJornada(
             $user,
             $tenant,
+            $historico,
             $this->feriados->findByTenant($tenant),
             $tenant->getJornadaTenant(),
-            $this->inicioContagem->resolver($user, $tenant),
+            $inicio,
+            $hoje,
         );
-        $prefixo = sprintf('%04d-', $ano);
+        $prefixo = $hoje->format('Y-');
 
         return array_sum(array_filter($saldos, static fn (string $competencia): bool => str_starts_with($competencia, $prefixo), ARRAY_FILTER_USE_KEY));
     }
 
     /**
-     * @param array{int, int, int, int, int} $linha
+     * @param array{int, int, int, int, int, ?string} $linha
      * @return list<string>
      */
     private function formatar(array $linha): array
     {
-        [$escritorio, $pessoa, $antes, $depois, $diferenca] = $linha;
+        [$escritorio, $pessoa, $antes, $depois, $diferenca] = $linha; // o motivo (6º) não entra aqui
 
         return [(string) $escritorio, (string) $pessoa, $this->horas($antes), $this->horas($depois), $this->horas($diferenca)];
     }
