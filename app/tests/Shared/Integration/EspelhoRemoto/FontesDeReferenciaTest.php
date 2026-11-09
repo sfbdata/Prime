@@ -247,6 +247,23 @@ final class FontesDeReferenciaTest extends KernelTestCase
         self::assertArrayNotHasKey('assinatura_signatario_rubrica#' . $pendente, $porLinha, 'quem não assinou não gera referência');
     }
 
+    #[TestDox('selfie cifrada de quem assinou no nível Reforçada (etapa 7): vira chave com o escritório do documento; sem selfie, não gera referência')]
+    public function testSelfieDaAssinatura(): void
+    {
+        self::bootKernel();
+        [$tenantId, $assinou, $pendente] = $this->signatariosDaAssinatura();
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $conexao->executeStatement('UPDATE assinatura_eletronica_signatario SET selfie_chave = ? WHERE id = ?', ['beefcafebeefcafebeefcafebeefcafe.cifrado', $assinou]);
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $selfie = $porLinha['assinatura_signatario_selfie#' . $assinou] ?? self::fail('selfie do signatário não listada');
+        self::assertSame(CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $selfie->chave?->categoria);
+        self::assertSame($tenantId, $selfie->chave?->escopo->tenantIdOuNull());
+        self::assertSame('beefcafebeefcafebeefcafebeefcafe.cifrado', $selfie->chave?->nome);
+        self::assertArrayNotHasKey('assinatura_signatario_selfie#' . $pendente, $porLinha, 'quem não mandou selfie não gera referência');
+    }
+
     /**
      * Um documento da Assinatura com dois signatários gravados, no escritório de uma fábrica.
      *
