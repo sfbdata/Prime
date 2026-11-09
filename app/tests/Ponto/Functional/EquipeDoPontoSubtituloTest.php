@@ -22,8 +22,9 @@ use Twig\Loader\ChainLoader;
 /**
  * O subtítulo da justificativa sai de um macro só (`ponto/_justificativa_macros.html.twig`, spec
  * `docs/specs/ponto-desenho-0811.md`, E5), usado por "Minhas Justificativas" (E3) e por "Justificativas a analisar"
- * (E5). O macro devolve o texto já escapado e sem espaço nas pontas; quem usa imprime como veio, sem `|trim` nem `~`,
- * para não escapá-lo de novo.
+ * (E5). O macro devolve o texto já escapado e sem espaço nas pontas; quem usa imprime como veio. Juntar com `~` vira
+ * texto comum e escapa de novo (era o defeito do `data-info`); o `|trim` do Twig 3 mantém o Markup, mas deixou de ser
+ * preciso.
  *
  * O macro de verdade só escreve nomes fixos e horas (`H:i`): nenhum dado chega a ter `&`. Para provar o escape, o
  * segundo teste troca o macro, só neste teste, por um que devolve `Entrada & saída <b>"x"</b>`, e confere as duas abas
