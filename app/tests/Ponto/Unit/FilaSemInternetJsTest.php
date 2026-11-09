@@ -148,10 +148,10 @@ final class FilaSemInternetJsTest extends TestCase
 
         $envio = self::corpo($fila, 'async function enviarAgora(url, usuarioId, escritorioId) {');
         self::assertMatchesRegularExpression("/if \\(destino === 'enviada'\\) \\{\\s+await remover\\(entrada\\.idEnvio\\);/", $envio);
-        self::assertMatchesRegularExpression("/\\} else if \\(destino === 'recusada'\\) \\{\\s+await remover\\(entrada\\.idEnvio\\);/", $envio, '422 tira da fila');
+        self::assertMatchesRegularExpression("/\\} else if \\(destino === 'recusada'\\) \\{\\s+(\\/\\/[^\\n]*\\n\\s+)*if \\(!\\(await recusar\\(entrada, resposta\\.mensagem\\)\\)\\) \\{/", $envio, '422 tira da fila (pela transação da recusa)');
         self::assertMatchesRegularExpression("/\\} else if \\(destino === 'retida'\\) \\{\\s+retidasNestaPagina\\.add\\(entrada\\.idEnvio\\);\\s+\\} else \\{\\s+break;/", $envio, '409 mantém (sem remover); tentar depois para a rodada');
-        self::assertSame(2, substr_count($envio, 'await remover('), 'só a enviada e a recusada saem da fila');
-        self::assertStringContainsString('mensagem: String(resposta.mensagem)', $envio, 'a mensagem do servidor vai para a tela');
+        self::assertSame(1, substr_count($envio, 'await remover('), 'a enviada sai por remover; a recusada, pela transação da recusa');
+        self::assertStringContainsString('mensagem: String(mensagem)', self::corpo($fila, 'async function recusar(entrada, mensagem) {'), 'a mensagem do servidor vai para a tela');
     }
 
     #[TestDox('O envio da fila é o de sempre, com o performance.now() do próprio envio e semInternet; uma execução por vez')]
@@ -188,7 +188,7 @@ final class FilaSemInternetJsTest extends TestCase
             self::assertStringNotContainsString($proibido, $fila);
         }
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $fila);
-        self::assertMatchesRegularExpression('/window\.PontoFila = Object\.freeze\(\{\s+disponivel,\s+guardar,\s+estado,\s+remover,\s+limpar,\s+enviarPendentes,\s+\}\);/', $fila);
+        self::assertMatchesRegularExpression('/window\.PontoFila = Object\.freeze\(\{\s+disponivel,\s+guardar,\s+estado,\s+remover,\s+limpar,\s+enviarPendentes,\s+apagarRecusas,\s+\}\);/', $fila);
     }
 
     #[TestDox('A tela carrega a fila depois do módulo da batida e antes do próprio script')]
@@ -234,7 +234,7 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertStringContainsString('const entrada = Object.assign({}, payload, { usuarioId: FILA_USUARIO_ID, escritorioId: FILA_ESCRITORIO_ID });', $guardar);
         self::assertMatchesRegularExpression('/if \(!payload\.idEnvio \|\| !filaDisponivel\(\)\) \{\s+return false;/', $guardar, 'sem identificador não há reenvio seguro');
         self::assertStringContainsString("mostrarAvisoBatida(aviso, 'info', false, 'guardada');", $guardar, 'sem o botão de atualizar, que levaria a tela sem conexão');
-        self::assertMatchesRegularExpression('/if \(!\(await window\.PontoFila\.guardar\(entrada\)\)\) \{\s+return false;\s+\}[\s\S]*await lerEstadoDaFila\(\);\s+return true;/', $guardar, 'gravou: o estado sai de uma leitura nova');
+        self::assertMatchesRegularExpression('/if \(!\(await window\.PontoFila\.guardar\(entrada\)\)\) \{\s+return false;\s+\}[\s\S]*await lerEstadoDaFila\(entrada\);\s+return true;/', $guardar, 'gravou: o estado sai de uma leitura nova');
     }
 
     #[TestDox('A batida guardada aparece como já batida (P7 da E1): verde, sem clique e com a hora do toque')]
@@ -382,7 +382,9 @@ final class FilaSemInternetJsTest extends TestCase
         // O resultado da fila no meio de um toque espera sem reagendar, e entra quando o botão é solto.
         $mostrar = self::corpo($tela, 'function mostrarResultadoDaFila(resultado) {');
         self::assertStringNotContainsString('setTimeout', $mostrar, 'reagendar a cada 1 s era o defeito');
-        self::assertMatchesRegularExpression('/if \(envioEmAndamento\) \{\s+resultadoDaFilaEmEspera = juntarPartesDaFila\(resultadoDaFilaEmEspera, parte\);\s+return;\s+\}/', $mostrar);
+        self::assertMatchesRegularExpression('/\s+entregarResultadoDaFila\(\);\s+\}$/', $mostrar);
+        self::assertMatchesRegularExpression('/^function entregarResultadoDaFila\(\) \{\s+if \(envioEmAndamento\) \{\s+return;\s+\}\s+soltarResultadoDaFilaEmEspera\(\);\s+\}$/', self::corpo($tela, 'function entregarResultadoDaFila() {'));
+        self::assertStringNotContainsString('setTimeout', self::corpo($tela, 'function entregarResultadoDaFila() {'));
         self::assertSame(2, substr_count($tela, 'mostrarResultadoDaFila('), 'a declaração e a rodada; ela não chama a si mesma');
         self::assertMatchesRegularExpression('/resultadoDaFilaEmEspera = null;\s+concluirResultadoDaFila\(parte\);/', self::corpo($tela, 'function soltarResultadoDaFilaEmEspera() {'), 'sai da espera antes de mostrar');
         self::assertMatchesRegularExpression('/btnPonto\.innerHTML = rotuloBotaoBatida\(\);\s+updateButtonState\(\);\s+(\/\/[^\n]*\n\s+)*soltarResultadoDaFilaEmEspera\(\);\s+\}$/', self::corpo($tela, 'function liberarBotaoBatida() {'));
@@ -399,7 +401,7 @@ final class FilaSemInternetJsTest extends TestCase
             self::corpo($fila, 'async function naLoja(nome, modo, trabalho) {')
         );
         preg_match_all('/banco\.transaction\(([^)]*)\)/', $fila, $transacoes);
-        self::assertCount(3, $transacoes[1]);
+        self::assertCount(5, $transacoes[1], 'naLoja (2), a chave, a leitura das duas lojas e a recusa');
         foreach ($transacoes[1] as $argumentos) {
             if (str_contains($argumentos, 'readwrite') || $argumentos === 'nome, modo, ESCRITA_DURAVEL') {
                 self::assertStringEndsWith(', ESCRITA_DURAVEL', $argumentos, 'escrita sem durabilidade: ' . $argumentos);
@@ -456,7 +458,7 @@ final class FilaSemInternetJsTest extends TestCase
             '/if \(entrada\.escritorioId === escritorioId && !retidasNestaPagina\.has\(entrada\.idEnvio\)\) \{\s+pendentes\+\+;\s+\} else \{\s+emOutroEscritorio\+\+;/',
             self::corpo($fila, 'function contagemDe(entradas, usuarioId, escritorioId) {')
         );
-        self::assertStringContainsString('guardadasDaPagina = estado.entradas;', self::corpo(self::tela(), 'function lerEstadoDaFila() {'));
+        self::assertStringContainsString('guardadasDaPagina = estado.entradas;', self::corpo(self::tela(), 'function lerEstadoDaFila(gravada) {'));
     }
 
     #[TestDox('Revisão 8: na carga, a fila apaga de qualquer pessoa o que não abre com a chave e o que passou de 7 dias')]
@@ -467,12 +469,12 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertStringContainsString('const IDADE_MAXIMA_MS = 7 * 24 * 60 * 60 * 1000;', $fila);
         $limpar = self::corpo($fila, 'async function limpar(agoraMs) {');
         $chave = strpos($limpar, 'const chave = await obterChave();');
-        $leitura = strpos($limpar, "naLoja(LOJA_ENTRADAS, 'readonly', (loja) => loja.getAll())");
+        $leitura = strpos($limpar, "naLoja(nomeDaLoja, 'readonly', (loja) => loja.getAll())");
         self::assertIsInt($chave, 'sem a chave não apaga nada');
         self::assertIsInt($leitura);
         self::assertLessThan($leitura, $chave);
-        self::assertMatchesRegularExpression('/try \{\s+entrada = await decifrarCom\(chave, registro\);\s+\} catch \(erro\) \{\s+entrada = null;/', $limpar, 'a que não abre é apagada');
-        self::assertMatchesRegularExpression('/if \(entrada && \(!porIdade \|\| agoraMs - Number\(entrada\.horaAparelho\) <= IDADE_MAXIMA_MS\)\) \{\s+continue;\s+\}\s+if \(await remover\(registro\.idEnvio\)\) \{/', $limpar);
+        self::assertMatchesRegularExpression('/try \{\s+guardado = await abrir\(chave, registro\);\s+\} catch \(erro\) \{\s+guardado = null;/', $limpar, 'a que não abre é apagada');
+        self::assertMatchesRegularExpression('/if \(guardado && \(!porIdade \|\| agoraMs - Number\(guardado\.horaAparelho\) <= IDADE_MAXIMA_MS\)\) \{\s+continue;\s+\}\s+if \(await removerDa\(nomeDaLoja, \[registro\.idEnvio\]\)\) \{/', $limpar);
         self::assertStringNotContainsString('daPessoaEDoEscritorio', $limpar, 'de qualquer pessoa: aparelho compartilhado');
         self::assertStringNotContainsString('usuarioId', $limpar);
 
@@ -501,40 +503,43 @@ final class FilaSemInternetJsTest extends TestCase
 
         // A rodada não devolve retrato da fila: o retrato é do começo dela e perde a batida guardada no meio.
         $envio = self::corpo($fila, 'async function enviarAgora(url, usuarioId, escritorioId) {');
-        self::assertStringContainsString('const resultado = { enviadas: 0, recusadas: [] };', $envio);
+        self::assertStringContainsString('const resultado = { enviadas: 0, recusadas: 0 };', $envio);
         foreach (['restantes', 'pendentes', 'emOutroEscritorio', 'contagemDe('] as $retrato) {
             self::assertStringNotContainsString($retrato, $envio, 'a rodada devolveu estado: ' . $retrato);
         }
         // O estado é de uma leitura só (entradas e contagens da mesma), exposto no lugar de listar e contar.
         $estado = self::corpo($fila, 'async function estado(usuarioId, escritorioId) {');
-        self::assertSame(1, substr_count($estado, 'await todas()'));
+        self::assertSame(1, substr_count($estado, 'await lerFilaERecusas()'), 'uma leitura só, das duas lojas');
+        self::assertStringNotContainsString('todas()', $estado);
         self::assertStringContainsString('contagemDe(guardadas, usuarioId, escritorioId)', $estado);
         self::assertStringNotContainsString('function listar(', $fila);
         self::assertStringNotContainsString('function contar(', $fila);
 
         // Na tela, um só lugar escreve a lista, a caixa e `filaTemPendentes`.
-        $ler = self::corpo($tela, 'function lerEstadoDaFila() {');
+        $ler = self::corpo($tela, 'function lerEstadoDaFila(gravada) {');
         self::assertMatchesRegularExpression(
-            '/const estado = await window\.PontoFila\.estado\(FILA_USUARIO_ID, FILA_ESCRITORIO_ID\);\s+if \(!estado\) \{\s+return;\s+\}\s+guardadasDaPagina = estado\.entradas;\s+desenharCaixaDaFila\(estado\);\s+aplicarGuardadasNaTela\(\);/',
+            '/const estado = await window\.PontoFila\.estado\(FILA_USUARIO_ID, FILA_ESCRITORIO_ID\);\s+if \(!estado\) \{[\s\S]*?return;\s+\}\s+guardadasDaPagina = estado\.entradas;\s+desenharCaixaDaFila\(estado\);\s+aplicarGuardadasNaTela\(\);/',
             $ler
         );
         self::assertStringContainsString('const leitura = leituraDaFila.then(', $ler, 'as leituras andam uma depois da outra');
         self::assertStringContainsString('leituraDaFila = leitura;', $ler);
-        self::assertSame(2, substr_count($tela, 'guardadasDaPagina = '), 'a declaração e a leitura nova');
+        self::assertSame(3, substr_count($tela, 'guardadasDaPagina = '), 'a declaração, a leitura nova e o tipo do toque sem leitura');
+        self::assertSame(2, substr_count($ler, 'guardadasDaPagina = '), 'as duas trocas moram na leitura');
         self::assertSame(2, substr_count($tela, 'desenharCaixaDaFila('), 'a declaração e a leitura nova');
-        self::assertSame(2, substr_count($tela, 'filaTemPendentes = '), 'a declaração e a caixa');
+        self::assertSame(3, substr_count($tela, 'filaTemPendentes = '), 'a declaração, a caixa e o tipo do toque sem leitura');
+        self::assertSame(1, substr_count($ler, 'filaTemPendentes = '));
         self::assertStringNotContainsString('.restantes', $tela);
         self::assertStringNotContainsString('PontoFila.listar', $tela);
         self::assertStringNotContainsString('PontoFila.contar', $tela);
 
         // Lida depois de cada rodada (antes do aviso, que olha se esvaziou) e de cada gravação.
         self::assertMatchesRegularExpression(
-            '/const resultado = await window\.PontoFila\.enviarPendentes\([^;]+;\s+(\/\/[^\n]*\n\s+)*await lerEstadoDaFila\(\);\s+if \(resultado\) \{\s+mostrarResultadoDaFila\(resultado\);/',
+            '/const resultado = await window\.PontoFila\.enviarPendentes\([^;]+;\s+(\/\/[^\n]*\n\s+)*await lerEstadoDaFila\(\);\s+mostrarResultadoDaFila\(resultado\);/',
             self::corpo($tela, 'function rodadaDaFila() {')
         );
-        self::assertStringContainsString('await lerEstadoDaFila();', self::corpo($tela, 'async function guardarNaFila(payload) {'));
+        self::assertStringContainsString('await lerEstadoDaFila(entrada);', self::corpo($tela, 'async function guardarNaFila(payload) {'));
         $mostrar = self::corpo($tela, 'function mostrarResultadoDaFila(resultado) {');
-        self::assertStringContainsString('const parte = { enviadas: resultado.enviadas, recusadas: resultado.recusadas.slice() };', $mostrar);
+        self::assertStringContainsString('resultadoDaFilaEmEspera = juntarPartesDaFila(resultadoDaFilaEmEspera, { enviadas: resultado.enviadas, recusadas: [] });', $mostrar, 'da rodada, só as enviadas');
         foreach (['guardadasDaPagina', 'desenharCaixaDaFila', 'filaTemPendentes', 'aplicarGuardadasNaTela'] as $estadoDaPagina) {
             self::assertStringNotContainsString($estadoDaPagina, $mostrar, 'o resultado da rodada mexeu no estado: ' . $estadoDaPagina);
         }
@@ -562,42 +567,119 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertStringNotContainsString('limpar(Date.now())', $tela, 'o relógio do aparelho pulando para a frente apagaria batida de menos de 72 h');
         self::assertStringContainsString("const porIdade = typeof agoraMs === 'number' && Number.isFinite(agoraMs);", $limpar);
         self::assertMatchesRegularExpression('/if \(!disponivel\(\)\) \{\s+return 0;\s+\}/', $limpar, 'sem o agora, a que não abre ainda sai');
-        self::assertStringContainsString('(!porIdade || agoraMs - Number(entrada.horaAparelho) <= IDADE_MAXIMA_MS)', $limpar);
+        self::assertStringContainsString('(!porIdade || agoraMs - Number(guardado.horaAparelho) <= IDADE_MAXIMA_MS)', $limpar);
     }
 
-    #[TestDox('3ª revisão, 4: a recusa ainda não mostrada fica na sessão da aba (sem posição), aparece na carga seguinte e sai depois de mostrada')]
-    public function testTerceiraRevisaoRecusaSobreviveARecarga(): void
+    #[TestDox('4ª revisão, 1: a entrada recusada sai da fila e a recusa entra na loja dela na MESMA transação do IndexedDB, cifrada e sem posição')]
+    public function testQuartaRevisaoRecusaNaMesmaTransacao(): void
+    {
+        $fila = self::fila();
+
+        // A loja das recusas, criada na versão 2 do banco sem perder a chave nem as entradas.
+        self::assertStringContainsString('const VERSAO_DO_BANCO = 2;', $fila);
+        self::assertStringContainsString("const LOJA_RECUSAS = 'recusas';", $fila);
+        self::assertMatchesRegularExpression(
+            "/if \\(!banco\\.objectStoreNames\\.contains\\(LOJA_RECUSAS\\)\\) \\{\\s+banco\\.createObjectStore\\(LOJA_RECUSAS, \\{ keyPath: 'idEnvio' \\}\\);/",
+            self::corpo($fila, 'function abrirBanco() {')
+        );
+
+        // Uma transação só, nas duas lojas: a remoção da fila e a gravação da recusa. Ou as duas, ou nenhuma.
+        $recusar = self::corpo($fila, 'async function recusar(entrada, mensagem) {');
+        self::assertMatchesRegularExpression(
+            "/const transacao = banco\\.transaction\\(\\[LOJA_ENTRADAS, LOJA_RECUSAS\\], 'readwrite', ESCRITA_DURAVEL\\);\\s+transacao\\.objectStore\\(LOJA_ENTRADAS\\)\\.delete\\(entrada\\.idEnvio\\);\\s+transacao\\.objectStore\\(LOJA_RECUSAS\\)\\.put\\(registro\\);\\s+transacao\\.oncomplete = \\(\\) => resolve\\(\\);/",
+            $recusar
+        );
+        self::assertSame(1, substr_count($recusar, 'banco.transaction('), 'uma transação só');
+        self::assertStringNotContainsString('remover(', $recusar, 'a remoção é a da transação da recusa');
+        self::assertStringNotContainsString('naLoja(', $recusar);
+        // Cifrada ANTES de a transação abrir: uma espera fora do IndexedDB no meio dela a encerraria.
+        $cifra = strpos($recusar, 'const registro = await cifrarRecusa(recusa);');
+        self::assertIsInt($cifra);
+        self::assertLessThan((int) strpos($recusar, 'banco.transaction('), $cifra);
+
+        // Na rodada, a recusada sai só por aqui; não deu, nada mudou e a rodada para (volta na próxima).
+        $envio = self::corpo($fila, 'async function enviarAgora(url, usuarioId, escritorioId) {');
+        self::assertMatchesRegularExpression(
+            "/\\} else if \\(destino === 'recusada'\\) \\{\\s+(\\/\\/[^\\n]*\\n\\s+)*if \\(!\\(await recusar\\(entrada, resposta\\.mensagem\\)\\)\\) \\{\\s+break;\\s+\\}\\s+resultado\\.recusadas\\+\\+;/",
+            $envio
+        );
+        self::assertStringNotContainsString('recusadas.push(', $envio, 'nada de recusa só na memória da página');
+
+        // Cifrada como a fila, com dado autenticado próprio (registro levado de uma loja para a outra não abre).
+        self::assertStringContainsString("const PREFIXO_DA_RECUSA = 'recusa:';", $fila);
+        $cifrar = self::corpo($fila, 'async function cifrarRecusa(recusa) {');
+        self::assertStringContainsString('const iv = crypto.getRandomValues(new Uint8Array(TAMANHO_DO_IV));', $cifrar);
+        self::assertStringContainsString("{ name: 'AES-GCM', iv, additionalData: bytesDoTexto(PREFIXO_DA_RECUSA + recusa.idEnvio) }", $cifrar);
+        self::assertStringContainsString(
+            "{ name: 'AES-GCM', iv: registro.iv, additionalData: bytesDoTexto(PREFIXO_DA_RECUSA + registro.idEnvio) }",
+            self::corpo($fila, 'async function decifrarRecusaCom(chave, registro) {')
+        );
+        // Só tipo, hora do toque e mensagem, com a pessoa e o escritório; nada de posição.
+        $normalizar = self::corpo($fila, 'function normalizarRecusa(recusa) {');
+        preg_match_all('/^\s+(\w+): /m', $normalizar, $campos);
+        self::assertSame(['idEnvio', 'tipo', 'horaAparelho', 'mensagem', 'usuarioId', 'escritorioId'], $campos[1]);
+        foreach (['latitude', 'longitude', 'precisaoGps', 'CAMPOS_DA_POSICAO'] as $posicao) {
+            self::assertStringNotContainsString($posicao, $normalizar);
+        }
+
+        // O estado devolve as recusas desta pessoa neste escritório, da mesma leitura das entradas.
+        self::assertStringContainsString(
+            '{ recusas: recusas.filter((recusa) => daPessoaEDoEscritorio(recusa, usuarioId, escritorioId)) }',
+            self::corpo($fila, 'async function estado(usuarioId, escritorioId) {')
+        );
+        self::assertStringContainsString(
+            "const transacao = banco.transaction([LOJA_ENTRADAS, LOJA_RECUSAS], 'readonly');",
+            self::corpo($fila, 'async function lerFilaERecusas() {')
+        );
+        // A limpeza de 7 dias e a de "não abre" valem para as duas lojas.
+        self::assertStringContainsString(
+            '[[LOJA_ENTRADAS, decifrarCom], [LOJA_RECUSAS, decifrarRecusaCom]]',
+            self::corpo($fila, 'async function limpar(agoraMs) {')
+        );
+    }
+
+    #[TestDox('4ª revisão, 1: a tela mostra as recusas da leitura nova e apaga cada uma só depois de mostrar; nada de sessionStorage')]
+    public function testQuartaRevisaoTelaMostraDaLeituraEApagaDepois(): void
     {
         $tela = self::tela();
 
-        self::assertStringContainsString("const CHAVE_DAS_RECUSAS = 'bj-ponto-fila-recusas';", $tela);
-        // Para a sessão antes de qualquer espera.
-        $mostrar = self::corpo($tela, 'function mostrarResultadoDaFila(resultado) {');
-        $guarda = strpos($mostrar, 'guardarRecusasNaSessao(parte.recusadas);');
-        $espera = strpos($mostrar, 'if (envioEmAndamento) {');
-        self::assertIsInt($guarda);
-        self::assertIsInt($espera);
-        self::assertLessThan($espera, $guarda);
-        // Só tipo, hora do toque e mensagem, com a pessoa e o escritório; nada de posição.
-        $guardar = self::corpo($tela, 'function guardarRecusasNaSessao(recusas) {');
-        preg_match_all('/^\s+(\w+): /m', $guardar, $campos);
-        self::assertSame(['idEnvio', 'tipo', 'horaAparelho', 'mensagem', 'usuarioId', 'escritorioId'], $campos[1]);
-        foreach (['latitude', 'longitude', 'precisaoGps'] as $posicao) {
-            self::assertStringNotContainsString($posicao, $guardar);
-        }
-        self::assertStringContainsString('idEnvio: entrada.idEnvio, tipo: entrada.tipo', self::corpo(self::fila(), 'async function enviarAgora(url, usuarioId, escritorioId) {'));
-        // Mostrada, sai; na carga, mostra as da pessoa e limpa a sessão.
-        self::assertMatchesRegularExpression('/escreverAvisoDaFila\(linhas, tom\);\s+apagarRecusasDaSessao\(parte\.recusadas\);/', self::corpo($tela, 'function avisarResultadoDaFila(parte) {'));
-        $carga = self::corpo($tela, 'function mostrarRecusasDaSessao() {');
-        self::assertStringContainsString('recusa.usuarioId === FILA_USUARIO_ID && recusa.escritorioId === FILA_ESCRITORIO_ID', $carga);
-        self::assertMatchesRegularExpression('/gravarRecusasDaSessao\(\[\]\);\s+\}$/', $carga);
-        self::assertStringContainsString('mostrarRecusasDaSessao();', self::corpo($tela, 'async function iniciarFila() {'));
-        // O `sessionStorage` só é tocado dentro de try/catch.
-        self::assertSame(3, substr_count($tela, 'window.sessionStorage.'));
-        foreach (['function lerRecusasDaSessao() {', 'function gravarRecusasDaSessao(recusas) {'] as $funcao) {
-            self::assertMatchesRegularExpression('/^function \w+\([^)]*\) \{\s+try \{/', self::corpo($tela, $funcao), $funcao);
-        }
-        self::assertStringNotContainsString('sessionStorage', self::fila(), 'o módulo não toca a tela nem a sessão');
+        self::assertStringNotContainsString('sessionStorage', $tela . self::fila(), 'uma fonte só: a loja das recusas');
+        self::assertStringNotContainsString('bj-ponto-fila-recusas', $tela);
+
+        // As recusas saem da leitura nova (as ainda não entregues nesta página) e esperam quem pediu a leitura entregar.
+        $ler = self::corpo($tela, 'function lerEstadoDaFila(gravada) {');
+        self::assertStringContainsString('.filter((recusa) => !recusasNaTela.has(recusa.idEnvio));', $ler, 'duas leituras não repetem a recusa');
+        self::assertStringContainsString('resultadoDaFilaEmEspera = juntarPartesDaFila(resultadoDaFilaEmEspera, { enviadas: 0, recusadas: novas });', $ler);
+        self::assertStringNotContainsString('apagarRecusas', $ler, 'ler não apaga: só mostrar apaga');
+
+        // Apagadas depois de escritas no aviso, nunca antes, e em nenhum outro lugar.
+        $avisar = self::corpo($tela, 'function avisarResultadoDaFila(parte) {');
+        $escreve = strpos($avisar, 'escreverAvisoDaFila(linhas, tom);');
+        $apaga = strpos($avisar, 'window.PontoFila.apagarRecusas(parte.recusadas.map((recusa) => recusa.idEnvio));');
+        self::assertIsInt($escreve);
+        self::assertIsInt($apaga);
+        self::assertLessThan($apaga, $escreve);
+        self::assertSame(1, substr_count($tela, 'PontoFila.apagarRecusas('), 'só depois de mostrar');
+
+        // A rodada não traz recusa nenhuma; a carga entrega o que a leitura achou na loja.
+        self::assertStringNotContainsString('resultado.recusadas', $tela);
+        self::assertMatchesRegularExpression(
+            '/await lerEstadoDaFila\(\);\s+entregarResultadoDaFila\(\);\s+enviarFila\(\);/',
+            self::corpo($tela, 'async function iniciarFila() {')
+        );
+    }
+
+    #[TestDox('4ª revisão, 2: sem leitura logo depois de gravar o toque, o tipo dele é marcado direto e o envio de cada minuto fica ligado')]
+    public function testQuartaRevisaoTipoMarcadoSemLeitura(): void
+    {
+        $tela = self::tela();
+
+        self::assertStringContainsString('await lerEstadoDaFila(entrada);', self::corpo($tela, 'async function guardarNaFila(payload) {'));
+        self::assertSame(1, substr_count($tela, 'lerEstadoDaFila(entrada)'), 'só o toque passa a entrada gravada');
+        self::assertMatchesRegularExpression(
+            '/if \(!estado\) \{\s+if \(gravada && !guardadasDaPagina\.some\(\(entrada\) => entrada\.idEnvio === gravada\.idEnvio\)\) \{\s+guardadasDaPagina = guardadasDaPagina\.concat\(\[gravada\]\);\s+filaTemPendentes = true;\s+aplicarGuardadasNaTela\(\);\s+\}\s+return;\s+\}/',
+            self::corpo($tela, 'function lerEstadoDaFila(gravada) {')
+        );
     }
 
     #[TestDox('3ª revisão, 5: a busca da tela é numerada no início e só a resposta da mais nova iniciada entra')]
