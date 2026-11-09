@@ -223,6 +223,44 @@ final class MotivoDaJustificativaControllerTest extends JusPrimeWebTestCase
         self::assertSame(['Antigo.', 'Antigo.', 'Antigo.'], array_values($this->motivosDoLote($lote)));
     }
 
+    #[TestDox('Sem lote (batchId vazio), o motivo editado fica só no dia editado')]
+    public function testSemLoteSoODiaEditado(): void
+    {
+        $editado = $this->justificativa($this->eu, $this->escritorio, $this->mesPassado->modify('+4 days'), 'pendente', ['batchId' => '', 'motivo' => 'Antigo.']);
+        $vizinho = $this->justificativa($this->eu, $this->escritorio, $this->mesPassado->modify('+5 days'), 'pendente', ['batchId' => '', 'motivo' => 'Antigo.']);
+
+        $this->editar($editado, ['tipo' => 'atestado_medico', 'motivo' => 'Motivo novo.']);
+
+        self::assertContains('Justificativa atualizada com sucesso.', $this->flashes()['success'] ?? []);
+        $conexao = $this->emSemFiltro()->getConnection();
+        self::assertSame('Motivo novo.', $conexao->fetchOne('SELECT motivo FROM justificativa_ponto WHERE id = ?', [$editado->getId()]));
+        self::assertSame('Antigo.', $conexao->fetchOne('SELECT motivo FROM justificativa_ponto WHERE id = ?', [$vizinho->getId()]), 'batchId vazio não junta os dias');
+    }
+
+    #[TestDox('Editar o motivo pelo 2º dia do lote também muda os 3 dias')]
+    public function testMotivoEditadoPeloSegundoDia(): void
+    {
+        $lote = 'lote-' . uniqid();
+        $dias = $this->loteDeTresDias($lote, ['pendente', 'pendente', 'pendente']);
+
+        $this->editar($dias[1], ['tipo' => 'atestado_medico', 'motivo' => 'Pelo segundo dia.']);
+
+        self::assertSame(['Pelo segundo dia.', 'Pelo segundo dia.', 'Pelo segundo dia.'], array_values($this->motivosDoLote($lote)));
+    }
+
+    #[TestDox('Motivo "0" aparece na aba Minhas Justificativas (no Twig, "0" é falso, mas não é vazio)')]
+    public function testMotivoZeroAparece(): void
+    {
+        // Mês corrente: o vínculo do cenário nasce hoje, e a tela não abre competência anterior a ele.
+        $hoje = new \DateTimeImmutable('today');
+        $this->justificativa($this->eu, $this->escritorio, $hoje, 'pendente', ['motivo' => '0']);
+
+        $tela = $this->client->request('GET', '/ponto/?competencia=' . $hoje->format('Y-m') . '&aba=justificativas');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['0'], $tela->filter('#ponto-painel-justificativas td.pe-just-celtipo > div.pe-just-mot')->each(static fn ($n): string => $n->text()));
+    }
+
     #[TestDox('Justificativa de outra pessoa do mesmo escritório: a edição é negada e o motivo dela não muda')]
     public function testEdicaoDeOutraPessoaENegada(): void
     {

@@ -57,6 +57,29 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         self::assertNotSame($c['anexoAntigo'], $anexos[0], 'o anexo deveria ter mudado');
     }
 
+    #[TestDox('Anexo novo e motivo novo na mesma edição: o lote inteiro fica com os dois (quem grava os outros dias é a troca do anexo)')]
+    public function testAnexoEMotivoNoLoteInteiro(): void
+    {
+        [$client, $c] = $this->preparar(3);
+        $primeiro     = $c['lote'][0];
+
+        $client->request(
+            'POST',
+            '/ponto/justificativa/' . $primeiro->getId() . '/editar',
+            ['_token' => 'TOKEN_editar_justificativa_' . $primeiro->getId(), 'tipo' => 'atestado_medico', 'motivo' => 'Motivo com atestado novo.'],
+            ['anexo' => $this->upload()],
+        );
+
+        self::assertResponseRedirects();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        foreach ($c['lote'] as $registro) {
+            $dia = $em->find(JustificativaPonto::class, $registro->getId());
+            self::assertSame('Motivo com atestado novo.', $dia->getMotivo());
+            self::assertNotSame($c['anexoAntigo'], $dia->getAnexoPath());
+        }
+    }
+
     #[TestDox('POST com anexo inválido não grava NADA — nem os outros campos da edição')]
     public function testAnexoInvalidoNaoGravaOsOutrosCampos(): void
     {

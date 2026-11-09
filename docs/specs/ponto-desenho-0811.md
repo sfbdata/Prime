@@ -468,7 +468,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     mesmo tipo de batida e o mesmo H:i do gravado, o horário gravado fica intacto, com os segundos (editar só o motivo
     não troca 14:32:10 por 14:32:00); só um H:i novo é regravado, com :00 (revisão da E4). O motivo editado vai para
     todos os dias em análise do mesmo lote (mesmo `batchId`, mesma pessoa e mesmo escritório); dia já analisado do lote
-    guarda o motivo dele (revisão da E4). O lápis abre por delegação (`data-justificativa-editar`), sem `onclick`;
+    guarda o motivo dele (revisão da E4). Risco residual aceito (re-revisão da E4): sem troca de anexo, a edição trava
+    só a linha editada; se o gestor analisar outro dia do lote no mesmo instante, esse dia pode ficar com o motivo novo.
+    Muda só o texto (o UPDATE leva só a coluna `motivo`): situação, abono e horas ficam como o gestor deixou. Com troca
+    de anexo não há corrida (o lote todo pendente é conferido sob trava). Na ficha, o resumo do lote mostra o motivo do
+    1º dia, como já mostrava o tipo. O lápis abre por delegação (`data-justificativa-editar`), sem `onclick`;
   - o motivo aparece na aba "Minhas Justificativas" abaixo do tipo (L184) e, na ficha do gestor, uma linha "Motivo" no
     resumo do lote (decisão da implementação: quem analisa precisa ver o que foi escrito). Os parciais da ficha
     (`_justificativa_calendario`, `_justificativa_campos`) ficaram intactos;
