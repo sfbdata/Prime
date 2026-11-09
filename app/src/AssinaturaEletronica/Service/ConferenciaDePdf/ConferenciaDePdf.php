@@ -8,7 +8,7 @@ namespace App\AssinaturaEletronica\Service\ConferenciaDePdf;
  * Motor de conferência de PDF já assinado (contrato: `docs/specs/assinatura-documentos-etapa-5-motor.md`). Porta do
  * `analisar` e do `umaAss` do protótipo `bj-assina-pdf.js`: acha cada /ByteRange, confere a faixa, o resumo e a chave
  * de cada assinatura, lê o DocMDP e junta tudo num veredito com motivo. Também confere o prefixo com a versão anterior
- * e o CPF esperado do signatário.
+ * e o CPF esperado do signatário, e analisa o acréscimo de cada assinatura (`AnalisadorDeAcrescimo`, M27).
  *
  * Sem estado e sem disco. Nenhuma exceção sai daqui: PDF que não dá para ler vira `ilegivel` com motivo. Confere só a
  * integridade e o vínculo do certificado com a assinatura: o titular é o que o certificado declara, e cadeia,
@@ -69,6 +69,9 @@ final class ConferenciaDePdf
             foreach ($declaracoes as $indice => $declaracao) {
                 $assinaturas[] = $this->umaAssinatura($pdf, $declaracao, $indice + 1);
             }
+
+            $tamanhoAnterior = $prefixo === ConferenciaDoPrefixo::Confere ? \strlen((string) $versaoAnterior) : null;
+            $assinaturas = AnalisadorDeAcrescimo::analisar($pdf, $assinaturas, $tamanhoAnterior);
 
             return self::resultado($pdf, $assinaturas, $prefixo, $versaoAnterior, $cpfEsperado);
         } catch (\Throwable) {
@@ -403,6 +406,14 @@ final class ConferenciaDePdf
         }
         if ($alteradoDepois) {
             return [SituacaoDaConferencia::Alterado, self::MOTIVO_DOCMDP];
+        }
+        // O acréscimo que muda o conteúdo vem antes do que só não foi lido: o motivo nomeia o objeto (M27).
+        foreach ([ConferenciaDoAcrescimo::MudaConteudo, ConferenciaDoAcrescimo::NaoConferido] as $problema) {
+            foreach ($assinaturas as $assinatura) {
+                if ($assinatura->acrescimo === $problema) {
+                    return [SituacaoDaConferencia::NaoConferido, (string) $assinatura->motivoDoAcrescimo];
+                }
+            }
         }
         foreach ($assinaturas as $assinatura) {
             if ($assinatura->veredito === VereditoDaAssinatura::NaoConferida) {

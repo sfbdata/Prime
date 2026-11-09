@@ -244,18 +244,64 @@ final class OficinaDePdfAssinado
         ]);
     }
 
-    /** Acréscimo incremental (como o assinador faz na segunda assinatura) com o novo /Sig reservado. */
-    public static function acrescimoParaAssinar(string $anterior, string $extraNoDicionario = '', string $subFiltro = 'ETSI.CAdES.detached'): string
+    /**
+     * Acréscimo incremental (como o assinador faz na segunda assinatura) com o novo /Sig reservado.
+     *
+     * `$widget` é o número do campo novo (o /Sig fica no seguinte). `$trocas` troca, acrescenta (número => corpo) ou
+     * tira (null) objetos do acréscimo; `$entradasNoIndice` troca a entrada da tabela `xref` de um número (posição,
+     * ou o texto inteiro da entrada); `$antesDoIndice` vai cru entre os objetos e a tabela.
+     *
+     * @param array<int, string|null> $trocas
+     * @param array<int, int|string>  $entradasNoIndice
+     */
+    public static function acrescimoParaAssinar(
+        string $anterior,
+        string $extraNoDicionario = '',
+        string $subFiltro = 'ETSI.CAdES.detached',
+        array $trocas = [],
+        array $entradasNoIndice = [],
+        string $antesDoIndice = '',
+        int $widget = 6,
+    ): string {
+        preg_match_all('/startxref\s+(\d+)/', $anterior, $partes);
+        $anteriorXref = (int) end($partes[1]);
+        $assinatura = $widget + 1;
+        $objetos = array_filter(array_replace([
+            $widget => '<</Type/Annot/Subtype/Widget/FT/Sig/T(Assinatura2)/V ' . $assinatura . ' 0 R/Rect[0 0 0 0]/F 132/P 3 0 R>>',
+            1 => '<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[4 0 R ' . $widget . ' 0 R]/SigFlags 3>>>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Annots[4 0 R ' . $widget . ' 0 R]>>',
+            $assinatura => self::dicionarioDaAssinatura($extraNoDicionario, self::RESERVA, $subFiltro),
+        ], $trocas), static fn (?string $corpo): bool => $corpo !== null);
+
+        $pdf = $anterior;
+        $posicoes = [];
+        foreach ($objetos as $numero => $corpo) {
+            $posicoes[$numero] = \strlen($pdf);
+            $pdf .= $numero . " 0 obj\n" . $corpo . "\nendobj\n";
+        }
+        $pdf .= $antesDoIndice;
+        $posicoes = array_replace($posicoes, $entradasNoIndice);
+        ksort($posicoes);
+        $xref = \strlen($pdf);
+        $pdf .= "xref\n";
+        foreach ($posicoes as $numero => $posicao) {
+            $pdf .= $numero . " 1\n" . (\is_int($posicao) ? \sprintf('%010d 00000 n ', $posicao) : $posicao) . "\n";
+        }
+        $tamanho = max(8, max(array_keys($posicoes)) + 1);
+
+        return $pdf . "trailer\n<</Size " . $tamanho . '/Root 1 0 R/Prev ' . $anteriorXref . ">>\nstartxref\n" . $xref . "\n%%EOF\n";
+    }
+
+    /**
+     * Acréscimo sem assinatura (como uma edição comum do PDF), com os objetos dados e a tabela `xref`. O /Size é um a
+     * mais que o maior número, ou o `$tamanho` dado.
+     *
+     * @param array<int, string> $objetos
+     */
+    public static function acrescimoSemAssinatura(string $anterior, array $objetos, ?int $tamanho = null): string
     {
         preg_match_all('/startxref\s+(\d+)/', $anterior, $partes);
         $anteriorXref = (int) end($partes[1]);
-        $objetos = [
-            6 => '<</Type/Annot/Subtype/Widget/FT/Sig/T(Assinatura2)/V 7 0 R/Rect[0 0 0 0]/F 132/P 3 0 R>>',
-            1 => '<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[4 0 R 6 0 R]/SigFlags 3>>>>',
-            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Annots[4 0 R 6 0 R]>>',
-            7 => self::dicionarioDaAssinatura($extraNoDicionario, self::RESERVA, $subFiltro),
-        ];
-
         $pdf = $anterior;
         $posicoes = [];
         foreach ($objetos as $numero => $corpo) {
@@ -269,7 +315,9 @@ final class OficinaDePdfAssinado
             $pdf .= $numero . " 1\n" . \sprintf('%010d 00000 n ', $posicao) . "\n";
         }
 
-        return $pdf . "trailer\n<</Size 8/Root 1 0 R/Prev " . $anteriorXref . ">>\nstartxref\n" . $xref . "\n%%EOF\n";
+        $tamanho ??= max(5, ...array_keys($posicoes)) + 1;
+
+        return $pdf . "trailer\n<</Size " . $tamanho . '/Root 1 0 R/Prev ' . $anteriorXref . ">>\nstartxref\n" . $xref . "\n%%EOF\n";
     }
 
     /**
