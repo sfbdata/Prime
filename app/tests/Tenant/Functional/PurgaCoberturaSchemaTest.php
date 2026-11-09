@@ -17,6 +17,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * ou derrubada por CASCADE do banco a partir de uma raiz (allowlist abaixo). Se alguém
  * criar uma entidade tenant-aware nova e esquecer de cobrir a purga, este teste falha
  * ANTES de a purga rodar em produção com uma tabela órfã.
+ *
+ * A descoberta é a da própria purga ({@see PurgarEscritorioUseCase::SQL_TABELAS_COM_TENANT_ID}): todos os schemas
+ * da aplicação, com o schema no nome fora do `public` (spec voto-redes-do-schema).
  */
 final class PurgaCoberturaSchemaTest extends KernelTestCase
 {
@@ -55,20 +58,7 @@ final class PurgaCoberturaSchemaTest extends KernelTestCase
     #[TestDox('Toda tabela com tenant_id é coberta pela purga (ordem, retenção ou cascata)')]
     public function testTodaTabelaTenantScopedEstaCoberta(): void
     {
-        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
-        \assert($conn instanceof Connection);
-
-        $comTenantId = $conn->fetchFirstColumn(
-            "SELECT table_name FROM information_schema.columns
-             WHERE table_schema = 'public' AND column_name = 'tenant_id' ORDER BY table_name",
-        );
-
-        $ref            = new \ReflectionClass(PurgarEscritorioUseCase::class);
-        $ordemDelecao   = array_column($ref->getConstant('ORDEM_DELECAO'), 0);
-        $retidas        = $ref->getConstant('TABELAS_RETIDAS');
-        $cobertas       = array_merge($ordemDelecao, $retidas, self::COBERTAS_POR_CASCATA);
-
-        $naoCobertas = array_values(array_diff($comTenantId, $cobertas));
+        $naoCobertas = $this->naoCobertas();
 
         self::assertSame(
             [],
@@ -81,31 +71,7 @@ final class PurgaCoberturaSchemaTest extends KernelTestCase
     #[TestDox('Toda tabela-ponte SEM tenant_id que bloqueia a purga (FK NO ACTION) está na ordem de deleção')]
     public function testTabelasPonteSemTenantIdEstaoNaOrdem(): void
     {
-        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
-        \assert($conn instanceof Connection);
-
-        $ref          = new \ReflectionClass(PurgarEscritorioUseCase::class);
-        $ordemDelecao = array_column($ref->getConstant('ORDEM_DELECAO'), 0);
-        $universo     = array_merge($ordemDelecao, self::COBERTAS_POR_CASCATA, ['tenant']);
-
-        // Filhas com FK NO ACTION/RESTRICT para uma tabela do universo da purga e SEM coluna
-        // tenant_id: são "pontes" que bloqueiam o DELETE do pai e o guard runtime (que só varre
-        // tenant_id) não pega. Precisam estar explicitamente na ORDEM_DELECAO (via subquery).
-        $pontes = $conn->fetchFirstColumn(
-            "SELECT DISTINCT filha.relname
-             FROM pg_constraint c
-             JOIN pg_class filha ON filha.oid = c.conrelid
-             JOIN pg_class pai ON pai.oid = c.confrelid
-             WHERE c.contype = 'f' AND c.confdeltype IN ('a', 'r')
-               AND pai.relname IN (:universo)
-               AND NOT EXISTS (
-                 SELECT 1 FROM information_schema.columns col
-                 WHERE col.table_name = filha.relname AND col.column_name = 'tenant_id')",
-            ['universo' => $universo],
-            ['universo' => ArrayParameterType::STRING],
-        );
-
-        $naoCobertas = array_values(array_diff($pontes, $ordemDelecao));
+        $naoCobertas = $this->pontesForaDaOrdem();
 
         self::assertSame(
             [],
@@ -113,5 +79,82 @@ final class PurgaCoberturaSchemaTest extends KernelTestCase
             'Tabela-ponte sem tenant_id fora da ORDEM_DELECAO: ' . implode(', ', $naoCobertas)
             . '. Adicione-a à ORDEM_DELECAO (com subquery pelo pai) antes de apagar o pai.',
         );
+    }
+
+    /**
+     * Prova 3 da spec voto-redes-do-schema: a rede olha o schema `voto`. A tabela nasce dentro da transação do DAMA e
+     * sai no rollback.
+     */
+    #[TestDox('Tabela com tenant_id no schema voto, fora da purga, aparece como não coberta (com o schema no nome)')]
+    public function testTabelaDoVotoForaDaPurgaApareceComoNaoCoberta(): void
+    {
+        $this->conexao()->executeStatement('CREATE TABLE voto._cobertura_teste (tenant_id int)');
+
+        self::assertContains('voto._cobertura_teste', $this->naoCobertas());
+    }
+
+    #[TestDox('Filha sem tenant_id no schema voto que aponta para a voto.liberacao aparece como ponte')]
+    public function testPonteNoSchemaVotoApareceComoPonte(): void
+    {
+        $this->conexao()->executeStatement('CREATE TABLE voto._ponte (pai_id int REFERENCES voto.liberacao(id))');
+
+        self::assertContains('voto._ponte', $this->pontesForaDaOrdem());
+    }
+
+    private function conexao(): Connection
+    {
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        \assert($conn instanceof Connection);
+
+        return $conn;
+    }
+
+    /**
+     * Tabelas com tenant_id, pela MESMA descoberta da purga (todos os schemas da aplicação), fora da ordem, da
+     * retenção e da allowlist de cascata.
+     *
+     * @return list<string>
+     */
+    private function naoCobertas(): array
+    {
+        $comTenantId = $this->conexao()->fetchFirstColumn(PurgarEscritorioUseCase::SQL_TABELAS_COM_TENANT_ID);
+
+        $ref      = new \ReflectionClass(PurgarEscritorioUseCase::class);
+        $cobertas = array_merge(array_column($ref->getConstant('ORDEM_DELECAO'), 0), $ref->getConstant('TABELAS_RETIDAS'), self::COBERTAS_POR_CASCATA);
+
+        return array_values(array_diff($comTenantId, $cobertas));
+    }
+
+    /**
+     * Filhas com FK NO ACTION/RESTRICT para uma tabela do universo da purga e SEM coluna tenant_id: são "pontes"
+     * que bloqueiam o DELETE do pai e o guard runtime (que só varre tenant_id) não pega. Precisam estar
+     * explicitamente na ORDEM_DELECAO (via subquery). Os dois lados levam o schema no nome (sem prefixo no
+     * `public`, como na purga), e o tenant_id é procurado na própria filha (por oid), não por nome em qualquer schema.
+     *
+     * @return list<string>
+     */
+    private function pontesForaDaOrdem(): array
+    {
+        $ordemDelecao = array_column((new \ReflectionClass(PurgarEscritorioUseCase::class))->getConstant('ORDEM_DELECAO'), 0);
+
+        $pontes = $this->conexao()->fetchFirstColumn(
+            <<<'SQL'
+                SELECT DISTINCT CASE WHEN nf.nspname = 'public' THEN filha.relname ELSE nf.nspname || '.' || filha.relname END
+                  FROM pg_constraint k
+                  JOIN pg_class filha ON filha.oid = k.conrelid
+                  JOIN pg_namespace nf ON nf.oid = filha.relnamespace
+                  JOIN pg_class pai ON pai.oid = k.confrelid
+                  JOIN pg_namespace np ON np.oid = pai.relnamespace
+                 WHERE k.contype = 'f' AND k.confdeltype IN ('a', 'r')
+                   AND (CASE WHEN np.nspname = 'public' THEN pai.relname ELSE np.nspname || '.' || pai.relname END) IN (:universo)
+                   AND NOT EXISTS (
+                       SELECT 1 FROM pg_attribute a
+                        WHERE a.attrelid = filha.oid AND a.attname = 'tenant_id' AND a.attnum > 0 AND NOT a.attisdropped)
+                SQL,
+            ['universo' => array_merge($ordemDelecao, self::COBERTAS_POR_CASCATA, ['tenant'])],
+            ['universo' => ArrayParameterType::STRING],
+        );
+
+        return array_values(array_diff($pontes, $ordemDelecao));
     }
 }

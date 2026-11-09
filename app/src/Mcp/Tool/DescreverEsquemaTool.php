@@ -13,10 +13,25 @@ use Mcp\Exception\ToolCallException;
  * Não é conveniência: sem ela, quem escreve o SQL chuta nome de coluna. Já custou medição
  * errada neste projeto — uma consulta que roda contra coluna inventada não dá erro óbvio,
  * dá número errado.
+ *
+ * Lista e descreve pelo catálogo do PostgreSQL, em todos os schemas da aplicação (todos menos
+ * `information_schema` e os `pg_*`; spec voto-redes-do-schema §2): o `information_schema` esconde a
+ * tabela em que a role de leitura não tem privilégio, e a tabela continua existindo. Nome sem
+ * prefixo no `public` (`cliente`) e qualificado fora dele (`voto.liberacao`). Só lê o catálogo:
+ * nenhuma permissão nova para a role do MCP.
  */
 final class DescreverEsquemaTool
 {
     private const LIMITE = 2000;
+
+    private const SQL_TABELAS = <<<'SQL'
+        SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END AS tabela
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relkind IN ('r', 'p')
+           AND n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\_%'
+         ORDER BY n.nspname, c.relname
+        SQL;
 
     public function __construct(
         private readonly ConexaoLeitura $conexao,
@@ -25,13 +40,14 @@ final class DescreverEsquemaTool
     /**
      * Descreve o esquema do banco do JusPrime.
      *
-     * Sem argumento, lista todas as tabelas. Com o nome de uma tabela, devolve suas colunas
+     * Sem argumento, lista todas as tabelas: as do schema public pelo nome (cliente) e as de outro
+     * schema com o schema na frente (voto.liberacao). Com o nome de uma tabela, devolve suas colunas
      * (tipo, se aceita nulo, valor padrão), suas chaves (primária, estrangeiras e únicas — as
      * estrangeiras dizem para qual tabela e coluna apontam, use-as para montar o JOIN certo) e
      * seus índices. Use SEMPRE antes de escrever uma consulta contra uma tabela que você não
      * conhece.
      *
-     * @param string|null $tabela Nome da tabela a descrever; omita para listar todas
+     * @param string|null $tabela Nome da tabela a descrever, como aparece na lista; omita para listar todas
      *
      * @return array<string, mixed>
      */
@@ -46,8 +62,8 @@ final class DescreverEsquemaTool
 
             if (!in_array($tabela, $this->listarTabelas(), true)) {
                 throw new ToolCallException(sprintf(
-                    'A tabela "%s" não existe no schema public. Rode descrever_esquema sem '
-                    . 'argumento para ver a lista.',
+                    'A tabela "%s" não existe no banco. Rode descrever_esquema sem argumento para ver '
+                    . 'a lista (a tabela de outro schema vem com o schema na frente, como voto.liberacao).',
                     $tabela,
                 ));
             }
@@ -77,32 +93,52 @@ final class DescreverEsquemaTool
     /** @return list<string> */
     private function listarTabelas(): array
     {
-        $resultado = $this->conexao->consultar(
-            "SELECT table_name FROM information_schema.tables
-             WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-             ORDER BY table_name",
-            self::LIMITE,
-        );
+        $resultado = $this->conexao->consultar(self::SQL_TABELAS, self::LIMITE);
 
         return array_map(
-            static fn (array $linha): string => (string) $linha['table_name'],
+            static fn (array $linha): string => (string) $linha['tabela'],
             $resultado['linhas'],
         );
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * Schema e nome, separados no ponto; sem ponto, o schema é o `public`. Só roda depois de o
+     * nome ter sido conferido contra a lista.
+     *
+     * @return array{schema: string, nome: string}
+     */
+    private function partes(string $tabela): array
+    {
+        if (!str_contains($tabela, '.')) {
+            return ['schema' => 'public', 'nome' => $tabela];
+        }
+
+        [$schema, $nome] = explode('.', $tabela, 2);
+
+        return ['schema' => $schema, 'nome' => $nome];
+    }
+
+    /**
+     * Colunas pelo catálogo (`pg_attribute`): o tipo vem de `format_type` (com tamanho e precisão,
+     * como `character varying(255)`) e o padrão de `pg_get_expr`.
+     *
+     * @return list<array<string, mixed>>
+     */
     private function colunas(string $tabela): array
     {
         $resultado = $this->conexao->consultar(
-            "SELECT column_name AS coluna,
-                    data_type AS tipo,
-                    CASE is_nullable WHEN 'YES' THEN 'SIM' ELSE 'NAO' END AS aceita_nulo,
-                    column_default AS padrao
-             FROM information_schema.columns
-             WHERE table_schema = 'public' AND table_name = :tabela
-             ORDER BY ordinal_position",
+            "SELECT a.attname AS coluna,
+                    format_type(a.atttypid, a.atttypmod) AS tipo,
+                    CASE WHEN a.attnotnull THEN 'NAO' ELSE 'SIM' END AS aceita_nulo,
+                    pg_get_expr(d.adbin, d.adrelid) AS padrao
+             FROM pg_attribute a
+             JOIN pg_class c ON c.oid = a.attrelid
+             JOIN pg_namespace n ON n.oid = c.relnamespace
+             LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+             WHERE n.nspname = :schema AND c.relname = :nome AND a.attnum > 0 AND NOT a.attisdropped
+             ORDER BY a.attnum",
             self::LIMITE,
-            ['tabela' => $tabela],
+            $this->partes($tabela),
         );
 
         return $resultado['linhas'];
@@ -135,11 +171,12 @@ final class DescreverEsquemaTool
              WHERE contype IN ('f', 'p', 'u')
                AND conrelid = (
                    SELECT c.oid FROM pg_class c
-                   WHERE c.relnamespace = 'public'::regnamespace AND c.relname = :tabela
+                   JOIN pg_namespace n ON n.oid = c.relnamespace
+                   WHERE n.nspname = :schema AND c.relname = :nome
                )
              ORDER BY contype, conname",
             self::LIMITE,
-            ['tabela' => $tabela],
+            $this->partes($tabela),
         );
 
         return $resultado['linhas'];
@@ -151,10 +188,10 @@ final class DescreverEsquemaTool
         $resultado = $this->conexao->consultar(
             "SELECT indexname AS indice, indexdef AS definicao
              FROM pg_indexes
-             WHERE schemaname = 'public' AND tablename = :tabela
+             WHERE schemaname = :schema AND tablename = :nome
              ORDER BY indexname",
             self::LIMITE,
-            ['tabela' => $tabela],
+            $this->partes($tabela),
         );
 
         return $resultado['linhas'];

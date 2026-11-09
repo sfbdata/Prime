@@ -34,12 +34,16 @@ use Psr\Log\LoggerInterface;
  *  - O TenantFilter do Doctrine fica DESLIGADO no CLI (só liga por request), e não afeta
  *    DML direto de qualquer forma. Por isso o isolamento é garantido por `tenant_id`
  *    EXPLÍCITO em cada DELETE (nunca confiar no filtro — lição do achado B1/Datajud).
- *  - 32 das 34 FKs → tenant são NO ACTION: o banco NÃO cascateia a partir do tenant, então
- *    a deleção é manual, de baixo para cima (ver ORDEM_DELECAO). As cascatas internas de
- *    cada subsistema (pasta, processo, kanban, etc.) são aproveitadas.
+ *  - A maioria das FKs → tenant é NO ACTION (148 de 173 em 09/11/2026, contadas em todos os
+ *    schemas): o banco NÃO cascateia a partir do tenant, então a deleção é manual, de baixo
+ *    para cima (ver ORDEM_DELECAO). As cascatas internas de cada subsistema (pasta, processo,
+ *    kanban, etc.) são aproveitadas.
  *  - Antes de apagar o tenant, uma verificação de integridade (garantirTenantVazio) confere,
- *    via information_schema, que nenhuma tabela tenant-scoped sobrou — falha segura e clara
- *    caso uma tabela nova não tenha sido adicionada à ordem (drift de schema).
+ *    pelo catálogo do PostgreSQL e em todos os schemas da aplicação (`public` e `voto`), que
+ *    nenhuma tabela tenant-scoped sobrou. Falha segura e clara caso uma tabela nova não tenha
+ *    sido adicionada à ordem (drift de schema). Da M3 do Voto em diante é a única rede de
+ *    conferência para o schema `voto`, cujas tabelas não têm FK para tenant (spec
+ *    voto-redes-do-schema), e ela não pega INSERT concorrente: ver **Trava**.
  *  - PRESERVADOS: User (nunca apagado — decisão de produto), audit_log (retido; a própria
  *    purga é registrada como evento), permission (catálogo global) e cadastro_pendente.
  *    A jornada pessoal é por escritório desde a spec seguranca-b-jornada e sai na purga.
@@ -58,7 +62,10 @@ use Psr\Log\LoggerInterface;
  * concorrente de linha do escritório — o cron do Drive continua sincronizando escritório
  * soft-deletado com conexão ativa — espera o COMMIT e então falha na FK. Sem isso, em READ
  * COMMITTED, uma linha confirmada entre a coleta e o DELETE seria apagada sem que o arquivo dela
- * tivesse sido coletado.
+ * tivesse sido coletado. Tabela sem FK para tenant (schema `voto`, da M3 em diante) não espera
+ * nem falha: uma linha confirmada depois do garantirTenantVazio e antes do COMMIT ficaria órfã.
+ * Por isso a escrita no `voto` tem de se serializar com a purga (condição da M3, spec
+ * voto-redes-do-schema, seção 5).
  *
  *  - **Categorias com isolamento físico** (imagens do editor e documentos de cobrança): o
  *    diretório inteiro do escritório sai por `ArmazenamentoComPrefixo::excluirPrefixo()`, que
@@ -88,6 +95,8 @@ final class PurgarEscritorioUseCase
      * escopo direto; filhas sem tenant_id (bloco_jornada, tenant_role_permission) usam
      * subquery escopada pelo pai. As tabelas ausentes daqui caem por CASCADE do banco ao
      * apagar a raiz do seu subsistema (ex.: pasta_secao, documento_processo, kanban_*).
+     * O nome segue {@see SQL_TABELAS_COM_TENANT_ID}: sem prefixo no `public`, qualificado fora
+     * dele (`voto.liberacao`).
      *
      * @var list<array{0:string,1:string}>
      */
@@ -387,7 +396,28 @@ final class PurgarEscritorioUseCase
         ['cargo', 'tenant_id = :tenant'],
         ['lotacao', 'tenant_id = :tenant'],
         ['sede', 'tenant_id = :tenant'],
+        // BlueJus Voto (spec voto-redes-do-schema): a liberação do escritório pelo Master. A FK de tenant é CASCADE, mas
+        // a conferência (garantirTenantVazio) roda ANTES do DELETE FROM tenant e enxerga o schema `voto`: sem esta linha,
+        // acharia a linha que só sairia pela cascata e travaria a purga de todo escritório liberado.
+        ['voto.liberacao', 'tenant_id = :tenant'],
     ];
+
+    /**
+     * Tabelas com coluna tenant_id em todos os schemas da aplicação (todos menos `information_schema` e os `pg_*`),
+     * spec voto-redes-do-schema §2. Lê o catálogo, e não o `information_schema`, que esconde a tabela em que o usuário
+     * da conexão não tem privilégio. No `public` o nome vem sem prefixo (o mesmo das listas desta classe); fora dele,
+     * qualificado (`voto.liberacao`). Pública porque os testes da purga usam a mesma descoberta.
+     */
+    public const SQL_TABELAS_COM_TENANT_ID = <<<'SQL'
+        SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END AS tabela
+          FROM pg_attribute a
+          JOIN pg_class c ON c.oid = a.attrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE a.attname = 'tenant_id' AND a.attnum > 0 AND NOT a.attisdropped
+           AND c.relkind IN ('r', 'p')
+           AND n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\_%'
+         ORDER BY n.nspname, c.relname
+        SQL;
 
     /**
      * Categorias PLANAS: de onde saem os nomes, com a prova de pertencimento (D7, E2.5).
@@ -809,20 +839,25 @@ final class PurgarEscritorioUseCase
     }
 
     /**
-     * Tabelas com coluna tenant_id (descobertas do schema), exceto as retidas por decisão.
-     * Serve tanto ao dry-run quanto à verificação de integridade e é imune a drift.
+     * Tabelas com coluna tenant_id (descobertas pelo catálogo, em todos os schemas da aplicação),
+     * exceto as retidas por decisão. Serve à verificação de integridade e é imune a drift.
      *
      * @return list<string>
      */
     private function tabelasComTenantId(Connection $conn): array
     {
-        $tabelas = $conn->fetchFirstColumn(
-            "SELECT table_name FROM information_schema.columns
-             WHERE table_schema = 'public' AND column_name = 'tenant_id'
-             ORDER BY table_name",
-        );
+        $tabelas = $conn->fetchFirstColumn(self::SQL_TABELAS_COM_TENANT_ID);
 
         return array_values(array_diff($tabelas, self::TABELAS_RETIDAS));
+    }
+
+    /**
+     * Cita cada parte do nome que veio do catálogo (`voto.liberacao` vira `"voto"."liberacao"`). É o que o
+     * `quoteIdentifier` do DBAL fazia; ele está depreciado no DBAL 4 e a suíte falha em deprecation.
+     */
+    private function citarTabela(Connection $conn, string $tabela): string
+    {
+        return implode('.', array_map($conn->quoteSingleIdentifier(...), explode('.', $tabela)));
     }
 
     /**
@@ -860,7 +895,7 @@ final class PurgarEscritorioUseCase
     {
         foreach ($this->tabelasComTenantId($conn) as $tabela) {
             $n = (int) $conn->fetchOne(
-                sprintf('SELECT COUNT(*) FROM %s WHERE tenant_id = :tenant', $tabela),
+                sprintf('SELECT COUNT(*) FROM %s WHERE tenant_id = :tenant', $this->citarTabela($conn, $tabela)),
                 ['tenant' => $tenantId],
             );
 

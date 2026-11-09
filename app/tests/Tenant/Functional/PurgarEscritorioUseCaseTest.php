@@ -49,11 +49,13 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->semear((int) $tenant->getId(), $userId);
 
         self::assertGreaterThan(0, array_sum($this->contarPorTenant((int) $tenant->getId())), 'sanidade: seed populou dados');
+        self::assertSame(1, $this->contarPorTenant((int) $tenant->getId())['voto.liberacao'], 'sanidade: a contagem enxerga o schema voto');
 
         $resultado = $this->sut->executar($tenant, dryRun: false);
 
         self::assertSame(0, $this->existeTenant((int) $tenant->getId()), 'o tenant deve ser apagado');
         self::assertSame(0, array_sum($this->contarPorTenant((int) $tenant->getId())), 'nenhuma linha tenant-scoped pode sobrar');
+        self::assertSame(1, $resultado->linhasPorTabela['voto.liberacao'] ?? 0, 'a liberação do Voto sai pela ordem de deleção, não pela cascata');
         self::assertGreaterThan(0, $resultado->totalLinhas());
         self::assertFalse($resultado->simulado);
     }
@@ -71,6 +73,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $antesB   = $this->contarPorTenant((int) $tenantB->getId());
         $permsB   = (int) $this->conn->fetchOne('SELECT COUNT(*) FROM permission');
         self::assertGreaterThan(0, array_sum($antesB));
+        self::assertSame(1, $antesB['voto.liberacao'], 'sanidade: B tem a liberação do Voto');
 
         $this->sut->executar($tenantA, dryRun: false);
 
@@ -129,6 +132,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
 
         self::assertTrue($resultado->simulado);
         self::assertNotSame([], $resultado->linhasPorTabela);
+        self::assertSame(1, $resultado->linhasPorTabela['voto.liberacao'] ?? 0, 'o dry-run conta a liberação do Voto');
         self::assertSame(1, $this->existeTenant((int) $tenant->getId()), 'dry-run não pode apagar o tenant');
         self::assertGreaterThan(0, array_sum($this->contarPorTenant((int) $tenant->getId())), 'dry-run não pode apagar linhas');
     }
@@ -232,15 +236,47 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->conn->executeStatement('CREATE TABLE _drift_teste (id serial PRIMARY KEY, tenant_id integer NOT NULL)');
         $this->conn->executeStatement('INSERT INTO _drift_teste (tenant_id) VALUES (:t)', ['t' => $tenantId]);
 
+        // A exceção fica guardada e as asserções vêm depois: um `self::fail()` dentro do `try` seria pego pelo próprio
+        // catch (o AssertionFailedError do PHPUnit estende RuntimeException) e a falha não diria que a purga passou.
+        $erro = null;
         try {
             $this->sut->executar($tenant, dryRun: false);
-            self::fail('esperava RuntimeException por tabela não coberta');
         } catch (\RuntimeException $e) {
-            self::assertStringContainsString('_drift_teste', $e->getMessage());
-            self::assertSame(1, $this->existeTenant($tenantId), 'rollback: o tenant não pode ter sido apagado');
+            $erro = $e;
         } finally {
             $this->conn->executeStatement('DROP TABLE IF EXISTS _drift_teste');
         }
+
+        self::assertNotNull($erro, 'a purga não abortou com a tabela _drift_teste fora da ordem');
+        self::assertStringContainsString('_drift_teste', $erro->getMessage());
+        self::assertSame(1, $this->existeTenant($tenantId), 'rollback: o tenant não pode ter sido apagado');
+    }
+
+    /**
+     * Prova 2 da spec voto-redes-do-schema. Sem FK para tenant (como as tabelas do Voto da M3 em diante) o banco não
+     * barra a purga: só a conferência, olhando o schema `voto`, impede apagar o escritório deixando a linha órfã.
+     */
+    #[TestDox('Guard anti-drift: tabela do schema voto fora da ordem aborta a purga (tenant preservado)')]
+    public function testGuardAntiDriftAbortaComTabelaNoSchemaVoto(): void
+    {
+        $tenant   = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $tenantId = (int) $tenant->getId();
+
+        $this->conn->executeStatement('CREATE TABLE voto._drift_teste (id serial PRIMARY KEY, tenant_id int NOT NULL)');
+        $this->conn->executeStatement('INSERT INTO voto._drift_teste (tenant_id) VALUES (:t)', ['t' => $tenantId]);
+
+        $erro = null;
+        try {
+            $this->sut->executar($tenant, dryRun: false);
+        } catch (\RuntimeException $e) {
+            $erro = $e;
+        } finally {
+            $this->conn->executeStatement('DROP TABLE IF EXISTS voto._drift_teste');
+        }
+
+        self::assertNotNull($erro, 'a purga não abortou com a tabela voto._drift_teste fora da ordem');
+        self::assertStringContainsString('voto._drift_teste', $erro->getMessage());
+        self::assertSame(1, $this->existeTenant($tenantId), 'rollback: o tenant não pode ter sido apagado');
     }
 
     #[TestDox('Purga remove os arquivos em disco (anexos e diretório de peças do tenant)')]
@@ -299,13 +335,14 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         return (int) $this->conn->fetchOne('SELECT COUNT(*) FROM tenant WHERE id = :t', ['t' => $tenantId]);
     }
 
-    /** @return list<string> */
+    /**
+     * A mesma descoberta da purga (todos os schemas da aplicação): o "nada sobra" não fica cego ao `voto`.
+     *
+     * @return list<string>
+     */
     private function tabelasTenant(): array
     {
-        $tabelas = $this->conn->fetchFirstColumn(
-            "SELECT table_name FROM information_schema.columns
-             WHERE table_schema = 'public' AND column_name = 'tenant_id' ORDER BY table_name",
-        );
+        $tabelas = $this->conn->fetchFirstColumn(PurgarEscritorioUseCase::SQL_TABELAS_COM_TENANT_ID);
 
         return array_values(array_diff($tabelas, ['audit_log']));
     }
@@ -316,8 +353,9 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $contagens = [];
 
         foreach ($this->tabelasTenant() as $tabela) {
+            $citada = implode('.', array_map($this->conn->quoteSingleIdentifier(...), explode('.', $tabela)));
             $contagens[$tabela] = (int) $this->conn->fetchOne(
-                sprintf('SELECT COUNT(*) FROM %s WHERE tenant_id = :t', $tabela),
+                sprintf('SELECT COUNT(*) FROM %s WHERE tenant_id = :t', $citada),
                 ['t' => $tenantId],
             );
         }
@@ -471,5 +509,8 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->ins('invitation', ['email' => 'inv' . $uid . '@x.com', 'token_hash' => hash('sha256', 'tok-' . $uid), 'type' => 'office', 'status' => 'pending', 'created_at' => $ts, 'expires_at' => $ts, 'tenant_id' => $t]);
         $this->ins('access_request', ['resource_type' => 'pasta', 'resource_id' => $pasta, 'action' => 'view', 'requested_at' => $ts, 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('resource_access', ['resource_type' => 'pasta', 'resource_id' => $pasta, 'granted_at' => $ts, 'user_id' => $u, 'tenant_id' => $t]);
+
+        // BlueJus Voto: a liberação do escritório, no schema `voto` (spec voto-redes-do-schema).
+        $this->ins('voto.liberacao', ['liberado' => true, 'criada_em' => $ts, 'atualizada_em' => $ts, 'tenant_id' => $t]);
     }
 }

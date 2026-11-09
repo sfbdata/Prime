@@ -118,15 +118,25 @@ existe_banco() {
 # Versões de migration aplicadas + forma das colunas + índices: muda quando o banco da frente ganha
 # migration, ou um schema:update ou índice sem migration. Barato (milissegundos). Não olha dado: carga
 # feita à mão no banco da frente só chega aos clones com --recriar.
+# Colunas (de tabelas, views e views materializadas) e índices de todos os schemas da aplicação (todos
+# menos information_schema e os pg_*, como o restore.sh), pelo catálogo e com o schema no texto: o nome
+# de índice pode repetir entre schemas (spec voto-redes-do-schema, R4).
 impressao_digital() {
     docker exec "$banco_container" psql -U symfony -d "$1" -qAt -c "
         SELECT md5(
             coalesce((SELECT string_agg(version, ',' ORDER BY version) FROM doctrine_migration_versions), '')
             || '|' ||
-            coalesce((SELECT string_agg(table_name || '.' || column_name || ':' || data_type, ',' ORDER BY table_name, column_name)
-                      FROM information_schema.columns WHERE table_schema = 'public'), '')
+            coalesce((SELECT string_agg(n.nspname || '.' || c.relname || '.' || a.attname || ':' || format_type(a.atttypid, a.atttypmod),
+                                        ',' ORDER BY n.nspname, c.relname, a.attname)
+                      FROM pg_attribute a
+                      JOIN pg_class c ON c.oid = a.attrelid
+                      JOIN pg_namespace n ON n.oid = c.relnamespace
+                      WHERE a.attnum > 0 AND NOT a.attisdropped AND c.relkind IN ('r', 'p', 'v', 'm')
+                        AND n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\_%'), '')
             || '|' ||
-            coalesce((SELECT string_agg(indexdef, ',' ORDER BY indexname) FROM pg_indexes WHERE schemaname = 'public'), '')
+            coalesce((SELECT string_agg(schemaname || '.' || indexname || ':' || indexdef, ',' ORDER BY schemaname, indexname)
+                      FROM pg_indexes
+                      WHERE schemaname <> 'information_schema' AND schemaname NOT LIKE 'pg\_%'), '')
         )"
 }
 

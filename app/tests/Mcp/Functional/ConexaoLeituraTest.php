@@ -6,6 +6,7 @@ namespace App\Tests\Mcp\Functional;
 
 use App\Mcp\Service\ConexaoLeitura;
 use App\Tests\Mcp\BancoDeLeituraDeTeste;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -352,9 +353,13 @@ final class ConexaoLeituraTest extends TestCase
      */
     public function testFetchOneDevolveBooleanoNativoParaAVerificacaoDeEscrita(): void
     {
-        $sql = "SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
-                FROM pg_class c
-                WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p', 'f')";
+        $sql = <<<'SQL'
+            SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE c.relkind IN ('r', 'p', 'f')
+               AND n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\_%'
+            SQL;
 
         $parser = new DsnParser(['pgsql' => 'pdo_pgsql', 'postgresql' => 'pdo_pgsql']);
 
@@ -387,5 +392,46 @@ final class ConexaoLeituraTest extends TestCase
         $this->expectExceptionMessageMatches('/permissão de ESCRITA/');
 
         $conexao->conexao();
+    }
+
+    /**
+     * Prova 5 da spec voto-redes-do-schema: a role lê o `public` inteiro e só pode gravar numa tabela do schema `voto`.
+     * Com a checagem presa ao `public` ela passava sem alarme; agora é recusada. A role e os GRANTs vão por conexão
+     * administrativa separada (a conexão nova da `ConexaoLeitura` precisa enxergá-los), e o `finally` tira os do `voto`
+     * e fecha a conexão administrativa mesmo se a preparação falhar no meio.
+     */
+    public function testRecusaRoleComEscritaSoNumaTabelaDoVoto(): void
+    {
+        $parser = new DsnParser(['pgsql' => 'pdo_pgsql', 'postgresql' => 'pdo_pgsql']);
+        $admin  = DriverManager::getConnection($parser->parse(BancoDeLeituraDeTeste::dsnAdministrativo()));
+        $role   = BancoDeLeituraDeTeste::ROLE_ESCRITA_NO_VOTO;
+
+        try {
+            $dsn = $this->darEscritaSoNoVoto($admin);
+
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessageMatches('/permissão de ESCRITA/');
+
+            (new ConexaoLeitura($dsn))->conexao();
+        } finally {
+            try {
+                $admin->executeStatement(sprintf('REVOKE ALL ON TABLE voto.liberacao FROM %s', $role));
+                $admin->executeStatement(sprintf('REVOKE ALL ON SCHEMA voto FROM %s', $role));
+            } finally {
+                $admin->close();
+            }
+        }
+    }
+
+    /** A role de `BancoDeLeituraDeTeste` (leitura no `public`) ganha `UPDATE` só na `voto.liberacao`. Devolve o DSN dela. */
+    private function darEscritaSoNoVoto(Connection $admin): string
+    {
+        $dsn  = BancoDeLeituraDeTeste::dsnEscritaNoVoto();
+        $role = BancoDeLeituraDeTeste::ROLE_ESCRITA_NO_VOTO;
+
+        $admin->executeStatement(sprintf('GRANT USAGE ON SCHEMA voto TO %s', $role));
+        $admin->executeStatement(sprintf('GRANT UPDATE ON TABLE voto.liberacao TO %s', $role));
+
+        return $dsn;
     }
 }

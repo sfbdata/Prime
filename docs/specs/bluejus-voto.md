@@ -477,6 +477,13 @@ Master, sem dado de eleitor, e registra no audit_log do escritório como a liber
 | M1b | A1b | Version20261109140000: `CREATE SCHEMA IF NOT EXISTS voto` (antecipado da M2) e `voto.liberacao` (um escritório por linha, `liberado`, datas; FK para `tenant` com ON DELETE CASCADE, exceção da D1-B). Primeiro schema fora do `public`: conferidos `doctrine:schema:validate`, `make:migration` sem diff fantasma, banco de teste do zero e `scripts/migrar-dev.sh` |
 | M2 | A2 | Version20261109160000: papel `voto_acesso` NOLOGIN (criado só se não existir; papel é do cluster inteiro, por isso o down só tira as permissões e não apaga o papel), `USAGE` no schema `voto`, privilégio padrão (`ALTER DEFAULT PRIVILEGES`) de leitura e escrita só nas tabelas e sequências **futuras** do schema e `GRANT SELECT ON TABLE public.recurso_estado` (o guarda de recurso do Master a lê no container do Voto: chave `voto` desligada cai fechada no 503 "em preparação", nunca 500); nenhuma outra tabela do `public`, e a `voto.liberacao` (dado do BlueJus) fica de fora. O usuário que entra no banco, `voto_app` (LOGIN, `CONNECTION LIMIT 20`, membro de `voto_acesso`), é criado pelo Samuel na VPS com a senha digitada por ele (`docs/runbooks/voto-subir-na-vps.md`, passo 4). Conferidos `pg_dump -Fc` e `pg_restore --exit-on-error --single-transaction` num banco novo do mesmo cluster; num cluster novo o papel precisa existir antes do restauro |
 | M3 | A3 | `voto.evento`, `voto.eleicao` (configuração, estado, `cfg_hash`, campos da mesa e da sessão permanente), `voto.cargo`, `voto.candidatura` |
+| M4 | A4 | `voto.membro_da_equipe` (papel, escopo por evento ou votação, nome, e-mail, `user_id` opcional) |
+| M5 | A5 | `voto.lista_de_aptos` (hash, bloqueio), `voto.apto` (identificação com HMAC, peso, grupo, situação), `voto.ocorrencia` |
+| M6 | B2 | `voto.codigo_de_acesso` (hash do código, validade, tentativas) |
+| M7 | B3, B4 | `voto.eleitor` (registro de identidade, situação da análise, PIN com hash, bloqueio), `voto.foto_do_eleitor` (chave do arquivo, nota de qualidade, prazo de guarda) |
+| M8 | C1, C2 | `voto.chave_de_assinatura` (por peso, privada cifrada, apagada no encerramento), `voto.cerimonia` (pública da eleição, compromisso, `genesis`, zerésima), `voto.participacao` (pseudônimo, faixa; único por eleição) |
+| M9 | C3, C5 | `voto.cedula` (urna: sequência, token, assinatura, cifra, elo da cadeia; **sem ligação com eleitor nem participação**), `voto.comprovante` (BJC) |
+| M10 | E1, E3, D2 | `voto.resultado`, `voto.boletim`, `voto.trilha` (encadeada), `voto.incidente`, `voto.voto_nominal` (só sigilo aberto) |
 
 **Condição antes da M3** (revisão da A1b, 09/11/2026): as redes que conferem "todo dado do escritório" só olham o
 schema `public` e deixariam passar, sem aviso, uma tabela `voto.*` com `tenant_id`. Antes da primeira tabela da
@@ -489,13 +496,10 @@ Também antes da M3 (revisão da A2, 09/11/2026): o snapshot do banco de teste (
 reexecuta a migration. As tabelas da M3 em diante precisam de GRANT que sobreviva a isso (o privilégio padrão da
 Version20261109160000 só vale onde ela rodou) e o teste de cada uma prepara o próprio estado na transação do DAMA,
 como `tests/Voto/Functional/PapelDoVotoNoBancoDeTeste.php` faz com o papel `voto_acesso`.
-| M4 | A4 | `voto.membro_da_equipe` (papel, escopo por evento ou votação, nome, e-mail, `user_id` opcional) |
-| M5 | A5 | `voto.lista_de_aptos` (hash, bloqueio), `voto.apto` (identificação com HMAC, peso, grupo, situação), `voto.ocorrencia` |
-| M6 | B2 | `voto.codigo_de_acesso` (hash do código, validade, tentativas) |
-| M7 | B3, B4 | `voto.eleitor` (registro de identidade, situação da análise, PIN com hash, bloqueio), `voto.foto_do_eleitor` (chave do arquivo, nota de qualidade, prazo de guarda) |
-| M8 | C1, C2 | `voto.chave_de_assinatura` (por peso, privada cifrada, apagada no encerramento), `voto.cerimonia` (pública da eleição, compromisso, `genesis`, zerésima), `voto.participacao` (pseudônimo, faixa; único por eleição) |
-| M9 | C3, C5 | `voto.cedula` (urna: sequência, token, assinatura, cifra, elo da cadeia; **sem ligação com eleitor nem participação**), `voto.comprovante` (BJC) |
-| M10 | E1, E3, D2 | `voto.resultado`, `voto.boletim`, `voto.trilha` (encadeada), `voto.incidente`, `voto.voto_nominal` (só sigilo aberto) |
+Cumprida a primeira parte (frente `voto-redes`, spec `docs/specs/voto-redes-do-schema.md`): a purga, o
+`PurgaCoberturaSchemaTest`, a impressão do `testar-paralelo.sh`, o `DescreverEsquemaTool` e a checagem de escrita
+do MCP olham todos os schemas da aplicação. Fica para a M3 a escrita concorrente com a purga (seção 5 daquela spec):
+toda escrita no `voto` se serializa com ela.
 
 ---
 

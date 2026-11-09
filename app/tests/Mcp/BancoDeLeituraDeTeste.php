@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Mcp;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\Assert;
@@ -43,8 +44,16 @@ final class BancoDeLeituraDeTeste
     public const ROLE_SEM_INSERT = 'jusprime_sem_insert_teste';
     private const SENHA_SEM_INSERT = 'sem_insert_teste';
 
+    /**
+     * Role que lê o `public` e nada mais. O teste que a usa dá a ela, e tira no fim, escrita numa única tabela do
+     * schema `voto` (prova 5 da spec voto-redes-do-schema).
+     */
+    public const ROLE_ESCRITA_NO_VOTO = 'jusprime_escrita_voto_teste';
+    private const SENHA_ESCRITA_NO_VOTO = 'escrita_voto_teste';
+
     private static ?string $dsnLeitura = null;
     private static ?string $dsnSemInsert = null;
+    private static ?string $dsnEscritaNoVoto = null;
 
     /**
      * DSN do usuário administrativo da suíte, já apontando para o banco DA FRENTE.
@@ -157,6 +166,45 @@ final class BancoDeLeituraDeTeste
         $admin->close();
 
         return self::$dsnSemInsert = self::montarDsn(self::ROLE_SEM_INSERT, self::SENHA_SEM_INSERT, $params);
+    }
+
+    /**
+     * DSN da role {@see ROLE_ESCRITA_NO_VOTO}, criando-a se ainda não existir, com leitura no `public`. Mesmo padrão
+     * de `dsnLeitura()`. A escrita no `voto` não vem daqui: quem a dá é o teste, que também a tira.
+     */
+    public static function dsnEscritaNoVoto(): string
+    {
+        if (self::$dsnEscritaNoVoto !== null) {
+            return self::$dsnEscritaNoVoto;
+        }
+
+        $params = self::parametrosDoBancoDaFrente();
+        $admin = DriverManager::getConnection($params);
+
+        self::criarRoleDeLogin($admin, self::ROLE_ESCRITA_NO_VOTO, self::SENHA_ESCRITA_NO_VOTO);
+        $admin->executeStatement(sprintf('GRANT CONNECT ON DATABASE "%s" TO %s', $params['dbname'], self::ROLE_ESCRITA_NO_VOTO));
+        $admin->executeStatement(sprintf('GRANT USAGE ON SCHEMA public TO %s', self::ROLE_ESCRITA_NO_VOTO));
+        $admin->executeStatement(sprintf('GRANT SELECT ON ALL TABLES IN SCHEMA public TO %s', self::ROLE_ESCRITA_NO_VOTO));
+
+        $admin->close();
+
+        return self::$dsnEscritaNoVoto = self::montarDsn(self::ROLE_ESCRITA_NO_VOTO, self::SENHA_ESCRITA_NO_VOTO, $params);
+    }
+
+    /** O mesmo DO block de `dsnLeitura()`: a role é do cluster, e a corrida entre processos quer dizer "já existe". */
+    private static function criarRoleDeLogin(Connection $admin, string $role, string $senha): void
+    {
+        $admin->executeStatement(sprintf(
+            "DO $$ BEGIN
+                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '%s') THEN
+                    CREATE ROLE %s LOGIN PASSWORD '%s';
+                END IF;
+            EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
+            END $$;",
+            $role,
+            $role,
+            $senha,
+        ));
     }
 
     /** @return array<string, mixed> */

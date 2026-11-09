@@ -85,6 +85,39 @@ final class DescreverEsquemaToolTest extends TestCase
     }
 
     /**
+     * Prova 4 da spec voto-redes-do-schema. A role de teste não tem permissão nenhuma no schema `voto`, igual à de
+     * produção (a premissa é conferida aqui mesmo): a lista e a descrição vêm do catálogo, que mostra a tabela assim
+     * mesmo. Usa a `voto.liberacao` real.
+     */
+    public function testListaEDescreveATabelaDoSchemaVotoSemPermissaoNele(): void
+    {
+        $conexao = new ConexaoLeitura(BancoDeLeituraDeTeste::dsnLeitura());
+        $usa     = $conexao->consultar("SELECT has_schema_privilege('voto', 'USAGE') AS usa", 1)['linhas'];
+        self::assertSame([['usa' => false]], $usa, 'premissa: a role de leitura não tem USAGE no schema voto');
+
+        $ferramenta = new DescreverEsquemaTool($conexao);
+        self::assertContains('voto.liberacao', $ferramenta->descrever()['tabelas']);
+
+        $resultado = $ferramenta->descrever('voto.liberacao');
+
+        self::assertSame('voto.liberacao', $resultado['tabela']);
+        self::assertArrayHasKey('tenant_id', array_column($resultado['colunas'], null, 'coluna'));
+        self::assertContains(
+            'FOREIGN KEY (tenant_id) REFERENCES tenant(id) ON DELETE CASCADE',
+            array_column($resultado['chaves'], 'definicao'),
+        );
+        self::assertContains('uniq_voto_liberacao_tenant', array_column($resultado['indices'], 'indice'));
+    }
+
+    public function testTabelaInexistenteNoSchemaVotoContinuaRecusada(): void
+    {
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessageMatches('/não existe/');
+
+        $this->ferramenta()->descrever('voto.nao_existe');
+    }
+
+    /**
      * `listarTabelas()`/`colunas()`/`indices()` chamam `ConexaoLeitura::consultar()` sem
      * `try` próprio — antes desta correção, uma falha de conexão escapava como
      * `\RuntimeException` cru, não `ToolCallException`, e viraria erro de PROTOCOLO no
