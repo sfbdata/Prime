@@ -164,6 +164,19 @@
                     </li>
                 {% endif %}
 
+                {# BlueJus Voto (spec bluejus-voto.md): logo depois do Ponto, como no menu do desenho 18. Nasce desligado
+                   no catálogo do Master; `recurso_marca` mostra ao Master que a tela está desligada. #}
+                {% if can_access_module('voto') and recurso_visivel('voto') %}
+                    <li class="pje-menu-item {{ recurso_marca('voto') }}">
+                        <a href="{{ path('voto_index') }}"
+                           data-busca-alias="eleição votação assembleia urna"
+                           class="pje-menu-link {{ currentRoute starts with 'voto_' ? 'active' : '' }}">
+                            <i class="bi bi-archive pje-nav-icon"></i>
+                            <span>{{ 'moldura.menu_lateral.voto'|trans }}</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {# Chat I.A em página inteira (spec chat-pagina-inteira): mesmo módulo de permissão que o próprio chat exige. #}
                 {% if can_access_module('inteligencia') %}
                     <li class="pje-menu-item">

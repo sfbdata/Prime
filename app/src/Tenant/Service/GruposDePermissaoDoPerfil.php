@@ -52,6 +52,7 @@ final class GruposDePermissaoDoPerfil
             'modules.processos.view'    => 'Processos',
             'modules.servicedesk.view'  => 'Service Desk (usuário)',
             'modules.tarefas.view'      => 'Tarefas (visão do usuário)',
+            'modules.voto.view'         => 'Voto (eleições e votações)',
         ]],
         'Recursos · Cliente' => ['bi-people', [
             'resources.cliente.view'   => 'Visualizar',

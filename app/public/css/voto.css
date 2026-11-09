@@ -1,0 +1,33 @@
+/* BlueJus Voto: tela da equipe logada.
+   Valores copiados do <style> do desenho docs/design/redesign-08-11-26/18 - Voto - VS 08.11.26.dc.html
+   (inventário em docs/specs/bluejus-voto-anexo-telas.md, seções 0 e 1). Tudo vive sob `.voto-tela` / `.voto-body`:
+   nenhum seletor global, nada herdado de .card/.btn do AdminLTE. Cada PR do Voto acrescenta aqui os componentes
+   do desenho que passa a usar, com o mesmo nome de classe do desenho. */
+
+/* Base (body do desenho: fundo #f3f6f8, Arial, texto #12242f) */
+.voto-body .app-main { background: #f3f6f8; }
+.voto-body .app-content,
+.voto-body .app-content-header { background: transparent; }
+
+/* Coluna principal (main do desenho): 1240px, coluna com gap 12px; o respiro lateral é o da moldura do sistema */
+.voto-tela { max-width: 1240px; margin: 0 auto; padding: 18px 0 110px; display: flex; flex-direction: column; gap: 12px; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+.voto-tela *, .voto-tela *::before, .voto-tela *::after { box-sizing: border-box; }
+.voto-tela .voto-titulo { margin: 0; font-size: 27px; font-weight: normal; color: #12242f; }
+.voto-tela .voto-abas { display: flex; overflow-x: auto; }
+.voto-tela .voto-painel { display: flex; flex-direction: column; gap: 12px; }
+
+/* Componentes do desenho */
+.voto-tela .vC { background: #fff; border: 1px solid #d3dde4; border-radius: 3px; box-shadow: 0 1px 3px rgba(18,36,47,.06); }
+.voto-tela .vH { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 10px 16px; background: #0a6fa0; color: #fff; font-size: 15.5px; font-weight: bold; }
+.voto-tela .vTab:focus-visible { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+.voto-tela .vTab { padding: 11px 15px; background: none; border: 0; border-bottom: 3px solid transparent; font: inherit; font-size: 14px; font-weight: bold; color: #34505f; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 7px; align-items: center; }
+.voto-tela a.vTab { text-decoration: none; }
+.voto-tela .vTab:hover { color: #0a6fa0; }
+.voto-tela .vTabOn { color: #0a6fa0; border-bottom-color: #0a6fa0; }
+.voto-tela .vLin { padding: 11px 15px; border-top: 1px solid #e6edf2; }
+.voto-tela .vLin:nth-child(even) { background: #f6f9fb; }
+.voto-tela .vAviso { padding: 10px 14px; background: #fff8e6; border: 1px solid #e6c56a; color: #6b4e00; font-size: 13px; border-radius: 3px; line-height: 1.4; }
+
+/* Aba Acompanhar: textos da lista (style inline do desenho) */
+.voto-tela .voto-aco-texto { font-size: 13px; color: #34505f; }
+.voto-tela .voto-aco-vazio { font-size: 13.5px; color: #5b7383; }

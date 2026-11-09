@@ -1131,5 +1131,14 @@
             "ponto-pendente.js"
         ],
         "permitidos": ["·", "×", "Content-Type"]
+    },
+
+    "voto": {
+        "templates": [
+            "voto/index.html.twig"
+        ],
+        "permitidos": [
+            "voto-body"
+        ]
     }
 }

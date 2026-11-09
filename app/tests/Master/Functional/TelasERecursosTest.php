@@ -236,6 +236,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
     #[TestDox('aba "Telas e recursos" no painel: terceira aba, cabeçalho, resumo e o estado inicial em JSON')]
     public function testAbaNoPainel(): void
     {
+        $this->religarTodos();
         $this->desligar('contribua', 'Tela em preparação', null);
         $this->entrar($this->master);
 
@@ -257,7 +258,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertNotEmpty($painel->attr('data-token'));
 
         $linhas = json_decode((string) $painel->attr('data-recursos'), true);
-        self::assertCount(19, $linhas);
+        self::assertCount(20, $linhas);
         $contribua = array_values(array_filter($linhas, static fn (array $l): bool => $l['chave'] === 'contribua'));
         self::assertCount(2, $contribua);
         self::assertFalse($contribua[0]['ativo']);
@@ -337,6 +338,18 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         $estado = $this->estado($chave) ?? new RecursoEstado($chave);
         $estado->desativar($motivo, $ate !== null ? new \DateTimeImmutable($ate) : null, null, new \DateTimeImmutable());
         $this->em->persist($estado);
+        $this->em->flush();
+    }
+
+    /**
+     * Religa o que já nasce desligado no banco de teste (ex.: `voto`, pela Version20261109120000), para a
+     * contagem do resumo depender só do que o teste desliga.
+     */
+    private function religarTodos(): void
+    {
+        foreach ($this->em->getRepository(RecursoEstado::class)->findAll() as $estado) {
+            $estado->reativar(null, new \DateTimeImmutable());
+        }
         $this->em->flush();
     }
 

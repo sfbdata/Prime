@@ -78,7 +78,7 @@ final class RecursosDoSistema
     }
 
     /**
-     * As 19 linhas do catálogo com o estado efetivo de cada uma, para a aba do Master.
+     * As 20 linhas do catálogo com o estado efetivo de cada uma, para a aba do Master.
      *
      * @return list<array{g: string, chave: string, t: string, ic: string, d: ?string, tela: bool, base: bool, ativo: bool, motivo: ?string, ate: ?string}>
      */
