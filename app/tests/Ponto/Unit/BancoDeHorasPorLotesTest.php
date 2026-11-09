@@ -33,6 +33,9 @@ final class BancoDeHorasPorLotesTest extends TestCase
     private const PRAZO = 6;
     private const LIMITE = 7200;
 
+    /** O dia passado ao serviço no teste em curso, para conferir que a conta usa o mesmo. */
+    private string $hojeDaConta = '';
+
     #[TestDox('as horas negativas abatem primeiro o credito mais antigo')]
     public function testDebitoAbatePrimeiroOCreditoMaisAntigo(): void
     {
@@ -77,7 +80,9 @@ final class BancoDeHorasPorLotesTest extends TestCase
     public static function situacoes(): iterable
     {
         yield 'um dia depois do vencimento' => ['2026-08-01', 'Vencido', '#a3232b'];
-        yield 'no dia do vencimento' => ['2026-07-31', 'Vence em 0 dias', '#8a6200'];
+        yield 'no dia do vencimento' => ['2026-07-31', 'Vence hoje', '#8a6200'];
+        yield 'a 1 dia' => ['2026-07-30', 'Vence em 1 dia', '#8a6200'];
+        yield 'a 2 dias' => ['2026-07-29', 'Vence em 2 dias', '#8a6200'];
         yield 'a 30 dias' => ['2026-07-01', 'Vence em 30 dias', '#8a6200'];
         yield 'a 31 dias' => ['2026-06-30', 'No prazo', '#1e7b45'];
     }
@@ -128,6 +133,7 @@ final class BancoDeHorasPorLotesTest extends TestCase
         $limites->expects(self::once())->method('limiteEmMinutos')->with($tenant)->willReturn(600);
         $limites->expects(self::once())->method('prazoEmMeses')->with($tenant)->willReturn(1);
 
+        $this->hojeDaConta = '2026-02-01';
         $banco = $this->servico(['2026-01' => 700], $limites, $tenant)
             ->calcular($this->createStub(User::class), $tenant, new \DateTimeImmutable('2026-02-01'));
 
@@ -154,6 +160,7 @@ final class BancoDeHorasPorLotesTest extends TestCase
         $limites->method('limiteEmMinutos')->willReturn(self::LIMITE);
         $limites->method('prazoEmMeses')->willReturn(self::PRAZO);
         $tenant = $this->createStub(Tenant::class);
+        $this->hojeDaConta = $hoje;
 
         return $this->servico($saldos, $limites, $tenant)
             ->calcular($this->createStub(User::class), $tenant, new \DateTimeImmutable($hoje . ' 15:40:00'));
@@ -165,7 +172,10 @@ final class BancoDeHorasPorLotesTest extends TestCase
         $folha = $this->createMock(FolhaPontoBuilder::class);
         $folha->expects(self::once())
             ->method('saldosDoBancoPorCompetencia')
-            ->with(self::anything(), $tenant)
+            ->with(self::anything(), $tenant, self::anything(), self::anything(), self::anything(), self::callback(
+                // Uma fonte de "hoje": o dia que o serviço recebe (sem a hora) é o mesmo da conta dos saldos.
+                fn (mixed $dia): bool => $dia instanceof \DateTimeImmutable && $dia->format('H:i:s') === '00:00:00' && $dia->format('Y-m-d') === $this->hojeDaConta,
+            ))
             ->willReturn($saldos);
 
         return new BancoDeHorasPorLotes(

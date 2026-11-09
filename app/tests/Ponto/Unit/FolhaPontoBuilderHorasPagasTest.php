@@ -115,16 +115,17 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         self::assertSame(-300, $saldo, 'horas pagas fora da janela de contagem não podem evaporar');
     }
 
+    /**
+     * Item 12 da E17: sem jornada pessoal, os dias contam pela jornada do escritório (a mesma da folha da /ponto), então
+     * o saldo não é mais zero; o lançamento continua somando por cima dele.
+     */
     #[TestDox('colaborador SEM jornada configurada ainda recebe o lancamento')]
     public function testColaboradorSemJornadaAindaRecebeLancamento(): void
     {
-        $builder = $this->builderComLancamentos([2026 => [3 => -120]]);
-
         $userSemJornada = $this->createStub(User::class);
+        $saldo = fn (FolhaPontoBuilder $builder): int => $builder->calcularSaldoAteMes($userSemJornada, 2026, 12, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
 
-        $saldo = $builder->calcularSaldoAteMes($userSemJornada, 2026, 12, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
-
-        self::assertSame(-120, $saldo, 'sem jornada o saldo é 0, mas o lançamento manual continua valendo');
+        self::assertSame(-120, $saldo($this->builderComLancamentos([2026 => [3 => -120]])) - $saldo($this->builderComLancamentos([])), 'o lançamento manual continua valendo');
     }
 
     #[TestDox('colaborador SEM nenhuma batida ainda recebe o lancamento')]
@@ -203,16 +204,14 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         self::assertSame(-300, $saldo, 'maio não pode entrar num saldo até fevereiro');
     }
 
+    /** Item 12 da E17: o saldo da folha deixa de ser zero sem jornada pessoal; o lançamento soma por cima. */
     #[TestDox('calcularSaldoAteMes: colaborador SEM jornada configurada ainda recebe o lancamento')]
     public function testAteMesSemJornadaAindaRecebeLancamento(): void
     {
-        $builder = $this->builderComLancamentos([2026 => [3 => -120]]);
-
         $userSemJornada = $this->createStub(User::class);
+        $saldo = fn (FolhaPontoBuilder $builder): int => $builder->calcularSaldoAteMes($userSemJornada, 2026, 3, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
 
-        $saldo = $builder->calcularSaldoAteMes($userSemJornada, 2026, 3, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
-
-        self::assertSame(-120, $saldo, 'sem jornada o saldo é 0, mas o lançamento manual continua valendo');
+        self::assertSame(-120, $saldo($this->builderComLancamentos([2026 => [3 => -120]])) - $saldo($this->builderComLancamentos([])), 'o lançamento manual continua valendo');
     }
 
     #[TestDox('calcularSaldoAteMes: colaborador SEM nenhuma batida ainda recebe o lancamento')]

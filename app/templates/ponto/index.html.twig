@@ -1342,7 +1342,9 @@
     // antigo quadro "Suas batidas de hoje". O `#tipo-registro` escondido fica fora dela e recebe o valor novo abaixo.
     // E3: o painel das pendências e a aba dele (o número) estão no cartão de abas; a aba aberta vai no endereço
     // (js/ponto-abas.js), então a tela buscada volta na mesma aba.
-    const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-aba-pendencias', 'ponto-regiao-pendencias'];
+    // E17: o painel do Banco de Horas troca junto com o número do topo (`ponto-banco-horas`): os dois saem do mesmo
+    // cálculo e nunca divergem depois da batida.
+    const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-aba-pendencias', 'ponto-regiao-pendencias', 'ponto-painel-banco'];
 
     // E14: cada busca da tela ganha um número no INÍCIO, e só a resposta da busca mais nova iniciada é trocada. Uma mais
     // velha que chega depois (a da fila e a do toque correndo juntas, ou depois de uma mais nova que falhou) é

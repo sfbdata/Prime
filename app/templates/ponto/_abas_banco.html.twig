@@ -3,8 +3,9 @@
     (App\Ponto\DTO\BancoDeHorasOutput): os três quadros, a faixa amarela só acima do limite, a tabela de lotes (da
     competência mais antiga para a mais nova) e a nota da lei. Classes do desenho com o prefixo da tela: bjpT = pe-tab
     (sem pe-resp: no celular rola para o lado), bjpJ = pe-just-lin; o `overflow-x:auto` é o pe-abas-rolagem da E3.
-    O "—" das células sem valor do desenho fica vazio, como na Folha. Nada aqui calcula: os números vêm em minutos do
-    BancoDeHorasPorLotes e só são formatados (`fSal` e `fDur` do desenho, em _folha_macros).
+    O traço das células sem valor do desenho (L776) segue a spec (seção 8, item 7): Crédito, Compensado e Saldo mostram
+    "0h", Vence em mostra "Sem prazo". Nada aqui calcula: os números vêm em minutos do BancoDeHorasPorLotes e só são
+    formatados (`fSal` e `fDur` do desenho, em _folha_macros).
 #}
 {% import 'ponto/_folha_macros.html.twig' as folha %}
 {% set limite = bancoDeHoras.limiteMinutos %}
@@ -19,7 +20,7 @@
     </div>
     <div class="pe-bh-kpi">
         <div class="pe-bh-kpi-rotulo">PRAZO DE COMPENSAÇÃO</div>
-        <b class="pe-bh-kpi-valor pe-cor--zero">{{ bancoDeHoras.prazoMeses }} meses</b>
+        <b class="pe-bh-kpi-valor pe-cor--zero">{{ bancoDeHoras.prazoMeses }} {{ bancoDeHoras.prazoMeses == 1 ? 'mês' : 'meses' }}</b>
     </div>
 </div>
 {% if bancoDeHoras.acimaDoLimite %}
@@ -34,11 +35,11 @@
             {% for lote in bancoDeHoras.lotes %}
                 <tr class="pe-just-lin">
                     <td><b>{{ lote.competencia }}</b></td>
-                    <td>{{ lote.creditoMinutos > 0 ? folha.saldo(lote.creditoMinutos) : '' }}</td>
-                    <td>{{ lote.compensadoMinutos > 0 ? folha.horas(lote.compensadoMinutos) : '' }}</td>
-                    <td class="pe-bh-saldo">{{ lote.creditoMinutos > 0 ? folha.saldo(lote.saldoMinutos) : '' }}</td>
-                    <td>{{ lote.venceEm is not null ? lote.venceEm|date('d/m/Y') : '' }}</td>
-                    <td><span class="pe-bh-selo" style="background-color: {{ lote.cor }};">{{ lote.situacao }}</span></td>
+                    <td>{{ folha.saldo(lote.creditoMinutos) }}</td>
+                    <td>{{ lote.compensadoMinutos > 0 ? folha.horas(lote.compensadoMinutos) : '0h' }}</td>
+                    <td class="pe-bh-saldo">{{ folha.saldo(lote.saldoMinutos) }}</td>
+                    <td>{{ lote.venceEm is not null ? lote.venceEm|date('d/m/Y') : 'Sem prazo' }}</td>
+                    <td><span class="pe-bh-selo" style="background-color: {{ lote.cor|e('html_attr') }};">{{ lote.situacao }}</span></td>
                 </tr>
             {% else %}
                 {# O desenho não tem o vazio; a convenção das abas (E3) é a frase no lugar da lista. #}

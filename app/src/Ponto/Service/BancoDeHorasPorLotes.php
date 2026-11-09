@@ -42,20 +42,21 @@ final class BancoDeHorasPorLotes
     ) {
     }
 
-    /** @param \DateTimeInterface $hoje o dia de referência dos vencimentos (só a data conta) */
+    /** @param \DateTimeInterface $hoje o dia de referência da conta e dos vencimentos (só a data conta) */
     public function calcular(User $user, Tenant $tenant, \DateTimeInterface $hoje): BancoDeHorasOutput
     {
+        $dia = \DateTimeImmutable::createFromInterface($hoje)->setTime(0, 0);
         $saldos = $this->folha->saldosDoBancoPorCompetencia(
             $user,
             $tenant,
             $this->feriados->findByTenant($tenant),
             $tenant->getJornadaTenant(),
             $this->inicioContagem->resolver($user, $tenant),
+            $dia,
         );
         $saldoAtual = array_sum($saldos);
         $limite = $this->limites->limiteEmMinutos($tenant);
         $prazo = $this->limites->prazoEmMeses($tenant);
-        $dia = \DateTimeImmutable::createFromInterface($hoje)->setTime(0, 0);
 
         return new BancoDeHorasOutput($saldoAtual, $limite, $prazo, $saldoAtual > $limite, $this->lotes($saldos, $prazo, $dia));
     }
@@ -95,12 +96,19 @@ final class BancoDeHorasPorLotes
         return new LoteDoBancoDeHorasOutput($this->rotulo($competencia), $credito, $usado, $saldo, $venceEm, $situacao, $cor);
     }
 
-    /** @return array{string, string} a situação do lote com crédito e a cor do selo (desenho L776) */
+    /**
+     * A situação do lote com crédito e a cor do selo (desenho L776). Dias de calendário até o vencimento; o português
+     * do "Vence em N dias" no 0 e no 1 é decisão do Coordenador (E17): "Vence hoje" e "Vence em 1 dia".
+     *
+     * @return array{string, string}
+     */
     private function situacao(int $saldo, int $diasAteVencer): array
     {
         return match (true) {
             $saldo === 0 => ['Compensado', self::COR_NEUTRA],
             $diasAteVencer < 0 => ['Vencido', self::COR_VENCIDO],
+            $diasAteVencer === 0 => ['Vence hoje', self::COR_VENCENDO],
+            $diasAteVencer === 1 => ['Vence em 1 dia', self::COR_VENCENDO],
             $diasAteVencer <= self::DIAS_DO_AVISO => [sprintf('Vence em %d dias', $diasAteVencer), self::COR_VENCENDO],
             default => ['No prazo', self::COR_NO_PRAZO],
         };
