@@ -558,6 +558,19 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Migration: sim (hora do aparelho, hora de chegada, marca de envio sem internet, identificador único do envio).
 - Arquivos: `RegistroPonto`, `PontoController.php`, `ponto-batida.js`.
 - Testes: batida grava as duas horas; o mesmo identificador enviado duas vezes não cria duas batidas.
+- Decisões da etapa (09/11/2026, Coordenador):
+  - migration `Version20261109220000`: em `registro_ponto`, `hora_aparelho`, `hora_chegada`, `enviada_sem_internet`
+    (padrão falso) e `id_envio`, com índice único `uniq_registro_ponto_user_envio` em (pessoa, `id_envio`); as linhas
+    antigas ficam vazias, sem preenchimento;
+  - o envio da batida (`POST /ponto/batida`) ganha `idEnvio` (UUID v4 feito no toque, o mesmo em toda nova tentativa) e
+    `horaAparelho` (milissegundos do relógio do aparelho no toque); os dois são opcionais, e sem eles tudo fica como antes;
+  - na batida normal, a hora da batida e a de chegada são o mesmo instante do servidor; a do aparelho é só informação e,
+    inválida, fica vazia sem recusar;
+  - o mesmo `idEnvio` da mesma pessoa no mesmo escritório responde "Esta batida já tinha sido registrada." sem gravar de
+    novo; dois envios ao mesmo tempo são barrados pelo índice único e recebem a mesma resposta; o mesmo `idEnvio` de
+    outra pessoa grava normal;
+  - a leitura dos campos fica em `EnvioDaBatida` (`src/Ponto/Service`), para o `PontoController` mudar o mínimo;
+  - a tela e o atalho do cabeçalho mandam os dois campos; o atalho não tem fila.
 
 **E14. Fila sem internet.**
 - Entra: P20 (a: vale a hora do aparelho, as duas horas ficam guardadas e a batida aparece marcada "enviada sem
@@ -714,6 +727,8 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   (seção 5).
 - E3 implementada na branch `ponto-desenho-e3` (empilhada na E2), sem migration, em parciais novos (a tela antiga fica
   intocada). Decisões e os pontos de liga e desliga do P40, P43 a e P41 registrados na E3 (seção 5).
+- E13 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e13`, servidor, e `ponto-desenho-e13-tela`), com a
+  migration `Version20261109220000`. Decisões da etapa registradas na E13 (seção 5).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
   saldo de antes dos lotes (E17).
