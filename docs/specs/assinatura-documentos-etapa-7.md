@@ -281,8 +281,9 @@ fora (etapa 2).
 - **L3.** Texto do aviso de LGPD e base legal (art. 11, II, "g", se a selfie for usada para identificar pelo rosto):
   pacote jurídico; o texto da seção 8 é provisório.
 - **L4.** Câmera no nginx de produção (seção 10): do Samuel.
-- **L5.** As fontes de referência do espelho no R2 (`Shared/EspelhoRemoto/Reconciliacao/FontesDeReferencia`) não
-  listam a rubrica (etapa 2) nem a selfie: a reconciliação não confere esses arquivos no espelho. Fora do escopo desta
-  etapa (arquivo do `Shared`).
-- **L6.** O `ConferirSegredosCommand` (auditoria dos segredos de produção) não confere o `ASSINATURA_SEGREDO` nem a
-  `ASSINATURA_SELFIE_CHAVE`. Fora do escopo (arquivo do `Shared`).
+- **L5.** Resolvida na revisão: as fontes de referência do espelho no R2
+  (`Shared/EspelhoRemoto/Reconciliacao/FontesDeReferencia`) listam a rubrica (`assinatura_signatario_rubrica`, que
+  faltava desde a etapa 2) e a selfie cifrada (`assinatura_signatario_selfie`), com o escritório do documento.
+- **L6.** Resolvida na revisão: o `app:conferir-segredos` (`ConferirSegredosCommand` com o `ConferenteDeSegredos`)
+  confere o `ASSINATURA_SEGREDO` (ao menos 32 caracteres sem as pontas, diferente do modelo) e a
+  `ASSINATURA_SELFIE_CHAVE` (definida, 64 hexadecimais, diferente do modelo), sem mostrar os valores.

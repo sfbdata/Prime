@@ -20,7 +20,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 #[AsCommand(
     name: 'app:conferir-segredos',
-    description: 'Confere APP_SECRET, SYNC_CRYPTO_KEY e CONTRIBUA_CRYPTO_KEY sem mostrar os valores',
+    description: 'Confere APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO e ASSINATURA_SELFIE_CHAVE sem mostrar os valores',
 )]
 final class ConferirSegredosCommand extends Command
 {
@@ -32,6 +32,13 @@ final class ConferirSegredosCommand extends Command
         private readonly string $chaveDeCifraDoSync,
         #[Autowire('%env(string:default::CONTRIBUA_CRYPTO_KEY)%')]
         private readonly string $chaveDeCifraDoContribua,
+        // Os mesmos parâmetros que a Assinatura lê, para conferir o valor que o sistema usa.
+        #[Autowire(param: 'assinatura.segredo')]
+        #[\SensitiveParameter]
+        private readonly string $segredoDaAssinatura,
+        #[Autowire(param: 'assinatura.selfie_chave')]
+        #[\SensitiveParameter]
+        private readonly string $chaveDaSelfie,
         #[Autowire('%kernel.project_dir%/../.env.prod.example')]
         private readonly string $caminhoDoModelo,
     ) {
@@ -59,11 +66,14 @@ final class ConferirSegredosCommand extends Command
             return Command::FAILURE;
         }
 
-        $problemas = $this->conferente->conferir(
-            $this->segredoDaAplicacao,
-            $this->chaveDeCifraDoSync,
-            $this->chaveDeCifraDoContribua,
-            $modelo,
+        $problemas = array_merge(
+            $this->conferente->conferir(
+                $this->segredoDaAplicacao,
+                $this->chaveDeCifraDoSync,
+                $this->chaveDeCifraDoContribua,
+                $modelo,
+            ),
+            $this->conferente->conferirAssinatura($this->segredoDaAssinatura, $this->chaveDaSelfie, $modelo),
         );
 
         if ($problemas !== []) {
@@ -73,7 +83,7 @@ final class ConferirSegredosCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->success('APP_SECRET, SYNC_CRYPTO_KEY e CONTRIBUA_CRYPTO_KEY conferidos.');
+        $io->success('APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO e ASSINATURA_SELFIE_CHAVE conferidos.');
 
         return Command::SUCCESS;
     }

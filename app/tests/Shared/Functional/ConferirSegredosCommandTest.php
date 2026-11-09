@@ -43,6 +43,26 @@ final class ConferirSegredosCommandTest extends KernelTestCase
         self::assertFalse(str_contains($tester->getDisplay(), $segredo), 'O valor do segredo não pode aparecer na saída.');
     }
 
+    #[TestDox('com o segredo da Assinatura e a chave da selfie do ambiente iguais aos do modelo, falha sem mostrar os valores')]
+    public function testAssinaturaIgualAoModeloFalhaSemMostrarOsValores(): void
+    {
+        self::bootKernel();
+        $segredo = (string) static::getContainer()->getParameter('assinatura.segredo');
+        $chave = (string) static::getContainer()->getParameter('assinatura.selfie_chave');
+        self::assertNotSame('', $segredo);
+        self::assertNotSame('', $chave);
+
+        $tester = $this->tester();
+        $tester->setInputs(["ASSINATURA_SEGREDO={$segredo}\nASSINATURA_SELFIE_CHAVE={$chave}"]);
+        $codigo = $tester->execute(['--modelo' => '-']);
+
+        self::assertSame(Command::FAILURE, $codigo);
+        self::assertStringContainsString('ASSINATURA_SEGREDO', $tester->getDisplay());
+        self::assertStringContainsString('ASSINATURA_SELFIE_CHAVE', $tester->getDisplay());
+        self::assertFalse(str_contains($tester->getDisplay(), $segredo), 'O valor do segredo não pode aparecer na saída.');
+        self::assertFalse(str_contains($tester->getDisplay(), $chave), 'O valor da chave não pode aparecer na saída.');
+    }
+
     private function tester(): CommandTester
     {
         self::bootKernel();
