@@ -31,6 +31,12 @@ final class NomesDasSituacoesDaJustificativa
         'ficha.recusar'          => 'Recusar',
         'ficha.motivo'           => 'Motivo da recusa (obrigatório)',
         'ficha.confirmar_recusa' => 'Recusar justificativa de %s?',
+        'anexo.travado'          => 'O atestado não pode ser trocado: este lançamento já está abonado ou recusado em pelo '
+            . 'menos um dos dias. Para trocá-lo, todos os dias precisam voltar para análise. Fale com o administrador.',
+        'edicao.ja_analisada'    => 'Esta justificativa não está mais em análise (já foi analisada pelo gestor ou '
+            . 'registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para voltá-la '
+            . 'para análise.',
+        'lote.sem_pendente'      => 'Nenhuma justificativa em análise encontrada neste lote.',
     ];
 
     /** Os nomes de antes do desenho, guardados para a volta do Ponto antigo. */
@@ -49,10 +55,17 @@ final class NomesDasSituacoesDaJustificativa
         'ficha.recusar'          => 'Rejeitar',
         'ficha.motivo'           => 'Motivo da rejeição (obrigatório)',
         'ficha.confirmar_recusa' => 'Rejeitar justificativa de %s?',
+        'anexo.travado'          => 'O atestado não pode ser trocado: este lançamento já está abonado ou rejeitado em '
+            . 'pelo menos um dos dias. Para trocá-lo, todos os dias precisam voltar a pendente. Fale com o administrador.',
+        'edicao.ja_analisada'    => 'Esta justificativa não está mais pendente (já foi analisada pelo gestor ou '
+            . 'registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para '
+            . 'revertê-la para pendente.',
+        'lote.sem_pendente'      => 'Nenhuma justificativa pendente encontrada neste lote.',
     ];
 
     /** A linha da troca do P40. */
-    private const VIGENTES = self::DO_DESENHO;
+    // Pública para quem precisa do texto numa constante (JustificativaJaAnalisadaException::MENSAGEM).
+    public const VIGENTES = self::DO_DESENHO;
 
     private function __construct()
     {

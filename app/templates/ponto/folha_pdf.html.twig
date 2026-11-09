@@ -256,7 +256,7 @@
                         {%- elseif j.status == 'pendente' -%}
                             {{ j.labelTipo }} (pendente)
                         {%- else -%}
-                            {{ j.labelTipo }} (rejeitada)
+                            {{ j.labelTipo }} ({{ nome_da_situacao('situacao.rejeitado') }})
                         {%- endif -%}
                     {%- endif -%}
                 </td>

@@ -28,6 +28,11 @@ final class NomesDasSituacoesDaJustificativaTest extends TestCase
         self::assertSame('Recusar', NomesDasSituacoesDaJustificativa::texto('ficha.recusar'));
         self::assertSame('Motivo da recusa (obrigatório)', NomesDasSituacoesDaJustificativa::texto('ficha.motivo'));
         self::assertSame('Recusar justificativa de 03/11/2026?', NomesDasSituacoesDaJustificativa::texto('ficha.confirmar_recusa', '03/11/2026'));
+        self::assertStringContainsString('abonado ou recusado', NomesDasSituacoesDaJustificativa::texto('anexo.travado'));
+        self::assertStringContainsString('voltar para análise', NomesDasSituacoesDaJustificativa::texto('anexo.travado'));
+        self::assertStringContainsString('não está mais em análise', NomesDasSituacoesDaJustificativa::texto('edicao.ja_analisada'));
+        self::assertSame(NomesDasSituacoesDaJustificativa::texto('edicao.ja_analisada'), \App\Ponto\Exception\JustificativaJaAnalisadaException::MENSAGEM);
+        self::assertSame('Nenhuma justificativa em análise encontrada neste lote.', NomesDasSituacoesDaJustificativa::texto('lote.sem_pendente'));
     }
 
     #[TestDox('De antes: a chave devolve os textos antigos da ficha ("Rejeitar", "Motivo da rejeição")')]

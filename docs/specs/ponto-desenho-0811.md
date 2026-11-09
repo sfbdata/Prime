@@ -409,6 +409,19 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     ("recusada"). Os avisos antigos já gravados no sininho ficam como estão. "Aprovar Todos (n dias pendentes)" fica;
   - pontos de liga e desliga (sem chave nesta etapa): P40 em `NomesDasSituacoesDaJustificativa::VIGENTES`; P43 a na
     última linha de `AnaliseDaPropriaJustificativa::permite`; P41 no atributo da rota `ponto_justificativa_excluir`.
+  - ajustes da revisão e da conferência (09/11/2026, Coordenador):
+    - P40 completo: o aviso do atestado travado (lápis da aba e `SubstituirAnexoDoLoteUseCase`), a mensagem da edição
+      de justificativa já analisada (`JustificativaJaAnalisadaException`) e o "(rejeitada)" do PDF e do XLSX da folha
+      passam pelo `NomesDasSituacoesDaJustificativa` (chaves `anexo.travado`, `edicao.ja_analisada`,
+      `situacao.rejeitado`). A chave `lote.sem_pendente` ("Aprovar todos" da ficha) entra no refactor da análise
+      (E9). O "(pendente)" do PDF e do XLSX fica para a E16, que refaz o PDF (P34 a P36);
+    - o invólucro `#ponto-regiao-folha` fica: o parcial da Folha (o mesmo da ficha) entrega, junto com a
+      `section.pe-folha`, o formulário do mês, a janela de pré-visualização e o script dela. O invólucro os agrupa para
+      o cartão de abas vir logo depois da Folha (`.pe-dir > #ponto-regiao-folha + section.pe-abas`) e para a troca sem
+      recarregar pegar só o cartão. Sem efeito visual: o espaço de 16px fica entre o invólucro e o cartão;
+    - excluir a justificativa tira a linha na hora, sem recarregar, e o número da aba acompanha (o desenho só tira a
+      linha). Pendente: entra com a mudança do PontoController depois da E4, porque o flash "Justificativa de
+      dd/mm/aaaa excluída." sai da rota de excluir.
 - Arquivos: `templates/ponto/_abas*.html.twig`, `_janelas_justificativa.html.twig`, `index.html.twig` (coluna da
   direita e REGIOES_TROCADAS), `public/js/ponto-abas.js`, `public/css/ponto-eletronico.css` (seção do cartão de abas e
   da janela), `PontoController` (rota de excluir; `abaAberta` e `podeAnalisarAPropria` no index), `TenantController`
