@@ -639,6 +639,22 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertTrue($linha['homeOffice'], 'a batida escolhida em home office acende o selo');
     }
 
+    public function testSeloSemInternetSaiSoDasBatidasEscolhidas(): void
+    {
+        // E14 (spec ponto-desenho-0811): como o home office, o selo olha só as batidas que a folha mostra.
+        $entrada = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
+        $repeticaoDaFila = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11);
+        $repeticaoDaFila->setEnviadaSemInternet(true);
+
+        $linha = $this->linhaDoDia7([$entrada, $repeticaoDaFila, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
+        self::assertFalse($linha['semInternet'], 'a repetição fora da conta não acende o selo');
+
+        $saidaDaFila = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13);
+        $saidaDaFila->setEnviadaSemInternet(true);
+        $linha = $this->linhaDoDia7([$entrada, $saidaDaFila], []);
+        self::assertTrue($linha['semInternet'], 'a batida escolhida que veio da fila acende o selo');
+    }
+
     private function batidaComId(string $tipo, string $hora, string $data, int $id): RegistroPonto
     {
         $registro = $this->batida($tipo, $hora, $data);
