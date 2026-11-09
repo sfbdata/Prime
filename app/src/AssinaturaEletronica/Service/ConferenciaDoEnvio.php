@@ -11,8 +11,12 @@ use App\Shared\Service\DigitoVerificador;
 
 /**
  * O que o "Gerar links e enviar" confere nos signatários, no servidor (contrato da etapa 2, decisão A): nome de todos,
- * dígito do CPF informado (o desenho, A12 e A13), só a assinatura Simples nesta etapa e e-mail de quem é Simples (o
+ * dígito do CPF informado (o desenho, A12 e A13), só as assinaturas Simples e Reforçada (etapa 7) e e-mail de todos (o
  * código vai por e-mail). A ordem é a do desenho: primeiro os nomes, depois os CPFs.
+ *
+ * Etapa 7 (contrato da etapa 7, seção 4.3): a Reforçada colhe selfie e não é usada para menor (papel com a palavra
+ * "menor", sem acento e sem caixa; "Responsável pelo menor" também cai, falso positivo assumido) e, havendo Reforçada,
+ * a chave da selfie tem de estar configurada.
  */
 final class ConferenciaDoEnvio
 {
@@ -21,7 +25,7 @@ final class ConferenciaDoEnvio
     }
 
     /** @throws AcaoRecusada */
-    public static function exigir(DocumentoParaAssinar $documento): void
+    public static function exigir(DocumentoParaAssinar $documento, bool $reforcadaConfigurada): void
     {
         $signatarios = $documento->getSignatarios();
         if ($signatarios === []) {
@@ -38,13 +42,28 @@ final class ConferenciaDoEnvio
                 throw new AcaoRecusada('assinatura_eletronica.erro.envio_cpf');
             }
         }
+        $temReforcada = false;
         foreach ($signatarios as $s) {
-            if ($s->getNivel() !== NivelDeAssinatura::Simples) {
+            $nivel = $s->getNivel();
+            if ($nivel !== NivelDeAssinatura::Simples && $nivel !== NivelDeAssinatura::Reforcada) {
                 throw new AcaoRecusada('assinatura_eletronica.erro.envio_nivel', ['nome' => $s->getNome()]);
+            }
+            if ($nivel === NivelDeAssinatura::Reforcada && self::papelDeMenor($s->getPapel())) {
+                throw new AcaoRecusada('assinatura_eletronica.erro.envio_reforcada_menor', ['nome' => $s->getNome()]);
             }
             if ($s->getEmail() === null) {
                 throw new AcaoRecusada('assinatura_eletronica.erro.envio_email', ['nome' => $s->getNome()]);
             }
+            $temReforcada = $temReforcada || $nivel === NivelDeAssinatura::Reforcada;
         }
+        if ($temReforcada && !$reforcadaConfigurada) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.reforcada_sem_chave');
+        }
+    }
+
+    /** O papel tem a palavra "menor" (ex.: "Menor assistido(a)", "Menor Representado ou Assistido"). */
+    private static function papelDeMenor(string $papel): bool
+    {
+        return preg_match('/(?<!\pL)menor(?!\pL)/iu', $papel) === 1;
     }
 }

@@ -17,7 +17,7 @@ assinatura_eletronica:
         link_aberto: '{nome} abriu o link'
         codigo_enviado: Código de verificação enviado a {nome}
         codigo_errado: Código incorreto informado por {nome}
-        assinado: '{nome} assinou (Simples)'
+        assinado: '{metodo, select, reforcada {{nome} assinou (Reforçada): selfie e localização {local}} other {{nome} assinou (Simples)}}'
         recusado: '{nome} recusou: {motivo}'
         documento_concluido: 'Documento concluído: todas as assinaturas registradas'
         lembrete_enviado: Lembrete enviado a {nome}
@@ -65,6 +65,8 @@ assinatura_eletronica:
         envio_cpf: Confira o CPF informado.
         envio_nivel: 'A assinatura de {nome} ainda não está disponível. Use a assinatura Simples.'
         envio_email: Informe o e-mail de {nome} para enviar o código de assinatura.
+        envio_reforcada_menor: 'A assinatura Reforçada colhe selfie e não é usada para menor ({nome}). Escolha outra forma de assinatura.'
+        reforcada_sem_chave: Assinatura reforçada sem chave configurada. Fale com o suporte.
         cancelar_fora_do_envio: Só documentos aguardando assinatura podem ter o envio cancelado.
         lembrete_fora_do_envio: Só documentos aguardando assinatura, dentro do prazo, recebem lembrete.
         lembrete_sem_pendente: Nenhum signatário aguarda assinatura.
@@ -80,6 +82,12 @@ assinatura_eletronica:
         assinar_sem_rubrica: Desenhe ou digite a sua assinatura.
         assinar_pedir_codigo: Solicite o código de confirmação.
         assinar_aceite: Marque a confirmação de leitura.
+        assinar_selfie: Envie a selfie com o documento.
+        selfie_invalida: A selfie não pôde ser lida. Envie uma foto JPEG ou PNG.
+        selfie_grande: A selfie pode ter até 4 MB. Tire a foto de novo.
+        selfie_tamanho: O tamanho da foto não serve. Tire a selfie de novo.
+        assinar_localizacao: Permita o acesso à localização para assinar.
+        localizacao_invalida: A localização recebida não é válida. Recarregue a página e tente de novo.
         rubrica_invalida: A assinatura desenhada não pôde ser lida. Desenhe de novo.
         rubrica_grande: A imagem da assinatura passa de 200 KB. Desenhe de novo.
         codigo_errado: Código incorreto.
