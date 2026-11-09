@@ -7,6 +7,7 @@ namespace App\AssinaturaEletronica\Service;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\EstadoDaPagina;
+use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -22,6 +23,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * A prévia do escritório usa a mesma forma, com as URLs internas (a sessão de quem tem o módulo abre os arquivos), o
  * documento inteiro em qualquer estado e o rascunho como `pronto` (o que o signatário verá depois do envio).
+ *
+ * Etapa 7: `reforcada` (no topo, fora do `eu`) diz à tela que este signatário manda selfie e localização; só é
+ * verdadeiro no estado `pronto` e na prévia de quem é Reforçada.
  */
 final readonly class PaginaDoSignatario
 {
@@ -62,6 +66,7 @@ final readonly class PaginaDoSignatario
             'documento' => $this->documento($documento, $this->logoPublica($documento, $url), $documento->temArquivo() ? $url('arquivo') : null),
             'lugares' => $this->lugares($documento, static fn (Signatario $s): string => $url('rubrica', ['ordem' => $s->getOrdem()])),
             'eu' => self::eu($signatario),
+            'reforcada' => self::reforcada($signatario),
             'codigo' => [
                 'enviado' => $signatario->temCodigo(),
                 'validoAte' => self::iso($signatario->codigoValidoAte()),
@@ -90,6 +95,7 @@ final readonly class PaginaDoSignatario
             'documento' => $this->documento($documento, $this->apresentacao->urlDaLogo($documento), $arquivo),
             'lugares' => $this->lugares($documento, $this->apresentacao->urlDaRubrica(...)),
             'eu' => self::eu($signatario),
+            'reforcada' => self::reforcada($signatario),
         ]);
     }
 
@@ -122,6 +128,7 @@ final readonly class PaginaDoSignatario
             'documento' => null,
             'lugares' => [],
             'eu' => null,
+            'reforcada' => false,
             'aceite' => [
                 'versao' => self::VERSAO_DO_ACEITE,
                 'texto' => $this->tradutor->trans(self::chaveDoAceite()),
@@ -188,6 +195,11 @@ final readonly class PaginaDoSignatario
             'rubrica' => $s->getRubricaChave() !== null ? $rubrica($s) : null,
             'assinadoEm' => self::iso($s->getAssinadoEm()),
         ], $documento->getSignatarios());
+    }
+
+    private static function reforcada(Signatario $signatario): bool
+    {
+        return $signatario->getNivel() === NivelDeAssinatura::Reforcada;
     }
 
     /** @return array{nome: string, cpf: ?string, posicao: int} */

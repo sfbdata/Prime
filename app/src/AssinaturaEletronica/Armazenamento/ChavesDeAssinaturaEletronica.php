@@ -15,7 +15,7 @@ use App\Shared\Armazenamento\NovoArquivo;
 
 /**
  * As chaves de arquivo da tela Assinatura: o PDF enviado e a logo própria de cada documento, a logo padrão do
- * escritório e a rubrica de cada signatário que assinou (etapa 2). O escopo sai da ENTIDADE (documento ou configuração): a chave de um escritório nunca é montada com o id
+ * escritório, a rubrica de cada signatário que assinou (etapa 2) e a selfie cifrada da Reforçada (etapa 7). O escopo sai da ENTIDADE (documento ou configuração): a chave de um escritório nunca é montada com o id
  * de outro. Categoria isolada por escritório em disco (`uploads/pastas/assinatura/<tenantId>/`).
  */
 final class ChavesDeAssinaturaEletronica
@@ -68,6 +68,21 @@ final class ChavesDeAssinaturaEletronica
 
     /** Rubrica nova de um signatário, gravada na assinatura (a tela manda PNG). */
     public static function novaRubrica(Signatario $signatario, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(self::escopoDe($signatario->getDocumento()->getTenant()), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $extensao);
+    }
+
+    /** A selfie cifrada de quem assinou Reforçada (etapa 7); nula sem selfie. O escritório é o do documento. */
+    public static function selfie(Signatario $signatario): ?ChaveDeArquivo
+    {
+        return self::chave($signatario->getDocumento()->getTenant(), $signatario->getSelfieChave());
+    }
+
+    /**
+     * Selfie nova de um signatário: o arquivo cifrado pelo {@see \App\AssinaturaEletronica\Service\CofreDaSelfie}
+     * (gravado com a extensão `cifrado`).
+     */
+    public static function novaSelfie(Signatario $signatario, string $extensao): NovoArquivo
     {
         return new NovoArquivo(self::escopoDe($signatario->getDocumento()->getTenant()), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $extensao);
     }

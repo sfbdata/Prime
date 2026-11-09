@@ -11,6 +11,7 @@ use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\MuitasTentativas;
+use App\AssinaturaEletronica\Service\CofreDaSelfie;
 use App\AssinaturaEletronica\UseCase\AssinarDocumentoUseCase;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -192,6 +193,7 @@ final class AssinarDocumentoUseCaseTest extends TestCase
             $this->documentos,
             $this->eventosDaTrilha,
             $this->chave,
+            new CofreDaSelfie(''), // o Simples não precisa da chave da selfie
             $this->trilha(),
             $this->disco,
             $this->correio(),

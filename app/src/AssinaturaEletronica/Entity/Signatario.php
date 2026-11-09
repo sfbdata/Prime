@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\Entity;
 
+use App\AssinaturaEletronica\DTO\LocalizacaoDoSignatario;
 use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
 use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\Shared\Attribute\SemIsolamentoDeTenant;
@@ -16,6 +17,9 @@ use Doctrine\ORM\Mapping as ORM;
  * Etapa 2 (contrato da etapa 2, seções 3 e 4.1): o hash do token do link, o código de 6 dígitos (só o HMAC, 15 minutos,
  * 5 erros queimam), o bloqueio do teto diário e o registro da assinatura ou da recusa. Quem decide a vez e a situação
  * do documento é o {@see DocumentoParaAssinar}; aqui só se guarda o que aconteceu com este signatário.
+ *
+ * Etapa 7 (contrato da etapa 7, seção 4): na Reforçada, a chave do arquivo cifrado da selfie, o sha256 do JPEG e a
+ * versão da chave da selfie (M5), e a localização nas colunas que já existiam desde a M1.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'assinatura_eletronica_signatario')]
@@ -105,6 +109,15 @@ class Signatario
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
     private ?string $precisao = null;
+
+    #[ORM\Column(name: 'selfie_chave', length: 255, nullable: true)]
+    private ?string $selfieChave = null;
+
+    #[ORM\Column(name: 'selfie_sha256', length: 64, nullable: true, options: ['fixed' => true])]
+    private ?string $selfieSha256 = null;
+
+    #[ORM\Column(name: 'selfie_versao', type: 'smallint', nullable: true)]
+    private ?int $selfieVersao = null;
 
     public function __construct(
         DocumentoParaAssinar $documento,
@@ -240,6 +253,36 @@ class Signatario
         return $this->userAgent;
     }
 
+    public function getLatitude(): ?string
+    {
+        return $this->latitude;
+    }
+
+    public function getLongitude(): ?string
+    {
+        return $this->longitude;
+    }
+
+    public function getPrecisao(): ?string
+    {
+        return $this->precisao;
+    }
+
+    public function getSelfieChave(): ?string
+    {
+        return $this->selfieChave;
+    }
+
+    public function getSelfieSha256(): ?string
+    {
+        return $this->selfieSha256;
+    }
+
+    public function getSelfieVersao(): ?int
+    {
+        return $this->selfieVersao;
+    }
+
     public function estaPendente(): bool
     {
         return $this->situacao === SituacaoDoSignatario::Pendente;
@@ -325,6 +368,24 @@ class Signatario
         $this->ip = $ip;
         $this->userAgent = $userAgent;
         $this->codigoHash = null;
+    }
+
+    /**
+     * As evidências da Reforçada (selfie cifrada e localização), gravadas na mesma transação e antes da transição
+     * {@see DocumentoParaAssinar::assinar()}. Só de signatário pendente e Reforçada.
+     */
+    public function registrarReforco(string $selfieChave, string $selfieSha256, int $versao, LocalizacaoDoSignatario $localizacao): void
+    {
+        $this->exigirPendente();
+        if ($this->nivel !== NivelDeAssinatura::Reforcada) {
+            throw new \LogicException('Só signatário Reforçada tem selfie e localização.');
+        }
+        $this->selfieChave = $selfieChave;
+        $this->selfieSha256 = $selfieSha256;
+        $this->selfieVersao = $versao;
+        $this->latitude = $localizacao->latitude;
+        $this->longitude = $localizacao->longitude;
+        $this->precisao = $localizacao->precisao;
     }
 
     /** O registro da recusa, com o motivo e a evidência da requisição. Só pela transição do documento. */

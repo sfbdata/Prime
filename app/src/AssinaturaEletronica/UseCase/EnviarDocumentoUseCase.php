@@ -14,6 +14,7 @@ use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
+use App\AssinaturaEletronica\Service\CofreDaSelfie;
 use App\AssinaturaEletronica\Service\ConferenciaDoEnvio;
 use App\AssinaturaEletronica\Service\ConteudoCanonicoDoDocumento;
 use App\AssinaturaEletronica\Service\CorreioDaAssinatura;
@@ -35,6 +36,7 @@ final readonly class EnviarDocumentoUseCase
         private EventoDaTrilhaRepository $eventos,
         private ConteudoCanonicoDoDocumento $conteudo,
         private ChaveDaAssinatura $chave,
+        private CofreDaSelfie $cofre,
         private TrilhaDoDocumento $trilha,
         private CorreioDaAssinatura $correio,
         private ApresentacaoDoDocumento $apresentacao,
@@ -60,7 +62,7 @@ final readonly class EnviarDocumentoUseCase
             }
             $this->documentos->recarregarSignatarios($documento);
             $documento->exigirEnviavel();
-            ConferenciaDoEnvio::exigir($documento);
+            ConferenciaDoEnvio::exigir($documento, $this->cofre->configurado());
 
             $hash = $this->conteudo->hash($documento);
             $documento->enviar($hash, $agora);

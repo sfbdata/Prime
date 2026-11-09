@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\DTO;
 
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
+use App\AssinaturaEletronica\Service\RegravacaoDaSelfie;
 use App\Shared\Service\DigitoVerificador;
 
 /**
@@ -13,6 +14,9 @@ use App\Shared\Service\DigitoVerificador;
  * cadastro, rubrica, código pedido, código certo e, por último, o aceite.
  *
  * A rubrica chega sempre como PNG em data URL (a digitada também: o navegador desenha o nome na fonte escolhida).
+ *
+ * Etapa 7 (contrato da etapa 7, seção 5.2): na Reforçada, também `selfie` (data URL JPEG ou PNG, regravada por
+ * {@see RegravacaoDaSelfie}) e `localizacao` (`{latitude, longitude, precisao}`). Quem é Simples não lê os dois.
  */
 final readonly class EntradaDaAssinatura
 {
@@ -22,6 +26,7 @@ final readonly class EntradaDaAssinatura
     private const PREFIXO_DA_RUBRICA = 'data:image/png;base64,';
     private const ASSINATURA_PNG = "\x89PNG\r\n\x1a\n";
 
+    /** @param array<mixed>|null $localizacao */
     private function __construct(
         public string $nome,
         public string $cpf,
@@ -30,6 +35,8 @@ final readonly class EntradaDaAssinatura
         public string $modo,
         private string $rubrica,
         public bool $aceite,
+        private string $selfie = '',
+        private ?array $localizacao = null,
     ) {
     }
 
@@ -44,6 +51,10 @@ final readonly class EntradaDaAssinatura
         if (!\in_array($modo, self::MODOS, true)) {
             throw new AcaoRecusada('assinatura_eletronica.erro.dados_invalidos');
         }
+        $localizacao = $json['localizacao'] ?? null;
+        if ($localizacao !== null && !\is_array($localizacao)) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.dados_invalidos');
+        }
 
         return new self(
             (string) preg_replace('/\s+/u', ' ', LeitorDeCampos::texto($json, 'nome')),
@@ -52,6 +63,8 @@ final readonly class EntradaDaAssinatura
             $modo,
             LeitorDeCampos::texto($json, 'rubrica'),
             ($json['aceite'] ?? null) === true,
+            LeitorDeCampos::texto($json, 'selfie'),
+            $localizacao,
         );
     }
 
@@ -107,5 +120,33 @@ final readonly class EntradaDaAssinatura
         }
 
         return $png;
+    }
+
+    /**
+     * A selfie da Reforçada, conferida e regravada em JPEG.
+     *
+     * @throws AcaoRecusada "Envie a selfie com o documento." (desenho, linha 387) ou a foto que não serve
+     */
+    public function selfie(): SelfieRegravada
+    {
+        if ($this->selfie === '') {
+            throw new AcaoRecusada('assinatura_eletronica.erro.assinar_selfie');
+        }
+
+        return RegravacaoDaSelfie::regravar($this->selfie);
+    }
+
+    /**
+     * A localização da Reforçada (decisão 8: exigida).
+     *
+     * @throws AcaoRecusada "Permita o acesso à localização para assinar." ou a localização que não vale
+     */
+    public function localizacao(): LocalizacaoDoSignatario
+    {
+        if ($this->localizacao === null) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.assinar_localizacao');
+        }
+
+        return LocalizacaoDoSignatario::deJson($this->localizacao);
     }
 }

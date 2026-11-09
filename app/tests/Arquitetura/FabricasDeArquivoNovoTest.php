@@ -154,6 +154,19 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ),
             CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
         ];
+        yield ChavesDeAssinaturaEletronica::class . '::novaSelfie' => [
+            ChavesDeAssinaturaEletronica::class . '::novaSelfie',
+            static fn (?Tenant $t): object => new Signatario(
+                new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
+                0,
+                'Ana Lima',
+                null,
+                null,
+                '',
+                NivelDeAssinatura::Reforcada,
+            ),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+        ];
         yield ChavesDeAssinaturaEletronica::class . '::novaLogoPadrao' => [
             ChavesDeAssinaturaEletronica::class . '::novaLogoPadrao',
             static fn (?Tenant $t): object => new ConfiguracaoDaAssinatura($t ?? new Tenant()),

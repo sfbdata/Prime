@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\Service;
 
+use App\AssinaturaEletronica\DTO\LocalizacaoDoSignatario;
 use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
@@ -182,12 +183,18 @@ final readonly class ApresentacaoDoDocumento
             'rubrica' => $this->urlDaRubrica($s),
             'recusadoMotivo' => $s->getMotivoRecusa(),
             'nomeDigitado' => $s->getNomeDigitado(),
+            // Etapa 7: se há selfie guardada (a imagem não sai no Detalhe) e a localização como gravada.
+            'selfie' => $s->getSelfieChave() !== null,
+            'localizacao' => $s->getLatitude() !== null && $s->getLongitude() !== null
+                ? ['latitude' => $s->getLatitude(), 'longitude' => $s->getLongitude(), 'precisao' => $s->getPrecisao()]
+                : null,
         ];
     }
 
     /**
      * Os parâmetros do texto do evento: os valores simples de `dados` (o ICU não recebe lista) e o `{nome}` do
      * signatário ou do usuário do evento, quando o evento não traz um nome próprio (o "Duplicado de {nome}" traz).
+     * Com latitude e longitude (assinatura Reforçada, etapa 7), também `{local}` com 5 casas, como a tela do desenho.
      *
      * @return array<string, scalar>
      */
@@ -199,6 +206,9 @@ final readonly class ApresentacaoDoDocumento
             if ($nome !== null) {
                 $parametros['nome'] = $nome;
             }
+        }
+        if (\is_string($parametros['latitude'] ?? null) && \is_string($parametros['longitude'] ?? null)) {
+            $parametros['local'] = LocalizacaoDoSignatario::textoDe($parametros['latitude'], $parametros['longitude']);
         }
 
         return $parametros;
