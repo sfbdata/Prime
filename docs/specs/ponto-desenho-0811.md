@@ -342,8 +342,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     dos dias escondidos; mostrar esse número pede um campo novo no motor, a decidir na E17); o "Registro incompleto"
     segue a marca do motor (dia com entrada e saída sem repouso mostra saldo);
   - consequência do P25 a conhecer: o "Saldo mês" da última linha visível pode diferir do "Saldo do mês" do rodapé
-    (que só aparece com horas pagas), porque os dias sem batida depois dela continuam descontando. O número certo é o
-    do rodapé, que é o de antes;
+    (que só aparece com horas pagas). O rodapé é o acumulado da última linha que o motor entrega (dia com batida ou com
+    justificativa), como antes da E2; o P25 esconde o dia só com justificativa, e o desconto dos dias sem batida até ele
+    entra no rodapé sem aparecer em linha nenhuma. O número certo é o do rodapé, que é o de antes;
   - com a lista do P23 e o "+" do P30 a, o atalho do esquecimento aparece em meses antigos; o servidor já aceitava
     qualquer dia passado pelo modal completo e o sistema não tem mês fechado, então não há exposição nova;
   - os números são os do motor: o rodapé e o "Saldo mês" de cada linha vêm das linhas sem o filtro; o PDF, o XLSX e
