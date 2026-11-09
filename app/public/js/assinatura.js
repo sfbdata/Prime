@@ -143,6 +143,44 @@
         tToast = setTimeout(() => { el.toast.innerHTML = ''; }, 3400);
     }
 
+    /* ── Balão das dicas (data-tip): o do bj-dica.js do desenho, no lugar da dica do navegador. Aparece 280 ms depois de
+       o mouse chegar, abaixo do alvo e centralizado, sem sair da tela (margem de 8 px) nem cobrir o alvo; some ao sair,
+       clicar, teclar, rolar e no botão direito. ── */
+    let balao = null, balaoAlvo = null, balaoTempo = null;
+    function esconderBalao() {
+        clearTimeout(balaoTempo); balaoTempo = null; balaoAlvo = null;
+        if (balao) { balao.classList.remove('is-vis'); }
+    }
+    function posicionarBalao() {
+        if (!balaoAlvo || !balao) { return; }
+        const r = balaoAlvo.getBoundingClientRect(), w = balao.offsetWidth, h = balao.offsetHeight, m = 8;
+        let x = r.left + r.width / 2 - w / 2, y = r.bottom + 8;
+        if (y + h > innerHeight - m) { y = r.top - h - 8; }
+        if (y < m) { y = Math.min(innerHeight - h - m, r.bottom + 8); }
+        x = Math.max(m, Math.min(innerWidth - w - m, x));
+        balao.style.left = x + 'px'; balao.style.top = y + 'px';
+    }
+    function mostrarBalao(alvo) {
+        const t = alvo.getAttribute('data-tip') || '';
+        if (!t || !alvo.isConnected) { return; }
+        if (!balao) { balao = document.createElement('div'); balao.className = 'bjaBalao'; balao.setAttribute('role', 'tooltip'); raiz.appendChild(balao); }
+        balaoAlvo = alvo; balao.textContent = t; balao.classList.remove('is-vis');
+        requestAnimationFrame(() => { posicionarBalao(); if (balaoAlvo === alvo) { balao.classList.add('is-vis'); } });
+    }
+    raiz.addEventListener('mouseover', ev => {
+        const a = ev.target.closest && ev.target.closest('[data-tip]');
+        if (!a || a === balaoAlvo) { return; }
+        clearTimeout(balaoTempo);
+        balaoTempo = setTimeout(() => mostrarBalao(a), 280);
+    });
+    raiz.addEventListener('mouseout', ev => {
+        if (!balaoAlvo && !balaoTempo) { return; }
+        const para = ev.relatedTarget, de = ev.target.closest && ev.target.closest('[data-tip]');
+        if (de && para && de.contains(para)) { return; }
+        esconderBalao();
+    });
+    ['mousedown', 'keydown', 'wheel', 'scroll', 'contextmenu'].forEach(nome => window.addEventListener(nome, esconderBalao, { capture: true, passive: true }));
+
     /* Redesenha mantendo o foco no mesmo controle (data-bja-foco). */
     function comFoco(fazer) {
         const a = document.activeElement;
@@ -184,11 +222,11 @@
         raiz.querySelectorAll('[data-bja-aba]').forEach(b => b.setAttribute('aria-selected', String(b.getAttribute('data-bja-aba') === s.aba)));
         el.abaDocs.hidden = s.aba !== 'docs';
         el.abaMods.hidden = s.aba !== 'mods';
-        if (s.aba === 'docs') { desenharDocs(); } else { el.abaMods.innerHTML = '<div class="bjaModsCorpo">' + gruposHtml('', true) + '</div>'; }
+        if (s.aba === 'docs') { desenharDocs(); } else { el.abaMods.innerHTML = '<div class="bjaModsTopo"><span class="bjaModsTx">' + esc(T('modelos_intro')) + '</span></div><div class="bjaModsCorpo">' + gruposHtml('', true) + '</div>'; }
     }
 
     function coresHtml(alvo) {
-        return CORES.map(([k, hex]) => '<button type="button" class="bjaCor" data-bja-cor="' + k + '" data-bja-cor-alvo="' + alvo + '" aria-label="' + esc(nomeCor(k)) + '" title="' + esc(nomeCor(k)) + '" style="background:' + (hex || '#fff') + '">'
+        return CORES.map(([k, hex]) => '<button type="button" class="bjaCor" data-bja-cor="' + k + '" data-bja-cor-alvo="' + alvo + '" aria-label="' + esc(nomeCor(k)) + '" data-tip="' + esc(nomeCor(k)) + '" style="background:' + (hex || '#fff') + '">'
             + (k ? '' : '<i class="bi bi-slash-lg"></i>') + '</button>').join('');
     }
 
@@ -199,8 +237,8 @@
             return '<button type="button" class="bjaChip' + (s.filtro === id ? ' is-on' : '') + '" data-bja-filtro="' + id + '" aria-pressed="' + (s.filtro === id) + '">' + esc(T('chip', { rotulo: T('filtro.' + id), n: n })) + '</button>';
         }).join('');
 
-        el.coresF.innerHTML = '<button type="button" class="bjaCor' + (!s.corF ? ' is-on' : '') + '" data-bja-corf="" aria-label="' + esc(T('cor.todas')) + '" title="' + esc(T('cor.todas')) + '" aria-pressed="' + !s.corF + '" style="background:#fff"><i class="bi bi-asterisk"></i></button>'
-            + CORES.slice(1).map(([k, hex]) => '<button type="button" class="bjaCor' + (s.corF === k ? ' is-on' : '') + '" data-bja-corf="' + k + '" aria-label="' + esc(nomeCor(k)) + '" title="' + esc(nomeCor(k)) + '" aria-pressed="' + (s.corF === k) + '" style="background:' + hex + '"></button>').join('');
+        el.coresF.innerHTML = '<button type="button" class="bjaCor' + (!s.corF ? ' is-on' : '') + '" data-bja-corf="" aria-label="' + esc(T('cor.todas')) + '" data-tip="' + esc(T('cor.todas')) + '" aria-pressed="' + !s.corF + '" style="background:#fff"><i class="bi bi-asterisk"></i></button>'
+            + CORES.slice(1).map(([k, hex]) => '<button type="button" class="bjaCor' + (s.corF === k ? ' is-on' : '') + '" data-bja-corf="' + k + '" aria-label="' + esc(nomeCor(k)) + '" data-tip="' + esc(nomeCor(k)) + '" aria-pressed="' + (s.corF === k) + '" style="background:' + hex + '"></button>').join('');
 
         const atuais = Array.from(el.pasta.options).slice(1).map(o => o.value);
         if (atuais.join('\n') !== s.pastas.join('\n')) {
@@ -313,8 +351,9 @@
     function logoDoDocumento(lg, id) {
         const tipo = (lg && lg.tipo) || 'bluejus';
         if (tipo === 'propria') { return { tipo: 'propria', url: (lg && lg.url) || (url.logo && id != null ? comId(url.logo, id) : ''), arquivo: null, origem: 'documento' }; }
-        if (tipo === 'escritorio') { return { tipo: 'escritorio', url: (lg && lg.url) || logos.escritorio || logos.bluejus || '' }; }
-        return { tipo: 'bluejus', url: (lg && lg.url) || logos.bluejus || '' };
+        // "Meu Escritório" sem logo cadastrada não é oferecida: o servidor já grava a da BlueJus no lugar.
+        if (tipo === 'escritorio' && logos.escritorio) { return { tipo: 'escritorio', url: (lg && lg.url) || logos.escritorio }; }
+        return { tipo: 'bluejus', url: (tipo === 'bluejus' && lg && lg.url) || logos.bluejus || '' };
     }
     /* A logo própria vai junto do rascunho: a enviada agora, ou a padrão do escritório num documento novo. */
     async function arquivoDaLogo(lg) {
@@ -333,7 +372,7 @@
     function novoW(o) {
         return Object.assign({
             passo: 1, mod: '', up: null, nome: '', pasta: '', c: padrao(), sign: [], seq: false,
-            msg: T('p4.mensagem_padrao'), dias: 7, logo: logoInicial(), logoFix: logoFixInicial(), limpa: false,
+            msg: T('p4.mensagem_padrao'), dias: 7, logo: logoInicial(), logoFix: logoFixInicial(), logoVista: false, limpa: false,
             layout: '', lateral: '', categoria: '', modelo: null, arquivo: null, arquivoId: 0, arqServ: null, rasc: null,
         }, o || {});
     }
@@ -435,6 +474,7 @@
 
     function passo2() {
         const w = s.w, m = modelo(w.mod);
+        w.logoVista = true; // a caixa "Usar esta logo nos próximos documentos" está à vista: o salvar manda a escolha dela
         const logoBts = [['bluejus', T('p2.logo_bluejus')]].concat(logos.escritorio ? [['escritorio', T('p2.logo_escritorio')]] : []);
         let h = '<div class="bjaGrid bjaCorpo"><div class="bjaLat">'
             + '<div class="bjaQuadro"><div class="bjaQuadroTit">' + esc(T('p2.logo')) + '</div><div class="bjaLogoLin"><span class="bjaLogoMini"><img alt="' + esc(T('p2.logo_atual')) + '" src="' + esc(w.logo.url || '') + '"></span>'
@@ -617,7 +657,9 @@
             mensagem: w.msg || '',
             prazoDias: dias,
             logo: { tipo: w.logo.tipo },
-            usarLogoComoPadrao: !!w.logoFix,
+            // Marcada grava a logo padrão do escritório, desmarcada limpa (tgLogoFix do desenho). Sem a caixa à vista
+            // (rascunho retomado ou arquivo enviado, que pulam o passo 2) o campo não vai e o padrão fica como está.
+            usarLogoComoPadrao: w.logoVista ? !!w.logoFix : undefined,
             signatarios: w.sign.map(x => ({ nome: String(x.nome || '').trim(), email: String(x.email || '').trim(), cpf: String(x.cpf || '').replace(/\D/g, ''), papel: String(x.papel || '').trim(), nivel: x.nivel })),
         };
     }

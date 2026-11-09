@@ -93,6 +93,7 @@ assinatura_eletronica_tela:
             rascunho_salvo: 'Rascunho salvo.'
             pronto: 'Documento pronto. Copie o link ou envie por e-mail.'
         buscar_modelo: 'Buscar modelo'
+        modelos_intro: 'Use um modelo pronto, duplique para adaptar ou crie o seu.'
         modelo_escritorio: 'Modelo do escritório'
         documento_avulso: 'Documento avulso'
         data_extenso: '{dia} de {mes} de {ano}'

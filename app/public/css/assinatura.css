@@ -177,7 +177,6 @@
 .bja .bjaLin:hover td { background: var(--bja-hover-lin); }
 .bja .bjaTdDoc { min-width: 230px; }
 .bja .bjaNomeDoc { border: none; background: none; padding: 0; margin: 0; font: inherit; font-weight: bold; color: var(--bja-azul-tx); cursor: pointer; text-align: left; }
-.bja .bjaNomeDoc:hover { text-decoration: underline; }
 .bja .bjaSub { font-size: 12px; color: var(--bja-mudo); }
 .bja .bjaTdSig { min-width: 150px; }
 .bja .bjaQuem { font-size: 12.5px; margin-bottom: 3px; }
@@ -220,6 +219,8 @@
 .bja .sg-pendente { background: #8a6200; }
 
 /* ── Modelos (aba e passo 1) ────────────────────────────────────────── */
+.bja .bjaModsTopo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--bja-div); }
+.bja .bjaModsTx { flex: 1 1 240px; font-size: 13px; color: var(--bja-mudo); }
 .bja .bjaModsCorpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 16px; }
 .bja .bjaGrupoTit { display: block; font-size: 14px; color: var(--bja-titulo); margin-bottom: 8px; }
 .bja .bjaMods { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
@@ -244,7 +245,6 @@
 
 .bja .bjaP1 { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
 .bja .bjaUp { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px; border: 2px dashed var(--bja-azul-borda); border-radius: 3px; background: var(--bja-azul-up); cursor: pointer; margin: 0; }
-.bja .bjaUp:hover { border-color: #0a6fa0; }
 .bja .bjaUp > .bi { font-size: 28px; color: var(--bja-azul-tx); }
 .bja .bjaUpTx { flex: 1 1 220px; }
 .bja .bjaUpTx > b { display: block; font-size: 14.5px; }
@@ -325,6 +325,11 @@
 .bja .bjaToast.is-erro { background: #a3232b; }
 .bja .bjaToast.is-aviso { background: #8a6200; }
 .bja .bjaToast.is-info { background: #0a6fa0; }
+
+/* Balão das dicas (data-tip): o do bj-dica.js do desenho, valores linha a linha. Fica com as cores do desenho nos
+   dois temas, como os selos. */
+.bja .bjaBalao { position: fixed; left: 0; top: 0; z-index: 2147483647; pointer-events: none; max-width: min(300px, calc(100vw - 16px)); padding: 6px 10px; border-radius: 4px; background: #e5f1f7; color: #0b4f73; border: 1px solid #b9d6e8; font: 600 12px/1.4 Arial, Helvetica, sans-serif; box-shadow: 0 4px 14px rgba(10, 60, 90, .14); white-space: pre-line; overflow-wrap: anywhere; opacity: 0; transform: translateY(2px); transition: opacity .12s, transform .12s; }
+.bja .bjaBalao.is-vis { opacity: 1; transform: translateY(0); }
 
 /* ── Prévia e folha A4 (papel branco nos dois temas) ────────────────── */
 .bja .bjaPv { background: var(--bja-pv); padding: 14px; max-height: 76vh; overflow: auto; box-sizing: border-box; }
