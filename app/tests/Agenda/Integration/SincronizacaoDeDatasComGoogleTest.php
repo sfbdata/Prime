@@ -16,6 +16,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Ponto\Entity\Feriado;
 use App\Profile\Entity\UserProfile;
 use App\Sync\Service\CifradorDeSegredo;
 use App\Tests\Agenda\GoogleFalso;
@@ -134,6 +135,34 @@ final class SincronizacaoDeDatasComGoogleTest extends KernelTestCase
         $titulos = array_keys($this->porTitulo($conexao));
         $doRs = array_filter($titulos, static fn (string $t): bool => str_starts_with($t, 'Revolução Farroupilha'));
         self::assertNotEmpty($doRs, 'o feriado da UF da lotação (RS, ' . $this->proximo('09-20') . ') vai');
+    }
+
+    /**
+     * A sincronização é por pessoa (uma conexão por pessoa e escritório, na conta Google dela): o feriado de uma lotação
+     * (E6 do Ponto) vai só para quem é daquela lotação; o de "Todas as sedes" vai para todos.
+     */
+    #[TestDox('Feriado de uma lotação vai só para quem é dela; "Todas as sedes" vai para todos')]
+    public function testFeriadoDaLotacaoSoParaQuemEDela(): void
+    {
+        [$tenant, $eu, $conexao] = $this->cenario();
+        $escritorio = $this->em()->find(Tenant::class, $tenant->getId());
+        $maceio = (new Lotacao())->setNome('MACEIÓ/AL')->setTenant($escritorio);
+        $brasilia = (new Lotacao())->setNome('BRASÍLIA/DF')->setTenant($escritorio);
+        $this->em()->persist($maceio);
+        $this->em()->persist($brasilia);
+        $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $eu->getId(), 'tenant' => $tenant->getId()])?->setLotacao($maceio);
+        // Um dia para cada: no mesmo dia, a Agenda mostra um feriado do escritório só.
+        foreach ([['Feriado de todos (teste)', '2000-08-25', null], ['Feriado de Maceió (teste)', '2000-08-26', $maceio], ['Feriado de Brasília (teste)', '2000-08-27', $brasilia]] as [$nome, $dia, $lotacao]) {
+            $this->em()->persist((new Feriado())->setNome($nome)->setData(new \DateTime($dia))->setRecorrente(true)->setTenant($escritorio)->setLotacao($lotacao));
+        }
+        $this->em()->flush();
+
+        $this->sincronizar($conexao);
+
+        $titulos = array_keys($this->porTitulo($conexao));
+        self::assertContains('Feriado de todos (teste)', $titulos);
+        self::assertContains('Feriado de Maceió (teste)', $titulos, 'a lotação da pessoa');
+        self::assertNotContains('Feriado de Brasília (teste)', $titulos, 'outra lotação não vai');
     }
 
     #[TestDox('O id de data que vem do Google nunca vira compromisso, com linha ou sem linha aqui')]

@@ -21,8 +21,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * `docs/specs/ponto-desenho-0811.md`, E6: P68, P70 a e D13). A linha inteira vai a cada mudança de campo.
  *
  * - Coordenada com vírgula vira ponto (o desenho aceita "-9,66"); a página antiga continua recusando a vírgula.
- * - Raio vazio vira o da sede nova (150 m, `Sede::RAIO_PADRAO`); a sede que já existe só muda o raio quando a
- *   pessoa troca o número.
+ * - Raio vazio: na sede nova, vira 150 m (`Sede::RAIO_PADRAO`); na sede que já existe, MANTÉM o raio dela (apagar o
+ *   número não volta a sede para 150 m). O raio só muda quando a pessoa informa outro número.
  * - Latitude, longitude e raio passam pela mesma regra da página antiga (`RestricoesDaSede`); nada é gravado se um
  *   campo falhar, e cada erro volta com o nome do campo para aparecer na linha.
  * - A sede é buscada pelo id E pelo escritório da sessão: a de outro escritório é "não encontrada" (404).
@@ -44,7 +44,7 @@ final class SalvarSedeDoPontoUseCase
         $sede = $id === null ? (new Sede())->setTenant($escritorio) : $this->daSessao($id, $escritorio);
         $latitude = self::numero($dados->latitude);
         $longitude = self::numero($dados->longitude);
-        $raio = self::numero($dados->raio) ?? (string) Sede::RAIO_PADRAO;
+        $raio = self::numero($dados->raio) ?? (string) ($sede->getRaioPermitido() ?? Sede::RAIO_PADRAO);
 
         $erros = $this->erros($dados->nome, $latitude, $longitude, $raio);
         if ($erros !== []) {

@@ -43,8 +43,9 @@ final class DatasDoSistemaController extends AbstractController
         if (null === $de || null === $ate || $ate < $de || $de->diff($ate)->days > self::MAX_DIAS) {
             return $this->json(['erro' => 'Informe de e ate (AAAA-MM-DD), com até 400 dias de intervalo.'], 400);
         }
-        $lotacao = $this->tenantContext->getCurrentUserTenant()?->getLotacao()?->getNome();
-        $r = $this->listarDatas->executar($tenant, $lotacao, $de, $ate);
+        // A lotação do vínculo de quem vê: o nome dá a UF; o id, o feriado da lotação (E6 do Ponto).
+        $lotacao = $this->tenantContext->getCurrentUserTenant()?->getLotacao();
+        $r = $this->listarDatas->executar($tenant, $lotacao?->getNome(), $de, $ate, $lotacao?->getId());
 
         return $this->json([
             'podeAjustar' => $this->permissionChecker->canAdminister($user, $tenant, 'admin.tenant.settings.manage'),

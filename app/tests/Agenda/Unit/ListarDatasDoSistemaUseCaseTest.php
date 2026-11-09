@@ -9,6 +9,7 @@ use App\Agenda\Repository\AjusteDeDataRepository;
 use App\Agenda\Service\CalendarioDoSistema;
 use App\Agenda\Service\UfsDaAgenda;
 use App\Agenda\UseCase\ListarDatasDoSistemaUseCase;
+use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Repository\FeriadoRepository;
@@ -93,6 +94,44 @@ final class ListarDatasDoSistemaUseCaseTest extends TestCase
         self::assertFalse($this->so($r['datas'], D::CAL_TRIBUNAL)[0]->contaNoPonto);
     }
 
+    #[TestDox('Feriado de uma lotação: só entra para quem é dela, pelo id; "Todas as sedes" entra para todos')]
+    public function testFeriadoDaLotacaoSoParaQuemEDela(): void
+    {
+        $feriados = [
+            $this->feriado('Padroeira', '2026-08-27', false),
+            $this->feriado('Aniversário de Maceió', '2026-08-28', false, $this->lotacao(11, 'MACEIÓ/AL')),
+        ];
+
+        self::assertSame(['Padroeira', 'Aniversário de Maceió'], $this->doEscritorio($this->executar($feriados, '2026-08-27', '2026-08-28', 11)));
+        self::assertSame(['Padroeira'], $this->doEscritorio($this->executar($feriados, '2026-08-27', '2026-08-28', 12)), 'outra lotação não vê');
+        self::assertSame(['Padroeira'], $this->doEscritorio($this->executar($feriados, '2026-08-27', '2026-08-28', null)), 'sem lotação, só "Todas as sedes"');
+    }
+
+    #[TestDox('Feriado de uma lotação vale pelo id, não pelo nome da lotação de quem vê')]
+    public function testFeriadoDaLotacaoPeloIdNaoPeloNome(): void
+    {
+        $feriados = [$this->feriado('Aniversário de Maceió', '2026-08-28', false, $this->lotacao(11, 'MACEIÓ/AL'))];
+        $repo = $this->createStub(FeriadoRepository::class);
+        $repo->method('findByTenant')->willReturn($feriados);
+        $sut = new ListarDatasDoSistemaUseCase(new CalendarioDoSistema(), new UfsDaAgenda(), $repo, $this->semAjustes());
+
+        $r = $sut->executar(new Tenant(), 'MACEIÓ/AL', new \DateTimeImmutable('2026-08-28'), new \DateTimeImmutable('2026-08-28'), 99);
+
+        self::assertSame([], $this->doEscritorio($r), 'mesmo nome, outra lotação');
+    }
+
+    #[TestDox('Feriado recorrente de uma lotação aparece a cada ano só para quem é dela')]
+    public function testFeriadoRecorrenteDaLotacao(): void
+    {
+        $feriados = [$this->feriado('Padroeira de Maceió', '2000-08-28', true, $this->lotacao(11, 'MACEIÓ/AL'))];
+
+        $r = $this->executar($feriados, '2026-08-01', '2027-08-31', 11);
+        $esc = array_values(array_filter($r['datas'], static fn (D $d): bool => D::TIPO_ESCRITORIO === $d->tipo));
+
+        self::assertSame(['2026-08-28', '2027-08-28'], array_map(static fn (D $d): string => $d->data, $esc));
+        self::assertSame([], $this->doEscritorio($this->executar($feriados, '2026-08-01', '2027-08-31', 12)));
+    }
+
     #[TestDox('UFs vêm da lotação e do estado do escritório')]
     public function testUfs(): void
     {
@@ -113,18 +152,39 @@ final class ListarDatasDoSistemaUseCaseTest extends TestCase
      *
      * @return array{ufs: list<string>, datas: list<D>}
      */
-    private function executar(array $feriados, string $de, string $ate): array
+    private function executar(array $feriados, string $de, string $ate, ?int $idDaLotacao = null): array
     {
         $repo = $this->createStub(FeriadoRepository::class);
         $repo->method('findByTenant')->willReturn($feriados);
         $sut = new ListarDatasDoSistemaUseCase(new CalendarioDoSistema(), new UfsDaAgenda(), $repo, $this->semAjustes());
 
-        return $sut->executar(new Tenant(), null, new \DateTimeImmutable($de), new \DateTimeImmutable($ate));
+        return $sut->executar(new Tenant(), null, new \DateTimeImmutable($de), new \DateTimeImmutable($ate), $idDaLotacao);
     }
 
-    private function feriado(string $nome, string $data, bool $recorrente): Feriado
+    private function feriado(string $nome, string $data, bool $recorrente, ?Lotacao $lotacao = null): Feriado
     {
-        return (new Feriado())->setNome($nome)->setData(new \DateTimeImmutable($data))->setRecorrente($recorrente);
+        return (new Feriado())->setNome($nome)->setData(new \DateTimeImmutable($data))->setRecorrente($recorrente)->setLotacao($lotacao);
+    }
+
+    private function lotacao(int $id, string $nome): Lotacao
+    {
+        $lotacao = (new Lotacao())->setNome($nome);
+        (new \ReflectionProperty(Lotacao::class, 'id'))->setValue($lotacao, $id);
+
+        return $lotacao;
+    }
+
+    /**
+     * @param array{datas: list<D>} $r
+     *
+     * @return list<string> os títulos dos feriados do escritório (os do Ponto sem data do sistema no dia)
+     */
+    private function doEscritorio(array $r): array
+    {
+        return array_values(array_map(
+            static fn (D $d): string => $d->titulo,
+            array_filter($r['datas'], static fn (D $d): bool => D::TIPO_ESCRITORIO === $d->tipo),
+        ));
     }
 
     /**

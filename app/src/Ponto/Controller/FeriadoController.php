@@ -7,6 +7,7 @@ use App\Ponto\Entity\Feriado;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Form\FeriadoType;
 use App\Ponto\Repository\FeriadoRepository;
+use App\Repository\LotacaoRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -43,14 +44,20 @@ final class FeriadoController extends AbstractController
         return $tenant;
     }
 
+    /**
+     * A lista mostra a abrangência de cada feriado ("Todas as sedes" ou o nome da lotação, E6 do Ponto). As lotações do
+     * escritório vêm antes dos feriados: o nome da abrangência não volta ao banco a cada feriado.
+     */
     #[Route('', name: 'app_feriado_index', methods: ['GET'])]
     public function index(
         int $tenantId,
         FeriadoRepository $feriadoRepository,
+        LotacaoRepository $lotacaoRepository,
         PermissionChecker $checker
     ): Response {
         $tenant = $this->assertAccess($tenantId, $checker);
 
+        $lotacaoRepository->findBy(['tenant' => $tenant]);
         $feriados = $feriadoRepository->findByTenantOrdenado($tenant);
 
         return $this->render('feriado/index.html.twig', [

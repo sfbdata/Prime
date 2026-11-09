@@ -41,8 +41,8 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
     use CenarioDeJustificativaTrait;
 
     private const PAINEL = 'div.pe-config';
-    private const SEDES = self::PAINEL . ' > section.pe-sf-secao[data-sedes][data-url-criar="/ponto/configuracoes/sedes"]';
-    private const FERIADOS = self::PAINEL . ' > section.pe-sf-secao[data-feriados]';
+    private const SEDES = self::PAINEL . ' > section.pe-sf-secao[data-pc-sedes][data-pc-sede-url-criar="/ponto/configuracoes/sedes"]';
+    private const FERIADOS = self::PAINEL . ' > section.pe-sf-secao[data-pc-feriados]';
 
     private KernelBrowser $client;
     private Tenant $escritorio;
@@ -74,26 +74,26 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
         self::assertSame('Sedes e raio de registro', $painel->filter($cabeca . ' > b.pe-sedes-titulo:first-child')->text());
         $mapa = $painel->filter($cabeca . ' > a.pe-sf-contorno[href="/tenant/' . $this->escritorio->getId() . '/sedes"]');
         self::assertSame('Mapa e busca por endereço', trim($mapa->text()), 'P69: a página antiga fica');
-        $adicionar = $painel->filter($cabeca . ' > button.pe-sf-contorno[type="button"][data-sede-adicionar]:last-child');
+        $adicionar = $painel->filter($cabeca . ' > button.pe-sf-contorno[type="button"][data-pc-sede-adicionar]:last-child');
         self::assertSame('Adicionar sede', trim($adicionar->text()));
         self::assertCount(1, $adicionar->filter('button > i.bi.bi-plus-lg:first-child'));
 
         $tabela = self::SEDES . ' > div.pe-sedes-rolagem > table.pe-tab.pe-sedes-tab';
         self::assertSame(['Sede', 'Latitude', 'Longitude', 'Raio (m)', ''], $painel->filter($tabela . ' > thead > tr > th')->each(static fn (Crawler $th): string => $th->text()));
-        $linhas = $painel->filter($tabela . ' > tbody[data-sedes-corpo] > tr.pe-sede-lin[data-sede-linha]');
+        $linhas = $painel->filter($tabela . ' > tbody[data-pc-sedes-corpo] > tr.pe-sede-lin[data-pc-sede-linha]');
         self::assertCount(1, $linhas, 'só a sede deste escritório');
         $linha = $linhas->first();
-        self::assertSame('/ponto/configuracoes/sedes/' . $sede->getId(), $linha->attr('data-url-salvar'));
-        self::assertSame('/ponto/configuracoes/sedes/' . $sede->getId() . '/remover', $linha->attr('data-url-remover'));
+        self::assertSame('/ponto/configuracoes/sedes/' . $sede->getId(), $linha->attr('data-pc-sede-url-salvar'));
+        self::assertSame('/ponto/configuracoes/sedes/' . $sede->getId() . '/remover', $linha->attr('data-pc-sede-url-remover'));
         self::assertSame('Maceió/AL', $linha->filter('tr > td.pe-sede-cel-nome > input.pe-sf-campo[name="nome"][aria-label="Nome da sede"]')->attr('value'));
         self::assertSame('-9.665999', $linha->filter('tr > td.pe-sede-cel-coord > input.pe-sf-campo[name="latitude"][aria-label="Latitude"][placeholder="informar"]')->attr('value'), 'sem os zeros da coluna');
         self::assertSame('-35.735', $linha->filter('tr > td.pe-sede-cel-coord > input.pe-sf-campo[name="longitude"][aria-label="Longitude"][placeholder="informar"]')->attr('value'));
         self::assertSame('100', $linha->filter('tr > td.pe-sede-cel-raio > input.pe-sf-campo[type="number"][name="raio"][aria-label="Raio em metros"]')->attr('value'), 'a sede que já existe fica com o raio dela');
-        $posicao = $linha->filter('tr > td.pe-sede-acoes:last-child > button.pe-sf-contorno[data-sede-posicao]:first-child');
+        $posicao = $linha->filter('tr > td.pe-sede-acoes:last-child > button.pe-sf-contorno[data-pc-sede-posicao]:first-child');
         self::assertSame('Usar minha posição', trim($posicao->text()));
         self::assertCount(1, $posicao->filter('button > i.bi.bi-crosshair:first-child'));
-        self::assertCount(1, $linha->filter('tr > td.pe-sede-acoes > button.pe-sede-remover[aria-label="Remover sede"][data-sede-remover]:last-child > i.bi.bi-trash3'));
-        self::assertCount(1, $painel->filter($tabela . ' > tbody > tr.pe-sede-lin + tr.pe-sede-erro-lin[data-sede-erro][hidden] > td.pe-sede-erro[colspan="5"][role="alert"]'), 'a linha do erro logo abaixo');
+        self::assertCount(1, $linha->filter('tr > td.pe-sede-acoes > button.pe-sede-remover[aria-label="Remover sede"][data-pc-sede-remover]:last-child > i.bi.bi-trash3'));
+        self::assertCount(1, $painel->filter($tabela . ' > tbody > tr.pe-sede-lin + tr.pe-sede-erro-lin[data-pc-sede-erro][hidden] > td.pe-sede-erro[colspan="5"][role="alert"]'), 'a linha do erro logo abaixo');
     }
 
     #[TestDox('P70 a: a "Nova sede" do "Adicionar sede" nasce com 150 m e sem coordenada; a página antiga também abre com 150 m')]
@@ -101,12 +101,12 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
     {
         $painel = $this->painel($this->primario);
 
-        $modelo = $painel->filter(self::SEDES . ' > template[data-sede-modelo]');
+        $modelo = $painel->filter(self::SEDES . ' > template[data-pc-sede-modelo]');
         self::assertCount(1, $modelo);
         $html = (string) $modelo->html();
         self::assertStringContainsString('value="Nova sede"', $html);
         self::assertMatchesRegularExpression('/name="raio"[^>]*value="150"/', $html);
-        self::assertStringNotContainsString('data-url-salvar', $html, 'a nova só ganha endereço quando for criada');
+        self::assertStringNotContainsString('data-pc-sede-url-salvar', $html, 'a nova só ganha endereço quando for criada');
 
         $this->client->request('GET', '/tenant/' . $this->escritorio->getId() . '/sedes');
         self::assertResponseIsSuccessful();
@@ -127,7 +127,7 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
 
         self::assertSame('Feriados do escritório', $painel->filter(self::FERIADOS . ' > b.pe-fer-titulo:first-child')->text());
         self::assertSame('Os nacionais já estão incluídos. Cadastre aqui os estaduais e municipais, por sede.', $painel->filter(self::FERIADOS . ' > b.pe-fer-titulo + div.pe-fer-texto')->text());
-        $form = self::FERIADOS . ' > form.pe-fer-form[data-feriado-form][action="/ponto/configuracoes/feriados"]';
+        $form = self::FERIADOS . ' > form.pe-fer-form[data-pc-feriado-form][action="/ponto/configuracoes/feriados"]';
         self::assertSame(['Data', 'Nome', 'Abrangência'], $painel->filter($form . ' > label.pe-fer-rotulo')->each(static fn (Crawler $l): string => trim($l->getNode(0)?->firstChild?->textContent ?? '')));
         self::assertCount(1, $painel->filter($form . ' > label.pe-fer-rotulo > input.pe-sf-campo[type="date"][name="data"]'));
         self::assertCount(1, $painel->filter($form . ' > label.pe-fer-rotulo > input.pe-sf-campo[name="nome"]'));
@@ -139,7 +139,7 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
         self::assertSame('Repete todo ano', trim($painel->filter($form . ' > label.pe-fer-repete > input[type="checkbox"][name="recorrente"][checked]')->closest('label')?->text() ?? ''));
         self::assertSame('Adicionar', $painel->filter($form . ' > button.pe-fer-adicionar[type="submit"]:last-child')->text());
 
-        $linhas = $painel->filter(self::FERIADOS . ' > div.pe-fer-lista[data-feriados-lista] > div.pe-fer-lin');
+        $linhas = $painel->filter(self::FERIADOS . ' > div.pe-fer-lista[data-pc-feriados-lista] > div.pe-fer-lin');
         self::assertCount(2, $linhas, 'o de outro escritório não aparece');
         self::assertSame('16/09', $linhas->eq(0)->filter('div > b:first-child')->text(), 'o que repete mostra dia e mês');
         self::assertSame('Emancipação de Alagoas', $linhas->eq(0)->filter('div > span.pe-fer-nome')->text());
@@ -148,7 +148,7 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
         self::assertSame('21/11/2026', $linhas->eq(1)->filter('div > b:first-child')->text(), 'o pontual mostra o ano');
         self::assertSame('Todas as sedes', $linhas->eq(1)->filter('div > span.pe-fer-abrangencia')->text());
         self::assertCount(0, $linhas->eq(1)->filter('.pe-fer-marca'));
-        self::assertCount(2, $painel->filter(self::FERIADOS . ' div.pe-fer-lin > button.pe-fer-remover[type="button"][aria-label="Remover feriado"][data-feriado-remover]:last-child > i.bi.bi-x-lg'));
+        self::assertCount(2, $painel->filter(self::FERIADOS . ' div.pe-fer-lin > button.pe-fer-remover[type="button"][aria-label="Remover feriado"][data-pc-feriado-remover]:last-child > i.bi.bi-x-lg'));
     }
 
     #[TestDox('D4: remover sede e remover feriado abrem a janela do desenho (role=dialog), com "Cancelar" e "Remover"')]
@@ -157,14 +157,14 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
         $painel = $this->painel($this->primario);
 
         foreach ([[self::SEDES, 'sede', 'Remover sede'], [self::FERIADOS, 'feriado', 'Remover feriado']] as [$secao, $tipo, $titulo]) {
-            $janela = $secao . ' > div.pe-janela-fundo#ponto-janela-remover-' . $tipo . '[hidden][data-config-janela] > div.pe-janela[role="dialog"][aria-modal="true"][aria-label="' . $titulo . '"]';
+            $janela = $secao . ' > div.pe-janela-fundo#ponto-janela-remover-' . $tipo . '[hidden][data-pc-sf-janela] > div.pe-janela[role="dialog"][aria-modal="true"][aria-label="' . $titulo . '"]';
             self::assertSame($titulo, $painel->filter($janela . ' > div.pe-janela-topo > b.pe-janela-titulo')->text());
-            self::assertCount(1, $painel->filter($janela . ' > div.pe-janela-topo > button.pe-janela-fechar[aria-label="Fechar"][data-config-fechar]'));
-            self::assertCount(1, $painel->filter($janela . ' > div.pe-janela-corpo > div.pe-janela-info[data-config-info]'));
+            self::assertCount(1, $painel->filter($janela . ' > div.pe-janela-topo > button.pe-janela-fechar[aria-label="Fechar"][data-pc-sf-fechar]'));
+            self::assertCount(1, $painel->filter($janela . ' > div.pe-janela-corpo > div.pe-janela-info[data-pc-sf-info]'));
             self::assertStringContainsString('Não é possível desfazer.', $painel->filter($janela . ' > div.pe-janela-corpo > div.pe-janela-texto')->text());
-            self::assertCount(1, $painel->filter($janela . ' > div.pe-janela-erro[data-config-erro][hidden]'));
+            self::assertCount(1, $painel->filter($janela . ' > div.pe-janela-erro[data-pc-sf-erro][hidden]'));
             self::assertSame(['Cancelar', 'Remover'], $painel->filter($janela . ' > div.pe-janela-rodape > button')->each(static fn (Crawler $b): string => $b->text()));
-            self::assertCount(1, $painel->filter($janela . ' > div.pe-janela-rodape > button.pe-janela-acao[data-config-confirmar="' . $tipo . '"]'));
+            self::assertCount(1, $painel->filter($janela . ' > div.pe-janela-rodape > button.pe-janela-acao[data-pc-sf-confirmar="' . $tipo . '"]'));
         }
     }
 
@@ -178,10 +178,10 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
 
         $painel = $this->painel($soSedes);
         self::assertCount(1, $painel->filter(self::SEDES));
-        self::assertCount(0, $painel->filter('[data-feriados]'));
+        self::assertCount(0, $painel->filter('[data-pc-feriados]'));
 
         $painel = $this->painel($soFeriados);
-        self::assertCount(0, $painel->filter('[data-sedes]'));
+        self::assertCount(0, $painel->filter('[data-pc-sedes]'));
         self::assertCount(1, $painel->filter(self::FERIADOS));
     }
 
@@ -242,6 +242,20 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('Maceió (centro)', $dados['sede']['nome']);
         self::assertSame(100, $this->emSemFiltro()->getRepository(Sede::class)->find($sede->getId())?->getRaioPermitido(), 'a sede que já existe fica com o raio dela');
+    }
+
+    #[TestDox('Gravar sede com o raio vazio mantém o raio que ela já tinha (não volta para 150 m)')]
+    public function testRaioVazioMantemORaioDaSede(): void
+    {
+        $sede = $this->sede('Maceió/AL', '-9.665999', '-35.735', 320);
+
+        $dados = $this->postar($this->primario, '/ponto/configuracoes/sedes/' . $sede->getId(), ['nome' => 'Maceió (centro)', 'latitude' => '-9.665999', 'longitude' => '-35.735', 'raio' => ' ']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(320, $dados['sede']['raio']);
+        $gravada = $this->emSemFiltro()->getRepository(Sede::class)->find($sede->getId());
+        self::assertSame('Maceió (centro)', $gravada?->getNome());
+        self::assertSame(320, $gravada?->getRaioPermitido());
     }
 
     #[TestDox('Remover sede: as batidas dela ficam sem a sede, com o nome guardado, e o aviso conta quantas')]

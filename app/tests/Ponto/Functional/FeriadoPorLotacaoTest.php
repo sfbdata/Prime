@@ -23,8 +23,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * Feriado por lotação nos consumidores por pessoa, com o banco e os serviços reais (spec
  * `docs/specs/ponto-desenho-0811.md`, E6, P71 com o desvio da E6): Ana é de Maceió, Bruno de Brasília, no mesmo
  * escritório, os dois com 8 h batidas no dia. O feriado de Maceió é feriado na folha e no saldo da Ana (as 8 h viram
- * crédito) e dia comum no do Bruno; "Todas as sedes" vale para os dois; o feriado de outro escritório não conta. Na
- * lista de pendências, o feriado da lotação tira o dia só de quem é dela.
+ * crédito) e dia comum no do Bruno, também o recorrente cadastrado em outro ano; "Todas as sedes" vale para os dois; o
+ * de uma lotação de outro escritório com o mesmo nome não conta. Na lista de pendências, o feriado da lotação tira o
+ * dia só de quem é dela.
  */
 #[CoversClass(FeriadosDaPessoa::class)]
 #[CoversClass(FolhaPontoBuilder::class)]
@@ -88,16 +89,33 @@ final class FeriadoPorLotacaoTest extends KernelTestCase
         }
     }
 
-    #[TestDox('O feriado de outro escritório não conta, nem com uma lotação de mesmo nome')]
-    public function testFeriadoDeOutroEscritorio(): void
+    #[TestDox('Feriado recorrente de Maceió (cadastrado em outro ano): feriado para a Ana, dia comum para o Bruno')]
+    public function testFeriadoRecorrenteDaLotacao(): void
+    {
+        $semFeriado = $this->saldo($this->ana);
+        $this->feriado('Padroeira de Maceió', '2000-03-10', $this->maceio, recorrente: true);
+
+        self::assertSame('Padroeira de Maceió', $this->linhaDoDia($this->ana)['nomeFeriado'] ?? null);
+        self::assertSame($semFeriado + self::OITO_HORAS, $this->saldo($this->ana));
+        self::assertFalse($this->linhaDoDia($this->bruno)['isFeriado'] ?? false);
+        self::assertSame($semFeriado, $this->saldo($this->bruno));
+    }
+
+    /**
+     * O feriado chega à folha da Ana (a lista vai inteira, como quando a folha recebe feriados de mais de um escritório)
+     * e vem de uma lotação de outro escritório com o MESMO nome da dela: a regra casa pelo id da lotação, não pelo nome.
+     */
+    #[TestDox('Lotação de outro escritório com o mesmo nome da lotação da Ana: o feriado dela não conta para a Ana')]
+    public function testLotacaoDeMesmoNomeEmOutroEscritorio(): void
     {
         $semFeriado = $this->saldo($this->ana);
         $outro = $this->escritorio('Outro escritório');
-        $this->feriado('Feriado de lá', self::DIA, $this->lotacao('MACEIÓ/AL', $outro), $outro);
-        $this->feriado('Feriado de lá para todos', self::DIA, null, $outro);
+        $this->feriado('Feriado de lá', self::DIA, $this->lotacao('MACEIÓ/AL', $outro), escritorio: $outro);
+        $comODeLa = array_merge($this->feriadosDoEscritorio(), static::getContainer()->get(FeriadoRepository::class)->doEscritorio($outro));
+        self::assertCount(1, $comODeLa, 'o feriado de lá chega à folha');
 
-        self::assertFalse($this->linhaDoDia($this->ana)['isFeriado'] ?? false);
-        self::assertSame($semFeriado, $this->saldo($this->ana));
+        self::assertFalse($this->linhaDoDia($this->ana, $comODeLa)['isFeriado'] ?? false);
+        self::assertSame($semFeriado, $this->saldo($this->ana, $comODeLa));
     }
 
     #[TestDox('Pendências: o feriado de Maceió tira o dia incompleto da Ana e deixa o do Bruno')]
@@ -138,16 +156,20 @@ final class FeriadoPorLotacaoTest extends KernelTestCase
         return $pessoa;
     }
 
-    private function feriado(string $nome, string $dia, ?Lotacao $lotacao, ?Tenant $escritorio = null): void
+    private function feriado(string $nome, string $dia, ?Lotacao $lotacao, ?Tenant $escritorio = null, bool $recorrente = false): void
     {
-        $feriado = (new Feriado())->setNome($nome)->setData(new \DateTime($dia))->setRecorrente(false)
+        $feriado = (new Feriado())->setNome($nome)->setData(new \DateTime($dia))->setRecorrente($recorrente)
             ->setTenant($escritorio ?? $this->escritorio)->setLotacao($lotacao);
         $this->em()->persist($feriado);
         $this->em()->flush();
     }
 
-    /** @return array<string, mixed> a linha do DIA na folha de março, com os feriados do escritório (como os chamadores) */
-    private function linhaDoDia(User $pessoa): array
+    /**
+     * @param ?list<Feriado> $feriados nulos, os do escritório (como os chamadores)
+     *
+     * @return array<string, mixed> a linha do DIA na folha de março
+     */
+    private function linhaDoDia(User $pessoa, ?array $feriados = null): array
     {
         $dia = new \DateTimeImmutable(self::DIA);
         $linhas = $this->folha()->buildRows(
@@ -157,7 +179,7 @@ final class FeriadoPorLotacaoTest extends KernelTestCase
             true,
             false,
             $this->jornadas[(int) $pessoa->getId()],
-            $this->feriadosDoEscritorio(),
+            $feriados ?? $this->feriadosDoEscritorio(),
             [],
             null,
             $dia,
@@ -166,9 +188,10 @@ final class FeriadoPorLotacaoTest extends KernelTestCase
         return $linhas[0];
     }
 
-    private function saldo(User $pessoa): int
+    /** @param ?list<Feriado> $feriados nulos, os do escritório */
+    private function saldo(User $pessoa, ?array $feriados = null): int
     {
-        return $this->folha()->calcularSaldoAteMes($pessoa, 2026, 3, $this->feriadosDoEscritorio(), null, new \DateTimeImmutable(self::DIA), $this->escritorio);
+        return $this->folha()->calcularSaldoAteMes($pessoa, 2026, 3, $feriados ?? $this->feriadosDoEscritorio(), null, new \DateTimeImmutable(self::DIA), $this->escritorio);
     }
 
     /** @return list<string> os tipos que faltam no dia, nas pendências da pessoa */

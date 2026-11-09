@@ -20,6 +20,10 @@ use App\Ponto\Repository\FeriadoRepository;
  * escritório cadastrou em "Feriados e Folgas" (tabela `feriado` do Ponto) também aparecem, e cada
  * data diz se conta como feriado no ponto. Este caso de uso só LÊ o Ponto: nada aqui grava em
  * `feriado`, porque uma linha nova ali muda o banco de horas (spec agenda-vs-18-10-26, seção 5).
+ *
+ * Feriado de uma lotação (spec `ponto-desenho-0811.md`, E6): só entra para quem é daquela lotação, pelo id da lotação
+ * do vínculo de quem vê (`$idDaLotacao`), nunca pelo nome. O de "Todas as sedes" entra para todos. Sem lotação (quem
+ * está sem lotação, ou o escritório inteiro, como o dia útil da cobrança), só os de "Todas as sedes".
  */
 final class ListarDatasDoSistemaUseCase
 {
@@ -38,12 +42,18 @@ final class ListarDatasDoSistemaUseCase
     ) {
     }
 
-    /** @return array{ufs: list<string>, datas: list<D>, temAjustes: bool} */
-    public function executar(Tenant $tenant, ?string $nomeDaLotacao, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
+    /**
+     * @param ?string $nomeDaLotacao a UF da lotação de quem vê entra nas UFs da Agenda
+     * @param ?int    $idDaLotacao   a lotação do vínculo de quem vê, para o feriado da lotação; nula, só os de "Todas
+     *                               as sedes" (pessoa sem lotação ou o escritório inteiro)
+     *
+     * @return array{ufs: list<string>, datas: list<D>, temAjustes: bool}
+     */
+    public function executar(Tenant $tenant, ?string $nomeDaLotacao, \DateTimeImmutable $de, \DateTimeImmutable $ate, ?int $idDaLotacao = null): array
     {
         $ufs = $this->ufsDaAgenda->resolver($nomeDaLotacao, $tenant->getEstado());
         $datas = $this->calendario->doPeriodo($de, $ate, $ufs);
-        $doPonto = $this->feriadosDoPontoNoPeriodo($tenant, $de, $ate);
+        $doPonto = $this->feriadosDoPontoNoPeriodo($tenant, $idDaLotacao, $de, $ate);
         $ajustes = $this->ajustes->doEscritorio($tenant);
         $juntas = $this->aplicarAjustes($this->juntarComPonto($datas, $doPonto), $ajustes, $de, $ate);
         $temAjustes = [] !== array_filter($ajustes, static fn (AjusteDeData $a): bool => TipoDeAjuste::Acrescentar !== $a->getTipo());
@@ -137,17 +147,31 @@ final class ListarDatasDoSistemaUseCase
         return $datas;
     }
 
-    /** @return array<string, string> data (Y-m-d) => nome, só as que caem no período */
-    private function feriadosDoPontoNoPeriodo(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
+    /** @return array<string, string> data (Y-m-d) => nome, só as que caem no período e valem para a lotação */
+    private function feriadosDoPontoNoPeriodo(Tenant $tenant, ?int $idDaLotacao, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
     {
         $saida = [];
         foreach ($this->feriadoRepository->findByTenant($tenant) as $feriado) {
+            if (!self::valeParaALotacao($feriado, $idDaLotacao)) {
+                continue;
+            }
             foreach ($this->ocorrencias($feriado, $de, $ate) as $data) {
                 $saida[$data] ??= (string) $feriado->getNome();
             }
         }
 
         return $saida;
+    }
+
+    /** "Todas as sedes" vale para todos; o da lotação, só para quem tem aquela lotação (pelo id). */
+    private static function valeParaALotacao(Feriado $feriado, ?int $idDaLotacao): bool
+    {
+        $lotacao = $feriado->getLotacao();
+        if (null === $lotacao) {
+            return true;
+        }
+
+        return null !== $idDaLotacao && $lotacao->getId() === $idDaLotacao;
     }
 
     /**
