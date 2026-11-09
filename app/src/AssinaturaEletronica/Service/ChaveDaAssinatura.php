@@ -14,12 +14,15 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *
  * - o TOKEN do link de cada signatário é derivado, não sorteado: `hex(HMAC-SHA256(segredo, assinar|v1|token|{id do
  *   signatário}|{enviado_em ISO 8601 UTC}))`. O banco guarda só o sha256 dele (`token_hash`); o servidor recalcula o
- *   token para o "Copiar link" e o e-mail. O token nunca é gravado, logado nem posto em fila;
+ *   token para o "Copiar link" e os e-mails e só o usa se o sha256 dele bater com o guardado
+ *   ({@see tokenConferido()}). O token nunca é gravado, logado nem posto em fila;
  * - o CÓDIGO de 6 dígitos vai por e-mail e só o HMAC dele fica em `codigo_hash`, conferido com `hash_equals`.
  *
  * Segredo vazio ou curto: o envio, o link e o código recusam com "Assinatura eletrônica sem chave configurada." A
- * página pública abre assim mesmo (só precisa do sha256). Trocar o segredo derruba os links abertos: a versão vai em
- * `dados.chave` de cada evidência para uma troca futura acrescentar a versão nova sem apagar a antiga.
+ * página pública abre assim mesmo (só precisa do sha256). Trocar o segredo NÃO derruba os links já enviados (abrem
+ * pelo hash guardado até o prazo), mas o servidor deixa de saber remontá-los: o Copiar link, o lembrete e o aviso de
+ * vez param para esses documentos, e o código pedido antes da troca deixa de conferir. A versão vai em `dados.chave`
+ * de cada evidência para uma troca futura acrescentar a versão nova sem apagar a antiga.
  */
 final readonly class ChaveDaAssinatura
 {
@@ -59,6 +62,22 @@ final readonly class ChaveDaAssinatura
         $utc = $enviadoEm->setTimezone(new \DateTimeZone('UTC'))->format(\DATE_ATOM);
 
         return hash_hmac('sha256', sprintf('assinar|v%d|token|%d|%s', self::VERSAO, $id, $utc), $this->segredo);
+    }
+
+    /**
+     * O token do link já enviado, recalculado e conferido com o `token_hash` guardado no envio. Nulo sem segredo
+     * configurado, sem envio, sem hash guardado ou quando o segredo mudou depois do envio (o token de agora não é o do
+     * link que o signatário recebeu): quem monta link ou e-mail não usa token que não abre a página.
+     */
+    public function tokenConferido(Signatario $signatario): ?string
+    {
+        $guardado = $signatario->getTokenHash();
+        if ($guardado === null || !$this->configurada() || $signatario->getId() === null || $signatario->getDocumento()->getEnviadoEm() === null) {
+            return null;
+        }
+        $token = $this->token($signatario);
+
+        return hash_equals($guardado, self::hashDoToken($token)) ? $token : null;
     }
 
     /** O que o banco guarda do token: sha256 puro (o token já tem 256 bits do HMAC). */

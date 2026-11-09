@@ -14,6 +14,7 @@ use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
 use App\AssinaturaEletronica\Exception\MuitasTentativas;
+use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
@@ -24,7 +25,6 @@ use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
-use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -36,7 +36,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * e relida: a vez do signatário, o bloqueio do teto diário, o código pedido, a validade e a conferência do código.
  * Código errado conta tentativa (5 queimam o código; 15 em 24 h bloqueiam até o fim da janela) e a recusa é lançada só
  * depois do COMMIT, para o erro ficar gravado. Código certo: a rubrica é gravada, a assinatura registrada e, se foi o
- * último, o documento concluído. Os e-mails (vez do próximo ou conclusão ao remetente) saem depois do COMMIT.
+ * último, o documento concluído. Os e-mails (vez do próximo, com o Reply-To de quem enviou o documento, ou conclusão ao
+ * remetente) saem depois do COMMIT; a vez sem link (segredo trocado depois do envio) não sai (`email_nao_enviado`).
  */
 final readonly class AssinarDocumentoUseCase
 {
@@ -45,10 +46,10 @@ final readonly class AssinarDocumentoUseCase
 
     public function __construct(
         private SignatarioDoLink $link,
+        private DocumentoParaAssinarRepository $documentos,
         private EventoDaTrilhaRepository $eventos,
         private ChaveDaAssinatura $chave,
         private TrilhaDoDocumento $trilha,
-        private TransacaoComArquivoNovo $transacao,
         private ArmazenamentoDeArquivos $armazenamento,
         private CorreioDaAssinatura $correio,
         private ApresentacaoDoDocumento $apresentacao,
@@ -73,7 +74,7 @@ final readonly class AssinarDocumentoUseCase
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
         $novas = [];
 
-        $desfecho = $this->transacao->executar(
+        $desfecho = $this->documentos->emTransacaoComArquivoNovo(
             function () use ($signatario, $entrada, $png, $evidencia, $agora, &$novas): DesfechoDaAcaoPublica {
                 $this->link->travar($signatario);
                 $recusa = $this->conferirCodigo($signatario, $entrada, $evidencia, $agora);
@@ -202,6 +203,8 @@ final readonly class AssinarDocumentoUseCase
 
         $proximo = $documento->isEmOrdem() ? $documento->primeiroPendente() : null;
 
-        return $proximo !== null ? [CartaDaAssinatura::vez($proximo, (string) $this->apresentacao->linkDoSignatario($proximo))] : [];
+        return $proximo !== null
+            ? [CartaDaAssinatura::vez($proximo, $this->apresentacao->linkDoSignatario($proximo), $this->eventos->quemEnviou($documento))]
+            : [];
     }
 }

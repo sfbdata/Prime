@@ -91,22 +91,21 @@ final readonly class ApresentacaoDoDocumento
     }
 
     /**
-     * O link do signatário (URL absoluta com o token): só com o documento aguardando, o signatário pendente e o segredo
-     * configurado. O token é derivado a cada chamada, nunca guardado.
+     * O link do signatário (URL absoluta com o token): só com o documento aguardando, o signatário pendente, o segredo
+     * configurado e o token recalculado batendo com o `token_hash` guardado no envio (depois de uma troca do segredo,
+     * nulo: a tela mostra o aviso de sem chave e o e-mail não sai). O token é derivado a cada chamada, nunca guardado.
      */
     public function linkDoSignatario(Signatario $signatario): ?string
     {
         $documento = $signatario->getDocumento();
-        if ($documento->getSituacao() !== SituacaoDoDocumento::Aguardando || $documento->getEnviadoEm() === null
-            || $documento->estaNaLixeira() || !$signatario->estaPendente() || !$this->chave->configurada()) {
+        if ($documento->getSituacao() !== SituacaoDoDocumento::Aguardando || $documento->estaNaLixeira() || !$signatario->estaPendente()) {
             return null;
         }
+        $token = $this->chave->tokenConferido($signatario);
 
-        return $this->urls->generate(
-            'assinatura_eletronica_publica',
-            ['token' => $this->chave->token($signatario)],
-            UrlGeneratorInterface::ABSOLUTE_URL,
-        );
+        return $token !== null
+            ? $this->urls->generate('assinatura_eletronica_publica', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL)
+            : null;
     }
 
     /** A logo da folha vista de dentro do escritório (detalhe e prévia). */

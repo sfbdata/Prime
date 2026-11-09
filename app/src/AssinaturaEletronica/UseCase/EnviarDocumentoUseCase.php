@@ -25,7 +25,8 @@ use Psr\Clock\ClockInterface;
 /**
  * "Gerar links e enviar" (contrato da etapa 2, seções 4.1 e 6): com a linha travada e relida, confere o documento e os
  * signatários, congela o conteúdo (hash canônico), grava o sha256 do token de cada signatário e registra o envio.
- * Depois do COMMIT, o convite por e-mail: com "em ordem" só ao primeiro; sem, a todos.
+ * Depois do COMMIT, o convite por e-mail: com "em ordem" só ao primeiro; sem, a todos. O link do convite é remontado e
+ * conferido com o `token_hash` recém-gravado; sem link, o convite não sai (`email_nao_enviado`).
  */
 final readonly class EnviarDocumentoUseCase
 {
@@ -70,7 +71,7 @@ final readonly class EnviarDocumentoUseCase
         });
 
         $this->correio->entregar(array_map(
-            fn (Signatario $s): CartaDaAssinatura => CartaDaAssinatura::convite($s, (string) $this->apresentacao->linkDoSignatario($s), $ator),
+            fn (Signatario $s): CartaDaAssinatura => CartaDaAssinatura::convite($s, $this->apresentacao->linkDoSignatario($s), $ator),
             self::convidados($documento),
         ));
 

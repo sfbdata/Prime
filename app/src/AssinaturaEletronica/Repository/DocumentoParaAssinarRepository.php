@@ -11,7 +11,9 @@ use App\AssinaturaEletronica\Enum\CorDaLinha;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Query;
@@ -28,6 +30,7 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     public function __construct(
         ManagerRegistry $registry,
         private readonly AcessoALixeira $lixeira,
+        private readonly TransacaoComArquivoNovo $transacaoComArquivoNovo,
     ) {
         parent::__construct($registry, DocumentoParaAssinar::class);
     }
@@ -267,5 +270,22 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     public function emTransacao(callable $trabalho): mixed
     {
         return $this->getEntityManager()->wrapInTransaction(static fn (): mixed => $trabalho());
+    }
+
+    /**
+     * Roda o trabalho numa transação que grava arquivo novo (a rubrica do "Assinar"), pela {@see TransacaoComArquivoNovo}:
+     * se nada foi confirmado, os arquivos novos saem do disco. O UseCase fala com o repositório do domínio (o teste
+     * dele dubla este método, nunca o EntityManager).
+     *
+     * @template T
+     *
+     * @param callable(): T                    $trabalho
+     * @param \Closure(): list<ChaveDeArquivo> $arquivosNovos consultado só na falha
+     *
+     * @return T
+     */
+    public function emTransacaoComArquivoNovo(callable $trabalho, \Closure $arquivosNovos, string $contexto): mixed
+    {
+        return $this->transacaoComArquivoNovo->executar($trabalho, $arquivosNovos, $contexto);
     }
 }

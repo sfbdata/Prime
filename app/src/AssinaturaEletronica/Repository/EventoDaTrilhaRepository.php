@@ -8,6 +8,7 @@ use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
+use App\Entity\Auth\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
@@ -108,6 +109,25 @@ class EventoDaTrilhaRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
 
         return \is_array($linha) && $linha['criadoEm'] instanceof \DateTimeInterface ? \DateTimeImmutable::createFromInterface($linha['criadoEm']) : null;
+    }
+
+    /**
+     * Quem enviou o documento: o usuário do último `documento_enviado` (o Reply-To dos e-mails de vez e de código).
+     * Nulo se o documento não foi enviado ou o usuário foi apagado depois.
+     */
+    public function quemEnviou(DocumentoParaAssinar $documento): ?User
+    {
+        $evento = $this->createQueryBuilder('e')
+            ->andWhere('e.documento = :documento')
+            ->andWhere('e.tipo = :tipo')
+            ->setParameter('documento', $documento)
+            ->setParameter('tipo', TipoDeEvento::DocumentoEnviado)
+            ->orderBy('e.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $evento instanceof EventoDaTrilha ? $evento->getUsuario() : null;
     }
 
     /**

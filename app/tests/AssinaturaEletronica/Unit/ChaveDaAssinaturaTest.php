@@ -68,6 +68,19 @@ final class ChaveDaAssinaturaTest extends TestCase
         }
     }
 
+    #[TestDox('token conferido: só quando o sha256 do token de agora bate com o token_hash do envio (segredo trocado, sem guardado ou sem segredo: nulo)')]
+    public function testTokenConferido(): void
+    {
+        $chave = new ChaveDaAssinatura(self::SEGREDO);
+        $signatario = self::signatario('2026-11-09 12:00:00', 'UTC');
+        self::assertNull($chave->tokenConferido($signatario), 'sem token_hash guardado');
+
+        $signatario->definirTokenHash(self::HASH_DO_TOKEN);
+        self::assertSame(self::TOKEN, $chave->tokenConferido($signatario));
+        self::assertNull((new ChaveDaAssinatura('outro-segredo-de-teste-com-32-bytes-0123456'))->tokenConferido($signatario), 'segredo trocado depois do envio');
+        self::assertNull((new ChaveDaAssinatura(''))->tokenConferido($signatario), 'sem segredo não recusa: devolve nulo');
+    }
+
     /** O signatário de id 7 de um documento enviado na hora dada, no fuso dado. */
     private static function signatario(string $enviadoEm, string $fuso): Signatario
     {

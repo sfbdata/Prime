@@ -13,6 +13,10 @@ use App\Entity\Auth\User;
 /**
  * Um e-mail a mandar depois do COMMIT (contrato da etapa 2, seção 6). Fica só em memória: o link (com o token) e o
  * código vão direto para o Mailer síncrono, nunca para fila, log ou trilha.
+ *
+ * Ao signatário, o Reply-To é um usuário do escritório: no convite e no lembrete, quem clicou; na vez e no código, quem
+ * enviou o documento (o `usuario` do evento `documento_enviado`). Sem ele, sem Reply-To. O link nulo (o token
+ * recalculado não bate com o guardado, segredo trocado depois do envio) faz o e-mail não sair.
  */
 final readonly class CartaDaAssinatura
 {
@@ -25,28 +29,30 @@ final readonly class CartaDaAssinatura
         #[\SensitiveParameter]
         public ?string $codigo = null,
         public ?User $responderA = null,
+        public ?EvidenciaDaRequisicao $evidencia = null,
     ) {
     }
 
-    public static function convite(Signatario $signatario, #[\SensitiveParameter] string $link, ?User $responderA): self
+    public static function convite(Signatario $signatario, #[\SensitiveParameter] ?string $link, ?User $responderA): self
     {
         return new self(TipoDeCarta::Convite, $signatario->getDocumento(), $signatario, $link, null, $responderA);
     }
 
     /** Com "em ordem": o aviso ao próximo da fila de que chegou a vez dele. */
-    public static function vez(Signatario $signatario, #[\SensitiveParameter] string $link): self
+    public static function vez(Signatario $signatario, #[\SensitiveParameter] ?string $link, ?User $quemEnviou): self
     {
-        return new self(TipoDeCarta::Vez, $signatario->getDocumento(), $signatario, $link, null, $signatario->getDocumento()->getCriadoPor());
+        return new self(TipoDeCarta::Vez, $signatario->getDocumento(), $signatario, $link, null, $quemEnviou);
     }
 
-    public static function lembrete(Signatario $signatario, #[\SensitiveParameter] string $link, ?User $responderA): self
+    public static function lembrete(Signatario $signatario, #[\SensitiveParameter] ?string $link, ?User $responderA): self
     {
         return new self(TipoDeCarta::Lembrete, $signatario->getDocumento(), $signatario, $link, null, $responderA);
     }
 
-    public static function codigo(Signatario $signatario, #[\SensitiveParameter] string $codigo): self
+    /** O código pedido na tela pública: a evidência da requisição vai para o evento da entrega. */
+    public static function codigo(Signatario $signatario, #[\SensitiveParameter] string $codigo, ?User $quemEnviou, EvidenciaDaRequisicao $evidencia): self
     {
-        return new self(TipoDeCarta::Codigo, $signatario->getDocumento(), $signatario, null, $codigo, $signatario->getDocumento()->getCriadoPor());
+        return new self(TipoDeCarta::Codigo, $signatario->getDocumento(), $signatario, null, $codigo, $quemEnviou, $evidencia);
     }
 
     /** Ao remetente: quem recusou e o motivo. */
@@ -69,9 +75,23 @@ final readonly class CartaDaAssinatura
         return $email !== null && $email !== '' ? $email : null;
     }
 
-    /** O evento que registra a entrega (o do código e o do lembrete já foram gravados na própria ação). */
+    /** O e-mail que leva o link do signatário e ficou sem ele: não sai. */
+    public function semLink(): bool
+    {
+        return $this->tipo->levaLink() && ($this->link === null || $this->link === '');
+    }
+
+    /**
+     * O evento que registra a entrega, gravado só depois de o e-mail sair (falhou, só `email_nao_enviado`): assim o
+     * lembrete que falhou não gasta a regra de 1 por hora e o código que não saiu não conta no teto diário.
+     */
     public function eventoDaEntrega(): ?TipoDeEvento
     {
-        return \in_array($this->tipo, [TipoDeCarta::Convite, TipoDeCarta::Vez], true) ? TipoDeEvento::ConviteEnviado : null;
+        return match ($this->tipo) {
+            TipoDeCarta::Convite, TipoDeCarta::Vez => TipoDeEvento::ConviteEnviado,
+            TipoDeCarta::Lembrete => TipoDeEvento::LembreteEnviado,
+            TipoDeCarta::Codigo => TipoDeEvento::CodigoEnviado,
+            TipoDeCarta::Recusa, TipoDeCarta::Conclusao => null,
+        };
     }
 }

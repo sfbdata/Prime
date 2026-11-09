@@ -23,6 +23,12 @@ enum TipoDeCarta: string
         return \in_array($this, [self::Convite, self::Vez, self::Lembrete, self::Codigo], true);
     }
 
+    /** Os que levam o link do signatário: sem link (segredo trocado depois do envio), o e-mail não sai. */
+    public function levaLink(): bool
+    {
+        return \in_array($this, [self::Convite, self::Vez, self::Lembrete], true);
+    }
+
     public function template(): string
     {
         return 'email/assinatura/' . $this->value . '.html.twig';

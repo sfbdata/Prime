@@ -205,6 +205,31 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertContains('Convite enviado por e-mail a Bia Souza', $textos);
     }
 
+    #[TestDox('segredo trocado depois do envio: o link enviado ainda abre, o detalhe fica sem link e o lembrete não sai')]
+    public function testSegredoTrocadoDepoisDoEnvio(): void
+    {
+        $this->entrar(true);
+        [$id, $tokens] = $this->documentoEnviado();
+        // O hash guardado no envio da Ana passa a ser o de um token que o segredo de agora não gera (o efeito da troca).
+        $enviado = str_repeat('e', 64);
+        $this->conexao()->executeStatement('UPDATE assinatura_eletronica_signatario SET token_hash = ? WHERE documento_id = ? AND ordem = 0', [hash('sha256', $enviado), $id]);
+        $this->esquecer();
+
+        $links = array_column($this->detalhe($id)['signatarios'], 'link');
+        self::assertNull($links[0], 'a Ana, sem link conferido: a tela mostra o aviso de sem chave');
+        self::assertSame('http://localhost/assinar/' . $tokens[1], $links[1], 'a Bia, que bate com o segredo, segue com o link');
+        $this->client->request('POST', '/assinatura/documentos/' . $id . '/lembrete', [], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Assinatura eletrônica sem chave configurada. Fale com o suporte.', $this->json()['erro']);
+        self::assertEmailCount(0);
+        $trilha = $this->trilha($id);
+        self::assertSame('email_nao_enviado', end($trilha));
+        self::assertNotContains('lembrete_enviado', $trilha);
+
+        $this->sair($this->client);
+        self::assertSame('pronto', $this->abrir($enviado)['estado'], 'o link que o signatário recebeu abre pelo hash guardado');
+    }
+
     #[TestDox('cancelar envio: só aguardando; os links somem do detalhe e a página mostra "Envio cancelado"')]
     public function testCancelar(): void
     {

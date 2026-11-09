@@ -16,16 +16,16 @@ use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\CorreioDaAssinatura;
-use App\AssinaturaEletronica\Service\MascaraDeEmail;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
-use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
 use Psr\Clock\ClockInterface;
 
 /**
  * "Enviar código" e "Reenviar" (contrato da etapa 2, seção 3): com a linha travada e relida, só quem tem a vez; código
- * novo de 6 dígitos (o anterior deixa de valer), só o HMAC no banco, e o e-mail depois do COMMIT. O código nunca volta
- * na resposta. Teto de 10 envios em 24 h por signatário, contado pela trilha: passado o teto, o signatário fica
- * bloqueado até o fim da janela (o bloqueio é gravado mesmo com a recusa).
+ * novo de 6 dígitos (o anterior deixa de valer), só o HMAC no banco, e o e-mail depois do COMMIT, com o Reply-To de
+ * quem enviou o documento. O código nunca volta na resposta. Só o e-mail entregue grava `codigo_enviado` (pelo correio,
+ * com a evidência da requisição); falhou, só `email_nao_enviado`. Teto de 10 códigos entregues em 24 h por signatário,
+ * contado pela trilha: passado o teto, o signatário fica bloqueado até o fim da janela (o bloqueio é gravado mesmo com
+ * a recusa).
  */
 final readonly class SolicitarCodigoUseCase
 {
@@ -37,7 +37,6 @@ final readonly class SolicitarCodigoUseCase
         private DocumentoParaAssinarRepository $documentos,
         private EventoDaTrilhaRepository $eventos,
         private ChaveDaAssinatura $chave,
-        private TrilhaDoDocumento $trilha,
         private CorreioDaAssinatura $correio,
         private ClockInterface $relogio,
     ) {
@@ -63,16 +62,9 @@ final readonly class SolicitarCodigoUseCase
 
             $codigo = ChaveDaAssinatura::novoCodigo();
             $signatario->registrarCodigo($this->chave->hashDoCodigo($signatario, $codigo), $agora);
-            $this->trilha->acrescentar(
-                $signatario->getDocumento(),
-                TipoDeEvento::CodigoEnviado,
-                ['para' => MascaraDeEmail::mascarar((string) $signatario->getEmail())],
-                null,
-                $signatario,
-                $evidencia,
-            );
+            $quemEnviou = $this->eventos->quemEnviou($signatario->getDocumento());
 
-            return DesfechoDaAcaoPublica::feito([CartaDaAssinatura::codigo($signatario, $codigo)]);
+            return DesfechoDaAcaoPublica::feito([CartaDaAssinatura::codigo($signatario, $codigo, $quemEnviou, $evidencia)]);
         });
         $desfecho->lancarSeRecusado();
 

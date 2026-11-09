@@ -23,7 +23,10 @@ use Twig\Environment;
  * prefixo dos e-mails do sistema, Responder para quem enviou); ao remetente, como e-mail do sistema.
  *
  * Falha num destinatário não desfaz nada: vira log (sem código, link nem token) e o evento `email_nao_enviado`. O
- * convite entregue grava `convite_enviado`, com o e-mail mascarado.
+ * e-mail que leva o link e ficou sem ele (o token recalculado não bate com o `token_hash` guardado: segredo trocado
+ * depois do envio) não sai e conta como falha. Só o e-mail entregue ao transporte grava o evento da entrega
+ * (`convite_enviado`, `lembrete_enviado` ou `codigo_enviado`, com o e-mail mascarado e, no código, a evidência da
+ * requisição).
  */
 final readonly class CorreioDaAssinatura
 {
@@ -48,25 +51,37 @@ final readonly class CorreioDaAssinatura
         $tudoEntregue = true;
         foreach ($cartas as $carta) {
             $para = $carta->destinatario();
-            if ($para === null) {
-                continue;
-            }
-
-            try {
-                $this->mailer->send($this->email($carta, $para));
-            } catch (\Throwable $e) {
+            if ($para !== null && !$this->entregarUma($carta, $para)) {
                 $tudoEntregue = false;
-                $this->registrarFalha($carta, $e);
-                continue;
-            }
-
-            $tipo = $carta->eventoDaEntrega();
-            if ($tipo !== null) {
-                $this->registrar($carta, $tipo, ['para' => MascaraDeEmail::mascarar($para)]);
             }
         }
 
         return $tudoEntregue;
+    }
+
+    /** Manda uma carta e registra o desfecho na trilha. Falso quando o e-mail não saiu. */
+    private function entregarUma(CartaDaAssinatura $carta, string $para): bool
+    {
+        if ($carta->semLink()) {
+            $this->registrarFalha($carta, ['motivo' => 'link_indisponivel']);
+
+            return false;
+        }
+
+        try {
+            $this->mailer->send($this->email($carta, $para));
+        } catch (\Throwable $e) {
+            $this->registrarFalha($carta, ['classe' => $e::class]);
+
+            return false;
+        }
+
+        $tipo = $carta->eventoDaEntrega();
+        if ($tipo !== null) {
+            $this->registrar($carta, $tipo, ['para' => MascaraDeEmail::mascarar($para)]);
+        }
+
+        return true;
     }
 
     private function email(CartaDaAssinatura $carta, string $para): Email
@@ -102,14 +117,19 @@ final readonly class CorreioDaAssinatura
         return $email;
     }
 
-    private function registrarFalha(CartaDaAssinatura $carta, \Throwable $falha): void
+    /**
+     * O log da falha (o tipo da carta, os ids e o motivo; nunca o link, o token, o código nem a mensagem da exceção) e o
+     * evento `email_nao_enviado`.
+     *
+     * @param array{motivo?: string, classe?: class-string} $porque
+     */
+    private function registrarFalha(CartaDaAssinatura $carta, array $porque): void
     {
         $this->logger->error('E-mail da assinatura não enviado.', [
             'carta' => $carta->tipo->value,
             'documento' => $carta->documento->getId(),
             'signatario' => $carta->tipo->aoSignatario() ? $carta->signatario?->getId() : null,
-            'classe' => $falha::class,
-        ]);
+        ] + $porque);
         $this->registrar($carta, TipoDeEvento::EmailNaoEnviado, ['motivo' => 'falha_no_envio']);
     }
 
@@ -128,6 +148,7 @@ final readonly class CorreioDaAssinatura
                 $dados,
                 $this->usuarioDoEvento($carta),
                 $aoSignatario ? $carta->signatario : null,
+                $carta->evidencia,
             ));
         } catch (\Throwable $e) {
             $this->logger->error('Evento do e-mail da assinatura não gravado.', [

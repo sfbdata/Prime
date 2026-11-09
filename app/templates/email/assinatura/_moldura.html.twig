@@ -1,8 +1,9 @@
 {# Moldura dos e-mails da Assinatura de documentos (contrato da etapa 2, seção 6), no molde de templates/email.
    Contexto comum (CorreioDaAssinatura): `escritorio`, `documento`, `mensagem`, `nome`, `motivo`, `link` e `codigo`
    (os dois últimos só nos e-mails que os levam). Ao signatário, o cabeçalho é o nome do escritório; ao remetente,
-   BlueJus. Tudo escapado pelo Twig, inclusive a mensagem do escritório. #}
-{%- set cabecalho = block('cabecalho') is defined ? block('cabecalho')|trim : 'BlueJus' -%}
+   BlueJus. Tudo escapado pelo Twig, inclusive a mensagem do escritório.
+   O cabeçalho sai direto do block(), que já vem escapado e o Twig não escapa de novo: um filtro por cima (|trim)
+   fazia o Twig escapar outra vez ("Silva &amp;amp; D..."). #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -17,7 +18,7 @@
                 <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:4px;overflow:hidden;max-width:600px;width:100%;">
                     <tr>
                         <td style="background-color:#0a6fa0;padding:24px 32px;">
-                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">{{ cabecalho }}</p>
+                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">{% if block('cabecalho') is defined %}{{ block('cabecalho') }}{% else %}BlueJus{% endif %}</p>
                         </td>
                     </tr>
                     <tr>

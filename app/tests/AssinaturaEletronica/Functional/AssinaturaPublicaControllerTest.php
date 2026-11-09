@@ -163,6 +163,80 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         self::assertEmailCount(0);
     }
 
+    #[TestDox('arquivos: o par de limitadores próprio (IP e sha256 do token); a cota da página e dos POST não é gasta')]
+    public function testLimitadoresDosArquivos(): void
+    {
+        $daPagina = new RateLimiterFactoryEspiao(false);
+        $daPaginaPorToken = new RateLimiterFactoryEspiao(false);
+        $arquivosPorIp = new RateLimiterFactoryEspiao();
+        $arquivosPorToken = new RateLimiterFactoryEspiao();
+        static::getContainer()->set('limiter.assinatura_publica', $daPagina);
+        static::getContainer()->set('limiter.assinatura_publica_token', $daPaginaPorToken);
+        static::getContainer()->set('limiter.assinatura_publica_arquivos', $arquivosPorIp);
+        static::getContainer()->set('limiter.assinatura_publica_arquivos_token', $arquivosPorToken);
+        $token = str_repeat('c', 64);
+
+        foreach (['/arquivo', '/logo', '/rubrica/0'] as $fim) {
+            $this->client->request('GET', '/assinar/' . $token . $fim);
+            self::assertResponseStatusCodeSame(404, $fim . ': o token desconhecido, não o 429 da página');
+            self::assertCabecalhosPublicos($this->client->getResponse());
+        }
+
+        self::assertSame([], $daPagina->chavesConsumidas);
+        self::assertSame([], $daPaginaPorToken->chavesConsumidas);
+        self::assertCount(3, $arquivosPorIp->chavesConsumidas);
+        self::assertSame(array_fill(0, 3, hash('sha256', $token)), $arquivosPorToken->chavesConsumidas);
+    }
+
+    #[TestDox('arquivos: estourado o limitador dos arquivos, 429 com os cabeçalhos')]
+    public function testLimiteDosArquivos(): void
+    {
+        static::getContainer()->set('limiter.assinatura_publica_arquivos_token', new RateLimiterFactoryEspiao(false));
+
+        $this->client->request('GET', '/assinar/' . str_repeat('c', 64) . '/arquivo');
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertCabecalhosPublicos($this->client->getResponse());
+    }
+
+    #[TestDox('cabeçalhos pelo caminho: o 405 de método errado e o 404 de /assinar sem barra também os levam')]
+    public function testCabecalhosSemRota(): void
+    {
+        $this->client->request('PUT', '/assinar/' . str_repeat('a', 64));
+        self::assertResponseStatusCodeSame(405);
+        self::assertCabecalhosPublicos($this->client->getResponse());
+
+        $this->client->request('GET', '/assinar');
+        self::assertResponseStatusCodeSame(404);
+        self::assertCabecalhosPublicos($this->client->getResponse());
+    }
+
+    #[TestDox('logado como usuário de OUTRO escritório: o link abre o documento certo e nada do escritório da sessão aparece')]
+    public function testLogadoEmOutroEscritorio(): void
+    {
+        [$advogada, $escritorio] = $this->entrar(true);
+        [$id, $tokens] = $this->documentoEnviado();
+        [$outraAdvogada, $outroEscritorio] = $this->entrar(true);
+        $this->rascunho(extra: ['nome' => 'Rascunho do outro escritório']);
+
+        $publico = $this->abrir((string) $tokens[0]);
+
+        self::assertSame('pronto', $publico['estado']);
+        self::assertSame('Contrato de honorários', $publico['documento']['nome']);
+        self::assertSame(['nome' => 'Ana Lima', 'cpf' => self::CPF_ANA, 'posicao' => 0], $publico['eu']);
+        self::assertSame(['Contratante', 'Bia Souza'], array_column($publico['lugares'], 'rotulo'));
+        $html = (string) $this->client->getResponse()->getContent();
+        foreach ([(string) $outroEscritorio->getName(), (string) $outraAdvogada->getEmail(), 'Rascunho do outro escritório', (string) $escritorio->getName(), (string) $advogada->getEmail()] as $proibido) {
+            self::assertStringNotContainsString($proibido, $html, $proibido);
+        }
+        self::assertSame(1, array_count_values($this->trilha($id))['link_aberto']);
+
+        // O POST também acha o documento com a sessão de outro escritório (o filtro de escritório sai nas rotas públicas).
+        $this->pedirCodigo((string) $tokens[0]);
+        self::assertSame('ana@exemplo.com', self::getMailerMessage()?->getTo()[0]->getAddress());
+        self::assertContains('codigo_enviado', $this->trilha($id));
+    }
+
     #[TestDox('limitador por IP estourado: a página diz para esperar, com 429, sem o JSON nem o script da tela')]
     public function testLimitePorIp(): void
     {
@@ -295,7 +369,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
     #[TestDox('em ordem: o segundo aguarda o primeiro (com o nome dele) e não pede código')]
     public function testOrdem(): void
     {
-        $this->entrar(true);
+        [$advogada] = $this->entrar(true);
         [, $tokens] = $this->documentoEnviado(emOrdem: true);
 
         $publico = $this->abrir((string) $tokens[1]);
@@ -303,7 +377,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Ana Lima', $publico['anterior']);
         self::assertSame([], $publico['lugares']);
         self::assertNull($publico['eu']);
-        self::assertSame([], $publico['documento']['blocos']);
+        self::assertSame(['nome', 'hashEnviado'], array_keys($publico['documento']), 'no bloqueio, só o cabeçalho');
 
         $this->postarNoLink('/assinar/' . $tokens[1] . '/codigo', (string) $tokens[1]);
         self::assertResponseStatusCodeSame(422);
@@ -314,6 +388,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         self::assertEmailCount(1);
         self::assertSame('bia@exemplo.com', self::getMailerMessage()?->getTo()[0]->getAddress());
         self::assertSame('Sua vez de assinar: Contrato de honorários', self::getMailerMessage()?->getSubject());
+        self::assertSame((string) $advogada->getEmail(), self::getMailerMessage()?->getReplyTo()[0]->getAddress(), 'Reply-To de quem enviou');
         self::assertSame('pronto', $this->abrir((string) $tokens[1])['estado']);
     }
 
@@ -329,7 +404,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         $this->esquecer();
         $publico = $this->abrir($token);
         self::assertSame('prazo_encerrado', $publico['estado']);
-        self::assertSame([], $publico['documento']['blocos']);
+        self::assertSame(['nome', 'hashEnviado'], array_keys($publico['documento']), 'no bloqueio, só o cabeçalho');
 
         $this->conexao()->executeStatement('UPDATE assinatura_eletronica_documento SET vence_em = ? WHERE id = ?', [(new \DateTimeImmutable('+1 day'))->format('Y-m-d H:i:s'), $id]);
         $this->esquecer();
@@ -337,8 +412,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $publico = $this->abrir($token);
         self::assertSame('cancelado', $publico['estado']);
-        self::assertSame('Contrato de honorários', $publico['documento']['nome']);
-        self::assertNull($publico['documento']['arquivo']);
+        self::assertSame(['nome' => 'Contrato de honorários', 'hashEnviado' => $this->detalhe($id)['hashEnviado']], $publico['documento']);
         $this->postarNoLink('/assinar/' . $token . '/codigo', $token);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Envio cancelado. Este documento não está mais disponível para assinatura.', $this->json()['erro']);
