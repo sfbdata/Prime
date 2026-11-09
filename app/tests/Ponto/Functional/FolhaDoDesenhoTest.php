@@ -267,18 +267,37 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(0, $linha->filter('td[data-r="Saída"] button'), 'a saída já pedida não ganha outro "+"');
     }
 
-    #[TestDox('Dia em andamento: o "Saldo mês" de hoje fica vazio até a saída, porque o motor ainda não apurou o dia')]
-    public function testSaldoMesDoDiaEmAndamentoFicaVazio(): void
+    /**
+     * Até a E17 a célula ficava vazia até a saída. O desenho (L157) mostra o acumulado até ontem no dia em andamento:
+     * o mesmo número e a mesma cor da linha de ontem (ontem trabalhado, para a linha aparecer na /ponto, que só mostra
+     * dia com batida). No dia 1º não há ontem no mês, e a célula fica vazia (o caso certo para qualquer data está em
+     * FolhaPontoSaldoDoDiaEmAndamentoTest).
+     */
+    #[TestDox('Dia em andamento: o "Saldo mês" de hoje repete o de ontem até a saída (desenho L157); no dia 1º, vazio')]
+    public function testSaldoMesDoDiaEmAndamentoRepeteOAcumuladoDeOntem(): void
     {
         $this->jornadaDeOitoHoras();
         $this->diaCompleto($this->diaUtilDoMesAnterior(1), '18:00:00');
         $hoje = new \DateTimeImmutable('today');
+        $ontem = $hoje->modify('-1 day');
+        if ($ontem->format('Y-m') === $hoje->format('Y-m')) {
+            $this->diaCompleto($ontem, '18:00:00');
+        }
         $this->batida($hoje, 'entrada', '00:01:00');
 
-        $saldoMesDeHoje = $this->linha($this->tela(), $hoje)->filter('td.pe-sm[data-r="Saldo mês"]');
+        $tela = $this->tela();
+        $saldoMesDeHoje = $this->linha($tela, $hoje)->filter('td.pe-sm[data-r="Saldo mês"]');
 
-        self::assertSame('', trim($saldoMesDeHoje->text()));
-        self::assertStringContainsString('pe-vazia', (string) $saldoMesDeHoje->attr('class'));
+        if ($hoje->format('j') === '1') {
+            self::assertSame('', trim($saldoMesDeHoje->text()));
+            self::assertStringContainsString('pe-vazia', (string) $saldoMesDeHoje->attr('class'));
+
+            return;
+        }
+        $saldoMesDeOntem = $this->linha($tela, $ontem)->filter('td.pe-sm[data-r="Saldo mês"]');
+        self::assertNotSame('', trim($saldoMesDeOntem->text()), 'controle: ontem tem Saldo mês');
+        self::assertSame(trim($saldoMesDeOntem->text()), trim($saldoMesDeHoje->text()));
+        self::assertSame($saldoMesDeOntem->attr('class'), $saldoMesDeHoje->attr('class'), 'a mesma cor de ontem');
     }
 
     #[TestDox('O que saiu conta zero na /ponto: cartão, lista do Bootstrap, menu Visualizar / Exportar, tabela listrada do Bootstrap, linhas coloridas e cabeçalhos antigos')]

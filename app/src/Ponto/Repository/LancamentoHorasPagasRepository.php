@@ -73,6 +73,36 @@ class LancamentoHorasPagasRepository extends ServiceEntityRepository
     }
 
     /**
+     * Soma, com sinal, os lançamentos do colaborador em cada competência, de todos os anos: o banco de horas por lotes
+     * (spec ponto-desenho-0811, E17) atravessa os anos e lê tudo numa consulta só. Competência sem lançamento não vem.
+     *
+     * Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO).
+     *
+     * @return array<string, int> 'AAAA-MM' => minutos, da competência mais antiga para a mais nova
+     */
+    public function somarPorCompetenciaDoColaborador(User $user, Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('l')
+            ->select('l.ano AS ano', 'l.mes AS mes', 'SUM(l.minutos) AS minutos')
+            ->andWhere('l.user = :user')
+            ->andWhere('l.tenant = :tenant')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->groupBy('l.ano', 'l.mes')
+            ->orderBy('l.ano', 'ASC')
+            ->addOrderBy('l.mes', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $somas = [];
+        foreach ($linhas as $linha) {
+            $somas[sprintf('%04d-%02d', (int) $linha['ano'], (int) $linha['mes'])] = (int) $linha['minutos'];
+        }
+
+        return $somas;
+    }
+
+    /**
      * Lançamentos do colaborador no escritório, mais recentes primeiro. Alimenta a ficha do admin.
      *
      * @return LancamentoHorasPagas[]

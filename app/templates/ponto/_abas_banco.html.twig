@@ -1,4 +1,50 @@
 {#
-    Aba "Banco de Horas" (E17, P51 a): saldo, limite, prazo e lotes. Recebe `bancoDeHoras`.
-    Contrato do bloco 3: o conteúdo entra na etapa E17.
+    Aba "Banco de Horas" (E17, P51 a, P52 e P73; desenho 16 L201 a L208, JS L774 a L776 e L817). Recebe `bancoDeHoras`
+    (App\Ponto\DTO\BancoDeHorasOutput): os três quadros, a faixa amarela só acima do limite, a tabela de lotes (da
+    competência mais antiga para a mais nova) e a nota da lei. Classes do desenho com o prefixo da tela: bjpT = pe-tab
+    (sem pe-resp: no celular rola para o lado), bjpJ = pe-just-lin; o `overflow-x:auto` é o pe-abas-rolagem da E3.
+    O "—" das células sem valor do desenho fica vazio, como na Folha. Nada aqui calcula: os números vêm em minutos do
+    BancoDeHorasPorLotes e só são formatados (`fSal` e `fDur` do desenho, em _folha_macros).
 #}
+{% import 'ponto/_folha_macros.html.twig' as folha %}
+{% set limite = bancoDeHoras.limiteMinutos %}
+<div class="pe-bh-kpis">
+    <div class="pe-bh-kpi">
+        <div class="pe-bh-kpi-rotulo">SALDO ATUAL</div>
+        <b class="pe-bh-kpi-valor {{ bancoDeHoras.saldoAtualMinutos < 0 ? 'pe-cor--neg' : 'pe-cor--pos' }}">{{ folha.saldo(bancoDeHoras.saldoAtualMinutos) }}</b>
+    </div>
+    <div class="pe-bh-kpi">
+        <div class="pe-bh-kpi-rotulo">LIMITE CONFIGURADO</div>
+        <b class="pe-bh-kpi-valor {{ bancoDeHoras.acimaDoLimite ? 'pe-cor--neg' : 'pe-cor--zero' }}">{{ limite % 60 == 0 ? (limite // 60) ~ 'h' : folha.horas(limite) }}</b>
+    </div>
+    <div class="pe-bh-kpi">
+        <div class="pe-bh-kpi-rotulo">PRAZO DE COMPENSAÇÃO</div>
+        <b class="pe-bh-kpi-valor pe-cor--zero">{{ bancoDeHoras.prazoMeses }} meses</b>
+    </div>
+</div>
+{% if bancoDeHoras.acimaDoLimite %}
+<div class="pe-bh-aviso"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Saldo acima do limite configurado. Planeje a compensação para evitar passivo.</div>
+{% endif %}
+<div class="pe-abas-rolagem">
+    <table class="pe-tab">
+        <thead>
+            <tr><th>Competência</th><th>Crédito</th><th>Compensado</th><th>Saldo</th><th>Vence em</th><th>Situação</th></tr>
+        </thead>
+        <tbody>
+            {% for lote in bancoDeHoras.lotes %}
+                <tr class="pe-just-lin">
+                    <td><b>{{ lote.competencia }}</b></td>
+                    <td>{{ lote.creditoMinutos > 0 ? folha.saldo(lote.creditoMinutos) : '' }}</td>
+                    <td>{{ lote.compensadoMinutos > 0 ? folha.horas(lote.compensadoMinutos) : '' }}</td>
+                    <td class="pe-bh-saldo">{{ lote.creditoMinutos > 0 ? folha.saldo(lote.saldoMinutos) : '' }}</td>
+                    <td>{{ lote.venceEm is not null ? lote.venceEm|date('d/m/Y') : '' }}</td>
+                    <td><span class="pe-bh-selo" style="background-color: {{ lote.cor }};">{{ lote.situacao }}</span></td>
+                </tr>
+            {% else %}
+                {# O desenho não tem o vazio; a convenção das abas (E3) é a frase no lugar da lista. #}
+                <tr><td colspan="6" class="pe-abas-vazio">Nenhum lote no banco de horas.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div class="pe-bh-nota">Horas negativas abatem primeiro os créditos mais antigos. O prazo padrão é de 6 meses, próprio do acordo individual (art. 59, § 5º, da CLT), e pode ser ajustado em Configurações conforme o acordo do escritório.</div>
