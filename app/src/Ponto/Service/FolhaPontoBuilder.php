@@ -88,7 +88,6 @@ class FolhaPontoBuilder
             $diaFuturo = $dia > $hoje;
             // Sem primeiro registro, nenhum dia conta; com ele, os anteriores ficam de fora.
             $diaForaDaContagem = $inicioContagemNorm === null || $dia < $inicioContagemNorm;
-
             $escolha = $this->calculadora->escolherBatidas($batidasPorDia[$chaveDia] ?? [], $dia);
 
             $row = [
