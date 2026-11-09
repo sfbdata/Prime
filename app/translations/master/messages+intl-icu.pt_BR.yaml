@@ -16,6 +16,7 @@ master:
             permissoes: Permissões
             recursos: Telas e recursos
             ia: Configurações da I.A.
+            voto: Voto
         faixa: Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.
         carregando: Carregando o painel…
         masters:
@@ -395,6 +396,17 @@ master:
                 questao_nao_encontrada: Questão jurídica não encontrada.
                 sem_arquivo: Escolha o arquivo a enviar.
                 status_invalido: Escolha um status da lista.
+    # Aba "Voto" (master/_voto, spec bluejus-voto D5 e D7, fase A1b) e as recusas do VotoDoMasterController.
+    voto:
+        liberacao:
+            titulo: Liberação por escritório
+            nota: O Voto só aparece para o escritório liberado aqui e enquanto estiver ligado em Telas e recursos. Todo escritório começa em modo demonstração.
+            col_nome: Escritório
+            col_liberado: Liberado
+        recusa:
+            token_invalido: Token CSRF inválido. Recarregue a página.
+            informe_liberado: Informe se o escritório fica liberado ou bloqueado.
+            escritorio_nao_encontrado: Escritório não encontrado.
     # P3: flashes do MastersDoSistemaController (Masters do sistema, aba Permissões) e as recusas da
     # OperacaoDeMasterRecusada. As RECUSA_* da RegraDosMasters ficam fora: o Tenant (EscritorioController) também usa.
     masters:
@@ -1151,6 +1163,17 @@ master:
             sem_versao: Nenhuma versão enviada.
             historico_item: '{de} para {para}, por {por} em {quando}'
             sem_historico: Sem mudanças de status.
+        # Aba "Voto" (public/js/master/voto.js).
+        voto:
+            contagem: '{n} ativo(s)'
+            liberado: Liberado
+            bloqueado: Bloqueado
+            chave_rotulo: 'Liberar o Voto para {nome}'
+            liberou: 'O Voto foi liberado para "{nome}".'
+            bloqueou: 'O Voto foi bloqueado para "{nome}".'
+            vazio: Nenhum escritório ativo.
+            erro_carregar: Não foi possível carregar a liberação do Voto. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
         # P3: masters.js (Masters do sistema e a confirmação que o painel.js também usa). A palavra digitada vem de
         # quem abre a confirmação (EXCLUIR, que não se traduz).
         masters:
