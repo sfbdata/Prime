@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Integration\EspelhoRemoto;
 
+use App\AssinaturaEletronica\DTO\DadosDoRascunho;
+use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\Comercial\Entity\ImagemDaCampanha;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Pasta\Entity\PastaDocumento;
@@ -226,6 +228,45 @@ final class FontesDeReferenciaTest extends KernelTestCase
             self::assertNotNull($referencia->chave?->escopo->tenantIdOuNull(), 'anexo do chat tem escritório');
         }
         self::addToAssertionCount(1); // chegar aqui prova que as seis consultas rodam no esquema de teste
+    }
+
+    #[TestDox('rubrica de quem assinou (Assinatura, etapa 2): vira chave com o escritório do documento; sem rubrica, não gera referência')]
+    public function testRubricaDaAssinatura(): void
+    {
+        self::bootKernel();
+        [$tenantId, $assinou, $pendente] = $this->signatariosDaAssinatura();
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $conexao->executeStatement('UPDATE assinatura_eletronica_signatario SET rubrica_chave = ? WHERE id = ?', ['c0ffee00c0ffee00c0ffee00c0ffee00.png', $assinou]);
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $rubrica = $porLinha['assinatura_signatario_rubrica#' . $assinou] ?? self::fail('rubrica do signatário não listada');
+        self::assertSame(CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $rubrica->chave?->categoria);
+        self::assertSame($tenantId, $rubrica->chave?->escopo->tenantIdOuNull());
+        self::assertSame('c0ffee00c0ffee00c0ffee00c0ffee00.png', $rubrica->chave?->nome);
+        self::assertArrayNotHasKey('assinatura_signatario_rubrica#' . $pendente, $porLinha, 'quem não assinou não gera referência');
+    }
+
+    /**
+     * Um documento da Assinatura com dois signatários gravados, no escritório de uma fábrica.
+     *
+     * @return array{int, int, int} o id do escritório e os ids dos dois signatários
+     */
+    private function signatariosDaAssinatura(): array
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant = TenantFactory::createOne()->_real();
+        $agora = new \DateTimeImmutable();
+        $documento = new DocumentoParaAssinar($tenant, null, $agora);
+        $documento->aplicarRascunho(DadosDoRascunho::deJson([
+            'nome' => 'Contrato',
+            'signatarios' => [['nome' => 'Ana Lima', 'email' => 'ana@exemplo.com'], ['nome' => 'Bia Souza', 'email' => 'bia@exemplo.com']],
+        ]), [], $agora);
+        $em->persist($documento);
+        $em->flush();
+        [$primeiro, $segundo] = $documento->getSignatarios();
+
+        return [(int) $tenant->getId(), (int) $primeiro->getId(), (int) $segundo->getId()];
     }
 
     /** @return \Generator<string, ReferenciaDeArquivo> */
