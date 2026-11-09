@@ -16,11 +16,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeRecursos::class)]
 final class CatalogoDeRecursosTest extends TestCase
 {
-    #[TestDox('19 linhas, 18 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
+    #[TestDox('20 linhas, 19 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(19, CatalogoDeRecursos::LINHAS);
-        self::assertCount(18, CatalogoDeRecursos::chaves());
+        self::assertCount(20, CatalogoDeRecursos::LINHAS);
+        self::assertCount(19, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
@@ -31,13 +31,15 @@ final class CatalogoDeRecursosTest extends TestCase
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js: 10 Telas, 7 Menu do usuário, 2 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura: 11 Telas, 7 Menu do usuário, 2 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 10, 'Menu do usuário' => 7, 'Funções' => 2], $porGrupo);
+        self::assertSame(['Telas' => 11, 'Menu do usuário' => 7, 'Funções' => 2], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
-        self::assertSame('assistente', CatalogoDeRecursos::LINHAS[18]['chave']);
+        self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[10]['chave']);
+        self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
+        self::assertSame('assistente', CatalogoDeRecursos::LINHAS[19]['chave']);
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');
         self::assertNull(CatalogoDeRecursos::titulo('inexistente'));
         self::assertFalse(CatalogoDeRecursos::existe('inexistente'));
@@ -54,6 +56,8 @@ final class CatalogoDeRecursosTest extends TestCase
     public static function rotas(): iterable
     {
         yield 'dashboard' => ['dashboard_index', 'dashboard'];
+        yield 'assinatura' => ['assinatura_eletronica_index', 'assinatura'];
+        yield 'assinatura (JSON)' => ['assinatura_eletronica_documentos', 'assinatura'];
         yield 'pasta' => ['pasta_show', 'expedientes'];
         yield 'metas' => ['tarefa_minhas', 'metas'];
         yield 'trabalho externo' => ['trabalho_externo_index', 'trabalho'];

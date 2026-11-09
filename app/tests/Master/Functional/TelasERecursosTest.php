@@ -251,13 +251,13 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         $painel = $crawler->filter('#master-painel > .mp-rec[data-painel-aba="rec"][hidden] > .mp-rec-card');
         self::assertCount(1, $painel);
         self::assertSame('Telas e recursos do sistema', $painel->filter('.mp-rec-cab > .mp-rec-cab-texto > b')->text());
-        self::assertSame('2 desativado(s) para os usuários', $painel->filter('.mp-rec-cab > .mp-rec-resumo')->text(), 'as duas linhas de Contribua');
+        self::assertSame('3 desativado(s) para os usuários', $painel->filter('.mp-rec-cab > .mp-rec-resumo')->text(), 'as duas linhas de Contribua e a Assinatura, que nasce desligada (M1 Version20261109130000)');
         self::assertSame('Buscar tela ou função', $painel->filter('.mp-rec-cab > input.mp-rec-busca')->attr('placeholder'));
         self::assertSame('/master/recursos/CHAVE', $painel->attr('data-url'));
         self::assertNotEmpty($painel->attr('data-token'));
 
         $linhas = json_decode((string) $painel->attr('data-recursos'), true);
-        self::assertCount(19, $linhas);
+        self::assertCount(20, $linhas);
         $contribua = array_values(array_filter($linhas, static fn (array $l): bool => $l['chave'] === 'contribua'));
         self::assertCount(2, $contribua);
         self::assertFalse($contribua[0]['ativo']);

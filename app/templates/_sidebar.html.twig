@@ -106,6 +106,17 @@
                     </li>
                 {% endif %}
 
+                {% if can_access_module('assinatura_eletronica') and recurso_visivel('assinatura') %}
+                    <li class="pje-menu-item {{ recurso_marca('assinatura') }}">
+                        <a href="{{ path('assinatura_eletronica_index') }}"
+                           data-busca-alias="assinatura eletrônica assinar documento contrato procuração signatário"
+                           class="pje-menu-link {{ currentRoute starts with 'assinatura_eletronica_' ? 'active' : '' }}">
+                            <i class="bi bi-pen pje-nav-icon"></i>
+                            <span>{{ 'moldura.menu_lateral.assinatura'|trans }}</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {% if can_access_module('tarefas') and recurso_visivel('metas') %}
                     <li class="pje-menu-item {{ recurso_marca('metas') }}">
                         <a href="{{ path('tarefa_minhas') }}"

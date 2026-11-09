@@ -272,6 +272,7 @@ Fonte: `app/src/DataFixtures/PermissionFixture.php` e
 | `financeiro` | `modules.financeiro.view` | **nenhum** | não verificado | Marcado como "futuro" na fixture; sem tela |
 | `bi` | `modules.bi.view` | **nenhum** | não verificado | Marcado como "futuro" na fixture; sem tela |
 | `calculo` | `modules.calculo.view` | `can_access_module('calculo')` | `assertAcesso()` em todas as rotas `calculo_*` | Ativo (Cálculo de atualização monetária); migration concede aos perfis que já têm `pastas` |
+| `assinatura_eletronica` | `modules.assinatura_eletronica.view` | `can_access_module('assinatura_eletronica') and recurso_visivel('assinatura')` | `AcessoAAssinatura::quemPode()` em todas as rotas `assinatura_eletronica_*` | Etapa 1 (Assinatura de documentos); migration `Version20261109130000` concede aos perfis que já têm `pastas`; a chave `assinatura` do Master nasce desligada |
 
 **Nota sobre Expediente:** o item aparece sem guard no menu Twig (sidebar),
 então todos os usuários autenticados o veem. Porém o controller

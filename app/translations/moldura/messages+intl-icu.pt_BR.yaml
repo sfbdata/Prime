@@ -79,6 +79,7 @@ moldura:
         feriados_folgas: Feriados e Folgas
         bluejus_ia: BlueJus IA
         trilha_auditoria: Trilha de Auditoria
+        assinatura: Assinatura
     aviso_espaco:
         titulo_esgotado: 'Espaço esgotado: novos envios estão pausados'
         titulo_ocupado: Seu espaço está {percentual}% ocupado
