@@ -804,7 +804,7 @@ final class PontoController extends AbstractController
             ], 400);
         }
 
-        $envio = $this->envioDaBatida->ler($data, new \DateTimeImmutable());   // E13: um único instante na chegada
+        $envio = $this->envioDaBatida->ler($data, (int) $user->getId(), (int) $tenant->getId(), new \DateTimeImmutable());   // um instante na chegada
         if (($resposta = $this->respostaAntesDasRegras($envio, $user, $tenant, $registroRepository)) !== null) {
             return $resposta;
         }
@@ -987,8 +987,9 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * O envio antes de qualquer regra da batida (spec ponto-desenho-0811 §5 E13): o pedido malformado recusa, e a nova
-     * tentativa de um envio que já entrou neste escritório responde "já registrada" sem gravar de novo.
+     * O envio antes de qualquer regra da batida (spec ponto-desenho-0811 §5 E13 e E14): o pedido malformado recusa; a nova
+     * tentativa de um envio que já entrou neste escritório responde "já registrada" sem gravar de novo; só então a batida
+     * guardada sem internet pode ser recusada (outra conta ou escritório, além do teto de idade, relógio adiantado).
      */
     private function respostaAntesDasRegras(EnvioLidoDaBatida $envio, User $user, Tenant $tenant, RegistroPontoRepository $registros): ?JsonResponse
     {
@@ -998,6 +999,9 @@ final class PontoController extends AbstractController
         $jaRegistrada = $envio->idEnvio !== null ? $registros->doEnvio($user, $tenant, $envio->idEnvio) : null;
         if ($jaRegistrada !== null) {
             return $this->respostaJaRegistrada((string) $jaRegistrada->getTipo(), $jaRegistrada->getDataHora());
+        }
+        if ($envio->recusaDaFila !== null) {
+            return $this->json(['success' => false, 'message' => $envio->recusaDaFila->mensagem], $envio->recusaDaFila->status);
         }
 
         return null;

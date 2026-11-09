@@ -138,6 +138,10 @@
                             {%- if linha.homeOffice|default(false) %}
                                 <span class="pe-tag pe-tag--info pe-tag--extra" title="Batida em home office"><i class="bi bi-house-laptop" aria-hidden="true"></i>Home Office</span>
                             {%- endif %}
+                            {# E14: alguma batida do dia veio da fila do aparelho, guardada sem internet (a hora é a do aparelho). #}
+                            {%- if linha.semInternet|default(false) %}
+                                <span class="pe-tag pe-tag--info pe-tag--extra" title="Batida enviada sem internet: vale a hora do aparelho."><i class="bi bi-wifi-off" aria-hidden="true"></i>Sem internet</span>
+                            {%- endif %}
                             {# Dia ambíguo: a conta segue a escolha de sempre (a primeira de cada tipo, a última saída) e NÃO é
                                reinterpretada; quem resolve é um humano corrigindo a batida. Só aqui, na tela do colaborador e
                                na ficha do admin; o PDF e o XLSX assinados não anunciam pendência. #}

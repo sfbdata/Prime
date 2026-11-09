@@ -36,7 +36,7 @@ class FolhaPontoBuilder
      *                                            `null` significa colaborador sem nenhum registro de ponto: nenhum
      *                                            dia conta. Dias anteriores a ela ficam fora (sem saldo, sem somar
      *                                            no banco). Admissão e data de cadastro não entram nessa conta.
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, tipo: string, hora: string}>}>
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, tipo: string, hora: string}>}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -130,6 +130,7 @@ class FolhaPontoBuilder
                 'justificadoDia' => false,
                 'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
                 'homeOffice'     => $this->diaTeveHomeOffice($escolha->escolhidas()),
+                'semInternet'    => $this->diaTeveBatidaSemInternet($escolha->escolhidas()),
             ];
 
             $jornadaDoDia = $historico?->vigenteEm($dia);
@@ -273,6 +274,23 @@ class FolhaPontoBuilder
     {
         foreach ($batidasDoDia as $batida) {
             if ($batida->isHomeOffice()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Indica se alguma batida escolhida do dia veio da fila do aparelho, guardada sem internet (selo "Sem internet",
+     * spec ponto-desenho-0811 E14). Como o home office: as batidas fora da conta não acendem o selo.
+     *
+     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia
+     */
+    private function diaTeveBatidaSemInternet(array $batidasDoDia): bool
+    {
+        foreach ($batidasDoDia as $batida) {
+            if ($batida->isEnviadaSemInternet()) {
                 return true;
             }
         }
