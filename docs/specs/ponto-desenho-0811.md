@@ -768,6 +768,28 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: `ponto-batida.js` (fila cifrada, envio ao voltar a internet).
 - Testes: JS da fila (`node --check` e teste do envio); servidor recusa batida guardada além do teto de idade; a folha e o
   gestor veem "enviada sem internet".
+- Decisões da etapa (09/11/2026, Coordenador):
+  - teto de idade da batida guardada: 72 horas. O relógio do aparelho mais de 2 minutos adiantado recusa; até 2 minutos
+    adiantado, vale a hora de chegada;
+  - a fila só existe na tela /ponto (o atalho do cabeçalho não guarda). Fica no IndexedDB, cifrada com AES-GCM 256 e chave
+    não extraível, um IV de 12 bytes por entrada, gravação `durability: 'strict'` (`public/js/ponto-fila.js`). Exige
+    contexto seguro: no dev, conferir por `http://localhost:8080`;
+  - o envio da fila leva `semInternet`, `usuarioId` e `escritorioId`; batida de outra conta ou de outro escritório volta
+    409 logo depois da autenticação e continua guardada, com uma linha própria na caixa da fila;
+  - todas as regras da batida (home office, cerca, outro escritório, repouso, interjornada, entrada do dia) são avaliadas
+    na hora do aparelho;
+  - a etiqueta da folha é o texto do desenho, "Sem internet" (comprovante, L584);
+  - a recusa do servidor tira a entrada da fila e a guarda, cifrada, numa loja própria (`recusas`), na mesma transação.
+    A tela mostra a recusa com o tipo e a data, e só então a apaga. Entrada que não abre ou com mais de 7 dias sai do
+    aparelho;
+  - a batida da fila recebe o NSR da E15: a ligação e o teste ficam com a E15.
+- Limites conhecidos:
+  - a batida da fila é medida pela jornada de hoje (regra que já existia);
+  - os testes da fila no CI leem o código. O comportamento no IndexedDB foi rodado no node pelo implementador e pela
+    revisão, fora do CI;
+  - a fila permite registrar até 72 horas para trás, só com a marca "Sem internet" (decisão do P20);
+  - o mesmo `idEnvio` tentado de novo em outro escritório responde "já registrada" no segundo, embora a batida esteja no
+    primeiro (caso raro).
 
 **E15. Comprovante, aba Comprovantes e validação.**
 - Entra: P48, P49, P50 (nome inteiro, como o desenho; sem CPF nem localização), D2, D9, D20. A chave
@@ -917,6 +939,8 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   intocada). Decisões e os pontos de liga e desliga do P40, P43 a e P41 registrados na E3 (seção 5).
 - E13 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e13`, servidor, e `ponto-desenho-e13-tela`), com a
   migration `Version20261109220000`. Decisões da etapa registradas na E13 (seção 5).
+- E14 integrada na branch `ponto-desenho` (as mesmas frentes da E13), sem migration. Decisões e limites registrados na
+  E14 (seção 5).
 - E4 implementada na branch `ponto-desenho-e4` (empilhada na E3), com a migration `Version20261109210000` (coluna
   `motivo` em `justificativa_ponto`). Decisões registradas na E4 (seção 5).
 - E7 implementada na branch `ponto-desenho-e7`, com a migration Version20261109180000 (`ponto_config_escritorio`).
