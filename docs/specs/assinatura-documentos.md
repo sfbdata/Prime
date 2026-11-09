@@ -125,7 +125,7 @@ produz de verdade.
 | Cor da linha e logo padrão | gravadas por documento e por escritório, como o protótipo (que isola por conta) |
 | Travessões do desenho (3, todos marcadores de vazio) | célula vazia na lista; "não informado" no manifesto |
 | Valores fixos do escritório do Farlei e a logo PRIME no código | vêm de Meu Escritório (`Tenant`: nome, CNPJ, endereço, OAB, telefone, e-mail, logo) e do perfil do usuário; campo sem dado sai como linha em branco, como o desenho já faz |
-| Menu superior do redesign (EXPEDIENTE, DEMANDAS, PONTO, ASSINATURA, VOTO) | entra quando o cabeçalho do redesign entrar; até lá, item no menu lateral |
+| Cabeçalho e menu superior do redesign (EXPEDIENTE, DEMANDAS, PONTO, ASSINATURA, VOTO) | moldura do sistema (`base.html.twig`), como em `docs/specs/agenda-1a.md`: a tela é o conteúdo e o link entra no menu existente (decisão D4, seção 7). A tela pública do signatário não usa a moldura: fica com o cabeçalho próprio do desenho, porque é página sem login |
 
 ## 2. O que o sistema já tem e será reusado
 
@@ -154,7 +154,7 @@ WhatsApp, captcha.
 **Achado que afeta esta tela e o sistema hoje**: `symfony/process` está só em `packages-dev` do `composer.lock`
 (v7.4.21), e a imagem de produção instala com `--no-dev`. A `ExecucaoDoGhostscript` usa essa classe, então o Ghostscript
 provavelmente não roda em produção hoje (a compressão é de melhor esforço e cai no log). As etapas 3 e 5 dependem do
-Ghostscript: mover `symfony/process` para `require` é pré-requisito (`composer.json` é arquivo quente).
+Ghostscript: mover `symfony/process` para `require` é pré-requisito e sai num PR separado, `fix-symfony-process-producao`.
 
 **Câmera bloqueada em produção**: `nginx/conf.d/nginx.prod.conf` (linhas 51 e 233) manda
 `Permissions-Policy "... camera=()"`. A selfie (etapa 7) e a leitura de QR pela câmera na aba Validar (etapa 3) só
@@ -178,7 +178,7 @@ tratar como ordem de grandeza e cotar antes de contratar.
   particulares.
 - **Recomendação**: manter as classes do desenho e, quando o documento for procuração, mostrar no passo 3 um aviso curto
   ("Alguns juízes exigem assinatura gov.br ou certificado digital em procuração."). O aviso não está no desenho:
-  pergunta 4 da seção 7.
+  pergunta P1 da seção 7, em aberto com o Samuel.
 - Evidências que os tribunais olharam (entram na etapa 2): hash do PDF enviado e do final; quem pediu e quem assinou;
   canal, destino e hora do envio; hash do código (nunca o código), envio, conferência e tentativas; IP com porta,
   navegador e hora do servidor; aceite com o texto exibido, versionado; imagem da rubrica; localização só com permissão;
@@ -205,7 +205,7 @@ tratar como ordem de grandeza e cotar antes de contratar.
   3. Só integridade em PHP (o que o desenho faz) e o link para o Validar do ITI. Não cumpre a ESPEC ("conferir a
      assinatura e a cadeia no servidor").
 - **Recomendação**: integridade em PHP já na etapa 5 (porta do `bj-assina-pdf.js` com `openssl`), e a cadeia pela opção 1
-  na etapa 6. Pergunta 2 da seção 7. A3 no navegador fica fora: o cliente assina no programa dele e devolve o PDF.
+  na etapa 6. Decidido: pyHanko (D2, seção 7). A3 no navegador fica fora: o cliente assina no programa dele e devolve o PDF.
 
 ### 3.4 Biometria (nível Reforçada)
 
@@ -214,7 +214,7 @@ tratar como ordem de grandeza e cotar antes de contratar.
   cotação). Não construir comparação de face.
 - **Recomendação**: na etapa 7, guardar selfie com documento, localização e o código, sem comparação de face, e imprimir
   "Eletrônica com múltiplos fatores" (como o desenho). Comparação de face só depois, com fornecedor contratado.
-  Pergunta 1 da seção 7.
+  Decidido assim (D1, seção 7).
 
 ### 3.5 Selo do PDF final
 
@@ -222,7 +222,7 @@ tratar como ordem de grandeza e cotar antes de contratar.
   segredo próprio do selo (variável nova, criada pelo Samuel; não reaproveitar o `APP_SECRET`, que gira).
 - **Recomendação de reforço**: selar o PDF final em PAdES com um e-CNPJ A1 do BlueJus (R$ 165 a 280 por ano) e carimbo do
   tempo de ACT ICP-Brasil. Assim qualquer alteração fica detectável por qualquer validador. Exige comprar o certificado:
-  pergunta 3 da seção 7. Etapa 8, opcional.
+  a compra fica com o Samuel, depois do piloto (D3, seção 7). Etapa 8, opcional; não trava as anteriores.
 
 ### 3.6 LGPD
 
@@ -260,10 +260,10 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 |---|---|---|---|---|
 | 1 | Domínio, módulo e lista com rascunho | G | M1 | sidebar, `PurgarEscritorioUseCase`, Master |
 | 2 | Envio e assinatura Simples (tela pública) | G | (na M1) | `security.yaml`, `framework.yaml`, listeners públicos |
-| 3 | PDF com selo, manifesto, Validar e vínculo à pasta | G | M2 | `composer.json` (symfony/process), variável do segredo |
+| 3 | PDF com selo, manifesto, Validar e vínculo à pasta | G | M2 | variável do segredo (o `symfony/process` sai antes, no PR `fix-symfony-process-producao`) |
 | 4 | Modelos do escritório (editor) | M | M3 | nenhum |
 | 5 | gov.br, ICP e documento já assinado (integridade em PHP) | G | M4 | nenhum |
-| 6 | Cadeia ICP-Brasil e gov.br no servidor | M | (na M4) | `docker-compose`, novo container (se pyHanko) |
+| 6 | Cadeia ICP-Brasil e gov.br no servidor | M | (na M4) | `docker-compose`, container pyHanko novo |
 | 7 | Reforçada: selfie com documento e localização | M | M5 | nginx de produção (câmera) |
 | 8 | Selo PAdES com e-CNPJ e carimbo do tempo (opcional) | M | nenhuma | segredo do certificado |
 
@@ -302,7 +302,7 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 - PDF final no servidor: páginas renderizadas pelo Dompdf com o fundo de segurança desenhado em GD (mesmas funções do
   protótipo, semente pelo hash) e depois rasterizadas pelo Ghostscript (`pdfimage24`), como a ESPEC pede ("em imagem");
   rodapé com QR, código, SHA-256 e "Emitido em"; Manifesto de assinaturas; formato em duas colunas; folha branca.
-  Pré-requisito: `symfony/process` em `require`.
+  Pré-requisito: `symfony/process` em `require` (PR `fix-symfony-process-producao`).
 - Código `BJA-XXXX-XXXX-XXXX` derivado por HMAC com o segredo do selo, único no banco.
 - Rota pública `/assinar/validar/{codigo}` e aba Validar (código, câmera e foto do QR com `jsQR` servido do próprio
   sistema, não de CDN). A câmera depende do nginx (seção 2).
@@ -328,17 +328,18 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 
 ### Etapa 6: cadeia no servidor
 
-- Pela decisão da pergunta 2: container pyHanko ou Lacuna Rest PKI. Resultado gravado: situação, cadeia, CPF ou CNPJ,
+- Container interno com pyHanko, chamado pelo PHP (D2). Resultado gravado: situação, cadeia, CPF ou CNPJ,
   data, carimbo do tempo. Cadeias ICP-Brasil e gov.br atualizadas por tarefa agendada.
 
 ### Etapa 7: Reforçada
 
 - Selfie com documento (câmera frontal) e localização, arquivos cifrados na categoria do documento, acesso restrito,
-  prazo próprio. Comparação de face só com fornecedor (pergunta 1).
+  prazo próprio. Sem comparação de face nesta versão (D1); ela só entra depois, com fornecedor contratado.
 
 ### Etapa 8: selo PAdES (opcional)
 
-- PDF final assinado com o e-CNPJ A1 do BlueJus e carimbo do tempo. Só se a pergunta 3 for "sim".
+- PDF final assinado com o e-CNPJ A1 do BlueJus e carimbo do tempo. Só se o Samuel decidir comprar o certificado,
+  depois do piloto (D3).
 
 ## 5. Modelo de dados e nomes
 
@@ -388,23 +389,34 @@ pela skill `armazenamento-de-arquivos`.
 
 Cada uma sai sozinha, depois do merge da anterior ("uma migration por vez").
 
-## 7. Perguntas ao Samuel
+## 7. Decisões e pergunta em aberto
 
-1. **Biometria no nível Reforçada**: na primeira versão, guardar selfie com documento e localização **sem comparação de
-   face** (recomendado), ou contratar já um fornecedor (cerca de R$ 1 a 2 por verificação)?
-2. **Cadeia gov.br e ICP-Brasil no servidor (ESPEC)**: container interno com pyHanko, grátis e com um serviço Python a mais
-   (recomendado), ou Lacuna Rest PKI, pago por validação (cerca de R$ 0,20)?
-3. **Selo PAdES**: comprar um e-CNPJ A1 do BlueJus (R$ 165 a 280 por ano) para selar o PDF final com carimbo do tempo
-   (etapa 8, recomendado depois do piloto)?
-4. **Dois acréscimos ao desenho**: aviso na procuração ("Alguns juízes exigem assinatura gov.br ou certificado digital em
-   procuração.") e confirmação antes de "Cancelar envio" e de excluir modelo (o desenho não pede; o modal seria o do
-   próprio desenho, igual ao de Excluir). Pode?
+Decisões do Coordenador em 09/11/2026, pela recomendação (registro em `bluejus-coordenacao/decisoes-09-11.md`):
+
+- **D1. Biometria no nível Reforçada**: a primeira versão guarda selfie com documento e localização **sem comparação de
+  face**. Fornecedor só depois, se for querido.
+- **D2. Cadeia gov.br e ICP-Brasil no servidor (ESPEC)**: container interno com pyHanko (grátis). Lacuna Rest PKI fica
+  descartada.
+- **D3. Selo PAdES**: comprar o e-CNPJ A1 do BlueJus (R$ 165 a 280 por ano) fica com o Samuel, para a etapa 8, depois
+  do piloto. Não trava nenhuma etapa anterior.
+- **D4. Cabeçalho**: a tela interna usa a moldura do sistema (`base.html.twig`), como em `docs/specs/agenda-1a.md`; o
+  conteúdo é o do desenho e o link entra no menu existente. Vale igual para Ponto e Voto. Domínio `AssinaturaEletronica`
+  confirmado.
+
+Em aberto com o Samuel:
+
+- **P1. Dois acréscimos ao desenho**: aviso na procuração ("Alguns juízes exigem assinatura gov.br ou certificado digital
+  em procuração.") e confirmação antes de "Cancelar envio" e de excluir modelo (o desenho não pede; o modal seria o do
+  próprio desenho, igual ao de Excluir). Até a resposta, a etapa 1 sai sem o aviso; a confirmação só toca as etapas 2 e
+  4.
 
 ## 8. Pendências do Samuel (ação, não decisão)
 
-- Etapa 3: criar a variável do segredo do selo em produção; publicar a mudança do `symfony/process`.
+- Etapa 3: criar a variável do segredo do selo em produção; publicar a correção do `symfony/process` (PR separado
+  `fix-symfony-process-producao`).
 - Etapa 3 e 7: liberar a câmera no nginx de produção (`camera=(self)`) e publicar.
-- Etapa 6: se pyHanko, aprovar o container novo no `docker-compose.prod.yml`.
+- Etapa 6: aprovar o container pyHanko no `docker-compose.prod.yml` e publicar.
+- Etapa 8: decidir a compra do e-CNPJ A1 depois do piloto (D3).
 
 ## 9. Para o pacote jurídico (não trava)
 
