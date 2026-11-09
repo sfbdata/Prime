@@ -14,6 +14,7 @@ use App\Voto\UseCase\EditarPautaUseCase;
 use App\Voto\UseCase\ObterAssembleiaUseCase;
 use App\Voto\UseCase\RemoverPautaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -23,6 +24,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Pautas da assembleia (spec voto-assembleia-condominio, seção 1.3; insumo do desenho §2, etapa 4). Em rascunho, a
  * tela inclui, altera e remove pautas (opções numeradas, padrão 1 Sim e 2 Não; a abstenção é automática). Depois de
  * publicada, a mesma tela é a mesa: cada pauta com as ações de abrir, prazo e encerrar (MesaDaAssembleiaController).
+ *
+ * No desenho, as pautas abertas na etapa 4 ficam em edição juntas e nada se perde entre elas. Por isso a tela grava por
+ * fetch (public/js/voto-assembleia.js): o "Salvar" de uma pauta não recarrega a página, e as pautas alteradas são
+ * gravadas antes de qualquer ação que recarrega. O pedido por fetch (X-Requested-With) recebe JSON com `ok` e
+ * `mensagem` (o texto do toast); o envio comum segue com o toast na sessão e o redirecionamento.
  */
 #[Route('/voto/assembleias/{id}/pautas', requirements: ['id' => '\d+', 'pauta' => '\d+'])]
 final class PautasDaAssembleiaController extends AbstractController
@@ -61,11 +67,10 @@ final class PautasDaAssembleiaController extends AbstractController
         $tenant = $this->guarda->exigir();
         $atalho = (string) $request->request->get('atalho', '');
         $input = \in_array($atalho, self::ATALHOS, true) ? PautaInput::padrao($atalho) : self::input($request);
-        $this->executar($request, $id, static function () use ($adicionar, $id, $input, $tenant): void {
-            $adicionar->executar($tenant, $id, $input);
-        }, 'voto.assembleia.gestor.aviso.pauta_incluida');
 
-        return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
+        return $this->responder($request, $id, static function () use ($adicionar, $id, $input, $tenant): void {
+            $adicionar->executar($tenant, $id, $input);
+        }, 'voto.assembleia.gestor.aviso.pauta_incluida', ['id' => $id]);
     }
 
     #[Route('/{pauta}/editar', name: 'voto_assembleia_pauta_editar', methods: ['POST'])]
@@ -73,36 +78,55 @@ final class PautasDaAssembleiaController extends AbstractController
     {
         $tenant = $this->guarda->exigir();
         $input = self::input($request);
-        $this->executar($request, $id, static function () use ($editar, $id, $input, $pauta, $tenant): void {
-            $editar->executar($tenant, $id, $pauta, $input);
-        }, 'voto.assembleia.gestor.aviso.pauta_salva');
 
-        return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id, '_fragment' => 'pauta-' . $pauta]);
+        return $this->responder($request, $id, static function () use ($editar, $id, $input, $pauta, $tenant): void {
+            $editar->executar($tenant, $id, $pauta, $input);
+        }, 'voto.assembleia.gestor.aviso.pauta_salva', ['id' => $id, '_fragment' => 'pauta-' . $pauta]);
     }
 
     #[Route('/{pauta}/remover', name: 'voto_assembleia_pauta_remover', methods: ['POST'])]
     public function remover(int $id, int $pauta, Request $request, RemoverPautaUseCase $remover): Response
     {
         $tenant = $this->guarda->exigir();
-        $this->executar($request, $id, static function () use ($id, $pauta, $remover, $tenant): void {
-            $remover->executar($tenant, $id, $pauta);
-        }, 'voto.assembleia.gestor.aviso.pauta_removida');
 
-        return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
+        return $this->responder($request, $id, static function () use ($id, $pauta, $remover, $tenant): void {
+            $remover->executar($tenant, $id, $pauta);
+        }, 'voto.assembleia.gestor.aviso.pauta_removida', ['id' => $id]);
     }
 
-    private function executar(Request $request, int $id, callable $acao, string $avisoOk): void
+    /**
+     * Executa a ação e responde: JSON `{ok, mensagem}` ao fetch da tela (200 ou 422, sem aviso na sessão) ou o toast na
+     * sessão e o redirecionamento para as pautas.
+     *
+     * @param array<string, int|string> $voltar parâmetros da rota das pautas no envio comum
+     */
+    private function responder(Request $request, int $id, callable $acao, string $avisoOk, array $voltar): Response
+    {
+        [$ok, $mensagem] = $this->executar($request, $id, $acao, $avisoOk);
+        if ($request->isXmlHttpRequest()) {
+            return new JsonResponse(['ok' => $ok, 'mensagem' => $mensagem], $ok ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if ($ok) {
+            $this->avisos->ok($mensagem);
+        } else {
+            $this->avisos->erro($mensagem);
+        }
+
+        return $this->redirectToRoute('voto_assembleia_pautas', $voltar);
+    }
+
+    /** @return array{bool, string} se deu certo e o texto do toast */
+    private function executar(Request $request, int $id, callable $acao, string $avisoOk): array
     {
         if (!$this->isCsrfTokenValid('voto_assembleia_' . $id, (string) $request->request->get('_token'))) {
-            $this->avisos->erro($this->tradutor->trans('voto.assembleia.gestor.aviso.sessao_expirada'));
-
-            return;
+            return [false, $this->tradutor->trans('voto.assembleia.gestor.aviso.sessao_expirada')];
         }
         try {
             $acao();
-            $this->avisos->ok($this->tradutor->trans($avisoOk));
+
+            return [true, $this->tradutor->trans($avisoOk)];
         } catch (OperacaoInvalidaNaAssembleiaException $e) {
-            $this->avisos->erro($e->getMessage());
+            return [false, $e->getMessage()];
         } catch (AssembleiaNaoEncontradaException) {
             throw $this->createNotFoundException();
         }

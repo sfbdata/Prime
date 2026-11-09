@@ -13,7 +13,7 @@
 {% set a = assembleia %}
 {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
 {% if a.podeAlterarPautas %}
-<div class="vC voto-assistente">
+<div class="vC voto-assistente" data-voto-pautas data-voto-falha="{{ 'voto.assembleia.gestor.aviso.falha_ao_salvar'|trans }}">
     <div class="vH"><i class="bi bi-plus-square"></i>{{ 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}</div>
     <div class="voto-assistente-corpo">
         <div><b class="voto-etapa-titulo">{{ 'voto.assembleia.gestor.pautas.titulo'|trans }}</b><div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.pautas.subtitulo'|trans }}</div></div>

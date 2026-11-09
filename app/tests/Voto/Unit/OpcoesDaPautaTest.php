@@ -35,6 +35,8 @@ final class OpcoesDaPautaTest extends TestCase
     {
         yield 'número 0' => [[['numero' => '0', 'rotulo' => 'Branco']], 'O número 0 é da abstenção.'];
         yield 'dois dígitos' => [[['numero' => '12', 'rotulo' => 'Sim']], 'Número 12 deve ter 1 dígito(s).'];
+        yield 'letra no lugar do número' => [[['numero' => 'a', 'rotulo' => 'Sim']], 'Número a deve ter 1 dígito(s).'];
+        yield 'algarismo com letra' => [[['numero' => '1a', 'rotulo' => 'Sim']], 'Número 1a deve ter 1 dígito(s).'];
         yield 'sem número' => [[['numero' => '', 'rotulo' => 'Sim']], 'Número deve ter 1 dígito(s).'];
         yield 'sem nome' => [[['numero' => '1', 'rotulo' => ' ']], 'Candidatura sem nome em Obra.'];
         yield 'número repetido' => [[['numero' => '1', 'rotulo' => 'Sim'], ['numero' => '1', 'rotulo' => 'Não']], 'Número repetido em Obra.'];

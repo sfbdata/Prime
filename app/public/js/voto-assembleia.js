@@ -5,6 +5,10 @@
    - "Copiar link" e "Copiar mensagem";
    - "Candidatura" acrescenta uma linha de opção; a lixeira da linha a tira; "Outro cargo ou pauta" mostra o
      formulário da pauta nova;
+   - pautas em rascunho (etapa 4 do desenho): ficam em edição juntas e nada se perde entre elas. O "Nº" só aceita
+     algarismo; o "Salvar" de uma pauta que já existe grava por fetch, sem recarregar; antes de qualquer ação que
+     recarrega ou sai da tela (atalho, pauta nova, remover, rodapé, abas), grava as pautas alteradas e, se uma
+     falhar, mostra o erro e fica na tela com tudo o que foi digitado;
    - "Assistir" abre a página própria num pop-up de 620x560 (se o navegador bloquear, segue o link em outra aba);
    - "Imprimir" na ata. */
 (function () {
@@ -116,6 +120,184 @@
         Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
     }
 
+    /* Pautas em rascunho. `telaDePautas` é a caixa da etapa 4 ([data-voto-pautas]); fora dela nada disto roda. */
+    var telaDePautas = null;
+    var gravando = false;
+
+    function formsDePauta() {
+        return Array.prototype.slice.call(document.querySelectorAll('form[data-voto-pauta-form]'));
+    }
+
+    /* O que a pessoa digitou na pauta (título, descrição e as linhas de opção, na ordem), sem o token. */
+    function retrato(form) {
+        var partes = [];
+        Array.prototype.forEach.call(form.elements, function (campo) {
+            if (campo.name && campo.name !== '_token' && (campo.tagName === 'INPUT' || campo.tagName === 'TEXTAREA')) {
+                partes.push([campo.name, campo.value]);
+            }
+        });
+        return JSON.stringify(partes);
+    }
+
+    function alterada(form) {
+        return retrato(form) !== form.getAttribute('data-voto-retrato');
+    }
+
+    function pendentes(exceto) {
+        return formsDePauta().filter(function (form) {
+            return exceto.indexOf(form) === -1 && alterada(form);
+        });
+    }
+
+    function textoDeFalha() {
+        return telaDePautas ? telaDePautas.getAttribute('data-voto-falha') || '' : '';
+    }
+
+    /* Grava uma pauta por fetch. Resolve com {ok, mensagem}; falha de rede ou resposta estranha vira o texto de
+       falha. Só marca a pauta como gravada com o que foi enviado (o que for digitado durante o envio continua
+       pendente). */
+    function gravar(form) {
+        var enviado = retrato(form);
+        return window.fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(function (resposta) {
+            return resposta.json();
+        }).then(function (dados) {
+            if (!dados || typeof dados.mensagem !== 'string') {
+                throw new Error('resposta sem mensagem');
+            }
+            if (dados.ok) {
+                form.setAttribute('data-voto-retrato', enviado);
+            }
+            return { ok: !!dados.ok, mensagem: dados.mensagem };
+        }).catch(function () {
+            return { ok: false, mensagem: textoDeFalha() };
+        });
+    }
+
+    /* Grava, uma de cada vez, as pautas alteradas (menos as de `exceto`). As que já existem vão antes e a nova por
+       último: se uma falhar, a nova não é criada e o "Salvar" dela não a duplica. Resolve com a mensagem do erro
+       ou null. */
+    function gravarPendentes(exceto) {
+        var lista = pendentes(exceto).sort(function (a, b) {
+            return (a.getAttribute('data-voto-pauta-form') === 'nova' ? 1 : 0) - (b.getAttribute('data-voto-pauta-form') === 'nova' ? 1 : 0);
+        });
+        gravando = true;
+        return lista.reduce(function (cadeia, form) {
+            return cadeia.then(function (falha) {
+                if (falha !== null) {
+                    return falha;
+                }
+                return gravar(form).then(function (dados) { return dados.ok ? null : dados.mensagem; });
+            });
+        }, Promise.resolve(null)).then(function (falha) {
+            gravando = false;
+            return falha;
+        });
+    }
+
+    function enviarDeNovo(form, botao) {
+        form.setAttribute('data-voto-liberado', '');
+        if (typeof form.requestSubmit === 'function') {
+            if (botao) {
+                form.requestSubmit(botao);
+            } else {
+                form.requestSubmit();
+            }
+            return;
+        }
+        if (botao && botao.name) {
+            var campo = document.createElement('input');
+            campo.type = 'hidden';
+            campo.name = botao.name;
+            campo.value = botao.value;
+            form.appendChild(campo);
+        }
+        form.submit();
+    }
+
+    function salvarSemRecarregar(form, botao) {
+        if (botao) {
+            botao.disabled = true;
+        }
+        gravar(form).then(function (dados) {
+            if (botao) {
+                botao.disabled = false;
+            }
+            avisar(dados.mensagem, !dados.ok);
+        });
+    }
+
+    document.addEventListener('input', function (evento) {
+        var campo = evento.target;
+        if (campo && campo.hasAttribute && campo.hasAttribute('data-voto-numero')) {
+            var limpo = campo.value.replace(/\D/g, '');
+            if (limpo !== campo.value) {
+                campo.value = limpo;
+            }
+        }
+    });
+
+    document.addEventListener('submit', function (evento) {
+        var form = evento.target;
+        if (!telaDePautas || !form.closest || !form.closest('.voto-tela') || form.hasAttribute('data-voto-liberado')) {
+            return;
+        }
+        if (gravando) {
+            evento.preventDefault();
+            return;
+        }
+        var botao = evento.submitter || null;
+        if (form.getAttribute('data-voto-pauta-form') === 'existente') {
+            evento.preventDefault();
+            salvarSemRecarregar(form, botao);
+            return;
+        }
+        // A pauta que vai ser removida não é gravada antes.
+        var bloco = form.closest('.voto-pauta-bloco');
+        var exceto = [form].concat(bloco ? Array.prototype.slice.call(bloco.querySelectorAll('form[data-voto-pauta-form]')) : []);
+        if (pendentes(exceto).length === 0) {
+            return;
+        }
+        evento.preventDefault();
+        gravarPendentes(exceto).then(function (falha) {
+            if (falha !== null) {
+                avisar(falha, true);
+                return;
+            }
+            enviarDeNovo(form, botao);
+        });
+    });
+
+    /* Rodapé ("Salvar e sair", "Voltar", "Continuar"), abas e sub-abas: no desenho, sair da etapa grava as pautas. */
+    document.addEventListener('click', function (evento) {
+        var link = telaDePautas ? evento.target.closest('.voto-tela a[href]:not([data-voto-assistir])') : null;
+        if (!link || evento.defaultPrevented || evento.button !== 0 || evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) {
+            return;
+        }
+        if ((link.target && link.target !== '_self') || link.hasAttribute('download') || (link.getAttribute('href') || '').charAt(0) === '#') {
+            return;
+        }
+        if (gravando) {
+            evento.preventDefault();
+            return;
+        }
+        if (pendentes([]).length === 0) {
+            return;
+        }
+        evento.preventDefault();
+        gravarPendentes([]).then(function (falha) {
+            if (falha !== null) {
+                avisar(falha, true);
+                return;
+            }
+            window.location.href = link.href;
+        });
+    });
+
     document.addEventListener('click', function (evento) {
         var alvo = evento.target.closest('[data-voto-copiar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-mostrar], [data-voto-assistir], [data-voto-imprimir]');
         if (!alvo) {
@@ -150,6 +332,10 @@
     function iniciar() {
         Array.prototype.forEach.call(document.querySelectorAll('[data-voto-toasts] .voto-toast'), sumirDepois);
         Array.prototype.forEach.call(document.querySelectorAll('[data-voto-prazo]'), iniciarCronometro);
+        telaDePautas = document.querySelector('[data-voto-pautas]');
+        if (telaDePautas) {
+            formsDePauta().forEach(function (form) { form.setAttribute('data-voto-retrato', retrato(form)); });
+        }
     }
 
     if (document.readyState === 'loading') {
