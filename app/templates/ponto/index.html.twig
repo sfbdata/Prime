@@ -60,7 +60,8 @@
                         {% set diasDaSemana = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'] %}
                         <div id="ponto-hora-oficial" class="pe-hora-oficial"
                              data-agora-ms="{{ agoraServidor|date('Uv') }}"
-                             data-fuso="{{ agoraServidor|date('e')|e('html_attr') }}">Hora oficial <b id="ponto-hora-oficial-hora">{{ agoraServidor|date('H:i:s') }}</b> · <span id="ponto-hora-oficial-data">{{ diasDaSemana[agoraServidor|date('w')] }}, {{ agoraServidor|date('d/m/Y') }}</span></div>
+                             data-fuso="{{ agoraServidor|date('e')|e('html_attr') }}"
+                             data-proxima-virada-ms="{{ proximaViradaMs }}">Hora oficial <b id="ponto-hora-oficial-hora">{{ agoraServidor|date('H:i:s') }}</b> · <span id="ponto-hora-oficial-data">{{ diasDaSemana[agoraServidor|date('w')] }}, {{ agoraServidor|date('d/m/Y') }}</span></div>
                     </div>
 
                     {# P13 (fica): horas excedentes do dia, verde do desenho do Expediente ("Em jornada desde").
@@ -342,62 +343,75 @@
     // (spec ponto-atualiza-sem-recarregar). Antes, o estado era `const` lido uma vez na carga.
     let aplicarPontoDoDia = function () {};
 
-    // Hora oficial (P5): a do SERVIDOR, nunca a do aparelho (D9: hora feita no navegador é falsificável e o celular pode
-    // estar com o relógio ou o fuso errados). O servidor manda o instante em que montou a página (`data-agora-ms`) e o
-    // fuso dele; aqui fica só o deslocamento entre esse instante e a chegada da resposta, somado ao relógio do aparelho
-    // para a hora andar. Página que voltou do cache pelo botão Voltar traz o instante de antes: a hora some
-    // ("--:--:--") até buscar a página de novo, em vez de mostrar uma hora velha como oficial.
-    (function () {
-        const origem = document.getElementById('ponto-hora-oficial');
+    // Hora do SERVIDOR (D9): hora feita no navegador é falsificável, e o celular pode estar com o relógio ou o fuso
+    // errados. O servidor manda o instante em que montou a página (`data-agora-ms`), o fuso dele e a próxima
+    // meia-noite nesse fuso (`data-proxima-virada-ms`). Aqui fica só o deslocamento entre esse instante e a chegada da
+    // resposta; somado ao relógio do aparelho, a hora anda. Do aparelho entra só o tempo que PASSOU: o fuso e a hora
+    // dele não entram. Serve a hora oficial do cartão (P5) e a virada do dia (`conferirViradaDoDia`).
+    const horaOficialEl = document.getElementById('ponto-hora-oficial');
+    const FUSO_DO_SERVIDOR = (horaOficialEl && horaOficialEl.dataset.fuso) || undefined;
+    const PROXIMA_VIRADA_MS = horaOficialEl ? Number(horaOficialEl.dataset.proximaViradaMs) : NaN;
+    let deslocamentoDoServidor = null;
+
+    function agoraNoServidorMs() {
+        return deslocamentoDoServidor === null ? null : Date.now() + deslocamentoDoServidor;
+    }
+
+    function sincronizarComOServidor(agoraMs, chegadaMs) {
+        if (Number.isFinite(agoraMs) && agoraMs > 0) {
+            deslocamentoDoServidor = agoraMs - chegadaMs;
+        }
+        desenharHoraOficial();
+    }
+
+    function formatoNoFusoDoServidor(opcoes) {
+        try {
+            return new Intl.DateTimeFormat('pt-BR', Object.assign({ timeZone: FUSO_DO_SERVIDOR }, opcoes));
+        } catch (erro) {
+            return new Intl.DateTimeFormat('pt-BR', opcoes);
+        }
+    }
+
+    const FORMATO_HORA_OFICIAL = formatoNoFusoDoServidor({ hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+    const FORMATO_DATA_OFICIAL = formatoNoFusoDoServidor({ weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    function desenharHoraOficial() {
         const horaEl = document.getElementById('ponto-hora-oficial-hora');
         const dataEl = document.getElementById('ponto-hora-oficial-data');
-        if (!origem || !horaEl || !dataEl) {
+        const agoraMs = agoraNoServidorMs();
+        if (!horaEl || !dataEl) {
             return;
         }
-        const fuso = origem.dataset.fuso || undefined;
-        const formatoHora = criarFormato({ hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
-        const formatoData = criarFormato({ weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-        let deslocamento = null;
-
-        function criarFormato(opcoes) {
-            try {
-                return new Intl.DateTimeFormat('pt-BR', Object.assign({ timeZone: fuso }, opcoes));
-            } catch (erro) {
-                return new Intl.DateTimeFormat('pt-BR', opcoes);
-            }
+        if (agoraMs === null) {
+            horaEl.textContent = '--:--:--';
+            return;
         }
+        horaEl.textContent = FORMATO_HORA_OFICIAL.format(new Date(agoraMs));
+        dataEl.textContent = FORMATO_DATA_OFICIAL.format(new Date(agoraMs));
+    }
 
-        function desenhar() {
-            if (deslocamento === null) {
-                horaEl.textContent = '--:--:--';
-                return;
-            }
-            const agoraNoServidor = new Date(Date.now() + deslocamento);
-            horaEl.textContent = formatoHora.format(agoraNoServidor);
-            dataEl.textContent = formatoData.format(agoraNoServidor);
-        }
-
-        function sincronizar(agoraMs, chegadaMs) {
-            if (Number.isFinite(agoraMs) && agoraMs > 0) {
-                deslocamento = agoraMs - chegadaMs;
-            }
-            desenhar();
-        }
-
+    // Página que voltou do cache pelo botão Voltar traz o instante de antes: a hora some ("--:--:--") até buscar a
+    // página de novo, em vez de mostrar uma hora velha como oficial.
+    function sincronizarNaCarga() {
         const navegacao = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || null;
         const doCache = !!navegacao && navegacao.type === 'back_forward' && navegacao.transferSize === 0;
+        if (!horaOficialEl || (doCache && !window.PontoBatida)) {
+            return;
+        }
         if (!doCache) {
             const chegada = navegacao && navegacao.responseStart > 0 ? performance.timeOrigin + navegacao.responseStart : Date.now();
-            sincronizar(Number(origem.dataset.agoraMs), chegada);
-        } else if (window.PontoBatida) {
-            window.PontoBatida.buscarTelaDoPonto(window.location.href).then((novo) => {
-                const nova = novo.getElementById('ponto-hora-oficial');
-                sincronizar(Number(nova && nova.dataset.agoraMs), Date.now());
-            }).catch(() => desenhar());
+            sincronizarComOServidor(Number(horaOficialEl.dataset.agoraMs), chegada);
+            return;
         }
-        setInterval(desenhar, 1000);
-        desenhar();
-    })();
+        window.PontoBatida.buscarTelaDoPonto(window.location.href).then((novo) => {
+            const nova = novo.getElementById('ponto-hora-oficial');
+            sincronizarComOServidor(Number(nova && nova.dataset.agoraMs), Date.now());
+        }).catch(() => desenharHoraOficial());
+    }
+
+    sincronizarNaCarga();
+    setInterval(desenharHoraOficial, 1000);
+    desenharHoraOficial();
 
     // Contador de tempo trabalhado no dia
     (function() {
@@ -504,10 +518,16 @@
             return m === 0 ? h + 'h' : h + 'h' + String(m).padStart(2, '0');
         }
 
-        // Entrada + meta do dia + intervalo: o batido, se houver; senão o mínimo da Jornada do escritório, só quando a escala
-        // de hoje tem almoço (duração maior que a meta). Sem meta (feriado, dia fora da escala), sem previsão.
+        // Antes do repouso batido, a conta do sistema: entrada + duração da escala de hoje, com o almoço da escala (a 1h
+        // do protótipo é valor de exemplo). Depois do repouso: entrada + meta do dia + intervalo, o batido se houver;
+        // senão o mínimo da Jornada do escritório, só quando a escala tem almoço (duração maior que a meta). Sem meta
+        // (feriado, dia fora da escala), sem previsão.
         function saidaPrevista() {
-            if (!tEntrada || metaDiaMinutos <= 0) return null;
+            if (!tEntrada) return null;
+            if (!tRepouso) {
+                return duracaoMinutos === null ? null : new Date(tEntrada.getTime() + duracaoMinutos * 60000);
+            }
+            if (metaDiaMinutos <= 0) return null;
             const escalaTemIntervalo = duracaoMinutos === null || duracaoMinutos > metaDiaMinutos;
             let intervaloMs = escalaTemIntervalo ? intervaloPrevistoMinutos * 60000 : 0;
             if (tRepouso && tRetorno && tRetorno > tRepouso) {
@@ -604,7 +624,7 @@
     const homeOfficeHoje = {{ homeOfficeHoje ? 'true' : 'false' }};
 
     // Enquanto uma batida está em envio, ou já foi aceita e a página vai recarregar, o botão é do
-    // envio e de mais ninguém. Sem esta trava, trocar o tipo no select durante o 1,5 s até o
+    // envio e de mais ninguém. Sem esta trava, trocar o tipo (nos botões dos tipos) durante o 1,5 s até o
     // recarregamento chamava `updateButtonState()` e reabilitava o botão — gesto natural de quem já
     // está pensando na próxima batida, e que fazia sair uma segunda antes do reload.
     let envioEmAndamento = false;
@@ -628,8 +648,8 @@
      * Quem manda no botão "Atualizar e conferir" quando a cerca e um aviso discordam.
      *
      * 🔴 **Só UM aviso veta: o de sem rede.** Ele é o único que protege prova — recarregar sem
-     * conexão entrega a página de erro do navegador e leva junto o aviso e a lista de batidas de
-     * hoje, que é a única pista de que a batida pode ter entrado.
+     * conexão entrega a página de erro do navegador e leva junto o aviso e os horários de hoje nos
+     * botões dos tipos, que são a única pista de que a batida pode ter entrado.
      *
      * 🪤 A primeira versão vetava por QUALQUER aviso na tela, e isso criou tela sem saída: pessoa em
      * situação indeterminada aperta → o servidor recusa com 403 e mensagem → o aviso fica → depois a
@@ -665,15 +685,12 @@
         btnPonto.classList.toggle('pe-bater--concluida', concluida);
     }
 
-    // Dia completo: nenhum dos quatro tipos de HOJE livre. Depois da virada do dia (`.pe-tipos--ontem`) os tipos
-    // são de ontem e não contam, e o botão volta a responder.
+    // Dia completo: nenhum dos quatro tipos de hoje livre. Na virada do dia os tipos voltam livres
+    // (`zerarTiposNaVirada`), e o dia completo de ontem deixa de travar o botão.
     function jornadaConcluida() {
         const tipos = document.getElementById('ponto-tipos');
-        if (!tipos || tipos.classList.contains('pe-tipos--ontem')) {
-            return false;
-        }
 
-        return tipos.querySelector('button[role="radio"]:not(:disabled)') === null;
+        return !!tipos && tipos.querySelector('button[role="radio"]:not(:disabled)') === null;
     }
 
     const ROTULOS_TIPO = { entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída' };
@@ -777,20 +794,7 @@
         const onde = PontoBatida.avaliarPosicao(currentLocation, SEDES);
 
         if (onde.situacao === 'fora') {
-            // Achado de auditoria interna F2: o nome da sede é digitado por alguém e chega do servidor.
-            // A mensagem é montada por DOM e o nome entra só por `textContent`, nunca por `innerHTML`.
-            // O texto é o de hoje, na caixa do desenho; o trabalho externo do desenho é da etapa E12.
-            const nomeDaSede = document.createElement('strong');
-            nomeDaSede.textContent = onde.sede.nome;
-            const mensagemDaCerca = document.createElement('span');
-            mensagemDaCerca.append(
-                `Você está a ${Math.round(onde.distancia)}m de `,
-                nomeDaSede,
-                ', fora da área permitida para bater o ponto.',
-                document.createElement('br'),
-                'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.'
-            );
-            mostrarGps('danger', 'bi-geo-alt-fill', mensagemDaCerca);
+            mostrarForaDaArea(onde);
             // A liberação do dia (`homeOfficeHoje`) é decidida no servidor e só chega na carga. Se o
             // gestor conceder com a página aberta, o servidor passa a aceitar e a tela continuaria
             // cinza. O botão de atualizar é a saída, e serve também para quem quiser forçar uma
@@ -811,6 +815,23 @@
             return;
         }
         mostrarGps('warning', 'bi-exclamation-triangle', 'GPS impreciso (' + Math.round(accuracy).toLocaleString('pt-BR') + ' m). O sistema ainda validará se você está dentro do raio de alguma sede.');
+    }
+
+    // Achado de auditoria interna F2: o nome da sede é digitado por alguém e chega do servidor. A mensagem é
+    // montada por DOM e o nome entra só por `textContent`, nunca por `innerHTML`. O texto é o de hoje, na caixa do
+    // desenho; o trabalho externo do desenho é da etapa E12.
+    function mostrarForaDaArea(onde) {
+        const nomeDaSede = document.createElement('strong');
+        nomeDaSede.textContent = onde.sede.nome;
+        const mensagemDaCerca = document.createElement('span');
+        mensagemDaCerca.append(
+            `Você está a ${Math.round(onde.distancia)}m de `,
+            nomeDaSede,
+            ', fora da área permitida para bater o ponto.',
+            document.createElement('br'),
+            'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.'
+        );
+        mostrarGps('danger', 'bi-geo-alt-fill', mensagemDaCerca);
     }
 
     function aplicarPosicao(position) {
@@ -1007,14 +1028,14 @@
     // Texto dos casos em que a resposta não voltou. Afirmar "não foi registrada" seria mentira: a
     // requisição pode ter chegado e gravado.
     //
-    // 🔴 E mandar "conferir a lista aqui embaixo" também era mentira, de um jeito PIOR: a lista é
-    // renderizada na carga da página e não se atualiza sozinha, então ela ainda diria "ainda não
-    // registrada" e confirmaria a conclusão errada — falso com cara de verificado. Por isso o texto
+    // 🔴 E mandar conferir o que está na tela também era mentira, de um jeito PIOR: os horários nos
+    // botões dos tipos vêm do servidor e só mudam depois de uma batida CONFIRMADA, então ainda diriam
+    // "--:--:--" e confirmariam a conclusão errada (falso com cara de verificado). Por isso o texto
     // manda ATUALIZAR primeiro, e o botão de atualizar aparece junto.
-    const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. A lista abaixo é de antes da tentativa: atualize a página e confira ANTES de apertar de novo.';
+    const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. Os horários nos botões acima são de antes da tentativa: atualize a página e confira ANTES de apertar de novo.';
 
     // 🪤 Sem internet, mandar atualizar é conselho que destrói prova: o recarregamento entrega a
-    // página de erro do navegador e leva junto o aviso, a lista e o estado inteiro da tela. Por isso
+    // página de erro do navegador e leva junto o aviso, os horários e o estado inteiro da tela. Por isso
     // este caso tem texto próprio e NÃO oferece o botão de atualizar enquanto a conexão não voltar.
     const AVISO_SEM_REDE = 'Você está sem internet e não dá para saber se a batida saiu. NÃO feche esta tela. Quando a conexão voltar, atualize a página e confira antes de apertar de novo.';
 
@@ -1022,6 +1043,8 @@
     const AVISO_NAO_ENTROU = 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.';
     // O módulo da batida (`ponto-batida.js`) é arquivo à parte: se ele não carregou (rede, cache, bloqueador), o toque
     // responde em vez de ficar mudo.
+    // Virada do dia com a página aberta: os botões dos tipos já começam o dia novo, mas a folha e o banco são de ontem.
+    const AVISO_VIRADA_DO_DIA = 'O dia virou com esta página aberta: os botões acima já são do dia novo, mas a folha e o banco de horas ainda são de ontem. Atualize a página antes de conferir.';
     const AVISO_PAGINA_INCOMPLETA = 'A página não carregou por inteiro e a batida não foi enviada. Atualize a página e tente de novo.';
 
     btnAtualizarPagina.addEventListener('click', () => window.location.reload());
@@ -1095,45 +1118,50 @@
         updateButtonState();
     }
 
-    // Página esquecida aberta da noite para o dia seguinte: o bloco "suas batidas de hoje" é
-    // renderizado no servidor e congela. Às 08h ele mostraria a entrada de ONTEM como se fosse de
-    // hoje, e a pessoa concluiria que já bateu — exatamente o defeito que esta frente existe para
-    // matar, reintroduzido pelo próprio remédio. O relógio e a folha congelam junto.
+    // Página esquecida aberta da noite para o dia seguinte: os horários dos tipos são renderizados no
+    // servidor e congelam. Às 08h eles mostrariam a entrada de ONTEM como se fosse de hoje, e a pessoa
+    // concluiria que já bateu. O relógio e a folha congelam junto.
     //
-    // 🔑 A comparação é do aparelho CONTRA ELE MESMO, não contra a data do servidor. Uma primeira
-    // versão comparava com `dataHoje` e dava ao relógio do aparelho poder de VETO: celular com fuso
-    // errado (roaming, hora automática desligada) via data diferente às 21h, travava o botão, e
-    // recarregar não resolvia porque a causa é o aparelho. Ficava impossível bater a saída — o
-    // contrário do objetivo desta frente.
-    //
-    // ⚠️ Detectar só a MUDANÇA tira o veto, mas não dá pontaria: um relógio errado ANDA e cruza a
-    // própria meia-noite na hora errada. Aparelho em UTC avisa às 21h BRT (falso) e depois fica
-    // calado na virada real, porque `diaVirou` já saiu. Como aqui só se avisa, o custo é um alarme
-    // fora de hora que o próprio recarregamento conserta.
-    const DIA_DO_APARELHO_NA_CARGA = new Date().toDateString();
+    // 🔑 A virada é a do SERVIDOR (decisão de 09/11/2026, desenho 16): o instante dele na carga mais o
+    // tempo que passou, contra a próxima meia-noite no fuso dele (`PROXIMA_VIRADA_MS`). A primeira versão
+    // comparava o dia do aparelho com `dataHoje` e dava ao relógio do celular poder de veto; a segunda
+    // comparava o aparelho com ele mesmo, e um aparelho em fuso errado cruzava a própria meia-noite na
+    // hora errada (alarme falso às 21h BRT, silêncio na virada real). Agora a hora e o fuso do aparelho
+    // não entram, só o tempo que passou. E continua sem veto: a virada avisa e libera, nunca trava.
+    const INTERVALO_CHECAGEM_DIA_MS = 30000;
 
-    // Na virada, as horas dos quatro tipos são de ONTEM: a lista fica apagada (o antigo `opacity-50` do quadro de
-    // batidas) e a trava do P7 sai, porque o tipo batido ontem está livre hoje. Só LIBERA, nunca trava: o
-    // `updateButtonState` do fim tira o "dia completo" de ontem e o botão volta a responder.
-    function liberarTiposDoDiaAnterior() {
-        const tipos = document.getElementById('ponto-tipos');
-        if (!tipos) {
-            return;
-        }
-        tipos.classList.add('pe-tipos--ontem');
-        tipos.querySelectorAll('button[role="radio"]').forEach((botao, posicao) => {
+    function diaVirouNoServidor() {
+        const agoraMs = agoraNoServidorMs();
+
+        return agoraMs !== null && Number.isFinite(PROXIMA_VIRADA_MS) && agoraMs >= PROXIMA_VIRADA_MS;
+    }
+
+    // Na virada, o cartão começa o dia novo como no desenho: os quatro tipos livres, sem horário ("--:--:--") e
+    // sem a duplicata de ontem. A trava do P7 sai junto, porque o tipo batido ontem está livre hoje. Só LIBERA,
+    // nunca trava: o `updateButtonState` do fim tira o "dia completo" de ontem e o botão volta a responder.
+    function zerarTiposNaVirada() {
+        document.querySelectorAll('#ponto-tipos > button[role="radio"]').forEach((botao) => {
             botao.disabled = false;
             botao.classList.remove('pe-tipo-btn--feito');
-            botao.setAttribute('aria-checked', 'false');
-            // Sem tipo marcado depois da virada: o primeiro entra no Tab (tabindex móvel do grupo).
-            botao.setAttribute('tabindex', posicao === 0 ? '0' : '-1');
+            botao.dataset.registrada = '0';
+            botao.dataset.quantas = '0';
+            botao.querySelectorAll('.pe-tipo-dup').forEach((duplicata) => duplicata.remove());
+            const hora = botao.querySelector('.pe-tipo-hora');
+            if (hora) {
+                hora.textContent = '--:--:--';
+            }
         });
         updateButtonState();
     }
-    const INTERVALO_CHECAGEM_DIA_MS = 30000;
+
+    function primeiroTipoLivre() {
+        const livre = document.querySelector('#ponto-tipos > button[role="radio"]:not(:disabled)');
+
+        return livre ? livre.dataset.tipo : '';
+    }
 
     function conferirViradaDoDia() {
-        if (diaVirou || new Date().toDateString() === DIA_DO_APARELHO_NA_CARGA) {
+        if (diaVirou || !diaVirouNoServidor()) {
             return;
         }
 
@@ -1141,16 +1169,17 @@
         // grava certo; o risco desta tela é só a pessoa LER o dia errado e achar que já bateu.
         // Impedir a batida por causa disso seria trocar um engano por uma falta.
         diaVirou = true;
-        liberarTiposDoDiaAnterior();
+        zerarTiposNaVirada();
+        aplicarPontoDoDia({});
 
-        // A sugestão do select foi calculada no servidor, para ONTEM, e agora está velha. Quem
-        // esqueceu a saída ontem encontraria "Bater Ponto: Saída" de manhã: um toque gravaria
-        // `saida` no dia novo e, pior, a interjornada de 11 h do servidor
-        // (`PontoController::batida`) passaria a RECUSAR a entrada dele pelo resto da manhã.
-        // Devolver o select ao vazio faz o toque cair na guarda "Selecione o tipo de registro",
-        // que hoje responde em `#batida-aviso` em vez de emudecer o botão.
-        tipoRegistro.value = '';
+        // A sugestão foi calculada no servidor, para ONTEM, e agora está velha. Quem esqueceu a saída
+        // ontem encontraria "Bater Ponto: Saída" de manhã: um toque gravaria `saida` no dia novo e,
+        // pior, a interjornada de 11 h do servidor (`PontoController::batida`) passaria a RECUSAR a
+        // entrada dele pelo resto da manhã. O dia novo começa pelo primeiro tipo livre, como no
+        // desenho: "Bater Ponto: Entrada".
+        tipoRegistro.value = primeiroTipoLivre();
         atualizarRotuloBotao();
+        marcarTipoEscolhido();
 
         // 🪤 Terceiro cliente do botão de atualizar, e o mais fácil de esquecer. Sem esta saída,
         // quem bateu sem rede e deixou a página aberta até a virada do dia tinha o
@@ -1160,11 +1189,7 @@
             return;
         }
 
-        mostrarAvisoBatida(
-            'O dia virou com esta página aberta: a lista abaixo é de ontem. Atualize antes de conferir.',
-            'warning',
-            true
-        );
+        mostrarAvisoBatida(AVISO_VIRADA_DO_DIA, 'warning', true);
     }
 
     setInterval(conferirViradaDoDia, INTERVALO_CHECAGEM_DIA_MS);

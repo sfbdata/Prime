@@ -150,7 +150,6 @@
 .pe-tipo-rotulo { font-size: 12.5px; font-weight: bold; color: var(--pe-texto-2); margin-bottom: 6px; }
 .pe-obrigatorio { color: var(--pe-perigo); }
 .pe-tipos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-.pe-tipos--ontem { opacity: .5; }
 .pe-tipo-btn {
     min-height: 54px;
     padding: 6px 2px;

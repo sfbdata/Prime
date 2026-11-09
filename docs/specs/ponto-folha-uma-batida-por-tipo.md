@@ -256,6 +256,8 @@ Aprovado para planejamento, **sem implementar ainda**.
    - a folha real já reduzia o dia a uma batida por tipo;
    - **não havia 64h30 refletidas na folha a devolver.**
 
+> Mudado em 09/11/2026 pelo P7 do desenho 16 (docs/specs/ponto-desenho-0811.md): o tipo já batido no dia fica travado e, com os 4 feitos, o botão fica cinza.
+
 ## 8. Consulta de seleção dos 64 dias
 
 ```sql

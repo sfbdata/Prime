@@ -221,6 +221,9 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertGreaterThanOrEqual($antes - 1000, $agoraMs);
         self::assertLessThanOrEqual($depois + 1000, $agoraMs);
         self::assertNotSame('', (string) $hora->attr('data-fuso'));
+        // Virada do dia (decisão de 09/11/2026): a próxima meia-noite no fuso do servidor, não a do aparelho.
+        self::assertSame((new \DateTimeImmutable('tomorrow'))->format('Uv'), $hora->attr('data-proxima-virada-ms'));
+        self::assertGreaterThan($agoraMs, (int) $hora->attr('data-proxima-virada-ms'));
         self::assertMatchesRegularExpression('/^\d{2}:\d{2}:\d{2}$/', trim($hora->filter('b#ponto-hora-oficial-hora')->text()));
         self::assertMatchesRegularExpression('/^[a-zçá-]+, \d{2}\/\d{2}\/\d{4}$/u', trim($hora->filter('#ponto-hora-oficial-data')->text()));
     }
@@ -243,6 +246,23 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertSame('30h00m', trim($tela->filter($rodape . ' > b')->text()));
         self::assertSame('Personalizada', trim($tela->filter($rodape . ' > b + span.pe-selo--personalizada')->text()));
         self::assertStringNotContainsString('44h00m', $tela->filter(self::CARTAO)->text());
+    }
+
+    #[TestDox('Saída prevista: a tela recebe a duração da escala de hoje com o almoço (08:00 a 12:00 e 14:00 a 18:00 dá 600 min, entrada 08:00 prevê 18:00)')]
+    public function testSaidaPrevistaUsaADuracaoDaEscala(): void
+    {
+        $jornada = (new JornadaColaborador())->setUser($this->user)->setTenant($this->x);
+        $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1, 2, 3, 4, 5, 6, 7])->setEntrada('08:00')
+            ->setRepouso('12:00')->setRetorno('14:00')->setSaida('18:00')->setMinutosBloco(480));
+        $this->em()->persist($jornada);
+        $this->em()->flush();
+
+        $this->batida('entrada', new \DateTimeImmutable('today 08:00:00'));
+        $this->tela();
+
+        // A conta (entrada + duração, antes do repouso batido) é do JS: `CartaoDoPontoNoJsTest::testSaidaPrevistaPelaEscala`.
+        // 08:00 + 600 min = 18:00, e não 08:00 + 8 h + 1 h do protótipo (17:00).
+        self::assertStringContainsString('const duracaoMinutos = 600;', (string) $this->client->getResponse()->getContent());
     }
 
     #[TestDox('Home Office hoje: a caixa da localização diz que não exige posição e não tem o botão de atualizar')]

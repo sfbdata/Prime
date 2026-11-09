@@ -119,7 +119,7 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         );
     }
 
-    #[TestDox('a virada do dia devolve o select ao vazio, senão a sugestão é de ontem')]
+    #[TestDox('a virada do dia troca a sugestão de ontem pelo primeiro tipo livre do dia novo')]
     public function testViradaDoDiaLimpaASugestao(): void
     {
         $tela = $this->tela();
@@ -128,8 +128,12 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
 
         // Sugestão velha + um toque = `saida` gravada no dia novo, e a interjornada de 11 h do
         // servidor passa a recusar a entrada da pessoa pelo resto da manhã.
+        //
+        // Ajustado pela decisão de 09/11/2026 (desenho 16, E1): em vez de vazio, o dia novo começa como no
+        // desenho, com os quatro tipos livres e o primeiro escolhido ("Bater Ponto: Entrada"). A sugestão de
+        // ontem continua não sobrevivendo: os tipos são zerados antes (`zerarTiposNaVirada`).
         self::assertMatchesRegularExpression(
-            "/tipoRegistro\.value\s*=\s*'';\s*\n\s*atualizarRotuloBotao\(\);/",
+            "/zerarTiposNaVirada\(\);[\s\S]*tipoRegistro\.value\s*=\s*primeiroTipoLivre\(\);\s*\n\s*atualizarRotuloBotao\(\);/",
             $corpo,
             'a sugestão do dia anterior sobreviveu à virada do dia'
         );
@@ -200,7 +204,6 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
             self::assertStringNotContainsString($proibido, $concluida, 'o dia completo passou a olhar ' . $proibido);
         }
         self::assertStringContainsString("button[role=\"radio\"]:not(:disabled)", $concluida);
-        self::assertStringContainsString("pe-tipos--ontem", $concluida, 'depois da virada, os tipos de ontem não travam');
     }
 
     #[TestDox('a cerca responde ao toque em #batida-aviso, não só em #gps-status')]

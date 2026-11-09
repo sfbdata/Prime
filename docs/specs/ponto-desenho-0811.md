@@ -284,13 +284,28 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Entra: P1 a P6, P8 (aviso de batida repetida no botão do tipo), P9 (fora da área, Home Office e erro no molde do
   desenho), P12 (mínimo do intervalo da Jornada do escritório), P13 e P17 (ficam), P14, P15, P16 com D1 (carga da
   jornada da pessoa), P19 (fica), P7 (a: o tipo já batido fica verde e sem clique; com os 4 feitos, "Jornada de hoje
-  concluída", cinza e sem clique), P10 (b: tela vermelha do desenho e, na caixa da localização, o passo a passo de hoje),
-  P11 (b: o desenho e, nos casos "sem rede" e "sem confirmação", a caixa de hoje com o botão de conferir), D11.
-  O P5 entra aqui só como a linha "Hora oficial" com a hora do servidor; o resto do P5 é da E13.
+  concluída", cinza e sem clique), D11. O P5 entra aqui só como a linha "Hora oficial" com a hora do servidor; o resto
+  do P5 é da E13.
+- P10 (b) e P11 (b) entram em parte: até a E8, a caixa de hoje (`#batida-aviso`, no molde do desenho) responde a todos
+  os resultados da batida, e a caixa da localização traz o passo a passo de hoje. A tela vermelha do GPS (P10) e a parte
+  do desenho do P11 (tela cheia, P79, e aviso flutuante, P80) vão para a E8.
+- Decisões da etapa (09/11/2026, Coordenador):
+  - a virada do dia segue o desenho (os 4 tipos livres e sem horário, "Bater Ponto: Entrada"; o aviso da virada fica) e
+    é detectada pela hora do servidor: o instante da carga mais o tempo passado, contra a próxima meia-noite no fuso do
+    servidor; o dia e o fuso do aparelho não entram;
+  - o aviso do intervalo (P12) segue a chave `validacaoRepousoHabilitada` da Jornada do escritório: desligada, não
+    aparece;
+  - as setas do teclado andam entre os tipos livres como num grupo de rádio (tabindex móvel); o desenho só tem o Esc;
+  - o botão de som e o de mudo (P81) vão para a E8;
+  - os parâmetros de leitura do GPS são os do sistema (spec `ponto-gps-erro-que-explica`), não os do protótipo;
+  - a saída prevista usa a escala: antes do repouso batido, entrada mais a duração da escala de hoje (com o almoço);
+    depois dele, entrada mais a meta do dia e o intervalo (o batido, ou o mínimo da Jornada do escritório);
+  - os avisos que mandavam olhar "a lista abaixo" apontam para os horários nos botões dos tipos, acima.
 - Depende de: nada técnico.
 - Migration: não.
-- Arquivos: `templates/ponto/index.html.twig`, `public/js/ponto-batida.js`, CSS novo da tela; `PontoController::index`
-  (hora do servidor, última pendência). Frente jornada-vigencia: `PontoController.php` (o `index` foi mexido no §10.4);
+- Arquivos: `templates/ponto/index.html.twig`, CSS novo da tela (`public/css/ponto-eletronico.css`, prefixo `.pe-`);
+  `PontoController::index` (hora do servidor e próxima virada); `e2e/tests/ponto-batida-cerca.spec.js` (seletores
+  novos). `public/js/ponto-batida.js` ficou como estava. Frente jornada-vigencia: `PontoController.php` (o `index` foi mexido no §10.4);
   só leitura de `HistoricoDeJornadas` para D1. Avisar antes.
 - Testes: funcional da `/ponto` com o arranjo do desenho (filho direto); `BotaoDoPontoRespondeAoToqueTest` ajustado ao
   P7 (a): responde ao toque enquanto houver tipo a bater e fica cinza com os 4 feitos; os do erro de GPS continuam verdes
@@ -381,6 +396,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 **E8. Tela cheia, aviso flutuante, sons, vibração e lembrete.**
 - Entra: P79 a P83 (e P84 a P86, que ficam). As chaves `ponto-animacao`, `ponto-sons` e `ponto-lembrete` entram no
   catálogo aqui, ligadas (P96).
+- Entra também o que a E1 deixou na caixa de hoje: a tela vermelha do erro do GPS (P10 b) e a parte do desenho do P11
+  (resultado em tela cheia, P79, e aviso flutuante, P80, no lugar de `#batida-aviso`), e o botão de som e o de mudo
+  (P81) no rodapé do cartão.
 - Depende de: E1, E7.
 - Migration: não (o mudo fica guardado no aparelho, como no desenho).
 - Arquivos: JS e CSS da tela. Nada da frente.
@@ -586,8 +604,9 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
 
 - 09/11/2026: fase 1 entregue (esta spec) e decidida no mesmo dia (`decisoes-desenhos-0911.md`, na pasta
   bluejus-coordenacao): seção 2 (P1 a P96) e seção 4 (D1 a D22) com a decisão em cada item; seção 5 ajustada.
-- Estado: fase 1 decidida; E1 em implementação (branch `ponto-desenho-0811`).
-- Próximo passo: terminar a E1; a E7 pode correr junto.
+- Estado: fase 1 decidida; E1 implementada na branch `ponto-desenho-0811` (commit 190ccb660 e as correções da
+  revisão de 09/11/2026), sem migration. Decisões da etapa registradas na E1 (seção 5).
+- Próximo passo: PR da E1 e smoke do dono na tela; depois a E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: ficha do colaborador com o molde da Folha e todos os dias (E2),
   chave do selo da trilha (E9), teto de idade da fila (E14), saldo de antes dos lotes (E17).
 - Pendências do dono: seção 10. Nenhuma trava a E1.

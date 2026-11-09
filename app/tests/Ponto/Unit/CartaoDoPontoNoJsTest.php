@@ -18,35 +18,104 @@ final class CartaoDoPontoNoJsTest extends TestCase
 {
     private const CAMINHO_TELA = __DIR__ . '/../../../templates/ponto/index.html.twig';
 
-    #[TestDox('Virada do dia: os tipos de ontem voltam a aceitar clique e o dia completo de ontem não trava o botão')]
-    public function testViradaLiberaTiposEBotao(): void
+    #[TestDox('Virada do dia pela hora do SERVIDOR: o instante dele mais o tempo passado contra a meia-noite no fuso dele, nunca o dia do aparelho')]
+    public function testViradaPelaHoraDoServidor(): void
+    {
+        $tela = $this->tela();
+
+        // O servidor manda o instante e a próxima meia-noite; a tela guarda só o deslocamento até a chegada.
+        self::assertStringContainsString('data-proxima-virada-ms="{{ proximaViradaMs }}"', $tela);
+        self::assertStringContainsString('const PROXIMA_VIRADA_MS = horaOficialEl ? Number(horaOficialEl.dataset.proximaViradaMs) : NaN;', $tela);
+        self::assertStringContainsString('deslocamentoDoServidor = agoraMs - chegadaMs;', $this->corpoDaFuncao('function sincronizarComOServidor('));
+        self::assertStringContainsString(
+            'return deslocamentoDoServidor === null ? null : Date.now() + deslocamentoDoServidor;',
+            $this->corpoDaFuncao('function agoraNoServidorMs('),
+            'do aparelho só entra o tempo que passou'
+        );
+        self::assertStringContainsString(
+            'return agoraMs !== null && Number.isFinite(PROXIMA_VIRADA_MS) && agoraMs >= PROXIMA_VIRADA_MS;',
+            $this->corpoDaFuncao('function diaVirouNoServidor(')
+        );
+        self::assertStringContainsString('if (diaVirou || !diaVirouNoServidor()) {', $this->corpoDaFuncao('function conferirViradaDoDia('));
+
+        // O dia, a hora e o fuso do aparelho não decidem a virada.
+        $virada = $this->corpoDaFuncao('function conferirViradaDoDia(') . $this->corpoDaFuncao('function diaVirouNoServidor(');
+        foreach (['toDateString', 'new Date()', 'getDate(', 'getTimezoneOffset'] as $doAparelho) {
+            self::assertStringNotContainsString($doAparelho, $virada, 'a virada voltou a olhar o aparelho: ' . $doAparelho);
+        }
+        self::assertStringNotContainsString('toDateString', $tela);
+    }
+
+    #[TestDox('Virada do dia como no desenho: os quatro tipos livres e sem horário, o botão volta a responder com "Bater Ponto: Entrada"')]
+    public function testViradaComecaODiaNovo(): void
     {
         $virada = $this->corpoDaFuncao('function conferirViradaDoDia(');
-        $liberar = strpos($virada, 'liberarTiposDoDiaAnterior();');
-        $limpar = strpos($virada, "tipoRegistro.value = '';");
-        self::assertIsInt($liberar, 'a virada deixou de liberar os tipos');
-        self::assertIsInt($limpar);
-        self::assertLessThan($limpar, $liberar, 'liberar antes de redesenhar o rótulo, senão fica "Jornada de hoje concluída"');
-
-        // Elo 1: os quatro tipos voltam a aceitar clique e a lista fica marcada como de ontem.
-        $corpo = $this->corpoDaFuncao('function liberarTiposDoDiaAnterior(');
-        self::assertStringContainsString("tipos.classList.add('pe-tipos--ontem');", $corpo);
-        self::assertStringContainsString('botao.disabled = false;', $corpo, 'tipo batido ontem continua sem clique hoje');
-        self::assertStringContainsString("botao.classList.remove('pe-tipo-btn--feito');", $corpo);
-        self::assertStringContainsString('updateButtonState();', $corpo, 'o botão não é reavaliado depois de liberar');
-        // Só libera: nada aqui trava o botão nem um tipo.
-        self::assertStringNotContainsString('disabled = true', $corpo);
-        self::assertStringNotContainsString('btnPonto', $corpo);
-
-        // Elo 2: com a lista de ontem, o dia completo deixa de valer.
         self::assertMatchesRegularExpression(
-            "/if \\(!tipos \\|\\| tipos\\.classList\\.contains\\('pe-tipos--ontem'\\)\\) \\{\\s*return false;/",
-            $this->corpoDaFuncao('function jornadaConcluida('),
-            'depois da virada o "dia completo" de ontem continua travando o botão'
+            '/zerarTiposNaVirada\(\);\s*aplicarPontoDoDia\(\{\}\);[\s\S]*tipoRegistro\.value = primeiroTipoLivre\(\);\s*'
+            . 'atualizarRotuloBotao\(\);\s*marcarTipoEscolhido\(\);/',
+            $virada,
+            'a virada precisa zerar os tipos e o relógio antes de escolher o tipo e redesenhar o rótulo'
         );
+        self::assertStringContainsString('mostrarAvisoBatida(AVISO_VIRADA_DO_DIA, \'warning\', true);', $virada, 'o aviso da virada continua');
 
-        // Elo 3: sem o dia completo, o botão só fica cinza durante o envio.
+        // Elo 1: os quatro tipos voltam a aceitar clique, sem horário e sem a duplicata de ontem.
+        $zerar = $this->corpoDaFuncao('function zerarTiposNaVirada(');
+        self::assertStringContainsString('botao.disabled = false;', $zerar, 'tipo batido ontem continua sem clique hoje');
+        self::assertStringContainsString("botao.classList.remove('pe-tipo-btn--feito');", $zerar);
+        self::assertStringContainsString("hora.textContent = '--:--:--';", $zerar, 'o horário de ontem ficou no botão');
+        self::assertStringContainsString("botao.querySelectorAll('.pe-tipo-dup').forEach((duplicata) => duplicata.remove());", $zerar);
+        self::assertStringContainsString('updateButtonState();', $zerar, 'o botão não é reavaliado depois de liberar');
+        self::assertStringNotContainsString('disabled = true', $zerar, 'a virada só libera');
+        self::assertStringNotContainsString('btnPonto', $zerar);
+        self::assertStringNotContainsString('pe-tipos--ontem', $this->tela(), 'o desenho não apaga os tipos do dia novo');
+
+        // Elo 2: com os tipos livres, o dia completo de ontem deixa de valer; e o botão só fica cinza no envio.
+        self::assertStringContainsString(
+            "return !!tipos && tipos.querySelector('button[role=\"radio\"]:not(:disabled)') === null;",
+            $this->corpoDaFuncao('function jornadaConcluida(')
+        );
         self::assertStringContainsString('btnPonto.disabled = envioEmAndamento || concluida;', $this->corpoDaFuncao('function updateButtonState('));
+
+        // Elo 3: o tipo escolhido é o primeiro livre (com os quatro livres, a entrada).
+        self::assertStringContainsString(
+            "document.querySelector('#ponto-tipos > button[role=\"radio\"]:not(:disabled)')",
+            $this->corpoDaFuncao('function primeiroTipoLivre(')
+        );
+    }
+
+    #[TestDox('Os avisos apontam para os horários nos botões dos tipos, acima; "lista abaixo" não existe mais')]
+    public function testAvisosApontamParaOsBotoes(): void
+    {
+        $tela = $this->tela();
+
+        self::assertStringContainsString(
+            "const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. "
+            . "Os horários nos botões acima são de antes da tentativa: atualize a página e confira ANTES de apertar de novo.';",
+            $tela
+        );
+        self::assertStringContainsString(
+            "const AVISO_VIRADA_DO_DIA = 'O dia virou com esta página aberta: os botões acima já são do dia novo, mas a "
+            . "folha e o banco de horas ainda são de ontem. Atualize a página antes de conferir.';",
+            $tela
+        );
+        self::assertStringNotContainsStringIgnoringCase('lista abaixo', $tela);
+    }
+
+    #[TestDox('Saída prevista antes do repouso batido: entrada mais a duração da escala, com o almoço da escala')]
+    public function testSaidaPrevistaPelaEscala(): void
+    {
+        $prevista = $this->corpoDaFuncao('function saidaPrevista(');
+
+        self::assertMatchesRegularExpression(
+            '/if \(!tRepouso\) \{\s*return duracaoMinutos === null \? null : new Date\(tEntrada\.getTime\(\) \+ duracaoMinutos \* 60000\);/',
+            $prevista,
+            'antes do repouso, a previsão voltou a sair de valor que não é a escala'
+        );
+        self::assertLessThan(
+            (int) strpos($prevista, 'metaDiaMinutos <= 0'),
+            (int) strpos($prevista, 'if (!tRepouso)'),
+            'a escala decide antes da meta: a meta (sem almoço) só entra depois do repouso batido'
+        );
     }
 
     #[TestDox('Teclado: os tipos andam pelas setas como um grupo de rádio, só entre os livres, com tabindex móvel')]
@@ -63,7 +132,6 @@ final class CartaoDoPontoNoJsTest extends TestCase
         $marcar = $this->corpoDaFuncao('function marcarTipoEscolhido(');
         self::assertStringContainsString("botao.setAttribute('tabindex', botao === daVez ? '0' : '-1')", $marcar);
         self::assertStringContainsString('livres.find((botao) => botao.dataset.tipo === tipoRegistro.value) || livres[0]', $marcar);
-        self::assertStringContainsString("botao.setAttribute('tabindex', posicao === 0 ? '0' : '-1');", $this->corpoDaFuncao('function liberarTiposDoDiaAnterior('));
         self::assertMatchesRegularExpression(
             "/tipoRegistro\\.addEventListener\\('change', function\\(\\) \\{\\s*updateButtonState\\(\\);\\s*atualizarRotuloBotao\\(\\);\\s*marcarTipoEscolhido\\(\\);/",
             $this->tela()

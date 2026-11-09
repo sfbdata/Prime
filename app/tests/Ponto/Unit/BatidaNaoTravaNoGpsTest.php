@@ -276,20 +276,18 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
             . 'olhando para a lista de ontem'
         );
 
-        // 🔴 A comparação é do aparelho contra ele mesmo. Comparar com a data do SERVIDOR dava ao
-        // relógio do celular poder de veto: fuso errado às 21h travava o botão, e recarregar não
-        // resolvia porque a causa era o aparelho. Ficava impossível bater a saída.
-        self::assertStringContainsString(
-            'const DIA_DO_APARELHO_NA_CARGA = new Date().toDateString();',
+        // 🔴 Ajustado pela decisão de 09/11/2026 (desenho 16, E1): a virada é a do SERVIDOR, o instante dele na
+        // carga mais o tempo que passou, contra a próxima meia-noite no fuso dele. A versão anterior comparava o
+        // aparelho com ele mesmo: tirava o veto, mas um aparelho em fuso errado cruzava a própria meia-noite na hora
+        // errada (alarme falso às 21h). Agora a hora e o fuso do aparelho não entram, só o tempo que passou; e a
+        // virada continua sem veto (ver `testViradaDoDiaNaoBloqueiaABatida`). O arranjo fino está em
+        // `CartaoDoPontoNoJsTest::testViradaPelaHoraDoServidor`.
+        self::assertStringContainsString('if (diaVirou || !diaVirouNoServidor()) {', $fonte);
+        self::assertStringContainsString('agoraMs >= PROXIMA_VIRADA_MS', $fonte, 'a virada é a meia-noite do servidor');
+        self::assertStringNotContainsString(
+            'toDateString',
             $fonte,
-            'a linha de base tem que ser o relógio DO APARELHO na carga; vinda do servidor, a '
-            . 'comparação volta a ser aparelho contra servidor'
-        );
-        self::assertStringContainsString(
-            'new Date().toDateString() === DIA_DO_APARELHO_NA_CARGA',
-            $fonte,
-            'detectar a MUDANÇA de dia no próprio aparelho é imune a fuso errado; comparar com a '
-            . 'data do servidor não é'
+            'o dia do APARELHO voltou a decidir a virada: aparelho em fuso errado avisa na hora errada'
         );
     }
 

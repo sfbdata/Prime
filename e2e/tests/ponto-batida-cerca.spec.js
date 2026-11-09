@@ -120,9 +120,14 @@ async function abrirPonto(browser, posicao, { aoIniciar = null, offline = false 
     return { contexto, pagina, batidas };
 }
 
-/** Escolhe o tipo no grupo de rádio do cartão "Registrar Ponto" (no lugar do antigo select). */
+/**
+ * Escolhe o tipo no grupo de rádio do cartão "Registrar Ponto" (no lugar do antigo select). Tipo já batido hoje fica
+ * sem clique (P7): aí o teste é pulado com o motivo, em vez de falhar por estado do banco do dev.
+ */
 async function escolherTipo(pagina, tipo) {
-    await pagina.click(`#ponto-tipos > button[role="radio"][data-tipo="${tipo}"]`);
+    const botao = pagina.locator(`#ponto-tipos > button[role="radio"][data-tipo="${tipo}"]`);
+    test.skip(await botao.isDisabled(), `tipo ${tipo} já batido hoje no usuário do smoke`);
+    await botao.click();
 }
 
 test.describe('Cerca na tela: o botão bloqueia fora do raio, mas nunca por imprecisão', () => {
