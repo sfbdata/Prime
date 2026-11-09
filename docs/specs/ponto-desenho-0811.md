@@ -500,14 +500,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - do sistema, no molde do desenho: a linha "Ninguém registra ponto neste escritório." na tabela vazia, o botão
     desligado mais claro, a frase de erro no topo e o aviso só para leitor de tela. A tabela não tem `pe-resp`: no
     celular rola para o lado. CSS num bloco só no fim de `ponto-eletronico.css`, com os tokens da tela (sem token novo);
-  - o número de Banco segue uma regra de hoje do `calcularSaldoAnual`: quem não tem jornada pessoal no escritório tem
-    só as horas pagas no saldo. A primeira troca de escala cria a jornada pessoal, com a versão de hoje sem cobrir os
-    dias de antes: o banco passa a contar do dia da troca em diante, na aba e no topo da /ponto da pessoa, e os dias de
-    antes continuam fora dele (a ficha faz o mesmo hoje). Conferido na revisão de 09/11/2026: com 10 horas em 01/12 e em
-    15/12/2025, a jornada do escritório de 40h e a troca para 30h feita em 15/12/2025, o saldo de 2025 é 0 antes e
-    -4080 depois (+240 de 15/12 e 12 dias sem batida a -360); o 01/12 e os dias até 14/12 não entram
-    (`TrocarEscalaNaEquipeTest`). O texto ao cliente diz isso: a folha dos dias anteriores não muda e, sem escala
-    própria, o banco passa a ser calculado a partir do dia da troca;
+  - o número de Banco não tem regra própria na aba: é o do motor do saldo, o mesmo do topo da /ponto da pessoa
+    (`EquipeDoPontoTelaTest::testBancoEPendenciasComoNaPontoDaPessoa`). Decisão do Coordenador (09/11, 22h05, §10.4): o
+    banco usa a mesma jornada da folha, e sem versão pessoal os dias contam pela jornada do escritório; quem fizer essa
+    troca é a E17 (`BancoDeHorasPorLotes::calcular`), e quem integrar por último na ponto-desenho troca a chamada da aba;
   - Custo do painel (revisão de 09/11/2026, Coordenador): cerca de 30 consultas por pessoa, quase todas do
     `calcularSaldoAnual`, que faz 2 por mês do ano corrido. Medido no `EquipeDoPontoConsultasTest` (1 pessoa contra 3,
     no caso caro: jornada pessoal e batida desde o ano passado): 29 por pessoa em novembro, 7 fixas mais 2 por mês (31
