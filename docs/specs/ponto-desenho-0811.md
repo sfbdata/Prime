@@ -606,15 +606,32 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     (`ChavesDoHmacDoPonto`, com `disponivel()`, `versaoAtual()` e `chave()`, reaproveitável pela E15 e E16), sobre o
     JSON canônico de selo anterior, escritório, sequência, em, autor (id e nome), ação e detalhe; a linha guarda a versão
     da chave. `PONTO_HMAC_SECRET=` declarado vazio no `.env`; vazio grava sem selo e sem versão;
-  - conferência (`ConferirTrilhaDoPontoUseCase`): íntegra, alterada (com a sequência do primeiro evento que não confere:
-    coluna mexida, linha apagada, elo trocado, selo apagado, versão sem chave) ou não selada (sem segredo no servidor, ou
-    o trecho inicial gravado antes do selo); a chave sai da versão gravada em cada linha;
+  - elo: o `selo_anterior` de cada linha é o ÚLTIMO SELO da cadeia antes dela (o da linha de antes, ou o último que
+    existia, se ela entrou sem selo); a primeira selada depois de um trecho sem selo se prende à última selada antes
+    dele. A `TrilhaDoPonto` grava assim e a `ConferenciaDaCadeiaDoPonto` confere assim;
+  - conferência (`ConferirTrilhaDoPontoUseCase`): íntegra; alterada (com a sequência do primeiro evento que não confere:
+    coluna mexida, linha apagada, elo trocado, selo apagado no meio, versão sem chave; quando o elo quebra logo depois de
+    linhas sem selo, o número apontado é o primeiro delas); trecho sem selo (eventos gravados sem selo antes do segredo
+    ou numa falta temporária dele, com as faixas dos números: "Os eventos nº X a Y foram gravados sem selo.", na cor de
+    alerta, nunca o verde de íntegra; o selo apagado da ÚLTIMA linha também aparece assim, com o número dela); ou não
+    selada (o servidor sem o segredo). A chave sai da versão gravada em cada linha;
+  - limites aceitos da conferência (revisão de 09/11/2026): apagar os últimos eventos não é detectado (não há linha
+    depois para quebrar o elo); zerar os selos de todas as linhas (selo e selo anterior) aparece como trecho sem selo,
+    ou não selada sem o segredo, e não como alterada; a conferência percorre a cadeia inteira a cada abertura da aba
+    (achado 9 da revisão), a reavaliar se ficar lenta;
   - eventos: batida (inclui o atalho do avatar), justificativa enviada, editada (com ou sem troca do atestado) e
     excluída pelo colaborador, abonada, recusada, voltou para análise, abono em lote (um evento com as abonadas), lançada
-    já abonada pelo gestor, batida do esquecimento abonado e escala alterada (as 3 versões da jornada, autor da sessão);
+    já abonada pelo gestor (mais uma "batida do esquecimento abonado" por batida que o lançamento cria, o mesmo evento da
+    análise), batida do esquecimento abonado e escala alterada (as 3 versões da jornada, autor da sessão);
+  - atomicidade provada em teste: se o fato falha depois do evento (horário futuro na batida do esquecimento, dentro do
+    abono), o evento sai junto; se a trilha falha, a batida e o abono não ficam gravados;
+  - dados pessoais (LGPD, decidido pelo Coordenador na revisão): o `autor_nome` e o nome do colaborador no detalhe ficam
+    na trilha depois da exclusão da conta, porque a guarda do registro de ponto é obrigação legal; a trilha sai só com a
+    purga do escritório;
   - aba Auditoria no molde das abas de gestão: `GestaoDoPonto::veAuditoria` (`admin.ponto.manage`; primário e Master
-    passam), rota `ponto_auditoria` com `?pagina=` (50 por página, o mais recente primeiro), parcial
-    `_abas_auditoria.html.twig`, páginas por `js/ponto-auditoria.js`; CSS no bloco "Auditoria (E9)";
+    passam), rota `ponto_auditoria` com `?pagina=` (300 por página, como manda o desenho no inventário 2.11, L313; o mais
+    recente primeiro), parcial `_abas_auditoria.html.twig`, botões de página por `js/ponto-auditoria.js`; CSS no bloco
+    "Auditoria (E9)";
   - purga: `ponto_auditoria` na ordem de deleção do `PurgarEscritorioUseCase`;
   - ficam para depois: a chave do Escritório (E7, entra na trilha quando a E7 chegar), os ajustes de batida (E10), a
     fila sem internet, a folha e a facial (cada etapa chama a trilha nos eventos dela). A chave Global do Master fica só
@@ -750,7 +767,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 
 ## 6. (d) Migrations necessárias
 
-Número de cada uma: a pedir ao Coordenador. Recomendação geral: reaproveitar as tabelas que existem
+Número de cada uma: a pedir ao Coordenador (já dado: E9, `Version20261109190000`, tabela `ponto_auditoria`). Recomendação geral: reaproveitar as tabelas que existem
 (`registro_ponto`, `justificativa_ponto`, `sede`, `feriado`, `jornada_*`), sem renomear: renomear não traz ganho e mexe
 em todo o Ponto e na frente jornada-vigencia.
 
@@ -767,7 +784,7 @@ em todo o Ponto e na frente jornada-vigencia.
 | `ponto_escala` | `jornada_colaborador` e `bloco_jornada_colaborador` (com vigência), `jornada_tenant` e `bloco_jornada` | Decidido (P56 a) | Não criar tabela. As 4 escalas do desenho viram modelos que preenchem os blocos; trocar a escala na aba Equipe grava uma versão nova da jornada, valendo a partir de hoje (`SalvarVersaoDaJornadaUseCase`) | nenhuma (o uso é na E5) |
 | `ponto_banco_lote` | Não existe; há `ponto_lancamento_horas_pagas` | Decidido (P51 a) | Lotes do desenho, sem zerar em janeiro; horas pagas seguem no saldo. Recomendação mantida: calcular os lotes a partir da folha, sem tabela; tabela só se o cálculo se mostrar necessário | E17 |
 | `ponto_config_escritorio` | Parcial: `jornada_tenant` (validações e alertas), `home_office_config` (por pessoa) | Precisa criar | Tabela nova, uma por escritório: 8 chaves do escritório, modo facial, guardar foto, meses de retenção, limite e prazo do banco, permitir trabalho externo, raio padrão (150 m, P70). Não engordar `jornada_tenant` (PR 3 da frente) | E7 |
-| `ponto_auditoria` | `audit_log` genérico, sem encadeamento | Precisa criar | Escritório, em, autor, ação, detalhe, selo anterior, selo; índice por escritório e data. Só os eventos que o desenho grava (E9); mudanças de configuração (sede, feriado, limite, prazo, modo facial, foto) ficam no `audit_log` (D5 não) | E9 |
+| `ponto_auditoria` | `audit_log` genérico, sem encadeamento | Criada na E9 (`Version20261109190000`) | Escritório, em, autor, ação, detalhe, selo anterior, selo; índice por escritório e data. Só os eventos que o desenho grava (E9); mudanças de configuração (sede, feriado, limite, prazo, modo facial, foto) ficam no `audit_log` (D5 não) | E9 |
 | `recurso_estado` (chaves `ponto-*`) | Existe | Sem migration | Linhas novas só no catálogo do código | E7 |
 | (cadastro facial, fora da lista do ESPEC) | Não existe | Precisa criar | Pessoa, escritório, autorizado em, recusado em, versão do texto, IP, navegador, referência do template no fornecedor, excluído em; fotos no armazenamento privado com prazo | E18 |
 
@@ -841,11 +858,15 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
 - Para a E15: a futura página pública de validação NÃO pode ter nome de rota com o prefixo `ponto_` (o catálogo do
   Master derruba toda rota `ponto_*` quando a tela `ponto` é desligada), ou precisa entrar em
   `CatalogoDeRecursos::ROTAS_SEMPRE_ABERTAS`.
+- E9 implementada na branch `ponto-desenho-e9` integrada na `ponto-desenho`, com a migration
+  `Version20261109190000` (tabela `ponto_auditoria`). Vai ao ar junto com a E10, num PR único no fim. Decisões
+  registradas na E9 (seção 5).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
-- Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
-  saldo de antes dos lotes (E17).
+- Pontos que se fecham com o Coordenador ao abrir a etapa: teto de idade da fila (E14), saldo de antes dos lotes (E17).
+  A chave do selo da trilha (E9) já foi decidida.
 - Pendências do dono: seção 10. Nenhuma trava a E1.
-- Migrations: `Version20261109210000` (E4).
+- Migrations: `Version20261109180000` (E7, `ponto_config_escritorio`), `Version20261109190000` (E9, tabela
+  `ponto_auditoria`), `Version20261109210000` (E4) e `Version20261109220000` (E13).
 
 ## 10. Pendências do dono e ganchos
 
@@ -858,8 +879,12 @@ Nenhuma destas trava o código: cada etapa entra pronta com o gancho abaixo e pa
 da chave usada (começa em 1), para que uma troca futura do segredo não quebre a conferência do que já foi selado: a
 conferência escolhe a chave pela versão gravada na linha.
 
+**Deploy (a partir da E9).** Antes de publicar, conferir que `PONTO_HMAC_SECRET` existe no `.env.prod` (só o nome:
+`cut -d= -f1`). Sem ela nada quebra, mas a trilha da E9 grava sem selo e a aba Auditoria mostra "sem selo"; se ela
+faltar por um tempo e voltar, os eventos desse intervalo aparecem como trecho sem selo.
+
 | Pendência (itens) | Por que é do dono | Gancho no código | Etapa que precisa |
 |---|---|---|---|
 | Conferir o relógio (NTP) da VPS (P5) | Produção; o Claude não entra na VPS | Nenhum gancho novo: a batida e a "Hora oficial" já usam o relógio do servidor. O comando de conferência (por exemplo, `timedatectl status`, linha "System clock synchronized") vai ao Samuel em bloco para o terminal externo | E13 (e a linha "Hora oficial" da E1) |
-| Criar em produção o segredo do HMAC do comprovante e da folha (P34, P48, P50) | Credencial | Variável de ambiente `PONTO_HMAC_SECRET`, declarada vazia no `.env` do repositório (só o nome). Vazia: a batida grava com NSR, nenhum comprovante nem folha com código é emitido, a aba Comprovantes, o "Validar código" e o "Assinar folha" não aparecem, e nada quebra. Preenchida: a emissão começa sozinha | E15 e E16 (a E9 pode usar a mesma; ver a E9) |
+| Criar em produção o segredo do HMAC do comprovante e da folha (P34, P48, P50) | Credencial | Variável de ambiente `PONTO_HMAC_SECRET`, declarada vazia no `.env` do repositório (só o nome). Vazia: a batida grava com NSR, nenhum comprovante nem folha com código é emitido, a aba Comprovantes, o "Validar código" e o "Assinar folha" não aparecem, e nada quebra. Preenchida: a emissão começa sozinha | E9 (selo da trilha), E15 e E16 |
 | Contratar o fornecedor da biometria facial com prova de vida (P76, P78, D10) | Contratação | Interface de fornecedor (cadastrar, conferir com prova de vida, excluir cadastro) com um dublê de teste; chave `ponto-facial` desligada até o contrato. O fornecedor real entra depois, num PR pequeno que só implementa a interface | E18 |

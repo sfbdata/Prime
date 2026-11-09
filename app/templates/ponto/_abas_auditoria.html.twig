@@ -1,13 +1,13 @@
 {#
     Painel da aba "Auditoria" (E9, P64; desenho 16 L222 a L225), buscado por AuditoriaDoPontoController
     (`ponto_auditoria`). Cabeçalho com a conferência da cadeia, tabela dos eventos (o mais recente primeiro) e o vazio do
-    desenho. As páginas (o desenho não tem: o protótipo guarda poucos eventos) trocam pelo js/ponto-auditoria.js, que
-    busca o painel de novo com `?pagina=`; nenhum script roda dentro deste parcial.
+    desenho. 300 eventos por página (inventário 2.11, L313); os botões de página (o desenho não os mostra) trocam pelo
+    js/ponto-auditoria.js, que busca o painel de novo com `?pagina=`; nenhum script roda dentro deste parcial.
 
     Recebe: trilha (PaginaDaTrilhaDoPontoOutput).
 #}
 {% set conferencia = trilha.conferencia %}
-{% set icone = {integra: 'bi-shield-check', alterada: 'bi-shield-exclamation', nao_selada: 'bi-shield-slash'}[conferencia.situacao] %}
+{% set icone = {integra: 'bi-shield-check', alterada: 'bi-shield-exclamation', nao_selada: 'bi-shield-slash', trecho_sem_selo: 'bi-shield-slash'}[conferencia.situacao] %}
 <div class="pe-audit-cab pe-audit-cab--{{ conferencia.situacao|replace({'_': '-'}) }}" role="status">
     <i class="bi {{ icone }}" aria-hidden="true"></i>{{ conferencia.texto }}
 </div>

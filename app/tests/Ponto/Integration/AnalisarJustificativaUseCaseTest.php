@@ -9,12 +9,23 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
+use App\Ponto\Exception\BatidaEmHorarioFuturoException;
+use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\TrilhaDoPontoRepository;
+use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
+use App\Ponto\Service\TrilhaDoPonto;
 use App\Ponto\UseCase\AnalisarJustificativaUseCase;
+use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\Test\ClockSensitiveTrait;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 
 /**
  * A corrida da E3 (docs/specs/ponto-desenho-0811.md): o gestor leu a justificativa, o colaborador a excluiu e comitou,
@@ -24,6 +35,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 #[CoversClass(AnalisarJustificativaUseCase::class)]
 final class AnalisarJustificativaUseCaseTest extends KernelTestCase
 {
+    use ClockSensitiveTrait;
+
     private EntityManagerInterface $em;
     private AnalisarJustificativaUseCase $analisar;
     private Tenant $tenant;
@@ -94,6 +107,56 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
 
         self::assertSame('abonado', $this->statusNoBanco($justificativa));
         self::assertSame(1, $this->batidasDoColaborador());
+        self::assertSame(['justificativa_abonada', 'batida_do_esquecimento'], $this->eventosDaTrilha(), 'os eventos comitam com o abono');
+    }
+
+    #[TestDox('Trilha E9, atomicidade: o fato falha DEPOIS do evento (horário futuro na batida): o evento "abonada" sai junto')]
+    public function testFatoQueFalhaDepoisDoEventoLevaOEvento(): void
+    {
+        self::mockTime(new \DateTimeImmutable('2026-03-10 07:00:00', new \DateTimeZone(date_default_timezone_get())));
+        $justificativa = $this->esquecimento('08:00');
+
+        try {
+            $this->analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
+            self::fail('O horário futuro deveria barrar a batida do esquecimento.');
+        } catch (BatidaEmHorarioFuturoException) {
+        }
+
+        self::assertSame([], $this->eventosDaTrilha(), 'o "abonada" gravado antes da batida voltou com a transação');
+        self::assertSame('pendente', $this->statusNoBanco($justificativa));
+        self::assertSame(0, $this->batidasDoColaborador());
+    }
+
+    #[TestDox('Trilha E9, atomicidade: a trilha falha ao gravar o evento: o abono e a batida não ficam')]
+    public function testTrilhaQueFalhaNaoDeixaOFato(): void
+    {
+        $justificativa = $this->esquecimento('08:00');
+        $container = static::getContainer();
+        $falha = new class ($container->get(ManagerRegistry::class)) extends TrilhaDoPontoRepository {
+            public function inserir(array $linha): void
+            {
+                throw new \RuntimeException('Falha simulada da trilha.');
+            }
+        };
+        $trilha = new TrilhaDoPonto($falha, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage());
+        $analisar = new AnalisarJustificativaUseCase(
+            $this->em,
+            $container->get(JustificativaPontoRepository::class),
+            $container->get(RegistrarBatidaDoEsquecimentoUseCase::class),
+            $container->get(AnaliseDaPropriaJustificativa::class),
+            $trilha,
+        );
+
+        try {
+            $analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
+            self::fail('A falha da trilha deveria subir.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Falha simulada da trilha.', $e->getMessage());
+        }
+
+        self::assertSame('pendente', $this->statusNoBanco($justificativa), 'o abono voltou com a transação');
+        self::assertSame(0, $this->batidasDoColaborador());
+        self::assertSame([], $this->eventosDaTrilha());
     }
 
     #[TestDox('"Aprovar todos": a excluída fica de fora e entra no aviso; as outras são abonadas com a batida delas')]
@@ -207,6 +270,15 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
     private function statusNoBanco(JustificativaPonto $justificativa): string
     {
         return (string) $this->em->getConnection()->fetchOne('SELECT status FROM justificativa_ponto WHERE id = ?', [$justificativa->getId()]);
+    }
+
+    /** @return list<string> as ações da trilha do escritório, em ordem */
+    private function eventosDaTrilha(): array
+    {
+        return array_map('strval', $this->em->getConnection()->fetchFirstColumn(
+            'SELECT acao FROM ponto_auditoria WHERE tenant_id = ? ORDER BY sequencia',
+            [$this->tenant->getId()],
+        ));
     }
 
     private function batidasDoColaborador(): int

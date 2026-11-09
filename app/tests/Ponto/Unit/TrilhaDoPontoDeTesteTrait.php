@@ -26,7 +26,8 @@ trait TrilhaDoPontoDeTesteTrait
         $repositorio->method('ultimoElo')->willReturnCallback(function (): ?array {
             $ultimo = $this->eventosDaTrilha[\count($this->eventosDaTrilha) - 1] ?? null;
 
-            return $ultimo === null ? null : ['sequencia' => $ultimo['sequencia'], 'selo' => $ultimo['selo']];
+            // Como o repositório: o último selo da cadeia, mesmo quando a última linha entrou sem selo.
+            return $ultimo === null ? null : ['sequencia' => $ultimo['sequencia'], 'selo' => $ultimo['selo'] ?? $ultimo['selo_anterior']];
         });
         $repositorio->method('inserir')->willReturnCallback(function (array $linha): void {
             $this->eventosDaTrilha[] = $linha;

@@ -7,15 +7,19 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\AuditoriaDoPontoController;
+use App\Ponto\Repository\TrilhaDoPontoRepository;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\GestaoDoPonto;
 use App\Ponto\Service\TrilhaDoPonto;
+use App\Ponto\UseCase\ListarTrilhaDoPontoUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Twig\Environment;
 
 /**
@@ -143,6 +147,22 @@ final class AbaAuditoriaDoPontoTest extends JusPrimeWebTestCase
         self::assertSame('sem selo', $painel->filter('table > tbody > tr > td:nth-child(5) > span.pe-audit-sem-selo')->text());
     }
 
+    #[TestDox('Painel com um evento gravado sem selo antes de um selado: cabeçalho "trecho sem selo" na cor de alerta, nunca o de íntegra')]
+    public function testPainelTrechoSemSelo(): void
+    {
+        $gestor = $this->gestorDoPonto();
+        $this->comSegredo();
+        $container = static::getContainer();
+        (new TrilhaDoPonto($container->get(TrilhaDoPontoRepository::class), new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage()))
+            ->registrar($this->escritorio, $gestor, 'batida_registrada', ['tipo' => 'entrada']);
+        $this->trilha()->registrar($this->escritorio, $gestor, 'batida_registrada', ['tipo' => 'saida']);
+
+        $cabecalho = $this->pedir($gestor, '/ponto/auditoria')->filter('body > div.pe-audit-cab.pe-audit-cab--trecho-sem-selo[role="status"]');
+
+        self::assertCount(1, $cabecalho->filter('div > i.bi.bi-shield-slash:first-child'));
+        self::assertSame('O evento nº 1 foi gravado sem selo. Os demais eventos conferem com o selo.', trim($cabecalho->text()));
+    }
+
     #[TestDox('Painel vazio: o texto do desenho, sem tabela')]
     public function testPainelVazio(): void
     {
@@ -152,20 +172,21 @@ final class AbaAuditoriaDoPontoTest extends JusPrimeWebTestCase
         self::assertCount(0, $painel->filter('table'));
     }
 
-    #[TestDox('Mais de 50 eventos: páginas com "Mais recentes" e "Mais antigos" pelo endereço do painel; a 2 traz o mais antigo')]
+    #[TestDox('Mais de 300 eventos (a página do desenho): "Mais recentes" e "Mais antigos" pelo endereço do painel; a 2 traz o mais antigo')]
     public function testPaginas(): void
     {
         $gestor = $this->gestorDoPonto();
-        for ($i = 0; $i < 51; ++$i) {
+        self::assertSame(300, ListarTrilhaDoPontoUseCase::POR_PAGINA, 'desenho 16, inventário 2.11 (L313)');
+        for ($i = 0; $i < 301; ++$i) {
             $this->trilha()->registrar($this->escritorio, $gestor, 'batida_registrada', ['n' => $i]);
         }
 
         $primeira = $this->pedir($gestor, '/ponto/auditoria');
-        self::assertCount(50, $primeira->filter('table > tbody > tr'));
+        self::assertCount(300, $primeira->filter('table > tbody > tr'));
         $nav = $primeira->filter('body > nav.pe-audit-paginas');
         self::assertCount(1, $nav->filter('nav > button.pe-audit-pag[data-auditoria-pagina="/ponto/auditoria?pagina=0"][disabled]:first-child'));
         self::assertCount(1, $nav->filter('nav > button.pe-audit-pag[data-auditoria-pagina="/ponto/auditoria?pagina=2"]:not([disabled]):last-child'));
-        self::assertSame('Página 1 de 2 (51 eventos)', $nav->filter('nav > span.pe-audit-pag-txt')->text());
+        self::assertSame('Página 1 de 2 (301 eventos)', $nav->filter('nav > span.pe-audit-pag-txt')->text());
 
         $segunda = $this->pedir($gestor, '/ponto/auditoria?pagina=2');
         self::assertCount(1, $segunda->filter('table > tbody > tr'));

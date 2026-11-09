@@ -191,7 +191,7 @@ final class TrilhaDoPontoNoBancoTest extends KernelTestCase
         self::assertSame(ConferenciaDaTrilhaDoPontoOutput::SEM_SEGREDO, $resultado->motivoSemSelo);
     }
 
-    #[TestDox('Segredo configurado depois: as linhas de antes são o trecho inicial, as novas conferem')]
+    #[TestDox('Segredo configurado depois: as linhas de antes são um trecho sem selo, as novas conferem')]
     public function testSegredoDepois(): void
     {
         $this->trilha('')->registrar($this->escritorio, null, 'batida_registrada', []);
@@ -199,8 +199,31 @@ final class TrilhaDoPontoNoBancoTest extends KernelTestCase
         $this->trilha(self::SEGREDO)->registrar($this->escritorio, null, 'batida_registrada', []);
 
         $resultado = $this->conferir(self::SEGREDO, $this->escritorio);
-        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_INICIAL, $resultado->motivoSemSelo);
-        self::assertSame(2, $resultado->ultimaSemSelo);
+        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_SEM_SELO, $resultado->situacao);
+        self::assertSame([[1, 2]], $resultado->trechosSemSelo);
+    }
+
+    #[TestDox('Falta do segredo no meio: trecho sem selo (não alterada); adulterar a selada DEPOIS do trecho: alterada nela')]
+    public function testFaltaDoSegredoNoMeio(): void
+    {
+        $this->trilha(self::SEGREDO)->registrar($this->escritorio, null, 'batida_registrada', ['n' => 1]);
+        $this->trilha('')->registrar($this->escritorio, null, 'batida_registrada', ['n' => 2]);
+        $this->trilha(self::SEGREDO)->registrar($this->escritorio, null, 'batida_registrada', ['n' => 3]);
+
+        $linhas = $this->linhas($this->escritorio);
+        self::assertSame($linhas[0]['selo'], $linhas[2]['selo_anterior'], 'a selada depois do trecho se prende à última selada antes dele');
+        $resultado = $this->conferir(self::SEGREDO, $this->escritorio);
+        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_SEM_SELO, $resultado->situacao);
+        self::assertSame([[2, 2]], $resultado->trechosSemSelo);
+
+        $this->em->getConnection()->executeStatement(
+            "UPDATE ponto_auditoria SET detalhe = '{\"n\":9}' WHERE tenant_id = ? AND sequencia = 3",
+            [$this->escritorio->getId()],
+        );
+
+        $depois = $this->conferir(self::SEGREDO, $this->escritorio);
+        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::ALTERADA, $depois->situacao);
+        self::assertSame(3, $depois->sequenciaAlterada);
     }
 
     #[TestDox('A conferência lê a cadeia em blocos: mais de um bloco de 500 continua íntegra')]
@@ -213,9 +236,9 @@ final class TrilhaDoPontoNoBancoTest extends KernelTestCase
 
         self::assertSame(ConferenciaDaTrilhaDoPontoOutput::INTEGRA, $this->conferir(self::SEGREDO, $this->escritorio)->situacao);
         $pagina = (new ListarTrilhaDoPontoUseCase($this->repositorio, $this->conferidor(self::SEGREDO)))->executar($this->escritorio, 99);
-        self::assertSame(11, $pagina->paginas);
-        self::assertSame(11, $pagina->pagina, 'página além da última cai na última');
-        self::assertSame([1], array_column($pagina->eventos, 'sequencia'), 'a última página tem o evento mais antigo');
+        self::assertSame(2, $pagina->paginas, '300 por página');
+        self::assertSame(2, $pagina->pagina, 'página além da última cai na última');
+        self::assertSame(range(201, 1), array_column($pagina->eventos, 'sequencia'), 'a última página termina no evento mais antigo');
     }
 
     private function trilha(string $segredo): TrilhaDoPonto

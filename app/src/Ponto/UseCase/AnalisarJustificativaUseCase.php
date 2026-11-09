@@ -40,7 +40,10 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Cada análise gravada entra na trilha do Ponto ({@see TrilhaDoPonto}) na mesma transação, depois da trava da linha:
  * abonada, recusada, voltou para análise e, no "aprovar todos", um evento "Abono em lote" com as abonadas. A batida
- * do esquecimento entra pelo `RegistrarBatidaDoEsquecimentoUseCase`. Recusa não grava evento.
+ * do esquecimento entra pelo `RegistrarBatidaDoEsquecimentoUseCase`. A análise barrada sob a trava
+ * (`AnaliseDeJustificativaRecusadaException`: excluída ou situação mudou) não grava evento, porque nada mudou; já a
+ * justificativa recusada pelo gestor grava "Justificativa recusada". Se o fato falha depois do evento (horário futuro
+ * na batida do esquecimento, por exemplo), a transação volta inteira e o evento sai junto.
  *
  * ## Contrato com a aba Equipe (E5)
  *

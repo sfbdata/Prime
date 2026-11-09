@@ -12,7 +12,9 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 
 /**
  * Grava um evento na trilha de auditoria do Ponto (spec `ponto-desenho-0811.md`, E9, P64): uma cadeia por escritório,
- * cada linha selada junto com a anterior ({@see SeloDaTrilhaDoPonto}).
+ * cada linha selada junto com a anterior ({@see SeloDaTrilhaDoPonto}). O `selo_anterior` de cada linha é o último selo
+ * da cadeia (o da linha de antes, ou o último que existia se ela entrou sem selo), o mesmo elo que a
+ * {@see ConferenciaDaCadeiaDoPonto} confere.
  *
  * ## Mesma transação do fato
  *

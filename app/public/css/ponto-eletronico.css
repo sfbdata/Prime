@@ -712,7 +712,8 @@
 .pe-audit-cab > .bi { font-size: 15px; }
 .pe-audit-cab--integra { color: var(--pe-ok-cor); }
 .pe-audit-cab--alterada { color: var(--pe-perigo); }
-.pe-audit-cab--nao-selada { color: var(--pe-alerta-cor); }
+.pe-audit-cab--nao-selada,
+.pe-audit-cab--trecho-sem-selo { color: var(--pe-alerta-cor); }
 .pe-audit-rolagem { max-height: 380px; overflow: auto; }
 .pe-tab td.pe-audit-detalhe { white-space: normal; min-width: 200px; }
 .pe-audit-selo { font-size: 12px; color: var(--pe-info-cor); }

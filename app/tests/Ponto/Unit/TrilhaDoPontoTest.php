@@ -62,6 +62,20 @@ final class TrilhaDoPontoTest extends TestCase
         self::assertNull($this->eventosDaTrilha[0]['autor_nome'], 'sem autor (fora de uma sessão)');
     }
 
+    #[TestDox('Falta do segredo no meio: a linha sem selo guarda o último selo, e a selada seguinte se prende a ele')]
+    public function testFaltaDoSegredoNoMeio(): void
+    {
+        $this->trilhaDeTeste('segredo-de-teste')->registrar($this->escritorio(9), null, 'batida_registrada', []);
+        $this->trilhaDeTeste('')->registrar($this->escritorio(9), null, 'batida_registrada', []);
+        $this->trilhaDeTeste('')->registrar($this->escritorio(9), null, 'batida_registrada', []);
+        $this->trilhaDeTeste('segredo-de-teste')->registrar($this->escritorio(9), null, 'batida_registrada', []);
+
+        $primeiroSelo = $this->eventosDaTrilha[0]['selo'];
+        self::assertNotNull($primeiroSelo);
+        self::assertSame([null, null], [$this->eventosDaTrilha[1]['selo'], $this->eventosDaTrilha[2]['selo']]);
+        self::assertSame([$primeiroSelo, $primeiroSelo, $primeiroSelo], array_column(\array_slice($this->eventosDaTrilha, 1), 'selo_anterior'));
+    }
+
     #[TestDox('Sem nome completo, o nome do autor é o e-mail')]
     public function testAutorSemNome(): void
     {

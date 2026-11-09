@@ -1632,19 +1632,25 @@ final class TenantController extends AbstractController
     }
 
     /**
-     * Confirma o lote lançado já abonado pelo gestor (novaJustificativaAdmin) com o evento da trilha do Ponto (E9) no
-     * mesmo COMMIT. O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver PROVADO que nada
-     * foi confirmado; num COMMIT de resultado incerto as justificativas podem existir e apontar para ele, e o arquivo
-     * fica (E2.5, INV-6). A exceção original sobe.
+     * Confirma o lote lançado já abonado pelo gestor (novaJustificativaAdmin) com os eventos da trilha do Ponto (E9) no
+     * mesmo COMMIT: "Justificativa lançada já abonada" e, para cada batida que o esquecimento criou, o mesmo "Batida do
+     * esquecimento abonado" da análise (`RegistrarBatidaDoEsquecimentoUseCase`). O arquivo foi gravado antes da
+     * transação. Se ela falhar, ele só sai quando estiver PROVADO que nada foi confirmado; num COMMIT de resultado
+     * incerto as justificativas podem existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original
+     * sobe.
      *
-     * @param list<JustificativaPonto> $lancadas
+     * @param list<JustificativaPonto>                          $lancadas
+     * @param list<array{0: RegistroPonto, 1: JustificativaPonto}> $batidas  as batidas do esquecimento, com a justificativa de cada uma
      */
-    private function confirmarLancamento(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, Tenant $tenant, User $gestor, array $lancadas, ?ChaveDeArquivo $chaveAnexo): void
+    private function confirmarLancamento(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, Tenant $tenant, User $gestor, array $lancadas, array $batidas, ?ChaveDeArquivo $chaveAnexo): void
     {
         $this->transacao->executar(
-            static function () use ($entityManager, $trilha, $tenant, $gestor, $lancadas): void {
+            static function () use ($entityManager, $trilha, $tenant, $gestor, $lancadas, $batidas): void {
                 $entityManager->flush();
                 $trilha->registrar($tenant, $gestor, AcaoDaTrilhaDoPonto::JustificativaLancada->value, DetalheDaTrilhaDoPonto::doLote($lancadas));
+                foreach ($batidas as [$batida, $justificativa]) {
+                    $trilha->registrar($tenant, $gestor, AcaoDaTrilhaDoPonto::BatidaDoEsquecimento->value, DetalheDaTrilhaDoPonto::daBatidaDoEsquecimento($batida, $justificativa));
+                }
             },
             static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
             'TenantController::novaJustificativaAdmin: atestado do lote',
@@ -1846,6 +1852,7 @@ final class TenantController extends AbstractController
         $batchId    = bin2hex(random_bytes(16));
         $isFaltaNaoJustificada = $tipo === 'falta_nao_justificada';
         $lancadas   = [];
+        $batidas    = [];
 
         foreach ($datasValidas as $dataObj) {
             $justificativa = new JustificativaPonto();
@@ -1881,10 +1888,11 @@ final class TenantController extends AbstractController
                 $registro->setTipo($tipoRegEsquecido);
                 $registro->setObservacao(SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN);
                 $entityManager->persist($registro);
+                $batidas[] = [$registro, $justificativa];
             }
         }
 
-        $this->confirmarLancamento($entityManager, $trilha, $tenant, $currentUser, $lancadas, $chaveAnexo);
+        $this->confirmarLancamento($entityManager, $trilha, $tenant, $currentUser, $lancadas, $batidas, $chaveAnexo);
 
         if ($isFaltaNaoJustificada) {
             $this->addFlash('success', sprintf('Falta registrada como não justificada para %d dia(s).', count($datasValidas)));
