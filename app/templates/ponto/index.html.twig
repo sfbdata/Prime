@@ -568,24 +568,26 @@
 
         // Sem meta (feriado, dia fora da escala), sem previsão nem lembrete de saída, antes ou depois do repouso. Antes
         // do repouso batido, a conta do sistema: entrada + duração da escala de hoje, com o almoço da escala (a 1h do
-        // protótipo é valor de exemplo). Depois do repouso: entrada + meta do dia + intervalo, o batido se houver;
-        // senão o mínimo da Jornada do escritório, só quando a escala tem almoço (duração maior que a meta). Em repouso
-        // (decisão do Coordenador de 09/11/2026), o maior entre o intervalo já feito até `agora` e esse previsto: com 1h05
-        // de intervalo e mínimo de 1h, a saída anda 5 min. Quem chama no repouso passa `agora`, a cada tique do relógio.
+        // protótipo é valor de exemplo). Com o intervalo batido: entrada + meta do dia + o intervalo batido. Sem ele (em
+        // repouso; decisão do Coordenador de 09/11/2026), coerente com a de antes do repouso: sem escala, nenhuma; com
+        // ela, entrada + meta + o maior entre o intervalo já feito até `agora` e o piso. O piso é o maior entre o mínimo
+        // da Jornada do escritório e o almoço da escala (duração menos meta), só quando a escala tem almoço; sem almoço,
+        // zero. Escala 08-12/14-18 (meta 480, mínimo 60): 18:00 antes e no começo do repouso, 18:10 com 2h10 de
+        // repouso. Quem chama no repouso passa `agora`, a cada tique do relógio.
         function saidaPrevista(agora) {
             if (!tEntrada || metaDiaMinutos <= 0) return null;
             if (!tRepouso) {
                 return duracaoMinutos === null ? null : new Date(tEntrada.getTime() + duracaoMinutos * 60000);
             }
-            const escalaTemIntervalo = duracaoMinutos === null || duracaoMinutos > metaDiaMinutos;
-            let intervaloMs = escalaTemIntervalo ? intervaloPrevistoMinutos * 60000 : 0;
-            if (tRepouso && tRetorno && tRetorno > tRepouso) {
-                intervaloMs = tRetorno - tRepouso;
-            } else if (agora && !tRetorno && !tSaida) {
-                intervaloMs = Math.max(intervaloMs, agora - tRepouso);
+            if (tRetorno && tRetorno > tRepouso) {
+                return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + (tRetorno - tRepouso));
             }
+            if (duracaoMinutos === null) return null;
+            const almocoDaEscalaMs = Math.max(0, duracaoMinutos - metaDiaMinutos) * 60000;
+            const pisoMs = almocoDaEscalaMs > 0 ? Math.max(intervaloPrevistoMinutos * 60000, almocoDaEscalaMs) : 0;
+            const feitoMs = agora && !tRetorno && !tSaida ? agora - tRepouso : 0;
 
-            return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + intervaloMs);
+            return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + Math.max(feitoMs, pisoMs));
         }
 
         // Redesenha só quando o texto muda (o relógio chama a cada segundo). Texto e ícone via DOM, sem innerHTML.
@@ -629,7 +631,9 @@
                 const minimo = formatarMinimo(minimoRepousoMinutos);
                 const restante = minimoRepousoMinutos * 60 - decorrido;
                 if (restante > 0) {
-                    mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento há ' + emIntervaloHa + '. O mínimo de ' + minimo + ' se completa em ' + formatarHorasMinutos(restante) + '.' + saida);
+                    // Arredondado para cima, no minuto: 17min50s dá 00:18, e os últimos 59 s dão 00:01, nunca 00:00.
+                    const faltaEmMinutos = Math.ceil(restante / 60);
+                    mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento há ' + emIntervaloHa + '. O mínimo de ' + minimo + ' se completa em ' + formatarHorasMinutos(faltaEmMinutos * 60) + '.' + saida);
                     return;
                 }
                 mostrarAvisoDoDia('success', 'bi-check-circle', 'Intervalo mínimo de ' + minimo + ' cumprido. Em intervalo há ' + emIntervaloHa + '.' + saida);
