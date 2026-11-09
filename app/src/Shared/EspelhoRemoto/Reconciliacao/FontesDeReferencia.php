@@ -61,6 +61,8 @@ final class FontesDeReferencia implements FonteDeReferencias
         'assinatura_documento_arquivo' => ['sql' => 'SELECT id, tenant_id AS tenant, arquivo_enviado_chave AS valor FROM assinatura_eletronica_documento WHERE arquivo_enviado_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
         'assinatura_documento_logo' => ['sql' => 'SELECT id, tenant_id AS tenant, logo_chave AS valor FROM assinatura_eletronica_documento WHERE logo_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
         'assinatura_configuracao_logo' => ['sql' => 'SELECT id, tenant_id AS tenant, logo_padrao_chave AS valor FROM assinatura_eletronica_configuracao WHERE logo_padrao_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
+        // A rubrica de quem assinou: o escritório vem do documento, a linha do signatário não tem tenant próprio.
+        'assinatura_signatario_rubrica' => ['sql' => 'SELECT s.id, d.tenant_id AS tenant, s.rubrica_chave AS valor FROM assinatura_eletronica_signatario s JOIN assinatura_eletronica_documento d ON d.id = s.documento_id WHERE s.rubrica_chave IS NOT NULL ORDER BY s.id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
     ];
 
     /** As categorias sem escritório: o escopo é global, e a coluna de escritório não existe (vem NULL). */
