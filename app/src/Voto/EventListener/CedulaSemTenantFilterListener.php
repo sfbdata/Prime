@@ -10,7 +10,7 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Desliga o `TenantFilter` na cédula pública da assembleia (`voto_assembleia_cedula*`, `/votar/{token}`).
+ * Desliga o `TenantFilter` na cédula pública da assembleia (`voto_assembleia_cedula` e `voto_assembleia_cedula_votar`, `/votar/{token}`).
  *
  * A página é do morador, que não é do escritório. Sem login o filtro já fica desligado; mas quem abre o link logado
  * (alguém da equipe conferindo o link, ou um morador que tem conta em outro escritório) teria o filtro ligado no
@@ -21,7 +21,11 @@ use Symfony\Component\HttpKernel\KernelEvents;
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 3)]
 final class CedulaSemTenantFilterListener
 {
-    public const PREFIXO_DAS_ROTAS = 'voto_assembleia_cedula';
+    /**
+     * Nomes exatos, não prefixo: uma rota da equipe que começasse com o mesmo nome (uma prévia da cédula, por exemplo)
+     * rodaria logada com o filtro de escritório desligado.
+     */
+    public const ROTAS = ['voto_assembleia_cedula', 'voto_assembleia_cedula_votar'];
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -35,7 +39,7 @@ final class CedulaSemTenantFilterListener
         }
 
         $rota = (string) $event->getRequest()->attributes->get('_route', '');
-        if (!str_starts_with($rota, self::PREFIXO_DAS_ROTAS)) {
+        if (!in_array($rota, self::ROTAS, true)) {
             return;
         }
 

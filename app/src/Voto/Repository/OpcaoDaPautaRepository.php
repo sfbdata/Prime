@@ -49,6 +49,11 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
      * unidade de trabalho do Doctrine, nada vai para o audit_log. Tem de rodar na MESMA transação do INSERT da
      * participação. A instância em memória não muda (ver OpcaoDaPauta).
      *
+     * O UPDATE toca TODAS as opções da pauta (as outras somam zero). Se tocasse só a escolhida, a versão nova da linha
+     * levaria o id da transação do voto (coluna oculta `xmin` do PostgreSQL), o mesmo bloco de ids da participação
+     * gravada junto: um SELECT de leitura ligaria a unidade à opção. Com todas tocadas, a pauta inteira leva a mesma
+     * marca e a escolha não aparece.
+     *
      * @param string $peso decimal não negativo com ponto (UnidadeDaAssembleia::pesoDoVoto())
      */
     public function somarVoto(OpcaoDaPauta $opcao, string $peso): void
@@ -58,8 +63,13 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
         }
         $afetadas = $this->getEntityManager()->getConnection()->executeStatement(
             'UPDATE voto.assembleia_opcao
-                SET total_unidades = total_unidades + 1, total_peso = total_peso + CAST(:peso AS NUMERIC)
-              WHERE id = :opcao AND pauta_id = :pauta AND tenant_id = :tenant',
+                SET total_unidades = total_unidades + CASE WHEN id = :opcao THEN 1 ELSE 0 END,
+                    total_peso = total_peso + CASE WHEN id = :opcao THEN CAST(:peso AS NUMERIC) ELSE 0 END
+              WHERE pauta_id = :pauta AND tenant_id = :tenant
+                AND EXISTS (
+                    SELECT 1 FROM voto.assembleia_opcao escolhida
+                     WHERE escolhida.id = :opcao AND escolhida.pauta_id = :pauta AND escolhida.tenant_id = :tenant
+                )',
             [
                 'peso' => $peso,
                 'opcao' => $opcao->getId(),
@@ -67,7 +77,7 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
                 'tenant' => $opcao->getTenant()->getId(),
             ],
         );
-        if (1 !== $afetadas) {
+        if ($afetadas < 1) {
             throw new \RuntimeException('A opção do voto não foi encontrada.');
         }
     }
