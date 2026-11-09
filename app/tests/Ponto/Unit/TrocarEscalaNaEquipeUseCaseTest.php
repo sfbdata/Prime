@@ -38,6 +38,8 @@ use Symfony\Component\Clock\MockClock;
 #[Group('ponto')]
 final class TrocarEscalaNaEquipeUseCaseTest extends TestCase
 {
+    use TrilhaDoPontoDeTesteTrait;
+
     private const AGORA = '2026-11-09 15:30:00';
 
     private UserRepository&MockObject $usuarios;
@@ -53,6 +55,7 @@ final class TrocarEscalaNaEquipeUseCaseTest extends TestCase
         $this->jornadas = $this->createMock(JornadaColaboradorRepository::class);
         $this->pessoa = (new User())->setEmail('ana@test.com');
         $this->escritorio = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->escritorio, 7);   // a trilha (E9) é por escritório gravado
     }
 
     #[TestDox('Pessoa que não existe ou sem vínculo ativo no escritório: fora da equipe, nada gravado')]
@@ -154,7 +157,7 @@ final class TrocarEscalaNaEquipeUseCaseTest extends TestCase
             $this->vinculos,
             $this->jornadas,
             $choque,
-            new SalvarVersaoDaJornadaUseCase($this->jornadas),
+            new SalvarVersaoDaJornadaUseCase($this->jornadas, $this->trilhaDeTeste()),
             new MockClock(self::AGORA),
         );
     }

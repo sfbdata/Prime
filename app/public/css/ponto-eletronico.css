@@ -1042,7 +1042,6 @@
 .pe-config-erro { flex-basis: 100%; font-size: 12px; color: var(--pe-perigo); padding-left: 30px; }
 .pe-config-trava[hidden],
 .pe-config-erro[hidden] { display: none; }
-=======
 /* ── Aba Equipe (etapa E5, L210 a L219 do desenho) ───────────────────────────────────────────────
    Classes do desenho com o prefixo da tela: bjpT = pe-tab; a linha bjpJ (sem regra no desenho) = pe-eq-lin. Os
    valores são os do estilo em linha do desenho, com os tokens da tela no lugar dos hex (o tema escuro troca os
