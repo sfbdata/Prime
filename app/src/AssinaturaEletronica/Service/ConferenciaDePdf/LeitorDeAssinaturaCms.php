@@ -14,6 +14,8 @@ final class LeitorDeAssinaturaCms
     private const OID_DADOS_ASSINADOS = '2a864886f70d010702';
     private const OID_RESUMO_DA_MENSAGEM = '2a864886f70d010904';
     private const OID_HORA_DA_ASSINATURA = '2a864886f70d010905';
+    /** adbe-revocationInfoArchival (1.2.840.113583.1.1.8): LCRs e OCSPs guardados pelo Acrobat, que o motor não lê. */
+    private const OID_ARQUIVO_DE_REVOGACAO = '2a864886f72f010108';
     /** OIDs de resumo do protótipo (`DIG`). */
     private const RESUMOS = [
         '608648016503040201' => 'SHA-256',
@@ -46,7 +48,7 @@ final class LeitorDeAssinaturaCms
      */
     public function conferir(string $der, string $pdf, int $tamanho1, int $inicio2, int $tamanho2): ConferenciaDoCms
     {
-        $informacao = LeitorDer::filhos($der, LeitorDer::abrir($der));
+        $informacao = LeitorDer::filhos($der, LeitorDer::abrir($der, self::opacos($der)));
         if (LeitorDer::hex($der, LeitorDer::item($informacao, 0)) !== self::OID_DADOS_ASSINADOS) {
             throw new FormatoNaoReconhecido('O CMS não é SignedData.');
         }
@@ -136,6 +138,51 @@ final class LeitorDeAssinaturaCms
         };
 
         return new ConferenciaDoCms($algoritmo, $resumoConfere, $chave->confere, $certificado, $hora, $motivo);
+    }
+
+    /**
+     * Posições dos containers que o motor não lê (M23): as LCRs do SignedData (crls, [1]), os SignerInfos depois do
+     * primeiro, o valor do atributo adbe-revocationInfoArchival e os atributos não assinados ([1] do SignerInfo). Num
+     * PDF com validação de longo prazo eles passam fácil de 50.000 elementos; a validação só confere que cabem no pai.
+     * Estrutura fora do esperado devolve o que achou até ali: a validação completa e a leitura dão o motivo depois.
+     *
+     * @return array<int, true>
+     */
+    private static function opacos(string $der): array
+    {
+        $opacos = [];
+        try {
+            $informacao = LeitorDer::filhos($der, LeitorDer::ler($der, 0, \strlen($der)));
+            $dados = LeitorDer::filhos($der, LeitorDer::primeiroFilho($der, LeitorDer::item($informacao, 1)));
+            foreach ($dados as $no) {
+                if ($no->etiqueta === 0xA1) {
+                    $opacos[$no->inicio] = true;
+                }
+            }
+            $signatarios = LeitorDer::filhos($der, LeitorDer::item($dados, \count($dados) - 1));
+            foreach (\array_slice($signatarios, 1) as $outro) {
+                $opacos[$outro->inicio] = true;
+            }
+            foreach (LeitorDer::filhos($der, LeitorDer::item($signatarios, 0)) as $campo) {
+                if ($campo->etiqueta === 0xA1) {
+                    $opacos[$campo->inicio] = true;
+                    continue;
+                }
+                if ($campo->etiqueta !== 0xA0) {
+                    continue;
+                }
+                foreach (LeitorDer::filhos($der, $campo) as $atributo) {
+                    $partes = LeitorDer::filhos($der, $atributo);
+                    if (LeitorDer::hex($der, LeitorDer::item($partes, 0)) === self::OID_ARQUIVO_DE_REVOGACAO) {
+                        $opacos[LeitorDer::item($partes, 1)->inicio] = true;
+                    }
+                }
+            }
+        } catch (FormatoNaoReconhecido) {
+            // Fica com o que achou; a validação completa diz o que está errado.
+        }
+
+        return $opacos;
     }
 
     /**

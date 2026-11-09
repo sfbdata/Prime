@@ -20,6 +20,9 @@ final class MontadorDeDer
     public const OID_RSA = '1.2.840.113549.1.1.1';
     public const OID_RSA_PSS = '1.2.840.113549.1.1.10';
     public const OID_MGF1 = '1.2.840.113549.1.1.8';
+    public const OID_ARQUIVO_DE_REVOGACAO = '1.2.840.113583.1.1.8';
+    public const OID_CARIMBO_DA_ASSINATURA = '1.2.840.113549.1.9.16.2.14';
+    public const OID_SHA256_COM_RSA = '1.2.840.113549.1.1.11';
 
     private function __construct()
     {

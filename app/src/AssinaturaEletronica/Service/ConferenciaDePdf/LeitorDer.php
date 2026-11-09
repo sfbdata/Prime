@@ -7,7 +7,8 @@ namespace App\AssinaturaEletronica\Service\ConferenciaDePdf;
 /**
  * Leitura de DER com limites: a porta do `tlv`, `fi`, `val`, `bruto`, `txt` e `dataAsn` do protótipo
  * (`bj-assina-pdf.js`). Toda estrutura vinda de fora entra por `abrir()`, que confere a árvore inteira (tamanhos dentro
- * do pai, profundidade e quantidade de elementos) antes de qualquer navegação. Qualquer desvio lança
+ * do pai, profundidade e quantidade de elementos) antes de qualquer navegação, menos o interior dos containers que o
+ * motor não lê (M23). Qualquer desvio lança
  * `FormatoNaoReconhecido` (ou `LimiteExcedido`), que o motor transforma em motivo.
  */
 final class LeitorDer
@@ -18,14 +19,18 @@ final class LeitorDer
 
     /**
      * A estrutura que começa no byte 0. Bytes depois dela são ignorados, como o preenchimento de zeros do /Contents.
+     * Os elementos que começam numa das posições de `$opacos` só precisam caber no pai: a validação não desce neles
+     * nem conta o que têm dentro (M23).
+     *
+     * @param array<int, true> $opacos
      *
      * @throws FormatoNaoReconhecido
      */
-    public static function abrir(string $der): NoDer
+    public static function abrir(string $der, array $opacos = []): NoDer
     {
         $raiz = self::ler($der, 0, \strlen($der));
         $elementos = 0;
-        self::validar($der, $raiz, 1, $elementos);
+        self::validar($der, $raiz, 1, $elementos, $opacos);
 
         return $raiz;
     }
@@ -179,13 +184,17 @@ final class LeitorDer
         return (new \DateTimeImmutable('@0'))->setDate($ano, $mes, $dia)->setTime($hora, $minuto, $segundo);
     }
 
-    /** @throws FormatoNaoReconhecido */
-    private static function validar(string $der, NoDer $no, int $profundidade, int &$elementos): void
+    /**
+     * @param array<int, true> $opacos
+     *
+     * @throws FormatoNaoReconhecido
+     */
+    private static function validar(string $der, NoDer $no, int $profundidade, int &$elementos, array $opacos): void
     {
         if (++$elementos > LimitesDaConferencia::ELEMENTOS_MAXIMOS_DER) {
             throw new LimiteExcedido('Elementos DER demais.');
         }
-        if (!$no->construido()) {
+        if (!$no->construido() || isset($opacos[$no->inicio])) {
             return;
         }
         if ($profundidade >= LimitesDaConferencia::PROFUNDIDADE_MAXIMA_DER) {
@@ -195,7 +204,7 @@ final class LeitorDer
         $posicao = $no->valor;
         while ($posicao < $no->fim) {
             $filho = self::ler($der, $posicao, $no->fim);
-            self::validar($der, $filho, $profundidade + 1, $elementos);
+            self::validar($der, $filho, $profundidade + 1, $elementos, $opacos);
             $posicao = $filho->fim;
         }
     }
