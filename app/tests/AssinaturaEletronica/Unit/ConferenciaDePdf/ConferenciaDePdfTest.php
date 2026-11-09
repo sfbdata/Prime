@@ -201,10 +201,7 @@ final class ConferenciaDePdfTest extends TestCase
     {
         $chaveEc = OficinaDePdfAssinado::chave('ec');
         $primeira = OficinaDePdfAssinado::pdfAssinado('rsa');
-        $segunda = OficinaDePdfAssinado::assinar(
-            OficinaDePdfAssinado::acrescimoParaAssinar($primeira),
-            OficinaDePdfAssinado::cmsDoOpenssl($chaveEc, OficinaDePdfAssinado::certificado($chaveEc, 'BELTRANO:' . OficinaDePdfAssinado::CPF_2)),
-        );
+        $segunda = OficinaDePdfAssinado::pdfAssinadoComVinculo('ec', OficinaDePdfAssinado::certificado($chaveEc, 'BELTRANO:' . OficinaDePdfAssinado::CPF_2), $primeira);
 
         $resultado = $this->motor->conferir($segunda, $primeira, '111.444.777-35');
 
@@ -296,7 +293,24 @@ final class ConferenciaDePdfTest extends TestCase
     #[TestDox('CPF esperado $_dataName')]
     public function testCpfEsperado(?string $cpf, ConferenciaDoCpf $esperado): void
     {
-        self::assertSame($esperado, $this->motor->conferir(OficinaDePdfAssinado::pdfAssinado(), null, $cpf)->cpf);
+        self::assertSame($esperado, $this->motor->conferir(OficinaDePdfAssinado::pdfAssinadoComVinculo(), null, $cpf)->cpf);
+    }
+
+    #[TestDox('CPF certo, mas assinatura alterada, sem vínculo do certificado ou com certificado trocado: não conferido (M26)')]
+    public function testCpfNaoConferido(): void
+    {
+        $vinculado = OficinaDePdfAssinado::pdfAssinadoComVinculo();
+        $posicao = (int) strrpos($vinculado, '/MediaBox[0 0 595 842]');
+        $alterado = substr_replace($vinculado, 'm', $posicao + 1, 1);
+        $trocado = OficinaDePdfAssinado::alterarCms($vinculado, static fn (string $der): string => str_replace(OficinaDePdfAssinado::TITULAR, 'BELTRA DE TAL', $der));
+
+        foreach (['assinatura alterada' => $alterado, 'sem vínculo' => OficinaDePdfAssinado::pdfAssinado(), 'certificado trocado' => $trocado] as $caso => $pdf) {
+            $resultado = $this->motor->conferir($pdf, null, OficinaDePdfAssinado::CPF);
+            self::assertSame(OficinaDePdfAssinado::CPF, $resultado->ultimaAssinatura()?->cpf, $caso);
+            self::assertSame(ConferenciaDoCpf::NaoConferido, $resultado->cpf, $caso);
+        }
+        self::assertSame(ConferenciaDoCpf::Confere, $this->motor->conferir($vinculado, null, OficinaDePdfAssinado::CPF)->cpf);
+        self::assertStringContainsString('não está íntegra', ConferenciaDoCpf::NaoConferido->motivo());
     }
 
     #[TestDox('CPF esperado sem CPF no certificado, sem assinatura ou sem assinatura nova depois da versão anterior')]
@@ -485,7 +499,7 @@ final class ConferenciaDePdfTest extends TestCase
     #[TestDox('carimbo do tempo do documento: não conferido (sem falso "alterada") e fora da conferência do CPF (M15)')]
     public function testCarimboDoTempo(): void
     {
-        $primeira = OficinaDePdfAssinado::pdfAssinado();
+        $primeira = OficinaDePdfAssinado::pdfAssinadoComVinculo();
         $pdf = OficinaDePdfAssinado::assinar(
             OficinaDePdfAssinado::acrescimoParaAssinar($primeira, '', 'ETSI.RFC3161'),
             OficinaDePdfAssinado::cmsDoOpenssl(OficinaDePdfAssinado::chave('ec'), OficinaDePdfAssinado::certificado(OficinaDePdfAssinado::chave('ec'), 'ACT DE TESTE')),
