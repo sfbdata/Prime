@@ -24,6 +24,20 @@ final class VerificadorDeChaveTest extends TestCase
     private const PSS_MENSAGEM = 'BlueJus confere RSA-PSS';
     private const PSS_ASSINATURA = 'IxHyLvaAnUveqKwsye4hxU+vqJSKXSWZeLxrbbEiusU3tBXjCfm0S2E4G/bWdyfCsFbq2yU4yON4gZvg7e8DAWwVqlBab0FAQOJMJyq1EvKE9GGXAFb0Yx8U0OqRVMxfYgD/jUzOYV+pOoThn1uisBpA1imhf5idTK8rCn00KpfXNPFM+WWqWovl97VSpxfJHr2gYMHfXcpqvXT8BQDB3ct4icZUxUrE396jWM+dcpfgpT9hJcboOVeXRu97EAlthWQSG1BuHvlyZFtzjUU+OYVjs4gan38QZwyM8+nutHIQCBtoR5AXl9MhFbcDdxRW/8M8JvFDCAVXA+v+f7hAag==';
 
+    /**
+     * Vetores do mesmo comando com chaves de 1025 e 2047 bits (`openssl genpkey -pkeyopt rsa_keygen_bits:N`). Com 1025
+     * bits o bloco aberto tem um byte a mais que o EM (emLen = k - 1); com 2047, os dois bits de cima do EM precisam
+     * ser zero. Os vetores `*_BYTE_ALTO` são o EM válido de cada um com o byte de cima trocado (01 no bloco de 1025 e o
+     * bit 0x40 ligado no de 2047), assinado em modo cru (`openssl pkeyutl -decrypt -pkeyopt rsa_padding_mode:none`):
+     * sem as conferências do topo, eles passariam.
+     */
+    private const PSS_1025_CHAVE = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQGuwqxEoAoWJ3xWd2hNC1ripf4ShqnTgRR5WhXZ8rwdZKDi3P9+xp9Zyx078PdSEj6WFZNKmuWv4ee5N4Ouv2HU3zDm0kaYMEagOsyLt0oR8LZck/hZNHi0Yb8z0I/oAvA8tFktnITcwMSAJefEqpeWEgHCDscUQSa9wFlFkb1rawIDAQAB';
+    private const PSS_1025_ASSINATURA = 'AXRSMrC8dlTlRxECZMX+2ywAyyIlmLiRt07xQMTdsI2F0joYlFp+xklpfHZQT7ZQyfBoCgjxDeGHEe/jWE0BYZ3ZXrKK2dcrG24nRSbU9YKdpJPAwNSKHqz/fdKX6YruAELL6eSnLWI0wlO7L5jW9KoWwvFAHUKDFhHJhH1BpWUb';
+    private const PSS_1025_BYTE_ALTO = 'AUFzDx+dGk2PxcMb+hIsRNVG25C2yeTHc4vvatm857MOkFgIQtY4cSf0F+jREaAdFVnwGMC8obs/6UonMoW/SciVvqY6KZtJlQCeXJIIt2xEXCc0acy/+BA3klj3pDjGfPHJZJfcXmIjs5BohX5xkoexqTAyhY3PRtKcC/yKWw5J';
+    private const PSS_2047_CHAVE = 'MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBZpIGH/3T+h8ARfypua+ae+naIkic574hr1/0qrv+UEut8nvDAFzGQJJ5LzdVJgchbARS2XNVnbxVrFxtcfmLBN6Ny9GVpqbniT3X717ScF62jOck0qBif1wL0twR7oJNt3OwdkUCb5lMfsjttLLz071TaWZjfT3qJgDHluWyfR9pBl1HD0z6HjCUanvS9zwcyAhTDAYOLfqTsBPuyPyz3UdRmqKr5HbJA4nGJW4xzf3XMYk3t4txDTI1sRmcy9siafQMPtkKOISwglBVxLsGHACII4EA89ZETgC33coxT+EpYHpoKlXdcqRNbdJ/l4IKzIpygOVVG4PMz3sT604arAgMBAAE=';
+    private const PSS_2047_ASSINATURA = 'LieHwi4e9UeUJAzbnyjmA0SNYadThkeCX1hLcc0tUKRpe4ffkWqWdMSxRkcKxwd2XSWh9rTXmIJgPFAhMAhnBff2so9nIEh5wPmQ8RhmdL90haUj2ZtBG7Gl7NGDJ6UxTz/0nUmlGz9YdRC1kOyt0IHkXSng3Ff0G2NNfpFqBHRNWvFbSBfwBsx6+4g2aCCwvXXHySywWX7dQbGrdRjwZ/l69ev/K74sfIMTKjSXkKaEC/BfJM75ZXJOtRPH1PaFZs3fYRMLtSsSbVbzWGDLhHV9GJqB1wRQxG3DHvBw6rWSTv9gZV7tnmrk486Pd2L7vRdXLd7avux6plEObE0NRA==';
+    private const PSS_2047_BYTE_ALTO = 'MSavSyFbp/6XvTZCZj/J96Us17PRNyBpSDKAuxLWyDg7cuYQ5gUCv8bbMNv87pajN9+biTcKYju+zP04OEpONRUKW0bvuxiAXCn0IXCj+56h91TePPcJMQ69I3Y/pEEvh+kwBKCoG4gmputPfMxKMyizvp25UH1jqqd2sc813DGSEW/SVqWmgoJxj2zW6yKIMD/LS6Aec8KwChU/RuDIu39p9semMRVElGxMhiAChzVkUDycJEy9FqTgozeKQw9dB60QQAK4GjVsXD/Y4hSMz3jJSNfhEVAS3iuZ5InfaSVcW9sn5V27/3O7VwQj5KllLoueV0LWYVgwxggqG1X4Uw==';
+
     private const OID_PSS = '2a864886f70d01010a';
     private const OID_RSA = '2a864886f70d010101';
     private const OID_ECDSA_SHA256 = '2a8648ce3d040302';
@@ -52,6 +66,19 @@ final class VerificadorDeChaveTest extends TestCase
         self::assertFalse($this->verificador->pss(self::PSS_MENSAGEM, substr($assinatura, 1), self::chavePss(), 'SHA-256')->confere);
         self::assertFalse($this->verificador->pss(self::PSS_MENSAGEM, str_repeat("\xFF", 256), self::chavePss(), 'SHA-256')->confere);
         self::assertFalse($this->verificador->pss(self::PSS_MENSAGEM, $assinatura, self::chavePss(), 'SHA-512')->confere, 'sal de 64 bytes não é o do vetor');
+    }
+
+    #[TestDox('RSA-PSS com chave de 1025 e 2047 bits: o vetor do OpenSSL confere e o byte de cima trocado não')]
+    public function testPssComChaveForaDoMultiploDeOito(): void
+    {
+        $chave1025 = (string) base64_decode(self::PSS_1025_CHAVE, true);
+        $chave2047 = (string) base64_decode(self::PSS_2047_CHAVE, true);
+
+        self::assertTrue($this->verificador->pss(self::PSS_MENSAGEM, (string) base64_decode(self::PSS_1025_ASSINATURA, true), $chave1025, 'SHA-256')->confere);
+        self::assertTrue($this->verificador->pss(self::PSS_MENSAGEM, (string) base64_decode(self::PSS_2047_ASSINATURA, true), $chave2047, 'SHA-256')->confere);
+        self::assertFalse($this->verificador->pss(self::PSS_MENSAGEM, (string) base64_decode(self::PSS_1025_BYTE_ALTO, true), $chave1025, 'SHA-256')->confere, 'byte a mais do bloco aberto diferente de zero');
+        self::assertFalse($this->verificador->pss(self::PSS_MENSAGEM, (string) base64_decode(self::PSS_2047_BYTE_ALTO, true), $chave2047, 'SHA-256')->confere, 'bit acima de emBits ligado');
+        self::assertFalse($this->verificador->pss(self::PSS_MENSAGEM . '.', (string) base64_decode(self::PSS_2047_ASSINATURA, true), $chave2047, 'SHA-256')->confere);
     }
 
     #[TestDox('RSA-PSS com chave EC, hash desconhecido ou chave ilegível: não conferido')]
