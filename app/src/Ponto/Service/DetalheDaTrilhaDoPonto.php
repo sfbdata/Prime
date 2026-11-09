@@ -35,6 +35,17 @@ final class DetalheDaTrilhaDoPonto
         ];
     }
 
+    /**
+     * A batida que o abono de um esquecimento criou: a da análise (`RegistrarBatidaDoEsquecimentoUseCase`) e a do
+     * lançamento já abonado pelo gestor (`TenantController::novaJustificativaAdmin`) gravam o mesmo detalhe.
+     *
+     * @return array<string, mixed>
+     */
+    public static function daBatidaDoEsquecimento(RegistroPonto $batida, JustificativaPonto $justificativa): array
+    {
+        return self::daBatida($batida) + ['justificativa_id' => $justificativa->getId()];
+    }
+
     /** @return array<string, mixed> */
     public static function daJustificativa(JustificativaPonto $justificativa): array
     {

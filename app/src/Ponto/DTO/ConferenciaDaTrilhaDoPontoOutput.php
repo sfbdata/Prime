@@ -6,8 +6,8 @@ namespace App\Ponto\DTO;
 
 /**
  * O resultado da conferência da trilha de auditoria de um escritório (E9): íntegra, alterada (com a sequência do
- * primeiro evento que não confere) ou não selada (sem segredo configurado, ou com um trecho inicial gravado antes do
- * selo). O texto é o do cabeçalho da aba Auditoria.
+ * primeiro evento que não confere), trecho sem selo (as faixas de eventos gravados sem selo; o resto confere) ou não
+ * selada (o servidor não tem o segredo: nada pode ser conferido). O texto é o do cabeçalho da aba Auditoria.
  */
 final class ConferenciaDaTrilhaDoPontoOutput
 {
@@ -15,17 +15,24 @@ final class ConferenciaDaTrilhaDoPontoOutput
     public const ALTERADA = 'alterada';
     public const NAO_SELADA = 'nao_selada';
 
+    /** Há eventos gravados sem selo (antes do segredo ou numa falta dele); os selados conferem. */
+    public const TRECHO_SEM_SELO = 'trecho_sem_selo';
+
     /** Não selada porque o servidor não tem `PONTO_HMAC_SECRET`: nada pode ser conferido. */
     public const SEM_SEGREDO = 'sem_segredo';
 
-    /** Não selada porque os primeiros eventos foram gravados antes do selo; os seguintes conferem. */
-    public const TRECHO_INICIAL = 'trecho_inicial';
+    /** Quantas faixas o texto do cabeçalho cita; as outras viram "e mais N trechos". */
+    private const FAIXAS_NO_TEXTO = 3;
 
+    /**
+     * @param list<array{0: int, 1: int}> $trechosSemSelo faixas [primeiro, último] dos eventos sem selo, em ordem
+     */
     private function __construct(
         public readonly string $situacao,
         public readonly ?int $sequenciaAlterada = null,
         public readonly ?string $motivoSemSelo = null,
-        public readonly ?int $ultimaSemSelo = null,
+        public readonly array $trechosSemSelo = [],
+        private readonly bool $temSelados = false,
     ) {
     }
 
@@ -44,22 +51,40 @@ final class ConferenciaDaTrilhaDoPontoOutput
         return new self(self::NAO_SELADA, motivoSemSelo: self::SEM_SEGREDO);
     }
 
-    public static function trechoInicial(int $ultimaSemSelo): self
+    /**
+     * @param list<array{0: int, 1: int}> $trechos   faixas [primeiro, último] dos eventos gravados sem selo
+     * @param bool                        $temSelados se a cadeia tem eventos selados (todos conferiram)
+     */
+    public static function trechoSemSelo(array $trechos, bool $temSelados): self
     {
-        return new self(self::NAO_SELADA, motivoSemSelo: self::TRECHO_INICIAL, ultimaSemSelo: $ultimaSemSelo);
+        return new self(self::TRECHO_SEM_SELO, trechosSemSelo: $trechos, temSelados: $temSelados);
     }
 
     public function texto(): string
     {
-        return match (true) {
-            $this->situacao === self::INTEGRA => 'Cadeia de eventos íntegra: cada evento é selado com o anterior. Registros originais nunca são sobrescritos.',
-            $this->situacao === self::ALTERADA => sprintf('Atenção: a cadeia de eventos foi alterada. O primeiro evento que não confere é o nº %d.', $this->sequenciaAlterada),
-            $this->motivoSemSelo === self::TRECHO_INICIAL => sprintf(
-                'Os eventos até o nº %d foram gravados antes do selo e não podem ser conferidos. Do nº %d em diante, cada evento é selado com o anterior.',
-                $this->ultimaSemSelo,
-                (int) $this->ultimaSemSelo + 1,
-            ),
+        return match ($this->situacao) {
+            self::INTEGRA => 'Cadeia de eventos íntegra: cada evento é selado com o anterior. Registros originais nunca são sobrescritos.',
+            self::ALTERADA => sprintf('Atenção: a cadeia de eventos foi alterada. O primeiro evento que não confere é o nº %d.', $this->sequenciaAlterada),
+            self::TRECHO_SEM_SELO => $this->textoDoTrecho(),
             default => 'Cadeia de eventos sem selo: a chave do selo não está configurada no servidor, então os eventos não podem ser conferidos.',
         };
+    }
+
+    private function textoDoTrecho(): string
+    {
+        $faixas = array_map(
+            static fn (array $faixa): string => $faixa[0] === $faixa[1] ? 'nº ' . $faixa[0] : sprintf('nº %d a %d', $faixa[0], $faixa[1]),
+            \array_slice($this->trechosSemSelo, 0, self::FAIXAS_NO_TEXTO),
+        );
+        $resto = \count($this->trechosSemSelo) - \count($faixas);
+        if ($resto > 0) {
+            $faixas[] = sprintf('mais %d %s', $resto, $resto === 1 ? 'trecho' : 'trechos');
+        }
+
+        $umSo  = \count($this->trechosSemSelo) === 1 && $this->trechosSemSelo[0][0] === $this->trechosSemSelo[0][1];
+        $lista = \count($faixas) === 1 ? $faixas[0] : implode(', ', \array_slice($faixas, 0, -1)) . ' e ' . $faixas[\count($faixas) - 1];
+        $texto = $umSo ? sprintf('O evento %s foi gravado sem selo.', $lista) : sprintf('Os eventos %s foram gravados sem selo.', $lista);
+
+        return $this->temSelados ? $texto . ' Os demais eventos conferem com o selo.' : $texto;
     }
 }

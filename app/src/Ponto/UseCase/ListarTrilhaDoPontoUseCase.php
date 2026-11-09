@@ -18,7 +18,8 @@ use App\Ponto\Service\DetalheDaTrilhaDoPonto;
  */
 final class ListarTrilhaDoPontoUseCase
 {
-    public const POR_PAGINA = 50;
+    /** O desenho manda (desenho 16, inventário 2.11, L313): 300 eventos por página. */
+    public const POR_PAGINA = 300;
 
     /** Caracteres do selo mostrados na coluna (o desenho mostra 8); o selo inteiro vai no `title`. */
     private const SELO_CURTO = 8;

@@ -63,14 +63,16 @@ class TrilhaDoPontoRepository extends ServiceEntityRepository
     }
 
     /**
-     * O último elo da cadeia do escritório, lido depois da trava.
+     * O último elo da cadeia do escritório, lido depois da trava: a sequência da última linha e o ÚLTIMO SELO da cadeia.
+     * Se a última linha entrou sem selo, o último selo é o que ela já carregava em `selo_anterior` (a próxima selada
+     * se prende à última selada, por cima do trecho sem selo; {@see \App\Ponto\Service\ConferenciaDaCadeiaDoPonto}).
      *
      * @return array{sequencia: int, selo: ?string}|null nulo quando a trilha ainda está vazia
      */
     public function ultimoElo(int $tenantId): ?array
     {
         $linha = $this->conexao()->fetchAssociative(
-            'SELECT sequencia, selo FROM ponto_auditoria WHERE tenant_id = ? ORDER BY sequencia DESC LIMIT 1',
+            'SELECT sequencia, COALESCE(selo, selo_anterior) AS selo FROM ponto_auditoria WHERE tenant_id = ? ORDER BY sequencia DESC LIMIT 1',
             [$tenantId],
         );
         if ($linha === false) {

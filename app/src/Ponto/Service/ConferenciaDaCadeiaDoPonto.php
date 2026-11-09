@@ -10,14 +10,26 @@ use App\Ponto\DTO\ConferenciaDaTrilhaDoPontoOutput;
  * A conta da conferência da trilha do Ponto (E9), sem banco: percorre a cadeia em ordem de sequência e para no
  * primeiro evento que não confere.
  *
- * Um evento não confere quando: falta a sequência esperada (linha apagada ou fora de ordem); o `selo_anterior` não é o
- * selo da linha de antes (linha trocada ou reordenada); a linha não tem selo depois de uma selada (selo apagado); a
- * versão da chave gravada não tem chave (versão desconhecida); ou o selo recalculado com a chave da versão GRAVADA
- * difere do guardado (qualquer coluna mexida). Pela versão gravada, a troca da chave atual não invalida o que a
- * anterior selou.
+ * ## O elo
  *
- * O trecho inicial sem selo (eventos gravados antes de o segredo existir) não é alteração: a conferência devolve "não
- * selada" até o último deles, e confere os selados dali em diante.
+ * Toda linha guarda em `selo_anterior` o ÚLTIMO SELO da cadeia antes dela (o da linha de antes, ou, se ela entrou sem
+ * selo, o último que existia), exatamente como a {@see TrilhaDoPonto} grava. Assim a primeira linha selada depois de um
+ * trecho sem selo se prende à última selada antes dele, e o trecho não solta a cadeia.
+ *
+ * ## Alterada
+ *
+ * Um evento não confere quando: falta a sequência esperada (linha apagada ou fora de ordem); o `selo_anterior` não é o
+ * último selo (linha trocada, reordenada ou selo apagado no meio); a versão da chave gravada não tem chave (versão
+ * desconhecida); ou o selo recalculado com a chave da versão GRAVADA difere do guardado (qualquer coluna mexida). Pela
+ * versão gravada, a troca da chave atual não invalida o que a anterior selou. Quando o elo quebra logo depois de linhas
+ * sem selo, o evento apontado é o primeiro delas: é ali que a cadeia deixou de conferir (o selo apagado de uma linha
+ * selada aparece assim).
+ *
+ * ## Trecho sem selo
+ *
+ * Linhas gravadas sem selo (antes de o segredo existir, ou numa falta temporária dele) não são alteração: o elo delas
+ * confere e a conferência devolve "trecho sem selo" com as faixas dos números, nunca "íntegra". O selo apagado da
+ * ÚLTIMA linha também aparece assim, com o número dela (não há linha depois para quebrar o elo).
  */
 final class ConferenciaDaCadeiaDoPonto
 {
@@ -29,39 +41,42 @@ final class ConferenciaDaCadeiaDoPonto
      */
     public static function conferir(iterable $cadeia, \Closure $chaveDaVersao): ConferenciaDaTrilhaDoPontoOutput
     {
-        $esperada      = 1;
-        $seloAnterior  = null;
-        $jaSelada      = false;
-        $ultimaSemSelo = null;
+        $esperada   = 1;
+        $ultimoSelo = null;
+        $aberto     = null;   // o trecho sem selo em curso: [primeiro, último]
+        $trechos    = [];
+        $seladas    = 0;
 
         foreach ($cadeia as $linha) {
             $sequencia = $linha['sequencia'];
             if ($sequencia !== $esperada) {
                 return ConferenciaDaTrilhaDoPontoOutput::alterada(min($sequencia, $esperada));
             }
-            if ($linha['selo_anterior'] !== $seloAnterior) {
-                return ConferenciaDaTrilhaDoPontoOutput::alterada($sequencia);
-            }
-
             ++$esperada;
-            $seloAnterior = $linha['selo'];
+            if ($linha['selo_anterior'] !== $ultimoSelo) {
+                return ConferenciaDaTrilhaDoPontoOutput::alterada($aberto[0] ?? $sequencia);
+            }
             if ($linha['selo'] === null) {
-                if ($jaSelada) {
-                    return ConferenciaDaTrilhaDoPontoOutput::alterada($sequencia);
-                }
-                $ultimaSemSelo = $sequencia;
+                $aberto = [$aberto[0] ?? $sequencia, $sequencia];
 
                 continue;
             }
             if (!self::seloConfere($linha, $chaveDaVersao)) {
                 return ConferenciaDaTrilhaDoPontoOutput::alterada($sequencia);
             }
-            $jaSelada = true;
+            if ($aberto !== null) {
+                $trechos[] = $aberto;
+                $aberto    = null;
+            }
+            $ultimoSelo = $linha['selo'];
+            ++$seladas;
         }
 
-        return $ultimaSemSelo === null
-            ? ConferenciaDaTrilhaDoPontoOutput::integra()
-            : ConferenciaDaTrilhaDoPontoOutput::trechoInicial($ultimaSemSelo);
+        if ($aberto !== null) {
+            $trechos[] = $aberto;
+        }
+
+        return $trechos === [] ? ConferenciaDaTrilhaDoPontoOutput::integra() : ConferenciaDaTrilhaDoPontoOutput::trechoSemSelo($trechos, $seladas > 0);
     }
 
     /**

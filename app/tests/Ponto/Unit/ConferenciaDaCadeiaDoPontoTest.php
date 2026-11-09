@@ -13,7 +13,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A conferência da cadeia da trilha do Ponto (E9), sem banco: íntegra, alterada no primeiro evento que não confere,
- * não selada no trecho inicial sem selo, e a chave escolhida pela versão gravada em cada linha.
+ * trecho sem selo (no começo ou no meio, por falta do segredo) com as faixas dos números, e a chave escolhida pela
+ * versão gravada em cada linha.
  */
 #[CoversClass(ConferenciaDaCadeiaDoPonto::class)]
 #[CoversClass(ConferenciaDaTrilhaDoPontoOutput::class)]
@@ -69,7 +70,7 @@ final class ConferenciaDaCadeiaDoPontoTest extends TestCase
         self::assertSame(3, $this->conferir($cadeia)->sequenciaAlterada);
     }
 
-    #[TestDox('Selo apagado depois de uma linha selada: alterada')]
+    #[TestDox('Selo apagado de uma linha selada no meio: alterada nela (a seguinte se prende ao selo que sumiu)')]
     public function testSeloApagado(): void
     {
         $cadeia = $this->cadeia([1, 1, 1]);
@@ -79,15 +80,74 @@ final class ConferenciaDaCadeiaDoPontoTest extends TestCase
         self::assertSame(2, $this->conferir($cadeia)->sequenciaAlterada);
     }
 
-    #[TestDox('Trecho inicial sem selo (antes do segredo) e o resto selado: não selada até o último sem selo')]
+    #[TestDox('Trecho inicial sem selo (antes do segredo) e o resto selado: trecho sem selo com a faixa, nunca íntegra')]
     public function testTrechoInicial(): void
     {
         $resultado = $this->conferir($this->cadeia([null, null, 1, 1]));
 
-        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::NAO_SELADA, $resultado->situacao);
-        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_INICIAL, $resultado->motivoSemSelo);
-        self::assertSame(2, $resultado->ultimaSemSelo);
-        self::assertSame('Os eventos até o nº 2 foram gravados antes do selo e não podem ser conferidos. Do nº 3 em diante, cada evento é selado com o anterior.', $resultado->texto());
+        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_SEM_SELO, $resultado->situacao);
+        self::assertSame([[1, 2]], $resultado->trechosSemSelo);
+        self::assertSame('Os eventos nº 1 a 2 foram gravados sem selo. Os demais eventos conferem com o selo.', $resultado->texto());
+    }
+
+    #[TestDox('Falta do segredo no meio (selada, duas sem selo, selada): trecho sem selo nº 2 a 3, não alterada')]
+    public function testFaltaDoSegredoNoMeio(): void
+    {
+        $cadeia = $this->cadeia([1, null, null, 1]);
+
+        $resultado = $this->conferir($cadeia);
+
+        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_SEM_SELO, $resultado->situacao);
+        self::assertSame([[2, 3]], $resultado->trechosSemSelo);
+        self::assertSame('Os eventos nº 2 a 3 foram gravados sem selo. Os demais eventos conferem com o selo.', $resultado->texto());
+        self::assertSame($cadeia[0]['selo'], $cadeia[3]['selo_anterior'], 'a selada depois do trecho se prende à última selada antes dele');
+    }
+
+    #[TestDox('Linha selada mexida DEPOIS de um trecho sem selo: alterada nela')]
+    public function testAlteracaoDepoisDoTrecho(): void
+    {
+        $cadeia = $this->cadeia([1, null, 1, 1]);
+        $primeira = $cadeia;
+        $primeira[2]['detalhe'] = ['tipo' => 'saida'];
+        $segunda = $cadeia;
+        $segunda[3]['autor_nome'] = 'Outro';
+
+        self::assertSame(3, $this->conferir($primeira)->sequenciaAlterada);
+        self::assertSame(4, $this->conferir($segunda)->sequenciaAlterada);
+    }
+
+    #[TestDox('Apagar o selo da selada logo antes de um trecho sem selo (para alargá-lo): alterada nela')]
+    public function testTrechoAlargadoParaTras(): void
+    {
+        $cadeia = $this->cadeia([1, 1, null, 1]);
+        $cadeia[1]['selo'] = null;
+        $cadeia[1]['versao_da_chave'] = null;
+
+        self::assertSame(2, $this->conferir($cadeia)->sequenciaAlterada);
+    }
+
+    #[TestDox('Selo apagado da última linha: aparece como trecho sem selo com o número dela (limite aceito, visível)')]
+    public function testSeloApagadoDaUltima(): void
+    {
+        $cadeia = $this->cadeia([1, 1, 1]);
+        $cadeia[2]['selo'] = null;
+        $cadeia[2]['versao_da_chave'] = null;
+
+        $resultado = $this->conferir($cadeia);
+
+        self::assertSame(ConferenciaDaTrilhaDoPontoOutput::TRECHO_SEM_SELO, $resultado->situacao);
+        self::assertSame('O evento nº 3 foi gravado sem selo. Os demais eventos conferem com o selo.', $resultado->texto());
+    }
+
+    #[TestDox('Vários trechos: o texto cita três faixas e conta o resto; tudo sem selo não diz que os demais conferem')]
+    public function testVariosTrechos(): void
+    {
+        $varios = $this->conferir($this->cadeia([null, 1, null, null, 1, null, 1, null, 1]));
+        $tudoSemSelo = $this->conferir($this->cadeia([null, null]));
+
+        self::assertSame([[1, 1], [3, 4], [6, 6], [8, 8]], $varios->trechosSemSelo);
+        self::assertSame('Os eventos nº 1, nº 3 a 4, nº 6 e mais 1 trecho foram gravados sem selo. Os demais eventos conferem com o selo.', $varios->texto());
+        self::assertSame('Os eventos nº 1 a 2 foram gravados sem selo.', $tudoSemSelo->texto());
     }
 
     #[TestDox('Trecho inicial sem selo e uma selada mexida depois: alterada vence')]
@@ -137,7 +197,8 @@ final class ConferenciaDaCadeiaDoPontoTest extends TestCase
     }
 
     /**
-     * Uma cadeia como a TrilhaDoPonto grava: cada item é a versão da chave da linha (nula = sem selo).
+     * Uma cadeia como a TrilhaDoPonto grava: cada item é a versão da chave da linha (nula = sem selo), e o
+     * `selo_anterior` é o último selo da cadeia (por cima das linhas sem selo).
      *
      * @param list<?int> $versoes
      *
@@ -161,7 +222,7 @@ final class ConferenciaDaCadeiaDoPontoTest extends TestCase
             $linha['selo']            = $versao === null ? null : SeloDaTrilhaDoPonto::calcular(self::CHAVES[$versao], $linha);
             $linha['versao_da_chave'] = $versao;
             $cadeia[]                 = $linha;
-            $anterior                 = $linha['selo'];
+            $anterior                 = $linha['selo'] ?? $anterior;
         }
 
         return $cadeia;

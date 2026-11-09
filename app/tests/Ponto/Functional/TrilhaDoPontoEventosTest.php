@@ -9,11 +9,13 @@ use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\HomeOfficeConfig;
+use App\Ponto\Repository\TrilhaDoPontoRepository;
 use App\Ponto\Service\TrilhaDoPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
 /**
@@ -69,6 +71,30 @@ final class TrilhaDoPontoEventosTest extends JusPrimeWebTestCase
         $this->bater($colaborador, ['tipo' => 'entrada', 'latitude' => 0.0, 'longitude' => 0.0, 'precisaoGps' => 10.0]);
 
         self::assertResponseStatusCodeSame(403);
+        self::assertSame([], $this->eventos());
+    }
+
+    #[TestDox('Atomicidade: a trilha falha ao gravar o evento da batida: a batida não fica gravada')]
+    public function testTrilhaQueFalhaNaoDeixaABatida(): void
+    {
+        $colaborador = $this->pessoa('colab');
+        $this->vincularColaborador($colaborador, $this->escritorio);
+        $this->liberarHomeOffice($colaborador);
+        $container = static::getContainer();
+        $container->set(TrilhaDoPontoRepository::class, new class ($container->get(ManagerRegistry::class)) extends TrilhaDoPontoRepository {
+            public function inserir(array $linha): void
+            {
+                throw new \RuntimeException('Falha simulada da trilha.');
+            }
+        });
+
+        $this->bater($colaborador, ['tipo' => 'entrada']);
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame(0, (int) $this->emSemFiltro()->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM registro_ponto WHERE user_id = ? AND tenant_id = ?',
+            [$colaborador->getId(), $this->escritorio->getId()],
+        ), 'a batida voltou com a transação');
         self::assertSame([], $this->eventos());
     }
 
@@ -151,6 +177,38 @@ final class TrilhaDoPontoEventosTest extends JusPrimeWebTestCase
         self::assertSame(2, $eventos[0]['detalhe']['quantidade']);
         self::assertSame(1, $eventos[1]['detalhe']['quantidade']);
         self::assertSame([(int) $gestor->getId(), (int) $gestor->getId()], array_column($eventos, 'autor_id'));
+    }
+
+    #[TestDox('Lançar esquecimento já abonado: cada batida criada entra como "batida_do_esquecimento", como na análise')]
+    public function testLancamentoDeEsquecimentoGravaAsBatidas(): void
+    {
+        $gestor = $this->pessoa('gestor');
+        $this->vincularGestor($gestor, $this->escritorio);
+        $colaborador = $this->pessoa('colab');
+        $this->vincularColaborador($colaborador, $this->escritorio);
+        $dias = [new \DateTimeImmutable('-3 days'), new \DateTimeImmutable('-2 days')];
+
+        $this->logarComTenant($this->client, $gestor, $this->escritorio);
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/nova', $this->escritorio->getId(), $colaborador->getId()), [
+            '_token'                => 'TOKEN_admin_nova_justificativa_' . $colaborador->getId(),
+            'tipo'                  => 'esquecimento_registro',
+            'tipoRegistroEsquecido' => 'entrada',
+            'horaRegistroEsquecido' => '08:00',
+            'datas'                 => $dias[0]->format('Y-m-d') . ',' . $dias[1]->format('Y-m-d'),
+        ]);
+        self::assertResponseRedirects();
+
+        $eventos = $this->eventos();
+        self::assertSame(['justificativa_lancada', 'batida_do_esquecimento', 'batida_do_esquecimento'], array_column($eventos, 'acao'));
+        $batidas = array_column(\array_slice($eventos, 1), 'detalhe');
+        self::assertSame($eventos[0]['detalhe']['justificativa_ids'], array_column($batidas, 'justificativa_id'), 'cada batida aponta a justificativa dela');
+        self::assertSame([$dias[0]->format('Y-m-d') . ' 08:00:00', $dias[1]->format('Y-m-d') . ' 08:00:00'], array_column($batidas, 'data_hora'));
+        self::assertSame(['entrada', 'entrada'], array_column($batidas, 'tipo'));
+        self::assertSame(array_fill(0, 3, (int) $gestor->getId()), array_column($eventos, 'autor_id'));
+        self::assertSame(2, (int) $this->emSemFiltro()->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM registro_ponto WHERE user_id = ? AND tenant_id = ?',
+            [$colaborador->getId(), $this->escritorio->getId()],
+        ));
     }
 
     #[TestDox('Sede e feriado ficam fora da trilha do Ponto e continuam no audit_log')]

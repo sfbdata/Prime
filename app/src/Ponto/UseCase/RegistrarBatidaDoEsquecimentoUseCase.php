@@ -94,7 +94,7 @@ final class RegistrarBatidaDoEsquecimentoUseCase
             $tenant,
             $justificativa->getAnalisadoPor(),
             AcaoDaTrilhaDoPonto::BatidaDoEsquecimento->value,
-            DetalheDaTrilhaDoPonto::daBatida($registro) + ['justificativa_id' => $justificativa->getId()],
+            DetalheDaTrilhaDoPonto::daBatidaDoEsquecimento($registro, $justificativa),
         );
 
         return $registro;
