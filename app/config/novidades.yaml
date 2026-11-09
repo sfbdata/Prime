@@ -1,6 +1,16 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.44.0"
+  data: "2026-11-09"
+  itens:
+    - "Os documentos antigos das pastas, que hoje ficam guardados na nuvem, passam a ter a contagem de páginas e a verificação de integridade preenchidas, como os documentos novos."
+    - "A Folha de Ponto está de cara nova: o mês aparece numa barra azul, cada dia mostra as batidas, o saldo do dia e o saldo acumulado do mês, e o rodapé traz os totais."
+    - "Na sua folha aparecem os dias em que você bateu ponto e os feriados trabalhados. O dia sem batida sai da lista, mas continua contando no saldo, como antes."
+    - "O botão \"+\" para justificar um esquecimento aparece em qualquer dia que já passou, inclusive no fim de semana. A justificativa em análise aparece na coluna Justificativa."
+    - "No celular, cada dia vira um cartão fácil de ler."
+    - "Na ficha do colaborador, o gestor vê o mesmo visual novo, com todos os dias do mês."
+    - "Quando um escritório é excluído de vez, depois da quarentena, o sistema passa a conferir também a área do BlueJus Voto antes de apagar: nenhuma informação do escritório fica para trás. O BlueJus Voto continua em preparação e ainda não aparece para os escritórios."
 - versao: "2.43.0"
   data: "2026-11-09"
   itens:
