@@ -71,6 +71,12 @@ Desvios novos, desta implementação (para a revisão do Coordenador):
   ficarem como no desenho, que usa o padrão do navegador.
 - **D-i.** "Salvar modelo" fica desligado enquanto o pedido corre (evita o mesmo modelo em dobro); volta a valer se o
   servidor recusar. A área de texto tem `role="textbox"` e a linha de erro `aria-live`, para leitor de tela.
+- **D-j.** (aprovado pelo Coordenador em 09/11, regra 3: o campo se perdia em silêncio.) O campo de "Inserir campo"
+  e de "Criar campo" sempre termina dentro de um bloco: sem cursor no texto, no fim do último bloco de texto (ou num
+  `<p>` novo no fim); com o cursor entre blocos, num `<p>` novo ali. No desenho, o `noCursor` sem cursor põe o campo
+  na raiz do editor (dc:332) e o `lerEd` só reconhece `data-c` dentro de um bloco (dc:330): o campo virava texto
+  (`{p: 'Nome completo'}`) e saía de `campos`. Por garantia, o `lerEd` junta o que ficar solto na raiz (texto,
+  negrito, campo) num parágrafo, com o campo como `[[chave]]` registrado em `campos`.
 
 ## 3. Tabela (M3 `Version20261109260000`)
 
