@@ -135,7 +135,7 @@
 
                     {# P12: intervalo em andamento ou cumprido, saída prevista e saída passada. Desenhada pelo JS. O mínimo
                        do intervalo é o da Jornada do escritório e só vale com a validação do repouso ligada (regra em
-                       vigor); desligada, vai 0 e o aviso do intervalo não aparece. #}
+                       vigor); desligada, vai 0 e o aviso mostra só o tempo do intervalo, sem o mínimo. #}
                     <div id="ponto-aviso-dia" class="pe-caixa d-none"
                          data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada ? minimoMinutosRepouso : 0 }}"></div>
 
@@ -548,8 +548,9 @@
             excedenteEl.classList.add('d-none');
         }
 
-        // P12 (desenho, decisão do dono de 09/11/2026): o aviso do dia no cartão. Em repouso, quanto falta para
-        // o intervalo mínimo do escritório; depois da entrada, a saída prevista e o lembrete quando ela passa.
+        // P12 (desenho, decisão do dono de 09/11/2026): o aviso do dia no cartão. Em repouso, o tempo do intervalo ao
+        // vivo, quanto falta para o mínimo do escritório e a saída prevista; depois da entrada, a saída prevista e o
+        // lembrete quando ela passa.
         // Usa a mesma hora do aparelho que o relógio; a regra do intervalo continua no servidor.
         const avisoDiaEl = document.getElementById('ponto-aviso-dia');
         // O mínimo do aviso vem do servidor já com a chave do escritório: 0 com a validação do repouso desligada.
@@ -603,15 +604,31 @@
             avisoDiaEl.className = 'pe-caixa pe-caixa--' + tom;
         }
 
+        function formatarHoraDoDia(data) {
+            return String(data.getHours()).padStart(2, '0') + ':' + String(data.getMinutes()).padStart(2, '0');
+        }
+
         function atualizarAvisoDoDia(agora) {
-            if (tRepouso && !tRetorno && !tSaida && minimoRepousoMinutos > 0) {
-                const minimo = formatarMinimo(minimoRepousoMinutos);
-                const restante = minimoRepousoMinutos * 60 - Math.floor((agora - tRepouso) / 1000);
-                if (restante > 0) {
-                    mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento. O mínimo de ' + minimo + ' se completa em ' + formatarHorasMinutos(restante) + '.');
+            // Em repouso: o tempo do intervalo ao vivo, em HH:MM:SS, durante todo o repouso, com ou sem a validação do
+            // repouso (função do sistema que volta: o contador do repouso de antes da E1). O tique é o do relógio
+            // (`updateClock`, a cada segundo); o início é a hora da batida de repouso que o cartão já tem. Com a
+            // validação, também o mínimo do escritório. E a saída prevista, quando houver (também função que volta).
+            if (tRepouso && !tRetorno && !tSaida) {
+                const decorrido = Math.max(0, Math.floor((agora - tRepouso) / 1000));
+                const emIntervaloHa = formatarTempo(decorrido);
+                const previstaNoRepouso = saidaPrevista();
+                const saida = previstaNoRepouso ? ' Saída prevista às ' + formatarHoraDoDia(previstaNoRepouso) + '.' : '';
+                if (minimoRepousoMinutos <= 0) {
+                    mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento há ' + emIntervaloHa + '.' + saida);
                     return;
                 }
-                mostrarAvisoDoDia('success', 'bi-check-circle', 'Intervalo mínimo de ' + minimo + ' cumprido.');
+                const minimo = formatarMinimo(minimoRepousoMinutos);
+                const restante = minimoRepousoMinutos * 60 - decorrido;
+                if (restante > 0) {
+                    mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento há ' + emIntervaloHa + '. O mínimo de ' + minimo + ' se completa em ' + formatarHorasMinutos(restante) + '.' + saida);
+                    return;
+                }
+                mostrarAvisoDoDia('success', 'bi-check-circle', 'Intervalo mínimo de ' + minimo + ' cumprido. Em intervalo há ' + emIntervaloHa + '.' + saida);
                 return;
             }
             const previsao = tSaida ? null : saidaPrevista();
@@ -619,7 +636,7 @@
                 mostrarAvisoDoDia('', '', '');
                 return;
             }
-            const hora = String(previsao.getHours()).padStart(2, '0') + ':' + String(previsao.getMinutes()).padStart(2, '0');
+            const hora = formatarHoraDoDia(previsao);
             if (agora > previsao) {
                 mostrarAvisoDoDia('warning', 'bi-bell', 'Passou da saída prevista (' + hora + '). Não esqueça de registrar a saída.');
                 return;

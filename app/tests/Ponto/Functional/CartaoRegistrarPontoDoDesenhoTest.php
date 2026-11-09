@@ -164,7 +164,7 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertSame('Jornada encerrada', trim($tela->filter('#clock-label')->text()));
     }
 
-    #[TestDox('P12: o mínimo do aviso do intervalo segue a Jornada do escritório; com a validação do repouso desligada, vai 0 e o aviso não aparece')]
+    #[TestDox('P12: o mínimo do aviso do intervalo segue a Jornada do escritório; com a validação do repouso desligada, vai 0 e o aviso mostra só o tempo do intervalo')]
     public function testAvisoDoIntervaloSegueAChaveDoEscritorio(): void
     {
         $aviso = self::CORPO . ' > #ponto-aviso-dia';
@@ -179,7 +179,33 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         // Recarregada: a requisição anterior limpa o EntityManager e a instância acima fica solta.
         $this->em()->find(JornadaTenant::class, $jornada->getId())?->setValidacaoRepousoHabilitada(false);
         $this->em()->flush();
-        self::assertSame('0', $this->tela()->filter($aviso)->attr('data-intervalo-minimo-minutos'), 'chave desligada: sem aviso do intervalo');
+        self::assertSame('0', $this->tela()->filter($aviso)->attr('data-intervalo-minimo-minutos'), 'chave desligada: o aviso sem o mínimo');
+    }
+
+    #[TestDox('Em repouso, o cartão já traz o que o intervalo ao vivo e a saída prevista usam: a hora da batida de repouso, a meta, a escala e o aviso do dia')]
+    public function testRepousoTrazOInicioDoIntervaloNoCartao(): void
+    {
+        $jornada = (new JornadaColaborador())->setUser($this->user)->setTenant($this->x);
+        $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1, 2, 3, 4, 5, 6, 7])->setEntrada('08:00')
+            ->setRepouso('12:00')->setRetorno('14:00')->setSaida('18:00')->setMinutosBloco(480));
+        $this->em()->persist($jornada);
+        $this->em()->flush();
+
+        $this->batida('entrada', new \DateTimeImmutable('today 00:00:01'));
+        $this->batida('repouso', new \DateTimeImmutable('today 00:00:02'));
+        $tela = $this->tela();
+
+        self::assertSame('Em repouso', trim($tela->filter('#clock-label')->text()));
+        // O JS conta o intervalo a partir daqui, sem busca nova (`CartaoDoPontoNoJsTest::testIntervaloAoVivoNosTresTextos`).
+        $estado = json_decode((string) $tela->filter('#clock')->attr('data-ponto-do-dia'), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($estado);
+        self::assertSame('00:00:02', $estado['repouso'] ?? null, 'o início do intervalo é a hora da batida de repouso');
+        self::assertSame('00:00:01', $estado['entrada'] ?? null);
+
+        // A saída prevista no repouso (`saidaPrevista`) usa a meta do dia e a escala; o aviso é desenhado pelo JS.
+        self::assertSame('480', $tela->filter(self::CORPO . ' > #excedente-hoje')->attr('data-meta-dia-minutos'));
+        self::assertStringContainsString('const duracaoMinutos = 600;', (string) $this->client->getResponse()->getContent());
+        self::assertCount(1, $tela->filter(self::CORPO . ' > #ponto-aviso-dia'), 'o aviso do dia, filho direto do corpo do cartão');
     }
 
     #[TestDox('O que saiu com o desenho conta zero: card do AdminLTE, select, lista de batidas, previsão, contador do repouso, botão de som')]
