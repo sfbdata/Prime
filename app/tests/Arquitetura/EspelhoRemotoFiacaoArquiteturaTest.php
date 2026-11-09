@@ -48,10 +48,10 @@ final class EspelhoRemotoFiacaoArquiteturaTest extends KernelTestCase
 
     /** Fora do espelho, quem também mede o disco do acervo inteiro (§5.0, condição 3). */
     private const QUEM_MEDE_O_DISCO_FORA_DO_ESPELHO = [
-        CalcularHashDosDocumentosCommand::class => ['armazenamento', 'materializador'],
+        CalcularHashDosDocumentosCommand::class => ['armazenamento'],
     ];
 
-    #[TestDox('o cálculo de hash e de páginas dos documentos recebe o ArmazenamentoLocal, sem leitura pelo R2')]
+    #[TestDox('o cálculo de hash dos documentos lê o ArmazenamentoLocal, sem leitura pelo R2')]
     public function testCalculoDeHashRecebeOLocal(): void
     {
         self::bootKernel();
@@ -62,6 +62,21 @@ final class EspelhoRemotoFiacaoArquiteturaTest extends KernelTestCase
                 self::assertInstanceOf(ArmazenamentoLocal::class, (new \ReflectionProperty($classe, $propriedade))->getValue($servico), $classe . '::$' . $propriedade);
             }
         }
+    }
+
+    /**
+     * A exceção da §5.0, só neste comando: o `--paginas` precisa do PDF inteiro e o liberado só existe
+     * no R2; o hash do liberado sai da prova (`metadados`), sem baixar. O download do `--paginas`
+     * passa pelo cache de leitura, com o teto, o piso de espaço livre e a trava por SHA.
+     */
+    #[TestDox('o calcular-hash recebe o ArmazenamentoEspelhado só como $espelhado (prova do hash e PDF do --paginas)')]
+    public function testCalculoDeHashRecebeOEspelhadoSoParaAProvaEAsPaginas(): void
+    {
+        self::bootKernel();
+
+        $servico = static::getContainer()->get(CalcularHashDosDocumentosCommand::class);
+
+        self::assertInstanceOf(ArmazenamentoEspelhado::class, (new \ReflectionProperty(CalcularHashDosDocumentosCommand::class, 'espelhado'))->getValue($servico));
     }
 
     #[TestDox('nenhuma outra classe do espelho recebe armazenamento no construtor sem estar nesta lista')]
