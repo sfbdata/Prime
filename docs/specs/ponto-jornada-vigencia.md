@@ -240,6 +240,11 @@ escritório, com saldo. Se a primeira versão criada pela tela valesse para trá
   jornada vazia (a padrão do escritório). Para agendar a primeira jornada não tirar esse saldo dos dias de antes,
   o `PontoController::index` usa `HistoricoDeJornadas::comJornadaAntesDaPrimeira()` com a mesma jornada vazia. A
   ficha do admin, o PDF, o XLSX e o banco do ano seguem sem saldo nesses dias, como antes de a pessoa ter jornada.
+
+  > **Substituído pela E17** (decisão do Coordenador, 09/11/2026; spec ponto-desenho-0811). A ficha, o PDF, o XLSX e
+  > o banco de horas contam pela mesma jornada da folha da /ponto (`FolhaPontoBuilder::jornadaDaFolha`): quem não tem
+  > jornada pessoal e os dias antes da primeira versão contam pela jornada do escritório. O banco também não é mais
+  > "do ano": não zera em janeiro.
 - **Ajuda do campo** "Vale a partir de": o texto literal do §5.1, sem acréscimo.
 - **"Limpar escala"**: o texto da confirmação fica o do §10.2.5 (decisão 3 do §8). Quando só há versões da tela, as
   linhas saem e a pessoa volta ao estado de antes de ter jornada (a /ponto calcula pela padrão; o banco do ano, só

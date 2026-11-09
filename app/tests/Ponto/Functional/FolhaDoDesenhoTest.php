@@ -32,7 +32,8 @@ use Symfony\Component\DomCrawler\Crawler;
  * 09/11/2026): a Folha de Ponto no molde do desenho, sobre o motor de hoje.
  *
  * O arranjo é conferido por filho direto (`>`). Também ficam travados o que saiu (contando zero), os textos literais, o
- * filtro do P25 (dia sem batida fora da tela, com o saldo igual ao de antes), os selos do dia (P27) e da justificativa
+ * filtro do P25 (dia sem batida fora da tela, descontando no "Saldo mês" das linhas seguintes e no rodapé, que desde a
+ * E17 é o mês inteiro, a conta do banco), os selos do dia (P27) e da justificativa
  * (P31, "Em análise" com a ampulheta na coluna Justificativa pelo P30 a), os meses desde o início da contagem (P23, D7)
  * e a ficha do colaborador, que ganha o mesmo molde e continua com todos os dias do mês (P60).
  *
