@@ -8,6 +8,24 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.43.0] - 2026-11-09
+
+### Adicionado
+
+- Assinatura de documentos, etapa 1 (docs/specs/assinatura-documentos-etapa-1.md): domínio `App\AssinaturaEletronica` e tela `/assinatura` na moldura do sistema, desenhada pelo JS a partir de JSON (como a Agenda 1A). Aba Documentos com chips e contadores, busca, pastas, cores, seleção, menu de contexto, Lixeira, Duplicar e exclusão definitiva só de rascunho na Lixeira; aba Modelos com os 13 modelos prontos; assistente Novo documento em 4 passos (modelo pronto, PDF ou .docx, dados com prévia A4, signatários, mensagem e prazo) com Salvar rascunho; detalhe do documento em leitura com a trilha de auditoria.
+- Trilha de auditoria só de acréscimo, encadeada pelo hash do evento anterior. PDF e logo enviados vão para a nova categoria de armazenamento `ASSINATURA_DOCUMENTO`, isolada por escritório, com purga, espelho e auditoria.
+- Item "Assinatura" no menu lateral, chave `assinatura` no catálogo de Telas e recursos do Master e permissão `modules.assinatura_eletronica.view` (rótulo "Assinatura de documentos" no painel de Perfis).
+- Migration Version20261109150000: tabelas do domínio; o recurso `assinatura` nasce desligado (só o Master vê) e a permissão é concedida aos perfis que já veem Pastas.
+- Ponto Eletrônico, etapa E1 do desenho 16 (VS 08.11.26): a /ponto ganha a grade de duas colunas e o cartão "Registrar Ponto" com os componentes e os valores do desenho (CSS próprio `ponto-eletronico.css`, prefixo `pe-`), sobre o motor de hoje. Tipos em botões de rádio com a hora de cada batida (P6, P8); tipo já batido travado e dia completo com o botão cinza "Jornada de hoje concluída" (P7, decisão do dono de 09/11/2026); relógio com a hora do servidor; situação do dia; aviso do intervalo ligado à chave da Jornada do escritório; faixa da pendência do escritório atual; saída prevista pela escala. Sem migration.
+- A spec docs/specs/ponto-desenho-0811.md passa a trazer as decisões de 09/11/2026 (P1 a P96, D1 a D22), as etapas ajustadas e as pendências do dono (relógio da VPS, segredo do comprovante, fornecedor da biometria). As specs ponto-batida-que-responde-e-conta-certa e ponto-folha-uma-batida-por-tipo ganham nota do P7.
+- BlueJus Voto, fase A1 (docs/specs/bluejus-voto.md): tela `/voto` (rota `voto_index`, domínio `App\Voto`) dentro da moldura do sistema, com título, faixa de ambiente demonstrativo e as quatro abas do desenho (Votar, Resultados, Gestão eleitoral, Acompanhar); Votar e Acompanhar mostram o estado vazio, Resultados e Gestão eleitoral chegam nos PRs seguintes.
+- Item "Voto" no menu lateral, chave `voto` no catálogo de Telas e recursos do Master e permissão `modules.voto.view` (rótulo "Voto (eleições e votações)" no painel de Perfis).
+- Migration Version20261109120000: o recurso `voto` nasce desligado (só o Master vê) e a permissão é criada sem ser concedida a nenhum perfil.
+- BlueJus Voto, fase A1b (docs/specs/bluejus-voto.md): liberação por escritório pelo Master, no molde da liberação da I.A. Nova aba "Voto" no Painel do Master (`/master/voto`, `master_voto_dados` e `master_voto_escritorio`, token `master_voto`) com a lista dos escritórios ativos e a chave "Liberado" por linha.
+- Trava nova no Voto: além da permissão `modules.voto.view` e da chave `voto` do catálogo, o escritório precisa estar liberado (`LiberacaoDoVotoNoEscritorio`, Twig `voto_liberado()` no menu lateral); o Master passa sempre. Liberar e bloquear ficam no audit_log do escritório alterado.
+- Migration Version20261109140000: cria o schema `voto` (primeiro fora do `public`) e a tabela `voto.liberacao`, com a FK do escritório em ON DELETE CASCADE.
+- Spec do Voto: decisões da D8 (correções do desenho) registradas item por item.
+
 ## [2.42.1] - 2026-11-09
 
 ### Corrigido
@@ -1708,7 +1726,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.42.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.43.0...HEAD
+[2.43.0]: https://github.com/sfbdata/Prime/compare/v2.42.1...v2.43.0
 [2.42.1]: https://github.com/sfbdata/Prime/compare/v2.42.0...v2.42.1
 [2.42.0]: https://github.com/sfbdata/Prime/compare/v2.41.0...v2.42.0
 [2.41.0]: https://github.com/sfbdata/Prime/compare/v2.40.1...v2.41.0

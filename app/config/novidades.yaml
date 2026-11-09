@@ -1,6 +1,16 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.43.0"
+  data: "2026-11-09"
+  itens:
+    - "Começamos a preparar a Assinatura de documentos: o escritório vai montar contratos e procurações a partir de modelos prontos ou de um PDF e mandar para o cliente assinar pelo celular. Por enquanto a tela fica desligada e só aparece para a equipe do BlueJus; avisaremos quando estiver liberada."
+    - "Avançamos no planejamento do conector que vai permitir usar o BlueJus de dentro do Claude e do ChatGPT: ficou definido o que ele vai poder fazer nas pastas, na agenda, nos clientes, nos processos e na sua lista de metas; que cadastrar cliente, excluir ou trocar uma informação já preenchida pede uma confirmação na própria conversa; que ele não manda nada ao seu cliente, nem passa a mandar pelo envio automático; e que CPF, CNPJ, telefone e e-mail escritos nas anotações, metas e publicações chegam escondidos ao assistente. Ainda não está disponível."
+    - "A tela do Ponto Eletrônico está de cara nova: o cartão de registro mostra os quatro tipos de batida com o horário de cada um, a situação do seu dia (\"Em jornada\", \"Em repouso\"...) e a saída prevista."
+    - "O tipo que você já bateu hoje fica marcado e não aceita outro clique; com as quatro batidas feitas, o botão avisa que a jornada de hoje está concluída."
+    - "Começamos a preparar o BlueJus Voto, para eleições e votações do escritório. Por enquanto ele fica desligado e só aparece para a equipe do BlueJus; avisaremos quando estiver liberado."
+    - "Preparamos a estrutura em que o BlueJus Voto vai rodar, separada do restante do sistema, para uma votação com muitos participantes não deixar o BlueJus lento. O Voto continua em preparação e ainda não aparece para os escritórios."
+    - "No Painel do Master, a nova aba \"Voto\" mostra os escritórios e permite liberar o BlueJus Voto para cada um. O Voto continua em preparação e ainda não aparece para os escritórios."
 - versao: "2.42.1"
   data: "2026-11-09"
   itens:
