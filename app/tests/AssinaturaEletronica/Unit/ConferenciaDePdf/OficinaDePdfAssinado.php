@@ -126,7 +126,9 @@ final class OficinaDePdfAssinado
 
     /**
      * Assinador com CMS montado à mão (RSA): PSS ou PKCS#1, com ou sem atributos assinados, resumo à escolha,
-     * identificação por número de série ou pela chave e certificados extras antes do signatário.
+     * identificação por número de série ou pela chave e certificados extras antes do signatário. `$atributosExtras` entra
+     * no fim dos atributos assinados, `$lcrs` vira o campo crls ([1]) do SignedData e `$naoAssinados` os atributos não
+     * assinados ([1]) do SignerInfo, todos já em DER.
      *
      * @param list<\OpenSSLCertificate> $certificadosAntes
      *
@@ -140,8 +142,11 @@ final class OficinaDePdfAssinado
         string $oidDoResumo = MontadorDeDer::OID_SHA256,
         bool $pelaChave = false,
         array $certificadosAntes = [],
+        string $atributosExtras = '',
+        string $lcrs = '',
+        string $naoAssinados = '',
     ): callable {
-        return static function (string $conteudo) use ($chave, $certificado, $pss, $atributos, $oidDoResumo, $pelaChave, $certificadosAntes): string {
+        return static function (string $conteudo) use ($chave, $certificado, $pss, $atributos, $oidDoResumo, $pelaChave, $certificadosAntes, $atributosExtras, $lcrs, $naoAssinados): string {
             $d = MontadorDeDer::class;
             $doCertificado = self::der($certificado);
             $campos = $d::partes($d::partes($doCertificado)[0]);
@@ -149,7 +154,8 @@ final class OficinaDePdfAssinado
 
             $listaDeAtributos = $d::sequencia($d::oid($d::OID_TIPO_DE_CONTEUDO), $d::conjunto($d::oid($d::OID_DADOS)))
                 . $d::sequencia($d::oid($d::OID_HORA_DA_ASSINATURA), $d::conjunto($d::tlv(0x17, gmdate('ymdHis') . 'Z')))
-                . $d::sequencia($d::oid($d::OID_RESUMO_DA_MENSAGEM), $d::conjunto($d::octetos(hash('sha256', $conteudo, true))));
+                . $d::sequencia($d::oid($d::OID_RESUMO_DA_MENSAGEM), $d::conjunto($d::octetos(hash('sha256', $conteudo, true))))
+                . $atributosExtras;
             $alvo = $atributos ? $d::tlv(0x31, $listaDeAtributos) : $conteudo;
 
             if ($pss) {
@@ -177,6 +183,7 @@ final class OficinaDePdfAssinado
                 $atributos ? $d::contexto(0, $listaDeAtributos) : '',
                 $algoritmo,
                 $d::octetos((string) $assinatura),
+                $naoAssinados === '' ? '' : $d::contexto(1, $naoAssinados),
             );
             $certificados = implode('', array_map(self::der(...), $certificadosAntes)) . $doCertificado;
             $dadosAssinados = $d::sequencia(
@@ -184,6 +191,7 @@ final class OficinaDePdfAssinado
                 $d::conjunto($d::algoritmo($oidDoResumo)),
                 $d::sequencia($d::oid($d::OID_DADOS)),
                 $d::contexto(0, $certificados),
+                $lcrs === '' ? '' : $d::contexto(1, $lcrs),
                 $d::conjunto($signatario),
             );
 

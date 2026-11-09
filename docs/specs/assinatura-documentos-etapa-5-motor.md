@@ -160,7 +160,8 @@ arquivo recebeu acréscimos depois da última assinatura, e esse trecho não foi
 - Dicionário da assinatura: do último ` obj` antes de `l` (até 4.000 bytes antes) até `l`, mais 3.000 bytes depois de
   `c`, cortado no primeiro `endobj`. Dele saem o tipo (`ETSI.CAdES`, `adbe.pkcs7`, `ETSI.RFC3161`), o `/M` e o DocMDP
   (o primeiro `/P` a partir de 200 bytes antes de `/DocMDP`; sem `/P`, 2). Com faixa inválida nada disso é lido.
-- CMS: hexadecimal do trecho de fora; SignedData; certificados `[0]`; pula CRLs `[1]`; só o primeiro SignerInfo.
+- CMS: hexadecimal do trecho de fora; SignedData; certificados `[0]`; pula CRLs `[1]`; só o primeiro SignerInfo. As
+  CRLs, os outros SignerInfos, o adbe-revocationInfoArchival e os atributos não assinados não são lidos (M23).
 - `permiteCarimbo`: `!(primeira com DocMDP && P < 3) && !cifrado && nenhuma alterada`.
 
 ### 4.2 `confere` e `cert`
@@ -191,9 +192,9 @@ arquivo recebeu acréscimos depois da última assinatura, e esse trecho não foi
 | `DECLARACOES_DE_FAIXA_MAXIMAS` | 100 ocorrências de `/ByteRange` | `ilegivel` |
 | `ASSINATURAS_MAXIMAS` | 30 faixas diferentes | `ilegivel` |
 | `DIGITOS_MAXIMOS_DA_FAIXA` | 12 | a assinatura vira `alterada` (faixa inválida) |
-| `TRECHO_DA_ASSINATURA_MAXIMO_EM_BYTES` | 2 MB de hexadecimal (1 MB de CMS) | a assinatura vira `naoverif` |
+| `TRECHO_DA_ASSINATURA_MAXIMO_EM_BYTES` | 16 MB de hexadecimal (8 MB de CMS) | a assinatura vira `naoverif` |
 | `PROFUNDIDADE_MAXIMA_DER` | 32 níveis | a assinatura vira `naoverif` ("limites de conferência") |
-| `ELEMENTOS_MAXIMOS_DER` | 50.000 elementos por estrutura | idem |
+| `ELEMENTOS_MAXIMOS_DER` | 50.000 elementos por estrutura, sem o interior dos containers não lidos (M23) | idem |
 | `CERTIFICADOS_MAXIMOS` | 30 certificados no CMS | idem |
 | `BYTES_DE_TAMANHO_MAXIMOS_DER` | 4 (tamanho até 4 GB) | `naoverif` ("Formato de assinatura não reconhecido") |
 | `OBJETOS_MAXIMOS` | 10.000 (cabeçalhos `obj` vistos, `/ObjStm` e `/N` de cada um) | `objeto` devolve null |
@@ -271,6 +272,12 @@ Decisões da revisão do motor (feature-review-agent):
   palavra `stream` e lido uma vez só; o ` obj` precisa estar até 4.096 bytes antes do marcador e o `stream` até 4.096
   bytes depois (senão o fluxo é ilegível e `objeto` devolve null, como antes); e a leitura inteira soma o que copia e
   o que infla, parando com null ao passar de `TRABALHO_MAXIMO_EM_BYTES` (100 MB).
+- **M23. Containers que o motor não lê**: PDF com validação de longo prazo traz LCRs no campo crls (`[1]`) do
+  SignedData e no atributo assinado adbe-revocationInfoArchival (1.2.840.113583.1.1.8), e carimbos nos atributos não
+  assinados; uma LCR real passa fácil de 50.000 elementos. Esses containers, e os SignerInfos depois do primeiro
+  (que o motor também não lê), viram blocos opacos: a validação confere que cabem no pai e não desce neles, então o
+  teto de elementos e de profundidade vale só para o que o motor de fato analisa. O teto do trecho subiu de 2 MB para
+  16 MB de hexadecimal (8 MB de CMS), para caber um /Contents real com LCRs dentro do PDF de 20 MB.
 
 ## 7. Testes
 

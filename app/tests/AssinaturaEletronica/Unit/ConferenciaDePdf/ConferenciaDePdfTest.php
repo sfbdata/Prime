@@ -577,7 +577,7 @@ final class ConferenciaDePdfTest extends TestCase
         self::assertSame(ConferenciaDePdf::MOTIVO_TRECHO_NAO_HEXADECIMAL, $a->motivo);
     }
 
-    #[TestDox('limite: trecho da assinatura com mais de 2 MB não é conferido')]
+    #[TestDox('limite: trecho da assinatura com mais de 16 MB de hexadecimal não é conferido')]
     public function testLimiteDoTrechoDaAssinatura(): void
     {
         $reserva = intdiv(LimitesDaConferencia::TRECHO_DA_ASSINATURA_MAXIMO_EM_BYTES, 2) + 1;
@@ -588,6 +588,68 @@ final class ConferenciaDePdfTest extends TestCase
         self::assertSame(VereditoDaAssinatura::NaoConferida, $a->veredito);
         self::assertSame(ConferenciaDePdf::MOTIVO_ASSINATURA_GRANDE, $a->motivo);
         self::assertSame('PAdES', $a->tipo);
+    }
+
+    /** Lista de certificados revogados (CertificateList) sintética, com `$entradas` números de série. */
+    private static function lcr(int $entradas): string
+    {
+        $d = MontadorDeDer::class;
+        $revogados = '';
+        for ($i = 0; $i < $entradas; ++$i) {
+            $revogados .= $d::sequencia($d::tlv(0x02, pack('N', $i + 1)), $d::tlv(0x17, '261109120000Z'));
+        }
+        $corpo = $d::sequencia($d::inteiro(1), $d::algoritmo($d::OID_SHA256_COM_RSA), $d::sequencia(), $d::tlv(0x17, '261109120000Z'), $d::sequencia($revogados));
+
+        return $d::sequencia($corpo, $d::algoritmo($d::OID_SHA256_COM_RSA), $d::tlv(0x03, "\0" . str_repeat("\x5A", 256)));
+    }
+
+    /** @return iterable<string, array{array<string, string>}> */
+    public static function revogacoesGrandes(): iterable
+    {
+        $d = MontadorDeDer::class;
+        yield 'LCR de 150 mil entradas (3,4 MB) no campo crls' => [['lcrs' => self::lcr(150_000)]];
+        yield 'LCR de 60 mil entradas no adbe-revocationInfoArchival' => [['atributosExtras' => $d::sequencia(
+            $d::oid($d::OID_ARQUIVO_DE_REVOGACAO),
+            $d::conjunto($d::sequencia($d::contexto(0, $d::sequencia(self::lcr(60_000))))),
+        )]];
+        yield 'atributo não assinado com 60 mil elementos' => [['naoAssinados' => $d::sequencia(
+            $d::oid($d::OID_CARIMBO_DA_ASSINATURA),
+            $d::conjunto($d::sequencia(str_repeat($d::nulo(), 60_000))),
+        )]];
+    }
+
+    /** @param array<string, string> $extras */
+    #[DataProvider('revogacoesGrandes')]
+    #[TestDox('PDF com validação de longo prazo ($_dataName): os containers não lidos não contam no limite, e a assinatura confere')]
+    public function testRevogacaoGrandeNaoAtrapalha(array $extras): void
+    {
+        $chave = OficinaDePdfAssinado::chave();
+        $assinador = OficinaDePdfAssinado::cmsManual($chave, OficinaDePdfAssinado::certificado($chave), ...$extras);
+        $tamanho = \strlen($assinador('x'));
+        $pdf = OficinaDePdfAssinado::assinar(OficinaDePdfAssinado::pdfParaAssinar('', $tamanho + 1024), $assinador);
+
+        $a = $this->motor->conferir($pdf)->assinaturas[0];
+
+        self::assertSame(VereditoDaAssinatura::Integra, $a->veredito, $a->motivo);
+        self::assertTrue($a->resumoConfere);
+        self::assertTrue($a->chaveConfere);
+    }
+
+    #[TestDox('o limite de elementos continua valendo no que o motor lê: atributo assinado com 50 mil elementos')]
+    public function testLimiteDeElementosNoQueELido(): void
+    {
+        $d = MontadorDeDer::class;
+        $chave = OficinaDePdfAssinado::chave();
+        $extra = $d::sequencia($d::oid($d::OID_CARIMBO_DA_ASSINATURA), $d::conjunto($d::sequencia(str_repeat($d::nulo(), 50_000))));
+        $pdf = OficinaDePdfAssinado::assinar(
+            OficinaDePdfAssinado::pdfParaAssinar('', 120_000),
+            OficinaDePdfAssinado::cmsManual($chave, OficinaDePdfAssinado::certificado($chave), atributosExtras: $extra),
+        );
+
+        $a = $this->motor->conferir($pdf)->assinaturas[0];
+
+        self::assertSame(VereditoDaAssinatura::NaoConferida, $a->veredito);
+        self::assertSame(LimiteExcedido::MOTIVO_DO_LIMITE, $a->motivo);
     }
 
     /** @return iterable<string, array{string, string}> */
