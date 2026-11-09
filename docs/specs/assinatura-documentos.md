@@ -176,9 +176,8 @@ tratar como ordem de grandeza e cotar antes de contratar.
   exigir assinatura qualificada se houver dúvida (notícia do STJ de 31/03/2026). A Corregedoria do TJSP (parecer de
   20/01/2022) exige qualificada para procuração em processo eletrônico. Contrato de honorários: vale a regra geral entre
   particulares.
-- **Recomendação**: manter as classes do desenho e, quando o documento for procuração, mostrar no passo 3 um aviso curto
-  ("Alguns juízes exigem assinatura gov.br ou certificado digital em procuração."). O aviso não está no desenho:
-  pergunta P1 da seção 7, em aberto com o Samuel.
+- **Decisão**: manter as classes do desenho, sem aviso extra na procuração (D5 da seção 7). O nível mínimo por tipo de
+  documento fica para o pacote jurídico (seção 9).
 - Evidências que os tribunais olharam (entram na etapa 2): hash do PDF enviado e do final; quem pediu e quem assinou;
   canal, destino e hora do envio; hash do código (nunca o código), envio, conferência e tentativas; IP com porta,
   navegador e hora do servidor; aceite com o texto exibido, versionado; imagem da rubrica; localização só com permissão;
@@ -294,7 +293,8 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 - Evidências: IP e porta, navegador, hora do servidor, envio e conferência do código, abertura do link, aceite, tudo na
   trilha encadeada.
 - Detalhe do documento: signatários, Copiar link, E-mail (do servidor), WhatsApp (`wa.me`), lembrete por e-mail ao
-  primeiro pendente, Cancelar envio, trilha. Avisos por e-mail: próximo da fila, recusa e conclusão ao remetente.
+  primeiro pendente, Cancelar envio (com confirmação no modal do desenho, o mesmo do Excluir: D5), trilha. Avisos por
+  e-mail: próximo da fila, recusa e conclusão ao remetente.
 - Revisão independente antes da vigia (rota pública).
 
 ### Etapa 3: PDF com selo, manifesto, Validar e vínculo à pasta
@@ -313,7 +313,8 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 
 ### Etapa 4: modelos do escritório
 
-- Aba Modelos (Duplicar e adaptar, Editar, Excluir), editor com barra, campos, assinaturas, Importar Word, prévia.
+- Aba Modelos (Duplicar e adaptar, Editar, Excluir com confirmação no modal do desenho: D5), editor com barra, campos,
+  assinaturas, Importar Word, prévia.
 - O HTML do editor passa por um sanitizador próprio (modelo: `SanitizadorDeModeloDePeca`) antes de virar blocos.
 
 ### Etapa 5: gov.br, ICP e documento já assinado
@@ -389,7 +390,7 @@ pela skill `armazenamento-de-arquivos`.
 
 Cada uma sai sozinha, depois do merge da anterior ("uma migration por vez").
 
-## 7. Decisões e pergunta em aberto
+## 7. Decisões
 
 Decisões do Coordenador em 09/11/2026, pela recomendação (registro em `bluejus-coordenacao/decisoes-09-11.md`):
 
@@ -403,12 +404,12 @@ Decisões do Coordenador em 09/11/2026, pela recomendação (registro em `blueju
   conteúdo é o do desenho e o link entra no menu existente. Vale igual para Ponto e Voto. Domínio `AssinaturaEletronica`
   confirmado.
 
-Em aberto com o Samuel:
-
-- **P1. Dois acréscimos ao desenho**: aviso na procuração ("Alguns juízes exigem assinatura gov.br ou certificado digital
-  em procuração.") e confirmação antes de "Cancelar envio" e de excluir modelo (o desenho não pede; o modal seria o do
-  próprio desenho, igual ao de Excluir). Até a resposta, a etapa 1 sai sem o aviso; a confirmação só toca as etapas 2 e
-  4.
+- **D5. Acréscimos ao desenho (era a P1)**, decididos pelas três regras do dono (registro em
+  `bluejus-coordenacao/decisoes-desenhos-0911.md`):
+  - aviso na procuração: **não entra** (regra 3: sem ele nada quebra nem fere lei);
+  - confirmação antes de "Cancelar envio" (etapa 2): **entra**, porque invalida as assinaturas já colhidas;
+  - confirmação antes de excluir modelo (etapa 4): **entra**, porque o modelo se perde de vez, sem Lixeira;
+  - as duas confirmações usam o modal do próprio desenho, o mesmo do Excluir.
 
 ## 8. Pendências do Samuel (ação, não decisão)
 

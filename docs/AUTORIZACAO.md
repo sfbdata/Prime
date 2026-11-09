@@ -273,6 +273,7 @@ Fonte: `app/src/DataFixtures/PermissionFixture.php` e
 | `bi` | `modules.bi.view` | **nenhum** | não verificado | Marcado como "futuro" na fixture; sem tela |
 | `calculo` | `modules.calculo.view` | `can_access_module('calculo')` | `assertAcesso()` em todas as rotas `calculo_*` | Ativo (Cálculo de atualização monetária); migration concede aos perfis que já têm `pastas` |
 | `voto` | `modules.voto.view` | `can_access_module('voto')` + `recurso_visivel('voto')` + `voto_liberado()` | `assertAcesso()` em todas as rotas `voto_*`: permissão, depois a liberação do escritório (`LiberacaoDoVotoNoEscritorio`; o Master passa); antes delas, a chave `voto` do catálogo do Master (503 enquanto desligada) | Em preparação (BlueJus Voto, spec bluejus-voto.md); nasce desligado; o Master libera por escritório na aba "Voto" do painel (`voto.liberacao`); a migration não concede a permissão a nenhum perfil (perfil de sistema passa pelo bypass) |
+| `assinatura_eletronica` | `modules.assinatura_eletronica.view` | `can_access_module('assinatura_eletronica') and recurso_visivel('assinatura')` | `AcessoAAssinatura::quemPode()` em todas as rotas `assinatura_eletronica_*` | Etapa 1 (Assinatura de documentos); migration `Version20261109150000` concede aos perfis que já têm `pastas`; a chave `assinatura` do Master nasce desligada |
 
 **Nota sobre Expediente:** o item aparece sem guard no menu Twig (sidebar),
 então todos os usuários autenticados o veem. Porém o controller
