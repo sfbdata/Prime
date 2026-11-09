@@ -21,6 +21,7 @@ use App\AssinaturaEletronica\Service\SignatarioDoLink;
 use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Email\IdentidadeDeEmail;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
@@ -84,6 +85,9 @@ trait OficinaDosUseCasesDaAssinatura
     /** @var (\Closure(DocumentoParaAssinar): void)|null */
     private ?\Closure $aoTravar = null;
 
+    /** Quando preenchida, `emTransacaoComArquivoNovo` passa pela transação REAL (com os arquivos novos), não só pelo trabalho. */
+    private ?TransacaoComArquivoNovo $transacaoReal = null;
+
     private function montarOficina(): void
     {
         $this->tenant = (new Tenant())->setName("Silva & D'Ávila Advogados");
@@ -101,7 +105,9 @@ trait OficinaDosUseCasesDaAssinatura
     {
         $this->documentos = $this->createMock(DocumentoParaAssinarRepository::class);
         $this->documentos->method('emTransacao')->willReturnCallback(static fn (callable $trabalho): mixed => $trabalho());
-        $this->documentos->method('emTransacaoComArquivoNovo')->willReturnCallback(static fn (callable $trabalho): mixed => $trabalho());
+        $this->documentos->method('emTransacaoComArquivoNovo')->willReturnCallback(
+            fn (callable $trabalho, \Closure $arquivosNovos, string $contexto): mixed => $this->transacaoReal === null ? $trabalho() : $this->transacaoReal->executar($trabalho, $arquivosNovos, $contexto),
+        );
         $this->documentos->method('doEscritorioMesmoNaLixeira')->willReturnCallback(fn (int $id, Tenant $tenant): ?DocumentoParaAssinar => $this->achar(
             static fn (DocumentoParaAssinar $d): bool => $d->getId() === $id && $d->getTenant() === $tenant,
         ));
