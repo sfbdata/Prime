@@ -249,10 +249,12 @@
      * `data` é o JSON da resposta quando ela veio e pôde ser lido; `null` nos outros casos.
      */
     async function enviarBatida(url, payload, momentoDoToque) {
-        // O servidor carimba a batida com a hora de CHEGADA da requisição
+        // Na batida normal, o servidor carimba a hora de CHEGADA da requisição
         // (`PontoController::batida` → `setDataHora(new \DateTime())`); a hora do aparelho que o
-        // payload leva desde a E13 (`horaAparelho`) fica guardada só como informação. Se a aba foi
-        // congelada e o envio só sair minutos depois, a batida
+        // payload leva desde a E13 (`horaAparelho`) fica guardada ao lado, como informação. A
+        // exceção é a batida que vem da fila sem internet (`semInternet`, E14): nela vale a hora do
+        // aparelho no toque, e quem envia a fila passa o próprio instante do envio, então esta guarda
+        // não a barra. Se a aba foi congelada e o envio normal só sair minutos depois, a batida
         // entraria com a hora errada e com cara de certa. Num módulo de risco ALTO, dado errado
         // silencioso é pior que ausência visível — então aqui NÃO se envia: quem chama devolve o
         // botão e manda repetir, que é o comportamento que a pessoa já conhecia.
@@ -302,10 +304,11 @@
         } catch (error) {
             // 🔑 Aqui o navegador NÃO SABE se a batida entrou. O aborto cancela só o lado de cá: a
             // requisição já saiu e o servidor pode ter gravado antes de a resposta se perder. Dizer
-            // "não foi registrada" e mandar repetir produzia batida duplicada, e o servidor não tem
-            // guarda de duplicata (`PontoController::batida` só valida repouso e interjornada).
-            // Por isso o aviso manda CONFERIR o bloco de hoje, que mostra inclusive quantos
-            // registros existem de cada tipo.
+            // "não foi registrada" e mandar repetir produzia batida duplicada. Desde a E13 o servidor
+            // não grava duas vezes o mesmo `idEnvio`, mas essa guarda só vale para a MESMA tentativa
+            // mandada de novo (a fila sem internet faz isso): um toque novo da pessoa leva outro
+            // `idEnvio` e entraria como segunda batida. Por isso o aviso manda CONFERIR o bloco de
+            // hoje, que mostra inclusive quantos registros existem de cada tipo.
             // `navigator.onLine` só é confiável quando diz FALSO (o sistema sabe que não há rota).
             // Usá-lo para ESCONDER o botão de atualizar é seguro; usá-lo para afirmar que há
             // internet não seria.
