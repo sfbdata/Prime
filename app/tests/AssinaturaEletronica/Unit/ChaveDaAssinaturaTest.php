@@ -57,6 +57,9 @@ final class ChaveDaAssinaturaTest extends TestCase
         $curto = new ChaveDaAssinatura(str_repeat('x', 31));
         self::assertFalse($curto->configurada());
         self::assertTrue((new ChaveDaAssinatura(str_repeat('x', 32)))->configurada());
+        self::assertFalse((new ChaveDaAssinatura(str_repeat('x', 31) . "\n"))->configurada(), 'a quebra de linha não conta para o mínimo');
+        self::assertFalse((new ChaveDaAssinatura(' ' . str_repeat('x', 31)))->configurada(), 'o espaço da ponta não conta para o mínimo');
+        self::assertTrue((new ChaveDaAssinatura(str_repeat('x', 32) . "\n"))->configurada(), 'segredo longo com quebra de linha segue valendo como está');
 
         foreach ([static fn () => $curto->token(self::signatario('2026-11-09 12:00:00', 'UTC')), static fn () => $curto->hashDoCodigo(self::signatario('2026-11-09 12:00:00', 'UTC'), '123456')] as $acao) {
             try {

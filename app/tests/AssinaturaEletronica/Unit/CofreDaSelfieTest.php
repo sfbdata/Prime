@@ -109,6 +109,7 @@ final class CofreDaSelfieTest extends TestCase
         yield '66 caracteres' => [self::CHAVE . 'ab'];
         yield 'caractere que não é hexadecimal' => ['g' . substr(self::CHAVE, 1)];
         yield '32 bytes de texto' => [str_repeat('x', 32)];
+        yield 'quebra de linha no fim' => [self::CHAVE . "\n"];
     }
 
     #[DataProvider('chavesRuins')]
