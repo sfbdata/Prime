@@ -67,6 +67,11 @@ final class Version20261109170000 extends AbstractMigration
         $this->addSql('ALTER TABLE voto.assembleia_participacao ADD CONSTRAINT FK_5D8FE79F9033212A FOREIGN KEY (tenant_id) REFERENCES tenant (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE voto.assembleia_participacao ADD CONSTRAINT FK_5D8FE79FEDF4B99B FOREIGN KEY (unidade_id) REFERENCES voto.assembleia_unidade (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE voto.assembleia_participacao ADD CONSTRAINT FK_5D8FE79FA9945F91 FOREIGN KEY (pauta_id) REFERENCES voto.assembleia_pauta (id) ON DELETE CASCADE NOT DEFERRABLE');
+
+        // Samuel (09/11/2026): a versão da assembleia já sai com a chave `voto` ligada. Ligar não mostra o Voto a
+        // nenhum escritório: o menu e as telas da equipe continuam exigindo a liberação do Master (voto.liberacao),
+        // que ninguém tem; a chave ligada só deixa de dar 503 na página pública do morador (/votar/{token}).
+        $this->addSql("UPDATE recurso_estado SET ativo = true, motivo = NULL, ate = NULL, alterado_em = NOW() WHERE chave = 'voto'");
     }
 
     public function down(Schema $schema): void
@@ -77,5 +82,6 @@ final class Version20261109170000 extends AbstractMigration
         $this->addSql('DROP TABLE voto.assembleia_unidade');
         $this->addSql('DROP TABLE voto.assembleia_pauta');
         $this->addSql('DROP TABLE voto.assembleia');
+        $this->addSql("UPDATE recurso_estado SET ativo = false, alterado_em = NOW() WHERE chave = 'voto'");
     }
 }
