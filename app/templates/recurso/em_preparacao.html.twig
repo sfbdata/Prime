@@ -12,6 +12,9 @@
     <h1 class="bj-recurso-preparo-titulo">{{ titulo }}</h1>
     {# Como no bj-recursos.js: a previsão fica no mesmo bloco do texto, depois de uma quebra. #}
     <div class="bj-recurso-preparo-texto"><span class="bj-recurso-preparo-motivo">{{ mensagem }}</span>{% if previsao %}<br><span class="bj-recurso-preparo-previsao">{{ 'recurso.em_preparacao.previsao'|trans({data: previsao}) }}</span>{% endif %}</div>
+    {# No container do Voto (App\Voto\EventListener\PapelDoContainer::ATRIBUTO) o Expediente é 404: sem o "Voltar". #}
+    {% if app.request is null or app.request.attributes.get('_papel') != 'voto' %}
     <a class="bj-recurso-preparo-voltar" href="{{ path('expediente_index') }}">{{ 'recurso.em_preparacao.voltar'|trans }}</a>
+    {% endif %}
 </main>
 {% endblock %}

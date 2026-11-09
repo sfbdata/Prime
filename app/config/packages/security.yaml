@@ -76,6 +76,7 @@ security:
         - { path: ^/e/c/,             roles: PUBLIC_ACCESS }  # Comercial: link rastreado dos e-mails (assinado; sem login)
         - { path: ^/e/i/,             roles: PUBLIC_ACCESS }  # Comercial: imagem da campanha do modo simples (token; sem login, sem sessão)
         - { path: ^/e/confirmar/,     roles: PUBLIC_ACCESS }  # Comercial: confirmação de endereço (double opt-in; GET mostra, POST grava)
+        - { path: ^/saude-do-voto$,   roles: PUBLIC_ACCESS }  # BlueJus Voto: saúde do container voto (só "ok"; no BlueJus é 404 pelo PapelDoContainer)
 
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers

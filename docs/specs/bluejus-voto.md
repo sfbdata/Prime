@@ -414,7 +414,7 @@ contra o anexo de telas. Dias de uma sessão, já com testes; somar cerca de 20%
 |---|---|---|---|---|
 | A1 | `voto-base` | Recurso `voto` no catálogo (nasce desligado), permissão `modules.voto.view`, item no menu lateral, tela dentro da moldura do sistema com a faixa de demonstração e as abas vazias | 2 | M1 |
 | A1b | `voto-liberacao` | Liberação por escritório (molde da I.A., `liberadaPeloMaster`): lugar na tela do Master e trava no guarda do Voto. Separada da A1 em 09/11/2026; a chave `voto` fica desligada até ela entrar | 1 | M1b |
-| A2 | `voto-infra` | Schema `voto`, conexão do Voto, container `voto`, bloco do nginx com limites, `camera=(self)` e sem `access_log` nas rotas da urna (arquivos no repositório; subir na VPS é do Samuel) | 3 | M2 |
+| A2 | `voto-infra` | Schema `voto`, conexão do Voto, container `voto`, bloco do nginx com limites, `camera=(self)` e sem `access_log` nas rotas da urna (arquivos no repositório; subir na VPS é do Samuel, pelo `docs/runbooks/voto-subir-na-vps.md`) | 3 | M2 |
 | A3 | `voto-eleicao` | Eleição, evento, cargo, candidatura; 9 cenários; assistente de 7 etapas com rascunho; validações; publicar com hash canônico e código de conferência; modal "Conhecer candidaturas" | 5 | M3 |
 | A4 | `voto-equipe` | Perfis: equipe padrão e por votação, 8 papéis, "Designar", "Aplicar cargos da categoria", guardiões, acesso por link para quem não tem conta | 3 | M4 |
 | A5 | `voto-aptos` | Lista de aptos: XLSX/CSV, modelo, relatório, hash, bloqueio na abertura, ocorrências e Avaliações do Conselho | 4 | M5 |
@@ -475,7 +475,7 @@ Master, sem dado de eleitor, e registra no audit_log do escritório como a liber
 |---|---|---|
 | M1 | A1 | Dados (Version20261109120000): linha `voto` desligada em `recurso_estado`; permissão `modules.voto.view` criada sem concessão (o perfil de sistema já passa pelo bypass do PermissionChecker; os demais perfis recebem no painel de Perfis) |
 | M1b | A1b | Version20261109140000: `CREATE SCHEMA IF NOT EXISTS voto` (antecipado da M2) e `voto.liberacao` (um escritório por linha, `liberado`, datas; FK para `tenant` com ON DELETE CASCADE, exceção da D1-B). Primeiro schema fora do `public`: conferidos `doctrine:schema:validate`, `make:migration` sem diff fantasma, banco de teste do zero e `scripts/migrar-dev.sh` |
-| M2 | A2 | Permissões do schema `voto` (o `CREATE SCHEMA` saiu na M1b). Se D2 adotar usuário de banco próprio, criar o usuário é passo manual do Samuel na VPS (a migration roda com o usuário dono) |
+| M2 | A2 | Version20261109160000: papel `voto_acesso` NOLOGIN (criado só se não existir; papel é do cluster inteiro, por isso o down só tira as permissões e não apaga o papel), `USAGE` no schema `voto`, privilégio padrão (`ALTER DEFAULT PRIVILEGES`) de leitura e escrita só nas tabelas e sequências **futuras** do schema e `GRANT SELECT ON TABLE public.recurso_estado` (o guarda de recurso do Master a lê no container do Voto: chave `voto` desligada cai fechada no 503 "em preparação", nunca 500); nenhuma outra tabela do `public`, e a `voto.liberacao` (dado do BlueJus) fica de fora. O usuário que entra no banco, `voto_app` (LOGIN, `CONNECTION LIMIT 20`, membro de `voto_acesso`), é criado pelo Samuel na VPS com a senha digitada por ele (`docs/runbooks/voto-subir-na-vps.md`, passo 4). Conferidos `pg_dump -Fc` e `pg_restore --exit-on-error --single-transaction` num banco novo do mesmo cluster; num cluster novo o papel precisa existir antes do restauro |
 | M3 | A3 | `voto.evento`, `voto.eleicao` (configuração, estado, `cfg_hash`, campos da mesa e da sessão permanente), `voto.cargo`, `voto.candidatura` |
 
 **Condição antes da M3** (revisão da A1b, 09/11/2026): as redes que conferem "todo dado do escritório" só olham o
@@ -484,6 +484,11 @@ votação, ensinar o schema `voto` a: `PurgarEscritorioUseCase::garantirTenantVa
 `tests/Tenant/Functional/PurgaCoberturaSchemaTest.php`, a impressão digital do banco em `scripts/testar-paralelo.sh` e
 o `DescreverEsquemaTool` do MCP de produção. Na A1b nada escapa: a única tabela, `voto.liberacao`, sai com o escritório
 pelo ON DELETE CASCADE.
+Também antes da M3 (revisão da A2, 09/11/2026): o snapshot do banco de teste (`scripts/gerar-schema-de-teste.sh`) sai com
+`--no-privileges` e já leva as versões em `doctrine_migration_versions`, então não carrega papéis nem GRANT e o CI não
+reexecuta a migration. As tabelas da M3 em diante precisam de GRANT que sobreviva a isso (o privilégio padrão da
+Version20261109160000 só vale onde ela rodou) e o teste de cada uma prepara o próprio estado na transação do DAMA,
+como `tests/Voto/Functional/PapelDoVotoNoBancoDeTeste.php` faz com o papel `voto_acesso`.
 | M4 | A4 | `voto.membro_da_equipe` (papel, escopo por evento ou votação, nome, e-mail, `user_id` opcional) |
 | M5 | A5 | `voto.lista_de_aptos` (hash, bloqueio), `voto.apto` (identificação com HMAC, peso, grupo, situação), `voto.ocorrencia` |
 | M6 | B2 | `voto.codigo_de_acesso` (hash do código, validade, tentativas) |

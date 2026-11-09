@@ -77,6 +77,8 @@ o pico da operação (banco descompactado + uploads novos no volume preparado + 
 cópia de volta), com 10% de margem e mais 10MB; no diretório temporário, o `database.sql.gz`. Se o temporário não couber, rode com
 `TMPDIR=/outro/disco ./scripts/restore.sh ...`.
 
+**Servidor de banco novo** (não o mesmo `jusprime_db_prod`): os papéis são do servidor e o dump não os cria. Crie antes do restauro o `voto_acesso` (`CREATE ROLE voto_acesso NOLOGIN;`), como o `jusprime_leitura`, senão as permissões do schema `voto` falham (`docs/runbooks/voto-subir-na-vps.md`, seção 13).
+
 ## 4. O que o script confere antes de mexer em qualquer coisa
 
 1. Trava do deploy livre; worker parado; php parado se houver uploads.
