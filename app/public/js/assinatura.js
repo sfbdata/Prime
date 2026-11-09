@@ -914,23 +914,32 @@
                         : '<div data-ass="1" contenteditable="false" data-p="' + esc(papel(b.a)) + '" data-r="' + esc(b.r || '') + '">' + esc(T('mod.assinatura_de', { papel: papel(b.a) })) + '</div>')).join('');
     }
 
+    /* Elementos que fazem bloco na raiz do editor; o resto (texto, negrito, campo) é trecho de parágrafo. */
+    const BLOCO_DO_EDITOR = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE|TABLE)$/;
+
     function lerEd() {
         const m = s.m, root = edAtual || new DOMParser().parseFromString('<body>' + m.html + '</body>', 'text/html').body;
         const con = camposCon(), cps = [], visto = new Set();
         const reg = (k, r) => { if (visto.has(k)) { return; } visto.add(k); const c0 = con.find(x => x[0] === k); cps.push(c0 ? c0.slice() : [k, r, r.length > 16 ? 1 : 0]); };
-        const inl = n => Array.from(n.childNodes).map(c => {
+        const pedaco = c => {
             if (c.nodeType === 3) { return c.nodeValue; }
             if (c.nodeType !== 1) { return ''; }
             if (c.dataset && c.dataset.c) { reg(c.dataset.c, c.textContent); return '[[' + c.dataset.c + ']]'; }
             if (/^(B|STRONG)$/.test(c.tagName)) { const t = inl(c); return t.trim() ? '{b}' + t + '{/b}' : t; }
             if (c.tagName === 'BR') { return ' '; }
             return inl(c);
-        }).join('').replace(/ /g, ' ');
+        };
+        const trecho = nos => nos.map(pedaco).join('').replace(/\u00a0/g, ' ');
+        const inl = n => trecho(Array.from(n.childNodes));
         const corpo = [], sign = [];
-        let prim = true;
+        let prim = true, solto = [];
+        /* D-j: o que estiver solto na raiz (texto, negrito, campo) vira um parágrafo, com o campo registrado; o desenho
+           lia só o texto solto e o campo saía de campos (dc:330). */
+        const fecharSolto = () => { const t = trecho(solto).trim(); solto = []; if (t) { corpo.push({ p: t }); } };
         Array.from(root.childNodes).forEach(n => {
-            if (n.nodeType === 3) { if (n.nodeValue.trim()) { corpo.push({ p: n.nodeValue.trim() }); } return; }
+            if (n.nodeType === 3 || (n.nodeType === 1 && !(n.dataset && n.dataset.ass) && !BLOCO_DO_EDITOR.test(n.tagName))) { solto.push(n); return; }
             if (n.nodeType !== 1) { return; }
+            fecharSolto();
             if (n.dataset && n.dataset.ass) {
                 const a = sign.length;
                 sign.push({ papel: n.dataset.p || papelPadrao(), nome: '', email: '' });
@@ -945,6 +954,7 @@
                 corpo.push(o);
             }
         });
+        fecharSolto();
         return { id: m.id || 'prevm', cat: m.cat, t: m.t, layout: m.layout, lateral: m.lateral, limpa: !!m.limpa, campos: cps, sign: sign, corpo: corpo };
     }
 
@@ -1010,12 +1020,32 @@
         if (!ed) { return; }
         ed.focus();
         const s0 = window.getSelection();
-        let r = edRng;
-        if (!r || !ed.contains(r.startContainer)) { r = document.createRange(); r.selectNodeContents(ed); r.collapse(false); }
-        r.deleteContents(); r.insertNode(no); r.setStartAfter(no); r.collapse(true);
+        let r = edRng && ed.contains(edRng.startContainer) ? edRng : null;
+        if (r) { r.deleteContents(); }
+        if (!r || r.startContainer === ed) { r = dentroDeBloco(ed, r); }
+        r.insertNode(no); r.setStartAfter(no); r.collapse(true);
         s0.removeAllRanges(); s0.addRange(r);
         edRng = r.cloneRange();
         pintarPrevias();
+    }
+
+    /* D-j: o campo sempre termina dentro de um bloco (o lerEd do desenho só o lê dentro de um, dc:330; o noCursor do
+       desenho, sem cursor, o punha na raiz, dc:332). Sem cursor: fim do último bloco de texto, ou um parágrafo novo no
+       fim. Cursor entre blocos: um parágrafo novo ali. */
+    function dentroDeBloco(ed, r) {
+        let alvo;
+        if (r) {
+            alvo = document.createElement('p');
+            r.insertNode(alvo);
+        } else {
+            const fim = ed.lastChild;
+            alvo = fim && fim.nodeType === 1 && !fim.dataset.ass && BLOCO_DO_EDITOR.test(fim.tagName) ? fim : ed.appendChild(document.createElement('p'));
+        }
+        if (alvo.childNodes.length === 1 && alvo.firstChild.nodeName === 'BR') { alvo.removeChild(alvo.firstChild); }
+        const n = document.createRange();
+        n.selectNodeContents(alvo);
+        n.collapse(false);
+        return n;
     }
 
     function insChip(k, r) {

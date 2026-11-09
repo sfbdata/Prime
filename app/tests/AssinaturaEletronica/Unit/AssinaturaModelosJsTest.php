@@ -245,6 +245,45 @@ final class AssinaturaModelosJsTest extends TestCase
         self::assertStringContainsString("new DOMParser().parseFromString('<body>' + m.html + '</body>', 'text/html').body", $lerEd);
     }
 
+    #[TestDox('D-j: o campo inserido nunca fica solto na raiz do editor; sem cursor vai para o fim do último bloco de texto ou para um parágrafo novo')]
+    public function testCampoSempreDentroDeBloco(): void
+    {
+        self::emOrdem($this->funcao('noCursor'), [
+            'let r = edRng && ed.contains(edRng.startContainer) ? edRng : null;',
+            'if (r) { r.deleteContents(); }',
+            'if (!r || r.startContainer === ed) { r = dentroDeBloco(ed, r); }',
+            'r.insertNode(no);',
+        ], 'noCursor');
+        self::emOrdem($this->funcao('dentroDeBloco'), [
+            "alvo = document.createElement('p');",
+            'r.insertNode(alvo);',
+            'const fim = ed.lastChild;',
+            "alvo = fim && fim.nodeType === 1 && !fim.dataset.ass && BLOCO_DO_EDITOR.test(fim.tagName) ? fim : ed.appendChild(document.createElement('p'));",
+            'n.selectNodeContents(alvo);',
+            'n.collapse(false);',
+        ], 'dentroDeBloco');
+        self::assertStringNotContainsString('r.selectNodeContents(ed);', $this->js(), 'o desenho punha o campo na raiz quando não havia cursor');
+    }
+
+    #[TestDox('D-j: o lerEd junta texto, negrito e campo soltos na raiz num parágrafo e registra o campo em campos')]
+    public function testLerEdComCampoSolto(): void
+    {
+        self::assertStringContainsString('const BLOCO_DO_EDITOR = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE|TABLE)$/;', $this->js());
+        $lerEd = $this->funcao('lerEd');
+        self::emOrdem($lerEd, [
+            "if (c.dataset && c.dataset.c) { reg(c.dataset.c, c.textContent); return '[[' + c.dataset.c + ']]'; }",
+            "const trecho = nos => nos.map(pedaco).join('').replace(/\\u00a0/g, ' ');",
+            "const fecharSolto = () => { const t = trecho(solto).trim(); solto = []; if (t) { corpo.push({ p: t }); } };",
+            'if (n.nodeType === 3 || (n.nodeType === 1 && !(n.dataset && n.dataset.ass) && !BLOCO_DO_EDITOR.test(n.tagName))) { solto.push(n); return; }',
+            'fecharSolto();',
+            'if (n.dataset && n.dataset.ass) {',
+            '});',
+            'fecharSolto();',
+            'return { id: m.id',
+        ], 'lerEd');
+        self::assertStringNotContainsString('corpo.push({ p: n.nodeValue.trim() })', $lerEd, 'o desenho lia só o texto solto e perdia o campo');
+    }
+
     #[TestDox('"Criar campo" com colchete mostra o erro na linha do editor; nada é cortado')]
     public function testCriarCampoComColchete(): void
     {
