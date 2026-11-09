@@ -10,7 +10,8 @@ namespace App\AssinaturaEletronica\Service\ConferenciaDePdf;
  *
  * Titular, CPF, CNPJ, emissor e ICP-Brasil são DECLARADOS pelo certificado: a cadeia até a AC raiz não é conferida
  * antes da etapa 6 (pyHanko), e qualquer um faz um certificado com o nome que quiser (M25). `vinculoDoCertificado`
- * diz se o certificado é o que o signatário assinou ou se pode ter sido trocado depois (M24).
+ * diz se o certificado é o que o signatário assinou ou se pode ter sido trocado depois (M24). `acrescimo` diz se o
+ * acréscimo que a assinatura cobre (desde a versão anterior) só traz a assinatura ou muda o conteúdo (M27).
  */
 final readonly class AssinaturaConferida
 {
@@ -48,7 +49,43 @@ final readonly class AssinaturaConferida
         public VereditoDaAssinatura $veredito,
         public string $motivo,
         public VinculoDoCertificado $vinculoDoCertificado = VinculoDoCertificado::NaoConferido,
+        public ConferenciaDoAcrescimo $acrescimo = ConferenciaDoAcrescimo::NaoSeAplica,
+        /** null com `nao_se_aplica` */
+        public ?string $motivoDoAcrescimo = null,
     ) {
+    }
+
+    /** A mesma assinatura com a análise do acréscimo (M27). */
+    public function comAcrescimo(ConferenciaDoAcrescimo $acrescimo, ?string $motivo): self
+    {
+        return new self(
+            ordem: $this->ordem,
+            faixaDeBytes: $this->faixaDeBytes,
+            faixaValida: $this->faixaValida,
+            fim: $this->fim,
+            cobreODocumento: $this->cobreODocumento,
+            bytesDepois: $this->bytesDepois,
+            tipo: $this->tipo,
+            algoritmoDoResumo: $this->algoritmoDoResumo,
+            resumoConfere: $this->resumoConfere,
+            chaveConfere: $this->chaveConfere,
+            titular: $this->titular,
+            cpf: $this->cpf,
+            cnpj: $this->cnpj,
+            documentoMascarado: $this->documentoMascarado,
+            emissor: $this->emissor,
+            emissorDeclaraIcpBrasil: $this->emissorDeclaraIcpBrasil,
+            numeroDeSerie: $this->numeroDeSerie,
+            validoDesde: $this->validoDesde,
+            validoAte: $this->validoAte,
+            horaDeclarada: $this->horaDeclarada,
+            docMdp: $this->docMdp,
+            veredito: $this->veredito,
+            motivo: $this->motivo,
+            vinculoDoCertificado: $this->vinculoDoCertificado,
+            acrescimo: $acrescimo,
+            motivoDoAcrescimo: $motivo,
+        );
     }
 
     public function carimboDoTempo(): bool
