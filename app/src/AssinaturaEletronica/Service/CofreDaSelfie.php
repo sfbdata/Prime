@@ -34,10 +34,13 @@ final readonly class CofreDaSelfie
     ) {
     }
 
-    /** 64 caracteres hexadecimais; vazia, com outro tamanho ou com outro caractere: não configurada. */
+    /**
+     * 64 caracteres hexadecimais; vazia, com outro tamanho ou com outro caractere: não configurada. Âncora `\z`, não
+     * `$`: o `$` aceita uma quebra de linha no fim, que passaria aqui e estouraria no `sodium_hex2bin` do Assinar.
+     */
     public function configurado(): bool
     {
-        return preg_match('/^[0-9a-fA-F]{64}$/', $this->chaveEmHex) === 1;
+        return preg_match('/^[0-9a-fA-F]{64}\z/', $this->chaveEmHex) === 1;
     }
 
     /** @throws AcaoRecusada "Assinatura reforçada sem chave configurada. Fale com o suporte." */

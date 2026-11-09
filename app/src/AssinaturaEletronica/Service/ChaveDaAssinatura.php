@@ -36,9 +36,13 @@ final readonly class ChaveDaAssinatura
     ) {
     }
 
+    /**
+     * Ao menos 32 bytes sem contar espaço e quebra de linha das pontas (um segredo curto colado com "\n" não passa).
+     * O HMAC usa o segredo como está: medir sem as pontas não muda a chave dos links e códigos já emitidos.
+     */
     public function configurada(): bool
     {
-        return \strlen($this->segredo) >= self::TAMANHO_MINIMO;
+        return \strlen(trim($this->segredo)) >= self::TAMANHO_MINIMO;
     }
 
     /** @throws AcaoRecusada sem segredo configurado */
