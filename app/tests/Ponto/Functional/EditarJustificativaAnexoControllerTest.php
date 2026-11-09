@@ -142,7 +142,7 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
             ['anexo' => $this->upload()],
         );
 
-        self::assertResponseRedirects('/ponto/');
+        self::assertResponseRedirects('/ponto/?competencia=2026-04&aba=justificativas', null, 'volta na aba das justificativas, no mês delas (E4)');
 
         $flashes = $client->getRequest()->getSession()->getFlashBag()->peekAll();
         self::assertStringContainsString('não pode ser trocado', implode(' ', $flashes['warning'] ?? []));
@@ -179,7 +179,7 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
     }
 
     /**
-     * R5: cortesia da tela — o servidor é a garantia. O botão diz ao modal se o campo pode ser
+     * R5: cortesia da tela — o servidor é a garantia. O botão diz à janela se o campo pode ser
      * oferecido; o JS o desabilita (não só esconde) e mostra o aviso. O comportamento do JS fica
      * para o smoke: o PHPUnit lê HTML, não executa script.
      *
@@ -199,8 +199,9 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         self::assertCount(\count(array_keys($status, 'pendente', true)), $botoes, 'um botão de editar por dia em análise (E3: uma linha por dia)');
         self::assertSame(array_fill(0, $botoes->count(), $esperado), $botoes->each(static fn ($b): string => (string) $b->attr('data-pode-trocar-anexo')));
 
-        self::assertCount(1, $crawler->filter('#modalEditarJustificativa input[type="file"]#editarAnexo[name="anexo"]'));
-        $aviso = $crawler->filter('#modalEditarJustificativa #editarAvisoAnexoAnalisado');
+        // E4: a janela "Editar justificativa" na moldura do desenho, no lugar do modal do Bootstrap.
+        self::assertCount(1, $crawler->filter('#ponto-janela-editar input[type="file"]#editarAnexo[name="anexo"]'));
+        $aviso = $crawler->filter('#ponto-janela-editar #editarAvisoAnexoAnalisado');
         self::assertCount(1, $aviso);
         self::assertStringContainsString('todos os dias precisam voltar para análise', $aviso->text());
     }

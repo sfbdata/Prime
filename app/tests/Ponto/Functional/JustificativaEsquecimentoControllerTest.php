@@ -53,6 +53,7 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
                 'datas'                 => $chave,
                 'tipoRegistroEsquecido' => 'saida',
                 'horaRegistroEsquecido' => '18:05',
+                'motivo'                => 'Esqueci de bater a saída.',
             ],
             'competencia' => $competencia,
         ]);
@@ -90,6 +91,7 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
                 'tipo'                  => 'esquecimento_registro',
                 'datas'                 => $dia->format('Y-m-d'),
                 'tipoRegistroEsquecido' => 'saida',
+                'motivo'                => 'Esqueci de bater a saída.',
             ],
             'competencia' => $dia->format('Y-m'),
         ]);

@@ -134,8 +134,9 @@ test.describe('atalho de ponto no cabeçalho', () => {
 
         await expect(page.locator('.presenca-sub--ponto.is-acao')).toHaveText(/Regularizar ponto de ontem/);
         await Promise.all([page.waitForURL(new RegExp('/ponto/\\?competencia=' + dia.slice(0, 7))), page.locator('.presenca-sub--ponto.is-acao').click()]);
-        const modal = page.locator('#modalEsquecimentoRegistro');
-        await expect(modal).toBeVisible();
+        // E4 do desenho do Ponto: a janela na moldura do desenho, no lugar do modal do Bootstrap.
+        const janela = page.locator('#ponto-janela-esquecimento [role="dialog"]');
+        await expect(janela).toBeVisible();
         await expect(page.locator('#esquecimentoData')).toHaveValue(dia);
         await expect(page.locator('#esquecimentoCampo')).toHaveValue('saida');
         const [a, m, d] = dia.split('-');

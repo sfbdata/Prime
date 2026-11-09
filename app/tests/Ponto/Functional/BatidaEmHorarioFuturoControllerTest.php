@@ -214,6 +214,7 @@ final class BatidaEmHorarioFuturoControllerTest extends JusPrimeWebTestCase
                 'datas'                 => $this->hoje,
                 'tipoRegistroEsquecido' => 'saida',
                 'horaRegistroEsquecido' => $hora,
+                'motivo'                => 'Esqueci de bater a saída.',
             ],
         ]);
     }

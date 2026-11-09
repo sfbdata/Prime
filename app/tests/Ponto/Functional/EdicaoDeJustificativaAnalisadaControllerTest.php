@@ -40,6 +40,12 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PontoController::class)]
 final class EdicaoDeJustificativaAnalisadaControllerTest extends JusPrimeWebTestCase
 {
+    /**
+     * Depois da edição, salva ou recusada, a tela volta na aba "Minhas Justificativas" do mês da justificativa (Ponto
+     * E4, achado da revisão da E3). As destes testes são de abril de 2026.
+     */
+    private const VOLTA_DA_EDICAO = '/ponto/?competencia=2026-04&aba=justificativas';
+
     /** @var list<string> o diretório de justificativas no início do teste */
     private ?array $linhaDeBase = null;
 
@@ -68,7 +74,7 @@ final class EdicaoDeJustificativaAnalisadaControllerTest extends JusPrimeWebTest
             'horaFimAbono'    => '16:00',
         ]);
 
-        self::assertResponseRedirects('/ponto/');
+        self::assertResponseRedirects(self::VOLTA_DA_EDICAO);
         self::assertContains('Justificativa atualizada com sucesso.', $this->flashes($client)['success'] ?? []);
         $linha = $this->linha($j);
         self::assertSame('atestado_medico', $linha['tipo']);
@@ -109,7 +115,7 @@ final class EdicaoDeJustificativaAnalisadaControllerTest extends JusPrimeWebTest
 
         $this->editar($client, $j, $campos);
 
-        self::assertResponseRedirects('/ponto/');
+        self::assertResponseRedirects(self::VOLTA_DA_EDICAO);
         $flashes = $this->flashes($client);
         self::assertStringContainsString('já foi analisada', implode(' ', $flashes['warning'] ?? []));
         self::assertArrayNotHasKey('success', $flashes, 'recusa nunca vem com mensagem de sucesso');
@@ -246,7 +252,7 @@ final class EdicaoDeJustificativaAnalisadaControllerTest extends JusPrimeWebTest
 
         $this->editar($client, $j, ['tipo' => 'atestado_medico']);
 
-        self::assertResponseRedirects('/ponto/');
+        self::assertResponseRedirects(self::VOLTA_DA_EDICAO);
         $flashes = $this->flashes($client);
         self::assertStringContainsString('já foi analisada', implode(' ', $flashes['warning'] ?? []));
         self::assertArrayNotHasKey('success', $flashes);

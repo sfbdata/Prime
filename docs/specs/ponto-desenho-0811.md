@@ -389,7 +389,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - ficam do sistema, no molde do desenho: "Trocar de escritório" e a explicação da pendência de outro escritório (P38),
     o "Ver" do atestado, o lápis de editar (P42), "Não abonado" (vermelho da recusada) e o horário do abono parcial
     (subtítulo "Parcial: 08:00 às 12:00", P45). O "Motivo" do desenho (L184) não entra: a justificativa não tem o
-    campo (P44, E4). Obs. da análise em análise: "Aguardando análise"; "Analisado em" vazio (seção 8);
+    campo (P44, E4; entrou na E4, com a coluna nova). Obs. da análise em análise: "Aguardando análise"; "Analisado em" vazio (seção 8);
   - P41 e D4: a lixeira abre a janela "Excluir justificativa" na moldura do desenho (L269 a L318); o "Excluir" da janela
     faz o POST (`ponto_justificativa_excluir`, JSON, token da página). `ExcluirJustificativaEmAnaliseUseCase`: busca
     pelo escritório da sessão (outro escritório: 404), só o dono (403), status lido com a linha travada (já analisada:
@@ -442,11 +442,45 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 **E4. Janelas no molde do desenho.**
 - Entra: P44 e P46 (moldura do desenho), P45 e P47 (ficam, com os campos do sistema dentro da moldura nova).
 - Depende de: E1.
-- Migration: não.
-- Arquivos: `_justificativa_form`, `_justificativa_calendario`, `_justificativa_campos`,
-  `_justificativa_esquecimento_modal`, `index.html.twig`. Nada da frente.
-- Testes: os de justificativa de hoje continuam verdes; funcional com `role="dialog"`, Esc fecha, erro do formulário no
-  lugar do desenho; abrir sozinho com `?esquecimento=`.
+- Migration: sim (`Version20261109210000`, coluna `motivo` texto nula em `justificativa_ponto`; decisão do Coordenador
+  de 09/11/2026). A etapa nasceu sem migration; o "Motivo" obrigatório do desenho (P44 e P46) pediu a coluna.
+- Feito (09/11/2026, branch `ponto-desenho-e4`, empilhada na E3):
+  - as três janelas da /ponto ("Justificar falta", "Registro de esquecimento" e "Editar justificativa") saíram do modal
+    do Bootstrap para a moldura da E3 (`.pe-janela-fundo > form.pe-janela[role=dialog][aria-modal]`, topo azul,
+    corpo, linha de erro do desenho entre o corpo e o rodapé, "Cancelar" e a ação), dentro de `.pe-page` (tokens
+    `--pe-*` e tema escuro). Esc fecha, clicar fora não fecha, o foco não sai (moldura em `js/ponto-abas.js`, agora
+    exposta em `window.PontoAbas`); o comportamento de cada janela mora em `js/ponto-janelas.js`;
+  - "Justificar falta" (P44 e P45): "Data da falta" vira o calendário de vários dias do sistema na moldura do desenho
+    (abre com hoje do servidor marcado; dia futuro desligado), depois o tipo (os tipos de hoje, lista plana como a
+    tela antiga), o aviso da falta não justificada, o bloco do esquecimento (horário com segundos), o abono parcial,
+    "Motivo" (obrigatório) e "Atestado ou documento (opcional)" (`accept` do servidor: PDF, JPG ou PNG). A conferência
+    antes do envio põe a frase na linha de erro: "Informe a data e o motivo." (do desenho) e as do servidor; o alerta
+    do navegador do abono com vários dias virou a linha de erro;
+  - "Registro de esquecimento" (P46): resumo "dd/mm/aaaa · Saída", "Horário" com segundos (`with_seconds` no
+    `JustificativaPontoType`; "14:32" vira 14:32:00) e "Motivo"; "Informe o horário e o motivo." A dica de dentro da
+    janela saiu; o aviso flutuante "Enviado para aprovação do gestor." fica para a E8 (P80). `?esquecimento=` continua
+    clicando o "+" da folha, agora sem esperar o Bootstrap;
+  - "Editar justificativa" (P47): os campos de hoje na moldura nova, mais o "Motivo" (a edição recusa motivo em branco
+    ou longo demais; pedido sem o campo não mexe no motivo). O horário do esquecimento na edição segue em minutos. O
+    lápis abre por delegação (`data-justificativa-editar`), sem `onclick`;
+  - o motivo aparece na aba "Minhas Justificativas" abaixo do tipo (L184) e, na ficha do gestor, uma linha "Motivo" no
+    resumo do lote (decisão da implementação: quem analisa precisa ver o que foi escrito). Os parciais da ficha
+    (`_justificativa_calendario`, `_justificativa_campos`) ficaram intactos;
+  - achado da revisão da E3: depois da edição (salva ou recusada), a tela volta na aba "Minhas Justificativas", no mês
+    da justificativa (`PontoController::voltaDaEdicao`, `?competencia=AAAA-MM&aba=justificativas`);
+  - motivo: até 2000 caracteres (`JustificativaPontoType::MOTIVO_MAXIMO`), sem os espaços das pontas, o mesmo em cada
+    dia do lote.
+- Arquivos: `_justificativa_form`, `_justificativa_esquecimento_modal`, `_abas_justificativas`, `index.html.twig`,
+  `tenant/_justificativas_tab`, `public/js/ponto-abas.js`, `public/js/ponto-janelas.js` (novo),
+  `public/css/ponto-eletronico.css` (campos das janelas e calendário), `JustificativaPonto`, `JustificativaPontoType`,
+  `PontoController` (motivo, segundos, `voltaDaEdicao`), a migration e o e2e `ponto-atalho-cabecalho.spec.js`.
+- Testes: `JanelasDoPontoTelaTest` (moldura por filho direto nas três janelas, nada do Bootstrap, campos e ordem,
+  motivo na aba e no lápis, motivo de outro escritório não aparece, `?esquecimento=` com o "+", motivo na ficha),
+  `MotivoDaJustificativaControllerTest` (motivo em cada dia do lote; sem, em branco e longo: nada nasce; segundos;
+  edição grava, recusa e volta na aba; de outra pessoa: 403), `PontoJanelasJsTest`, `JanelasDoDesenhoCssTest`;
+  ajustados com o motivo e a volta nova: `BatidaEmHorarioFuturoControllerTest`, `JustificativaEsquecimentoControllerTest`,
+  `PendenciasDeRegistroTest`, `NovaJustificativaComAnexoControllerTest`, `EdicaoDeJustificativaAnalisadaControllerTest`,
+  `EditarJustificativaAnexoControllerTest`.
 
 ### Bloco 2: gestão sobre os dados de hoje
 
@@ -659,7 +693,7 @@ em todo o Ponto e na frente jornada-vigencia.
 |---|---|---|---|---|
 | `ponto_batida` | `registro_ponto` | Já existe com outro nome | Reaproveitar. Colunas novas: marca de trabalho externo e motivo (E12); hora do aparelho, hora de chegada, marca "enviada sem internet", identificador único do envio (E13); método (sistema ou facial) (E18) | E12, E13, E18 |
 | `ponto_ajuste` | Não existe (o gestor faz UPDATE e DELETE) | Precisa criar (P65 a) | Tabela nova: escritório, pessoa, batida (vazia na inclusão), data, tipo, valor anterior, valor novo, autor, criado em, motivo, justificativa ligada | E10 |
-| `ponto_justificativa` | `justificativa_ponto` | Já existe com outro nome | Reaproveitar. Coluna nova opcional: batida ligada (trabalho externo) | E12 |
+| `ponto_justificativa` | `justificativa_ponto` | Já existe com outro nome | Reaproveitar. Colunas novas: `motivo` (texto nulo, feita na E4, `Version20261109210000`); batida ligada, opcional (trabalho externo, E12) | E4, E12 |
 | `ponto_comprovante` | Não existe | Precisa criar | Tabela nova, uma linha por batida: NSR, código, HMAC (com `PONTO_HMAC_SECRET`; vazia, não grava linha), emitido em, dados assinados; mais um contador de NSR por escritório (linha travada na gravação), que sobe mesmo sem comprovante (D2) | E15 |
 | `ponto_folha_aceite` | Não existe | Precisa criar | Escritório, pessoa, ano, mês, situação (concordo ou ressalva), texto da ressalva, aceito em, IP, navegador, folha emitida vista; único por pessoa, escritório e mês | E16 |
 | (folha emitida, fora da lista do ESPEC) | Não existe | Precisa criar | Código BJF, HMAC, escritório, pessoa, competência, emitida em, emitida por, resumo do conteúdo | E16 |
@@ -729,11 +763,13 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   intocada). Decisões e os pontos de liga e desliga do P40, P43 a e P41 registrados na E3 (seção 5).
 - E13 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e13`, servidor, e `ponto-desenho-e13-tela`), com a
   migration `Version20261109220000`. Decisões da etapa registradas na E13 (seção 5).
+- E4 implementada na branch `ponto-desenho-e4` (empilhada na E3), com a migration `Version20261109210000` (coluna
+  `motivo` em `justificativa_ponto`). Decisões registradas na E4 (seção 5).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
   saldo de antes dos lotes (E17).
 - Pendências do dono: seção 10. Nenhuma trava a E1.
-- Nenhuma migration pedida ainda.
+- Migrations: `Version20261109210000` (E4).
 
 ## 10. Pendências do dono e ganchos
 

@@ -197,6 +197,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
                 'tipo' => TipoJustificativa::EsquecimentoRegistro->value,
                 'tipoRegistroEsquecido' => 'saida',
                 'horaRegistroEsquecido' => '18:00',
+                'motivo' => 'Esqueci de bater a saída.',
             ],
         ]);
 
@@ -375,6 +376,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
                 'tipo' => TipoJustificativa::EsquecimentoRegistro->value,
                 'tipoRegistroEsquecido' => $batida,
                 'horaRegistroEsquecido' => $hora,
+                'motivo' => 'Esqueci de bater o ponto.',
             ],
         ]);
     }

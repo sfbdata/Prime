@@ -98,6 +98,12 @@
                                         </dd>
                                     {% endif %}
 
+                                    {# Ponto E4: o motivo que o colaborador escreveu na janela da /ponto (as de antes e as do gestor não têm). #}
+                                    {% if primeiraJust.motivo %}
+                                        <dt class="col-sm-3">Motivo</dt>
+                                        <dd class="col-sm-9" style="white-space: pre-line;">{{ primeiraJust.motivo }}</dd>
+                                    {% endif %}
+
                                     <dt class="col-sm-3">Atestado</dt>
                                     <dd class="col-sm-9">
                                         {% if primeiraJust.anexoPath %}

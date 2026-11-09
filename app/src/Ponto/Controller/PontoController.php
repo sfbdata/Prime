@@ -373,6 +373,7 @@ final class PontoController extends AbstractController
                 $justificativa->setStatus($statusInicial);
                 $justificativa->setBatchId($batchId);
                 $justificativa->setAbonoParcial($abonoParcial);
+                $justificativa->setMotivo(trim((string) $form->get('motivo')->getData()));
                 if ($abonoParcial) {
                     $justificativa->setHoraInicioAbono($horaInicio);
                     $justificativa->setHoraFimAbono($horaFim);
@@ -454,7 +455,7 @@ final class PontoController extends AbstractController
 
         if (!$this->isCsrfTokenValid('editar_justificativa_' . $justificativa->getId(), $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
-            return $this->redirectToRoute('ponto_index');
+            return $this->voltaDaEdicao($justificativa);
         }
 
         // C2-01 (docs/specs/ponto-edicao-justificativa-analisada.md): o colaborador só edita o que o
@@ -464,7 +465,7 @@ final class PontoController extends AbstractController
         if ($justificativa->getStatus() !== 'pendente') {
             $this->addFlash('warning', JustificativaJaAnalisadaException::MENSAGEM);
 
-            return $this->redirectToRoute('ponto_index');
+            return $this->voltaDaEdicao($justificativa);
         }
 
         $tipo = $request->request->get('tipo');
@@ -485,7 +486,7 @@ final class PontoController extends AbstractController
 
             if ($horaInicio === null || $horaFim === null || $horaInicio >= $horaFim) {
                 $this->addFlash('warning', 'Informe os horários de saída e retorno corretamente para o abono parcial.');
-                return $this->redirectToRoute('ponto_index');
+                return $this->voltaDaEdicao($justificativa);
             }
         }
 
@@ -494,23 +495,12 @@ final class PontoController extends AbstractController
         $justificativa->setHoraInicioAbono($abonoParcial ? $horaInicio : null);
         $justificativa->setHoraFimAbono($abonoParcial ? $horaFim : null);
 
-        if ($tipo === 'esquecimento_registro') {
-            $tipoRegEsquecido = $request->request->get('tipoRegistroEsquecido');
-            $horaRegRaw = $request->request->get('horaRegistroEsquecido');
-            $horaReg = ($horaRegRaw !== null && $horaRegRaw !== '') ? \DateTime::createFromFormat('H:i', $horaRegRaw) ?: null : null;
-            if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
-                $this->addFlash('warning', 'Informe o tipo e o horário do registro esquecido.');
-                return $this->redirectToRoute('ponto_index');
-            }
-            if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
-                $this->addFlash('warning', $jaBatida);   // a edição não troca para uma batida que existe
-                return $this->redirectToRoute('ponto_index');
-            }
-            $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
-            $justificativa->setHoraRegistroEsquecido($horaReg);
-        } else {
-            $justificativa->setTipoRegistroEsquecido(null);
-            $justificativa->setHoraRegistroEsquecido(null);
+        $recusa = $this->aplicarMotivoDaEdicao($request, $justificativa)
+            ?? $this->aplicarEsquecimentoDaEdicao($request, $justificativa, $tipo === 'esquecimento_registro', $user, $tenant);
+        if ($recusa !== null) {
+            $this->addFlash('warning', $recusa);
+
+            return $this->voltaDaEdicao($justificativa);
         }
 
         // A troca do anexo vem ANTES do flush de propósito. Se o arquivo for recusado, a edição
@@ -526,13 +516,13 @@ final class PontoController extends AbstractController
             } catch (\InvalidArgumentException $e) {
                 $this->addFlash('warning', $e->getMessage());
 
-                return $this->redirectToRoute('ponto_index');
+                return $this->voltaDaEdicao($justificativa);
             } catch (TrocaDeAnexoRecusadaException $e) {
                 // Lote já analisado: a recusa descarta a edição inteira, como o anexo inválido
                 // acima. A transação que recusou já fechou o EntityManager — só resta avisar.
                 $this->addFlash('warning', $e->getMessage());
 
-                return $this->redirectToRoute('ponto_index');
+                return $this->voltaDaEdicao($justificativa);
             }
 
             if ($atingidos > 1) {
@@ -548,12 +538,70 @@ final class PontoController extends AbstractController
                 // Analisada entre o carregamento e a gravação: nada foi gravado.
                 $this->addFlash('warning', $e->getMessage());
 
-                return $this->redirectToRoute('ponto_index');
+                return $this->voltaDaEdicao($justificativa);
             }
         }
 
         $this->addFlash('success', 'Justificativa atualizada com sucesso.');
-        return $this->redirectToRoute('ponto_index');
+        return $this->voltaDaEdicao($justificativa);
+    }
+
+    /**
+     * Volta da janela "Editar justificativa" (E4, achado da revisão da E3): a aba "Minhas Justificativas" no mês da
+     * justificativa, o mesmo endereço da volta da exclusão e da análise. Antes voltava em Pendências, no mês corrente.
+     */
+    private function voltaDaEdicao(JustificativaPonto $justificativa): Response
+    {
+        $dia = $justificativa->getData();
+
+        return $this->redirectToRoute('ponto_index', ($dia !== null ? ['competencia' => $dia->format('Y-m')] : []) + ['aba' => 'justificativas']);
+    }
+
+    /**
+     * E4: a janela "Editar justificativa" sempre manda o motivo, e em branco não sai (o desenho o pede ao criar). Sem o
+     * campo no pedido, o motivo gravado fica como está. Devolve a recusa, ou null.
+     */
+    private function aplicarMotivoDaEdicao(Request $request, JustificativaPonto $justificativa): ?string
+    {
+        if (!$request->request->has('motivo')) {
+            return null;
+        }
+        $motivo = trim((string) $request->request->get('motivo'));
+        if ($motivo === '') {
+            return 'Informe o motivo.';
+        }
+        if (mb_strlen($motivo) > JustificativaPontoType::MOTIVO_MAXIMO) {
+            return sprintf('O motivo pode ter até %d caracteres.', JustificativaPontoType::MOTIVO_MAXIMO);
+        }
+        $justificativa->setMotivo($motivo);
+
+        return null;
+    }
+
+    /**
+     * Tipo e horário da batida esquecida na edição, ou os dois limpos em outro tipo. Movido de editarJustificativa sem
+     * mudar a regra (E4: o método estava no teto da catraca de métodos longos). Devolve a recusa, ou null.
+     */
+    private function aplicarEsquecimentoDaEdicao(Request $request, JustificativaPonto $justificativa, bool $ehEsquecimento, User $user, Tenant $tenant): ?string
+    {
+        if ($ehEsquecimento) {
+            $tipoRegEsquecido = $request->request->get('tipoRegistroEsquecido');
+            $horaRegRaw = $request->request->get('horaRegistroEsquecido');
+            $horaReg = ($horaRegRaw !== null && $horaRegRaw !== '') ? \DateTime::createFromFormat('H:i', $horaRegRaw) ?: null : null;
+            if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
+                return 'Informe o tipo e o horário do registro esquecido.';
+            }
+            if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
+                return $jaBatida;   // a edição não troca para uma batida que existe
+            }
+            $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
+            $justificativa->setHoraRegistroEsquecido($horaReg);
+        } else {
+            $justificativa->setTipoRegistroEsquecido(null);
+            $justificativa->setHoraRegistroEsquecido(null);
+        }
+
+        return null;
     }
 
     /**

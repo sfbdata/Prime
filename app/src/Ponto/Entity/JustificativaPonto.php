@@ -66,6 +66,13 @@ class JustificativaPonto implements Auditavel, TenantAware
     #[ORM\Column(type: 'time', nullable: true)]
     private ?\DateTimeInterface $horaRegistroEsquecido = null;
 
+    /**
+     * Motivo escrito por quem justifica (desenho do Ponto, E4: P44 e P46). Obrigatório nas janelas "Justificar falta" e
+     * "Registro de esquecimento"; nulo nas justificativas de antes da E4 e nas que o gestor lança pela ficha.
+     */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $motivo = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -243,6 +250,18 @@ class JustificativaPonto implements Auditavel, TenantAware
     public function setHoraRegistroEsquecido(?\DateTimeInterface $horaRegistroEsquecido): static
     {
         $this->horaRegistroEsquecido = $horaRegistroEsquecido;
+
+        return $this;
+    }
+
+    public function getMotivo(): ?string
+    {
+        return $this->motivo;
+    }
+
+    public function setMotivo(?string $motivo): static
+    {
+        $this->motivo = $motivo;
 
         return $this;
     }

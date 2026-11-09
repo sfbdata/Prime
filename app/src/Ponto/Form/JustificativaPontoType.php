@@ -9,13 +9,18 @@ use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TimeType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 class JustificativaPontoType extends AbstractType
 {
+    /** Teto do motivo (o mesmo `maxlength` das janelas). */
+    public const MOTIVO_MAXIMO = 2000;
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
@@ -63,10 +68,12 @@ class JustificativaPontoType extends AbstractType
                 'placeholder' => 'Selecione o tipo de batida',
             ])
             ->add('horaRegistroEsquecido', TimeType::class, [
-                'mapped'   => false,
-                'required' => false,
-                'widget'   => 'single_text',
+                'mapped'       => false,
+                'required'     => false,
+                'widget'       => 'single_text',
+                'with_seconds' => true, // P46: "14:32:10" sem corte; "14:32" vira 14:32:00
             ])
+            ->add('motivo', TextareaType::class, self::opcoesDoMotivo())
             ->add('anexo', FileType::class, [
                 'label'       => 'Atestado / Comprovante',
                 'mapped'      => false,
@@ -76,6 +83,23 @@ class JustificativaPontoType extends AbstractType
                 'constraints' => [RestricoesAnexoJustificativa::constraint()],
             ])
 ;
+    }
+
+    /**
+     * E4 do desenho (P44 e P46): o motivo é obrigatório nas duas janelas do colaborador ("Justificar falta" e
+     * "Registro de esquecimento"), com teto para não gravar texto sem fim. O mesmo texto vai a cada dia do lote.
+     *
+     * @return array<string, mixed>
+     */
+    private static function opcoesDoMotivo(): array
+    {
+        return [
+            'mapped'      => false,
+            'constraints' => [
+                new NotBlank(message: 'Informe o motivo.', normalizer: 'trim'),
+                new Length(max: self::MOTIVO_MAXIMO, maxMessage: 'O motivo pode ter até {{ limit }} caracteres.'),
+            ],
+        ];
     }
 
     public function configureOptions(OptionsResolver $resolver): void
