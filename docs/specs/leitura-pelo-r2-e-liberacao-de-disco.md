@@ -206,6 +206,12 @@ entidade só de mapeamento `LiberacaoDeArquivo` e `Liberacao\RegistroDeLiberacao
   (ZIP, IA, Drive), sem tirar nenhum do fallback.
 - **3.** `CalcularHashDosDocumentosCommand` recebe o `ArmazenamentoLocal` (`services.yaml`), travado em
   `EspelhoRemotoFiacaoArquiteturaTest`.
+  - **Exceção de 09/11/2026 (decisão do Coordenador, branch `hash-fila-cursor-r2`):** com 12.982 PDFs sem
+    páginas já liberados do disco, o `--paginas` passou a ler pelo `ArmazenamentoEspelhado` (`$espelhado`),
+    porque o Ghostscript precisa do PDF inteiro. O download passa pelo cache de leitura (teto, piso de
+    5 GiB, trava por SHA) e o operador roda em fatias de `--limite=200` com `--a-partir-de`. O modo hash
+    continua lendo só o disco: o SHA do liberado vem da prova (outbox `verificado` ou liberação aberta),
+    sem baixar. Os dois lados ficam travados no mesmo teste de fiação.
 
 ### 5.1 Comando
 

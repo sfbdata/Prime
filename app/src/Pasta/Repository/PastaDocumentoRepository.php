@@ -8,6 +8,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Enum\OrigemDaAssinatura;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -116,18 +117,17 @@ class PastaDocumentoRepository extends ServiceEntityRepository
      * `app:documentos:calcular-hash`. Só ids (escalar) para o comando percorrer em lotes sem
      * hidratar o acervo inteiro.
      *
+     * `$depoisDoId` é o cursor das fatias: só entram ids MAIORES que ele. Sem o cursor, um documento
+     * que fica NULL (ausente, falha) volta ao começo da fila em toda execução, e com `--limite` a
+     * fatia seguinte repete os mesmos ids em vez de avançar.
+     *
      * @return list<int>
      */
-    public function idsSemSha256(?int $tenantId = null, ?int $limite = null): array
+    public function idsSemSha256(?int $tenantId = null, ?int $limite = null, ?int $depoisDoId = null): array
     {
-        $qb = $this->createQueryBuilder('d')
+        $qb = $this->filaSemSha256($tenantId, $depoisDoId)
             ->select('d.id')
-            ->andWhere('d.sha256 IS NULL')
             ->orderBy('d.id', 'ASC');
-
-        if ($tenantId !== null) {
-            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
-        }
 
         if ($limite !== null) {
             $qb->setMaxResults($limite);
@@ -136,38 +136,34 @@ class PastaDocumentoRepository extends ServiceEntityRepository
         return array_map('intval', $qb->getQuery()->getSingleColumnResult());
     }
 
-    public function contarSemSha256(?int $tenantId = null): int
+    /** Quantos continuam sem hash; com `$depoisDoId`, só os que estão à frente do cursor. */
+    public function contarSemSha256(?int $tenantId = null, ?int $depoisDoId = null): int
     {
-        $qb = $this->createQueryBuilder('d')
+        return (int) $this->filaSemSha256($tenantId, $depoisDoId)
             ->select('COUNT(d.id)')
-            ->andWhere('d.sha256 IS NULL');
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 
-        if ($tenantId !== null) {
-            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
-        }
+    private function filaSemSha256(?int $tenantId, ?int $depoisDoId): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('d')->andWhere('d.sha256 IS NULL');
 
-        return (int) $qb->getQuery()->getSingleScalarResult();
+        return $this->recortarFila($qb, $tenantId, $depoisDoId);
     }
 
     /**
      * Ids dos PDFs ainda sem contagem de páginas, do mais antigo ao mais novo — a fila de
      * `app:documentos:calcular-hash --paginas`. Só PDF: os outros tipos não têm página e ficam
-     * NULL de propósito.
+     * NULL de propósito. `$depoisDoId` é o mesmo cursor de {@see idsSemSha256()}.
      *
      * @return list<int>
      */
-    public function idsSemPaginas(?int $tenantId = null, ?int $limite = null): array
+    public function idsSemPaginas(?int $tenantId = null, ?int $limite = null, ?int $depoisDoId = null): array
     {
-        $qb = $this->createQueryBuilder('d')
+        $qb = $this->filaSemPaginas($tenantId, $depoisDoId)
             ->select('d.id')
-            ->andWhere('d.paginas IS NULL')
-            ->andWhere('d.mimeType = :pdf')
-            ->setParameter('pdf', 'application/pdf')
             ->orderBy('d.id', 'ASC');
-
-        if ($tenantId !== null) {
-            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
-        }
 
         if ($limite !== null) {
             $qb->setMaxResults($limite);
@@ -176,19 +172,37 @@ class PastaDocumentoRepository extends ServiceEntityRepository
         return array_map('intval', $qb->getQuery()->getSingleColumnResult());
     }
 
-    public function contarSemPaginas(?int $tenantId = null): int
+    /** Quantos PDFs continuam sem contagem; com `$depoisDoId`, só os que estão à frente do cursor. */
+    public function contarSemPaginas(?int $tenantId = null, ?int $depoisDoId = null): int
+    {
+        return (int) $this->filaSemPaginas($tenantId, $depoisDoId)
+            ->select('COUNT(d.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function filaSemPaginas(?int $tenantId, ?int $depoisDoId): QueryBuilder
     {
         $qb = $this->createQueryBuilder('d')
-            ->select('COUNT(d.id)')
             ->andWhere('d.paginas IS NULL')
             ->andWhere('d.mimeType = :pdf')
             ->setParameter('pdf', 'application/pdf');
 
+        return $this->recortarFila($qb, $tenantId, $depoisDoId);
+    }
+
+    /** O recorte comum das duas filas do `calcular-hash`: escritório e cursor. */
+    private function recortarFila(QueryBuilder $qb, ?int $tenantId, ?int $depoisDoId): QueryBuilder
+    {
         if ($tenantId !== null) {
             $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
         }
 
-        return (int) $qb->getQuery()->getSingleScalarResult();
+        if ($depoisDoId !== null) {
+            $qb->andWhere('d.id > :depoisDoId')->setParameter('depoisDoId', $depoisDoId);
+        }
+
+        return $qb;
     }
 
     /**

@@ -347,12 +347,15 @@ services:
     App\Shared\EspelhoRemoto\Acervo\CarregadorDoAcervo:
         arguments:
             $local: '@App\Shared\Armazenamento\ArmazenamentoLocal'
-    # O cálculo de hash e de páginas MEDE o disco: pelo decorador, um arquivo que saiu do disco seria
-    # baixado do R2 para o cache, um por um, no acervo inteiro (§5.0, condição 3).
+    # O cálculo de hash MEDE o disco: pelo decorador, um arquivo que saiu do disco seria baixado do R2
+    # para o cache, um por um, no acervo inteiro (§5.0, condição 3). O hash do liberado vem da prova do
+    # espelho (`$espelhado->metadados()`, outbox `verificado` ou liberação aberta), sem baixar.
+    # Exceção só deste comando: o `--paginas` lê pelo decorador, porque o Ghostscript precisa do PDF e
+    # o liberado só existe no R2. O download passa pelo cache de leitura (teto, piso de 5 GiB, trava).
     App\Pasta\Command\CalcularHashDosDocumentosCommand:
         arguments:
             $armazenamento: '@App\Shared\Armazenamento\ArmazenamentoLocal'
-            $materializador: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+            $espelhado: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\ArmazenamentoDeArquivos: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\MaterializadorDeArquivo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
     App\Shared\Armazenamento\ArmazenamentoComPrefixo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
