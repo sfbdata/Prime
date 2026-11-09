@@ -311,8 +311,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     a troca depois da batida não repete); o início é a hora da batida de repouso que o cartão já tem, sem busca nova;
   - saída prevista durante o intervalo: antes da E1 a "Previsão de saída" ficava na tela o dia todo, também no
     repouso; a E1 a escondia enquanto o aviso do intervalo aparecia. Volta como " Saída prevista às HH:MM." no fim do
-    aviso do intervalo, só quando `saidaPrevista()` tem valor (sem meta ou sem escala, não aparece). No repouso a conta
-    usa o mínimo da Jornada do escritório como intervalo (a regra da E1 acima), mesmo que o intervalo já passe dele.
+    aviso do intervalo, só quando `saidaPrevista()` tem valor (sem meta ou sem escala, não aparece). No repouso, a conta
+    usa o maior entre o intervalo já feito e o previsto (o mínimo da Jornada do escritório, quando a escala tem almoço;
+    senão zero), recalculada a cada tique de 1 s junto com o tempo: com 1h05 de intervalo e mínimo de 1h, a saída anda
+    5 min (decisão do Coordenador de 09/11/2026). Antes da E1 não era assim: a "Previsão de saída" era fixa, entrada
+    mais a duração da escala, calculada só na carga e sem contar o intervalo real.
 - Depende de: nada técnico.
 - Migration: não.
 - Arquivos: `templates/ponto/index.html.twig`, CSS novo da tela (`public/css/ponto-eletronico.css`, prefixo `.pe-`);
