@@ -273,13 +273,15 @@ final class CartaoDoPontoNoJsTest extends TestCase
         self::assertLessThan((int) strpos($prevista, 'const almocoDaEscalaMs'), $semEscala);
         self::assertStringNotContainsString('duracaoMinutos === null ||', $prevista, 'o nulo voltou a valer como escala com almoço');
 
-        // O piso: o maior entre o mínimo do escritório e o almoço da escala, só quando a escala tem almoço.
+        // O piso: o maior entre o mínimo que o servidor aplica (0 com a validação desligada) e o almoço da escala, com
+        // ou sem almoço. Sem almoço e com o mínimo ligado, a saída não pode ficar antes do retorno mais cedo possível.
         self::assertStringContainsString('const almocoDaEscalaMs = Math.max(0, duracaoMinutos - metaDiaMinutos) * 60000;', $prevista);
         self::assertStringContainsString(
-            'const pisoMs = almocoDaEscalaMs > 0 ? Math.max(intervaloPrevistoMinutos * 60000, almocoDaEscalaMs) : 0;',
+            'const pisoMs = Math.max(minimoRepousoMinutos * 60000, almocoDaEscalaMs);',
             $prevista,
-            'o piso deixou de ser o maior entre o mínimo e o almoço da escala: a saída pula ao bater o repouso'
+            'o piso deixou de ser o maior entre o mínimo aplicado e o almoço da escala: a saída pula ao bater o repouso'
         );
+        self::assertStringNotContainsString('intervaloPrevistoMinutos', $this->tela(), 'o piso voltou a usar o mínimo cru, sem a chave da validação');
         // Em repouso, o intervalo já feito até agora; a saída é entrada + meta + o maior dos dois.
         self::assertStringContainsString('const feitoMs = agora && !tRetorno && !tSaida ? agora - tRepouso : 0;', $prevista);
         self::assertStringContainsString(

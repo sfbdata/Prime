@@ -555,8 +555,6 @@
         const avisoDiaEl = document.getElementById('ponto-aviso-dia');
         // O mínimo do aviso vem do servidor já com a chave do escritório: 0 com a validação do repouso desligada.
         const minimoRepousoMinutos = avisoDiaEl ? (Number(avisoDiaEl.dataset.intervaloMinimoMinutos) || 0) : 0;
-        // Para a previsão da saída sem o almoço batido: o mínimo configurado na Jornada do escritório.
-        const intervaloPrevistoMinutos = {{ minimoMinutosRepouso }};
 
         function formatarMinimo(minutos) {
             const h = Math.floor(minutos / 60);
@@ -571,8 +569,9 @@
         // protótipo é valor de exemplo). Com o intervalo batido: entrada + meta do dia + o intervalo batido. Sem ele (em
         // repouso; decisão do Coordenador de 09/11/2026), coerente com a de antes do repouso: sem escala, nenhuma; com
         // ela, entrada + meta + o maior entre o intervalo já feito até `agora` e o piso. O piso é o maior entre o mínimo
-        // da Jornada do escritório e o almoço da escala (duração menos meta), só quando a escala tem almoço; sem almoço,
-        // zero. Escala 08-12/14-18 (meta 480, mínimo 60): 18:00 antes e no começo do repouso, 18:10 com 2h10 de
+        // que o servidor aplica (o da Jornada do escritório com a validação do repouso ligada; 0 desligada) e o almoço da
+        // escala (duração menos meta), com ou sem almoço. Escala 08-12/14-18 (meta 480, mínimo 60): 18:00 antes e no
+        // começo do repouso, 18:10 com 2h10 de repouso. Escala de 8h sem almoço e mínimo 60 ligado: 17:00 até 1h de
         // repouso. Quem chama no repouso passa `agora`, a cada tique do relógio.
         function saidaPrevista(agora) {
             if (!tEntrada || metaDiaMinutos <= 0) return null;
@@ -584,7 +583,7 @@
             }
             if (duracaoMinutos === null) return null;
             const almocoDaEscalaMs = Math.max(0, duracaoMinutos - metaDiaMinutos) * 60000;
-            const pisoMs = almocoDaEscalaMs > 0 ? Math.max(intervaloPrevistoMinutos * 60000, almocoDaEscalaMs) : 0;
+            const pisoMs = Math.max(minimoRepousoMinutos * 60000, almocoDaEscalaMs);
             const feitoMs = agora && !tRetorno && !tSaida ? agora - tRepouso : 0;
 
             return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + Math.max(feitoMs, pisoMs));
