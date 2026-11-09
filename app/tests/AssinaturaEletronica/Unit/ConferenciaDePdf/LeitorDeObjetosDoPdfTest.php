@@ -101,6 +101,55 @@ final class LeitorDeObjetosDoPdfTest extends TestCase
         self::assertNull($this->leitor->objeto($pdf($limite + 1), 10, 0));
     }
 
+    /** @return iterable<string, array{int, bool, bool}> */
+    public static function marcadoresRepetidos(): iterable
+    {
+        yield '1.000 objetos com marcador antes de um fluxo de 15 MB' => [1000, false, true];
+        yield '300 marcadores no dicionário de um fluxo de 15 MB' => [300, false, false];
+        yield '300 marcadores no dicionário de uma bomba de 9 MB' => [300, true, false];
+    }
+
+    #[DataProvider('marcadoresRepetidos')]
+    #[TestDox('vários /Type/ObjStm apontando para o mesmo fluxo ($_dataName): o fluxo é lido uma vez só')]
+    public function testMarcadoresRepetidosTerminamRapido(int $marcadores, bool $comprimido, bool $separados): void
+    {
+        $dados = '10 0 ' . '<</V 2>>' . str_repeat(' ', ($comprimido ? 9 : 15) * 1024 * 1024);
+        $filtro = $comprimido ? '/Filter/FlateDecode' : '';
+        $fluxo = $comprimido ? (string) gzcompress($dados, 9) : $dados;
+        $antes = '';
+        $tipo = str_repeat('/Type/ObjStm', $marcadores);
+        if ($separados) {
+            for ($i = 0; $i < $marcadores; ++$i) {
+                $antes .= (100 + $i) . " 0 obj\n<</Type/ObjStm/N 1/First 5>>\nendobj\n";
+            }
+            $tipo = '/Type/ObjStm';
+        }
+        $pdf = "%PDF-1.7\n" . $antes . "5 0 obj\n<<" . $tipo . '/N 1/First 5' . $filtro . ">>\nstream\n" . $fluxo . "\nendstream\nendobj\n";
+
+        $inicio = hrtime(true);
+        $ausente = $this->leitor->objeto($pdf, 99, 0);
+        $segundos = (hrtime(true) - $inicio) / 1e9;
+
+        self::assertNull($ausente);
+        self::assertLessThan(2.0, $segundos, 'o mesmo fluxo não pode ser copiado e inflado de novo para cada marcador');
+        self::assertSame('<</V 2>>', $this->leitor->objeto($pdf, 10, 0));
+    }
+
+    #[TestDox('teto de trabalho: fluxos diferentes que somam mais de 100 MB inflados param a procura com null')]
+    public function testTetoDeTrabalho(): void
+    {
+        $bomba = (string) gzcompress('20 0 ' . str_repeat(' ', 9 * 1024 * 1024), 9);
+        $objeto = static fn (int $numero, string $fluxo): string => $numero . " 0 obj\n<</Type/ObjStm/N 1/First 5/Filter/FlateDecode>>\nstream\n" . $fluxo . "\nendstream\nendobj\n";
+        // O objeto 10 está no primeiro fluxo, que é o último a ser lido; antes dele, 15 fluxos de 9 MB (135 MB).
+        $pdf = "%PDF-1.7\n" . $objeto(30, (string) gzcompress('10 0 <</V 2>>'));
+        for ($i = 31; $i <= 45; ++$i) {
+            $pdf .= $objeto($i, $bomba);
+        }
+
+        self::assertNull($this->leitor->objeto($pdf, 10, 0));
+        self::assertSame('<</V 2>>', $this->leitor->objeto("%PDF-1.7\n" . $objeto(30, (string) gzcompress('10 0 <</V 2>>')) . $objeto(31, $bomba), 10, 0));
+    }
+
     #[TestDox('número negativo e PDF acima de 20 MB devolvem null')]
     public function testEntradasForaDoLimite(): void
     {

@@ -9,7 +9,9 @@ namespace App\AssinaturaEletronica\Service\ConferenciaDePdf;
  * Procura primeiro a última ocorrência de `numero geracao obj` (a versão mais nova, depois dos acréscimos); sem ela,
  * os fluxos de objetos (`/ObjStm`), do último para o primeiro, inflando os comprimidos com teto.
  *
- * Sem estado e sem disco. Nunca lança: objeto ausente, PDF malformado ou limite passado devolvem null.
+ * Cada fluxo é lido uma vez só, mesmo com vários `/Type/ObjStm` apontando para ele, e a leitura inteira tem um teto de
+ * trabalho somado (`TRABALHO_MAXIMO_EM_BYTES`, M22). Sem estado e sem disco. Nunca lança: objeto ausente, PDF
+ * malformado ou limite passado devolvem null.
  */
 final class LeitorDeObjetosDoPdf
 {
@@ -53,6 +55,8 @@ final class LeitorDeObjetosDoPdf
 
     private function objetoEmFluxo(string $pdf, int $numero): ?string
     {
+        $trabalho = 0;
+        $lidos = [];
         $fluxos = [];
         $posicao = 0;
         while (preg_match('/\/Type\s*+\/ObjStm/', $pdf, $partes, \PREG_OFFSET_CAPTURE, $posicao) === 1) {
@@ -64,7 +68,18 @@ final class LeitorDeObjetosDoPdf
         }
 
         foreach (array_reverse($fluxos) as $tipo) {
-            $corpo = $this->corpoDoFluxo($pdf, $tipo);
+            $dicionario = $this->dicionarioDoFluxo($pdf, $tipo, $trabalho);
+            if ($dicionario === null || $trabalho > LimitesDaConferencia::TRABALHO_MAXIMO_EM_BYTES) {
+                return null;
+            }
+            [$texto, $comeco] = $dicionario;
+            // Vários marcadores podem apontar para o mesmo fluxo: ele já foi procurado e não tem o objeto.
+            if (isset($lidos[$comeco])) {
+                continue;
+            }
+            $lidos[$comeco] = true;
+
+            $corpo = $this->corpoDoFluxo($pdf, $texto, $comeco, $trabalho);
             if ($corpo === null) {
                 return null;
             }
@@ -90,19 +105,35 @@ final class LeitorDeObjetosDoPdf
     }
 
     /**
-     * Os bytes do fluxo (inflados se for FlateDecode), o /N e o /First. Null se o fluxo não der para ler.
+     * O texto do dicionário do fluxo e a posição da palavra `stream`: o ` obj` até a janela antes do marcador e o
+     * `stream` até a janela depois dele (M22). Null se algum dos dois não estiver na janela.
+     *
+     * @return array{string, int}|null
+     */
+    private function dicionarioDoFluxo(string $pdf, int $tipo, int &$trabalho): ?array
+    {
+        $janela = max(0, $tipo - self::JANELA_DO_DICIONARIO);
+        $antes = substr($pdf, $janela, $tipo - $janela);
+        $depois = substr($pdf, $tipo, self::JANELA_DO_DICIONARIO);
+        $trabalho += \strlen($antes) + \strlen($depois);
+        $obj = strrpos($antes, ' obj');
+        $stream = strpos($depois, 'stream');
+        if ($obj === false || $stream === false) {
+            return null;
+        }
+        $comeco = $tipo + $stream;
+
+        return [substr($pdf, $janela + $obj + 4, $comeco - $janela - $obj - 4), $comeco];
+    }
+
+    /**
+     * Os bytes do fluxo (inflados se for FlateDecode), o /N e o /First. Null se o fluxo não der para ler ou se o
+     * trabalho somado passar do teto.
      *
      * @return array{string, int, int}|null
      */
-    private function corpoDoFluxo(string $pdf, int $tipo): ?array
+    private function corpoDoFluxo(string $pdf, string $dicionario, int $comeco, int &$trabalho): ?array
     {
-        $janela = max(0, $tipo - self::JANELA_DO_DICIONARIO);
-        $obj = strrpos(substr($pdf, $janela, $tipo - $janela), ' obj');
-        $comeco = strpos($pdf, 'stream', $tipo);
-        if ($obj === false || $comeco === false) {
-            return null;
-        }
-        $dicionario = substr($pdf, $janela + $obj + 4, $comeco - $janela - $obj - 4);
         if (preg_match('/\/N\s++(\d{1,9})/', $dicionario, $n) !== 1 || preg_match('/\/First\s++(\d{1,9})/', $dicionario, $f) !== 1) {
             return null;
         }
@@ -123,12 +154,18 @@ final class LeitorDeObjetosDoPdf
         if ($fim === false) {
             return null;
         }
+        $trabalho += $fim - $inicio;
+        if ($trabalho > LimitesDaConferencia::TRABALHO_MAXIMO_EM_BYTES) {
+            return null;
+        }
         $dados = substr($pdf, $inicio, $fim - $inicio);
         if (str_contains($dicionario, 'FlateDecode')) {
-            $dados = InfladorLimitado::inflar(rtrim($dados, "\r\n"), LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES);
+            $limite = min(LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES, LimitesDaConferencia::TRABALHO_MAXIMO_EM_BYTES - $trabalho);
+            $dados = InfladorLimitado::inflar(rtrim($dados, "\r\n"), $limite);
             if ($dados === null) {
                 return null;
             }
+            $trabalho += \strlen($dados);
         }
 
         return $primeiro <= \strlen($dados) ? [$dados, $quantidade, $primeiro] : null;
