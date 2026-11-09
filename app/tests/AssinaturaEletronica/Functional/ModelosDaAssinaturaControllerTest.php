@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\AssinaturaEletronica\Functional;
 
 use App\AssinaturaEletronica\Controller\ModelosDaAssinaturaController;
+use App\AssinaturaEletronica\DTO\DadosDoModelo;
+use App\Tests\AssinaturaEletronica\Unit\ValidadorDoModeloTest;
 use App\Tests\AssinaturaEletronica\Support\NaTelaDeAssinatura;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
@@ -193,6 +195,22 @@ final class ModelosDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['erro' => $erro], $this->json());
         self::assertSame([], $this->listarModelos());
+    }
+
+    #[TestDox('pedido acima de 4 MiB: 422 com o texto antes de ler o JSON, nada gravado; o maior modelo válido passa')]
+    public function testTetoDoPedido(): void
+    {
+        $this->entrar(true);
+
+        $grande = '{"nome":"' . str_repeat('a', DadosDoModelo::PEDIDO_MAXIMO) . '"}';
+        $this->client->request('POST', '/assinatura/modelos', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => self::CSRF], $grande);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'O modelo passa do tamanho que pode ser salvo. Divida o texto em mais de um modelo.'], $this->json());
+        self::assertSame([], $this->listarModelos());
+
+        $maior = json_encode(ValidadorDoModeloTest::maiorModeloValido(), \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES);
+        $this->client->request('POST', '/assinatura/modelos', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => self::CSRF], $maior);
+        self::assertResponseStatusCodeSame(201);
     }
 
     #[TestDox('422 ao salvar não muda o modelo; corpo que não é JSON também é 422 com o texto')]

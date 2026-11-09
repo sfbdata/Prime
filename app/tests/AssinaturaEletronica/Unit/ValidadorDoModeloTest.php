@@ -144,6 +144,41 @@ final class ValidadorDoModeloTest extends TestCase
         self::assertCount(16, ValidadorDoModelo::corpo($total, 1));
     }
 
+    /**
+     * O maior modelo que o validador aceita, com caractere de 4 bytes em todo texto: o teto do pedido tem de caber nele.
+     *
+     * @return array<string, mixed>
+     */
+    public static function maiorModeloValido(): array
+    {
+        $x = static fn (int $n): string => str_repeat('😀', $n);
+        $campos = array_map(static fn (int $i): array => [sprintf('%03d', $i) . $x(57), $x(120), 1, $x(120), array_fill(0, 20, $x(60))], range(1, 100));
+        $corpo = array_fill(0, 15, ['p' => $x(20000)]);
+        $corpo[] = ['a' => 49];
+
+        return self::entrada([
+            'nome' => $x(200), 'categoria' => $x(80), 'lateral' => $x(20000), 'folhaBranca' => true,
+            'campos' => $campos, 'signatarios' => array_fill(0, 50, ['papel' => $x(120)]), 'corpo' => $corpo,
+        ]);
+    }
+
+    #[TestDox('o teto do pedido (4 MiB) cabe o maior modelo válido; acima dele, recusa antes de ler o JSON; JSON quebrado é dados inválidos')]
+    public function testTetoDoPedido(): void
+    {
+        $maior = json_encode(self::maiorModeloValido(), \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES);
+        self::assertLessThan(DadosDoModelo::PEDIDO_MAXIMO, \strlen($maior));
+        self::assertCount(16, DadosDoModelo::doPedido($maior)->corpo);
+
+        foreach ([[str_repeat(' ', DadosDoModelo::PEDIDO_MAXIMO + 1), 'pedido_grande'], ['{"nome": ', 'dados_invalidos'], ['', 'dados_invalidos']] as [$conteudo, $erro]) {
+            try {
+                DadosDoModelo::doPedido($conteudo);
+                self::fail('deveria recusar: ' . $erro);
+            } catch (AcaoRecusada $e) {
+                self::assertSame('assinatura_eletronica.modelo.erro.' . $erro, $e->getMessage());
+            }
+        }
+    }
+
     /** @return iterable<string, array{mixed, string, array<string, int|string>}> */
     public static function recusados(): iterable
     {
@@ -276,6 +311,7 @@ final class ValidadorDoModeloTest extends TestCase
         yield 'sem_assinatura' => ['sem_assinatura', [], 'Inclua ao menos uma assinatura.'];
         yield 'sem_titulo' => ['sem_titulo', [], 'No formato de folha única, marque uma linha como Título.'];
         yield 'nao_encontrado' => ['nao_encontrado', [], 'Modelo não encontrado.'];
+        yield 'pedido_grande' => ['pedido_grande', [], 'O modelo passa do tamanho que pode ser salvo. Divida o texto em mais de um modelo.'];
     }
 
     /** @param array<string, int|string> $parametros */

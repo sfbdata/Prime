@@ -79,6 +79,10 @@ Desvios novos, desta implementação (para a revisão do Coordenador):
   (`{p: 'Nome completo'}`) e saía de `campos`. Por garantia, o `lerEd` junta o que ficar solto na raiz (texto,
   negrito, campo) num parágrafo, com o campo como `[[chave]]` registrado em `campos`.
 
+Risco registrado, sem código (Coordenador, 09/11): não há limite de modelos por escritório, e a tela carrega o corpo
+de todos de uma vez (`doEscritorioEmOrdem` no GET `modelos`). Rever (lista sem o corpo, ou paginação) se algum
+escritório passar de dezenas de modelos.
+
 ## 3. Tabela (M3 `Version20261109260000`)
 
 `assinatura_eletronica_modelo` (`ModeloDoEscritorio`, TenantAware e Auditavel):
@@ -141,6 +145,7 @@ signatário vira `{papel, nome: '', email: ''}` e o modelo entra em `usar()` com
 
 | Regra | Texto do `{erro}` |
 |---|---|
+| corpo cru do pedido acima de 4 MiB, conferido antes de ler o JSON (o maior modelo válido, com 4 bytes por caractere, fica perto de 1,9 MB) | O modelo passa do tamanho que pode ser salvo. Divida o texto em mais de um modelo. |
 | corpo do pedido que não é objeto JSON; chave de topo fora da `Entrada` (um `html`, por exemplo); `folhaBranca` que não é booleano (ausente ou nulo é falso); `campos`, `signatarios` ou `corpo` que não é lista | Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo. |
 | nome vazio (depois de aparar) | Informe o nome do modelo. |
 | nome acima de 200 | O nome do modelo pode ter até 200 caracteres. |

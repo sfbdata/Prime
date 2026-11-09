@@ -137,6 +137,7 @@ assinatura_eletronica:
         erro:
             dados_invalidos: Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo.
             nao_encontrado: Modelo não encontrado.
+            pedido_grande: O modelo passa do tamanho que pode ser salvo. Divida o texto em mais de um modelo.
             nome_vazio: Informe o nome do modelo.
             nome_longo: O nome do modelo pode ter até 200 caracteres.
             categoria_longa: A categoria pode ter até 80 caracteres.
