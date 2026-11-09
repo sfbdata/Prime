@@ -61,6 +61,8 @@ final class ArquivosDoSignatarioTest extends JusPrimeWebTestCase
         $publico = $this->abrir((string) $tokens[1]);
         self::assertSame('/assinar/' . $tokens[1] . '/arquivo', $publico['documento']['arquivo']['url']);
         self::assertSame(self::PDF_MINIMO, $this->baixar((string) $publico['documento']['arquivo']['url']));
+        $disposicao = (string) $this->client->getResponse()->headers->get('Content-Disposition');
+        self::assertSame('inline; filename=documento.pdf', $disposicao, 'nome neutro: o nome do arquivo do escritório não sai na rota pública');
         self::assertSame(base64_decode(self::PNG_1X1, true), $this->baixar((string) $publico['documento']['logo']['url']));
 
         $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]), ['cpf' => '11144477735']);

@@ -36,8 +36,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * `assinatura_eletronica_publica` (o {@see \App\AssinaturaEletronica\EventListener\AssinaturaPublicaListener} desliga
  * o filtro de escritório e põe os cabeçalhos de toda resposta).
  *
- * Toda rota passa pelo limitador por IP e, com token, pelo do sha256 do token; o pedido de código passa também pelo do
- * signatário. Token malformado (a rota de reserva), desconhecido ou de documento que sumiu: a mesma página "Link
+ * A página e os POST passam pelo limitador por IP e, com token, pelo do sha256 do token; o pedido de código passa também
+ * pelo do signatário. Os GET de arquivo (PDF, logo e rubricas, até 50 numa abertura) têm o par de limitadores próprio
+ * (`assinatura_publica_arquivos`, por IP, e `assinatura_publica_arquivos_token`), para uma abertura não gastar a cota
+ * da página. Token malformado (a rota de reserva), desconhecido ou de documento que sumiu: a mesma página "Link
  * inválido." com 404 (JSON nos POST). Os POST conferem o CSRF de id `assinar_{sha256 do token}` no cabeçalho
  * X-CSRF-Token, depois de achar o signatário (token ruim é sempre 404, nunca 403).
  */
@@ -49,6 +51,8 @@ final class AssinaturaPublicaController extends AbstractController
     public function __construct(
         private readonly RateLimiterFactoryInterface $assinaturaPublicaLimiter,
         private readonly RateLimiterFactoryInterface $assinaturaPublicaTokenLimiter,
+        private readonly RateLimiterFactoryInterface $assinaturaPublicaArquivosLimiter,
+        private readonly RateLimiterFactoryInterface $assinaturaPublicaArquivosTokenLimiter,
         private readonly RateLimiterFactoryInterface $assinaturaCodigoEnvioLimiter,
         private readonly CsrfTokenManagerInterface $csrf,
         private readonly SignatarioDoLink $link,
@@ -171,7 +175,7 @@ final class AssinaturaPublicaController extends AbstractController
     /** @param \Closure(): ArquivoParaEntregar $qual */
     private function entregar(Request $request, string $token, \Closure $qual): Response
     {
-        if (!$this->dentroDoLimite($request, $token)) {
+        if (!self::cabe($this->assinaturaPublicaArquivosLimiter, $this->assinaturaPublicaArquivosTokenLimiter, $request, $token)) {
             return new Response('', Response::HTTP_TOO_MANY_REQUESTS);
         }
 
@@ -184,14 +188,20 @@ final class AssinaturaPublicaController extends AbstractController
         return $this->entrega->resposta($arquivo->chave, $arquivo->nome, inline: true);
     }
 
-    /** O limitador por IP em toda rota; com token, também o do sha256 do token. */
+    /** A página e os POST: o limitador por IP; com token, também o do sha256 do token. */
     private function dentroDoLimite(Request $request, ?string $token): bool
     {
-        if (!$this->assinaturaPublicaLimiter->create($request->getClientIp() ?? 'sem-ip')->consume()->isAccepted()) {
+        return self::cabe($this->assinaturaPublicaLimiter, $this->assinaturaPublicaTokenLimiter, $request, $token);
+    }
+
+    /** O par de limitadores: o do IP primeiro; com token, também o do sha256 do token (nunca o token cru). */
+    private static function cabe(RateLimiterFactoryInterface $porIp, RateLimiterFactoryInterface $porToken, Request $request, ?string $token): bool
+    {
+        if (!$porIp->create($request->getClientIp() ?? 'sem-ip')->consume()->isAccepted()) {
             return false;
         }
 
-        return $token === null || $this->assinaturaPublicaTokenLimiter->create(ChaveDaAssinatura::hashDoToken($token))->consume()->isAccepted();
+        return $token === null || $porToken->create(ChaveDaAssinatura::hashDoToken($token))->consume()->isAccepted();
     }
 
     /**

@@ -4,15 +4,26 @@
 # pela trilha, não aqui.
 framework:
     rate_limiter:
-        # Toda rota pública, por IP.
+        # A página e os POST públicos, por IP (os GET de arquivo têm o par próprio, abaixo).
         assinatura_publica:
             policy: sliding_window
             limit: 30
             interval: '1 minute'
-        # Toda rota pública com token, pelo sha256 do token (nunca o token cru).
+        # A página e os POST públicos com token, pelo sha256 do token (nunca o token cru).
         assinatura_publica_token:
             policy: sliding_window
             limit: 60
+            interval: '10 minutes'
+        # Os GET de arquivo (PDF, logo e rubricas), por IP: uma abertura pede a página, o PDF, a logo e uma rubrica por
+        # signatário (até 50).
+        assinatura_publica_arquivos:
+            policy: sliding_window
+            limit: 600
+            interval: '1 minute'
+        # Os GET de arquivo, pelo sha256 do token.
+        assinatura_publica_arquivos_token:
+            policy: sliding_window
+            limit: 300
             interval: '10 minutes'
         # "Enviar código" e "Reenviar", por signatário (a chave é o sha256 do token, um por signatário).
         assinatura_codigo_envio:

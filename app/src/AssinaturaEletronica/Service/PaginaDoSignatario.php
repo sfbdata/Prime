@@ -94,7 +94,8 @@ final readonly class PaginaDoSignatario
     }
 
     /**
-     * Estado de bloqueio: o cartão e o nome do documento no cabeçalho; nada do conteúdo.
+     * Estado de bloqueio: o cartão e o nome do documento no cabeçalho; nada do conteúdo. O documento leva só `nome` e
+     * `hashEnviado` (a tela pública, no bloqueio, só lê o nome para o cabeçalho; nem a forma da folha sai).
      *
      * @return array<string, mixed>
      */
@@ -106,13 +107,6 @@ final readonly class PaginaDoSignatario
             'anterior' => $estado === EstadoDaPagina::AguardandoAnterior ? $documento->anteriorPendente($signatario)?->getNome() : null,
             'documento' => [
                 'nome' => $documento->getNome(),
-                'mensagem' => '',
-                'blocos' => [],
-                'layout' => $documento->getLayout(),
-                'lateral' => null,
-                'folhaBranca' => $documento->isFolhaBranca(),
-                'logo' => ['tipo' => $documento->getLogoTipo()->value, 'url' => null],
-                'arquivo' => null,
                 'hashEnviado' => $documento->getHashEnviado(),
             ],
         ]);
