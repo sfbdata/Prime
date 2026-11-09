@@ -137,7 +137,7 @@ final class JanelasDoPontoTelaTest extends JusPrimeWebTestCase
         $tipos = $janela->filter('select#just-tipo[name="justificativa_ponto[tipo]"].pe-janela-select > option');
         self::assertSame('Selecione o tipo', trim($tipos->first()->text()));
         self::assertSame('', $tipos->first()->attr('value'));
-        self::assertCount(\count(TipoJustificativa::cases()) + 1, $tipos, 'todos os tipos do sistema (P45)');
+        self::assertTiposNosSeisGrupos($janela->filter('select#just-tipo'));
 
         self::assertCount(1, $janela->filter('div[data-just-esquecido] > span.pe-janela-par-titulo:first-child + label > select[name="justificativa_ponto[tipoRegistroEsquecido]"]'));
         self::assertCount(1, $janela->filter('div[data-just-esquecido] input[type="time"][step="1"][name="justificativa_ponto[horaRegistroEsquecido]"]'), 'o horário com segundos, como o do esquecimento');
@@ -174,7 +174,8 @@ final class JanelasDoPontoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $janela->filter('form#formEditarJustificativa[enctype="multipart/form-data"] > input[type="hidden"]#editarJustificativaToken[name="_token"]'));
         $corpo = $janela->filter('form > div.pe-janela-corpo');
         self::assertCount(1, $corpo->filter('div > div.pe-janela-info[data-janela-info]:first-child + label.pe-janela-rotulo > select#editarJustificativaTipo[name="tipo"]'));
-        self::assertCount(\count(TipoJustificativa::cases()) + 1, $corpo->filter('select#editarJustificativaTipo > option'));
+        self::assertSame('Selecione...', trim($corpo->filter('select#editarJustificativaTipo > option')->first()->text()));
+        self::assertTiposNosSeisGrupos($corpo->filter('select#editarJustificativaTipo'));
         self::assertCount(1, $corpo->filter('div > div.pe-janela-par#editarBlocoRegistroEsquecido[hidden] select#editarTipoRegEsquecido[name="tipoRegistroEsquecido"]'));
         self::assertCount(1, $corpo->filter('#editarBlocoRegistroEsquecido input[type="time"]#editarHoraRegEsquecido[name="horaRegistroEsquecido"]:not([step])'), 'a edição lê H:i');
         self::assertCount(1, $corpo->filter('div > label.pe-janela-marca#editarBlocoAbonoParcial > input[type="checkbox"]#editarAbonoParcial[name="abonoParcial"]'));
@@ -258,6 +259,30 @@ final class JanelasDoPontoTelaTest extends JusPrimeWebTestCase
         $motivo = $ficha->filter('dl > dt')->reduce(static fn (Crawler $dt): bool => trim($dt->text()) === 'Motivo');
         self::assertCount(1, $motivo);
         self::assertSame('Levei meu filho ao médico.', trim($motivo->nextAll()->first()->text()));
+    }
+
+    /**
+     * P45 (decisão do Coordenador, 09/11/2026): os 45 tipos nos 6 grupos do sistema, na ordem, cada tipo no seu grupo
+     * por filho direto (`select > optgroup[label] > option`). O desenho não tem o campo: os rótulos são os do sistema.
+     * Fora dos grupos, só a primeira opção, a vazia.
+     */
+    private static function assertTiposNosSeisGrupos(Crawler $select): void
+    {
+        self::assertCount(1, $select);
+        $grupos = TipoJustificativa::asGroupedChoices();
+        $rotulos = ['Legais (CLT / Legislação)', 'Operacionais', 'Intercorrências', 'Técnicas do Sistema', 'Situações Críticas', 'Feriados e Regimes Especiais'];
+        self::assertSame($rotulos, array_keys($grupos));
+        self::assertSame($rotulos, $select->filter('select > optgroup')->each(static fn (Crawler $g): string => (string) $g->attr('label')), 'os 6 grupos, nesta ordem');
+
+        foreach ($grupos as $rotulo => $tipos) {
+            $opcoes = $select->filter(sprintf('select > optgroup[label="%s"] > option', $rotulo));
+            self::assertSame(array_values($tipos), $opcoes->each(static fn (Crawler $o): string => (string) $o->attr('value')), $rotulo);
+            self::assertSame(array_keys($tipos), $opcoes->each(static fn (Crawler $o): string => trim($o->text())), $rotulo);
+        }
+
+        self::assertCount(\count(TipoJustificativa::cases()), $select->filter('select > optgroup > option'), 'os 45 tipos');
+        self::assertCount(1, $select->filter('select > option'), 'fora dos grupos, só a opção vazia');
+        self::assertSame('', $select->filter('select > option')->attr('value'));
     }
 
     private function tela(string $consulta = ''): Crawler

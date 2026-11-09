@@ -16,7 +16,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
-class JustificativaPontoType extends AbstractType
+final class JustificativaPontoType extends AbstractType
 {
     /** Teto do motivo (o mesmo `maxlength` das janelas). */
     public const MOTIVO_MAXIMO = 2000;

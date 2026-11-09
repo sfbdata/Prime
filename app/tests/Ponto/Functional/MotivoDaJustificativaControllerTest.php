@@ -19,7 +19,8 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 /**
  * E4 do desenho do Ponto (spec docs/specs/ponto-desenho-0811.md, P44, P46 e P47): o "Motivo" das janelas, obrigatório
  * no envio do colaborador e gravado em cada dia do lote; o horário do esquecimento com segundos; e a volta da edição na
- * aba "Minhas Justificativas", no mês da justificativa (achado da revisão da E3).
+ * aba "Minhas Justificativas", no mês da justificativa (achado da revisão da E3). Revisão da E4: a edição guarda os
+ * segundos do esquecimento quando o H:i não muda, e o motivo editado vai para os dias em análise do lote.
  */
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
@@ -150,6 +151,78 @@ final class MotivoDaJustificativaControllerTest extends JusPrimeWebTestCase
         self::assertSame('licenca_gala', $this->linhas()[0]['tipo']);
     }
 
+    /** @return iterable<string, array{string, string, string}> */
+    public static function horariosDaEdicao(): iterable
+    {
+        yield 'só o motivo (mesmo tipo e mesmo H:i): os segundos ficam' => ['saida', '14:32', '14:32:10'];
+        yield 'outro H:i: regravado com :00' => ['saida', '15:00', '15:00:00'];
+        yield 'outra batida no mesmo H:i: regravado com :00' => ['entrada', '14:32', '14:32:00'];
+    }
+
+    #[TestDox('Editar o esquecimento gravado às 14:32:10 ($_dataName)')]
+    #[DataProvider('horariosDaEdicao')]
+    public function testEdicaoDoEsquecimentoGuardaOsSegundos(string $batida, string $horaEnviada, string $horaGravada): void
+    {
+        $j = $this->justificativa($this->eu, $this->escritorio, $this->mesPassado->modify('+4 days'), 'pendente', ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'saida', 'motivo' => 'Antigo.']);
+        $j->setHoraRegistroEsquecido(new \DateTime('1970-01-01 14:32:10'));
+        $this->em()->flush();
+
+        $this->editar($j, ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => $batida, 'horaRegistroEsquecido' => $horaEnviada, 'motivo' => 'Motivo novo.']);
+
+        self::assertContains('Justificativa atualizada com sucesso.', $this->flashes()['success'] ?? []);
+        $linha = $this->linhas()[0];
+        self::assertSame($horaGravada, $linha['hora_registro_esquecido']);
+        self::assertSame('Motivo novo.', $linha['motivo']);
+    }
+
+    #[TestDox('Editar o motivo pelo 1º dia do lote muda os 3 dias; o lote de outra pessoa e o de outro escritório (mesmo batchId) não')]
+    public function testMotivoEditadoVaiParaOLote(): void
+    {
+        $lote = 'lote-' . uniqid();
+        $dias = $this->loteDeTresDias($lote, ['pendente', 'pendente', 'pendente']);
+        $colega = $this->pessoa('colega-lote');
+        $this->vincularColaborador($colega, $this->escritorio);
+        $doColega = $this->justificativa($colega, $this->escritorio, $this->mesPassado->modify('+2 days'), 'pendente', ['batchId' => $lote, 'motivo' => 'Do colega.']);
+        $deOutroEscritorio = $this->justificativa($this->eu, $this->escritorio('Outro Escritório Lote'), $this->mesPassado->modify('+2 days'), 'pendente', ['batchId' => $lote, 'motivo' => 'De outro escritório.']);
+
+        $this->editar($dias[0], ['tipo' => 'atestado_medico', 'motivo' => '  Motivo novo do lote.  ']);
+
+        self::assertContains('Justificativa atualizada com sucesso.', $this->flashes()['success'] ?? []);
+        $motivos = $this->motivosDoLote($lote);
+        foreach ($dias as $dia) {
+            self::assertSame('Motivo novo do lote.', $motivos[$dia->getId()]);
+        }
+        self::assertSame('Do colega.', $motivos[$doColega->getId()], 'lote de outra pessoa não é tocado');
+        self::assertSame('De outro escritório.', $motivos[$deOutroEscritorio->getId()], 'lote de outro escritório não é tocado');
+    }
+
+    #[TestDox('Lote com um dia já abonado: o motivo novo vai para os dias em análise; o abonado guarda o antigo')]
+    public function testDiaAnalisadoDoLoteGuardaOMotivo(): void
+    {
+        $lote = 'lote-' . uniqid();
+        [$primeiro, $abonado, $terceiro] = $this->loteDeTresDias($lote, ['pendente', 'abonado', 'pendente']);
+
+        $this->editar($primeiro, ['tipo' => 'atestado_medico', 'motivo' => 'Motivo novo do lote.']);
+
+        self::assertContains('Justificativa atualizada com sucesso.', $this->flashes()['success'] ?? []);
+        $motivos = $this->motivosDoLote($lote);
+        self::assertSame('Motivo novo do lote.', $motivos[$primeiro->getId()]);
+        self::assertSame('Antigo.', $motivos[$abonado->getId()], 'dia analisado não muda');
+        self::assertSame('Motivo novo do lote.', $motivos[$terceiro->getId()]);
+    }
+
+    #[TestDox('Edição recusada depois do motivo (esquecimento sem horário): nenhum dia do lote ganha o motivo novo')]
+    public function testRecusaNaoGravaOMotivoNoLote(): void
+    {
+        $lote = 'lote-' . uniqid();
+        $dias = $this->loteDeTresDias($lote, ['pendente', 'pendente', 'pendente']);
+
+        $this->editar($dias[0], ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'saida', 'motivo' => 'Motivo novo do lote.']);
+
+        self::assertContains('Informe o tipo e o horário do registro esquecido.', $this->flashes()['warning'] ?? []);
+        self::assertSame(['Antigo.', 'Antigo.', 'Antigo.'], array_values($this->motivosDoLote($lote)));
+    }
+
     #[TestDox('Justificativa de outra pessoa do mesmo escritório: a edição é negada e o motivo dela não muda')]
     public function testEdicaoDeOutraPessoaENegada(): void
     {
@@ -199,6 +272,32 @@ final class MotivoDaJustificativaControllerTest extends JusPrimeWebTestCase
     private function chaves(array $dias): string
     {
         return implode(',', array_map(static fn (\DateTimeImmutable $d): string => $d->format('Y-m-d'), $dias));
+    }
+
+    /**
+     * Três dias seguidos do mesmo lote, meus, no escritório da sessão, com o motivo "Antigo.".
+     *
+     * @param array{string, string, string} $situacoes
+     *
+     * @return list<JustificativaPonto>
+     */
+    private function loteDeTresDias(string $lote, array $situacoes): array
+    {
+        $dias = [];
+        foreach ($situacoes as $i => $situacao) {
+            $dias[] = $this->justificativa($this->eu, $this->escritorio, $this->mesPassado->modify(sprintf('+%d days', $i + 4)), $situacao, ['batchId' => $lote, 'motivo' => 'Antigo.']);
+        }
+
+        return $dias;
+    }
+
+    /** @return array<int, string|null> o motivo de cada linha do lote, de qualquer pessoa e escritório, por id */
+    private function motivosDoLote(string $lote): array
+    {
+        /** @var array<int, string|null> $motivos */
+        $motivos = $this->emSemFiltro()->getConnection()->fetchAllKeyValue('SELECT id, motivo FROM justificativa_ponto WHERE batch_id = ? ORDER BY data, id', [$lote]);
+
+        return $motivos;
     }
 
     /** @return list<array<string, mixed>> as justificativas minhas, pela conexão (o EntityManager pode ter fechado) */

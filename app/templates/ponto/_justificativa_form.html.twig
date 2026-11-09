@@ -5,13 +5,14 @@
 
     Do desenho: "Data da falta" (com hoje já marcado), "Motivo" (obrigatório) e "Atestado ou documento (opcional)".
     Ficam do sistema, nos componentes do desenho (P45): vários dias de uma vez (o calendário no lugar da data única), os
-    45 tipos, o bloco do esquecimento, o abono parcial com horário e o anexo PDF, JPG ou PNG até 10 MB (o `accept` é o do
-    servidor, não o `image/*` do protótipo). As recusas que só o servidor faz (dia futuro, batida já registrada) voltam
-    no aviso do topo da página.
+    45 tipos nos 6 grupos (`<optgroup>` com os rótulos do sistema: o desenho não tem o campo), o bloco do esquecimento,
+    o abono parcial com horário e o anexo PDF, JPG ou PNG até 10 MB (o `accept` é o do servidor, não o `image/*` do
+    protótipo). As recusas que só o servidor faz (dia futuro, batida já registrada) voltam no aviso do topo da página.
 
     Só a /ponto usa esta janela. A ficha do colaborador continua com _justificativa_calendario e _justificativa_campos.
 
-    Recebe: tiposJustificativa (['Rótulo' => 'valor']), competenciaSelecionada e dataHoje (AAAA-MM-DD, do servidor).
+    Recebe: tiposJustificativa (['Grupo' => ['Rótulo' => 'valor']], TipoJustificativa::asGroupedChoices),
+    competenciaSelecionada e dataHoje (AAAA-MM-DD, do servidor).
 #}
 <div class="pe-janela-fundo" id="ponto-janela-justificar" hidden>
     <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Justificar falta" id="form-justificativa"
@@ -43,8 +44,12 @@
             <label class="pe-janela-rotulo">Tipo de justificativa
                 <select name="justificativa_ponto[tipo]" class="pe-janela-select" id="just-tipo" data-just-tipo>
                     <option value="">Selecione o tipo</option>
-                    {% for label, value in tiposJustificativa %}
-                        <option value="{{ value }}">{{ label }}</option>
+                    {% for grupo, tipos in tiposJustificativa %}
+                        <optgroup label="{{ grupo }}">
+                            {% for label, value in tipos %}
+                                <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </optgroup>
                     {% endfor %}
                 </select>
             </label>

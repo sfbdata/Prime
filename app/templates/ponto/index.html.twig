@@ -272,8 +272,13 @@
                 <label class="pe-janela-rotulo">Tipo
                     <select name="tipo" id="editarJustificativaTipo" class="pe-janela-select">
                         <option value="">Selecione...</option>
-                        {% for label, valor in tiposJustificativa %}
-                            <option value="{{ valor }}">{{ label }}</option>
+                        {# P45: os 45 tipos nos 6 grupos, como na janela de justificar. #}
+                        {% for grupo, tipos in tiposJustificativa %}
+                            <optgroup label="{{ grupo }}">
+                                {% for label, valor in tipos %}
+                                    <option value="{{ valor }}">{{ label }}</option>
+                                {% endfor %}
+                            </optgroup>
                         {% endfor %}
                     </select>
                 </label>
