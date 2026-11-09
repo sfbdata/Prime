@@ -37,6 +37,8 @@ use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
+use App\Ponto\UseCase\AnalisarJustificativaUseCase;
+use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\SedeRepository;
@@ -1337,7 +1339,8 @@ final class TenantController extends AbstractController
         NotificacaoService $notificacaoService,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
-        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento
+        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento,
+        AnalisarJustificativaUseCase $analisar
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1346,7 +1349,7 @@ final class TenantController extends AbstractController
 
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1391,20 +1394,12 @@ final class TenantController extends AbstractController
             return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
-        $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
-
-        $justificativa->setStatus('abonado');
-        $justificativa->setDataAnalise(new \DateTime());
-        $justificativa->setAnalisadoPor($currentUser);
-        if ($observacao !== '') {
-            $justificativa->setObservacaoAnalise($observacao);
-        }
-
-        $entityManager->flush();
-
-        // Esquecimento de registro: grava a batida pedida (mesmo caminho do "aprovar todos").
-        if ($registrarBatidaDoEsquecimento($justificativa, $tenant) !== null) {
-            $entityManager->flush();
+        // Relê sob a trava e grava o abono e a batida do esquecimento juntos (corrida com a exclusão, P41).
+        try {
+            $analisar->abonar($justificativa, $tenant, $currentUser, trim((string) $request->request->get('observacaoAnalise', '')));
+        } catch (AnaliseDeJustificativaRecusadaException $e) {
+            $this->addFlash('warning', $e->getMessage());
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         $urlPonto = $this->generateUrl('ponto_index');
@@ -1426,7 +1421,8 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         NotificacaoService $notificacaoService,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        AnalisarJustificativaUseCase $analisar
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1435,7 +1431,7 @@ final class TenantController extends AbstractController
 
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1476,12 +1472,12 @@ final class TenantController extends AbstractController
             return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
-        $justificativa->setStatus('rejeitado');
-        $justificativa->setDataAnalise(new \DateTime());
-        $justificativa->setAnalisadoPor($currentUser);
-        $justificativa->setObservacaoAnalise($observacao);
-
-        $entityManager->flush();
+        try {
+            $analisar->recusar($justificativa, $tenant, $currentUser, $observacao);   // relê sob a trava (P41)
+        } catch (AnaliseDeJustificativaRecusadaException $e) {
+            $this->addFlash('warning', $e->getMessage());
+            return $this->voltaDaAnalise($request, $tenantId, $user);
+        }
 
         $urlPonto = $this->generateUrl('ponto_index');
         $notificacaoService->notificarJustificativaRejeitada($justificativa, $urlPonto);
@@ -1503,7 +1499,8 @@ final class TenantController extends AbstractController
         NotificacaoService $notificacaoService,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
-        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento
+        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento,
+        AnalisarJustificativaUseCase $analisar
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1511,7 +1508,7 @@ final class TenantController extends AbstractController
         }
 
         $currentUser = $this->getUser();
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1537,24 +1534,22 @@ final class TenantController extends AbstractController
         $pendentes   = $this->semBatidaNoFuturo($encontradas, $registrarBatidaDoEsquecimento);
         if (empty($pendentes)) {
             if ($encontradas === []) {   // lote todo no futuro não cai aqui: o aviso de horário futuro já saiu
-                $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
+                $this->addFlash('warning', 'Nenhuma justificativa em análise encontrada neste lote.');
             }
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
         $pendentes = $this->semBatidaJaRegistrada($pendentes, $tenant, $registrarBatidaDoEsquecimento);   // R1
-        foreach ($pendentes as $justificativa) {
-            $justificativa->setStatus('abonado');
-            $justificativa->setDataAnalise(new \DateTime());
-            $justificativa->setAnalisadoPor($currentUser);
-            // Esquecimento de registro: grava a batida pedida, como na aprovação individual.
-            $registrarBatidaDoEsquecimento($justificativa, $tenant);
+        // Trava e relê cada uma antes de gravar; a excluída pelo colaborador (P41) fica de fora, com aviso.
+        $abono = $analisar->abonarLote($pendentes, $tenant, $currentUser);
+        foreach ($abono->abonadas as $justificativa) {
             $notificacaoService->notificarJustificativaAprovada($justificativa, $this->generateUrl('ponto_index'));
         }
+        if (($aviso = $abono->avisoDasExcluidas()) !== null) {
+            $this->addFlash('warning', $aviso);
+        }
 
-        $entityManager->flush();
-
-        $this->avisarAbonadas(count($pendentes));
+        $this->avisarAbonadas(count($abono->abonadas));
 
         return $this->voltaDaAnalise($request, $tenantId, $user);
     }
@@ -1569,7 +1564,8 @@ final class TenantController extends AbstractController
         JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        AnalisarJustificativaUseCase $analisar
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1577,7 +1573,7 @@ final class TenantController extends AbstractController
         }
 
         $currentUser = $this->getUser();
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1611,14 +1607,12 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
-        $statusAnterior = $justificativa->getStatus();
-
-        $justificativa->setStatus('pendente');
-        $justificativa->setAnalisadoPor(null);
-        $justificativa->setDataAnalise(null);
-        $justificativa->setObservacaoAnalise(null);
-
-        $entityManager->flush();
+        try {
+            $statusAnterior = $analisar->reverter($justificativa, $tenant);   // relê sob a trava (P41)
+        } catch (AnaliseDeJustificativaRecusadaException $e) {
+            $this->addFlash('warning', $e->getMessage());
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
 
         if ($justificativa->getTipo() === 'esquecimento_registro' && $statusAnterior === 'abonado') {
             $this->addFlash('warning', sprintf(
