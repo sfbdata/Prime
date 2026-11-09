@@ -211,8 +211,8 @@ escolhida.
    anotadas no pacote jurídico, sem travar.
 5. Trilha encadeada (D5): leva o que o desenho grava; mudanças de sede, feriado, limite, prazo, modo facial e foto ficam
    só no `audit_log`.
-6. Banco por lotes (P51 a): não zera mais em janeiro; as horas pagas seguem no saldo. Continua a definir na E17: o saldo
-   de antes do início dos lotes ("Sem data de origem").
+6. Banco por lotes (P51 a): não zera mais em janeiro; as horas pagas seguem no saldo. O saldo de antes do início dos
+   lotes ("Sem data de origem") se fechou na E17 (ver lá).
 7. Raio (P70 a): sede nova nasce com 150 m; as sedes de hoje não mudam.
 8. Sem decisão no arquivo de 09/11, valem as recomendações desta tabela: a batida de trabalho externo conta enquanto em
    análise (P18) e o teto de idade da fila sem internet (P20) se fecha na E14.
@@ -855,8 +855,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   entregar esse número num campo novo da linha de hoje (o `saldoAcumulado` de hoje continua nulo até a saída), calculado
   com todos os dias do mês, inclusive os que a /ponto não recebe. Até lá a célula fica vazia. Teste: o número da linha de
   hoje igual ao da linha de ontem na ficha (que mostra todos os dias), e o dia 1º sem número.
-- Depende de: E7 (limite e prazo na configuração). O saldo de antes do início dos lotes ("Sem data de origem", seção 3)
-  se fecha com o Coordenador ao abrir a E17.
+- Depende de: E7 (limite e prazo na configuração).
+- Saldo de antes do início dos lotes ("Sem data de origem", seção 3; decisão do Coordenador de 09/11/2026): os lotes
+  nascem no mês do início da contagem da pessoa e atravessam os anos, e o lançamento de horas pagas de uma competência
+  anterior vira o lote da própria competência. Sem fonte de saldo anterior ao primeiro lote, a linha "Anterior a ..." do
+  desenho não aparece. Se um dia houver essa fonte, ela entra como um lote inicial com a data do primeiro dia do banco.
 - Migration: não; os lotes são calculados a partir da folha. Tabela `ponto_banco_lote` só se o cálculo se mostrar
   necessário.
 - Arquivos: `FolhaPontoBuilder.php` (`calcularSaldoAnual`; frente: avisar), serviço novo de lotes.
