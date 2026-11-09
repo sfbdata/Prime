@@ -31,7 +31,6 @@ final class LocalizacaoDoSignatarioTest extends TestCase
             ['90.00000000', '-180.00000000', '0.00'],
             (static fn (LocalizacaoDoSignatario $l): array => [$l->latitude, $l->longitude, $l->precisao])(LocalizacaoDoSignatario::deJson(['latitude' => 90, 'longitude' => -180, 'precisao' => 0])),
         );
-        self::assertNull(LocalizacaoDoSignatario::deJson(['latitude' => 1, 'longitude' => 2])->precisao, 'sem precisão, nula');
     }
 
     /** @return iterable<string, array{array<string, mixed>}> */
@@ -45,6 +44,9 @@ final class LocalizacaoDoSignatarioTest extends TestCase
         yield 'latitude em texto' => [['latitude' => '-15.79', 'longitude' => 0, 'precisao' => 5]];
         yield 'longitude booleana' => [['latitude' => 0, 'longitude' => true, 'precisao' => 5]];
         yield 'sem longitude' => [['latitude' => 0, 'precisao' => 5]];
+        yield 'sem precisão' => [['latitude' => 0, 'longitude' => 0]];
+        yield 'precisão nula' => [['latitude' => 0, 'longitude' => 0, 'precisao' => null]];
+        yield 'precisão em texto' => [['latitude' => 0, 'longitude' => 0, 'precisao' => '5']];
     }
 
     /** @param array<string, mixed> $json */
