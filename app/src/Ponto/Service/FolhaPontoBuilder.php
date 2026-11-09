@@ -76,7 +76,6 @@ class FolhaPontoBuilder
         $rows = [];
         $saldoAcumulado = 0;
         $hoje = new \DateTimeImmutable('today');
-        $feriadosDaPessoa = null;   // os que valem para a pessoa da jornada (abrangência por lotação, E6)
 
         $inicioContagemNorm = $inicioContagem !== null
             ? \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0)
@@ -136,7 +135,8 @@ class FolhaPontoBuilder
 
             $jornadaDoDia = $historico?->vigenteEm($dia);
             if ($jornadaDoDia !== null) {
-                $feriadosDaPessoa ??= $this->feriadosDaPessoa->filtrar($feriados, $jornadaDoDia->getUser());
+                // Os que valem para a pessoa da jornada NO DIA (abrangência pela lotação que ela tinha no dia, E6).
+                $feriadosDaPessoa = $this->feriadosDaPessoa->filtrar($feriados, $jornadaDoDia->getUser(), $dia);
                 $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriadosDaPessoa);
                 if ($diaFuturo || $diaForaDaContagem) {
                     // Dia futuro ou anterior ao primeiro registro: não exibe saldo nem soma no banco

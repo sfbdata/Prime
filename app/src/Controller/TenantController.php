@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Ponto\UseCase\RegistrarTrocaDeLotacaoUseCase;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
@@ -654,7 +655,8 @@ final class TenantController extends AbstractController
         UserTenantRepository $userTenantRepository,
         RegraDosPrimarios $regraDosPrimarios,
         HierarquiaDePerfis $hierarquia,
-        JornadaColaboradorRepository $jornadaColaboradorRepository
+        JornadaColaboradorRepository $jornadaColaboradorRepository,
+        RegistrarTrocaDeLotacaoUseCase $registrarTrocaDeLotacao
     ): Response {
         $currentUser = $this->getUser();
 
@@ -764,6 +766,7 @@ final class TenantController extends AbstractController
             }
 
             $userTenant->setDataAdmissao($form->get('dataAdmissao')->getData());
+            $registrarTrocaDeLotacao->executar($userTenant); // lotação com vigência: a troca vale de hoje (E6 do Ponto)
 
             $entityManager->flush();
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.usuario_atualizado'));

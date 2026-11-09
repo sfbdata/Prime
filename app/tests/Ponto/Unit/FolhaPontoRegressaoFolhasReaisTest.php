@@ -19,8 +19,8 @@ use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use App\Ponto\Repository\LotacaoComVigenciaRepository;
 use App\Ponto\Service\FeriadosDaPessoa;
-use App\Repository\UserTenantRepository;
 
 /**
  * Regressão contra as folhas REAIS de 06 e 07/2026 (`docs/folha-de-ponto/`), que originaram a frente.
@@ -54,7 +54,7 @@ final class FolhaPontoRegressaoFolhasReaisTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
             $this->createStub(JornadaColaboradorRepository::class),
-            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
+            new FeriadosDaPessoa($this->createStub(LotacaoComVigenciaRepository::class)),
         );
     }
 
