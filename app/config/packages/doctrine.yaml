@@ -204,6 +204,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Calculo/Entity'
                 prefix: 'App\Calculo\Entity'
                 alias: AppCalculo
+            AppAssinaturaEletronica:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/AssinaturaEletronica/Entity'
+                prefix: 'App\AssinaturaEletronica\Entity'
+                alias: AppAssinaturaEletronica
             AppChatIa:
                 type: attribute
                 is_bundle: false

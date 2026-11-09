@@ -403,6 +403,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Registro de emissão do PDF do Cálculo (spec calculo-atualizacao-monetaria §7): é ele mesmo o rastro (quem, quando,
         // hash), só se acrescenta e nunca se altera.
         \App\Calculo\Entity\CalculoEmitido::class,
+        // Assinatura de documentos (spec assinatura-documentos-etapa-1 §3.2): o evento da trilha É o rastro do documento
+        // (encadeado por hash, só se acrescenta); o signatário é filho do documento (Auditavel) e guardará CPF, IP e
+        // localização de quem assina, que não devem ir para o audit_log lido por quem administra; a configuração só
+        // guarda qual logo é a padrão dos próximos documentos.
+        \App\AssinaturaEletronica\Entity\EventoDaTrilha::class,
+        \App\AssinaturaEletronica\Entity\Signatario::class,
+        \App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura::class,
     ];
 
     private EntityManagerInterface $em;
