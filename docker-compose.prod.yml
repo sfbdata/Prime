@@ -116,6 +116,75 @@ services:
     networks:
       - saas_net
 
+  # BlueJus Voto (spec docs/specs/bluejus-voto.md, D1-B e D2; fase A2): o mesmo código, num PHP-FPM próprio, para
+  # uma eleição não tomar os processos nem as conexões do BlueJus. Atende só as rotas `voto_publico_` (APP_PAPEL,
+  # App\Voto\EventListener\PapelDoContainer); o nginx chega a ele pelo vhost voto.bluejus.com.br.
+  # DESLIGADO por padrão: só existe com o profile `voto` (COMPOSE_PROFILES=voto no .env.prod), que o Samuel liga à
+  # mão pelo docs/runbooks/voto-subir-na-vps.md. Sem ports: só o nginx fala com ele, pela rede interna.
+  # Entra no banco com o usuário próprio do Voto (VOTO_DATABASE_URL, voto_app com CONNECTION LIMIT), nunca com o do
+  # BlueJus. Não roda migrations nem copia assets (bin/entrypoint.voto.sh): espera o php saudável, que já migrou.
+  # O rollback automático do deploy NÃO cobre este serviço (só php, worker e scheduler).
+  voto:
+    build:
+      context: .
+      target: prod
+      secrets:
+        - composer_auth
+    container_name: jusprime_voto_prod
+    profiles: ["voto"]
+    restart: unless-stopped
+    # SEM env_file de propósito: o .env.prod inteiro traria ao Voto a senha do banco do dono, o APP_SECRET do BlueJus
+    # e as chaves de R2, Anthropic e Google. O Voto recebe só esta lista (os ${...} vêm do --env-file .env.prod na
+    # hora do compose). Toda %env(X)% sem padrão da config precisa estar aqui, senão o container não sobe
+    # (VotoInfraArquiteturaTest avisa).
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      APP_ENV: prod
+      APP_DEBUG: 0
+      APP_PAPEL: voto
+      # Usuário próprio do Voto (voto_app). SEM `:?` de propósito: o compose interpola o arquivo inteiro, inclusive
+      # serviço de profile desligado (medido no Docker Compose 2.40.3), e um `:?` aqui derrubaria TODO deploy
+      # enquanto a variável não existir. A falta pesa só neste container: vazia, o bin/entrypoint.voto.sh recusa
+      # subir e diz o que falta. O mesmo vale para o APP_SECRET.
+      DATABASE_URL: ${VOTO_DATABASE_URL:-}
+      # Segredo PRÓPRIO do Voto (sessão, CSRF e assinaturas), nunca o do BlueJus.
+      APP_SECRET: ${VOTO_APP_SECRET:-}
+      # Fixo: é o endereço do vhost (scripts/vps/vhosts/voto.conf.https-pendente). Serve aos links absolutos gerados
+      # fora de requisição; uma variável a mais no .env.prod só abriria espaço para divergir do vhost.
+      DEFAULT_URI: https://voto.bluejus.com.br
+      # Só o endereço do Voto; o BlueJus segue com a lista dele no .env.prod. `\z` é o fim do texto no PCRE: faz o
+      # papel do `$` sem depender do escape de `$` do compose.
+      SYMFONY_TRUSTED_HOSTS: '^voto\.bluejus\.com\.br\z'
+      # Não é segredo; sem ele o IP do cliente atrás do nginx sai errado nos limites por IP.
+      SYMFONY_TRUSTED_PROXIES: ${SYMFONY_TRUSTED_PROXIES:-}
+      # Obrigatórias na config, sem uso no Voto: valores inofensivos, como no .env do build (Dockerfile).
+      MAILER_DSN: null://null
+      MAILER_FROM: nao-responda@bluejus.com.br
+      DATAJUD_API_KEY: x
+      DATAJUD_BASE_URL: x
+      DJEN_BASE_URL: x
+    entrypoint: ["sh", "/var/www/app/bin/entrypoint.voto.sh"]
+    command: ["php-fpm"]
+    volumes:
+      # Pool próprio (pm.max_children e companhia; números provisórios até o teste de carga, D2).
+      - ./docker/voto/php-fpm-voto.conf:/usr/local/etc/php-fpm.d/zz-voto.conf:ro
+    mem_limit: 768m
+    cpus: 1
+    healthcheck:
+      # Igual ao do php: a porta 9000 só abre depois do cache:warmup do entrypoint.
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+      php:
+        condition: service_healthy
+    networks:
+      - saas_net
+
   # Builder dos blogs (spec docs/specs/painel-artigos-blogs.md, seção 6 opção A e 6.1): vigia os pedidos que o
   # worker monta em publicacao_blogs, gera o Blog BlueJus e o Grátis com o código do sfbdata/sites-bluejus (deploy
   # key SÓ LEITURA) e, só se os testes e o build passarem, troca sites-publicados/{blog,gratis}. Sem porta.
