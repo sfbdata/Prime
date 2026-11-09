@@ -5,6 +5,7 @@ tipo: alteracao
 - Ponto Eletrônico, etapa E17 do desenho 16 (VS 08.11.26): banco de horas por lotes (P51 a). Cada mês com saldo positivo vira um lote com vencimento no último dia do mês "competência mais prazo"; as horas negativas abatem primeiro os créditos mais antigos. O banco não zera mais em 1º de janeiro: `calcularSaldoAteMes` atravessa o ano e `calcularSaldoAnual` saiu (`BancoDeHorasPorLotes`, fonte única `saldosDoBancoPorCompetencia` no `FolhaPontoBuilder`).
 - Horas pagas continuam no saldo, na competência do lançamento (P53), inclusive no saldo anterior do PDF e do XLSX de janeiro, que agora herda o banco de dezembro.
 - Aba "Banco de Horas" no cartão de abas da /ponto (saldo atual, limite, prazo, tabela de lotes e a nota da lei), faixa amarela acima do limite (P52) e triângulo amarelo no número do topo (P2). Limite e prazo pela interface `LimitesDoBancoDeHoras` (padrão 120h e 6 meses; a configuração por escritório entra com a E7).
+- O banco usa a mesma jornada da folha (a pessoal ou, sem ela e nos dias antes da primeira versão, a do escritório, spec jornada §10.4); antes contava zero nesses dias.
 - Coluna "Saldo mês" do dia em andamento mostra o acumulado até ontem (campo novo `saldoAcumuladoAteOntem` da linha de hoje).
 - Comando só de leitura `app:ponto:banco:comparar-virada`: saldo de cada pessoa antes (ano corrente) e depois (lotes), só com ids. Sem migration.
 
@@ -15,3 +16,4 @@ tipo: alteracao
 - Quando o saldo passa do limite, o Ponto mostra um aviso amarelo para planejar a compensação.
 - No dia de hoje, antes da saída, a coluna "Saldo mês" da folha já mostra o saldo acumulado até ontem.
 - As horas pagas lançadas pelo gestor continuam contando no saldo.
+- O banco de horas passa a contar pela mesma jornada da folha de ponto.

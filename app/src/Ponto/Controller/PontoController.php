@@ -10,6 +10,7 @@ use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
 use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
@@ -112,7 +113,7 @@ final class PontoController extends AbstractController
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
-        \App\Ponto\Service\BancoDeHorasPorLotes $bancoDeHorasPorLotes,
+        BancoDeHorasPorLotes $bancoDeHorasPorLotes,
         HomeOfficeResolver $homeOfficeResolver,
         SedesDaCercaDoPonto $sedesDaCerca,
         CalculadoraJornada $calculadoraJornada,
@@ -149,8 +150,8 @@ final class PontoController extends AbstractController
         $jornadaDoEscritorio = $this->jornadas->findByUserETenant($user, $tenant);
         // A folha usa a versão da jornada de cada dia (spec ponto-jornada-vigencia §3.2); a meta de hoje, a de hoje.
         // Sem jornada pessoal no dia, a jornada vazia (a padrão do escritório), como antes de a pessoa ter uma (§10.4).
-        $semJornadaPessoal = (new JornadaColaborador())->setUser($user);
-        $jornada = $this->jornadas->historicoDe($user, $tenant)?->comJornadaAntesDaPrimeira($semJornadaPessoal) ?? $semJornadaPessoal;
+        // Montada no builder, a mesma do banco de horas (E17): a soma do "Saldo mês" da folha é o banco.
+        $jornada = $folhaPontoBuilder->jornadaDaFolha($user, $tenant);
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);
@@ -1374,10 +1375,11 @@ final class PontoController extends AbstractController
             throw new \InvalidArgumentException(sprintf('montarDadosFolha: mês fora de 1..12 (%d)', $mes));
         }
 
-        // NÃO condiciona em $jornada de propósito: `calcularSaldoAteMes` já se protege sozinho
-        // (devolve só os lançamentos quando não há jornada), e curto-circuitar ali apagaria as horas
-        // pagas de quem não tem JornadaColaborador: o painel /ponto mostraria -10h00 e o espelho do mês
-        // seguinte "Saldo anterior: 0h00", para o mesmo colaborador.
+        // NÃO condiciona em $jornada de propósito: `calcularSaldoAteMes` monta a jornada sozinho, a mesma da
+        // folha da /ponto (`FolhaPontoBuilder::jornadaDaFolha`, E17: a padrão do escritório para quem não tem
+        // JornadaColaborador), e curto-circuitar ali apagaria o banco de quem não tem jornada pessoal: o
+        // painel /ponto mostraria -10h00 e o espelho do mês seguinte "Saldo anterior: 0h00", para o mesmo
+        // colaborador.
         $mesAnterior = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->modify('-1 month');
         $saldoBancoAnteriorMinutos = $builder->calcularSaldoAteMes(
             $targetUser,

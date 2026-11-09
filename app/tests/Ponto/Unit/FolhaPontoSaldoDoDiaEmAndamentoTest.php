@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\JornadaColaboradorRepository;
@@ -40,6 +41,52 @@ final class FolhaPontoSaldoDoDiaEmAndamentoTest extends TestCase
         self::assertSame(-960, (new FolhaPontoBuilder(...$this->dependencias()))->saldoAcumuladoFinal($rows), 'nem entra no saldo do mês');
     }
 
+    /**
+     * O modo da /ponto (`includeEmptyDays = false`): o dia sem batida some da folha, mas a falta dele conta. Entre o
+     * último dia trabalhado e hoje há dois dias sem batida; o número de hoje tem de descontá-los (-480 cada), e não
+     * repetir a linha de cima.
+     */
+    #[TestDox('no modo da /ponto, os dias sem batida entre o ultimo trabalhado e hoje contam no numero de hoje')]
+    public function testModoDaTelaContaOsDiasSemBatida(): void
+    {
+        $hoje = new \DateTimeImmutable('today');
+        $trabalhado = $hoje->modify('-3 days');
+        $rows = $this->folha($trabalhado, $hoje, [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, $trabalhado->setTime(8, 0)),
+            $this->batida(RegistroPonto::TIPO_SAIDA, $trabalhado->setTime(17, 0)),
+            $this->batida(RegistroPonto::TIPO_ENTRADA, $hoje->setTime(0, 0, 1)),
+        ], false);
+
+        self::assertSame([$trabalhado->format('Y-m-d'), $hoje->format('Y-m-d')], array_column($rows, 'chaveDia'), 'os dois dias sem batida não aparecem');
+        self::assertIsInt($rows[0]['saldoAcumulado']);
+        self::assertSame($rows[0]['saldoAcumulado'] - 960, $rows[1]['saldoAcumuladoAteOntem']);
+    }
+
+    /** Uma fonte de "hoje" (item 10 da E17): o dia informado está em andamento e os seguintes são futuro. */
+    #[TestDox('com o hoje informado, aquele dia fica em andamento e os seguintes nao contam')]
+    public function testHojeInformado(): void
+    {
+        $hoje = new \DateTimeImmutable('2026-03-10');
+        $rows = $this->folha($hoje->modify('-2 days'), $hoje->modify('+2 days'), [$this->batida(RegistroPonto::TIPO_ENTRADA, $hoje->setTime(0, 0, 1))], true, $hoje->setTime(15, 30));
+
+        self::assertSame(-960, $rows[1]['saldoAcumulado'], 'dois dias de falta até a véspera');
+        self::assertNull($rows[2]['saldoAcumulado'], 'o dia informado está em andamento, mesmo com hora');
+        self::assertSame(-960, $rows[2]['saldoAcumuladoAteOntem']);
+        self::assertNull($rows[3]['saldoAcumulado'], 'depois dele, futuro');
+        self::assertSame(-960, (new FolhaPontoBuilder(...$this->dependencias()))->saldoAcumuladoFinal($rows));
+    }
+
+    #[TestDox('o banco por competencia vai ate o mes do hoje informado')]
+    public function testBancoVaiAteOMesDoHojeInformado(): void
+    {
+        $builder = new FolhaPontoBuilder(...$this->dependencias());
+        $user = (new User())->setEmail('banco-hoje@t.com')->setFullName('Banco Hoje');
+        $saldos = static fn (string $hoje): array => array_keys($builder->saldosDoBancoPorCompetencia($user, new Tenant(), [], null, new \DateTimeImmutable('2026-01-10'), new \DateTimeImmutable($hoje)));
+
+        self::assertSame(['2026-01', '2026-02', '2026-03'], $saldos('2026-03-15'));
+        self::assertSame(['2026-01', '2026-02'], $saldos('2026-02-28'));
+    }
+
     #[TestDox('no primeiro dia do periodo o dia em andamento nao mostra numero')]
     public function testPrimeiroDiaNaoMostraNumero(): void
     {
@@ -69,19 +116,20 @@ final class FolhaPontoSaldoDoDiaEmAndamentoTest extends TestCase
      * @param list<RegistroPonto> $batidas
      * @return array<int, array<string, mixed>>
      */
-    private function folha(\DateTimeImmutable $inicio, \DateTimeImmutable $fim, array $batidas): array
+    private function folha(\DateTimeImmutable $inicio, \DateTimeImmutable $fim, array $batidas, bool $diasVazios = true, ?\DateTimeImmutable $hoje = null): array
     {
         return (new FolhaPontoBuilder(...$this->dependencias()))->buildRows(
             $inicio,
             $fim->setTime(23, 59, 59),
             $batidas,
-            true,
+            $diasVazios,
             false,
             $this->jornadaTodoDia(),
             [],
             [],
             null,
             new \DateTimeImmutable('2020-01-01'),
+            $hoje,
         );
     }
 

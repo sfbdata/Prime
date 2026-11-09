@@ -282,10 +282,12 @@ SQL;
     }
 
     /**
-     * As batidas da pessoa NAQUELE escritório no período, em ordem de horário (lista de pendências, spec
-     * `ponto-esquecimento-nao-trava.md` R5). Cross-tenant de propósito: a lista mostra à própria pessoa os outros
-     * escritórios dela, então o filtro de escritório fica suspenso e o escritório vai escrito na consulta. Quem chama
-     * já conferiu o vínculo ativo e o módulo de ponto.
+     * As batidas da pessoa NAQUELE escritório no período, em ordem de horário. Duas fontes usam: a lista de pendências
+     * (spec `ponto-esquecimento-nao-trava.md` R5) e o banco de horas por lotes (spec ponto-desenho-0811, E17), que lê
+     * todos os meses desde o início da contagem numa consulta só (`FolhaPontoBuilder::saldosDoBancoComJornada`).
+     * Cross-tenant de propósito: a lista mostra à própria pessoa os outros escritórios dela, então o filtro de
+     * escritório fica suspenso e o escritório vai escrito na consulta (o banco passa sempre o escritório da folha).
+     * Quem chama já conferiu o vínculo ativo e o módulo de ponto.
      *
      * @return list<RegistroPonto>
      */

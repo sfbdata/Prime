@@ -1,12 +1,13 @@
 {#
     Cartão de abas da coluna da direita, logo abaixo da Folha (E3, desenho 16 L166 a L191, ordem da L758): "Pendências"
     (P37, primeira e aberta ao entrar), "Minhas Justificativas" (P39), "Comprovantes" (E15, só com o comprovante
-    ligado: `comprovantesVisiveis`) e "Banco de Horas" (E17: `bancoDeHoras`, nulo até a etapa entrar). As abas das
+    ligado: `comprovantesVisiveis`) e "Banco de Horas" (E17: `bancoDeHoras`, sempre presente na /ponto). As abas das
     etapas seguintes (Equipe, Auditoria, Configurações) entram depois do Banco de Horas, nessa ordem.
 
     As duas abas vêm prontas do servidor; a troca é no navegador (js/ponto-abas.js), sem recarregar, e grava a aba no
     endereço (`?aba=justificativas`): a busca da tela depois da batida e a troca do mês voltam na mesma aba. O painel das
-    pendências e a aba dele (o número) são regiões trocadas depois da batida (REGIOES_TROCADAS no index).
+    pendências, a aba dele (o número) e o painel do Banco de Horas (E17) são regiões trocadas depois da batida
+    (REGIOES_TROCADAS no index).
 
     Recebe: pendencias, justificativas, abaAberta (uma de PontoController::ABAS_DO_CARTAO), podeAnalisarAPropria,
     competenciaSelecionada (a volta da exclusão reabre a aba no mesmo mês), comprovantesVisiveis e comprovantes (E15)
@@ -14,7 +15,8 @@
 #}
 {% set comprovantesVisiveis = comprovantesVisiveis|default(false) %}
 {% set bancoDeHoras = bancoDeHoras|default(null) %}
-{# A aba pedida que não está desenhada (Comprovantes desligado, Banco antes da E17) abre Pendências: sempre há uma aberta. #}
+{# A aba pedida que não está desenhada (Comprovantes desligado; o Banco só sem `bancoDeHoras`, que a /ponto sempre manda
+   desde a E17) abre Pendências: sempre há uma aberta. #}
 {% set abaAberta = (abaAberta == 'comprovantes' and not comprovantesVisiveis) or (abaAberta == 'banco' and bancoDeHoras is null) ? 'pendencias' : abaAberta %}
 <section class="pe-abas" data-screen-label="Registros e comprovantes"
          data-url-volta="{{ path('ponto_index', {competencia: competenciaSelecionada, aba: 'justificativas'}) }}">

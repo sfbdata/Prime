@@ -10,10 +10,8 @@ use App\Ponto\DTO\LancamentoHorasPagasInput;
 use App\Ponto\Entity\LancamentoHorasPagas;
 use App\Ponto\Exception\HorasPagasInvalidaException;
 use App\Ponto\Form\LancamentoHorasPagasType;
-use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
-use App\Ponto\Service\FolhaPontoBuilder;
-use App\Ponto\Service\InicioContagemResolver;
+use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\UseCase\EditarHorasPagasUseCase;
 use App\Ponto\UseCase\ExcluirHorasPagasUseCase;
 use App\Ponto\UseCase\LancarHorasPagasUseCase;
@@ -49,9 +47,7 @@ final class HorasPagasController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly LancamentoHorasPagasRepository $lancamentoRepository,
-        private readonly FolhaPontoBuilder $folhaPontoBuilder,
-        private readonly FeriadoRepository $feriadoRepository,
-        private readonly InicioContagemResolver $inicioContagemResolver,
+        private readonly BancoDeHorasPorLotes $bancoDeHoras,
     ) {}
 
     #[Route(
@@ -83,7 +79,7 @@ final class HorasPagasController extends AbstractController
         try {
             $lancarHorasPagas($input, $colaborador, $autor, $tenant);
             $this->addFlash('success', 'Lançamento de horas pagas registrado.');
-            $this->avisarSeODescontoNaoCabeNoAno($input, $colaborador, $tenant);
+            $this->avisarSeODescontoDeixouOBancoNegativo($input, $colaborador, $tenant);
         } catch (HorasPagasInvalidaException $excecao) {
             $this->addFlash('error', $excecao->getMessage());
         }
@@ -122,7 +118,7 @@ final class HorasPagasController extends AbstractController
         try {
             $editarHorasPagas($lancamento, $input, $autor, $tenant);
             $this->addFlash('success', 'Lançamento de horas pagas atualizado.');
-            $this->avisarSeODescontoNaoCabeNoAno($input, $colaborador, $tenant);
+            $this->avisarSeODescontoDeixouOBancoNegativo($input, $colaborador, $tenant);
         } catch (HorasPagasInvalidaException $excecao) {
             $this->addFlash('error', $excecao->getMessage());
         }
@@ -159,25 +155,17 @@ final class HorasPagasController extends AbstractController
     }
 
     /**
-     * AVISA — não bloqueia — quando o desconto tira do ano mais do que o ano tem.
+     * AVISA, sem bloquear, quando o desconto deixa negativo o banco de horas que não estava negativo.
      *
-     * Decisão do dono (2026-07-31), depois que a revisão mostrou a armadilha: o banco de horas ZERA em
-     * 1º de janeiro, então horas acumuladas num ano e pagas em dinheiro no seguinte precisam ser
-     * lançadas na competência do ano em que foram ACUMULADAS. Lançar em janeiro/2027 o pagamento de
-     * 100h juntadas em 2026 cria dívida do nada: o crédito que a financiava foi extinto pela virada, e
-     * o documento assinado passa a cobrar 100h de quem acabou de recebê-las.
+     * Origem (decisão do dono, 2026-07-31): o banco zerava em 1º de janeiro, e o aviso pegava o pagamento lançado
+     * na competência do ano errado. Desde a E17 (spec ponto-desenho-0811, P51 a) o banco atravessa o ano, e o
+     * número conferido é o banco inteiro até hoje: o mesmo "Saldo atual" da aba Banco de Horas e do topo da /ponto
+     * (`BancoDeHorasPorLotes`), já com o lançamento recém-gravado (os UseCases dão flush antes de retornar). O dono
+     * recusou trava (§2): o lançamento JÁ FOI gravado quando o aviso aparece, e editar/excluir são livres.
      *
-     * Nada no caminho de escrita impedia isso, e a competência natural (o mês corrente) é justamente a
-     * errada. O dono recusou trava — aqui e na decisão original de §2 —, então o aviso é informativo:
-     * o lançamento JÁ FOI gravado quando ele aparece, e editar/excluir são livres.
-     *
-     * Desde a E17 (spec ponto-desenho-0811, P51 a) o banco NÃO zera mais em janeiro: o saldo atravessa
-     * o ano e o lançamento na competência do pagamento já abate o crédito acumulado no ano anterior. O
-     * aviso continua só para o desconto que deixa o banco negativo, sem falar em virada do ano.
-     *
-     * Só dispara em desconto. Bonificação não tem como "não caber".
+     * Só dispara em desconto. Bonificação não tem como deixar o banco negativo.
      */
-    private function avisarSeODescontoNaoCabeNoAno(
+    private function avisarSeODescontoDeixouOBancoNegativo(
         LancamentoHorasPagasInput $input,
         User $colaborador,
         Tenant $tenant,
@@ -187,48 +175,24 @@ final class HorasPagasController extends AbstractController
         }
 
         // O aviso é ACESSÓRIO: o lançamento JÁ está gravado quando ele roda. Qualquer falha aqui
-        // (timeout, deadlock, uma sentinela do builder que mude de assinatura num refactor) não pode
-        // virar 500 — o POST não é idempotente, e o admin que reenviasse o formulário gravaria o
-        // desconto DUAS VEZES. Silenciar aqui custa um aviso; deixar estourar custa dinheiro.
+        // (timeout, deadlock, uma mudança de assinatura num refactor) não pode virar 500: o POST não é
+        // idempotente, e o admin que reenviasse o formulário gravaria o desconto DUAS VEZES.
         try {
-            // Mesmo cálculo que alimenta o "Saldo do Banco de Horas Anterior" do documento assinado,
-            // já com o lançamento recém-gravado dentro (os UseCases dão flush antes de retornar):
-            // `calcularSaldoAteMes` atravessa o ano (E17), então é o banco inteiro até a competência
-            // lançada.
-            $saldoDepois = $this->folhaPontoBuilder->calcularSaldoAteMes(
-                $colaborador,
-                $input->ano,
-                $input->mes,
-                $this->feriadoRepository->findByTenant($tenant),
-                $tenant->getJornadaTenant(),
-                $this->inicioContagemResolver->resolver($colaborador, $tenant),
-                $tenant,
-            );
+            $saldoDepois = $this->bancoDeHoras->calcular($colaborador, $tenant, new \DateTimeImmutable('today'))->saldoAtualMinutos;
         } catch (\Throwable) {
             return;
         }
 
-        // O gatilho é "o desconto DERRUBOU o ano para o negativo", não "o ano está negativo". A
-        // distinção não é sutil: §2 da spec recusa avisar sobre saldo negativo, e quem já devia horas
-        // por faltas receberia o aviso em TODO desconto — inclusive na competência certa. Aviso que
-        // dispara no caso errado ensina o admin a ignorá-lo, e aí ele não serve para o caso certo.
-        //
-        // Limitação assumida e registrada na spec: se o ano da competência tiver crédito PRÓPRIO
-        // suficiente para absorver o desconto, o lançamento no ano errado passa calado. O saldo é uma
-        // aproximação — o sistema não sabe em que ano as horas pagas foram acumuladas.
+        // O gatilho é "o desconto DERRUBOU o banco para o negativo", não "o banco está negativo": §2 da spec
+        // recusa avisar sobre saldo negativo, e quem já devia horas por faltas receberia o aviso em TODO desconto.
+        // Aviso que dispara no caso errado ensina o admin a ignorá-lo.
         $saldoAntes = $saldoDepois - $input->minutosComSinal();
-
         if ($saldoAntes < 0 || $saldoDepois >= 0) {
             return;
         }
 
         $abs = abs($saldoDepois);
-
-        $this->addFlash('warning', sprintf(
-            'Atenção: este desconto deixou o banco de horas negativo em -%dh%02d.',
-            intdiv($abs, 60),
-            $abs % 60,
-        ));
+        $this->addFlash('warning', sprintf('Atenção: este desconto deixou o banco de horas negativo em -%dh%02d.', intdiv($abs, 60), $abs % 60));
     }
 
     /**

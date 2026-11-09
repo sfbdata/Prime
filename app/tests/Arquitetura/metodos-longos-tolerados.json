@@ -366,7 +366,6 @@
     "Pasta/UseCase/SalvarPrazoDaPastaUseCase.php::executar": 48,
     "Pasta/UseCase/UploadPecaUseCase.php::executar": 91,
     "Ponto/Controller/HomeOfficeConfigController.php::save": 46,
-    "Ponto/Controller/HorasPagasController.php::avisarSeODescontoNaoCabeNoAno": 56,
     "Ponto/Controller/JornadaColaboradorController.php::delete": 45,
     "Ponto/Controller/JornadaColaboradorController.php::get": 78,
     "Ponto/Controller/JornadaColaboradorController.php::save": 84,
