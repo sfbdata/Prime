@@ -140,7 +140,7 @@ signatário vira `{papel, nome: '', email: ''}` e o modelo entra em `usar()` com
 
 | Regra | Texto do `{erro}` |
 |---|---|
-| corpo do pedido que não é objeto JSON, ou `campos`, `signatarios` ou `corpo` que não é lista | Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo. |
+| corpo do pedido que não é objeto JSON; chave de topo fora da `Entrada` (um `html`, por exemplo); `folhaBranca` que não é booleano (ausente ou nulo é falso); `campos`, `signatarios` ou `corpo` que não é lista | Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo. |
 | nome vazio (depois de aparar) | Informe o nome do modelo. |
 | nome acima de 200 | O nome do modelo pode ter até 200 caracteres. |
 | categoria acima de 80 (vazia vira "Meus modelos") | A categoria pode ter até 80 caracteres. |

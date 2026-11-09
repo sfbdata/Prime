@@ -99,6 +99,7 @@ final class ValidadorDoModeloTest extends TestCase
         self::assertNull($dados->lateral);
         self::assertFalse($dados->folhaBranca);
         self::assertSame(DadosDoModelo::CATEGORIA_PADRAO, $dados->categoria);
+        self::assertFalse(DadosDoModelo::deJson(self::entrada(['folhaBranca' => null]))->folhaBranca, 'nulo é como ausente');
     }
 
     #[TestDox('no limite passa: nome 200, categoria 80, lateral 20.000, 100 campos, chave 60, rótulo e exemplo 120, 20 opções de 60')]
@@ -148,6 +149,12 @@ final class ValidadorDoModeloTest extends TestCase
         yield 'signatários que não são lista' => [$um(['signatarios' => 'Outorgante']), 'dados_invalidos', []];
         yield 'corpo que não é lista' => [$um(['corpo' => 'Eu, [[nome]]']), 'dados_invalidos', []];
         yield 'nome que não é texto' => [$um(['nome' => 12]), 'dados_invalidos', []];
+        yield 'folha branca em texto' => [$um(['folhaBranca' => 'sim']), 'dados_invalidos', []];
+        yield 'folha branca 2' => [$um(['folhaBranca' => 2]), 'dados_invalidos', []];
+        yield 'folha branca 1' => [$um(['folhaBranca' => 1]), 'dados_invalidos', []];
+        yield 'folha branca em lista' => [$um(['folhaBranca' => []]), 'dados_invalidos', []];
+        yield 'chave html no topo' => [$um(['html' => '<p>Texto</p>']), 'dados_invalidos', []];
+        yield 'chave id no topo' => [$um(['id' => 3]), 'dados_invalidos', []];
         yield 'nome vazio' => [$um(['nome' => '   ']), 'nome_vazio', []];
         yield 'nome com 201' => [$um(['nome' => str_repeat('n', 201)]), 'nome_longo', []];
         yield 'categoria com 81' => [$um(['categoria' => str_repeat('c', 81)]), 'categoria_longa', []];

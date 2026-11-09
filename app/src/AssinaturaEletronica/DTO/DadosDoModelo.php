@@ -20,6 +20,8 @@ final readonly class DadosDoModelo
     public const CATEGORIA_PADRAO = 'Meus modelos';
     public const LATERAL_MAXIMO = 20000;
     public const LAYOUTS = ['', '2col'];
+    /** As chaves da `Entrada`: qualquer outra (um `html`, por exemplo) recusa o pedido. */
+    public const CHAVES = ['nome', 'categoria', 'layout', 'lateral', 'folhaBranca', 'campos', 'signatarios', 'corpo'];
     private const ERRO = 'assinatura_eletronica.modelo.erro.';
 
     /**
@@ -46,7 +48,7 @@ final readonly class DadosDoModelo
      */
     public static function deJson(mixed $json): self
     {
-        if (!\is_array($json) || (array_is_list($json) && $json !== [])) {
+        if (!\is_array($json) || (array_is_list($json) && $json !== []) || array_diff(array_keys($json), self::CHAVES) !== []) {
             throw new AcaoRecusada(self::ERRO . 'dados_invalidos');
         }
 
@@ -59,7 +61,24 @@ final readonly class DadosDoModelo
         $corpo = ValidadorDoModelo::corpo($json['corpo'] ?? [], \count($signatarios));
         ValidadorDoModelo::exigirOEssencial($corpo, \count($signatarios), $layout);
 
-        return new self($nome, $categoria, $layout, $lateral, LeitorDeCampos::booleano($json, 'folhaBranca'), $campos, $signatarios, $corpo);
+        return new self($nome, $categoria, $layout, $lateral, self::folhaBranca($json), $campos, $signatarios, $corpo);
+    }
+
+    /**
+     * Só booleano (ausente ou nulo é falso): "sim", 1 ou lista recusam, em vez de virar falso em silêncio.
+     *
+     * @param array<mixed> $json
+     *
+     * @throws AcaoRecusada
+     */
+    private static function folhaBranca(array $json): bool
+    {
+        $valor = $json['folhaBranca'] ?? false;
+        if (!\is_bool($valor)) {
+            throw new AcaoRecusada(self::ERRO . 'dados_invalidos');
+        }
+
+        return $valor;
     }
 
     /**
