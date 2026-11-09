@@ -229,13 +229,16 @@
             } only %}
             </div>
 
-            {# Cartão de abas logo abaixo da folha (E3): Pendências (P37) e Minhas Justificativas (P39). #}
+            {# Cartão de abas logo abaixo da folha (E3): Pendências (P37) e Minhas Justificativas (P39); Equipe e Configurações (E5, E6). #}
             {% include 'ponto/_abas.html.twig' with {
                 pendencias: pendencias,
                 justificativas: justificativas,
                 abaAberta: abaAberta,
                 podeAnalisarAPropria: podeAnalisarAPropria,
-                competenciaSelecionada: competenciaSelecionada
+                competenciaSelecionada: competenciaSelecionada,
+                veEquipe: veEquipe|default(false),
+                veConfiguracoes: veConfiguracoes|default(false),
+                equipeAAnalisar: equipeAAnalisar|default(0)
             } only %}
         </div>
     </div>
@@ -328,6 +331,10 @@
 </div>
 
 <script src="{{ asset('js/ponto-batida.js') }}"></script>
+{# Abas de gestão (E5 e E6): o carregador do painel ouve a aba antes de o js/ponto-abas.js avisar que ela abriu. #}
+<script src="{{ asset('js/ponto-paineis.js') }}"></script>
+<script src="{{ asset('js/ponto-equipe.js') }}"></script>
+<script src="{{ asset('js/ponto-configuracoes.js') }}"></script>
 <script src="{{ asset('js/ponto-abas.js') }}"></script>
 <script>
     // Limite entre "Localização confirmada" e "GPS impreciso" (P9, valor do desenho). Só muda o texto da caixa: quem

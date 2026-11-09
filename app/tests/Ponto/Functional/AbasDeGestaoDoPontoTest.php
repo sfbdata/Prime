@@ -1,0 +1,128 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Ponto\Functional;
+
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
+use App\Ponto\Controller\ConfiguracoesDoPontoController;
+use App\Ponto\Controller\EquipeDoPontoController;
+use App\Ponto\Service\GestaoDoPonto;
+use App\Tests\Functional\JusPrimeWebTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Crawler;
+use Twig\Environment;
+
+/**
+ * Abas de gestão da /ponto (spec `docs/specs/ponto-desenho-0811.md`, E5 e E6; P58): a aba só aparece para quem a
+ * vê, o painel vem vazio com o endereço da busca, e a rota do painel recusa quem não vê.
+ */
+#[CoversClass(EquipeDoPontoController::class)]
+#[CoversClass(ConfiguracoesDoPontoController::class)]
+#[Group('ponto')]
+final class AbasDeGestaoDoPontoTest extends JusPrimeWebTestCase
+{
+    use CenarioDeJustificativaTrait;
+
+    private const BARRA = 'section.pe-abas > div.pe-abas-barra[role="tablist"]';
+
+    private KernelBrowser $client;
+    private Tenant $escritorio;
+
+    protected function setUp(): void
+    {
+        $this->client = static::createClient();
+        $this->client->disableReboot();
+        $this->escritorio = $this->escritorio('Escritório Gestão');
+    }
+
+    #[TestDox('O painel da Equipe: 200 para o primário e para quem gere usuários pelo perfil, 403 para o colaborador')]
+    public function testPainelDaEquipe(): void
+    {
+        $primario = $this->pessoa('primario');
+        $this->vincularPrimario($primario, $this->escritorio);
+        $gestor = $this->pessoa('gestor');
+        $this->vincularGestor($gestor, $this->escritorio);
+        $colaborador = $this->pessoa('colaborador');
+        $this->vincularColaborador($colaborador, $this->escritorio);
+
+        $this->pedir($primario, '/ponto/equipe');
+        self::assertResponseIsSuccessful();
+        $this->pedir($gestor, '/ponto/equipe');
+        self::assertResponseIsSuccessful();
+        $this->pedir($colaborador, '/ponto/equipe');
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('O painel das Configurações: 200 para quem gere o ponto pelo perfil, 403 para quem só gere usuários')]
+    public function testPainelDasConfiguracoes(): void
+    {
+        $sedes = $this->pessoa('sedes');
+        $this->vincular($sedes, $this->escritorio, ['modules.ponto.view', GestaoDoPonto::SEDES], false);
+        $gestor = $this->pessoa('gestor');
+        $this->vincularGestor($gestor, $this->escritorio);
+
+        $this->pedir($sedes, '/ponto/configuracoes');
+        self::assertResponseIsSuccessful();
+        $this->pedir($gestor, '/ponto/configuracoes');
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Com permissão, as abas Equipe e Configurações entram depois de Minhas Justificativas, com o painel a buscar')]
+    public function testAbasNaBarra(): void
+    {
+        $tela = $this->abas(['veEquipe' => true, 'veConfiguracoes' => true, 'equipeAAnalisar' => 3, 'abaAberta' => 'equipe']);
+
+        $equipe = $tela->filter(self::BARRA . ' > button#ponto-aba-justificativas + button#ponto-aba-equipe[role="tab"][aria-selected="true"][tabindex="0"][aria-controls="ponto-painel-equipe"]');
+        self::assertCount(1, $equipe, 'Equipe vem depois de Minhas Justificativas e abre pelo endereço');
+        self::assertCount(1, $equipe->filter('button > i.bi.bi-people:first-child'));
+        self::assertSame('Equipe3', trim($equipe->text()), 'o número é o das justificativas a analisar');
+        self::assertCount(1, $equipe->filter('button > span.pe-aba-num.pe-aba-num--pend:last-child'));
+        $config = $tela->filter(self::BARRA . ' > button#ponto-aba-equipe + button#ponto-aba-configuracoes[role="tab"][aria-selected="false"][tabindex="-1"]:last-child');
+        self::assertCount(1, $config);
+        self::assertCount(1, $config->filter('button > i.bi.bi-sliders:first-child'));
+        self::assertSame('Configurações', trim($config->text()), 'sem número');
+
+        self::assertCount(1, $tela->filter('section.pe-abas > div#ponto-painel-equipe.pe-abas-painel[role="tabpanel"][data-carregar="/ponto/equipe"]:not([hidden]):empty'));
+        self::assertCount(1, $tela->filter('section.pe-abas > div#ponto-painel-configuracoes.pe-abas-painel[role="tabpanel"][data-carregar="/ponto/configuracoes"][hidden]:empty'));
+        self::assertCount(1, $tela->filter('section.pe-abas > div#ponto-regiao-pendencias[hidden]'));
+    }
+
+    #[TestDox('Sem permissão, as abas de gestão não aparecem e o endereço delas cai em Pendências')]
+    public function testSemPermissao(): void
+    {
+        foreach (['equipe', 'configuracoes'] as $aba) {
+            $tela = $this->abas(['abaAberta' => $aba]);
+
+            self::assertCount(2, $tela->filter(self::BARRA . ' > button[role="tab"]'));
+            self::assertCount(0, $tela->filter('[data-carregar]'));
+            self::assertCount(1, $tela->filter(self::BARRA . ' > button#ponto-aba-pendencias[aria-selected="true"]'));
+            self::assertCount(1, $tela->filter('section.pe-abas > div#ponto-regiao-pendencias:not([hidden])'));
+        }
+    }
+
+    private function pedir(User $quem, string $endereco): void
+    {
+        $this->logarComTenant($this->client, $quem, $this->escritorio);
+        $this->client->request('GET', $endereco);
+    }
+
+    /** @param array<string, mixed> $variaveis */
+    private function abas(array $variaveis): Crawler
+    {
+        $twig = static::getContainer()->get(Environment::class);
+        $html = $twig->render('ponto/_abas.html.twig', $variaveis + [
+            'pendencias'             => [],
+            'justificativas'         => [],
+            'abaAberta'              => 'pendencias',
+            'podeAnalisarAPropria'   => false,
+            'competenciaSelecionada' => '2026-11',
+        ]);
+
+        return new Crawler($html, 'http://localhost/ponto/');
+    }
+}
