@@ -1,0 +1,22 @@
+{#
+    Sub-abas da Gestão eleitoral (componente .vTab do desenho, L387-388), com as etapas da assembleia:
+    Painel, Assembleia (só em rascunho), Pautas e Unidades e links.
+    Contexto: `assembleia` (AssembleiaNoPainel ou null, na criação) e `sub`.
+#}
+{% set itens = [{id: 'painel', icone: 'bi-speedometer2', href: path('voto_index', {aba: 'ges'})}] %}
+{% if assembleia is null %}
+    {% set itens = itens|merge([{id: 'assembleia', icone: 'bi-plus-square', href: path('voto_assembleia_nova')}]) %}
+{% else %}
+    {% if assembleia.podeAlterarPautas %}
+        {% set itens = itens|merge([{id: 'assembleia', icone: 'bi-plus-square', href: path('voto_assembleia_editar', {id: assembleia.id})}]) %}
+    {% endif %}
+    {% set itens = itens|merge([
+        {id: 'pautas', icone: 'bi-list-ol', href: path('voto_assembleia_pautas', {id: assembleia.id})},
+        {id: 'unidades', icone: 'bi-list-check', href: path('voto_assembleia_unidades', {id: assembleia.id})},
+    ]) %}
+{% endif %}
+<nav class="vC voto-sub-abas" aria-label="{{ 'voto.assembleia.gestor.sub.rotulo'|trans }}">
+    {% for item in itens %}
+        <a class="vTab {{ sub == item.id ? 'vTabOn' : '' }}" href="{{ item.href }}" {% if sub == item.id %}aria-current="page"{% endif %}><i class="bi {{ item.icone }}"></i>{{ ('voto.assembleia.gestor.sub.' ~ item.id)|trans }}</a>
+    {% endfor %}
+</nav>

@@ -1,0 +1,103 @@
+/*
+ * Cédula da assembleia de condomínio (/votar/{token}): o portal do eleitor do desenho 18
+ * (docs/design/redesign-08-11-26/18 - Voto - VS 08.11.26.dc.html; insumo docs/specs/voto-assembleia-desenho.md §1, §4,
+ * §5 e §7.1). Página própria, sem a moldura do sistema: nada de Bootstrap nem AdminLTE.
+ *
+ * Primeiro os componentes do desenho com os seletores e valores originais (§7.1); depois, em classes `vc*`, os
+ * estilos que o desenho escreve inline nos elementos do portal (cabeçalho L116, main L133, cartão da pessoa L144,
+ * cartão da votação L147-153, resultado L177-184, toast L281, janelas L253-255), com os mesmos valores.
+ */
+
+/* ---- Componentes do desenho (§7.1) ---- */
+body { margin:0; background:#f3f6f8; font-family:Arial, Helvetica, sans-serif; color:#12242f; }
+.vC { background:#fff; border:1px solid #d3dde4; border-radius:3px; box-shadow:0 1px 3px rgba(18,36,47,.06); }
+.vH { display:flex; align-items:center; gap:9px; flex-wrap:wrap; padding:10px 16px; background:#0a6fa0; color:#fff; font-size:15.5px; font-weight:bold; }
+.vB { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:36px; padding:0 14px; background:#fff; color:#0a6fa0; border:1px solid #0a6fa0; border-radius:3px; font:inherit; font-size:13.5px; font-weight:bold; cursor:pointer; }
+.vB:hover { background:#3b8fc2; border-color:#3b8fc2; color:#fff; }
+a.vB { text-decoration:none; }
+.vP { background:#0a6fa0; color:#fff; }
+.vB:disabled { opacity:.45; cursor:not-allowed; background:#fff; color:#5b7383; border-color:#c6d3dd; }
+.vD { color:#a3232b; border-color:#a3232b; }
+.vD:hover { background:#a3232b; border-color:#a3232b; }
+.vB:focus-visible { outline:3px solid #3b8fc2; outline-offset:1px; }
+.vChip { display:inline-block; padding:3px 9px; color:#fff; font-size:12px; font-weight:bold; border-radius:3px; white-space:nowrap; }
+.vAviso { padding:10px 14px; background:#fff8e6; border:1px solid #e6c56a; color:#6b4e00; font-size:13px; border-radius:3px; line-height:1.4; }
+.vMod { position:fixed; inset:0; z-index:4000; background:rgba(11,53,80,.55); display:flex; align-items:center; justify-content:center; padding:14px; }
+.vMod[hidden] { display:none; }
+.vModC { width:min(720px,100%); max-height:88vh; display:flex; flex-direction:column; background:#fff; border-radius:3px; overflow:hidden; }
+
+/* Status (L287, Component.ST): o fundo do chip é a cor do estado. */
+.vcChip-rascunho { background:#5b7383; }
+.vcChip-publicada { background:#0a6fa0; }
+.vcChip-aberta { background:#1e7b45; }
+.vcChip-encerrada { background:#8a6200; }
+.vcChipNaoApto { background:#a3232b; }
+
+/* ---- Portal do eleitor: cabeçalho branco (L116) e main (L133-134) ---- */
+.vcPagina { min-height:100vh; display:flex; flex-direction:column; }
+.vcCab { background:#fff; border-bottom:3px solid #0a6fa0; min-height:74px; display:flex; align-items:center; gap:14px; padding:8px clamp(12px, 3vw, 26px); flex-wrap:wrap; box-sizing:border-box; }
+.vcLogo { height:50px; display:block; }
+.vcDivisor { width:1px; height:30px; background:#d3dde4; }
+.vcPortal { font-size:18px; color:#0b3550; }
+.vcMain { width:100%; max-width:1240px; margin:0 auto; padding:18px clamp(10px, 2vw, 24px) 110px; box-sizing:border-box; flex:1; display:flex; flex-direction:column; gap:12px; }
+.vcMain > h1 { margin:0; font-size:27px; font-weight:normal; color:#12242f; }
+
+/* Cartão da pessoa identificada (L144) com a assembleia e a unidade. */
+.vcUnidade { padding:11px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.vcUnidade > i { color:#1e7b45; font-size:20px; }
+.vcUnidadeTx { flex:1 1 200px; min-width:0; }
+.vcUnidadeTx > b { font-size:14.5px; }
+.vcUnidadeTx > div { font-size:13.5px; color:#34505f; margin-top:3px; }
+
+/* Erro do portal (csErro, L145): vermelho, negrito. */
+.vcErro { padding:15px 16px; color:#a3232b; font-size:13.5px; font-weight:bold; }
+
+/* ---- Cartão da votação (L147-153) ---- */
+.vcPautaIn { padding:16px; display:flex; flex-direction:column; gap:10px; }
+.vcPautaTopo { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+.vcPautaNome { flex:1 1 300px; min-width:0; }
+.vcPautaNome > b { font-size:19px; color:#0b3550; }
+.vcPautaDesc { font-size:13.5px; color:#34505f; margin-top:3px; }
+.vcInfo { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:#34505f; }
+.vcMsg { font-size:13.5px; font-weight:bold; }
+.vcMsgAzul { color:#0a6fa0; }
+.vcMsgVerde { color:#1e7b45; }
+.vcMsgAmbar { color:#8a6200; }
+.vcMsgVermelho { color:#a3232b; }
+.vcHora { font-weight:normal; color:#34505f; }
+.vcVotar { margin:0; display:flex; flex-direction:column; gap:8px; }
+.vcDica { font-size:13px; color:#34505f; }
+.vcOpcoes { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* ---- Resultado (aba Resultados, L177 e L184) ---- */
+.vcResultado { display:flex; flex-direction:column; gap:12px; }
+.vcResumo { padding:12px 14px; background:#e8f4ec; border-left:4px solid #1e7b45; font-size:16px; font-weight:bold; color:#12242f; }
+.vcItem { display:flex; align-items:center; gap:10px; margin-top:6px; font-size:13.5px; }
+.vcItemNome { flex:0 0 min(46%, 300px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vcBarra { flex:1; height:15px; background:#e6edf2; }
+.vcBarra > span { display:block; height:100%; background:#0a6fa0; }
+.vcItemValor { width:128px; text-align:right; }
+.vcAbstencoes { font-size:12.5px; color:#5b7383; margin-top:5px; }
+.vcDecisao { font-size:13.5px; font-weight:bold; margin-top:4px; }
+
+/* ---- Janela de confirmação (.vMod > .vModC com .vH e "Fechar", L253-255) ---- */
+.vcJanela { width:min(520px,100%); }
+.vcMola { flex:1; }
+.vcJanelaCorpo { overflow:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.vcJanelaRotulo { font-size:13.5px; color:#34505f; }
+.vcJanelaPauta { font-size:15.5px; color:#0b3550; }
+.vcJanelaEscolha { font-size:19px; font-weight:bold; color:#0b3550; }
+.vcJanelaAcoes { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* ---- Toast (L281): verde no sucesso, vermelho no erro ---- */
+.vcToast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:6000; background:#1e7b45; color:#fff; padding:11px 18px; border-radius:3px; font-size:14px; font-weight:bold; box-shadow:0 8px 22px rgba(0,0,0,.25); max-width:90vw; }
+.vcToastErro { background:#a3232b; }
+.vcToast[hidden] { display:none; }
+
+/* Faixa do Master na tela desligada (_recurso_faixa_master.html.twig): a página pública não carrega o app.css. */
+.bj-recurso-faixa { position: fixed; z-index: 2147483100; left: 50%; top: 8px; transform: translateX(-50%); background: #c0392b; color: #fff;
+  font: bold 12.5px Arial, Helvetica, sans-serif; padding: 7px 14px; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+
+/* Celular: o @media (max-width:760px) do desenho só mexe na cabine (.uGr, .uFen, .uTela), na grade .vG2 e no
+   cabeçalho do sistema (.vOc), que não estão nesta página. O portal se ajusta como no desenho: flex-wrap no
+   cabeçalho, nos cartões e nas opções, padding com clamp() e a janela com width:min(520px,100%). */

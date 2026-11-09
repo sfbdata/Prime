@@ -19,3 +19,252 @@ voto:
         vazio: Nenhuma votação publicada.
     recusa:
         nao_liberado: O BlueJus Voto ainda não foi liberado para este escritório.
+    # ---- Cédula da assembleia de condomínio (frente F3, /votar/{token}): portal do eleitor do desenho 18 (§4 do
+    # insumo docs/specs/voto-assembleia-desenho.md) e textos do contrato docs/specs/voto-assembleia-condominio.md.
+    # Chave com ponto de propósito: vira voto.assembleia.cedula.* sem abrir um segundo `assembleia:` neste arquivo.
+    assembleia.cedula:
+        titulo_pagina: Votação da assembleia
+        portal: Portal do Eleitor
+        titulo: Voto
+        aviso_sigilo: 'Seu voto é secreto: o sistema registra que a unidade votou, mas não em quê.'
+        unidade: Unidade
+        nao_apto: Não apto(a)
+        vazio: Nenhuma votação disponível para o seu cadastro. Se você deveria constar na lista, procure a comissão responsável.
+        status:
+            rascunho: Rascunho
+            publicada: Publicada
+            aberta: Votação aberta
+            encerrada: Encerrada
+        modalidade: Condomínio · Pautas de assembleia
+        grupos: Todos os grupos
+        mensagem:
+            aguardando: A votação desta pauta ainda não foi aberta.
+            inapta: Sua unidade não está apta a votar nesta assembleia.
+            ja_votou: Você já votou nesta pauta.
+            hora: 'Registrado às {hora}.'
+            encerra_em: 'Encerra em {tempo}.'
+        dica: 'Escolha uma opção. Para se abster, escolha ABSTENÇÃO.'
+        abstencao: ABSTENÇÃO
+        opcoes: Opções da pauta
+        confirmar:
+            titulo: Confirme seu voto
+            rotulo: SEU VOTO PARA
+            fechar: Fechar
+            corrigir: Corrigir
+            confirmar: Confirmar voto
+        resultado:
+            un: '{unidades} un · {peso}'
+            abstencoes: 'Abstenções {abstencoes} · Nulos 0'
+            decidido: 'Resultado: {numero} {rotulo}'
+        toast:
+            registrado: Voto registrado.
+            expirada: A página expirou. Escolha de novo e confirme o voto.
+        indisponivel: Link inválido ou eleição indisponível.
+        limite: Muitas consultas. Tente novamente em alguns minutos.
+    # ---- Assembleia de condomínio, telas do gestor (frente F2). Spec docs/specs/voto-assembleia-condominio.md;
+    # textos do desenho pelo insumo docs/specs/voto-assembleia-desenho.md (§2, §3 e §5).
+    assembleia:
+        gestor:
+            nova: Nova assembleia
+            rascunho: 'Rascunho: {titulo}'
+            sub:
+                rotulo: Etapas da assembleia
+                painel: Painel
+                assembleia: Assembleia
+                pautas: Pautas
+                unidades: Unidades e links
+            situacao:
+                rascunho: Rascunho
+                publicada: Publicada
+                aberta: Votação aberta
+                encerrada: Encerrada
+            painel:
+                votacoes: Votações
+                vazio: Nenhuma assembleia criada.
+                sem_pautas: Nenhuma pauta incluída.
+                participacao: 'Participação {n} de {aptos} aptos ({pct}%). Conduzida pela mesa.'
+                editar: Editar
+                pautas: Pautas
+                unidades: Unidades e links
+                publicar: Publicar
+                resultados: Resultados
+                relatorio: Relatório consolidado
+            form:
+                ajuda: Votos por fração ideal, salvo disposição diversa da convenção. Confira na convenção o quórum de cada pauta, a segunda convocação e quem está apto a votar.
+                evento: Evento
+                peso: Peso do voto
+                peso_fracao: Fração ideal
+                peso_unidade: Uma unidade, um voto
+                salvar_sair: Salvar e sair
+                continuar: Continuar
+                voltar: Voltar
+            pautas:
+                titulo: Cargos e candidaturas
+                subtitulo: Inclua cargos, pautas ou perguntas e suas opções.
+                frequentes: 'Cargos e pautas frequentes:'
+                pauta: Cargo, pauta ou pergunta
+                descricao: Descrição
+                numero: Número
+                numero_ph: Nº
+                nome: Nome
+                nome_ph: Nome da chapa ou candidatura
+                candidatura: Candidatura
+                remover_opcao: Remover
+                remover_pauta: Remover cargo
+                salvar: Salvar
+                outra: Outro cargo ou pauta
+            mesa:
+                convocacao: Convocação
+                conv1: 1ª convocação
+                conv2: 2ª convocação
+                minutos_rotulo: Minutos
+                minutos: minutos
+                abrir_minutos: Abrir por minutos
+                abrir_sem_prazo: Abrir sem prazo
+                encerra_em: 'Encerra em {tempo}'
+                sem_prazo_definido: Aberta, sem prazo definido
+                definir_prazo: Definir prazo
+                sem_prazo: Sem prazo
+                motivo: Motivo do encerramento antecipado
+                encerrar: Encerrar
+            aviso:
+                publicada: Votação publicada. A configuração ficou bloqueada.
+                aberta: Votação aberta pela mesa.
+                prazo_definido: Prazo definido.
+                prazo_retirado: Prazo retirado.
+                encerrada: Votação encerrada.
+                pauta_incluida: Pauta incluída.
+                pauta_salva: Pauta salva.
+                pauta_removida: Pauta removida.
+                unidade_removida: Unidade removida.
+                novo_link: Novo link gerado. O anterior deixou de valer.
+                sessao_expirada: A sessão expirou. Recarregue a página e tente de novo.
+                link_copiado: Link copiado.
+                mensagem_copiada: Mensagem copiada.
+            unidades:
+                titulo: Unidades e links
+                texto: 'Cole a lista, uma unidade por linha: unidade; bloco; situação; fração; responsável; e-mail. Sem situação, a unidade fica apta; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
+                lista: Lista de unidades
+                importar: Importar lista
+                resumo: '{aptos} aptos e {inaptos} não aptos importados.'
+                obrigatoria: Lista obrigatória nesta votação.
+                importadas: '{total} registros importados. Inválidas: {invalidas}. Duplicadas: {duplicadas}.'
+                nenhuma_valida: Nenhuma linha válida na lista.
+                invalida: 'Linha {linha}: {motivo}'
+                duplicadas: 'Duplicadas: linhas {linhas}.'
+                bloqueada: A lista fica bloqueada depois da abertura da votação.
+                apto: Apto
+                nao_apto: Não apto
+                fracao: 'Fração {fracao}'
+                vazio: Nenhuma unidade na lista.
+                remover: Remover
+                publicar: Publicar votação
+            links:
+                titulo: Links das unidades
+                texto: 'Cada unidade vota do próprio celular, sem conta no BlueJus, pelo link pessoal. Quem tem o link vota pela unidade: envie só ao responsável.'
+                antes_de_publicar: Os links aparecem depois de publicar a assembleia.
+                enviar: Enviar links por e-mail
+                faltam: 'Faltam {n}.'
+                enviados: '{enviados} enviados. Falhas: {falhas}. Faltam {faltam}.'
+                copiar_link: Copiar link
+                copiar_mensagem: Copiar mensagem
+                reenviar: Reenviar
+                novo_link: Gerar novo link
+                enviado_em: 'Link enviado em {data}.'
+                mensagem: '{assembleia}. Unidade {unidade}: este é o link pessoal da sua unidade para votar. Não repasse. {link}'
+            acompanhar:
+                # Só o que a assembleia tem: sem a "Lista nominal" e o "Documento de auditoria" de voto.acompanhar.texto.
+                texto: 'Clique em Assistir para abrir uma janela própria, que pode ser levada a outra tela. Assistir mostra participação e quórum e pode ser projetado.'
+                detalhe: '{assembleia} · {n} de {aptos} votaram'
+                assistir: Assistir
+            assistir:
+                titulo: 'Ao vivo: {pauta}'
+                votaram: votaram
+                aptos: aptos
+                do_peso: do peso apto
+                de_participacao: de participação
+                quorum_atingido: 'Quórum atingido: {q}%'
+                quorum_exigido: 'Quórum exigido: {q}%'
+                atualizado: 'Atualizado às {hora}.'
+            resultados:
+                cedulas: Cédulas na urna
+                participacoes: Participações registradas
+                abstencoes: 'Abstenções {n} · Nulos {nulos}'
+                resultado: 'Resultado: {numero} {rotulo}'
+                valor_peso: '{votos} un · {peso}'
+            ata:
+                titulo: RELATÓRIO CONSOLIDADO DA VOTAÇÃO
+                imprimir: Imprimir
+                resumo: Resumo da votação
+                resumo_pauta: '{pauta}: {n} de {aptos} aptos votaram ({pc}%).'
+                resumo_resultado: 'Resultado de {pauta}: {resultado}. Quórum: {quorum}.'
+                quorum_atingido: atingido
+                quorum_nao_atingido: não atingido
+                quorum_nao_exigido: não exigido
+                nao_apurada: Ainda não apurada.
+                identificacao: Identificação
+                evento: Evento
+                votacoes: Votações neste relatório
+                emitido_em: Emitido em
+                emitido_por: Emitido por
+                modalidade: Modalidade
+                modalidade_valor: Pautas de assembleia
+                peso: Peso do voto
+                criterios: Critérios
+                item: Item
+                regra: Regra
+                criterio: 'Mais votos sobre votos válidos, quórum {q}%'
+                abertura: Boletim de abertura
+                conducao: Condução
+                conducao_valor: 'Pela mesa, {c}ª convocação'
+                aberta_em: Aberta em
+                aberta_por: Aberta por
+                situacao: Situação
+                nao_aberta: Votação não aberta
+                eleitorado: Eleitorado e participação
+                aptos: Eleitores aptos
+                comparecimento: Comparecimento
+                faltosos: Faltosos
+                inaptos: Inaptos na lista
+                peso_apto: Peso total apto
+                por_bloco: Participação por bloco ou torre
+                bloco: Bloco ou torre
+                sem_bloco: Sem bloco
+                eleitores: Eleitores
+                peso_coluna: Peso
+                encerramento: Encerramento
+                encerrada_em: Encerrada em
+                encerrada_por: Encerrada por
+                cedulas: Cédulas
+                motivo: Motivo registrado
+                apuracao: Apuração
+                opcao: Opção
+                votos: Votos
+                abstencoes: Abstenções
+                nulos: Nulos
+                total: Total
+                quorum_linha: 'Quórum: {pc}% (exigido {q}%)'
+                atingido: Atingido
+                nao_atingido: Não atingido
+                resultado: Resultado
+                nao_apurada_data: Votação ainda não apurada na data de emissão deste relatório.
+                votantes: Relação de votantes
+                votantes_texto: Informa quem participou. Não indica em quem cada pessoa votou.
+                unidade: Unidade
+                responsavel: Responsável
+                hora: Data e hora
+                sem_votantes: Nenhuma participação registrada.
+                termo: Termo de encerramento
+                termo_1: Este relatório consolida os dados extraídos dos registros da votação na data de emissão.
+                termo_2: Os signatários declaram ter examinado o conteúdo deste relatório.
+                presidencia: Presidência da assembleia
+                secretaria: Secretaria da assembleia # segredo:permitido rótulo da assinatura na ata, não é credencial
+            email:
+                assunto: 'Seu link para votar: {assembleia}'
+                titulo: Link para votar
+                ola: 'Olá, {nome}.'
+                ola_sem_nome: Olá.
+                texto: 'Este é o link pessoal da unidade {unidade} para votar na {assembleia}.'
+                botao: Votar
+                aviso: 'Não repasse este link: quem o tiver vota pela sua unidade.'
+                nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'

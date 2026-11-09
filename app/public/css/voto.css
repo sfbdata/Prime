@@ -31,3 +31,157 @@
 /* Aba Acompanhar: textos da lista (style inline do desenho) */
 .voto-tela .voto-aco-texto { font-size: 13px; color: #34505f; }
 .voto-tela .voto-aco-vazio { font-size: 13.5px; color: #5b7383; }
+
+/* ===== Assembleia de condomínio: gestor (spec docs/specs/voto-assembleia-condominio.md; insumo
+   docs/specs/voto-assembleia-desenho.md §2, §3, §5 e §7.1). Componentes do desenho com o nome original; o que no
+   desenho é style inline vira classe voto-* com os mesmos valores. ===== */
+
+/* §7.1: botões, campos, grade, KPIs, chip */
+.voto-tela .vB { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 14px; background: #fff; color: #0a6fa0; border: 1px solid #0a6fa0; border-radius: 3px; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.voto-tela .vB:hover { background: #3b8fc2; border-color: #3b8fc2; color: #fff; }
+.voto-tela a.vB { text-decoration: none; }
+.voto-tela .vP { background: #0a6fa0; color: #fff; }
+.voto-tela .vB:disabled { opacity: .45; cursor: not-allowed; background: #fff; color: #5b7383; border-color: #c6d3dd; }
+.voto-tela .vD { color: #a3232b; border-color: #a3232b; }
+.voto-tela .vD:hover { background: #a3232b; border-color: #a3232b; }
+.voto-tela .vL { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: bold; color: #4a6373; min-width: 0; margin: 0; }
+.voto-tela .vF { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 9px; font: inherit; font-size: 14px; font-weight: normal; color: #12242f; background: #fff; box-sizing: border-box; width: 100%; }
+.voto-tela textarea.vF { height: 66px; padding: 7px 9px; resize: vertical; }
+.voto-tela .vF:focus, .voto-tela .vB:focus-visible { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+.voto-tela .vG2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.voto-tela .vKpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.voto-tela .vKpi { padding: 13px 15px; background: #fff; border: 1px solid #d3dde4; border-left: 4px solid #0a6fa0; border-radius: 3px; }
+.voto-tela .vKpi b { display: block; font-size: 24px; color: #0b3550; }
+.voto-tela .vKpi span { font-size: 12.5px; color: #5b7383; }
+.voto-tela .vChip { display: inline-block; padding: 3px 9px; color: #fff; font-size: 12px; font-weight: bold; border-radius: 3px; white-space: nowrap; }
+.voto-tela .vMono { font-family: "Courier New", Courier, monospace; word-break: break-all; }
+.voto-tela .voto-espaco { flex: 1; }
+.voto-tela .voto-chip-claro { background: rgba(255,255,255,.2); }
+.voto-tela .voto-form-linha { display: inline-flex; margin: 0; }
+.voto-tela .voto-vazio { font-size: 13.5px; color: #5b7383; }
+.voto-tela .voto-texto { font-size: 13.5px; color: #34505f; line-height: 1.5; }
+
+/* Sub-abas da assembleia (mesmas .vTab da barra de abas) e barra "Nova assembleia" (L189) */
+.voto-tela .voto-sub-abas { display: flex; overflow-x: auto; }
+.voto-tela .voto-barra { padding: 10px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* Painel: cartão "Votações" (L194), uma .vLin por pauta */
+.voto-tela .voto-acoes { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.voto-tela .voto-pauta { display: flex; flex-direction: column; gap: 8px; }
+.voto-tela .voto-pauta-topo { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.voto-tela .voto-pauta-nome { flex: 1 1 240px; font-size: 14.5px; }
+.voto-tela .voto-barra-fina { height: 9px; background: #e6edf2; }
+.voto-tela .voto-barra-fina > div { height: 100%; background: #1e7b45; }
+.voto-tela .voto-participacao { font-size: 12.5px; color: #5b7383; }
+.voto-tela .voto-pauta-acoes { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.voto-tela .voto-mesa, .voto-tela .voto-mesa-encerrar { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; flex: 1 1 100%; margin: 0; }
+.voto-tela .voto-mesa-conv { width: 150px; }
+.voto-tela .voto-mesa-min { width: 82px; }
+.voto-tela .voto-mesa-rotulo { font-size: 13px; color: #34505f; }
+.voto-tela .voto-cron { font-size: 14px; color: #1e7b45; min-width: 150px; }
+.voto-tela .voto-mesa-motivo { flex: 1 1 220px; width: auto; }
+.voto-tela .voto-decisao { font-size: 13.5px; font-weight: bold; color: #a3232b; margin-top: 4px; }
+.voto-tela .voto-decisao-ok { color: #1e7b45; }
+
+/* Assistente (L209-227): corpo, título da etapa, rodapé, erro */
+.voto-tela .voto-assistente-corpo { padding: 16px; display: flex; flex-direction: column; gap: 14px; margin: 0; }
+.voto-tela .voto-etapa-titulo { font-size: 18px; color: #0b3550; }
+.voto-tela .voto-etapa-sub { font-size: 13.5px; color: #34505f; margin-top: 2px; }
+.voto-tela .voto-rodape { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #e3ecf2; padding-top: 12px; }
+.voto-tela .vLin.voto-rodape { padding: 12px 15px; }
+.voto-tela .voto-erro { color: #a3232b; font-size: 13.5px; font-weight: bold; }
+
+/* Etapa 4: atalhos e caixa da pauta (L215-222) */
+.voto-tela .voto-atalhos { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 13px; color: #34505f; }
+.voto-tela .voto-pauta-bloco { position: relative; }
+.voto-tela .voto-pauta-caixa { border: 1px solid #d3dde4; border-left: 4px solid #0a6fa0; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.voto-tela .voto-pauta-caixa[hidden] { display: none; }
+.voto-tela .voto-pauta-campos { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding-right: 44px; }
+.voto-tela .voto-pauta-caixa#pauta-nova .voto-pauta-campos { padding-right: 0; }
+.voto-tela .voto-pauta-titulo { flex: 1 1 220px; }
+.voto-tela .voto-pauta-remover { position: absolute; top: 12px; right: 12px; margin: 0; }
+.voto-tela .voto-opcoes { display: flex; flex-direction: column; gap: 10px; }
+.voto-tela .voto-opcao { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 7px; padding: 9px; background: #f7f9fb; }
+.voto-tela .voto-pauta-salvar { display: flex; justify-content: flex-end; }
+
+/* Etapa 5: lista de unidades (L223) e links */
+.voto-tela .voto-importar { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+.voto-tela textarea.vF.voto-lista { height: auto; min-height: 120px; }
+.voto-tela .voto-estado { font-size: 14px; font-weight: bold; color: #5b7383; }
+.voto-tela .voto-estado-ok { color: #1e7b45; }
+.voto-tela .voto-estado-erro { color: #a3232b; }
+.voto-tela .voto-relatorio { display: flex; flex-direction: column; gap: 2px; }
+.voto-tela .voto-unidade { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.voto-tela .voto-unidade-dados { flex: 1 1 280px; min-width: 0; display: flex; gap: 4px 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: #34505f; }
+.voto-tela .voto-unidade-dados > b { font-size: 14.5px; color: #12242f; }
+.voto-tela .voto-unidade-acoes { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+
+/* Acompanhar (L172) */
+.voto-tela .voto-aco-linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.voto-tela .voto-aco-nome { flex: 1 1 280px; min-width: 0; }
+.voto-tela .voto-aco-nome > b { font-size: 14.5px; }
+.voto-tela .voto-aco-det { font-size: 13px; color: #34505f; }
+
+/* Resultados (L174-184) */
+.voto-tela .voto-resultado-corpo { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.voto-tela .voto-resultado-faixa { padding: 12px 14px; background: #e8f4ec; border-left: 4px solid #1e7b45; font-size: 16px; font-weight: bold; color: #12242f; }
+.voto-tela .voto-resultado-titulo { font-size: 15px; color: #0b3550; }
+.voto-tela .voto-resultado-opcao { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 13.5px; }
+.voto-tela .voto-resultado-nome { flex: 0 0 min(46%, 300px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voto-tela .voto-resultado-barra { flex: 1; height: 15px; background: #e6edf2; }
+.voto-tela .voto-resultado-barra > span { display: block; height: 100%; background: #0a6fa0; }
+.voto-tela .voto-resultado-valor { width: 128px; text-align: right; }
+.voto-tela .voto-resultado-abst { font-size: 12.5px; color: #5b7383; margin-top: 5px; }
+
+/* Toast (L281): embaixo no meio, some em 3600 ms */
+.voto-toasts { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 6000; display: flex; flex-direction: column; gap: 8px; align-items: center; max-width: 90vw; pointer-events: none; }
+.voto-toast { background: #1e7b45; color: #fff; padding: 11px 18px; border-radius: 3px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: bold; box-shadow: 0 8px 22px rgba(0,0,0,.25); max-width: 90vw; }
+.voto-toast-erro { background: #a3232b; }
+
+@media (max-width: 760px) { .voto-tela .vG2 { grid-template-columns: 1fr; } }
+
+/* "Assistir" (§5, janela L378): CSS da janela do desenho, sob .voto-assistir */
+body.voto-assistir { margin: 0; font-family: Arial, sans-serif; background: #f3f7fa; color: #12242f; }
+.voto-assistir .vv { padding: 18px; }
+.voto-assistir .h { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; background: #0a6fa0; color: #fff; padding: 14px; border-radius: 3px; }
+.voto-assistir .h b { display: block; font-size: 20px; }
+.voto-assistir .h span { font-size: 13px; }
+.voto-assistir .h i { font-style: normal; font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 3px; border: 1px solid #fff; }
+.voto-assistir .g { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.voto-assistir .g div { background: #fff; border: 1px solid #d6e3ec; border-radius: 3px; padding: 14px 6px; text-align: center; }
+.voto-assistir .g strong { display: block; font-size: 40px; color: #0a6fa0; }
+.voto-assistir .g span { font-size: 13px; color: #34505f; }
+.voto-assistir .b { position: relative; height: 18px; background: #dfe9f0; border-radius: 3px; }
+.voto-assistir .b u { display: block; height: 100%; background: #0a6fa0; border-radius: 3px; transition: width .4s; }
+.voto-assistir .b em { position: absolute; top: -4px; bottom: -4px; width: 3px; background: #a3232b; }
+.voto-assistir p { font-size: 15px; font-weight: bold; margin: 12px 0 0; color: #8a6200; }
+.voto-assistir p.ok { color: #1e7b45; }
+.voto-assistir small { display: block; margin-top: 14px; font-size: 12px; color: #5b7383; line-height: 1.4; }
+
+/* Relatório consolidado (§5, tipografia do PDF do desenho), em HTML imprimível, sob .voto-ata */
+body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+.voto-ata .voto-ata-folha { max-width: 820px; margin: 18px auto; padding: 32px 36px; background: #fff; border: 1px solid #d3dde4; }
+.voto-ata .voto-ata-barra { display: flex; justify-content: flex-end; }
+.voto-ata .voto-ata-imprimir { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px; background: #0a6fa0; color: #fff; border: 1px solid #0a6fa0; border-radius: 3px; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.voto-ata h1 { margin: 8px 0 4px; font-size: 23px; font-weight: bold; color: #0b3550; }
+.voto-ata .voto-ata-evento { font-size: 15px; color: #12242f; margin-bottom: 8px; }
+.voto-ata h2, .voto-ata h3 { margin: 18px 0 8px; padding: 6px 10px; background: #0b3550; color: #fff; font-size: 14.5px; font-weight: bold; }
+.voto-ata p { margin: 6px 0; font-size: 13.5px; line-height: 1.5; }
+.voto-ata .voto-ata-campos { margin: 6px 0; }
+.voto-ata .voto-ata-campos > div { display: flex; gap: 10px; padding: 3px 0; font-size: 13.5px; }
+.voto-ata .voto-ata-campos dt { flex: 0 0 220px; font-weight: bold; color: #4a6373; }
+.voto-ata .voto-ata-campos dd { margin: 0; color: #12242f; }
+.voto-ata .voto-ata-tabela { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13.5px; }
+.voto-ata .voto-ata-tabela caption { text-align: left; font-size: 13.5px; font-weight: bold; color: #4a6373; padding: 4px 0; }
+.voto-ata .voto-ata-tabela th { background: #d6e3ec; font-size: 12.5px; font-weight: bold; color: #0b3550; text-align: left; padding: 6px 8px; }
+.voto-ata .voto-ata-tabela td { padding: 6px 8px; }
+.voto-ata .voto-ata-tabela tbody tr:nth-child(even) { background: #f6f9fb; }
+.voto-ata .voto-ata-assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 56px; font-size: 13.5px; font-weight: bold; color: #4a6373; text-align: center; }
+.voto-ata .voto-ata-assinaturas span { display: block; border-top: 1px solid #12242f; margin-bottom: 6px; }
+@media print {
+    body.voto-ata { background: #fff; }
+    .voto-ata .voto-ata-folha { margin: 0; padding: 0; border: 0; max-width: none; }
+    .voto-ata .voto-ata-barra { display: none; }
+    .voto-ata h2, .voto-ata h3, .voto-ata .voto-ata-tabela th, .voto-ata .voto-ata-tabela tbody tr:nth-child(even) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .voto-ata .voto-ata-pauta { break-inside: auto; }
+}
