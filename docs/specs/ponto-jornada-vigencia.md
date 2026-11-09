@@ -247,8 +247,8 @@ escritório, com saldo. Se a primeira versão criada pela tela valesse para trá
   > "do ano": não zera em janeiro.
 - **Ajuda do campo** "Vale a partir de": o texto literal do §5.1, sem acréscimo.
 - **"Limpar escala"**: o texto da confirmação fica o do §10.2.5 (decisão 3 do §8). Quando só há versões da tela, as
-  linhas saem e a pessoa volta ao estado de antes de ter jornada (a /ponto calcula pela padrão; o banco do ano, só
-  as horas pagas, como antes).
+  linhas saem e a pessoa volta ao estado de antes de ter jornada: desde a E17, todas as telas contam pela jornada
+  do escritório (nota acima).
 - **`tem_jornada_no_escritorio()`** olha a versão que vale hoje: quem só tem versão agendada fica como quem não tem
   jornada até a data dela.
 - **Choque entre escritórios**: além dos blocos propostos, quando o Editar leva a versão de hoje para uma data

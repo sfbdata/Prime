@@ -144,11 +144,12 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('mes sem batida nenhuma: o bloco trata o saldo do mes como zero e o total vira o proprio lancamento')]
+    #[TestDox('pessoa sem inicio da contagem (nunca bateu ponto): o saldo do mes e zero e o total vira o proprio lancamento')]
     public function testBlocoDeTotaisEmMesSemBatidaTrataSaldoDoMesComoZero(): void
     {
-        // Nenhuma linha da folha tem saldo apurado (`saldoAcumuladoFinal` devolve null). Some o total
-        // seria pior do que somar zero: é justamente o mês em que só existe o lançamento.
+        // Sem nenhuma batida não há início da contagem, e o banco não conta falta nenhuma: o saldo do mês é zero, e o
+        // bloco continua existindo, porque é justamente o mês em que só existe o lançamento. Quem já começou a
+        // contagem tem as faltas do mês sem batida no saldo (E17): ver o teste do mês sem registro na ficha, abaixo.
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $colaborador = $this->criarColaboradorComum($tenant);
@@ -482,6 +483,8 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $ponto = $client->request('GET', '/ponto/?competencia=' . $mesDoLancamento->format('Y-m'));
         self::assertResponseIsSuccessful();
 
+        // As duas telas tiram o número da mesma conta (`saldosDoBancoPorCompetencia`), então a igualdade prova só que a
+        // ficha deixou de ter conta própria. A âncora independente é a regex: negativo e diferente de zero.
         self::assertMatchesRegularExpression('/^-\d+h\d{2}m$/D', $saldoDoMes($ficha), 'as faltas do mês, não zero');
         self::assertSame($saldoDoMes($ponto), $saldoDoMes($ficha));
     }
@@ -740,7 +743,8 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
      * Jornada sem nenhum dia de trabalho: a carga esperada do dia vira 0 em qualquer dia da semana
      * (`CalculadoraJornada::calcularSaldoDia`), então o saldo do dia é exatamente o que foi batido —
      * o único jeito de fixar o "Saldo do mês" num teste que roda em qualquer data do calendário.
-     * Também garante a jornada pessoal no escritório, sem a qual a ficha do admin nem apura saldo.
+     * Também fixa a jornada da pessoa: sem ela, a folha conta pela jornada do escritório (`jornadaDaFolha`, E17), que
+     * espera horas nos dias úteis e mudaria o número conforme a data em que o teste roda.
      */
     private function criarJornadaSemDiasDeTrabalho(User $user, Tenant $tenant): void
     {

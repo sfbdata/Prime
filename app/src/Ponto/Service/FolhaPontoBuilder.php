@@ -251,9 +251,8 @@ class FolhaPontoBuilder
      * Atenção ao escopo: é o saldo DAQUELE MÊS, não o banco acumulado — `buildRows` faz o
      * `saldoAcumulado` nascer em zero no primeiro dia do intervalo pedido.
      *
-     * Mora aqui, e não em cada controller, porque a ficha do admin, o PDF e o XLSX (todos os dias na
-     * folha) e o banco precisam do mesmo número. A `/ponto` esconde os dias sem batida, então a última
-     * linha dela não é o mês: o total dela sai do banco (`BancoDeHorasOutput::saldosPorCompetencia`, E17).
+     * O banco (`saldosDaFolhaPorCompetencia`) soma este número mês a mês. A /ponto e a ficha do admin tiram o total do
+     * mês do próprio banco (E17), e o PDF e o XLSX fazem a mesma conta sobre as linhas em `montarDadosFolha`.
      *
      * @param array<int, array<string, mixed>> $rows linhas de `buildRows()`
      */

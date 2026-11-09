@@ -907,8 +907,9 @@ final class TenantController extends AbstractController
             // Bloco de totais do rodapé da folha (spec §7). O partial é o MESMO do /ponto do
             // colaborador: toda variável nova tem de sair dos DOIS renders, senão o outro quebra.
             // "Saldo do mês" = a conta do banco para a competência, sem as horas pagas (E17), como a /ponto, o PDF e o XLSX:
-            // também na competência sem batida, em que a ficha não mostra linha e as faltas contam.
-            'saldoMesMinutosPonto'   => ($folhaPontoBuilder->saldosDoBancoPorCompetencia($user, $tenant, $feriadoRepository->findByTenant($tenant), $jornadaTenant, $this->inicioContagemResolver->resolver($user, $tenant))[$competenciaSelecionada] ?? 0) - $horasPagasMinutosPonto,
+            // também na competência sem batida, em que a ficha não mostra linha e as faltas contam. O bloco só aparece
+            // com horas pagas no mês, então o banco só é calculado nesse caso.
+            'saldoMesMinutosPonto'   => $horasPagasMinutosPonto === 0 ? null : ($folhaPontoBuilder->saldosDoBancoPorCompetencia($user, $tenant, $feriadoRepository->findByTenant($tenant), $jornadaTenant, $this->inicioContagemResolver->resolver($user, $tenant))[$competenciaSelecionada] ?? 0) - $horasPagasMinutosPonto,
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
