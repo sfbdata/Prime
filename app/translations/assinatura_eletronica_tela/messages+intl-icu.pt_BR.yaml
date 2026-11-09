@@ -163,7 +163,6 @@ assinatura_eletronica_tela:
             continuar: 'Continuar e enviar'
             trilha: 'Trilha de auditoria'
             sem_email: 'Sem e-mail: envie o link'
-            excluir: 'Excluir'
         folha:
             logo: 'Logo'
             logo_escritorio: 'Logo do escritório'

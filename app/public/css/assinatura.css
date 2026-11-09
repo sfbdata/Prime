@@ -144,13 +144,11 @@
 
 .bja .bjaAbas { display: flex; gap: 2px; overflow-x: auto; background: var(--bja-tab); border-bottom: 1px solid var(--bja-borda); }
 .bja .bjaAba { padding: 12px 14px 9px; border: none; border-bottom: 3px solid transparent; background: transparent; color: var(--bja-t2); font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 7px; margin: 0; border-radius: 0; }
-.bja .bjaAba:hover { color: var(--bja-azul-tx); }
 .bja .bjaAba[aria-selected="true"] { border-bottom-color: #0a6fa0; background: var(--bja-card); color: var(--bja-azul-tx); }
 
 .bja .bjaFiltros { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--bja-div); }
 .bja .bjaChips { display: flex; gap: 4px; flex-wrap: wrap; flex: 999 1 340px; }
 .bja .bjaChip { height: 30px; padding: 0 10px; border: 1px solid var(--bja-borda); border-radius: 3px; background: var(--bja-card); color: var(--bja-t2); font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; margin: 0; }
-.bja .bjaChip:hover { background: var(--bja-neutro-hover); }
 .bja .bjaChip.is-on { border-color: #0a6fa0; background: #0a6fa0; color: #fff; }
 .bja .bjaBusca { flex: 1 1 220px; width: auto; }
 .bja .bjaPastaSel { flex: 0 1 180px; width: auto; }
@@ -301,7 +299,6 @@
 .bja .bjaCodVal { font: bold 17px monospace; color: #a3232b; letter-spacing: 1px; }
 [data-bs-theme="dark"] .bja .bjaCodVal { color: var(--bja-verm-tx); }
 .bja .bjaCodBts { display: flex; gap: 6px; flex-wrap: wrap; }
-.bja .bjaCodBts .bjaB { height: 38px; }
 .bja .bjaTrilha { max-height: 300px; overflow-y: auto; }
 .bja .bjaEv { padding: 8px 14px; border-bottom: 1px solid var(--bja-div); font-size: 12.5px; }
 .bja .bjaEv > div { color: var(--bja-mudo); }

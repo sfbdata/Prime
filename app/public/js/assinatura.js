@@ -119,8 +119,7 @@
     const falha = e => { if (e && !e.texto) { console.error(e); } avisar((e && e.texto) || T('erro_geral'), 'erro'); };
 
     const doc = id => s.docs.find(d => String(d.id) === String(id));
-    /* Id como o servidor mandou (o do detalhe pode não estar na lista ainda: vai o número). */
-    const idsReais = lista => lista.map(k => { const d = doc(k); return d ? d.id : (/^\d+$/.test(String(k)) ? Number(k) : null); }).filter(v => v != null);
+    const idsReais = lista => lista.map(k => (doc(k) || {}).id).filter(v => v != null);
     const stAtual = d => (d.situacao === 'aguardando' && d.venceEm && new Date(d.venceEm) < new Date() ? 'expirado' : d.situacao);
 
     async function carregar() {
@@ -695,8 +694,7 @@
             return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(x.nome) + '</b><span class="bjaSeloSig sg-' + sg + '">' + esc(T('sig.' + sg)) + '</span></div>'
                 + '<div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(nivelRotulo(x.nivel)) + '</div><div class="bjaSigInfo">' + esc(info) + '</div></div>';
         }).join('');
-        const bts = (st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '')
-            + (!d.naLixeira && url.lixeira ? '<button type="button" class="bjaB bjaR" data-bja-acao="det-excluir"><i class="bi bi-trash3"></i>' + esc(T('det.excluir')) + '</button>' : '');
+        const bts = st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '';
         const evs = (d.eventos || []).map(e => '<div class="bjaEv"><b>' + esc(e.texto) + '</b><div>' + esc(dataHora(e.em)) + '</div></div>').join('');
         el.telaDet.innerHTML = '<div class="bjaTopoDet"><button type="button" class="bjaB bjaN" data-bja-acao="voltar-lista"><i class="bi bi-arrow-left"></i>' + esc(T('voltar_documentos')) + '</button>'
             + '<h1 class="bjaH1Det">' + esc(d.nome) + '</h1><span class="bjaSeloDet st-' + esc(st) + '">' + esc(T('situacao.' + st)) + '</span></div>'
@@ -790,21 +788,20 @@
             + '<button type="button" class="bjaB bjaR" data-bja-acao="exc-sim">' + esc(def ? T('exc.botao_def') : T('exc.botao')) + '</button></div></div></div>';
     }
 
-    function pedirExclusao(ids, def, doDetalhe) {
+    function pedirExclusao(ids, def) {
         s.ctx = null;
-        s.exc = { ids: ids, def: !!def, doDetalhe: !!doDetalhe };
+        s.exc = { ids: ids, def: !!def };
         desenharCamadas();
         const b = el.modal.querySelector('[data-bja-acao="exc-nao"]');
         if (b) { b.focus(); }
     }
 
     /* ── Ações no servidor ──────────────────────────────────────────────── */
-    async function moverParaLixeira(ids, doDetalhe) {
+    async function moverParaLixeira(ids) {
         try { await postJson(url.lixeira, { ids: idsReais(ids) }); } catch (e) { falha(e); return; }
         s.sel = {}; s.exc = null; s.ctx = null;
         desenharCamadas();
         avisar(T('toast.lixeira', { n: ids.length }), 'aviso');
-        if (doDetalhe) { irParaLista(); }
         await carregar();
     }
 
@@ -859,7 +856,7 @@
             case 'ctx-excluir': pedirExclusao(idsDoCtx(), false); break;
             case 'ctx-excluir-def': pedirExclusao(idsDoCtx(), true); break;
             case 'exc-nao': s.exc = null; desenharCamadas(); break;
-            case 'exc-sim': if (s.exc.def) { apagar(s.exc.ids); } else { moverParaLixeira(s.exc.ids, s.exc.doDetalhe); } break;
+            case 'exc-sim': if (s.exc.def) { apagar(s.exc.ids); } else { moverParaLixeira(s.exc.ids); } break;
             case 'restaurar-lote': restaurar(selDe(vis())); break;
             case 'excluir-lote': pedirExclusao(selDe(vis()), false); break;
             case 'limpar-sel': s.sel = {}; desenharDocs(); break;
@@ -872,7 +869,6 @@
             case 'add-sig': s.w.sign = s.w.sign.concat([sigVazio()]); erroW(''); redesenharCorpo(); break;
             case 'tira-sig': { const cx = alvo.closest('[data-bja-i]'); if (cx) { const i = +cx.getAttribute('data-bja-i'); s.w.sign = s.w.sign.filter((_, j) => j !== i); erroW(''); redesenharCorpo(); } break; }
             case 'det-retomar': if (s.det) { retomar(s.det); } break;
-            case 'det-excluir': if (s.det) { pedirExclusao([String(s.det.id)], false, true); } break;
             default: break;
         }
     }
