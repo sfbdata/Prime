@@ -128,7 +128,7 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha->filter('td.pe-vazia[data-r="Justificativa"]:nth-child(10)'), 'sem justificativa, a célula some no celular');
     }
 
-    #[TestDox('P25: o dia sem batida sai da tela e continua descontando; o rodapé e o saldo do mês dão o mesmo número de antes')]
+    #[TestDox('P25: o dia sem batida sai da tela e continua descontando; o rodapé é o mês inteiro, a conta do banco')]
     public function testDiaSemBatidaSaiDaTelaEContinuaNoSaldo(): void
     {
         $this->jornadaDeOitoHoras();
@@ -151,9 +151,15 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertSame('-7h00m', trim($saldoMes->text()), 'o dia sem batida que sumiu ainda desconta as 8 h dele');
         self::assertStringContainsString('pe-cor--neg', (string) $saldoMes->attr('class'));
 
-        // O rodapé é o de antes: o saldo da última linha que a folha montava (o atestado de d4, -15h00m), não o da última
-        // linha visível. Filtrar a tela não pode mudar o número.
-        $this->assertTotais($tela, '-15h00m', '+1h00m', '-14h00m');
+        // O rodapé é a conta do banco para o mês (E17): -15h00m até o atestado de d4 e mais as faltas dos dias úteis depois
+        // dele, que a tela não mostra. Até a E17 parava na última linha que a folha montava (d4), e a soma dos meses da
+        // folha não fechava com o banco. Filtrar a tela não pode mudar o número.
+        $faltasDepois = 0;
+        for ($dia = $d4->modify('+1 day'); $dia->format('m') === $d4->format('m'); $dia = $dia->modify('+1 day')) {
+            $faltasDepois += (int) $dia->format('N') <= 5 ? 1 : 0;
+        }
+        $saldo = -15 - 8 * $faltasDepois;
+        $this->assertTotais($tela, sprintf('%dh00m', $saldo), '+1h00m', sprintf('%dh00m', $saldo + 1));
         self::assertStringContainsString($d4->format('d/m/Y'), $tela->filter('.pe-dir')->text(), 'o atestado continua visível em Minhas Justificativas');
     }
 

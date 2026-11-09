@@ -191,7 +191,7 @@ Esta frente cria o primeiro `UseCase/` do domínio em vez de engordar `TenantCon
 
 ```php
 public function somarPorCompetencia(User $user, Tenant $tenant, int $ano, int $mes): int;                 // linha "Horas pagas" do mês exibido
-public function somarPorPeriodo(User $user, Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int; // agregadores; UMA query, pontas inclusivas
+public function somarPorCompetenciaDoColaborador(User $user, Tenant $tenant): array; // banco por lotes (E17): 'AAAA-MM' => minutos, UMA query; substitui o somarPorPeriodo
 public function listarPorUser(User $user, Tenant $tenant): array;  // ordenado por ano/mês desc, para a ficha do admin
 public function buscarDoTenant(int $id, Tenant $tenant): ?LancamentoHorasPagas; // nunca find() por id da URL
 ```
