@@ -36,10 +36,10 @@ final class EquipeDoPontoConsultasTest extends JusPrimeWebTestCase
     private const QUARENTA = [[[1, 2, 3, 4, 5], '08:00', '12:00', '13:00', '17:00']];
 
     /**
-     * Consultas por pessoa que não dependem do mês. Medido em 09/11/2026: 29 por pessoa em novembro (7 + 2 x 11 meses);
-     * em dezembro, 31. Subir este número pede rever antes a seção "Custo do painel" da E5 na spec.
+     * Consultas por pessoa que não dependem do mês. Medido em 09/11/2026: 31 por pessoa em novembro (9 + 2 x 11 meses);
+     * em dezembro, 33. Subir este número pede rever antes a seção "Custo do painel" da E5 na spec.
      */
-    private const FIXAS_POR_PESSOA = 7;
+    private const FIXAS_POR_PESSOA = 9;
     /** O banco do ano: as batidas e as justificativas de cada mês. */
     private const POR_MES = 2;
 
@@ -77,9 +77,9 @@ final class EquipeDoPontoConsultasTest extends JusPrimeWebTestCase
 
     /**
      * Um escritório com a jornada padrão, uma gestora que não registra ponto (a equipe do painel é só quem o teste põe)
-     * e as pessoas no caso caro: jornada pessoal, batida no ano passado (o banco percorre o ano todo) e o dia de hoje
-     * aberto. A batida antiga é de junho do ano passado: em qualquer data, fica antes de 1º de janeiro e fora dos 30
-     * dias das pendências.
+     * e as pessoas no caso caro: jornada pessoal, batida no ano passado (o banco percorre o ano todo), um dia batido há
+     * 3 dias (as pendências dos últimos 30 dias leem os feriados e os esquecimentos, em vez de sair cedo) e o dia de
+     * hoje aberto. A batida antiga é de junho do ano passado: em qualquer data, fica antes de 1º de janeiro.
      *
      * @param list<string> $nomes
      *
@@ -98,6 +98,8 @@ final class EquipeDoPontoConsultasTest extends JusPrimeWebTestCase
             $this->jornadaPessoal($pessoa, $escritorio, self::QUARENTA);
             $this->registrarBatida($pessoa, $escritorio, 'entrada', $diaDoAnoPassado->setTime(8, 0));
             $this->registrarBatida($pessoa, $escritorio, 'saida', $diaDoAnoPassado->setTime(17, 0));
+            $this->registrarBatida($pessoa, $escritorio, 'entrada', new \DateTimeImmutable('-3 days 08:00'));
+            $this->registrarBatida($pessoa, $escritorio, 'saida', new \DateTimeImmutable('-3 days 17:00'));
             $this->registrarBatida($pessoa, $escritorio, 'entrada', new \DateTimeImmutable('today 08:00'));
         }
 
