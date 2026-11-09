@@ -55,6 +55,12 @@ final class LimitesDaConferencia
 
     public const CARACTERES_MAXIMOS_DE_NOME = 256;
 
+    /** Cabeçalhos `N G obj` e palavras `endobj` e `endstream` no índice do arquivo inteiro (análise do acréscimo, M27). */
+    public const CABECALHOS_MAXIMOS_DO_ARQUIVO = 200_000;
+
+    /** Valores lidos nos dicionários de uma conferência (análise do acréscimo, M27). */
+    public const ELEMENTOS_MAXIMOS_DA_SINTAXE = 1_000_000;
+
     private function __construct()
     {
     }
