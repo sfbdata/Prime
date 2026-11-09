@@ -373,6 +373,38 @@
 .bja .bjaC .cols .hd { font-weight: bold; break-after: avoid; margin: 0 0 3px; }
 .bja .bjaC .cols .bjaAss { break-inside: avoid; margin: 16px auto 6px; }
 
+/* ── Modelos do escritório (etapa 4): coluna de ações do cartão, "Criar novo modelo" do passo 1 e editor.
+   Valores do desenho (dc:155-156, 175, 204-212 e 85-90). ─────────────────────────────────────────────── */
+.bja .bjaModAc { display: flex; flex-direction: column; gap: 3px; padding: 6px; border-left: 1px solid var(--bja-div); justify-content: center; }
+.bja .bjaLinBusca > .bjaB { height: 34px; }
+.bja .bjaTopoMod { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.bja .bjaH1Mod { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: normal; line-height: normal; flex: 1 1 220px; color: var(--bja-texto); }
+.bja .bjaMdImp { height: 38px; cursor: pointer; }
+.bja .bjaMdEdCol { flex-basis: 560px; }
+.bja .bjaMdPvCol { flex-basis: 460px; }
+.bja .bjaMdCampos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--bja-div); }
+.bja .bjaMdLimpa { align-self: center; padding-top: 16px; }
+.bja .bjaMdBarra { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 8px 14px; background: var(--bja-tab); border-bottom: 1px solid var(--bja-borda); }
+.bja .bjaMdDiv { width: 1px; height: 22px; background: var(--bja-borda); margin: 0 4px; }
+.bja .bjaMdIns { width: 170px; height: 32px; }
+.bja .bjaMdCriar { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 14px; border-bottom: 1px solid var(--bja-div); }
+.bja .bjaMdPar { display: flex; gap: 4px; flex: 1 1 220px; }
+.bja .bjaMdPar > .bjaB { height: 34px; }
+.bja .bjaMdErro { font-size: 12.5px; color: #a3232b; margin-top: 6px; }
+[data-bs-theme="dark"] .bja .bjaMdErro { color: var(--bja-verm-tx); }
+.bja .bjaEd { min-height: 380px; max-height: 62vh; overflow-y: auto; padding: 18px 22px; font-size: 14px; line-height: 1.55; outline: none; color: var(--bja-texto); }
+.bja .bjaEd:focus { box-shadow: inset 0 0 0 2px var(--bja-azul-borda); }
+/* Títulos com o padrão do navegador do desenho (negrito, entrelinha do texto), não o do Bootstrap. */
+.bja .bjaEd :is(h1, h2, h3) { font-weight: bold; line-height: inherit; color: inherit; }
+.bja .bjaEd h1 { font-size: 19px; text-align: center; margin: 0 0 4px; }
+.bja .bjaEd h2 { font-size: 15px; text-align: center; margin: 0 0 12px; }
+.bja .bjaEd h3 { font-size: 14px; margin: 12px 0 5px; }
+.bja .bjaEd p { margin: 0 0 10px; text-align: justify; }
+.bja .bjaEd p[data-d] { text-align: right; }
+.bja .bjaEd p[data-n] { text-align: right; color: #44546a; }
+.bja .bjaEd .ch { display: inline-block; padding: 0 6px; background: #fff3cd; border: 1px solid #e0c36a; border-radius: 2px; color: #7a5200; font-size: 12.5px; }
+.bja .bjaEd div[data-ass] { margin: 18px auto 12px; max-width: 320px; text-align: center; border-top: 1px solid var(--bja-texto); padding-top: 4px; font-size: 12.5px; }
+
 /* ── Telas menores ──────────────────────────────────────────────────── */
 @media (max-width: 980px) {
     .bja .bjaLat { max-width: none; flex-basis: 100%; }
