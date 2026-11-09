@@ -19,7 +19,7 @@
 
     if (window.BJAFolha) { return; }
 
-    const T = (chave, p) => BJ_T.t('assinatura_eletronica_tela.js.folha.' + chave, p);
+    const T = (chave, p) => BJ_T.t(['assinatura_eletronica_tela', 'js', 'folha', chave].join('.'), p);
     const COD_VAZIO = 'BJA-XXXX-XXXX-XXXX';
     const QR_VALIDAR = 'https://www.bluejus.com.br/assinar/validar';
     const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';

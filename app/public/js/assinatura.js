@@ -17,7 +17,7 @@
     if (!raiz || !window.BJAFolha) { return; }
 
     const F = window.BJAFolha;
-    const T = (chave, p) => BJ_T.t('assinatura_eletronica_tela.js.' + chave, p);
+    const T = (chave, p) => BJ_T.t(['assinatura_eletronica_tela', 'js', chave].join('.'), p);
     const lerJson = (texto, padrao) => { try { const v = JSON.parse(texto || ''); return v == null ? padrao : v; } catch (e) { return padrao; } };
     const eu = lerJson(raiz.dataset.eu, {});
     const padraoServ = lerJson(raiz.dataset.padrao, {});
