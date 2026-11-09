@@ -176,6 +176,8 @@ final class ModelosDaAssinaturaControllerTest extends JusPrimeWebTestCase
         yield 'campo com colchete' => [['campos' => [['no]me', 'Nome']]], 'O nome do campo 1 deve ter de 1 a 60 caracteres, sem colchetes.'];
         yield 'assinatura de quem não existe' => [['corpo' => [['p' => 'Texto.'], ['a' => 3]]], 'O texto do modelo tem um lugar de assinatura inválido (posição 2).'];
         yield 'sem assinatura' => [['corpo' => [['p' => 'Texto.']]], 'Inclua ao menos uma assinatura.'];
+        yield 'folha branca que não é booleano' => [['folhaBranca' => 'sim'], 'Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo.'];
+        yield 'HTML no pedido' => [['html' => '<p onclick="x()">Texto</p>'], 'Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo.'];
     }
 
     /** @param array<string, mixed> $troca */
