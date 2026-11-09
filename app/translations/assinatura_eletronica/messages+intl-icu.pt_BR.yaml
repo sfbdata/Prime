@@ -133,3 +133,27 @@ assinatura_eletronica:
             assunto: 'Documento assinado: {documento}'
             titulo: Todas as assinaturas registradas
             texto: 'O documento "{documento}" foi assinado por todos os signatários.'
+    modelo:
+        erro:
+            dados_invalidos: Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo.
+            nao_encontrado: Modelo não encontrado.
+            nome_vazio: Informe o nome do modelo.
+            nome_longo: O nome do modelo pode ter até 200 caracteres.
+            categoria_longa: A categoria pode ter até 80 caracteres.
+            layout_invalido: Formato do modelo inválido.
+            lateral_longa: O texto lateral pode ter até 20.000 caracteres.
+            campos_demais: O modelo pode ter até 100 campos.
+            campo_invalido: O modelo tem um campo inválido (posição {posicao}).
+            campo_chave: O nome do campo {posicao} deve ter de 1 a 60 caracteres, sem colchetes.
+            campo_repetido: 'O campo "{nome}" aparece mais de uma vez no modelo.'
+            signatarios_demais: O modelo pode ter até 50 assinaturas.
+            signatario_invalido: A assinatura {numero} do modelo é inválida.
+            signatario_papel_longo: O papel da assinatura {numero} pode ter até 120 caracteres.
+            blocos_demais: O texto do modelo pode ter até 2.000 blocos (títulos, parágrafos e assinaturas).
+            bloco_invalido: O texto do modelo tem um bloco inválido (posição {posicao}).
+            bloco_texto_longo: Um trecho do modelo passa de 20.000 caracteres (posição {posicao}).
+            assinatura_invalida: O texto do modelo tem um lugar de assinatura inválido (posição {posicao}).
+            corpo_longo: O texto do modelo passa de 300.000 caracteres. Divida em mais de um modelo.
+            sem_texto: Escreva o texto do modelo.
+            sem_assinatura: Inclua ao menos uma assinatura.
+            sem_titulo: 'No formato de folha única, marque uma linha como Título.'
