@@ -91,7 +91,7 @@ escolhida.
 - **P40.** Nomes das situações. Hoje: Pendente, Abonado, Rejeitado. | No desenho: Em análise, Abonado, Recusado. Se aceito, muda em todas as telas, inclusive na ficha do gestor e nos avisos do sininho. | Decisão: aceito. O rótulo é um só e muda junto em todas as telas.
 - **P41.** Excluir a justificativa em análise. Hoje: o colaborador só edita. | No desenho: lixeira "Excluir enquanto não analisada" (no desenho apaga sem perguntar; ver seção 4). | Decisão: aceito. Com confirmação antes de apagar (D4).
 - **P42.** Fica (o desenho não mostra): editar a justificativa em análise (tipo, horário, troca do atestado do lote). Fica? | Decisão: fica.
-- **P43. (PERGUNTA)** Gestor abonar a própria justificativa. Hoje: o gestor analisa na ficha de cada colaborador; analisar a própria está em aberto para o dono. | No desenho: na aba "Minhas Justificativas", o usuário primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas. | Origem: spec ponto-edicao-justificativa-analisada (§6, em aberto). | Opções: (a) desenho; (b) ninguém analisa a própria; os botões aparecem só na aba Equipe, para as dos outros. Recomendo (b). | Decisão: (a) (contra a recomendação acima). O primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas, como o desenho.
+- **P43. (PERGUNTA)** Gestor abonar a própria justificativa. Hoje: o gestor analisa na ficha de cada colaborador; analisar a própria está em aberto para o dono. | No desenho: na aba "Minhas Justificativas", o usuário primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas. | Origem: spec ponto-edicao-justificativa-analisada (§6, em aberto). | Opções: (a) desenho; (b) ninguém analisa a própria; os botões aparecem só na aba Equipe, para as dos outros. Recomendo (b). | Decisão: (a) (contra a recomendação acima). O primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas, como o desenho. A mesma regra vale na ficha do colaborador (E3): na própria ficha, quem gere pelo perfil e não é primário nem Master não abona, não recusa, não volta para análise, não usa "Aprovar todos" nem "Justificar Falta" (o lançamento do gestor já sai abonado); os botões não aparecem, uma linha diz o porquê e o servidor recusa com 403. É a exceção ao "fica" do P59 para a própria ficha; a análise da justificativa de outra pessoa segue como antes.
 - **P44.** Janela "Justificar falta". Hoje: janela com calendário de vários dias, tipo, abono parcial, esquecimento e anexo. | No desenho: janela nova (barra azul, botões "Cancelar" e "Enviar") com data única, motivo e atestado opcional. Se aceito, entra a moldura do desenho e os campos de hoje ficam (P45). | Decisão: aceito. Os campos de hoje entram na moldura nova (P45).
 - **P45.** Fica (o desenho não mostra): vários dias de uma vez, os 45 tipos em 6 grupos, abono parcial com horário e anexo PDF, JPG ou PNG até 10 MB. Ficam? | Decisão: fica.
 - **P46.** Janela "Registro de esquecimento". Hoje: janela com o tipo e o horário. | No desenho: "dd/mm/aaaa · Saída", horário com segundos, motivo obrigatório e o aviso "Enviado para aprovação do gestor.". | Decisão: aceito.
@@ -372,7 +372,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Migration: não. Excluir a justificativa em análise é regra nova pequena (UseCase próprio, só o dono dela, só em análise,
   só no escritório dela; o anexo sai depois do commit). Abonar e recusar a própria (P43 a) chamam a mesma regra de
   análise de hoje.
-- Decisões da etapa (implementada em 09/11/2026, branch `ponto-desenho-e3`, empilhada na E2):
+- Decisões da etapa (implementada em 09/11/2026 e integrada na branch `ponto-desenho`, a de integração do Ponto, sobre a E2):
   - parciais NOVOS, só do index novo (decisão do Coordenador, 09/11/2026: o Ponto novo pode ficar atrás de uma chave,
     com o antigo de volta): `_abas.html.twig` (o cartão), `_abas_pendencias.html.twig`, `_abas_justificativas.html.twig`
     e `_janelas_justificativa.html.twig`. `_pendencias.html.twig` e `_justificativas_list.html.twig` ficam como estavam;
@@ -799,7 +799,7 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   revisão de 09/11/2026), sem migration. Decisões da etapa registradas na E1 (seção 5).
 - E2 implementada na branch `ponto-desenho-e2` (empilhada na E1), sem migration. Decisões da etapa registradas na E2
   (seção 5).
-- E3 implementada na branch `ponto-desenho-e3` (empilhada na E2), sem migration, em parciais novos (a tela antiga fica
+- E3 implementada e integrada na branch de integração `ponto-desenho` (sobre a E2), sem migration, em parciais novos (a tela antiga fica
   intocada). Decisões e os pontos de liga e desliga do P40, P43 a e P41 registrados na E3 (seção 5).
 - E13 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e13`, servidor, e `ponto-desenho-e13-tela`), com a
   migration `Version20261109220000`. Decisões da etapa registradas na E13 (seção 5).
