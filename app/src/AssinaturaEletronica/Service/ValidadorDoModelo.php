@@ -179,7 +179,8 @@ final class ValidadorDoModelo
     }
 
     /**
-     * A chave vai dentro de `[[...]]` no texto: colchete quebraria a marcação.
+     * A chave vai dentro de `[[...]]` no texto: colchete quebraria a marcação, e `^` no começo faria o `[[^chave]]`
+     * ser lido como a versão em maiúsculas de outro campo (o valor nunca apareceria).
      *
      * @throws AcaoRecusada
      */
@@ -189,7 +190,7 @@ final class ValidadorDoModelo
             throw new AcaoRecusada(self::ERRO . 'campo_invalido', ['posicao' => $posicao]);
         }
 
-        if (trim($chave) === '' || mb_strlen($chave) > self::CHAVE_MAXIMO || strpbrk($chave, '[]') !== false) {
+        if (trim($chave) === '' || mb_strlen($chave) > self::CHAVE_MAXIMO || strpbrk($chave, '[]') !== false || str_starts_with($chave, '^')) {
             throw new AcaoRecusada(self::ERRO . 'campo_chave', ['posicao' => $posicao]);
         }
 

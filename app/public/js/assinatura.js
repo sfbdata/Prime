@@ -1074,7 +1074,7 @@
     function criarCampo() {
         const i = el.telaMod.querySelector('[data-bja-md-novo]'), r = i ? i.value.trim() : '';
         if (!r) { return; }
-        if (/[[\]]/.test(r)) { erroMd(T('mod.erro_colchete')); return; }
+        if (/[[\]]/.test(r) || r.charAt(0) === '^') { erroMd(T('mod.erro_nome_campo')); return; }
         erroMd('');
         insChip(r, r);
         i.value = '';

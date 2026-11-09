@@ -54,8 +54,9 @@ Do Coordenador (09/11), com o motivo:
 Desvios novos, desta implementação (para a revisão do Coordenador):
 
 - **D-a.** O JSON usa `folhaBranca` (camelCase, como o `Rascunho` da etapa 1), não `folha_branca`.
-- **D-b.** "Criar campo" com colchete no nome recusa na linha de erro do editor: "O nome do campo não pode ter
-  colchetes." (texto novo; o desenho não trata o caso e o servidor recusaria só ao salvar, sem dizer onde).
+- **D-b.** "Criar campo" com colchete no nome, ou com `^` no começo, recusa na linha de erro do editor: "O nome do
+  campo não pode ter colchetes nem começar com ^." (texto novo; o desenho não trata o caso e o servidor recusaria só
+  ao salvar, sem dizer onde). O `^` no começo faria o `[[^chave]]` ser lido como maiúsculas de outro campo.
 - **D-c.** O servidor repete as quatro conferências do desenho (nome, texto, assinatura, título no formato de folha
   única) com os mesmos textos, para a rota não gravar modelo que a tela recusaria.
 - **D-d.** A prévia do editor usa a logo da BlueJus, como o desenho (`html()` cai na `BJAssinaLogoBJ` sem logo,
@@ -148,7 +149,7 @@ signatário vira `{papel, nome: '', email: ''}` e o modelo entra em `usar()` com
 | lateral acima de 20.000 | O texto lateral pode ter até 20.000 caracteres. |
 | mais de 100 campos | O modelo pode ter até 100 campos. |
 | campo que não está na forma do catálogo (não é lista; 1 ou mais de 5 itens; rótulo vazio ou acima de 120; largo que não é 0, 1 ou booleano; exemplo acima de 120; opções que não são lista de 1 a 20 textos de até 60) | O modelo tem um campo inválido (posição {posicao}). |
-| chave de campo vazia, acima de 60 ou com `[` ou `]` | O nome do campo {posicao} deve ter de 1 a 60 caracteres, sem colchetes. |
+| chave de campo vazia, acima de 60, com `[` ou `]`, ou começando com `^` | O nome do campo {posicao} deve ter de 1 a 60 caracteres, sem colchetes e sem começar com ^. |
 | chave repetida | O campo "{nome}" aparece mais de uma vez no modelo. |
 | mais de 50 signatários | O modelo pode ter até 50 assinaturas. |
 | signatário que não é objeto, ou papel vazio | A assinatura {numero} do modelo é inválida. |

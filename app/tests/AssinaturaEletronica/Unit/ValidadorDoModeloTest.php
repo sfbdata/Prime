@@ -88,6 +88,12 @@ final class ValidadorDoModeloTest extends TestCase
         ], $dados->corpo);
     }
 
+    #[TestDox('^ só é recusado no começo da chave: no começo, o [[^campo]] seria lido como maiúsculas de outro campo')]
+    public function testCircunflexoNoMeioDaChave(): void
+    {
+        self::assertSame([['a^b', 'Campo', 0]], ValidadorDoModelo::campos([['a^b', 'Campo']]));
+    }
+
     #[TestDox('texto lateral só de espaço vira nulo, e a folha branca ausente é falsa')]
     public function testLateralVaziaEFolhaAusente(): void
     {
@@ -180,6 +186,7 @@ final class ValidadorDoModeloTest extends TestCase
         yield 'chave com 61' => [$um(['campos' => [[str_repeat('k', 61), 'Nome']]]), 'campo_chave', ['posicao' => 1]];
         yield 'chave com [' => [$um(['campos' => [['no[me', 'Nome']]]), 'campo_chave', ['posicao' => 1]];
         yield 'chave com ]' => [$um(['campos' => [['nome]]', 'Nome']]]), 'campo_chave', ['posicao' => 1]];
+        yield 'chave começando com ^' => [$um(['campos' => [['nome', 'Nome'], ['^Nome', 'Nome em maiúsculas']]]), 'campo_chave', ['posicao' => 2]];
         yield 'chave repetida' => [$um(['campos' => [['nome', 'Nome'], ['nome', 'Outro']]]), 'campo_repetido', ['nome' => 'nome']];
         yield '51 signatários' => [$um(['signatarios' => array_fill(0, 51, ['papel' => 'Parte'])]), 'signatarios_demais', []];
         yield 'signatário que não é objeto' => [$um(['signatarios' => ['Outorgante']]), 'signatario_invalido', ['numero' => 1]];
@@ -255,7 +262,7 @@ final class ValidadorDoModeloTest extends TestCase
         yield 'lateral_longa' => ['lateral_longa', [], 'O texto lateral pode ter até 20.000 caracteres.'];
         yield 'campos_demais' => ['campos_demais', [], 'O modelo pode ter até 100 campos.'];
         yield 'campo_invalido' => ['campo_invalido', ['posicao' => 3], 'O modelo tem um campo inválido (posição 3).'];
-        yield 'campo_chave' => ['campo_chave', ['posicao' => 2], 'O nome do campo 2 deve ter de 1 a 60 caracteres, sem colchetes.'];
+        yield 'campo_chave' => ['campo_chave', ['posicao' => 2], 'O nome do campo 2 deve ter de 1 a 60 caracteres, sem colchetes e sem começar com ^.'];
         yield 'campo_repetido' => ['campo_repetido', ['nome' => 'cpf'], 'O campo "cpf" aparece mais de uma vez no modelo.'];
         yield 'signatarios_demais' => ['signatarios_demais', [], 'O modelo pode ter até 50 assinaturas.'];
         yield 'signatario_invalido' => ['signatario_invalido', ['numero' => 2], 'A assinatura 2 do modelo é inválida.'];

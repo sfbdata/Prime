@@ -144,7 +144,7 @@ assinatura_eletronica:
             lateral_longa: O texto lateral pode ter até 20.000 caracteres.
             campos_demais: O modelo pode ter até 100 campos.
             campo_invalido: O modelo tem um campo inválido (posição {posicao}).
-            campo_chave: O nome do campo {posicao} deve ter de 1 a 60 caracteres, sem colchetes.
+            campo_chave: O nome do campo {posicao} deve ter de 1 a 60 caracteres, sem colchetes e sem começar com ^.
             campo_repetido: 'O campo "{nome}" aparece mais de uma vez no modelo.'
             signatarios_demais: O modelo pode ter até 50 assinaturas.
             signatario_invalido: A assinatura {numero} do modelo é inválida.

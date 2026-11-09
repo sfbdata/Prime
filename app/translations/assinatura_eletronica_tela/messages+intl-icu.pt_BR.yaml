@@ -251,7 +251,7 @@ assinatura_eletronica_tela:
             erro_texto: 'Escreva o texto do modelo.'
             erro_assinatura: 'Inclua ao menos uma assinatura.'
             erro_titulo: 'No formato de folha única, marque uma linha como Título.'
-            erro_colchete: 'O nome do campo não pode ter colchetes.'
+            erro_nome_campo: 'O nome do campo não pode ter colchetes nem começar com ^.'
             salvo: 'Modelo salvo.'
             excluido: 'Modelo excluído. Os documentos já enviados não mudam.'
             importado: 'Texto importado. Marque título, campos e assinaturas.'
