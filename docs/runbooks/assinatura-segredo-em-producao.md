@@ -13,7 +13,7 @@ Este arquivo **não contém segredo nenhum**. O valor só existe no `.env.prod` 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
 cd /opt/jusprime && cp -p .env.prod ".env.prod.antes-da-assinatura.$(date +%Y%m%d%H%M%S)"
-grep -q '^ASSINATURA_SEGREDO=.' .env.prod && echo 'JA EXISTE: nao troque (para o Copiar link e o lembrete dos documentos em andamento)' || { sed -i '/^ASSINATURA_SEGREDO=/d' .env.prod && printf 'ASSINATURA_SEGREDO=%s\n' "$(openssl rand -hex 32)" >> .env.prod; }
+grep -q '^ASSINATURA_SEGREDO=.' .env.prod && echo 'JA EXISTE: nao troque (para o Copiar link e o lembrete dos documentos em andamento)' || { sed -i '/^ASSINATURA_SEGREDO=/d' .env.prod && printf '\nASSINATURA_SEGREDO=%s\n' "$(openssl rand -hex 32)" >> .env.prod; }
 grep -o '^ASSINATURA_SEGREDO=' .env.prod
 ```
 
