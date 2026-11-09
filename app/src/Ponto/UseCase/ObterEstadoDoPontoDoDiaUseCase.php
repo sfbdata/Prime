@@ -17,6 +17,7 @@ use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\EscolhaDasBatidasDoDia;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\HomeOfficeResolver;
 use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\Service\PublicoDosAvisosDePonto;
@@ -48,6 +49,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
         private readonly ClockInterface $clock,
         private readonly JornadaColaboradorRepository $jornadas,
         private readonly PublicoDosAvisosDePonto $publico,
+        private readonly FuncoesDoPonto $funcoes,
     ) {
     }
 
@@ -59,13 +61,16 @@ final class ObterEstadoDoPontoDoDiaUseCase
         $hoje = $this->horariosDe($escolhidas);
         // R7: o "Regularizar ponto de ontem" só para o público dos avisos de ponto.
         $ontemSemSaida = $this->publico->recebe($eu, $tenant) ? $this->ontemSemSaida($eu, $tenant, $agora) : null;
+        // E7: com a geolocalização desligada, a linha bate sem pedir a posição e não há cerca a avaliar.
+        $geoLigado = $this->funcoes->vale(FuncoesDoPonto::GEO, $tenant);
 
         return new EstadoDoPontoDoDiaOutput(
             dia: $agora->format('Y-m-d'),
             estado: self::estadoDe($hoje),
             hoje: $hoje,
             homeOffice: $this->homeOffice->estaLiberado($eu, $tenant, $agora),
-            sedes: $this->sedes->doEscritorio($tenant),
+            geoLigado: $geoLigado,
+            sedes: $geoLigado ? $this->sedes->doEscritorio($tenant) : [],
             ontemSemSaida: $ontemSemSaida,
             interjornadaMinimaMin: self::interjornadaMinima($tenant),
             aviso: $ontemSemSaida !== null ? EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM : null,

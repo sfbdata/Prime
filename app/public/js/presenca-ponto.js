@@ -15,6 +15,9 @@
     var urlEstado = raiz.getAttribute('data-ponto-estado');
     var urlBatida = raiz.getAttribute('data-ponto-batida');
     var urlPonto = raiz.getAttribute('data-ponto-index');
+    // E7: com a tela do Ponto desligada pelo Master, o atalho vem sem `data-ponto-batida` (_presenca.html.twig). A
+    // linha segue contando o estado do dia, mas sem botão de registrar nem o "Regularizar", que levam à tela fechada.
+    var podeBater = !!urlBatida;
     var PB = window.PontoBatida;
 
     // A releitura do estado no clique tem prazo próprio (spec F1): espera nova no fluxo da batida sem prazo travaria o
@@ -59,10 +62,12 @@
         var h = e.hoje || {};
         switch (e.estado) {
             case 'bater_entrada':
+                if (!podeBater) { return null; }   // "Bater ponto" sem a batida seria um botão que não faz nada
                 return { texto: 'Bater ponto', cor: '#0a6fa0', icone: 'bi-fingerprint', acao: 'entrada', dica: 'Clique para registrar a entrada' };
             case 'em_intervalo':
                 return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };
             case 'em_jornada':
+                if (!podeBater) { return { texto: 'Em jornada desde ' + h.entrada, cor: '#1e7b45', icone: 'bi-play-circle', acao: '', dica: '' }; }
                 return { texto: 'Em jornada desde ' + h.entrada, cor: '#1e7b45', icone: 'bi-play-circle', acao: 'saida', dica: 'Clique para registrar a saída' };
             case 'jornada_concluida':
                 return { texto: 'Jornada ' + h.entrada + ' às ' + h.saida, cor: '#5b7383', icone: 'bi-check2-circle', acao: '', dica: '' };
@@ -74,7 +79,7 @@
     /* O aviso de ontem (R3): fica ao lado da linha, que continua oferecendo a batida, e leva ao pedido de
        esquecimento. Null sem pendência de ontem. */
     function aviso() {
-        if (!estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }
+        if (!podeBater || !estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }
 
         return { texto: 'Regularizar ponto de ontem', cor: '#c76a12', icone: 'bi-exclamation-triangle', dica: 'Clique para informar a saída de ontem' };
     }
@@ -150,7 +155,9 @@
             // há aqui: é só da tela do ponto (E14); o atalho sem rede segue com o aviso de sempre.
             var horaAparelho = Date.now();
             var payload = { tipo: atual.acao, idEnvio: typeof PB.novoIdDeEnvio === 'function' ? PB.novoIdDeEnvio() : undefined, horaAparelho: horaAparelho };
-            if (!base.homeOffice) {
+            // E7: com a geolocalização desligada (Master ou escritório) não pede a posição nem avalia a cerca, como
+            // o servidor. `!== false`: um estado sem o campo continua pedindo a posição.
+            if (!base.homeOffice && base.geoLigado !== false) {
                 var position = await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS, function () {});   // (4)
                 if (!position) { avisar(AVISO_SEM_POSICAO); return; }
                 payload.latitude = position.coords.latitude;

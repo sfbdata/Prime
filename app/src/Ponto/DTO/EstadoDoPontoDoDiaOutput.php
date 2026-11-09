@@ -22,6 +22,8 @@ final class EstadoDoPontoDoDiaOutput
 
     /**
      * @param array{entrada: ?string, repouso: ?string, retorno: ?string, saida: ?string} $hoje horários H:i da escolha da folha
+     * @param bool $geoLigado a geolocalização vale no escritório (E7: Master E escritório); desligada, a tela não pede
+     *                        a posição, e `sedes` vem vazio
      * @param list<array{nome: string, latitude: float, longitude: float, raio: int}> $sedes
      * @param ?string $ontemSemSaida AAAA-MM-DD quando ontem tem entrada sem saída e a folha ofereceria o "+" da saída
      * @param ?int $interjornadaMinimaMin o descanso mínimo do escritório, para o aviso da saída; null com a validação desligada
@@ -32,6 +34,7 @@ final class EstadoDoPontoDoDiaOutput
         public readonly string $estado,
         public readonly array $hoje,
         public readonly bool $homeOffice,
+        public readonly bool $geoLigado,
         public readonly array $sedes,
         public readonly ?string $ontemSemSaida,
         public readonly ?int $interjornadaMinimaMin,

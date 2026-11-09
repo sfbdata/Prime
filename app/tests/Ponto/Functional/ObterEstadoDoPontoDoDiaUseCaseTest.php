@@ -226,6 +226,7 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
             $relogio,   // o fuso do sistema, como o relógio real
             $c->get(\App\Ponto\Repository\JornadaColaboradorRepository::class),
             new \App\Ponto\Service\PublicoDosAvisosDePonto($c->get(\App\Repository\UserTenantRepository::class), $c->get(\App\Ponto\Repository\RegistroPontoRepository::class), $relogio),
+            $c->get(\App\Ponto\Service\FuncoesDoPonto::class),
         );
     }
 

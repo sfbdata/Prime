@@ -7,7 +7,9 @@
 {% if central_disponivel() %}
     {% set tenantPresenca = current_tenant() %}
     {# Atalho de ponto na sua linha (fase 2, ALTO): o critério de quem já vê o alerta de ponto (módulo e jornada), e
-       nunca na própria tela do ponto, onde o bloco "batidas de hoje" não relê nada e sugeriria a mesma batida. #}
+       nunca na própria tela do ponto, onde o bloco "batidas de hoje" não relê nada e sugeriria a mesma batida. Com a
+       tela do Ponto desligada pelo Master (E7), o atalho segue com o estado do dia e perde a batida (sem
+       `data-ponto-batida`, o js/presenca-ponto.js tira o botão de registrar). #}
     {% set atalhoPonto = can_access_module('ponto') and tem_jornada_no_escritorio() and app.request.attributes.get('_route') != 'ponto_index' %}
     <span class="presenca-cab" data-presenca-cabecalho
           data-url-equipe="{{ path('central_equipe') }}"
@@ -18,7 +20,7 @@
           data-ausencia-url="{{ path('central_presenca_ausencia') }}"
           data-ausencia-min="{{ presenca_ausente_apos_min() }}"
           {%- endif %}
-          {% if atalhoPonto %}data-ponto-estado="{{ path('ponto_estado_do_dia') }}" data-ponto-batida="{{ path('ponto_batida') }}" data-ponto-index="{{ path('ponto_index') }}"{% endif %}>
+          {% if atalhoPonto %}data-ponto-estado="{{ path('ponto_estado_do_dia') }}"{% if recurso_visivel('ponto') %} data-ponto-batida="{{ path('ponto_batida') }}"{% endif %} data-ponto-index="{{ path('ponto_index') }}"{% endif %}>
         <button type="button" class="presenca-cab-selo" data-presenca-selo hidden
                 aria-haspopup="dialog" aria-expanded="false" aria-label="{{ 'menu.usuario.presenca.selo'|trans({n: 0}) }}">0</button>
     </span>

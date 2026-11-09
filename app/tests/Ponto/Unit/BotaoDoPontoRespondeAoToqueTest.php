@@ -146,7 +146,7 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
 
         $impedimentos = [
             'tipo não escolhido' => '/!tipoRegistro\.value\s*\)\s*\{\s*mostrarAvisoBatida\(/',
-            'sem posição'        => '/!homeOfficeHoje && !currentLocation\s*\)\s*\{\s*mostrarAvisoBatida\(/',
+            'sem posição'        => '/!dispensaLocalizacao && !currentLocation\s*\)\s*\{\s*mostrarAvisoBatida\(/',
             'fora do raio'       => '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*mostrarAvisoBatida\(/',
         ];
 
@@ -200,7 +200,7 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         );
 
         $concluida = $this->corpoDaFuncao('function jornadaConcluida(');
-        foreach (['tipoRegistro', 'currentLocation', 'avaliarPosicao', 'homeOfficeHoje'] as $proibido) {
+        foreach (['tipoRegistro', 'currentLocation', 'avaliarPosicao', 'homeOfficeHoje', 'dispensaLocalizacao'] as $proibido) {
             self::assertStringNotContainsString($proibido, $concluida, 'o dia completo passou a olhar ' . $proibido);
         }
         self::assertStringContainsString("button[role=\"radio\"]:not(:disabled)", $concluida);

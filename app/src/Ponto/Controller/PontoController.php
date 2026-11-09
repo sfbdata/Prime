@@ -17,6 +17,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
@@ -119,6 +120,7 @@ final class PontoController extends AbstractController
         CalculadoraJornada $calculadoraJornada,
         ListarPendenciasDeRegistroUseCase $pendencias,
         AnaliseDaPropriaJustificativa $analiseDaPropria,
+        FuncoesDoPonto $funcoes,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -213,7 +215,9 @@ final class PontoController extends AbstractController
         //
         // Espelha as duas exclusões do servidor: sede sem coordenada e raio não positivo não
         // delimitam nada e ficam de fora nos dois lados. Mesmo serviço do atalho do cabeçalho.
-        $sedesDaTela = $sedesDaCerca->doEscritorio($tenant);
+        // Geolocalização desligada (E7, Master ou escritório): a tela não pede a posição nem avalia a cerca.
+        $geoLigado = $funcoes->vale(FuncoesDoPonto::GEO, $tenant);
+        $sedesDaTela = $geoLigado ? $sedesDaCerca->doEscritorio($tenant) : [];
 
         $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
@@ -224,6 +228,7 @@ final class PontoController extends AbstractController
 
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,
+            'geoLigado'      => $geoLigado,
             'sedesDaTela'    => $sedesDaTela,
             'folhaRows' => $folhaRows,
             'mesAtual' => $mesSelecionado,
@@ -773,6 +778,7 @@ final class PontoController extends AbstractController
         HomeOfficeResolver $homeOfficeResolver,
         EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
+        FuncoesDoPonto $funcoes,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -839,6 +845,9 @@ final class PontoController extends AbstractController
         // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
         // a batida entra sem GPS nem sede. O resolver reautoriza sempre no servidor.
         $homeOfficeHoje = $homeOfficeResolver->estaLiberado($user, $tenant, $hoje);
+        // Geolocalização desligada (E7: o Master ou o escritório): sem cerca e sem sede, e a batida NÃO vira home
+        // office. A posição, se vier, fica gravada (gravarPosicaoSemCerca).
+        $cercaVale = !$homeOfficeHoje && $funcoes->vale(FuncoesDoPonto::GEO, $tenant);
 
         $sedeEncontrada = null;
         $distanciaSedeEncontrada = null;
@@ -846,7 +855,7 @@ final class PontoController extends AbstractController
         $longitudeFloat = null;
         $precisaoGpsFloat = null;
 
-        if (!$homeOfficeHoje) {
+        if ($cercaVale) {
             if ($latitude === null || $longitude === null) {
                 return $this->json([
                     'success' => false,
@@ -959,12 +968,14 @@ final class PontoController extends AbstractController
         $envio->gravarEm($registro);
         $registro->setHomeOffice($homeOfficeHoje);
 
-        if (!$homeOfficeHoje) {
+        if ($cercaVale) {
             $registro->setSede($sedeEncontrada);
             $registro->setSedeNomeSnapshot($sedeEncontrada->getNome());
             $registro->setLatitude((string) $latitudeFloat);
             $registro->setLongitude((string) $longitudeFloat);
             $registro->setPrecisaoGps((string) $precisaoGpsFloat);
+        } elseif (!$homeOfficeHoje) {
+            $this->gravarPosicaoSemCerca($registro, $latitude, $longitude, $precisaoGps);
         }
 
         $entityManager->persist($registro);
@@ -976,7 +987,7 @@ final class PontoController extends AbstractController
             'hora' => $registro->getDataHora()->format('H:i:s'),
             'tipo' => $tipo,
         ];
-        if (!$homeOfficeHoje) {
+        if ($cercaVale) {
             $dados['sede'] = $sedeEncontrada->getNome();
             $dados['distancia'] = $distanciaSedeEncontrada !== null ? round($distanciaSedeEncontrada, 2) : null;
         }
@@ -1053,6 +1064,28 @@ final class PontoController extends AbstractController
             'data'    => $dados + ['tipo' => $tipo, 'jaRegistrada' => true],
             'avisos'  => [],
         ]);
+    }
+
+    /**
+     * Geolocalização desligada (E7): a posição não é exigida nem confere cerca, mas a que vier válida fica no registro
+     * (latitude e longitude na faixa; a precisão só se for positiva). Posição inválida é ignorada, sem recusar a batida.
+     */
+    private function gravarPosicaoSemCerca(RegistroPonto $registro, mixed $latitude, mixed $longitude, mixed $precisaoGps): void
+    {
+        if (!is_numeric($latitude) || !is_numeric($longitude)) {
+            return;
+        }
+        $lat = (float) $latitude;
+        $long = (float) $longitude;
+        if (!is_finite($lat) || !is_finite($long) || $lat < -90 || $lat > 90 || $long < -180 || $long > 180) {
+            return;
+        }
+
+        $registro->setLatitude((string) $lat);
+        $registro->setLongitude((string) $long);
+        if (is_numeric($precisaoGps) && is_finite((float) $precisaoGps) && (float) $precisaoGps > 0) {
+            $registro->setPrecisaoGps((string) (float) $precisaoGps);
+        }
     }
 
     /**

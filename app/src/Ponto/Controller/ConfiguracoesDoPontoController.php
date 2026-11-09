@@ -7,6 +7,7 @@ namespace App\Ponto\Controller;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Service\GestaoDoPonto;
+use App\Ponto\UseCase\ObterConfiguracoesDoPontoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,15 +29,20 @@ final class ConfiguracoesDoPontoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissoes,
         private readonly GestaoDoPonto $gestao,
+        private readonly ObterConfiguracoesDoPontoUseCase $funcoesDoPonto,
     ) {
     }
 
     #[Route('', name: 'ponto_configuracoes', methods: ['GET'])]
     public function painel(): Response
     {
-        $this->escritorioDoGestor();
+        $escritorio = $this->escritorioDoGestor();
+        $eu = $this->getUser();
 
-        return $this->render('ponto/_abas_configuracoes.html.twig');
+        return $this->render('ponto/_abas_configuracoes.html.twig', [
+            // E7: as chaves das funções (null para quem não administra o ponto: a seção não aparece).
+            'funcoesDoPonto' => $eu instanceof User ? $this->funcoesDoPonto->executar($eu, $escritorio) : null,
+        ]);
     }
 
     /** O escritório da sessão, se quem pede vê as configurações do ponto dele. */

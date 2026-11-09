@@ -126,7 +126,7 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
         );
     }
 
-    #[TestDox('home office continua dispensando a cerca na tela, como no servidor')]
+    #[TestDox('home office e a geolocalização desligada (E7) continuam dispensando a cerca na tela, como no servidor')]
     public function testHomeOfficeNaoPassaPelaCerca(): void
     {
         $corpo = $this->corpoDaFuncao("btnPonto.addEventListener('click'");
@@ -135,10 +135,16 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
         // nada: o guarda de posição (`!homeOfficeHoje && !currentLocation`) já aparece antes no
         // handler, e apagar o guarda DA CERCA deixaria a asserção verde. O que precisa ser
         // provado é que a chamada da cerca está dentro do bloco condicionado ao home office.
+        // E7: o bloco olha `dispensaLocalizacao`, que junta o home office e a geolocalização desligada.
+        self::assertStringContainsString(
+            'const dispensaLocalizacao = homeOfficeHoje || !geoLigado;',
+            (string) file_get_contents(self::CAMINHO_TELA),
+            'home office e geolocalização desligada dispensam a posição, como no servidor'
+        );
         self::assertMatchesRegularExpression(
-            '/if \(!homeOfficeHoje\)\s*\{\s*const onde = PontoBatida\.avaliarPosicao\(currentLocation, SEDES\);/',
+            '/if \(!dispensaLocalizacao\)\s*\{\s*const onde = PontoBatida\.avaliarPosicao\(currentLocation, SEDES\);/',
             $corpo,
-            'a cerca do clique tem que estar DENTRO do `if (!homeOfficeHoje)`, senão quem está '
+            'a cerca do clique tem que estar DENTRO do `if (!dispensaLocalizacao)`, senão quem está '
             . 'liberado do dia passa a ser bloqueado por estar em casa — a tela ficaria mais '
             . 'rígida que o servidor, que dispensa o geofencing nesse caso'
         );
