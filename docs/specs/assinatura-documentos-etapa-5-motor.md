@@ -101,6 +101,8 @@ Métodos: `temAssinatura(): bool` e `ultimaAssinatura(): ?AssinaturaConferida`.
 | `veredito` | `VereditoDaAssinatura` | `status` |
 | `motivo` | `string` | `motivo`, sempre preenchido |
 | `vinculoDoCertificado` | `VinculoDoCertificado` | não existia: o certificado é o que o signatário assinou? (M24) |
+| `acrescimo` | `ConferenciaDoAcrescimo` | não existia: o acréscimo desta assinatura só traz a assinatura? (M27) |
+| `motivoDoAcrescimo` | `?string` | não existia: o porquê do `acrescimo`; null com `nao_se_aplica` (M27) |
 
 Nenhum campo desta tabela prova quem assinou: titular, CPF, CNPJ, emissor e ICP-Brasil são o que o certificado
 declara, e a cadeia até a AC raiz só é conferida na etapa 6 (pyHanko). O vínculo diz só que o certificado não foi
@@ -121,10 +123,14 @@ trocado depois da assinatura.
 `VinculoDoCertificado` (com `motivo()`): `Vinculado` = `vinculado`, `NaoVinculado` = `nao_vinculado`, `Diferente` =
 `diferente`, `NaoConferido` = `nao_conferido`.
 
+`ConferenciaDoAcrescimo` (M27): `NaoSeAplica` = `nao_se_aplica` (sem versão anterior, faixa inválida ou assinatura
+`alterada`), `SoAssinatura` = `so_assinatura`, `MudaConteudo` = `muda_conteudo`, `NaoConferido` = `nao_conferido`.
+
 ### 3.4 Situação do arquivo
 
 Na ordem: arquivo que não dá para ler, `ilegivel`; sem assinatura, `sem_assinatura`; alguma assinatura `alterada` ou
-`alteradoDepoisDaCertificacao`, `alterado`; alguma `naoverif` ou bytes depois da última assinatura, `nao_conferido`;
+`alteradoDepoisDaCertificacao`, `alterado`; algum acréscimo `muda_conteudo` e depois algum `nao_conferido` (M27),
+`nao_conferido` com o motivo do acréscimo; alguma `naoverif` ou bytes depois da última assinatura, `nao_conferido`;
 senão `integro`. Prefixo e CPF não entram na situação: a etapa 5 decide o que fazer com cada um.
 
 ### 3.5 Motivos
@@ -158,6 +164,15 @@ digital", "A assinatura confere com o conteúdo e com o certificado", "As N assi
 certificados", "O primeiro signatário bloqueou alterações, mas o arquivo foi alterado depois da assinatura", "O
 arquivo recebeu acréscimos depois da última assinatura, e esse trecho não foi conferido" e, para `alterado` ou
 `nao_conferido` vindo de uma assinatura, o motivo dela com "(assinatura i de n)" quando há mais de uma.
+
+Do acréscimo (M27), sempre começando com "O acréscimo da assinatura N": "só traz o que a assinatura precisa"
+(`so_assinatura`); "muda o objeto X, D (chaves)", "cria o objeto X, D", "apaga o objeto X, D", "volta o objeto X para
+uma versão anterior" e "troca a raiz do documento (/Root)" (`muda_conteudo`); "não foi conferido: razão"
+(`nao_conferido`). D é o que o objeto é, em português: uma página, a árvore de páginas, o catálogo do documento, um
+campo de assinatura, um campo de formulário, uma anotação, um desenho ou imagem (XObject), um fluxo de conteúdo, uma
+fonte, uma assinatura, os dados de validação (DSS), uma ação, o formulário, os metadados (XMP), as informações do
+documento, um fluxo de objetos, um índice de objetos, um objeto do tipo X, um dicionário sem tipo ou um objeto que não
+é dicionário. As chaves são só as que mudaram sem poder (até cinco).
 
 ## 4. Regras (porta do protótipo)
 
@@ -211,6 +226,11 @@ arquivo recebeu acréscimos depois da última assinatura, e esse trecho não foi
 | `INFLADO_MAXIMO_EM_BYTES` | 10 MB | `inflar` e `objeto` devolvem null |
 | `TRABALHO_MAXIMO_EM_BYTES` | 100 MB somados por leitura (copiados mais inflados) | `objeto` devolve null |
 | `CARACTERES_MAXIMOS_DE_NOME` | 256 | o nome é cortado |
+| `CABECALHOS_MAXIMOS_DO_ARQUIVO` | 200.000 (cabeçalhos, `endobj`, `endstream` e objetos de /ObjStm no índice do arquivo) | acréscimo `nao_conferido` (M27) |
+| `ELEMENTOS_MAXIMOS_DA_SINTAXE` | 1.000.000 valores lidos nos dicionários de uma conferência | acréscimo `nao_conferido` (M27) |
+
+A análise do acréscimo (M27) usa também `OBJETOS_MAXIMOS` (objetos e entradas de índice de um acréscimo) e
+`TRABALHO_MAXIMO_EM_BYTES` (somado na conferência inteira); passar de um deles deixa o acréscimo `nao_conferido`.
 
 Leitura sem regex que volta atrás (quantificadores possessivos e busca por `strpos`), avisos do PHP silenciados só em
 volta das chamadas de `openssl` e `zlib`, e toda falha capturada (inclusive `\Error`) antes de sair do motor.
@@ -305,6 +325,29 @@ Decisões da revisão do motor (feature-review-agent):
   que o certificado declara, vinculado ou não); assinatura que não está `integra` ou vínculo que não é `vinculado`,
   `NaoConferido` ("O CPF não foi conferido: a assinatura não está íntegra ou o certificado não está vinculado a
   ela"); senão a comparação de sempre. Mesmo `Confere` é o CPF declarado pelo certificado (M25).
+- **M27. Análise conservadora do acréscimo de cada assinatura**: o signatário assina o acréscimo que ele mesmo
+  escreveu; quem redefine a página no próprio acréscimo (`/Contents` novo) saía `integro`. Agora, para cada assinatura
+  com faixa válida que não está `alterada`, o acréscimo vai do fim da faixa da assinatura de antes (ou do fim da versão
+  anterior informada, quando o prefixo confere) até o fim da faixa dela; a primeira assinatura sem versão anterior é
+  `nao_se_aplica`. O `AnalisadorDeAcrescimo` lista os objetos que o acréscimo define (cabeçalhos `N G obj`, pulando o
+  objeto inteiro, e o que há dentro dos /ObjStm dele) e os índices dele (tabela `xref` e fluxo /XRef). Aceita:
+  objeto novo (número a partir do maior que existia antes, pelos cabeçalhos, /ObjStm e /Size) que não seja página,
+  árvore de páginas, catálogo, ação, anotação ou campo de formulário, sendo aceito o campo de assinatura (/FT /Sig)
+  sem /A e /AA; redefinição igual à anterior (dicionário igual e, em fluxo, os mesmos bytes); catálogo que só muda
+  /AcroForm, /DSS e /Extensions; página que só muda /Annots, sem tirar nenhuma e só acrescentando campos de
+  assinatura sem ação; formulário (o /AcroForm direto ou o objeto sem /Type com /Fields) que só muda /Fields (do mesmo
+  jeito), /SigFlags, /DR e /DA; vetor de referências que só ganha campos de assinatura (o /Annots indireto); campo de
+  assinatura que continua campo de assinatura sem ação e sem trocar o /V; dados de validação (DSS, VRI e a tabela do
+  VRI); /Info só com as chaves da norma; metadados XMP. Índice aceito: entrada que aponta para o cabeçalho do mesmo
+  número no acréscimo, para o cabeçalho mais novo de antes ou para o /ObjStm mais novo que tem o objeto; /Root igual
+  ao de antes. O resto é `muda_conteudo` com o objeto nomeado (redefinição, objeto novo proibido, entrada livre para
+  objeto que existia, entrada para versão antiga, /Root trocado) ou `nao_conferido` (cabeçalho com número quebrado,
+  geração diferente de zero, objeto ou fluxo que não dá para ler, número abaixo do /Size sem versão anterior, entrada
+  que aponta para onde o objeto não está, limites). Os dois deixam a situação `nao_conferido`, nunca `integro`; o
+  veredito da assinatura não muda (os bytes que ela cobre conferem). A versão anterior de cada objeto é a do último
+  cabeçalho ou /ObjStm antes do acréscimo, não a que o índice anterior aponta: a comparação completa das versões pelo
+  índice, os ataques de sombra (preparados na versão anterior) e a aparência do campo de assinatura que cobre a página
+  ficam para o pyHanko da etapa 6.
 
 ## 7. Testes
 
@@ -317,8 +360,21 @@ Casos: RSA válido, ECDSA válido, RSA-PSS válido e com bit trocado, byte alter
 faixa que não cobre o arquivo, segunda assinatura incremental que começa com a primeira versão, versão nova que não
 começa com a anterior, DocMDP P=1, P=2 e P=3, CPF esperado igual e diferente, CPF pelo OID e pelo CN, CNPJ, cada limite
 da seção 5, PDF sem assinatura, lixo, arquivo vazio, arquivo truncado e mutações aleatórias do CMS (nenhuma lança).
+Acréscimo (M27, `AnalisadorDeAcrescimoTest`): só a assinatura, três assinaturas, validação de longo prazo, /Info e XMP,
+primeira assinatura sobre a versão anterior, página redefinida com `/Contents` novo (solta e dentro de /ObjStm),
+anotação tirada ou posta, anotação e ação soltas, campo de assinatura com ação (novo e de antes), árvore de páginas,
+catálogo com /OpenAction, formulário com chave a mais, assinatura de antes trocada, fluxo de conteúdo redefinido,
+objeto de antes que vira fluxo, entrada livre (tabela e fluxo de índice), entrada para versão antiga, truque do
+sufixo (`13 0 obj`), /Root trocado, cabeçalho quebrado, geração diferente de zero, objeto que não fecha, /ObjStm que
+não dá para ler e número abaixo do /Size sem versão anterior.
 
 ## 8. Pendências para o orquestrador
+
+- Análise do acréscimo (M27), para decidir: `/Perms` (assinatura de certificação posta num acréscimo) não está entre as
+  chaves aceitas do catálogo e sai `muda_conteudo`; DSS com /Certs, /CRLs ou /OCSPs indiretos que ganham itens num
+  acréscimo sai `muda_conteudo` (o vetor só aceita campos de assinatura a mais); fluxo de índice completo (sem /Index)
+  que repete entradas livres antigas sai `muda_conteudo`; número abaixo do /Size anterior sem objeto sai
+  `nao_conferido`. São alarmes falsos possíveis, todos para o lado conservador; o pyHanko da etapa 6 resolve.
 
 - PSS com parâmetros diferentes do protótipo (M6) e DSS depois de P=1 (M12) ficam para o pyHanko da etapa 6.
 - `adbe.pkcs7.sha1` (resumo dentro do eContent) sai `alterada` como no protótipo; é formato obsoleto, mas fica anotado.
