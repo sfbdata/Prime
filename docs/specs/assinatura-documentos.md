@@ -315,7 +315,11 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 
 - Aba Modelos (Duplicar e adaptar, Editar, Excluir com confirmação no modal do desenho: D5), editor com barra, campos,
   assinaturas, Importar Word, prévia.
-- O HTML do editor passa por um sanitizador próprio (modelo: `SanitizadorDeModeloDePeca`) antes de virar blocos.
+- Nenhum HTML chega ao servidor: o navegador converte o editor em `corpo` (o `lerEd` do desenho) e reabre pelo
+  `htmlDe`; o servidor recebe só a estrutura (nome, categoria, formato, lateral, folha branca, campos, signatários e
+  corpo) e a confere com um validador estrito, que recusa com mensagem na tela em vez de cortar. Motivo: nada de HTML
+  no banco, e o `SanitizadorDeModeloDePeca` tira os `data-*` de que o editor precisa e corta em silêncio acima de
+  256 KB. Contrato: `docs/specs/assinatura-documentos-etapa-4.md`.
 
 ### Etapa 5: gov.br, ICP e documento já assinado
 
@@ -361,7 +365,7 @@ grep mistura com `EventSubscriber`). **Escolha: `AssinaturaEletronica`**: pasta 
 | `assinatura_eletronica_documento` | tenant, criado_por, nome, pasta_rotulo, modelo_chave, categoria, blocos (JSON congelado), logo_chave, folha_branca, layout, em_ordem, mensagem, situacao, criado_em, enviado_em, vence_em, concluido_em, codigo (único, M2), hash_enviado, hash_final, arquivo_enviado_chave, arquivo_final_chave (M2), cor, excluido_em, excluido_por, pasta_id e vinculo_pendente (M2) |
 | `assinatura_eletronica_signatario` | documento, ordem, nome, email, cpf, papel, nivel, situacao, token_hash (único), codigo_hash, codigo_enviado_em, tentativas, bloqueado_ate, assinado_em, nome_digitado, cpf_digitado, rubrica_chave, metodo, motivo_recusa, ip, user_agent, latitude, longitude, precisao (M5: selfie_chave) |
 | `assinatura_eletronica_evento` | documento, signatario (opcional), usuario (opcional), tipo, dados (JSON), ip, user_agent, criado_em (servidor), hash_anterior, hash; sem UPDATE nem DELETE |
-| `assinatura_eletronica_modelo` (M3) | tenant, nome, categoria, icone, descricao, campos (JSON), signatarios (JSON), corpo (JSON), layout, lateral, folha_branca, criado_por, alterado_em |
+| `assinatura_eletronica_modelo` (M3) | tenant, nome, categoria, campos (JSON), signatarios (JSON), corpo (JSON), layout, lateral, folha_branca, criado_por, criado_em, alterado_em (sem icone, descricao nem html: etapa 4) |
 | `assinatura_eletronica_versao` (M4) | documento, signatario (opcional), ordem, arquivo_chave, sha256, tamanho, analise (JSON), criado_em |
 | logo padrão do escritório | coluna no `tenant` ou na configuração do módulo (decidir na etapa 1 com a skill `criar-entity`) |
 
