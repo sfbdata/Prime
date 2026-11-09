@@ -61,9 +61,13 @@ final class ConferenciaDoEnvio
         }
     }
 
-    /** O papel tem a palavra "menor" (ex.: "Menor assistido(a)", "Menor Representado ou Assistido"). */
+    /**
+     * O papel tem "menor", "criança" ou "adolescente", no singular ou no plural, com ou sem acento (ex.: "Menor
+     * assistido(a)", "Menores representados", "Crianças"). Palavra inteira: "Menorá" não cai. O papel é texto livre,
+     * então um menor com papel sem essas palavras passa (risco que fica, contrato I8).
+     */
     private static function papelDeMenor(string $papel): bool
     {
-        return preg_match('/(?<!\pL)menor(?!\pL)/iu', $papel) === 1;
+        return preg_match('/(?<!\pL)(?:menor(?:es)?|crian[cç]as?|adolescentes?)(?!\pL)/iu', $papel) === 1;
     }
 }
