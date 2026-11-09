@@ -1,0 +1,59 @@
+{% extends 'voto/cedula/_layout.html.twig' %}
+
+{#
+    Cédula da unidade na assembleia de condomínio (spec docs/specs/voto-assembleia-condominio.md, seção 1, Morador).
+    Recebe `cedula` (App\Voto\DTO\CedulaOutput) e `token` (o do link, para as rotas e o CSRF).
+    Desenho 18, portal do eleitor (insumo §4): cartão da pessoa identificada (L144), o aviso `.vAviso`, um `.vC` por
+    pauta (L147-153) e a janela `.vMod` de confirmação. Sem "cifrado", sem código de conferência e sem a faixa de
+    demonstração: não há criptografia nem é demonstração (contrato, seção 1, item 4).
+#}
+
+{% block titulo %}{{ cedula.assembleia }}{% endblock %}
+
+{% block corpo_atributos %}{% if cedula.esperaAMesa() %} data-vc-recarregar="30"{% endif %}{% endblock %}
+
+{% block conteudo %}
+    <div class="vC vcUnidade" data-vc-unidade>
+        {% if cedula.apta %}<i class="bi bi-person-check-fill" aria-hidden="true"></i>{% endif %}
+        <div class="vcUnidadeTx">
+            <b>{{ cedula.assembleia }}</b>
+            <div>{{ 'voto.assembleia.cedula.unidade'|trans }} {% if cedula.bloco != '' %}{{ cedula.bloco }} · {% endif %}{{ cedula.unidade }}</div>
+        </div>
+        {% if not cedula.apta %}<span class="vChip vcChipNaoApto">{{ 'voto.assembleia.cedula.nao_apto'|trans }}</span>{% endif %}
+    </div>
+
+    <div class="vAviso" data-vc-sigilo>{{ 'voto.assembleia.cedula.aviso_sigilo'|trans }}</div>
+
+    {% for pauta in cedula.pautas %}
+        {% include 'voto/cedula/_pauta.html.twig' with {pauta: pauta, cedula: cedula, token: token} only %}
+    {% else %}
+        <div class="vAviso" data-vc-vazio>{{ 'voto.assembleia.cedula.vazio'|trans }}</div>
+    {% endfor %}
+{% endblock %}
+
+{% block depois %}
+    {# Janela de confirmação do desenho (.vMod > .vModC com .vH e "Fechar"): clique no fundo fecha; o conteúdo para
+       a propagação. O js/voto-cedula.js preenche a pauta e a escolha e envia o formulário da pauta. #}
+    <div class="vMod" data-vc-janela hidden>
+        <div class="vModC vcJanela" role="dialog" aria-modal="true" aria-labelledby="vcJanelaTitulo">
+            <div class="vH"><i class="bi bi-check2-square" aria-hidden="true"></i><span id="vcJanelaTitulo">{{ 'voto.assembleia.cedula.confirmar.titulo'|trans }}</span><span class="vcMola"></span><button type="button" class="vB" data-vc-fechar>{{ 'voto.assembleia.cedula.confirmar.fechar'|trans }}</button></div>
+            <div class="vcJanelaCorpo">
+                <div class="vcJanelaRotulo">{{ 'voto.assembleia.cedula.confirmar.rotulo'|trans }}</div>
+                <b class="vcJanelaPauta" data-vc-janela-pauta></b>
+                <div class="vcJanelaEscolha" data-vc-janela-escolha></div>
+                <div class="vcJanelaAcoes">
+                    <button type="button" class="vB" data-vc-fechar><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.confirmar.corrigir'|trans }}</button>
+                    <button type="button" class="vB vP" data-vc-confirmar><i class="bi bi-check2-square" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.confirmar.confirmar'|trans }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Toast do desenho (L281): verde no sucesso, vermelho no erro; some em 3600 ms. #}
+    {% for mensagem in app.flashes('voto_cedula_ok') %}
+        <div class="vcToast" role="status" data-vc-toast>{{ mensagem }}</div>
+    {% endfor %}
+    {% for mensagem in app.flashes('voto_cedula_erro') %}
+        <div class="vcToast vcToastErro" role="status" data-vc-toast>{{ mensagem }}</div>
+    {% endfor %}
+{% endblock %}

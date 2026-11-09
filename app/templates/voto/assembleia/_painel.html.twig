@@ -1,0 +1,18 @@
+{#
+    Aba "Gestão eleitoral" de /voto (embutida por render(controller()) de AssembleiaController::painel): a barra
+    com "Nova assembleia" (desenho L189, .vC com o botão vB vP bi-plus-lg) e um cartão por assembleia.
+    Contexto: `assembleias` (list<AssembleiaNoPainel>) e `agora`.
+#}
+<div class="voto-painel" data-aba="ges">
+    <div class="vC voto-barra">
+        <a class="vB vP" href="{{ path('voto_assembleia_nova') }}"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.nova'|trans }}</a>
+    </div>
+    {% for a in assembleias %}
+        {% include 'voto/assembleia/_assembleia_cartao.html.twig' with {a: a, agora: agora} only %}
+    {% else %}
+        <div class="vC">
+            <div class="vH"><i class="bi bi-activity"></i>{{ 'voto.assembleia.gestor.painel.votacoes'|trans }}</div>
+            <div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.painel.vazio'|trans }}</div>
+        </div>
+    {% endfor %}
+</div>

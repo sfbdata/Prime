@@ -1,0 +1,47 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Moldura das telas da assembleia de condomínio (gestor): a mesma de /voto (título "Voto" e as quatro abas do
+    desenho, com Gestão eleitoral marcada) e as sub-abas da assembleia. Componentes e valores do desenho 18
+    (public/css/voto.css), nunca do AdminLTE. Spec docs/specs/voto-assembleia-condominio.md.
+    Contexto: `assembleia` (AssembleiaNoPainel ou null) e `sub` (assembleia | pautas | unidades).
+#}
+
+{% block title %}{{ 'voto.titulo'|trans }}{% endblock %}
+
+{% block body_class %}voto-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/voto.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set abas = [
+    {id: 'ele', icone: 'bi-check2-square'},
+    {id: 'tra', icone: 'bi-shield-check'},
+    {id: 'ges', icone: 'bi-gear'},
+    {id: 'aco', icone: 'bi-broadcast'},
+] %}
+<div class="voto-tela" id="voto">
+    <h1 class="voto-titulo">{{ 'voto.titulo'|trans }}</h1>
+
+    <nav class="vC voto-abas" aria-label="{{ 'voto.abas.rotulo'|trans }}">
+        {% for a in abas %}
+            <a class="vTab {{ a.id == 'ges' ? 'vTabOn' : '' }}" href="{{ path('voto_index', {aba: a.id}) }}"
+               {% if a.id == 'ges' %}aria-current="page"{% endif %}><i class="bi {{ a.icone }}"></i>{{ ('voto.abas.' ~ a.id)|trans }}</a>
+        {% endfor %}
+    </nav>
+
+    <div class="voto-painel" data-aba="ges">
+        {% include 'voto/assembleia/_sub_abas.html.twig' %}
+        {% block conteudo %}{% endblock %}
+    </div>
+</div>
+{% include 'voto/assembleia/_toast.html.twig' %}
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/voto-assembleia.js') }}" defer></script>
+{% endblock %}

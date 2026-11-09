@@ -80,6 +80,9 @@ final class TenantContextValidatorListener
         'assinatura_eletronica_publica_logo',
         'assinatura_eletronica_publica_rubrica',
         'assinatura_eletronica_publica_invalido',
+        // Cédula da assembleia de condomínio (Voto): página pública do morador, não depende de termo nem de escritório.
+        'voto_assembleia_cedula',
+        'voto_assembleia_cedula_votar',
         // Página pública de vagas: sem login por desenho; quem está logado lê igual a quem não está.
         'trabalho_externo_vagas_publicas',
         'trabalho_externo_vagas_link',

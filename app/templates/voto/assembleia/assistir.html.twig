@@ -1,0 +1,49 @@
+{#
+    "Assistir" (desenho §5, janela L376-378): página própria de uma pauta, para levar a outra tela ou projetar. Abre
+    num pop-up de 620×560 (public/js/voto-assembleia.js) e se atualiza sozinha a cada 5 segundos. Faixa azul com a
+    pauta, a assembleia e a situação; "votaram", "aptos" e o percentual do peso apto (ou "de participação"); barra
+    com a marca vermelha do quórum; "Quórum atingido" ou "Quórum exigido"; cronômetro; "Atualizado às HH:MM:SS.".
+    Nunca mostra parcial de votos. CSS da janela copiado do desenho em public/css/voto.css (.voto-assistir).
+    Contexto: `assembleia` (AssembleiaNoPainel), `pauta` (PautaNoPainel), `agora`.
+#}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="5">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ 'voto.assembleia.gestor.assistir.titulo'|trans({pauta: pauta.titulo}) }}</title>
+    <link rel="stylesheet" href="{{ asset('css/voto.css') }}">
+</head>
+<body class="voto-assistir">
+{% set p = pauta %}
+{% set segundos = p.segundosRestantes(agora) %}
+<div class="vv">
+    <div class="h">
+        <div><b>{{ p.titulo }}</b><span>{{ assembleia.titulo }}</span></div>
+        <i>{{ ('voto.assembleia.gestor.situacao.' ~ p.situacao)|trans }}</i>
+    </div>
+    <div class="g">
+        <div><strong>{{ p.votantes }}</strong><span>{{ 'voto.assembleia.gestor.assistir.votaram'|trans }}</span></div>
+        <div><strong>{{ p.unidadesAptas }}</strong><span>{{ 'voto.assembleia.gestor.assistir.aptos'|trans }}</span></div>
+        <div><strong>{{ p.pctPesoTexto }}%</strong><span>{{ (assembleia.porFracao ? 'voto.assembleia.gestor.assistir.do_peso' : 'voto.assembleia.gestor.assistir.de_participacao')|trans }}</span></div>
+    </div>
+    <div class="b">
+        <u style="width:{{ p.larguraDaBarra }}%"></u>
+        {% if p.exigeQuorum %}<em style="left:{{ p.quorumTexto }}%"></em>{% endif %}
+    </div>
+    {% if p.quorumExigido is not null %}
+        {% if p.quorumAtingido %}
+            <p class="ok">{{ 'voto.assembleia.gestor.assistir.quorum_atingido'|trans({q: p.quorumTexto}) }}</p>
+        {% else %}
+            <p>{{ 'voto.assembleia.gestor.assistir.quorum_exigido'|trans({q: p.quorumTexto}) }}</p>
+        {% endif %}
+    {% endif %}
+    {% if p.aberta %}
+        <p class="ok voto-assistir-cron">{{ segundos is null ? 'voto.assembleia.gestor.mesa.sem_prazo_definido'|trans : 'voto.assembleia.gestor.mesa.encerra_em'|trans({tempo: '%02d:%02d'|format(segundos // 60, segundos % 60)}) }}</p>
+    {% endif %}
+    <small>{{ 'voto.assembleia.gestor.assistir.atualizado'|trans({hora: agora|date('H:i:s')}) }}</small>
+</div>
+</body>
+</html>

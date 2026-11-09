@@ -56,6 +56,9 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         self::assertSame(0, $this->existeTenant((int) $tenant->getId()), 'o tenant deve ser apagado');
         self::assertSame(0, array_sum($this->contarPorTenant((int) $tenant->getId())), 'nenhuma linha tenant-scoped pode sobrar');
         self::assertSame(1, $resultado->linhasPorTabela['voto.liberacao'] ?? 0, 'a liberação do Voto sai pela ordem de deleção, não pela cascata');
+        foreach (['voto.assembleia', 'voto.assembleia_pauta', 'voto.assembleia_opcao', 'voto.assembleia_unidade', 'voto.assembleia_participacao'] as $tabelaDaAssembleia) {
+            self::assertSame(1, $resultado->linhasPorTabela[$tabelaDaAssembleia] ?? 0, "$tabelaDaAssembleia sai pela ordem de deleção, não pela cascata");
+        }
         self::assertGreaterThan(0, $resultado->totalLinhas());
         self::assertFalse($resultado->simulado);
     }
@@ -512,5 +515,12 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
 
         // BlueJus Voto: a liberação do escritório, no schema `voto` (spec voto-redes-do-schema).
         $this->ins('voto.liberacao', ['liberado' => true, 'criada_em' => $ts, 'atualizada_em' => $ts, 'tenant_id' => $t]);
+
+        // Assembleia de condomínio (spec voto-assembleia-condominio, seção 3): as 5 tabelas, com um voto registrado.
+        $assembleia = $this->ins('voto.assembleia', ['titulo' => 'AGO', 'peso' => 'unidade', 'estado' => 'publicada', 'criada_por_nome' => 'Gestor', 'criada_em' => $ts, 'tenant_id' => $t]);
+        $pautaVoto = $this->ins('voto.assembleia_pauta', ['assembleia_id' => $assembleia, 'ordem' => 1, 'titulo' => 'Contas', 'estado' => 'aberta', 'tenant_id' => $t]);
+        $this->ins('voto.assembleia_opcao', ['pauta_id' => $pautaVoto, 'numero' => 1, 'rotulo' => 'Sim', 'abstencao' => false, 'total_unidades' => 1, 'total_peso' => '1', 'tenant_id' => $t]);
+        $unidade = $this->ins('voto.assembleia_unidade', ['assembleia_id' => $assembleia, 'identificacao' => '101', 'bloco' => 'A', 'apta' => true, 'semente' => bin2hex(random_bytes(16)), 'token_hash' => hash('sha256', 'voto-' . $uid), 'tenant_id' => $t]);
+        $this->ins('voto.assembleia_participacao', ['unidade_id' => $unidade, 'pauta_id' => $pautaVoto, 'registrada_em' => $ts, 'tenant_id' => $t]);
     }
 }

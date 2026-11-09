@@ -144,21 +144,25 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('[data-recurso-faixa]'));
     }
 
-    #[TestDox('arranjo do desenho: título, faixa de demonstração e as quatro abas como filhos diretos da tela')]
+    #[TestDox('arranjo do desenho: título e as quatro abas como filhos diretos da tela; sem a faixa de demonstração em nenhuma aba')]
     public function testArranjoDoDesenho(): void
     {
         $this->ligar();
         $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
+        foreach (['ele', 'tra', 'ges', 'aco'] as $aba) {
+            $tela = $this->client->request('GET', '/voto?aba=' . $aba);
+            self::assertResponseIsSuccessful($aba);
+            self::assertCount(0, $tela->filter('.voto-demonstracao'), 'o Voto é votação real: sem a faixa na aba ' . $aba);
+            self::assertStringNotContainsString('Ambiente demonstrativo', $tela->filter('body')->text(), $aba);
+            self::assertStringNotContainsString('fictícios', $tela->filter('body')->text(), $aba);
+        }
         $crawler = $this->client->request('GET', '/voto');
 
         self::assertResponseIsSuccessful();
         self::assertSame('Voto', $crawler->filter('.voto-tela > h1.voto-titulo')->text());
-        self::assertSame(
-            'Ambiente demonstrativo. Dados e eleitores são fictícios. Não é votação oficial de nenhuma entidade e o sistema não possui certificação de órgão eleitoral.',
-            $crawler->filter('.voto-tela > .vAviso.voto-demonstracao')->text(),
-        );
+        self::assertCount(0, $crawler->filter('.voto-tela > .vAviso.voto-demonstracao'));
         $abas = $crawler->filter('.voto-tela > nav.vC.voto-abas > a.vTab');
         self::assertSame(['Votar', 'Resultados', 'Gestão eleitoral', 'Acompanhar'], $abas->each(static fn ($a) => trim($a->text())));
         self::assertSame(
@@ -197,6 +201,11 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Acompanhar', trim($crawler->filter('.voto-abas > a.vTabOn')->text()));
         $caixa = $crawler->filter('.voto-tela > .voto-painel[data-aba="aco"] > .vC');
         self::assertSame('Acompanhar em tempo real', trim($caixa->filter('.vH')->text()));
+        self::assertSame(
+            'Clique em Assistir para abrir uma janela própria, que pode ser levada a outra tela. Assistir mostra participação e quórum e pode ser projetado.',
+            $caixa->filter('.vLin.voto-aco-texto')->text(),
+            'só o que a assembleia tem: sem Lista nominal nem Documento de auditoria',
+        );
         self::assertSame('Nenhuma votação publicada.', $caixa->filter('.vLin.voto-aco-vazio')->text());
     }
 
@@ -214,14 +223,14 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.voto-tela > .voto-painel[data-aba="ele"]'));
     }
 
-    #[TestDox('Resultados e Gestão eleitoral ainda sem conteúdo: nenhum painel vazio na coluna')]
+    #[TestDox('Resultados sem pauta encerrada: nenhum painel vazio na coluna (Gestão eleitoral: AssembleiaGestorTest)')]
     public function testAbasSemConteudoNaoDesenhamPainel(): void
     {
         $this->ligar();
         $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
-        foreach (['tra' => 'Resultados', 'ges' => 'Gestão eleitoral'] as $aba => $rotulo) {
+        foreach (['tra' => 'Resultados'] as $aba => $rotulo) {
             $crawler = $this->client->request('GET', '/voto?aba=' . $aba);
             self::assertResponseIsSuccessful();
             self::assertSame($rotulo, trim($crawler->filter('.voto-abas > a.vTabOn')->text()));

@@ -1,0 +1,26 @@
+{#
+    Uma pauta em edição (desenho §2, etapa 4): caixa com borda azul à esquerda, "Cargo, pauta ou pergunta",
+    "Descrição", as opções (faixa #f7f9fb com "Nº" de 90px e "Nome da chapa ou candidatura"), "Candidatura"
+    (bi-person-plus, acrescenta uma linha) e "Salvar". A abstenção não aparece aqui: entra sozinha.
+    Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel ou null para a nova), `opcoes`, `token`.
+#}
+<form method="post" class="voto-pauta-caixa" id="{{ p is null ? 'pauta-nova' : 'pauta-' ~ p.id }}"
+      action="{{ p is null ? path('voto_assembleia_pauta_criar', {id: a.id}) : path('voto_assembleia_pauta_editar', {id: a.id, pauta: p.id}) }}"
+      {% if p is null and a.pautas is not empty %}hidden{% endif %}>
+    <input type="hidden" name="_token" value="{{ token }}">
+    <div class="voto-pauta-campos">
+        <label class="vL voto-pauta-titulo">{{ 'voto.assembleia.gestor.pautas.pauta'|trans }}<input class="vF" name="titulo" maxlength="200" required value="{{ p.titulo ?? '' }}"></label>
+        <button type="button" class="vB" data-voto-opcao-nova><i class="bi bi-person-plus"></i>{{ 'voto.assembleia.gestor.pautas.candidatura'|trans }}</button>
+    </div>
+    <label class="vL">{{ 'voto.assembleia.gestor.pautas.descricao'|trans }}<textarea class="vF" name="descricao">{{ p.descricao ?? '' }}</textarea></label>
+    <div class="voto-opcoes" data-voto-opcoes>
+        {% for o in opcoes %}
+            <div class="voto-opcao" data-voto-opcao>
+                <input class="vF voto-opcao-num" name="opcao_numero[]" aria-label="{{ 'voto.assembleia.gestor.pautas.numero'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.numero_ph'|trans }}" inputmode="numeric" maxlength="1" value="{{ o.numero }}">
+                <input class="vF" name="opcao_rotulo[]" aria-label="{{ 'voto.assembleia.gestor.pautas.nome'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.nome_ph'|trans }}" maxlength="120" value="{{ o.rotulo }}">
+                <button type="button" class="vB vD" data-voto-opcao-remover aria-label="{{ 'voto.assembleia.gestor.pautas.remover_opcao'|trans }}"><i class="bi bi-trash"></i></button>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="voto-pauta-salvar"><button type="submit" class="vB vP"><i class="bi bi-check-lg"></i>{{ 'voto.assembleia.gestor.pautas.salvar'|trans }}</button></div>
+</form>
