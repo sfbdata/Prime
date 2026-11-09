@@ -1,0 +1,13 @@
+{#
+    Uma sede na tabela "Sedes e raio de registro" (desenho 16, L254): nome, latitude, longitude, raio e as ações, e a
+    linha do erro logo abaixo (sistema: o desenho grava sem validar). Sem `sede`, é o modelo da "Nova sede" do botão
+    "Adicionar sede" (raio da sede nova, P70 a), sem endereço de gravação até ser criada.
+#}
+<tr class="pe-sede-lin" data-sede-linha{% if sede %} data-url-salvar="{{ path('ponto_configuracoes_sede_salvar', {id: sede.id}) }}" data-url-remover="{{ path('ponto_configuracoes_sede_remover', {id: sede.id}) }}"{% endif %}>
+    <td class="pe-sede-cel-nome"><input class="pe-sf-campo" name="nome" aria-label="Nome da sede" value="{{ sede ? sede.nome : 'Nova sede' }}" maxlength="255" autocomplete="off"></td>
+    <td class="pe-sede-cel-coord"><input class="pe-sf-campo" name="latitude" aria-label="Latitude" value="{{ sede ? sede.latitude }}" placeholder="informar" inputmode="decimal" autocomplete="off"></td>
+    <td class="pe-sede-cel-coord"><input class="pe-sf-campo" name="longitude" aria-label="Longitude" value="{{ sede ? sede.longitude }}" placeholder="informar" inputmode="decimal" autocomplete="off"></td>
+    <td class="pe-sede-cel-raio"><input class="pe-sf-campo" type="number" name="raio" aria-label="Raio em metros" value="{{ sede ? sede.raio : raioPadrao }}" min="10" max="500"></td>
+    <td class="pe-sede-acoes"><button type="button" class="pe-sf-contorno" data-sede-posicao><i class="bi bi-crosshair" aria-hidden="true"></i>Usar minha posição</button> <button type="button" class="pe-sede-remover" aria-label="Remover sede" data-sede-remover><i class="bi bi-trash3" aria-hidden="true"></i></button></td>
+</tr>
+<tr class="pe-sede-erro-lin" data-sede-erro hidden><td class="pe-sede-erro" colspan="5" role="alert"></td></tr>

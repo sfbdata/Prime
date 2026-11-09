@@ -648,6 +648,63 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   (feriado por sede).
 - Testes: feriado por sede vale só para quem é daquela lotação; sede sem coordenada continua ignorada; confirmação antes de
   remover (D4); sede nova com 150 m e as que já existem com o raio delas.
+- Decisões da etapa (implementada em 09/11/2026, branch `ponto-desenho-e6`):
+  - **Desvio necessário do P71 (decidido pelo Coordenador, 09/11/2026):** a abrangência do feriado é "Todas as sedes" ou
+    uma LOTAÇÃO do escritório, não uma sede. O desenho casa a sede do feriado com a lotação da pessoa (inventário 6.2,
+    "casado com a lotação da pessoa em caixa alta"); no sistema a pessoa não tem sede, tem lotação (`user_tenant`).
+    Migration `Version20261109200000`: `feriado.lotacao_id` opcional, ON DELETE CASCADE (apagar a lotação apaga os
+    feriados só dela; SET NULL os faria valer para todos e mudaria o saldo de quem nunca os teve). Os feriados que já
+    existem ficam sem lotação: nenhuma folha muda;
+  - a regra mora num ponto só, `FeriadosDaPessoa`: sem lotação vale para todos; com lotação, só para quem tem aquela
+    lotação no escritório DO FERIADO (vínculo ativo ou não: a folha de quem saiu continua contando o feriado que valia
+    para ela). Sem N+1: nenhuma consulta sem feriado por lotação; com ele, uma por pessoa e escritório, guardada até o
+    fim do request ou da mensagem do worker (`kernel.reset`). Aplicada no `FolhaPontoBuilder::buildRows` (folha na
+    tela, ficha do colaborador, PDF, XLSX, saldo até o mês e do ano, horas pagas, "Regularizar ponto de ontem", tudo
+    passa por ele) e em `ListarPendenciasDeRegistroUseCase` (lê o feriado sem a folha). O comando dos nacionais (D21)
+    só conta o feriado sem lotação ao ver se a data já está cadastrada;
+  - fora da regra, ficam como estavam: a meta do dia no cartão "Registrar Ponto" (`PontoController::index`, lê todos os
+    feriados do escritório: o feriado de outra lotação zera a meta do dia na tela, não o saldo) e a Agenda
+    (`ListarDatasDoSistemaUseCase`, que mostra os feriados do escritório como datas, sem pessoa);
+  - seções por permissão: "Sedes e raio de registro" só com `admin.ponto.manage`, "Feriados do escritório" só com
+    `admin.tenant.settings.manage` (as mesmas das páginas de hoje). Rotas novas no domínio Ponto
+    (`ponto_configuracoes_sede_criar`, `_sede_salvar`, `_sede_remover`, `_feriado_criar`, `_feriado_remover`), JSON:
+    escritório da sessão, módulo do ponto e permissão da seção (403), token da página (403), posse (a sede, o feriado e
+    a lotação de outro escritório: 404). UseCases `SalvarSedeDoPontoUseCase`, `RemoverSedeDoPontoUseCase`,
+    `CadastrarFeriadoDoPontoUseCase`, `RemoverFeriadoDoPontoUseCase`;
+  - sedes (P68, D13): a linha inteira grava ao sair do campo (o desenho grava a cada tecla), uma gravação por linha de
+    cada vez; o erro aparece na linha de baixo. Latitude e longitude aceitam vírgula (só na aba; a página antiga segue
+    recusando). Mesmas validações e frases da página antiga, numa regra só (`RestricoesDaSede`, usada também pelo
+    `SedeType`), mais "Informe o nome da sede.". "Adicionar sede" acrescenta "Nova sede" no navegador; ela só vai
+    para o banco com latitude e longitude válidas (a coluna é obrigatória), então a cerca nunca recebe sede sem
+    coordenada (e continua ignorando, se receber). "Usar minha posição" usa o leitor com prazo do módulo da batida, 6
+    casas; sem posição, "Localização indisponível neste aparelho.";
+  - P70 a: `Sede::RAIO_PADRAO = 150` é o padrão da entidade e do campo vazio do `SedeType`: a sede nova nasce com 150 m
+    na aba e na página antiga; as que já existem ficam com o raio delas (nada no banco muda);
+  - P69: a página "Sedes do ponto" fica, com o link "Mapa e busca por endereço" no cabeçalho da seção (molde do botão
+    de contorno do desenho). P72: "Repete todo ano" no formulário (marcada, como na página "Feriados e Folgas") e a
+    marca "Todo ano" na lista; a data do que repete aparece dd/mm, a do pontual dd/mm/aaaa. A página "Feriados e Folgas"
+    fica; editar nela não toca a abrangência (`FeriadoType` não tem o campo). A lista mostra todos os feriados do
+    escritório, inclusive os nacionais carregados pelo comando (D21);
+  - D4: remover sede e remover feriado abrem a janela na moldura do desenho (`role="dialog"`, Esc fecha, o foco não
+    sai); o "Remover" da janela grava. Remover a sede segue a regra da página antiga (as batidas dela ficam sem a sede,
+    com o nome guardado), e o aviso conta quantas. A "Nova sede" nunca gravada sai sem perguntar;
+  - aviso flutuante do desenho (§2.13) só nesta seção (`.pe-sf-aviso`), com a subida que mantém a centralização (o
+    `bjpUp` do desenho desfaz o `translateX(-50%)` durante a animação). Comportamento em
+    `public/js/ponto-configuracoes-sedes.js` (o `ponto-configuracoes.js` é da E7), carregado pelo index logo depois
+    dele; CSS no bloco "Sedes e feriados" de `ponto-eletronico.css`, só com os tokens `--pe-*` que já existiam.
+- Arquivos da etapa: `Feriado` (lotação), `Sede` (`RAIO_PADRAO`), `SedeType`, `FeriadosDaPessoa`, `FolhaPontoBuilder`,
+  `ListarPendenciasDeRegistroUseCase`, `SeedFeriadosNacionaisCommand`, `ConfiguracoesDoPontoController`, os quatro
+  UseCases, `SedesEFeriadosDoPonto`, `RestricoesDaSede`, os DTOs `SedeDoPonto*` e `FeriadoDoPonto*`,
+  `ConfiguracaoDoPontoRecusadaException`, `templates/ponto/_config_sedes.html.twig`, `_config_sede_linha.html.twig`,
+  `_config_feriados.html.twig`, `_config_feriados_lista.html.twig`, `_abas_configuracoes.html.twig` (os dois includes),
+  `index.html.twig` (uma linha de script). `TenantController` e `FeriadoController` não mudam.
+- Testes da etapa: `FeriadosDaPessoaTest`, `FeriadoPorLotacaoTest` (folha, saldo e pendências de duas pessoas em
+  lotações diferentes; "Todas as sedes"; feriado de outro escritório), `MigracaoDoFeriadoPorLotacaoTest`,
+  `SeedDosNacionaisComFeriadoPorLotacaoTest`, `ConfiguracoesDoPontoSedesEFeriadosTest` (arranjo por filho direto e
+  textos, seções por permissão, 150 m na nova e na página antiga, raio das existentes, validações, remover com as
+  batidas desvinculadas, 403 por seção, sem token e com permissão só em outro escritório, 404 entre escritórios,
+  editar na página antiga preserva a lotação), `SedesDaCercaDoPontoTest`, `SedesEFeriadosDoDesenhoCssTest`,
+  `PontoConfiguracoesSedesJsTest`; o construtor novo nos testes da folha.
 
 ### Bloco 3: motor novo (cada um atrás da sua chave, nesta ordem)
 
@@ -1044,6 +1101,8 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
 - Funções do sistema que voltam (regra 2), na branch `ponto-desenho-funcoes`, sem migration: o "+" do esquecimento
   hoje (P30 e E2), o tempo do intervalo ao vivo e a saída prevista durante o intervalo (E1, "Funções do sistema que
   voltam").
+- E6 implementada na branch `ponto-desenho-e6`, com a migration `Version20261109200000` (feriado por lotação, desvio
+  necessário do P71). Decisões registradas na E6 (seção 5).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: teto de idade da fila (E14), saldo de antes dos lotes (E17).
   A chave do selo da trilha (E9) já foi decidida.
