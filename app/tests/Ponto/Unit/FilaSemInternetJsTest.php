@@ -188,7 +188,7 @@ final class FilaSemInternetJsTest extends TestCase
             self::assertStringNotContainsString($proibido, $fila);
         }
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $fila);
-        self::assertMatchesRegularExpression('/window\.PontoFila = Object\.freeze\(\{\s+disponivel,\s+guardar,\s+listar,\s+contar,\s+remover,\s+limpar,\s+enviarPendentes,\s+\}\);/', $fila);
+        self::assertMatchesRegularExpression('/window\.PontoFila = Object\.freeze\(\{\s+disponivel,\s+guardar,\s+estado,\s+remover,\s+limpar,\s+enviarPendentes,\s+\}\);/', $fila);
     }
 
     #[TestDox('A tela carrega a fila depois do módulo da batida e antes do próprio script')]
@@ -233,8 +233,8 @@ final class FilaSemInternetJsTest extends TestCase
         $guardar = self::corpo(self::tela(), 'async function guardarNaFila(payload) {');
         self::assertStringContainsString('const entrada = Object.assign({}, payload, { usuarioId: FILA_USUARIO_ID, escritorioId: FILA_ESCRITORIO_ID });', $guardar);
         self::assertMatchesRegularExpression('/if \(!payload\.idEnvio \|\| !filaDisponivel\(\)\) \{\s+return false;/', $guardar, 'sem identificador não há reenvio seguro');
-        self::assertStringContainsString("mostrarAvisoBatida(aviso, 'info', false, 'fila');", $guardar, 'sem o botão de atualizar, que levaria a tela sem conexão');
-        self::assertMatchesRegularExpression('/guardadasDaPagina = guardadasDaPagina\.concat\(\[entrada\]\);\s+aplicarGuardadasNaTela\(\);/', $guardar);
+        self::assertStringContainsString("mostrarAvisoBatida(aviso, 'info', false, 'guardada');", $guardar, 'sem o botão de atualizar, que levaria a tela sem conexão');
+        self::assertMatchesRegularExpression('/if \(!\(await window\.PontoFila\.guardar\(entrada\)\)\) \{\s+return false;\s+\}[\s\S]*await lerEstadoDaFila\(\);\s+return true;/', $guardar, 'gravou: o estado sai de uma leitura nova');
     }
 
     #[TestDox('A batida guardada aparece como já batida (P7 da E1): verde, sem clique e com a hora do toque')]
@@ -295,11 +295,11 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertStringContainsString("const AVISO_GUARDADA_SEM_INTERNET = 'Sem internet. A batida ficou guardada neste aparelho e será enviada quando a internet voltar.';", $tela);
         self::assertStringContainsString("const AVISO_FILA_ENVIADA = 'Batidas sem internet enviadas.';", $tela);
 
-        $parte = self::corpo($tela, 'function parteDoResultadoDaFila(resultado) {');
-        self::assertMatchesRegularExpression('/if \(resultado\.enviadas > 0 && resultado\.pendentes === 0\) \{\s+linhas\.push\(AVISO_FILA_ENVIADA\);/', $parte, 'enviadas só quando esvaziou');
-        self::assertStringContainsString('resultado.recusadas.forEach((recusa) => linhas.push(linhaDaRecusaDaFila(recusa)));', $parte);
-        self::assertMatchesRegularExpression('/if \(parte\.enviadas > 0 \|\| parte\.recusadas > 0\) \{\s+atualizarDepoisDaFila\(\);/', self::corpo($tela, 'function concluirResultadoDaFila(parte) {'), 'a tela se atualiza sem recarregar');
-        $escrever = self::corpo($tela, 'function escreverAvisoDaFila(parte) {');
+        $avisar = self::corpo($tela, 'function avisarResultadoDaFila(parte) {');
+        self::assertMatchesRegularExpression('/if \(parte\.enviadas > 0 && !filaTemPendentes\) \{\s+linhas\.push\(AVISO_FILA_ENVIADA\);/', $avisar, 'enviadas só quando esvaziou (pelo estado lido de novo)');
+        self::assertStringContainsString('parte.recusadas.forEach((recusa) => linhas.push(linhaDaRecusaDaFila(recusa)));', $avisar);
+        self::assertMatchesRegularExpression('/if \(parte\.enviadas > 0 \|\| parte\.recusadas\.length > 0\) \{\s+atualizarDepoisDaFila\(\);/', self::corpo($tela, 'function concluirResultadoDaFila(parte) {'), 'a tela se atualiza sem recarregar');
+        $escrever = self::corpo($tela, 'function escreverAvisoDaFila(linhas, tom) {');
         self::assertStringContainsString('linha.textContent = texto;', $escrever, 'mensagem do servidor só por textContent');
         self::assertStringNotContainsString('innerHTML', $escrever);
     }
@@ -329,16 +329,6 @@ final class FilaSemInternetJsTest extends TestCase
         preg_match_all('/tipoRegistro\.value = ([^;]+);/', $tela, $escritas);
         self::assertSame(['botao.dataset.tipo', 'primeiroTipoLivre()', 'tipoNovo.value', 'primeiroTipoLivre()'], $escritas[1]);
 
-        // Resposta de busca mais velha que chega depois de uma mais nova não volta a tela para trás.
-        $descarta = strpos($atualizar, "if (estaBusca < buscaDaTelaTrocada) {\n            return;\n        }");
-        $troca = strpos($atualizar, '.replaceWith(');
-        $marca = strpos($atualizar, 'buscaDaTelaTrocada = estaBusca;');
-        self::assertIsInt($descarta);
-        self::assertIsInt($troca);
-        self::assertIsInt($marca);
-        self::assertLessThan($troca, $descarta);
-        self::assertGreaterThan($troca, $marca);
-        self::assertStringContainsString('const estaBusca = ++ultimaBuscaDaTela;', $atualizar);
     }
 
     #[TestDox('Revisão 2: com batida guardada pendente, uma rodada da fila vai antes do toque com internet, com prazo')]
@@ -431,15 +421,14 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertStringContainsString('Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, recusa.tipo) ? ROTULOS_TIPO[recusa.tipo]', $recusa, 'o rótulo do tipo (Entrada, Saída)');
         self::assertStringContainsString("const FORMATO_DIA_E_MES_DA_FILA = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit' });", $tela);
 
-        $escrever = self::corpo($tela, 'function escreverAvisoDaFila(parte) {');
-        self::assertStringContainsString("if (!avisoNaTela || avisoBatida.dataset.origem === 'fila') {", $escrever, 'só troca o aviso da própria fila');
-        self::assertStringContainsString("mostrarAvisoBatida(parte.linhas[0], tom, !btnAtualizarPagina.classList.contains('d-none'), 'fila');", $escrever, 'o botão fica como estava');
+        $escrever = self::corpo($tela, 'function escreverAvisoDaFila(linhas, tom) {');
+        self::assertStringContainsString("if (!avisoNaTela || avisoBatida.dataset.origem === 'rodada') {", $escrever, 'só troca o aviso de uma rodada anterior');
+        self::assertStringContainsString("mostrarAvisoBatida(linhas[0], tom, !btnAtualizarPagina.classList.contains('d-none'), 'rodada');", $escrever, 'o botão fica como estava');
         self::assertStringContainsString('avisoBatida.appendChild(linha);', $escrever, 'o resto entra abaixo');
         self::assertDoesNotMatchRegularExpression('/btnAtualizarPagina\.classList\.(add|remove|toggle)/', $escrever);
 
         self::assertStringContainsString("avisoBatida.dataset.origem = origem || '';", self::corpo($tela, 'function mostrarAvisoBatida(texto, tom, oferecerAtualizar, origem) {'));
         self::assertStringContainsString("avisoBatida.dataset.origem = '';", self::corpo($tela, 'function limparAvisoBatida() {'));
-        self::assertSame(2, substr_count($tela, ", 'fila');"), 'só o aviso de guardada e o da rodada são da fila');
     }
 
     #[TestDox('Revisão 6: falha de rede com o aparelho dizendo que tem internet não fala em "Sem internet"')]
@@ -455,19 +444,19 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertSame(1, substr_count($tela, 'AVISO_GUARDADA_SEM_INTERNET :'), '"Sem internet" só com navigator.onLine === false');
     }
 
-    #[TestDox('Revisão 7: as retidas por 409 continuam em restantes (marcadas como batidas) e contam na linha de outro escritório')]
+    #[TestDox('Revisão 7: as retidas por 409 ficam nas entradas do estado (marcadas como batidas) e contam na linha de outro escritório')]
     public function testRevisaoRetidasMarcadasEContadas(): void
     {
         $fila = self::fila();
-        $envio = self::corpo($fila, 'async function enviarAgora(url, usuarioId, escritorioId) {');
+        $estado = self::corpo($fila, 'async function estado(usuarioId, escritorioId) {');
 
-        self::assertStringContainsString('resultado.restantes = sobraram.filter((entrada) => daPessoaEDoEscritorio(entrada, usuarioId, escritorioId));', $envio);
-        self::assertStringNotContainsString('retidasNestaPagina.has(entrada.idEnvio));', $envio, 'a retida não pode sair de restantes');
+        self::assertStringContainsString('{ entradas: guardadas.filter((entrada) => daPessoaEDoEscritorio(entrada, usuarioId, escritorioId)) },', $estado, 'a retida não é filtrada das entradas');
+        self::assertStringNotContainsString('retidasNestaPagina', $estado);
         self::assertMatchesRegularExpression(
             '/if \(entrada\.escritorioId === escritorioId && !retidasNestaPagina\.has\(entrada\.idEnvio\)\) \{\s+pendentes\+\+;\s+\} else \{\s+emOutroEscritorio\+\+;/',
             self::corpo($fila, 'function contagemDe(entradas, usuarioId, escritorioId) {')
         );
-        self::assertMatchesRegularExpression('/if \(Array\.isArray\(resultado\.restantes\)\) \{\s+guardadasDaPagina = resultado\.restantes;/', self::corpo(self::tela(), 'function mostrarResultadoDaFila(resultado) {'));
+        self::assertStringContainsString('guardadasDaPagina = estado.entradas;', self::corpo(self::tela(), 'function lerEstadoDaFila() {'));
     }
 
     #[TestDox('Revisão 8: na carga, a fila apaga de qualquer pessoa o que não abre com a chave e o que passou de 7 dias')]
@@ -483,7 +472,7 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertIsInt($leitura);
         self::assertLessThan($leitura, $chave);
         self::assertMatchesRegularExpression('/try \{\s+entrada = await decifrarCom\(chave, registro\);\s+\} catch \(erro\) \{\s+entrada = null;/', $limpar, 'a que não abre é apagada');
-        self::assertMatchesRegularExpression('/if \(entrada && agoraMs - Number\(entrada\.horaAparelho\) <= IDADE_MAXIMA_MS\) \{\s+continue;\s+\}\s+if \(await remover\(registro\.idEnvio\)\) \{/', $limpar);
+        self::assertMatchesRegularExpression('/if \(entrada && \(!porIdade \|\| agoraMs - Number\(entrada\.horaAparelho\) <= IDADE_MAXIMA_MS\)\) \{\s+continue;\s+\}\s+if \(await remover\(registro\.idEnvio\)\) \{/', $limpar);
         self::assertStringNotContainsString('daPessoaEDoEscritorio', $limpar, 'de qualquer pessoa: aparelho compartilhado');
         self::assertStringNotContainsString('usuarioId', $limpar);
 
@@ -492,16 +481,140 @@ final class FilaSemInternetJsTest extends TestCase
             self::assertStringContainsString($motivo, $fila);
         }
 
-        // Na carga, antes de listar, contar e enviar.
+        // Na carga, antes de ler o estado e de enviar.
         $iniciar = self::corpo(self::tela(), 'async function iniciarFila() {');
-        $limpa = strpos($iniciar, 'await window.PontoFila.limpar(Date.now());');
-        $lista = strpos($iniciar, 'guardadasDaPagina = await window.PontoFila.listar(FILA_USUARIO_ID, FILA_ESCRITORIO_ID);');
+        $limpa = strpos($iniciar, 'await window.PontoFila.limpar(agoraNoServidorMs());');
+        $lista = strpos($iniciar, 'await lerEstadoDaFila();');
         $envia = strpos($iniciar, 'enviarFila();');
         self::assertIsInt($limpa);
         self::assertIsInt($lista);
         self::assertIsInt($envia);
         self::assertLessThan($lista, $limpa);
         self::assertLessThan($envia, $lista);
+    }
+
+    #[TestDox('3ª revisão, 1: o estado da página sai sempre de uma leitura nova da fila, num só lugar; a rodada só diz o que enviou e o que foi recusado')]
+    public function testTerceiraRevisaoEstadoDeLeituraNova(): void
+    {
+        $fila = self::fila();
+        $tela = self::tela();
+
+        // A rodada não devolve retrato da fila: o retrato é do começo dela e perde a batida guardada no meio.
+        $envio = self::corpo($fila, 'async function enviarAgora(url, usuarioId, escritorioId) {');
+        self::assertStringContainsString('const resultado = { enviadas: 0, recusadas: [] };', $envio);
+        foreach (['restantes', 'pendentes', 'emOutroEscritorio', 'contagemDe('] as $retrato) {
+            self::assertStringNotContainsString($retrato, $envio, 'a rodada devolveu estado: ' . $retrato);
+        }
+        // O estado é de uma leitura só (entradas e contagens da mesma), exposto no lugar de listar e contar.
+        $estado = self::corpo($fila, 'async function estado(usuarioId, escritorioId) {');
+        self::assertSame(1, substr_count($estado, 'await todas()'));
+        self::assertStringContainsString('contagemDe(guardadas, usuarioId, escritorioId)', $estado);
+        self::assertStringNotContainsString('function listar(', $fila);
+        self::assertStringNotContainsString('function contar(', $fila);
+
+        // Na tela, um só lugar escreve a lista, a caixa e `filaTemPendentes`.
+        $ler = self::corpo($tela, 'function lerEstadoDaFila() {');
+        self::assertMatchesRegularExpression(
+            '/const estado = await window\.PontoFila\.estado\(FILA_USUARIO_ID, FILA_ESCRITORIO_ID\);\s+if \(!estado\) \{\s+return;\s+\}\s+guardadasDaPagina = estado\.entradas;\s+desenharCaixaDaFila\(estado\);\s+aplicarGuardadasNaTela\(\);/',
+            $ler
+        );
+        self::assertStringContainsString('const leitura = leituraDaFila.then(', $ler, 'as leituras andam uma depois da outra');
+        self::assertStringContainsString('leituraDaFila = leitura;', $ler);
+        self::assertSame(2, substr_count($tela, 'guardadasDaPagina = '), 'a declaração e a leitura nova');
+        self::assertSame(2, substr_count($tela, 'desenharCaixaDaFila('), 'a declaração e a leitura nova');
+        self::assertSame(2, substr_count($tela, 'filaTemPendentes = '), 'a declaração e a caixa');
+        self::assertStringNotContainsString('.restantes', $tela);
+        self::assertStringNotContainsString('PontoFila.listar', $tela);
+        self::assertStringNotContainsString('PontoFila.contar', $tela);
+
+        // Lida depois de cada rodada (antes do aviso, que olha se esvaziou) e de cada gravação.
+        self::assertMatchesRegularExpression(
+            '/const resultado = await window\.PontoFila\.enviarPendentes\([^;]+;\s+(\/\/[^\n]*\n\s+)*await lerEstadoDaFila\(\);\s+if \(resultado\) \{\s+mostrarResultadoDaFila\(resultado\);/',
+            self::corpo($tela, 'function rodadaDaFila() {')
+        );
+        self::assertStringContainsString('await lerEstadoDaFila();', self::corpo($tela, 'async function guardarNaFila(payload) {'));
+        $mostrar = self::corpo($tela, 'function mostrarResultadoDaFila(resultado) {');
+        self::assertStringContainsString('const parte = { enviadas: resultado.enviadas, recusadas: resultado.recusadas.slice() };', $mostrar);
+        foreach (['guardadasDaPagina', 'desenharCaixaDaFila', 'filaTemPendentes', 'aplicarGuardadasNaTela'] as $estadoDaPagina) {
+            self::assertStringNotContainsString($estadoDaPagina, $mostrar, 'o resultado da rodada mexeu no estado: ' . $estadoDaPagina);
+        }
+    }
+
+    #[TestDox('3ª revisão, 2: o aviso do toque guardado tem origem própria; o resultado de uma rodada só troca aviso de rodada')]
+    public function testTerceiraRevisaoOrigemDoAvisoDoToque(): void
+    {
+        $tela = self::tela();
+
+        self::assertSame(1, substr_count($tela, "'info', false, 'guardada');"));
+        self::assertSame(1, substr_count($tela, ", 'rodada');"), 'só a rodada marca o aviso como dela');
+        self::assertStringContainsString("avisoBatida.dataset.origem === 'rodada'", self::corpo($tela, 'function escreverAvisoDaFila(linhas, tom) {'));
+        self::assertStringNotContainsString("'fila')", $tela);
+        self::assertStringNotContainsString("=== 'guardada'", $tela, 'nada troca o aviso do toque guardado');
+    }
+
+    #[TestDox('3ª revisão, 3: a limpeza mede a idade pelo relógio do servidor; sem ele, só apaga as que não abrem')]
+    public function testTerceiraRevisaoLimpezaPeloRelogioDoServidor(): void
+    {
+        $tela = self::tela();
+        $limpar = self::corpo(self::fila(), 'async function limpar(agoraMs) {');
+
+        self::assertStringContainsString('await window.PontoFila.limpar(agoraNoServidorMs());', $tela);
+        self::assertStringNotContainsString('limpar(Date.now())', $tela, 'o relógio do aparelho pulando para a frente apagaria batida de menos de 72 h');
+        self::assertStringContainsString("const porIdade = typeof agoraMs === 'number' && Number.isFinite(agoraMs);", $limpar);
+        self::assertMatchesRegularExpression('/if \(!disponivel\(\)\) \{\s+return 0;\s+\}/', $limpar, 'sem o agora, a que não abre ainda sai');
+        self::assertStringContainsString('(!porIdade || agoraMs - Number(entrada.horaAparelho) <= IDADE_MAXIMA_MS)', $limpar);
+    }
+
+    #[TestDox('3ª revisão, 4: a recusa ainda não mostrada fica na sessão da aba (sem posição), aparece na carga seguinte e sai depois de mostrada')]
+    public function testTerceiraRevisaoRecusaSobreviveARecarga(): void
+    {
+        $tela = self::tela();
+
+        self::assertStringContainsString("const CHAVE_DAS_RECUSAS = 'bj-ponto-fila-recusas';", $tela);
+        // Para a sessão antes de qualquer espera.
+        $mostrar = self::corpo($tela, 'function mostrarResultadoDaFila(resultado) {');
+        $guarda = strpos($mostrar, 'guardarRecusasNaSessao(parte.recusadas);');
+        $espera = strpos($mostrar, 'if (envioEmAndamento) {');
+        self::assertIsInt($guarda);
+        self::assertIsInt($espera);
+        self::assertLessThan($espera, $guarda);
+        // Só tipo, hora do toque e mensagem, com a pessoa e o escritório; nada de posição.
+        $guardar = self::corpo($tela, 'function guardarRecusasNaSessao(recusas) {');
+        preg_match_all('/^\s+(\w+): /m', $guardar, $campos);
+        self::assertSame(['idEnvio', 'tipo', 'horaAparelho', 'mensagem', 'usuarioId', 'escritorioId'], $campos[1]);
+        foreach (['latitude', 'longitude', 'precisaoGps'] as $posicao) {
+            self::assertStringNotContainsString($posicao, $guardar);
+        }
+        self::assertStringContainsString('idEnvio: entrada.idEnvio, tipo: entrada.tipo', self::corpo(self::fila(), 'async function enviarAgora(url, usuarioId, escritorioId) {'));
+        // Mostrada, sai; na carga, mostra as da pessoa e limpa a sessão.
+        self::assertMatchesRegularExpression('/escreverAvisoDaFila\(linhas, tom\);\s+apagarRecusasDaSessao\(parte\.recusadas\);/', self::corpo($tela, 'function avisarResultadoDaFila(parte) {'));
+        $carga = self::corpo($tela, 'function mostrarRecusasDaSessao() {');
+        self::assertStringContainsString('recusa.usuarioId === FILA_USUARIO_ID && recusa.escritorioId === FILA_ESCRITORIO_ID', $carga);
+        self::assertMatchesRegularExpression('/gravarRecusasDaSessao\(\[\]\);\s+\}$/', $carga);
+        self::assertStringContainsString('mostrarRecusasDaSessao();', self::corpo($tela, 'async function iniciarFila() {'));
+        // O `sessionStorage` só é tocado dentro de try/catch.
+        self::assertSame(3, substr_count($tela, 'window.sessionStorage.'));
+        foreach (['function lerRecusasDaSessao() {', 'function gravarRecusasDaSessao(recusas) {'] as $funcao) {
+            self::assertMatchesRegularExpression('/^function \w+\([^)]*\) \{\s+try \{/', self::corpo($tela, $funcao), $funcao);
+        }
+        self::assertStringNotContainsString('sessionStorage', self::fila(), 'o módulo não toca a tela nem a sessão');
+    }
+
+    #[TestDox('3ª revisão, 5: a busca da tela é numerada no início e só a resposta da mais nova iniciada entra')]
+    public function testTerceiraRevisaoBuscaNumeradaNoInicio(): void
+    {
+        $tela = self::tela();
+        $atualizar = self::corpo($tela, 'async function atualizarTelaDoPonto() {');
+
+        self::assertMatchesRegularExpression('/^async function atualizarTelaDoPonto\(\) \{\s+const estaBusca = \+\+ultimaBuscaDaTela;/', $atualizar, 'numerada antes de qualquer espera');
+        $descarta = strpos($atualizar, "if (estaBusca < ultimaBuscaDaTela) {\n            return;\n        }");
+        $troca = strpos($atualizar, '.replaceWith(');
+        self::assertIsInt($descarta, 'descarta toda resposta mais velha que a última busca iniciada');
+        self::assertIsInt($troca);
+        self::assertLessThan($troca, $descarta);
+        self::assertSame(1, substr_count($tela, '++ultimaBuscaDaTela'), 'a numeração só anda no início da busca');
+        self::assertSame(1, substr_count($tela, 'ultimaBuscaDaTela = '), 'só a declaração: nada a faz andar na troca');
+        self::assertStringNotContainsString('buscaDaTelaTrocada', $tela);
     }
 
     #[TestDox('A caixa da fila tem os valores do CSS do desenho (L127), na tela do ponto e com o prefixo pe-')]

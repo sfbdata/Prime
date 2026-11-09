@@ -283,33 +283,25 @@
     }
 
     /**
-     * As entradas desta pessoa neste escritório (inclusive as retidas por 409), da mais antiga para a mais nova. Nunca
-     * rejeita (`[]`).
+     * O estado da fila para a tela, de UMA leitura nova do IndexedDB: `{ entradas, pendentes, emOutroEscritorio }`.
+     * `entradas`: as desta pessoa neste escritório (inclusive as retidas por 409), da mais antiga para a mais nova; as
+     * contagens são as de `contagemDe`. A tela monta tudo dela a partir daqui, depois de cada rodada e de cada gravação,
+     * e nunca do retrato que uma rodada tirou no começo (uma batida guardada no meio dela ficaria de fora). Nunca
+     * rejeita: `null` quando não deu para ler.
      */
-    async function listar(usuarioId, escritorioId) {
-        try {
-            if (!disponivel()) {
-                return [];
-            }
-
-            return (await todas()).filter((entrada) => daPessoaEDoEscritorio(entrada, usuarioId, escritorioId));
-        } catch (erro) {
-            console.error('Não foi possível ler as batidas guardadas:', erro);
-
-            return [];
-        }
-    }
-
-    /** `{ pendentes, emOutroEscritorio }` (ver `contagemDe`). Nunca rejeita: `null` quando não deu para ler. */
-    async function contar(usuarioId, escritorioId) {
+    async function estado(usuarioId, escritorioId) {
         try {
             if (!disponivel()) {
                 return null;
             }
+            const guardadas = await todas();
 
-            return contagemDe(await todas(), usuarioId, escritorioId);
+            return Object.assign(
+                { entradas: guardadas.filter((entrada) => daPessoaEDoEscritorio(entrada, usuarioId, escritorioId)) },
+                contagemDe(guardadas, usuarioId, escritorioId)
+            );
         } catch (erro) {
-            console.error('Não foi possível contar as batidas guardadas:', erro);
+            console.error('Não foi possível ler as batidas guardadas:', erro);
 
             return null;
         }
@@ -322,14 +314,16 @@
      * pode ficar esquecida para sempre só porque o dono dela não voltou a abrir a tela aqui. O servidor já recusa acima
      * de 72 h, então nada que ainda poderia ser registrado é apagado.
      *
-     * A idade é medida pelo relógio do aparelho, o mesmo que deu a hora do toque. Sem a chave (falha ao abrir o banco),
-     * não apaga nada. Resolve com quantas apagou; nunca rejeita.
+     * `agoraMs` é o agora do SERVIDOR (a tela passa `agoraNoServidorMs()`): o relógio do aparelho pulando para a frente
+     * apagaria batida de menos de 72 h. Sem ele (`null`), não apaga por idade, só as que não abrem. Sem a chave (falha
+     * ao abrir o banco), não apaga nada. Resolve com quantas apagou; nunca rejeita.
      */
     async function limpar(agoraMs) {
         try {
-            if (!disponivel() || !Number.isFinite(agoraMs)) {
+            if (!disponivel()) {
                 return 0;
             }
+            const porIdade = typeof agoraMs === 'number' && Number.isFinite(agoraMs);
             const chave = await obterChave();
             const registros = await naLoja(LOJA_ENTRADAS, 'readonly', (loja) => loja.getAll());
             let apagadas = 0;
@@ -340,7 +334,7 @@
                 } catch (erro) {
                     entrada = null;   // não abre: apagar
                 }
-                if (entrada && agoraMs - Number(entrada.horaAparelho) <= IDADE_MAXIMA_MS) {
+                if (entrada && (!porIdade || agoraMs - Number(entrada.horaAparelho) <= IDADE_MAXIMA_MS)) {
                     continue;
                 }
                 if (await remover(registro.idEnvio)) {
@@ -425,9 +419,10 @@
     }
 
     async function enviarAgora(url, usuarioId, escritorioId) {
-        const resultado = { enviadas: 0, recusadas: [], pendentes: 0, emOutroEscritorio: 0, restantes: [] };
+        // Só o que esta rodada fez (para os avisos). O estado da fila NÃO sai daqui: `guardadas` é o retrato do começo da
+        // rodada, e uma batida guardada no meio dela ficaria de fora (ver `estado`).
+        const resultado = { enviadas: 0, recusadas: [] };
         const guardadas = await todas();
-        const tiradas = new Set();
 
         for (const entrada of guardadas) {
             if (!daPessoaEDoEscritorio(entrada, usuarioId, escritorioId) || retidasNestaPagina.has(entrada.idEnvio)) {
@@ -440,23 +435,16 @@
 
             if (destino === 'enviada') {
                 await remover(entrada.idEnvio);
-                tiradas.add(entrada.idEnvio);
                 resultado.enviadas++;
             } else if (destino === 'recusada') {
                 await remover(entrada.idEnvio);
-                tiradas.add(entrada.idEnvio);
-                resultado.recusadas.push({ tipo: entrada.tipo, horaAparelho: entrada.horaAparelho, mensagem: String(resposta.mensagem) });
+                resultado.recusadas.push({ idEnvio: entrada.idEnvio, tipo: entrada.tipo, horaAparelho: entrada.horaAparelho, mensagem: String(resposta.mensagem) });
             } else if (destino === 'retida') {
                 retidasNestaPagina.add(entrada.idEnvio);
             } else {
                 break;   // tentar depois: a próxima rodada recomeça desta
             }
         }
-
-        const sobraram = guardadas.filter((entrada) => !tiradas.has(entrada.idEnvio));
-        Object.assign(resultado, contagemDe(sobraram, usuarioId, escritorioId));
-        // Inclui as retidas por 409: continuam na fila, e a tela as mostra como batidas para ninguém bater de novo.
-        resultado.restantes = sobraram.filter((entrada) => daPessoaEDoEscritorio(entrada, usuarioId, escritorioId));
 
         return resultado;
     }
@@ -476,9 +464,8 @@
      * vez: o segundo disparo enquanto o primeiro corre (o evento `online` junto do relógio de um minuto) volta com
      * `null` sem mandar nada, e a mesma entrada nunca sai duas vezes desta página.
      *
-     * Resolve com `{ enviadas, recusadas: [{ tipo, horaAparelho, mensagem }], pendentes, emOutroEscritorio,
-     * restantes }` (`restantes`: as desta pessoa neste escritório que continuam na fila, inclusive as retidas por 409),
-     * ou `null` quando não rodou. Nunca rejeita.
+     * Resolve com o que a rodada fez, `{ enviadas, recusadas: [{ idEnvio, tipo, horaAparelho, mensagem }] }`, ou `null`
+     * quando não rodou; nunca com o estado da fila, que a tela lê de novo depois (`estado`). Nunca rejeita.
      */
     async function enviarPendentes(url, usuarioId, escritorioId) {
         if (envioEmAndamento) {
@@ -503,8 +490,7 @@
     window.PontoFila = Object.freeze({
         disponivel,
         guardar,
-        listar,
-        contar,
+        estado,
         remover,
         limpar,
         enviarPendentes,

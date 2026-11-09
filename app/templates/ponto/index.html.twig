@@ -1104,8 +1104,9 @@
         avisoBatida.textContent = texto;
         // Caixa do desenho no tom do aviso (P11); os textos e o botão de conferir são os de hoje.
         avisoBatida.className = `pe-caixa pe-caixa--${tom} pe-aviso-batida`;
-        // E14: `fila` marca o aviso da própria fila (guardada, enviadas, recusa), o único que um resultado da fila pode
-        // trocar. Os outros ficam, e as linhas da fila entram abaixo deles (`escreverAvisoDaFila`).
+        // E14: de onde veio o aviso. `rodada` é o de uma rodada da fila (enviadas, recusa), o único que outra rodada pode
+        // trocar; `guardada` é o do toque que foi para a fila. Os outros ficam, e as linhas da fila entram abaixo deles
+        // (`escreverAvisoDaFila`).
         avisoBatida.dataset.origem = origem || '';
         btnAtualizarPagina.classList.toggle('d-none', !oferecerAtualizar);
     }
@@ -1366,17 +1367,16 @@
     // (js/ponto-abas.js), então a tela buscada volta na mesma aba.
     const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-aba-pendencias', 'ponto-regiao-pendencias'];
 
-    // E14: cada busca da tela ganha um número. A resposta de uma busca mais velha que chega depois de uma mais nova já
-    // trocada (a da fila e a do toque correndo juntas) é descartada: trocar por ela voltaria a tela para trás e
-    // devolveria livre o tipo que acabou de ser batido.
+    // E14: cada busca da tela ganha um número no INÍCIO, e só a resposta da busca mais nova iniciada é trocada. Uma mais
+    // velha que chega depois (a da fila e a do toque correndo juntas, ou depois de uma mais nova que falhou) é
+    // descartada: trocar por ela voltaria a tela para trás e devolveria livre o tipo que acabou de ser batido.
     let ultimaBuscaDaTela = 0;
-    let buscaDaTelaTrocada = 0;
 
     async function atualizarTelaDoPonto() {
         const estaBusca = ++ultimaBuscaDaTela;
         // A busca mora no módulo, com prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest).
         const novo = await window.PontoBatida.buscarTelaDoPonto(window.location.href);
-        if (estaBusca < buscaDaTelaTrocada) {
+        if (estaBusca < ultimaBuscaDaTela) {
             return;
         }
 
@@ -1401,7 +1401,6 @@
         const pontoDoDia = JSON.parse(pontoDoDiaNovo);
 
         trocas.forEach(([atual, nova]) => atual.replaceWith(document.importNode(nova, true)));
-        buscaDaTelaTrocada = estaBusca;
         relogio.dataset.pontoDoDia = pontoDoDiaNovo;
         aplicarPontoDoDia(pontoDoDia);
         tipoRegistro.value = tipoNovo.value;
@@ -1474,9 +1473,11 @@
     const FORMATO_DIA_DA_FILA = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit', year: 'numeric' });
     const DIA_DA_TELA = String(diaHoje).padStart(2, '0') + '/' + String(mesHoje).padStart(2, '0') + '/' + anoHoje;
     let filaTemPendentes = false;
-    // As guardadas desta pessoa neste escritório (pendentes e retidas por 409), como esta página as conhece: a carga, o
-    // toque guardado e cada rodada da fila trocam a lista. É dela que a tela remarca os tipos depois de cada troca.
+    // As guardadas desta pessoa neste escritório (pendentes e retidas por 409), da última leitura da fila. Só
+    // `lerEstadoDaFila` troca a lista; é dela que a tela remarca os tipos depois de cada troca.
     let guardadasDaPagina = [];
+    // As leituras do estado da fila andam uma depois da outra (ver `lerEstadoDaFila`).
+    let leituraDaFila = Promise.resolve();
     // Resultado de uma rodada da fila que chegou com uma batida do toque em andamento: espera o toque terminar
     // (`liberarBotaoBatida`) e entra abaixo do aviso dele. Nunca é reagendado.
     let resultadoDaFilaEmEspera = null;
@@ -1503,14 +1504,30 @@
         caixaDaFila.classList.toggle('d-none', contagem.pendentes === 0 && contagem.emOutroEscritorio === 0);
     }
 
-    async function recontarFila() {
-        try {
-            if (filaDisponivel()) {
-                desenharCaixaDaFila(await window.PontoFila.contar(FILA_USUARIO_ID, FILA_ESCRITORIO_ID));
+    // 🔑 O ÚNICO lugar que monta o estado da página a partir da fila: a lista `guardadasDaPagina` (os tipos marcados),
+    // a caixa e `filaTemPendentes` (que liga o envio de cada minuto). Sempre de uma leitura NOVA do IndexedDB, pedida
+    // depois de cada gravação e de cada rodada; nunca do retrato que a rodada tirou no começo dela. Com o retrato, uma
+    // batida guardada no meio da rodada ficava de fora: o tipo voltava livre, a caixa sumia e o envio de cada minuto
+    // parava. As leituras andam uma depois da outra: a última pedida é a última aplicada e vê a última gravação.
+    // Nunca rejeita.
+    function lerEstadoDaFila() {
+        const leitura = leituraDaFila.then(async () => {
+            if (!filaDisponivel()) {
+                return;
             }
-        } catch (erro) {
-            console.error('Falha ao contar as batidas guardadas:', erro);
-        }
+            const estado = await window.PontoFila.estado(FILA_USUARIO_ID, FILA_ESCRITORIO_ID);
+            if (!estado) {
+                return;
+            }
+            guardadasDaPagina = estado.entradas;
+            desenharCaixaDaFila(estado);
+            aplicarGuardadasNaTela();
+        }).catch((erro) => {
+            console.error('Falha ao ler as batidas guardadas:', erro);
+        });
+        leituraDaFila = leitura;
+
+        return leitura;
     }
 
     // O dia da tela: o da carga; depois da virada (página aberta de um dia para o outro), o de agora no servidor.
@@ -1581,11 +1598,11 @@
             return false;
         }
         // Sem rede, o botão de atualizar NÃO aparece (como no `AVISO_SEM_REDE`): recarregar sem conexão leva a tela.
+        // Origem própria (`guardada`): o resultado de uma rodada nunca troca este aviso, só acrescenta abaixo dele.
         const aviso = navigator.onLine === false ? AVISO_GUARDADA_SEM_INTERNET : AVISO_GUARDADA_SEM_CONEXAO;
-        mostrarAvisoBatida(aviso, 'info', false, 'fila');
-        guardadasDaPagina = guardadasDaPagina.concat([entrada]);
-        aplicarGuardadasNaTela();
-        recontarFila();
+        mostrarAvisoBatida(aviso, 'info', false, 'guardada');
+        // Gravou: o estado sai de uma leitura nova (o tipo do toque fica marcado antes de o botão ser solto).
+        await lerEstadoDaFila();
 
         return true;
     }
@@ -1614,39 +1631,91 @@
             + ' guardada sem internet não foi registrada: ' + recusa.mensagem;
     }
 
-    // Esvaziou: "Batidas sem internet enviadas." (desenho). Recusa definitiva: uma linha por batida.
-    function parteDoResultadoDaFila(resultado) {
-        const linhas = [];
-        if (resultado.enviadas > 0 && resultado.pendentes === 0) {
-            linhas.push(AVISO_FILA_ENVIADA);
-        }
-        resultado.recusadas.forEach((recusa) => linhas.push(linhaDaRecusaDaFila(recusa)));
+    // Recusas da fila ainda não mostradas, no `sessionStorage` desta aba. A página pode recarregar com uma recusa
+    // esperando o toque terminar (atualização que falhou, dia que virou com a página aberta), e a entrada já saiu da
+    // fila: sem isto, a recusa sumiria sem ninguém ver. Só o tipo, a hora do toque e a mensagem do servidor (nada de
+    // posição), com a pessoa e o escritório, para não aparecer a outra pessoa na mesma aba. Apagadas depois de mostradas.
+    const CHAVE_DAS_RECUSAS = 'bj-ponto-fila-recusas';
 
-        return { linhas, enviadas: resultado.enviadas, recusadas: resultado.recusadas.length };
+    function lerRecusasDaSessao() {
+        try {
+            const lidas = JSON.parse(window.sessionStorage.getItem(CHAVE_DAS_RECUSAS) || '[]');
+
+            return Array.isArray(lidas)
+                ? lidas.filter((recusa) => recusa && typeof recusa.mensagem === 'string' && Number.isFinite(recusa.horaAparelho))
+                : [];
+        } catch (erro) {
+            return [];
+        }
+    }
+
+    function gravarRecusasDaSessao(recusas) {
+        try {
+            if (recusas.length === 0) {
+                window.sessionStorage.removeItem(CHAVE_DAS_RECUSAS);
+            } else {
+                window.sessionStorage.setItem(CHAVE_DAS_RECUSAS, JSON.stringify(recusas));
+            }
+        } catch (erro) {
+            // `sessionStorage` bloqueado ou cheio: a recusa só não sobrevive a uma recarga.
+            console.warn('Não foi possível guardar a recusa da fila nesta aba:', erro);
+        }
+    }
+
+    function guardarRecusasNaSessao(recusas) {
+        if (recusas.length === 0) {
+            return;
+        }
+        const novas = recusas.map((recusa) => ({
+            idEnvio: String(recusa.idEnvio),
+            tipo: String(recusa.tipo),
+            horaAparelho: Number(recusa.horaAparelho),
+            mensagem: String(recusa.mensagem),
+            usuarioId: FILA_USUARIO_ID,
+            escritorioId: FILA_ESCRITORIO_ID,
+        }));
+        const ids = novas.map((recusa) => recusa.idEnvio);
+        gravarRecusasDaSessao(lerRecusasDaSessao().filter((recusa) => !ids.includes(String(recusa.idEnvio))).concat(novas));
+    }
+
+    function apagarRecusasDaSessao(recusas) {
+        if (recusas.length === 0) {
+            return;
+        }
+        const ids = recusas.map((recusa) => String(recusa.idEnvio));
+        gravarRecusasDaSessao(lerRecusasDaSessao().filter((recusa) => !ids.includes(String(recusa.idEnvio))));
+    }
+
+    // Na carga: as recusas desta pessoa neste escritório que ficaram na sessão vão para a tela. Depois a sessão é limpa,
+    // inclusive das de outra pessoa, que não ficam guardadas na aba de quem entrou agora.
+    function mostrarRecusasDaSessao() {
+        const recusas = lerRecusasDaSessao().filter((recusa) => recusa.usuarioId === FILA_USUARIO_ID && recusa.escritorioId === FILA_ESCRITORIO_ID);
+        if (recusas.length > 0) {
+            avisarResultadoDaFila({ enviadas: 0, recusadas: recusas });
+        }
+        gravarRecusasDaSessao([]);
     }
 
     function juntarPartesDaFila(antes, depois) {
         if (!antes) {
             return depois;
         }
-        const linhas = antes.linhas.concat(depois.linhas).filter((linha, i, todas) => todas.indexOf(linha) === i);
 
-        return { linhas, enviadas: antes.enviadas + depois.enviadas, recusadas: antes.recusadas + depois.recusadas };
+        return { enviadas: antes.enviadas + depois.enviadas, recusadas: antes.recusadas.concat(depois.recusadas) };
     }
 
-    // 🔑 Nunca apaga um aviso que já está na tela (sem confirmação, sucesso com avisos, recusa do toque) nem mexe no
-    // botão "Atualizar": as linhas da fila entram abaixo dele. Só o aviso da própria fila (`data-origem="fila"`: o de
-    // guardada ou o de uma rodada anterior) é trocado, porque ficou velho; mesmo aí o botão fica como estava.
-    function escreverAvisoDaFila(parte) {
-        if (parte.linhas.length === 0) {
+    // 🔑 Nunca apaga um aviso que já está na tela (sem confirmação, sucesso com avisos, recusa do toque, batida guardada
+    // do toque) nem mexe no botão "Atualizar": as linhas da fila entram abaixo dele. Só o aviso de uma rodada anterior
+    // (`data-origem="rodada"`) é trocado, porque ficou velho; mesmo aí o botão fica como estava.
+    function escreverAvisoDaFila(linhas, tom) {
+        if (linhas.length === 0) {
             return;
         }
         const avisoNaTela = !avisoBatida.classList.contains('d-none') && avisoBatida.textContent !== '';
-        let resto = parte.linhas;
-        if (!avisoNaTela || avisoBatida.dataset.origem === 'fila') {
-            const tom = parte.recusadas === 0 ? 'success' : (parte.enviadas > 0 ? 'warning' : 'danger');
-            mostrarAvisoBatida(parte.linhas[0], tom, !btnAtualizarPagina.classList.contains('d-none'), 'fila');
-            resto = parte.linhas.slice(1);
+        let resto = linhas;
+        if (!avisoNaTela || avisoBatida.dataset.origem === 'rodada') {
+            mostrarAvisoBatida(linhas[0], tom, !btnAtualizarPagina.classList.contains('d-none'), 'rodada');
+            resto = linhas.slice(1);
         }
         resto.forEach((texto) => {
             const linha = document.createElement('div');
@@ -1656,21 +1725,32 @@
         });
     }
 
+    // O que a rodada fez vira linhas no aviso. "Batidas sem internet enviadas." (desenho) só quando a fila esvaziou, e
+    // isso vem do estado da página (a leitura nova de `lerEstadoDaFila`), não da rodada: o aviso e a caixa nunca se
+    // contradizem. Recusa definitiva: uma linha por batida. Mostradas, as recusas saem da sessão.
+    function avisarResultadoDaFila(parte) {
+        const linhas = [];
+        if (parte.enviadas > 0 && !filaTemPendentes) {
+            linhas.push(AVISO_FILA_ENVIADA);
+        }
+        parte.recusadas.forEach((recusa) => linhas.push(linhaDaRecusaDaFila(recusa)));
+        const tom = parte.recusadas.length === 0 ? 'success' : (parte.enviadas > 0 ? 'warning' : 'danger');
+        escreverAvisoDaFila(linhas, tom);
+        apagarRecusasDaSessao(parte.recusadas);
+    }
+
     function concluirResultadoDaFila(parte) {
-        escreverAvisoDaFila(parte);
-        if (parte.enviadas > 0 || parte.recusadas > 0) {
+        avisarResultadoDaFila(parte);
+        if (parte.enviadas > 0 || parte.recusadas.length > 0) {
             atualizarDepoisDaFila();
-        } else {
-            aplicarGuardadasNaTela();
         }
     }
 
+    // Só o que a rodada fez (enviadas e recusas). O estado da página já veio da leitura nova, em `rodadaDaFila`.
     function mostrarResultadoDaFila(resultado) {
-        desenharCaixaDaFila(resultado);
-        if (Array.isArray(resultado.restantes)) {
-            guardadasDaPagina = resultado.restantes;
-        }
-        const parte = parteDoResultadoDaFila(resultado);
+        const parte = { enviadas: resultado.enviadas, recusadas: resultado.recusadas.slice() };
+        // A recusa vai para a sessão antes de qualquer espera: a página pode recarregar antes de mostrá-la.
+        guardarRecusasNaSessao(parte.recusadas);
         // Uma batida do toque em andamento: o botão, o aviso e a atualização da tela são dela. O resultado espera ela
         // terminar (`soltarResultadoDaFilaEmEspera`, no fim de `liberarBotaoBatida`), sem reagendar nada.
         if (envioEmAndamento) {
@@ -1696,6 +1776,9 @@
             rodadaDaFilaEmCurso = (async () => {
                 try {
                     const resultado = await window.PontoFila.enviarPendentes(URL_DA_BATIDA, FILA_USUARIO_ID, FILA_ESCRITORIO_ID);
+                    // Rodou ou não (outra aba enviando), a fila pode ter mudado: o estado da página vem de uma leitura
+                    // nova, feita agora. Da rodada, só o que ela fez (para os avisos).
+                    await lerEstadoDaFila();
                     if (resultado) {
                         mostrarResultadoDaFila(resultado);
                     }
@@ -1736,18 +1819,19 @@
         }
     }
 
-    // Na carga: primeiro a limpeza (LGPD, aparelho compartilhado; ver `PontoFila.limpar`), depois as guardadas de hoje
-    // aparecem como batidas, a caixa conta e o envio começa.
+    // Na carga: primeiro a limpeza (LGPD, aparelho compartilhado; ver `PontoFila.limpar`), com o agora do SERVIDOR: o
+    // relógio do aparelho pulando para a frente apagaria batida de menos de 72 h. Sem ele (`null`), a limpeza só tira as
+    // que não abrem. Depois o estado (as guardadas de hoje aparecem como batidas, a caixa conta), as recusas que uma
+    // recarga deixou sem mostrar, e o envio.
     async function iniciarFila() {
         if (!filaDisponivel()) {
             return;
         }
         if (typeof window.PontoFila.limpar === 'function') {
-            await window.PontoFila.limpar(Date.now());
+            await window.PontoFila.limpar(agoraNoServidorMs());
         }
-        guardadasDaPagina = await window.PontoFila.listar(FILA_USUARIO_ID, FILA_ESCRITORIO_ID);
-        aplicarGuardadasNaTela();
-        await recontarFila();
+        await lerEstadoDaFila();
+        mostrarRecusasDaSessao();
         enviarFila();
     }
 
