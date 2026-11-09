@@ -86,7 +86,15 @@ final class TelaReforcadaJsTest extends TestCase
         self::assertSame('Localização não informada nesta pré-visualização.', $js['local']['previa'] ?? null);
         self::assertSame('Envie a selfie com o documento.', $js['erro']['selfie'] ?? null);
         self::assertSame('Permita o acesso à localização para assinar.', $js['erro']['localizacao'] ?? null);
-        self::assertStringContainsString('cifradas', (string) ($js['selfie']['aviso'] ?? ''));
+        // Aviso de LGPD fiel ao que o sistema faz: só a selfie é cifrada; a localização fica na trilha; quem vê é a
+        // equipe do escritório (o detalhe interno), não só quem enviou. Texto provisório do pacote jurídico (L3).
+        $aviso = (string) ($js['selfie']['aviso'] ?? '');
+        self::assertSame(
+            'A selfie com o documento e a localização servem para comprovar esta assinatura. A selfie fica guardada cifrada; a localização fica registrada como evidência. Quem vê é a equipe do escritório que enviou o documento.',
+            $aviso,
+        );
+        self::assertStringNotContainsString('remetente', $aviso, 'o acesso não é só de quem enviou');
+        self::assertStringNotContainsString('cifradas', $aviso, 'a localização não é cifrada');
     }
 
     #[TestDox('detalhe interno: o método da Reforçada com a localização de 5 casas (D3, F2)')]
