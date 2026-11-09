@@ -30,7 +30,7 @@ final class GerarImagemDoComprovanteUseCase
     ) {
     }
 
-    /** @return array{nome: string, png: string}|null */
+    /** @return array{nome: string, jpeg: string}|null */
     public function executar(int $id, User $pessoa, Tenant $escritorio): ?array
     {
         $comprovante = $this->funcao->abaVisivel() ? $this->comprovantes->daPessoaPorId($id, $pessoa, $escritorio) : null;
@@ -47,8 +47,8 @@ final class GerarImagemDoComprovanteUseCase
         $pagina = (string) preg_replace('#^[a-z]+://#i', '', $this->rotas->generate('validacao_comprovante_ponto', [], UrlGeneratorInterface::ABSOLUTE_URL));
 
         return [
-            'nome' => 'comprovante-ponto-' . $dados->codigo . '.png',
-            'png'  => $this->imagem->gerar($dados, $comprovante->getHmac(), $enderecoDoQr, $pagina),
+            'nome' => 'comprovante-ponto-' . $dados->codigo . '.jpg',
+            'jpeg' => $this->imagem->gerar($dados, $comprovante->getHmac(), $enderecoDoQr, $pagina),
         ];
     }
 }

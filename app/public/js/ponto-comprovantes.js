@@ -136,4 +136,12 @@
             validar(evento);
         }
     });
+
+    // Digitar outro código apaga o resultado da conferência anterior (desenho L767 e L802: o `setF` do `setCod` zera `valR`).
+    document.addEventListener('input', function (evento) {
+        const fundo = aberta();
+        if (fundo && evento.target.matches('[data-validar-codigo]')) {
+            mostrar(fundo, '', '');
+        }
+    });
 })();

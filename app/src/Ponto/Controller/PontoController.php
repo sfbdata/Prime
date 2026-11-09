@@ -1032,6 +1032,9 @@ final class PontoController extends AbstractController
             $dados['sede'] = $posicao->sede?->getNome();
             $dados['distancia'] = $posicao->distancia !== null ? round($posicao->distancia, 2) : null;
         }
+        if ($comprovante !== null) {   // E15: o código e o "Baixar comprovante" da tela de resultado (E8, desenho L365 e L368)
+            $dados['comprovante'] = ['codigo' => $comprovante->getCodigo(), 'url' => $this->generateUrl('ponto_comprovante_baixar', ['id' => $comprovante->getId()])];
+        }
 
         return $this->json([
             'success' => true,

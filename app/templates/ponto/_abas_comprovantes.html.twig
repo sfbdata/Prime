@@ -21,7 +21,7 @@
             <span>{{ c.tipo }}</span>
             <span class="pe-comp-metodo">{{ c.metodo }}</span>
             <code class="pe-comp-codigo">{{ c.codigo }}</code>
-            <a class="pe-comp-btn pe-comp-btn--baixar" href="{{ path('ponto_comprovante_baixar', {id: c.id}) }}" download aria-label="Baixar comprovante {{ c.codigo }}"><i class="bi bi-download" aria-hidden="true"></i>Baixar</a>
+            <a class="pe-comp-btn pe-comp-btn--baixar" href="{{ path('ponto_comprovante_baixar', {id: c.id})|e('html_attr') }}" download aria-label="Baixar comprovante {{ c.codigo|e('html_attr') }}"><i class="bi bi-download" aria-hidden="true"></i>Baixar</a>
         </div>
     {% else %}
         <div class="pe-abas-vazio">Os comprovantes aparecem aqui depois do primeiro registro.</div>
@@ -29,7 +29,7 @@
 </div>
 
 <div class="pe-janela-fundo" id="ponto-janela-validar" hidden>
-    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Validar comprovante" method="get" action="{{ path('validacao_comprovante_ponto') }}" data-validar-form data-validar-url="{{ path('validacao_comprovante_ponto') }}" novalidate>
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Validar comprovante" method="get" action="{{ path('validacao_comprovante_ponto')|e('html_attr') }}" data-validar-form data-validar-url="{{ path('validacao_comprovante_ponto')|e('html_attr') }}" novalidate>
         <div class="pe-janela-topo">
             <i class="bi bi-shield-check" aria-hidden="true"></i><b class="pe-janela-titulo">Validar comprovante</b>
             <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-validar-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>

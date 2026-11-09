@@ -15,6 +15,7 @@ final class TelaDoComprovante
     public const LARGURA = 1000;
     public const ALTURA = 1480;
     private const PONTOS_POR_PIXEL = 0.75;
+    private const QUALIDADE_JPEG = 93;
 
     private \GdImage $imagem;
 
@@ -177,10 +178,14 @@ final class TelaDoComprovante
         imagecopyresampled($this->imagem, $pequena, 0, 0, 0, 0, imagesx($this->imagem), imagesy($this->imagem), $largura, $altura);
     }
 
-    public function png(): string
+    /**
+     * JPEG com qualidade 93, como o `toDataURL('image/jpeg', .93)` do desenho (L589). O codificador do GD escreve linha a
+     * linha; o de PNG montaria uma cópia inteira da imagem (uns 30 MB a mais nesta escala).
+     */
+    public function jpeg(): string
     {
         ob_start();
-        imagepng($this->imagem, null, 6);
+        imagejpeg($this->imagem, null, self::QUALIDADE_JPEG);
 
         return (string) ob_get_clean();
     }

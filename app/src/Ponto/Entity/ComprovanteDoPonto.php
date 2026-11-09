@@ -16,8 +16,8 @@ use Doctrine\ORM\Mapping as ORM;
  * Tudo sai do servidor, na mesma transação da batida. A validação pública confere o HMAC sobre `dadosAssinados` e
  * só então mostra o que está neles; nada é lido da batida viva (o gestor ainda edita a batida até a E10).
  *
- * A batida apagada leva o comprovante junto (ON DELETE CASCADE): "Comprovante sem registro correspondente não é
- * válido" (desenho 16 L301), e a validação passa a responder "Código não localizado.".
+ * O comprovante é a prova da marcação e sobrevive à batida: se o gestor apagar a batida, a ligação fica nula
+ * (ON DELETE SET NULL) e o código continua autêntico, porque a validação só depende dos dados selados.
  */
 #[ORM\Entity(repositoryClass: ComprovanteDoPontoRepository::class)]
 #[ORM\Table(name: 'ponto_comprovante')]
@@ -38,8 +38,8 @@ class ComprovanteDoPonto implements TenantAware
         // Uma por batida: a unicidade é o índice `uniq_ponto_comprovante_registro` (ManyToOne com nome escolhido,
         // em vez do OneToOne, que criaria um segundo índice único com nome gerado).
         #[ORM\ManyToOne(targetEntity: RegistroPonto::class)]
-        #[ORM\JoinColumn(name: 'registro_ponto_id', nullable: false, onDelete: 'CASCADE')]
-        private RegistroPonto $registro,
+        #[ORM\JoinColumn(name: 'registro_ponto_id', nullable: true, onDelete: 'SET NULL')]
+        private ?RegistroPonto $registro,
         #[ORM\Column(type: 'bigint')]
         private int $nsr,
         #[ORM\Column(length: 18)]
@@ -65,7 +65,8 @@ class ComprovanteDoPonto implements TenantAware
         return $this->tenant;
     }
 
-    public function getRegistro(): RegistroPonto
+    /** Null depois que o gestor apaga a batida (o comprovante continua valendo). */
+    public function getRegistro(): ?RegistroPonto
     {
         return $this->registro;
     }

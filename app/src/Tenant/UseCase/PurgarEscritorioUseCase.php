@@ -379,8 +379,8 @@ final class PurgarEscritorioUseCase
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['jornada_colaborador', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
-        // Comprovante do ponto (E15): FK tenant_id sem cascata; o registro_ponto_id já cai em cascata com a batida,
-        // mas a linha sai antes por ser do escritório. O contador de NSR não é referenciado por ninguém.
+        // Comprovante do ponto (E15): FK tenant_id sem cascata, e o registro_ponto_id só fica nulo quando a batida sai
+        // (SET NULL): a linha sai aqui, antes das batidas. O contador de NSR não é referenciado por ninguém.
         ['ponto_comprovante', 'tenant_id = :tenant'],
         ['ponto_contador_nsr', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],

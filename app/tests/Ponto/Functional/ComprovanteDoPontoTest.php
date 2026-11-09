@@ -13,6 +13,7 @@ use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\SeloDoComprovante;
 use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\SeloDoComprovanteDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * E15 do Ponto na tela: a batida com NSR e comprovante (D2, D9), a aba Comprovantes (P48, desenho 16 L193 a L197) e o
@@ -58,6 +60,7 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         $resposta = $this->bater();
 
         self::assertSame('Ponto (home office) registrado com sucesso!', $resposta['message'], 'sem o aviso do comprovante');
+        self::assertArrayNotHasKey('comprovante', $resposta['data'], 'sem código nem "Baixar" na tela de resultado');
         $batidas = $this->emSemFiltro()->getRepository(RegistroPonto::class)->findBy(['user' => $this->eu->getId()]);
         self::assertCount(1, $batidas);
         self::assertSame(1, $batidas[0]->getNsr(), 'o NSR sobe mesmo sem comprovante (D2)');
@@ -80,6 +83,11 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         $comprovante = $this->emSemFiltro()->getRepository(ComprovanteDoPonto::class)->findOneBy(['tenant' => $this->escritorio->getId()]);
         self::assertNotNull($comprovante);
         self::assertSame(1, $comprovante->getNsr());
+        self::assertSame(
+            ['codigo' => $comprovante->getCodigo(), 'url' => '/ponto/comprovantes/' . $comprovante->getId() . '/baixar'],
+            $resposta['data']['comprovante'],
+            'a tela de resultado da batida mostra o código e o "Baixar comprovante" (E8, desenho L365 e L368)',
+        );
 
         $tela = $this->tela('?aba=comprovantes');
         self::assertCount(1, $tela->filter('.pe-abas-barra > button#ponto-aba-comprovantes[role="tab"][aria-selected="true"] > span.pe-aba-num'));
@@ -112,7 +120,7 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         self::assertSame([$meu->getCodigo()], $codigos);
     }
 
-    #[TestDox('Baixar: o dono recebe a imagem PNG em alta (2480 x 3670) com o nome do código')]
+    #[TestDox('Baixar: o dono recebe a imagem JPEG em alta (2480 x 3670) com o nome do código, como o desenho (L589 e L594)')]
     public function testBaixarODono(): void
     {
         $this->seloPronto();
@@ -123,12 +131,56 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $resposta = $this->client->getResponse();
-        self::assertSame('image/png', $resposta->headers->get('Content-Type'));
-        self::assertSame('attachment; filename=comprovante-ponto-' . $comprovante->getCodigo() . '.png', $resposta->headers->get('Content-Disposition'));
+        self::assertSame('image/jpeg', $resposta->headers->get('Content-Type'));
+        self::assertSame('attachment; filename=comprovante-ponto-' . $comprovante->getCodigo() . '.jpg', $resposta->headers->get('Content-Disposition'));
         self::assertStringContainsString('no-store', (string) $resposta->headers->get('Cache-Control'));
         $tamanho = getimagesizefromstring((string) $resposta->getContent());
         self::assertNotFalse($tamanho);
-        self::assertSame([2480, 3670, IMAGETYPE_PNG], [$tamanho[0], $tamanho[1], $tamanho[2]]);
+        self::assertSame([2480, 3670, IMAGETYPE_JPEG], [$tamanho[0], $tamanho[1], $tamanho[2]]);
+    }
+
+    #[TestDox('O limite configurado: 10 imagens por minuto por pessoa; a 11ª é recusada')]
+    public function testLimiteDoDownloadConfigurado(): void
+    {
+        /** @var RateLimiterFactoryInterface $fabrica */
+        $fabrica = static::getContainer()->get('limiter.ponto_comprovante_imagem');
+        $limitador = $fabrica->create('101');
+        for ($i = 0; $i < 10; ++$i) {
+            self::assertTrue($limitador->consume()->isAccepted(), 'imagem ' . ($i + 1));
+        }
+
+        self::assertFalse($limitador->consume()->isAccepted(), 'a 11ª');
+        self::assertTrue($fabrica->create('102')->consume()->isAccepted(), 'outra pessoa tem a própria cota');
+    }
+
+    #[TestDox('Cada download gasta a cota de quem baixa (a chave é o usuário)')]
+    public function testDownloadGastaACotaDoUsuario(): void
+    {
+        $this->seloPronto();
+        $espiao = new RateLimiterFactoryEspiao();
+        static::getContainer()->set('limiter.ponto_comprovante_imagem', $espiao);
+        $comprovante = $this->emitir($this->eu, $this->escritorio);
+        $this->logarComTenant($this->client, $this->eu, $this->escritorio);
+
+        $this->client->request('GET', '/ponto/comprovantes/' . $comprovante->getId() . '/baixar');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([(string) $this->eu->getId()], $espiao->chavesConsumidas);
+    }
+
+    #[TestDox('Cota estourada: 429 com a mensagem simples, sem gerar a imagem')]
+    public function testDownloadComCotaEstourada(): void
+    {
+        $this->seloPronto();
+        static::getContainer()->set('limiter.ponto_comprovante_imagem', new RateLimiterFactoryEspiao(aceita: false));
+        $comprovante = $this->emitir($this->eu, $this->escritorio);
+        $this->logarComTenant($this->client, $this->eu, $this->escritorio);
+
+        $this->client->request('GET', '/ponto/comprovantes/' . $comprovante->getId() . '/baixar');
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(ComprovanteDoPontoController::MUITOS_PEDIDOS, $this->client->getResponse()->getContent());
+        self::assertStringStartsWith('text/plain', (string) $this->client->getResponse()->headers->get('Content-Type'));
     }
 
     #[TestDox('Baixar comprovante de outra pessoa, de outro escritório ou que não existe: 404')]

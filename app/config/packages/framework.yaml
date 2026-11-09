@@ -38,6 +38,12 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 minute'
+        # Imagem do comprovante do ponto (GET /ponto/comprovantes/{id}/baixar): chave = usuário. Cada imagem leva uns
+        # 2 s de CPU e uns 50 MB de memória no GD; 10 por minuto cobre baixar de novo e põe teto no laço.
+        ponto_comprovante_imagem:
+            policy: sliding_window
+            limit: 10
+            interval: '1 minute'
         convite_criar:
             policy: sliding_window
             limit: 10

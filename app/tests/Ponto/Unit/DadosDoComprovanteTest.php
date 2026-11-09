@@ -14,16 +14,16 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Os dados que o HMAC sela (E15, D9 e P50): nome inteiro, escritório e CNPJ, data e hora do servidor, tipo, método e
- * NSR. Nunca CPF nem localização, mesmo que a batida tenha coordenadas. A forma canônica é estável: o mesmo dado gera
- * sempre o mesmo texto.
+ * Os dados que o HMAC sela (E15, D9, P49 e P50): nome inteiro, escritório e CNPJ, data e hora do servidor, tipo, método,
+ * local do registro, a marca "sem internet" e NSR. Nunca CPF. O local fica na imagem e fora do texto da validação. A
+ * forma canônica é estável: o mesmo dado gera sempre o mesmo texto.
  */
 #[Group('ponto')]
 #[CoversClass(DadosDoComprovante::class)]
 final class DadosDoComprovanteTest extends TestCase
 {
-    #[TestDox('Da batida: nome inteiro, escritório, CNPJ, hora, tipo, método e NSR; sem CPF e sem localização')]
-    public function testDaBatidaSemCpfNemLocalizacao(): void
+    #[TestDox('Da batida: nome inteiro, escritório, CNPJ, hora, tipo, método, local com 5 casas e a precisão, e NSR; sem CPF')]
+    public function testDaBatidaComLocalSemCpf(): void
     {
         $dados = DadosDoComprovante::daBatida($this->batida(), 'BJP-ABCD-EFGH-JK23');
         $canonico = $dados->canonico();
@@ -31,13 +31,42 @@ final class DadosDoComprovanteTest extends TestCase
         self::assertSame(
             '{"formato":1,"codigo":"BJP-ABCD-EFGH-JK23","nsr":42,"escritorio_id":7,"nome":"Maria da Silva Pereira",'
             . '"escritorio":"Escritório Modelo","cnpj":"12345678000190","data_hora":"2026-11-09T08:01:02-03:00",'
-            . '"tipo":"entrada","metodo":"sistema"}',
+            . '"tipo":"entrada","metodo":"sistema","local":"-23.55000, -46.63000 · precisão 12 m","sem_internet":false}',
             $canonico,
         );
         self::assertStringNotContainsStringIgnoringCase('cpf', $canonico, 'o CPF fica no perfil e nunca entra no selo');
-        self::assertStringNotContainsString('-23.55', $canonico, 'sem latitude');
-        self::assertStringNotContainsString('-46.63', $canonico, 'sem longitude');
         self::assertStringNotContainsString('Sede Centro', $canonico, 'sem o nome da sede');
+        self::assertStringNotContainsString('-23.55', DadosDoComprovante::deCanonico($canonico)->textoDaValidacao(), 'o local fica fora da validação (P50)');
+    }
+
+    #[TestDox('Sem coordenadas (home office ou cerca não exigida): "Geolocalização não exigida"; a fila sem internet vai selada')]
+    public function testSemGpsESemInternet(): void
+    {
+        $batida = $this->batida();
+        $batida->setLatitude(null);
+        $batida->setLongitude(null);
+        $batida->setPrecisaoGps(null);
+        $batida->setEnviadaSemInternet(true);
+
+        $dados = DadosDoComprovante::daBatida($batida, 'BJP-ABCD-EFGH-JK23');
+
+        self::assertSame('Geolocalização não exigida', $dados->local);
+        self::assertTrue($dados->semInternet);
+        self::assertTrue(DadosDoComprovante::deCanonico($dados->canonico())->semInternet);
+    }
+
+    #[TestDox('Pessoa sem nome: o nome fica vazio, nunca o e-mail')]
+    public function testSemNomeNaoUsaEmail(): void
+    {
+        $semNome = new User();
+        $semNome->setEmail('maria@teste.com');
+        $batida = $this->batida();
+        $batida->setUser($semNome);
+
+        $dados = DadosDoComprovante::daBatida($batida, 'BJP-ABCD-EFGH-JK23');
+
+        self::assertSame('', $dados->nome);
+        self::assertStringNotContainsString('maria@teste.com', $dados->canonico());
     }
 
     #[TestDox('Forma canônica: ida e volta iguais, e o texto da validação no formato do desenho')]
@@ -105,6 +134,7 @@ final class DadosDoComprovanteTest extends TestCase
         $batida->setDataHora(new \DateTime('2026-11-09 08:01:02', new \DateTimeZone('America/Sao_Paulo')));
         $batida->setLatitude('-23.55000000');
         $batida->setLongitude('-46.63000000');
+        $batida->setPrecisaoGps('12.40');
         $batida->setSedeNomeSnapshot('Sede Centro');
         $batida->setNsr(42);
 

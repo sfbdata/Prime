@@ -10,12 +10,12 @@ use BaconQrCode\Encoder\Encoder;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * O comprovante da batida em imagem PNG, gerado no servidor (E15, P49 e D9), no arranjo do desenho 16 (`desenhar`,
+ * O comprovante da batida em imagem JPEG, gerado no servidor (E15, P49 e D9), no arranjo do desenho 16 (`desenhar`,
  * L550 a L590): 1000 x 1480 na escala 2,48 (2480 x 3670 pixels). Os padrões de segurança saem do selo do próprio
  * comprovante, então o mesmo comprovante gera sempre a mesma imagem.
  *
- * Fica fora do desenho: a "LOCAL DO REGISTRO" (o comprovante não leva localização, P50) e as fontes, que são as
- * DejaVu do dompdf no lugar da Arial (o servidor não tem a Arial). O QR leva o endereço do próprio sistema (D20).
+ * Fora do desenho, só as fontes: as DejaVu do dompdf no lugar da Arial (o servidor não tem a Arial). O QR leva o
+ * endereço do próprio sistema (D20). O "LOCAL DO REGISTRO" (P49) sai só na imagem, nunca na validação aberta (P50).
  */
 final class ImagemDoComprovante
 {
@@ -58,7 +58,7 @@ final class ImagemDoComprovante
         $this->rodape($tela, $dados, $selo, $enderecoDoQr, $enderecoDaPagina);
         (new SeloHolografico($tela, $sorteio))->desenhar(self::X + 812 - 58 * self::QR_K, TelaDoComprovante::ALTURA - 252 + 60 * self::QR_K, self::QR_K, $dados->codigo);
 
-        return $tela->png();
+        return $tela->jpeg();
     }
 
     /** Símbolo, "BlueJus" em duas cores, a linha do sistema e o fio grosso (L571). */
@@ -81,14 +81,15 @@ final class ImagemDoComprovante
         $tela->retangulo(self::X, 510, 770, 1, $tela->cor(self::AZUL_ESCURO, .3));
     }
 
-    /** TRABALHADOR, EMPREGADOR e MÉTODO · NSR, cada valor encolhendo até caber em 770 (L575 a L579). */
+    /** TRABALHADOR, EMPREGADOR, LOCAL DO REGISTRO e MÉTODO · NSR, cada valor encolhendo até caber em 770 (L580 a L584). */
     private function campos(TelaDoComprovante $tela, DadosDoComprovante $dados): void
     {
         $cnpj = $dados->cnpjFormatado();
         $metodo = $dados->metodo === DadosDoComprovante::METODO_FACIAL ? 'Reconhecimento facial' : 'Registro no sistema';
         $this->campo($tela, 'TRABALHADOR', $dados->nome, 552);
         $this->campo($tela, 'EMPREGADOR', $dados->escritorio . ($cnpj !== null ? ' · CNPJ ' . $cnpj : ''), 622);
-        $this->campo($tela, 'MÉTODO · NSR', $metodo . ' · ' . $dados->nsrFormatado(), 692);
+        $this->campo($tela, 'LOCAL DO REGISTRO', $dados->local, 692);
+        $this->campo($tela, 'MÉTODO · NSR', $metodo . ($dados->semInternet ? ' · Sem internet' : '') . ' · ' . $dados->nsrFormatado(), 762);
     }
 
     private function campo(TelaDoComprovante $tela, string $rotulo, string $valor, float $y): void
