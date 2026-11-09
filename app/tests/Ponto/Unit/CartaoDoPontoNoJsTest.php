@@ -243,7 +243,7 @@ final class CartaoDoPontoNoJsTest extends TestCase
         $repouso = substr($aviso, 0, (int) strpos($aviso, 'const previsao = tSaida ? null : saidaPrevista();'));
         self::assertStringContainsString('if (tRepouso && !tRetorno && !tSaida) {', $repouso, 'o ramo do repouso vem antes da previsão de fora dele');
 
-        self::assertStringContainsString('const previstaNoRepouso = saidaPrevista();', $repouso, 'a conta é a de `saidaPrevista`');
+        self::assertStringContainsString('const previstaNoRepouso = saidaPrevista(agora);', $repouso, 'a conta é a de `saidaPrevista`, com o agora do tique');
         self::assertStringContainsString(
             "const saida = previstaNoRepouso ? ' Saída prevista às ' + formatarHoraDoDia(previstaNoRepouso) + '.' : '';",
             $repouso,
@@ -255,6 +255,26 @@ final class CartaoDoPontoNoJsTest extends TestCase
             $this->corpoDaFuncao('function formatarHoraDoDia('),
             'HH:MM'
         );
+    }
+
+    #[TestDox('Saída prevista no repouso conta o maior entre o intervalo já feito e o previsto (1h05 de intervalo com mínimo de 1h anda 5 min), a cada tique')]
+    public function testSaidaPrevistaNoRepousoContaOIntervaloFeito(): void
+    {
+        $prevista = $this->corpoDaFuncao('function saidaPrevista(agora)');
+
+        // Com o retorno batido vale o intervalo batido; em repouso (sem retorno nem saída), o maior dos dois.
+        self::assertMatchesRegularExpression(
+            '/let intervaloMs = escalaTemIntervalo \? intervaloPrevistoMinutos \* 60000 : 0;\s*'
+            . 'if \(tRepouso && tRetorno && tRetorno > tRepouso\) \{\s*intervaloMs = tRetorno - tRepouso;\s*'
+            . '\} else if \(agora && !tRetorno && !tSaida\) \{\s*intervaloMs = Math\.max\(intervaloMs, agora - tRepouso\);\s*\}/',
+            $prevista,
+            'no repouso, a saída prevista voltou a ignorar o intervalo que já passou do mínimo'
+        );
+        self::assertStringContainsString('return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + intervaloMs);', $prevista);
+
+        // Recalculada no tique: `updateClock` (a cada 1 s) chama `atualizarAvisoDoDia(agora)`, que passa o mesmo agora.
+        self::assertStringContainsString('atualizarAvisoDoDia(agora);', $this->corpoDaFuncao('function updateClock('));
+        self::assertStringContainsString('saidaPrevista(agora)', $this->corpoDaFuncao('function atualizarAvisoDoDia('));
     }
 
     private function tela(): string

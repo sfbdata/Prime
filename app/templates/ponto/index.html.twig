@@ -545,8 +545,10 @@
         // Sem meta (feriado, dia fora da escala), sem previsão nem lembrete de saída, antes ou depois do repouso. Antes
         // do repouso batido, a conta do sistema: entrada + duração da escala de hoje, com o almoço da escala (a 1h do
         // protótipo é valor de exemplo). Depois do repouso: entrada + meta do dia + intervalo, o batido se houver;
-        // senão o mínimo da Jornada do escritório, só quando a escala tem almoço (duração maior que a meta).
-        function saidaPrevista() {
+        // senão o mínimo da Jornada do escritório, só quando a escala tem almoço (duração maior que a meta). Em repouso
+        // (decisão do Coordenador de 09/11/2026), o maior entre o intervalo já feito até `agora` e esse previsto: com 1h05
+        // de intervalo e mínimo de 1h, a saída anda 5 min. Quem chama no repouso passa `agora`, a cada tique do relógio.
+        function saidaPrevista(agora) {
             if (!tEntrada || metaDiaMinutos <= 0) return null;
             if (!tRepouso) {
                 return duracaoMinutos === null ? null : new Date(tEntrada.getTime() + duracaoMinutos * 60000);
@@ -555,6 +557,8 @@
             let intervaloMs = escalaTemIntervalo ? intervaloPrevistoMinutos * 60000 : 0;
             if (tRepouso && tRetorno && tRetorno > tRepouso) {
                 intervaloMs = tRetorno - tRepouso;
+            } else if (agora && !tRetorno && !tSaida) {
+                intervaloMs = Math.max(intervaloMs, agora - tRepouso);
             }
 
             return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + intervaloMs);
@@ -592,7 +596,7 @@
             if (tRepouso && !tRetorno && !tSaida) {
                 const decorrido = Math.max(0, Math.floor((agora - tRepouso) / 1000));
                 const emIntervaloHa = formatarTempo(decorrido);
-                const previstaNoRepouso = saidaPrevista();
+                const previstaNoRepouso = saidaPrevista(agora);
                 const saida = previstaNoRepouso ? ' Saída prevista às ' + formatarHoraDoDia(previstaNoRepouso) + '.' : '';
                 if (minimoRepousoMinutos <= 0) {
                     mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento há ' + emIntervaloHa + '.' + saida);
