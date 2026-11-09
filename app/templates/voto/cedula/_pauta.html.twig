@@ -1,0 +1,56 @@
+{#
+    Cartão de uma pauta na cédula (desenho 18, L147-153): nome 19px, descrição, chip do status, linha de detalhes, a
+    mensagem do estado (13.5px bold, cor e ícone do desenho) e, conforme o estado, as opções (aberta) ou o resultado
+    (encerrada). Recebe `pauta` (PautaNaCedulaOutput), `cedula` (CedulaOutput) e `token`.
+
+    Mensagem, na ordem do desenho: já votou (verde, check) > prazo correndo (âmbar) > inapta (vermelho) > aguardando
+    (azul). Pauta encerrada sem voto da unidade não tem mensagem: o resultado fala por ela.
+#}
+{%- set status = not cedula.assembleiaPublicada ? 'rascunho' : (pauta.aguardando() ? 'publicada' : (pauta.aberta() ? 'aberta' : 'encerrada')) -%}
+{%- set podeVotar = pauta.aberta() and cedula.apta and pauta.votouEm is null and pauta.opcoes is not empty -%}
+<div class="vC vcPauta" data-vc-pauta="{{ pauta.id }}" data-vc-estado="{{ status }}">
+    <div class="vcPautaIn">
+        <div class="vcPautaTopo">
+            <div class="vcPautaNome">
+                <b>{{ pauta.titulo }}</b>
+                {% if pauta.descricao %}<div class="vcPautaDesc">{{ pauta.descricao }}</div>{% endif %}
+            </div>
+            <span class="vChip vcChip-{{ status }}">{{ ('voto.assembleia.cedula.status.' ~ status)|trans }}</span>
+        </div>
+        <div class="vcInfo">
+            <span><i class="bi bi-tags" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.modalidade'|trans }}</span>
+            <span><i class="bi bi-geo" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.grupos'|trans }}</span>
+        </div>
+
+        {% if pauta.votouEm is not null %}
+            <div class="vcMsg vcMsgVerde" data-vc-votou><i class="bi bi-check-circle-fill" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.ja_votou'|trans }} <span class="vcHora">{{ 'voto.assembleia.cedula.mensagem.hora'|trans({hora: pauta.votouEm|date('H:i')}) }}</span></div>
+        {% elseif pauta.aberta() and cedula.apta and pauta.segundosAtePrazo is not null %}
+            {%- set tempo = '%02d:%02d'|format(pauta.segundosAtePrazo // 60, pauta.segundosAtePrazo % 60) -%}
+            <div class="vcMsg vcMsgAmbar" data-vc-prazo="{{ pauta.segundosAtePrazo }}" data-vc-modelo="{{ 'voto.assembleia.cedula.mensagem.encerra_em'|trans({tempo: '{t}'}) }}"><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-vc-prazo-texto>{{ 'voto.assembleia.cedula.mensagem.encerra_em'|trans({tempo: tempo}) }}</span></div>
+        {% elseif not pauta.encerrada() and not cedula.apta %}
+            <div class="vcMsg vcMsgVermelho" data-vc-inapta><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.inapta'|trans }}</div>
+        {% elseif pauta.aguardando() %}
+            <div class="vcMsg vcMsgAzul" data-vc-aguardando><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.aguardando'|trans }}</div>
+        {% endif %}
+
+        {% if podeVotar %}
+            <form class="vcVotar" method="post" action="{{ path('voto_assembleia_cedula_votar', {token: token, pauta: pauta.id}) }}" data-vc-votar data-vc-pauta-titulo="{{ pauta.titulo }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('voto_cedula_' ~ token) }}">
+                <div class="vcDica">{{ 'voto.assembleia.cedula.dica'|trans }}</div>
+                <div class="vcOpcoes" role="group" aria-label="{{ 'voto.assembleia.cedula.opcoes'|trans }}">
+                    {% for opcao in pauta.opcoes %}
+                        {% if opcao.abstencao %}
+                            <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao vcOpcaoAbstencao" data-vc-escolha="{{ 'voto.assembleia.cedula.abstencao'|trans }}">{{ 'voto.assembleia.cedula.abstencao'|trans }}</button>
+                        {% else %}
+                            <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao" data-vc-escolha="{{ opcao.numero }} {{ opcao.rotulo }}"><b>{{ opcao.numero }}</b> {{ opcao.rotulo }}</button>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </form>
+        {% endif %}
+
+        {% if pauta.resultado is not null %}
+            {% include 'voto/cedula/_resultado.html.twig' with {pauta: pauta, resultado: pauta.resultado, porFracao: cedula.porFracao} only %}
+        {% endif %}
+    </div>
+</div>

@@ -32,6 +32,13 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 minute'
+        # Cédula da assembleia de condomínio (`/votar/{token}`, sem login): chave = IP, e só o link INVÁLIDO consome
+        # (404). Freia a varredura de tokens; o link válido não passa por aqui, porque na assembleia presencial muitos
+        # moradores votam pelo mesmo wi-fi.
+        voto_cedula_invalido:
+            policy: sliding_window
+            limit: 20
+            interval: '1 minute'
         convite_criar:
             policy: sliding_window
             limit: 10

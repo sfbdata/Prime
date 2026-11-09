@@ -1,0 +1,8 @@
+{% extends 'voto/cedula/_layout.html.twig' %}
+
+{# Link sem cédula (404) ou limitador estourado (429): textos de erro do desenho 18 ("Link inválido ou eleição
+   indisponível.", "Muitas consultas. Tente novamente em alguns minutos."), em vermelho como os erros do portal. #}
+
+{% block conteudo %}
+    <div class="vC vcErro" data-vc-indisponivel>{{ (limite ? 'voto.assembleia.cedula.limite' : 'voto.assembleia.cedula.indisponivel')|trans }}</div>
+{% endblock %}

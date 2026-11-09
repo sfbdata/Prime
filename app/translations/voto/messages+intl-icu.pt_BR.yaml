@@ -19,3 +19,45 @@ voto:
         vazio: Nenhuma votação publicada.
     recusa:
         nao_liberado: O BlueJus Voto ainda não foi liberado para este escritório.
+    # ---- Cédula da assembleia de condomínio (frente F3, /votar/{token}): portal do eleitor do desenho 18 (§4 do
+    # insumo docs/specs/voto-assembleia-desenho.md) e textos do contrato docs/specs/voto-assembleia-condominio.md.
+    # Chave com ponto de propósito: vira voto.assembleia.cedula.* sem abrir um segundo `assembleia:` neste arquivo.
+    assembleia.cedula:
+        titulo_pagina: Votação da assembleia
+        portal: Portal do Eleitor
+        titulo: Voto
+        aviso_sigilo: 'Seu voto é secreto: o sistema registra que a unidade votou, mas não em quê.'
+        unidade: Unidade
+        nao_apto: Não apto(a)
+        vazio: Nenhuma votação disponível para o seu cadastro. Se você deveria constar na lista, procure a comissão responsável.
+        status:
+            rascunho: Rascunho
+            publicada: Publicada
+            aberta: Votação aberta
+            encerrada: Encerrada
+        modalidade: Condomínio · Pautas de assembleia
+        grupos: Todos os grupos
+        mensagem:
+            aguardando: A votação desta pauta ainda não foi aberta.
+            inapta: Sua unidade não está apta a votar nesta assembleia.
+            ja_votou: Você já votou nesta pauta.
+            hora: 'Registrado às {hora}.'
+            encerra_em: 'Encerra em {tempo}.'
+        dica: 'Escolha uma opção. Para se abster, escolha ABSTENÇÃO.'
+        abstencao: ABSTENÇÃO
+        opcoes: Opções da pauta
+        confirmar:
+            titulo: Confirme seu voto
+            rotulo: SEU VOTO PARA
+            fechar: Fechar
+            corrigir: Corrigir
+            confirmar: Confirmar voto
+        resultado:
+            un: '{unidades} un · {peso}'
+            abstencoes: 'Abstenções {abstencoes} · Nulos 0'
+            decidido: 'Resultado: {numero} {rotulo}'
+        toast:
+            registrado: Voto registrado.
+            expirada: A página expirou. Escolha de novo e confirme o voto.
+        indisponivel: Link inválido ou eleição indisponível.
+        limite: Muitas consultas. Tente novamente em alguns minutos.

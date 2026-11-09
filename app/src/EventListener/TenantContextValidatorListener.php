@@ -70,6 +70,9 @@ final class TenantContextValidatorListener
         'push_compartilhado',
         'push_compartilhado_codigo',
         'push_compartilhado_renovacao',
+        // Cédula da assembleia de condomínio (Voto): página pública do morador, não depende de termo nem de escritório.
+        'voto_assembleia_cedula',
+        'voto_assembleia_cedula_votar',
         // Página pública de vagas: sem login por desenho; quem está logado lê igual a quem não está.
         'trabalho_externo_vagas_publicas',
         'trabalho_externo_vagas_link',
