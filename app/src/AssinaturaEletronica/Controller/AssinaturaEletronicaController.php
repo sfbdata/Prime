@@ -37,6 +37,11 @@ final class AssinaturaEletronicaController extends AbstractController
         'arquivo' => true,
         'logo' => true,
         'logo_padrao' => false,
+        // Etapa 4 (contrato da etapa 4, seção 4): modelos do escritório.
+        'modelos' => false,
+        'modelo_criar' => false,
+        'modelo_salvar' => true,
+        'modelo_excluir' => true,
     ];
 
     public function __construct(
