@@ -1534,7 +1534,7 @@ final class TenantController extends AbstractController
         $pendentes   = $this->semBatidaNoFuturo($encontradas, $registrarBatidaDoEsquecimento);
         if (empty($pendentes)) {
             if ($encontradas === []) {   // lote todo no futuro não cai aqui: o aviso de horário futuro já saiu
-                $this->addFlash('warning', 'Nenhuma justificativa em análise encontrada neste lote.');
+                $this->addFlash('warning', self::textoDoLoteSemPendente());
             }
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
@@ -1615,10 +1615,7 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getTipo() === 'esquecimento_registro' && $statusAnterior === 'abonado') {
-            $this->addFlash('warning', sprintf(
-                'Justificativa de %s revertida para pendente. Atenção: o registro de ponto criado automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.',
-                $justificativa->getData()?->format('d/m/Y')
-            ));
+            $this->addFlash('warning', self::textoDoReverterComBatida((string) $justificativa->getData()?->format('d/m/Y')));
         } else {
             $this->addFlash('success', NomesDasSituacoesDaJustificativa::texto('reverter.feito', (string) $justificativa->getData()?->format('d/m/Y')));
         }
@@ -1630,6 +1627,22 @@ final class TenantController extends AbstractController
         ]);
     }
 
+    /**
+     * Os dois textos da análise que ainda moram aqui e trocam na integração da E3 por chaves de
+     * NomesDasSituacoesDaJustificativa (criadas pela outra sessão): cada troca é a linha do `return`.
+     *
+     * "Aprovar todos" sem nenhuma em análise; troca prevista: `texto('lote.sem_pendente')`.
+     */
+    private static function textoDoLoteSemPendente(): string
+    {
+        return 'Nenhuma justificativa em análise encontrada neste lote.';
+    }
+
+    /** Voltar para análise um esquecimento abonado; troca prevista: `texto('reverter.feito_com_batida', $data)`. */
+    private static function textoDoReverterComBatida(string $data): string
+    {
+        return sprintf('Justificativa de %s revertida para pendente. Atenção: o registro de ponto criado automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.', $data);
+    }
 
     /**
      * Data do lote do admin que não entra: data futura (por data, não por instante, porque o
