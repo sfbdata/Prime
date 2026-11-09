@@ -234,9 +234,9 @@ final class PontoController extends AbstractController
             'quantasHoje' => $quantasHoje,
             'saldoMes' => $saldoMes,
             'horasPagasMinutos' => $horasPagasMinutos,
-            // Bloco de totais do rodapé da folha (spec §7). Vem pronto do controller de propósito:
-            // no Twig, "último saldoAcumulado não-nulo" viraria laço com estado dentro do template.
-            'saldoMesMinutos' => $folhaPontoBuilder->saldoAcumuladoFinal($folhaRows),
+            // Bloco de totais do rodapé da folha (spec §7): a conta do banco para a competência, sem as horas pagas (que
+            // somam à parte). A última linha não serve: a /ponto esconde os dias sem batida e eles contam (E17).
+            'saldoMesMinutos' => ($bancoDeHoras->saldosPorCompetencia[$competenciaSelecionada] ?? 0) - $horasPagasMinutos,
             'jornadaInfo' => $jornadaInfo,
             'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
             'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,
@@ -1162,10 +1162,10 @@ final class PontoController extends AbstractController
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
         // Cada dia usa a versão da jornada que valia nele; o cabeçalho, a do último dia do mês (spec ponto-jornada-vigencia §3.2).
-        $historico = $this->jornadas->historicoDe($targetUser, $tenant);
-        $jornada   = $historico?->vigenteEm($fimMes);
+        // As linhas usam a jornada da folha da /ponto e do banco (E17): sem versão no dia, a do escritório.
+        $jornada   = $this->jornadas->historicoDe($targetUser, $tenant)?->vigenteEm($fimMes);
         $inicioContagemPdf = $this->inicioContagemResolver->resolver($targetUser, $tenant);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $historico, $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioContagemPdf);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $folhaPontoBuilder->jornadaDaFolha($targetUser, $tenant), $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioContagemPdf);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -1248,10 +1248,10 @@ final class PontoController extends AbstractController
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
         // Cada dia usa a versão da jornada que valia nele; o cabeçalho, a do último dia do mês (spec ponto-jornada-vigencia §3.2).
-        $historico = $this->jornadas->historicoDe($targetUser, $tenant);
-        $jornada   = $historico?->vigenteEm($fimMes);
+        // As linhas usam a jornada da folha da /ponto e do banco (E17): sem versão no dia, a do escritório.
+        $jornada   = $this->jornadas->historicoDe($targetUser, $tenant)?->vigenteEm($fimMes);
         $inicioContagemXlsx = $this->inicioContagemResolver->resolver($targetUser, $tenant);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $historico, $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioContagemXlsx);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $folhaPontoBuilder->jornadaDaFolha($targetUser, $tenant), $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioContagemXlsx);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {

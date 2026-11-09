@@ -58,7 +58,7 @@ final class BancoDeHorasPorLotes
         $limite = $this->limites->limiteEmMinutos($tenant);
         $prazo = $this->limites->prazoEmMeses($tenant);
 
-        return new BancoDeHorasOutput($saldoAtual, $limite, $prazo, $saldoAtual > $limite, $this->lotes($saldos, $prazo, $dia));
+        return new BancoDeHorasOutput($saldoAtual, $limite, $prazo, $saldoAtual > $limite, $this->lotes($saldos, $prazo, $dia), $saldos);
     }
 
     /**

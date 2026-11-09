@@ -251,9 +251,9 @@ class FolhaPontoBuilder
      * Atenção ao escopo: é o saldo DAQUELE MÊS, não o banco acumulado — `buildRows` faz o
      * `saldoAcumulado` nascer em zero no primeiro dia do intervalo pedido.
      *
-     * Mora aqui, e não em cada controller, porque as DUAS telas que incluem
-     * `ponto/_folha_table.html.twig` (o `/ponto` do colaborador e a ficha do admin) precisam do
-     * mesmo número; duplicar a varredura nos dois convidaria as duas telas a divergirem.
+     * Mora aqui, e não em cada controller, porque a ficha do admin, o PDF e o XLSX (todos os dias na
+     * folha) e o banco precisam do mesmo número. A `/ponto` esconde os dias sem batida, então a última
+     * linha dela não é o mês: o total dela sai do banco (`BancoDeHorasOutput::saldosPorCompetencia`, E17).
      *
      * @param array<int, array<string, mixed>> $rows linhas de `buildRows()`
      */
