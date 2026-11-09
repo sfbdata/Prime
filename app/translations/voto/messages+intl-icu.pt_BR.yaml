@@ -140,6 +140,7 @@ voto:
                 novo_link: Novo link gerado. O anterior deixou de valer.
                 sessao_expirada: A sessão expirou. Recarregue a página e tente de novo.
                 falha_ao_salvar: Não foi possível salvar. Confira a conexão e tente de novo.
+                repetir_sem_a_pauta: Corrija a pauta ou repita o clique para seguir sem salvá-la.
                 link_copiado: Link copiado.
                 mensagem_copiada: Mensagem copiada.
             unidades:

@@ -6,9 +6,10 @@
    - "Candidatura" acrescenta uma linha de opção; a lixeira da linha a tira; "Outro cargo ou pauta" mostra o
      formulário da pauta nova;
    - pautas em rascunho (etapa 4 do desenho): ficam em edição juntas e nada se perde entre elas. O "Nº" só aceita
-     algarismo; o "Salvar" de uma pauta que já existe grava por fetch, sem recarregar; antes de qualquer ação que
-     recarrega ou sai da tela (atalho, pauta nova, remover, rodapé, abas), grava as pautas alteradas e, se uma
-     falhar, mostra o erro e fica na tela com tudo o que foi digitado;
+     algarismo (digitado ou colado); o "Salvar" de uma pauta grava por fetch, sem recarregar (a nova recarrega só
+     depois de gravada); antes de uma ação que recarrega ou sai da tela (atalho, remover, rodapé, abas), grava as
+     pautas alteradas e, se uma falhar, mostra o erro acima do rodapé e fica na tela com tudo o que foi digitado
+     (repetir a ação segue sem a pauta recusada); fora da tela, o aviso do navegador;
    - "Assistir" abre a página própria num pop-up de 620x560 (se o navegador bloquear, segue o link em outra aba);
    - "Imprimir" na ata. */
 (function () {
@@ -120,44 +121,63 @@
         Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
     }
 
-    /* Pautas em rascunho. `telaDePautas` é a caixa da etapa 4 ([data-voto-pautas]); fora dela nada disto roda. */
+    /* Pautas em rascunho. `telaDePautas` é a caixa da etapa 4 ([data-voto-pautas]); fora dela nada disto roda.
+       `gravando`: há gravação por fetch em curso. `saindo`: a página já vai ser trocada (barra o segundo envio e o
+       aviso do navegador). */
     var telaDePautas = null;
     var gravando = false;
+    var saindo = false;
 
     function formsDePauta() {
         return Array.prototype.slice.call(document.querySelectorAll('form[data-voto-pauta-form]'));
     }
 
-    /* O que a pessoa digitou na pauta (título, descrição e as linhas de opção, na ordem), sem o token. */
-    function retrato(form) {
+    /* O que está na pauta (título, descrição e as linhas de opção, na ordem), sem o token. Com `doServidor`, usa o
+       valor que veio na página (defaultValue), não o que o navegador possa ter restaurado no F5. */
+    function retrato(form, doServidor) {
         var partes = [];
         Array.prototype.forEach.call(form.elements, function (campo) {
             if (campo.name && campo.name !== '_token' && (campo.tagName === 'INPUT' || campo.tagName === 'TEXTAREA')) {
-                partes.push([campo.name, campo.value]);
+                partes.push([campo.name, doServidor ? campo.defaultValue : campo.value]);
             }
         });
         return JSON.stringify(partes);
     }
 
-    function alterada(form) {
-        return retrato(form) !== form.getAttribute('data-voto-retrato');
+    /* Alterada e ainda não recusada do jeito que está: a pauta que o servidor recusou é avisada uma vez; repetir a
+       ação segue sem ela (a pessoa não fica presa na tela). A pauta nova escondida nunca conta. */
+    function pendente(form) {
+        var atual = retrato(form, false);
+        return !form.hidden && atual !== form.getAttribute('data-voto-retrato') && atual !== form.getAttribute('data-voto-recusada');
     }
 
     function pendentes(exceto) {
         return formsDePauta().filter(function (form) {
-            return exceto.indexOf(form) === -1 && alterada(form);
+            return exceto.indexOf(form) === -1 && pendente(form);
         });
     }
 
-    function textoDeFalha() {
-        return telaDePautas ? telaDePautas.getAttribute('data-voto-falha') || '' : '';
+    function texto(atributo) {
+        return telaDePautas ? telaDePautas.getAttribute(atributo) || '' : '';
     }
 
-    /* Grava uma pauta por fetch. Resolve com {ok, mensagem}; falha de rede ou resposta estranha vira o texto de
-       falha. Só marca a pauta como gravada com o que foi enviado (o que for digitado durante o envio continua
-       pendente). */
+    /* O erro da etapa (edErro do desenho, L226): texto fixo acima do rodapé. */
+    function mostrarErro(mensagem) {
+        var caixa = telaDePautas ? telaDePautas.querySelector('[data-voto-erro]') : null;
+        if (!caixa) {
+            avisar(mensagem, true);
+            return;
+        }
+        caixa.textContent = mensagem;
+        caixa.hidden = mensagem === '';
+    }
+
+    /* Grava uma pauta por fetch. Resolve com {ok, mensagem, enviado}: a mensagem do servidor, a do login vencido
+       (401 com `erro`) ou, sem resposta legível, o texto de falha. Só marca como gravado o que foi enviado (o que
+       for digitado durante o envio continua pendente). */
     function gravar(form) {
-        var enviado = retrato(form);
+        var enviado = retrato(form, false);
+        gravando = true;
         return window.fetch(form.action, {
             method: 'POST',
             body: new FormData(form),
@@ -166,37 +186,54 @@
         }).then(function (resposta) {
             return resposta.json();
         }).then(function (dados) {
-            if (!dados || typeof dados.mensagem !== 'string') {
+            var mensagem = dados && typeof dados.mensagem === 'string' ? dados.mensagem : (dados && typeof dados.erro === 'string' ? dados.erro : null);
+            if (mensagem === null) {
                 throw new Error('resposta sem mensagem');
             }
-            if (dados.ok) {
+            var ok = dados.ok === true;
+            if (ok) {
                 form.setAttribute('data-voto-retrato', enviado);
             }
-            return { ok: !!dados.ok, mensagem: dados.mensagem };
+            return { ok: ok, mensagem: mensagem, enviado: enviado };
         }).catch(function () {
-            return { ok: false, mensagem: textoDeFalha() };
+            return { ok: false, mensagem: texto('data-voto-falha'), enviado: enviado };
+        }).then(function (resultado) {
+            gravando = false;
+            return resultado;
         });
     }
 
-    /* Grava, uma de cada vez, as pautas alteradas (menos as de `exceto`). As que já existem vão antes e a nova por
-       último: se uma falhar, a nova não é criada e o "Salvar" dela não a duplica. Resolve com a mensagem do erro
-       ou null. */
-    function gravarPendentes(exceto) {
-        var lista = pendentes(exceto).sort(function (a, b) {
+    /* Grava, uma de cada vez, as pautas pendentes (menos as de `exceto`) e, por último, as de `tambem`. As que já
+       existem vão antes e a nova por último: se uma falhar, a nova não é criada. Resolve com null ou com a pauta
+       que falhou e a mensagem. */
+    function gravarPendentes(exceto, tambem) {
+        var lista = pendentes(exceto.concat(tambem)).sort(function (a, b) {
             return (a.getAttribute('data-voto-pauta-form') === 'nova' ? 1 : 0) - (b.getAttribute('data-voto-pauta-form') === 'nova' ? 1 : 0);
-        });
-        gravando = true;
+        }).concat(tambem);
         return lista.reduce(function (cadeia, form) {
             return cadeia.then(function (falha) {
                 if (falha !== null) {
                     return falha;
                 }
-                return gravar(form).then(function (dados) { return dados.ok ? null : dados.mensagem; });
+                return gravar(form).then(function (dados) { return dados.ok ? null : { form: form, mensagem: dados.mensagem, enviado: dados.enviado }; });
             });
-        }, Promise.resolve(null)).then(function (falha) {
-            gravando = false;
-            return falha;
-        });
+        }, Promise.resolve(null));
+    }
+
+    /* A pauta que falhou: o erro fixo, com o convite a corrigir ou repetir, e o foco no primeiro campo dela. Do jeito
+       que está, ela fica marcada como recusada: repetir a ação segue sem ela. */
+    function mostrarFalha(falha) {
+        falha.form.setAttribute('data-voto-recusada', falha.enviado);
+        mostrarErro(falha.mensagem + ' ' + texto('data-voto-repetir'));
+        var campo = falha.form.querySelector('input:not([type="hidden"]), textarea');
+        if (campo) {
+            campo.focus();
+        }
+    }
+
+    function sair(acao) {
+        saindo = true;
+        acao();
     }
 
     function enviarDeNovo(form, botao) {
@@ -216,9 +253,11 @@
             campo.value = botao.value;
             form.appendChild(campo);
         }
+        saindo = true;
         form.submit();
     }
 
+    /* "Salvar" de uma pauta que já existe: grava sem recarregar e mostra o toast. */
     function salvarSemRecarregar(form, botao) {
         if (botao) {
             botao.disabled = true;
@@ -227,45 +266,125 @@
             if (botao) {
                 botao.disabled = false;
             }
+            if (dados.ok) {
+                mostrarErro('');
+            }
             avisar(dados.mensagem, !dados.ok);
         });
+    }
+
+    /* "Salvar" da pauta nova: grava as outras pendentes e a nova por fetch; com tudo certo, recarrega para a nova
+       aparecer com as outras (o toast vai junto); com erro, nada do que foi digitado se perde. */
+    function incluirPautaNova(form, botao) {
+        if (botao) {
+            botao.disabled = true;
+        }
+        gravarPendentes([], [form]).then(function (falha) {
+            if (botao) {
+                botao.disabled = false;
+            }
+            if (falha !== null) {
+                if (falha.form === form) {
+                    avisar(falha.mensagem, true);
+                } else {
+                    mostrarFalha(falha);
+                }
+                return;
+            }
+            guardarAviso(texto('data-voto-incluida'));
+            sair(function () { window.location.assign(form.action); });
+        });
+    }
+
+    /* O toast que aparece depois de recarregar (a resposta do fetch não passa pela sessão). */
+    function guardarAviso(mensagem) {
+        try {
+            window.sessionStorage.setItem('voto-aviso', mensagem);
+        } catch (e) {
+            // sem armazenamento: segue sem o toast
+        }
+    }
+
+    function avisoGuardado() {
+        try {
+            var mensagem = window.sessionStorage.getItem('voto-aviso');
+            window.sessionStorage.removeItem('voto-aviso');
+            return mensagem;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function soAlgarismos(campo, valor) {
+        var limpo = valor.replace(/\D/g, '');
+        return campo.maxLength > 0 ? limpo.slice(0, campo.maxLength) : limpo;
     }
 
     document.addEventListener('input', function (evento) {
         var campo = evento.target;
         if (campo && campo.hasAttribute && campo.hasAttribute('data-voto-numero')) {
-            var limpo = campo.value.replace(/\D/g, '');
+            var limpo = soAlgarismos(campo, campo.value);
             if (limpo !== campo.value) {
                 campo.value = limpo;
             }
         }
     });
 
-    document.addEventListener('submit', function (evento) {
-        var form = evento.target;
-        if (!telaDePautas || !form.closest || !form.closest('.voto-tela') || form.hasAttribute('data-voto-liberado')) {
+    /* Colar no Nº: o maxlength cortaria o texto antes do filtro ("a1" viraria "a" e depois nada). */
+    document.addEventListener('paste', function (evento) {
+        var campo = evento.target;
+        if (!campo || !campo.hasAttribute || !campo.hasAttribute('data-voto-numero')) {
             return;
         }
-        if (gravando) {
-            evento.preventDefault();
-            return;
-        }
-        var botao = evento.submitter || null;
-        if (form.getAttribute('data-voto-pauta-form') === 'existente') {
-            evento.preventDefault();
-            salvarSemRecarregar(form, botao);
-            return;
-        }
-        // A pauta que vai ser removida não é gravada antes.
-        var bloco = form.closest('.voto-pauta-bloco');
-        var exceto = [form].concat(bloco ? Array.prototype.slice.call(bloco.querySelectorAll('form[data-voto-pauta-form]')) : []);
-        if (pendentes(exceto).length === 0) {
+        var dados = evento.clipboardData || window.clipboardData;
+        if (!dados) {
             return;
         }
         evento.preventDefault();
-        gravarPendentes(exceto).then(function (falha) {
+        var limpo = soAlgarismos(campo, dados.getData('text') || '');
+        if (limpo !== '') {
+            campo.value = limpo;
+        }
+    });
+
+    document.addEventListener('submit', function (evento) {
+        var form = evento.target;
+        if (!telaDePautas || !form.closest || !form.closest('.voto-tela')) {
+            return;
+        }
+        if (form.hasAttribute('data-voto-liberado')) {
+            form.removeAttribute('data-voto-liberado');
+            saindo = true;
+            return;
+        }
+        if (gravando || saindo) {
+            evento.preventDefault();
+            return;
+        }
+        // Sem `submitter` (navegador antigo), o botão com nome do form (o do atalho) leva o valor.
+        var botao = evento.submitter || form.querySelector('button[type="submit"][name]');
+        var tipo = form.getAttribute('data-voto-pauta-form');
+        if (tipo === 'existente' || tipo === 'nova') {
+            evento.preventDefault();
+            if (tipo === 'existente') {
+                salvarSemRecarregar(form, botao);
+            } else {
+                incluirPautaNova(form, botao);
+            }
+            return;
+        }
+        // Atalho e remover: grava antes as pautas pendentes (a que vai ser removida, não).
+        var bloco = form.closest('.voto-pauta-bloco');
+        var exceto = [form].concat(bloco ? Array.prototype.slice.call(bloco.querySelectorAll('form[data-voto-pauta-form]')) : []);
+        if (pendentes(exceto).length === 0) {
+            saindo = true;
+            return;
+        }
+        evento.preventDefault();
+        mostrarErro('');
+        gravarPendentes(exceto, []).then(function (falha) {
             if (falha !== null) {
-                avisar(falha, true);
+                mostrarFalha(falha);
                 return;
             }
             enviarDeNovo(form, botao);
@@ -281,21 +400,37 @@
         if ((link.target && link.target !== '_self') || link.hasAttribute('download') || (link.getAttribute('href') || '').charAt(0) === '#') {
             return;
         }
-        if (gravando) {
+        if (gravando || saindo) {
             evento.preventDefault();
             return;
         }
         if (pendentes([]).length === 0) {
+            saindo = true;
             return;
         }
         evento.preventDefault();
-        gravarPendentes([]).then(function (falha) {
+        mostrarErro('');
+        gravarPendentes([], []).then(function (falha) {
             if (falha !== null) {
-                avisar(falha, true);
+                mostrarFalha(falha);
                 return;
             }
-            window.location.href = link.href;
+            sair(function () { window.location.href = link.href; });
         });
+    });
+
+    /* Fora da tela (menu lateral, topo, F5, Voltar do navegador): o aviso do navegador, como no editor do blog. */
+    window.addEventListener('beforeunload', function (evento) {
+        if (!telaDePautas || saindo || pendentes([]).length === 0) {
+            return;
+        }
+        evento.preventDefault();
+        evento.returnValue = '';
+    });
+
+    /* Voltar pelo histórico com a página guardada (bfcache): a tela volta a aceitar ações. */
+    window.addEventListener('pageshow', function () {
+        saindo = false;
     });
 
     document.addEventListener('click', function (evento) {
@@ -334,7 +469,11 @@
         Array.prototype.forEach.call(document.querySelectorAll('[data-voto-prazo]'), iniciarCronometro);
         telaDePautas = document.querySelector('[data-voto-pautas]');
         if (telaDePautas) {
-            formsDePauta().forEach(function (form) { form.setAttribute('data-voto-retrato', retrato(form)); });
+            formsDePauta().forEach(function (form) { form.setAttribute('data-voto-retrato', retrato(form, true)); });
+            var aviso = avisoGuardado();
+            if (aviso) {
+                avisar(aviso, false);
+            }
         }
     }
 

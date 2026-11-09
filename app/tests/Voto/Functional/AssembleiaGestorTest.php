@@ -441,6 +441,12 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $caixa = $tela->filter('.voto-tela .voto-assistente[data-voto-pautas]');
         self::assertCount(1, $caixa);
         self::assertSame('Não foi possível salvar. Confira a conexão e tente de novo.', $caixa->attr('data-voto-falha'));
+        self::assertSame('Corrija a pauta ou repita o clique para seguir sem salvá-la.', $caixa->attr('data-voto-repetir'));
+        self::assertSame('Pauta incluída.', $caixa->attr('data-voto-incluida'));
+        $erro = $caixa->filter('.voto-assistente-corpo > .voto-erro[data-voto-erro][role="alert"]');
+        self::assertCount(1, $erro, 'o erro da etapa (edErro do desenho) mora no corpo do assistente');
+        self::assertNotNull($erro->attr('hidden'), 'começa escondido');
+        self::assertCount(1, $caixa->filter('.voto-assistente-corpo > .voto-erro[data-voto-erro] + .voto-rodape'), 'logo acima do rodapé, como no desenho');
         self::assertCount(1, $caixa->filter('.voto-assistente-corpo > .voto-pauta-bloco > form#pauta-' . $pauta->getId() . '[data-voto-pauta-form="existente"]'), 'a pauta que já existe grava por fetch');
         self::assertCount(1, $caixa->filter('.voto-assistente-corpo > form#pauta-nova[data-voto-pauta-form="nova"]'), 'a pauta nova é gravada antes de sair');
         $numeros = $caixa->filter('form[data-voto-pauta-form] .voto-opcao > input[name="opcao_numero[]"]');
@@ -514,6 +520,24 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $pautas = $this->pautasDa((int) $assembleia->getId());
         self::assertCount(1, $pautas);
         self::assertSame([[0, 'Abstenção'], [1, 'Sim'], [2, 'Não']], $this->opcoesNoBanco($pautas[0]));
+    }
+
+    #[TestDox('Remover a pauta por fetch responde JSON e remove só ela')]
+    public function testRemoverPautaPorFetchRespondeJson(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $fica = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia, 'ordem' => 1])->comOpcoesPadrao()->create()->_real();
+        $sai = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia, 'ordem' => 2, 'titulo' => 'Obra'])->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-nova input[name="_token"]')->attr('value');
+
+        $this->client->xmlHttpRequest('POST', $url . '/' . $sai->getId() . '/remover', ['_token' => $token]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true, 'mensagem' => 'Pauta removida.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame([(int) $fica->getId()], $this->pautasDa((int) $assembleia->getId()));
     }
 
     #[TestDox('Sessão expirada no salvar por fetch: 422 com o aviso, e a pauta não muda')]
