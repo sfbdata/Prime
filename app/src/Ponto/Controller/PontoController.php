@@ -747,7 +747,7 @@ final class PontoController extends AbstractController
         // a batida entra sem GPS nem sede. O resolver reautoriza sempre no servidor.
         $homeOfficeHoje = $homeOfficeResolver->estaLiberado($user, $tenant, $hoje);
         // Geolocalização desligada (E7: o Master ou o escritório): sem cerca e sem sede, e a batida NÃO vira home
-        // office. A posição, se vier, fica gravada (gravarPosicaoSemCerca).
+        // office. A posição que vier é descartada, como no home office: o escritório escolheu não usar localização.
         $cercaVale = !$homeOfficeHoje && $funcoes->vale(FuncoesDoPonto::GEO, $tenant);
 
         $sedeEncontrada = null;
@@ -875,8 +875,6 @@ final class PontoController extends AbstractController
             $registro->setLatitude((string) $latitudeFloat);
             $registro->setLongitude((string) $longitudeFloat);
             $registro->setPrecisaoGps((string) $precisaoGpsFloat);
-        } elseif (!$homeOfficeHoje) {
-            $this->gravarPosicaoSemCerca($registro, $latitude, $longitude, $precisaoGps);
         }
 
         $entityManager->persist($registro);
@@ -897,28 +895,6 @@ final class PontoController extends AbstractController
             'data'    => $dados,
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);
-    }
-
-    /**
-     * Geolocalização desligada (E7): a posição não é exigida nem confere cerca, mas a que vier válida fica no registro
-     * (latitude e longitude na faixa; a precisão só se for positiva). Posição inválida é ignorada, sem recusar a batida.
-     */
-    private function gravarPosicaoSemCerca(RegistroPonto $registro, mixed $latitude, mixed $longitude, mixed $precisaoGps): void
-    {
-        if (!is_numeric($latitude) || !is_numeric($longitude)) {
-            return;
-        }
-        $lat = (float) $latitude;
-        $long = (float) $longitude;
-        if (!is_finite($lat) || !is_finite($long) || $lat < -90 || $lat > 90 || $long < -180 || $long > 180) {
-            return;
-        }
-
-        $registro->setLatitude((string) $lat);
-        $registro->setLongitude((string) $long);
-        if (is_numeric($precisaoGps) && is_finite((float) $precisaoGps) && (float) $precisaoGps > 0) {
-            $registro->setPrecisaoGps((string) (float) $precisaoGps);
-        }
     }
 
     /**

@@ -59,12 +59,27 @@ final class FuncaoDoPontoController extends AbstractController
         try {
             $funcao = $this->alterar->executar($input);
         } catch (FuncaoDoPontoRecusadaException $e) {
-            $status = $e->motivo === FuncaoDoPontoRecusadaException::SEM_PERMISSAO ? Response::HTTP_FORBIDDEN : Response::HTTP_UNPROCESSABLE_ENTITY;
-
-            return $this->json(['erro' => $e->getMessage()], $status);
+            return $this->recusa($e);
         }
 
         return $this->json(['chave' => $funcao->chave, 'global' => $funcao->global, 'escritorio' => $funcao->escritorio]);
+    }
+
+    /**
+     * A recusa do caso de uso: 403 sem permissão, 422 nas outras. Travada pelo Master, a resposta leva `global: false`:
+     * o Master pode ter desligado o Global depois que a aba carregou, e a tela trava a chave do escritório na hora.
+     */
+    private function recusa(FuncaoDoPontoRecusadaException $e): JsonResponse
+    {
+        if ($e->motivo === FuncaoDoPontoRecusadaException::SEM_PERMISSAO) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
+        $corpo = ['erro' => $e->getMessage()];
+        if ($e->motivo === FuncaoDoPontoRecusadaException::TRAVADA_PELO_MASTER) {
+            $corpo['global'] = false;
+        }
+
+        return $this->json($corpo, Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     /** @return array<mixed> */

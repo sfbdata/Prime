@@ -4,7 +4,8 @@
  *
  * Funções (E7, templates/ponto/_config_funcoes.html.twig; desenho 16 L235 a L245, `tgG` e `tgE` na L761):
  * - a chave "Escritório" grava por POST em `data-config-escritorio`, com `{ligada}` (o token `ajax` vem do
- *   interceptador do base.html.twig). Travada (Global desligado), não responde;
+ *   interceptador do base.html.twig). Travada (Global desligado), não responde. Recusada porque o Master desligou o
+ *   Global depois que a aba carregou (422 com `global: false`), a chave trava na hora, com a frase da trava;
  * - a chave "Global", só do Master, chama a rota do catálogo do Master com `{ativo}` e o token `master_recursos`; ao
  *   voltar, trava ou destrava a do escritório e avisa como o desenho ("liberado/desativado para todos").
  * O servidor decide: a tela só redesenha o que a resposta trouxe. Falha vira a frase da linha, nunca silêncio.
@@ -43,6 +44,17 @@
         }
     }
 
+    // O servidor recusou porque o Global está desligado: trava a chave do escritório (a frase da trava, a mesma da
+    // recusa, aparece no lugar do erro, para não sair duas vezes) e, na tela do Master, mostra o Global desligado
+    // também. A linha fica igual à do servidor sem recarregar a aba.
+    function travarPeloGlobal(linha) {
+        const global = linha.querySelector('[data-config-global]');
+        if (global) {
+            global.setAttribute('aria-checked', 'false');
+        }
+        desenharEscritorio(linha, false);
+    }
+
     async function enviar(url, corpo, token) {
         const cabecalhos = { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
         if (token) {
@@ -65,7 +77,7 @@
                 dados = null;
             }
             if (!resposta.ok || !dados) {
-                return { ok: false, erro: dados && typeof dados.erro === 'string' ? dados.erro : TEXTO_FALHA };
+                return { ok: false, erro: dados && typeof dados.erro === 'string' ? dados.erro : TEXTO_FALHA, dados: dados };
             }
 
             return { ok: true, dados: dados };
@@ -82,6 +94,11 @@
         mostrarErro(linha, '');
         const resultado = await enviar(botao.dataset.configEscritorio, { ligada: ligar }, null);
         botao.removeAttribute('aria-busy');
+        if (resultado.ok === false && resultado.dados && resultado.dados.global === false) {
+            travarPeloGlobal(linha);
+
+            return;
+        }
         if (!resultado.ok) {
             mostrarErro(linha, resultado.erro);
 

@@ -30,7 +30,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * A chave "Escritório" de uma função do Ponto (E7, P67): recusa sem a permissão, chave sem a camada e Global
- * desligado, sempre ANTES da transação; grava com quem e quando; a linha só nasce no primeiro salvamento que muda algo.
+ * desligado, sempre ANTES da transação; grava com quem e quando, sempre na linha que o repositório garantiu e travou
+ * (o UseCase nunca cria a linha: a corrida do primeiro salvamento é do banco, provada em LigaEDesligaDoPontoTest).
  */
 #[CoversClass(AlterarFuncaoDoPontoNoEscritorioUseCase::class)]
 #[CoversClass(AlterarFuncaoDoPontoInput::class)]
@@ -78,26 +79,22 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
         );
     }
 
-    #[TestDox('Primeiro salvamento: cria a linha do escritório da sessão com a chave, quem e quando, e grava')]
-    public function testPrimeiroSalvamentoCriaALinha(): void
+    #[TestDox('Primeiro salvamento: grava a chave, quem e quando na linha que o repositório garantiu e travou para o escritório da sessão')]
+    public function testPrimeiroSalvamentoGravaNaLinhaGarantida(): void
     {
         $this->emTransacaoRoda();
-        $this->configuracoes->method('doTenantTravado')->with($this->tenant)->willReturn(null);
-        $gravada = null;
-        $this->configuracoes->expects(self::once())->method('salvar')
-            ->with(self::callback(static function (ConfiguracaoDoPonto $c) use (&$gravada): bool {
-                $gravada = $c;
-
-                return true;
-            }), true);
+        $garantida = new ConfiguracaoDoPonto($this->tenant);   // como o INSERT ... ON CONFLICT a deixa: vazia
+        $this->configuracoes->expects(self::once())->method('garantidaETravada')
+            ->with($this->tenant, self::callback(static fn (\DateTimeImmutable $agora): bool => $agora->format('Y-m-d H:i:s') === '2026-11-09 10:00:00'))
+            ->willReturn($garantida);
+        $this->configuracoes->expects(self::once())->method('salvar')->with(self::identicalTo($garantida), true);
 
         $saida = $this->casoDeUso()->executar($this->pedido('ponto-geo', false));
 
-        self::assertInstanceOf(ConfiguracaoDoPonto::class, $gravada);
-        self::assertSame($this->tenant, $gravada->getTenant());
-        self::assertSame(['ponto-geo' => false], $gravada->getChaves());
-        self::assertSame($this->quem, $gravada->getAtualizadoPor());
-        self::assertSame('2026-11-09 10:00:00', $gravada->getAtualizadoEm()->format('Y-m-d H:i:s'));
+        self::assertSame($this->tenant, $garantida->getTenant());
+        self::assertSame(['ponto-geo' => false], $garantida->getChaves());
+        self::assertSame($this->quem, $garantida->getAtualizadoPor());
+        self::assertSame('2026-11-09 10:00:00', $garantida->getAtualizadoEm()->format('Y-m-d H:i:s'));
         self::assertSame(['ponto-geo', true, false], [$saida->chave, $saida->global, $saida->escritorio]);
         self::assertSame('Geolocalização', $saida->titulo);
     }
@@ -108,7 +105,7 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
         $this->emTransacaoRoda();
         $existente = new ConfiguracaoDoPonto($this->tenant);
         $existente->definir('ponto-geo', false, new User(), new \DateTimeImmutable('2026-11-01'));
-        $this->configuracoes->method('doTenantTravado')->willReturn($existente);
+        $this->configuracoes->method('garantidaETravada')->willReturn($existente);
         $this->configuracoes->expects(self::once())->method('salvar')->with($existente, true);
 
         $saida = $this->casoDeUso()->executar($this->pedido('ponto-geo', true));
@@ -118,17 +115,20 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
         self::assertTrue($saida->escritorio);
     }
 
-    #[TestDox('Ligar o que já vale ligado (sem linha) ou repetir o valor guardado: nada grava')]
+    #[TestDox('Ligar o que já vale ligado (linha recém-garantida, vazia) ou repetir o valor guardado: nada grava')]
     public function testSemMudancaNaoGrava(): void
     {
         $this->emTransacaoRoda();
+        $vazia = new ConfiguracaoDoPonto($this->tenant);
         $existente = new ConfiguracaoDoPonto($this->tenant);
         $existente->definir('ponto-geo', false, new User(), new \DateTimeImmutable('2026-11-01'));
-        $this->configuracoes->method('doTenantTravado')->willReturnOnConsecutiveCalls(null, $existente);
+        $this->configuracoes->method('garantidaETravada')->willReturnOnConsecutiveCalls($vazia, $existente);
         $this->configuracoes->expects(self::never())->method('salvar');
 
         self::assertTrue($this->casoDeUso()->executar($this->pedido('ponto-geo', true))->escritorio);
         self::assertFalse($this->casoDeUso()->executar($this->pedido('ponto-geo', false))->escritorio);
+        self::assertSame([[], null], [$vazia->getChaves(), $vazia->getAtualizadoPor()], 'a linha vazia continua vazia');
+        self::assertSame('2026-11-01', $existente->getAtualizadoEm()->format('Y-m-d'), 'quem e quando não mudam');
     }
 
     #[TestDox('O corpo JSON precisa de `ligada` booleano')]
