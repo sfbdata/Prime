@@ -317,8 +317,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     aviso do intervalo, só quando `saidaPrevista()` tem valor (sem meta ou sem escala, não aparece). No repouso, a conta
     é coerente com a de antes dele (decisões do Coordenador de 09/11/2026, na revisão): entrada mais a meta mais o maior
     entre o intervalo já feito e o piso, recalculada a cada tique de 1 s junto com o tempo. O piso é o maior entre o
-    mínimo da Jornada do escritório e o almoço da escala (duração menos meta), só quando a escala tem almoço; sem almoço,
-    zero. Sem escala (duração nula), a saída prevista não aparece no repouso, como antes dele. Escala 08-12/14-18 (meta
+    almoço da escala (duração menos meta) e o mínimo que o servidor aplica (o da Jornada do escritório com a validação do
+    repouso ligada; zero desligada), com ou sem almoço na escala (re-revisão de 09/11/2026: escala de 8h sem almoço e
+    mínimo de 1h ligado mostra 17:00, não a saída antes do retorno mais cedo possível). Sem escala (duração nula), a saída prevista não aparece no repouso, como antes dele. Escala 08-12/14-18 (meta
     480, mínimo 60): às 11:00 mostra 18:00, às 12:00 no repouso continua 18:00 e com 2h10 de repouso mostra 18:10. Com
     o retorno batido, vale o intervalo batido, como já era. Antes da E1 não era assim: a "Previsão de saída" era fixa, entrada
     mais a duração da escala, calculada só na carga e sem contar o intervalo real.
