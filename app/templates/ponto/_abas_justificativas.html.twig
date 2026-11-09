@@ -6,7 +6,8 @@
 
     Situações no masculino da aba (P40 e D22): "Em análise", "Abonado", "Recusado". Ficam do sistema, no molde do
     desenho: "Não abonado" (a falta registrada pelo gestor), o horário do abono parcial (P45), o "Ver" do atestado e o
-    lápis de editar a que está em análise (P42). A lixeira e "Abonar"/"Recusar" abrem a janela (_janelas_justificativa).
+    lápis de editar a que está em análise (P42). A lixeira e "Abonar"/"Recusar" abrem a janela (_janelas_justificativa);
+    o lápis abre a janela "Editar justificativa" do index (E4, js/ponto-janelas.js). O motivo (E4) fica abaixo do tipo.
 
     Parcial novo, só do index novo: a lista antiga (ponto/_justificativas_list.html.twig) fica intocada para a tela antiga.
 #}
@@ -50,6 +51,8 @@
                         <td class="pe-just-celtipo">
                             {%- if j.labelTipo %}<span class="pe-just-tipo">{{ j.labelTipo }}</span>{% endif -%}
                             {%- if sub %}<div class="pe-just-sub">{{ sub }}</div>{% endif -%}
+                            {#- E4 (L184): o motivo escrito na janela, abaixo do tipo. As de antes da E4 não têm. -#}
+                            {%- if j.motivo %}<div class="pe-just-mot">{{ j.motivo }}</div>{% endif -%}
                         </td>
                         <td><span class="pe-just pe-just--{{ selo[0] }}"><i class="bi {{ selo[1] }}" aria-hidden="true"></i>{{ selo[2] }}</span></td>
                         <td class="pe-just-cel">
@@ -86,11 +89,13 @@
                                         data-hora-fim="{{ j.horaFimAbono ? j.horaFimAbono|date('H:i') : '' }}"
                                         data-tipo-reg-esquecido="{{ j.tipoRegistroEsquecido ?? '' }}"
                                         data-hora-reg-esquecido="{{ j.horaRegistroEsquecido ? j.horaRegistroEsquecido|date('H:i') : '' }}"
+                                        data-motivo="{{ j.motivo ?? '' }}"
+                                        data-info="{{ info }}"
                                         data-csrf="{{ csrf_token('editar_justificativa_' ~ j.id) }}"
                                         {# Só lote todo em análise troca de atestado; o servidor é a garantia (SubstituirAnexoDoLoteUseCase). #}
                                         data-pode-trocar-anexo="{{ j.batchId is null or justificativas|filter(o => o.batchId == j.batchId and o.status != 'pendente')|length == 0 ? '1' : '0' }}"
                                         data-url="{{ path('ponto_justificativa_editar', {id: j.id}) }}"
-                                        onclick="abrirModalEditarJustificativa(this)">
+                                        data-justificativa-editar>
                                     <i class="bi bi-pencil" aria-hidden="true"></i>
                                 </button>
                                 <button type="button" class="pe-just-icone" aria-label="Excluir justificativa" title="Excluir enquanto não analisada"

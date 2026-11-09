@@ -762,6 +762,119 @@
 /* Enviando (sistema): o botão não aceita um segundo clique. */
 .pe-janela-acao:disabled { opacity: .65; cursor: default; }
 
+/* ── Campos das janelas "Justificar falta", "Registro de esquecimento" e "Editar justificativa" (E4) ───────
+   Valores dos campos do desenho: entrada de 36px (L277 e L281), seleção de 34px (L290, a da janela de assinar a
+   folha), arquivo em 13px (L283) e a caixa de marcar do "Cadastro facial" (L308). O que o desenho não tem e o sistema mantém (P45 e P47: calendário de
+   vários dias, tipo, abono parcial, bloco do esquecimento) usa esses mesmos componentes. */
+.pe-janela [hidden] { display: none !important; }
+.pe-janela-entrada {
+    height: 36px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 0 10px;
+    background: var(--pe-card);
+    color: var(--pe-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: normal;
+}
+.pe-janela-select {
+    height: 34px;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 0 8px;
+    background: var(--pe-card);
+    color: var(--pe-texto);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: normal;
+}
+.pe-janela-arquivo { font: inherit; font-size: 13px; font-weight: normal; color: var(--pe-texto); }
+.pe-janela-nota { font-size: 12.5px; font-weight: normal; color: var(--pe-mudo); }
+.pe-janela-marca {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 11px;
+    background: var(--pe-rodape-bg);
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--pe-corpo);
+    cursor: pointer;
+}
+.pe-janela-marca > input { width: 16px; height: 16px; margin: 2px 0 0; flex: none; }
+.pe-janela-marca .pe-janela-nota { display: block; }
+/* Dois campos lado a lado (tipo de batida e horário; saída e retorno do abono). */
+.pe-janela-par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.pe-janela-par-titulo { grid-column: 1 / -1; font-size: 12px; font-weight: bold; color: var(--pe-texto-3); }
+/* Aviso do tipo "falta não justificada" e do atestado travado: a faixa amarela do desenho (L118). */
+.pe-janela-aviso {
+    padding: 8px 11px;
+    border: 1px solid var(--pe-alerta-bd);
+    border-radius: 3px;
+    background: var(--pe-alerta-bg);
+    color: var(--pe-alerta-cor);
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+.pe-janela-aviso > .bi { margin-right: 5px; }
+
+/* Calendário de vários dias (P45, sistema) no molde do desenho: cantos de 3px, azul do desenho no dia escolhido. */
+.pe-cal { display: flex; flex-direction: column; gap: 6px; }
+.pe-cal-barra { display: flex; align-items: center; gap: 8px; }
+.pe-cal-seta {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-texto-2);
+    cursor: pointer;
+}
+.pe-cal-seta:hover { background: var(--pe-hover-sec); }
+.pe-cal-seta:disabled { opacity: .45; cursor: default; background: var(--pe-card); }
+.pe-cal-mes { flex: 1; text-align: center; font-size: 13.5px; font-weight: bold; color: var(--pe-texto); }
+.pe-cal-grade {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    user-select: none;
+}
+.pe-cal-sem { padding: 4px 0; text-align: center; font-size: 11px; font-weight: bold; color: var(--pe-mudo); }
+.pe-cal-dia {
+    height: 30px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--pe-texto);
+    font: inherit;
+    font-size: 13px;
+    font-weight: normal;
+    cursor: pointer;
+}
+.pe-cal-dia:hover:not(:disabled) { background: var(--pe-info-bg); border-color: var(--pe-info-bd); }
+.pe-cal-dia--fim { color: var(--pe-perigo); }
+.pe-cal-dia--hoje { border-color: var(--pe-azul); }
+.pe-cal-dia[aria-pressed="true"],
+.pe-cal-dia[aria-pressed="true"]:hover { background: var(--pe-azul); border-color: var(--pe-azul); color: #fff; font-weight: bold; }
+.pe-cal-dia:disabled { color: var(--pe-concluida); opacity: .55; cursor: default; }
+.pe-cal-vazio { visibility: hidden; }
+.pe-cal-escolhidos { font-size: 12.5px; font-weight: normal; color: var(--pe-mudo); }
+.pe-cal-escolhidos > b { color: var(--pe-texto); }
+
+/* Motivo na aba "Minhas Justificativas" (L184): 12px, cinza do desenho, embaixo do tipo e do subtítulo. */
+.pe-just-mot { font-size: 12px; color: var(--pe-mudo); overflow-wrap: anywhere; }
+
 /* Celular (L62 a L71): cada dia vira um cartão de quatro colunas, com o nome do campo em cima. */
 @media (max-width: 760px) {
     .pe-tab.pe-resp thead { display: none; }

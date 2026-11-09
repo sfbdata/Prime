@@ -1,13 +1,15 @@
 /**
  * Cartão de abas da tela do Ponto (E3 do desenho, docs/specs/ponto-desenho-0811.md): a troca entre "Pendências" e
  * "Minhas Justificativas", o botão "Enviar registro de esquecimento" da pendência e as janelas de excluir (P41 e D4)
- * e de abonar ou recusar a própria justificativa (P43 a).
+ * e de abonar ou recusar a própria justificativa (P43 a). A moldura das janelas (abrir, Esc, foco preso, linha de erro)
+ * serve também às janelas da E4 ("Justificar falta", "Registro de esquecimento" e "Editar justificativa"), que moram em
+ * js/ponto-janelas.js e chamam `abrirJanela`, `fecharJanela` e `mostrarErro` daqui.
  *
  * Mora fora do index porque a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest): a exclusão tem prazo próprio.
  * Tudo por delegação no documento: o painel das pendências e a aba dele são trocados depois da batida
  * (REGIOES_TROCADAS no index) e perderiam um ouvinte preso a eles.
  *
- * Exposto em `window.PontoAbas`.
+ * Exposto em `window.PontoAbas` (este arquivo vem antes do js/ponto-janelas.js no index).
  */
 (function () {
     'use strict';
@@ -16,7 +18,8 @@
     const EXCLUIR_PRAZO_MS = 15000;
     // A aba que abre ao entrar (P37) não vai para o endereço.
     const ABA_PADRAO = 'pendencias';
-    const FOCAVEIS = 'button:not([disabled]), textarea, [href], input:not([type="hidden"])';
+    // Campo dentro de bloco escondido (o abono parcial fechado, por exemplo) não entra na volta do Tab.
+    const FOCAVEIS = 'button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], input:not([type="hidden"]):not([disabled])';
 
     let janelaAberta = null;
     let focoAntes = null;
@@ -119,7 +122,10 @@
         janelaAberta = fundo;
         focoAntes = origem;
         mostrarErro(fundo, '');
-        fundo.querySelector('[data-janela-info]').textContent = origem.dataset.info || '';
+        const info = fundo.querySelector('[data-janela-info]');
+        if (info) {
+            info.textContent = (origem && origem.dataset.info) || '';
+        }
 
         return fundo;
     }
@@ -139,7 +145,7 @@
 
     // O foco não sai da janela aberta com Tab (aria-modal).
     function prenderFoco(evento) {
-        const focaveis = Array.from(janelaAberta.querySelectorAll(FOCAVEIS));
+        const focaveis = Array.from(janelaAberta.querySelectorAll(FOCAVEIS)).filter(function (el) { return !el.closest('[hidden]'); });
         if (focaveis.length === 0) {
             return;
         }
@@ -268,6 +274,15 @@
         }
     });
 
+    // Como no desenho (o `setF` apaga o `fErro`): escreveu ou mudou um campo da janela aberta, a frase de erro sai.
+    function apagarErroAoEditar(evento) {
+        if (janelaAberta && janelaAberta.contains(evento.target) && janelaAberta.dataset.ocupada !== '1') {
+            mostrarErro(janelaAberta, '');
+        }
+    }
+    document.addEventListener('input', apagarErroAoEditar);
+    document.addEventListener('change', apagarErroAoEditar);
+
     // Entrou com `?aba=justificativas` (volta da análise ou da exclusão): o formulário do mês leva a aba junto.
     function iniciar() {
         const escolhida = abasDoCartao().find(function (aba) { return aba.getAttribute('aria-selected') === 'true'; });
@@ -282,5 +297,5 @@
         iniciar();
     }
 
-    window.PontoAbas = { EXCLUIR_PRAZO_MS, abrirAba };
+    window.PontoAbas = { EXCLUIR_PRAZO_MS, abrirAba, abrirJanela, fecharJanela, mostrarErro };
 })();

@@ -118,7 +118,7 @@ trait CenarioDeJustificativaTrait
         return $permissao;
     }
 
-    /** @param array<string, mixed> $campos tipo, tipoRegistroEsquecido, horaRegistroEsquecido, observacaoAnalise, dataAnalise, anexoPath, batchId */
+    /** @param array<string, mixed> $campos tipo, tipoRegistroEsquecido, horaRegistroEsquecido, observacaoAnalise, dataAnalise, anexoPath, batchId, motivo */
     private function justificativa(User $user, Tenant $tenant, \DateTimeInterface $dia, string $status, array $campos = []): JustificativaPonto
     {
         $j = new JustificativaPonto();
@@ -133,6 +133,7 @@ trait CenarioDeJustificativaTrait
         $j->setDataAnalise(isset($campos['dataAnalise']) ? new \DateTime($campos['dataAnalise']) : null);
         $j->setAnexoPath($campos['anexoPath'] ?? null);
         $j->setBatchId($campos['batchId'] ?? bin2hex(random_bytes(8)));
+        $j->setMotivo($campos['motivo'] ?? null);
         $this->em()->persist($j);
         $this->em()->flush();
 

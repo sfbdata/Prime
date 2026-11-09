@@ -5,8 +5,9 @@
     (spec docs/specs/ponto-desenho-0811.md; decisões de 09/11/2026 em bluejus-coordenacao/decisoes-desenhos-0911.md).
     Etapa E1: grade de duas colunas e o cartão "Registrar Ponto" no molde do desenho, sobre o motor de hoje. Etapa E2:
     a Folha de Ponto no molde (ponto/_folha_table.html.twig). Etapa E3: o cartão de abas Pendências e Minhas Justificativas
-    (ponto/_abas.html.twig, js/ponto-abas.js). O cabeçalho e o menu do topo do
-    desenho são a moldura do sistema (base.html.twig). CSS da tela: public/css/ponto-eletronico.css.
+    (ponto/_abas.html.twig, js/ponto-abas.js). Etapa E4: as janelas "Justificar falta", "Registro de esquecimento" e
+    "Editar justificativa" na moldura do desenho, sem modal do Bootstrap (js/ponto-janelas.js). O cabeçalho e o menu do
+    topo do desenho são a moldura do sistema (base.html.twig). CSS da tela: public/css/ponto-eletronico.css.
 #}
 
 {% block body_class %}pe-body{% endblock %}
@@ -180,11 +181,10 @@
 
                     {# P16: rodapé do cartão. A jornada semanal é a carga da jornada que vale hoje para a pessoa (D1),
                        nunca o "44h00m" do protótipo; sem jornada, o trecho não aparece. P17 (fica): o selo da fonte. O
-                       botão de som (P81) entra com os sons, na E8. "Justificar falta" abre o formulário de hoje até a
-                       E4 trazer o do desenho. #}
+                       botão de som (P81) entra com os sons, na E8. "Justificar falta" abre a janela do desenho (E4,
+                       ponto/_justificativa_form.html.twig, js/ponto-janelas.js). #}
                     <div class="pe-rodape">
-                        <button type="button" id="btn-justificar-falta" class="pe-btn-sec pe-justificar"
-                                data-bs-toggle="modal" data-bs-target="#modalJustificativa">
+                        <button type="button" id="btn-justificar-falta" class="pe-btn-sec pe-justificar" data-janela-justificar>
                             <i class="bi bi-calendar-check" aria-hidden="true"></i>Justificar falta
                         </button>
                         {% if jornadaInfo is not null %}
@@ -241,94 +241,96 @@
     </div>
 
     {% include 'ponto/_janelas_justificativa.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
-</div>
 
-{% include 'ponto/_justificativa_form.html.twig' with {tiposJustificativa: tiposJustificativa} only %}
+    {# Janelas da E4 na moldura do desenho (L269 a L318), dentro da página para herdar os tokens `--pe-*`. Comportamento
+       em js/ponto-janelas.js; Esc, foco e fechar vêm do js/ponto-abas.js (a mesma moldura da E3). #}
+    {% include 'ponto/_justificativa_form.html.twig' with {
+        tiposJustificativa: tiposJustificativa,
+        competenciaSelecionada: competenciaSelecionada,
+        dataHoje: dataHoje
+    } only %}
+    {% include 'ponto/_justificativa_esquecimento_modal.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
 
-{% include 'ponto/_justificativa_esquecimento_modal.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
+    {# Janela "Editar justificativa" (P47, fica): o lápis da aba Minhas Justificativas a abre com os dados da linha. Não
+       existe no desenho; ganha a moldura dele e os campos de hoje, mais o "Motivo" (E4). O horário do esquecimento segue
+       em minutos (a edição lê H:i). Depois de salvar, a tela volta na aba Minhas Justificativas, no mês da justificativa. #}
+    <div class="pe-janela-fundo" id="ponto-janela-editar" hidden>
+        <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Editar justificativa" id="formEditarJustificativa"
+              method="post" enctype="multipart/form-data" data-janela-form="editar" novalidate>
+            <input type="hidden" name="_token" id="editarJustificativaToken">
 
-{# Modal: Editar justificativa pendente #}
-<div class="modal fade" id="modalEditarJustificativa" tabindex="-1" aria-labelledby="modalEditarJustificativaLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="post" id="formEditarJustificativa" enctype="multipart/form-data">
-                <input type="hidden" name="_token" id="editarJustificativaToken">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalEditarJustificativaLabel">
-                        <i class="bi bi-pencil me-2"></i>Editar Justificativa
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Tipo</label>
-                        <select name="tipo" id="editarJustificativaTipo" class="form-select">
+            <div class="pe-janela-topo">
+                <i class="bi bi-pencil" aria-hidden="true"></i><b class="pe-janela-titulo">Editar justificativa</b>
+                <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+
+            <div class="pe-janela-corpo">
+                <div class="pe-janela-info" data-janela-info></div>
+                <label class="pe-janela-rotulo">Tipo
+                    <select name="tipo" id="editarJustificativaTipo" class="pe-janela-select">
+                        <option value="">Selecione...</option>
+                        {% for label, valor in tiposJustificativa %}
+                            <option value="{{ valor }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <div class="pe-janela-par" id="editarBlocoRegistroEsquecido" hidden>
+                    <span class="pe-janela-par-titulo">Detalhes do registro esquecido</span>
+                    <label class="pe-janela-rotulo">Tipo de batida
+                        <select name="tipoRegistroEsquecido" id="editarTipoRegEsquecido" class="pe-janela-select">
                             <option value="">Selecione...</option>
-                            {% for label, valor in tiposJustificativa %}
-                                <option value="{{ valor }}">{{ label }}</option>
-                            {% endfor %}
+                            <option value="entrada">Entrada</option>
+                            <option value="repouso">Repouso</option>
+                            <option value="retorno">Retorno</option>
+                            <option value="saida">Saída</option>
                         </select>
-                    </div>
-
-                    <div id="editarBlocoRegistroEsquecido" class="d-none mb-3 p-3 border rounded bg-warning bg-opacity-10">
-                        <p class="small fw-semibold mb-2"><i class="bi bi-clock-history me-1"></i>Detalhes do registro esquecido</p>
-                        <div class="row g-2">
-                            <div class="col-sm-6">
-                                <label for="editarTipoRegEsquecido" class="form-label">Tipo de batida</label>
-                                <select name="tipoRegistroEsquecido" id="editarTipoRegEsquecido" class="form-select">
-                                    <option value="">Selecione...</option>
-                                    <option value="entrada">Entrada</option>
-                                    <option value="repouso">Repouso</option>
-                                    <option value="retorno">Retorno</option>
-                                    <option value="saida">Saída</option>
-                                </select>
-                            </div>
-                            <div class="col-sm-6">
-                                <label for="editarHoraRegEsquecido" class="form-label">Horário que deveria ter sido registrado</label>
-                                <input type="time" name="horaRegistroEsquecido" id="editarHoraRegEsquecido" class="form-control">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="editarBlocoAbonoParcial" class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="editarAbonoParcial" name="abonoParcial" value="1">
-                        <label class="form-check-label" for="editarAbonoParcial">Abono parcial (ausência dentro do expediente)</label>
-                    </div>
-
-                    <div id="editarBlocoHorario" class="d-none mb-3 p-3 border rounded bg-body-tertiary">
-                        <p class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Período de ausência parcial</p>
-                        <div class="row g-2">
-                            <div class="col">
-                                <label class="form-label">Saída</label>
-                                <input type="time" name="horaInicioAbono" id="editarHoraInicio" class="form-control">
-                            </div>
-                            <div class="col">
-                                <label class="form-label">Retorno</label>
-                                <input type="time" name="horaFimAbono" id="editarHoraFim" class="form-control">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mb-3" id="editarBlocoAnexo">
-                        <label class="form-label">Substituir atestado <span class="text-muted small">(opcional)</span></label>
-                        <input type="file" name="anexo" id="editarAnexo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-                        <div class="form-text">PDF, JPEG ou PNG (máximo 10 MB)</div>
-                    </div>
-                    <div class="alert alert-secondary small mb-0 d-none" id="editarAvisoAnexoAnalisado">
-                        <i class="bi bi-lock me-1"></i>O atestado não pode ser trocado: este lançamento já está abonado ou rejeitado em pelo menos um dos dias. Para trocá-lo, todos os dias precisam voltar a pendente. Fale com o administrador.
-                    </div>
+                    </label>
+                    <label class="pe-janela-rotulo">Horário
+                        <input type="time" name="horaRegistroEsquecido" id="editarHoraRegEsquecido" class="pe-janela-entrada">
+                    </label>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar alterações</button>
+
+                <label class="pe-janela-marca" id="editarBlocoAbonoParcial">
+                    <input type="checkbox" id="editarAbonoParcial" name="abonoParcial" value="1">
+                    <span>Abono parcial (ausência dentro do expediente)</span>
+                </label>
+
+                <div class="pe-janela-par" id="editarBlocoHorario" hidden>
+                    <span class="pe-janela-par-titulo">Período de ausência parcial</span>
+                    <label class="pe-janela-rotulo">Saída
+                        <input type="time" name="horaInicioAbono" id="editarHoraInicio" class="pe-janela-entrada">
+                    </label>
+                    <label class="pe-janela-rotulo">Retorno
+                        <input type="time" name="horaFimAbono" id="editarHoraFim" class="pe-janela-entrada">
+                    </label>
                 </div>
-            </form>
-        </div>
+
+                <label class="pe-janela-rotulo">Motivo
+                    <textarea name="motivo" id="editarMotivo" rows="3" maxlength="{{ constant('App\\Ponto\\Form\\JustificativaPontoType::MOTIVO_MAXIMO') }}" class="pe-janela-campo" data-janela-motivo></textarea>
+                </label>
+
+                <label class="pe-janela-rotulo" id="editarBlocoAnexo">Substituir atestado (opcional)
+                    <input type="file" name="anexo" id="editarAnexo" class="pe-janela-arquivo" accept=".pdf,.jpg,.jpeg,.png">
+                    <span class="pe-janela-nota">PDF, JPEG ou PNG (máximo 10 MB)</span>
+                </label>
+                <div class="pe-janela-aviso" id="editarAvisoAnexoAnalisado" hidden>
+                    <i class="bi bi-lock" aria-hidden="true"></i>O atestado não pode ser trocado: este lançamento já está abonado ou rejeitado em pelo menos um dos dias. Para trocá-lo, todos os dias precisam voltar a pendente. Fale com o administrador.
+                </div>
+            </div>
+
+            <div class="pe-janela-erro" data-janela-erro hidden></div>
+            <div class="pe-janela-rodape">
+                <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
+                <button type="submit" class="pe-janela-acao" data-janela-enviar>Salvar alterações</button>
+            </div>
+        </form>
     </div>
 </div>
 
 <script src="{{ asset('js/ponto-batida.js') }}"></script>
 <script src="{{ asset('js/ponto-abas.js') }}"></script>
+<script src="{{ asset('js/ponto-janelas.js') }}"></script>
 <script>
     // Limite entre "Localização confirmada" e "GPS impreciso" (P9, valor do desenho). Só muda o texto da caixa: quem
     // decide se a batida passa é a cerca, com a margem da precisão (`PontoBatida.avaliarPosicao`), e o servidor.
@@ -1278,56 +1280,6 @@
     } else {
         mostrarGps('danger', 'bi-exclamation-triangle', 'Seu navegador não suporta geolocalização.');
     }
-
-    // Modal de editar justificativa
-    window.abrirModalEditarJustificativa = function(btn) {
-        const form = document.getElementById('formEditarJustificativa');
-        form.action = btn.dataset.url;
-        document.getElementById('editarJustificativaToken').value = btn.dataset.csrf;
-
-        const tipo = btn.dataset.tipo || '';
-        document.getElementById('editarJustificativaTipo').value = tipo;
-
-        const isEsquecimento = tipo === 'esquecimento_registro';
-        document.getElementById('editarBlocoRegistroEsquecido').classList.toggle('d-none', !isEsquecimento);
-        document.getElementById('editarTipoRegEsquecido').value = btn.dataset.tipoRegEsquecido || '';
-        document.getElementById('editarHoraRegEsquecido').value = btn.dataset.horaRegEsquecido || '';
-
-        const abonoParcial = btn.dataset.abonoParcial === '1' && !isEsquecimento;
-        const checkAbono = document.getElementById('editarAbonoParcial');
-        checkAbono.checked = abonoParcial;
-        document.getElementById('editarBlocoAbonoParcial').classList.toggle('d-none', isEsquecimento);
-        document.getElementById('editarBlocoHorario').classList.toggle('d-none', !abonoParcial);
-        document.getElementById('editarHoraInicio').value = btn.dataset.horaInicio || '';
-        document.getElementById('editarHoraFim').value = btn.dataset.horaFim || '';
-
-        // Lote já analisado não troca de atestado. `disabled`, e não só escondido: um arquivo
-        // escolhido numa abertura anterior do modal iria junto no POST.
-        const podeTrocarAnexo = btn.dataset.podeTrocarAnexo === '1';
-        const inputAnexo = document.getElementById('editarAnexo');
-        inputAnexo.value = '';
-        inputAnexo.disabled = !podeTrocarAnexo;
-        document.getElementById('editarBlocoAnexo').classList.toggle('d-none', !podeTrocarAnexo);
-        document.getElementById('editarAvisoAnexoAnalisado').classList.toggle('d-none', podeTrocarAnexo);
-
-        new bootstrap.Modal(document.getElementById('modalEditarJustificativa')).show();
-    };
-
-    document.getElementById('editarJustificativaTipo').addEventListener('change', function() {
-        const isEsquecimento = this.value === 'esquecimento_registro';
-        document.getElementById('editarBlocoRegistroEsquecido').classList.toggle('d-none', !isEsquecimento);
-        document.getElementById('editarBlocoAbonoParcial').classList.toggle('d-none', isEsquecimento);
-        if (isEsquecimento) {
-            document.getElementById('editarAbonoParcial').checked = false;
-            document.getElementById('editarBlocoHorario').classList.add('d-none');
-            document.getElementById('editarTipoRegEsquecido').value = '';
-            document.getElementById('editarHoraRegEsquecido').value = '';
-        }
-    });
-
-    document.getElementById('editarAbonoParcial').addEventListener('change', function() {
-        document.getElementById('editarBlocoHorario').classList.toggle('d-none', !this.checked);
-    });
 
     // Botão de Bater Ponto
     // Depois da batida, a tela se atualiza SEM recarregar (spec ponto-atualiza-sem-recarregar): recarregar zerava a
