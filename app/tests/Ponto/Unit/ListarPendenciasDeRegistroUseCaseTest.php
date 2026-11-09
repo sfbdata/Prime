@@ -24,6 +24,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
+use App\Ponto\Repository\LotacaoComVigenciaRepository;
 use App\Ponto\Service\FeriadosDaPessoa;
 
 /**
@@ -166,7 +167,7 @@ final class ListarPendenciasDeRegistroUseCaseTest extends TestCase
             new EscolhaDasBatidasDoDia(),
             new CalculadoraJornada(new JornadaResolver()),
             $relogio,
-            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
+            new FeriadosDaPessoa($this->createStub(LotacaoComVigenciaRepository::class)),
         );
     }
 

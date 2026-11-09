@@ -655,10 +655,24 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     Migration `Version20261109200000`: `feriado.lotacao_id` opcional, ON DELETE CASCADE (apagar a lotação apaga os
     feriados só dela; SET NULL os faria valer para todos e mudaria o saldo de quem nunca os teve). Os feriados que já
     existem ficam sem lotação: nenhuma folha muda;
-  - a regra mora num ponto só, `FeriadosDaPessoa`: sem lotação vale para todos; com lotação, só para quem tem aquela
-    lotação no escritório DO FERIADO (vínculo ativo ou não: a folha de quem saiu continua contando o feriado que valia
-    para ela). Sem N+1: nenhuma consulta sem feriado por lotação; com ele, uma por pessoa e escritório, guardada até o
-    fim do request ou da mensagem do worker (`kernel.reset`). Aplicada no `FolhaPontoBuilder::buildRows` (folha na
+  - a regra mora num ponto só, `FeriadosDaPessoa`: sem lotação vale para todos; com lotação, só para quem tinha aquela
+    lotação no escritório DO FERIADO NAQUELE DIA (vínculo ativo ou não: a folha de quem saiu continua contando o
+    feriado que valia para ela). Sem N+1: nenhuma consulta sem feriado por lotação; com ele, uma por pessoa e escritório
+    (a lotação de hoje e as versões juntas), guardada até o fim do request ou da mensagem do worker (`kernel.reset`);
+  - **lotação com vigência, decisão do Coordenador 09/11, no molde da jornada:** a folha do passado não pode mudar por
+    troca de cadastro (a E16 terá aceite mensal). Tabela `lotacao_vigencia` (pessoa, escritório, lotação opcional,
+    `vale_a_partir_de`), na mesma migration `Version20261109200000`, com uma versão inicial por `user_tenant` (a
+    lotação de hoje, `vale_a_partir_de` nulo: vale desde sempre). Como nenhum feriado tem lotação antes dela, nada muda
+    no passado na virada. `user_tenant.lotacao_id` continua sendo a lotação de hoje; sem versões (vínculo criado
+    depois da migration e que nunca trocou), ela vale para todos os dias. Regras (`HistoricoDeLotacoes`): cada versão
+    vale da sua data até a véspera da seguinte, a inicial vale para trás. A troca pela edição do vínculo
+    (`TenantController::editUserRole`, uma chamada a `RegistrarTrocaDeLotacaoUseCase` antes do flush) grava a versão
+    que vale de HOJE (e, na primeira troca de um vínculo sem versões, a inicial com a lotação de antes); trocar de novo
+    no mesmo dia substitui a versão de hoje. Não há outro caminho que grave `UserTenant::lotacao` (grep de
+    `setLotacao(`: só o formulário; a lotação do convite nunca é copiada para o vínculo; o desfazer da auditoria não
+    reverte o vínculo). Apagar a lotação deixa as versões dela sem lotação (SET NULL, como em `user_tenant`). O down
+    da migration recusa quando já há troca gravada. Purga do escritório: `lotacao_vigencia` na lista. A Agenda segue a
+    lotação de hoje do vínculo (é tela do dia, não folha). Aplicada no `FolhaPontoBuilder::buildRows` (folha na
     tela, ficha do colaborador, PDF, XLSX, saldo até o mês e do ano, horas pagas, "Regularizar ponto de ontem", tudo
     passa por ele) e em `ListarPendenciasDeRegistroUseCase` (lê o feriado sem a folha). O comando dos nacionais (D21)
     só conta o feriado sem lotação ao ver se a data já está cadastrada;
@@ -708,14 +722,19 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   `_config_feriados.html.twig`, `_config_feriados_lista.html.twig`, `_abas_configuracoes.html.twig` (os dois includes),
   `index.html.twig` (uma linha de script). Na revisão: `ListarDatasDoSistemaUseCase`, `DatasDoSistemaController`,
   `DatasDaAgendaParaOGoogle`, `DiaUtilDoEscritorio` (feriado da lotação na Agenda), `FeriadoController::index` e
-  `feriado/index.html.twig` (coluna "Abrangência" na página "Feriados e Folgas"). `TenantController` não muda.
+  `feriado/index.html.twig` (coluna "Abrangência" na página "Feriados e Folgas"). Lotação com vigência:
+  `LotacaoComVigencia`, `LotacaoComVigenciaRepository`, `HistoricoDeLotacoes`, `RegistrarTrocaDeLotacaoUseCase`, a
+  chamada em `TenantController::editUserRole` (um parâmetro e uma linha) e `PurgarEscritorioUseCase` (a tabela nova).
   Atributos do JS próprios da etapa: `data-pc-sede-*`, `data-pc-feriado-*` e `data-pc-sf-*` (as janelas); o
   `data-config-*` fica livre para a E7. Raio vazio na sede que já existe mantém o raio dela; a nova nasce com 150 m.
 - Testes da etapa: `FeriadosDaPessoaTest`, `FeriadoPorLotacaoTest` (folha, saldo e pendências de duas pessoas em
   lotações diferentes; "Todas as sedes"; feriado recorrente da lotação; lotação de outro escritório com o mesmo nome),
   `ListarDatasDoSistemaUseCaseTest`, `DatasDoSistemaControllerTest`, `SincronizacaoDeDatasComGoogleTest` e
   `DiaUtilDoEscritorioTest` (a regra na Agenda, no Google e no dia útil), `FeriadoAbrangenciaNaPaginaAntigaTest`,
-  `MigracaoDoFeriadoPorLotacaoTest`,
+  `HistoricoDeLotacoesTest`, `LotacaoComVigenciaTest` (trocar não muda o feriado, a folha nem o banco do mês passado;
+  de hoje em diante vale a nova; duas trocas no dia, uma versão; outro escritório isolado),
+  `TrocaDeLotacaoNaEdicaoDoVinculoTest` (a troca pela tela grava a versão; lotação de outro escritório recusada),
+  `MigracaoDoFeriadoPorLotacaoTest` (também a versão inicial por vínculo e o down que recusa com troca),
   `SeedDosNacionaisComFeriadoPorLotacaoTest`, `ConfiguracoesDoPontoSedesEFeriadosTest` (arranjo por filho direto e
   textos, seções por permissão, 150 m na nova e na página antiga, raio das existentes, validações, remover com as
   batidas desvinculadas, 403 por seção, sem token e com permissão só em outro escritório, 404 entre escritórios,
@@ -1118,7 +1137,7 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   hoje (P30 e E2), o tempo do intervalo ao vivo e a saída prevista durante o intervalo (E1, "Funções do sistema que
   voltam").
 - E6 implementada na branch `ponto-desenho-e6`, com a migration `Version20261109200000` (feriado por lotação, desvio
-  necessário do P71). Decisões registradas na E6 (seção 5).
+  necessário do P71, e lotação com vigência). Decisões registradas na E6 (seção 5).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: teto de idade da fila (E14), saldo de antes dos lotes (E17).
   A chave do selo da trilha (E9) já foi decidida.

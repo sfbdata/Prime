@@ -26,7 +26,7 @@ use Psr\Clock\ClockInterface;
  * com o escritório ativo e o módulo de ponto. Só leitura; nenhuma pendência trava a batida (R1).
  *
  * Um dia entra quando teria o "+" da folha (`ponto-atalho-esquecimento-registro.md`): tem batida, é dia útil, não é
- * feriado do escritório que vale para ela (`FeriadosDaPessoa`: o de todos ou o da lotação dela), e a escolha da folha
+ * feriado do escritório que vale para ela (`FeriadosDaPessoa`: o de todos ou o da lotação dela no dia), e a escolha da folha
  * diz "registro incompleto" (`CalculadoraJornada::registroIncompletoDaEscolha`).
  * Falta a entrada ou a saída que não existe e, com metade do intervalo batido, a outra metade. O esquecimento já
  * pedido (pendente) ou deferido (abonado) daquele dia e batida, no mesmo escritório, não volta (`EsquecimentosRegistrados`).
@@ -113,7 +113,7 @@ final class ListarPendenciasDeRegistroUseCase
         if ($porDia === []) {
             return [];   // sem batida na janela: nem consulta feriado e esquecimentos
         }
-        $feriados = $this->feriadosDaPessoa->filtrar($this->feriados->doEscritorio($escritorio), $eu);
+        $feriados = $this->feriados->doEscritorio($escritorio);
         $jaPedidos = EsquecimentosRegistrados::dasJustificativas(
             $this->justificativas->esquecimentosDoPeriodoNoEscritorio($eu, $escritorio, $inicio, $fim),
         );
@@ -121,7 +121,8 @@ final class ListarPendenciasDeRegistroUseCase
         $pendencias = [];
         foreach ($porDia as $chave => $batidas) {
             $dia = new \DateTimeImmutable($chave);
-            if ((int) $dia->format('N') >= 6 || $this->calculadora->getFeriadoDoDia($dia, $feriados) !== null) {
+            // O feriado que vale para a pessoa NAQUELE dia (a lotação que ela tinha no dia, E6).
+            if ((int) $dia->format('N') >= 6 || $this->calculadora->getFeriadoDoDia($dia, $this->feriadosDaPessoa->filtrar($feriados, $eu, $dia)) !== null) {
                 continue;
             }
             $escolhidas = $this->escolha->escolher($batidas, $dia);

@@ -21,8 +21,8 @@ use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use App\Ponto\Repository\LotacaoComVigenciaRepository;
 use App\Ponto\Service\FeriadosDaPessoa;
-use App\Repository\UserTenantRepository;
 
 #[CoversClass(FolhaPontoBuilder::class)]
 final class FolhaPontoBuilderTest extends TestCase
@@ -45,7 +45,7 @@ final class FolhaPontoBuilderTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
             $jornadas,
-            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
+            new FeriadosDaPessoa($this->createStub(LotacaoComVigenciaRepository::class)),
         );
     }
 

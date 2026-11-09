@@ -8,6 +8,7 @@ tipo: alteracao
 - Sede nova nasce com 150 m (P70 a), na aba e na página antiga (`Sede::RAIO_PADRAO`); as sedes que já existem ficam com o raio delas, e o raio vazio na aba mantém o raio da sede que já existe. As validações de latitude, longitude e raio ficam numa regra só (`RestricoesDaSede`), usada pela página antiga e pela aba; na aba, a coordenada aceita vírgula.
 - Agenda (`ListarDatasDoSistemaUseCase`): o feriado de uma lotação só entra para quem é dela, pelo id da lotação do vínculo de quem vê (grade e sincronização com o Google, que é por pessoa). O dia útil do escritório (`DiaUtilDoEscritorio`: cobrança do checklist e resumo diário) só considera os feriados de "Todas as sedes".
 - A página "Feriados e Folgas" ganha a coluna "Abrangência" ("Todas as sedes" ou o nome da lotação).
+- Lotação com vigência (decisão do Coordenador, no molde da jornada): tabela `lotacao_vigencia` na mesma migration `Version20261109200000`, com uma versão inicial por vínculo (a lotação de hoje, valendo desde sempre). O feriado da lotação vale no dia para quem tinha aquela lotação naquele dia (`FeriadosDaPessoa` com `HistoricoDeLotacoes`, uma consulta por pessoa e escritório). A troca pela edição do vínculo grava a versão que vale de hoje (`RegistrarTrocaDeLotacaoUseCase`, chamado no `TenantController::editUserRole`); trocar de novo no mesmo dia substitui a versão do dia. O down da migration recusa quando já há troca gravada. A tabela entra na purga do escritório.
 - `ponto-configuracoes-sedes.js`: atributos próprios (`data-pc-sede-*`, `data-pc-feriado-*`, `data-pc-sf-*`), o "Remover" da janela não faz nada sem janela aberta, o foco que sai da janela aberta volta para ela, e a criação da "Nova sede" sem resposta mostra o erro na linha e busca o painel de novo (o lixo da linha fica desligado durante a criação).
 
 ## Para o cliente
@@ -21,3 +22,4 @@ tipo: alteracao
 - Na Agenda, e também na agenda do Google, o feriado de uma lotação aparece só para quem é daquela lotação. A cobrança do checklist e o resumo diário param só nos feriados de "Todas as sedes".
 - A página "Feriados e Folgas" mostra para quem vale cada feriado: "Todas as sedes" ou o nome da lotação.
 - Ao gravar uma sede que já existe com o raio em branco, ela continua com o raio que tinha.
+- Trocar a lotação de uma pessoa vale a partir do dia da troca: os meses anteriores não mudam, nem a folha, nem os feriados, nem o banco de horas.
