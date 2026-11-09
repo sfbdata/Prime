@@ -573,7 +573,8 @@ final class TenantController extends AbstractController
      */
     /**
      * A folha da competência na ficha do colaborador. Cada dia usa a versão da jornada que valia nele
-     * (spec ponto-jornada-vigencia §3.2).
+     * (spec ponto-jornada-vigencia §3.2) e, sem versão no dia, a do escritório: a jornada da folha da /ponto
+     * e do banco de horas (E17, `FolhaPontoBuilder::jornadaDaFolha`).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -587,7 +588,6 @@ final class TenantController extends AbstractController
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
-        JornadaColaboradorRepository $jornadaColaboradorRepository,
     ): array {
         $batidas = $registroPontoRepository->findByUserAndCompetencia($user, $tenant, $ano, $mes);
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
@@ -599,7 +599,7 @@ final class TenantController extends AbstractController
             $batidas,
             true,
             false,
-            $jornadaColaboradorRepository->historicoDe($user, $tenant),
+            $folhaPontoBuilder->jornadaDaFolha($user, $tenant),
             $feriadoRepository->findByTenant($tenant),
             $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $ano, $mes),
             $jornadaTenant,
@@ -869,7 +869,7 @@ final class TenantController extends AbstractController
         $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         if (in_array($competenciaSelecionada, $competenciasComBatida, true)) {
-            $folhaRowsPonto = $this->folhaDaCompetenciaNaFicha($user, $tenant, $anoSelecionado, $mesSelecionado, $jornadaTenant, $registroPontoRepository, $feriadoRepository, $justificativaRepository, $folhaPontoBuilder, $jornadaColaboradorRepository);
+            $folhaRowsPonto = $this->folhaDaCompetenciaNaFicha($user, $tenant, $anoSelecionado, $mesSelecionado, $jornadaTenant, $registroPontoRepository, $feriadoRepository, $justificativaRepository, $folhaPontoBuilder);
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($jornada, $jornadaTenant);

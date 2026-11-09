@@ -264,7 +264,8 @@
 
        `saldoMesMinutos` vem PRONTO dos dois controllers que incluem este partial
        (PontoController::index e TenantController::editUserRole), calculado sobre as linhas do motor e não sobre as que
-       a tela mostra: o filtro do P25 não muda o número. `null` = nenhuma linha com saldo apurado (mês sem batida),
+       a tela mostra: o filtro do P25 não muda o número. Na /ponto, que esconde os dias sem batida, ele vem da conta do
+       banco para a competência, sem as horas pagas (E17), para a soma da folha ser o banco. `null` = nenhuma linha com saldo apurado (mês sem batida),
        tratado como zero para que a soma continue existindo justamente no mês em que só há o lançamento.
 
        ⚠️ O RÓTULO DA 3ª LINHA É "Total do mês", NÃO "banco de horas", e a distinção não é estética.
