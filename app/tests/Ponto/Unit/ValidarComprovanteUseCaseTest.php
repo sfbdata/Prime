@@ -96,7 +96,7 @@ final class ValidarComprovanteUseCaseTest extends TestCase
     /** @param (callable(string): string)|null $adulterar troca o texto gravado DEPOIS de selado */
     private function comprovante(SeloDoComprovante $selo, ?callable $adulterar = null, ?string $hmac = null, string $codigoNosDados = self::CODIGO): ComprovanteDoPonto
     {
-        $dados = new DadosDoComprovante($codigoNosDados, 5, 7, 'Maria da Silva Pereira', 'Escritório Modelo', null, new \DateTimeImmutable('2026-11-09T08:01:02-03:00'), 'entrada', DadosDoComprovante::METODO_SISTEMA);
+        $dados = new DadosDoComprovante($codigoNosDados, 5, 7, 'Maria da Silva Pereira', 'Escritório Modelo', null, new \DateTimeImmutable('2026-11-09T08:01:02-03:00'), 'entrada', DadosDoComprovante::METODO_SISTEMA, '-23.55000, -46.63000 · precisão 12 m', false);
         $canonico = $dados->canonico();
         $selado = $selo->selar($canonico);
 

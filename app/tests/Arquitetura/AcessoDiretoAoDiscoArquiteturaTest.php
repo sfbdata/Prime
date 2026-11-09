@@ -63,6 +63,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Pasta/Service/DetectorDeAssinaturaDigital.php'        => 'só lê as pontas do upload em trânsito (selo Assinado); o acervo ele lê pelo stream que o armazenamento abre',
         'src/Comercial/Campanha/PreparadorDeImagemDaCampanha.php'  => 'GD gera os bytes em memória (destino null); grava pelo armazenamento (COMERCIAL_IMAGEM)',
         'src/Tenant/Service/PreparadorDeLogoDoEscritorio.php'      => 'GD gera os bytes em memória (destino null); grava pelo armazenamento (TENANT_LOGO)',
+        'src/Ponto/Service/ImagemDoComprovante/TelaDoComprovante.php' => 'GD gera os bytes em memória (destino null); o comprovante não é gravado, sai direto na resposta do download',
         'src/Comercial/Controller/CampanhaDoMasterController.php'  => 'só lê o upload em trânsito da imagem; quem grava é o armazenamento',
         'src/Inteligencia/Juridico/CatalogoDeQuestoesJuridicas.php' => 'catálogo do repositório (config/inteligencia), não arquivo de usuário',
         'src/Inteligencia/Juridico/DocumentosJuridicosAtuais.php'   => 'modelos do repositório (resources/legal), não arquivo de usuário',

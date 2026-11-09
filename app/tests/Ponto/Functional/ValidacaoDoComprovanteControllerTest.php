@@ -43,7 +43,7 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         $this->client->disableReboot();
     }
 
-    #[TestDox('Autêntico, sem login: nome inteiro, tipo, data e hora e NSR; sem CPF, sem localização, noindex e sem cache')]
+    #[TestDox('Autêntico, sem login: nome inteiro, tipo, data e hora e NSR; sem CPF, sem localização (que vai no selo e na imagem), noindex e sem cache')]
     public function testAutenticoSemLogin(): void
     {
         $this->seloPronto();
@@ -57,7 +57,8 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         self::assertSame('Comprovante autêntico.', $ok->filter('b')->text());
         self::assertMatchesRegularExpression('#^Comprovante autêntico\. ?Entrada de Maria da Silva Pereira em \d{2}/\d{2}/\d{4}, \d{2}:\d{2}:\d{2}, NSR 000000001\.$#u', trim($ok->text()));
         $html = (string) $this->client->getResponse()->getContent();
-        foreach (['123.456.789-09', '12345678909', '-23.55', '-46.63', 'Sede Centro'] as $proibido) {
+        self::assertStringContainsString('"local":"-23.55000, -46.63000 · precisão 12 m"', $comprovante->getDadosAssinados(), 'o local está no dado selado (P49)');
+        foreach (['123.456.789-09', '12345678909', '-23.55', '-46.63', 'precisão', 'Sede Centro'] as $proibido) {
             self::assertStringNotContainsString($proibido, $html);
         }
         $this->assertSemIndiceNemCache();
@@ -76,7 +77,55 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         $dados = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertTrue($dados['autentico']);
         self::assertStringStartsWith('Entrada de Maria da Silva Pereira em ', $dados['texto']);
+        self::assertStringNotContainsString('-23.55', $dados['texto'], 'a janela também não mostra o local (P50)');
+        self::assertStringNotContainsString('precisão', $dados['texto']);
         $this->assertSemIndiceNemCache();
+    }
+
+    #[TestDox('O gestor apaga a batida: o comprovante fica (registro_ponto_id nulo) e o código continua autêntico')]
+    public function testBatidaApagadaPeloGestorContinuaAutentica(): void
+    {
+        $this->seloPronto();
+        $this->instalarCsrfPrevisivel();
+        $escritorio = $this->escritorio('Escritório Validação');
+        $pessoa = $this->pessoaComPerfil();
+        $this->vincularColaborador($pessoa, $escritorio);
+        $gestor = $this->pessoa('gestor');
+        $this->vincularGestor($gestor, $escritorio);
+        $comprovante = $this->emitir($pessoa, $escritorio);
+        $batidaId = $comprovante->getRegistro()?->getId();
+        $comprovanteId = $comprovante->getId();
+        $esperado = [$this->pagina($comprovante->getCodigo()), $this->json($comprovante->getCodigo())];
+
+        $this->logarComTenant($this->client, $gestor, $escritorio);
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/%d/delete', $escritorio->getId(), $pessoa->getId(), $batidaId), ['_token' => 'TOKEN_delete_ponto_' . $batidaId]);
+        self::assertResponseRedirects();
+        $this->sair($this->client);
+        $this->em()->clear();
+
+        self::assertNull($this->emSemFiltro()->find(RegistroPonto::class, $batidaId), 'a batida saiu');
+        $restante = $this->emSemFiltro()->find(ComprovanteDoPonto::class, $comprovanteId);
+        self::assertNotNull($restante, 'o comprovante sobrevive (ON DELETE SET NULL)');
+        self::assertNull($restante->getRegistro());
+        self::assertSame($esperado, [$this->pagina($comprovante->getCodigo()), $this->json($comprovante->getCodigo())]);
+        self::assertStringContainsString('"autentico":true', $esperado[1]);
+    }
+
+    #[TestDox('Logado sem escritório na sessão (e sem o aceite dos Termos nela): a validação abre, sem redirecionar')]
+    public function testLogadoSemEscritorioNaSessao(): void
+    {
+        $this->seloPronto();
+        $comprovante = $this->emitir();
+        $visitante = $this->pessoa('sem_escritorio');
+        $this->vincularColaborador($visitante, $this->escritorio('Escritório do visitante'));
+
+        $this->client->loginUser($visitante);   // sem current_tenant_id e sem a versão dos Termos na sessão
+        $tela = $this->client->request('GET', '/ponto/validar/' . $comprovante->getCodigo());
+        self::assertResponseIsSuccessful();
+        self::assertSame('Comprovante autêntico.', $tela->filter('main .pv-ok[role="status"] b')->text());
+        $this->client->request('GET', '/ponto/validar?codigo=' . $comprovante->getCodigo());
+        self::assertResponseIsSuccessful();
+        self::assertTrue(json_decode($this->json($comprovante->getCodigo()), true)['autentico']);
     }
 
     #[TestDox('Selo que não confere e código que não existe recebem a mesma resposta, byte a byte (página e JSON)')]
@@ -210,11 +259,12 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         static::getContainer()->set(SeloDoComprovante::class, new SeloDoComprovanteDeTeste());
     }
 
-    private function emitir(): ComprovanteDoPonto
+    private function emitir(?User $pessoa = null, ?Tenant $escritorio = null): ComprovanteDoPonto
     {
-        $batida = $this->batida($this->pessoaComPerfil(), $this->escritorio('Escritório Validação'));
+        $batida = $this->batida($pessoa ?? $this->pessoaComPerfil(), $escritorio ?? $this->escritorio('Escritório Validação'));
         $batida->setLatitude('-23.55000000');
         $batida->setLongitude('-46.63000000');
+        $batida->setPrecisaoGps('12.40');
         $batida->setSedeNomeSnapshot('Sede Centro');
         $comprovante = static::getContainer()->get(RegistrarBatidaDaPessoaUseCase::class)->executar($batida);
         self::assertNotNull($comprovante);
