@@ -21,6 +21,8 @@ use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
+use App\Ponto\Service\AbaDosComprovantes;
+use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Ponto\Service\InicioContagemResolver;
@@ -119,6 +121,7 @@ final class PontoController extends AbstractController
         FolhaPontoBuilder $folhaPontoBuilder,
         HomeOfficeResolver $homeOfficeResolver,
         SedesDaCercaDoPonto $sedesDaCerca,
+        AbaDosComprovantes $abaDosComprovantes,
         CalculadoraJornada $calculadoraJornada,
         ListarPendenciasDeRegistroUseCase $pendencias,
         AnaliseDaPropriaJustificativa $analiseDaPropria,
@@ -261,8 +264,8 @@ final class PontoController extends AbstractController
             'abaAberta'                => $this->abaAberta($request),
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
             // Aba "Comprovantes" (E15): só com o comprovante ligado; a lista é da pessoa, neste escritório.
-            'comprovantesVisiveis'     => false,
-            'comprovantes'             => [],
+            'comprovantesVisiveis'     => $abaDosComprovantes->visivel(),
+            'comprovantes'             => $abaDosComprovantes->linhas($user, $tenant),
             // Aba "Banco de Horas" (E17): nulo esconde a aba.
             'bancoDeHoras'             => null,
         ]);
@@ -775,12 +778,12 @@ final class PontoController extends AbstractController
     #[Route('/batida', name: 'ponto_batida', methods: ['POST'])]
     public function batida(
         Request $request,
-        EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
         HomeOfficeResolver $homeOfficeResolver,
         EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
+        RegistrarBatidaDaPessoaUseCase $registrarBatida,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -972,8 +975,12 @@ final class PontoController extends AbstractController
             $registro->setPrecisaoGps((string) $precisaoGpsFloat);
         }
 
-        $entityManager->persist($registro);
-        if (!$this->gravouSemRepetirOEnvio($entityManager, $envio)) {
+        // E15: NSR (D2) e comprovante na mesma transação do INSERT; o mesmo envio repetido (E13) volta o NSR no rollback.
+        $comprovante = null;
+        $gravar = function () use ($registrarBatida, $registro, &$comprovante): void {
+            $comprovante = $registrarBatida->executar($registro);
+        };
+        if (!$this->gravouSemRepetirOEnvio($gravar, $envio)) {
             return $this->respostaJaRegistrada($tipo, null);
         }
 
@@ -988,7 +995,7 @@ final class PontoController extends AbstractController
 
         return $this->json([
             'success' => true,
-            'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
+            'message' => ($homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!') . ($comprovante !== null ? ' Comprovante na aba Comprovantes.' : ''),
             'data'    => $dados,
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);
@@ -1012,13 +1019,14 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * Grava a batida. Dois pedidos do mesmo envio ao mesmo tempo (E13): o índice único barra o segundo, que volta false
-     * e responde "já registrada" sem consultar de novo (o EntityManager fecha depois da violação).
+     * Grava a batida (`$gravar`: o UseCase da E15, que dá o NSR na mesma transação). Dois pedidos do mesmo envio ao mesmo
+     * tempo (E13): o índice único barra o segundo, o rollback devolve o NSR, e ele volta false e responde "já registrada"
+     * sem consultar de novo (o EntityManager fecha depois da violação).
      */
-    private function gravouSemRepetirOEnvio(EntityManagerInterface $entityManager, EnvioLidoDaBatida $envio): bool
+    private function gravouSemRepetirOEnvio(callable $gravar, EnvioLidoDaBatida $envio): bool
     {
         try {
-            $entityManager->flush();
+            $gravar();
         } catch (UniqueConstraintViolationException $violacao) {
             if ($envio->idEnvio === null || !str_contains($violacao->getMessage(), RegistroPonto::INDICE_DO_ENVIO)) {
                 throw $violacao;

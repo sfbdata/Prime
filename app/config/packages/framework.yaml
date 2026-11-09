@@ -32,6 +32,12 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 minute'
+        # Validação pública do comprovante do ponto (GET /ponto/validar, sem login; também a janela "Validar código"
+        # da /ponto): chave = IP. O código tem 32^12 combinações; o limite torna inviável varrê-las.
+        ponto_validacao:
+            policy: sliding_window
+            limit: 20
+            interval: '1 minute'
         convite_criar:
             policy: sliding_window
             limit: 10
