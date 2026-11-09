@@ -6,8 +6,10 @@
     inventário em docs/specs/bluejus-voto-anexo-telas.md). O cabeçalho azul e o menu no topo do desenho são a
     moldura do sistema (base.html.twig), decisão de 09/11/2026. Componentes e valores vêm do CSS do desenho
     (public/css/voto.css), nunca do AdminLTE.
-    Fase A1: título, faixa de demonstração e as quatro abas. Votar e Acompanhar mostram o estado vazio do
-    desenho; Resultados (E2) e Gestão eleitoral (A3 em diante) chegam nos PRs seguintes.
+    Fase A1: título, faixa de demonstração e as quatro abas. Votar mostra o estado vazio do desenho.
+    Assembleia de condomínio (spec docs/specs/voto-assembleia-condominio.md): Gestão eleitoral, Resultados e
+    Acompanhar embutem AssembleiaController::painel, ::resultados e ::acompanhar; nessas três abas a faixa de
+    demonstração sai (a assembleia é votação real).
     Contexto: `aba` = ele | tra | ges | aco.
 #}
 
@@ -30,7 +32,9 @@
 <div class="voto-tela" id="voto">
     <h1 class="voto-titulo">{{ 'voto.titulo'|trans }}</h1>
 
-    <div class="vAviso voto-demonstracao"><b>{{ 'voto.demonstracao.rotulo'|trans }}</b> {{ 'voto.demonstracao.texto'|trans }}</div>
+    {% if aba not in ['ges', 'tra', 'aco'] %}
+        <div class="vAviso voto-demonstracao"><b>{{ 'voto.demonstracao.rotulo'|trans }}</b> {{ 'voto.demonstracao.texto'|trans }}</div>
+    {% endif %}
 
     <nav class="vC voto-abas" aria-label="{{ 'voto.abas.rotulo'|trans }}">
         {% for a in abas %}
@@ -43,14 +47,18 @@
         <div class="voto-painel" data-aba="ele">
             <div class="vAviso">{{ 'voto.votar.vazio_gestao'|trans }}</div>
         </div>
+    {% elseif aba == 'ges' %}
+        {{ render(voto_assembleia_aba('painel')) }}
+    {% elseif aba == 'tra' %}
+        {{ render(voto_assembleia_aba('resultados')) }}
     {% elseif aba == 'aco' %}
-        <div class="voto-painel" data-aba="aco">
-            <div class="vC">
-                <div class="vH"><i class="bi bi-broadcast"></i>{{ 'voto.acompanhar.titulo'|trans }}</div>
-                <div class="vLin voto-aco-texto">{{ 'voto.acompanhar.texto'|trans }}</div>
-                <div class="vLin voto-aco-vazio">{{ 'voto.acompanhar.vazio'|trans }}</div>
-            </div>
-        </div>
+        {{ render(voto_assembleia_aba('acompanhar')) }}
     {% endif %}
 </div>
+{% include 'voto/assembleia/_toast.html.twig' %}
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/voto-assembleia.js') }}" defer></script>
 {% endblock %}

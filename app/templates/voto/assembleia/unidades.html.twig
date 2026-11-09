@@ -1,0 +1,109 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+
+{#
+    Unidades e links (desenho §2, etapa 5 "unidades com fração", e §3, link e "Copiar link"). A lista é colada
+    (`unidade; bloco; situação; fração; responsável; e-mail`) e só acrescenta: quem já está na lista conta como
+    duplicada, para os links já enviados continuarem valendo. Os links aparecem depois de publicar.
+    Contexto: `tela` (UnidadesDaAssembleia), `assembleia`, `relatorio` (linhas inválidas e duplicadas da última
+    importação, ou null).
+#}
+
+{% set sub = 'unidades' %}
+
+{% block conteudo %}
+{% set a = assembleia %}
+{% set token = csrf_token('voto_assembleia_' ~ a.id) %}
+<div class="vC voto-assistente">
+    <div class="vH"><i class="bi bi-list-check"></i>{{ a.publicada ? 'voto.assembleia.gestor.unidades.titulo'|trans : 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}</div>
+    <div class="voto-assistente-corpo">
+        <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.texto'|trans }}</div>
+        {% if a.podeAlterarUnidades %}
+            <form method="post" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar">
+                <input type="hidden" name="_token" value="{{ token }}">
+                <label class="vL">{{ 'voto.assembleia.gestor.unidades.lista'|trans }}<textarea class="vF vMono voto-lista" name="lista" rows="6" required></textarea></label>
+                <div><button type="submit" class="vB vP"><i class="bi bi-upload"></i>{{ 'voto.assembleia.gestor.unidades.importar'|trans }}</button></div>
+            </form>
+        {% else %}
+            <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.bloqueada'|trans }}</div>
+        {% endif %}
+        {% if a.unidadesAptas + a.unidadesInaptas > 0 %}
+            <div class="voto-estado voto-estado-ok">{{ 'voto.assembleia.gestor.unidades.resumo'|trans({aptos: a.unidadesAptas, inaptos: a.unidadesInaptas}) }}</div>
+        {% else %}
+            <div class="voto-estado voto-estado-erro">{{ 'voto.assembleia.gestor.unidades.obrigatoria'|trans }}</div>
+        {% endif %}
+        {% if relatorio and (relatorio.invalidas is not empty or relatorio.duplicadas is not empty) %}
+            <div class="vAviso voto-relatorio">
+                {% for inv in relatorio.invalidas %}
+                    <div>{{ 'voto.assembleia.gestor.unidades.invalida'|trans({linha: inv.linha, motivo: inv.motivo}) }}</div>
+                {% endfor %}
+                {% if relatorio.duplicadas is not empty %}
+                    <div>{{ 'voto.assembleia.gestor.unidades.duplicadas'|trans({linhas: relatorio.duplicadas|join(', ')}) }}</div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="vC voto-links">
+    <div class="vH"><i class="bi bi-link-45deg"></i>{{ 'voto.assembleia.gestor.links.titulo'|trans }}</div>
+    <div class="vLin voto-texto">{{ 'voto.assembleia.gestor.links.texto'|trans }}</div>
+    {% if a.publicada %}
+        <div class="vLin voto-acoes">
+            <form method="post" action="{{ path('voto_assembleia_unidades_enviar', {id: a.id}) }}" class="voto-form-linha">
+                <input type="hidden" name="_token" value="{{ token }}">
+                <button type="submit" class="vB vP" {{ tela.faltamEnvio == 0 ? 'disabled' }}><i class="bi bi-envelope"></i>{{ 'voto.assembleia.gestor.links.enviar'|trans }}</button>
+            </form>
+            <span class="voto-participacao">{{ 'voto.assembleia.gestor.links.faltam'|trans({n: tela.faltamEnvio}) }}</span>
+        </div>
+    {% else %}
+        <div class="vLin voto-texto">{{ 'voto.assembleia.gestor.links.antes_de_publicar'|trans }}</div>
+    {% endif %}
+    {% for u in tela.unidades %}
+        {% set link = url('voto_assembleia_cedula', {token: u.token}) %}
+        <div class="vLin voto-unidade" id="unidade-{{ u.id }}">
+            <div class="voto-unidade-dados">
+                <b>{{ u.rotulo }}</b>
+                <span class="vChip" style="background:{{ u.apta ? '#1e7b45' : '#a3232b' }}">{{ (u.apta ? 'voto.assembleia.gestor.unidades.apto' : 'voto.assembleia.gestor.unidades.nao_apto')|trans }}</span>
+                {% if u.fracao is not null %}<span>{{ 'voto.assembleia.gestor.unidades.fracao'|trans({fracao: u.fracao|voto_fracao}) }}</span>{% endif %}
+                {% if u.responsavel %}<span>{{ u.responsavel }}</span>{% endif %}
+                {% if u.email %}<span>{{ u.email }}</span>{% endif %}
+                {% if u.linkEnviadoEm %}<span class="voto-participacao">{{ 'voto.assembleia.gestor.links.enviado_em'|trans({data: u.linkEnviadoEm|date('d/m/Y H:i')}) }}</span>{% endif %}
+            </div>
+            <div class="voto-unidade-acoes">
+                {% if a.publicada and u.apta %}
+                    <button type="button" class="vB vP" data-voto-copiar="{{ link }}" data-voto-copiado="{{ 'voto.assembleia.gestor.aviso.link_copiado'|trans }}"><i class="bi bi-link-45deg"></i>{{ 'voto.assembleia.gestor.links.copiar_link'|trans }}</button>
+                    <button type="button" class="vB" data-voto-copiar="{{ 'voto.assembleia.gestor.links.mensagem'|trans({assembleia: a.titulo, unidade: u.rotulo, link: link}) }}" data-voto-copiado="{{ 'voto.assembleia.gestor.aviso.mensagem_copiada'|trans }}"><i class="bi bi-chat-text"></i>{{ 'voto.assembleia.gestor.links.copiar_mensagem'|trans }}</button>
+                    {% if u.email %}
+                        <form method="post" action="{{ path('voto_assembleia_unidade_reenviar', {id: a.id, unidade: u.id}) }}" class="voto-form-linha">
+                            <input type="hidden" name="_token" value="{{ token }}">
+                            <button type="submit" class="vB"><i class="bi bi-envelope"></i>{{ 'voto.assembleia.gestor.links.reenviar'|trans }}</button>
+                        </form>
+                    {% endif %}
+                    <form method="post" action="{{ path('voto_assembleia_unidade_novo_link', {id: a.id, unidade: u.id}) }}" class="voto-form-linha">
+                        <input type="hidden" name="_token" value="{{ token }}">
+                        <button type="submit" class="vB"><i class="bi bi-arrow-repeat"></i>{{ 'voto.assembleia.gestor.links.novo_link'|trans }}</button>
+                    </form>
+                {% endif %}
+                {% if a.podeAlterarUnidades %}
+                    <form method="post" action="{{ path('voto_assembleia_unidade_remover', {id: a.id, unidade: u.id}) }}" class="voto-form-linha">
+                        <input type="hidden" name="_token" value="{{ token }}">
+                        <button type="submit" class="vB vD" aria-label="{{ 'voto.assembleia.gestor.unidades.remover'|trans }}" title="{{ 'voto.assembleia.gestor.unidades.remover'|trans }}"><i class="bi bi-trash"></i></button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.unidades.vazio'|trans }}</div>
+    {% endfor %}
+    {% if not a.publicada %}
+        <div class="vLin voto-rodape">
+            <a class="vB" href="{{ path('voto_assembleia_pautas', {id: a.id}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <span class="voto-espaco"></span>
+            <form method="post" action="{{ path('voto_assembleia_publicar', {id: a.id}) }}" class="voto-form-linha">
+                <input type="hidden" name="_token" value="{{ token }}">
+                <button type="submit" class="vB vP"><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.unidades.publicar'|trans }}</button>
+            </form>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

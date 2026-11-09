@@ -214,14 +214,14 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.voto-tela > .voto-painel[data-aba="ele"]'));
     }
 
-    #[TestDox('Resultados e Gestão eleitoral ainda sem conteúdo: nenhum painel vazio na coluna')]
+    #[TestDox('Resultados sem pauta encerrada: nenhum painel vazio na coluna (Gestão eleitoral: AssembleiaGestorTest)')]
     public function testAbasSemConteudoNaoDesenhamPainel(): void
     {
         $this->ligar();
         $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
-        foreach (['tra' => 'Resultados', 'ges' => 'Gestão eleitoral'] as $aba => $rotulo) {
+        foreach (['tra' => 'Resultados'] as $aba => $rotulo) {
             $crawler = $this->client->request('GET', '/voto?aba=' . $aba);
             self::assertResponseIsSuccessful();
             self::assertSame($rotulo, trim($crawler->filter('.voto-abas > a.vTabOn')->text()));

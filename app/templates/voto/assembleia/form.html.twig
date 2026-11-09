@@ -1,0 +1,33 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+
+{#
+    Criar ou editar a assembleia (desenho §2, assistente "Criar eleição", etapa 1 e o peso da etapa 2): faixa
+    "Nova assembleia" / "Rascunho: {nome}", o aviso do cenário condomínio, "Evento" e "Peso do voto" ("Fração ideal" ou
+    "Uma unidade, um voto"), o erro da etapa e o rodapé "Salvar e sair" | "Continuar". Sem data (modo mesa).
+    Contexto: `assembleia` (AssembleiaNoPainel ou null), `input` (AssembleiaInput), `erro`.
+#}
+
+{% set sub = 'assembleia' %}
+
+{% block conteudo %}
+<div class="vC voto-assistente">
+    <div class="vH"><i class="bi bi-plus-square"></i>{{ assembleia is null ? 'voto.assembleia.gestor.nova'|trans : 'voto.assembleia.gestor.rascunho'|trans({titulo: assembleia.titulo}) }}</div>
+    <form method="post" class="voto-assistente-corpo" action="{{ assembleia is null ? path('voto_assembleia_nova') : path('voto_assembleia_editar', {id: assembleia.id}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token(assembleia is null ? 'voto_assembleia_nova' : 'voto_assembleia_' ~ assembleia.id) }}">
+        <div class="vAviso">{{ 'voto.assembleia.gestor.form.ajuda'|trans }}</div>
+        <div class="vG2">
+            <label class="vL">{{ 'voto.assembleia.gestor.form.evento'|trans }}<input class="vF" name="titulo" maxlength="160" required value="{{ input.titulo }}"></label>
+            <label class="vL">{{ 'voto.assembleia.gestor.form.peso'|trans }}<select class="vF" name="peso">
+                <option value="fracao" {{ input.peso == 'fracao' ? 'selected' }}>{{ 'voto.assembleia.gestor.form.peso_fracao'|trans }}</option>
+                <option value="unidade" {{ input.peso == 'unidade' ? 'selected' }}>{{ 'voto.assembleia.gestor.form.peso_unidade'|trans }}</option>
+            </select></label>
+        </div>
+        {% if erro %}<div class="voto-erro">{{ erro }}</div>{% endif %}
+        <div class="voto-rodape">
+            <button type="submit" class="vB" name="depois" value="sair">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</button>
+            <span class="voto-espaco"></span>
+            <button type="submit" class="vB vP" name="depois" value="pautas">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></button>
+        </div>
+    </form>
+</div>
+{% endblock %}

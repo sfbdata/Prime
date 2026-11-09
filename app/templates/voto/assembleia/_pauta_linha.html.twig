@@ -1,0 +1,57 @@
+{#
+    Uma pauta na lista "Votações" do painel (desenho L194, .vLin em coluna): nome e chip de status, barra de
+    participação, "Participação {n} de {aptos} aptos ({pct}%). Conduzida pela mesa." e, conforme o estado, a mesa:
+    publicada (convocação, minutos, "Abrir por minutos", "Abrir sem prazo"); aberta (cronômetro, "Definir prazo",
+    "Sem prazo", motivo e "Encerrar"); encerrada (o resultado). Nunca parcial de votos com a pauta aberta.
+    Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel), `voltar` (painel | pautas) e `agora`.
+#}
+{% set token = csrf_token('voto_assembleia_' ~ a.id) %}
+<div class="vLin voto-pauta" id="pauta-{{ p.id }}" data-pauta="{{ p.id }}" data-situacao="{{ p.situacao }}">
+    <div class="voto-pauta-topo">
+        <b class="voto-pauta-nome">{{ p.ordem }}. {{ p.titulo }}</b>
+        <span class="vChip" style="background:{{ p.cor }};">{{ ('voto.assembleia.gestor.situacao.' ~ p.situacao)|trans }}</span>
+    </div>
+    <div class="voto-barra-fina"><div style="width:{{ p.pctUnidades }}%;"></div></div>
+    <div class="voto-participacao">{{ 'voto.assembleia.gestor.painel.participacao'|trans({n: p.votantes, aptos: p.unidadesAptas, pct: p.pctUnidades}) }}</div>
+
+    {% if p.aguardandoAMesa or p.aberta %}
+        <div class="voto-pauta-acoes">
+            {% if p.aguardandoAMesa %}
+                <form method="post" action="{{ path('voto_assembleia_pauta_abrir', {id: a.id, pauta: p.id}) }}" class="voto-mesa" data-mesa="abrir">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <input type="hidden" name="voltar" value="{{ voltar }}">
+                    <select class="vF voto-mesa-conv" name="convocacao" aria-label="{{ 'voto.assembleia.gestor.mesa.convocacao'|trans }}">
+                        <option value="1">{{ 'voto.assembleia.gestor.mesa.conv1'|trans }}</option>
+                        <option value="2">{{ 'voto.assembleia.gestor.mesa.conv2'|trans }}</option>
+                    </select>
+                    <input class="vF voto-mesa-min" name="minutos" aria-label="{{ 'voto.assembleia.gestor.mesa.minutos_rotulo'|trans }}" inputmode="numeric" value="5">
+                    <span class="voto-mesa-rotulo">{{ 'voto.assembleia.gestor.mesa.minutos'|trans }}</span>
+                    <button type="submit" class="vB vP" name="modo" value="minutos"><i class="bi bi-stopwatch"></i>{{ 'voto.assembleia.gestor.mesa.abrir_minutos'|trans }}</button>
+                    <button type="submit" class="vB" name="modo" value="sem"><i class="bi bi-unlock"></i>{{ 'voto.assembleia.gestor.mesa.abrir_sem_prazo'|trans }}</button>
+                </form>
+            {% else %}
+                {% set segundos = p.segundosRestantes(agora) %}
+                <form method="post" action="{{ path('voto_assembleia_pauta_prazo', {id: a.id, pauta: p.id}) }}" class="voto-mesa" data-mesa="prazo">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <input type="hidden" name="voltar" value="{{ voltar }}">
+                    {% if segundos is null %}
+                        <b class="voto-cron">{{ 'voto.assembleia.gestor.mesa.sem_prazo_definido'|trans }}</b>
+                    {% else %}
+                        <b class="voto-cron" data-voto-prazo="{{ segundos }}" data-modelo="{{ 'voto.assembleia.gestor.mesa.encerra_em'|trans({tempo: '{tempo}'}) }}">{{ 'voto.assembleia.gestor.mesa.encerra_em'|trans({tempo: '%02d:%02d'|format(segundos // 60, segundos % 60)}) }}</b>
+                    {% endif %}
+                    <input class="vF voto-mesa-min" name="minutos" aria-label="{{ 'voto.assembleia.gestor.mesa.minutos_rotulo'|trans }}" inputmode="numeric" value="5">
+                    <button type="submit" class="vB" name="modo" value="minutos"><i class="bi bi-stopwatch"></i>{{ 'voto.assembleia.gestor.mesa.definir_prazo'|trans }}</button>
+                    <button type="submit" class="vB" name="modo" value="sem">{{ 'voto.assembleia.gestor.mesa.sem_prazo'|trans }}</button>
+                </form>
+                <form method="post" action="{{ path('voto_assembleia_pauta_encerrar', {id: a.id, pauta: p.id}) }}" class="voto-mesa-encerrar" data-mesa="encerrar">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <input type="hidden" name="voltar" value="{{ voltar }}">
+                    <input class="vF voto-mesa-motivo" name="motivo" maxlength="200" placeholder="{{ 'voto.assembleia.gestor.mesa.motivo'|trans }}" aria-label="{{ 'voto.assembleia.gestor.mesa.motivo'|trans }}">
+                    <button type="submit" class="vB vD"><i class="bi bi-lock"></i>{{ 'voto.assembleia.gestor.mesa.encerrar'|trans }}</button>
+                </form>
+            {% endif %}
+        </div>
+    {% elseif p.encerrada and p.resultado is not null %}
+        {% include 'voto/assembleia/_decisao.html.twig' with {r: p.resultado} only %}
+    {% endif %}
+</div>
