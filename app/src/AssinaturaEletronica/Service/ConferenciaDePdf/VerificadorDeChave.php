@@ -48,6 +48,9 @@ final class VerificadorDeChave
     public const MOTIVO_ALGORITMO = 'Algoritmo de assinatura não suportado';
     public const MOTIVO_CURVA = 'Curva elíptica não suportada';
     public const MOTIVO_CHAVE = 'Não foi possível conferir a chave do certificado';
+    public const MOTIVO_CHAVE_CURTA = 'Chave curta demais para conferir';
+    /** Menor chave RSA que o motor confere (M21). */
+    private const BITS_MINIMOS_RSA = 512;
 
     /**
      * @param string $oidDaAssinatura   OID do signatureAlgorithm do SignerInfo, em hexadecimal
@@ -87,7 +90,10 @@ final class VerificadorDeChave
 
         $bits = (int) (SemAvisos::executar(static fn (): array|false => openssl_pkey_get_details($chave))['bits'] ?? 0);
         $tamanho = intdiv($bits + 7, 8);
-        if ($bits < 512 || \strlen($assinatura) !== $tamanho) {
+        if ($bits < self::BITS_MINIMOS_RSA) {
+            return ResultadoDaChave::naoConferida(self::MOTIVO_CHAVE_CURTA);
+        }
+        if (\strlen($assinatura) !== $tamanho) {
             return new ResultadoDaChave(false);
         }
 
@@ -129,10 +135,17 @@ final class VerificadorDeChave
             return ResultadoDaChave::naoConferida(self::MOTIVO_CHAVE);
         }
 
+        // Ecdsa-Sig-Value: SEQUENCE com exatamente dois INTEGER (r, s); qualquer outra forma não é conferida (M21).
         $sequencia = LeitorDer::abrir($assinatura);
+        if ($sequencia->etiqueta !== 0x30) {
+            return ResultadoDaChave::naoConferida(self::MOTIVO_CHAVE);
+        }
         $partes = LeitorDer::filhos($assinatura, $sequencia);
-        $r = self::inteiroCanonico(LeitorDer::valor($assinatura, LeitorDer::item($partes, 0)), $tamanho);
-        $s = self::inteiroCanonico(LeitorDer::valor($assinatura, LeitorDer::item($partes, 1)), $tamanho);
+        if (\count($partes) !== 2 || $partes[0]->etiqueta !== 0x02 || $partes[1]->etiqueta !== 0x02) {
+            return ResultadoDaChave::naoConferida(self::MOTIVO_CHAVE);
+        }
+        $r = self::inteiroCanonico(LeitorDer::valor($assinatura, $partes[0]), $tamanho);
+        $s = self::inteiroCanonico(LeitorDer::valor($assinatura, $partes[1]), $tamanho);
         if ($r === null || $s === null) {
             return ResultadoDaChave::naoConferida(self::MOTIVO_CHAVE);
         }

@@ -138,6 +138,7 @@ Por assinatura (os quatro primeiros são os textos do protótipo):
 | `naoverif` | Algoritmo de assinatura não suportado |
 | `naoverif` | Curva elíptica não suportada |
 | `naoverif` | Não foi possível conferir a chave do certificado |
+| `naoverif` | Chave curta demais para conferir |
 | `naoverif` | Assinatura sem atributos assinados: o resumo não foi conferido |
 | `naoverif` | Carimbo do tempo do documento: a conferência fica para o validador do servidor |
 
@@ -256,6 +257,14 @@ Tudo o que não estava no protótipo nem na spec, decidido nesta tarefa (o orque
 - **M19. `/Encrypt`**: reconhecido seguido de espaço ou de `<<` (o protótipo só reconhecia o espaço).
 - **M20. `ler` não é portado**: ele só lê o original guardado no IndexedDB e depende de `guardar`, que é gravação
   (etapa 5). `objeto` e `infla` saem como serviços próprios para o carimbo da etapa 5.
+
+Decisões da revisão do motor (feature-review-agent):
+
+- **M21. Forma da assinatura ECDSA e chave RSA curta**: a assinatura ECDSA só é conferida quando é exatamente uma
+  SEQUENCE com dois INTEGER (`r` e `s`); elemento a mais, a menos, etiqueta trocada ou SET no lugar da SEQUENCE ficam
+  `naoverif` ("Não foi possível conferir a chave do certificado"), em vez de o motor aceitar o que vier depois. Chave
+  RSA com menos de 512 bits no RSA-PSS fica `naoverif` com "Chave curta demais para conferir" (antes saía `alterada`,
+  o que acusava alteração sem prova).
 
 ## 7. Testes
 
