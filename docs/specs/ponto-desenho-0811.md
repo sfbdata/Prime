@@ -594,6 +594,31 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: dois eventos ao mesmo tempo no mesmo escritório mantêm a cadeia; adulterar uma linha acusa "a cadeia foi
   alterada"; escritórios não se misturam; purga do escritório apaga a cadeia dele; mudança de sede ou feriado não entra
   na trilha e continua no `audit_log`.
+- Decisões da etapa (implementada em 09/11/2026 na branch `ponto-desenho-e9`, a integrar na `ponto-desenho`):
+  - tabela `ponto_auditoria` (migration `Version20261109190000`): sequência por escritório a partir de 1 com índice
+    único (escritório, sequência), índice (escritório, em), FK do escritório com CASCADE; `autor_id` SEM FK (um
+    `SET NULL` mudaria coluna selada e quebraria a cadeia; o `audit_log` também guarda o id solto) e `autor_nome`,
+    retrato do momento;
+  - `TrilhaDoPonto::registrar(Tenant, ?User, string $acao, array $detalhe)`: grava por DBAL (nunca dá `flush()` em quem
+    chama), na transação de quem chama ou numa própria; `pg_advisory_xact_lock(4203, escritório)` antes de ler o último
+    elo, a última trava do fluxo; `emTransacao()` para quem grava o fato com `flush()` solto (batida, escala);
+  - selo: HMAC-SHA256 com a chave `hash_hkdf('sha256', PONTO_HMAC_SECRET, 32, 'ponto-trilha')`
+    (`ChavesDoHmacDoPonto`, com `disponivel()`, `versaoAtual()` e `chave()`, reaproveitável pela E15 e E16), sobre o
+    JSON canônico de selo anterior, escritório, sequência, em, autor (id e nome), ação e detalhe; a linha guarda a versão
+    da chave. `PONTO_HMAC_SECRET=` declarado vazio no `.env`; vazio grava sem selo e sem versão;
+  - conferência (`ConferirTrilhaDoPontoUseCase`): íntegra, alterada (com a sequência do primeiro evento que não confere:
+    coluna mexida, linha apagada, elo trocado, selo apagado, versão sem chave) ou não selada (sem segredo no servidor, ou
+    o trecho inicial gravado antes do selo); a chave sai da versão gravada em cada linha;
+  - eventos: batida (inclui o atalho do avatar), justificativa enviada, editada (com ou sem troca do atestado) e
+    excluída pelo colaborador, abonada, recusada, voltou para análise, abono em lote (um evento com as abonadas), lançada
+    já abonada pelo gestor, batida do esquecimento abonado e escala alterada (as 3 versões da jornada, autor da sessão);
+  - aba Auditoria no molde das abas de gestão: `GestaoDoPonto::veAuditoria` (`admin.ponto.manage`; primário e Master
+    passam), rota `ponto_auditoria` com `?pagina=` (50 por página, o mais recente primeiro), parcial
+    `_abas_auditoria.html.twig`, páginas por `js/ponto-auditoria.js`; CSS no bloco "Auditoria (E9)";
+  - purga: `ponto_auditoria` na ordem de deleção do `PurgarEscritorioUseCase`;
+  - ficam para depois: a chave do Escritório (E7, entra na trilha quando a E7 chegar), os ajustes de batida (E10), a
+    fila sem internet, a folha e a facial (cada etapa chama a trilha nos eventos dela). A chave Global do Master fica só
+    no `audit_log`, como hoje (`RecursoEstado` é auditável no escopo da plataforma, sem escritório para a cadeia).
 
 **E10. Batida só inserção, com ajuste.**
 - Entra: P65 (a: "Editar" e "Excluir" da ficha viram "Ajustar" e "Desconsiderar"), P29, D18 (o esquecimento abonado

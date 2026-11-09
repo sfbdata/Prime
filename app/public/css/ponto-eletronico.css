@@ -696,6 +696,54 @@
 .pe-just-icone--editar { color: var(--pe-link); }
 .pe-just-icone--editar:hover { background: var(--pe-hover-sec); }
 
+/* ── Auditoria (E9, L222 a L225 do desenho) ──────────────────────────────────────────────────────
+   Cabeçalho com a conferência da cadeia, tabela (bjpT = pe-tab) na rolagem do desenho e o selo abreviado. O desenho
+   tem dois estados do cabeçalho (íntegra e alterada); o "não selada" (sem segredo no servidor ou trecho gravado antes
+   do selo) não está nele e usa o tom do alerta do desenho. As páginas (o desenho não tem: o protótipo guarda poucos
+   eventos) usam o molde dos botões do desenho. */
+.pe-audit-cab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-audit-cab > .bi { font-size: 15px; }
+.pe-audit-cab--integra { color: var(--pe-ok-cor); }
+.pe-audit-cab--alterada { color: var(--pe-perigo); }
+.pe-audit-cab--nao-selada { color: var(--pe-alerta-cor); }
+.pe-audit-rolagem { max-height: 380px; overflow: auto; }
+.pe-tab td.pe-audit-detalhe { white-space: normal; min-width: 200px; }
+.pe-audit-selo { font-size: 12px; color: var(--pe-info-cor); }
+.pe-audit-sem-selo { font-size: 12px; color: var(--pe-mudo); }
+.pe-audit-paginas {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--pe-div);
+    font-size: 12.5px;
+    color: var(--pe-mudo);
+}
+.pe-audit-pag {
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--pe-azul);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-link);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.pe-audit-pag:disabled { border-color: var(--pe-borda); color: var(--pe-mudo); cursor: default; }
+
 /* ── Janela (moldura do desenho, L269 a L318): fundo, barra azul, corpo, erro e rodapé ─────────────
    Clicar fora não fecha; Esc fecha (js/ponto-abas.js). Serve às janelas da aba das justificativas (E3).
    Desvio necessário (E4): a janela da falta, com o calendário, passa da altura da tela. `margin: auto` na janela

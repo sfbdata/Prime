@@ -26,6 +26,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ConfirmarEdicaoDeJustificativaUseCase::class)]
 final class ConfirmarEdicaoDeJustificativaFalhaTest extends TestCase
 {
+    use TrilhaDoPontoDeTesteTrait;
+
     private int $flushes = 0;
 
     #[TestDox('Falha do banco ao ler o status travado: a exceção sobe e nada é gravado')]
@@ -57,6 +59,7 @@ final class ConfirmarEdicaoDeJustificativaFalhaTest extends TestCase
             $this->useCase($repositorio)->executar($this->justificativa(7), $this->tenant(7));
         } finally {
             self::assertSame(0, $this->flushes);
+            self::assertSame([], $this->eventosDaTrilha, 'recusa não entra na trilha (E9)');
         }
     }
 
@@ -75,6 +78,8 @@ final class ConfirmarEdicaoDeJustificativaFalhaTest extends TestCase
         $this->useCase($repositorio)->executar($justificativa, $tenant);
 
         self::assertSame(1, $this->flushes);
+        self::assertSame(['justificativa_editada'], array_column($this->eventosDaTrilha, 'acao'), 'a edição entra na trilha (E9), na mesma transação');
+        self::assertSame(42, $this->eventosDaTrilha[0]['detalhe']['justificativa_id']);
     }
 
     #[TestDox('Outro escritório: LogicException sem abrir transação')]
@@ -83,7 +88,7 @@ final class ConfirmarEdicaoDeJustificativaFalhaTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::never())->method('wrapInTransaction');
 
-        $useCase = new ConfirmarEdicaoDeJustificativaUseCase($em, $this->createMock(JustificativaPontoRepository::class));
+        $useCase = new ConfirmarEdicaoDeJustificativaUseCase($em, $this->createMock(JustificativaPontoRepository::class), $this->trilhaDeTeste());
 
         $this->expectException(\LogicException::class);
         $useCase->executar($this->justificativa(7), $this->tenant(99));
@@ -101,7 +106,7 @@ final class ConfirmarEdicaoDeJustificativaFalhaTest extends TestCase
             return $resultado;
         });
 
-        return new ConfirmarEdicaoDeJustificativaUseCase($em, $repositorio);
+        return new ConfirmarEdicaoDeJustificativaUseCase($em, $repositorio, $this->trilhaDeTeste());
     }
 
     private function tenant(int $id): Tenant

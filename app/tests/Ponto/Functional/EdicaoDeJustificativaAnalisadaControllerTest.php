@@ -247,7 +247,7 @@ final class EdicaoDeJustificativaAnalisadaControllerTest extends JusPrimeWebTest
         };
         $container->set(
             ConfirmarEdicaoDeJustificativaUseCase::class,
-            new ConfirmarEdicaoDeJustificativaUseCase($container->get(EntityManagerInterface::class), $repositorio),
+            new ConfirmarEdicaoDeJustificativaUseCase($container->get(EntityManagerInterface::class), $repositorio, $container->get(\App\Ponto\Service\TrilhaDoPonto::class)),
         );
 
         $this->editar($client, $j, ['tipo' => 'atestado_medico']);

@@ -43,6 +43,10 @@ use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Service\EnvioDaBatida;
 use App\Ponto\Service\EnvioLidoDaBatida;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\GestaoDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
 use App\Entity\Tenant\Tenant;
@@ -61,6 +65,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -121,6 +126,7 @@ final class PontoController extends AbstractController
         ListarPendenciasDeRegistroUseCase $pendencias,
         AnaliseDaPropriaJustificativa $analiseDaPropria,
         FuncoesDoPonto $funcoes,
+        GestaoDoPonto $gestao,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -260,7 +266,8 @@ final class PontoController extends AbstractController
             'proximaViradaMs'          => (int) $agora->modify('tomorrow')->format('Uv'),
             'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
             // Cartão de abas (E3): Pendências abre ao entrar (P37); a volta da análise e da exclusão reabre a das justificativas.
-            'abaAberta'                => $request->query->get('aba') === 'justificativas' ? 'justificativas' : 'pendencias',
+            'abaAberta'                => \in_array($request->query->get('aba'), ['justificativas', 'auditoria'], true) ? (string) $request->query->get('aba') : 'pendencias',
+            'veAuditoria'              => $gestao->veAuditoria($user, $tenant),   // aba Auditoria (E9, P64); sem ela, o endereço cai em Pendências
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
         ]);
     }
@@ -270,7 +277,8 @@ final class PontoController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         JustificativaPontoRepository $justificativaRepository,
-        NotificacaoService $notificacaoService
+        NotificacaoService $notificacaoService,
+        TrilhaDoPonto $trilha,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -394,14 +402,7 @@ final class PontoController extends AbstractController
                 $justificativasCriadas[] = $justificativa;
             }
 
-            // O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver
-            // PROVADO que nada foi confirmado; num COMMIT de resultado incerto as justificativas
-            // podem existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original
-            // continua subindo.
-            $this->transacao->confirmar(
-                static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
-                'PontoController::novaJustificativa: atestado do lote',
-            );
+            $this->confirmarEnvio($entityManager, $trilha, $tenant, $user, $justificativasCriadas, $chaveAnexo);
 
             if (!$isFaltaNaoJustificada) {
                 // Leva o gestor direto à aba de justificativas do colaborador (aprovar/recusar)
@@ -433,6 +434,26 @@ final class PontoController extends AbstractController
         }
 
         return $this->redirectToRoute('ponto_index', $voltaParaFolha);
+    }
+
+    /**
+     * Confirma o lote enviado pelo colaborador com o evento da trilha do Ponto (E9) no mesmo COMMIT. O arquivo foi
+     * gravado antes da transação. Se ela falhar, ele só sai quando estiver PROVADO que nada foi confirmado; num COMMIT de
+     * resultado incerto as justificativas podem existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção
+     * original continua subindo.
+     *
+     * @param list<JustificativaPonto> $justificativas
+     */
+    private function confirmarEnvio(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, Tenant $tenant, User $user, array $justificativas, ?ChaveDeArquivo $chaveAnexo): void
+    {
+        $this->transacao->executar(
+            static function () use ($entityManager, $trilha, $tenant, $user, $justificativas): void {
+                $entityManager->flush();
+                $trilha->registrar($tenant, $user, AcaoDaTrilhaDoPonto::JustificativaEnviada->value, DetalheDaTrilhaDoPonto::doLote($justificativas));
+            },
+            static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
+            'PontoController::novaJustificativa: atestado do lote',
+        );
     }
 
     /**
@@ -779,6 +800,7 @@ final class PontoController extends AbstractController
         EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
         FuncoesDoPonto $funcoes,
+        TrilhaDoPonto $trilha,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -976,8 +998,7 @@ final class PontoController extends AbstractController
             $registro->setPrecisaoGps((string) $precisaoGpsFloat);
         }
 
-        $entityManager->persist($registro);
-        if (!$this->gravouSemRepetirOEnvio($entityManager, $envio)) {
+        if (!$this->gravouSemRepetirOEnvio($envio, fn () => $this->gravarBatida($entityManager, $trilha, $registro, $tenant))) {
             return $this->respostaJaRegistrada($tipo, null);
         }
 
@@ -1033,13 +1054,14 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * Grava a batida. Dois pedidos do mesmo envio ao mesmo tempo (E13): o índice único barra o segundo, que volta false
-     * e responde "já registrada" sem consultar de novo (o EntityManager fecha depois da violação).
+     * Grava a batida (com o evento da trilha, E9, na mesma transação). Dois pedidos do mesmo envio ao mesmo tempo (E13):
+     * o índice único barra o segundo, a transação desfaz batida e evento, e ele volta false e responde "já registrada"
+     * sem consultar de novo (o EntityManager fecha depois da violação).
      */
-    private function gravouSemRepetirOEnvio(EntityManagerInterface $entityManager, EnvioLidoDaBatida $envio): bool
+    private function gravouSemRepetirOEnvio(EnvioLidoDaBatida $envio, \Closure $gravar): bool
     {
         try {
-            $entityManager->flush();
+            $gravar();
         } catch (UniqueConstraintViolationException $violacao) {
             if ($envio->idEnvio === null || !str_contains($violacao->getMessage(), RegistroPonto::INDICE_DO_ENVIO)) {
                 throw $violacao;
@@ -1062,6 +1084,19 @@ final class PontoController extends AbstractController
             'data'    => $dados + ['tipo' => $tipo, 'jaRegistrada' => true],
             'avisos'  => [],
         ]);
+    }
+
+    /**
+     * Grava a batida e o evento dela na trilha de auditoria (E9) no mesmo COMMIT: se a batida falha, a trilha não
+     * ganha linha; se a trilha falha, a batida não entra.
+     */
+    private function gravarBatida(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, RegistroPonto $registro, Tenant $tenant): void
+    {
+        $trilha->emTransacao(static function () use ($entityManager, $trilha, $registro, $tenant): void {
+            $entityManager->persist($registro);
+            $entityManager->flush();
+            $trilha->registrar($tenant, $registro->getUser(), AcaoDaTrilhaDoPonto::BatidaRegistrada->value, DetalheDaTrilhaDoPonto::daBatida($registro) + ['registro_id' => $registro->getId()]);
+        });
     }
 
     /**

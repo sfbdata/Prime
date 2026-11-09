@@ -16,6 +16,8 @@ use App\Service\PermissionChecker;
  * - Equipe (E5): `admin.users.manage`, a da ficha do colaborador (justificativas, jornada, folha de outra pessoa);
  * - Configurações (E6 em diante): `admin.ponto.manage` (sedes) ou `admin.tenant.settings.manage` (feriados); cada
  *   seção da aba confere a sua.
+ * - Auditoria (E9, P64): `admin.ponto.manage`, a de quem gere o ponto do escritório (a trilha mostra as batidas e as
+ *   análises de todos).
  *
  * `canAdminister` já deixa passar o Master e o primário ativo, e só lê o perfil de vínculo ativo.
  */
@@ -24,6 +26,7 @@ final class GestaoDoPonto
     public const EQUIPE = 'admin.users.manage';
     public const SEDES = 'admin.ponto.manage';
     public const FERIADOS = 'admin.tenant.settings.manage';
+    public const AUDITORIA = 'admin.ponto.manage';
 
     public function __construct(
         private readonly PermissionChecker $permissoes,
@@ -39,5 +42,10 @@ final class GestaoDoPonto
     {
         return $this->permissoes->canAdminister($quem, $escritorio, self::SEDES)
             || $this->permissoes->canAdminister($quem, $escritorio, self::FERIADOS);
+    }
+
+    public function veAuditoria(User $quem, Tenant $escritorio): bool
+    {
+        return $this->permissoes->canAdminister($quem, $escritorio, self::AUDITORIA);
     }
 }

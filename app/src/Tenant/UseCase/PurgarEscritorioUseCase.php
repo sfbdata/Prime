@@ -385,6 +385,9 @@ final class PurgarEscritorioUseCase
         // ponto e ANTES da Fase 4 (que apaga o tenant). Nada referencia esta tabela, então a posição
         // relativa às demais entradas não importa, só precisa vir antes do DELETE FROM tenant.
         ['ponto_lancamento_horas_pagas', 'tenant_id = :tenant'],
+        // Trilha de auditoria do Ponto (E9): a cadeia selada do escritório sai inteira com ele. FK tenant CASCADE;
+        // explícito por convenção. Nada a referencia.
+        ['ponto_auditoria', 'tenant_id = :tenant'],
         ['home_office_config', 'tenant_id = :tenant'],
         // Configuração do Ponto do escritório (E7): FK tenant_id sem cascata, como a home_office_config.
         ['ponto_config_escritorio', 'tenant_id = :tenant'],

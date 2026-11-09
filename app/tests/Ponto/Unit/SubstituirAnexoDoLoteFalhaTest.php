@@ -47,6 +47,8 @@ use Symfony\Component\Validator\Validation;
 #[CoversClass(SubstituirAnexoDoLoteUseCase::class)]
 final class SubstituirAnexoDoLoteFalhaTest extends TestCase
 {
+    use TrilhaDoPontoDeTesteTrait;
+
     private string $diretorio;
 
     protected function setUp(): void
@@ -370,6 +372,7 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
             $remocao,
             Validation::createValidator(),
             $logger,
+            $this->trilhaDeTeste(),
         );
     }
 
