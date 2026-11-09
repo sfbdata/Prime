@@ -154,11 +154,13 @@ final class BancoDeHorasNaTelaTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Item 12 da E17: quem não tem jornada pessoal conta os dias pela jornada do escritório, a mesma da folha da /ponto
-     * (até aqui o banco não contava dia nenhum). O último dia de cada mês aparece na folha (a /ponto esconde o dia sem
-     * batida, e o "Saldo do mês" é o da última linha), e as horas pagas fazem os totais do mês aparecerem.
+     * Item 12 da E17: quem não tem jornada pessoal conta os dias pela jornada do escritório, a mesma da folha (até aqui o
+     * banco não contava dia nenhum). Desde a rodada 3 o total "Saldo do mês" da /ponto e o da ficha saem do banco, então
+     * comparar com eles não prova nada sozinho: a prova são as LINHAS da ficha do gestor, que mostram todos os dias e
+     * saem do motor da folha, sem passar pelo banco. O "Saldo mês" da última linha de cada mês tem de ser o total da
+     * /ponto, e a soma dos meses, com as horas pagas, o topo.
      */
-    #[TestDox('Sem jornada pessoal: o banco é a soma dos meses da folha da /ponto, contada pela jornada do escritório')]
+    #[TestDox('Sem jornada pessoal: o banco é a soma dos meses nas linhas da folha, contada pela jornada do escritório')]
     public function testSemJornadaPessoalOBancoEASomaDaFolha(): void
     {
         $this->mesesTrabalhados();
@@ -166,7 +168,11 @@ final class BancoDeHorasNaTelaTest extends JusPrimeWebTestCase
         $this->assertBancoIgualASomaDaFolha();
     }
 
-    #[TestDox('Primeira versão da jornada no meio do mês: os dias de antes contam pela do escritório, no banco e na folha')]
+    /**
+     * O mesmo, com uma versão de jornada que começa no dia 15 do mês passado e dias contados antes dela. Cai se o banco
+     * trocar `jornadaDaFolha` por `historicoDe() ?? jornada vazia`: os dias antes da versão saem do banco e ficam nas linhas.
+     */
+    #[TestDox('Primeira versão da jornada no meio do mês: os dias de antes contam pela do escritório, no banco e nas linhas')]
     public function testDiasAntesDaPrimeiraVersaoContamNoBanco(): void
     {
         $this->jornadaDeOitoHorasTodoDia($this->mes->modify('-1 month')->modify('+14 days'));
@@ -217,22 +223,44 @@ final class BancoDeHorasNaTelaTest extends JusPrimeWebTestCase
         $this->horasPagas($this->escritorio, $this->mes, 60);
     }
 
-    /** O número do topo é a soma do "Saldo do mês" e das "Horas pagas" da folha do mês passado e deste. */
+    /**
+     * Mês passado e este: o "Saldo mês" da última linha preenchida da ficha é o total "Saldo do mês" da /ponto, e a soma
+     * dos dois, com as horas pagas, é o número do topo.
+     */
     private function assertBancoIgualASomaDaFolha(): void
     {
-        $saldosDaFolha = 0;
+        $gestor = $this->pessoa('gestor_linhas');
+        $this->vincularPrimario($gestor, $this->escritorio);
+        $linhas = [];
+        $totais = [];
         $topos = [];
         foreach ([$this->mes->modify('-1 month'), $this->mes] as $competencia) {
             $tela = $this->tela('?competencia=' . $competencia->format('Y-m'));
-            $totais = $tela->filter('#ponto-regiao-folha div.pe-folha-totais > div.pe-folha-total > b.pe-folha-total-valor');
-            self::assertCount(3, $totais, 'Saldo do mês, Horas pagas e Total do mês de ' . $competencia->format('m/Y'));
-            self::assertSame(60, $this->minutos($totais->eq(1)->text()));
-            $saldosDaFolha += $this->minutos($totais->eq(0)->text());
+            $valores = $tela->filter('#ponto-regiao-folha div.pe-folha-totais > div.pe-folha-total > b.pe-folha-total-valor');
+            self::assertCount(3, $valores, 'Saldo do mês, Horas pagas e Total do mês de ' . $competencia->format('m/Y'));
+            self::assertSame(60, $this->minutos($valores->eq(1)->text()));
+            $totais[] = $this->minutos($valores->eq(0)->text());
             $topos[] = $this->minutos($tela->filter(self::TOPO . ' > b.pe-banco-valor')->text());
+            $linhas[] = $this->ultimoSaldoMesNaFicha($gestor, $competencia);
         }
 
-        self::assertNotSame(0, $saldosDaFolha, 'controle: a folha contou os dias pela jornada do escritório');
-        self::assertSame([$saldosDaFolha + 120, $saldosDaFolha + 120], $topos);
+        self::assertNotSame(0, array_sum($linhas), 'controle: as linhas contaram os dias pela jornada do escritório');
+        self::assertSame($linhas, $totais, 'o total da /ponto de cada mês é a última linha da ficha');
+        self::assertSame([array_sum($linhas) + 120, array_sum($linhas) + 120], $topos, 'o topo é a soma das linhas');
+    }
+
+    /** O "Saldo mês" da última linha preenchida da ficha do gestor (todos os dias do mês), em minutos; 0 sem nenhuma. */
+    private function ultimoSaldoMesNaFicha(User $gestor, \DateTimeImmutable $competencia): int
+    {
+        $this->logarComTenant($this->client, $gestor, $this->escritorio);
+        $ficha = $this->client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?tab=ponto&competencia=%s', $this->escritorio->getId(), $this->eu->getId(), $competencia->format('Y-m')));
+        self::assertResponseIsSuccessful();
+        $preenchidas = array_values(array_filter(
+            $ficha->filter('#tab-ponto tr.pe-lin > td.pe-sm[data-r="Saldo mês"]')->each(static fn (Crawler $td): string => trim($td->text())),
+            static fn (string $texto): bool => $texto !== '',
+        ));
+
+        return $preenchidas === [] ? 0 : $this->minutos($preenchidas[count($preenchidas) - 1]);
     }
 
     /** "+1h00m", "-7h00m", "0h00m" e "0h" em minutos. */

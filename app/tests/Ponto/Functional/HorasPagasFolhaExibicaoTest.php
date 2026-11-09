@@ -19,6 +19,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * A linha "Horas pagas" no rodapé da folha (Tarefa 6): aparece só quando há lançamento na
@@ -447,6 +448,42 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
             $conteudo,
             'o mês corrente continua sendo uma OPÇÃO, mas não pode ser o mês de abertura quando não tem dado nenhum',
         );
+    }
+
+    /**
+     * E17, rodada 4: o mesmo cenário do teste abaixo. No mês do lançamento não há batida, a ficha não mostra linha
+     * nenhuma, mas o "Saldo do mês" dela é a conta do banco para a competência sem as horas pagas: as faltas do mês pela
+     * jornada do escritório (a pessoa não tem jornada pessoal). O mesmo número da /ponto; até aqui a ficha mostrava zero.
+     */
+    #[TestDox('mes do lancamento sem batida: a ficha e a /ponto mostram o mesmo Saldo do mes, que nao e zero')]
+    public function testFichaEPontoDaoOMesmoSaldoDoMesSemBatida(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+        $primeiroDia = (new \DateTimeImmutable())->modify('first day of this month');
+        $mesDoLancamento = $primeiroDia->modify('-2 months');
+        $this->criarRegistro($colaborador, $tenant, $primeiroDia->modify('-5 months')->format('Y-m-d') . ' 09:00:00');
+        $this->criarLancamento($tenant, $colaborador, $autor, (int) $mesDoLancamento->format('Y'), (int) $mesDoLancamento->format('n'), -600);
+        $saldoDoMes = static function (Crawler $tela): string {
+            $valor = $tela->filter('div.pe-folha-totais > div.pe-folha-total:first-child > b.pe-folha-total-valor');
+            self::assertCount(1, $valor);
+
+            return trim($valor->text());
+        };
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $ficha = $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?tab=ponto&competencia=%s', $tenant->getId(), $colaborador->getId(), $mesDoLancamento->format('Y-m')));
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $ficha->filter('#tab-ponto tr.pe-lin'), 'controle: a ficha não mostra linha no mês sem batida');
+        $this->logarComTenant($client, $colaborador, $tenant);
+        $ponto = $client->request('GET', '/ponto/?competencia=' . $mesDoLancamento->format('Y-m'));
+        self::assertResponseIsSuccessful();
+
+        self::assertMatchesRegularExpression('/^-\d+h\d{2}m$/D', $saldoDoMes($ficha), 'as faltas do mês, não zero');
+        self::assertSame($saldoDoMes($ponto), $saldoDoMes($ficha));
     }
 
     #[TestDox('lancamento de horas pagas mais recente que a ultima batida vira o mes de abertura')]
