@@ -13,6 +13,9 @@ use Doctrine\ORM\Mapping as ORM;
 // O mesmo envio (E13) não entra duas vezes para a mesma pessoa; as batidas sem identificador (antigas, do gestor e do
 // esquecimento) ficam com NULL, que o PostgreSQL deixa repetir.
 #[ORM\UniqueConstraint(name: self::INDICE_DO_ENVIO, columns: ['user_id', 'id_envio'])]
+// NSR único por escritório (D2). As batidas sem NSR (antigas, do gestor, do abono) ficam nulas: no PostgreSQL o
+// nulo não colide no índice único, o mesmo que um índice parcial `WHERE nsr IS NOT NULL`.
+#[ORM\UniqueConstraint(name: 'uniq_registro_ponto_tenant_nsr', columns: ['tenant_id', 'nsr'])]
 class RegistroPonto implements Auditavel, TenantAware
 {
     /** O índice único do envio: a batida reconhece pela mensagem do banco a violação que é dele. */
@@ -103,6 +106,12 @@ class RegistroPonto implements Auditavel, TenantAware
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $motivoTrabalhoExterno = null;
+
+    // NSR, número sequencial do registro no escritório (spec ponto-desenho-0811 D2 e E15): dado pelo servidor
+    // (`NumeroSequencialDoRegistro`) só à batida que a própria pessoa registra. Nulo nas batidas antigas, nas lançadas
+    // pelo gestor e nas criadas pelo abono de esquecimento (ajuste, não marcação).
+    #[ORM\Column(type: 'bigint', nullable: true)]
+    private ?int $nsr = null;
 
     public function __construct()
     {
@@ -280,6 +289,19 @@ class RegistroPonto implements Auditavel, TenantAware
     public function setIdEnvio(?string $idEnvio): static
     {
         $this->idEnvio = $idEnvio;
+
+        return $this;
+    }
+
+    public function getNsr(): ?int
+    {
+        return $this->nsr;
+    }
+
+    public function setNsr(int $nsr): static
+    {
+        $this->nsr = $nsr;
+
         return $this;
     }
 

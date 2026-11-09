@@ -16,11 +16,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeRecursos::class)]
 final class CatalogoDeRecursosTest extends TestCase
 {
-    #[TestDox('23 linhas, 22 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
+    #[TestDox('24 linhas, 23 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(23, CatalogoDeRecursos::LINHAS);
-        self::assertCount(22, CatalogoDeRecursos::chaves());
+        self::assertCount(24, CatalogoDeRecursos::LINHAS);
+        self::assertCount(23, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
@@ -33,11 +33,11 @@ final class CatalogoDeRecursosTest extends TestCase
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura e o Ponto: 13 Telas, 7 Menu do usuário, 3 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto e o comprovante do Ponto: 13 Telas, 7 Menu do usuário, 4 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 3], $porGrupo);
+        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 4], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
         self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[12]['chave']);
         self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
@@ -47,6 +47,7 @@ final class CatalogoDeRecursosTest extends TestCase
         self::assertTrue(CatalogoDeRecursos::LINHAS[8]['tela']);
         $geo = CatalogoDeRecursos::LINHAS[22];
         self::assertSame(['Funções', 'ponto-geo', 'Ponto: geolocalização', 'Exige que o registro seja feito dentro do raio de uma sede.', false], [$geo['g'], $geo['chave'], $geo['t'], $geo['d'], $geo['tela']]);
+        self::assertSame('ponto-comprovante', CatalogoDeRecursos::LINHAS[23]['chave'], 'comprovante do Ponto (E15) nas Funções, depois da geolocalização');
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');
         self::assertSame('Voto', CatalogoDeRecursos::titulo('voto'), 'Voto entra nas Telas, depois do Contribua (bj-recursos.js do desenho 18)');
         self::assertNull(CatalogoDeRecursos::titulo('inexistente'));

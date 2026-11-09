@@ -12,6 +12,7 @@ use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
+use App\Ponto\Entity\ComprovanteDoPonto;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
@@ -23,8 +24,10 @@ use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
+use App\Ponto\Service\AbaDosComprovantes;
 use App\Ponto\Service\CercaDoPonto;
 use App\Ponto\Service\TrabalhoExternoDaBatida;
+use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Ponto\Service\InicioContagemResolver;
@@ -132,6 +135,7 @@ final class PontoController extends AbstractController
         BancoDeHorasPorLotes $bancoDeHorasPorLotes,
         HomeOfficeResolver $homeOfficeResolver,
         SedesDaCercaDoPonto $sedesDaCerca,
+        AbaDosComprovantes $abaDosComprovantes,
         CalculadoraJornada $calculadoraJornada,
         ListarPendenciasDeRegistroUseCase $pendencias,
         AnaliseDaPropriaJustificativa $analiseDaPropria,
@@ -283,8 +287,8 @@ final class PontoController extends AbstractController
             'veAuditoria'              => $gestao->veAuditoria($user, $tenant),   // aba Auditoria (E9, P64); sem ela, o endereço cai em Pendências
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
             // Aba "Comprovantes" (E15): só com o comprovante ligado; a lista é da pessoa, neste escritório.
-            'comprovantesVisiveis'     => false,
-            'comprovantes'             => [],
+            'comprovantesVisiveis'     => $abaDosComprovantes->visivel(),
+            'comprovantes'             => $abaDosComprovantes->linhas($user, $tenant),
             // Aba "Banco de Horas" (E17): nulo esconde a aba.
             'bancoDeHoras'             => $bancoDeHoras,
         ]);
@@ -817,7 +821,6 @@ final class PontoController extends AbstractController
     #[Route('/batida', name: 'ponto_batida', methods: ['POST'])]
     public function batida(
         Request $request,
-        EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
         HomeOfficeResolver $homeOfficeResolver,
@@ -825,6 +828,8 @@ final class PontoController extends AbstractController
         ChoqueDeJornadaEntreEscritorios $choque,
         FuncoesDoPonto $funcoes,
         TrilhaDoPonto $trilha,
+        RegistrarBatidaDaPessoaUseCase $registrarBatida,
+        EntityManagerInterface $entityManager,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -1005,7 +1010,12 @@ final class PontoController extends AbstractController
             $registro->setPrecisaoGps((string) $precisaoGpsFloat);
         }
 
-        if (!$this->gravouSemRepetirOEnvio($envio, fn () => $this->gravarBatida($entityManager, $trilha, $registro, $tenant, $justificativaExterna))) {
+        // E15: NSR (D2), comprovante e evento da trilha (E9) na mesma transação do INSERT; o mesmo envio repetido (E13)
+        // desfaz tudo e devolve o NSR. Na de trabalho externo (E12), a justificativa ligada entra no mesmo COMMIT.
+        $comprovante = null;
+        if (!$this->gravouSemRepetirOEnvio($envio, function () use ($entityManager, $registrarBatida, $trilha, $registro, $tenant, $justificativaExterna, &$comprovante): void {
+            $comprovante = $this->gravarBatida($entityManager, $registrarBatida, $trilha, $registro, $tenant, $justificativaExterna);
+        })) {
             return $this->respostaJaRegistrada($tipo, null);
         }
         if ($justificativaExterna !== null) {
@@ -1029,7 +1039,7 @@ final class PontoController extends AbstractController
                 $justificativaExterna !== null => TrabalhoExternoDaBatida::MENSAGEM_REGISTRADA,
                 $homeOfficeHoje                => 'Ponto (home office) registrado com sucesso!',
                 default                        => 'Ponto registrado com sucesso!',
-            },
+            } . ($comprovante !== null ? ' Comprovante na aba Comprovantes.' : ''),
             'data'    => $dados,
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);
@@ -1070,9 +1080,9 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * Grava a batida (com o evento da trilha, E9, na mesma transação). Dois pedidos do mesmo envio ao mesmo tempo (E13):
-     * o índice único barra o segundo, a transação desfaz batida e evento, e ele volta false e responde "já registrada"
-     * sem consultar de novo (o EntityManager fecha depois da violação).
+     * Grava a batida (com NSR, comprovante e o evento da trilha, E9 e E15, na mesma transação). Dois pedidos do mesmo
+     * envio ao mesmo tempo (E13): o índice único barra o segundo, a transação desfaz batida, NSR e evento, e ele volta
+     * false e responde "já registrada" sem consultar de novo (o EntityManager fecha depois da violação).
      */
     private function gravouSemRepetirOEnvio(EnvioLidoDaBatida $envio, \Closure $gravar): bool
     {
@@ -1104,21 +1114,24 @@ final class PontoController extends AbstractController
 
     /**
      * Grava a batida e o evento dela na trilha de auditoria (E9) no mesmo COMMIT: se a batida falha, a trilha não
-     * ganha linha; se a trilha falha, a batida não entra. Na de trabalho externo (E12), a justificativa ligada e o envio
-     * dela na trilha entram no mesmo COMMIT, com a trava da trilha por último.
+     * ganha linha; se a trilha falha, a batida não entra. A batida entra pelo UseCase da E15, que dá o NSR e emite o
+     * comprovante dentro desta mesma transação. Na de trabalho externo (E12), a justificativa ligada e o envio dela na
+     * trilha entram no mesmo COMMIT (persistida antes, sai no flush do UseCase), com a trava da trilha por último.
+     * Devolve o comprovante emitido, ou null.
      */
-    private function gravarBatida(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, RegistroPonto $registro, Tenant $tenant, ?JustificativaPonto $justificativaExterna = null): void
+    private function gravarBatida(EntityManagerInterface $entityManager, RegistrarBatidaDaPessoaUseCase $registrarBatida, TrilhaDoPonto $trilha, RegistroPonto $registro, Tenant $tenant, ?JustificativaPonto $justificativaExterna = null): ?ComprovanteDoPonto
     {
-        $trilha->emTransacao(static function () use ($entityManager, $trilha, $registro, $tenant, $justificativaExterna): void {
-            $entityManager->persist($registro);
+        return $trilha->emTransacao(static function () use ($entityManager, $registrarBatida, $trilha, $registro, $tenant, $justificativaExterna): ?ComprovanteDoPonto {
             if ($justificativaExterna !== null) {
                 $entityManager->persist($justificativaExterna);
             }
-            $entityManager->flush();
+            $comprovante = $registrarBatida->executar($registro);
             $trilha->registrar($tenant, $registro->getUser(), AcaoDaTrilhaDoPonto::BatidaRegistrada->value, DetalheDaTrilhaDoPonto::daBatida($registro) + ['registro_id' => $registro->getId()]);
             if ($justificativaExterna !== null) {
                 $trilha->registrar($tenant, $registro->getUser(), AcaoDaTrilhaDoPonto::JustificativaEnviada->value, DetalheDaTrilhaDoPonto::doLote([$justificativaExterna]));
             }
+
+            return $comprovante;
         });
     }
 

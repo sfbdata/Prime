@@ -1,4 +1,49 @@
 {#
     Aba "Comprovantes" (E15, P48): a lista de comprovantes da pessoa. Recebe `comprovantes`.
     Contrato do bloco 3: o conteúdo entra na etapa E15.
+
+    Desenho 16 L193 a L197: a linha de explicação com "Validar código", a lista com rolagem (data e hora, tipo, método,
+    código e "Baixar") e o texto da lista vazia. Só os comprovantes da própria pessoa neste escritório, do mais novo para
+    o mais antigo (até 120, como o desenho guarda). "Baixar" é um link para a imagem gerada no servidor (P49).
+
+    A janela "Validar comprovante" usa a moldura das janelas do desenho (L269 a L318, classes `pe-janela-*`) com o corpo
+    da validação (L297 a L302). Sem JavaScript, o formulário abre a página pública de validação; com ele, a consulta é
+    feita na própria janela (js/ponto-comprovantes.js). A lista (`#ponto-comprovantes-lista`) é trocada depois da batida.
 #}
+<div class="pe-comp-topo">
+    <span class="pe-comp-texto">Cada comprovante é uma imagem única, com código, QR Code e padrões de segurança gerados a partir do próprio registro.</span>
+    <button type="button" class="pe-comp-btn" data-validar-abrir><i class="bi bi-shield-check" aria-hidden="true"></i>Validar código</button>
+</div>
+<div class="pe-comp-lista" id="ponto-comprovantes-lista">
+    {% for c in comprovantes %}
+        <div class="pe-comp">
+            <b class="pe-comp-dh">{{ c.dataHora }}</b>
+            <span>{{ c.tipo }}</span>
+            <span class="pe-comp-metodo">{{ c.metodo }}</span>
+            <code class="pe-comp-codigo">{{ c.codigo }}</code>
+            <a class="pe-comp-btn pe-comp-btn--baixar" href="{{ path('ponto_comprovante_baixar', {id: c.id}) }}" download aria-label="Baixar comprovante {{ c.codigo }}"><i class="bi bi-download" aria-hidden="true"></i>Baixar</a>
+        </div>
+    {% else %}
+        <div class="pe-abas-vazio">Os comprovantes aparecem aqui depois do primeiro registro.</div>
+    {% endfor %}
+</div>
+
+<div class="pe-janela-fundo" id="ponto-janela-validar" hidden>
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Validar comprovante" method="get" action="{{ path('validacao_comprovante_ponto') }}" data-validar-form data-validar-url="{{ path('validacao_comprovante_ponto') }}" novalidate>
+        <div class="pe-janela-topo">
+            <i class="bi bi-shield-check" aria-hidden="true"></i><b class="pe-janela-titulo">Validar comprovante</b>
+            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-validar-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="pe-janela-corpo">
+            <label class="pe-janela-rotulo">Código do comprovante <input type="text" name="codigo" class="pe-comp-campo" placeholder="BJP-XXXX-XXXX-XXXX" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" data-validar-codigo></label>
+            <div class="pe-comp-ok" role="status" data-validar-ok hidden><b>Comprovante autêntico.</b><br><span data-validar-texto></span></div>
+            <div class="pe-comp-erro" role="alert" data-validar-erro hidden><b>Código não localizado.</b> Confira a digitação. Comprovante sem registro correspondente não é válido.</div>
+        </div>
+        <div class="pe-janela-erro" data-validar-falha hidden></div>
+        <div class="pe-janela-rodape">
+            <button type="button" class="pe-janela-cancelar" data-validar-fechar>Fechar</button>
+            <button type="submit" class="pe-janela-acao" data-validar-acao>Validar</button>
+        </div>
+    </form>
+</div>
+<script src="{{ asset('js/ponto-comprovantes.js') }}" defer></script>
