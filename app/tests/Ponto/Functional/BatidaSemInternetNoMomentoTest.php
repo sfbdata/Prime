@@ -164,6 +164,22 @@ final class BatidaSemInternetNoMomentoTest extends JusPrimeWebTestCase
         ]], $resposta['avisos']);
     }
 
+    #[TestDox('Recusa entre escritórios no momento: a saída da fila às 07:00 de ontem é solta (a entrada das 09:00 veio depois) e passa, mesmo no horário de B')]
+    public function testSaidaSoltaNoMomentoNaoCaiNoChoque(): void
+    {
+        $this->homeOfficeEmA([1, 2, 3, 4, 5, 6, 7]);
+        $this->jornadaPessoal($this->pessoa, $this->b, [[[(int) $this->ontem->format('N')], '06:00', null, null, '08:00']]);
+        // A entrada das 09:00 foi batida pelo computador neste escritório, depois do momento da saída guardada.
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->ontem->setTime(9, 0));
+
+        $resposta = $this->daFila('saida', $this->ontem->setTime(7, 0));
+
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+        self::assertSame('07:00:00', $resposta['data']['hora']);
+        self::assertSame([TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA], array_column($resposta['avisos'], 'texto'));
+        self::assertSame(2, $this->batidasEm($this->a));
+    }
+
     #[TestDox('Batida guardada em A, enviada com a sessão em C sem o módulo de ponto: 409 antes da permissão e do CSRF, e nada gravado')]
     public function testOutroEscritorioSemModuloVolta409(): void
     {
