@@ -3,7 +3,8 @@
 **Risco:** ALTO (ponto eletrônico) · **Origem:** desenho "16 - Ponto Eletronico - VS 08.11.26", artefato
 https://claude.ai/code/artifact/3c9fe618-65e4-457f-8d3d-c31bb68901c8, cópia em `docs/design/redesign-08-11-26/`
 (com `ESPEC_PONTO_ELETRONICO.md` e o inventário `inventario-ponto-0811.md`) · **Data:** 09/11/2026 ·
-**Estado:** aguardando o aceite do Samuel item a item; nenhum código antes.
+**Estado:** decidido em 09/11/2026 (`decisoes-desenhos-0911.md`, na pasta bluejus-coordenacao); em implementação por
+etapas.
 
 **Decisão já tomada (Coordenador, 09/11/2026; não é pergunta):** o cabeçalho e o menu do topo do desenho são a moldura do
 sistema (`base.html.twig`), como em `docs/specs/agenda-1a.md` e `docs/specs/meu-escritorio.md`. A tela implementa só o
@@ -20,155 +21,160 @@ Fontes desta spec: inventário do desenho (`docs/design/redesign-08-11-26/invent
 1. O desenho troca o conteúdo da `/ponto`: duas colunas, cartão "Registrar Ponto" novo, Folha listrada e um cartão com 7 abas.
 2. Cabeçalho, menu do topo e camadas globais ficam a moldura do sistema (decisão do Coordenador, acima); o Ponto é só conteúdo.
 3. Boa parte é aparência sobre o motor de hoje (bloco 1 da seção 5); o resto é motor novo (ajuste, trilha, comprovante, aceite, lotes, fila, facial).
-4. Treze itens batem de frente com decisões do dono já registradas (cerca, editar batida, banco anual, botão cinza, validações...): são (PERGUNTA).
+4. Treze itens batem de frente com decisões do dono já registradas (cerca, editar batida, banco anual, botão cinza, validações...): eram (PERGUNTA) e foram decididas em 09/11/2026 (P7 a, P10 b e P11 b pelo dono; as outras pelas regras do dono).
 5. Funções do sistema que o desenho não mostra (ficha do colaborador, Home Office, sedes com mapa, XLSX, alertas) ficam, cada uma com o seu item.
 6. Facial, comprovante com valor legal, fila sem internet e o que depende de lei ou fornecedor vão por último, atrás das chaves do Master.
 7. Nada toca a frente jornada-vigencia sem aviso: cada etapa diz quais arquivos dela encosta.
 
-## 2. (a) Antes e depois, item a item (para o Samuel responder)
+## 2. (a) Antes e depois, item a item (decidido em 09/11/2026)
 
-Como responder: diga o número e "sim" ou "não" (exemplo: "P1 sim, P7 b, P13 fica"). Só entra o que for aceito.
-"Fica" quer dizer: a função existe hoje, o desenho não mostra, e ela continua onde está.
-(PERGUNTA) quer dizer: o desenho vai contra uma decisão do dono já registrada; escolha uma das opções.
-"(decidido)" quer dizer: já resolvido pelo Coordenador; está aqui só para constar, sem resposta.
+Cada item traz a decisão registrada em `decisoes-desenhos-0911.md` (pasta bluejus-coordenacao). P7 (a), P10 (b) e P11 (b)
+são respostas do próprio dono; as outras seguem as regras do dono (fiel ao desenho; função do sistema não sai; além do
+desenho só se necessário).
+"Decisão: aceito" quer dizer: entra como o desenho mostra. "Decisão: não" quer dizer: não entra.
+"Fica" quer dizer: a função existe hoje, o desenho não mostra, e ela continua onde está, no estilo do desenho.
+(PERGUNTA) quer dizer: o desenho ia contra uma decisão do dono já registrada; a pergunta fica para constar, com a opção
+escolhida.
+"(decidido)" quer dizer: já resolvido pelo Coordenador antes; está aqui só para constar.
+"(contra a recomendação acima)" marca os itens em que a decisão foi diferente do que esta spec recomendava.
 
 ### Registrar ponto
 
-- **P1.** Página em duas colunas. Hoje: cartões um embaixo do outro, no estilo antigo do sistema. | No desenho: título grande "Ponto Eletrônico"; à esquerda o cartão "Registrar Ponto"; à direita a "Folha de Ponto" e um cartão com abas; cores, bordas e cantos do desenho; no celular vira uma coluna só. | Resposta: [ ] aceito [ ] não
-- **P2.** Banco de horas no topo do cartão. Hoje: saldo do ano no cabeçalho do cartão, verde ou vermelho. | No desenho: barra azul com "Banco de horas" no canto direito e um triângulo amarelo quando o saldo passa do limite (o número depende do P51). | Resposta: [ ] aceito [ ] não
-- **P3.** Situação do dia. Hoje: não aparece. | No desenho: frase acima do relógio: "Aguardando entrada", "Em jornada", "Em repouso" ou "Jornada encerrada". | Resposta: [ ] aceito [ ] não
-- **P4.** Relógio do dia. Hoje: relógio do tempo trabalhado hoje. | No desenho: o mesmo relógio, grande, com horas, minutos e segundos. | Resposta: [ ] aceito [ ] não
-- **P5.** Hora oficial. Hoje: não aparece. | No desenho: linha "Hora oficial 14:32:10 · segunda-feira, 09/11/2026", com a hora do servidor (não a do celular). | Resposta: [ ] aceito [ ] não
-- **P6.** Escolha do tipo. Hoje: lista para escolher (Entrada, Repouso, Retorno, Saída), já no próximo tipo. | No desenho: 4 botões lado a lado, o próximo já marcado, dá para escolher outro; cada botão mostra a hora já batida ou "--:--:--". | Resposta: [ ] aceito [ ] não
-- **P7. (PERGUNTA)** Tipo já batido e dia completo. Hoje: dá para bater o mesmo tipo de novo (a folha usa a primeira entrada e a última saída) e o botão nunca fica cinza, sempre responde ao toque. | No desenho: o tipo já batido fica verde e não aceita clique; com os 4 feitos o botão vira "Jornada de hoje concluída", cinza e sem clique. | Origem: specs ponto-batida-que-responde-e-conta-certa (o botão responde ao toque) e ponto-folha-uma-batida-por-tipo (§7.1). | Opções: (a) travar como o desenho; (b) mostrar o verde e a hora, mas deixar bater de novo, como hoje. Recomendo (b). | Resposta: [ ] a [ ] b
-- **P8.** Batidas de hoje. Hoje: lista "Suas batidas de hoje" abaixo do botão, com o selo "N registros" quando o mesmo tipo foi batido mais de uma vez. | No desenho: a hora fica dentro de cada botão do tipo e a lista sai. Se aceito, o aviso de batida repetida (que o sistema tem) precisa de lugar: recomendo no próprio botão do tipo. | Resposta: [ ] aceito [ ] não
-- **P9.** Caixa da localização. Hoje: caixa acima do botão com "GPS: 12m", impreciso, fora da área (sede e distância), "Home Office hoje" e erro. | No desenho: caixa com faixa colorida à esquerda e botão de atualizar: "Obtendo a sua localização...", "Localização confirmada. Precisão de N m.", "GPS impreciso (N m). O sistema ainda validará se você está dentro do raio de alguma sede.". Se aceito, os estados que só o sistema tem (fora da área, Home Office hoje, erro) ganham o mesmo molde. | Resposta: [ ] aceito [ ] não
-- **P10. (PERGUNTA)** Erro de localização. Hoje: texto para cada tipo de erro, botões "Permitir localização" e "Tentar de novo" e passo a passo por navegador e celular, sem travar o botão. | No desenho: o erro só aparece depois do toque, na tela vermelha: "Não foi possível obter a sua localização" e "Ative o GPS do aparelho, permita a localização no navegador e tente de novo.". | Origem: spec ponto-gps-erro-que-explica. | Opções: (a) só o texto do desenho; (b) a tela vermelha do desenho e, na caixa da localização, o passo a passo de hoje. Recomendo (b). | Resposta: [ ] a [ ] b
-- **P11. (PERGUNTA)** Resposta depois do toque. Hoje: caixa abaixo do botão (registrado, recusado, sem rede, sem confirmação) e o botão "Atualizar e conferir minhas batidas". | No desenho: tela cheia verde ou vermelha (P79) ou aviso flutuante no rodapé (P80); não há caixa abaixo do botão. | Origem: decisão do dono no teste de 14/09, "duas caixas com donos diferentes" (spec ponto-batida-que-responde-e-conta-certa). | Opções: (a) só o desenho; (b) o desenho e, nos casos "sem rede" e "sem confirmação", a caixa de hoje com o botão de conferir. Recomendo (b). | Resposta: [ ] a [ ] b
-- **P12.** Aviso do intervalo e da saída. Hoje: contador do repouso com aviso do mínimo e "Previsão de saída: HH:MM". | No desenho: caixa colorida "Intervalo em andamento. O mínimo de 1h se completa em HH:MM.", "Intervalo mínimo de 1h cumprido.", "Saída prevista às HH:MM." e, passada a hora, "Passou da saída prevista (HH:MM). Não esqueça de registrar a saída.". Se aceito, o mínimo do intervalo vem da configuração do escritório (o desenho fixa 1h). | Resposta: [ ] aceito [ ] não
-- **P13.** Fica (o desenho não mostra): "X a mais hoje" (horas a mais depois de cumprir o dia). Fica onde está? | Resposta: [ ] sim, fica [ ] não, sai
-- **P14.** Última pendência no cartão. Hoje: não aparece no cartão (aparece na lista de pendências e no cartão diário). | No desenho: antes da entrada do dia, faixa amarela "Última pendência: dd/mm/aaaa, falta a saída." com o botão "Regularizar", que abre o registro de esquecimento. | Resposta: [ ] aceito [ ] não
-- **P15.** Botão principal. Hoje: "Bater Ponto" com ícone de digital e o tipo no rótulo. | No desenho: botão azul alto "Bater Ponto: Entrada" com a digital desenhada; com a facial obrigatória vira "Bater Ponto com facial: Entrada". | Resposta: [ ] aceito [ ] não
-- **P16.** Rodapé do cartão. Hoje: botão "Justificar Falta" e, em outro cartão, "Jornada semanal: 44h00m". | No desenho: uma linha com "Justificar falta", o botão de som e "Jornada semanal 44h00m" (o número vem da jornada da pessoa, ver seção 4). | Resposta: [ ] aceito [ ] não
-- **P17.** Fica (o desenho não mostra): selo "Personalizada" ou "Padrão do escritório" junto da jornada semanal. Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P18. (PERGUNTA)** Fora do raio da sede. Hoje: a batida é recusada ("Você está fora da área permitida das sedes"), na tela e no servidor. | No desenho e na regra nova do dono (ESPEC): tela vermelha "Você está fora do raio permitido" com o botão "Registrar como trabalho externo", que pede "Local e motivo", registra a batida e manda para a análise do gestor. | Origem: decisão do dono de 11/09/2026, "a cerca continua bloqueando" (spec ponto-batida-nao-se-perde-no-navegador). | Opções: (a) seguir o desenho; (b) manter o bloqueio. Recomendo (a): a regra nova é do próprio dono e é mais recente. | Resposta: [ ] a [ ] b
-- **P19.** Fica (o desenho não mostra): Home Office (no dia liberado, bate sem localização e a folha mostra o selo). Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P20. (PERGUNTA)** Batida sem internet. Hoje: não há fila; a hora é a de chegada no servidor e o envio com mais de 60 segundos de atraso não sai (a pessoa bate de novo). | No desenho: a batida fica guardada no aparelho, aparece "Sem internet: N batida(s) aguardando envio." e ela vai sozinha quando a internet volta. | Origem: spec ponto-batida-nao-se-perde-no-navegador (usar a hora do toque ficou como "decisão do dono para frente futura"). | Opções: (a) aceitar a fila: vale a hora do aparelho, as duas horas ficam guardadas e a batida aparece marcada "enviada sem internet" para o gestor; (b) sem fila, como hoje. Recomendo (a), numa das últimas etapas. | Resposta: [ ] a [ ] b
-- **P21. (PERGUNTA)** Intervalo curto e descanso entre jornadas. Hoje: quando o escritório liga as validações, o retorno com repouso menor que o mínimo e a entrada antes do descanso entre jornadas são recusados. | No desenho e na regra nova do dono: janela "Antes de registrar" com o aviso e o botão "Registrar assim mesmo" ("O alerta não impede o registro: a folha deve refletir o horário real."); a folha marca "não conforme"; também avisa o 7º dia seguido sem descanso. | Origem: specs ponto-esquecimento-nao-trava (R4: "quando a saída foi batida normalmente, a interjornada continua como hoje") e ponto-por-escritorio. | Opções: (a) avisar sem recusar; (b) manter a recusa. Recomendo (a). | Resposta: [ ] a [ ] b
+- **P1.** Página em duas colunas. Hoje: cartões um embaixo do outro, no estilo antigo do sistema. | No desenho: título grande "Ponto Eletrônico"; à esquerda o cartão "Registrar Ponto"; à direita a "Folha de Ponto" e um cartão com abas; cores, bordas e cantos do desenho; no celular vira uma coluna só. | Decisão: aceito.
+- **P2.** Banco de horas no topo do cartão. Hoje: saldo do ano no cabeçalho do cartão, verde ou vermelho. | No desenho: barra azul com "Banco de horas" no canto direito e um triângulo amarelo quando o saldo passa do limite (o número depende do P51). | Decisão: aceito. O número segue o P51 (lotes).
+- **P3.** Situação do dia. Hoje: não aparece. | No desenho: frase acima do relógio: "Aguardando entrada", "Em jornada", "Em repouso" ou "Jornada encerrada". | Decisão: aceito.
+- **P4.** Relógio do dia. Hoje: relógio do tempo trabalhado hoje. | No desenho: o mesmo relógio, grande, com horas, minutos e segundos. | Decisão: aceito.
+- **P5.** Hora oficial. Hoje: não aparece. | No desenho: linha "Hora oficial 14:32:10 · segunda-feira, 09/11/2026", com a hora do servidor (não a do celular). | Decisão: aceito. Conferir o NTP da VPS é do dono (seção 10).
+- **P6.** Escolha do tipo. Hoje: lista para escolher (Entrada, Repouso, Retorno, Saída), já no próximo tipo. | No desenho: 4 botões lado a lado, o próximo já marcado, dá para escolher outro; cada botão mostra a hora já batida ou "--:--:--". | Decisão: aceito.
+- **P7. (PERGUNTA)** Tipo já batido e dia completo. Hoje: dá para bater o mesmo tipo de novo (a folha usa a primeira entrada e a última saída) e o botão nunca fica cinza, sempre responde ao toque. | No desenho: o tipo já batido fica verde e não aceita clique; com os 4 feitos o botão vira "Jornada de hoje concluída", cinza e sem clique. | Origem: specs ponto-batida-que-responde-e-conta-certa (o botão responde ao toque) e ponto-folha-uma-batida-por-tipo (§7.1). | Opções: (a) travar como o desenho; (b) mostrar o verde e a hora, mas deixar bater de novo, como hoje. Recomendo (b). | Decisão: (a), resposta do dono: travar como o desenho.
+- **P8.** Batidas de hoje. Hoje: lista "Suas batidas de hoje" abaixo do botão, com o selo "N registros" quando o mesmo tipo foi batido mais de uma vez. | No desenho: a hora fica dentro de cada botão do tipo e a lista sai. Se aceito, o aviso de batida repetida (que o sistema tem) precisa de lugar: recomendo no próprio botão do tipo. | Decisão: aceito. O aviso de batida repetida vai para o botão do tipo.
+- **P9.** Caixa da localização. Hoje: caixa acima do botão com "GPS: 12m", impreciso, fora da área (sede e distância), "Home Office hoje" e erro. | No desenho: caixa com faixa colorida à esquerda e botão de atualizar: "Obtendo a sua localização...", "Localização confirmada. Precisão de N m.", "GPS impreciso (N m). O sistema ainda validará se você está dentro do raio de alguma sede.". Se aceito, os estados que só o sistema tem (fora da área, Home Office hoje, erro) ganham o mesmo molde. | Decisão: aceito. Fora da área, Home Office e erro ganham o molde do desenho.
+- **P10. (PERGUNTA)** Erro de localização. Hoje: texto para cada tipo de erro, botões "Permitir localização" e "Tentar de novo" e passo a passo por navegador e celular, sem travar o botão. | No desenho: o erro só aparece depois do toque, na tela vermelha: "Não foi possível obter a sua localização" e "Ative o GPS do aparelho, permita a localização no navegador e tente de novo.". | Origem: spec ponto-gps-erro-que-explica. | Opções: (a) só o texto do desenho; (b) a tela vermelha do desenho e, na caixa da localização, o passo a passo de hoje. Recomendo (b). | Decisão: (b), resposta do dono: a tela vermelha do desenho e, na caixa da localização, o passo a passo de hoje.
+- **P11. (PERGUNTA)** Resposta depois do toque. Hoje: caixa abaixo do botão (registrado, recusado, sem rede, sem confirmação) e o botão "Atualizar e conferir minhas batidas". | No desenho: tela cheia verde ou vermelha (P79) ou aviso flutuante no rodapé (P80); não há caixa abaixo do botão. | Origem: decisão do dono no teste de 14/09, "duas caixas com donos diferentes" (spec ponto-batida-que-responde-e-conta-certa). | Opções: (a) só o desenho; (b) o desenho e, nos casos "sem rede" e "sem confirmação", a caixa de hoje com o botão de conferir. Recomendo (b). | Decisão: (b), resposta do dono: o desenho e, nos casos "sem rede" e "sem confirmação", a caixa de hoje com o botão de conferir.
+- **P12.** Aviso do intervalo e da saída. Hoje: contador do repouso com aviso do mínimo e "Previsão de saída: HH:MM". | No desenho: caixa colorida "Intervalo em andamento. O mínimo de 1h se completa em HH:MM.", "Intervalo mínimo de 1h cumprido.", "Saída prevista às HH:MM." e, passada a hora, "Passou da saída prevista (HH:MM). Não esqueça de registrar a saída.". Se aceito, o mínimo do intervalo vem da configuração do escritório (o desenho fixa 1h). | Decisão: aceito. O mínimo vem da Jornada do escritório (o desenho fixa 1h).
+- **P13.** Fica (o desenho não mostra): "X a mais hoje" (horas a mais depois de cumprir o dia). Fica onde está? | Decisão: fica.
+- **P14.** Última pendência no cartão. Hoje: não aparece no cartão (aparece na lista de pendências e no cartão diário). | No desenho: antes da entrada do dia, faixa amarela "Última pendência: dd/mm/aaaa, falta a saída." com o botão "Regularizar", que abre o registro de esquecimento. | Decisão: aceito.
+- **P15.** Botão principal. Hoje: "Bater Ponto" com ícone de digital e o tipo no rótulo. | No desenho: botão azul alto "Bater Ponto: Entrada" com a digital desenhada; com a facial obrigatória vira "Bater Ponto com facial: Entrada". | Decisão: aceito.
+- **P16.** Rodapé do cartão. Hoje: botão "Justificar Falta" e, em outro cartão, "Jornada semanal: 44h00m". | No desenho: uma linha com "Justificar falta", o botão de som e "Jornada semanal 44h00m" (o número vem da jornada da pessoa, ver seção 4). | Decisão: aceito. A carga vem da jornada da pessoa (D1).
+- **P17.** Fica (o desenho não mostra): selo "Personalizada" ou "Padrão do escritório" junto da jornada semanal. Fica? | Decisão: fica.
+- **P18. (PERGUNTA)** Fora do raio da sede. Hoje: a batida é recusada ("Você está fora da área permitida das sedes"), na tela e no servidor. | No desenho e na regra nova do dono (ESPEC): tela vermelha "Você está fora do raio permitido" com o botão "Registrar como trabalho externo", que pede "Local e motivo", registra a batida e manda para a análise do gestor. | Origem: decisão do dono de 11/09/2026, "a cerca continua bloqueando" (spec ponto-batida-nao-se-perde-no-navegador). | Opções: (a) seguir o desenho; (b) manter o bloqueio. Recomendo (a): a regra nova é do próprio dono e é mais recente. | Decisão: (a). O desenho mostra o trabalho externo no lugar da recusa.
+- **P19.** Fica (o desenho não mostra): Home Office (no dia liberado, bate sem localização e a folha mostra o selo). Fica? | Decisão: fica.
+- **P20. (PERGUNTA)** Batida sem internet. Hoje: não há fila; a hora é a de chegada no servidor e o envio com mais de 60 segundos de atraso não sai (a pessoa bate de novo). | No desenho: a batida fica guardada no aparelho, aparece "Sem internet: N batida(s) aguardando envio." e ela vai sozinha quando a internet volta. | Origem: spec ponto-batida-nao-se-perde-no-navegador (usar a hora do toque ficou como "decisão do dono para frente futura"). | Opções: (a) aceitar a fila: vale a hora do aparelho, as duas horas ficam guardadas e a batida aparece marcada "enviada sem internet" para o gestor; (b) sem fila, como hoje. Recomendo (a), numa das últimas etapas. | Decisão: (a). O desenho mostra a fila; as duas horas ficam guardadas.
+- **P21. (PERGUNTA)** Intervalo curto e descanso entre jornadas. Hoje: quando o escritório liga as validações, o retorno com repouso menor que o mínimo e a entrada antes do descanso entre jornadas são recusados. | No desenho e na regra nova do dono: janela "Antes de registrar" com o aviso e o botão "Registrar assim mesmo" ("O alerta não impede o registro: a folha deve refletir o horário real."); a folha marca "não conforme"; também avisa o 7º dia seguido sem descanso. | Origem: specs ponto-esquecimento-nao-trava (R4: "quando a saída foi batida normalmente, a interjornada continua como hoje") e ponto-por-escritorio. | Opções: (a) avisar sem recusar; (b) manter a recusa. Recomendo (a). | Decisão: (a). O desenho avisa sem recusar; os mínimos vêm da Jornada do escritório.
 
 ### Folha
 
-- **P22.** Barra da folha. Hoje: cartão "Folha de Ponto - MM/AAAA" com filtro do mês e o botão "Visualizar / Exportar". | No desenho: barra azul com o mês para escolher, "Baixar PDF" e, quando ligado, "Assinar folha" e o selo "Assinada em dd/mm/aaaa". | Resposta: [ ] aceito [ ] não
-- **P23.** Meses que o colaborador vê. Hoje: só o mês atual e o anterior. | No desenho: todos os meses desde o início do uso. | Resposta: [ ] aceito [ ] não
-- **P24.** Cores das linhas. Hoje: fim de semana em cinza e feriado em amarelo. | No desenho: linhas listradas e, ao passar o mouse, a linha fica azul com letra branca. | Resposta: [ ] aceito [ ] não
-- **P25.** Quais dias aparecem. Hoje: todos os dias do mês. | No desenho: só os dias com batida (e feriado com horas). Atenção: no desenho o dia sem batida some da tela, mas desconta do saldo. Recomendo "não" (continuar com todos os dias). | Resposta: [ ] aceito [ ] não
-- **P26.** Folha no celular. Hoje: a tabela rola para o lado. | No desenho: até 760 px de largura, cada dia vira um cartão com o nome de cada campo. | Resposta: [ ] aceito [ ] não
-- **P27.** Selos do dia. Hoje: "A conferir", "Registro incompleto", "Home Office". | No desenho: "Fora de sequência" (vermelho, quando um horário é menor que o anterior), "Feriado", "Em andamento" (hoje) e "Registro incompleto". | Resposta: [ ] aceito [ ] não
-- **P28.** Fica (o desenho não mostra): selos "A conferir" (dia com batidas fora da conta) e "Home Office". Ficam? | Resposta: [ ] sim, fica [ ] não, sai
-- **P29.** Marca "aj" na batida corrigida. Hoje: não há (a batida corrigida pelo gestor é trocada). | No desenho: "aj" ao lado da hora, com a dica "Ajustado por NOME em dd/mm/aaaa. Registro original preservado." (depende do P65). | Resposta: [ ] aceito [ ] não
-- **P30. (PERGUNTA)** "+" do esquecimento. Hoje: "+" na batida que falta, só em dia útil passado que tem alguma batida; ampulheta quando já pediu. | No desenho: "+" em qualquer dia passado da folha; hoje e feriado mostram um traço. | Origem: decisão do dono de 28/07 (spec ponto-atalho-esquecimento-registro). | Opções: (a) desenho; (b) regra de hoje com o "+" no visual do desenho e a ampulheta. Recomendo (b). | Resposta: [ ] a [ ] b
-- **P31.** Coluna Justificativa. Hoje: Abonada, Pendente, Rejeitada, Não abonada, com o tipo e o horário do abono parcial. | No desenho: selos coloridos "Abonada" (verde), "Em análise" (azul) e "Recusada" (vermelho). Se aceito, "Não abonada" e o horário do abono parcial ficam. | Resposta: [ ] aceito [ ] não
-- **P32.** Fica (o desenho não mostra): rodapé "Saldo do mês / Horas pagas / Total do mês". Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P33.** Assinar a folha. Hoje: não existe (o PDF tem linhas para assinar no papel). | No desenho: no mês já fechado, botão "Assinar folha" com "Concordo: os registros representam fielmente minha jornada" ou "Discordo de parte dos registros (ressalva)" e o texto da ressalva; depois, selo "Assinada em" ou "Ressalva em" e carimbo no PDF. Não dá para desfazer. | Resposta: [ ] aceito [ ] não
-- **P34.** PDF novo da folha. Hoje: PDF em texto, com empregador, empregado, totais e linhas de assinatura em papel. | No desenho: PDF de uma página em imagem (texto não selecionável) com o código BJF, QR Code, carimbo do aceite, quadro de intervalos e "Base Legal". | Resposta: [ ] aceito [ ] não
-- **P35. (PERGUNTA)** PDF com pendência. Hoje: PDF e XLSX nunca mostram "a conferir", "incompleto" nem "registro em outro escritório". | No desenho: o PDF escreve "Registro incompleto", "Horário fora de sequência: revisar" e "Falta: em análise" nas observações do dia. | Origem: specs ponto-abono-nao-perdoa-jornada e ponto-esquecimento-nao-trava (R8). | Opções: (a) desenho; (b) PDF sem pendência, como hoje. Recomendo (b). | Resposta: [ ] a [ ] b
-- **P36.** Frases fixas no PDF. Hoje: não há. | No desenho: "OBSERVAÇÕES GERAIS" com "As horas extras foram autorizadas previamente pela gestão e serão compensadas conforme acordo de banco de horas.", "Feriados trabalhados serão compensados." e "Registros realizados pelo sistema eletrônico de ponto BlueJus.". Recomendo "não" para as duas primeiras (afirmam algo que o sistema não sabe). | Resposta: [ ] aceito [ ] não
+- **P22.** Barra da folha. Hoje: cartão "Folha de Ponto - MM/AAAA" com filtro do mês e o botão "Visualizar / Exportar". | No desenho: barra azul com o mês para escolher, "Baixar PDF" e, quando ligado, "Assinar folha" e o selo "Assinada em dd/mm/aaaa". | Decisão: aceito.
+- **P23.** Meses que o colaborador vê. Hoje: só o mês atual e o anterior. | No desenho: todos os meses desde o início do uso. | Decisão: aceito.
+- **P24.** Cores das linhas. Hoje: fim de semana em cinza e feriado em amarelo. | No desenho: linhas listradas e, ao passar o mouse, a linha fica azul com letra branca. | Decisão: aceito.
+- **P25.** Quais dias aparecem. Hoje: todos os dias do mês. | No desenho: só os dias com batida (e feriado com horas). Atenção: no desenho o dia sem batida some da tela, mas desconta do saldo. Recomendo "não" (continuar com todos os dias). | Decisão: aceito (contra a recomendação acima). O filtro do desenho é explícito; a falta continua descontando do saldo.
+- **P26.** Folha no celular. Hoje: a tabela rola para o lado. | No desenho: até 760 px de largura, cada dia vira um cartão com o nome de cada campo. | Decisão: aceito.
+- **P27.** Selos do dia. Hoje: "A conferir", "Registro incompleto", "Home Office". | No desenho: "Fora de sequência" (vermelho, quando um horário é menor que o anterior), "Feriado", "Em andamento" (hoje) e "Registro incompleto". | Decisão: aceito.
+- **P28.** Fica (o desenho não mostra): selos "A conferir" (dia com batidas fora da conta) e "Home Office". Ficam? | Decisão: fica.
+- **P29.** Marca "aj" na batida corrigida. Hoje: não há (a batida corrigida pelo gestor é trocada). | No desenho: "aj" ao lado da hora, com a dica "Ajustado por NOME em dd/mm/aaaa. Registro original preservado." (depende do P65). | Decisão: aceito. Depende do P65 (a).
+- **P30. (PERGUNTA)** "+" do esquecimento. Hoje: "+" na batida que falta, só em dia útil passado que tem alguma batida; ampulheta quando já pediu. | No desenho: "+" em qualquer dia passado da folha; hoje e feriado mostram um traço. | Origem: decisão do dono de 28/07 (spec ponto-atalho-esquecimento-registro). | Opções: (a) desenho; (b) regra de hoje com o "+" no visual do desenho e a ampulheta. Recomendo (b). | Decisão: (a) (contra a recomendação acima). "+" como o desenho; "Em análise" com ampulheta fica na coluna Justificativa.
+- **P31.** Coluna Justificativa. Hoje: Abonada, Pendente, Rejeitada, Não abonada, com o tipo e o horário do abono parcial. | No desenho: selos coloridos "Abonada" (verde), "Em análise" (azul) e "Recusada" (vermelho). Se aceito, "Não abonada" e o horário do abono parcial ficam. | Decisão: aceito. "Não abonada" e o horário do abono parcial ficam.
+- **P32.** Fica (o desenho não mostra): rodapé "Saldo do mês / Horas pagas / Total do mês". Fica? | Decisão: fica.
+- **P33.** Assinar a folha. Hoje: não existe (o PDF tem linhas para assinar no papel). | No desenho: no mês já fechado, botão "Assinar folha" com "Concordo: os registros representam fielmente minha jornada" ou "Discordo de parte dos registros (ressalva)" e o texto da ressalva; depois, selo "Assinada em" ou "Ressalva em" e carimbo no PDF. Não dá para desfazer. | Decisão: aceito. O texto do aceite vai ao pacote jurídico, sem travar.
+- **P34.** PDF novo da folha. Hoje: PDF em texto, com empregador, empregado, totais e linhas de assinatura em papel. | No desenho: PDF de uma página em imagem (texto não selecionável) com o código BJF, QR Code, carimbo do aceite, quadro de intervalos e "Base Legal". | Decisão: aceito. PDF em imagem, gerado no servidor (D9 e D17).
+- **P35. (PERGUNTA)** PDF com pendência. Hoje: PDF e XLSX nunca mostram "a conferir", "incompleto" nem "registro em outro escritório". | No desenho: o PDF escreve "Registro incompleto", "Horário fora de sequência: revisar" e "Falta: em análise" nas observações do dia. | Origem: specs ponto-abono-nao-perdoa-jornada e ponto-esquecimento-nao-trava (R8). | Opções: (a) desenho; (b) PDF sem pendência, como hoje. Recomendo (b). | Decisão: (a) (contra a recomendação acima). O PDF escreve as pendências do dia, como o desenho; "registro em outro escritório" continua fora.
+- **P36.** Frases fixas no PDF. Hoje: não há. | No desenho: "OBSERVAÇÕES GERAIS" com "As horas extras foram autorizadas previamente pela gestão e serão compensadas conforme acordo de banco de horas.", "Feriados trabalhados serão compensados." e "Registros realizados pelo sistema eletrônico de ponto BlueJus.". Recomendo "não" para as duas primeiras (afirmam algo que o sistema não sabe). | Decisão: aceito (contra a recomendação acima). As três frases são do desenho e ficam; as duas primeiras vão anotadas no pacote jurídico.
 
 ### Pendências
 
-- **P37.** Pendências viram aba. Hoje: cartão "Pendências de registro" (últimos 30 dias, todos os escritórios). | No desenho: aba "Pendências", a primeira, aberta ao entrar, com o número no título, o texto "Dias dos últimos 30 em que faltou uma batida. Elas não impedem o registro do ponto: envie o registro de esquecimento para regularizar." e o botão "Enviar registro de esquecimento". | Resposta: [ ] aceito [ ] não
-- **P38.** Fica (o desenho não mostra): link "Trocar de escritório" na pendência de outro escritório. Fica? | Resposta: [ ] sim, fica [ ] não, sai
+- **P37.** Pendências viram aba. Hoje: cartão "Pendências de registro" (últimos 30 dias, todos os escritórios). | No desenho: aba "Pendências", a primeira, aberta ao entrar, com o número no título, o texto "Dias dos últimos 30 em que faltou uma batida. Elas não impedem o registro do ponto: envie o registro de esquecimento para regularizar." e o botão "Enviar registro de esquecimento". | Decisão: aceito.
+- **P38.** Fica (o desenho não mostra): link "Trocar de escritório" na pendência de outro escritório. Fica? | Decisão: fica.
 
 ### Justificativas
 
-- **P39.** "Minhas Justificativas" vira aba. Hoje: cartão com Data(s), Tipo, Status, Atestado, Obs. da Análise, Analisado em. | No desenho: aba com as mesmas colunas, selos coloridos, cadeado "Análise concluída: não pode ser alterada." e só as justificativas do mês escolhido na Folha. | Resposta: [ ] aceito [ ] não
-- **P40.** Nomes das situações. Hoje: Pendente, Abonado, Rejeitado. | No desenho: Em análise, Abonado, Recusado. Se aceito, muda em todas as telas, inclusive na ficha do gestor e nos avisos do sininho. | Resposta: [ ] aceito [ ] não
-- **P41.** Excluir a justificativa em análise. Hoje: o colaborador só edita. | No desenho: lixeira "Excluir enquanto não analisada" (no desenho apaga sem perguntar; ver seção 4). | Resposta: [ ] aceito [ ] não
-- **P42.** Fica (o desenho não mostra): editar a justificativa em análise (tipo, horário, troca do atestado do lote). Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P43. (PERGUNTA)** Gestor abonar a própria justificativa. Hoje: o gestor analisa na ficha de cada colaborador; analisar a própria está em aberto para o dono. | No desenho: na aba "Minhas Justificativas", o usuário primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas. | Origem: spec ponto-edicao-justificativa-analisada (§6, em aberto). | Opções: (a) desenho; (b) ninguém analisa a própria; os botões aparecem só na aba Equipe, para as dos outros. Recomendo (b). | Resposta: [ ] a [ ] b
-- **P44.** Janela "Justificar falta". Hoje: janela com calendário de vários dias, tipo, abono parcial, esquecimento e anexo. | No desenho: janela nova (barra azul, botões "Cancelar" e "Enviar") com data única, motivo e atestado opcional. Se aceito, entra a moldura do desenho e os campos de hoje ficam (P45). | Resposta: [ ] aceito [ ] não
-- **P45.** Fica (o desenho não mostra): vários dias de uma vez, os 45 tipos em 6 grupos, abono parcial com horário e anexo PDF, JPG ou PNG até 10 MB. Ficam? | Resposta: [ ] sim, fica [ ] não, sai
-- **P46.** Janela "Registro de esquecimento". Hoje: janela com o tipo e o horário. | No desenho: "dd/mm/aaaa · Saída", horário com segundos, motivo obrigatório e o aviso "Enviado para aprovação do gestor.". | Resposta: [ ] aceito [ ] não
-- **P47.** Fica (o desenho não mostra): janela "Editar justificativa" (ganha a moldura do desenho). Fica? | Resposta: [ ] sim, fica [ ] não, sai
+- **P39.** "Minhas Justificativas" vira aba. Hoje: cartão com Data(s), Tipo, Status, Atestado, Obs. da Análise, Analisado em. | No desenho: aba com as mesmas colunas, selos coloridos, cadeado "Análise concluída: não pode ser alterada." e só as justificativas do mês escolhido na Folha. | Decisão: aceito.
+- **P40.** Nomes das situações. Hoje: Pendente, Abonado, Rejeitado. | No desenho: Em análise, Abonado, Recusado. Se aceito, muda em todas as telas, inclusive na ficha do gestor e nos avisos do sininho. | Decisão: aceito. O rótulo é um só e muda junto em todas as telas.
+- **P41.** Excluir a justificativa em análise. Hoje: o colaborador só edita. | No desenho: lixeira "Excluir enquanto não analisada" (no desenho apaga sem perguntar; ver seção 4). | Decisão: aceito. Com confirmação antes de apagar (D4).
+- **P42.** Fica (o desenho não mostra): editar a justificativa em análise (tipo, horário, troca do atestado do lote). Fica? | Decisão: fica.
+- **P43. (PERGUNTA)** Gestor abonar a própria justificativa. Hoje: o gestor analisa na ficha de cada colaborador; analisar a própria está em aberto para o dono. | No desenho: na aba "Minhas Justificativas", o usuário primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas. | Origem: spec ponto-edicao-justificativa-analisada (§6, em aberto). | Opções: (a) desenho; (b) ninguém analisa a própria; os botões aparecem só na aba Equipe, para as dos outros. Recomendo (b). | Decisão: (a) (contra a recomendação acima). O primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas, como o desenho.
+- **P44.** Janela "Justificar falta". Hoje: janela com calendário de vários dias, tipo, abono parcial, esquecimento e anexo. | No desenho: janela nova (barra azul, botões "Cancelar" e "Enviar") com data única, motivo e atestado opcional. Se aceito, entra a moldura do desenho e os campos de hoje ficam (P45). | Decisão: aceito. Os campos de hoje entram na moldura nova (P45).
+- **P45.** Fica (o desenho não mostra): vários dias de uma vez, os 45 tipos em 6 grupos, abono parcial com horário e anexo PDF, JPG ou PNG até 10 MB. Ficam? | Decisão: fica.
+- **P46.** Janela "Registro de esquecimento". Hoje: janela com o tipo e o horário. | No desenho: "dd/mm/aaaa · Saída", horário com segundos, motivo obrigatório e o aviso "Enviado para aprovação do gestor.". | Decisão: aceito.
+- **P47.** Fica (o desenho não mostra): janela "Editar justificativa" (ganha a moldura do desenho). Fica? | Decisão: fica.
 
 ### Comprovantes
 
-- **P48.** Aba Comprovantes. Hoje: não existe. | No desenho: lista de cada batida com data e hora, tipo, método ("Facial" ou "Sistema"), código "BJP-XXXX-XXXX-XXXX" e o botão "Baixar". | Resposta: [ ] aceito [ ] não
-- **P49.** Comprovante em imagem. Hoje: não existe. | No desenho: imagem grande com trabalhador, empregador e CNPJ, local, método, número sequencial (NSR), código, QR Code, marca d'água e padrões de segurança. | Resposta: [ ] aceito [ ] não
-- **P50.** Validar comprovante. Hoje: não existe. | No desenho: botão "Validar código", janela que responde "Comprovante autêntico." ou "Código não localizado.", e uma página aberta (sem login) para quem ler o QR Code. | Resposta: [ ] aceito [ ] não
+- **P48.** Aba Comprovantes. Hoje: não existe. | No desenho: lista de cada batida com data e hora, tipo, método ("Facial" ou "Sistema"), código "BJP-XXXX-XXXX-XXXX" e o botão "Baixar". | Decisão: aceito. Criar o segredo do HMAC em produção é do dono (seção 10).
+- **P49.** Comprovante em imagem. Hoje: não existe. | No desenho: imagem grande com trabalhador, empregador e CNPJ, local, método, número sequencial (NSR), código, QR Code, marca d'água e padrões de segurança. | Decisão: aceito.
+- **P50.** Validar comprovante. Hoje: não existe. | No desenho: botão "Validar código", janela que responde "Comprovante autêntico." ou "Código não localizado.", e uma página aberta (sem login) para quem ler o QR Code. | Decisão: aceito. Nome inteiro, como o desenho mostra; sem CPF nem localização.
 
 ### Banco de horas
 
-- **P51. (PERGUNTA)** Banco por lotes. Hoje: saldo do ano, que zera em 1º de janeiro. | No desenho: aba "Banco de Horas" com "SALDO ATUAL", "LIMITE CONFIGURADO" (120h), "PRAZO DE COMPENSAÇÃO" (6 meses) e uma tabela de lotes por mês com vencimento e situação ("No prazo", "Vence em N dias", "Vencido", "Compensado"); as horas negativas abatem primeiro os créditos mais antigos. | Origem: decisão do dono de 31/07/2026 (spec ponto-horas-pagas-banco-de-horas). | Opções: (a) lotes do desenho, sem zerar em janeiro; (b) a aba mostra o saldo do ano de hoje, sem lotes. Recomendo levar ao dono antes (muda o saldo de todo mundo). | Resposta: [ ] a [ ] b
-- **P52.** Aviso acima do limite. Hoje: não há limite. | No desenho: faixa amarela "Saldo acima do limite configurado. Planeje a compensação para evitar passivo." e o triângulo no cartão. | Resposta: [ ] aceito [ ] não
-- **P53.** Fica (o desenho não mostra): horas pagas lançadas pelo gestor entram no saldo. Fica? | Resposta: [ ] sim, fica [ ] não, sai
+- **P51. (PERGUNTA)** Banco por lotes. Hoje: saldo do ano, que zera em 1º de janeiro. | No desenho: aba "Banco de Horas" com "SALDO ATUAL", "LIMITE CONFIGURADO" (120h), "PRAZO DE COMPENSAÇÃO" (6 meses) e uma tabela de lotes por mês com vencimento e situação ("No prazo", "Vence em N dias", "Vencido", "Compensado"); as horas negativas abatem primeiro os créditos mais antigos. | Origem: decisão do dono de 31/07/2026 (spec ponto-horas-pagas-banco-de-horas). | Opções: (a) lotes do desenho, sem zerar em janeiro; (b) a aba mostra o saldo do ano de hoje, sem lotes. Recomendo levar ao dono antes (muda o saldo de todo mundo). | Decisão: (a) (contra a recomendação acima). Lotes do desenho, sem zerar em janeiro; as horas pagas seguem no saldo.
+- **P52.** Aviso acima do limite. Hoje: não há limite. | No desenho: faixa amarela "Saldo acima do limite configurado. Planeje a compensação para evitar passivo." e o triângulo no cartão. | Decisão: aceito.
+- **P53.** Fica (o desenho não mostra): horas pagas lançadas pelo gestor entram no saldo. Fica? | Decisão: fica.
 
 ### Equipe
 
-- **P54.** Aba Equipe. Hoje: não há visão da equipe; o gestor abre a ficha de cada um. | No desenho: tabela com Colaborador, Situação ("Em jornada", "Em intervalo", "Sem registro", "Encerrada"), Entrada, Último registro, Banco, Pendências e Escala; a primeira linha é a própria pessoa ("Você"). | Resposta: [ ] aceito [ ] não
-- **P55.** Números da equipe. Hoje: não há. | No desenho: cinco quadros: "Em jornada", "Em intervalo", "Sem registro", "Pendências" e "A analisar". | Resposta: [ ] aceito [ ] não
-- **P56. (PERGUNTA)** Escala na aba Equipe. Hoje: jornada por dias e horários, com "Vale a partir de" e histórico (entregue em 07/11). | No desenho: lista com 4 escalas fixas (44h de segunda a sábado, 44h de segunda a sexta, 40h, 30h) que troca a escala da pessoa ali mesmo. | Origem: spec ponto-jornada-vigencia (§8 e §10). | Opções: (a) desenho; (b) a coluna só mostra a jornada atual, com link para a ficha. Recomendo (b). | Resposta: [ ] a [ ] b
-- **P57.** Abonar várias de uma vez. Hoje: "Aprovar todos" só dentro de um lote, na ficha de cada pessoa. | No desenho: "Justificativas a analisar (N)" com caixas de marcar e o botão "Abonar selecionadas" (não há recusar em lote). | Resposta: [ ] aceito [ ] não
-- **P58.** Quem vê Equipe, Auditoria e Configurações. Hoje: quem tem no perfil a permissão de gerir usuários ou o ponto (não só o primário), mais o primário e o Master. | No desenho: só o usuário primário e o Master. Recomendo "não" (seguir as permissões de hoje). | Resposta: [ ] aceito [ ] não
-- **P59.** Fica (o desenho não mostra): ficha do colaborador, aba "Justificativas" (lotes, aprovar com observação, rejeitar, aprovar todos, reverter, lançar justificativa já abonada). Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P60.** Fica (o desenho não mostra): ficha do colaborador, aba "Batidas de Ponto" (folha de qualquer mês, adicionar batida, exportar, "Fora da conta", sinal de registro em outro escritório). Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P61.** Fica (o desenho não mostra): ficha do colaborador, aba "Jornada Personalizada" (chave "Registra ponto eletrônico", "Vale a partir de", histórico, "Limpar escala"). Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P62.** Fica (o desenho não mostra): ficha do colaborador, aba "Home Office". Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P63.** Fica (o desenho não mostra): ficha do colaborador, aba "Horas pagas". Fica? | Resposta: [ ] sim, fica [ ] não, sai
+- **P54.** Aba Equipe. Hoje: não há visão da equipe; o gestor abre a ficha de cada um. | No desenho: tabela com Colaborador, Situação ("Em jornada", "Em intervalo", "Sem registro", "Encerrada"), Entrada, Último registro, Banco, Pendências e Escala; a primeira linha é a própria pessoa ("Você"). | Decisão: aceito.
+- **P55.** Números da equipe. Hoje: não há. | No desenho: cinco quadros: "Em jornada", "Em intervalo", "Sem registro", "Pendências" e "A analisar". | Decisão: aceito.
+- **P56. (PERGUNTA)** Escala na aba Equipe. Hoje: jornada por dias e horários, com "Vale a partir de" e histórico (entregue em 07/11). | No desenho: lista com 4 escalas fixas (44h de segunda a sábado, 44h de segunda a sexta, 40h, 30h) que troca a escala da pessoa ali mesmo. | Origem: spec ponto-jornada-vigencia (§8 e §10). | Opções: (a) desenho; (b) a coluna só mostra a jornada atual, com link para a ficha. Recomendo (b). | Decisão: (a) (contra a recomendação acima). A coluna mostra a jornada atual; trocar grava vigência nova a partir de hoje.
+- **P57.** Abonar várias de uma vez. Hoje: "Aprovar todos" só dentro de um lote, na ficha de cada pessoa. | No desenho: "Justificativas a analisar (N)" com caixas de marcar e o botão "Abonar selecionadas" (não há recusar em lote). | Decisão: aceito.
+- **P58.** Quem vê Equipe, Auditoria e Configurações. Hoje: quem tem no perfil a permissão de gerir usuários ou o ponto (não só o primário), mais o primário e o Master. | No desenho: só o usuário primário e o Master. Recomendo "não" (seguir as permissões de hoje). | Decisão: não. Quem gere o ponto pelo perfil continua vendo; o desenho não conhece perfis.
+- **P59.** Fica (o desenho não mostra): ficha do colaborador, aba "Justificativas" (lotes, aprovar com observação, rejeitar, aprovar todos, reverter, lançar justificativa já abonada). Fica? | Decisão: fica.
+- **P60.** Fica (o desenho não mostra): ficha do colaborador, aba "Batidas de Ponto" (folha de qualquer mês, adicionar batida, exportar, "Fora da conta", sinal de registro em outro escritório). Fica? | Decisão: fica.
+- **P61.** Fica (o desenho não mostra): ficha do colaborador, aba "Jornada Personalizada" (chave "Registra ponto eletrônico", "Vale a partir de", histórico, "Limpar escala"). Fica? | Decisão: fica.
+- **P62.** Fica (o desenho não mostra): ficha do colaborador, aba "Home Office". Fica? | Decisão: fica.
+- **P63.** Fica (o desenho não mostra): ficha do colaborador, aba "Horas pagas". Fica? | Decisão: fica.
 
 ### Auditoria
 
-- **P64.** Aba Auditoria. Hoje: o sistema guarda o histórico, mas não há aba no Ponto. | No desenho: aba com "Cadeia de eventos íntegra: cada evento é selado com o anterior. Registros originais nunca são sobrescritos." e a lista Data e hora, Autor, Ação, Detalhe e Selo. | Resposta: [ ] aceito [ ] não
-- **P65. (PERGUNTA)** Corrigir batida só com ajuste. Hoje: o gestor edita (data, hora, tipo) e exclui a batida na ficha; o esquecimento aprovado cria uma batida nova. | No desenho e na regra nova do dono (ESPEC): a batida nunca é apagada nem trocada; a correção é um registro de ajuste com o valor antigo, o novo, quem fez, quando e por quê; a folha mostra "aj". | Origem: decisão do dono de 11/09/2026, "manter exclusão e alteração de batida pelo administrador" (spec ponto-batida-nao-se-perde-no-navegador). | Opções: (a) só ajuste; (b) editar e excluir como hoje. Recomendo (a): é o que sustenta a frase "Registros originais nunca são sobrescritos". | Resposta: [ ] a [ ] b
-- **P66.** Fica (o desenho não mostra): a tela geral de auditoria do sistema, com "desfazer". Fica? (Se o P65 for "a", o desfazer não pode mais trocar nem apagar batida.) | Resposta: [ ] sim, fica [ ] não, sai
+- **P64.** Aba Auditoria. Hoje: o sistema guarda o histórico, mas não há aba no Ponto. | No desenho: aba com "Cadeia de eventos íntegra: cada evento é selado com o anterior. Registros originais nunca são sobrescritos." e a lista Data e hora, Autor, Ação, Detalhe e Selo. | Decisão: aceito.
+- **P65. (PERGUNTA)** Corrigir batida só com ajuste. Hoje: o gestor edita (data, hora, tipo) e exclui a batida na ficha; o esquecimento aprovado cria uma batida nova. | No desenho e na regra nova do dono (ESPEC): a batida nunca é apagada nem trocada; a correção é um registro de ajuste com o valor antigo, o novo, quem fez, quando e por quê; a folha mostra "aj". | Origem: decisão do dono de 11/09/2026, "manter exclusão e alteração de batida pelo administrador" (spec ponto-batida-nao-se-perde-no-navegador). | Opções: (a) só ajuste; (b) editar e excluir como hoje. Recomendo (a): é o que sustenta a frase "Registros originais nunca são sobrescritos". | Decisão: (a). Correção só por ajuste; editar e excluir viram "Ajustar" e "Desconsiderar".
+- **P66.** Fica (o desenho não mostra): a tela geral de auditoria do sistema, com "desfazer". Fica? (Se o P65 for "a", o desfazer não pode mais trocar nem apagar batida.) | Decisão: fica. Com o P65 (a), o desfazer não troca nem apaga batida.
 
 ### Configurações
 
-- **P67.** Aba Configurações. Hoje: não existe; a configuração do ponto está espalhada (Jornada do escritório, Sedes, Feriados). | No desenho: aba com as 8 funções, cada uma com a chave "Escritório" (e "Global" para o Master), o texto de ajuda e o aviso "Desativado pelo Master para todos os escritórios.". | Resposta: [ ] aceito [ ] não
-- **P68.** Sedes dentro da aba. Hoje: página própria "Sedes do ponto". | No desenho: tabela "Sedes e raio de registro" com nome, latitude, longitude, raio em metros, "Usar minha posição", remover e "Adicionar sede". | Resposta: [ ] aceito [ ] não
-- **P69.** Fica (o desenho não mostra): mapa das sedes e busca por CEP ou endereço. Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P70. (PERGUNTA)** Raio da sede nova. Hoje: 100 m. | No desenho: 150 m. | Origem: decisão do dono de 11/09/2026 ("o raio de 100 m já foi escolhido contando com ~60 m de imprecisão", spec ponto-batida-nao-se-perde-no-navegador). | Opções: (a) 150 m; (b) 100 m. Recomendo (b). | Resposta: [ ] a [ ] b
-- **P71.** Feriados dentro da aba. Hoje: página "Feriados e Folgas" com Data, Nome e Recorrência. | No desenho: "Feriados do escritório" com Data, Nome e Abrangência ("Todas as sedes" ou uma sede) e o texto "Os nacionais já estão incluídos. Cadastre aqui os estaduais e municipais, por sede.". A abrangência por sede é nova. | Resposta: [ ] aceito [ ] não
-- **P72.** Fica (o desenho não mostra): feriado que se repete todo ano e as folgas. Ficam? | Resposta: [ ] sim, fica [ ] não, sai
-- **P73.** Limite e prazo do banco. Hoje: não existem. | No desenho: campos "Limite do banco (horas)" (120) e "Prazo de compensação (meses)" (6, de 1 a 24). Depende do P51. | Resposta: [ ] aceito [ ] não
-- **P74.** Permitir trabalho externo. Hoje: não existe. | No desenho: caixa "Permitir trabalho externo, com motivo e análise" (ligada). Depende do P18. | Resposta: [ ] aceito [ ] não
-- **P75.** Fica (o desenho não mostra): "Jornada do escritório" (carga, alertas, validação do repouso e do descanso entre jornadas, blocos de horário). Fica? | Resposta: [ ] sim, fica [ ] não, sai
+- **P67.** Aba Configurações. Hoje: não existe; a configuração do ponto está espalhada (Jornada do escritório, Sedes, Feriados). | No desenho: aba com as 8 funções, cada uma com a chave "Escritório" (e "Global" para o Master), o texto de ajuda e o aviso "Desativado pelo Master para todos os escritórios.". | Decisão: aceito.
+- **P68.** Sedes dentro da aba. Hoje: página própria "Sedes do ponto". | No desenho: tabela "Sedes e raio de registro" com nome, latitude, longitude, raio em metros, "Usar minha posição", remover e "Adicionar sede". | Decisão: aceito.
+- **P69.** Fica (o desenho não mostra): mapa das sedes e busca por CEP ou endereço. Fica? | Decisão: fica.
+- **P70. (PERGUNTA)** Raio da sede nova. Hoje: 100 m. | No desenho: 150 m. | Origem: decisão do dono de 11/09/2026 ("o raio de 100 m já foi escolhido contando com ~60 m de imprecisão", spec ponto-batida-nao-se-perde-no-navegador). | Opções: (a) 150 m; (b) 100 m. Recomendo (b). | Decisão: (a) (contra a recomendação acima). 150 m só para sede nova; as sedes de hoje não mudam.
+- **P71.** Feriados dentro da aba. Hoje: página "Feriados e Folgas" com Data, Nome e Recorrência. | No desenho: "Feriados do escritório" com Data, Nome e Abrangência ("Todas as sedes" ou uma sede) e o texto "Os nacionais já estão incluídos. Cadastre aqui os estaduais e municipais, por sede.". A abrangência por sede é nova. | Decisão: aceito.
+- **P72.** Fica (o desenho não mostra): feriado que se repete todo ano e as folgas. Ficam? | Decisão: fica.
+- **P73.** Limite e prazo do banco. Hoje: não existem. | No desenho: campos "Limite do banco (horas)" (120) e "Prazo de compensação (meses)" (6, de 1 a 24). Depende do P51. | Decisão: aceito.
+- **P74.** Permitir trabalho externo. Hoje: não existe. | No desenho: caixa "Permitir trabalho externo, com motivo e análise" (ligada). Depende do P18. | Decisão: aceito.
+- **P75.** Fica (o desenho não mostra): "Jornada do escritório" (carga, alertas, validação do repouso e do descanso entre jornadas, blocos de horário). Fica? | Decisão: fica.
 
 ### Facial
 
-- **P76.** Bater ponto com o rosto. Hoje: não existe. | No desenho: botão "Registrar com reconhecimento facial" (ou facial obrigatória), câmera em tela cheia com "Posicione o rosto na área de marcação", "Pisque os olhos", "Mantenha a posição". | Resposta: [ ] aceito [ ] não
-- **P77.** Autorização antes do primeiro uso. Hoje: não existe. | No desenho: janela "Cadastro facial" com os textos da LGPD, a caixa "Li e autorizo o uso do reconhecimento facial para o registro do meu ponto." e o botão "Não autorizo" (quem recusa bate pelos outros meios, sem penalidade). | Resposta: [ ] aceito [ ] não
-- **P78.** Ajustes da facial. Hoje: não existe. | No desenho: "Opcional: a pessoa escolhe" ou "Obrigatória em toda batida", "Guardar foto de cada batida facial", guardar por 6, 12 ou 24 meses e "Excluir meu cadastro". | Resposta: [ ] aceito [ ] não
+- **P76.** Bater ponto com o rosto. Hoje: não existe. | No desenho: botão "Registrar com reconhecimento facial" (ou facial obrigatória), câmera em tela cheia com "Posicione o rosto na área de marcação", "Pisque os olhos", "Mantenha a posição". | Decisão: aceito. Contratar o fornecedor com prova de vida é do dono (seção 10).
+- **P77.** Autorização antes do primeiro uso. Hoje: não existe. | No desenho: janela "Cadastro facial" com os textos da LGPD, a caixa "Li e autorizo o uso do reconhecimento facial para o registro do meu ponto." e o botão "Não autorizo" (quem recusa bate pelos outros meios, sem penalidade). | Decisão: aceito.
+- **P78.** Ajustes da facial. Hoje: não existe. | No desenho: "Opcional: a pessoa escolhe" ou "Obrigatória em toda batida", "Guardar foto de cada batida facial", guardar por 6, 12 ou 24 meses e "Excluir meu cadastro". | Decisão: aceito. Depende do mesmo fornecedor (D10, seção 10).
 
 ### Avisos e sons
 
-- **P79.** Tela cheia de validação. Hoje: não existe. | No desenho: anel que se completa com "Validando Entrada" e as etapas ("Horário oficial confirmado", "Localização validada", "Registro selado"); depois tela verde "Ponto registrado" (fecha sozinha em 10 s) ou vermelha "Ponto não registrado" com "Tentar novamente". | Resposta: [ ] aceito [ ] não
-- **P80.** Aviso flutuante. Hoje: não existe neste formato. | No desenho: faixa colorida no rodapé que some em 3 segundos ("Entrada registrada às HH:MM:SS.", "Justificativa abonada." e outros). | Resposta: [ ] aceito [ ] não
-- **P81.** Sons e botão de som. Hoje: som só na janela de alerta de horário, e "Ouvir os toques do ponto" no Meu Perfil. | No desenho: "plim" quando registra, som diferente quando falha e um botão de alto-falante no cartão para silenciar. | Resposta: [ ] aceito [ ] não
-- **P82.** Vibração. Hoje: não existe. | No desenho: o celular vibra curto no sucesso e três vezes no erro. | Resposta: [ ] aceito [ ] não
-- **P83.** Lembrete de saída. Hoje: a janela de alerta de horário cuida disso (P84). | No desenho: uma vez por dia, passada a saída prevista, aviso âmbar "Passou do horário previsto. Não esqueça de registrar a saída." e notificação do navegador "BlueJus Ponto". | Resposta: [ ] aceito [ ] não
-- **P84.** Fica (o desenho não mostra): janela de alerta de horário a cada 60 s (entrada não registrada, intervalo, volta, saída, aviso das 6h), título piscando e som por tipo. Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P85.** Fica (o desenho não mostra): cartão diário "Registro de ponto pendente" com "Lembrar em 10 min" e "Dispensar até amanhã". Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P86.** Fica (o desenho não mostra): avisos no sininho (justificativa enviada ao gestor; abonada ou rejeitada ao colaborador). Fica? | Resposta: [ ] sim, fica [ ] não, sai
+- **P79.** Tela cheia de validação. Hoje: não existe. | No desenho: anel que se completa com "Validando Entrada" e as etapas ("Horário oficial confirmado", "Localização validada", "Registro selado"); depois tela verde "Ponto registrado" (fecha sozinha em 10 s) ou vermelha "Ponto não registrado" com "Tentar novamente". | Decisão: aceito.
+- **P80.** Aviso flutuante. Hoje: não existe neste formato. | No desenho: faixa colorida no rodapé que some em 3 segundos ("Entrada registrada às HH:MM:SS.", "Justificativa abonada." e outros). | Decisão: aceito.
+- **P81.** Sons e botão de som. Hoje: som só na janela de alerta de horário, e "Ouvir os toques do ponto" no Meu Perfil. | No desenho: "plim" quando registra, som diferente quando falha e um botão de alto-falante no cartão para silenciar. | Decisão: aceito.
+- **P82.** Vibração. Hoje: não existe. | No desenho: o celular vibra curto no sucesso e três vezes no erro. | Decisão: aceito.
+- **P83.** Lembrete de saída. Hoje: a janela de alerta de horário cuida disso (P84). | No desenho: uma vez por dia, passada a saída prevista, aviso âmbar "Passou do horário previsto. Não esqueça de registrar a saída." e notificação do navegador "BlueJus Ponto". | Decisão: aceito.
+- **P84.** Fica (o desenho não mostra): janela de alerta de horário a cada 60 s (entrada não registrada, intervalo, volta, saída, aviso das 6h), título piscando e som por tipo. Fica? | Decisão: fica.
+- **P85.** Fica (o desenho não mostra): cartão diário "Registro de ponto pendente" com "Lembrar em 10 min" e "Dispensar até amanhã". Fica? | Decisão: fica.
+- **P86.** Fica (o desenho não mostra): avisos no sininho (justificativa enviada ao gestor; abonada ou rejeitada ao colaborador). Fica? | Decisão: fica.
 
 ### Exportações
 
-- **P87.** Baixar o PDF direto. Hoje: botão "Visualizar / Exportar", que mostra o PDF numa janela antes. | No desenho: "Baixar PDF" baixa direto o arquivo "folha_ponto_NOME-MM-AAAA.pdf" e avisa "Folha baixada em PDF. Código BJF-...". | Resposta: [ ] aceito [ ] não
-- **P88.** Fica (o desenho não mostra): exportar a folha em XLSX. Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P89.** Fica (o desenho não mostra): ver o PDF antes de baixar e o gestor exportar a folha de outro colaborador. Fica? | Resposta: [ ] sim, fica [ ] não, sai
+- **P87.** Baixar o PDF direto. Hoje: botão "Visualizar / Exportar", que mostra o PDF numa janela antes. | No desenho: "Baixar PDF" baixa direto o arquivo "folha_ponto_NOME-MM-AAAA.pdf" e avisa "Folha baixada em PDF. Código BJF-...". | Decisão: aceito.
+- **P88.** Fica (o desenho não mostra): exportar a folha em XLSX. Fica? | Decisão: fica.
+- **P89.** Fica (o desenho não mostra): ver o PDF antes de baixar e o gestor exportar a folha de outro colaborador. Fica? | Decisão: fica.
 
 ### Cabeçalho e telas globais
 
 - **P90. (decidido)** Cabeçalho, menu do topo e camadas globais: fica a moldura do sistema. Hoje: o cabeçalho azul do sistema já segue os desenhos (nome, papel, tela cheia, "Indicar o BlueJus"). | No desenho: o mesmo cabeçalho, o menu branco de telas sem o Ponto, e as camadas de dicas, idioma, tema comemorativo, aviso do plano, lembretes da Agenda, Central de Comunicação. | Fica como o sistema tem; a tela faz só o conteúdo e o link do Ponto entra no menu que já existe (o menu lateral já tem "Ponto Eletrônico").
-- **P91.** Fica (o desenho não mostra): atalho do ponto no avatar ("Bater ponto", "Em jornada desde", "Em intervalo desde", "Regularizar ponto de ontem"). Fica? | Resposta: [ ] sim, fica [ ] não, sai
-- **P92.** Fica (o desenho não mostra): no Meu Perfil, a linha "bate ponto / sem ponto" e "Ouvir os toques do ponto". Fica? | Resposta: [ ] sim, fica [ ] não, sai
+- **P91.** Fica (o desenho não mostra): atalho do ponto no avatar ("Bater ponto", "Em jornada desde", "Em intervalo desde", "Regularizar ponto de ontem"). Fica? | Decisão: fica.
+- **P92.** Fica (o desenho não mostra): no Meu Perfil, a linha "bate ponto / sem ponto" e "Ouvir os toques do ponto". Fica? | Decisão: fica.
 - **P93. (decidido)** Tela desligada: fica a moldura do sistema. Hoje: o sistema já tem, para as outras telas, a página "em preparação" e a faixa vermelha "Esta tela está desativada para os usuários. Só o Master está vendo.". | No desenho: as mesmas, para o Ponto. | O Ponto passa a usá-las quando a chave da tela existir (P94).
 
 ### Liga e desliga do Master
 
-- **P94.** Chave da tela Ponto. Hoje: o Master não tem chave do Ponto em "Telas e recursos". | No desenho: a tela "Ponto Eletrônico" ganha chave. | Resposta: [ ] aceito [ ] não
-- **P95.** Chaves das funções. Hoje: não existem. | No desenho: 8 chaves (tela cheia, sons, comprovante, localização, facial, lembrete de saída, alertas de intervalo, aceite da folha), cada uma com "Global" (Master, vale para todos) e "Escritório" (o escritório decide, dentro do que o Master liberou). Lista na seção 7. | Resposta: [ ] aceito [ ] não
-- **P96.** Valor inicial das chaves. No desenho: todas ligadas. Recomendo: tela, localização, sons, lembrete e alertas ligados; tela cheia ligada quando pronta; comprovante, aceite e facial desligados até as suas etapas e o jurídico. | Resposta: [ ] aceito [ ] não
+- **P94.** Chave da tela Ponto. Hoje: o Master não tem chave do Ponto em "Telas e recursos". | No desenho: a tela "Ponto Eletrônico" ganha chave. | Decisão: aceito.
+- **P95.** Chaves das funções. Hoje: não existem. | No desenho: 8 chaves (tela cheia, sons, comprovante, localização, facial, lembrete de saída, alertas de intervalo, aceite da folha), cada uma com "Global" (Master, vale para todos) e "Escritório" (o escritório decide, dentro do que o Master liberou). Lista na seção 7. | Decisão: aceito.
+- **P96.** Valor inicial das chaves. No desenho: todas ligadas. Recomendo: tela, localização, sons, lembrete e alertas ligados; tela cheia ligada quando pronta; comprovante, aceite e facial desligados até as suas etapas e o jurídico. | Decisão: aceito o desenho, todas ligadas (contra a recomendação acima). Cada chave nasce ligada quando a sua etapa ficar pronta.
 
 ## 3. (b) O que é novo e o que depende de fornecedor ou de lei
 
@@ -195,6 +201,22 @@ Como responder: diga o número e "sim" ou "não" (exemplo: "P1 sim, P7 b, P13 fi
 | Tela cheia, sons, vibração, notificação (P79 a P83) | Nada | BAIXO | Só navegador. Respeitar "movimento reduzido" (o desenho já faz). O som não pode perder a liberação do áudio do alerta (decisão de "atualiza sem recarregar"). |
 | Liga e desliga em duas camadas (P94 a P96) | Nada | MÉDIO | Global no catálogo do Master (tabela `recurso_estado` já existe); escritório numa configuração nova do Ponto. Função ativa = Global e Escritório. |
 
+**Decisões de 09/11/2026 que mudam esta tabela** (onde a tabela diz outra coisa, vale isto):
+
+1. Validação pública (P50): mostra o nome inteiro do trabalhador, como o desenho; continua sem CPF e sem localização.
+2. Comprovante e folha (D9, P34, D17): hora, NSR, código e dados saem do servidor; o PDF da folha é imagem gerada no
+   servidor, com o arranjo do desenho (não mais PDF em texto).
+3. Folha alterada depois do aceite (D19): a tela mostra "alterada depois do aceite" e pede nova assinatura.
+4. Frases fixas e "Base Legal" do PDF (P36, P34): ficam como o desenho; as duas primeiras frases e as portarias vão
+   anotadas no pacote jurídico, sem travar.
+5. Trilha encadeada (D5): leva o que o desenho grava; mudanças de sede, feriado, limite, prazo, modo facial e foto ficam
+   só no `audit_log`.
+6. Banco por lotes (P51 a): não zera mais em janeiro; as horas pagas seguem no saldo. Continua a definir na E17: o saldo
+   de antes do início dos lotes ("Sem data de origem").
+7. Raio (P70 a): sede nova nasce com 150 m; as sedes de hoje não mudam.
+8. Sem decisão no arquivo de 09/11, valem as recomendações desta tabela: a batida de trabalho externo conta enquanto em
+   análise (P18) e o teto de idade da fila sem internet (P20) se fecha na E14.
+
 **O que o desenho afirma de lei (literal, inventário §7):**
 
 1. Aba Banco de Horas: "Horas negativas abatem primeiro os créditos mais antigos. O prazo padrão é de 6 meses, próprio do acordo individual (art. 59, § 5º, da CLT), e pode ser ajustado em Configurações conforme o acordo do escritório."
@@ -209,34 +231,39 @@ Como responder: diga o número e "sim" ou "não" (exemplo: "P1 sim, P7 b, P13 fi
 
 ## 4. Pontos para decidir que o próprio desenho tem
 
-| # | O que o desenho faz | Recomendação |
-|---|---|---|
-| D1 | "Jornada semanal 44h00m" fixa no cartão (L137); não segue a escala. | Mostrar a carga da jornada que vale hoje para a pessoa (leitura da jornada com vigência, sem mexer nela). |
-| D2 | NSR = quantidade de comprovantes + 1; com o comprovante desligado o NSR não sobe (L522). | NSR sempre, no servidor, sequencial por escritório, mesmo com `ponto-comprovante` desligado. |
-| D3 | Falta abonada continua descontando a carga do dia (L620); o abono só vira ajuste no esquecimento. | Seguir o sistema: abonada zera o negativo do dia; abono técnico não perdoa jornada (spec ponto-abono-nao-perdoa-jornada). |
-| D4 | Exclusões sem confirmação: justificativa em análise, sede, feriado, cadastro facial. | Pedir confirmação, na moldura de janela do desenho (convenção do sistema; sedes e feriados já confirmam hoje). |
-| D5 | Mudanças de sede, feriado, limite, prazo, modo facial e foto não vão para a trilha. | Entram na trilha do Ponto (hoje já vão ao `audit_log`). |
-| D6 | Dados do empregado e do empregador fixos para o Farlei (razão social diferente do nome exibido, CPF e CTPS mascarados, código "0001", lotação, admissão, responsável "FARLEI ASSIS DA ROCHA OAB/DF 49.613", "Sim (acordo individual)"). | Tirar das mesmas fontes do PDF de hoje; nada fixo. O que o sistema não tem (razão social separada do nome, quem assina pelo empregador com OAB, tipo de acordo do banco) vira campo novo só se o Samuel aceitar. |
-| D7 | Competência padrão fixa em 11/2026 e lista desde 10/2026 (L430, L773). | Mês corrente pelo relógio do servidor; lista desde o início da contagem da pessoa (respeitando o P23). |
-| D8 | Pendências de uma lista fixa (L407). | Cálculo de hoje (`ListarPendenciasDeRegistroUseCase`, 30 dias, todos os escritórios). |
-| D9 | Hora oficial, código e comprovante calculados no navegador. | Servidor (ESPEC). |
-| D10 | Foto da facial capturada e não gravada. | Template no fornecedor; foto só com a opção do escritório e retenção (seção 3). |
-| D11 | Sede sem coordenada não bloqueia; GPS negado deixa bater (modo de demonstração). | Seguir o servidor de hoje: fora do home office, sem localização não registra; sede sem coordenada é ignorada. |
-| D12 | Links do cabeçalho apontam para versões antigas de outras telas. | Menu do sistema (P90). |
-| D13 | `raio`, `raioOff` e `trocaRaio` no código sem campo na tela. | Raio por sede, como hoje. |
-| D14 | Dicas marcadas com `data-tip`, que nenhuma biblioteca da pasta desenha. | Padrão de dica do sistema. |
-| D15 | Tabelas fora da Folha sem listra e sem azul ao passar o mouse. | Seguir o desenho (só a Folha tem listra e azul). |
-| D16 | Barra "Ver como" e "Próxima batida", nota "Dados de exemplo", equipe fictícia, folha de outubro importada. | Não entram: são do protótipo. |
-| D17 | PDF da folha desenhado em imagem no navegador. | PDF gerado no servidor, em texto (como hoje), com o arranjo do desenho, código BJF e QR. Imagem só se o Samuel preferir. |
-| D18 | Abonar esquecimento cria ajuste; hoje cria batida nova. | Segue a resposta do P65. |
-| D19 | Aceite sem desfazer e sem regra para folha que muda depois. | Ver seção 3 (folha BJF): mostrar "alterada depois do aceite" e pedir nova assinatura. |
-| D20 | QR para `https://www.bluejus.com.br/ponto/validar/CÓDIGO` (o site). | Endereço do sistema. |
-| D21 | Feriados nacionais fixos no código do desenho. | Seguir o sistema (comando de carga dos nacionais por escritório). |
-| D22 | Selo da Folha "Abonada" e da aba "Abonado" (gêneros diferentes). | Seguir o desenho em cada lugar. |
+Decisão de 09/11/2026: "aceito" segue a recomendação desta spec; "não" quer dizer que vale o que o desenho faz.
+
+| # | O que o desenho faz | Recomendação | Decisão |
+|---|---|---|---|
+| D1 | "Jornada semanal 44h00m" fixa no cartão (L137); não segue a escala. | Mostrar a carga da jornada que vale hoje para a pessoa (leitura da jornada com vigência, sem mexer nela). | Aceito. "44h00m" fixo contradiz a jornada com vigência em vigor. |
+| D2 | NSR = quantidade de comprovantes + 1; com o comprovante desligado o NSR não sobe (L522). | NSR sempre, no servidor, sequencial por escritório, mesmo com `ponto-comprovante` desligado. | Aceito. Contado no navegador repete número; no servidor, sem buraco. |
+| D3 | Falta abonada continua descontando a carga do dia (L620); o abono só vira ajuste no esquecimento. | Seguir o sistema: abonada zera o negativo do dia; abono técnico não perdoa jornada (spec ponto-abono-nao-perdoa-jornada). | Aceito. É regra em vigor; o desenho não mostra outra. |
+| D4 | Exclusões sem confirmação: justificativa em análise, sede, feriado, cadastro facial. | Pedir confirmação, na moldura de janela do desenho (convenção do sistema; sedes e feriados já confirmam hoje). | Aceito. Sede e feriado já confirmam; atestado e cadastro facial se perdem de vez. |
+| D5 | Mudanças de sede, feriado, limite, prazo, modo facial e foto não vão para a trilha. | Entram na trilha do Ponto (hoje já vão ao `audit_log`). | Não (contra a recomendação). Vale o desenho: o `audit_log` já registra essas mudanças. |
+| D6 | Dados do empregado e do empregador fixos para o Farlei (razão social diferente do nome exibido, CPF e CTPS mascarados, código "0001", lotação, admissão, responsável "FARLEI ASSIS DA ROCHA OAB/DF 49.613", "Sim (acordo individual)"). | Tirar das mesmas fontes do PDF de hoje; nada fixo. O que o sistema não tem (razão social separada do nome, quem assina pelo empregador com OAB, tipo de acordo do banco) vira campo novo só se o Samuel aceitar. | Aceito. Nada fixo; o escritório e o vínculo já têm os dados; nenhum campo novo. |
+| D7 | Competência padrão fixa em 11/2026 e lista desde 10/2026 (L430, L773). | Mês corrente pelo relógio do servidor; lista desde o início da contagem da pessoa (respeitando o P23). | Aceito. Mês fixo quebra a tela no mês seguinte. |
+| D8 | Pendências de uma lista fixa (L407). | Cálculo de hoje (`ListarPendenciasDeRegistroUseCase`, 30 dias, todos os escritórios). | Aceito. Lista fixa mostraria pendência falsa. |
+| D9 | Hora oficial, código e comprovante calculados no navegador. | Servidor (ESPEC). | Aceito. Feitos no navegador são falsificáveis. |
+| D10 | Foto da facial capturada e não gravada. | Template no fornecedor; foto só com a opção do escritório e retenção (seção 3). | Aceito (LGPD). O fornecedor é pendência do dono (seção 10). |
+| D11 | Sede sem coordenada não bloqueia; GPS negado deixa bater (modo de demonstração). | Seguir o servidor de hoje: fora do home office, sem localização não registra; sede sem coordenada é ignorada. | Aceito. O próprio desenho mostra a tela vermelha sem localização (P10). |
+| D12 | Links do cabeçalho apontam para versões antigas de outras telas. | Menu do sistema (P90). | Aceito. Decidido antes (P90). |
+| D13 | `raio`, `raioOff` e `trocaRaio` no código sem campo na tela. | Raio por sede, como hoje. | Aceito. A tabela de sedes do desenho já tem o raio por sede. |
+| D14 | Dicas marcadas com `data-tip`, que nenhuma biblioteca da pasta desenha. | Padrão de dica do sistema. | Aceito. Os textos são do desenho; a camada de dicas é da moldura. |
+| D15 | Tabelas fora da Folha sem listra e sem azul ao passar o mouse. | Seguir o desenho (só a Folha tem listra e azul). | Aceito. |
+| D16 | Barra "Ver como" e "Próxima batida", nota "Dados de exemplo", equipe fictícia, folha de outubro importada. | Não entram: são do protótipo. | Aceito. "Ver como" trocaria de papel (segurança); o resto é dado de exemplo. |
+| D17 | PDF da folha desenhado em imagem no navegador. | PDF gerado no servidor, em texto (como hoje), com o arranjo do desenho, código BJF e QR. Imagem só se o Samuel preferir. | Não (contra a recomendação). Vale o desenho: PDF em imagem, gerado no servidor (D9). |
+| D18 | Abonar esquecimento cria ajuste; hoje cria batida nova. | Segue a resposta do P65. | Aceito. Segue o P65 (a): vira ajuste. |
+| D19 | Aceite sem desfazer e sem regra para folha que muda depois. | Ver seção 3 (folha BJF): mostrar "alterada depois do aceite" e pedir nova assinatura. | Aceito. Selo de aceite em folha alterada atestaria o que a pessoa não viu. |
+| D20 | QR para `https://www.bluejus.com.br/ponto/validar/CÓDIGO` (o site). | Endereço do sistema. | Aceito. O site não tem a rota; a validação pelo QR quebraria. |
+| D21 | Feriados nacionais fixos no código do desenho. | Seguir o sistema (comando de carga dos nacionais por escritório). | Aceito. O comando `SeedFeriadosNacionaisCommand` já existe. |
+| D22 | Selo da Folha "Abonada" e da aba "Abonado" (gêneros diferentes). | Seguir o desenho em cada lugar. | Aceito. |
 
 ## 5. (c) Etapas em PRs pequenos, em ordem
 
-**Regras para todas as etapas.** Só entra item aceito na seção 2. Componentes do desenho, com medidas e cores tiradas do
+**Regras para todas as etapas.** Entra o que foi decidido na seção 2 (aceito, fica ou a opção escolhida); P58 não entra.
+Cada chave de função entra no catálogo do Master na etapa da sua função e nasce ligada quando ela ficar pronta (P96);
+a facial é a exceção, desligada até o contrato (E18). As pendências do dono (seção 10) não travam nenhuma etapa: cada
+uma tem um gancho no código. Componentes do desenho, com medidas e cores tiradas do
 CSS do desenho (inventário §0 e §2), nunca modal do Bootstrap, Select2, cartão, KPI ou moldura do AdminLTE; CSS próprio
 da tela, com prefixo, sem tocar o CSS global. Skill `desenho-fiel` antes de cada etapa de tela; teste de arranjo por filho
 direto; conferência item a item ✓/✗ no fim; textos sem travessão (seção 8). Cada PR leva o arquivo em `mudancas/` em
@@ -254,38 +281,68 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 ### Bloco 1: só tela (componentes do desenho sobre o motor de hoje, sem migration)
 
 **E1. Cartão Registrar Ponto.**
-- Entra: P1 a P6, P8, P9, P12, P14 a P17, P13 e P19 se ficarem, P7 e P10 e P11 conforme a resposta.
-- Depende de: aceite dos itens; nada técnico.
+- Entra: P1 a P6, P8 (aviso de batida repetida no botão do tipo), P9 (fora da área, Home Office e erro no molde do
+  desenho), P12 (mínimo do intervalo da Jornada do escritório), P13 e P17 (ficam), P14, P15, P16 com D1 (carga da
+  jornada da pessoa), P19 (fica), P7 (a: o tipo já batido fica verde e sem clique; com os 4 feitos, "Jornada de hoje
+  concluída", cinza e sem clique), D11. O P5 entra aqui só como a linha "Hora oficial" com a hora do servidor; o resto
+  do P5 é da E13.
+- P10 (b) e P11 (b) entram em parte: até a E8, a caixa de hoje (`#batida-aviso`, no molde do desenho) responde a todos
+  os resultados da batida, e a caixa da localização traz o passo a passo de hoje. A tela vermelha do GPS (P10) e a parte
+  do desenho do P11 (tela cheia, P79, e aviso flutuante, P80) vão para a E8.
+- Decisões da etapa (09/11/2026, Coordenador):
+  - a virada do dia segue o desenho (os 4 tipos livres e sem horário, "Bater Ponto: Entrada"; o aviso da virada fica) e
+    é detectada pela hora do servidor: o instante da carga mais o tempo passado, contra a próxima meia-noite no fuso do
+    servidor; o dia e o fuso do aparelho não entram;
+  - o aviso do intervalo (P12) segue a chave `validacaoRepousoHabilitada` da Jornada do escritório: desligada, não
+    aparece;
+  - as setas do teclado andam entre os tipos livres como num grupo de rádio (tabindex móvel); o desenho só tem o Esc;
+  - o botão de som e o de mudo (P81) vão para a E8;
+  - os parâmetros de leitura do GPS são os do sistema (spec `ponto-gps-erro-que-explica`), não os do protótipo;
+  - a saída prevista usa a escala: antes do repouso batido, entrada mais a duração da escala de hoje (com o almoço);
+    depois dele, entrada mais a meta do dia e o intervalo (o batido, ou o mínimo da Jornada do escritório);
+  - os avisos que mandavam olhar "a lista abaixo" apontam para os horários nos botões dos tipos, acima.
+- Depende de: nada técnico.
 - Migration: não.
-- Arquivos: `templates/ponto/index.html.twig`, `public/js/ponto-batida.js`, CSS novo da tela; `PontoController::index`
-  (hora do servidor, última pendência). Frente jornada-vigencia: `PontoController.php` (o `index` foi mexido no §10.4);
+- Arquivos: `templates/ponto/index.html.twig`, CSS novo da tela (`public/css/ponto-eletronico.css`, prefixo `.pe-`);
+  `PontoController::index` (hora do servidor e próxima virada); `e2e/tests/ponto-batida-cerca.spec.js` (seletores
+  novos). `public/js/ponto-batida.js` ficou como estava. Frente jornada-vigencia: `PontoController.php` (o `index` foi mexido no §10.4);
   só leitura de `HistoricoDeJornadas` para D1. Avisar antes.
-- Testes: funcional da `/ponto` com o arranjo do desenho (filho direto); `BotaoDoPontoRespondeAoToqueTest` e os do erro de
-  GPS continuam verdes; a troca das 4 regiões depois da batida ("atualiza sem recarregar") continua tudo ou nada com os
-  ids novos; `node --check` no JS.
+- Testes: funcional da `/ponto` com o arranjo do desenho (filho direto); `BotaoDoPontoRespondeAoToqueTest` ajustado ao
+  P7 (a): responde ao toque enquanto houver tipo a bater e fica cinza com os 4 feitos; os do erro de GPS continuam verdes
+  com o P10 (b); a troca das 4 regiões depois da batida ("atualiza sem recarregar") continua tudo ou nada com os ids
+  novos; `node --check` no JS.
 
 **E2. Folha no molde do desenho.**
-- Entra: P22 (sem "Assinar folha"), P23 a P28, P30 a P32 aceitos.
+- Entra: P22 (sem "Assinar folha"), P23, P24, P25 (filtro do desenho: só dias com batida e feriado com horas; o dia sem
+  batida some da tela e continua descontando do saldo), P26, P27, P28 (fica), P30 (a: "+" em qualquer dia passado; hoje
+  e feriado sem "+"; "Em análise" com ampulheta na coluna Justificativa), P31 ("Não abonada" e o horário do abono
+  parcial ficam), P32 (fica), D7, D15, D22.
 - Depende de: E1 (CSS e grade).
 - Migration: não.
-- Arquivos: `templates/ponto/_folha_table.html.twig` (também usado na ficha do colaborador: a ficha ganha o molde junto,
-  ou o molde fica só na `/ponto`; decidir no aceite do P24). Frente: `PontoController::montarDadosFolha` só se o P23 for
-  aceito (lista de meses). Avisar.
-- Testes: `FolhaExportacaoMesmaEscolhaTest` e os da folha sem mudança de número; funcional do celular por classe; o "+"
-  segue a regra escolhida no P30.
+- Arquivos: `templates/ponto/_folha_table.html.twig` (também usado na ficha do colaborador, que fica pelo P60: a ficha
+  ganha o molde junto e continua com todos os dias do mês, porque o filtro do P25 é da folha do colaborador no desenho;
+  confirmar com o Coordenador ao abrir a E2). Frente: `PontoController::montarDadosFolha` (lista de meses do P23).
+  Avisar.
+- Testes: `FolhaExportacaoMesmaEscolhaTest` e os da folha sem mudança de número; funcional do celular por classe; dia
+  sem batida fora da tela e com o saldo igual ao de antes; "+" em dia passado e ampulheta na coluna Justificativa.
 
-**E3. Cartão de abas: Pendências, Minhas Justificativas e Banco de Horas (dados de hoje).**
-- Entra: P37, P38, P39, P40, P41, P42; aba Banco só com o saldo de hoje se o P51 for "b".
+**E3. Cartão de abas: Pendências e Minhas Justificativas.**
+- Entra: P37, P38 (fica), P39, P40 (Em análise, Abonado, Recusado em todas as telas, inclusive a ficha do gestor e o
+  sininho), P41 (com confirmação antes de apagar, D4), P42 (fica), P43 (a: o primário e o Master veem "Abonar" e
+  "Recusar" nas próprias justificativas), D8. A aba Banco de Horas entra na E17 (P51 a); até lá o número do topo (P2) é
+  o saldo de hoje.
 - Depende de: E1.
 - Migration: não. Excluir a justificativa em análise é regra nova pequena (UseCase próprio, só o dono dela, só em análise,
-  só no escritório dela; o anexo sai depois do commit).
-- Arquivos: `_pendencias.html.twig`, `_justificativas_list.html.twig`, `PontoController.php` (rota de excluir; avisar),
-  `NotificacaoService` (textos, se o P40 for aceito).
+  só no escritório dela; o anexo sai depois do commit). Abonar e recusar a própria (P43 a) chamam a mesma regra de
+  análise de hoje.
+- Arquivos: `_pendencias.html.twig`, `_justificativas_list.html.twig`, `PontoController.php` (rotas de excluir e de
+  analisar a própria; avisar), `NotificacaoService` (textos do P40).
 - Testes: unit do UseCase de excluir (pendente sim; analisada não; de outro usuário não; de outro escritório não);
-  funcional 403 e 422; textos das situações.
+  funcional 403 e 422; textos das situações; primário e Master analisam a própria; quem gere pelo perfil e não é
+  primário nem Master não vê os botões na própria.
 
 **E4. Janelas no molde do desenho.**
-- Entra: P44 a P47 aceitos (moldura do desenho, campos do sistema).
+- Entra: P44 e P46 (moldura do desenho), P45 e P47 (ficam, com os campos do sistema dentro da moldura nova).
 - Depende de: E1.
 - Migration: não.
 - Arquivos: `_justificativa_form`, `_justificativa_calendario`, `_justificativa_campos`,
@@ -296,56 +353,78 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 ### Bloco 2: gestão sobre os dados de hoje
 
 **E5. Aba Equipe.**
-- Entra: P54, P55, P57, P58 (permissões de hoje), P56 conforme a resposta.
+- Entra: P54, P55, P57, P56 (a: a coluna Escala mostra a jornada atual; trocar ali grava uma versão nova da jornada,
+  valendo a partir de hoje, com as 4 escalas do desenho como modelos que preenchem os blocos), D16. P58 não entra: quem
+  gere o ponto pelo perfil continua vendo Equipe, Auditoria e Configurações, com o primário e o Master.
 - Depende de: E3.
 - Migration: não.
 - Arquivos: controller e UseCase novos em `src/Ponto/` (situação da equipe por escritório; abono em lote chamando a regra
-  do abono de hoje, uma por uma). Frente: leitura da jornada vigente; se o P56 for "a", passa a chamar
-  `SalvarVersaoDaJornadaUseCase` (avisar e combinar antes).
+  do abono de hoje, uma por uma). Frente: leitura da jornada vigente e chamada a `SalvarVersaoDaJornadaUseCase` para a
+  troca de escala (avisar e combinar antes).
 - Risco: ALTO (ponto) e MÉDIO (permissão).
-- Testes: unit da situação (em jornada, intervalo, sem registro, encerrada); funcional 403 para colaborador; isolamento
-  por escritório; abono em lote não abona justificativa de outro escritório nem a própria (se P43 = b).
+- Testes: unit da situação (em jornada, intervalo, sem registro, encerrada); funcional 403 para colaborador; quem tem a
+  permissão no perfil vê a aba; isolamento por escritório; abono em lote não abona justificativa de outro escritório, e
+  a própria só para o primário e o Master (P43 a); trocar a escala grava versão nova a partir de hoje, não muda os dias
+  anteriores e aparece no histórico da ficha.
 
 **E6. Configurações, parte 1: sedes e feriados na aba.**
-- Entra: P68, P69, P70, P71, P72 aceitos.
+- Entra: P68, P69 (fica: mapa e busca por CEP ou endereço), P70 (a: sede nova nasce com 150 m; as sedes de hoje não
+  mudam), P71 (abrangência por sede), P72 (fica), D4, D13, D21.
 - Depende de: E3.
-- Migration: sim, só se a abrangência por sede (P71) for aceita (coluna no feriado).
+- Migration: sim (coluna sede opcional no feriado, P71).
 - Arquivos: rotas de sedes de hoje (`TenantController.php`, avisar), `FeriadoController.php`, `CalculadoraJornada`
   (feriado por sede).
 - Testes: feriado por sede vale só para quem é daquela lotação; sede sem coordenada continua ignorada; confirmação antes de
-  remover (D4).
+  remover (D4); sede nova com 150 m e as que já existem com o raio delas.
 
 ### Bloco 3: motor novo (cada um atrás da sua chave, nesta ordem)
 
 **E7. Liga e desliga.**
-- Entra: P67, P94 a P96 (e P93, decidido: usa a página "em preparação" e a faixa que o sistema já tem).
+- Entra: P67, P94, P95, P96 (desenho: cada chave nasce ligada quando a sua etapa ficar pronta) e P93 (decidido: usa a
+  página "em preparação" e a faixa que o sistema já tem). Nesta etapa entram a chave da tela `ponto`, a de `ponto-geo`
+  (a cerca já existe) e a estrutura das duas camadas (Global e Escritório); as outras chaves entram nas etapas das suas
+  funções (E8, E11, E15, E16, E18), para o Master não ligar função que ainda não existe.
 - Depende de: nada (pode correr junto do bloco 1).
 - Migration: sim (configuração do Ponto por escritório). O catálogo do Master não precisa (chave sem linha vale ligada).
-- Arquivos: `CatalogoDeRecursos.php` (tela `ponto` e as 8 funções); guarda de rota da tela: as rotas globais
+- Arquivos: `CatalogoDeRecursos.php` (tela `ponto` e `ponto-geo`); guarda de rota da tela: as rotas globais
   (`/ponto/estado-do-dia`, `/ponto/alerta-horario`, `/ponto/pendencia-do-dia`) e a página pública de validação não podem
   cair junto com a tela. Nada da frente (não engordar `JornadaTenant`, que é do PR 3 dela).
 - Testes: Global desligado trava o Escritório; tela desligada mostra a página "em preparação" do sistema
-  (`templates/recurso/em_preparacao.html.twig`) para quem não é Master e a faixa vermelha para o Master; padrão inicial do P96.
+  (`templates/recurso/em_preparacao.html.twig`) para quem não é Master e a faixa vermelha para o Master; chave nova nasce
+  ligada (P96); a aba Configurações aparece para quem gere o ponto pelo perfil (P58 não).
 
 **E8. Tela cheia, aviso flutuante, sons, vibração e lembrete.**
-- Entra: P79 a P83 (e P84 a P86 ficando).
-- Depende de: E1, E7 (chaves `ponto-animacao`, `ponto-sons`, `ponto-lembrete`).
+- Entra: P79 a P83 (e P84 a P86, que ficam). As chaves `ponto-animacao`, `ponto-sons` e `ponto-lembrete` entram no
+  catálogo aqui, ligadas (P96).
+- Entra também o que a E1 deixou na caixa de hoje: a tela vermelha do erro do GPS (P10 b) e a parte do desenho do P11
+  (resultado em tela cheia, P79, e aviso flutuante, P80, no lugar de `#batida-aviso`), e o botão de som e o de mudo
+  (P81) no rodapé do cartão.
+- Depende de: E1, E7.
 - Migration: não (o mudo fica guardado no aparelho, como no desenho).
 - Arquivos: JS e CSS da tela. Nada da frente.
 - Testes: funcional das fases por classe e `aria`; movimento reduzido; com a chave desligada o resultado vira aviso
   flutuante; o áudio do alerta de horário continua liberado.
 
 **E9. Trilha de auditoria encadeada.**
-- Entra: P64, P66 ficando.
+- Entra: P64, P66 (fica). D5 (não): a trilha leva o que o desenho grava (inventário §2.11): batidas, ajustes,
+  justificativas (envio, exclusão, análise, abono em lote), envio da fila sem internet, folha emitida e assinada, escala
+  alterada, as chaves de função (Global e Escritório) e os eventos da facial. Mudanças de sede, feriado, limite, prazo,
+  modo facial e foto ficam só no `audit_log`, que continua.
 - Depende de: E7.
 - Migration: sim (tabela da trilha).
-- Arquivos: serviço novo de trilha; chamadas nos fluxos de batida, justificativa, análise, configuração. Frente: se a
-  mudança de jornada também entrar na trilha (o desenho grava "Escala alterada"), toca os 3 UseCases de versão (avisar).
+- Arquivos: serviço novo de trilha; chamadas nos fluxos de batida, justificativa, análise e chaves; cada etapa seguinte
+  chama a trilha nos eventos dela. Frente: a escala alterada (o desenho grava "Escala alterada") toca os 3 UseCases de
+  versão (avisar).
+- Chave do selo: o selo é HMAC com chave só do servidor (seção 3). O arquivo de decisões só lista como pendência o
+  segredo do comprovante e da folha; perguntar ao Coordenador, antes de abrir a E9, se a trilha usa a mesma
+  `PONTO_HMAC_SECRET` (seção 10) e o que faz com ela vazia.
 - Testes: dois eventos ao mesmo tempo no mesmo escritório mantêm a cadeia; adulterar uma linha acusa "a cadeia foi
-  alterada"; escritórios não se misturam; purga do escritório apaga a cadeia dele.
+  alterada"; escritórios não se misturam; purga do escritório apaga a cadeia dele; mudança de sede ou feriado não entra
+  na trilha e continua no `audit_log`.
 
 **E10. Batida só inserção, com ajuste.**
-- Entra: P65 (se "a"), P29, D18.
+- Entra: P65 (a: "Editar" e "Excluir" da ficha viram "Ajustar" e "Desconsiderar"), P29, D18 (o esquecimento abonado
+  vira ajuste), P66 (o "desfazer" da auditoria geral não troca nem apaga batida).
 - Depende de: E9.
 - Migration: sim (tabela de ajuste).
 - Arquivos: `TenantController.php` (editar e excluir batida), `RegistrarBatidaDoEsquecimentoUseCase`, reverter abono,
@@ -355,15 +434,17 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   ninguém consegue apagar batida pela tela nem pelo "desfazer" da auditoria; mês com ajuste no PDF e no XLSX.
 
 **E11. Alertas que não bloqueiam.**
-- Entra: P21 (se "a").
-- Depende de: E7 (`ponto-alertas`).
+- Entra: P21 (a: avisa sem recusar, com "Registrar assim mesmo"; os mínimos vêm da Jornada do escritório). A chave
+  `ponto-alertas` entra no catálogo aqui, ligada (P96).
+- Depende de: E7.
 - Migration: não.
 - Arquivos: `PontoController.php` (batida), textos da `_modal_jornada_tenant.html.twig` (frente, PR 3: avisar).
 - Testes: retorno com repouso curto entra e a folha marca "não conforme"; entrada antes da interjornada entra com aviso;
   7º dia seguido avisa; o esquecimento continua sem travar (R1 a R4).
 
 **E12. Fora do raio vira trabalho externo; raio com a precisão.**
-- Entra: P18 (se "a"), P74.
+- Entra: P18 (a: fora do raio, "Registrar como trabalho externo" com local e motivo, para a análise do gestor), P74
+  (caixa "Permitir trabalho externo" na configuração do escritório).
 - Depende de: E7, E9.
 - Migration: sim (batida marcada como trabalho externo, com o motivo; justificativa ligada à batida).
 - Arquivos: `PontoController.php`, `SedesDaCercaDoPonto`, `ponto-batida.js`.
@@ -371,15 +452,17 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   precisão acima do teto pede nova leitura; home office continua sem localização.
 
 **E13. Hora oficial e hora do aparelho.**
-- Entra: P5 (se não entrou no E1), base do P20.
-- Depende de: E7.
+- Entra: P5 (a hora do servidor é a hora oficial, ajustada pelo atraso na tela; a hora do aparelho fica guardada só
+  como informação), base do P20 (a), D9.
+- Depende de: E7. Pendência do dono: conferir o NTP da VPS (P5, seção 10). Não trava: o código já usa o relógio do
+  servidor; o comando de conferência vai ao Samuel em bloco para o terminal externo.
 - Migration: sim (hora do aparelho, hora de chegada, marca de envio sem internet, identificador único do envio).
-- Arquivos: `RegistroPonto`, `PontoController.php`, `ponto-batida.js`. Fora do código: conferir o NTP da VPS (comando
-  para o Samuel).
+- Arquivos: `RegistroPonto`, `PontoController.php`, `ponto-batida.js`.
 - Testes: batida grava as duas horas; o mesmo identificador enviado duas vezes não cria duas batidas.
 
 **E14. Fila sem internet.**
-- Entra: P20 (se "a").
+- Entra: P20 (a: vale a hora do aparelho, as duas horas ficam guardadas e a batida aparece marcada "enviada sem
+  internet" para o gestor). O teto de idade da batida guardada (exemplo: 72 h) se fecha com o Coordenador ao abrir a E14.
 - Depende de: E13.
 - Migration: não (usa as colunas do E13).
 - Arquivos: `ponto-batida.js` (fila cifrada, envio ao voltar a internet).
@@ -387,37 +470,65 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   gestor veem "enviada sem internet".
 
 **E15. Comprovante, aba Comprovantes e validação.**
-- Entra: P48, P49, P50, D2, D20.
-- Depende de: E7 (`ponto-comprovante`), E9, E13.
+- Entra: P48, P49, P50 (nome inteiro, como o desenho; sem CPF nem localização), D2, D9, D20. A chave
+  `ponto-comprovante` entra no catálogo aqui, ligada (P96).
+- Depende de: E7, E9, E13. Pendência do dono: criar o segredo do HMAC em produção (P34, P48, P50, seção 10).
+- Gancho do segredo: o código lê a variável de ambiente `PONTO_HMAC_SECRET` (declarada vazia no `.env` do repositório,
+  só o nome). Com ela vazia a etapa entra pronta e não trava: a batida grava normalmente, com o NSR (D2); o comprovante
+  não é emitido; a aba Comprovantes e o "Validar código" não aparecem; a página pública responde "Código não
+  localizado.". Com a variável preenchida, a emissão começa sozinha.
 - Migration: sim (comprovante e contador do NSR por escritório).
-- Arquivos: controller novo; rota pública (precisa liberar o caminho em `security.yaml`, arquivo quente: avisar); segredo
-  novo do HMAC (o Samuel cria em produção); biblioteca do QR local.
+- Arquivos: controller novo; rota pública (precisa liberar o caminho em `security.yaml`, arquivo quente: avisar); leitura
+  da `PONTO_HMAC_SECRET` na configuração (`app/config/*.yaml`, arquivo quente: avisar); biblioteca do QR local.
 - Testes: NSR sem buraco com batidas ao mesmo tempo; código errado e inexistente com a mesma resposta; a página pública
-  não mostra CPF, localização nem o nome inteiro (se decidido); limite de tentativas.
+  mostra o nome inteiro e não mostra CPF nem localização; limite de tentativas; com `PONTO_HMAC_SECRET` vazia, a batida
+  grava, nada é emitido e nada quebra.
 
 **E16. Folha com código BJF, PDF novo e aceite mensal.**
-- Entra: P22 ("Assinar folha"), P33 a P36, P87 a P89, D17, D19.
-- Depende de: E7 (`ponto-aceite`), E9, E15; de preferência depois do E10.
+- Entra: P22 ("Assinar folha"), P33 (o texto do aceite vai ao pacote jurídico, sem travar), P34 e D17 (PDF novo em
+  imagem, gerado no servidor, com o arranjo do desenho, código BJF, QR e "Base Legal"), P35 (a: o PDF mostra as
+  pendências do dia; "registro em outro escritório" continua fora), P36 (as três frases do desenho ficam; as duas
+  primeiras anotadas no pacote jurídico), P87, P88 e P89 (ficam: XLSX, ver antes de baixar, o gestor exporta a folha de
+  outro), D6 (dados das mesmas fontes do PDF de hoje, nenhum campo novo), D19 ("alterada depois do aceite" e nova
+  assinatura). A chave `ponto-aceite` entra no catálogo aqui, ligada (P96).
+- Depende de: E7, E9, E15; de preferência depois do E10. Pendência do dono: o mesmo segredo do HMAC (seção 10).
+- Gancho do segredo: a mesma `PONTO_HMAC_SECRET` da E15. Com ela vazia a etapa entra pronta e não trava: o PDF novo sai
+  sem código BJF e sem QR, nenhuma folha emitida é gravada e "Assinar folha" não aparece (o aceite se liga à folha
+  emitida com código).
 - Migration: sim (folha emitida e aceite).
 - Arquivos: `folha_pdf.html.twig`, exportação do PDF no `PontoController.php`, `FolhaPontoXlsxExporter.php` se o código
   for também no XLSX. Frente: é a pendência 2 dela ("Jornada alterada em dd/mm" no cabeçalho). Combinar quem entra primeiro.
-- Testes: código da folha validado pela página pública; aceite só de mês fechado; ressalva sem texto recusada; PDF sem
-  pendência (se P35 = b); `FolhaExportacaoMesmaEscolhaTest` verde.
+  A forma de gerar a imagem no servidor se escolhe na E16, de preferência com o que já gera o PDF de hoje.
+- Testes: código da folha validado pela página pública; aceite só de mês fechado; ressalva sem texto recusada; PDF com
+  as pendências do dia e sem "registro em outro escritório"; as três frases no PDF; com `PONTO_HMAC_SECRET` vazia o PDF
+  sai sem código e "Assinar folha" some; `FolhaExportacaoMesmaEscolhaTest` verde.
 
 **E17. Banco de horas por lotes.**
-- Entra: P51 (se "a"), P52, P53, P73, P2 completo.
-- Depende de: E7 (limite e prazo na configuração), decisão do dono.
-- Migration: não, se os lotes forem calculados; sim, se o dono quiser fechar lotes à mão.
+- Obrigatória (P51 a).
+- Entra: P51 (a: aba "Banco de Horas" com os lotes do desenho, sem zerar em janeiro; as horas pagas seguem no saldo),
+  P52, P53 (fica), P73, P2 completo.
+- Depende de: E7 (limite e prazo na configuração). O saldo de antes do início dos lotes ("Sem data de origem", seção 3)
+  se fecha com o Coordenador ao abrir a E17.
+- Migration: não; os lotes são calculados a partir da folha. Tabela `ponto_banco_lote` só se o cálculo se mostrar
+  necessário.
 - Arquivos: `FolhaPontoBuilder.php` (`calcularSaldoAnual`; frente: avisar), serviço novo de lotes.
-- Testes: crédito mais antigo abatido primeiro; vencimento no último dia do mês "competência mais prazo"; horas pagas no
-  lote certo; saldo de hoje igual ao de antes quando o dono mantém o zerar em janeiro.
+- Testes: crédito mais antigo abatido primeiro; vencimento no último dia do mês "competência mais prazo"; horas pagas
+  continuam no saldo; o saldo não zera em 1º de janeiro; o saldo de cada pessoa antes e depois da troca fica registrado
+  no PR (muda o número de todo mundo).
 
 **E18. Reconhecimento facial.**
-- Entra: P76, P77, P78, P15 (variante facial).
-- Depende de: fornecedor contratado, jurídico, E7 (`ponto-facial`, desligada), E9, E15.
+- Entra: P76, P77, P78, P15 (variante facial), D10 (template no fornecedor; foto só com a opção do escritório e
+  retenção), D4 (confirmação antes de excluir o cadastro facial).
+- Depende de: E7, E9, E15; jurídico pelo pacote, sem travar. Pendência do dono: contratar o fornecedor da biometria com
+  prova de vida (P76, P78, D10, seção 10).
+- Gancho do fornecedor: a etapa entra com uma interface de fornecedor (cadastrar o rosto, conferir com prova de vida,
+  excluir o cadastro) e um dublê de teste que a implementa. A chave `ponto-facial` nasce desligada e fica assim até o
+  contrato (exceção ao P96: a etapa só fica pronta com o fornecedor real); como hoje chave sem linha vale ligada, o
+  catálogo precisa de padrão desligado só para ela. O fornecedor real entra depois, num PR pequeno que só implementa a
+  interface.
 - Migration: sim (cadastro facial, autorização e recusa; foto opcional com retenção).
-- Arquivos: integração com o fornecedor, armazenamento privado da foto, purga pelo agendador (configuração do agendador
-  é arquivo quente: avisar).
+- Arquivos: interface do fornecedor e dublê de teste, armazenamento privado da foto, purga pelo agendador (configuração
+  do agendador é arquivo quente: avisar).
 - Testes: sem autorização não há facial e a batida segue pelos outros meios; recusa sem penalidade; excluir cadastro apaga
   aqui e no fornecedor; foto some no prazo; facial obrigatória sem câmera explica e não trava sem saída.
 
@@ -430,17 +541,17 @@ em todo o Ponto e na frente jornada-vigencia.
 | Tabela do ESPEC | Hoje | Situação | O que fazer | Etapa |
 |---|---|---|---|---|
 | `ponto_batida` | `registro_ponto` | Já existe com outro nome | Reaproveitar. Colunas novas: marca de trabalho externo e motivo (E12); hora do aparelho, hora de chegada, marca "enviada sem internet", identificador único do envio (E13); método (sistema ou facial) (E18) | E12, E13, E18 |
-| `ponto_ajuste` | Não existe (o gestor faz UPDATE e DELETE) | Precisa criar, se o P65 for "a" | Tabela nova: escritório, pessoa, batida (vazia na inclusão), data, tipo, valor anterior, valor novo, autor, criado em, motivo, justificativa ligada | E10 |
+| `ponto_ajuste` | Não existe (o gestor faz UPDATE e DELETE) | Precisa criar (P65 a) | Tabela nova: escritório, pessoa, batida (vazia na inclusão), data, tipo, valor anterior, valor novo, autor, criado em, motivo, justificativa ligada | E10 |
 | `ponto_justificativa` | `justificativa_ponto` | Já existe com outro nome | Reaproveitar. Coluna nova opcional: batida ligada (trabalho externo) | E12 |
-| `ponto_comprovante` | Não existe | Precisa criar | Tabela nova, uma linha por batida: NSR, código, HMAC, emitido em, dados assinados; mais um contador de NSR por escritório (linha travada na gravação) | E15 |
+| `ponto_comprovante` | Não existe | Precisa criar | Tabela nova, uma linha por batida: NSR, código, HMAC (com `PONTO_HMAC_SECRET`; vazia, não grava linha), emitido em, dados assinados; mais um contador de NSR por escritório (linha travada na gravação), que sobe mesmo sem comprovante (D2) | E15 |
 | `ponto_folha_aceite` | Não existe | Precisa criar | Escritório, pessoa, ano, mês, situação (concordo ou ressalva), texto da ressalva, aceito em, IP, navegador, folha emitida vista; único por pessoa, escritório e mês | E16 |
 | (folha emitida, fora da lista do ESPEC) | Não existe | Precisa criar | Código BJF, HMAC, escritório, pessoa, competência, emitida em, emitida por, resumo do conteúdo | E16 |
-| `ponto_sede` | `sede` (legado, `src/Entity/Tenant/Sede.php`: latitude, longitude, raio, fuso) | Já existe com outro nome | Reaproveitar; o padrão do raio só muda com o P70 | nenhuma |
-| `ponto_feriado` | `feriado` (por escritório, recorrente ou pontual) | Já existe com outro nome | Reaproveitar. Coluna nova: sede opcional (abrangência) | E6 |
-| `ponto_escala` | `jornada_colaborador` e `bloco_jornada_colaborador` (com vigência), `jornada_tenant` e `bloco_jornada` | Precisa decisão (P56) | Não criar. Se as 4 escalas forem aceitas, viram modelos que preenchem os blocos de uma versão nova | nenhuma |
-| `ponto_banco_lote` | Não existe; há `ponto_lancamento_horas_pagas` | Precisa decisão (P51) | Calcular os lotes a partir da folha, sem tabela; tabela só se o dono quiser fechar lotes à mão | E17 |
-| `ponto_config_escritorio` | Parcial: `jornada_tenant` (validações e alertas), `home_office_config` (por pessoa) | Precisa criar | Tabela nova, uma por escritório: 8 chaves do escritório, modo facial, guardar foto, meses de retenção, limite e prazo do banco, permitir trabalho externo, raio padrão. Não engordar `jornada_tenant` (PR 3 da frente) | E7 |
-| `ponto_auditoria` | `audit_log` genérico, sem encadeamento | Precisa criar | Escritório, em, autor, ação, detalhe, selo anterior, selo; índice por escritório e data | E9 |
+| `ponto_sede` | `sede` (legado, `src/Entity/Tenant/Sede.php`: latitude, longitude, raio, fuso) | Já existe com outro nome | Reaproveitar. P70 (a): sede nova nasce com 150 m (padrão na configuração do E7); as sedes de hoje não mudam, sem migration de dado | nenhuma |
+| `ponto_feriado` | `feriado` (por escritório, recorrente ou pontual) | Já existe com outro nome | Reaproveitar. Coluna nova: sede opcional (abrangência, P71) | E6 |
+| `ponto_escala` | `jornada_colaborador` e `bloco_jornada_colaborador` (com vigência), `jornada_tenant` e `bloco_jornada` | Decidido (P56 a) | Não criar tabela. As 4 escalas do desenho viram modelos que preenchem os blocos; trocar a escala na aba Equipe grava uma versão nova da jornada, valendo a partir de hoje (`SalvarVersaoDaJornadaUseCase`) | nenhuma (o uso é na E5) |
+| `ponto_banco_lote` | Não existe; há `ponto_lancamento_horas_pagas` | Decidido (P51 a) | Lotes do desenho, sem zerar em janeiro; horas pagas seguem no saldo. Recomendação mantida: calcular os lotes a partir da folha, sem tabela; tabela só se o cálculo se mostrar necessário | E17 |
+| `ponto_config_escritorio` | Parcial: `jornada_tenant` (validações e alertas), `home_office_config` (por pessoa) | Precisa criar | Tabela nova, uma por escritório: 8 chaves do escritório, modo facial, guardar foto, meses de retenção, limite e prazo do banco, permitir trabalho externo, raio padrão (150 m, P70). Não engordar `jornada_tenant` (PR 3 da frente) | E7 |
+| `ponto_auditoria` | `audit_log` genérico, sem encadeamento | Precisa criar | Escritório, em, autor, ação, detalhe, selo anterior, selo; índice por escritório e data. Só os eventos que o desenho grava (E9); mudanças de configuração (sede, feriado, limite, prazo, modo facial, foto) ficam no `audit_log` (D5 não) | E9 |
 | `recurso_estado` (chaves `ponto-*`) | Existe | Sem migration | Linhas novas só no catálogo do código | E7 |
 | (cadastro facial, fora da lista do ESPEC) | Não existe | Precisa criar | Pessoa, escritório, autorizado em, recusado em, versão do texto, IP, navegador, referência do template no fornecedor, excluído em; fotos no armazenamento privado com prazo | E18 |
 
@@ -470,6 +581,10 @@ Cuidados: a chave da tela não pode derrubar as consultas globais do Ponto (atal
 diário) nem a página pública de validação; a chave "Escritório" segue a permissão `admin.ponto.manage` de hoje, além do
 primário e do Master (P58).
 
+Decisão do P96 (09/11/2026): vale o desenho. Cada chave nasce ligada quando a sua etapa ficar pronta (seção 5); a coluna
+"Padrão recomendado" acima fica só como registro da fase 1. A exceção é `ponto-facial`, desligada até o contrato do
+fornecedor (E18).
+
 ## 8. Textos do desenho com travessão e como ficam
 
 São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), todas como marcador de "sem valor".
@@ -487,7 +602,22 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
 
 ## 9. Estado (para retomar)
 
-- 09/11/2026: fase 1 entregue (esta spec, só análise, nenhum código); aguardando aceite do Samuel item a item na seção 2.
-- Próximo passo: com as respostas, marcar cada P como aceito ou não, fechar as 13 (PERGUNTA) e os pontos D1 a D22, e só
-  então abrir a E1 (e a E7, que pode correr junto).
-- Nenhuma migration pedida ainda. Nenhum arquivo da frente jornada-vigencia tocado.
+- 09/11/2026: fase 1 entregue (esta spec) e decidida no mesmo dia (`decisoes-desenhos-0911.md`, na pasta
+  bluejus-coordenacao): seção 2 (P1 a P96) e seção 4 (D1 a D22) com a decisão em cada item; seção 5 ajustada.
+- Estado: fase 1 decidida; E1 implementada na branch `ponto-desenho-0811` (commit 190ccb660 e as correções da
+  revisão de 09/11/2026), sem migration. Decisões da etapa registradas na E1 (seção 5).
+- Próximo passo: PR da E1 e smoke do dono na tela; depois a E2. A E7 pode correr junto.
+- Pontos que se fecham com o Coordenador ao abrir a etapa: ficha do colaborador com o molde da Folha e todos os dias (E2),
+  chave do selo da trilha (E9), teto de idade da fila (E14), saldo de antes dos lotes (E17).
+- Pendências do dono: seção 10. Nenhuma trava a E1.
+- Nenhuma migration pedida ainda.
+
+## 10. Pendências do dono e ganchos
+
+Nenhuma destas trava o código: cada etapa entra pronta com o gancho abaixo e passa a valer quando o dono resolver.
+
+| Pendência (itens) | Por que é do dono | Gancho no código | Etapa que precisa |
+|---|---|---|---|
+| Conferir o relógio (NTP) da VPS (P5) | Produção; o Claude não entra na VPS | Nenhum gancho novo: a batida e a "Hora oficial" já usam o relógio do servidor. O comando de conferência (por exemplo, `timedatectl status`, linha "System clock synchronized") vai ao Samuel em bloco para o terminal externo | E13 (e a linha "Hora oficial" da E1) |
+| Criar em produção o segredo do HMAC do comprovante e da folha (P34, P48, P50) | Credencial | Variável de ambiente `PONTO_HMAC_SECRET`, declarada vazia no `.env` do repositório (só o nome). Vazia: a batida grava com NSR, nenhum comprovante nem folha com código é emitido, a aba Comprovantes, o "Validar código" e o "Assinar folha" não aparecem, e nada quebra. Preenchida: a emissão começa sozinha | E15 e E16 (a E9 pode usar a mesma; ver a E9) |
+| Contratar o fornecedor da biometria facial com prova de vida (P76, P78, D10) | Contratação | Interface de fornecedor (cadastrar, conferir com prova de vida, excluir cadastro) com um dublê de teste; chave `ponto-facial` desligada até o contrato. O fornecedor real entra depois, num PR pequeno que só implementa a interface | E18 |

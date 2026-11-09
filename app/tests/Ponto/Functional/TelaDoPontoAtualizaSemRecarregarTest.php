@@ -39,7 +39,9 @@ final class TelaDoPontoAtualizaSemRecarregarTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrirTela($client);
 
-        foreach (['#batidas-de-hoje', '#ponto-banco-horas', '#ponto-regiao-pendencias', '#tipo-registro'] as $regiao) {
+        // Desenho novo (E1, 09/11/2026): `#ponto-tipos` (os quatro tipos com a hora de cada um) substitui
+        // `#batidas-de-hoje`, e `#tipo-registro` virou o campo escondido que os botões dos tipos preenchem.
+        foreach (['#ponto-tipos', '#ponto-banco-horas', '#ponto-regiao-pendencias', '#tipo-registro'] as $regiao) {
             self::assertCount(1, $crawler->filter($regiao), 'a atualização procura ' . $regiao);
         }
         // Da folha troca só o card, filho direto: o modal de pré-visualização e o script dele ficam com os listeners.
@@ -64,22 +66,24 @@ final class TelaDoPontoAtualizaSemRecarregarTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $antes = $this->abrirTela($client);
-        self::assertSame('entrada', $antes->filter('#tipo-registro option[selected]')->attr('value'));
+        self::assertSame('entrada', $antes->filter('#tipo-registro')->attr('value'));
 
         $this->criarBatida($user, $tenant, 'entrada', '08:12:03');
         $depois = $this->abrirTela($client);
 
+        // Desenho novo (E1, P8): a hora da batida mora no botão do tipo, dentro de `#ponto-tipos`.
         self::assertCount(
             1,
-            $depois->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="entrada"][data-registrada="1"]'),
+            $depois->filter('#ponto-tipos > button[data-tipo="entrada"][data-registrada="1"]'),
             'a lista do dia vem com a entrada'
         );
-        self::assertStringContainsString('08:12:03', $depois->filter('#batidas-de-hoje')->text());
+        self::assertStringContainsString('08:12:03', $depois->filter('#ponto-tipos')->text());
         self::assertSame(
             'repouso',
-            $depois->filter('#tipo-registro option[selected]')->attr('value'),
+            $depois->filter('#tipo-registro')->attr('value'),
             'a sugestão do próximo tipo vem do servidor'
         );
+        self::assertSame('true', $depois->filter('#ponto-tipos > button[data-tipo="repouso"]')->attr('aria-checked'));
 
         $estado = $this->pontoDoDia($depois->filter('#clock'));
         self::assertArrayHasKey('entrada', $estado, 'o relógio recebe a entrada para contar a jornada');

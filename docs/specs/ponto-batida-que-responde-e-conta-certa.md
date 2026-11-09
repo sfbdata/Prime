@@ -56,6 +56,8 @@ Por que morde ele em especial: QNF 03 e QND 14 estão a **788 m** uma da outra, 
 > diz o motivo em `#batida-aviso` — abaixo do botão, no mesmo lugar em que a pessoa lê o resultado
 > de uma batida que deu certo.
 
+> Mudado em 09/11/2026 pelo P7 do desenho 16 (docs/specs/ponto-desenho-0811.md): o tipo já batido no dia fica travado e, com os 4 feitos, o botão fica cinza.
+
 - `envioEmAndamento` **continua** desabilitando: dura ~1,5 s, o próprio botão mostra "Registrando…",
   e reabilitar abriria caminho para batida duplicada (o motivo está documentado em `:531-535`).
 - Todos os outros impedimentos passam a ser verificados **no clique**, cada um com sua mensagem:
@@ -279,6 +281,8 @@ do `repouso 12:16` em 31/08, e hoje bateu `entrada 12:10` no lugar de `repouso`.
 
 > O tipo sugerido vem das **batidas já registradas hoje**, na ordem `entrada → repouso → retorno →
 > saida`. A primeira ainda não batida é a sugerida. Com as quatro batidas, nada é pré-selecionado.
+
+> Mudado em 09/11/2026 pelo P7 do desenho 16 (docs/specs/ponto-desenho-0811.md): o tipo já batido no dia fica travado e, com os 4 feitos, o botão fica cinza.
 
 - A sugestão é **pré-seleção, não trava**: os quatro tipos continuam disponíveis.
 - 🔑 **O botão passa a dizer o que vai registrar** (`Bater Ponto — Repouso`). Pré-selecionar sem
