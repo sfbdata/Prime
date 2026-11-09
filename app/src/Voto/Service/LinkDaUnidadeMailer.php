@@ -31,7 +31,12 @@ final class LinkDaUnidadeMailer
     ) {
     }
 
-    /** @throws \RuntimeException quando o transporte recusa (quem chama conta a falha e segue o lote) */
+    /**
+     * Quem chama conta a falha e segue o lote nos dois casos.
+     *
+     * @throws \RuntimeException         quando o transporte recusa
+     * @throws \InvalidArgumentException quando o endereço não cumpre a RFC (Mime\Address, no `->to()`)
+     */
     public function enviar(UnidadeDaAssembleia $unidade): void
     {
         $link = $this->urlGenerator->generate(

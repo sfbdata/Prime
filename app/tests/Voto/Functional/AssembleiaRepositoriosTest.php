@@ -137,12 +137,13 @@ final class AssembleiaRepositoriosTest extends KernelTestCase
         self::assertSame(['pesoApto' => '3.000000', 'unidadesAptas' => 3], $repositorio->totaisAptos($porUnidade));
     }
 
-    #[TestDox('Envio dos links: só quem tem e-mail e ainda não recebeu; "faltam N" bate com a lista')]
+    #[TestDox('Envio dos links: só apta que tem e-mail e ainda não recebeu; "faltam N" bate com a lista')]
     public function testParaEnvioDoLink(): void
     {
         $assembleia = AssembleiaFactory::createOne()->_real();
         $semEnvio = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia])->_real();
         UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'email' => null]);
+        UnidadeDaAssembleiaFactory::new()->inapta()->create(['assembleia' => $assembleia, 'email' => 'inapta.voto@exemplo.com']);
         UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'linkEnviadoEm' => new \DateTimeImmutable()]);
         $repositorio = static::getContainer()->get(UnidadeDaAssembleiaRepository::class);
 

@@ -73,6 +73,7 @@
                 <dl class="voto-ata-campos">
                     <div><dt>{{ 'voto.assembleia.gestor.ata.conducao'|trans }}</dt><dd>{{ 'voto.assembleia.gestor.ata.conducao_valor'|trans({c: p.convocacao}) }}</dd></div>
                     <div><dt>{{ 'voto.assembleia.gestor.ata.aberta_em'|trans }}</dt><dd>{{ p.abertaEm|date(dh) }}</dd></div>
+                    {% if p.abertaPorNome is not null %}<div><dt>{{ 'voto.assembleia.gestor.ata.aberta_por'|trans }}</dt><dd>{{ p.abertaPorNome }}</dd></div>{% endif %}
                 </dl>
 
                 <h3>{{ n }}.2 {{ 'voto.assembleia.gestor.ata.eleitorado'|trans }}</h3>
@@ -99,6 +100,8 @@
                     <h3>{{ n }}.3 {{ 'voto.assembleia.gestor.ata.encerramento'|trans }}</h3>
                     <dl class="voto-ata-campos">
                         <div><dt>{{ 'voto.assembleia.gestor.ata.encerrada_em'|trans }}</dt><dd>{{ p.encerradaEm ? p.encerradaEm|date(dh) : '' }}</dd></div>
+                        {# Encerrada pelo prazo não tem quem encerrou: o motivo registrado, logo abaixo, diz que foi o prazo. #}
+                        {% if p.encerradaPorNome is not null %}<div><dt>{{ 'voto.assembleia.gestor.ata.encerrada_por'|trans }}</dt><dd>{{ p.encerradaPorNome }}</dd></div>{% endif %}
                         <div><dt>{{ 'voto.assembleia.gestor.ata.cedulas'|trans }}</dt><dd>{{ r ? r.votantes : p.votantes }}</dd></div>
                         <div><dt>{{ 'voto.assembleia.gestor.ata.motivo'|trans }}</dt><dd>{{ p.motivoEncerramento }}</dd></div>
                     </dl>

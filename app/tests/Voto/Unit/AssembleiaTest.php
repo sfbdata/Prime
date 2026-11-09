@@ -122,6 +122,73 @@ final class AssembleiaTest extends TestCase
         $assembleia->editar('Outra', PesoDoVoto::Unidade);
     }
 
+    #[TestDox('Trocar para fração ideal com unidade apta sem fração (ou com zero) é recusado, nomeando as unidades; inapta não conta')]
+    public function testEditarParaFracaoComAptaSemFracao(): void
+    {
+        $assembleia = $this->assembleiaPronta();
+        new UnidadeDaAssembleia($assembleia, '102', str_repeat('c', 32), str_repeat('d', 64), bloco: 'A');
+        new UnidadeDaAssembleia($assembleia, '103', str_repeat('e', 32), str_repeat('f', 64), bloco: 'A', fracao: '0.000000');
+        new UnidadeDaAssembleia($assembleia, '104', str_repeat('g', 32), str_repeat('h', 64), bloco: 'B', situacao: 'inadimplente');
+
+        try {
+            $assembleia->editar('AGE', PesoDoVoto::Fracao);
+            self::fail('a troca para fração ideal devia ser recusada');
+        } catch (OperacaoInvalidaNaAssembleiaException $e) {
+            self::assertSame('Com peso por fração ideal, toda unidade apta precisa de fração. Falta em: A · 102, A · 103.', $e->getMessage());
+        }
+        self::assertSame('AGO', $assembleia->getTitulo(), 'nada muda na recusa');
+        self::assertSame(PesoDoVoto::Unidade, $assembleia->getPeso());
+    }
+
+    #[TestDox('A recusa da fração nomeia no máximo 5 unidades e conta as demais')]
+    public function testRecusaDaFracaoNomeiaAteCinco(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'Gestora');
+        foreach (range(1, 7) as $n) {
+            new UnidadeDaAssembleia($assembleia, '20' . $n, str_repeat((string) $n, 32), str_repeat((string) $n, 64));
+        }
+
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $this->expectExceptionMessage('Com peso por fração ideal, toda unidade apta precisa de fração. Falta em: 201, 202, 203, 204, 205 e mais 2.');
+
+        $assembleia->editar('AGO', PesoDoVoto::Fracao);
+    }
+
+    #[TestDox('Publicar por fração ideal com unidade apta sem fração é recusado e a assembleia segue em rascunho')]
+    public function testPublicarPorFracaoComAptaSemFracao(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Fracao, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Contas');
+        new OpcaoDaPauta($pauta, 1, 'Sim');
+        new OpcaoDaPauta($pauta, 2, 'Não');
+        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64), fracao: '0.500000');
+        new UnidadeDaAssembleia($assembleia, '102', str_repeat('c', 32), str_repeat('d', 64));
+
+        try {
+            $assembleia->publicar();
+            self::fail('a publicação devia ser recusada');
+        } catch (OperacaoInvalidaNaAssembleiaException $e) {
+            self::assertSame('Com peso por fração ideal, toda unidade apta precisa de fração. Falta em: 102.', $e->getMessage());
+        }
+        self::assertSame(EstadoDaAssembleia::Rascunho, $assembleia->getEstado());
+        self::assertNull($assembleia->getPublicadaEm());
+    }
+
+    #[TestDox('Publicar por fração ideal com a fração de toda apta passa (inapta sem fração não impede)')]
+    public function testPublicarPorFracaoComTodasAsFracoes(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Fracao, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Contas');
+        new OpcaoDaPauta($pauta, 1, 'Sim');
+        new OpcaoDaPauta($pauta, 2, 'Não');
+        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64), fracao: '0.500000');
+        new UnidadeDaAssembleia($assembleia, '102', str_repeat('c', 32), str_repeat('d', 64), situacao: 'inadimplente');
+
+        $assembleia->publicar();
+
+        self::assertSame(EstadoDaAssembleia::Publicada, $assembleia->getEstado());
+    }
+
     #[TestDox('A lista de unidades bloqueia quando a primeira pauta é aberta')]
     public function testUnidadesBloqueiamNaAbertura(): void
     {
@@ -165,7 +232,7 @@ final class AssembleiaTest extends TestCase
         new OpcaoDaPauta($pauta, 1, 'Sim');
         new OpcaoDaPauta($pauta, 2, 'Não');
         new OpcaoDaPauta($pauta, 0, 'Abstenção', true);
-        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64));
+        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64), fracao: '0.500000');
 
         return $assembleia;
     }

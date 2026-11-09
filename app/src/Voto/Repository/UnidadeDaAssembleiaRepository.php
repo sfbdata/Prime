@@ -84,7 +84,8 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Próximo lote de "Enviar links por e-mail": quem tem e-mail e ainda não recebeu o link atual.
+     * Próximo lote de "Enviar links por e-mail": unidade apta que tem e-mail e ainda não recebeu o link atual (a inapta
+     * não vota e não recebe link).
      *
      * @return list<UnidadeDaAssembleia>
      */
@@ -99,7 +100,7 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
         return $unidades;
     }
 
-    /** O "faltam N" do envio por e-mail. */
+    /** O "faltam N" do envio por e-mail (só aptas). */
     public function contarParaEnvioDoLink(Assembleia $assembleia): int
     {
         return (int) $this->semLinkEnviado($this->daAssembleia($assembleia))
@@ -158,7 +159,8 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
 
     private function semLinkEnviado(QueryBuilder $qb): QueryBuilder
     {
-        return $qb->andWhere('u.email IS NOT NULL')
+        return $qb->andWhere('u.apta = true')
+            ->andWhere('u.email IS NOT NULL')
             ->andWhere("u.email <> ''")
             ->andWhere('u.linkEnviadoEm IS NULL');
     }

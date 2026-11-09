@@ -104,15 +104,30 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
             self::assertResponseStatusCodeSame(404, $tela);
         }
         $token = $this->tokenValido('voto_assembleia_' . $a);
-        foreach (['/publicar', '/pautas/' . $p . '/abrir', '/pautas/' . $p . '/encerrar', '/unidades/' . $unidade->getId() . '/novo-link', '/unidades/importar'] as $acao) {
-            $this->client->request('POST', '/voto/assembleias/' . $a . $acao, ['_token' => $token, 'lista' => '999;Z']);
+        $u = $unidade->getId();
+        $acoes = [
+            '/publicar', '/pautas/' . $p . '/abrir', '/pautas/' . $p . '/encerrar', '/pautas/' . $p . '/prazo',
+            '/pautas', '/pautas/' . $p . '/editar', '/unidades/' . $u . '/novo-link', '/unidades/importar',
+            '/unidades/enviar-links', '/unidades/' . $u . '/reenviar', '/pautas/' . $p . '/remover', '/unidades/' . $u . '/remover',
+        ];
+        foreach ($acoes as $acao) {
+            $this->client->request('POST', '/voto/assembleias/' . $a . $acao, [
+                '_token' => $token, 'lista' => '999;Z', 'minutos' => '5', 'titulo' => 'Pauta invasora',
+                'opcao_numero' => ['1', '2'], 'opcao_rotulo' => ['Sim', 'Não'],
+            ]);
             self::assertResponseStatusCodeSame(404, $acao);
+            self::assertEmailCount(0, null, $acao);
         }
         // Pelo banco: o filtro de tenant da sessão esconderia as linhas do outro escritório do EntityManager.
         $banco = $this->em->getConnection();
-        self::assertSame('aguardando', $banco->fetchOne('SELECT estado FROM voto.assembleia_pauta WHERE id = ?', [$p]), 'a pauta alheia não foi aberta');
-        self::assertSame($unidade->getSemente(), $banco->fetchOne('SELECT semente FROM voto.assembleia_unidade WHERE id = ?', [$unidade->getId()]), 'o link alheio não mudou');
-        self::assertSame(1, (int) $banco->fetchOne('SELECT COUNT(*) FROM voto.assembleia_unidade WHERE assembleia_id = ?', [$a]), 'nada importado');
+        $pautaNoBanco = $banco->fetchAssociative('SELECT estado, titulo, prazo_ate FROM voto.assembleia_pauta WHERE id = ?', [$p]);
+        self::assertSame('aguardando', $pautaNoBanco['estado'] ?? null, 'a pauta alheia não foi aberta nem removida');
+        self::assertSame($pauta->getTitulo(), $pautaNoBanco['titulo'], 'a pauta alheia não foi editada');
+        self::assertNull($pautaNoBanco['prazo_ate'], 'nem ganhou prazo');
+        self::assertSame(1, (int) $banco->fetchOne('SELECT COUNT(*) FROM voto.assembleia_pauta WHERE assembleia_id = ?', [$a]), 'nenhuma pauta criada');
+        self::assertSame($unidade->getSemente(), $banco->fetchOne('SELECT semente FROM voto.assembleia_unidade WHERE id = ?', [$u]), 'o link alheio não mudou');
+        self::assertNull($banco->fetchOne('SELECT link_enviado_em FROM voto.assembleia_unidade WHERE id = ?', [$u]), 'nenhum link enviado');
+        self::assertSame(1, (int) $banco->fetchOne('SELECT COUNT(*) FROM voto.assembleia_unidade WHERE assembleia_id = ?', [$a]), 'nada importado nem removido');
     }
 
     #[TestDox('Fluxo do gestor: criar, pautas, unidades, publicar, abrir, votar, encerrar, resultado por fração e ata')]
@@ -230,6 +245,10 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Pauta esgotada pela mesa', $texto);
         self::assertStringContainsString('Quórum: 100,00% (exigido 50%)', $texto);
         self::assertStringContainsString('Não indica em quem cada pessoa votou.', $texto);
+        $campos = $this->camposDaAta($ata, $contas);
+        self::assertSame('Síndica Teste', $campos['Aberta por'] ?? null);
+        self::assertSame('Síndica Teste', $campos['Encerrada por'] ?? null);
+        self::assertSame('Determinação da mesa', $campos['Motivo registrado'] ?? null);
         $votantes = $ata->filter('#pauta-' . $contas . ' table')->last()->filter('tbody tr')->each(static fn (Crawler $c): string => trim($c->filter('td')->first()->text()));
         self::assertSame(['A · 101', 'A · 102', 'B · 103'], $votantes);
         self::assertSame(['Presidência da assembleia', 'Secretaria da assembleia'], $ata->filter('.voto-ata-assinaturas > div')->each(static fn (Crawler $c): string => trim($c->text())));
@@ -280,6 +299,88 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $depois = $this->em->find(PautaDaAssembleia::class, $pauta->getId());
         self::assertSame(EstadoDaPauta::Encerrada, $depois?->getEstado());
         self::assertSame(PautaDaAssembleia::MOTIVO_DO_PRAZO, $depois->getMotivoEncerramento());
+
+        $campos = $this->camposDaAta($this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/ata'), (int) $pauta->getId());
+        self::assertSame('Mesa', $campos['Aberta por'] ?? null);
+        self::assertArrayNotHasKey('Encerrada por', $campos, 'encerrada pelo prazo: ninguém encerrou');
+        self::assertSame('Prazo definido pela mesa', $campos['Motivo registrado'] ?? null);
+    }
+
+    #[TestDox('Definir prazo com o prazo já vencido: o encerramento pelo prazo fica gravado e a mesa vê a recusa em vermelho')]
+    public function testDefinirPrazoComPrazoVencidoRecusa(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio])->publicada()->create()->_real();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->aberta(1, new \DateTimeImmutable('-1 minute'))->create()->_real();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia]);
+        $a = (int) $assembleia->getId();
+        $p = (int) $pauta->getId();
+        $token = $this->tokenValido('voto_assembleia_' . $a);
+
+        $this->client->request('POST', '/voto/assembleias/' . $a . '/pautas/' . $p . '/prazo', ['_token' => $token, 'minutos' => '10', 'voltar' => 'pautas']);
+
+        self::assertResponseRedirects('/voto/assembleias/' . $a . '/pautas#pauta-' . $p);
+        // Antes de seguir o redirecionamento: a leitura da tela também encerraria pelo prazo.
+        $noBanco = $this->em->getConnection()->fetchAssociative('SELECT estado, motivo_encerramento, encerrada_por_nome FROM voto.assembleia_pauta WHERE id = ?', [$p]);
+        self::assertSame(['estado' => 'encerrada', 'motivo_encerramento' => PautaDaAssembleia::MOTIVO_DO_PRAZO, 'encerrada_por_nome' => null], $noBanco);
+        $tela = $this->client->followRedirect();
+        self::assertSame('O prazo desta votação já terminou e ela foi encerrada.', trim($tela->filter('.voto-toast.voto-toast-erro')->text()));
+    }
+
+    #[TestDox('Unidade inapta com e-mail: não recebe no lote, não entra no "faltam" e o Reenviar direto por POST é recusado')]
+    public function testInaptaNaoRecebeOLink(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'identificacao' => '301', 'email' => 'apta.voto@exemplo.com']);
+        $inapta = UnidadeDaAssembleiaFactory::new()->inapta()->create(['assembleia' => $assembleia, 'identificacao' => '302', 'email' => 'inapta.voto@exemplo.com'])->_real();
+        $a = (int) $assembleia->getId();
+
+        $tela = $this->client->request('GET', '/voto/assembleias/' . $a . '/unidades');
+        self::assertSame('Faltam 1.', trim($tela->filter('.voto-links .voto-acoes .voto-participacao')->text()));
+        $this->client->submit($tela->selectButton('Enviar links por e-mail')->form());
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage(0);
+        self::assertNotNull($email);
+        self::assertEmailHeaderSame($email, 'To', 'apta.voto@exemplo.com');
+        $tela = $this->client->followRedirect();
+        self::assertSame('1 enviados. Falhas: 0. Faltam 0.', trim($tela->filter('.voto-toast')->text()));
+
+        $this->client->request('POST', '/voto/assembleias/' . $a . '/unidades/' . $inapta->getId() . '/reenviar', ['_token' => $this->tokenValido('voto_assembleia_' . $a)]);
+        self::assertResponseRedirects();
+        self::assertEmailCount(0);
+        $tela = $this->client->followRedirect();
+        self::assertSame('Unidade inapta não vota e não recebe o link.', trim($tela->filter('.voto-toast.voto-toast-erro')->text()));
+        self::assertNull($this->em->getConnection()->fetchOne('SELECT link_enviado_em FROM voto.assembleia_unidade WHERE id = ?', [$inapta->getId()]));
+    }
+
+    #[TestDox('Lote de e-mail: endereço fora da RFC conta como falha daquela unidade, o lote segue e as marcas de quem recebeu ficam gravadas')]
+    public function testLoteSegueComEnderecoForaDaRfc(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'identificacao' => '401', 'email' => 'primeira.voto@exemplo.com']);
+        $invalida = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'identificacao' => '402', 'email' => 'segunda@@exemplo.com'])->_real();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'identificacao' => '403', 'email' => 'terceira.voto@exemplo.com']);
+        $a = (int) $assembleia->getId();
+
+        $tela = $this->client->request('GET', '/voto/assembleias/' . $a . '/unidades');
+        $this->client->submit($tela->selectButton('Enviar links por e-mail')->form());
+
+        self::assertEmailCount(2);
+        $tela = $this->client->followRedirect();
+        self::assertSame('2 enviados. Falhas: 1. Faltam 1.', trim($tela->filter('.voto-toast.voto-toast-erro')->text()));
+        $enviadas = $this->em->getConnection()->fetchFirstColumn(
+            'SELECT identificacao FROM voto.assembleia_unidade WHERE assembleia_id = ? AND link_enviado_em IS NOT NULL ORDER BY identificacao',
+            [$a],
+        );
+        self::assertSame(['401', '403'], $enviadas);
+        self::assertNull($this->em->getConnection()->fetchOne('SELECT link_enviado_em FROM voto.assembleia_unidade WHERE id = ?', [$invalida->getId()]));
     }
 
     #[TestDox('Enviar links por e-mail: só publicada; cada unidade com e-mail recebe o link /votar/{token} e sai do "faltam"')]
@@ -346,6 +447,21 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $this->em->flush();
     }
 
+    /**
+     * Os campos "rótulo: valor" da seção da pauta na ata.
+     *
+     * @return array<string, string>
+     */
+    private function camposDaAta(Crawler $ata, int $pautaId): array
+    {
+        $campos = [];
+        $ata->filter('#pauta-' . $pautaId . ' dl.voto-ata-campos > div')->each(static function (Crawler $c) use (&$campos): void {
+            $campos[trim($c->filter('dt')->text())] = trim($c->filter('dd')->text());
+        });
+
+        return $campos;
+    }
+
     /** @return list<int> ids das pautas pela ordem */
     private function pautasDa(int $assembleiaId): array
     {
@@ -363,10 +479,11 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
     /**
      * Um token CSRF válido para o id pedido, gravado na sessão do navegador como o SessionTokenStorage grava: a tela
      * nunca entrega o token de uma assembleia alheia, e sem ele a ação pararia no CSRF antes da guarda de posse.
+     * Abre a aba Votar, que não lê as assembleias (a leitura encerraria antes da ação a pauta de prazo vencido).
      */
     private function tokenValido(string $id): string
     {
-        $this->client->request('GET', '/voto?aba=ges');
+        $this->client->request('GET', '/voto?aba=ele');
         $sessao = $this->client->getRequest()->getSession();
         $sessao->set('_csrf/' . $id, 'token-de-teste-' . $id);
         $sessao->save();

@@ -33,6 +33,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'assembleia', schema: 'voto')]
 class Assembleia implements TenantAware, Auditavel
 {
+    /** Quantas unidades sem fração a recusa nomeia; as demais viram "e mais N". */
+    private const MAXIMO_DE_UNIDADES_NA_MENSAGEM = 5;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -74,17 +77,22 @@ class Assembleia implements TenantAware, Auditavel
         $this->unidades = new ArrayCollection();
     }
 
-    /** Título e peso do voto só mudam em rascunho. */
+    /**
+     * Título e peso do voto só mudam em rascunho. Com peso por fração ideal, toda unidade apta precisa de fração (uma
+     * apta sem fração votaria com peso zero sem ninguém perceber).
+     */
     public function editar(string $titulo, PesoDoVoto $peso): void
     {
         $this->exigirPautasAlteraveis();
-        $this->titulo = self::tituloValido($titulo);
+        $titulo = self::tituloValido($titulo);
+        $this->exigirFracaoNasAptas($peso);
+        $this->titulo = $titulo;
         $this->peso = $peso;
     }
 
     /**
      * Rascunho vira publicada e as pautas travam. Exige ao menos uma pauta, cada pauta com duas opções de voto (a
-     * abstenção não conta) e ao menos uma unidade apta.
+     * abstenção não conta), ao menos uma unidade apta e, com peso por fração ideal, a fração de toda unidade apta.
      */
     public function publicar(?\DateTimeImmutable $agora = null): void
     {
@@ -95,6 +103,7 @@ class Assembleia implements TenantAware, Auditavel
         if (!$this->temUnidadeApta()) {
             throw new OperacaoInvalidaNaAssembleiaException('Inclua ao menos uma unidade apta a votar.');
         }
+        $this->exigirFracaoNasAptas($this->peso);
         $this->estado = EstadoDaAssembleia::Publicada;
         $this->publicadaEm = $agora ?? new \DateTimeImmutable();
     }
@@ -208,6 +217,29 @@ class Assembleia implements TenantAware, Auditavel
                 throw new OperacaoInvalidaNaAssembleiaException(sprintf('A pauta "%s" precisa de ao menos duas opções.', $pauta->getTitulo()));
             }
         }
+    }
+
+    /** Com peso por fração ideal, recusa se alguma unidade apta está sem fração ou com fração zero. */
+    private function exigirFracaoNasAptas(PesoDoVoto $peso): void
+    {
+        if (PesoDoVoto::Fracao !== $peso) {
+            return;
+        }
+        $semFracao = [];
+        foreach ($this->unidades as $unidade) {
+            if ($unidade->isApta() && bccomp($unidade->getFracao() ?? '0', '0', 6) <= 0) {
+                $semFracao[] = '' === $unidade->getBloco() ? $unidade->getIdentificacao() : $unidade->getBloco() . ' · ' . $unidade->getIdentificacao();
+            }
+        }
+        if ([] === $semFracao) {
+            return;
+        }
+        $alem = \count($semFracao) - self::MAXIMO_DE_UNIDADES_NA_MENSAGEM;
+        throw new OperacaoInvalidaNaAssembleiaException(sprintf(
+            'Com peso por fração ideal, toda unidade apta precisa de fração. Falta em: %s%s.',
+            implode(', ', \array_slice($semFracao, 0, self::MAXIMO_DE_UNIDADES_NA_MENSAGEM)),
+            $alem > 0 ? sprintf(' e mais %d', $alem) : '',
+        ));
     }
 
     private function temUnidadeApta(): bool

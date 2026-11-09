@@ -333,7 +333,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
             $this->definirId(new OpcaoDaPauta($pauta, $numero, $rotulo, $abstencao), $i + 1);
         }
         $tokens = new TokenDaUnidade(self::SEGREDO);
-        new UnidadeDaAssembleia($assembleia, '102', str_repeat('b', 32), str_repeat('c', 64), 'A');
+        new UnidadeDaAssembleia($assembleia, '102', str_repeat('b', 32), str_repeat('c', 64), 'A', fracao: '0.010000');
         $unidade = new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), $tokens->hash(self::TOKEN), 'A', $situacao, $fracao);
         $assembleia->publicar($this->relogio->now()->modify('-1 hour'));
         if ($abrir) {

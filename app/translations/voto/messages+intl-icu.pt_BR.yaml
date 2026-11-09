@@ -173,6 +173,8 @@ voto:
                 enviado_em: 'Link enviado em {data}.'
                 mensagem: '{assembleia}. Unidade {unidade}: este é o link pessoal da sua unidade para votar. Não repasse. {link}'
             acompanhar:
+                # Só o que a assembleia tem: sem a "Lista nominal" e o "Documento de auditoria" de voto.acompanhar.texto.
+                texto: 'Clique em Assistir para abrir uma janela própria, que pode ser levada a outra tela. Assistir mostra participação e quórum e pode ser projetado.'
                 detalhe: '{assembleia} · {n} de {aptos} votaram'
                 assistir: Assistir
             assistir:
@@ -216,6 +218,7 @@ voto:
                 conducao: Condução
                 conducao_valor: 'Pela mesa, {c}ª convocação'
                 aberta_em: Aberta em
+                aberta_por: Aberta por
                 situacao: Situação
                 nao_aberta: Votação não aberta
                 eleitorado: Eleitorado e participação
@@ -231,6 +234,7 @@ voto:
                 peso_coluna: Peso
                 encerramento: Encerramento
                 encerrada_em: Encerrada em
+                encerrada_por: Encerrada por
                 cedulas: Cédulas
                 motivo: Motivo registrado
                 apuracao: Apuração
