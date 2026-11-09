@@ -57,6 +57,10 @@ final class FontesDeReferencia implements FonteDeReferencias
         'inteligencia_documento_juridico_versao' => ['sql' => 'SELECT id, NULL AS tenant, nome_arquivo AS valor FROM inteligencia_documento_juridico_versao ORDER BY id', 'categoria' => CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO],
         'lancamento_de_recompensa' => ['sql' => 'SELECT id, NULL AS tenant, comprovante_chave AS valor FROM lancamento_de_recompensa WHERE comprovante_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::RECOMPENSA_COMPROVANTE],
         'artigo_blog_imagem' => ['sql' => 'SELECT id, NULL AS tenant, chave AS valor FROM artigo_blog_imagem ORDER BY id', 'categoria' => CategoriaDeArquivo::BLOG_IMAGEM],
+        // Assinatura de documentos: o PDF enviado e a logo própria do documento, e a logo padrão do escritório.
+        'assinatura_documento_arquivo' => ['sql' => 'SELECT id, tenant_id AS tenant, arquivo_enviado_chave AS valor FROM assinatura_eletronica_documento WHERE arquivo_enviado_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
+        'assinatura_documento_logo' => ['sql' => 'SELECT id, tenant_id AS tenant, logo_chave AS valor FROM assinatura_eletronica_documento WHERE logo_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
+        'assinatura_configuracao_logo' => ['sql' => 'SELECT id, tenant_id AS tenant, logo_padrao_chave AS valor FROM assinatura_eletronica_configuracao WHERE logo_padrao_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
     ];
 
     /** As categorias sem escritório: o escopo é global, e a coluna de escritório não existe (vem NULL). */

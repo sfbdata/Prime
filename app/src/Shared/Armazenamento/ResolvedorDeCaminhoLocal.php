@@ -92,6 +92,8 @@ final readonly class ResolvedorDeCaminhoLocal
         $raiz = match ($categoria) {
             CategoriaComIsolamentoFisico::PASTA_IMAGEM_EDITOR => $this->raiz($this->uploadsDir),
             CategoriaComIsolamentoFisico::COBRANCA_DOCUMENTO  => $this->raiz($this->cobrancasUploadsDir),
+            // Raiz própria dentro da dos documentos da pasta: `<raiz>/<tenant>` nunca cruza com `pastas/<tenant>`.
+            CategoriaComIsolamentoFisico::ASSINATURA_DOCUMENTO => $this->raiz($this->uploadsDir) . '/assinatura',
         };
 
         return ['raiz' => $raiz, 'prefixo' => $raiz . '/' . $escopo->tenantIdObrigatorio()];
@@ -204,7 +206,8 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::BLOG_IMAGEM => $this->raiz($this->uploadsDir) . '/blog-imagens',
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
-            CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),
+            CategoriaDeArquivo::COBRANCA_DOCUMENTO,
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO => throw new \LogicException('resolvidas por prefixoDe()'),
         };
     }
 

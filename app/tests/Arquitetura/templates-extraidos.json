@@ -1142,5 +1142,15 @@
         "permitidos": [
             "voto-body"
         ]
+    },
+    "assinatura_eletronica_tela": {
+        "templates": [
+            "assinatura_eletronica/index.html.twig"
+        ],
+        "js": [
+            "assinatura.js",
+            "assinatura-folha.js"
+        ],
+        "permitidos": ["bja-body", "Content-Type", "Escape"]
     }
 }

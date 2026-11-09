@@ -73,8 +73,8 @@ final class NucleoDeArmazenamentoArquiteturaTest extends TestCase
         }
     }
 
-    #[TestDox('D7: o enum restrito tem exatamente as duas categorias que isolam em disco')]
-    public function testEnumRestritoTemSomenteAsDuasSeguras(): void
+    #[TestDox('D7: o enum restrito tem exatamente as três categorias que isolam em disco')]
+    public function testEnumRestritoTemSomenteAsTresSeguras(): void
     {
         $restritas = array_map(
             static fn (CategoriaComIsolamentoFisico $c): CategoriaDeArquivo => $c->paraCategoria(),
@@ -82,7 +82,7 @@ final class NucleoDeArmazenamentoArquiteturaTest extends TestCase
         );
 
         self::assertEqualsCanonicalizing(
-            [CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, CategoriaDeArquivo::COBRANCA_DOCUMENTO],
+            [CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, CategoriaDeArquivo::COBRANCA_DOCUMENTO, CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
             $restritas,
         );
     }

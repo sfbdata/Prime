@@ -1,0 +1,164 @@
+# vhost do BlueJus Voto COM HTTPS, ainda NÃO ativo (spec docs/specs/bluejus-voto.md, D1-B e D2; fase A2).
+#
+# ── POR QUE ESTÁ PENDENTE ─────────────────────────────────────────────────────
+# voto.bluejus.com.br ainda não tem DNS, certificado nem container no ar. Subir é
+# passo manual do Samuel: docs/runbooks/voto-subir-na-vps.md.
+#
+# ── NÃO COPIE ESTE ARQUIVO PARA nginx/conf.d COMO .conf ANTES DO CERTIFICADO ──
+# O nginx carrega /etc/nginx/conf.d/*.conf. Um bloco `listen 443 ssl` apontando
+# para certificado inexistente faz o nginx FALHAR AO CARREGAR, e este nginx é
+# compartilhado: derrubaria bluejus.com.br, os sites, connect, reuniao e
+# grupojusprime junto. Por isso o arquivo fica com sufixo .https-pendente.
+#
+# ── ORDEM CORRETA (detalhe no runbook) ────────────────────────────────────────
+#   1. registro A  voto.bluejus.com.br -> IP da VPS  (Hostinger)
+#   2. conferir:   getent hosts voto.bluejus.com.br
+#   3. emitir:     certbot certonly --webroot -w /opt/jusprime/certbot/www \
+#                    -d voto.bluejus.com.br --key-type ecdsa
+#   4. só então:   cp scripts/vps/vhosts/voto.conf.https-pendente nginx/conf.d/voto.conf
+#   5. testar:     docker exec jusprime_nginx_prod nginx -t
+#   6. recarregar: docker exec jusprime_nginx_prod nginx -s reload
+#
+# O cron das 3h (`certbot renew`) passa a renovar este cert junto com os demais.
+#
+# ── O CONTAINER `voto` PODE ESTAR FORA ────────────────────────────────────────
+# O PHP-FPM do Voto é resolvido NA REQUISIÇÃO (resolver do Docker + variável), não
+# no carregamento: com o container `voto` desligado (profile tirado) este endereço
+# responde 502 sozinho, e o nginx continua subindo e recarregando para os outros.
+
+# Limites por IP só do Voto (D2 item 3). NÚMEROS PROVISÓRIOS até o teste de carga:
+# 10 requisições por segundo com rajada de 20, e 20 conexões abertas por IP.
+# Um terminal presencial ou uma rede com NAT (escritório, condomínio) junta muitos
+# eleitores num IP só: reveja antes da primeira eleição grande.
+limit_req_zone  $binary_remote_addr zone=voto_req:10m rate=10r/s;
+limit_conn_zone $binary_remote_addr zone=voto_conn:10m;
+
+server {
+    listen 80;
+    server_name voto.bluejus.com.br;
+    server_tokens off;
+
+    # Precisa vir ANTES do redirect: com `return 301` no nível do server, o
+    # desafio do Let's Encrypt tomaria 301 e a validação falharia.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name voto.bluejus.com.br;
+    server_tokens off;
+    # Provisório: a fase B3 (documento e selfie do eleitor) confere o tamanho das fotos.
+    client_max_body_size 20m;
+
+    # Estáticos: o volume static_prod, que o php enche a cada deploy e que o
+    # container do nginx monta neste caminho (o mesmo do bloco do bluejus.com.br).
+    root /var/www/app/public;
+    index index.php;
+
+    ssl_certificate     /etc/letsencrypt/live/voto.bluejus.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/voto.bluejus.com.br/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Os mesmos cabeçalhos do bloco do bluejus.com.br (nginx/conf.d/nginx.prod.conf);
+    # só a câmera muda: camera=(self) para a selfie e o documento do eleitor.
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(self), microphone=(), camera=(self)" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    limit_req  zone=voto_req burst=20 nodelay;
+    limit_conn voto_conn 20;
+    limit_req_status  429;
+    limit_conn_status 429;
+
+    # Resolvido na requisição (ver o cabeçalho): com o container fora, só este endereço dá 502.
+    resolver 127.0.0.11 valid=10s;
+    set $voto_fpm voto:9000;
+
+    location / {
+        try_files $uri /index.php$is_args$args;
+    }
+
+    # ── Autorizar e urna: NADA pode logar IP aqui (spec, seção 4, item 5) ──
+    # Os caminhos finais vêm na fase C; estes prefixos já nascem sem access_log.
+    # O PHP é chamado DENTRO destas locations, e não por try_files: num redirect
+    # interno para /index.php quem decide o log é a location do PHP, e o acesso
+    # voltaria a ser registrado. Atenção na fase C: o aviso do limit_req no
+    # error_log também traz o IP do cliente.
+    location ^~ /urna {
+        access_log off;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        fastcgi_param HTTP_X_FORWARDED_PROTO https;
+        fastcgi_param HTTP_X_FORWARDED_HOST $host;
+        fastcgi_param HTTP_X_FORWARDED_PORT 443;
+        fastcgi_param HTTP_X_FORWARDED_FOR $remote_addr;
+        fastcgi_read_timeout 120s;
+        fastcgi_pass $voto_fpm;
+    }
+    location ^~ /autorizar {
+        access_log off;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        fastcgi_param HTTP_X_FORWARDED_PROTO https;
+        fastcgi_param HTTP_X_FORWARDED_HOST $host;
+        fastcgi_param HTTP_X_FORWARDED_PORT 443;
+        fastcgi_param HTTP_X_FORWARDED_FOR $remote_addr;
+        fastcgi_read_timeout 120s;
+        fastcgi_pass $voto_fpm;
+    }
+
+    # /uploads/ nunca é servido como arquivo (mesma regra do bluejus.com.br).
+    location ^~ /uploads/ {
+        rewrite ^ /index.php last;
+    }
+
+    # Código (CSS/JS): a URL ainda não é versionada e o conteúdo muda a cada deploy,
+    # então fica como no bluejus.com.br (`no-cache`: guarda e confirma pelo ETag, 304
+    # quando nada mudou). Cache longo para os arquivos da cabine na fase C4, quando a
+    # URL tiver versão; antes disso o eleitor ficaria com o código velho.
+    location ~* \.(css|js)$ {
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
+    # Binários (imagens, fontes e os sons da cabine): cache longo.
+    location ~* \.(jpg|jpeg|png|gif|ico|svg|webp|woff|woff2|ttf|eot|mp3|ogg|wav)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Só o front controller roda PHP; qualquer outro .php é 404.
+    location ~ ^/index\.php(/|$) {
+        internal;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param HTTP_X_FORWARDED_PROTO https;
+        fastcgi_param HTTP_X_FORWARDED_HOST $host;
+        fastcgi_param HTTP_X_FORWARDED_PORT 443;
+        # IP do cliente: só o $remote_addr que o nginx viu (motivo no bloco do bluejus.com.br).
+        fastcgi_param HTTP_X_FORWARDED_FOR $remote_addr;
+        fastcgi_read_timeout 120s;
+        fastcgi_pass $voto_fpm;
+    }
+    location ~ \.php$ {
+        return 404;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+}

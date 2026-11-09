@@ -11,7 +11,7 @@ namespace App\Shared\Armazenamento;
  * `ResolvedorDeCaminhoLocal` e outra no `MapaDeChaveParaCaminhoLocalTest`. Sem isso, um arquivo
  * novo nasceria sem lugar definido em disco e o defeito só apareceria em produção.
  *
- * **Isolamento físico não mora aqui.** Só duas categorias têm subpasta por tenant no disco atual,
+ * **Isolamento físico não mora aqui.** Só três categorias têm subpasta por tenant no disco atual,
  * e a lista delas é o enum SEPARADO `CategoriaComIsolamentoFisico` — é ele, e não este, que as
  * operações por prefixo aceitam (D7). A razão de serem dois tipos e não uma flag neste: uma flag
  * seria consultável mas esquecível; um tipo separado torna a categoria plana **irrepresentável**
@@ -63,6 +63,10 @@ enum CategoriaDeArquivo: string
     // conteúdo da plataforma (só o Master envia), não de um escritório, e a purga de escritório não as leva. Plana,
     // numa subpasta da raiz dos documentos de pasta (`ChavesDoBlog`).
     case BLOG_IMAGEM = 'blog_imagem';
+    // O PDF enviado e as logos próprias da tela Assinatura de documentos (spec assinatura-documentos-etapa-1.md).
+    // ISOLADA por escritório em disco (`uploads/pastas/assinatura/<tenantId>/`), como as imagens do editor: está no
+    // enum restrito `CategoriaComIsolamentoFisico`, e a purga leva o diretório inteiro do escritório.
+    case ASSINATURA_DOCUMENTO = 'assinatura_documento';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

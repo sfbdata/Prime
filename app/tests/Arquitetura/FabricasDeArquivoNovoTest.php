@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Arquitetura;
 
+use App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica;
+use App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura;
+use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\Blog\Armazenamento\ChavesDoBlog;
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\ClientePF;
@@ -125,6 +128,21 @@ final class FabricasDeArquivoNovoTest extends TestCase
                 $t,
             ),
             CategoriaDeArquivo::KANBAN_ANEXO,
+        ];
+        yield ChavesDeAssinaturaEletronica::class . '::novoArquivo' => [
+            ChavesDeAssinaturaEletronica::class . '::novoArquivo',
+            static fn (?Tenant $t): object => new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+        ];
+        yield ChavesDeAssinaturaEletronica::class . '::novaLogo' => [
+            ChavesDeAssinaturaEletronica::class . '::novaLogo',
+            static fn (?Tenant $t): object => new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+        ];
+        yield ChavesDeAssinaturaEletronica::class . '::novaLogoPadrao' => [
+            ChavesDeAssinaturaEletronica::class . '::novaLogoPadrao',
+            static fn (?Tenant $t): object => new ConfiguracaoDaAssinatura($t ?? new Tenant()),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
         ];
         yield ChavesDeServiceDesk::class . '::novoAnexoDeChamado' => [
             ChavesDeServiceDesk::class . '::novoAnexoDeChamado',

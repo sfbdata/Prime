@@ -29,6 +29,9 @@ final class DatasDasReferencias
     /** @var array<string, string> fonte => SQL (id, data, na_lixeira) com o parâmetro :ids */
     private const FONTES_COM_DATA = [
         'pasta_documento' => 'SELECT id, GREATEST(uploaded_at, COALESCE(modificado_em, uploaded_at)) AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM pasta_documento WHERE id IN (:ids)',
+        // Documento da Assinatura: a última alteração; na Lixeira fica fora da liberação, como o da pasta.
+        'assinatura_documento_arquivo' => 'SELECT id, alterado_em AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
+        'assinatura_documento_logo' => 'SELECT id, alterado_em AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
     ];
 
     public function __construct(
