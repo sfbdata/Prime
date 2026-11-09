@@ -23,6 +23,10 @@ final class MontadorDeDer
     public const OID_ARQUIVO_DE_REVOGACAO = '1.2.840.113583.1.1.8';
     public const OID_CARIMBO_DA_ASSINATURA = '1.2.840.113549.1.9.16.2.14';
     public const OID_SHA256_COM_RSA = '1.2.840.113549.1.1.11';
+    public const OID_ECDSA_COM_SHA256 = '1.2.840.10045.4.3.2';
+    public const OID_SHA512 = '2.16.840.1.101.3.4.2.3';
+    public const OID_VINCULO_V1 = '1.2.840.113549.1.9.16.2.12';
+    public const OID_VINCULO_V2 = '1.2.840.113549.1.9.16.2.47';
 
     private function __construct()
     {

@@ -87,12 +87,12 @@ Métodos: `temAssinatura(): bool` e `ultimaAssinatura(): ?AssinaturaConferida`.
 | `algoritmoDoResumo` | `?string` | `SHA-256`, `SHA-384`, `SHA-512` ou `SHA-1` |
 | `resumoConfere` | `?bool` | messageDigest contra o hash da faixa (`digest`); null sem atributos assinados |
 | `chaveConfere` | `?bool` | assinatura sobre os atributos assinados (`cripto`); null quando não deu para conferir |
-| `titular` | `?string` | CN do titular sem o `:CPF` (`nome`) |
-| `cpf` | `?string` | 11 dígitos do certificado |
-| `cnpj` | `?string` | 14 dígitos do certificado |
+| `titular` | `?string` | CN do titular sem o `:CPF` (`nome`), **declarado** pelo certificado (M25) |
+| `cpf` | `?string` | 11 dígitos **declarados** pelo certificado |
+| `cnpj` | `?string` | 14 dígitos **declarados** pelo certificado |
 | `documentoMascarado` | `?string` | CPF como o protótipo (`***.456.789-**`) ou CNPJ formatado (`doc`) |
-| `emissor` | `?string` | CN do emissor (`emissor`) |
-| `icpBrasil` | `bool` | O do emissor contém "ICP-Brasil" (`icp`) |
+| `emissor` | `?string` | CN do emissor (`emissor`), **declarado** pelo certificado |
+| `emissorDeclaraIcpBrasil` | `bool` | O do emissor contém "ICP-Brasil" (`icp`); só o texto, sem cadeia (M25). Era `icpBrasil` |
 | `numeroDeSerie` | `?string` | número de série do certificado, em hexadecimal |
 | `validoDesde` | `?DateTimeImmutable` | início da validade, UTC |
 | `validoAte` | `?DateTimeImmutable` | fim da validade, UTC (`validade`) |
@@ -100,6 +100,11 @@ Métodos: `temAssinatura(): bool` e `ultimaAssinatura(): ?AssinaturaConferida`.
 | `docMdp` | `?int` | P do DocMDP desta assinatura (`mdp`) |
 | `veredito` | `VereditoDaAssinatura` | `status` |
 | `motivo` | `string` | `motivo`, sempre preenchido |
+| `vinculoDoCertificado` | `VinculoDoCertificado` | não existia: o certificado é o que o signatário assinou? (M24) |
+
+Nenhum campo desta tabela prova quem assinou: titular, CPF, CNPJ, emissor e ICP-Brasil são o que o certificado
+declara, e a cadeia até a AC raiz só é conferida na etapa 6 (pyHanko). O vínculo diz só que o certificado não foi
+trocado depois da assinatura.
 
 ### 3.3 Enums (string)
 
@@ -111,6 +116,9 @@ Métodos: `temAssinatura(): bool` e `ultimaAssinatura(): ?AssinaturaConferida`.
 `ConferenciaDoPrefixo` (com `motivo()`): `NaoPedida`, `Confere`, `NaoConfere`.
 
 `ConferenciaDoCpf` (com `motivo()`): `NaoPedida`, `Confere`, `NaoConfere`, `SemCpfNoCertificado`, `SemAssinatura`.
+
+`VinculoDoCertificado` (com `motivo()`): `Vinculado` = `vinculado`, `NaoVinculado` = `nao_vinculado`, `Diferente` =
+`diferente`, `NaoConferido` = `nao_conferido`.
 
 ### 3.4 Situação do arquivo
 
@@ -128,6 +136,7 @@ Por assinatura (os quatro primeiros são os textos do protótipo):
 | `alterada` | O conteúdo não corresponde ao que foi assinado |
 | `alterada` | A assinatura não confere com o certificado |
 | `naoverif` | Formato de assinatura não reconhecido |
+| `alterada` | O certificado guardado na assinatura não é o que o signatário assinou |
 | `integra` | O conteúdo e a assinatura conferem com o certificado |
 | `alterada` | Faixa de bytes inválida: a declaração da faixa fica fora do trecho assinado |
 | `alterada` | Faixa de bytes inválida: o trecho fora da faixa não contém só a assinatura |
@@ -278,6 +287,18 @@ Decisões da revisão do motor (feature-review-agent):
   (que o motor também não lê), viram blocos opacos: a validação confere que cabem no pai e não desce neles, então o
   teto de elementos e de profundidade vale só para o que o motor de fato analisa. O teto do trecho subiu de 2 MB para
   16 MB de hexadecimal (8 MB de CMS), para caber um /Contents real com LCRs dentro do PDF de 20 MB.
+- **M24. Vínculo do certificado**: trocar o CN e o CPF do certificado guardado no /Contents, sem mexer na chave,
+  saía `integra` com o titular trocado. Agora o atributo assinado signingCertificateV2 (hash do certificado inteiro,
+  SHA-256 por padrão ou o declarado: SHA-256, SHA-384, SHA-512 ou SHA-1) e o signingCertificate v1 (SHA-1) são
+  comparados com o hash do certificado usado (o primeiro ESSCertID de cada atributo, que pela RFC 5035 é o do
+  signatário). Hash diferente, com a chave conferindo: `alterada` ("O certificado guardado na assinatura não é o que o
+  signatário assinou") e vínculo `diferente`. Igual: `vinculado`. Sem o atributo (ou sem atributos assinados):
+  `nao_vinculado`, e a assinatura continua `integra` (o conteúdo e a conta conferem; o `openssl_cms_sign` e muitos
+  assinadores `adbe.pkcs7` não põem o atributo), mas o CPF não é dado como conferido (M26). Hash fora da lista, ou
+  chave que não confere: `nao_conferido`. O vínculo é o campo `vinculoDoCertificado` de cada assinatura.
+- **M25. Identidade só declarada**: titular, CPF, CNPJ, emissor e ICP-Brasil saem do próprio certificado, sem a
+  cadeia até a AC raiz, que é da etapa 6 (pyHanko); qualquer um faz um certificado com o nome que quiser. O campo
+  `icpBrasil` passou a se chamar `emissorDeclaraIcpBrasil`, e o contrato e os DTOs dizem "declarado" em cada campo.
 
 ## 7. Testes
 

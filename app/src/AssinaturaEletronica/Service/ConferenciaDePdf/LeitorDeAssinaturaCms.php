@@ -14,6 +14,9 @@ final class LeitorDeAssinaturaCms
     private const OID_DADOS_ASSINADOS = '2a864886f70d010702';
     private const OID_RESUMO_DA_MENSAGEM = '2a864886f70d010904';
     private const OID_HORA_DA_ASSINATURA = '2a864886f70d010905';
+    /** signingCertificateV2 (1.2.840.113549.1.9.16.2.47) e v1 (1.2.840.113549.1.9.16.2.12): o hash do certificado. */
+    private const OID_VINCULO_V2 = '2a864886f70d010910022f';
+    private const OID_VINCULO_V1 = '2a864886f70d010910020c';
     /** adbe-revocationInfoArchival (1.2.840.113583.1.1.8): LCRs e OCSPs guardados pelo Acrobat, que o motor não lê. */
     private const OID_ARQUIVO_DE_REVOGACAO = '2a864886f72f010108';
     /** OIDs de resumo do protótipo (`DIG`). */
@@ -96,12 +99,12 @@ final class LeitorDeAssinaturaCms
 
         $algoritmo = self::RESUMOS[$oidDoResumo] ?? null;
         if ($algoritmo === null) {
-            return new ConferenciaDoCms(null, null, null, null, null, self::MOTIVO_RESUMO);
+            return new ConferenciaDoCms(null, null, null, null, null, self::MOTIVO_RESUMO, VinculoDoCertificado::NaoConferido);
         }
 
         $certificado = $this->certificadoDoSignatario($der, $identificacao, $certificados);
         if ($certificado === null) {
-            return new ConferenciaDoCms($algoritmo, null, null, null, null, self::MOTIVO_SEM_CERTIFICADO);
+            return new ConferenciaDoCms($algoritmo, null, null, null, null, self::MOTIVO_SEM_CERTIFICADO, VinculoDoCertificado::NaoConferido);
         }
 
         $hash = self::HASHES[$algoritmo];
@@ -112,8 +115,10 @@ final class LeitorDeAssinaturaCms
 
         $resumoConfere = null;
         $hora = null;
+        $vinculo = VinculoDoCertificado::NaoVinculado;
         if ($atributos !== null) {
             $resumoDeclarado = null;
+            $vinculos = [];
             foreach (LeitorDer::filhos($der, $atributos) as $atributo) {
                 $partes = LeitorDer::filhos($der, $atributo);
                 $oid = LeitorDer::hex($der, LeitorDer::item($partes, 0));
@@ -121,8 +126,11 @@ final class LeitorDeAssinaturaCms
                     $resumoDeclarado = LeitorDer::valor($der, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1)));
                 } elseif ($oid === self::OID_HORA_DA_ASSINATURA) {
                     $hora = LeitorDer::data($der, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1)));
+                } elseif ($oid === self::OID_VINCULO_V2 || $oid === self::OID_VINCULO_V1) {
+                    $vinculos[] = [$oid === self::OID_VINCULO_V2, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1))];
                 }
             }
+            $vinculo = self::vinculo($der, $vinculos, $certificado);
             $resumoConfere = $resumoDeclarado !== null && hash_equals($resumoDaFaixa, $resumoDeclarado);
             // A assinatura cobre os atributos com a etiqueta de SET OF (0x31), não a [0] IMPLICIT do SignerInfo.
             $alvo = "\x31" . substr(LeitorDer::bruto($der, $atributos), 1);
@@ -136,8 +144,56 @@ final class LeitorDeAssinaturaCms
             $resumoConfere === null => self::MOTIVO_SEM_ATRIBUTOS,
             default => null,
         };
+        // O atributo só prova o vínculo (ou a troca) quando a assinatura sobre os atributos confere.
+        if ($chave->confere !== true && $vinculo !== VinculoDoCertificado::NaoVinculado) {
+            $vinculo = VinculoDoCertificado::NaoConferido;
+        }
 
-        return new ConferenciaDoCms($algoritmo, $resumoConfere, $chave->confere, $certificado, $hora, $motivo);
+        return new ConferenciaDoCms($algoritmo, $resumoConfere, $chave->confere, $certificado, $hora, $motivo, $vinculo);
+    }
+
+    /**
+     * O signingCertificateV2 e o signingCertificate v1 contra o hash do certificado usado (M24). Vale o primeiro
+     * ESSCertID de cada atributo, que pela RFC 5035 é o do signatário. Hash diferente em qualquer um: `Diferente`.
+     *
+     * @param list<array{bool, NoDer}> $vinculos se é v2 e o SigningCertificate(V2) de cada atributo
+     *
+     * @throws FormatoNaoReconhecido
+     */
+    private static function vinculo(string $der, array $vinculos, CertificadoDoSignatario $certificado): VinculoDoCertificado
+    {
+        if ($vinculos === []) {
+            return VinculoDoCertificado::NaoVinculado;
+        }
+
+        $resultado = VinculoDoCertificado::Vinculado;
+        foreach ($vinculos as [$v2, $assinado]) {
+            $identificacao = LeitorDer::filhos($der, LeitorDer::primeiroFilho($der, LeitorDer::primeiroFilho($der, $assinado)));
+            $hash = 'sha1';
+            $i = 0;
+            if ($v2) {
+                // ESSCertIDv2: o AlgorithmIdentifier é opcional, e o padrão é SHA-256.
+                $hash = 'sha256';
+                if (LeitorDer::item($identificacao, 0)->etiqueta === 0x30) {
+                    $oid = LeitorDer::hex($der, LeitorDer::primeiroFilho($der, LeitorDer::item($identificacao, 0)));
+                    $hash = self::HASHES[self::RESUMOS[$oid] ?? ''] ?? null;
+                    $i = 1;
+                }
+            }
+            $declarado = LeitorDer::item($identificacao, $i);
+            if ($declarado->etiqueta !== 0x04) {
+                throw new FormatoNaoReconhecido('Vínculo do certificado sem o hash.');
+            }
+            if ($hash === null) {
+                $resultado = VinculoDoCertificado::NaoConferido;
+                continue;
+            }
+            if (!hash_equals(hash($hash, $certificado->der, true), LeitorDer::valor($der, $declarado))) {
+                return VinculoDoCertificado::Diferente;
+            }
+        }
+
+        return $resultado;
     }
 
     /**

@@ -125,7 +125,7 @@ final class OficinaDePdfAssinado
     }
 
     /**
-     * Assinador com CMS montado à mão (RSA): PSS ou PKCS#1, com ou sem atributos assinados, resumo à escolha,
+     * Assinador com CMS montado à mão (RSA ou ECDSA): PSS ou PKCS#1, com ou sem atributos assinados, resumo à escolha,
      * identificação por número de série ou pela chave e certificados extras antes do signatário. `$atributosExtras` entra
      * no fim dos atributos assinados, `$lcrs` vira o campo crls ([1]) do SignedData e `$naoAssinados` os atributos não
      * assinados ([1]) do SignerInfo, todos já em DER.
@@ -168,6 +168,9 @@ final class OficinaDePdfAssinado
                         $d::contexto(2, $d::inteiro(32)),
                     ),
                 );
+            } elseif ((openssl_pkey_get_details($chave) ?: [])['type'] === \OPENSSL_KEYTYPE_EC) {
+                openssl_sign($alvo, $assinatura, $chave, \OPENSSL_ALGO_SHA256);
+                $algoritmo = $d::sequencia($d::oid($d::OID_ECDSA_COM_SHA256));
             } else {
                 openssl_sign($alvo, $assinatura, $chave, \OPENSSL_ALGO_SHA256);
                 $algoritmo = $d::algoritmo($d::OID_RSA);
@@ -310,6 +313,35 @@ final class OficinaDePdfAssinado
         $marcador = (int) strrpos($pdf, self::MARCADOR_DA_FAIXA);
 
         return substr_replace($pdf, '/ByteRange [' . str_pad($numeros, \strlen(self::MARCADOR_DA_FAIXA) - 13) . ']', $marcador, \strlen(self::MARCADOR_DA_FAIXA));
+    }
+
+    /**
+     * Atributo assinado que vincula o certificado à assinatura: signingCertificateV2 (hash do certificado inteiro,
+     * SHA-256 por padrão ou o do `$oidDoHash`, que vai declarado) ou signingCertificate v1 (SHA-1).
+     */
+    public static function vinculo(\OpenSSLCertificate $certificado, bool $v2 = true, ?string $oidDoHash = null): string
+    {
+        $d = MontadorDeDer::class;
+        $hashes = [$d::OID_SHA256 => 'sha256', $d::OID_SHA512 => 'sha512', $d::OID_MD5 => 'md5'];
+        $der = self::der($certificado);
+        if (!$v2) {
+            return $d::sequencia($d::oid($d::OID_VINCULO_V1), $d::conjunto($d::sequencia($d::sequencia($d::sequencia($d::octetos(sha1($der, true)))))));
+        }
+        $identificacao = $oidDoHash === null
+            ? $d::sequencia($d::octetos(hash('sha256', $der, true)))
+            : $d::sequencia($d::algoritmo($oidDoHash), $d::octetos(hash($hashes[$oidDoHash], $der, true)));
+
+        return $d::sequencia($d::oid($d::OID_VINCULO_V2), $d::conjunto($d::sequencia($d::sequencia($identificacao))));
+    }
+
+    /** O PDF assinado de ponta a ponta, com o CMS montado à mão e o certificado vinculado (signingCertificateV2). */
+    public static function pdfAssinadoComVinculo(string $chave = 'rsa', ?\OpenSSLCertificate $certificado = null, string $anterior = ''): string
+    {
+        $privada = self::chave($chave);
+        $certificado ??= self::certificado($privada);
+        $assinador = self::cmsManual($privada, $certificado, atributosExtras: self::vinculo($certificado));
+
+        return self::assinar($anterior === '' ? self::pdfParaAssinar() : self::acrescimoParaAssinar($anterior), $assinador);
     }
 
     /** O PDF assinado de ponta a ponta. */

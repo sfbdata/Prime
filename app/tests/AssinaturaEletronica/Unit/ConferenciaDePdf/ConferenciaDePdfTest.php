@@ -16,6 +16,7 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\ResultadoDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\SituacaoDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\VereditoDaAssinatura;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\VerificadorDeChave;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\VinculoDoCertificado;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -73,7 +74,8 @@ final class ConferenciaDePdfTest extends TestCase
         self::assertNull($a->cnpj);
         self::assertSame('***.982.247-**', $a->documentoMascarado);
         self::assertSame(OficinaDePdfAssinado::TITULAR . ':' . OficinaDePdfAssinado::CPF, $a->emissor);
-        self::assertTrue($a->icpBrasil);
+        self::assertTrue($a->emissorDeclaraIcpBrasil);
+        self::assertSame(VinculoDoCertificado::NaoVinculado, $a->vinculoDoCertificado, 'o openssl_cms_sign não põe o signingCertificateV2');
         self::assertNotNull($a->numeroDeSerie);
         self::assertNotNull($a->validoDesde);
         self::assertNotNull($a->validoAte);
@@ -331,7 +333,7 @@ final class ConferenciaDePdfTest extends TestCase
         $a = $this->motor->conferir(OficinaDePdfAssinado::pdfAssinado('rsa', '', $certificado))->assinaturas[0];
 
         self::assertSame(VereditoDaAssinatura::Integra, $a->veredito);
-        self::assertSame([$titular, $cpf, $cnpj, $mascarado, $icp], [$a->titular, $a->cpf, $a->cnpj, $a->documentoMascarado, $a->icpBrasil]);
+        self::assertSame([$titular, $cpf, $cnpj, $mascarado, $icp], [$a->titular, $a->cpf, $a->cnpj, $a->documentoMascarado, $a->emissorDeclaraIcpBrasil]);
     }
 
     #[TestDox('sem atributos assinados: igual ao protótipo, a chave confere mas o resumo não é conferido; hora do /M com fuso')]
@@ -352,6 +354,88 @@ final class ConferenciaDePdfTest extends TestCase
         self::assertTrue($a->chaveConfere);
         self::assertSame('2026-11-09T15:00:00+00:00', $a->horaDeclarada?->format(\DATE_ATOM));
         self::assertSame(SituacaoDaConferencia::NaoConferido, $resultado->situacao);
+        self::assertSame(VinculoDoCertificado::NaoVinculado, $a->vinculoDoCertificado);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function vinculosValidos(): iterable
+    {
+        $d = MontadorDeDer::class;
+        yield 'signingCertificateV2 com o SHA-256 padrão' => ['v2'];
+        yield 'signingCertificateV2 com SHA-512 declarado' => [$d::OID_SHA512];
+        yield 'signingCertificate v1 (SHA-1)' => ['v1'];
+    }
+
+    #[DataProvider('vinculosValidos')]
+    #[TestDox('certificado vinculado pelo $_dataName: íntegra e vinculado')]
+    public function testCertificadoVinculado(string $forma): void
+    {
+        $chave = OficinaDePdfAssinado::chave();
+        $certificado = OficinaDePdfAssinado::certificado($chave);
+        $vinculo = match ($forma) {
+            'v2' => OficinaDePdfAssinado::vinculo($certificado),
+            'v1' => OficinaDePdfAssinado::vinculo($certificado, false),
+            default => OficinaDePdfAssinado::vinculo($certificado, true, $forma),
+        };
+        $pdf = OficinaDePdfAssinado::assinar(OficinaDePdfAssinado::pdfParaAssinar(), OficinaDePdfAssinado::cmsManual($chave, $certificado, atributosExtras: $vinculo));
+
+        $a = $this->motor->conferir($pdf)->assinaturas[0];
+
+        self::assertSame(VereditoDaAssinatura::Integra, $a->veredito);
+        self::assertSame(VinculoDoCertificado::Vinculado, $a->vinculoDoCertificado);
+    }
+
+    #[TestDox('certificado vinculado por hash fora da lista (MD5): íntegra, vínculo não conferido')]
+    public function testVinculoComHashNaoSuportado(): void
+    {
+        $chave = OficinaDePdfAssinado::chave();
+        $certificado = OficinaDePdfAssinado::certificado($chave);
+        $vinculo = OficinaDePdfAssinado::vinculo($certificado, true, MontadorDeDer::OID_MD5);
+        $pdf = OficinaDePdfAssinado::assinar(OficinaDePdfAssinado::pdfParaAssinar(), OficinaDePdfAssinado::cmsManual($chave, $certificado, atributosExtras: $vinculo));
+
+        $a = $this->motor->conferir($pdf)->assinaturas[0];
+
+        self::assertSame(VereditoDaAssinatura::Integra, $a->veredito);
+        self::assertSame(VinculoDoCertificado::NaoConferido, $a->vinculoDoCertificado);
+    }
+
+    /** Troca o titular e o CPF dentro do certificado guardado no CMS (mesmo tamanho), sem mexer na chave. */
+    private static function certificadoTrocado(string $pdf): string
+    {
+        return OficinaDePdfAssinado::alterarCms($pdf, static fn (string $der): string => str_replace(
+            [OficinaDePdfAssinado::TITULAR, OficinaDePdfAssinado::CPF],
+            ['BELTRA DE TAL', OficinaDePdfAssinado::CPF_2],
+            $der,
+        ));
+    }
+
+    #[TestDox('certificado trocado no /Contents com o signingCertificateV2: alterada, mesmo com a chave conferindo')]
+    public function testCertificadoTrocadoComVinculo(): void
+    {
+        $pdf = self::certificadoTrocado(OficinaDePdfAssinado::pdfAssinadoComVinculo());
+
+        $resultado = $this->motor->conferir($pdf);
+
+        $a = $resultado->assinaturas[0];
+        self::assertSame('BELTRA DE TAL', $a->titular, 'o certificado foi mesmo trocado');
+        self::assertTrue($a->chaveConfere, 'a chave pública é a mesma: só o vínculo pega a troca');
+        self::assertSame(VereditoDaAssinatura::Alterada, $a->veredito);
+        self::assertSame(ConferenciaDePdf::MOTIVO_CERTIFICADO_TROCADO, $a->motivo);
+        self::assertSame(VinculoDoCertificado::Diferente, $a->vinculoDoCertificado);
+        self::assertSame(SituacaoDaConferencia::Alterado, $resultado->situacao);
+    }
+
+    #[TestDox('certificado trocado no /Contents sem vínculo: a conta confere, mas titular e CPF ficam só declarados')]
+    public function testCertificadoTrocadoSemVinculo(): void
+    {
+        $pdf = self::certificadoTrocado(OficinaDePdfAssinado::pdfAssinado());
+
+        $a = $this->motor->conferir($pdf)->assinaturas[0];
+
+        self::assertSame('BELTRA DE TAL', $a->titular);
+        self::assertSame(VereditoDaAssinatura::Integra, $a->veredito);
+        self::assertSame(VinculoDoCertificado::NaoVinculado, $a->vinculoDoCertificado);
+        self::assertStringContainsString('não estão vinculados', VinculoDoCertificado::NaoVinculado->motivo());
     }
 
     #[TestDox('resumo MD5: não conferida e sem os dados do certificado, como o protótipo')]

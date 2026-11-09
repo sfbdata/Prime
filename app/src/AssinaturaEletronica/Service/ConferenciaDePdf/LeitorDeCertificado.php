@@ -44,6 +44,7 @@ final class LeitorDeCertificado
             validoAte: LeitorDer::data($der, LeitorDer::item($validade, 1)),
             chavePublica: LeitorDer::bruto($der, LeitorDer::item($campos, $o + 5)),
             identificadorDaChave: $identificador,
+            der: LeitorDer::bruto($der, $certificado),
         );
     }
 

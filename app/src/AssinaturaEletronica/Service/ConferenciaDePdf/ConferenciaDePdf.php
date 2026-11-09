@@ -11,7 +11,8 @@ namespace App\AssinaturaEletronica\Service\ConferenciaDePdf;
  * e o CPF esperado do signatário.
  *
  * Sem estado e sem disco. Nenhuma exceção sai daqui: PDF que não dá para ler vira `ilegivel` com motivo. Confere só a
- * integridade: cadeia, revogação e carimbo do tempo são da etapa 6.
+ * integridade e o vínculo do certificado com a assinatura: o titular é o que o certificado declara, e cadeia,
+ * revogação e carimbo do tempo são da etapa 6.
  */
 final class ConferenciaDePdf
 {
@@ -22,6 +23,7 @@ final class ConferenciaDePdf
     public const MOTIVO_TRECHO_NAO_HEXADECIMAL = 'Faixa de bytes inválida: o trecho fora da faixa não contém só a assinatura';
     public const MOTIVO_CONTEUDO_ALTERADO = 'O conteúdo não corresponde ao que foi assinado';
     public const MOTIVO_CHAVE_NAO_CONFERE = 'A assinatura não confere com o certificado';
+    public const MOTIVO_CERTIFICADO_TROCADO = 'O certificado guardado na assinatura não é o que o signatário assinou';
     public const MOTIVO_INTEGRA = 'O conteúdo e a assinatura conferem com o certificado';
     public const MOTIVO_ASSINATURA_GRANDE = 'A assinatura passa do tamanho máximo de conferência';
     public const MOTIVO_CARIMBO_DO_TEMPO = 'Carimbo do tempo do documento: a conferência fica para o validador do servidor';
@@ -204,6 +206,7 @@ final class ConferenciaDePdf
         [$veredito, $motivo] = match (true) {
             !$carimbo && $cms->resumoConfere === false => [VereditoDaAssinatura::Alterada, self::MOTIVO_CONTEUDO_ALTERADO],
             $cms->chaveConfere === false => [VereditoDaAssinatura::Alterada, self::MOTIVO_CHAVE_NAO_CONFERE],
+            $cms->vinculo === VinculoDoCertificado::Diferente => [VereditoDaAssinatura::Alterada, self::MOTIVO_CERTIFICADO_TROCADO],
             $carimbo => [VereditoDaAssinatura::NaoConferida, self::MOTIVO_CARIMBO_DO_TEMPO],
             $cms->resumoConfere === true && $cms->chaveConfere === true => [VereditoDaAssinatura::Integra, self::MOTIVO_INTEGRA],
             default => [VereditoDaAssinatura::NaoConferida, $cms->motivo ?? FormatoNaoReconhecido::MOTIVO],
@@ -335,7 +338,7 @@ final class ConferenciaDePdf
             cnpj: $certificado?->cnpj,
             documentoMascarado: $certificado?->documentoMascarado(),
             emissor: $certificado?->emissor,
-            icpBrasil: $certificado?->icpBrasil() ?? false,
+            emissorDeclaraIcpBrasil: $certificado?->emissorDeclaraIcpBrasil() ?? false,
             numeroDeSerie: $certificado?->numeroDeSerie,
             validoDesde: $certificado?->validoDesde,
             validoAte: $certificado?->validoAte,
@@ -343,6 +346,7 @@ final class ConferenciaDePdf
             docMdp: $base['docMdp'] ?? null,
             veredito: $veredito,
             motivo: $motivo,
+            vinculoDoCertificado: $cms->vinculo ?? VinculoDoCertificado::NaoConferido,
         );
     }
 
