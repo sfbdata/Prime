@@ -26,7 +26,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
  * "Abonar selecionadas" da aba Equipe (spec `docs/specs/ponto-desenho-0811.md`, E5, P57): o formulário volta para a
  * /ponto na aba Equipe, com uma mensagem das abonadas e uma por recusa. O isolamento por escritório e o P43 a são
  * deste bloco; o abono em si é o da ficha (`AbonoDeJustificativa`), que aqui é um dublê: guarda o que recebeu e devolve
- * a recusa combinada. Enquanto o AnalisarJustificativaUseCase não chega, o adaptador de verdade é o provisório.
+ * a recusa combinada. O adaptador de verdade (`AbonoPelaAnaliseDaJustificativa`) se prova em AbonoEmLoteLigadoAFichaTest.
  */
 #[CoversClass(EquipeDoPontoController::class)]
 #[CoversClass(AbonarJustificativasDaEquipeUseCase::class)]

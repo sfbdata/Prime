@@ -10,7 +10,6 @@ use App\Ponto\DTO\AbonoEmLoteOutput;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Service\AbonoDeJustificativa;
-use App\Ponto\Service\AbonoDeJustificativaProvisorio;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\UseCase\AbonarJustificativasDaEquipeUseCase;
 use App\Repository\UserTenantRepository;
@@ -27,7 +26,6 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(AbonarJustificativasDaEquipeUseCase::class)]
 #[CoversClass(AbonoEmLoteOutput::class)]
-#[CoversClass(AbonoDeJustificativaProvisorio::class)]
 #[Group('ponto')]
 final class AbonarJustificativasDaEquipeUseCaseTest extends TestCase
 {
@@ -131,15 +129,6 @@ final class AbonarJustificativasDaEquipeUseCaseTest extends TestCase
 
         self::assertSame(0, $resultado->abonadas);
         self::assertSame([], $resultado->recusas);
-    }
-
-    #[TestDox('Até o AnalisarJustificativaUseCase chegar, o adaptador do abono falha alto em vez de abonar por outra regra')]
-    public function testAdaptadorProvisorio(): void
-    {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('ligar ao AnalisarJustificativaUseCase');
-
-        (new AbonoDeJustificativaProvisorio())->abonar(self::justificativa(self::pessoa('Ana'), '2026-11-03'), $this->escritorio, $this->gestor);
     }
 
     /**

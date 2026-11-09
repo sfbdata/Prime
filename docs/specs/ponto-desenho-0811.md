@@ -559,9 +559,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     ficha, pela interface `AbonoDeJustificativa` (uma função: abona a justificativa já conferida, ou devolve o motivo
     de não ter abonado). Mensagens: "1 justificativa abonada." ou "N justificativas abonadas." e uma por recusa
     ("Nome (dd/mm/aaaa): motivo"); nada marcado, "Selecione ao menos uma justificativa.";
-  - PENDENTE de ligar: o adaptador de hoje (`AbonoDeJustificativaProvisorio`) lança `LogicException("ligar ao
-    AnalisarJustificativaUseCase")`, que outra frente extrai do TenantController (decisão do Coordenador, 09/11/2026:
-    esta etapa não mexe no TenantController). Até lá, "Abonar selecionadas" falha com erro 500;
+  - ligado na integração (09/11/2026): `AbonoPelaAnaliseDaJustificativa` chama
+    `AnalisarJustificativaUseCase::abonarPorId` (E9); a recusa dele (`AnaliseDeJustificativaRecusadaException`) vira o
+    motivo da frase; cada justificativa grava na própria transação, então uma recusa não desfaz as outras;
   - do sistema, no molde do desenho: a linha "Ninguém registra ponto neste escritório." na tabela vazia, o botão
     desligado mais claro, a frase de erro no topo e o aviso só para leitor de tela. A tabela não tem `pe-resp`: no
     celular rola para o lado. CSS num bloco só no fim de `ponto-eletronico.css`, com os tokens da tela (sem token novo);
