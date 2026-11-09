@@ -49,4 +49,24 @@ final class EsquecimentosRegistrados
 
         return $registrados;
     }
+
+    /**
+     * Dias com esquecimento de registro ainda pendente: a folha mostra "Em análise" na coluna Justificativa mesmo quando
+     * outra justificativa do dia vence a escolha de `indexarPorDia` (spec ponto-desenho-0811 §5 E2).
+     *
+     * @param iterable<\App\Ponto\Entity\JustificativaPonto> $justificativas
+     *
+     * @return array<string, true> chave "AAAA-MM-DD"
+     */
+    public static function diasEmAnalise(iterable $justificativas): array
+    {
+        $dias = [];
+        foreach ($justificativas as $justificativa) {
+            if ($justificativa->getTipo() === 'esquecimento_registro' && $justificativa->getStatus() === 'pendente' && $justificativa->getData() !== null) {
+                $dias[$justificativa->getData()->format('Y-m-d')] = true;
+            }
+        }
+
+        return $dias;
+    }
 }

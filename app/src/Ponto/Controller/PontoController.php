@@ -230,6 +230,7 @@ final class PontoController extends AbstractController
             'justificativaForm'  => $justificativaForm->createView(),
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
             'esquecimentosRegistrados' => $esquecimentosRegistrados,
+            'esquecimentosEmAnalise'   => EsquecimentosRegistrados::diasEmAnalise($justificativasDaCompetencia),
             'dataHoje'                 => $hojeStr,
             // Hora oficial do cartão (desenho, D9): o instante do servidor; a tela só soma o tempo decorrido.
             'agoraServidor'            => $agora,
@@ -959,9 +960,6 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * @return array{cargaHorariaSemanal: int, fonte: string}|null
-     */
-    /**
      * Meses da lista da Folha na /ponto (P23 e D7, spec ponto-desenho-0811 §5 E2): do mês do início da contagem
      * NESTE escritório (a primeira batida daqui, ou o abono que a antecede) até o mês corrente do servidor, o mais
      * recente primeiro; o mês sem batida no meio também entra. Sem contagem, só o mês corrente. Outro escritório não
@@ -988,6 +986,9 @@ final class PontoController extends AbstractController
         return $competencias;
     }
 
+    /**
+     * @return array{cargaHorariaSemanal: int, fonte: string}|null
+     */
     private function resolverJornadaInfo(?JornadaColaborador $jornada, ?JornadaTenant $jornadaTenant): ?array
     {
         if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {

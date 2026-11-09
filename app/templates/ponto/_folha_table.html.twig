@@ -31,6 +31,8 @@
    Inerte por padrão: quem não passa os parâmetros não ganha o atalho. #}
 {% set justificarFaltanteHabilitado = justificarFaltanteHabilitado|default(false) %}
 {% set esquecimentosRegistrados = esquecimentosRegistrados|default({}) %}
+{# Dias com esquecimento pendente: o "Em análise" da coluna Justificativa, mesmo quando outra justificativa vence o dia. #}
+{% set esquecimentosEmAnalise = esquecimentosEmAnalise|default({}) %}
 {# Sem dataHoje o atalho não aparece: o default é fail-closed de propósito, para que esquecer de
    passá-lo não faça a regra de "nada de hoje nem de dia futuro" sumir em silêncio. #}
 {% set dataHoje = dataHoje|default(null) %}
@@ -236,7 +238,10 @@
                         {% endif %}
 
                         {% if mostrarJustificativas %}
-                            {{ include('ponto/_folha_justificativa.html.twig', {j: linha.justificativa ?? null}, with_context = false) }}
+                            {{ include('ponto/_folha_justificativa.html.twig', {
+                                j: linha.justificativa ?? null,
+                                emAnalise: esquecimentosEmAnalise[linha.chaveDia] is defined
+                            }, with_context = false) }}
                         {% endif %}
                     </tr>
                 {% else %}

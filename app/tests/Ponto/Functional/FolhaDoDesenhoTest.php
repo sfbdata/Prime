@@ -225,6 +225,62 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(0, $tela->filter(self::FOLHA . ' .badge'), 'os selos são do desenho, não do Bootstrap');
     }
 
+    #[TestDox('Saldo dia com buraco na sequência: o dia sem repouso ou sem entrada não quebra a folha e compara com o horário anterior que existe')]
+    public function testSequenciaComBuraco(): void
+    {
+        [$semRepousoFora, $semRepousoEmOrdem, $semEntrada] = array_map(fn (int $n): \DateTimeImmutable => $this->diaUtilDoMesAnterior($n), [1, 2, 3]);
+        foreach (['entrada' => '08:00:00', 'retorno' => '13:00:00', 'saida' => '12:00:00'] as $tipo => $hora) {
+            $this->batida($semRepousoFora, $tipo, $hora);
+        }
+        foreach (['entrada' => '08:00:00', 'retorno' => '13:00:00', 'saida' => '18:00:00'] as $tipo => $hora) {
+            $this->batida($semRepousoEmOrdem, $tipo, $hora);
+        }
+        foreach (['repouso' => '12:00:00', 'retorno' => '13:00:00', 'saida' => '18:00:00'] as $tipo => $hora) {
+            $this->batida($semEntrada, $tipo, $hora);
+        }
+
+        $tela = $this->tela($semRepousoFora->format('Y-m'));
+
+        $seloFora = $this->linha($tela, $semRepousoFora)->filter('td.pe-larga[data-r="Saldo dia"] > span.pe-tag.pe-tag--erro');
+        self::assertSame('Fora de sequência', trim($seloFora->text()), 'a saída antes do retorno, sem repouso no meio');
+        self::assertCount(0, $this->linha($tela, $semRepousoEmOrdem)->filter('span.pe-tag--erro'), 'sem repouso, mas em ordem');
+        self::assertCount(0, $this->linha($tela, $semEntrada)->filter('span.pe-tag--erro'), 'sem entrada, mas em ordem');
+    }
+
+    #[TestDox('Esquecimento pendente num dia em que outra justificativa vence a escolha: "Em análise" ao lado do selo escolhido, e a saída pedida sem "+"')]
+    public function testEmAnaliseAoLadoDaJustificativaEscolhida(): void
+    {
+        $dia = $this->diaUtilDoMesAnterior(1);
+        $this->batida($dia, 'entrada', '09:00:00');
+        $this->justificativa($dia, 'esquecimento_registro', 'pendente')->setTipoRegistroEsquecido('saida')->setHoraRegistroEsquecido(new \DateTime('18:05'));
+        $this->em()->flush();
+        // Abonada que perdoa o déficit vence a escolha do dia (`indexarPorDia`, precedência 2).
+        $this->justificativa($dia, 'atestado_medico', 'abonado');
+
+        $linha = $this->linha($this->tela($dia->format('Y-m')), $dia);
+
+        self::assertSame(
+            ['Abonada', 'Em análise'],
+            $linha->filter('td[data-r="Justificativa"] > span.pe-just')->each(static fn (Crawler $no): string => trim($no->text()))
+        );
+        self::assertCount(1, $linha->filter('td[data-r="Justificativa"] > span.pe-just.pe-just--analise > i.bi-hourglass-split'));
+        self::assertCount(0, $linha->filter('td[data-r="Saída"] button'), 'a saída já pedida não ganha outro "+"');
+    }
+
+    #[TestDox('Dia em andamento: o "Saldo mês" de hoje fica vazio até a saída, porque o motor ainda não apurou o dia')]
+    public function testSaldoMesDoDiaEmAndamentoFicaVazio(): void
+    {
+        $this->jornadaDeOitoHoras();
+        $this->diaCompleto($this->diaUtilDoMesAnterior(1), '18:00:00');
+        $hoje = new \DateTimeImmutable('today');
+        $this->batida($hoje, 'entrada', '00:01:00');
+
+        $saldoMesDeHoje = $this->linha($this->tela(), $hoje)->filter('td.pe-sm[data-r="Saldo mês"]');
+
+        self::assertSame('', trim($saldoMesDeHoje->text()));
+        self::assertStringContainsString('pe-vazia', (string) $saldoMesDeHoje->attr('class'));
+    }
+
     #[TestDox('O que saiu conta zero na /ponto: cartão, lista do Bootstrap, menu Visualizar / Exportar, tabela listrada do Bootstrap, linhas coloridas e cabeçalhos antigos')]
     public function testOQueSaiuContaZero(): void
     {

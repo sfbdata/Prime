@@ -499,6 +499,8 @@
 .pe-just--analise     { background: #0a6fa0; }
 .pe-just--recusada,
 .pe-just--nao-abonada { background: #a3232b; }
+/* Esquecimento pendente ao lado da justificativa escolhida do dia (sistema, fica): o mesmo espaço do selo extra. */
+.pe-just + .pe-just { margin-left: 6px; }
 
 /* Totais do mês (P32, fica: o desenho não tem). Molde dos vizinhos: rótulo cinza, valor em negrito com a cor do saldo. */
 .pe-folha-totais { border-top: 1px solid var(--pe-div); padding: 10px 16px; font-size: 13px; }

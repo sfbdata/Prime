@@ -331,6 +331,21 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - o tipo da justificativa vai para a dica do selo (o desenho não tem a linha de baixo); "Não abonada" fica vermelha
     como "Recusada"; a coluna mostra a justificativa que o sistema já escolhe por dia, não a primeira da lista;
   - a lista do mês (P23, D7) vai do mês do início da contagem neste escritório até o mês corrente do servidor;
+  - revisão e conferência da E2 (09/11/2026): ficam do sistema as dicas dos cabeçalhos "Trabalhado", "Saldo dia" e
+    "Saldo mês" (vinham da folha antiga) e o nome do feriado na dica do selo "Feriado" (antes ia no texto, "FERIADO - nome");
+    na ficha, o zero do dia sem batida fica cinza (com batida, verde como no desenho). Esquecimento pendente num dia em
+    que outra justificativa vence a escolha (um atestado abonado, uma recusada mais nova) ganha o "Em análise" ao lado do
+    selo escolhido: antes da E2 a ampulheta ficava na célula da batida, e sem esse segundo selo o pedido sumiria da folha;
+  - ficam como o motor entrega, e a tela difere do desenho: no dia em andamento, o "Trabalhado" mostra as horas apuradas
+    até a última batida e o "Saldo mês" fica vazio até a saída (o desenho mostra o acumulado até ontem, mas a /ponto só
+    recebe do motor os dias com batida ou justificativa, e o acumulado da última linha recebida deixaria de fora o desconto
+    dos dias escondidos; mostrar esse número pede um campo novo no motor, a decidir na E17); o "Registro incompleto"
+    segue a marca do motor (dia com entrada e saída sem repouso mostra saldo);
+  - consequência do P25 a conhecer: o "Saldo mês" da última linha visível pode diferir do "Saldo do mês" do rodapé
+    (que só aparece com horas pagas), porque os dias sem batida depois dela continuam descontando. O número certo é o
+    do rodapé, que é o de antes;
+  - com a lista do P23 e o "+" do P30 a, o atalho do esquecimento aparece em meses antigos; o servidor já aceitava
+    qualquer dia passado pelo modal completo e o sistema não tem mês fechado, então não há exposição nova;
   - os números são os do motor: o rodapé e o "Saldo mês" de cada linha vêm das linhas sem o filtro; o PDF, o XLSX e
     `montarDadosFolha` não mudaram.
 - Depende de: E1 (CSS e grade).
@@ -341,7 +356,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   `public/css/ponto-eletronico.css` (seção Folha e celular até 760 px); `PontoController::index` (lista de meses do P23).
   `montarDadosFolha` não foi tocado.
 - Testes: `FolhaDoDesenhoTest` (arranjo por filho direto, o que saiu contando zero, dia sem batida fora da tela com o
-  saldo de antes, selos, meses, ficha com todos os dias, celular por classe) e `FolhaDoDesenhoCssTest` (valores do
+  saldo de antes, selos, meses, ficha com todos os dias, celular por classe, dia sem repouso ou sem entrada, "Em análise" ao lado da justificativa escolhida e "Saldo mês" vazio no dia em andamento) e `FolhaDoDesenhoCssTest` (valores do
   desenho); ajustados: `JustificativaEsquecimentoControllerTest` (dia só com abono sai, sábado passado ganha "+", hoje
   sem "+"), `HorasPagasFolhaExibicaoTest` (cabeçalho "Saldo mês" e marcação do rodapé), `JornadaComVersoesPelaTelaTest`
   e os dois da troca sem recarregar (seletor novo). `FolhaExportacaoMesmaEscolhaTest` e os do PDF e XLSX sem mudança.

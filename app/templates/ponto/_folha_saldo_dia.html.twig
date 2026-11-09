@@ -8,11 +8,16 @@
     do dia sem batida fica na cor neutra; com batida, o zero é verde, como no desenho. Só formata o número do motor.
 #}
 {% import 'ponto/_folha_macros.html.twig' as folha %}
-{% set horarios = [linha.entrada, linha.repouso, linha.retorno, linha.saida]|filter(h => h != '') %}
+{# Compara cada horário com o anterior QUE EXISTE: o dia sem repouso (ou sem entrada) pula a casa vazia. Nada de
+   índice: o `|filter` guarda as chaves de origem, e `horarios[i - 1]` quebrava no dia com buraco. #}
 {% set foraDeSequencia = false %}
-{% for horario in horarios %}
-    {% if not loop.first and horario < horarios[loop.index0 - 1] %}
-        {% set foraDeSequencia = true %}
+{% set horarioAnterior = null %}
+{% for horario in [linha.entrada, linha.repouso, linha.retorno, linha.saida] %}
+    {% if horario is not null and horario != '' %}
+        {% if horarioAnterior is not null and horario < horarioAnterior %}
+            {% set foraDeSequencia = true %}
+        {% endif %}
+        {% set horarioAnterior = horario %}
     {% endif %}
 {% endfor %}
 {% set saldo = linha.saldoDia %}
