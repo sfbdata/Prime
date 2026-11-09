@@ -299,7 +299,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - o botão de som e o de mudo (P81) vão para a E8;
   - os parâmetros de leitura do GPS são os do sistema (spec `ponto-gps-erro-que-explica`), não os do protótipo;
   - a saída prevista usa a escala: antes do repouso batido, entrada mais a duração da escala de hoje (com o almoço);
-    depois dele, entrada mais a meta do dia e o intervalo (o batido, ou o mínimo da Jornada do escritório);
+    depois dele, entrada mais a meta do dia e o intervalo (o batido; no repouso, a conta de "Funções do sistema que
+    voltam", abaixo);
   - os avisos que mandavam olhar "a lista abaixo" apontam para os horários nos botões dos tipos, acima.
 - Funções do sistema que voltam (regra 2: função do sistema não sai; pedido do Samuel de 09/11/2026, aprovado pelo
   Coordenador; branch `ponto-desenho-funcoes`, sem migration):
@@ -308,13 +309,18 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     fica, com o tempo acrescentado): "Intervalo em andamento há 00:42:10. O mínimo de 1h se completa em HH:MM.",
     "Intervalo mínimo de 1h cumprido. Em intervalo há 01:05:00." e, sem a validação, "Intervalo em andamento há
     00:42:10.". O "1h" é o mínimo da Jornada do escritório. O tique é o do relógio do dia (um `setInterval` de 1 s, que
-    a troca depois da batida não repete); o início é a hora da batida de repouso que o cartão já tem, sem busca nova;
+    a troca depois da batida não repete); o início é a hora da batida de repouso que o cartão já tem, sem busca nova.
+    O "se completa em HH:MM" (o que falta para o mínimo) arredonda para cima, no minuto: 17min50s dá 00:18, e os
+    últimos 59 s dão 00:01, nunca 00:00 (revisão de 09/11/2026);
   - saída prevista durante o intervalo: antes da E1 a "Previsão de saída" ficava na tela o dia todo, também no
     repouso; a E1 a escondia enquanto o aviso do intervalo aparecia. Volta como " Saída prevista às HH:MM." no fim do
     aviso do intervalo, só quando `saidaPrevista()` tem valor (sem meta ou sem escala, não aparece). No repouso, a conta
-    usa o maior entre o intervalo já feito e o previsto (o mínimo da Jornada do escritório, quando a escala tem almoço;
-    senão zero), recalculada a cada tique de 1 s junto com o tempo: com 1h05 de intervalo e mínimo de 1h, a saída anda
-    5 min (decisão do Coordenador de 09/11/2026). Antes da E1 não era assim: a "Previsão de saída" era fixa, entrada
+    é coerente com a de antes dele (decisões do Coordenador de 09/11/2026, na revisão): entrada mais a meta mais o maior
+    entre o intervalo já feito e o piso, recalculada a cada tique de 1 s junto com o tempo. O piso é o maior entre o
+    mínimo da Jornada do escritório e o almoço da escala (duração menos meta), só quando a escala tem almoço; sem almoço,
+    zero. Sem escala (duração nula), a saída prevista não aparece no repouso, como antes dele. Escala 08-12/14-18 (meta
+    480, mínimo 60): às 11:00 mostra 18:00, às 12:00 no repouso continua 18:00 e com 2h10 de repouso mostra 18:10. Com
+    o retorno batido, vale o intervalo batido, como já era. Antes da E1 não era assim: a "Previsão de saída" era fixa, entrada
     mais a duração da escala, calculada só na carga e sem contar o intervalo real.
 - Depende de: nada técnico.
 - Migration: não.
@@ -344,7 +350,12 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     O "+" de hoje é função do sistema que volta (regra 2; correção de 09/11/2026, pedido do Samuel aprovado pelo
     Coordenador): a E2 o tinha tirado, mas antes dela ele já valia hoje (`chaveDia <= dataHoje`), e a spec
     ponto-atalho-esquecimento-registro diz que "esqueci de bater a entrada hoje de manhã" é o caso mais comum do atalho.
-    O risco já conhecido daquela spec segue igual: esquecimento de hoje aprovado depois de a pessoa bater a mesma batida;
+    O "+" aparece também na batida de hoje que ainda vai acontecer (o retorno e a saída de quem acabou de entrar), como
+    era antes da E2; o horário futuro é recusado no envio (`HorarioFuturoDaBatida`). O caso "aprovado depois de a
+    pessoa bater a mesma batida" já é recusado (`RegistrarBatidaDoEsquecimentoUseCase::recusa`). O risco que fica é a
+    ordem inversa: às 10h a pessoa pede "repouso 09:30", o pedido é aprovado e a batida real nunca acontece (o tipo já
+    está preenchido pelo ajuste, e nada confere que a pessoa saiu mesmo para o repouso). Quem confere é o gestor, na
+    análise do pedido;
   - o selo "Fora de sequência" vale quando um horário é menor que o anterior e vence os outros; o feriado trabalhado
     ganha o selo "Feriado" na coluna Semana (o motor escrevia "FERIADO - "); o feriado sem batida tem o selo no Saldo dia;
   - o tipo da justificativa vai para a dica do selo (o desenho não tem a linha de baixo); "Não abonada" fica vermelha

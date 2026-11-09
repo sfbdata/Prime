@@ -233,6 +233,39 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('O link do aviso da saída sem entrada (R6, ?esquecimento=<hoje>:entrada) encontra o "+" na entrada de hoje')]
+    public function testLinkDoAvisoSemEntradaAchaOMaisDaEntradaDeHoje(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+
+        // A saída solta de hoje (R1): a batida passa e a resposta avisa com o link para o "+" da entrada.
+        $hoje  = new \DateTimeImmutable('today');
+        $chave = $hoje->format('Y-m-d');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $saida = new RegistroPonto();
+        $saida->setUser($user);
+        $saida->setTenant($tenant);
+        $saida->setTipo(RegistroPonto::TIPO_SAIDA);
+        $saida->setDataHora(new \DateTime($chave . ' 00:00:01'));
+        $saida->setSedeNomeSnapshot('Teste');
+        $em->persist($saida);
+        $em->flush();
+
+        // O mesmo endereço que `PontoController::avisosDaBatida` monta para o aviso sem entrada.
+        $this->logarComTenant($client, $user, $tenant);
+        $em->clear();
+        $crawler = $client->request('GET', sprintf('/ponto/?competencia=%s&esquecimento=%s:entrada', $hoje->format('Y-m'), $chave));
+        self::assertResponseIsSuccessful();
+
+        $mais = $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"] > td > %s', $chave, $this->seletorAtalho($chave, 'entrada')));
+        self::assertCount(1, $mais, 'o link do aviso R6 aponta para o "+" da entrada de hoje: sem ele, o link não abre nada');
+        self::assertSame('Entrada', $mais->attr('data-esquecimento-rotulo'), 'o resumo da janela: "dd/mm/aaaa · Entrada"');
+        self::assertCount(0, $crawler->filter($this->seletorAtalho($chave, 'saida')), 'a saída já batida não oferece o atalho');
+    }
+
     #[TestDox('POST do atalho com token CSRF inválido não cria nada')]
     public function testAtalhoComCsrfInvalidoNaoCriaJustificativa(): void
     {
