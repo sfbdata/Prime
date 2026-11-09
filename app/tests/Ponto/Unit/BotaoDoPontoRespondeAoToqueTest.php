@@ -49,7 +49,7 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         return $conteudo;
     }
 
-    #[TestDox('no arquivo inteiro, o único lugar que desabilita o botão é o envio')]
+    #[TestDox('no arquivo inteiro, só o envio e o dia completo (P7) desabilitam o botão')]
     public function testSoOEnvioDesabilitaOBotao(): void
     {
         $tela = $this->tela();
@@ -57,8 +57,11 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         preg_match_all('/btnPonto\.disabled\s*=\s*([^;]+);/', $tela, $casamentos);
         $atribuicoes = array_map('trim', $casamentos[1]);
 
+        // Ajustado pela decisão do dono de 09/11/2026 (desenho novo, P7): com os quatro tipos de hoje batidos,
+        // o botão vira "Jornada de hoje concluída", cinza e sem clique. Não há batida a fazer, e o próprio
+        // botão diz por quê; os impedimentos de REGRA (tipo, posição, cerca) continuam respondendo ao toque.
         self::assertSame(
-            ['envioEmAndamento', 'true'],
+            ['envioEmAndamento || concluida', 'true'],
             $atribuicoes,
             'o botão voltou a ser desabilitado por impedimento de regra: toque sem resposta é '
             . 'indistinguível de batida registrada para quem não conhece a tela'
@@ -177,16 +180,27 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         self::fail('o corpo da função não fecha — chaves desbalanceadas na tela');
     }
 
-    #[TestDox('updateButtonState não olha tipo, posição nem cerca')]
+    #[TestDox('updateButtonState não olha tipo, posição nem cerca: só o envio e o dia completo (P7)')]
     public function testUpdateButtonStateSoOlhaOEnvio(): void
     {
         $tela = $this->tela();
 
+        // Ajustado pela decisão do dono de 09/11/2026 (P7): além do envio, o dia completo. `jornadaConcluida` só
+        // olha se sobrou algum dos quatro tipos de hoje livre; nada de tipo escolhido, posição ou cerca.
         self::assertMatchesRegularExpression(
-            '/function updateButtonState\(\)\s*\{\s*btnPonto\.disabled\s*=\s*envioEmAndamento;\s*\}/',
+            '/function updateButtonState\(\)\s*\{\s*const concluida = jornadaConcluida\(\);\s*'
+            . 'btnPonto\.disabled\s*=\s*envioEmAndamento \|\| concluida;\s*'
+            . 'btnPonto\.classList\.toggle\(\'pe-bater--concluida\', concluida\);\s*\}/',
             $tela,
             'updateButtonState voltou a decidir por tipo, posição ou cerca'
         );
+
+        $concluida = $this->corpoDaFuncao('function jornadaConcluida(');
+        foreach (['tipoRegistro', 'currentLocation', 'avaliarPosicao', 'homeOfficeHoje'] as $proibido) {
+            self::assertStringNotContainsString($proibido, $concluida, 'o dia completo passou a olhar ' . $proibido);
+        }
+        self::assertStringContainsString("button[role=\"radio\"]:not(:disabled)", $concluida);
+        self::assertStringContainsString("pe-tipos--ontem", $concluida, 'depois da virada, os tipos de ontem não travam');
     }
 
     #[TestDox('a cerca responde ao toque em #batida-aviso, não só em #gps-status')]
@@ -249,27 +263,36 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
             'a sugestão deixou de sair das batidas já registradas hoje'
         );
 
-        foreach (['entrada', 'repouso', 'retorno', 'saida'] as $tipo) {
-            self::assertStringContainsString(
-                sprintf('<option value="%s" {{ tipoSugerido == \'%s\' ? \'selected\' : \'\' }}>', $tipo, $tipo),
-                $tela,
-                sprintf('o tipo "%s" deixou de poder ser pré-selecionado', $tipo)
-            );
-        }
+        // Ajustado pelo desenho novo (P6, decisão do dono de 09/11/2026): o select virou os quatro botões de
+        // rádio do cartão, e a pré-seleção é o `aria-checked` do sugerido e o valor do `#tipo-registro`
+        // escondido. O HTML que sai disso é conferido em `CartaoRegistrarPontoDoDesenhoTest`.
+        self::assertStringContainsString(
+            'aria-checked="{{ tipoSugerido == tipo ? \'true\' : \'false\' }}"',
+            $tela,
+            'o tipo sugerido deixou de vir marcado'
+        );
+        self::assertStringContainsString(
+            '<input type="hidden" id="tipo-registro" value="{{ tipoSugerido }}">',
+            $tela,
+            'o valor que o envio lê deixou de nascer com a sugestão'
+        );
     }
 
-    #[TestDox('a sugestão é pré-seleção, não trava: os quatro tipos seguem escolhíveis')]
+    #[TestDox('a sugestão é pré-seleção, não trava: só o tipo JÁ batido hoje fica fora (P7)')]
     public function testSugestaoNaoRemoveOsOutrosTipos(): void
     {
         $tela = $this->tela();
 
-        foreach (['entrada', 'repouso', 'retorno', 'saida'] as $tipo) {
-            self::assertMatchesRegularExpression(
-                sprintf('/<option value="%s"(?![^>]*\bdisabled\b)/', $tipo),
-                $tela,
-                sprintf('o tipo "%s" virou indisponível: a sugestão não pode virar trava', $tipo)
-            );
-        }
+        // Ajustado pela decisão do dono de 09/11/2026 (P7 = a): o tipo já batido hoje fica verde e sem clique. A
+        // sugestão em si continua não travando: os outros tipos livres seguem escolhíveis, e a única condição do
+        // `disabled` de cada botão é a batida de hoje daquele tipo.
+        self::assertSame(
+            1,
+            preg_match_all('/<button type="button" role="radio"[^>]*\{% if horario %\} disabled\{% endif %\}>/', $tela),
+            'o botão do tipo passou a ser desabilitado por outra coisa que não a batida de hoje'
+        );
+        self::assertStringContainsString('{% set horario = pontoHoje[tipo]|default(null) %}', $tela);
+        self::assertSame(1, substr_count($tela, ' disabled{% endif %}'), 'apareceu outra trava de tipo no HTML');
     }
 
     #[TestDox('o botão diz qual tipo vai registrar, inclusive depois de uma falha')]

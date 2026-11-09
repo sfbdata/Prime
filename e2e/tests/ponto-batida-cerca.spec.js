@@ -12,7 +12,10 @@
 // resultado não depende de estado acumulado.
 //
 // Referências da tela (`app/templates/ponto/index.html.twig`):
-//   #btn-bater-ponto · #tipo-registro · #gps-status · #batida-aviso · #btn-atualizar-pagina
+//   #btn-bater-ponto · #ponto-tipos (os quatro tipos, botões de rádio) · #tipo-registro (escondido) · #gps-status
+//   · #batida-aviso · #btn-atualizar-pagina
+// Desenho novo do ponto (E1, 09/11/2026): o select do tipo virou os botões de `#ponto-tipos`, e a lista "Suas
+// batidas de hoje" saiu; a hora de cada batida mora no botão do tipo. Tipo já batido hoje fica sem clique (P7).
 //
 // Spec: `docs/specs/ponto-batida-nao-se-perde-no-navegador.md`.
 
@@ -117,14 +120,19 @@ async function abrirPonto(browser, posicao, { aoIniciar = null, offline = false 
     return { contexto, pagina, batidas };
 }
 
+/** Escolhe o tipo no grupo de rádio do cartão "Registrar Ponto" (no lugar do antigo select). */
+async function escolherTipo(pagina, tipo) {
+    await pagina.click(`#ponto-tipos > button[role="radio"][data-tipo="${tipo}"]`);
+}
+
 test.describe('Cerca na tela: o botão bloqueia fora do raio, mas nunca por imprecisão', () => {
     test('dentro do raio, o botão libera depois de escolher o tipo', async ({ browser }) => {
         const { contexto, pagina } = await abrirPonto(browser, { ...SEDE, accuracy: 10 });
 
         await expect(pagina.locator('#btn-bater-ponto')).toBeDisabled();
-        await pagina.selectOption('#tipo-registro', 'entrada');
+        await escolherTipo(pagina, 'entrada');
         await expect(pagina.locator('#btn-bater-ponto')).toBeEnabled();
-        await expect(pagina.locator('#gps-status')).toContainText('precisão');
+        await expect(pagina.locator('#gps-status')).toContainText('Precisão de');
 
         await contexto.close();
     });
@@ -132,7 +140,7 @@ test.describe('Cerca na tela: o botão bloqueia fora do raio, mas nunca por impr
     test('fora do raio, o botão fica bloqueado, a tela diz a distância e oferece atualizar', async ({ browser }) => {
         const { contexto, pagina } = await abrirPonto(browser, { ...LONGE, accuracy: 10 });
 
-        await pagina.selectOption('#tipo-registro', 'entrada');
+        await escolherTipo(pagina, 'entrada');
         await expect(pagina.locator('#btn-bater-ponto')).toBeDisabled();
 
         const faixa = pagina.locator('#gps-status');
@@ -153,7 +161,7 @@ test.describe('Cerca na tela: o botão bloqueia fora do raio, mas nunca por impr
         const quaseNaSede = { latitude: SEDE.latitude + 0.00135, longitude: SEDE.longitude };
         const { contexto, pagina } = await abrirPonto(browser, { ...quaseNaSede, accuracy: 200 });
 
-        await pagina.selectOption('#tipo-registro', 'entrada');
+        await escolherTipo(pagina, 'entrada');
         await expect(pagina.locator('#btn-bater-ponto')).toBeEnabled();
         await expect(pagina.locator('#gps-status')).not.toContainText('fora da área permitida');
 
@@ -165,7 +173,7 @@ test.describe('Cerca na tela: o botão bloqueia fora do raio, mas nunca por impr
         // quem abrisse a tela no caminho ficava travado mesmo depois de chegar.
         const { contexto, pagina } = await abrirPonto(browser, { ...LONGE, accuracy: 10 });
 
-        await pagina.selectOption('#tipo-registro', 'entrada');
+        await escolherTipo(pagina, 'entrada');
         await expect(pagina.locator('#btn-bater-ponto')).toBeDisabled();
 
         await contexto.setGeolocation({ ...SEDE, accuracy: 10 });
@@ -195,7 +203,7 @@ test.describe('A batida não se perde e a falha nunca passa calada', () => {
             { aoIniciar: travarLeituraPontual }
         );
 
-        await pagina.selectOption('#tipo-registro', 'entrada');
+        await escolherTipo(pagina, 'entrada');
         await expect(pagina.locator('#btn-bater-ponto')).toBeEnabled({ timeout: 20000 });
         await pagina.click('#btn-bater-ponto');
 
@@ -218,7 +226,7 @@ test.describe('A batida não se perde e a falha nunca passa calada', () => {
             { aoIniciar: fingirSemRede, offline: true }
         );
 
-        await pagina.selectOption('#tipo-registro', 'entrada');
+        await escolherTipo(pagina, 'entrada');
         await pagina.click('#btn-bater-ponto');
 
         const aviso = pagina.locator('#batida-aviso');
@@ -242,7 +250,7 @@ test.describe('A batida não se perde e a falha nunca passa calada', () => {
             { offline: true }
         );
 
-        await pagina.selectOption('#tipo-registro', 'entrada');
+        await escolherTipo(pagina, 'entrada');
         await pagina.click('#btn-bater-ponto');
 
         const aviso = pagina.locator('#batida-aviso');
@@ -267,15 +275,15 @@ test.describe('A batida não se perde e a falha nunca passa calada', () => {
         // TelaDoPontoAtualizaSemRecarregarTest (PHPUnit).
         await pagina.evaluate(() => {
             window.__semRecarga = true;
-            document.getElementById('batidas-de-hoje').__listaAntiga = true;
+            document.getElementById('ponto-tipos').__listaAntiga = true;
         });
 
-        await pagina.selectOption('#tipo-registro', 'entrada');
+        await escolherTipo(pagina, 'entrada');
         await pagina.click('#btn-bater-ponto');
 
         await expect(pagina.locator('#batida-aviso')).toContainText('sucesso', { timeout: 20000 });
         await expect(pagina.locator('#btn-bater-ponto')).toBeEnabled({ timeout: 20000 });
-        expect(await pagina.evaluate(() => document.getElementById('batidas-de-hoje').__listaAntiga === undefined))
+        expect(await pagina.evaluate(() => document.getElementById('ponto-tipos').__listaAntiga === undefined))
             .toBe(true);
         expect(await pagina.evaluate(() => window.__semRecarga === true)).toBe(true);
 
@@ -284,22 +292,21 @@ test.describe('A batida não se perde e a falha nunca passa calada', () => {
 });
 
 test.describe('A tela mostra as batidas do dia', () => {
-    test('os quatro tipos aparecem no card do botão, com estado de cada um', async ({ browser }) => {
+    test('os quatro tipos aparecem no cartão do botão, com a hora de cada um', async ({ browser }) => {
         const { contexto, pagina } = await abrirPonto(browser, { ...SEDE, accuracy: 10 });
 
-        const bloco = pagina.locator('#batidas-de-hoje');
+        const bloco = pagina.locator('#ponto-tipos');
         await expect(bloco).toBeVisible();
-        await expect(bloco).toContainText('Suas batidas de hoje');
 
         for (const tipo of ['entrada', 'repouso', 'retorno', 'saida']) {
-            await expect(bloco.locator(`.batida-de-hoje[data-tipo="${tipo}"]`)).toHaveCount(1);
+            await expect(bloco.locator(`button[role="radio"][data-tipo="${tipo}"]`)).toHaveCount(1);
         }
 
-        // Cada linha diz o horário ou "ainda não registrada" — nunca um espaço em branco que a
-        // pessoa tenha de interpretar.
-        const linhas = bloco.locator('.batida-de-hoje');
+        // Cada botão diz o horário ou "--:--:--" (desenho), nunca um espaço em branco que a pessoa tenha de
+        // interpretar.
+        const horas = bloco.locator('button[role="radio"] .pe-tipo-hora');
         for (let i = 0; i < 4; i++) {
-            await expect(linhas.nth(i)).toContainText(/(\d{2}:\d{2}:\d{2}|ainda não registrada)/);
+            await expect(horas.nth(i)).toHaveText(/^(\d{2}:\d{2}:\d{2}|--:--:--)$/);
         }
 
         await contexto.close();

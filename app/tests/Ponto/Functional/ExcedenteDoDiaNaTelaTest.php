@@ -38,7 +38,9 @@ final class ExcedenteDoDiaNaTelaTest extends JusPrimeWebTestCase
     use CriaFixturesInteligenciaTrait;
     use CentralHttpTrait;
 
-    private const EXCEDENTE = '.card-primary > .card-body > #excedente-hoje';
+    // Desenho novo do ponto (E1, 09/11/2026): o cartão "Registrar Ponto" do desenho substitui o card do AdminLTE. O
+    // contador segue no corpo do cartão, logo abaixo do relógio.
+    private const EXCEDENTE = 'section.pe-registrar > .pe-corpo > .pe-relogio + #excedente-hoje';
 
     private KernelBrowser $client;
 

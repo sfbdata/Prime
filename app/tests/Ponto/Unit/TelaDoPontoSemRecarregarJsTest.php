@@ -59,7 +59,8 @@ final class TelaDoPontoSemRecarregarJsTest extends TestCase
     {
         $atualizar = self::trecho(self::tela(), 'async function atualizarTelaDoPonto() {', 'async function atualizarDepoisDaBatida');
 
-        self::assertStringContainsString("const REGIOES_TROCADAS = ['batidas-de-hoje', 'ponto-banco-horas', 'ponto-regiao-pendencias'];", self::tela());
+        // Desenho novo (E1, 09/11/2026): `ponto-tipos` (os quatro tipos com a hora de cada um) substitui `batidas-de-hoje`.
+        self::assertStringContainsString("const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-regiao-pendencias'];", self::tela());
         self::assertStringContainsString('relogioNovo.dataset.dia !== relogio.dataset.dia', $atualizar, 'virou o dia: recarrega');
         self::assertStringContainsString("document.querySelector('#ponto-regiao-folha > .card')", $atualizar, 'da folha, só o card');
 

@@ -29,6 +29,10 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * Este é o lado testável de verdade da frente: o bloco vem do servidor, então PHPUnit lê o HTML e
  * confere o que está escrito. O comportamento de JavaScript da mesma tela é coberto, no que dá,
  * por `App\Tests\Ponto\Unit\BatidaNaoTravaNoGpsTest`.
+ *
+ * Desenho novo do ponto (E1, P8, decisão do dono de 09/11/2026): a lista "Suas batidas de hoje" saiu e a hora
+ * de cada batida passou para o botão do próprio tipo (`#ponto-tipos`), com "--:--:--" no que falta. O invariante
+ * é o mesmo: o dia de hoje inteiro visível no cartão do botão, a duplicata legível e a batida que a folha conta.
  */
 #[CoversClass(PontoController::class)]
 final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
@@ -70,17 +74,17 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
         // O estado vem do atributo, não do texto: rótulo muda, invariante não.
         self::assertCount(
             1,
-            $crawler->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="entrada"][data-registrada="1"]'),
+            $crawler->filter('#ponto-tipos > button[role="radio"][data-tipo="entrada"][data-registrada="1"]'),
             'a entrada batida deveria estar marcada como registrada'
         );
         self::assertCount(
             1,
-            $crawler->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="saida"][data-registrada="0"]'),
+            $crawler->filter('#ponto-tipos > button[role="radio"][data-tipo="saida"][data-registrada="0"]'),
             'a saída que ainda não aconteceu deveria estar marcada como NÃO registrada'
         );
         self::assertStringContainsString(
-            'ainda não registrada',
-            $this->blocoDeHoje($client),
+            '--:--:--',
+            $crawler->filter('#ponto-tipos > button[data-tipo="saida"] > .pe-tipo-hora')->text(),
             'a pessoa precisa ler que falta bater, não deduzir de um espaço em branco'
         );
     }
@@ -106,12 +110,12 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
         );
         self::assertCount(
             1,
-            $crawler->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="entrada"][data-registrada="0"]'),
+            $crawler->filter('#ponto-tipos > button[role="radio"][data-tipo="entrada"][data-registrada="0"]'),
             'sem batida hoje, a entrada tem que aparecer como não registrada'
         );
     }
 
-    #[TestDox('o bloco fica dentro do card de registrar ponto, não perdido na página')]
+    #[TestDox('os tipos com a hora ficam dentro do cartão de registrar ponto, não perdidos na página')]
     public function testBlocoFicaNoCardDoBotao(): void
     {
         $client = static::createClient();
@@ -127,19 +131,19 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
         // lugar da página". No celular o card do botão é o que fica no alto; a folha vem depois.
         self::assertCount(
             1,
-            $crawler->filter('.card-primary > .card-body > #batidas-de-hoje'),
-            'o bloco precisa estar no corpo do card de registrar ponto'
+            $crawler->filter('section.pe-registrar > .pe-corpo > #ponto-tipo > #ponto-tipos'),
+            'os tipos com a hora precisam estar no corpo do cartão de registrar ponto'
         );
         self::assertCount(
             1,
-            $crawler->filter('.card-primary > .card-body > #batida-aviso'),
+            $crawler->filter('section.pe-registrar > .pe-corpo > #batida-aviso'),
             'o aviso de resultado precisa estar no mesmo card, onde a pessoa acabou de apertar'
         );
         // O script desreferencia este id na carga, sem guarda: sumindo do HTML, o `TypeError`
         // derruba o script inteiro e a tela do ponto para de funcionar com a suíte verde.
         self::assertCount(
             1,
-            $crawler->filter('.card-primary > .card-body > #btn-atualizar-pagina'),
+            $crawler->filter('section.pe-registrar > .pe-corpo > #btn-atualizar-pagina'),
             'o botão de atualizar precisa existir: o script o desreferencia na carga'
         );
     }
@@ -165,7 +169,7 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
         // revelá-la, e para o qual o aviso de "sem confirmação" manda a pessoa olhar antes de bater de novo.
         self::assertCount(
             1,
-            $crawler->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="entrada"][data-quantas="2"]'),
+            $crawler->filter('#ponto-tipos > button[role="radio"][data-tipo="entrada"][data-quantas="2"]'),
             'o card precisa dizer que existem DUAS entradas hoje'
         );
         self::assertStringContainsString(
@@ -192,7 +196,7 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/ponto/');
 
         self::assertResponseIsSuccessful();
-        $repouso = $crawler->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="repouso"]');
+        $repouso = $crawler->filter('#ponto-tipos > button[role="radio"][data-tipo="repouso"]');
         self::assertCount(1, $repouso);
         self::assertStringContainsString('09:00:00', $repouso->text(), 'o quadro mostra o repouso que a folha conta');
         self::assertStringNotContainsString('12:00:00', $repouso->text());
@@ -207,16 +211,13 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
         return (int) $hoje->format('d') === 1 ? $hoje->modify('+1 day') : $hoje->modify('-1 day');
     }
 
+    /** O texto dos quatro tipos de hoje (rótulo, hora e duplicata), que substituiu o bloco de batidas de hoje. */
     private function blocoDeHoje(object $client): string
     {
-        $html  = (string) $client->getResponse()->getContent();
-        $abre  = strpos($html, 'id="batidas-de-hoje"');
-        self::assertIsInt($abre, 'o bloco de batidas de hoje deveria existir na tela');
+        $tipos = $client->getCrawler()->filter('#ponto-tipos');
+        self::assertCount(1, $tipos, 'os tipos de hoje deveriam existir na tela');
 
-        $fecha = strpos($html, 'Justificar Falta', $abre);
-        self::assertIsInt($fecha, 'não achei o fim do bloco de batidas de hoje');
-
-        return substr($html, $abre, $fecha - $abre);
+        return $tipos->text();
     }
 
     private function criarTenant(): Tenant

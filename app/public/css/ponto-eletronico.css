@@ -1,0 +1,323 @@
+/* =============================================================================
+   ponto-eletronico.css: tela /ponto (Ponto Eletrônico).
+   Desenho aprovado: docs/design/redesign-08-11-26/16 - Ponto Eletronico - VS 08.11.26.dc.html
+   (spec docs/specs/ponto-desenho-0811.md, etapa E1: grade de duas colunas e o cartão "Registrar Ponto").
+
+   Tudo vive sob `.pe-page` (e `.pe-body` para o fundo). Nenhum seletor global: o arquivo carrega SÓ na
+   `ponto_index`. Os valores (cores, medidas, cantos de 3px) são os do CSS e dos `style=` do desenho; o
+   cabeçalho e o menu do topo do desenho são a moldura do sistema (base.html.twig) e não estão aqui.
+
+   Tokens: os hex do desenho ficam no tema CLARO; o ESCURO redefine cada um em cima de var(--bs-*), mesma
+   receita do agenda-nova.css.
+   ============================================================================= */
+
+/* Fundo do desenho (#f3f6f8) e o recuo DA PÁGINA (o `main` do desenho), não o do AdminLTE somado a ele. O
+   cabeçalho de avisos do sistema só some quando está vazio. */
+.pe-body .app-main,
+.pe-body .app-content,
+.pe-body .app-content-header { background: #f3f6f8; }
+[data-bs-theme="dark"] .pe-body .app-main,
+[data-bs-theme="dark"] .pe-body .app-content,
+[data-bs-theme="dark"] .pe-body .app-content-header { background: var(--bs-body-bg); }
+.pe-body .app-content-header:not(:has(.alert)) { padding: 0; min-height: 0; }
+.pe-body .app-content { padding: 0; }
+.pe-body .app-content > .container-fluid { padding-left: 0; padding-right: 0; }
+
+.pe-page {
+    --pe-texto:        #12242f;
+    --pe-link:         #0a6fa0;
+    --pe-link-hover:   #0b5f86;
+    --pe-card:         #fff;
+    --pe-borda:        #d3dde4;
+    --pe-div:          #e6edf2;
+    --pe-sombra:       rgba(18, 36, 47, .06);
+    --pe-azul:         #0a6fa0;
+    --pe-sobre-azul:   #fff;
+    --pe-corpo:        #243845;
+    --pe-texto-2:      #34505f;
+    --pe-texto-3:      #4a6373;
+    --pe-mudo:         #5b7383;
+    --pe-perigo:       #a3232b;
+    --pe-concluida:    #7a8e9b;
+    --pe-hover-sec:    #f3f6f8;
+
+    --pe-info-bd:      #9fc3d8;
+    --pe-info-bg:      #e5f1f7;
+    --pe-info-cor:     #0b4f75;
+    --pe-ok-bd:        #9fd0b2;
+    --pe-ok-bg:        #e8f5ee;
+    --pe-ok-cor:       #145a32;
+    --pe-alerta-bd:    #e0c36a;
+    --pe-alerta-bg:    #fff8e1;
+    --pe-alerta-cor:   #7a5200;
+    --pe-alerta-btn:   #d9a300;
+    --pe-erro-bd:      #f1c4c9;
+    --pe-erro-esq:     #a3232b;
+    --pe-erro-bg:      #fdecee;
+    --pe-erro-cor:     #7f1c23;
+
+    width: 100%;
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 20px clamp(10px, 2vw, 24px) 40px;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--pe-texto);
+}
+
+[data-bs-theme="dark"] .pe-page {
+    --pe-texto:        var(--bs-body-color);
+    --pe-link:         #4da3ea;
+    --pe-link-hover:   #3b8fd4;
+    --pe-card:         var(--bs-tertiary-bg);
+    --pe-borda:        var(--bs-border-color);
+    --pe-div:          var(--bs-border-color-translucent);
+    --pe-sombra:       rgba(0, 0, 0, .3);
+    --pe-azul:         #0a6fa0;
+    --pe-corpo:        var(--bs-body-color);
+    --pe-texto-2:      var(--bs-body-color);
+    --pe-texto-3:      var(--bs-secondary-color);
+    --pe-mudo:         var(--bs-secondary-color);
+    --pe-perigo:       #f07178;
+    --pe-concluida:    #5b6b76;
+    --pe-hover-sec:    rgba(255, 255, 255, .06);
+
+    --pe-info-bd:      rgba(77, 163, 234, .45);
+    --pe-info-bg:      rgba(77, 163, 234, .12);
+    --pe-info-cor:     #9ccdf2;
+    --pe-ok-bd:        rgba(64, 192, 120, .45);
+    --pe-ok-bg:        rgba(64, 192, 120, .12);
+    --pe-ok-cor:       #8fdcae;
+    --pe-alerta-bd:    rgba(224, 195, 106, .5);
+    --pe-alerta-bg:    rgba(224, 195, 106, .12);
+    --pe-alerta-cor:   #f0d27a;
+    --pe-alerta-btn:   rgba(224, 195, 106, .7);
+    --pe-erro-bd:      rgba(240, 113, 120, .45);
+    --pe-erro-esq:     #f07178;
+    --pe-erro-bg:      rgba(240, 113, 120, .12);
+    --pe-erro-cor:     #f5a3a8;
+}
+
+.pe-page a:not(.btn) { color: var(--pe-link); }
+.pe-page a:not(.btn):hover { color: var(--pe-link-hover); }
+
+/* ── Título e grade (L100 a L104, CSS L30 a L32 e L60 do desenho) ───────────────────────────────── */
+.pe-titulo {
+    margin: 0 0 14px;
+    font-family: inherit;
+    font-size: clamp(26px, 3.4vw, 36px);
+    font-weight: normal;
+    line-height: normal;
+    color: inherit;
+}
+.pe-grade { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.pe-esq { flex: 1 1 340px; max-width: 430px; min-width: 0; display: flex; flex-direction: column; gap: 16px; line-height: normal; }
+.pe-dir { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+@media (max-width: 980px) {
+    .pe-esq { max-width: none; flex-basis: 100%; }
+}
+
+/* ── Cartão "Registrar Ponto" (L105 a L140) ───────────────────────────────────────────────────── */
+.pe-registrar {
+    background: var(--pe-card);
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px var(--pe-sombra);
+}
+.pe-registrar-barra { display: flex; align-items: center; gap: 9px; padding: 11px 16px; background: var(--pe-azul); color: var(--pe-sobre-azul); }
+.pe-registrar-barra > .bi { font-size: 18px; }
+.pe-registrar-titulo { flex: 1; font-size: 16px; font-weight: bold; }
+.pe-banco { text-align: right; line-height: 1.15; }
+.pe-banco-rotulo { display: block; font-size: 10.5px; opacity: .9; }
+.pe-banco-valor { font-size: 15px; font-variant-numeric: tabular-nums; }
+
+.pe-corpo { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Situação, relógio e hora oficial (L109 a L112). */
+.pe-relogio { text-align: center; }
+.pe-situacao { font-size: 12.5px; color: var(--pe-texto-3); }
+.pe-relogio-tempo { font-size: clamp(44px, 7vw, 54px); line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.pe-hora-oficial { font-size: 12.5px; color: var(--pe-mudo); }
+.pe-hora-oficial b { color: var(--pe-corpo); font-variant-numeric: tabular-nums; }
+
+/* "X a mais hoje" (P13, fica): o desenho não tem; o verde é o do desenho do Expediente, em linha no template. */
+.pe-excedente { text-align: center; font-size: 15px; font-weight: bold; font-variant-numeric: tabular-nums; }
+.pe-excedente-rotulo { font-size: 12.5px; font-weight: normal; }
+
+/* Tipo de registro (L115 a L120). */
+.pe-tipo-rotulo { font-size: 12.5px; font-weight: bold; color: var(--pe-texto-2); margin-bottom: 6px; }
+.pe-obrigatorio { color: var(--pe-perigo); }
+.pe-tipos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.pe-tipos--ontem { opacity: .5; }
+.pe-tipo-btn {
+    min-height: 54px;
+    padding: 6px 2px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-texto-2);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+.pe-tipo-btn[aria-checked="true"] { border-color: var(--pe-azul); background: var(--pe-azul); color: var(--pe-sobre-azul); }
+.pe-tipo-btn--feito,
+.pe-tipo-btn:disabled { border-color: var(--pe-ok-bd); background: var(--pe-ok-bg); color: var(--pe-ok-cor); cursor: default; }
+.pe-tipo-hora { font-size: 11.5px; font-weight: normal; font-variant-numeric: tabular-nums; }
+/* Batida repetida do mesmo tipo (P8: o aviso que o sistema tem vai para o botão do tipo). */
+.pe-tipo-dup {
+    padding: 0 5px;
+    border: 1px solid var(--pe-alerta-bd);
+    border-radius: 3px;
+    background: var(--pe-alerta-bg);
+    color: var(--pe-alerta-cor);
+    font-size: 10.5px;
+    font-weight: bold;
+}
+
+/* Caixa com faixa colorida à esquerda (localização L123 e aviso do intervalo e da saída L126). O tom
+   vem da classe; vermelho é o da caixa "Código não localizado." do desenho. */
+.pe-caixa {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 11px;
+    border: 1px solid var(--pe-caixa-bd);
+    border-left: 4px solid var(--pe-caixa-esq);
+    border-radius: 3px;
+    background: var(--pe-caixa-bg);
+    color: var(--pe-caixa-cor);
+    font-size: 12.5px;
+    line-height: 1.4;
+}
+.pe-caixa > .bi { font-size: 15px; }
+.pe-caixa-texto { flex: 1; min-width: 0; }
+.pe-caixa--info    { --pe-caixa-bd: var(--pe-info-bd);   --pe-caixa-esq: var(--pe-info-bd);   --pe-caixa-bg: var(--pe-info-bg);   --pe-caixa-cor: var(--pe-info-cor); }
+.pe-caixa--success { --pe-caixa-bd: var(--pe-ok-bd);     --pe-caixa-esq: var(--pe-ok-bd);     --pe-caixa-bg: var(--pe-ok-bg);     --pe-caixa-cor: var(--pe-ok-cor); }
+.pe-caixa--warning { --pe-caixa-bd: var(--pe-alerta-bd); --pe-caixa-esq: var(--pe-alerta-bd); --pe-caixa-bg: var(--pe-alerta-bg); --pe-caixa-cor: var(--pe-alerta-cor); }
+.pe-caixa--danger  { --pe-caixa-bd: var(--pe-erro-bd);   --pe-caixa-esq: var(--pe-erro-esq);  --pe-caixa-bg: var(--pe-erro-bg);   --pe-caixa-cor: var(--pe-erro-cor); }
+.pe-caixa-atualizar {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 3px;
+}
+/* Passo a passo e botões do erro de localização (P10 b: o de hoje, no molde da caixa). */
+.pe-gps-btn {
+    display: block;
+    margin-top: 8px;
+    height: 26px;
+    padding: 0 9px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+.pe-gps-passos { margin: 4px 0 0; padding-left: 18px; }
+.pe-gps-outro { margin-top: 4px; }
+
+/* Resposta ao toque (P11 b): a caixa de hoje, no molde do desenho, até a tela cheia (P79) e o aviso
+   flutuante (P80) da E8. Texto corrido, não em linha com ícone. */
+.pe-aviso-batida { display: block; }
+.pe-aviso-linha { margin-top: 8px; }
+.pe-aviso-linha > .bi { margin-right: 4px; }
+.pe-aviso-link { margin-left: 4px; font-weight: bold; color: inherit; text-decoration: underline; }
+.pe-page a.pe-aviso-link:not(.btn) { color: inherit; }
+
+/* Última pendência (L128). */
+.pe-pendencia {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 11px;
+    border: 1px solid var(--pe-alerta-bd);
+    border-radius: 3px;
+    background: var(--pe-alerta-bg);
+    color: var(--pe-alerta-cor);
+    font-size: 12.5px;
+}
+.pe-pendencia-texto { flex: 1 1 160px; }
+.pe-pendencia-btn {
+    height: 26px;
+    padding: 0 9px;
+    border: 1px solid var(--pe-alerta-btn);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-alerta-cor);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Botão principal (L129). */
+.pe-bater {
+    height: 54px;
+    border: none;
+    border-radius: 3px;
+    background: var(--pe-azul);
+    color: var(--pe-sobre-azul);
+    font: inherit;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.pe-bater:hover:not(:disabled) { filter: brightness(.92); }
+.pe-bater:active:not(:disabled) { transform: scale(.99); }
+.pe-bater:disabled { cursor: default; }
+.pe-bater--concluida { background: var(--pe-concluida); }
+
+/* Botão secundário do cartão (Justificar falta L135; o "Atualizar e conferir" de hoje usa o mesmo molde). */
+.pe-btn-sec {
+    height: 36px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-texto-2);
+    font: inherit;
+    font-size: 13.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+.pe-btn-sec:hover { background: var(--pe-hover-sec); }
+.pe-atualizar { width: 100%; }
+
+/* Rodapé do cartão (L134 a L137). */
+.pe-rodape { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--pe-div); padding-top: 12px; }
+.pe-justificar { flex: 1 1 150px; }
+.pe-jornada { font-size: 12px; color: var(--pe-mudo); white-space: nowrap; }
+.pe-jornada b { color: var(--pe-corpo); }
+/* Selo da jornada (P17, fica): o desenho não tem; molde dos selos do desenho. */
+.pe-selo {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 5px;
+    border: 1px solid;
+    border-radius: 3px;
+    font-size: 10.5px;
+    font-weight: bold;
+}
+.pe-selo--personalizada { border-color: var(--pe-info-bd); background: var(--pe-info-bg); color: var(--pe-info-cor); }
+.pe-selo--padrao { border-color: var(--pe-borda); background: var(--pe-hover-sec); color: var(--pe-texto-3); }

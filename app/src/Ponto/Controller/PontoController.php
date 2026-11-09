@@ -245,6 +245,8 @@ final class PontoController extends AbstractController
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
             'esquecimentosRegistrados' => $esquecimentosRegistrados,
             'dataHoje'                 => $hojeStr,
+            // Hora oficial do cartão (desenho, D9): o instante do servidor; a tela só soma o tempo decorrido.
+            'agoraServidor'            => $agora,
             'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
         ]);
     }

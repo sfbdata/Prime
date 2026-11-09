@@ -1,194 +1,207 @@
 {% extends 'base.html.twig' %}
 
+{#
+    Ponto Eletrônico. Desenho aprovado: docs/design/redesign-08-11-26/16 - Ponto Eletronico - VS 08.11.26.dc.html
+    (spec docs/specs/ponto-desenho-0811.md; decisões de 09/11/2026 em bluejus-coordenacao/decisoes-desenhos-0911.md).
+    Etapa E1: grade de duas colunas e o cartão "Registrar Ponto" no molde do desenho, sobre o motor de hoje. A coluna
+    da direita (folha, pendências e justificativas) ainda é a de hoje: E2 e E3. O cabeçalho e o menu do topo do
+    desenho são a moldura do sistema (base.html.twig). CSS da tela: public/css/ponto-eletronico.css.
+#}
+
+{% block body_class %}pe-body{% endblock %}
+
 {% block stylesheets %}
-<style>
-@keyframes piscar-repouso {
-    0%, 100% { opacity: 1; }
-    50%      { opacity: 0.35; }
-}
-.repouso-disponivel-piscando {
-    animation: piscar-repouso 1s ease-in-out infinite;
-}
-</style>
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/ponto-eletronico.css') }}">
 {% endblock %}
 
 {% block title %}Ponto Eletrônico{% endblock %}
 
 {% block body %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-sm-6">
-            <h1 class="m-0">Ponto Eletrônico</h1>
-        </div>
-    </div>
+{% set rotulosDosTipos = {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} %}
+<div class="pe-page">
+    <h1 class="pe-titulo">Ponto Eletrônico</h1>
 
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card card-primary card-outline">
-                <div class="card-header d-flex align-items-center justify-content-between">
-                    <h3 class="card-title mb-0">Registrar Ponto</h3>
-                    {# Wrapper sempre presente: depois da batida a tela troca este bloco pelo do servidor (sem recarregar). #}
-                    <div id="ponto-banco-horas" class="ms-auto">
-                    {% if saldoMes is not null %}
-                        {% set absAcum = saldoMes < 0 ? -saldoMes : saldoMes %}
-                        <div class="text-end ms-auto">
-                            <small class="text-muted d-block" style="font-size:0.7rem;">Banco de horas</small>
-                            <span class="h6 fw-bold mb-0 {{ saldoMes >= 0 ? 'text-success' : 'text-danger' }}">
-                                {{ saldoMes < 0 ? '-' : '+' }}{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m
-                            </span>
-                        </div>
-                    {% endif %}
-                    </div>
+    <div class="pe-grade">
+        <div class="pe-esq">
+            <section class="pe-registrar" data-screen-label="Registrar Ponto">
+                <div class="pe-registrar-barra">
+                    <i class="bi bi-fingerprint" aria-hidden="true"></i>
+                    <span class="pe-registrar-titulo">Registrar Ponto</span>
+                    {# Wrapper sempre presente: depois da batida a tela troca este bloco pelo do servidor (sem recarregar).
+                       P2: até a E17 o número é o saldo de hoje (o do ano), em branco, sem verde nem vermelho; formato
+                       do desenho: "0h" no zero, senão sinal e XhYYm. O triângulo do limite não entra: não há limite. #}
+                    {% set absBanco = saldoMes < 0 ? -saldoMes : saldoMes %}
+                    <span id="ponto-banco-horas" class="pe-banco">
+                        <span class="pe-banco-rotulo">Banco de horas</span>
+                        <b class="pe-banco-valor">{{ saldoMes == 0 ? '0h' : (saldoMes < 0 ? '-' : '+') ~ (absBanco // 60) ~ 'h' ~ ('%02d'|format(absBanco % 60)) ~ 'm' }}</b>
+                    </span>
                 </div>
-                <div class="card-body text-center">
-                    <div id="clock-label" class="text-muted small mb-1"></div>
-                    <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
-                        <div id="clock" class="h1 mb-0" title="Tempo trabalhado hoje"
+
+                <div class="pe-corpo">
+                    {# P3, P4 e P5: situação do dia, relógio do tempo trabalhado e hora oficial. A situação e o
+                       relógio são redesenhados pelo JS a cada segundo; a hora oficial é a do SERVIDOR (D9), enviada
+                       aqui e ajustada pelo atraso da resposta, nunca a do aparelho. #}
+                    <div class="pe-relogio">
+                        <div id="clock-label" class="pe-situacao">
+                            {%- if pontoHoje.entrada is null -%}
+                                Aguardando entrada
+                            {%- elseif pontoHoje.saida is not null -%}
+                                Jornada encerrada
+                            {%- elseif pontoHoje.repouso is not null and pontoHoje.retorno is null -%}
+                                Em repouso
+                            {%- else -%}
+                                Em jornada
+                            {%- endif -%}
+                        </div>
+                        <div id="clock" class="pe-relogio-tempo"
                              data-dia="{{ dataHoje|e('html_attr') }}"
                              data-ponto-do-dia="{{ pontoHoje|default({})|json_encode|e('html_attr') }}">00:00:00</div>
+                        {% set diasDaSemana = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'] %}
+                        <div id="ponto-hora-oficial" class="pe-hora-oficial"
+                             data-agora-ms="{{ agoraServidor|date('Uv') }}"
+                             data-fuso="{{ agoraServidor|date('e')|e('html_attr') }}">Hora oficial <b id="ponto-hora-oficial-hora">{{ agoraServidor|date('H:i:s') }}</b> · <span id="ponto-hora-oficial-data">{{ diasDaSemana[agoraServidor|date('w')] }}, {{ agoraServidor|date('d/m/Y') }}</span></div>
                     </div>
 
-                    {# Horas excedentes do dia: verde do desenho do Expediente ("Em jornada desde"). Aparece só
-                       depois de cumprida a meta; o JS abaixo conta ao vivo. #}
-                    <div id="excedente-hoje" class="fw-bold mb-2 d-none" style="color:#1e7b45;" title="Tempo além da jornada de hoje"
+                    {# P13 (fica): horas excedentes do dia, verde do desenho do Expediente ("Em jornada desde").
+                       Aparece só depois de cumprida a meta; o JS abaixo conta ao vivo. #}
+                    <div id="excedente-hoje" class="pe-excedente d-none" style="color:#1e7b45;" title="Tempo além da jornada de hoje"
                          data-meta-dia-minutos="{{ metaDiaMinutos }}">
-                        <span id="excedente-hoje-valor"></span> <span class="small fw-normal">a mais hoje</span>
+                        <span id="excedente-hoje-valor"></span> <span class="pe-excedente-rotulo">a mais hoje</span>
                     </div>
 
-                    <div id="previsao-saida" class="text-muted small d-none mb-2" style="font-size:0.75rem;">
-                        Previsão de saída: <strong id="previsao-saida-horario"></strong>
-                    </div>
-
-                    <div id="contador-repouso" class="d-none alert small mb-3 py-2 text-center">
-                        <i class="bi bi-cup-hot me-1"></i>
-                        Repouso: <strong id="repouso-timer">00:00:00</strong>
-                        <div id="repouso-status" class="mt-1"></div>
-                    </div>
-
-                    {# Próximo tipo esperado: a primeira das quatro batidas que hoje ainda não
-                       tem. O select nascia sempre em "Selecione...", e como a tela recarrega 1,5 s
-                       depois de cada batida que dá certo, ele voltava a nascer vazio o dia inteiro
-                       — quem tocasse no botão sem abrir a lista não registrava nada. A sugestão é
-                       pré-seleção, não trava: os quatro tipos seguem disponíveis. #}
+                    {# Próximo tipo esperado: a primeira das quatro batidas que hoje ainda não tem. A seleção nascia
+                       vazia, e quem tocasse no botão sem escolher não registrava nada. P6: os quatro tipos lado a lado,
+                       o próximo já marcado; dá para escolher outro tipo livre. P7 (decisão do dono de 09/11/2026,
+                       muda a de ponto-batida-que-responde-e-conta-certa): o tipo já batido fica verde e não aceita
+                       clique; com os quatro feitos não há sugestão e o botão vira "Jornada de hoje concluída". #}
                     {% set tipoSugerido = null %}
                     {% for tipoPossivel in ['entrada', 'repouso', 'retorno', 'saida'] %}
                         {% if tipoSugerido is null and pontoHoje[tipoPossivel] is null %}
                             {% set tipoSugerido = tipoPossivel %}
                         {% endif %}
                     {% endfor %}
+                    {% set jornadaConcluida = tipoSugerido is null %}
 
-                    <div class="mb-3 text-start">
-                        <label for="tipo-registro" class="form-label fw-semibold">Tipo de registro <span class="text-danger">*</span></label>
-                        <select id="tipo-registro" class="form-select" required>
-                            <option value="">Selecione...</option>
-                            <option value="entrada" {{ tipoSugerido == 'entrada' ? 'selected' : '' }}>Entrada</option>
-                            <option value="repouso" {{ tipoSugerido == 'repouso' ? 'selected' : '' }}>Repouso</option>
-                            <option value="retorno" {{ tipoSugerido == 'retorno' ? 'selected' : '' }}>Retorno</option>
-                            <option value="saida" {{ tipoSugerido == 'saida' ? 'selected' : '' }}>Saída</option>
-                        </select>
-                    </div>
-
-                    {# O indicador de posição fica COLADO no botão, e não mais no topo do cartão.
-                       São duas caixas de propósito, com donos diferentes: esta conta o ESTADO
-                       (atualiza sozinha com o GPS, e é a única que fala antes de qualquer toque),
-                       e `#batida-aviso`, logo abaixo do botão, responde à AÇÃO. Fundi-las numa só
-                       traria de volta a disputa de dois donos pelo mesmo elemento — a atualização
-                       do GPS apagaria a resposta do toque segundos depois. O que se resolveu aqui
-                       foi a distância entre elas e a repetição do texto: esta explica a situação e
-                       o caminho, a de baixo é curta e fala só do que aconteceu com o toque. #}
-                    <div id="gps-status" class="alert alert-info small mb-3">
-                        <i class="bi bi-geo-alt"></i> Aguardando geolocalização
-                    </div>
-
-                    {# Nasce `disabled` e é o JS que o liga, na inicialização. Nenhum impedimento de
-                       REGRA desabilita mais: botão cinza não emite clique, e o toque de quem não
-                       escolheu o tipo ou está fora do raio não produzia NADA — indistinguível de
-                       "registrou" para quem não tem intimidade com a tela. Quem impede responde no
-                       clique, em `#batida-aviso`, logo abaixo.
-
-                       O `disabled` do HTML guarda o único caso que o clique NÃO alcança: o script
-                       não ter rodado (erro de JS, navegador antigo). Aí o botão fica cinza de
-                       verdade, porque bater ponto realmente não vai funcionar — e cinza honesto é
-                       melhor que um botão vivo que não responde, que é o defeito que esta frente
-                       existe para matar.
-
-                       O rótulo diz o tipo porque pré-selecionar sem mostrar trocaria o erro de
-                       "não escolheu" pelo de "não percebeu o que ia registrar". #}
-                    <button id="btn-bater-ponto" class="btn btn-lg btn-primary w-100" disabled>
-                        <i class="bi bi-fingerprint"></i> Bater Ponto
-                    </button>
-
-                    {# Resultado da última tentativa. Fica na tela até a próxima: o `alert` do
-                       navegador some quando a pessoa toca em OK e não deixa nada para conferir. #}
-                    <div id="batida-aviso" class="alert small mt-2 mb-0 text-start d-none" role="alert" aria-live="polite"></div>
-
-                    {# A lista abaixo é do momento em que a página carregou. Quando a resposta do
-                       servidor não volta, mandar conferir a lista SEM atualizá-la é pior do que não
-                       mandar nada: ela ainda diz "ainda não registrada" e confirma a conclusão
-                       errada, levando à segunda batida. Este botão é o jeito honesto de conferir. #}
-                    <button type="button" id="btn-atualizar-pagina" class="btn btn-sm btn-outline-secondary w-100 mt-2 d-none">
-                        <i class="bi bi-arrow-clockwise me-1"></i> Atualizar e conferir minhas batidas
-                    </button>
-
-                    {# Batidas de hoje. A tela não mostrava NENHUMA: depois do recarregamento a
-                       confirmação verde sumia e a pessoa só conferia rolando até a folha, que no
-                       celular fica abaixo deste card. Era o que sustentava o "parece que registrou". #}
-                    <div id="batidas-de-hoje" class="mt-3 text-start border-top pt-3">
-                        <p class="text-muted fw-semibold mb-2" style="font-size:0.75rem;">
-                            <i class="bi bi-list-check me-1"></i>Suas batidas de hoje
-                        </p>
-                        <ul class="list-unstyled mb-0">
-                            {% for tipo, rotulo in {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} %}
+                    <div id="ponto-tipo" class="pe-tipo">
+                        <div class="pe-tipo-rotulo">Tipo de registro <span class="pe-obrigatorio">*</span></div>
+                        {# P8: a hora de cada batida mora no botão do tipo (a lista "Suas batidas de hoje" saiu). O
+                           estado vem nos atributos: rótulo muda, invariante não. A duplicata ("N registros") também
+                           fica no botão: é o que o aviso de "sem confirmação" manda conferir antes de bater de novo.
+                           Depois da batida a tela troca este grupo pelo do servidor (sem recarregar). #}
+                        <div id="ponto-tipos" class="pe-tipos" role="radiogroup" aria-label="Tipo de registro">
+                            {% for tipo, rotulo in rotulosDosTipos %}
                                 {% set horario = pontoHoje[tipo]|default(null) %}
                                 {% set quantas = quantasHoje[tipo]|default(0) %}
-                                <li class="d-flex justify-content-between align-items-center py-1 batida-de-hoje"
-                                    data-tipo="{{ tipo }}" data-registrada="{{ horario ? '1' : '0' }}" data-quantas="{{ quantas }}">
-                                    <span class="small {{ horario ? '' : 'text-muted' }}">
-                                        <i class="bi {{ horario ? 'bi-check-circle-fill text-success' : 'bi-circle' }} me-1"></i>{{ rotulo }}
-                                        {% if quantas > 1 %}
-                                            {# Duplicata precisa aparecer AQUI. É este bloco que o aviso de "sem
-                                               confirmação" manda conferir antes de bater de novo. #}
-                                            <span class="badge text-bg-warning ms-1">{{ quantas }} registros</span>
-                                        {% endif %}
-                                    </span>
-                                    <span class="small fw-semibold {{ horario ? '' : 'text-muted fw-normal' }}">
-                                        {{ horario ? horario : 'ainda não registrada' }}
-                                    </span>
-                                </li>
+                                <button type="button" role="radio" class="pe-tipo-btn{{ horario ? ' pe-tipo-btn--feito' : '' }}"
+                                        data-tipo="{{ tipo }}" data-registrada="{{ horario ? '1' : '0' }}" data-quantas="{{ quantas }}"
+                                        aria-checked="{{ tipoSugerido == tipo ? 'true' : 'false' }}" tabindex="{{ tipoSugerido == tipo ? '0' : '-1' }}"{% if horario %} disabled{% endif %}>
+                                    <span>{{ rotulo }}</span>
+                                    <span class="pe-tipo-hora">{{ horario ? horario : '--:--:--' }}</span>
+                                    {% if quantas > 1 %}
+                                        <span class="pe-tipo-dup">{{ quantas }} registros</span>
+                                    {% endif %}
+                                </button>
                             {% endfor %}
-                        </ul>
-                    </div>
-
-                    <button type="button" class="btn btn-outline-warning w-100 mt-3"
-                            data-bs-toggle="modal" data-bs-target="#modalJustificativa">
-                        <i class="bi bi-calendar-x me-1"></i> Justificar Falta
-                    </button>
-                </div>
-            </div>
-
-            <div id="ponto-regiao-pendencias">
-                {% include 'ponto/_pendencias.html.twig' with {pendencias: pendencias} only %}
-            </div>
-
-            {% if jornadaInfo is not null %}
-                {% set horas = jornadaInfo.cargaHorariaSemanal // 60 %}
-                {% set mins  = jornadaInfo.cargaHorariaSemanal % 60 %}
-                <div class="card card-outline card-secondary mt-3">
-                    <div class="card-body py-2 px-3 d-flex align-items-center gap-2">
-                        <i class="bi bi-calendar-week text-secondary"></i>
-                        <div class="small">
-                            <span class="text-muted">Jornada semanal:</span>
-                            <strong class="ms-1">{{ horas }}h{{ '%02d'|format(mins) }}m</strong>
-                            <span class="badge ms-2 {{ jornadaInfo.fonte == 'personalizada' ? 'text-bg-primary' : 'text-bg-secondary' }}">
-                                {{ jornadaInfo.fonte == 'personalizada' ? 'Personalizada' : 'Padrão do escritório' }}
-                            </span>
                         </div>
+                        {# O tipo escolhido. Fica fora do grupo de propósito: o grupo é trocado depois da batida e
+                           esta referência continua viva. #}
+                        <input type="hidden" id="tipo-registro" value="{{ tipoSugerido }}">
+                    </div>
+
+                    {# P9: caixa da localização, com a faixa colorida do desenho. Esta conta o ESTADO (atualiza
+                       sozinha com o GPS, e é a única que fala antes de qualquer toque); `#batida-aviso`, abaixo do
+                       botão, responde à AÇÃO. São duas caixas de propósito, com donos diferentes: fundi-las traria de
+                       volta a disputa pelo mesmo elemento. Fora da área, Home Office (P19) e erro (P10 b, com o passo
+                       a passo de hoje) ganham o mesmo molde. #}
+                    {% if homeOfficeHoje %}
+                        <div id="gps-status" class="pe-caixa pe-caixa--info">
+                            <i class="bi bi-house-laptop" aria-hidden="true"></i>
+                            <span class="pe-caixa-texto">Home Office hoje: o ponto será registrado sem exigir localização.</span>
+                        </div>
+                    {% else %}
+                        <div id="gps-status" class="pe-caixa pe-caixa--info">
+                            <i class="bi bi-crosshair" aria-hidden="true"></i>
+                            <span class="pe-caixa-texto">Obtendo a sua localização...</span>
+                            <button type="button" id="btn-gps-atualizar" class="pe-caixa-atualizar" aria-label="Atualizar localização" title="Atualizar localização"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+                        </div>
+                    {% endif %}
+
+                    {# P12: intervalo em andamento ou cumprido, saída prevista e saída passada. Desenhada pelo JS. O mínimo
+                       do intervalo é o da Jornada do escritório e só vale com a validação do repouso ligada (regra em
+                       vigor); desligada, vai 0 e o aviso do intervalo não aparece. #}
+                    <div id="ponto-aviso-dia" class="pe-caixa d-none"
+                         data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada ? minimoMinutosRepouso : 0 }}"></div>
+
+                    {# P14: antes da entrada do dia, a pendência mais recente DESTE escritório (as dos outros pedem a
+                       troca de escritório e ficam na lista de pendências). "Regularizar" abre o mesmo "+" da folha. #}
+                    {% set ultimaPendencia = pendencias|filter(p => p.atual)|first %}
+                    {% if ultimaPendencia and pontoHoje.entrada is null %}
+                        {% set faltas = {'entrada': 'falta a entrada', 'repouso': 'falta a ida ao repouso', 'retorno': 'falta o retorno do repouso', 'saida': 'falta a saída'} %}
+                        <div id="ponto-ultima-pendencia" class="pe-pendencia">
+                            <span class="pe-pendencia-texto">Última pendência: {{ ultimaPendencia.dia|date('d/m/Y') }}, {{ faltas[ultimaPendencia.tipo] }}.</span>
+                            <button type="button" id="btn-regularizar-pendencia" class="pe-pendencia-btn"
+                                    data-dia="{{ ultimaPendencia.dia }}" data-tipo="{{ ultimaPendencia.tipo }}"
+                                    data-url="{{ path('ponto_index', {competencia: ultimaPendencia.dia|slice(0, 7), esquecimento: ultimaPendencia.dia ~ ':' ~ ultimaPendencia.tipo}) }}">Regularizar</button>
+                        </div>
+                    {% endif %}
+
+                    {# Nasce `disabled` e é o JS que o liga, na inicialização. Nenhum impedimento de REGRA desabilita:
+                       botão cinza não emite clique, e o toque de quem não escolheu o tipo ou está fora do raio não
+                       produzia NADA, indistinguível de "registrou" para quem não tem intimidade com a tela. Quem
+                       impede responde no clique, em `#batida-aviso`, logo abaixo.
+
+                       O `disabled` do HTML guarda o único caso que o clique NÃO alcança: o script não ter rodado (erro
+                       de JS, navegador antigo). Aí o botão fica cinza de verdade, porque bater ponto realmente não vai
+                       funcionar.
+
+                       A outra trava é a do desenho (P7, decisão do dono de 09/11/2026): com os quatro tipos batidos o
+                       botão vira "Jornada de hoje concluída", cinza e sem clique. Não há o que bater: não é impedimento
+                       mudo, é o dia completo escrito no próprio botão.
+
+                       O rótulo diz o tipo porque pré-selecionar sem mostrar trocaria o erro de "não escolheu" pelo de
+                       "não percebeu o que ia registrar". A digital é o desenho do `bi-fingerprint` (L129). #}
+                    <button id="btn-bater-ponto" type="button" class="pe-bater{{ jornadaConcluida ? ' pe-bater--concluida' : '' }}" disabled>
+                        <svg viewBox="0 0 16 16" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8.06 6.5a.5.5 0 0 1 .5.5v.776a11.5 11.5 0 0 1-.552 3.519l-1.331 4.14a.5.5 0 0 1-.952-.305l1.33-4.141a10.5 10.5 0 0 0 .504-3.213V7a.5.5 0 0 1 .5-.5Z"></path><path d="M6.06 7a2 2 0 1 1 4 0 .5.5 0 1 1-1 0 1 1 0 1 0-2 0v.332q0 .613-.066 1.221A.5.5 0 0 1 6 8.447q.06-.555.06-1.115zm3.509 1a.5.5 0 0 1 .487.513 11.5 11.5 0 0 1-.587 3.339l-1.266 3.8a.5.5 0 0 1-.949-.317l1.267-3.8a10.5 10.5 0 0 0 .535-3.048A.5.5 0 0 1 9.569 8m-3.356 2.115a.5.5 0 0 1 .33.626L5.24 14.939a.5.5 0 1 1-.955-.296l1.303-4.199a.5.5 0 0 1 .625-.329"></path><path d="M4.759 5.833A3.501 3.501 0 0 1 11.559 7a.5.5 0 0 1-1 0 2.5 2.5 0 0 0-4.857-.833.5.5 0 1 1-.943-.334m.3 1.67a.5.5 0 0 1 .449.546 10.7 10.7 0 0 1-.4 2.031l-1.222 4.072a.5.5 0 1 1-.958-.287L4.15 9.793a9.7 9.7 0 0 0 .363-1.842.5.5 0 0 1 .546-.449Zm6 .647a.5.5 0 0 1 .5.5c0 1.28-.213 2.552-.632 3.762l-1.09 3.145a.5.5 0 0 1-.944-.327l1.089-3.145c.382-1.105.578-2.266.578-3.435a.5.5 0 0 1 .5-.5Z"></path><path d="M3.902 4.222a5 5 0 0 1 5.202-2.113.5.5 0 0 1-.208.979 4 4 0 0 0-4.163 1.69.5.5 0 0 1-.831-.556m6.72-.955a.5.5 0 0 1 .705-.052A4.99 4.99 0 0 1 13.059 7v1.5a.5.5 0 1 1-1 0V7a3.99 3.99 0 0 0-1.386-3.028.5.5 0 0 1-.051-.705M3.68 5.842a.5.5 0 0 1 .422.568q-.044.289-.044.59c0 .71-.1 1.417-.298 2.1l-1.14 3.923a.5.5 0 1 1-.96-.279L2.8 8.821A6.5 6.5 0 0 0 3.058 7q0-.375.054-.736a.5.5 0 0 1 .568-.422m8.882 3.66a.5.5 0 0 1 .456.54c-.084 1-.298 1.986-.64 2.934l-.744 2.068a.5.5 0 0 1-.941-.338l.745-2.07a10.5 10.5 0 0 0 .584-2.678.5.5 0 0 1 .54-.456"></path><path d="M4.81 1.37A6.5 6.5 0 0 1 14.56 7a.5.5 0 1 1-1 0 5.5 5.5 0 0 0-8.25-4.765.5.5 0 0 1-.5-.865m-.89 1.257a.5.5 0 0 1 .04.706A5.48 5.48 0 0 0 2.56 7a.5.5 0 0 1-1 0c0-1.664.626-3.184 1.655-4.333a.5.5 0 0 1 .706-.04ZM1.915 8.02a.5.5 0 0 1 .346.616l-.779 2.767a.5.5 0 1 1-.962-.27l.778-2.767a.5.5 0 0 1 .617-.346m12.15.481a.5.5 0 0 1 .49.51c-.03 1.499-.161 3.025-.727 4.533l-.07.187a.5.5 0 0 1-.936-.351l.07-.187c.506-1.35.634-2.74.663-4.202a.5.5 0 0 1 .51-.49"></path></svg>{{ jornadaConcluida ? 'Jornada de hoje concluída' : 'Bater Ponto: ' ~ rotulosDosTipos[tipoSugerido] }}
+                    </button>
+
+                    {# Resultado da última tentativa (P11 b: fica até a tela cheia e o aviso flutuante da E8). Fica na
+                       tela até a próxima: o `alert` do navegador some quando a pessoa toca em OK. #}
+                    <div id="batida-aviso" class="pe-caixa pe-aviso-batida d-none" role="alert" aria-live="polite"></div>
+
+                    {# Quando a resposta do servidor não volta, mandar conferir as batidas SEM atualizá-las é pior do
+                       que não mandar nada: os botões dos tipos ainda dizem "--:--:--" e confirmam a conclusão errada,
+                       levando à segunda batida. Este botão é o jeito honesto de conferir. #}
+                    <button type="button" id="btn-atualizar-pagina" class="pe-btn-sec pe-atualizar d-none">
+                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>Atualizar e conferir minhas batidas
+                    </button>
+
+                    {# P16: rodapé do cartão. A jornada semanal é a carga da jornada que vale hoje para a pessoa (D1),
+                       nunca o "44h00m" do protótipo; sem jornada, o trecho não aparece. P17 (fica): o selo da fonte. O
+                       botão de som (P81) entra com os sons, na E8. "Justificar falta" abre o formulário de hoje até a
+                       E4 trazer o do desenho. #}
+                    <div class="pe-rodape">
+                        <button type="button" id="btn-justificar-falta" class="pe-btn-sec pe-justificar"
+                                data-bs-toggle="modal" data-bs-target="#modalJustificativa">
+                            <i class="bi bi-calendar-check" aria-hidden="true"></i>Justificar falta
+                        </button>
+                        {% if jornadaInfo is not null %}
+                            {% set horas = jornadaInfo.cargaHorariaSemanal // 60 %}
+                            {% set mins  = jornadaInfo.cargaHorariaSemanal % 60 %}
+                            <span class="pe-jornada">Jornada semanal <b>{{ horas }}h{{ '%02d'|format(mins) }}m</b>
+                                {%- if jornadaInfo.fonte == 'personalizada' -%}
+                                    <span class="pe-selo pe-selo--personalizada">Personalizada</span>
+                                {%- else -%}
+                                    <span class="pe-selo pe-selo--padrao">Padrão do escritório</span>
+                                {%- endif -%}
+                            </span>
+                        {% endif %}
                     </div>
                 </div>
-            {% endif %}
+            </section>
         </div>
 
-        <div class="col-md-8">
+        <div class="pe-dir">
             {# Depois da batida a tela troca o card da folha (o primeiro filho) pelo do servidor, sem recarregar. #}
             <div id="ponto-regiao-folha">
             {% include 'ponto/_folha_table.html.twig' with {
@@ -208,6 +221,12 @@
                 horasPagasMinutos: horasPagasMinutos,
                 saldoMesMinutos: saldoMesMinutos
             } only %}
+            </div>
+
+            {# Pendências de registro: no desenho são a primeira aba do cartão da direita (E3). Até lá, logo abaixo da
+               folha, na ordem das abas. #}
+            <div id="ponto-regiao-pendencias">
+                {% include 'ponto/_pendencias.html.twig' with {pendencias: pendencias} only %}
             </div>
 
             {% include 'ponto/_justificativas_list.html.twig' with {justificativas: justificativas} only %}
@@ -301,7 +320,9 @@
 
 <script src="{{ asset('js/ponto-batida.js') }}"></script>
 <script>
-    const GPS_PRECISAO_ACEITAVEL_METROS = 90;
+    // Limite entre "Localização confirmada" e "GPS impreciso" (P9, valor do desenho). Só muda o texto da caixa: quem
+    // decide se a batida passa é a cerca, com a margem da precisão (`PontoBatida.avaliarPosicao`), e o servidor.
+    const GPS_PRECISAO_ACEITAVEL_METROS = 50;
 
     // Data de hoje SEGUNDO O SERVIDOR. Fica no escopo do script inteiro porque dois trechos
     // precisam dela: o relógio, para montar os horários do dia, e a checagem de virada do dia.
@@ -316,10 +337,67 @@
     // pior de notar. Fechar isso exige o servidor mandar o próprio deslocamento; não está feito.
     const [anoHoje, mesHoje, diaHoje] = JSON.parse('{{ dataHoje|json_encode|e('js') }}').split('-').map(Number);
 
-    // Troca o estado do dia que o relógio usa (entrada, repouso, retorno, saída) e redesenha relógio, previsão de saída,
-    // contador do repouso e excedente. A tela chama depois da batida, com o `data-ponto-do-dia` que o servidor entregou
+    // Troca o estado do dia que o relógio usa (entrada, repouso, retorno, saída) e redesenha situação, relógio, aviso do
+    // intervalo e da saída e excedente. A tela chama depois da batida, com o `data-ponto-do-dia` que o servidor entregou
     // (spec ponto-atualiza-sem-recarregar). Antes, o estado era `const` lido uma vez na carga.
     let aplicarPontoDoDia = function () {};
+
+    // Hora oficial (P5): a do SERVIDOR, nunca a do aparelho (D9: hora feita no navegador é falsificável e o celular pode
+    // estar com o relógio ou o fuso errados). O servidor manda o instante em que montou a página (`data-agora-ms`) e o
+    // fuso dele; aqui fica só o deslocamento entre esse instante e a chegada da resposta, somado ao relógio do aparelho
+    // para a hora andar. Página que voltou do cache pelo botão Voltar traz o instante de antes: a hora some
+    // ("--:--:--") até buscar a página de novo, em vez de mostrar uma hora velha como oficial.
+    (function () {
+        const origem = document.getElementById('ponto-hora-oficial');
+        const horaEl = document.getElementById('ponto-hora-oficial-hora');
+        const dataEl = document.getElementById('ponto-hora-oficial-data');
+        if (!origem || !horaEl || !dataEl) {
+            return;
+        }
+        const fuso = origem.dataset.fuso || undefined;
+        const formatoHora = criarFormato({ hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+        const formatoData = criarFormato({ weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+        let deslocamento = null;
+
+        function criarFormato(opcoes) {
+            try {
+                return new Intl.DateTimeFormat('pt-BR', Object.assign({ timeZone: fuso }, opcoes));
+            } catch (erro) {
+                return new Intl.DateTimeFormat('pt-BR', opcoes);
+            }
+        }
+
+        function desenhar() {
+            if (deslocamento === null) {
+                horaEl.textContent = '--:--:--';
+                return;
+            }
+            const agoraNoServidor = new Date(Date.now() + deslocamento);
+            horaEl.textContent = formatoHora.format(agoraNoServidor);
+            dataEl.textContent = formatoData.format(agoraNoServidor);
+        }
+
+        function sincronizar(agoraMs, chegadaMs) {
+            if (Number.isFinite(agoraMs) && agoraMs > 0) {
+                deslocamento = agoraMs - chegadaMs;
+            }
+            desenhar();
+        }
+
+        const navegacao = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || null;
+        const doCache = !!navegacao && navegacao.type === 'back_forward' && navegacao.transferSize === 0;
+        if (!doCache) {
+            const chegada = navegacao && navegacao.responseStart > 0 ? performance.timeOrigin + navegacao.responseStart : Date.now();
+            sincronizar(Number(origem.dataset.agoraMs), chegada);
+        } else if (window.PontoBatida) {
+            window.PontoBatida.buscarTelaDoPonto(window.location.href).then((novo) => {
+                const nova = novo.getElementById('ponto-hora-oficial');
+                sincronizar(Number(nova && nova.dataset.agoraMs), Date.now());
+            }).catch(() => desenhar());
+        }
+        setInterval(desenhar, 1000);
+        desenhar();
+    })();
 
     // Contador de tempo trabalhado no dia
     (function() {
@@ -337,29 +415,20 @@
         let tRetorno = null;
         let tSaida   = null;
 
+        // Duração da escala de hoje, da entrada à saída (conta o almoço); null sem entrada ou saída na escala.
         const duracaoMinutos = {{ duracaoJornadaDiariaMinutos is not null ? duracaoJornadaDiariaMinutos : 'null' }};
-        const previsaoSaidaEl = document.getElementById('previsao-saida');
-
-        // Mesma regra do servidor na carga: só com entrada, sem saída e com jornada definida. Fora disso, escondida.
-        function atualizarPrevisaoSaida() {
-            if (!tEntrada || tSaida || duracaoMinutos === null) {
-                previsaoSaidaEl.classList.add('d-none');
-                return;
-            }
-
-            const saidaPrevista = new Date(tEntrada.getTime() + duracaoMinutos * 60 * 1000);
-            const hh = String(saidaPrevista.getHours()).padStart(2, '0');
-            const mm = String(saidaPrevista.getMinutes()).padStart(2, '0');
-            document.getElementById('previsao-saida-horario').textContent = `${hh}:${mm}`;
-            previsaoSaidaEl.classList.remove('d-none');
-        }
 
         function definirPontoDoDia(pontoHoje) {
             tEntrada = parseHMS(pontoHoje.entrada);
             tRepouso = parseHMS(pontoHoje.repouso);
             tRetorno = parseHMS(pontoHoje.retorno);
             tSaida   = parseHMS(pontoHoje.saida);
-            atualizarPrevisaoSaida();
+            // P14: a faixa da última pendência é só de antes da entrada do dia. Ela vem do servidor e não entra
+            // na troca depois da batida; com a entrada batida, some aqui.
+            const faixaDaPendencia = document.getElementById('ponto-ultima-pendencia');
+            if (faixaDaPendencia && tEntrada) {
+                faixaDaPendencia.classList.add('d-none');
+            }
         }
 
         definirPontoDoDia(JSON.parse(clockEl.dataset.pontoDoDia || '{}'));
@@ -395,42 +464,6 @@
             return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
         }
 
-        const contadorRepousoEl = document.getElementById('contador-repouso');
-        const repousoTimerEl    = document.getElementById('repouso-timer');
-        const repousoStatusEl   = document.getElementById('repouso-status');
-        const validacaoRepouso  = {{ validacaoRepousoHabilitada ? 'true' : 'false' }};
-        const minimoRepouso     = {{ minimoMinutosRepouso }};
-
-        function updateContadorRepouso() {
-            if (!tRepouso || tRetorno || tSaida) {
-                contadorRepousoEl.classList.add('d-none');
-                return;
-            }
-
-            const agora   = new Date();
-            const diffMs  = agora - tRepouso;
-            const totalSeg = Math.floor(diffMs / 1000);
-
-            repousoTimerEl.textContent = formatarTempo(totalSeg);
-            contadorRepousoEl.classList.remove('d-none');
-
-            if (validacaoRepouso) {
-                const diffMin  = Math.floor(diffMs / 60000);
-                const restante = minimoRepouso - diffMin;
-
-                if (restante > 0) {
-                    repousoStatusEl.textContent = `Retorno disponível em ${restante} min`;
-                    contadorRepousoEl.className = 'alert alert-success small mb-3 py-2 text-center';
-                } else {
-                    repousoStatusEl.textContent = 'Retorno disponível';
-                    contadorRepousoEl.className = 'alert alert-warning small mb-3 py-2 text-center repouso-disponivel-piscando';
-                }
-            } else {
-                repousoStatusEl.textContent = '';
-                contadorRepousoEl.className = 'alert alert-info small mb-3 py-2 text-center';
-            }
-        }
-
         // Horas excedentes: trabalhado (a conta da folha, acima) menos a meta do dia. Abaixo da meta ou com
         // meta 0, escondido. Pausa no intervalo e fica parado depois da saída, como o relógio.
         const excedenteEl      = document.getElementById('excedente-hoje');
@@ -454,6 +487,80 @@
             excedenteEl.classList.add('d-none');
         }
 
+        // P12 (desenho, decisão do dono de 09/11/2026): o aviso do dia no cartão. Em repouso, quanto falta para
+        // o intervalo mínimo do escritório; depois da entrada, a saída prevista e o lembrete quando ela passa.
+        // Usa a mesma hora do aparelho que o relógio; a regra do intervalo continua no servidor.
+        const avisoDiaEl = document.getElementById('ponto-aviso-dia');
+        // O mínimo do aviso vem do servidor já com a chave do escritório: 0 com a validação do repouso desligada.
+        const minimoRepousoMinutos = avisoDiaEl ? (Number(avisoDiaEl.dataset.intervaloMinimoMinutos) || 0) : 0;
+        // Para a previsão da saída sem o almoço batido: o mínimo configurado na Jornada do escritório.
+        const intervaloPrevistoMinutos = {{ minimoMinutosRepouso }};
+
+        function formatarMinimo(minutos) {
+            const h = Math.floor(minutos / 60);
+            const m = minutos % 60;
+            if (h === 0) return m + 'min';
+
+            return m === 0 ? h + 'h' : h + 'h' + String(m).padStart(2, '0');
+        }
+
+        // Entrada + meta do dia + intervalo: o batido, se houver; senão o mínimo da Jornada do escritório, só quando a escala
+        // de hoje tem almoço (duração maior que a meta). Sem meta (feriado, dia fora da escala), sem previsão.
+        function saidaPrevista() {
+            if (!tEntrada || metaDiaMinutos <= 0) return null;
+            const escalaTemIntervalo = duracaoMinutos === null || duracaoMinutos > metaDiaMinutos;
+            let intervaloMs = escalaTemIntervalo ? intervaloPrevistoMinutos * 60000 : 0;
+            if (tRepouso && tRetorno && tRetorno > tRepouso) {
+                intervaloMs = tRetorno - tRepouso;
+            }
+
+            return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + intervaloMs);
+        }
+
+        // Redesenha só quando o texto muda (o relógio chama a cada segundo). Texto e ícone via DOM, sem innerHTML.
+        function mostrarAvisoDoDia(tom, icone, texto) {
+            if (!avisoDiaEl) return;
+            const chave = texto ? tom + '|' + texto : '';
+            if (avisoDiaEl.dataset.chave === chave) return;
+            avisoDiaEl.dataset.chave = chave;
+            if (!texto) {
+                avisoDiaEl.classList.add('d-none');
+                return;
+            }
+            const iconeEl = document.createElement('i');
+            iconeEl.className = 'bi ' + icone;
+            iconeEl.setAttribute('aria-hidden', 'true');
+            const textoEl = document.createElement('span');
+            textoEl.className = 'pe-caixa-texto';
+            textoEl.textContent = texto;
+            avisoDiaEl.replaceChildren(iconeEl, textoEl);
+            avisoDiaEl.className = 'pe-caixa pe-caixa--' + tom;
+        }
+
+        function atualizarAvisoDoDia(agora) {
+            if (tRepouso && !tRetorno && !tSaida && minimoRepousoMinutos > 0) {
+                const minimo = formatarMinimo(minimoRepousoMinutos);
+                const restante = minimoRepousoMinutos * 60 - Math.floor((agora - tRepouso) / 1000);
+                if (restante > 0) {
+                    mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento. O mínimo de ' + minimo + ' se completa em ' + formatarHorasMinutos(restante) + '.');
+                    return;
+                }
+                mostrarAvisoDoDia('success', 'bi-check-circle', 'Intervalo mínimo de ' + minimo + ' cumprido.');
+                return;
+            }
+            const previsao = tSaida ? null : saidaPrevista();
+            if (!previsao) {
+                mostrarAvisoDoDia('', '', '');
+                return;
+            }
+            const hora = String(previsao.getHours()).padStart(2, '0') + ':' + String(previsao.getMinutes()).padStart(2, '0');
+            if (agora > previsao) {
+                mostrarAvisoDoDia('warning', 'bi-bell', 'Passou da saída prevista (' + hora + '). Não esqueça de registrar a saída.');
+                return;
+            }
+            mostrarAvisoDoDia('info', 'bi-bell', 'Saída prevista às ' + hora + '.');
+        }
+
         function updateClock() {
             const agora = new Date();
             let label = '';
@@ -472,11 +579,11 @@
             } else {
                 const segundos = calcSegundosTrabalhados(agora);
                 clockEl.textContent = formatarTempo(segundos);
-                label = 'Tempo trabalhado';
+                label = 'Em jornada';
             }
 
             labelEl.textContent = label;
-            updateContadorRepouso();
+            atualizarAvisoDoDia(agora);
             updateExcedente(agora);
         }
 
@@ -514,6 +621,8 @@
     // callback ser assíncrono, e um refactor deixaria a tela morrer na carga.
     const avisoBatida = document.getElementById('batida-aviso');
     const btnAtualizarPagina = document.getElementById('btn-atualizar-pagina');
+    // Botão redondo da caixa da localização (desenho): refaz a busca. Fica ausente no home office.
+    const btnAtualizarGps = document.getElementById('btn-gps-atualizar');
 
     /**
      * Quem manda no botão "Atualizar e conferir" quando a cerca e um aviso discordam.
@@ -546,15 +655,37 @@
     // duplicada. Nenhum impedimento de REGRA desabilita mais: tipo não escolhido, falta de posição
     // e cerca são verificados no clique (ver o handler de `btnPonto`), cada um com sua mensagem em
     // `#batida-aviso`. A cerca continua bloqueando o envio — o que mudou foi só o feedback.
+    //
+    // P7 (decisão do dono de 09/11/2026): a segunda e última trava é o dia COMPLETO. Com os quatro tipos de hoje
+    // batidos não há o que registrar, e o botão vira "Jornada de hoje concluída", cinza e sem clique. Não é
+    // impedimento de regra (tipo, posição, cerca): esses continuam respondendo ao toque.
     function updateButtonState() {
-        btnPonto.disabled = envioEmAndamento;
+        const concluida = jornadaConcluida();
+        btnPonto.disabled = envioEmAndamento || concluida;
+        btnPonto.classList.toggle('pe-bater--concluida', concluida);
+    }
+
+    // Dia completo: nenhum dos quatro tipos de HOJE livre. Depois da virada do dia (`.pe-tipos--ontem`) os tipos
+    // são de ontem e não contam, e o botão volta a responder.
+    function jornadaConcluida() {
+        const tipos = document.getElementById('ponto-tipos');
+        if (!tipos || tipos.classList.contains('pe-tipos--ontem')) {
+            return false;
+        }
+
+        return tipos.querySelector('button[role="radio"]:not(:disabled)') === null;
     }
 
     const ROTULOS_TIPO = { entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída' };
+    // A digital do desenho vem no HTML do botão; o rótulo redesenhado reaproveita o mesmo SVG.
+    const ICONE_DIGITAL = (btnPonto.querySelector('svg') || { outerHTML: '' }).outerHTML;
 
     function rotuloBotaoBatida() {
+        if (jornadaConcluida()) {
+            return ICONE_DIGITAL + 'Jornada de hoje concluída';
+        }
         const nome = ROTULOS_TIPO[tipoRegistro.value];
-        return '<i class="bi bi-fingerprint"></i> Bater Ponto' + (nome ? ': ' + nome : '');
+        return ICONE_DIGITAL + 'Bater Ponto' + (nome ? ': ' + nome : '');
     }
 
     function atualizarRotuloBotao() {
@@ -568,6 +699,56 @@
     tipoRegistro.addEventListener('change', function() {
         updateButtonState();
         atualizarRotuloBotao();
+        marcarTipoEscolhido();
+    });
+
+    // P6 (desenho): os quatro tipos são botões de rádio (`role="radio"`, como no desenho) que escrevem no
+    // `#tipo-registro` escondido, que continua sendo o valor que o envio lê. Clique e teclado são delegados ao
+    // contêiner porque a lista é trocada depois de cada batida (`atualizarTelaDoPonto`). Tipo já batido hoje vem
+    // desabilitado do servidor (P7) e não responde.
+    function marcarTipoEscolhido() {
+        const botoes = Array.from(document.querySelectorAll('#ponto-tipos > button[role="radio"]'));
+        botoes.forEach((botao) => {
+            botao.setAttribute('aria-checked', botao.dataset.tipo === tipoRegistro.value ? 'true' : 'false');
+        });
+        // Tabindex móvel do grupo de rádio: só o marcado entra no Tab; sem marcado, o primeiro tipo livre.
+        const livres = botoes.filter((botao) => !botao.disabled);
+        const daVez = livres.find((botao) => botao.dataset.tipo === tipoRegistro.value) || livres[0];
+        botoes.forEach((botao) => botao.setAttribute('tabindex', botao === daVez ? '0' : '-1'));
+    }
+
+    function escolherTipo(botao) {
+        tipoRegistro.value = botao.dataset.tipo;
+        tipoRegistro.dispatchEvent(new Event('change'));
+    }
+
+    const grupoDoTipo = document.getElementById('ponto-tipo');
+    grupoDoTipo.addEventListener('click', function (evento) {
+        const botao = evento.target.closest('button[role="radio"]');
+        if (!botao || botao.disabled) {
+            return;
+        }
+        escolherTipo(botao);
+    });
+
+    // Teclado (o desenho é omisso; vale o grupo de rádio do navegador): as setas andam entre os tipos LIVRES, dando
+    // a volta, e já escolhem. Tipo batido (desabilitado) fica fora, como fica fora do clique.
+    const PASSO_DA_SETA = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+    grupoDoTipo.addEventListener('keydown', function (evento) {
+        const passo = PASSO_DA_SETA[evento.key];
+        const atual = evento.target.closest('button[role="radio"]');
+        if (!passo || !atual) {
+            return;
+        }
+        const livres = Array.from(document.querySelectorAll('#ponto-tipos > button[role="radio"]:not(:disabled)'));
+        const posicao = livres.indexOf(atual);
+        if (posicao === -1) {
+            return;
+        }
+        evento.preventDefault();
+        const proximo = livres[(posicao + passo + livres.length) % livres.length];
+        escolherTipo(proximo);
+        proximo.focus();
     });
 
     // Liga o botão que o HTML entregou cinza. Daqui em diante só o envio o desabilita.
@@ -598,19 +779,18 @@
         if (onde.situacao === 'fora') {
             // Achado de auditoria interna F2: o nome da sede é digitado por alguém e chega do servidor.
             // A mensagem é montada por DOM e o nome entra só por `textContent`, nunca por `innerHTML`.
-            const iconeCerca = document.createElement('i');
-            iconeCerca.className = 'bi bi-geo-alt-fill';
+            // O texto é o de hoje, na caixa do desenho; o trabalho externo do desenho é da etapa E12.
             const nomeDaSede = document.createElement('strong');
             nomeDaSede.textContent = onde.sede.nome;
-            gpsStatus.replaceChildren(
-                iconeCerca,
-                ` Você está a ${Math.round(onde.distancia)}m de `,
+            const mensagemDaCerca = document.createElement('span');
+            mensagemDaCerca.append(
+                `Você está a ${Math.round(onde.distancia)}m de `,
                 nomeDaSede,
                 ', fora da área permitida para bater o ponto.',
                 document.createElement('br'),
                 'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.'
             );
-            gpsStatus.className = 'alert alert-danger small mb-3';
+            mostrarGps('danger', 'bi-geo-alt-fill', mensagemDaCerca);
             // A liberação do dia (`homeOfficeHoje`) é decidida no servidor e só chega na carga. Se o
             // gestor conceder com a página aberta, o servidor passa a aceitar e a tela continuaria
             // cinza. O botão de atualizar é a saída, e serve também para quem quiser forçar uma
@@ -625,13 +805,12 @@
             btnAtualizarPagina.classList.add('d-none');
         }
 
+        // P11 (desenho): os textos das duas situações da posição, montados por DOM.
         if (accuracy <= GPS_PRECISAO_ACEITAVEL_METROS) {
-            gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS: ${accuracy.toFixed(1)}m de precisão`;
-            gpsStatus.className = 'alert alert-success small mb-3';
-        } else {
-            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> GPS impreciso (${accuracy.toFixed(1)}m). O sistema ainda validará se você está dentro do raio de alguma sede.`;
-            gpsStatus.className = 'alert alert-warning small mb-3';
+            mostrarGps('success', 'bi-geo-alt-fill', 'Localização confirmada. Precisão de ' + Math.round(accuracy) + ' m.');
+            return;
         }
+        mostrarGps('warning', 'bi-exclamation-triangle', 'GPS impreciso (' + Math.round(accuracy).toLocaleString('pt-BR') + ' m). O sistema ainda validará se você está dentro do raio de alguma sede.');
     }
 
     function aplicarPosicao(position) {
@@ -671,23 +850,27 @@
     ];
     const OUTRO_CAMINHO_GPS_CELULAR = 'No iPhone ou iPad, se não aparecer: Ajustes, Privacidade e Segurança, Serviços de Localização, ligue e escolha "Ao Usar o App" para o navegador.';
 
-    // Monta `#gps-status` por DOM: texto só por `textContent`, botão com handler próprio.
+    // Monta `#gps-status` por DOM, na caixa do desenho (ícone, texto e o botão redondo de atualizar):
+    // texto só por `textContent` (ou um nó já montado), botão com handler próprio.
     function mostrarGps(nivel, icone, texto, extra) {
         const i = document.createElement('i');
         i.className = 'bi ' + icone;
-        const partes = [i, ' ' + texto];
+        i.setAttribute('aria-hidden', 'true');
+        const corpo = document.createElement('span');
+        corpo.className = 'pe-caixa-texto';
+        corpo.append(texto);
         if (extra) {
-            partes.push(extra);
+            corpo.append(extra);
         }
-        gpsStatus.replaceChildren(...partes);
-        gpsStatus.className = 'alert alert-' + nivel + ' small mb-3';
+        gpsStatus.replaceChildren(...[i, corpo, btnAtualizarGps].filter(Boolean));
+        gpsStatus.className = 'pe-caixa pe-caixa--' + nivel;
     }
 
     function botaoDoGps(id, rotulo, aoClicar) {
         const botao = document.createElement('button');
         botao.type = 'button';
         botao.id = id;
-        botao.className = 'btn btn-sm btn-outline-secondary d-block mt-2';
+        botao.className = 'pe-gps-btn';
         botao.textContent = rotulo;
         botao.addEventListener('click', aoClicar);
 
@@ -695,7 +878,7 @@
     }
 
     function tentarGpsDeNovo() {
-        mostrarGps('info', 'bi-geo-alt', 'Buscando sua localização...');
+        mostrarGps('info', 'bi-crosshair', 'Obtendo a sua localização...');
         // Mesma guarda da carga: a API pode lançar de forma síncrona.
         try {
             iniciarGps();
@@ -722,14 +905,14 @@
     function mostrarPermissaoBloqueada() {
         const lista = document.createElement('ol');
         lista.id = 'gps-passos';
-        lista.className = 'mb-0 mt-1 ps-3';
+        lista.className = 'pe-gps-passos';
         for (const passo of (ehCelular ? PASSOS_GPS_CELULAR : PASSOS_GPS_COMPUTADOR)) {
             const item = document.createElement('li');
             item.textContent = passo;
             lista.appendChild(item);
         }
         const outroCaminho = document.createElement('div');
-        outroCaminho.className = 'mt-1';
+        outroCaminho.className = 'pe-gps-outro';
         outroCaminho.textContent = ehCelular ? OUTRO_CAMINHO_GPS_CELULAR : OUTRO_CAMINHO_GPS_COMPUTADOR;
         const bloco = document.createElement('div');
         bloco.append(lista, outroCaminho);
@@ -750,6 +933,8 @@
     // laço, então explica e deixa o botão. Na troca (`onchange`) para "granted", busca sozinha.
     function reagirAPermissao(estado, vindoDoErro) {
         if (currentLocation) {
+            redesenharUltimaPosicao();
+
             return;
         }
         if (estado === 'granted') {
@@ -788,6 +973,16 @@
         }).catch(() => mostrarPermissaoBloqueada());
     }
 
+    // O botão redondo de atualizar (desenho) fica sempre na caixa, então "Obtendo a sua localização..."
+    // também aparece com uma posição já na mão. Se a nova leitura falhar, a caixa volta à última posição.
+    function redesenharUltimaPosicao() {
+        guardarPosicao({ coords: {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+            accuracy: currentLocation.precisaoGps,
+        } });
+    }
+
     function erroGps(error) {
         const codigo = error && error.code;
         console.log('GPS não disponível:', error && error.message);
@@ -800,8 +995,10 @@
             return;
         }
         // Uma posição boa já chegou (pela atualização contínua): a falha desta leitura não apaga o
-        // que já está na mão.
+        // que já está na mão, e a caixa volta a mostrá-la em vez de ficar em "Obtendo".
         if (currentLocation) {
+            redesenharUltimaPosicao();
+
             return;
         }
         mostrarErroDeBusca(codigo === GPS_DEMOROU ? TEXTO_GPS_DEMOROU : TEXTO_GPS_INDISPONIVEL);
@@ -829,6 +1026,22 @@
 
     btnAtualizarPagina.addEventListener('click', () => window.location.reload());
 
+    // P14: "Regularizar" da faixa da última pendência abre o mesmo pedido de esquecimento do "+" da folha. Com o mês
+    // da pendência aberto, clica no "+" desta página; em outro mês, vai ao link que o abre na carga
+    // (`?esquecimento=`, o mesmo da lista de pendências).
+    const btnRegularizar = document.getElementById('btn-regularizar-pendencia');
+    if (btnRegularizar) {
+        btnRegularizar.addEventListener('click', function () {
+            const alvo = document.querySelector('[data-esquecimento-dia="' + this.dataset.dia + '"][data-esquecimento-campo="' + this.dataset.tipo + '"]');
+            if (alvo) {
+                alvo.scrollIntoView({ block: 'center' });
+                alvo.click();
+                return;
+            }
+            window.location.href = this.dataset.url;
+        });
+    }
+
     // Conexão de volta depois de uma falha sem rede: aí sim atualizar resolve, então o botão
     // aparece. Sem isto a pessoa ficaria olhando um aviso que pede uma ação indisponível.
     window.addEventListener('online', function () {
@@ -842,7 +1055,8 @@
     // agora FICA até a próxima tentativa.
     function mostrarAvisoBatida(texto, tom, oferecerAtualizar) {
         avisoBatida.textContent = texto;
-        avisoBatida.className = `alert alert-${tom} small mt-2 mb-0 text-start`;
+        // Caixa do desenho no tom do aviso (P11); os textos e o botão de conferir são os de hoje.
+        avisoBatida.className = `pe-caixa pe-caixa--${tom} pe-aviso-batida`;
         btnAtualizarPagina.classList.toggle('d-none', !oferecerAtualizar);
     }
 
@@ -853,14 +1067,15 @@
         mostrarAvisoBatida(texto, 'warning', true);
         avisos.forEach((aviso) => {
             const linha = document.createElement('div');
-            linha.className = 'mt-2';
+            linha.className = 'pe-aviso-linha';
             const icone = document.createElement('i');
-            icone.className = 'bi bi-exclamation-triangle me-1';
+            icone.className = 'bi bi-exclamation-triangle';
+            icone.setAttribute('aria-hidden', 'true');
             linha.append(icone, document.createTextNode(String(aviso.texto || '')));
             if (typeof aviso.link === 'string' && aviso.link.startsWith('/') && !aviso.link.startsWith('//') && aviso.rotulo) {
                 const link = document.createElement('a');
                 link.href = aviso.link;
-                link.className = 'ms-1 fw-semibold';
+                link.className = 'pe-aviso-link';
                 link.textContent = String(aviso.rotulo);
                 linha.appendChild(link);
             }
@@ -870,7 +1085,7 @@
 
     function limparAvisoBatida() {
         avisoBatida.textContent = '';
-        avisoBatida.className = 'alert small mt-2 mb-0 text-start d-none';
+        avisoBatida.className = 'pe-caixa pe-aviso-batida d-none';
         btnAtualizarPagina.classList.add('d-none');
     }
 
@@ -896,6 +1111,25 @@
     // calado na virada real, porque `diaVirou` já saiu. Como aqui só se avisa, o custo é um alarme
     // fora de hora que o próprio recarregamento conserta.
     const DIA_DO_APARELHO_NA_CARGA = new Date().toDateString();
+
+    // Na virada, as horas dos quatro tipos são de ONTEM: a lista fica apagada (o antigo `opacity-50` do quadro de
+    // batidas) e a trava do P7 sai, porque o tipo batido ontem está livre hoje. Só LIBERA, nunca trava: o
+    // `updateButtonState` do fim tira o "dia completo" de ontem e o botão volta a responder.
+    function liberarTiposDoDiaAnterior() {
+        const tipos = document.getElementById('ponto-tipos');
+        if (!tipos) {
+            return;
+        }
+        tipos.classList.add('pe-tipos--ontem');
+        tipos.querySelectorAll('button[role="radio"]').forEach((botao, posicao) => {
+            botao.disabled = false;
+            botao.classList.remove('pe-tipo-btn--feito');
+            botao.setAttribute('aria-checked', 'false');
+            // Sem tipo marcado depois da virada: o primeiro entra no Tab (tabindex móvel do grupo).
+            botao.setAttribute('tabindex', posicao === 0 ? '0' : '-1');
+        });
+        updateButtonState();
+    }
     const INTERVALO_CHECAGEM_DIA_MS = 30000;
 
     function conferirViradaDoDia() {
@@ -907,7 +1141,7 @@
         // grava certo; o risco desta tela é só a pessoa LER o dia errado e achar que já bateu.
         // Impedir a batida por causa disso seria trocar um engano por uma falta.
         diaVirou = true;
-        document.getElementById('batidas-de-hoje').classList.add('opacity-50');
+        liberarTiposDoDiaAnterior();
 
         // A sugestão do select foi calculada no servidor, para ONTEM, e agora está velha. Quem
         // esqueceu a saída ontem encontraria "Bater Ponto: Saída" de manhã: um toque gravaria
@@ -988,9 +1222,12 @@
         );
     }
 
+    if (btnAtualizarGps) {
+        btnAtualizarGps.addEventListener('click', tentarGpsDeNovo);
+    }
+
     if (homeOfficeHoje) {
-        gpsStatus.innerHTML = `<i class="bi bi-house-laptop"></i> Home Office hoje: o ponto será registrado sem exigir localização.`;
-        gpsStatus.className = 'alert alert-info small mb-3';
+        // P19 (fica): a caixa do home office já vem pronta do servidor, no tom informativo do desenho.
         updateButtonState();
     } else if ("geolocation" in navigator) {
         // A API pode lancar de forma SINCRONA (extensao de privacidade que a stuba, WebView de MDM).
@@ -1006,8 +1243,7 @@
             console.log('API de geolocalização lançou de forma síncrona:', erro && erro.message);
         }
     } else {
-        gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
-        gpsStatus.className = 'alert alert-danger small mb-3';
+        mostrarGps('danger', 'bi-exclamation-triangle', 'Seu navegador não suporta geolocalização.');
     }
 
     // Modal de editar justificativa
@@ -1066,7 +1302,9 @@
     // não vem com a pessoa longe do computador. A tela busca o próprio HTML e troca só o que a batida muda; os
     // números são os do servidor, os mesmos que a recarga mostraria. Tudo ou nada: falta uma região, o dia mudou ou
     // a resposta não é a tela, nada é trocado e quem chamou decide o plano B (recarregar, como antes).
-    const REGIOES_TROCADAS = ['batidas-de-hoje', 'ponto-banco-horas', 'ponto-regiao-pendencias'];
+    // `ponto-tipos` (P6 e P8, desenho de 09/11/2026) é a lista dos quatro tipos com a hora de cada um: substitui o
+    // antigo quadro "Suas batidas de hoje". O `#tipo-registro` escondido fica fora dela e recebe o valor novo abaixo.
+    const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-regiao-pendencias'];
 
     async function atualizarTelaDoPonto() {
         // A busca mora no módulo, com prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest).
