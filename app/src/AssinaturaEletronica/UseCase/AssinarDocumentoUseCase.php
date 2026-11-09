@@ -264,7 +264,7 @@ final readonly class AssinarDocumentoUseCase
 
         return array_merge($dados, [
             'selfie_sha256' => $reforco->selfie->sha256,
-            'selfie_chave' => CofreDaSelfie::VERSAO,
+            'selfie_versao' => CofreDaSelfie::VERSAO,
             'latitude' => $reforco->localizacao->latitude,
             'longitude' => $reforco->localizacao->longitude,
             'precisao' => $reforco->localizacao->precisao,

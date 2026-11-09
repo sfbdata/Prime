@@ -73,8 +73,8 @@ final class AssinaturaReforcadaTest extends JusPrimeWebTestCase
         $dados = json_decode((string) $this->conexao()->fetchOne("SELECT dados FROM assinatura_eletronica_evento WHERE documento_id = ? AND tipo = 'assinado'", [$id]), true);
         $chaves = array_values(array_diff(array_keys($dados), ['porta']));
         sort($chaves);
-        self::assertSame(['aceite', 'chave', 'cpf_confere', 'latitude', 'longitude', 'metodo', 'modo', 'precisao', 'rubrica_sha256', 'selfie_chave', 'selfie_sha256'], $chaves);
-        self::assertSame([$linha['selfie_sha256'], 1, 'reforcada'], [$dados['selfie_sha256'], $dados['selfie_chave'], $dados['metodo']]);
+        self::assertSame(['aceite', 'chave', 'cpf_confere', 'latitude', 'longitude', 'metodo', 'modo', 'precisao', 'rubrica_sha256', 'selfie_sha256', 'selfie_versao'], $chaves);
+        self::assertSame([$linha['selfie_sha256'], 1, 'reforcada'], [$dados['selfie_sha256'], $dados['selfie_versao'], $dados['metodo']]);
 
         $detalhe = $this->detalhe($id);
         [$ana, $bia] = $detalhe['signatarios'];
