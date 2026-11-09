@@ -173,7 +173,8 @@ final class ModelosDaAssinaturaControllerTest extends JusPrimeWebTestCase
         yield 'trecho acima do limite' => [['corpo' => [['p' => str_repeat('a', 20001)], ['a' => 0]]], 'Um trecho do modelo passa de 20.000 caracteres (posição 1).'];
         yield 'bloco desconhecido' => [['corpo' => [['p' => 'Texto.'], ['img' => '<img src=x onerror=alert(1)>'], ['a' => 0]]], 'O texto do modelo tem um bloco inválido (posição 2).'];
         yield 'campo fora do catálogo' => [['campos' => [['nome', 'Nome'], ['cpf']]], 'O modelo tem um campo inválido (posição 2).'];
-        yield 'campo com colchete' => [['campos' => [['no]me', 'Nome']]], 'O nome do campo 1 deve ter de 1 a 60 caracteres, sem colchetes.'];
+        yield 'campo com colchete' => [['campos' => [['no]me', 'Nome']]], 'O nome do campo 1 deve ter de 1 a 60 caracteres, sem colchetes e sem começar com ^.'];
+        yield 'campo começando com ^' => [['campos' => [['^Nome', 'Nome']]], 'O nome do campo 1 deve ter de 1 a 60 caracteres, sem colchetes e sem começar com ^.'];
         yield 'assinatura de quem não existe' => [['corpo' => [['p' => 'Texto.'], ['a' => 3]]], 'O texto do modelo tem um lugar de assinatura inválido (posição 2).'];
         yield 'sem assinatura' => [['corpo' => [['p' => 'Texto.']]], 'Inclua ao menos uma assinatura.'];
         yield 'folha branca que não é booleano' => [['folhaBranca' => 'sim'], 'Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo.'];

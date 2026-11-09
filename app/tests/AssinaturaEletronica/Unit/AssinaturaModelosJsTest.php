@@ -284,10 +284,12 @@ final class AssinaturaModelosJsTest extends TestCase
         self::assertStringNotContainsString('corpo.push({ p: n.nodeValue.trim() })', $lerEd, 'o desenho lia só o texto solto e perdia o campo');
     }
 
-    #[TestDox('"Criar campo" com colchete mostra o erro na linha do editor; nada é cortado')]
-    public function testCriarCampoComColchete(): void
+    #[TestDox('"Criar campo" com colchete ou começando com ^ mostra o erro na linha do editor; nada é cortado')]
+    public function testCriarCampoComColcheteOuCircunflexo(): void
     {
-        self::assertStringContainsString("if (/[[\\]]/.test(r)) { erroMd(T('mod.erro_colchete')); return; }", $this->funcao('criarCampo'));
+        self::assertStringContainsString("if (/[[\\]]/.test(r) || r.charAt(0) === '^') { erroMd(T('mod.erro_nome_campo')); return; }", $this->funcao('criarCampo'));
+        self::assertSame('O nome do campo não pode ter colchetes nem começar com ^.', self::catalogo()['mod']['erro_nome_campo'] ?? null);
+        self::assertArrayNotHasKey('erro_colchete', self::catalogo()['mod']);
     }
 
     #[TestDox('prévia do editor: blocos do texto com o escritório preenchido e a logo da BlueJus')]
