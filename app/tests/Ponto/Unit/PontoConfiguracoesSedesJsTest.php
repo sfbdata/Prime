@@ -38,15 +38,15 @@ final class PontoConfiguracoesSedesJsTest extends TestCase
     {
         $js = self::js();
 
-        self::assertStringContainsString("['[data-sede-remover]', pedirRemoverSede]", $js);
-        self::assertStringContainsString("['[data-feriado-remover]', pedirRemoverFeriado]", $js);
-        self::assertStringContainsString("['[data-config-confirmar]', confirmarRemocao]", $js);
+        self::assertStringContainsString("['[data-pc-sede-remover]', pedirRemoverSede]", $js);
+        self::assertStringContainsString("['[data-pc-feriado-remover]', pedirRemoverFeriado]", $js);
+        self::assertStringContainsString("['[data-pc-sf-confirmar]', confirmarRemocao]", $js);
         foreach (['function pedirRemoverSede(botao) {' => '// ----', 'function pedirRemoverFeriado(botao) {' => '// ----'] as $inicio => $fim) {
             $trecho = self::trecho($js, $inicio, $fim);
             self::assertStringContainsString('abrirJanela(', $trecho);
             self::assertStringNotContainsString('enviar(', $trecho);
         }
-        self::assertStringContainsString('enviar(botao.dataset.url', self::trecho($js, 'async function confirmarRemocao(botao) {', '// ----'));
+        self::assertStringContainsString('enviar(botao.dataset.pcSfUrl', self::trecho($js, 'async function confirmarRemocao(botao) {', '// ----'));
     }
 
     #[TestDox('A janela: Esc fecha, clicar fora não fecha, o foco não sai dela; os atributos não são os da E3')]
@@ -56,10 +56,82 @@ final class PontoConfiguracoesSedesJsTest extends TestCase
 
         self::assertStringContainsString("if (janelaAberta && evento.key === 'Escape') {", $js);
         self::assertStringContainsString("evento.key === 'Tab'", $js);
-        self::assertStringContainsString("['[data-config-fechar]', fecharJanela]", $js);
+        self::assertStringContainsString("['[data-pc-sf-fechar]', fecharJanela]", $js);
         self::assertStringNotContainsString("'.pe-janela-fundo', fecharJanela", $js, 'clicar no fundo não fecha');
         self::assertStringNotContainsString('data-janela-fechar', $js, 'o "x" da E3 é do js/ponto-abas.js');
         self::assertStringNotContainsString('data-excluir', $js);
+    }
+
+    #[TestDox('Sem janela aberta (ou com o envio em curso), o "Remover" da janela não faz nada')]
+    public function testConfirmarSemJanelaNaoFazNada(): void
+    {
+        $confirmar = self::trecho(self::js(), 'async function confirmarRemocao(botao) {', '// ----');
+        $guarda = strpos($confirmar, "if (!fundo || !fundo.contains(botao) || fundo.dataset.ocupada === '1') {\n            return;\n        }");
+
+        self::assertIsInt($guarda, 'a guarda volta antes de tudo');
+        self::assertLessThan(strpos($confirmar, 'botao.disabled = true;'), $guarda);
+        self::assertLessThan(strpos($confirmar, 'fundo.dataset'), $guarda, 'nada lê `fundo.dataset` sem janela');
+    }
+
+    #[TestDox('Com a janela aberta, o foco que cai fora dela (Tab depois de um clique no fundo) volta para dentro')]
+    public function testFocoQueSaiDaJanelaVolta(): void
+    {
+        $js = self::js();
+        $devolver = self::trecho($js, 'function devolverFoco(evento) {', 'function prenderFoco(evento) {');
+
+        self::assertStringContainsString("document.addEventListener('focusin', devolverFoco);", $js);
+        self::assertStringContainsString('if (!janelaAberta || !(evento.target instanceof Node) || janelaAberta.contains(evento.target)) {', $devolver);
+        self::assertStringContainsString('janelaAberta.querySelector(FOCAVEIS)', $devolver);
+        self::assertStringContainsString('primeiro.focus();', $devolver);
+    }
+
+    #[TestDox('Criação da "Nova sede" sem resposta: erro na linha, a linha para de gravar e o painel é buscado de novo')]
+    public function testCriacaoSemRespostaRecarregaOPainel(): void
+    {
+        $js = self::js();
+        $incerta = self::trecho($js, 'function criacaoIncerta(linha) {', 'async function gravarSedeUmaVez(linha) {');
+        $umaVez = self::trecho($js, 'async function gravarSedeUmaVez(linha) {', 'async function gravarSede(linha) {');
+        $gravar = self::trecho($js, 'async function gravarSede(linha) {', '// "Nova sede"');
+
+        self::assertStringContainsString("return { ok: false, semResposta: true, dados: { mensagem: SEM_RESPOSTA } };", self::trecho($js, 'async function enviar(url, corpo) {', 'function frase(dados, padrao) {'));
+        self::assertStringContainsString('if (criando && resultado.semResposta) {', $umaVez);
+        self::assertStringContainsString('erroDaLinha(linha, CRIACAO_INCERTA, []);', $incerta);
+        self::assertStringContainsString("linha.closest('[data-carregar]')", $incerta);
+        self::assertStringContainsString('window.PontoPaineis.recarregar(painel);', $incerta);
+        self::assertStringContainsString("linha.dataset.incerta = '1';", $incerta);
+        self::assertStringContainsString("if (linha.dataset.incerta === '1') {\n            return;\n        }", $gravar, 'a linha incerta não grava de novo');
+        self::assertStringContainsString("linha.dataset.incerta !== '1'", $gravar, 'nem na volta do laço');
+    }
+
+    #[TestDox('Durante a criação da "Nova sede", o lixo daquela linha fica desligado')]
+    public function testLixoDesligadoDuranteACriacao(): void
+    {
+        $js = self::js();
+        $umaVez = self::trecho($js, 'async function gravarSedeUmaVez(linha) {', 'async function gravarSede(linha) {');
+        $desliga = strpos($umaVez, "const remover = linha.querySelector('[data-pc-sede-remover]');\n        if (criando) {\n            remover.disabled = true;\n        }");
+
+        self::assertIsInt($desliga);
+        self::assertLessThan(strpos($umaVez, 'await enviar('), $desliga, 'desliga antes de enviar');
+        self::assertStringContainsString("if (criando) {\n            remover.disabled = false;\n        }", $umaVez, 'religa quando o servidor responde');
+        self::assertStringContainsString("if (botao.disabled) {\n            return;\n        }", self::trecho($js, 'function pedirRemoverSede(botao) {', '// ----'));
+    }
+
+    #[TestDox('Atributos próprios (data-pc-*): nada de data-config-* (a E7 usa o ponto-configuracoes.js), nem nos parciais')]
+    public function testAtributosProprios(): void
+    {
+        $js = self::js();
+        $parciais = '';
+        foreach (['_config_sedes', '_config_sede_linha', '_config_feriados', '_config_feriados_lista'] as $parcial) {
+            $parciais .= (string) file_get_contents(__DIR__ . '/../../../templates/ponto/' . $parcial . '.html.twig');
+        }
+
+        foreach ([$js, $parciais] as $fonte) {
+            self::assertStringNotContainsString('data-config-', $fonte);
+            self::assertDoesNotMatchRegularExpression('/data-(?:sede|sedes|feriado|feriados|url|info)[-=\]>\s]/', $fonte, 'atributo sem o prefixo data-pc-');
+        }
+        self::assertStringNotContainsString('dataset.config', $js);
+        self::assertDoesNotMatchRegularExpression('/dataset\.(?:url|info)\b/', $js);
+        self::assertSame(0, preg_match_all('/\sdata-(?!pc-)[a-z-]+/', $parciais, $fora), 'os parciais só usam data-pc-*: ' . implode(', ', $fora[0] ?? []));
     }
 
     #[TestDox('"Usar minha posição": leitor com prazo do módulo da batida, 6 casas, e o aviso do desenho sem posição')]

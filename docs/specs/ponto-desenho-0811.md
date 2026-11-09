@@ -473,9 +473,18 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     tela, ficha do colaborador, PDF, XLSX, saldo até o mês e do ano, horas pagas, "Regularizar ponto de ontem", tudo
     passa por ele) e em `ListarPendenciasDeRegistroUseCase` (lê o feriado sem a folha). O comando dos nacionais (D21)
     só conta o feriado sem lotação ao ver se a data já está cadastrada;
-  - fora da regra, ficam como estavam: a meta do dia no cartão "Registrar Ponto" (`PontoController::index`, lê todos os
-    feriados do escritório: o feriado de outra lotação zera a meta do dia na tela, não o saldo) e a Agenda
-    (`ListarDatasDoSistemaUseCase`, que mostra os feriados do escritório como datas, sem pessoa);
+  - Agenda (revisão da E6): na grade (`DatasDoSistemaController`), o feriado de uma lotação só aparece para quem é
+    dela, pelo ID da lotação do vínculo de quem vê (nunca pelo nome); o de "Todas as sedes" aparece para todos; quem
+    está sem lotação só vê os de "Todas as sedes". A regra mora em `ListarDatasDoSistemaUseCase` (parâmetro
+    `idDaLotacao`). A sincronização com o Google (`DatasDaAgendaParaOGoogle`) é POR PESSOA (uma conexão por pessoa e
+    escritório, na conta dela) e aplica a mesma regra de quem vê. O dia útil do escritório (`DiaUtilDoEscritorio`:
+    cobrança do checklist e resumo diário) é a regra do escritório inteiro e só considera os feriados sem lotação: um
+    feriado de Maceió não pula o dia do escritório;
+  - a meta do dia no cartão "Registrar Ponto" (`PontoController::index`, que hoje lê todos os feriados do escritório:
+    o feriado de outra lotação zera a meta do dia na tela, não o saldo) entra no commit do orquestrador que mexe no
+    `PontoController`, que não é desta etapa;
+  - limite conhecido: o feriado apagado pela cascata da lotação (ON DELETE CASCADE) não vai ao `audit_log`, porque
+    quem apaga é o banco, sem passar pelo Doctrine. Só a remoção da lotação fica registrada;
   - seções por permissão: "Sedes e raio de registro" só com `admin.ponto.manage`, "Feriados do escritório" só com
     `admin.tenant.settings.manage` (as mesmas das páginas de hoje). Rotas novas no domínio Ponto
     (`ponto_configuracoes_sede_criar`, `_sede_salvar`, `_sede_remover`, `_feriado_criar`, `_feriado_remover`), JSON:
@@ -508,9 +517,16 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   UseCases, `SedesEFeriadosDoPonto`, `RestricoesDaSede`, os DTOs `SedeDoPonto*` e `FeriadoDoPonto*`,
   `ConfiguracaoDoPontoRecusadaException`, `templates/ponto/_config_sedes.html.twig`, `_config_sede_linha.html.twig`,
   `_config_feriados.html.twig`, `_config_feriados_lista.html.twig`, `_abas_configuracoes.html.twig` (os dois includes),
-  `index.html.twig` (uma linha de script). `TenantController` e `FeriadoController` não mudam.
+  `index.html.twig` (uma linha de script). Na revisão: `ListarDatasDoSistemaUseCase`, `DatasDoSistemaController`,
+  `DatasDaAgendaParaOGoogle`, `DiaUtilDoEscritorio` (feriado da lotação na Agenda), `FeriadoController::index` e
+  `feriado/index.html.twig` (coluna "Abrangência" na página "Feriados e Folgas"). `TenantController` não muda.
+  Atributos do JS próprios da etapa: `data-pc-sede-*`, `data-pc-feriado-*` e `data-pc-sf-*` (as janelas); o
+  `data-config-*` fica livre para a E7. Raio vazio na sede que já existe mantém o raio dela; a nova nasce com 150 m.
 - Testes da etapa: `FeriadosDaPessoaTest`, `FeriadoPorLotacaoTest` (folha, saldo e pendências de duas pessoas em
-  lotações diferentes; "Todas as sedes"; feriado de outro escritório), `MigracaoDoFeriadoPorLotacaoTest`,
+  lotações diferentes; "Todas as sedes"; feriado recorrente da lotação; lotação de outro escritório com o mesmo nome),
+  `ListarDatasDoSistemaUseCaseTest`, `DatasDoSistemaControllerTest`, `SincronizacaoDeDatasComGoogleTest` e
+  `DiaUtilDoEscritorioTest` (a regra na Agenda, no Google e no dia útil), `FeriadoAbrangenciaNaPaginaAntigaTest`,
+  `MigracaoDoFeriadoPorLotacaoTest`,
   `SeedDosNacionaisComFeriadoPorLotacaoTest`, `ConfiguracoesDoPontoSedesEFeriadosTest` (arranjo por filho direto e
   textos, seções por permissão, 150 m na nova e na página antiga, raio das existentes, validações, remover com as
   batidas desvinculadas, 403 por seção, sem token e com permissão só em outro escritório, 404 entre escritórios,

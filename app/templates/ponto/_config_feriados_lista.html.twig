@@ -10,7 +10,7 @@
         <span class="pe-fer-nome">{{ feriado.nome }}</span>
         {% if feriado.recorrente %}<span class="pe-fer-marca"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Todo ano</span>{% endif %}
         <span class="pe-fer-abrangencia">{{ feriado.abrangencia }}</span>
-        <button type="button" class="pe-fer-remover" aria-label="Remover feriado" data-feriado-remover data-url="{{ path('ponto_configuracoes_feriado_remover', {id: feriado.id}) }}" data-info="{{ feriado.data }}: {{ feriado.nome }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        <button type="button" class="pe-fer-remover" aria-label="Remover feriado" data-pc-feriado-remover data-pc-feriado-url="{{ path('ponto_configuracoes_feriado_remover', {id: feriado.id}) }}" data-pc-feriado-info="{{ feriado.data }}: {{ feriado.nome }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
     </div>
 {% else %}
     <div class="pe-fer-vazio">Nenhum feriado cadastrado.</div>

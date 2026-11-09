@@ -7,6 +7,7 @@ namespace App\Tests\Agenda\Functional;
 use App\Agenda\Controller\DatasDoSistemaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Ponto\Entity\Feriado;
@@ -42,6 +43,36 @@ final class DatasDoSistemaControllerTest extends JusPrimeWebTestCase
         self::assertArrayNotHasKey('2026-08-27', $titulos, 'feriado do Ponto de outro escritório não pode vazar');
         self::assertSame('Dia dos Pais', $titulos['2026-08-09']);
         self::assertSame($totalAntes, $this->contarFeriados(), 'a Agenda não pode gravar na tabela feriado do Ponto');
+    }
+
+    #[TestDox('Feriado de uma lotação só aparece para quem é dela (pelo id do vínculo); "Todas as sedes" aparece para todos')]
+    public function testFeriadoDaLotacaoSoParaQuemEDela(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant(null);
+        $maceio = $this->criarLotacao($tenant, 'MACEIÓ/AL');
+        $brasilia = $this->criarLotacao($tenant, 'BRASÍLIA/DF');
+        $ana = $this->criarUsuario($tenant, true, $maceio);
+        $bruno = $this->criarUsuario($tenant, true, $brasilia);
+        $semLotacao = $this->criarUsuario($tenant, true);
+        $this->criarFeriado($tenant, 'Padroeira de todos', '2000-08-26');
+        $this->criarFeriado($tenant, 'Aniversário de Maceió', '2000-08-28', $maceio);
+        $this->criarFeriado($tenant, 'Pontual de Brasília', '2026-08-27', $brasilia, false);
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+
+        $esperado = [
+            [$ana, ['2026-08-26' => 'Padroeira de todos', '2026-08-28' => 'Aniversário de Maceió']],
+            [$bruno, ['2026-08-26' => 'Padroeira de todos', '2026-08-27' => 'Pontual de Brasília']],
+            [$semLotacao, ['2026-08-26' => 'Padroeira de todos']],
+        ];
+        foreach ($esperado as [$pessoa, $feriados]) {
+            $this->logarComTenant($client, $pessoa, $tenant);
+            $client->request('GET', '/agenda/datas?de=2026-08-26&ate=2026-08-28');
+            self::assertResponseIsSuccessful();
+            $json = json_decode((string) $client->getResponse()->getContent(), true);
+            $doEscritorio = array_column(array_filter($json['datas'], static fn (array $d): bool => 'escritorio' === $d['tipo']), 'titulo', 'data');
+            self::assertSame($feriados, $doEscritorio, (string) $pessoa->getFullName());
+        }
     }
 
     #[TestDox('Período inválido ou longo demais devolve 400')]
@@ -81,7 +112,7 @@ final class DatasDoSistemaControllerTest extends JusPrimeWebTestCase
         return $tenant;
     }
 
-    private function criarUsuario(Tenant $tenant, bool $gestor): User
+    private function criarUsuario(Tenant $tenant, bool $gestor, ?Lotacao $lotacao = null): User
     {
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
@@ -101,17 +132,29 @@ final class DatasDoSistemaControllerTest extends JusPrimeWebTestCase
 
         $userTenant = new UserTenant($user, $tenant);
         $userTenant->setTenantRole($role);
+        $userTenant->setLotacao($lotacao);
         $em->persist($userTenant);
         $em->flush();
 
         return $user;
     }
 
-    private function criarFeriado(Tenant $tenant, string $nome, string $data): void
+    private function criarLotacao(Tenant $tenant, string $nome): Lotacao
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $feriado = (new Feriado())->setNome($nome)->setData(new \DateTime($data))->setRecorrente(true);
+        $lotacao = (new Lotacao())->setNome($nome)->setTenant($tenant);
+        $em->persist($lotacao);
+        $em->flush();
+
+        return $lotacao;
+    }
+
+    private function criarFeriado(Tenant $tenant, string $nome, string $data, ?Lotacao $lotacao = null, bool $recorrente = true): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $feriado = (new Feriado())->setNome($nome)->setData(new \DateTime($data))->setRecorrente($recorrente);
         $feriado->setTenant($tenant);
+        $feriado->setLotacao($lotacao);
         $em->persist($feriado);
         $em->flush();
     }
