@@ -76,6 +76,9 @@ final class PontoController extends AbstractController
 {
     use ValidaCsrfAjaxTrait;
 
+    /** Abas do cartão da direita, na ordem do desenho (L758); a primeira abre ao entrar (P37). As das etapas seguintes vêm depois. */
+    private const ABAS_DO_CARTAO = ['pendencias', 'justificativas', 'comprovantes', 'banco', 'equipe', 'configuracoes'];
+
     /** Recusa da exclusão (P41) para a resposta HTTP: outro escritório não existe para quem pede. */
     private const RESPOSTA_DA_RECUSA = [
         ExclusaoDeJustificativaRecusadaException::NAO_ENCONTRADA  => Response::HTTP_NOT_FOUND,
@@ -255,8 +258,13 @@ final class PontoController extends AbstractController
             'proximaViradaMs'          => (int) $agora->modify('tomorrow')->format('Uv'),
             'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
             // Cartão de abas (E3): Pendências abre ao entrar (P37); a volta da análise e da exclusão reabre a das justificativas.
-            'abaAberta'                => $request->query->get('aba') === 'justificativas' ? 'justificativas' : 'pendencias',
+            'abaAberta'                => $this->abaAberta($request),
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
+            // Aba "Comprovantes" (E15): só com o comprovante ligado; a lista é da pessoa, neste escritório.
+            'comprovantesVisiveis'     => false,
+            'comprovantes'             => [],
+            // Aba "Banco de Horas" (E17): nulo esconde a aba.
+            'bancoDeHoras'             => null,
         ]);
     }
 
@@ -1150,6 +1158,18 @@ final class PontoController extends AbstractController
         }
 
         return $choque->naBatida($user, $tenant, $agora);
+    }
+
+    /**
+     * A aba do cartão que abre ao entrar (`?aba=`). Pendências é o padrão (P37); aba que não existe ou que a pessoa não
+     * vê cai no padrão. A aba escondida (Comprovantes com o comprovante desligado, Banco antes da E17) cai no padrão
+     * no template (`_abas.html.twig`), que sabe quais desenhou.
+     */
+    private function abaAberta(Request $request): string
+    {
+        $aba = (string) $request->query->get('aba', '');
+
+        return in_array($aba, self::ABAS_DO_CARTAO, true) ? $aba : self::ABAS_DO_CARTAO[0];
     }
 
     /**

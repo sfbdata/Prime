@@ -1,6 +1,8 @@
 {#
-    Cartão de abas da coluna da direita, logo abaixo da Folha (E3, desenho 16 L166 a L191): "Pendências" (P37, primeira
-    e aberta ao entrar) e "Minhas Justificativas" (P39). A aba "Banco de Horas" entra na E17.
+    Cartão de abas da coluna da direita, logo abaixo da Folha (E3, desenho 16 L166 a L191, ordem da L758): "Pendências"
+    (P37, primeira e aberta ao entrar), "Minhas Justificativas" (P39), "Comprovantes" (E15, só com o comprovante
+    ligado: `comprovantesVisiveis`) e "Banco de Horas" (E17: `bancoDeHoras`, nulo até a etapa entrar). As abas das
+    etapas seguintes (Equipe, Auditoria, Configurações) entram depois do Banco de Horas, nessa ordem.
 
     As duas abas vêm prontas do servidor; a troca é no navegador (js/ponto-abas.js), sem recarregar, e grava a aba no
     endereço (`?aba=justificativas`): a busca da tela depois da batida e a troca do mês voltam na mesma aba. O painel das
@@ -11,14 +13,18 @@
     (js/ponto-paineis.js, `data-carregar`): a Equipe calcula o saldo de cada pessoa, e a /ponto é buscada de novo
     depois de cada batida. Sem permissão, a aba não aparece e o endereço `?aba=equipe` cai em Pendências.
 
-    Recebe: pendencias, justificativas, abaAberta ('pendencias', 'justificativas', 'equipe' ou 'configuracoes'),
-    podeAnalisarAPropria, competenciaSelecionada (a volta da exclusão reabre a aba no mesmo mês) e, das abas de gestão,
-    veEquipe, veConfiguracoes e equipeAAnalisar (o número da aba Equipe).
+    Recebe: pendencias, justificativas, abaAberta (uma de PontoController::ABAS_DO_CARTAO), podeAnalisarAPropria,
+    competenciaSelecionada (a volta da exclusão reabre a aba no mesmo mês), comprovantesVisiveis e comprovantes (E15),
+    bancoDeHoras (E17) e, das abas de gestão, veEquipe, veConfiguracoes e equipeAAnalisar (o número da aba Equipe).
 #}
+{% set comprovantesVisiveis = comprovantesVisiveis|default(false) %}
+{% set bancoDeHoras = bancoDeHoras|default(null) %}
 {% set veEquipe = veEquipe|default(false) %}
 {% set veConfiguracoes = veConfiguracoes|default(false) %}
 {% set aberta = abaAberta %}
-{% if (aberta == 'equipe' and not veEquipe) or (aberta == 'configuracoes' and not veConfiguracoes) %}
+{# A aba pedida que não está desenhada para esta pessoa abre Pendências: sempre há uma aberta. #}
+{% if (aberta == 'comprovantes' and not comprovantesVisiveis) or (aberta == 'banco' and bancoDeHoras is null)
+    or (aberta == 'equipe' and not veEquipe) or (aberta == 'configuracoes' and not veConfiguracoes) %}
     {% set aberta = 'pendencias' %}
 {% endif %}
 <section class="pe-abas" data-screen-label="Registros e comprovantes"
@@ -34,6 +40,19 @@
             <i class="bi bi-calendar-check" aria-hidden="true"></i>Minhas Justificativas
             {%- if justificativas|length > 0 %}<span class="pe-aba-num">{{ justificativas|length }}</span>{% endif -%}
         </button>
+        {% if comprovantesVisiveis %}
+        <button type="button" role="tab" class="pe-aba" id="ponto-aba-comprovantes" data-aba="comprovantes"
+                aria-controls="ponto-painel-comprovantes" aria-selected="{{ aberta == 'comprovantes' ? 'true' : 'false' }}" tabindex="{{ aberta == 'comprovantes' ? '0' : '-1' }}">
+            <i class="bi bi-receipt" aria-hidden="true"></i>Comprovantes
+            {%- if comprovantes|default([])|length > 0 %}<span class="pe-aba-num">{{ comprovantes|length }}</span>{% endif -%}
+        </button>
+        {% endif %}
+        {% if bancoDeHoras is not null %}
+        <button type="button" role="tab" class="pe-aba" id="ponto-aba-banco" data-aba="banco"
+                aria-controls="ponto-painel-banco" aria-selected="{{ aberta == 'banco' ? 'true' : 'false' }}" tabindex="{{ aberta == 'banco' ? '0' : '-1' }}">
+            <i class="bi bi-piggy-bank" aria-hidden="true"></i>Banco de Horas
+        </button>
+        {% endif %}
         {% if veEquipe %}
             <button type="button" role="tab" class="pe-aba" id="ponto-aba-equipe" data-aba="equipe"
                     aria-controls="ponto-painel-equipe" aria-selected="{{ aberta == 'equipe' ? 'true' : 'false' }}" tabindex="{{ aberta == 'equipe' ? '0' : '-1' }}">
@@ -54,6 +73,16 @@
     <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-justificativas" aria-labelledby="ponto-aba-justificativas"{{ aberta == 'justificativas' ? '' : ' hidden' }}>
         {% include 'ponto/_abas_justificativas.html.twig' with {justificativas: justificativas, podeAnalisarAPropria: podeAnalisarAPropria} only %}
     </div>
+    {% if comprovantesVisiveis %}
+    <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-comprovantes" aria-labelledby="ponto-aba-comprovantes"{{ aberta == 'comprovantes' ? '' : ' hidden' }}>
+        {% include 'ponto/_abas_comprovantes.html.twig' with {comprovantes: comprovantes|default([])} only %}
+    </div>
+    {% endif %}
+    {% if bancoDeHoras is not null %}
+    <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-banco" aria-labelledby="ponto-aba-banco"{{ aberta == 'banco' ? '' : ' hidden' }}>
+        {% include 'ponto/_abas_banco.html.twig' with {bancoDeHoras: bancoDeHoras} only %}
+    </div>
+    {% endif %}
     {% if veEquipe %}
         <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-equipe" aria-labelledby="ponto-aba-equipe"
              data-carregar="{{ path('ponto_equipe') }}"{{ aberta == 'equipe' ? '' : ' hidden' }}></div>

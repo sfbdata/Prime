@@ -90,6 +90,19 @@ final class AbasDoPontoTelaTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('Aba pedida que não está na tela (Comprovantes desligado, Banco antes da E17) ou que não existe: abre Pendências')]
+    public function testAbaEscondidaOuDesconhecidaAbrePendencias(): void
+    {
+        foreach (['?aba=comprovantes', '?aba=banco', '?aba=qualquer'] as $consulta) {
+            $tela = $this->tela($consulta);
+
+            self::assertCount(1, $tela->filter(self::BARRA . ' > #ponto-aba-pendencias[aria-selected="true"][tabindex="0"]'), $consulta);
+            self::assertCount(1, $tela->filter(self::CARTAO . ' > #ponto-regiao-pendencias:not([hidden])'), $consulta);
+            self::assertCount(1, $tela->filter(self::CARTAO . ' > .pe-abas-painel:not([hidden])'), $consulta . ': um painel aberto só');
+            self::assertCount(0, $tela->filter('#ponto-aba-comprovantes, #ponto-aba-banco'), $consulta);
+        }
+    }
+
     #[TestDox('Linhas da aba: só o mês e o escritório; colunas, selos e situações no masculino da aba (P40, D22)')]
     public function testLinhasDasJustificativas(): void
     {
