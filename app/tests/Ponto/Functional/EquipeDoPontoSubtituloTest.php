@@ -63,7 +63,7 @@ final class EquipeDoPontoSubtituloTest extends JusPrimeWebTestCase
         self::assertSame('[Saída às 18:30][Parcial: 08:00 às 10:00][]vazio', $saida);
     }
 
-    #[TestDox('Subtítulo com & e <: sai escapado uma vez só em "Minhas Justificativas" (célula e data-info) e na lista da Equipe')]
+    #[TestDox('Subtítulo com & e <: sai escapado uma vez só em "Minhas Justificativas" (célula e data-info da lixeira e do lápis) e na lista da Equipe')]
     public function testEscapeUmaVezNasDuasAbas(): void
     {
         $escritorio = $this->escritorio('Escritório do subtítulo');
@@ -83,7 +83,8 @@ final class EquipeDoPontoSubtituloTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha);
         self::assertSame(self::TEXTO_COM_ESCAPE, $linha->filter('td.pe-just-celtipo > div.pe-just-sub')->text());
         self::assertSame($hoje->format('d/m/Y') . ' · Atestado Médico · ' . self::TEXTO_COM_ESCAPE, $linha->filter('button[data-excluir-url]')->attr('data-info'));
-        self::assertSame(2, substr_count($html, self::ESCAPADO_UMA_VEZ), 'na célula e no data-info da lixeira');
+        self::assertSame($hoje->format('d/m/Y') . ' · Atestado Médico · ' . self::TEXTO_COM_ESCAPE, $linha->filter('button[data-justificativa-editar]')->attr('data-info'));
+        self::assertSame(3, substr_count($html, self::ESCAPADO_UMA_VEZ), 'na célula e no data-info da lixeira e do lápis (E4)');
         self::assertStringNotContainsString('&amp;amp;', $html);
         self::assertStringNotContainsString('&amp;lt;', $html);
 
