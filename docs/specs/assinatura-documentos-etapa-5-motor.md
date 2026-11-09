@@ -49,9 +49,9 @@ final class InfladorLimitado
 Nenhum dos três lança exceção para arquivo ruim: PDF malformado vira resultado `ilegivel` com motivo, assinatura
 malformada vira `naoverif` com motivo, objeto que não dá para ler vira `null`. Nada é escrito em disco.
 
-As classes de apoio (`LeitorDer`, `NoDer`, `LeitorDeCertificado`, `LeitorDeAssinaturaCms`, `VerificadorDeChave`,
-`ConferenciaDoCms`, `ResultadoDaChave`, `FormatoNaoReconhecido`, `LimiteExcedido`) são internas do motor: a etapa 5 só
-usa as três acima, os DTOs de resultado e `LimitesDaConferencia`.
+As classes de apoio (`LeitorDer`, `NoDer`, `LeitorDeCertificado`, `CertificadoDoSignatario`, `LeitorDeAssinaturaCms`,
+`VerificadorDeChave`, `ConferenciaDoCms`, `ResultadoDaChave`, `SemAvisos`, `FormatoNaoReconhecido`, `LimiteExcedido`)
+são internas do motor: a etapa 5 só usa as três acima, os DTOs de resultado e `LimitesDaConferencia`.
 
 ## 3. Formato do resultado
 
@@ -83,7 +83,7 @@ Métodos: `temAssinatura(): bool` e `ultimaAssinatura(): ?AssinaturaConferida`.
 | `fim` | `int` | `c + m` (`fim`) |
 | `cobreODocumento` | `bool` | `c + m === tamanho` (`cobre`) |
 | `bytesDepois` | `int` | `max(0, tamanho - c - m)` (`apos`) |
-| `tipo` | `string` | `PAdES`, `PKCS#7`, `Carimbo do tempo` ou `Digital` |
+| `tipo` | `string` | `PAdES`, `PKCS#7`, `Carimbo do tempo` ou `Digital`; vazio com faixa inválida |
 | `algoritmoDoResumo` | `?string` | `SHA-256`, `SHA-384`, `SHA-512` ou `SHA-1` |
 | `resumoConfere` | `?bool` | messageDigest contra o hash da faixa (`digest`); null sem atributos assinados |
 | `chaveConfere` | `?bool` | assinatura sobre os atributos assinados (`cripto`); null quando não deu para conferir |
@@ -158,7 +158,7 @@ arquivo recebeu acréscimos depois da última assinatura, e esse trecho não foi
   `<`, dígitos hexadecimais, espaço em branco do PDF e `>`.
 - Dicionário da assinatura: do último ` obj` antes de `l` (até 4.000 bytes antes) até `l`, mais 3.000 bytes depois de
   `c`, cortado no primeiro `endobj`. Dele saem o tipo (`ETSI.CAdES`, `adbe.pkcs7`, `ETSI.RFC3161`), o `/M` e o DocMDP
-  (`/P` nos 200 bytes antes de `/DocMDP`; sem `/P`, 2).
+  (o primeiro `/P` a partir de 200 bytes antes de `/DocMDP`; sem `/P`, 2). Com faixa inválida nada disso é lido.
 - CMS: hexadecimal do trecho de fora; SignedData; certificados `[0]`; pula CRLs `[1]`; só o primeiro SignerInfo.
 - `permiteCarimbo`: `!(primeira com DocMDP && P < 3) && !cifrado && nenhuma alterada`.
 
@@ -221,7 +221,7 @@ Tudo o que não estava no protótipo nem na spec, decidido nesta tarefa (o orque
   protótipo (hash do resumo, MGF1 com ele, sal do tamanho do hash) e, como o protótipo, ignora os parâmetros declarados
   no AlgorithmIdentifier: PSS com sal diferente sai `alterada` nos dois.
 - **M7. ECDSA**: `r` e `s` são relidos e recodificados em DER canônico antes do `openssl_verify` (o mesmo que o `r||s`
-  do WebCrypto faz). Assinatura que não é SEQUENCE de dois INTEGER, ou com número maior que a curva, fica `naoverif`
+  do WebCrypto faz). Assinatura que não é DER com dois elementos, ou com número maior que a curva, fica `naoverif`
   como no protótipo. Só P-256, P-384 e P-521, como o protótipo, mesmo o OpenSSL conferindo outras curvas.
 - **M8. Tipo da chave**: antes de conferir, o tipo da chave do certificado precisa bater com o algoritmo (RSA com RSA,
   EC com ECDSA); sem isso fica `naoverif`, como o erro de importação do WebCrypto.
