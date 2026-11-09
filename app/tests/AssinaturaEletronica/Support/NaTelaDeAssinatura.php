@@ -107,7 +107,7 @@ trait NaTelaDeAssinatura
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         return $em->getRepository(Permission::class)->findOneBy(['code' => 'modules.assinatura_eletronica.view'])
-            ?? self::fail('a migration Version20261109130000 cria a permissão');
+            ?? self::fail('a migration Version20261109150000 cria a permissão');
     }
 
     /** @param array<string, mixed> $dados */

@@ -16,7 +16,7 @@ Entra:
 - **detalhe** do documento em leitura (Signatários, cartão do código com "Continuar e enviar" no rascunho, Trilha de
   auditoria, prévia), sem "Excluir": o desenho não o tem no detalhe; excluir fica no menu de contexto e na barra de
   seleção da lista;
-- módulo `assinatura_eletronica`, recurso `assinatura` do Master, migration M1 (`Version20261109130000`).
+- módulo `assinatura_eletronica`, recurso `assinatura` do Master, migration M1 (`Version20261109150000`).
 
 Fica para depois (o botão ou a aba **não aparece** até a etapa dele; nada de botão morto):
 - "Gerar links e enviar", Copiar link, Enviar lembrete, Cancelar envio, tela pública (etapa 2);
@@ -66,7 +66,7 @@ Textos dos eventos (literais do desenho): "Rascunho salvo", "Documento criado", 
 "Movido para a Lixeira. Evidências preservadas", "Restaurado da Lixeira",
 "Envio cancelado pela exclusão. Links desativados". As etapas seguintes acrescentam casos.
 
-### 3.2 Tabelas (M1 `Version20261109130000`)
+### 3.2 Tabelas (M1 `Version20261109150000`)
 
 Todas com `tenant_id` entram no `PurgarEscritorioUseCase`.
 

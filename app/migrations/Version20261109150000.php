@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * chave `assinatura` do Master gravada DESLIGADA, porque sem linha o recurso vale como ligado. Tudo idempotente nos
  * INSERTs.
  */
-final class Version20261109130000 extends AbstractMigration
+final class Version20261109150000 extends AbstractMigration
 {
     public function getDescription(): string
     {
