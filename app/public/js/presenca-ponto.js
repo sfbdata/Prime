@@ -145,7 +145,11 @@
             aoMudar();   // mostra o item ocupado
             if (atual.acao === 'saida' && !confirmarSaida(base)) { return; }   // (2) cancelar destrava no finally
             var momentoDoToque = performance.now();                        // (3) depois da confirmação
-            var payload = { tipo: atual.acao };
+            // E13: a hora do aparelho no toque (o servidor guarda só como informação) e o identificador único do
+            // envio. Sem a função (módulo antigo no cache), a batida sai sem ele, como antes. Fila sem internet não
+            // há aqui: é só da tela do ponto (E14); o atalho sem rede segue com o aviso de sempre.
+            var horaAparelho = Date.now();
+            var payload = { tipo: atual.acao, idEnvio: typeof PB.novoIdDeEnvio === 'function' ? PB.novoIdDeEnvio() : undefined, horaAparelho: horaAparelho };
             if (!base.homeOffice) {
                 var position = await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS, function () {});   // (4)
                 if (!position) { avisar(AVISO_SEM_POSICAO); return; }

@@ -1386,6 +1386,12 @@
         liberarBotaoBatida();
     }
 
+    // O identificador do envio vem do módulo (`PontoBatida.novoIdDeEnvio`, E13). Sem a função (módulo antigo no cache
+    // do navegador), a batida sai sem ele, como antes, em vez de lançar com o botão já travado no envio.
+    function idDoEnvio() {
+        return typeof PontoBatida.novoIdDeEnvio === 'function' ? PontoBatida.novoIdDeEnvio() : undefined;
+    }
+
     btnPonto.addEventListener('click', async function() {
         if (!window.PontoBatida) {
             mostrarAvisoBatida(AVISO_PAGINA_INCOMPLETA, 'danger', true);
@@ -1432,7 +1438,11 @@
         // Acerto de relogio do aparelho para tras mascararia o congelamento que esta guarda
         // existe para pegar; para a frente descartaria batida legitima.
         const momentoDoToque = performance.now();
-        const payload = { tipo: tipoRegistro.value };
+        // E13: a hora do aparelho no TOQUE (epoch em ms), que o servidor guarda só como informação (a batida normal
+        // vale pela hora de chegada), e o identificador único do envio, feito aqui uma vez só: é o mesmo em toda nova
+        // tentativa desta batida, e o servidor não grava duas vezes o mesmo.
+        const horaAparelho = Date.now();
+        const payload = { tipo: tipoRegistro.value, idEnvio: idDoEnvio(), horaAparelho };
 
         if (!homeOfficeHoje) {
             let latitude = currentLocation.latitude;
