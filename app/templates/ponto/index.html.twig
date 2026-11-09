@@ -1121,10 +1121,13 @@
     // O `alert` do navegador era o único retorno de falha: some quando a pessoa toca em OK, não
     // deixa rastro na tela, e navegador nenhum o mostra em aba que não está visível. O aviso
     // agora FICA até a próxima tentativa.
-    function mostrarAvisoBatida(texto, tom, oferecerAtualizar) {
+    function mostrarAvisoBatida(texto, tom, oferecerAtualizar, origem) {
         avisoBatida.textContent = texto;
         // Caixa do desenho no tom do aviso (P11); os textos e o botão de conferir são os de hoje.
         avisoBatida.className = `pe-caixa pe-caixa--${tom} pe-aviso-batida`;
+        // E14: `fila` marca o aviso da própria fila (guardada, enviadas, recusa), o único que um resultado da fila pode
+        // trocar. Os outros ficam, e as linhas da fila entram abaixo deles (`escreverAvisoDaFila`).
+        avisoBatida.dataset.origem = origem || '';
         btnAtualizarPagina.classList.toggle('d-none', !oferecerAtualizar);
     }
 
@@ -1154,6 +1157,7 @@
     function limparAvisoBatida() {
         avisoBatida.textContent = '';
         avisoBatida.className = 'pe-caixa pe-aviso-batida d-none';
+        avisoBatida.dataset.origem = '';
         btnAtualizarPagina.classList.add('d-none');
     }
 
@@ -1161,6 +1165,8 @@
         envioEmAndamento = false;
         btnPonto.innerHTML = rotuloBotaoBatida();
         updateButtonState();
+        // E14: o resultado da fila que chegou durante o envio do toque entra agora, abaixo do aviso dele.
+        soltarResultadoDaFilaEmEspera();
     }
 
     // Página esquecida aberta da noite para o dia seguinte: os horários dos tipos são renderizados no
@@ -1197,6 +1203,9 @@
             }
         });
         updateButtonState();
+        // E14: as batidas guardadas do dia novo (tocadas sem internet depois da meia-noite do servidor) não estão livres.
+        // A remarcação mora aqui, na função que troca os tipos, e não em quem a chama (ver `aplicarGuardadasNaTela`).
+        aplicarGuardadasNaTela();
     }
 
     function primeiroTipoLivre() {
@@ -1329,9 +1338,19 @@
     // (js/ponto-abas.js), então a tela buscada volta na mesma aba.
     const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-aba-pendencias', 'ponto-regiao-pendencias'];
 
+    // E14: cada busca da tela ganha um número. A resposta de uma busca mais velha que chega depois de uma mais nova já
+    // trocada (a da fila e a do toque correndo juntas) é descartada: trocar por ela voltaria a tela para trás e
+    // devolveria livre o tipo que acabou de ser batido.
+    let ultimaBuscaDaTela = 0;
+    let buscaDaTelaTrocada = 0;
+
     async function atualizarTelaDoPonto() {
+        const estaBusca = ++ultimaBuscaDaTela;
         // A busca mora no módulo, com prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest).
         const novo = await window.PontoBatida.buscarTelaDoPonto(window.location.href);
+        if (estaBusca < buscaDaTelaTrocada) {
+            return;
+        }
 
         const relogioNovo = novo.getElementById('clock');
         const relogio = document.getElementById('clock');
@@ -1354,18 +1373,46 @@
         const pontoDoDia = JSON.parse(pontoDoDiaNovo);
 
         trocas.forEach(([atual, nova]) => atual.replaceWith(document.importNode(nova, true)));
+        buscaDaTelaTrocada = estaBusca;
         relogio.dataset.pontoDoDia = pontoDoDiaNovo;
         aplicarPontoDoDia(pontoDoDia);
         tipoRegistro.value = tipoNovo.value;
+        // E14: a tela do servidor não conhece a fila deste aparelho. Sem esta remarcação, o tipo guardado voltaria livre
+        // e poderia virar a sugestão do botão (batida em dobro). Mora aqui, e não em cada chamador.
+        aplicarGuardadasNaTela();
     }
 
-    // `recarregarSeFalhar`: o caminho sem avisos recarrega como antes; com avisos, não (dá tempo de ler), e o botão
-    // fica travado com o "Atualizar" oferecido, como antes.
+    // A batida do toque que o servidor aceitou (o tipo e o corpo da resposta, com a hora gravada em `data.hora`), para a
+    // tela marcá-la quando a atualização depois dela falha (ver `atualizarDepoisDaBatida`).
+    let batidaAceita = null;
+
+    function marcarBatidaAceitaNaTela() {
+        const aceita = batidaAceita;
+        batidaAceita = null;
+        if (aceita) {
+            const botao = Array.from(document.querySelectorAll('#ponto-tipos > button[role="radio"]')).find((b) => b.dataset.tipo === aceita.tipo);
+            if (botao && !botao.disabled) {
+                const gravada = aceita.resposta && aceita.resposta.data ? aceita.resposta.data.hora : null;
+                const agoraMs = agoraNoServidorMs();
+                const hora = typeof gravada === 'string' && gravada !== '' ? gravada : FORMATO_HORA_OFICIAL.format(new Date(agoraMs === null ? Date.now() : agoraMs));
+                marcarTipoComoBatido(botao, hora);
+            }
+        }
+        acertarSugestaoDoBotao();
+    }
+
+    // `recarregarSeFalhar`: o caminho sem avisos recarrega como antes. Com avisos, não (dá tempo de ler): o tipo aceito
+    // fica marcado na tela como batido, a sugestão anda e o botão é solto, com o "Atualizar" oferecido. Antes o botão
+    // ficava travado com a trava do envio presa para sempre, e o resultado da fila nunca entrava (revisão da E14).
     async function atualizarDepoisDaBatida(recarregarSeFalhar) {
         try {
             await atualizarTelaDoPonto();
         } catch (erro) {
             console.error('Falha ao atualizar a tela depois da batida:', erro);
+            if (!recarregarSeFalhar) {
+                marcarBatidaAceitaNaTela();
+                liberarBotaoBatida();
+            }
             if (recarregarSeFalhar) {
                 setTimeout(() => window.location.reload(), 1500);
             }
@@ -1383,21 +1430,37 @@
     const FILA_USUARIO_ID = caixaDaFila ? Number(caixaDaFila.dataset.usuarioId) : 0;
     const FILA_ESCRITORIO_ID = caixaDaFila ? Number(caixaDaFila.dataset.escritorioId) : 0;
     const FILA_INTERVALO_MS = 60000;
+    // Quanto um toque com internet espera a rodada da fila que vai antes dele (`rodarFilaAntesDoToque`). Somado ao prazo
+    // do GPS (5 s), fica longe do limite de 60 s da guarda de atraso do envio.
+    const FILA_PRAZO_ANTES_DO_TOQUE_MS = 10000;
     const URL_DA_BATIDA = '{{ path('ponto_batida') }}';
+    // Dois textos para a batida guardada: o aparelho sabe que está sem internet (`navigator.onLine === false`), ou diz
+    // que tem rede e o envio ficou sem resposta (prazo estourado, servidor fora). No segundo, "Sem internet" mandaria a
+    // pessoa olhar um sinal que está bom.
     const AVISO_GUARDADA_SEM_INTERNET = 'Sem internet. A batida ficou guardada neste aparelho e será enviada quando a internet voltar.';
+    const AVISO_GUARDADA_SEM_CONEXAO = 'Sem conexão com o servidor. A batida ficou guardada neste aparelho e será enviada sozinha quando a conexão voltar.';
     const AVISO_FILA_ENVIADA = 'Batidas sem internet enviadas.';
-    // A hora da batida guardada é a do aparelho no toque, mostrada no fuso do servidor, como a hora oficial.
+    // A hora e o dia da batida guardada são os do aparelho no toque, mostrados no fuso do servidor, como a hora oficial.
     const FORMATO_HORA_DA_FILA = formatoNoFusoDoServidor({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const FORMATO_DIA_E_MES_DA_FILA = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit' });
     const FORMATO_DIA_DA_FILA = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit', year: 'numeric' });
     const DIA_DA_TELA = String(diaHoje).padStart(2, '0') + '/' + String(mesHoje).padStart(2, '0') + '/' + anoHoje;
     let filaTemPendentes = false;
+    // As guardadas desta pessoa neste escritório (pendentes e retidas por 409), como esta página as conhece: a carga, o
+    // toque guardado e cada rodada da fila trocam a lista. É dela que a tela remarca os tipos depois de cada troca.
+    let guardadasDaPagina = [];
+    // Resultado de uma rodada da fila que chegou com uma batida do toque em andamento: espera o toque terminar
+    // (`liberarBotaoBatida`) e entra abaixo do aviso dele. Nunca é reagendado.
+    let resultadoDaFilaEmEspera = null;
+    // A rodada em curso nesta página: o minuto, o `online` e o toque dividem a mesma, em vez de cada um esperar à toa.
+    let rodadaDaFilaEmCurso = null;
 
     function filaDisponivel() {
         return !!window.PontoFila && window.PontoFila.disponivel() && FILA_USUARIO_ID > 0 && FILA_ESCRITORIO_ID > 0;
     }
 
     // A caixa do desenho: "Sem internet: N batida(s) aguardando envio." e, quando há, a linha das guardadas em outro
-    // escritório. Some com as duas em zero. Texto só por `textContent`.
+    // escritório (inclusive as que voltaram 409 aqui). Some com as duas em zero. Texto só por `textContent`.
     function desenharCaixaDaFila(contagem) {
         if (!caixaDaFila || !contagem) {
             return;
@@ -1422,43 +1485,61 @@
         }
     }
 
-    // O P7 da E1 para a batida guardada: o tipo fica verde, sem clique e com a hora do toque até a tela se atualizar,
-    // para a pessoa não bater de novo o que já está na fila. Só as do dia da tela (no fuso do servidor), e nunca depois
-    // da virada, que começa o dia novo com os quatro tipos livres.
-    function marcarGuardadasNaTela(entradas) {
-        if (diaVirou || !Array.isArray(entradas)) {
-            return;
+    // O dia da tela: o da carga; depois da virada (página aberta de um dia para o outro), o de agora no servidor.
+    function diaDaTelaAgora() {
+        if (!diaVirou) {
+            return DIA_DA_TELA;
         }
-        const botoes = Array.from(document.querySelectorAll('#ponto-tipos > button[role="radio"]'));
-        let marcou = false;
-        entradas.forEach((entrada) => {
-            const quando = new Date(entrada.horaAparelho);
-            const botao = botoes.find((b) => b.dataset.tipo === entrada.tipo);
-            if (!botao || botao.disabled || FORMATO_DIA_DA_FILA.format(quando) !== DIA_DA_TELA) {
-                return;
-            }
-            botao.disabled = true;
-            botao.classList.add('pe-tipo-btn--feito');
-            botao.dataset.registrada = '1';
-            botao.dataset.guardada = '1';
-            const hora = botao.querySelector('.pe-tipo-hora');
-            if (hora) {
-                hora.textContent = FORMATO_HORA_OFICIAL.format(quando);
-            }
-            marcou = true;
-        });
-        if (!marcou) {
-            return;
+        const agoraMs = agoraNoServidorMs();
+
+        return agoraMs === null ? null : FORMATO_DIA_DA_FILA.format(new Date(agoraMs));
+    }
+
+    // O P7 da E1 num tipo: verde, sem clique e com a hora.
+    function marcarTipoComoBatido(botao, horaTexto) {
+        botao.disabled = true;
+        botao.classList.add('pe-tipo-btn--feito');
+        botao.dataset.registrada = '1';
+        const hora = botao.querySelector('.pe-tipo-hora');
+        if (hora) {
+            hora.textContent = horaTexto;
         }
-        // A sugestão anda para o próximo tipo livre quando o escolhido acabou de ser guardado, como depois de uma
-        // batida aceita; com os quatro feitos, o botão vira "Jornada de hoje concluída".
-        const escolhido = botoes.find((b) => b.dataset.tipo === tipoRegistro.value);
-        if (!escolhido || escolhido.disabled) {
+    }
+
+    // A sugestão do botão nunca fica num tipo sem clique (batido ou guardado): anda para o primeiro livre, como depois
+    // de uma batida aceita; com os quatro feitos, o botão vira "Jornada de hoje concluída".
+    function acertarSugestaoDoBotao() {
+        const escolhido = Array.from(document.querySelectorAll('#ponto-tipos > button[role="radio"]')).find((b) => b.dataset.tipo === tipoRegistro.value);
+        if (escolhido && escolhido.disabled) {
             tipoRegistro.value = primeiroTipoLivre();
         }
         marcarTipoEscolhido();
         atualizarRotuloBotao();
         updateButtonState();
+    }
+
+    // 🔑 O P7 da E1 para as batidas guardadas desta página (pendentes e retidas por 409): o tipo fica verde, sem clique e
+    // com a hora do toque, para a pessoa não bater de novo o que já está na fila; depois, a sugestão do botão é acertada.
+    // Chamada pelas próprias funções que trocam os tipos (`atualizarTelaDoPonto`, `zerarTiposNaVirada`) e pela fila:
+    // a tela buscada no servidor não conhece a fila, e um chamador esquecido devolveria o tipo guardado livre (batida
+    // em dobro). Só as do dia da tela, no fuso do servidor.
+    function aplicarGuardadasNaTela() {
+        const dia = diaDaTelaAgora();
+        const botoes = Array.from(document.querySelectorAll('#ponto-tipos > button[role="radio"]'));
+        guardadasDaPagina.forEach((entrada) => {
+            try {
+                const quando = new Date(entrada.horaAparelho);
+                const botao = botoes.find((b) => b.dataset.tipo === entrada.tipo);
+                if (!botao || botao.disabled || dia === null || FORMATO_DIA_DA_FILA.format(quando) !== dia) {
+                    return;
+                }
+                marcarTipoComoBatido(botao, FORMATO_HORA_OFICIAL.format(quando));
+                botao.dataset.guardada = '1';
+            } catch (erro) {
+                console.error('Falha ao marcar a batida guardada na tela:', erro);
+            }
+        });
+        acertarSugestaoDoBotao();
     }
 
     // Guarda a batida do toque na fila, com o MESMO identificador e a MESMA hora do toque. Devolve false quando não
@@ -1472,20 +1553,18 @@
             return false;
         }
         // Sem rede, o botão de atualizar NÃO aparece (como no `AVISO_SEM_REDE`): recarregar sem conexão leva a tela.
-        mostrarAvisoBatida(AVISO_GUARDADA_SEM_INTERNET, 'info', false);
-        try {
-            marcarGuardadasNaTela([entrada]);
-        } catch (erro) {
-            console.error('Falha ao marcar a batida guardada na tela:', erro);
-        }
+        const aviso = navigator.onLine === false ? AVISO_GUARDADA_SEM_INTERNET : AVISO_GUARDADA_SEM_CONEXAO;
+        mostrarAvisoBatida(aviso, 'info', false, 'fila');
+        guardadasDaPagina = guardadasDaPagina.concat([entrada]);
+        aplicarGuardadasNaTela();
         recontarFila();
 
         return true;
     }
 
-    // Depois da fila, a tela se atualiza pelo caminho de depois da batida (`atualizarTelaDoPonto`, sem recarregar).
-    // Falhou: fica como está, sem recarga sozinha. As guardadas que sobraram voltam a aparecer como batidas.
-    async function atualizarDepoisDaFila(restantes) {
+    // Depois da fila, a tela se atualiza pelo caminho de depois da batida (`atualizarTelaDoPonto`, que já remarca as
+    // guardadas que sobraram). Falhou: fica como está, sem recarga sozinha.
+    async function atualizarDepoisDaFila() {
         try {
             await atualizarTelaDoPonto();
         } catch (erro) {
@@ -1495,65 +1574,151 @@
         if (envioEmAndamento) {
             return;
         }
-        marcarGuardadasNaTela(restantes);
         liberarBotaoBatida();
     }
 
+    // Recusa definitiva, com o tipo e o dia, porque a batida pode ter sido guardada até 72 h antes.
     function linhaDaRecusaDaFila(recusa) {
-        return 'Batida de ' + FORMATO_HORA_DA_FILA.format(new Date(recusa.horaAparelho)) + ' guardada sem internet não foi registrada: ' + recusa.mensagem;
+        const quando = new Date(recusa.horaAparelho);
+        const tipo = Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, recusa.tipo) ? ROTULOS_TIPO[recusa.tipo] : String(recusa.tipo);
+
+        return 'Batida de ' + tipo + ' de ' + FORMATO_DIA_E_MES_DA_FILA.format(quando) + ' às ' + FORMATO_HORA_DA_FILA.format(quando)
+            + ' guardada sem internet não foi registrada: ' + recusa.mensagem;
     }
 
-    // Esvaziou: "Batidas sem internet enviadas." (desenho). Recusa definitiva: a mensagem do servidor, uma linha por
-    // batida. Com uma batida do toque em andamento, o resultado espera ela terminar e entra abaixo do aviso dela.
-    function mostrarResultadoDaFila(resultado, depoisDeUmToque) {
-        if (envioEmAndamento) {
-            setTimeout(() => mostrarResultadoDaFila(resultado, true), 1000);
-            return;
-        }
-        desenharCaixaDaFila(resultado);
+    // Esvaziou: "Batidas sem internet enviadas." (desenho). Recusa definitiva: uma linha por batida.
+    function parteDoResultadoDaFila(resultado) {
         const linhas = [];
         if (resultado.enviadas > 0 && resultado.pendentes === 0) {
             linhas.push(AVISO_FILA_ENVIADA);
         }
         resultado.recusadas.forEach((recusa) => linhas.push(linhaDaRecusaDaFila(recusa)));
-        if (linhas.length > 0) {
-            const avisoVisivel = !avisoBatida.classList.contains('d-none') && avisoBatida.textContent !== '';
-            if (!(depoisDeUmToque && avisoVisivel)) {
-                const tom = resultado.recusadas.length === 0 ? 'success' : (resultado.enviadas > 0 ? 'warning' : 'danger');
-                mostrarAvisoBatida(linhas.shift(), tom, false);
-            }
-            linhas.forEach((texto) => {
-                const linha = document.createElement('div');
-                linha.className = 'pe-aviso-linha';
-                linha.textContent = texto;
-                avisoBatida.appendChild(linha);
-            });
+
+        return { linhas, enviadas: resultado.enviadas, recusadas: resultado.recusadas.length };
+    }
+
+    function juntarPartesDaFila(antes, depois) {
+        if (!antes) {
+            return depois;
         }
-        if (resultado.enviadas > 0 || resultado.recusadas.length > 0) {
-            atualizarDepoisDaFila(resultado.restantes);
+        const linhas = antes.linhas.concat(depois.linhas).filter((linha, i, todas) => todas.indexOf(linha) === i);
+
+        return { linhas, enviadas: antes.enviadas + depois.enviadas, recusadas: antes.recusadas + depois.recusadas };
+    }
+
+    // 🔑 Nunca apaga um aviso que já está na tela (sem confirmação, sucesso com avisos, recusa do toque) nem mexe no
+    // botão "Atualizar": as linhas da fila entram abaixo dele. Só o aviso da própria fila (`data-origem="fila"`: o de
+    // guardada ou o de uma rodada anterior) é trocado, porque ficou velho; mesmo aí o botão fica como estava.
+    function escreverAvisoDaFila(parte) {
+        if (parte.linhas.length === 0) {
+            return;
+        }
+        const avisoNaTela = !avisoBatida.classList.contains('d-none') && avisoBatida.textContent !== '';
+        let resto = parte.linhas;
+        if (!avisoNaTela || avisoBatida.dataset.origem === 'fila') {
+            const tom = parte.recusadas === 0 ? 'success' : (parte.enviadas > 0 ? 'warning' : 'danger');
+            mostrarAvisoBatida(parte.linhas[0], tom, !btnAtualizarPagina.classList.contains('d-none'), 'fila');
+            resto = parte.linhas.slice(1);
+        }
+        resto.forEach((texto) => {
+            const linha = document.createElement('div');
+            linha.className = 'pe-aviso-linha';
+            linha.textContent = texto;
+            avisoBatida.appendChild(linha);
+        });
+    }
+
+    function concluirResultadoDaFila(parte) {
+        escreverAvisoDaFila(parte);
+        if (parte.enviadas > 0 || parte.recusadas > 0) {
+            atualizarDepoisDaFila();
         } else {
-            marcarGuardadasNaTela(resultado.restantes);
+            aplicarGuardadasNaTela();
         }
     }
 
-    // Uma execução por vez é a trava do módulo (`PontoFila.enviarPendentes`). Sem rede sabida ou com uma batida do
-    // toque em envio, nem tenta: o próximo disparo (o `online` ou o minuto seguinte) tenta de novo.
+    function mostrarResultadoDaFila(resultado) {
+        desenharCaixaDaFila(resultado);
+        if (Array.isArray(resultado.restantes)) {
+            guardadasDaPagina = resultado.restantes;
+        }
+        const parte = parteDoResultadoDaFila(resultado);
+        // Uma batida do toque em andamento: o botão, o aviso e a atualização da tela são dela. O resultado espera ela
+        // terminar (`soltarResultadoDaFilaEmEspera`, no fim de `liberarBotaoBatida`), sem reagendar nada.
+        if (envioEmAndamento) {
+            resultadoDaFilaEmEspera = juntarPartesDaFila(resultadoDaFilaEmEspera, parte);
+            return;
+        }
+        concluirResultadoDaFila(parte);
+    }
+
+    function soltarResultadoDaFilaEmEspera() {
+        if (!resultadoDaFilaEmEspera) {
+            return;
+        }
+        const parte = resultadoDaFilaEmEspera;
+        resultadoDaFilaEmEspera = null;
+        concluirResultadoDaFila(parte);
+    }
+
+    // Uma rodada da fila. A trava de uma execução por vez é a do módulo (`PontoFila.enviarPendentes`); aqui a rodada em
+    // curso é compartilhada, para o toque poder esperar a que já estava correndo. Nunca rejeita.
+    function rodadaDaFila() {
+        if (!rodadaDaFilaEmCurso) {
+            rodadaDaFilaEmCurso = (async () => {
+                try {
+                    const resultado = await window.PontoFila.enviarPendentes(URL_DA_BATIDA, FILA_USUARIO_ID, FILA_ESCRITORIO_ID);
+                    if (resultado) {
+                        mostrarResultadoDaFila(resultado);
+                    }
+                } catch (erro) {
+                    console.error('Falha na rodada das batidas guardadas:', erro);
+                } finally {
+                    rodadaDaFilaEmCurso = null;
+                }
+            })();
+        }
+
+        return rodadaDaFilaEmCurso;
+    }
+
+    // Sem rede sabida ou com uma batida do toque em envio, nem tenta: o próximo disparo (o `online` ou o minuto
+    // seguinte) tenta de novo. A rodada que vai antes de um toque é a de `rodarFilaAntesDoToque`.
     async function enviarFila() {
         if (!filaDisponivel() || navigator.onLine === false || envioEmAndamento) {
             return;
         }
-        const resultado = await window.PontoFila.enviarPendentes(URL_DA_BATIDA, FILA_USUARIO_ID, FILA_ESCRITORIO_ID);
-        if (resultado) {
-            mostrarResultadoDaFila(resultado, false);
+        await rodadaDaFila();
+    }
+
+    // Antes de um toque com internet, as guardadas pendentes desta página vão primeiro: uma rodada, esperada até
+    // `FILA_PRAZO_ANTES_DO_TOQUE_MS`. Passou do prazo, o toque segue e a rodada termina sozinha.
+    async function rodarFilaAntesDoToque() {
+        if (!filaTemPendentes || navigator.onLine === false || !filaDisponivel()) {
+            return;
+        }
+        let prazo = null;
+        try {
+            await Promise.race([
+                rodadaDaFila(),
+                new Promise((resolve) => { prazo = setTimeout(resolve, FILA_PRAZO_ANTES_DO_TOQUE_MS); }),
+            ]);
+        } finally {
+            clearTimeout(prazo);
         }
     }
 
-    // Na carga: as guardadas de hoje aparecem como batidas, a caixa conta e o envio começa.
+    // Na carga: primeiro a limpeza (LGPD, aparelho compartilhado; ver `PontoFila.limpar`), depois as guardadas de hoje
+    // aparecem como batidas, a caixa conta e o envio começa.
     async function iniciarFila() {
         if (!filaDisponivel()) {
             return;
         }
-        marcarGuardadasNaTela(await window.PontoFila.listar(FILA_USUARIO_ID, FILA_ESCRITORIO_ID));
+        if (typeof window.PontoFila.limpar === 'function') {
+            await window.PontoFila.limpar(Date.now());
+        }
+        guardadasDaPagina = await window.PontoFila.listar(FILA_USUARIO_ID, FILA_ESCRITORIO_ID);
+        aplicarGuardadasNaTela();
         await recontarFila();
         enviarFila();
     }
@@ -1649,6 +1814,11 @@
         let sucesso = false;
 
         try {
+            // E14: com batida guardada nesta página, a fila vai antes, para as batidas chegarem ao servidor na ordem em que
+            // aconteceram. Uma rodada só, com prazo; se a fila continuar pendente (sem rede, "tentar depois"), este toque
+            // segue o caminho dele: sem internet vai para a fila, com internet é enviado.
+            await rodarFilaAntesDoToque();
+
             // E14: o aparelho sabe que está sem internet, então nem tenta o envio. A batida vai para a fila com a
             // posição lida acima (o GPS funciona sem internet). Sem fila, segue o envio de sempre e o aviso de sem rede.
             if (navigator.onLine === false && await guardarNaFila(payload)) {
@@ -1673,6 +1843,7 @@
                 );
             } else if (resultado.tipo === 'sucesso') {
                 sucesso = true;
+                batidaAceita = { tipo: payload.tipo, resposta: resultado.data };
                 const avisos = Array.isArray(resultado.data && resultado.data.avisos) ? resultado.data.avisos : [];
                 if (avisos.length > 0) {
                     mostrarSucessoComAvisos(resultado.mensagem, avisos);

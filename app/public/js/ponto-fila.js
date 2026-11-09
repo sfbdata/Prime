@@ -30,6 +30,13 @@
     // quebra o sigilo do AES-GCM.
     const TAMANHO_DO_IV = 12;
     const CAMPOS_DA_POSICAO = ['latitude', 'longitude', 'precisaoGps'];
+    // Transação de escrita que só termina (`oncomplete`) depois de o navegador gravar no disco: a batida guardada não
+    // pode sumir num desligamento logo depois do aviso de que ficou guardada. Navegador que não conhece a opção ignora
+    // o terceiro argumento e grava como sempre.
+    const ESCRITA_DURAVEL = { durability: 'strict' };
+    // Limpeza na carga (ver `limpar`): uma semana. O servidor já recusa a batida guardada há mais de 72 h; a folga até 7
+    // dias deixa a recusa chegar à pessoa (com a mensagem do servidor) antes de a entrada sumir sem aviso.
+    const IDADE_MAXIMA_MS = 7 * 24 * 60 * 60 * 1000;
 
     let bancoAberto = null;   // promessa do banco, aberta uma vez por página
     let chaveAberta = null;   // promessa da CryptoKey, lida (ou gerada) uma vez por página
@@ -96,7 +103,7 @@
         const banco = await abrirBanco();
 
         return new Promise((resolve, reject) => {
-            const transacao = banco.transaction(nome, modo);
+            const transacao = modo === 'readwrite' ? banco.transaction(nome, modo, ESCRITA_DURAVEL) : banco.transaction(nome, modo);
             let resultado;
             const pedido = trabalho(transacao.objectStore(nome));
             if (pedido) {
@@ -117,7 +124,7 @@
         const banco = await abrirBanco();
 
         return new Promise((resolve, reject) => {
-            const transacao = banco.transaction(LOJA_CHAVE, 'readwrite');
+            const transacao = banco.transaction(LOJA_CHAVE, 'readwrite', ESCRITA_DURAVEL);
             const loja = transacao.objectStore(LOJA_CHAVE);
             let final = nova;
             const leitura = loja.get(ID_DA_CHAVE);
@@ -173,8 +180,7 @@
         return { idEnvio: entrada.idEnvio, iv, dados };
     }
 
-    async function decifrar(registro) {
-        const chave = await obterChave();
+    async function decifrarCom(chave, registro) {
         const claro = await crypto.subtle.decrypt(
             { name: 'AES-GCM', iv: registro.iv, additionalData: bytesDoTexto(registro.idEnvio) },
             chave,
@@ -183,6 +189,10 @@
         const entrada = JSON.parse(new TextDecoder().decode(claro));
 
         return entrada && entrada.idEnvio === registro.idEnvio ? entrada : null;
+    }
+
+    async function decifrar(registro) {
+        return decifrarCom(await obterChave(), registro);
     }
 
     /**
@@ -272,7 +282,10 @@
         }
     }
 
-    /** As entradas desta pessoa neste escritório, da mais antiga para a mais nova. Nunca rejeita (`[]`). */
+    /**
+     * As entradas desta pessoa neste escritório (inclusive as retidas por 409), da mais antiga para a mais nova. Nunca
+     * rejeita (`[]`).
+     */
     async function listar(usuarioId, escritorioId) {
         try {
             if (!disponivel()) {
@@ -299,6 +312,47 @@
             console.error('Não foi possível contar as batidas guardadas:', erro);
 
             return null;
+        }
+    }
+
+    /**
+     * Limpeza na carga da tela (LGPD, aparelho compartilhado): apaga as entradas que não abrem com a chave (chave
+     * trocada ou dado corrompido: ninguém consegue mais enviá-las) e as guardadas há mais de 7 dias (`IDADE_MAXIMA_MS`),
+     * de QUALQUER pessoa. Uma entrada guarda a hora e a posição de alguém; num aparelho que várias pessoas usam, ela não
+     * pode ficar esquecida para sempre só porque o dono dela não voltou a abrir a tela aqui. O servidor já recusa acima
+     * de 72 h, então nada que ainda poderia ser registrado é apagado.
+     *
+     * A idade é medida pelo relógio do aparelho, o mesmo que deu a hora do toque. Sem a chave (falha ao abrir o banco),
+     * não apaga nada. Resolve com quantas apagou; nunca rejeita.
+     */
+    async function limpar(agoraMs) {
+        try {
+            if (!disponivel() || !Number.isFinite(agoraMs)) {
+                return 0;
+            }
+            const chave = await obterChave();
+            const registros = await naLoja(LOJA_ENTRADAS, 'readonly', (loja) => loja.getAll());
+            let apagadas = 0;
+            for (const registro of registros || []) {
+                let entrada = null;
+                try {
+                    entrada = await decifrarCom(chave, registro);
+                } catch (erro) {
+                    entrada = null;   // não abre: apagar
+                }
+                if (entrada && agoraMs - Number(entrada.horaAparelho) <= IDADE_MAXIMA_MS) {
+                    continue;
+                }
+                if (await remover(registro.idEnvio)) {
+                    apagadas++;
+                }
+            }
+
+            return apagadas;
+        } catch (erro) {
+            console.error('Não foi possível limpar as batidas guardadas:', erro);
+
+            return 0;
         }
     }
 
@@ -401,7 +455,8 @@
 
         const sobraram = guardadas.filter((entrada) => !tiradas.has(entrada.idEnvio));
         Object.assign(resultado, contagemDe(sobraram, usuarioId, escritorioId));
-        resultado.restantes = sobraram.filter((entrada) => daPessoaEDoEscritorio(entrada, usuarioId, escritorioId) && !retidasNestaPagina.has(entrada.idEnvio));
+        // Inclui as retidas por 409: continuam na fila, e a tela as mostra como batidas para ninguém bater de novo.
+        resultado.restantes = sobraram.filter((entrada) => daPessoaEDoEscritorio(entrada, usuarioId, escritorioId));
 
         return resultado;
     }
@@ -422,8 +477,8 @@
      * `null` sem mandar nada, e a mesma entrada nunca sai duas vezes desta página.
      *
      * Resolve com `{ enviadas, recusadas: [{ tipo, horaAparelho, mensagem }], pendentes, emOutroEscritorio,
-     * restantes }` (`restantes`: as desta pessoa neste escritório que continuam na fila), ou `null` quando não
-     * rodou. Nunca rejeita.
+     * restantes }` (`restantes`: as desta pessoa neste escritório que continuam na fila, inclusive as retidas por 409),
+     * ou `null` quando não rodou. Nunca rejeita.
      */
     async function enviarPendentes(url, usuarioId, escritorioId) {
         if (envioEmAndamento) {
@@ -451,6 +506,7 @@
         listar,
         contar,
         remover,
+        limpar,
         enviarPendentes,
     });
 })();
