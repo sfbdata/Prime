@@ -72,7 +72,7 @@ escolhida.
 - **P27.** Selos do dia. Hoje: "A conferir", "Registro incompleto", "Home Office". | No desenho: "Fora de sequência" (vermelho, quando um horário é menor que o anterior), "Feriado", "Em andamento" (hoje) e "Registro incompleto". | Decisão: aceito.
 - **P28.** Fica (o desenho não mostra): selos "A conferir" (dia com batidas fora da conta) e "Home Office". Ficam? | Decisão: fica.
 - **P29.** Marca "aj" na batida corrigida. Hoje: não há (a batida corrigida pelo gestor é trocada). | No desenho: "aj" ao lado da hora, com a dica "Ajustado por NOME em dd/mm/aaaa. Registro original preservado." (depende do P65). | Decisão: aceito. Depende do P65 (a).
-- **P30. (PERGUNTA)** "+" do esquecimento. Hoje: "+" na batida que falta, só em dia útil passado que tem alguma batida; ampulheta quando já pediu. | No desenho: "+" em qualquer dia passado da folha; hoje e feriado mostram um traço. | Origem: decisão do dono de 28/07 (spec ponto-atalho-esquecimento-registro). | Opções: (a) desenho; (b) regra de hoje com o "+" no visual do desenho e a ampulheta. Recomendo (b). | Decisão: (a) (contra a recomendação acima). "+" como o desenho; "Em análise" com ampulheta fica na coluna Justificativa.
+- **P30. (PERGUNTA)** "+" do esquecimento. Hoje: "+" na batida que falta, só em dia útil passado que tem alguma batida; ampulheta quando já pediu. | No desenho: "+" em qualquer dia passado da folha; hoje e feriado mostram um traço. | Origem: decisão do dono de 28/07 (spec ponto-atalho-esquecimento-registro). | Opções: (a) desenho; (b) regra de hoje com o "+" no visual do desenho e a ampulheta. Recomendo (b). | Decisão: (a) (contra a recomendação acima). "+" como o desenho; "Em análise" com ampulheta fica na coluna Justificativa. Correção de 09/11/2026 (pedido do Samuel, aprovado pelo Coordenador): o dia de hoje também tem o "+". Função do sistema que volta (regra 2): antes da E2 o "+" já valia hoje (`chaveDia <= dataHoje`; o "Hoje" acima dizia "dia passado" por engano), e a spec ponto-atalho-esquecimento-registro diz que "esqueci de bater a entrada hoje de manhã" é o caso mais comum do atalho. Feriado continua com o traço.
 - **P31.** Coluna Justificativa. Hoje: Abonada, Pendente, Rejeitada, Não abonada, com o tipo e o horário do abono parcial. | No desenho: selos coloridos "Abonada" (verde), "Em análise" (azul) e "Recusada" (vermelho). Se aceito, "Não abonada" e o horário do abono parcial ficam. | Decisão: aceito. "Não abonada" e o horário do abono parcial ficam.
 - **P32.** Fica (o desenho não mostra): rodapé "Saldo do mês / Horas pagas / Total do mês". Fica? | Decisão: fica.
 - **P33.** Assinar a folha. Hoje: não existe (o PDF tem linhas para assinar no papel). | No desenho: no mês já fechado, botão "Assinar folha" com "Concordo: os registros representam fielmente minha jornada" ou "Discordo de parte dos registros (ressalva)" e o texto da ressalva; depois, selo "Assinada em" ou "Ressalva em" e carimbo no PDF. Não dá para desfazer. | Decisão: aceito. O texto do aceite vai ao pacote jurídico, sem travar.
@@ -293,14 +293,26 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - a virada do dia segue o desenho (os 4 tipos livres e sem horário, "Bater Ponto: Entrada"; o aviso da virada fica) e
     é detectada pela hora do servidor: o instante da carga mais o tempo passado, contra a próxima meia-noite no fuso do
     servidor; o dia e o fuso do aparelho não entram;
-  - o aviso do intervalo (P12) segue a chave `validacaoRepousoHabilitada` da Jornada do escritório: desligada, não
-    aparece;
+  - o mínimo do aviso do intervalo (P12) segue a chave `validacaoRepousoHabilitada` da Jornada do escritório:
+    desligada, o mínimo não aparece (o tempo do intervalo ao vivo, sim: ver "Funções do sistema que voltam", abaixo);
   - as setas do teclado andam entre os tipos livres como num grupo de rádio (tabindex móvel); o desenho só tem o Esc;
   - o botão de som e o de mudo (P81) vão para a E8;
   - os parâmetros de leitura do GPS são os do sistema (spec `ponto-gps-erro-que-explica`), não os do protótipo;
   - a saída prevista usa a escala: antes do repouso batido, entrada mais a duração da escala de hoje (com o almoço);
     depois dele, entrada mais a meta do dia e o intervalo (o batido, ou o mínimo da Jornada do escritório);
   - os avisos que mandavam olhar "a lista abaixo" apontam para os horários nos botões dos tipos, acima.
+- Funções do sistema que voltam (regra 2: função do sistema não sai; pedido do Samuel de 09/11/2026, aprovado pelo
+  Coordenador; branch `ponto-desenho-funcoes`, sem migration):
+  - tempo do intervalo ao vivo: antes da E1 o "Repouso: HH:MM:SS" contava o intervalo a cada segundo, com ou sem a
+    validação do repouso; a E1 deixou só o mínimo e só com a validação. Volta dentro do aviso do P12 (o texto do desenho
+    fica, com o tempo acrescentado): "Intervalo em andamento há 00:42:10. O mínimo de 1h se completa em HH:MM.",
+    "Intervalo mínimo de 1h cumprido. Em intervalo há 01:05:00." e, sem a validação, "Intervalo em andamento há
+    00:42:10.". O "1h" é o mínimo da Jornada do escritório. O tique é o do relógio do dia (um `setInterval` de 1 s, que
+    a troca depois da batida não repete); o início é a hora da batida de repouso que o cartão já tem, sem busca nova;
+  - saída prevista durante o intervalo: antes da E1 a "Previsão de saída" ficava na tela o dia todo, também no
+    repouso; a E1 a escondia enquanto o aviso do intervalo aparecia. Volta como " Saída prevista às HH:MM." no fim do
+    aviso do intervalo, só quando `saidaPrevista()` tem valor (sem meta ou sem escala, não aparece). No repouso a conta
+    usa o mínimo da Jornada do escritório como intervalo (a regra da E1 acima), mesmo que o intervalo já passe dele.
 - Depende de: nada técnico.
 - Migration: não.
 - Arquivos: `templates/ponto/index.html.twig`, CSS novo da tela (`public/css/ponto-eletronico.css`, prefixo `.pe-`);
@@ -314,8 +326,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 
 **E2. Folha no molde do desenho.**
 - Entra: P22 (sem "Assinar folha"), P23, P24, P25 (filtro do desenho: só dias com batida e feriado com horas; o dia sem
-  batida some da tela e continua descontando do saldo), P26, P27, P28 (fica), P30 (a: "+" em qualquer dia passado; hoje
-  e feriado sem "+"; "Em análise" com ampulheta na coluna Justificativa), P31 ("Não abonada" e o horário do abono
+  batida some da tela e continua descontando do saldo), P26, P27, P28 (fica), P30 (a: "+" em qualquer dia passado e
+  hoje; feriado sem "+"; "Em análise" com ampulheta na coluna Justificativa), P31 ("Não abonada" e o horário do abono
   parcial ficam), P32 (fica), D7, D15, D22.
 - Decisões da etapa (09/11/2026, Coordenador e implementação):
   - a ficha do colaborador ganha o mesmo molde e mostra todos os dias do mês; o filtro do P25 é só da `/ponto`
@@ -323,9 +335,13 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - ficam do sistema, no estilo do desenho: o selo da jornada na barra da ficha ("40h00m/sem (Personalizada)"), o sinal
     de registro em outro escritório, a dica do "Registro incompleto", "A conferir", "Home Office", as batidas fora da
     conta do gestor, "Ver PDF" (P89, ainda no modal do sistema até a E16/E4) e "Baixar XLSX" (P88, agora baixa direto);
-  - o "+" (P30 a) vale em qualquer dia passado com batida, inclusive fim de semana; hoje, feriado e dia antes do início
-    da contagem ficam sem ele. A batida que já tem esquecimento pendente ou abonado também fica sem "+" (condição 8 do
-    sistema, para não criar duplicata); o "Em análise" aparece na coluna Justificativa;
+  - o "+" (P30 a) vale em qualquer dia passado com batida, inclusive fim de semana, e no dia de hoje; feriado e dia
+    antes do início da contagem ficam sem ele. A batida que já tem esquecimento pendente ou abonado também fica sem "+"
+    (condição 8 do sistema, para não criar duplicata, hoje inclusive); o "Em análise" aparece na coluna Justificativa.
+    O "+" de hoje é função do sistema que volta (regra 2; correção de 09/11/2026, pedido do Samuel aprovado pelo
+    Coordenador): a E2 o tinha tirado, mas antes dela ele já valia hoje (`chaveDia <= dataHoje`), e a spec
+    ponto-atalho-esquecimento-registro diz que "esqueci de bater a entrada hoje de manhã" é o caso mais comum do atalho.
+    O risco já conhecido daquela spec segue igual: esquecimento de hoje aprovado depois de a pessoa bater a mesma batida;
   - o selo "Fora de sequência" vale quando um horário é menor que o anterior e vence os outros; o feriado trabalhado
     ganha o selo "Feriado" na coluna Semana (o motor escrevia "FERIADO - "); o feriado sem batida tem o selo no Saldo dia;
   - o tipo da justificativa vai para a dica do selo (o desenho não tem a linha de baixo); "Não abonada" fica vermelha
@@ -360,7 +376,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: `FolhaDoDesenhoTest` (arranjo por filho direto, o que saiu contando zero, dia sem batida fora da tela com o
   saldo de antes, selos, meses, ficha com todos os dias, celular por classe, dia sem repouso ou sem entrada, "Em análise" ao lado da justificativa escolhida e "Saldo mês" vazio no dia em andamento) e `FolhaDoDesenhoCssTest` (valores do
   desenho); ajustados: `JustificativaEsquecimentoControllerTest` (dia só com abono sai, sábado passado ganha "+", hoje
-  sem "+"), `HorasPagasFolhaExibicaoTest` (cabeçalho "Saldo mês" e marcação do rodapé), `JornadaComVersoesPelaTelaTest`
+  ganha "+" depois da correção de 09/11/2026, que também cobre o esquecimento pendente de hoje), `HorasPagasFolhaExibicaoTest` (cabeçalho "Saldo mês" e marcação do rodapé), `JornadaComVersoesPelaTelaTest`
   e os dois da troca sem recarregar (seletor novo). `FolhaExportacaoMesmaEscolhaTest` e os do PDF e XLSX sem mudança.
 
 **E3. Cartão de abas: Pendências e Minhas Justificativas.**
@@ -781,6 +797,9 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   migration `Version20261109220000`. Decisões da etapa registradas na E13 (seção 5).
 - E4 implementada na branch `ponto-desenho-e4` (empilhada na E3), com a migration `Version20261109210000` (coluna
   `motivo` em `justificativa_ponto`). Decisões registradas na E4 (seção 5).
+- Funções do sistema que voltam (regra 2), na branch `ponto-desenho-funcoes`, sem migration: o "+" do esquecimento
+  hoje (P30 e E2), o tempo do intervalo ao vivo e a saída prevista durante o intervalo (E1, "Funções do sistema que
+  voltam").
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
   saldo de antes dos lotes (E17).

@@ -204,16 +204,18 @@
                                     {%- endif -%}
                                 {%- elseif tipoInfo.id is not null -%}
                                     {{ horario }}
-                                {#- P30 (a), decisão de 09/11/2026: "+" em qualquer dia passado da folha; hoje e feriado ficam sem ele
-                                    (no desenho, um traço; aqui, a célula vazia). Ficam do sistema: dia antes do início da contagem
-                                    (uma batida ali moveria a contagem), dia sem batida nenhuma e a batida que já tem esquecimento
-                                    pedido ou abonado (sem duplicata); este último mostra "Em análise" na coluna Justificativa. -#}
+                                {#- P30 (a), decisão de 09/11/2026: "+" em qualquer dia passado da folha; feriado fica sem ele (no
+                                    desenho, um traço; aqui, a célula vazia). Hoje também tem o "+": função do sistema que volta
+                                    (regra 2; spec ponto-atalho-esquecimento-registro: "esqueci de bater a entrada hoje de manhã" é
+                                    o caso mais comum do atalho). Ficam do sistema: dia antes do início da contagem (uma batida ali
+                                    moveria a contagem), dia sem batida nenhuma e a batida que já tem esquecimento pedido ou
+                                    abonado (sem duplicata, hoje inclusive); este último mostra "Em análise" na coluna Justificativa. -#}
                                 {%- elseif justificarFaltanteHabilitado
                                     and esquecimentosRegistrados[linha.chaveDia ~ '|' ~ tipoInfo.campo] is not defined
                                     and diaTemBatida
                                     and not ehFeriado
                                     and not linha.antesDoPrimeiroRegistro|default(false)
-                                    and dataHoje is not null and linha.chaveDia < dataHoje -%}
+                                    and dataHoje is not null and linha.chaveDia <= dataHoje -%}
                                     <button type="button" class="pe-mais"
                                             title="Enviar registro de esquecimento: {{ rotulo }}"
                                             aria-label="Enviar registro de esquecimento: {{ rotulo }}"

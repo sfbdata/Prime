@@ -173,28 +173,63 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('P30 a: o dia de hoje não oferece o atalho, mesmo com batida faltando')]
-    public function testHojeNaoOfereceAtalho(): void
+    #[TestDox('O dia de hoje oferece o atalho na batida que falta ("esqueci a entrada hoje de manhã" é o caso mais comum); a batida já feita não')]
+    public function testHojeOfereceAtalho(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario();
         $this->vincular($user, $tenant);
 
-        $hoje = new \DateTimeImmutable('today');
+        $hoje  = new \DateTimeImmutable('today');
+        $chave = $hoje->format('Y-m-d');
         $this->criarEntrada($user, $tenant, $hoje);
 
         $crawler = $this->abrirFolha($client, $user, $tenant, $hoje->format('Y-m'));
 
         self::assertCount(
             1,
-            $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"]', $hoje->format('Y-m-d'))),
+            $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"]', $chave)),
             'controle: a linha de hoje está na folha'
         );
+        // Função do sistema que volta (regra 2, spec ponto-desenho-0811): a E2 tinha tirado o "+" de hoje; antes dela,
+        // e pela spec ponto-atalho-esquecimento-registro, o "+" de hoje é o caso mais comum do atalho.
+        foreach (['repouso', 'retorno', 'saida'] as $campo) {
+            $mais = $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"] > td > %s', $chave, $this->seletorAtalho($chave, $campo)));
+            self::assertCount(1, $mais, 'hoje, a batida que falta oferece o atalho: ' . $campo);
+            self::assertStringContainsString('pe-mais', (string) $mais->attr('class'), 'o "+" no molde do desenho');
+        }
         self::assertCount(
             0,
-            $crawler->filter(sprintf('button[data-esquecimento-dia="%s"]', $hoje->format('Y-m-d'))),
-            'hoje a pessoa ainda pode bater: o esquecimento é só de dia que já passou'
+            $crawler->filter($this->seletorAtalho($chave, 'entrada')),
+            'a entrada de hoje já batida não oferece o atalho'
+        );
+    }
+
+    #[TestDox('Hoje também: a batida que já tem esquecimento pendente não oferece o atalho de novo; as outras que faltam, sim')]
+    public function testHojeComEsquecimentoPendenteNaoOfereceDeNovo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+
+        $hoje  = new \DateTimeImmutable('today');
+        $chave = $hoje->format('Y-m-d');
+        $this->criarEntrada($user, $tenant, $hoje);
+        $this->criarEsquecimentoPendente($user, $tenant, $hoje, 'repouso');
+
+        $crawler = $this->abrirFolha($client, $user, $tenant, $hoje->format('Y-m'));
+
+        self::assertCount(
+            0,
+            $crawler->filter($this->seletorAtalho($chave, 'repouso')),
+            'condição 8 (EsquecimentosRegistrados) vale hoje: sem segundo esquecimento para a mesma batida'
+        );
+        self::assertCount(
+            1,
+            $crawler->filter($this->seletorAtalho($chave, 'saida')),
+            'controle: a saída de hoje, sem pedido, segue com o atalho'
         );
     }
 
