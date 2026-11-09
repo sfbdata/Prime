@@ -399,6 +399,12 @@ final class PurgarEscritorioUseCase
         // BlueJus Voto (spec voto-redes-do-schema): a liberação do escritório pelo Master. A FK de tenant é CASCADE, mas
         // a conferência (garantirTenantVazio) roda ANTES do DELETE FROM tenant e enxerga o schema `voto`: sem esta linha,
         // acharia a linha que só sairia pela cascata e travaria a purga de todo escritório liberado.
+        // Assembleia de condomínio (spec voto-assembleia-condominio, seção 3): mesmo motivo, filhas antes das mães.
+        ['voto.assembleia_participacao', 'tenant_id = :tenant'],
+        ['voto.assembleia_opcao', 'tenant_id = :tenant'],
+        ['voto.assembleia_unidade', 'tenant_id = :tenant'],
+        ['voto.assembleia_pauta', 'tenant_id = :tenant'],
+        ['voto.assembleia', 'tenant_id = :tenant'],
         ['voto.liberacao', 'tenant_id = :tenant'],
     ];
 

@@ -23,10 +23,15 @@ use Symfony\Component\Console\Tester\CommandTester;
 final class MigracaoDaLiberacaoDoVotoTest extends KernelTestCase
 {
     private const VERSAO = 'DoctrineMigrations\\Version20261109140000';
+    /** As tabelas da assembleia de condomínio moram no schema `voto`: saem antes, senão o down do schema para nelas. */
+    private const VERSAO_DA_ASSEMBLEIA = 'DoctrineMigrations\\Version20261109170000';
 
     #[TestDox('down tira a tabela voto.liberacao e o schema voto; up devolve os dois, com a unicidade por escritório e o padrão não liberado')]
     public function testDownEUp(): void
     {
+        self::bootKernel();
+        self::assertSame(0, $this->executar('--down', self::VERSAO_DA_ASSEMBLEIA));
+        self::ensureKernelShutdown();
         self::bootKernel();
         self::assertSame(0, $this->executar('--down'));
         $banco = $this->banco();
@@ -97,12 +102,12 @@ final class MigracaoDaLiberacaoDoVotoTest extends KernelTestCase
         self::assertSame(0, $this->executar('--up'));
     }
 
-    private function executar(string $sentido): int
+    private function executar(string $sentido, string $versao = self::VERSAO): int
     {
         $application = new Application(self::$kernel);
         $tester = new CommandTester($application->find('doctrine:migrations:execute'));
 
-        return $tester->execute(['versions' => [self::VERSAO], $sentido => true], ['interactive' => false]);
+        return $tester->execute(['versions' => [$versao], $sentido => true], ['interactive' => false]);
     }
 
     private function banco(): Connection
