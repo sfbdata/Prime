@@ -258,7 +258,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertNotEmpty($painel->attr('data-token'));
 
         $linhas = json_decode((string) $painel->attr('data-recursos'), true);
-        self::assertCount(20, $linhas);
+        self::assertCount(21, $linhas);
         $contribua = array_values(array_filter($linhas, static fn (array $l): bool => $l['chave'] === 'contribua'));
         self::assertCount(2, $contribua);
         self::assertFalse($contribua[0]['ativo']);

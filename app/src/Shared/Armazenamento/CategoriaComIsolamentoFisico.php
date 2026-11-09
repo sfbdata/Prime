@@ -9,10 +9,11 @@ namespace App\Shared\Armazenamento;
  *
  * É a barreira estrutural de D7. Operação por prefixo (listar/apagar tudo de um escopo) só é
  * segura quando o prefixo resolvido pertence exclusivamente àquele escopo — e isso hoje só vale
- * para duas categorias:
+ * para três categorias:
  *
  *  - `PASTA_IMAGEM_EDITOR` → `uploads/pastas/<tenantId>/`
  *  - `COBRANCA_DOCUMENTO`  → `uploads/cobrancas/<tenantId>/`
+ *  - `ASSINATURA_DOCUMENTO` → `uploads/pastas/assinatura/<tenantId>/`
  *
  * Nas outras sete, o diretório é **compartilhado por todos os escritórios**
  * (`uploads/clientes`, `uploads/justificativas`, …). Um "apagar o prefixo do tenant 5" ali
@@ -31,12 +32,14 @@ enum CategoriaComIsolamentoFisico: string
 {
     case PASTA_IMAGEM_EDITOR = 'pasta_imagem_editor';
     case COBRANCA_DOCUMENTO  = 'cobranca_documento';
+    case ASSINATURA_DOCUMENTO = 'assinatura_documento';
 
     public function paraCategoria(): CategoriaDeArquivo
     {
         return match ($this) {
             self::PASTA_IMAGEM_EDITOR => CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             self::COBRANCA_DOCUMENTO  => CategoriaDeArquivo::COBRANCA_DOCUMENTO,
+            self::ASSINATURA_DOCUMENTO => CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
         };
     }
 

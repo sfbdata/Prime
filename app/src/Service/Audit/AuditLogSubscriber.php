@@ -2,6 +2,7 @@
 
 namespace App\Service\Audit;
 
+use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\ChatIa\Entity\AnexoDeChat;
 use App\ChatIa\Entity\ConversaDeChat;
 use App\ChatIa\Entity\PropostaDeCadastro;
@@ -75,6 +76,10 @@ class AuditLogSubscriber
         // da análise, por DQL, sem passar por aqui: a cópia no audit_log sobreviveria ao prazo. A trilha guarda status,
         // provedor, modelo, tokens, datas, quem pediu e quem editou (item 1.18 da auditoria).
         AnaliseDeInteligencia::class => ['resumo', 'pontos', 'quemAge', 'textoDaAnalise', 'textoBruto', 'resumoEditado', 'pontosEditados'],
+        // Documento da Assinatura: os blocos e o texto lateral são o conteúdo inteiro do documento (pode ter dado de
+        // cliente e até 2.000 blocos); as chaves dos arquivos e o carimbo de alteração não são diff útil. A trilha do
+        // próprio documento registra cada salvamento; aqui ficam nome, situação, pasta, cor e Lixeira.
+        DocumentoParaAssinar::class => ['blocos', 'lateral', 'mensagem', 'alteradoEm', 'logoChave', 'arquivoEnviadoChave'],
     ];
 
     /**

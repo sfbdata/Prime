@@ -303,6 +303,10 @@ final class PurgarEscritorioUseCase
         ['chat_ia_conversa', 'tenant_id = :tenant'],
         // PDFs do Cálculo emitidos (código de verificação): a FK de tenant cascateia, mas a purga é explícita.
         ['calculo_emitido', 'tenant_id = :tenant'],
+        // Assinatura de documentos (etapa 1): signatários e eventos caem pela CASCADE do documento. Os arquivos (PDF e
+        // logos) saem com o diretório do escritório: a categoria é isolada (`CategoriaComIsolamentoFisico`).
+        ['assinatura_eletronica_documento', 'tenant_id = :tenant'],
+        ['assinatura_eletronica_configuracao', 'tenant_id = :tenant'],
         // Presença na Central (F2): uma linha por vínculo, FK de tenant NO ACTION.
         ['central_presenca', 'tenant_id = :tenant'],
         // Regra de ausência do escritório (presença, fase 3): uma linha por escritório, FK de tenant NO ACTION.

@@ -10,7 +10,8 @@ namespace App\Master\Service;
  *
  * Ordem, rótulos, ícones, grupos e descrições copiados do `bj-recursos.js` do desenho
  * (docs/design/perfis-1.2/bj-recursos.js): 20 linhas e 19 chaves (com o Voto, do desenho 18), porque "Contribua" (tela) e
- * "Contribua (atalho)" dividem a chave `contribua` e mudam juntas.
+ * "Contribua (atalho)" dividem a chave `contribua` e mudam juntas. Depois do desenho entrou a tela
+ * "Assinatura de documentos" (spec assinatura-documentos-etapa-1.md, seção 5): 21 linhas e 20 chaves.
  *
  * O mapa de rotas (§4) mora aqui também, para haver uma fonte só: o guarda de rota
  * ({@see \App\Master\EventListener\BloqueioDeRecursoDesativado}) e a faixa do Master perguntam
@@ -43,6 +44,8 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_TELAS, 'chave' => 'voto', 't' => 'Voto', 'ic' => 'bi-archive', 'd' => null, 'tela' => true, 'base' => false],
         ['g' => self::GRUPO_TELAS, 'chave' => 'pushpub', 't' => 'Push compartilhado (link público)', 'ic' => 'bi-link-45deg', 'd' => null, 'tela' => true, 'base' => false],
         ['g' => self::GRUPO_TELAS, 'chave' => 'vagaspub', 't' => 'Vagas públicas (link)', 'ic' => 'bi-megaphone', 'd' => null, 'tela' => true, 'base' => false],
+        // Nasce desligada (a M1 grava `ativo = false`) até a etapa 3 da Assinatura.
+        ['g' => self::GRUPO_TELAS, 'chave' => 'assinatura', 't' => 'Assinatura de documentos', 'ic' => 'bi-pen', 'd' => null, 'tela' => true, 'base' => false],
         ['g' => self::GRUPO_MENU, 'chave' => 'instalar', 't' => 'Instalar aplicativo', 'ic' => 'bi-download', 'd' => null, 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_MENU, 'chave' => 'idioma', 't' => 'Idioma', 'ic' => 'bi-translate', 'd' => null, 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_MENU, 'chave' => 'tema', 't' => 'Tema escuro', 'ic' => 'bi-moon-stars', 'd' => null, 'tela' => false, 'base' => false],
@@ -76,6 +79,8 @@ final class CatalogoDeRecursos
         'contribua'   => ['contribua_'],
         // BlueJus Voto: toda rota do domínio começa com `voto_`.
         'voto'        => ['voto_'],
+        // Assinatura de documentos: a página, o JSON e os arquivos da tela.
+        'assinatura'  => ['assinatura_eletronica_'],
     ];
 
     /**

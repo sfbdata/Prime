@@ -1,0 +1,48 @@
+assinatura_eletronica:
+    titulo_pagina: Assinatura
+    nome_da_copia: '{nome} (cópia)'
+    tratamento:
+        dr: Dr.
+        dra: Dra.
+    evento:
+        rascunho_salvo: Rascunho salvo
+        documento_criado: Documento criado
+        duplicado: Duplicado de {nome}
+        movido_para_lixeira: Movido para a Lixeira. Evidências preservadas
+        restaurado: Restaurado da Lixeira
+        envio_cancelado_pela_exclusao: Envio cancelado pela exclusão. Links desativados
+    erro:
+        sem_permissao: Você não tem acesso à Assinatura de documentos.
+        nao_encontrado: Documento não encontrado.
+        so_rascunho: Só rascunho pode ser alterado.
+        excluir_enviado: Documentos enviados permanecem na Lixeira para preservar as evidências.
+        excluir_fora_da_lixeira: Só documentos na Lixeira podem ser excluídos definitivamente.
+        dados_invalidos: Os dados do documento não puderam ser lidos. Recarregue a página e tente de novo.
+        selecao_invalida: Selecione ao menos um documento.
+        cor_invalida: Cor inválida.
+        nome_longo: O nome do documento pode ter até 200 caracteres.
+        pasta_longa: O nome da pasta pode ter até 200 caracteres.
+        categoria_longa: A categoria pode ter até 80 caracteres.
+        modelo_invalido: Modelo de documento inválido.
+        layout_invalido: Layout do documento inválido.
+        lateral_longa: O texto lateral pode ter até 20.000 caracteres.
+        mensagem_longa: A mensagem pode ter até 2.000 caracteres.
+        prazo_invalido: O prazo para assinar deve ser de 1 a 90 dias.
+        logo_invalida: Logo inválida.
+        signatarios_demais: O documento pode ter até 50 signatários.
+        signatario_nome_longo: O nome do signatário {numero} pode ter até 200 caracteres.
+        signatario_papel_longo: O papel do signatário {numero} pode ter até 120 caracteres.
+        signatario_email_invalido: O e-mail do signatário {numero} é inválido.
+        signatario_cpf_invalido: O CPF do signatário {numero} deve ter 11 dígitos.
+        signatario_nivel_invalido: Forma de assinatura inválida no signatário {numero}.
+        blocos_demais: O documento pode ter até 2.000 blocos.
+        bloco_invalido: O conteúdo do documento tem um bloco inválido (posição {posicao}).
+        bloco_texto_longo: Um bloco do documento passa de 20.000 caracteres (posição {posicao}).
+        pagina_sem_arquivo: O documento usa páginas de um PDF que não foi enviado.
+        pagina_invalida: O documento usa uma página que não existe no PDF enviado (posição {posicao}).
+        arquivo_invalido: Envie um arquivo PDF.
+        arquivo_grande: O PDF pode ter até 10 MB.
+        logo_arquivo_invalido: A logo deve ser uma imagem PNG ou JPEG.
+        logo_grande: A logo pode ter até 2 MB.
+        logo_propria_sem_arquivo: Envie a imagem da logo própria.
+        upload_falhou: Não foi possível receber o arquivo. Tente de novo.

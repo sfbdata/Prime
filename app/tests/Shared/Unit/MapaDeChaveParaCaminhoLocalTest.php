@@ -111,6 +111,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             CategoriaDeArquivo::KANBAN_ANEXO, $tenant, 'a1b2.pdf',
             $raiz . '/kanban/a1b2.pdf',
         ];
+        yield 'assinatura_documento (subpasta do tenant)' => [
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $tenant, 'a1b2.pdf',
+            $raiz . '/pastas/assinatura/7/a1b2.pdf',
+        ];
         // E2.7: o caminho que `TarefaController::uploadFiles()` montava — `kernel.project_dir` +
         // `/public/uploads/tarefas/chat/` + nome — e que `CaminhoDeAnexoDeTarefa` resolvia.
         yield 'tarefa_anexo (plano, subpasta chat)' => [
