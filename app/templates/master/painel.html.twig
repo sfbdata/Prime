@@ -73,6 +73,7 @@
         <button type="button" class="mp-aba" data-aba="perm" role="tab" aria-selected="false"><i class="bi bi-key"></i>{{ 'master.painel.aba.permissoes'|trans }}</button>
         <button type="button" class="mp-aba" data-aba="rec" role="tab" aria-selected="false"><i class="bi bi-toggles"></i>{{ 'master.painel.aba.recursos'|trans }}</button>
         <button type="button" class="mp-aba" data-aba="ia" role="tab" aria-selected="false"><i class="bi bi-stars"></i>{{ 'master.painel.aba.ia'|trans }}</button>
+        <button type="button" class="mp-aba" data-aba="voto" role="tab" aria-selected="false"><i class="bi bi-archive"></i>{{ 'master.painel.aba.voto'|trans }}</button>
     </div>
 
     <div class="mp-painel" data-painel-aba="painel">
@@ -203,6 +204,12 @@
        os do próprio painel). O parcial traz o próprio <link> e <script> (CSP 'self', sem inline) e lê o estado por JSON. #}
     <div class="mp-ia" data-painel-aba="ia" hidden>
         {% include 'master/_ia.html.twig' %}
+    </div>
+
+    {# Aba "Voto" (spec bluejus-voto.md, D5 e D7, fase A1b; nenhum desenho tem esta tela, então os componentes são os do
+       próprio painel, como na aba da I.A.). O parcial traz o próprio <link> e <script> e lê a grade por JSON. #}
+    <div class="mp-voto" data-painel-aba="voto" hidden>
+        {% include 'master/_voto.html.twig' %}
     </div>
 
     {# Modal de limite (desenho 1.2, linhas 397-410) e "Editar plano" (convenção), montados pelo painel.js. #}

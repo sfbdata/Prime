@@ -5,9 +5,9 @@
 sem login, cria uma identidade nova (o eleitor, que não é `User`) e guarda dado cujo sigilo é a razão do produto.
 **MÉDIO** na fase A (permissão nova e recurso do Master). Pelo ciclo do projeto: spec (este documento), revisão
 contra a spec em cada PR e re-revisão antes de seguir nos PRs ALTO.
-**Status:** fase 1, análise. Não existe código, tabela nem migration desta frente. Decisões D1, D2, D3, D5, D6, D7
+**Status:** fase A em andamento: A1 no master (PR #701, 09/11/2026); A1b (liberação por escritório) em PR. Decisões D1, D2, D3, D5, D6, D7
 e o cabeçalho tomadas pelo Coordenador em 09/11/2026 (seção 3.0). Pendentes com o Samuel: D4, cliente piloto,
-contratação do provedor de e-mail e D8. A fase A começa pelo que não depende de D8.
+contratação do provedor de e-mail. D8 decidida pelo Coordenador em 09/11/2026 (seção D8).
 
 **Desenho:** `docs/design/redesign-08-11-26/18 - Voto - VS 08.11.26.dc.html` (Artefato original:
 `claude.ai/code/artifact/3c9fe618-65e4-457f-8d3d-c31bb68901c8`), com `bj-voto-nucleo.js`, `bj-voto-testes.js`,
@@ -215,14 +215,13 @@ Pendentes com o Samuel (não travam a fase A):
 - **D4:** contratar a revisão criptográfica externa e o teste de intrusão.
 - **Cliente piloto:** qual é, porque define a ordem das fases B a E (seção 6).
 - **Provedor de e-mail:** contratar o serviço que o DSN do Voto vai usar.
-- **D8:** as 9 correções do desenho.
 
 ### D1. Onde o Voto roda
 
 | Opção | Como é | A favor | Contra |
 |---|---|---|---|
 | A | Domínio `app/src/Voto/` no mesmo app, nos mesmos containers e no schema `public` | Mais rápido (cerca de 5 dias a menos) | A carga de uma eleição divide PHP e banco com o BlueJus; contraria o ESPEC §8 ("deploy separado") |
-| **B (recomendada)** | Mesmo código (`app/src/Voto/`, reaproveita login, Doctrine, filas, PDF, QR), mas: endereço próprio `voto.bluejus.com.br` servido por um **container PHP próprio** (`voto`), **schema Postgres próprio** (`voto`) sem chave estrangeira para tabelas do BlueJus, fila própria. A Gestão (equipe logada) fica no BlueJus; portal, cabine, urna e verificador ficam no container `voto` | Atende o ESPEC §8 sem duplicar login; isola a carga; o container pode mudar de máquina depois sem reescrever | Mais um container, um bloco do nginx e um certificado para o Samuel subir na VPS |
+| **B (recomendada)** | Mesmo código (`app/src/Voto/`, reaproveita login, Doctrine, filas, PDF, QR), mas: endereço próprio `voto.bluejus.com.br` servido por um **container PHP próprio** (`voto`), **schema Postgres próprio** (`voto`) sem chave estrangeira para tabelas do BlueJus (exceção decidida em 09/11/2026: `voto.liberacao`, dado do BlueJus e não da votação, tem FK para `tenant` com ON DELETE CASCADE; a regra vale da M3 em diante), fila própria. A Gestão (equipe logada) fica no BlueJus; portal, cabine, urna e verificador ficam no container `voto` | Atende o ESPEC §8 sem duplicar login; isola a carga; o container pode mudar de máquina depois sem reescrever | Mais um container, um bloco do nginx e um certificado para o Samuel subir na VPS |
 | C | Aplicação separada (outro repositório, outro banco, outra VPS); o BlueJus só põe o link no menu | Isolamento máximo | Duplica login, deploy e CI; cerca de 15 a 20 dias a mais |
 
 **Por que B:** é o ponto em que a eleição não derruba o BlueJus e o BlueJus não precisa de uma segunda equipe de
@@ -299,19 +298,21 @@ entram**. O que decidir:
 
 ### D8. Correções do desenho e do protótipo
 
-Itens que mudam o que a tela faz (desvio do desenho, pedem o sim do Samuel), com a recomendação:
+Decidida pelo Coordenador em 09/11/2026 pelas regras do dono (1: fiel ao desenho; 2: função do sistema não sai;
+3: além do desenho só se necessário). Registro em `bluejus-coordenacao/decisoes-desenhos-0911.md`, seção do Voto.
+Entram 1, 2, 5, 7 e 9; a 6 entra em parte; 3, 4 e 8 ficam como o desenho.
 
-| # | Defeito no desenho | Recomendação |
-|---|---|---|
-| 1 | Terminal presencial: "Concluir" não encerra a sessão do eleitor, e a cabine pula o PIN quando há sessão; a próxima pessoa vota como a anterior | "Concluir" encerra a sessão e volta a "Localize seu nome" |
-| 2 | Três mensagens mandam o eleitor a "Transparência", mas a aba se chama "Resultados" | Trocar o texto por "Resultados" |
-| 3 | A aba "Cadastro para votar" não tem caminho: o aviso "Faça sua habilitação..." não leva a lugar nenhum | O aviso ganha o botão que abre o cadastro |
-| 4 | A declaração do art. 299 só aparece no acesso por código | Mostrar também no cadastro por PIN |
-| 5 | Bloqueio do PIN no 5º erro sem desbloqueio ("Procure a comissão" sem ação) | Botão "Desbloquear PIN" na tela Eleitores, para a Validação (função nova, fora do desenho) |
-| 6 | Guardiões fixos em 5 com mínimo de 3, seja qual for a equipe | Número de guardiões e mínimo vêm da equipe designada (padrão 3 de 5) |
-| 7 | Indicadores do Painel somam todas as votações, ignorando a votação escolhida | Respeitar a votação escolhida |
-| 8 | "Simular votação" aparece até em votação encerrada ou apurada | Esconder depois de encerrada |
-| 9 | Seletor "Atuando como", "Gerar 30 votos de teste" e os avisos de demonstração | Só no modo demonstração (D5); fora dele, o papel vem da designação |
+| # | Defeito no desenho | Recomendação | Decisão |
+|---|---|---|---|
+| 1 | Terminal presencial: "Concluir" não encerra a sessão do eleitor, e a cabine pula o PIN quando há sessão; a próxima pessoa vota como a anterior | "Concluir" encerra a sessão e volta a "Localize seu nome" | **Entra** (regra 3: sem isso a próxima pessoa vota como a anterior) |
+| 2 | Três mensagens mandam o eleitor a "Transparência", mas a aba se chama "Resultados" | Trocar o texto por "Resultados" | **Entra** (regras 1 e 3: vale o nome da aba do desenho; só as 3 mensagens mudam) |
+| 3 | A aba "Cadastro para votar" não tem caminho: o aviso "Faça sua habilitação..." não leva a lugar nenhum | O aviso ganha o botão que abre o cadastro | **Não entra**: fica como o desenho (o eleitor já chega pelo "Primeiro acesso" do portal) |
+| 4 | A declaração do art. 299 só aparece no acesso por código | Mostrar também no cadastro por PIN | **Não entra**: fica como o desenho (nenhuma lei nem regra em vigor exige) |
+| 5 | Bloqueio do PIN no 5º erro sem desbloqueio ("Procure a comissão" sem ação) | Botão "Desbloquear PIN" na tela Eleitores, para a Validação (função nova, fora do desenho) | **Entra** (regra 3: sem ele o eleitor bloqueado perde o voto de vez) |
+| 6 | Guardiões fixos em 5 com mínimo de 3, seja qual for a equipe | Número de guardiões e mínimo vêm da equipe designada (padrão 3 de 5) | **Entra em parte**: o número de partes acompanha os guardiões designados; o mínimo para remontar a chave continua 3 |
+| 7 | Indicadores do Painel somam todas as votações, ignorando a votação escolhida | Respeitar a votação escolhida | **Entra** (regra 3: hoje contam votações de outras entidades, falha de segurança) |
+| 8 | "Simular votação" aparece até em votação encerrada ou apurada | Esconder depois de encerrada | **Não entra**: fica como o desenho (a simulação não registra voto; nada quebra) |
+| 9 | Seletor "Atuando como", "Gerar 30 votos de teste" e os avisos de demonstração | Só no modo demonstração (D5); fora dele, o papel vem da designação | **Entra** (regra 3: em eleição real trocaria o papel e poria voto falso) |
 
 Itens que seguem a convenção do sistema (o desenho é omisso ou é limitação do protótipo; não pedem pergunta):
 links do menu para as telas reais; QR Code gerado no servidor; leitura da planilha pelo nome da coluna (o
@@ -466,14 +467,23 @@ contra o anexo de telas. Dias de uma sessão, já com testes; somar cerca de 20%
 ## 7. Migrations
 
 Todas no schema `voto` (D1-B), sem alterar tabela existente e sem operação destrutiva; cada uma com `down`. Os
-números são dados pelo Coordenador. Tabelas com `tenant_id`; nenhuma entidade do Voto implementa `Auditavel`.
+números são dados pelo Coordenador. Tabelas com `tenant_id`; nenhuma entidade da votação implementa `Auditavel`
+(o audit_log genérico guardaria dado que o sigilo do voto não permite). A exceção é `voto.liberacao` (M1b): é ato do
+Master, sem dado de eleitor, e registra no audit_log do escritório como a liberação da I.A. (decisão de 09/11/2026).
 
 | # | PR | Conteúdo |
 |---|---|---|
 | M1 | A1 | Dados (Version20261109120000): linha `voto` desligada em `recurso_estado`; permissão `modules.voto.view` criada sem concessão (o perfil de sistema já passa pelo bypass do PermissionChecker; os demais perfis recebem no painel de Perfis) |
-| M1b | A1b | Liberação por escritório (número pedido ao Coordenador quando o PR for abrir) |
-| M2 | A2 | `CREATE SCHEMA voto` e permissões. Se D2 adotar usuário de banco próprio, criar o usuário é passo manual do Samuel na VPS (a migration roda com o usuário dono) |
+| M1b | A1b | Version20261109140000: `CREATE SCHEMA IF NOT EXISTS voto` (antecipado da M2) e `voto.liberacao` (um escritório por linha, `liberado`, datas; FK para `tenant` com ON DELETE CASCADE, exceção da D1-B). Primeiro schema fora do `public`: conferidos `doctrine:schema:validate`, `make:migration` sem diff fantasma, banco de teste do zero e `scripts/migrar-dev.sh` |
+| M2 | A2 | Permissões do schema `voto` (o `CREATE SCHEMA` saiu na M1b). Se D2 adotar usuário de banco próprio, criar o usuário é passo manual do Samuel na VPS (a migration roda com o usuário dono) |
 | M3 | A3 | `voto.evento`, `voto.eleicao` (configuração, estado, `cfg_hash`, campos da mesa e da sessão permanente), `voto.cargo`, `voto.candidatura` |
+
+**Condição antes da M3** (revisão da A1b, 09/11/2026): as redes que conferem "todo dado do escritório" só olham o
+schema `public` e deixariam passar, sem aviso, uma tabela `voto.*` com `tenant_id`. Antes da primeira tabela da
+votação, ensinar o schema `voto` a: `PurgarEscritorioUseCase::garantirTenantVazio` e a ordem de exclusão,
+`tests/Tenant/Functional/PurgaCoberturaSchemaTest.php`, a impressão digital do banco em `scripts/testar-paralelo.sh` e
+o `DescreverEsquemaTool` do MCP de produção. Na A1b nada escapa: a única tabela, `voto.liberacao`, sai com o escritório
+pelo ON DELETE CASCADE.
 | M4 | A4 | `voto.membro_da_equipe` (papel, escopo por evento ou votação, nome, e-mail, `user_id` opcional) |
 | M5 | A5 | `voto.lista_de_aptos` (hash, bloqueio), `voto.apto` (identificação com HMAC, peso, grupo, situação), `voto.ocorrencia` |
 | M6 | B2 | `voto.codigo_de_acesso` (hash do código, validade, tentativas) |

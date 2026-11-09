@@ -17,3 +17,5 @@ voto:
         titulo: Acompanhar em tempo real
         texto: 'Clique em Assistir para abrir uma janela própria, que pode ser levada a outra tela. Assistir mostra participação e quórum e pode ser projetado. Lista nominal e Documento de auditoria são restritos à comissão, à auditoria e ao Gestor Master; nunca indicam o voto.'
         vazio: Nenhuma votação publicada.
+    recusa:
+        nao_liberado: O BlueJus Voto ainda não foi liberado para este escritório.
