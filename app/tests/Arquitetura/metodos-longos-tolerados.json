@@ -374,7 +374,7 @@
     "Ponto/Controller/JornadaTenantController.php::get": 53,
     "Ponto/Controller/JornadaTenantController.php::save": 94,
     "Ponto/Controller/JornadaTenantController.php::validarBlocos": 47,
-    "Ponto/Controller/PontoController.php::batida": 217,
+    "Ponto/Controller/PontoController.php::batida": 224,
     "Ponto/Controller/PontoController.php::editarJustificativa": 111,
     "Ponto/Controller/PontoController.php::exportarFolhaPdf": 82,
     "Ponto/Controller/PontoController.php::exportarFolhaXlsx": 63,
