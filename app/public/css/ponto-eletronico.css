@@ -65,6 +65,13 @@
     --pe-listra:       #eef2f5;
     --pe-ok-forte:     #1e7b45;
     --pe-incompleto-bg: #fff3cd;
+
+    /* Cartão de abas e janelas (E3, L166 a L191 e L269 a L318 do desenho). */
+    --pe-num-pend:     #8a6200;
+    --pe-tipo-bg:      #bfeaf7;
+    --pe-tipo-cor:     #0b3550;
+    --pe-trava:        #5b6a9a;
+    --pe-rodape-bg:    #f7f9fb;
 }
 
 .pe-page {
@@ -114,6 +121,11 @@
     --pe-listra:       rgba(255, 255, 255, .03);
     --pe-ok-forte:     #5cc98a;
     --pe-incompleto-bg: rgba(224, 195, 106, .14);
+
+    --pe-tipo-bg:      rgba(77, 163, 234, .2);
+    --pe-tipo-cor:     #9ccdf2;
+    --pe-trava:        #9aa6cf;
+    --pe-rodape-bg:    var(--bs-secondary-bg);
 }
 
 .pe-page a:not(.btn) { color: var(--pe-link); }
@@ -508,6 +520,248 @@
 .pe-folha-total-rotulo { color: var(--pe-mudo); }
 .pe-folha-total--soma { border-top: 1px solid var(--pe-div); margin-top: 4px; padding-top: 4px; }
 
+/* ── Cartão de abas (etapa E3, L166 a L191 do desenho) ───────────────────────────────────────────
+   Classes do desenho com o prefixo da tela: bjpOculta = pe-oculta (no bloco do celular), bjpJ = pe-just-lin e
+   bjpT = pe-tab. A tabela das justificativas não tem pe-resp (no celular rola para o lado) nem listra ou azul ao
+   passar o mouse (D15). O desenho não tem hover na aba. */
+.pe-abas {
+    background: var(--pe-card);
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px var(--pe-sombra);
+    line-height: normal;
+}
+.pe-abas-barra {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    background: var(--pe-th-bg);
+    border-bottom: 1px solid var(--pe-borda);
+}
+.pe-aba {
+    padding: 12px 14px 9px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: var(--pe-texto-2);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.pe-aba[aria-selected="true"] { border-bottom-color: var(--pe-azul); background: var(--pe-card); color: var(--pe-link); }
+.pe-aba-num {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 3px;
+    background: var(--pe-azul);
+    color: #fff;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.pe-aba-num--pend { background: var(--pe-num-pend); }
+.pe-abas-vazio { padding: 22px; text-align: center; font-size: 13.5px; color: var(--pe-mudo); }
+
+/* Pendências (L171 a L176). "Trocar de escritório" e a explicação da pendência de outro escritório (P38, sistema,
+   fica) usam o molde do botão e o tom do texto da aba. */
+.pe-pend-texto { padding: 10px 16px; font-size: 12.5px; color: var(--pe-mudo); border-bottom: 1px solid var(--pe-div); }
+.pe-pend-lista { max-height: 360px; overflow-y: auto; }
+.pe-pend {
+    display: flex;
+    align-items: center;
+    gap: 6px 14px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-pend-data { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.pe-pend-falta { font-size: 13.5px; color: var(--pe-corpo); }
+.pe-pend-escritorio {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    color: var(--pe-mudo);
+}
+.pe-pend-btn {
+    margin-left: auto;
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--pe-alerta-btn);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-alerta-cor);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+}
+.pe-pend-btn:hover { background: var(--pe-incompleto-bg); }
+.pe-page a.pe-pend-btn:not(.btn),
+.pe-page a.pe-pend-btn:not(.btn):hover { color: var(--pe-alerta-cor); }
+.pe-pend-aviso { flex-basis: 100%; font-size: 12.5px; color: var(--pe-mudo); }
+
+/* Minhas Justificativas (L178 a L190). "Ver" do atestado e o lápis de editar (sistema, ficam) no molde dos vizinhos. */
+.pe-abas-rolagem { overflow-x: auto; }
+.pe-just-data {
+    display: inline-block;
+    padding: 3px 8px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-hover-sec);
+    font-size: 12.5px;
+    font-weight: bold;
+}
+.pe-tab td.pe-just-celtipo { white-space: normal; min-width: 170px; }
+.pe-just-tipo {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--pe-tipo-bg);
+    color: var(--pe-tipo-cor);
+    font-size: 11.5px;
+    font-weight: bold;
+}
+.pe-just-sub { font-size: 12.5px; color: var(--pe-mudo); margin-top: 3px; }
+.pe-just-cel { color: var(--pe-texto-2); }
+.pe-just-anexo { display: inline-flex; align-items: center; gap: 5px; }
+.pe-tab td.pe-just-acoes { text-align: right; }
+.pe-just-trava { color: var(--pe-trava); font-size: 16px; }
+.pe-just-analise { display: inline-flex; gap: 4px; }
+.pe-just-btn {
+    height: 28px;
+    padding: 0 9px;
+    border: 1px solid;
+    border-radius: 3px;
+    background: var(--pe-card);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.pe-just-btn--abonar { border-color: var(--pe-ok-forte); color: var(--pe-ok-cor); }
+.pe-just-btn--abonar:hover { background: var(--pe-ok-bg); }
+.pe-just-btn--recusar { border-color: var(--pe-perigo); color: var(--pe-erro-cor); }
+.pe-just-btn--recusar:hover { background: var(--pe-erro-bg); }
+.pe-just-icone {
+    width: 28px;
+    height: 28px;
+    margin-left: 4px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-perigo);
+    cursor: pointer;
+    padding: 0;
+}
+.pe-just-icone:hover { background: var(--pe-erro-bg); }
+.pe-just-icone--editar { color: var(--pe-link); }
+.pe-just-icone--editar:hover { background: var(--pe-hover-sec); }
+
+/* ── Janela (moldura do desenho, L269 a L318): fundo, barra azul, corpo, erro e rodapé ─────────────
+   Clicar fora não fecha; Esc fecha (js/ponto-abas.js). Serve às janelas da aba das justificativas (E3). */
+.pe-janela-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483100;
+    background: rgba(11, 53, 80, .55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    overflow-y: auto;
+}
+.pe-janela-fundo[hidden] { display: none; }
+.pe-janela {
+    width: 100%;
+    max-width: 480px;
+    margin: 0;
+    background: var(--pe-card);
+    border-radius: 3px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+    overflow: hidden;
+    animation: pe-sobe .2s ease both;
+    color: var(--pe-texto);
+    line-height: normal;
+}
+@keyframes pe-sobe { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.pe-janela-topo { display: flex; align-items: center; gap: 9px; padding: 12px 16px; background: var(--pe-azul); color: var(--pe-sobre-azul); }
+.pe-janela-topo > .bi { font-size: 17px; }
+.pe-janela-titulo { flex: 1; font-size: 16px; }
+.pe-janela-fechar {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #fff;
+    font-size: 17px;
+    cursor: pointer;
+}
+.pe-janela-fechar:hover { background: rgba(255, 255, 255, .16); }
+.pe-janela-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 11px; }
+.pe-janela-info { font-size: 13.5px; color: var(--pe-texto-2); }
+.pe-janela-texto { font-size: 13.5px; line-height: 1.5; color: var(--pe-corpo); }
+.pe-janela-rotulo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 12px; font-weight: bold; color: var(--pe-texto-3); }
+.pe-janela-campo {
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 8px 10px;
+    background: var(--pe-card);
+    color: var(--pe-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: normal;
+    resize: vertical;
+}
+.pe-janela-erro { padding: 0 16px 10px; font-size: 13px; color: var(--pe-perigo); }
+.pe-janela-rodape {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--pe-rodape-bg);
+    border-top: 1px solid var(--pe-div);
+}
+.pe-janela-cancelar {
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-texto-2);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+.pe-janela-acao {
+    height: 36px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 3px;
+    background: var(--pe-azul);
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+.pe-janela-acao:hover { background: var(--pe-link-hover); }
+/* Enviando (sistema): o botão não aceita um segundo clique. */
+.pe-janela-acao:disabled { opacity: .65; cursor: default; }
+
 /* Celular (L62 a L71): cada dia vira um cartão de quatro colunas, com o nome do campo em cima. */
 @media (max-width: 760px) {
     .pe-tab.pe-resp thead { display: none; }
@@ -519,4 +773,6 @@
     .pe-tab.pe-resp td.pe-larga { grid-column: span 2; }
     .pe-tab.pe-resp td.pe-toda { grid-column: 1 / -1; }
     .pe-tab.pe-resp td.pe-vazia { display: none; }
+    /* E3 (L62): o escritório da pendência some no celular. */
+    .pe-oculta { display: none !important; }
 }

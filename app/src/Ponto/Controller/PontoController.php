@@ -7,6 +7,9 @@ namespace App\Ponto\Controller;
 use App\Entity\Auth\User;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
+use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
+use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
+use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
@@ -70,6 +73,13 @@ final class PontoController extends AbstractController
 {
     use ValidaCsrfAjaxTrait;
 
+    /** Recusa da exclusão (P41) para a resposta HTTP: outro escritório não existe para quem pede. */
+    private const RESPOSTA_DA_RECUSA = [
+        ExclusaoDeJustificativaRecusadaException::NAO_ENCONTRADA  => Response::HTTP_NOT_FOUND,
+        ExclusaoDeJustificativaRecusadaException::DE_OUTRA_PESSOA => Response::HTTP_FORBIDDEN,
+        ExclusaoDeJustificativaRecusadaException::JA_ANALISADA    => Response::HTTP_UNPROCESSABLE_ENTITY,
+    ];
+
     public function __construct(
         private readonly VerificadorAlertaPonto $verificadorAlerta,
         private readonly ArmazenamentoDeArquivos $armazenamento,
@@ -103,6 +113,7 @@ final class PontoController extends AbstractController
         SedesDaCercaDoPonto $sedesDaCerca,
         CalculadoraJornada $calculadoraJornada,
         ListarPendenciasDeRegistroUseCase $pendencias,
+        AnaliseDaPropriaJustificativa $analiseDaPropria,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -237,6 +248,9 @@ final class PontoController extends AbstractController
             // Virada do dia na tela: a próxima meia-noite no fuso do servidor, em ms (a tela soma o tempo passado).
             'proximaViradaMs'          => (int) $agora->modify('tomorrow')->format('Uv'),
             'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
+            // Cartão de abas (E3): Pendências abre ao entrar (P37); a volta da análise e da exclusão reabre a das justificativas.
+            'abaAberta'                => $request->query->get('aba') === 'justificativas' ? 'justificativas' : 'pendencias',
+            'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
         ]);
     }
 
@@ -536,6 +550,38 @@ final class PontoController extends AbstractController
 
         $this->addFlash('success', 'Justificativa atualizada com sucesso.');
         return $this->redirectToRoute('ponto_index');
+    }
+
+    /**
+     * P41 (desenho do Ponto, E3): o colaborador exclui a própria justificativa ainda em análise, depois de
+     * confirmar na janela. JSON para o `fetch` da aba: 404 de outro escritório, 403 de outra pessoa ou sem
+     * token, 422 já analisada. O sucesso deixa a mensagem para a tela que a aba abre em seguida.
+     *
+     * Ponto único da exclusão: só a aba nova chama esta rota. Com o Ponto antigo de volta, tirar o atributo da rota
+     * (a linha abaixo) desliga a exclusão inteira no servidor.
+     */
+    #[Route('/justificativa/{id}/excluir', name: 'ponto_justificativa_excluir', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function excluirJustificativa(
+        int $id,
+        Request $request,
+        ExcluirJustificativaEmAnaliseUseCase $excluir,
+    ): JsonResponse {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        // CSRF depois da autorização, como na batida: a falha de acesso tem prioridade.
+        $this->validarCsrfAjax($request);
+
+        try {
+            $dia = $excluir->executar($id, $user, $tenant);
+        } catch (ExclusaoDeJustificativaRecusadaException $e) {
+            return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], self::RESPOSTA_DA_RECUSA[$e->motivo]);
+        }
+
+        $this->addFlash('success', sprintf('Justificativa de %s excluída.', $dia->format('d/m/Y')));
+
+        return $this->json(['ok' => true]);
     }
 
     #[Route('/justificativa/{id}/anexo', name: 'ponto_justificativa_anexo', methods: ['GET'])]

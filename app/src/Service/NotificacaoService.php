@@ -18,6 +18,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 
 /**
  * Serviço responsável por criar e gerenciar notificações do sistema.
@@ -454,7 +455,7 @@ class NotificacaoService
             $justificativa->getUser(),
             $justificativa->getTenant(),
             Notificacao::TIPO_PONTO_JUSTIFICATIVA_REJEITADA,
-            'Sua justificativa de ponto foi rejeitada.',
+            NomesDasSituacoesDaJustificativa::texto('aviso.recusada'),   // P40: ponto único dos nomes
             $urlPonto
         );
     }

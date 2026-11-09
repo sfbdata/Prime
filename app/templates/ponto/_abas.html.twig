@@ -1,0 +1,33 @@
+{#
+    Cartão de abas da coluna da direita, logo abaixo da Folha (E3, desenho 16 L166 a L191): "Pendências" (P37, primeira
+    e aberta ao entrar) e "Minhas Justificativas" (P39). A aba "Banco de Horas" entra na E17.
+
+    As duas abas vêm prontas do servidor; a troca é no navegador (js/ponto-abas.js), sem recarregar, e grava a aba no
+    endereço (`?aba=justificativas`): a busca da tela depois da batida e a troca do mês voltam na mesma aba. O painel das
+    pendências e a aba dele (o número) são regiões trocadas depois da batida (REGIOES_TROCADAS no index).
+
+    Recebe: pendencias, justificativas, abaAberta ('pendencias' ou 'justificativas'), podeAnalisarAPropria e
+    competenciaSelecionada (a volta da exclusão reabre a aba no mesmo mês).
+#}
+{% set naJustificativas = abaAberta == 'justificativas' %}
+<section class="pe-abas" data-screen-label="Registros e comprovantes"
+         data-url-volta="{{ path('ponto_index', {competencia: competenciaSelecionada, aba: 'justificativas'}) }}">
+    <div class="pe-abas-barra" role="tablist" aria-label="Registros e comprovantes">
+        <button type="button" role="tab" class="pe-aba" id="ponto-aba-pendencias" data-aba="pendencias"
+                aria-controls="ponto-regiao-pendencias" aria-selected="{{ naJustificativas ? 'false' : 'true' }}" tabindex="{{ naJustificativas ? '-1' : '0' }}">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Pendências
+            {%- if pendencias|length > 0 %}<span class="pe-aba-num pe-aba-num--pend">{{ pendencias|length }}</span>{% endif -%}
+        </button>
+        <button type="button" role="tab" class="pe-aba" id="ponto-aba-justificativas" data-aba="justificativas"
+                aria-controls="ponto-painel-justificativas" aria-selected="{{ naJustificativas ? 'true' : 'false' }}" tabindex="{{ naJustificativas ? '0' : '-1' }}">
+            <i class="bi bi-calendar-check" aria-hidden="true"></i>Minhas Justificativas
+            {%- if justificativas|length > 0 %}<span class="pe-aba-num">{{ justificativas|length }}</span>{% endif -%}
+        </button>
+    </div>
+    <div class="pe-abas-painel" role="tabpanel" id="ponto-regiao-pendencias" aria-labelledby="ponto-aba-pendencias"{{ naJustificativas ? ' hidden' }}>
+        {% include 'ponto/_abas_pendencias.html.twig' with {pendencias: pendencias} only %}
+    </div>
+    <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-justificativas" aria-labelledby="ponto-aba-justificativas"{{ naJustificativas ? '' : ' hidden' }}>
+        {% include 'ponto/_abas_justificativas.html.twig' with {justificativas: justificativas, podeAnalisarAPropria: podeAnalisarAPropria} only %}
+    </div>
+</section>

@@ -70,8 +70,8 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('pe-dir', (string) $colunas->eq(1)->attr('class'));
         self::assertCount(1, $tela->filter(self::CARTAO), 'o cartão é filho direto da coluna da esquerda');
         self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-folha'));
-        self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-pendencias'), 'as pendências saíram da coluna do botão');
-        self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-folha + #ponto-regiao-pendencias'));
+        self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > section.pe-abas > #ponto-regiao-pendencias'), 'as pendências saíram da coluna do botão (E3: na aba)');
+        self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-folha + section.pe-abas'));
     }
 
     #[TestDox('O cartão segue o desenho: barra com a digital e o banco de horas; corpo na ordem do desenho')]

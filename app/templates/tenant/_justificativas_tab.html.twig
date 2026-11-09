@@ -1,10 +1,17 @@
 <div class="card card-outline card-warning mb-3">
     <div class="card-header d-flex align-items-center justify-content-between">
         <h3 class="card-title mb-0"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta: {{ user.fullName }}</h3>
+        {# P43 a: `podeAnalisar` é a decisão do servidor (AnaliseDaPropriaJustificativa). Na própria, quem gere pelo
+           perfil e não é primário nem Master não abona, não recusa, não volta para análise nem lança para si. #}
+        {% if podeAnalisar %}
         <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalAdminNovaJustificativa">
             <i class="bi bi-plus-circle me-1"></i>Justificar Falta
         </button>
+        {% endif %}
     </div>
+    {% if not podeAnalisar %}
+        <p class="small text-muted px-3 pt-2 mb-0">{{ constant('App\\Ponto\\Service\\AnaliseDaPropriaJustificativa::RECUSA') }}</p>
+    {% endif %}
     <div class="card-body p-0">
         {% if justificativas is empty %}
             <p class="text-muted small p-3 mb-0">Nenhuma justificativa enviada por este usuário.</p>
@@ -50,9 +57,9 @@
                                     {% elseif primeiraJust.status == 'abonado' %}
                                         <span class="badge text-bg-success ms-auto"><i class="bi bi-check-circle me-1"></i>Abonado</span>
                                     {% elseif primeiraJust.status == 'pendente' %}
-                                        <span class="badge text-bg-warning text-dark ms-auto"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>
+                                        <span class="badge text-bg-warning text-dark ms-auto"><i class="bi bi-hourglass-split me-1"></i>{{ nome_da_situacao('situacao.pendente') }}</span>
                                     {% else %}
-                                        <span class="badge text-bg-danger ms-auto"><i class="bi bi-x-circle me-1"></i>Rejeitado</span>
+                                        <span class="badge text-bg-danger ms-auto"><i class="bi bi-x-circle me-1"></i>{{ nome_da_situacao('situacao.rejeitado') }}</span>
                                     {% endif %}
                                 </div>
                             </button>
@@ -105,7 +112,7 @@
                                 </dl>
 
                                 {# Botão "Aprovar Todos" — só aparece quando há 2+ dias pendentes no lote #}
-                                {% if qtdPendente >= 2 %}
+                                {% if qtdPendente >= 2 and podeAnalisar %}
                                     <form method="post"
                                           action="{{ path('app_tenant_user_justificativa_aprovar_todos', {tenantId: tenantId, id: user.id, batchId: primeiraJust.batchId}) }}"
                                           class="mb-3"
@@ -123,17 +130,18 @@
                                         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                             <strong><i class="bi bi-calendar-day me-1"></i>{{ j.data|date('d/m/Y') }}</strong>
                                             {% if j.status == 'pendente' %}
-                                                <span class="badge text-bg-warning text-dark">Pendente</span>
+                                                <span class="badge text-bg-warning text-dark">{{ nome_da_situacao('situacao.pendente') }}</span>
                                             {% elseif j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
                                                 <span class="badge text-bg-danger">Não abonado</span>
                                             {% elseif j.status == 'abonado' %}
                                                 <span class="badge text-bg-success">Abonado</span>
                                             {% else %}
-                                                <span class="badge text-bg-danger">Rejeitado</span>
+                                                <span class="badge text-bg-danger">{{ nome_da_situacao('situacao.rejeitado') }}</span>
                                             {% endif %}
                                         </div>
 
                                         {% if j.status == 'pendente' %}
+                                            {% if podeAnalisar %}
                                             <div class="d-flex gap-2 flex-wrap">
                                                 {# Abonar #}
                                                 <form method="post"
@@ -148,38 +156,43 @@
                                                     </button>
                                                 </form>
 
-                                                {# Rejeitar #}
+                                                {# Recusar: textos pelo ponto único do P40 (NomesDasSituacoesDaJustificativa). #}
                                                 <form method="post"
                                                       action="{{ path('app_tenant_user_justificativa_rejeitar', {tenantId: tenantId, id: user.id, justificativaId: j.id}) }}"
                                                       class="d-flex gap-2 align-items-center"
+                                                      data-sem-motivo="{{ nome_da_situacao('analise.sem_motivo') }}"
+                                                      data-confirmar="{{ nome_da_situacao('ficha.confirmar_recusa', j.data|date('d/m/Y')) }}"
                                                       onsubmit="
                                                           var obs = this.querySelector('[name=observacaoAnalise]').value.trim();
-                                                          if (!obs) { alert('Informe o motivo da rejeição.'); return false; }
-                                                          return confirm('Rejeitar justificativa de {{ j.data|date('d/m/Y') }}?');
+                                                          if (!obs) { alert(this.dataset.semMotivo); return false; }
+                                                          return confirm(this.dataset.confirmar);
                                                       ">
                                                     <input type="hidden" name="_token" value="{{ csrf_token('justificativa_rejeitar_' ~ j.id) }}">
                                                     <input type="text" name="observacaoAnalise" class="form-control form-control-sm"
-                                                           style="max-width: 220px" placeholder="Motivo da rejeição (obrigatório)" required>
+                                                           style="max-width: 220px" placeholder="{{ nome_da_situacao('ficha.motivo') }}" required>
                                                     <button type="submit" class="btn btn-sm btn-danger">
-                                                        <i class="bi bi-x-lg me-1"></i>Rejeitar
+                                                        <i class="bi bi-x-lg me-1"></i>{{ nome_da_situacao('ficha.recusar') }}
                                                     </button>
                                                 </form>
                                             </div>
+                                            {% endif %}
                                         {% else %}
                                             <div class="small text-muted mb-2">
                                                 Analisado por {{ j.analisadoPor ? j.analisadoPor.fullName : 'usuário não informado' }}
                                                 {% if j.dataAnalise %} em {{ j.dataAnalise|date('d/m/Y') }}{% endif %}
                                                 {% if j.observacaoAnalise %}: {{ j.observacaoAnalise }}{% endif %}
                                             </div>
-                                            {# Reverter para pendente #}
+                                            {# Reverter para pendente. Nomes das situações pelo ponto único do P40 (NomesDasSituacoesDaJustificativa). #}
+                                            {% if podeAnalisar %}
                                             <form method="post"
                                                   action="{{ path('app_tenant_user_justificativa_reverter', {tenantId: tenantId, id: user.id, justificativaId: j.id}) }}"
-                                                  onsubmit="return confirm('Reverter esta justificativa para pendente?')">
+                                                  onsubmit="return confirm('{{ nome_da_situacao('reverter.confirmar')|e('js') }}')">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('justificativa_reverter_' ~ j.id) }}">
                                                 <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reverter para Pendente
+                                                    <i class="bi bi-arrow-counterclockwise me-1"></i>{{ nome_da_situacao('reverter.botao') }}
                                                 </button>
                                             </form>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 {% endfor %}

@@ -1,0 +1,37 @@
+{#
+    Aba "Pendências" do cartão de abas (P37, desenho 16 L171 a L176). Pendências de registro da própria pessoa (spec
+    docs/specs/ponto-esquecimento-nao-trava.md R5; D8: pelo cálculo de hoje, ListarPendenciasDeRegistroUseCase): os dias
+    dos últimos 30 com registro incompleto, neste escritório e nos outros em que ela tem vínculo ativo. Nenhuma trava a
+    batida. Só a própria pessoa vê esta lista (o nome do outro escritório não aparece em tela de admin nem na folha de
+    outra pessoa). Texto pelo catálogo, bloco `ponto_pendencias`.
+
+    Neste escritório, o botão abre o pedido de esquecimento: o "+" da folha, com o mês aberto; senão, o link que o abre
+    na carga (`?esquecimento=AAAA-MM-DD:tipo`), como o "Regularizar" da faixa (js/ponto-abas.js). Nos outros, o pedido se
+    faz lá: "Trocar de escritório" e a explicação ficam (P38, sistema), no molde do botão do desenho.
+
+    Parcial novo, só do index novo: o cartão antigo (ponto/_pendencias.html.twig) fica intocado para a tela antiga.
+#}
+<div class="pe-pend-texto">{{ 'ponto_pendencias.explicacao'|trans }}</div>
+<div class="pe-pend-lista" id="pendencias-ponto">
+    {% for p in pendencias %}
+        <div class="pe-pend" data-pendencia="{{ p.dia }}:{{ p.tipo }}" data-pendencia-escritorio="{{ p.escritorioId }}">
+            <b class="pe-pend-data">{{ p.dia|date('d/m/Y') }}</b>
+            <span class="pe-pend-falta">{{ ('ponto_pendencias.falta.' ~ p.tipo)|trans }}</span>
+            <span class="pe-pend-escritorio pe-oculta">{{ p.escritorio }}</span>
+            {% if p.atual %}
+                <button type="button" class="pe-pend-btn" data-pendencia-enviar
+                        data-dia="{{ p.dia }}" data-tipo="{{ p.tipo }}"
+                        data-url="{{ path('ponto_index', {competencia: p.dia|slice(0, 7), esquecimento: p.dia ~ ':' ~ p.tipo}) }}">
+                    <i class="bi bi-plus-circle" aria-hidden="true"></i>{{ 'ponto_pendencias.enviar'|trans }}
+                </button>
+            {% else %}
+                <a class="pe-pend-btn" href="{{ path('tenant_selecionar') }}">
+                    <i class="bi bi-arrow-left-right" aria-hidden="true"></i>{{ 'ponto_pendencias.trocar'|trans }}
+                </a>
+                <div class="pe-pend-aviso">{{ 'ponto_pendencias.outro_escritorio'|trans({escritorio: p.escritorio}) }}</div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="pe-abas-vazio">{{ 'ponto_pendencias.vazia'|trans }}</div>
+    {% endfor %}
+</div>

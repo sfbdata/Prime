@@ -60,7 +60,8 @@ final class TelaDoPontoSemRecarregarJsTest extends TestCase
         $atualizar = self::trecho(self::tela(), 'async function atualizarTelaDoPonto() {', 'async function atualizarDepoisDaBatida');
 
         // Desenho novo (E1, 09/11/2026): `ponto-tipos` (os quatro tipos com a hora de cada um) substitui `batidas-de-hoje`.
-        self::assertStringContainsString("const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-regiao-pendencias'];", self::tela());
+        // E3: a aba das pendências (o número) troca junto com o painel dela.
+        self::assertStringContainsString("const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-aba-pendencias', 'ponto-regiao-pendencias'];", self::tela());
         self::assertStringContainsString('relogioNovo.dataset.dia !== relogio.dataset.dia', $atualizar, 'virou o dia: recarrega');
         self::assertStringContainsString("document.querySelector('#ponto-regiao-folha > section.pe-folha')", $atualizar, 'da folha, só o cartão do desenho (E2)');
 

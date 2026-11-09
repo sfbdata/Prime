@@ -372,11 +372,57 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Migration: não. Excluir a justificativa em análise é regra nova pequena (UseCase próprio, só o dono dela, só em análise,
   só no escritório dela; o anexo sai depois do commit). Abonar e recusar a própria (P43 a) chamam a mesma regra de
   análise de hoje.
-- Arquivos: `_pendencias.html.twig`, `_justificativas_list.html.twig`, `PontoController.php` (rotas de excluir e de
-  analisar a própria; avisar), `NotificacaoService` (textos do P40).
-- Testes: unit do UseCase de excluir (pendente sim; analisada não; de outro usuário não; de outro escritório não);
-  funcional 403 e 422; textos das situações; primário e Master analisam a própria; quem gere pelo perfil e não é
-  primário nem Master não vê os botões na própria.
+- Decisões da etapa (implementada em 09/11/2026, branch `ponto-desenho-e3`, empilhada na E2):
+  - parciais NOVOS, só do index novo (decisão do Coordenador, 09/11/2026: o Ponto novo pode ficar atrás de uma chave,
+    com o antigo de volta): `_abas.html.twig` (o cartão), `_abas_pendencias.html.twig`, `_abas_justificativas.html.twig`
+    e `_janelas_justificativa.html.twig`. `_pendencias.html.twig` e `_justificativas_list.html.twig` ficam como estavam;
+    o comportamento mora em `public/js/ponto-abas.js` (a tela não tem `fetch` sem prazo, BatidaNaoTravaNoGpsTest);
+  - uma linha por justificativa, como no desenho (antes: uma por lote, com a situação só do primeiro dia). A situação, a
+    exclusão e a análise são de cada dia, como na ficha do gestor. A troca do atestado continua valendo para o lote
+    inteiro (o sinal do lápis olha os dias do lote no mês);
+  - cada aba é um painel (`role="tabpanel"`) com as duas prontas do servidor; a troca é no navegador e grava a aba no
+    endereço (`?aba=justificativas`) e no formulário do mês. O desenho troca o conteúdo; o painel a mais deixa a
+    troca sem recarregar e a busca da tela depois da batida voltar na mesma aba. A aba das pendências (o número) e o
+    painel delas são regiões trocadas depois da batida;
+  - Pendências sempre aparece, com "Nenhuma pendência de registro." (antes o cartão sumia). O botão "Enviar registro de
+    esquecimento" abre o "+" da folha com o mês aberto, senão o link `?esquecimento=` (o mesmo caminho do "Regularizar");
+  - ficam do sistema, no molde do desenho: "Trocar de escritório" e a explicação da pendência de outro escritório (P38),
+    o "Ver" do atestado, o lápis de editar (P42), "Não abonado" (vermelho da recusada) e o horário do abono parcial
+    (subtítulo "Parcial: 08:00 às 12:00", P45). O "Motivo" do desenho (L184) não entra: a justificativa não tem o
+    campo (P44, E4). Obs. da análise em análise: "Aguardando análise"; "Analisado em" vazio (seção 8);
+  - P41 e D4: a lixeira abre a janela "Excluir justificativa" na moldura do desenho (L269 a L318); o "Excluir" da janela
+    faz o POST (`ponto_justificativa_excluir`, JSON, token da página). `ExcluirJustificativaEmAnaliseUseCase`: busca
+    pelo escritório da sessão (outro escritório: 404), só o dono (403), status lido com a linha travada (já analisada:
+    422, sem fechar o EntityManager), o atestado sai depois do COMMIT e só sem outra referência no escritório;
+  - P43 a: a regra mora em `AnaliseDaPropriaJustificativa::permite` (a própria: só `RegraDosPrimarios::podeGerirPrimarios`,
+    o primário ativo ou o Master; a de outra pessoa segue a regra de hoje). Aplicada no servidor nas cinco rotas da
+    ficha que analisam (abonar, recusar, aprovar todos, voltar para análise e lançar para si, que já sai abonada:
+    decisão do Coordenador, 09/11/2026), pelo `TenantController::exigirQuePodeAnalisar`. Muda o comportamento da
+    ficha: o gestor pelo perfil que não é primário nem Master deixa de analisar a própria lá (403) e, pela mesma
+    decisão (`podeAnalisar`), a ficha dele mesmo não mostra Abonar, Recusar, Aprovar todos, Voltar para análise nem
+    Justificar Falta; no lugar, uma linha diz o porquê. A aba mostra "Abonar"/"Recusar" pela mesma regra e manda o
+    formulário para as MESMAS rotas da ficha (a regra de análise inteira, com a batida do esquecimento e o aviso, mora
+    lá), com `volta=ponto` (volta para a aba, no mês);
+  - P40 fora da tela nova num ponto só, `NomesDasSituacoesDaJustificativa` (`VIGENTES`): os selos e o "Voltar para
+    análise" da ficha, o botão "Recusar", o "Motivo da recusa" e a confirmação da recusa na ficha (decisão do
+    Coordenador, 09/11/2026), as mensagens da análise e da reversão no TenantController e o aviso do sininho
+    ("recusada"). Os avisos antigos já gravados no sininho ficam como estão. "Aprovar Todos (n dias pendentes)" fica;
+  - pontos de liga e desliga (sem chave nesta etapa): P40 em `NomesDasSituacoesDaJustificativa::VIGENTES`; P43 a na
+    última linha de `AnaliseDaPropriaJustificativa::permite`; P41 no atributo da rota `ponto_justificativa_excluir`.
+- Arquivos: `templates/ponto/_abas*.html.twig`, `_janelas_justificativa.html.twig`, `index.html.twig` (coluna da
+  direita e REGIOES_TROCADAS), `public/js/ponto-abas.js`, `public/css/ponto-eletronico.css` (seção do cartão de abas e
+  da janela), `PontoController` (rota de excluir; `abaAberta` e `podeAnalisarAPropria` no index), `TenantController`
+  (regra P43 a e `voltaDaAnalise`), `templates/tenant/_justificativas_tab.html.twig` e `NotificacaoService` (P40),
+  catálogo `ponto_pendencias` (`vazia`).
+- Testes: `ExcluirJustificativaEmAnaliseUseCaseTest` (integração: pendente sai e o atestado órfão sai; dia de lote mantém
+  o atestado; analisada, de outra pessoa e de outro escritório não), `ExcluirJustificativaControllerTest` (200, 403 sem
+  token e de outra pessoa, 422, 404 de outro escritório, só POST), `AnaliseDaPropriaJustificativaTest` e
+  `AnaliseDaPropriaJustificativaControllerTest` (primário e Master analisam a própria; gestor pelo perfil recebe 403 nas
+  três rotas e não vê os botões; continua analisando a de outra pessoa; sininho "recusada"), `AbasDoPontoTelaTest`
+  (arranjo por filho direto, aba pelo endereço, linhas e situações, o que saiu contando zero, confirmação antes de
+  apagar, nomes na ficha), `AbasDoDesenhoCssTest`, `PontoAbasJsTest`, `NomesDasSituacoesDaJustificativaTest`; ajustados:
+  `PendenciasDeRegistroTest` (linha nova e lista vazia com texto), `CartaoRegistrarPontoDoDesenhoTest`,
+  `EditarJustificativaAnexoControllerTest` (um lápis por dia em análise) e os dois da troca sem recarregar.
 
 **E4. Janelas no molde do desenho.**
 - Entra: P44 e P46 (moldura do desenho), P45 e P47 (ficam, com os campos do sistema dentro da moldura nova).
@@ -651,6 +697,8 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   revisão de 09/11/2026), sem migration. Decisões da etapa registradas na E1 (seção 5).
 - E2 implementada na branch `ponto-desenho-e2` (empilhada na E1), sem migration. Decisões da etapa registradas na E2
   (seção 5).
+- E3 implementada na branch `ponto-desenho-e3` (empilhada na E2), sem migration, em parciais novos (a tela antiga fica
+  intocada). Decisões e os pontos de liga e desliga do P40, P43 a e P41 registrados na E3 (seção 5).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
   saldo de antes dos lotes (E17).

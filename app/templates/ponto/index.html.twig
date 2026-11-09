@@ -4,7 +4,8 @@
     Ponto Eletrônico. Desenho aprovado: docs/design/redesign-08-11-26/16 - Ponto Eletronico - VS 08.11.26.dc.html
     (spec docs/specs/ponto-desenho-0811.md; decisões de 09/11/2026 em bluejus-coordenacao/decisoes-desenhos-0911.md).
     Etapa E1: grade de duas colunas e o cartão "Registrar Ponto" no molde do desenho, sobre o motor de hoje. Etapa E2:
-    a Folha de Ponto no molde (ponto/_folha_table.html.twig). Pendências e justificativas ainda são as de hoje (E3). O cabeçalho e o menu do topo do
+    a Folha de Ponto no molde (ponto/_folha_table.html.twig). Etapa E3: o cartão de abas Pendências e Minhas Justificativas
+    (ponto/_abas.html.twig, js/ponto-abas.js). O cabeçalho e o menu do topo do
     desenho são a moldura do sistema (base.html.twig). CSS da tela: public/css/ponto-eletronico.css.
 #}
 
@@ -228,15 +229,18 @@
             } only %}
             </div>
 
-            {# Pendências de registro: no desenho são a primeira aba do cartão da direita (E3). Até lá, logo abaixo da
-               folha, na ordem das abas. #}
-            <div id="ponto-regiao-pendencias">
-                {% include 'ponto/_pendencias.html.twig' with {pendencias: pendencias} only %}
-            </div>
-
-            {% include 'ponto/_justificativas_list.html.twig' with {justificativas: justificativas} only %}
+            {# Cartão de abas logo abaixo da folha (E3): Pendências (P37) e Minhas Justificativas (P39). #}
+            {% include 'ponto/_abas.html.twig' with {
+                pendencias: pendencias,
+                justificativas: justificativas,
+                abaAberta: abaAberta,
+                podeAnalisarAPropria: podeAnalisarAPropria,
+                competenciaSelecionada: competenciaSelecionada
+            } only %}
         </div>
     </div>
+
+    {% include 'ponto/_janelas_justificativa.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
 </div>
 
 {% include 'ponto/_justificativa_form.html.twig' with {tiposJustificativa: tiposJustificativa} only %}
@@ -324,6 +328,7 @@
 </div>
 
 <script src="{{ asset('js/ponto-batida.js') }}"></script>
+<script src="{{ asset('js/ponto-abas.js') }}"></script>
 <script>
     // Limite entre "Localização confirmada" e "GPS impreciso" (P9, valor do desenho). Só muda o texto da caixa: quem
     // decide se a batida passa é a cerca, com a margem da precisão (`PontoBatida.avaliarPosicao`), e o servidor.
@@ -1332,7 +1337,9 @@
     // a resposta não é a tela, nada é trocado e quem chamou decide o plano B (recarregar, como antes).
     // `ponto-tipos` (P6 e P8, desenho de 09/11/2026) é a lista dos quatro tipos com a hora de cada um: substitui o
     // antigo quadro "Suas batidas de hoje". O `#tipo-registro` escondido fica fora dela e recebe o valor novo abaixo.
-    const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-regiao-pendencias'];
+    // E3: o painel das pendências e a aba dele (o número) estão no cartão de abas; a aba aberta vai no endereço
+    // (js/ponto-abas.js), então a tela buscada volta na mesma aba.
+    const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-aba-pendencias', 'ponto-regiao-pendencias'];
 
     async function atualizarTelaDoPonto() {
         // A busca mora no módulo, com prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest).

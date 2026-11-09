@@ -12,10 +12,13 @@ use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Ponto\Service\BatidaJaRegistrada;
+use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RegraDosMasters;
 use App\Entity\Auth\User;
+use Symfony\Component\Security\Core\User\UserInterface;
 use App\Entity\Auth\UserTenant;
 use App\Form\EditUserTenantRoleType;
 use App\Profile\Entity\UserProfile;
@@ -96,7 +99,47 @@ final class TenantController extends AbstractController
         private readonly TranslatorInterface $tradutor,
         private readonly HorarioFuturoDaBatida $horarioFuturo,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
+        private readonly AnaliseDaPropriaJustificativa $analiseDaPropria,
     ) {}
+
+    /**
+     * Para onde a análise volta: a ficha do colaborador, como sempre; ou a aba "Minhas Justificativas" do
+     * Ponto, quando o primário ou o Master analisou a própria por lá (P43 a, desenho do Ponto, E3). O mês
+     * volta só no formato AAAA-MM; a rota é fixa, nada da requisição vira endereço.
+     */
+    private function voltaDaAnalise(Request $request, int $tenantId, User $user): Response
+    {
+        if ($request->request->get('volta') !== 'ponto') {
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
+        $competencia = (string) $request->request->get('competencia', '');
+        $parametros  = ['aba' => 'justificativas'];
+        if (preg_match('/^\d{4}-\d{2}$/D', $competencia) === 1) {
+            $parametros['competencia'] = $competencia;
+        }
+
+        return $this->redirectToRoute('ponto_index', $parametros);
+    }
+
+    /**
+     * P43 a (desenho do Ponto, E3): a própria justificativa, só o primário ou o Master analisa. A regra mora em
+     * AnaliseDaPropriaJustificativa; aqui, a decisão para quem está logado. Analisar a própria inclui abonar, recusar,
+     * aprovar todos, voltar para análise e lançar para si (lançada pelo administrador já sai abonada); a ficha
+     * mostra os botões pela mesma decisão (decisão do Coordenador, 09/11/2026).
+     */
+    private function podeAnalisar(?UserInterface $analista, User $dono, Tenant $tenant): bool
+    {
+        return $analista instanceof User && $this->analiseDaPropria->permite($analista, $dono, $tenant);
+    }
+
+    /** A recusa das rotas da ficha que analisam a justificativa (ver podeAnalisar). */
+    private function exigirQuePodeAnalisar(?UserInterface $analista, User $dono, Tenant $tenant): void
+    {
+        if (!$this->podeAnalisar($analista, $dono, $tenant)) {
+            throw $this->createAccessDeniedException(AnaliseDaPropriaJustificativa::RECUSA);
+        }
+    }
 
     /** O sucesso do "aprovar todos"; com todos pulados (batida já registrada), só os avisos deles ficam. */
     private function avisarAbonadas(int $abonadas): void
@@ -863,6 +906,7 @@ final class TenantController extends AbstractController
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
+            'podeAnalisarJustificativas' => $this->podeAnalisar($currentUser, $user, $tenant),   // P43 a
             'lancamentosHorasPagas'  => $lancamentoHorasPagasRepository->listarPorUser($user, $tenant),
             'colegas'                => $colegas,
             'formDadosPessoais'      => $formDadosPessoais->createView(),
@@ -1317,6 +1361,8 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a
+
         if (!$this->isCsrfTokenValid('justificativa_aprovar_' . $justificativaId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
@@ -1331,18 +1377,18 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', 'Apenas justificativas pendentes podem ser abonadas.');
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('analise.so_para_abonar'));
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
         if (($jaBatida = $registrarBatidaDoEsquecimento->recusa($justificativa, $tenant)) !== null) {
             $this->addFlash('warning', $jaBatida);   // o pedido fica pendente: o admin decide (R1)
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         // Pedido antigo com hora que ainda não chegou: não abona, para não gravar batida no futuro.
         if ($registrarBatidaDoEsquecimento->pedeHorarioFuturo($justificativa)) {
             $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
@@ -1366,11 +1412,7 @@ final class TenantController extends AbstractController
 
         $this->addFlash('success', sprintf('Justificativa de %s abonada.', $justificativa->getData()?->format('d/m/Y')));
 
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId' => $tenantId,
-            'id'       => $user->getId(),
-            'tab'      => 'justificativas',
-        ]);
+        return $this->voltaDaAnalise($request, $tenantId, $user);
     }
 
     #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/rejeitar', name: 'app_tenant_user_justificativa_rejeitar', methods: ['POST'])]
@@ -1408,6 +1450,8 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a
+
         if (!$this->isCsrfTokenValid('justificativa_rejeitar_' . $justificativaId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
@@ -1422,14 +1466,14 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', 'Apenas justificativas pendentes podem ser rejeitadas.');
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('analise.so_para_recusar'));
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
         if ($observacao === '') {
-            $this->addFlash('danger', 'Informe o motivo da rejeição.');
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            $this->addFlash('danger', NomesDasSituacoesDaJustificativa::texto('analise.sem_motivo'));
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         $justificativa->setStatus('rejeitado');
@@ -1442,13 +1486,9 @@ final class TenantController extends AbstractController
         $urlPonto = $this->generateUrl('ponto_index');
         $notificacaoService->notificarJustificativaRejeitada($justificativa, $urlPonto);
 
-        $this->addFlash('success', sprintf('Justificativa de %s rejeitada.', $justificativa->getData()?->format('d/m/Y')));
+        $this->addFlash('success', NomesDasSituacoesDaJustificativa::texto('analise.recusada', (string) $justificativa->getData()?->format('d/m/Y')));
 
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId' => $tenantId,
-            'id'       => $user->getId(),
-            'tab'      => 'justificativas',
-        ]);
+        return $this->voltaDaAnalise($request, $tenantId, $user);
     }
 
     #[Route('/{tenantId}/user/{id}/justificativa/batch/{batchId}/aprovar-todos', name: 'app_tenant_user_justificativa_aprovar_todos', methods: ['POST'])]
@@ -1484,6 +1524,8 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a
+
         if (!$this->isCsrfTokenValid('justificativa_aprovar_todos_' . $batchId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
@@ -1514,11 +1556,7 @@ final class TenantController extends AbstractController
 
         $this->avisarAbonadas(count($pendentes));
 
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId' => $tenantId,
-            'id'       => $user->getId(),
-            'tab'      => 'justificativas',
-        ]);
+        return $this->voltaDaAnalise($request, $tenantId, $user);
     }
 
     #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/reverter', name: 'app_tenant_user_justificativa_reverter', methods: ['POST'])]
@@ -1553,6 +1591,8 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a: voltar a própria para análise
+
         if (!$this->isCsrfTokenValid('justificativa_reverter_' . $justificativaId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
@@ -1567,7 +1607,7 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() === 'pendente') {
-            $this->addFlash('warning', 'Esta justificativa já está pendente.');
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('reverter.ja_esta'));
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
@@ -1586,7 +1626,7 @@ final class TenantController extends AbstractController
                 $justificativa->getData()?->format('d/m/Y')
             ));
         } else {
-            $this->addFlash('success', sprintf('Justificativa de %s revertida para pendente.', $justificativa->getData()?->format('d/m/Y')));
+            $this->addFlash('success', NomesDasSituacoesDaJustificativa::texto('reverter.feito', (string) $justificativa->getData()?->format('d/m/Y')));
         }
 
         return $this->redirectToRoute('app_tenant_user_edit_role', [
@@ -1670,6 +1710,7 @@ final class TenantController extends AbstractController
         if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
             throw $this->createNotFoundException();
         }
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a: a lançada pelo administrador já sai abonada
 
         if (!$this->isCsrfTokenValid('admin_nova_justificativa_' . $user->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');

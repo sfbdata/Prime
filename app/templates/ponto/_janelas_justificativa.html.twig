@@ -1,0 +1,49 @@
+{#
+    Janelas da aba "Minhas Justificativas" (E3), na moldura de janela do desenho 16 (L269 a L318): fundo azul escuro,
+    barra azul com o título e o "x", corpo, linha de erro e rodapé com "Cancelar" e a ação. Esc fecha; clicar fora não
+    fecha (o desenho não fecha). Comportamento em js/ponto-abas.js.
+
+    - Excluir (P41 e D4): o desenho apaga na hora; aqui confirma antes. POST com o token da página (X-CSRF-Token).
+    - Abonar e Recusar a própria (P43 a): só para o primário e o Master. O formulário vai para a mesma rota da ficha do
+      gestor (a regra de análise mora lá) e volta para esta aba (`volta=ponto`). Recusar sem motivo não sai da janela.
+
+    Recebe `competenciaSelecionada`.
+#}
+<div class="pe-janela-fundo" id="ponto-janela-excluir" hidden>
+    <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Excluir justificativa">
+        <div class="pe-janela-topo">
+            <i class="bi bi-trash3" aria-hidden="true"></i><b class="pe-janela-titulo">Excluir justificativa</b>
+            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="pe-janela-corpo">
+            <div class="pe-janela-info" data-janela-info></div>
+            <div class="pe-janela-texto">A justificativa sai da lista e não vai mais para a análise do gestor. Não é possível desfazer.</div>
+        </div>
+        <div class="pe-janela-erro" data-janela-erro hidden></div>
+        <div class="pe-janela-rodape">
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
+            <button type="button" class="pe-janela-acao" data-excluir-confirmar>Excluir</button>
+        </div>
+    </div>
+</div>
+
+<div class="pe-janela-fundo" id="ponto-janela-analise" hidden>
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Abonar justificativa" method="post" action="" data-analise-form novalidate>
+        <div class="pe-janela-topo">
+            <i class="bi bi-clipboard-check" aria-hidden="true"></i><b class="pe-janela-titulo" data-analise-titulo>Abonar justificativa</b>
+            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="pe-janela-corpo">
+            <div class="pe-janela-info" data-janela-info></div>
+            <label class="pe-janela-rotulo">Observação da análise <textarea name="observacaoAnalise" rows="3" class="pe-janela-campo"></textarea></label>
+        </div>
+        <div class="pe-janela-erro" data-janela-erro hidden></div>
+        <input type="hidden" name="_token" value="">
+        <input type="hidden" name="volta" value="ponto">
+        <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+        <div class="pe-janela-rodape">
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
+            <button type="submit" class="pe-janela-acao" data-analise-acao>Abonar</button>
+        </div>
+    </form>
+</div>

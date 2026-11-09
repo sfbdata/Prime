@@ -1,4 +1,6 @@
 # ---- Ponto: pendências de registro da própria pessoa (ponto/_pendencias, spec ponto-esquecimento-nao-trava R5)
+# Aba "Pendências" do cartão de abas (desenho do Ponto, E3, ponto/_abas_pendencias): `vazia` é a lista sem pendência; o
+# `titulo` é do cartão antigo (ponto/_pendencias), que fica para a tela antiga.
 ponto_pendencias:
     titulo: Pendências de registro
     explicacao: 'Dias dos últimos 30 em que faltou uma batida. Elas não impedem o registro do ponto: envie o registro de esquecimento para regularizar.'
@@ -10,3 +12,4 @@ ponto_pendencias:
     enviar: Enviar registro de esquecimento
     outro_escritorio: 'Este registro é de {escritorio}. Troque para esse escritório e envie o registro de esquecimento por lá.'
     trocar: Trocar de escritório
+    vazia: Nenhuma pendência de registro.

@@ -171,8 +171,8 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
     /** @return iterable<string, array{list<string>, string}> */
     public static function lotesNaTela(): iterable
     {
-        // O botão edita o dia mais recente exibido (`batch[0]`); ele precisa estar pendente para haver
-        // botão (C2-01). O sinal do atestado olha o lote inteiro.
+        // E3 do desenho: uma linha por dia, cada dia em análise com o próprio botão (C2-01). O sinal do
+        // atestado olha o lote inteiro, igual em todos os botões do lote.
         yield 'todo pendente: oferece'           => [['pendente', 'pendente'], '1'];
         yield 'um dia abonado: não'              => [['abonado', 'pendente'], '0'];
         yield 'um dia rejeitado: não'            => [['rejeitado', 'pendente'], '0'];
@@ -196,8 +196,8 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         $botoes = $crawler->filter('button[title="Editar justificativa"]');
-        self::assertCount(1, $botoes, 'um lote, um botão de editar');
-        self::assertSame($esperado, $botoes->attr('data-pode-trocar-anexo'));
+        self::assertCount(\count(array_keys($status, 'pendente', true)), $botoes, 'um botão de editar por dia em análise (E3: uma linha por dia)');
+        self::assertSame(array_fill(0, $botoes->count(), $esperado), $botoes->each(static fn ($b): string => (string) $b->attr('data-pode-trocar-anexo')));
 
         self::assertCount(1, $crawler->filter('#modalEditarJustificativa input[type="file"]#editarAnexo[name="anexo"]'));
         $aviso = $crawler->filter('#modalEditarJustificativa #editarAvisoAnexoAnalisado');
