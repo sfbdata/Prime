@@ -73,6 +73,34 @@ final class LeitorDeObjetosDoPdfTest extends TestCase
         self::assertNull($this->leitor->objeto($pdf, 10, 0));
     }
 
+    #[TestDox('limite de cabeçalhos "N G obj": 10.000 lê o último; 10.001 devolve null')]
+    public function testLimiteDeCabecalhos(): void
+    {
+        $limite = LimitesDaConferencia::OBJETOS_MAXIMOS;
+        $pdf = static fn (int $vezes): string => "%PDF-1.7\n" . str_repeat("10 0 obj\n<</V 1>>\nendobj\n", $vezes - 1) . "10 0 obj\n<</V 2>>\nendobj\n";
+
+        self::assertSame('<</V 2>>', $this->leitor->objeto($pdf($limite), 10, 0));
+        self::assertNull($this->leitor->objeto($pdf($limite + 1), 10, 0));
+    }
+
+    #[TestDox('limite de /ObjStm: 10.000 fluxos lê o objeto; 10.001 devolve null')]
+    public function testLimiteDeFluxos(): void
+    {
+        $limite = LimitesDaConferencia::OBJETOS_MAXIMOS;
+        $fluxo = static fn (int $numero, string $objeto): string => $numero . " 0 obj\n<</Type/ObjStm/N 1/First 6>>\nstream\n" . $objeto . "\nendstream\nendobj\n";
+        $pdf = static function (int $vezes) use ($fluxo): string {
+            $corpo = "%PDF-1.7\n";
+            for ($i = 1; $i < $vezes; ++$i) {
+                $corpo .= $fluxo(100 + $i, '20 0  <</V 1>>');
+            }
+
+            return $corpo . $fluxo(100 + $vezes, '10 0  <</V 2>>');
+        };
+
+        self::assertSame('<</V 2>>', $this->leitor->objeto($pdf($limite), 10, 0));
+        self::assertNull($this->leitor->objeto($pdf($limite + 1), 10, 0));
+    }
+
     #[TestDox('número negativo e PDF acima de 20 MB devolvem null')]
     public function testEntradasForaDoLimite(): void
     {
