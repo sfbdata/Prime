@@ -4,10 +4,11 @@
     horaInicioAbono, horaFimAbono), como o JustificativaAAnalisarOutput da aba Equipe.
 
     subtitulo: a linha embaixo do tipo, em "Minhas Justificativas" (E3) e em "Justificativas a analisar" (E5). O
-    esquecimento diz qual batida e a hora; o abono parcial, o horário. Sem nada, vazio. Quem usa tira os espaços com
-    `|trim` antes de testar se veio algo.
+    esquecimento diz qual batida e a hora; o abono parcial, o horário. Sem nada, vazio (''), para quem usa testar se
+    veio algo. Todas as tags tiram os espaços das pontas, e quem usa imprime a saída como veio: ela já sai escapada, e
+    uma concatenação com `~` (ou um filtro que devolva texto comum) faria o `{{ }}` escapá-la de novo.
 #}
-{% macro subtitulo(j) -%}
+{%- macro subtitulo(j) -%}
     {%- set nomesDoRegistro = {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} -%}
     {%- if j.tipo == 'esquecimento_registro' and j.tipoRegistroEsquecido -%}
         {{- nomesDoRegistro[j.tipoRegistroEsquecido] ~ (j.horaRegistroEsquecido ? ' às ' ~ j.horaRegistroEsquecido|date('H:i') : '') -}}

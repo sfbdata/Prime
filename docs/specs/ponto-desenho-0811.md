@@ -527,8 +527,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     de hoje do escritório vêm numa consulta só (`RegistroPontoRepository::batidasDoDiaDaEquipe`);
   - Banco: o mesmo número do topo da /ponto da pessoa (`FolhaPontoBuilder::calcularSaldoAnual`, mesmos feriados, jornada
     do escritório e início da contagem). Pendências: as de registro da pessoa neste escritório
-    (`ListarPendenciasDeRegistroUseCase::soNoEscritorio`). O cálculo do banco é a parte cara (umas 26 consultas por
-    pessoa): por isso o painel só é buscado quando a aba abre;
+    (`ListarPendenciasDeRegistroUseCase::soNoEscritorio`). O cálculo do banco é a parte cara (cerca de 30 consultas
+    por pessoa, ver "Custo do painel" abaixo): por isso o painel só é buscado quando a aba abre;
   - 5 indicadores, na ordem do desenho: Em jornada, Em intervalo, Sem registro, Pendências (a soma da coluna) e A
     analisar (o tamanho da lista);
   - Escala (P56 a): as 4 escalas do desenho (`CatalogoDeEscalas`, ids e rótulos do `ESC`, L409). Vem marcada a que tem
@@ -548,7 +548,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - "Justificativas a analisar (N)" (P57): as em análise do escritório, de quem tem vínculo ativo nele
     (`JustificativaPontoRepository::aAnalisarNoEscritorio`). As de quem vê entram só quando ele pode analisar a própria
     (P43 a, `AnaliseDaPropriaJustificativa`) e vêm primeiro; depois as da equipe, da data mais nova para a mais antiga e
-    por nome. O subtítulo é o da E3, num macro só (`_justificativa_macros.html.twig`, a saída da E3 não muda). O número
+    por nome. O subtítulo é o da E3, num macro só (`_justificativa_macros.html.twig`, a saída da E3 não muda). O macro
+    sai sem espaço nas pontas e já escapado: quem usa imprime como veio, sem `|trim`, e o `data-info` da aba "Minhas
+    Justificativas" é montado por bloco (`{% set %}` e `{% endset %}`), não com `~`, para não escapá-lo de novo. O número
     da aba é `JustificativasAAnalisarDaEquipe::contarAAnalisar(User, Tenant): int` (uma contagem, sem carregar a lista);
   - "Abonar selecionadas" é um formulário (POST `/ponto/equipe/abonar`, `ponto_equipe_abonar`, `ids[]`, token
     `ponto_equipe_abonar`) que volta para a /ponto na aba Equipe. Desligado sem nada marcado (o JS liga). O lote
@@ -564,8 +566,28 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     desligado mais claro, a frase de erro no topo e o aviso só para leitor de tela. A tabela não tem `pe-resp`: no
     celular rola para o lado. CSS num bloco só no fim de `ponto-eletronico.css`, com os tokens da tela (sem token novo);
   - o número de Banco segue uma regra de hoje do `calcularSaldoAnual`: quem não tem jornada pessoal no escritório tem
-    só as horas pagas no saldo. A primeira troca de escala cria a jornada pessoal e o número passa a ser o saldo do ano,
-    na aba e no topo da /ponto da pessoa (a ficha faz o mesmo hoje).
+    só as horas pagas no saldo. A primeira troca de escala cria a jornada pessoal, com a versão de hoje sem cobrir os
+    dias de antes: o banco passa a contar do dia da troca em diante, na aba e no topo da /ponto da pessoa, e os dias de
+    antes continuam fora dele (a ficha faz o mesmo hoje). Conferido na revisão de 09/11/2026: com 10 horas em 01/12 e em
+    15/12/2025, a jornada do escritório de 40h e a troca para 30h feita em 15/12/2025, o saldo de 2025 é 0 antes e
+    -4080 depois (+240 de 15/12 e 12 dias sem batida a -360); o 01/12 e os dias até 14/12 não entram
+    (`TrocarEscalaNaEquipeTest`). O texto ao cliente diz isso: a folha dos dias anteriores não muda e, sem escala
+    própria, o banco passa a ser calculado a partir do dia da troca;
+  - Custo do painel (revisão de 09/11/2026, Coordenador): cerca de 30 consultas por pessoa, quase todas do
+    `calcularSaldoAnual`, que faz 2 por mês do ano corrido. Medido no `EquipeDoPontoConsultasTest` (1 pessoa contra 3,
+    no caso caro: jornada pessoal e batida desde o ano passado): 29 por pessoa em novembro, 7 fixas mais 2 por mês (31
+    em dezembro). O teste trava esse teto; subir o teto pede rever este item antes. Em produção, em 09/11/2026, o maior
+    escritório tem 7 pessoas que registram ponto: umas 210 consultas, bem dentro do prazo de 20 s do carregador. Sem
+    limite de pessoas no painel por enquanto; rever quando um escritório passar de 30 pessoas no ponto. Duas sobras
+    pequenas ficam anotadas: os feriados relidos por pessoa nas pendências (`ListarPendenciasDeRegistroUseCase`, que a
+    E6 mexe; fica para depois dela) e o `historicoDe` lido duas vezes por pessoa (no banco e na escala);
+  - Abono em lote (revisão de 09/11/2026): cada justificativa é abonada e auditada uma por uma, com o registro
+    "Justificativa abonada" da E9; não há um evento único "Abono em lote" (dc L818, D5). Uma falha inesperada no meio
+    do lote deixa gravadas as que vieram antes dela (o lote não abre transação). A recusa esperada do abono da ficha
+    (`AnaliseDeJustificativaRecusadaException`, do AnalisarJustificativaUseCase da outra frente) volta como motivo pelo
+    `AbonoDeJustificativa` quando o adaptador for ligado, vira mensagem e o lote segue;
+  - limite conhecido, versão futura agendada (revisão de 09/11/2026): se a pessoa já tem uma versão da jornada que
+    começa depois de hoje, a escala trocada na aba vale só até o dia anterior a essa versão, e a aba não avisa.
 - Arquivos: `EquipeDoPontoController`, `ConsultarEquipeDoPontoUseCase`, `TrocarEscalaNaEquipeUseCase`,
   `AbonarJustificativasDaEquipeUseCase`, `src/Ponto/Service/` (`CatalogoDeEscalas`, `EscalaDoCatalogo`,
   `EscalaDaPessoaNaEquipe`, `HojeDaPessoaNaEquipe`, `JustificativasAAnalisarDaEquipe`, `ChoqueDaJornadaProposta`,
@@ -579,7 +601,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   `AbonarJustificativasDaEquipeUseCaseTest` (com o dublê do abono e o provisório), `EquipeDoPontoTelaTest` (arranjo por
   filho direto e textos, quem entra, situações, escala marcada, banco e pendências iguais aos da /ponto da pessoa,
   gestor pelo perfil, lista vazia, outro escritório), `TrocarEscalaNaEquipeTest` (versão de hoje, passado sem mudança
-  com e sem jornada pessoal, duas trocas no mesmo dia, histórico na ficha, choque 409, guardas),
+  com e sem jornada pessoal, o banco antes e depois da primeira troca, duas trocas no mesmo dia, histórico na ficha,
+  choque 409, duas trocas ao mesmo tempo 409, guardas, vínculo suspenso e quem saiu 404),
+  `EquipeDoPontoSubtituloTest` (o macro sem espaço nas pontas; subtítulo com `&` escapado uma vez nas duas abas),
+  `EquipeDoPontoConsultasTest` (teto de consultas por pessoa),
   `AbonoEmLoteDaEquipeTest` (dublê do abono: abonadas, recusa, isolamento, P43 a no lote, guardas),
   `EquipeDoDesenhoCssTest`, `PontoEquipeJsTest`.
 

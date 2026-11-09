@@ -10,6 +10,9 @@
     o lápis abre a janela "Editar justificativa" do index (E4, js/ponto-janelas.js). O motivo (E4) fica abaixo do tipo.
 
     Parcial novo, só do index novo: a lista antiga (ponto/_justificativas_list.html.twig) fica intocada para a tela antiga.
+
+    O subtítulo vem do macro já escapado: o `info` (o data-info das janelas) é montado por bloco, com `{% set %}` e
+    `{% endset %}`, e não com `~`, para não escapá-lo de novo.
 #}
 {% if justificativas is empty %}
     <div class="pe-abas-vazio">Nenhuma justificativa enviada nesta competência.</div>
@@ -30,8 +33,8 @@
             </thead>
             <tbody>
                 {% for j in justificativas %}
-                    {% set sub = jm.subtitulo(j)|trim %}
-                    {% set info = j.data|date('d/m/Y') ~ (j.labelTipo ? ' · ' ~ j.labelTipo : '') ~ (sub ? ' · ' ~ sub : '') %}
+                    {% set sub = jm.subtitulo(j) %}
+                    {% set info %}{{ j.data|date('d/m/Y') }}{% if j.labelTipo %} · {{ j.labelTipo }}{% endif %}{% if sub %} · {{ sub }}{% endif %}{% endset %}
                     {% if j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
                         {% set selo = ['nao-abonada', 'bi-x-circle', 'Não abonado'] %}
                     {% elseif j.status == 'abonado' %}

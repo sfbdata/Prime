@@ -7,22 +7,29 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\EquipeDoPontoController;
+use App\Ponto\Controller\JornadaColaboradorController;
+use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\HistoricoDeJornadas;
+use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\UseCase\TrocarEscalaNaEquipeUseCase;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDeJornadaPorEscritorioTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 
 /**
  * Trocar a escala na aba Equipe (spec `docs/specs/ponto-desenho-0811.md`, E5, P56 a): grava uma versão nova da jornada
  * pessoal valendo a partir de hoje, os dias de antes não mudam (saldo e folha), a versão aparece no histórico da ficha
- * do colaborador, e as guardas: quem não gere a equipe, pessoa de fora, escala desconhecida, choque e CSRF.
+ * do colaborador, e as guardas: quem não gere a equipe, pessoa de fora, suspensa ou que saiu, escala desconhecida,
+ * choque, duas trocas ao mesmo tempo e CSRF. Sem jornada pessoal, o banco só tem as horas pagas; a primeira troca passa
+ * a contá-lo do dia dela em diante, e os dias de antes continuam de fora (regra do `calcularSaldoAnual`, a mesma da ficha).
  */
 #[CoversClass(EquipeDoPontoController::class)]
 #[CoversClass(TrocarEscalaNaEquipeUseCase::class)]
@@ -30,6 +37,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 final class TrocarEscalaNaEquipeTest extends JusPrimeWebTestCase
 {
     use CenarioDeJornadaPorEscritorioTrait;
+    use ClockSensitiveTrait;
 
     /** 40h: segunda a sexta 8h. */
     private const QUARENTA = [[[1, 2, 3, 4, 5], '08:00', '12:00', '13:00', '17:00']];
@@ -104,6 +112,29 @@ final class TrocarEscalaNaEquipeTest extends JusPrimeWebTestCase
         self::assertSame($folhaAntes, $this->folhaDoMesPassadoDaAna());
     }
 
+    #[TestDox('Sem jornada pessoal, o banco do ano só tem as horas pagas; a primeira troca passa a contar do dia dela em diante, e os dias de antes continuam de fora')]
+    public function testPrimeiraTrocaPassaAContarOBancoDeHoras(): void
+    {
+        $this->jornadaPadrao($this->escritorio, self::QUARENTA);
+        // Dezembro de 2025, um ano que já fechou: os números não dependem de hoje. A Ana fez 10 horas numa segunda
+        // antes da troca (01/12) e noutra no dia dela (15/12); a troca é feita em 15/12/2025, com o relógio parado.
+        foreach (['2025-12-01', '2025-12-15'] as $dia) {
+            $this->registrarBatida($this->ana, $this->escritorio, 'entrada', new \DateTimeImmutable($dia . ' 08:00'));
+            $this->registrarBatida($this->ana, $this->escritorio, 'saida', new \DateTimeImmutable($dia . ' 18:00'));
+        }
+
+        $antes = $this->saldoDe2025DaAna();
+        self::mockTime(new \DateTimeImmutable('2025-12-15 10:00'));
+        $this->trocar($this->ana, '30-5');
+        self::assertResponseIsSuccessful();
+        $depois = $this->saldoDe2025DaAna();
+
+        self::assertSame(0, $antes, 'sem jornada pessoal, só as horas pagas (nenhuma aqui)');
+        // 15/12: 10h contra 6h, +240. De 16/12 a 31/12, 12 dias de segunda a sexta sem batida, -360 cada (sem feriados
+        // nesta conta): -4080. O 01/12 e os dias até 14/12 ficam de fora; pela jornada do escritório seriam mais -4200.
+        self::assertSame(-4080, $depois, 'de 15/12 em diante pela escala de 30h; de 01/12 a 14/12 continua de fora');
+    }
+
     #[TestDox('Trocar de novo no mesmo dia atualiza a versão de hoje, sem criar outra')]
     public function testDuasTrocasNoMesmoDia(): void
     {
@@ -146,6 +177,48 @@ final class TrocarEscalaNaEquipeTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(409);
         self::assertSame(['erro' => sprintf(ChoqueDeJornadaEntreEscritorios::MENSAGEM_CHOQUE, '13:00', '17:00')], $resposta);
         self::assertNull($this->jornadas()->historicoDe($this->ana, $this->escritorio));
+    }
+
+    #[TestDox('Pessoa com vínculo suspenso e pessoa que saiu do escritório: 404 e nada gravado')]
+    public function testSuspensaEQueSaiu(): void
+    {
+        $suspensa = $this->pessoa('Suspensa');
+        $this->vincular($suspensa, $this->escritorio)->alterarSituacao(SituacaoNaEquipe::Suspenso);
+        $saiu = $this->pessoa('Saiu');
+        $this->em()->remove($this->vincular($saiu, $this->escritorio));
+        $this->em()->flush();
+
+        foreach ([$suspensa, $saiu] as $pessoa) {
+            $resposta = $this->trocar($pessoa, '44-6');
+
+            self::assertResponseStatusCodeSame(404);
+            self::assertSame(['erro' => 'Pessoa não encontrada na equipe deste escritório.'], $resposta);
+            self::assertNull($this->jornadas()->historicoDe($pessoa, $this->escritorio), 'nada gravado');
+        }
+    }
+
+    #[TestDox('Duas trocas ao mesmo tempo: a segunda bate no índice da versão de hoje e responde 409 com a mensagem, sem gravar')]
+    public function testDuasTrocasAoMesmoTempo(): void
+    {
+        // A outra troca acabou de gravar a versão de hoje. Esta não a enxerga na leitura (o repositório devolve "nenhuma
+        // jornada", como no JornadaSalvaAoMesmoTempoTest), tenta criar outra e a gravação vai ao banco de verdade.
+        $this->jornadaPessoal($this->ana, $this->escritorio, self::QUARENTA)->setValeAPartirDe($this->hoje)->setCargaHorariaSemanal(2400);
+        $this->em()->flush();
+        $em = $this->em();
+        $jornadas = $this->createStub(JornadaColaboradorRepository::class);
+        $jornadas->method('salvar')->willReturnCallback(static fn (JornadaColaborador $jornada) => $em->persist($jornada));
+        $jornadas->method('gravar')->willReturnCallback(static fn () => $em->flush());
+        static::getContainer()->set(JornadaColaboradorRepository::class, $jornadas);
+
+        $resposta = $this->trocar($this->ana, '44-6');
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(['erro' => JornadaColaboradorController::JORNADA_ALTERADA_AO_MESMO_TEMPO], $resposta);
+        self::assertSame(
+            [[$this->hoje->format('Y-m-d'), 2400]],
+            $em->getConnection()->fetchAllNumeric('SELECT vale_a_partir_de, carga_horaria_semanal FROM jornada_colaborador WHERE user_id = ?', [$this->ana->getId()]),
+            'fica só a versão da outra troca',
+        );
     }
 
     #[TestDox('Guardas: colaborador 403; pessoa de outro escritório e que não existe 404; escala fora da lista 422; corpo inválido 400; sem CSRF 403')]
@@ -217,6 +290,26 @@ final class TrocarEscalaNaEquipeTest extends JusPrimeWebTestCase
             [],
             $escritorio->getJornadaTenant(),
             new \DateTimeImmutable('2026-01-01'),
+            $escritorio,
+        );
+    }
+
+    /** O número do Banco da aba e do topo da /ponto, no ano de 2025: `calcularSaldoAnual` com o início da contagem da pessoa. */
+    private function saldoDe2025DaAna(): int
+    {
+        $this->em()->clear();
+        $ana = $this->em()->find(User::class, $this->ana->getId());
+        $escritorio = $this->em()->find(Tenant::class, $this->escritorio->getId());
+        self::assertNotNull($ana);
+        self::assertNotNull($escritorio);
+        $container = static::getContainer();
+
+        return $container->get(FolhaPontoBuilder::class)->calcularSaldoAnual(
+            $ana,
+            2025,
+            [],
+            $escritorio->getJornadaTenant(),
+            $container->get(InicioContagemResolver::class)->resolver($ana, $escritorio),
             $escritorio,
         );
     }
