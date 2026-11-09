@@ -582,6 +582,16 @@ final class FilaSemInternetJsTest extends TestCase
             "/if \\(!banco\\.objectStoreNames\\.contains\\(LOJA_RECUSAS\\)\\) \\{\\s+banco\\.createObjectStore\\(LOJA_RECUSAS, \\{ keyPath: 'idEnvio' \\}\\);/",
             self::corpo($fila, 'function abrirBanco() {')
         );
+        // A troca de versão só acrescenta: apagar uma loja ou o banco levaria a fila e a chave junto.
+        foreach (['deleteObjectStore', 'deleteDatabase'] as $apaga) {
+            self::assertStringNotContainsString($apaga, $fila, 'a troca de versão não pode apagar a fila nem a chave: ' . $apaga);
+        }
+        // A aba com a versão antiga fecha o banco dela quando outra pede a versão nova, para não travar a troca.
+        self::assertStringContainsString(
+            'banco.close();',
+            self::corpo($fila, 'banco.onversionchange = () => {'),
+            'o onversionchange fecha o banco'
+        );
 
         // Uma transação só, nas duas lojas: a remoção da fila e a gravação da recusa. Ou as duas, ou nenhuma.
         $recusar = self::corpo($fila, 'async function recusar(entrada, mensagem) {');
