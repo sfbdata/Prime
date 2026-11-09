@@ -412,9 +412,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - ajustes da revisão e da conferência (09/11/2026, Coordenador):
     - P40 completo: o aviso do atestado travado (lápis da aba e `SubstituirAnexoDoLoteUseCase`), a mensagem da edição
       de justificativa já analisada (`JustificativaJaAnalisadaException`) e o "(rejeitada)" do PDF e do XLSX da folha
-      passam pelo `NomesDasSituacoesDaJustificativa` (chaves `anexo.travado`, `edicao.ja_analisada`,
-      `situacao.rejeitado`). A chave `lote.sem_pendente` ("Aprovar todos" da ficha) entra no refactor da análise
-      (E9). O "(pendente)" do PDF e do XLSX fica para a E16, que refaz o PDF (P34 a P36);
+      passam pelo `NomesDasSituacoesDaJustificativa` (chaves `anexo.travado`, `edicao.ja_analisada` e
+      `folha.recusada`, "(recusada)", no feminino da Folha, D22). As chaves `lote.sem_pendente` ("Aprovar todos" da
+      ficha) e `reverter.feito_com_batida` (voltar para análise um esquecimento abonado) entram no refactor da análise
+      (E9), que reescreve esses dois trechos do TenantController. O "(pendente)" do PDF e do XLSX fica para a E16,
+      que refaz o PDF (P34 a P36);
     - o invólucro `#ponto-regiao-folha` fica: o parcial da Folha (o mesmo da ficha) entrega, junto com a
       `section.pe-folha`, o formulário do mês, a janela de pré-visualização e o script dela. O invólucro os agrupa para
       o cartão de abas vir logo depois da Folha (`.pe-dir > #ponto-regiao-folha + section.pe-abas`) e para a troca sem

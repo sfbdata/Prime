@@ -37,6 +37,10 @@ final class NomesDasSituacoesDaJustificativa
             . 'registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para voltá-la '
             . 'para análise.',
         'lote.sem_pendente'      => 'Nenhuma justificativa em análise encontrada neste lote.',
+        'reverter.feito_com_batida' => 'Justificativa de %s voltou para análise. Atenção: o registro de ponto criado '
+            . 'automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.',
+        // Folha exportada (PDF e XLSX), entre parênteses depois do tipo: no feminino, como a Folha do desenho (D22).
+        'folha.recusada'         => 'recusada',
     ];
 
     /** Os nomes de antes do desenho, guardados para a volta do Ponto antigo. */
@@ -61,6 +65,9 @@ final class NomesDasSituacoesDaJustificativa
             . 'registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para '
             . 'revertê-la para pendente.',
         'lote.sem_pendente'      => 'Nenhuma justificativa pendente encontrada neste lote.',
+        'reverter.feito_com_batida' => 'Justificativa de %s revertida para pendente. Atenção: o registro de ponto criado '
+            . 'automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.',
+        'folha.recusada'         => 'rejeitada',
     ];
 
     /** A linha da troca do P40. */

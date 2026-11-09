@@ -33,6 +33,8 @@ final class NomesDasSituacoesDaJustificativaTest extends TestCase
         self::assertStringContainsString('não está mais em análise', NomesDasSituacoesDaJustificativa::texto('edicao.ja_analisada'));
         self::assertSame(NomesDasSituacoesDaJustificativa::texto('edicao.ja_analisada'), \App\Ponto\Exception\JustificativaJaAnalisadaException::MENSAGEM);
         self::assertSame('Nenhuma justificativa em análise encontrada neste lote.', NomesDasSituacoesDaJustificativa::texto('lote.sem_pendente'));
+        self::assertSame('recusada', NomesDasSituacoesDaJustificativa::texto('folha.recusada'), 'a folha usa o feminino (D22)');
+        self::assertStringStartsWith('Justificativa de 03/11/2026 voltou para análise. Atenção:', NomesDasSituacoesDaJustificativa::texto('reverter.feito_com_batida', '03/11/2026'));
     }
 
     #[TestDox('De antes: a chave devolve os textos antigos da ficha ("Rejeitar", "Motivo da rejeição")')]

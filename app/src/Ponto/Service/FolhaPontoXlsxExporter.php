@@ -329,7 +329,7 @@ final class FolhaPontoXlsxExporter
                 } elseif ($j->getStatus() === 'pendente') {
                     $justText = ($j->getLabelTipo() ?? '') . ' (pendente)';
                 } else {
-                    $justText = ($j->getLabelTipo() ?? '') . ' (' . NomesDasSituacoesDaJustificativa::texto('situacao.rejeitado') . ')';
+                    $justText = ($j->getLabelTipo() ?? '') . ' (' . NomesDasSituacoesDaJustificativa::texto('folha.recusada') . ')';
                 }
             }
             $this->escreverTexto($sheet, "J{$lin}", (string) $justText);

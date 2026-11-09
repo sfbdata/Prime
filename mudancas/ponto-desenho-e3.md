@@ -3,7 +3,7 @@ tipo: alteracao
 ---
 ## Changelog
 - Ponto Eletrônico, etapa E3 do desenho 16 (VS 08.11.26): a coluna da direita da /ponto ganha o cartão de abas "Pendências" e "Minhas Justificativas" no molde do desenho (partials novos `_abas*.html.twig`, `ponto-abas.js`), troca de aba sem recarregar. Os partials da tela antiga ficam intactos.
-- Situações da justificativa com um nome só em todas as telas, inclusive a ficha do gestor e o sininho: "Em análise", "Abonado" e "Recusado"; na ficha, "Recusar" e "Motivo da recusa" (P40). Os textos passam por `NomesDasSituacoesDaJustificativa`, também o aviso do atestado travado, a mensagem da justificativa já analisada e o "(Recusado)" da folha em PDF e XLSX.
+- Situações da justificativa com um nome só em todas as telas, inclusive a ficha do gestor e o sininho: "Em análise", "Abonado" e "Recusado"; na ficha, "Recusar" e "Motivo da recusa" (P40). Os textos passam por `NomesDasSituacoesDaJustificativa`, também o aviso do atestado travado, a mensagem da justificativa já analisada e o "(recusada)" da folha em PDF e XLSX.
 - Excluir a própria justificativa em análise (P41): `ExcluirJustificativaEmAnaliseUseCase`, só o dono, só em análise, só no escritório dela, com confirmação; o anexo sai depois do commit.
 - Análise da própria justificativa (P43 a): só o primário ativo e o Master abonam, recusam, revertem ou lançam justificativa para si (`AnaliseDaPropriaJustificativa`); o gestor pelo perfil não vê os botões na própria e o servidor recusa com 403. A análise da justificativa de outra pessoa segue a regra de antes. Sem migration.
 
