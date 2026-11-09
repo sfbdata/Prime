@@ -43,7 +43,8 @@ SQL;
 
     /**
      * A consulta de `ultimaSaidaQueFechouTurno`: a batida imediatamente anterior a cada saída (LAG, por hora e id) da
-     * pessoa NESTE escritório; vale a saída mais recente cuja anterior é entrada ou retorno, dentro da janela do turno.
+     * pessoa NESTE escritório; vale a saída mais recente até `:ate` cuja anterior é entrada ou retorno, dentro da janela
+     * do turno.
      */
     private const SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO = <<<'SQL'
 SELECT b.id
@@ -52,7 +53,7 @@ FROM (
            LAG(rp.tipo) OVER (ORDER BY rp.data_hora, rp.id) AS tipo_anterior,
            LAG(rp.data_hora) OVER (ORDER BY rp.data_hora, rp.id) AS quando_anterior
     FROM registro_ponto rp
-    WHERE rp.user_id = :usuario AND rp.tenant_id = :escritorio
+    WHERE rp.user_id = :usuario AND rp.tenant_id = :escritorio AND rp.data_hora <= :ate
 ) b
 WHERE b.tipo = 'saida'
   AND b.tipo_anterior IN ('entrada', 'retorno')
@@ -230,12 +231,13 @@ SQL;
 
     /**
      * O primeiro repouso do dia NESTE escritório (repouso mínimo, regra da batida): tenant explícito além do filtro
-     * (spec `ponto-por-escritorio.md` §2.1).
+     * (spec `ponto-por-escritorio.md` §2.1). Com `$ate`, só o repouso até esse instante do dia: a batida guardada sem
+     * internet (spec ponto-desenho-0811 E14) não mede o intervalo contra um repouso batido depois dela.
      */
-    public function findRepousoDoDia(User $user, Tenant $tenant, \DateTimeImmutable $dia): ?RegistroPonto
+    public function findRepousoDoDia(User $user, Tenant $tenant, \DateTimeImmutable $dia, ?\DateTimeImmutable $ate = null): ?RegistroPonto
     {
         $inicio = $dia->setTime(0, 0, 0);
-        $fim    = $dia->setTime(23, 59, 59);
+        $fim    = $ate !== null ? min($ate, $dia->setTime(23, 59, 59)) : $dia->setTime(23, 59, 59);
 
         return $this->createQueryBuilder('r')
             ->andWhere('r.user = :user')
@@ -277,13 +279,17 @@ SQL;
      * id, no mesmo escritório) é entrada ou retorno, no máximo `$janelaHoras` antes (interjornada, spec
      * `ponto-esquecimento-nao-trava.md` R4). A saída solta não conta. Sem limite de quantas saídas olhar. SQL nativo com
      * usuário e escritório explícitos: não depende do filtro.
+     *
+     * Só a saída até `$ate` (sem ele, até agora): a batida guardada sem internet (spec ponto-desenho-0811 E14) mede a
+     * interjornada contra a saída anterior a ela, nunca contra uma saída batida depois.
      */
-    public function ultimaSaidaQueFechouTurno(User $user, Tenant $tenant, int $janelaHoras): ?RegistroPonto
+    public function ultimaSaidaQueFechouTurno(User $user, Tenant $tenant, int $janelaHoras, ?\DateTimeImmutable $ate = null): ?RegistroPonto
     {
         $id = $this->getEntityManager()->getConnection()->fetchOne(self::SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO, [
             'usuario' => $user->getId(),
             'escritorio' => $tenant->getId(),
             'janela' => $janelaHoras,
+            'ate' => ($ate ?? new \DateTimeImmutable())->format('Y-m-d H:i:s'),
         ]);
         if ($id === false || $id === null) {
             return null;

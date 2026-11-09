@@ -265,6 +265,20 @@ final class EnvioDaBatidaTest extends TestCase
         self::assertSame('Esta batida foi guardada em outra conta ou escritório e não foi enviada.', $envio->recusaDaFila->mensagem);
     }
 
+    #[TestDox('deOutraConta: só a batida da fila com conta ou escritório diferentes volta 409; sem escritório na sessão também')]
+    public function testDeOutraConta(): void
+    {
+        $servico = new EnvioDaBatida();
+        $fila = $this->fila(['horaAparelho' => $this->ms('-1 hour')]);
+
+        self::assertNull($servico->deOutraConta($fila, self::USUARIO, self::ESCRITORIO), 'a mesma conta e o mesmo escritório');
+        self::assertSame(409, $servico->deOutraConta($fila, self::USUARIO + 1, self::ESCRITORIO)?->status);
+        self::assertSame(409, $servico->deOutraConta($fila, self::USUARIO, self::ESCRITORIO + 1)?->status);
+        self::assertSame(409, $servico->deOutraConta($fila, self::USUARIO, null)?->status, 'sessão sem escritório');
+        self::assertNull($servico->deOutraConta(['semInternet' => false] + $fila, self::USUARIO + 1, null), 'batida normal: ordem de hoje');
+        self::assertNull($servico->deOutraConta(['usuarioId' => null, 'escritorioId' => '7'] + $fila, self::USUARIO, self::ESCRITORIO), 'incompleta não é outra conta');
+    }
+
     #[TestDox('Gravar a batida da fila leva a hora do aparelho como momento, a chegada e a marca "enviada sem internet"')]
     public function testGravarEmDaFila(): void
     {

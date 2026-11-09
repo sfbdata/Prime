@@ -695,6 +695,9 @@ final class PontoController extends AbstractController
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
+        if (($deOutraConta = $this->filaDeOutraConta($request, $user, $tenant)) !== null) {
+            return $deOutraConta;   // E14: antes da permissão, do escritório e do CSRF, para a fila não apagar a batida
+        }
         if (!$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             return $this->json(['success' => false, 'message' => 'Sem permissão para registrar ponto.'], 403);
         }
@@ -837,7 +840,7 @@ final class PontoController extends AbstractController
         }
 
         if ($tipo === RegistroPonto::TIPO_RETORNO && ($jornadaTenant?->isValidacaoRepousoHabilitada() ?? true)) {
-            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $tenant, $hoje);
+            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $tenant, $hoje, $hoje);
             if ($repousoDoDia !== null) {
                 $minimoMin   = $jornadaTenant?->getMinimoMinutosRepouso() ?? 60;
                 $diffMinutos = (int) round(
@@ -897,6 +900,19 @@ final class PontoController extends AbstractController
             'data'    => $dados,
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);
+    }
+
+    /**
+     * A batida guardada sem internet em outra conta ou em outro escritório (spec ponto-desenho-0811 E14) volta 409 logo
+     * depois da autenticação: com a sessão já em outro escritório, sem o módulo de ponto, o 403 faria a fila apagar a
+     * batida. A resposta só repete o que o pedido trouxe e nada muda.
+     */
+    private function filaDeOutraConta(Request $request, User $user, ?Tenant $tenant): ?JsonResponse
+    {
+        $dados = json_decode($request->getContent(), true);
+        $recusa = is_array($dados) ? $this->envioDaBatida->deOutraConta($dados, (int) $user->getId(), $tenant?->getId()) : null;
+
+        return $recusa === null ? null : $this->json(['success' => false, 'message' => $recusa->mensagem], $recusa->status);
     }
 
     /**
@@ -995,7 +1011,7 @@ final class PontoController extends AbstractController
     private function temEntradaNoDia(User $user, Tenant $tenant, \DateTimeImmutable $agora, RegistroPontoRepository $registros): bool
     {
         foreach ($registros->batidasDoDiaNoEscritorio($user, $tenant, $agora) as $batida) {
-            if ($batida->getTipo() === RegistroPonto::TIPO_ENTRADA) {
+            if ($batida->getTipo() === RegistroPonto::TIPO_ENTRADA && $batida->getDataHora() <= $agora) {   // até o momento (E14)
                 return true;
             }
         }
@@ -1015,7 +1031,7 @@ final class PontoController extends AbstractController
         if (!($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
             return null;
         }
-        $ultimaSaida = $registroRepository->ultimaSaidaQueFechouTurno($user, $tenant, TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS);   // a solta não conta (R4)
+        $ultimaSaida = $registroRepository->ultimaSaidaQueFechouTurno($user, $tenant, TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS, $agora);   // a solta não conta (R4)
         if ($ultimaSaida === null) {
             return null;
         }
