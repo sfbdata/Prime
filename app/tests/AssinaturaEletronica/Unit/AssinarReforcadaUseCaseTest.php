@@ -66,7 +66,8 @@ final class AssinarReforcadaUseCaseTest extends TestCase
         $dados = $this->ultimoGravado(TipoDeEvento::Assinado)->getDados();
         self::assertSame('reforcada', $dados['metodo']);
         self::assertSame($ana->getSelfieSha256(), $dados['selfie_sha256']);
-        self::assertSame(CofreDaSelfie::VERSAO, $dados['selfie_chave']);
+        self::assertSame(CofreDaSelfie::VERSAO, $dados['selfie_versao']);
+        self::assertArrayNotHasKey('selfie_chave', $dados, 'a versão não se confunde com a coluna do arquivo');
         self::assertSame(['-15.79388060', '-47.88277630', '25.00'], [$dados['latitude'], $dados['longitude'], $dados['precisao']]);
         self::assertStringNotContainsString('BJSELFIE', json_encode($dados, \JSON_THROW_ON_ERROR), 'nem o arquivo nem a imagem vão para a trilha');
     }

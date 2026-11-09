@@ -233,7 +233,7 @@ O evento `assinado` da Reforçada leva, além do que a etapa 2 grava (`metodo`, 
 |---|---|
 | `metodo` | `reforcada` |
 | `selfie_sha256` | sha256 do JPEG regravado (o mesmo de `selfie_sha256` no signatário) |
-| `selfie_chave` | versão da chave da selfie (`CofreDaSelfie::VERSAO`) |
+| `selfie_versao` | versão da chave da selfie (`CofreDaSelfie::VERSAO`), o mesmo nome da coluna do signatário; `selfie_chave` é só a coluna com o nome do arquivo |
 | `latitude`, `longitude` | texto decimal com 8 casas, como na coluna |
 | `precisao` | texto decimal com 2 casas (metros) |
 
