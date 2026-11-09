@@ -15,7 +15,7 @@ Este arquivo **não contém segredo nenhum**. O valor só existe no `.env.prod` 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
 cd /opt/jusprime && cp -p .env.prod ".env.prod.antes-da-selfie.$(date +%Y%m%d%H%M%S)"
-grep -q '^ASSINATURA_SELFIE_CHAVE=.' .env.prod && echo 'JA EXISTE: nao troque (as selfies gravadas deixam de abrir)' || { sed -i '/^ASSINATURA_SELFIE_CHAVE=/d' .env.prod && printf 'ASSINATURA_SELFIE_CHAVE=%s\n' "$(openssl rand -hex 32)" >> .env.prod; }
+grep -q '^ASSINATURA_SELFIE_CHAVE=.' .env.prod && echo 'JA EXISTE: nao troque (as selfies gravadas deixam de abrir)' || { sed -i '/^ASSINATURA_SELFIE_CHAVE=/d' .env.prod && printf '\nASSINATURA_SELFIE_CHAVE=%s\n' "$(openssl rand -hex 32)" >> .env.prod; }
 grep -o '^ASSINATURA_SELFIE_CHAVE=' .env.prod
 ```
 
