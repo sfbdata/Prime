@@ -60,8 +60,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * A fila é "PDF com `paginas IS NULL`". O Ghostscript precisa de um caminho local, então o
  * arquivo é EMPRESTADO ao contador (`MaterializadorDeArquivo::paraLeitura`, cópia zero no disco
  * local — nada é apagado). Um PDF que o gs não consegue contar (corrompido, sem página) fica NULL
- * e conta como "sem contagem": não é pane, e volta à fila na próxima execução — é o preço de não
- * gravar zero num arquivo real.
+ * e conta como "sem contagem": não é pane, e volta à fila numa passada nova (sem `--a-partir-de`,
+ * ou com um cursor anterior a ele). É o preço de não gravar zero num arquivo real.
  *
  * ## Fatias com `--a-partir-de`
  *

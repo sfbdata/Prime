@@ -280,7 +280,7 @@
     "Master/UseCase/ConsultarUsuariosOabUseCase.php::executar": 61,
     "Mcp/Tool/ConsultarSqlTool.php::consultar": 46,
     "Pasta/Command/CalcularHashDosDocumentosCommand.php::contarPaginas": 44,
-    "Pasta/Command/CalcularHashDosDocumentosCommand.php::execute": 116,
+    "Pasta/Command/CalcularHashDosDocumentosCommand.php::execute": 91,
     "Pasta/Command/LerPrazosDosRegistrosCommand.php::execute": 41,
     "Pasta/Command/PurgarLixeiraCommand.php::execute": 76,
     "Pasta/Controller/DemandasController.php::index": 43,

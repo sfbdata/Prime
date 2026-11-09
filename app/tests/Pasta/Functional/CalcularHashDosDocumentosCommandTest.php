@@ -27,6 +27,7 @@ use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\EspelhoRemotoEmMemoria;
 use App\Tests\Shared\Doubles\ProvedorDoEspelhoFixo;
+use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -281,6 +282,13 @@ final class CalcularHashDosDocumentosCommandTest extends KernelTestCase
         $this->enviarVerificado($soOutbox, 'só na outbox', $espelho);
 
         $tester = $this->tester($disco, $this->espelhado($disco, $espelho));
+        $tester->execute(['--tenant' => (string) $tenant->getId(), '--dry-run' => true]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('modo=simulacao candidatos=4 calculados=3', $this->saida($tester));
+        self::assertStringContainsString('do_espelho=2', $this->saida($tester));
+        self::assertNull($this->shaNoBanco($liberado), 'o --dry-run com prova também não grava');
+
         $tester->execute(['--tenant' => (string) $tenant->getId()]);
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
@@ -292,6 +300,43 @@ final class CalcularHashDosDocumentosCommandTest extends KernelTestCase
         self::assertSame(hash('sha256', 'só na outbox'), $this->shaNoBanco($soOutbox));
         self::assertNull($this->shaNoBanco($semProva));
         self::assertSame(0, $espelho->downloads, 'o hash do liberado nunca baixa do R2');
+    }
+
+    #[TestDox('hash de arquivo fora do disco com a consulta da prova em pane: falha (fica NULL, código de saída avisa), nunca ausente')]
+    public function testHashComPaneNaProvaEhFalha(): void
+    {
+        self::bootKernel();
+        $disco    = new ArmazenamentoEmMemoria();
+        $tenant   = $this->criarTenant();
+        $pasta    = $this->criarPasta($tenant);
+        $liberado = $this->documento($pasta, $tenant, null, null, 'liberado do disco');
+
+        $tester = $this->tester($disco, $this->espelhado($disco, new EspelhoRemotoEmMemoria(), outboxForaDoAr: true));
+        $tester->execute(['--tenant' => (string) $tenant->getId()]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('candidatos=1 calculados=0 ja_tinham=0 ausentes=0 invalidos=0 falhas=1', $this->saida($tester));
+        self::assertNull($this->shaNoBanco($liberado));
+    }
+
+    #[TestDox('--paginas de PDF liberado com o R2 fora do ar: falha (fica NULL, código de saída avisa), nunca ausente')]
+    public function testPaginasComR2ForaDoArEhFalha(): void
+    {
+        self::bootKernel();
+        $disco    = new ArmazenamentoEmMemoria();
+        $espelho  = new EspelhoRemotoEmMemoria();
+        $tenant   = $this->criarTenant();
+        $pasta    = $this->criarPasta($tenant);
+        $liberado = $this->documento($pasta, $tenant, null, null, 'PAGINAS=7');
+        $this->liberar($liberado, 'PAGINAS=7', $espelho);
+        $espelho->foraDoAr = true;
+
+        $tester = $this->tester($disco, $this->espelhado($disco, $espelho));
+        $tester->execute(['--paginas' => true, '--tenant' => (string) $tenant->getId()]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('ausentes=0 invalidos=0 falhas=1', $this->saida($tester));
+        self::assertNull($this->paginasNoBanco($liberado));
     }
 
     #[TestDox('--paginas de PDF liberado: lê do R2 pelo cache de leitura e grava a contagem; o PDF no disco não vai ao R2')]
@@ -362,17 +407,22 @@ final class CalcularHashDosDocumentosCommandTest extends KernelTestCase
 
     /**
      * O decorador de verdade sobre o disco em memória, com a outbox e o registro de liberação no
-     * banco de teste. `$espacoLivre` troca a medida do disco do cache (o piso é o de produção).
+     * banco de teste. `$espacoLivre` troca a medida do disco do cache (o piso é o de produção);
+     * `$outboxForaDoAr` dá à outbox uma conexão que não abre (porta fechada), para a consulta da
+     * prova virar pane.
      */
-    private function espelhado(ArmazenamentoEmMemoria $disco, EspelhoRemotoEmMemoria $espelho, ?int $espacoLivre = null): ArmazenamentoEspelhado
+    private function espelhado(ArmazenamentoEmMemoria $disco, EspelhoRemotoEmMemoria $espelho, ?int $espacoLivre = null, bool $outboxForaDoAr = false): ArmazenamentoEspelhado
     {
         $conexao                = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
         $relogio                = new MockClock('2026-11-09 12:00:00', 'UTC');
         $this->diretorioDoCache = sys_get_temp_dir() . '/jusprime-teste-calcular-hash-' . bin2hex(random_bytes(6));
+        $conexaoDaOutbox        = $outboxForaDoAr
+            ? DriverManager::getConnection(['driver' => 'pdo_pgsql', 'host' => '127.0.0.1', 'port' => 1, 'dbname' => 'nenhum', 'user' => 'nenhum'])
+            : $conexao;
 
         return new ArmazenamentoEspelhado(
             $disco,
-            new OutboxDeReplicacao($conexao, $relogio),
+            new OutboxDeReplicacao($conexaoDaOutbox, $relogio),
             new PoliticaDeEspelhamento('pasta_documento'),
             new NullLogger(),
             ProvedorDoEspelhoFixo::com($espelho),
