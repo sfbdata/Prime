@@ -190,6 +190,28 @@ SQL;
     }
 
     /**
+     * As batidas do dia de TODA a equipe NESTE escritório, numa consulta só (aba "Equipe" da /ponto, spec
+     * `ponto-desenho-0811.md` E5): a situação de hoje de cada pessoa. O escritório vai escrito na consulta, além do
+     * filtro; quem escolhe a batida de cada tipo é a `EscolhaDasBatidasDoDia`, não esta consulta.
+     *
+     * @return list<RegistroPonto> por pessoa e, dentro dela, por horário
+     */
+    public function batidasDoDiaDaEquipe(Tenant $tenant, \DateTimeImmutable $dia): array
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $dia->setTime(0, 0, 0))
+            ->setParameter('fim', $dia->setTime(23, 59, 59))
+            ->orderBy('r.user', 'ASC')
+            ->addOrderBy('r.dataHora', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * A última batida da pessoa NESTE escritório entre `$inicio` e `$ate` (por hora e depois id), com o escritório escrito
      * na consulta: decide se a saída ou a ida ao repouso fecham um turno aberto aqui (spec seguranca-b-jornada §3.3).
      */

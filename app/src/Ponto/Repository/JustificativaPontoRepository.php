@@ -3,11 +3,13 @@
 namespace App\Ponto\Repository;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -291,6 +293,83 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             ->addOrderBy('j.batchId', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * As justificativas em análise NESTE escritório, de quem tem vínculo ativo nele (aba "Equipe" da /ponto, spec
+     * `ponto-desenho-0811.md` E5, P57), com a pessoa já carregada: data mais nova primeiro, depois o nome. Escritório
+     * escrito na consulta, além do filtro.
+     *
+     * @return list<JustificativaPonto>
+     */
+    public function aAnalisarNoEscritorio(Tenant $tenant): array
+    {
+        return $this->emAnaliseNoEscritorio($tenant)
+            ->addSelect('u')
+            ->orderBy('j.data', 'DESC')
+            ->addOrderBy('u.fullName', 'ASC')
+            ->addOrderBy('j.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** Quantas `aAnalisarNoEscritorio` devolveria, sem as de `$semAsDe` (o número da aba "Equipe"). */
+    public function contarAAnalisarNoEscritorio(Tenant $tenant, ?User $semAsDe = null): int
+    {
+        $qb = $this->emAnaliseNoEscritorio($tenant)->select('COUNT(j.id)');
+        if ($semAsDe !== null) {
+            $qb->andWhere('j.user <> :semAsDe')->setParameter('semAsDe', $semAsDe);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * As justificativas destes ids NESTE escritório, com a pessoa (abono em lote da aba "Equipe"). Id de outro
+     * escritório ou que não existe não volta: escritório escrito na consulta, além do filtro.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, JustificativaPonto> pelo id
+     */
+    public function doEscritorioPorIds(array $ids, Tenant $tenant): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<JustificativaPonto> $achadas */
+        $achadas = $this->createQueryBuilder('j')
+            ->addSelect('u')
+            ->join('j.user', 'u')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+
+        $porId = [];
+        foreach ($achadas as $justificativa) {
+            $porId[(int) $justificativa->getId()] = $justificativa;
+        }
+
+        return $porId;
+    }
+
+    /** Em análise, no escritório, de quem tem vínculo ativo nele. */
+    private function emAnaliseNoEscritorio(Tenant $tenant): QueryBuilder
+    {
+        return $this->createQueryBuilder('j')
+            ->join('j.user', 'u')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.status = :pendente')
+            ->andWhere(sprintf(
+                'EXISTS (SELECT ut.id FROM %s ut WHERE ut.user = j.user AND ut.tenant = j.tenant AND ut.isActive = true)',
+                UserTenant::class,
+            ))
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pendente', 'pendente');
     }
 
     /**

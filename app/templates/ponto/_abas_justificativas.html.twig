@@ -14,7 +14,7 @@
 {% if justificativas is empty %}
     <div class="pe-abas-vazio">Nenhuma justificativa enviada nesta competência.</div>
 {% else %}
-    {% set nomesDoRegistro = {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} %}
+    {% import 'ponto/_justificativa_macros.html.twig' as jm %}
     <div class="pe-abas-rolagem">
         <table class="pe-tab pe-just-tab">
             <thead>
@@ -30,12 +30,7 @@
             </thead>
             <tbody>
                 {% for j in justificativas %}
-                    {% set sub = null %}
-                    {% if j.tipo == 'esquecimento_registro' and j.tipoRegistroEsquecido %}
-                        {% set sub = nomesDoRegistro[j.tipoRegistroEsquecido] ~ (j.horaRegistroEsquecido ? ' às ' ~ j.horaRegistroEsquecido|date('H:i') : '') %}
-                    {% elseif j.abonoParcial %}
-                        {% set sub = 'Parcial' ~ (j.horaInicioAbono and j.horaFimAbono ? ': ' ~ j.horaInicioAbono|date('H:i') ~ ' às ' ~ j.horaFimAbono|date('H:i') : '') %}
-                    {% endif %}
+                    {% set sub = jm.subtitulo(j)|trim %}
                     {% set info = j.data|date('d/m/Y') ~ (j.labelTipo ? ' · ' ~ j.labelTipo : '') ~ (sub ? ' · ' ~ sub : '') %}
                     {% if j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
                         {% set selo = ['nao-abonada', 'bi-x-circle', 'Não abonado'] %}

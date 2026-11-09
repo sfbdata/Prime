@@ -53,9 +53,7 @@ final class ListarPendenciasDeRegistroUseCase
     /** @return list<PendenciaDeRegistroOutput> do dia mais recente para o mais antigo; no mesmo dia, o escritório atual primeiro */
     public function executar(User $eu, Tenant $atual): array
     {
-        $hoje = $this->clock->now()->setTime(0, 0, 0);
-        $inicio = $hoje->modify(sprintf('-%d days', self::JANELA_DIAS));
-        $fim = $hoje->modify('-1 second');
+        [$inicio, $fim] = $this->janela();
 
         $pendencias = [];
         foreach ($this->escritorios($eu, $atual) as $escritorio) {
@@ -64,6 +62,28 @@ final class ListarPendenciasDeRegistroUseCase
         usort($pendencias, static fn (PendenciaDeRegistroOutput $a, PendenciaDeRegistroOutput $b): int => [$b->dia, $b->atual, $a->escritorio] <=> [$a->dia, $a->atual, $b->escritorio]);
 
         return $pendencias;
+    }
+
+    /**
+     * As pendências de registro de uma pessoa SÓ neste escritório, na mesma janela e pela mesma regra (aba "Equipe" da
+     * /ponto, spec `ponto-desenho-0811.md` E5: a coluna "Pendências"). Os outros escritórios dela não entram: quem
+     * pede gere este escritório, não os outros.
+     *
+     * @return list<PendenciaDeRegistroOutput> na ordem em que os dias aparecem
+     */
+    public function soNoEscritorio(User $pessoa, Tenant $escritorio): array
+    {
+        [$inicio, $fim] = $this->janela();
+
+        return $this->doEscritorio($pessoa, $escritorio, true, $inicio, $fim);
+    }
+
+    /** @return array{\DateTimeImmutable, \DateTimeImmutable} os últimos 30 dias, sem hoje (a jornada ainda está em curso) */
+    private function janela(): array
+    {
+        $hoje = $this->clock->now()->setTime(0, 0, 0);
+
+        return [$hoje->modify(sprintf('-%d days', self::JANELA_DIAS)), $hoje->modify('-1 second')];
     }
 
     /** @return list<Tenant> o atual e os outros com vínculo ativo, escritório ativo e o módulo de ponto */

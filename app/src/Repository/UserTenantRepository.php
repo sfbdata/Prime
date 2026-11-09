@@ -275,6 +275,28 @@ class UserTenantRepository extends ServiceEntityRepository implements ResetInter
     }
 
     /**
+     * A equipe do ponto do escritório (aba "Equipe" da /ponto, spec `ponto-desenho-0811.md` E5): vínculos ativos com
+     * a chave do ponto ligada, com a pessoa e o cargo já carregados (uma consulta, sem N+1), em ordem de nome.
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosQueRegistramPontoComCargo(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u', 'c')
+            ->join('ut.user', 'u')
+            ->leftJoin('ut.cargo', 'c')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('ut.registraPonto = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Vínculos ativos de contas ativas do escritório, com usuário, perfil do usuário (UserProfile), perfil
      * de acesso, cargo e lotação já carregados (uma consulta, sem N+1), em ordem de nome. Base da lista "Ocultar aba" da pasta (spec
      * pasta-ocultar-aba §2.4): a "função · setor" de cada pessoa é cargo · lotação.

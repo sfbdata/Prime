@@ -966,7 +966,7 @@
     .pe-oculta { display: none !important; }
 }
 
-/* =============================================================================
+/* ======================================================================
    Configurações (E7): a seção das funções da aba Configurações (templates/ponto/_config_funcoes.html.twig;
    desenho 16 L235 a L245). Texto de ajuda, uma linha por função e as chaves "Global" (só o Master) e "Escritório".
    As cores das chaves são as do desenho (`gBg`, `eBg` na L761): ligada, desligada e travada pelo Master.
@@ -1023,3 +1023,112 @@
 .pe-config-erro { flex-basis: 100%; font-size: 12px; color: var(--pe-perigo); padding-left: 30px; }
 .pe-config-trava[hidden],
 .pe-config-erro[hidden] { display: none; }
+=======
+/* ── Aba Equipe (etapa E5, L210 a L219 do desenho) ───────────────────────────────────────────────
+   Classes do desenho com o prefixo da tela: bjpT = pe-tab; a linha bjpJ (sem regra no desenho) = pe-eq-lin. Os
+   valores são os do estilo em linha do desenho, com os tokens da tela no lugar dos hex (o tema escuro troca os
+   tokens). O selo da situação é cor cheia com letra branca nos dois temas, como os selos da E3. A tabela não tem
+   pe-resp: no celular rola para o lado. Do sistema, no molde do desenho: o botão desligado, a frase de erro da troca
+   de escala e o aviso só para leitor de tela. */
+.pe-eq-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1px;
+    background: var(--pe-div);
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-eq-kpi { background: var(--pe-card); padding: 10px 14px; }
+.pe-eq-kpi-rotulo { font-size: 11.5px; font-weight: bold; color: var(--pe-texto-3); }
+.pe-eq-kpi-valor { display: block; font-size: 24px; }
+.pe-eq-kpi-valor--jornada { color: var(--pe-ok-forte); }
+.pe-eq-kpi-valor--intervalo { color: var(--pe-link); }
+.pe-eq-kpi-valor--sem { color: var(--pe-num-pend); }
+.pe-eq-kpi-valor--pendencias { color: var(--pe-texto-2); }
+.pe-eq-kpi-valor--analisar { color: var(--pe-perigo); }
+.pe-eq-rolagem { overflow-x: auto; }
+.pe-eq-sub { font-size: 12px; color: var(--pe-mudo); }
+.pe-eq-selo {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+}
+.pe-eq-selo--jornada { background: #1e7b45; }
+.pe-eq-selo--intervalo { background: #0a6fa0; }
+.pe-eq-selo--sem { background: #8a6200; }
+.pe-eq-selo--encerrada { background: #5b7383; }
+.pe-tab td.pe-eq-banco { font-weight: bold; }
+.pe-eq-escala {
+    height: 30px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--pe-texto);
+}
+.pe-eq-escala:disabled { cursor: progress; }
+.pe-tab td.pe-eq-vazia { padding: 18px; text-align: center; font-size: 13.5px; color: var(--pe-mudo); white-space: normal; }
+.pe-eq-barra {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--pe-th-bg);
+    border-top: 1px solid var(--pe-borda);
+    border-bottom: 1px solid var(--pe-borda);
+}
+.pe-eq-barra-titulo { flex: 1 1 200px; font-size: 14px; }
+.pe-eq-btn-abonar {
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--pe-ok-forte);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-ok-cor);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.pe-eq-btn-abonar:disabled { opacity: .55; cursor: not-allowed; }
+.pe-eq-just {
+    display: flex;
+    align-items: center;
+    gap: 10px 14px;
+    flex-wrap: wrap;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--pe-div);
+    font-size: 13.5px;
+    cursor: pointer;
+}
+.pe-eq-just-marca { width: 16px; height: 16px; }
+.pe-eq-just-data { font-variant-numeric: tabular-nums; }
+.pe-eq-just-sub { color: var(--pe-mudo); font-size: 12.5px; flex: 1; min-width: 120px; }
+.pe-eq-just-vazia { padding: 18px; text-align: center; font-size: 13.5px; color: var(--pe-mudo); }
+.pe-eq-erro {
+    margin: 10px 16px;
+    padding: 8px 12px;
+    border: 1px solid var(--pe-erro-bd);
+    border-left: 3px solid var(--pe-erro-esq);
+    border-radius: 3px;
+    background: var(--pe-erro-bg);
+    color: var(--pe-erro-cor);
+    font-size: 13px;
+}
+.pe-eq-erro[hidden] { display: none; }
+.pe-eq-voz {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
