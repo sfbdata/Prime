@@ -3,8 +3,8 @@
 {#
     Ponto Eletrônico. Desenho aprovado: docs/design/redesign-08-11-26/16 - Ponto Eletronico - VS 08.11.26.dc.html
     (spec docs/specs/ponto-desenho-0811.md; decisões de 09/11/2026 em bluejus-coordenacao/decisoes-desenhos-0911.md).
-    Etapa E1: grade de duas colunas e o cartão "Registrar Ponto" no molde do desenho, sobre o motor de hoje. A coluna
-    da direita (folha, pendências e justificativas) ainda é a de hoje: E2 e E3. O cabeçalho e o menu do topo do
+    Etapa E1: grade de duas colunas e o cartão "Registrar Ponto" no molde do desenho, sobre o motor de hoje. Etapa E2:
+    a Folha de Ponto no molde (ponto/_folha_table.html.twig). Pendências e justificativas ainda são as de hoje (E3). O cabeçalho e o menu do topo do
     desenho são a moldura do sistema (base.html.twig). CSS da tela: public/css/ponto-eletronico.css.
 #}
 
@@ -203,11 +203,14 @@
         </div>
 
         <div class="pe-dir">
-            {# Depois da batida a tela troca o card da folha (o primeiro filho) pelo do servidor, sem recarregar. #}
+            {# Folha de Ponto no molde do desenho (E2). Depois da batida a tela troca o cartão da folha (a `section.pe-folha`,
+               primeiro filho) pelo do servidor, sem recarregar. Só os dias com batida (P25); o CSS já vem no <head>. #}
             <div id="ponto-regiao-folha">
             {% include 'ponto/_folha_table.html.twig' with {
-                titulo: 'Folha de Ponto - ' ~ ('%02d'|format(mesAtual)) ~ '/' ~ anoAtual,
+                titulo: 'Folha de Ponto',
                 folhaRows: folhaRows,
+                somenteDiasComBatida: true,
+                carregarCssDaFolha: false,
                 competenciasPonto: competenciasPonto,
                 competenciaSelecionada: competenciaSelecionada,
                 competenciaFormAction: path('ponto_index'),
@@ -1340,9 +1343,10 @@
             throw new Error('O dia da tela mudou: recarregar.');
         }
         const trocas = REGIOES_TROCADAS.map((id) => [document.getElementById(id), novo.getElementById(id)]);
-        // Da folha, só o card: o modal de pré-visualização e o script dele ficam como estão, com os listeners.
-        const folha = document.querySelector('#ponto-regiao-folha > .card');
-        const folhaNova = novo.querySelector('#ponto-regiao-folha > .card');
+        // Da folha, só o cartão (E2: a `section.pe-folha`): o formulário do mês, o modal de pré-visualização e o script
+        // dele ficam como estão, com os listeners.
+        const folha = document.querySelector('#ponto-regiao-folha > section.pe-folha');
+        const folhaNova = novo.querySelector('#ponto-regiao-folha > section.pe-folha');
         trocas.push([folha, folhaNova]);
         const tipoNovo = novo.getElementById('tipo-registro');
         if (!tipoNovo || trocas.some(([atual, nova]) => !atual || !nova)) {

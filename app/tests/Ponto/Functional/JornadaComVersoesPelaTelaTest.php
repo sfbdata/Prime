@@ -389,7 +389,8 @@ final class JornadaComVersoesPelaTelaTest extends JusPrimeWebTestCase
         $tela = $this->client->request('GET', '/ponto/?competencia=2026-10');
         self::assertResponseIsSuccessful();
 
-        return $tela->filter('table.table-striped')->first()->text();
+        // A Folha no molde do desenho (E2 da spec ponto-desenho-0811): a tabela é a `pe-tab`, não a listrada do Bootstrap.
+        return $tela->filter('table.pe-tab')->first()->text();
     }
 
     /**

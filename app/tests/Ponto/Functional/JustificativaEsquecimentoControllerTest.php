@@ -98,7 +98,7 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $this->justificativasDo($user), 'sem hora não pode nascer justificativa');
     }
 
-    #[TestDox('Dia sem nenhuma batida (só justificativa abonada) não oferece o atalho')]
+    #[TestDox('Dia sem nenhuma batida (só justificativa abonada) sai da folha (P25) e não oferece o atalho')]
     public function testDiaSemBatidaNaoOfereceAtalho(): void
     {
         $client = static::createClient();
@@ -113,14 +113,13 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
 
         $crawler = $this->abrirFolha($client, $user, $tenant, $diaTrabalhado->format('Y-m'));
 
-        // O dia abonado ESTÁ na tabela — a justificativa o mantém lá mesmo sem batida nenhuma.
-        // Sem essa prova, a asserção de "zero botões" passaria por a linha simplesmente não existir.
-        // Seletor ancorado na TABELA: a lista "Minhas Justificativas" da mesma página também tem
-        // badge de abono, e sem a âncora a prova viraria vacuosa se os rótulos se parecessem.
+        // Desde a E2 da spec ponto-desenho-0811 (P25), a folha da /ponto só mostra os dias com batida: o dia abonado
+        // sai da tabela (e continua em "Minhas Justificativas"). A prova de que a página veio com a folha é a linha do
+        // dia trabalhado, logo abaixo; sem ela, "zero botões" passaria por a folha inteira não existir.
         self::assertCount(
-            1,
-            $crawler->filter('table tbody span.badge:contains("Abonada")'),
-            'o dia abonado precisa estar renderizado na folha'
+            0,
+            $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"]', $diaAbonado->format('Y-m-d'))),
+            'o dia só com abono sai da folha da /ponto'
         );
         self::assertCount(
             0,
@@ -134,7 +133,7 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('Fim de semana e feriado não oferecem o atalho')]
+    #[TestDox('P30 a: feriado não oferece o atalho; o fim de semana que já passou oferece, como qualquer dia passado')]
     public function testFimDeSemanaEFeriadoNaoOferecemAtalho(): void
     {
         $client = static::createClient();
@@ -158,15 +157,42 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
             $crawler->filter($this->seletorAtalho($diaComum->format('Y-m-d'), 'saida')),
             'controle: dia útil comum oferece o atalho'
         );
+        // Decisão de 09/11/2026 (P30 a, spec ponto-desenho-0811): o "+" vale em qualquer dia passado da folha; antes,
+        // o fim de semana ficava sem ele.
         self::assertCount(
-            0,
-            $crawler->filter(sprintf('button[data-esquecimento-dia="%s"]', $sabado->format('Y-m-d'))),
-            'fim de semana não oferece o atalho'
+            1,
+            $crawler->filter($this->seletorAtalho($sabado->format('Y-m-d'), 'saida')),
+            'o sábado que já passou oferece o atalho'
         );
         self::assertCount(
             0,
             $crawler->filter(sprintf('button[data-esquecimento-dia="%s"]', $diaFeriado->format('Y-m-d'))),
             'feriado não oferece o atalho'
+        );
+    }
+
+    #[TestDox('P30 a: o dia de hoje não oferece o atalho, mesmo com batida faltando')]
+    public function testHojeNaoOfereceAtalho(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+
+        $hoje = new \DateTimeImmutable('today');
+        $this->criarEntrada($user, $tenant, $hoje);
+
+        $crawler = $this->abrirFolha($client, $user, $tenant, $hoje->format('Y-m'));
+
+        self::assertCount(
+            1,
+            $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"]', $hoje->format('Y-m-d'))),
+            'controle: a linha de hoje está na folha'
+        );
+        self::assertCount(
+            0,
+            $crawler->filter(sprintf('button[data-esquecimento-dia="%s"]', $hoje->format('Y-m-d'))),
+            'hoje a pessoa ainda pode bater: o esquecimento é só de dia que já passou'
         );
     }
 

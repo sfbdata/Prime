@@ -45,7 +45,7 @@ final class TelaDoPontoAtualizaSemRecarregarTest extends JusPrimeWebTestCase
             self::assertCount(1, $crawler->filter($regiao), 'a atualização procura ' . $regiao);
         }
         // Da folha troca só o card, filho direto: o modal de pré-visualização e o script dele ficam com os listeners.
-        self::assertCount(1, $crawler->filter('#ponto-regiao-folha > .card'), 'o card da folha, filho direto da região');
+        self::assertCount(1, $crawler->filter('#ponto-regiao-folha > section.pe-folha'), 'o cartão da folha (E2), filho direto da região');
 
         $relogio = $crawler->filter('#clock');
         self::assertCount(1, $relogio);

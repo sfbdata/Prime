@@ -317,14 +317,34 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   batida some da tela e continua descontando do saldo), P26, P27, P28 (fica), P30 (a: "+" em qualquer dia passado; hoje
   e feriado sem "+"; "Em análise" com ampulheta na coluna Justificativa), P31 ("Não abonada" e o horário do abono
   parcial ficam), P32 (fica), D7, D15, D22.
+- Decisões da etapa (09/11/2026, Coordenador e implementação):
+  - a ficha do colaborador ganha o mesmo molde e mostra todos os dias do mês; o filtro do P25 é só da `/ponto`
+    (parâmetro `somenteDiasComBatida`). A ficha carrega o CSS da folha pelo próprio partial;
+  - ficam do sistema, no estilo do desenho: o selo da jornada na barra da ficha ("40h00m/sem (Personalizada)"), o sinal
+    de registro em outro escritório, a dica do "Registro incompleto", "A conferir", "Home Office", as batidas fora da
+    conta do gestor, "Ver PDF" (P89, ainda no modal do sistema até a E16/E4) e "Baixar XLSX" (P88, agora baixa direto);
+  - o "+" (P30 a) vale em qualquer dia passado com batida, inclusive fim de semana; hoje, feriado e dia antes do início
+    da contagem ficam sem ele. A batida que já tem esquecimento pendente ou abonado também fica sem "+" (condição 8 do
+    sistema, para não criar duplicata); o "Em análise" aparece na coluna Justificativa;
+  - o selo "Fora de sequência" vale quando um horário é menor que o anterior e vence os outros; o feriado trabalhado
+    ganha o selo "Feriado" na coluna Semana (o motor escrevia "FERIADO - "); o feriado sem batida tem o selo no Saldo dia;
+  - o tipo da justificativa vai para a dica do selo (o desenho não tem a linha de baixo); "Não abonada" fica vermelha
+    como "Recusada"; a coluna mostra a justificativa que o sistema já escolhe por dia, não a primeira da lista;
+  - a lista do mês (P23, D7) vai do mês do início da contagem neste escritório até o mês corrente do servidor;
+  - os números são os do motor: o rodapé e o "Saldo mês" de cada linha vêm das linhas sem o filtro; o PDF, o XLSX e
+    `montarDadosFolha` não mudaram.
 - Depende de: E1 (CSS e grade).
 - Migration: não.
-- Arquivos: `templates/ponto/_folha_table.html.twig` (também usado na ficha do colaborador, que fica pelo P60: a ficha
-  ganha o molde junto e continua com todos os dias do mês, porque o filtro do P25 é da folha do colaborador no desenho;
-  confirmar com o Coordenador ao abrir a E2). Frente: `PontoController::montarDadosFolha` (lista de meses do P23).
-  Avisar.
-- Testes: `FolhaExportacaoMesmaEscolhaTest` e os da folha sem mudança de número; funcional do celular por classe; dia
-  sem batida fora da tela e com o saldo igual ao de antes; "+" em dia passado e ampulheta na coluna Justificativa.
+- Arquivos: `templates/ponto/_folha_table.html.twig` com as células em `_folha_saldo_dia.html.twig`,
+  `_folha_justificativa.html.twig` e os formatos em `_folha_macros.html.twig` (também usado na ficha do colaborador);
+  `templates/ponto/index.html.twig` (parâmetros da folha e seletor da troca sem recarregar);
+  `public/css/ponto-eletronico.css` (seção Folha e celular até 760 px); `PontoController::index` (lista de meses do P23).
+  `montarDadosFolha` não foi tocado.
+- Testes: `FolhaDoDesenhoTest` (arranjo por filho direto, o que saiu contando zero, dia sem batida fora da tela com o
+  saldo de antes, selos, meses, ficha com todos os dias, celular por classe) e `FolhaDoDesenhoCssTest` (valores do
+  desenho); ajustados: `JustificativaEsquecimentoControllerTest` (dia só com abono sai, sábado passado ganha "+", hoje
+  sem "+"), `HorasPagasFolhaExibicaoTest` (cabeçalho "Saldo mês" e marcação do rodapé), `JornadaComVersoesPelaTelaTest`
+  e os dois da troca sem recarregar (seletor novo). `FolhaExportacaoMesmaEscolhaTest` e os do PDF e XLSX sem mudança.
 
 **E3. Cartão de abas: Pendências e Minhas Justificativas.**
 - Entra: P37, P38 (fica), P39, P40 (Em análise, Abonado, Recusado em todas as telas, inclusive a ficha do gestor e o
@@ -607,9 +627,11 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   bluejus-coordenacao): seção 2 (P1 a P96) e seção 4 (D1 a D22) com a decisão em cada item; seção 5 ajustada.
 - Estado: fase 1 decidida; E1 implementada na branch `ponto-desenho-0811` (commit 190ccb660 e as correções da
   revisão de 09/11/2026), sem migration. Decisões da etapa registradas na E1 (seção 5).
-- Próximo passo: PR da E1 e smoke do dono na tela; depois a E2. A E7 pode correr junto.
-- Pontos que se fecham com o Coordenador ao abrir a etapa: ficha do colaborador com o molde da Folha e todos os dias (E2),
-  chave do selo da trilha (E9), teto de idade da fila (E14), saldo de antes dos lotes (E17).
+- E2 implementada na branch `ponto-desenho-e2` (empilhada na E1), sem migration. Decisões da etapa registradas na E2
+  (seção 5).
+- Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
+- Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
+  saldo de antes dos lotes (E17).
 - Pendências do dono: seção 10. Nenhuma trava a E1.
 - Nenhuma migration pedida ainda.
 

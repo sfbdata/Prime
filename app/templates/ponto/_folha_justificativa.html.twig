@@ -1,0 +1,27 @@
+{#
+    Célula "Justificativa" da Folha de Ponto (P31, desenho 16 L158). Recebe `j`: a justificativa que o
+    JustificativaPontoRepository::indexarPorDia escolheu para o dia, ou null (a célula fica `pe-vazia` e some no celular).
+
+    Os três selos do desenho, no feminino (D22): "Abonada", "Em análise" (a ampulheta mora aqui, P30 a) e "Recusada".
+    Ficam do sistema, no mesmo molde: "Não abonada" (a falta registrada pelo gestor, que não perdoa a jornada) e o horário
+    do abono parcial. O tipo da justificativa vai para a dica do selo: o desenho não tem a linha de baixo.
+#}
+{% if j is null %}
+<td class="pe-vazia" data-r="Justificativa"></td>
+{% else %}
+    {% if j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
+        {% set selo = ['nao-abonada', 'bi-x-circle', 'Não abonada'] %}
+    {% elseif j.status == 'abonado' %}
+        {% set selo = ['abonada', 'bi-check-circle', 'Abonada'] %}
+    {% elseif j.status == 'pendente' %}
+        {% set selo = ['analise', 'bi-hourglass-split', 'Em análise'] %}
+    {% else %}
+        {% set selo = ['recusada', 'bi-x-circle', 'Recusada'] %}
+    {% endif %}
+<td data-r="Justificativa">
+    <span class="pe-just pe-just--{{ selo[0] }}"{% if j.labelTipo %} title="{{ j.labelTipo }}"{% endif %}><i class="bi {{ selo[1] }}" aria-hidden="true"></i>{{ selo[2] }}</span>
+    {%- if j.status == 'abonado' and j.abonoParcial and j.horaInicioAbono and j.horaFimAbono %}
+        <span class="pe-folha-sub">{{ j.horaInicioAbono|date('H:i') }} às {{ j.horaFimAbono|date('H:i') }}</span>
+    {%- endif %}
+</td>
+{% endif %}
