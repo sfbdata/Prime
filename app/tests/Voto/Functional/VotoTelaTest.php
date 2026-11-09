@@ -16,6 +16,9 @@ use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Voto\Controller\VotoController;
+use App\Voto\Entity\LiberacaoDoVoto;
+use App\Voto\Service\LiberacaoDoVotoNoEscritorio;
+use App\Voto\Twig\VotoExtension;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -23,13 +26,17 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * BlueJus Voto, fase A1 (docs/specs/bluejus-voto.md): a tela dentro da moldura, as duas travas (recurso `voto`
- * do Master e permissão `modules.voto.view`) e o arranjo do desenho por filho direto.
+ * BlueJus Voto, fases A1 e A1b (docs/specs/bluejus-voto.md): a tela dentro da moldura, as três travas (recurso `voto`
+ * do Master, permissão `modules.voto.view` e a liberação do escritório pelo Master) e o arranjo do desenho por filho
+ * direto.
  *
  * O estado do recurso é montado em cada teste (ligar/desligar), para não depender de a migration
- * Version20261109120000 ter rodado no banco de teste.
+ * Version20261109120000 ter rodado no banco de teste. Quem não é Master só abre a tela com o escritório liberado
+ * (`liberarOEscritorio()`); os testes de cada trava liberam o escritório para que a recusa venha só da trava testada.
  */
 #[CoversClass(VotoController::class)]
+#[CoversClass(LiberacaoDoVotoNoEscritorio::class)]
+#[CoversClass(VotoExtension::class)]
 final class VotoTelaTest extends JusPrimeWebTestCase
 {
     use Factories;
@@ -50,6 +57,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testSemPermissaoRecebe403(): void
     {
         $this->ligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'comum', false));
 
         $this->client->request('GET', '/voto');
@@ -66,6 +74,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testComPermissaoAbreATela(): void
     {
         $this->ligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'comum', true));
 
         $this->client->request('GET', '/voto');
@@ -77,6 +86,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testDesligadoBarraQuemNaoEMaster(): void
     {
         $this->desligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
         $crawler = $this->client->request('GET', '/voto');
@@ -107,6 +117,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testLigadoItemNoMenu(): void
     {
         $this->ligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
         $crawler = $this->client->request('GET', '/expediente');
@@ -137,6 +148,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testArranjoDoDesenho(): void
     {
         $this->ligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
         $crawler = $this->client->request('GET', '/voto');
@@ -160,6 +172,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testAbaPadraoEVotar(): void
     {
         $this->ligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
         $crawler = $this->client->request('GET', '/voto');
@@ -176,6 +189,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testAbaAcompanharVazia(): void
     {
         $this->ligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
         $crawler = $this->client->request('GET', '/voto?aba=aco');
@@ -190,6 +204,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testAbaDesconhecidaCaiEmVotar(): void
     {
         $this->ligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
         $crawler = $this->client->request('GET', '/voto?aba=xyz');
@@ -203,6 +218,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
     public function testAbasSemConteudoNaoDesenhamPainel(): void
     {
         $this->ligar();
+        $this->liberarOEscritorio();
         $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
 
         foreach (['tra' => 'Resultados', 'ges' => 'Gestão eleitoral'] as $aba => $rotulo) {
@@ -211,6 +227,85 @@ final class VotoTelaTest extends JusPrimeWebTestCase
             self::assertSame($rotulo, trim($crawler->filter('.voto-abas > a.vTabOn')->text()));
             self::assertCount(0, $crawler->filter('.voto-tela > .voto-painel'));
         }
+    }
+
+    #[TestDox('escritório não liberado pelo Master: até o perfil de sistema recebe 403 e não vê o item no menu')]
+    public function testNaoLiberadoRecebe403(): void
+    {
+        $this->ligar();
+        $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
+
+        $this->client->request('GET', '/voto');
+        self::assertResponseStatusCodeSame(403);
+
+        $expediente = $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $expediente->filter('.pje-menu-list'));
+        self::assertCount(0, $expediente->filter('a[href="/voto"]'));
+        self::assertSame(
+            'O BlueJus Voto ainda não foi liberado para este escritório.',
+            static::getContainer()->get('translator')->trans('voto.recusa.nao_liberado', [], null, 'pt_BR'),
+        );
+    }
+
+    #[TestDox('escritório bloqueado pelo Master (linha com liberado falso): 403 e item fora do menu')]
+    public function testBloqueadoPeloMasterRecebe403(): void
+    {
+        $this->ligar();
+        $liberacao = new LiberacaoDoVoto($this->escritorio);
+        $liberacao->liberar();
+        $liberacao->bloquear();
+        $this->em->persist($liberacao);
+        $this->em->flush();
+        $this->entrar($this->usuario(['ROLE_USER'], 'comum', true));
+
+        $this->client->request('GET', '/voto');
+        self::assertResponseStatusCodeSame(403);
+
+        $novidades = $this->client->request('GET', '/novidades');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $novidades->filter('a[href="/voto"]'));
+    }
+
+    #[TestDox('a liberação de OUTRO escritório não vale para o da sessão: 403 e item fora do menu')]
+    public function testLiberacaoDeOutroEscritorioNaoVale(): void
+    {
+        $this->ligar();
+        $outro = TenantFactory::createOne(['name' => 'Outro escritório do Voto ' . uniqid()])->_real();
+        $this->liberarOEscritorio($outro);
+        $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
+
+        $this->client->request('GET', '/voto');
+        self::assertResponseStatusCodeSame(403);
+
+        $expediente = $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $expediente->filter('a[href="/voto"]'));
+    }
+
+    #[TestDox('o Master abre a tela num escritório não liberado e vê o item no menu (confere antes de liberar)')]
+    public function testMasterEmEscritorioNaoLiberadoAbreATela(): void
+    {
+        $this->ligar();
+        $this->entrar($this->usuario(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO'], 'comum', false));
+
+        $crawler = $this->client->request('GET', '/voto');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Voto', $crawler->filter('.voto-tela > h1.voto-titulo')->text());
+        self::assertCount(1, $crawler->filter('.pje-menu-list > li.pje-menu-item > a[href="/voto"]'));
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM voto.liberacao WHERE tenant_id = ?',
+            [$this->escritorio->getId()],
+        ), 'o escritório segue sem liberação: quem passou foi o Master');
+    }
+
+    private function liberarOEscritorio(?Tenant $tenant = null): void
+    {
+        $liberacao = new LiberacaoDoVoto($tenant ?? $this->escritorio);
+        $liberacao->liberar();
+        $this->em->persist($liberacao);
+        $this->em->flush();
     }
 
     private function ligar(): void

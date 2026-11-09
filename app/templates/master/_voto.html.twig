@@ -1,0 +1,30 @@
+{# Aba "Voto" do /master (spec docs/specs/bluejus-voto.md, D5 e D7, fase A1b): o Master libera o BlueJus Voto por
+   escritório. Nenhum desenho tem esta tela: os componentes são os que o painel já usa (.mp-card, .mp-cab-roxo, a chave
+   do .mp-rec-item com role="switch", a grade com .mp-lin), como na aba da I.A.
+   Incluída pelo painel.html.twig dentro de <div class="mp-voto" data-painel-aba="voto">. A grade vem por JSON quando a
+   aba abre (public/js/master/voto.js); clicar na chave grava na hora, sem botão Salvar. As regras moram nos UseCases
+   do domínio Voto.
+   Textos no catálogo (master.voto.*; os do JS em master.js.voto.*, entregues pelo catalogo_js do painel). #}
+<link rel="stylesheet" href="{{ asset('css/master-voto.css') }}">
+<div class="mp-voto-raiz" data-mp-voto
+     data-url-dados="{{ path('master_voto_dados') }}"
+     data-url-escritorio="{{ path('master_voto_escritorio', {tenantId: 0}) }}"
+     data-token="{{ csrf_token('master_voto') }}">
+
+    <div class="mp-voto-msg" data-mp-voto-msg role="status" hidden></div>
+
+    <section class="mp-card mp-voto-card" aria-labelledby="mp-voto-liberacao">
+        <div class="mp-cab-roxo"><i class="bi bi-archive"></i><b id="mp-voto-liberacao">{{ 'master.voto.liberacao.titulo'|trans }}</b><span data-mp-voto-contagem></span></div>
+        <p class="mp-voto-nota">{{ 'master.voto.liberacao.nota'|trans }}</p>
+        <div class="mp-rolagem">
+            <div class="mp-voto-grade">
+                <div class="mp-voto-cab">
+                    <div>{{ 'master.voto.liberacao.col_nome'|trans }}</div>
+                    <div>{{ 'master.voto.liberacao.col_liberado'|trans }}</div>
+                </div>
+                <div data-mp-voto-linhas><div class="mp-carregando">{{ 'master.painel.carregando'|trans }}</div></div>
+            </div>
+        </div>
+    </section>
+</div>
+<script src="{{ asset('js/master/voto.js') }}"></script>
