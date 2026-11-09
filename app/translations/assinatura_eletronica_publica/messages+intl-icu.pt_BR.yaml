@@ -43,6 +43,8 @@ assinatura_eletronica_publica:
             pedir_codigo: 'Solicite o código de confirmação.'
             codigo: 'Código incorreto.'
             aceite: 'Marque a confirmação de leitura.'
+            selfie: 'Envie a selfie com o documento.'
+            localizacao: 'Permita o acesso à localização para assinar.'
             geral: 'Não foi possível concluir. Tente de novo.'
         recusa:
             rotulo: 'Recusar assinatura'
@@ -56,3 +58,14 @@ assinatura_eletronica_publica:
             todas: 'Todas as assinaturas foram coletadas.'
             demais: 'Aguardando os demais signatários.'
             concluir: 'Concluir'
+        # Assinatura Reforçada (etapa 7): aviso de LGPD (provisório, pacote jurídico), botão da selfie e localização.
+        selfie:
+            aviso: 'A selfie com o documento e a localização servem só para comprovar esta assinatura. Ficam guardadas cifradas, com acesso restrito ao remetente do documento.'
+            enviar: 'Enviar selfie com documento'
+            anexada: 'Selfie anexada'
+            ilegivel: 'A foto não pôde ser lida. Tire a selfie de novo.'
+        local:
+            obtida: 'Localização: {local}'
+            previa: 'Localização não informada nesta pré-visualização.'
+            buscando: 'Obtendo a localização...'
+            recusada: 'Localização não autorizada. Permita o acesso à localização no navegador para assinar.'

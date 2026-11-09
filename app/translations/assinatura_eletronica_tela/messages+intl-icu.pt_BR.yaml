@@ -259,3 +259,7 @@ assinatura_eletronica_tela:
             exc_titulo: 'Excluir modelo'
             exc_texto: 'O modelo será apagado e não poderá ser recuperado. Os documentos já enviados não mudam.'
             exc_botao: 'Excluir'
+        # Etapa 7 (detalhe): método de quem assinou Reforçada, com a localização de 5 casas (desenho, linha 387).
+        reforcada:
+            metodo: 'E-mail e código, selfie, localização {local}'
+            metodo_sem_local: 'E-mail e código, selfie'

@@ -808,8 +808,15 @@
         try { retomar(await pedir(comId(url.documento, id))); } catch (e) { falha(e); }
     }
 
-    /* Método gravado pelo servidor ('simples') no rótulo do desenho ('E-mail e código'); valor desconhecido sai como veio. */
-    const metodoRotulo = m => (m === 'simples' ? T('metodo.simples') : m || '');
+    /* Método gravado pelo servidor no rótulo do desenho: 'simples' = 'E-mail e código'; 'reforcada' (etapa 7) = 'E-mail e
+       código, selfie, localização {lat}, {long}' com 5 casas (linha 387); valor desconhecido sai como veio. */
+    const metodoRotulo = x => {
+        const m = x.metodo, l = x.localizacao;
+        if (m === 'reforcada') {
+            return l ? T('reforcada.metodo', { local: Number(l.latitude).toFixed(5) + ', ' + Number(l.longitude).toFixed(5) }) : T('reforcada.metodo_sem_local');
+        }
+        return m === 'simples' ? T('metodo.simples') : m || '';
+    };
 
     /* Barra de ações do signatário pendente (C9 a C13): só com o documento Aguardando e dentro do prazo, para todos os
        pendentes (mesmo com ordem). E-mail (mailto) e WhatsApp (sem número) levam o link do próprio signatário. */
@@ -835,7 +842,7 @@
         const d = s.det, st = stAtual(d);
         const sigs = (d.signatarios || []).map((x, i) => {
             const sg = x.situacao === 'assinado' ? 'assinado' : x.situacao === 'recusado' ? 'recusado' : 'pendente';
-            const metodo = metodoRotulo(x.metodo);
+            const metodo = metodoRotulo(x);
             const info = sg === 'assinado' ? dataHora(x.assinadoEm) + (metodo ? ' · ' + metodo : '') : (x.email || T('det.sem_email'));
             return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(nomeDoSignatario(x)) + '</b><span class="bjaSeloSig sg-' + sg + '">' + esc(T('sig.' + sg)) + '</span></div>'
                 + '<div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(nivelRotulo(x.nivel)) + '</div><div class="bjaSigInfo">' + esc(info) + '</div>'
