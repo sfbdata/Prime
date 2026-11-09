@@ -184,6 +184,13 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         yield 'Menor Representado ou Assistido' => ['Menor Representado ou Assistido'];
         yield 'MENOR em caixa alta' => ['MENOR'];
         yield 'Responsável pelo menor (falso positivo assumido, I8)' => ['Responsável pelo menor'];
+        yield 'plural: Menores representados' => ['Menores representados'];
+        yield 'Criança' => ['Criança'];
+        yield 'plural: Crianças' => ['Crianças'];
+        yield 'sem acento: crianca' => ['crianca'];
+        yield 'CRIANÇA em caixa alta' => ['CRIANÇA'];
+        yield 'Adolescente assistido' => ['Adolescente assistido'];
+        yield 'plural: Adolescentes' => ['Adolescentes'];
     }
 
     #[DataProvider('papeisDeMenor')]

@@ -71,9 +71,13 @@ Desta implementação (para o Coordenador revisar):
 - **I6. E-mail exigido** também na Reforçada: o código vai por e-mail, como no Simples (decisão A da etapa 2).
 - **I7. Chave tirada depois do envio**: o "Assinar" Reforçado também recusa com o aviso de sem chave, antes de qualquer
   conferência, sem gravar nada.
-- **I8. Menor**: papel cujo texto, sem acento e sem caixa, tem a palavra "menor" (ex.: "Menor assistido(a)", "Menor
-  Representado ou Assistido"). Um papel como "Responsável pelo menor" também cai na regra (falso positivo assumido: o
-  escritório troca a forma de assinatura do menor ou o texto do papel).
+- **I8. Menor**: papel cujo texto, sem caixa, tem a palavra inteira "menor", "criança" ou "adolescente", no singular
+  ou no plural, com ou sem acento (ex.: "Menor assistido(a)", "Menor Representado ou Assistido", "Menores
+  representados", "Crianças", "crianca", "Adolescente assistido"). Um papel como "Responsável pelo menor" também cai
+  na regra (falso positivo assumido: o escritório troca a forma de assinatura do menor ou o texto do papel). **Risco
+  que fica:** o papel é texto livre; um menor cadastrado com papel sem essas palavras (ex.: "Filho", "Herdeiro",
+  "Neto") passa pela regra e assina com selfie. A trava completa pediria a data de nascimento do signatário, que o
+  sistema não colhe; fica para quando houver esse dado.
 - **I9. Selfie de quem é Simples**: o servidor ignora `selfie` e `localizacao` no corpo de quem é Simples (nada gravado).
 - **I10. Textos novos** (o desenho não tem): espera e recusa da localização, foto que o navegador não lê, erros do
   servidor sobre a imagem e a localização, aviso de LGPD, mensagem do menor e da chave (seção 8). Todos no estilo e nos
