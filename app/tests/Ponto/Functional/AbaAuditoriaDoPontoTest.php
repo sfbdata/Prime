@@ -160,7 +160,7 @@ final class AbaAuditoriaDoPontoTest extends JusPrimeWebTestCase
         $cabecalho = $this->pedir($gestor, '/ponto/auditoria')->filter('body > div.pe-audit-cab.pe-audit-cab--trecho-sem-selo[role="status"]');
 
         self::assertCount(1, $cabecalho->filter('div > i.bi.bi-shield-slash:first-child'));
-        self::assertSame('O evento nº 1 foi gravado sem selo. Os demais eventos conferem com o selo.', trim($cabecalho->text()));
+        self::assertSame('O evento nº 1 está sem selo e não pode ser conferido. Os demais eventos conferem com o selo.', trim($cabecalho->text()));
     }
 
     #[TestDox('Painel vazio: o texto do desenho, sem tabela')]

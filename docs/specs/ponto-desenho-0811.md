@@ -611,14 +611,18 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     dele. A `TrilhaDoPonto` grava assim e a `ConferenciaDaCadeiaDoPonto` confere assim;
   - conferência (`ConferirTrilhaDoPontoUseCase`): íntegra; alterada (com a sequência do primeiro evento que não confere:
     coluna mexida, linha apagada, elo trocado, selo apagado no meio, versão sem chave; quando o elo quebra logo depois de
-    linhas sem selo, o número apontado é o primeiro delas); trecho sem selo (eventos gravados sem selo antes do segredo
-    ou numa falta temporária dele, com as faixas dos números: "Os eventos nº X a Y foram gravados sem selo.", na cor de
-    alerta, nunca o verde de íntegra; o selo apagado da ÚLTIMA linha também aparece assim, com o número dela); ou não
-    selada (o servidor sem o segredo). A chave sai da versão gravada em cada linha;
-  - limites aceitos da conferência (revisão de 09/11/2026): apagar os últimos eventos não é detectado (não há linha
-    depois para quebrar o elo); zerar os selos de todas as linhas (selo e selo anterior) aparece como trecho sem selo,
-    ou não selada sem o segredo, e não como alterada; a conferência percorre a cadeia inteira a cada abertura da aba
-    (achado 9 da revisão), a reavaliar se ficar lenta;
+    linhas sem selo, o número apontado é o primeiro delas); trecho sem selo (eventos sem selo, por exemplo os gravados
+    antes do segredo ou numa falta temporária dele, com as faixas dos números: "Os eventos nº X a Y estão sem selo e não
+    podem ser conferidos.", no singular "O evento nº N está sem selo e não pode ser conferido.", na cor de alerta, nunca
+    o verde de íntegra; o texto não afirma a origem, que o sistema não conhece); ou não selada (o servidor sem o
+    segredo). A chave sai da versão gravada em cada linha;
+  - limites aceitos da conferência (revisões de 09/11/2026; não há âncora fora do banco): apagar os últimos eventos não
+    é detectado (não há linha depois para quebrar o elo); qualquer fim da cadeia com o selo tirado (e o conteúdo
+    trocado), ou um evento sem selo acrescentado no fim, aparece como trecho sem selo e não como alterada, e continua
+    assim depois dos eventos seguintes; zerar os selos de todas as linhas (selo e selo anterior) aparece como trecho sem
+    selo, ou não selada sem o segredo. O meio selado continua protegido: alteração, remoção e inserção dão alterada. O
+    aviso nunca fica verde. A conferência percorre a cadeia inteira a cada abertura da aba (achado 9 da revisão), a
+    reavaliar se ficar lenta;
   - eventos: batida (inclui o atalho do avatar), justificativa enviada, editada (com ou sem troca do atestado) e
     excluída pelo colaborador, abonada, recusada, voltou para análise, abono em lote (um evento com as abonadas), lançada
     já abonada pelo gestor (mais uma "batida do esquecimento abonado" por batida que o lançamento cria, o mesmo evento da
