@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\Service\ConferenciaDePdf;
 
 /**
- * O que o motor lê do certificado (o `cert` do protótipo, mais o CPF e o CNPJ da ICP-Brasil). Datas em UTC.
+ * O que o motor lê do certificado (o `cert` do protótipo, mais o CPF e o CNPJ da ICP-Brasil). Datas em UTC. Tudo aqui
+ * é declarado pelo próprio certificado: a cadeia até a AC raiz não é conferida antes da etapa 6 (M25). `der` é o
+ * certificado inteiro, para o vínculo do signingCertificateV2 (M24).
  */
 final readonly class CertificadoDoSignatario
 {
@@ -21,11 +23,15 @@ final readonly class CertificadoDoSignatario
         public \DateTimeImmutable $validoAte,
         public string $chavePublica,
         public ?string $identificadorDaChave,
+        public string $der,
     ) {
     }
 
-    /** Emitido sob a ICP-Brasil: a organização do emissor contém "ICP-Brasil" (regra do protótipo). */
-    public function icpBrasil(): bool
+    /**
+     * O emissor declara ser da ICP-Brasil: a organização do emissor contém "ICP-Brasil" (regra do protótipo). Só o
+     * texto; a cadeia não é conferida (M25).
+     */
+    public function emissorDeclaraIcpBrasil(): bool
     {
         return $this->organizacaoDoEmissor !== null && stripos($this->organizacaoDoEmissor, 'ICP-Brasil') !== false;
     }
