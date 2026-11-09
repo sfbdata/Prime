@@ -27,7 +27,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class RecursosDoSistemaController extends AbstractController
 {
-    #[Route('/master/recursos/{chave}', name: 'master_recurso_alternar', requirements: ['chave' => '[a-z]{1,40}'], methods: ['POST'])]
+    #[Route('/master/recursos/{chave}', name: 'master_recurso_alternar', requirements: ['chave' => '[a-z][a-z-]{0,39}'], methods: ['POST'])]
     public function alternar(string $chave, Request $request, AlternarRecursoUseCase $alternar, ClockInterface $relogio): JsonResponse
     {
         if (!$this->isCsrfTokenValid('master_recursos', (string) $request->headers->get('X-CSRF-Token', ''))) {

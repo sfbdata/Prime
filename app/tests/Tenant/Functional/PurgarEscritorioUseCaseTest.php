@@ -505,6 +505,8 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->ins('feriado', ['nome' => 'F', 'data' => $d, 'recorrente' => false, 'tenant_id' => $t]);
         $this->ins('registro_ponto', ['data_hora' => $ts, 'tipo' => 'entrada', 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('justificativa_ponto', ['data' => $d, 'status' => 'pendente', 'user_id' => $u, 'abono_parcial' => false, 'tenant_id' => $t, 'anexo_path' => $hex()]);
+        // Configuração do Ponto do escritório (E7): a camada Escritório das chaves e os ajustes.
+        $this->ins('ponto_config_escritorio', ['chaves' => '{"ponto-geo":false}', 'atualizado_em' => $ts, 'atualizado_por_id' => $u, 'tenant_id' => $t]);
         $this->ins('aceite_termo', ['versao' => 'v-' . $uid, 'aceito_em' => $ts, 'ip' => '127.0.0.1', 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('invitation', ['email' => 'inv' . $uid . '@x.com', 'token_hash' => hash('sha256', 'tok-' . $uid), 'type' => 'office', 'status' => 'pending', 'created_at' => $ts, 'expires_at' => $ts, 'tenant_id' => $t]);
         $this->ins('access_request', ['resource_type' => 'pasta', 'resource_id' => $pasta, 'action' => 'view', 'requested_at' => $ts, 'user_id' => $u, 'tenant_id' => $t]);

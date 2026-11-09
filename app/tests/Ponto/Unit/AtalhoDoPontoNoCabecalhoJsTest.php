@@ -43,7 +43,7 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString('} finally {', $js);
         self::assertStringContainsString('var base = estado;', $js);
         self::assertStringContainsString('var atual = linhaDe(base);', $js);
-        self::assertStringContainsString('if (!base.homeOffice) {', $js);
+        self::assertStringContainsString('if (!base.homeOffice && base.geoLigado !== false) {', $js, 'home office e a geolocalização desligada (E7) dispensam a posição');
         self::assertStringNotContainsString('estado.estado ||', $js, 'nada compara com o estado mutável');
     }
 
@@ -85,7 +85,8 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         $js = self::js();
         self::assertStringNotContainsString("case 'regularizar_ontem':", $js, 'não é mais estado da linha');
         self::assertStringNotContainsString("acao: 'regularizar'", $js, 'a linha não perde a batida');
-        self::assertStringContainsString("if (!estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }", $js);
+        // E7: com a tela do Ponto desligada (sem a batida no atalho), o aviso some, porque leva à tela fechada.
+        self::assertStringContainsString("if (!podeBater || !estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }", $js);
         self::assertStringContainsString("regularizar: function () { if (aviso()) { regularizarOntem(estado.ontemSemSaida); } },", $js);
 
         $cabecalho = (string) file_get_contents(__DIR__ . '/../../../public/js/presenca-cabecalho.js');

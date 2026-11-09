@@ -115,13 +115,14 @@
                        sozinha com o GPS, e é a única que fala antes de qualquer toque); `#batida-aviso`, abaixo do
                        botão, responde à AÇÃO. São duas caixas de propósito, com donos diferentes: fundi-las traria de
                        volta a disputa pelo mesmo elemento. Fora da área, Home Office (P19) e erro (P10 b, com o passo
-                       a passo de hoje) ganham o mesmo molde. #}
-                    {% if homeOfficeHoje %}
+                       a passo de hoje) ganham o mesmo molde. Com a geolocalização desligada (E7), a tela não pede a
+                       posição e a caixa não aparece. #}
+                    {% if geoLigado and homeOfficeHoje %}
                         <div id="gps-status" class="pe-caixa pe-caixa--info">
                             <i class="bi bi-house-laptop" aria-hidden="true"></i>
                             <span class="pe-caixa-texto">Home Office hoje: o ponto será registrado sem exigir localização.</span>
                         </div>
-                    {% else %}
+                    {% elseif geoLigado %}
                         <div id="gps-status" class="pe-caixa pe-caixa--info">
                             <i class="bi bi-crosshair" aria-hidden="true"></i>
                             <span class="pe-caixa-texto">Obtendo a sua localização...</span>
@@ -637,6 +638,10 @@
     let currentLocation = null;
     // Flag de home office de hoje (controlada pelo servidor): quando true, a batida dispensa GPS.
     const homeOfficeHoje = {{ homeOfficeHoje ? 'true' : 'false' }};
+    // E7: a geolocalização desligada (pelo Master ou pelo escritório) também dispensa a posição e a cerca; o servidor
+    // decide do mesmo jeito na batida. Sem ela a batida não vira home office.
+    const geoLigado = {{ geoLigado ? 'true' : 'false' }};
+    const dispensaLocalizacao = homeOfficeHoje || !geoLigado;
 
     // Enquanto uma batida está em envio, ou já foi aceita e a página vai recarregar, o botão é do
     // envio e de mais ninguém. Sem esta trava, trocar o tipo (nos botões dos tipos) durante o 1,5 s até o
@@ -1266,8 +1271,9 @@
         btnAtualizarGps.addEventListener('click', tentarGpsDeNovo);
     }
 
-    if (homeOfficeHoje) {
-        // P19 (fica): a caixa do home office já vem pronta do servidor, no tom informativo do desenho.
+    if (dispensaLocalizacao) {
+        // P19 (fica): a caixa do home office já vem pronta do servidor, no tom informativo do desenho. Com a
+        // geolocalização desligada (E7) não há caixa nem pedido de posição.
         updateButtonState();
     } else if ("geolocation" in navigator) {
         // A API pode lancar de forma SINCRONA (extensao de privacidade que a stuba, WebView de MDM).
@@ -1406,7 +1412,7 @@
             return;
         }
 
-        if (!homeOfficeHoje && !currentLocation) {
+        if (!dispensaLocalizacao && !currentLocation) {
             mostrarAvisoBatida('A localização é obrigatória para registrar o ponto.', 'warning');
             return;
         }
@@ -1415,7 +1421,7 @@
         // ela só deixava o botão cinza e escrevia em `#gps-status`, no topo do card: quem tocava no
         // botão não recebia resposta nenhuma. O texto de `#gps-status` continua, para informar
         // ANTES do toque; este responde AO toque.
-        if (!homeOfficeHoje) {
+        if (!dispensaLocalizacao) {
             const onde = PontoBatida.avaliarPosicao(currentLocation, SEDES);
             if (onde.situacao === 'fora') {
                 // Curto de propósito: a caixa acima do botão já está dizendo de qual sede, a que
@@ -1441,7 +1447,7 @@
         const momentoDoToque = performance.now();
         const payload = { tipo: tipoRegistro.value };
 
-        if (!homeOfficeHoje) {
+        if (!dispensaLocalizacao) {
             let latitude = currentLocation.latitude;
             let longitude = currentLocation.longitude;
             let precisaoGps = currentLocation.precisaoGps;

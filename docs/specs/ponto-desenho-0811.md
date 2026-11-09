@@ -475,6 +475,22 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: Global desligado trava o Escritório; tela desligada mostra a página "em preparação" do sistema
   (`templates/recurso/em_preparacao.html.twig`) para quem não é Master e a faixa vermelha para o Master; chave nova nasce
   ligada (P96); a aba Configurações aparece para quem gere o ponto pelo perfil (P58 não).
+- Decisões da etapa (implementada em 09/11/2026, branch `ponto-desenho-e7`, contrato do Coordenador):
+  - catálogo: tela `ponto` (Telas, "Ponto Eletrônico", antes do Voto) com o prefixo `ponto_`, e função `ponto-geo`
+    (Funções, "Ponto: geolocalização"), sem linha em `recurso_estado` (nascem ligadas). Ficam abertas com a tela
+    desligada só `ponto_estado_do_dia`, `ponto_alerta_horario` e `ponto_pendencia_do_dia`; a batida cai com a tela;
+  - a rota `master_recurso_alternar` aceita chave com hífen (`[a-z][a-z-]{0,39}`); as chaves sem hífen continuam iguais;
+  - menu e atalho do avatar: o item do Ponto segue `recurso_visivel('ponto')` e `recurso_marca('ponto')`, como o Voto;
+    com a tela desligada o atalho mostra o estado do dia sem o botão de registrar (e sem o "Regularizar ponto de
+    ontem", que leva à tela fechada);
+  - tabela `ponto_config_escritorio` (Version20261109180000, entidade `ConfiguracaoDoPonto`): uma linha por escritório,
+    criada no primeiro salvamento que muda algo; mapa `chaves` (chave ausente vale ligada), `raio_padrao_metros` 150
+    (P70), `banco_limite_horas` 120 e `banco_prazo_meses` 6 (P73; a faixa de 1 a 24 é da E17) e
+    `permite_trabalho_externo` ligado (P74), com os padrões em constantes da entidade; nenhuma tela edita os ajustes
+    na E7. Entra na purga do escritório;
+  - `ponto-geo` desligada (Global ou Escritório): a batida não exige posição nem confere sede, não grava sede e não
+    vira home office; a posição que vier válida fica gravada. A tela e o atalho não pedem a posição e a caixa da
+    localização some (`geoLigado` no estado do dia e na tela).
 
 **E8. Tela cheia, aviso flutuante, sons, vibração e lembrete.**
 - Entra: P79 a P83 (e P84 a P86, que ficam). As chaves `ponto-animacao`, `ponto-sons` e `ponto-lembrete` entram no
@@ -699,6 +715,8 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   (seção 5).
 - E3 implementada na branch `ponto-desenho-e3` (empilhada na E2), sem migration, em parciais novos (a tela antiga fica
   intocada). Decisões e os pontos de liga e desliga do P40, P43 a e P41 registrados na E3 (seção 5).
+- E7 implementada na branch `ponto-desenho-e7`, com a migration Version20261109180000 (`ponto_config_escritorio`).
+  Decisões registradas na E7 (seção 5).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
 - Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
   saldo de antes dos lotes (E17).

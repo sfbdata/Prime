@@ -386,6 +386,8 @@ final class PurgarEscritorioUseCase
         // relativa às demais entradas não importa, só precisa vir antes do DELETE FROM tenant.
         ['ponto_lancamento_horas_pagas', 'tenant_id = :tenant'],
         ['home_office_config', 'tenant_id = :tenant'],
+        // Configuração do Ponto do escritório (E7): FK tenant_id sem cascata, como a home_office_config.
+        ['ponto_config_escritorio', 'tenant_id = :tenant'],
         ['feriado', 'tenant_id = :tenant'],
         // Fase 3 — estruturais / permissões do tenant.
         ['aceite_termo', 'tenant_id = :tenant'],

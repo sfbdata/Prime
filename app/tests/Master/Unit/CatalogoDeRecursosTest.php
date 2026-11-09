@@ -16,30 +16,37 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeRecursos::class)]
 final class CatalogoDeRecursosTest extends TestCase
 {
-    #[TestDox('21 linhas, 20 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
+    #[TestDox('23 linhas, 22 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(21, CatalogoDeRecursos::LINHAS);
-        self::assertCount(20, CatalogoDeRecursos::chaves());
+        self::assertCount(23, CatalogoDeRecursos::LINHAS);
+        self::assertCount(22, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
         self::assertFalse(CatalogoDeRecursos::ehEssencial('dashboard'));
+        self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto'), 'a tela do Ponto desliga (E7)');
+        self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto-geo'));
         self::assertSame(['contribua', 'contribua'], array_values(array_map(
             static fn (array $l): string => $l['chave'],
             array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => str_starts_with($l['t'], 'Contribua')),
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura: 12 Telas, 7 Menu do usuário, 2 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura e o Ponto: 13 Telas, 7 Menu do usuário, 3 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 12, 'Menu do usuário' => 7, 'Funções' => 2], $porGrupo);
+        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 3], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
-        self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[11]['chave']);
+        self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[12]['chave']);
         self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
-        self::assertSame('assistente', CatalogoDeRecursos::LINHAS[20]['chave']);
+        self::assertSame('assistente', CatalogoDeRecursos::LINHAS[21]['chave']);
+        self::assertSame('ponto', CatalogoDeRecursos::LINHAS[8]['chave'], 'Ponto entra nas Telas, antes do Voto');
+        self::assertSame('Ponto Eletrônico', CatalogoDeRecursos::titulo('ponto'));
+        self::assertTrue(CatalogoDeRecursos::LINHAS[8]['tela']);
+        $geo = CatalogoDeRecursos::LINHAS[22];
+        self::assertSame(['Funções', 'ponto-geo', 'Ponto: geolocalização', 'Exige que o registro seja feito dentro do raio de uma sede.', false], [$geo['g'], $geo['chave'], $geo['t'], $geo['d'], $geo['tela']]);
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');
         self::assertSame('Voto', CatalogoDeRecursos::titulo('voto'), 'Voto entra nas Telas, depois do Contribua (bj-recursos.js do desenho 18)');
         self::assertNull(CatalogoDeRecursos::titulo('inexistente'));
@@ -84,6 +91,12 @@ final class CatalogoDeRecursosTest extends TestCase
         yield 'demais rotas de vagas seguem trabalho' => ['trabalho_externo_vagas', 'trabalho'];
         yield 'página do Contribua' => ['contribua_index', 'contribua'];
         yield 'tela do Voto' => ['voto_index', 'voto'];
+        yield 'tela do Ponto' => ['ponto_index', 'ponto'];
+        yield 'batida do Ponto cai com a tela' => ['ponto_batida', 'ponto'];
+        yield 'chave Escritório do Ponto cai com a tela' => ['ponto_configuracao_funcao', 'ponto'];
+        yield 'estado do dia do Ponto (atalho do avatar) fica aberto' => ['ponto_estado_do_dia', null];
+        yield 'alerta de horário do Ponto fica aberto' => ['ponto_alerta_horario', null];
+        yield 'pendência do dia do Ponto fica aberta' => ['ponto_pendencia_do_dia', null];
         yield 'pedido de espaço do Contribua' => ['contribua_espaco_pedido', 'contribua'];
         yield 'webhook do banco fica sempre aberto' => ['contribua_webhook_cora', null];
         yield 'lista de pastas (essencial) não é mapeada' => ['expediente_index', null];

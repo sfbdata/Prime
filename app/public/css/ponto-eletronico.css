@@ -801,3 +801,61 @@
     /* E3 (L62): o escritório da pendência some no celular. */
     .pe-oculta { display: none !important; }
 }
+
+/* =============================================================================
+   Configurações (E7): a seção das funções da aba Configurações (templates/ponto/_config_funcoes.html.twig;
+   desenho 16 L235 a L245). Texto de ajuda, uma linha por função e as chaves "Global" (só o Master) e "Escritório".
+   As cores das chaves são as do desenho (`gBg`, `eBg` na L761): ligada, desligada e travada pelo Master.
+   ============================================================================= */
+.pe-config-funcoes {
+    --pe-chave-ligada:   #1e7b45;
+    --pe-chave-desligada: #9aabb7;
+    --pe-chave-travada:  #c4ced6;
+    --pe-chave-pino:     #fff;
+}
+[data-bs-theme="dark"] .pe-config-funcoes {
+    --pe-chave-desligada: #5b6b76;
+    --pe-chave-travada:  rgba(255, 255, 255, .14);
+    --pe-chave-pino:     #e9eef2;
+}
+.pe-config-ajuda {
+    padding: 10px 16px;
+    font-size: 12.5px;
+    color: var(--pe-texto-3);
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-config-funcao {
+    display: flex;
+    align-items: center;
+    gap: 10px 16px;
+    flex-wrap: wrap;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-config-icone { font-size: 18px; color: var(--pe-link); width: 20px; text-align: center; }
+.pe-config-texto { flex: 1 1 240px; min-width: 0; }
+.pe-config-texto > b { display: block; font-size: 14px; }
+.pe-config-texto > span { font-size: 12.5px; color: var(--pe-mudo); }
+.pe-config-chave { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--pe-texto-2); }
+.pe-config-switch {
+    width: 42px;
+    height: 22px;
+    border: none;
+    border-radius: 3px;
+    padding: 2px;
+    background: var(--pe-chave-desligada);
+    cursor: pointer;
+    display: flex;
+    justify-content: flex-start;
+}
+.pe-config-switch > span { width: 18px; height: 18px; background: var(--pe-chave-pino); border-radius: 2px; display: block; }
+.pe-config-switch[aria-checked="true"] { background: var(--pe-chave-ligada); justify-content: flex-end; }
+.pe-config-switch:disabled { background: var(--pe-chave-travada); cursor: not-allowed; justify-content: flex-start; }
+/* Gravando (sistema): a chave espera a resposta e não aceita outro clique. */
+.pe-config-switch[aria-busy="true"] { opacity: .65; cursor: progress; }
+.pe-config-switch:focus-visible { outline: 2px solid var(--pe-link); outline-offset: 2px; }
+.pe-config-trava { flex-basis: 100%; font-size: 12px; color: var(--pe-perigo); padding-left: 30px; }
+/* Falha ao gravar (sistema; o desenho não tem): o mesmo molde da frase da trava, na própria linha. */
+.pe-config-erro { flex-basis: 100%; font-size: 12px; color: var(--pe-perigo); padding-left: 30px; }
+.pe-config-trava[hidden],
+.pe-config-erro[hidden] { display: none; }
