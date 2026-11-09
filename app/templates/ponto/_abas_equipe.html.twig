@@ -59,7 +59,7 @@
             <button type="submit" class="pe-eq-btn-abonar" data-equipe-abonar-botao disabled>Abonar selecionadas</button>
         </div>
         {% for j in painel.justificativas %}
-            {% set sub = jm.subtitulo(j)|trim %}
+            {% set sub = jm.subtitulo(j) %}
             <label class="pe-eq-just" for="pe-eq-just-{{ j.id }}">
                 <input type="checkbox" class="pe-eq-just-marca" id="pe-eq-just-{{ j.id }}" name="ids[]" value="{{ j.id }}">
                 <b>{{ j.nome }}</b>
