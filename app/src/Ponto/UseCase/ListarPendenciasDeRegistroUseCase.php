@@ -15,6 +15,7 @@ use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\EscolhaDasBatidasDoDia;
 use App\Ponto\Service\EsquecimentosRegistrados;
+use App\Ponto\Service\FeriadosDaPessoa;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use Psr\Clock\ClockInterface;
@@ -25,7 +26,8 @@ use Psr\Clock\ClockInterface;
  * com o escritório ativo e o módulo de ponto. Só leitura; nenhuma pendência trava a batida (R1).
  *
  * Um dia entra quando teria o "+" da folha (`ponto-atalho-esquecimento-registro.md`): tem batida, é dia útil, não é
- * feriado do escritório, e a escolha da folha diz "registro incompleto" (`CalculadoraJornada::registroIncompletoDaEscolha`).
+ * feriado do escritório que vale para ela (`FeriadosDaPessoa`: o de todos ou o da lotação dela), e a escolha da folha
+ * diz "registro incompleto" (`CalculadoraJornada::registroIncompletoDaEscolha`).
  * Falta a entrada ou a saída que não existe e, com metade do intervalo batido, a outra metade. O esquecimento já
  * pedido (pendente) ou deferido (abonado) daquele dia e batida, no mesmo escritório, não volta (`EsquecimentosRegistrados`).
  * Hoje fica fora: a jornada ainda está em curso (o ponto aberto hoje em outro escritório vira aviso na batida, R2).
@@ -47,6 +49,7 @@ final class ListarPendenciasDeRegistroUseCase
         private readonly EscolhaDasBatidasDoDia $escolha,
         private readonly CalculadoraJornada $calculadora,
         private readonly ClockInterface $clock,
+        private readonly FeriadosDaPessoa $feriadosDaPessoa,
     ) {
     }
 
@@ -90,7 +93,7 @@ final class ListarPendenciasDeRegistroUseCase
         if ($porDia === []) {
             return [];   // sem batida na janela: nem consulta feriado e esquecimentos
         }
-        $feriados = $this->feriados->doEscritorio($escritorio);
+        $feriados = $this->feriadosDaPessoa->filtrar($this->feriados->doEscritorio($escritorio), $eu);
         $jaPedidos = EsquecimentosRegistrados::dasJustificativas(
             $this->justificativas->esquecimentosDoPeriodoNoEscritorio($eu, $escritorio, $inicio, $fim),
         );

@@ -20,6 +20,8 @@ use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use App\Ponto\Service\FeriadosDaPessoa;
+use App\Repository\UserTenantRepository;
 
 /**
  * Saldo diário, mensal e anual atravessando a vigência da escolha única
@@ -206,6 +208,7 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
             $justificativas,
             $lancamentos,
             $jornadas,
+            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
         );
     }
 

@@ -19,6 +19,8 @@ use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use App\Ponto\Service\FeriadosDaPessoa;
+use App\Repository\UserTenantRepository;
 
 /**
  * O banco de horas não é persistido: é recalculado a cada leitura. O lançamento de horas pagas
@@ -293,6 +295,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $repo,
             $this->jornadas(),
+            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
         );
 
         $saldo = $builder->calcularSaldoAteMes($user, 2026, 4, [], null, null, $tenant);
@@ -318,6 +321,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $repo,
             $this->jornadas(),
+            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
         );
 
         self::assertSame(-600, $builder->calcularSaldoAnual($user, 2026, [], null, null, $tenant));
@@ -344,6 +348,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $repo,
             $this->jornadas(),
+            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
         );
 
         $saldo = $builder->somarHorasPagasDaCompetencia($user, $tenant, 2026, 8);
@@ -483,6 +488,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $lancamentoRepo,
             $this->jornadas(),
+            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
         );
 
         $saldo = $builder->calcularSaldoAteMes(
@@ -528,6 +534,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $repo,
             $this->jornadas(),
+            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
         );
     }
 
