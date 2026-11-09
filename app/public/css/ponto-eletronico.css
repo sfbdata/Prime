@@ -3,9 +3,11 @@
    Desenho aprovado: docs/design/redesign-08-11-26/16 - Ponto Eletronico - VS 08.11.26.dc.html
    (spec docs/specs/ponto-desenho-0811.md, etapa E1: grade de duas colunas e o cartão "Registrar Ponto").
 
-   Tudo vive sob `.pe-page` (e `.pe-body` para o fundo). Nenhum seletor global: o arquivo carrega SÓ na
-   `ponto_index`. Os valores (cores, medidas, cantos de 3px) são os do CSS e dos `style=` do desenho; o
-   cabeçalho e o menu do topo do desenho são a moldura do sistema (base.html.twig) e não estão aqui.
+   Tudo vive sob `.pe-page` (e `.pe-body` para o fundo) ou sob `.pe-folha` (etapa E2: a Folha de Ponto, que a
+   ficha do colaborador também usa e por isso traz os próprios tokens). Nenhum seletor global: o arquivo carrega
+   na `ponto_index` e, pelo `_folha_table.html.twig`, na ficha do colaborador. Os valores (cores, medidas, cantos
+   de 3px) são os do CSS e dos `style=` do desenho; o cabeçalho e o menu do topo do desenho são a moldura do
+   sistema (base.html.twig) e não estão aqui.
 
    Tokens: os hex do desenho ficam no tema CLARO; o ESCURO redefine cada um em cima de var(--bs-*), mesma
    receita do agenda-nova.css.
@@ -23,7 +25,9 @@
 .pe-body .app-content { padding: 0; }
 .pe-body .app-content > .container-fluid { padding-left: 0; padding-right: 0; }
 
-.pe-page {
+/* Tokens: valem na página e na Folha sozinha (ficha do colaborador, sem `.pe-page` em volta). */
+.pe-page,
+.pe-folha {
     --pe-texto:        #12242f;
     --pe-link:         #0a6fa0;
     --pe-link-hover:   #0b5f86;
@@ -56,6 +60,14 @@
     --pe-erro-bg:      #fdecee;
     --pe-erro-cor:     #7f1c23;
 
+    /* Folha (E2, CSS L34 a L36, L150 a L158 do desenho). */
+    --pe-th-bg:        #eef3f6;
+    --pe-listra:       #eef2f5;
+    --pe-ok-forte:     #1e7b45;
+    --pe-incompleto-bg: #fff3cd;
+}
+
+.pe-page {
     width: 100%;
     max-width: 1560px;
     margin: 0 auto;
@@ -65,7 +77,8 @@
     color: var(--pe-texto);
 }
 
-[data-bs-theme="dark"] .pe-page {
+[data-bs-theme="dark"] .pe-page,
+[data-bs-theme="dark"] .pe-folha {
     --pe-texto:        var(--bs-body-color);
     --pe-link:         #4da3ea;
     --pe-link-hover:   #3b8fd4;
@@ -96,6 +109,11 @@
     --pe-erro-esq:     #f07178;
     --pe-erro-bg:      rgba(240, 113, 120, .12);
     --pe-erro-cor:     #f5a3a8;
+
+    --pe-th-bg:        var(--bs-secondary-bg);
+    --pe-listra:       rgba(255, 255, 255, .03);
+    --pe-ok-forte:     #5cc98a;
+    --pe-incompleto-bg: rgba(224, 195, 106, .14);
 }
 
 .pe-page a:not(.btn) { color: var(--pe-link); }
@@ -320,3 +338,185 @@
 }
 .pe-selo--personalizada { border-color: var(--pe-info-bd); background: var(--pe-info-bg); color: var(--pe-info-cor); }
 .pe-selo--padrao { border-color: var(--pe-borda); background: var(--pe-hover-sec); color: var(--pe-texto-3); }
+
+/* ── Folha de Ponto (etapa E2, L144 a L164; CSS L33 a L39 e L62 a L71 do desenho) ─────────────────
+   Classes do desenho com o prefixo da tela: bjpT = pe-tab, resp = pe-resp, bjpLin = pe-lin, bjpMais = pe-mais,
+   bjpSm = pe-sm, bjpPl = pe-pl, bjpVazia = pe-vazia, larga = pe-larga, toda = pe-toda. Só a Folha tem listra e
+   azul ao passar o mouse (D15): as duas regras moram em `.pe-lin`, nunca em `.pe-tab`. */
+.pe-folha {
+    background: var(--pe-card);
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    box-shadow: 0 1px 3px var(--pe-sombra);
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--pe-texto);
+    line-height: normal;
+}
+
+/* Barra (L145): título, mês, espaçador e os botões à direita. */
+.pe-folha-barra {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 9px 16px;
+    background: var(--pe-azul);
+    color: var(--pe-sobre-azul);
+    position: relative;
+}
+.pe-folha-barra > .bi { font-size: 17px; }
+.pe-folha-titulo { font-size: 16px; font-weight: bold; }
+.pe-folha-mes {
+    height: 30px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: #fff;
+    color: #12242f;
+    font: inherit;
+    font-size: 13px;
+    padding: 0 6px;
+}
+.pe-folha-espaco { flex: 1; }
+.pe-folha-btn {
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid rgba(255, 255, 255, .65);
+    border-radius: 3px;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.pe-folha-btn:hover { background: rgba(255, 255, 255, .16); }
+/* Jornada da pessoa (ficha do colaborador; sistema, fica): o desenho não tem; molde do selo de aceite da barra. */
+.pe-folha-jornada {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* Tabela (L148 a L161). */
+.pe-folha-rolagem { overflow-x: auto; }
+.pe-tab { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pe-tab th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 12px;
+    letter-spacing: .3px;
+    color: var(--pe-texto-2);
+    background: var(--pe-th-bg);
+    border-bottom: 1px solid var(--pe-borda);
+    white-space: nowrap;
+}
+.pe-tab td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--pe-div);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.pe-lin:nth-child(odd) { background: var(--pe-listra); }
+.pe-lin:hover td { background: #3b8fc2; color: #fff; }
+.pe-lin:hover td button { color: #fff; }
+.pe-lin:hover td.pe-sm,
+.pe-lin:hover .pe-pl { color: #fff; }
+.pe-tab.pe-resp td.pe-folha-vazia { padding: 18px; color: var(--pe-mudo); text-align: center; }
+
+/* Batida que falta (L154): o "+" do esquecimento e o do gestor na ficha. O "x" de excluir do gestor usa o mesmo molde. */
+.pe-mais {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--pe-mudo);
+    cursor: pointer;
+    padding: 0;
+    font-size: 15px;
+    border-radius: 3px;
+}
+.pe-mais:hover { background: rgba(255, 255, 255, .25); }
+.pe-mais--excluir { color: var(--pe-perigo); }
+/* Batida do gestor na ficha (sistema, fica): a hora é link para editar e herda a cor da linha. */
+.pe-folha-celula { display: inline-flex; align-items: center; gap: 4px; }
+.pe-folha-form { display: inline; margin: 0; }
+.pe-folha .pe-folha-hora { color: inherit; text-decoration: none; }
+.pe-folha .pe-folha-hora:hover { text-decoration: underline; }
+.pe-folha-sub { display: block; margin-top: 3px; font-size: 12px; color: var(--pe-mudo); }
+.pe-lin:hover td .pe-folha-sub { color: inherit; }
+
+/* Saldo dia (L156): texto do dia completo e selo dos outros. O selo também serve aos do sistema que ficam (A conferir,
+   Home Office, feriado trabalhado e registro em outro escritório), no tom do vizinho do desenho. */
+.pe-pl { font-weight: bold; }
+.pe-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 7px;
+    border: 1px solid var(--pe-tag-bd);
+    border-radius: 3px;
+    background: var(--pe-tag-bg);
+    color: var(--pe-tag-cor);
+    font-size: 12px;
+    white-space: nowrap;
+}
+.pe-tag--extra { margin-left: 6px; }
+.pe-tag--erro   { --pe-tag-bd: var(--pe-erro-bd);   --pe-tag-bg: var(--pe-erro-bg);       --pe-tag-cor: var(--pe-erro-cor); }
+.pe-tag--info   { --pe-tag-bd: var(--pe-info-bd);   --pe-tag-bg: var(--pe-info-bg);       --pe-tag-cor: var(--pe-info-cor); }
+.pe-tag--alerta { --pe-tag-bd: var(--pe-alerta-bd); --pe-tag-bg: var(--pe-incompleto-bg); --pe-tag-cor: var(--pe-alerta-cor); }
+
+/* Saldo mês (L157) e as cores do saldo: verde, vermelho e o cinza do zero. */
+.pe-sm { font-weight: bold; }
+.pe-cor--pos  { color: var(--pe-ok-forte); }
+.pe-cor--neg  { color: var(--pe-perigo); }
+.pe-cor--zero { color: var(--pe-texto-2); }
+
+/* Justificativa (L158). "Não abonada" (sistema, fica) não tem cor no desenho: o vermelho da recusada. */
+.pe-just {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+.pe-just--abonada     { background: #1e7b45; }
+.pe-just--analise     { background: #0a6fa0; }
+.pe-just--recusada,
+.pe-just--nao-abonada { background: #a3232b; }
+/* Esquecimento pendente ao lado da justificativa escolhida do dia (sistema, fica): o mesmo espaço do selo extra. */
+.pe-just + .pe-just { margin-left: 6px; }
+
+/* Totais do mês (P32, fica: o desenho não tem). Molde dos vizinhos: rótulo cinza, valor em negrito com a cor do saldo. */
+.pe-folha-totais { border-top: 1px solid var(--pe-div); padding: 10px 16px; font-size: 13px; }
+.pe-folha-total { display: flex; justify-content: space-between; gap: 12px; max-width: 24rem; margin-left: auto; }
+.pe-folha-total-rotulo { color: var(--pe-mudo); }
+.pe-folha-total--soma { border-top: 1px solid var(--pe-div); margin-top: 4px; padding-top: 4px; }
+
+/* Celular (L62 a L71): cada dia vira um cartão de quatro colunas, com o nome do campo em cima. */
+@media (max-width: 760px) {
+    .pe-tab.pe-resp thead { display: none; }
+    .pe-tab.pe-resp,
+    .pe-tab.pe-resp tbody { display: block; }
+    .pe-tab.pe-resp tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 6px; padding: 10px 12px; border-bottom: 1px solid var(--pe-div); }
+    .pe-tab.pe-resp td { display: block; padding: 0; border: none; white-space: normal; font-size: 13px; min-width: 0; }
+    .pe-tab.pe-resp td[data-r]::before { content: attr(data-r); display: block; font-size: 10.5px; font-weight: bold; color: var(--pe-mudo); letter-spacing: .2px; }
+    .pe-tab.pe-resp td.pe-larga { grid-column: span 2; }
+    .pe-tab.pe-resp td.pe-toda { grid-column: 1 / -1; }
+    .pe-tab.pe-resp td.pe-vazia { display: none; }
+}
