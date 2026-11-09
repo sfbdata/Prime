@@ -74,6 +74,16 @@
             }
         });
         gravarAba(nome);
+        avisarAbaAberta(nome);
+    }
+
+    // As abas de gestão (Equipe, Configurações) buscam o painel na primeira vez que abrem: js/ponto-paineis.js ouve.
+    function avisarAbaAberta(nome) {
+        const aba = abasDoCartao().find(function (el) { return el.dataset.aba === nome; });
+        const painel = aba ? document.getElementById(aba.getAttribute('aria-controls')) : null;
+        if (painel) {
+            document.dispatchEvent(new CustomEvent('ponto:aba-aberta', { detail: { nome: nome, painel: painel } }));
+        }
     }
 
     // Setas, Home e End na barra de abas (padrão de abas do WAI-ARIA).
@@ -273,6 +283,7 @@
         const escolhida = abasDoCartao().find(function (aba) { return aba.getAttribute('aria-selected') === 'true'; });
         if (escolhida) {
             gravarAba(escolhida.dataset.aba);
+            avisarAbaAberta(escolhida.dataset.aba);
         }
     }
 
