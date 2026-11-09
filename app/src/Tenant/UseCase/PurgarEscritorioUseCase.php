@@ -316,6 +316,8 @@ final class PurgarEscritorioUseCase
         // logos) saem com o diretório do escritório: a categoria é isolada (`CategoriaComIsolamentoFisico`).
         ['assinatura_eletronica_documento', 'tenant_id = :tenant'],
         ['assinatura_eletronica_configuracao', 'tenant_id = :tenant'],
+        // Modelos do escritório (etapa 4): FK de tenant NO ACTION; nenhum documento aponta para eles.
+        ['assinatura_eletronica_modelo', 'tenant_id = :tenant'],
         // Presença na Central (F2): uma linha por vínculo, FK de tenant NO ACTION.
         ['central_presenca', 'tenant_id = :tenant'],
         // Regra de ausência do escritório (presença, fase 3): uma linha por escritório, FK de tenant NO ACTION.
