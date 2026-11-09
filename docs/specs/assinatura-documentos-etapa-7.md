@@ -215,7 +215,7 @@ gravada, "E-mail e código, selfie" (D3, F2). Nada mais muda no detalhe; o passo
 | assinar | `erro.selfie_tamanho` | O tamanho da foto não serve. Tire a selfie de novo. |
 | assinar | `erro.assinar_localizacao` | Permita o acesso à localização para assinar. |
 | assinar | `erro.localizacao_invalida` | A localização recebida não é válida. Recarregue a página e tente de novo. |
-| tela pública | `js.selfie.aviso` | A selfie com o documento e a localização servem só para comprovar esta assinatura. Ficam guardadas cifradas, com acesso restrito ao remetente do documento. |
+| tela pública | `js.selfie.aviso` | A selfie com o documento e a localização servem para comprovar esta assinatura. A selfie fica guardada cifrada; a localização fica registrada como evidência. Quem vê é a equipe do escritório que enviou o documento. |
 | tela pública | `js.selfie.enviar` | Enviar selfie com documento (desenho, B3) |
 | tela pública | `js.selfie.anexada` | Selfie anexada (desenho, B3) |
 | tela pública | `js.selfie.ilegivel` | A foto não pôde ser lida. Tire a selfie de novo. |
