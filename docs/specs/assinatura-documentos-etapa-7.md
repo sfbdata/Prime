@@ -155,7 +155,8 @@ Corpo JSON da etapa 2 mais, só para Reforçada:
        localizacao: { latitude: número, longitude: número, precisao: número (metros) } }
 ```
 
-Erros 422 com `{erro}` (seção 8). Sucesso: o `Publico` de sempre.
+Os três números da localização são obrigatórios: sem a precisão (ou com ela nula ou em texto), o servidor recusa com
+`erro.localizacao_invalida`. Erros 422 com `{erro}` (seção 8). Sucesso: o `Publico` de sempre.
 
 ### 5.3 Formas
 

@@ -18,12 +18,13 @@ final readonly class LocalizacaoDoSignatario
     private function __construct(
         public string $latitude,
         public string $longitude,
-        public ?string $precisao,
+        public string $precisao,
     ) {
     }
 
     /**
-     * @param array<mixed> $json `{latitude, longitude, precisao}`
+     * @param array<mixed> $json `{latitude, longitude, precisao}`, os três números (contrato 5.2 e 6); sem a precisão,
+     *                           recusa como dado inválido (a geolocalização do navegador sempre a informa)
      *
      * @throws AcaoRecusada
      */
@@ -31,9 +32,9 @@ final readonly class LocalizacaoDoSignatario
     {
         $latitude = self::numero($json['latitude'] ?? null, -90, 90);
         $longitude = self::numero($json['longitude'] ?? null, -180, 180);
-        $precisao = ($json['precisao'] ?? null) === null ? null : self::numero($json['precisao'], 0, self::PRECISAO_MAXIMA);
+        $precisao = self::numero($json['precisao'] ?? null, 0, self::PRECISAO_MAXIMA);
 
-        return new self(sprintf('%.8F', $latitude), sprintf('%.8F', $longitude), $precisao === null ? null : sprintf('%.2F', $precisao));
+        return new self(sprintf('%.8F', $latitude), sprintf('%.8F', $longitude), sprintf('%.2F', $precisao));
     }
 
     /** O texto da tela e da trilha: "latitude, longitude" com 5 casas e ponto (desenho, linha 376). */
