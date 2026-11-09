@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Assinatura de documentos, etapa 1. Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html
+    (contrato docs/specs/assinatura-documentos-etapa-1.md, seção 4.2). O cabeçalho azul e a faixa EXPEDIENTE,
+    DEMANDAS, PONTO, ASSINATURA e VOTO do desenho são a moldura do sistema (base.html.twig); daqui para baixo é o
+    <main> do desenho.
+
+    O template monta só o esqueleto fixo da lista. Linhas, chips com contagem, cores, aba Modelos, assistente
+    "Novo documento", detalhe, menu de contexto, janela de exclusão e avisos são desenhados pelo
+    public/js/assinatura.js a partir de GET /assinatura/documentos. `urls` traz uma URL por rota (nome curto => URL,
+    com o marcador 0 no lugar do {id}); rota de etapa futura não vem, e o JS esconde o botão dela.
+#}
+
+{% block title %}{{ 'assinatura_eletronica.titulo_pagina'|trans }}{% endblock %}
+
+{% block body_class %}bja-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/assinatura.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="bja" id="bjaPagina"
+     data-eu="{{ eu|json_encode|e('html_attr') }}"
+     data-padrao="{{ padrao|json_encode|e('html_attr') }}"
+     data-logos="{{ logos|json_encode|e('html_attr') }}"
+     {%- for nome, endereco in urls %} data-url-{{ nome|replace({'_': '-'}) }}="{{ endereco|e('html_attr') }}"{% endfor %}>
+
+    <div class="bjaTela" id="bjaTelaLista">
+        <div class="bjaTopo">
+            <h1 class="bjaH1">{{ 'assinatura_eletronica_tela.titulo'|trans }}</h1>
+            <button type="button" class="bjaP" id="bjaNovo" data-bja-acao="novo"><i class="bi bi-plus-lg"></i>{{ 'assinatura_eletronica_tela.novo_documento'|trans }}</button>
+        </div>
+
+        <section class="bjaCard bjaOculto" id="bjaLista">
+            <div class="bjaAbas" role="tablist">
+                <button type="button" class="bjaAba" role="tab" id="bjaAbaBtDocs" data-bja-aba="docs" aria-selected="true" aria-controls="bjaAbaDocs"><i class="bi bi-files"></i>{{ 'assinatura_eletronica_tela.aba_documentos'|trans }}</button>
+                <button type="button" class="bjaAba" role="tab" id="bjaAbaBtMods" data-bja-aba="mods" aria-selected="false" aria-controls="bjaAbaMods"><i class="bi bi-collection"></i>{{ 'assinatura_eletronica_tela.aba_modelos'|trans }}</button>
+            </div>
+
+            <div class="bjaAbaCorpo" id="bjaAbaDocs" role="tabpanel" aria-labelledby="bjaAbaBtDocs">
+                <div class="bjaFiltros">
+                    <div class="bjaChips" id="bjaChips"></div>
+                    <input class="bjaF bjaBusca" id="bjaBusca" type="text" autocomplete="off"
+                           aria-label="{{ 'assinatura_eletronica_tela.buscar_documento_rotulo'|trans }}"
+                           placeholder="{{ 'assinatura_eletronica_tela.buscar_documento'|trans }}">
+                    <select class="bjaF bjaPastaSel" id="bjaPasta" aria-label="{{ 'assinatura_eletronica_tela.filtrar_pasta'|trans }}">
+                        <option value="">{{ 'assinatura_eletronica_tela.todas_as_pastas'|trans }}</option>
+                    </select>
+                </div>
+                <div class="bjaCoresLin">
+                    <span>{{ 'assinatura_eletronica_tela.cor'|trans }}</span>
+                    <span class="bjaCoresIn" id="bjaCoresF"></span>
+                    <span class="bjaVao"></span>
+                    <span class="bjaDica">{{ 'assinatura_eletronica_tela.dica_botao_direito'|trans }}</span>
+                </div>
+                <div class="bjaSelBar" id="bjaSelBar" hidden></div>
+                <div class="bjaTabWrap">
+                    <table class="bjaT resp">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="bjaTodos" aria-label="{{ 'assinatura_eletronica_tela.selecionar_tudo'|trans }}"></th>
+                                <th>{{ 'assinatura_eletronica_tela.col_documento'|trans }}</th>
+                                <th>{{ 'assinatura_eletronica_tela.col_signatarios'|trans }}</th>
+                                <th>{{ 'assinatura_eletronica_tela.col_criado'|trans }}</th>
+                                <th>{{ 'assinatura_eletronica_tela.col_prazo'|trans }}</th>
+                                <th>{{ 'assinatura_eletronica_tela.col_status'|trans }}</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="bjaLinhas"></tbody>
+                    </table>
+                </div>
+                <div class="bjaVazio" id="bjaVazio" hidden>{{ 'assinatura_eletronica_tela.vazio'|trans }}</div>
+            </div>
+
+            <div class="bjaAbaCorpo" id="bjaAbaMods" role="tabpanel" aria-labelledby="bjaAbaBtMods" hidden></div>
+        </section>
+    </div>
+
+    <div class="bjaTela" id="bjaTelaNovo" hidden></div>
+    <div class="bjaTela" id="bjaTelaDet" hidden></div>
+
+    <div class="bjaCamada" id="bjaCamCtx"></div>
+    <div class="bjaCamada" id="bjaCamModal"></div>
+    <div class="bjaCamada" id="bjaCamToast"></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+{{ catalogo_js('assinatura_eletronica_tela.js') }}
+{# pdf.js 3.11.174 (o do desenho) para mostrar o PDF enviado; o worker é baixado pelo assinatura-folha.js com o mesmo SRI. #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+        integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+<script src="{{ asset('js/vendor/mammoth/mammoth.browser.min.js') }}" defer></script>
+<script src="{{ asset('js/vendor/qrcode-generator/qrcode.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-modelos.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-folha.js') }}" defer></script>
+<script src="{{ asset('js/assinatura.js') }}" defer></script>
+{% endblock %}
