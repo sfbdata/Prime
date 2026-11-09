@@ -14,7 +14,8 @@ Entra:
 - assistente **Novo documento**, passos 1 a 4: modelo pronto, PDF ou .docx, Dados com prévia A4, Signatários,
   Enviar (mensagem, prazo, resumo) com **Salvar rascunho**;
 - **detalhe** do documento em leitura (Signatários, cartão do código com "Continuar e enviar" no rascunho, Trilha de
-  auditoria, prévia) e "Excluir";
+  auditoria, prévia), sem "Excluir": o desenho não o tem no detalhe; excluir fica no menu de contexto e na barra de
+  seleção da lista;
 - módulo `assinatura_eletronica`, recurso `assinatura` do Master, migration M1 (`Version20261109130000`).
 
 Fica para depois (o botão ou a aba **não aparece** até a etapa dele; nada de botão morto):
@@ -126,7 +127,9 @@ POST com CSRF pelo padrão do sistema: o `base.html.twig` injeta o cabeçalho `X
 `fetch`, e o controller usa o `ValidaCsrfAjaxTrait`, como o `CompromissoController` da Agenda. Documento de outro escritório: 404. Ação proibida pela situação: 422 com `{erro: "<texto>"}`.
 
 Textos de erro (literais do desenho): "Documentos enviados permanecem na Lixeira para preservar as evidências."
-(excluir algo que não é rascunho), e para salvar fora do rascunho: "Só rascunho pode ser alterado.".
+(excluir algo que não é rascunho), e para salvar fora do rascunho: "Só rascunho pode ser alterado.". O servidor também
+recusa excluir o que não está na Lixeira: "Só documentos na Lixeira podem ser excluídos definitivamente." (a tela só
+oferece a exclusão definitiva dentro da Lixeira; o texto protege a rota).
 
 ### 4.1 Formas do JSON
 
