@@ -339,7 +339,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - ficam como o motor entrega, e a tela difere do desenho: no dia em andamento, o "Trabalhado" mostra as horas apuradas
     até a última batida e o "Saldo mês" fica vazio até a saída (o desenho mostra o acumulado até ontem, mas a /ponto só
     recebe do motor os dias com batida ou justificativa, e o acumulado da última linha recebida deixaria de fora o desconto
-    dos dias escondidos; mostrar esse número pede um campo novo no motor, a decidir na E17); o "Registro incompleto"
+    dos dias escondidos; mostrar esse número pede um campo novo no motor: pendência "Saldo mês do dia em andamento" da
+    E17, decidida pelo Coordenador em 09/11/2026 pela regra 1); o "Registro incompleto"
     segue a marca do motor (dia com entrada e saída sem repouso mostra saldo);
   - consequência do P25 a conhecer: o "Saldo mês" da última linha visível pode diferir do "Saldo do mês" do rodapé
     (que só aparece com horas pagas). O rodapé é o acumulado da última linha que o motor entrega (dia com batida ou com
@@ -544,6 +545,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Obrigatória (P51 a).
 - Entra: P51 (a: aba "Banco de Horas" com os lotes do desenho, sem zerar em janeiro; as horas pagas seguem no saldo),
   P52, P53 (fica), P73, P2 completo.
+- Pendência "Saldo mês do dia em andamento" (vinda da E2; decisão do Coordenador de 09/11/2026, regra 1: o desenho
+  manda). No dia em andamento, a coluna "Saldo mês" da folha mostra o acumulado até ontem (desenho L157). O motor passa a
+  entregar esse número num campo novo da linha de hoje (o `saldoAcumulado` de hoje continua nulo até a saída), calculado
+  com todos os dias do mês, inclusive os que a /ponto não recebe. Até lá a célula fica vazia. Teste: o número da linha de
+  hoje igual ao da linha de ontem na ficha (que mostra todos os dias), e o dia 1º sem número.
 - Depende de: E7 (limite e prazo na configuração). O saldo de antes do início dos lotes ("Sem data de origem", seção 3)
   se fecha com o Coordenador ao abrir a E17.
 - Migration: não; os lotes são calculados a partir da folha. Tabela `ponto_banco_lote` só se o cálculo se mostrar
