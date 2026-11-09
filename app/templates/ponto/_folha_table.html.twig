@@ -235,7 +235,8 @@
                                 hojeDaFolha: hojeDaFolha,
                                 registroEmOutroEscritorio: diasComRegistroEmOutroEscritorio[linha.chaveDia] is defined
                             }, with_context = false) }}
-                            {% set acumulado = linha.saldoAcumulado %}
+                            {# Dia em andamento (hoje sem saída, E17): o acumulado até ontem, como o desenho (L157); no dia 1º, nada. #}
+                            {% set acumulado = linha.saldoAcumulado ?? linha.saldoAcumuladoAteOntem|default(null) %}
                             <td class="pe-sm{{ acumulado is null ? ' pe-vazia' : (acumulado < 0 ? ' pe-cor--neg' : (acumulado > 0 ? ' pe-cor--pos' : ' pe-cor--zero')) }}" data-r="Saldo mês">
                                 {%- if acumulado is not null %}{{ folha.saldo(acumulado) }}{% endif -%}
                             </td>
@@ -270,7 +271,7 @@
        `saldoMesMinutos` é o saldo DAQUELE MÊS (`buildRows` faz o acumulado nascer em zero no dia 1º),
        então esta soma é o resultado do mês com o ajuste manual, e NÃO o banco acumulado. Quem mostra
        o banco acumulado nesta mesma página é o "Banco de horas" da barra do cartão Registrar Ponto (vindo de
-       `calcularSaldoAnual`). Chamar as duas coisas de "banco de horas" colocava dois números
+       `BancoDeHorasPorLotes`). Chamar as duas coisas de "banco de horas" colocava dois números
        diferentes lado a lado: 100h pagas em dinheiro e quitadas com um lançamento de -6000 deixavam o
        card em "+0h00m" (certo) e este rodapé em "-100h00m", cobrando de volta o que acabou de ser
        pago, a MESMA cobrança indevida que fez o dono reverter a soma no bloco assinado do PDF

@@ -146,6 +146,46 @@ final class LancamentoHorasPagasRepositoryTest extends JusPrimeWebTestCase
         self::assertSame(0, $repo->somarPorPeriodo($alvo, $tenant, 2026, 1, 12));
     }
 
+    #[TestDox('somarPorCompetenciaDoColaborador soma por mes, atravessa o ano e vem da mais antiga para a mais nova')]
+    public function testSomarPorCompetenciaDoColaboradorAgrupaEOrdena(): void
+    {
+        static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdmin($tenant);
+        $alvo   = $this->criarUsuario($tenant);
+
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 1, -600);
+        $this->gravarLancamento($tenant, $alvo, $admin, 2025, 12, 6000);
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 1, 120);
+        $this->gravarLancamento($tenant, $alvo, $admin, 2025, 3, -60);
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame(
+            ['2025-03' => -60, '2025-12' => 6000, '2026-01' => -480],
+            $repo->somarPorCompetenciaDoColaborador($alvo, $tenant),
+        );
+    }
+
+    #[TestDox('somarPorCompetenciaDoColaborador nao enxerga outro escritorio nem outro colaborador')]
+    public function testSomarPorCompetenciaDoColaboradorIsola(): void
+    {
+        static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $admin   = $this->criarAdmin($tenantA);
+        $alvo    = $this->criarUsuario($tenantA);
+        $colega  = $this->criarUsuario($tenantA);
+
+        $this->gravarLancamento($tenantB, $alvo, $admin, 2026, 8, 999);    // a mesma pessoa, no outro escritório
+        $this->gravarLancamento($tenantA, $colega, $admin, 2026, 8, -600); // o colega, no mesmo escritório
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame([], $repo->somarPorCompetenciaDoColaborador($alvo, $tenantA));
+        self::assertSame(['2026-08' => 999], $repo->somarPorCompetenciaDoColaborador($alvo, $tenantB));
+    }
+
     #[TestDox('listarCompetenciasComLancamento nao enxerga competencia de outro tenant')]
     public function testListarCompetenciasComLancamentoIsolaEntreTenants(): void
     {

@@ -216,6 +216,30 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
+     * As justificativas de um período inteiro NESTE escritório, indexadas por 'Y-m-d' como as do mês: o banco de horas
+     * por lotes lê todos os meses desde o início da contagem numa consulta só (spec ponto-desenho-0811, E17). Mesma
+     * ordem de `findByUserAndCompetencia` (id crescente dentro do dia), que é parte do desempate de `indexarPorDia`.
+     *
+     * @return array<string, JustificativaPonto>
+     */
+    public function findByUserEPeriodoIndexed(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO, auditoria 1.13).
+        return $this->indexarPorDia($this->createQueryBuilder('j')
+            ->where('j.user = :user')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.data BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio->format('Y-m-d'))
+            ->setParameter('fim', $fim->format('Y-m-d'))
+            ->orderBy('j.data', 'DESC')
+            ->addOrderBy('j.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * Escolhe UMA justificativa por dia, por mérito e de forma determinística.
      *
      * O cálculo da folha só honra uma justificativa por dia, mas o sistema aceita várias — e aceita

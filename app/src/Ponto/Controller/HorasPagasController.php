@@ -171,6 +171,10 @@ final class HorasPagasController extends AbstractController
      * errada. O dono recusou trava — aqui e na decisão original de §2 —, então o aviso é informativo:
      * o lançamento JÁ FOI gravado quando ele aparece, e editar/excluir são livres.
      *
+     * Desde a E17 (spec ponto-desenho-0811, P51 a) o banco NÃO zera mais em janeiro: o saldo atravessa
+     * o ano e o lançamento na competência do pagamento já abate o crédito acumulado no ano anterior. O
+     * aviso continua só para o desconto que deixa o banco negativo, sem falar em virada do ano.
+     *
      * Só dispara em desconto. Bonificação não tem como "não caber".
      */
     private function avisarSeODescontoNaoCabeNoAno(
@@ -189,8 +193,8 @@ final class HorasPagasController extends AbstractController
         try {
             // Mesmo cálculo que alimenta o "Saldo do Banco de Horas Anterior" do documento assinado,
             // já com o lançamento recém-gravado dentro (os UseCases dão flush antes de retornar):
-            // `calcularSaldoAteMes` nunca atravessa o ano, então é o banco DAQUELE ano até a
-            // competência lançada.
+            // `calcularSaldoAteMes` atravessa o ano (E17), então é o banco inteiro até a competência
+            // lançada.
             $saldoDepois = $this->folhaPontoBuilder->calcularSaldoAteMes(
                 $colaborador,
                 $input->ano,
@@ -221,10 +225,7 @@ final class HorasPagasController extends AbstractController
         $abs = abs($saldoDepois);
 
         $this->addFlash('warning', sprintf(
-            'Atenção: este desconto derrubou o banco de horas de %d para -%dh%02d. '
-            . 'O banco zera em 1º de janeiro. Se as horas pagas foram acumuladas em outro ano, '
-            . 'lance na competência daquele ano.',
-            $input->ano,
+            'Atenção: este desconto deixou o banco de horas negativo em -%dh%02d.',
             intdiv($abs, 60),
             $abs % 60,
         ));

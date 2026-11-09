@@ -233,9 +233,9 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
     }
 
     /**
-     * O banco de horas ZERA em 1º de janeiro, então horas acumuladas num ano e pagas em dinheiro no
-     * seguinte precisam ser lançadas na competência do ano em que foram ACUMULADAS. A competência
-     * natural (o mês corrente) é justamente a errada, e nada no caminho de escrita impede.
+     * Até a E17 o banco zerava em 1º de janeiro e o aviso mandava lançar na competência do ano em que
+     * as horas foram acumuladas. Desde a E17 (spec ponto-desenho-0811, P51 a) o banco atravessa o ano:
+     * o aviso fica só para o desconto que deixa o banco negativo, sem a virada do ano no texto.
      *
      * Decisão do dono: AVISAR, sem bloquear — o lançamento já está gravado quando o aviso aparece.
      */
@@ -257,7 +257,7 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         $avisos = $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? [];
         self::assertCount(1, $avisos, 'descontar 10h30 de um ano sem saldo tem de avisar');
         self::assertStringContainsString('-10h30', $avisos[0], 'o aviso tem de dizer em quanto o ano ficou');
-        self::assertStringContainsString('zera em 1º de janeiro', $avisos[0], 'e explicar o porquê, senão o admin não sabe o que fazer');
+        self::assertStringNotContainsString('janeiro', $avisos[0], 'desde a E17 o banco não zera na virada: o aviso não manda lançar em outro ano');
     }
 
     #[TestDox('bonificacao nunca avisa: acrescentar nao tem como nao caber')]

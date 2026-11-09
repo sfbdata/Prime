@@ -55,7 +55,8 @@ final class AbasDoPontoTelaTest extends JusPrimeWebTestCase
         $tela = $this->tela();
 
         self::assertCount(1, $tela->filter(self::CARTAO), 'o cartão de abas vem logo depois da Folha, na coluna da direita');
-        self::assertCount(2, $tela->filter(self::BARRA . ' > button.pe-aba[role="tab"]'), 'só Pendências e Minhas Justificativas (Banco de Horas na E17)');
+        self::assertCount(3, $tela->filter(self::BARRA . ' > button.pe-aba[role="tab"]'), 'Pendências, Minhas Justificativas e Banco de Horas (E17); Comprovantes só ligado');
+        self::assertCount(1, $tela->filter(self::BARRA . ' > button#ponto-aba-banco[role="tab"][aria-selected="false"]:last-child'), 'Banco de Horas por último, fechada');
         $pendencias = $tela->filter(self::BARRA . ' > button#ponto-aba-pendencias[role="tab"]:first-child[aria-selected="true"][aria-controls="ponto-regiao-pendencias"]');
         self::assertCount(1, $pendencias, 'Pendências é a primeira e abre ao entrar (P37)');
         self::assertCount(1, $pendencias->filter('button > i.bi.bi-exclamation-triangle:first-child'));
@@ -90,16 +91,17 @@ final class AbasDoPontoTelaTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('Aba pedida que não está na tela (Comprovantes desligado, Banco antes da E17) ou que não existe: abre Pendências')]
+    #[TestDox('Aba pedida que não está na tela (Comprovantes desligado) ou que não existe: abre Pendências')]
     public function testAbaEscondidaOuDesconhecidaAbrePendencias(): void
     {
-        foreach (['?aba=comprovantes', '?aba=banco', '?aba=qualquer'] as $consulta) {
+        // O "?aba=banco" saiu desta lista na E17: a aba Banco de Horas está sempre na tela (BancoDeHorasNaTelaTest).
+        foreach (['?aba=comprovantes', '?aba=qualquer'] as $consulta) {
             $tela = $this->tela($consulta);
 
             self::assertCount(1, $tela->filter(self::BARRA . ' > #ponto-aba-pendencias[aria-selected="true"][tabindex="0"]'), $consulta);
             self::assertCount(1, $tela->filter(self::CARTAO . ' > #ponto-regiao-pendencias:not([hidden])'), $consulta);
             self::assertCount(1, $tela->filter(self::CARTAO . ' > .pe-abas-painel:not([hidden])'), $consulta . ': um painel aberto só');
-            self::assertCount(0, $tela->filter('#ponto-aba-comprovantes, #ponto-aba-banco'), $consulta);
+            self::assertCount(0, $tela->filter('#ponto-aba-comprovantes'), $consulta);
         }
     }
 
@@ -120,7 +122,7 @@ final class AbasDoPontoTelaTest extends JusPrimeWebTestCase
         self::assertCount(4, $tela->filter(self::LINHAS), 'só as do mês escolhido, só deste escritório');
         self::assertSame(
             ['Data(s)', 'Tipo', 'Status', 'Atestado', 'Obs. da Análise', 'Analisado em', ''],
-            $tela->filter(self::CARTAO . ' table.pe-tab > thead > tr > th')->each(static fn (Crawler $th): string => trim($th->text())),
+            $tela->filter(self::CARTAO . ' > #ponto-painel-justificativas table.pe-tab > thead > tr > th')->each(static fn (Crawler $th): string => trim($th->text())),
         );
 
         $linha = $this->linha($tela, (int) $analise->getId());
