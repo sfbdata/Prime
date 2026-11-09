@@ -3,4 +3,8 @@
     etapa entra como seção própria, num parcial dela, incluído aqui na ordem do desenho: as chaves das funções (E7),
     depois sedes (E6) e feriados (E6). Esboço do contrato.
 #}
-<div class="pe-config"></div>
+<div class="pe-config">
+    {# E7: o parcial das chaves das funções (_config_funcoes) entra aqui, antes das sedes. #}
+    {% if veSedes ?? false %}{{ include('ponto/_config_sedes.html.twig') }}{% endif %}
+    {% if veFeriados ?? false %}{{ include('ponto/_config_feriados.html.twig') }}{% endif %}
+</div>

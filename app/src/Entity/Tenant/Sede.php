@@ -9,6 +9,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: SedeRepository::class)]
 class Sede implements Auditavel
 {
+    /** Raio da sede nova, em metros (spec ponto-desenho-0811.md, P70 a: 150 m; as sedes que já existem não mudam). */
+    public const RAIO_PADRAO = 150;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -24,7 +27,7 @@ class Sede implements Auditavel
     private ?string $longitude = null;
 
     #[ORM\Column]
-    private ?int $raioPermitido = 100; // em metros
+    private ?int $raioPermitido = self::RAIO_PADRAO; // em metros
 
     #[ORM\Column(length: 50)]
     private ?string $timezone = 'America/Sao_Paulo';

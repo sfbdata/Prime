@@ -3,13 +3,13 @@
 namespace App\Form;
 
 use App\Entity\Tenant\Sede;
+use App\Ponto\Validacao\RestricoesDaSede;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
-use Symfony\Component\Validator\Constraints as Assert;
 
 class SedeType extends AbstractType
 {
@@ -23,31 +23,23 @@ class SedeType extends AbstractType
                 'required' => true,
                 // HiddenType sobe o erro para o form raiz, que a tela não mostra; fica no campo.
                 'error_bubbling' => false,
-                'constraints' => [
-                    new Assert\NotNull(message: 'Latitude é obrigatória.'),
-                    new Assert\Range(min: -90, max: 90, notInRangeMessage: 'Latitude deve estar entre -90 e 90.', invalidMessage: 'Latitude deve ser um número.'),
-                ],
+                'constraints' => RestricoesDaSede::latitude(),
             ])
             ->add('longitude', HiddenType::class, [
                 'required' => true,
                 // HiddenType sobe o erro para o form raiz, que a tela não mostra; fica no campo.
                 'error_bubbling' => false,
-                'constraints' => [
-                    new Assert\NotNull(message: 'Longitude é obrigatória.'),
-                    new Assert\Range(min: -180, max: 180, notInRangeMessage: 'Longitude deve estar entre -180 e 180.', invalidMessage: 'Longitude deve ser um número.'),
-                ],
+                'constraints' => RestricoesDaSede::longitude(),
             ])
             ->add('raioPermitido', NumberType::class, [
                 'label' => 'Raio Permitido (metros)',
                 'required' => true,
-                'empty_data' => '100',
-                'invalid_message' => 'Raio permitido deve ser um número.',
-                'attr' => ['min' => 10, 'max' => 500, 'step' => 10],
-                'constraints' => [
-                    new Assert\Range(min: 10, max: 500, notInRangeMessage: 'Raio permitido deve estar entre 10 e 500 metros.'),
-                    // A coluna é inteira: sem isto, 10.5 virava 10 em silêncio (conversão implícita do setter).
-                    new Assert\DivisibleBy(value: 1, message: 'Raio permitido deve ser um número inteiro de metros.'),
-                ],
+                // Sede nova nasce com 150 m (spec ponto-desenho-0811.md, P70 a); as de hoje não mudam.
+                'empty_data' => (string) Sede::RAIO_PADRAO,
+                'invalid_message' => RestricoesDaSede::MENSAGEM_RAIO_NAO_NUMERO,
+                'attr' => ['min' => RestricoesDaSede::RAIO_MINIMO, 'max' => RestricoesDaSede::RAIO_MAXIMO, 'step' => 10],
+                // Mesma regra da aba Configurações da /ponto (RestricoesDaSede).
+                'constraints' => RestricoesDaSede::raio(),
             ])
         ;
     }
