@@ -812,28 +812,53 @@ final class ConferenciaDePdfTest extends TestCase
         self::assertNotSame(SituacaoDaConferencia::Integro, $resultado->situacao);
     }
 
-    #[TestDox('300 mutações aleatórias no CMS e no arquivo: nenhuma exceção, e o motivo sempre preenchido')]
+    #[TestDox('300 mutações aleatórias: no trecho assinado nunca íntegro, no certificado sempre alterada, nunca "Não foi possível ler"')]
     public function testMutacoesAleatorias(): void
     {
-        $pdf = OficinaDePdfAssinado::pdfAssinado();
+        $certificado = OficinaDePdfAssinado::certificado(OficinaDePdfAssinado::chave());
+        $pdf = OficinaDePdfAssinado::pdfAssinadoComVinculo('rsa', $certificado);
         preg_match('/\/ByteRange \[0 (\d+) (\d+)/', $pdf, $partes);
         $l = (int) $partes[1];
-        $tamanhoDoCms = MontadorDeDer::tamanhoTotal((string) hex2bin(substr($pdf, $l + 1, 64)) . str_repeat("\0", 32));
+        $c = (int) $partes[2];
+        $cms = (string) hex2bin(substr($pdf, $l + 1, $c - $l - 2));
+        $tamanhoDoCms = MontadorDeDer::tamanhoTotal($cms);
+        // Bytes de valor do certificado dentro do CMS (o CN do emissor e a assinatura da AC): mudar qualquer um deixa o
+        // DER legível, mas o certificado deixa de ser o do signingCertificateV2.
+        $doCertificado = OficinaDePdfAssinado::der($certificado);
+        $inicioDoCertificado = (int) strpos($cms, $doCertificado);
+        $nome = $inicioDoCertificado + (int) strpos($doCertificado, OficinaDePdfAssinado::TITULAR);
+        $valores = array_merge(range($nome, $nome + \strlen(OficinaDePdfAssinado::TITULAR) - 1), range($inicioDoCertificado + \strlen($doCertificado) - 256, $inicioDoCertificado + \strlen($doCertificado) - 1));
         mt_srand(4242);
 
         for ($i = 0; $i < 300; ++$i) {
             $mutado = $pdf;
-            if ($i % 2 === 0) {
+            $caso = $i % 3;
+            if ($caso === 0) {
+                $posicao = mt_rand(0, $l + \strlen($pdf) - $c - 1);
+                $posicao = $posicao < $l ? $posicao : $c + $posicao - $l;
+                $mutado[$posicao] = \chr((\ord($pdf[$posicao]) + mt_rand(1, 255)) % 256);
+            } elseif ($caso === 1) {
                 $mutado[$l + 1 + mt_rand(0, 2 * $tamanhoDoCms - 1)] = '0123456789abcdef'[mt_rand(0, 15)];
             } else {
-                $mutado[mt_rand(0, \strlen($pdf) - 1)] = \chr(mt_rand(0, 255));
+                $byte = $valores[mt_rand(0, \count($valores) - 1)];
+                $novo = \chr((\ord($cms[$byte]) + mt_rand(1, 255)) % 256);
+                $mutado = substr_replace($pdf, bin2hex($novo), $l + 1 + 2 * $byte, 2);
             }
 
             $resultado = $this->motor->conferir($mutado);
 
             self::assertNotSame('', $resultado->motivo);
+            self::assertNotSame(ConferenciaDePdf::MOTIVO_ILEGIVEL, $resultado->motivo, 'mutação ' . $i);
             foreach ($resultado->assinaturas as $assinatura) {
                 self::assertNotSame('', $assinatura->motivo);
+            }
+            if ($caso === 0) {
+                self::assertNotSame(SituacaoDaConferencia::Integro, $resultado->situacao, 'mutação ' . $i . ' no trecho assinado');
+            }
+            if ($caso === 2) {
+                $a = $resultado->assinaturas[0];
+                self::assertSame(VereditoDaAssinatura::Alterada, $a->veredito, 'mutação ' . $i . ' no certificado: ' . $a->motivo);
+                self::assertSame(ConferenciaDePdf::MOTIVO_CERTIFICADO_TROCADO, $a->motivo);
             }
         }
     }
