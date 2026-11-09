@@ -1657,21 +1657,16 @@ final class TenantController extends AbstractController
         );
     }
 
-    /**
-     * Os dois textos da análise que ainda moram aqui e trocam na integração da E3 por chaves de
-     * NomesDasSituacoesDaJustificativa (criadas pela outra sessão): cada troca é a linha do `return`.
-     *
-     * "Aprovar todos" sem nenhuma em análise; troca prevista: `texto('lote.sem_pendente')`.
-     */
+    /** "Aprovar todos" sem nenhuma em análise (o nome da situação vem de NomesDasSituacoesDaJustificativa, P40). */
     private static function textoDoLoteSemPendente(): string
     {
-        return 'Nenhuma justificativa em análise encontrada neste lote.';
+        return NomesDasSituacoesDaJustificativa::texto('lote.sem_pendente');
     }
 
-    /** Voltar para análise um esquecimento abonado; troca prevista: `texto('reverter.feito_com_batida', $data)`. */
+    /** Voltar para análise um esquecimento abonado (texto de NomesDasSituacoesDaJustificativa, P40). */
     private static function textoDoReverterComBatida(string $data): string
     {
-        return sprintf('Justificativa de %s revertida para pendente. Atenção: o registro de ponto criado automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.', $data);
+        return NomesDasSituacoesDaJustificativa::texto('reverter.feito_com_batida', $data);
     }
 
     /**

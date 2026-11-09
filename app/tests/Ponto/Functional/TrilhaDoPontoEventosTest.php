@@ -106,7 +106,7 @@ final class TrilhaDoPontoEventosTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $colaborador, $this->escritorio);
 
         $this->client->request('POST', '/ponto/justificativa/nova', [
-            'justificativa_ponto' => ['_token' => 'TOKEN_justificativa_ponto', 'tipo' => 'doacao_sangue', 'datas' => $this->dia->format('Y-m-d')],
+            'justificativa_ponto' => ['_token' => 'TOKEN_justificativa_ponto', 'tipo' => 'doacao_sangue', 'datas' => $this->dia->format('Y-m-d'), 'motivo' => 'Doação de sangue.'],
             'competencia'         => $this->dia->format('Y-m'),
         ]);
         self::assertResponseRedirects();
