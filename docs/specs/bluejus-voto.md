@@ -5,8 +5,9 @@
 sem login, cria uma identidade nova (o eleitor, que não é `User`) e guarda dado cujo sigilo é a razão do produto.
 **MÉDIO** na fase A (permissão nova e recurso do Master). Pelo ciclo do projeto: spec (este documento), revisão
 contra a spec em cada PR e re-revisão antes de seguir nos PRs ALTO.
-**Status:** fase 1, análise. Não existe código, tabela nem migration desta frente. Nada começa antes das respostas
-da seção 3.
+**Status:** fase 1, análise. Não existe código, tabela nem migration desta frente. Decisões D1, D2, D3, D5, D6, D7
+e o cabeçalho tomadas pelo Coordenador em 09/11/2026 (seção 3.0). Pendentes com o Samuel: D4, cliente piloto,
+contratação do provedor de e-mail e D8. A fase A começa pelo que não depende de D8.
 
 **Desenho:** `docs/design/redesign-08-11-26/18 - Voto - VS 08.11.26.dc.html` (Artefato original:
 `claude.ai/code/artifact/3c9fe618-65e4-457f-8d3d-c31bb68901c8`), com `bj-voto-nucleo.js`, `bj-voto-testes.js`,
@@ -55,7 +56,8 @@ Detalhe de cada item, com valores: anexo de telas.
 
 - **Cabeçalho** fixo azul `#0a76a8`, 64 px, logo branco (leva ao Expediente), rótulo "Voto", nome do usuário em
   caixa alta. Menu: EXPEDIENTE, DEMANDAS, PONTO, ASSINATURA, VOTO (ativo). Os links para `03 - EXPEDIENTE` e
-  `15 - Demandas` apontam para arquivos que estão em `redesign-04-11-26`, não nesta pasta.
+  `15 - Demandas` apontam para arquivos que estão em `redesign-04-11-26`, não nesta pasta. **Não entra** nas telas da
+  equipe: elas usam a moldura do sistema (decisão de 09/11/2026, seção 3.0).
 - **Faixa amarela permanente** (`.vAviso`): "**Ambiente demonstrativo.** Dados e eleitores são fictícios. Não é
   votação oficial de nenhuma entidade e o sistema não possui certificação de órgão eleitoral."
 - **Abas:** Votar, Resultados, Acompanhar e Gestão eleitoral (as duas últimas só para quem gere). Aba escondida
@@ -193,8 +195,27 @@ guardar o token para a troca de voto na sessão permanente.
 
 ## 3. Decisões (com opções e recomendação)
 
-As decisões D1 a D6 envolvem produção, contratação ou custo: são do Samuel. D7 e D8 o Coordenador pode decidir pela
-recomendação, salvo os itens de D8 marcados como desvio do desenho (regra do projeto: desvio passa pelo Samuel).
+### 3.0 Decisões tomadas e pendentes
+
+Em 09/11/2026 o Coordenador decidiu pela recomendação (regra de 27/10; registro em
+`bluejus-coordenacao/decisoes-09-11.md`):
+
+| Decisão | Resultado |
+|---|---|
+| D1 | **B**: mesmo código, container PHP próprio `voto`, schema `voto`, endereço `voto.bluejus.com.br` |
+| D2 | As 6 camadas; teto de aptos por eleição como **configuração no Master** |
+| D3 | **A**: protocolo do protótipo com RFC 9474, WebCrypto, RFC 8785 e as correções da seção 4 |
+| D5 | Modo demonstração para todos; "eleição real" só liberada pelo Master, por escritório, depois da revisão externa (D4) |
+| D6 | Os dois acessos (código e PIN); e-mail por **transporte próprio com DSN separado** (fora da cota da Hostinger); sem biometria; prazo de guarda das fotos como configuração no Master, começando em 90 dias |
+| D7 | Pela recomendação |
+| Cabeçalho | **Moldura do sistema** (`base.html.twig`), como em `agenda-1a.md` e `meu-escritorio.md`: a tela é o conteúdo e o link entra no menu existente. Vale igual para Ponto e Assinatura |
+
+Pendentes com o Samuel (não travam a fase A):
+
+- **D4:** contratar a revisão criptográfica externa e o teste de intrusão.
+- **Cliente piloto:** qual é, porque define a ordem das fases B a E (seção 6).
+- **Provedor de e-mail:** contratar o serviço que o DSN do Voto vai usar.
+- **D8:** as 9 correções do desenho.
 
 ### D1. Onde o Voto roda
 
@@ -296,9 +317,12 @@ Itens que seguem a convenção do sistema (o desenho é omisso ou é limitação
 links do menu para as telas reais; QR Code gerado no servidor; leitura da planilha pelo nome da coluna (o
 protótipo lê numa ordem diferente da do modelo); "Adicionar cargo" e "Editar cargos" mantidos como no desenho.
 
-**Cabeçalho:** o desenho traz cabeçalho próprio com menu no topo; o sistema tem o menu lateral
-(`_sidebar.html.twig`). Alinhar com o que as frentes do Ponto (16) e da Assinatura (17) decidirem, para as três
-telas novas terem o mesmo tratamento. Pergunta ao Coordenador, não ao Samuel.
+**Cabeçalho (decidido em 09/11/2026):** as telas da equipe logada usam a moldura do sistema (`base.html.twig`, menu
+lateral `_sidebar.html.twig`), como em `agenda-1a.md` e `meu-escritorio.md`. O cabeçalho azul de 64 px e o menu no
+topo do desenho não entram; a tela do Voto é o conteúdo (faixa de demonstração, abas e o resto) e o link "Voto"
+entra no menu existente. O mesmo vale para Ponto (16) e Assinatura (17). O portal do eleitor é público e não tem
+moldura do sistema: usa o cabeçalho branco do próprio desenho, como as páginas públicas do Push e do Cálculo têm
+layout próprio.
 
 ---
 
@@ -387,7 +411,7 @@ contra o anexo de telas. Dias de uma sessão, já com testes; somar cerca de 20%
 
 | PR | Branch | Entrega | Dias | Migration |
 |---|---|---|---|---|
-| A1 | `voto-base` | Recurso `voto` no catálogo (nasce desligado), liberação por escritório, permissão `modules.voto.view`, item no menu, tela com cabeçalho, faixa de demonstração e abas vazias | 2 | M1 |
+| A1 | `voto-base` | Recurso `voto` no catálogo (nasce desligado), liberação por escritório, permissão `modules.voto.view`, item no menu lateral, tela dentro da moldura do sistema com a faixa de demonstração e as abas vazias | 2 | M1 |
 | A2 | `voto-infra` | Schema `voto`, conexão do Voto, container `voto`, bloco do nginx com limites, `camera=(self)` e sem `access_log` nas rotas da urna (arquivos no repositório; subir na VPS é do Samuel) | 3 | M2 |
 | A3 | `voto-eleicao` | Eleição, evento, cargo, candidatura; 9 cenários; assistente de 7 etapas com rascunho; validações; publicar com hash canônico e código de conferência; modal "Conhecer candidaturas" | 5 | M3 |
 | A4 | `voto-equipe` | Perfis: equipe padrão e por votação, 8 papéis, "Designar", "Aplicar cargos da categoria", guardiões, acesso por link para quem não tem conta | 3 | M4 |
