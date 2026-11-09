@@ -1,0 +1,15 @@
+{#
+    Formatos de hora da Folha de Ponto no molde do desenho 16 (etapa E2): `fDur` e `fSal` do desenho.
+    Só formatam o número que o FolhaPontoBuilder já calculou; nada aqui faz conta de saldo.
+#}
+{# "7h20m": a duração sem sinal. #}
+{% macro horas(minutos) -%}
+    {%- set absoluto = minutos < 0 ? -minutos : minutos -%}
+    {{- absoluto // 60 }}h{{ '%02d'|format(absoluto % 60) }}m
+{%- endmacro %}
+
+{# "0h" no zero; senão o sinal e a duração ("+1h00m", "-7h00m"). #}
+{% macro saldo(minutos) -%}
+    {%- import _self as folha -%}
+    {{- minutos == 0 ? '0h' : (minutos < 0 ? '-' : '+') ~ folha.horas(minutos) -}}
+{%- endmacro %}

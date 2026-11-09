@@ -317,14 +317,50 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   batida some da tela e continua descontando do saldo), P26, P27, P28 (fica), P30 (a: "+" em qualquer dia passado; hoje
   e feriado sem "+"; "Em análise" com ampulheta na coluna Justificativa), P31 ("Não abonada" e o horário do abono
   parcial ficam), P32 (fica), D7, D15, D22.
+- Decisões da etapa (09/11/2026, Coordenador e implementação):
+  - a ficha do colaborador ganha o mesmo molde e mostra todos os dias do mês; o filtro do P25 é só da `/ponto`
+    (parâmetro `somenteDiasComBatida`). A ficha carrega o CSS da folha pelo próprio partial;
+  - ficam do sistema, no estilo do desenho: o selo da jornada na barra da ficha ("40h00m/sem (Personalizada)"), o sinal
+    de registro em outro escritório, a dica do "Registro incompleto", "A conferir", "Home Office", as batidas fora da
+    conta do gestor, "Ver PDF" (P89, ainda no modal do sistema até a E16/E4) e "Baixar XLSX" (P88, agora baixa direto);
+  - o "+" (P30 a) vale em qualquer dia passado com batida, inclusive fim de semana; hoje, feriado e dia antes do início
+    da contagem ficam sem ele. A batida que já tem esquecimento pendente ou abonado também fica sem "+" (condição 8 do
+    sistema, para não criar duplicata); o "Em análise" aparece na coluna Justificativa;
+  - o selo "Fora de sequência" vale quando um horário é menor que o anterior e vence os outros; o feriado trabalhado
+    ganha o selo "Feriado" na coluna Semana (o motor escrevia "FERIADO - "); o feriado sem batida tem o selo no Saldo dia;
+  - o tipo da justificativa vai para a dica do selo (o desenho não tem a linha de baixo); "Não abonada" fica vermelha
+    como "Recusada"; a coluna mostra a justificativa que o sistema já escolhe por dia, não a primeira da lista;
+  - a lista do mês (P23, D7) vai do mês do início da contagem neste escritório até o mês corrente do servidor;
+  - revisão e conferência da E2 (09/11/2026): ficam do sistema as dicas dos cabeçalhos "Trabalhado", "Saldo dia" e
+    "Saldo mês" (vinham da folha antiga) e o nome do feriado na dica do selo "Feriado" (antes ia no texto, "FERIADO - nome");
+    na ficha, o zero do dia sem batida fica cinza (com batida, verde como no desenho). Esquecimento pendente num dia em
+    que outra justificativa vence a escolha (um atestado abonado, uma recusada mais nova) ganha o "Em análise" ao lado do
+    selo escolhido: antes da E2 a ampulheta ficava na célula da batida, e sem esse segundo selo o pedido sumiria da folha;
+  - ficam como o motor entrega, e a tela difere do desenho: no dia em andamento, o "Trabalhado" mostra as horas apuradas
+    até a última batida e o "Saldo mês" fica vazio até a saída (o desenho mostra o acumulado até ontem, mas a /ponto só
+    recebe do motor os dias com batida ou justificativa, e o acumulado da última linha recebida deixaria de fora o desconto
+    dos dias escondidos; mostrar esse número pede um campo novo no motor, a decidir na E17); o "Registro incompleto"
+    segue a marca do motor (dia com entrada e saída sem repouso mostra saldo);
+  - consequência do P25 a conhecer: o "Saldo mês" da última linha visível pode diferir do "Saldo do mês" do rodapé
+    (que só aparece com horas pagas). O rodapé é o acumulado da última linha que o motor entrega (dia com batida ou com
+    justificativa), como antes da E2; o P25 esconde o dia só com justificativa, e o desconto dos dias sem batida até ele
+    entra no rodapé sem aparecer em linha nenhuma. O número certo é o do rodapé, que é o de antes;
+  - com a lista do P23 e o "+" do P30 a, o atalho do esquecimento aparece em meses antigos; o servidor já aceitava
+    qualquer dia passado pelo modal completo e o sistema não tem mês fechado, então não há exposição nova;
+  - os números são os do motor: o rodapé e o "Saldo mês" de cada linha vêm das linhas sem o filtro; o PDF, o XLSX e
+    `montarDadosFolha` não mudaram.
 - Depende de: E1 (CSS e grade).
 - Migration: não.
-- Arquivos: `templates/ponto/_folha_table.html.twig` (também usado na ficha do colaborador, que fica pelo P60: a ficha
-  ganha o molde junto e continua com todos os dias do mês, porque o filtro do P25 é da folha do colaborador no desenho;
-  confirmar com o Coordenador ao abrir a E2). Frente: `PontoController::montarDadosFolha` (lista de meses do P23).
-  Avisar.
-- Testes: `FolhaExportacaoMesmaEscolhaTest` e os da folha sem mudança de número; funcional do celular por classe; dia
-  sem batida fora da tela e com o saldo igual ao de antes; "+" em dia passado e ampulheta na coluna Justificativa.
+- Arquivos: `templates/ponto/_folha_table.html.twig` com as células em `_folha_saldo_dia.html.twig`,
+  `_folha_justificativa.html.twig` e os formatos em `_folha_macros.html.twig` (também usado na ficha do colaborador);
+  `templates/ponto/index.html.twig` (parâmetros da folha e seletor da troca sem recarregar);
+  `public/css/ponto-eletronico.css` (seção Folha e celular até 760 px); `PontoController::index` (lista de meses do P23).
+  `montarDadosFolha` não foi tocado.
+- Testes: `FolhaDoDesenhoTest` (arranjo por filho direto, o que saiu contando zero, dia sem batida fora da tela com o
+  saldo de antes, selos, meses, ficha com todos os dias, celular por classe, dia sem repouso ou sem entrada, "Em análise" ao lado da justificativa escolhida e "Saldo mês" vazio no dia em andamento) e `FolhaDoDesenhoCssTest` (valores do
+  desenho); ajustados: `JustificativaEsquecimentoControllerTest` (dia só com abono sai, sábado passado ganha "+", hoje
+  sem "+"), `HorasPagasFolhaExibicaoTest` (cabeçalho "Saldo mês" e marcação do rodapé), `JornadaComVersoesPelaTelaTest`
+  e os dois da troca sem recarregar (seletor novo). `FolhaExportacaoMesmaEscolhaTest` e os do PDF e XLSX sem mudança.
 
 **E3. Cartão de abas: Pendências e Minhas Justificativas.**
 - Entra: P37, P38 (fica), P39, P40 (Em análise, Abonado, Recusado em todas as telas, inclusive a ficha do gestor e o
@@ -415,9 +451,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: serviço novo de trilha; chamadas nos fluxos de batida, justificativa, análise e chaves; cada etapa seguinte
   chama a trilha nos eventos dela. Frente: a escala alterada (o desenho grava "Escala alterada") toca os 3 UseCases de
   versão (avisar).
-- Chave do selo: o selo é HMAC com chave só do servidor (seção 3). O arquivo de decisões só lista como pendência o
-  segredo do comprovante e da folha; perguntar ao Coordenador, antes de abrir a E9, se a trilha usa a mesma
-  `PONTO_HMAC_SECRET` (seção 10) e o que faz com ela vazia.
+- Chave do selo (decidido pelo Coordenador em 09/11/2026): o selo é HMAC com a chave da finalidade "trilha", derivada
+  do segredo único `PONTO_HMAC_SECRET` (seção 10, "Chaves por finalidade"). Cada linha guarda a versão da chave. Com o
+  segredo vazio, a etapa segue a regra da seção 10 (a trilha grava sem selo e a conferência diz que a cadeia não foi
+  selada); a confirmar ao abrir a E9.
 - Testes: dois eventos ao mesmo tempo no mesmo escritório mantêm a cadeia; adulterar uma linha acusa "a cadeia foi
   alterada"; escritórios não se misturam; purga do escritório apaga a cadeia dele; mudança de sede ou feriado não entra
   na trilha e continua no `audit_log`.
@@ -606,15 +643,24 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   bluejus-coordenacao): seção 2 (P1 a P96) e seção 4 (D1 a D22) com a decisão em cada item; seção 5 ajustada.
 - Estado: fase 1 decidida; E1 implementada na branch `ponto-desenho-0811` (commit 190ccb660 e as correções da
   revisão de 09/11/2026), sem migration. Decisões da etapa registradas na E1 (seção 5).
-- Próximo passo: PR da E1 e smoke do dono na tela; depois a E2. A E7 pode correr junto.
-- Pontos que se fecham com o Coordenador ao abrir a etapa: ficha do colaborador com o molde da Folha e todos os dias (E2),
-  chave do selo da trilha (E9), teto de idade da fila (E14), saldo de antes dos lotes (E17).
+- E2 implementada na branch `ponto-desenho-e2` (empilhada na E1), sem migration. Decisões da etapa registradas na E2
+  (seção 5).
+- Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
+- Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
+  saldo de antes dos lotes (E17).
 - Pendências do dono: seção 10. Nenhuma trava a E1.
 - Nenhuma migration pedida ainda.
 
 ## 10. Pendências do dono e ganchos
 
 Nenhuma destas trava o código: cada etapa entra pronta com o gancho abaixo e passa a valer quando o dono resolver.
+
+**Chaves por finalidade (decidido pelo Coordenador em 09/11/2026).** O dono cria em produção um segredo só, o
+`PONTO_HMAC_SECRET`. O código nunca usa o segredo direto: deriva uma chave por finalidade com
+`hash_hkdf('sha256', $segredo, 32, '<finalidade>')`. Finalidades: `ponto-comprovante` (comprovante da batida, E15),
+`ponto-folha` (folha emitida, E16) e `ponto-trilha` (selo da trilha encadeada, E9). Cada registro selado guarda a versão
+da chave usada (começa em 1), para que uma troca futura do segredo não quebre a conferência do que já foi selado: a
+conferência escolhe a chave pela versão gravada na linha.
 
 | Pendência (itens) | Por que é do dono | Gancho no código | Etapa que precisa |
 |---|---|---|---|

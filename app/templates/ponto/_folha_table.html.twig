@@ -1,3 +1,16 @@
+{#
+    Folha de Ponto no molde do desenho 16 (etapa E2, spec docs/specs/ponto-desenho-0811.md; decisões de 09/11/2026).
+    Dois lugares a usam: a /ponto do colaborador (com o filtro do P25, `somenteDiasComBatida`) e a ficha do colaborador
+    (P60, fica: o mesmo molde com TODOS os dias do mês). Valores em public/css/ponto-eletronico.css; as classes do
+    desenho ganham o prefixo da tela: bjpT = pe-tab, resp = pe-resp, bjpLin = pe-lin, bjpMais = pe-mais, bjpSm = pe-sm,
+    bjpPl = pe-pl, bjpVazia = pe-vazia, larga = pe-larga, toda = pe-toda.
+
+    O que o sistema tem e o desenho não mostra fica, no estilo do desenho: o selo da jornada na barra (ficha), "Ver PDF"
+    e "Baixar XLSX" (P89 e P88), "A conferir" e "Home Office" (P28), "Não abonada" e o horário do abono parcial (P31),
+    o feriado trabalhado, a dica do "Registro incompleto", o sinal de registro em outro escritório, as batidas fora da
+    conta do gestor e os totais do mês (P32). Nada aqui calcula saldo: os números são os do FolhaPontoBuilder.
+#}
+{% import 'ponto/_folha_macros.html.twig' as folha %}
 {% set competenciaParts = competenciaSelecionada|default('') ? competenciaSelecionada|split('-') : [] %}
 {% set exportarAnoResolved = exportarAno is defined ? exportarAno : (competenciaParts|length == 2 ? competenciaParts[0] : null) %}
 {% set exportarMesResolved = exportarMes is defined ? exportarMes : (competenciaParts|length == 2 ? competenciaParts[1] : null) %}
@@ -15,13 +28,26 @@
    ponto-esquecimento-nao-trava R8). Só o sinal, sem dizer qual escritório; só na tela, como o "Registro incompleto". #}
 {% set diasComRegistroEmOutroEscritorio = diasComRegistroEmOutroEscritorio|default({}) %}
 {# Atalho do colaborador: "+" na batida faltante abre o modal de Esquecimento de Registro.
-   Inerte por padrão — quem não passa os parâmetros renderiza exatamente o HTML de antes. #}
+   Inerte por padrão: quem não passa os parâmetros não ganha o atalho. #}
 {% set justificarFaltanteHabilitado = justificarFaltanteHabilitado|default(false) %}
 {% set esquecimentosRegistrados = esquecimentosRegistrados|default({}) %}
+{# Dias com esquecimento pendente: o "Em análise" da coluna Justificativa, mesmo quando outra justificativa vence o dia. #}
+{% set esquecimentosEmAnalise = esquecimentosEmAnalise|default({}) %}
 {# Sem dataHoje o atalho não aparece: o default é fail-closed de propósito, para que esquecer de
-   passá-lo não faça a regra de "nada de dia futuro" sumir em silêncio. #}
+   passá-lo não faça a regra de "nada de hoje nem de dia futuro" sumir em silêncio. #}
 {% set dataHoje = dataHoje|default(null) %}
+{# "Em andamento" é só de leitura: na ficha (que não passa dataHoje) vale o dia do servidor. #}
+{% set hojeDaFolha = dataHoje ?? 'now'|date('Y-m-d') %}
+{# P25 (decisão de 09/11/2026): a /ponto mostra só os dias com batida (e o feriado com horas), como o desenho. O dia
+   que some continua no saldo: o "Saldo mês" de cada linha e os totais vêm do motor, que conta todos os dias. #}
+{% set somenteDiasComBatida = somenteDiasComBatida|default(false) %}
+{# A /ponto já carrega o CSS no <head>; a ficha do colaborador não, e o recebe aqui. Sem `|default(true)`: o filtro
+   trocaria o `false` explícito da /ponto pelo padrão. #}
+{% set carregarCssDaFolha = carregarCssDaFolha is defined ? carregarCssDaFolha : true %}
+{% set campoCompetenciaId = competenciaFieldId|default('competencia') %}
+{% set totalDeColunas = 6 + (mostrarBancoHoras ? 3 : 0) + (mostrarJustificativas ? 1 : 0) %}
 {% set rotulosBatida = {entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída'} %}
+{% set nomesDaSemana = {1: 'Segunda', 2: 'Terça', 3: 'Quarta', 4: 'Quinta', 5: 'Sexta', 6: 'Sábado', 7: 'Domingo'} %}
 {# Motivos de um dia ambíguo (`BatidasEscolhidas::MARCA_*`). A marca não muda número: avisa que há
    batida a corrigir. Ver docs/specs/ponto-folha-uma-batida-por-tipo.md §9.3 e §9.9. #}
 {% set motivosAConferir = {
@@ -31,367 +57,244 @@
     saidas_distintas: 'mais de uma saída',
     retorno_antes_do_repouso: 'retorno antes do repouso'
 } %}
+{% set linhasDaFolha = somenteDiasComBatida
+    ? folhaRows|filter(l => (l.entrada ~ l.repouso ~ l.retorno ~ l.saida) != '' or (l.isFeriado|default(false) and (l.minutosTrabalhadosDia ?? 0) > 0))
+    : folhaRows %}
 
-<div class="card card-outline card-info mb-3">
-    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
-        <h3 class="card-title mb-0">{{ titulo }}</h3>
-
-        {% if jornadaInfo is not null %}
-            {% set horas = jornadaInfo.cargaHorariaSemanal // 60 %}
-            {% set mins  = jornadaInfo.cargaHorariaSemanal % 60 %}
-            <span class="badge text-bg-light border text-secondary small ms-1" title="Carga horária semanal vigente">
-                <i class="bi bi-calendar-week me-1"></i>{{ horas }}h{{ '%02d'|format(mins) }}m/sem
-                <span class="ms-1 {{ jornadaInfo.fonte == 'personalizada' ? 'text-primary' : 'text-secondary' }}">
-                    ({{ jornadaInfo.fonte == 'personalizada' ? 'Personalizada' : 'Padrão do escritório' }})
-                </span>
-            </span>
-        {% endif %}
-
+{% if carregarCssDaFolha %}
+<link rel="stylesheet" href="{{ asset('css/ponto-eletronico.css') }}">
+{% endif %}
+<section class="pe-folha" data-screen-label="Folha de Ponto">
+    <div class="pe-folha-barra">
+        <i class="bi bi-table" aria-hidden="true"></i>
+        <span class="pe-folha-titulo">{{ titulo }}</span>
+        {# A lista é filha da barra, como no desenho; o formulário que ela envia mora fora (atributo `form`). #}
         {% if competenciasPonto is defined and competenciasPonto is not empty and competenciaFormAction is defined %}
-            <form method="get" action="{{ competenciaFormAction }}" class="d-flex align-items-center gap-2">
-                <label for="{{ competenciaFieldId|default('competencia') }}" class="mb-0 small text-muted">Mês</label>
-                <select
-                    id="{{ competenciaFieldId|default('competencia') }}"
-                    name="competencia"
-                    class="form-select form-select-sm"
-                    onchange="this.form.submit()"
-                >
-                    {% for competencia in competenciasPonto %}
-                        <option value="{{ competencia.valor }}" {% if competencia.valor == competenciaSelecionada %}selected{% endif %}>{{ competencia.label }}</option>
-                    {% endfor %}
-                </select>
-            </form>
+            <select id="{{ campoCompetenciaId }}" name="competencia" form="{{ campoCompetenciaId }}-form" class="pe-folha-mes"
+                    aria-label="Competência" onchange="this.form.submit()">
+                {% for competencia in competenciasPonto %}
+                    <option value="{{ competencia.valor }}" {% if competencia.valor == competenciaSelecionada %}selected{% endif %}>{{ competencia.label }}</option>
+                {% endfor %}
+            </select>
         {% endif %}
-
+        {% if jornadaInfo is not null %}
+            {% set horasDaJornada = jornadaInfo.cargaHorariaSemanal // 60 %}
+            {% set minutosDaJornada = jornadaInfo.cargaHorariaSemanal % 60 %}
+            <span class="pe-folha-jornada" title="Carga horária semanal vigente"><i class="bi bi-calendar-week" aria-hidden="true"></i>{{ horasDaJornada }}h{{ '%02d'|format(minutosDaJornada) }}m/sem ({{ jornadaInfo.fonte == 'personalizada' ? 'Personalizada' : 'Padrão do escritório' }})</span>
+        {% endif %}
+        <span class="pe-folha-espaco"></span>
         {% if exportarFolhaHabilitado and exportarAnoResolved and exportarMesResolved %}
-            {% set urlPdf      = path('ponto_exportar_pdf',  exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) %}
-            {% set urlPdfInline = path('ponto_exportar_pdf', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved, inline: 1})) %}
-            {% set urlXlsx     = path('ponto_exportar_xlsx', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) %}
-            {% set nomePdf  = 'Folha de Ponto ' ~ ('%02d'|format(exportarMesResolved)) ~ '/' ~ exportarAnoResolved ~ '.pdf' %}
-            {% set nomeXlsx = 'Folha de Ponto ' ~ ('%02d'|format(exportarMesResolved)) ~ '/' ~ exportarAnoResolved ~ '.xlsx' %}
-            <div class="btn-group ms-auto">
-                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-eye me-1"></i>Visualizar / Exportar
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <button type="button" class="dropdown-item"
-                                data-bs-toggle="modal" data-bs-target="#modalPreviewFolhaPonto"
-                                data-url="{{ urlPdfInline }}"
-                                data-download="{{ urlPdf }}"
-                                data-nome="{{ nomePdf }}"
-                                data-mime="application/pdf">
-                            <i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDF
-                        </button>
-                    </li>
-                    <li>
-                        <button type="button" class="dropdown-item"
-                                data-bs-toggle="modal" data-bs-target="#modalPreviewFolhaPonto"
-                                data-url=""
-                                data-download="{{ urlXlsx }}"
-                                data-nome="{{ nomeXlsx }}"
-                                data-mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-                            <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>XLSX
-                        </button>
-                    </li>
-                </ul>
-            </div>
+            {% set urlPdf       = path('ponto_exportar_pdf',  exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) %}
+            {% set urlPdfInline = path('ponto_exportar_pdf',  exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved, inline: 1})) %}
+            {% set urlXlsx      = path('ponto_exportar_xlsx', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) %}
+            {% set nomePdf = 'Folha de Ponto ' ~ ('%02d'|format(exportarMesResolved)) ~ '/' ~ exportarAnoResolved ~ '.pdf' %}
+            {# P89 e P88 (ficam): ver o PDF antes de baixar e a planilha. P87: "Baixar PDF" baixa direto, por último. #}
+            <button type="button" class="pe-folha-btn" data-bs-toggle="modal" data-bs-target="#modalPreviewFolhaPonto"
+                    data-url="{{ urlPdfInline }}" data-download="{{ urlPdf }}" data-nome="{{ nomePdf }}">
+                <i class="bi bi-eye" aria-hidden="true"></i>Ver PDF
+            </button>
+            <button type="button" class="pe-folha-btn" data-folha-baixar="{{ urlXlsx }}">
+                <i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i>Baixar XLSX
+            </button>
+            <button type="button" class="pe-folha-btn" data-folha-baixar="{{ urlPdf }}">
+                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>Baixar PDF
+            </button>
         {% endif %}
     </div>
 
-    <div class="card-body p-0">
-        {% if competenciasPonto is defined and competenciasPonto is empty %}
-            <p class="text-muted small p-3 mb-0">Nenhum registro de ponto encontrado.</p>
-        {% elseif folhaRows is empty %}
-            <p class="text-muted small p-3 mb-0">Não há batidas para a competência selecionada.</p>
-        {% else %}
-            <table class="table table-striped mb-0">
-                <thead>
-                    <tr>
-                        <th>Dia do Mês</th>
-                        <th>Dia da Semana</th>
-                        <th>Entrada</th>
-                        <th>Repouso</th>
-                        <th>Retorno</th>
-                        <th>Saída</th>
-                        {% if mostrarBancoHoras %}
-                            <th title="Horas trabalhadas no dia">Trabalhado</th>
-                            <th title="Saldo do dia (positivo = extra, negativo = falta)">Saldo Dia</th>
-                            <th title="Saldo acumulado no mês, dia a dia">Saldo do Mês</th>
-                        {% endif %}
-                        {% if mostrarJustificativas %}
-                            <th>Justificativa</th>
-                        {% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for linha in folhaRows %}
-                        <tr data-chave-dia="{{ linha.chaveDia }}" class="{{ linha.isFeriado|default(false) ? 'table-warning' : (linha.fimSemana ? 'table-secondary' : '') }}">
-                            <td>{{ linha.diaMes }}</td>
-                            <td>
-                                {% if linha.isFeriado|default(false) %}
-                                    <span class="text-warning-emphasis fw-semibold">{{ linha.diaSemana }}</span>
-                                {% else %}
-                                    {{ linha.diaSemana }}
-                                {% endif %}
-                                {% if linha.homeOffice|default(false) %}
-                                    <span class="badge text-bg-info text-dark ms-1" title="Batida em home office">
-                                        <i class="bi bi-house-laptop"></i> Home Office
-                                    </span>
-                                {% endif %}
-                                {# Dia ambíguo: a conta segue a escolha de sempre (a primeira de cada tipo, a
-                                   última saída) e NÃO é reinterpretada — quem resolve é um humano corrigindo
-                                   a batida. Só aqui, na tela do colaborador e na ficha do admin; o PDF e o
-                                   XLSX assinados não anunciam pendência. #}
-                                {% if linha.aConferir|default([]) is not empty %}
-                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal ms-1 a-conferir"
-                                          data-a-conferir="{{ linha.aConferir|join(' ') }}"
-                                          data-bs-toggle="tooltip"
-                                          title="Batidas a conferir: {{ linha.aConferir|map(m => motivosAConferir[m] ?? m)|join(', ') }}. A folha conta a primeira batida de cada tipo e a última saída; as outras ficam fora da conta até serem corrigidas.">
-                                        <i class="bi bi-question-circle me-1"></i>A conferir
-                                    </span>
-                                {% endif %}
-                                {# As batidas que ficaram fora da conta. Antes desta mudança não apareciam em
-                                   lugar nenhum da folha, e o admin não tinha como corrigi-las por aqui. #}
-                                {% if editarBatidasHabilitado and linha.batidasDesconsideradas|default([]) is not empty %}
-                                    <div class="small text-muted mt-1 batidas-desconsideradas">
-                                        Fora da conta:
-                                        {% for desconsiderada in linha.batidasDesconsideradas %}
-                                            {% if desconsiderada.id %}
-                                                <div class="d-inline-block text-nowrap ms-1">
-                                                    <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: desconsiderada.id, competencia: competenciaSelecionada})) }}"
-                                                       class="text-body batida-desconsiderada" data-registro-id="{{ desconsiderada.id }}" title="Editar batida">
-                                                        {{ rotulosBatida[desconsiderada.tipo] ?? desconsiderada.tipo }} {{ desconsiderada.hora }}
-                                                    </a>
-                                                    <form method="post"
-                                                          action="{{ path(editarBatidasRotaDelete, editarBatidasParametros|merge({registroId: desconsiderada.id})) }}"
-                                                          class="d-inline"
-                                                          onsubmit="return confirm('Excluir esta batida?')">
-                                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_ponto_' ~ desconsiderada.id) }}">
-                                                        <button type="submit" class="btn btn-link btn-sm p-0 text-danger" title="Excluir batida">
-                                                            <i class="bi bi-x-circle"></i>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </td>
-
-                            {# O atalho "+" só vale para dia que JÁ tem alguma batida (esqueceu uma das
-                               quatro). Dia sem batida nenhuma só está na folha por causa da própria
-                               justificativa — tipicamente atestado ou folga já abonados; oferecer "+" ali
-                               convidaria a criar batida num dia fechado, que pode virar hora extra. #}
-                            {% set diaTemBatida = (linha.entradaId ?? null) is not null
-                                or (linha.repousoId ?? null) is not null
-                                or (linha.retornoId ?? null) is not null
-                                or (linha.saidaId   ?? null) is not null %}
-
-                            {# Macro para célula editável #}
-                            {% for tipoInfo in [
-                                {campo: 'entrada', id: linha.entradaId ?? null},
-                                {campo: 'repouso', id: linha.repousoId ?? null},
-                                {campo: 'retorno', id: linha.retornoId ?? null},
-                                {campo: 'saida',   id: linha.saidaId   ?? null}
-                            ] %}
-                                <td class="text-nowrap">
-                                    {% set horario = attribute(linha, tipoInfo.campo) %}
-                                    {% if editarBatidasHabilitado %}
-                                        <div class="d-flex align-items-center gap-1">
-                                            {% if tipoInfo.id %}
-                                                <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: tipoInfo.id, competencia: competenciaSelecionada})) }}"
-                                                   class="text-body text-decoration-none" title="Editar batida">
-                                                    {{ horario }}
+    <div class="pe-folha-rolagem">
+        <table class="pe-tab pe-resp">
+            <thead>
+                <tr>
+                    <th>Dia</th>
+                    <th>Semana</th>
+                    <th>Entrada</th>
+                    <th>Repouso</th>
+                    <th>Retorno</th>
+                    <th>Saída</th>
+                    {% if mostrarBancoHoras %}
+                        <th title="Horas trabalhadas no dia">Trabalhado</th>
+                        <th title="Saldo do dia (positivo = extra, negativo = falta)">Saldo dia</th>
+                        <th title="Saldo acumulado no mês, dia a dia">Saldo mês</th>
+                    {% endif %}
+                    {% if mostrarJustificativas %}
+                        <th>Justificativa</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in linhasDaFolha %}
+                    {% set diaTemBatida = (linha.entradaId ?? null) is not null
+                        or (linha.repousoId ?? null) is not null
+                        or (linha.retornoId ?? null) is not null
+                        or (linha.saidaId   ?? null) is not null %}
+                    {% set ehFeriado = linha.isFeriado|default(false) %}
+                    <tr class="pe-lin" data-chave-dia="{{ linha.chaveDia }}">
+                        <td class="pe-larga"><b>{{ linha.diaMes }}</b></td>
+                        <td class="pe-larga">{{ nomesDaSemana[linha.chaveDia|date('N')] }}
+                            {%- if ehFeriado and diaTemBatida %}
+                                <span class="pe-tag pe-tag--info pe-tag--extra" title="{{ linha.nomeFeriado }}"><i class="bi bi-calendar-event" aria-hidden="true"></i>Feriado</span>
+                            {%- endif %}
+                            {%- if linha.homeOffice|default(false) %}
+                                <span class="pe-tag pe-tag--info pe-tag--extra" title="Batida em home office"><i class="bi bi-house-laptop" aria-hidden="true"></i>Home Office</span>
+                            {%- endif %}
+                            {# Dia ambíguo: a conta segue a escolha de sempre (a primeira de cada tipo, a última saída) e NÃO é
+                               reinterpretada; quem resolve é um humano corrigindo a batida. Só aqui, na tela do colaborador e
+                               na ficha do admin; o PDF e o XLSX assinados não anunciam pendência. #}
+                            {%- if linha.aConferir|default([]) is not empty %}
+                                <span class="pe-tag pe-tag--alerta pe-tag--extra a-conferir"
+                                      data-a-conferir="{{ linha.aConferir|join(' ') }}"
+                                      data-bs-toggle="tooltip"
+                                      title="Batidas a conferir: {{ linha.aConferir|map(m => motivosAConferir[m] ?? m)|join(', ') }}. A folha conta a primeira batida de cada tipo e a última saída; as outras ficam fora da conta até serem corrigidas."><i class="bi bi-question-circle" aria-hidden="true"></i>A conferir</span>
+                            {%- endif %}
+                            {# As batidas que ficaram fora da conta, para o gestor corrigir pela ficha. #}
+                            {% if editarBatidasHabilitado and linha.batidasDesconsideradas|default([]) is not empty %}
+                                <span class="pe-folha-sub batidas-desconsideradas">
+                                    Fora da conta:
+                                    {% for desconsiderada in linha.batidasDesconsideradas %}
+                                        {% if desconsiderada.id %}
+                                            <span class="pe-folha-celula">
+                                                <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: desconsiderada.id, competencia: competenciaSelecionada})) }}"
+                                                   class="pe-folha-hora batida-desconsiderada" data-registro-id="{{ desconsiderada.id }}" title="Editar batida">
+                                                    {{ rotulosBatida[desconsiderada.tipo] ?? desconsiderada.tipo }} {{ desconsiderada.hora }}
                                                 </a>
                                                 <form method="post"
-                                                      action="{{ path(editarBatidasRotaDelete, editarBatidasParametros|merge({registroId: tipoInfo.id})) }}"
-                                                      class="d-inline"
+                                                      action="{{ path(editarBatidasRotaDelete, editarBatidasParametros|merge({registroId: desconsiderada.id})) }}"
+                                                      class="pe-folha-form"
                                                       onsubmit="return confirm('Excluir esta batida?')">
-                                                    <input type="hidden" name="_token" value="{{ csrf_token('delete_ponto_' ~ tipoInfo.id) }}">
-                                                    <button type="submit" class="btn btn-link btn-sm p-0 text-danger" title="Excluir batida">
-                                                        <i class="bi bi-x-circle"></i>
-                                                    </button>
+                                                    <input type="hidden" name="_token" value="{{ csrf_token('delete_ponto_' ~ desconsiderada.id) }}">
+                                                    <button type="submit" class="pe-mais pe-mais--excluir" title="Excluir batida" aria-label="Excluir batida"><i class="bi bi-x-circle" aria-hidden="true"></i></button>
                                                 </form>
-                                            {% else %}
-                                                <button type="button"
-                                                        class="btn btn-link btn-sm p-0 text-secondary"
-                                                        title="Adicionar {{ tipoInfo.campo }}"
-                                                        onclick="abrirModalAddBatida('{{ tipoInfo.campo }}', '{{ linha.chaveDia }}')">
-                                                    <i class="bi bi-plus-circle"></i>
-                                                </button>
-                                            {% endif %}
-                                        </div>
-                                    {% elseif justificarFaltanteHabilitado and tipoInfo.id is null %}
-                                        {% set chaveEsquecimento = linha.chaveDia ~ '|' ~ tipoInfo.campo %}
-                                        {% if esquecimentosRegistrados[chaveEsquecimento] is defined %}
-                                            <span class="text-warning" title="Esquecimento desta batida já justificado">
-                                                <i class="bi bi-hourglass-split"></i>
                                             </span>
-                                        {% elseif diaTemBatida
-                                            and not linha.fimSemana|default(false)
-                                            and not linha.isFeriado|default(false)
-                                            and not linha.antesDoPrimeiroRegistro|default(false)
-                                            and (dataHoje is not null and linha.chaveDia <= dataHoje) %}
-                                            <button type="button"
-                                                    class="btn btn-link btn-sm p-0 text-secondary"
-                                                    title="Esqueci de registrar a {{ rotulosBatida[tipoInfo.campo] }} deste dia"
-                                                    data-esquecimento-dia="{{ linha.chaveDia }}"
-                                                    data-esquecimento-campo="{{ tipoInfo.campo }}"
-                                                    data-esquecimento-rotulo="{{ rotulosBatida[tipoInfo.campo] }}">
-                                                <i class="bi bi-plus-circle"></i>
-                                            </button>
                                         {% endif %}
-                                    {% else %}
-                                        {{ horario }}
-                                    {% endif %}
-                                </td>
-                            {% endfor %}
-
-                            {% if mostrarBancoHoras %}
-                                <td class="text-nowrap">
-                                    {% if linha.minutosTrabalhadosDia is not null and linha.minutosTrabalhadosDia > 0 %}
-                                        {{ (linha.minutosTrabalhadosDia // 60) }}h{{ '%02d'|format(linha.minutosTrabalhadosDia % 60) }}m
-                                    {% endif %}
-                                </td>
-                                <td class="text-nowrap fw-semibold">
-                                    {# Dia mal batido: o zero sozinho pareceria jornada cumprida na régua. O
-                                       aviso diz que faltou BATIDA, não trabalho — e é só aqui (tela do
-                                       colaborador e ficha do admin); o PDF e o XLSX assinados não anunciam
-                                       pendência operacional. #}
-                                    {% if linha.registroIncompleto|default(false) %}
-                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal"
-                                              data-bs-toggle="tooltip"
-                                              title="Faltam batidas neste dia, então não dá para apurar a jornada: ele não credita nem debita. Corrija os registros para o saldo voltar a contar.">
-                                            <i class="bi bi-exclamation-triangle me-1"></i>Registro incompleto
-                                        </span>
-                                    {% elseif linha.saldoDia is not null %}
-                                        {% set absSaldo = linha.saldoDia < 0 ? -linha.saldoDia : linha.saldoDia %}
-                                        {% if linha.saldoDia > 0 %}
-                                            <span class="text-success">+{{ (absSaldo // 60) }}h{{ '%02d'|format(absSaldo % 60) }}m</span>
-                                        {% elseif linha.saldoDia < 0 %}
-                                            <span class="text-danger">-{{ (absSaldo // 60) }}h{{ '%02d'|format(absSaldo % 60) }}m</span>
-                                        {% else %}
-                                            <span class="text-muted">0:00</span>
-                                        {% endif %}
-                                    {% endif %}
-                                    {% if diasComRegistroEmOutroEscritorio[linha.chaveDia] is defined %}
-                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal"
-                                              data-registro-em-outro-escritorio
-                                              data-bs-toggle="tooltip"
-                                              title="{{ 'ponto_folha.registro_em_outro_escritorio_dica'|trans }}">
-                                            <i class="bi bi-exclamation-triangle me-1"></i>{{ 'ponto_folha.registro_em_outro_escritorio'|trans }}
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-nowrap fw-semibold">
-                                    {% if linha.saldoAcumulado is not null %}
-                                        {% set absAcum = linha.saldoAcumulado < 0 ? -linha.saldoAcumulado : linha.saldoAcumulado %}
-                                        {% if linha.saldoAcumulado > 0 %}
-                                            <span class="text-success">+{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m</span>
-                                        {% elseif linha.saldoAcumulado < 0 %}
-                                            <span class="text-danger">-{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m</span>
-                                        {% else %}
-                                            <span class="text-muted">0h</span>
-                                        {% endif %}
-                                    {% endif %}
-                                </td>
+                                    {% endfor %}
+                                </span>
                             {% endif %}
+                        </td>
 
-                            {% if mostrarJustificativas %}
-                                <td>
-                                    {% if linha.justificativa is defined and linha.justificativa is not null %}
-                                        {% set j = linha.justificativa %}
-                                        {% if j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
-                                            <span class="badge text-bg-danger">
-                                                <i class="bi bi-x-circle me-1"></i>Não abonada
-                                            </span>
-                                            {% if j.labelTipo %}
-                                                <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
-                                            {% endif %}
-                                        {% elseif j.status == 'abonado' %}
-                                            <span class="badge text-bg-success">
-                                                <i class="bi bi-check-circle me-1"></i>Abonada
-                                            </span>
-                                            {% if j.labelTipo %}
-                                                <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
-                                            {% endif %}
-                                            {% if j.abonoParcial and j.horaInicioAbono and j.horaFimAbono %}
-                                                <div class="small text-muted">{{ j.horaInicioAbono|date('H:i') }} às {{ j.horaFimAbono|date('H:i') }}</div>
-                                            {% endif %}
-                                        {% elseif j.status == 'pendente' %}
-                                            <span class="badge text-bg-warning text-dark">
-                                                <i class="bi bi-hourglass-split me-1"></i>Pendente
-                                            </span>
-                                            {% if j.labelTipo %}
-                                                <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="badge text-bg-danger">
-                                                <i class="bi bi-x-circle me-1"></i>Rejeitada
-                                            </span>
-                                            {% if j.labelTipo %}
-                                                <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endif %}
-                                </td>
-                            {% endif %}
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
+                        {% for tipoInfo in [
+                            {campo: 'entrada', id: linha.entradaId ?? null},
+                            {campo: 'repouso', id: linha.repousoId ?? null},
+                            {campo: 'retorno', id: linha.retornoId ?? null},
+                            {campo: 'saida',   id: linha.saidaId   ?? null}
+                        ] %}
+                            {% set horario = attribute(linha, tipoInfo.campo) %}
+                            {% set rotulo = rotulosBatida[tipoInfo.campo] %}
+                            <td data-r="{{ rotulo }}">
+                                {%- if editarBatidasHabilitado -%}
+                                    {%- if tipoInfo.id -%}
+                                        <span class="pe-folha-celula">
+                                            <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: tipoInfo.id, competencia: competenciaSelecionada})) }}"
+                                               class="pe-folha-hora" title="Editar batida">{{ horario }}</a>
+                                            <form method="post"
+                                                  action="{{ path(editarBatidasRotaDelete, editarBatidasParametros|merge({registroId: tipoInfo.id})) }}"
+                                                  class="pe-folha-form"
+                                                  onsubmit="return confirm('Excluir esta batida?')">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('delete_ponto_' ~ tipoInfo.id) }}">
+                                                <button type="submit" class="pe-mais pe-mais--excluir" title="Excluir batida" aria-label="Excluir batida"><i class="bi bi-x-circle" aria-hidden="true"></i></button>
+                                            </form>
+                                        </span>
+                                    {%- else -%}
+                                        <button type="button" class="pe-mais" title="Adicionar {{ tipoInfo.campo }}" aria-label="Adicionar {{ tipoInfo.campo }}"
+                                                onclick="abrirModalAddBatida('{{ tipoInfo.campo }}', '{{ linha.chaveDia }}')"><i class="bi bi-plus-circle" aria-hidden="true"></i></button>
+                                    {%- endif -%}
+                                {%- elseif tipoInfo.id is not null -%}
+                                    {{ horario }}
+                                {#- P30 (a), decisão de 09/11/2026: "+" em qualquer dia passado da folha; hoje e feriado ficam sem ele
+                                    (no desenho, um traço; aqui, a célula vazia). Ficam do sistema: dia antes do início da contagem
+                                    (uma batida ali moveria a contagem), dia sem batida nenhuma e a batida que já tem esquecimento
+                                    pedido ou abonado (sem duplicata); este último mostra "Em análise" na coluna Justificativa. -#}
+                                {%- elseif justificarFaltanteHabilitado
+                                    and esquecimentosRegistrados[linha.chaveDia ~ '|' ~ tipoInfo.campo] is not defined
+                                    and diaTemBatida
+                                    and not ehFeriado
+                                    and not linha.antesDoPrimeiroRegistro|default(false)
+                                    and dataHoje is not null and linha.chaveDia < dataHoje -%}
+                                    <button type="button" class="pe-mais"
+                                            title="Enviar registro de esquecimento: {{ rotulo }}"
+                                            aria-label="Enviar registro de esquecimento: {{ rotulo }}"
+                                            data-esquecimento-dia="{{ linha.chaveDia }}"
+                                            data-esquecimento-campo="{{ tipoInfo.campo }}"
+                                            data-esquecimento-rotulo="{{ rotulo }}"><i class="bi bi-plus-circle" aria-hidden="true"></i></button>
+                                {%- endif -%}
+                            </td>
+                        {% endfor %}
+
+                        {% if mostrarBancoHoras %}
+                            {% set trabalhou = linha.minutosTrabalhadosDia is not null and linha.minutosTrabalhadosDia > 0 %}
+                            <td{% if not trabalhou %} class="pe-vazia"{% endif %} data-r="Trabalhado">
+                                {%- if trabalhou %}{{ folha.horas(linha.minutosTrabalhadosDia) }}{% endif -%}
+                            </td>
+                            {{ include('ponto/_folha_saldo_dia.html.twig', {
+                                linha: linha,
+                                diaTemBatida: diaTemBatida,
+                                hojeDaFolha: hojeDaFolha,
+                                registroEmOutroEscritorio: diasComRegistroEmOutroEscritorio[linha.chaveDia] is defined
+                            }, with_context = false) }}
+                            {% set acumulado = linha.saldoAcumulado %}
+                            <td class="pe-sm{{ acumulado is null ? ' pe-vazia' : (acumulado < 0 ? ' pe-cor--neg' : (acumulado > 0 ? ' pe-cor--pos' : ' pe-cor--zero')) }}" data-r="Saldo mês">
+                                {%- if acumulado is not null %}{{ folha.saldo(acumulado) }}{% endif -%}
+                            </td>
+                        {% endif %}
+
+                        {% if mostrarJustificativas %}
+                            {{ include('ponto/_folha_justificativa.html.twig', {
+                                j: linha.justificativa ?? null,
+                                emAnalise: esquecimentosEmAnalise[linha.chaveDia] is defined
+                            }, with_context = false) }}
+                        {% endif %}
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="{{ totalDeColunas }}" class="pe-toda pe-folha-vazia">Nenhuma batida nesta competência.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
-    {# Bloco de totais do rodapé (spec §7): sem ele o colaborador vê o saldo do mês na última célula
-       da coluna "Saldo do Mês", a linha de horas pagas logo abaixo, e nenhuma soma — teria de
+    {# Bloco de totais do rodapé (spec §7; P32, fica): sem ele o colaborador vê o saldo do mês na última célula
+       da coluna "Saldo mês", a linha de horas pagas logo abaixo, e nenhuma soma; teria de
        fazer a conta de cabeça num número que é salário.
 
        `saldoMesMinutos` vem PRONTO dos dois controllers que incluem este partial
-       (PontoController::index e TenantController::editUserRole); `null` = nenhuma linha com saldo
-       apurado (mês sem batida), tratado como zero para que a soma continue existindo justamente no
-       mês em que só há o lançamento.
+       (PontoController::index e TenantController::editUserRole), calculado sobre as linhas do motor e não sobre as que
+       a tela mostra: o filtro do P25 não muda o número. `null` = nenhuma linha com saldo apurado (mês sem batida),
+       tratado como zero para que a soma continue existindo justamente no mês em que só há o lançamento.
 
-       ⚠️ O RÓTULO DA 3ª LINHA É "Total do mês", NÃO "banco de horas" — e a distinção não é estética.
+       ⚠️ O RÓTULO DA 3ª LINHA É "Total do mês", NÃO "banco de horas", e a distinção não é estética.
        `saldoMesMinutos` é o saldo DAQUELE MÊS (`buildRows` faz o acumulado nascer em zero no dia 1º),
        então esta soma é o resultado do mês com o ajuste manual, e NÃO o banco acumulado. Quem mostra
-       o banco acumulado nesta mesma página é o card do topo (`ponto/index.html.twig:30-35`, vindo de
+       o banco acumulado nesta mesma página é o "Banco de horas" da barra do cartão Registrar Ponto (vindo de
        `calcularSaldoAnual`). Chamar as duas coisas de "banco de horas" colocava dois números
        diferentes lado a lado: 100h pagas em dinheiro e quitadas com um lançamento de -6000 deixavam o
        card em "+0h00m" (certo) e este rodapé em "-100h00m", cobrando de volta o que acabou de ser
-       pago — a MESMA cobrança indevida que fez o dono reverter a soma no bloco assinado do PDF
+       pago, a MESMA cobrança indevida que fez o dono reverter a soma no bloco assinado do PDF
        (spec §7). Se for renomear de volta, leia antes a decisão do dono na spec §7. #}
     {% if horasPagasMinutos is defined and horasPagasMinutos != 0 %}
         {% set saldoMesMinutos = saldoMesMinutos is defined and saldoMesMinutos is not null ? saldoMesMinutos : 0 %}
         {% set totalMesMinutos = saldoMesMinutos + horasPagasMinutos %}
-        {% set absSaldoMes = saldoMesMinutos < 0 ? -saldoMesMinutos : saldoMesMinutos %}
-        {% set absHp = horasPagasMinutos < 0 ? -horasPagasMinutos : horasPagasMinutos %}
-        {% set absTotal = totalMesMinutos < 0 ? -totalMesMinutos : totalMesMinutos %}
-        <div class="px-3 py-2 border-top small">
-            <div class="ms-auto" style="max-width: 24rem;">
-                <div class="d-flex justify-content-between gap-3">
-                    <span class="text-muted">Saldo do mês</span>
-                    <span class="fw-semibold {{ saldoMesMinutos < 0 ? 'text-danger' : (saldoMesMinutos > 0 ? 'text-success' : 'text-muted') }}">
-                        {{ saldoMesMinutos < 0 ? '-' : (saldoMesMinutos > 0 ? '+' : '') }}{{ (absSaldoMes // 60) }}h{{ '%02d'|format(absSaldoMes % 60) }}m
-                    </span>
-                </div>
-                <div class="d-flex justify-content-between gap-3">
-                    <span class="text-muted">Horas pagas</span>
-                    <span class="fw-semibold {{ horasPagasMinutos < 0 ? 'text-danger' : 'text-success' }}">
-                        {{ horasPagasMinutos < 0 ? '-' : '+' }}{{ (absHp // 60) }}h{{ '%02d'|format(absHp % 60) }}m
-                    </span>
-                </div>
-                <div class="d-flex justify-content-between gap-3 border-top mt-1 pt-1">
-                    <span class="text-muted">Total do mês</span>
-                    <span class="fw-bold {{ totalMesMinutos < 0 ? 'text-danger' : (totalMesMinutos > 0 ? 'text-success' : 'text-muted') }}">
-                        {{ totalMesMinutos < 0 ? '-' : (totalMesMinutos > 0 ? '+' : '') }}{{ (absTotal // 60) }}h{{ '%02d'|format(absTotal % 60) }}m
-                    </span>
-                </div>
+        <div class="pe-folha-totais">
+            <div class="pe-folha-total">
+                <span class="pe-folha-total-rotulo">Saldo do mês</span>
+                <b class="pe-folha-total-valor {{ saldoMesMinutos < 0 ? 'pe-cor--neg' : (saldoMesMinutos > 0 ? 'pe-cor--pos' : 'pe-cor--zero') }}">{{ saldoMesMinutos < 0 ? '-' : (saldoMesMinutos > 0 ? '+' : '') }}{{ folha.horas(saldoMesMinutos) }}</b>
+            </div>
+            <div class="pe-folha-total">
+                <span class="pe-folha-total-rotulo">Horas pagas</span>
+                <b class="pe-folha-total-valor {{ horasPagasMinutos < 0 ? 'pe-cor--neg' : 'pe-cor--pos' }}">{{ horasPagasMinutos < 0 ? '-' : '+' }}{{ folha.horas(horasPagasMinutos) }}</b>
+            </div>
+            <div class="pe-folha-total pe-folha-total--soma">
+                <span class="pe-folha-total-rotulo">Total do mês</span>
+                <b class="pe-folha-total-valor {{ totalMesMinutos < 0 ? 'pe-cor--neg' : (totalMesMinutos > 0 ? 'pe-cor--pos' : 'pe-cor--zero') }}">{{ totalMesMinutos < 0 ? '-' : (totalMesMinutos > 0 ? '+' : '') }}{{ folha.horas(totalMesMinutos) }}</b>
             </div>
         </div>
     {% endif %}
-</div>
+</section>
+
+{% if competenciasPonto is defined and competenciasPonto is not empty and competenciaFormAction is defined %}
+{# O formulário da lista do mês (GET ?competencia=): fora do cartão, para a lista ficar filha direta da barra. #}
+<form id="{{ campoCompetenciaId }}-form" method="get" action="{{ competenciaFormAction }}" hidden></form>
+{% endif %}
 
 {% if exportarFolhaHabilitado %}
 <div class="modal fade" id="modalPreviewFolhaPonto" tabindex="-1" aria-labelledby="modalPreviewFolhaPontoLabel" aria-hidden="true">
@@ -418,37 +321,35 @@
 
 <script>
 (function () {
-    var modal = document.getElementById('modalPreviewFolhaPonto');
-    if (!modal) { return; }
-
-    modal.addEventListener('show.bs.modal', function (e) {
-        var btn      = e.relatedTarget;
-        var url      = btn.dataset.url;
-        var download = btn.dataset.download;
-        var nome     = btn.dataset.nome;
-        var mime     = btn.dataset.mime;
-
-        document.getElementById('previewFolhaNome').textContent = nome;
-        document.getElementById('previewFolhaDownload').href = download;
-        document.getElementById('previewFolhaConteudo').innerHTML = '';
-
-        if (mime === 'application/pdf' && url) {
-            document.getElementById('previewFolhaConteudo').innerHTML =
-                '<iframe src="' + url + '" class="w-100 border-0" style="height:78vh;" title="' + nome + '"></iframe>';
-        } else {
-            document.getElementById('previewFolhaConteudo').innerHTML =
-                '<div class="p-5 text-center text-muted w-100">' +
-                '<i class="bi bi-file-earmark-spreadsheet display-1 d-block mb-3 text-success"></i>' +
-                '<p class="mb-1 fw-semibold">' + nome + '</p>' +
-                '<p class="small mb-4">Pré-visualização não disponível para planilhas.</p>' +
-                '<a href="' + download + '" class="btn btn-success">' +
-                '<i class="bi bi-download me-1"></i> Baixar XLSX' +
-                '</a></div>';
+    // "Baixar PDF" e "Baixar XLSX" (P87 e P88): a resposta vem como anexo, então ir até ela baixa sem sair da tela.
+    // Delegado no documento: depois da batida a /ponto troca a folha inteira e os botões novos continuam funcionando.
+    document.addEventListener('click', function (e) {
+        var botao = e.target.closest('[data-folha-baixar]');
+        if (botao) {
+            window.location.href = botao.dataset.folhaBaixar;
         }
     });
 
+    var modal = document.getElementById('modalPreviewFolhaPonto');
+    if (!modal) { return; }
+
+    // "Ver PDF" (P89, fica): o PDF dentro da janela, com o botão de baixar.
+    modal.addEventListener('show.bs.modal', function (e) {
+        var btn = e.relatedTarget;
+        var conteudo = document.getElementById('previewFolhaConteudo');
+        var quadro = document.createElement('iframe');
+
+        document.getElementById('previewFolhaNome').textContent = btn.dataset.nome;
+        document.getElementById('previewFolhaDownload').href = btn.dataset.download;
+        quadro.src = btn.dataset.url;
+        quadro.className = 'w-100 border-0';
+        quadro.style.height = '78vh';
+        quadro.title = btn.dataset.nome;
+        conteudo.replaceChildren(quadro);
+    });
+
     modal.addEventListener('hide.bs.modal', function () {
-        document.getElementById('previewFolhaConteudo').innerHTML = '';
+        document.getElementById('previewFolhaConteudo').replaceChildren();
     });
 }());
 </script>

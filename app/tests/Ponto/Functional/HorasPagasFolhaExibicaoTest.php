@@ -100,11 +100,12 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $conteudo = (string) $client->getResponse()->getContent();
         $this->assertBlocoTotaisPresente($conteudo, '+2h00m', '-10h00m', '-8h00m');
 
-        // Âncora do cabeçalho renomeado: a coluna é "Saldo do Mês" (o acumulado DO MÊS, dia a dia), e
+        // Âncora do cabeçalho renomeado: a coluna é "Saldo mês" (o acumulado DO MÊS, dia a dia; o nome do
+        // desenho desde a E2 da spec ponto-desenho-0811), e
         // não "Banco de Horas" — nome que no bloco assinado passou a significar o acumulado do ANO.
         // Sem esta asserção, voltar o rótulo antigo recria a colisão de nomes na mesma página, que foi
         // o que o smoke do dono pegou no PDF.
-        self::assertStringContainsString('>Saldo do Mês</th>', $conteudo, 'a coluna tem de se chamar "Saldo do Mês"');
+        self::assertStringContainsString('>Saldo mês</th>', $conteudo, 'a coluna tem de se chamar "Saldo mês"');
         self::assertStringNotContainsString('>Banco de Horas</th>', $conteudo, 'o cabeçalho antigo não pode voltar');
     }
 
@@ -527,7 +528,7 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $conteudo = (string) $client->getResponse()->getContent();
         self::assertStringContainsString(
-            sprintf('<h3 class="card-title mb-0">Batidas de ponto - %s</h3>', $mesDoLancamento->format('m/Y')),
+            sprintf('<span class="pe-folha-titulo">Batidas de ponto - %s</span>', $mesDoLancamento->format('m/Y')),
             $conteudo,
             'o card tem de nomear a competência exibida mesmo quando ela não tem batida nenhuma',
         );
@@ -537,16 +538,16 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
 
     /**
      * Confere o valor exatamente dentro do marcador HTML exclusivo do rodapé "Horas pagas" da folha
-     * (`_folha_table.html.twig:282`) — `<span class="text-muted">Horas pagas</span>` seguido do
-     * `<span class="fw-semibold ...">valor</span>`. Não existe em nenhum outro template: a aba
+     * (`_folha_table.html.twig`, molde do desenho desde a E2) — `<span class="pe-folha-total-rotulo">Horas pagas</span>`
+     * seguido do `<b class="pe-folha-total-valor ...">valor</b>`. Não existe em nenhum outro template: a aba
      * "Horas pagas" da Tarefa 5 (`_horas_pagas_tab.html.twig`) usa outra marcação e lista o MESMO
      * lançamento com a MESMA formatação de valor — checar só a substring do valor (ou só a palavra
      * "Horas pagas") colide com aquela aba e prova exatamente nada sobre o rodapé desta tarefa.
      */
     private function assertRodapeHorasPagasPresente(string $conteudo, string $valorEsperado): void
     {
-        $padrao = '/<span class="text-muted">Horas pagas<\/span>\s*<span class="fw-semibold[^"]*">\s*'
-            . preg_quote($valorEsperado, '/') . '\s*<\/span>/';
+        $padrao = '/<span class="pe-folha-total-rotulo">Horas pagas<\/span>\s*<b class="pe-folha-total-valor[^"]*">\s*'
+            . preg_quote($valorEsperado, '/') . '\s*<\/b>/';
 
         self::assertMatchesRegularExpression(
             $padrao,
@@ -570,12 +571,12 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         string $horasPagasEsperado,
         string $totalEsperado,
     ): void {
-        $padrao = '/<span class="text-muted">Saldo do mês<\/span>\s*<span class="fw-semibold[^"]*">\s*'
-            . preg_quote($saldoMesEsperado, '/') . '\s*<\/span>'
-            . '.*?<span class="text-muted">Horas pagas<\/span>\s*<span class="fw-semibold[^"]*">\s*'
-            . preg_quote($horasPagasEsperado, '/') . '\s*<\/span>'
-            . '.*?<span class="text-muted">Total do mês<\/span>\s*<span class="fw-bold[^"]*">\s*'
-            . preg_quote($totalEsperado, '/') . '\s*<\/span>/s';
+        $padrao = '/<span class="pe-folha-total-rotulo">Saldo do mês<\/span>\s*<b class="pe-folha-total-valor[^"]*">\s*'
+            . preg_quote($saldoMesEsperado, '/') . '\s*<\/b>'
+            . '.*?<span class="pe-folha-total-rotulo">Horas pagas<\/span>\s*<b class="pe-folha-total-valor[^"]*">\s*'
+            . preg_quote($horasPagasEsperado, '/') . '\s*<\/b>'
+            . '.*?<div class="pe-folha-total pe-folha-total--soma">\s*<span class="pe-folha-total-rotulo">Total do mês<\/span>\s*<b class="pe-folha-total-valor[^"]*">\s*'
+            . preg_quote($totalEsperado, '/') . '\s*<\/b>/s';
 
         self::assertMatchesRegularExpression(
             $padrao,

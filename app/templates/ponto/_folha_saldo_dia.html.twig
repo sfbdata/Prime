@@ -1,0 +1,48 @@
+{#
+    Célula "Saldo dia" da Folha de Ponto (P27, desenho 16 L750 e L156). Recebe `linha` (do FolhaPontoBuilder),
+    `diaTemBatida`, `hojeDaFolha` (AAAA-MM-DD) e `registroEmOutroEscritorio`.
+
+    A ordem é a do desenho: "Fora de sequência" (um horário menor que o anterior) vence tudo; depois "Registro
+    incompleto" (a marca do motor, com a dica do sistema, que fica); o feriado sem batida; o saldo em texto; e
+    "Em andamento" no dia de hoje ainda sem saída. Fora do desenho (só a ficha mostra o dia sem batida): o zero
+    do dia sem batida fica na cor neutra; com batida, o zero é verde, como no desenho. Só formata o número do motor.
+#}
+{% import 'ponto/_folha_macros.html.twig' as folha %}
+{# Compara cada horário com o anterior QUE EXISTE: o dia sem repouso (ou sem entrada) pula a casa vazia. Nada de
+   índice: o `|filter` guarda as chaves de origem, e `horarios[i - 1]` quebrava no dia com buraco. #}
+{% set foraDeSequencia = false %}
+{% set horarioAnterior = null %}
+{% for horario in [linha.entrada, linha.repouso, linha.retorno, linha.saida] %}
+    {% if horario is not null and horario != '' %}
+        {% if horarioAnterior is not null and horario < horarioAnterior %}
+            {% set foraDeSequencia = true %}
+        {% endif %}
+        {% set horarioAnterior = horario %}
+    {% endif %}
+{% endfor %}
+{% set saldo = linha.saldoDia %}
+{% set selo = foraDeSequencia ? 'fora'
+    : (linha.registroIncompleto|default(false) ? 'incompleto'
+    : (linha.isFeriado|default(false) and not diaTemBatida ? 'feriado'
+    : (saldo is not null ? 'saldo'
+    : (linha.chaveDia == hojeDaFolha and diaTemBatida ? 'andamento' : null)))) %}
+<td class="pe-larga{% if selo is null and not registroEmOutroEscritorio %} pe-vazia{% endif %}" data-r="Saldo dia">
+    {%- if selo == 'fora' -%}
+        <span class="pe-tag pe-tag--erro"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>Fora de sequência</span>
+    {%- elseif selo == 'incompleto' -%}
+        {# Dia mal batido: o zero sozinho pareceria jornada cumprida. O aviso diz que faltou BATIDA, não trabalho, e é
+           só aqui (tela do colaborador e ficha do admin); o PDF e o XLSX assinados não anunciam pendência operacional. #}
+        <span class="pe-tag pe-tag--alerta" data-bs-toggle="tooltip"
+              title="Faltam batidas neste dia, então não dá para apurar a jornada: ele não credita nem debita. Corrija os registros para o saldo voltar a contar."><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Registro incompleto</span>
+    {%- elseif selo == 'feriado' -%}
+        <span class="pe-tag pe-tag--info" title="{{ linha.nomeFeriado }}"><i class="bi bi-calendar-event" aria-hidden="true"></i>Feriado</span>
+    {%- elseif selo == 'saldo' -%}
+        <b class="pe-pl {{ saldo < 0 ? 'pe-cor--neg' : (saldo > 0 or diaTemBatida ? 'pe-cor--pos' : 'pe-cor--zero') }}">{{ folha.saldo(saldo) }}</b>
+    {%- elseif selo == 'andamento' -%}
+        <span class="pe-tag pe-tag--info"><i class="bi bi-clock" aria-hidden="true"></i>Em andamento</span>
+    {%- endif -%}
+    {%- if registroEmOutroEscritorio %}
+        <span class="pe-tag pe-tag--alerta{% if selo is not null %} pe-tag--extra{% endif %}" data-registro-em-outro-escritorio data-bs-toggle="tooltip"
+              title="{{ 'ponto_folha.registro_em_outro_escritorio_dica'|trans }}"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{{ 'ponto_folha.registro_em_outro_escritorio'|trans }}</span>
+    {%- endif -%}
+</td>

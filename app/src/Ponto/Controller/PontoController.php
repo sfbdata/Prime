@@ -114,23 +114,10 @@ final class PontoController extends AbstractController
         $ano = (int) $agora->format('Y');
         $competenciaAtual = $agora->format('Y-m');
 
-        $limiteMinimo = $agora->modify('first day of last month')->format('Y-m');
-
-        $competenciasPonto = array_values(array_filter(
-            $repository->findCompetenciasComRegistroPorUsuario($user, $tenant),
-            fn($c) => $c['valor'] >= $limiteMinimo
-        ));
+        // P23 e D7 (spec ponto-desenho-0811 §5 E2): todos os meses desde o início da contagem neste escritório.
+        $inicioContagem = $this->inicioContagemResolver->resolver($user, $tenant);
+        $competenciasPonto = $this->competenciasDaFolha($agora, $inicioContagem);
         $competenciasDisponiveis = array_column($competenciasPonto, 'valor');
-
-        if (!in_array($competenciaAtual, $competenciasDisponiveis, true)) {
-            array_unshift($competenciasPonto, [
-                'valor' => $competenciaAtual,
-                'label' => $agora->format('m/Y'),
-                'ano' => $ano,
-                'mes' => $mes,
-            ]);
-            $competenciasDisponiveis[] = $competenciaAtual;
-        }
 
         $competenciaSelecionada = (string) $request->query->get('competencia', $competenciaAtual);
         if (!in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
@@ -152,7 +139,6 @@ final class PontoController extends AbstractController
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);
-        $inicioContagem = $this->inicioContagemResolver->resolver($user, $tenant);
         $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagem);
 
         $hojeStr = $agora->format('Y-m-d');
@@ -244,6 +230,7 @@ final class PontoController extends AbstractController
             'justificativaForm'  => $justificativaForm->createView(),
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
             'esquecimentosRegistrados' => $esquecimentosRegistrados,
+            'esquecimentosEmAnalise'   => EsquecimentosRegistrados::diasEmAnalise($justificativasDaCompetencia),
             'dataHoje'                 => $hojeStr,
             // Hora oficial do cartão (desenho, D9): o instante do servidor; a tela só soma o tempo decorrido.
             'agoraServidor'            => $agora,
@@ -970,6 +957,33 @@ final class PontoController extends AbstractController
         }
 
         return $choque->naBatida($user, $tenant, $agora);
+    }
+
+    /**
+     * Meses da lista da Folha na /ponto (P23 e D7, spec ponto-desenho-0811 §5 E2): do mês do início da contagem
+     * NESTE escritório (a primeira batida daqui, ou o abono que a antecede) até o mês corrente do servidor, o mais
+     * recente primeiro; o mês sem batida no meio também entra. Sem contagem, só o mês corrente. Outro escritório não
+     * entra porque o início da contagem é por escritório.
+     *
+     * @return list<array{valor: string, label: string, ano: int, mes: int}>
+     */
+    private function competenciasDaFolha(\DateTimeImmutable $agora, ?\DateTimeImmutable $inicioContagem): array
+    {
+        $mes = $agora->modify('first day of this month')->setTime(0, 0);
+        $primeiro = $inicioContagem?->modify('first day of this month')->setTime(0, 0) ?? $mes;
+
+        $competencias = [];
+        do {
+            $competencias[] = [
+                'valor' => $mes->format('Y-m'),
+                'label' => $mes->format('m/Y'),
+                'ano'   => (int) $mes->format('Y'),
+                'mes'   => (int) $mes->format('n'),
+            ];
+            $mes = $mes->modify('-1 month');
+        } while ($mes >= $primeiro);
+
+        return $competencias;
     }
 
     /**
