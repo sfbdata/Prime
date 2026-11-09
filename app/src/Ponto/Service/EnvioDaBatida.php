@@ -16,7 +16,8 @@ namespace App\Ponto\Service;
  * Na batida guardada sem internet (`semInternet: true`, E14) vale a hora do aparelho, dentro de dois limites: no máximo
  * {@see self::TETO_DA_FILA_HORAS} horas antes da chegada (decisão do Coordenador de 09/11/2026) e no máximo
  * {@see self::TOLERANCIA_DO_RELOGIO_SEGUNDOS} segundos à frente dela; dentro da tolerância, vale a chegada. A batida
- * guardada em outra conta ou outro escritório volta 409, e a fila a mantém guardada.
+ * guardada em outra conta ou outro escritório volta 409, e a fila a mantém guardada: o controller confere isso logo
+ * depois da autenticação ({@see self::deOutraConta()}), antes da permissão do escritório da sessão.
  */
 final class EnvioDaBatida
 {
@@ -59,12 +60,30 @@ final class EnvioDaBatida
         if ($idEnvio === null || $horaAparelho === null || !is_int($conta) || !is_int($escritorio)) {
             return EnvioLidoDaBatida::recusado($chegada, new RecusaDoEnvio(422, self::MENSAGEM_FILA_INCOMPLETA));
         }
-        $recusa = $conta !== $usuarioId || $escritorio !== $escritorioId
-            ? new RecusaDoEnvio(409, self::MENSAGEM_OUTRA_CONTA)
-            : $this->recusaPelaHora($horaAparelho, $chegada);
+        $recusa = $this->deOutraConta($dados, $usuarioId, $escritorioId) ?? $this->recusaPelaHora($horaAparelho, $chegada);
         $momento = $horaAparelho > $chegada ? $chegada : $horaAparelho;
 
         return new EnvioLidoDaBatida($chegada, $momento, $idEnvio, $horaAparelho, semInternet: true, recusaDaFila: $recusa);
+    }
+
+    /**
+     * A batida guardada sem internet em outra conta ou em outro escritório (409), lida só do que o pedido traz. Não
+     * depende da permissão nem do escritório da sessão (que pode faltar): a sessão pode já estar em outro escritório,
+     * sem o módulo de ponto, e a fila só mantém guardada a batida que volta 409. Conta ou escritório ausente ou inválido
+     * não é "outra conta": cai na recusa da fila incompleta de {@see self::ler()}.
+     *
+     * @param array<mixed> $dados o JSON da batida
+     */
+    public function deOutraConta(array $dados, int $usuarioId, ?int $escritorioId): ?RecusaDoEnvio
+    {
+        if (($dados['semInternet'] ?? false) !== true) {
+            return null;
+        }
+        $conta = $dados['usuarioId'] ?? null;
+        $escritorio = $dados['escritorioId'] ?? null;
+        $outra = (is_int($conta) && $conta !== $usuarioId) || (is_int($escritorio) && $escritorio !== $escritorioId);
+
+        return $outra ? new RecusaDoEnvio(409, self::MENSAGEM_OUTRA_CONTA) : null;
     }
 
     /** A batida guardada além do teto de idade, ou com o relógio do aparelho adiantado além da tolerância. */
