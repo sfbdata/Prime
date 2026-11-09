@@ -39,7 +39,7 @@ contratação do provedor de e-mail e D8. A fase A começa pelo que não depende
 4. A criptografia do protótipo usa peças maduras do navegador (WebCrypto), mas a parte mais delicada (assinatura
    cega e divisão da chave entre guardiões) foi escrita à mão. Isso precisa trocar por padrão publicado e passar
    por revisão de especialista de fora antes de qualquer votação de verdade.
-5. Estimativa: **cerca de 75 dias de implementação, 90 com revisão e correções**, em 20 PRs pequenos. Revisão
+5. Estimativa: **cerca de 75 dias de implementação, 90 com revisão e correções**, em 21 PRs pequenos. Revisão
    criptográfica externa, teste de intrusão e prova de carga ficam fora dessa conta (dependem de contratação).
 6. Eleição oficial da OAB depende de convênio, credenciamento e requisitos que o BlueJus ainda não tem (seção 5).
    O caminho realista é começar por votações institucionais (assembleia, associação), como o próprio ESPEC propõe.
@@ -411,7 +411,8 @@ contra o anexo de telas. Dias de uma sessão, já com testes; somar cerca de 20%
 
 | PR | Branch | Entrega | Dias | Migration |
 |---|---|---|---|---|
-| A1 | `voto-base` | Recurso `voto` no catálogo (nasce desligado), liberação por escritório, permissão `modules.voto.view`, item no menu lateral, tela dentro da moldura do sistema com a faixa de demonstração e as abas vazias | 2 | M1 |
+| A1 | `voto-base` | Recurso `voto` no catálogo (nasce desligado), permissão `modules.voto.view`, item no menu lateral, tela dentro da moldura do sistema com a faixa de demonstração e as abas vazias | 2 | M1 |
+| A1b | `voto-liberacao` | Liberação por escritório (molde da I.A., `liberadaPeloMaster`): lugar na tela do Master e trava no guarda do Voto. Separada da A1 em 09/11/2026; a chave `voto` fica desligada até ela entrar | 1 | M1b |
 | A2 | `voto-infra` | Schema `voto`, conexão do Voto, container `voto`, bloco do nginx com limites, `camera=(self)` e sem `access_log` nas rotas da urna (arquivos no repositório; subir na VPS é do Samuel) | 3 | M2 |
 | A3 | `voto-eleicao` | Eleição, evento, cargo, candidatura; 9 cenários; assistente de 7 etapas com rascunho; validações; publicar com hash canônico e código de conferência; modal "Conhecer candidaturas" | 5 | M3 |
 | A4 | `voto-equipe` | Perfis: equipe padrão e por votação, 8 papéis, "Designar", "Aplicar cargos da categoria", guardiões, acesso por link para quem não tem conta | 3 | M4 |
@@ -454,7 +455,7 @@ contra o anexo de telas. Dias de uma sessão, já com testes; somar cerca de 20%
 
 ### Soma e ordem
 
-- **Total:** A 17 + B 14 + C 20 + D 7 + E 16 = **74 dias**; com revisão e correções, **cerca de 90**.
+- **Total:** A 18 + B 14 + C 20 + D 7 + E 16 = **75 dias** (a A1b, separada da A1 em 09/11/2026, soma 1); com revisão e correções, **cerca de 90**.
 - **Caminho mínimo para um piloto sem mesa:** A1 a A5, B1, B2 ou B4, B3, C1 a C5, E1, E2 (cerca de 60 dias).
 - **Paralelo:** depois de A3, a parte de tela (A4, A5, B1, C4, D) pode correr numa sessão e a parte de protocolo
   (C1 a C3, E1) noutra; a regra "uma migration por vez" põe M4 a M10 em fila.
@@ -469,7 +470,8 @@ números são dados pelo Coordenador. Tabelas com `tenant_id`; nenhuma entidade 
 
 | # | PR | Conteúdo |
 |---|---|---|
-| M1 | A1 | Dados: linha `voto` desligada em `recurso_estado`; permissão `modules.voto.view` concedida aos perfis de sistema (molde de `Version20261030110000`); tabela de liberação por escritório |
+| M1 | A1 | Dados (Version20261109120000): linha `voto` desligada em `recurso_estado`; permissão `modules.voto.view` criada sem concessão (o perfil de sistema já passa pelo bypass do PermissionChecker; os demais perfis recebem no painel de Perfis) |
+| M1b | A1b | Liberação por escritório (número pedido ao Coordenador quando o PR for abrir) |
 | M2 | A2 | `CREATE SCHEMA voto` e permissões. Se D2 adotar usuário de banco próprio, criar o usuário é passo manual do Samuel na VPS (a migration roda com o usuário dono) |
 | M3 | A3 | `voto.evento`, `voto.eleicao` (configuração, estado, `cfg_hash`, campos da mesa e da sessão permanente), `voto.cargo`, `voto.candidatura` |
 | M4 | A4 | `voto.membro_da_equipe` (papel, escopo por evento ou votação, nome, e-mail, `user_id` opcional) |
