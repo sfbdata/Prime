@@ -695,6 +695,7 @@ final class PurgaArquivosTest extends KernelTestCase
             [
                 EscopoDeArquivo::deTenant($a)->comoTexto() . '/pasta_imagem_editor',
                 EscopoDeArquivo::deTenant($a)->comoTexto() . '/cobranca_documento',
+                EscopoDeArquivo::deTenant($a)->comoTexto() . '/assinatura_documento',
             ],
             $memoria->prefixosExcluidos,
         );
