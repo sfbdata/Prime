@@ -440,6 +440,10 @@ final class ConferenciaDePdf
         if ($alvo->cpf === null) {
             return ConferenciaDoCpf::SemCpfNoCertificado;
         }
+        // CPF de assinatura alterada, ou de certificado que pode ter sido trocado depois, não prova nada (M26).
+        if ($alvo->veredito !== VereditoDaAssinatura::Integra || $alvo->vinculoDoCertificado !== VinculoDoCertificado::Vinculado) {
+            return ConferenciaDoCpf::NaoConferido;
+        }
 
         $digitos = (string) preg_replace('/\D++/', '', $cpfEsperado);
 

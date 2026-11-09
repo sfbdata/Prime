@@ -115,7 +115,8 @@ trocado depois da assinatura.
 
 `ConferenciaDoPrefixo` (com `motivo()`): `NaoPedida`, `Confere`, `NaoConfere`.
 
-`ConferenciaDoCpf` (com `motivo()`): `NaoPedida`, `Confere`, `NaoConfere`, `SemCpfNoCertificado`, `SemAssinatura`.
+`ConferenciaDoCpf` (com `motivo()`): `NaoPedida`, `Confere`, `NaoConfere`, `SemCpfNoCertificado`, `SemAssinatura`,
+`NaoConferido` (M26).
 
 `VinculoDoCertificado` (com `motivo()`): `Vinculado` = `vinculado`, `NaoVinculado` = `nao_vinculado`, `Diferente` =
 `diferente`, `NaoConferido` = `nao_conferido`.
@@ -299,6 +300,11 @@ Decisões da revisão do motor (feature-review-agent):
 - **M25. Identidade só declarada**: titular, CPF, CNPJ, emissor e ICP-Brasil saem do próprio certificado, sem a
   cadeia até a AC raiz, que é da etapa 6 (pyHanko); qualquer um faz um certificado com o nome que quiser. O campo
   `icpBrasil` passou a se chamar `emissorDeclaraIcpBrasil`, e o contrato e os DTOs dizem "declarado" em cada campo.
+- **M26. CPF só confere com assinatura íntegra e certificado vinculado**: antes, o CPF saía `Confere` mesmo com a
+  assinatura `alterada`. Agora, na assinatura escolhida pela M16: sem CPF no certificado, `SemCpfNoCertificado` (é o
+  que o certificado declara, vinculado ou não); assinatura que não está `integra` ou vínculo que não é `vinculado`,
+  `NaoConferido` ("O CPF não foi conferido: a assinatura não está íntegra ou o certificado não está vinculado a
+  ela"); senão a comparação de sempre. Mesmo `Confere` é o CPF declarado pelo certificado (M25).
 
 ## 7. Testes
 
