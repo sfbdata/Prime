@@ -826,6 +826,16 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: NSR sem buraco com batidas ao mesmo tempo; código errado e inexistente com a mesma resposta; a página pública
   mostra o nome inteiro e não mostra CPF nem localização; limite de tentativas; com `PONTO_HMAC_SECRET` vazia, a batida
   grava, nada é emitido e nada quebra.
+- Decisões da implementação (Coordenador, 09/11/2026):
+  - O "LOCAL DO REGISTRO" do desenho sai só na imagem do comprovante, que a própria pessoa baixa; a página pública
+    continua sem localização e sem CPF.
+  - O código do comprovante é sorteado, não sai do HMAC. O HMAC-SHA256 sela os dados assinados, e o comprovante mostra
+    esse rótulo.
+  - A imagem sai em JPG, com a fonte DejaVu.
+  - Excluir a batida não apaga o comprovante emitido (a ligação com a batida fica nula, `SET NULL`).
+  - O NSR vai só para a batida que a própria pessoa registra, inclusive a da fila sem internet (E14). A lançada pelo
+    gestor e a criada pelo abono ficam sem NSR. O mesmo envio repetido (E13) não consome número.
+  - Dois limites de tentativas: `ponto_validacao` na página pública e `ponto_comprovante_imagem` no download da imagem.
 
 **E16. Folha com código BJF, PDF novo e aceite mensal.**
 - Entra: P22 ("Assinar folha"), P33 (o texto do aceite vai ao pacote jurídico, sem travar), P34 e D17 (PDF novo em
@@ -860,6 +870,15 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   nascem no mês do início da contagem da pessoa e atravessam os anos, e o lançamento de horas pagas de uma competência
   anterior vira o lote da própria competência. Sem fonte de saldo anterior ao primeiro lote, a linha "Anterior a ..." do
   desenho não aparece. Se um dia houver essa fonte, ela entra como um lote inicial com a data do primeiro dia do banco.
+- Jornada (decisão do Coordenador de 09/11/2026): o banco conta pela mesma jornada da folha, a pessoal ou, sem ela, a
+  do escritório (spec da jornada, §10.4). Vale em toda tela, no PDF, no XLSX e na ficha do gestor. Antes, quem não tinha
+  jornada pessoal não tinha as faltas contadas no banco. Medição em produção em 09/11/2026: muda 1 pessoa, em 1
+  escritório, com o novo saldo em -24h.
+- Textos da aba (decididos na revisão):
+  - Selos no singular quando cabe: "Vence hoje", "Vence em 1 dia", "1 mês".
+  - Os dias contam corridos.
+  - Sem lotes, a tabela mostra "Nenhum lote no banco de horas.".
+  - O compensado zerado mostra "0h", e o lote sem vencimento mostra "Sem prazo".
 - Migration: não; os lotes são calculados a partir da folha. Tabela `ponto_banco_lote` só se o cálculo se mostrar
   necessário.
 - Arquivos: `FolhaPontoBuilder.php` (`calcularSaldoAnual`; frente: avisar), serviço novo de lotes.
