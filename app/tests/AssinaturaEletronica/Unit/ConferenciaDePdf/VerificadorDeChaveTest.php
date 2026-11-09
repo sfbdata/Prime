@@ -89,6 +89,36 @@ final class VerificadorDeChaveTest extends TestCase
         self::assertNull($this->verificador->verificar(self::OID_ECDSA_SHA256, 'SHA-256', 'mensagem', $grande, $ec)->confere);
     }
 
+    #[TestDox('ECDSA: só SEQUENCE com exatamente dois INTEGER; inteiro a mais, etiqueta trocada ou SET não conferem')]
+    public function testEcdsaComEstruturaErrada(): void
+    {
+        $chave = OficinaDePdfAssinado::chave('ec');
+        openssl_sign('mensagem', $assinatura, $chave, \OPENSSL_ALGO_SHA256);
+        [$r, $s] = MontadorDeDer::partes((string) $assinatura);
+        $spki = self::spki($chave);
+        $conferir = fn (string $der): ?bool => $this->verificador->verificar(self::OID_ECDSA_SHA256, 'SHA-256', 'mensagem', $der, $spki)->confere;
+
+        self::assertTrue($conferir(MontadorDeDer::sequencia($r, $s)), 'a assinatura remontada continua válida');
+        self::assertNull($conferir(MontadorDeDer::sequencia($r, $s, MontadorDeDer::inteiro(1))), 'três elementos');
+        self::assertNull($conferir(MontadorDeDer::sequencia($r)), 'um elemento');
+        self::assertNull($conferir(MontadorDeDer::sequencia("\x04" . substr($r, 1), $s)), 'r como OCTET STRING');
+        self::assertNull($conferir(MontadorDeDer::sequencia($r, "\x04" . substr($s, 1))), 's como OCTET STRING');
+        self::assertNull($conferir(MontadorDeDer::conjunto($r, $s)), 'SET no lugar de SEQUENCE');
+    }
+
+    #[TestDox('RSA-PSS com chave de menos de 512 bits: não conferido, com o motivo de chave curta')]
+    public function testPssChaveCurta(): void
+    {
+        $modulo = "\xC0" . str_repeat("\x5A", 30) . "\x01";
+        $rsa = MontadorDeDer::sequencia(MontadorDeDer::tlv(0x02, "\0" . $modulo), MontadorDeDer::inteiro(65537));
+        $spki = MontadorDeDer::sequencia(MontadorDeDer::algoritmo(MontadorDeDer::OID_RSA, MontadorDeDer::nulo()), MontadorDeDer::tlv(0x03, "\0" . $rsa));
+
+        $resultado = $this->verificador->pss(self::PSS_MENSAGEM, str_repeat("\x01", 32), $spki, 'SHA-256');
+
+        self::assertNull($resultado->confere);
+        self::assertSame(VerificadorDeChave::MOTIVO_CHAVE_CURTA, $resultado->motivo);
+    }
+
     #[TestDox('algoritmo de assinatura fora da lista do protótipo (Ed25519): não conferido')]
     public function testAlgoritmoNaoSuportado(): void
     {
