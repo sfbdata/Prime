@@ -72,6 +72,43 @@ final class AbasDeGestaoDoPontoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    #[TestDox('Só os feriados (configurações do escritório) também abrem o painel das Configurações')]
+    public function testConfiguracoesSoComFeriados(): void
+    {
+        $feriados = $this->pessoa('feriados');
+        $this->vincular($feriados, $this->escritorio, ['modules.ponto.view', GestaoDoPonto::FERIADOS], false);
+
+        $this->pedir($feriados, '/ponto/configuracoes');
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('Sem o módulo do ponto, a permissão de gestão não abre nenhum dos dois painéis')]
+    public function testSemModuloDoPonto(): void
+    {
+        $semModulo = $this->pessoa('sem-modulo');
+        $this->vincular($semModulo, $this->escritorio, [GestaoDoPonto::EQUIPE, GestaoDoPonto::SEDES], false);
+
+        $this->pedir($semModulo, '/ponto/equipe');
+        self::assertResponseStatusCodeSame(403);
+        $this->pedir($semModulo, '/ponto/configuracoes');
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Quem gere o escritório A e está com a sessão no B, onde é colaborador, não abre a Equipe do B')]
+    public function testGestorDeOutroEscritorio(): void
+    {
+        $outro = $this->escritorio('Escritório Vizinho');
+        $gestor = $this->pessoa('gestor');
+        $this->vincularGestor($gestor, $outro);
+        $this->vincularColaborador($gestor, $this->escritorio);
+
+        $this->pedir($gestor, '/ponto/equipe');
+        self::assertResponseStatusCodeSame(403);
+        $this->logarComTenant($this->client, $gestor, $outro);
+        $this->client->request('GET', '/ponto/equipe');
+        self::assertResponseIsSuccessful();
+    }
+
     #[TestDox('Com permissão, as abas Equipe e Configurações entram depois de Minhas Justificativas, com o painel a buscar')]
     public function testAbasNaBarra(): void
     {

@@ -5,7 +5,7 @@
  * de cada batida.
  *
  * Ouve `ponto:aba-aberta` (js/ponto-abas.js) e, ao iniciar, carrega o painel que já veio aberto (`?aba=equipe`).
- * A busca tem prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest). O comportamento de cada
+ * A busca tem prazo próprio, como toda busca da tela (PontoPaineisJsTest). O comportamento de cada
  * painel mora no arquivo dele (js/ponto-equipe.js, js/ponto-configuracoes.js), por delegação no documento, e ouve
  * `ponto:painel-carregado` quando precisa preparar algo depois que o painel chega.
  *
@@ -54,7 +54,8 @@
                 credentials: 'same-origin',
                 signal: aborto.signal,
             });
-            if (!resposta.ok) {
+            // Redirecionamento (sessão sem escritório, vínculo suspenso) traz a página inteira: é falha, como na batida.
+            if (!resposta.ok || resposta.redirected) {
                 throw new Error('HTTP ' + resposta.status);
             }
             const html = await resposta.text();

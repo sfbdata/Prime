@@ -1,0 +1,88 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Ponto\Unit;
+
+use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * O painel das abas de gestão (Equipe e Configurações, E5 e E6) é buscado por `public/js/ponto-paineis.js` na primeira
+ * vez que a aba abre. O PHPUnit não executa script: estes testes travam as escolhas de que a tela depende (o smoke no
+ * navegador é do dono).
+ */
+#[Group('ponto')]
+#[CoversNothing]
+final class PontoPaineisJsTest extends TestCase
+{
+    #[TestDox('A busca do painel tem prazo e trata o redirecionamento como falha (sessão sem escritório, vínculo suspenso)')]
+    public function testBuscaComPrazo(): void
+    {
+        $carregar = self::trecho(self::js('ponto-paineis.js'), 'async function carregar(painel, deNovo) {', "document.addEventListener('ponto:aba-aberta'");
+
+        self::assertSame(1, substr_count(self::js('ponto-paineis.js'), 'fetch('), 'um fetch só, o do painel');
+        self::assertStringContainsString('signal: aborto.signal', $carregar, 'o painel não fica carregando para sempre');
+        self::assertStringContainsString('setTimeout(function () { aborto.abort(); }, CARREGAR_PRAZO_MS)', $carregar);
+        self::assertStringContainsString('clearTimeout(prazo)', $carregar);
+        self::assertStringContainsString('if (!resposta.ok || resposta.redirected) {', $carregar, 'a página de escolher escritório não entra no painel');
+    }
+
+    #[TestDox('Carregando, falha e "Tentar de novo" são texto, nunca HTML; só a resposta do servidor entra como HTML')]
+    public function testAvisosSaoTexto(): void
+    {
+        $js = self::js('ponto-paineis.js');
+
+        self::assertStringContainsString("const TEXTO_CARREGANDO = 'Carregando...';", $js);
+        self::assertStringContainsString("const TEXTO_FALHA = 'Não foi possível carregar esta aba.';", $js);
+        self::assertStringContainsString("const TEXTO_TENTAR = 'Tentar de novo';", $js);
+        self::assertStringContainsString('frase.textContent = texto;', $js);
+        self::assertStringContainsString('tentar.textContent = TEXTO_TENTAR;', $js);
+        self::assertSame(1, substr_count($js, 'innerHTML'), 'só o painel que veio do servidor');
+        self::assertStringContainsString("evento.target.closest('[data-painel-tentar]')", $js, 'o botão busca de novo');
+    }
+
+    #[TestDox('O painel abre pela aba (ponto:aba-aberta) e, ao entrar com ?aba=equipe, pelo painel que já veio visível')]
+    public function testQuandoBusca(): void
+    {
+        $paineis = self::js('ponto-paineis.js');
+        $abas    = self::js('ponto-abas.js');
+
+        self::assertStringContainsString("document.addEventListener('ponto:aba-aberta', function (evento) {", $paineis);
+        self::assertStringContainsString("document.querySelectorAll('section.pe-abas [data-carregar]:not([hidden])')", self::trecho($paineis, 'function iniciar() {', 'window.PontoPaineis'));
+        self::assertStringContainsString("if (estado === 'carregando' || (estado === 'pronto' && !deNovo)) {", $paineis, 'abrir de novo não busca de novo');
+
+        self::assertStringContainsString("new CustomEvent('ponto:aba-aberta'", $abas);
+        self::assertStringContainsString('avisarAbaAberta(nome);', self::trecho($abas, 'function abrirAba(nome, focar) {', 'function avisarAbaAberta(nome) {'));
+        self::assertStringContainsString('avisarAbaAberta(escolhida.dataset.aba);', self::trecho($abas, 'function iniciar() {', "document.readyState === 'loading'"));
+    }
+
+    #[TestDox('Na tela, o carregador entra antes do js/ponto-abas.js (ouve antes de a aba avisar)')]
+    public function testOrdemDosScripts(): void
+    {
+        $tela = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
+
+        $paineis = strpos($tela, "asset('js/ponto-paineis.js')");
+        $abas    = strpos($tela, "asset('js/ponto-abas.js')");
+        self::assertIsInt($paineis);
+        self::assertIsInt($abas);
+        self::assertLessThan($abas, $paineis);
+    }
+
+    private static function js(string $arquivo): string
+    {
+        return (string) file_get_contents(__DIR__ . '/../../../public/js/' . $arquivo);
+    }
+
+    private static function trecho(string $fonte, string $inicio, string $fim): string
+    {
+        $de  = strpos($fonte, $inicio);
+        self::assertIsInt($de, $inicio);
+        $ate = strpos($fonte, $fim, $de);
+        self::assertIsInt($ate, $fim);
+
+        return substr($fonte, $de, $ate - $de);
+    }
+}
