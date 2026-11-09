@@ -34,7 +34,7 @@ use Psr\Clock\ClockInterface;
  *   os outros, com o cargo (sem cargo, sem subtítulo).
  * - Hoje: as batidas do dia de todos numa consulta só, escolhidas como na folha (`HojeDaPessoaNaEquipe`).
  * - Banco: o mesmo número do topo da /ponto da pessoa (`FolhaPontoBuilder::calcularSaldoAnual`). É a parte cara
- *   (umas 26 consultas por pessoa): por isso o painel é buscado só quando a aba abre.
+ *   (umas 29 consultas por pessoa, com teto fixado em EquipeDoPontoConsultasTest): por isso o painel é buscado só quando a aba abre.
  * - Pendências: as de registro da pessoa neste escritório (`ListarPendenciasDeRegistroUseCase::soNoEscritorio`).
  */
 final class ConsultarEquipeDoPontoUseCase
