@@ -124,6 +124,7 @@ final class CarimboVisivelTest extends TestCase
         self::assertFalse($resultado->foiCarimbado());
         self::assertNull($resultado->pdf);
         self::assertSame('Ainda não há assinatura eletrônica feita pelo BlueJus para carimbar.', $resultado->recusa);
+        self::assertStringEndsNotWith('Use o original.', (string) $resultado->recusa);
     }
 
     #[TestDox('xref clássica: acréscimo incremental com anotação, aparência, fonte, página e trailer com /Prev')]
@@ -331,6 +332,20 @@ final class CarimboVisivelTest extends TestCase
         self::assertPreservado($original, $carimbado, 0);
     }
 
+    #[TestDox('objeto só no /ObjStm, /XRef sem /Index e atualização com /Size menor: o carimbo começa no 8, sem tocar no 7')]
+    public function testObjetoSoNoFluxoComSizeMenor(): void
+    {
+        $original = CarimboVisivelIndiceTest::recursosSoNoFluxo();
+        $carimbado = self::carimbado($original);
+        $acrescimo = substr($carimbado, \strlen($original));
+
+        self::assertStringContainsString("8 0 obj\n<</Type/Annot/Subtype/Stamp", $acrescimo);
+        self::assertStringNotContainsString('7 0 obj', $acrescimo);
+        self::assertStringContainsString("trailer\n<</Size 11/Root 1 0 R", $acrescimo);
+        self::assertSame([3, 8, 9, 10], self::conferirIndice($carimbado, $acrescimo));
+        self::assertPreservado($original, $carimbado, 0);
+    }
+
     #[TestDox('carimba PDF sem assinatura digital e com DocMDP 3 (anotação permitida)')]
     public function testCarimbaSemAssinaturaDigitalEComDocMdp3(): void
     {
@@ -345,6 +360,11 @@ final class CarimboVisivelTest extends TestCase
     public static function recusas(): iterable
     {
         $semPaginas = static fn (): string => MontadorDePdfDoCarimbo::classico([1 => '<</Type/Catalog>>']);
+        $entradasDemais = static fn (): string => MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R' . MontadorDePdfDoCarimbo::entradasDistintas(140_000) . '>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>',
+        ]);
         $kidsDemais = static fn (): string => MontadorDePdfDoCarimbo::classico([
             1 => '<</Type/Catalog/Pages 2 0 R>>',
             2 => '<</Type/Pages/Kids[' . str_repeat('3 0 R ', LocalizadorDaUltimaPagina::FILHOS_MAXIMOS + 1) . ']/Count 1>>',
@@ -362,19 +382,25 @@ final class CarimboVisivelTest extends TestCase
             4 => '<</Nao/EVetor>>',
         ]);
 
-        yield 'cifrado' => [static fn (): string => OficinaDePdfAssinado::pdfSemAssinatura('/Encrypt 9 0 R'), 'Arquivo protegido por senha. Use o original.'];
-        yield 'DocMDP 1' => [static fn (): string => OficinaDePdfAssinado::pdfAssinado('rsa', \sprintf(OficinaDePdfAssinado::DOCMDP, 1)), 'O primeiro signatário bloqueou alterações neste PDF. Use o original.'];
-        yield 'DocMDP 2' => [static fn (): string => OficinaDePdfAssinado::pdfAssinado('rsa', \sprintf(OficinaDePdfAssinado::DOCMDP, 2)), 'O primeiro signatário bloqueou alterações neste PDF. Use o original.'];
-        yield 'assinatura alterada' => [static fn (): string => str_replace('MediaBox[0 0 595 842]', 'MediaBox[0 0 595 843]', OficinaDePdfAssinado::pdfAssinado()), 'O primeiro signatário bloqueou alterações neste PDF. Use o original.'];
-        yield 'não é PDF' => [static fn (): string => 'isto não é um PDF', 'Estrutura do PDF não reconhecida. Use o original.'];
-        yield 'sem startxref' => [static fn (): string => "%PDF-1.7\n1 0 obj\n<</Type/Catalog>>\nendobj\n", 'Estrutura do PDF não reconhecida. Use o original.'];
-        yield 'startxref fora do arquivo' => [static fn (): string => "%PDF-1.7\nstartxref\n999999\n%%EOF\n", 'Estrutura do PDF não reconhecida. Use o original.'];
-        yield 'trailer sem /Root' => [static fn (): string => str_replace('/Root 1 0 R', '', OficinaDePdfAssinado::pdfSemAssinatura()), 'Estrutura do PDF não reconhecida. Use o original.'];
-        yield 'fluxo /XRef sem /Size' => [static fn (): string => (string) preg_replace('/\/Size \d+/', '', MontadorDePdfDoCarimbo::comFluxoDeXref([1 => '<</Type/Catalog/Pages 2 0 R>>'])), 'Estrutura do PDF não reconhecida. Use o original.'];
-        yield 'catálogo sem /Pages' => [$semPaginas, 'Página não localizada no PDF. Use o original.'];
-        yield '/Kids com referências demais' => [$kidsDemais, 'Página não localizada no PDF. Use o original.'];
-        yield '/Annots indireto ausente' => [$semVetor, 'Anotações não localizadas. Use o original.'];
-        yield '/Annots indireto que não é vetor' => [$outroValor, 'Anotações não localizadas. Use o original.'];
+        yield 'cifrado' => [static fn (): string => OficinaDePdfAssinado::pdfSemAssinatura('/Encrypt 9 0 R'), 'Arquivo protegido por senha.'];
+        yield 'DocMDP 1' => [static fn (): string => OficinaDePdfAssinado::pdfAssinado('rsa', \sprintf(OficinaDePdfAssinado::DOCMDP, 1)), 'O primeiro signatário bloqueou alterações neste PDF.'];
+        yield 'DocMDP 2' => [static fn (): string => OficinaDePdfAssinado::pdfAssinado('rsa', \sprintf(OficinaDePdfAssinado::DOCMDP, 2)), 'O primeiro signatário bloqueou alterações neste PDF.'];
+        yield 'assinatura alterada' => [static fn (): string => str_replace('MediaBox[0 0 595 842]', 'MediaBox[0 0 595 843]', OficinaDePdfAssinado::pdfAssinado()), 'O primeiro signatário bloqueou alterações neste PDF.'];
+        yield 'não é PDF' => [static fn (): string => 'isto não é um PDF', 'Estrutura do PDF não reconhecida.'];
+        yield 'sem startxref' => [static fn (): string => "%PDF-1.7\n1 0 obj\n<</Type/Catalog>>\nendobj\n", 'Estrutura do PDF não reconhecida.'];
+        yield 'startxref fora do arquivo' => [static fn (): string => "%PDF-1.7\nstartxref\n999999\n%%EOF\n", 'Estrutura do PDF não reconhecida.'];
+        yield 'trailer sem /Root' => [static fn (): string => str_replace('/Root 1 0 R', '', OficinaDePdfAssinado::pdfSemAssinatura()), 'Estrutura do PDF não reconhecida.'];
+        yield 'fluxo /XRef sem /Size' => [static fn (): string => (string) preg_replace('/\/Size \d+/', '', MontadorDePdfDoCarimbo::comFluxoDeXref([1 => '<</Type/Catalog/Pages 2 0 R>>'])), 'Estrutura do PDF não reconhecida.'];
+        yield 'cabeçalho falso de 999999999 num texto' => [static fn (): string => MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => "<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/T(exemplo:\n999999999 0 obj)>>",
+        ]), 'Estrutura do PDF não reconhecida.'];
+        yield 'catálogo sem /Pages' => [$semPaginas, 'Página não localizada no PDF.'];
+        yield 'catálogo com entradas demais para a memória da procura' => [$entradasDemais, 'Página não localizada no PDF.'];
+        yield '/Kids com referências demais' => [$kidsDemais, 'Página não localizada no PDF.'];
+        yield '/Annots indireto ausente' => [$semVetor, 'Anotações não localizadas.'];
+        yield '/Annots indireto que não é vetor' => [$outroValor, 'Anotações não localizadas.'];
     }
 
     /** @param \Closure(): string $pdf */
@@ -387,6 +413,19 @@ final class CarimboVisivelTest extends TestCase
         self::assertFalse($resultado->foiCarimbado());
         self::assertNull($resultado->pdf);
         self::assertSame($texto, $resultado->recusa);
+        self::assertStringEndsNotWith('Use o original.', (string) $resultado->recusa);
+    }
+
+    #[TestDox('recusa leva só o motivo: nenhum texto de recusa termina com "Use o original." (o JS da tela acrescenta)')]
+    public function testRecusaSoComOMotivo(): void
+    {
+        $textos = array_filter((new \ReflectionClass(CarimboVisivel::class))->getConstants(), 'is_string');
+
+        self::assertSame('Não foi possível carimbar.', CarimboVisivel::FALHA);
+        self::assertCount(8, $textos);
+        foreach ($textos as $nome => $texto) {
+            self::assertStringEndsNotWith('Use o original.', $texto, $nome);
+        }
     }
 
     #[TestDox('verificação final: carimbo que mudaria o número de assinaturas para o motor é recusado')]
@@ -395,7 +434,8 @@ final class CarimboVisivelTest extends TestCase
         $resultado = self::carimbar(OficinaDePdfAssinado::pdfAssinado(), [self::assinatura('/ByteRange [0 1 2 3]')]);
 
         self::assertNull($resultado->pdf);
-        self::assertSame('Verificação final não confirmou a preservação. Use o original.', $resultado->recusa);
+        self::assertSame('Verificação final não confirmou a preservação.', $resultado->recusa);
+        self::assertStringEndsNotWith('Use o original.', (string) $resultado->recusa);
     }
 
     /**

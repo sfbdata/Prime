@@ -15,9 +15,10 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
  * /Annots: vetor direto ou referência a um vetor.
  *
  * Os objetos vêm do `CarimboVisivelObjetos`, com a regra de versão do leitor do motor (um objeto solto antigo vence a
- * cópia mais nova em /ObjStm, como no protótipo) e com o orçamento da procura inteira: cada objeto é lido e analisado
- * uma vez, e o /Kids tem teto de filhos. Só o primeiro nível de cada dicionário é lido. Sem estado e sem disco. Nunca
- * lança: árvore quebrada, ciclo ou orçamento estourado devolvem null.
+ * cópia mais nova em /ObjStm, como no protótipo) e com o orçamento da procura inteira (trabalho, memória guardada,
+ * tamanho de cada corpo): cada objeto é lido e analisado uma vez, e o /Kids tem teto de filhos. Só o primeiro nível de
+ * cada dicionário é lido (`CarimboVisivelDicionario`). Sem estado e sem disco. Nunca lança: árvore quebrada, ciclo ou
+ * orçamento estourado devolvem null.
  */
 final class LocalizadorDaUltimaPagina
 {
@@ -27,9 +28,6 @@ final class LocalizadorDaUltimaPagina
     public const FILHOS_MAXIMOS = LimitesDaConferencia::OBJETOS_MAXIMOS;
 
     private const ESPACOS = " \t\r\n\f\0";
-    private const DELIMITADORES = " \t\r\n\f\0()<>[]{}/%";
-    /** O que muda a leitura dentro de um vetor ou dicionário: o resto é pulado de uma vez. */
-    private const ESPECIAIS_DO_GRUPO = '()<>[]%';
     private const NUMERO = '([+-]?(?:\d+\.?\d*|\.\d+))';
 
     public function localizar(string $pdf, int $numeroDaRaiz, int $geracaoDaRaiz): ?CarimboVisivelPagina
@@ -73,7 +71,9 @@ final class LocalizadorDaUltimaPagina
      */
     private static function dicionario(CarimboVisivelObjetos $objetos, array $referencia): ?array
     {
-        return $objetos->analisado($referencia[0], $referencia[1], static fn (string $corpo): ?array => self::entradas($corpo));
+        $sintaxe = new CarimboVisivelDicionario($objetos);
+
+        return $objetos->analisado($referencia[0], $referencia[1], static fn (string $corpo): ?array => $sintaxe->entradas($corpo));
     }
 
     /**
@@ -153,7 +153,7 @@ final class LocalizadorDaUltimaPagina
             anotacoesDiretas: $valor !== null && str_starts_with($valor, '[') ? substr($valor, 1, -1) : null,
             referenciaDasAnotacoes: $referenciaDasAnotacoes,
             vetorDasAnotacoes: $referenciaDasAnotacoes === null ? null : $objetos->objeto($referenciaDasAnotacoes[0], $referenciaDasAnotacoes[1]),
-            aberturaDoDicionario: self::depoisDosEspacos($corpo, 0),
+            aberturaDoDicionario: (new CarimboVisivelDicionario($objetos))->depoisDosEspacos($corpo, 0),
         );
     }
 
@@ -219,143 +219,5 @@ final class LocalizadorDaUltimaPagina
     private static function referencia(string $valor): ?array
     {
         return preg_match('/^\s*(\d{1,10})\s+(\d{1,5})\s+R\s*$/', $valor, $p) === 1 ? [(int) $p[1], (int) $p[2]] : null;
-    }
-
-    /**
-     * O primeiro nível de um dicionário: nome => [valor como está no texto, início do nome, fim do valor]. Nome
-     * repetido fica com o último valor, como no pdf.js. Null se o texto não começa com um dicionário completo.
-     *
-     * @return array<string, array{string, int, int}>|null
-     */
-    private static function entradas(string $texto): ?array
-    {
-        $i = self::depoisDosEspacos($texto, 0);
-        if (substr($texto, $i, 2) !== '<<') {
-            return null;
-        }
-        $entradas = [];
-        $i = self::depoisDosEspacos($texto, $i + 2);
-        while (($texto[$i] ?? '') === '/') {
-            $fimDoNome = $i + 1 + strcspn($texto, self::DELIMITADORES, $i + 1);
-            $inicioDoValor = self::depoisDosEspacos($texto, $fimDoNome);
-            $fim = self::fimDoValor($texto, $inicioDoValor);
-            if ($fim === null) {
-                return null;
-            }
-            $entradas[substr($texto, $i, $fimDoNome - $i)] = [substr($texto, $inicioDoValor, $fim - $inicioDoValor), $i, $fim];
-            $i = self::depoisDosEspacos($texto, $fim);
-        }
-
-        return substr($texto, $i, 2) === '>>' ? $entradas : null;
-    }
-
-    /** Pula espaços e comentários. */
-    private static function depoisDosEspacos(string $texto, int $i): int
-    {
-        while (true) {
-            $i += strspn($texto, self::ESPACOS, $i);
-            if (($texto[$i] ?? '') !== '%') {
-                return $i;
-            }
-            $i += strcspn($texto, "\r\n", $i);
-        }
-    }
-
-    /** Onde acaba o valor que começa em `$i`; null se ali não começa um valor. */
-    private static function fimDoValor(string $texto, int $i): ?int
-    {
-        $c = $texto[$i] ?? '';
-
-        return match (true) {
-            $c === '' || str_contains(')>]{}', $c) => null,
-            $c === '(' => self::fimDoTexto($texto, $i),
-            $c === '<' && ($texto[$i + 1] ?? '') !== '<' => self::fimDoHexadecimal($texto, $i),
-            $c === '<' || $c === '[' => self::fimDoGrupo($texto, $i),
-            $c === '/' => $i + 1 + strcspn($texto, self::DELIMITADORES, $i + 1),
-            default => self::fimDaPalavra($texto, $i),
-        };
-    }
-
-    /** Número, palavra (`true`, `null`) ou referência `n g R`. */
-    private static function fimDaPalavra(string $texto, int $i): int
-    {
-        $fim = $i + strcspn($texto, self::DELIMITADORES, $i);
-        if (ctype_digit(substr($texto, $i, $fim - $i))
-            && preg_match('/\G\s+\d+\s+R(?![^\s\/\[\]<>(){}%])/', $texto, $p, 0, $fim) === 1) {
-            return $fim + \strlen($p[0]);
-        }
-
-        return $fim;
-    }
-
-    /** Vetor ou dicionário, com o que houver dentro (textos, hexadecimais, comentários, outros grupos). */
-    private static function fimDoGrupo(string $texto, int $i): ?int
-    {
-        $profundidade = 0;
-        $tamanho = \strlen($texto);
-        while ($i < $tamanho) {
-            $passo = self::passoNoGrupo($texto, $i);
-            if ($passo === null) {
-                return null;
-            }
-            [$i, $mudanca] = $passo;
-            $profundidade += $mudanca;
-            if ($profundidade === 0) {
-                return $i;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * O próximo pedaço dentro de um grupo: a posição depois dele e quanto a profundidade muda.
-     *
-     * @return array{int, int}|null
-     */
-    private static function passoNoGrupo(string $texto, int $i): ?array
-    {
-        $dois = substr($texto, $i, 2);
-        $c = $texto[$i];
-        $fim = match (true) {
-            $dois === '<<' || $dois === '>>' => $i + 2,
-            $c === '[' || $c === ']' => $i + 1,
-            $c === '%' => $i + strcspn($texto, "\r\n", $i),
-            $c === '(' => self::fimDoTexto($texto, $i),
-            $c === '<' => self::fimDoHexadecimal($texto, $i),
-            default => $i + 1 + strcspn($texto, self::ESPECIAIS_DO_GRUPO, $i + 1),
-        };
-        $mudanca = match (true) {
-            $dois === '<<' || $c === '[' => 1,
-            $dois === '>>' || $c === ']' => -1,
-            default => 0,
-        };
-
-        return $fim === null ? null : [$fim, $mudanca];
-    }
-
-    /** Texto entre parênteses, com parênteses aninhados e escapes; pula de uma vez o que não é `\\`, `(` ou `)`. */
-    private static function fimDoTexto(string $texto, int $i): ?int
-    {
-        $profundidade = 0;
-        $tamanho = \strlen($texto);
-        while ($i < $tamanho) {
-            $c = $texto[$i];
-            if ($c === ')' && --$profundidade === 0) {
-                return $i + 1;
-            }
-            $profundidade += $c === '(' ? 1 : 0;
-            $i = min($tamanho, $i + ($c === '\\' ? 2 : 1));
-            $i += strcspn($texto, '\\()', $i);
-        }
-
-        return null;
-    }
-
-    private static function fimDoHexadecimal(string $texto, int $i): ?int
-    {
-        $fim = strpos($texto, '>', $i);
-
-        return $fim === false ? null : $fim + 1;
     }
 }

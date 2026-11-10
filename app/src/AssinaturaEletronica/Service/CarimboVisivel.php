@@ -19,6 +19,9 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\VereditoDaAssinatura;
  * Só carimba o que o motor permite (sem DocMDP 1 ou 2, sem cifra, sem assinatura alterada) e só entrega depois de o
  * motor conferir o resultado: o original é o começo dele, o número de assinaturas é o mesmo e cada assinatura íntegra
  * continua íntegra. Nunca grava nada: recebe e devolve bytes. Nenhuma exceção sai daqui.
+ *
+ * A recusa leva só o motivo, sem o " Use o original." do aviso: quem o acrescenta é o JS da tela (o `presCarimbo` do
+ * desenho, dc:384: `r.motivo + ' Use o original.'`).
  */
 final class CarimboVisivel
 {
@@ -29,9 +32,8 @@ final class CarimboVisivel
     public const PAGINA_NAO_LOCALIZADA = 'Página não localizada no PDF.';
     public const ANOTACOES_NAO_LOCALIZADAS = 'Anotações não localizadas.';
     public const PRESERVACAO_NAO_CONFIRMADA = 'Verificação final não confirmou a preservação.';
-    /** O desenho acrescenta isto a toda recusa do `carimbar` (dc:384). */
-    public const USE_O_ORIGINAL = ' Use o original.';
-    public const FALHA = 'Não foi possível carimbar. Use o original.';
+    /** O motivo de uma falha inesperada (o JS da tela acrescenta " Use o original.", como em toda recusa). */
+    public const FALHA = 'Não foi possível carimbar.';
 
     /** Assinaturas no carimbo, como o `slice(0, 6)` do desenho; a linha do código vem depois delas. */
     public const ASSINATURAS_MAXIMAS = 6;
@@ -55,7 +57,7 @@ final class CarimboVisivel
         try {
             return CarimboVisivelResultado::carimbado($this->comCarimbo($pdf, self::linhas($assinaturas, $codigo)));
         } catch (CarimboVisivelRecusa $recusa) {
-            return CarimboVisivelResultado::recusado($recusa->getMessage() . self::USE_O_ORIGINAL);
+            return CarimboVisivelResultado::recusado($recusa->getMessage());
         } catch (\Throwable) {
             return CarimboVisivelResultado::recusado(self::FALHA);
         }

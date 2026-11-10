@@ -15,28 +15,50 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
  *
  * O leitor do motor varre o arquivo e infla os /ObjStm a cada objeto; aqui o arquivo é varrido uma vez, cada /ObjStm
  * é inflado no máximo uma vez e cada objeto é lido e analisado uma vez só. Tetos da procura (no estilo dos M22 e M27
- * do motor): objetos diferentes lidos, trabalho somado (bytes varridos, copiados, inflados e analisados), bytes
- * guardados (o que fica em memória) e entradas dos índices. Passar de um deles lança `\OverflowException`, que o
- * localizador transforma em página não localizada.
+ * do motor):
+ * - objetos diferentes lidos, e o tamanho do corpo de cada um;
+ * - trabalho somado: bytes varridos, copiados, inflados e analisados, mais cada passo da análise e cada volta no
+ *   cabeçalho de um /ObjStm, com um peso em bytes;
+ * - memória guardada: corpos, dados dos /ObjStm, entradas dos índices e o que a análise dos dicionários guarda (estas
+ *   três por estimativa do custo no PHP);
+ * - entradas dos índices: cabeçalhos soltos e o /N de cada /ObjStm, somado antes de percorrer o cabeçalho dele.
+ * Passar de um deles lança `\OverflowException`, que o localizador transforma em página não localizada.
+ *
+ * O teto do inflado de um /ObjStm é o menor entre o do motor e o que ainda cabe guardar (descontada a cópia do
+ * comprimido): mais restrito que o motor, pode recusar um PDF que o motor leria. É uma recusa conservadora.
  */
 final class CarimboVisivelObjetos
 {
     /** Objetos diferentes lidos numa procura: catálogo, nós, filhos vazios pulados, página, caixas e anotações. */
     public const OBJETOS_MAXIMOS = 64;
+    /** Corpo de um objeto: catálogo, nó /Pages e página são pequenos; um /Kids de 10.000 referências cabe em ~150 KB. */
+    public const CORPO_MAXIMO_EM_BYTES = 1024 * 1024;
     /** Trabalho somado da procura inteira: o teto de uma leitura do motor (M22), aqui para a procura toda. */
     public const TRABALHO_MAXIMO_EM_BYTES = LimitesDaConferencia::TRABALHO_MAXIMO_EM_BYTES;
-    /** Bytes guardados em memória: corpos lidos e dados dos /ObjStm (inflados ou não). */
+    /**
+     * Peso de um passo da análise (uma entrada, um pedaço de vetor ou dicionário, uma volta num texto ou comentário):
+     * uma volta no PHP custa o tempo de ~1 KB varrido por uma função nativa.
+     */
+    public const PASSO_EM_BYTES = 1024;
+    /** Peso de uma volta no cabeçalho de um /ObjStm, mais leve que um passo da análise. */
+    public const VOLTA_DO_CABECALHO_EM_BYTES = 64;
+    /** Memória guardada na procura: corpos, dados dos /ObjStm, índices e análises. */
     public const GUARDADO_MAXIMO_EM_BYTES = 16 * 1024 * 1024;
-    /** Entradas dos índices: cabeçalhos soltos do arquivo e objetos dos /ObjStm lidos (M27). */
+    /** Estimativa da memória de uma entrada de índice (número => posição) num vetor do PHP (medido: ~52 a 80 bytes). */
+    public const ENTRADA_DO_INDICE_EM_BYTES = 80;
+    /** Entradas dos índices: cabeçalhos soltos do arquivo e o /N dos /ObjStm lidos (M27). */
     public const ENTRADAS_MAXIMAS = LimitesDaConferencia::CABECALHOS_MAXIMOS_DO_ARQUIVO;
 
     /** Até onde o dicionário de um /ObjStm é procurado, para trás e para a frente do marcador, como no motor. */
     private const JANELA_DO_DICIONARIO = 4096;
+    /** Número e geração numa chave inteira: a geração tem até 5 algarismos e o número até 9. */
+    private const GERACOES = 100_000;
+    private const NUMEROS = 1_000_000_000;
 
     private int $trabalho = 0;
     private int $guardado = 0;
     private int $entradas = 0;
-    /** @var array<string, int>|null "numero geracao" => posição do último cabeçalho solto */
+    /** @var array<int, int>|null número * GERACOES + geração => posição do último cabeçalho solto */
     private ?array $soltos = null;
     /** @var list<int>|null marcadores /Type/ObjStm que faltam ler, do primeiro ao último */
     private ?array $marcadores = null;
@@ -65,7 +87,7 @@ final class CarimboVisivelObjetos
         if (\count($this->lidos) >= self::OBJETOS_MAXIMOS) {
             throw new \OverflowException('Objetos demais na procura da página.');
         }
-        $corpo = $this->solto($chave) ?? $this->emFluxo($numero);
+        $corpo = $this->solto($numero, $geracao) ?? $this->emFluxo($numero);
         $this->guardar(\strlen((string) $corpo));
 
         return $this->lidos[$chave] = $corpo;
@@ -103,6 +125,21 @@ final class CarimboVisivelObjetos
         }
     }
 
+    /** Soma passos da análise ao trabalho, cada um com o peso `PASSO_EM_BYTES`. */
+    public function passos(int $quantos = 1): void
+    {
+        $this->gastar($quantos * self::PASSO_EM_BYTES);
+    }
+
+    /** Soma ao que a procura guarda em memória, antes de guardar; passar do teto lança. */
+    public function guardar(int $bytes): void
+    {
+        $this->guardado += $bytes;
+        if ($this->guardado > self::GUARDADO_MAXIMO_EM_BYTES) {
+            throw new \OverflowException('Dados demais guardados na procura da página.');
+        }
+    }
+
     public function trabalho(): int
     {
         return $this->trabalho;
@@ -113,39 +150,45 @@ final class CarimboVisivelObjetos
         return $this->guardado;
     }
 
-    private function guardar(int $bytes): void
+    private function contarEntradas(int $quantas): void
     {
-        $this->guardado += $bytes;
-        if ($this->guardado > self::GUARDADO_MAXIMO_EM_BYTES) {
-            throw new \OverflowException('Dados demais guardados na procura da página.');
-        }
-    }
-
-    private function contarEntrada(): void
-    {
-        if (++$this->entradas > self::ENTRADAS_MAXIMAS) {
+        $this->entradas += $quantas;
+        if ($this->entradas > self::ENTRADAS_MAXIMAS) {
             throw new \OverflowException('Objetos demais no arquivo para a procura da página.');
         }
+        $this->guardar($quantas * self::ENTRADA_DO_INDICE_EM_BYTES);
     }
 
-    private function solto(string $chave): ?string
+    private function exigirCorpoPequeno(int $tamanho): void
+    {
+        if ($tamanho > self::CORPO_MAXIMO_EM_BYTES) {
+            throw new \OverflowException('Objeto grande demais na procura da página.');
+        }
+    }
+
+    private function solto(int $numero, int $geracao): ?string
     {
         $this->soltos ??= $this->indexarSoltos();
-        $cabecalho = $this->soltos[$chave] ?? null;
+        $cabecalho = $numero < self::NUMEROS && $geracao < self::GERACOES ? $this->soltos[$numero * self::GERACOES + $geracao] ?? null : null;
         if ($cabecalho === null) {
             return null;
         }
         $inicio = (int) strpos($this->pdf, 'obj', $cabecalho) + 3;
         $fim = strpos($this->pdf, 'endobj', $inicio);
         $this->gastar(($fim === false ? \strlen($this->pdf) : $fim) - $inicio);
+        if ($fim === false) {
+            return null;
+        }
+        $this->exigirCorpoPequeno($fim - $inicio);
 
-        return $fim === false ? null : trim(substr($this->pdf, $inicio, $fim - $inicio));
+        return trim(substr($this->pdf, $inicio, $fim - $inicio));
     }
 
     /**
-     * Cada cabeçalho solto do arquivo, numa varredura só, com o padrão do leitor do motor; vale o último.
+     * Cada cabeçalho solto do arquivo, numa varredura só, com o padrão do leitor do motor; vale o último. Número de mais
+     * de 9 algarismos ou geração de mais de 5 não entram (nenhuma referência da procura chega neles).
      *
-     * @return array<string, int>
+     * @return array<int, int>
      */
     private function indexarSoltos(): array
     {
@@ -153,8 +196,10 @@ final class CarimboVisivelObjetos
         $soltos = [];
         $posicao = 0;
         while (preg_match('/(?:^|[\s>])(\d++)\s++(\d++)\s++obj\b/', $this->pdf, $partes, \PREG_OFFSET_CAPTURE, $posicao) === 1) {
-            $this->contarEntrada();
-            $soltos[$partes[1][0] . ' ' . $partes[2][0]] = $partes[0][1];
+            $this->contarEntradas(1);
+            if (\strlen($partes[1][0]) <= 9 && \strlen($partes[2][0]) <= 5) {
+                $soltos[(int) $partes[1][0] * self::GERACOES + (int) $partes[2][0]] = $partes[0][1];
+            }
             $posicao = $partes[0][1] + \strlen($partes[0][0]);
         }
 
@@ -171,12 +216,16 @@ final class CarimboVisivelObjetos
         }
         [$dados, $quantidade, $primeiro] = $this->fluxos[$this->doFluxo[$numero]];
         $cabecalho = $this->cabecalho($dados, $quantidade, $primeiro);
-        for ($i = 0; $i < $quantidade; ++$i) {
-            if (($cabecalho[2 * $i] ?? null) === $numero) {
-                $inicio = $primeiro + ($cabecalho[2 * $i + 1] ?? 0);
-                $fim = $i + 1 < $quantidade ? $primeiro + ($cabecalho[2 * $i + 3] ?? 0) : \strlen($dados);
+        foreach (array_keys($cabecalho, $numero, true) as $posicao) {
+            if ($posicao % 2 === 0 && $posicao < 2 * $quantidade) {
+                $inicio = $primeiro + ($cabecalho[$posicao + 1] ?? 0);
+                $fim = $posicao + 2 < 2 * $quantidade ? $primeiro + ($cabecalho[$posicao + 3] ?? 0) : \strlen($dados);
+                if ($fim < $inicio) {
+                    return null;
+                }
+                $this->exigirCorpoPequeno($fim - $inicio);
 
-                return $fim >= $inicio ? trim(substr($dados, $inicio, $fim - $inicio)) : null;
+                return trim(substr($dados, $inicio, $fim - $inicio));
             }
         }
 
@@ -254,7 +303,8 @@ final class CarimboVisivelObjetos
     }
 
     /**
-     * Os dados do fluxo (inflados se for FlateDecode, com o teto do que ainda cabe guardar), o /N e o /First.
+     * Os dados do fluxo (inflados se for FlateDecode), o /N e o /First. A cópia do comprimido e o inflado, juntos,
+     * cabem no que ainda resta guardar; senão, null.
      *
      * @return array{string, int, int}|null
      */
@@ -269,12 +319,13 @@ final class CarimboVisivelObjetos
         $inicio += ($this->pdf[$inicio] ?? '') === "\n" ? 1 : 0;
         $fim = strpos($this->pdf, 'endstream', $inicio);
         $this->gastar(($fim === false ? \strlen($this->pdf) : $fim) - $inicio);
-        if ($fim === false) {
+        $restante = self::GUARDADO_MAXIMO_EM_BYTES - $this->guardado;
+        if ($fim === false || $fim - $inicio > $restante) {
             return null;
         }
         $dados = substr($this->pdf, $inicio, $fim - $inicio);
         if (str_contains($dicionario, 'FlateDecode')) {
-            $limite = min(LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES, self::GUARDADO_MAXIMO_EM_BYTES - $this->guardado);
+            $limite = min(LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES, $restante - \strlen($dados));
             $dados = InfladorLimitado::inflar(rtrim($dados, "\r\n"), max(0, $limite));
             if ($dados === null) {
                 return null;
@@ -286,17 +337,21 @@ final class CarimboVisivelObjetos
         return (int) $f[1] <= \strlen($dados) ? [$dados, (int) $n[1], (int) $f[1]] : null;
     }
 
-    /** @param array{string, int, int} $corpo */
+    /**
+     * Registra os números do fluxo. O /N entra no teto de entradas antes do laço, e o laço só percorre os pares que o
+     * cabeçalho tem (no máximo /N), cada volta somada ao trabalho.
+     *
+     * @param array{string, int, int} $corpo
+     */
     private function registrar(array $corpo, int $comeco): void
     {
         [$dados, $quantidade, $primeiro] = $corpo;
+        $this->contarEntradas($quantidade);
         $cabecalho = $this->cabecalho($dados, $quantidade, $primeiro);
-        for ($i = 0; $i < $quantidade; ++$i) {
-            $numero = $cabecalho[2 * $i] ?? null;
-            if ($numero !== null && !isset($this->doFluxo[$numero])) {
-                $this->contarEntrada();
-                $this->doFluxo[$numero] = $comeco;
-            }
+        $voltas = min($quantidade, intdiv(\count($cabecalho) + 1, 2));
+        $this->gastar($voltas * self::VOLTA_DO_CABECALHO_EM_BYTES);
+        for ($i = 0; $i < $voltas; ++$i) {
+            $this->doFluxo[$cabecalho[2 * $i]] ??= $comeco;
         }
     }
 

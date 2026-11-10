@@ -11,11 +11,15 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
  * começa uma tabela `xref` clássica ou um fluxo /XRef, e do dicionário do trailer (ou do fluxo) o /Size, o /Root e, se
  * houver, o /Info e o /ID, com o texto como está no arquivo.
  *
- * Diferente do protótipo, o primeiro número livre não confia só no /Size: um /Size menor que os números em uso faria
- * o carimbo escrever por cima de um objeto do arquivo.
+ * Diferente do protótipo, o primeiro número livre não confia só no /Size do último índice: um /Size menor que os
+ * números em uso faria o carimbo escrever por cima de um objeto do arquivo. E, se os objetos do carimbo passariam do
+ * limite de números do PDF, o índice não é reconhecido.
  */
 final readonly class CarimboVisivelIndice
 {
+    /** O maior número de objeto do PDF 1.7 (Anexo C). */
+    public const NUMERO_MAXIMO_DE_OBJETO = 8_388_607;
+
     private function __construct(
         /** Onde começa o último índice: o /Prev do acréscimo. */
         public int $anterior,
@@ -23,8 +27,9 @@ final readonly class CarimboVisivelIndice
         /** O /Size do último índice, como está no arquivo. */
         public int $tamanho,
         /**
-         * O primeiro número livre para os objetos do carimbo: o maior entre o /Size e um a mais que o maior número em
-         * uso no arquivo (cabeçalho solto `n g obj` ou faixa do /Index de um fluxo /XRef).
+         * O primeiro número livre para os objetos do carimbo: o maior entre todo /Size do arquivo (de qualquer trailer
+         * e de qualquer fluxo /XRef) e um a mais que o maior número em uso (cabeçalho solto `n g obj` ou faixa do
+         * /Index de um fluxo /XRef).
          */
         public int $primeiroLivre,
         /** O texto `/Root n g R` do arquivo. */
@@ -36,7 +41,10 @@ final readonly class CarimboVisivelIndice
     ) {
     }
 
-    /** Null quando o protótipo diria "Estrutura do PDF não reconhecida.". */
+    /**
+     * Null quando o protótipo diria "Estrutura do PDF não reconhecida.", e também quando o /Size novo (o primeiro
+     * livre mais os três objetos do carimbo e o do fluxo /XRef) passaria de `NUMERO_MAXIMO_DE_OBJETO`.
+     */
     public static function ler(string $pdf): ?self
     {
         $anterior = self::ultimoStartxref($pdf);
@@ -51,7 +59,7 @@ final readonly class CarimboVisivelIndice
             return null;
         }
         $emUso = self::seguinteAoMaiorEmUso($pdf);
-        if ($emUso === null) {
+        if ($emUso === null || max((int) $tamanho[1], $emUso) + 4 > self::NUMERO_MAXIMO_DE_OBJETO) {
             return null;
         }
         preg_match('/\/Info\s+\d+\s+\d+\s+R/', $dicionario, $informacoes);
@@ -93,16 +101,20 @@ final readonly class CarimboVisivelIndice
     }
 
     /**
-     * Um a mais que o maior número em uso: cabeçalhos soltos (o padrão do leitor do motor, com até 9 algarismos) e
-     * faixas `primeiro quantidade` do /Index dos fluxos /XRef (os objetos dentro de /ObjStm só são achados por elas).
-     * Null acima do teto de cabeçalhos do motor (M27).
+     * O maior entre todo /Size do arquivo (um /Size fora de trailer ou fluxo /XRef só deixa o número maior) e um a mais
+     * que o maior número em uso: cabeçalhos soltos (o padrão do leitor do motor) e faixas `primeiro quantidade` do
+     * /Index dos fluxos /XRef (os objetos dentro de /ObjStm são achados por elas ou pelo /Size). Número de mais de 9
+     * algarismos conta como acima do limite. Null acima do teto de cabeçalhos do motor (M27).
      */
     private static function seguinteAoMaiorEmUso(string $pdf): ?int
     {
-        $soltos = self::maiorDasOcorrencias($pdf, '/(?:^|[\s>])(\d{1,9})\s++\d{1,5}\s++obj\b/', static fn (string $numero): int => (int) $numero + 1);
-        $faixas = self::maiorDasOcorrencias($pdf, '/\/Index\s*+\[([\d\s]*+)\]/', self::fimDasFaixas(...));
+        $maiores = [
+            self::maiorDasOcorrencias($pdf, '/\/Size\s*+(\d++)/', self::numero(...)),
+            self::maiorDasOcorrencias($pdf, '/(?:^|[\s>])(\d++)\s++\d++\s++obj\b/', static fn (string $numero): int => self::numero($numero) + 1),
+            self::maiorDasOcorrencias($pdf, '/\/Index\s*+\[([\d\s]*+)\]/', self::fimDasFaixas(...)),
+        ];
 
-        return $soltos === null || $faixas === null ? null : max($soltos, $faixas);
+        return \in_array(null, $maiores, true) ? null : max($maiores);
     }
 
     /**
@@ -127,21 +139,22 @@ final readonly class CarimboVisivelIndice
         return $maior;
     }
 
-    /**
-     * O fim (primeiro mais quantidade) da faixa que vai mais longe num /Index, par a par, sem montar a lista; faixa com
-     * número de mais de 9 algarismos não conta.
-     */
+    /** O fim (primeiro mais quantidade) da faixa que vai mais longe num /Index, par a par, sem montar a lista. */
     private static function fimDasFaixas(string $miolo): int
     {
         $fim = 0;
         $posicao = 0;
         while (preg_match('/\G\s*+(\d++)\s++(\d++)/', $miolo, $faixa, 0, $posicao) === 1) {
             $posicao += \strlen($faixa[0]);
-            if (\strlen($faixa[1]) <= 9 && \strlen($faixa[2]) <= 9) {
-                $fim = max($fim, (int) $faixa[1] + (int) $faixa[2]);
-            }
+            $fim = max($fim, self::numero($faixa[1]) + self::numero($faixa[2]));
         }
 
         return $fim;
+    }
+
+    /** O número do texto; com mais de 9 algarismos, um acima do limite (sem estourar o inteiro). */
+    private static function numero(string $algarismos): int
+    {
+        return \strlen($algarismos) <= 9 ? (int) $algarismos : self::NUMERO_MAXIMO_DE_OBJETO + 1;
     }
 }

@@ -280,21 +280,103 @@ final class LocalizadorDaUltimaPaginaTest extends TestCase
         self::assertSame(0, self::localizar(OficinaDePdfAssinado::pdfSemAssinatura())?->aberturaDoDicionario);
     }
 
-    #[TestDox('sonda: nó vazio de 2 MB listado 63 vezes no /Kids é lido e analisado uma vez só')]
+    #[TestDox('sonda: nó vazio listado 63 vezes no /Kids é lido e analisado uma vez só')]
     public function testNoVazioRepetidoNoKids(): void
     {
+        // 80 mil passos de análise (~82 MB do orçamento): analisado duas vezes, passaria do orçamento da procura.
         $pdf = MontadorDePdfDoCarimbo::classico([
             1 => self::CATALOGO,
             2 => '<</Type/Pages/Kids[3 0 R' . str_repeat(' 4 0 R', 63) . ']/Count 1>>',
             3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 100 100]>>',
-            4 => '<</Type/Pages/Kids[]/Count 0/Lixo(' . str_repeat('a', 2 * 1024 * 1024) . ')>>',
+            4 => '<</Type/Pages/Kids[]/Count 0/Lixo[' . str_repeat('[]', 40_000) . ']>>',
         ]);
 
-        // Relido a cada volta, seriam 126 MB analisados: passaria do orçamento da procura e não acharia a página.
         [$pagina, $segundos] = self::medir(static fn (): ?CarimboVisivelPagina => self::localizar($pdf));
 
         self::assertSame(3, $pagina?->numero);
         self::assertLessThan(2.0, $segundos);
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function catalogosGrandes(): iterable
+    {
+        yield '3 MB' => [3 * 1024 * 1024];
+        yield '10 MB' => [10 * 1024 * 1024];
+    }
+
+    #[DataProvider('catalogosGrandes')]
+    #[TestDox('sonda: catálogo de $_dataName com entradas pequenas recusa pelo teto do corpo, sem analisar')]
+    public function testCatalogoGrandeComEntradasPequenas(int $tamanho): void
+    {
+        $pdf = MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R' . MontadorDePdfDoCarimbo::entradasDistintas(intdiv($tamanho, 7)) . '>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 100 100]>>',
+        ]);
+
+        [$pagina, $segundos, $memoria] = self::medir(static fn (): ?CarimboVisivelPagina => self::localizar($pdf));
+
+        self::assertNull($pagina);
+        self::assertLessThan(2.0, $segundos);
+        self::assertLessThan(3 * \strlen($pdf), $memoria);
+    }
+
+    #[TestDox('sonda: catálogo abaixo do teto do corpo com entradas pequenas recusa pela memória que as entradas guardam')]
+    public function testCatalogoComEntradasPequenas(): void
+    {
+        $pdf = MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R' . MontadorDePdfDoCarimbo::entradasDistintas(140_000) . '>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 100 100]>>',
+        ]);
+
+        [$pagina, $segundos, $memoria] = self::medir(static fn (): ?CarimboVisivelPagina => self::localizar($pdf));
+
+        self::assertLessThan(CarimboVisivelObjetos::CORPO_MAXIMO_EM_BYTES, \strlen($pdf));
+        self::assertNull($pagina);
+        self::assertLessThan(2.0, $segundos);
+        // Sem o teto, as 140 mil entradas ocupariam ~48 MB.
+        self::assertLessThan(CarimboVisivelObjetos::GUARDADO_MAXIMO_EM_BYTES + 4 * 1024 * 1024, $memoria);
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function gruposVazios(): iterable
+    {
+        yield '900 KB (passos da análise)' => [450_000];
+        yield '15 MB (teto do corpo)' => [7_500_000];
+    }
+
+    #[DataProvider('gruposVazios')]
+    #[TestDox('sonda: catálogo com `[]` repetido de $_dataName recusa rápido')]
+    public function testCatalogoComGruposVazios(int $grupos): void
+    {
+        $pdf = MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R/X[' . str_repeat('[]', $grupos) . ']>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 100 100]>>',
+        ]);
+
+        [$pagina, $segundos, $memoria] = self::medir(static fn (): ?CarimboVisivelPagina => self::localizar($pdf));
+
+        self::assertNull($pagina);
+        self::assertLessThan(2.0, $segundos);
+        self::assertLessThan(3 * \strlen($pdf), $memoria);
+    }
+
+    #[TestDox('sonda: 9.990 /ObjStm com /N 10000 e cabeçalho vazio recusam pelo teto de entradas, antes de percorrer o /N')]
+    public function testFluxosComNAltoECabecalhoVazio(): void
+    {
+        $objetos = [1 => self::CATALOGO];
+        for ($numero = 3; $numero < 9_993; ++$numero) {
+            $objetos[$numero] = "<</Type/ObjStm/N 10000/First 0/Length 0>>\nstream\n\nendstream";
+        }
+        $pdf = MontadorDePdfDoCarimbo::classico($objetos);
+
+        [$pagina, $segundos, $memoria] = self::medir(static fn (): ?CarimboVisivelPagina => self::localizar($pdf));
+
+        self::assertNull($pagina);
+        self::assertLessThan(2.0, $segundos);
+        self::assertLessThan(3 * \strlen($pdf), $memoria);
     }
 
     #[TestDox('sonda: nove /ObjStm-isca de 10 MB inflados depois dos objetos de verdade recusam sem inflar todas')]
@@ -307,9 +389,10 @@ final class LocalizadorDaUltimaPaginaTest extends TestCase
                 4 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 100 100]>>',
             ]),
         ];
+        // Cada isca infla a quase 10 MB, abaixo do teto de um fluxo do motor: só o orçamento da procura as barra.
+        $isca = MontadorDePdfDoCarimbo::fluxoDeObjetos([99 => '<<>>'], LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES - 64);
         for ($numero = 5; $numero < 14; ++$numero) {
-            // Cada isca infla a quase 10 MB, abaixo do teto de um fluxo do motor: só o orçamento da procura as barra.
-            $objetos[$numero] = MontadorDePdfDoCarimbo::fluxoDeObjetos([99 => '<<>>'], LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES - 64);
+            $objetos[$numero] = $isca;
         }
         $pdf = MontadorDePdfDoCarimbo::classico($objetos);
 
@@ -323,7 +406,7 @@ final class LocalizadorDaUltimaPaginaTest extends TestCase
         self::assertSame(4, self::localizar(MontadorDePdfDoCarimbo::classico($objetos))?->numero, 'com uma isca só, cabe');
     }
 
-    #[TestDox('sonda: /Kids de 1,5 milhão de referências recusa sem montar a lista')]
+    #[TestDox('sonda: /Kids de 1,5 milhão de referências recusa pelo teto do corpo, sem montar a lista')]
     public function testKidsGigante(): void
     {
         $pdf = MontadorDePdfDoCarimbo::classico([
@@ -336,8 +419,8 @@ final class LocalizadorDaUltimaPaginaTest extends TestCase
 
         self::assertNull($pagina);
         self::assertLessThan(2.0, $segundos);
-        // Três cópias do /Kids (o corpo, o valor e a varredura): a lista de 1,5 milhão de pares passaria de 700 MB.
-        self::assertLessThan(4 * \strlen($pdf), $memoria);
+        // A lista de 1,5 milhão de pares passaria de 700 MB.
+        self::assertLessThan(\strlen($pdf), $memoria);
     }
 
     #[TestDox('teto de filhos do /Kids: no teto acha a página; uma referência a mais devolve null')]
