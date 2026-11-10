@@ -31,11 +31,11 @@ use Doctrine\Persistence\ManagerRegistry;
 class DocumentoParaAssinarRepository extends ServiceEntityRepository
 {
     public function __construct(
-        ManagerRegistry $registry,
+        private readonly ManagerRegistry $registro,
         private readonly AcessoALixeira $lixeira,
         private readonly TransacaoComArquivoNovo $transacaoComArquivoNovo,
     ) {
-        parent::__construct($registry, DocumentoParaAssinar::class);
+        parent::__construct($registro, DocumentoParaAssinar::class);
     }
 
     /** Fora da Lixeira. */
@@ -401,6 +401,17 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     public function emTransacao(callable $trabalho): mixed
     {
         return $this->getEntityManager()->wrapInTransaction(static fn (): mixed => $trabalho());
+    }
+
+    /**
+     * Reabre o EntityManager que uma exceção dentro de uma transação fechou (o worker que falhou ao guardar o PDF final):
+     * sem isso, a gravação de quem trata a falha lança de novo. Aberto, nada muda.
+     */
+    public function reabrirSeFechado(): void
+    {
+        if (!$this->getEntityManager()->isOpen()) {
+            $this->registro->resetManager();
+        }
     }
 
     /**
