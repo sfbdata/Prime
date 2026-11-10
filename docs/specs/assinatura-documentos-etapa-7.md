@@ -66,8 +66,8 @@ Desta implementação (para o Coordenador revisar):
 - **I4. Prévia do escritório**: mostra o aviso, o botão da selfie (visível e desabilitado, decisão E da etapa 2) e
   pede a localização como o desenho (C1); sem localização, o texto do desenho "Localização não informada nesta
   pré-visualização." (B8).
-- **I5. Texto da trilha**: no estilo do da etapa 2 ("{nome} assinou (Simples)"), com a localização do desenho (D5):
-  "{nome} assinou (Reforçada): selfie e localização {lat}, {long}" (5 casas, separador ponto, como o desenho).
+- **I5. Texto da trilha**: o do desenho (L387, L390; D6 da spec principal, 09/11/2026): "Assinado por {nome digitado}
+  · E-mail e código, selfie, localização {lat}, {long}" (5 casas, separador ponto, como o desenho).
 - **I6. E-mail exigido** também na Reforçada: o código vai por e-mail, como no Simples (decisão A da etapa 2).
 - **I7. Chave tirada depois do envio**: o "Assinar" Reforçado também recusa com o aviso de sem chave, antes de qualquer
   conferência, sem gravar nada.
@@ -227,7 +227,7 @@ gravada, "E-mail e código, selfie" (D3, F2). Nada mais muda no detalhe; o passo
 | tela pública | `js.erro.localizacao` | Permita o acesso à localização para assinar. |
 | detalhe | `js.reforcada.metodo` | E-mail e código, selfie, localização {local} (desenho, D3) |
 | detalhe | `js.reforcada.metodo_sem_local` | E-mail e código, selfie (desenho, D3) |
-| trilha | `evento.assinado` | Simples: "{nome} assinou (Simples)" (etapa 2); Reforçada: "{nome} assinou (Reforçada): selfie e localização {local}" (I5) |
+| trilha | `evento.assinado` | Simples: "Assinado por {nome} · E-mail e código"; Reforçada: "Assinado por {nome} · E-mail e código, selfie, localização {local}" (I5, D6) |
 
 ## 9. Trilha
 
@@ -242,7 +242,7 @@ O evento `assinado` da Reforçada leva, além do que a etapa 2 grava (`metodo`, 
 | `latitude`, `longitude` | texto decimal com 8 casas, como na coluna |
 | `precisao` | texto decimal com 2 casas (metros) |
 
-Texto: "{nome} assinou (Reforçada): selfie e localização {local}", com `{local}` montado na apresentação a partir de
+Texto: "Assinado por {nome} · E-mail e código, selfie, localização {local}" (D6), com `{local}` montado na apresentação a partir de
 `latitude` e `longitude` (5 casas). A imagem, o nonce e a chave nunca entram em `dados`; o token e o código continuam
 fora (etapa 2).
 
