@@ -41,6 +41,10 @@ enum TipoDeEvento: string
     case PdfParaAssinarGerado = 'pdf_para_assinar_gerado';
     case PdfAssinadoRecusado = 'pdf_assinado_recusado';
 
+    // Etapa 8: o selo PAdES do BlueJus no PDF final (E8-4). O não aplicado leva o código da falha em `dados.motivo`.
+    case PdfSelado = 'pdf_selado';
+    case SeloNaoAplicado = 'selo_nao_aplicado';
+
     /** A chave do texto do evento no catálogo de idioma. */
     public function chaveDoTexto(): string
     {
