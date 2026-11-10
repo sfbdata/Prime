@@ -159,6 +159,41 @@ final class ImagemDaFolhaTest extends TestCase
         self::assertNotSame('#a3232b', $this->coresDaLinha($pagina, '05')['08:00'], 'o dia comum não é vermelho');
     }
 
+    #[TestDox('As três frases das observações gerais (P36), inteiras, na ordem, quebradas por palavra no quadro')]
+    public function testObservacoesGerais(): void
+    {
+        $pagina = $this->gerador()->desenhar(ConteudoDaFolhaDeExemplo::outubro(), self::QR, self::PAGINA, 0.5);
+
+        self::assertSame(ConteudoDaFolha::OBSERVACOES_GERAIS, $this->frasesDasObservacoes($pagina));
+    }
+
+    #[TestDox('A "Base Legal": o rótulo, as normas e a nota do Quadro de Horário, com e sem o segredo')]
+    public function testBaseLegal(): void
+    {
+        foreach ([[ConteudoDaFolhaDeExemplo::outubro(), self::QR], [ConteudoDaFolhaDeExemplo::outubro(false), null]] as [$conteudo, $qr]) {
+            $textos = array_column($this->gerador()->desenhar($conteudo, $qr, self::PAGINA, 0.5)->textos(), 'texto');
+
+            self::assertContains('Base Legal:', $textos);
+            self::assertContains(ConteudoDaFolha::BASE_LEGAL, $textos);
+            self::assertContains(ConteudoDaFolha::NOTA_DA_BASE_LEGAL, $textos);
+        }
+        self::assertStringContainsString('Art. 74, §2º da CLT', ConteudoDaFolha::BASE_LEGAL);
+        self::assertStringContainsString('Portaria MTP nº 671/2021', ConteudoDaFolha::BASE_LEGAL);
+    }
+
+    #[TestDox('A linha do feriado sem batida (12/10): "FERIADO" em vermelho negrito na semana e no lugar das batidas, e o nome do feriado nas observações')]
+    public function testLinhaDoFeriado(): void
+    {
+        $pagina = $this->gerador()->desenhar(ConteudoDaFolhaDeExemplo::outubro(), self::QR, self::PAGINA, 0.5);
+        $linha = $this->textosDaLinha($pagina, '12');
+
+        $feriados = array_values(array_filter($linha, static fn (array $t): bool => $t['texto'] === 'FERIADO'));
+        self::assertCount(2, $feriados, 'na semana e no meio das batidas');
+        self::assertSame([['negrito', '#a3232b'], ['negrito', '#a3232b']], array_map(static fn (array $t): array => [$t['fonte'], $t['cor']], $feriados));
+        self::assertNotEmpty(array_filter($linha, static fn (array $t): bool => str_starts_with($t['texto'], 'Feriado: Nossa Senhora')), 'o nome do feriado nas observações');
+        self::assertEmpty(array_filter($linha, static fn (array $t): bool => preg_match('/^\d{2}:\d{2}$/', $t['texto']) === 1), 'sem batida no feriado');
+    }
+
     #[TestDox('A marca d\'água e o microtexto, com e sem o código')]
     public function testMarcaDaguaEMicrotexto(): void
     {
@@ -200,6 +235,46 @@ final class ImagemDaFolhaTest extends TestCase
         $y = $achados[0]['y'];
 
         return array_column(array_filter($pagina->textos(), static fn (array $t): bool => abs($t['y'] - $y) < .01), 'cor', 'texto');
+    }
+
+    /**
+     * Os textos da linha do dia na tabela, na ordem em que foram desenhados. A linha se acha pelo número do dia, como em
+     * {@see self::coresDaLinha()}.
+     *
+     * @return list<array{texto: string, fonte: string, tamanho: float, x: float, y: float, cor: string}>
+     */
+    private function textosDaLinha(PaginaDaFolha $pagina, string $dia): array
+    {
+        $achados = array_values(array_filter($pagina->textos(), static fn (array $t): bool => $t['texto'] === $dia && $t['x'] < 80 && $t['y'] > 308));
+        self::assertCount(1, $achados, 'o dia ' . $dia);
+        $y = $achados[0]['y'];
+
+        return array_values(array_filter($pagina->textos(), static fn (array $t): bool => abs($t['y'] - $y) < .01));
+    }
+
+    /**
+     * As frases do quadro "OBSERVAÇÕES GERAIS" remontadas das linhas desenhadas: cada uma começa no marcador "• " e
+     * continua nas linhas recuadas em dois espaços que vêm logo depois (o corpo em 10, sem outro texto no meio).
+     *
+     * @return list<string>
+     */
+    private function frasesDasObservacoes(PaginaDaFolha $pagina): array
+    {
+        $frases = [];
+        foreach ($pagina->textos() as $t) {
+            if ($t['fonte'] !== 'normal' || $t['tamanho'] !== 10.0) {
+                continue;
+            }
+            if (str_starts_with($t['texto'], '• ')) {
+                $frases[] = substr($t['texto'], strlen('• '));
+                continue;
+            }
+            if ($frases !== [] && str_starts_with($t['texto'], '  ') && !str_starts_with($t['texto'], '   ')) {
+                $frases[array_key_last($frases)] .= ' ' . $t['texto'];
+            }
+        }
+
+        return array_map(static fn (string $frase): string => trim((string) preg_replace('/\s+/', ' ', $frase)), $frases);
     }
 
     /** As letras do código em mono negrito e vermelho, na ordem em que foram desenhadas. */
