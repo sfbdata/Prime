@@ -40,6 +40,9 @@ final class NomesDasSituacoesDaJustificativa
         'reverter.feito_com_batida' => 'Justificativa de %s voltou para análise. A batida criada pelo abono antes desta '
             . 'versão continua na folha: para tirá-la da conta, use Desconsiderar na aba Batidas de Ponto.',
         'reverter.feito_desconsiderada' => 'Justificativa de %s voltou para análise e a batida do abono foi desconsiderada.',
+        // E12: a recusa do trabalho externo tira a batida da conta; voltar para análise a devolve.
+        'analise.recusada_externo' => 'Justificativa de %s recusada. A batida do trabalho externo saiu da conta.',
+        'reverter.feito_restaurada' => 'Justificativa de %s voltou para análise e a batida do trabalho externo voltou para a conta.',
         // Folha exportada (PDF e XLSX), entre parênteses depois do tipo: no feminino, como a Folha do desenho (D22).
         'folha.recusada'         => 'recusada',
     ];
@@ -70,6 +73,9 @@ final class NomesDasSituacoesDaJustificativa
             . 'desta versão continua na folha: para tirá-la da conta, use Desconsiderar na aba Batidas de Ponto.',
         'reverter.feito_desconsiderada' => 'Justificativa de %s revertida para pendente e a batida do abono foi '
             . 'desconsiderada.',
+        'analise.recusada_externo' => 'Justificativa de %s rejeitada. A batida do trabalho externo saiu da conta.',
+        'reverter.feito_restaurada' => 'Justificativa de %s revertida para pendente e a batida do trabalho externo voltou '
+            . 'para a conta.',
         'folha.recusada'         => 'rejeitada',
     ];
 

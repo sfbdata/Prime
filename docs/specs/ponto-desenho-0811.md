@@ -1094,7 +1094,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     trilhas; o aviso ao gestor vai depois do commit. Sem internet, ela vai pela fila da E14 com os dois campos;
   - pela recomendação, a batida conta enquanto a justificativa está em análise. A justificativa ligada NUNCA abona:
     aprovar só confirma a batida. A recusa tira a batida da conta pelo Desconsiderar da E10 e o reverter a restaura
-    (ligados depois da E10, no mesmo PR);
+    (ligados em 10/11/2026, `AnalisarJustificativaUseCase`: `DesconsiderarBatidaInput::pelaAnalise` na recusa e
+    `desconsideracaoDaJustificativa` mais `restaurar` no reverter, na mesma transação). A batida que já saiu da conta
+    pela ficha fica como está: a recusa só recusa, e o reverter não desfaz a desconsideração da ficha. Se alguém
+    restaurou ou ajustou a batida depois da recusa, o reverter também não mexe nela. Os avisos da ficha dizem o que
+    houve com a batida ("A batida do trabalho externo saiu da conta." e "voltou para a conta");
   - o colaborador não exclui nem edita a justificativa ligada. A tela mostra "Segue para a análise do gestor." no
     lugar do lápis e da lixeira; quem analisa a própria justificativa vê só "Abonar" e "Recusar";
   - o nome do tipo continua o do sistema, "Trabalho Externo (Home Office / Campo)", como no P45. O subtítulo da

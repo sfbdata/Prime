@@ -8,7 +8,8 @@ use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 
 /**
  * O que a volta de uma justificativa para análise fez (`AnalisarJustificativaUseCase::reverter`): a situação de antes,
- * lida sob a trava, e o que aconteceu com a batida que o abono do esquecimento criou (E10, plano-e10-ponto §5).
+ * lida sob a trava, e o que aconteceu com a batida que o abono do esquecimento criou (E10, plano-e10-ponto §5) ou com a
+ * batida do trabalho externo que a recusa tirou da conta (E12).
  */
 final class ReversaoDaJustificativaOutput
 {
@@ -18,10 +19,14 @@ final class ReversaoDaJustificativaOutput
     /** Abono de esquecimento de antes da E10: a batida está em `registro_ponto` e fica (decisão 3 do plano). */
     public const BATIDA_DE_ANTES = 'de_antes';
 
+    /** E12: a batida do trabalho externo que a recusa tirou da conta voltou agora (restaurada). */
+    public const BATIDA_RESTAURADA = 'restaurada';
+
     /**
      * @param string      $situacaoAnterior a situação lida sob a trava (`abonado`, `rejeitado`...)
      * @param string|null $batidaDoAbono    uma das constantes acima; null quando não há batida do abono a mencionar
-     *                                      (não era esquecimento abonado, ou a inclusão já estava fora da conta)
+     *                                      (não era esquecimento abonado nem trabalho externo recusado, ou a batida
+     *                                      já estava como fica)
      */
     public function __construct(
         public readonly string $situacaoAnterior,
@@ -35,6 +40,7 @@ final class ReversaoDaJustificativaOutput
         return match ($this->batidaDoAbono) {
             self::BATIDA_DESCONSIDERADA => 'reverter.feito_desconsiderada',
             self::BATIDA_DE_ANTES       => 'reverter.feito_com_batida',
+            self::BATIDA_RESTAURADA     => 'reverter.feito_restaurada',
             default                     => 'reverter.feito',
         };
     }

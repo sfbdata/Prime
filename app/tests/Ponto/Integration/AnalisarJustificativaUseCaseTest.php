@@ -10,6 +10,7 @@ use App\Ponto\DTO\ReversaoDaJustificativaOutput;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
+use App\Ponto\Model\AlvoDoAjuste;
 use App\Ponto\Exception\BatidaEmHorarioFuturoException;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -22,6 +23,7 @@ use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Service\TrilhaDoPonto;
 use App\Ponto\UseCase\AnalisarJustificativaUseCase;
+use App\Ponto\UseCase\DesconsiderarBatidaUseCase;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Tests\Ponto\Support\TrilhaQueAnotaAsTravasDasPessoas;
 use Doctrine\ORM\EntityManagerInterface;
@@ -223,6 +225,83 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
             ['justificativa_abonada', 'batida_do_esquecimento', 'justificativa_reaberta', 'ajuste_desfeito'],
             $this->eventosDaTrilha(),
         );
+    }
+
+    #[TestDox('E12: recusar o trabalho externo tira a batida ligada da conta (Desconsiderar da E10, pela análise e ligado à justificativa), na mesma transação')]
+    public function testRecusarTrabalhoExternoTiraABatidaDaConta(): void
+    {
+        [$batida, $justificativa] = $this->trabalhoExterno();
+
+        $saiu = $this->analisar->recusar($justificativa, $this->tenant, $this->gestor, 'Sem prova do deslocamento');
+
+        self::assertTrue($saiu);
+        self::assertSame('rejeitado', $this->statusNoBanco($justificativa));
+        $ajustes = $this->ajustesDoColaborador();
+        self::assertCount(1, $ajustes);
+        self::assertSame(
+            ['desconsideracao', (int) $justificativa->getId(), (int) $this->gestor->getId(), AnalisarJustificativaUseCase::MOTIVO_DA_RECUSA_DO_TRABALHO_EXTERNO],
+            [$ajustes[0]['tipo'], $ajustes[0]['justificativa_id'], $ajustes[0]['autor_id'], $ajustes[0]['motivo']],
+        );
+        self::assertSame(['2026-03-10 08:12:00', 'entrada'], [$ajustes[0]['data_hora_anterior'], $ajustes[0]['tipo_marcacao_anterior']]);
+        self::assertTrue($this->alvoDa($batida)->desconsiderada(), 'a batida externa está fora da conta');
+        self::assertSame(1, $this->registrosDoColaborador(), 'o registro original fica guardado');
+        self::assertSame(['justificativa_recusada', 'batida_desconsiderada'], $this->eventosDaTrilha());
+    }
+
+    #[TestDox('E12: voltar para análise a recusada do trabalho externo restaura a batida; recusar de novo a tira outra vez')]
+    public function testReverterRecusadaDoTrabalhoExternoRestauraABatida(): void
+    {
+        [$batida, $justificativa] = $this->trabalhoExterno();
+        $this->analisar->recusar($justificativa, $this->tenant, $this->gestor, 'Sem prova');
+
+        $reversao = $this->analisar->reverter($justificativa, $this->tenant, $this->gestor);
+
+        self::assertSame('rejeitado', $reversao->situacaoAnterior);
+        self::assertSame(ReversaoDaJustificativaOutput::BATIDA_RESTAURADA, $reversao->batidaDoAbono);
+        self::assertSame('reverter.feito_restaurada', $reversao->chaveDoTexto());
+        self::assertFalse($reversao->pedeAtencao());
+        self::assertSame('pendente', $this->statusNoBanco($justificativa));
+        self::assertFalse($this->alvoDa($batida)->desconsiderada(), 'a batida voltou para a conta');
+        $ajustes = $this->ajustesDoColaborador();
+        self::assertSame(['desconsideracao', 'restauracao'], array_column($ajustes, 'tipo'));
+        self::assertSame(AnalisarJustificativaUseCase::MOTIVO_DA_VOLTA_DO_TRABALHO_EXTERNO, $ajustes[1]['motivo']);
+        self::assertSame($ajustes[0]['id'], $ajustes[1]['desfaz_id'], 'desfaz a desconsideração da recusa');
+        self::assertSame(['justificativa_recusada', 'batida_desconsiderada', 'justificativa_reaberta', 'ajuste_desfeito'], $this->eventosDaTrilha());
+
+        self::assertTrue($this->analisar->recusar($justificativa, $this->tenant, $this->gestor, 'Sem prova de novo'));
+        self::assertTrue($this->alvoDa($batida)->desconsiderada());
+        self::assertCount(3, $this->ajustesDoColaborador());
+    }
+
+    #[TestDox('E12: batida externa que já saiu da conta pela ficha: a recusa só recusa, e voltar para análise não a devolve')]
+    public function testRecusarTrabalhoExternoJaForaDaConta(): void
+    {
+        [$batida, $justificativa] = $this->trabalhoExterno();
+        $this->em->wrapInTransaction(function () use ($batida): void {
+            $gravacao = static::getContainer()->get(GravacaoDoAjusteDoPonto::class);
+            $gravacao->travar($this->colaborador);
+            $gravacao->desconsiderar($this->alvoDa($batida), 'Tirada pela ficha', $this->gestor, null, null);
+        });
+
+        self::assertFalse($this->analisar->recusar($justificativa, $this->tenant, $this->gestor, 'Sem prova'));
+        self::assertSame('rejeitado', $this->statusNoBanco($justificativa));
+        self::assertCount(1, $this->ajustesDoColaborador(), 'nenhum ajuste a mais');
+
+        $reversao = $this->analisar->reverter($justificativa, $this->tenant, $this->gestor);
+        self::assertNull($reversao->batidaDoAbono);
+        self::assertSame('reverter.feito', $reversao->chaveDoTexto());
+        self::assertTrue($this->alvoDa($batida)->desconsiderada(), 'a desconsideração da ficha não é desfeita pela análise');
+        self::assertCount(1, $this->ajustesDoColaborador());
+    }
+
+    #[TestDox('E12: recusar uma justificativa sem batida ligada não mexe em batida nenhuma')]
+    public function testRecusarSemBatidaLigada(): void
+    {
+        $justificativa = $this->esquecimento('08:00');
+
+        self::assertFalse($this->analisar->recusar($justificativa, $this->tenant, $this->gestor, 'Sem prova'));
+        self::assertSame([], $this->ajustesDoColaborador());
+        self::assertSame('reverter.feito', $this->analisar->reverter($justificativa, $this->tenant, $this->gestor)->chaveDoTexto());
     }
 
     #[TestDox('E10: abonar de novo depois de voltar grava outra inclusão, e a nova volta desconsidera a mais nova')]
@@ -537,6 +616,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
             new TrilhaDoPonto($falha, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage()),
             $container->get(GravacaoDoAjusteDoPonto::class),
             $container->get(RegistroPontoRepository::class),
+            $container->get(DesconsiderarBatidaUseCase::class),
         );
     }
 
@@ -583,6 +663,42 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         $this->em->flush();
 
         return $justificativa;
+    }
+
+    /**
+     * A batida de trabalho externo (E12) e a justificativa em análise ligada a ela, como a batida as grava.
+     *
+     * @return array{RegistroPonto, JustificativaPonto}
+     */
+    private function trabalhoExterno(): array
+    {
+        $batida = new RegistroPonto();
+        $batida->setUser($this->colaborador);
+        $batida->setTenant($this->tenant);
+        $batida->setTipo(RegistroPonto::TIPO_ENTRADA);
+        $batida->setDataHora(new \DateTime('2026-03-10 08:12:00'));
+        $batida->setTrabalhoExterno(true);
+        $batida->setMotivoTrabalhoExterno('Audiência no fórum');
+        $this->em->persist($batida);
+
+        $justificativa = new JustificativaPonto();
+        $justificativa->setTenant($this->tenant);
+        $justificativa->setUser($this->colaborador);
+        $justificativa->setData(new \DateTime('2026-03-10'));
+        $justificativa->setStatus('pendente');
+        $justificativa->setTipo('trabalho_externo');
+        $justificativa->setRegistroPonto($batida);
+        $justificativa->setBatchId('lote-externo');
+        $this->em->persist($justificativa);
+        $this->em->flush();
+
+        return [$batida, $justificativa];
+    }
+
+    private function alvoDa(RegistroPonto $batida): AlvoDoAjuste
+    {
+        return $this->repositorioDasBatidas()->alvoDoAjuste($this->colaborador, $this->tenant, 'b' . $batida->getId())
+            ?? throw new \LogicException('Batida fora da folha.');
     }
 
     private function statusNoBanco(JustificativaPonto $justificativa): string
@@ -665,6 +781,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
             $trilha,
             $gravacao,
             $this->repositorioDasBatidas(),
+            new DesconsiderarBatidaUseCase($trilha, $gravacao, $this->repositorioDasBatidas(), $container->get(AnaliseDaPropriaJustificativa::class)),
         );
     }
 

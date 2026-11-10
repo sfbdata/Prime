@@ -17,7 +17,9 @@ use App\Ponto\Service\AlertasAntesDaBatida;
 use App\Ponto\Service\CercaDoPonto;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Service\TrabalhoExternoDaBatida;
+use App\Ponto\UseCase\AnalisarJustificativaUseCase;
 use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -451,6 +453,30 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertSame('Entrada às ' . $hora, $linha->filter('span.pe-eq-just-sub')->text());
     }
 
+    #[TestDox('E12: o gestor recusa o trabalho externo pela ficha e a batida sai da conta, com o aviso dizendo; voltar para análise a devolve')]
+    public function testRecusarEVoltarPelaFicha(): void
+    {
+        $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => self::MOTIVO]);
+        self::assertResponseIsSuccessful();
+        $id = (int) $this->unicaJustificativa()['id'];
+        $dia = (new \DateTimeImmutable())->format('d/m/Y');
+
+        $this->analisarPelaFicha('rejeitar', $id, ['observacaoAnalise' => 'Sem prova do deslocamento']);
+        self::assertResponseRedirects();
+        self::assertSame(NomesDasSituacoesDaJustificativa::texto('analise.recusada_externo', $dia), $this->ultimoAviso('success'));
+        self::assertSame('Justificativa de ' . $dia . ' recusada. A batida do trabalho externo saiu da conta.', $this->ultimoAviso('success'));
+        self::assertSame([['desconsideracao', $id, AnalisarJustificativaUseCase::MOTIVO_DA_RECUSA_DO_TRABALHO_EXTERNO]], $this->ajustesDaAna());
+
+        $this->analisarPelaFicha('reverter', $id, []);
+        self::assertResponseRedirects();
+        self::assertSame(NomesDasSituacoesDaJustificativa::texto('reverter.feito_restaurada', $dia), $this->ultimoAviso('success'));
+        self::assertSame(
+            [['desconsideracao', $id, AnalisarJustificativaUseCase::MOTIVO_DA_RECUSA_DO_TRABALHO_EXTERNO], ['restauracao', null, AnalisarJustificativaUseCase::MOTIVO_DA_VOLTA_DO_TRABALHO_EXTERNO]],
+            $this->ajustesDaAna(),
+        );
+        self::assertSame('pendente', $this->unicaJustificativa()['status']);
+    }
+
     #[TestDox('A /ponto passa `trabalho_externo_permitido`: só com a cerca valendo hoje e a função permitida')]
     public function testVariavelDaTela(): void
     {
@@ -545,6 +571,33 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/ponto/batida', server: ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], content: (string) json_encode($corpo));
 
         return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+    }
+
+    /**
+     * POST de uma ação da análise na ficha da Ana, como o gestor (o redirecionamento não é seguido).
+     *
+     * @param array<string, string> $campos
+     */
+    private function analisarPelaFicha(string $acao, int $id, array $campos): void
+    {
+        $this->logarComTenant($this->client, $this->gestor, $this->escritorio);
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/%d/%s', $this->escritorio->getId(), $this->ana->getId(), $id, $acao), $campos + ['_token' => sprintf('TOKEN_justificativa_%s_%d', $acao, $id)]);
+    }
+
+    private function ultimoAviso(string $tipo): ?string
+    {
+        $avisos = $this->client->getRequest()->getSession()->getFlashBag()->peek($tipo);
+        $ultimo = end($avisos);
+
+        return is_string($ultimo) ? $ultimo : null;
+    }
+
+    /** @return list<array{string, int|null, string}> tipo, justificativa e motivo de cada ajuste da Ana, em ordem */
+    private function ajustesDaAna(): array
+    {
+        $linhas = $this->emSemFiltro()->getConnection()->fetchAllAssociative('SELECT tipo, justificativa_id, motivo FROM ponto_ajuste WHERE user_id = ? ORDER BY id', [$this->ana->getId()]);
+
+        return array_map(static fn (array $l): array => [(string) $l['tipo'], $l['justificativa_id'] === null ? null : (int) $l['justificativa_id'], (string) $l['motivo']], $linhas);
     }
 
     /** @return array<string, mixed> */

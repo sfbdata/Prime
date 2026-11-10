@@ -1261,7 +1261,7 @@ final class TenantController extends AbstractController
         }
 
         try {
-            $analisar->recusar($justificativa, $tenant, $currentUser, $observacao);   // relê sob a trava (P41)
+            $batidaSaiuDaConta = $analisar->recusar($justificativa, $tenant, $currentUser, $observacao);   // relê sob a trava (P41); E12: a batida externa sai da conta
         } catch (AnaliseDeJustificativaRecusadaException $e) {
             $this->addFlash('warning', $e->getMessage());
             return $this->voltaDaAnalise($request, $tenantId, $user);
@@ -1274,7 +1274,7 @@ final class TenantController extends AbstractController
         if ($request->request->get('volta') === 'ponto') {
             $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE_ERRO, PontoController::AVISO_JUSTIFICATIVA_RECUSADA);
         } else {
-            $this->addFlash('success', NomesDasSituacoesDaJustificativa::texto('analise.recusada', (string) $justificativa->getData()?->format('d/m/Y')));
+            $this->addFlash('success', NomesDasSituacoesDaJustificativa::texto($batidaSaiuDaConta ? 'analise.recusada_externo' : 'analise.recusada', (string) $justificativa->getData()?->format('d/m/Y')));
         }
 
         return $this->voltaDaAnalise($request, $tenantId, $user);

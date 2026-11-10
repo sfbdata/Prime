@@ -8,9 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\AbonoDaEquipeOutput;
 use App\Ponto\DTO\AbonoDoLoteOutput;
+use App\Ponto\DTO\DesconsiderarBatidaInput;
 use App\Ponto\DTO\ReversaoDaJustificativaOutput;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
+use App\Ponto\Exception\AjusteDeBatidaRecusadoException;
 use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -56,6 +58,13 @@ use Doctrine\ORM\EntityManagerInterface;
  * voltar para análise a abonada desconsidera essa inclusão (evento "Ajuste desfeito"), com o registro guardado. O abono
  * de antes da E10 gravou a batida em `registro_ponto`: ela fica, e a tela avisa como tirá-la da conta (decisão 3).
  *
+ * ## Trabalho externo (E12)
+ *
+ * A justificativa ligada a uma batida (`analisaUmaBatida`) nunca abona: aprovar só confirma a batida, que já conta.
+ * Recusar tira a batida da conta pelo Desconsiderar da E10 ({@see DesconsiderarBatidaUseCase}, pela análise e ligado à
+ * justificativa), na mesma transação; batida já fora da conta (pela ficha) ou fora desta folha fica como está. Voltar a
+ * recusada para análise restaura a desconsideração dela, se ainda for a cabeça da linhagem (ninguém mexeu depois).
+ *
  * Ordem das travas, sem inversão: a linha da justificativa (`FOR UPDATE`), depois a linhagem da pessoa (4210, logo em
  * seguida, antes de qualquer evento) e por último a trilha do escritório (4203, dentro de cada evento). No "aprovar
  * todos", as linhas em ordem de id e as pessoas em ordem crescente de id, antes do evento do lote.
@@ -74,6 +83,12 @@ final class AnalisarJustificativaUseCase
     /** O motivo da desconsideração da inclusão do esquecimento quando a justificativa volta para análise. */
     public const MOTIVO_DA_VOLTA_PARA_ANALISE = 'A justificativa do esquecimento voltou para análise: o abono foi desfeito.';
 
+    /** E12: o motivo da desconsideração da batida externa quando o gestor recusa a justificativa ligada. */
+    public const MOTIVO_DA_RECUSA_DO_TRABALHO_EXTERNO = 'O trabalho externo foi recusado na análise da justificativa.';
+
+    /** E12: o motivo da restauração da batida externa quando a justificativa recusada volta para análise. */
+    public const MOTIVO_DA_VOLTA_DO_TRABALHO_EXTERNO = 'A justificativa do trabalho externo voltou para análise: a recusa foi desfeita.';
+
     private const EM_ANALISE = 'pendente';
 
     public function __construct(
@@ -84,6 +99,7 @@ final class AnalisarJustificativaUseCase
         private readonly TrilhaDoPonto $trilha,
         private readonly GravacaoDoAjusteDoPonto $gravacao,
         private readonly RegistroPontoRepository $batidas,
+        private readonly DesconsiderarBatidaUseCase $desconsiderarBatida,
     ) {
     }
 
@@ -127,22 +143,32 @@ final class AnalisarJustificativaUseCase
         });
     }
 
-    /** @throws AnaliseDeJustificativaRecusadaException excluída pelo colaborador ou já analisada */
-    public function recusar(JustificativaPonto $justificativa, Tenant $tenant, User $analista, string $observacao): void
+    /**
+     * Recusa e, no trabalho externo (E12), tira a batida ligada da conta, tudo na mesma transação.
+     *
+     * @return bool true quando a batida do trabalho externo saiu da conta agora
+     *
+     * @throws AnaliseDeJustificativaRecusadaException excluída pelo colaborador ou já analisada
+     */
+    public function recusar(JustificativaPonto $justificativa, Tenant $tenant, User $analista, string $observacao): bool
     {
-        $this->gravarSobATrava($justificativa, $tenant, true, 'analise.so_para_recusar', function () use ($justificativa, $tenant, $analista, $observacao): void {
+        $saiuDaConta = false;
+        $this->gravarSobATrava($justificativa, $tenant, true, 'analise.so_para_recusar', function () use ($justificativa, $tenant, $analista, $observacao, &$saiuDaConta): void {
             $justificativa->setStatus('rejeitado');
             $justificativa->setDataAnalise(new \DateTime());
             $justificativa->setAnalisadoPor($analista);
             $justificativa->setObservacaoAnalise($observacao);
             $this->registrarNaTrilha(AcaoDaTrilhaDoPonto::JustificativaRecusada, $justificativa, $tenant, $analista);
+            $saiuDaConta = $this->tirarDaContaABatidaExterna($justificativa, $tenant, $analista);
         });
+
+        return $saiuDaConta;
     }
 
     /**
      * Volta a justificativa analisada para a análise. Da abonada, a inclusão que o abono do esquecimento criou sai da
      * conta (desconsiderada, evento "Ajuste desfeito"), na mesma transação; a batida do abono de antes da E10, gravada
-     * em `registro_ponto`, fica (decisão 3).
+     * em `registro_ponto`, fica (decisão 3). Da recusada do trabalho externo (E12), a batida volta para a conta.
      *
      * @return ReversaoDaJustificativaOutput a situação de antes, lida sob a trava, e o que houve com a batida do abono
      *
@@ -160,6 +186,9 @@ final class AnalisarJustificativaUseCase
             $this->registrarNaTrilha(AcaoDaTrilhaDoPonto::JustificativaReaberta, $justificativa, $tenant, $analista, ['situacao_anterior' => $anterior]);
             if ($anterior === 'abonado') {
                 $batidaDoAbono = $this->desfazerAInclusaoDoAbono($justificativa, $analista);
+            }
+            if ($anterior === 'rejeitado') {
+                $batidaDoAbono = $this->devolverAContaABatidaExterna($justificativa, $analista);
             }
         }, $anterior);
 
@@ -369,6 +398,56 @@ final class AnalisarJustificativaUseCase
         $this->gravacao->desconsiderar($inclusao, self::MOTIVO_DA_VOLTA_PARA_ANALISE, $analista, $justificativa, $inclusao->raizInclusao);
 
         return ReversaoDaJustificativaOutput::BATIDA_DESCONSIDERADA;
+    }
+
+    /**
+     * E12: a recusa do trabalho externo tira a batida ligada da conta pelo Desconsiderar da E10 (pela análise, sem
+     * conferir a cabeça). Roda na transação da análise, depois da trava da pessoa. A batida que não está nesta folha ou
+     * que já saiu da conta pela ficha fica como está (nada a fazer); essas recusas sobem antes de qualquer gravação.
+     */
+    private function tirarDaContaABatidaExterna(JustificativaPonto $justificativa, Tenant $tenant, User $analista): bool
+    {
+        $batidaId = $justificativa->analisaUmaBatida() ? $justificativa->getRegistroPonto()?->getId() : null;
+        if ($batidaId === null) {
+            return false;
+        }
+
+        try {
+            $this->desconsiderarBatida->executar(DesconsiderarBatidaInput::pelaAnalise(
+                $tenant,
+                self::pessoaDa($justificativa),
+                'b' . $batidaId,
+                self::MOTIVO_DA_RECUSA_DO_TRABALHO_EXTERNO,
+                $analista,
+                $justificativa,
+            ));
+        } catch (AjusteDeBatidaRecusadoException $e) {
+            if ($e->motivo === AjusteDeBatidaRecusadoException::NAO_ENCONTRADA || $e->motivo === AjusteDeBatidaRecusadoException::MUDOU) {
+                return false;
+            }
+            throw $e;
+        }
+
+        return true;
+    }
+
+    /**
+     * E12: a recusada do trabalho externo que volta para análise restaura a desconsideração que a recusa gravou, se ela
+     * ainda for a cabeça da linhagem. Se alguém já restaurou ou ajustou a batida depois, fica como está.
+     */
+    private function devolverAContaABatidaExterna(JustificativaPonto $justificativa, User $analista): ?string
+    {
+        if (!$justificativa->analisaUmaBatida() || $justificativa->getId() === null) {
+            return null;
+        }
+        $desconsideracao = $this->batidas->desconsideracaoDaJustificativa($justificativa->getId());
+        if ($desconsideracao === null) {
+            return null;
+        }
+
+        $this->gravacao->restaurar($desconsideracao, self::MOTIVO_DA_VOLTA_DO_TRABALHO_EXTERNO, $analista);
+
+        return ReversaoDaJustificativaOutput::BATIDA_RESTAURADA;
     }
 
     private static function pessoaDa(JustificativaPonto $justificativa): User
