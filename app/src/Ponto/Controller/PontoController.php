@@ -1274,11 +1274,6 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * A aba do cartão que abre ao entrar (`?aba=`). Pendências é o padrão (P37); aba que não existe ou que a pessoa não
-     * vê cai no padrão. A aba escondida (Comprovantes com o comprovante desligado, Banco antes da E17) cai no padrão
-     * no template (`_abas.html.twig`), que sabe quais desenhou.
-     */
-    /**
      * Para onde a janela "Registro de esquecimento" ou "Justificar falta" volta: o mês e a aba que a pessoa via (fora do
      * form). Sem o mês, justificar um dia do mês anterior joga de volta no mês corrente; sem a aba, volta sempre para
      * Pendências, e o desenho (L768, `addJ`) só fecha a janela. Aba que não existe fica fora (cai no padrão).
@@ -1300,6 +1295,11 @@ final class PontoController extends AbstractController
         return $volta;
     }
 
+    /**
+     * A aba do cartão que abre ao entrar (`?aba=`). Pendências é o padrão (P37); aba que não existe ou que a pessoa não
+     * vê cai no padrão. A aba escondida (Comprovantes com o comprovante desligado, Banco antes da E17) cai no padrão
+     * no template (`_abas.html.twig`), que sabe quais desenhou.
+     */
     private function abaAberta(Request $request): string
     {
         $aba = (string) $request->query->get('aba', '');

@@ -83,7 +83,7 @@ final class PontoAbasJsTest extends TestCase
         self::assertStringContainsString("if (painel && painel.dataset.estado === 'pronto') {", $equipe);
         self::assertStringContainsString('delete painel.dataset.estado;', $equipe, 'o painel da Equipe é buscado de novo quando abrir');
         $paineis = (string) file_get_contents(__DIR__ . '/../../../public/js/ponto-paineis.js');
-        self::assertStringContainsString("if (estado === 'carregando' || (estado === 'pronto' && !deNovo)) {", $paineis, 'sem estado, o painel é buscado');
+        self::assertStringContainsString("if (estado === 'pronto' && !deNovo) {", $paineis, 'sem estado, o painel é buscado');
     }
 
     #[TestDox('Lista vazia depois de excluir: a mesma frase do servidor, por textContent; nada de HTML montado com dado')]

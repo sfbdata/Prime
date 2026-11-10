@@ -77,6 +77,13 @@ final class FolhaExportacaoSoDoEscritorioTest extends JusPrimeWebTestCase
         $client->request('GET', sprintf('/ponto/exportar-folha-%s?mes=3&ano=2026', $formato));
         self::assertResponseIsSuccessful();
         self::assertSame(!$filtroLigado, $desligou, 'o cenário do filtro desligado precisa chegar ao controller com o filtro desligado');
+        self::assertSame(
+            $formato === 'pdf'
+                ? 'attachment; filename="folha_ponto_COLABORADORDOISESCRITORIOS-03-2026.pdf"'
+                : 'attachment; filename="folha_ponto_ColaboradorDoisEscritorios-03-2026.xlsx"',
+            $client->getInternalResponse()->getHeader('Content-Disposition'),
+            'o nome da pessoa sai sem acento no arquivo (NomeDoArquivoDaFolha)',
+        );
 
         $conteudo = (string) $client->getInternalResponse()->getContent();
         $texto = $formato === 'xlsx' ? self::textoDaPlanilha($conteudo) : self::textoDoPdf($conteudo);
@@ -151,7 +158,7 @@ final class FolhaExportacaoSoDoEscritorioTest extends JusPrimeWebTestCase
 
         $user = new User();
         $user->setEmail('colab_espelho_' . uniqid() . '@test.com');
-        $user->setFullName('Colaborador Dois Escritorios');
+        $user->setFullName('Colaborador Dois Escritórios');   // com acento: o nome do arquivo sai sem (desenho L726)
         $user->setRoles(['ROLE_USER']);
         $user->setIsActive(true);
         $em->persist($user);

@@ -37,7 +37,15 @@
             return;
         }
         const estado = painel.dataset.estado;
-        if (estado === 'carregando' || (estado === 'pronto' && !deNovo)) {
+        // Um "buscar de novo" no meio de outra busca (a batida, a troca de página da Auditoria) não se perde: fica
+        // guardado e roda quando esta terminar, com o `data-carregar` de agora (vale o pedido mais novo).
+        if (estado === 'carregando') {
+            if (deNovo) {
+                painel.dataset.deNovo = '1';
+            }
+            return;
+        }
+        if (estado === 'pronto' && !deNovo) {
             return;
         }
 
@@ -76,6 +84,10 @@
         } finally {
             clearTimeout(prazo);
             painel.removeAttribute('aria-busy');
+            if (painel.dataset.deNovo === '1') {
+                delete painel.dataset.deNovo;
+                carregar(painel, true);
+            }
         }
     }
 
@@ -86,11 +98,13 @@
         carregar(painel, Boolean(painel && painel.hasAttribute('data-recarregar-ao-abrir')));
     });
 
-    // Depois da batida (index.html.twig, `atualizarTelaDoPonto`): o painel desses que está aberto e já carregado é
-    // buscado de novo, sem o "Carregando..." (o conteúdo fica até a resposta chegar). Fechado, a próxima abertura busca.
+    // Depois de uma ação já gravada (index.html.twig, `atualizarTelaDoPonto`; js/ponto-batida.js, a "Sincronização"):
+    // o painel desses que está aberto é buscado de novo, sem o "Carregando..." (o conteúdo fica até a resposta chegar).
+    // No meio de uma busca, a nova fica guardada para depois dela. Com falha, fica o "Tentar de novo". Fechado, a próxima
+    // abertura busca.
     function recarregarAbertos() {
         document.querySelectorAll('section.pe-abas [data-recarregar-ao-abrir]:not([hidden])').forEach(function (painel) {
-            if (painel.dataset.estado === 'pronto') {
+            if (painel.dataset.estado === 'pronto' || painel.dataset.estado === 'carregando') {
                 carregar(painel, true);
             }
         });
