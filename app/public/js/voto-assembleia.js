@@ -123,10 +123,12 @@
 
     /* Pautas em rascunho. `telaDePautas` é a caixa da etapa 4 ([data-voto-pautas]); fora dela nada disto roda.
        `gravando`: há gravação por fetch em curso. `saindo`: a página já vai ser trocada (barra o segundo envio e o
-       aviso do navegador). */
+       aviso do navegador; expira em TEMPO_DA_SAIDA se a carga for interrompida). `erroDe`: a pauta do erro fixo. */
     var telaDePautas = null;
     var gravando = false;
     var saindo = false;
+    var erroDe = null;
+    var TEMPO_DA_SAIDA = 8000;
 
     function formsDePauta() {
         return Array.prototype.slice.call(document.querySelectorAll('form[data-voto-pauta-form]'));
@@ -144,11 +146,15 @@
         return JSON.stringify(partes);
     }
 
-    /* Alterada e ainda não recusada do jeito que está: a pauta que o servidor recusou é avisada uma vez; repetir a
-       ação segue sem ela (a pessoa não fica presa na tela). A pauta nova escondida nunca conta. */
+    /* Diferente do que está gravado. A pauta nova escondida nunca conta. */
+    function alterada(form) {
+        return !form.hidden && retrato(form, false) !== form.getAttribute('data-voto-retrato');
+    }
+
+    /* Alterada e ainda não recusada do jeito que está: a pauta que o servidor recusou na validação é avisada uma vez;
+       repetir a ação segue sem ela (a pessoa não fica presa na tela). */
     function pendente(form) {
-        var atual = retrato(form, false);
-        return !form.hidden && atual !== form.getAttribute('data-voto-retrato') && atual !== form.getAttribute('data-voto-recusada');
+        return alterada(form) && retrato(form, false) !== form.getAttribute('data-voto-recusada');
     }
 
     function pendentes(exceto) {
@@ -162,7 +168,8 @@
     }
 
     /* O erro da etapa (edErro do desenho, L226): texto fixo acima do rodapé. */
-    function mostrarErro(mensagem) {
+    function mostrarErro(mensagem, form) {
+        erroDe = mensagem === '' ? null : form || null;
         var caixa = telaDePautas ? telaDePautas.querySelector('[data-voto-erro]') : null;
         if (!caixa) {
             avisar(mensagem, true);
@@ -172,8 +179,9 @@
         caixa.hidden = mensagem === '';
     }
 
-    /* Grava uma pauta por fetch. Resolve com {ok, mensagem, enviado}: a mensagem do servidor, a do login vencido
-       (401 com `erro`) ou, sem resposta legível, o texto de falha. Só marca como gravado o que foi enviado (o que
+    /* Grava uma pauta por fetch. Resolve com {ok, recusada, mensagem, enviado}: a mensagem do servidor, a do login
+       vencido (401 com `erro`) ou, sem resposta legível, o texto de falha. `recusada` só na recusa de validação
+       (422); rede, sessão e erro do servidor não descartam a pauta. Só marca como gravado o que foi enviado (o que
        for digitado durante o envio continua pendente). */
     function gravar(form) {
         var enviado = retrato(form, false);
@@ -184,8 +192,9 @@
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         }).then(function (resposta) {
-            return resposta.json();
-        }).then(function (dados) {
+            return resposta.json().then(function (dados) { return { status: resposta.status, dados: dados }; });
+        }).then(function (resposta) {
+            var dados = resposta.dados;
             var mensagem = dados && typeof dados.mensagem === 'string' ? dados.mensagem : (dados && typeof dados.erro === 'string' ? dados.erro : null);
             if (mensagem === null) {
                 throw new Error('resposta sem mensagem');
@@ -194,9 +203,9 @@
             if (ok) {
                 form.setAttribute('data-voto-retrato', enviado);
             }
-            return { ok: ok, mensagem: mensagem, enviado: enviado };
+            return { ok: ok, recusada: !ok && resposta.status === 422, mensagem: mensagem, enviado: enviado };
         }).catch(function () {
-            return { ok: false, mensagem: texto('data-voto-falha'), enviado: enviado };
+            return { ok: false, recusada: false, mensagem: texto('data-voto-falha'), enviado: enviado };
         }).then(function (resultado) {
             gravando = false;
             return resultado;
@@ -215,24 +224,34 @@
                 if (falha !== null) {
                     return falha;
                 }
-                return gravar(form).then(function (dados) { return dados.ok ? null : { form: form, mensagem: dados.mensagem, enviado: dados.enviado }; });
+                return gravar(form).then(function (dados) { return dados.ok ? null : { form: form, recusada: dados.recusada, mensagem: dados.mensagem, enviado: dados.enviado }; });
             });
         }, Promise.resolve(null));
     }
 
-    /* A pauta que falhou: o erro fixo, com o convite a corrigir ou repetir, e o foco no primeiro campo dela. Do jeito
-       que está, ela fica marcada como recusada: repetir a ação segue sem ela. */
+    /* A pauta que falhou: o erro fixo e o foco no primeiro campo dela. Recusada na validação, ela fica marcada do
+       jeito que está e o erro convida a corrigir ou repetir (repetir segue sem ela); falha de rede ou de sessão só
+       avisa, e repetir tenta gravar de novo. */
     function mostrarFalha(falha) {
-        falha.form.setAttribute('data-voto-recusada', falha.enviado);
-        mostrarErro(falha.mensagem + ' ' + texto('data-voto-repetir'));
+        if (falha.recusada) {
+            falha.form.setAttribute('data-voto-recusada', falha.enviado);
+            mostrarErro(falha.mensagem + ' ' + texto('data-voto-repetir'), falha.form);
+        } else {
+            mostrarErro(falha.mensagem, falha.form);
+        }
         var campo = falha.form.querySelector('input:not([type="hidden"]), textarea');
         if (campo) {
             campo.focus();
         }
     }
 
-    function sair(acao) {
+    function marcarSaida() {
         saindo = true;
+        window.setTimeout(function () { saindo = false; }, TEMPO_DA_SAIDA);
+    }
+
+    function sair(acao) {
+        marcarSaida();
         acao();
     }
 
@@ -253,7 +272,7 @@
             campo.value = botao.value;
             form.appendChild(campo);
         }
-        saindo = true;
+        marcarSaida();
         form.submit();
     }
 
@@ -266,7 +285,7 @@
             if (botao) {
                 botao.disabled = false;
             }
-            if (dados.ok) {
+            if (dados.ok && erroDe === form) {
                 mostrarErro('');
             }
             avisar(dados.mensagem, !dados.ok);
@@ -354,7 +373,7 @@
         }
         if (form.hasAttribute('data-voto-liberado')) {
             form.removeAttribute('data-voto-liberado');
-            saindo = true;
+            marcarSaida();
             return;
         }
         if (gravando || saindo) {
@@ -377,7 +396,7 @@
         var bloco = form.closest('.voto-pauta-bloco');
         var exceto = [form].concat(bloco ? Array.prototype.slice.call(bloco.querySelectorAll('form[data-voto-pauta-form]')) : []);
         if (pendentes(exceto).length === 0) {
-            saindo = true;
+            marcarSaida();
             return;
         }
         evento.preventDefault();
@@ -405,7 +424,7 @@
             return;
         }
         if (pendentes([]).length === 0) {
-            saindo = true;
+            marcarSaida();
             return;
         }
         evento.preventDefault();
@@ -419,9 +438,10 @@
         });
     });
 
-    /* Fora da tela (menu lateral, topo, F5, Voltar do navegador): o aviso do navegador, como no editor do blog. */
+    /* Fora da tela (menu lateral, topo, F5, Voltar do navegador): o aviso do navegador, como no editor do blog. Conta
+       também a pauta recusada: seguir sem ela vale só para a ação repetida na tela. */
     window.addEventListener('beforeunload', function (evento) {
-        if (!telaDePautas || saindo || pendentes([]).length === 0) {
+        if (!telaDePautas || saindo || formsDePauta().filter(alterada).length === 0) {
             return;
         }
         evento.preventDefault();

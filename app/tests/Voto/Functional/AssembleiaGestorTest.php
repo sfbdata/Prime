@@ -540,7 +540,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame([(int) $fica->getId()], $this->pautasDa((int) $assembleia->getId()));
     }
 
-    #[TestDox('Sessão expirada no salvar por fetch: 422 com o aviso, e a pauta não muda')]
+    #[TestDox('Sessão expirada no salvar por fetch: 403 com o aviso (a tela tenta de novo, não descarta), e a pauta não muda')]
     public function testSalvarPorFetchComTokenVencido(): void
     {
         $this->liberar();
@@ -552,7 +552,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
             '_token' => 'vencido', 'titulo' => 'Outra', 'opcao_numero' => ['1'], 'opcao_rotulo' => ['Sim'],
         ]);
 
-        self::assertResponseStatusCodeSame(422);
+        self::assertResponseStatusCodeSame(403);
         self::assertSame(['ok' => false, 'mensagem' => 'A sessão expirou. Recarregue a página e tente de novo.'], json_decode((string) $this->client->getResponse()->getContent(), true));
         self::assertSame('Aprovação das contas', $this->em->getConnection()->fetchOne('SELECT titulo FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId()]));
     }

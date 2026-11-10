@@ -28,7 +28,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * No desenho, as pautas abertas na etapa 4 ficam em edição juntas e nada se perde entre elas. Por isso a tela grava por
  * fetch (public/js/voto-assembleia.js): o "Salvar" de uma pauta não recarrega a página, e as pautas alteradas são
  * gravadas antes de qualquer ação que recarrega. O pedido por fetch (X-Requested-With) recebe JSON com `ok` e
- * `mensagem` (o texto do toast); o envio comum segue com o toast na sessão e o redirecionamento.
+ * `mensagem` (o texto do toast): 200, 422 na recusa de validação (a tela deixa seguir sem a pauta recusada) ou 403
+ * na sessão expirada (a tela tenta de novo); o envio comum segue com o toast na sessão e o redirecionamento.
  */
 #[Route('/voto/assembleias/{id}/pautas', requirements: ['id' => '\d+', 'pauta' => '\d+'])]
 final class PautasDaAssembleiaController extends AbstractController
@@ -95,16 +96,17 @@ final class PautasDaAssembleiaController extends AbstractController
     }
 
     /**
-     * Executa a ação e responde: JSON `{ok, mensagem}` ao fetch da tela (200 ou 422, sem aviso na sessão) ou o toast na
-     * sessão e o redirecionamento para as pautas.
+     * Executa a ação e responde: JSON `{ok, mensagem}` ao fetch da tela (200, 422 ou 403, sem aviso na sessão) ou o
+     * toast na sessão e o redirecionamento para as pautas.
      *
      * @param array<string, int|string> $voltar parâmetros da rota das pautas no envio comum
      */
     private function responder(Request $request, int $id, callable $acao, string $avisoOk, array $voltar): Response
     {
-        [$ok, $mensagem] = $this->executar($request, $id, $acao, $avisoOk);
+        [$status, $mensagem] = $this->executar($request, $id, $acao, $avisoOk);
+        $ok = Response::HTTP_OK === $status;
         if ($request->isXmlHttpRequest()) {
-            return new JsonResponse(['ok' => $ok, 'mensagem' => $mensagem], $ok ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);
+            return new JsonResponse(['ok' => $ok, 'mensagem' => $mensagem], $status);
         }
         if ($ok) {
             $this->avisos->ok($mensagem);
@@ -115,18 +117,18 @@ final class PautasDaAssembleiaController extends AbstractController
         return $this->redirectToRoute('voto_assembleia_pautas', $voltar);
     }
 
-    /** @return array{bool, string} se deu certo e o texto do toast */
+    /** @return array{int, string} o status HTTP (200, 422 na recusa, 403 na sessão expirada) e o texto do toast */
     private function executar(Request $request, int $id, callable $acao, string $avisoOk): array
     {
         if (!$this->isCsrfTokenValid('voto_assembleia_' . $id, (string) $request->request->get('_token'))) {
-            return [false, $this->tradutor->trans('voto.assembleia.gestor.aviso.sessao_expirada')];
+            return [Response::HTTP_FORBIDDEN, $this->tradutor->trans('voto.assembleia.gestor.aviso.sessao_expirada')];
         }
         try {
             $acao();
 
-            return [true, $this->tradutor->trans($avisoOk)];
+            return [Response::HTTP_OK, $this->tradutor->trans($avisoOk)];
         } catch (OperacaoInvalidaNaAssembleiaException $e) {
-            return [false, $e->getMessage()];
+            return [Response::HTTP_UNPROCESSABLE_ENTITY, $e->getMessage()];
         } catch (AssembleiaNaoEncontradaException) {
             throw $this->createNotFoundException();
         }
