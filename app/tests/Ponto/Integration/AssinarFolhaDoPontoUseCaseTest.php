@@ -113,6 +113,20 @@ final class AssinarFolhaDoPontoUseCaseTest extends KernelTestCase
         $this->assertNadaGravado();
     }
 
+    /** @param array{int, int} $competencia */
+    #[DataProvider('competenciasForaDoCalendario')]
+    #[TestDox('Estado da barra com competência fora do calendário ($_dataName): sem aceite e sem poder assinar (nunca 500), sem montar a folha')]
+    public function testEstadoDeCompetenciaForaDoCalendario(array $competencia): void
+    {
+        $estado = $this->estadoDoAceite()->daCompetencia($this->escritorio, $this->maria, $competencia[0], $competencia[1]);
+
+        self::assertSame(
+            [$competencia[0], $competencia[1], null, false, false, AssinaturaDaFolhaRecusadaException::FORA_DA_FOLHA, null],
+            [$estado->ano, $estado->mes, $estado->situacao, $estado->alterada, $estado->podeAssinar, $estado->impedimento, $estado->textoDoSelo()],
+        );
+        $this->assertNadaGravado();
+    }
+
     /** @return iterable<string, array{array{int, int}}> */
     public static function competenciasForaDoCalendario(): iterable
     {

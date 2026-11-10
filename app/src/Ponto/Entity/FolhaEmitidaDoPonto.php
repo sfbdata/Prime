@@ -6,6 +6,7 @@ namespace App\Ponto\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Exception\CompetenciaDaFolhaInvalidaException;
 use App\Ponto\Repository\FolhaEmitidaDoPontoRepository;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
@@ -73,11 +74,11 @@ class FolhaEmitidaDoPonto implements TenantAware
         }
     }
 
-    /** @throws \InvalidArgumentException mês fora de 1 a 12 ou ano sem quatro dígitos */
+    /** @throws CompetenciaDaFolhaInvalidaException mês fora de 1 a 12 ou ano sem quatro dígitos */
     public static function exigirCompetencia(int $ano, int $mes): void
     {
         if ($mes < 1 || $mes > 12 || $ano < 1000 || $ano > 9999) {
-            throw new \InvalidArgumentException(sprintf('Competência inválida: %d/%d.', $mes, $ano));
+            throw new CompetenciaDaFolhaInvalidaException(sprintf('Competência inválida: %d/%d.', $mes, $ano));
         }
     }
 

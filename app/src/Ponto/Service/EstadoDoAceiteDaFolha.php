@@ -11,7 +11,9 @@ use App\Ponto\DTO\ConteudoDaFolha;
 use App\Ponto\DTO\DadosDaFolhaEmitida;
 use App\Ponto\DTO\DadosDoAceiteDaFolha;
 use App\Ponto\Entity\AceiteDaFolhaDoPonto;
+use App\Ponto\Entity\FolhaEmitidaDoPonto;
 use App\Ponto\Exception\AssinaturaDaFolhaRecusadaException;
+use App\Ponto\Exception\CompetenciaDaFolhaInvalidaException;
 use App\Ponto\Repository\AceiteDaFolhaDoPontoRepository;
 
 /**
@@ -21,9 +23,10 @@ use App\Ponto\Repository\AceiteDaFolhaDoPontoRepository;
  *
  * "Alterada depois do aceite" compara a impressão dos registros guardada DENTRO dos dados assinados da folha emitida
  * vista no aceite com a da folha de agora (decisão 3). Com o selo pronto, o aceite só vale depois de conferir a prova
- * inteira: o HMAC da folha vista, o HMAC do próprio aceite (decisão 14) e a linha do aceite igual ao texto que ele selou
- * (a folha vista pelo código, a situação, a ressalva, o instante, o IP, o navegador, o escritório, a pessoa, a
- * competência e o número). O que não confere (texto mexido, coluna trocada, versão de chave perdida) conta como
+ * inteira: o HMAC da folha vista, o HMAC do próprio aceite (decisão 14), a linha do aceite igual ao texto que ele selou
+ * (a situação, a ressalva, o instante, o IP, o navegador, o escritório, a pessoa, a competência e o número) e a folha
+ * ligada igual à que ele selou (o código selado nela e na coluna, o escritório, a pessoa e a competência selados nela).
+ * O que não confere (texto mexido, coluna trocada, FK apontada para outra emissão, versão de chave perdida) conta como
  * alterada: o aceite não prova mais o que a pessoa assinou, não vai carimbado nem selado numa folha nova, e o "Assinar
  * folha" volta. Sem o segredo não há como conferir; vale o que está gravado, para o selo da barra e o carimbo do PDF
  * continuarem (seção 7 da spec).
@@ -44,9 +47,18 @@ final class EstadoDoAceiteDaFolha
     ) {
     }
 
-    /** Para a barra da folha: monta a folha de agora e avalia. */
+    /**
+     * Para a barra da folha: monta a folha de agora e avalia. Competência fora do calendário (mês fora de 1 a 12, ano
+     * sem quatro dígitos): sem aceite e sem poder assinar, com a recusa do mês que não está na folha (decisão 24), sem
+     * montar a folha, que não existe para esse mês.
+     */
     public function daCompetencia(Tenant $escritorio, User $pessoa, int $ano, int $mes): AceiteDaFolhaOutput
     {
+        try {
+            FolhaEmitidaDoPonto::exigirCompetencia($ano, $mes);
+        } catch (CompetenciaDaFolhaInvalidaException) {
+            return AceiteDaFolhaOutput::daCompetencia($ano, $mes, null, false, AssinaturaDaFolhaRecusadaException::FORA_DA_FOLHA);
+        }
         $agora = $this->relogio->agora();
 
         return $this->avaliar($escritorio, $pessoa, $this->conteudos->montar($escritorio, $pessoa, $ano, $mes, $agora), $agora);
@@ -75,47 +87,63 @@ final class EstadoDoAceiteDaFolha
 
     private function alteradaDepois(AceiteDaFolhaDoPonto $aceite, ConteudoDaFolha $folhaDeAgora): bool
     {
-        if ($this->selo->disponivel() && !$this->provaConfere($aceite)) {
-            return true;
-        }
         try {
-            $impressaoVista = DadosDaFolhaEmitida::deCanonico($aceite->getFolhaVista()->getDadosAssinados())->impressaoRegistros;
+            $vista = DadosDaFolhaEmitida::deCanonico($aceite->getFolhaVista()->getDadosAssinados());
         } catch (\UnexpectedValueException) {
             return true;
         }
+        if ($this->selo->disponivel() && !$this->provaConfere($aceite, $vista)) {
+            return true;
+        }
 
-        return !hash_equals($impressaoVista, $folhaDeAgora->impressaoDosRegistros());
-    }
-
-    /** Com o selo pronto: o HMAC da folha vista, o HMAC do aceite e a linha do aceite igual ao que ele selou. */
-    private function provaConfere(AceiteDaFolhaDoPonto $aceite): bool
-    {
-        $vista = $aceite->getFolhaVista();
-
-        return $this->selo->conferir($vista->getDadosAssinados(), $vista->getHmac(), $vista->getVersaoChave())
-            && $this->selo->conferir($aceite->getDadosAssinados(), $aceite->getHmac(), $aceite->getVersaoChave())
-            && self::linhaIgualAoSelado($aceite);
+        return !hash_equals($vista->impressaoRegistros, $folhaDeAgora->impressaoDosRegistros());
     }
 
     /**
-     * As colunas do aceite dizem o mesmo que o texto selado nele (decisão 14). O instante compara o relógio de parede:
-     * a coluna não guarda o fuso, e o texto selado guarda (o fuso do servidor, {@see RelogioDaFolha}).
+     * Com o selo pronto: o HMAC da folha vista, o HMAC do aceite, a linha do aceite igual ao que ele selou e a folha
+     * ligada igual à que ele selou ({@see self::folhaLigadaIgualASelada()}).
      */
-    private static function linhaIgualAoSelado(AceiteDaFolhaDoPonto $aceite): bool
+    private function provaConfere(AceiteDaFolhaDoPonto $aceite, DadosDaFolhaEmitida $vista): bool
     {
+        $folha = $aceite->getFolhaVista();
+        if (!$this->selo->conferir($folha->getDadosAssinados(), $folha->getHmac(), $folha->getVersaoChave())
+            || !$this->selo->conferir($aceite->getDadosAssinados(), $aceite->getHmac(), $aceite->getVersaoChave())) {
+            return false;
+        }
         try {
             $selado = DadosDoAceiteDaFolha::deCanonico($aceite->getDadosAssinados());
         } catch (\UnexpectedValueException) {
             return false;
         }
 
+        return self::linhaIgualAoSelado($aceite, $selado) && self::folhaLigadaIgualASelada($folha->getCodigo(), $vista, $selado);
+    }
+
+    /**
+     * As colunas do aceite dizem o mesmo que o texto selado nele (decisão 14). O instante compara o relógio de parede:
+     * a coluna não guarda o fuso, e o texto selado guarda (o fuso do servidor, {@see RelogioDaFolha}).
+     */
+    private static function linhaIgualAoSelado(AceiteDaFolhaDoPonto $aceite, DadosDoAceiteDaFolha $selado): bool
+    {
         return [
-            $selado->codigoDaFolhaVista, $selado->situacao, $selado->ressalva, $selado->aceitoEm->format('Y-m-d H:i:s'),
-            $selado->ip, $selado->navegador, $selado->escritorioId, $selado->pessoaId, $selado->ano, $selado->mes, $selado->numero,
+            $selado->situacao, $selado->ressalva, $selado->aceitoEm->format('Y-m-d H:i:s'), $selado->ip, $selado->navegador,
+            $selado->escritorioId, $selado->pessoaId, $selado->ano, $selado->mes, $selado->numero,
         ] === [
-            $aceite->getFolhaVista()->getCodigo(), $aceite->getSituacao(), $aceite->getRessalva(), $aceite->getAceitoEm()->format('Y-m-d H:i:s'),
-            $aceite->getIp(), $aceite->getNavegador(), $aceite->getTenant()?->getId(), $aceite->getUser()->getId(), $aceite->getAno(), $aceite->getMes(), $aceite->getNumero(),
+            $aceite->getSituacao(), $aceite->getRessalva(), $aceite->getAceitoEm()->format('Y-m-d H:i:s'), $aceite->getIp(), $aceite->getNavegador(),
+            $aceite->getTenant()?->getId(), $aceite->getUser()->getId(), $aceite->getAno(), $aceite->getMes(), $aceite->getNumero(),
         ];
+    }
+
+    /**
+     * A folha ligada pela FK é a que o aceite selou: o código selado no aceite é o código SELADO na folha ligada (o texto
+     * cujo HMAC acabou de conferir, como na validação pública) e também o da coluna dela, e o escritório, a pessoa e a
+     * competência selados na folha são os selados no aceite. A coluna `codigo` sozinha não prova nada: trocá-la e
+     * apontar a FK para outra emissão não pode passar.
+     */
+    private static function folhaLigadaIgualASelada(string $codigoDaColuna, DadosDaFolhaEmitida $vista, DadosDoAceiteDaFolha $selado): bool
+    {
+        return [$vista->codigo, $codigoDaColuna, $vista->escritorioId, $vista->pessoaId, $vista->ano, $vista->mes]
+            === [$selado->codigoDaFolhaVista, $selado->codigoDaFolhaVista, $selado->escritorioId, $selado->pessoaId, $selado->ano, $selado->mes];
     }
 
     private function impedimento(Tenant $escritorio, User $pessoa, ConteudoDaFolha $folha, \DateTimeImmutable $agora, bool $jaAssinada): ?string
