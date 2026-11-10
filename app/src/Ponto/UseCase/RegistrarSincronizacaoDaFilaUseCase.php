@@ -45,7 +45,7 @@ final class RegistrarSincronizacaoDaFilaUseCase
         if ($tenantId === null || $batidas === []) {
             return 0;
         }
-        $ids = array_values(array_map(static fn (RegistroPonto $batida): int => (int) $batida->getId(), $batidas));
+        $ids = array_map(static fn (RegistroPonto $batida): int => (int) $batida->getId(), $batidas);
 
         return $this->trilha->emTransacao(function () use ($input, $tenantId, $ids): int {
             $this->repositorioDaTrilha->travar($tenantId);
