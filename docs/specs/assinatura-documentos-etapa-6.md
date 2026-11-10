@@ -67,11 +67,11 @@ Classes, para o PHP (6B e 8B):
 | `400` | `parametro_invalido` | `ancora` ausente ou fora de `icp`, `govbr`, `qualquer` (minúsculas) | conferir | cliente |
 | `401` | `nao_autorizado` | Sem token, token errado ou token vazio no validador (`WWW-Authenticate: Bearer`) | as duas | configuração |
 | `404` | `nao_encontrado` | Rota desconhecida (`GET` fora de `/saude`, `POST` fora das duas rotas) | qualquer | cliente |
-| `405` | `metodo_nao_permitido` | `PUT`, `DELETE` ou `PATCH` | qualquer | cliente |
+| `405` | `metodo_nao_permitido` | Qualquer método fora de `GET` e `POST` (`HEAD`, `OPTIONS`, `PUT`, `DELETE`, `PATCH` e outros), com `Allow: GET, POST`; resposta a `HEAD` sem corpo | qualquer | cliente |
 | `411` | `tamanho_ausente` | `POST` com `Transfer-Encoding` ou sem `Content-Length` | as duas | cliente |
 | `413` | `pdf_grande_demais` | `Content-Length` acima de 20 MB (o corpo nem é lido) | as duas | definitivo |
 | `422` | `nao_selavel` | PDF que não é do BlueJus, criptografado ou com qualquer assinatura (E8-5) | selar | definitivo (selo: E8-4) |
-| `500` | `erro_interno` | O processo filho caiu ou levantou um erro inesperado | as duas | passageiro |
+| `500` | `erro_interno` | O processo filho caiu ou levantou um erro inesperado (o log registra o tipo do erro, ou `sem_resposta` com a saída ou o sinal) | as duas | passageiro |
 | `502` | `carimbo_indisponivel` | A ACT configurada não respondeu (etapa 8, E8-3) | selar | passageiro |
 | `503` | `ocupado` | As 2 vagas ficaram ocupadas por mais de 10 s (`Retry-After: 10`) | as duas | passageiro |
 | `503` | `tempo_esgotado` | A operação passou de 30 s; o filho é morto | as duas | passageiro |

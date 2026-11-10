@@ -12,6 +12,7 @@ import multiprocessing
 from multiprocessing import forkserver
 import os
 import resource
+import signal
 from collections.abc import Callable
 from typing import Any
 
@@ -67,21 +68,37 @@ def executar(funcao: Callable[..., Any], argumentos: tuple, tempo_maximo: float)
     processo = _contexto.Process(target=_alvo, args=(escritor, funcao, argumentos), daemon=True)
     processo.start()
     escritor.close()
+    sem_resposta = False
     try:
         if not leitor.poll(tempo_maximo):
             raise TempoEsgotado()
         try:
             tipo, valor = leitor.recv()
         except (EOFError, OSError):
-            raise FalhaNoFilho('sem_resposta') from None
+            sem_resposta = True
     finally:
         leitor.close()
         if processo.is_alive():
             processo.kill()
         processo.join(timeout=5)
+    if sem_resposta:
+        # O filho caiu sem mandar nada (sinal, os._exit, OOM killer): só o resultado e como terminou.
+        log.error('falha no processo filho: sem_resposta %s', _como_terminou(processo.exitcode))
+        raise FalhaNoFilho('sem_resposta')
     if tipo == 'ok':
         return valor
     if tipo == 'erro':
         raise ErroConhecido(valor)
     log.error('falha no processo filho: %s', valor)
     raise FalhaNoFilho(valor)
+
+
+def _como_terminou(codigo: int | None) -> str:
+    if codigo is None:
+        return 'sem_codigo'
+    if codigo < 0:
+        try:
+            return f'sinal={signal.Signals(-codigo).name}'
+        except ValueError:
+            return f'sinal={-codigo}'
+    return f'saida={codigo}'

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import resource
+import signal
 
 
 def falhar(*_argumentos):
@@ -16,6 +17,10 @@ def falhar(*_argumentos):
 
 def morrer(*_argumentos):
     os._exit(3)  # o filho cai sem responder pelo pipe
+
+
+def morrer_por_sinal(*_argumentos):
+    os.kill(os.getpid(), signal.SIGKILL)  # como o OOM killer
 
 
 def estourar_memoria(*_argumentos):

@@ -131,7 +131,8 @@ class Manipulador(BaseHTTPRequestHandler):
         for nome, valor in (cabecalhos or {}).items():
             self.send_header(nome, valor)
         self.end_headers()
-        self.wfile.write(corpo)
+        if self.command != 'HEAD':  # resposta a HEAD nunca leva corpo (RFC 9110)
+            self.wfile.write(corpo)
 
     def _enviar_json(self, situacao: int, dados: dict, cabecalhos: dict[str, str] | None = None) -> None:
         corpo = json.dumps(dados, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
@@ -147,7 +148,7 @@ class Manipulador(BaseHTTPRequestHandler):
         rota = urlsplit(self.path).path if self.path else '-'
         log.info(
             '%s %s %d bytes=%d ms=%d resultado=%s',
-            self.command,
+            self.command[:16],
             rota[:64],
             situacao,
             tamanho,
@@ -197,14 +198,18 @@ class Manipulador(BaseHTTPRequestHandler):
             return
         self._registrar(situacao, inicio, tamanho, resultado)
 
-    def do_PUT(self):  # noqa: N802
-        self._metodo_nao_permitido()
-
-    do_DELETE = do_PATCH = do_PUT
+    def __getattr__(self, nome: str):
+        # A biblioteca padrão procura `do_<MÉTODO>` e, sem ele, responde 501 em HTML. Todo método fora de GET e
+        # POST (HEAD, OPTIONS, PUT, DELETE, PATCH, TRACE, CONNECT ou inventado) responde 405 em JSON v1.
+        if nome.startswith('do_'):
+            return self._metodo_nao_permitido
+        raise AttributeError(nome)
 
     def _metodo_nao_permitido(self):
+        inicio = time.monotonic()
         self.close_connection = True
-        self._enviar_erro(Resposta(HTTPStatus.METHOD_NOT_ALLOWED, 'metodo_nao_permitido'))
+        self._enviar_erro(Resposta(HTTPStatus.METHOD_NOT_ALLOWED, 'metodo_nao_permitido', {'Allow': 'GET, POST'}))
+        self._registrar(HTTPStatus.METHOD_NOT_ALLOWED, inicio, 0, 'metodo_nao_permitido')
 
     # Etapas comuns --------------------------------------------------------------------------------------
 

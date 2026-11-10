@@ -212,11 +212,27 @@ def test_rota_desconhecida_e_404(servidor):
     assert (no_get, dados_do_get) == (404, {'v': 1, 'erro': 'nao_encontrado'})
 
 
-@pytest.mark.parametrize('metodo', ['PUT', 'DELETE', 'PATCH'])
-def test_metodo_nao_permitido_e_405(servidor, metodo):
-    situacao, dados, _ = pedir_json(servidor, metodo, '/v1/conferir?ancora=icp', b'%PDF')
+@pytest.mark.parametrize('metodo', ['PUT', 'DELETE', 'PATCH', 'OPTIONS', 'TRACE', 'INVENTADO'])
+def test_metodo_fora_de_get_e_post_e_405_em_json(servidor, metodo, caplog):
+    with caplog.at_level(logging.INFO, logger='validador.servidor'):
+        situacao, dados, resposta = pedir_json(servidor, metodo, '/v1/conferir?ancora=icp', b'%PDF')
+        esperar_no_log(caplog, f'{metodo} /v1/conferir 405 ')
 
     assert (situacao, dados) == (405, {'v': 1, 'erro': 'metodo_nao_permitido'})
+    assert resposta.getheader('Content-Type') == 'application/json'
+    assert resposta.getheader('Allow') == 'GET, POST'
+    assert f'{metodo} /v1/conferir 405 bytes=0' in caplog.text
+
+
+@pytest.mark.parametrize('caminho', ['/saude', '/v1/conferir?ancora=icp'])
+def test_head_e_405_sem_corpo(servidor, caminho):
+    resposta, corpo = pedir(servidor, 'HEAD', caminho, token=None)
+
+    assert resposta.status == 405  # antes: 501 em HTML da biblioteca padrão
+    assert resposta.getheader('Content-Type') == 'application/json'
+    assert resposta.getheader('Allow') == 'GET, POST'
+    assert int(resposta.getheader('Content-Length')) == len('{"v":1,"erro":"metodo_nao_permitido"}')
+    assert corpo == b''
 
 
 @pytest.mark.parametrize('cabecalho', ['transfer_encoding', 'sem_content_length'])
@@ -239,18 +255,27 @@ def test_corpo_sem_tamanho_declarado_e_411(servidor, cabecalho):
 def test_falha_no_filho_e_500_erro_interno(servidor, monkeypatch, caplog):
     # O filho recebe a função por referência: trocar `conferencia.conferir` aqui troca o que ele roda.
     respostas = []
+    pdf = pdfs.pdf_simples()
+    # Exceção no filho; filho que sai sem responder; filho morto por sinal (como o OOM killer).
     with caplog.at_level(logging.INFO):
-        for funcao in (filho.falhar, filho.morrer):  # exceção no filho; filho que cai sem responder
+        for funcao in (filho.falhar, filho.morrer, filho.morrer_por_sinal):
             monkeypatch.setattr(conferencia, 'conferir', funcao)
-            respostas.append(pedir_json(servidor, 'POST', '/v1/conferir?ancora=icp', pdfs.pdf_simples())[:2])
+            respostas.append(pedir_json(servidor, 'POST', '/v1/conferir?ancora=icp', pdf)[:2])
         # O servidor segue atendendo depois de o filho cair.
         monkeypatch.undo()
         saude, _, _ = pedir_json(servidor, 'GET', '/saude', token=None)
         esperar_no_log(caplog, 'resultado=erro_interno')
 
-    assert respostas == [(500, {'v': 1, 'erro': 'erro_interno'})] * 2
-    assert 'falha no processo filho: RuntimeError' in caplog.text
-    assert caplog.text.count('POST /v1/conferir 500 ') == 2
+    assert respostas == [(500, {'v': 1, 'erro': 'erro_interno'})] * 3
+    erros = [r.getMessage() for r in caplog.records if r.name == 'validador.execucao']
+    assert erros == [
+        'falha no processo filho: RuntimeError',
+        'falha no processo filho: sem_resposta saida=3',
+        'falha no processo filho: sem_resposta sinal=SIGKILL',
+    ]
+    assert caplog.text.count('POST /v1/conferir 500 ') == 3
+    for proibido in ('Contrato', TOKEN):
+        assert proibido not in caplog.text
     assert saude == 200
 
 
