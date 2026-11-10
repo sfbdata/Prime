@@ -5,6 +5,7 @@ from __future__ import annotations
 import http.client
 import json
 import threading
+import time
 from contextlib import contextmanager
 
 from validador.ancoras import ConjuntoDeAncoras, RepositorioDeAncoras
@@ -40,6 +41,14 @@ def pedir(servidor, metodo, caminho, corpo=None, token=TOKEN, cabecalhos=None):
     dados = resposta.read()
     conexao.close()
     return resposta, dados
+
+
+def esperar_no_log(caplog, *linhas: str, limite: float = 5.0) -> None:
+    """O servidor escreve a linha do log depois de mandar a resposta, no fio do pedido: o cliente pode ler a
+    resposta antes de a linha sair. Chame ainda dentro do `caplog.at_level(...)`."""
+    fim = time.monotonic() + limite
+    while not all(linha in caplog.text for linha in linhas) and time.monotonic() < fim:
+        time.sleep(0.02)
 
 
 def pedir_json(servidor, metodo, caminho, corpo=None, **kwargs):

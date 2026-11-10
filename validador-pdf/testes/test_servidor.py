@@ -14,7 +14,7 @@ from validador.ancoras import ConjuntoDeAncoras
 from validador.configuracao import TETO_DO_PDF, Configuracao, Revogacao
 
 from . import pdfs, pki
-from .cliente import TOKEN, pedir, pedir_json, servidor_no_ar
+from .cliente import TOKEN, esperar_no_log, pedir, pedir_json, servidor_no_ar
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -169,12 +169,14 @@ def test_log_tem_so_rota_situacao_tamanho_e_tempo(servidor, icp, caplog):
     _, ac, folha = icp
     pdf = pdfs.assinar(pdfs.pdf_simples(), folha, cadeia=[ac])
 
+    esperadas = ('POST /v1/conferir 200 bytes=%d' % len(pdf), 'POST /v1/conferir 400 bytes=23')
     with caplog.at_level(logging.DEBUG):
         pedir(servidor, 'POST', '/v1/conferir?ancora=icp', pdf)
         pedir(servidor, 'POST', '/v1/conferir?ancora=icp', b'conteudo secreto do pdf')
+        esperar_no_log(caplog, *esperadas)
 
     texto = caplog.text
-    assert 'POST /v1/conferir 200 bytes=%d' % len(pdf) in texto
-    assert 'POST /v1/conferir 400 bytes=23' in texto
+    assert esperadas[0] in texto
+    assert esperadas[1] in texto
     for proibido in ('12345678909', 'FULANO', 'secreto', 'Contrato', TOKEN):
         assert proibido not in texto

@@ -21,7 +21,7 @@ from validador.configuracao import Configuracao, Revogacao
 
 from . import pdfs, pki
 from .act import ActLocal, url_que_nao_responde
-from .cliente import TOKEN, pedir, pedir_json, servidor_no_ar
+from .cliente import TOKEN, esperar_no_log, pedir, pedir_json, servidor_no_ar
 
 SENHA = b'senha do selo de teste'
 CNPJ = '11222333000181'
@@ -218,6 +218,7 @@ def test_selo_nao_aparece_no_log(servidor, caplog):
 
     with caplog.at_level(logging.DEBUG):
         selar(servidor, pdfs.pdf_em_imagem('BJA-SEGREDO-0000-0000'))
+        esperar_no_log(caplog, 'POST /v1/selar 200')
 
     assert 'POST /v1/selar 200' in caplog.text
     for proibido in ('SEGREDO', CNPJ, SENHA.decode(), 'BLUEJUS TECNOLOGIA'):
