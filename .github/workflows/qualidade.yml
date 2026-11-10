@@ -28,8 +28,8 @@
 #   - composer audit: hoje acusa dezenas de advisories herdados; como portão, travaria todo PR.
 #
 # O ambiente replica do Dockerfile (stage base) o que os testes usam: Ghostscript (compressão e
-# contagem de páginas de PDF), bcmath (atualização monetária), gd com freetype/jpeg, intl e o
-# fuso America/Sao_Paulo. sodium (CifradorDeSegredo) e posix vêm embutidos na imagem php:8.2;
+# contagem de páginas de PDF), as fontes URW do PDF da Assinatura (fonts-urw-base35), bcmath
+# (atualização monetária), gd com freetype/jpeg, intl e o fuso America/Sao_Paulo. sodium (CifradorDeSegredo) e posix vêm embutidos na imagem php:8.2;
 # aqui ficam explícitos.
 
 name: Qualidade
@@ -90,12 +90,16 @@ jobs:
           # Histórico inteiro: o CS-Fixer de arquivo novo precisa do merge-base com a base do PR.
           fetch-depth: 0
 
-      - name: Instalar Ghostscript
+      # fonts-urw-base35: as fontes do PDF da Assinatura (NimbusSans e NimbusMonoPS, como no Dockerfile). Sem elas os
+      # testes do PDF se pulam, e o --fail-on-skipped reprova. Hoje o ghostscript já as puxa como dependência no
+      # Ubuntu; ficam explícitas para não sumirem com uma troca de pacote.
+      - name: Instalar Ghostscript e as fontes do PDF
         working-directory: .
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ghostscript
+          sudo apt-get install -y -qq ghostscript fonts-urw-base35
           gs --version
+          test -r /usr/share/fonts/opentype/urw-base35/NimbusSans-Regular.otf
 
       - name: Configurar PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0

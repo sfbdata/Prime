@@ -7,11 +7,16 @@ namespace App\AssinaturaEletronica\Repository;
 use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Entity\VersaoDoPdf;
 use App\AssinaturaEletronica\Enum\CorDaLinha;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Query;
@@ -26,10 +31,11 @@ use Doctrine\Persistence\ManagerRegistry;
 class DocumentoParaAssinarRepository extends ServiceEntityRepository
 {
     public function __construct(
-        ManagerRegistry $registry,
+        private readonly ManagerRegistry $registro,
         private readonly AcessoALixeira $lixeira,
+        private readonly TransacaoComArquivoNovo $transacaoComArquivoNovo,
     ) {
-        parent::__construct($registry, DocumentoParaAssinar::class);
+        parent::__construct($registro, DocumentoParaAssinar::class);
     }
 
     /** Fora da Lixeira. */
@@ -83,7 +89,7 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     {
         /** @var list<array<string, mixed>> $linhas */
         $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
-            ->select('d.id', 'd.nome', 'd.categoria', 'd.pastaRotulo', 'd.situacao', 'd.criadoEm', 'd.venceEm', 'd.cor', 'd.excluidoEm')
+            ->select('d.id', 'd.nome', 'd.categoria', 'd.pastaRotulo', 'd.situacao', 'd.criadoEm', 'd.venceEm', 'd.cor', 'd.excluidoEm', 'd.codigo')
             ->andWhere('d.tenant = :tenant')
             ->setParameter('tenant', $tenant)
             ->orderBy('d.criadoEm', 'DESC')
@@ -97,8 +103,9 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     }
 
     /**
-     * Dos nomes de arquivo dados, os que algum documento do escritório ainda usa (PDF ou logo própria), Lixeira
-     * incluída. Quem apaga arquivo depois do COMMIT confere aqui antes: arquivo em uso não sai.
+     * Dos nomes de arquivo dados, os que algum documento do escritório ainda usa (PDF enviado, logo própria, PDF final
+     * com selo ou versão guardada do PDF, etapa 5), Lixeira incluída. Quem apaga arquivo depois do COMMIT confere aqui
+     * antes: arquivo em uso não sai.
      *
      * @param list<string> $nomes
      *
@@ -110,19 +117,43 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
             return [];
         }
 
-        /** @var list<array{pdf: ?string, logo: ?string}> $linhas */
+        /** @var list<array{pdf: ?string, logo: ?string, final: ?string}> $linhas */
         $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
-            ->select('d.arquivoEnviadoChave AS pdf', 'd.logoChave AS logo')
+            ->select('d.arquivoEnviadoChave AS pdf', 'd.logoChave AS logo', 'd.arquivoFinalChave AS final')
             ->andWhere('d.tenant = :tenant')
-            ->andWhere('d.arquivoEnviadoChave IN (:nomes) OR d.logoChave IN (:nomes)')
+            ->andWhere('d.arquivoEnviadoChave IN (:nomes) OR d.logoChave IN (:nomes) OR d.arquivoFinalChave IN (:nomes)')
             ->setParameter('tenant', $tenant)
             ->setParameter('nomes', $nomes)
             ->getQuery()
             ->getScalarResult());
 
-        $usados = array_merge(array_column($linhas, 'pdf'), array_column($linhas, 'logo'));
+        $usados = array_merge(array_column($linhas, 'pdf'), array_column($linhas, 'logo'), array_column($linhas, 'final'), $this->versoesEmUso($tenant, $nomes));
 
         return array_values(array_filter($nomes, static fn (string $nome): bool => \in_array($nome, $usados, true)));
+    }
+
+    /**
+     * Dos nomes dados, os das versões guardadas do PDF de documentos do escritório, Lixeira incluída.
+     *
+     * @param list<string> $nomes
+     *
+     * @return list<string>
+     */
+    private function versoesEmUso(Tenant $tenant, array $nomes): array
+    {
+        /** @var list<array{chave: string}> $linhas */
+        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->getEntityManager()->createQueryBuilder()
+            ->select('v.arquivoChave AS chave')
+            ->from(VersaoDoPdf::class, 'v')
+            ->innerJoin('v.documento', 'd')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('v.arquivoChave IN (:nomes)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nomes', $nomes)
+            ->getQuery()
+            ->getScalarResult());
+
+        return array_column($linhas, 'chave');
     }
 
     /**
@@ -145,6 +176,65 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
         return $relido === $documento;
     }
 
+    /**
+     * A porta da tela pública: o signatário do hash do token, com o documento, mesmo na Lixeira (a página mostra "Envio
+     * cancelado", não "Link inválido."). Sem escritório na consulta: o token é a chave, e o escritório sai do próprio
+     * documento daí em diante. O filtro de escritório já foi desligado nas rotas públicas pelo listener.
+     */
+    public function signatarioPeloTokenHash(string $tokenHash): ?Signatario
+    {
+        return $this->lixeira->comLixeiraVisivel(fn (): ?Signatario => $this->getEntityManager()->createQueryBuilder()
+            ->select('s', 'd')
+            ->from(Signatario::class, 's')
+            ->innerJoin('s.documento', 'd')
+            ->andWhere('s.tokenHash = :hash')
+            ->setParameter('hash', $tokenHash)
+            ->getQuery()
+            ->getOneOrNullResult());
+    }
+
+    /**
+     * A porta da validação pública (etapa 3): o documento do código de validação, de qualquer escritório e mesmo na
+     * Lixeira (a prova continua). Sem escritório na consulta: o código é a chave. Só para as rotas públicas, onde o
+     * filtro de escritório já foi desligado pelo listener; quem mostra o resultado nunca expõe CPF nem e-mail.
+     */
+    public function porCodigo(string $codigo): ?DocumentoParaAssinar
+    {
+        return $this->lixeira->comLixeiraVisivel(fn (): ?DocumentoParaAssinar => $this->createQueryBuilder('d')
+            ->andWhere('d.codigo = :codigo')
+            ->setParameter('codigo', $codigo)
+            ->getQuery()
+            ->getOneOrNullResult());
+    }
+
+    /**
+     * Se algum documento, de qualquer escritório e mesmo na Lixeira, já tem este código: a colisão do envio. Por DBAL,
+     * de propósito: o filtro de escritório da sessão esconderia o código de outro escritório, e o índice único não.
+     */
+    public function codigoEmUso(string $codigo): bool
+    {
+        return $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1 FROM assinatura_eletronica_documento WHERE codigo = ?',
+            [$codigo],
+        ) !== false;
+    }
+
+    /**
+     * Relê do banco os signatários do documento, por cima do que está em memória. Vem depois de
+     * {@see travarERecarregar()}: a decisão (vez, código, situação) usa o que está gravado. Exige transação aberta.
+     */
+    public function recarregarSignatarios(DocumentoParaAssinar $documento): void
+    {
+        $this->getEntityManager()->createQueryBuilder()
+            ->select('s')
+            ->from(Signatario::class, 's')
+            ->andWhere('s.documento = :documento')
+            ->setParameter('documento', $documento)
+            ->getQuery()
+            ->setHint(Query::HINT_REFRESH, true)
+            ->getResult();
+    }
+
     /** Grava e confirma o documento (o id nasce aqui no documento novo). */
     public function salvar(DocumentoParaAssinar $documento): void
     {
@@ -157,6 +247,82 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     public function remover(DocumentoParaAssinar $documento): void
     {
         $this->getEntityManager()->remove($documento);
+    }
+
+    /**
+     * O documento assinado que o vínculo põe na pasta, com o registro do arquivo (código DOC): só `persist`, o `flush`
+     * é da transação de quem chama (spec assinatura-documentos-etapa-3, E3-12).
+     */
+    public function guardarNaPasta(PastaDocumento $arquivo): void
+    {
+        $em = $this->getEntityManager();
+        if ($arquivo->getArquivo() !== null) {
+            $em->persist($arquivo->getArquivo());
+        }
+        $em->persist($arquivo);
+    }
+
+    /**
+     * Os vínculos à pasta dos documentos dados (os da resposta), deste escritório, Lixeira incluída, para o texto "Na
+     * pasta" da lista (E3-10): por id do documento, a pasta e se o vínculo ainda está pendente. Duas consultas para a
+     * lista inteira (os vínculos, sem hidratar o documento, e as pastas deles); documento sem vínculo, de outro
+     * escritório ou fora dos ids não aparece. As pastas vêm à parte de propósito: na consulta única com a pasta como
+     * raiz, dois documentos na mesma pasta viravam uma linha só, e um deles perdia o "Na pasta".
+     *
+     * @param list<int> $documentoIds
+     *
+     * @return array<int, array{pasta: Pasta, pendente: bool}>
+     */
+    public function vinculosDosDocumentos(Tenant $tenant, array $documentoIds): array
+    {
+        if ($documentoIds === []) {
+            return [];
+        }
+
+        /** @var list<array{documentoId: int|string, pastaId: int|string, pendente: bool}> $linhas */
+        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
+            ->select('d.id AS documentoId', 'IDENTITY(d.pasta) AS pastaId', 'd.vinculoPendente AS pendente')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.pasta IS NOT NULL')
+            ->andWhere('d.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $documentoIds)
+            ->getQuery()
+            ->getArrayResult());
+        if ($linhas === []) {
+            return [];
+        }
+
+        $pastas = $this->pastasDoEscritorio($tenant, array_values(array_unique(array_map(static fn (array $l): int => (int) $l['pastaId'], $linhas))));
+        $vinculos = [];
+        foreach ($linhas as $linha) {
+            $pasta = $pastas[(int) $linha['pastaId']] ?? null;
+            if ($pasta !== null) {
+                $vinculos[(int) $linha['documentoId']] = ['pasta' => $pasta, 'pendente' => (bool) $linha['pendente']];
+            }
+        }
+
+        return $vinculos;
+    }
+
+    /**
+     * As pastas dos vínculos da lista, deste escritório, por id.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, Pasta>
+     */
+    private function pastasDoEscritorio(Tenant $tenant, array $ids): array
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('p')
+            ->from(Pasta::class, 'p', 'p.id')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
     }
 
     /**
@@ -214,6 +380,7 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
             cor: $linha['cor'] instanceof CorDaLinha ? $linha['cor'] : CorDaLinha::from((string) $linha['cor']),
             naLixeira: ($linha['excluidoEm'] ?? null) !== null,
             signatarios: $signatarios,
+            codigo: isset($linha['codigo']) ? (string) $linha['codigo'] : null,
         );
     }
 
@@ -234,5 +401,33 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     public function emTransacao(callable $trabalho): mixed
     {
         return $this->getEntityManager()->wrapInTransaction(static fn (): mixed => $trabalho());
+    }
+
+    /**
+     * Reabre o EntityManager que uma exceção dentro de uma transação fechou (o worker que falhou ao guardar o PDF final):
+     * sem isso, a gravação de quem trata a falha lança de novo. Aberto, nada muda.
+     */
+    public function reabrirSeFechado(): void
+    {
+        if (!$this->getEntityManager()->isOpen()) {
+            $this->registro->resetManager();
+        }
+    }
+
+    /**
+     * Roda o trabalho numa transação que grava arquivo novo (a rubrica do "Assinar"), pela {@see TransacaoComArquivoNovo}:
+     * se nada foi confirmado, os arquivos novos saem do disco. O UseCase fala com o repositório do domínio (o teste
+     * dele dubla este método, nunca o EntityManager).
+     *
+     * @template T
+     *
+     * @param callable(): T                    $trabalho
+     * @param \Closure(): list<ChaveDeArquivo> $arquivosNovos consultado só na falha
+     *
+     * @return T
+     */
+    public function emTransacaoComArquivoNovo(callable $trabalho, \Closure $arquivosNovos, string $contexto): mixed
+    {
+        return $this->transacaoComArquivoNovo->executar($trabalho, $arquivosNovos, $contexto);
     }
 }

@@ -7,6 +7,8 @@ namespace App\Tests\Arquitetura;
 use App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica;
 use App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
+use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
 use App\Blog\Armazenamento\ChavesDoBlog;
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\ClientePF;
@@ -136,6 +138,42 @@ final class FabricasDeArquivoNovoTest extends TestCase
         ];
         yield ChavesDeAssinaturaEletronica::class . '::novaLogo' => [
             ChavesDeAssinaturaEletronica::class . '::novaLogo',
+            static fn (?Tenant $t): object => new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+        ];
+        yield ChavesDeAssinaturaEletronica::class . '::novaRubrica' => [
+            ChavesDeAssinaturaEletronica::class . '::novaRubrica',
+            static fn (?Tenant $t): object => new Signatario(
+                new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
+                0,
+                'Ana Lima',
+                null,
+                null,
+                '',
+                NivelDeAssinatura::Simples,
+            ),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+        ];
+        yield ChavesDeAssinaturaEletronica::class . '::novaSelfie' => [
+            ChavesDeAssinaturaEletronica::class . '::novaSelfie',
+            static fn (?Tenant $t): object => new Signatario(
+                new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
+                0,
+                'Ana Lima',
+                null,
+                null,
+                '',
+                NivelDeAssinatura::Reforcada,
+            ),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+        ];
+        yield ChavesDeAssinaturaEletronica::class . '::novoPdfFinal' => [
+            ChavesDeAssinaturaEletronica::class . '::novoPdfFinal',
+            static fn (?Tenant $t): object => new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+        ];
+        yield ChavesDeAssinaturaEletronica::class . '::novaVersao' => [
+            ChavesDeAssinaturaEletronica::class . '::novaVersao',
             static fn (?Tenant $t): object => new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
             CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
         ];

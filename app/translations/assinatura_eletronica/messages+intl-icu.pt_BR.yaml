@@ -11,6 +11,29 @@ assinatura_eletronica:
         movido_para_lixeira: Movido para a Lixeira. Evidências preservadas
         restaurado: Restaurado da Lixeira
         envio_cancelado_pela_exclusao: Envio cancelado pela exclusão. Links desativados
+        documento_enviado: Enviado para assinatura. Hash {hash_inicio}...
+        convite_enviado: Convite enviado por e-mail a {nome}
+        email_nao_enviado: E-mail não enviado a {nome}
+        link_aberto: '{nome} abriu o link'
+        codigo_enviado: Código de verificação enviado a {nome}
+        codigo_errado: Código incorreto informado por {nome}
+        assinado: '{metodo, select, reforcada {Assinado por {nome} · E-mail e código, selfie, localização {local}} govbr {Assinado por {nome} · Conta gov.br} icp {Assinado por {nome} · Certificado ICP-Brasil} other {Assinado por {nome} · E-mail e código}}'
+        recusado: 'Recusado por {nome}: {motivo}'
+        documento_concluido: Documento concluído
+        lembrete_enviado: Lembrete enviado a {nome}
+        envio_cancelado: Envio cancelado. Documento e evidências preservados
+        # Etapa 3: o vínculo à pasta (contrato da etapa 3, seção 2, item 9).
+        vinculo_definido: 'Definido o vínculo à pasta {nup} ao concluir'
+        vinculo_feito: 'Documento assinado vinculado à pasta {nup}'
+        vinculo_nao_aplicado: 'Vínculo à pasta {nup} não aplicado: {motivo}'
+        # Etapa 5: gov.br e ICP (contrato da etapa 5, seção 2, item 5). O `motivo` da recusa é o código do erro do envio
+        # do PDF assinado (o mesmo de `assinatura_eletronica_publica.js.certificado.erro.<motivo>`).
+        pdf_para_assinar_gerado: 'PDF para assinar gerado para {nome}'
+        pdf_assinado_recusado: 'PDF assinado enviado por {nome} recusado: {motivo, select, sem_assinatura {nenhuma assinatura digital no arquivo} alterada {assinatura que não confere com o conteúdo} prefixo {o arquivo não preserva a versão anterior} sem_assinatura_nova {nenhuma assinatura nova no arquivo} ilegivel {arquivo que não pôde ser lido} sem_cpf {certificado sem CPF} cpf_diferente {CPF do certificado diferente do cadastrado} cadeia_recusada {certificado não confirmado pela cadeia oficial} cadeia_indisponivel {validador de certificados indisponível} other {arquivo não aceito}}'
+        # Etapa 8: o selo PAdES do BlueJus no PDF final (spec da etapa 8, E8-4). O `motivo` do não aplicado é o código
+        # da falha, só para a auditoria: não entra no texto.
+        pdf_selado: PDF final selado pelo BlueJus
+        selo_nao_aplicado: PDF final guardado sem o selo do BlueJus
     erro:
         sem_permissao: Você não tem acesso à Assinatura de documentos.
         nao_encontrado: Documento não encontrado.
@@ -46,3 +69,127 @@ assinatura_eletronica:
         logo_grande: A logo pode ter até 2 MB.
         logo_propria_sem_arquivo: Envie a imagem da logo própria.
         upload_falhou: Não foi possível receber o arquivo. Tente de novo.
+        sem_chave: Assinatura eletrônica sem chave configurada. Fale com o suporte.
+        envio_ja_feito: Este documento já foi enviado.
+        envio_na_lixeira: Restaure o documento da Lixeira para enviar.
+        envio_sem_signatarios: Adicione ao menos um signatário para enviar.
+        envio_nome: Informe o nome de todos os signatários.
+        envio_cpf: Confira o CPF informado.
+        envio_email: Informe o e-mail de {nome} para enviar o código de assinatura.
+        envio_reforcada_menor: 'A assinatura Reforçada colhe selfie e não é usada para menor ({nome}). Escolha outra forma de assinatura.'
+        reforcada_sem_chave: Assinatura reforçada sem chave configurada. Fale com o suporte.
+        # gov.br e ICP sem o validador de cadeia (E5-2): o texto da etapa 1, sem "fale com o suporte" até o validador ser ligado.
+        certificado_sem_validador: 'A assinatura de {nome} ainda não está disponível. Use a assinatura Simples.'
+        selo_sem_chave: Código de validação sem chave configurada. Fale com o suporte.
+        vinculo_ja_definido: Este documento já está vinculado a uma pasta.
+        vinculo_fora_do_envio: Só documentos aguardando assinatura ou concluídos, fora da Lixeira, podem ser vinculados a uma pasta.
+        vinculo_sem_pasta: Escolha uma pasta.
+        vinculo_pasta_nao_encontrada: Pasta não encontrada.
+        vinculo_sem_permissao: Você não pode editar esta pasta.
+        vinculo_pasta_excluida: Esta pasta foi excluída e não recebe documentos.
+        cancelar_fora_do_envio: Só documentos aguardando assinatura podem ter o envio cancelado.
+        lembrete_fora_do_envio: Só documentos aguardando assinatura, dentro do prazo, recebem lembrete.
+        lembrete_sem_pendente: Nenhum signatário aguarda assinatura.
+        lembrete_recente: Um lembrete já foi enviado na última hora. Tente mais tarde.
+        email_nao_enviado: 'Não foi possível enviar o e-mail a {nome}. Tente de novo mais tarde.'
+        link_invalido: Link inválido.
+        muitas_tentativas: Muitas tentativas. Aguarde alguns minutos e tente de novo.
+        sessao_expirada: A página expirou. Recarregue a página e tente de novo.
+        assinar_nome: Informe o nome completo.
+        assinar_nome_longo: O nome pode ter até 200 caracteres.
+        assinar_cpf: Informe um CPF válido.
+        assinar_cpf_cadastro: O CPF não corresponde ao cadastrado para este signatário.
+        assinar_sem_rubrica: Desenhe ou digite a sua assinatura.
+        assinar_pedir_codigo: Solicite o código de confirmação.
+        assinar_aceite: Marque a confirmação de leitura.
+        assinar_selfie: Envie a selfie com o documento.
+        selfie_invalida: A selfie não pôde ser lida. Envie uma foto JPEG ou PNG.
+        selfie_grande: A selfie pode ter até 4 MB. Tire a foto de novo.
+        selfie_tamanho: O tamanho da foto não serve. Tire a selfie de novo.
+        assinar_localizacao: Permita o acesso à localização para assinar.
+        localizacao_invalida: A localização recebida não é válida. Recarregue a página e tente de novo.
+        rubrica_invalida: A assinatura desenhada não pôde ser lida. Desenhe de novo.
+        rubrica_grande: A imagem da assinatura passa de 200 KB. Desenhe de novo.
+        codigo_errado: Código incorreto.
+        codigo_queimado: Código incorreto. Solicite um novo código.
+        codigo_vencido: O código expirou. Solicite um novo código.
+        codigo_nao_enviado: Não foi possível enviar o código por e-mail. Tente de novo mais tarde.
+        recusa_sem_motivo: Informe o motivo.
+        recusa_motivo_longo: O motivo pode ter até 500 caracteres.
+    vinculo_motivo:
+        pasta_excluida: a pasta foi excluída
+        pasta_apagada: a pasta não existe mais
+        sem_quem_vinculou: quem vinculou não está mais no sistema
+        sem_permissao: quem vinculou não pode mais editar a pasta
+        pdf_indisponivel: o PDF assinado não pôde ser gerado
+        falha_ao_salvar: o arquivo não pôde ser salvo na pasta
+    publica:
+        titulo: Assinatura
+        limite: Aguarde um pouco
+        estado:
+            pronto: Pronto para assinar.
+            aguardando_anterior: Aguardando assinatura anterior.
+            prazo_encerrado: Prazo encerrado. Peça ao remetente um novo envio.
+            cancelado: Envio cancelado. Este documento não está mais disponível para assinatura.
+            recusado: Assinatura recusada.
+            concluido: Assinatura já registrada.
+            ja_assinado: Assinatura já registrada.
+            invalido: Link inválido.
+    aceite:
+        v1: Li o documento e concordo em assiná-lo eletronicamente. Serão registrados data, hora, localização autorizada e dados de identificação.
+    email:
+        ola: Olá, {nome}.
+        abrir_documento: Abrir o documento
+        link_pessoal: Este link é pessoal. Não o encaminhe a outra pessoa.
+        rodape: Você recebeu este e-mail porque foi indicado como signatário de um documento. Se não esperava por ele, ignore-o.
+        rodape_remetente: Aviso automático da Assinatura de documentos do BlueJus.
+        convite:
+            assunto: 'Documento para assinatura: {documento}'
+            texto: '{escritorio} enviou o documento "{documento}" para a sua assinatura.'
+            codigo: Na página, peça o código de confirmação. Ele chega neste e-mail e vale por 15 minutos.
+        vez:
+            assunto: 'Sua vez de assinar: {documento}'
+            texto: 'Chegou a sua vez de assinar o documento "{documento}", enviado por {escritorio}.'
+        lembrete:
+            assunto: 'Lembrete de assinatura: {documento}'
+            texto: 'O documento "{documento}", enviado por {escritorio}, ainda aguarda a sua assinatura.'
+        codigo:
+            assunto: Código de confirmação da assinatura
+            texto: 'Use este código para confirmar a assinatura do documento "{documento}":'
+            validade: O código vale por 15 minutos. Um código novo substitui o anterior.
+            nao_pediu: Se você não pediu este código, ignore este e-mail.
+        recusa:
+            assunto: 'Assinatura recusada: {documento}'
+            titulo: Assinatura recusada
+            texto: '{nome} recusou a assinatura do documento "{documento}".'
+            motivo: 'Motivo: {motivo}'
+            efeito: O documento foi encerrado e os links dos demais signatários deixaram de valer.
+        conclusao:
+            assunto: 'Documento assinado: {documento}'
+            titulo: Todas as assinaturas registradas
+            texto: 'O documento "{documento}" foi assinado por todos os signatários.'
+    modelo:
+        erro:
+            dados_invalidos: Os dados do modelo não puderam ser lidos. Recarregue a página e tente de novo.
+            nao_encontrado: Modelo não encontrado.
+            pedido_grande: O modelo passa do tamanho que pode ser salvo. Divida o texto em mais de um modelo.
+            nome_vazio: Informe o nome do modelo.
+            nome_longo: O nome do modelo pode ter até 200 caracteres.
+            categoria_longa: A categoria pode ter até 80 caracteres.
+            layout_invalido: Formato do modelo inválido.
+            lateral_longa: O texto lateral pode ter até 20.000 caracteres.
+            campos_demais: O modelo pode ter até 100 campos.
+            campo_invalido: O modelo tem um campo inválido (posição {posicao}).
+            campo_chave: O nome do campo {posicao} deve ter de 1 a 60 caracteres, sem colchetes e sem começar com ^.
+            campo_repetido: 'O campo "{nome}" aparece mais de uma vez no modelo.'
+            signatarios_demais: O modelo pode ter até 50 assinaturas.
+            signatario_invalido: A assinatura {numero} do modelo é inválida.
+            signatario_papel_longo: O papel da assinatura {numero} pode ter até 120 caracteres.
+            blocos_demais: O texto do modelo pode ter até 2.000 blocos (títulos, parágrafos e assinaturas).
+            bloco_invalido: O texto do modelo tem um bloco inválido (posição {posicao}).
+            bloco_texto_longo: Um trecho do modelo passa de 20.000 caracteres (posição {posicao}).
+            assinatura_invalida: O texto do modelo tem um lugar de assinatura inválido (posição {posicao}).
+            corpo_longo: O texto do modelo passa de 300.000 caracteres. Divida em mais de um modelo.
+            sem_texto: Escreva o texto do modelo.
+            sem_assinatura: Inclua ao menos uma assinatura.
+            sem_titulo: 'No formato de folha única, marque uma linha como Título.'

@@ -12,11 +12,17 @@ services:
       TZ: America/Sao_Paulo
       APP_ENV: dev
       APP_DEBUG: 1
+      # Validador de PDF da Assinatura (serviço validador_pdf, profile `assinatura`). Sem valor de propósito: só chegam
+      # ao contêiner se estiverem no shell ou no .env da raiz (o do compose); senão nem existem, e vale o app/.env.local.
+      # Um valor vazio aqui passaria por cima do .env.local, e a suíte PHP (que roda neste contêiner) não depende dele.
+      ASSINATURA_VALIDADOR_URL:
+      ASSINATURA_VALIDADOR_TOKEN:
     volumes:
       - .:/var/www
     entrypoint: ["/var/www/app/bin/entrypoint.sh", "php-fpm"]
     networks:
       - saas_net
+      - assinatura_net
 
   # Worker do Messenger em DEV: consome a fila `async` (transport doctrine, tabela messenger_messages)
   # como o `worker` do docker-compose.prod.yml. Sem ele, a análise da BlueJus IA pedida na tela fica
@@ -44,16 +50,55 @@ services:
       TZ: America/Sao_Paulo
       APP_ENV: dev
       APP_DEBUG: 1
+      # Como no php: sem valor, só passam se estiverem no shell ou no .env da raiz.
+      ASSINATURA_VALIDADOR_URL:
+      ASSINATURA_VALIDADOR_TOKEN:
     volumes:
       - .:/var/www
     entrypoint: []
     # scheduler_cadeias: as varreduras periódicas (push, Google Agenda, Comercial), como no worker de produção.
     command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "scheduler_cadeias", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    # Sem depends_on do validador_pdf: ele é opcional e fica "unhealthy" enquanto as âncoras não chegam.
     depends_on:
       - php
       - db
     networks:
       - saas_net
+      - assinatura_net
+
+  # Validador de PDF assinado da Assinatura de documentos (spec docs/specs/assinatura-documentos-etapa-6.md, E6-1 a
+  # E6-3): o mesmo serviço do docker-compose.prod.yml, sem os secrets do selo (em dev o selo responde "não
+  # configurado" e o PDF final sai sem selo). OPT-IN (profile `assinatura`); a suíte PHP não depende dele. Para subir:
+  #   docker compose --profile assinatura up -d validador_pdf
+  # e, para o php falar com ele, o ASSINATURA_VALIDADOR_TOKEN no .env da raiz (o compose leva o mesmo valor ao
+  # validador, ao php e ao worker) e a ASSINATURA_VALIDADOR_URL=http://validador_pdf:8080 no app/.env.local.
+  # Passo a passo: docs/runbooks/assinatura-validador-em-producao.md, seção Dev.
+  # Só amd64: os hashes dos requirements são das wheels linux x86_64.
+  validador_pdf:
+    build:
+      context: ./validador-pdf
+      target: producao
+    container_name: jusprime_validador_pdf_dev
+    profiles: ["assinatura"]
+    platform: linux/amd64
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Só as variáveis do validador-pdf/validador/configuracao.py cujo vazio quer dizer "não configurado".
+    environment:
+      ASSINATURA_VALIDADOR_TOKEN: ${ASSINATURA_VALIDADOR_TOKEN:-}
+      ASSINATURA_VALIDADOR_ICP_SHA256: ${ASSINATURA_VALIDADOR_ICP_SHA256:-}
+      ASSINATURA_VALIDADOR_GOVBR_SHA256: ${ASSINATURA_VALIDADOR_GOVBR_SHA256:-}
+      ASSINATURA_SELO_TSA_URL: ${ASSINATURA_SELO_TSA_URL:-}
+    volumes:
+      - validador_ancoras:/dados
+    networks:
+      - assinatura_net
+      - validador_saida
 
   nginx:
     image: nginx:alpine
@@ -87,6 +132,12 @@ services:
 
 networks:
   saas_net:
+  # Assinatura (E6-2): interna, sem saída para a internet; só php, worker e validador_pdf.
+  assinatura_net:
+    internal: true
+  # Saída do validador_pdf para o ITI (LCR, OCSP e cadeias); ninguém mais entra nela.
+  validador_saida:
 
 volumes:
   db_data:
+  validador_ancoras:

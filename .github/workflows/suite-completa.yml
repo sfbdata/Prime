@@ -11,9 +11,9 @@
 # doctrine:migrations:migrate aplica por cima só as migrations mais novas que o snapshot. Montagem:
 # scripts/ci-montar-banco-de-teste.sh. Regerar o snapshot: scripts/gerar-schema-de-teste.sh.
 #
-# O ambiente é o mesmo do job "Lints e testes unitários" (qualidade.yml): Ghostscript, as mesmas
-# extensões e ini do PHP, fuso America/Sao_Paulo. Os lints, o PHPStan e o CS-Fixer ficam lá; aqui
-# só a suíte.
+# O ambiente é o mesmo do job "Lints e testes unitários" (qualidade.yml): Ghostscript, as fontes URW do
+# PDF da Assinatura, as mesmas extensões e ini do PHP, fuso America/Sao_Paulo. Os lints, o PHPStan e o
+# CS-Fixer ficam lá; aqui só a suíte.
 
 name: Suíte completa
 
@@ -77,13 +77,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Instalar Ghostscript e cliente do PostgreSQL
+      # fonts-urw-base35: as fontes do PDF da Assinatura (como no Dockerfile); sem elas os testes do PDF se pulam.
+      - name: Instalar Ghostscript, as fontes do PDF e o cliente do PostgreSQL
         working-directory: .
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ghostscript postgresql-client
+          sudo apt-get install -y -qq ghostscript fonts-urw-base35 postgresql-client
           gs --version
           psql --version
+          test -r /usr/share/fonts/opentype/urw-base35/NimbusSans-Regular.otf
 
       - name: Configurar PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0

@@ -1,0 +1,12 @@
+{# Convite ao signatário: o documento enviado para a assinatura dele, com a mensagem do escritório e o link. #}
+{% extends 'email/assinatura/_moldura.html.twig' %}
+{% block cabecalho %}{{ escritorio }}{% endblock %}
+{% block corpo %}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">{{ 'assinatura_eletronica.email.ola'|trans({nome: nome}) }}</p>
+<p style="margin:0 0 16px;">{{ 'assinatura_eletronica.email.convite.texto'|trans({escritorio: escritorio, documento: documento}) }}</p>
+{% if mensagem|trim is not empty %}
+<p style="margin:0 0 16px;padding:12px 16px;background-color:#f3f6f8;border-left:3px solid #0a6fa0;color:#243845;">{{ mensagem|trim|nl2br }}</p>
+{% endif %}
+{% include 'email/assinatura/_botao.html.twig' %}
+<p style="margin:0;font-size:13px;color:#7a8e9b;line-height:1.6;">{{ 'assinatura_eletronica.email.convite.codigo'|trans }}</p>
+{% endblock %}

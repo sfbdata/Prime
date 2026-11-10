@@ -70,9 +70,12 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *  - `ImportarArtigosDoRepositorioCommand` (painel de artigos dos blogs, P2, 03/11) — lê os `.md` da cópia do
      *    repositório dos sites que o operador aponta, uma vez; vira linha no banco, nunca arquivo do armazenamento;
      *  - `PastaDosPedidos` (painel de artigos dos blogs, P4, 03/11) — lê o `iniciado` e o `resultado.json` que o builder
-     *    dos blogs escreve na pasta do pedido (volume `publicacao_blogs`); arquivo pequeno da integração, não do usuário.
+     *    dos blogs escreve na pasta do pedido (volume `publicacao_blogs`); arquivo pequeno da integração, não do usuário;
+     *  - `LogoDaBluejusNoPdf` (Assinatura, etapa 3, 09/11): lê o LOGO estático da aplicação
+     *    (`public/images/assinatura/logo-bluejus.png`) para o cabeçalho do PDF com selo; não é arquivo do usuário.
      */
     private const QUEM_LE_CRU = [
+        'src/AssinaturaEletronica/Service/LogoDaBluejusNoPdf.php',
         'src/Blog/Command/ImportarArtigosDoRepositorioCommand.php',
         'src/Blog/Service/PastaDosPedidos.php',
         'src/Cobranca/DTO/ImportarRelatorioInput.php',

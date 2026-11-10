@@ -19,18 +19,20 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 
 /**
- * Tela Assinatura de documentos, etapa 1 (docs/specs/assinatura-documentos-etapa-1.md, seção 4.2): o esqueleto que o
+ * Tela Assinatura de documentos, etapas 1, 2 e 4 (docs/specs/assinatura-documentos-etapa-1.md, seção 4.2,
+ * assinatura-documentos-etapa-2.md, seção 5.1, e assinatura-documentos-etapa-4.md, seção 8): o esqueleto que o
  * servidor entrega e o arranjo do desenho por combinador de filho direto. Linhas, chips com contagem, aba Modelos,
- * assistente e detalhe são desenhados pelo public/js/assinatura.js.
+ * assistente, detalhe e editor de modelo são desenhados pelo public/js/assinatura.js (o arranjo deles está em
+ * {@see \App\Tests\AssinaturaEletronica\Unit\AssinaturaModelosJsTest}).
  */
 #[CoversNothing]
 final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
 {
-    private const URLS_DA_ETAPA = ['documentos', 'documento', 'criar', 'salvar', 'duplicar', 'lixeira', 'restaurar', 'excluir', 'cor', 'arquivo', 'logo', 'logo-padrao'];
+    private const URLS_DA_ETAPA = ['documentos', 'documento', 'criar', 'salvar', 'duplicar', 'lixeira', 'restaurar', 'excluir', 'cor', 'arquivo', 'logo', 'logo-padrao', 'enviar', 'lembrete', 'cancelar', 'previa', 'rubrica', 'modelos', 'modelo-criar', 'modelo-salvar', 'modelo-excluir', 'vincular', 'pastas'];
 
     private KernelBrowser $clienteAtual;
 
-    #[TestDox('GET /assinatura com o módulo responde 200 e a raiz .bja traz eu, padrao, logos e uma URL por rota da etapa, sem a de enviar')]
+    #[TestDox('GET /assinatura com o módulo responde 200 e a raiz .bja traz eu, padrao, logos e uma URL por rota das etapas 1 e 2')]
     public function testRaizComOsAtributosDoContrato(): void
     {
         $crawler = $this->abrir();
@@ -59,32 +61,49 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         foreach (self::URLS_DA_ETAPA as $nome) {
             self::assertNotSame('', (string) $raiz->attr('data-url-' . $nome), 'data-url-' . $nome);
         }
-        self::assertNull($raiz->attr('data-url-enviar'), 'Gerar links e enviar é da etapa 2');
+        // Etapa 2: marcador 0 no lugar do {id} e, na prévia e na rubrica, também da {ordem}.
+        self::assertStringEndsWith('/assinatura/documentos/0/enviar', (string) $raiz->attr('data-url-enviar'));
+        self::assertStringEndsWith('/assinatura/documentos/0/lembrete', (string) $raiz->attr('data-url-lembrete'));
+        self::assertStringEndsWith('/assinatura/documentos/0/cancelar', (string) $raiz->attr('data-url-cancelar'));
+        self::assertStringEndsWith('/assinatura/documentos/0/previa/0', (string) $raiz->attr('data-url-previa'));
+        self::assertStringEndsWith('/assinatura/documentos/0/rubrica/0', (string) $raiz->attr('data-url-rubrica'));
+        // Uma vez cada: o mapa da etapa 2 entra no mesmo laço, sem atributo repetido.
+        self::assertSame(1, substr_count((string) $this->clienteAtual->getResponse()->getContent(), 'data-url-enviar='));
         self::assertStringEndsWith('/assinatura/documentos', (string) $raiz->attr('data-url-documentos'));
         self::assertStringEndsWith('/assinatura/documentos/0', (string) $raiz->attr('data-url-documento'));
         self::assertStringEndsWith('/assinatura/documentos/0', (string) $raiz->attr('data-url-salvar'));
         self::assertStringEndsWith('/assinatura/documentos/0/duplicar', (string) $raiz->attr('data-url-duplicar'));
         self::assertStringEndsWith('/assinatura/documentos/0/arquivo', (string) $raiz->attr('data-url-arquivo'));
         self::assertStringEndsWith('/assinatura/documentos/0/logo', (string) $raiz->attr('data-url-logo'));
+        // Etapa 4: modelos do escritório.
+        self::assertStringEndsWith('/assinatura/modelos', (string) $raiz->attr('data-url-modelos'));
+        self::assertStringEndsWith('/assinatura/modelos', (string) $raiz->attr('data-url-modelo-criar'));
+        self::assertStringEndsWith('/assinatura/modelos/0', (string) $raiz->attr('data-url-modelo-salvar'));
+        self::assertStringEndsWith('/assinatura/modelos/0/excluir', (string) $raiz->attr('data-url-modelo-excluir'));
+        // Etapa 3, bloco 3: vincular à pasta e a busca das pastas.
+        self::assertStringEndsWith('/assinatura/documentos/0/vincular', (string) $raiz->attr('data-url-vincular'));
+        self::assertStringEndsWith('/assinatura/pastas', (string) $raiz->attr('data-url-pastas'));
     }
 
-    #[TestDox('A raiz tem a lista visível e o assistente, o detalhe e as camadas vazios, nessa ordem')]
+    #[TestDox('A raiz tem a lista visível e o assistente, o detalhe, o editor de modelo, a câmera e as camadas vazios, nessa ordem')]
     public function testFilhosDaRaiz(): void
     {
         $crawler = $this->abrir();
 
         self::assertSame(
-            ['bjaTelaLista', 'bjaTelaNovo', 'bjaTelaDet', 'bjaCamCtx', 'bjaCamModal', 'bjaCamToast'],
+            ['bjaTelaLista', 'bjaTelaNovo', 'bjaTelaDet', 'bjaTelaMod', 'bjaValCam', 'bjaCamCtx', 'bjaCamModal', 'bjaCamToast', 'bjaCamVinc'],
             $crawler->filter('.bja > *')->each(static fn (Crawler $n): string => (string) $n->attr('id')),
         );
         self::assertCount(1, $crawler->filter('.bja > .bjaTela#bjaTelaLista:not([hidden])'));
         self::assertCount(1, $crawler->filter('.bja > .bjaTela#bjaTelaNovo[hidden]'));
         self::assertCount(1, $crawler->filter('.bja > .bjaTela#bjaTelaDet[hidden]'));
+        self::assertCount(1, $crawler->filter('.bja > .bjaTela#bjaTelaDet + .bjaTela#bjaTelaMod[hidden]'));
         self::assertSame('', trim($crawler->filter('#bjaTelaNovo')->html()));
         self::assertSame('', trim($crawler->filter('#bjaTelaDet')->html()));
+        self::assertSame('', trim($crawler->filter('#bjaTelaMod')->html()), 'o editor de modelo é desenhado pelo JS');
     }
 
-    #[TestDox('Topo da lista: título Assinatura e o botão Novo documento; abas só Documentos e Modelos')]
+    #[TestDox('Topo da lista: título Assinatura e o botão Novo documento; abas Documentos, Modelos e Validar')]
     public function testTopoEAbas(): void
     {
         $crawler = $this->abrir();
@@ -95,20 +114,21 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#bjaTelaLista > .bjaTopo + section.bjaCard#bjaLista'));
 
         self::assertSame(
-            ['Documentos', 'Modelos'],
+            ['Documentos', 'Modelos', 'Validar'],
             $crawler->filter('#bjaLista > .bjaAbas[role="tablist"] > button.bjaAba[role="tab"]')->each(static fn (Crawler $b): string => trim($b->text())),
         );
         self::assertSame(
-            ['docs', 'mods'],
+            ['docs', 'mods', 'val'],
             $crawler->filter('#bjaLista > .bjaAbas > button')->each(static fn (Crawler $b): string => (string) $b->attr('data-bja-aba')),
         );
         self::assertSame('true', $crawler->filter('#bjaLista > .bjaAbas > button[data-bja-aba="docs"]')->attr('aria-selected'));
-        self::assertCount(1, $crawler->filter('#bjaLista > .bjaAbas + #bjaAbaDocs:not([hidden]) + #bjaAbaMods[hidden]'));
+        self::assertCount(1, $crawler->filter('#bjaLista > .bjaAbas + #bjaAbaDocs:not([hidden]) + #bjaAbaMods[hidden] + #bjaAbaVal[hidden]'));
         self::assertSame('', trim($crawler->filter('#bjaAbaMods')->html()), 'a aba Modelos é desenhada pelo JS');
 
-        // Etapa 1 sem a aba Validar e sem Criar novo modelo.
-        self::assertCount(0, $crawler->filter('[data-bja-aba="val"]'));
-        self::assertStringNotContainsString('Criar novo modelo', (string) $this->clienteAtual->getResponse()->getContent());
+        // Etapa 3: a aba Validar traz o componente do Twig (o arranjo dele está no ValidacaoPublicaControllerTest).
+        self::assertCount(1, $crawler->filter('#bjaAbaVal > .bjaVal[data-bja-validar]'));
+        // "Criar novo modelo" (etapa 4) é desenhado pelo JS a partir do catálogo da tela.
+        self::assertCount(0, $crawler->filter('#bjaTelaLista [data-bja-acao="mod-criar"]'), 'o botão não vem no esqueleto');
     }
 
     #[TestDox('Aba Documentos na ordem do desenho: filtros (chips, busca, pastas), cores, barra de seleção, tabela e vazio')]
@@ -154,7 +174,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('link[rel="stylesheet"][href*="css/assinatura.css"]'));
     }
 
-    #[TestDox('Scripts: catálogo da tela, pdf.js 3.11.174 com SRI, mammoth e qrcode do vendor, modelos, folha e tela, nessa ordem')]
+    #[TestDox('Scripts: catálogo da tela, pdf.js 3.11.174 com SRI, mammoth, qrcode e jsQR do vendor, modelos, folha, validar, vínculo e tela, nessa ordem')]
     public function testScripts(): void
     {
         $crawler = $this->abrir();
@@ -174,7 +194,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
 
             return -1;
         };
-        $ordem = array_map($posicao, ['pdf.js/3.11.174/pdf.min.js', 'vendor/mammoth/mammoth.browser.min.js', 'vendor/qrcode-generator/qrcode.js', 'js/assinatura-modelos.js', 'js/assinatura-folha.js', 'js/assinatura.js']);
+        $ordem = array_map($posicao, ['pdf.js/3.11.174/pdf.min.js', 'vendor/mammoth/mammoth.browser.min.js', 'vendor/qrcode-generator/qrcode.js', 'js/assinatura-modelos.js', 'js/assinatura-folha.js', 'vendor/jsqr/jsQR.js', 'js/assinatura-validar.js', 'js/assinatura-vinculo.js', 'js/assinatura.js']);
         self::assertNotContains(-1, $ordem, implode(', ', $srcs));
         $ordenada = $ordem;
         sort($ordenada);
@@ -183,13 +203,16 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         $catalogo = implode('', $crawler->filter('script[type="application/json"][data-bj-t]')->each(static fn (Crawler $s): string => $s->text()));
         self::assertStringContainsString('assinatura_eletronica_tela.js.chip', $catalogo);
         self::assertStringContainsString('assinatura_eletronica_tela.js.folha.previa', $catalogo);
+        self::assertStringContainsString('assinatura_eletronica_tela.js.canc.texto', $catalogo);
+        self::assertStringContainsString('assinatura_eletronica_tela.js.toast.link_copiado', $catalogo);
+        self::assertStringContainsString('assinatura_eletronica_tela.js.vinculo.vazio', $catalogo);
     }
 
     #[TestDox('Os arquivos da tela não levam travessão (regra do dono)')]
     public function testSemTravessao(): void
     {
         $app = \dirname(__DIR__, 3);
-        foreach (['public/js/assinatura.js', 'public/js/assinatura-folha.js', 'public/js/assinatura-modelos.js', 'public/css/assinatura.css', 'templates/assinatura_eletronica/index.html.twig', 'translations/assinatura_eletronica_tela/messages+intl-icu.pt_BR.yaml'] as $arquivo) {
+        foreach (['public/js/assinatura.js', 'public/js/assinatura-folha.js', 'public/js/assinatura-modelos.js', 'public/js/assinatura-publica.js', 'public/js/assinatura-validar.js', 'public/css/assinatura.css', 'public/css/assinatura-validar.css', 'public/css/assinatura-publica.css', 'templates/assinatura_eletronica/index.html.twig', 'templates/assinatura_eletronica/_validar.html.twig', 'templates/assinatura_eletronica/validar.html.twig', 'translations/assinatura_eletronica_tela/messages+intl-icu.pt_BR.yaml', 'translations/assinatura_eletronica_publica/messages+intl-icu.pt_BR.yaml'] as $arquivo) {
             self::assertDoesNotMatchRegularExpression('/[\x{2014}\x{2013}]/u', (string) file_get_contents($app . '/' . $arquivo), $arquivo);
         }
     }

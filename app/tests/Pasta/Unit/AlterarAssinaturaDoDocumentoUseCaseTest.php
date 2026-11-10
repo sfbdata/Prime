@@ -102,6 +102,27 @@ final class AlterarAssinaturaDoDocumentoUseCaseTest extends TestCase
         self::assertSame(OrigemDaAssinatura::Digital, $doc->getAssinaturaOrigem());
     }
 
+    #[TestDox('assinatura eletrônica (veio da Assinatura de documentos) não se desmarca pela tela')]
+    public function testEletronicaNaoSeDesmarca(): void
+    {
+        $doc = $this->documento($this->pasta, $this->tenant);
+        $quandoAssinou = new \DateTimeImmutable('2026-11-09 10:00:00');
+        $doc->marcarAssinadoEletronicamente($quandoAssinou, $this->usuario);
+        $this->permissionChecker->method('canAccessResource')->willReturn(true);
+        $this->repository->expects(self::never())->method('salvar');
+
+        try {
+            $this->useCase->desmarcar($this->pasta, $doc, $this->usuario, $this->tenant);
+            self::fail('desmarcou a assinatura eletrônica');
+        } catch (AssinaturaDoDocumentoRecusadaException $e) {
+            self::assertSame('A assinatura eletrônica veio da Assinatura de documentos e não se desmarca.', $e->getMessage());
+        }
+
+        self::assertSame(OrigemDaAssinatura::Eletronica, $doc->getAssinaturaOrigem());
+        self::assertSame($quandoAssinou, $doc->getAssinadoEm());
+        self::assertSame($this->usuario, $doc->getAssinadoPor());
+    }
+
     #[TestDox('marcar o que já está assinado é recusado (não sobrescreve quem e quando)')]
     public function testMarcarDuasVezes(): void
     {

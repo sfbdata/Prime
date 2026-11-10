@@ -414,6 +414,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\AssinaturaEletronica\Entity\EventoDaTrilha::class,
         \App\AssinaturaEletronica\Entity\Signatario::class,
         \App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura::class,
+        // Versão guardada do PDF (spec assinatura-documentos-etapa-5, seção 2): a análise do motor e a cadeia do
+        // validador trazem titular e CPF do certificado, que não devem ir para o audit_log lido por quem administra;
+        // cada versão nasce uma vez (só a cadeia é gravada depois) e o evento da trilha é o rastro dela.
+        \App\AssinaturaEletronica\Entity\VersaoDoPdf::class,
         // Ponto, comprovante da batida (E15): a linha é ela mesma o rastro selado (HMAC sobre o texto guardado), só se
         // acrescenta e nunca se altera; o ato entra na trilha encadeada do Ponto (batida_registrada). Auditavel
         // duplicaria o rastro e levaria nome e local ao audit_log lido por quem administra. O contador de NSR é estado

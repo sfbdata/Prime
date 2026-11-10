@@ -1,0 +1,53 @@
+{#
+    Validação pública do documento assinado (etapa 3, bloco 2; inventário A8): /assinar/validar e
+    /assinar/validar/{codigo}, a página que o QR Code do PDF abre. O desenho não tem tela própria: pela regra "omisso, a
+    convenção do sistema manda", a página usa o cabeçalho da página do signatário (publica.html.twig, sem a moldura do
+    sistema) e o mesmo componente da aba Validar (_validar.html.twig), no cartão do desenho.
+
+    Contexto: `codigo`, `consultado` e `resultado` (ver _validar.html.twig) e `limite` (o limitador recusou: 429, a
+    página só diz para esperar e o JS não roda). Nunca CPF nem e-mail: o resultado é a projeção pública.
+#}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>{{ 'assinatura_eletronica_tela.js.validar.titulo'|trans }}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ asset('css/assinatura-publica.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/assinatura-validar.css') }}">
+</head>
+<body>
+<div class="bjaPub">
+    <header class="bjaPubCab" data-bjt-cabecalho><img class="bjaPubMarca" src="{{ asset('images/logo/bluejus-white-transparent-nav.png') }}" alt="BlueJus" data-bjt-logo></header>
+    <main class="bjaPubMain">
+        {% if limite %}
+        <div class="bjaCard bjaBloq"><i class="bi bi-hourglass-split"></i>
+            <div class="bjaBloqT">{{ 'assinatura_eletronica.publica.limite'|trans }}</div>
+            <div class="bjaBloqD">{{ 'assinatura_eletronica.erro.muitas_tentativas'|trans }}</div>
+        </div>
+        {% else %}
+        <section class="bjaCard bjaValCartao">
+            {% include 'assinatura_eletronica/_validar.html.twig' with {codigo: codigo, consultado: consultado, resultado: resultado} only %}
+        </section>
+        {% endif %}
+    </main>
+    {% if not limite %}
+    {# A janela da câmera, na raiz da página e fora do cartão, como no desenho (dc:275). #}
+    {% include 'assinatura_eletronica/_validar.html.twig' with {parte: 'camera'} only %}
+    {% endif %}
+</div>
+{% if not limite %}
+<script src="{{ asset('js/bj-traducao.js') }}"></script>
+{{ catalogo_js('assinatura_eletronica_tela.js.validar') }}
+<script src="{{ asset('js/vendor/jsqr/jsQR.js') }}"></script>
+<script src="{{ asset('js/assinatura-validar.js') }}"></script>
+{% endif %}
+{# Tema comemorativo, como na página do signatário. #}
+{% include 'layout/_globais/tema_comemorativo.html.twig' only %}
+</body>
+</html>

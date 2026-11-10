@@ -1,0 +1,10 @@
+{# O código de 6 dígitos para confirmar a assinatura (vale 15 minutos). Sem link: o código só vale na página aberta. #}
+{% extends 'email/assinatura/_moldura.html.twig' %}
+{% block cabecalho %}{{ escritorio }}{% endblock %}
+{% block corpo %}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">{{ 'assinatura_eletronica.email.ola'|trans({nome: nome}) }}</p>
+<p style="margin:0 0 16px;">{{ 'assinatura_eletronica.email.codigo.texto'|trans({documento: documento}) }}</p>
+<p style="margin:0 0 16px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#12242f;font-family:'Courier New',Courier,monospace;">{{ codigo }}</p>
+<p style="margin:0 0 16px;">{{ 'assinatura_eletronica.email.codigo.validade'|trans }}</p>
+<p style="margin:0;font-size:13px;color:#7a8e9b;line-height:1.6;">{{ 'assinatura_eletronica.email.codigo.nao_pediu'|trans }}</p>
+{% endblock %}

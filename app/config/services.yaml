@@ -10,6 +10,16 @@ parameters:
     mailer_from: '%env(MAILER_FROM)%'
     # Opcional: vazio omite o cabeçalho Reply-To. Em produção, usar uma caixa monitorada.
     mailer_reply_to: '%env(string:default::MAILER_REPLY_TO)%'
+    # Assinatura de documentos (etapa 2): segredo próprio do token do link e do código (nunca o APP_SECRET), no mínimo
+    # 32 bytes. Vazio: o envio, o link e o código recusam com "sem chave configurada". Runbook da troca no contrato.
+    assinatura.segredo: '%env(string:default::ASSINATURA_SEGREDO)%'
+    # Assinatura Reforçada (etapa 7): chave da cifra da selfie, 64 hexadecimais (32 bytes), nunca o APP_SECRET nem o
+    # segredo acima. Vazia: o envio e o "Assinar" Reforçado recusam. Runbook: assinatura-selfie-chave-em-producao.md.
+    assinatura.selfie_chave: '%env(string:default::ASSINATURA_SELFIE_CHAVE)%'
+    # Assinatura, etapa 3: segredo próprio do código de validação (BJA-XXXX-XXXX-XXXX) do PDF com selo, no mínimo 32
+    # bytes, nunca o APP_SECRET nem o ASSINATURA_SEGREDO (o ConferenteDeSegredos recusa os dois). Vazio: o envio recusa.
+    # Runbook: assinatura-selo-segredo-em-producao.md.
+    assinatura.selo_segredo: '%env(string:default::ASSINATURA_SELO_SEGREDO)%'
     uploads_dir: '%kernel.project_dir%/public/uploads/pastas'
     # Uploads ficam em public/uploads/* (volume persistido uploads_prod). A defesa contra
     # acesso direto é o bloqueio de /uploads/ estático no nginx (C5.1) — todos são servidos
@@ -286,6 +296,23 @@ services:
     # testado com dublê enquanto a implementação é provada contra o Postgres de verdade, que é
     # onde a expressão do prefixo e o recorte por tenant vivem.
     App\Pasta\Service\NumeracaoDePastaInterface: '@App\Pasta\Service\NumeracaoDePasta'
+
+    # Assinatura, etapa 3: o PDF final com selo do documento concluído, gerado e guardado uma vez (E3-4).
+    App\AssinaturaEletronica\Service\PdfFinalDoDocumento: '@App\AssinaturaEletronica\Service\PdfFinalComSelo'
+
+    # Assinatura, etapas 5 (E5-2) e 6 (bloco 6B): o validador de cadeia gov.br e ICP é o cliente HTTP do contêiner
+    # validador_pdf. Com ASSINATURA_VALIDADOR_URL ou ASSINATURA_VALIDADOR_TOKEN vazia, ele fica "não configurado" e o
+    # envio recusa gov.br e ICP (E6-4).
+    App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeia: '@App\AssinaturaEletronica\Service\Cadeia\HttpValidadorDeCadeia'
+
+    # Assinatura, etapa 8 (E8-4): o selo PAdES do BlueJus no PDF final, pelo POST /v1/selar do validador_pdf. Sem a URL ou
+    # sem o token (vazios = não configurado, etapa 6, seção 2), vale o selador nulo e nenhum pedido sai.
+    App\AssinaturaEletronica\Service\Selo\EscolhaDoSeladorDePdf:
+        arguments:
+            $url: '%env(string:default::ASSINATURA_VALIDADOR_URL)%'
+            $token: '%env(string:default::ASSINATURA_VALIDADOR_TOKEN)%'
+    App\AssinaturaEletronica\Service\Selo\SeladorDePdf:
+        factory: ['@App\AssinaturaEletronica\Service\Selo\EscolhaDoSeladorDePdf', 'selador']
 
     # Conexão somente-leitura das ferramentas MCP. SEM default de propósito: ausente a
     # variável, o servidor falha com mensagem clara em vez de cair na conexão de escrita.

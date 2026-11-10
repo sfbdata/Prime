@@ -1,0 +1,61 @@
+# Testes do validador de PDF da Assinatura de documentos (validador-pdf/, spec
+# docs/specs/assinatura-documentos-etapa-6.md, blocos 6A e 6C, e etapa 8 para o selo).
+#
+# Constrói a imagem no alvo `teste` (as mesmas dependências da produção, com hash, mais o pytest) e roda
+# os testes Python dentro dela, sem rede: a PKI, a LCR, o OCSP e a ACT de teste nascem no próprio teste.
+# Roda com as mesmas travas do serviço validador_pdf do compose (raiz só de leitura, /tmp em tmpfs, sem
+# capabilities), para pegar código que passe a gravar fora do /tmp ou do volume das âncoras.
+# Constrói também o alvo `producao`: é a imagem que o deploy monta na VPS quando o profile `assinatura`
+# está ligado, e um build quebrado ali derruba o deploy inteiro.
+#
+# Só roda quando o PR mexe no validador ou neste arquivo: a suíte PHP não depende dele. O runner é
+# amd64, a única arquitetura dos hashes dos requirements (seção 6 da spec).
+
+name: Validador de PDF
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - validador-pdf/**
+      - .github/workflows/validador-pdf.yml
+  push:
+    branches:
+      - master
+    paths:
+      - validador-pdf/**
+      - .github/workflows/validador-pdf.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # PR: o run novo cancela o anterior. Push no master: um grupo por run.
+  group: validador-pdf-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  testes:
+    name: Testes do validador de PDF
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Construir a imagem de teste
+        run: docker build --target teste --tag bluejus-validador-pdf:teste validador-pdf
+
+      - name: Rodar os testes Python (sem rede, raiz só de leitura)
+        run: >-
+          docker run --rm --network none --read-only --tmpfs /tmp
+          --cap-drop ALL --security-opt no-new-privileges:true
+          bluejus-validador-pdf:teste
+
+      - name: Construir a imagem de producao
+        run: docker build --target producao --tag bluejus-validador-pdf:producao validador-pdf

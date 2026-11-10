@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\UseCase;
 
 use App\AssinaturaEletronica\DTO\EntradaDoRascunho;
+use App\AssinaturaEletronica\DTO\OriginalJaAssinado;
 use App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
@@ -28,10 +29,17 @@ use Psr\Clock\ClockInterface;
  * "Salvar rascunho" (criar e salvar, contrato da etapa 1, seção 4): o JSON, o PDF e a logo vão juntos, e nada fica
  * gravado antes de salvar. Tudo é conferido antes de gravar o primeiro arquivo; o arquivo novo só sai se a transação
  * comprovadamente não confirmou, e o que perdeu o uso só sai depois do COMMIT (e só se nenhum documento do escritório
- * ainda aponta para ele). Todo salvamento acrescenta "Rascunho salvo" à trilha.
+ * ainda aponta para ele). Todo salvamento acrescenta "Rascunho salvo" à trilha, menos a gravação do "Gerar links e
+ * enviar" (`envio=1`): nela o EnviarDocumento registra "Documento criado", ou "Rascunho salvo" se a conferência recusar.
  *
  * O PDF só fica guardado enquanto algum bloco é página dele (`pg`): rascunho sem página perde o PDF. A logo padrão do
  * escritório segue a caixa "Usar esta logo nos próximos documentos": marcada grava, desmarcada limpa, ausente não mexe.
+ *
+ * Etapa 5, bloco 5A: o PDF enviado que já chega com assinatura digital vira a versão `original` (arquivo próprio, com a
+ * conferência do motor) e o conteúdo ganha o parágrafo de dc:374. O original muda quando chega PDF novo ou quando o
+ * conteúdo fica sem página do PDF e sem o parágrafo do original (conteúdo trocado): aí o anterior sai. Todo
+ * salvamento de rascunho existente trava e relê o documento, e o conteúdo fica só com o parágrafo do original guardado
+ * depois de salvar (duas abas não deixam evidência trocada).
  */
 final readonly class SalvarRascunhoUseCase
 {
@@ -64,12 +72,22 @@ final readonly class SalvarRascunhoUseCase
 
         $id = $this->transacao->executar(
             function () use ($ator, $tenant, $documento, $configuracao, $entrada, $blocos, $agora, $troca): int {
-                $documento->aplicarRascunho($entrada->dados, $blocos['blocos'], $agora);
+                $this->travarERecarregar($documento, $tenant);
+                $blocos = $this->reconferirDepoisDaTrava($documento, $configuracao, $entrada, $blocos);
+                $conteudo = $this->arquivos->comParagrafoDoOriginal($blocos['blocos'], $documento, $blocos['mudaOriginal'], $blocos['original']);
+                $documento->aplicarRascunho($entrada->dados, $conteudo, $agora);
                 $this->aplicarPdf($documento, $entrada, $blocos['paginas'], $troca);
                 $this->arquivos->aplicarLogo($documento, $entrada->dados->logo, $entrada->logo, $configuracao, $troca);
                 $this->aplicarPadrao($tenant, $documento, $configuracao, $entrada->dados->usarLogoComoPadrao, $troca);
                 $this->documentos->salvar($documento);
-                $this->trilha->acrescentar($documento, TipoDeEvento::RascunhoSalvo, [], $ator);
+                if ($blocos['mudaOriginal']) {
+                    $this->arquivos->trocarOriginal($documento, $blocos['original'], $troca, $agora);
+                }
+                // Na gravação do envio a trilha fica para o EnviarDocumento: "Documento criado" se ele passar, "Rascunho
+                // salvo" se a conferência do envio recusar (desenho L374; decisão de 10/11/2026).
+                if (!$entrada->doEnvio) {
+                    $this->trilha->acrescentar($documento, TipoDeEvento::RascunhoSalvo, [], $ator);
+                }
 
                 return (int) $documento->getId();
             },
@@ -97,9 +115,13 @@ final readonly class SalvarRascunhoUseCase
     }
 
     /**
-     * Tudo que pode recusar, antes de gravar qualquer arquivo.
+     * Tudo que pode recusar, antes de gravar qualquer arquivo. O original muda quando chega PDF novo ou quando, sem PDF
+     * novo, o conteúdo fica sem página do PDF e sem o parágrafo do original (conteúdo trocado); o PDF novo é conferido
+     * pelo motor e, se assinado, vira o original mesmo sem página dele no conteúdo (o `pres` do `subir` do desenho não
+     * depende dos blocos, dc:373-374). O "Continuar e enviar" reabre sem o PDF, mas com o parágrafo nos blocos: o
+     * original fica.
      *
-     * @return array{blocos: list<array<string, int|string>>, paginas: ?int}
+     * @return array{blocos: list<array<string, int|string>>, paginas: ?int, mudaOriginal: bool, original: ?OriginalJaAssinado}
      *
      * @throws AcaoRecusada
      */
@@ -117,11 +139,47 @@ final readonly class SalvarRascunhoUseCase
 
         $paginas = $entrada->arquivo !== null ? $this->arquivos->paginas($entrada->arquivo) : $documento->getArquivoEnviadoPaginas();
         $temArquivo = $entrada->arquivo !== null || $documento->temArquivo();
+        $blocos = ValidadorDeBlocos::normalizar($entrada->dados->blocos, $temArquivo, $paginas);
+        $temPagina = \in_array('pg', array_column($blocos, 'k'), true);
+        $mudaOriginal = $entrada->arquivo !== null || (!$temPagina && !$this->arquivos->temParagrafoDoOriginal($blocos));
+        $original = $entrada->arquivo !== null ? $this->arquivos->conferirOriginal($entrada->arquivo) : null;
+        $this->arquivos->exigirLugarParaOParagrafo($blocos, $documento, $mudaOriginal, $original);
 
-        return [
-            'blocos' => ValidadorDeBlocos::normalizar($entrada->dados->blocos, $temArquivo, $paginas),
-            'paginas' => $paginas,
-        ];
+        return ['blocos' => $blocos, 'paginas' => $paginas, 'mudaOriginal' => $mudaOriginal, 'original' => $original];
+    }
+
+    /**
+     * Rascunho existente sempre travado e relido (o travamento descarta o que estava só na memória, por isso vem antes de
+     * aplicar o rascunho): o original guardado e o parágrafo dele só mudam com a linha travada, e decidir "tem versão"
+     * antes de travar seria a mesma corrida entre duas abas. Documento novo ainda não tem linha para travar.
+     *
+     * @throws DocumentoNaoEncontrado
+     */
+    private function travarERecarregar(DocumentoParaAssinar $documento, Tenant $tenant): void
+    {
+        if ($documento->getId() !== null && !$this->documentos->travarERecarregar($documento, $tenant)) {
+            throw new DocumentoNaoEncontrado();
+        }
+    }
+
+    /**
+     * Sem PDF novo, o número de páginas e o "tem arquivo" saem do documento, e a primeira conferência o leu antes da
+     * trava: outra aba pode ter tirado ou trocado o PDF nesse meio. Relido, confere de novo (a página de um PDF que
+     * saiu recusa). Com PDF novo, os dois vêm do arquivo enviado e nada muda.
+     *
+     * @param array{blocos: list<array<string, int|string>>, paginas: ?int, mudaOriginal: bool, original: ?OriginalJaAssinado} $conferido
+     *
+     * @return array{blocos: list<array<string, int|string>>, paginas: ?int, mudaOriginal: bool, original: ?OriginalJaAssinado}
+     *
+     * @throws AcaoRecusada
+     */
+    private function reconferirDepoisDaTrava(DocumentoParaAssinar $documento, ?ConfiguracaoDaAssinatura $configuracao, EntradaDoRascunho $entrada, array $conferido): array
+    {
+        if ($entrada->arquivo !== null || $documento->getId() === null) {
+            return $conferido;
+        }
+
+        return $this->conferir($documento, $configuracao, $entrada);
     }
 
     /** Com página do PDF, o enviado agora troca o guardado (sem envio, fica o atual); sem nenhuma, o PDF sai. */

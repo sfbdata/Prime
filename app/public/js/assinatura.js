@@ -1,14 +1,22 @@
 /* =============================================================================
-   assinatura.js: tela Assinatura de documentos, etapa 1 (lista, modelos prontos, assistente com rascunho e detalhe).
+   assinatura.js: tela Assinatura de documentos (lista, modelos prontos, assistente com rascunho e detalhe).
    Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html (classe Component e renderVals).
-   Contrato: docs/specs/assinatura-documentos-etapa-1.md (seções 2, 3.3, 4.1 e 4.2).
+   Contratos: docs/specs/assinatura-documentos-etapa-1.md (seções 2, 3.3, 4.1 e 4.2) e
+   docs/specs/assinatura-documentos-etapa-2.md (seções 5.1 e 7: envio, links, lembrete, prévia e Cancelar envio) e
+   docs/specs/assinatura-documentos-etapa-4.md (modelos do escritório: aba Modelos, editor e passo 1).
 
    O Twig monta só o esqueleto da lista e os atributos data-* da raiz; o resto é desenhado aqui a partir de
    GET /assinatura/documentos e GET /assinatura/documentos/{id}. Os blocos do documento são montados no navegador,
    como no desenho (modelos, [[campo]], cláusulas, condições), e o servidor valida e guarda.
 
-   Etapas futuras: o botão só aparece quando a URL dele existe na raiz (data-url-*). Nesta etapa não há Copiar link,
-   Enviar lembrete, Baixar PDF, Vincular à pasta, Cancelar envio, aba Validar, Criar novo modelo nem Duplicar e adaptar.
+   O botão só aparece quando a URL dele existe na raiz (data-url-*). Etapa 2: "Gerar links e enviar", Copiar link,
+   E-mail (mailto), WhatsApp, Tela do signatário (prévia em nova aba), Enviar lembrete e Cancelar envio. Etapa 4:
+   Criar novo modelo, Editar, Excluir e Duplicar e adaptar; o editor vira blocos aqui (lerEd do desenho) e nenhum HTML
+   vai ao servidor. Etapa 3: Baixar PDF com selo (assinatura-pdf.js) e Vincular à pasta (assinatura-vinculo.js).
+
+   Etapa 5, bloco 5A (docs/specs/assinatura-documentos-etapa-5.md): o PDF que já chega assinado. O quadro do passo 3 e
+   o do detalhe, com os botões, ficam no assinatura-ja-assinado.js (window.BJAJaAssinado); aqui só a ligação: o PDF
+   escolhido é conferido no servidor sem gravar (w.pres), e as ações ja-original e ja-carimbo do detalhe.
    ============================================================================= */
 (function () {
     'use strict';
@@ -17,6 +25,8 @@
     if (!raiz || !window.BJAFolha) { return; }
 
     const F = window.BJAFolha;
+    /* Etapa 5 (5A): o documento que já chega assinado. Sem o arquivo, a tela segue sem o quadro. */
+    const J = window.BJAJaAssinado || null;
     const T = (chave, p) => BJ_T.t(['assinatura_eletronica_tela', 'js', chave].join('.'), p);
     const lerJson = (texto, padrao) => { try { const v = JSON.parse(texto || ''); return v == null ? padrao : v; } catch (e) { return padrao; } };
     const eu = lerJson(raiz.dataset.eu, {});
@@ -35,11 +45,28 @@
         cor: ds.urlCor || '',
         logo: ds.urlLogo || '',
         enviar: ds.urlEnviar || '',
+        lembrete: ds.urlLembrete || '',
+        cancelar: ds.urlCancelar || '',
+        previa: ds.urlPrevia || '',
+        modelos: ds.urlModelos || '',
+        modeloCriar: ds.urlModeloCriar || '',
+        modeloSalvar: ds.urlModeloSalvar || '',
+        modeloExcluir: ds.urlModeloExcluir || '',
+        pdfConferir: ds.urlPdfConferir || '',
+        carimbo: ds.urlCarimbo || '',
+        pdf: ds.urlPdf || '',
     };
     /* Troca o marcador 0 (último trecho "0" do caminho) pelo id real, como a Agenda 1A. */
     const comId = (modelo, id) => {
         const p = String(modelo).split('/');
         for (let i = p.length - 1; i >= 0; i--) { if (p[i] === '0') { p[i] = encodeURIComponent(String(id)); break; } }
+        return p.join('/');
+    };
+    /* Prévia do signatário: /assinatura/documentos/0/previa/0, o último 0 é a ordem e o anterior é o id. */
+    const comIdOrdem = (modelo, id, ordem) => {
+        const p = String(modelo).split('/');
+        let falta = 2;
+        for (let i = p.length - 1; i >= 0 && falta; i--) { if (p[i] === '0') { p[i] = encodeURIComponent(String(falta === 2 ? ordem : id)); falta--; } }
         return p.join('/');
     };
 
@@ -64,8 +91,10 @@
         telaLista: $('bjaTelaLista'),
         telaNovo: $('bjaTelaNovo'),
         telaDet: $('bjaTelaDet'),
+        telaMod: $('bjaTelaMod'),
         abaDocs: $('bjaAbaDocs'),
         abaMods: $('bjaAbaMods'),
+        abaVal: $('bjaAbaVal'),
         chips: $('bjaChips'),
         busca: $('bjaBusca'),
         pasta: $('bjaPasta'),
@@ -98,10 +127,18 @@
         arqSt: '',
         mBusca: '',
         det: null,
+        canc: false,
+        meus: [],
+        m: null,
+        mdErro: '',
     };
     let seqArquivo = 0;
+    /* Editor de modelo: a área editável desenhada agora e o último cursor dentro dela (_rng do desenho). */
+    let edAtual = null, edRng = null;
 
     /* ── Servidor ───────────────────────────────────────────────────────── */
+    /* Etapa 5 (5A): `blob` devolve o arquivo da resposta de sucesso (os downloads do quadro "já assinado"); na recusa, o
+       JSON inteiro fica em `dados` do erro, além do `texto`. */
     async function pedir(endereco, opcoes) {
         const o = opcoes || {};
         const r = await fetch(endereco, {
@@ -110,9 +147,10 @@
             credentials: 'same-origin',
             headers: Object.assign({ Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, o.headers || {}),
         });
+        if (o.blob && r.ok) { return r.blob(); }
         let j = null;
         try { j = await r.json(); } catch (e) { j = null; }
-        if (!r.ok) { const erro = new Error('HTTP ' + r.status); erro.texto = (j && j.erro) || ''; throw erro; }
+        if (!r.ok) { const erro = new Error('HTTP ' + r.status); erro.texto = (j && j.erro) || ''; erro.dados = j; erro.status = r.status; throw erro; }
         return j || {};
     }
     const postJson = (endereco, corpo) => pedir(endereco, { method: 'POST', body: JSON.stringify(corpo), headers: { 'Content-Type': 'application/json' } });
@@ -121,6 +159,15 @@
     const doc = id => s.docs.find(d => String(d.id) === String(id));
     const idsReais = lista => lista.map(k => (doc(k) || {}).id).filter(v => v != null);
     const stAtual = d => (d.situacao === 'aguardando' && d.venceEm && new Date(d.venceEm) < new Date() ? 'expirado' : d.situacao);
+    /* p1 do desenho: o primeiro pendente da lista, alvo do Copiar link e do Enviar lembrete (só com o documento Aguardando). */
+    const primeiroPendente = d => (d.signatarios || []).find(x => x.situacao === 'pendente') || null;
+    const temLink = d => !!d && !d.naLixeira && stAtual(d) === 'aguardando' && !!primeiroPendente(d);
+    /* Etapa 3, bloco 3: "Vincular à pasta" (public/js/assinatura-vinculo.js, camada #bjaCamVinc). Sem ele, sem vínculo. */
+    const V = window.BJAVinculo ? window.BJAVinculo.criar({
+        T: T, esc: esc, url: { vincular: ds.urlVincular || '', pastas: ds.urlPastas || '' }, camada: $('bjaCamVinc'),
+        pedir: pedir, postJson: postJson, comId: comId, avisar: avisar, falha: falha,
+        depois: async d => { if (d && s.tela === 'det' && s.det && String(s.det.id) === String(d.id)) { mostrarDetalhe(d); } await carregar(); },
+    }) : null;
 
     async function carregar() {
         if (!url.documentos) { return; }
@@ -135,12 +182,12 @@
         if (s.tela === 'lista') { desenharLista(); }
     }
 
-    /* ── Avisos (toast do desenho: verde, vermelho, amarelo, azul; some em 3,4 s) ── */
+    /* ── Avisos (toast do desenho: verde, vermelho, amarelo, azul; some em 3,4 s, menos o fixo, que fica até o próximo) ── */
     let tToast = null;
-    function avisar(texto, tipo) {
+    function avisar(texto, tipo, fixo) {
         el.toast.innerHTML = '<div class="bjaToast' + (tipo ? ' is-' + tipo : '') + '" role="status">' + esc(texto) + '</div>';
         clearTimeout(tToast);
-        tToast = setTimeout(() => { el.toast.innerHTML = ''; }, 3400);
+        if (!fixo) { tToast = setTimeout(() => { el.toast.innerHTML = ''; }, 3400); }
     }
 
     /* ── Balão das dicas (data-tip): o do bj-dica.js do desenho, no lugar da dica do navegador. Aparece 280 ms depois de
@@ -197,12 +244,23 @@
         el.telaLista.hidden = s.tela !== 'lista';
         el.telaNovo.hidden = s.tela !== 'novo';
         el.telaDet.hidden = s.tela !== 'det';
+        el.telaMod.hidden = s.tela !== 'modelo';
         if (s.tela !== 'novo') { el.telaNovo.innerHTML = ''; }
         if (s.tela !== 'det') { el.telaDet.innerHTML = ''; }
+        if (s.tela !== 'modelo') { el.telaMod.innerHTML = ''; s.m = null; edAtual = null; edRng = null; }
     }
 
-    function irParaLista() {
-        s.tela = 'lista'; s.w = null; s.det = null; s.aba = 'docs';
+    /* Volta à lista na aba Documentos (`voltarLista` do desenho); `manterAba` fica na aba em que estava (`wSalvar`, L461). */
+    function irParaLista(manterAba) {
+        s.tela = 'lista'; s.w = null; s.det = null;
+        if (!manterAba) { s.aba = 'docs'; }
+        mostrarTela();
+        desenharLista();
+    }
+
+    /* Saída do editor (Modelos, salvar, modelo apagado por outra pessoa): sempre a aba Modelos, como sairMod do desenho. */
+    function irParaModelos() {
+        s.tela = 'lista'; s.w = null; s.det = null; s.aba = 'mods';
         mostrarTela();
         desenharLista();
     }
@@ -222,7 +280,13 @@
         raiz.querySelectorAll('[data-bja-aba]').forEach(b => b.setAttribute('aria-selected', String(b.getAttribute('data-bja-aba') === s.aba)));
         el.abaDocs.hidden = s.aba !== 'docs';
         el.abaMods.hidden = s.aba !== 'mods';
-        if (s.aba === 'docs') { desenharDocs(); } else { el.abaMods.innerHTML = '<div class="bjaModsTopo"><span class="bjaModsTx">' + esc(T('modelos_intro')) + '</span></div><div class="bjaModsCorpo">' + gruposHtml('', true) + '</div>'; }
+        /* Aba Validar (etapa 3, bloco 2): o componente já vem do Twig e é ligado pelo assinatura-validar.js. */
+        if (el.abaVal) { el.abaVal.hidden = s.aba !== 'val'; }
+        if (s.aba === 'val') { return; }
+        if (s.aba === 'docs') { desenharDocs(); return; }
+        el.abaMods.innerHTML = '<div class="bjaModsTopo"><span class="bjaModsTx">' + esc(T('modelos_intro')) + '</span>'
+            + (url.modeloCriar ? '<button type="button" class="bjaP" data-bja-acao="mod-criar"><i class="bi bi-plus-lg"></i>' + esc(T('mod.criar')) + '</button>' : '')
+            + '</div><div class="bjaModsCorpo">' + gruposHtml('', true) + '</div>';
     }
 
     function coresHtml(alvo) {
@@ -271,18 +335,51 @@
         const id = String(d.id), n = d.assinados || 0, tot = d.total || 0, pct = tot ? Math.round(n / tot * 100) : 0, hex = corHex(d.cor);
         return '<tr class="bjaLin' + (hex ? ' tem-cor' : '') + '" data-bja-id="' + esc(id) + '"' + (hex ? ' style="background:' + hex + '"' : '') + '>'
             + '<td class="bjaTdSel"><input type="checkbox" data-bja-sel="' + esc(id) + '" data-bja-foco="sel-' + esc(id) + '" aria-label="' + esc(T('selecionar_doc', { nome: d.nome })) + '"' + (s.sel[id] ? ' checked' : '') + '></td>'
-            + '<td class="bjaTdDoc"><button type="button" class="bjaNomeDoc" data-bja-acao="abrir">' + esc(d.nome) + '</button><div class="bjaSub">' + esc([d.categoria, d.pasta].filter(Boolean).join(' · ')) + '</div></td>'
+            + '<td class="bjaTdDoc"><button type="button" class="bjaNomeDoc" data-bja-acao="abrir">' + esc(d.nome) + '</button><div class="bjaSub">' + esc([d.categoria, d.pasta].filter(Boolean).join(' · ')) + '</div>' + (V ? V.textoDaLinha(d) : '') + '</td>'
             + '<td class="bjaTdSig"><div class="bjaQuem">' + esc(T('assinaram', { n: n, total: tot })) + '</div><div class="bjaBarra"><div style="width:' + pct + '%"></div></div></td>'
             + '<td class="bjaNw">' + esc(data(d.criadoEm)) + '</td>'
             + '<td class="bjaNw">' + (d.stA === 'aguardando' ? esc(data(d.venceEm)) : '') + '</td>'
             + '<td>' + seloHtml(d.stA) + '</td>'
-            + '<td class="bjaTdAc"><button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
+            + '<td class="bjaTdAc">' + (temLink(d) ? acoesDaLinha() : '') + (V ? V.botaoDaLinha(d, d.stA) : '') + botaoPdfDaLinha() + '<button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
             + '<button type="button" class="bjaB bjaI bjaN" data-bja-acao="ctx" aria-label="' + esc(T('mais_opcoes')) + '"><i class="bi bi-three-dots-vertical"></i></button></td></tr>';
     }
 
-    /* ── Modelos prontos (aba Modelos e passo 1) ────────────────────────── */
-    const modelos = () => window.BJAssinaModelos || [];
+    function acoesDaLinha() {
+        const bt = (acao, ic, rot) => '<button type="button" class="bjaB bjaI" data-bja-acao="' + acao + '" aria-label="' + esc(rot) + '" data-tip="' + esc(rot) + '"><i class="bi ' + ic + '"></i></button> ';
+        return (url.documento ? bt('lin-copiar', 'bi-link-45deg', T('linha.copiar')) : '') + (url.lembrete ? bt('lin-lembrete', 'bi-bell', T('linha.lembrete')) : '');
+    }
+
+    /* Etapa 3 (A5): "Baixar PDF" em toda linha, antes de Abrir (desenho, linha 149). A lógica está no assinatura-pdf.js. */
+    function botaoPdfDaLinha() {
+        return url.pdf && window.BJAssinaPdf ? '<button type="button" class="bjaB bjaI" data-bja-acao="lin-pdf" aria-label="' + esc(T('pdf.baixar_rotulo')) + '" data-tip="' + esc(T('pdf.baixar')) + '"><i class="bi bi-file-earmark-pdf"></i></button> ' : '';
+    }
+    function baixarPdf(id) {
+        if (!url.pdf || !window.BJAssinaPdf || id == null) { return; }
+        window.BJAssinaPdf.baixar(comId(url.pdf, id), {
+            aoIniciar: () => avisar(T('pdf.gerando'), '', true),
+            aoConcluir: () => avisar(T('pdf.gerado')),
+            aoFalhar: e => avisar((e && e.texto) || T('pdf.falhou'), 'erro'),
+        });
+    }
+
+    /* ── Modelos (aba Modelos e passo 1): os do escritório primeiro (meus() do desenho), depois os prontos ── */
+    const modelos = () => s.meus.concat(window.BJAssinaModelos || []);
     const modelo = id => modelos().find(m => m.id === id);
+
+    /* Modelo do escritório no formato dos prontos (contrato da etapa 4, seção 5): o id é a chave esc-<id>, que o
+       documento guarda; quem assina vem só com o papel. */
+    const doServidor = x => ({
+        id: x.chave, idServ: x.id, t: x.nome, cat: x.categoria, layout: x.layout || '', lateral: x.lateral || '', limpa: !!x.folhaBranca,
+        campos: x.campos || [], sign: (x.signatarios || []).map(y => ({ papel: y.papel, nome: '', email: '' })), corpo: x.corpo || [], meu: 1,
+    });
+
+    async function carregarModelos() {
+        if (!url.modelos) { return; }
+        try { const r = await pedir(url.modelos); s.meus = (r.modelos || []).map(doServidor); } catch (e) { falha(e); return; }
+        if (s.tela === 'lista' && s.aba === 'mods') { desenharLista(); }
+        const g = s.tela === 'novo' ? el.telaNovo.querySelector('[data-bja-grupos]') : null;
+        if (g) { g.innerHTML = gruposHtml(s.mBusca, false); }
+    }
 
     function gruposHtml(q, comCaixa) {
         const mq = (q || '').trim().toLowerCase(), todos = modelos(), cats = [...new Set(todos.map(m => m.cat))];
@@ -290,8 +387,18 @@
             .filter(g => g.itens.length)
             .map(g => '<div><b class="bjaGrupoTit">' + esc(g.cat) + '</b><div class="bjaMods">' + g.itens.map(m => {
                 const bt = '<button type="button" class="bjaMod" data-bja-modelo="' + esc(m.id) + '"><i class="bi ' + esc(m.ic || 'bi-file-earmark-plus') + '"></i><span class="bjaModTx"><b>' + esc(m.t) + '</b><span class="bjaModD">' + esc(m.d || T('modelo_escritorio')) + '</span></span></button>';
-                return comCaixa ? '<div class="bjaModCx">' + bt + '</div>' : bt;
+                if (!comCaixa) { return bt; }
+                const ac = acoesDoModelo(m);
+                return '<div class="bjaModCx">' + bt + (ac ? '<span class="bjaModAc">' + ac + '</span>' : '') + '</div>';
             }).join('') + '</div></div>').join('');
+    }
+
+    /* Coluna de ações do cartão (aba Modelos): Editar e Excluir no do escritório, Duplicar e adaptar no pronto. */
+    function acoesDoModelo(m) {
+        const bt = (acao, ic, rotulo, dica, perigo) => '<button type="button" class="bjaB bjaI' + (perigo ? ' bjaR' : '') + '" data-bja-acao="' + acao + '" data-bja-mod="' + esc(m.id) + '" aria-label="' + esc(rotulo) + '" data-tip="' + esc(dica) + '"><i class="bi ' + ic + '"></i></button>';
+        if (!m.meu) { return url.modeloCriar ? bt('mod-duplicar', 'bi-copy', T('mod.duplicar'), T('mod.duplicar'), false) : ''; }
+        return (url.modeloSalvar ? bt('mod-editar', 'bi-pencil', T('mod.editar'), T('mod.editar_dica'), false) : '')
+            + (url.modeloExcluir ? bt('mod-excluir', 'bi-trash3', T('mod.excluir'), T('mod.excluir_dica'), true) : '');
     }
 
     /* ── Montagem dos blocos (res, cond, opAtiva, numera e blocos do desenho) ── */
@@ -374,6 +481,7 @@
             passo: 1, mod: '', up: null, nome: '', pasta: '', c: padrao(), sign: [], seq: false,
             msg: T('p4.mensagem_padrao'), dias: 7, logo: logoInicial(), logoFix: logoFixInicial(), logoVista: false, limpa: false,
             layout: '', lateral: '', categoria: '', modelo: null, arquivo: null, arquivoId: 0, arqServ: null, rasc: null,
+            pres: null,
         }, o || {});
     }
 
@@ -383,10 +491,11 @@
         desenharNovo();
     }
 
+    /* Escolher um modelo começa um documento novo, mesmo vindo de um rascunho retomado (`usar` do desenho, L370): o
+       rascunho antigo fica como estava e o salvar cria outro. */
     function usar(m) {
         if (!m) { return; }
-        const rasc = s.tela === 'novo' && s.w ? s.w.rasc : null;
-        s.w = novoW({ passo: 2, mod: m.id, nome: m.t, c: Object.assign(padrao(), m.def), limpa: !!m.limpa, layout: m.layout || '', lateral: m.lateral || '', categoria: m.cat, modelo: m.id, rasc: rasc });
+        s.w = novoW({ passo: 2, mod: m.id, nome: m.t, c: Object.assign(padrao(), m.def), limpa: !!m.limpa, layout: m.layout || '', lateral: m.lateral || '', categoria: m.cat, modelo: m.id });
         s.tela = 'novo'; s.wErro = '';
         mostrarTela();
         desenharNovo();
@@ -460,7 +569,8 @@
     function passo1() {
         return '<div class="bjaP1"><label class="bjaUp"><i class="bi bi-cloud-arrow-up"></i><span class="bjaUpTx"><b>' + esc(T('p1.enviar_avulso')) + '</b><span>' + esc(T('p1.tipos')) + ' <span data-bja-arqst>' + esc(s.arqSt) + '</span></span></span>'
             + '<span class="bjaB">' + esc(T('p1.escolher')) + '</span><input type="file" accept=".pdf,.docx" data-bja-subir hidden></label>'
-            + '<div class="bjaLinBusca"><input class="bjaF" type="text" data-bja-mbusca data-bja-foco="mbusca" aria-label="' + esc(T('buscar_modelo')) + '" placeholder="' + esc(T('buscar_modelo')) + '" value="' + esc(s.mBusca) + '" autocomplete="off"></div>'
+            + '<div class="bjaLinBusca"><input class="bjaF" type="text" data-bja-mbusca data-bja-foco="mbusca" aria-label="' + esc(T('buscar_modelo')) + '" placeholder="' + esc(T('buscar_modelo')) + '" value="' + esc(s.mBusca) + '" autocomplete="off">'
+            + (url.modeloCriar ? '<button type="button" class="bjaB" data-bja-acao="mod-criar"><i class="bi bi-plus-lg"></i>' + esc(T('mod.criar')) + '</button>' : '') + '</div>'
             + '<div class="bjaGrupos" data-bja-grupos>' + gruposHtml(s.mBusca, false) + '</div></div>';
     }
 
@@ -478,7 +588,7 @@
         const logoBts = [['bluejus', T('p2.logo_bluejus')]].concat(logos.escritorio ? [['escritorio', T('p2.logo_escritorio')]] : []);
         let h = '<div class="bjaGrid bjaCorpo"><div class="bjaLat">'
             + '<div class="bjaQuadro"><div class="bjaQuadroTit">' + esc(T('p2.logo')) + '</div><div class="bjaLogoLin"><span class="bjaLogoMini"><img alt="' + esc(T('p2.logo_atual')) + '" src="' + esc(w.logo.url || '') + '"></span>'
-            + '<div class="bjaLogoBts"><label class="bjaB"><i class="bi bi-upload"></i>' + esc(T('p2.alterar_logo')) + '<input type="file" accept="image/png,image/jpeg" data-bja-logo hidden></label>'
+            + '<div class="bjaLogoBts"><label class="bjaB"><i class="bi bi-upload"></i>' + esc(T('p2.alterar_logo')) + '<input type="file" accept="image/*" data-bja-logo hidden></label>'
             + logoBts.map(([k, r]) => '<button type="button" class="bjaB bjaN" data-bja-logo-tipo="' + k + '" data-bja-foco="logo-' + k + '">' + esc(r) + '</button>').join('') + '</div></div>'
             + '<label class="bjaLogoFix"><input type="checkbox" data-bja-wchk="logoFix" data-bja-foco="logoFix"' + (w.logoFix ? ' checked' : '') + '>' + esc(T('p2.usar_logo')) + '</label></div>'
             + '<label class="bjaL">' + esc(T('p2.nome')) + '<input class="bjaF" type="text" data-bja-w="nome" data-bja-foco="w-nome" value="' + esc(w.nome) + '"></label>'
@@ -494,7 +604,7 @@
 
     function passo3() {
         const w = s.w;
-        return '<div class="bjaP3"><div class="bjaP3Cab"><b>' + esc(T('p3.quem')) + '</b>'
+        return '<div class="bjaP3">' + (J ? J.quadro(w.pres) : '') + '<div class="bjaP3Cab"><b>' + esc(T('p3.quem')) + '</b>'
             + '<label class="bjaOrdem"><input type="checkbox" data-bja-wchk="seq"' + (w.seq ? ' checked' : '') + '>' + esc(T('p3.em_ordem')) + '</label>'
             + '<button type="button" class="bjaB" data-bja-acao="add-eu"><i class="bi bi-person-check"></i>' + esc(T('p3.incluir_me')) + '</button>'
             + '<button type="button" class="bjaB" data-bja-acao="add-sig"><i class="bi bi-plus-lg"></i>' + esc(T('p3.adicionar')) + '</button></div>'
@@ -536,8 +646,9 @@
     function entrarSign() {
         const w = s.w, m = modelo(w.mod);
         if (w.sign.length) { return w.sign; }
-        // Campo vazio vira texto vazio (e não a linha "____________" do desenho): o e-mail é conferido no servidor.
-        const sign = m ? m.sign.filter(x => cond(x.se, w.c)).map(x => ({ nome: res(x.nome, w.c, 'vazio').trim(), email: res(x.email, w.c, 'vazio').trim(), cpf: '', papel: x.papel, nivel: 'simples' })) : [sigVazio()];
+        // Campo do cliente vazio: o nome vem com a linha "____________" do desenho (L372), para ser preenchido; o e-mail
+        // fica vazio, porque o servidor só aceita e-mail válido, até no "Salvar rascunho" (decisão de 09/11/2026).
+        const sign = m ? m.sign.filter(x => cond(x.se, w.c)).map(x => ({ nome: res(x.nome, w.c).trim(), email: res(x.email, w.c, 'vazio').trim(), cpf: '', papel: x.papel, nivel: 'simples' })) : [sigVazio()];
         if (m && w.c.cpf && sign[0]) { sign[0].cpf = w.c.cpf; }
         return sign;
     }
@@ -605,13 +716,16 @@
                 throw new Error('tipo');
             }
             up.push({ k: 'a', i: 0, r: '' });
+            // Etapa 5 (5A, E5-6): o PDF é conferido no servidor sem gravar; com assinatura digital, o quadro do passo 3.
+            const pres = arquivo && J && url.pdfConferir ? await J.conferir(url.pdfConferir, arquivo, pedir) : null;
+            if (!s.w) { return; }
             s.arqSt = '';
-            Object.assign(s.w, { passo: 3, up: up, nome: nome, mod: '', modelo: null, categoria: T('documento_avulso'), layout: '', lateral: '', arquivo: arquivo, arquivoId: id, arqServ: null, sign: [sigVazio()] });
+            Object.assign(s.w, { passo: 3, up: up, nome: nome, mod: '', modelo: null, categoria: T('documento_avulso'), layout: '', lateral: '', arquivo: arquivo, arquivoId: id, arqServ: null, sign: [sigVazio()], pres: pres });
             s.wErro = '';
             desenharNovo();
         } catch (e) {
-            console.error(e);
-            arqSt(T('p1.erro'));
+            if (!e || !e.texto) { console.error(e); }
+            arqSt((e && e.texto) || T('p1.erro'));
         }
     }
 
@@ -643,7 +757,9 @@
     }
 
     function dadosDoRascunho() {
-        const w = s.w, dias = Math.min(90, Math.max(1, parseInt(w.dias, 10) || 7));
+        // Vazio vale o padrão do desenho (7); o resto vai como foi digitado, e o servidor recusa fora de 1 a 90 com a
+        // regra escrita ("O prazo para assinar deve ser de 1 a 90 dias."), em vez de a tela cortar em silêncio.
+        const w = s.w, bruto = String(w.dias ?? '').trim(), dias = bruto === '' ? 7 : Number(bruto);
         return {
             nome: String(w.nome || '').trim(),
             pasta: String(w.pasta || '').trim(),
@@ -667,18 +783,23 @@
     async function formDoRascunho() {
         const w = s.w, dados = dadosDoRascunho(), fd = new FormData();
         fd.append('dados', JSON.stringify(dados));
-        if (w.arquivo && dados.blocos.some(b => b.k === 'pg')) { fd.append('arquivo', w.arquivo, w.arquivo.name); }
+        /* O PDF vai quando o conteúdo tem página dele ou quando chegou assinado (w.pres): o original fica mesmo sem
+           página no conteúdo, como o `pres` do desenho (dc:373-374). */
+        if (w.arquivo && (w.pres || dados.blocos.some(b => b.k === 'pg'))) { fd.append('arquivo', w.arquivo, w.arquivo.name); }
         const lg = await arquivoDaLogo(w.logo);
         if (lg) { fd.append('logo', lg, lg.name); }
         return fd;
     }
 
-    async function gravar(destino, botao, depois) {
+    async function gravar(destino, botao, depois, doEnvio) {
         const w = s.w;
         if (w.sign.some(x => { const n = String(x.cpf || '').replace(/\D/g, ''); return n !== '' && n.length !== 11; })) { erroW(T('p3.cpf_invalido')); return; }
         if (botao) { botao.disabled = true; }
         try {
-            const r = await pedir(destino, { method: 'POST', body: await formDoRascunho() });
+            const corpo = await formDoRascunho();
+            /* A gravação do envio não registra "Rascunho salvo": o servidor registra "Documento criado" no envio. */
+            if (doEnvio) { corpo.append('envio', '1'); }
+            const r = await pedir(destino, { method: 'POST', body: corpo });
             await depois(r);
         } catch (e) {
             if (e && !e.texto) { console.error(e); }
@@ -692,32 +813,42 @@
         const w = s.w, destino = w.rasc ? comId(url.salvar, w.rasc) : url.criar;
         if (!destino) { return; }
         gravar(destino, botao, async () => {
-            irParaLista();
+            irParaLista(true);
             avisar(T('toast.rascunho_salvo'));
             await carregar();
         });
     }
 
-    /* "Gerar links e enviar" só existe quando a raiz traz data-url-enviar (etapa 2). Mesmas conferências do desenho. */
+    /* "Gerar links e enviar" (passo 4 e "Continuar e enviar"): as mesmas conferências do desenho, depois salva o rascunho
+       pela rota da etapa 1 e só então envia. O servidor confere o resto (e-mail do Simples, nível, CPF) e a recusa
+       aparece na linha de erro do assistente. Se o envio for recusado, o rascunho já salvo continua sendo o mesmo. */
     function enviar(botao) {
-        const w = s.w;
-        if (w.sign.some(x => !String(x.nome || '').trim())) { erroW(T('p3.nomes')); return; }
+        const w = s.w, destino = w.rasc ? comId(url.salvar, w.rasc) : url.criar;
+        // Nome só de sublinhados (a linha que o modelo põe no campo vazio) conta como vazio.
+        if (w.sign.some(x => !String(x.nome || '').replace(/_/g, '').trim())) { erroW(T('p3.nomes')); return; }
         if (w.sign.some(x => x.cpf && !cpfOk(x.cpf))) { erroW(T('p3.cpf_invalido')); return; }
-        gravar(comId(url.enviar, w.rasc || 0), botao, async r => {
+        if (!destino || !url.enviar) { return; }
+        gravar(destino, botao, async r => {
+            if (r && r.id != null) { w.rasc = r.id; }
+            const e = await pedir(comId(url.enviar, w.rasc), { method: 'POST' });
             s.w = null;
+            mostrarDetalhe(e.documento);
             avisar(T('toast.pronto'));
-            if (r && r.id != null) { await abrirDetalhe(r.id); } else { irParaLista(); }
             await carregar();
-        });
+        }, true);
     }
 
     /* ── Detalhe do documento ───────────────────────────────────────────── */
     async function abrirDetalhe(id) {
         if (!url.documento) { return; }
-        try {
-            s.det = await pedir(comId(url.documento, id));
-        } catch (e) { falha(e); return; }
-        s.tela = 'det'; s.w = null; s.ctx = null;
+        let d = null;
+        try { d = await pedir(comId(url.documento, id)); } catch (e) { falha(e); return; }
+        mostrarDetalhe(d);
+    }
+
+    function mostrarDetalhe(d) {
+        if (!d) { irParaLista(); return; }
+        s.det = d; s.tela = 'det'; s.w = null; s.ctx = null; s.canc = false;
         desenharCamadas();
         mostrarTela();
         desenharDetalhe();
@@ -728,22 +859,58 @@
         try { retomar(await pedir(comId(url.documento, id))); } catch (e) { falha(e); }
     }
 
+    /* Método gravado pelo servidor no rótulo do desenho: 'simples' = 'E-mail e código'; 'reforcada' (etapa 7) = 'E-mail e
+       código, selfie, localização {lat}, {long}' com 5 casas (linha 387); valor desconhecido sai como veio. */
+    const metodoRotulo = x => {
+        const m = x.metodo, l = x.localizacao;
+        if (m === 'reforcada') {
+            return l ? T('reforcada.metodo', { local: Number(l.latitude).toFixed(5) + ', ' + Number(l.longitude).toFixed(5) }) : T('reforcada.metodo_sem_local');
+        }
+        return m === 'simples' ? T('metodo.simples') : m || '';
+    };
+
+    /* Barra de ações do signatário pendente (C9 a C13): só com o documento Aguardando e dentro do prazo, para todos os
+       pendentes (mesmo com ordem). E-mail (mailto) e WhatsApp (sem número) levam o link do próprio signatário. */
+    function acoesDoSignatario(d, x, i) {
+        const link = x.link || '';
+        const assunto = T('det.assunto', { nome: d.nome });
+        const mail = 'mailto:' + (x.email || '') + '?subject=' + encodeURIComponent(assunto) + '&body=' + encodeURIComponent((d.mensagem ? d.mensagem + '\n\n' : '') + link);
+        const wa = 'https://wa.me/?text=' + encodeURIComponent(T('det.whatsapp_msg', { nome: x.nome, documento: d.nome, link: link }));
+        // Sem link (servidor sem a chave da assinatura), E-mail e WhatsApp avisam em vez de abrir uma mensagem sem endereço.
+        const ancora = (href, extra) => (link ? 'href="' + esc(href) + '"' + extra : 'href="#" data-bja-acao="sem-link"');
+        return '<div class="bjaSigBts" data-bja-sig="' + i + '">'
+            + '<button type="button" class="bjaB" data-bja-acao="sig-copiar"><i class="bi bi-link-45deg"></i>' + esc(T('det.copiar')) + '</button>'
+            + '<a class="bjaB" ' + ancora(mail, '') + '><i class="bi bi-envelope"></i>' + esc(T('det.email')) + '</a>'
+            + '<a class="bjaB" ' + ancora(wa, ' target="_blank" rel="noopener"') + '><i class="bi bi-whatsapp"></i>' + esc(T('det.whatsapp')) + '</a>'
+            + (url.previa ? '<button type="button" class="bjaB bjaN" data-bja-acao="sig-previa"><i class="bi bi-box-arrow-up-right"></i>' + esc(T('det.tela_signatario')) + '</button>' : '')
+            + '</div>';
+    }
+
+    /* C5: o nome digitado ao assinar (nomeDigitado, do Detalhe) quando vier; senão o cadastrado (desenho: nomeAss || nome). */
+    function nomeDoSignatario(x) { return x.nomeDigitado || x.nome || ''; }
+
     function desenharDetalhe() {
         const d = s.det, st = stAtual(d);
-        const sigs = (d.signatarios || []).map(x => {
+        const sigs = (d.signatarios || []).map((x, i) => {
             const sg = x.situacao === 'assinado' ? 'assinado' : x.situacao === 'recusado' ? 'recusado' : 'pendente';
-            const info = sg === 'assinado' ? dataHora(x.assinadoEm) + (x.metodo ? ' · ' + x.metodo : '') : (x.email || T('det.sem_email'));
-            return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(x.nome) + '</b><span class="bjaSeloSig sg-' + sg + '">' + esc(T('sig.' + sg)) + '</span></div>'
-                + '<div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(nivelRotulo(x.nivel)) + '</div><div class="bjaSigInfo">' + esc(info) + '</div></div>';
+            const metodo = metodoRotulo(x);
+            const info = sg === 'assinado' ? dataHora(x.assinadoEm) + (metodo ? ' · ' + metodo : '') : (x.email || T('det.sem_email'));
+            return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(nomeDoSignatario(x)) + '</b><span class="bjaSeloSig sg-' + sg + '">' + esc(T('sig.' + sg)) + '</span></div>'
+                + '<div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(nivelRotulo(x.nivel)) + '</div><div class="bjaSigInfo">' + esc(info) + '</div>'
+                + (sg === 'pendente' && st === 'aguardando' ? acoesDoSignatario(d, x, i) : '') + '</div>';
         }).join('');
-        const bts = st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '';
+        const bts = (st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '')
+            + (url.pdf && window.BJAssinaPdf ? '<button type="button" class="bjaP" data-bja-acao="det-pdf"><i class="bi bi-file-earmark-pdf"></i>' + esc(J ? J.rotuloDoBaixar(d) : (d.folhaBranca ? T('pdf.baixar_rotulo') : T('pdf.baixar'))) + '</button>' : '')
+            + (V ? V.botaoDoDetalhe(d, st) : '')
+            + (st === 'aguardando' && !d.naLixeira && url.cancelar ? '<button type="button" class="bjaB bjaR" data-bja-acao="det-cancelar">' + esc(T('det.cancelar')) + '</button>' : '');
         const evs = (d.eventos || []).map(e => '<div class="bjaEv"><b>' + esc(e.texto) + '</b><div>' + esc(dataHora(e.em)) + '</div></div>').join('');
         el.telaDet.innerHTML = '<div class="bjaTopoDet"><button type="button" class="bjaB bjaN" data-bja-acao="voltar-lista"><i class="bi bi-arrow-left"></i>' + esc(T('voltar_documentos')) + '</button>'
             + '<h1 class="bjaH1Det">' + esc(d.nome) + '</h1><span class="bjaSeloDet st-' + esc(st) + '">' + esc(T('situacao.' + st)) + '</span></div>'
+            + (J ? J.quadroDoDetalhe(d, url.carimbo) : '')
             + '<div class="bjaGrid"><div class="bjaLat">'
             + '<section class="bjaCard bjaOculto"><div class="bjaHd"><i class="bi bi-people"></i>' + esc(T('det.signatarios')) + '</div>' + sigs + '</section>'
             + '<section class="bjaCard bjaCodCard"><div class="bjaCodRot">' + esc(T('det.codigo')) + '</div><div class="bjaCodVal">' + esc(d.codigo || T('det.gerado_no_envio')) + '</div>'
-            + (bts ? '<div class="bjaCodBts">' + bts + '</div>' : '') + '</section>'
+            + (bts ? '<div class="bjaCodBts">' + bts + '</div>' : '') + (V ? V.linkDoDetalhe(d) : '') + '</section>'
             + '<section class="bjaCard bjaOculto"><div class="bjaHd"><i class="bi bi-clock-history"></i>' + esc(T('det.trilha')) + '</div><div class="bjaTrilha">' + evs + '</div></section>'
             + '</div><div class="bjaCent"><div class="bjaPv" data-folha="d"></div></div></div>';
         pintarPrevias();
@@ -762,12 +929,301 @@
                 } else if (t === 'd' && s.det) {
                     const d = s.det;
                     F.pintar(pv, {
-                        blocos: d.blocos || [], sign: d.signatarios || [], logo: logoDoDocumento(d.logo, d.id).url, layout: d.layout || '', lateral: d.lateral || '',
-                        limpa: !!d.folhaBranca, cod: d.codigo || '', hash: d.hash || '', fonte: d.arquivo && d.arquivo.url ? F.fonteDaUrl(d.arquivo.url) : null,
+                        blocos: d.blocos || [], sign: d.signatarios || [] /* sob a linha, o nome cadastrado (desenho L352: b.r || s.nome); o digitado fica na lista */, logo: logoDoDocumento(d.logo, d.id).url, layout: d.layout || '', lateral: d.lateral || '',
+                        limpa: !!d.folhaBranca, cod: d.codigo || '', hash: d.hashEnviado || '', fonte: d.arquivo && d.arquivo.url ? F.fonteDaUrl(d.arquivo.url) : null,
                     });
+                } else if (t === 'm' && s.m) {
+                    /* Editor de modelo: escritório preenchido, campo do cliente marcado e a logo da BlueJus (html() do desenho). */
+                    const m = s.m;
+                    F.pintar(pv, { blocos: blocos(lerEd(), padrao(), true), sign: null, logo: logos.bluejus || '', layout: m.layout, lateral: m.lateral, limpa: !!m.limpa, cod: '', hash: '', fonte: null });
                 }
             });
         });
+    }
+
+    /* ── Editor de modelo (contrato da etapa 4, seção 8): abrirMod, lerEd, htmlDe, noCursor, insChip, bloco,
+       alinhaDir, impWord e salvaMod do desenho. O texto mora numa área editável; ao salvar, lerEd a converte em
+       campos, signatários e blocos, e só isso vai ao servidor. htmlDe faz o caminho de volta com cada trecho escapado. ── */
+    const camposCon = () => { const C0 = window.BJAssinaCampos || {}; return [].concat(C0.Cliente || [], C0.Escritorio || [], C0.Local || []); };
+    const novoHtml = () => '<h1>' + esc(T('mod.inicial_titulo')) + '</h1><p>' + esc(T('mod.inicial_texto')) + '</p>';
+    const papelPadrao = () => T('mod.papel_padrao');
+
+    function abrirMod(o) {
+        s.w = null; s.det = null; s.ctx = null; s.exc = null;
+        s.m = Object.assign({ id: null, t: '', cat: T('mod.cat_padrao'), layout: '', lateral: '', limpa: false, html: novoHtml() }, o || {});
+        s.mdErro = ''; s.tela = 'modelo';
+        desenharCamadas();
+        mostrarTela();
+        desenharMod();
+    }
+
+    function htmlDe(m) {
+        const lab = {};
+        (m.campos || []).forEach(c => { lab[c[0]] = c[1]; });
+        /* O desenho escapa só & e <; aqui o texto é partido em negrito, campo e resto, e cada pedaço passa pelo esc. */
+        const inl = t => String(t).split(/(\{b\}|\{\/b\}|\[\[\^?[^\]]+?\]\])/).map(p => {
+            if (p === '{b}') { return '<b>'; }
+            if (p === '{/b}') { return '</b>'; }
+            const k = /^\[\[\^?([^\]]+?)\]\]$/.exec(p);
+            return k ? '<span class="ch" contenteditable="false" data-c="' + esc(k[1]) + '">' + esc(lab[k[1]] || k[1]) + '</span>' : esc(p);
+        }).join('');
+        const papel = i => ((m.sign || [])[i] || {}).papel || papelPadrao();
+        return numera((m.corpo || []).filter(b => opAtiva(b, m.def)).map(b => Object.assign({}, b)), b => (b.p != null ? b.p : b.h), (b, x) => { if (b.p != null) { b.p = x; } else { b.h = x; } })
+            .map(b => (b.t != null ? '<h1>' + inl(b.t) + '</h1>' : b.s != null ? '<h2>' + inl(b.s) + '</h2>' : b.h != null ? '<h3>' + inl(b.h) + '</h3>'
+                : b.n != null ? '<p data-n="1">' + inl(b.n) + '</p>' : b.d != null ? '<p data-d="1">' + inl(b.d) + '</p>' : b.l != null ? '<p><b>' + inl(b.l) + '</b></p>'
+                    : b.p != null ? '<p>' + inl(b.p) + '</p>'
+                        : '<div data-ass="1" contenteditable="false" data-p="' + esc(papel(b.a)) + '" data-r="' + esc(b.r || '') + '">' + esc(T('mod.assinatura_de', { papel: papel(b.a) })) + '</div>')).join('');
+    }
+
+    /* Elementos que fazem bloco na raiz do editor; o resto (texto, negrito, campo) é trecho de parágrafo. */
+    const BLOCO_DO_EDITOR = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE|TABLE)$/;
+
+    function lerEd() {
+        const m = s.m, root = edAtual || new DOMParser().parseFromString('<body>' + m.html + '</body>', 'text/html').body;
+        const con = camposCon(), cps = [], visto = new Set();
+        const reg = (k, r) => { if (visto.has(k)) { return; } visto.add(k); const c0 = con.find(x => x[0] === k); cps.push(c0 ? c0.slice() : [k, r, r.length > 16 ? 1 : 0]); };
+        const pedaco = c => {
+            if (c.nodeType === 3) { return c.nodeValue; }
+            if (c.nodeType !== 1) { return ''; }
+            if (c.dataset && c.dataset.c) { reg(c.dataset.c, c.textContent); return '[[' + c.dataset.c + ']]'; }
+            if (/^(B|STRONG)$/.test(c.tagName)) { const t = inl(c); return t.trim() ? '{b}' + t + '{/b}' : t; }
+            if (c.tagName === 'BR') { return ' '; }
+            return inl(c);
+        };
+        const trecho = nos => nos.map(pedaco).join('').replace(/\u00a0/g, ' ');
+        const inl = n => trecho(Array.from(n.childNodes));
+        const corpo = [], sign = [];
+        let prim = true, solto = [];
+        /* D-j: o que estiver solto na raiz (texto, negrito, campo) vira um parágrafo, com o campo registrado; o desenho
+           lia só o texto solto e o campo saía de campos (dc:330). */
+        const fecharSolto = () => { const t = trecho(solto).trim(); solto = []; if (t) { corpo.push({ p: t }); } };
+        Array.from(root.childNodes).forEach(n => {
+            if (n.nodeType === 3 || (n.nodeType === 1 && !(n.dataset && n.dataset.ass) && !BLOCO_DO_EDITOR.test(n.tagName))) { solto.push(n); return; }
+            if (n.nodeType !== 1) { return; }
+            fecharSolto();
+            if (n.dataset && n.dataset.ass) {
+                const a = sign.length;
+                sign.push({ papel: n.dataset.p || papelPadrao(), nome: '', email: '' });
+                corpo.push(Object.assign({ a: a }, n.dataset.r ? { r: n.dataset.r } : {}));
+                return;
+            }
+            const t = inl(n).trim();
+            if (!t) { return; }
+            if (n.tagName === 'H1') { corpo.push({ t: t }); } else if (n.tagName === 'H2') { corpo.push({ s: t }); } else if (n.tagName === 'H3') { corpo.push({ h: t }); } else if (n.dataset && n.dataset.n) { corpo.push({ n: t }); } else if (n.dataset && n.dataset.d) { corpo.push({ d: t }); } else {
+                const o = { p: t };
+                if (m.layout === '2col' && prim) { o.full = 1; prim = false; }
+                corpo.push(o);
+            }
+        });
+        fecharSolto();
+        return { id: m.id || 'prevm', cat: m.cat, t: m.t, layout: m.layout, lateral: m.lateral, limpa: !!m.limpa, campos: cps, sign: sign, corpo: corpo };
+    }
+
+    function mdCamposHtml() {
+        const m = s.m, pad = T('mod.cat_padrao'), cats = [pad].concat([...new Set(modelos().map(x => x.cat).filter(c => c && c !== pad))]);
+        return '<label class="bjaL">' + esc(T('mod.nome')) + '<input class="bjaF" type="text" data-bja-md="t" maxlength="200" value="' + esc(m.t) + '" autocomplete="off"></label>'
+            + '<label class="bjaL">' + esc(T('mod.categoria')) + '<input class="bjaF" type="text" data-bja-md="cat" maxlength="80" list="bjaCats" value="' + esc(m.cat) + '" autocomplete="off"><datalist id="bjaCats">' + cats.map(c => '<option value="' + esc(c) + '"></option>').join('') + '</datalist></label>'
+            + '<label class="bjaL">' + esc(T('mod.formato')) + '<select class="bjaF" data-bja-md="layout"><option value=""' + (m.layout === '2col' ? '' : ' selected') + '>' + esc(T('mod.formato_inteira')) + '</option><option value="2col"' + (m.layout === '2col' ? ' selected' : '') + '>' + esc(T('mod.formato_2col')) + '</option></select></label>'
+            + '<label class="bjaChk bjaMdLimpa"><input type="checkbox" data-bja-md="limpa"' + (m.limpa ? ' checked' : '') + '><span><b>' + esc(T('p2.folha_branca')) + '</b> ' + esc(T('p2.folha_branca_det')) + '</span></label>'
+            + '<label class="bjaL" data-bja-md-lat' + (m.layout === '2col' ? '' : ' hidden') + '>' + esc(T('mod.lateral')) + '<input class="bjaF" type="text" data-bja-md="lateral" maxlength="20000" value="' + esc(m.lateral) + '" autocomplete="off"></label>';
+    }
+
+    function mdBarraHtml() {
+        const ferr = [['bi-type-bold', 'negrito', 'bold'], ['bi-type-h1', 'titulo', 'h1'], ['bi-type-h2', 'subtitulo', 'h2'], ['bi-type-h3', 'secao', 'h3'], ['bi-text-paragraph', 'paragrafo', 'p'], ['bi-text-right', '', 'dir']];
+        const C0 = window.BJAssinaCampos || {}, grupos = [['grupo_cliente', C0.Cliente], ['grupo_escritorio', C0.Escritorio], ['grupo_local', C0.Local]];
+        return ferr.map(([ic, k, cmd]) => {
+            const dica = T('mod.' + (k || 'direita'));
+            return '<button type="button" class="bjaB bjaN" data-bja-acao="mod-ed" data-bja-ed="' + cmd + '" aria-label="' + esc(dica) + '" data-tip="' + esc(dica) + '"><i class="bi ' + ic + '"></i>' + (k ? esc(T('mod.' + k)) : '') + '</button>';
+        }).join('')
+            + '<span class="bjaMdDiv"></span><select class="bjaF bjaMdIns" data-bja-ins aria-label="' + esc(T('mod.inserir')) + '"><option value="">' + esc(T('mod.inserir_op')) + '</option>'
+            + grupos.map(([r, lista]) => '<optgroup label="' + esc(T('mod.' + r)) + '">' + (lista || []).map(c => '<option value="' + esc(c[0]) + '">' + esc(c[1]) + '</option>').join('') + '</optgroup>').join('')
+            + '</select>';
+    }
+
+    function desenharMod() {
+        const m = s.m;
+        el.telaMod.innerHTML = '<div class="bjaTopoMod"><button type="button" class="bjaB bjaN" data-bja-acao="mod-sair"><i class="bi bi-arrow-left"></i>' + esc(T('mod.voltar')) + '</button>'
+            + '<h1 class="bjaH1Mod">' + esc(m.id ? T('mod.titulo_editar') : T('mod.titulo_novo')) + '</h1>'
+            + '<label class="bjaB bjaMdImp"><i class="bi bi-file-earmark-word"></i>' + esc(T('mod.importar')) + '<input type="file" accept=".docx" data-bja-impword hidden></label>'
+            + '<button type="button" class="bjaP" data-bja-acao="mod-salvar"><i class="bi bi-check2"></i>' + esc(T('mod.salvar')) + '</button></div>'
+            + '<div class="bjaGrid"><div class="bjaCent bjaMdEdCol"><section class="bjaCard bjaOculto">'
+            + '<div class="bjaMdCampos">' + mdCamposHtml() + '</div>'
+            + '<div class="bjaMdBarra">' + mdBarraHtml() + '</div>'
+            + '<div class="bjaMdCriar"><div class="bjaMdPar"><input class="bjaF" type="text" data-bja-md-novo maxlength="60" aria-label="' + esc(T('mod.novo_campo')) + '" placeholder="' + esc(T('mod.novo_campo_ex')) + '" autocomplete="off">'
+            + '<button type="button" class="bjaB" data-bja-acao="mod-campo">' + esc(T('mod.criar_campo')) + '</button></div>'
+            + '<div class="bjaMdPar"><input class="bjaF" type="text" data-bja-md-papel maxlength="120" aria-label="' + esc(T('mod.papel')) + '" placeholder="' + esc(T('mod.papel_ex')) + '" autocomplete="off">'
+            + '<button type="button" class="bjaB" data-bja-acao="mod-assinatura"><i class="bi bi-pen"></i>' + esc(T('mod.assinatura')) + '</button></div></div>'
+            + '<div class="bjaEd" data-bja-editor role="textbox" aria-multiline="true" aria-label="' + esc(T('mod.texto')) + '"></div>'
+            + '</section><div class="bjaMdErro" data-bja-mderro aria-live="polite">' + esc(s.mdErro) + '</div></div>'
+            + '<div class="bjaCent bjaMdPvCol"><div class="bjaPv" data-folha="m"></div></div></div>';
+        const ed = el.telaMod.querySelector('[data-bja-editor]');
+        ed.contentEditable = 'true';
+        ed.innerHTML = m.html;
+        edAtual = ed; edRng = null;
+        ['keyup', 'mouseup'].forEach(nome => ed.addEventListener(nome, guardarCursor));
+        ed.addEventListener('input', () => { guardarCursor(); pintarPrevias(); });
+        pintarPrevias();
+    }
+
+    function erroMd(texto) {
+        s.mdErro = texto || '';
+        const e = el.telaMod.querySelector('[data-bja-mderro]');
+        if (e) { e.textContent = s.mdErro; }
+    }
+
+    function guardarCursor() {
+        const s0 = window.getSelection();
+        if (edAtual && s0 && s0.rangeCount && edAtual.contains(s0.anchorNode)) { edRng = s0.getRangeAt(0).cloneRange(); }
+    }
+
+    function noCursor(no) {
+        const ed = edAtual;
+        if (!ed) { return; }
+        ed.focus();
+        const s0 = window.getSelection();
+        let r = edRng && ed.contains(edRng.startContainer) ? edRng : null;
+        if (r) { r.deleteContents(); }
+        if (!r || r.startContainer === ed) { r = dentroDeBloco(ed, r); }
+        r.insertNode(no); r.setStartAfter(no); r.collapse(true);
+        s0.removeAllRanges(); s0.addRange(r);
+        edRng = r.cloneRange();
+        pintarPrevias();
+    }
+
+    /* D-j: o campo sempre termina dentro de um bloco (o lerEd do desenho só o lê dentro de um, dc:330; o noCursor do
+       desenho, sem cursor, o punha na raiz, dc:332). Sem cursor: fim do último bloco de texto, ou um parágrafo novo no
+       fim. Cursor entre blocos: um parágrafo novo ali. */
+    function dentroDeBloco(ed, r) {
+        let alvo;
+        if (r) {
+            alvo = document.createElement('p');
+            r.insertNode(alvo);
+        } else {
+            const fim = ed.lastChild;
+            alvo = fim && fim.nodeType === 1 && !fim.dataset.ass && BLOCO_DO_EDITOR.test(fim.tagName) ? fim : ed.appendChild(document.createElement('p'));
+        }
+        if (alvo.childNodes.length === 1 && alvo.firstChild.nodeName === 'BR') { alvo.removeChild(alvo.firstChild); }
+        const n = document.createRange();
+        n.selectNodeContents(alvo);
+        n.collapse(false);
+        return n;
+    }
+
+    function insChip(k, r) {
+        const c = document.createElement('span');
+        c.className = 'ch'; c.setAttribute('contenteditable', 'false'); c.dataset.c = k; c.textContent = r;
+        noCursor(c);
+        noCursor(document.createTextNode(' '));
+    }
+
+    /* Barra de formatação: os botões não tiram o foco do texto (mousedown cancelado); Negrito, bloco e à direita. */
+    function formatar(cmd) {
+        if (!edAtual) { return; }
+        if (cmd === 'dir') { alinhaDir(); return; }
+        if (cmd !== 'bold') { edAtual.focus(); }
+        try { if (cmd === 'bold') { document.execCommand('bold'); } else { document.execCommand('formatBlock', false, cmd); } } catch (e) { /* navegador sem execCommand: o texto fica como está */ }
+        pintarPrevias();
+    }
+
+    function alinhaDir() {
+        const s0 = window.getSelection();
+        let n = s0 && s0.anchorNode;
+        while (n && n !== edAtual && n.parentNode !== edAtual) { n = n.parentNode; }
+        if (n && n.nodeType === 1 && n !== edAtual) { if (n.dataset.d) { delete n.dataset.d; } else { n.dataset.d = '1'; } pintarPrevias(); }
+    }
+
+    function criarCampo() {
+        const i = el.telaMod.querySelector('[data-bja-md-novo]'), r = i ? i.value.trim() : '';
+        if (!r) { return; }
+        if (/[[\]]/.test(r) || r.charAt(0) === '^') { erroMd(T('mod.erro_nome_campo')); return; }
+        erroMd('');
+        insChip(r, r);
+        i.value = '';
+    }
+
+    function criarAssinatura() {
+        if (!edAtual) { return; }
+        const i = el.telaMod.querySelector('[data-bja-md-papel]'), p0 = (i ? i.value.trim() : '') || papelPadrao();
+        const d0 = document.createElement('div');
+        d0.dataset.ass = '1'; d0.dataset.p = p0; d0.setAttribute('contenteditable', 'false'); d0.textContent = T('mod.assinatura_de', { papel: p0 });
+        edAtual.appendChild(d0);
+        const p1 = document.createElement('p');
+        p1.appendChild(document.createElement('br'));
+        edAtual.appendChild(p1);
+        if (i) { i.value = ''; }
+        pintarPrevias();
+    }
+
+    /* Nome, categoria, formato, folha branca e texto lateral do modelo (data-bja-md). */
+    function mudarMod(t) {
+        const k = t.getAttribute('data-bja-md');
+        s.m[k] = k === 'limpa' ? t.checked : t.value;
+        if (k === 't') { erroMd(''); }
+        if (k === 'layout') { const lat = el.telaMod.querySelector('[data-bja-md-lat]'); if (lat) { lat.hidden = t.value !== '2col'; } }
+        pintarPrevias();
+    }
+
+    /* Importar Word (impWord do desenho): mammoth converte, o DOMParser lê sem executar nada, e cada bloco vira um
+       parágrafo com o negrito; o resto é texto escapado. Substitui o texto do editor. */
+    async function importarWord(f) {
+        const ed = edAtual;
+        if (!f || !ed || !s.m) { return; }
+        try {
+            if (!window.mammoth) { throw new Error('mammoth'); }
+            const r = await window.mammoth.convertToHtml({ arrayBuffer: await f.arrayBuffer() });
+            const corpo = new DOMParser().parseFromString(String(r.value || ''), 'text/html').body;
+            const inl = n => Array.from(n.childNodes).map(c => (c.nodeType === 3 ? esc(c.nodeValue) : c.nodeType !== 1 ? '' : /^(B|STRONG)$/.test(c.tagName) ? '<b>' + inl(c) + '</b>' : inl(c))).join('');
+            const h = Array.from(corpo.children).map(n => { const t = inl(n).trim(); return t ? '<p>' + t + '</p>' : ''; }).join('');
+            if (ed !== edAtual || !s.m) { return; }
+            ed.innerHTML = h || novoHtml();
+            edRng = null;
+            if (!s.m.t) {
+                s.m.t = f.name.replace(/\.[^.]+$/, '');
+                const nome = el.telaMod.querySelector('[data-bja-md="t"]');
+                if (nome) { nome.value = s.m.t; }
+            }
+            pintarPrevias();
+            avisar(T('mod.importado'));
+        } catch (e) { avisar(T('mod.importar_erro'), 'erro'); }
+    }
+
+    /* Salvar modelo: as conferências do desenho na ordem dele; o servidor repete e recusa com o texto (422). */
+    async function salvarMod(botao) {
+        const m = s.m, r = lerEd();
+        if (!m.t.trim()) { erroMd(T('mod.erro_nome')); return; }
+        if (!r.corpo.some(b => b.p != null)) { erroMd(T('mod.erro_texto')); return; }
+        if (!r.sign.length) { erroMd(T('mod.erro_assinatura')); return; }
+        if (m.layout === '2col' && !r.corpo.some(b => b.t != null)) { erroMd(T('mod.erro_titulo')); return; }
+        erroMd('');
+        const corpo = { nome: m.t.trim(), categoria: m.cat.trim(), layout: m.layout === '2col' ? '2col' : '', lateral: m.lateral || '', folhaBranca: !!m.limpa, campos: r.campos, signatarios: r.sign.map(x => ({ papel: x.papel })), corpo: r.corpo };
+        if (botao) { botao.disabled = true; }
+        try {
+            await postJson(m.id ? comId(url.modeloSalvar, m.id) : url.modeloCriar, corpo);
+        } catch (e) {
+            if (botao) { botao.disabled = false; }
+            falha(e);
+            if (e.status === 404) { irParaModelos(); await carregarModelos(); }
+            return;
+        }
+        irParaModelos();
+        avisar(T('mod.salvo'));
+        await carregarModelos();
+    }
+
+    function pedirExclusaoDoModelo(m) {
+        s.ctx = null;
+        s.exc = { mod: { id: m.idServ, nome: m.t } };
+        desenharCamadas();
+        const b = el.modal.querySelector('[data-bja-acao="exc-nao"]');
+        if (b) { b.focus(); }
+    }
+
+    async function excluirModelo(id) {
+        s.exc = null;
+        desenharCamadas();
+        try { await pedir(comId(url.modeloExcluir, id), { method: 'POST' }); } catch (e) { falha(e); if (e.status === 404) { await carregarModelos(); } return; }
+        avisar(T('mod.excluido'), 'aviso');
+        await carregarModelos();
     }
 
     /* ── Menu de contexto, modal de exclusão ────────────────────────────── */
@@ -793,7 +1249,7 @@
 
     function desenharCamadas() {
         el.ctx.innerHTML = s.ctx ? ctxHtml() : '';
-        el.modal.innerHTML = s.exc ? excHtml() : '';
+        el.modal.innerHTML = s.exc ? excHtml() : s.canc ? cancHtml() : '';
     }
 
     function ctxHtml() {
@@ -803,6 +1259,11 @@
         if (um) {
             L.push(['bi-box-arrow-up-right', T('ctx.abrir'), 'ctx-abrir']);
             if (d0.stA === 'rascunho' && !d0.naLixeira && url.documento) { L.push(['bi-pencil', T('ctx.continuar'), 'ctx-continuar']); }
+            if (temLink(d0) && url.documento) { L.push(['bi-link-45deg', T('ctx.copiar'), 'ctx-copiar']); }
+            if (temLink(d0) && url.lembrete) { L.push(['bi-bell', T('ctx.lembrete'), 'ctx-lembrete']); }
+            if (url.pdf && window.BJAssinaPdf) { L.push(['bi-file-earmark-pdf', T('pdf.baixar'), 'ctx-pdf']); }
+            const vinc = V && V.itemDoMenu(d0, d0.stA);
+            if (vinc) { L.push(vinc); }
             if (url.duplicar) { L.push(['bi-copy', T('ctx.duplicar'), 'ctx-duplicar']); }
         }
         L.push(['bi-check2-square', s.sel[String(d0.id)] ? T('ctx.desmarcar') : T('ctx.selecionar'), 'ctx-sel']);
@@ -822,12 +1283,35 @@
     }
 
     function excHtml() {
+        if (s.exc.mod) {
+            return '<div class="bjaModal"><div class="bjaCard bjaOculto bjaModalCx" role="dialog" aria-modal="true" aria-label="' + esc(T('mod.exc_titulo')) + '">'
+                + '<div class="bjaHd is-perigo"><i class="bi bi-trash3"></i>' + esc(T('mod.exc_titulo')) + '</div>'
+                + '<div class="bjaModalTx">' + esc(T('mod.exc_texto')) + '</div>'
+                + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="exc-nao">' + esc(T('exc.voltar')) + '</button>'
+                + '<button type="button" class="bjaB bjaR" data-bja-acao="exc-sim">' + esc(T('mod.exc_botao')) + '</button></div></div></div>';
+        }
         const def = !!s.exc.def;
         return '<div class="bjaModal"><div class="bjaCard bjaOculto bjaModalCx" role="dialog" aria-modal="true" aria-label="' + esc(T('exc.rotulo')) + '">'
             + '<div class="bjaHd is-perigo"><i class="bi bi-trash3"></i>' + esc(def ? T('exc.titulo_def') : T('exc.titulo_lixeira')) + '</div>'
             + '<div class="bjaModalTx">' + esc(def ? T('exc.texto_def') : T('exc.texto_lixeira', { n: s.exc.ids.length })) + '</div>'
             + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="exc-nao">' + esc(T('exc.voltar')) + '</button>'
             + '<button type="button" class="bjaB bjaR" data-bja-acao="exc-sim">' + esc(def ? T('exc.botao_def') : T('exc.botao')) + '</button></div></div></div>';
+    }
+
+    /* Confirmação do Cancelar envio: a janela do Excluir (D), com o ícone de Cancelado (bi-slash-circle). */
+    function cancHtml() {
+        return '<div class="bjaModal"><div class="bjaCard bjaOculto bjaModalCx" role="dialog" aria-modal="true" aria-label="' + esc(T('canc.rotulo')) + '">'
+            + '<div class="bjaHd is-perigo"><i class="bi bi-slash-circle"></i>' + esc(T('canc.titulo')) + '</div>'
+            + '<div class="bjaModalTx">' + esc(T('canc.texto')) + '</div>'
+            + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="canc-nao">' + esc(T('canc.voltar')) + '</button>'
+            + '<button type="button" class="bjaB bjaR" data-bja-acao="canc-sim">' + esc(T('canc.botao')) + '</button></div></div></div>';
+    }
+
+    function pedirCancelamento() {
+        s.canc = true;
+        desenharCamadas();
+        const b = el.modal.querySelector('[data-bja-acao="canc-nao"]');
+        if (b) { b.focus(); }
     }
 
     function pedirExclusao(ids, def) {
@@ -872,6 +1356,63 @@
         await carregar();
     }
 
+    /* Cópia do link (copiar e copiaF do desenho): área de transferência; senão a seleção de texto; senão o link no aviso azul. */
+    function copiarTexto(t) {
+        const ok = () => avisar(T('toast.link_copiado'));
+        const reserva = () => {
+            const a = document.createElement('textarea');
+            a.value = t;
+            document.body.appendChild(a);
+            a.select();
+            let foi = false;
+            try { foi = document.execCommand('copy'); } catch (e) { foi = false; }
+            a.remove();
+            if (foi) { ok(); } else { avisar(t, 'info'); }
+        };
+        try { navigator.clipboard.writeText(t).then(ok, reserva); } catch (e) { reserva(); }
+    }
+
+    function copiarLink(link) {
+        if (!link) { avisar(T('toast.sem_chave'), 'erro'); return; }
+        copiarTexto(link);
+    }
+
+    /* Copiar link da lista: o resumo não traz o link, então o detalhe é lido na hora e o alvo é o primeiro pendente. */
+    async function copiarDaLista(id) {
+        let d = null;
+        try { d = await pedir(comId(url.documento, id)); } catch (e) { falha(e); return; }
+        const p1 = primeiroPendente(d);
+        if (!p1 || stAtual(d) !== 'aguardando') { await carregar(); return; }
+        copiarLink(p1.link);
+    }
+
+    async function lembrar(id) {
+        const d0 = doc(id), p1 = d0 && primeiroPendente(d0);
+        if (!d0 || !url.lembrete) { return; }
+        let r = null;
+        try { r = await pedir(comId(url.lembrete, d0.id), { method: 'POST' }); } catch (e) { falha(e); return; }
+        avisar(T('toast.lembrete', { nome: (r && r.para) || (p1 ? p1.nome : '') }));
+    }
+
+    async function cancelarEnvio() {
+        const d = s.det;
+        s.canc = false;
+        desenharCamadas();
+        if (!d || !url.cancelar) { return; }
+        let r = null;
+        try { r = await pedir(comId(url.cancelar, d.id), { method: 'POST' }); } catch (e) { falha(e); return; }
+        if (s.tela !== 'det' || !s.det || s.det.id !== d.id) { await carregar(); return; }
+        if (r && r.documento) { s.det = r.documento; }
+        desenharDetalhe();
+        avisar(T('toast.cancelado'), 'aviso');
+        await carregar();
+    }
+
+    function signatarioDoBotao(alvo) {
+        const caixa = alvo.closest('[data-bja-sig]');
+        return caixa && s.det ? (s.det.signatarios || [])[+caixa.getAttribute('data-bja-sig')] || null : null;
+    }
+
     async function duplicar(id) {
         try { await pedir(comId(url.duplicar, (doc(id) || {}).id), { method: 'POST' }); } catch (e) { falha(e); return; }
         s.ctx = null; s.filtro = 'rascunho';
@@ -898,7 +1439,7 @@
             case 'ctx-excluir': pedirExclusao(idsDoCtx(), false); break;
             case 'ctx-excluir-def': pedirExclusao(idsDoCtx(), true); break;
             case 'exc-nao': s.exc = null; desenharCamadas(); break;
-            case 'exc-sim': if (s.exc.def) { apagar(s.exc.ids); } else { moverParaLixeira(s.exc.ids); } break;
+            case 'exc-sim': if (s.exc.mod) { excluirModelo(s.exc.mod.id); } else if (s.exc.def) { apagar(s.exc.ids); } else { moverParaLixeira(s.exc.ids); } break;
             case 'restaurar-lote': restaurar(selDe(vis())); break;
             case 'excluir-lote': pedirExclusao(selDe(vis()), false); break;
             case 'limpar-sel': s.sel = {}; desenharDocs(); break;
@@ -911,11 +1452,49 @@
             case 'add-sig': s.w.sign = s.w.sign.concat([sigVazio()]); erroW(''); redesenharCorpo(); break;
             case 'tira-sig': { const cx = alvo.closest('[data-bja-i]'); if (cx) { const i = +cx.getAttribute('data-bja-i'); s.w.sign = s.w.sign.filter((_, j) => j !== i); erroW(''); redesenharCorpo(); } break; }
             case 'det-retomar': if (s.det) { retomar(s.det); } break;
+            case 'ja-original': if (J && s.det) { J.baixarOriginal(s.det, pedir, avisar); } break;
+            case 'ja-carimbo': if (J && s.det && url.carimbo) { J.baixarCarimbo(s.det, comId(url.carimbo, s.det.id), pedir, avisar); } break;
+            case 'lin-copiar': if (idLinha) { copiarDaLista((doc(idLinha) || {}).id); } break;
+            case 'lin-lembrete': if (idLinha) { lembrar(idLinha); } break;
+            case 'ctx-copiar': { const d = doc(s.ctx.id); fecharCtx(); if (d) { copiarDaLista(d.id); } break; }
+            case 'ctx-lembrete': { const id = s.ctx.id; fecharCtx(); lembrar(id); break; }
+            case 'lin-pdf': if (idLinha) { baixarPdf((doc(idLinha) || {}).id); } break;
+            case 'ctx-pdf': { const id = s.ctx.id; fecharCtx(); baixarPdf(id); break; }
+            case 'det-pdf': if (s.det) { baixarPdf(s.det.id); } break;
+            case 'sig-copiar': { const x = signatarioDoBotao(alvo); if (x) { copiarLink(x.link); } break; }
+            case 'sig-previa': { const x = signatarioDoBotao(alvo); if (x && s.det) { window.open(comIdOrdem(url.previa, s.det.id, x.ordem), '_blank', 'noopener'); } break; }
+            case 'sem-link': ev.preventDefault(); avisar(T('toast.sem_chave'), 'erro'); break;
+            case 'det-cancelar': pedirCancelamento(); break;
+            case 'lin-vincular': { const d = idLinha ? doc(idLinha) : null; if (d && V) { V.abrir(d, d.stA); } break; }
+            case 'ctx-vincular': { const d = doc(s.ctx.id); fecharCtx(); if (d && V) { V.abrir(d, d.stA); } break; }
+            case 'det-vincular': if (s.det && V) { V.abrir(s.det, stAtual(s.det)); } break;
+            case 'canc-nao': s.canc = false; desenharCamadas(); break;
+            case 'canc-sim': cancelarEnvio(); break;
+            default: acaoDoModelo(nome, alvo); break;
+        }
+    }
+
+    /* Ações da aba Modelos e do editor (data-bja-acao="mod-..."). */
+    function acaoDoModelo(nome, alvo) {
+        const m = modelo(alvo.getAttribute('data-bja-mod'));
+        switch (nome) {
+            case 'mod-criar': abrirMod({}); break;
+            case 'mod-editar': if (m && m.meu) { abrirMod({ id: m.idServ, t: m.t, cat: m.cat, layout: m.layout, lateral: m.lateral, limpa: !!m.limpa, html: htmlDe(m) }); } break;
+            case 'mod-duplicar': if (m) { abrirMod({ t: T('mod.copia', { nome: m.t }), cat: T('mod.cat_padrao'), layout: m.layout || '', lateral: m.lateral || '', html: htmlDe(m) }); } break;
+            case 'mod-excluir': if (m && m.meu) { pedirExclusaoDoModelo(m); } break;
+            case 'mod-sair': irParaModelos(); break;
+            case 'mod-salvar': if (s.m) { salvarMod(alvo); } break;
+            case 'mod-ed': formatar(alvo.getAttribute('data-bja-ed')); break;
+            case 'mod-campo': criarCampo(); break;
+            case 'mod-assinatura': criarAssinatura(); break;
             default: break;
         }
     }
 
     /* ── Eventos ────────────────────────────────────────────────────────── */
+    /* A barra de formatação não tira o foco nem a seleção do texto do modelo (onMouseDown do desenho). */
+    raiz.addEventListener('mousedown', ev => { if (ev.target.closest && ev.target.closest('[data-bja-ed]')) { ev.preventDefault(); } });
+
     raiz.addEventListener('click', ev => {
         const t = ev.target;
         const aba = t.closest('[data-bja-aba]');
@@ -964,6 +1543,14 @@
         if (t === el.pasta) { s.pasta = t.value; desenharDocs(); return; }
         if (t.hasAttribute('data-bja-subir')) { const f = t.files && t.files[0]; t.value = ''; subir(f); return; }
         if (t.hasAttribute('data-bja-logo')) { const f = t.files && t.files[0]; t.value = ''; subirLogo(f); return; }
+        if (t.hasAttribute('data-bja-impword')) { const f = t.files && t.files[0]; t.value = ''; importarWord(f); return; }
+        if (s.m && t.hasAttribute('data-bja-md') && t.type !== 'text') { mudarMod(t); return; }
+        if (s.m && t.hasAttribute('data-bja-ins')) {
+            const k = t.value, c = camposCon().find(x => x[0] === k);
+            t.value = '';
+            if (c) { insChip(c[0], c[1]); }
+            return;
+        }
         if (!s.w) { return; }
         if (t.hasAttribute('data-bja-wchk')) {
             const k = t.getAttribute('data-bja-wchk');
@@ -994,6 +1581,7 @@
             if (g) { g.innerHTML = gruposHtml(s.mBusca, false); }
             return;
         }
+        if (s.m && t.hasAttribute('data-bja-md') && t.type === 'text') { mudarMod(t); return; }
         if (!s.w) { return; }
         if (t.hasAttribute('data-bja-w')) {
             const k = t.getAttribute('data-bja-w');
@@ -1011,11 +1599,16 @@
 
     document.addEventListener('keydown', ev => {
         if (ev.key !== 'Escape') { return; }
-        if (s.ctx) { fecharCtx(); } else if (s.exc) { s.exc = null; desenharCamadas(); }
+        if (s.ctx) { fecharCtx(); } else if (s.exc) { s.exc = null; desenharCamadas(); } else if (s.canc) { s.canc = false; desenharCamadas(); }
     });
 
     /* ── Início ─────────────────────────────────────────────────────────── */
+    /* Código BJA no #hash (dc:299): a tela abre na aba Validar, com o código no campo, já validado. */
+    const codHash = el.abaVal && window.BJAValidar ? window.BJAValidar.codQr(location.hash) : '';
+    if (codHash) { s.aba = 'val'; }
     mostrarTela();
     desenharLista();
+    if (codHash) { window.BJAValidar.validarCodigo(el.abaVal.querySelector('[data-bja-validar]'), codHash); }
     carregar();
+    carregarModelos();
 })();

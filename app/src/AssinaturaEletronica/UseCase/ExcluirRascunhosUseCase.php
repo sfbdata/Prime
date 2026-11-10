@@ -9,6 +9,7 @@ use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
+use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\AssinaturaEletronica\Service\DocumentosDaSelecao;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -18,7 +19,8 @@ use App\Shared\Armazenamento\RemocaoAposTransacao;
  * "Excluir definitivamente" na Lixeira (desenho): só rascunho, e tudo ou nada. Se algum marcado foi enviado, nada sai
  * e a resposta é "Documentos enviados permanecem na Lixeira para preservar as evidências.". A conferência é feita
  * dentro da transação, com as linhas travadas e relidas: um envio ou uma restauração que chegou antes não é apagado.
- * Documento, signatários e eventos saem no banco; o PDF e a logo própria, só depois do COMMIT.
+ * Documento, signatários, eventos e versões do PDF saem no banco (as versões pelo CASCADE); o PDF, a logo própria e o
+ * arquivo de cada versão (etapa 5: o original já assinado tem arquivo próprio), só depois do COMMIT.
  */
 final readonly class ExcluirRascunhosUseCase
 {
@@ -26,6 +28,7 @@ final readonly class ExcluirRascunhosUseCase
         private DocumentosDaSelecao $selecao,
         private DocumentoParaAssinarRepository $documentos,
         private RemocaoAposTransacao $remocao,
+        private VersaoDoPdfRepository $versoes,
     ) {
     }
 
@@ -48,7 +51,7 @@ final readonly class ExcluirRascunhosUseCase
                 return $recusa;
             }
 
-            $chaves = self::arquivosDe($documentos);
+            $chaves = $this->arquivosDe($documentos);
             foreach ($documentos as $documento) {
                 $this->documentos->remover($documento);
             }
@@ -88,16 +91,21 @@ final readonly class ExcluirRascunhosUseCase
     }
 
     /**
+     * As chaves lidas antes de apagar: depois do `remover`, o CASCADE leva as linhas das versões.
+     *
      * @param list<DocumentoParaAssinar> $documentos
      *
      * @return list<ChaveDeArquivo>
      */
-    private static function arquivosDe(array $documentos): array
+    private function arquivosDe(array $documentos): array
     {
         $chaves = [];
         foreach ($documentos as $documento) {
             $chaves[] = ChavesDeAssinaturaEletronica::arquivo($documento);
             $chaves[] = ChavesDeAssinaturaEletronica::logo($documento);
+            foreach ($this->versoes->doDocumento($documento) as $versao) {
+                $chaves[] = ChavesDeAssinaturaEletronica::versao($versao);
+            }
         }
 
         return array_values(array_filter($chaves));

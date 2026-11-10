@@ -6,12 +6,17 @@ namespace App\Tests\Shared\Unit\Service;
 
 use App\Shared\Service\ConferenteDeSegredos;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Conferente do `app:conferir-segredos` (auditoria 4.11): recusa APP_SECRET curto ou igual ao do modelo
- * (.env.prod.example) e chave de cifra que não decodifica para 32 bytes. Nenhum problema traz o valor conferido.
+ * (.env.prod.example) e chave de cifra que não decodifica para 32 bytes. Na Assinatura de documentos, o segredo do link
+ * e do código e a chave da selfie, ausentes, fora do formato ou iguais aos do modelo, e o segredo do selo, que também
+ * não pode repetir o da Assinatura nem o APP_SECRET. O token do validador de PDF (etapa 6): vazio é só aviso (E6-4);
+ * preenchido, com as mesmas recusas, o formato do token Bearer e nenhum dos outros segredos repetido. Nenhum problema
+ * nem aviso traz o valor conferido.
  */
 #[CoversClass(ConferenteDeSegredos::class)]
 final class ConferenteDeSegredosTest extends TestCase
@@ -114,5 +119,181 @@ final class ConferenteDeSegredosTest extends TestCase
         self::assertCount(1, $problemas);
         self::assertStringContainsString('CONTRIBUA_CRYPTO_KEY', $problemas[0]);
         self::assertStringNotContainsString($this->chaveContribua, implode("\n", $problemas));
+    }
+
+    #[TestDox('Assinatura: segredo de 32 caracteres e chave da selfie de 64 hexadecimais, nenhum problema')]
+    public function testAssinaturaOk(): void
+    {
+        self::assertSame([], (new ConferenteDeSegredos())->conferirAssinatura(str_repeat('s', 32), str_repeat('ab', 32), $this->modelo));
+        self::assertSame([], (new ConferenteDeSegredos())->conferirAssinatura(str_repeat('s', 40) . "\n", strtoupper(str_repeat('ab', 32)), $this->modelo), 'o segredo longo com quebra de linha é o que o sistema aceita');
+    }
+
+    /** @return iterable<string, array{string, string, string}> o segredo, a chave da selfie e o nome recusado */
+    public static function assinaturaRecusada(): iterable
+    {
+        $chave = str_repeat('ab', 32);
+        yield 'segredo ausente' => ['', $chave, 'ASSINATURA_SEGREDO'];
+        yield 'segredo com 31 caracteres' => [str_repeat('s', 31), $chave, 'ASSINATURA_SEGREDO'];
+        yield 'segredo curto com quebra de linha' => [str_repeat('s', 31) . "\n", $chave, 'ASSINATURA_SEGREDO'];
+        yield 'chave da selfie ausente' => [str_repeat('s', 32), '', 'ASSINATURA_SELFIE_CHAVE'];
+        yield 'chave da selfie com 63 caracteres' => [str_repeat('s', 32), substr($chave, 0, 63), 'ASSINATURA_SELFIE_CHAVE'];
+        yield 'chave da selfie com quebra de linha' => [str_repeat('s', 32), $chave . "\n", 'ASSINATURA_SELFIE_CHAVE'];
+        yield 'chave da selfie com espaço antes' => [str_repeat('s', 32), ' ' . $chave, 'ASSINATURA_SELFIE_CHAVE'];
+        yield 'chave da selfie que não é hexadecimal' => [str_repeat('s', 32), 'g' . substr($chave, 1), 'ASSINATURA_SELFIE_CHAVE'];
+    }
+
+    #[DataProvider('assinaturaRecusada')]
+    #[TestDox('Assinatura recusa: $_dataName, só com o nome e sem o valor')]
+    public function testAssinaturaRecusada(string $segredo, string $chaveDaSelfie, string $nome): void
+    {
+        $problemas = (new ConferenteDeSegredos())->conferirAssinatura($segredo, $chaveDaSelfie, $this->modelo);
+
+        self::assertCount(1, $problemas);
+        self::assertStringContainsString($nome, $problemas[0]);
+        foreach (array_filter([trim($segredo), trim($chaveDaSelfie)]) as $valor) {
+            self::assertStringNotContainsString($valor, $problemas[0]);
+        }
+    }
+
+    #[TestDox('Assinatura: segredo e chave da selfie iguais aos do modelo são recusados, sem mostrar os valores')]
+    public function testAssinaturaIgualAoModelo(): void
+    {
+        $segredo = 'modelo_assinatura_' . bin2hex(random_bytes(16));
+        $chave = bin2hex(random_bytes(32));
+        $this->modelo .= "ASSINATURA_SEGREDO={$segredo}\nASSINATURA_SELFIE_CHAVE='{$chave}'\n";
+
+        $problemas = (new ConferenteDeSegredos())->conferirAssinatura($segredo, $chave, $this->modelo);
+
+        self::assertCount(2, $problemas);
+        self::assertStringContainsString('ASSINATURA_SEGREDO', $problemas[0]);
+        self::assertStringContainsString('ASSINATURA_SELFIE_CHAVE', $problemas[1]);
+        self::assertStringNotContainsString($segredo, implode("\n", $problemas));
+        self::assertStringNotContainsString($chave, implode("\n", $problemas));
+    }
+
+    #[TestDox('Selo da Assinatura (etapa 3): segredo próprio com 32 caracteres, nenhum problema')]
+    public function testSeloOk(): void
+    {
+        self::assertSame([], (new ConferenteDeSegredos())->conferirSelo(str_repeat('z', 32), str_repeat('s', 32), $this->segredo, $this->modelo));
+        self::assertSame([], (new ConferenteDeSegredos())->conferirSelo(str_repeat('z', 40) . "\n", str_repeat('s', 32), $this->segredo, $this->modelo), 'o segredo longo com quebra de linha é o que o sistema aceita');
+    }
+
+    /** @return iterable<string, array{string}> o segredo do selo recusado */
+    public static function seloRecusado(): iterable
+    {
+        yield 'ausente' => [''];
+        yield 'com 31 caracteres' => [str_repeat('z', 31)];
+        yield 'curto com quebra de linha' => [str_repeat('z', 31) . "\n"];
+        yield 'igual ao ASSINATURA_SEGREDO' => [str_repeat('s', 32)];
+        yield 'igual ao APP_SECRET' => ['app-secret-de-teste-com-32-bytes-ou-mais'];
+        yield 'igual ao do modelo' => ['selo-do-modelo-publico-com-32-bytes-ou-mais'];
+    }
+
+    #[DataProvider('seloRecusado')]
+    #[TestDox('Selo recusa: $_dataName, só com o nome e sem o valor')]
+    public function testSeloRecusado(string $selo): void
+    {
+        $this->modelo .= "ASSINATURA_SELO_SEGREDO='selo-do-modelo-publico-com-32-bytes-ou-mais'\n";
+
+        $problemas = (new ConferenteDeSegredos())->conferirSelo($selo, str_repeat('s', 32), 'app-secret-de-teste-com-32-bytes-ou-mais', $this->modelo);
+
+        self::assertCount(1, $problemas);
+        self::assertStringContainsString('ASSINATURA_SELO_SEGREDO', $problemas[0]);
+        if (trim($selo) !== '') {
+            self::assertStringNotContainsString(trim($selo), $problemas[0]);
+        }
+    }
+
+    /** @return array<string, string> os outros segredos que o comando passa, NOME => valor, todos distintos */
+    private static function outrosSegredos(): array
+    {
+        return [
+            'APP_SECRET' => 'app-secret-de-teste-com-32-bytes-ou-mais',
+            'SYNC_CRYPTO_KEY' => 'c3luYy1kZS10ZXN0ZS1jb20tMzItYnl0ZXMtLS0tLS0=',
+            'CONTRIBUA_CRYPTO_KEY' => 'Y29udHJpYnVhLWRlLXRlc3RlLTMyLWJ5dGVzLS0tLS0=',
+            'ASSINATURA_SEGREDO' => str_repeat('s', 32),
+            'ASSINATURA_SELFIE_CHAVE' => str_repeat('ab', 32),
+            'ASSINATURA_SELO_SEGREDO' => str_repeat('z', 32),
+        ];
+    }
+
+    /** @return list<string> */
+    private function conferirValidador(string $token): array
+    {
+        return (new ConferenteDeSegredos())->conferirValidador($token, self::outrosSegredos(), $this->modelo);
+    }
+
+    #[TestDox('Validador de PDF (etapa 6): token próprio de 32 caracteres ou mais, como o do runbook, nenhum problema nem aviso')]
+    public function testValidadorOk(): void
+    {
+        self::assertSame([], $this->conferirValidador(bin2hex(random_bytes(32))));
+        self::assertSame([], $this->conferirValidador(str_repeat('t', 32)));
+        self::assertSame([], $this->conferirValidador('Ab0-._~+/' . str_repeat('t', 23) . '=='), 'os caracteres do token Bearer (RFC 6750)');
+        self::assertSame([], (new ConferenteDeSegredos())->avisosDoValidador(bin2hex(random_bytes(32))));
+    }
+
+    /** @return iterable<string, array{string}> o token vazio: estado válido (E6-4) */
+    public static function validadorVazio(): iterable
+    {
+        yield 'ausente' => [''];
+        yield 'só espaços' => ['   '];
+    }
+
+    #[DataProvider('validadorVazio')]
+    #[TestDox('Validador: token $_dataName não é problema (E6-4), é aviso que aponta o runbook do validador')]
+    public function testValidadorVazioEhAvisoENaoProblema(string $token): void
+    {
+        $conferente = new ConferenteDeSegredos();
+
+        self::assertSame([], $this->conferirValidador($token));
+        $avisos = $conferente->avisosDoValidador($token);
+        self::assertCount(1, $avisos);
+        self::assertStringContainsString('ASSINATURA_VALIDADOR_TOKEN não está definido', $avisos[0]);
+        self::assertStringContainsString('docs/runbooks/assinatura-validador-em-producao.md', $avisos[0]);
+    }
+
+    /** @return iterable<string, array{string}> o token do validador recusado */
+    public static function validadorRecusado(): iterable
+    {
+        yield 'com 31 caracteres' => [str_repeat('t', 31)];
+        yield 'com quebra de linha no fim' => [str_repeat('t', 40) . "\n"];
+        yield 'com espaço antes' => [' ' . str_repeat('t', 40)];
+        yield 'com espaço no meio' => [str_repeat('t', 20) . ' ' . str_repeat('t', 20)];
+        yield 'com caractere fora do token Bearer' => [str_repeat('t', 40) . '"'];
+        yield 'igual ao do modelo' => ['token-do-modelo-publico-com-32-bytes-ou-mais'];
+    }
+
+    #[DataProvider('validadorRecusado')]
+    #[TestDox('Validador recusa o token: $_dataName, só com o nome e sem o valor')]
+    public function testValidadorRecusado(string $token): void
+    {
+        $this->modelo .= "ASSINATURA_VALIDADOR_TOKEN='token-do-modelo-publico-com-32-bytes-ou-mais'\n";
+
+        $problemas = $this->conferirValidador($token);
+
+        self::assertCount(1, $problemas);
+        self::assertStringContainsString('ASSINATURA_VALIDADOR_TOKEN', $problemas[0]);
+        self::assertStringNotContainsString(trim($token), $problemas[0]);
+    }
+
+    /** @return iterable<string, array{string}> o nome de cada segredo que o comando confere */
+    public static function outroSegredoRepetido(): iterable
+    {
+        foreach (array_keys(self::outrosSegredos()) as $nome) {
+            yield $nome => [$nome];
+        }
+    }
+
+    #[DataProvider('outroSegredoRepetido')]
+    #[TestDox('Validador recusa o token igual ao $_dataName, com o nome do repetido e sem o valor')]
+    public function testValidadorRecusaTokenIgualAOutroSegredo(string $nome): void
+    {
+        $token = self::outrosSegredos()[$nome];
+
+        $problemas = $this->conferirValidador($token);
+
+        self::assertCount(1, $problemas);
+        self::assertStringContainsString('ASSINATURA_VALIDADOR_TOKEN repete o valor de ' . $nome . ':', $problemas[0]);
+        self::assertStringNotContainsString($token, $problemas[0]);
     }
 }

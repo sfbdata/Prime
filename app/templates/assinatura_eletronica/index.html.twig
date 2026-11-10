@@ -1,15 +1,16 @@
 {% extends 'base.html.twig' %}
 
 {#
-    Assinatura de documentos, etapa 1. Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html
+    Assinatura de documentos, etapas 1 e 2. Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html
     (contrato docs/specs/assinatura-documentos-etapa-1.md, seção 4.2). O cabeçalho azul e a faixa EXPEDIENTE,
     DEMANDAS, PONTO, ASSINATURA e VOTO do desenho são a moldura do sistema (base.html.twig); daqui para baixo é o
     <main> do desenho.
 
     O template monta só o esqueleto fixo da lista. Linhas, chips com contagem, cores, aba Modelos, assistente
-    "Novo documento", detalhe, menu de contexto, janela de exclusão e avisos são desenhados pelo
-    public/js/assinatura.js a partir de GET /assinatura/documentos. `urls` traz uma URL por rota (nome curto => URL,
-    com o marcador 0 no lugar do {id}); rota de etapa futura não vem, e o JS esconde o botão dela.
+    "Novo documento", detalhe, editor de modelo (etapa 4), menu de contexto, janela de exclusão e avisos são desenhados
+    pelo public/js/assinatura.js a partir de GET /assinatura/documentos e GET /assinatura/modelos. `urls` traz uma URL
+    por rota (nome curto => URL, com o marcador 0 no lugar do {id}); rota de etapa futura não vem, e o JS esconde o
+    botão dela.
 #}
 
 {% block title %}{{ 'assinatura_eletronica.titulo_pagina'|trans }}{% endblock %}
@@ -19,9 +20,28 @@
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/assinatura.css') }}">
+<link rel="stylesheet" href="{{ asset('css/assinatura-validar.css') }}">
 {% endblock %}
 
 {% block body %}
+{# Etapa 2 (docs/specs/assinatura-documentos-etapa-2.md, seção 5.1): envio, lembrete, Cancelar envio, prévia do
+   signatário e rubrica, com o marcador 0 no lugar do {id} e da {ordem}. Entram no mesmo mapa, um atributo por rota. #}
+{%- set urls = urls|merge({
+    enviar: path('assinatura_eletronica_enviar', {id: 0}),
+    lembrete: path('assinatura_eletronica_lembrete', {id: 0}),
+    cancelar: path('assinatura_eletronica_cancelar', {id: 0}),
+    previa: path('assinatura_eletronica_previa', {id: 0, ordem: 0}),
+    rubrica: path('assinatura_eletronica_rubrica', {id: 0, ordem: 0}),
+    vincular: path('assinatura_eletronica_vincular', {id: 0}),
+    pastas: path('assinatura_eletronica_pastas'),
+    pdf: path('assinatura_eletronica_pdf', {id: 0})
+}) %}
+{# Etapa 5, bloco 5A: a conferência do PDF do passo 1 (sem gravar) e a "Cópia com carimbo visível" do bloco 5B, com o
+   mesmo marcador 0 no lugar do {id}. #}
+{%- set urls = urls|merge({
+    pdf_conferir: path('assinatura_eletronica_pdf_conferir'),
+    carimbo: path('assinatura_eletronica_carimbo', {id: 0})
+}) %}
 <div class="bja" id="bjaPagina"
      data-eu="{{ eu|json_encode|e('html_attr') }}"
      data-padrao="{{ padrao|json_encode|e('html_attr') }}"
@@ -38,6 +58,8 @@
             <div class="bjaAbas" role="tablist">
                 <button type="button" class="bjaAba" role="tab" id="bjaAbaBtDocs" data-bja-aba="docs" aria-selected="true" aria-controls="bjaAbaDocs"><i class="bi bi-files"></i>{{ 'assinatura_eletronica_tela.aba_documentos'|trans }}</button>
                 <button type="button" class="bjaAba" role="tab" id="bjaAbaBtMods" data-bja-aba="mods" aria-selected="false" aria-controls="bjaAbaMods"><i class="bi bi-collection"></i>{{ 'assinatura_eletronica_tela.aba_modelos'|trans }}</button>
+                {# Etapa 3, bloco 2 (inventário A7): a terceira aba, Validar (dc:432). #}
+                <button type="button" class="bjaAba" role="tab" id="bjaAbaBtVal" data-bja-aba="val" aria-selected="false" aria-controls="bjaAbaVal"><i class="bi bi-shield-check"></i>{{ 'assinatura_eletronica_tela.js.validar.aba'|trans }}</button>
             </div>
 
             <div class="bjaAbaCorpo" id="bjaAbaDocs" role="tabpanel" aria-labelledby="bjaAbaBtDocs">
@@ -77,15 +99,26 @@
             </div>
 
             <div class="bjaAbaCorpo" id="bjaAbaMods" role="tabpanel" aria-labelledby="bjaAbaBtMods" hidden></div>
+
+            {# O mesmo componente da página pública /assinar/validar; a procura vai à consulta pública (sem filtro de escritório). #}
+            <div class="bjaAbaCorpo" id="bjaAbaVal" role="tabpanel" aria-labelledby="bjaAbaBtVal" hidden>
+                {% include 'assinatura_eletronica/_validar.html.twig' with {codigo: '', consultado: false, resultado: null} only %}
+            </div>
         </section>
     </div>
 
     <div class="bjaTela" id="bjaTelaNovo" hidden></div>
     <div class="bjaTela" id="bjaTelaDet" hidden></div>
+    <div class="bjaTela" id="bjaTelaMod" hidden></div>
+
+    {# Etapa 3, bloco 2: a janela da câmera da aba Validar, na raiz e fora das abas, como no desenho (dc:275). #}
+    {% include 'assinatura_eletronica/_validar.html.twig' with {parte: 'camera'} only %}
 
     <div class="bjaCamada" id="bjaCamCtx"></div>
     <div class="bjaCamada" id="bjaCamModal"></div>
     <div class="bjaCamada" id="bjaCamToast"></div>
+    {# Etapa 3, bloco 3: a janela "Vincular à pasta de Expediente" (public/js/assinatura-vinculo.js). #}
+    <div class="bjaCamada" id="bjaCamVinc"></div>
 </div>
 {% endblock %}
 
@@ -100,5 +133,11 @@
 <script src="{{ asset('js/vendor/qrcode-generator/qrcode.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-modelos.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-folha.js') }}" defer></script>
+{# Etapa 3, bloco 2: a aba Validar (leitura do QR Code pelo jsQR 1.4.0 servido do sistema quando não há BarcodeDetector). #}
+<script src="{{ asset('js/vendor/jsqr/jsQR.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-validar.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-ja-assinado.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-vinculo.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-pdf.js') }}" defer></script>
 <script src="{{ asset('js/assinatura.js') }}" defer></script>
 {% endblock %}

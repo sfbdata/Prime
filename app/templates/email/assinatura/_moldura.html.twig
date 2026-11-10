@@ -1,0 +1,39 @@
+{# Moldura dos e-mails da Assinatura de documentos (contrato da etapa 2, seção 6), no molde de templates/email.
+   Contexto comum (CorreioDaAssinatura): `escritorio`, `documento`, `mensagem`, `nome`, `motivo`, `link` e `codigo`
+   (os dois últimos só nos e-mails que os levam). Ao signatário, o cabeçalho é o nome do escritório; ao remetente,
+   BlueJus. Tudo escapado pelo Twig, inclusive a mensagem do escritório.
+   O cabeçalho sai direto do block(), que já vem escapado e o Twig não escapa de novo: um filtro por cima (|trim)
+   fazia o Twig escapar outra vez ("Silva &amp;amp; D..."). #}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ documento }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:4px;overflow:hidden;max-width:600px;width:100%;">
+                    <tr>
+                        <td style="background-color:#0a6fa0;padding:24px 32px;">
+                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">{% if block('cabecalho') is defined %}{{ block('cabecalho') }}{% else %}BlueJus{% endif %}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;font-size:15px;color:#34505f;line-height:1.6;">
+                            {% block corpo %}{% endblock %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 32px;background-color:#f9f9f9;border-top:1px solid #eeeeee;">
+                            <p style="margin:0;font-size:12px;color:#888888;line-height:1.5;">{% block rodape %}{{ 'assinatura_eletronica.email.rodape'|trans }}{% endblock %}</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

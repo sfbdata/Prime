@@ -10,6 +10,7 @@ use App\Comercial\Entity\ImagemDaCampanha;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
+use App\Shared\EspelhoRemoto\Liberacao\DatasDasReferencias;
 use App\Shared\EspelhoRemoto\Reconciliacao\FontesDeReferencia;
 use App\Shared\EspelhoRemoto\Reconciliacao\ReferenciaDeArquivo;
 use App\Tests\Factory\Auth\UserFactory;
@@ -36,6 +37,7 @@ use Zenstruck\Foundry\Test\Factories;
  * da `ChavesDeTarefa` (`admin/` e lixo não viram chave).
  */
 #[CoversClass(FontesDeReferencia::class)]
+#[CoversClass(DatasDasReferencias::class)]
 final class FontesDeReferenciaTest extends KernelTestCase
 {
     use Factories;
@@ -245,6 +247,89 @@ final class FontesDeReferenciaTest extends KernelTestCase
         self::assertSame($tenantId, $rubrica->chave?->escopo->tenantIdOuNull());
         self::assertSame('c0ffee00c0ffee00c0ffee00c0ffee00.png', $rubrica->chave?->nome);
         self::assertArrayNotHasKey('assinatura_signatario_rubrica#' . $pendente, $porLinha, 'quem não assinou não gera referência');
+    }
+
+    #[TestDox('selfie cifrada de quem assinou no nível Reforçada (etapa 7): vira chave com o escritório do documento; sem selfie, não gera referência')]
+    public function testSelfieDaAssinatura(): void
+    {
+        self::bootKernel();
+        [$tenantId, $assinou, $pendente] = $this->signatariosDaAssinatura();
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $conexao->executeStatement('UPDATE assinatura_eletronica_signatario SET selfie_chave = ? WHERE id = ?', ['beefcafebeefcafebeefcafebeefcafe.cifrado', $assinou]);
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $selfie = $porLinha['assinatura_signatario_selfie#' . $assinou] ?? self::fail('selfie do signatário não listada');
+        self::assertSame(CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $selfie->chave?->categoria);
+        self::assertSame($tenantId, $selfie->chave?->escopo->tenantIdOuNull());
+        self::assertSame('beefcafebeefcafebeefcafebeefcafe.cifrado', $selfie->chave?->nome);
+        self::assertArrayNotHasKey('assinatura_signatario_selfie#' . $pendente, $porLinha, 'quem não mandou selfie não gera referência');
+    }
+
+    #[TestDox('PDF final com selo (Assinatura, etapa 3): vira chave com o escritório do documento; sem PDF final, não gera referência; a data da liberação é a última alteração e a Lixeira conta')]
+    public function testPdfFinalDaAssinatura(): void
+    {
+        self::bootKernel();
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        [$tenantId, $assinou] = $this->signatariosDaAssinatura();
+        $comFinal = (int) $conexao->fetchOne('SELECT documento_id FROM assinatura_eletronica_signatario WHERE id = ?', [$assinou]);
+        [, $outro] = $this->signatariosDaAssinatura();
+        $semFinal = (int) $conexao->fetchOne('SELECT documento_id FROM assinatura_eletronica_signatario WHERE id = ?', [$outro]);
+        $conexao->executeStatement(
+            "UPDATE assinatura_eletronica_documento SET arquivo_final_chave = ?, alterado_em = '2026-01-02 03:04:05', excluido_em = '2026-02-01 00:00:00' WHERE id = ?",
+            ['5e105e105e105e105e105e105e105e10.pdf', $comFinal],
+        );
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $final = $porLinha['assinatura_documento_final#' . $comFinal] ?? self::fail('PDF final do documento não listado');
+        self::assertSame(CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $final->chave?->categoria);
+        self::assertSame($tenantId, $final->chave?->escopo->tenantIdOuNull());
+        self::assertSame('5e105e105e105e105e105e105e105e10.pdf', $final->chave?->nome);
+        self::assertArrayNotHasKey('assinatura_documento_final#' . $semFinal, $porLinha, 'documento sem PDF final não gera referência');
+
+        $datas = (new DatasDasReferencias($conexao))->para([$final]);
+        $data = $datas[DatasDasReferencias::chaveDe('assinatura_documento_final', $comFinal)] ?? self::fail('data do PDF final não respondida');
+        self::assertNull($data['data'], 'o PDF final nasce depois do último salvamento: a data é a do arquivo no disco');
+        self::assertTrue($data['naLixeira'], 'documento na Lixeira fica fora da liberação');
+    }
+
+    #[TestDox('versão guardada do PDF (Assinatura, etapa 5): vira chave com o escritório do documento; a data da liberação é a da criação e a Lixeira é a do documento')]
+    public function testVersaoDoPdfDaAssinatura(): void
+    {
+        self::bootKernel();
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        [$tenantId, $daLixeira] = $this->signatariosDaAssinatura();
+        [$outroTenant, $ativo] = $this->signatariosDaAssinatura();
+        $versoes = [];
+        foreach ([[$daLixeira, '0a0b0c0d0e0f00010203040506070809.pdf'], [$ativo, '1a1b1c1d1e1f10111213141516171819.pdf']] as [$signatario, $chave]) {
+            $documento = (int) $conexao->fetchOne('SELECT documento_id FROM assinatura_eletronica_signatario WHERE id = ?', [$signatario]);
+            $versoes[] = (int) $conexao->fetchOne(
+                "INSERT INTO assinatura_eletronica_versao (documento_id, signatario_id, ordem, origem, arquivo_chave, nome_original, sha256, tamanho, analise, criado_em)
+                 VALUES (?, NULL, 1, 'original', ?, 'Contrato.pdf', ?, 10, '{\"v\":1}', '2026-03-04 05:06:07') RETURNING id",
+                [$documento, $chave, str_repeat('a', 64)],
+            );
+        }
+        [$naLixeira, $ativa] = $versoes;
+        $conexao->executeStatement(
+            "UPDATE assinatura_eletronica_documento SET excluido_em = '2026-04-01 00:00:00' WHERE id = (SELECT documento_id FROM assinatura_eletronica_versao WHERE id = ?)",
+            [$naLixeira],
+        );
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $versao = $porLinha['assinatura_versao#' . $naLixeira] ?? self::fail('versão do PDF não listada');
+        self::assertSame(CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $versao->chave?->categoria);
+        self::assertSame($tenantId, $versao->chave?->escopo->tenantIdOuNull());
+        self::assertSame('0a0b0c0d0e0f00010203040506070809.pdf', $versao->chave?->nome);
+        $outra = $porLinha['assinatura_versao#' . $ativa] ?? self::fail('versão do outro escritório não listada');
+        self::assertSame($outroTenant, $outra->chave?->escopo->tenantIdOuNull(), 'cada versão leva o escritório do próprio documento');
+
+        $datas = (new DatasDasReferencias($conexao))->para([$versao, $outra]);
+        $lixeira = $datas[DatasDasReferencias::chaveDe('assinatura_versao', $naLixeira)] ?? self::fail('data da versão não respondida');
+        self::assertSame('2026-03-04 05:06:07', $lixeira['data']?->format('Y-m-d H:i:s'), 'a versão nunca muda: a data é a da criação');
+        self::assertTrue($lixeira['naLixeira'], 'documento na Lixeira fica fora da liberação');
+        self::assertFalse(($datas[DatasDasReferencias::chaveDe('assinatura_versao', $ativa)] ?? self::fail('data da versão ativa não respondida'))['naLixeira']);
     }
 
     /**

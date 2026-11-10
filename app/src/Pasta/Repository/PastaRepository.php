@@ -432,6 +432,68 @@ class PastaRepository extends ServiceEntityRepository
      */
     public function buscarParaVinculo(string $termo, Tenant $tenant, int $limite = 20, array $idsExcluidos = [], ?User $quemBusca = null): array
     {
+        $qb = $this->consultaParaVinculo($termo, $tenant, $limite, $idsExcluidos, $quemBusca);
+
+        $resultados = [];
+        foreach ($qb->getQuery()->getArrayResult() as $linha) {
+            $partes = array_filter(
+                [$linha['nup'], $linha['nomeCliente'], $linha['nomeAcao']],
+                static fn (?string $v): bool => $v !== null && trim($v) !== '',
+            );
+
+            $resultados[] = [
+                'id' => (int) $linha['id'],
+                // Hífen, o mesmo separador do nome no Drive e do próprio identificador: um separador
+                // só no sistema inteiro. A ambiguidade que o travessão evitaria (onde termina o nome
+                // e começa a ação) é resolvida na LEITURA, pela regra do último traço
+                // (`AcervoNomesParser::separarNoUltimoTraco`), não por um símbolo diferente na tela.
+                'texto' => $partes === [] ? 'Pasta #' . $linha['id'] : implode(' - ', $partes),
+            ];
+        }
+
+        return $resultados;
+    }
+
+    /**
+     * A busca do vínculo da Assinatura de documentos (spec assinatura-documentos-etapa-3, E3-10): as mesmas
+     * travas do {@see self::buscarParaVinculo()} (escritório, lápide, só a pasta que quem busca EDITA pelo
+     * cadeado; número, cliente e ação sem acento nem caixa), com os campos separados para a lista do
+     * desenho (número, cliente e ação). Termo vazio: as mais recentes.
+     *
+     * `$somenteIds` é a permissão item a item de quem não edita toda pasta pelo perfil: o filtro entra na consulta,
+     * antes do limite (filtrar depois do limite devolvia a lista vazia a quem só tem pastas antigas liberadas).
+     * Nulo: sem restrição por item; lista vazia: nenhuma pasta.
+     *
+     * @param list<int>|null $somenteIds
+     *
+     * @return list<array{id: int, nup: string, cliente: string, acao: string}>
+     */
+    public function buscarParaVinculoEmCampos(string $termo, Tenant $tenant, User $quemBusca, int $limite = 60, ?array $somenteIds = null): array
+    {
+        if ($somenteIds === []) {
+            return [];
+        }
+        $qb = $this->consultaParaVinculo($termo, $tenant, $limite, [], $quemBusca);
+        if ($somenteIds !== null) {
+            $qb->andWhere('p.id IN (:somenteIds)')->setParameter('somenteIds', $somenteIds);
+        }
+        $linhas = $qb->getQuery()->getArrayResult();
+
+        return array_map(static fn (array $linha): array => [
+            'id'      => (int) $linha['id'],
+            'nup'     => (string) ($linha['nup'] ?? ''),
+            'cliente' => (string) ($linha['nomeCliente'] ?? ''),
+            'acao'    => (string) ($linha['nomeAcao'] ?? ''),
+        ], $linhas);
+    }
+
+    /**
+     * A consulta das duas buscas de vínculo: escritório, lápide, cadeado de quem busca (quando há) e termo.
+     *
+     * @param list<int> $idsExcluidos
+     */
+    private function consultaParaVinculo(string $termo, Tenant $tenant, int $limite, array $idsExcluidos, ?User $quemBusca): QueryBuilder
+    {
         $qb = $this->createQueryBuilder('p')
             ->select('p.id AS id', 'p.nup AS nup', 'p.nomeCliente AS nomeCliente', 'p.nomeAcao AS nomeAcao')
             ->andWhere('p.tenant = :tenant')
@@ -458,24 +520,7 @@ class PastaRepository extends ServiceEntityRepository
             ))->setParameter('termo', '%' . mb_strtolower($termo) . '%');
         }
 
-        $resultados = [];
-        foreach ($qb->getQuery()->getArrayResult() as $linha) {
-            $partes = array_filter(
-                [$linha['nup'], $linha['nomeCliente'], $linha['nomeAcao']],
-                static fn (?string $v): bool => $v !== null && trim($v) !== '',
-            );
-
-            $resultados[] = [
-                'id' => (int) $linha['id'],
-                // Hífen, o mesmo separador do nome no Drive e do próprio identificador: um separador
-                // só no sistema inteiro. A ambiguidade que o travessão evitaria (onde termina o nome
-                // e começa a ação) é resolvida na LEITURA, pela regra do último traço
-                // (`AcervoNomesParser::separarNoUltimoTraco`), não por um símbolo diferente na tela.
-                'texto' => $partes === [] ? 'Pasta #' . $linha['id'] : implode(' - ', $partes),
-            ];
-        }
-
-        return $resultados;
+        return $qb;
     }
 
     /**

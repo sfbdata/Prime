@@ -33,7 +33,7 @@ final readonly class ListarDocumentosUseCase
         }
 
         return [
-            'documentos' => array_map($this->apresentacao->resumo(...), $documentos),
+            'documentos' => $this->apresentacao->resumos($documentos),
             'pastas' => $pastas,
         ];
     }

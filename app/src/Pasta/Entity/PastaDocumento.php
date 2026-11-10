@@ -501,6 +501,23 @@ class PastaDocumento implements Auditavel, TenantAware, Descartavel
     }
 
     /**
+     * O selo do PDF final da Assinatura de documentos, quando o vínculo à pasta o salva aqui (spec
+     * assinatura-documentos-etapa-3, E3-11). Recusa documento já assinado, como a marcação manual.
+     */
+    public function marcarAssinadoEletronicamente(\DateTimeImmutable $em, ?User $por): self
+    {
+        if ($this->estaAssinado()) {
+            throw new \LogicException('Este documento já está marcado como assinado.');
+        }
+
+        $this->assinadoEm       = $em;
+        $this->assinaturaOrigem = OrigemDaAssinatura::Eletronica;
+        $this->assinadoPor      = $por;
+
+        return $this;
+    }
+
+    /**
      * O selo que nasce no upload: o arquivo chegou assinado E a compressão não o regravou (o PDF
      * reescrito pelo Ghostscript perde a assinatura; o que ficou no storage não está assinado).
      */

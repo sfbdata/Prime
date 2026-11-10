@@ -1,0 +1,94 @@
+# Assinatura de documentos, etapa 2 (contrato docs/specs/assinatura-documentos-etapa-2.md, seção 5.2): os limitadores
+# da tela pública do signatário (/assinar/{token}). Bloco próprio, fora do framework.yaml (arquivo quente entre
+# sessões); o Symfony junta os limitadores dos arquivos. O teto diário de códigos e de erros por signatário é contado
+# pela trilha, não aqui.
+framework:
+    rate_limiter:
+        # A página e os POST públicos, por IP (os GET de arquivo têm o par próprio, abaixo).
+        assinatura_publica:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
+        # A página e os POST públicos com token, pelo sha256 do token (nunca o token cru).
+        assinatura_publica_token:
+            policy: sliding_window
+            limit: 60
+            interval: '10 minutes'
+        # Os GET de arquivo (PDF, logo e rubricas), por IP: uma abertura pede a página, o PDF, a logo e uma rubrica por
+        # signatário (até 50).
+        assinatura_publica_arquivos:
+            policy: sliding_window
+            limit: 600
+            interval: '1 minute'
+        # Os GET de arquivo, pelo sha256 do token.
+        assinatura_publica_arquivos_token:
+            policy: sliding_window
+            limit: 300
+            interval: '10 minutes'
+        # "Enviar código" e "Reenviar", por signatário (a chave é o sha256 do token, um por signatário).
+        assinatura_codigo_envio:
+            policy: sliding_window
+            limit: 3
+            interval: '15 minutes'
+        # Etapa 3 (docs/specs/assinatura-documentos-etapa-3.md, bloco 2): a validação pública do código BJA, por IP.
+        # Conta cada procura (a página com código e a consulta em JSON da aba Validar); a página sem código não procura.
+        assinatura_validacao:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
+        # Etapa 5, bloco 5A (E5-6): a conferência do PDF do passo 1, sem gravar, por usuário. Cada chamada ocupa um
+        # processo do PHP por segundos (4,4 s medidos com 30 assinaturas, e o FPM tem 5 processos): o teto impede que
+        # um usuário prenda o servidor. Escolher um arquivo é uma chamada; 6 por minuto cobre trocas e novas tentativas.
+        assinatura_pdf_conferir:
+            policy: sliding_window
+            limit: 6
+            interval: '1 minute'
+        # Etapa 3 (E3-4 e E3-5): "Baixar PDF com selo". Gerar pesa (cerca de 1,2 s por página, 5 filhos no FPM): limite
+        # próprio, que conta só o pedido que gera de verdade (o download do PDF já guardado não conta). Na tela, por usuário.
+        assinatura_pdf:
+            policy: sliding_window
+            limit: 20
+            interval: '10 minutes'
+        # No link do signatário, por IP.
+        assinatura_pdf_publico:
+            policy: sliding_window
+            limit: 20
+            interval: '10 minutes'
+        # No link do signatário, pelo sha256 do token.
+        assinatura_pdf_publico_token:
+            policy: sliding_window
+            limit: 10
+            interval: '10 minutes'
+        # Etapa 5, bloco 5C: a pré-conferência do PDF assinado (gov.br ou ICP) no link do signatário, pelo sha256 do
+        # token. Cada chamada roda o motor sobre até 20 MB (segundos de um processo do PHP), como a conferência do 5A:
+        # 6 por minuto cobre trocar de arquivo e tentar de novo.
+        assinatura_publica_pdf_assinado:
+            policy: sliding_window
+            limit: 6
+            interval: '1 minute'
+        # Etapa 6 (docs/specs/assinatura-documentos-etapa-6.md, seção 2.1, bloco 6B): cada conferência no validador_pdf ocupa
+        # uma das 2 vagas por até 30 s (tempo_esgotado é passageiro). Por signatário ou, sem ele, por IP; só a chamada
+        # ao validador conta (a recusa do motor antes dela não).
+        assinatura_validador_conferencia:
+            policy: sliding_window
+            limit: 6
+            interval: '10 minutes'
+    # As vagas de geração do PDF (no máximo 2 ao mesmo tempo na web, App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf):
+    # uma trava com nome, na conexão padrão (tabela `lock_keys`), como as do lock.yaml; vale entre contêineres.
+    lock:
+        assinatura_pdf: 'doctrine.dbal.default_connection'
+    # Etapa 6, bloco 6B: o cliente do contêiner validador_pdf (rede interna assinatura_net). Sem base_uri: a URL vem da
+    # env e pode estar vazia (não configurado, E6-4). 45 s de teto (10 s de fila, 30 s no filho, mais envio e leitura) e
+    # nenhum redirecionamento: a resposta só vale do próprio validador.
+    http_client:
+        scoped_clients:
+            assinatura_validador.client:
+                scope: '^https?://'
+                timeout: 45
+                max_duration: 45
+                max_redirects: 0
+
+# Vazias = validador não configurado (E6-4): o envio recusa gov.br e ICP. Os valores vêm do ambiente (runbook da 6C).
+parameters:
+    env(ASSINATURA_VALIDADOR_URL): ''
+    env(ASSINATURA_VALIDADOR_TOKEN): ''

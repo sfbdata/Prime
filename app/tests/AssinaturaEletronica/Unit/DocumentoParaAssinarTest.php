@@ -110,6 +110,45 @@ final class DocumentoParaAssinarTest extends TestCase
         $rascunho->moverParaLixeira($quem, $agora);
     }
 
+    #[TestDox('Lixeira com prazo: dentro do prazo cancela o envio; vencido continua Expirado, sem cancelar (desenho L364)')]
+    public function testLixeiraMantemOVencidoExpirado(): void
+    {
+        $agora = new \DateTimeImmutable('2026-11-09 12:00:00');
+
+        $noPrazo = self::documento();
+        self::situacao($noPrazo, SituacaoDoDocumento::Aguardando);
+        self::venceEm($noPrazo, new \DateTimeImmutable('2026-11-09 12:00:01'));
+        self::assertTrue($noPrazo->moverParaLixeira(null, $agora));
+        self::assertSame(SituacaoDoDocumento::Cancelado, $noPrazo->getSituacao());
+
+        $vencido = self::documento();
+        self::situacao($vencido, SituacaoDoDocumento::Aguardando);
+        self::venceEm($vencido, new \DateTimeImmutable('2026-11-09 11:59:59'));
+        self::assertFalse($vencido->moverParaLixeira(null, $agora), 'o vencido não tem envio a cancelar');
+        self::assertSame(SituacaoDoDocumento::Aguardando, $vencido->getSituacao());
+        self::assertTrue($vencido->estaVencido($agora), 'a tela continua mostrando Expirado');
+        self::assertTrue($vencido->estaNaLixeira());
+    }
+
+    #[TestDox('"Cancelar envio" recusa o documento na Lixeira: o vencido que está lá continua Aguardando (Expirado)')]
+    public function testCancelarEnvioRecusaNaLixeira(): void
+    {
+        $agora = new \DateTimeImmutable('2026-11-09 12:00:00');
+        $vencido = self::documento();
+        self::situacao($vencido, SituacaoDoDocumento::Aguardando);
+        self::venceEm($vencido, new \DateTimeImmutable('2026-11-09 11:59:59'));
+        $vencido->moverParaLixeira(null, $agora);
+
+        try {
+            $vencido->cancelarEnvio();
+            self::fail('o cancelar envio passou na Lixeira');
+        } catch (AcaoRecusada $e) {
+            self::assertSame('assinatura_eletronica.erro.cancelar_fora_do_envio', $e->getMessage());
+        }
+        self::assertSame(SituacaoDoDocumento::Aguardando, $vencido->getSituacao());
+        self::assertTrue($vencido->estaVencido($agora));
+    }
+
     #[TestDox('restaurar tira da Lixeira e não reativa o envio cancelado')]
     public function testRestaurar(): void
     {
@@ -174,6 +213,11 @@ final class DocumentoParaAssinarTest extends TestCase
     private static function documento(): DocumentoParaAssinar
     {
         return new DocumentoParaAssinar(new Tenant(), null, new \DateTimeImmutable('2026-11-09 09:00:00'));
+    }
+
+    private static function venceEm(DocumentoParaAssinar $documento, \DateTimeImmutable $quando): void
+    {
+        (new \ReflectionProperty(DocumentoParaAssinar::class, 'venceEm'))->setValue($documento, $quando);
     }
 
     private static function situacao(DocumentoParaAssinar $documento, SituacaoDoDocumento $situacao): void

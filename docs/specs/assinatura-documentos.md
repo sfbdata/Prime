@@ -299,8 +299,9 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 
 ### Etapa 3: PDF com selo, manifesto, Validar e vínculo à pasta
 
-- PDF final no servidor: páginas renderizadas pelo Dompdf com o fundo de segurança desenhado em GD (mesmas funções do
-  protótipo, semente pelo hash) e depois rasterizadas pelo Ghostscript (`pdfimage24`), como a ESPEC pede ("em imagem");
+- PDF final no servidor, em imagem como a ESPEC pede: a GD compõe cada página inteira com o fundo de segurança (mesmas
+  funções do protótipo, semente pelo hash) e um escritor próprio monta uma JPEG por página, como o desenho (troca do
+  Dompdf + `pdfimage24` registrada na E3-1 de `assinatura-documentos-etapa-3.md`);
   rodapé com QR, código, SHA-256 e "Emitido em"; Manifesto de assinaturas; formato em duas colunas; folha branca.
   Pré-requisito: `symfony/process` em `require` (PR `fix-symfony-process-producao`).
 - Código `BJA-XXXX-XXXX-XXXX` derivado por HMAC com o segredo do selo, único no banco.
@@ -315,7 +316,11 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 
 - Aba Modelos (Duplicar e adaptar, Editar, Excluir com confirmação no modal do desenho: D5), editor com barra, campos,
   assinaturas, Importar Word, prévia.
-- O HTML do editor passa por um sanitizador próprio (modelo: `SanitizadorDeModeloDePeca`) antes de virar blocos.
+- Nenhum HTML chega ao servidor: o navegador converte o editor em `corpo` (o `lerEd` do desenho) e reabre pelo
+  `htmlDe`; o servidor recebe só a estrutura (nome, categoria, formato, lateral, folha branca, campos, signatários e
+  corpo) e a confere com um validador estrito, que recusa com mensagem na tela em vez de cortar. Motivo: nada de HTML
+  no banco, e o `SanitizadorDeModeloDePeca` tira os `data-*` de que o editor precisa e corta em silêncio acima de
+  256 KB. Contrato: `docs/specs/assinatura-documentos-etapa-4.md`.
 
 ### Etapa 5: gov.br, ICP e documento já assinado
 
@@ -361,7 +366,7 @@ grep mistura com `EventSubscriber`). **Escolha: `AssinaturaEletronica`**: pasta 
 | `assinatura_eletronica_documento` | tenant, criado_por, nome, pasta_rotulo, modelo_chave, categoria, blocos (JSON congelado), logo_chave, folha_branca, layout, em_ordem, mensagem, situacao, criado_em, enviado_em, vence_em, concluido_em, codigo (único, M2), hash_enviado, hash_final, arquivo_enviado_chave, arquivo_final_chave (M2), cor, excluido_em, excluido_por, pasta_id e vinculo_pendente (M2) |
 | `assinatura_eletronica_signatario` | documento, ordem, nome, email, cpf, papel, nivel, situacao, token_hash (único), codigo_hash, codigo_enviado_em, tentativas, bloqueado_ate, assinado_em, nome_digitado, cpf_digitado, rubrica_chave, metodo, motivo_recusa, ip, user_agent, latitude, longitude, precisao (M5: selfie_chave) |
 | `assinatura_eletronica_evento` | documento, signatario (opcional), usuario (opcional), tipo, dados (JSON), ip, user_agent, criado_em (servidor), hash_anterior, hash; sem UPDATE nem DELETE |
-| `assinatura_eletronica_modelo` (M3) | tenant, nome, categoria, icone, descricao, campos (JSON), signatarios (JSON), corpo (JSON), layout, lateral, folha_branca, criado_por, alterado_em |
+| `assinatura_eletronica_modelo` (M3) | tenant, nome, categoria, campos (JSON), signatarios (JSON), corpo (JSON), layout, lateral, folha_branca, criado_por, criado_em, alterado_em (sem icone, descricao nem html: etapa 4) |
 | `assinatura_eletronica_versao` (M4) | documento, signatario (opcional), ordem, arquivo_chave, sha256, tamanho, analise (JSON), criado_em |
 | logo padrão do escritório | coluna no `tenant` ou na configuração do módulo (decidir na etapa 1 com a skill `criar-entity`) |
 
@@ -410,6 +415,45 @@ Decisões do Coordenador em 09/11/2026, pela recomendação (registro em `blueju
   - confirmação antes de "Cancelar envio" (etapa 2): **entra**, porque invalida as assinaturas já colhidas;
   - confirmação antes de excluir modelo (etapa 4): **entra**, porque o modelo se perde de vez, sem Lixeira;
   - as duas confirmações usam o modal do próprio desenho, o mesmo do Excluir.
+
+- **D6. Conferência ✓/✗ das etapas 1, 2, 4 e 7 contra o desenho** (bluejus-5f e Coordenador, 09/11/2026; lista em
+  `bluejus-coordenacao/conferencia-assinatura-4d83f8b29.md`). O que ficou como o desenho: a Lixeira mantém Expirado o
+  documento vencido (L364), e o "Cancelar envio" recusa o que está na Lixeira; escolher um modelo depois de retomar um rascunho começa outro documento (L370); o prazo vai
+  como foi digitado e o servidor recusa fora de 1 a 90 com a regra escrita, sem a tela cortar em silêncio; "Salvar
+  rascunho" volta à aba em que estava (L461); "Alterar logo" aceita qualquer imagem (L180, o canvas a converte em PNG);
+  o título da tela pública e os textos da trilha (envio com o hash, "Assinado por {nome digitado} · E-mail e código",
+  "Recusado por", "Documento concluído", "Envio cancelado. Documento e evidências preservados"); sem mãozinha nos
+  rótulos da logo e da ordem; a seleção com 30px também no celular; o aviso (toast) e as janelas com as medidas do
+  desenho (L281, L283, L285, content-box: as janelas medem 462px e 442px por fora, e no celular o flex as encolhe; o
+  aviso só passa da tela com uma palavra sem quebra, que vazaria de qualquer jeito). Desvios registrados (⚠), cada um
+  pelo defeito do desenho que corrige:
+  - signatário vindo do modelo com o campo do cliente vazio: o nome vem com a linha "____________" do desenho (L372) e
+    o e-mail fica vazio, porque o servidor só aceita e-mail válido, até no "Salvar rascunho" (no desenho, o e-mail
+    "____________" travaria o rascunho); nome só de sublinhados conta como vazio no "Informe o nome de todos os
+    signatários.";
+  - movimento reduzido também para a animação do aviso: no desenho (L110) só `.bjaBar` e `.bjaMov` param, e o aviso
+    continua subindo para quem pediu menos movimento;
+  - animação `bjaToastUp` no lugar de `bjaUp`: a do desenho termina em `transform: none` e tira o aviso do centro.
+
+  Desenho omisso, vale a convenção do sistema (⚠): foco visível em campos (`.bjaF`: borda #0a6fa0 e contorno 2px
+  #e5f1f7) e botões (contorno 2px #0a6fa0). O desenho não define foco (o navegador mostraria o dele), e sem foco
+  visível quem usa o teclado não vê onde está.
+- **D7. Segunda conferência ✓/✗, sobre o commit bc30041ae** (bluejus-5f e Coordenador, 10/11/2026; 718 itens, lista em
+  `bluejus-coordenacao/conferencia-assinatura-bc30041ae.md`). Ficou como o desenho: a página de espera do link (429)
+  com o cabeçalho de logo, separador e nome (L234); a prévia do detalhe com o nome cadastrado sob a linha (L352,
+  `b.r || s.nome`); o editor vazio em duas colunas mostra a folha inteira (L322, o layout mora no primeiro bloco).
+  Decisões do Coordenador:
+  - **Trilha do envio (L374).** O "Gerar links e enviar" registra "Documento criado" no servidor, na transação do
+    envio, logo antes de "Enviado para assinatura" (não depende do JS). A gravação que o JS faz antes do envio vai com
+    `envio=1` e não registra "Rascunho salvo"; se a conferência do envio recusar (`ConferenciaDoEnvio`), o envio
+    registra "Rascunho salvo" no caminho da recusa, para o documento novo não ficar com a trilha vazia. ⚠ Os "Rascunho
+    salvo" que o usuário gravou antes ficam: a trilha só acrescenta (no desenho, o `salvarDoc` troca o `ev` inteiro).
+    A recusa por falta de configuração do servidor (sem a chave da assinatura ou do selo) sai antes da transação e
+    não grava nada. ⚠ Aceitos (revisão da bluejus-fa, 10/11): a falha do `/enviar` fora da conferência do envio
+    (rede, erro 5xx, documento já enviado, configuração, ou um pedido montado à mão que grava com `envio=1` e não
+    envia) deixa o rascunho sem evento daquela gravação; e o `envio=1` vem do cliente, que pode pulá-lo ou mandá-lo
+    num salvar comum. Os dois só mudam qual "Rascunho salvo" aparece: o conteúdo só congela, com o hash, no envio.
+  - **Busca da aba Modelos.** A aba segue sem filtrar: ⚠ defeito do desenho, registrado na etapa 4 (decisão 10).
 
 ## 8. Pendências do Samuel (ação, não decisão)
 

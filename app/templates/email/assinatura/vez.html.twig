@@ -1,0 +1,8 @@
+{# Com "em ordem": o aviso ao próximo signatário de que chegou a vez dele, com o link. #}
+{% extends 'email/assinatura/_moldura.html.twig' %}
+{% block cabecalho %}{{ escritorio }}{% endblock %}
+{% block corpo %}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">{{ 'assinatura_eletronica.email.ola'|trans({nome: nome}) }}</p>
+<p style="margin:0 0 16px;">{{ 'assinatura_eletronica.email.vez.texto'|trans({escritorio: escritorio, documento: documento}) }}</p>
+{% include 'email/assinatura/_botao.html.twig' %}
+{% endblock %}

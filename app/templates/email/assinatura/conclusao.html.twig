@@ -1,0 +1,7 @@
+{# Ao remetente (quem criou o documento): todas as assinaturas registradas. #}
+{% extends 'email/assinatura/_moldura.html.twig' %}
+{% block corpo %}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">{{ 'assinatura_eletronica.email.conclusao.titulo'|trans }}</p>
+<p style="margin:0;">{{ 'assinatura_eletronica.email.conclusao.texto'|trans({documento: documento}) }}</p>
+{% endblock %}
+{% block rodape %}{{ 'assinatura_eletronica.email.rodape_remetente'|trans }}{% endblock %}

@@ -1,0 +1,664 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\AssinaturaEletronica\Functional;
+
+use App\AssinaturaEletronica\Controller\ArquivosDaAssinaturaController;
+use App\AssinaturaEletronica\Controller\AssinaturaPublicaController;
+use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
+use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
+use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
+use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
+use App\AssinaturaEletronica\Service\PdfFinalComSelo;
+use App\AssinaturaEletronica\Service\PdfFinalDoDocumento;
+use App\AssinaturaEletronica\Service\Selo\CadeiaDoSeloPendente;
+use App\AssinaturaEletronica\Service\Selo\ClasseDaFalhaNoSelo;
+use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
+use App\AssinaturaEletronica\Service\Selo\SeladorDePdf;
+use App\AssinaturaEletronica\Service\Selo\SeloDoPdfFinal;
+use App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf;
+use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
+use App\Tests\AssinaturaEletronica\Support\NaAssinaturaEnviada;
+use App\Tests\AssinaturaEletronica\Support\NaTelaDeAssinatura;
+use App\Tests\AssinaturaEletronica\Support\TravasContadas;
+use App\Tests\AssinaturaEletronica\Unit\Pdf\FolhaDeTeste;
+use App\Tests\AssinaturaEletronica\Unit\Pdf\PdfLido;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
+use App\Tests\Functional\JusPrimeWebTestCase;
+use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\TransportException;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+use Symfony\Component\Messenger\Transport\TransportInterface;
+
+/**
+ * "Baixar PDF com selo" pela HTTP (etapa 3, E3-4 e E3-5), contra o disco real (a entrega do guardado lê o arquivo): a
+ * rota da tela (sem permissão 403; outro escritório 404), a do signatário (só quem já assinou e com o link valendo), o
+ * gerado na hora sem guardar e o concluído guardado uma vez só, com o pedido ao worker na conclusão. Gerar pesa: as
+ * duas vagas ocupadas e os limitadores respondem 429 com o texto que a tela mostra.
+ *
+ * O selo (etapa 8, E8-4) com o {@see SeladorDePdf} dublado no container: o download guarda e entrega o selado; a falha
+ * do selo que tenta de novo responde o 429 do documento sendo gerado, passa o pedido ao worker e não guarda nada; com a
+ * cadeia do selo pendente, os cliques seguintes dão o mesmo 429 sem gerar, antes até da vaga. A fila que falha nesse
+ * pedido solta a marca nova e a falha sobe; a marca posta por outro pedido no meio da falha não pede o worker de novo.
+ */
+#[CoversClass(ArquivosDaAssinaturaController::class)]
+#[CoversClass(AssinaturaPublicaController::class)]
+#[CoversClass(ObterPdfDaAssinaturaUseCase::class)]
+#[CoversClass(EntregaDoPdfDaAssinatura::class)]
+#[CoversClass(PdfFinalComSelo::class)]
+#[CoversClass(VagasDeGeracaoDoPdf::class)]
+#[CoversClass(SeloDoPdfFinal::class)]
+#[CoversClass(CadeiaDoSeloPendente::class)]
+final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
+{
+    use NaTelaDeAssinatura;
+    use NaAssinaturaEnviada;
+
+    private const MUITOS = 'Muitos PDFs sendo gerados agora. Tente de novo em instantes.';
+    private const LIMITE = 'Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.';
+    private const DOCUMENTO_GERANDO = 'O PDF deste documento está sendo gerado. Tente de novo em alguns minutos.';
+    private const SELO = "\n%selo de teste\n%%EOF\n";
+
+    private ?string $diretorioDoEscritorio = null;
+
+    protected function setUp(): void
+    {
+        FolhaDeTeste::exigirFontes($this);
+        $this->client = static::createClient();
+        $this->client->disableReboot();
+        $this->csrfPrevisivel();
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->diretorioDoEscritorio !== null) {
+            (new Filesystem())->remove($this->diretorioDoEscritorio);
+        }
+        parent::tearDown();
+    }
+
+    #[TestDox('rascunho: 200 com o PDF gerado na hora, como download com o nome do desenho, e nada guardado')]
+    public function testRascunhoNaoGuarda(): void
+    {
+        $this->entrarComDisco();
+        $id = $this->rascunho();
+
+        $pdf = $this->baixar('/assinatura/documentos/' . $id . '/pdf');
+
+        self::assertSame(2, (new PdfLido($pdf))->paginas(), 'o conteúdo e o manifesto');
+        self::assertSame('attachment; filename=assinado_Contrato_de_honorarios.pdf', $this->client->getResponse()->headers->get('Content-Disposition'));
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertSame([], $this->pdfsGuardados());
+    }
+
+    #[TestDox('sem a permissão do módulo: 403; documento de outro escritório: 404')]
+    public function testPermissaoEEscritorio(): void
+    {
+        $this->entrar(true);
+        $id = $this->rascunho();
+
+        $this->entrar(false);
+        $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+        self::assertResponseStatusCodeSame(403);
+
+        $this->entrar(true);
+        $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('link: quem já assinou baixa enquanto aguarda (sem guardar); quem não assinou e o link vencido: "Link inválido."')]
+    public function testLinkDoSignatario(): void
+    {
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+        self::assertResponseIsSuccessful((string) $this->client->getResponse()->getContent());
+
+        self::assertStringStartsWith('%PDF-', $this->baixar('/assinar/' . $tokens[0] . '/pdf'));
+        self::assertSame([], $this->pdfsGuardados(), 'aguardando: gerado na hora, sem guardar');
+
+        $this->client->request('GET', '/assinar/' . $tokens[1] . '/pdf');
+        self::assertResponseStatusCodeSame(404, 'Bia ainda não assinou');
+
+        $this->conexao()->executeStatement("UPDATE assinatura_eletronica_documento SET vence_em = '2000-01-01 00:00:00' WHERE id = ?", [$id]);
+        $this->esquecer();
+        $this->client->request('GET', '/assinar/' . $tokens[0] . '/pdf');
+        self::assertResponseStatusCodeSame(404, 'o link venceu');
+    }
+
+    #[TestDox('concluído: a conclusão pede o PDF ao worker; os downloads (tela e link) entregam o mesmo arquivo, guardado uma vez')]
+    public function testConcluidoGuardaUmaVez(): void
+    {
+        [, $tenant] = $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+        self::assertSame('concluido', $this->json()['estado']['estado']);
+
+        $transporte = static::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transporte);
+        $pedidos = array_values(array_filter(array_map(static fn (Envelope $e): object => $e->getMessage(), $transporte->getSent()), static fn (object $m): bool => $m instanceof GerarPdfFinalDoDocumento));
+        self::assertEquals([new GerarPdfFinalDoDocumento($id, (int) $tenant->getId())], $pedidos);
+
+        $daTela = $this->baixar('/assinatura/documentos/' . $id . '/pdf');
+        $chave = $this->conexao()->fetchAssociative('SELECT arquivo_final_chave, hash_final FROM assinatura_eletronica_documento WHERE id = ?', [$id]);
+        self::assertIsArray($chave);
+        self::assertSame(hash('sha256', $daTela), $chave['hash_final']);
+        self::assertSame(2, (new PdfLido($daTela))->paginas());
+
+        self::assertSame($daTela, $this->baixar('/assinar/' . $tokens[0] . '/pdf'));
+        self::assertSame($daTela, $this->baixar('/assinatura/documentos/' . $id . '/pdf'));
+        self::assertCount(1, $this->pdfsGuardados(), 'guardado uma vez só');
+        self::assertSame($chave['arquivo_final_chave'], $this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+    }
+
+    #[TestDox('fila fora do ar na conclusão: a última assinatura responde concluído e o PDF sai no primeiro download')]
+    public function testFilaCaida(): void
+    {
+        $fila = new class () implements TransportInterface {
+            public int $tentativas = 0;
+
+            public function get(): iterable
+            {
+                return [];
+            }
+
+            public function ack(Envelope $envelope): void
+            {
+            }
+
+            public function reject(Envelope $envelope): void
+            {
+            }
+
+            public function send(Envelope $envelope): Envelope
+            {
+                ++$this->tentativas;
+
+                throw new TransportException('fila fora do ar');
+            }
+        };
+        static::getContainer()->set('messenger.transport.async', $fila);
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+
+        self::assertResponseIsSuccessful((string) $this->client->getResponse()->getContent());
+        self::assertSame('concluido', $this->json()['estado']['estado']);
+        self::assertSame(1, $fila->tentativas, 'a conclusão tentou enfileirar e a fila recusou');
+        self::assertSame('concluido', $this->conexao()->fetchOne('SELECT situacao FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+
+        $this->baixar('/assinar/' . $tokens[1] . '/pdf');
+        self::assertCount(1, $this->pdfsGuardados(), 'gerado e guardado no primeiro download');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function fimDoEnvio(): iterable
+    {
+        yield 'documento na Lixeira' => ['lixeira'];
+        yield 'envio cancelado' => ['cancelado'];
+        yield 'recusado pelo outro signatário' => ['recusado'];
+    }
+
+    #[DataProvider('fimDoEnvio')]
+    #[TestDox('link de quem já assinou: documento na Lixeira, cancelado ou recusado depois disso dá "Link inválido." (404)')]
+    public function testLinkDepoisDoFimDoEnvio(string $fim): void
+    {
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $ana = (string) $tokens[0];
+        $this->assinarNoLink($ana, $this->pedirCodigo($ana));
+        self::assertStringStartsWith('%PDF-', $this->baixar('/assinar/' . $ana . '/pdf'), 'antes, Ana baixa');
+
+        $this->encerrarEnvio($fim, $id, (string) $tokens[1]);
+        self::assertResponseIsSuccessful((string) $this->client->getResponse()->getContent());
+        $this->esquecer();
+
+        $this->client->request('GET', '/assinar/' . $ana . '/pdf');
+        self::assertResponseStatusCodeSame(404, $fim);
+        self::assertSame([], $this->pdfsGuardados());
+    }
+
+    #[TestDox('as duas vagas ocupadas: 429 {"erro": "Muitos PDFs..."} na tela e no link; com uma vaga livre, 200, e a geração devolve a vaga')]
+    public function testVagasOcupadas(): void
+    {
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $ana = (string) $tokens[0];
+        $this->assinarNoLink($ana, $this->pedirCodigo($ana));
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        $ocupadas = [$travas->createLock('assinatura_pdf_vaga_0'), $travas->createLock('assinatura_pdf_vaga_1')];
+        self::assertTrue($ocupadas[0]->acquire(false) && $ocupadas[1]->acquire(false));
+
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $ana . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::MUITOS], $this->json(), $url);
+        }
+
+        $ocupadas[1]->release();
+        $this->baixar('/assinar/' . $ana . '/pdf');
+        self::assertTrue($travas->createLock('assinatura_pdf_vaga_1')->acquire(false), 'a geração devolveu a vaga');
+    }
+
+    #[TestDox('limitador da geração estourado: 429 "Muitos PDFs gerados nos últimos minutos", na tela (por usuário) e no link (por token)')]
+    public function testLimitadorDaGeracao(): void
+    {
+        [$porUsuario, $porIp, $porToken] = $this->espiarLimitadores(usuario: false, ip: true, token: false);
+        [$usuario] = $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $ana = (string) $tokens[0];
+        $this->assinarNoLink($ana, $this->pedirCodigo($ana));
+
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $ana . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::LIMITE], $this->json(), $url);
+        }
+
+        self::assertSame(['usuario-' . $usuario->getId()], $porUsuario->chavesConsumidas);
+        self::assertCount(1, $porIp->chavesConsumidas);
+        self::assertSame([ChaveDaAssinatura::hashDoToken($ana)], $porToken->chavesConsumidas);
+        self::assertSame([], $this->pdfsGuardados());
+    }
+
+    #[TestDox('concluído com o PDF guardado: a tela e o link entregam o guardado sem passar por nenhum dos 3 limitadores')]
+    public function testGuardadoNaoGastaACota(): void
+    {
+        $espioes = $this->espiarLimitadores(usuario: false, ip: false, token: false);
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+        self::assertSame('concluido', $this->json()['estado']['estado']);
+        $this->esquecer();
+        $documento = static::getContainer()->get(EntityManagerInterface::class)->find(DocumentoParaAssinar::class, $id);
+        self::assertInstanceOf(DocumentoParaAssinar::class, $documento);
+        static::getContainer()->get(PdfFinalDoDocumento::class)->garantir($documento);
+
+        $daTela = $this->baixar('/assinatura/documentos/' . $id . '/pdf');
+        self::assertSame($daTela, $this->baixar('/assinar/' . $tokens[0] . '/pdf'));
+        foreach ($espioes as $espiao) {
+            self::assertSame([], $espiao->chavesConsumidas);
+        }
+        self::assertCount(1, $this->pdfsGuardados());
+    }
+
+    #[TestDox('concluído sem PDF guardado que outro pedido já gera: 429 "O PDF deste documento está sendo gerado", sem vaga nem cota')]
+    public function testDocumentoSendoGerado(): void
+    {
+        [$porUsuario, $porIp, $porToken] = $this->espiarLimitadores(usuario: true, ip: true, token: true);
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->concluido();
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        $outroPedido = [$travas->createLock('assinatura_pdf_documento_' . $id), $travas->createLock('assinatura_pdf_vaga_0'), $travas->createLock('assinatura_pdf_vaga_1')];
+        self::assertTrue($outroPedido[0]->acquire(false) && $outroPedido[1]->acquire(false) && $outroPedido[2]->acquire(false));
+
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $tokens[0] . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json(), $url . ': a trava do documento antes da vaga');
+        }
+        self::assertSame([[], [], []], [$porUsuario->chavesConsumidas, $porIp->chavesConsumidas, $porToken->chavesConsumidas]);
+
+        foreach ($outroPedido as $trava) {
+            $trava->release();
+        }
+        $this->baixar('/assinatura/documentos/' . $id . '/pdf');
+        self::assertCount(1, $this->pdfsGuardados());
+        self::assertCount(1, $porUsuario->chavesConsumidas, 'quem gerou gastou a cota');
+        self::assertTrue($travas->createLock('assinatura_pdf_documento_' . $id)->acquire(false), 'a trava do documento foi liberada');
+    }
+
+    #[TestDox('selo: o primeiro download do concluído guarda e entrega o selado, com o hash_final dele, o mesmo hash_enviado e "PDF final selado pelo BlueJus" na trilha do detalhe')]
+    public function testDownloadGuardaOSelado(): void
+    {
+        $recebidos = [];
+        $this->dublarSelador(static function (string $pdf) use (&$recebidos): string {
+            $recebidos[] = $pdf;
+
+            return $pdf . self::SELO;
+        });
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->concluido();
+        $hashEnviado = $this->conexao()->fetchOne('SELECT hash_enviado FROM assinatura_eletronica_documento WHERE id = ?', [$id]);
+        self::assertIsString($hashEnviado);
+
+        $daTela = $this->baixar('/assinatura/documentos/' . $id . '/pdf');
+
+        self::assertCount(1, $recebidos);
+        self::assertSame($recebidos[0] . self::SELO, $daTela, 'entregue o selado');
+        self::assertSame(hash('sha256', $daTela), $this->conexao()->fetchOne('SELECT hash_final FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertSame($hashEnviado, $this->conexao()->fetchOne('SELECT hash_enviado FROM assinatura_eletronica_documento WHERE id = ?', [$id]), 'o selo não muda o hash_enviado');
+        self::assertSame(['pdf_selado'], $this->eventosDoSelo($id));
+        $detalhe = $this->detalhe($id);
+        self::assertSame($hashEnviado, $detalhe['hashEnviado'], 'o hash que a tela e a validação mostram');
+        self::assertContains('PDF final selado pelo BlueJus', array_column($detalhe['eventos'], 'texto'));
+        self::assertSame($daTela, $this->baixar('/assinar/' . $tokens[0] . '/pdf'), 'o guardado, sem selar de novo');
+        self::assertCount(1, $recebidos);
+        self::assertCount(1, $this->pdfsGuardados());
+    }
+
+    #[TestDox('selo com falha que tenta de novo no download: 429 "O PDF deste documento está sendo gerado", um pedido ao worker e nada guardado; os cliques seguintes, com a cadeia pendente, dão o mesmo 429 sem gerar, sem cota e sem outro pedido')]
+    public function testFalhaNoSeloNoDownload(): void
+    {
+        [$porUsuario, $porIp, $porToken] = $this->espiarLimitadores(usuario: true, ip: true, token: true);
+        $pedidosDeSelo = 0;
+        $this->dublarSelador(static function () use (&$pedidosDeSelo): never {
+            ++$pedidosDeSelo;
+
+            throw new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503);
+        });
+        [, $tenant] = $this->entrarComDisco();
+        [$id, $tokens] = $this->concluido();
+        $transporte = static::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transporte);
+        $pedidosAoWorker = static fn (): array => array_map(static fn (Envelope $e): object => $e->getMessage(), $transporte->getSent());
+
+        // O transporte em memória é zerado a cada requisição (services_resetter): confere depois de cada uma.
+        $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json());
+        self::assertEquals([new GerarPdfFinalDoDocumento($id, (int) $tenant->getId())], $pedidosAoWorker(), 'o pedido ao worker, na 1ª tentativa');
+        self::assertSame(1, $pedidosDeSelo);
+        self::assertCount(1, $porUsuario->chavesConsumidas, 'o clique que gerou gastou a cota');
+
+        foreach (['/assinar/' . $tokens[0] . '/pdf', '/assinatura/documentos/' . $id . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json(), $url);
+            self::assertSame([], $pedidosAoWorker(), $url . ': a cadeia já está no worker');
+        }
+        self::assertSame(1, $pedidosDeSelo, 'com a cadeia pendente, nem gera nem pede o selo');
+        self::assertCount(1, $porUsuario->chavesConsumidas);
+        self::assertSame([[], []], [$porIp->chavesConsumidas, $porToken->chavesConsumidas]);
+
+        self::assertSame([], $this->pdfsGuardados());
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertSame([], $this->eventosDoSelo($id));
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        self::assertTrue($travas->createLock('assinatura_pdf_documento_' . $id)->acquire(false), 'a trava do documento foi liberada');
+        self::assertTrue($travas->createLock('assinatura_pdf_vaga_0')->acquire(false), 'a vaga foi devolvida');
+        self::assertFalse($travas->createLock('assinatura_pdf_selo_pendente_' . $id)->acquire(false), 'a cadeia do selo segue marcada');
+    }
+
+    #[TestDox('com a cadeia do selo marcada, o 429 do documento sendo gerado vem antes da vaga: as duas vagas ocupadas dão "Muitos PDFs" sem a marca e "O PDF deste documento está sendo gerado" com ela, sem cota')]
+    public function testCadeiaPendenteAntesDaVaga(): void
+    {
+        [$porUsuario, $porIp, $porToken] = $this->espiarLimitadores(usuario: true, ip: true, token: true);
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->concluido();
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        $vagas = [$travas->createLock('assinatura_pdf_vaga_0'), $travas->createLock('assinatura_pdf_vaga_1')];
+        self::assertTrue($vagas[0]->acquire(false) && $vagas[1]->acquire(false));
+
+        $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => self::MUITOS], $this->json(), 'sem a marca, a falta de vaga');
+
+        $marca = $travas->createLock('assinatura_pdf_selo_pendente_' . $id, CadeiaDoSeloPendente::TTL_EM_SEGUNDOS, false);
+        self::assertTrue($marca->acquire(false));
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $tokens[0] . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json(), $url . ': a marca da cadeia antes da vaga');
+        }
+        self::assertSame([[], [], []], [$porUsuario->chavesConsumidas, $porIp->chavesConsumidas, $porToken->chavesConsumidas]);
+        self::assertSame([], $this->pdfsGuardados());
+
+        $marca->release();
+        foreach ($vagas as $vaga) {
+            $vaga->release();
+        }
+    }
+
+    #[TestDox('selo com falha que tenta de novo quando outro pedido marcou a cadeia depois da sonda: o mesmo 429, sem um segundo pedido ao worker e nada guardado')]
+    public function testFalhaNoSeloComACadeiaMarcadaNoMeio(): void
+    {
+        $marcaDeOutro = null;
+        $marcou = null;
+        $this->dublarSelador(static function () use (&$marcaDeOutro, &$marcou): never {
+            $marcou = $marcaDeOutro?->acquire(false);
+
+            throw new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503);
+        });
+        $this->entrarComDisco();
+        [$id] = $this->concluido();
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        $marcaDeOutro = $travas->createLock('assinatura_pdf_selo_pendente_' . $id, CadeiaDoSeloPendente::TTL_EM_SEGUNDOS, false);
+        $transporte = static::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transporte);
+
+        $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+
+        self::assertTrue($marcou, 'a cadeia estava livre na sonda e o outro pedido a marcou durante o selo');
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json());
+        self::assertSame([], $transporte->getSent(), 'a marca não é nova: o pedido ao worker é de quem marcou');
+        self::assertSame([], $this->pdfsGuardados());
+        self::assertSame([], $this->eventosDoSelo($id));
+        $marcaDeOutro->release();
+    }
+
+    #[TestDox('selo com falha que tenta de novo e a fila fora do ar no download: a falha da fila sobe (500), a cadeia do selo fica livre e o clique seguinte tenta de novo')]
+    public function testFalhaNoSeloComAFilaCaida(): void
+    {
+        $fila = new class () implements TransportInterface {
+            public int $tentativas = 0;
+
+            public function get(): iterable
+            {
+                return [];
+            }
+
+            public function ack(Envelope $envelope): void
+            {
+            }
+
+            public function reject(Envelope $envelope): void
+            {
+            }
+
+            public function send(Envelope $envelope): Envelope
+            {
+                ++$this->tentativas;
+
+                throw new TransportException('fila fora do ar');
+            }
+        };
+        static::getContainer()->set('messenger.transport.async', $fila);
+        $pedidosDeSelo = 0;
+        $this->dublarSelador(static function () use (&$pedidosDeSelo): never {
+            ++$pedidosDeSelo;
+
+            throw new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503);
+        });
+        $this->entrarComDisco();
+        [$id] = $this->concluido();
+        $naConclusao = $fila->tentativas;
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+
+        foreach ([1, 2] as $clique) {
+            $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+            self::assertResponseStatusCodeSame(500, 'clique ' . $clique . ': a falha da fila sobe');
+            self::assertSame($naConclusao + $clique, $fila->tentativas, 'clique ' . $clique . ': tentou passar o pedido ao worker');
+            self::assertSame($clique, $pedidosDeSelo, 'clique ' . $clique . ': com a cadeia livre, gera e pede o selo');
+            self::assertTrue($travas->createLock('assinatura_pdf_selo_pendente_' . $id)->acquire(false), 'clique ' . $clique . ': a marca nova foi solta');
+        }
+        self::assertSame([], $this->pdfsGuardados());
+        self::assertSame([], $this->eventosDoSelo($id));
+    }
+
+    #[TestDox('as travas são renovadas a cada pedaço: a vaga no PDF gerado na hora; a vaga e a do documento no concluído')]
+    public function testRenovaAsTravasACadaPedaco(): void
+    {
+        $loja = new TravasContadas();
+        static::getContainer()->set('lock.assinatura_pdf.factory', new LockFactory($loja));
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+
+        $naHora = (new PdfLido($this->baixar('/assinar/' . $tokens[0] . '/pdf')))->paginas() + 2;
+        self::assertSame(1 + $naHora, $loja->renovacoesDe('assinatura_pdf_vaga_0'), 'o acquire e um por pedaço');
+        self::assertSame(0, $loja->renovacoesDe('assinatura_pdf_documento_' . $id), 'na hora, sem trava do documento');
+
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+        $final = (new PdfLido($this->baixar('/assinatura/documentos/' . $id . '/pdf')))->paginas() + 2;
+        self::assertSame(1 + $naHora + 1 + $final, $loja->renovacoesDe('assinatura_pdf_vaga_0'));
+        self::assertSame(1 + $final, $loja->renovacoesDe('assinatura_pdf_documento_' . $id));
+    }
+
+    #[TestDox('as telas recebem a URL do PDF e carregam o assinatura-pdf.js antes do script da tela; o link traz os textos do PDF')]
+    public function testLigacaoNasTelas(): void
+    {
+        $this->entrarComDisco();
+        [, $tokens] = $this->documentoEnviado();
+
+        $interna = $this->client->request('GET', '/assinatura');
+        self::assertResponseIsSuccessful();
+        self::assertSame('/assinatura/documentos/0/pdf', $interna->filter('#bjaPagina')->attr('data-url-pdf'));
+        self::assertScriptAntes($interna, 'js/assinatura-pdf.js', 'js/assinatura.js');
+
+        $publica = $this->client->request('GET', '/assinar/' . $tokens[0]);
+        self::assertResponseIsSuccessful();
+        self::assertSame('/assinar/' . $tokens[0] . '/pdf', $publica->filter('body > #bjaPublica')->attr('data-url-pdf'));
+        self::assertScriptAntes($publica, 'js/assinatura-pdf.js', 'js/assinatura-publica.js');
+        $catalogo = implode('', $publica->filter('script[type="application/json"][data-bj-t]')->each(static fn (Crawler $s): string => $s->text()));
+        self::assertStringContainsString('assinatura_eletronica_tela.js.pdf.baixar', $catalogo);
+        self::assertStringContainsString('Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.', $catalogo, 'o texto do limitador chega ao assinatura-publica.js');
+        self::assertStringContainsString(self::DOCUMENTO_GERANDO, $catalogo);
+    }
+
+    /**
+     * Troca o selador do container (o não configurado, no teste) por um que responde com `$selar`, antes da primeira
+     * requisição.
+     *
+     * @param \Closure(string): ?string $selar
+     */
+    private function dublarSelador(\Closure $selar): void
+    {
+        static::getContainer()->set(SeladorDePdf::class, new class ($selar) implements SeladorDePdf {
+            public function __construct(private readonly \Closure $selar)
+            {
+            }
+
+            public function selar(string $pdf): ?string
+            {
+                return ($this->selar)($pdf);
+            }
+        });
+    }
+
+    /** @return list<string> os eventos do selo na trilha do documento, na ordem */
+    private function eventosDoSelo(int $id): array
+    {
+        return $this->conexao()->fetchFirstColumn(
+            "SELECT tipo FROM assinatura_eletronica_evento WHERE documento_id = ? AND tipo IN ('pdf_selado', 'selo_nao_aplicado') ORDER BY id",
+            [$id],
+        );
+    }
+
+    /** @return array{User, Tenant} */
+    private function entrarComDisco(): array
+    {
+        $entrou = $this->entrar(true);
+        $this->diretorioDoEscritorio = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/') . '/assinatura/' . $entrou[1]->getId();
+
+        return $entrou;
+    }
+
+    /** O corpo do download (gerado em fluxo ou guardado), com 200, PDF e `nosniff`. */
+    private function baixar(string $url): string
+    {
+        $this->client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        $resposta = $this->client->getResponse();
+        self::assertSame('application/pdf', $resposta->headers->get('Content-Type'));
+        self::assertStringStartsWith('attachment', (string) $resposta->headers->get('Content-Disposition'));
+        $corpo = (string) $this->client->getInternalResponse()->getContent();
+        self::assertStringStartsWith('%PDF-', $corpo);
+
+        return $corpo;
+    }
+
+    /**
+     * Os 3 limitadores da geração trocados por espiões (aceita ou estourado), antes da primeira requisição: o controller
+     * do link recebe os limitadores no construtor.
+     *
+     * @return array{RateLimiterFactoryEspiao, RateLimiterFactoryEspiao, RateLimiterFactoryEspiao} usuário, IP e token
+     */
+    private function espiarLimitadores(bool $usuario, bool $ip, bool $token): array
+    {
+        $espioes = [new RateLimiterFactoryEspiao($usuario), new RateLimiterFactoryEspiao($ip), new RateLimiterFactoryEspiao($token)];
+        static::getContainer()->set('limiter.assinatura_pdf', $espioes[0]);
+        static::getContainer()->set('limiter.assinatura_pdf_publico', $espioes[1]);
+        static::getContainer()->set('limiter.assinatura_pdf_publico_token', $espioes[2]);
+
+        return $espioes;
+    }
+
+    /**
+     * Ana e Bia assinam: o documento concluído, sem o PDF guardado (o worker não roda no teste).
+     *
+     * @return array{int, list<string|null>}
+     */
+    private function concluido(): array
+    {
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+        self::assertSame('concluido', $this->json()['estado']['estado']);
+
+        return [$id, $tokens];
+    }
+
+    /** Lixeira e cancelar pela tela do escritório; a recusa pelo link do outro signatário. */
+    private function encerrarEnvio(string $fim, int $id, string $outroToken): void
+    {
+        if ($fim === 'lixeira') {
+            $this->postarJson('/assinatura/documentos/lixeira', ['ids' => [$id]]);
+
+            return;
+        }
+        if ($fim === 'cancelado') {
+            $this->client->request('POST', '/assinatura/documentos/' . $id . '/cancelar', [], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);
+
+            return;
+        }
+        $this->postarNoLink('/assinar/' . $outroToken . '/recusa', $outroToken, ['motivo' => 'Valor errado']);
+    }
+
+    /** @return list<string> os PDF no diretório do escritório (rubricas são PNG) */
+    private function pdfsGuardados(): array
+    {
+        return glob((string) $this->diretorioDoEscritorio . '/*.pdf') ?: [];
+    }
+
+    private static function assertScriptAntes(Crawler $pagina, string $antes, string $depois): void
+    {
+        $srcs = $pagina->filter('script[src]')->each(static fn (Crawler $s): string => (string) parse_url((string) $s->attr('src'), \PHP_URL_PATH));
+        $posicao = static fn (string $fim): int|false => array_search(true, array_map(static fn (string $s): bool => str_ends_with($s, $fim), $srcs), true);
+
+        self::assertIsInt($posicao($antes), implode(', ', $srcs));
+        self::assertIsInt($posicao($depois), implode(', ', $srcs));
+        self::assertLessThan($posicao($depois), $posicao($antes));
+    }
+}

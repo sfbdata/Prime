@@ -12,9 +12,12 @@ namespace App\Pasta\Enum;
  *   arquivo continua assinado.
  * - `Manual`: alguém do escritório marcou pelo ⋮ (assinado à caneta e escaneado). Quem marcou
  *   pode desmarcar.
+ * - `Eletronica`: o PDF final com selo da Assinatura de documentos, salvo na pasta pelo vínculo
+ *   (spec assinatura-documentos-etapa-3, E3-11). Não se desmarca pela tela, como o `Digital`.
  */
 enum OrigemDaAssinatura: string
 {
     case Digital = 'digital';
     case Manual = 'manual';
+    case Eletronica = 'eletronica';
 }

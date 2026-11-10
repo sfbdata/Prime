@@ -1,0 +1,6 @@
+jsqr 1.4.0
+Origem: https://registry.npmjs.org/jsqr/-/jsqr-1.4.0.tgz, arquivo package/dist/jsQR.js (sem alteração). O pacote npm não traz jsQR.min.js: o do jsDelivr usado pelo desenho é minificado na hora por ele e não tem hash estável.
+integrity (jsqr-1.4.0.tgz): sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A== (conferido com o do registro npm)
+sha384 (jsQR.js): b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx
+sha256 (jsQR.js): bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859
+Licença: Apache-2.0 (LICENSE, do próprio pacote)

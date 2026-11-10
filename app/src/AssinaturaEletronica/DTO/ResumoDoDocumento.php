@@ -13,6 +13,8 @@ use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 /**
  * O que o `Resumo` do JSON precisa de um documento (contrato da etapa 1, seção 4.1). A lista o monta direto do banco,
  * sem carregar os blocos; o detalhe o tira da entidade. As duas origens passam pela mesma apresentação.
+ *
+ * Etapa 3: o código de validação do selo, nulo no rascunho.
  */
 final readonly class ResumoDoDocumento
 {
@@ -30,6 +32,7 @@ final readonly class ResumoDoDocumento
         public CorDaLinha $cor,
         public bool $naLixeira,
         public array $signatarios,
+        public ?string $codigo = null,
     ) {
     }
 
@@ -49,6 +52,7 @@ final readonly class ResumoDoDocumento
                 static fn (Signatario $s): array => ['nome' => $s->getNome(), 'situacao' => $s->getSituacao()],
                 $documento->getSignatarios(),
             ),
+            codigo: $documento->getCodigo(),
         );
     }
 

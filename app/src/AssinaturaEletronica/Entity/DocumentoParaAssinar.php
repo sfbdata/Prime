@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Entity;
 
 use App\AssinaturaEletronica\DTO\DadosDoRascunho;
 use App\AssinaturaEletronica\Enum\CorDaLinha;
+use App\AssinaturaEletronica\Enum\EstadoDaPagina;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
@@ -13,6 +14,8 @@ use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\Descartavel;
 use App\Shared\Contract\TenantAware;
@@ -24,8 +27,22 @@ use Doctrine\ORM\Mapping as ORM;
  * Um documento da tela Assinatura (contrato da etapa 1, seção 3.2). Nasce rascunho; só o rascunho aceita alteração.
  * Os blocos chegam montados pelo navegador e já validados ({@see \App\AssinaturaEletronica\Service\ValidadorDeBlocos}).
  *
- * Lixeira (desenho): mover cancela o envio que aguardava assinatura; restaurar não o reativa. Só rascunho na Lixeira
- * sai de vez (os enviados ficam para preservar as evidências).
+ * Lixeira (desenho): mover cancela o envio que aguardava assinatura só dentro do prazo (o vencido continua Expirado);
+ * restaurar não o reativa. Só rascunho na Lixeira sai de vez (os enviados ficam para preservar as evidências).
+ *
+ * Etapa 2 (contrato da etapa 2, seção 4.1): enviar congela o conteúdo (Rascunho vira Aguardando, com o hash do conteúdo
+ * canônico e o prazo contado da hora do envio); cada signatário assina na vez dele (com "em ordem", depois de todos os
+ * anteriores) e o último conclui; a recusa de um encerra o documento; cancelar o envio para os links. Prazo vencido não
+ * muda a situação: é calculado. Quem chama decide com a linha travada e relida.
+ *
+ * Etapa 3 (contrato da etapa 3, seção 2): o código de validação `BJA-XXXX-XXXX-XXXX` nasce no envio, uma vez; o PDF
+ * final com selo é guardado uma vez, só do documento concluído; o vínculo à pasta é sempre por id (o NUP não é único),
+ * fica pendente até o PDF final ir para a pasta (ou se desfaz, se a aplicação falhar) e guarda quem o definiu (a
+ * conclusão acontece na rota pública, sem usuário logado). Pasta, usuário e arquivo da pasta apagados viram nulo
+ * (`ON DELETE SET NULL`).
+ *
+ * Etapa 5 (contrato da etapa 5, seção 2, item 3): gov.br e ICP assinam sem rubrica e concluem como a Simples. As
+ * versões do PDF (original, para assinar e devolvidas) moram em {@see VersaoDoPdf}.
  */
 #[ORM\Entity(repositoryClass: DocumentoParaAssinarRepository::class)]
 #[ORM\Table(name: 'assinatura_eletronica_documento')]
@@ -121,6 +138,46 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
 
     #[ORM\Column(name: 'arquivo_enviado_paginas', type: 'integer', nullable: true)]
     private ?int $arquivoEnviadoPaginas = null;
+
+    /** O código de validação impresso no PDF (`BJA-XXXX-XXXX-XXXX`), único entre todos os escritórios. Nulo no rascunho. */
+    #[ORM\Column(length: 18, unique: true, nullable: true)]
+    private ?string $codigo = null;
+
+    /** O nome da chave do PDF final com selo, guardado uma vez depois da conclusão. */
+    #[ORM\Column(name: 'arquivo_final_chave', length: 255, nullable: true)]
+    private ?string $arquivoFinalChave = null;
+
+    /** O sha256 do PDF final guardado (prova do arquivo; a validação mostra o `hash_enviado`). */
+    #[ORM\Column(name: 'hash_final', length: 64, nullable: true)]
+    private ?string $hashFinal = null;
+
+    /**
+     * A pasta do vínculo. Lida pelo id: a pasta pode ter ido para a lápide depois do vínculo, e quem aplica o vínculo
+     * pendente confere isso antes de gravar.
+     */
+    #[ORM\ManyToOne(targetEntity: Pasta::class)]
+    #[ORM\JoinColumn(name: 'pasta_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Pasta $pasta = null;
+
+    /** Verdadeiro do vínculo definido até o PDF final ir para a pasta, ou até a aplicação falhar e o vínculo se desfazer. */
+    #[ORM\Column(name: 'vinculo_pendente', options: ['default' => false])]
+    private bool $vinculoPendente = false;
+
+    /** Quem definiu o vínculo: é com este usuário que o vínculo pendente é aplicado (permissão, cadeado e lápide). */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'vinculado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $vinculadoPor = null;
+
+    #[ORM\Column(name: 'vinculado_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $vinculadoEm = null;
+
+    /**
+     * O arquivo que foi para a pasta. O documento da pasta pode estar na Lixeira dela: leia o id, não inicie o proxy
+     * fora da {@see \App\Shared\Doctrine\Filter\AcessoALixeira}.
+     */
+    #[ORM\ManyToOne(targetEntity: PastaDocumento::class)]
+    #[ORM\JoinColumn(name: 'pasta_documento_id', nullable: true, onDelete: 'SET NULL')]
+    private ?PastaDocumento $pastaDocumento = null;
 
     /** Lixeira: preenchido = o documento está na Lixeira. Sem setter: só pelas transições abaixo. */
     #[ORM\Column(name: 'excluido_em', type: 'datetime_immutable', nullable: true)]
@@ -234,7 +291,8 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
     }
 
     /**
-     * Leva o documento para a Lixeira. Se ele aguardava assinatura, o envio é cancelado (os links param).
+     * Leva o documento para a Lixeira. Se ele aguardava assinatura dentro do prazo, o envio é cancelado (os links param);
+     * o vencido continua Expirado, como o desenho (L364: só cancela o que `stAtual` diz "aguardando").
      *
      * @return bool se havia envio em andamento que foi cancelado
      */
@@ -244,7 +302,7 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
             throw new \LogicException('O documento já está na Lixeira.');
         }
 
-        $cancelou = $this->situacao === SituacaoDoDocumento::Aguardando;
+        $cancelou = $this->situacao === SituacaoDoDocumento::Aguardando && !$this->estaVencido($agora);
         if ($cancelou) {
             $this->situacao = SituacaoDoDocumento::Cancelado;
         }
@@ -253,6 +311,267 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         $this->excluidoPor = $por;
 
         return $cancelou;
+    }
+
+    /**
+     * "Gerar links e enviar": só rascunho fora da Lixeira, com ao menos um signatário. O prazo conta da hora do envio.
+     *
+     * @throws AcaoRecusada
+     */
+    public function enviar(string $hash, \DateTimeImmutable $agora): void
+    {
+        $this->exigirEnviavel();
+
+        $agora = self::emSegundos($agora);
+        $this->situacao = SituacaoDoDocumento::Aguardando;
+        $this->enviadoEm = $agora;
+        $this->venceEm = $agora->modify(sprintf('+%d days', $this->prazoDias));
+        $this->hashEnviado = $hash;
+    }
+
+    /**
+     * O que a situação exige para enviar, antes das conferências dos signatários: rascunho, fora da Lixeira e com ao
+     * menos um signatário.
+     *
+     * @throws AcaoRecusada
+     */
+    public function exigirEnviavel(): void
+    {
+        if (!$this->ehRascunho()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.envio_ja_feito');
+        }
+        if ($this->estaNaLixeira()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.envio_na_lixeira');
+        }
+        if ($this->signatarios->isEmpty()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.envio_sem_signatarios');
+        }
+    }
+
+    /**
+     * O código de validação, gerado no envio a partir do hash enviado ({@see \App\AssinaturaEletronica\Service\ChaveDoSelo}).
+     * Uma vez só: o código impresso no PDF não muda.
+     */
+    public function definirCodigo(string $codigo): void
+    {
+        if ($this->codigo !== null) {
+            throw new \LogicException('O documento já tem código de validação.');
+        }
+        if ($this->hashEnviado === null) {
+            throw new \LogicException('Código de validação de documento não enviado.');
+        }
+
+        $this->codigo = $codigo;
+    }
+
+    /**
+     * Guarda o PDF final com selo: só do documento concluído e uma vez só (o arquivo guardado é a prova).
+     *
+     * @param string $sha256 o sha256 do arquivo guardado, 64 hexadecimais minúsculos
+     */
+    public function guardarArquivoFinal(string $nomeDaChave, string $sha256): void
+    {
+        if ($this->situacao !== SituacaoDoDocumento::Concluido) {
+            throw new \LogicException('Só o documento concluído guarda o PDF final.');
+        }
+        if ($this->arquivoFinalChave !== null) {
+            throw new \LogicException('O PDF final do documento já foi guardado.');
+        }
+        if ($nomeDaChave === '' || preg_match('/^[0-9a-f]{64}$/', $sha256) !== 1) {
+            throw new \LogicException('PDF final sem chave ou com sha256 fora do formato.');
+        }
+
+        $this->arquivoFinalChave = $nomeDaChave;
+        $this->hashFinal = $sha256;
+    }
+
+    /**
+     * Define a pasta do vínculo, por id, e o deixa pendente até o PDF final ir para a pasta. Quem chama confere antes a
+     * permissão na pasta, a lápide e a situação do documento.
+     *
+     * @throws AcaoRecusada quando o documento já tem vínculo
+     */
+    public function definirVinculo(Pasta $pasta, User $por, \DateTimeImmutable $agora): void
+    {
+        if ($this->pasta !== null) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.vinculo_ja_definido');
+        }
+        $situacaoQueVincula = \in_array($this->situacao, [SituacaoDoDocumento::Aguardando, SituacaoDoDocumento::Concluido], true);
+        if (!$situacaoQueVincula || $this->estaNaLixeira()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.vinculo_fora_do_envio');
+        }
+        if (!self::doMesmoEscritorio($this->tenant, $pasta->getTenant())) {
+            throw new \LogicException('A pasta do vínculo é de outro escritório.');
+        }
+
+        $this->pasta = $pasta;
+        $this->vinculadoPor = $por;
+        $this->vinculadoEm = self::emSegundos($agora);
+        $this->vinculoPendente = true;
+    }
+
+    /** O PDF final foi para a pasta do vínculo: guarda o arquivo da pasta e encerra o pendente. */
+    public function marcarVinculoFeito(PastaDocumento $arquivo): void
+    {
+        if ($this->pasta === null || !$this->vinculoPendente) {
+            throw new \LogicException('O documento não tem vínculo pendente.');
+        }
+        if (!self::doMesmoEscritorio($this->tenant, $arquivo->getTenant()) || !self::mesmaPasta($this->pasta, $arquivo->getPasta())) {
+            throw new \LogicException('O arquivo não é da pasta do vínculo.');
+        }
+
+        $this->pastaDocumento = $arquivo;
+        $this->vinculoPendente = false;
+    }
+
+    /**
+     * A aplicação do vínculo pendente falhou (spec assinatura-documentos-etapa-3, E3-11): o vínculo se desfaz e o
+     * "Vincular à pasta" volta, como no desenho (`vincExec` não grava o vínculo na falha). Só o pendente: o vínculo
+     * feito nunca é desfeito (sem "desvincular", E3-10). Quem chama grava antes o evento "vínculo não aplicado".
+     */
+    public function descartarVinculoNaoAplicado(): void
+    {
+        if (!$this->vinculoPendente) {
+            throw new \LogicException('O documento não tem vínculo pendente.');
+        }
+
+        $this->pasta = null;
+        $this->vinculadoPor = null;
+        $this->vinculadoEm = null;
+        $this->vinculoPendente = false;
+    }
+
+    /**
+     * "Cancelar envio" do detalhe: só o que aguarda assinatura fora da Lixeira. Documento e evidências ficam. Na Lixeira
+     * o vencido continua Aguardando (Expirado na tela) e não tem envio a cancelar.
+     */
+    public function cancelarEnvio(): void
+    {
+        if ($this->situacao !== SituacaoDoDocumento::Aguardando || $this->estaNaLixeira()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.cancelar_fora_do_envio');
+        }
+
+        $this->situacao = SituacaoDoDocumento::Cancelado;
+    }
+
+    /** Aguardando com o prazo passado: a tela mostra Expirado e o link, "Prazo encerrado". */
+    public function estaVencido(\DateTimeImmutable $agora): bool
+    {
+        return $this->situacao === SituacaoDoDocumento::Aguardando && $this->venceEm !== null && $agora > $this->venceEm;
+    }
+
+    /**
+     * O que a tela pública mostra a este signatário, na precedência do desenho (inventário G10): já assinou > recusou >
+     * cancelado (inclusive na Lixeira e recusado por outro) > concluído > prazo > ordem.
+     */
+    public function estadoPara(Signatario $signatario, \DateTimeImmutable $agora): EstadoDaPagina
+    {
+        return match (true) {
+            $signatario->getSituacao() === SituacaoDoSignatario::Assinado => $this->situacao === SituacaoDoDocumento::Concluido
+                ? EstadoDaPagina::Concluido
+                : EstadoDaPagina::JaAssinado,
+            $signatario->getSituacao() === SituacaoDoSignatario::Recusado => EstadoDaPagina::Recusado,
+            $this->estaNaLixeira() || $this->situacao === SituacaoDoDocumento::Cancelado => EstadoDaPagina::Cancelado,
+            // Recusado por outro signatário: "Envio cancelado", sem dizer quem recusou (texto G7).
+            $this->situacao === SituacaoDoDocumento::Recusado => EstadoDaPagina::Cancelado,
+            $this->situacao === SituacaoDoDocumento::Concluido => EstadoDaPagina::Concluido,
+            $this->situacao !== SituacaoDoDocumento::Aguardando => EstadoDaPagina::Invalido,
+            $this->estaVencido($agora) => EstadoDaPagina::PrazoEncerrado,
+            $this->anteriorPendente($signatario) !== null => EstadoDaPagina::AguardandoAnterior,
+            default => EstadoDaPagina::Pronto,
+        };
+    }
+
+    /** Com "em ordem": o primeiro signatário antes deste que ainda não assinou. Sem ordem, ninguém espera ninguém. */
+    public function anteriorPendente(Signatario $signatario): ?Signatario
+    {
+        if (!$this->emOrdem) {
+            return null;
+        }
+
+        foreach ($this->getSignatarios() as $outro) {
+            if ($outro->getOrdem() >= $signatario->getOrdem()) {
+                break;
+            }
+            if ($outro->getSituacao() !== SituacaoDoSignatario::Assinado) {
+                return $outro;
+            }
+        }
+
+        return null;
+    }
+
+    /** O primeiro pendente na ordem da lista: o alvo do lembrete e, com "em ordem", quem tem a vez. */
+    public function primeiroPendente(): ?Signatario
+    {
+        foreach ($this->getSignatarios() as $signatario) {
+            if ($signatario->estaPendente()) {
+                return $signatario;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Registra a assinatura de quem tem a vez. O último a assinar conclui o documento.
+     *
+     * @return bool se o documento foi concluído agora
+     *
+     * @throws AcaoRecusada fora da vez
+     */
+    public function assinar(Signatario $signatario, string $nome, string $cpf, string $rubricaChave, string $metodo, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): bool
+    {
+        $this->exigirVez($signatario, $agora);
+        $signatario->registrarAssinatura($nome, $cpf, $rubricaChave, $metodo, $ip, $userAgent, $agora);
+
+        return $this->concluirSeTodosAssinaram($agora);
+    }
+
+    /**
+     * Registra a assinatura gov.br ou ICP de quem tem a vez (contrato da etapa 5, seção 2, item 3): sem rubrica, com o
+     * nível como método. O último a assinar conclui o documento, como na Simples. Quem chama já conferiu e guardou o
+     * PDF devolvido na mesma transação.
+     *
+     * @return bool se o documento foi concluído agora
+     *
+     * @throws AcaoRecusada fora da vez
+     */
+    public function assinarComCertificado(Signatario $signatario, string $nome, string $cpf, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): bool
+    {
+        $this->exigirVez($signatario, $agora);
+        $signatario->registrarAssinaturaComCertificado($nome, $cpf, $ip, $userAgent, $agora);
+
+        return $this->concluirSeTodosAssinaram($agora);
+    }
+
+    /**
+     * A recusa de quem tem a vez encerra o documento: os links dos demais deixam de valer.
+     *
+     * @throws AcaoRecusada fora da vez
+     */
+    public function recusar(Signatario $signatario, string $motivo, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): void
+    {
+        $this->exigirVez($signatario, $agora);
+        $signatario->registrarRecusa($motivo, $ip, $userAgent);
+        $this->situacao = SituacaoDoDocumento::Recusado;
+    }
+
+    /**
+     * Só quem está "pronto" age: documento aguardando, no prazo, signatário pendente e, com ordem, a vez dele.
+     *
+     * @throws AcaoRecusada com o texto do estado em que o signatário está
+     */
+    public function exigirVez(Signatario $signatario, \DateTimeImmutable $agora): void
+    {
+        if ($signatario->getDocumento() !== $this) {
+            throw new \LogicException('O signatário não é deste documento.');
+        }
+
+        $estado = $this->estadoPara($signatario, $agora);
+        if ($estado !== EstadoDaPagina::Pronto) {
+            throw new AcaoRecusada($estado->chaveDoTexto());
+        }
     }
 
     /** Tira da Lixeira. A situação fica como está: o envio cancelado não volta. */
@@ -433,6 +752,46 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         return $this->arquivoEnviadoPaginas;
     }
 
+    public function getCodigo(): ?string
+    {
+        return $this->codigo;
+    }
+
+    public function getArquivoFinalChave(): ?string
+    {
+        return $this->arquivoFinalChave;
+    }
+
+    public function getHashFinal(): ?string
+    {
+        return $this->hashFinal;
+    }
+
+    public function getPasta(): ?Pasta
+    {
+        return $this->pasta;
+    }
+
+    public function isVinculoPendente(): bool
+    {
+        return $this->vinculoPendente;
+    }
+
+    public function getVinculadoPor(): ?User
+    {
+        return $this->vinculadoPor;
+    }
+
+    public function getVinculadoEm(): ?\DateTimeImmutable
+    {
+        return $this->vinculadoEm;
+    }
+
+    public function getPastaDocumento(): ?PastaDocumento
+    {
+        return $this->pastaDocumento;
+    }
+
     public function temArquivo(): bool
     {
         return $this->arquivoEnviadoChave !== null;
@@ -462,6 +821,36 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
             $this->getSignatarios(),
             static fn (Signatario $s): bool => $s->getSituacao() === SituacaoDoSignatario::Assinado,
         ));
+    }
+
+    /** As colunas guardam segundos: o objeto em memória fica igual ao que volta do banco (e o token, igual). */
+    private static function emSegundos(\DateTimeImmutable $agora): \DateTimeImmutable
+    {
+        return (new \DateTimeImmutable('@' . $agora->getTimestamp()))->setTimezone(new \DateTimeZone(date_default_timezone_get()));
+    }
+
+    /** O mesmo objeto ou o mesmo id gravado: uma pasta ou um arquivo de outro escritório nunca entra no vínculo. */
+    private static function doMesmoEscritorio(Tenant $tenant, ?Tenant $outro): bool
+    {
+        return $outro !== null && ($outro === $tenant || ($tenant->getId() !== null && $tenant->getId() === $outro->getId()));
+    }
+
+    private static function mesmaPasta(Pasta $pasta, ?Pasta $outra): bool
+    {
+        return $outra !== null && ($outra === $pasta || ($pasta->getId() !== null && $pasta->getId() === $outra->getId()));
+    }
+
+    /** Com todos assinados, o documento conclui na hora da última assinatura. */
+    private function concluirSeTodosAssinaram(\DateTimeImmutable $agora): bool
+    {
+        if ($this->contarAssinados() < $this->signatarios->count()) {
+            return false;
+        }
+
+        $this->situacao = SituacaoDoDocumento::Concluido;
+        $this->concluidoEm = self::emSegundos($agora);
+
+        return true;
     }
 
     /** @throws AcaoRecusada */

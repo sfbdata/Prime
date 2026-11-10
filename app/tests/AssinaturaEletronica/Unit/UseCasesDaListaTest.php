@@ -6,6 +6,7 @@ namespace App\Tests\AssinaturaEletronica\Unit;
 
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
+use App\AssinaturaEletronica\Entity\VersaoDoPdf;
 use App\AssinaturaEletronica\Enum\CorDaLinha;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
@@ -14,6 +15,7 @@ use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
+use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\AssinaturaEletronica\Service\DocumentosDaSelecao;
 use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
 use App\AssinaturaEletronica\UseCase\ExcluirRascunhosUseCase;
@@ -53,6 +55,9 @@ final class UseCasesDaListaTest extends TestCase
 
     private bool $travaConfigurada = false;
 
+    /** @var array<int, list<VersaoDoPdf>> as versões guardadas do PDF, pelo id do documento */
+    private array $versoesPorDocumento = [];
+
     protected function setUp(): void
     {
         $this->tenant = new Tenant();
@@ -83,6 +88,22 @@ final class UseCasesDaListaTest extends TestCase
             [1, TipoDeEvento::MovidoParaLixeira],
             [2, TipoDeEvento::MovidoParaLixeira],
         ], $this->eventosGravados());
+    }
+
+    #[TestDox('Lixeira: o vencido continua Expirado e só registra "Movido para a Lixeira", sem cancelamento')]
+    public function testMoverParaLixeiraComVencido(): void
+    {
+        $vencido = $this->documento(1, SituacaoDoDocumento::Aguardando);
+        // Um segundo antes do relógio do teste, que o MockClock monta em UTC.
+        $venceu = new \DateTimeImmutable('2026-11-09 09:59:59', new \DateTimeZone('UTC'));
+        (new \ReflectionProperty(DocumentoParaAssinar::class, 'venceEm'))->setValue($vencido, $venceu);
+        $this->selecionar([1], [$vencido]);
+
+        $this->moverParaLixeira()->executar(new User(), $this->tenant, [1]);
+
+        self::assertSame(SituacaoDoDocumento::Aguardando, $vencido->getSituacao(), 'não vira Cancelado');
+        self::assertTrue($vencido->estaNaLixeira());
+        self::assertSame([[1, TipoDeEvento::MovidoParaLixeira]], $this->eventosGravados());
     }
 
     #[TestDox('Lixeira: o que outra ação levou para a Lixeira depois da leitura não ganha evento de novo (decide com a linha travada e relida)')]
@@ -238,6 +259,35 @@ final class UseCasesDaListaTest extends TestCase
         self::assertFalse($disco->existe($logo));
     }
 
+    #[TestDox('excluir de vez (etapa 5): o arquivo próprio do original já assinado também sai do disco, depois do banco')]
+    public function testExcluirApagaArquivoDaVersao(): void
+    {
+        $disco = new ArmazenamentoEmMemoria();
+        $pdf = new ChaveDeArquivo(EscopoDeArquivo::deTenant(9), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'a1.pdf');
+        $original = new ChaveDeArquivo(EscopoDeArquivo::deTenant(9), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'v1.pdf');
+        $alheia = new ChaveDeArquivo(EscopoDeArquivo::deTenant(9), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'v2.pdf');
+        $disco->semear($pdf);
+        $disco->semear($original);
+        $disco->semear($alheia);
+        $rascunho = $this->documento(1);
+        $rascunho->definirArquivo('a1.pdf', 'contrato.pdf', 2);
+        $this->versoesPorDocumento[1] = [VersaoDoPdf::original($rascunho, 1, 'v1.pdf', 'contrato.pdf', str_repeat('a', 64), 10, ['v' => 1], new \DateTimeImmutable())];
+        $rascunho->moverParaLixeira(null, new \DateTimeImmutable());
+        $this->selecionar([1], [$rascunho]);
+        $removidos = [];
+        $this->documentos->method('remover')->willReturnCallback(static function (DocumentoParaAssinar $d) use (&$removidos, $disco, $original): void {
+            $removidos[] = $d->getId();
+            self::assertTrue($disco->existe($original), 'o arquivo da versão só sai depois do banco');
+        });
+
+        $this->excluir($disco)->executar($this->tenant, [1]);
+
+        self::assertSame([1], $removidos);
+        self::assertFalse($disco->existe($pdf));
+        self::assertFalse($disco->existe($original));
+        self::assertTrue($disco->existe($alheia), 'arquivo que não é versão do documento fica');
+    }
+
     #[TestDox('cor: pinta todos os marcados, mesmo na Lixeira, sem evento na trilha')]
     public function testPintar(): void
     {
@@ -261,7 +311,10 @@ final class UseCasesDaListaTest extends TestCase
 
     private function excluir(ArmazenamentoEmMemoria $disco): ExcluirRascunhosUseCase
     {
-        return new ExcluirRascunhosUseCase(new DocumentosDaSelecao($this->documentos), $this->documentos, new RemocaoAposTransacao($disco, new NullLogger()));
+        $versoes = $this->createStub(VersaoDoPdfRepository::class);
+        $versoes->method('doDocumento')->willReturnCallback(fn (DocumentoParaAssinar $d): array => $this->versoesPorDocumento[(int) $d->getId()] ?? []);
+
+        return new ExcluirRascunhosUseCase(new DocumentosDaSelecao($this->documentos), $this->documentos, new RemocaoAposTransacao($disco, new NullLogger()), $versoes);
     }
 
     private function trilha(): TrilhaDoDocumento

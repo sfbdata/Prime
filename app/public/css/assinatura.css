@@ -1,7 +1,7 @@
 /* =============================================================================
-   assinatura.css: tela Assinatura de documentos, etapa 1.
+   assinatura.css: tela Assinatura de documentos, etapas 1 e 2 (a tela pública tem o próprio assinatura-publica.css).
    Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html (CSS das linhas 28 a 110 e os
-   estilos em linha da marcação). Contrato: docs/specs/assinatura-documentos-etapa-1.md.
+   estilos em linha da marcação). Contratos: docs/specs/assinatura-documentos-etapa-1.md e -etapa-2.md.
 
    Tudo vive sob `.bja`, com prefixo `bja`. Os componentes são os do desenho (cartão, botões, chips, tabela, selo,
    menu de contexto, janela e aviso); nada de .card, .modal ou .btn do sistema.
@@ -58,6 +58,7 @@
     --bja-verm: #a3232b;
     --bja-verm-tx: #7f1c23;
     --bja-verm-claro: #fdecee;
+    --bja-verde-tx: #145a32;
     --bja-cor-borda: #9aabb7;
     --bja-pv: #dfe6ec;
     --bja-sombra: 0 1px 3px rgba(18, 36, 47, .06);
@@ -96,6 +97,7 @@
     --bja-neutro-hover: rgba(255, 255, 255, .06);
     --bja-verm-tx: #f08a92;
     --bja-verm-claro: rgba(163, 35, 43, .18);
+    --bja-verde-tx: #7fd1a1;
     --bja-cor-borda: var(--bs-border-color);
     --bja-pv: var(--bs-secondary-bg);
     --bja-sombra: none;
@@ -193,6 +195,7 @@
     --bja-mudo: #5b7383;
     --bja-azul-tx: #0a6fa0;
     --bja-azul-claro: #e5f1f7;
+    --bja-verde-tx: #145a32;
     --bja-card: #fff;
     --bja-borda: #d3dde4;
     --bja-div: #e6edf2;
@@ -265,7 +268,7 @@
 .bja .bjaLogoMini img { max-width: 94px; max-height: 52px; display: block; }
 .bja .bjaLogoBts { display: flex; gap: 5px; flex-wrap: wrap; }
 .bja label.bjaB { cursor: pointer; }
-.bja .bjaLogoFix { display: flex; align-items: center; gap: 7px; margin-top: 7px; font-size: 12.5px; color: var(--bja-t2); cursor: pointer; }
+.bja .bjaLogoFix { display: flex; align-items: center; gap: 7px; margin-top: 7px; font-size: 12.5px; color: var(--bja-t2); }
 .bja .bjaLogoFix input { width: 15px; height: 15px; }
 .bja .bjaNota { font-size: 11.5px; color: var(--bja-mudo); margin-top: 5px; }
 .bja .bjaOpcoes { padding: 10px 12px; border: 1px solid var(--bja-borda); border-left: 4px solid #0a6fa0; border-radius: 3px; background: var(--bja-sutil); display: flex; flex-direction: column; gap: 10px; }
@@ -276,7 +279,7 @@
 .bja .bjaP3 { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .bja .bjaP3Cab { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bja .bjaP3Cab > b { flex: 1 1 200px; font-size: 15px; }
-.bja .bjaOrdem { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--bja-t2); cursor: pointer; margin: 0; }
+.bja .bjaOrdem { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--bja-t2); margin: 0; }
 .bja .bjaOrdem input { width: 16px; height: 16px; }
 .bja .bjaSigCx { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: end; padding: 10px 12px; border: 1px solid var(--bja-borda); border-left: 4px solid #0a6fa0; border-radius: 3px; }
 
@@ -294,11 +297,14 @@
 .bja .bjaSigTop > b { flex: 1; min-width: 0; font-size: 14px; }
 .bja .bjaSigPapel { font-size: 12.5px; color: var(--bja-mudo); }
 .bja .bjaSigInfo { font-size: 12.5px; color: var(--bja-t2); }
+/* Copiar link, E-mail, WhatsApp e Tela do signatário (linha 221 do desenho). */
+.bja .bjaSigBts { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
 .bja .bjaCodCard { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .bja .bjaCodRot { font-size: 12px; font-weight: bold; color: var(--bja-t3); }
 .bja .bjaCodVal { font: bold 17px monospace; color: #a3232b; letter-spacing: 1px; }
 [data-bs-theme="dark"] .bja .bjaCodVal { color: var(--bja-verm-tx); }
 .bja .bjaCodBts { display: flex; gap: 6px; flex-wrap: wrap; }
+.bja .bjaCodBts .bjaB { height: 38px; }
 .bja .bjaTrilha { max-height: 300px; overflow-y: auto; }
 .bja .bjaEv { padding: 8px 14px; border-bottom: 1px solid var(--bja-div); font-size: 12.5px; }
 .bja .bjaEv > div { color: var(--bja-mudo); }
@@ -317,14 +323,32 @@
 .bja .bjaCtxCoresLin { display: flex; gap: 4px; }
 
 .bja .bjaModal { position: fixed; inset: 0; z-index: 2147483300; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
-.bja .bjaModalCx { width: 100%; max-width: 460px; box-sizing: border-box; }
+.bja .bjaModalCx { width: 100%; max-width: 460px; }
 .bja .bjaModalTx { padding: 14px 16px; font-size: 14px; line-height: 1.5; color: var(--bja-corpo); }
 .bja .bjaModalPe { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; background: var(--bja-sutil); }
 
-.bja .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); box-sizing: border-box; background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }
+.bja .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }
 .bja .bjaToast.is-erro { background: #a3232b; }
 .bja .bjaToast.is-aviso { background: #8a6200; }
 .bja .bjaToast.is-info { background: #0a6fa0; }
+
+/* ── Vincular à pasta de Expediente (etapa 3, bloco 3; desenho 17, linhas 149, 222 e 277) ── */
+/* O verde do desenho (#145a32) não se lê no fundo escuro: `--bja-verde-tx` vira um verde claro no tema escuro, e a
+   linha pintada volta ao do desenho, como os outros textos dela. */
+.bja .bjaVincLin { display: inline-flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 12px; font-weight: bold; color: var(--bja-verde-tx); text-decoration: none; }
+.bja .bjaVincDet { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: var(--bja-verde-tx); text-decoration: none; }
+.bja .bjaVincLin:hover, .bja .bjaVincDet:hover { color: var(--bja-verde-tx); }
+.bja .bjaVincFundo { position: fixed; inset: 0; z-index: 2147483100; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.bja .bjaVincCx { width: 100%; max-width: 560px; overflow: hidden; box-sizing: border-box; }
+.bja .bjaVincCorpo { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.bja .bjaVincInfo { font-size: 13px; color: var(--bja-t2); }
+.bja .bjaVincLista { max-height: 300px; overflow-y: auto; border: 1px solid var(--bja-div); }
+.bja .bjaVincIt { display: flex; gap: 10px; width: 100%; padding: 8px 10px; border: none; border-bottom: 1px solid var(--bja-div); background: var(--bja-card); font: inherit; font-size: 13.5px; color: var(--bja-texto); text-align: left; cursor: pointer; margin: 0; box-sizing: border-box; }
+.bja .bjaVincIt:hover { background: #3b8fc2; color: #fff; }
+.bja .bjaVincIt > b { min-width: 64px; }
+.bja .bjaVincIt > .bjaVincCli { flex: 1; min-width: 0; }
+.bja .bjaVincIt > .bjaVincAcao { font-size: 12px; }
+.bja .bjaVincVazio { padding: 14px; font-size: 13px; color: var(--bja-mudo); }
 
 /* Balão das dicas (data-tip): o do bj-dica.js do desenho, valores linha a linha. Fica com as cores do desenho nos
    dois temas, como os selos. */
@@ -370,6 +394,38 @@
 .bja .bjaC .cols .hd { font-weight: bold; break-after: avoid; margin: 0 0 3px; }
 .bja .bjaC .cols .bjaAss { break-inside: avoid; margin: 16px auto 6px; }
 
+/* ── Modelos do escritório (etapa 4): coluna de ações do cartão, "Criar novo modelo" do passo 1 e editor.
+   Valores do desenho (dc:155-156, 175, 204-212 e 85-90). ─────────────────────────────────────────────── */
+.bja .bjaModAc { display: flex; flex-direction: column; gap: 3px; padding: 6px; border-left: 1px solid var(--bja-div); justify-content: center; }
+.bja .bjaLinBusca > .bjaB { height: 34px; }
+.bja .bjaTopoMod { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.bja .bjaH1Mod { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: normal; line-height: normal; flex: 1 1 220px; color: var(--bja-texto); }
+.bja .bjaMdImp { height: 38px; cursor: pointer; }
+.bja .bjaMdEdCol { flex-basis: 560px; }
+.bja .bjaMdPvCol { flex-basis: 460px; }
+.bja .bjaMdCampos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--bja-div); }
+.bja .bjaMdLimpa { align-self: center; padding-top: 16px; }
+.bja .bjaMdBarra { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 8px 14px; background: var(--bja-tab); border-bottom: 1px solid var(--bja-borda); }
+.bja .bjaMdDiv { width: 1px; height: 22px; background: var(--bja-borda); margin: 0 4px; }
+.bja .bjaMdIns { width: 170px; height: 32px; }
+.bja .bjaMdCriar { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 14px; border-bottom: 1px solid var(--bja-div); }
+.bja .bjaMdPar { display: flex; gap: 4px; flex: 1 1 220px; }
+.bja .bjaMdPar > .bjaB { height: 34px; }
+.bja .bjaMdErro { font-size: 12.5px; color: #a3232b; margin-top: 6px; }
+[data-bs-theme="dark"] .bja .bjaMdErro { color: var(--bja-verm-tx); }
+.bja .bjaEd { min-height: 380px; max-height: 62vh; overflow-y: auto; padding: 18px 22px; font-size: 14px; line-height: 1.55; outline: none; color: var(--bja-texto); }
+.bja .bjaEd:focus { box-shadow: inset 0 0 0 2px var(--bja-azul-borda); }
+/* Títulos com o padrão do navegador do desenho (negrito, entrelinha do texto), não o do Bootstrap. */
+.bja .bjaEd :is(h1, h2, h3) { font-weight: bold; line-height: inherit; color: inherit; }
+.bja .bjaEd h1 { font-size: 19px; text-align: center; margin: 0 0 4px; }
+.bja .bjaEd h2 { font-size: 15px; text-align: center; margin: 0 0 12px; }
+.bja .bjaEd h3 { font-size: 14px; margin: 12px 0 5px; }
+.bja .bjaEd p { margin: 0 0 10px; text-align: justify; }
+.bja .bjaEd p[data-d] { text-align: right; }
+.bja .bjaEd p[data-n] { text-align: right; color: #44546a; }
+.bja .bjaEd .ch { display: inline-block; padding: 0 6px; background: #fff3cd; border: 1px solid #e0c36a; border-radius: 2px; color: #7a5200; font-size: 12.5px; }
+.bja .bjaEd div[data-ass] { margin: 18px auto 12px; max-width: 320px; text-align: center; border-top: 1px solid var(--bja-texto); padding-top: 4px; font-size: 12.5px; }
+
 /* ── Telas menores ──────────────────────────────────────────────────── */
 @media (max-width: 980px) {
     .bja .bjaLat { max-width: none; flex-basis: 100%; }
@@ -385,7 +441,6 @@
     .bja .bjaT.resp tr { display: block; }
     .bja .bjaT.resp tr { padding: 10px 12px; border-bottom: 1px solid var(--bja-div); }
     .bja .bjaT.resp td { display: block; padding: 3px 0; border: none; }
-    .bja .bjaT.resp td.bjaTdSel { width: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
     .bja .bjaToast { animation-duration: .01ms !important; animation-delay: 0s !important; }

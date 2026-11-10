@@ -73,6 +73,21 @@ final class TermoAceiteListener
         'push_compartilhado',
         'push_compartilhado_codigo',
         'push_compartilhado_renovacao',
+        // Link do signatário da Assinatura de documentos: página pública de terceiro, não depende de termo nem de
+        // escritório (o escritório sai do documento achado pelo hash do token).
+        'assinatura_eletronica_publica',
+        'assinatura_eletronica_publica_codigo',
+        'assinatura_eletronica_publica_assinar',
+        'assinatura_eletronica_publica_recusa',
+        'assinatura_eletronica_publica_arquivo',
+        'assinatura_eletronica_publica_logo',
+        'assinatura_eletronica_publica_rubrica',
+        'assinatura_eletronica_publica_pdf',
+        'assinatura_eletronica_publica_invalido',
+        // Validação pública do código BJA (etapa 3): quem lê o QR do PDF pode estar logado sem escritório ou sem aceite.
+        'assinatura_eletronica_publica_validar',
+        'assinatura_eletronica_publica_validar_codigo',
+        'assinatura_eletronica_publica_validar_consulta',
         // Cédula da assembleia de condomínio (Voto): página pública do morador, não depende de termo nem de escritório.
         'voto_assembleia_cedula',
         'voto_assembleia_cedula_votar',

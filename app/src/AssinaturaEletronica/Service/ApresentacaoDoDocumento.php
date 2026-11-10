@@ -8,7 +8,9 @@ use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
+use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\Entity\Tenant\Tenant;
 use Symfony\Component\Asset\Packages;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -16,7 +18,18 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * As formas `Resumo` e `Detalhe` do JSON da tela (contrato da etapa 1, seção 4.1). Datas em ISO 8601; o texto de cada
- * evento sai do catálogo, com os parâmetros guardados no próprio evento.
+ * evento sai do catálogo, com os parâmetros guardados no próprio evento e o `{nome}` de quem o evento trata.
+ *
+ * Etapa 2 (contrato da etapa 2, seção 5.1): o `Detalhe` traz o hash e as datas do envio e, por signatário, o link do
+ * signatário (só enquanto ele pode assinar e com o segredo configurado), a rubrica, o motivo da recusa e o nome
+ * digitado ao assinar.
+ *
+ * Etapa 3 (contrato da etapa 3, seção 2, item 11): `codigo`, o código de validação do selo, no `Resumo` e por ele no
+ * `Detalhe`; nulo no rascunho. Bloco 3 (E3-10): `vinculado` e `vinculo`, pelo {@see VinculoNaTela}.
+ *
+ * Etapa 5, bloco 5A: `jaAssinado`, o quadro "Documento já assinado" do detalhe (dc:218) a partir da versão mais recente
+ * do PDF que chegou assinado (o original ou o último devolvido), com a URL de "Baixar original com as assinaturas";
+ * nulo sem ela.
  */
 final readonly class ApresentacaoDoDocumento
 {
@@ -26,7 +39,26 @@ final readonly class ApresentacaoDoDocumento
         private UrlGeneratorInterface $urls,
         private TranslatorInterface $tradutor,
         private Packages $assets,
+        private ChaveDaAssinatura $chave,
+        private VersaoDoPdfRepository $versoes,
+        private ApresentacaoDaConferencia $conferencia,
+        private ?VinculoNaTela $vinculos = null,
     ) {
+    }
+
+    /**
+     * As linhas da lista: o `Resumo` de cada documento, com os vínculos à pasta lidos numa consulta só, pelos ids da
+     * resposta (E3-10).
+     *
+     * @param list<ResumoDoDocumento> $resumos
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function resumos(array $resumos): array
+    {
+        $this->vinculos?->prepararLinhas(array_map(static fn (ResumoDoDocumento $r): int => $r->id, $resumos));
+
+        return array_map($this->resumo(...), $resumos);
     }
 
     /**
@@ -35,6 +67,12 @@ final readonly class ApresentacaoDoDocumento
      * @return array<string, mixed>
      */
     public function resumo(ResumoDoDocumento $resumo): array
+    {
+        return array_merge($this->camposDoResumo($resumo), $this->vinculos?->daLinha($resumo->id) ?? VinculoNaTela::SEM_VINCULO);
+    }
+
+    /** @return array<string, mixed> */
+    private function camposDoResumo(ResumoDoDocumento $resumo): array
     {
         return [
             'id' => $resumo->id,
@@ -46,6 +84,7 @@ final readonly class ApresentacaoDoDocumento
             'venceEm' => self::iso($resumo->venceEm),
             'cor' => $resumo->cor->value,
             'naLixeira' => $resumo->naLixeira,
+            'codigo' => $resumo->codigo,
             'assinados' => $resumo->contarAssinados(),
             'total' => \count($resumo->signatarios),
             'signatarios' => array_map(
@@ -62,7 +101,9 @@ final readonly class ApresentacaoDoDocumento
      */
     public function detalhe(DocumentoParaAssinar $documento, array $eventos): array
     {
-        return array_merge($this->resumo(ResumoDoDocumento::deDocumento($documento)), [
+        $vinculo = $this->vinculos?->doDocumento($documento) ?? ['vinculado' => $documento->getPasta() !== null, 'vinculo' => null];
+
+        return array_merge($this->camposDoResumo(ResumoDoDocumento::deDocumento($documento)), $vinculo, [
             'modelo' => $documento->getModeloChave(),
             'blocos' => $documento->getBlocos(),
             'layout' => $documento->getLayout(),
@@ -73,11 +114,58 @@ final readonly class ApresentacaoDoDocumento
             'prazoDias' => $documento->getPrazoDias(),
             'logo' => ['tipo' => $documento->getLogoTipo()->value, 'url' => $this->urlDaLogo($documento)],
             'arquivo' => $this->arquivo($documento),
-            'signatarios' => array_map(self::signatario(...), $documento->getSignatarios()),
+            'jaAssinado' => $this->jaAssinado($documento),
+            'hashEnviado' => $documento->getHashEnviado(),
+            'enviadoEm' => self::iso($documento->getEnviadoEm()),
+            'concluidoEm' => self::iso($documento->getConcluidoEm()),
+            'signatarios' => array_map($this->signatario(...), $documento->getSignatarios()),
             'eventos' => array_map(fn (EventoDaTrilha $e): array => [
                 'em' => self::iso($e->getCriadoEm()),
-                'texto' => $this->tradutor->trans($e->getTipo()->chaveDoTexto(), $e->getDados()),
+                'texto' => TextoDoEvento::de($this->tradutor, $e),
             ], $eventos),
+        ]);
+    }
+
+    /**
+     * O link do signatário (URL absoluta com o token): só com o documento aguardando, o signatário pendente, o segredo
+     * configurado e o token recalculado batendo com o `token_hash` guardado no envio (depois de uma troca do segredo,
+     * nulo: a tela mostra o aviso de sem chave e o e-mail não sai). O token é derivado a cada chamada, nunca guardado.
+     */
+    public function linkDoSignatario(Signatario $signatario): ?string
+    {
+        $documento = $signatario->getDocumento();
+        if ($documento->getSituacao() !== SituacaoDoDocumento::Aguardando || $documento->estaNaLixeira() || !$signatario->estaPendente()) {
+            return null;
+        }
+        $token = $this->chave->tokenConferido($signatario);
+
+        return $token !== null
+            ? $this->urls->generate('assinatura_eletronica_publica', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL)
+            : null;
+    }
+
+    /** A logo da folha vista de dentro do escritório (detalhe e prévia). */
+    public function urlDaLogo(DocumentoParaAssinar $documento): ?string
+    {
+        return match ($documento->getLogoTipo()) {
+            TipoDeLogo::Bluejus => $this->urlDaLogoBluejus(),
+            TipoDeLogo::Escritorio => $this->urlDaLogoDoEscritorio($documento->getTenant()),
+            TipoDeLogo::Propria => $documento->getLogoChave() !== null
+                ? $this->urls->generate('assinatura_eletronica_logo', ['id' => $documento->getId()])
+                : null,
+        };
+    }
+
+    /** A rubrica de quem assinou, vista de dentro do escritório. */
+    public function urlDaRubrica(Signatario $signatario): ?string
+    {
+        if ($signatario->getRubricaChave() === null) {
+            return null;
+        }
+
+        return $this->urls->generate('assinatura_eletronica_rubrica', [
+            'id' => $signatario->getDocumento()->getId(),
+            'ordem' => $signatario->getOrdem(),
         ]);
     }
 
@@ -98,17 +186,6 @@ final readonly class ApresentacaoDoDocumento
         return $this->urls->generate('meu_escritorio_logo', ['tenantId' => $tenant->getId()]);
     }
 
-    private function urlDaLogo(DocumentoParaAssinar $documento): ?string
-    {
-        return match ($documento->getLogoTipo()) {
-            TipoDeLogo::Bluejus => $this->urlDaLogoBluejus(),
-            TipoDeLogo::Escritorio => $this->urlDaLogoDoEscritorio($documento->getTenant()),
-            TipoDeLogo::Propria => $documento->getLogoChave() !== null
-                ? $this->urls->generate('assinatura_eletronica_logo', ['id' => $documento->getId()])
-                : null,
-        };
-    }
-
     /** @return array{url: string, nome: string, paginas: ?int}|null */
     private function arquivo(DocumentoParaAssinar $documento): ?array
     {
@@ -123,8 +200,27 @@ final readonly class ApresentacaoDoDocumento
         ];
     }
 
+    /**
+     * O `pres` do desenho: a versão atual do PDF que chegou assinado
+     * ({@see VersaoDoPdfRepository::ultimaQueNaoEParaAssinar()}).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function jaAssinado(DocumentoParaAssinar $documento): ?array
+    {
+        $versao = $this->versoes->ultimaQueNaoEParaAssinar($documento);
+        if ($versao === null) {
+            return null;
+        }
+        $quadro = $this->conferencia->quadro(SerializacaoDaConferencia::deJson($versao->getAnalise()));
+
+        return $quadro !== null
+            ? $quadro + ['original' => $this->urls->generate('assinatura_eletronica_original', ['id' => $documento->getId()])]
+            : null;
+    }
+
     /** @return array<string, mixed> */
-    private static function signatario(Signatario $s): array
+    private function signatario(Signatario $s): array
     {
         return [
             'id' => $s->getId(),
@@ -137,6 +233,15 @@ final readonly class ApresentacaoDoDocumento
             'situacao' => $s->getSituacao()->value,
             'assinadoEm' => self::iso($s->getAssinadoEm()),
             'metodo' => $s->getMetodo(),
+            'link' => $this->linkDoSignatario($s),
+            'rubrica' => $this->urlDaRubrica($s),
+            'recusadoMotivo' => $s->getMotivoRecusa(),
+            'nomeDigitado' => $s->getNomeDigitado(),
+            // Etapa 7: se há selfie guardada (a imagem não sai no Detalhe) e a localização como gravada.
+            'selfie' => $s->getSelfieChave() !== null,
+            'localizacao' => $s->getLatitude() !== null && $s->getLongitude() !== null
+                ? ['latitude' => $s->getLatitude(), 'longitude' => $s->getLongitude(), 'precisao' => $s->getPrecisao()]
+                : null,
         ];
     }
 
