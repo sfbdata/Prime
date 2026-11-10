@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
@@ -30,11 +32,12 @@ final class FolhaPontoXlsxExporterTest extends TestCase
     private const CAMPOS = ['nomeEmpresa', 'enderecoLinha1', 'enderecoLinha2', 'nomeUsuario', 'responsavelAssinatura'];
 
     /**
-     * @param array<string, mixed> $contexto
+     * @param array<string, mixed>       $contexto
+     * @param list<array<string, mixed>> $linhas
      */
-    private function gerar(array $contexto): Worksheet
+    private function gerar(array $contexto, array $linhas = []): Worksheet
     {
-        $resposta = (new FolhaPontoXlsxExporter())->exportar([], 'folha.xlsx', $contexto + ['mes' => 10, 'ano' => 2026]);
+        $resposta = (new FolhaPontoXlsxExporter())->exportar($linhas, 'folha.xlsx', $contexto + ['mes' => 10, 'ano' => 2026]);
 
         ob_start();
         $resposta->sendContent();
@@ -110,5 +113,42 @@ final class FolhaPontoXlsxExporterTest extends TestCase
             self::assertSame(DataType::TYPE_STRING, $this->celulaCom($aba, $texto)->getDataType());
         }
         self::assertSame('Maria da Silva', $aba->getCell('A' . $this->celulaCom($aba, 'João Souza')->getRow())->getValue());
+    }
+
+    #[TestDox('E11: o Descanso Semanal Remunerado sai do dado da folha (desenho L693), não mais fixo em Conforme')]
+    public function testDescansoSemanalDaFolha(): void
+    {
+        $this->celulaCom($this->gerar(['descansoSemanalConforme' => false]), 'Descanso Semanal Remunerado:  ✗ Não Conforme');
+        $this->celulaCom($this->gerar(['descansoSemanalConforme' => true]), 'Descanso Semanal Remunerado:  ✓ Conforme');
+        $this->celulaCom($this->gerar([]), 'Descanso Semanal Remunerado:  ✓ Conforme');
+        self::addToAssertionCount(3);
+    }
+
+    #[TestDox('Justificativa em análise sai como "(em análise)" e a recusada como "(recusada)", os nomes do desenho (E16)')]
+    public function testSituacaoDaJustificativaComOsNomesDoDesenho(): void
+    {
+        $aba = $this->gerar([], [$this->linhaComJustificativa(5, 'pendente'), $this->linhaComJustificativa(6, 'rejeitado')]);
+
+        $tipo = TipoJustificativa::Audiencia->label();
+        self::assertSame(DataType::TYPE_STRING, $this->celulaCom($aba, $tipo . ' (em análise)')->getDataType());
+        $this->celulaCom($aba, $tipo . ' (recusada)');
+        foreach ($aba->getRowIterator() as $linha) {
+            foreach ($linha->getCellIterator() as $celula) {
+                self::assertStringNotContainsString('(pendente)', (string) $celula->getValue(), 'o nome de antes voltou');
+            }
+        }
+    }
+
+    /** @return array<string, mixed> Um dia útil sem batidas, com uma justificativa na situação dada. */
+    private function linhaComJustificativa(int $dia, string $situacao): array
+    {
+        $justificativa = (new JustificativaPonto())->setTipo(TipoJustificativa::Audiencia->value)->setStatus($situacao);
+
+        return [
+            'diaMes' => $dia, 'diaSemana' => 'Seg', 'fimSemana' => false, 'isFeriado' => false, 'nomeFeriado' => null,
+            'entrada' => null, 'repouso' => null, 'retorno' => null, 'saida' => null,
+            'horasTrabalhadas' => '00:00', 'horasExtras' => '00:00', 'bancoHoras' => '00:00',
+            'justificativa' => $justificativa,
+        ];
     }
 }

@@ -30,8 +30,9 @@
     {%- if selo == 'fora' -%}
         <span class="pe-tag pe-tag--erro"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i>Fora de sequência</span>
     {%- elseif selo == 'incompleto' -%}
-        {# Dia mal batido: o zero sozinho pareceria jornada cumprida. O aviso diz que faltou BATIDA, não trabalho, e é
-           só aqui (tela do colaborador e ficha do admin); o PDF e o XLSX assinados não anunciam pendência operacional. #}
+        {# Dia mal batido: o zero sozinho pareceria jornada cumprida. O aviso diz que faltou BATIDA, não trabalho. A dica
+           (o título) é só daqui (tela do colaborador e ficha do admin); o PDF da E16 (P35 a) escreve "Registro
+           incompleto" nas observações do dia, e o XLSX continua sem anunciar pendência operacional. #}
         <span class="pe-tag pe-tag--alerta" data-bs-toggle="tooltip"
               title="Faltam batidas neste dia, então não dá para apurar a jornada: ele não credita nem debita. Corrija os registros para o saldo voltar a contar."><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Registro incompleto</span>
     {%- elseif selo == 'feriado' -%}

@@ -10,7 +10,6 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Ponto\Entity\JustificativaPonto;
-use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,6 +22,9 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * "Aprovar todos" do lote de justificativas (admin): o esquecimento de registro grava a batida
  * exatamente como a aprovação individual (spec `fix-aprovar-todos-esquecimento.md`).
  * O empregado alvo tem vínculo em A e B para exercitar o isolamento pelo escritório da URL.
+ *
+ * E10 (D18): a batida do esquecimento abonado é uma INCLUSÃO em `ponto_ajuste`, ligada à
+ * justificativa; `registro_ponto` não ganha linha. Contado no banco.
  */
 #[CoversClass(TenantController::class)]
 #[CoversClass(RegistrarBatidaDoEsquecimentoUseCase::class)]
@@ -67,12 +69,13 @@ final class AprovarTodosEsquecimentoControllerTest extends JusPrimeWebTestCase
         self::assertSame('abonado', $em->find(JustificativaPonto::class, $idComum)?->getStatus(), 'a justificativa comum segue sendo abonada');
         self::assertSame('pendente', $em->find(JustificativaPonto::class, $idDeB)?->getStatus(), 'pedido de outro escritório não é tocado');
 
-        $batidasA = $this->batidas($alvo, $tenantA);
+        $batidasA = $this->inclusoes($alvo, $tenantA);
         self::assertSame([
-            ['2026-03-10 08:07:00', 'entrada', self::OBSERVACAO],
-            ['2026-03-11 18:42:00', 'saida', self::OBSERVACAO],
-        ], $batidasA, 'só os dois esquecimentos viram batida; a justificativa comum não grava nada');
-        self::assertSame([], $this->batidas($alvo, $tenantB), 'nenhuma batida gravada no outro escritório');
+            ['2026-03-10 08:07:00', 'entrada', self::OBSERVACAO, $idEntrada, (int) $admin->getId()],
+            ['2026-03-11 18:42:00', 'saida', self::OBSERVACAO, $idSaida, (int) $admin->getId()],
+        ], $batidasA, 'só os dois esquecimentos viram inclusão, cada uma ligada à sua justificativa; a comum não grava nada');
+        self::assertSame([], $this->inclusoes($alvo, $tenantB), 'nenhuma inclusão gravada no outro escritório');
+        self::assertSame(0, $this->registros($alvo), 'registro_ponto guarda só o que a pessoa bateu');
     }
 
     #[TestDox('A aprovação individual grava a mesma batida que o aprovar todos')]
@@ -99,22 +102,37 @@ final class AprovarTodosEsquecimentoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(302);
 
         self::assertSame('abonado', $this->emSemFiltro()->find(JustificativaPonto::class, $id)?->getStatus());
-        self::assertSame([['2026-03-10 08:07:00', 'entrada', self::OBSERVACAO]], $this->batidas($alvo, $tenant));
+        self::assertSame([['2026-03-10 08:07:00', 'entrada', self::OBSERVACAO, $id, (int) $admin->getId()]], $this->inclusoes($alvo, $tenant));
+        self::assertSame(0, $this->registros($alvo));
     }
 
     // ----------------------------------------------------------------- helpers
 
-    /** @return list<array{string, string|null, string|null}> */
-    private function batidas(User $user, Tenant $tenant): array
+    /**
+     * As inclusões do esquecimento abonado da pessoa no escritório: data e hora, tipo, motivo, justificativa e autor.
+     *
+     * @return list<array{string, string, string, int, int}>
+     */
+    private function inclusoes(User $user, Tenant $tenant): array
     {
-        $registros = $this->emSemFiltro()->getRepository(RegistroPonto::class)
-            ->findBy(['user' => $user->getId(), 'tenant' => $tenant->getId()], ['dataHora' => 'ASC']);
+        $linhas = $this->emSemFiltro()->getConnection()->fetchAllAssociative(
+            "SELECT data_hora_nova, tipo_marcacao_nova, motivo, justificativa_id, autor_id FROM ponto_ajuste
+              WHERE user_id = ? AND tenant_id = ? AND tipo = 'inclusao' ORDER BY data_hora_nova",
+            [$user->getId(), $tenant->getId()],
+        );
 
-        return array_map(static fn (RegistroPonto $r): array => [
-            (string) $r->getDataHora()?->format('Y-m-d H:i:s'),
-            $r->getTipo(),
-            $r->getObservacao(),
-        ], $registros);
+        return array_map(static fn (array $l): array => [
+            (string) $l['data_hora_nova'],
+            (string) $l['tipo_marcacao_nova'],
+            (string) $l['motivo'],
+            (int) $l['justificativa_id'],
+            (int) $l['autor_id'],
+        ], $linhas);
+    }
+
+    private function registros(User $user): int
+    {
+        return (int) $this->emSemFiltro()->getConnection()->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE user_id = ?', [$user->getId()]);
     }
 
     private function emSemFiltro(): EntityManagerInterface

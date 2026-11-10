@@ -2,6 +2,9 @@
 
 namespace App\Controller;
 
+use App\Ponto\UseCase\ApagarLotacoesQueSairamUseCase;
+use App\Ponto\UseCase\RegistrarTrocaDeLotacaoUseCase;
+use App\Ponto\Controller\PontoController;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
@@ -12,14 +15,17 @@ use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Ponto\Service\BatidaJaRegistrada;
+use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\EstadoDoAceiteDaFolha;
+use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RegraDosMasters;
 use App\Entity\Auth\User;
+use Symfony\Component\Security\Core\User\UserInterface;
 use App\Entity\Auth\UserTenant;
 use App\Form\EditUserTenantRoleType;
 use App\Profile\Entity\UserProfile;
-use App\Ponto\Form\RegistroPontoManualType;
 use App\Form\SedeType;
 use App\Form\TenantCargosLotacoesType;
 use App\Form\TenantCargosType;
@@ -34,6 +40,14 @@ use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
+use App\Ponto\UseCase\AnalisarJustificativaUseCase;
+use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\GravacaoDoAjusteDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
+use App\Ponto\Service\RemocaoDaSedeDoPonto;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\SedeRepository;
@@ -96,7 +110,47 @@ final class TenantController extends AbstractController
         private readonly TranslatorInterface $tradutor,
         private readonly HorarioFuturoDaBatida $horarioFuturo,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
+        private readonly AnaliseDaPropriaJustificativa $analiseDaPropria,
     ) {}
+
+    /**
+     * Para onde a análise volta: a ficha do colaborador, como sempre; ou a aba "Minhas Justificativas" do
+     * Ponto, quando o primário ou o Master analisou a própria por lá (P43 a, desenho do Ponto, E3). O mês
+     * volta só no formato AAAA-MM; a rota é fixa, nada da requisição vira endereço.
+     */
+    private function voltaDaAnalise(Request $request, int $tenantId, User $user): Response
+    {
+        if ($request->request->get('volta') !== 'ponto') {
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
+        $competencia = (string) $request->request->get('competencia', '');
+        $parametros  = ['aba' => 'justificativas'];
+        if (preg_match('/^\d{4}-\d{2}$/D', $competencia) === 1) {
+            $parametros['competencia'] = $competencia;
+        }
+
+        return $this->redirectToRoute('ponto_index', $parametros);
+    }
+
+    /**
+     * P43 a (desenho do Ponto, E3): a própria justificativa, só o primário ou o Master analisa. A regra mora em
+     * AnaliseDaPropriaJustificativa; aqui, a decisão para quem está logado. Analisar a própria inclui abonar, recusar,
+     * aprovar todos, voltar para análise e lançar para si (lançada pelo administrador já sai abonada); a ficha
+     * mostra os botões pela mesma decisão (decisão do Coordenador, 09/11/2026).
+     */
+    private function podeAnalisar(?UserInterface $analista, User $dono, Tenant $tenant): bool
+    {
+        return $analista instanceof User && $this->analiseDaPropria->permite($analista, $dono, $tenant);
+    }
+
+    /** A recusa das rotas da ficha que analisam a justificativa (ver podeAnalisar). */
+    private function exigirQuePodeAnalisar(?UserInterface $analista, User $dono, Tenant $tenant): void
+    {
+        if (!$this->podeAnalisar($analista, $dono, $tenant)) {
+            throw $this->createAccessDeniedException(AnaliseDaPropriaJustificativa::RECUSA);
+        }
+    }
 
     /** O sucesso do "aprovar todos"; com todos pulados (batida já registrada), só os avisos deles ficam. */
     private function avisarAbonadas(int $abonadas): void
@@ -289,7 +343,8 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         UserTenantRepository $userTenantRepository,
         GuardaDaEdicaoDoEscritorio $guardaDaEdicao,
-        RegistroDeAcessoNegadoAoEscritorio $acessoNegado
+        RegistroDeAcessoNegadoAoEscritorio $acessoNegado,
+        ApagarLotacoesQueSairamUseCase $apagarLotacoes
     ): Response {
         $user = $this->getUser();
 
@@ -337,13 +392,12 @@ final class TenantController extends AbstractController
                     $lotacoesNoForm[] = $lotacao->getId();
                 }
             }
-            foreach ($tenant->getLotacoes() as $lotacaoExistente) {
-                if (!in_array($lotacaoExistente->getId(), $lotacoesNoForm, true)) {
-                    $entityManager->remove($lotacaoExistente);
-                }
-            }
+            $recusadas = $apagarLotacoes->executar($tenant, $lotacoesNoForm); // com feriado no Ponto, fica (E6)
             $entityManager->flush();
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.lotacoes_atualizadas'));
+            if ($recusadas !== []) {
+                $this->addFlash('danger', $this->tradutor->trans('escritorio.flash.lotacao_com_feriado'));
+            }
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
         }
 
@@ -524,7 +578,8 @@ final class TenantController extends AbstractController
      */
     /**
      * A folha da competência na ficha do colaborador. Cada dia usa a versão da jornada que valia nele
-     * (spec ponto-jornada-vigencia §3.2).
+     * (spec ponto-jornada-vigencia §3.2) e, sem versão no dia, a do escritório: a jornada da folha da /ponto
+     * e do banco de horas (E17, `FolhaPontoBuilder::jornadaDaFolha`).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -538,7 +593,6 @@ final class TenantController extends AbstractController
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
-        JornadaColaboradorRepository $jornadaColaboradorRepository,
     ): array {
         $batidas = $registroPontoRepository->findByUserAndCompetencia($user, $tenant, $ano, $mes);
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
@@ -550,12 +604,34 @@ final class TenantController extends AbstractController
             $batidas,
             true,
             false,
-            $jornadaColaboradorRepository->historicoDe($user, $tenant),
+            $folhaPontoBuilder->jornadaDaFolha($user, $tenant),
             $feriadoRepository->findByTenant($tenant),
             $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $ano, $mes),
             $jornadaTenant,
             $this->inicioContagemResolver->resolver($user, $tenant),
         );
+    }
+
+    /**
+     * Os meses da folha na ficha: os com batida efetiva e, desde a E10, os que só têm batida desconsiderada. O mês que
+     * perdeu a última batida efetiva continua com folha, para a linha "Desconsideradas" do dia trazer o Restaurar; sem
+     * ela, a batida tirada da conta ficava sem volta pela tela.
+     *
+     * @return list<array{valor: string, label: string, ano: int, mes: int}> do mais novo para o mais antigo
+     */
+    private function competenciasDaFolhaNaFicha(User $user, Tenant $tenant, RegistroPontoRepository $registros): array
+    {
+        $competencias = [];
+        foreach ($registros->findCompetenciasComRegistroPorUsuario($user, $tenant) as $competencia) {
+            $competencias[$competencia['valor']] = $competencia;
+        }
+        foreach ($registros->competenciasComDesconsideracao($user, $tenant) as $valor) {
+            [$ano, $mes] = array_map('intval', explode('-', $valor));
+            $competencias[$valor] ??= ['valor' => $valor, 'label' => sprintf('%02d/%04d', $mes, $ano), 'ano' => $ano, 'mes' => $mes];
+        }
+        krsort($competencias, SORT_STRING);
+
+        return array_values($competencias);
     }
 
     private function resolverJornadaInfoAdmin(?JornadaColaborador $jornada, ?\App\Ponto\Entity\JornadaTenant $jornadaTenant): ?array
@@ -611,7 +687,9 @@ final class TenantController extends AbstractController
         UserTenantRepository $userTenantRepository,
         RegraDosPrimarios $regraDosPrimarios,
         HierarquiaDePerfis $hierarquia,
-        JornadaColaboradorRepository $jornadaColaboradorRepository
+        JornadaColaboradorRepository $jornadaColaboradorRepository,
+        RegistrarTrocaDeLotacaoUseCase $registrarTrocaDeLotacao,
+        EstadoDoAceiteDaFolha $estadoDoAceite
     ): Response {
         $currentUser = $this->getUser();
 
@@ -647,9 +725,9 @@ final class TenantController extends AbstractController
             $userTenant->setCodigoFuncionario($gerarCodigo->executar($tenant));
         }
 
-        // Perfil ANTES do submit: o form escreve direto no vínculo, e a regra dos primários
+        // Perfil e lotação ANTES do submit: o form escreve direto no vínculo, e a regra dos primários
         // precisa saber se a troca põe ou tira alguém do perfil de sistema.
-        $perfilAnterior = $userTenant->getTenantRole();
+        [$perfilAnterior, $lotacaoAnterior] = [$userTenant->getTenantRole(), $userTenant->getLotacao()];
 
         // Spec perfis-master D4 (RegraDosPrimarios): só primário ou Master dá ou tira o perfil de
         // sistema e troca senha de primário. Para os demais o perfil de sistema nem é opção; se o
@@ -721,11 +799,13 @@ final class TenantController extends AbstractController
             }
 
             $userTenant->setDataAdmissao($form->get('dataAdmissao')->getData());
+            $registrarTrocaDeLotacao->executar($userTenant); // lotação com vigência: a troca vale de hoje (E6 do Ponto)
 
             $entityManager->flush();
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.usuario_atualizado'));
             return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenantId]);
         }
+        $userTenant->setLotacao($lotacaoAnterior); // recusado: a lotação nova não vai ao banco sem versão pelo flush do perfil (E6)
 
         $jornada                  = $jornadaColaboradorRepository->findByUserETenant($user, $tenant);
         $userHasCustomEscala      = $jornada !== null && !$jornada->getBlocos()->isEmpty();
@@ -738,9 +818,9 @@ final class TenantController extends AbstractController
             $processoRepository,
         );
 
-        $competenciasComRegistro = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user, $tenant);
-        // Lista de competências que REALMENTE têm batida — decide, mais abaixo, se a tabela é
-        // montada. Guardada antes de qualquer injeção/mescla para não virar um proxy falso.
+        $competenciasComRegistro = $this->competenciasDaFolhaNaFicha($user, $tenant, $registroPontoRepository);
+        // Lista de competências que REALMENTE têm batida (ou batida desconsiderada, E10) — decide, mais abaixo, se a
+        // tabela é montada. Guardada antes de qualquer injeção/mescla para não virar um proxy falso.
         $competenciasComBatida = array_column($competenciasComRegistro, 'valor');
 
         // O seletor só listava meses com BATIDA. Dois lançamentos de horas pagas ficavam
@@ -820,7 +900,7 @@ final class TenantController extends AbstractController
         $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         if (in_array($competenciaSelecionada, $competenciasComBatida, true)) {
-            $folhaRowsPonto = $this->folhaDaCompetenciaNaFicha($user, $tenant, $anoSelecionado, $mesSelecionado, $jornadaTenant, $registroPontoRepository, $feriadoRepository, $justificativaRepository, $folhaPontoBuilder, $jornadaColaboradorRepository);
+            $folhaRowsPonto = $this->folhaDaCompetenciaNaFicha($user, $tenant, $anoSelecionado, $mesSelecionado, $jornadaTenant, $registroPontoRepository, $feriadoRepository, $justificativaRepository, $folhaPontoBuilder);
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($jornada, $jornadaTenant);
@@ -857,16 +937,40 @@ final class TenantController extends AbstractController
             'horasPagasMinutosPonto' => $horasPagasMinutosPonto,
             // Bloco de totais do rodapé da folha (spec §7). O partial é o MESMO do /ponto do
             // colaborador: toda variável nova tem de sair dos DOIS renders, senão o outro quebra.
-            // `$folhaRowsPonto` é `[]` em competência sem batida — o helper devolve null e o rodapé
-            // trata como saldo do mês zerado.
-            'saldoMesMinutosPonto'   => $folhaPontoBuilder->saldoAcumuladoFinal($folhaRowsPonto),
+            // "Saldo do mês" = a conta do banco para a competência, sem as horas pagas (E17), como a /ponto, o PDF e o XLSX:
+            // também na competência sem batida, em que a ficha não mostra linha e as faltas contam. O bloco só aparece
+            // com horas pagas no mês, então o banco só é calculado nesse caso.
+            'saldoMesMinutosPonto'   => $horasPagasMinutosPonto === 0 ? null : ($folhaPontoBuilder->saldosDoBancoPorCompetencia($user, $tenant, $feriadoRepository->findByTenant($tenant), $jornadaTenant, $this->inicioContagemResolver->resolver($user, $tenant))[$competenciaSelecionada] ?? 0) - $horasPagasMinutosPonto,
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
+            'podeAnalisarJustificativas' => $this->podeAnalisar($currentUser, $user, $tenant),   // P43 a
             'lancamentosHorasPagas'  => $lancamentoHorasPagasRepository->listarPorUser($user, $tenant),
             'colegas'                => $colegas,
             'formDadosPessoais'      => $formDadosPessoais->createView(),
-        ]);
+        ] + $this->desconsideradasEAceiteDaFolhaNaFicha($user, $tenant, $anoSelecionado, $mesSelecionado, $competenciaSelecionada < $competenciaAtualPonto, $registroPontoRepository, $estadoDoAceite));
+    }
+
+    /**
+     * O que a folha do Ponto da ficha ganhou na E10 e na E16, fora de `editUserRole` para o método legado não crescer:
+     * as batidas que o gestor tirou da conta no mês, por dia, para a linha "Desconsideradas" (Restaurar, E10), e o
+     * selo do aceite da folha do mês já fechado (E16, decisão 10: só o selo, sem o botão).
+     *
+     * @return array{desconsideradasPorDia: array<string, list<\App\Ponto\DTO\BatidaDesconsideradaOutput>>, aceiteDaFolhaPonto: ?\App\Ponto\DTO\AceiteDaFolhaOutput}
+     */
+    private function desconsideradasEAceiteDaFolhaNaFicha(
+        User $user,
+        Tenant $tenant,
+        int $ano,
+        int $mes,
+        bool $mesFechado,
+        RegistroPontoRepository $registros,
+        EstadoDoAceiteDaFolha $estadoDoAceite,
+    ): array {
+        return [
+            'desconsideradasPorDia' => \App\Ponto\DTO\BatidaDesconsideradaOutput::porDia($registros->desconsideradasDaCompetencia($user, $tenant, $ano, $mes)),
+            'aceiteDaFolhaPonto'    => $mesFechado ? $estadoDoAceite->daCompetencia($tenant, $user, $ano, $mes) : null,
+        ];
     }
 
     #[Route('/{tenantId}/user/{id}/edit-name', name: 'app_tenant_user_edit_name', methods: ['POST'])]
@@ -1028,259 +1132,6 @@ final class TenantController extends AbstractController
         return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenantId]);
     }
 
-    #[Route('/{tenantId}/user/{id}/ponto/add', name: 'app_tenant_user_ponto_add', methods: ['POST'])]
-    public function pontoAdd(
-        int $tenantId,
-        User $user,
-        Request $request,
-        EntityManagerInterface $entityManager,
-        PermissionChecker $permissionChecker,
-        TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
-    ): Response {
-        $currentUser = $this->getUser();
-
-        if (!$currentUser) {
-            throw $this->createAccessDeniedException();
-        }
-
-        $tenant = $tenantRepository->find($tenantId);
-        if (!$tenant) {
-            throw $this->createNotFoundException();
-        }
-
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
-
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException('Sem permissão para lançar batidas.');
-        }
-
-        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
-        // CSRF por-intenção stateful (form tem csrf_protection=>false). Token renderizado no
-        // modal de "Adicionar Batida" em edit_user_role.html.twig.
-        if (!$this->isCsrfTokenValid('ponto_manual_add', (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-
-        $form = $this->createForm(RegistroPontoManualType::class);
-        $form->handleRequest($request);
-
-        $valido   = $form->isSubmitted() && $form->isValid();
-        $dataHora = $valido ? $this->dataHoraManualForaDoFuturo($form) : null;
-
-        if ($dataHora !== null) {
-            $registro = new RegistroPonto();
-            $registro->setUser($user);
-            $registro->setTenant($tenant);
-            $registro->setDataHora($dataHora);
-            $registro->setTipo($form->get('tipo')->getData());
-            $registro->setObservacao($form->get('observacao')->getData());
-            $registro->setSedeNomeSnapshot(RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL);
-
-            $entityManager->persist($registro);
-            $entityManager->flush();
-
-            $this->addFlash('success', 'Batida registrada com sucesso.');
-        } elseif ($valido) {
-            $this->addFlash('danger', HorarioFuturoDaBatida::MENSAGEM);
-        } else {
-            $this->addFlash('danger', 'Erro ao registrar batida. Verifique os campos.');
-        }
-
-        $competencia = $request->request->get('competencia', '');
-
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId'    => $tenantId,
-            'id'          => $user->getId(),
-            'competencia' => $competencia,
-            'tab'         => 'ponto',
-        ]);
-    }
-
-    /**
-     * Data e hora do lançamento manual, ou null quando ficam acima de agora (a régua da batida
-     * em horário futuro). Agora passa.
-     */
-    private function dataHoraManualForaDoFuturo(FormInterface $form): ?\DateTime
-    {
-        /** @var \DateTime $data */
-        $data = $form->get('data')->getData();
-        /** @var \DateTime $hora */
-        $hora = $form->get('hora')->getData();
-
-        if ($this->horarioFuturo->estaNoFuturo($data, $hora)) {
-            return null;
-        }
-
-        return new \DateTime($data->format('Y-m-d') . ' ' . $hora->format('H:i:s'));
-    }
-
-    #[Route('/{tenantId}/user/{id}/ponto/{registroId}/edit', name: 'app_tenant_user_ponto_edit', methods: ['GET', 'POST'])]
-    public function pontoEdit(
-        int $tenantId,
-        User $user,
-        int $registroId,
-        Request $request,
-        EntityManagerInterface $entityManager,
-        RegistroPontoRepository $registroPontoRepository,
-        PermissionChecker $permissionChecker,
-        TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
-    ): Response {
-        $currentUser = $this->getUser();
-
-        if (!$currentUser) {
-            throw $this->createAccessDeniedException();
-        }
-
-        $tenant = $tenantRepository->find($tenantId);
-        if (!$tenant) {
-            throw $this->createNotFoundException();
-        }
-
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
-
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException('Sem permissão para editar batidas.');
-        }
-
-        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
-        // CSRF por-intenção stateful só no POST (form tem csrf_protection=>false; no GET não há
-        // token). Token renderizado em tenant/ponto_edit.html.twig.
-        if ($request->isMethod('POST') && !$this->isCsrfTokenValid('ponto_manual_edit', (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-
-        // Escopa o find() ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
-        $this->escoparFiltroNoTenant($entityManager, $tenant);
-
-        $registro = $registroPontoRepository->find($registroId);
-
-        if ($registro === null || $registro->getUser()?->getId() !== $user->getId()) {
-            throw $this->createNotFoundException('Registro não encontrado.');
-        }
-
-        $dataHoraAtual = $registro->getDataHora();
-
-        $form = $this->createForm(RegistroPontoManualType::class);
-
-        // Pré-popular campos virtuais
-        $form->get('data')->setData($dataHoraAtual instanceof \DateTimeInterface ? \DateTime::createFromInterface($dataHoraAtual) : null);
-        $form->get('hora')->setData($dataHoraAtual instanceof \DateTimeInterface ? \DateTime::createFromInterface($dataHoraAtual) : null);
-        $form->get('tipo')->setData($registro->getTipo());
-        $form->get('observacao')->setData($registro->getObservacao());
-
-        $form->handleRequest($request);
-
-        $competencia = $request->query->get('competencia', $registro->getDataHora()?->format('Y-m') ?? '');
-
-        $valido   = $form->isSubmitted() && $form->isValid();
-        $dataHora = $valido ? $this->dataHoraManualForaDoFuturo($form) : null;
-
-        if ($valido && $dataHora === null) {
-            $form->get('hora')->addError(new FormError(HorarioFuturoDaBatida::MENSAGEM));
-        }
-
-        if ($dataHora !== null) {
-            $registro->setDataHora($dataHora);
-            $registro->setTipo($form->get('tipo')->getData());
-            $registro->setObservacao($form->get('observacao')->getData());
-            $registro->setSedeNomeSnapshot(RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL);
-
-            $entityManager->flush();
-
-            $this->addFlash('success', 'Batida atualizada com sucesso.');
-
-            return $this->redirectToRoute('app_tenant_user_edit_role', [
-                'tenantId'    => $tenantId,
-                'id'          => $user->getId(),
-                'competencia' => $competencia,
-                'tab'         => 'ponto',
-            ]);
-        }
-
-        return $this->render('tenant/ponto_edit.html.twig', [
-            'form'        => $form->createView(),
-            'registro'    => $registro,
-            'user'        => $user,
-            'tenantId'    => $tenantId,
-            'competencia' => $competencia,
-        ]);
-    }
-
-    #[Route('/{tenantId}/user/{id}/ponto/{registroId}/delete', name: 'app_tenant_user_ponto_delete', methods: ['POST'])]
-    public function pontoDelete(
-        int $tenantId,
-        User $user,
-        int $registroId,
-        Request $request,
-        EntityManagerInterface $entityManager,
-        RegistroPontoRepository $registroPontoRepository,
-        PermissionChecker $permissionChecker,
-        TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
-    ): Response {
-        $currentUser = $this->getUser();
-
-        if (!$currentUser) {
-            throw $this->createAccessDeniedException();
-        }
-
-        $tenant = $tenantRepository->find($tenantId);
-        if (!$tenant) {
-            throw $this->createNotFoundException();
-        }
-
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
-
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException('Sem permissão para excluir batidas.');
-        }
-
-        // O alvo só depois de quem executa (auditoria 1.08): de fora do escritório, 403 com ou sem vínculo do alvo.
-        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
-            throw $this->createNotFoundException();
-        }
-
-        if (!$this->isCsrfTokenValid('delete_ponto_' . $registroId, (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-
-        // Escopa o find() ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
-        $this->escoparFiltroNoTenant($entityManager, $tenant);
-
-        $registro = $registroPontoRepository->find($registroId);
-
-        if ($registro === null || $registro->getUser()?->getId() !== $user->getId()) {
-            throw $this->createNotFoundException('Registro não encontrado.');
-        }
-
-        $competencia = $registro->getDataHora()?->format('Y-m') ?? '';
-
-        $entityManager->remove($registro);
-        $entityManager->flush();
-
-        $this->addFlash('success', 'Batida excluída com sucesso.');
-
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId'    => $tenantId,
-            'id'          => $user->getId(),
-            'competencia' => $competencia,
-            'tab'         => 'ponto',
-        ]);
-    }
-
     #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/aprovar', name: 'app_tenant_user_justificativa_aprovar', methods: ['POST'])]
     public function aprovarJustificativa(
         int $tenantId,
@@ -1293,7 +1144,8 @@ final class TenantController extends AbstractController
         NotificacaoService $notificacaoService,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
-        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento
+        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento,
+        AnalisarJustificativaUseCase $analisar
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1302,7 +1154,7 @@ final class TenantController extends AbstractController
 
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1316,6 +1168,8 @@ final class TenantController extends AbstractController
         if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
             throw $this->createNotFoundException();
         }
+
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a
 
         if (!$this->isCsrfTokenValid('justificativa_aprovar_' . $justificativaId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -1331,46 +1185,39 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', 'Apenas justificativas pendentes podem ser abonadas.');
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('analise.so_para_abonar'));
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
         if (($jaBatida = $registrarBatidaDoEsquecimento->recusa($justificativa, $tenant)) !== null) {
             $this->addFlash('warning', $jaBatida);   // o pedido fica pendente: o admin decide (R1)
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         // Pedido antigo com hora que ainda não chegou: não abona, para não gravar batida no futuro.
         if ($registrarBatidaDoEsquecimento->pedeHorarioFuturo($justificativa)) {
             $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
-        $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
-
-        $justificativa->setStatus('abonado');
-        $justificativa->setDataAnalise(new \DateTime());
-        $justificativa->setAnalisadoPor($currentUser);
-        if ($observacao !== '') {
-            $justificativa->setObservacaoAnalise($observacao);
-        }
-
-        $entityManager->flush();
-
-        // Esquecimento de registro: grava a batida pedida (mesmo caminho do "aprovar todos").
-        if ($registrarBatidaDoEsquecimento($justificativa, $tenant) !== null) {
-            $entityManager->flush();
+        // Relê sob a trava e grava o abono e a batida do esquecimento juntos (corrida com a exclusão, P41).
+        try {
+            $analisar->abonar($justificativa, $tenant, $currentUser, trim((string) $request->request->get('observacaoAnalise', '')));
+        } catch (AnaliseDeJustificativaRecusadaException $e) {
+            $this->addFlash('warning', $e->getMessage());
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         $urlPonto = $this->generateUrl('ponto_index');
         $notificacaoService->notificarJustificativaAprovada($justificativa, $urlPonto);
 
-        $this->addFlash('success', sprintf('Justificativa de %s abonada.', $justificativa->getData()?->format('d/m/Y')));
+        // E8 (P80): de volta à /ponto, o aviso flutuante do desenho; na ficha, o flash de sempre.
+        if ($request->request->get('volta') === 'ponto') {
+            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE, PontoController::AVISO_JUSTIFICATIVA_ABONADA);
+        } else {
+            $this->addFlash('success', sprintf('Justificativa de %s abonada.', $justificativa->getData()?->format('d/m/Y')));
+        }
 
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId' => $tenantId,
-            'id'       => $user->getId(),
-            'tab'      => 'justificativas',
-        ]);
+        return $this->voltaDaAnalise($request, $tenantId, $user);
     }
 
     #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/rejeitar', name: 'app_tenant_user_justificativa_rejeitar', methods: ['POST'])]
@@ -1384,7 +1231,8 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         NotificacaoService $notificacaoService,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        AnalisarJustificativaUseCase $analisar
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1393,7 +1241,7 @@ final class TenantController extends AbstractController
 
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1407,6 +1255,8 @@ final class TenantController extends AbstractController
         if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
             throw $this->createNotFoundException();
         }
+
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a
 
         if (!$this->isCsrfTokenValid('justificativa_rejeitar_' . $justificativaId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -1422,33 +1272,34 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', 'Apenas justificativas pendentes podem ser rejeitadas.');
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('analise.so_para_recusar'));
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
         if ($observacao === '') {
-            $this->addFlash('danger', 'Informe o motivo da rejeição.');
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+            $this->addFlash('danger', NomesDasSituacoesDaJustificativa::texto('analise.sem_motivo'));
+            return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
-        $justificativa->setStatus('rejeitado');
-        $justificativa->setDataAnalise(new \DateTime());
-        $justificativa->setAnalisadoPor($currentUser);
-        $justificativa->setObservacaoAnalise($observacao);
-
-        $entityManager->flush();
+        try {
+            $batidaSaiuDaConta = $analisar->recusar($justificativa, $tenant, $currentUser, $observacao);   // relê sob a trava (P41); E12: a batida externa sai da conta
+        } catch (AnaliseDeJustificativaRecusadaException $e) {
+            $this->addFlash('warning', $e->getMessage());
+            return $this->voltaDaAnalise($request, $tenantId, $user);
+        }
 
         $urlPonto = $this->generateUrl('ponto_index');
         $notificacaoService->notificarJustificativaRejeitada($justificativa, $urlPonto);
 
-        $this->addFlash('success', sprintf('Justificativa de %s rejeitada.', $justificativa->getData()?->format('d/m/Y')));
+        // E8 (P80): de volta à /ponto, o aviso flutuante vermelho do desenho; na ficha, o flash de sempre.
+        if ($request->request->get('volta') === 'ponto') {
+            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE_ERRO, PontoController::AVISO_JUSTIFICATIVA_RECUSADA);
+        } else {
+            $this->addFlash('success', NomesDasSituacoesDaJustificativa::texto($batidaSaiuDaConta ? 'analise.recusada_externo' : 'analise.recusada', (string) $justificativa->getData()?->format('d/m/Y')));
+        }
 
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId' => $tenantId,
-            'id'       => $user->getId(),
-            'tab'      => 'justificativas',
-        ]);
+        return $this->voltaDaAnalise($request, $tenantId, $user);
     }
 
     #[Route('/{tenantId}/user/{id}/justificativa/batch/{batchId}/aprovar-todos', name: 'app_tenant_user_justificativa_aprovar_todos', methods: ['POST'])]
@@ -1463,7 +1314,8 @@ final class TenantController extends AbstractController
         NotificacaoService $notificacaoService,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
-        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento
+        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento,
+        AnalisarJustificativaUseCase $analisar
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1471,7 +1323,7 @@ final class TenantController extends AbstractController
         }
 
         $currentUser = $this->getUser();
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1484,6 +1336,8 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException();
         }
 
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a
+
         if (!$this->isCsrfTokenValid('justificativa_aprovar_todos_' . $batchId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
@@ -1495,30 +1349,24 @@ final class TenantController extends AbstractController
         $pendentes   = $this->semBatidaNoFuturo($encontradas, $registrarBatidaDoEsquecimento);
         if (empty($pendentes)) {
             if ($encontradas === []) {   // lote todo no futuro não cai aqui: o aviso de horário futuro já saiu
-                $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
+                $this->addFlash('warning', self::textoDoLoteSemPendente());
             }
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
         $pendentes = $this->semBatidaJaRegistrada($pendentes, $tenant, $registrarBatidaDoEsquecimento);   // R1
-        foreach ($pendentes as $justificativa) {
-            $justificativa->setStatus('abonado');
-            $justificativa->setDataAnalise(new \DateTime());
-            $justificativa->setAnalisadoPor($currentUser);
-            // Esquecimento de registro: grava a batida pedida, como na aprovação individual.
-            $registrarBatidaDoEsquecimento($justificativa, $tenant);
+        // Trava e relê cada uma antes de gravar; a excluída pelo colaborador (P41) fica de fora, com aviso.
+        $abono = $analisar->abonarLote($pendentes, $tenant, $currentUser);
+        foreach ($abono->abonadas as $justificativa) {
             $notificacaoService->notificarJustificativaAprovada($justificativa, $this->generateUrl('ponto_index'));
         }
+        if (($aviso = $abono->avisoDasExcluidas()) !== null) {
+            $this->addFlash('warning', $aviso);
+        }
 
-        $entityManager->flush();
+        $this->avisarAbonadas(count($abono->abonadas));
 
-        $this->avisarAbonadas(count($pendentes));
-
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId' => $tenantId,
-            'id'       => $user->getId(),
-            'tab'      => 'justificativas',
-        ]);
+        return $this->voltaDaAnalise($request, $tenantId, $user);
     }
 
     #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/reverter', name: 'app_tenant_user_justificativa_reverter', methods: ['POST'])]
@@ -1531,7 +1379,8 @@ final class TenantController extends AbstractController
         JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        AnalisarJustificativaUseCase $analisar
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1539,7 +1388,7 @@ final class TenantController extends AbstractController
         }
 
         $currentUser = $this->getUser();
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1552,6 +1401,8 @@ final class TenantController extends AbstractController
         if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
             throw $this->createNotFoundException();
         }
+
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a: voltar a própria para análise
 
         if (!$this->isCsrfTokenValid('justificativa_reverter_' . $justificativaId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -1567,27 +1418,23 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() === 'pendente') {
-            $this->addFlash('warning', 'Esta justificativa já está pendente.');
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('reverter.ja_esta'));
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
-        $statusAnterior = $justificativa->getStatus();
-
-        $justificativa->setStatus('pendente');
-        $justificativa->setAnalisadoPor(null);
-        $justificativa->setDataAnalise(null);
-        $justificativa->setObservacaoAnalise(null);
-
-        $entityManager->flush();
-
-        if ($justificativa->getTipo() === 'esquecimento_registro' && $statusAnterior === 'abonado') {
-            $this->addFlash('warning', sprintf(
-                'Justificativa de %s revertida para pendente. Atenção: o registro de ponto criado automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.',
-                $justificativa->getData()?->format('d/m/Y')
-            ));
-        } else {
-            $this->addFlash('success', sprintf('Justificativa de %s revertida para pendente.', $justificativa->getData()?->format('d/m/Y')));
+        try {
+            // Relê sob a trava (P41); do esquecimento abonado, a inclusão do abono sai da conta na mesma transação (E10).
+            $reversao = $analisar->reverter($justificativa, $tenant, $currentUser);
+        } catch (AnaliseDeJustificativaRecusadaException $e) {
+            $this->addFlash('warning', $e->getMessage());
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
+
+        // A batida do abono de antes da E10 continua na folha: aviso com o caminho para tirá-la da conta (decisão 3).
+        $this->addFlash(
+            $reversao->pedeAtencao() ? 'warning' : 'success',
+            NomesDasSituacoesDaJustificativa::texto($reversao->chaveDoTexto(), (string) $justificativa->getData()?->format('d/m/Y')),
+        );
 
         return $this->redirectToRoute('app_tenant_user_edit_role', [
             'tenantId' => $tenantId,
@@ -1596,6 +1443,40 @@ final class TenantController extends AbstractController
         ]);
     }
 
+    /**
+     * Confirma o lote lançado já abonado pelo gestor (novaJustificativaAdmin) com os eventos da trilha do Ponto (E9) no
+     * mesmo COMMIT: "Justificativa lançada já abonada" e, para cada esquecimento, a INCLUSÃO da batida em
+     * `ponto_ajuste` (E10, D18), ligada à justificativa e com quem lançou como autor; a gravação registra o mesmo
+     * "Batida do esquecimento abonado" da análise. As justificativas ganham id no primeiro `flush()` (a inclusão aponta
+     * para elas); a linhagem da pessoa é travada (4210) antes do primeiro evento, porque a trilha (4203) é sempre a
+     * última trava. O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver PROVADO que nada
+     * foi confirmado; num COMMIT de resultado incerto as justificativas podem existir e apontar para ele, e o arquivo
+     * fica (E2.5, INV-6). A exceção original sobe.
+     *
+     * @param list<JustificativaPonto>                                           $lancadas
+     * @param list<array{0: JustificativaPonto, 1: string, 2: \DateTimeImmutable}> $esquecimentos a justificativa, o tipo e a data e hora de cada batida do esquecimento
+     */
+    private function confirmarLancamento(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, GravacaoDoAjusteDoPonto $gravacao, Tenant $tenant, User $pessoa, User $gestor, array $lancadas, array $esquecimentos, ?ChaveDeArquivo $chaveAnexo): void
+    {
+        $this->transacao->executar(
+            static function () use ($entityManager, $trilha, $gravacao, $tenant, $pessoa, $gestor, $lancadas, $esquecimentos): void {
+                $entityManager->flush();
+                $gravacao->travar($pessoa);
+                $trilha->registrar($tenant, $gestor, AcaoDaTrilhaDoPonto::JustificativaLancada->value, DetalheDaTrilhaDoPonto::doLote($lancadas));
+                foreach ($esquecimentos as [$justificativa, $tipo, $dataHora]) {
+                    $gravacao->incluir($tenant, $pessoa, $tipo, $dataHora, SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN, $gestor, $justificativa);
+                }
+            },
+            static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
+            'TenantController::novaJustificativaAdmin: atestado do lote',
+        );
+    }
+
+    /** "Aprovar todos" sem nenhuma em análise (o nome da situação vem de NomesDasSituacoesDaJustificativa, P40). */
+    private static function textoDoLoteSemPendente(): string
+    {
+        return NomesDasSituacoesDaJustificativa::texto('lote.sem_pendente');
+    }
 
     /**
      * Data do lote do admin que não entra: data futura (por data, não por instante, porque o
@@ -1647,7 +1528,9 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
-        ValidatorInterface $validator
+        ValidatorInterface $validator,
+        TrilhaDoPonto $trilha,
+        GravacaoDoAjusteDoPonto $gravacao
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1656,7 +1539,7 @@ final class TenantController extends AbstractController
 
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -1670,6 +1553,7 @@ final class TenantController extends AbstractController
         if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
             throw $this->createNotFoundException();
         }
+        $this->exigirQuePodeAnalisar($currentUser, $user, $tenant);   // P43 a: a lançada pelo administrador já sai abonada
 
         if (!$this->isCsrfTokenValid('admin_nova_justificativa_' . $user->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -1772,6 +1656,8 @@ final class TenantController extends AbstractController
 
         $batchId    = bin2hex(random_bytes(16));
         $isFaltaNaoJustificada = $tipo === 'falta_nao_justificada';
+        $lancadas   = [];
+        $esquecimentos = [];
 
         foreach ($datasValidas as $dataObj) {
             $justificativa = new JustificativaPonto();
@@ -1794,28 +1680,18 @@ final class TenantController extends AbstractController
                 $justificativa->setHoraRegistroEsquecido($horaRegEsquecida);
             }
             $entityManager->persist($justificativa);
+            $lancadas[] = $justificativa;
 
+            // E10 (D18): a batida do esquecimento entra como inclusão ligada à justificativa, gravada em confirmarLancamento.
             if ($tipo === 'esquecimento_registro' && $horaRegEsquecida !== null && $tipoRegEsquecido !== '') {
-                $dataHora = new \DateTime(
+                $dataHora = new \DateTimeImmutable(
                     $dataObj->format('Y-m-d') . ' ' . $horaRegEsquecida->format('H:i:s')
                 );
-                $registro = new RegistroPonto();
-                $registro->setUser($user);
-                $registro->setTenant($tenant);
-                $registro->setDataHora($dataHora);
-                $registro->setTipo($tipoRegEsquecido);
-                $registro->setObservacao(SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN);
-                $entityManager->persist($registro);
+                $esquecimentos[] = [$justificativa, $tipoRegEsquecido, $dataHora];
             }
         }
 
-        // O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver
-        // PROVADO que nada foi confirmado; num COMMIT de resultado incerto as justificativas podem
-        // existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original sobe.
-        $this->transacao->confirmar(
-            static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
-            'TenantController::novaJustificativaAdmin: atestado do lote',
-        );
+        $this->confirmarLancamento($entityManager, $trilha, $gravacao, $tenant, $user, $currentUser, $lancadas, $esquecimentos, $chaveAnexo);
 
         if ($isFaltaNaoJustificada) {
             $this->addFlash('success', sprintf('Falta registrada como não justificada para %d dia(s).', count($datasValidas)));
@@ -2004,7 +1880,7 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenant->getId()]);
         }
 
-        $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
+        $sedes = $sedeRepository->ativasDoEscritorio($tenant);
 
         return $this->render('tenant/sedes.html.twig', [
             'tenant' => $tenant,
@@ -2044,9 +1920,9 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para editar sedes.');
         }
 
-        $sede = $sedeRepository->find($sedeId);
+        $sede = $sedeRepository->ativaDoEscritorio($sedeId, $tenant);
 
-        if (!$sede || $sede->getTenant()?->getId() !== $tenantId) {
+        if ($sede === null) {
             throw $this->createNotFoundException('Sede não encontrada.');
         }
 
@@ -2068,7 +1944,7 @@ final class TenantController extends AbstractController
         }
         $newSede  = new Sede();
         $form     = $this->createForm(SedeType::class, $newSede);
-        $sedes    = $sedeRepository->findBy(['tenant' => $tenant]);
+        $sedes    = $sedeRepository->ativasDoEscritorio($tenant);
 
         return $this->render('tenant/sedes.html.twig', [
             'tenant'   => $tenant,
@@ -2086,7 +1962,7 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
-        RegistroPontoRepository $registroPontoRepository,
+        RemocaoDaSedeDoPonto $remocaoDaSede,
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository
@@ -2115,24 +1991,23 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para excluir sedes.');
         }
 
-        $sede = $sedeRepository->find($sedeId);
+        $sede = $sedeRepository->ativaDoEscritorio($sedeId, $tenant);
 
-        if (!$sede || $sede->getTenant()?->getId() !== $tenantId) {
+        if ($sede === null) {
             throw $this->createNotFoundException();
         }
 
+        // Ponto E10: a sede com batida é encerrada (some da lista e da cerca; as batidas ficam com ela); a sem batida sai.
         $connection = $entityManager->getConnection();
         try {
             $connection->beginTransaction();
-            $totalDesvinculados = $registroPontoRepository->desvincularSede($sede);
-            $entityManager->remove($sede);
-            $entityManager->flush();
+            $encerrada = $remocaoDaSede->remover($sede);
             $connection->commit();
 
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.sede_removida'));
 
-            if ($totalDesvinculados > 0) {
-                $this->addFlash('info', $this->tradutor->trans('escritorio.flash.sede_registros_desvinculados', ['qtd' => (string) $totalDesvinculados]));
+            if ($encerrada) {
+                $this->addFlash('info', $this->tradutor->trans('escritorio.flash.sede_batidas_mantidas'));
             }
         } catch (\Throwable) {
             if ($connection->isTransactionActive()) {

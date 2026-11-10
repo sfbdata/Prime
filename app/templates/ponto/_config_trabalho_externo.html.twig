@@ -1,0 +1,20 @@
+{#
+    Caixa "Permitir trabalho externo, com motivo e análise" da aba Configurações do Ponto (spec
+    docs/specs/ponto-desenho-0811.md, E12 e P74; desenho 16 L253, inventário §2: "padrão ligado; desligado esconde o
+    botão 'Registrar como trabalho externo' no erro"). Mora no cabeçalho "Sedes e raio de registro", entre o título e
+    os botões, como no desenho (_config_sedes.html.twig). Para quem não vê as sedes, fica sozinha logo abaixo das
+    funções, numa seção do molde do desenho, para a função não sumir de ninguém.
+
+    Recebe (do painel): permite_trabalho_externo (bool) e funcoesDoPonto (o gate das funções da E7). Só quem administra o
+    ponto do escritório vê a caixa, como as chaves das funções: para os outros a gravação seria recusada.
+
+    Grava por POST JSON `{permitir}` na rota `ponto_configuracao_trabalho_externo`, com o token `ajax` que o
+    interceptador do base.html.twig põe no X-CSRF-Token. O comportamento mora em js/ponto-configuracoes.js (o painel chega
+    por innerHTML e script dentro dele não roda).
+#}
+{% if funcoesDoPonto|default(null) %}
+    <div class="pe-config-externo" data-config-externo data-url="{{ path('ponto_configuracao_trabalho_externo') }}">
+        <label class="pe-config-externo-marca"><input type="checkbox" data-config-externo-caixa{{ permite_trabalho_externo|default(false) ? ' checked' }}>Permitir trabalho externo, com motivo e análise</label>
+        <span class="pe-config-externo-erro" role="alert" data-config-externo-erro hidden></span>
+    </div>
+{% endif %}

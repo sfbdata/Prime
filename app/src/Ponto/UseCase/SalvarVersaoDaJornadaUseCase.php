@@ -10,7 +10,10 @@ use App\Ponto\DTO\VersaoDaJornadaInput;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Exception\VersaoDaJornadaNaoEncontradaException;
 use App\Ponto\Exception\VersaoDaJornadaRecusadaException;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
 
 /**
  * Grava uma versão da jornada pessoal de uma pessoa num escritório (spec `docs/specs/ponto-jornada-vigencia.md`
@@ -27,6 +30,7 @@ final class SalvarVersaoDaJornadaUseCase
 {
     public function __construct(
         private readonly JornadaColaboradorRepository $jornadas,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -69,9 +73,18 @@ final class SalvarVersaoDaJornadaUseCase
             $versao->setAlertaHabilitado($input->alertaHabilitado);
         }
 
-        $this->jornadas->gravar();
+        $this->gravarComOEvento($pessoa, $escritorio, $input);
 
         return $alvo;
+    }
+
+    /** Trilha do Ponto (E9): a troca de escala comita junto com o evento "Escala alterada" (com o rótulo, se veio da Equipe). */
+    private function gravarComOEvento(User $pessoa, Tenant $escritorio, VersaoDaJornadaInput $input): void
+    {
+        $this->trilha->emTransacao(function () use ($pessoa, $escritorio, $input): void {
+            $this->jornadas->gravar();
+            $this->trilha->registrar($escritorio, $this->trilha->autorDaSessao(), AcaoDaTrilhaDoPonto::EscalaAlterada->value, DetalheDaTrilhaDoPonto::daEscala($pessoa, 'versao_salva', $input->valeAPartirDe, $input->escala));
+        });
     }
 
     /** @param list<JornadaColaborador> $versoes */

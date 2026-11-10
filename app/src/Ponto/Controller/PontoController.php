@@ -7,17 +7,34 @@ namespace App\Ponto\Controller;
 use App\Entity\Auth\User;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
+use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
+use App\Ponto\Exception\CompetenciaDaFolhaInvalidaException;
+use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
+use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
+use App\Ponto\Entity\ComprovanteDoPonto;
+use App\Ponto\Entity\FolhaEmitidaDoPonto;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\NomeDoArquivoDaFolha;
+use App\Ponto\Service\PassagemPeloEscritorio;
+use App\Ponto\Service\EstadoDoAceiteDaFolha;
+use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
+use App\Ponto\Service\AbaDosComprovantes;
+use App\Ponto\Service\CercaDoPonto;
+use App\Ponto\Service\PosicaoNaCerca;
+use App\Ponto\Service\TrabalhoExternoDaBatida;
+use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Ponto\Service\InicioContagemResolver;
@@ -25,18 +42,27 @@ use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
 use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\PontoAjusteRepository;
 use App\Ponto\Exception\JustificativaJaAnalisadaException;
 use App\Ponto\UseCase\ConfirmarEdicaoDeJustificativaUseCase;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\ChaveDoPontoEletronico;
 use App\Ponto\Service\TurnoAbertoNoEscritorio;
-use App\Ponto\Service\SaidaDeEsquecimento;
+use App\Ponto\Service\AlertasAntesDaBatida;
+use App\Ponto\Service\IntervaloDaBatida;
 use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\PublicoDosAvisosDePonto;
 use App\Ponto\Service\CartaoDePendenciaDoPonto;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\EnvioDaBatida;
+use App\Ponto\Service\EnvioLidoDaBatida;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\GestaoDoPonto;
+use App\Ponto\Service\JustificativasAAnalisarDaEquipe;
+use App\Ponto\Service\TrilhaDoPonto;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
 use App\Entity\Tenant\Tenant;
@@ -44,16 +70,19 @@ use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
-use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Ponto\Service\FeriadosDaPessoa;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\DadosDaFolhaExportada;
+use App\Ponto\DTO\PdfDaFolhaOutput;
+use App\Ponto\UseCase\GerarPdfDaFolhaUseCase;
 use App\Ponto\Service\VerificadorAlertaPonto;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -61,14 +90,55 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
-use Twig\Environment;
 
 #[Route('/ponto')]
 final class PontoController extends AbstractController
 {
     use ValidaCsrfAjaxTrait;
+
+    /** Abas do cartão da direita, na ordem do desenho (L758); a primeira abre ao entrar (P37). As das etapas seguintes vêm depois. */
+    private const ABAS_DO_CARTAO = ['pendencias', 'justificativas', 'comprovantes', 'banco', 'equipe', 'auditoria', 'configuracoes'];
+
+    /** O limite `ponto_folha_pdf` estourado (429). */
+    public const MUITOS_PEDIDOS_DE_FOLHA = 'Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.';
+
+    /** Recusa da exclusão (P41) para a resposta HTTP: outro escritório não existe para quem pede. */
+    private const RESPOSTA_DA_RECUSA = [
+        ExclusaoDeJustificativaRecusadaException::NAO_ENCONTRADA    => Response::HTTP_NOT_FOUND,
+        ExclusaoDeJustificativaRecusadaException::DE_OUTRA_PESSOA   => Response::HTTP_FORBIDDEN,
+        ExclusaoDeJustificativaRecusadaException::JA_ANALISADA      => Response::HTTP_UNPROCESSABLE_ENTITY,
+        ExclusaoDeJustificativaRecusadaException::DA_BATIDA_EXTERNA => Response::HTTP_UNPROCESSABLE_ENTITY,
+        ExclusaoDeJustificativaRecusadaException::MEXEU_NA_FOLHA    => Response::HTTP_UNPROCESSABLE_ENTITY,
+    ];
+
+    /**
+     * Flash de tipo próprio do aviso flutuante da /ponto (E8, P80; desenho L266 e `avisar` L468), no tom verde do
+     * desenho. O `index` o lê antes de montar a página, e por isso o laço de flashes do topo do layout (base.html.twig)
+     * não o encontra mais: o texto sai uma vez só, no aviso flutuante. Só vale para quem volta à /ponto: fora dela não há
+     * aviso flutuante, e o flash de sempre continua.
+     */
+    public const FLASH_AVISO_FLUTUANTE = 'ponto_aviso_flutuante';
+
+    /** O mesmo aviso, no tom vermelho do desenho (#a3232b). */
+    public const FLASH_AVISO_FLUTUANTE_ERRO = 'ponto_aviso_flutuante_erro';
+
+    /** O tom de cada flash do aviso flutuante (js/ponto-aviso-flutuante.js). */
+    private const TOM_DO_AVISO_FLUTUANTE = [
+        self::FLASH_AVISO_FLUTUANTE      => 'ok',
+        self::FLASH_AVISO_FLUTUANTE_ERRO => 'erro',
+    ];
+
+    /** O aviso flutuante do envio da justificativa (desenho L768, `addJ`). */
+    public const AVISO_ENVIADO_AO_GESTOR = 'Enviado para aprovação do gestor.';
+
+    /** Os avisos flutuantes da análise de uma justificativa (desenho L601, `analisar`): verde e vermelho. */
+    public const AVISO_JUSTIFICATIVA_ABONADA = 'Justificativa abonada.';
+    public const AVISO_JUSTIFICATIVA_RECUSADA = 'Justificativa recusada.';
 
     public function __construct(
         private readonly VerificadorAlertaPonto $verificadorAlerta,
@@ -76,7 +146,6 @@ final class PontoController extends AbstractController
         private readonly TransacaoComArquivoNovo $transacao,
         private readonly EntregaDeArquivo $entrega,
         private readonly JornadaResolver $jornadaResolver,
-        private readonly GerarCodigoFuncionario $gerarCodigo,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly UserTenantRepository $userTenantRepository,
@@ -87,9 +156,14 @@ final class PontoController extends AbstractController
         private readonly ChaveDoPontoEletronico $chaveDoPonto,
         private readonly TurnoAbertoNoEscritorio $turnoAberto,
         private readonly HorarioFuturoDaBatida $horarioFuturo,
-        private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
+        private readonly AlertasAntesDaBatida $alertasAntesDaBatida,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
         private readonly PublicoDosAvisosDePonto $publico,
+        private readonly EnvioDaBatida $envioDaBatida,
+        private readonly JustificativaPontoRepository $justificativas,
+        private readonly CercaDoPonto $cerca,
+        private readonly TrabalhoExternoDaBatida $trabalhoExterno,
+        private readonly PassagemPeloEscritorio $passagemPeloEscritorio,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -99,10 +173,19 @@ final class PontoController extends AbstractController
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
+        BancoDeHorasPorLotes $bancoDeHorasPorLotes,
         HomeOfficeResolver $homeOfficeResolver,
         SedesDaCercaDoPonto $sedesDaCerca,
+        AbaDosComprovantes $abaDosComprovantes,
         CalculadoraJornada $calculadoraJornada,
         ListarPendenciasDeRegistroUseCase $pendencias,
+        AnaliseDaPropriaJustificativa $analiseDaPropria,
+        FuncoesDoPonto $funcoes,
+        GestaoDoPonto $gestao,
+        JustificativasAAnalisarDaEquipe $aAnalisarDaEquipe,
+        PontoAjusteRepository $ajustes,
+        FeriadosDaPessoa $feriadosDaPessoa,
+        EstadoDoAceiteDaFolha $estadoDoAceite,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -129,13 +212,13 @@ final class PontoController extends AbstractController
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
 
-        /** @var RegistroPonto[] $batidas */
+        /** @var list<MarcacaoDoPonto> $batidas as efetivas (E10) */
         $batidas = $repository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
         $jornadaDoEscritorio = $this->jornadas->findByUserETenant($user, $tenant);
         // A folha usa a versão da jornada de cada dia (spec ponto-jornada-vigencia §3.2); a meta de hoje, a de hoje.
         // Sem jornada pessoal no dia, a jornada vazia (a padrão do escritório), como antes de a pessoa ter uma (§10.4).
-        $semJornadaPessoal = (new JornadaColaborador())->setUser($user);
-        $jornada = $this->jornadas->historicoDe($user, $tenant)?->comJornadaAntesDaPrimeira($semJornadaPessoal) ?? $semJornadaPessoal;
+        // Montada no builder, a mesma do banco de horas (E17): a soma do "Saldo mês" da folha é o banco.
+        $jornada = $folhaPontoBuilder->jornadaDaFolha($user, $tenant);
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $tenant, $anoSelecionado, $mesSelecionado);
@@ -170,16 +253,17 @@ final class PontoController extends AbstractController
             }
         }
 
-        $anoAtual = (int) $agora->format('Y');
-        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem, $tenant);
+        $bancoDeHoras = $bancoDeHorasPorLotes->calcular($user, $tenant, $agora);   // E17: lotes, não zera em janeiro (P51 a)
+        $saldoMes = $bancoDeHoras->saldoAtualMinutos;
         $horasPagasMinutos = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         $jornadaInfo = $this->resolverJornadaInfo($jornadaDoEscritorio, $jornadaTenant);
         $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($jornadaDoEscritorio, $agora, $jornadaTenant);
         // Contador de horas excedentes (05/11/2026): a meta do dia é a do alerta de "hora de ir embora",
-        // já sem o almoço. Feriado zera, como na folha (`CalculadoraJornada::calcularSaldoDiaDaEscolha`).
+        // já sem o almoço. Feriado zera, como na folha (`CalculadoraJornada::calcularSaldoDiaDaEscolha`): só o que
+        // vale para a pessoa hoje (E6, `FeriadosDaPessoa`), o do escritório todo ou o da lotação dela no dia.
         // Meta 0 (feriado ou dia fora da escala): a tela não mostra contador.
-        $metaDiaMinutos = $calculadoraJornada->getFeriadoDoDia($agora, $feriados) !== null
+        $metaDiaMinutos = $calculadoraJornada->getFeriadoDoDia($agora, $feriadosDaPessoa->filtrar($feriados, $user, $agora)) !== null
             ? 0
             : $this->jornadaResolver->resolverMetaDia($jornadaDoEscritorio, $agora, $jornadaTenant);
 
@@ -197,7 +281,9 @@ final class PontoController extends AbstractController
         //
         // Espelha as duas exclusões do servidor: sede sem coordenada e raio não positivo não
         // delimitam nada e ficam de fora nos dois lados. Mesmo serviço do atalho do cabeçalho.
-        $sedesDaTela = $sedesDaCerca->doEscritorio($tenant);
+        // Geolocalização desligada (E7, Master ou escritório): a tela não pede a posição nem avalia a cerca.
+        $geoLigado = $funcoes->vale(FuncoesDoPonto::GEO, $tenant);
+        $sedesDaTela = $geoLigado ? $sedesDaCerca->doEscritorio($tenant) : [];
 
         $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
@@ -208,7 +294,11 @@ final class PontoController extends AbstractController
 
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,
+            'geoLigado'      => $geoLigado,
             'sedesDaTela'    => $sedesDaTela,
+            // E12 (P18, P74): a cerca vale hoje para a pessoa (sem home office e com a geolocalização) e o escritório
+            // permite o trabalho externo. Como a cerca da tela, é cortesia: quem decide é a `batida()`.
+            'trabalho_externo_permitido' => !$homeOfficeHoje && $geoLigado && $this->trabalhoExterno->permitido($tenant),
             'folhaRows' => $folhaRows,
             'mesAtual' => $mesSelecionado,
             'anoAtual' => $anoSelecionado,
@@ -218,17 +308,20 @@ final class PontoController extends AbstractController
             'quantasHoje' => $quantasHoje,
             'saldoMes' => $saldoMes,
             'horasPagasMinutos' => $horasPagasMinutos,
-            // Bloco de totais do rodapé da folha (spec §7). Vem pronto do controller de propósito:
-            // no Twig, "último saldoAcumulado não-nulo" viraria laço com estado dentro do template.
-            'saldoMesMinutos' => $folhaPontoBuilder->saldoAcumuladoFinal($folhaRows),
+            // Bloco de totais do rodapé da folha (spec §7): a conta do banco para a competência, sem as horas pagas (que
+            // somam à parte). A última linha não serve: a /ponto esconde os dias sem batida e eles contam (E17).
+            'saldoMesMinutos' => ($bancoDeHoras->saldosPorCompetencia[$competenciaSelecionada] ?? 0) - $horasPagasMinutos,
             'jornadaInfo' => $jornadaInfo,
             'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
             'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,
+            // E11: com `ponto-alertas` desligada (Master ou escritório) o aviso do intervalo do cartão some (spec §7).
+            'alertasLigados'                 => $funcoes->vale(FuncoesDoPonto::ALERTAS, $tenant),
             'duracaoJornadaDiariaMinutos'    => $duracaoJornadaDiariaMinutos,
             'metaDiaMinutos'                 => $metaDiaMinutos,
             'justificativas'     => $justificativasDaCompetencia,
             'justificativaForm'  => $justificativaForm->createView(),
-            'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
+            // P45 (decisão do Coordenador, 09/11): os 45 tipos nos 6 grupos (`<optgroup>`), nas janelas de justificar e de editar.
+            'tiposJustificativa' => TipoJustificativa::asGroupedChoices(),
             'esquecimentosRegistrados' => $esquecimentosRegistrados,
             'esquecimentosEmAnalise'   => EsquecimentosRegistrados::diasEmAnalise($justificativasDaCompetencia),
             'dataHoje'                 => $hojeStr,
@@ -237,7 +330,57 @@ final class PontoController extends AbstractController
             // Virada do dia na tela: a próxima meia-noite no fuso do servidor, em ms (a tela soma o tempo passado).
             'proximaViradaMs'          => (int) $agora->modify('tomorrow')->format('Uv'),
             'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
-        ]);
+            // Cartão de abas (E3): Pendências abre ao entrar (P37); a volta da análise reabre a das justificativas (a da exclusão
+            // também, mas só no plano B do js/ponto-abas.js, quando a linha não está na tela).
+            'abaAberta'                => $this->abaAberta($request),
+            'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
+            // E10: a em análise que já mexeu na folha não mostra o "Excluir" (o servidor recusa do mesmo jeito).
+            'justificativasComAjuste'  => $ajustes->idsDasJustificativasComAjuste($tenant, self::idsEmAnalise($justificativasDaCompetencia)),
+            // Aba "Comprovantes" (E15): só com o comprovante ligado; a lista é da pessoa, neste escritório.
+            'comprovantesVisiveis'     => $abaDosComprovantes->visivel($tenant, $user),
+            'comprovantes'             => $abaDosComprovantes->linhas($user, $tenant),
+            // Aba "Banco de Horas" (E17): nulo esconde a aba.
+            'bancoDeHoras'             => $bancoDeHoras,
+            // E16 (P22; decisões 1, 4 e 16): o selo do aceite e o "Assinar folha". O mês corrente não tem aceite nem
+            // pode ser assinado (mês aberto), então a folha dele nem é montada para isso.
+            'aceiteDaFolha'            => $competenciaSelecionada < $competenciaAtual ? $estadoDoAceite->daCompetencia($tenant, $user, $anoSelecionado, $mesSelecionado) : null,
+        ] + $this->daTelaCheiaEDosAvisos($funcoes, $tenant, $request) + $this->abasDeGestao($user, $tenant, $gestao, $aAnalisarDaEquipe));
+    }
+
+    /**
+     * E8 (P79 a P83, P96): o valor efetivo (Global E Escritório) das funções da tela, como o `geoLigado` do `index`. O
+     * aviso flutuante que um envio deixou (`FLASH_AVISO_FLUTUANTE`) é lido aqui, antes do layout, para não sair também no
+     * topo da página.
+     *
+     * @return array{animacaoLigada: bool, sonsLigados: bool, lembreteLigado: bool, avisoFlutuante: array{texto: string, tom: string}|null}
+     */
+    private function daTelaCheiaEDosAvisos(FuncoesDoPonto $funcoes, Tenant $tenant, Request $request): array
+    {
+        return [
+            'animacaoLigada' => $funcoes->vale(FuncoesDoPonto::ANIMACAO, $tenant),
+            'sonsLigados'    => $funcoes->vale(FuncoesDoPonto::SONS, $tenant),
+            'lembreteLigado' => $funcoes->vale(FuncoesDoPonto::LEMBRETE, $tenant),
+            'avisoFlutuante' => $this->avisoFlutuanteDaSessao($request),
+        ];
+    }
+
+    /**
+     * Abas de gestão do cartão (E5, E6 e E9; P58 e P64): cada uma só para quem a vê (`GestaoDoPonto`). Sem ela, o
+     * `_abas.html.twig` não a mostra e o endereço dela cai em Pendências. O número da Equipe (as justificativas a
+     * analisar) só é contado para quem vê a Equipe: para os outros, 0 sem consulta.
+     *
+     * @return array{veEquipe: bool, veConfiguracoes: bool, veAuditoria: bool, equipeAAnalisar: int}
+     */
+    private function abasDeGestao(User $user, Tenant $tenant, GestaoDoPonto $gestao, JustificativasAAnalisarDaEquipe $aAnalisarDaEquipe): array
+    {
+        $veEquipe = $gestao->veEquipe($user, $tenant);
+
+        return [
+            'veEquipe'        => $veEquipe,
+            'veConfiguracoes' => $gestao->veConfiguracoes($user, $tenant),
+            'veAuditoria'     => $gestao->veAuditoria($user, $tenant),
+            'equipeAAnalisar' => $veEquipe ? $aAnalisarDaEquipe->contarAAnalisar($user, $tenant) : 0,
+        ];
     }
 
     #[Route('/justificativa/nova', name: 'ponto_justificativa_nova', methods: ['GET', 'POST'])]
@@ -245,18 +388,14 @@ final class PontoController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         JustificativaPontoRepository $justificativaRepository,
-        NotificacaoService $notificacaoService
+        NotificacaoService $notificacaoService,
+        TrilhaDoPonto $trilha,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
         $tenant = $this->assertAccess($user);
 
-        // Competência de origem (fora do form): devolve o colaborador ao mês que ele estava vendo.
-        // Sem isso, justificar um dia do mês anterior joga de volta no mês corrente.
-        $competenciaOrigem = (string) $request->request->get('competencia', '');
-        $voltaParaFolha = preg_match('/^\d{4}-\d{2}$/D', $competenciaOrigem) === 1
-            ? ['competencia' => $competenciaOrigem]
-            : [];
+        $voltaParaFolha = $this->voltaDaJanela($request);
 
         $form = $this->createForm(JustificativaPontoType::class);
         $form->handleRequest($request);
@@ -355,6 +494,7 @@ final class PontoController extends AbstractController
                 $justificativa->setStatus($statusInicial);
                 $justificativa->setBatchId($batchId);
                 $justificativa->setAbonoParcial($abonoParcial);
+                $justificativa->setMotivo(trim((string) $form->get('motivo')->getData()));
                 if ($abonoParcial) {
                     $justificativa->setHoraInicioAbono($horaInicio);
                     $justificativa->setHoraFimAbono($horaFim);
@@ -368,14 +508,7 @@ final class PontoController extends AbstractController
                 $justificativasCriadas[] = $justificativa;
             }
 
-            // O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver
-            // PROVADO que nada foi confirmado; num COMMIT de resultado incerto as justificativas
-            // podem existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original
-            // continua subindo.
-            $this->transacao->confirmar(
-                static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
-                'PontoController::novaJustificativa: atestado do lote',
-            );
+            $this->confirmarEnvio($entityManager, $trilha, $tenant, $user, $justificativasCriadas, $chaveAnexo);
 
             if (!$isFaltaNaoJustificada) {
                 // Leva o gestor direto à aba de justificativas do colaborador (aprovar/recusar)
@@ -395,10 +528,8 @@ final class PontoController extends AbstractController
                     count($datasValidas)
                 ));
             } else {
-                $this->addFlash('success', sprintf(
-                    'Justificativa enviada para %d dia(s). Aguarde análise do administrador.',
-                    count($datasValidas)
-                ));
+                // E8 (P80, decisão do Coordenador de 09/11/2026): o aviso flutuante do desenho no lugar do flash do topo.
+                $this->addFlash(self::FLASH_AVISO_FLUTUANTE, self::AVISO_ENVIADO_AO_GESTOR);
             }
         } elseif ($form->isSubmitted() && !$form->isValid()) {
             foreach ($form->getErrors(true) as $error) {
@@ -407,6 +538,26 @@ final class PontoController extends AbstractController
         }
 
         return $this->redirectToRoute('ponto_index', $voltaParaFolha);
+    }
+
+    /**
+     * Confirma o lote enviado pelo colaborador com o evento da trilha do Ponto (E9) no mesmo COMMIT. O arquivo foi
+     * gravado antes da transação. Se ela falhar, ele só sai quando estiver PROVADO que nada foi confirmado; num COMMIT de
+     * resultado incerto as justificativas podem existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção
+     * original continua subindo.
+     *
+     * @param list<JustificativaPonto> $justificativas
+     */
+    private function confirmarEnvio(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, Tenant $tenant, User $user, array $justificativas, ?ChaveDeArquivo $chaveAnexo): void
+    {
+        $this->transacao->executar(
+            static function () use ($entityManager, $trilha, $tenant, $user, $justificativas): void {
+                $entityManager->flush();
+                $trilha->registrar($tenant, $user, AcaoDaTrilhaDoPonto::JustificativaEnviada->value, DetalheDaTrilhaDoPonto::doLote($justificativas));
+            },
+            static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
+            'PontoController::novaJustificativa: atestado do lote',
+        );
     }
 
     /**
@@ -436,7 +587,7 @@ final class PontoController extends AbstractController
 
         if (!$this->isCsrfTokenValid('editar_justificativa_' . $justificativa->getId(), $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
-            return $this->redirectToRoute('ponto_index');
+            return $this->voltaDaEdicao($justificativa);
         }
 
         // C2-01 (docs/specs/ponto-edicao-justificativa-analisada.md): o colaborador só edita o que o
@@ -446,7 +597,13 @@ final class PontoController extends AbstractController
         if ($justificativa->getStatus() !== 'pendente') {
             $this->addFlash('warning', JustificativaJaAnalisadaException::MENSAGEM);
 
-            return $this->redirectToRoute('ponto_index');
+            return $this->voltaDaEdicao($justificativa);
+        }
+        // E12: a da batida de trabalho externo é a análise daquela batida; o colaborador não a muda.
+        if ($justificativa->analisaUmaBatida()) {
+            $this->addFlash('warning', TrabalhoExternoDaBatida::MENSAGEM_EDICAO_RECUSADA);
+
+            return $this->voltaDaEdicao($justificativa);
         }
 
         $tipo = $request->request->get('tipo');
@@ -467,7 +624,7 @@ final class PontoController extends AbstractController
 
             if ($horaInicio === null || $horaFim === null || $horaInicio >= $horaFim) {
                 $this->addFlash('warning', 'Informe os horários de saída e retorno corretamente para o abono parcial.');
-                return $this->redirectToRoute('ponto_index');
+                return $this->voltaDaEdicao($justificativa);
             }
         }
 
@@ -476,23 +633,12 @@ final class PontoController extends AbstractController
         $justificativa->setHoraInicioAbono($abonoParcial ? $horaInicio : null);
         $justificativa->setHoraFimAbono($abonoParcial ? $horaFim : null);
 
-        if ($tipo === 'esquecimento_registro') {
-            $tipoRegEsquecido = $request->request->get('tipoRegistroEsquecido');
-            $horaRegRaw = $request->request->get('horaRegistroEsquecido');
-            $horaReg = ($horaRegRaw !== null && $horaRegRaw !== '') ? \DateTime::createFromFormat('H:i', $horaRegRaw) ?: null : null;
-            if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
-                $this->addFlash('warning', 'Informe o tipo e o horário do registro esquecido.');
-                return $this->redirectToRoute('ponto_index');
-            }
-            if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
-                $this->addFlash('warning', $jaBatida);   // a edição não troca para uma batida que existe
-                return $this->redirectToRoute('ponto_index');
-            }
-            $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
-            $justificativa->setHoraRegistroEsquecido($horaReg);
-        } else {
-            $justificativa->setTipoRegistroEsquecido(null);
-            $justificativa->setHoraRegistroEsquecido(null);
+        $recusa = $this->aplicarMotivoDaEdicao($request, $justificativa, $user, $tenant)
+            ?? $this->aplicarEsquecimentoDaEdicao($request, $justificativa, $tipo === 'esquecimento_registro', $user, $tenant);
+        if ($recusa !== null) {
+            $this->addFlash('warning', $recusa);
+
+            return $this->voltaDaEdicao($justificativa);
         }
 
         // A troca do anexo vem ANTES do flush de propósito. Se o arquivo for recusado, a edição
@@ -508,13 +654,13 @@ final class PontoController extends AbstractController
             } catch (\InvalidArgumentException $e) {
                 $this->addFlash('warning', $e->getMessage());
 
-                return $this->redirectToRoute('ponto_index');
+                return $this->voltaDaEdicao($justificativa);
             } catch (TrocaDeAnexoRecusadaException $e) {
                 // Lote já analisado: a recusa descarta a edição inteira, como o anexo inválido
                 // acima. A transação que recusou já fechou o EntityManager — só resta avisar.
                 $this->addFlash('warning', $e->getMessage());
 
-                return $this->redirectToRoute('ponto_index');
+                return $this->voltaDaEdicao($justificativa);
             }
 
             if ($atingidos > 1) {
@@ -530,12 +676,138 @@ final class PontoController extends AbstractController
                 // Analisada entre o carregamento e a gravação: nada foi gravado.
                 $this->addFlash('warning', $e->getMessage());
 
-                return $this->redirectToRoute('ponto_index');
+                return $this->voltaDaEdicao($justificativa);
             }
         }
 
         $this->addFlash('success', 'Justificativa atualizada com sucesso.');
-        return $this->redirectToRoute('ponto_index');
+        return $this->voltaDaEdicao($justificativa);
+    }
+
+    /**
+     * Volta da janela "Editar justificativa" (E4, achado da revisão da E3): a aba "Minhas Justificativas" no mês da
+     * justificativa, o mesmo endereço da volta da exclusão e da análise. Antes voltava em Pendências, no mês corrente.
+     */
+    private function voltaDaEdicao(JustificativaPonto $justificativa): Response
+    {
+        $dia = $justificativa->getData();
+
+        return $this->redirectToRoute('ponto_index', ($dia !== null ? ['competencia' => $dia->format('Y-m')] : []) + ['aba' => 'justificativas']);
+    }
+
+    /**
+     * E4: a janela "Editar justificativa" sempre manda o motivo, e em branco não sai (o desenho o pede ao criar). Sem o
+     * campo no pedido, o motivo gravado fica como está. O motivo é do lote (nasce o mesmo em cada dia e a ficha do gestor
+     * mostra o do primeiro dia): vai para os dias em análise do lote (`diasEmAnaliseDoLote`). Devolve a recusa, ou null.
+     */
+    private function aplicarMotivoDaEdicao(Request $request, JustificativaPonto $justificativa, User $user, Tenant $tenant): ?string
+    {
+        if (!$request->request->has('motivo')) {
+            return null;
+        }
+        $motivo = trim((string) $request->request->get('motivo'));
+        if ($motivo === '') {
+            return 'Informe o motivo.';
+        }
+        if (mb_strlen($motivo) > JustificativaPontoType::MOTIVO_MAXIMO) {
+            return sprintf('O motivo pode ter até %d caracteres.', JustificativaPontoType::MOTIVO_MAXIMO);
+        }
+        foreach ($this->diasEmAnaliseDoLote($justificativa, $user, $tenant) as $dia) {
+            $dia->setMotivo($motivo);
+        }
+
+        return null;
+    }
+
+    /**
+     * O dia editado (já conferido: é da pessoa e está em análise) e os outros dias do mesmo lote (`batchId`) no escritório
+     * da sessão, da mesma pessoa e ainda em análise. Dia já analisado fica como está. Sem `batchId`, só o dia editado.
+     * A gravação é a do flush da edição (ConfirmarEdicaoDeJustificativaUseCase ou SubstituirAnexoDoLoteUseCase): uma
+     * recusa antes dele não grava o motivo em dia nenhum.
+     *
+     * @return list<JustificativaPonto>
+     */
+    private function diasEmAnaliseDoLote(JustificativaPonto $justificativa, User $user, Tenant $tenant): array
+    {
+        $batchId = $justificativa->getBatchId();
+        if ($batchId === null || $batchId === '') {
+            return [$justificativa];
+        }
+        $outros = array_filter(
+            $this->justificativas->findLotePorBatchId($batchId, $tenant),
+            static fn (JustificativaPonto $dia): bool => $dia !== $justificativa
+                && $dia->getUser()?->getId() === $user->getId()
+                && $dia->getStatus() === 'pendente',
+        );
+
+        return [$justificativa, ...array_values($outros)];
+    }
+
+    /**
+     * Tipo e horário da batida esquecida na edição, ou os dois limpos em outro tipo. Movido de editarJustificativa sem
+     * mudar a regra (E4: o método estava no teto da catraca de métodos longos). Devolve a recusa, ou null.
+     *
+     * A edição é em minutos (o campo lê H:i). Com o mesmo tipo de batida e o mesmo H:i do gravado, o horário gravado
+     * fica intacto, com os segundos do envio (P46): editar só o motivo não troca 14:32:10 por 14:32:00. Só um H:i novo
+     * é regravado (com :00).
+     */
+    private function aplicarEsquecimentoDaEdicao(Request $request, JustificativaPonto $justificativa, bool $ehEsquecimento, User $user, Tenant $tenant): ?string
+    {
+        if ($ehEsquecimento) {
+            $tipoRegEsquecido = $request->request->get('tipoRegistroEsquecido');
+            $horaRegRaw = $request->request->get('horaRegistroEsquecido');
+            $horaReg = ($horaRegRaw !== null && $horaRegRaw !== '') ? \DateTime::createFromFormat('H:i', $horaRegRaw) ?: null : null;
+            if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
+                return 'Informe o tipo e o horário do registro esquecido.';
+            }
+            if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
+                return $jaBatida;   // a edição não troca para uma batida que existe
+            }
+            $gravada = $justificativa->getHoraRegistroEsquecido();
+            $mesmoHorario = $gravada !== null
+                && $justificativa->getTipoRegistroEsquecido() === $tipoRegEsquecido
+                && $gravada->format('H:i') === $horaReg->format('H:i');
+            $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
+            if (!$mesmoHorario) {
+                $justificativa->setHoraRegistroEsquecido($horaReg);
+            }
+        } else {
+            $justificativa->setTipoRegistroEsquecido(null);
+            $justificativa->setHoraRegistroEsquecido(null);
+        }
+
+        return null;
+    }
+
+    /**
+     * P41 (desenho do Ponto, E3): o colaborador exclui a própria justificativa ainda em análise, depois de
+     * confirmar na janela. JSON para o `fetch` da aba, sem flash e sem redirecionar: a tela tira a linha na hora
+     * (um flash aqui sobraria para a próxima página). As recusas do UseCase vêm com a frase em `mensagem`: 404 de
+     * outro escritório, 403 de outra pessoa e 422 já analisada. Sem token, o 403 do `validarCsrfAjax`, sem `mensagem`.
+     *
+     * Ponto único da exclusão: só a aba nova chama esta rota. Com o Ponto antigo de volta, tirar o atributo da rota
+     * (a linha abaixo) desliga a exclusão inteira no servidor.
+     */
+    #[Route('/justificativa/{id}/excluir', name: 'ponto_justificativa_excluir', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function excluirJustificativa(
+        int $id,
+        Request $request,
+        ExcluirJustificativaEmAnaliseUseCase $excluir,
+    ): JsonResponse {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        // CSRF depois da autorização, como na batida: a falha de acesso tem prioridade.
+        $this->validarCsrfAjax($request);
+
+        try {
+            $excluir->executar($id, $user, $tenant);
+        } catch (ExclusaoDeJustificativaRecusadaException $e) {
+            return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], self::RESPOSTA_DA_RECUSA[$e->motivo]);
+        }
+
+        return $this->json(['ok' => true]);
     }
 
     #[Route('/justificativa/{id}/anexo', name: 'ponto_justificativa_anexo', methods: ['GET'])]
@@ -630,12 +902,15 @@ final class PontoController extends AbstractController
     #[Route('/batida', name: 'ponto_batida', methods: ['POST'])]
     public function batida(
         Request $request,
-        EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
         HomeOfficeResolver $homeOfficeResolver,
         EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
+        FuncoesDoPonto $funcoes,
+        TrilhaDoPonto $trilha,
+        RegistrarBatidaDaPessoaUseCase $registrarBatida,
+        EntityManagerInterface $entityManager,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -645,6 +920,9 @@ final class PontoController extends AbstractController
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
+        if (($deOutraConta = $this->filaDeOutraConta($request, $user, $tenant)) !== null) {
+            return $deOutraConta;   // E14: antes da permissão, do escritório e do CSRF, para a fila não apagar a batida
+        }
         if (!$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             return $this->json(['success' => false, 'message' => 'Sem permissão para registrar ponto.'], 403);
         }
@@ -656,8 +934,6 @@ final class PontoController extends AbstractController
         // CSRF após os guards de autorização (a falha de autz tem prioridade e fica testável).
         $this->validarCsrfAjax($request);
 
-        $jornadaTenant = $tenant->getJornadaTenant();
-
         $data = json_decode($request->getContent(), true);
 
         if (!is_array($data)) {
@@ -665,6 +941,11 @@ final class PontoController extends AbstractController
                 'success' => false,
                 'message' => 'Payload invalido.',
             ], 400);
+        }
+
+        $envio = $this->envioDaBatida->ler($data, (int) $user->getId(), (int) $tenant->getId(), new \DateTimeImmutable());   // um instante na chegada
+        if (($resposta = $this->respostaAntesDasRegras($envio, $user, $tenant, $registroRepository)) !== null) {
+            return $resposta;
         }
 
         $latitude    = $data['latitude'] ?? null;
@@ -686,7 +967,7 @@ final class PontoController extends AbstractController
             ], 422);
         }
 
-        $hoje = new \DateTimeImmutable();
+        $hoje = $envio->momento;   // todas as regras abaixo valem no momento da batida
         if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $choque, $registroRepository)) !== null) {
             return $this->json(['success' => false, 'message' => $recusa], 422);   // chave ou choque de horário
         }
@@ -694,14 +975,17 @@ final class PontoController extends AbstractController
         // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
         // a batida entra sem GPS nem sede. O resolver reautoriza sempre no servidor.
         $homeOfficeHoje = $homeOfficeResolver->estaLiberado($user, $tenant, $hoje);
+        // Geolocalização desligada (E7: o Master ou o escritório): sem cerca e sem sede, e a batida NÃO vira home
+        // office. A posição que vier é descartada, como no home office: o escritório escolheu não usar localização.
+        $cercaVale = !$homeOfficeHoje && $funcoes->vale(FuncoesDoPonto::GEO, $tenant);
 
-        $sedeEncontrada = null;
-        $distanciaSedeEncontrada = null;
+        $posicao = null;
+        $motivoExterno = null;   // E12: preenchido só na batida de trabalho externo
         $latitudeFloat = null;
         $longitudeFloat = null;
         $precisaoGpsFloat = null;
 
-        if (!$homeOfficeHoje) {
+        if ($cercaVale) {
             if ($latitude === null || $longitude === null) {
                 return $this->json([
                     'success' => false,
@@ -742,68 +1026,27 @@ final class PontoController extends AbstractController
                 ], 422);
             }
 
-            $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
-            if (empty($sedes)) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'Nenhuma sede configurada para o tenant.',
-                ], 403);
-            }
+            // E12: a cerca com a precisão (CercaDoPonto); o escritório sem sede válida fica fora do raio. E10: só as sedes
+            // ativas (a encerrada, removida com batida, não vale para batida nova).
+            $posicao = $this->cerca->avaliar($sedeRepository->ativasDoEscritorio($tenant), $latitudeFloat, $longitudeFloat, $precisaoGpsFloat);
+            if (!$posicao->estaDentro()) {
+                $permitido = $this->trabalhoExterno->permitido($tenant);
+                if (!$permitido || !TrabalhoExternoDaBatida::foiPedido($data)) {
+                    $recusa = $posicao->recusa($permitido);
 
-            foreach ($sedes as $sede) {
-                if ($sede->getLatitude() === null || $sede->getLongitude() === null) {
-                    continue;
+                    return $this->json(['success' => false, 'message' => $recusa['titulo'] . '. ' . $recusa['detalhe'], 'foraDoRaio' => $recusa], $posicao->statusDaRecusa());
                 }
-
-                $distancia = $this->calcularDistanciaMetros(
-                    $latitudeFloat,
-                    $longitudeFloat,
-                    (float) $sede->getLatitude(),
-                    (float) $sede->getLongitude()
-                );
-
-                $raioPermitido = (float) $sede->getRaioPermitido();
-                if ($raioPermitido <= 0) {
-                    continue;
-                }
-
-                if ($distancia <= $raioPermitido && ($distanciaSedeEncontrada === null || $distancia < $distanciaSedeEncontrada)) {
-                    $sedeEncontrada = $sede;
-                    $distanciaSedeEncontrada = $distancia;
-                }
-            }
-
-            if ($sedeEncontrada === null) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'Você está fora da área permitida das sedes para registrar o ponto.',
-                ], 403);
-            }
-        }
-
-        if ($tipo === RegistroPonto::TIPO_RETORNO && ($jornadaTenant?->isValidacaoRepousoHabilitada() ?? true)) {
-            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $tenant, $hoje);
-            if ($repousoDoDia !== null) {
-                $minimoMin   = $jornadaTenant?->getMinimoMinutosRepouso() ?? 60;
-                $diffMinutos = (int) round(
-                    ((new \DateTime())->getTimestamp() - $repousoDoDia->getDataHora()->getTimestamp()) / 60
-                );
-                if ($diffMinutos < $minimoMin) {
-                    return $this->json([
-                        'success' => false,
-                        'message' => sprintf(
-                            'Intervalo mínimo de repouso é de %d minuto(s). Aguarde mais %d minuto(s).',
-                            $minimoMin,
-                            $minimoMin - $diffMinutos
-                        ),
-                    ], 422);
+                $motivoExterno = TrabalhoExternoDaBatida::motivoDo($data);
+                if (($recusaDoMotivo = TrabalhoExternoDaBatida::recusaDoMotivo($motivoExterno)) !== null) {
+                    return $this->json(['success' => false, 'message' => $recusaDoMotivo], 422);
                 }
             }
         }
 
-        $interjornada = $tipo === RegistroPonto::TIPO_ENTRADA ? $this->interjornada($user, $tenant, $jornadaTenant, $registroRepository) : null;
-        if (isset($interjornada['recusa'])) {
-            return $this->json(['success' => false, 'message' => $interjornada['recusa']], 422);
+        // P21 (spec ponto-desenho-0811 E11): o intervalo curto, a interjornada e o 7º dia seguido avisam antes de gravar.
+        $intervalo = $this->alertasAntesDaBatida->avaliar($user, $tenant, $tipo, $hoje);
+        if (($resposta = $this->respostaDoIntervalo($intervalo, $envio, $data)) !== null) {
+            return $resposta;
         }
 
         $semEntrada = $this->faltouAEntrada($user, $tenant, $tipo, $hoje, $registroRepository);   // antes de gravar
@@ -811,35 +1054,180 @@ final class PontoController extends AbstractController
         $registro->setUser($user);
         $registro->setTenant($tenant);
         $registro->setTipo($tipo);
-        $registro->setDataHora(new \DateTime());
+        $envio->gravarEm($registro);
         $registro->setHomeOffice($homeOfficeHoje);
 
-        if (!$homeOfficeHoje) {
-            $registro->setSede($sedeEncontrada);
-            $registro->setSedeNomeSnapshot($sedeEncontrada->getNome());
+        $justificativaExterna = null;
+        if ($posicao !== null) {
+            if ($motivoExterno !== null) {
+                TrabalhoExternoDaBatida::marcar($registro, $motivoExterno);   // E12: sem sede, com o local e o motivo
+                $justificativaExterna = $this->trabalhoExterno->justificativaDa($registro);
+            } else {
+                $registro->setSede($posicao->sede);
+                $registro->setSedeNomeSnapshot($posicao->sede?->getNome());
+            }
             $registro->setLatitude((string) $latitudeFloat);
             $registro->setLongitude((string) $longitudeFloat);
             $registro->setPrecisaoGps((string) $precisaoGpsFloat);
         }
 
-        $entityManager->persist($registro);
-        $entityManager->flush();
-
-        $dados = [
-            'hora' => $registro->getDataHora()->format('H:i:s'),
-            'tipo' => $tipo,
-        ];
-        if (!$homeOfficeHoje) {
-            $dados['sede'] = $sedeEncontrada->getNome();
-            $dados['distancia'] = $distanciaSedeEncontrada !== null ? round($distanciaSedeEncontrada, 2) : null;
+        // E15: NSR (D2), comprovante e evento da trilha (E9) na mesma transação do INSERT; o mesmo envio repetido (E13)
+        // desfaz tudo e devolve o NSR. Na de trabalho externo (E12), a justificativa ligada entra no mesmo COMMIT.
+        $comprovante = null;
+        if (!$this->gravouSemRepetirOEnvio($envio, function () use ($entityManager, $registrarBatida, $trilha, $registro, $tenant, $justificativaExterna, &$comprovante): void {
+            $comprovante = $this->gravarBatida($entityManager, $registrarBatida, $trilha, $registro, $tenant, $justificativaExterna);
+        })) {
+            return $this->respostaJaRegistrada($tipo, null);
+        }
+        if ($justificativaExterna !== null) {
+            $this->trabalhoExterno->avisarGestores($justificativaExterna, $tenant);   // depois do COMMIT; a falha não desfaz a batida
         }
 
         return $this->json([
             'success' => true,
-            'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
-            'data'    => $dados,
-            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
+            'message' => match (true) {
+                $justificativaExterna !== null => TrabalhoExternoDaBatida::MENSAGEM_REGISTRADA,
+                $homeOfficeHoje                => 'Ponto (home office) registrado com sucesso!',
+                default                        => 'Ponto registrado com sucesso!',
+            } . ($comprovante !== null ? ' Comprovante na aba Comprovantes.' : ''),
+            'data'    => $this->dadosDaBatida($registro, $posicao, $justificativaExterna !== null, $comprovante),
+            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $intervalo->avisoDepois, $semEntrada),
         ]);
+    }
+
+    /**
+     * A batida guardada sem internet em outra conta ou em outro escritório (spec ponto-desenho-0811 E14) volta 409 logo
+     * depois da autenticação: com a sessão já em outro escritório, sem o módulo de ponto, o 403 faria a fila apagar a
+     * batida. A resposta só repete o que o pedido trouxe e nada muda.
+     */
+    private function filaDeOutraConta(Request $request, User $user, ?Tenant $tenant): ?JsonResponse
+    {
+        $dados = json_decode($request->getContent(), true);
+        $recusa = is_array($dados) ? $this->envioDaBatida->deOutraConta($dados, (int) $user->getId(), $tenant?->getId()) : null;
+
+        return $recusa === null ? null : $this->json(['success' => false, 'message' => $recusa->mensagem], $recusa->status);
+    }
+
+    /**
+     * O envio antes de qualquer regra da batida (spec ponto-desenho-0811 §5 E13 e E14): o pedido malformado recusa; a nova
+     * tentativa de um envio que já entrou neste escritório responde "já registrada" sem gravar de novo; só então a batida
+     * guardada sem internet pode ser recusada (outra conta ou escritório, além do teto de idade, relógio adiantado).
+     */
+    private function respostaAntesDasRegras(EnvioLidoDaBatida $envio, User $user, Tenant $tenant, RegistroPontoRepository $registros): ?JsonResponse
+    {
+        if ($envio->recusaDoPedido !== null) {
+            return $this->json(['success' => false, 'message' => $envio->recusaDoPedido->mensagem], $envio->recusaDoPedido->status);
+        }
+        $jaRegistrada = $envio->idEnvio !== null ? $registros->doEnvio($user, $tenant, $envio->idEnvio) : null;
+        if ($jaRegistrada !== null) {
+            return $this->respostaJaRegistrada((string) $jaRegistrada->getTipo(), $jaRegistrada->getDataHora());
+        }
+        if ($envio->recusaDaFila !== null) {
+            return $this->json(['success' => false, 'message' => $envio->recusaDaFila->mensagem], $envio->recusaDaFila->status);
+        }
+
+        return null;
+    }
+
+    /**
+     * Grava a batida (com NSR, comprovante e o evento da trilha, E9 e E15, na mesma transação). Dois pedidos do mesmo
+     * envio ao mesmo tempo (E13): o índice único barra o segundo, a transação desfaz batida, NSR e evento, e ele volta
+     * false e responde "já registrada" sem consultar de novo (o EntityManager fecha depois da violação).
+     */
+    private function gravouSemRepetirOEnvio(EnvioLidoDaBatida $envio, \Closure $gravar): bool
+    {
+        try {
+            $gravar();
+        } catch (UniqueConstraintViolationException $violacao) {
+            if ($envio->idEnvio === null || !str_contains($violacao->getMessage(), RegistroPonto::INDICE_DO_ENVIO)) {
+                throw $violacao;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Os dados da tela de resultado da batida que entrou: hora e tipo; a marca do trabalho externo (E12) ou, quando a
+     * cerca valeu, a sede e a distância; e, com o comprovante emitido, o código e o "Baixar comprovante" (E15; E8,
+     * desenho L365 e L368).
+     *
+     * @return array<string, mixed>
+     */
+    private function dadosDaBatida(RegistroPonto $registro, ?PosicaoNaCerca $posicao, bool $trabalhoExterno, ?ComprovanteDoPonto $comprovante): array
+    {
+        $dados = ['hora' => $registro->getDataHora()->format('H:i:s'), 'tipo' => $registro->getTipo()];
+        if ($trabalhoExterno) {
+            $dados['trabalhoExterno'] = true;
+        } elseif ($posicao !== null) {
+            $dados['sede'] = $posicao->sede?->getNome();
+            $dados['distancia'] = $posicao->distancia !== null ? round($posicao->distancia, 2) : null;
+        }
+        if ($comprovante !== null) {
+            $dados['comprovante'] = ['codigo' => $comprovante->getCodigo(), 'url' => $this->generateUrl('ponto_comprovante_baixar', ['id' => $comprovante->getId()])];
+        }
+
+        return $dados;
+    }
+
+    /**
+     * O aviso flutuante que um envio deixou para a /ponto (`FLASH_AVISO_FLUTUANTE` e `FLASH_AVISO_FLUTUANTE_ERRO`), lido
+     * e consumido antes do layout. Um por vez, como no desenho: o último.
+     *
+     * @return array{texto: string, tom: string}|null
+     */
+    private function avisoFlutuanteDaSessao(Request $request): ?array
+    {
+        $sessao = $request->getSession();
+        if (!$sessao instanceof FlashBagAwareSessionInterface) {
+            return null;
+        }
+        $aviso = null;
+        foreach (self::TOM_DO_AVISO_FLUTUANTE as $tipo => $tom) {
+            foreach ($sessao->getFlashBag()->get($tipo) as $texto) {
+                $aviso = ['texto' => (string) $texto, 'tom' => $tom];
+            }
+        }
+
+        return $aviso;
+    }
+
+    /** A resposta da batida que já tinha entrado com o mesmo envio; sem a hora quando quem barrou foi o índice único. */
+    private function respostaJaRegistrada(string $tipo, ?\DateTimeInterface $hora): JsonResponse
+    {
+        $dados = $hora !== null ? ['hora' => $hora->format('H:i:s')] : [];
+
+        return $this->json([
+            'success' => true,
+            'message' => EnvioDaBatida::MENSAGEM_JA_REGISTRADA,
+            'data'    => $dados + ['tipo' => $tipo, 'jaRegistrada' => true],
+            'avisos'  => [],
+        ]);
+    }
+
+    /**
+     * Grava a batida e o evento dela na trilha de auditoria (E9) no mesmo COMMIT: se a batida falha, a trilha não
+     * ganha linha; se a trilha falha, a batida não entra. A batida entra pelo UseCase da E15, que dá o NSR e emite o
+     * comprovante dentro desta mesma transação. Na de trabalho externo (E12), a justificativa ligada e o envio dela na
+     * trilha entram no mesmo COMMIT (persistida antes, sai no flush do UseCase), com a trava da trilha por último.
+     * Devolve o comprovante emitido, ou null.
+     */
+    private function gravarBatida(EntityManagerInterface $entityManager, RegistrarBatidaDaPessoaUseCase $registrarBatida, TrilhaDoPonto $trilha, RegistroPonto $registro, Tenant $tenant, ?JustificativaPonto $justificativaExterna = null): ?ComprovanteDoPonto
+    {
+        return $trilha->emTransacao(static function () use ($entityManager, $registrarBatida, $trilha, $registro, $tenant, $justificativaExterna): ?ComprovanteDoPonto {
+            if ($justificativaExterna !== null) {
+                $entityManager->persist($justificativaExterna);
+            }
+            $comprovante = $registrarBatida->executar($registro);
+            $trilha->registrar($tenant, $registro->getUser(), AcaoDaTrilhaDoPonto::BatidaRegistrada->value, DetalheDaTrilhaDoPonto::daBatida($registro) + ['registro_id' => $registro->getId()]);
+            if ($justificativaExterna !== null) {
+                $trilha->registrar($tenant, $registro->getUser(), AcaoDaTrilhaDoPonto::JustificativaEnviada->value, DetalheDaTrilhaDoPonto::doLote([$justificativaExterna]));
+            }
+
+            return $comprovante;
+        });
     }
 
     /**
@@ -885,7 +1273,7 @@ final class PontoController extends AbstractController
     private function temEntradaNoDia(User $user, Tenant $tenant, \DateTimeImmutable $agora, RegistroPontoRepository $registros): bool
     {
         foreach ($registros->batidasDoDiaNoEscritorio($user, $tenant, $agora) as $batida) {
-            if ($batida->getTipo() === RegistroPonto::TIPO_ENTRADA) {
+            if ($batida->getTipo() === RegistroPonto::TIPO_ENTRADA && $batida->getDataHora() <= $agora) {   // até o momento (E14)
                 return true;
             }
         }
@@ -894,42 +1282,20 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * A interjornada da entrada, medida pela última saída NESTE escritório (`ponto-por-escritorio.md` §2.1). Null quando
-     * está cumprida ou desligada; `recusa` quando a saída foi batida; `aviso` quando a saída veio de um registro de
-     * esquecimento (`ponto-esquecimento-nao-trava.md` R4): o esquecimento nunca trava a batida seguinte.
+     * A resposta das regras de intervalo antes de gravar (spec ponto-desenho-0811 P21 e E11). Nada recusa: o alerta volta
+     * sem gravar (200, `success: false`, `alerta`) para a tela abrir a janela "Antes de registrar", e o "Registrar assim
+     * mesmo" manda de novo com `confirmarAlerta`. Com a chave `ponto-alertas` desligada não há alerta, e a batida grava
+     * direto. A batida da fila sem internet grava sem a janela, que não há como mostrar no toque, e nunca fica presa.
      *
-     * @return array{recusa?: string, aviso?: string}|null
+     * @param array<mixed> $dados o JSON da batida
      */
-    private function interjornada(User $user, Tenant $tenant, ?JornadaTenant $jornadaTenant, RegistroPontoRepository $registroRepository): ?array
+    private function respostaDoIntervalo(IntervaloDaBatida $intervalo, EnvioLidoDaBatida $envio, array $dados): ?JsonResponse
     {
-        if (!($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
+        if ($intervalo->alerta === null || $envio->semInternet || AlertasAntesDaBatida::confirmou($dados)) {
             return null;
         }
-        $ultimaSaida = $registroRepository->ultimaSaidaQueFechouTurno($user, $tenant, TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS);   // a solta não conta (R4)
-        if ($ultimaSaida === null) {
-            return null;
-        }
-        $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
-        $diffMinutos = (int) round(((new \DateTime())->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60);
-        if ($diffMinutos >= $minimoInterjornada) {
-            return null;
-        }
-        if ($this->saidaDeEsquecimento->veioDeEsquecimento($ultimaSaida)) {
-            return ['aviso' => sprintf(
-                SaidaDeEsquecimento::AVISO_INTERJORNADA,
-                $ultimaSaida->getDataHora()->format('d/m'),
-                $ultimaSaida->getDataHora()->format('H:i'),
-                intdiv($minimoInterjornada, 60),
-            )];
-        }
-        $minFalt = $minimoInterjornada - $diffMinutos;
 
-        return ['recusa' => sprintf(
-            'Interjornada mínima é de %dh. Aguarde mais %dh%02dm.',
-            intdiv($minimoInterjornada, 60),
-            intdiv($minFalt, 60),
-            $minFalt % 60
-        )];
+        return $this->json(['success' => false, 'alerta' => $intervalo->alerta, 'message' => $intervalo->alerta]);
     }
 
     /**
@@ -957,6 +1323,59 @@ final class PontoController extends AbstractController
         }
 
         return $choque->naBatida($user, $tenant, $agora);
+    }
+
+    /**
+     * Os ids das justificativas ainda em análise: só nelas a aba "Minhas Justificativas" mostra o "Excluir".
+     *
+     * @param iterable<JustificativaPonto> $justificativas
+     *
+     * @return list<int>
+     */
+    private static function idsEmAnalise(iterable $justificativas): array
+    {
+        $ids = [];
+        foreach ($justificativas as $justificativa) {
+            if ($justificativa->getStatus() === 'pendente' && $justificativa->getId() !== null) {
+                $ids[] = $justificativa->getId();
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Para onde a janela "Registro de esquecimento" ou "Justificar falta" volta: o mês e a aba que a pessoa via (fora do
+     * form). Sem o mês, justificar um dia do mês anterior joga de volta no mês corrente; sem a aba, volta sempre para
+     * Pendências, e o desenho (L768, `addJ`) só fecha a janela. Aba que não existe fica fora (cai no padrão).
+     *
+     * @return array{competencia?: string, aba?: string}
+     */
+    private function voltaDaJanela(Request $request): array
+    {
+        $volta = [];
+        $competencia = (string) $request->request->get('competencia', '');
+        if (preg_match('/^\d{4}-\d{2}$/D', $competencia) === 1) {
+            $volta['competencia'] = $competencia;
+        }
+        $aba = (string) $request->request->get('aba', '');
+        if ($aba !== self::ABAS_DO_CARTAO[0] && in_array($aba, self::ABAS_DO_CARTAO, true)) {
+            $volta['aba'] = $aba;
+        }
+
+        return $volta;
+    }
+
+    /**
+     * A aba do cartão que abre ao entrar (`?aba=`). Pendências é o padrão (P37); aba que não existe ou que a pessoa não
+     * vê cai no padrão. A aba escondida (Comprovantes com o comprovante desligado, Banco antes da E17) cai no padrão
+     * no template (`_abas.html.twig`), que sabe quais desenhou.
+     */
+    private function abaAberta(Request $request): string
+    {
+        $aba = (string) $request->query->get('aba', '');
+
+        return in_array($aba, self::ABAS_DO_CARTAO, true) ? $aba : self::ABAS_DO_CARTAO[0];
     }
 
     /**
@@ -1033,106 +1452,89 @@ final class PontoController extends AbstractController
         return ($hSai * 60 + $mSai) - ($hEnt * 60 + $mEnt);
     }
 
-    private function calcularDistanciaMetros(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $raioTerra = 6371000;
-
-        $deltaLat = deg2rad($lat2 - $lat1);
-        $deltaLon = deg2rad($lon2 - $lon1);
-
-        $a = sin($deltaLat / 2) * sin($deltaLat / 2)
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
-            * sin($deltaLon / 2) * sin($deltaLon / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $raioTerra * $c;
-    }
-
+    /**
+     * A folha do mês em PDF (E16): o "Ver PDF" (`inline=1`, P89) e o "Baixar PDF". Cada PDF é uma emissão com código BJF
+     * próprio (decisão 2), devolvido no cabeçalho `X-Codigo-Folha` para o aviso da tela; sem o segredo do HMAC, sai sem
+     * código e sem o cabeçalho. Quem pode: {@see self::pessoaDaFolhaExportada()}. O desenho custa CPU e memória: 10 PDFs
+     * por minuto por usuário (`ponto_folha_pdf`), contados só depois da permissão. Só a competência fora do calendário
+     * responde 400 (decisão 25); a falha do desenho ou do PDF, com a folha já gravada, é erro do servidor.
+     */
     #[Route('/exportar-folha-pdf', name: 'ponto_exportar_pdf')]
     public function exportarFolhaPdf(
         Request $request,
-        RegistroPontoRepository $repository,
-        FeriadoRepository $feriadoRepository,
-        JustificativaPontoRepository $justificativaRepository,
-        FolhaPontoBuilder $folhaPontoBuilder,
+        GerarPdfDaFolhaUseCase $gerarPdf,
         UserRepository $userRepository,
-        Environment $twig
+        RateLimiterFactoryInterface $pontoFolhaPdfLimiter,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
         $tenant = $this->assertAccess($user);
-
-        $targetUser = $user;
-        $targetUserId = (int) $request->query->get('userId', 0);
-
-        if ($targetUserId > 0 && $targetUserId !== (int) $user->getId()) {
-            $targetUser = $userRepository->find($targetUserId);
-            if ($targetUser === null) {
-                throw $this->createNotFoundException('Usuário para exportação não encontrado.');
-            }
-
-            $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-
-            if (!$isSuperAdmin && !(
-                $this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)
-                && $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')
-            )) {
-                throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
-            }
+        $pessoa = $this->pessoaDaFolhaExportada($request, $user, $tenant, $userRepository);
+        if (!$pontoFolhaPdfLimiter->create((string) $user->getId())->consume()->isAccepted()) {
+            return new Response(self::MUITOS_PEDIDOS_DE_FOLHA, Response::HTTP_TOO_MANY_REQUESTS, ['Content-Type' => 'text/plain; charset=UTF-8']);
         }
 
         $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
-
-        /** @var \App\Ponto\Entity\RegistroPonto[] $batidas */
-        $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
-        $feriados = $feriadoRepository->findByTenant($tenant);
-        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);
-        $jornadaTenantPdf = $tenant->getJornadaTenant();
-
-        $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
-        $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        // Cada dia usa a versão da jornada que valia nele; o cabeçalho, a do último dia do mês (spec ponto-jornada-vigencia §3.2).
-        $historico = $this->jornadas->historicoDe($targetUser, $tenant);
-        $jornada   = $historico?->vigenteEm($fimMes);
-        $inicioContagemPdf = $this->inicioContagemResolver->resolver($targetUser, $tenant);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $historico, $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioContagemPdf);
-
-        $nomeUsuario = trim((string) $targetUser->getFullName());
-        if ($nomeUsuario === '') {
-            $nomeUsuario = (string) $targetUser->getUserIdentifier();
+        try {
+            $folha = $gerarPdf->executar($tenant, $pessoa, $ano, $mes, $user);
+        } catch (CompetenciaDaFolhaInvalidaException) {
+            throw new BadRequestHttpException('Competência inválida.');
         }
 
-        $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantPdf, $folhaPontoBuilder, $inicioContagemPdf);
+        return new Response($folha->pdf, Response::HTTP_OK, $this->cabecalhosDoPdf($folha, $request->query->getBoolean('inline', false)));
+    }
 
-        $html = $twig->render('ponto/folha_pdf.html.twig', $dados);
+    /**
+     * A pessoa da folha exportada em PDF ou XLSX: quem pede, ou o `userId` de outro colaborador (P89). O Master exporta
+     * a de quem é ou foi de ESTE escritório (o vínculo, ativo ou não, a saída da equipe ou uma batida aqui; ver
+     * {@see PassagemPeloEscritorio}); sem nenhum desses, 404 com a mesma mensagem (decisão 28): a folha selada sairia
+     * com o cabeçalho e a trilha deste escritório para quem não é dele. Para os outros, quem não tem vínculo ativo NESTE escritório responde 404, igual ao `userId` que não
+     * existe (recurso de outro escritório é 404, nunca 403, para não revelar que existe; decisão 25), e a pessoa daqui
+     * só sai para quem tem `admin.users.manage` (sem a permissão, 403). Nada é gasto antes: nem cota, nem emissão, nem
+     * desenho.
+     */
+    private function pessoaDaFolhaExportada(Request $request, User $user, Tenant $tenant, UserRepository $userRepository): User
+    {
+        $targetUserId = (int) $request->query->get('userId', 0);
+        if ($targetUserId <= 0 || $targetUserId === (int) $user->getId()) {
+            return $user;
+        }
+        $targetUser = $userRepository->find($targetUserId);
+        if ($targetUser === null) {
+            throw $this->createNotFoundException('Usuário para exportação não encontrado.');
+        }
+        if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            if (!$this->passagemPeloEscritorio->houve($targetUser, $tenant)) {
+                throw $this->createNotFoundException('Usuário para exportação não encontrado.');
+            }
 
-        $options = new Options();
-        $options->set('isHtml5ParserEnabled', true);
-        $options->set('isRemoteEnabled', false);
+            return $targetUser;
+        }
+        if (!$this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)) {
+            throw $this->createNotFoundException('Usuário para exportação não encontrado.');
+        }
+        if (!$this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')) {
+            throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
+        }
 
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');
-        $dompdf->render();
+        return $targetUser;
+    }
 
-        $nomeArquivoBase = preg_replace('/[^A-Za-z0-9]+/', '', $dados['nomeUsuario']) ?: 'Usuario';
-        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.pdf', $nomeArquivoBase, $mes, $ano);
+    /** @return array<string, string> */
+    private function cabecalhosDoPdf(PdfDaFolhaOutput $folha, bool $inline): array
+    {
+        $cabecalhos = [
+            'Content-Type'           => 'application/pdf',
+            'Content-Disposition'    => sprintf('%s; filename="%s"', $inline ? 'inline' : 'attachment', $folha->nomeDoArquivo),
+            'Cache-Control'          => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
+        ];
+        if ($folha->codigo !== null) {
+            $cabecalhos['X-Codigo-Folha'] = $folha->codigo;
+        }
 
-        $inline = $request->query->getBoolean('inline', false);
-        $disposition = $inline
-            ? sprintf('inline; filename="%s"', $nomeArquivo)
-            : sprintf('attachment; filename="%s"', $nomeArquivo);
-
-        return new Response(
-            $dompdf->output(),
-            200,
-            [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => $disposition,
-            ]
-        );
+        return $cabecalhos;
     }
 
     #[Route('/exportar-folha-xlsx', name: 'ponto_exportar_xlsx')]
@@ -1143,35 +1545,23 @@ final class PontoController extends AbstractController
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
         FolhaPontoXlsxExporter $xlsxExporter,
+        DadosDaFolhaExportada $dadosDaFolha,
         UserRepository $userRepository
     ): StreamedResponse {
         /** @var User $user */
         $user = $this->getUser();
         $tenant = $this->assertAccess($user);
-
-        $targetUser = $user;
-        $targetUserId = (int) $request->query->get('userId', 0);
-
-        if ($targetUserId > 0 && $targetUserId !== (int) $user->getId()) {
-            $targetUser = $userRepository->find($targetUserId);
-            if ($targetUser === null) {
-                throw $this->createNotFoundException('Usuário para exportação não encontrado.');
-            }
-
-            $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-
-            if (!$isSuperAdmin && !(
-                $this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)
-                && $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')
-            )) {
-                throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
-            }
-        }
+        $targetUser = $this->pessoaDaFolhaExportada($request, $user, $tenant, $userRepository);
 
         $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
+        try {
+            FolhaEmitidaDoPonto::exigirCompetencia($ano, $mes);   // a mesma regra e a mesma resposta do PDF (decisão 25)
+        } catch (CompetenciaDaFolhaInvalidaException) {
+            throw new BadRequestHttpException('Competência inválida.');
+        }
 
-        /** @var RegistroPonto[] $batidas */
+        /** @var list<MarcacaoDoPonto> $batidas as efetivas (E10) */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
         $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);
@@ -1180,261 +1570,21 @@ final class PontoController extends AbstractController
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
         // Cada dia usa a versão da jornada que valia nele; o cabeçalho, a do último dia do mês (spec ponto-jornada-vigencia §3.2).
-        $historico = $this->jornadas->historicoDe($targetUser, $tenant);
-        $jornada   = $historico?->vigenteEm($fimMes);
+        // As linhas usam a jornada da folha da /ponto e do banco (E17): sem versão no dia, a do escritório.
+        $jornada   = $this->jornadas->historicoDe($targetUser, $tenant)?->vigenteEm($fimMes);
         $inicioContagemXlsx = $this->inicioContagemResolver->resolver($targetUser, $tenant);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $historico, $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioContagemXlsx);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $folhaPontoBuilder->jornadaDaFolha($targetUser, $tenant), $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioContagemXlsx);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
             $nomeUsuario = (string) $targetUser->getUserIdentifier();
         }
 
-        $nomeUsuario = preg_replace('/[^A-Za-z0-9]+/', '', $nomeUsuario) ?? 'Usuario';
-        if ($nomeUsuario === '') {
-            $nomeUsuario = 'Usuario';
-        }
+        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.xlsx', NomeDoArquivoDaFolha::doXlsx($nomeUsuario), $mes, $ano);
 
-        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.xlsx', $nomeUsuario, $mes, $ano);
-
-        $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantXlsx, $folhaPontoBuilder, $inicioContagemXlsx);
+        $dados = $dadosDaFolha->montar($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantXlsx, $inicioContagemXlsx);
 
         return $xlsxExporter->exportar($dados['folhaRows'], $nomeArquivo, $dados);
-    }
-
-    /**
-     * Monta o array completo de dados para os exportadores de PDF e XLSX.
-     *
-     * @param \App\Ponto\Entity\Feriado[] $feriados
-     * @param array<int, array<string, mixed>> $folhaRows
-     * @return array<string, mixed>
-     */
-    private function montarDadosFolha(
-        \App\Entity\Auth\User $targetUser,
-        Tenant $tenant,
-        int $ano,
-        int $mes,
-        array $folhaRows,
-        array $feriados,
-        ?\App\Ponto\Entity\JornadaColaborador $jornada,
-        ?\App\Ponto\Entity\JornadaTenant $jornadaTenant,
-        FolhaPontoBuilder $builder,
-        ?\DateTimeInterface $inicioContagem,
-    ): array {
-        $profile    = $targetUser->getProfile();
-        $userTenant = $this->userTenantRepository->findAtivoPorUserETenant($targetUser, $tenant);
-        $cargo      = $userTenant?->getCargo();
-        $lotacao    = $userTenant?->getLotacao();
-
-        $nomeUsuario = trim((string) $targetUser->getFullName());
-        if ($nomeUsuario === '') {
-            $nomeUsuario = (string) $targetUser->getUserIdentifier();
-        }
-
-        $horarios = $this->resolverHorariosJornada($jornada, $jornadaTenant);
-
-        $minutosSemana = $jornada?->getCargaHorariaSemanal() ?? $jornadaTenant?->getCargaHorariaSemanal() ?? 0;
-        $horasSemana = (int) round($minutosSemana / 60);
-
-        $minimoRepouso      = $jornadaTenant?->getMinimoMinutosRepouso()      ?? 60;
-        $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada()  ?? 660;
-
-        $rowsProcessados         = [];
-        $totalMinutosTrabalhados = 0;
-        $totalMinutosExtras      = 0;
-        $feriadosTrabalhados     = 0;
-        $finaisSemanasTrabalhados = 0;
-        $intrajornadaConforme    = true;
-        $interjornadaConforme    = true;
-        $ultimaSaidaTs           = null;
-        // Saldo DAQUELE MÊS: `buildRows` faz o acumulado nascer em zero no dia 1º do intervalo
-        // pedido. É uma das três parcelas do "Saldo do Banco de Horas Atual" montado adiante.
-        $saldoDoMesMinutos       = null;
-
-        foreach ($folhaRows as $row) {
-            $row['horasTrabalhadas'] = $this->formatarMinutos($row['minutosTrabalhadosDia'] ?? null);
-            $row['horasExtras']      = ($row['saldoDia'] ?? 0) > 0 ? $this->formatarMinutos($row['saldoDia']) : '0:00';
-            $row['bancoHoras']       = $this->formatarSaldo($row['saldoAcumulado'] ?? null);
-            $rowsProcessados[]       = $row;
-
-            $totalMinutosTrabalhados += ($row['minutosTrabalhadosDia'] ?? 0);
-
-            if (($row['saldoDia'] ?? 0) > 0) {
-                $totalMinutosExtras += $row['saldoDia'];
-            }
-
-            if (!empty($row['isFeriado']) && $row['entrada'] !== '') {
-                $feriadosTrabalhados++;
-            }
-
-            if (!empty($row['fimSemana']) && $row['entrada'] !== '') {
-                $finaisSemanasTrabalhados++;
-            }
-
-            if ($row['minutosIntervalo'] !== null && ($row['minutosTrabalhadosDia'] ?? 0) > 0) {
-                if ($row['minutosIntervalo'] < $minimoRepouso) {
-                    $intrajornadaConforme = false;
-                }
-            }
-
-            if ($row['entrada'] !== '' && $ultimaSaidaTs !== null) {
-                $entradaDt = new \DateTimeImmutable($row['chaveDia'] . ' ' . $row['entrada']);
-                $diffMin = (int)(($entradaDt->getTimestamp() - $ultimaSaidaTs) / 60);
-                if ($diffMin < $minimoInterjornada) {
-                    $interjornadaConforme = false;
-                }
-            }
-
-            if ($row['saida'] !== '') {
-                $saidaDt = new \DateTimeImmutable($row['chaveDia'] . ' ' . $row['saida']);
-                $ultimaSaidaTs = $saidaDt->getTimestamp();
-            }
-
-            if ($row['saldoAcumulado'] !== null) {
-                $saldoDoMesMinutos = $row['saldoAcumulado'];
-            }
-        }
-
-        // O BANCO DE HORAS ZERA EM 1º DE JANEIRO (regra do dono, confirmada em 2026-07-31). Por isso
-        // janeiro não tem competência anterior: pedir dezembro do ano passado traria para o documento
-        // assinado um saldo que a virada do ano extinguiu.
-        //
-        // Isto NÃO é detalhe de exibição, é o que mantém o campo coerente de um mês para o outro.
-        // `calcularSaldoAteMes` nunca olha antes de 1º/jan do ano que recebe (`FolhaPontoBuilder`
-        // limita o início em `$inicioAno`, e `somarPorPeriodo` filtra `l.ano = :ano`). Pedindo
-        // (dezembro, ano-1) em janeiro e (mês-1, ano) nos demais, o "anterior" saltava do ano passado
-        // INTEIRO em janeiro para só janeiro em fevereiro: uma dívida de 100h aparecia num papel
-        // assinado e sumia no seguinte, sem nenhuma hora trabalhada que explicasse.
-        // Guarda própria, não herdada: hoje os dois chamadores (`:789` e `:873`) já fazem
-        // `max(1, min(12, ...))`, mas o `$mes - 1` abaixo depende disso silenciosamente. Um chamador
-        // novo que esquecesse o clamp levaria `mes = 0` a somar período vazio e devolver ZERO SEM
-        // BARULHO — número errado num documento assinado —, e `mes = 13` a estourar 500 lá dentro.
-        if ($mes < 1 || $mes > 12) {
-            throw new \InvalidArgumentException(sprintf('montarDadosFolha: mês fora de 1..12 (%d)', $mes));
-        }
-
-        // Nota sobre o ramo `? 0`: ele é a regra do reset, não um curto-circuito de jornada. O ramo de
-        // baixo NÃO condiciona em $jornada de propósito — `calcularSaldoAteMes` já se protege sozinho
-        // (devolve só os lançamentos quando não há jornada), e curto-circuitar ali apagaria as horas
-        // pagas de quem não tem JornadaColaborador: o painel /ponto mostraria -10h00 e o espelho do mês
-        // seguinte "Saldo anterior: 0h00", para o mesmo colaborador.
-        $saldoBancoAnteriorMinutos = $mes === 1
-            ? 0
-            : $builder->calcularSaldoAteMes(
-                $targetUser,
-                $ano,
-                $mes - 1,
-                $feriados,
-                $jornadaTenant,
-                $inicioContagem,
-                $tenant,
-            );
-
-        $horasPagasMinutos = $builder->somarHorasPagasDaCompetencia($targetUser, $tenant, $ano, $mes);
-
-        // DECISÃO DO DONO (2026-07-31, após o smoke): "Saldo do Banco de Horas Atual" passa a ser o
-        // banco ACUMULADO de verdade — anterior + saldo do mês + horas pagas da competência — e o
-        // bloco assinado deixa de ter linha própria "Horas pagas".
-        //
-        // Até aqui este campo era o `saldoAcumulado` da última linha da tabela, e `buildRows` faz
-        // esse acumulado NASCER EM ZERO no dia 1º do intervalo pedido: apesar do rótulo, o número era
-        // o saldo DAQUELE MÊS. Ficava ao lado de "Saldo do Banco de Horas Anterior", que sempre foi
-        // acumulado (`calcularSaldoAteMes`) — dois rótulos irmãos medindo coisas diferentes.
-        //
-        // É essa base errada que tornava a soma perigosa: colaborador acumula 100h, recebe as 100h em
-        // dinheiro, o admin lança -6000 em agosto, agosto é trabalhado na jornada exata (saldo do mês
-        // = 0) — somar o lançamento a um saldo MENSAL dizia "Horas a Compensar: 100:00", cobrando de
-        // volta o que acabou de ser pago. Com a base acumulada o mesmo caso fecha em zero:
-        // +100h (anterior) + 0 (mês) - 100h (pago) = 0.
-        //
-        // Sem contagem dupla: `calcularSaldoAteMes` soma os lançamentos das competências ANTERIORES;
-        // `somarHorasPagasDaCompetencia` soma os DESTA. As faixas não se sobrepõem.
-        //
-        // ⚠️ Muda o PDF de TODOS os escritórios, inclusive os que nunca usaram horas pagas — o campo
-        // deixa de ser mensal e passa a ser acumulado. Consequência aceita e explícita da decisão.
-        //
-        // `$saldoDoMesMinutos` é null quando NENHUMA linha teve saldo apurado. NÃO confundir com "mês
-        // sem batida": dia útil sem batida dentro da contagem recebe `saldoDia` negativo normalmente
-        // (`CalculadoraJornada::calcularSaldoDia` devolve `trabalhado - carga`), então um mês inteiro
-        // de faltas sai como número, não como null. Os gatilhos reais são: colaborador sem
-        // `JornadaColaborador` (`buildRows` não calcula saldo em dia nenhum), mês inteiramente FUTURO,
-        // mês inteiro anterior ao início da contagem, e o caso "só hoje, ainda sem saída".
-        //
-        // Nesses casos o mês é DESCONHECIDO, não zero, e o documento assinado não pode afirmar "+0:00"
-        // a partir do nada: mantém o '–' de antes. Mas só quando não há mais nada a reportar — havendo
-        // saldo anterior ou lançamento, o total sai, porque perder horas em silêncio é pior (spec §4.3).
-        $nadaApurado = $saldoDoMesMinutos === null && $saldoBancoAnteriorMinutos === 0 && $horasPagasMinutos === 0;
-
-        $saldoBancoAtualMinutos = $nadaApurado
-            ? null
-            : $saldoBancoAnteriorMinutos + ($saldoDoMesMinutos ?? 0) + $horasPagasMinutos;
-
-        $enderecoPartes = array_filter([
-            $tenant?->getLogradouro(),
-            $tenant?->getNumero() ? ', ' . $tenant->getNumero() : null,
-            $tenant?->getComplemento() ? ', ' . $tenant->getComplemento() : null,
-        ]);
-        $cidadeEstado = trim(
-            ($tenant?->getBairro() ? $tenant->getBairro() . ', ' : '')
-            . ($tenant?->getCidade() ?? '')
-            . ($tenant?->getEstado() ? '/' . $tenant->getEstado() : '')
-        );
-        $cep = $tenant?->getCep() ? ' CEP ' . $tenant->getCep() : '';
-
-        $distribuicao = $this->gerarDescricaoDiasExtenso($jornada, $jornadaTenant);
-        $descrJornada = $this->gerarDescrJornada($jornada, $jornadaTenant);
-
-        return [
-            'folhaRows'               => $rowsProcessados,
-            'mes'                     => $mes,
-            'ano'                     => $ano,
-            'anoAssinatura'           => $ano,
-            'inicioMes'               => (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->format('d/m/Y'),
-            'fimMes'                  => (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->modify('last day of this month')->format('d/m/Y'),
-            'nomeUsuario'             => mb_strtoupper($nomeUsuario),
-            'nomeEmpresa'             => mb_strtoupper($tenant?->getName() ?? ''),
-            'cnpj'                    => $this->formatarCnpj($tenant?->getCnpj() ?? ''),
-            'enderecoLinha1'          => implode('', $enderecoPartes),
-            'enderecoLinha2'          => trim($cidadeEstado . $cep),
-            'codigoFuncionario'       => $userTenant?->getCodigoFuncionario()
-                ?? $this->gerarCodigo->executar($tenant),
-            'cpf'                     => $this->formatarCpf($profile?->getCpf() ?? ''),
-            'cargo'                   => mb_strtoupper($cargo?->getNome() ?? ''),
-            'ctps'                    => $profile?->getCtps() ?? '',
-            'serie'                   => $profile?->getSerie() ?? '',
-            'lotacao'                 => ($lotacao !== null ? mb_strtoupper($lotacao->getNome()) : ''),
-            'dataAdmissao'            => $userTenant?->getDataAdmissao()?->format('d/m/Y') ?? '',
-            'jornadaSemanal'          => $horasSemana . 'h',
-            'jornadaSemanalTexto'     => $horasSemana . 'h semanais',
-            'horarioContratual'       => $horarios['entrada'] . ' às ' . $horarios['saida'],
-            'intervaloTexto'          => $horarios['repouso'] . ' às ' . $horarios['retorno'],
-            'distribuicaoJornada'     => $distribuicao,
-            'escalaDescricao'         => $distribuicao . ($descrJornada !== '' ? ' (' . $descrJornada . ')' : ''),
-            'minimoRepousoTexto'      => $this->formatarDuracaoHora($minimoRepouso),
-            'minimoInterjornadaTexto' => $this->formatarDuracaoHora($minimoInterjornada),
-            'totalHorasTrabalhadas'   => $this->formatarMinutos($totalMinutosTrabalhados ?: null),
-            'totalHorasExtras'        => $this->formatarMinutos($totalMinutosExtras ?: null),
-            'saldoBancoAnterior'      => $this->formatarSaldo($saldoBancoAnteriorMinutos),
-            'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualMinutos),
-            'horasACompensar'         => match (true) {
-                $saldoBancoAtualMinutos === null => 'Sem dado',
-                $saldoBancoAtualMinutos < 0      => $this->formatarMinutos(abs($saldoBancoAtualMinutos)),
-                default                          => '0:00',
-            },
-            'feriadosTrabalhados'     => $feriadosTrabalhados,
-            'finaisSemanasTrabalhados' => $finaisSemanasTrabalhados,
-            'intrajornadaConforme'    => $intrajornadaConforme,
-            'interjornadaConforme'    => $interjornadaConforme,
-            'responsavelAssinatura'   => $tenant?->getResponsavelAssinatura() ?? '',
-            // retrocompatibilidade com campos usados pela visualização da folha na tela
-            'numeroTrabalhador' => $userTenant?->getCodigoFuncionario()
-                ?? $this->gerarCodigo->executar($tenant),
-            'descrJornada'  => $descrJornada,
-            'horaEntrada'   => $horarios['entrada'] . ' h',
-            'horaRepouso'   => $horarios['repouso'] . ' h',
-            'horaRetorno'   => $horarios['retorno'] . ' h',
-            'horaSaida'     => $horarios['saida'] . ' h',
-        ];
     }
 
     private function assertAccess(User $user): Tenant
@@ -1448,223 +1598,5 @@ final class PontoController extends AbstractController
         }
 
         return $tenant;
-    }
-
-    private function formatarMinutos(int|null $minutos): string
-    {
-        // Zero hora é dado (nada a compensar, nenhuma extra), não ausência: sai como 0:00 na folha.
-        if ($minutos === null || $minutos === 0) {
-            return '0:00';
-        }
-
-        $abs = abs($minutos);
-
-        return sprintf('%d:%02d', intdiv($abs, 60), $abs % 60);
-    }
-
-    private function formatarSaldo(int|null $minutos): string
-    {
-        if ($minutos === null) {
-            return 'Sem dado';
-        }
-
-        $abs  = abs($minutos);
-        $hhmm = sprintf('%d:%02d', intdiv($abs, 60), $abs % 60);
-
-        return $minutos >= 0 ? '+' . $hhmm : '-' . $hhmm;
-    }
-
-    private function formatarCnpj(string $cnpj): string
-    {
-        $raw = preg_replace('/\D/', '', $cnpj) ?? '';
-        if (strlen($raw) === 14) {
-            return sprintf('%s.%s.%s/%s-%s', substr($raw, 0, 2), substr($raw, 2, 3), substr($raw, 5, 3), substr($raw, 8, 4), substr($raw, 12, 2));
-        }
-
-        return $cnpj;
-    }
-
-    private function formatarCpf(string $cpf): string
-    {
-        $raw = preg_replace('/\D/', '', $cpf) ?? '';
-        if (strlen($raw) === 11) {
-            return sprintf('%s.%s.%s-%s', substr($raw, 0, 3), substr($raw, 3, 3), substr($raw, 6, 3), substr($raw, 9, 2));
-        }
-
-        return $cpf;
-    }
-
-    private function formatarDuracaoHora(int $minutos): string
-    {
-        $horas = $minutos / 60;
-        if ($horas === floor($horas)) {
-            return ((int) $horas) . 'h';
-        }
-
-        return sprintf('%dh%02d', intdiv($minutos, 60), $minutos % 60);
-    }
-
-    private function gerarDescricaoDiasExtenso(
-        ?\App\Ponto\Entity\JornadaColaborador $jornada,
-        ?\App\Ponto\Entity\JornadaTenant $jornadaTenant,
-    ): string {
-        $mapa = [1 => 'Segunda', 2 => 'Terça', 3 => 'Quarta', 4 => 'Quinta', 5 => 'Sexta', 6 => 'Sábado', 7 => 'Domingo'];
-        $dias = $this->getDiasSemana($jornada, $jornadaTenant);
-
-        if (empty($dias)) {
-            return '';
-        }
-
-        sort($dias);
-
-        if (count($dias) === 1) {
-            return $mapa[$dias[0]] ?? '';
-        }
-
-        $isConsecutivo = true;
-        for ($i = 1; $i < count($dias); $i++) {
-            if ($dias[$i] - $dias[$i - 1] !== 1) {
-                $isConsecutivo = false;
-                break;
-            }
-        }
-
-        if ($isConsecutivo) {
-            return ($mapa[$dias[0]] ?? '') . ' a ' . ($mapa[$dias[count($dias) - 1]] ?? '');
-        }
-
-        return implode(', ', array_map(static fn(int $d) => $mapa[$d] ?? '', $dias));
-    }
-
-    /** @return int[] */
-    private function getDiasSemana(
-        ?\App\Ponto\Entity\JornadaColaborador $jornada,
-        ?\App\Ponto\Entity\JornadaTenant $jornadaTenant,
-    ): array {
-        if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
-            $dias = [];
-            foreach ($jornada->getBlocos() as $bloco) {
-                foreach ($bloco->getDiasSemana() as $d) {
-                    $dias[$d] = true;
-                }
-            }
-
-            return array_keys($dias);
-        }
-
-        if ($jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty()) {
-            $dias = [];
-            foreach ($jornadaTenant->getBlocos() as $bloco) {
-                foreach ($bloco->getDiasSemana() as $d) {
-                    $dias[$d] = true;
-                }
-            }
-
-            return array_keys($dias);
-        }
-
-        if ($jornada !== null) {
-            return $jornada->getDiasSemana();
-        }
-
-        return [];
-    }
-
-    /**
-     * Resolve os horários de jornada usando a mesma hierarquia do JornadaResolver:
-     * 1. Blocos do usuário (primeiro dia útil encontrado)
-     * 2. Blocos do tenant (primeiro dia útil encontrado)
-     * 3. Campos planos da JornadaColaborador (legado)
-     * 4. Defaults fixos
-     *
-     * @return array{entrada: string, repouso: string, retorno: string, saida: string}
-     */
-    private function resolverHorariosJornada(
-        ?\App\Ponto\Entity\JornadaColaborador $jornada,
-        ?\App\Ponto\Entity\JornadaTenant $jornadaTenant,
-    ): array {
-        $diasUteis = [1, 2, 3, 4, 5];
-
-        if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
-            foreach ($jornada->getBlocos() as $bloco) {
-                foreach ($diasUteis as $dia) {
-                    if (in_array($dia, $bloco->getDiasSemana(), true)) {
-                        return [
-                            'entrada' => $bloco->getEntrada(),
-                            'repouso' => $bloco->getRepouso() ?? '',
-                            'retorno' => $bloco->getRetorno() ?? '',
-                            'saida'   => $bloco->getSaida(),
-                        ];
-                    }
-                }
-            }
-        }
-
-        if ($jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty()) {
-            foreach ($jornadaTenant->getBlocos() as $bloco) {
-                foreach ($diasUteis as $dia) {
-                    if (in_array($dia, $bloco->getDiasSemana(), true)) {
-                        return [
-                            'entrada' => $bloco->getEntrada(),
-                            'repouso' => $bloco->getRepouso() ?? '',
-                            'retorno' => $bloco->getRetorno() ?? '',
-                            'saida'   => $bloco->getSaida(),
-                        ];
-                    }
-                }
-            }
-        }
-
-        if ($jornada !== null) {
-            return [
-                'entrada' => $jornada->getEntrada1() ?? '08:00',
-                'repouso' => $jornada->getSaida1()   ?? '12:00',
-                'retorno' => $jornada->getEntrada2() ?? '13:00',
-                'saida'   => $jornada->getSaida2()   ?? '17:00',
-            ];
-        }
-
-        return ['entrada' => '08:00', 'repouso' => '12:00', 'retorno' => '13:00', 'saida' => '17:00'];
-    }
-
-    /**
-     * Gera a descrição da jornada (ex: "STQQS") a partir dos dias de trabalho.
-     * Usa a mesma hierarquia do JornadaResolver: blocos do colaborador > blocos do tenant > jornada plana.
-     */
-    private function gerarDescrJornada(
-        ?\App\Ponto\Entity\JornadaColaborador $jornada,
-        ?\App\Ponto\Entity\JornadaTenant $jornadaTenant,
-    ): string {
-        $mapa = [1 => 'S', 2 => 'T', 3 => 'Q', 4 => 'Q', 5 => 'S', 6 => 'S', 7 => 'D'];
-
-        if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
-            $dias = [];
-            foreach ($jornada->getBlocos() as $bloco) {
-                foreach ($bloco->getDiasSemana() as $d) {
-                    $dias[$d] = true;
-                }
-            }
-            ksort($dias);
-            return implode('', array_map(static fn(int $d) => $mapa[$d] ?? '', array_keys($dias)));
-        }
-
-        if ($jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty()) {
-            $dias = [];
-            foreach ($jornadaTenant->getBlocos() as $bloco) {
-                foreach ($bloco->getDiasSemana() as $d) {
-                    $dias[$d] = true;
-                }
-            }
-            ksort($dias);
-            return implode('', array_map(static fn(int $d) => $mapa[$d] ?? '', array_keys($dias)));
-        }
-
-        if ($jornada !== null) {
-            $dias = $jornada->getDiasSemana();
-            sort($dias);
-            return implode('', array_map(static fn(int $d) => $mapa[$d] ?? '', $dias));
-        }
-
-        return '';
     }
 }

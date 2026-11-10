@@ -41,7 +41,8 @@ final class TelaDoPontoAtualizaSemRecarregarTest extends JusPrimeWebTestCase
 
         // Desenho novo (E1, 09/11/2026): `#ponto-tipos` (os quatro tipos com a hora de cada um) substitui
         // `#batidas-de-hoje`, e `#tipo-registro` virou o campo escondido que os botões dos tipos preenchem.
-        foreach (['#ponto-tipos', '#ponto-banco-horas', '#ponto-regiao-pendencias', '#tipo-registro'] as $regiao) {
+        // E3: o painel das pendências e a aba dele (o número) estão no cartão de abas. E17: o painel do Banco de Horas.
+        foreach (['#ponto-tipos', '#ponto-banco-horas', '#ponto-aba-pendencias', '#ponto-regiao-pendencias', '#ponto-painel-banco', '#tipo-registro'] as $regiao) {
             self::assertCount(1, $crawler->filter($regiao), 'a atualização procura ' . $regiao);
         }
         // Da folha troca só o card, filho direto: o modal de pré-visualização e o script dele ficam com os listeners.

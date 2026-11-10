@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ponto\Service;
 
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 
 /**
  * Decide quais batidas de um dia valem. É a decisão ÚNICA: a folha (células, links, intervalo, minutos
@@ -56,7 +57,7 @@ final class EscolhaDasBatidasDoDia
     }
 
     /**
-     * @param RegistroPonto[] $batidasDoDia todas as batidas de UM dia
+     * @param MarcacaoDoPonto[] $batidasDoDia todas as batidas efetivas de UM dia
      * @param ?\DateTimeInterface $dia o dia apurado; sem ele, vale o da primeira batida
      */
     public function escolher(array $batidasDoDia, ?\DateTimeInterface $dia = null): BatidasEscolhidas
@@ -81,7 +82,7 @@ final class EscolhaDasBatidasDoDia
 
         $desconsideradas = array_values(array_filter(
             $ordenadas,
-            static fn (RegistroPonto $batida): bool => !in_array($batida, $escolhidas, true),
+            static fn (MarcacaoDoPonto $batida): bool => !in_array($batida, $escolhidas, true),
         ));
 
         return new BatidasEscolhidas(
@@ -101,26 +102,24 @@ final class EscolhaDasBatidasDoDia
     }
 
     /**
-     * Horário, e no mesmo segundo o id (o registro gravado primeiro). `usort` é estável, então
-     * batidas sem id (ainda não gravadas) mantêm a ordem em que chegaram.
+     * Horário, e no mesmo segundo o id do registro (o gravado primeiro) e depois o do ajuste que deu a forma
+     * atual: a ordem das efetivas do repositório (E10, plano-e10-ponto §1). A batida incluída pelo gestor não tem
+     * registro e vem depois das gravadas do mesmo segundo. `usort` é estável, então batidas sem id (ainda não
+     * gravadas) mantêm a ordem em que chegaram.
      *
      * Público para quem recebe uma lista solta (os métodos de lista da `CalculadoraJornada`) poder
      * entregá-la na ordem do repositório; a regra legada preserva a ordem em que as batidas chegam.
      *
-     * @param RegistroPonto[] $batidas
-     * @return list<RegistroPonto>
+     * @param MarcacaoDoPonto[] $batidas
+     * @return list<MarcacaoDoPonto>
      */
     public function ordenar(array $batidas): array
     {
         $batidas = array_values($batidas);
 
-        usort($batidas, static function (RegistroPonto $a, RegistroPonto $b): int {
-            $porHorario = $a->getDataHora()->getTimestamp() <=> $b->getDataHora()->getTimestamp();
-            if ($porHorario !== 0) {
-                return $porHorario;
-            }
-
-            return ($a->getId() ?? PHP_INT_MAX) <=> ($b->getId() ?? PHP_INT_MAX);
+        usort($batidas, static function (MarcacaoDoPonto $a, MarcacaoDoPonto $b): int {
+            return [$a->getDataHora()->getTimestamp(), $a->getId() ?? PHP_INT_MAX, $a->cabeca() ?? PHP_INT_MAX]
+                <=> [$b->getDataHora()->getTimestamp(), $b->getId() ?? PHP_INT_MAX, $b->cabeca() ?? PHP_INT_MAX];
         });
 
         return $batidas;
@@ -129,8 +128,8 @@ final class EscolhaDasBatidasDoDia
     /**
      * Agrupa as repetições: mesmo tipo, consecutivas, cada uma a até 5 min da anterior do grupo.
      *
-     * @param list<RegistroPonto> $ordenadas
-     * @return list<list<RegistroPonto>> um grupo por registro distinto, em ordem de horário
+     * @param list<MarcacaoDoPonto> $ordenadas
+     * @return list<list<MarcacaoDoPonto>> um grupo por registro distinto, em ordem de horário
      */
     private function registros(array $ordenadas): array
     {
@@ -156,13 +155,13 @@ final class EscolhaDasBatidasDoDia
 
     /**
      * Batida feita pelo próprio colaborador: sem observação e sem a marca de lançamento manual. A
-     * aprovação de esquecimento grava observação fixa; o lançamento e a edição do admin gravam o
-     * snapshot `Lançamento manual`.
+     * aprovação de esquecimento antiga gravava observação fixa; o lançamento manual antigo gravava o
+     * snapshot `Lançamento manual` (desde a E10 a correção do gestor é ajuste, não batida nova). A
+     * ajustada ou incluída pelo gestor (E10) nunca é do colaborador: quem deu a forma atual foi o gestor. A regra mora na batida ({@see MarcacaoDoPonto::feitaPeloColaborador}).
      */
-    private function ehDoColaborador(RegistroPonto $batida): bool
+    private function ehDoColaborador(MarcacaoDoPonto $batida): bool
     {
-        return $batida->getObservacao() === null
-            && $batida->getSedeNomeSnapshot() !== RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL;
+        return $batida->feitaPeloColaborador();
     }
 
     /**
@@ -172,8 +171,8 @@ final class EscolhaDasBatidasDoDia
      * repositório ordena só por horário: num empate de segundo, a legada segue a ordem que o banco
      * devolver, e os minutos são os mesmos (a coluna não guarda fração de segundo).
      *
-     * @param list<list<RegistroPonto>> $registros
-     * @return array<string, RegistroPonto>
+     * @param list<list<MarcacaoDoPonto>> $registros
+     * @return array<string, MarcacaoDoPonto>
      */
     private function escolhaUnica(array $registros): array
     {
@@ -199,8 +198,8 @@ final class EscolhaDasBatidasDoDia
      * 21/09/2026): a primeira batida DA LISTA de cada tipo e, na saída, a de horário mais tarde.
      * Congelada: não "melhorar".
      *
-     * @param list<RegistroPonto> $batidas na ordem em que chegaram
-     * @return array<string, RegistroPonto>
+     * @param list<MarcacaoDoPonto> $batidas na ordem em que chegaram
+     * @return array<string, MarcacaoDoPonto>
      */
     private function escolhaLegada(array $batidas): array
     {
@@ -220,7 +219,7 @@ final class EscolhaDasBatidasDoDia
     }
 
     /**
-     * @param list<list<RegistroPonto>> $registros
+     * @param list<list<MarcacaoDoPonto>> $registros
      * @return list<string>
      */
     private function marcas(array $registros): array

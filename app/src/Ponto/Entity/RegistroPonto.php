@@ -5,13 +5,26 @@ namespace App\Ponto\Entity;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Model\AjusteDaMarcacao;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Ponto\Repository\RegistroPontoRepository::class)]
-class RegistroPonto implements Auditavel, TenantAware
+// O mesmo envio (E13) não entra duas vezes para a mesma pessoa; as batidas sem identificador (antigas, do gestor e do
+// esquecimento) ficam com NULL, que o PostgreSQL deixa repetir.
+#[ORM\UniqueConstraint(name: self::INDICE_DO_ENVIO, columns: ['user_id', 'id_envio'])]
+// NSR único por escritório (D2). As batidas sem NSR (antigas, do gestor, do abono) ficam nulas: no PostgreSQL o
+// nulo não colide no índice único, o mesmo que um índice parcial `WHERE nsr IS NOT NULL`.
+#[ORM\UniqueConstraint(name: 'uniq_registro_ponto_tenant_nsr', columns: ['tenant_id', 'nsr'])]
+// E10: a batida gravada só se insere (gatilho registro_ponto_so_insercao). Nenhum campo muda depois do id: a correção vai
+// para ponto_ajuste (PontoAjuste), e todos os setters recusam a batida gravada.
+class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 {
+    /** O índice único do envio: a batida reconhece pela mensagem do banco a violação que é dele. */
+    public const INDICE_DO_ENVIO = 'uniq_registro_ponto_user_envio';
+
     public const TIPO_ENTRADA = 'entrada';
     public const TIPO_REPOUSO = 'repouso';
     public const TIPO_RETORNO = 'retorno';
@@ -24,9 +37,9 @@ class RegistroPonto implements Auditavel, TenantAware
     ];
 
     /**
-     * O `sedeNomeSnapshot` da batida lançada ou editada pelo admin (`TenantController::pontoAdd` e
-     * `pontoEdit`). `EscolhaDasBatidasDoDia` lê este mesmo valor para saber que a batida não é do
-     * colaborador — por isso é constante, e não texto repetido nos dois lados.
+     * O `sedeNomeSnapshot` das batidas que o admin lançou ou editou pela ficha antes da E10. Desde a E10 a correção do
+     * gestor entra como ajuste ({@see PontoAjuste}) e ninguém grava mais este valor, mas as batidas antigas o guardam:
+     * `feitaPeloColaborador` (que a `EscolhaDasBatidasDoDia` usa) o lê para saber que a batida não é do colaborador.
      */
     public const SNAPSHOT_LANCAMENTO_MANUAL = 'Lançamento manual';
 
@@ -72,6 +85,38 @@ class RegistroPonto implements Auditavel, TenantAware
     #[ORM\Column(options: ['default' => false])]
     private bool $homeOffice = false;
 
+    // E13 (spec ponto-desenho-0811): a hora do relógio do aparelho no toque. Na batida normal é só informação; na
+    // guardada sem internet (E14) é ela que vale. Nula nas batidas antigas, nas do gestor e quando o aparelho não mandou.
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $horaAparelho = null;
+
+    // A hora oficial (relógio do servidor) em que a batida chegou. Nula nas batidas anteriores à E13.
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $horaChegada = null;
+
+    // A batida veio da fila do aparelho, guardada sem internet (E14): a folha marca o dia "Sem internet".
+    #[ORM\Column(options: ['default' => false])]
+    private bool $enviadaSemInternet = false;
+
+    // O identificador do envio feito pelo navegador no toque (UUID v4), o mesmo em toda nova tentativa da batida.
+    #[ORM\Column(length: 36, nullable: true)]
+    private ?string $idEnvio = null;
+
+    // E12 (spec ponto-desenho-0811, P18 e P74): a batida feita fora do raio das sedes e registrada como trabalho
+    // externo. Fica sem sede, com a posição e o local e motivo que a pessoa escreveu, e vai para a análise do gestor
+    // por uma justificativa `trabalho_externo` ligada a ela.
+    #[ORM\Column(options: ['default' => false])]
+    private bool $trabalhoExterno = false;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $motivoTrabalhoExterno = null;
+
+    // NSR, número sequencial do registro no escritório (spec ponto-desenho-0811 D2 e E15): dado pelo servidor
+    // (`NumeroSequencialDoRegistro`) só à batida que a própria pessoa registra. Nulo nas batidas antigas, nas lançadas
+    // pelo gestor e nas criadas pelo abono de esquecimento (ajuste, não marcação).
+    #[ORM\Column(type: 'bigint', nullable: true)]
+    private ?int $nsr = null;
+
     public function __construct()
     {
         $this->dataHora = new \DateTime();
@@ -89,6 +134,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setUser(?User $user): static
     {
+        $this->exigirAindaNaoGravada();
         $this->user = $user;
         return $this;
     }
@@ -100,6 +146,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setTenant(Tenant $tenant): static
     {
+        $this->exigirAindaNaoGravada();
         $this->tenant = $tenant;
         return $this;
     }
@@ -111,6 +158,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setDataHora(\DateTimeInterface $dataHora): static
     {
+        $this->exigirAindaNaoGravada();
         $this->dataHora = $dataHora;
         return $this;
     }
@@ -122,6 +170,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setLatitude(?string $latitude): static
     {
+        $this->exigirAindaNaoGravada();
         $this->latitude = $latitude;
         return $this;
     }
@@ -133,6 +182,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setLongitude(?string $longitude): static
     {
+        $this->exigirAindaNaoGravada();
         $this->longitude = $longitude;
         return $this;
     }
@@ -144,6 +194,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setPrecisaoGps(?string $precisaoGps): static
     {
+        $this->exigirAindaNaoGravada();
         $this->precisaoGps = $precisaoGps;
         return $this;
     }
@@ -155,6 +206,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setSede(?Sede $sede): static
     {
+        $this->exigirAindaNaoGravada();
         $this->sede = $sede;
         return $this;
     }
@@ -166,6 +218,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setSedeNomeSnapshot(?string $sedeNomeSnapshot): static
     {
+        $this->exigirAindaNaoGravada();
         $this->sedeNomeSnapshot = $sedeNomeSnapshot;
         return $this;
     }
@@ -180,6 +233,7 @@ class RegistroPonto implements Auditavel, TenantAware
         if (!in_array($tipo, self::TIPOS_VALIDOS, true)) {
             throw new \InvalidArgumentException('Tipo de registro de ponto invalido.');
         }
+        $this->exigirAindaNaoGravada();
 
         $this->tipo = $tipo;
         return $this;
@@ -192,6 +246,7 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setObservacao(?string $observacao): static
     {
+        $this->exigirAindaNaoGravada();
         $this->observacao = $observacao;
         return $this;
     }
@@ -203,7 +258,135 @@ class RegistroPonto implements Auditavel, TenantAware
 
     public function setHomeOffice(bool $homeOffice): static
     {
+        $this->exigirAindaNaoGravada();
         $this->homeOffice = $homeOffice;
         return $this;
+    }
+
+    public function getHoraAparelho(): ?\DateTimeImmutable
+    {
+        return $this->horaAparelho;
+    }
+
+    public function setHoraAparelho(?\DateTimeImmutable $horaAparelho): static
+    {
+        $this->exigirAindaNaoGravada();
+        $this->horaAparelho = $horaAparelho;
+        return $this;
+    }
+
+    public function getHoraChegada(): ?\DateTimeImmutable
+    {
+        return $this->horaChegada;
+    }
+
+    public function setHoraChegada(?\DateTimeImmutable $horaChegada): static
+    {
+        $this->exigirAindaNaoGravada();
+        $this->horaChegada = $horaChegada;
+        return $this;
+    }
+
+    public function isEnviadaSemInternet(): bool
+    {
+        return $this->enviadaSemInternet;
+    }
+
+    public function setEnviadaSemInternet(bool $enviadaSemInternet): static
+    {
+        $this->exigirAindaNaoGravada();
+        $this->enviadaSemInternet = $enviadaSemInternet;
+        return $this;
+    }
+
+    public function getIdEnvio(): ?string
+    {
+        return $this->idEnvio;
+    }
+
+    public function setIdEnvio(?string $idEnvio): static
+    {
+        $this->exigirAindaNaoGravada();
+        $this->idEnvio = $idEnvio;
+
+        return $this;
+    }
+
+    public function getNsr(): ?int
+    {
+        return $this->nsr;
+    }
+
+    public function setNsr(int $nsr): static
+    {
+        $this->exigirAindaNaoGravada();
+        $this->nsr = $nsr;
+
+        return $this;
+    }
+
+    public function isTrabalhoExterno(): bool
+    {
+        return $this->trabalhoExterno;
+    }
+
+    public function setTrabalhoExterno(bool $trabalhoExterno): static
+    {
+        $this->exigirAindaNaoGravada();
+        $this->trabalhoExterno = $trabalhoExterno;
+        return $this;
+    }
+
+    public function getMotivoTrabalhoExterno(): ?string
+    {
+        return $this->motivoTrabalhoExterno;
+    }
+
+    public function setMotivoTrabalhoExterno(?string $motivoTrabalhoExterno): static
+    {
+        $this->exigirAindaNaoGravada();
+        $this->motivoTrabalhoExterno = $motivoTrabalhoExterno;
+        return $this;
+    }
+
+    /**
+     * Batida feita pelo próprio colaborador: sem observação e sem a marca de lançamento manual. A mesma regra de
+     * `EscolhaDasBatidasDoDia::ehDoColaborador` (a aprovação de esquecimento gravava observação fixa; o lançamento e a
+     * edição do admin de antes da E10 gravavam o snapshot `Lançamento manual`).
+     */
+    public function feitaPeloColaborador(): bool
+    {
+        return $this->observacao === null
+            && $this->sedeNomeSnapshot !== self::SNAPSHOT_LANCAMENTO_MANUAL;
+    }
+
+    public function pessoaId(): int
+    {
+        return $this->user?->getId() ?? throw new \LogicException('A batida ainda não tem a pessoa gravada.');
+    }
+
+    /** O alvo dos ajustes desta batida: 'b{id}'. */
+    public function alvo(): string
+    {
+        return 'b' . ($this->id ?? throw new \LogicException('A batida ainda não foi gravada: não tem alvo de ajuste.'));
+    }
+
+    /** A batida original, sem ajuste: não tem cabeça de linhagem. */
+    public function cabeca(): ?int
+    {
+        return null;
+    }
+
+    public function ajuste(): ?AjusteDaMarcacao
+    {
+        return null;
+    }
+
+    /** E10: depois do id, nenhum campo da batida muda (o banco recusa qualquer UPDATE pelo gatilho). */
+    private function exigirAindaNaoGravada(): void
+    {
+        if ($this->id !== null) {
+            throw new \LogicException('Batida já gravada não muda: a correção entra como ajuste (PontoAjuste).');
+        }
     }
 }

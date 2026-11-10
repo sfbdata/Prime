@@ -120,7 +120,7 @@ final class TrocaDeAnexoDeLoteAnalisadoTest extends KernelTestCase
         self::assertSame([], $espiao->excluidas, 'e nada é apagado');
         self::assertStringContainsString('não pode ser trocado', $capturada->getMessage());
         // A mensagem diz o caminho de volta, e ele é o lote INTEIRO — reverter um dia não destrava.
-        self::assertStringContainsString('todos os dias precisam voltar a pendente', $capturada->getMessage());
+        self::assertStringContainsString('todos os dias precisam voltar para análise', $capturada->getMessage());
         self::assertSame(array_fill(0, \count($lote), $antigo), $this->anexosNoBanco($lote), 'nenhum dia pode mudar de anexo');
         self::assertSame($status, $this->statusNoBanco($lote), 'a recusa não mexe em status');
         self::assertFileExists($this->caminho($antigo), 'o atestado analisado NUNCA pode sair do disco');
@@ -261,6 +261,7 @@ final class TrocaDeAnexoDeLoteAnalisadoTest extends KernelTestCase
                 $remocao,
                 $container->get(ValidatorInterface::class),
                 $logger,
+                $container->get(\App\Ponto\Service\TrilhaDoPonto::class),
             ),
             $espiao,
         ];

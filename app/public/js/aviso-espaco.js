@@ -17,7 +17,8 @@
     }
 
     function mostrar() {
-        if (document.querySelector('.modal.show')) {
+        // A janela do alerta de horário do ponto não é modal do Bootstrap: entra no seletor (ela dispara `hidden.bs.modal`).
+        if (document.querySelector('.modal.show, #modalAlertaPonto.show')) {
             document.addEventListener('hidden.bs.modal', mostrar, { once: true });
 
             return;

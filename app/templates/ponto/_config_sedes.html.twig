@@ -1,0 +1,50 @@
+{#
+    Seção "Sedes e raio de registro" da aba Configurações (desenho 16, L253 e L254; spec ponto-desenho-0811.md, E6:
+    P68, P69, P70 a, D4 e D13). Só para quem gere o ponto (GestaoDoPonto::SEDES). Comportamento em
+    js/ponto-configuracoes-sedes.js.
+
+    - Cada linha grava ao sair do campo (a linha inteira); o erro aparece na linha de baixo.
+    - "Adicionar sede" acrescenta "Nova sede" com 150 m; ela só vai para o banco com latitude e longitude válidas.
+    - Remover pede confirmação (D4; o desenho remove na hora).
+    - "Mapa e busca por endereço" (P69, sistema, fica) leva à página "Sedes do ponto".
+
+    Recebe `sedesDoPonto` (list<SedeDoPontoOutput>), `raioPadrao` e `tenantIdDoPonto`.
+#}
+<section class="pe-sf-secao" aria-labelledby="ponto-sedes-titulo" data-pc-sedes data-pc-sede-url-criar="{{ path('ponto_configuracoes_sede_criar') }}">
+    <div class="pe-sedes-cabeca">
+        <b class="pe-sedes-titulo" id="ponto-sedes-titulo">Sedes e raio de registro</b>
+        {# E12 (P74, desenho L253): a caixa "Permitir trabalho externo", entre o título e os botões. #}
+        {{ include('ponto/_config_trabalho_externo.html.twig') }}
+        <a class="pe-sf-contorno" href="{{ path('app_tenant_sedes', {tenantId: tenantIdDoPonto}) }}"><i class="bi bi-geo-alt" aria-hidden="true"></i>Mapa e busca por endereço</a>
+        <button type="button" class="pe-sf-contorno" data-pc-sede-adicionar><i class="bi bi-plus-lg" aria-hidden="true"></i>Adicionar sede</button>
+    </div>
+    <div class="pe-sedes-rolagem">
+        <table class="pe-tab pe-sedes-tab">
+            <thead><tr><th>Sede</th><th>Latitude</th><th>Longitude</th><th>Raio (m)</th><th></th></tr></thead>
+            <tbody data-pc-sedes-corpo>
+                {% for sede in sedesDoPonto %}
+                    {{ include('ponto/_config_sede_linha.html.twig', {sede: sede}) }}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <template data-pc-sede-modelo>{{ include('ponto/_config_sede_linha.html.twig', {sede: null}) }}</template>
+
+    <div class="pe-janela-fundo" id="ponto-janela-remover-sede" hidden data-pc-sf-janela>
+        <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Remover sede">
+            <div class="pe-janela-topo">
+                <i class="bi bi-trash3" aria-hidden="true"></i><b class="pe-janela-titulo">Remover sede</b>
+                <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-pc-sf-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="pe-janela-corpo">
+                <div class="pe-janela-info" data-pc-sf-info></div>
+                <div class="pe-janela-texto">A sede sai da lista e deixa de valer para registrar o ponto. As batidas feitas nela continuam na folha, com o nome da sede guardado. Não é possível desfazer.</div>
+            </div>
+            <div class="pe-janela-erro" data-pc-sf-erro hidden></div>
+            <div class="pe-janela-rodape">
+                <button type="button" class="pe-janela-cancelar" data-pc-sf-fechar>Cancelar</button>
+                <button type="button" class="pe-janela-acao" data-pc-sf-confirmar="sede">Remover</button>
+            </div>
+        </div>
+    </div>
+</section>

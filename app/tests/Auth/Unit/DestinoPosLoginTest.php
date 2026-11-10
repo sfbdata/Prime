@@ -98,7 +98,7 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'app_tenant_edit' => ['app_tenant_edit', '/tenant/7/edit'];
         yield 'app_tenant_users' => ['app_tenant_users', '/tenant/7/users'];
         yield 'app_tenant_user_edit_role' => ['app_tenant_user_edit_role', '/tenant/7/user/7/edit-role'];
-        yield 'app_tenant_user_ponto_edit' => ['app_tenant_user_ponto_edit', '/tenant/7/user/7/ponto/7/edit'];
+        yield 'app_tenant_user_ponto_ajustar' => ['app_tenant_user_ponto_ajustar', '/tenant/7/user/7/ponto/b7/ajustar'];
         yield 'app_tenant_role_index' => ['app_tenant_role_index', '/tenant/7/roles'];
         yield 'app_tenant_role_new' => ['app_tenant_role_new', '/tenant/7/roles/new'];
         yield 'app_tenant_role_edit' => ['app_tenant_role_edit', '/tenant/7/roles/7/edit'];

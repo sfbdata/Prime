@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Ponto\Controller\AjusteDeBatidaController;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -22,9 +23,11 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * Escopo por-URL das rotas admin de ponto (MÉDIO + C6). O TenantFilter é ligado pelo tenant da
  * SESSÃO; estas rotas operam sobre o tenant da URL. As rotas re-apontam o filtro para o {tenantId}
  * da URL após o guard de acesso. Estes dois vetores eram CEGOS na suíte (dev sem user multi-tenant;
- * testes logavam admin no mesmo tenant da rota).
+ * testes logavam admin no mesmo tenant da rota). Desde a E10 o ajuste e a desconsideração moram no
+ * AjusteDeBatidaController e acham a batida pelo alvo (b{id}) dentro da folha do tenant da URL.
  */
 #[CoversClass(TenantController::class)]
+#[CoversClass(AjusteDeBatidaController::class)]
 final class PontoAdminEscopoTenantControllerTest extends JusPrimeWebTestCase
 {
     #[TestDox('MÉDIO: a folha usa o tenant da URL, não o da sessão (admin multi-tenant)')]
@@ -46,8 +49,8 @@ final class PontoAdminEscopoTenantControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString("/ponto/{$registroB->getId()}/edit", $body, 'a folha de B deveria listar a batida de B');
-        self::assertStringNotContainsString("/ponto/{$registroA->getId()}/edit", $body, 'a folha de B vazou a batida do escritório A (tenant da sessão)');
+        self::assertStringContainsString("/ponto/b{$registroB->getId()}/ajustar", $body, 'a folha de B deveria listar a batida de B');
+        self::assertStringNotContainsString("/ponto/b{$registroA->getId()}/ajustar", $body, 'a folha de B vazou a batida do escritório A (tenant da sessão)');
     }
 
     #[TestDox('ALTO (auditoria 1.13): a ficha lista só as justificativas do escritório da URL, não as do outro escritório da pessoa')]
@@ -89,15 +92,15 @@ final class PontoAdminEscopoTenantControllerTest extends JusPrimeWebTestCase
         $this->marcarTermosAceitos($client);
 
         // batida de X carregada via a URL de Y → filtro re-apontado p/ Y → find() null → 404
-        $client->request('GET', "/tenant/{$tenantY->getId()}/user/{$alvo->getId()}/ponto/{$registroX->getId()}/edit");
+        $client->request('GET', "/tenant/{$tenantY->getId()}/user/{$alvo->getId()}/ponto/b{$registroX->getId()}/ajustar");
         self::assertResponseStatusCodeSame(404, 'super-admin não pode carregar batida de outro tenant pela URL errada');
 
         // controle positivo: pela URL correta (X) a batida carrega
-        $client->request('GET', "/tenant/{$tenantX->getId()}/user/{$alvo->getId()}/ponto/{$registroX->getId()}/edit");
+        $client->request('GET', "/tenant/{$tenantX->getId()}/user/{$alvo->getId()}/ponto/b{$registroX->getId()}/ajustar");
         self::assertResponseIsSuccessful();
     }
 
-    #[TestDox('MUTAÇÃO: admin multi-tenant (sessão=A) não exclui pela URL de B uma batida que é de A')]
+    #[TestDox('MUTAÇÃO: admin multi-tenant (sessão=A) não desconsidera pela URL de B uma batida que é de A')]
     public function testMutacaoMultiTenantNaoTocaBatidaDeOutroTenant(): void
     {
         $client  = static::createClient();
@@ -111,13 +114,14 @@ final class PontoAdminEscopoTenantControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->limparIdentityMap();
 
-        // sessão=A; tenta EXCLUIR via a URL de B a batida que pertence a A
+        // sessão=A; tenta DESCONSIDERAR via a URL de B a batida que pertence a A
         $this->logarComTenant($client, $admin, $tenantA);
-        $client->request('POST', "/tenant/{$tenantB->getId()}/user/{$alvo->getId()}/ponto/{$idA}/delete", [
-            '_token' => $this->gerarCsrf('delete_ponto_' . $idA),
+        $client->request('POST', "/tenant/{$tenantB->getId()}/user/{$alvo->getId()}/ponto/b{$idA}/desconsiderar", [
+            '_token' => $this->gerarCsrf('ponto_desconsiderar_b' . $idA),
+            'motivo' => 'Batida em dobro.',
         ]);
 
-        self::assertResponseStatusCodeSame(404, 'excluir via a URL de B uma batida de A deve dar 404');
+        self::assertResponseStatusCodeSame(404, 'desconsiderar via a URL de B uma batida de A deve dar 404');
 
         // a batida de A permanece intacta (verificado com o filtro desligado)
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -125,7 +129,8 @@ final class PontoAdminEscopoTenantControllerTest extends JusPrimeWebTestCase
             $em->getFilters()->disable('tenant');
         }
         $em->clear();
-        self::assertNotNull($em->find(RegistroPonto::class, $idA), 'a batida do escritório A foi excluída via a URL de B');
+        self::assertNotNull($em->find(RegistroPonto::class, $idA), 'a batida do escritório A sumiu via a URL de B');
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM ponto_ajuste WHERE user_id = ?', [$alvo->getId()]), 'nenhum ajuste pode ter sido gravado via a URL de B');
     }
 
     // ----------------------------------------------------------------- helpers

@@ -6,6 +6,7 @@ namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Master\Service\RecursosDoSistema;
 use App\Ponto\DTO\PendenciaDeRegistroOutput;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -14,14 +15,24 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * O cartão diário de pendência de registro (spec `ponto-esquecimento-nao-trava.md` R9; componente do lembrete do
  * desenho, bj-lembretes.js): os textos já traduzidos e o link, para o JS só desenhar com textContent. Null fora do
- * público dos avisos de ponto (R7) ou sem pendência.
+ * público dos avisos de ponto (R7), sem pendência ou com a tela `ponto` fechada para quem vê.
+ *
+ * Tela fechada (E7, spec docs/specs/ponto-desenho-0811.md): o Master desligou a tela `ponto` e quem vê não é Master.
+ * O cartão leva à /ponto (ou à troca de escritório, para chegar a ela), que responde "em preparação" (503): sem
+ * cartão. O critério é o do guarda de rota {@see \App\Master\EventListener\BloqueioDeRecursoDesativado}, por
+ * {@see RecursosDoSistema::visivel()} (desligada e quem vê não é Master). A tela não tem a camada Escritório: só o
+ * comprovante em imagem (E15) e a geolocalização (E7) têm ({@see FuncoesDoPonto::COM_CAMADA_ESCRITORIO}).
  *
  * A pendência do cartão é a mais antiga deste escritório, onde o pedido sai pelo modal da tela do ponto; sem ela, a
  * mais antiga de outro escritório, com a orientação de trocar (o nome do escritório só vai para a própria pessoa).
  */
 final class CartaoDePendenciaDoPonto
 {
+    /** A chave da tela do Ponto no catálogo do Master ({@see \App\Master\Service\CatalogoDeRecursos}). */
+    private const TELA = 'ponto';
+
     public function __construct(
+        private readonly RecursosDoSistema $recursos,
         private readonly PublicoDosAvisosDePonto $publico,
         private readonly ListarPendenciasDeRegistroUseCase $pendencias,
         private readonly TranslatorInterface $tradutor,
@@ -34,7 +45,7 @@ final class CartaoDePendenciaDoPonto
      */
     public function de(User $eu, Tenant $tenant): ?array
     {
-        if (!$this->publico->recebe($eu, $tenant)) {
+        if (!$this->recursos->visivel(self::TELA) || !$this->publico->recebe($eu, $tenant)) {
             return null;
         }
         $lista = $this->pendencias->executar($eu, $tenant);

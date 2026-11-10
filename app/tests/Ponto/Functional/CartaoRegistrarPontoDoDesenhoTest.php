@@ -70,8 +70,17 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('pe-dir', (string) $colunas->eq(1)->attr('class'));
         self::assertCount(1, $tela->filter(self::CARTAO), 'o cartão é filho direto da coluna da esquerda');
         self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-folha'));
-        self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-pendencias'), 'as pendências saíram da coluna do botão');
-        self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-folha + #ponto-regiao-pendencias'));
+        self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > section.pe-abas > #ponto-regiao-pendencias'), 'as pendências saíram da coluna do botão (E3: na aba)');
+        self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-folha + section.pe-abas'));
+    }
+
+    #[TestDox('A barra do topo mostra a divisória e "Ponto Eletrônico", como Agenda e Metas (desenho L83-L84)')]
+    public function testNomeDaTelaNaBarra(): void
+    {
+        $tela = $this->tela();
+
+        self::assertCount(1, $tela->filter('.navtop-page-sep + .navtop-page-title'));
+        self::assertSame('Ponto Eletrônico', trim($tela->filter('.navtop-page-title')->text()));
     }
 
     #[TestDox('O cartão segue o desenho: barra com a digital e o banco de horas; corpo na ordem do desenho')]
@@ -86,7 +95,8 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertSame('0h', trim($tela->filter($barra . ' > #ponto-banco-horas > span + b.pe-banco-valor')->text()), 'P2: o zero do desenho');
 
         self::assertSame(
-            ['pe-relogio', 'excedente-hoje', 'ponto-tipo', 'gps-status', 'ponto-aviso-dia', 'btn-bater-ponto', 'batida-aviso', 'btn-atualizar-pagina', 'pe-rodape'],
+            // E14: a caixa da fila sem internet (L127) entra entre o aviso do dia e o botão, na ordem do desenho.
+            ['pe-relogio', 'excedente-hoje', 'ponto-tipo', 'gps-status', 'ponto-aviso-dia', 'ponto-fila', 'btn-bater-ponto', 'batida-aviso', 'btn-atualizar-pagina', 'pe-rodape'],
             $tela->filter(self::CORPO . ' > *')->each(static fn (Crawler $no): string => (string) ($no->attr('id') ?: explode(' ', (string) $no->attr('class'))[0])),
             'o corpo do cartão na ordem do desenho'
         );
@@ -163,7 +173,7 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertSame('Jornada encerrada', trim($tela->filter('#clock-label')->text()));
     }
 
-    #[TestDox('P12: o mínimo do aviso do intervalo segue a Jornada do escritório; com a validação do repouso desligada, vai 0 e o aviso não aparece')]
+    #[TestDox('P12: o mínimo do aviso do intervalo segue a Jornada do escritório; com a validação do repouso desligada, vai 0 e o aviso mostra só o tempo do intervalo')]
     public function testAvisoDoIntervaloSegueAChaveDoEscritorio(): void
     {
         $aviso = self::CORPO . ' > #ponto-aviso-dia';
@@ -178,7 +188,33 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         // Recarregada: a requisição anterior limpa o EntityManager e a instância acima fica solta.
         $this->em()->find(JornadaTenant::class, $jornada->getId())?->setValidacaoRepousoHabilitada(false);
         $this->em()->flush();
-        self::assertSame('0', $this->tela()->filter($aviso)->attr('data-intervalo-minimo-minutos'), 'chave desligada: sem aviso do intervalo');
+        self::assertSame('0', $this->tela()->filter($aviso)->attr('data-intervalo-minimo-minutos'), 'chave desligada: o aviso sem o mínimo');
+    }
+
+    #[TestDox('Em repouso, o cartão já traz o que o intervalo ao vivo e a saída prevista usam: a hora da batida de repouso, a meta, a escala e o aviso do dia')]
+    public function testRepousoTrazOInicioDoIntervaloNoCartao(): void
+    {
+        $jornada = (new JornadaColaborador())->setUser($this->user)->setTenant($this->x);
+        $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1, 2, 3, 4, 5, 6, 7])->setEntrada('08:00')
+            ->setRepouso('12:00')->setRetorno('14:00')->setSaida('18:00')->setMinutosBloco(480));
+        $this->em()->persist($jornada);
+        $this->em()->flush();
+
+        $this->batida('entrada', new \DateTimeImmutable('today 00:00:01'));
+        $this->batida('repouso', new \DateTimeImmutable('today 00:00:02'));
+        $tela = $this->tela();
+
+        self::assertSame('Em repouso', trim($tela->filter('#clock-label')->text()));
+        // O JS conta o intervalo a partir daqui, sem busca nova (`CartaoDoPontoNoJsTest::testIntervaloAoVivoNosTresTextos`).
+        $estado = json_decode((string) $tela->filter('#clock')->attr('data-ponto-do-dia'), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($estado);
+        self::assertSame('00:00:02', $estado['repouso'] ?? null, 'o início do intervalo é a hora da batida de repouso');
+        self::assertSame('00:00:01', $estado['entrada'] ?? null);
+
+        // A saída prevista no repouso (`saidaPrevista`) usa a meta do dia e a escala; o aviso é desenhado pelo JS.
+        self::assertSame('480', $tela->filter(self::CORPO . ' > #excedente-hoje')->attr('data-meta-dia-minutos'));
+        self::assertStringContainsString('const duracaoMinutos = 600;', (string) $this->client->getResponse()->getContent());
+        self::assertCount(1, $tela->filter(self::CORPO . ' > #ponto-aviso-dia'), 'o aviso do dia, filho direto do corpo do cartão');
     }
 
     #[TestDox('O que saiu com o desenho conta zero: card do AdminLTE, select, lista de batidas, previsão, contador do repouso, botão de som')]
@@ -359,6 +395,47 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(1, $tela->filter('#pendencias-ponto'), 'controle: a lista de pendências mostra a de Y');
         self::assertCount(0, $tela->filter('#ponto-ultima-pendencia'), 'a faixa é só deste escritório');
         self::assertStringNotContainsString((string) $y->getName(), $tela->filter(self::CARTAO)->text());
+    }
+
+    #[TestDox('E14: a caixa da fila sem internet nasce escondida, no lugar do desenho (L127), com a pessoa e o escritório da sessão')]
+    public function testCaixaDaFilaSemInternet(): void
+    {
+        $tela = $this->tela();
+
+        $caixa = $tela->filter(self::CORPO . ' > #ponto-aviso-dia + #ponto-fila.pe-fila');
+        self::assertCount(1, $caixa, 'filho direto do corpo, logo depois do aviso do dia');
+        self::assertCount(1, $tela->filter(self::CORPO . ' > #ponto-fila + button#btn-bater-ponto'), 'sem pendência, o botão vem logo depois');
+        self::assertStringContainsString('d-none', (string) $caixa->attr('class'), 'some com a fila vazia');
+        self::assertCount(1, $caixa->filter('#ponto-fila > i.bi-wifi-off:first-child'), 'o ícone do desenho');
+        self::assertCount(1, $caixa->filter('#ponto-fila > i + span.pe-fila-texto > span#ponto-fila-pendentes.pe-fila-linha.d-none'));
+        self::assertCount(1, $caixa->filter('#ponto-fila > i + span.pe-fila-texto > span#ponto-fila-pendentes + span#ponto-fila-outro-escritorio.pe-fila-linha.d-none'));
+        self::assertSame('', trim($caixa->text()), 'o texto é do JS, contado no aparelho');
+        self::assertSame((string) $this->user->getId(), $caixa->attr('data-usuario-id'));
+        self::assertSame((string) $this->x->getId(), $caixa->attr('data-escritorio-id'));
+    }
+
+    #[TestDox('E14: com a última pendência, a caixa da fila fica entre o aviso do dia e a pendência, como no desenho')]
+    public function testCaixaDaFilaAntesDaUltimaPendencia(): void
+    {
+        $this->batida('entrada', $this->diaUtilAtras(3)->setTime(8, 0));
+
+        self::assertCount(1, $this->tela()->filter(self::CORPO . ' > #ponto-aviso-dia + #ponto-fila + #ponto-ultima-pendencia + button#btn-bater-ponto'));
+    }
+
+    #[TestDox('E14 entre escritórios: o escritório da caixa da fila é o da sessão, nunca o de outro vínculo da pessoa')]
+    public function testCaixaDaFilaComOEscritorioDaSessao(): void
+    {
+        $y = $this->tenant('Escritório Y');
+        $this->vincular($y);
+
+        $this->logarComTenant($this->client, $this->user, $y);
+        $tela = $this->client->request('GET', '/ponto/');
+        self::assertResponseIsSuccessful();
+
+        $caixa = $tela->filter(self::CORPO . ' > #ponto-fila');
+        self::assertSame((string) $y->getId(), $caixa->attr('data-escritorio-id'));
+        self::assertNotSame((string) $this->x->getId(), $caixa->attr('data-escritorio-id'));
+        self::assertSame((string) $this->user->getId(), $caixa->attr('data-usuario-id'));
     }
 
     private function tela(): Crawler

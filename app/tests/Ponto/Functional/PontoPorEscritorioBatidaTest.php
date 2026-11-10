@@ -132,19 +132,23 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         self::assertSame([], $resposta['avisos']);
     }
 
-    #[TestDox('Vínculo inativo em Y não avisa; Y excluído não avisa (separados)')]
-    public function testVinculoInativoEEscritorioExcluido(): void
+    #[TestDox('Vínculo inativo em Y não avisa')]
+    public function testVinculoInativoNaoAvisa(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
         $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->y->getId()]);
         self::assertSame([], $this->baterEmX('entrada')['avisos'], 'vínculo inativo');
+    }
 
+    /** Separado do vínculo inativo: cada caso bate a própria entrada em X (a batida gravada não se apaga, E10). */
+    #[TestDox('Escritório excluído (Z inativo) não avisa')]
+    public function testEscritorioExcluidoNaoAvisa(): void
+    {
         $z = $this->tenant('Escritório Z');
         $this->vincular($this->user, $z, ['modules.ponto.view']);
         $this->batida($z, 'entrada', $this->hojeCedo(1));
         $z->setIsActive(false);
         $this->em()->flush();
-        $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
         self::assertSame([], $this->baterEmX('entrada')['avisos'], 'escritório excluído');
     }
 
@@ -186,11 +190,12 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->batida($this->x, 'entrada', $this->entradaRecente());   // a saída de X fecha uma entrada: conta (R4)
         $this->batida($this->x, 'saida', $this->agoraHaPouco());
         $resposta = $this->baterEmX('entrada');
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringStartsWith('Interjornada mínima', $resposta['message']);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($resposta['success']);
+        self::assertStringContainsString('de descanso desde a saída', (string) ($resposta['alerta'] ?? ''), 'o alerta da interjornada (E11)');
     }
 
-    #[TestDox('Y aberto e a interjornada de uma saída batida em X: a recusa é a da interjornada, e o ponto aberto em Y não recusa')]
+    #[TestDox('Y aberto e a interjornada de uma saída batida em X: o que barra é o alerta da interjornada (E11), e o ponto aberto em Y não recusa')]
     public function testYAbertoNaoRecusaMasAInterjornadaSim(): void
     {
         $this->batida($this->x, 'entrada', $this->entradaRecente());   // a saída de X fecha uma entrada: conta (R4)
@@ -199,8 +204,9 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
 
         $resposta = $this->baterEmX('entrada');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringStartsWith('Interjornada mínima', $resposta['message']);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($resposta['success']);
+        self::assertStringContainsString('de descanso desde a saída', (string) ($resposta['alerta'] ?? ''), 'o alerta da interjornada (E11)');
     }
 
     #[TestDox('Sem home office em X e sem GPS: Y aberto não recusa; a recusa é a da geolocalização de sempre')]
@@ -236,8 +242,14 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $master, $this->x);
         self::assertSame([], $this->postar('entrada')['avisos'], 'sem vínculo em Y');
 
-        $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$master->getId(), $this->x->getId()]);
-        $this->vincular($master, $this->y, []);
+        // Com vínculo em Y: outro Master na mesma situação, que bate a própria entrada em X (a batida gravada não se
+        // apaga, E10).
+        $comVinculo = $this->user(['ROLE_SUPER_ADMIN']);
+        $this->vincular($comVinculo, $this->x, []);
+        $this->vincular($comVinculo, $this->y, []);
+        $this->homeOfficeTodoDia($comVinculo, $this->x);
+        $this->batida($this->y, 'entrada', $this->hojeCedo(1), $comVinculo);
+        $this->logarComTenant($this->client, $comVinculo, $this->x);
         $resposta = $this->postar('entrada');
         self::assertTrue($resposta['success'], 'com vínculo em Y');
         self::assertSame([$this->avisoDeY()], $resposta['avisos']);
@@ -253,13 +265,13 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
 
         $hoje = new \DateTimeImmutable();
         $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/add', $this->x->getId(), $this->user->getId()), [
-            'registro_ponto_manual' => ['data' => $hoje->format('Y-m-d'), 'hora' => '00:01:00', 'tipo' => 'entrada'],
+            'registro_ponto_manual' => ['data' => $hoje->format('Y-m-d'), 'hora' => '00:01:00', 'tipo' => 'entrada', 'motivo' => 'Esqueceu de bater.'],
             'competencia' => $hoje->format('Y-m'),
             '_token' => 'TOKEN_ponto_manual_add',
         ]);
 
         self::assertResponseRedirects();
-        self::assertSame(1, $this->batidasEm($this->x));
+        self::assertSame(1, $this->inclusoesEm($this->x), 'a correção entra como inclusão em X (E10)');
     }
 
     #[TestDox('A tela do ponto em X depois da entrada não mostra nada de Y (o ponto aberto de hoje em Y não é pendência da lista)')]
@@ -347,6 +359,15 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $registro->setDataHora($quando);
         $this->em()->persist($registro);
         $this->em()->flush();
+    }
+
+    /** As batidas que o gestor incluiu na folha do escritório (E10: a correção entra em ponto_ajuste). */
+    private function inclusoesEm(Tenant $tenant): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne(
+            "SELECT COUNT(*) FROM ponto_ajuste WHERE user_id = ? AND tenant_id = ? AND tipo = 'inclusao'",
+            [$this->user->getId(), $tenant->getId()],
+        );
     }
 
     private function batidasEm(Tenant $tenant): int

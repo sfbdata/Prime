@@ -194,6 +194,38 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertSame(['Plataforma (sem conta)'], array_values(array_unique($contas)));
     }
 
+    #[TestDox('a rota aceita chave com hífen (ponto-geo, E7) e as chaves sem hífen continuam alternando')]
+    public function testRotaAceitaChaveComHifen(): void
+    {
+        $this->religarTodos();
+        $this->entrar($this->master);
+
+        $this->alternar('ponto-geo', ['ativo' => false, 'motivo' => 'Revisão da cerca']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['chave' => 'ponto-geo', 'ativo' => false, 'motivo' => 'Revisão da cerca', 'ate' => null], $this->json());
+        self::assertFalse($this->estado('ponto-geo')?->isAtivo());
+        $this->alternar('ponto-geo', ['ativo' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->estado('ponto-geo')?->isAtivo());
+
+        foreach (['voto', 'peticionar', 'ponto', 'chat'] as $chave) {
+            $this->alternar($chave, ['ativo' => false]);
+            self::assertResponseIsSuccessful($chave);
+            self::assertSame(['chave' => $chave, 'ativo' => false, 'motivo' => null, 'ate' => null], $this->json());
+            self::assertFalse($this->estado($chave)?->isAtivo(), $chave);
+            $this->alternar($chave, ['ativo' => true]);
+            self::assertResponseIsSuccessful($chave);
+            self::assertTrue($this->estado($chave)?->isAtivo(), $chave);
+        }
+
+        $this->alternar('-geo', ['ativo' => false]);
+        self::assertResponseStatusCodeSame(404, 'a chave começa por letra');
+        $this->alternar('Ponto', ['ativo' => false]);
+        self::assertResponseStatusCodeSame(404, 'só minúsculas');
+        $this->alternar(str_repeat('a', 41), ['ativo' => false]);
+        self::assertResponseStatusCodeSame(404, 'até 40 caracteres');
+    }
+
     #[TestDox('POST de quem não é Master: 403 e nada muda')]
     public function testNaoMasterRecebe403(): void
     {
@@ -258,7 +290,10 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertNotEmpty($painel->attr('data-token'));
 
         $linhas = json_decode((string) $painel->attr('data-recursos'), true);
-        self::assertCount(21, $linhas);
+        self::assertCount(29, $linhas, 'as 29 linhas do catálogo, com o comprovante (E15), os alertas de intervalo (E11), a tela cheia, os sons e o lembrete de saída (E8) e o aceite da folha (E16) do Ponto');
+        $aceite = array_values(array_filter($linhas, static fn (array $l): bool => $l['chave'] === 'ponto-aceite'));
+        self::assertCount(1, $aceite);
+        self::assertTrue($aceite[0]['ativo'], 'o aceite da folha nasce ligado (sem linha em recurso_estado)');
         $contribua = array_values(array_filter($linhas, static fn (array $l): bool => $l['chave'] === 'contribua'));
         self::assertCount(2, $contribua);
         self::assertFalse($contribua[0]['ativo']);

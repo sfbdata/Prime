@@ -32,7 +32,8 @@ use Symfony\Component\DomCrawler\Crawler;
  * 09/11/2026): a Folha de Ponto no molde do desenho, sobre o motor de hoje.
  *
  * O arranjo é conferido por filho direto (`>`). Também ficam travados o que saiu (contando zero), os textos literais, o
- * filtro do P25 (dia sem batida fora da tela, com o saldo igual ao de antes), os selos do dia (P27) e da justificativa
+ * filtro do P25 (dia sem batida fora da tela, descontando no "Saldo mês" das linhas seguintes e no rodapé, que desde a
+ * E17 é o mês inteiro, a conta do banco), os selos do dia (P27) e da justificativa
  * (P31, "Em análise" com a ampulheta na coluna Justificativa pelo P30 a), os meses desde o início da contagem (P23, D7)
  * e a ficha do colaborador, que ganha o mesmo molde e continua com todos os dias do mês (P60).
  *
@@ -75,7 +76,7 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertSame(
             ['i', 'span.pe-folha-titulo', 'select.pe-folha-mes', 'span.pe-folha-espaco', 'button', 'button', 'button'],
             $tela->filter(self::BARRA . ' > *')->each(static fn (Crawler $no): string => $no->nodeName() . (in_array($no->nodeName(), ['span', 'select'], true) ? '.' . explode(' ', (string) $no->attr('class'))[0] : '')),
-            'a barra na ordem do desenho; os botões que o desenho não tem (P88 e P89, ficam) antes do Baixar PDF'
+            'a barra na ordem do desenho; os botões que o desenho não tem (P88 e P89, ficam) antes do Baixar PDF (decisão 11)'
         );
         self::assertCount(1, $tela->filter(self::BARRA . ' > i.bi.bi-table:first-child'));
         self::assertSame('Folha de Ponto', trim($tela->filter(self::BARRA . ' > span.pe-folha-titulo')->text()));
@@ -93,10 +94,33 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         );
         $baixar = $tela->filter(self::BARRA . ' > button:last-child');
         self::assertCount(1, $baixar->filter('i.bi-file-earmark-pdf'), 'Baixar PDF é o último da barra');
-        self::assertStringContainsString('/ponto/exportar-folha-pdf?ano=', (string) $baixar->attr('data-folha-baixar'), 'P87: baixa direto');
-        self::assertStringNotContainsString('inline', (string) $baixar->attr('data-folha-baixar'));
+        self::assertStringContainsString('/ponto/exportar-folha-pdf?ano=', (string) $baixar->attr('data-folha-pdf'), 'P87: baixa direto, com o aviso flutuante (E16)');
+        self::assertStringNotContainsString('inline', (string) $baixar->attr('data-folha-pdf'));
         self::assertStringContainsString('/ponto/exportar-folha-xlsx?ano=', (string) $tela->filter(self::BARRA . ' > button.pe-folha-btn')->eq(1)->attr('data-folha-baixar'), 'P88: o XLSX fica');
-        self::assertSame('#modalPreviewFolhaPonto', $tela->filter(self::BARRA . ' > button.pe-folha-btn')->eq(0)->attr('data-bs-target'), 'P89: ver antes de baixar fica');
+        $ver = $tela->filter(self::BARRA . ' > button.pe-folha-btn:first-of-type');
+        self::assertStringContainsString('inline=1', (string) $ver->attr('data-folha-ver'), 'P89: ver antes de baixar fica, na janela do desenho (E16)');
+        self::assertCount(0, $tela->filter(self::BARRA . ' [data-folha-assinar]'), 'o mês aberto não tem "Assinar folha" (E16)');
+    }
+
+    #[TestDox('O "Ver PDF" abre a janela do desenho (E16, decisão 12): o modal do Bootstrap não volta')]
+    public function testVerPdfNaJanelaDoDesenho(): void
+    {
+        $tela = $this->tela();
+
+        self::assertCount(0, $tela->filter('#modalPreviewFolhaPonto'), 'o modal do Bootstrap saiu');
+        self::assertCount(0, $tela->filter('[data-bs-target="#modalPreviewFolhaPonto"]'));
+        self::assertCount(0, $tela->filter(self::BARRA . ' [data-bs-toggle]'), 'nenhum botão da barra abre componente do Bootstrap');
+
+        $janela = $tela->filter(self::REGIAO . ' > div.pe-folha.pe-folha-janelas > div.pe-janela-fundo#ponto-janela-ver-pdf[hidden] > div.pe-janela[role="dialog"][aria-modal="true"]');
+        self::assertCount(1, $janela, 'a janela fica fora do cartão da folha, que a batida troca');
+        self::assertSame(
+            ['div.pe-janela-topo', 'div.pe-janela-corpo', 'div.pe-janela-erro', 'div.pe-janela-rodape'],
+            $janela->children()->each(static fn (Crawler $no): string => $no->nodeName() . '.' . explode(' ', (string) $no->attr('class'))[0]),
+        );
+        self::assertMatchesRegularExpression('#^Folha de Ponto \d{2}/\d{4}$#', trim($janela->filter('.pe-janela-topo > b.pe-janela-titulo')->text()));
+        self::assertSame(['Fechar', 'Baixar'], $janela->filter('.pe-janela-rodape > button')->each(static fn (Crawler $no): string => trim($no->text())));
+        self::assertNotNull($janela->filter('.pe-janela-rodape > button[data-folha-ver-baixar]')->attr('disabled'), 'o Baixar espera o PDF chegar');
+        self::assertCount(1, $tela->filter('script[src*="js/ponto-folha.js"]'));
     }
 
     #[TestDox('A tabela tem as dez colunas do desenho, nesta ordem, e o dia completo e em ordem mostra o saldo em texto verde')]
@@ -128,7 +152,7 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha->filter('td.pe-vazia[data-r="Justificativa"]:nth-child(10)'), 'sem justificativa, a célula some no celular');
     }
 
-    #[TestDox('P25: o dia sem batida sai da tela e continua descontando; o rodapé e o saldo do mês dão o mesmo número de antes')]
+    #[TestDox('P25: o dia sem batida sai da tela e continua descontando; o rodapé é o mês inteiro, a conta do banco')]
     public function testDiaSemBatidaSaiDaTelaEContinuaNoSaldo(): void
     {
         $this->jornadaDeOitoHoras();
@@ -151,9 +175,15 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertSame('-7h00m', trim($saldoMes->text()), 'o dia sem batida que sumiu ainda desconta as 8 h dele');
         self::assertStringContainsString('pe-cor--neg', (string) $saldoMes->attr('class'));
 
-        // O rodapé é o de antes: o saldo da última linha que a folha montava (o atestado de d4, -15h00m), não o da última
-        // linha visível. Filtrar a tela não pode mudar o número.
-        $this->assertTotais($tela, '-15h00m', '+1h00m', '-14h00m');
+        // O rodapé é a conta do banco para o mês (E17): -15h00m até o atestado de d4 e mais as faltas dos dias úteis depois
+        // dele, que a tela não mostra. Até a E17 parava na última linha que a folha montava (d4), e a soma dos meses da
+        // folha não fechava com o banco. Filtrar a tela não pode mudar o número.
+        $faltasDepois = 0;
+        for ($dia = $d4->modify('+1 day'); $dia->format('m') === $d4->format('m'); $dia = $dia->modify('+1 day')) {
+            $faltasDepois += (int) $dia->format('N') <= 5 ? 1 : 0;
+        }
+        $saldo = -15 - 8 * $faltasDepois;
+        $this->assertTotais($tela, sprintf('%dh00m', $saldo), '+1h00m', sprintf('%dh00m', $saldo + 1));
         self::assertStringContainsString($d4->format('d/m/Y'), $tela->filter('.pe-dir')->text(), 'o atestado continua visível em Minhas Justificativas');
     }
 
@@ -267,18 +297,37 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(0, $linha->filter('td[data-r="Saída"] button'), 'a saída já pedida não ganha outro "+"');
     }
 
-    #[TestDox('Dia em andamento: o "Saldo mês" de hoje fica vazio até a saída, porque o motor ainda não apurou o dia')]
-    public function testSaldoMesDoDiaEmAndamentoFicaVazio(): void
+    /**
+     * Até a E17 a célula ficava vazia até a saída. O desenho (L157) mostra o acumulado até ontem no dia em andamento:
+     * o mesmo número e a mesma cor da linha de ontem (ontem trabalhado, para a linha aparecer na /ponto, que só mostra
+     * dia com batida). No dia 1º não há ontem no mês, e a célula fica vazia (o caso certo para qualquer data está em
+     * FolhaPontoSaldoDoDiaEmAndamentoTest).
+     */
+    #[TestDox('Dia em andamento: o "Saldo mês" de hoje repete o de ontem até a saída (desenho L157); no dia 1º, vazio')]
+    public function testSaldoMesDoDiaEmAndamentoRepeteOAcumuladoDeOntem(): void
     {
         $this->jornadaDeOitoHoras();
         $this->diaCompleto($this->diaUtilDoMesAnterior(1), '18:00:00');
         $hoje = new \DateTimeImmutable('today');
+        $ontem = $hoje->modify('-1 day');
+        if ($ontem->format('Y-m') === $hoje->format('Y-m')) {
+            $this->diaCompleto($ontem, '18:00:00');
+        }
         $this->batida($hoje, 'entrada', '00:01:00');
 
-        $saldoMesDeHoje = $this->linha($this->tela(), $hoje)->filter('td.pe-sm[data-r="Saldo mês"]');
+        $tela = $this->tela();
+        $saldoMesDeHoje = $this->linha($tela, $hoje)->filter('td.pe-sm[data-r="Saldo mês"]');
 
-        self::assertSame('', trim($saldoMesDeHoje->text()));
-        self::assertStringContainsString('pe-vazia', (string) $saldoMesDeHoje->attr('class'));
+        if ($hoje->format('j') === '1') {
+            self::assertSame('', trim($saldoMesDeHoje->text()));
+            self::assertStringContainsString('pe-vazia', (string) $saldoMesDeHoje->attr('class'));
+
+            return;
+        }
+        $saldoMesDeOntem = $this->linha($tela, $ontem)->filter('td.pe-sm[data-r="Saldo mês"]');
+        self::assertNotSame('', trim($saldoMesDeOntem->text()), 'controle: ontem tem Saldo mês');
+        self::assertSame(trim($saldoMesDeOntem->text()), trim($saldoMesDeHoje->text()));
+        self::assertSame($saldoMesDeOntem->attr('class'), $saldoMesDeHoje->attr('class'), 'a mesma cor de ontem');
     }
 
     #[TestDox('O que saiu conta zero na /ponto: cartão, lista do Bootstrap, menu Visualizar / Exportar, tabela listrada do Bootstrap, linhas coloridas e cabeçalhos antigos')]

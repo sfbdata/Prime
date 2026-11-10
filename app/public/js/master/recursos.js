@@ -1,7 +1,7 @@
 /* BlueJus · Painel do Master, aba "Telas e recursos"
    (desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html, markup nas linhas 299-309 e lógica nas 671-677;
    spec docs/specs/perfis-1.2-telas-e-recursos.md §3).
-   - Estado inicial: data-recursos (as 20 linhas do catálogo com o estado efetivo, vindas do servidor).
+   - Estado inicial: data-recursos (as 23 linhas do catálogo com o estado efetivo, vindas do servidor).
    - Desligar: os dois prompt() do desenho (motivo; data AAAA-MM-DD, inválida vira "sem data"). Religar: um clique.
    - POST /master/recursos/{chave} (JSON, X-CSRF-Token master_recursos); a resposta traz o estado novo e a aba se
      redesenha sem recarregar. As duas linhas de "Contribua" dividem a chave e mudam juntas.

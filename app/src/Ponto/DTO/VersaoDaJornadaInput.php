@@ -13,13 +13,18 @@ use App\Ponto\Entity\BlocoJornadaColaborador;
  */
 final readonly class VersaoDaJornadaInput
 {
-    /** @param list<BlocoJornadaColaborador> $blocos */
+    /**
+     * @param list<BlocoJornadaColaborador> $blocos
+     * @param ?string                       $escala o rótulo da escala do catálogo, quando a versão vem da troca na aba
+     *                                              Equipe ("44h · seg a sáb (7h20)"): vai para a trilha (desenho L778)
+     */
     public function __construct(
         public \DateTimeImmutable $valeAPartirDe,
         public int $cargaHorariaSemanal,
         public bool $alertaHabilitado,
         public array $blocos,
         public ?int $versaoId = null,
+        public ?string $escala = null,
     ) {
     }
 }

@@ -15,6 +15,7 @@ use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\EscolhaDasBatidasDoDia;
 use App\Ponto\Service\EsquecimentosRegistrados;
+use App\Ponto\Service\FeriadosDaPessoa;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use Psr\Clock\ClockInterface;
@@ -25,7 +26,8 @@ use Psr\Clock\ClockInterface;
  * com o escritório ativo e o módulo de ponto. Só leitura; nenhuma pendência trava a batida (R1).
  *
  * Um dia entra quando teria o "+" da folha (`ponto-atalho-esquecimento-registro.md`): tem batida, é dia útil, não é
- * feriado do escritório, e a escolha da folha diz "registro incompleto" (`CalculadoraJornada::registroIncompletoDaEscolha`).
+ * feriado do escritório que vale para ela (`FeriadosDaPessoa`: o de todos ou o da lotação dela no dia), e a escolha da folha
+ * diz "registro incompleto" (`CalculadoraJornada::registroIncompletoDaEscolha`).
  * Falta a entrada ou a saída que não existe e, com metade do intervalo batido, a outra metade. O esquecimento já
  * pedido (pendente) ou deferido (abonado) daquele dia e batida, no mesmo escritório, não volta (`EsquecimentosRegistrados`).
  * Hoje fica fora: a jornada ainda está em curso (o ponto aberto hoje em outro escritório vira aviso na batida, R2).
@@ -47,15 +49,14 @@ final class ListarPendenciasDeRegistroUseCase
         private readonly EscolhaDasBatidasDoDia $escolha,
         private readonly CalculadoraJornada $calculadora,
         private readonly ClockInterface $clock,
+        private readonly FeriadosDaPessoa $feriadosDaPessoa,
     ) {
     }
 
     /** @return list<PendenciaDeRegistroOutput> do dia mais recente para o mais antigo; no mesmo dia, o escritório atual primeiro */
     public function executar(User $eu, Tenant $atual): array
     {
-        $hoje = $this->clock->now()->setTime(0, 0, 0);
-        $inicio = $hoje->modify(sprintf('-%d days', self::JANELA_DIAS));
-        $fim = $hoje->modify('-1 second');
+        [$inicio, $fim] = $this->janela();
 
         $pendencias = [];
         foreach ($this->escritorios($eu, $atual) as $escritorio) {
@@ -64,6 +65,28 @@ final class ListarPendenciasDeRegistroUseCase
         usort($pendencias, static fn (PendenciaDeRegistroOutput $a, PendenciaDeRegistroOutput $b): int => [$b->dia, $b->atual, $a->escritorio] <=> [$a->dia, $a->atual, $b->escritorio]);
 
         return $pendencias;
+    }
+
+    /**
+     * As pendências de registro de uma pessoa SÓ neste escritório, na mesma janela e pela mesma regra (aba "Equipe" da
+     * /ponto, spec `ponto-desenho-0811.md` E5: a coluna "Pendências"). Os outros escritórios dela não entram: quem
+     * pede gere este escritório, não os outros.
+     *
+     * @return list<PendenciaDeRegistroOutput> na ordem em que os dias aparecem
+     */
+    public function soNoEscritorio(User $pessoa, Tenant $escritorio): array
+    {
+        [$inicio, $fim] = $this->janela();
+
+        return $this->doEscritorio($pessoa, $escritorio, true, $inicio, $fim);
+    }
+
+    /** @return array{\DateTimeImmutable, \DateTimeImmutable} os últimos 30 dias, sem hoje (a jornada ainda está em curso) */
+    private function janela(): array
+    {
+        $hoje = $this->clock->now()->setTime(0, 0, 0);
+
+        return [$hoje->modify(sprintf('-%d days', self::JANELA_DIAS)), $hoje->modify('-1 second')];
     }
 
     /** @return list<Tenant> o atual e os outros com vínculo ativo, escritório ativo e o módulo de ponto */
@@ -98,7 +121,8 @@ final class ListarPendenciasDeRegistroUseCase
         $pendencias = [];
         foreach ($porDia as $chave => $batidas) {
             $dia = new \DateTimeImmutable($chave);
-            if ((int) $dia->format('N') >= 6 || $this->calculadora->getFeriadoDoDia($dia, $feriados) !== null) {
+            // O feriado que vale para a pessoa NAQUELE dia (a lotação que ela tinha no dia, E6).
+            if ((int) $dia->format('N') >= 6 || $this->calculadora->getFeriadoDoDia($dia, $this->feriadosDaPessoa->filtrar($feriados, $eu, $dia)) !== null) {
                 continue;
             }
             $escolhidas = $this->escolha->escolher($batidas, $dia);

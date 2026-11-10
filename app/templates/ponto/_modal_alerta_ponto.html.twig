@@ -1,32 +1,33 @@
 {#
-  Modal de alerta para registro de ponto eletrônico.
-  Incluído em base.html.twig apenas para usuários autenticados com acesso ao módulo ponto.
+  Janela do alerta de horário do ponto eletrônico (a ida ao intervalo, a volta dele, o fim da jornada...). Incluída em
+  base.html.twig, em TODA página, para quem tem o módulo ponto e jornada no escritório: não só na /ponto.
+
+  E8: na moldura de janela do desenho 16 (L269 a L273: fundo azul escuro, janela de 480px, barra azul com o título e o
+  "x", corpo e rodapé; o corpo é o da janela de alerta, L288, e o ícone do título é o dela, L766), no lugar do modal do
+  Bootstrap. Mesmos textos e funções de antes: o "x" e o Esc (desenho L440) fecham e marcam o alerta do dia como visto;
+  "Ir para o Ponto Eletrônico" leva à /ponto e também marca; clicar fora não fecha (antes, `data-bs-backdrop="static"`).
+  O CSS vem junto (css/ponto-alerta-janela.css), porque a janela aparece onde o ponto-eletronico.css não carrega.
+
+  Continua com o id `modalAlertaPonto`, o `data-perfil-sons` e a classe `show` enquanto aberta: o som do alerta
+  (js/ponto-alerta-som.js) lê os dois e só toca com o aviso aberto. Os avisos globais que esperam um modal fechar
+  (aviso de espaço, gênero, prêmio do Contribua, revisão do Meu Perfil) procuram também `#modalAlertaPonto.show`, e a
+  janela dispara `hidden.bs.modal` ao fechar. Com a tela cheia do registro aberta (/ponto), a janela espera ela fechar.
 #}
+<link rel="stylesheet" href="{{ asset('css/ponto-alerta-janela.css') }}">
 
 {#- "Sons de alerta" do Meu Perfil (perfil_sons()): com "0" o som do alerta (ida ao intervalo, volta dele e fim da jornada) não toca. #}
-<div class="modal fade" id="modalAlertaPonto" tabindex="-1"
-     data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}"
-     aria-labelledby="modalAlertaPontoLabel" aria-hidden="true"
-     data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-warning text-dark border-0">
-                <h5 class="modal-title fw-semibold" id="modalAlertaPontoLabel">
-                    <i class="bi bi-clock-history me-2"></i>Registro de Ponto
-                </h5>
-                <button type="button" class="btn-close" style="filter: none;" data-bs-dismiss="modal" aria-label="Fechar aviso"></button>
-            </div>
-            <div class="modal-body py-4 text-center">
-                <p class="fs-5 mb-1" id="alertaPontoMensagem"></p>
-                <p class="text-muted small mb-0" id="alertaPontoHorario"></p>
-            </div>
-            <div class="modal-footer justify-content-center border-0 pb-4">
-                <a href="{{ path('ponto_index') }}"
-                   class="btn btn-warning text-dark fw-semibold px-4"
-                   id="btnIrParaPonto">
-                    <i class="bi bi-fingerprint me-1"></i>Ir para o Ponto Eletrônico
-                </a>
-            </div>
+<div class="pe-alerta-ponto pe-janela-fundo" id="modalAlertaPonto" data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}" hidden>
+    <div class="pe-janela" role="dialog" aria-modal="true" aria-labelledby="modalAlertaPontoLabel" tabindex="-1" data-alerta-ponto-janela>
+        <div class="pe-janela-topo">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i><b class="pe-janela-titulo" id="modalAlertaPontoLabel">Registro de Ponto</b>
+            <button type="button" class="pe-janela-fechar" aria-label="Fechar aviso" data-alerta-ponto-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="pe-alerta-ponto-corpo">
+            <p id="alertaPontoMensagem"></p>
+            <p class="pe-alerta-ponto-nota" id="alertaPontoHorario"></p>
+        </div>
+        <div class="pe-janela-rodape">
+            <a href="{{ path('ponto_index') }}" class="pe-janela-acao" id="btnIrParaPonto">Ir para o Ponto Eletrônico</a>
         </div>
     </div>
 </div>
@@ -40,7 +41,8 @@
     var ENDPOINT              = '{{ path('ponto_alerta_horario') }}';
     var STORAGE_PREFIX        = 'alerta_ponto_';
     var modalEl               = document.getElementById('modalAlertaPonto');
-    var modal                 = null;
+    var janelaEl              = modalEl ? modalEl.querySelector('[data-alerta-ponto-janela]') : null;
+    var focoAntes             = null;
     var tituloOriginal        = document.title;
     var intervaloPiscarTitulo = null;
     var piscarAtivo           = false;
@@ -104,6 +106,107 @@
         document.title = tituloOriginal;
     }
 
+    // ── Janela (moldura do desenho, sem o modal do Bootstrap) ─────────────────
+    // A classe `show` acompanha a janela aberta: o som do alerta (ponto-alerta-som.js) só toca com ela.
+
+    function janelaAberta() {
+        return !!modalEl && !modalEl.hidden;
+    }
+
+    // A tela cheia do registro (/ponto, js/ponto-tela-cheia.js) aberta: a janela não abre por cima dela.
+    function telaCheiaAberta() {
+        var tela = window.PontoTelaCheia;
+        return !!tela && typeof tela.fase === 'function' && typeof tela.quandoFechar === 'function' && tela.fase() !== '';
+    }
+
+    function abrirJanela() {
+        if (!modalEl) return;
+        if (telaCheiaAberta()) {
+            window.PontoTelaCheia.quandoFechar(abrirJanela);
+            return;
+        }
+        if (!janelaAberta()) {
+            focoAntes = document.activeElement;
+        }
+        modalEl.hidden = false;
+        modalEl.classList.add('show');
+        if (janelaEl) janelaEl.focus();
+    }
+
+    // O "x" e o Esc: para de piscar e marca o alerta do dia como visto (como o `hidden.bs.modal` de antes). O evento
+    // `hidden.bs.modal` (com bolha) solta quem esperava a janela fechar para abrir o próprio aviso.
+    function fecharJanela() {
+        if (!janelaAberta()) return;
+        modalEl.hidden = true;
+        modalEl.classList.remove('show');
+        pararPiscarTitulo();
+        if (modalEl._tipoAtual) {
+            marcarComoDispensado(modalEl._tipoAtual);
+        }
+        if (focoAntes && document.contains(focoAntes) && typeof focoAntes.focus === 'function') {
+            focoAntes.focus();
+        }
+        focoAntes = null;
+        modalEl.dispatchEvent(new Event('hidden.bs.modal', { bubbles: true }));
+    }
+
+    // O foco não sai da janela com Tab (aria-modal), nem quando outro aviso tomou o foco por baixo dela.
+    function prenderFoco(evento) {
+        var focaveis = Array.prototype.slice.call(modalEl.querySelectorAll('a[href], button:not([disabled])'));
+        if (focaveis.length === 0) return;
+        var primeiro = focaveis[0];
+        var ultimo   = focaveis[focaveis.length - 1];
+        var ativo    = document.activeElement;
+        if (!modalEl.contains(ativo) || ativo === janelaEl) {
+            evento.preventDefault();
+            (evento.shiftKey ? ultimo : primeiro).focus();
+        } else if (evento.shiftKey && ativo === primeiro) {
+            evento.preventDefault();
+            ultimo.focus();
+        } else if (!evento.shiftKey && ativo === ultimo) {
+            evento.preventDefault();
+            primeiro.focus();
+        }
+    }
+
+    if (modalEl) {
+        modalEl.addEventListener('click', function (evento) {
+            if (evento.target.closest('[data-alerta-ponto-fechar]')) {
+                fecharJanela();
+            }
+        });
+
+        // "Ir para o Ponto Eletrônico": marca o alerta do dia como visto e segue o link.
+        var btnIr = document.getElementById('btnIrParaPonto');
+        if (btnIr) {
+            btnIr.addEventListener('click', function () {
+                if (modalEl._tipoAtual) {
+                    marcarComoDispensado(modalEl._tipoAtual);
+                }
+                pararPiscarTitulo();
+            });
+        }
+
+        // Com a janela aberta, o Esc fecha só ela, como o "x" (desenho L440), e o Tab fica nela. Na captura, antes dos
+        // outros atalhos da página: o Esc não chega ao que está por baixo (as janelas da /ponto fecham no Esc).
+        document.addEventListener('keydown', function (evento) {
+            if (!janelaAberta()) return;
+            if (evento.key === 'Escape') {
+                evento.stopPropagation();
+                fecharJanela();
+            } else if (evento.key === 'Tab') {
+                evento.stopPropagation();
+                prenderFoco(evento);
+            }
+        }, true);
+
+        // Um modal do Bootstrap aberto por baixo puxa de volta o foco que sai dele (focusin no document): o foco
+        // dentro desta janela não chega lá.
+        modalEl.addEventListener('focusin', function (evento) {
+            evento.stopPropagation();
+        });
+    }
+
     // ── Web Notifications API ─────────────────────────────────────────────────
 
     function solicitarPermissaoNotificacao(callback) {
@@ -138,16 +241,32 @@
             notif.addEventListener('click', function () {
                 window.focus();
                 notif.close();
-                if (modal) modal.show();
+                abrirJanela();
             });
         });
     }
 
     // ── Exibição principal ────────────────────────────────────────────────────
 
+    // O alerta que chega com a tela cheia do registro aberta espera ela fechar (o som, a notificação e a janela); um só
+    // fica esperando, o mais novo.
+    var alertaEmEspera = null;
+
     function exibirAlerta(dados) {
         if (!modalEl) return;
         if (jaFoiDispensado(dados.tipo)) return;
+        if (telaCheiaAberta()) {
+            var pedir = alertaEmEspera === null;
+            alertaEmEspera = dados;
+            if (pedir) {
+                window.PontoTelaCheia.quandoFechar(function () {
+                    var esperando = alertaEmEspera;
+                    alertaEmEspera = null;
+                    if (esperando) exibirAlerta(esperando);
+                });
+            }
+            return;
+        }
 
         var elMensagem = document.getElementById('alertaPontoMensagem');
         var elHorario  = document.getElementById('alertaPontoHorario');
@@ -165,32 +284,10 @@
         iniciarPiscarTitulo(dados.mensagem);
 
         // Som da ida ao intervalo, da volta dele e do fim da jornada (ponto-alerta-som.js): só "repouso",
-        // "retorno" e "saida", cada um com seu toque; respeita "Sons de alerta" do Meu Perfil e, bloqueado pelo navegador, fica só o modal.
+        // "retorno" e "saida", cada um com seu toque; respeita "Sons de alerta" do Meu Perfil e, bloqueado pelo navegador, fica só a janela.
         if (window.BJSomDoAlertaDePonto) {
             window.BJSomDoAlertaDePonto.tocar(dados.tipo, modalEl);
         }
-
-        if (!modal) {
-            modal = new bootstrap.Modal(modalEl);
-
-            var btnIr = document.getElementById('btnIrParaPonto');
-            if (btnIr) {
-                btnIr.addEventListener('click', function () {
-                    if (modalEl._tipoAtual) {
-                        marcarComoDispensado(modalEl._tipoAtual);
-                    }
-                    pararPiscarTitulo();
-                });
-            }
-        }
-
-        // Para de piscar e marca como dispensado ao fechar (pelo X ou pelo botão)
-        modalEl.addEventListener('hidden.bs.modal', function () {
-            pararPiscarTitulo();
-            if (modalEl._tipoAtual) {
-                marcarComoDispensado(modalEl._tipoAtual);
-            }
-        }, { once: true });
 
         // Para de piscar se o usuário voltar para a aba
         document.addEventListener('visibilitychange', function pararAoFocar() {
@@ -200,7 +297,7 @@
             }
         });
 
-        modal.show();
+        abrirJanela();
     }
 
     // ── Polling ───────────────────────────────────────────────────────────────

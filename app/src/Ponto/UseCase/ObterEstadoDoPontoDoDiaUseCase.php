@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\EstadoDoPontoDoDiaOutput;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
@@ -17,6 +18,7 @@ use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\EscolhaDasBatidasDoDia;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\HomeOfficeResolver;
 use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\Service\PublicoDosAvisosDePonto;
@@ -48,6 +50,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
         private readonly ClockInterface $clock,
         private readonly JornadaColaboradorRepository $jornadas,
         private readonly PublicoDosAvisosDePonto $publico,
+        private readonly FuncoesDoPonto $funcoes,
     ) {
     }
 
@@ -59,16 +62,21 @@ final class ObterEstadoDoPontoDoDiaUseCase
         $hoje = $this->horariosDe($escolhidas);
         // R7: o "Regularizar ponto de ontem" só para o público dos avisos de ponto.
         $ontemSemSaida = $this->publico->recebe($eu, $tenant) ? $this->ontemSemSaida($eu, $tenant, $agora) : null;
+        // E7: com a geolocalização desligada, a linha bate sem pedir a posição e não há cerca a avaliar.
+        $geoLigado = $this->funcoes->vale(FuncoesDoPonto::GEO, $tenant);
 
         return new EstadoDoPontoDoDiaOutput(
             dia: $agora->format('Y-m-d'),
             estado: self::estadoDe($hoje),
             hoje: $hoje,
             homeOffice: $this->homeOffice->estaLiberado($eu, $tenant, $agora),
-            sedes: $this->sedes->doEscritorio($tenant),
+            geoLigado: $geoLigado,
+            sedes: $geoLigado ? $this->sedes->doEscritorio($tenant) : [],
             ontemSemSaida: $ontemSemSaida,
             interjornadaMinimaMin: self::interjornadaMinima($tenant),
             aviso: $ontemSemSaida !== null ? EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM : null,
+            // E11: o texto da confirmação da saída no atalho muda com a chave dos alertas de intervalo.
+            alertasLigados: $this->funcoes->vale(FuncoesDoPonto::ALERTAS, $tenant),
         );
     }
 
@@ -91,7 +99,8 @@ final class ObterEstadoDoPontoDoDiaUseCase
         }
         $linha = $this->linhaDaFolha($eu, $tenant, $ontem, $batidas);
         $dia = $ontem->format('Y-m-d');
-        if ($linha === null || $linha['entradaId'] === null || $linha['saidaId'] !== null
+        // Pelo alvo, não pelo id do registro: a entrada incluída pelo gestor (E10) não tem registro, e conta.
+        if ($linha === null || $linha['entradaAlvo'] === null || $linha['saidaAlvo'] !== null
             || $linha['fimSemana'] || $linha['isFeriado'] || $linha['antesDoPrimeiroRegistro']) {
             return null;
         }
@@ -101,7 +110,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
     }
 
     /**
-     * @param list<RegistroPonto> $batidas
+     * @param list<MarcacaoDoPonto> $batidas
      *
      * @return ?array<string, mixed>
      */
@@ -126,8 +135,9 @@ final class ObterEstadoDoPontoDoDiaUseCase
     }
 
     /**
-     * O descanso mínimo que o servidor vai cobrar na próxima entrada, para o aviso da saída (decisão do dono, 19/10):
-     * os mesmos padrões de `PontoController::batida()` (sem configuração, a validação vale e são 660 min).
+     * O descanso mínimo da próxima entrada, para o aviso da saída (decisão do dono, 19/10): os mesmos padrões de
+     * `AlertasAntesDaBatida` (sem configuração, a validação vale e são 660 min). Desde a E11 nada recusa: com os alertas
+     * ligados a entrada antes dele avisa antes de registrar.
      */
     private static function interjornadaMinima(Tenant $tenant): ?int
     {

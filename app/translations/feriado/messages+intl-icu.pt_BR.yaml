@@ -8,6 +8,8 @@ feriado:
         data: Data
         nome: Nome
         recorrencia: Recorrência
+        abrangencia: Abrangência
+        todas_as_sedes: Todas as sedes
         acoes: Ações
         todo_ano: (todo ano)
         recorrente: Recorrente

@@ -1,37 +1,110 @@
-<div class="modal fade" id="modalJustificativa" tabindex="-1" aria-labelledby="modalJustificativaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form method="post" action="{{ path('ponto_justificativa_nova') }}" enctype="multipart/form-data" id="form-justificativa">
-                <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
+{#
+    Janela "Justificar falta" (E4 do desenho 16, P44; moldura L269 a L318, corpo L280 a L285). Abre pelo "Justificar
+    falta" do rodapé do cartão Registrar Ponto (js/ponto-janelas.js). Moldura, rótulos e botões do desenho; Esc fecha,
+    clicar fora não fecha, o erro fica na linha do desenho entre o corpo e o rodapé.
 
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalJustificativaLabel">
-                        <i class="bi bi-calendar-x me-2"></i>Justificar Falta / Ausência
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                </div>
+    Do desenho: "Data da falta" (com hoje já marcado), "Motivo" (obrigatório) e "Atestado ou documento (opcional)".
+    Ficam do sistema, nos componentes do desenho (P45): vários dias de uma vez (o calendário no lugar da data única), os
+    45 tipos nos 6 grupos (`<optgroup>` com os rótulos do sistema: o desenho não tem o campo), o bloco do esquecimento,
+    o abono parcial com horário e o anexo PDF, JPG ou PNG até 10 MB (o `accept` é o do servidor, não o `image/*` do
+    protótipo). As recusas que só o servidor faz (dia futuro, batida já registrada) voltam no aviso do topo da página.
 
-                <div class="modal-body">
-                    {% include 'ponto/_justificativa_calendario.html.twig' with {
-                        prefixo: '',
-                        nomePrefixo: 'justificativa_ponto',
-                        idModal: 'modalJustificativa'
-                    } only %}
-                    {% include 'ponto/_justificativa_campos.html.twig' with {
-                        prefixo: '',
-                        nomePrefixo: 'justificativa_ponto',
-                        idModal: 'modalJustificativa',
-                        tiposJustificativa: tiposJustificativa
-                    } only %}
-                </div>
+    Só a /ponto usa esta janela. A ficha do colaborador continua com _justificativa_calendario e _justificativa_campos.
 
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-send me-1"></i>Enviar Justificativa
-                    </button>
-                </div>
-            </form>
+    Recebe: tiposJustificativa (['Grupo' => ['Rótulo' => 'valor']], TipoJustificativa::asGroupedChoices),
+    competenciaSelecionada, dataHoje (AAAA-MM-DD, do servidor) e abaAberta (a aba para onde a janela volta).
+#}
+<div class="pe-janela-fundo" id="ponto-janela-justificar" hidden>
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Justificar falta" id="form-justificativa"
+          method="post" action="{{ path('ponto_justificativa_nova') }}" enctype="multipart/form-data"
+          data-janela-form="justificar" novalidate>
+        <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
+        <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+        {# A aba aberta (o ponto-abas.js a acompanha): ao enviar, a tela volta nela (L768). #}
+        <input type="hidden" name="aba" value="{{ abaAberta|default('pendencias') }}" data-aba-da-volta>
+        <input type="hidden" name="justificativa_ponto[datas]" id="just-datas" data-just-datas>
+
+        <div class="pe-janela-topo">
+            <i class="bi bi-calendar-check" aria-hidden="true"></i><b class="pe-janela-titulo">Justificar falta</b>
+            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
-    </div>
+
+        <div class="pe-janela-corpo">
+            <div class="pe-janela-rotulo" role="group" aria-labelledby="just-cal-rotulo">
+                <span id="just-cal-rotulo">Data da falta</span>
+                <div class="pe-cal" data-just-calendario data-hoje="{{ dataHoje }}">
+                    <div class="pe-cal-barra">
+                        <button type="button" class="pe-cal-seta" aria-label="Mês anterior" data-cal-anterior><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                        <span class="pe-cal-mes" data-cal-mes aria-live="polite"></span>
+                        <button type="button" class="pe-cal-seta" aria-label="Mês seguinte" data-cal-seguinte><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="pe-cal-grade" data-cal-grade></div>
+                    <div class="pe-cal-escolhidos">Dias selecionados: <b data-cal-escolhidos>nenhum</b></div>
+                </div>
+            </div>
+
+            <label class="pe-janela-rotulo">Tipo de justificativa
+                <select name="justificativa_ponto[tipo]" class="pe-janela-select" id="just-tipo" data-just-tipo>
+                    <option value="">Selecione o tipo</option>
+                    {% for grupo, tipos in tiposJustificativa %}
+                        <optgroup label="{{ grupo }}">
+                            {% for label, value in tipos %}
+                                <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <div class="pe-janela-aviso" data-just-nao-justificada hidden>
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Este tipo apenas registra que a falta não foi justificada. As horas faltantes <strong>não</strong> serão abonadas.
+            </div>
+
+            <div class="pe-janela-par" data-just-esquecido hidden>
+                <span class="pe-janela-par-titulo">Detalhes do registro esquecido</span>
+                <label class="pe-janela-rotulo">Tipo de batida
+                    <select name="justificativa_ponto[tipoRegistroEsquecido]" class="pe-janela-select" data-just-esquecido-tipo>
+                        <option value="">Selecione...</option>
+                        <option value="entrada">Entrada</option>
+                        <option value="repouso">Repouso</option>
+                        <option value="retorno">Retorno</option>
+                        <option value="saida">Saída</option>
+                    </select>
+                </label>
+                <label class="pe-janela-rotulo">Horário
+                    <input type="time" step="1" name="justificativa_ponto[horaRegistroEsquecido]" class="pe-janela-entrada" data-just-esquecido-hora>
+                </label>
+            </div>
+
+            <label class="pe-janela-marca" data-just-abono>
+                <input type="checkbox" name="justificativa_ponto[abonoParcial]" value="1" data-just-abono-marca>
+                <span>Abono parcial (saída para consulta e retorno no mesmo dia)<span class="pe-janela-nota">Marque se o funcionário saiu durante o expediente e retornou no mesmo dia.</span></span>
+            </label>
+
+            <div class="pe-janela-par" data-just-abono-horario hidden>
+                <span class="pe-janela-par-titulo">Período de ausência parcial</span>
+                <label class="pe-janela-rotulo">Saída para atestado
+                    <input type="time" name="justificativa_ponto[horaInicioAbono]" class="pe-janela-entrada" data-just-abono-inicio>
+                </label>
+                <label class="pe-janela-rotulo">Retorno do atestado
+                    <input type="time" name="justificativa_ponto[horaFimAbono]" class="pe-janela-entrada" data-just-abono-fim>
+                </label>
+            </div>
+
+            <label class="pe-janela-rotulo">Motivo
+                <textarea name="justificativa_ponto[motivo]" rows="3" maxlength="{{ constant('App\\Ponto\\Form\\JustificativaPontoType::MOTIVO_MAXIMO') }}" class="pe-janela-campo" data-janela-motivo></textarea>
+            </label>
+
+            <label class="pe-janela-rotulo">Atestado ou documento (opcional)
+                <input type="file" name="justificativa_ponto[anexo]" accept=".pdf,.jpg,.jpeg,.png" class="pe-janela-arquivo" data-just-anexo>
+                <span class="pe-janela-nota">PDF, JPEG ou PNG (máximo 10 MB)</span>
+            </label>
+        </div>
+
+        <div class="pe-janela-erro" data-janela-erro hidden></div>
+        <div class="pe-janela-rodape">
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
+            <button type="submit" class="pe-janela-acao" data-janela-enviar>Enviar</button>
+        </div>
+    </form>
 </div>

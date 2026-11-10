@@ -19,6 +19,8 @@ use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use App\Ponto\Repository\LotacaoComVigenciaRepository;
+use App\Ponto\Service\FeriadosDaPessoa;
 
 /**
  * Os 64 padrões de batida da produção em que a escolha da folha poderia mudar o resultado, e o que
@@ -228,6 +230,7 @@ final class FolhaPontoPadroesHistoricosTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
             $this->createStub(JornadaColaboradorRepository::class),
+            new FeriadosDaPessoa($this->createStub(LotacaoComVigenciaRepository::class)),
         );
     }
 }

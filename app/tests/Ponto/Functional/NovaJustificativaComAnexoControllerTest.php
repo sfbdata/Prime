@@ -399,6 +399,7 @@ final class NovaJustificativaComAnexoControllerTest extends JusPrimeWebTestCase
                 '_token' => 'TOKEN_justificativa_ponto',
                 'tipo'   => 'atestado_medico',
                 'datas'  => implode(',', array_map(static fn (\DateTimeImmutable $d): string => $d->format('Y-m-d'), $dias)),
+                'motivo' => 'Consulta médica.',
             ]],
             ['justificativa_ponto' => ['anexo' => $this->upload()]],
         ));

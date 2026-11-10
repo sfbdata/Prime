@@ -15,6 +15,7 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -53,6 +54,7 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
                 'datas'                 => $chave,
                 'tipoRegistroEsquecido' => 'saida',
                 'horaRegistroEsquecido' => '18:05',
+                'motivo'                => 'Esqueci de bater a saída.',
             ],
             'competencia' => $competencia,
         ]);
@@ -68,6 +70,45 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
         self::assertSame('saida', $justificativa->getTipoRegistroEsquecido());
         self::assertSame('18:05', $justificativa->getHoraRegistroEsquecido()?->format('H:i'));
         self::assertSame($chave, $justificativa->getData()->format('Y-m-d'));
+    }
+
+    /** @return iterable<string, array{string, string}> aba enviada, sufixo da volta */
+    public static function abasDaVolta(): iterable
+    {
+        yield 'aba aberta' => ['equipe', '&aba=equipe'];
+        yield 'Pendências, o padrão' => ['pendencias', ''];
+        yield 'aba que não existe' => ['inventada', ''];
+    }
+
+    #[DataProvider('abasDaVolta')]
+    #[TestDox('POST do atalho volta para a aba que estava aberta (desenho L768): $_dataName')]
+    public function testAtalhoVoltaParaAAbaAberta(string $aba, string $sufixo): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+        $dia = $this->diaUtilDoMesAnterior();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', '/ponto/justificativa/nova', [
+            'justificativa_ponto' => [
+                '_token'                => $this->gerarCsrf('justificativa_ponto'),
+                'tipo'                  => 'esquecimento_registro',
+                'datas'                 => $dia->format('Y-m-d'),
+                'tipoRegistroEsquecido' => 'saida',
+                'horaRegistroEsquecido' => '18:05',
+                'motivo'                => 'Esqueci de bater a saída.',
+            ],
+            'competencia' => $dia->format('Y-m'),
+            'aba'         => $aba,
+        ]);
+
+        self::assertResponseRedirects('/ponto/?competencia=' . $dia->format('Y-m') . $sufixo);
+        self::assertCount(1, $this->justificativasDo($user));
     }
 
     #[TestDox('POST do atalho sem a hora não cria nada')]
@@ -90,6 +131,7 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
                 'tipo'                  => 'esquecimento_registro',
                 'datas'                 => $dia->format('Y-m-d'),
                 'tipoRegistroEsquecido' => 'saida',
+                'motivo'                => 'Esqueci de bater a saída.',
             ],
             'competencia' => $dia->format('Y-m'),
         ]);
@@ -171,29 +213,97 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('P30 a: o dia de hoje não oferece o atalho, mesmo com batida faltando')]
-    public function testHojeNaoOfereceAtalho(): void
+    #[TestDox('O dia de hoje oferece o atalho na batida que falta ("esqueci a entrada hoje de manhã" é o caso mais comum); a batida já feita não')]
+    public function testHojeOfereceAtalho(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario();
         $this->vincular($user, $tenant);
 
-        $hoje = new \DateTimeImmutable('today');
+        $hoje  = new \DateTimeImmutable('today');
+        $chave = $hoje->format('Y-m-d');
         $this->criarEntrada($user, $tenant, $hoje);
 
         $crawler = $this->abrirFolha($client, $user, $tenant, $hoje->format('Y-m'));
 
         self::assertCount(
             1,
-            $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"]', $hoje->format('Y-m-d'))),
+            $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"]', $chave)),
             'controle: a linha de hoje está na folha'
         );
+        // Função do sistema que volta (regra 2, spec ponto-desenho-0811): a E2 tinha tirado o "+" de hoje; antes dela,
+        // e pela spec ponto-atalho-esquecimento-registro, o "+" de hoje é o caso mais comum do atalho.
+        foreach (['repouso', 'retorno', 'saida'] as $campo) {
+            $mais = $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"] > td > %s', $chave, $this->seletorAtalho($chave, $campo)));
+            self::assertCount(1, $mais, 'hoje, a batida que falta oferece o atalho: ' . $campo);
+            self::assertStringContainsString('pe-mais', (string) $mais->attr('class'), 'o "+" no molde do desenho');
+        }
         self::assertCount(
             0,
-            $crawler->filter(sprintf('button[data-esquecimento-dia="%s"]', $hoje->format('Y-m-d'))),
-            'hoje a pessoa ainda pode bater: o esquecimento é só de dia que já passou'
+            $crawler->filter($this->seletorAtalho($chave, 'entrada')),
+            'a entrada de hoje já batida não oferece o atalho'
         );
+    }
+
+    #[TestDox('Hoje também: a batida que já tem esquecimento pendente não oferece o atalho de novo; as outras que faltam, sim')]
+    public function testHojeComEsquecimentoPendenteNaoOfereceDeNovo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+
+        $hoje  = new \DateTimeImmutable('today');
+        $chave = $hoje->format('Y-m-d');
+        $this->criarEntrada($user, $tenant, $hoje);
+        $this->criarEsquecimentoPendente($user, $tenant, $hoje, 'repouso');
+
+        $crawler = $this->abrirFolha($client, $user, $tenant, $hoje->format('Y-m'));
+
+        self::assertCount(
+            0,
+            $crawler->filter($this->seletorAtalho($chave, 'repouso')),
+            'condição 8 (EsquecimentosRegistrados) vale hoje: sem segundo esquecimento para a mesma batida'
+        );
+        self::assertCount(
+            1,
+            $crawler->filter($this->seletorAtalho($chave, 'saida')),
+            'controle: a saída de hoje, sem pedido, segue com o atalho'
+        );
+    }
+
+    #[TestDox('O link do aviso da saída sem entrada (R6, ?esquecimento=<hoje>:entrada) encontra o "+" na entrada de hoje')]
+    public function testLinkDoAvisoSemEntradaAchaOMaisDaEntradaDeHoje(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+
+        // A saída solta de hoje (R1): a batida passa e a resposta avisa com o link para o "+" da entrada.
+        $hoje  = new \DateTimeImmutable('today');
+        $chave = $hoje->format('Y-m-d');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $saida = new RegistroPonto();
+        $saida->setUser($user);
+        $saida->setTenant($tenant);
+        $saida->setTipo(RegistroPonto::TIPO_SAIDA);
+        $saida->setDataHora(new \DateTime($chave . ' 00:00:01'));
+        $saida->setSedeNomeSnapshot('Teste');
+        $em->persist($saida);
+        $em->flush();
+
+        // O mesmo endereço que `PontoController::avisosDaBatida` monta para o aviso sem entrada.
+        $this->logarComTenant($client, $user, $tenant);
+        $em->clear();
+        $crawler = $client->request('GET', sprintf('/ponto/?competencia=%s&esquecimento=%s:entrada', $hoje->format('Y-m'), $chave));
+        self::assertResponseIsSuccessful();
+
+        $mais = $crawler->filter(sprintf('table.pe-tab tbody tr[data-chave-dia="%s"] > td > %s', $chave, $this->seletorAtalho($chave, 'entrada')));
+        self::assertCount(1, $mais, 'o link do aviso R6 aponta para o "+" da entrada de hoje: sem ele, o link não abre nada');
+        self::assertSame('Entrada', $mais->attr('data-esquecimento-rotulo'), 'o resumo da janela: "dd/mm/aaaa · Entrada"');
+        self::assertCount(0, $crawler->filter($this->seletorAtalho($chave, 'saida')), 'a saída já batida não oferece o atalho');
     }
 
     #[TestDox('POST do atalho com token CSRF inválido não cria nada')]

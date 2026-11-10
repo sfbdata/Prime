@@ -37,6 +37,7 @@
                             <th><i class="bi bi-calendar-event me-1"></i> {{ 'feriado.index.data'|trans }}</th>
                             <th><i class="bi bi-tag me-1"></i> {{ 'feriado.index.nome'|trans }}</th>
                             <th class="text-center"><i class="bi bi-arrow-repeat me-1"></i> {{ 'feriado.index.recorrencia'|trans }}</th>
+                            <th><i class="bi bi-geo-alt me-1"></i> {{ 'feriado.index.abrangencia'|trans }}</th>
                             <th><i class="bi bi-gear me-1"></i> {{ 'feriado.index.acoes'|trans }}</th>
                         </tr>
                     </thead>
@@ -63,6 +64,7 @@
                                         </span>
                                     {% endif %}
                                 </td>
+                                <td>{{ feriado.lotacao ? feriado.lotacao.nome : 'feriado.index.todas_as_sedes'|trans }}</td>
                                 <td>
                                     <div class="acoes-grupo">
                                         <a href="{{ path('app_feriado_edit', {tenantId: tenantId, id: feriado.id}) }}"
@@ -88,7 +90,7 @@
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">{{ 'feriado.index.vazio'|trans }}</td>
+                                <td colspan="5" class="text-center text-muted py-4">{{ 'feriado.index.vazio'|trans }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

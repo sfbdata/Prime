@@ -49,7 +49,7 @@ async function abrirLista(browser, largura, altura = 900) {
     const page = await ctx.newPage();
     await page.goto('/expediente', { waitUntil: 'networkidle' });
     await page.evaluate(() => {
-        document.querySelectorAll('.modal.show, .modal-backdrop, .sf-toolbar').forEach(n => n.remove());
+        document.querySelectorAll('.modal.show, #modalAlertaPonto, .modal-backdrop, .sf-toolbar').forEach(n => n.remove());
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
     });
@@ -222,7 +222,7 @@ test.describe('Lista do Expediente no desenho 1.1', () => {
         // A volta é reconhecida pelo referrer /pasta/{id} (index.html.twig `voltouDePastaShow`), como no link da pasta.
         await page.goto('/expediente', { referer: page.url(), waitUntil: 'networkidle' });
         await expect(page.locator('.exp-situacao-select')).toHaveValue('ativo');
-        await page.evaluate(() => document.querySelectorAll('.modal.show, .modal-backdrop, .sf-toolbar').forEach(n => n.remove()));
+        await page.evaluate(() => document.querySelectorAll('.modal.show, #modalAlertaPonto, .modal-backdrop, .sf-toolbar').forEach(n => n.remove()));
         await Promise.all([resposta(), page.click('.js-pasta-limpar')]);
 
         // Visualizar pelo teclado: seta até "Cartões" (E12: Detalhes, Detalhes compactos, Lista, Cartões), Enter troca o modo.

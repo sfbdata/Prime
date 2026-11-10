@@ -9,6 +9,7 @@ use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TimeType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 class RegistroPontoManualType extends AbstractType
@@ -39,10 +40,14 @@ class RegistroPontoManualType extends AbstractType
                 ],
                 'constraints' => [new NotBlank(message: 'Selecione o tipo.')],
             ])
-            ->add('observacao', TextareaType::class, [
-                'label'    => 'Observação',
-                'required' => false,
-                'attr'     => ['rows' => 2, 'placeholder' => 'Motivo do lançamento manual (opcional)'],
+            // E10: a correção do gestor sempre diz por quê (o CHECK de `ponto_ajuste.motivo` exige de 1 a 2000).
+            ->add('motivo', TextareaType::class, [
+                'label'       => 'Motivo',
+                'attr'        => ['rows' => 2, 'maxlength' => 2000, 'placeholder' => 'Por que a batida muda na folha'],
+                'constraints' => [
+                    new NotBlank(message: 'Informe o motivo da correção.'),
+                    new Length(max: 2000, maxMessage: 'O motivo tem no máximo 2000 caracteres.'),
+                ],
             ])
         ;
     }
@@ -52,8 +57,8 @@ class RegistroPontoManualType extends AbstractType
         $resolver->setDefaults([
             'data_class'      => null,
             // CSRF é validado explicitamente no controller (token por-intenção stateful
-            // 'ponto_manual_add'/'ponto_manual_edit'), NÃO pelo form — evita mecanismo duplo
-            // com o token 'submit' stateless. Ver TenantController::pontoAdd/pontoEdit.
+            // 'ponto_manual_add'/'ponto_ajustar'), NÃO pelo form: evita mecanismo duplo
+            // com o token 'submit' stateless. Ver AjusteDeBatidaController::incluir/ajustar.
             'csrf_protection' => false,
         ]);
     }

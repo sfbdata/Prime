@@ -1,0 +1,74 @@
+{#
+    Painel da aba "Equipe" (E5, desenho 16 L210 a L219), buscado por js/ponto-paineis.js quando a aba abre
+    (EquipeDoPontoController::painel). Recebe `painel` (PainelDaEquipeOutput).
+
+    De cima para baixo, como no desenho: os 5 indicadores (L212 e L213), a tabela da equipe (L215), a barra
+    "Justificativas a analisar" com "Abonar selecionadas" (L216), a lista (L217) e a frase da lista vazia (L218). A nota
+    "Dados de exemplo" (L211) não entra (D16): os dados são os do escritório.
+
+    Do sistema, no molde do desenho: a frase de erro da troca de escala no topo (role="alert") e o aviso de que deu
+    certo, só para leitor de tela (aria-live). Scripts não rodam aqui dentro: o comportamento é do js/ponto-equipe.js,
+    por delegação. O "Abonar selecionadas" é um formulário: volta para a /ponto na aba Equipe com o resultado.
+#}
+{% import 'ponto/_folha_macros.html.twig' as fm %}
+{% import 'ponto/_justificativa_macros.html.twig' as jm %}
+<div class="pe-equipe">
+    <div class="pe-eq-erro" role="alert" data-equipe-erro hidden></div>
+    <div class="pe-eq-voz" aria-live="polite" data-equipe-aviso></div>
+
+    <div class="pe-eq-kpis">
+        {%- for k in painel.indicadores -%}
+            <div class="pe-eq-kpi"><div class="pe-eq-kpi-rotulo">{{ k.rotulo }}</div><b class="pe-eq-kpi-valor pe-eq-kpi-valor--{{ k.tom }}">{{ k.valor }}</b></div>
+        {%- endfor -%}
+    </div>
+
+    <div class="pe-eq-rolagem">
+        <table class="pe-tab pe-eq-tab">
+            <thead>
+                <tr><th>Colaborador</th><th>Situação</th><th>Entrada</th><th>Último registro</th><th>Banco</th><th>Pendências</th><th>Escala</th></tr>
+            </thead>
+            <tbody>
+                {% for m in painel.membros %}
+                    <tr class="pe-eq-lin" data-pessoa="{{ m.userId }}">
+                        <td><b>{{ m.nome }}</b>{% if m.subtitulo %}<div class="pe-eq-sub">{{ m.subtitulo }}</div>{% endif %}</td>
+                        <td><span class="pe-eq-selo pe-eq-selo--{{ m.situacao.value }}">{{ m.situacao.rotulo }}</span></td>
+                        <td>{{ m.entrada ?? 'Sem registro' }}</td>
+                        <td>{{ m.ultimoRegistro ?? 'Sem registro' }}</td>
+                        <td class="pe-eq-banco">{{ fm.saldo(m.bancoMinutos) }}</td>
+                        <td>{{ m.pendencias }}</td>
+                        <td>
+                            <select class="pe-eq-escala" aria-label="Escala de {{ m.nome }}" data-nome="{{ m.nome }}"
+                                    data-url="{{ path('ponto_equipe_escala', {id: m.userId}) }}">
+                                {%- for o in m.escalas -%}
+                                    <option value="{{ o.id }}"{{ o.marcada ? ' selected' }}{{ o.id is same as('') ? ' disabled' }}>{{ o.rotulo }}</option>
+                                {%- endfor -%}
+                            </select>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="pe-eq-vazia">Ninguém registra ponto neste escritório.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <form method="post" action="{{ path('ponto_equipe_abonar') }}" class="pe-eq-abonar" data-equipe-abonar>
+        <input type="hidden" name="_token" value="{{ csrf_token('ponto_equipe_abonar') }}">
+        <div class="pe-eq-barra">
+            <b class="pe-eq-barra-titulo">Justificativas a analisar ({{ painel.justificativas|length }})</b>
+            <button type="submit" class="pe-eq-btn-abonar" data-equipe-abonar-botao disabled>Abonar selecionadas</button>
+        </div>
+        {% for j in painel.justificativas %}
+            {% set sub = jm.subtitulo(j) %}
+            <label class="pe-eq-just" for="pe-eq-just-{{ j.id }}">
+                <input type="checkbox" class="pe-eq-just-marca" id="pe-eq-just-{{ j.id }}" name="ids[]" value="{{ j.id }}">
+                <b>{{ j.nome }}</b>
+                <span class="pe-eq-just-data">{{ j.data|date('d/m/Y') }}</span>
+                <span>{{ j.labelTipo }}</span>
+                <span class="pe-eq-just-sub">{{ sub }}</span>
+            </label>
+        {% else %}
+            <div class="pe-eq-just-vazia">Nenhuma justificativa aguardando análise.</div>
+        {% endfor %}
+    </form>
+</div>

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Functional;
 
-use App\Controller\TenantController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Ponto\Controller\AjusteDeBatidaController;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -21,12 +21,14 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * Lançamento e edição manual de batida pelo admin: data e hora acima de agora, no relógio do
+ * Inclusão e ajuste manual de batida pelo admin: data e hora acima de agora, no relógio do
  * servidor (a mesma régua da batida esquecida), são recusadas sem gravar nada. Agora e antes passam.
+ * Desde a E10 (plano-e10-ponto §3) a inclusão e o ajuste entram em `ponto_ajuste` (AjusteDeBatidaController):
+ * o registro original da batida nunca muda.
  *
  * O relógio fica parado em HOJE ao meio-dia no fuso do servidor: o teste não depende da hora em que roda.
  */
-#[CoversClass(TenantController::class)]
+#[CoversClass(AjusteDeBatidaController::class)]
 #[CoversClass(HorarioFuturoDaBatida::class)]
 final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
 {
@@ -63,7 +65,7 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame([HorarioFuturoDaBatida::MENSAGEM], $this->flashes('danger'));
-        self::assertSame([], $this->batidas());
+        self::assertSame([], $this->inclusoes());
     }
 
     #[TestDox('Lançamento manual com data de amanhã é recusado e não grava a batida')]
@@ -72,7 +74,7 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
         $this->lancar((new \DateTimeImmutable($this->hoje . ' +1 day'))->format('Y-m-d'), '08:00:00');
 
         self::assertSame([HorarioFuturoDaBatida::MENSAGEM], $this->flashes('danger'));
-        self::assertSame([], $this->batidas());
+        self::assertSame([], $this->inclusoes());
     }
 
     #[TestDox('Lançamento manual com hora passada de hoje grava a batida')]
@@ -82,7 +84,7 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame([], $this->flashes('danger'));
-        self::assertSame([$this->hoje . ' 11:59:59'], $this->batidas());
+        self::assertSame([$this->hoje . ' 11:59:59'], $this->inclusoes());
     }
 
     #[TestDox('Lançamento manual com a hora exata de agora passa')]
@@ -91,7 +93,7 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
         $this->lancar($this->hoje, '12:00:00');
 
         self::assertSame([], $this->flashes('danger'));
-        self::assertSame([$this->hoje . ' 12:00:00'], $this->batidas());
+        self::assertSame([$this->hoje . ' 12:00:00'], $this->inclusoes());
     }
 
     #[TestDox('Lançamento manual com hora vazia mostra o erro de campos, não o de horário futuro, e não grava')]
@@ -101,10 +103,10 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame(['Erro ao registrar batida. Verifique os campos.'], $this->flashes('danger'));
-        self::assertSame([], $this->batidas());
+        self::assertSame([], $this->inclusoes());
     }
 
-    #[TestDox('Edição manual para hora futura é recusada e a batida segue como estava')]
+    #[TestDox('Ajuste para hora futura é recusado na própria página, sem gravar ajuste, e a batida segue como estava')]
     public function testEdicaoParaHoraFuturaNaoAltera(): void
     {
         $id = $this->criarBatida($this->hoje . ' 08:00:00');
@@ -113,11 +115,12 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', HorarioFuturoDaBatida::MENSAGEM);
-        self::assertSame([$this->hoje . ' 08:00:00'], $this->batidas());
+        self::assertSame([], $this->alteracoes());
+        self::assertSame($this->hoje . ' 08:00:00', $this->registroOriginal($id));
         self::assertSame(RegistroPonto::TIPO_ENTRADA, $this->emLimpo()->find(RegistroPonto::class, $id)?->getTipo());
     }
 
-    #[TestDox('Edição manual para hora passada de hoje grava a nova hora')]
+    #[TestDox('Ajuste para hora passada de hoje grava a alteração com a nova hora; o registro original fica')]
     public function testEdicaoParaHoraPassadaGrava(): void
     {
         $id = $this->criarBatida($this->hoje . ' 08:00:00');
@@ -125,10 +128,11 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
         $this->editar($id, $this->hoje, '11:30:00');
 
         self::assertResponseRedirects();
-        self::assertSame([$this->hoje . ' 11:30:00'], $this->batidas());
+        self::assertSame([$this->hoje . ' 11:30:00'], $this->alteracoes());
+        self::assertSame($this->hoje . ' 08:00:00', $this->registroOriginal($id));
     }
 
-    #[TestDox('Edição manual para a hora exata de agora passa')]
+    #[TestDox('Ajuste para a hora exata de agora passa')]
     public function testEdicaoParaAHoraDeAgoraPassa(): void
     {
         $id = $this->criarBatida($this->hoje . ' 08:00:00');
@@ -136,7 +140,7 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
         $this->editar($id, $this->hoje, '12:00:00');
 
         self::assertResponseRedirects();
-        self::assertSame([$this->hoje . ' 12:00:00'], $this->batidas());
+        self::assertSame([$this->hoje . ' 12:00:00'], $this->alteracoes());
     }
 
     // ----------------------------------------------------------------- helpers
@@ -144,7 +148,7 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
     private function lancar(string $data, string $hora): void
     {
         $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/add', $this->tenant->getId(), $this->colaborador->getId()), [
-            'registro_ponto_manual' => ['data' => $data, 'hora' => $hora, 'tipo' => 'entrada'],
+            'registro_ponto_manual' => ['data' => $data, 'hora' => $hora, 'tipo' => 'entrada', 'motivo' => 'Esqueceu de bater.'],
             'competencia'           => substr($this->hoje, 0, 7),
             '_token'                => 'TOKEN_ponto_manual_add',
         ]);
@@ -152,9 +156,9 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
 
     private function editar(int $id, string $data, string $hora): void
     {
-        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/%d/edit', $this->tenant->getId(), $this->colaborador->getId(), $id), [
-            'registro_ponto_manual' => ['data' => $data, 'hora' => $hora, 'tipo' => 'saida'],
-            '_token'                => 'TOKEN_ponto_manual_edit',
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/b%d/ajustar', $this->tenant->getId(), $this->colaborador->getId(), $id), [
+            'registro_ponto_manual' => ['data' => $data, 'hora' => $hora, 'tipo' => 'saida', 'motivo' => 'Bateu errado.'],
+            '_token'                => 'TOKEN_ponto_ajustar',
         ]);
     }
 
@@ -164,13 +168,32 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
         return $this->client->getRequest()->getSession()->getFlashBag()->peek($tipo);
     }
 
-    /** @return list<string> */
-    private function batidas(): array
+    /** @return list<string> a data e hora de cada batida incluída na folha do colaborador */
+    private function inclusoes(): array
     {
-        $lista = $this->emLimpo()->getRepository(RegistroPonto::class)
-            ->findBy(['user' => $this->colaborador->getId()], ['dataHora' => 'ASC']);
+        return $this->horasNovas('inclusao');
+    }
 
-        return array_map(static fn (RegistroPonto $r): string => (string) $r->getDataHora()?->format('Y-m-d H:i:s'), $lista);
+    /** @return list<string> a data e hora que cada ajuste deu à batida */
+    private function alteracoes(): array
+    {
+        return $this->horasNovas('alteracao');
+    }
+
+    /** @return list<string> */
+    private function horasNovas(string $tipo): array
+    {
+        $horas = $this->emLimpo()->getConnection()->fetchFirstColumn(
+            'SELECT data_hora_nova FROM ponto_ajuste WHERE user_id = ? AND tipo = ? ORDER BY data_hora_nova',
+            [$this->colaborador->getId(), $tipo],
+        );
+
+        return array_map(static fn (mixed $hora): string => (string) $hora, $horas);
+    }
+
+    private function registroOriginal(int $id): string
+    {
+        return (string) $this->emLimpo()->getConnection()->fetchOne('SELECT data_hora FROM registro_ponto WHERE id = ?', [$id]);
     }
 
     private function emLimpo(): EntityManagerInterface

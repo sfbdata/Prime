@@ -128,7 +128,9 @@ escritorio:
         remover_acesso: Remover acesso
         # Título da tabela da aba de ponto; o mês e o ano entram depois, como hoje.
         batidas_titulo: Batidas de ponto
-        batida_titulo: Adicionar Batida
+        # E10: o "+" da ficha inclui uma batida, com motivo (P65 a).
+        batida_titulo: Incluir batida
+        batida_incluir: Incluir
         batida_data: Data
         batida_hora: Hora
         batida_tipo: Tipo
@@ -136,9 +138,18 @@ escritorio:
         batida_repouso: Repouso
         batida_retorno: Retorno
         batida_saida: Saída
-        batida_observacao: Observação
+        # E10: toda correção de batida diz por quê (incluir, desconsiderar, restaurar).
+        batida_motivo: Motivo
         opcional: (opcional)
-        batida_observacao_dica: Motivo do lançamento manual
+        batida_motivo_dica: Por que a batida entra na folha
+        desconsiderar_titulo: Desconsiderar batida
+        desconsiderar_texto: A batida sai da conta da folha. O registro original fica guardado.
+        desconsiderar_motivo_dica: Por que a batida sai da conta
+        desconsiderar_botao: Desconsiderar
+        restaurar_titulo: Restaurar batida
+        restaurar_texto: A batida volta para a conta da folha como estava antes de ser desconsiderada.
+        restaurar_motivo_dica: Por que a batida volta para a conta
+        restaurar_botao: Restaurar
         cancelar: Cancelar
         nome_completo: Nome completo
         # "Ao remover <strong>nome</strong>, ela perde...": o nome em <strong> entre as duas partes (sem |raw).
@@ -202,6 +213,8 @@ escritorio:
         nome_atualizado: Nome do Tenant atualizado com sucesso!
         cargos_atualizados: Cargos atualizados com sucesso!
         lotacoes_atualizadas: Lotações atualizadas com sucesso!
+        # E6 do Ponto: a lotação com feriado não se apaga (os meses passados continuam com o feriado dela).
+        lotacao_com_feriado: Esta lotação tem feriados no Ponto e não pode ser apagada.
         escritorio_criado: Escritório criado com sucesso. Você já está dentro dele.
         escritorio_excluido: Escritório excluído. Os dados ficam em quarentena e podem ser recuperados.
         confirmacao_nao_confere: A confirmação não confere com o nome do escritório.
@@ -214,9 +227,9 @@ escritorio:
         nome_do_usuario_atualizado: Nome atualizado com sucesso!
         colaborador_removido: '{nome} foi removido do escritório.'
         acesso_removido: Acesso específico removido com sucesso.
-        # T4: as ações das sedes do TenantController. {qtd} é o número já como texto (sem separador de milhar).
+        # T4: as ações das sedes do TenantController.
         sede_cadastrada: Sede cadastrada com sucesso!
         sede_atualizada: Sede atualizada com sucesso!
         sede_removida: Sede removida com sucesso.
-        sede_registros_desvinculados: '{qtd} registro(s) de ponto foram desvinculados automaticamente da sede removida.'
+        sede_batidas_mantidas: As batidas já feitas nesta sede continuam no histórico com o nome dela.
         sede_nao_removida: Não foi possível remover a sede neste momento. Tente novamente.

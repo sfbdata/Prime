@@ -191,13 +191,16 @@ Esta frente cria o primeiro `UseCase/` do domínio em vez de engordar `TenantCon
 
 ```php
 public function somarPorCompetencia(User $user, Tenant $tenant, int $ano, int $mes): int;                 // linha "Horas pagas" do mês exibido
-public function somarPorPeriodo(User $user, Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int; // agregadores; UMA query, pontas inclusivas
+public function somarPorCompetenciaDoColaborador(User $user, Tenant $tenant): array; // banco por lotes (E17): 'AAAA-MM' => minutos, UMA query; substitui o somarPorPeriodo
 public function listarPorUser(User $user, Tenant $tenant): array;  // ordenado por ano/mês desc, para a ficha do admin
 public function buscarDoTenant(int $id, Tenant $tenant): ?LancamentoHorasPagas; // nunca find() por id da URL
 ```
 
 O `somarPorPeriodo` existe porque `calcularSaldoAnual` roda no painel `/ponto` — caminho quente, aberto
 várias vezes por dia por todo funcionário. Somar mês a mês custaria 12 round-trips por load.
+
+> **Substituído pela E17** (spec ponto-desenho-0811, 09/11/2026): `somarPorPeriodo` e `calcularSaldoAnual` saíram. O
+> banco por lotes lê as horas pagas de todas as competências numa consulta só (`somarPorCompetenciaDoColaborador`).
 
 ### DTO / Form
 
@@ -334,6 +337,11 @@ idêntico ao "Saldo do Banco de Horas Atual" do resumo, então o nome repetido n
 virando acumulado do ano, os dois passaram a divergir — no smoke, coluna `-32:36` × resumo `-98:03` na mesma
 página assinada. É a mesma colisão de rótulo que a tela do colaborador já tinha (ver acima), e a solução é a
 mesma: o nome passa a dizer o que o número é. Nenhum cálculo mudou.
+
+> **Substituído pela E17** (spec ponto-desenho-0811, P51 a, 09/11/2026): o banco de horas **não zera mais em
+> janeiro**. O "anterior" é o banco até o fim do mês passado, atravessando o ano, e as horas pagas entram na própria
+> competência. `somarPorPeriodo` e `calcularSaldoAnual` saíram, e o aviso do desconto confere o banco inteiro até
+> hoje (`avisarSeODescontoDeixouOBancoNegativo`). O texto abaixo fica como registro da regra antiga.
 
 **O banco de horas ZERA em 1º de janeiro** (regra do dono, confirmada em 2026-07-31). Por isso janeiro
 **não tem competência anterior**: o chamador devolve `0` em vez de pedir dezembro do ano passado.

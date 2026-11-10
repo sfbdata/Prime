@@ -10,12 +10,15 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\RecursoEstado;
+use App\Master\Service\RegraDosMasters;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Service\BatidaJaRegistrada;
+use App\Ponto\Service\CartaoDePendenciaDoPonto;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,6 +38,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PontoController::class)]
 #[CoversClass(ListarPendenciasDeRegistroUseCase::class)]
 #[CoversClass(BatidaJaRegistrada::class)]
+#[CoversClass(CartaoDePendenciaDoPonto::class)]
 final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -67,21 +71,30 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 
         $lista = $this->pendencias();
 
-        $deX = $lista->filter(sprintf('li[data-pendencia="%s:saida"][data-pendencia-escritorio="%d"]', $diaX->format('Y-m-d'), $this->x->getId()));
+        $deX = $lista->filter(sprintf('div.pe-pend[data-pendencia="%s:saida"][data-pendencia-escritorio="%d"]', $diaX->format('Y-m-d'), $this->x->getId()));
         self::assertCount(1, $deX);
-        $href = (string) $deX->filter('a')->attr('href');
+        // E3: o botão do desenho abre o "+" da folha ou vai ao link que o abre (js/ponto-abas.js).
+        $href = (string) $deX->filter('button.pe-pend-btn[data-pendencia-enviar]')->attr('data-url');
         self::assertStringContainsString('competencia=' . $diaX->format('Y-m'), $href);
         self::assertStringContainsString('esquecimento=' . $diaX->format('Y-m-d') . ':saida', $href);
         self::assertStringContainsString('Falta a saída', $deX->text());
 
-        $deY = $lista->filter(sprintf('li[data-pendencia="%s:retorno"][data-pendencia-escritorio="%d"]', $diaY->format('Y-m-d'), $this->y->getId()));
+        $deY = $lista->filter(sprintf('div.pe-pend[data-pendencia="%s:retorno"][data-pendencia-escritorio="%d"]', $diaY->format('Y-m-d'), $this->y->getId()));
         self::assertCount(1, $deY, 'metade do intervalo: falta o retorno');
         self::assertStringContainsString((string) $this->y->getName(), $deY->text());
         self::assertStringContainsString('Troque para esse escritório', $deY->text());
         self::assertSame('/escritorio/selecionar', $deY->filter('a')->attr('href'));
         self::assertStringNotContainsString('esquecimento=', (string) $deY->filter('a')->attr('href'), 'o pedido de Y não sai daqui');
 
-        self::assertCount(2, $lista->filter('li'), 'nada de hoje, nada além das duas');
+        self::assertCount(2, $lista->filter('div.pe-pend'), 'nada de hoje, nada além das duas');
+
+        // E3 (desenho 16 L174): data, o que falta, escritório (some no celular) e o botão no fim da linha.
+        self::assertCount(1, $deX->filter('div.pe-pend > b.pe-pend-data:first-child + span.pe-pend-falta + span.pe-pend-escritorio.pe-oculta + button.pe-pend-btn[type="button"]:last-child > i.bi-plus-circle:first-child'));
+        self::assertSame('Enviar registro de esquecimento', trim($deX->filter('button.pe-pend-btn')->text()));
+        // P38 (fica): a de outro escritório troca de escritório, com a explicação embaixo.
+        self::assertCount(1, $deY->filter('div.pe-pend > span.pe-pend-escritorio + a.pe-pend-btn > i.bi-arrow-left-right'));
+        self::assertCount(1, $deY->filter('div.pe-pend > a.pe-pend-btn + div.pe-pend-aviso:last-child'));
+        self::assertSame('2', trim($this->client->getCrawler()->filter('section.pe-abas > div.pe-abas-barra > #ponto-aba-pendencias > span.pe-aba-num.pe-aba-num--pend:last-child')->text()), 'o número das pendências na aba');
     }
 
     #[TestDox('Some quando há pedido pendente ou abonado da mesma batida no mesmo escritório; o pedido de outro escritório não esconde')]
@@ -94,15 +107,17 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         $this->esquecimento($this->x, $diaX, 'saida', 'pendente');
         $this->esquecimento($this->y, $diaY, 'saida', 'abonado');
 
-        self::assertCount(0, $this->crawlerDoPonto()->filter('#pendencias-ponto'), 'pendente em X e abonado em Y: lista vazia, nem o cartão aparece');
+        $vazia = $this->crawlerDoPonto()->filter('#pendencias-ponto');
+        self::assertCount(0, $vazia->filter('div.pe-pend'), 'pendente em X e abonado em Y: lista vazia');
+        self::assertSame('Nenhuma pendência de registro.', trim($vazia->filter('div.pe-abas-vazio')->text()), 'E3: a aba fica, com o texto do desenho');
 
         $outroDia = $this->diaUtilAtras(8);
         $this->batida($this->y, 'entrada', $outroDia->setTime(8, 0));
         $this->esquecimento($this->x, $outroDia, 'saida', 'pendente');   // pedido feito no escritório errado
 
         $lista = $this->pendencias();
-        self::assertCount(1, $lista->filter(sprintf('li[data-pendencia="%s:saida"][data-pendencia-escritorio="%d"]', $outroDia->format('Y-m-d'), $this->y->getId())));
-        self::assertCount(1, $lista->filter('li'));
+        self::assertCount(1, $lista->filter(sprintf('div.pe-pend[data-pendencia="%s:saida"][data-pendencia-escritorio="%d"]', $outroDia->format('Y-m-d'), $this->y->getId())));
+        self::assertCount(1, $lista->filter('div.pe-pend'));
     }
 
     #[TestDox('Não mostra escritório sem vínculo ativo, nem escritório sem o módulo de ponto')]
@@ -117,7 +132,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 
         $html = $this->htmlDoPonto();
 
-        self::assertStringNotContainsString('id="pendencias-ponto"', $html);
+        self::assertStringNotContainsString('data-pendencia=', $html);
         self::assertStringNotContainsString((string) $this->y->getName(), $html);
         self::assertStringNotContainsString((string) $z->getName(), $html);
     }
@@ -132,8 +147,8 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 
         $lista = $this->pendencias();
 
-        self::assertCount(1, $lista->filter('li'));
-        self::assertCount(1, $lista->filter(sprintf('li[data-pendencia="%s:saida"]', $dentro->format('Y-m-d'))));
+        self::assertCount(1, $lista->filter('div.pe-pend'));
+        self::assertCount(1, $lista->filter(sprintf('div.pe-pend[data-pendencia="%s:saida"]', $dentro->format('Y-m-d'))));
     }
 
     #[TestDox('R2: com a entrada esquecida em Y num dia anterior, a entrada em X passa sem aviso de ponto aberto, e a pendência de Y aparece na lista')]
@@ -149,7 +164,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 
         self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
         self::assertSame([], $resposta['avisos']);
-        self::assertCount(1, $this->pendencias()->filter(sprintf('li[data-pendencia="%s:saida"][data-pendencia-escritorio="%d"]', $dia->format('Y-m-d'), $this->y->getId())));
+        self::assertCount(1, $this->pendencias()->filter(sprintf('div.pe-pend[data-pendencia="%s:saida"][data-pendencia-escritorio="%d"]', $dia->format('Y-m-d'), $this->y->getId())));
     }
 
     #[TestDox('O admin de X, na ficha e na folha do colaborador, não vê o nome de Y nem a lista de pendências')]
@@ -186,6 +201,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
                 'tipo' => TipoJustificativa::EsquecimentoRegistro->value,
                 'tipoRegistroEsquecido' => 'saida',
                 'horaRegistroEsquecido' => '18:00',
+                'motivo' => 'Esqueci de bater a saída.',
             ],
         ]);
 
@@ -195,7 +211,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
             [$this->user->getId()],
         );
         self::assertSame([(int) $this->x->getId() => 1], array_map('intval', $porEscritorio));
-        self::assertCount(1, $this->pendencias()->filter(sprintf('li[data-pendencia-escritorio="%d"]', $this->y->getId())), 'a pendência de Y continua');
+        self::assertCount(1, $this->pendencias()->filter(sprintf('div.pe-pend[data-pendencia-escritorio="%d"]', $this->y->getId())), 'a pendência de Y continua');
     }
 
     #[TestDox('O pedido de esquecimento só vale para a batida que falta: com a saída batida no dia neste escritório, o pedido de saída é recusado; a saída batida em outro escritório não recusa')]
@@ -251,7 +267,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET registra_ponto = false WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
         $this->em()->clear();
 
-        self::assertStringNotContainsString('id="pendencias-ponto"', $this->htmlDoPonto(), 'fora do público: nada');
+        self::assertStringNotContainsString('data-pendencia=', $this->htmlDoPonto(), 'fora do público: nenhuma pendência');
         $this->client->request('GET', '/ponto/alerta-horario');
         self::assertSame(['alertar' => false], json_decode((string) $this->client->getResponse()->getContent(), true));
 
@@ -261,7 +277,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         $this->batida($this->x, 'entrada', $this->diaUtilAtras(10)->setTime(8, 0));
         $this->batida($this->x, 'saida', $this->diaUtilAtras(10)->setTime(17, 0));
 
-        self::assertCount(1, $this->pendencias()->filter(sprintf('li[data-pendencia-escritorio="%d"]', $this->y->getId())), 'bateu em X nos últimos 30 dias: vê');
+        self::assertCount(1, $this->pendencias()->filter(sprintf('div.pe-pend[data-pendencia-escritorio="%d"]', $this->y->getId())), 'bateu em X nos últimos 30 dias: vê');
     }
 
     #[TestDox('R8: na ficha do colaborador, o admin de X vê o sinal no dia em que houve batida em Y com o ponto de X aberto, sem o nome de Y; o dia com a batida de Y depois da saída de X não tem sinal')]
@@ -326,7 +342,14 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         self::assertSame('/ponto/?competencia=' . $recente->format('Y-m') . '&esquecimento=' . $recente->format('Y-m-d') . ':saida', $cartao['link']);
         self::assertNull($cartao['orientacao']);
 
-        $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
+        // Sem pendência aqui: outra pessoa, só com a pendência antiga em Y (a batida gravada não se apaga, E10). Os
+        // escritórios voltam do banco: a requisição limpou a unidade de trabalho.
+        $this->x = $this->em()->find(Tenant::class, $this->x->getId()) ?? throw new \LogicException('X sumiu.');
+        $this->y = $this->em()->find(Tenant::class, $this->y->getId()) ?? throw new \LogicException('Y sumiu.');
+        $this->user = $this->user(['ROLE_USER']);
+        $this->vincular($this->user, $this->x, ['modules.ponto.view']);
+        $this->vincular($this->user, $this->y, ['modules.ponto.view']);
+        $this->batida($this->y, 'entrada', $antiga->setTime(8, 0));
         $cartao = $this->cartao();
         self::assertSame('/escritorio/selecionar', $cartao['link']);
         self::assertStringContainsString((string) $this->y->getName(), (string) $cartao['orientacao'], 'só a própria pessoa vê o nome');
@@ -341,6 +364,30 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 
         self::assertStringNotContainsString('id="bjPontoPendente"', $this->htmlDoPonto());
         self::assertNull($this->cartao());
+    }
+
+    #[TestDox('E7: com a tela `ponto` desligada pelo Master, o cartão não sai para quem não é Master (o link levaria à /ponto em preparação); o Master passa, como no guarda de rota')]
+    public function testCartaoDiarioComATelaDesligada(): void
+    {
+        $dia = $this->diaUtilAtras(3);
+        $this->batida($this->x, 'entrada', $dia->setTime(8, 0));
+        $ligada = $this->cartao();
+        self::assertNotNull($ligada, 'controle: com a tela ligada o cartão sai');
+        self::assertStringStartsWith('/ponto/?competencia=', (string) $ligada['link']);
+
+        $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => 'ponto']) ?? new RecursoEstado('ponto');
+        $estado->desativar(null, null, null, new \DateTimeImmutable());
+        $this->em()->persist($estado);
+        $this->em()->flush();
+
+        self::assertNull($this->cartao(), 'sem cartão para a tela fechada');
+        $this->client->request('GET', '/ponto/', server: ['HTTP_ACCEPT' => 'text/html']);
+        self::assertResponseStatusCodeSame(503, 'controle: a /ponto do link está mesmo fechada para esta pessoa');
+
+        $papeis = ['ROLE_USER', RegraDosMasters::PAPEL_MASTER];
+        $this->user->setRoles($papeis);   // o token do login e o banco, que o refresh do usuário relê
+        $this->em()->getConnection()->executeStatement('UPDATE "user" SET roles = ? WHERE id = ?', [json_encode($papeis), $this->user->getId()]);
+        self::assertSame($ligada, $this->cartao(), 'o Master recebe o cartão de sempre');
     }
 
     /** @return array<string, ?string>|null */
@@ -364,6 +411,7 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
                 'tipo' => TipoJustificativa::EsquecimentoRegistro->value,
                 'tipoRegistroEsquecido' => $batida,
                 'horaRegistroEsquecido' => $hora,
+                'motivo' => 'Esqueci de bater o ponto.',
             ],
         ]);
     }
@@ -378,10 +426,10 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 
     private function pendencias(): Crawler
     {
-        $lista = $this->crawlerDoPonto()->filter('#pendencias-ponto');
-        self::assertCount(1, $lista, 'o cartão de pendências aparece');
+        $lista = $this->crawlerDoPonto()->filter('section.pe-abas > #ponto-regiao-pendencias > #pendencias-ponto.pe-pend-lista');
+        self::assertCount(1, $lista, 'a lista da aba Pendências aparece');
 
-        return $lista->filter('ul');
+        return $lista;
     }
 
     private function crawlerDoPonto(): Crawler

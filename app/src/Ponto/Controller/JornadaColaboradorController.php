@@ -10,19 +10,17 @@ use App\Ponto\Entity\JornadaColaborador;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JornadaColaboradorRepository;
-use App\Ponto\Repository\JornadaTenantRepository;
 use App\Ponto\DTO\AlterarRegistroDePontoInput;
 use App\Ponto\DTO\VersaoDaJornadaInput;
 use App\Ponto\Exception\ChoqueDeJornadaException;
 use App\Ponto\Exception\VersaoDaJornadaNaoEncontradaException;
 use App\Ponto\Exception\VersaoDaJornadaRecusadaException;
-use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\ChoqueDaJornadaProposta;
 use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\UseCase\AlterarRegistroDePontoUseCase;
 use App\Ponto\UseCase\ExcluirVersaoDaJornadaUseCase;
 use App\Ponto\UseCase\LimparJornadaPessoalUseCase;
 use App\Ponto\UseCase\SalvarVersaoDaJornadaUseCase;
-use App\Ponto\Service\IntervalosDeTrabalho;
 use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
@@ -49,9 +47,7 @@ final class JornadaColaboradorController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantRepository $tenantRepository,
         private readonly JornadaColaboradorRepository $jornadas,
-        private readonly JornadaTenantRepository $padroes,
-        private readonly IntervalosDeTrabalho $intervalos,
-        private readonly ChoqueDeJornadaEntreEscritorios $choque,
+        private readonly ChoqueDaJornadaProposta $choqueDaProposta,
         private readonly ClockInterface $relogio,
     ) {}
 
@@ -183,7 +179,7 @@ final class JornadaColaboradorController extends AbstractController
 
         $blocosPropostos = array_map($this->blocoDaRequisicao(...), $blocos);
         $historico       = $this->jornadas->historicoDe($user, $urlTenant);
-        if (($choque = $this->choqueDaProposta($user, $urlTenant, $historico?->vigenteEm($valeAPartirDe), $blocosPropostos)) !== null) {
+        if (($choque = $this->choqueDaProposta->mensagem($user, $urlTenant, $historico?->vigenteEm($valeAPartirDe), $blocosPropostos)) !== null) {
             return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // regra 3: quem marcou primeiro fica
         }
         // Mudar a data de uma versão pode deixar valendo hoje outra (a anterior): ela também passa pela conferência.
@@ -240,7 +236,7 @@ final class JornadaColaboradorController extends AbstractController
 
         // Spec ponto-jornada-vigencia §10.2.5: apaga todas as versões; a folha volta a usar a padrão.
         $vigenteHoje = $this->jornadas->findByUserETenant($user, $urlTenant);
-        if ($vigenteHoje !== null && ($choque = $this->choqueDaProposta($user, $urlTenant, $vigenteHoje, [])) !== null) {
+        if ($vigenteHoje !== null && ($choque = $this->choqueDaProposta->mensagem($user, $urlTenant, $vigenteHoje, [])) !== null) {
             return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // sem a pessoal vale a padrão
         }
 
@@ -334,28 +330,12 @@ final class JornadaColaboradorController extends AbstractController
         return $urlTenant;
     }
 
-    /**
-     * O choque da jornada proposta com outro escritório onde a pessoa registra ponto (spec seguranca-b-jornada §3.3).
-     * Só conta quando a chave do ponto dela está ligada neste escritório: desligada, a jornada daqui não marca horário.
-     *
-     * @param list<BlocoJornadaColaborador> $blocos os blocos propostos; vazio é "sem jornada pessoal em blocos"
-     */
-    private function choqueDaProposta(User $user, Tenant $tenant, ?JornadaColaborador $atual, array $blocos): ?string
-    {
-        if ($this->userTenantRepository->findAtivoPorUserETenant($user, $tenant)?->isRegistraPonto() !== true) {
-            return null;
-        }
-        $proposta = ($atual ?? new JornadaColaborador())->propostaComBlocos($blocos);
-
-        return $this->choque->mensagem($user, $tenant, $this->intervalos->daJornada($proposta, $this->padroes->doEscritorio($tenant)));
-    }
-
     /** Sem a versão de hoje (excluída), vale hoje a vizinha, ou a padrão: ela não pode bater com outro escritório. */
     private function choqueDoQuePassaAValerHoje(User $user, Tenant $tenant, HistoricoDeJornadas $historico, JornadaColaborador $sai): ?string
     {
         $passaAValer = $historico->semA($sai)?->vigenteEm($this->relogio->now());
 
-        return $this->choqueDaProposta($user, $tenant, $passaAValer, $passaAValer?->getBlocos()->toArray() ?? []);
+        return $this->choqueDaProposta->mensagem($user, $tenant, $passaAValer, $passaAValer?->getBlocos()->toArray() ?? []);
     }
 
     /**
@@ -387,7 +367,7 @@ final class JornadaColaboradorController extends AbstractController
             return null;
         }
 
-        return $this->choqueDaProposta($user, $tenant, $depois, $depois?->getBlocos()->toArray() ?? []);
+        return $this->choqueDaProposta->mensagem($user, $tenant, $depois, $depois?->getBlocos()->toArray() ?? []);
     }
 
     /** @param array<string, mixed> $blocoData */

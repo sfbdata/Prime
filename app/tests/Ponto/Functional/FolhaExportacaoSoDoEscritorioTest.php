@@ -14,6 +14,7 @@ use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Ponto\Support\DesenhoDaFolhaEspiao;
 use Doctrine\ORM\EntityManagerInterface;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -47,6 +48,8 @@ final class FolhaExportacaoSoDoEscritorioTest extends JusPrimeWebTestCase
     public function testEspelhoSoDoEscritorioDaSessao(string $formato, bool $filtroLigado): void
     {
         $client = static::createClient();
+        // O PDF é a página desenhada em imagem (E16): o que ele mostra é o conteúdo que chega ao desenho.
+        $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$a, $b] = [$this->tenant('A'), $this->tenant('B')];
         $colaborador = $this->colaborador([$a, $b]);
@@ -77,9 +80,16 @@ final class FolhaExportacaoSoDoEscritorioTest extends JusPrimeWebTestCase
         $client->request('GET', sprintf('/ponto/exportar-folha-%s?mes=3&ano=2026', $formato));
         self::assertResponseIsSuccessful();
         self::assertSame(!$filtroLigado, $desligou, 'o cenário do filtro desligado precisa chegar ao controller com o filtro desligado');
+        self::assertSame(
+            $formato === 'pdf'
+                ? 'attachment; filename="folha_ponto_COLABORADORDOISESCRITORIOS-03-2026.pdf"'
+                : 'attachment; filename="folha_ponto_ColaboradorDoisEscritorios-03-2026.xlsx"',
+            $client->getInternalResponse()->getHeader('Content-Disposition'),
+            'o nome da pessoa sai sem acento no arquivo (NomeDoArquivoDaFolha)',
+        );
 
         $conteudo = (string) $client->getInternalResponse()->getContent();
-        $texto = $formato === 'xlsx' ? self::textoDaPlanilha($conteudo) : self::textoDoPdf($conteudo);
+        $texto = $formato === 'xlsx' ? self::textoDaPlanilha($conteudo) : $desenho->textoDoUltimo();
 
         self::assertStringContainsString('08:01', $texto, 'a entrada do escritório da sessão está no espelho');
         self::assertStringContainsString('11:02', $texto, 'a saída do escritório da sessão está no espelho');
@@ -98,23 +108,6 @@ final class FolhaExportacaoSoDoEscritorioTest extends JusPrimeWebTestCase
         foreach ($planilha->toArray() as $linha) {
             $texto .= implode(' ', array_map('strval', $linha)) . "\n";
         }
-
-        return $texto;
-    }
-
-    /**
-     * O Dompdf grava o texto em fluxos comprimidos (FlateDecode). Com a fonte do espelho (Arial, que vira a Helvetica
-     * padrão do PDF) o texto descomprimido sai legível, em literais como `[(08:01)] TJ`.
-     */
-    private static function textoDoPdf(string $conteudo): string
-    {
-        preg_match_all('/stream\r?\n(.*?)\r?\nendstream/s', $conteudo, $fluxos);
-        $texto = '';
-        foreach ($fluxos[1] as $fluxo) {
-            $descomprimido = @gzuncompress($fluxo);
-            $texto .= $descomprimido === false ? '' : $descomprimido;
-        }
-        self::assertNotSame('', $texto, 'o PDF deveria ter fluxos de texto legíveis');
 
         return $texto;
     }
@@ -151,7 +144,7 @@ final class FolhaExportacaoSoDoEscritorioTest extends JusPrimeWebTestCase
 
         $user = new User();
         $user->setEmail('colab_espelho_' . uniqid() . '@test.com');
-        $user->setFullName('Colaborador Dois Escritorios');
+        $user->setFullName('Colaborador Dois Escritórios');   // com acento: o nome do arquivo sai sem (desenho L726)
         $user->setRoles(['ROLE_USER']);
         $user->setIsActive(true);
         $em->persist($user);

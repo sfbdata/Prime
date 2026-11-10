@@ -315,6 +315,10 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         foreach ($rota->compile()->getPathVariables() as $variavel) {
             $parametros[$variavel] = (string) $this->adminDeA->getId();
         }
+        // O alvo do ajuste de batida (E10) é b{id} ou a{id}: um número puro não casa com a rota.
+        if (isset($parametros['alvo'])) {
+            $parametros['alvo'] = 'b' . $parametros['alvo'];
+        }
         $parametros[in_array($nome, BarreiraDoEscritorioInativoNaRota::ROTAS_COM_ID_DO_ESCRITORIO, true) ? 'id' : 'tenantId'] = (string) $this->escritorioA->getId();
         $url = static::getContainer()->get(RouterInterface::class)->generate($nome, $parametros);
 

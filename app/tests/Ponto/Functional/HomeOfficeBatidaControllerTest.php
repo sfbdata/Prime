@@ -77,7 +77,7 @@ final class HomeOfficeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422, 'sem home office, GPS continua obrigatório');
     }
 
-    #[TestDox('Home office não pula a validação de repouso mínimo (retorno cedo demais → 422)')]
+    #[TestDox('Home office não pula a validação de repouso mínimo (retorno cedo demais: o alerta da E11 volta e nada grava)')]
     public function testHomeOfficeMantemValidacaoDeRepouso(): void
     {
         $client = static::createClient();
@@ -91,7 +91,11 @@ final class HomeOfficeBatidaControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $this->postarBatida($client, ['tipo' => 'retorno']); // home office, sem GPS
 
-        self::assertResponseStatusCodeSame(422, 'repouso/interjornada devem valer também em home office');
+        self::assertResponseIsSuccessful();
+        $resposta = (array) json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($resposta['success']);
+        self::assertStringStartsWith('Faltam ', (string) ($resposta['alerta'] ?? ''), 'repouso/interjornada devem valer também em home office');
+        self::assertCount(1, $this->registrosDoUsuario($user), 'só o repouso');
     }
 
     #[TestDox('Sem home office, batida fora do raio da sede ainda é bloqueada (403)')]

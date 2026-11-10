@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Functional;
 
+use App\Ponto\Controller\AjusteDeBatidaController;
 use App\Ponto\Controller\PontoController;
 use App\Controller\TenantController;
 use App\Entity\Auth\User;
@@ -28,6 +29,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 #[CoversClass(PontoController::class)]
 #[CoversClass(TenantController::class)]
+#[CoversClass(AjusteDeBatidaController::class)]
 final class PontoIsolamentoControllerTest extends JusPrimeWebTestCase
 {
     #[TestDox('Editar a própria justificativa fora do escritório onde foi criada retorna 404 (self, per-vínculo)')]
@@ -61,7 +63,7 @@ final class PontoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404, 'justificativa de outro escritório não pode ser editada');
     }
 
-    #[TestDox('Admin do escritório A não edita batida do escritório B do mesmo empregado (404 pelo filtro)')]
+    #[TestDox('Admin do escritório A não ajusta batida do escritório B do mesmo empregado (404: o alvo não está na folha de A)')]
     public function testPontoEditAdminIsolaPorTenant(): void
     {
         $client   = static::createClient();
@@ -79,16 +81,16 @@ final class PontoIsolamentoControllerTest extends JusPrimeWebTestCase
         $idReg = (int) $regB->getId();
         $idAlvo = (int) $alvo->getId();
 
-        // controle positivo: admin de B vê o formulário de edição da batida de B
+        // controle positivo: admin de B vê a página de ajuste da batida de B
         $this->logarComTenant($client, $adminB, $tenantB);
         $this->limpar();
-        $client->request('GET', "/tenant/{$tenantB->getId()}/user/{$idAlvo}/ponto/{$idReg}/edit");
+        $client->request('GET', "/tenant/{$tenantB->getId()}/user/{$idAlvo}/ponto/b{$idReg}/ajustar");
         self::assertResponseIsSuccessful();
 
-        // negativo: admin de A (vínculo do alvo em A passa o guard) — a batida de B some pelo filtro → 404
+        // negativo: admin de A (vínculo do alvo em A passa o guard); a batida de B não está na folha de A: 404
         $this->logarComTenant($client, $adminA, $tenantA);
         $this->limpar();
-        $client->request('GET', "/tenant/{$tenantA->getId()}/user/{$idAlvo}/ponto/{$idReg}/edit");
+        $client->request('GET', "/tenant/{$tenantA->getId()}/user/{$idAlvo}/ponto/b{$idReg}/ajustar");
         self::assertResponseStatusCodeSame(404, 'batida de outro escritório não pode ser acessada');
     }
 

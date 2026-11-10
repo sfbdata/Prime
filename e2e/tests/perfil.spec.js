@@ -33,6 +33,12 @@ async function irParaPerfil(page) {
             m.classList.remove('show');
             m.style.display = 'none';
         });
+        // A janela do alerta de horário do ponto não é modal do Bootstrap (moldura do desenho): fecha pelo `hidden`.
+        const alertaPonto = document.getElementById('modalAlertaPonto');
+        if (alertaPonto) {
+            alertaPonto.hidden = true;
+            alertaPonto.classList.remove('show');
+        }
         document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';

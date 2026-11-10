@@ -1,0 +1,49 @@
+{#
+    Seção "Feriados do escritório" da aba Configurações (desenho 16, L256 a L258; spec ponto-desenho-0811.md, E6: P71
+    com o desvio da E6, P72, D4 e D21). Só para quem gere as configurações do escritório (GestaoDoPonto::FERIADOS).
+    Comportamento em js/ponto-configuracoes-sedes.js.
+
+    - Abrangência: "Todas as sedes" e as lotações do escritório (desvio do P71: o feriado vale para quem tem aquela
+      lotação; o desenho casa a sede com a lotação da pessoa).
+    - "Repete todo ano" (P72, sistema, fica), marcada como na página "Feriados e Folgas".
+    - Sem data ou nome: aviso do desenho. Remover pede confirmação (D4; o desenho remove na hora).
+
+    Recebe `lotacoesDoPonto` (list<Lotacao>) e `feriadosDoPonto` (list<FeriadoDoPontoOutput>).
+#}
+<section class="pe-sf-secao" aria-labelledby="ponto-feriados-titulo" data-pc-feriados>
+    <b class="pe-fer-titulo" id="ponto-feriados-titulo">Feriados do escritório</b>
+    <div class="pe-fer-texto">Os nacionais já estão incluídos. Cadastre aqui os estaduais e municipais, por sede.</div>
+    <form class="pe-fer-form" method="post" action="{{ path('ponto_configuracoes_feriado_criar') }}" data-pc-feriado-form novalidate>
+        <label class="pe-fer-rotulo">Data<input class="pe-sf-campo" type="date" name="data"></label>
+        <label class="pe-fer-rotulo">Nome<input class="pe-sf-campo" name="nome" maxlength="255" autocomplete="off"></label>
+        <label class="pe-fer-rotulo">Abrangência<select class="pe-sf-campo" name="abrangencia">
+            <option value="">Todas as sedes</option>
+            {% for lotacao in lotacoesDoPonto %}
+                <option value="{{ lotacao.id }}">{{ lotacao.nome }}</option>
+            {% endfor %}
+        </select></label>
+        <label class="pe-fer-repete"><input type="checkbox" name="recorrente" value="1" checked>Repete todo ano</label>
+        <button type="submit" class="pe-fer-adicionar">Adicionar</button>
+    </form>
+    <div class="pe-fer-lista" data-pc-feriados-lista>
+        {{ include('ponto/_config_feriados_lista.html.twig') }}
+    </div>
+
+    <div class="pe-janela-fundo" id="ponto-janela-remover-feriado" hidden data-pc-sf-janela>
+        <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Remover feriado">
+            <div class="pe-janela-topo">
+                <i class="bi bi-calendar-x" aria-hidden="true"></i><b class="pe-janela-titulo">Remover feriado</b>
+                <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-pc-sf-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="pe-janela-corpo">
+                <div class="pe-janela-info" data-pc-sf-info></div>
+                <div class="pe-janela-texto">O feriado sai da lista e deixa de contar na folha de ponto, também nos meses que já passaram. Não é possível desfazer.</div>
+            </div>
+            <div class="pe-janela-erro" data-pc-sf-erro hidden></div>
+            <div class="pe-janela-rodape">
+                <button type="button" class="pe-janela-cancelar" data-pc-sf-fechar>Cancelar</button>
+                <button type="button" class="pe-janela-acao" data-pc-sf-confirmar="feriado">Remover</button>
+            </div>
+        </div>
+    </div>
+</section>

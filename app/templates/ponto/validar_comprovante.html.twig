@@ -1,0 +1,52 @@
+{# Validação pública do comprovante (E15, P50 e D20) e da folha (E16, decisão 17) do ponto: o endereço do QR Code. Página avulsa, sem o
+   layout do sistema (quem confere pode não ter conta), no mesmo cartão central da verificação do Cálculo. As caixas de
+   resultado e o campo do código têm as medidas e cores da janela "Validar comprovante" do desenho 16 (L297 a L302).
+   Mostra o nome inteiro; nunca CPF nem localização.
+   Contexto: `codigo` (digitado), `consultou` (bool), `texto` (string|null: o comprovante ou a folha autêntica, já em texto), `limite` (string|null). #}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Validar comprovante de ponto | BlueJus</title>
+    <style>
+        body { margin:0; background:#f3f6f8; font-family:Arial, Helvetica, sans-serif; color:#12242f; }
+        .pv-campo { display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:bold; color:#4a6373; text-align:left; margin-top:14px; }
+        .pv-campo input { height:38px; box-sizing:border-box; border:1px solid #d3dde4; border-radius:3px; padding:0 10px; font:bold 15px monospace; letter-spacing:1px; color:#12242f; text-transform:uppercase; background:#fff; }
+        .pv-botao { margin-top:18px; height:36px; padding:0 16px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font:inherit; font-size:14px; cursor:pointer; }
+        .pv-botao:hover { background:#0b5f86; }
+        .pv-ok, .pv-erro, .pv-aviso { margin-top:16px; padding:10px 12px; border-radius:3px; font-size:13.5px; text-align:left; }
+        .pv-ok { line-height:1.45; border:1px solid #9fd0b2; border-left:4px solid #1e7b45; background:#e8f5ee; color:#145a32; }
+        .pv-erro { border:1px solid #f1c4c9; border-left:4px solid #a3232b; background:#fdecee; color:#7f1c23; }
+        .pv-aviso { border:1px solid #e0c36a; border-left:4px solid #e0c36a; background:#fff8e1; color:#7a5200; }
+    </style>
+</head>
+<body style="min-height:100vh; display:flex; flex-direction:column;">
+    <header style="background:#0a6fa0; color:#fff; height:58px; display:flex; align-items:center; padding:0 18px;">
+        <span style="font-size:20px; font-weight:bold;">BlueJus</span>
+    </header>
+    <main style="flex:1; display:flex; align-items:center; justify-content:center; padding:40px 16px;">
+        <div style="width:min(480px, 100%); background:#fff; border:1px solid #dde5eb; border-radius:8px; padding:30px 28px; text-align:center;">
+            <h1 style="font-size:19px; font-weight:bold; margin:0 0 6px;">Validar comprovante</h1>
+            <p style="margin:0; font-size:14px; color:#4a6373; line-height:1.55;">Confira se o comprovante de registro de ponto foi emitido pelo BlueJus.</p>
+
+            <form method="get" action="{{ path('validacao_comprovante_ponto')|e('html_attr') }}">
+                <label class="pv-campo">Código do comprovante
+                    <input type="text" name="codigo" value="{{ codigo|e('html_attr') }}" maxlength="24" placeholder="BJP-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+                </label>
+                <button type="submit" class="pv-botao">Validar</button>
+            </form>
+
+            {% if limite %}
+                <div class="pv-aviso" role="alert">{{ limite }}</div>
+            {% elseif texto %}
+                <div class="pv-ok" role="status"><b>Comprovante autêntico.</b><br>{{ texto }}</div>
+            {% elseif consultou %}
+                <div class="pv-erro" role="alert"><b>Código não localizado.</b> Confira a digitação. Comprovante sem registro correspondente não é válido.</div>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>

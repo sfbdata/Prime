@@ -45,12 +45,16 @@ final class TelaDoPontoSemRecarregarJsTest extends TestCase
 
         $depois = self::trecho($tela, 'async function atualizarDepoisDaBatida(recarregarSeFalhar) {', "btnPonto.addEventListener('click'");
         self::assertMatchesRegularExpression(
-            '/\} catch \(erro\) \{.*if \(recarregarSeFalhar\) \{\s+setTimeout\(\(\) => window\.location\.reload\(\), 1500\);\s+\}\s+return;\s+\}\s+liberarBotaoBatida\(\);/s',
+            // E8: a recarga espera a tela cheia fechar (`depoisDaTelaCheia`), sem cortar a confirmação do toque.
+            '/\} catch \(erro\) \{.*if \(recarregarSeFalhar\) \{\s+(?:\/\/[^\n]*\n\s+)*setTimeout\(\(\) => depoisDaTelaCheia\(\(\) => window\.location\.reload\(\)\), 1500\);\s+\}\s+return;\s+\}\s+liberarBotaoBatida\(\);/s',
             $depois,
             'recarrega só quando a atualização falhou; o botão só volta com a tela já atualizada'
         );
-        // Só duas recargas na tela: o plano B acima e o botão "Atualizar" da pessoa.
-        self::assertSame(2, substr_count($tela, 'window.location.reload()'));
+        // Só três recargas na tela: o plano B acima, o mesmo plano B da busca depois de excluir uma justificativa (E3) e o
+        // botão "Atualizar" da pessoa.
+        self::assertSame(3, substr_count($tela, 'window.location.reload()'));
+        $exclusao = self::trecho($tela, "document.addEventListener('ponto:justificativa-excluida', () => {", "\n    });");
+        self::assertMatchesRegularExpression('/setTimeout\(\(\) => \{\s+if \(envioEmAndamento\) \{\s+return;\s+\}\s+window\.location\.reload\(\);\s+\}, 1500\);/', $exclusao);
         self::assertStringContainsString("btnAtualizarPagina.addEventListener('click', () => window.location.reload());", $tela);
     }
 
@@ -60,7 +64,9 @@ final class TelaDoPontoSemRecarregarJsTest extends TestCase
         $atualizar = self::trecho(self::tela(), 'async function atualizarTelaDoPonto() {', 'async function atualizarDepoisDaBatida');
 
         // Desenho novo (E1, 09/11/2026): `ponto-tipos` (os quatro tipos com a hora de cada um) substitui `batidas-de-hoje`.
-        self::assertStringContainsString("const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-regiao-pendencias'];", self::tela());
+        // E3: a aba das pendências (o número) troca junto com o painel dela. E17: o painel do Banco de Horas troca junto
+        // com o número do topo, para os dois nunca divergirem depois da batida.
+        self::assertStringContainsString("const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-aba-pendencias', 'ponto-regiao-pendencias', 'ponto-painel-banco'];", self::tela());
         self::assertStringContainsString('relogioNovo.dataset.dia !== relogio.dataset.dia', $atualizar, 'virou o dia: recarrega');
         self::assertStringContainsString("document.querySelector('#ponto-regiao-folha > section.pe-folha')", $atualizar, 'da folha, só o cartão do desenho (E2)');
 

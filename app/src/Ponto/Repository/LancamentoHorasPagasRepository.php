@@ -44,32 +44,33 @@ class LancamentoHorasPagasRepository extends ServiceEntityRepository
     }
 
     /**
-     * Soma, com sinal, os lançamentos de um intervalo de meses do MESMO ano — inclusive nas duas
-     * pontas. Uma query só: o painel `/ponto` é caminho quente (todo funcionário abre várias vezes
-     * por dia) e o agregador anual varria janeiro a dezembro com um SELECT por mês.
-     *
-     * `SUM` sem nenhuma linha devolve NULL no Postgres; o cast para int transforma em 0.
+     * Soma, com sinal, os lançamentos do colaborador em cada competência, de todos os anos: o banco de horas por lotes
+     * (spec ponto-desenho-0811, E17) atravessa os anos e lê tudo numa consulta só. Competência sem lançamento não vem.
      *
      * Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO).
+     *
+     * @return array<string, int> 'AAAA-MM' => minutos, da competência mais antiga para a mais nova
      */
-    public function somarPorPeriodo(User $user, Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int
+    public function somarPorCompetenciaDoColaborador(User $user, Tenant $tenant): array
     {
-        $soma = $this->createQueryBuilder('l')
-            ->select('SUM(l.minutos)')
+        $linhas = $this->createQueryBuilder('l')
+            ->select('l.ano AS ano', 'l.mes AS mes', 'SUM(l.minutos) AS minutos')
             ->andWhere('l.user = :user')
             ->andWhere('l.tenant = :tenant')
-            ->andWhere('l.ano = :ano')
-            ->andWhere('l.mes >= :mesInicial')
-            ->andWhere('l.mes <= :mesFinal')
             ->setParameter('user', $user)
             ->setParameter('tenant', $tenant)
-            ->setParameter('ano', $ano)
-            ->setParameter('mesInicial', $mesInicial)
-            ->setParameter('mesFinal', $mesFinal)
+            ->groupBy('l.ano', 'l.mes')
+            ->orderBy('l.ano', 'ASC')
+            ->addOrderBy('l.mes', 'ASC')
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getArrayResult();
 
-        return (int) $soma;
+        $somas = [];
+        foreach ($linhas as $linha) {
+            $somas[sprintf('%04d-%02d', (int) $linha['ano'], (int) $linha['mes'])] = (int) $linha['minutos'];
+        }
+
+        return $somas;
     }
 
     /**

@@ -1,80 +1,60 @@
-{# Atalho da folha: o "+" da célula vazia abre este modal.
-   Data, tipo e qual batida vêm do botão clicado — o colaborador digita só a hora.
-   Envia pela mesma rota do modal completo (ponto_justificativa_nova). #}
-<div class="modal fade" id="modalEsquecimentoRegistro" tabindex="-1" aria-labelledby="modalEsquecimentoRegistroLabel" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" action="{{ path('ponto_justificativa_nova') }}">
-                <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
-                <input type="hidden" name="justificativa_ponto[tipo]" value="esquecimento_registro">
-                <input type="hidden" name="justificativa_ponto[datas]" id="esquecimentoData">
-                <input type="hidden" name="justificativa_ponto[tipoRegistroEsquecido]" id="esquecimentoCampo">
-                <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+{#
+    Janela "Registro de esquecimento" (E4 do desenho 16, P46; moldura L269 a L318, corpo L275 a L279). Abre pelo "+"
+    da folha, pelo "Enviar registro de esquecimento" da aba Pendências e pelo "Regularizar" da faixa (todos passam pelo
+    "+", js/ponto-janelas.js). Data e batida vêm do "+" clicado: a pessoa escreve o horário (com segundos, como o
+    desenho) e o motivo. Envia pela mesma rota da janela "Justificar falta" (ponto_justificativa_nova).
 
-                <div class="modal-header py-2">
-                    <h5 class="modal-title" id="modalEsquecimentoRegistroLabel">
-                        <i class="bi bi-clock-history me-2"></i>Registro esquecido
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                </div>
+    O aviso "Enviado para aprovação do gestor." é o aviso flutuante do desenho, depois do envio (P80, E8); a dica que
+    ficava dentro da janela antiga saiu.
 
-                <div class="modal-body">
-                    <p class="mb-3">
-                        <span id="esquecimentoResumo" class="fw-semibold"></span>
-                    </p>
-                    <label for="esquecimentoHora" class="form-label">Horário que deveria ter sido registrado</label>
-                    <input type="time" name="justificativa_ponto[horaRegistroEsquecido]" id="esquecimentoHora" class="form-control" required>
-                    <div class="form-text">Enviado para aprovação do administrador.</div>
-                </div>
+    Recebe `competenciaSelecionada` e `abaAberta` (a aba para onde a janela volta).
+#}
+<div class="pe-janela-fundo" id="ponto-janela-esquecimento" hidden>
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Registro de esquecimento"
+          method="post" action="{{ path('ponto_justificativa_nova') }}" data-janela-form="esquecimento" novalidate>
+        <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
+        <input type="hidden" name="justificativa_ponto[tipo]" value="esquecimento_registro">
+        <input type="hidden" name="justificativa_ponto[datas]" id="esquecimentoData">
+        <input type="hidden" name="justificativa_ponto[tipoRegistroEsquecido]" id="esquecimentoCampo">
+        <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+        {# A aba aberta (o ponto-abas.js a acompanha): ao enviar, a tela volta nela (L768). #}
+        <input type="hidden" name="aba" value="{{ abaAberta|default('pendencias') }}" data-aba-da-volta>
 
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-send me-1"></i>Enviar
-                    </button>
-                </div>
-            </form>
+        <div class="pe-janela-topo">
+            <i class="bi bi-plus-circle" aria-hidden="true"></i><b class="pe-janela-titulo">Registro de esquecimento</b>
+            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
-    </div>
+
+        <div class="pe-janela-corpo">
+            <div class="pe-janela-info" id="esquecimentoResumo" data-janela-info></div>
+            <label class="pe-janela-rotulo">Horário
+                <input type="time" step="1" name="justificativa_ponto[horaRegistroEsquecido]" id="esquecimentoHora" class="pe-janela-entrada">
+            </label>
+            <label class="pe-janela-rotulo">Motivo
+                <textarea name="justificativa_ponto[motivo]" rows="3" maxlength="{{ constant('App\\Ponto\\Form\\JustificativaPontoType::MOTIVO_MAXIMO') }}" class="pe-janela-campo" data-janela-motivo></textarea>
+            </label>
+        </div>
+
+        <div class="pe-janela-erro" data-janela-erro hidden></div>
+        <div class="pe-janela-rodape">
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
+            <button type="submit" class="pe-janela-acao" data-janela-enviar>Enviar</button>
+        </div>
+    </form>
 </div>
 
 <script>
 (function () {
-    var modalEl = document.getElementById('modalEsquecimentoRegistro');
-    if (!modalEl) { return; }
-
-    var campoData   = document.getElementById('esquecimentoData');
-    var campoBatida = document.getElementById('esquecimentoCampo');
-    var campoHora   = document.getElementById('esquecimentoHora');
-    var resumo      = document.getElementById('esquecimentoResumo');
-
     function formatarData(chaveDia) {
         var partes = chaveDia.split('-');
 
         return partes[2] + '/' + partes[1] + '/' + partes[0];
     }
 
-    // Delegação: os botões "+" ficam dentro da tabela da folha, que é um partial separado.
-    document.addEventListener('click', function (evento) {
-        var botao = evento.target.closest('[data-esquecimento-dia]');
-        if (!botao) { return; }
-
-        campoData.value    = botao.dataset.esquecimentoDia;
-        campoBatida.value  = botao.dataset.esquecimentoCampo;
-        campoHora.value    = '';
-        resumo.textContent = botao.dataset.esquecimentoRotulo + ' de ' + formatarData(botao.dataset.esquecimentoDia);
-
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    });
-
-    modalEl.addEventListener('shown.bs.modal', function () {
-        campoHora.focus();
-    });
-
     // Vindo do "Regularizar ponto de ontem" do cabeçalho (`?esquecimento=AAAA-MM-DD:saida`, decisão do dono 19/10): abre
     // o MESMO "+" da folha para aquele dia e batida. Se ele não existir (alguma condição do atalho falha), nada abre:
     // a regra de quando o "+" aparece continua só aqui na folha.
-    // Só depois do carregamento: o Bootstrap vem no fim da página, e o "+" abre o modal por ele (revisão do #67).
+    // Só depois do carregamento: o js/ponto-janelas.js, que abre a janela pelo "+", vem no fim da página.
     function abrirPedidoDoLink() {
         var pedido = /^(\d{4}-\d{2}-\d{2}):(entrada|repouso|retorno|saida)$/.exec(new URLSearchParams(window.location.search).get('esquecimento') || '');
         if (!pedido) { return; }

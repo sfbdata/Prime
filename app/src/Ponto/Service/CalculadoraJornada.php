@@ -6,7 +6,7 @@ use App\Entity\Auth\User;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaTenant;
-use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class CalculadoraJornada
@@ -45,7 +45,7 @@ class CalculadoraJornada
      * Quais batidas do dia valem — a decisão ÚNICA, a mesma que a folha exibe (a calculadora não tem
      * escolha própria; ver {@see EscolhaDasBatidasDoDia}).
      *
-     * @param RegistroPonto[] $batidas
+     * @param MarcacaoDoPonto[] $batidas
      */
     public function escolherBatidas(array $batidas, ?\DateTimeInterface $dia = null): BatidasEscolhidas
     {
@@ -60,7 +60,7 @@ class CalculadoraJornada
      * - Horas extras: qualquer minuto a mais (>= 1 min) conta positivamente
      * - Atrasos: só desconta se a falta for >= TOLERANCIA_ATRASO_MINUTOS (5 min)
      *
-     * @param RegistroPonto[] $batidas
+     * @param MarcacaoDoPonto[] $batidas
      * @param Feriado[] $feriados
      */
     public function calcularSaldoDia(User $user, \DateTimeInterface $data, array $batidas, ?JornadaColaborador $jornada, array $feriados, ?JornadaTenant $jornadaTenant = null): int
@@ -72,7 +72,7 @@ class CalculadoraJornada
      * A escolha para os métodos que recebem lista solta: ela é posta em ordem de horário antes, porque
      * quem chama direto pode não passar a lista do repositório. A folha usa {@see escolherBatidas()}.
      *
-     * @param RegistroPonto[] $batidas
+     * @param MarcacaoDoPonto[] $batidas
      */
     private function escolherDaLista(array $batidas, ?\DateTimeInterface $dia = null): BatidasEscolhidas
     {
@@ -175,7 +175,7 @@ class CalculadoraJornada
      * para almoçar, mas não por quanto tempo ficou fora. Aí o span inteiro creditaria esse almoço,
      * que é o defeito que a frente de 05/08 removeu — então o dia segue pendente de correção.
      *
-     * @param RegistroPonto[] $batidas
+     * @param MarcacaoDoPonto[] $batidas
      */
     public function registroIncompleto(array $batidas): bool
     {
@@ -207,7 +207,7 @@ class CalculadoraJornada
     }
 
     /**
-     * @param RegistroPonto[] $batidas
+     * @param MarcacaoDoPonto[] $batidas
      */
     public function calcularMinutosTrabalhados(array $batidas): int
     {

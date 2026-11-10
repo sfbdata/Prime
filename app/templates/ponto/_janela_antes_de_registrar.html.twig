@@ -1,0 +1,24 @@
+{#
+    Janela "Antes de registrar" (E11, P21; desenho 16, moldura L269 a L318, corpo L288, título e botões L766 e L801). O
+    servidor avalia o intervalo, a interjornada e o descanso semanal e, quando a batida sai da regra, devolve o alerta
+    sem gravar; a tela o escreve aqui (textContent) com os mínimos da Jornada do escritório. "Registrar assim mesmo"
+    refaz a mesma batida com a confirmação; "Aguardar", o "x" e o Esc fecham sem registrar. Clicar fora não fecha (a
+    moldura das janelas da tela, js/ponto-abas.js). O comportamento mora no script da tela (templates/ponto/index).
+#}
+<div class="pe-janela-fundo" id="ponto-janela-alerta" hidden>
+    <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Antes de registrar" aria-describedby="ponto-alerta-texto">
+        <div class="pe-janela-topo">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i><b class="pe-janela-titulo">Antes de registrar</b>
+            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="pe-janela-alerta">
+            <div id="ponto-alerta-texto" data-alerta-texto></div>
+            <div class="pe-janela-alerta-nota">{{ constant('App\\Ponto\\Service\\AlertasAntesDaBatida::NOTA') }}</div>
+        </div>
+        <div class="pe-janela-erro" data-janela-erro hidden></div>
+        <div class="pe-janela-rodape">
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Aguardar</button>
+            <button type="button" class="pe-janela-acao" data-alerta-registrar>Registrar assim mesmo</button>
+        </div>
+    </div>
+</div>

@@ -92,7 +92,9 @@ class SeedFeriadosNacionaisCommand extends Command
 
         $cadastrados = [];
         foreach ($existentes as $f) {
-            $cadastrados[$f->getData()->format('m-d')] = true;
+            if ($f->getLotacao() === null) {   // o de uma lotação só (E6) não ocupa o lugar do nacional na data
+                $cadastrados[$f->getData()->format('m-d')] = true;
+            }
         }
 
         $adicionados = 0;

@@ -11,7 +11,11 @@ namespace App\Master\Service;
  * Ordem, rótulos, ícones, grupos e descrições copiados do `bj-recursos.js` do desenho
  * (docs/design/perfis-1.2/bj-recursos.js): 20 linhas e 19 chaves (com o Voto, do desenho 18), porque "Contribua" (tela) e
  * "Contribua (atalho)" dividem a chave `contribua` e mudam juntas. Depois do desenho entrou a tela
- * "Assinatura de documentos" (spec assinatura-documentos-etapa-1.md, seção 5): 21 linhas e 20 chaves.
+ * "Assinatura de documentos" (spec assinatura-documentos-etapa-1.md, seção 5): 21 linhas e 20 chaves. Depois, a tela
+ * "Ponto Eletrônico" e a função "Ponto: geolocalização" (spec ponto-desenho-0811.md, E7 e P95): 23 linhas e 22 chaves.
+ * Depois, as funções "Ponto: comprovante em imagem" (E15) e "Ponto: alertas de intervalo" (E11): 25 linhas e 24 chaves.
+ * Depois, as funções "Ponto: validação em tela cheia", "Ponto: sons" e "Ponto: lembrete de saída" (E8): 28 linhas e
+ * 27 chaves. Depois, a função "Ponto: aceite da folha" (E16): 29 linhas e 28 chaves.
  *
  * O mapa de rotas (§4) mora aqui também, para haver uma fonte só: o guarda de rota
  * ({@see \App\Master\EventListener\BloqueioDeRecursoDesativado}) e a faixa do Master perguntam
@@ -39,6 +43,8 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_TELAS, 'chave' => 'peticionar', 't' => 'Peticionar', 'ic' => 'bi-file-earmark-text', 'd' => null, 'tela' => true, 'base' => false],
         ['g' => self::GRUPO_TELAS, 'chave' => 'meuperfil', 't' => 'Meu Perfil', 'ic' => 'bi-person', 'd' => null, 'tela' => true, 'base' => true],
         ['g' => self::GRUPO_TELAS, 'chave' => 'contribua', 't' => 'Contribua', 'ic' => 'bi-heart', 'd' => null, 'tela' => true, 'base' => false],
+        // Ponto Eletrônico (docs/specs/ponto-desenho-0811.md, E7): nasce ligada, sem linha em recurso_estado (P96).
+        ['g' => self::GRUPO_TELAS, 'chave' => 'ponto', 't' => 'Ponto Eletrônico', 'ic' => 'bi-fingerprint', 'd' => null, 'tela' => true, 'base' => false],
         // BlueJus Voto (docs/specs/bluejus-voto.md): rótulo e ícone do bj-recursos.js de docs/design/redesign-08-11-26.
         // Nasce desligado pela Version20261109120000: só o Master vê até a liberação.
         ['g' => self::GRUPO_TELAS, 'chave' => 'voto', 't' => 'Voto', 'ic' => 'bi-archive', 'd' => null, 'tela' => true, 'base' => false],
@@ -55,6 +61,26 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_MENU, 'chave' => 'contribua', 't' => 'Contribua (atalho)', 'ic' => 'bi-heart', 'd' => null, 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'chat', 't' => 'Chat I.A', 'ic' => 'bi-chat-dots', 'd' => 'Botão flutuante de conversas e assistente', 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'assistente', 't' => 'Assistente de pastas', 'ic' => 'bi-stars', 'd' => 'Agente que lê e organiza pastas', 'tela' => false, 'base' => false],
+        // As funções do Ponto (P95), na ordem do bj-recursos.js do desenho 16: a tela cheia e os sons (E8), o
+        // comprovante (E15), a geolocalização (E7) e o lembrete de saída (E8). Cada uma tem a camada "Global" aqui e a
+        // camada "Escritório" em ponto_config_escritorio, e vale com as duas ligadas (App\Ponto\Service\FuncoesDoPonto).
+        // Sem rota: agem na tela e na batida. Nascem ligadas, sem linha em recurso_estado (P96). A descrição é a da aba
+        // Configurações do desenho (`FEATS`, L414 a L423).
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-animacao', 't' => 'Ponto: validação em tela cheia', 'ic' => 'bi-clock-history', 'd' => 'Relógio completando a volta e confirmação ocupando toda a tela.', 'tela' => false, 'base' => false],
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-sons', 't' => 'Ponto: sons', 'ic' => 'bi-volume-up', 'd' => 'Plim no registro e alerta diferente quando o ponto falha.', 'tela' => false, 'base' => false],
+        // Ponto (spec ponto-desenho-0811 §7 e E15): rótulo e descrição do bj-recursos.js. Nasce ligada (sem linha em
+        // `recurso_estado`); só emite com o segredo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoComprovante}).
+        // Esta é a camada "Global": como a geolocalização, tem também a camada "Escritório" em ponto_config_escritorio.
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-comprovante', 't' => 'Ponto: comprovante em imagem', 'ic' => 'bi-receipt', 'd' => "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", 'tela' => false, 'base' => false],
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-geo', 't' => 'Ponto: geolocalização', 'ic' => 'bi-geo-alt', 'd' => 'Exige que o registro seja feito dentro do raio de uma sede.', 'tela' => false, 'base' => false],
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-lembrete', 't' => 'Ponto: lembrete de saída', 'ic' => 'bi-bell', 'd' => 'Avisa quando passar do horário previsto e a saída não foi registrada.', 'tela' => false, 'base' => false],
+        // A camada "Global" dos alertas de intervalo do Ponto (E11, P21 e P96): nasce ligada, sem linha em recurso_estado.
+        // Sem rota: age na batida e no aviso do intervalo do cartão.
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-alertas', 't' => 'Ponto: alertas de intervalo', 'ic' => 'bi-exclamation-triangle', 'd' => 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', 'tela' => false, 'base' => false],
+        // O aceite mensal da folha (spec ponto-desenho-0811, E16, P33): nasce ligado, como o comprovante, e só aparece
+        // com o selo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoAceite}). Camada "Global"; a "Escritório"
+        // mora em ponto_config_escritorio. Sem rota própria: a assinatura (`ponto_folha_assinar`) segue a tela do Ponto.
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-aceite', 't' => 'Ponto: aceite da folha', 'ic' => 'bi-pen', 'd' => 'O colaborador confirma ou registra ressalva na folha fechada.', 'tela' => false, 'base' => false],
     ];
 
     /**
@@ -81,6 +107,8 @@ final class CatalogoDeRecursos
         'voto'        => ['voto_'],
         // Assinatura de documentos: a página, o JSON e os arquivos da tela.
         'assinatura'  => ['assinatura_eletronica_'],
+        // Ponto Eletrônico: a tela, a batida e o resto do domínio (menos as três rotas globais, abaixo).
+        'ponto'       => ['ponto_'],
     ];
 
     /**
@@ -100,9 +128,14 @@ final class CatalogoDeRecursos
         // Revogar o link externo do Push: tirar acesso nunca pode ficar travado por uma tela desligada.
         // Gerar e renovar seguem a chave `pushpub`.
         'pasta_push_links_revogar',
+        // Ponto: o estado do dia (atalho do avatar), o alerta de horário e o cartão de pendência rodam em toda tela.
+        // Com a tela desligada o atalho mostra o estado, sem o botão de registrar; `ponto_batida` cai com a tela.
+        'ponto_estado_do_dia',
+        'ponto_alerta_horario',
+        'ponto_pendencia_do_dia',
     ];
 
-    /** @return list<string> as 19 chaves, na ordem da primeira aparição. */
+    /** @return list<string> as 28 chaves, na ordem da primeira aparição. */
     public static function chaves(): array
     {
         return array_values(array_unique(array_column(self::LINHAS, 'chave')));

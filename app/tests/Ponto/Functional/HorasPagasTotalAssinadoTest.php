@@ -8,9 +8,8 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
-use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\LancamentoHorasPagas;
-use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\DadosDaFolhaExportada;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -39,7 +38,7 @@ use PHPUnit\Framework\Attributes\TestDox;
  * Sem contagem dupla: `calcularSaldoAteMes` cobre as competências ANTERIORES e
  * `somarHorasPagasDaCompetencia` cobre a ATUAL — faixas que não se sobrepõem.
  */
-#[CoversClass(PontoController::class)]
+#[CoversClass(DadosDaFolhaExportada::class)]
 final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
 {
     #[TestDox('desconto no lancamento entra no saldo atual acumulado e cria a compensacao correspondente')]
@@ -187,15 +186,15 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
     }
 
     /**
-     * O banco de horas ZERA em 1º de janeiro (regra do dono). Logo janeiro não tem competência
-     * anterior: o que ficou para trás foi extinto pela virada, e o documento assinado não pode
-     * ressuscitá-lo.
+     * Desde a E17 (spec ponto-desenho-0811, P51 a) o banco NÃO zera em 1º de janeiro: o crédito de
+     * dezembro é um lote com prazo próprio e chega a janeiro. Até a E17 este teste provava o
+     * contrário (janeiro sem anterior); a regra do dono mudou no desenho.
      *
-     * Sem esta prova, o chamador voltar a pedir (dezembro, ano-1) passa despercebido — e aí o
-     * "anterior" salta do ano passado INTEIRO em janeiro para só janeiro em fevereiro.
+     * Sem esta prova, o chamador voltar a cortar em janeiro (o `$mes === 1 ? 0` de antes) passa
+     * despercebido, e o PDF de janeiro mostraria um banco diferente do da tela.
      */
-    #[TestDox('o banco zera na virada: lancamento de dezembro nao entra no PDF de janeiro')]
-    public function testLancamentoDoAnoAnteriorNaoEntraNoSaldoDeJaneiro(): void
+    #[TestDox('o banco atravessa a virada: lancamento de dezembro entra no PDF de janeiro')]
+    public function testLancamentoDoAnoAnteriorEntraNoSaldoDeJaneiro(): void
     {
         $tenant = $this->criarTenant();
         $colaborador = $this->criarColaborador($tenant);
@@ -205,14 +204,14 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
         $dados = $this->montarDadosFolha($colaborador, $tenant, 2026, 1, $this->folhaRowsComSaldoAcumulado(2026, 1, 0));
 
         self::assertSame(
-            '+0:00',
+            '+100:00',
             $dados['saldoBancoAnterior'],
-            'janeiro não tem anterior: o banco zerou em 1º/jan e dezembro do ano passado ficou para trás',
+            'o anterior de janeiro é o banco até dezembro do ano passado',
         );
         self::assertSame(
-            '+0:00',
+            '+100:00',
             $dados['saldoBancoAtual'],
-            'o acumulado de janeiro começa do zero, sem herdar o saldo do ano anterior',
+            'o acumulado de janeiro herda o saldo do ano anterior',
         );
     }
 
@@ -268,7 +267,7 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
 
     /**
      * Folha de um único dia, com o `saldoAcumulado` da última (única) linha controlado por quem
-     * chama — é exatamente o valor que o loop de `montarDadosFolha` usa como `saldoBancoAtualMinutos`.
+     * chama — é exatamente o valor que o loop de `DadosDaFolhaExportada::montar` usa como `saldoBancoAtualMinutos`.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -294,21 +293,16 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Chama o `montarDadosFolha` privado do controller — é ele que o PDF e o XLSX consomem.
+     * Chama o `DadosDaFolhaExportada::montar` — é ele que o PDF e o XLSX consomem.
      *
      * @param array<int, array<string, mixed>> $folhaRows
      * @return array<string, mixed>
      */
     private function montarDadosFolha(User $colaborador, Tenant $tenant, int $ano, int $mes, array $folhaRows): array
     {
-        $container  = static::getContainer();
-        $controller = $container->get(PontoController::class);
-        $builder    = $container->get(FolhaPontoBuilder::class);
-
-        $metodo = new \ReflectionMethod($controller, 'montarDadosFolha');
-
         /** @var array<string, mixed> $dados */
-        $dados = $metodo->invoke($controller, $colaborador, $tenant, $ano, $mes, $folhaRows, [], null, null, $builder, null);
+        $dados = static::getContainer()->get(DadosDaFolhaExportada::class)
+            ->montar($colaborador, $tenant, $ano, $mes, $folhaRows, [], null, null, null);
 
         return $dados;
     }

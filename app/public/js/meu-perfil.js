@@ -131,5 +131,5 @@
   });
 
   if (formOab && formOab.dataset.reabrir) setTimeout(reabrirOabComErro, 200);
-  else if (revisaoPendente()) setTimeout(() => { if (!document.querySelector('.modal.show')) { const m = modal('modalRevisao'); if (m) m.show(); } }, 1200);
+  else if (revisaoPendente()) setTimeout(() => { if (!document.querySelector('.modal.show, #modalAlertaPonto.show')) { const m = modal('modalRevisao'); if (m) m.show(); } }, 1200);
 })();

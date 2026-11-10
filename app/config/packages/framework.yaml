@@ -32,12 +32,31 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 minute'
+        # Validação pública do comprovante do ponto (GET /ponto/validar, sem login; também a janela "Validar código"
+        # da /ponto): chave = IP. O código tem 32^12 combinações; o limite torna inviável varrê-las.
+        ponto_validacao:
+            policy: sliding_window
+            limit: 20
+            interval: '1 minute'
+        # Imagem do comprovante do ponto (GET /ponto/comprovantes/{id}/baixar): chave = usuário. Cada imagem leva uns
+        # 2 s de CPU e uns 50 MB de memória no GD; 10 por minuto cobre baixar de novo e põe teto no laço.
+        ponto_comprovante_imagem:
+            policy: sliding_window
+            limit: 10
+            interval: '1 minute'
         # Cédula da assembleia de condomínio (`/votar/{token}`, sem login): chave = IP, e só o link INVÁLIDO consome
         # (404). Freia a varredura de tokens; o link válido não passa por aqui, porque na assembleia presencial muitos
         # moradores votam pelo mesmo wi-fi.
         voto_cedula_invalido:
             policy: sliding_window
             limit: 20
+            interval: '1 minute'
+        # Folha do ponto em PDF (GET /ponto/exportar-folha-pdf, "Ver PDF" e "Baixar PDF"): chave = usuário. Cada PDF
+        # desenha a página no GD (cerca de 1 s de CPU e 50 MB de memória) e, com o segredo do HMAC, grava uma folha
+        # emitida com código próprio (E16, decisão 2); 10 por minuto cobre ver e baixar de novo e põe teto no laço.
+        ponto_folha_pdf:
+            policy: sliding_window
+            limit: 10
             interval: '1 minute'
         convite_criar:
             policy: sliding_window

@@ -9,8 +9,22 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 
+/**
+ * O aviso de ponto da pessoa agora (modal global, consulta a cada 60 s em /ponto/alerta-horario).
+ *
+ * Dia sem escala para a pessoa, isto é, meta do dia 0 (`JornadaResolver::resolverMetaDia`, a mesma da tela e do
+ * "Jornada concluída"): o feriado que vale para ela (o de todas as sedes ou o da lotação dela no dia,
+ * `FeriadosDaPessoa`) e o dia que a escala não cobre (folga, domingo).
+ * Nele saem os avisos que vêm da escala (entrada, repouso no horário da escala e "Jornada concluída"). Ficam os que
+ * vêm das batidas de quem trabalhou mesmo assim: 6 horas sem repouso e intervalo mínimo concluído.
+ *
+ * Sem escala nenhuma (nem a da pessoa, nem a do escritório) a meta é 0 todo dia e os avisos da escala não saem. Na
+ * escala antiga, sem blocos, o sábado segue o resolver e não a folha (que olha `diasSemana`). Com o aviso ligado,
+ * nenhum desses casos existia em produção em 10/11/2026 (nem bloco com 0 minutos).
+ */
 class VerificadorAlertaPonto
 {
     private const TOLERANCIA_MINUTOS = 5;
@@ -19,6 +33,9 @@ class VerificadorAlertaPonto
     public function __construct(
         private readonly JornadaResolver $jornadaResolver,
         private readonly RegistroPontoRepository $registroRepository,
+        private readonly FeriadoRepository $feriadoRepository,
+        private readonly FeriadosDaPessoa $feriadosDaPessoa,
+        private readonly CalculadoraJornada $calculadora,
         private readonly EscolhaDasBatidasDoDia $escolhaDasBatidas = new EscolhaDasBatidasDoDia(),
     ) {}
 
@@ -30,6 +47,9 @@ class VerificadorAlertaPonto
         if (!$this->jornadaResolver->resolverAlertaHabilitado($jornada, $jornadaTenant)) {
             return $this->semAlerta();
         }
+
+        $metaDiaMinutos = $this->metaDoDia($user, $tenant, $agora, $jornadaTenant, $jornada);
+        $diaDaEscala = $metaDiaMinutos > 0;
 
         // As batidas de hoje NESTE escritório (auditoria 1.13): a de outro escritório da pessoa não muda o aviso daqui.
         $batidasDoDia = $this->registroRepository->findBatidasDoDia($user, $tenant, $agora);
@@ -49,7 +69,7 @@ class VerificadorAlertaPonto
         $saidaRegistrada   = isset($porTipo[RegistroPonto::TIPO_SAIDA]);
 
         if (!$entradaRegistrada) {
-            return [
+            return !$diaDaEscala ? $this->semAlerta() : [
                 'alertar'  => true,
                 'tipo'     => 'entrada',
                 'mensagem' => 'Você ainda não registrou sua entrada hoje!',
@@ -59,7 +79,7 @@ class VerificadorAlertaPonto
 
         if (!$repousoRegistrado) {
             // Verifica horário configurado (±5 min) — tem prioridade sobre CLT
-            $alertaRepouso = $this->verificarRepousoPorHorario($jornada, $agora, $jornadaTenant);
+            $alertaRepouso = $diaDaEscala ? $this->verificarRepousoPorHorario($jornada, $agora, $jornadaTenant) : null;
             if ($alertaRepouso !== null) {
                 return $alertaRepouso;
             }
@@ -96,8 +116,7 @@ class VerificadorAlertaPonto
         }
 
         if ($retornoRegistrado && !$saidaRegistrada) {
-            $metaDiaMinutos = $this->jornadaResolver->resolverMetaDia($jornada, $agora, $jornadaTenant);
-            if ($metaDiaMinutos > 0) {
+            if ($diaDaEscala) {
                 $entrada = $porTipo[RegistroPonto::TIPO_ENTRADA];
 
                 if ($escolha->temIntervalo()) {
@@ -125,6 +144,24 @@ class VerificadorAlertaPonto
         }
 
         return $this->semAlerta();
+    }
+
+    /** A meta do dia para a pessoa: 0 no feriado que vale para ela e no dia que a escala não cobre. */
+    private function metaDoDia(User $user, Tenant $tenant, \DateTimeImmutable $agora, ?JornadaTenant $jornadaTenant, ?JornadaColaborador $jornada): int
+    {
+        if ($this->feriadoDaPessoaHoje($user, $tenant, $agora)) {
+            return 0;
+        }
+
+        return $this->jornadaResolver->resolverMetaDia($jornada, $agora, $jornadaTenant);
+    }
+
+    /** Os feriados DESTE escritório, com o escritório escrito na consulta (como as batidas), filtrados para a pessoa. */
+    private function feriadoDaPessoaHoje(User $user, Tenant $tenant, \DateTimeImmutable $agora): bool
+    {
+        $feriados = $this->feriadosDaPessoa->filtrar($this->feriadoRepository->doEscritorio($tenant), $user, $agora);
+
+        return $this->calculadora->getFeriadoDoDia($agora, $feriados) !== null;
     }
 
     /**

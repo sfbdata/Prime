@@ -382,6 +382,7 @@ final class SubstituirAnexoDoLoteUseCaseTest extends KernelTestCase
             $remocao,
             $container->get(\Symfony\Component\Validator\Validator\ValidatorInterface::class),
             $logger,
+            $container->get(\App\Ponto\Service\TrilhaDoPonto::class),
         ));
     }
 
