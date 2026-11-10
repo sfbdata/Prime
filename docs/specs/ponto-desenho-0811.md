@@ -1303,7 +1303,10 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
   12. "Ver PDF" sai do modal Bootstrap para a janela do desenho, na moldura `.pe-janela` (decisão do Coordenador).
   13. Liga e desliga: a camada Escritório da função `ponto-aceite` entra na E16, como a E7 previu.
   14. O próprio aceite é selado com HMAC (chave `ponto-folha`) sobre a situação, a ressalva, a data, o IP, o navegador e
-      o código da folha vista: a trilha não guarda o texto da ressalva.
+      o código da folha vista: a trilha não guarda o texto da ressalva. O texto selado fica guardado na linha
+      (`dados_assinados`, `DadosDoAceiteDaFolha`, formato 1), como na folha e no comprovante. A folha e o aceite usam a
+      mesma chave `ponto-folha`; o campo `tipo` do texto (`folha` ou `aceite-folha`) separa um do outro, e o texto de
+      um não passa no leitor do outro. A folha também sela o id do escritório.
   15. Aviso flutuante (L266): a E16 cria o molde para o "Baixar PDF" (o JS lê o código da resposta) e o aceite usa o
       envio normal com o aviso do topo, como a E4. Se a E8 já tiver o aviso flutuante, usa-se o dela.
   16. Sem o segredo: o PDF sai com o fundo de segurança (semente do conteúdo), sem o código na marca d'água e no
@@ -1388,7 +1391,7 @@ em todo o Ponto e na frente jornada-vigencia.
 | `ponto_ajuste` | Não existe (o gestor faz UPDATE e DELETE) | Precisa criar (P65 a) | Tabela nova: escritório, pessoa, batida (vazia na inclusão), data, tipo, valor anterior, valor novo, autor, criado em, motivo, justificativa ligada | E10 |
 | `ponto_justificativa` | `justificativa_ponto` | Já existe com outro nome | Reaproveitar. Colunas novas: `motivo` (texto nulo, feita na E4, `Version20261109210000`); batida ligada, opcional (trabalho externo, E12) | E4, E12 |
 | `ponto_comprovante` | Não existe | Precisa criar | Tabela nova, uma linha por batida: NSR, código, HMAC (com `PONTO_HMAC_SECRET`; vazia, não grava linha), emitido em, dados assinados; mais um contador de NSR por escritório (linha travada na gravação), que sobe mesmo sem comprovante (D2) | E15 |
-| `ponto_folha_aceite` | Não existe | Precisa criar | Escritório, pessoa, ano, mês, número do aceite, situação (concordo ou ressalva), texto da ressalva, aceito em, IP, navegador, folha emitida vista, selo HMAC; único por pessoa, escritório, mês e número do aceite (histórico; vale o último, decisão 1 da E16) | E16 |
+| `ponto_folha_aceite` | Não existe | Precisa criar | Escritório, pessoa, ano, mês, número do aceite, situação (concordo ou ressalva), texto da ressalva, aceito em, IP, navegador, folha emitida vista, selo HMAC e dados assinados; único por pessoa, escritório, mês e número do aceite (histórico; vale o último, decisão 1 da E16) | E16 |
 | (folha emitida, fora da lista do ESPEC) | Não existe | Precisa criar | Código BJF, HMAC, escritório, pessoa, competência, emitida em, emitida por, resumo do conteúdo | E16 |
 | `ponto_sede` | `sede` (legado, `src/Entity/Tenant/Sede.php`: latitude, longitude, raio, fuso) | Já existe com outro nome | Reaproveitar. P70 (a): sede nova nasce com 150 m (padrão na configuração do E7); as sedes de hoje não mudam, sem migration de dado | nenhuma |
 | `ponto_feriado` | `feriado` (por escritório, recorrente ou pontual) | Já existe com outro nome | Reaproveitar. Coluna nova: sede opcional (abrangência, P71) | E6 |
