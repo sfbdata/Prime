@@ -8,6 +8,14 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.45.1] - 2026-11-10
+
+### Corrigido
+
+- Voto, pautas da assembleia em rascunho: o campo "Nº" das opções aceita só algarismo (o navegador tira letras e símbolos ao digitar ou colar, como os campos numéricos do desenho 18); o servidor continua recusando com "Número X deve ter 1 dígito(s).", agora coberto por teste.
+- Voto, pautas da assembleia em rascunho: o "Salvar" de uma pauta grava por fetch, sem recarregar a página, e mostra o toast do desenho; o da pauta nova recarrega só depois de gravada. Antes de uma ação que recarrega ou sai da tela (atalho, remover, "Salvar e sair", "Voltar", "Continuar", abas), as pautas alteradas são gravadas; se uma for recusada, o erro aparece acima do rodapé (o erro da etapa do desenho), o que foi digitado continua na tela e repetir a ação segue sem ela; falha de rede ou de sessão só avisa e repetir tenta gravar de novo. Saída por fora da tela com alteração pendente pede confirmação do navegador.
+- Incluir, salvar e remover pauta respondem JSON (`ok`, `mensagem`) ao pedido por fetch (200; 422 na recusa de validação e 404 na pauta que não existe mais, que a tela deixa seguir sem a pauta ao repetir; 403 na sessão expirada, que a tela tenta de novo) e seguem com o redirecionamento no envio comum.
+
 ## [2.45.0] - 2026-11-09
 
 ### Adicionado
@@ -1758,7 +1766,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.45.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.45.1...HEAD
+[2.45.1]: https://github.com/sfbdata/Prime/compare/v2.45.0...v2.45.1
 [2.45.0]: https://github.com/sfbdata/Prime/compare/v2.44.0...v2.45.0
 [2.44.0]: https://github.com/sfbdata/Prime/compare/v2.43.0...v2.44.0
 [2.43.0]: https://github.com/sfbdata/Prime/compare/v2.42.1...v2.43.0
