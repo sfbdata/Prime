@@ -291,7 +291,7 @@ final class VinculoComAPastaTest extends TestCase
         };
         $tenants = $this->createStub(TenantRepository::class);
         $tenants->method('find')->willReturnCallback(fn (mixed $id): ?Tenant => $id === 9 ? $this->tenant : null);
-        $worker = new GerarPdfFinalDoDocumentoHandler($tenants, $this->documentos, $this->pdfFinal());
+        $worker = new GerarPdfFinalDoDocumentoHandler($tenants, $this->documentos, $this->pdfFinal(), $this->barramento());
 
         $worker($pedido);
         $worker($pedido); // a mesma mensagem entregue de novo: o PDF já está guardado e nada muda
