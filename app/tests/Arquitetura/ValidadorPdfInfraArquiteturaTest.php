@@ -21,6 +21,7 @@ use Symfony\Component\Yaml\Yaml;
  *  - redes: `assinatura_net` interna, só com php, worker e o validador; `validador_saida` só com o validador; o
  *    validador nunca na `saas_net` (lá roda o blog_builder com npm de terceiros) e sem porta publicada;
  *  - raiz só de leitura, /tmp em tmpfs, sem capabilities, e o healthcheck é o do Dockerfile;
+ *  - em produção, teto de memória e CPU que cabe as conferências simultâneas, cada uma no RLIMIT do filho;
  *  - as âncoras no volume `validador_ancoras`, no caminho padrão do configuracao.py;
  *  - o ambiente do validador é só o que o código dele lê com padrão vazio (sem o .env.prod inteiro, e nenhuma
  *    variável que, vazia, derrubaria o contêiner ou apagaria a URL do ITI);
@@ -89,6 +90,20 @@ final class ValidadorPdfInfraArquiteturaTest extends TestCase
         self::assertArrayNotHasKey('healthcheck', $validador, 'o healthcheck é o do Dockerfile (/saude)');
         $dockerfile = $this->ler('validador-pdf/Dockerfile');
         self::assertMatchesRegularExpression('#^HEALTHCHECK [^\n]*\\\\\n[^\n]*/saude#m', $dockerfile);
+    }
+
+    #[TestDox('produção: teto de 3584m de memória e 1,5 CPU, que cabe as conferências simultâneas no RLIMIT de cada filho')]
+    public function testTetoDeRecursosEmProducao(): void
+    {
+        $validador = $this->validador(self::PRODUCAO);
+
+        self::assertSame('3584m', $validador['mem_limit'] ?? null, 'teto do contêiner (o runbook, passo 0, diz quando reduzir)');
+        self::assertSame(1.5, $validador['cpus'] ?? null);
+
+        // O RLIMIT de cada filho é a primeira barreira; o teto do contêiner precisa caber os filhos e o principal.
+        self::assertSame(1, preg_match('#^SIMULTANEAS = (\d+)$#m', $this->ler(self::CONFIGURACAO), $s), 'SIMULTANEAS não encontrado no configuracao.py');
+        self::assertSame(1, preg_match("#'ASSINATURA_VALIDADOR_MEMORIA_MB', '(\\d+)'#", $this->ler('validador-pdf/validador/execucao.py'), $f), 'memória do filho não encontrada no execucao.py');
+        self::assertGreaterThanOrEqual((int) $s[1] * (int) $f[1] + 512, 3584, 'filhos simultâneos no RLIMIT mais 512 MB do processo principal');
     }
 
     #[DataProvider('composes')]

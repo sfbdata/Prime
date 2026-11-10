@@ -251,6 +251,11 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    # Teto do contêiner, não reserva: até 2 conferências ao mesmo tempo (configuracao.py, SIMULTANEAS), cada filho
+    # preso a 1536 MB pelo RLIMIT (execucao.py, a primeira barreira), mais o processo principal. Um PDF hostil para
+    # aqui antes de levar a VPS junto. Quando reduzir: docs/runbooks/assinatura-validador-em-producao.md, passo 0.
+    mem_limit: 3584m
+    cpus: 1.5
     # SEM env_file de propósito: o .env.prod inteiro traria ao validador as senhas e chaves do BlueJus. Só o que o
     # validador-pdf/validador/configuracao.py lê, e só as variáveis cujo vazio quer dizer "não configurado". As de
     # caminho, porta, memória e URL do ITI ficam de fora: vazias, derrubariam o contêiner ou apagariam o endereço.

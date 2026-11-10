@@ -214,3 +214,7 @@ docs/security-audit/
 
 # Sites estáticos publicados no nginx de produção (repositório sfbdata/sites-bluejus)
 sites-publicados/
+
+# Chave do selo da Assinatura (e-CNPJ em PKCS#12 e a senha): o compose de produção monta de /opt/jusprime/secrets.
+# Nunca entra na história do repositório (docs/runbooks/assinatura-selo-ecnpj-em-producao.md).
+/secrets/
