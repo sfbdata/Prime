@@ -738,8 +738,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     cobrança do checklist e resumo diário) é a regra do escritório inteiro e só considera os feriados sem lotação: um
     feriado de Maceió não pula o dia do escritório;
   - a meta do dia no cartão "Registrar Ponto" (`PontoController::index`: contador de horas excedentes, saída prevista
-    e lembrete de saída) usa a mesma regra, pelo `FeriadosDaPessoa` (commit do orquestrador, 10/11/2026); o alerta de
-    "hora de ir embora" (`VerificadorAlertaPonto`) não olha feriado nenhum, como antes da E6;
+    e lembrete de saída) usa a mesma regra, pelo `FeriadosDaPessoa` (commit do orquestrador, 10/11/2026); o aviso de
+    horário (`VerificadorAlertaPonto`, /ponto/alerta-horario), que não olhava feriado nenhum, também (correção do
+    mesmo dia): no feriado da pessoa saem os avisos da escala (entrada, repouso no horário, "Jornada concluída") e
+    ficam os das batidas (6 horas sem repouso, intervalo mínimo);
   - **apagar lotação com feriado é recusado (decisões do Coordenador, 09/11/2026):** apagar a lotação apagava em
     cascata os feriados dela, e os meses passados mudavam (quem não bateu no feriado passava a ter falta). Na aba
     "Lotações" da edição do escritório (`TenantController::edit`, o único caminho que apaga lotação: a purga apaga o

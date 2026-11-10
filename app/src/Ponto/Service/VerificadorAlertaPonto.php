@@ -9,8 +9,17 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 
+/**
+ * O aviso de ponto da pessoa agora (modal global, consulta a cada 60 s em /ponto/alerta-horario).
+ *
+ * Feriado que vale para a pessoa hoje (o de todas as sedes ou o da lotação dela no dia, `FeriadosDaPessoa`, a mesma
+ * regra da folha e da meta do dia na tela): a escala não vale, então saem os avisos que vêm dela (entrada, repouso no
+ * horário da escala e "Jornada concluída", que já pedia meta positiva). Ficam os que vêm das batidas de quem trabalhou
+ * no feriado: 6 horas sem repouso e intervalo mínimo concluído.
+ */
 class VerificadorAlertaPonto
 {
     private const TOLERANCIA_MINUTOS = 5;
@@ -19,6 +28,9 @@ class VerificadorAlertaPonto
     public function __construct(
         private readonly JornadaResolver $jornadaResolver,
         private readonly RegistroPontoRepository $registroRepository,
+        private readonly FeriadoRepository $feriadoRepository,
+        private readonly FeriadosDaPessoa $feriadosDaPessoa,
+        private readonly CalculadoraJornada $calculadora,
         private readonly EscolhaDasBatidasDoDia $escolhaDasBatidas = new EscolhaDasBatidasDoDia(),
     ) {}
 
@@ -30,6 +42,12 @@ class VerificadorAlertaPonto
         if (!$this->jornadaResolver->resolverAlertaHabilitado($jornada, $jornadaTenant)) {
             return $this->semAlerta();
         }
+
+        // Os feriados DESTE escritório, com o escritório escrito na consulta (como as batidas, logo abaixo).
+        $feriadoHoje = $this->calculadora->getFeriadoDoDia(
+            $agora,
+            $this->feriadosDaPessoa->filtrar($this->feriadoRepository->doEscritorio($tenant), $user, $agora),
+        ) !== null;
 
         // As batidas de hoje NESTE escritório (auditoria 1.13): a de outro escritório da pessoa não muda o aviso daqui.
         $batidasDoDia = $this->registroRepository->findBatidasDoDia($user, $tenant, $agora);
@@ -49,6 +67,10 @@ class VerificadorAlertaPonto
         $saidaRegistrada   = isset($porTipo[RegistroPonto::TIPO_SAIDA]);
 
         if (!$entradaRegistrada) {
+            if ($feriadoHoje) {
+                return $this->semAlerta();
+            }
+
             return [
                 'alertar'  => true,
                 'tipo'     => 'entrada',
@@ -59,7 +81,7 @@ class VerificadorAlertaPonto
 
         if (!$repousoRegistrado) {
             // Verifica horário configurado (±5 min) — tem prioridade sobre CLT
-            $alertaRepouso = $this->verificarRepousoPorHorario($jornada, $agora, $jornadaTenant);
+            $alertaRepouso = $feriadoHoje ? null : $this->verificarRepousoPorHorario($jornada, $agora, $jornadaTenant);
             if ($alertaRepouso !== null) {
                 return $alertaRepouso;
             }
@@ -96,7 +118,8 @@ class VerificadorAlertaPonto
         }
 
         if ($retornoRegistrado && !$saidaRegistrada) {
-            $metaDiaMinutos = $this->jornadaResolver->resolverMetaDia($jornada, $agora, $jornadaTenant);
+            // Feriado zera a meta, como na folha: sem "Jornada concluída".
+            $metaDiaMinutos = $feriadoHoje ? 0 : $this->jornadaResolver->resolverMetaDia($jornada, $agora, $jornadaTenant);
             if ($metaDiaMinutos > 0) {
                 $entrada = $porTipo[RegistroPonto::TIPO_ENTRADA];
 
