@@ -72,6 +72,18 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
         self::assertSame(['ressalva', 'O dia 6 foi de folga.'], [$aceites[0]['situacao'], $aceites[0]['ressalva']]);
     }
 
+    #[TestDox('Navegador e ressalva com UTF-8 inválido: o byte inválido vira "?" antes de selar; grava, volta com "Folha assinada." e o aceite vale (nunca 500)')]
+    public function testUtf8InvalidoNoNavegadorENaRessalva(): void
+    {
+        $this->enviar(['situacao' => 'ressalva', 'ressalva' => "O dia 6 foi \xFF de folga."], navegador: "Mozilla/5.0 \xC3\x28teste)");
+
+        self::assertResponseRedirects('/ponto/?competencia=2026-10');
+        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos('success'));
+        $aceites = $this->aceitesNoBanco($this->escritorio, $this->maria);
+        self::assertSame(['O dia 6 foi ? de folga.', 'Mozilla/5.0 ?(teste)'], [$aceites[0]['ressalva'], $aceites[0]['navegador']]);
+        self::assertFalse($this->estadoDoAceite()->daCompetencia($this->escritorio, $this->maria, 2026, 10)->alterada, 'o selo confere com o que foi gravado');
+    }
+
     #[TestDox('Sem o módulo Ponto no escritório da sessão: 403 e nada gravado')]
     public function testSemOModulo(): void
     {
@@ -212,7 +224,7 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
     }
 
     /** @param array<string, string> $campos os campos que mudam em relação ao concordo de outubro */
-    private function enviar(array $campos = [], ?User $quem = null, ?Tenant $onde = null): void
+    private function enviar(array $campos = [], ?User $quem = null, ?Tenant $onde = null, string $navegador = self::NAVEGADOR): void
     {
         $this->logarComTenant($this->client, $quem ?? $this->maria, $onde ?? $this->escritorio);
         $this->client->request('POST', '/ponto/folha/assinar', $campos + [
@@ -220,7 +232,7 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
             'competencia' => '2026-10',
             'situacao'    => 'concordo',
             'ressalva'    => '',
-        ], [], ['REMOTE_ADDR' => self::IP, 'HTTP_USER_AGENT' => self::NAVEGADOR]);
+        ], [], ['REMOTE_ADDR' => self::IP, 'HTTP_USER_AGENT' => $navegador]);
     }
 
     /** @return list<string> os avisos do tipo que o envio deixou para a próxima tela */

@@ -65,6 +65,15 @@ final class AssinarFolhaInputTest extends TestCase
         self::assertSame([], $this->mensagens(new AssinarFolhaInput(2026, 10, 'ressalva', str_repeat('á', 1000))));
     }
 
+    #[TestDox('Ressalva com UTF-8 inválido: o byte inválido vira "?" antes de contar e de gravar (o texto selado é JSON)')]
+    public function testRessalvaComUtf8Invalido(): void
+    {
+        $pedido = new AssinarFolhaInput(2026, 10, 'ressalva', "O dia 6 foi \xFF de folga.");
+
+        self::assertSame([], $this->mensagens($pedido));
+        self::assertSame('O dia 6 foi ? de folga.', $pedido->ressalvaParaGravar());
+    }
+
     /** @return array<string, string> caminho => mensagem */
     private function mensagens(AssinarFolhaInput $pedido): array
     {

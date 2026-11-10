@@ -46,8 +46,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * falha desfaz a folha vista e o aceite.
  * Pós-condições: uma folha emitida nova (a vista), um aceite novo que passa a valer e os dois eventos na trilha do
  * escritório. Não há desfazer (P33): uma nova assinatura só depois de a folha mudar (decisão 1).
- * Regras: o mesmo instante ({@see RelogioDaFolha}) no texto selado e nas colunas da folha vista e do aceite; o navegador
- * cortado no tamanho da coluna e a ressalva aparada ANTES de selar, para o selo conferir com o que foi gravado.
+ * Regras: o mesmo instante ({@see RelogioDaFolha}) no texto selado e nas colunas da folha vista e do aceite; o IP e o
+ * navegador sem UTF-8 inválido e cortados no tamanho da coluna, e a ressalva sem UTF-8 inválido e aparada
+ * ({@see AssinarFolhaInput::ressalvaParaGravar()}), ANTES de selar, para o selo conferir com o que foi gravado.
  */
 final class AssinarFolhaDoPontoUseCase
 {
@@ -154,9 +155,10 @@ final class AssinarFolhaDoPontoUseCase
         return $situacao === SituacaoDoAceiteDaFolha::Ressalva ? AcaoDaTrilhaDoPonto::FolhaAssinadaComRessalva : AcaoDaTrilhaDoPonto::FolhaAssinada;
     }
 
+    /** Sem UTF-8 inválido (o byte vira "?": o texto selado é JSON), aparado e cortado no tamanho da coluna. */
     private static function cortado(?string $valor, int $limite): ?string
     {
-        $valor = $valor === null ? '' : trim($valor);
+        $valor = $valor === null ? '' : trim(mb_scrub($valor, 'UTF-8'));
 
         return $valor === '' ? null : mb_substr($valor, 0, $limite);
     }
