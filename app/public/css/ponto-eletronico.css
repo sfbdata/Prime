@@ -1747,7 +1747,8 @@
 }
 
 /* Janela "Ver PDF" (P89, decisão 12): a moldura do desenho (L269 a L318) com o PDF num quadro. O desenho não tem
-   esta janela; a altura do quadro é a do modal que ela substitui (78vh). */
+   esta janela; a largura e a altura do quadro são as do modal que ela substitui (modal-xl, 1140px, e 78vh). */
+#ponto-janela-ver-pdf > .pe-janela { max-width: 1140px; }
 .pe-janela-corpo.pe-folha-ver-quadro { padding: 0; }
 .pe-folha-ver-quadro > iframe {
     display: block;
