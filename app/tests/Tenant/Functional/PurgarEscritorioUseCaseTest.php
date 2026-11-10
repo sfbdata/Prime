@@ -9,6 +9,7 @@ use App\Tenant\Exception\PurgaRecusada;
 use App\Tenant\UseCase\PurgarEscritorioUseCase;
 use App\Tests\Factory\Auth\UserFactory;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -57,6 +58,10 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         self::assertSame(0, array_sum($this->contarPorTenant((int) $tenant->getId())), 'nenhuma linha tenant-scoped pode sobrar');
         self::assertSame(1, $resultado->linhasPorTabela['voto.liberacao'] ?? 0, 'a liberação do Voto sai pela ordem de deleção, não pela cascata');
         self::assertSame(1, $resultado->linhasPorTabela['ponto_auditoria'] ?? 0, 'a trilha do Ponto (E9) sai pela ordem de deleção');
+        self::assertSame(5, $resultado->linhasPorTabela['ponto_ajuste'] ?? 0, 'os ajustes de batida (E10) saem antes da justificativa e da batida');
+        self::assertSame(1, $resultado->linhasPorTabela['registro_ponto'] ?? 0, 'a batida gravada sai com o escape da purga');
+        self::assertSame(1, $resultado->linhasPorTabela['justificativa_ponto'] ?? 0);
+        self::assertSame('', $this->escapeDaPurga(), 'o escape da purga volta a vazio depois do laço');
         self::assertGreaterThan(0, $resultado->totalLinhas());
         self::assertFalse($resultado->simulado);
     }
@@ -81,7 +86,35 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         self::assertSame(1, $this->existeTenant((int) $tenantB->getId()), 'tenant B intacto');
         self::assertSame($antesB, $this->contarPorTenant((int) $tenantB->getId()), 'nenhuma linha de B pode mudar');
         self::assertSame(1, $antesB['ponto_auditoria'], 'a trilha do Ponto de B fica inteira');
+        self::assertSame(5, $antesB['ponto_ajuste'], 'os ajustes de batida de B ficam inteiros');
+        self::assertSame(1, $antesB['registro_ponto'], 'a batida gravada de B fica');
         self::assertSame($permsB, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM permission'), 'catálogo global permission preservado');
+    }
+
+    #[TestDox('E10: o escape da purga vale só para o escritório purgado e só durante a purga: depois dela, a batida de outro escritório continua sem poder ser apagada')]
+    public function testEscapeDaPurgaSoDoProprioEscritorio(): void
+    {
+        $userId  = UserFactory::createOne()->getId();
+        $tenantA = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $tenantB = $this->criarTenant(ativo: true);
+        $this->semear((int) $tenantA->getId(), $userId);
+        $this->semear((int) $tenantB->getId(), $userId);
+
+        $this->sut->executar($tenantA, dryRun: false);
+
+        self::assertSame('', $this->escapeDaPurga(), 'nada do escape sobra na transação de quem chamou a purga');
+        $this->conn->beginTransaction();
+        try {
+            $this->conn->executeStatement('DELETE FROM registro_ponto WHERE tenant_id = ?', [$tenantB->getId()]);
+            $erro = null;
+        } catch (DriverException $e) {
+            $erro = $e->getMessage();
+        } finally {
+            $this->conn->rollBack();
+        }
+        self::assertNotNull($erro, 'o banco aceitou apagar a batida de outro escritório depois da purga');
+        self::assertStringContainsString('A batida gravada do ponto não pode ser apagada', $erro);
+        self::assertSame(1, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE tenant_id = ?', [$tenantB->getId()]));
     }
 
     #[TestDox('User compartilhado sobrevive à purga; só o vínculo com o escritório purgado some')]
@@ -332,6 +365,12 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         return $tenant;
     }
 
+    /** O valor do escape do gatilho de `registro_ponto` na transação (vazio quando nunca foi posto nem foi limpo). */
+    private function escapeDaPurga(): string
+    {
+        return (string) $this->conn->fetchOne("SELECT COALESCE(current_setting('bluejus.purga_do_escritorio', true), '')");
+    }
+
     private function existeTenant(int $tenantId): int
     {
         return (int) $this->conn->fetchOne('SELECT COUNT(*) FROM tenant WHERE id = :t', ['t' => $tenantId]);
@@ -385,6 +424,29 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
             $dados,
             $tipos,
         );
+    }
+
+    /**
+     * Ajustes de batida do Ponto (E10): a linhagem do registro (alteração, desconsideração ligada à justificativa,
+     * restauração) e a inclusão do esquecimento ligada à justificativa, desconsiderada ao voltar para análise. Todas as
+     * FKs (registro, justificativa, inclusão, anterior, desfaz) são NO ACTION: a purga tem de apagar os ajustes antes da
+     * justificativa e da batida, e a batida só sai com o escape da purga do próprio escritório (gatilho).
+     *
+     * @return int quantas linhas de `ponto_ajuste` foram semeadas
+     */
+    private function semearAjustesDoPonto(int $t, int $u, int $registro, int $justificativa): int
+    {
+        $base = ['autor_nome' => 'Autor', 'autor_id' => $u, 'criado_em' => '2020-01-02 00:00:00', 'tenant_id' => $t, 'user_id' => $u];
+        $a = '2020-01-01 08:00:00';
+        $b = '2020-01-01 08:30:00';
+
+        $alteracao = $this->ins('ponto_ajuste', $base + ['tipo' => 'alteracao', 'motivo' => 'Hora errada', 'registro_ponto_id' => $registro, 'tipo_marcacao_anterior' => 'entrada', 'data_hora_anterior' => $a, 'tipo_marcacao_nova' => 'entrada', 'data_hora_nova' => $b]);
+        $fora      = $this->ins('ponto_ajuste', $base + ['tipo' => 'desconsideracao', 'motivo' => 'Análise', 'registro_ponto_id' => $registro, 'anterior_id' => $alteracao, 'justificativa_id' => $justificativa, 'tipo_marcacao_anterior' => 'entrada', 'data_hora_anterior' => $b]);
+        $this->ins('ponto_ajuste', $base + ['tipo' => 'restauracao', 'motivo' => 'Volta', 'registro_ponto_id' => $registro, 'anterior_id' => $fora, 'desfaz_id' => $fora, 'tipo_marcacao_nova' => 'entrada', 'data_hora_nova' => $b]);
+        $inclusao  = $this->ins('ponto_ajuste', $base + ['tipo' => 'inclusao', 'motivo' => 'Esquecimento', 'justificativa_id' => $justificativa, 'tipo_marcacao_nova' => 'saida', 'data_hora_nova' => '2020-01-01 18:00:00']);
+        $this->ins('ponto_ajuste', $base + ['tipo' => 'desconsideracao', 'motivo' => 'Voltou para análise', 'inclusao_id' => $inclusao, 'anterior_id' => $inclusao, 'desfaz_id' => $inclusao, 'justificativa_id' => $justificativa, 'tipo_marcacao_anterior' => 'saida', 'data_hora_anterior' => '2020-01-01 18:00:00']);
+
+        return 5;
     }
 
     /** @return array<string,mixed> */
@@ -508,8 +570,9 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // E6 do Ponto: o feriado da lotação segura a lotação (chave NO ACTION) e sai antes dela; a versão do histórico também.
         $this->ins('feriado', ['nome' => 'FL', 'data' => $d, 'recorrente' => false, 'tenant_id' => $t, 'lotacao_id' => $lot]);
         $this->ins('lotacao_vigencia', ['user_id' => $u, 'tenant_id' => $t, 'lotacao_id' => $lot]);
-        $this->ins('registro_ponto', ['data_hora' => $ts, 'tipo' => 'entrada', 'user_id' => $u, 'tenant_id' => $t]);
-        $this->ins('justificativa_ponto', ['data' => $d, 'status' => 'pendente', 'user_id' => $u, 'abono_parcial' => false, 'tenant_id' => $t, 'anexo_path' => $hex()]);
+        $registro      = $this->ins('registro_ponto', ['data_hora' => $ts, 'tipo' => 'entrada', 'user_id' => $u, 'tenant_id' => $t]);
+        $justificativa = $this->ins('justificativa_ponto', ['data' => $d, 'status' => 'pendente', 'user_id' => $u, 'abono_parcial' => false, 'tenant_id' => $t, 'anexo_path' => $hex()]);
+        $this->semearAjustesDoPonto($t, $u, $registro, $justificativa);
         // Configuração do Ponto do escritório (E7): a camada Escritório das chaves e os ajustes.
         $this->ins('ponto_config_escritorio', ['chaves' => '{"ponto-geo":false}', 'atualizado_em' => $ts, 'atualizado_por_id' => $u, 'tenant_id' => $t]);
         // Trilha de auditoria do Ponto (E9): a cadeia do escritório sai com ele, e a do outro fica (isolamento).

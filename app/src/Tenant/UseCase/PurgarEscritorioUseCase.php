@@ -378,11 +378,17 @@ final class PurgarEscritorioUseCase
         ['agenda_google_conexao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['jornada_colaborador', 'tenant_id = :tenant'],
+        // Ajustes de batida do Ponto (E10): apontam (NO ACTION) para a justificativa, a batida gravada e uns para os
+        // outros; saem ANTES de justificativa_ponto e de registro_ponto. As referências entre ajustes ficam todas no
+        // mesmo escritório e caem no mesmo DELETE.
+        ['ponto_ajuste', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         // Comprovante do ponto (E15): FK tenant_id sem cascata, e o registro_ponto_id só fica nulo quando a batida sai
         // (SET NULL): a linha sai aqui, antes das batidas. O contador de NSR não é referenciado por ninguém.
         ['ponto_comprovante', 'tenant_id = :tenant'],
         ['ponto_contador_nsr', 'tenant_id = :tenant'],
+        // A batida gravada só sai na purga: o gatilho `registro_ponto_so_insercao` deixa o DELETE passar só com
+        // `bluejus.purga_do_escritorio` igual ao escritório da linha (ver executar()).
         ['registro_ponto', 'tenant_id = :tenant'],
         // Horas pagas (ajuste manual do banco de horas): FK tenant_id/user_id NOT DEFERRABLE, sem
         // ON DELETE CASCADE (NO ACTION) — deleção explícita, no mesmo bloco das outras tabelas de
@@ -603,6 +609,10 @@ final class PurgarEscritorioUseCase
 
             $linhas = [];
 
+            // A batida gravada do Ponto só sai com a purga deste escritório (gatilho `registro_ponto_so_insercao`, E10):
+            // o escape vale só dentro desta transação (is_local) e volta a vazio logo depois do laço.
+            $conn->executeStatement("SELECT set_config('bluejus.purga_do_escritorio', :tenant, true)", ['tenant' => (string) $tenantId]);
+
             foreach (self::ORDEM_DELECAO as [$tabela, $where]) {
                 $n = (int) $conn->executeStatement(
                     sprintf('DELETE FROM %s WHERE %s', $tabela, $where),
@@ -613,6 +623,8 @@ final class PurgarEscritorioUseCase
                     $linhas[$tabela] = $n;
                 }
             }
+
+            $conn->executeStatement("SELECT set_config('bluejus.purga_do_escritorio', '', true)");
 
             // Fase 3.5 — verificação de integridade (guard anti-drift): nada tenant-scoped pode sobrar.
             $this->garantirTenantVazio($conn, $tenantId);
