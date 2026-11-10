@@ -12,6 +12,8 @@ use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Pdf\CartaoDoManifesto;
 use App\AssinaturaEletronica\Pdf\SituacaoNoManifesto;
+use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
+use App\AssinaturaEletronica\Service\ApresentacaoDaConferencia;
 use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
 use App\AssinaturaEletronica\Service\ManifestoDoDocumento;
 use App\AssinaturaEletronica\Service\TextoDoEvento;
@@ -124,7 +126,7 @@ final class ManifestoDoDocumentoTest extends TestCase
     public function testMesmoTextoDaTela(): void
     {
         $documento = $this->quatroSignatarios();
-        $tela = new ApresentacaoDoDocumento(self::urls(), self::tradutorDaAssinatura(), new Packages(new Package(new EmptyVersionStrategy())), $this->chave);
+        $tela = new ApresentacaoDoDocumento(self::urls(), self::tradutorDaAssinatura(), new Packages(new Package(new EmptyVersionStrategy())), $this->chave, $this->createStub(VersaoDoPdfRepository::class), new ApresentacaoDaConferencia(self::tradutorDaAssinatura()));
 
         $daTela = array_column(array_reverse($tela->detalhe($documento, $this->eventosDaTrilha->doDocumento($documento))['eventos']), 'texto');
         $doPdf = array_map(static fn (string $linha): string => substr($linha, \strlen('09/11/2026, 09:00:00  ')), $this->manifesto()->de($documento)->eventos);

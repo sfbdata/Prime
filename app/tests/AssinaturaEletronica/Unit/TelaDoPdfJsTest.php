@@ -36,7 +36,7 @@ final class TelaDoPdfJsTest extends TestCase
 
         self::assertCount(1, $html->filter('td.bjaTdAc > button.bjaB.bjaI[data-bja-acao="lin-pdf"] + button.bjaB[data-bja-acao="abrir"] + button.bjaB.bjaI.bjaN[data-bja-acao="ctx"]'));
         self::assertCount(1, $html->filter('td.bjaTdAc > button[data-bja-acao="lin-pdf"] > i.bi.bi-file-earmark-pdf'));
-        self::assertStringContainsString("(temLink(d) ? acoesDaLinha() : '') + botaoPdfDaLinha() + '<button", $js, 'depois de copiar link e lembrete');
+        self::assertStringContainsString("(temLink(d) ? acoesDaLinha() : '') + (V ? V.botaoDaLinha(d, d.stA) : '') + botaoPdfDaLinha() + '<button", $js, 'depois de copiar link, lembrete e Vincular (dc:149)');
         self::assertStringContainsString("aria-label=\"' + esc(T('pdf.baixar_rotulo')) + '\" data-tip=\"' + esc(T('pdf.baixar')) + '\"", $js);
     }
 
@@ -48,7 +48,7 @@ final class TelaDoPdfJsTest extends TestCase
 
         self::assertCount(1, $html->filter('.bjaCodBts > button.bjaP[data-bja-acao="det-retomar"] + button.bjaP[data-bja-acao="det-pdf"] + button.bjaB.bjaR[data-bja-acao="det-cancelar"]'));
         self::assertCount(1, $html->filter('.bjaCodBts > button[data-bja-acao="det-pdf"] > i.bi.bi-file-earmark-pdf'));
-        self::assertStringContainsString("esc(d.folhaBranca ? T('pdf.baixar_rotulo') : T('pdf.baixar'))", $js);
+        self::assertStringContainsString("esc(J ? J.rotuloDoBaixar(d) : (d.folhaBranca ? T('pdf.baixar_rotulo') : T('pdf.baixar')))", $js, 'o rótulo do 5A quando o documento já chegou assinado (dc:462)');
     }
 
     #[TestDox('menu de mais opções: "Baixar PDF com selo" depois de "Enviar lembrete" e antes de "Duplicar"')]

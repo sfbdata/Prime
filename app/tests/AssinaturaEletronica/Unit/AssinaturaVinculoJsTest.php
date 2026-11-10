@@ -96,7 +96,7 @@ final class AssinaturaVinculoJsTest extends TestCase
         $tela = self::ler(self::TELA);
 
         self::assertStringContainsString("'</div>' + (V ? V.textoDaLinha(d) : '') + '</td>'", self::corpo($tela, 'linhaHtml'));
-        self::assertStringContainsString("(temLink(d) ? acoesDaLinha() : '') + (V ? V.botaoDaLinha(d, d.stA) : '') + '<button type=\"button\" class=\"bjaB\" data-bja-acao=\"abrir\">'", self::corpo($tela, 'linhaHtml'));
+        self::assertStringContainsString("(temLink(d) ? acoesDaLinha() : '') + (V ? V.botaoDaLinha(d, d.stA) : '') + botaoPdfDaLinha() + '<button type=\"button\" class=\"bjaB\" data-bja-acao=\"abrir\">'", self::corpo($tela, 'linhaHtml'));
 
         $ctx = self::corpo($tela, 'ctxHtml');
         self::assertLessThan(strpos($ctx, "'ctx-duplicar'"), strpos($ctx, 'V.itemDoMenu(d0, d0.stA)'));

@@ -64,7 +64,7 @@ final class PdfFinalComSeloTest extends TestCase
         self::assertStringStartsWith('%PDF-', $pdf);
         self::assertSame($chave->nome, $documento->getArquivoFinalChave());
         self::assertSame(hash('sha256', $pdf), $documento->getHashFinal());
-        self::assertSame(2, (new PdfLido($pdf))->paginas(), 'o conteúdo e o manifesto');
+        self::assertSame(1, (new PdfLido($pdf))->paginas(), 'sem conteúdo, só o manifesto (dc:406)');
         self::assertEquals([new PdfFinalGuardado(1)], $this->ouvidos);
 
         self::assertEquals($chave, $this->servico()->garantir($documento));

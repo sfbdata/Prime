@@ -9,13 +9,13 @@ use App\AssinaturaEletronica\Pdf\ManifestoDeAssinaturas;
 use App\AssinaturaEletronica\Pdf\MontadorDoPdf;
 use App\AssinaturaEletronica\Pdf\RasterDoPdfEnviado;
 use App\AssinaturaEletronica\Pdf\RecursosDaFolha;
-use App\AssinaturaEletronica\Pdf\SemPaginasDepoisDoConteudo;
 use App\AssinaturaEletronica\Pdf\SituacaoNoManifesto;
 use App\AssinaturaEletronica\Pdf\Tela;
 use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 /**
  * O manifesto de assinaturas (A2, dc:417-420): quantas páginas ele pede antes de desenhar (cartões de 128 em 128 a
@@ -80,7 +80,7 @@ final class ManifestoDeAssinaturasTest extends TestCase
     {
         FolhaDeTeste::exigirFontes($this);
         $manifesto = self::manifesto(8, 0);
-        $recursos = new RecursosDaFolha(FolhaDeTeste::folha(null, ['paginasDepois' => new SemPaginasDepoisDoConteudo()]), new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), null));
+        $recursos = new RecursosDaFolha(FolhaDeTeste::folha(null, ['paginasDepois' => FolhaDeTeste::manifestoSemPaginas()]), new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), null, new NullLogger(), 'manifesto'));
 
         $primeira = Tela::pagina();
         $manifesto->desenhar(0, $primeira, $recursos);
@@ -114,7 +114,7 @@ final class ManifestoDeAssinaturasTest extends TestCase
         self::assertSame(1 + 2, (new PdfLido($pdf))->paginas());
 
         $semManifesto = '';
-        foreach ((new MontadorDoPdf(ghostscriptBin: GhostscriptDeTeste::binario()))->emPedacos(FolhaDeTeste::folha(null, ['paginasDepois' => new SemPaginasDepoisDoConteudo()])) as $pedaco) {
+        foreach ((new MontadorDoPdf(ghostscriptBin: GhostscriptDeTeste::binario()))->emPedacos(FolhaDeTeste::folha(null, ['paginasDepois' => FolhaDeTeste::manifestoSemPaginas()])) as $pedaco) {
             $semManifesto .= $pedaco;
         }
         self::assertSame(1, (new PdfLido($semManifesto))->paginas());
