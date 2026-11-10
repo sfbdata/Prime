@@ -98,4 +98,19 @@ final class AssistenteDaAssinaturaJsTest extends TestCase
         self::assertStringContainsString('.bja .bjaTdSel { width: 30px; }', $css);
         self::assertStringNotContainsString('td.bjaTdSel { width: auto; }', $css, 'o @media não muda a largura da seleção');
     }
+
+    #[TestDox('Janelas e aviso com as medidas do desenho (L281, L283, L285): content-box, sem border-box, na lista e na tela pública')]
+    public function testJanelasEAvisoComAsMedidasDoDesenho(): void
+    {
+        foreach (['assinatura.css' => ['.bja ', '460'], 'assinatura-publica.css' => ['.bjaPub ', '440']] as $arquivo => [$raiz, $largura]) {
+            $css = (string) file_get_contents(self::APP . '/public/css/' . $arquivo);
+            self::assertStringContainsString($raiz . '.bjaModalCx { width: 100%; max-width: ' . $largura . 'px; }', $css, $arquivo);
+
+            $inicio = strpos($css, $raiz . '.bjaToast {');
+            self::assertNotFalse($inicio, $arquivo);
+            $regra = substr($css, $inicio, (int) strpos($css, '}', $inicio) - $inicio);
+            self::assertStringContainsString('max-width: calc(100vw - 28px);', $regra, $arquivo);
+            self::assertStringNotContainsString('box-sizing', $regra, $arquivo . ': o aviso herda o content-box do desenho');
+        }
+    }
 }

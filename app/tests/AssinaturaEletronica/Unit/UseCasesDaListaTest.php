@@ -85,6 +85,22 @@ final class UseCasesDaListaTest extends TestCase
         ], $this->eventosGravados());
     }
 
+    #[TestDox('Lixeira: o vencido continua Expirado e só registra "Movido para a Lixeira", sem cancelamento')]
+    public function testMoverParaLixeiraComVencido(): void
+    {
+        $vencido = $this->documento(1, SituacaoDoDocumento::Aguardando);
+        // Um segundo antes do relógio do teste, que o MockClock monta em UTC.
+        $venceu = new \DateTimeImmutable('2026-11-09 09:59:59', new \DateTimeZone('UTC'));
+        (new \ReflectionProperty(DocumentoParaAssinar::class, 'venceEm'))->setValue($vencido, $venceu);
+        $this->selecionar([1], [$vencido]);
+
+        $this->moverParaLixeira()->executar(new User(), $this->tenant, [1]);
+
+        self::assertSame(SituacaoDoDocumento::Aguardando, $vencido->getSituacao(), 'não vira Cancelado');
+        self::assertTrue($vencido->estaNaLixeira());
+        self::assertSame([[1, TipoDeEvento::MovidoParaLixeira]], $this->eventosGravados());
+    }
+
     #[TestDox('Lixeira: o que outra ação levou para a Lixeira depois da leitura não ganha evento de novo (decide com a linha travada e relida)')]
     public function testMoverParaLixeiraDecideComALinhaRelida(): void
     {

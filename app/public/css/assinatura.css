@@ -320,11 +320,11 @@
 .bja .bjaCtxCoresLin { display: flex; gap: 4px; }
 
 .bja .bjaModal { position: fixed; inset: 0; z-index: 2147483300; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
-.bja .bjaModalCx { width: 100%; max-width: 460px; box-sizing: border-box; }
+.bja .bjaModalCx { width: 100%; max-width: 460px; }
 .bja .bjaModalTx { padding: 14px 16px; font-size: 14px; line-height: 1.5; color: var(--bja-corpo); }
 .bja .bjaModalPe { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; background: var(--bja-sutil); }
 
-.bja .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); box-sizing: border-box; background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }
+.bja .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }
 .bja .bjaToast.is-erro { background: #a3232b; }
 .bja .bjaToast.is-aviso { background: #8a6200; }
 .bja .bjaToast.is-info { background: #0a6fa0; }

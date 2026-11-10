@@ -14,9 +14,9 @@ use App\Entity\Tenant\Tenant;
 use Psr\Clock\ClockInterface;
 
 /**
- * "Excluir" da lista: leva para a Lixeira (desenho). O que aguardava assinatura tem o envio cancelado ("Envio
- * cancelado pela exclusão. Links desativados") e todo documento movido registra "Movido para a Lixeira. Evidências
- * preservadas". O que já estava na Lixeira fica como está, sem evento novo: a conferência é feita com a linha travada
+ * "Excluir" da lista: leva para a Lixeira (desenho). O que aguardava assinatura só dentro do prazo tem o envio
+ * cancelado ("Envio cancelado pela exclusão. Links desativados"); o vencido continua Expirado. Todo documento movido
+ * registra "Movido para a Lixeira. Evidências preservadas". O que já estava na Lixeira fica como está, sem evento novo: a conferência é feita com a linha travada
  * e relida, então dois cliques ao mesmo tempo não registram a mudança duas vezes.
  */
 final readonly class MoverParaLixeiraUseCase

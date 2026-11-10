@@ -59,8 +59,8 @@ nenhum.
 Com a chave `assinatura` ligada só para o Master, crie um documento de teste com um signatário Reforçada (passo 3,
 "Forma de assinatura") e o seu e-mail, envie e abra o link no celular: a tela mostra o aviso da selfie, o botão "Enviar
 selfie com documento" e pede a localização. Tire a selfie, permita a localização e assine. No detalhe do documento, o
-signatário aparece com "E-mail e código, selfie, localização ..." e a trilha com "... assinou (Reforçada): selfie e
-localização ...".
+signatário aparece com "E-mail e código, selfie, localização ..." e a trilha com "Assinado por {nome digitado} ·
+E-mail e código, selfie, localização ...".
 
 ## 6. Trocar a chave (só se vazar)
 

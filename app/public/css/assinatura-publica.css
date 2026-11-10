@@ -111,7 +111,7 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 
 /* ── Recusa (I1 a I5): a janela do desenho ──────────────────────────── */
 .bjaPub .bjaModal { position: fixed; inset: 0; z-index: 2147483100; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
-.bjaPub .bjaModalCx { width: 100%; max-width: 440px; box-sizing: border-box; }
+.bjaPub .bjaModalCx { width: 100%; max-width: 440px; }
 .bjaPub .bjaModalCorpo { padding: 14px 16px; }
 .bjaPub .bjaModalPe { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; background: #f7f9fb; }
 
@@ -129,7 +129,7 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 .bjaPub .bjaOkFim { height: 44px; padding: 0 18px; border: 1px solid rgba(255, 255, 255, .7); border-radius: 3px; background: transparent; color: #fff; font: inherit; font-size: 15px; cursor: pointer; margin: 0; }
 
 /* ── Aviso (K1) ─────────────────────────────────────────────────────── */
-.bjaPub .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); box-sizing: border-box; background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }
+.bjaPub .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }
 .bjaPub .bjaToast.is-erro { background: #a3232b; }
 .bjaPub .bjaToast.is-aviso { background: #8a6200; }
 .bjaPub .bjaToast.is-info { background: var(--bjt-p, #0a6fa0); }
