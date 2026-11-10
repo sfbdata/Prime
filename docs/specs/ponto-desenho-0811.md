@@ -919,7 +919,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     excluída pelo colaborador, abonada, recusada, voltou para análise, abono em lote (um evento com as abonadas), lançada
     já abonada pelo gestor (mais uma "batida do esquecimento abonado" por batida que o lançamento cria, o mesmo evento da
     análise), batida do esquecimento abonado, escala alterada (as 3 versões da jornada, autor da sessão), a chave de
-    uma função do Escritório ligada ou desligada ("Configuração do escritório", dc L475: "Geolocalização desativado";
+    uma função do Escritório ligada ou desligada ("Configuração do escritório", dc L761: "Geolocalização desativado";
     grava na mesma transação da chave, provado em teste) e a "Sincronização" da fila sem internet (dc L438, ver E14);
   - atomicidade provada em teste: se o fato falha depois do evento (horário futuro na batida do esquecimento, dentro do
     abono), o evento sai junto; se a trilha falha, a batida e o abono não ficam gravados;
@@ -936,7 +936,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     justificativa "dd/mm/aaaa · Tipo · subtítulo" (o subtítulo é a batida esquecida, "Saída às 18:00", ou o abono
     parcial, "Parcial: 14:00 às 16:00"; o detalhe grava `parcial`, `parcial_de` e `parcial_ate`). Extras necessários
     que ficam: o nome do colaborador na frente, a data da batida (a da fila e a do esquecimento não são do dia do
-    evento), " · home office" e o período do lote ("de dd/mm/aaaa a dd/mm/aaaa (N dias)", ou "dd/mm/aaaa (N
+    evento), " · home office" e o período do lote ("dd/mm/aaaa a dd/mm/aaaa (N dias)", ou "dd/mm/aaaa (N
     justificativas)" quando o lote é de um dia só); a sede saiu do texto e continua no detalhe gravado;
   - desvio do desenho (dc L601, decisão do Coordenador de 09/11/2026): a observação da análise não entra no detalhe de
     "Justificativa abonada" e "recusada". Ela já aparece na coluna "Obs. da Análise" (lida da justificativa), é texto

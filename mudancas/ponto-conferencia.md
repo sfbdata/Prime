@@ -1,5 +1,5 @@
 ---
-tipo: correcao
+tipo: novidade
 ---
 ## Changelog
 - Ponto Eletrônico, conferência do desenho 16 (09/11/2026): o texto da coluna "Detalhe" da aba Auditoria segue o formato do desenho. A batida mostra os segundos e as marcas " · home office" e " · sem internet" (chave `sem_internet` gravada no detalhe dos eventos novos); a justificativa sai como "dd/mm/aaaa · Tipo · subtítulo", com a batida esquecida ou o abono parcial (`parcial`, `parcial_de` e `parcial_ate` no detalhe); o abono em lote de um dia só mostra "(N justificativas)". O texto é gerado na leitura, então os eventos antigos também mudam de aparência, sem mexer no selo.

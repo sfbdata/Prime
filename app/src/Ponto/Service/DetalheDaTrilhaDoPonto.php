@@ -22,7 +22,8 @@ use App\Ponto\Enum\TipoJustificativa;
  * 08:01:12", com " · sem internet" quando veio da fila; a justificativa é "dd/mm/aaaa · Tipo · Saída às 18:00". Ficam,
  * como extras necessários, o nome do colaborador na frente (o autor da linha nem sempre é ele), a data da batida (a
  * da fila e a do esquecimento não são do dia do evento), o " · home office" (a marca do lugar, como o " · trabalho
- * externo" do desenho) e o período do lote ("de a até (N dias)"), que grava um evento só para o envio inteiro.
+ * externo" do desenho) e o período do lote ("dd/mm/aaaa a dd/mm/aaaa (N dias)", ou "dd/mm/aaaa (N justificativas)"
+ * num dia só), que grava um evento só para o envio inteiro.
  */
 final class DetalheDaTrilhaDoPonto
 {
