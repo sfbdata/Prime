@@ -50,6 +50,10 @@ Do Coordenador (09/11), com o motivo:
 8. Erro do servidor ao salvar: aviso vermelho com o `{erro}` do 422 e o editor continua aberto com o conteúdo.
    Modelo apagado por outra pessoa (404): aviso vermelho e volta à aba Modelos.
 9. Componentes e valores do desenho; o que o sistema tem e o desenho não tem sai; sem travessão no texto visível.
+10. ⚠ **Defeito do desenho: a aba Modelos não filtra** (Coordenador, 10/11, segunda conferência). No desenho a aba
+    filtra pelo `mBusca` (L450), mas esse texto é o da busca do passo 1 do assistente (L431, L456, L458) e a aba não
+    tem campo nem comando para limpá-lo: o que se buscou no passo 1 esconderia modelos da aba sem a pessoa saber por
+    quê. A aba mostra todos os modelos; a busca do passo 1 continua como o desenho.
 
 Desvios novos, desta implementação (para a revisão do Coordenador):
 

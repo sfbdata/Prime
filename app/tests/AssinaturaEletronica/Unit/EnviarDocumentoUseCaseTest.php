@@ -60,7 +60,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $this->cadeia = new ValidadorDeCadeiaNaoConfigurado();
     }
 
-    #[TestDox('envia: aguardando, sha256 do token de cada signatário guardado e um convite com o link a cada um, Reply-To de quem enviou')]
+    #[TestDox('envia: aguardando, "Documento criado" antes de "Enviado", sha256 do token de cada signatário e um convite com o link a cada um, Reply-To de quem enviou')]
     public function testEnvia(): void
     {
         $documento = $this->rascunho();
@@ -68,7 +68,8 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $detalhe = $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
 
         self::assertSame(SituacaoDoDocumento::Aguardando, $documento->getSituacao());
-        self::assertSame(['documento_enviado', 'convite_enviado', 'convite_enviado'], $this->tiposGravados());
+        self::assertSame(['documento_criado', 'documento_enviado', 'convite_enviado', 'convite_enviado'], $this->tiposGravados(), 'desenho L374; decisão de 10/11');
+        self::assertSame($this->advogada, $this->ultimoGravado(TipoDeEvento::DocumentoCriado)->getUsuario());
         self::assertSame($this->advogada, $this->ultimoGravado(TipoDeEvento::DocumentoEnviado)->getUsuario());
         self::assertCount(2, $this->mailer->enviados);
         foreach ($documento->getSignatarios() as $i => $signatario) {
@@ -81,7 +82,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
             self::assertSame('advogada@escritorio.test', $email->getReplyTo()[0]->getAddress());
             self::assertSame("Silva & D'Ávila Advogados via BlueJus", $email->getFrom()[0]->getName());
         }
-        self::assertSame(['para' => 'a***@exemplo.com', 'chave' => 1], $this->gravados[1]->getDados());
+        self::assertSame(['para' => 'a***@exemplo.com', 'chave' => 1], $this->gravados[2]->getDados());
     }
 
     #[TestDox('com "em ordem", o convite vai só ao primeiro')]
@@ -92,7 +93,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
 
         self::assertSame('ana@exemplo.com', $this->unicoEmail()->getTo()[0]->getAddress());
-        self::assertSame(['documento_enviado', 'convite_enviado'], $this->tiposGravados());
+        self::assertSame(['documento_criado', 'documento_enviado', 'convite_enviado'], $this->tiposGravados());
     }
 
     #[TestDox('e-mail fora do ar: o envio fica, cada convite vira "email_nao_enviado" e o log não leva o link')]
@@ -104,7 +105,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
 
         self::assertSame(SituacaoDoDocumento::Aguardando, $documento->getSituacao());
-        self::assertSame(['documento_enviado', 'email_nao_enviado', 'email_nao_enviado'], $this->tiposGravados());
+        self::assertSame(['documento_criado', 'documento_enviado', 'email_nao_enviado', 'email_nao_enviado'], $this->tiposGravados());
         self::assertSame('falha_no_envio', $this->ultimoGravado(TipoDeEvento::EmailNaoEnviado)->getDados()['motivo']);
         self::assertCount(2, $this->logger->doNivel('error'));
         $this->assertLogSemToken(...array_map($this->chave->token(...), $documento->getSignatarios()));
@@ -221,7 +222,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
     }
 
-    #[TestDox('signatário Simples sem e-mail: recusa com o nome dele e o documento continua rascunho')]
+    #[TestDox('signatário Simples sem e-mail: recusa com o nome dele, o documento continua rascunho e a trilha ganha "Rascunho salvo"')]
     public function testSemEmail(): void
     {
         $documento = $this->rascunho();
@@ -236,6 +237,9 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         }
         self::assertSame(SituacaoDoDocumento::Rascunho, $documento->getSituacao());
         self::assertSame([], $this->mailer->enviados);
+        // A gravação do envio não registrou "Rascunho salvo"; a recusa da conferência registra (decisão de 10/11).
+        self::assertSame(['rascunho_salvo'], $this->tiposGravados());
+        self::assertSame($this->advogada, $this->ultimoGravado(TipoDeEvento::RascunhoSalvo)->getUsuario());
     }
 
     #[TestDox('Reforçada (etapa 7): o envio aceita, com a chave da selfie configurada')]

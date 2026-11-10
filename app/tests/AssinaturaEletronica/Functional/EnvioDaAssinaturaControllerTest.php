@@ -39,6 +39,13 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
     use NaTelaDeAssinatura;
     use NaAssinaturaEnviada;
 
+    /** O rascunho que o "Gerar links e enviar" grava antes do envio (Ana e Bia, Simples, com e-mail). */
+    private const DADOS_DO_ENVIO = [
+        'nome' => 'Contrato de honorários',
+        'signatarios' => [['nome' => 'Ana Lima', 'email' => 'ana@exemplo.com'], ['nome' => 'Bia Souza', 'email' => 'bia@exemplo.com']],
+        'blocos' => [['k' => 't', 'x' => 'Cláusula primeira.', 'full' => 0], ['k' => 'a', 'i' => 0, 'r' => ''], ['k' => 'a', 'i' => 1, 'r' => '']],
+    ];
+
     protected function setUp(): void
     {
         $this->client = static::createClient();
@@ -106,6 +113,7 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertSame('aguardando', $detalhe['situacao']);
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $detalhe['hashEnviado']);
         self::assertContains('Enviado para assinatura. Hash ' . substr((string) $detalhe['hashEnviado'], 0, 16) . '...', array_column($detalhe['eventos'], 'texto'), 'o texto do desenho, L375');
+        self::assertContains('Documento criado', array_column($detalhe['eventos'], 'texto'), 'o texto do desenho, L374');
         self::assertNotNull($detalhe['enviadoEm']);
         self::assertNull($detalhe['concluidoEm']);
         $tokens = self::tokens($detalhe);
@@ -115,12 +123,48 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
 
         $guardados = $this->conexao()->fetchFirstColumn('SELECT token_hash FROM assinatura_eletronica_signatario s JOIN assinatura_eletronica_documento d ON d.id = s.documento_id WHERE d.id = ? ORDER BY s.ordem', [$id]);
         self::assertSame([hash('sha256', (string) $tokens[0]), hash('sha256', (string) $tokens[1])], $guardados);
-        self::assertSame(['rascunho_salvo', 'documento_enviado', 'convite_enviado', 'convite_enviado'], $this->trilha($id));
+        self::assertSame(['rascunho_salvo', 'documento_criado', 'documento_enviado', 'convite_enviado', 'convite_enviado'], $this->trilha($id), 'o "Rascunho salvo" do usuário fica: a trilha só acrescenta');
         self::assertStringNotContainsString((string) $tokens[0], (string) json_encode($this->conexao()->fetchFirstColumn('SELECT dados FROM assinatura_eletronica_evento WHERE documento_id = ?', [$id])));
 
         $this->client->request('POST', '/assinatura/documentos/' . $id . '/enviar', [], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Este documento já foi enviado.', $this->json()['erro']);
+    }
+
+    #[TestDox('gravação do "Gerar links e enviar" (envio=1): não registra "Rascunho salvo"; o envio registra "Documento criado" (desenho L374)')]
+    public function testGravacaoDoEnvio(): void
+    {
+        $this->entrar(true);
+        $id = $this->gravarDoEnvio(null, self::DADOS_DO_ENVIO);
+        self::assertSame([], $this->trilha($id), 'criar com envio=1');
+        self::assertSame($id, $this->gravarDoEnvio($id, self::DADOS_DO_ENVIO));
+        self::assertSame([], $this->trilha($id), 'salvar com envio=1');
+
+        $detalhe = $this->enviar($id);
+
+        self::assertSame(['documento_criado', 'documento_enviado', 'convite_enviado', 'convite_enviado'], $this->trilha($id));
+        self::assertContains('Documento criado', array_column($detalhe['eventos'], 'texto'));
+        self::assertNotContains('Rascunho salvo', array_column($detalhe['eventos'], 'texto'));
+    }
+
+    #[TestDox('gravação do envio recusada pela conferência: o documento novo fica com "Rascunho salvo", não com a trilha vazia')]
+    public function testGravacaoDoEnvioRecusada(): void
+    {
+        $this->entrar(true);
+        $dados = self::DADOS_DO_ENVIO;
+        $dados['signatarios'][1] = ['nome' => 'Bia Souza'];
+        $id = $this->gravarDoEnvio(null, $dados);
+        self::assertSame([], $this->trilha($id));
+
+        $this->client->request('POST', '/assinatura/documentos/' . $id . '/enviar', [], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Informe o e-mail de Bia Souza para enviar o código de assinatura.', $this->json()['erro']);
+        self::assertSame(['rascunho_salvo'], $this->trilha($id));
+        $detalhe = $this->detalhe($id);
+        self::assertSame('rascunho', $detalhe['situacao']);
+        self::assertSame(['Rascunho salvo'], array_column($detalhe['eventos'], 'texto'));
+        self::assertEmailCount(0);
     }
 
     #[TestDox('com "em ordem", o convite vai só ao primeiro')]
@@ -292,5 +336,19 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/assinatura/documentos/' . $id . '/rubrica/0');
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    /**
+     * A gravação que o JS faz no "Gerar links e enviar": o mesmo POST do salvar, com `envio=1`.
+     *
+     * @param array<string, mixed> $dados
+     */
+    private function gravarDoEnvio(?int $id, array $dados): int
+    {
+        $url = '/assinatura/documentos' . ($id !== null ? '/' . $id : '');
+        $this->client->request('POST', $url, ['dados' => json_encode($dados, \JSON_THROW_ON_ERROR), 'envio' => '1'], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);
+        self::assertResponseIsSuccessful((string) $this->client->getResponse()->getContent());
+
+        return (int) $this->json()['id'];
     }
 }

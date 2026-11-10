@@ -36,6 +36,11 @@ use Psr\Clock\ClockInterface;
  * o índice único da coluna garante. Sem o segredo do selo, o envio recusa antes da transação.
  *
  * Etapa 5 (E5-2): gov.br e ICP só com o validador de cadeia configurado.
+ *
+ * Trilha (desenho L374; decisão de 10/11/2026): o envio registra "Documento criado" logo antes de "Enviado para
+ * assinatura". A gravação que o JS faz antes (`envio=1`) não registra "Rascunho salvo"; se a conferência do envio
+ * recusar, este caso registra "Rascunho salvo" no lugar. Os "Rascunho salvo" do próprio usuário ficam: a trilha só
+ * acrescenta.
  */
 final readonly class EnviarDocumentoUseCase
 {
@@ -69,22 +74,13 @@ final readonly class EnviarDocumentoUseCase
         $documento = $this->documentos->doEscritorioMesmoNaLixeira($id, $tenant) ?? throw new DocumentoNaoEncontrado();
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
 
-        $this->documentos->emTransacao(function () use ($documento, $tenant, $ator, $agora): void {
-            if (!$this->documentos->travarERecarregar($documento, $tenant)) {
-                throw new DocumentoNaoEncontrado();
-            }
-            $this->documentos->recarregarSignatarios($documento);
-            $documento->exigirEnviavel();
-            ConferenciaDoEnvio::exigir($documento, $this->cofre->configurado(), $this->cadeia->configurado());
-
-            $hash = $this->conteudo->hash($documento);
-            $documento->enviar($hash, $agora);
-            $this->gerarCodigo($documento, $hash);
-            foreach ($documento->getSignatarios() as $signatario) {
-                $signatario->definirTokenHash(ChaveDaAssinatura::hashDoToken($this->chave->token($signatario)));
-            }
-            $this->trilha->acrescentar($documento, TipoDeEvento::DocumentoEnviado, ['hash' => $hash], $ator);
+        $recusa = null;
+        $this->documentos->emTransacao(function () use ($documento, $tenant, $ator, $agora, &$recusa): void {
+            $recusa = $this->enviarNaTransacao($documento, $tenant, $ator, $agora);
         });
+        if ($recusa instanceof AcaoRecusada) {
+            throw $recusa;
+        }
 
         $this->correio->entregar(array_map(
             fn (Signatario $s): CartaDaAssinatura => CartaDaAssinatura::convite($s, $this->apresentacao->linkDoSignatario($s), $ator),
@@ -92,6 +88,39 @@ final readonly class EnviarDocumentoUseCase
         ));
 
         return $this->apresentacao->detalhe($documento, $this->eventos->doDocumento($documento));
+    }
+
+    /**
+     * Dentro da transação: trava e relê, confere e envia. A recusa da conferência volta (não é lançada) para o
+     * "Rascunho salvo" dela ser gravado no COMMIT; o chamador a lança depois.
+     */
+    private function enviarNaTransacao(DocumentoParaAssinar $documento, Tenant $tenant, User $ator, \DateTimeImmutable $agora): ?AcaoRecusada
+    {
+        if (!$this->documentos->travarERecarregar($documento, $tenant)) {
+            throw new DocumentoNaoEncontrado();
+        }
+        $this->documentos->recarregarSignatarios($documento);
+        $documento->exigirEnviavel();
+        try {
+            ConferenciaDoEnvio::exigir($documento, $this->cofre->configurado(), $this->cadeia->configurado());
+        } catch (AcaoRecusada $e) {
+            // A gravação feita pelo envio não registrou "Rascunho salvo": registra aqui, para o documento novo não
+            // ficar com a trilha vazia.
+            $this->trilha->acrescentar($documento, TipoDeEvento::RascunhoSalvo, [], $ator);
+
+            return $e;
+        }
+
+        $hash = $this->conteudo->hash($documento);
+        $documento->enviar($hash, $agora);
+        $this->gerarCodigo($documento, $hash);
+        foreach ($documento->getSignatarios() as $signatario) {
+            $signatario->definirTokenHash(ChaveDaAssinatura::hashDoToken($this->chave->token($signatario)));
+        }
+        $this->trilha->acrescentar($documento, TipoDeEvento::DocumentoCriado, [], $ator);   // desenho L374
+        $this->trilha->acrescentar($documento, TipoDeEvento::DocumentoEnviado, ['hash' => $hash], $ator);
+
+        return null;
     }
 
     /** O código de validação do selo: a primeira tentativa que nenhum documento usa. */
