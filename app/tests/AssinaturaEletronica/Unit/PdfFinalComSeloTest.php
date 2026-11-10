@@ -280,6 +280,27 @@ final class PdfFinalComSeloTest extends TestCase
         self::assertEquals([new PdfFinalGuardado(1)], $this->ouvidos);
     }
 
+    #[TestDox('sem o selo e a transação falha antes do COMMIT: nada de "guardado sem o selo" no log, e o PDF gravado sai')]
+    public function testFalhaNoCommitSemOSeloNaoAvisa(): void
+    {
+        $documento = $this->concluido();
+        $this->selando(static fn (): never => throw new FalhaNoSelo('nao_selavel', ClasseDaFalhaNoSelo::Definitiva, 422));
+        $recusa = new \RuntimeException('flush recusado');
+        $this->transacaoReal = new TransacaoComArquivoNovo($this->emQueFalhaNoFlush($recusa), new ConsultaDeDestinoFixa(DestinoDaTransacao::NaoConfirmada), new RemocaoAposTransacao($this->disco, $this->logger), $this->logger);
+
+        try {
+            $this->servico()->garantir($documento);
+            self::fail('a falha do flush deveria subir');
+        } catch (\RuntimeException $e) {
+            self::assertSame($recusa, $e);
+        }
+
+        $sobreOSelo = array_filter($this->logger->registros, static fn (array $r): bool => str_contains($r['mensagem'], 'sem o selo'));
+        self::assertSame([], $sobreOSelo, 'o aviso só sai depois do COMMIT');
+        self::assertFalse($this->disco->existe($this->disco->gravadas[0]));
+        self::assertSame([], $this->ouvidos);
+    }
+
     #[TestDox('falha do selo que tenta de novo: sobe antes da transação, sem nada no armazenamento nem na trilha, e a área temporária sai')]
     public function testFalhaNoSeloNaoGuardaNada(): void
     {

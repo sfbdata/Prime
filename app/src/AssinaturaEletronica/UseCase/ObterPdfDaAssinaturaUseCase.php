@@ -20,6 +20,7 @@ use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Service\PdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PdfFinalComSelo;
+use App\AssinaturaEletronica\Service\Selo\CadeiaDoSeloPendente;
 use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
 use App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf;
@@ -48,9 +49,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * termina e guarda, e o clique seguinte entrega o guardado.
  *
  * Selo (etapa 8, E8-4): a web tenta selar uma vez, nunca como última tentativa. Não configurado ou falha definitiva:
- * guarda sem o selo, como o worker. A {@see FalhaNoSelo} que tenta de novo não guarda nada: o pedido vai ao worker
- * ({@see GerarPdfFinalDoDocumento}, que tenta mais vezes) e a resposta é {@see PdfDoDocumentoSendoGerado}. Assim a web
- * nunca deixa um documento sem o selo por uma falha passageira.
+ * guarda sem o selo, como o worker. A {@see FalhaNoSelo} que tenta de novo não guarda nada: marca a cadeia do selo do
+ * documento ({@see CadeiaDoSeloPendente}), passa o pedido ao worker ({@see GerarPdfFinalDoDocumento}, que tenta mais
+ * vezes) só se a marca é nova, e responde {@see PdfDoDocumentoSendoGerado}. Assim a web nunca deixa um documento sem o
+ * selo por uma falha passageira. Com a cadeia marcada, o clique seguinte responde o mesmo antes da trava do documento,
+ * da vaga e da cota: não gera, não pede o selo e não abre outra cadeia.
  */
 final readonly class ObterPdfDaAssinaturaUseCase
 {
@@ -62,6 +65,7 @@ final readonly class ObterPdfDaAssinaturaUseCase
         private ClockInterface $relogio,
         private VagasDeGeracaoDoPdf $vagas,
         private MessageBusInterface $mensagens,
+        private CadeiaDoSeloPendente $cadeiaDoSelo,
     ) {
     }
 
@@ -135,18 +139,25 @@ final readonly class ObterPdfDaAssinaturaUseCase
     }
 
     /**
-     * O concluído sem PDF guardado: a trava do documento, a vaga e a cota, nessa ordem; as duas travas renovadas a cada
-     * pedaço e liberadas no fim. O selo que falha e tenta de novo passa o pedido ao worker.
+     * O concluído sem PDF guardado: a cadeia do selo pendente, a trava do documento, a vaga e a cota, nessa ordem; as
+     * duas travas renovadas a cada pedaço e liberadas no fim. O selo que falha e tenta de novo passa o pedido ao worker,
+     * uma vez por cadeia.
      *
      * @param \Closure(): bool $cabeNaCota
      *
-     * @throws PdfDoDocumentoSendoGerado outro pedido da web já gera, ou o selo falhou e o worker tenta de novo
+     * @throws PdfDoDocumentoSendoGerado o worker tenta o selo de novo, outro pedido da web já gera, ou o selo acabou de
+     *                                   falhar
      * @throws MuitosPdfsSendoGerados
      * @throws MuitosPdfsGerados
      */
     private function gerarEGuardar(DocumentoParaAssinar $documento, \Closure $cabeNaCota): ChaveDeArquivo
     {
-        $doDocumento = $this->vagas->travarDocumento((int) $documento->getId());
+        $id = (int) $documento->getId();
+        if ($this->cadeiaDoSelo->estaPendente($id)) {
+            throw new PdfDoDocumentoSendoGerado();
+        }
+
+        $doDocumento = $this->vagas->travarDocumento($id);
         try {
             $vaga = $this->ocuparVaga($cabeNaCota);
             try {
@@ -154,7 +165,9 @@ final readonly class ObterPdfDaAssinaturaUseCase
                     VagasDeGeracaoDoPdf::renovar($vaga, $doDocumento);
                 }, false);
             } catch (FalhaNoSelo) {
-                $this->mensagens->dispatch(new GerarPdfFinalDoDocumento((int) $documento->getId(), (int) $documento->getTenant()->getId()));
+                if ($this->cadeiaDoSelo->marcar($id)) {
+                    $this->mensagens->dispatch(new GerarPdfFinalDoDocumento($id, (int) $documento->getTenant()->getId()));
+                }
 
                 throw new PdfDoDocumentoSendoGerado();
             } finally {
