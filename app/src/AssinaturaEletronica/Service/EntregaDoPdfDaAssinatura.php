@@ -22,7 +22,7 @@ use Symfony\Component\Lock\LockInterface;
  * de geração é renovada a cada pedaço ({@see VagasDeGeracaoDoPdf::renovar()}) e liberada quando o último pedaço sai ou
  * a geração falha.
  *
- * {@see limitar()} vale só nas ações do PDF: `set_time_limit(300)` (fora da CLI, como o ChatIa: na CLI o limite vale
+ * {@see limitar()} vale só nas ações do PDF (o download e a cópia com carimbo): `set_time_limit(300)` (fora da CLI, como o ChatIa: na CLI o limite vale
  * para o processo inteiro do ParaTest) e `memory_limit` de 256M, como o worker (o FPM tem 128M e 30 s).
  */
 final readonly class EntregaDoPdfDaAssinatura
