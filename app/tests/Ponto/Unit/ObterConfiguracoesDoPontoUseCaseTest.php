@@ -43,14 +43,14 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertNull($this->casoDeUso(false, null, true)->executar(new User(), new Tenant()));
     }
 
-    #[TestDox('Sem linha e sem registro do Master: o comprovante e a geolocalização aparecem ligados nas duas camadas')]
+    #[TestDox('Sem linha e sem registro do Master: o comprovante, a geolocalização e os alertas de intervalo aparecem ligados nas duas camadas')]
     public function testNasceLigada(): void
     {
         $saida = $this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_USER']), new Tenant());
 
         self::assertNotNull($saida);
         self::assertFalse($saida->ehMaster);
-        self::assertCount(2, $saida->funcoes);
+        self::assertCount(3, $saida->funcoes);
         $comprovante = $saida->funcoes[0];
         self::assertSame(
             ['ponto-comprovante', 'Comprovante em imagem', 'bi-receipt', "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança."],
@@ -63,6 +63,9 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertTrue($geo->escritorio);
         self::assertFalse($geo->travada());
         self::assertTrue($geo->escritorioEfetivo());
+        $alertas = $saida->funcoes[2];
+        self::assertSame(['ponto-alertas', 'Alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.'], [$alertas->chave, $alertas->titulo, $alertas->icone, $alertas->ajuda]);
+        self::assertTrue($alertas->escritorioEfetivo(), 'os alertas nascem ligados (P96)');
     }
 
     #[TestDox('Global desligado: travada, a do escritório aparece desligada e o valor guardado continua')]
@@ -87,13 +90,13 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertTrue($this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), new Tenant())?->ehMaster);
     }
 
-    #[TestDox('Sem o selo do comprovante (segredo do HMAC ausente): só a geolocalização, sem o cartão do comprovante')]
+    #[TestDox('Sem o selo do comprovante (segredo do HMAC ausente): a geolocalização e os alertas, sem o cartão do comprovante')]
     public function testSemSeloSoAGeolocalizacao(): void
     {
         $saida = $this->casoDeUso(true, null, true, seloDisponivel: false)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), new Tenant());
 
         self::assertNotNull($saida);
-        self::assertSame(['ponto-geo'], array_map(static fn (FuncaoDoPontoOutput $funcao): string => $funcao->chave, $saida->funcoes));
+        self::assertSame(['ponto-geo', 'ponto-alertas'], array_map(static fn (FuncaoDoPontoOutput $funcao): string => $funcao->chave, $saida->funcoes));
         self::assertTrue($saida->funcoes[0]->escritorioEfetivo(), 'a geolocalização não muda');
     }
 

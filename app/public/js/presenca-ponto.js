@@ -31,6 +31,8 @@
     var AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. Abra o ponto e confira ANTES de bater de novo.';
     var AVISO_SEM_REDE = 'Você está sem internet e não dá para saber se a batida saiu. Quando a conexão voltar, abra o ponto e confira antes de bater de novo.';
     var AVISO_ATRASADO = 'Demorou demais para enviar e a batida não saiu, para não gravar a hora errada. Tente de novo.';
+    // E11 (P21): a frase fixa da janela "Antes de registrar" da tela do ponto (desenho 16, L288).
+    var NOTA_DO_ALERTA = 'O alerta não impede o registro: a folha deve refletir o horário real.';
 
     var estado = null;            // a última resposta de /ponto/estado-do-dia
     var envioEmAndamento = false; // trava do clique: cobre a posição, a releitura e o POST (spec F2)
@@ -128,6 +130,12 @@
         window.location.href = urlPonto + '?competencia=' + dia.slice(0, 7) + '&esquecimento=' + dia + ':saida';
     }
 
+    /* E11 (P21): a batida saiu da regra de intervalo (interjornada ou descanso semanal) e o servidor não gravou. Fora
+       disso, null. */
+    function alertaDe(resultado) {
+        return resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string' ? resultado.data.alerta : null;
+    }
+
     function mensagemDaCerca(onde) {
         var nome = onde.sede && onde.sede.nome ? onde.sede.nome : 'mais próxima';
 
@@ -178,6 +186,15 @@
                 return;
             }
             var resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
+            // E11: o alerta não impede o registro. O atalho pergunta como já pergunta na saída e, confirmado, manda de
+            // novo a MESMA batida (o mesmo `idEnvio`, nada foi gravado) com a confirmação; a hora é a da confirmação.
+            var alerta = alertaDe(resultado);
+            if (alerta !== null) {
+                if (!window.confirm(alerta + ' ' + NOTA_DO_ALERTA + ' Registrar assim mesmo?')) { return; }
+                payload.horaAparelho = Date.now();
+                payload.confirmarAlerta = true;
+                resultado = await PB.enviarBatida(urlBatida, payload, performance.now());
+            }
             if (resultado.tipo === 'sucesso') {
                 sucesso = true;
                 avisosDaBatida = avisosDe(resultado);

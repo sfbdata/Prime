@@ -11,9 +11,11 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\RecursoEstado;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\FuncoesDoPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -137,9 +139,10 @@ final class BatidaSemInternetControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $this->batidasDoUsuario());
     }
 
-    #[TestDox('O repouso mínimo vale na hora do aparelho: o retorno guardado 20 min depois do repouso é recusado')]
+    #[TestDox('Com a chave ponto-alertas desligada, o repouso mínimo vale na hora do aparelho: o retorno guardado 20 min depois do repouso é recusado')]
     public function testRepousoMinimoNaHoraDoAparelho(): void
     {
+        $this->desligarOsAlertas();
         // Ontem, longe da meia-noite: o retorno chega horas depois, e pela hora da chegada o intervalo estaria cumprido.
         $ontem = new \DateTimeImmutable('yesterday');
         $this->criarBatida(RegistroPonto::TIPO_REPOUSO, $ontem->setTime(12, 0), null);
@@ -149,6 +152,21 @@ final class BatidaSemInternetControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Intervalo mínimo de repouso é de 60 minuto(s). Aguarde mais 40 minuto(s).', $resposta['message']);
         self::assertCount(1, $this->batidasDoUsuario(), 'só o repouso');
+    }
+
+    #[TestDox('E11: com os alertas ligados, o retorno da fila com o repouso curto grava na hora do aparelho, sem a janela (a fila não fica presa no alerta)')]
+    public function testRetornoDaFilaComRepousoCurtoNaoFicaPreso(): void
+    {
+        $ontem = new \DateTimeImmutable('yesterday');
+        $this->criarBatida(RegistroPonto::TIPO_REPOUSO, $ontem->setTime(12, 0), null);
+
+        $resposta = $this->postarDaFila('retorno', $ontem->setTime(12, 20));
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertArrayNotHasKey('alerta', $resposta);
+        self::assertSame('12:20:00', $resposta['data']['hora']);
+        self::assertCount(2, $this->batidasDoUsuario());
     }
 
     #[TestDox('O retorno guardado depois do repouso mínimo entra com a hora do aparelho')]
@@ -400,6 +418,15 @@ final class BatidaSemInternetControllerTest extends JusPrimeWebTestCase
         $config->setDiasSemana([1, 2, 3, 4, 5, 6, 7]);
         $config->setAtivo(true);
         $this->em()->persist($config);
+        $this->em()->flush();
+    }
+
+    /** A chave `ponto-alertas` desligada pelo Master (camada Global): vale a recusa de antes da E11. */
+    private function desligarOsAlertas(): void
+    {
+        $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => FuncoesDoPonto::ALERTAS]) ?? new RecursoEstado(FuncoesDoPonto::ALERTAS);
+        $estado->desativar(null, null, null, new \DateTimeImmutable());
+        $this->em()->persist($estado);
         $this->em()->flush();
     }
 

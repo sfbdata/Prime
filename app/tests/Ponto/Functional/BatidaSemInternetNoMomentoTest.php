@@ -6,11 +6,13 @@ namespace App\Tests\Ponto\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Master\Entity\RecursoEstado;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\TurnoAbertoNoEscritorio;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDeJornadaPorEscritorioTrait;
@@ -71,9 +73,10 @@ final class BatidaSemInternetNoMomentoTest extends JusPrimeWebTestCase
         self::assertSame(3, $this->batidasEm($this->a));
     }
 
-    #[TestDox('Interjornada continua valendo no momento: a saída anterior à entrada da fila, a 8 h dela, recusa')]
+    #[TestDox('Com a chave ponto-alertas desligada, a interjornada continua valendo no momento: a saída anterior à entrada da fila, a 8 h dela, recusa')]
     public function testInterjornadaValeNoMomento(): void
     {
+        $this->desligarOsAlertas();
         $this->homeOfficeEmA([1, 2, 3, 4, 5, 6, 7]);
         $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->anteontem->setTime(14, 0));
         $this->registrarBatida($this->pessoa, $this->a, 'saida', $this->anteontem->setTime(22, 0));
@@ -83,6 +86,20 @@ final class BatidaSemInternetNoMomentoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Interjornada mínima é de 11h. Aguarde mais 3h00m.', $resposta['message']);
         self::assertSame(2, $this->batidasEm($this->a));
+    }
+
+    #[TestDox('E11: com os alertas ligados, a entrada da fila antes da interjornada grava na hora do aparelho, sem a janela (a fila não fica presa)')]
+    public function testEntradaDaFilaAntesDaInterjornadaNaoFicaPresa(): void
+    {
+        $this->homeOfficeEmA([1, 2, 3, 4, 5, 6, 7]);
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->anteontem->setTime(14, 0));
+        $this->registrarBatida($this->pessoa, $this->a, 'saida', $this->anteontem->setTime(22, 0));
+
+        $resposta = $this->daFila('entrada', $this->ontem->setTime(6, 0));
+
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+        self::assertArrayNotHasKey('alerta', $resposta);
+        self::assertSame(3, $this->batidasEm($this->a));
     }
 
     #[TestDox('Repouso mínimo: o repouso gravado DEPOIS do retorno da fila não mede o intervalo')]
@@ -237,6 +254,15 @@ final class BatidaSemInternetNoMomentoTest extends JusPrimeWebTestCase
         $config->setDiasSemana($dias);
         $config->setAtivo(true);
         $this->em()->persist($config);
+        $this->em()->flush();
+    }
+
+    /** A chave `ponto-alertas` desligada pelo Master (camada Global): vale a recusa de antes da E11. */
+    private function desligarOsAlertas(): void
+    {
+        $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => FuncoesDoPonto::ALERTAS]) ?? new RecursoEstado(FuncoesDoPonto::ALERTAS);
+        $estado->desativar(null, null, null, new \DateTimeImmutable());
+        $this->em()->persist($estado);
         $this->em()->flush();
     }
 

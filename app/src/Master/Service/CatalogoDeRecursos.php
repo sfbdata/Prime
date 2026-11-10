@@ -13,6 +13,7 @@ namespace App\Master\Service;
  * "Contribua (atalho)" dividem a chave `contribua` e mudam juntas. Depois do desenho entrou a tela
  * "Assinatura de documentos" (spec assinatura-documentos-etapa-1.md, seção 5): 21 linhas e 20 chaves. Depois, a tela
  * "Ponto Eletrônico" e a função "Ponto: geolocalização" (spec ponto-desenho-0811.md, E7 e P95): 23 linhas e 22 chaves.
+ * Depois, a função "Ponto: alertas de intervalo" (E11): 24 linhas e 23 chaves.
  *
  * O mapa de rotas (§4) mora aqui também, para haver uma fonte só: o guarda de rota
  * ({@see \App\Master\EventListener\BloqueioDeRecursoDesativado}) e a faixa do Master perguntam
@@ -65,6 +66,9 @@ final class CatalogoDeRecursos
         // `recurso_estado`); só emite com o segredo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoComprovante}).
         // Esta é a camada "Global": como a geolocalização, tem também a camada "Escritório" em ponto_config_escritorio.
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-comprovante', 't' => 'Ponto: comprovante em imagem', 'ic' => 'bi-receipt', 'd' => "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", 'tela' => false, 'base' => false],
+        // A camada "Global" dos alertas de intervalo do Ponto (E11, P21 e P96): nasce ligada, sem linha em recurso_estado.
+        // Sem rota: age na batida e no aviso do intervalo do cartão.
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-alertas', 't' => 'Ponto: alertas de intervalo', 'ic' => 'bi-exclamation-triangle', 'd' => 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', 'tela' => false, 'base' => false],
     ];
 
     /**
@@ -119,7 +123,7 @@ final class CatalogoDeRecursos
         'ponto_pendencia_do_dia',
     ];
 
-    /** @return list<string> as 22 chaves, na ordem da primeira aparição. */
+    /** @return list<string> as 23 chaves, na ordem da primeira aparição. */
     public static function chaves(): array
     {
         return array_values(array_unique(array_column(self::LINHAS, 'chave')));

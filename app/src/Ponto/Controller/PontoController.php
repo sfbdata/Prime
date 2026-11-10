@@ -42,7 +42,8 @@ use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\ChaveDoPontoEletronico;
 use App\Ponto\Service\TurnoAbertoNoEscritorio;
-use App\Ponto\Service\SaidaDeEsquecimento;
+use App\Ponto\Service\AlertasAntesDaBatida;
+use App\Ponto\Service\IntervaloDaBatida;
 use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\PublicoDosAvisosDePonto;
 use App\Ponto\Service\CartaoDePendenciaDoPonto;
@@ -118,7 +119,7 @@ final class PontoController extends AbstractController
         private readonly ChaveDoPontoEletronico $chaveDoPonto,
         private readonly TurnoAbertoNoEscritorio $turnoAberto,
         private readonly HorarioFuturoDaBatida $horarioFuturo,
-        private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
+        private readonly AlertasAntesDaBatida $alertasAntesDaBatida,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
         private readonly PublicoDosAvisosDePonto $publico,
         private readonly EnvioDaBatida $envioDaBatida,
@@ -271,6 +272,8 @@ final class PontoController extends AbstractController
             'jornadaInfo' => $jornadaInfo,
             'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
             'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,
+            // E11: com `ponto-alertas` desligada (Master ou escritório) o aviso do intervalo do cartão some (spec §7).
+            'alertasLigados'                 => $funcoes->vale(FuncoesDoPonto::ALERTAS, $tenant),
             'duracaoJornadaDiariaMinutos'    => $duracaoJornadaDiariaMinutos,
             'metaDiaMinutos'                 => $metaDiaMinutos,
             'justificativas'     => $justificativasDaCompetencia,
@@ -874,8 +877,6 @@ final class PontoController extends AbstractController
         // CSRF após os guards de autorização (a falha de autz tem prioridade e fica testável).
         $this->validarCsrfAjax($request);
 
-        $jornadaTenant = $tenant->getJornadaTenant();
-
         $data = json_decode($request->getContent(), true);
 
         if (!is_array($data)) {
@@ -984,29 +985,10 @@ final class PontoController extends AbstractController
             }
         }
 
-        if ($tipo === RegistroPonto::TIPO_RETORNO && ($jornadaTenant?->isValidacaoRepousoHabilitada() ?? true)) {
-            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $tenant, $hoje, $hoje);
-            if ($repousoDoDia !== null) {
-                $minimoMin   = $jornadaTenant?->getMinimoMinutosRepouso() ?? 60;
-                $diffMinutos = (int) round(
-                    ($hoje->getTimestamp() - $repousoDoDia->getDataHora()->getTimestamp()) / 60
-                );
-                if ($diffMinutos < $minimoMin) {
-                    return $this->json([
-                        'success' => false,
-                        'message' => sprintf(
-                            'Intervalo mínimo de repouso é de %d minuto(s). Aguarde mais %d minuto(s).',
-                            $minimoMin,
-                            $minimoMin - $diffMinutos
-                        ),
-                    ], 422);
-                }
-            }
-        }
-
-        $interjornada = $tipo === RegistroPonto::TIPO_ENTRADA ? $this->interjornada($user, $tenant, $jornadaTenant, $registroRepository, $hoje) : null;
-        if (isset($interjornada['recusa'])) {
-            return $this->json(['success' => false, 'message' => $interjornada['recusa']], 422);
+        // P21 (spec ponto-desenho-0811 E11): o intervalo curto, a interjornada e o 7º dia seguido avisam antes de gravar.
+        $intervalo = $this->alertasAntesDaBatida->avaliar($user, $tenant, $tipo, $hoje);
+        if (($resposta = $this->respostaDoIntervalo($intervalo, $envio, $data)) !== null) {
+            return $resposta;
         }
 
         $semEntrada = $this->faltouAEntrada($user, $tenant, $tipo, $hoje, $registroRepository);   // antes de gravar
@@ -1051,7 +1033,7 @@ final class PontoController extends AbstractController
                 default                        => 'Ponto registrado com sucesso!',
             } . ($comprovante !== null ? ' Comprovante na aba Comprovantes.' : ''),
             'data'    => $this->dadosDaBatida($registro, $posicao, $justificativaExterna !== null, $comprovante),
-            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
+            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $intervalo->avisoDepois, $semEntrada),
         ]);
     }
 
@@ -1220,42 +1202,23 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * A interjornada da entrada, medida pela última saída NESTE escritório (`ponto-por-escritorio.md` §2.1). Null quando
-     * está cumprida ou desligada; `recusa` quando a saída foi batida; `aviso` quando a saída veio de um registro de
-     * esquecimento (`ponto-esquecimento-nao-trava.md` R4): o esquecimento nunca trava a batida seguinte.
+     * A resposta das regras de intervalo antes de gravar (spec ponto-desenho-0811 P21 e E11). Com a chave `ponto-alertas`
+     * desligada, a recusa de antes (422). Com ela ligada, o alerta volta sem gravar (200, `success: false`, `alerta`) para
+     * a tela abrir a janela "Antes de registrar"; o "Registrar assim mesmo" manda de novo com `confirmarAlerta`. A batida
+     * da fila sem internet grava sem a janela, que não há como mostrar no toque, e nunca fica presa no alerta.
      *
-     * @return array{recusa?: string, aviso?: string}|null
+     * @param array<mixed> $dados o JSON da batida
      */
-    private function interjornada(User $user, Tenant $tenant, ?JornadaTenant $jornadaTenant, RegistroPontoRepository $registroRepository, \DateTimeImmutable $agora): ?array
+    private function respostaDoIntervalo(IntervaloDaBatida $intervalo, EnvioLidoDaBatida $envio, array $dados): ?JsonResponse
     {
-        if (!($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
+        if ($intervalo->recusa !== null) {
+            return $this->json(['success' => false, 'message' => $intervalo->recusa], 422);
+        }
+        if ($intervalo->alerta === null || $envio->semInternet || AlertasAntesDaBatida::confirmou($dados)) {
             return null;
         }
-        $ultimaSaida = $registroRepository->ultimaSaidaQueFechouTurno($user, $tenant, TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS, $agora);   // a solta não conta (R4)
-        if ($ultimaSaida === null) {
-            return null;
-        }
-        $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
-        $diffMinutos = (int) round(($agora->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60);
-        if ($diffMinutos >= $minimoInterjornada) {
-            return null;
-        }
-        if ($this->saidaDeEsquecimento->veioDeEsquecimento($ultimaSaida)) {
-            return ['aviso' => sprintf(
-                SaidaDeEsquecimento::AVISO_INTERJORNADA,
-                $ultimaSaida->getDataHora()->format('d/m'),
-                $ultimaSaida->getDataHora()->format('H:i'),
-                intdiv($minimoInterjornada, 60),
-            )];
-        }
-        $minFalt = $minimoInterjornada - $diffMinutos;
 
-        return ['recusa' => sprintf(
-            'Interjornada mínima é de %dh. Aguarde mais %dh%02dm.',
-            intdiv($minimoInterjornada, 60),
-            intdiv($minFalt, 60),
-            $minFalt % 60
-        )];
+        return $this->json(['success' => false, 'alerta' => $intervalo->alerta, 'message' => $intervalo->alerta]);
     }
 
     /**

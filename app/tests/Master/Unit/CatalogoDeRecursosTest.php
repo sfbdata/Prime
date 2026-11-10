@@ -19,25 +19,26 @@ final class CatalogoDeRecursosTest extends TestCase
     #[TestDox('24 linhas, 23 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(24, CatalogoDeRecursos::LINHAS);
-        self::assertCount(23, CatalogoDeRecursos::chaves());
+        self::assertCount(25, CatalogoDeRecursos::LINHAS);
+        self::assertCount(24, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
         self::assertFalse(CatalogoDeRecursos::ehEssencial('dashboard'));
         self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto'), 'a tela do Ponto desliga (E7)');
         self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto-geo'));
+        self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto-alertas'));
         self::assertSame(['contribua', 'contribua'], array_values(array_map(
             static fn (array $l): string => $l['chave'],
             array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => str_starts_with($l['t'], 'Contribua')),
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto e o comprovante do Ponto: 13 Telas, 7 Menu do usuário, 4 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante e os alertas do Ponto: 13 Telas, 7 Menu do usuário, 5 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 4], $porGrupo);
+        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 5], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
         self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[12]['chave']);
         self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
@@ -48,6 +49,8 @@ final class CatalogoDeRecursosTest extends TestCase
         $geo = CatalogoDeRecursos::LINHAS[22];
         self::assertSame(['Funções', 'ponto-geo', 'Ponto: geolocalização', 'Exige que o registro seja feito dentro do raio de uma sede.', false], [$geo['g'], $geo['chave'], $geo['t'], $geo['d'], $geo['tela']]);
         self::assertSame('ponto-comprovante', CatalogoDeRecursos::LINHAS[23]['chave'], 'comprovante do Ponto (E15) nas Funções, depois da geolocalização');
+        $alertas = CatalogoDeRecursos::LINHAS[24];
+        self::assertSame(['Funções', 'ponto-alertas', 'Ponto: alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', false, false], [$alertas['g'], $alertas['chave'], $alertas['t'], $alertas['ic'], $alertas['d'], $alertas['tela'], $alertas['base']]);
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');
         self::assertSame('Voto', CatalogoDeRecursos::titulo('voto'), 'Voto entra nas Telas, depois do Contribua (bj-recursos.js do desenho 18)');
         self::assertNull(CatalogoDeRecursos::titulo('inexistente'));

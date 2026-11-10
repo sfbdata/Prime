@@ -79,14 +79,15 @@ final class FuncoesDoPontoTest extends TestCase
         self::assertTrue($this->funcoes([], $configuracao)->vale(FuncoesDoPonto::GEO, $tenant));
     }
 
-    #[TestDox('O comprovante (E15) e a geolocalização (E7) têm a camada Escritório, nessa ordem; quem configura é admin.ponto.manage')]
+    #[TestDox('O comprovante (E15), a geolocalização (E7) e os alertas de intervalo (E11) têm a camada Escritório, nessa ordem; quem configura é admin.ponto.manage')]
     public function testCamadaEPermissao(): void
     {
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-geo'));
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-comprovante'));
         self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto'));
         self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto-facial'));
-        self::assertSame(['ponto-comprovante', 'ponto-geo'], array_keys(FuncoesDoPonto::COM_CAMADA_ESCRITORIO), 'a ordem do FEATS do desenho (L414 a L423)');
+        self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-alertas'));
+        self::assertSame(['ponto-comprovante', 'ponto-geo', 'ponto-alertas'], array_keys(FuncoesDoPonto::COM_CAMADA_ESCRITORIO), 'a ordem do FEATS do desenho (L414 a L423)');
 
         $quem = new User();
         $tenant = new Tenant();

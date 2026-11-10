@@ -135,9 +135,10 @@
 
                     {# P12: intervalo em andamento ou cumprido, saída prevista e saída passada. Desenhada pelo JS. O mínimo
                        do intervalo é o da Jornada do escritório e só vale com a validação do repouso ligada (regra em
-                       vigor); desligada, vai 0 e o aviso mostra só o tempo do intervalo, sem o mínimo. #}
+                       vigor); desligada, vai 0 e o aviso mostra só o tempo do intervalo, sem o mínimo. E11: com a chave
+                       `ponto-alertas` desligada também vai 0: some o mínimo (o aviso, spec §7) e fica só o tempo. #}
                     <div id="ponto-aviso-dia" class="pe-caixa d-none"
-                         data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada ? minimoMinutosRepouso : 0 }}"></div>
+                         data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada and alertasLigados ? minimoMinutosRepouso : 0 }}"></div>
 
                     {# P20 (E14), L127 do desenho: a caixa da fila sem internet, desenhada pelo JS e escondida com a fila
                        vazia. A primeira linha conta as batidas guardadas neste aparelho para esta pessoa neste escritório;
@@ -266,6 +267,9 @@
     </div>
 
     {% include 'ponto/_janelas_justificativa.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
+
+    {# Janela "Antes de registrar" (E11, P21): o alerta do intervalo, da interjornada ou do descanso semanal. #}
+    {% include 'ponto/_janela_antes_de_registrar.html.twig' only %}
 
     {# Janelas da E4 na moldura do desenho (L269 a L318), dentro da página para herdar os tokens `--pe-*`. Comportamento
        em js/ponto-janelas.js; Esc, foco e fechar vêm do js/ponto-abas.js (a mesma moldura da E3). #}
@@ -1834,6 +1838,51 @@
         return typeof PontoBatida.novoIdDeEnvio === 'function' ? PontoBatida.novoIdDeEnvio() : undefined;
     }
 
+    // E11 (P21; desenho L288, L457 a L461 e L807): a janela "Antes de registrar". O servidor avalia o intervalo, a
+    // interjornada e o descanso semanal com os mínimos da Jornada do escritório e, quando a batida sai da regra, devolve o
+    // alerta SEM gravar. "Registrar assim mesmo" toca no botão de novo com a confirmação: a batida é a mesma do alerta
+    // (o tipo e o `idEnvio`; nada foi gravado nele), a hora do aparelho e a posição são as da confirmação. "Aguardar", o
+    // "x" e o Esc fecham sem registrar (a moldura é a das janelas da tela, `window.PontoAbas`). Texto por textContent.
+    const janelaDoAlerta = document.getElementById('ponto-janela-alerta');
+    let alertaEmEspera = null;
+    let confirmacaoDoAlerta = null;
+
+    function abrirAntesDeRegistrar(texto, payload) {
+        const fundo = janelaDoAlerta && window.PontoAbas ? window.PontoAbas.abrirJanela('ponto-janela-alerta', btnPonto) : null;
+        if (!fundo) {
+            mostrarAvisoBatida(texto, 'warning');   // sem a moldura (script fora), ao menos o alerta; nada foi gravado
+            return;
+        }
+        alertaEmEspera = { tipo: payload.tipo, idEnvio: payload.idEnvio };
+        fundo.querySelector('[data-alerta-texto]').textContent = String(texto);
+        fundo.querySelector('.pe-janela-cancelar').focus();   // o foco na saída segura: Enter não registra sem querer
+    }
+
+    // Lida pelo toque antes da primeira espera (o `click()` abaixo roda o handler até lá): a confirmação vale só para
+    // este toque e não sobra para o próximo.
+    function aplicarConfirmacaoDoAlerta(payload) {
+        if (confirmacaoDoAlerta) {
+            payload.tipo = confirmacaoDoAlerta.tipo;
+            payload.idEnvio = confirmacaoDoAlerta.idEnvio;
+            payload.confirmarAlerta = true;
+        }
+        confirmacaoDoAlerta = null;
+    }
+
+    if (janelaDoAlerta) {
+        janelaDoAlerta.querySelector('[data-alerta-registrar]').addEventListener('click', function () {
+            const batida = alertaEmEspera;
+            alertaEmEspera = null;
+            window.PontoAbas.fecharJanela();
+            if (!batida) {
+                return;
+            }
+            confirmacaoDoAlerta = batida;
+            btnPonto.click();
+            confirmacaoDoAlerta = null;
+        });
+    }
+
     btnPonto.addEventListener('click', async function() {
         if (!window.PontoBatida) {
             mostrarAvisoBatida(AVISO_PAGINA_INCOMPLETA, 'danger', true);
@@ -1885,6 +1934,7 @@
         // tentativa desta batida, e o servidor não grava duas vezes o mesmo.
         const horaAparelho = Date.now();
         const payload = { tipo: tipoRegistro.value, idEnvio: idDoEnvio(), horaAparelho };
+        aplicarConfirmacaoDoAlerta(payload);   // E11: "Registrar assim mesmo" refaz a batida do alerta
 
         if (!dispensaLocalizacao) {
             let latitude = currentLocation.latitude;
@@ -1935,6 +1985,12 @@
             // E14: o envio falhou sem resposta (a rede caiu no meio, o prazo estourou). A batida vai para a fila com o
             // MESMO identificador e a MESMA hora do toque: se ela tiver entrado, o servidor responde que já estava.
             if (resultado.falhaDeRede && await guardarNaFila(payload)) {
+                return;
+            }
+
+            // E11: a batida saiu da regra de intervalo e o servidor não gravou; a janela pergunta (P21).
+            if (resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string') {
+                abrirAntesDeRegistrar(resultado.data.alerta, payload);
                 return;
             }
 

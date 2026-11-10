@@ -145,7 +145,7 @@ final class CartaoDoPontoNoJsTest extends TestCase
         );
     }
 
-    #[TestDox('Aviso do intervalo (P12): o mínimo só com o que o servidor manda, que é 0 com a validação do repouso desligada; aí sai só o tempo do intervalo')]
+    #[TestDox('Aviso do intervalo (P12): o mínimo só com o que o servidor manda, que é 0 com a validação do repouso ou a chave ponto-alertas desligada; aí sai só o tempo do intervalo')]
     public function testAvisoDoIntervaloRespeitaAChave(): void
     {
         $tela = $this->tela();
@@ -155,7 +155,7 @@ final class CartaoDoPontoNoJsTest extends TestCase
             $tela
         );
         self::assertStringContainsString(
-            'data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada ? minimoMinutosRepouso : 0 }}"',
+            'data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada and alertasLigados ? minimoMinutosRepouso : 0 }}"',
             $tela,
             'o mínimo do aviso deixou de passar pela chave do escritório'
         );
