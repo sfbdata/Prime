@@ -86,7 +86,8 @@
         avisarAbaAberta(nome);
     }
 
-    // As abas de gestão (Equipe, Configurações) buscam o painel na primeira vez que abrem: js/ponto-paineis.js ouve.
+    // As abas de gestão (Equipe, Configurações) buscam o painel na primeira vez que abrem, e a Auditoria a cada vez:
+    // js/ponto-paineis.js ouve.
     function avisarAbaAberta(nome) {
         const aba = abasDoCartao().find(function (el) { return el.dataset.aba === nome; });
         const painel = aba ? document.getElementById(aba.getAttribute('aria-controls')) : null;

@@ -18,8 +18,9 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Aba "Auditoria" da tela /ponto (spec `docs/specs/ponto-desenho-0811.md`, E9, P64; desenho 16 L222 a L225): a trilha
  * de auditoria do Ponto do escritório, o mais recente primeiro, com a conferência da cadeia no cabeçalho. O painel é
- * buscado pelo js/ponto-paineis.js na primeira vez que a aba abre (`data-carregar` no `_abas.html.twig`); a troca de
- * página busca de novo com `?pagina=` (js/ponto-auditoria.js).
+ * buscado pelo js/ponto-paineis.js a cada vez que a aba abre e, aberta, depois de cada ação gravada na tela
+ * (`data-carregar` e `data-recarregar-ao-abrir` no `_abas.html.twig`); a troca de página busca de novo com `?pagina=`
+ * (js/ponto-auditoria.js).
  *
  * Quem vê: `GestaoDoPonto::veAuditoria` no escritório da sessão (quem gere o ponto pelo perfil, o primário e o
  * Master). Sem ele, 403.

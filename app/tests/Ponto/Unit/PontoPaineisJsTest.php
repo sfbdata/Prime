@@ -52,7 +52,7 @@ final class PontoPaineisJsTest extends TestCase
 
         self::assertStringContainsString("document.addEventListener('ponto:aba-aberta', function (evento) {", $paineis);
         self::assertStringContainsString("document.querySelectorAll('section.pe-abas [data-carregar]:not([hidden])')", self::trecho($paineis, 'function iniciar() {', 'window.PontoPaineis'));
-        self::assertStringContainsString("if (estado === 'carregando' || (estado === 'pronto' && !deNovo)) {", $paineis, 'abrir de novo não busca de novo');
+        self::assertStringContainsString("if (estado === 'pronto' && !deNovo) {", $paineis, 'abrir de novo não busca de novo');
 
         self::assertStringContainsString("new CustomEvent('ponto:aba-aberta'", $abas);
         self::assertStringContainsString('avisarAbaAberta(nome);', self::trecho($abas, 'function abrirAba(nome, focar) {', 'function avisarAbaAberta(nome) {'));
@@ -74,15 +74,26 @@ final class PontoPaineisJsTest extends TestCase
 
         $abertos = self::trecho($paineis, 'function recarregarAbertos() {', 'window.PontoPaineis');
         self::assertStringContainsString("document.querySelectorAll('section.pe-abas [data-recarregar-ao-abrir]:not([hidden])')", $abertos, 'fechado, a próxima abertura busca');
-        self::assertStringContainsString("if (painel.dataset.estado === 'pronto') {", $abertos, 'carregando ou com falha, fica como está');
+        self::assertStringContainsString("if (painel.dataset.estado === 'pronto' || painel.dataset.estado === 'carregando') {", $abertos, 'com falha, fica o "Tentar de novo"');
         self::assertStringContainsString('recarregarAbertos,', self::trecho($paineis, 'window.PontoPaineis = {', '};'));
 
+        // Pedido no meio de outra busca (a batida durante a troca de página): guardado e feito depois, com o endereço de agora.
+        $carregar = self::trecho($paineis, 'async function carregar(painel, deNovo) {', "document.addEventListener('ponto:aba-aberta'");
+        self::assertMatchesRegularExpression("/if \\(estado === 'carregando'\\) \\{\\s+if \\(deNovo\\) \\{\\s+painel\\.dataset\\.deNovo = '1';\\s+\\}\\s+return;/", $carregar);
+        $depois = self::trecho($carregar, '} finally {', "\n    }\n");
+        self::assertMatchesRegularExpression("/if \\(painel\\.dataset\\.deNovo === '1'\\) \\{\\s+delete painel\\.dataset\\.deNovo;\\s+carregar\\(painel, true\\);/", $depois);
+
+        // No começo da atualização da tela, antes da busca dela: descartada ou com falha, a Auditoria busca do mesmo jeito.
         $depoisDaBatida = self::trecho($tela, 'async function atualizarTelaDoPonto() {', 'let batidaAceita = null;');
-        self::assertGreaterThan(
-            (int) strpos($depoisDaBatida, 'trocas.forEach(([atual, nova]) => atual.replaceWith('),
-            (int) strpos($depoisDaBatida, 'window.PontoPaineis.recarregarAbertos();'),
-            'depois de trocar as regiões: a busca da tela deu certo',
-        );
+        $recarga = strpos($depoisDaBatida, 'window.PontoPaineis.recarregarAbertos();');
+        $buscaDaTela = strpos($depoisDaBatida, 'await window.PontoBatida.buscarTelaDoPonto(');
+        self::assertIsInt($recarga);
+        self::assertIsInt($buscaDaTela);
+        self::assertLessThan($buscaDaTela, $recarga);
+
+        // E depois da "Sincronização" gravada, que sai sem esperar e pode chegar depois da busca da fila.
+        $sincronizacao = self::trecho(self::js('ponto-batida.js'), 'function avisarSincronizacaoDaFila(url, idsEnvio) {', '.catch(');
+        self::assertMatchesRegularExpression('/\\} else if \\(window\\.PontoPaineis [^\\n]+\\{\\s+window\\.PontoPaineis\\.recarregarAbertos\\(\\);/', $sincronizacao);
     }
 
     #[TestDox('Na tela, o carregador entra antes do js/ponto-abas.js (ouve antes de a aba avisar)')]

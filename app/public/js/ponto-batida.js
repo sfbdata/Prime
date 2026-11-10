@@ -431,7 +431,8 @@
      * Avisa o servidor de que uma rodada da fila sem internet enviou batidas (evento "Sincronização" da auditoria do
      * Ponto, E14; desenho 16, L438). POST JSON `{idsEnvio}` com prazo próprio (`ENVIO_PRAZO_MS`), como todo envio do
      * Ponto; o token `ajax` entra pelo interceptador do `base.html.twig`. Não espera a resposta e nunca lança: as
-     * batidas já entraram, e a falha só vai para o console.
+     * batidas já entraram, e a falha só vai para o console. Gravado o evento, a Auditoria aberta busca de novo
+     * (`PontoPaineis.recarregarAbertos`, js/ponto-paineis.js), porque a busca de depois da fila pode ter saído antes.
      */
     function avisarSincronizacaoDaFila(url, idsEnvio) {
         try {
@@ -446,6 +447,8 @@
             }).then((resposta) => {
                 if (!resposta.ok) {
                     console.error('A sincronização da fila não entrou na auditoria:', resposta.status);
+                } else if (window.PontoPaineis && typeof window.PontoPaineis.recarregarAbertos === 'function') {
+                    window.PontoPaineis.recarregarAbertos();
                 }
             }).catch((erro) => {
                 console.error('A sincronização da fila não entrou na auditoria:', erro);

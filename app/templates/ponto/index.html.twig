@@ -1946,6 +1946,12 @@
 
     async function atualizarTelaDoPonto() {
         const estaBusca = ++ultimaBuscaDaTela;
+        // E9: a Auditoria aberta mostra o evento novo, como o `reg` do desenho (L452). Quem chama já teve a ação gravada
+        // (a batida aceita, a fila enviada, a justificativa excluída), então ela busca já, mesmo que esta busca da tela
+        // seja descartada ou falhe.
+        if (window.PontoPaineis && window.PontoPaineis.recarregarAbertos) {
+            window.PontoPaineis.recarregarAbertos();
+        }
         // A busca mora no módulo, com prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest).
         const novo = await window.PontoBatida.buscarTelaDoPonto(window.location.href);
         if (estaBusca < ultimaBuscaDaTela) {
@@ -1982,10 +1988,6 @@
         confirmadasDaPagina = confirmadasDaPagina.filter((confirmada) => confirmada.depoisDaBusca >= estaBusca);
         relogio.dataset.pontoDoDia = pontoDoDiaNovo;
         aplicarPontoDoDia(pontoDoDia);
-        // E9: a Auditoria aberta mostra o evento novo (a batida, a justificativa excluída), como o `reg` do desenho (L452).
-        if (window.PontoPaineis && window.PontoPaineis.recarregarAbertos) {
-            window.PontoPaineis.recarregarAbertos();
-        }
         tipoRegistro.value = tipoNovo.value;
         // E14: a tela do servidor não conhece a fila deste aparelho. Sem esta remarcação, o tipo guardado voltaria livre
         // e poderia virar a sugestão do botão (batida em dobro). Mora aqui, e não em cada chamador.
