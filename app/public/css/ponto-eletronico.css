@@ -1736,7 +1736,7 @@
 .pe-folha-aceite--ressalva { background: #8a6200; }
 .pe-folha-aceite--alterada { background: #a3232b; }
 
-/* Portador dos tokens da janela "Ver PDF" e do aviso flutuante fora da /ponto: a ficha do gestor não tem `.pe-page`
+/* Portador dos tokens da janela "Ver PDF" fora da /ponto: a ficha do gestor não tem `.pe-page`
    em volta, e os tokens `--pe-*` moram em `.pe-page` e `.pe-folha`. O portador leva a classe do cartão só pelos
    tokens: sem moldura, sem fundo e sem altura (o que tem dentro é `position: fixed`). */
 .pe-folha.pe-folha-janelas {
@@ -1756,25 +1756,3 @@
     height: 78vh;
     border: 0;
 }
-
-/* Aviso flutuante (L266 e L468), o mesmo da E10 (`.pe-sf-aviso`), também na ficha do gestor: verde no que deu certo,
-   azul no "Gerando a folha em PDF..." (L718) e vermelho na falha (L728). */
-.pe-folha-janelas > .pe-sf-aviso {
-    position: fixed;
-    left: 50%;
-    bottom: 22px;
-    transform: translateX(-50%);
-    z-index: 2147483000;
-    max-width: calc(100vw - 28px);
-    box-sizing: border-box;
-    background: #1e7b45;
-    color: #fff;
-    padding: 11px 16px;
-    border-radius: 3px;
-    box-shadow: 0 8px 24px rgba(18, 36, 47, .25);
-    font-size: 14px;
-    line-height: normal;
-    animation: pe-sf-aviso-sobe .2s ease both;
-}
-.pe-folha-janelas > .pe-sf-aviso--info { background: #0a6fa0; }
-.pe-folha-janelas > .pe-sf-aviso--erro { background: #a3232b; }

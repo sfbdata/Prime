@@ -496,6 +496,8 @@
 {% endblock %}
 
 {% block javascripts %}
+{# O aviso flutuante da E8 (decisão 15), que o "Baixar PDF" da folha usa (js/ponto-folha.js). #}
+<script src="{{ asset('js/ponto-aviso-flutuante.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Ativa a aba correta com base no query param ?tab=

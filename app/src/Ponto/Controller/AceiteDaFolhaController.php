@@ -22,8 +22,9 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * o envio da janela do aceite mensal. Exige login, o escritório da sessão e o módulo Ponto; quem assina é sempre a
  * própria pessoa, no escritório da sessão (nada no pedido escolhe outra pessoa ou outro escritório).
  *
- * Volta para a /ponto na competência, com o aviso do topo, como as janelas da E4: "Folha assinada." (L809) ou a frase
- * da recusa. Depois de uma recusa só há o aviso e a volta: a corrida de dois envios fecha o EntityManager.
+ * Volta para a /ponto na competência, como as janelas da E4: "Folha assinada." no aviso flutuante verde do desenho
+ * (`avisar` L809; `PontoController::FLASH_AVISO_FLUTUANTE`, decisão 15) ou a frase da recusa no aviso do topo. Depois
+ * de uma recusa só há o aviso e a volta: a corrida de dois envios fecha o EntityManager.
  */
 final class AceiteDaFolhaController extends AbstractController
 {
@@ -59,7 +60,7 @@ final class AceiteDaFolhaController extends AbstractController
             return $this->voltar($competencia, 'warning', $recusa->getMessage());
         }
 
-        return $this->voltar($competencia, 'success', self::FOLHA_ASSINADA);
+        return $this->voltar($competencia, PontoController::FLASH_AVISO_FLUTUANTE, self::FOLHA_ASSINADA);
     }
 
     /** @return array{User, Tenant} */

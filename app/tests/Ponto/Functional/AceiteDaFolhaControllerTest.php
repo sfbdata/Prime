@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\AceiteDaFolhaController;
+use App\Ponto\Controller\PontoController;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDaFolhaDoMesTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -55,7 +56,7 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
         $this->enviar();
 
         self::assertResponseRedirects('/ponto/?competencia=2026-10');
-        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos('success'));
+        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos(PontoController::FLASH_AVISO_FLUTUANTE));
         $aceites = $this->aceitesNoBanco($this->escritorio, $this->maria);
         self::assertCount(1, $aceites);
         self::assertSame(['concordo', null, self::IP, self::NAVEGADOR], [$aceites[0]['situacao'], $aceites[0]['ressalva'], $aceites[0]['ip'], $aceites[0]['navegador']]);
@@ -67,7 +68,7 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
     {
         $this->enviar(['situacao' => 'ressalva', 'ressalva' => "  O dia 6 foi de folga.\n"]);
 
-        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos('success'));
+        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos(PontoController::FLASH_AVISO_FLUTUANTE));
         $aceites = $this->aceitesNoBanco($this->escritorio, $this->maria);
         self::assertSame(['ressalva', 'O dia 6 foi de folga.'], [$aceites[0]['situacao'], $aceites[0]['ressalva']]);
     }
@@ -78,7 +79,7 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
         $this->enviar(['situacao' => 'ressalva', 'ressalva' => "O dia 6 foi \xFF de folga."], navegador: "Mozilla/5.0 \xC3\x28teste)");
 
         self::assertResponseRedirects('/ponto/?competencia=2026-10');
-        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos('success'));
+        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos(PontoController::FLASH_AVISO_FLUTUANTE));
         $aceites = $this->aceitesNoBanco($this->escritorio, $this->maria);
         self::assertSame(['O dia 6 foi ? de folga.', 'Mozilla/5.0 ?(teste)'], [$aceites[0]['ressalva'], $aceites[0]['navegador']]);
         self::assertFalse($this->estadoDoAceite()->daCompetencia($this->escritorio, $this->maria, 2026, 10)->alterada, 'o selo confere com o que foi gravado');
@@ -90,7 +91,7 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
         $this->enviar(['situacao' => 'ressalva', 'ressalva' => "O dia 6\0 foi de folga."], navegador: "Mozilla/5.0\0 (teste do aceite)");
 
         self::assertResponseRedirects('/ponto/?competencia=2026-10');
-        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos('success'));
+        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos(PontoController::FLASH_AVISO_FLUTUANTE));
         $aceites = $this->aceitesNoBanco($this->escritorio, $this->maria);
         self::assertCount(1, $aceites);
         self::assertSame(['O dia 6 foi de folga.', self::NAVEGADOR], [$aceites[0]['ressalva'], $aceites[0]['navegador']]);
@@ -104,7 +105,7 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
 
         $this->enviar(['situacao' => 'ressalva', 'ressalva' => $ressalva]);
 
-        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos('success'));
+        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos(PontoController::FLASH_AVISO_FLUTUANTE));
         $gravada = (string) $this->aceitesNoBanco($this->escritorio, $this->maria)[0]['ressalva'];
         self::assertSame(str_replace("\r\n", "\n", $ressalva), $gravada);
         self::assertSame(1000, mb_strlen($gravada));

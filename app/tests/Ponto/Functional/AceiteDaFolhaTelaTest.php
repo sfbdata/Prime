@@ -107,12 +107,14 @@ final class AceiteDaFolhaTelaTest extends JusPrimeWebTestCase
         self::assertCount(2, $janela->filter('button[data-janela-fechar]'), 'o "x" e o "Cancelar" fecham');
     }
 
-    #[TestDox('Confirmar pela janela: volta na competência com "Folha assinada." e o selo verde "Assinada em 09/11/2026"; o botão some')]
+    #[TestDox('Confirmar pela janela: volta na competência com "Folha assinada." no aviso flutuante e o selo verde "Assinada em 09/11/2026"; o botão some')]
     public function testConcordoPelaJanela(): void
     {
         $tela = $this->enviarPelaJanela('concordo', '');
 
-        self::assertSame(AceiteDaFolhaController::FOLHA_ASSINADA, trim($tela->filter('.app-content-header .alert.alert-success')->text()));
+        self::assertSame(AceiteDaFolhaController::FOLHA_ASSINADA, $tela->filter('.pe-page > #ponto-aviso-flutuante')->attr('data-aviso-na-carga'), 'o aviso flutuante do desenho (L809)');
+        self::assertSame('ok', $tela->filter('#ponto-aviso-flutuante')->attr('data-aviso-na-carga-tom'), 'verde');
+        self::assertCount(0, $tela->filter('.app-content-header .alert'), 'nem também no topo');
         $this->assertSelo($tela, 'Assinada em 09/11/2026', 'pe-folha-aceite pe-folha-aceite--concordo');
         self::assertCount(0, $tela->filter('[data-folha-assinar]'), 'a folha assinada não se assina de novo');
         self::assertCount(0, $tela->filter('#ponto-janela-aceite'));
@@ -217,6 +219,7 @@ final class AceiteDaFolhaTelaTest extends JusPrimeWebTestCase
         self::assertSame(['Ver PDF', 'Baixar XLSX', 'Baixar PDF'], $ficha->filter($barra . ' > button.pe-folha-btn')->each(static fn (Crawler $no): string => trim($no->text())));
         $this->assertSemAssinar($ficha);
         self::assertCount(1, $ficha->filter('#tab-ponto > div.pe-folha.pe-folha-janelas > #ponto-janela-ver-pdf'), 'o "Ver PDF" da ficha usa a mesma janela');
+        self::assertCount(1, $ficha->filter('script[src*="js/ponto-aviso-flutuante.js"]'), 'o aviso do "Baixar PDF" é o da E8 (decisão 15)');
     }
 
     #[TestDox('Os valores do selo (L145) e os textos do aviso flutuante e da janela (L266, L717 a L730, L809) no CSS e no JS')]
@@ -229,12 +232,12 @@ final class AceiteDaFolhaTelaTest extends JusPrimeWebTestCase
         }
         self::assertStringContainsString('.pe-folha-aceite--ressalva { background: #8a6200; }', $e16);
         self::assertStringContainsString('.pe-folha-aceite--alterada { background: #a3232b; }', $e16);
-        self::assertStringContainsString('.pe-folha-janelas > .pe-sf-aviso--info { background: #0a6fa0; }', $e16);
-        self::assertStringContainsString('.pe-folha-janelas > .pe-sf-aviso--erro { background: #a3232b; }', $e16);
+        self::assertStringNotContainsString('pe-sf-aviso', $e16, 'o aviso é o da E8 (decisão 15), sem uma segunda cópia');
 
         $js = (string) file_get_contents(__DIR__ . '/../../../public/js/ponto-folha.js');
         foreach ([
-            "const AVISO_MS = 3400;",
+            "window.PontoAvisoFlutuante.mostrar(texto, tom || 'ok');",
+            "avisar(GERANDO, 'gerando');",
             "'Gerando a folha em PDF...'",
             "'Folha baixada em PDF.'",
             "'Folha baixada em PDF. Código ' + codigo + '.'",

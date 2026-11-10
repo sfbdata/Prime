@@ -15,7 +15,8 @@
  *   js/ponto-abas.js: Esc, foco preso, linha de erro que some ao editar) em "Concordo" e com a ressalva vazia (L816).
  *   "Discordo" sem texto não envia: "Descreva a ressalva." na linha de erro (L809). O resto é o envio normal.
  *
- * O aviso flutuante é o da E10 (`.pe-sf-aviso`, L266 e L468): some em 3,4 s, um por vez. Tudo por delegação no
+ * O aviso flutuante é o da E8 (`window.PontoAvisoFlutuante`, js/ponto-aviso-flutuante.js, L266 e L468; decisão 15):
+ * some em 3,4 s, um por vez, o mesmo da /ponto e da ficha (que carregam o arquivo). Tudo por delegação no
  * documento: depois da batida a /ponto troca o cartão da folha, e os botões novos continuam funcionando.
  */
 (function () {
@@ -25,7 +26,6 @@
         return;
     }
 
-    const AVISO_MS = 3400;
     // O PDF em imagem é desenhado na hora, no servidor; sem resposta até aqui, a falha aparece.
     const PRAZO_PDF_MS = 30000;
     const GERANDO = 'Gerando a folha em PDF...';
@@ -36,30 +36,17 @@
     const NOME_PADRAO = 'folha_ponto.pdf';
     const FOCAVEIS = 'button:not([disabled]), iframe, [href]';
 
-    let aviso = null;
-    let avisoPrazo = null;
     // A emissão em curso (o AbortController do pedido), do "Baixar PDF" ou do "Ver PDF": é a trava única dos dois.
     let emissao = null;
     // Janela "Ver PDF": o pedido em curso dela (fechar o cancela; resposta de outro pedido é descartada), quem a
     // abriu, o PDF recebido e o endereço dele no quadro.
     const ver = { aborto: null, origem: null, pdf: null, endereco: '' };
 
+    // Tons do aviso da E8: `gerando` azul (L718), `ok` verde (L727, o padrão) e `erro` vermelho (L728).
     function avisar(texto, tom) {
-        if (aviso) {
-            aviso.remove();
-            clearTimeout(avisoPrazo);
+        if (window.PontoAvisoFlutuante) {
+            window.PontoAvisoFlutuante.mostrar(texto, tom || 'ok');
         }
-        aviso = document.createElement('div');
-        aviso.className = 'pe-sf-aviso' + (tom ? ' pe-sf-aviso--' + tom : '');
-        aviso.setAttribute('role', 'status');
-        aviso.textContent = texto;
-        (document.querySelector('[data-folha-janelas]') || document.body).appendChild(aviso);
-        avisoPrazo = setTimeout(function () {
-            if (aviso) {
-                aviso.remove();
-                aviso = null;
-            }
-        }, AVISO_MS);
     }
 
     function textoDaBaixa(codigo) {
@@ -136,7 +123,7 @@
         if (!aborto) {
             return;
         }
-        avisar(GERANDO, 'info');
+        avisar(GERANDO, 'gerando');
         const pdf = await pedirPdf(botao.dataset.folhaPdf, aborto);
         terminarEmissao(aborto);
         if (pdf.cancelado) {

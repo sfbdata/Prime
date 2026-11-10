@@ -7,7 +7,8 @@
  * public/css/ponto-eletronico.css (`.pe-flutuante`).
  *
  * O elemento vem do template (`#ponto-aviso-flutuante`), já no documento antes de o texto chegar, para o leitor de tela
- * anunciar a troca. Sem ele (outra tela que carregue o arquivo), é criado no fim do `body`. O texto entra só por
+ * anunciar a troca. Sem ele (outra tela que carregue o arquivo, como a ficha do gestor, onde o "Baixar PDF" da folha
+ * avisa por aqui), é criado no fim do `body`. O texto entra só por
  * `textContent`: a mensagem pode vir do servidor.
  *
  * Na carga, mostra o aviso que o servidor deixou para a tela (`data-aviso-na-carga` e o tom em
