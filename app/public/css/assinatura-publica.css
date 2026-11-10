@@ -127,6 +127,9 @@ body { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, sans-serif
 .bjaPub .bjaOkD { font-size: 16px; }
 .bjaPub .bjaOkBts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
 .bjaPub .bjaOkFim { height: 44px; padding: 0 18px; border: 1px solid rgba(255, 255, 255, .7); border-radius: 3px; background: transparent; color: #fff; font: inherit; font-size: 15px; cursor: pointer; margin: 0; }
+/* Etapa 3: a caixa do código de validação e "Baixar PDF com selo" (dc:270-271). */
+.bjaPub .bjaOkCod { font: bold 15px monospace; letter-spacing: 1px; padding: 7px 12px; border: 1px solid rgba(255, 255, 255, .55); margin-top: 6px; }
+.bjaPub .bjaOkPdf { height: 44px; padding: 0 18px; border: none; border-radius: 3px; background: #fff; color: #145a32; font: inherit; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; }
 
 /* ── Aviso (K1) ─────────────────────────────────────────────────────── */
 .bjaPub .bjaToast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647; max-width: calc(100vw - 28px); background: #1e7b45; color: #fff; padding: 11px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(18, 36, 47, .25); font-size: 14px; animation: bjaToastUp .2s ease both; }

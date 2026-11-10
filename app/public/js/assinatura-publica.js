@@ -11,8 +11,9 @@
    tela interna (assinatura-folha.js).
 
    O código de 6 dígitos chega só por e-mail: nunca aparece nesta tela. Na prévia do escritório (previa: true) não há
-   URL de POST, e Enviar código, Assinar e Recusar assinatura ficam visíveis e desabilitados. Sem código BJA e sem
-   "Baixar PDF com selo" (etapa 3): a folha fica no estado sem código do desenho e a tela verde sai sem os dois.
+   URL de POST, e Enviar código, Assinar e Recusar assinatura ficam visíveis e desabilitados. A folha fica no estado
+   sem código do desenho. Etapa 3 (E3-5): a tela verde mostra o código BJA (o estado devolvido pela assinatura traz
+   documento.codigo) e "Baixar PDF com selo" (GET data-url-pdf, pelo assinatura-pdf.js).
    ============================================================================= */
 (function () {
     'use strict';
@@ -22,6 +23,8 @@
 
     const F = window.BJAFolha;
     const T = (chave, p) => BJ_T.t(['assinatura_eletronica_publica', 'js', chave].join('.'), p);
+    /* Etapa 3: os textos do PDF com selo, do catálogo da tela (bloco pdf:). */
+    const TP = (chave, p) => BJ_T.t(['assinatura_eletronica_tela', 'js', 'pdf', chave].join('.'), p);
     const esc = t => String(t == null ? '' : t).replace(/[&<>\x22\x27]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\x22': '&quot;', '\x27': '&#39;' }[c]));
     const lerJson = (texto, padrao) => { try { const v = JSON.parse(texto || ''); return v == null ? padrao : v; } catch (e) { return padrao; } };
     const digitos = v => String(v == null ? '' : v).replace(/\D/g, '');
@@ -32,6 +35,7 @@
         codigo: ds.urlCodigo || ds.urlPublicaCodigo || '',
         assinar: ds.urlAssinar || ds.urlPublicaAssinar || '',
         recusa: ds.urlRecusa || ds.urlPublicaRecusa || '',
+        pdf: ds.urlPdf || ds.urlPublicaPdf || '',
     };
     // Logo branca do cabeçalho (a mesma imagem do desenho, bluejus-logo-nav-branco.png).
     const MARCA = ds.urlMarca || '/images/logo/bluejus-white-transparent-nav.png';
@@ -349,13 +353,16 @@
         } catch (e) { /* falha silenciosa, como o desenho */ }
     }
 
-    /* Tela "Assinatura registrada" (J1 a J13), sem a caixa do código e sem "Baixar PDF com selo" (etapa 3). */
+    /* Tela "Assinatura registrada" (J1 a J13). Etapa 3: a caixa do código e "Baixar PDF com selo" antes de Concluir (dc:270-271). */
     function mostrarOk(todas) {
+        const cod = (est.documento && est.documento.codigo) || '', podeBaixar = !!(url.pdf && window.BJAssinaPdf && !est.previa);
         const barras = Array.from({ length: 24 }, (_, i) => '<span class="bjaRaio" style="transform:rotate(' + (i * 15) + 'deg)"><span class="bjaBar" style="animation-delay:' + (100 + i * 14) + 'ms"></span></span>').join('');
         camada('ok').innerHTML = '<div class="bjaOk bjaMov" role="dialog" aria-modal="true" aria-label="' + esc(T('ok.titulo')) + '"><div class="bjaOkCorpo">'
             + '<div class="bjaRing">' + barras + '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M12 34 L27 49 L54 17" pathLength="1" class="bjaMov"></path></svg></div>'
             + '<div class="bjaOkT">' + esc(T('ok.titulo')) + '</div><div class="bjaOkD">' + esc(todas ? T('ok.todas') : T('ok.demais')) + '</div>'
-            + '<div class="bjaOkBts"><button type="button" class="bjaOkFim" data-bja-acao="concluir">' + esc(T('ok.concluir')) + '</button></div>'
+            + (cod ? '<div class="bjaOkCod">' + esc(cod) + '</div>' : '')
+            + '<div class="bjaOkBts">' + (podeBaixar ? '<button type="button" class="bjaOkPdf" data-bja-acao="baixar-pdf"><i class="bi bi-file-earmark-pdf"></i>' + esc(TP('baixar')) + '</button>' : '')
+            + '<button type="button" class="bjaOkFim" data-bja-acao="concluir">' + esc(T('ok.concluir')) + '</button></div>'
             + '</div></div>';
         const b = camada('ok').querySelector('[data-bja-acao="concluir"]');
         if (b) { b.focus(); }
@@ -422,6 +429,7 @@
             case 'recusa-nao': a.recusa = false; desenharRecusa(); break;
             case 'recusa-sim': confirmarRecusa(ac); break;
             case 'concluir': camada('ok').innerHTML = ''; break;
+            case 'baixar-pdf': window.BJAssinaPdf.baixar(url.pdf, { aoConcluir: () => avisar(TP('gerado')), aoFalhar: () => avisar(T('erro.geral'), 'erro') }); break;
             default: break;
         }
     });

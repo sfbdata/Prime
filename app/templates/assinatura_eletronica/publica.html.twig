@@ -46,13 +46,14 @@
 {# Sem defer: o tema comemorativo (incluído depois) procura o cabeçalho [data-bjt-cabecalho] uma vez, ao carregar, e
    o assinatura-publica.js precisa tê-lo desenhado antes. O bj-traducao.js lê os catálogos no primeiro uso. #}
 <script src="{{ asset('js/bj-traducao.js') }}"></script>
-{{ catalogo_js('assinatura_eletronica_publica.js', 'assinatura_eletronica_tela.js.folha') }}
+{{ catalogo_js('assinatura_eletronica_publica.js', 'assinatura_eletronica_tela.js.folha', 'assinatura_eletronica_tela.js.pdf') }}
 <script src="{{ asset('js/vendor/qrcode-generator/qrcode.js') }}"></script>
 {# pdf.js 3.11.174, o mesmo da tela interna (etapa 1), com SRI; o worker é baixado pelo assinatura-folha.js. #}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
         integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="{{ asset('js/assinatura-folha.js') }}"></script>
+<script src="{{ asset('js/assinatura-pdf.js') }}"></script>
 <script src="{{ asset('js/assinatura-publica.js') }}"></script>
 {% endif %}
 {# Tema comemorativo (regra 1: o desenho aplica o tema na página pública), depois do script da tela. #}

@@ -33,7 +33,8 @@
     previa: path('assinatura_eletronica_previa', {id: 0, ordem: 0}),
     rubrica: path('assinatura_eletronica_rubrica', {id: 0, ordem: 0}),
     vincular: path('assinatura_eletronica_vincular', {id: 0}),
-    pastas: path('assinatura_eletronica_pastas')
+    pastas: path('assinatura_eletronica_pastas'),
+    pdf: path('assinatura_eletronica_pdf', {id: 0})
 }) %}
 {# Etapa 5, bloco 5A: a conferência do PDF do passo 1 (sem gravar) e a "Cópia com carimbo visível" do bloco 5B, com o
    mesmo marcador 0 no lugar do {id}. #}
@@ -137,5 +138,6 @@
 <script src="{{ asset('js/assinatura-validar.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-ja-assinado.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-vinculo.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-pdf.js') }}" defer></script>
 <script src="{{ asset('js/assinatura.js') }}" defer></script>
 {% endblock %}

@@ -54,6 +54,7 @@
         modeloExcluir: ds.urlModeloExcluir || '',
         pdfConferir: ds.urlPdfConferir || '',
         carimbo: ds.urlCarimbo || '',
+        pdf: ds.urlPdf || '',
     };
     /* Troca o marcador 0 (último trecho "0" do caminho) pelo id real, como a Agenda 1A. */
     const comId = (modelo, id) => {
@@ -339,13 +340,22 @@
             + '<td class="bjaNw">' + esc(data(d.criadoEm)) + '</td>'
             + '<td class="bjaNw">' + (d.stA === 'aguardando' ? esc(data(d.venceEm)) : '') + '</td>'
             + '<td>' + seloHtml(d.stA) + '</td>'
-            + '<td class="bjaTdAc">' + (temLink(d) ? acoesDaLinha() : '') + (V ? V.botaoDaLinha(d, d.stA) : '') + '<button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
+            + '<td class="bjaTdAc">' + (temLink(d) ? acoesDaLinha() : '') + (V ? V.botaoDaLinha(d, d.stA) : '') + botaoPdfDaLinha() + '<button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
             + '<button type="button" class="bjaB bjaI bjaN" data-bja-acao="ctx" aria-label="' + esc(T('mais_opcoes')) + '"><i class="bi bi-three-dots-vertical"></i></button></td></tr>';
     }
 
     function acoesDaLinha() {
         const bt = (acao, ic, rot) => '<button type="button" class="bjaB bjaI" data-bja-acao="' + acao + '" aria-label="' + esc(rot) + '" data-tip="' + esc(rot) + '"><i class="bi ' + ic + '"></i></button> ';
         return (url.documento ? bt('lin-copiar', 'bi-link-45deg', T('linha.copiar')) : '') + (url.lembrete ? bt('lin-lembrete', 'bi-bell', T('linha.lembrete')) : '');
+    }
+
+    /* Etapa 3 (A5): "Baixar PDF" em toda linha, antes de Abrir (desenho, linha 149). A lógica está no assinatura-pdf.js. */
+    function botaoPdfDaLinha() {
+        return url.pdf && window.BJAssinaPdf ? '<button type="button" class="bjaB bjaI" data-bja-acao="lin-pdf" aria-label="' + esc(T('pdf.baixar_rotulo')) + '" data-tip="' + esc(T('pdf.baixar')) + '"><i class="bi bi-file-earmark-pdf"></i></button> ' : '';
+    }
+    function baixarPdf(id) {
+        if (!url.pdf || !window.BJAssinaPdf || id == null) { return; }
+        window.BJAssinaPdf.baixar(comId(url.pdf, id), { aoConcluir: () => avisar(T('pdf.gerado')), aoFalhar: falha });
     }
 
     /* ── Modelos (aba Modelos e passo 1): os do escritório primeiro (meus() do desenho), depois os prontos ── */
@@ -884,6 +894,7 @@
                 + (sg === 'pendente' && st === 'aguardando' ? acoesDoSignatario(d, x, i) : '') + '</div>';
         }).join('');
         const bts = (st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '')
+            + (url.pdf && window.BJAssinaPdf ? '<button type="button" class="bjaP" data-bja-acao="det-pdf"><i class="bi bi-file-earmark-pdf"></i>' + esc(J ? J.rotuloDoBaixar(d) : (d.folhaBranca ? T('pdf.baixar_rotulo') : T('pdf.baixar'))) + '</button>' : '')
             + (V ? V.botaoDoDetalhe(d, st) : '')
             + (st === 'aguardando' && !d.naLixeira && url.cancelar ? '<button type="button" class="bjaB bjaR" data-bja-acao="det-cancelar">' + esc(T('det.cancelar')) + '</button>' : '');
         const evs = (d.eventos || []).map(e => '<div class="bjaEv"><b>' + esc(e.texto) + '</b><div>' + esc(dataHora(e.em)) + '</div></div>').join('');
@@ -1244,6 +1255,7 @@
             if (d0.stA === 'rascunho' && !d0.naLixeira && url.documento) { L.push(['bi-pencil', T('ctx.continuar'), 'ctx-continuar']); }
             if (temLink(d0) && url.documento) { L.push(['bi-link-45deg', T('ctx.copiar'), 'ctx-copiar']); }
             if (temLink(d0) && url.lembrete) { L.push(['bi-bell', T('ctx.lembrete'), 'ctx-lembrete']); }
+            if (url.pdf && window.BJAssinaPdf) { L.push(['bi-file-earmark-pdf', T('pdf.baixar'), 'ctx-pdf']); }
             const vinc = V && V.itemDoMenu(d0, d0.stA);
             if (vinc) { L.push(vinc); }
             if (url.duplicar) { L.push(['bi-copy', T('ctx.duplicar'), 'ctx-duplicar']); }
@@ -1440,6 +1452,9 @@
             case 'lin-lembrete': if (idLinha) { lembrar(idLinha); } break;
             case 'ctx-copiar': { const d = doc(s.ctx.id); fecharCtx(); if (d) { copiarDaLista(d.id); } break; }
             case 'ctx-lembrete': { const id = s.ctx.id; fecharCtx(); lembrar(id); break; }
+            case 'lin-pdf': if (idLinha) { baixarPdf((doc(idLinha) || {}).id); } break;
+            case 'ctx-pdf': { const id = s.ctx.id; fecharCtx(); baixarPdf(id); break; }
+            case 'det-pdf': if (s.det) { baixarPdf(s.det.id); } break;
             case 'sig-copiar': { const x = signatarioDoBotao(alvo); if (x) { copiarLink(x.link); } break; }
             case 'sig-previa': { const x = signatarioDoBotao(alvo); if (x && s.det) { window.open(comIdOrdem(url.previa, s.det.id, x.ordem), '_blank', 'noopener'); } break; }
             case 'sem-link': ev.preventDefault(); avisar(T('toast.sem_chave'), 'erro'); break;
