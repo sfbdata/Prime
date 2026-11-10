@@ -258,8 +258,21 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
         self::assertSame(320, $gravada?->getRaioPermitido());
     }
 
-    #[TestDox('Remover sede: as batidas dela ficam sem a sede, com o nome guardado, e o aviso conta quantas')]
-    public function testRemoverSede(): void
+    #[TestDox('Remover sede sem batida: a sede é apagada e o aviso é só o de removida')]
+    public function testRemoverSedeSemBatida(): void
+    {
+        $sede = $this->sede('Maceió/AL', '-9.665999', '-35.735', 150);
+        $id = $sede->getId();
+
+        $dados = $this->postar($this->primario, '/ponto/configuracoes/sedes/' . $id . '/remover', []);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Sede removida com sucesso.', $dados['mensagem']);
+        self::assertNull($this->emSemFiltro()->getRepository(Sede::class)->find($id));
+    }
+
+    #[TestDox('Remover sede com batida (E10): a sede é encerrada, some da lista, a batida continua com ela e o aviso diz isso')]
+    public function testRemoverSedeComBatida(): void
     {
         $sede = $this->sede('Maceió/AL', '-9.665999', '-35.735', 150);
         $batida = (new RegistroPonto())->setUser($this->primario)->setTenant($this->escritorio)->setTipo('entrada')->setDataHora(new \DateTime('2026-11-03 09:00'))->setSede($sede);
@@ -269,12 +282,21 @@ final class ConfiguracoesDoPontoSedesEFeriadosTest extends JusPrimeWebTestCase
         $dados = $this->postar($this->primario, '/ponto/configuracoes/sedes/' . $sede->getId() . '/remover', []);
 
         self::assertResponseIsSuccessful();
-        self::assertSame('Sede removida com sucesso. 1 registro(s) de ponto foram desvinculados automaticamente da sede removida.', $dados['mensagem']);
+        self::assertSame('Sede removida com sucesso. As batidas já feitas nesta sede continuam no histórico com o nome dela.', $dados['mensagem']);
         $em = $this->emSemFiltro();
-        self::assertNull($em->getRepository(Sede::class)->find($sede->getId()));
+        $em->clear();
+        $encerrada = $em->getRepository(Sede::class)->find($sede->getId());
+        self::assertNotNull($encerrada?->getRemovidaEm(), 'a sede com batida não é apagada: é encerrada');
         $guardada = $em->getRepository(RegistroPonto::class)->find($batida->getId());
-        self::assertNull($guardada?->getSede());
-        self::assertSame('Maceió/AL', $guardada?->getSedeNomeSnapshot());
+        self::assertSame($sede->getId(), $guardada?->getSede()?->getId(), 'a batida não muda');
+
+        $linhas = $this->painel($this->primario)->filter(self::SEDES . ' > div.pe-sedes-rolagem > table.pe-tab.pe-sedes-tab > tbody[data-pc-sedes-corpo] > tr.pe-sede-lin[data-pc-sede-linha]');
+        self::assertCount(0, $linhas, 'a sede encerrada sai da lista');
+
+        $this->postar($this->primario, '/ponto/configuracoes/sedes/' . $sede->getId() . '/remover', []);
+        self::assertResponseStatusCodeSame(404);
+        $this->postar($this->primario, '/ponto/configuracoes/sedes/' . $sede->getId(), ['nome' => 'De volta', 'latitude' => '1', 'longitude' => '1', 'raio' => '100']);
+        self::assertResponseStatusCodeSame(404, 'a sede encerrada não se edita');
     }
 
     // ------------------------------------------------------------- feriados

@@ -48,7 +48,7 @@ final class BatidaNaSedeEncerradaTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $this->ana, $this->escritorio);
     }
 
-    #[TestDox('Única sede encerrada: a batida dentro do raio dela é recusada como sem sede (403) e nada é gravado')]
+    #[TestDox('Única sede encerrada: a batida dentro do raio dela é recusada como sem sede ativa (403) e nada é gravado')]
     public function testUnicaSedeEncerradaRecusa(): void
     {
         $this->sede('Sede Fechada', '-23.55000000', '-46.63000000', encerrada: true);
@@ -56,11 +56,11 @@ final class BatidaNaSedeEncerradaTest extends JusPrimeWebTestCase
         $resposta = $this->bater(self::DENTRO_DA_FECHADA);
 
         self::assertResponseStatusCodeSame(403);
-        self::assertSame('Nenhuma sede configurada para o tenant.', $resposta['message']);
+        self::assertSame('Você está fora do raio permitido. O registro exige estar dentro do raio de uma sede do escritório. Aproxime-se ou informe o trabalho externo.', $resposta['message'], 'a recusa da cerca da E12, como se não houvesse sede');
         self::assertSame(0, $this->batidas());
     }
 
-    #[TestDox('Com outra sede ativa: dentro da encerrada é "fora da área" (403); dentro da ativa, a batida entra nela')]
+    #[TestDox('Com outra sede ativa: dentro da encerrada é "fora do raio" da ativa (403); dentro da ativa, a batida entra nela')]
     public function testSedeEncerradaNaoContaComOutraAtiva(): void
     {
         $this->sede('Sede Fechada', '-23.55000000', '-46.63000000', encerrada: true);
@@ -68,7 +68,7 @@ final class BatidaNaSedeEncerradaTest extends JusPrimeWebTestCase
 
         $resposta = $this->bater(self::DENTRO_DA_FECHADA);
         self::assertResponseStatusCodeSame(403);
-        self::assertSame('Você está fora da área permitida das sedes para registrar o ponto.', $resposta['message']);
+        self::assertStringStartsWith('Você está fora do raio permitido. A sede mais próxima é Sede Aberta,', (string) $resposta['message'], 'a encerrada não conta nem como a mais próxima');
         self::assertSame(0, $this->batidas());
 
         $resposta = $this->bater(self::DENTRO_DA_ABERTA);

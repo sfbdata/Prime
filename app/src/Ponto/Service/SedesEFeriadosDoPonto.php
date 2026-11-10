@@ -30,7 +30,7 @@ final class SedesEFeriadosDoPonto
     {
         return array_map(
             static fn ($sede): SedeDoPontoOutput => SedeDoPontoOutput::daSede($sede),
-            $this->sedes->findBy(['tenant' => $escritorio], ['id' => 'ASC']),
+            $this->sedes->ativasDoEscritorio($escritorio),
         );
     }
 

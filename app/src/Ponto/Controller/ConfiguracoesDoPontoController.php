@@ -103,10 +103,10 @@ final class ConfiguracoesDoPontoController extends AbstractController
         $escritorio = $this->escritorioDaSecao($request, GestaoDoPonto::SEDES);
 
         return $this->responder(function () use ($remover, $id, $escritorio): array {
-            $desvinculadas = $remover->executar($id, $escritorio);
+            $encerrada = $remover->executar($id, $escritorio);
             $mensagem = $this->tradutor->trans('escritorio.flash.sede_removida');
-            if ($desvinculadas > 0) {
-                $mensagem .= ' ' . $this->tradutor->trans('escritorio.flash.sede_registros_desvinculados', ['qtd' => (string) $desvinculadas]);
+            if ($encerrada) {
+                $mensagem .= ' ' . $this->tradutor->trans('escritorio.flash.sede_batidas_mantidas');
             }
 
             return ['mensagem' => $mensagem];

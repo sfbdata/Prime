@@ -62,7 +62,7 @@ final class SalvarSedeDoPontoUseCase
 
     private function daSessao(int $id, Tenant $escritorio): Sede
     {
-        return $this->sedes->findOneBy(['id' => $id, 'tenant' => $escritorio])
+        return $this->sedes->ativaDoEscritorio($id, $escritorio)
             ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada('Sede não encontrada.');
     }
 

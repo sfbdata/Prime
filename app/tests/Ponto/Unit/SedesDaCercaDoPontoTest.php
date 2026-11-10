@@ -26,7 +26,7 @@ final class SedesDaCercaDoPontoTest extends TestCase
     public function testSedeSemCoordenadaFicaFora(): void
     {
         $sedes = $this->createStub(SedeRepository::class);
-        $sedes->method('findBy')->willReturn([
+        $sedes->method('ativasDoEscritorio')->willReturn([
             (new Sede())->setNome('Nova sede')->setLongitude('-35.7'),
             (new Sede())->setNome('Sem longitude')->setLatitude('-9.6'),
             (new Sede())->setNome('Nova sede vazia'),
