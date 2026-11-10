@@ -16,9 +16,9 @@ use App\AssinaturaEletronica\Service\Selo\SeloDoPdfFinal;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
-use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Armazenamento\Sha256DeArquivo;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 
@@ -33,7 +33,8 @@ use Psr\Log\LoggerInterface;
  *
  * Selo: o pedido ao validador roda fora da transação. A {@see FalhaNoSelo} que tenta de novo (fora da última
  * tentativa) sobe antes de gravar: nada no armazenamento nem na trilha, e a área temporária sai no `finally`. Não
- * configurado, falha definitiva ou última tentativa: guarda sem o selo.
+ * configurado, falha definitiva ou última tentativa: guarda sem o selo, e o `logger->error` desse caso só sai depois do
+ * COMMIT de quem guardou ({@see SeloDoPdfFinal::avisar()}).
  *
  * Falha antes do COMMIT: a {@see \App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo} apaga o arquivo novo. Dois
  * pedidos ao mesmo tempo (o worker e o primeiro download): o segundo encontra a chave do primeiro depois da trava, não
@@ -91,6 +92,7 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
             return ChavesDeAssinaturaEletronica::pdfFinal($doc) ?? throw new \LogicException('PDF final guardado sem chave.');
         }
 
+        $this->selo->avisar($doc, $selo);
         $this->avisarQueGuardou($doc);
 
         return $nova;
@@ -124,8 +126,9 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
         $area = AreaTemporariaPrivada::criar('assinaturapdf');
         try {
             $caminho = $this->gerar($area, $doc, $aCadaPedaco);
-            $selo = $this->selo->aplicar($doc, $caminho, $ultimaTentativa);
-            $sha256 = self::sha256($caminho);
+            $selo = $this->selo->aplicar($doc, $area, $caminho, $ultimaTentativa);
+            // O sha256 do arquivo que vai ao armazenamento: o selado, quando selou.
+            $sha256 = Sha256DeArquivo::deArquivoLocal($caminho);
             $gravado = $this->armazenamento->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($doc), FonteDeConteudo::deArquivoLocal($caminho));
         } finally {
             $area->liberar();
@@ -146,21 +149,6 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
         [$caminho] = PdfNoTemporario::gravar($area, self::avisando($this->pdf->pedacos($doc), $aCadaPedaco));
 
         return $caminho;
-    }
-
-    /**
-     * O sha256 do arquivo como vai ao armazenamento (o selado, quando selou), em hexadecimal minúsculo.
-     *
-     * @throws FalhaNoTemporario
-     */
-    private static function sha256(string $caminho): string
-    {
-        $sha256 = @hash_file('sha256', $caminho);
-        if ($sha256 === false) {
-            throw new FalhaNoTemporario(sprintf('Não foi possível medir o sha256 do PDF temporário %s.', $caminho));
-        }
-
-        return $sha256;
     }
 
     /**

@@ -19,6 +19,7 @@ use App\AssinaturaEletronica\Service\Selo\SeloDoPdfFinal;
 use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
+use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -26,11 +27,12 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 
 /**
- * O selo no PDF final (spec assinatura-documentos-etapa-8, E8-4), em duas partes: {@see SeloDoPdfFinal::aplicar()}
- * sela o PDF no temporário (fora da transação, sem trilha) e {@see SeloDoPdfFinal::registrar()} leva o resultado à
- * trilha. Selado, não configurado, a falha definitiva que fica sem o selo na hora (o PDF acima do teto entre elas, sem
- * ler o arquivo) e as que tentam de novo até a última tentativa. A trilha é a de verdade, sobre o repositório dublado;
- * os eventos gravados ficam em `$gravados`.
+ * O selo no PDF final (spec assinatura-documentos-etapa-8, E8-4), em três partes: {@see SeloDoPdfFinal::aplicar()}
+ * sela o PDF no temporário (fora da transação, sem trilha nem o log do "guardado sem o selo"),
+ * {@see SeloDoPdfFinal::registrar()} leva o resultado à trilha e {@see SeloDoPdfFinal::avisar()} faz o log. Selado, não
+ * configurado, a falha definitiva que fica sem o selo na hora (o PDF acima do teto entre elas, sem ler o arquivo) e as
+ * que tentam de novo até a última tentativa. A trilha é a de verdade, sobre o repositório dublado; os eventos gravados
+ * ficam em `$gravados`.
  */
 #[CoversClass(SeloDoPdfFinal::class)]
 #[CoversClass(ResultadoDoSelo::class)]
@@ -67,8 +69,8 @@ final class SeloDoPdfFinalTest extends TestCase
         $caminho = $this->pdfNoTemporario();
         $selo = $this->selo(static fn (): ?string => null);
 
-        $resultado = $selo->aplicar($this->documento, $caminho, false);
-        $selo->registrar($this->documento, $resultado);
+        $resultado = $selo->aplicar($this->documento, $this->area, $caminho, false);
+        $this->registrarEAvisar($selo, $resultado);
 
         self::assertFalse($resultado->selou);
         self::assertNull($resultado->falha);
@@ -82,8 +84,8 @@ final class SeloDoPdfFinalTest extends TestCase
     {
         $selo = new SeloDoPdfFinal(new SeladorDePdfNaoConfigurado(), $this->trilha(), $this->log);
 
-        $resultado = $selo->aplicar($this->documento, $this->area->caminho() . '/nao-existe.pdf', true);
-        $selo->registrar($this->documento, $resultado);
+        $resultado = $selo->aplicar($this->documento, $this->area, $this->area->caminho() . '/nao-existe.pdf', true);
+        $this->registrarEAvisar($selo, $resultado);
 
         self::assertFalse($resultado->selou);
         self::assertNull($resultado->falha);
@@ -102,7 +104,7 @@ final class SeloDoPdfFinalTest extends TestCase
             return self::SELADO;
         });
 
-        $resultado = $selo->aplicar($this->documento, $caminho, false);
+        $resultado = $selo->aplicar($this->documento, $this->area, $caminho, false);
 
         self::assertSame(self::PDF, $recebido);
         self::assertTrue($resultado->selou);
@@ -110,7 +112,7 @@ final class SeloDoPdfFinalTest extends TestCase
         self::assertSame(self::SELADO, file_get_contents($caminho));
         self::assertSame([], $this->gravados, 'aplicar não grava trilha: ela é do registro, na transação de quem guarda');
 
-        $selo->registrar($this->documento, $resultado);
+        $this->registrarEAvisar($selo, $resultado);
 
         self::assertSame(['pdf_selado'], $this->tipos());
         self::assertSame(['chave' => ChaveDaAssinatura::VERSAO], $this->gravados[0]->getDados());
@@ -134,7 +136,7 @@ final class SeloDoPdfFinalTest extends TestCase
         $falha = new FalhaNoSelo('nao_selavel', ClasseDaFalhaNoSelo::Definitiva, 422);
         $selo = $this->falhando($falha);
 
-        $resultado = $selo->aplicar($this->documento, $caminho, $ultima);
+        $resultado = $selo->aplicar($this->documento, $this->area, $caminho, $ultima);
 
         self::assertFalse($resultado->selou);
         self::assertSame($falha, $resultado->falha);
@@ -142,9 +144,61 @@ final class SeloDoPdfFinalTest extends TestCase
         self::assertSame([], $this->gravados);
         self::assertSame([], $this->log->registros, 'o log do "guardado sem o selo" é do registro');
 
-        $selo->registrar($this->documento, $resultado);
+        $this->registrarEAvisar($selo, $resultado);
 
         $this->assertGuardadoSemOSelo('nao_selavel');
+    }
+
+    #[TestDox('o registro só grava a trilha e o aviso só faz o log (o aviso sai depois do COMMIT de quem guarda)')]
+    public function testRegistroSemLogEAvisoSemTrilha(): void
+    {
+        $selo = $this->falhando(new FalhaNoSelo('nao_selavel', ClasseDaFalhaNoSelo::Definitiva, 422));
+        $resultado = $selo->aplicar($this->documento, $this->area, $this->pdfNoTemporario(), false);
+
+        $selo->registrar($this->documento, $resultado);
+        self::assertSame(['selo_nao_aplicado'], $this->tipos());
+        self::assertSame([], $this->log->registros, 'o registro não loga');
+
+        $selo->avisar($this->documento, $resultado);
+        self::assertCount(1, $this->gravados, 'o aviso não grava trilha');
+        self::assertCount(1, $this->log->erros());
+
+        $selo->avisar($this->documento, ResultadoDoSelo::selado());
+        $selo->avisar($this->documento, ResultadoDoSelo::naoConfigurado());
+        self::assertCount(1, $this->log->erros(), 'selado e não configurado não avisam');
+    }
+
+    /** @return iterable<string, array{\Closure(AreaTemporariaPrivada, AreaTemporariaPrivada): string}> */
+    public static function caminhosForaDaArea(): iterable
+    {
+        yield 'arquivo de outra área' => [static fn (AreaTemporariaPrivada $area, AreaTemporariaPrivada $outra): string => $outra->gravar(self::PDF, 'pdf')];
+        yield 'subida de diretório' => [static fn (AreaTemporariaPrivada $area): string => $area->caminho() . '/..'];
+        yield 'subdiretório da área' => [static function (AreaTemporariaPrivada $area): string {
+            mkdir($area->caminho() . '/sub');
+
+            return $area->caminho() . '/sub/x.pdf';
+        }];
+        yield 'link na área' => [static function (AreaTemporariaPrivada $area, AreaTemporariaPrivada $outra): string {
+            symlink($outra->gravar(self::PDF, 'pdf'), $area->caminho() . '/link.pdf');
+
+            return $area->caminho() . '/link.pdf';
+        }];
+    }
+
+    /** @param \Closure(AreaTemporariaPrivada, AreaTemporariaPrivada): string $caminho */
+    #[DataProvider('caminhosForaDaArea')]
+    #[TestDox('$_dataName: FalhaNoTemporario, sem ler nem pedir o selo')]
+    public function testCaminhoForaDaArea(\Closure $caminho): void
+    {
+        $outra = AreaTemporariaPrivada::criar('testeselo');
+        try {
+            $selo = $this->selo(static fn (): never => self::fail('fora da área, nenhum pedido sai'));
+
+            $this->expectException(FalhaNoTemporario::class);
+            $selo->aplicar($this->documento, $this->area, $caminho($this->area, $outra), false);
+        } finally {
+            $outra->liberar();
+        }
     }
 
     #[TestDox('PDF acima do teto do validador: falha definitiva pdf_grande_demais pelo tamanho, sem ler o arquivo nem pedir')]
@@ -155,7 +209,7 @@ final class SeloDoPdfFinalTest extends TestCase
 
         memory_reset_peak_usage();
         $antes = memory_get_usage();
-        $resultado = $selo->aplicar($this->documento, $caminho, false);
+        $resultado = $selo->aplicar($this->documento, $this->area, $caminho, false);
         $pico = memory_get_peak_usage() - $antes;
 
         self::assertLessThan(1024 * 1024, $pico, 'os 20 MB não passaram pela memória');
@@ -163,7 +217,7 @@ final class SeloDoPdfFinalTest extends TestCase
         self::assertSame(ClasseDaFalhaNoSelo::Definitiva, $resultado->falha->classe);
         self::assertSame(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES + 1, filesize($caminho));
 
-        $selo->registrar($this->documento, $resultado);
+        $this->registrarEAvisar($selo, $resultado);
 
         $this->assertGuardadoSemOSelo(HttpSeladorDePdf::PDF_GRANDE_DEMAIS);
     }
@@ -179,7 +233,7 @@ final class SeloDoPdfFinalTest extends TestCase
             return null;
         });
 
-        $resultado = $selo->aplicar($this->documento, $caminho, false);
+        $resultado = $selo->aplicar($this->documento, $this->area, $caminho, false);
 
         self::assertSame(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES, $enviados);
         self::assertNull($resultado->falha);
@@ -200,7 +254,7 @@ final class SeloDoPdfFinalTest extends TestCase
     {
         $caminho = $this->pdfNoTemporario();
         try {
-            $this->falhando($falha)->aplicar($this->documento, $caminho, false);
+            $this->falhando($falha)->aplicar($this->documento, $this->area, $caminho, false);
             self::fail('Era para relançar a falha.');
         } catch (FalhaNoSelo $relancada) {
             self::assertSame($falha, $relancada);
@@ -226,8 +280,8 @@ final class SeloDoPdfFinalTest extends TestCase
         $caminho = $this->pdfNoTemporario();
         $selo = $this->falhando($falha);
 
-        $resultado = $selo->aplicar($this->documento, $caminho, true);
-        $selo->registrar($this->documento, $resultado);
+        $resultado = $selo->aplicar($this->documento, $this->area, $caminho, true);
+        $this->registrarEAvisar($selo, $resultado);
 
         self::assertSame($falha, $resultado->falha);
         self::assertSame(self::PDF, file_get_contents($caminho));
@@ -241,7 +295,7 @@ final class SeloDoPdfFinalTest extends TestCase
         $selo = $this->falhando(new FalhaNoSelo('http_431', ClasseDaFalhaNoSelo::Configuracao, 431));
         for ($tentativa = 0; $tentativa < 3; ++$tentativa) {
             try {
-                $selo->aplicar($this->documento, $caminho, false);
+                $selo->aplicar($this->documento, $this->area, $caminho, false);
             } catch (FalhaNoSelo) {
             }
         }
@@ -249,6 +303,12 @@ final class SeloDoPdfFinalTest extends TestCase
         self::assertCount(3, $this->log->erros());
         self::assertSame(['documento' => 31, 'codigo' => 'http_431', 'situacao' => 431], $this->log->registros[2]['contexto']);
         self::assertStringNotContainsString('PDF final da etapa 3', $this->log->tudo());
+    }
+
+    private function registrarEAvisar(SeloDoPdfFinal $selo, ResultadoDoSelo $resultado): void
+    {
+        $selo->registrar($this->documento, $resultado);
+        $selo->avisar($this->documento, $resultado);
     }
 
     private function assertGuardadoSemOSelo(string $codigo): void
