@@ -22,15 +22,15 @@ use Symfony\Contracts\Service\ResetInterface;
  * cliente, se já foi feito e o endereço da pasta. `vinculo` só sai para quem VÊ a pasta (permissão e cadeado); para os
  * outros é nulo, e nem o número nem o cliente aparecem.
  *
- * Na lista, uma consulta para os vínculos do escritório e uma conferência em lote da permissão; no detalhe, a entidade.
- * Memória por requisição (zerada pelo `ResetInterface`).
+ * Na lista, uma consulta para os vínculos dos documentos da resposta (pelos ids, {@see prepararLinhas()}) e uma
+ * conferência em lote da permissão; no detalhe, a entidade. Memória por requisição (zerada pelo `ResetInterface`).
  */
 final class VinculoNaTela implements ResetInterface
 {
     public const SEM_VINCULO = ['vinculado' => false, 'vinculo' => null];
 
-    /** @var array<int, array{pasta: Pasta, pendente: bool}>|null por id do documento */
-    private ?array $doEscritorio = null;
+    /** @var array<int, array{pasta: Pasta, pendente: bool}|null> por id do documento já consultado; nulo = sem vínculo */
+    private array $dasLinhas = [];
 
     /** @var array<int, bool> por id da pasta: a pessoa da sessão vê a pasta */
     private array $visiveis = [];
@@ -46,13 +46,39 @@ final class VinculoNaTela implements ResetInterface
     }
 
     /**
-     * O vínculo de uma linha da lista, pelo id do documento.
+     * Lê, numa consulta só, os vínculos das linhas que a resposta vai montar (só esses ids, não o escritório inteiro), e
+     * confere em lote quem vê as pastas deles. Os ids já lidos nesta requisição não são consultados de novo.
+     *
+     * @param list<int> $documentoIds
+     */
+    public function prepararLinhas(array $documentoIds): void
+    {
+        $faltam = array_values(array_unique(array_filter($documentoIds, fn (int $id): bool => !\array_key_exists($id, $this->dasLinhas))));
+        if ($faltam === []) {
+            return;
+        }
+        $quem = $this->acesso->quemPode();
+        $achados = $quem === null ? [] : $this->documentos->vinculosDosDocumentos($quem[1], $faltam);
+        foreach ($faltam as $id) {
+            $this->dasLinhas[$id] = $achados[$id] ?? null;
+        }
+        if ($quem !== null && $achados !== []) {
+            $this->conferirEmLote($quem[0], $quem[1], $achados);
+        }
+    }
+
+    /**
+     * O vínculo de uma linha da lista, pelo id do documento. A linha que não passou pelo {@see prepararLinhas()} consulta
+     * só o próprio id.
      *
      * @return array{vinculado: bool, vinculo: array<string, mixed>|null}
      */
     public function daLinha(int $documentoId): array
     {
-        $linha = $this->doEscritorio()[$documentoId] ?? null;
+        if (!\array_key_exists($documentoId, $this->dasLinhas)) {
+            $this->prepararLinhas([$documentoId]);
+        }
+        $linha = $this->dasLinhas[$documentoId] ?? null;
 
         return $linha === null ? self::SEM_VINCULO : $this->montar($linha['pasta'], $linha['pendente']);
     }
@@ -71,7 +97,7 @@ final class VinculoNaTela implements ResetInterface
 
     public function reset(): void
     {
-        $this->doEscritorio = null;
+        $this->dasLinhas = [];
         $this->visiveis = [];
     }
 
@@ -101,27 +127,22 @@ final class VinculoNaTela implements ResetInterface
         return $this->visiveis[$id];
     }
 
-    /** @return array<int, array{pasta: Pasta, pendente: bool}> */
-    private function doEscritorio(): array
-    {
-        if ($this->doEscritorio !== null) {
-            return $this->doEscritorio;
-        }
-        $quem = $this->acesso->quemPode();
-        $this->doEscritorio = $quem === null ? [] : $this->documentos->vinculosDoEscritorio($quem[1]);
-        if ($quem !== null && $this->doEscritorio !== []) {
-            $this->conferirEmLote($quem[0], $quem[1]);
-        }
-
-        return $this->doEscritorio;
-    }
-
-    /** As pastas da lista numa conferência: os cadeados numa consulta e os acessos item a item em outra. */
-    private function conferirEmLote(User $pessoa, Tenant $tenant): void
+    /**
+     * As pastas das linhas numa conferência: os cadeados numa consulta e os acessos item a item em outra.
+     *
+     * @param array<int, array{pasta: Pasta, pendente: bool}> $vinculos
+     */
+    private function conferirEmLote(User $pessoa, Tenant $tenant, array $vinculos): void
     {
         $pastas = [];
-        foreach ($this->doEscritorio ?? [] as $linha) {
-            $pastas[(int) $linha['pasta']->getId()] = $linha['pasta'];
+        foreach ($vinculos as $linha) {
+            $id = (int) $linha['pasta']->getId();
+            if (!isset($this->visiveis[$id])) {
+                $pastas[$id] = $linha['pasta'];
+            }
+        }
+        if ($pastas === []) {
+            return;
         }
         $this->acessoAPasta->niveisEmLote($pessoa, $pastas);
         $vinculo = $this->vinculosDaPessoa->findAtivoPorUserETenant($pessoa, $tenant);

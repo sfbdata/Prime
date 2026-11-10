@@ -263,27 +263,53 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     }
 
     /**
-     * Os vínculos à pasta dos documentos do escritório, Lixeira incluída, para o texto "Na pasta" da lista (E3-10): por
-     * id do documento, a pasta e se o vínculo ainda está pendente. Uma consulta para a lista inteira.
+     * Os vínculos à pasta dos documentos dados (os da resposta), deste escritório, Lixeira incluída, para o texto "Na
+     * pasta" da lista (E3-10): por id do documento, a pasta e se o vínculo ainda está pendente. Duas consultas para a
+     * lista inteira (os vínculos, sem hidratar o documento, e as pastas deles); documento sem vínculo, de outro
+     * escritório ou fora dos ids não aparece. As pastas vêm à parte de propósito: na consulta única com a pasta como
+     * raiz, dois documentos na mesma pasta viravam uma linha só, e um deles perdia o "Na pasta".
+     *
+     * @param list<int> $documentoIds
      *
      * @return array<int, array{pasta: Pasta, pendente: bool}>
      */
-    public function vinculosDoEscritorio(Tenant $tenant): array
+    public function vinculosDosDocumentos(Tenant $tenant, array $documentoIds): array
     {
-        /** @var list<array{0: Pasta, documentoId: int|string, pendente: bool}> $linhas */
-        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->getEntityManager()->createQueryBuilder()
-            ->select('p', 'd.id AS documentoId', 'd.vinculoPendente AS pendente')
-            ->from(Pasta::class, 'p')
-            ->join(DocumentoParaAssinar::class, 'd', 'WITH', 'd.pasta = p')
+        if ($documentoIds === []) {
+            return [];
+        }
+
+        /** @var list<array{documentoId: int|string, pastaId: int|string, pendente: bool}> $linhas */
+        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
+            ->select('d.id AS documentoId', 'IDENTITY(d.pasta) AS pastaId', 'd.vinculoPendente AS pendente')
             ->andWhere('d.tenant = :tenant')
-            ->andWhere('p.tenant = :tenant')
+            ->andWhere('d.pasta IS NOT NULL')
+            ->andWhere('d.id IN (:ids)')
             ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $documentoIds)
             ->getQuery()
-            ->getResult());
+            ->getArrayResult());
+        if ($linhas === []) {
+            return [];
+        }
+
+        /** @var array<int, Pasta> $pastas */
+        $pastas = $this->getEntityManager()->createQueryBuilder()
+            ->select('p')
+            ->from(Pasta::class, 'p', 'p.id')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:pastas)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pastas', array_values(array_unique(array_map(static fn (array $l): int => (int) $l['pastaId'], $linhas))))
+            ->getQuery()
+            ->getResult();
 
         $vinculos = [];
         foreach ($linhas as $linha) {
-            $vinculos[(int) $linha['documentoId']] = ['pasta' => $linha[0], 'pendente' => (bool) $linha['pendente']];
+            $pasta = $pastas[(int) $linha['pastaId']] ?? null;
+            if ($pasta !== null) {
+                $vinculos[(int) $linha['documentoId']] = ['pasta' => $pasta, 'pendente' => (bool) $linha['pendente']];
+            }
         }
 
         return $vinculos;

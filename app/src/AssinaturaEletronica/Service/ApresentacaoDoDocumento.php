@@ -50,6 +50,21 @@ final readonly class ApresentacaoDoDocumento
     }
 
     /**
+     * As linhas da lista: o `Resumo` de cada documento, com os vínculos à pasta lidos numa consulta só, pelos ids da
+     * resposta (E3-10).
+     *
+     * @param list<ResumoDoDocumento> $resumos
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function resumos(array $resumos): array
+    {
+        $this->vinculos?->prepararLinhas(array_map(static fn (ResumoDoDocumento $r): int => $r->id, $resumos));
+
+        return array_map($this->resumo(...), $resumos);
+    }
+
+    /**
      * O `Resumo` da lista e do detalhe: a mesma forma, venha da consulta da lista ou da entidade.
      *
      * @return array<string, mixed>

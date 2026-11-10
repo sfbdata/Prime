@@ -12,6 +12,7 @@ use App\AssinaturaEletronica\Enum\TipoDeLogo;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,8 +22,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * As consultas da tela Assinatura no banco de verdade (DAMA desfaz cada teste). Etapa 3: o código de validação (a porta
- * da validação pública e a colisão do envio) e o PDF final entre os arquivos em uso. Etapa 5: as versões guardadas do
- * PDF também.
+ * da validação pública e a colisão do envio), o PDF final entre os arquivos em uso e os vínculos à pasta da lista.
+ * Etapa 5: as versões guardadas do PDF também.
  */
 #[CoversClass(DocumentoParaAssinarRepository::class)]
 #[CoversClass(ResumoDoDocumento::class)]
@@ -159,6 +160,60 @@ final class DocumentoParaAssinarRepositoryTest extends KernelTestCase
         } finally {
             $this->em()->getFilters()->disable('tenant');
         }
+    }
+
+    #[TestDox('etapa 3: vínculos à pasta só dos documentos pedidos (os da resposta), deste escritório, Lixeira incluída, dois na mesma pasta')]
+    public function testVinculosDosDocumentos(): void
+    {
+        $tenant = $this->escritorio();
+        $pendente = $this->documento($tenant, 'Pendente');
+        $naLixeira = $this->documento($tenant, 'Feito na Lixeira');
+        $foraDaResposta = $this->documento($tenant, 'Fora da resposta');
+        $semVinculo = $this->documento($tenant, 'Sem vínculo');
+        $outro = $this->escritorio();
+        $alheio = $this->documento($outro, 'De outro escritório');
+        $pasta = $this->pastaDo($tenant);
+        $pastaAlheia = $this->pastaDo($outro);
+        $ligar = 'UPDATE assinatura_eletronica_documento SET pasta_id = ?, vinculo_pendente = ? WHERE id = ?';
+        $this->conexao()->executeStatement($ligar, [$pasta->getId(), 'true', $pendente->getId()]);
+        $this->conexao()->executeStatement($ligar, [$pasta->getId(), 'false', $naLixeira->getId()]);
+        $this->conexao()->executeStatement($ligar, [$pasta->getId(), 'true', $foraDaResposta->getId()]);
+        $this->conexao()->executeStatement($ligar, [$pastaAlheia->getId(), 'true', $alheio->getId()]);
+        $this->conexao()->executeStatement('UPDATE assinatura_eletronica_documento SET excluido_em = NOW() WHERE id = ?', [$naLixeira->getId()]);
+        $this->em()->clear();
+
+        $vinculos = $this->documentos->vinculosDosDocumentos($tenant, [(int) $pendente->getId(), (int) $naLixeira->getId(), (int) $semVinculo->getId(), (int) $alheio->getId()]);
+
+        self::assertSame([(int) $pendente->getId(), (int) $naLixeira->getId()], self::chavesEmOrdem($vinculos), 'nem o fora da resposta, nem o sem vínculo, nem o de outro escritório');
+        self::assertSame($pasta->getId(), $vinculos[(int) $pendente->getId()]['pasta']->getId());
+        self::assertTrue($vinculos[(int) $pendente->getId()]['pendente']);
+        self::assertFalse($vinculos[(int) $naLixeira->getId()]['pendente']);
+        self::assertSame([], $this->documentos->vinculosDosDocumentos($tenant, []));
+    }
+
+    /**
+     * @param array<int, mixed> $mapa
+     *
+     * @return list<int>
+     */
+    private static function chavesEmOrdem(array $mapa): array
+    {
+        $chaves = array_keys($mapa);
+        sort($chaves);
+
+        return $chaves;
+    }
+
+    private function pastaDo(Tenant $tenant): Pasta
+    {
+        $pasta = new Pasta();
+        $pasta->setNup('ASR' . strtoupper(substr(uniqid(), -6)));
+        $pasta->setNomeCliente('CLIENTE DO VINCULO');
+        $pasta->setTenant($tenant);
+        $this->em()->persist($pasta);
+        $this->em()->flush();
+
+        return $pasta;
     }
 
     private function escritorio(): Tenant
