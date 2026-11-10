@@ -10,7 +10,6 @@ use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Repository\UserTenantRepository;
-use App\Tenant\UseCase\GerarCodigoFuncionario;
 
 /**
  * Dados da folha de ponto exportada (PDF e XLSX): empregador, empregado, jornada, linhas do mês
@@ -26,7 +25,6 @@ final class DadosDaFolhaExportada
 
     public function __construct(
         private readonly UserTenantRepository $userTenantRepository,
-        private readonly GerarCodigoFuncionario $gerarCodigo,
         private readonly FolhaPontoBuilder $builder,
     ) {
     }
@@ -82,7 +80,8 @@ final class DadosDaFolhaExportada
         foreach ($folhaRows as $row) {
             $row['horasTrabalhadas'] = $this->formatarMinutos($row['minutosTrabalhadosDia'] ?? null);
             $row['horasExtras']      = ($row['saldoDia'] ?? 0) > 0 ? $this->formatarMinutos($row['saldoDia']) : '0:00';
-            $row['bancoHoras']       = $this->formatarSaldo($row['saldoAcumulado'] ?? null);
+            // Dia em andamento (hoje sem saída, E17): o acumulado até ontem, como a tela e o PDF (desenho L157).
+            $row['bancoHoras']       = $this->formatarSaldo($row['saldoAcumulado'] ?? $row['saldoAcumuladoAteOntem'] ?? null);
             $rowsProcessados[]       = $row;
 
             $totalMinutosTrabalhados += ($row['minutosTrabalhadosDia'] ?? 0);
@@ -217,8 +216,8 @@ final class DadosDaFolhaExportada
             'cnpj'                    => $this->formatarCnpj($tenant->getCnpj() ?? ''),
             'enderecoLinha1'          => implode('', $enderecoPartes),
             'enderecoLinha2'          => trim($cidadeEstado . $cep),
-            'codigoFuncionario'       => $userTenant?->getCodigoFuncionario()
-                ?? $this->gerarCodigo->executar($tenant),
+            // Sem vínculo ativo ou sem código: vazio, como no PDF (decisão 9); o próximo código livre não é da pessoa.
+            'codigoFuncionario'       => $userTenant?->getCodigoFuncionario() ?? '',
             'cpf'                     => $this->formatarCpf($profile?->getCpf() ?? ''),
             'cargo'                   => mb_strtoupper($cargo?->getNome() ?? ''),
             'ctps'                    => $profile?->getCtps() ?? '',
@@ -250,8 +249,7 @@ final class DadosDaFolhaExportada
             'descansoSemanalConforme' => self::maiorSequenciaDeDiasComRegistro($folhaRows) <= self::DIAS_SEGUIDOS_SEM_DESCANSO,
             'responsavelAssinatura'   => $tenant->getResponsavelAssinatura() ?? '',
             // retrocompatibilidade com campos usados pela visualização da folha na tela
-            'numeroTrabalhador' => $userTenant?->getCodigoFuncionario()
-                ?? $this->gerarCodigo->executar($tenant),
+            'numeroTrabalhador' => $userTenant?->getCodigoFuncionario() ?? '',
             'descrJornada'  => $descrJornada,
             'horaEntrada'   => $horarios['entrada'] . ' h',
             'horaRepouso'   => $horarios['repouso'] . ' h',
