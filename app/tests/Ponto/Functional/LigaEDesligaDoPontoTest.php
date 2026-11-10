@@ -303,7 +303,7 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
 
         $cartao = $this->linha($this->primario, self::COMPROVANTE);
 
-        self::assertSame(['ponto-animacao', 'ponto-sons', 'ponto-comprovante', 'ponto-geo', 'ponto-lembrete', 'ponto-alertas'], $this->funcoesNoPainel());
+        self::assertSame(['ponto-animacao', 'ponto-sons', 'ponto-comprovante', 'ponto-geo', 'ponto-lembrete', 'ponto-alertas', 'ponto-aceite'], $this->funcoesNoPainel(), 'os alertas (E11) e o aceite da folha (E16) por último, como o FEATS');
         self::assertCount(1, $this->painel->filter(self::COMPROVANTE . ' + .pe-config-funcao[data-config-funcao="ponto-geo"]'), 'irmãos diretos, nesta ordem');
         self::assertSame(['pe-config-icone', 'pe-config-texto', 'pe-config-chave', 'pe-config-trava', 'pe-config-erro'], $this->filhos($cartao));
         self::assertCount(1, $cartao->filter('.pe-config-funcao > i.pe-config-icone.bi.bi-receipt:first-child[aria-hidden="true"]'));
@@ -321,7 +321,7 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
 
         $this->linha($this->primario);
 
-        self::assertSame(['ponto-animacao', 'ponto-sons', 'ponto-geo', 'ponto-lembrete', 'ponto-alertas'], $this->funcoesNoPainel(), 'como a aba Comprovantes, o cartão some sem o selo; as outras funções (E8 e E11) ficam');
+        self::assertSame(['ponto-animacao', 'ponto-sons', 'ponto-geo', 'ponto-lembrete', 'ponto-alertas'], $this->funcoesNoPainel(), 'como a aba Comprovantes, o cartão some sem o selo (e o do aceite da folha, E16); as outras funções (E8 e E11) ficam');
     }
 
     #[TestDox('O primário desliga o comprovante do escritório: a chave grava e a aba Comprovantes some da /ponto')]

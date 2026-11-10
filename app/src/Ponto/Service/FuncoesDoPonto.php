@@ -16,14 +16,15 @@ use App\Service\PermissionChecker;
  * no seu escritório, em `ponto_config_escritorio`). A função vale quando as duas estão ligadas; o Global desligado
  * trava a do escritório. Chave sem registro em qualquer das camadas vale ligada (P96).
  *
- * A geolocalização (E7), a tela cheia, os sons e o lembrete de saída (E8), o comprovante em imagem (E15) e os alertas
- * de intervalo (E11) têm a camada Escritório: as outras chaves entram nas etapas das suas funções (E16, E18), para
- * ninguém ligar função que ainda não existe.
+ * A geolocalização (E7), a tela cheia, os sons e o lembrete de saída (E8), o comprovante em imagem (E15), os alertas
+ * de intervalo (E11) e o aceite mensal da folha (E16) têm a camada Escritório: as outras chaves entram nas etapas das
+ * suas funções (E18), para ninguém ligar função que ainda não existe.
  */
 final class FuncoesDoPonto
 {
     public const GEO = 'ponto-geo';
     public const COMPROVANTE = 'ponto-comprovante';
+    public const ACEITE = 'ponto-aceite';
 
     /** Alertas de intervalo (E11, P21): a janela "Antes de registrar" e o aviso do intervalo no cartão. */
     public const ALERTAS = 'ponto-alertas';
@@ -73,6 +74,11 @@ final class FuncoesDoPonto
             'titulo' => 'Alertas de intervalo',
             'icone'  => 'bi-exclamation-triangle',
             'ajuda'  => 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.',
+        ],
+        self::ACEITE => [
+            'titulo' => 'Aceite mensal da folha',
+            'icone'  => 'bi-pen',
+            'ajuda'  => 'O colaborador confirma ou registra ressalva na folha fechada.',
         ],
     ];
 

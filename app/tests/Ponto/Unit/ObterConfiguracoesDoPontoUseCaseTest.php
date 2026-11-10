@@ -15,6 +15,7 @@ use App\Ponto\DTO\FuncaoDoPontoOutput;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Repository\ConfiguracaoDoPontoRepository;
 use App\Ponto\Service\FuncoesDoPonto;
+use App\Ponto\Service\SeloDaFolha;
 use App\Ponto\Service\SeloDoComprovante;
 use App\Ponto\UseCase\ObterConfiguracoesDoPontoUseCase;
 use App\Service\PermissionChecker;
@@ -28,9 +29,9 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
- * O conteúdo da seção das funções da aba Configurações (E7, E15, P67): só para quem administra o ponto do escritório; o
- * Master ganha a chave Global; travada mostra a do escritório desligada sem perder o valor guardado; sem o selo do
- * comprovante, o cartão do comprovante não aparece.
+ * O conteúdo da seção das funções da aba Configurações (E7, E15, E16, P67): só para quem administra o ponto do
+ * escritório; o Master ganha a chave Global; travada mostra a do escritório desligada sem perder o valor guardado; sem o
+ * segredo do HMAC, os cartões do comprovante e do aceite não aparecem.
  */
 #[CoversClass(ObterConfiguracoesDoPontoUseCase::class)]
 #[CoversClass(FuncaoDoPontoOutput::class)]
@@ -43,7 +44,7 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertNull($this->casoDeUso(false, null, true)->executar(new User(), new Tenant()));
     }
 
-    #[TestDox('Sem linha e sem registro do Master: as seis funções (E7, E8, E11 e E15) aparecem ligadas nas duas camadas, na ordem do desenho')]
+    #[TestDox('Sem linha e sem registro do Master: as sete funções (E7, E8, E11, E15 e E16) aparecem ligadas nas duas camadas, na ordem do desenho')]
     public function testNasceLigada(): void
     {
         $saida = $this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_USER']), new Tenant());
@@ -58,6 +59,7 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
                 ['ponto-geo', 'Geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.'],
                 ['ponto-lembrete', 'Lembrete de saída', 'bi-bell', 'Avisa quando passar do horário previsto e a saída não foi registrada.'],
                 ['ponto-alertas', 'Alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.'],
+                ['ponto-aceite', 'Aceite mensal da folha', 'bi-pen', 'O colaborador confirma ou registra ressalva na folha fechada.'],
             ],
             array_map(static fn (FuncaoDoPontoOutput $f): array => [$f->chave, $f->titulo, $f->icone, $f->ajuda], $saida->funcoes),
         );
@@ -92,7 +94,7 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertTrue($this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), new Tenant())?->ehMaster);
     }
 
-    #[TestDox('Sem o selo do comprovante (segredo do HMAC ausente): as outras cinco funções, sem o cartão do comprovante')]
+    #[TestDox('Sem o segredo do HMAC (selos do comprovante e da folha indisponíveis): as outras cinco funções, sem os cartões do comprovante e do aceite')]
     public function testSemSeloSoAGeolocalizacao(): void
     {
         $saida = $this->casoDeUso(true, null, true, seloDisponivel: false)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), new Tenant());
@@ -128,7 +130,9 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         $permissoes->method('canAdminister')->willReturn($podeConfigurar);
         $selo = $this->createStub(SeloDoComprovante::class);
         $selo->method('disponivel')->willReturn($seloDisponivel);
+        $seloDaFolha = $this->createStub(SeloDaFolha::class);
+        $seloDaFolha->method('disponivel')->willReturn($seloDisponivel);
 
-        return new ObterConfiguracoesDoPontoUseCase(new FuncoesDoPonto($recursos, $configuracoes, $permissoes), $configuracoes, $regra, $selo);
+        return new ObterConfiguracoesDoPontoUseCase(new FuncoesDoPonto($recursos, $configuracoes, $permissoes), $configuracoes, $regra, $selo, $seloDaFolha);
     }
 }

@@ -93,18 +93,24 @@ final class FuncoesDoPontoTest extends TestCase
         self::assertTrue($this->funcoes([], $configuracao)->vale(FuncoesDoPonto::GEO, $tenant));
     }
 
-    #[TestDox('A camada Escritório: a tela cheia e os sons (E8), o comprovante (E15), a geolocalização (E7), o lembrete (E8) e os alertas de intervalo (E11), na ordem do desenho; quem configura é admin.ponto.manage no escritório')]
+    #[TestDox('A camada Escritório: a tela cheia e os sons (E8), o comprovante (E15), a geolocalização (E7), o lembrete (E8), os alertas de intervalo (E11) e o aceite da folha (E16), na ordem do desenho; quem configura é admin.ponto.manage no escritório')]
     public function testCamadaEPermissao(): void
     {
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-geo'));
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-comprovante'));
+        self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-aceite'));
         self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto'));
         self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto-facial'), 'a facial é da E18');
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-alertas'));
-        self::assertSame(['ponto-animacao', 'ponto-sons', 'ponto-comprovante', 'ponto-geo', 'ponto-lembrete', 'ponto-alertas'], array_keys(FuncoesDoPonto::COM_CAMADA_ESCRITORIO), 'a ordem do FEATS do desenho (L414 a L423)');
+        self::assertSame(['ponto-animacao', 'ponto-sons', 'ponto-comprovante', 'ponto-geo', 'ponto-lembrete', 'ponto-alertas', 'ponto-aceite'], array_keys(FuncoesDoPonto::COM_CAMADA_ESCRITORIO), 'a ordem do FEATS do desenho (L414 a L423)');
         self::assertSame(
             [FuncoesDoPonto::ANIMACAO, FuncoesDoPonto::SONS, FuncoesDoPonto::LEMBRETE],
             ['ponto-animacao', 'ponto-sons', 'ponto-lembrete'],
+        );
+        self::assertSame(
+            ['titulo' => 'Aceite mensal da folha', 'icone' => 'bi-pen', 'ajuda' => 'O colaborador confirma ou registra ressalva na folha fechada.'],
+            FuncoesDoPonto::COM_CAMADA_ESCRITORIO['ponto-aceite'],
+            'título, ícone e ajuda do FEATS (L422)',
         );
 
         $quem = new User();
