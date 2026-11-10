@@ -1869,12 +1869,21 @@
         confirmacaoDoAlerta = null;
     }
 
+    // Botão cinza na hora do "Registrar assim mesmo" (outro envio no meio, ou o dia completou com a janela aberta): o
+    // click() num botão desabilitado não dispara nada e a confirmação sumia calada. O aviso da batida diz que não saiu.
+    const AVISO_ALERTA_DURANTE_ENVIO = 'A batida não foi registrada: outro registro estava sendo enviado. Espere terminar e toque no botão de novo.';
+    const AVISO_ALERTA_DIA_CONCLUIDO = 'A batida não foi registrada: a jornada de hoje já está concluída.';
+
     if (janelaDoAlerta) {
         janelaDoAlerta.querySelector('[data-alerta-registrar]').addEventListener('click', function () {
             const batida = alertaEmEspera;
             alertaEmEspera = null;
             window.PontoAbas.fecharJanela();
             if (!batida) {
+                return;
+            }
+            if (btnPonto.disabled) {
+                mostrarAvisoBatida(envioEmAndamento ? AVISO_ALERTA_DURANTE_ENVIO : AVISO_ALERTA_DIA_CONCLUIDO, 'warning');
                 return;
             }
             confirmacaoDoAlerta = batida;

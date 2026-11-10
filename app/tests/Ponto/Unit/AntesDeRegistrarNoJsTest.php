@@ -74,9 +74,25 @@ final class AntesDeRegistrarNoJsTest extends TestCase
 
         self::assertStringContainsString("janelaDoAlerta.querySelector('[data-alerta-registrar]').addEventListener('click', function () {", $tela);
         self::assertMatchesRegularExpression(
-            '/window\.PontoAbas\.fecharJanela\(\);\s*if \(!batida\) \{\s*return;\s*\}\s*confirmacaoDoAlerta = batida;\s*btnPonto\.click\(\);\s*confirmacaoDoAlerta = null;/',
+            '/window\.PontoAbas\.fecharJanela\(\);\s*if \(!batida\) \{\s*return;\s*\}\s*if \(btnPonto\.disabled\) \{[^}]*\}\s*confirmacaoDoAlerta = batida;\s*btnPonto\.click\(\);\s*confirmacaoDoAlerta = null;/',
             $tela,
         );
+    }
+
+    #[TestDox('"Registrar assim mesmo" com o botão cinza (outro envio no meio ou o dia completo) não some calado: o aviso da batida diz que não saiu')]
+    public function testRegistrarAssimMesmoComBotaoCinzaAvisa(): void
+    {
+        $tela = $this->tela();
+
+        self::assertStringContainsString("const AVISO_ALERTA_DURANTE_ENVIO = 'A batida não foi registrada: outro registro estava sendo enviado. Espere terminar e toque no botão de novo.';", $tela);
+        self::assertStringContainsString("const AVISO_ALERTA_DIA_CONCLUIDO = 'A batida não foi registrada: a jornada de hoje já está concluída.';", $tela);
+        self::assertMatchesRegularExpression(
+            "/if \(btnPonto\.disabled\) \{\s*mostrarAvisoBatida\(envioEmAndamento \? AVISO_ALERTA_DURANTE_ENVIO : AVISO_ALERTA_DIA_CONCLUIDO, 'warning'\);\s*return;\s*\}/",
+            $tela,
+            'o aviso é o da caixa da batida (#batida-aviso), nunca alert(), e nada é enviado',
+        );
+        $registrar = substr($tela, (int) strpos($tela, "querySelector('[data-alerta-registrar]').addEventListener"));
+        self::assertStringNotContainsString('alert(', substr($registrar, 0, (int) strpos($registrar, 'btnPonto.click();')));
     }
 
     #[TestDox('Atalho do cabeçalho: com o alerta pergunta (a frase fixa da janela); confirmado, refaz a posição, a cerca e a releitura do estado comparada com o retrato do clique antes do segundo envio')]

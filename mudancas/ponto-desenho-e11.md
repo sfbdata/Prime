@@ -7,10 +7,12 @@ tipo: novidade
 - Chave `ponto-alertas` ("Ponto: alertas de intervalo") no catálogo do Master e na aba Configurações do Ponto (camada Escritório), nascendo ligada (P96). Desligada em qualquer camada, a batida segue sem aviso e sem recusa (desenho L498), sem o alerta do 7º dia e sem o aviso do intervalo no cartão (P12); a folha continua marcando o que ficou fora da regra.
 - Regras em `AlertasAntesDaBatida` (`src/Ponto/Service`), que o `PontoController::batida` chama no lugar do bloco do repouso e do método `interjornada()`. A saída vinda de esquecimento continua só avisando depois de gravar (R4), com ou sem a chave; a batida da fila sem internet grava sem a janela e nunca fica presa no alerta.
 - PDF e XLSX da folha: o "Descanso Semanal Remunerado" passa a ser calculado (conforme até 6 dias seguidos com registro no mês, desenho L693), em vez de "Conforme" fixo.
+- "Registrar assim mesmo" com o botão da batida cinza (outro envio no meio ou o dia completo com a janela aberta) não some mais calado: a caixa de aviso da batida diz que ela não foi registrada e por quê.
 - Atalho do cabeçalho: com o alerta, pergunta (confirm do navegador, como na saída) e, confirmado, relê o estado e a posição antes de mandar a mesma batida com a confirmação; se o estado mudou, não envia. A frase da saída diz que a próxima entrada antes do descanso avisa antes de registrar (alertas ligados) ou só informa o descanso mínimo (desligados); o estado do dia ganha `alertasLigados`. Sem migration.
 
 ## Para o cliente
 - No Ponto Eletrônico, voltar do intervalo antes do mínimo ou começar o dia antes de completar o descanso entre jornadas não impede mais a batida. O sistema mostra um aviso "Antes de registrar" com quanto tempo falta, e a pessoa escolhe entre aguardar ou registrar assim mesmo. A folha de ponto continua mostrando o intervalo fora da regra.
+- Se a pessoa toca em "Registrar assim mesmo" enquanto outra batida está sendo enviada, ou com o dia já completo, a tela avisa que a batida não foi registrada, em vez de não fazer nada.
 - Os avisos usam os tempos mínimos configurados na jornada do escritório.
 - Novo aviso quando a pessoa vai registrar o sétimo dia seguido sem o descanso semanal.
 - A folha de ponto em PDF e em planilha passa a mostrar o descanso semanal como "Não conforme" quando há mais de 6 dias seguidos com registro no mês.
