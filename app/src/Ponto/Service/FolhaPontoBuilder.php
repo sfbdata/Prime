@@ -10,6 +10,7 @@ use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
@@ -103,6 +104,20 @@ class FolhaPontoBuilder
                 'repousoId' => $escolha->repouso?->getId(),
                 'retornoId' => $escolha->retorno?->getId(),
                 'saidaId'   => $escolha->saida?->getId(),
+                // E10: o alvo do ajuste ('b{id}' ou 'a{id}'), a cabeça da linhagem (a "cabeça esperada" que a tela manda
+                // de volta) e o ajuste que a batida efetiva carrega ({tipo, por, em}, para a marca "aj" do desenho).
+                'entradaAlvo'   => self::alvoDe($escolha->entrada),
+                'repousoAlvo'   => self::alvoDe($escolha->repouso),
+                'retornoAlvo'   => self::alvoDe($escolha->retorno),
+                'saidaAlvo'     => self::alvoDe($escolha->saida),
+                'entradaCabeca' => $escolha->entrada?->cabeca(),
+                'repousoCabeca' => $escolha->repouso?->cabeca(),
+                'retornoCabeca' => $escolha->retorno?->cabeca(),
+                'saidaCabeca'   => $escolha->saida?->cabeca(),
+                'entradaAjuste' => self::ajusteDe($escolha->entrada),
+                'repousoAjuste' => self::ajusteDe($escolha->repouso),
+                'retornoAjuste' => self::ajusteDe($escolha->retorno),
+                'saidaAjuste'   => self::ajusteDe($escolha->saida),
                 // Dia ambíguo (dois registros distintos do mesmo tipo, retorno antes do repouso): só
                 // avisa, na tela do colaborador e na ficha do admin. O PDF e o XLSX assinados não mudam.
                 'aConferir' => $escolha->aConferir,
@@ -111,6 +126,7 @@ class FolhaPontoBuilder
                 'batidasDesconsideradas' => array_map(
                     static fn (RegistroPonto $batida): array => [
                         'id'   => $batida->getId(),
+                        'alvo' => self::alvoDe($batida),
                         'tipo' => $batida->getTipo(),
                         'hora' => $batida->getDataHora()->format('H:i:s'),
                     ],
@@ -312,6 +328,35 @@ class FolhaPontoBuilder
         }
 
         return false;
+    }
+
+    /**
+     * O alvo do ajuste da batida (E10): 'b{id}' para a batida gravada, 'a{id}' para a inclusão. Uma batida ainda não
+     * gravada (só nos testes de unidade, que montam a folha sem banco) não tem alvo.
+     */
+    private static function alvoDe(?MarcacaoDoPonto $batida): ?string
+    {
+        if ($batida === null || ($batida instanceof RegistroPonto && $batida->getId() === null)) {
+            return null;
+        }
+
+        return $batida->alvo();
+    }
+
+    /**
+     * O ajuste que a batida efetiva carrega, para a marca "aj" e a dica do desenho ("Ajustado por NOME em dd/mm/aaaa.
+     * Registro original preservado.", L154 e L749). Nulo na batida como foi batida.
+     *
+     * @return array{tipo: string, por: string, em: string}|null
+     */
+    private static function ajusteDe(?MarcacaoDoPonto $batida): ?array
+    {
+        $ajuste = $batida?->ajuste();
+        if ($ajuste === null) {
+            return null;
+        }
+
+        return ['tipo' => $ajuste->tipo->value, 'por' => $ajuste->autorNome, 'em' => $ajuste->em->format('d/m/Y')];
     }
 
     /**

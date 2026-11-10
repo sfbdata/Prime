@@ -606,7 +606,7 @@ final class FolhaPontoBuilderTest extends TestCase
 
         self::assertSame([BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS], $linha['aConferir']);
         self::assertSame(
-            [['id' => 12, 'tipo' => RegistroPonto::TIPO_REPOUSO, 'hora' => '12:00:00']],
+            [['id' => 12, 'alvo' => 'b12', 'tipo' => RegistroPonto::TIPO_REPOUSO, 'hora' => '12:00:00']],
             $linha['batidasDesconsideradas']
         );
     }
@@ -621,7 +621,7 @@ final class FolhaPontoBuilderTest extends TestCase
 
         self::assertSame(10, $linha['entradaId']);
         self::assertSame([], $linha['aConferir'], 'repetir o mesmo toque não torna o dia ambíguo');
-        self::assertSame([['id' => 15, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '09:00:00']], $linha['batidasDesconsideradas']);
+        self::assertSame([['id' => 15, 'alvo' => 'b15', 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '09:00:00']], $linha['batidasDesconsideradas']);
     }
 
     public function testDiaSemBatidaNaoTemMarcaNemBatidaDesconsiderada(): void
