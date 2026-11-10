@@ -57,12 +57,6 @@ class VersaoDoPdfRepository extends ServiceEntityRepository
         return $this->primeiraDaOrigem($documento, OrigemDaVersao::Original);
     }
 
-    /** O PDF para assinar congelado na primeira geração (E5-1); nulo antes dela. */
-    public function paraAssinar(DocumentoParaAssinar $documento): ?VersaoDoPdf
-    {
-        return $this->primeiraDaOrigem($documento, OrigemDaVersao::ParaAssinar);
-    }
-
     /**
      * Todas as versões do documento, da primeira para a última (quem apaga o documento junta as chaves dos arquivos).
      *

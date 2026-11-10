@@ -40,19 +40,18 @@ final class VersaoDoPdfRepositoryTest extends KernelTestCase
         $this->documentos = static::getContainer()->get(DocumentoParaAssinarRepository::class);
     }
 
-    #[TestDox('documento sem versões: nenhuma última, original ou PDF para assinar; a próxima ordem é 1')]
+    #[TestDox('documento sem versões: nenhuma última nem original; a próxima ordem é 1')]
     public function testSemVersoes(): void
     {
         $documento = $this->documento($this->escritorio());
 
         self::assertNull($this->versoes->ultima($documento));
         self::assertNull($this->versoes->original($documento));
-        self::assertNull($this->versoes->paraAssinar($documento));
         self::assertSame([], $this->versoes->doDocumento($documento));
         self::assertSame(1, $this->versoes->proximaOrdem($documento));
     }
 
-    #[TestDox('original, PDF para assinar e devolvida: cada consulta acha a sua, a última é a de maior ordem, mesmo com o documento na Lixeira; a de outro documento não aparece')]
+    #[TestDox('original, PDF para assinar e devolvida: o original e a última acham a sua, a última é a de maior ordem, mesmo com o documento na Lixeira; a de outro documento não aparece')]
     public function testConsultas(): void
     {
         $tenant = $this->escritorio();
@@ -75,7 +74,6 @@ final class VersaoDoPdfRepositoryTest extends KernelTestCase
         self::assertSame($govbr->getId(), $ultima->getSignatario()?->getId());
         self::assertSame('devolvida.pdf', $ultima->getArquivoChave());
         self::assertSame(['v' => 1, 'assinaturas' => [['cpf' => '52998224725']]], $this->versoes->original($documento)?->getAnalise());
-        self::assertSame('para.pdf', $this->versoes->paraAssinar($documento)?->getArquivoChave());
         self::assertSame(4, $this->versoes->proximaOrdem($documento));
     }
 
