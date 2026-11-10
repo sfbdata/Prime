@@ -92,11 +92,28 @@ final class AssinaturaJaAssinadoJsTest extends TestCase
 
         self::assertDoesNotMatchRegularExpression('/\bfetch\s*\(/', $js);
         self::assertStringContainsString("fd.append('arquivo', arquivo, arquivo.name);", self::funcao($js, 'conferir'));
-        self::assertStringContainsString("const j = await pedir(endereco, { method: 'POST', body: fd });", self::funcao($js, 'conferir'));
+        self::assertStringContainsString("j = await pedir(endereco, { method: 'POST', body: fd });", self::funcao($js, 'conferir'));
         $original = self::funcao($js, 'baixarOriginal');
         self::assertStringContainsString("salvar(await pedir(q.original, { blob: true }), J('nome_original', { nome: d.nome }));", $original);
         self::assertStringContainsString("avisar(e && e.status === 404 ? J('original_nao_encontrado') : (e && e.texto) || T('erro_geral'), 'erro');", $original);
         self::assertStringContainsString('setTimeout(() => URL.revokeObjectURL(u), 4000);', self::funcao($js, 'salvar'));
+    }
+
+    #[TestDox('passo 1: 422 (e 403 com erro) mostra o texto do servidor; 429, 5xx, rede caída ou 403 sem erro, o "tente de novo" (não o p1.erro)')]
+    public function testFalhaDaConferencia(): void
+    {
+        $js = self::modulo();
+        $conferir = self::funcao($js, 'conferir');
+
+        self::assertStringContainsString("const falha = new Error('conferência do PDF');", $conferir);
+        self::assertStringContainsString('falha.status = e && e.status;', $conferir);
+        self::assertStringContainsString('falha.texto = textoDaFalha(e);', $conferir);
+        self::assertStringContainsString('throw falha;', $conferir);
+        $texto = self::funcao($js, 'textoDaFalha');
+        self::assertStringContainsString("const texto = e && e.texto ? String(e.texto) : '';", $texto);
+        self::assertStringContainsString("return texto && (e.status === 422 || e.status === 403) ? texto : J('conferir_indisponivel');", $texto);
+        self::assertStringContainsString("arqSt((e && e.texto) || T('p1.erro'));", (string) file_get_contents(self::APP . '/public/js/assinatura.js'), 'o subir do passo 1 mostra o texto da falha');
+        self::assertSame('Não foi possível conferir o arquivo agora. Tente de novo em instantes.', $this->catalogo()['ja_assinado']['conferir_indisponivel']);
     }
 
     #[TestDox('carimbo (contrato do 5B): 200 baixa; 422 motivo + " Use o original."; 422 semAssinatura e 404 só o texto; o resto, o texto geral; tudo no aviso vermelho')]

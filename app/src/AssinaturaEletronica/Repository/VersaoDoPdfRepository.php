@@ -35,6 +35,22 @@ class VersaoDoPdfRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * A versão atual do PDF que chegou assinado (o `pres` do desenho): a de maior ordem fora o PDF para assinar
+     * congelado, que não chegou assinado. É o original ou o último devolvido; nulo sem nenhum dos dois. Uma regra só
+     * para o quadro "Documento já assinado" do detalhe e para "Baixar original com as assinaturas" (etapa 5, 5A).
+     */
+    public function ultimaQueNaoEParaAssinar(DocumentoParaAssinar $documento): ?VersaoDoPdf
+    {
+        return $this->doDocumentoQb($documento)
+            ->andWhere('v.origem <> :paraAssinar')
+            ->setParameter('paraAssinar', OrigemDaVersao::ParaAssinar)
+            ->orderBy('v.ordem', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** O PDF que já chegou com assinaturas digitais, guardado ao salvar o rascunho; nulo sem ele. */
     public function original(DocumentoParaAssinar $documento): ?VersaoDoPdf
     {

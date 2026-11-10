@@ -7,6 +7,7 @@ namespace App\Tests\AssinaturaEletronica\Functional;
 use App\AssinaturaEletronica\Controller\ArquivosDaAssinaturaController;
 use App\AssinaturaEletronica\Controller\ConferenciaDoPdfController;
 use App\AssinaturaEletronica\Service\ArquivosDoRascunho;
+use App\AssinaturaEletronica\Service\ValidadorDeBlocos;
 use App\AssinaturaEletronica\UseCase\ConferirPdfEnviadoUseCase;
 use App\AssinaturaEletronica\UseCase\DuplicarDocumentoUseCase;
 use App\AssinaturaEletronica\UseCase\ObterOriginalComAssinaturasUseCase;
@@ -14,16 +15,19 @@ use App\AssinaturaEletronica\UseCase\SalvarRascunhoUseCase;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Tests\AssinaturaEletronica\Support\NaTelaDeAssinatura;
 use App\Tests\AssinaturaEletronica\Unit\ConferenciaDePdf\OficinaDePdfAssinado;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
- * O documento que já chega assinado (etapa 5, bloco 5A) pela HTTP: a conferência do passo 1 sem gravar (E5-6), a
- * versão `original` e o parágrafo de dc:374 ao salvar o rascunho, a troca e a saída do original, o Duplicar (E5-5), o
+ * O documento que já chega assinado (etapa 5, bloco 5A) pela HTTP: a conferência do passo 1 sem gravar (E5-6), com o
+ * limitador por usuário, a versão `original` e o parágrafo de dc:374 ao salvar o rascunho (só o do original guardado,
+ * mesmo vindo de uma aba antiga, e dentro do teto de blocos), a troca e a saída do original, o Duplicar (E5-5), o
  * quadro `jaAssinado` do detalhe e "Baixar original com as assinaturas". O armazenamento é o dublê em memória, menos
  * na entrega do original, que vai ao disco real (o dublê não entrega). O banco é desfeito pelo DAMA.
  */
@@ -79,6 +83,60 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         $this->conferir($this->temporario('falso.pdf', 'só texto'));
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['erro' => 'Envie um arquivo PDF.'], $this->json());
+    }
+
+    #[TestDox('conferir: a cota é por usuário e só é gasta depois do módulo e do CSRF')]
+    public function testCotaPorUsuario(): void
+    {
+        $this->emMemoria();
+        $espiao = new RateLimiterFactoryEspiao();
+        static::getContainer()->set('limiter.assinatura_pdf_conferir', $espiao);
+        $this->entrar(false);
+        $this->conferir($this->pdf());
+        self::assertResponseStatusCodeSame(403);
+        [$usuario] = $this->entrar(true);
+        $this->client->request('POST', '/assinatura/pdf/conferir', [], ['arquivo' => $this->pdf()]);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame([], $espiao->chavesConsumidas, 'sem o módulo ou sem CSRF não gasta a cota');
+
+        $this->conferir($this->pdf());
+        self::assertResponseIsSuccessful();
+        [$outro] = $this->entrar(true);
+        $this->conferir($this->pdf());
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(['usuario-' . $usuario->getId(), 'usuario-' . $outro->getId()], $espiao->chavesConsumidas);
+    }
+
+    #[TestDox('conferir: cota estourada dá 429 com {erro} e não confere o arquivo')]
+    public function testCotaEstourada(): void
+    {
+        $this->emMemoria();
+        static::getContainer()->set('limiter.assinatura_pdf_conferir', new RateLimiterFactoryEspiao(false));
+        $this->entrar(true);
+
+        $this->conferir($this->temporario('falso.pdf', 'só texto'));
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'], $this->json());
+    }
+
+    /**
+     * O 429 de verdade não se vê pela HTTP no teste (o pool do limitador é zerado ao fim de cada requisição, ver
+     * {@see RateLimiterFactoryEspiao}): a cota de `assinatura_eletronica.yaml` é conferida no próprio limitador.
+     */
+    #[TestDox('conferir: assinatura_eletronica.yaml dá 6 conferências por minuto a cada usuário')]
+    public function testCotaConfigurada(): void
+    {
+        /** @var RateLimiterFactoryInterface $limitador */
+        $limitador = static::getContainer()->get('limiter.assinatura_pdf_conferir');
+        $doUsuario = $limitador->create('usuario-1');
+        for ($i = 0; $i < 6; ++$i) {
+            self::assertTrue($doUsuario->consume()->isAccepted(), 'conferência ' . ($i + 1));
+        }
+
+        self::assertFalse($doUsuario->consume()->isAccepted(), 'a 7ª no mesmo minuto');
+        self::assertTrue($limitador->create('usuario-2')->consume()->isAccepted(), 'outro usuário');
     }
 
     #[TestDox('conferir: PDF sem assinatura devolve nulo; assinado devolve o quadro; nada é gravado')]
@@ -177,6 +235,84 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         $blocos = $this->detalhe($id)['blocos'];
         self::assertSame(['pg', 'p', 'a'], array_column($blocos, 'k'));
         self::assertSame($this->paragrafo($novo), $blocos[1]['x']);
+    }
+
+    #[TestDox('aba antiga depois que outra trocou o original: fica só o parágrafo do original guardado, no mesmo lugar')]
+    public function testAbaAntigaComParagrafoDeOutroOriginal(): void
+    {
+        $this->emMemoria();
+        $this->entrar(true);
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => self::CONTEUDO], $this->assinado());
+        $daAbaAntiga = $this->detalhe($id)['blocos'];
+        $novo = OficinaDePdfAssinado::pdfAssinado('ec');
+        $this->salvar($id, ['nome' => 'Contrato', 'blocos' => $daAbaAntiga], $this->temporario('novo.pdf', $novo));
+        self::assertResponseIsSuccessful();
+
+        $this->salvar($id, ['nome' => 'Contrato da aba antiga', 'blocos' => $daAbaAntiga]);
+        self::assertResponseIsSuccessful();
+
+        $blocos = $this->detalhe($id)['blocos'];
+        self::assertSame(['pg', 'p', 'a'], array_column($blocos, 'k'));
+        self::assertSame($this->paragrafo($novo), $blocos[1]['x']);
+        self::assertSame([hash('sha256', $novo)], array_column($this->versoes($id), 'sha256'));
+    }
+
+    #[TestDox('aba antiga depois que outra guardou um original: o parágrafo entra antes do lugar de assinatura')]
+    public function testAbaAntigaSemParagrafo(): void
+    {
+        $this->emMemoria();
+        $this->entrar(true);
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => self::CONTEUDO], $this->pdf());
+        $daAbaAntiga = $this->detalhe($id)['blocos'];
+        $bytes = OficinaDePdfAssinado::pdfAssinado();
+        $this->salvar($id, ['nome' => 'Contrato', 'blocos' => $daAbaAntiga], $this->temporario('assinado.pdf', $bytes));
+        self::assertResponseIsSuccessful();
+
+        $this->salvar($id, ['nome' => 'Contrato da aba antiga', 'blocos' => $daAbaAntiga]);
+        self::assertResponseIsSuccessful();
+
+        $blocos = $this->detalhe($id)['blocos'];
+        self::assertSame(['pg', 'p', 'a'], array_column($blocos, 'k'));
+        self::assertSame($this->paragrafo($bytes), $blocos[1]['x']);
+    }
+
+    #[TestDox('aba antiga depois que outra tirou o original: o parágrafo do original que saiu sai também')]
+    public function testAbaAntigaDepoisQueOOriginalSaiu(): void
+    {
+        $this->emMemoria();
+        $this->entrar(true);
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => self::CONTEUDO], $this->assinado());
+        $daAbaAntiga = $this->detalhe($id)['blocos'];
+        $this->salvar($id, ['nome' => 'Contrato', 'blocos' => $daAbaAntiga], $this->pdf());
+        self::assertResponseIsSuccessful();
+
+        $this->salvar($id, ['nome' => 'Contrato da aba antiga', 'blocos' => $daAbaAntiga]);
+        self::assertResponseIsSuccessful();
+
+        self::assertSame([], $this->versoes($id));
+        self::assertSame(['pg', 'a'], array_column($this->detalhe($id)['blocos'], 'k'));
+    }
+
+    #[TestDox('sem lugar para o parágrafo no teto de 2.000 blocos: 422 blocos_demais antes de gravar; com um lugar, salva')]
+    public function testParagrafoNoTetoDeBlocos(): void
+    {
+        $disco = $this->emMemoria();
+        [, $tenant] = $this->entrar(true);
+        $cheio = [['k' => 'pg', 'n' => 1], ...array_fill(0, ValidadorDeBlocos::BLOCOS_MAXIMO - 2, ['k' => 'p', 'x' => 'Cláusula']), ['k' => 'a', 'i' => 0, 'r' => '']];
+
+        $this->salvar(null, ['nome' => 'Contrato', 'blocos' => $cheio], $this->assinado());
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'O documento pode ter até 2.000 blocos.'], $this->json());
+        self::assertSame([], $disco->memoria->gravadas);
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM assinatura_eletronica_documento WHERE tenant_id = ?', [$tenant->getId()]));
+
+        array_splice($cheio, 1, 1);
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => $cheio], $this->assinado());
+        self::assertResponseStatusCodeSame(201);
+        $blocos = $this->detalhe($id)['blocos'];
+        self::assertCount(ValidadorDeBlocos::BLOCOS_MAXIMO, $blocos);
+        self::assertSame(['p', 'a'], array_column(\array_slice($blocos, -2), 'k'));
+        self::assertStringStartsWith('Este documento já continha', (string) $blocos[\count($blocos) - 2]['x']);
     }
 
     #[TestDox('rascunho que perde a página do PDF perde também o original e o parágrafo')]

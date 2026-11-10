@@ -64,6 +64,17 @@ final readonly class ApresentacaoDaConferencia
         ]);
     }
 
+    /**
+     * Expressão que reconhece qualquer parágrafo de dc:374 (qualquer número, nomes e hash): o rascunho só pode ter o do
+     * original que fica guardado. Montada do próprio texto do catálogo, com marcadores no lugar dos parâmetros.
+     */
+    public function padraoDoParagrafo(): string
+    {
+        $modelo = preg_quote($this->texto('paragrafo', ['n' => "\u{1}N\u{1}", 'nomes' => "\u{1}NOMES\u{1}", 'sha' => "\u{1}SHA\u{1}"]), '/');
+
+        return '/^' . strtr($modelo, ["\u{1}N\u{1}" => '[0-9.]+', "\u{1}NOMES\u{1}" => '.*', "\u{1}SHA\u{1}" => '[0-9a-f]{64}']) . '$/su';
+    }
+
     private function titulo(ResultadoDaConferencia $resultado, bool $alterada): string
     {
         $quantas = \count($resultado->assinaturas);

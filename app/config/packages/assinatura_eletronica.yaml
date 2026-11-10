@@ -36,3 +36,10 @@ framework:
             policy: sliding_window
             limit: 30
             interval: '1 minute'
+        # Etapa 5, bloco 5A (E5-6): a conferência do PDF do passo 1, sem gravar, por usuário. Cada chamada ocupa um
+        # processo do PHP por segundos (4,4 s medidos com 30 assinaturas, e o FPM tem 5 processos): o teto impede que
+        # um usuário prenda o servidor. Escolher um arquivo é uma chamada; 6 por minuto cobre trocas e novas tentativas.
+        assinatura_pdf_conferir:
+            policy: sliding_window
+            limit: 6
+            interval: '1 minute'

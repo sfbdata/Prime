@@ -79,6 +79,28 @@ final class VersaoDoPdfRepositoryTest extends KernelTestCase
         self::assertSame(4, $this->versoes->proximaOrdem($documento));
     }
 
+    #[TestDox('versão atual do PDF assinado (5A): pula o PDF para assinar; sem versão ou só com ele, nula; com devolvida, a devolvida')]
+    public function testUltimaQueNaoEParaAssinar(): void
+    {
+        $tenant = $this->escritorio();
+        $semPres = $this->documento($tenant);
+        self::assertNull($this->versoes->ultimaQueNaoEParaAssinar($semPres));
+        $semPres->enviar(str_repeat('f', 64), new \DateTimeImmutable('2026-11-09 11:00:00'));
+        $this->versoes->salvar(VersaoDoPdf::paraAssinar($semPres, 1, 'para-1.pdf', 'para.pdf', self::SHA, 200, ['v' => 1], new \DateTimeImmutable()));
+        self::assertNull($this->versoes->ultimaQueNaoEParaAssinar($semPres), 'só o PDF para assinar não é versão assinada');
+        $this->versoes->salvar(VersaoDoPdf::devolvida($semPres->getSignatarios()[1], 2, 'devolvida-1.pdf', 'assinado.pdf', self::SHA, 300, ['v' => 1], new \DateTimeImmutable()));
+        self::assertSame('devolvida-1.pdf', $this->versoes->ultimaQueNaoEParaAssinar($semPres)?->getArquivoChave());
+
+        $comPres = $this->documento($tenant);
+        $this->versoes->salvar(VersaoDoPdf::original($comPres, 1, 'original-2.pdf', 'contrato.pdf', self::SHA, 100, ['v' => 1], new \DateTimeImmutable()));
+        $comPres->enviar(str_repeat('f', 64), new \DateTimeImmutable('2026-11-09 11:00:00'));
+        $this->versoes->salvar(VersaoDoPdf::paraAssinar($comPres, 2, 'para-2.pdf', 'para.pdf', self::SHA, 200, ['v' => 1], new \DateTimeImmutable()));
+        $this->em()->clear();
+
+        self::assertSame('para-2.pdf', $this->versoes->ultima($comPres)?->getArquivoChave());
+        self::assertSame('original-2.pdf', $this->versoes->ultimaQueNaoEParaAssinar($comPres)?->getArquivoChave(), 'o PDF para assinar depois do original não esconde o original');
+    }
+
     #[TestDox('a cadeia (E6-7) volta do banco com a situação e a hora')]
     public function testCadeiaGravada(): void
     {
