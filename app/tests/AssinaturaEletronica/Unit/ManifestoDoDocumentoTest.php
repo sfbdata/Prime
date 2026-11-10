@@ -12,11 +12,16 @@ use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Pdf\CartaoDoManifesto;
 use App\AssinaturaEletronica\Pdf\SituacaoNoManifesto;
+use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
 use App\AssinaturaEletronica\Service\ManifestoDoDocumento;
+use App\AssinaturaEletronica\Service\TextoDoEvento;
 use App\Tests\AssinaturaEletronica\Support\OficinaDosUseCasesDaAssinatura;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Asset\Package;
+use Symfony\Component\Asset\Packages;
+use Symfony\Component\Asset\VersionStrategy\EmptyVersionStrategy;
 
 /**
  * Os textos do manifesto (A2, dc:417-420) com o catálogo de verdade: nome digitado, CPF e e-mail mascarados, "Tipo:"
@@ -24,6 +29,7 @@ use PHPUnit\Framework\TestCase;
  * lugar do traço do desenho (E3-16) e a trilha do mais antigo ao mais novo, cada texto cortado em 96 caracteres.
  */
 #[CoversClass(ManifestoDoDocumento::class)]
+#[CoversClass(TextoDoEvento::class)]
 final class ManifestoDoDocumentoTest extends TestCase
 {
     use OficinaDosUseCasesDaAssinatura;
@@ -106,12 +112,25 @@ final class ManifestoDoDocumentoTest extends TestCase
     {
         $eventos = $this->manifesto()->de($this->quatroSignatarios())->eventos;
 
-        self::assertSame('09/11/2026, 09:00:00  Documento enviado para assinatura', $eventos[0]);
-        self::assertSame('09/11/2026, 09:30:00  Ana Maria Lima assinou (Simples)', $eventos[1]);
-        $recusa = mb_substr('Duda Melo recusou: ' . self::MOTIVO, 0, 96);
+        self::assertSame('09/11/2026, 09:00:00  Enviado para assinatura. Hash 0123456789abcdef...', $eventos[0]);
+        self::assertSame('09/11/2026, 09:30:00  Assinado por Ana Maria Lima · E-mail e código', $eventos[1], 'o nome digitado ao assinar');
+        $recusa = mb_substr('Recusado por Duda Melo: ' . self::MOTIVO, 0, 96);
         self::assertSame('09/11/2026, 09:50:00  ' . $recusa, $eventos[2]);
         self::assertSame(96, mb_strlen($recusa));
         self::assertCount(3, $eventos);
+    }
+
+    #[TestDox('o texto de cada evento é o mesmo do detalhe da tela (uma regra só, TextoDoEvento), cortado em 96 no PDF')]
+    public function testMesmoTextoDaTela(): void
+    {
+        $documento = $this->quatroSignatarios();
+        $tela = new ApresentacaoDoDocumento(self::urls(), self::tradutorDaAssinatura(), new Packages(new Package(new EmptyVersionStrategy())), $this->chave);
+
+        $daTela = array_column(array_reverse($tela->detalhe($documento, $this->eventosDaTrilha->doDocumento($documento))['eventos']), 'texto');
+        $doPdf = array_map(static fn (string $linha): string => substr($linha, \strlen('09/11/2026, 09:00:00  ')), $this->manifesto()->de($documento)->eventos);
+
+        self::assertSame(array_map(static fn (string $texto): string => mb_substr($texto, 0, 96), $daTela), $doPdf);
+        self::assertStringNotContainsString('{', implode(' ', $doPdf), 'nenhum parâmetro cru');
     }
 
     private function manifesto(): ManifestoDoDocumento
@@ -141,8 +160,8 @@ final class ManifestoDoDocumentoTest extends TestCase
         $documento->recusar($duda, self::MOTIVO, null, null, new \DateTimeImmutable('2026-11-09 09:50:00'));
 
         $this->gravados = [
-            new EventoDaTrilha($documento, TipoDeEvento::DocumentoEnviado, [], new \DateTimeImmutable('2026-11-09 09:00:00'), null),
-            new EventoDaTrilha($documento, TipoDeEvento::Assinado, ['metodo' => 'simples', 'nome' => 'Ana Maria Lima'], new \DateTimeImmutable('2026-11-09 09:30:00'), null, null, $ana),
+            new EventoDaTrilha($documento, TipoDeEvento::DocumentoEnviado, ['hash' => str_repeat('0123456789abcdef', 4)], new \DateTimeImmutable('2026-11-09 09:00:00'), null),
+            new EventoDaTrilha($documento, TipoDeEvento::Assinado, ['metodo' => 'simples'], new \DateTimeImmutable('2026-11-09 09:30:00'), null, null, $ana),
             new EventoDaTrilha($documento, TipoDeEvento::Recusado, ['motivo' => self::MOTIVO], new \DateTimeImmutable('2026-11-09 09:50:00'), null, null, $duda),
         ];
 

@@ -23,7 +23,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * cadastrado) mascarado em `***.123.456-**`; o e-mail com os dois primeiros caracteres e o domínio; "Tipo: lei" com o
  * método de quem assinou; a data da assinatura ou da recusa (com o motivo); a trilha inteira do mais antigo ao mais
  * novo, cada texto cortado em 96 caracteres. Dado ausente vira "não informado" (E3-16). A selfie não entra; as
- * coordenadas da Reforçada vão no texto do método (E3-13).
+ * coordenadas da Reforçada vão no texto do método (E3-13). O texto de cada evento é o mesmo do detalhe da tela
+ * ({@see TextoDoEvento}).
  */
 final readonly class ManifestoDoDocumento
 {
@@ -169,31 +170,9 @@ final readonly class ManifestoDoDocumento
 
     private function evento(EventoDaTrilha $evento): string
     {
-        $texto = $this->tradutor->trans($evento->getTipo()->chaveDoTexto(), self::parametrosDoTexto($evento));
+        $texto = TextoDoEvento::de($this->tradutor, $evento);
 
         return $this->t('evento', ['data' => TextosDaFolha::dataHora($evento->getCriadoEm()), 'texto' => mb_substr($texto, 0, self::TAMANHO_DO_EVENTO)]);
-    }
-
-    /**
-     * Os parâmetros do texto do evento, os mesmos do detalhe da tela (`ApresentacaoDoDocumento::parametrosDoTexto`, que
-     * é privado): os valores simples de `dados`, o `{nome}` do signatário ou do usuário e o `{local}` da Reforçada.
-     *
-     * @return array<string, scalar>
-     */
-    private static function parametrosDoTexto(EventoDaTrilha $evento): array
-    {
-        $parametros = array_filter($evento->getDados(), is_scalar(...));
-        if (!isset($parametros['nome'])) {
-            $nome = $evento->getSignatario()?->getNome() ?? $evento->getUsuario()?->getFullName();
-            if ($nome !== null) {
-                $parametros['nome'] = $nome;
-            }
-        }
-        if (\is_string($parametros['latitude'] ?? null) && \is_string($parametros['longitude'] ?? null)) {
-            $parametros['local'] = LocalizacaoDoSignatario::textoDe($parametros['latitude'], $parametros['longitude']);
-        }
-
-        return $parametros;
     }
 
     /** @param array<string, scalar> $parametros */
