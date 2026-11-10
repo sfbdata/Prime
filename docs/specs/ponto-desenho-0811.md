@@ -870,6 +870,34 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: JS e CSS da tela. Nada da frente.
 - Testes: funcional das fases por classe e `aria`; movimento reduzido; com a chave desligada o resultado vira aviso
   flutuante; o áudio do alerta de horário continua liberado.
+- Decisões da etapa (09/11/2026, Coordenador):
+  - correção de texto do desenho: o aviso concorda com o tipo ("Entrada registrada", "Saída registrada", "Repouso
+    registrado", "Retorno registrado"); o desenho escreve "Repouso registrada";
+  - "Enviado para aprovação do gestor." vai no aviso flutuante, no lugar do flash do envio da justificativa. Abonar,
+    recusar e abonar em lote, com a volta para a /ponto, também vão no aviso flutuante;
+  - recusas da fila, batida guardada, sem rede, sem confirmação e sessão vencida ficam em `#batida-aviso`, com o
+    "Conferir" ou o "Atualizar" (P11 b): o "Tentar novamente" da tela vermelha não resolve nenhum deles. O envio
+    atrasado vai para a tela vermelha;
+  - "Tentar novamente" refaz o toque do mesmo tipo; se ele já foi batido, não envia e mostra "{Tipo} já registrado."
+    no aviso flutuante. "Registro selado" só acende quando o servidor confirma. A batida já registrada (o mesmo envio
+    repetido) mostra "Esta batida já tinha sido registrada." na linha de baixo do sucesso. Ao fechar a tela cheia, o
+    foco vai ao título do cartão, nunca ao "Bater Ponto" já liberado;
+  - o som só toca com o áudio rodando, ou depois de esperar a retomada por até 1,5 s. A vibração não depende da chave
+    nem do mudo. O lembrete de saída é conferido no relógio, a cada segundo, e vale também em repouso sem retorno; o
+    "uma vez por dia" fica guardado no aparelho, por pessoa e escritório (o desenho guarda só na página aberta);
+  - o aviso flutuante fica centralizado durante a animação (o keyframe do desenho perdia o `translateX(-50%)`);
+  - a janela do alerta de horário passa para a moldura de janela do desenho (L270 a L316), em toda página, com os
+    textos do sistema (sem o "Aguardar"), os ícones do desenho e o Esc fechando como o "x". O CSS fica em
+    `ponto-alerta-janela.css`, escopado em `.pe-alerta-ponto`. Ao fechar, ela dispara `hidden.bs.modal`, e os avisos
+    globais (espaço, gênero, prêmio do Contribua, revisão do perfil) esperam por `.modal.show, #modalAlertaPonto.show`;
+  - o aviso flutuante, a janela do alerta, o som e o aviso do lembrete e a recarga de segurança esperam a tela cheia
+    fechar, e também a janela do trabalho externo aberta pela tela vermelha;
+  - ligação com a E12: fora do raio (local ou recusa do servidor, inclusive o GPS impreciso) vai para a tela vermelha,
+    com "Registrar como trabalho externo" quando o escritório permite. A batida externa que com certeza não entrou
+    (atrasada, sessão vencida, texto recusado) reabre a janela do trabalho externo, sem tela vermelha, e o "Tentar
+    novamente" de uma batida externa refaz a externa, nunca uma comum. Sem a tela cheia, o fora do raio fica na caixa.
+- Limites conhecidos da E8: o lembrete de saída e o alerta de horário de saída podem tocar e notificar quase juntos;
+  com um modal antigo aberto por baixo, o foco vai a ele quando a janela do alerta fecha.
 
 **E9. Trilha de auditoria encadeada.**
 - Entra: P64, P66 (fica). D5 (não): a trilha leva o que o desenho grava (inventário §2.11): batidas, ajustes,
@@ -1324,6 +1352,8 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
 - E12 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e12`, servidor, e `ponto-desenho-e12-tela`), com a
   migration `Version20261109230000`. Decisões e limites registrados na E12 (seção 5). A ligação com a tela vermelha
   da E8 e com o ajuste da E10 vem depois das duas.
+- E8 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e8` e `ponto-desenho-e8b`, esta já sobre a E12, com a
+  ligação entre as duas), sem migration. Decisões e limites registrados na E8 (seção 5).
 - E4 implementada na branch `ponto-desenho-e4` (empilhada na E3), com a migration `Version20261109210000` (coluna
   `motivo` em `justificativa_ponto`). Decisões registradas na E4 (seção 5).
 - E7 implementada na branch `ponto-desenho-e7`, com a migration Version20261109180000 (`ponto_config_escritorio`).
