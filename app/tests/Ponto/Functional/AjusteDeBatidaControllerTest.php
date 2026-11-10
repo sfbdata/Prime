@@ -141,6 +141,20 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->ajustes($this->colaborador));
     }
 
+    #[TestDox('C5: a página "Ajustar batida" nem abre para a batida com a justificativa em análise: volta à ficha com o aviso')]
+    public function testPaginaDoAjusteNaoAbreComJustificativaEmAnalise(): void
+    {
+        $id = $this->batida($this->colaborador, 'saida', '2026-10-21 18:00:00');
+        $justificativa = $this->justificativa($this->colaborador, $this->escritorio, new \DateTimeImmutable('2026-10-21'), 'pendente', ['tipo' => 'trabalho_externo']);
+        $justificativa->setRegistroPonto($this->em()->getReference(RegistroPonto::class, $id));
+        $this->em()->flush();
+
+        $this->client->request('GET', $this->ficha($this->colaborador) . "/ponto/b{$id}/ajustar");
+
+        $this->assertVoltouParaAFicha($this->colaborador);
+        self::assertSame([AjusteDeBatidaRecusadoException::MENSAGEM_EM_ANALISE], $this->avisos('danger'));
+    }
+
     #[TestDox('Ajustar sem motivo: a página volta com o erro no campo e nada é gravado')]
     public function testAjustarSemMotivo(): void
     {

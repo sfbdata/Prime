@@ -974,12 +974,13 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     em análise não se ajusta pela ficha: o gestor decide na análise (decisão C5, abaixo);
   - decisão C5 (10/11/2026, Coordenador), que resolve a contradição entre "batida ligada a justificativa não se ajusta
     pela ficha" e o limite da inclusão do esquecimento ajustada depois: enquanto a justificativa ligada à batida está em
-    análise (o trabalho externo da E12; ou o esquecimento em análise ligado a uma inclusão que conta, o que só acontece
-    quando o gestor restaura a inclusão que ele mesmo desconsiderou), a ficha recusa Ajustar e Desconsiderar com o aviso
-    `em_analise`; decidida, a ficha ajusta e desconsidera como qualquer batida (P65). O caminho da análise
-    (`DesconsiderarBatidaInput::pelaAnalise`, que a E12 vai ligar à recusa do trabalho externo) não passa por essa recusa,
-    e o Restaurar segue recusando a desconsideração feita por ela (decisão A). O limite 1 continua: a inclusão do
-    esquecimento abonado se ajusta;
+    análise (o trabalho externo da E12, ou o esquecimento ligado a uma inclusão), a ficha recusa Ajustar, Desconsiderar
+    e Restaurar com o aviso `em_analise`, e a página "Ajustar batida" nem abre (volta à ficha com o aviso); decidida, a
+    ficha ajusta, desconsidera e restaura como qualquer batida (P65). Recusar o Restaurar fecha o único caminho em que
+    uma inclusão contaria com o esquecimento em análise: o gestor restaurar a inclusão que ele mesmo desconsiderou. O
+    caminho da análise (`DesconsiderarBatidaInput::pelaAnalise`, que a E12 vai ligar à recusa do trabalho externo) não
+    passa por essa recusa, e o Restaurar segue recusando a desconsideração feita por ela (decisão A). O limite 1
+    continua: a inclusão do esquecimento abonado se ajusta;
   - a hora ajustada leva "aj" na folha, no PDF e no XLSX, também depois de uma restauração (é ajuste);
   - o esquecimento abonado grava uma inclusão ligada à justificativa; voltar para análise desconsidera essa inclusão; a
     justificativa que já mexeu na folha não se exclui;
