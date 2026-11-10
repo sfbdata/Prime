@@ -10,9 +10,13 @@ use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Event\PdfFinalGuardado;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
+use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
+use App\AssinaturaEletronica\Service\Selo\ResultadoDoSelo;
+use App\AssinaturaEletronica\Service\Selo\SeloDoPdfFinal;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -22,18 +26,25 @@ use Psr\Log\LoggerInterface;
  * O PDF final com selo do documento concluído (contrato da etapa 3, seção 2, item 7; E3-4): guardado uma vez, em
  * `arquivo_final_chave` e `hash_final`.
  *
- * Já guardado: devolve a chave. Senão gera os pedaços num arquivo da área temporária, grava no armazenamento e, com a
- * linha do documento travada e relida, guarda a chave e o sha256 ({@see DocumentoParaAssinar::guardarArquivoFinal()}).
+ * Já guardado: devolve a chave. Senão, em passos: gera os pedaços num arquivo da área temporária, sela esse arquivo
+ * ({@see SeloDoPdfFinal::aplicar()}, etapa 8, E8-4), mede o sha256 do que vai ao armazenamento (o selado, quando selou)
+ * e grava. Depois, com a linha do documento travada e relida, leva o selo à trilha ({@see SeloDoPdfFinal::registrar()})
+ * e guarda a chave e o sha256 ({@see DocumentoParaAssinar::guardarArquivoFinal()}), na mesma transação.
+ *
+ * Selo: o pedido ao validador roda fora da transação. A {@see FalhaNoSelo} que tenta de novo (fora da última
+ * tentativa) sobe antes de gravar: nada no armazenamento nem na trilha, e a área temporária sai no `finally`. Não
+ * configurado, falha definitiva ou última tentativa: guarda sem o selo.
+ *
  * Falha antes do COMMIT: a {@see \App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo} apaga o arquivo novo. Dois
- * pedidos ao mesmo tempo (o worker e o primeiro download): o segundo encontra a chave do primeiro depois da trava,
- * apaga o próprio arquivo pela {@see RemocaoAposTransacao} (que registra no log o que não sair) e devolve a chave
- * guardada. Depois do COMMIT de quem guardou, {@see PdfFinalGuardado} é despachado (o vínculo à pasta ouve); a falha
- * de quem ouve vai para o log e não impede de devolver o PDF já guardado.
+ * pedidos ao mesmo tempo (o worker e o primeiro download): o segundo encontra a chave do primeiro depois da trava, não
+ * leva o próprio selo à trilha, apaga o próprio arquivo pela {@see RemocaoAposTransacao} (que registra no log o que não
+ * sair) e devolve a chave guardada. Depois do COMMIT de quem guardou, {@see PdfFinalGuardado} é despachado (o vínculo à
+ * pasta ouve); a falha de quem ouve vai para o log e não impede de devolver o PDF já guardado.
  *
  * Tempo: o PDF é gerado inteiro e guardado antes de entregar (os bytes entregues são os guardados: o hash final e o
- * selo assinam o arquivo inteiro). Acima de umas 100 páginas (cerca de 1,2 s por página), o primeiro clique pode dar
- * 504 do nginx (120 s); o PHP termina e guarda, e o clique seguinte entrega o guardado. Quem chama pela web passa
- * `$aCadaPedaco`, chamado a cada pedaço gerado, para renovar as travas da geração
+ * selo assinam o arquivo inteiro). Acima de umas 100 páginas (cerca de 1,2 s por página, mais o pedido do selo, de até
+ * 45 s), o primeiro clique pode dar 504 do nginx (120 s); o PHP termina e guarda, e o clique seguinte entrega o
+ * guardado. Quem chama pela web passa `$aCadaPedaco`, chamado a cada pedaço gerado, para renovar as travas da geração
  * ({@see VagasDeGeracaoDoPdf::renovar()}).
  */
 final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
@@ -42,6 +53,7 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
 
     public function __construct(
         private PdfDaAssinatura $pdf,
+        private SeloDoPdfFinal $selo,
         private ArmazenamentoDeArquivos $armazenamento,
         private DocumentoParaAssinarRepository $documentos,
         private RemocaoAposTransacao $remocao,
@@ -50,8 +62,14 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
     ) {
     }
 
-    /** @param (\Closure(): void)|null $aCadaPedaco chamado a cada pedaço gerado (só quando gera) */
-    public function garantir(DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco = null): ChaveDeArquivo
+    /**
+     * @param (\Closure(): void)|null $aCadaPedaco     chamado a cada pedaço gerado (só quando gera)
+     * @param bool                    $ultimaTentativa a última tentativa do selo: a falha que tentaria de novo guarda sem o
+     *                                                 selo
+     *
+     * @throws FalhaNoSelo o selo falhou e tenta de novo (fora da última tentativa); nada foi guardado
+     */
+    public function garantir(DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco = null, bool $ultimaTentativa = false): ChaveDeArquivo
     {
         if ($doc->getSituacao() !== SituacaoDoDocumento::Concluido) {
             throw new \LogicException('Só o documento concluído tem PDF final com selo.');
@@ -61,9 +79,9 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
             return $guardada;
         }
 
-        [$nova, $sha256] = $this->gerarEGravar($doc, $aCadaPedaco);
+        [$nova, $sha256, $selo] = $this->gerarEGravar($doc, $aCadaPedaco, $ultimaTentativa);
         $guardou = $this->documentos->emTransacaoComArquivoNovo(
-            fn (): bool => $this->guardar($doc, $nova, $sha256),
+            fn (): bool => $this->guardar($doc, $nova, $sha256, $selo),
             static fn (): array => [$nova],
             self::CONTEXTO,
         );
@@ -92,21 +110,57 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
     }
 
     /**
+     * Gerar, selar, medir e gravar no armazenamento, nessa ordem, no mesmo arquivo da área temporária.
+     *
      * @param (\Closure(): void)|null $aCadaPedaco
      *
-     * @return array{ChaveDeArquivo, string} a chave gravada e o sha256 do arquivo
+     * @return array{ChaveDeArquivo, string, ResultadoDoSelo} a chave gravada, o sha256 do arquivo gravado e o que o selo
+     *                                                        fez
+     *
+     * @throws FalhaNoSelo antes de gravar: nada vai ao armazenamento
      */
-    private function gerarEGravar(DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco): array
+    private function gerarEGravar(DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco, bool $ultimaTentativa): array
     {
         $area = AreaTemporariaPrivada::criar('assinaturapdf');
         try {
-            [$caminho, $sha256] = PdfNoTemporario::gravar($area, self::avisando($this->pdf->pedacos($doc), $aCadaPedaco));
+            $caminho = $this->gerar($area, $doc, $aCadaPedaco);
+            $selo = $this->selo->aplicar($doc, $caminho, $ultimaTentativa);
+            $sha256 = self::sha256($caminho);
             $gravado = $this->armazenamento->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($doc), FonteDeConteudo::deArquivoLocal($caminho));
         } finally {
             $area->liberar();
         }
 
-        return [$gravado->chave, $sha256];
+        return [$gravado->chave, $sha256, $selo];
+    }
+
+    /**
+     * Os pedaços do PDF final num arquivo novo da área temporária.
+     *
+     * @param (\Closure(): void)|null $aCadaPedaco
+     *
+     * @return string o caminho do arquivo
+     */
+    private function gerar(AreaTemporariaPrivada $area, DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco): string
+    {
+        [$caminho] = PdfNoTemporario::gravar($area, self::avisando($this->pdf->pedacos($doc), $aCadaPedaco));
+
+        return $caminho;
+    }
+
+    /**
+     * O sha256 do arquivo como vai ao armazenamento (o selado, quando selou), em hexadecimal minúsculo.
+     *
+     * @throws FalhaNoTemporario
+     */
+    private static function sha256(string $caminho): string
+    {
+        $sha256 = @hash_file('sha256', $caminho);
+        if ($sha256 === false) {
+            throw new FalhaNoTemporario(sprintf('Não foi possível medir o sha256 do PDF temporário %s.', $caminho));
+        }
+
+        return $sha256;
     }
 
     /**
@@ -128,11 +182,12 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
     }
 
     /**
-     * Dentro da transação, com a linha travada e relida: falso quando outro pedido já guardou.
+     * Dentro da transação, com a linha travada e relida: falso quando outro pedido já guardou (e então o selo deste
+     * pedido não vai à trilha).
      *
      * @throws DocumentoNaoEncontrado o documento sumiu do escritório entre a leitura e a trava
      */
-    private function guardar(DocumentoParaAssinar $doc, ChaveDeArquivo $nova, string $sha256): bool
+    private function guardar(DocumentoParaAssinar $doc, ChaveDeArquivo $nova, string $sha256, ResultadoDoSelo $selo): bool
     {
         if (!$this->documentos->travarERecarregar($doc, $doc->getTenant())) {
             throw new DocumentoNaoEncontrado();
@@ -141,6 +196,7 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
             return false;
         }
 
+        $this->selo->registrar($doc, $selo);
         $doc->guardarArquivoFinal($nova->nome, $sha256);
 
         return true;

@@ -177,7 +177,7 @@ trait OficinaDoVinculo
             {
             }
 
-            public function garantir(DocumentoParaAssinar $doc): ChaveDeArquivo
+            public function garantir(DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco = null, bool $ultimaTentativa = false): ChaveDeArquivo
             {
                 return ($this->garantir)($doc);
             }
