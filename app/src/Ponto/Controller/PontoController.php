@@ -278,11 +278,6 @@ final class PontoController extends AbstractController
         $geoLigado = $funcoes->vale(FuncoesDoPonto::GEO, $tenant);
         $sedesDaTela = $geoLigado ? $sedesDaCerca->doEscritorio($tenant) : [];
 
-        // E8 (P79 a P83, P96): o valor efetivo (Global E Escritório) das funções da tela, como o `geoLigado` acima.
-        // O aviso flutuante que um envio deixou (`FLASH_AVISO_FLUTUANTE`) é lido aqui, antes do layout, para não sair
-        // também no topo da página.
-        $avisoFlutuante = $this->avisoFlutuanteDaSessao($request);
-
         $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         // Atalho "+" da folha: célula que já tem esquecimento pendente ou abonado não oferece o
@@ -293,10 +288,6 @@ final class PontoController extends AbstractController
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,
             'geoLigado'      => $geoLigado,
-            'animacaoLigada' => $funcoes->vale(FuncoesDoPonto::ANIMACAO, $tenant),
-            'sonsLigados'    => $funcoes->vale(FuncoesDoPonto::SONS, $tenant),
-            'lembreteLigado' => $funcoes->vale(FuncoesDoPonto::LEMBRETE, $tenant),
-            'avisoFlutuante' => $avisoFlutuante,
             'sedesDaTela'    => $sedesDaTela,
             // E12 (P18, P74): a cerca vale hoje para a pessoa (sem home office e com a geolocalização) e o escritório
             // permite o trabalho externo. Como a cerca da tela, é cortesia: quem decide é a `batida()`.
@@ -343,7 +334,24 @@ final class PontoController extends AbstractController
             'comprovantes'             => $abaDosComprovantes->linhas($user, $tenant),
             // Aba "Banco de Horas" (E17): nulo esconde a aba.
             'bancoDeHoras'             => $bancoDeHoras,
-        ] + $this->abasDeGestao($user, $tenant, $gestao, $aAnalisarDaEquipe));
+        ] + $this->daTelaCheiaEDosAvisos($funcoes, $tenant, $request) + $this->abasDeGestao($user, $tenant, $gestao, $aAnalisarDaEquipe));
+    }
+
+    /**
+     * E8 (P79 a P83, P96): o valor efetivo (Global E Escritório) das funções da tela, como o `geoLigado` do `index`. O
+     * aviso flutuante que um envio deixou (`FLASH_AVISO_FLUTUANTE`) é lido aqui, antes do layout, para não sair também no
+     * topo da página.
+     *
+     * @return array{animacaoLigada: bool, sonsLigados: bool, lembreteLigado: bool, avisoFlutuante: array{texto: string, tom: string}|null}
+     */
+    private function daTelaCheiaEDosAvisos(FuncoesDoPonto $funcoes, Tenant $tenant, Request $request): array
+    {
+        return [
+            'animacaoLigada' => $funcoes->vale(FuncoesDoPonto::ANIMACAO, $tenant),
+            'sonsLigados'    => $funcoes->vale(FuncoesDoPonto::SONS, $tenant),
+            'lembreteLigado' => $funcoes->vale(FuncoesDoPonto::LEMBRETE, $tenant),
+            'avisoFlutuante' => $this->avisoFlutuanteDaSessao($request),
+        ];
     }
 
     /**
