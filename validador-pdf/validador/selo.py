@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import io
 
+from cryptography.hazmat.primitives.serialization import pkcs12 as pyca_pkcs12
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import signers
@@ -53,17 +54,21 @@ POLITICA_DO_SELO = CertRevTrustPolicy(
 
 
 def ler_credencial(configuracao: Configuracao) -> tuple[bytes, bytes] | None:
-    """PKCS#12 e senha dos secrets; None se algum falta ou o PKCS#12 está vazio (selo não configurado).
+    """PKCS#12 e senha dos secrets; None se algum não existe ou o PKCS#12 está vazio (selo não configurado).
 
-    Arquivo presente mas grande demais não é "sem secrets": levanta ErroConhecido('selo_certificado_invalido').
+    Arquivo presente mas inutilizável não é "sem secrets" e levanta ErroConhecido('selo_certificado_invalido'):
+    grande demais, sem permissão de leitura (secret montado como root 0600), diretório no lugar do arquivo ou
+    qualquer outro erro de leitura. Nada disso pode passar calado como "não configurado".
     """
     try:
         with open(configuracao.selo_pkcs12, 'rb') as arquivo:
             pkcs12 = arquivo.read(TETO_DO_PKCS12 + 1)
         with open(configuracao.selo_senha, 'rb') as arquivo:
             senha = arquivo.read(TETO_DA_SENHA + 1)
-    except OSError:
+    except FileNotFoundError:
         return None
+    except OSError:
+        raise ErroConhecido('selo_certificado_invalido') from None
     if not pkcs12:
         return None
     if len(pkcs12) > TETO_DO_PKCS12 or len(senha) > TETO_DA_SENHA:
@@ -86,9 +91,13 @@ def selar(
     if not _selavel(leitor):
         raise ErroConhecido('nao_selavel')
     try:
+        # Confere antes que o PKCS#12 tem a chave E o certificado: com um só, o pyHanko quebra (AttributeError).
+        chave, certificado, _ = pyca_pkcs12.load_key_and_certificates(pkcs12, senha or None)
+        if chave is None or certificado is None:
+            raise ValueError('pkcs12 sem chave ou sem certificado')
         assinante = signers.SimpleSigner.load_pkcs12_data(pkcs12, other_certs=[], passphrase=senha or None)
-    except (ValueError, TypeError):
-        # Senha errada ou PKCS#12 ilegível: os secrets existem, mas não servem.
+    except Exception:
+        # Senha errada, PKCS#12 ilegível ou incompleto: os secrets existem, mas não servem.
         raise ErroConhecido('selo_certificado_invalido') from None
     return asyncio.run(_selar(pdf, assinante, url_da_act, conjunto, revogacao))
 

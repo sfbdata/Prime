@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
 from cryptography import x509
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.serialization import pkcs12 as pyca_pkcs12
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields
@@ -205,6 +208,52 @@ def test_senha_errada_e_503_selo_certificado_invalido(configuracao, conjunto, tm
         'ancoras ICP-Brasil'
     ]
     assert 'selo nao configurado' not in caplog.text
+
+
+@pytest.mark.parametrize('problema', ['pkcs12_sem_permissao', 'senha_sem_permissao', 'pkcs12_e_diretorio'])
+def test_secret_presente_que_nao_da_para_ler_e_selo_certificado_invalido(configuracao, conjunto, tmp_path, problema):
+    # Secret montado como root 0600, ou diretório no lugar do arquivo: existe, então não é "não configurado".
+    if os.geteuid() == 0 and problema != 'pkcs12_e_diretorio':
+        pytest.skip('como root, a permissão do arquivo não impede a leitura')
+    cfg = configuracao
+    if problema == 'pkcs12_e_diretorio':
+        (tmp_path / 'pasta').mkdir()
+        cfg = replace(configuracao, selo_pkcs12=str(tmp_path / 'pasta'))
+    else:
+        nome = 'selo_pkcs12' if problema == 'pkcs12_sem_permissao' else 'selo_pkcs12_senha'
+        origem = configuracao.selo_pkcs12 if nome == 'selo_pkcs12' else configuracao.selo_senha
+        trancado = tmp_path / nome
+        trancado.write_bytes(open(origem, 'rb').read())
+        trancado.chmod(0)
+        campo = 'selo_pkcs12' if nome == 'selo_pkcs12' else 'selo_senha'
+        cfg = replace(configuracao, **{campo: str(trancado)})
+
+    with servidor_no_ar(cfg, conjunto) as srv:
+        situacao, dados, _ = pedir_json(srv, 'POST', '/v1/selar', pdfs.pdf_em_imagem())
+
+    assert (situacao, dados) == (503, {'v': 1, 'erro': 'selo_certificado_invalido'})
+
+
+def _pkcs12_incompleto(ecnpj, parte: str) -> bytes:
+    cifra = serialization.BestAvailableEncryption(SENHA)
+    if parte == 'so_certificado':
+        return pyca_pkcs12.serialize_key_and_certificates(b'selo', None, ecnpj.folha.certificado, None, cifra)
+    if parte == 'so_chave':
+        return pyca_pkcs12.serialize_key_and_certificates(b'selo', ecnpj.folha.chave, None, None, cifra)
+    return pyca_pkcs12.serialize_key_and_certificates(b'selo', None, None, [ecnpj.ac.certificado], cifra)
+
+
+@pytest.mark.parametrize('parte', ['so_certificado', 'so_chave', 'so_cadeia'])
+def test_pkcs12_sem_chave_ou_sem_certificado_e_selo_certificado_invalido(configuracao, conjunto, ecnpj, tmp_path, parte):
+    incompleto = _pkcs12_incompleto(ecnpj, parte)
+    (tmp_path / 'incompleto').write_bytes(incompleto)
+
+    with pytest.raises(execucao.ErroConhecido, match='^selo_certificado_invalido$'):
+        selo.selar(pdfs.pdf_em_imagem(), incompleto, SENHA, '', conjunto, configuracao.revogacao)
+    with servidor_no_ar(replace(configuracao, selo_pkcs12=str(tmp_path / 'incompleto')), conjunto) as srv:
+        situacao, dados, _ = pedir_json(srv, 'POST', '/v1/selar', pdfs.pdf_em_imagem())
+
+    assert (situacao, dados) == (503, {'v': 1, 'erro': 'selo_certificado_invalido'})  # antes: 500
 
 
 def test_pkcs12_grande_demais_e_selo_certificado_invalido(configuracao, conjunto, tmp_path):

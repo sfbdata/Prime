@@ -235,7 +235,7 @@ def test_head_e_405_sem_corpo(servidor, caminho):
     assert corpo == b''
 
 
-@pytest.mark.parametrize('cabecalho', ['transfer_encoding', 'sem_content_length'])
+@pytest.mark.parametrize('cabecalho', ['transfer_encoding', 'sem_content_length', 'nao_numerico', 'negativo'])
 def test_corpo_sem_tamanho_declarado_e_411(servidor, cabecalho):
     conexao = http.client.HTTPConnection('127.0.0.1', servidor.server_address[1], timeout=30)
     conexao.putrequest('POST', '/v1/conferir?ancora=icp')
@@ -243,7 +243,11 @@ def test_corpo_sem_tamanho_declarado_e_411(servidor, cabecalho):
     conexao.putheader('Content-Type', 'application/pdf')
     if cabecalho == 'transfer_encoding':
         conexao.putheader('Transfer-Encoding', 'chunked')
-    conexao.endheaders()  # nenhum Content-Length
+    elif cabecalho == 'nao_numerico':
+        conexao.putheader('Content-Length', 'muitos')
+    elif cabecalho == 'negativo':
+        conexao.putheader('Content-Length', '-1')
+    conexao.endheaders()  # nenhum Content-Length válido
 
     resposta = conexao.getresponse()
 
@@ -277,6 +281,24 @@ def test_falha_no_filho_e_500_erro_interno(servidor, monkeypatch, caplog):
     for proibido in ('Contrato', TOKEN):
         assert proibido not in caplog.text
     assert saude == 200
+
+
+def test_erro_inesperado_no_processo_principal_e_500_erro_interno(servidor, monkeypatch, caplog):
+    def defeito(*_argumentos):
+        raise RuntimeError('mensagem com dado do pedido 12345678909')
+
+    monkeypatch.setitem(servidor.rotas_post, '/v1/conferir', defeito)
+    with caplog.at_level(logging.INFO, logger='validador.servidor'):
+        situacao, dados, _ = pedir_json(servidor, 'POST', '/v1/conferir?ancora=icp', pdfs.pdf_simples())
+        esperar_no_log(caplog, 'resultado=erro_interno')
+    monkeypatch.undo()
+    depois, _, _ = pedir_json(servidor, 'GET', '/saude', token=None)
+
+    assert (situacao, dados) == (500, {'v': 1, 'erro': 'erro_interno'})
+    assert 'erro inesperado no atendimento: RuntimeError' in caplog.text
+    assert 'POST /v1/conferir 500 ' in caplog.text
+    assert '12345678909' not in caplog.text
+    assert depois == 200
 
 
 def test_memoria_esgotada_no_filho_e_400_pdf_ilegivel(servidor, monkeypatch):

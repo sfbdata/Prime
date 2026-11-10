@@ -68,18 +68,29 @@ Classes, para o PHP (6B e 8B):
 | `401` | `nao_autorizado` | Sem token, token errado ou token vazio no validador (`WWW-Authenticate: Bearer`) | as duas | configuração |
 | `404` | `nao_encontrado` | Rota desconhecida (`GET` fora de `/saude`, `POST` fora das duas rotas) | qualquer | cliente |
 | `405` | `metodo_nao_permitido` | Qualquer método fora de `GET` e `POST` (`HEAD`, `OPTIONS`, `PUT`, `DELETE`, `PATCH` e outros), com `Allow: GET, POST`; resposta a `HEAD` sem corpo | qualquer | cliente |
-| `411` | `tamanho_ausente` | `POST` com `Transfer-Encoding` ou sem `Content-Length` | as duas | cliente |
+| `411` | `tamanho_ausente` | `POST` com `Transfer-Encoding`, sem `Content-Length`, ou com `Content-Length` não numérico ou negativo | as duas | cliente |
 | `413` | `pdf_grande_demais` | `Content-Length` acima de 20 MB (o corpo nem é lido) | as duas | definitivo |
-| `422` | `nao_selavel` | PDF que não é do BlueJus, criptografado ou com qualquer assinatura (E8-5) | selar | definitivo (selo: E8-4) |
-| `500` | `erro_interno` | O processo filho caiu ou levantou um erro inesperado (o log registra o tipo do erro, ou `sem_resposta` com a saída ou o sinal) | as duas | passageiro |
+| `422` | `nao_selavel` | PDF sem `/Producer (BlueJus)` exato, criptografado, com `/Perms` no catálogo, com qualquer assinatura ou com campo de assinatura vazio (E8-5) | selar | definitivo (selo: E8-4) |
+| `500` | `erro_interno` | O processo filho caiu ou levantou um erro inesperado (o log registra o tipo do erro, ou `sem_resposta` com a saída ou o sinal), ou erro inesperado no processo principal ao atender o `POST` (log só com o tipo; se a resposta já tinha começado, a conexão só fecha) | as duas | passageiro |
 | `502` | `carimbo_indisponivel` | A ACT configurada não respondeu (etapa 8, E8-3) | selar | passageiro |
 | `503` | `ocupado` | As 2 vagas ficaram ocupadas por mais de 10 s (`Retry-After: 10`) | as duas | passageiro |
 | `503` | `tempo_esgotado` | A operação passou de 30 s; o filho é morto | as duas | passageiro |
 | `503` | `ancoras_indisponiveis` | Família pedida sem raiz carregada (`Retry-After: 60`); no selo, a ICP-Brasil | as duas | passageiro |
-| `503` | `selo_nao_configurado` | Sem os `secrets` do selo (arquivo ausente ou PKCS#12 vazio) | selar | selo: E8-4 |
-| `503` | `selo_certificado_invalido` | `secrets` presentes mas inutilizáveis: senha errada, PKCS#12 ilegível ou grande demais, e-CNPJ vencido, revogado, sem o uso de chave ou fora das âncoras | selar | selo: E8-4 |
+| `503` | `selo_nao_configurado` | Sem os `secrets` do selo: arquivo que não existe (PKCS#12 ou senha) ou PKCS#12 vazio | selar | selo: E8-4 |
+| `503` | `selo_certificado_invalido` | `secrets` presentes mas inutilizáveis: sem permissão de leitura (por exemplo root 0600), diretório no lugar do arquivo ou outro erro de leitura, grande demais, senha errada, PKCS#12 ilegível ou sem a chave ou sem o certificado, e-CNPJ vencido, revogado, sem o uso de chave ou fora das âncoras | selar | selo: E8-4 |
 
 Além da tabela:
+- **Precedência**: vale o primeiro erro, nesta ordem. Os dois `POST`: rota (`404`), token (`401`), tamanho
+  declarado (`411`, `413`), corpo menor que o declarado (`400 pdf_ilegivel`). Conferir: `parametro_invalido`, corpo
+  vazio (`pdf_ilegivel`), `ancoras_indisponiveis`, fila (`ocupado`), e no filho `tempo_esgotado`, `erro_interno` ou
+  `pdf_ilegivel`. Selar: os `secrets` (`selo_nao_configurado`, `selo_certificado_invalido`) antes do corpo vazio
+  (`pdf_ilegivel`), depois `ancoras_indisponiveis`, fila, e no filho `pdf_ilegivel`, `nao_selavel`, o PKCS#12
+  (`selo_certificado_invalido`) e por fim a cadeia do e-CNPJ (`selo_certificado_invalido`) ou a ACT
+  (`carimbo_indisponivel`).
+- **Pedido HTTP malformado** (linha do pedido acima de 64 KB, versão inválida, mais de 100 cabeçalhos, cabeçalho
+  longo demais, HTTP/2): a biblioteca padrão responde antes do validador, em HTML e sem `{"v":1}`: `400`, `414`,
+  `431` ou `505`. O PHP trata como erro de cliente (classe "cliente": `logger->error`, "tente de novo", nada
+  gravado).
 - **Conexão fechada sem resposta**: o validador aceita até 8 conexões abertas (a nona é fechada na hora) e dá 15 s
   para o pedido inteiro chegar (cabeçalhos e corpo; o tempo de 30 s do socket vale para cada leitura, então sem esse
   prazo um byte a cada 29 s prenderia o fio). Para o PHP é erro de transporte: passageiro, como validador fora do ar.

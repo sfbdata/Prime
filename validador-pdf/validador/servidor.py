@@ -108,6 +108,7 @@ class Manipulador(BaseHTTPRequestHandler):
     # Tempo máximo de cada operação de socket; o pedido inteiro tem ainda o prazo `prazo_do_pedido`.
     timeout = 30
     prazo = 0.0
+    _respondendo = False
 
     def setup(self):
         super().setup()
@@ -118,11 +119,13 @@ class Manipulador(BaseHTTPRequestHandler):
     def handle_one_request(self):
         # Cada pedido tem o seu prazo, contado desde a espera pela linha do pedido.
         self.prazo = time.monotonic() + self.server.configuracao.prazo_do_pedido
+        self._respondendo = False
         super().handle_one_request()
 
     # Respostas ------------------------------------------------------------------------------------------
 
     def _enviar(self, situacao: int, corpo: bytes, tipo: str, cabecalhos: dict[str, str] | None = None) -> None:
+        self._respondendo = True
         self.send_response(situacao)
         self.send_header('Content-Type', tipo)
         self.send_header('Content-Length', str(len(corpo)))
@@ -196,7 +199,24 @@ class Manipulador(BaseHTTPRequestHandler):
             self._enviar_erro(resposta)
             self._registrar(resposta.situacao, inicio, tamanho, resposta.erro or '-')
             return
+        except TimeoutError:
+            raise  # prazo do pedido: a biblioteca padrão fecha a conexão sem resposta
+        except Exception as erro:  # noqa: BLE001 (defeito no processo principal: 500, nunca o traceback)
+            self._erro_inesperado(erro, inicio, tamanho)
+            return
         self._registrar(situacao, inicio, tamanho, resultado)
+
+    def _erro_inesperado(self, erro: Exception, inicio: float, tamanho: int) -> None:
+        # Só o tipo vai para o log: a mensagem de uma exceção pode trazer dado do pedido.
+        log.error('erro inesperado no atendimento: %s', type(erro).__name__)
+        self.close_connection = True
+        if self._respondendo:
+            return  # a resposta já começou: só fecha a conexão
+        try:
+            self._enviar_erro(Resposta(HTTPStatus.INTERNAL_SERVER_ERROR, 'erro_interno'))
+        except OSError:
+            return  # o cliente já foi embora
+        self._registrar(HTTPStatus.INTERNAL_SERVER_ERROR, inicio, tamanho, 'erro_interno')
 
     def __getattr__(self, nome: str):
         # A biblioteca padrão procura `do_<MÉTODO>` e, sem ele, responde 501 em HTML. Todo método fora de GET e
