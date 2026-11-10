@@ -12,6 +12,8 @@ use App\AssinaturaEletronica\Enum\CorDaLinha;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
@@ -245,6 +247,46 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     public function remover(DocumentoParaAssinar $documento): void
     {
         $this->getEntityManager()->remove($documento);
+    }
+
+    /**
+     * O documento assinado que o vínculo põe na pasta, com o registro do arquivo (código DOC): só `persist`, o `flush`
+     * é da transação de quem chama (spec assinatura-documentos-etapa-3, E3-12).
+     */
+    public function guardarNaPasta(PastaDocumento $arquivo): void
+    {
+        $em = $this->getEntityManager();
+        if ($arquivo->getArquivo() !== null) {
+            $em->persist($arquivo->getArquivo());
+        }
+        $em->persist($arquivo);
+    }
+
+    /**
+     * Os vínculos à pasta dos documentos do escritório, Lixeira incluída, para o texto "Na pasta" da lista (E3-10): por
+     * id do documento, a pasta e se o vínculo ainda está pendente. Uma consulta para a lista inteira.
+     *
+     * @return array<int, array{pasta: Pasta, pendente: bool}>
+     */
+    public function vinculosDoEscritorio(Tenant $tenant): array
+    {
+        /** @var list<array{0: Pasta, documentoId: int|string, pendente: bool}> $linhas */
+        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->getEntityManager()->createQueryBuilder()
+            ->select('p', 'd.id AS documentoId', 'd.vinculoPendente AS pendente')
+            ->from(Pasta::class, 'p')
+            ->join(DocumentoParaAssinar::class, 'd', 'WITH', 'd.pasta = p')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getResult());
+
+        $vinculos = [];
+        foreach ($linhas as $linha) {
+            $vinculos[(int) $linha['documentoId']] = ['pasta' => $linha[0], 'pendente' => (bool) $linha['pendente']];
+        }
+
+        return $vinculos;
     }
 
     /**

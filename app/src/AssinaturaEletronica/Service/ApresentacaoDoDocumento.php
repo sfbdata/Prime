@@ -28,7 +28,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * digitado ao assinar.
  *
  * Etapa 3 (contrato da etapa 3, seção 2, item 11): `codigo`, o código de validação do selo, no `Resumo` e por ele no
- * `Detalhe`; nulo no rascunho.
+ * `Detalhe`; nulo no rascunho. Bloco 3 (E3-10): `vinculado` e `vinculo`, pelo {@see VinculoNaTela}.
  *
  * Etapa 5, bloco 5A: `jaAssinado`, o quadro "Documento já assinado" do detalhe (dc:218) a partir da versão mais recente
  * do PDF que chegou assinado (o original ou o último devolvido), com a URL de "Baixar original com as assinaturas";
@@ -45,6 +45,7 @@ final readonly class ApresentacaoDoDocumento
         private ChaveDaAssinatura $chave,
         private VersaoDoPdfRepository $versoes,
         private ApresentacaoDaConferencia $conferencia,
+        private ?VinculoNaTela $vinculos = null,
     ) {
     }
 
@@ -54,6 +55,12 @@ final readonly class ApresentacaoDoDocumento
      * @return array<string, mixed>
      */
     public function resumo(ResumoDoDocumento $resumo): array
+    {
+        return array_merge($this->camposDoResumo($resumo), $this->vinculos?->daLinha($resumo->id) ?? VinculoNaTela::SEM_VINCULO);
+    }
+
+    /** @return array<string, mixed> */
+    private function camposDoResumo(ResumoDoDocumento $resumo): array
     {
         return [
             'id' => $resumo->id,
@@ -82,7 +89,9 @@ final readonly class ApresentacaoDoDocumento
      */
     public function detalhe(DocumentoParaAssinar $documento, array $eventos): array
     {
-        return array_merge($this->resumo(ResumoDoDocumento::deDocumento($documento)), [
+        $vinculo = $this->vinculos?->doDocumento($documento) ?? ['vinculado' => $documento->getPasta() !== null, 'vinculo' => null];
+
+        return array_merge($this->camposDoResumo(ResumoDoDocumento::deDocumento($documento)), $vinculo, [
             'modelo' => $documento->getModeloChave(),
             'blocos' => $documento->getBlocos(),
             'layout' => $documento->getLayout(),
