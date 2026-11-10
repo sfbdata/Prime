@@ -27,7 +27,9 @@
 {% set marca = asset('images/logo/bluejus-white-transparent-nav.png') %}
 {% if limite ?? false %}
 <div class="bjaPub">
-    <header class="bjaPubCab" data-bjt-cabecalho><img class="bjaPubMarca" src="{{ marca }}" alt="BlueJus" data-bjt-logo></header>
+    {# O cabeçalho do desenho (L234) é sempre logo, separador e nome; sem documento carregado o nome fica vazio, como no
+       cabecalho() do assinatura-publica.js. #}
+    <header class="bjaPubCab" data-bjt-cabecalho><img class="bjaPubMarca" src="{{ marca }}" alt="BlueJus" data-bjt-logo><span class="bjaOc bjaPubSep"></span><span class="bjaPubNome"></span></header>
     <main class="bjaPubMain">
         <div class="bjaCard bjaBloq"><i class="bi bi-hourglass-split"></i>
             <div class="bjaBloqT">{{ 'assinatura_eletronica.publica.limite'|trans }}</div>

@@ -151,7 +151,8 @@
         };
         const pg = b => '<img class="bjaPgImg" alt="' + esc(T('pagina')) + '" data-bja-pg="' + (parseInt(b.n, 10) || 1) + '">';
 
-        if (o.layout === '2col') {
+        /* No desenho o layout mora no primeiro bloco (L322: R0[0].lay): sem bloco nenhum, a folha sai inteira. */
+        if (o.layout === '2col' && bl.length) {
             const num = bl.find(b => b.k === 'n'), tit = bl.find(b => b.k === 't'), intro = bl.filter(b => b.full), resto = bl.filter(b => b.k !== 'n' && b.k !== 't' && !b.full);
             return '<div class="bjaPag bjaC' + (L ? ' is-limpa' : '') + '"' + fundoAttr + '><div class="lat">' + marcar(o.lateral || '') + '</div>'
                 + (num ? '<div class="num">' + marcar(num.x) + '</div>' : '')
