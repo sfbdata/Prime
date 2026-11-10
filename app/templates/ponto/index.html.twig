@@ -2193,9 +2193,11 @@
             const resultado = await PontoBatida.enviarBatida('{{ path('ponto_batida') }}', payload, momentoDoToque);
 
             // E12: a batida externa saiu e ficou sem resposta, e a fila antiga não a guardaria inteira. Ela pode ter
-            // entrado: o aviso é o de sem confirmação, com o "Conferir" (P11 b), sem convite a repetir.
+            // entrado: nada de convite a repetir. Sem internet, o aviso de sem rede, sem o botão de atualizar (ver
+            // `AVISO_SEM_REDE`); com internet, o de sem confirmação, com o "Conferir" (P11 b).
             if (resultado.falhaDeRede && filaAntigaParaOExterno(payload)) {
-                mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
+                const semRede = resultado.tipo === 'sem_rede';
+                mostrarAvisoBatida(semRede ? AVISO_SEM_REDE : AVISO_SEM_CONFIRMACAO, 'danger', !semRede);
                 return;
             }
 

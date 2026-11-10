@@ -408,11 +408,13 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertSame(2, substr_count(self::tela(), 'AVISO_EXTERNO_SEM_FILA'), 'a declaração e o uso no guardarNaFila');
 
         // O "Sem internet ... tente de novo" só vale ANTES do envio (o caminho offline do toque, antes de enviarBatida).
-        // Depois de um envio sem resposta, a batida pode ter entrado: o aviso de sem confirmação com o Conferir (P11 b),
-        // e o toque para antes de chegar à fila.
+        // Depois de um envio sem resposta, a batida pode ter entrado: sem internet, o aviso de sem rede SEM o botão de
+        // atualizar; com internet, o de sem confirmação com o Conferir (P11 b). O toque para antes de chegar à fila.
         $clique = self::corpo(self::tela(), "btnPonto.addEventListener('click', async function() {");
         self::assertMatchesRegularExpression(
-            "/if \\(resultado\\.falhaDeRede && filaAntigaParaOExterno\\(payload\\)\\) \\{\\s+mostrarAvisoBatida\\(AVISO_SEM_CONFIRMACAO, 'danger', true\\);\\s+return;\\s+\\}\\s+"
+            "/if \\(resultado\\.falhaDeRede && filaAntigaParaOExterno\\(payload\\)\\) \\{\\s+"
+            . "const semRede = resultado\\.tipo === 'sem_rede';\\s+"
+            . "mostrarAvisoBatida\\(semRede \\? AVISO_SEM_REDE : AVISO_SEM_CONFIRMACAO, 'danger', !semRede\\);\\s+return;\\s+\\}\\s+"
             . "(?:\\/\\/[^\\n]*\\n\\s+)*if \\(resultado\\.falhaDeRede && await guardarNaFila\\(payload\\)\\) \\{/",
             $clique
         );
