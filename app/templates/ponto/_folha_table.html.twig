@@ -19,6 +19,8 @@
 {% set mostrarBancoHoras = mostrarBancoHoras|default(false) %}
 {% set mostrarJustificativas = mostrarJustificativas|default(false) %}
 {% set editarBatidasHabilitado = editarBatidasHabilitado|default(false) %}
+{# P43 (E10): na própria ficha de quem não é primário nem Master os botões somem; esta linha diz por quê. #}
+{% set avisoSemCorrecao = avisoSemCorrecao|default(null) %}
 {% set editarBatidasRotaAdd = editarBatidasRotaAdd|default('') %}
 {# E10 (plano-e10-ponto §4): na ficha, a hora leva à página "Ajustar batida", o "x" abre a janela "Desconsiderar batida"
    (#modalDesconsiderarBatida, da ficha) e a linha "Desconsideradas:" traz o "Restaurar" (#modalRestaurarBatida). #}
@@ -107,6 +109,9 @@
             </button>
         {% endif %}
     </div>
+    {% if avisoSemCorrecao %}
+        <p class="small text-muted px-3 pt-2 mb-0" data-folha-sem-correcao>{{ avisoSemCorrecao }}</p>
+    {% endif %}
 
     <div class="pe-folha-rolagem">
         <table class="pe-tab pe-resp">
@@ -223,7 +228,7 @@
                                             {{ _self.desconsiderar(editarBatidasRotaDesconsiderar, editarBatidasParametros, tipoInfo.alvo, tipoInfo.cabeca, rotulo ~ ' ' ~ horario ~ ' de ' ~ linha.chaveDia|date('d/m/Y')) }}
                                         </span>
                                     {%- else -%}
-                                        <button type="button" class="pe-mais" title="Adicionar {{ tipoInfo.campo }}" aria-label="Adicionar {{ tipoInfo.campo }}"
+                                        <button type="button" class="pe-mais" title="Incluir {{ rotulo|lower }}" aria-label="Incluir {{ rotulo|lower }}"
                                                 onclick="abrirModalAddBatida('{{ tipoInfo.campo }}', '{{ linha.chaveDia }}')"><i class="bi bi-plus-circle" aria-hidden="true"></i></button>
                                     {%- endif -%}
                                 {%- elseif tipoInfo.alvo is not null -%}

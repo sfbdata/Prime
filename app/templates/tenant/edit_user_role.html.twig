@@ -302,6 +302,7 @@
                             exportarFolhaParametros: {userId: user.id},
                             mostrarBancoHoras: true,
                             editarBatidasHabilitado: podeAnalisarJustificativas,
+                            avisoSemCorrecao: podeAnalisarJustificativas ? null : constant('App\\Ponto\\Exception\\AjusteDeBatidaRecusadoException::MENSAGEM_DA_PROPRIA_BATIDA'),
                             editarBatidasRotaAdd: 'app_tenant_user_ponto_add',
                             editarBatidasRotaAjustar: 'app_tenant_user_ponto_ajustar',
                             editarBatidasRotaDesconsiderar: 'app_tenant_user_ponto_desconsiderar',
@@ -343,7 +344,7 @@
     </div>
 </section>
 
-{# Modal: Adicionar batida manual #}
+{# Modal: Incluir batida (E10, P65 a): o "+" da folha abre com o dia e o tipo; o motivo é obrigatório. #}
 <div class="modal fade" id="modalAddBatida" tabindex="-1" aria-labelledby="modalAddBatidaLabel" aria-hidden="true">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -379,7 +380,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>{{ 'escritorio.editar_usuario.batida_incluir'|trans }}</button>
                 </div>
             </form>
         </div>

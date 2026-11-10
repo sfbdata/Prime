@@ -336,6 +336,15 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         $desconsideracao = (int) $this->banco()->fetchOne("SELECT id FROM ponto_ajuste WHERE tipo = 'desconsideracao' AND user_id = ?", [$gestor->getId()]);
         $this->logarComTenant($this->client, $gestor, $this->escritorio);
 
+        $tela = $this->client->request('GET', $this->ficha($gestor) . '/edit-role?tab=ponto&competencia=' . self::COMPETENCIA);
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            AjusteDeBatidaRecusadoException::MENSAGEM_DA_PROPRIA_BATIDA,
+            trim($tela->filter('#tab-ponto section.pe-folha > p[data-folha-sem-correcao]')->text()),
+            'a aba diz por que os botões somem',
+        );
+        self::assertCount(0, $tela->filter('#tab-ponto tr[data-chave-dia="2026-10-21"] a, #tab-ponto tr[data-chave-dia="2026-10-21"] button'));
+
         $this->incluir($gestor, ['data' => '2026-10-21', 'hora' => '08:00:00', 'tipo' => 'entrada', 'motivo' => 'Esqueci.']);
         self::assertResponseStatusCodeSame(403, 'incluir');
         $this->client->request('GET', $this->ficha($gestor) . "/ponto/b{$propria}/ajustar");
@@ -357,6 +366,11 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         $this->vincularGestor($gestor, $this->escritorio);
         $id = $this->batida($this->colaborador, 'saida', '2026-10-21 18:00:00');
         $this->logarComTenant($this->client, $gestor, $this->escritorio);
+
+        $tela = $this->client->request('GET', $this->ficha($this->colaborador) . '/edit-role?tab=ponto&competencia=' . self::COMPETENCIA);
+        self::assertCount(0, $tela->filter('[data-folha-sem-correcao]'), 'na ficha do colaborador não há linha do P43');
+        self::assertSame('Incluir batida', trim($tela->filter('#modalAddBatidaLabel')->text()));
+        self::assertSame('Incluir', trim($tela->filter('#modalAddBatida button[type="submit"]')->text()));
 
         $this->ajustar($this->colaborador, "b{$id}", '', '18:30:00');
 
