@@ -31,12 +31,15 @@
  * - `erro({ titulo, detalhe, botoes, aoTentar })`: o erro, no tempo do desenho. `botoes` são os botões a mais da tela
  *   vermelha, entre "Tentar novamente" e "Fechar" (a E12 põe "Registrar como trabalho externo"):
  *   `[{ texto, icone, classe, aoClicar }]`; `icone` é um `bi-*`, `classe` vem por padrão `pe-tc-btn--externo` (o botão
- *   de borda branca do desenho) e `aoClicar(evento)` roda depois de a tela fechar. `aoTentar` é o "Tentar novamente";
+ *   de borda branca do desenho) e `aoClicar(evento, segurar)` roda depois de a tela fechar, sem soltar quem espera:
+ *   o botão que abre uma janela chama `segurar()` e recebe a função que solta a espera quando a janela fechar (sem
+ *   `segurar()`, a espera sai logo depois do `aoClicar`). `aoTentar` é o "Tentar novamente";
  * - `quandoFechar(fn)`: roda `fn` quando a tela fechar (já, se ela está fechada). Para quem não pode aparecer por cima
  *   dela: o aviso flutuante, a janela do alerta de horário, a recarga do plano B;
  * - `configurar({ focoAoFechar })`: `focoAoFechar()` devolve o elemento que recebe o foco quando a tela fecha;
  * - `fecharSeValidando()`, `fechar()`, `fase()` (`val`, `ok`, `erro`, `tentar` nos 60 ms entre o "Tentar novamente" e
- *   o toque refeito, ou vazio com a tela fechada) e `disponivel()`.
+ *   o toque refeito, `janela` com a janela aberta por um botão a mais segurando a espera, ou vazio com a tela fechada)
+ *   e `disponivel()`.
  */
 (function () {
     'use strict';
@@ -68,6 +71,9 @@
     const aoFechar = [];
     // Entre o "Tentar novamente" e o toque refeito (60 ms) a tela está fechada, mas quem espera continua esperando.
     let refazendo = false;
+    // Janelas abertas por um botão a mais da tela vermelha (o "Registrar como trabalho externo") que seguram a espera
+    // até fechar (`segurar`).
+    let seguras = 0;
 
     function raiz() {
         return document.getElementById('ponto-tela-cheia');
@@ -208,10 +214,18 @@
             el.appendChild(icone);
         }
         el.appendChild(document.createTextNode(String(botao.texto || '')));
+        // Fecha sem soltar quem espera (o alerta de horário, o aviso flutuante): como no "Tentar novamente", nada abre por
+        // cima do que o botão abriu. Quem não segura (`segurar`) solta a espera logo depois do `aoClicar`.
         el.addEventListener('click', function (evento) {
-            fechar();
-            if (typeof botao.aoClicar === 'function') {
-                botao.aoClicar(evento);
+            fecharTela(false);
+            try {
+                if (typeof botao.aoClicar === 'function') {
+                    botao.aoClicar(evento, segurar);
+                }
+            } finally {
+                if (livre()) {
+                    soltarQuemEspera();
+                }
             }
         });
 
@@ -264,6 +278,32 @@
         fecharTela(true);
     }
 
+    // Fechada de verdade: sem a tela, sem o refazer do "Tentar novamente" e sem janela segurando a espera.
+    function livre() {
+        return fase === '' && !refazendo && seguras === 0;
+    }
+
+    // Para o `aoClicar` do botão a mais que abre uma janela: a espera continua até a função devolvida ser chamada (uma
+    // vez só; chamá-la de novo não faz nada). A conferência fica para depois do código em curso: o toque refeito na
+    // janela ("Registrar") abre a validação antes, e então a espera segue até ela fechar.
+    function segurar() {
+        seguras++;
+        let solto = false;
+
+        return function () {
+            if (solto) {
+                return;
+            }
+            solto = true;
+            seguras--;
+            setTimeout(function () {
+                if (livre()) {
+                    soltarQuemEspera();
+                }
+            }, 0);
+        };
+    }
+
     // `soltar` false: o "Tentar novamente" fecha para refazer o toque, e quem espera (o alerta de horário, o aviso
     // flutuante, a recarga) continua esperando a tela fechar de verdade (`tentarDeNovo`).
     function fecharTela(soltar) {
@@ -273,7 +313,7 @@
         aoTentar = null;
         if (!el || fase === '') {
             fase = '';
-            if (soltar) {
+            if (soltar && livre()) {
                 soltarQuemEspera();
             }
             return;
@@ -290,7 +330,7 @@
             destino.focus();
         }
         focoAntes = null;
-        if (soltar) {
+        if (soltar && livre()) {
             soltarQuemEspera();
         }
     }
@@ -299,7 +339,7 @@
         if (typeof fn !== 'function') {
             return;
         }
-        if (fase === '' && !refazendo) {
+        if (livre()) {
             fn();
             return;
         }
@@ -334,7 +374,7 @@
                     refazer();
                 }
             } finally {
-                if (fase === '') {
+                if (livre()) {
                     soltarQuemEspera();
                 }
             }
@@ -402,8 +442,17 @@
         fecharSeValidando,
         quandoFechar,
         configurar,
-        // Nos 60 ms do "Tentar novamente", `tentar`: quem pergunta antes de aparecer (o aviso flutuante, o alerta de
-        // horário) espera, como com a tela aberta.
-        fase: function () { return fase !== '' ? fase : (refazendo ? 'tentar' : ''); },
+        // Nos 60 ms do "Tentar novamente", `tentar`; com a janela de um botão a mais aberta, `janela`: quem pergunta antes
+        // de aparecer (o aviso flutuante, o alerta de horário) espera, como com a tela aberta.
+        fase: function () {
+            if (fase !== '') {
+                return fase;
+            }
+            if (refazendo) {
+                return 'tentar';
+            }
+
+            return seguras > 0 ? 'janela' : '';
+        },
     });
 })();

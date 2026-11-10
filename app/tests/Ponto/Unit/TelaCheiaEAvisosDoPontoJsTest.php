@@ -320,11 +320,13 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
 
         $tc = self::arquivo('public/js/ponto-tela-cheia.js');
         $quando = self::corpo($tc, 'function quandoFechar(fn) {');
-        // Re-revisão (achado 2): nos 60 ms do "Tentar novamente" a tela está fechada, mas quem pede espera do mesmo jeito.
-        self::assertMatchesRegularExpression("/if \\(fase === '' && !refazendo\\) \\{\\s*fn\\(\\);\\s*return;\\s*\\}\\s*aoFechar\\.push\\(fn\\);/", $quando);
+        // Re-revisão (achado 2): nos 60 ms do "Tentar novamente" a tela está fechada, mas quem pede espera do mesmo jeito;
+        // também com a janela de um botão a mais segurando a espera (testBotaoAMaisSeguraQuemEspera).
+        self::assertMatchesRegularExpression("/if \\(livre\\(\\)\\) \\{\\s*fn\\(\\);\\s*return;\\s*\\}\\s*aoFechar\\.push\\(fn\\);/", $quando);
+        self::assertMatchesRegularExpression("/return fase === '' && !refazendo && seguras === 0;/", self::corpo($tc, 'function livre() {'));
         self::assertMatchesRegularExpression('/^\{\s*fecharTela\(true\);\s*\}$/', self::corpo($tc, 'function fechar() {'), 'o fechar de sempre solta quem espera');
         $fechar = self::corpo($tc, 'function fecharTela(soltar) {');
-        self::assertSame(2, preg_match_all('/if \(soltar\) \{\s*soltarQuemEspera\(\);\s*\}/', $fechar), 'nos dois caminhos do fechar');
+        self::assertSame(2, preg_match_all('/if \(soltar && livre\(\)\) \{\s*soltarQuemEspera\(\);\s*\}/', $fechar), 'nos dois caminhos do fechar, sem passar por cima do refazer nem da janela');
         self::assertLessThan(strrpos($fechar, 'soltarQuemEspera();'), (int) strrpos($fechar, "fase = '';"), 'depois de a fase zerar');
         self::assertStringContainsString('quandoFechar,', $tc);
         self::assertStringContainsString('configurar,', $tc);
@@ -362,15 +364,46 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         // Refeito o toque: se ele abriu a validação nova, quem espera segue esperando (o fechamento dela solta); se não
         // abriu (o tipo já batido, o botão ocupado), a tela fechou de verdade e quem espera sai agora, mesmo com erro.
         self::assertMatchesRegularExpression(
-            "/setTimeout\(function \(\) \{\s*refazendo = false;\s*try \{\s*if \(refazer\) \{\s*refazer\(\);\s*\}\s*\} finally \{\s*if \(fase === ''\) \{\s*soltarQuemEspera\(\);\s*\}\s*\}\s*\}, TENTAR_DEPOIS_MS\);/",
+            "/setTimeout\(function \(\) \{\s*refazendo = false;\s*try \{\s*if \(refazer\) \{\s*refazer\(\);\s*\}\s*\} finally \{\s*if \(livre\(\)\) \{\s*soltarQuemEspera\(\);\s*\}\s*\}\s*\}, TENTAR_DEPOIS_MS\);/",
             $tentar
         );
         // `fase()` diz `tentar` nos 60 ms: o aviso flutuante e o alerta de horário (que olham `fase() !== ''`) esperam.
-        self::assertStringContainsString("fase: function () { return fase !== '' ? fase : (refazendo ? 'tentar' : ''); },", $tc);
+        self::assertMatchesRegularExpression(
+            "/fase: function \(\) \{\s*if \(fase !== ''\) \{\s*return fase;\s*\}\s*if \(refazendo\) \{\s*return 'tentar';\s*\}\s*return seguras > 0 \? 'janela' : '';\s*\},/",
+            $tc
+        );
         self::assertStringContainsString("tela.fase() !== ''", self::arquivo('public/js/ponto-aviso-flutuante.js'));
         self::assertStringContainsString("tela.fase() !== ''", self::arquivo('templates/ponto/_modal_alerta_ponto.html.twig'));
         // O botão "Tentar novamente" usa este caminho; o "Fechar" e os botões a mais usam o fechar de sempre.
         self::assertMatchesRegularExpression("/if \(alvo\.hasAttribute\('data-tc-tentar'\)\) \{\s*tentarDeNovo\(\);/", $tc);
+    }
+
+    #[TestDox('Ponto aberto 1: o botão a mais da tela vermelha fecha sem soltar quem espera; a janela que ele abre segura a espera até fechar')]
+    public function testBotaoAMaisSeguraQuemEspera(): void
+    {
+        $tc = self::arquivo('public/js/ponto-tela-cheia.js');
+
+        // O clique: fecha sem soltar, dá ao `aoClicar` o `segurar` e, se ninguém segurou, solta depois dele (mesmo com erro).
+        $aMais = self::corpo($tc, 'function botaoAMais(botao) {');
+        self::assertMatchesRegularExpression(
+            "/el\.addEventListener\('click', function \(evento\) \{\s*fecharTela\(false\);\s*try \{\s*if \(typeof botao\.aoClicar === 'function'\) \{\s*botao\.aoClicar\(evento, segurar\);\s*\}\s*\} finally \{\s*if \(livre\(\)\) \{\s*soltarQuemEspera\(\);\s*\}\s*\}\s*\}\);/",
+            $aMais
+        );
+        self::assertStringNotContainsString('fechar();', $aMais, 'o fechar de sempre soltaria o alerta antes de a janela abrir');
+
+        // `segurar()`: conta a janela e devolve a soltura, que vale uma vez e confere depois do código em curso (o
+        // "Registrar" refaz o toque e abre a validação antes da conferência).
+        $segurar = self::corpo($tc, 'function segurar() {');
+        self::assertMatchesRegularExpression(
+            "/seguras\+\+;\s*let solto = false;\s*return function \(\) \{\s*if \(solto\) \{\s*return;\s*\}\s*solto = true;\s*seguras--;\s*setTimeout\(function \(\) \{\s*if \(livre\(\)\) \{\s*soltarQuemEspera\(\);\s*\}\s*\}, 0\);\s*\};/",
+            $segurar
+        );
+        self::assertStringContainsString('let seguras = 0;', $tc);
+        self::assertSame(1, substr_count($tc, 'seguras++'), 'só o segurar conta');
+        self::assertSame(1, substr_count($tc, 'seguras--'), 'só a soltura desconta');
+        // Com a janela segurando, `fase()` diz `janela`, e o aviso flutuante e o alerta de horário esperam.
+        self::assertStringContainsString("return seguras > 0 ? 'janela' : '';", $tc);
+        self::assertStringContainsString('`aoClicar(evento, segurar)`', $tc, 'o contrato no comentário do módulo');
     }
 
     #[TestDox('Re-revisão (achado 4): o plim do lembrete de saída espera a tela cheia fechar, junto com o aviso âmbar; a notificação do navegador sai na hora')]

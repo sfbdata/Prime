@@ -288,7 +288,9 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             $registrar,
             'vazio: a frase do desenho na linha de erro da janela, e nada sai'
         );
-        self::assertMatchesRegularExpression('/window\.PontoAbas\.fecharJanela\(\);\s+registrarComoTrabalhoExterno\(motivo, tipoDoTrabalhoExterno\);/', $registrar, 'com texto: fecha e envia a batida que falhou');
+        // E8: entre o fechar e o envio, solta a espera que a janela aberta pela tela vermelha segurava (o toque refeito
+        // abre a validação nova antes de a soltura conferir; ver testJanelaExternaSeguraOAlertaDeHorario).
+        self::assertMatchesRegularExpression('/window\.PontoAbas\.fecharJanela\(\);\s+soltarAJanelaExterna\(\);\s+registrarComoTrabalhoExterno\(motivo, tipoDoTrabalhoExterno\);/', $registrar, 'com texto: fecha e envia a batida que falhou');
 
         // A marcação, sem o comentário do parcial (que cita o modal do Bootstrap para dizer que ele não entra).
         $janela = (string) preg_replace('/\{#.*?#\}/s', '', self::arquivo('templates/ponto/_janela_trabalho_externo.html.twig'));
@@ -313,7 +315,11 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $porta = self::corpo($tela, 'function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {');
         self::assertSame(1, substr_count($tela, 'mostrarForaDoRaio(avisoBatida,'), 'a caixa nasce num lugar só');
         self::assertStringContainsString('mostrarForaDoRaio(avisoBatida, foraDoRaio, tipo);', $porta, 'a caixa com o tipo que falhou');
-        self::assertStringContainsString("abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo)", $porta, 'a tela vermelha com o tipo que falhou');
+        self::assertStringContainsString('aoClicar: (evento, segurar) => abrirJanelaExternaDaTelaCheia(tipo, segurar),', $porta, 'a tela vermelha com o tipo que falhou');
+        self::assertStringContainsString(
+            "abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo);",
+            self::corpo($tela, 'function abrirJanelaExternaDaTelaCheia(tipo, segurar) {')
+        );
         self::assertStringContainsString('mostrarFalhaDoToque(tipo, foraDoRaio.titulo, foraDoRaio.detalhe, botoes, externo);', $porta);
 
         // A janela guarda o tipo ao abrir, e o "Registrar" o leva ao toque.
@@ -428,9 +434,14 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString("icone: 'bi-briefcase',", $botao, 'a maleta do desenho (L385)');
         self::assertStringContainsString("classe: 'pe-tc-btn--externo',", $botao, 'o botão de borda branca do desenho');
         self::assertStringContainsString(
-            "aoClicar: () => abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo),",
+            'aoClicar: (evento, segurar) => abrirJanelaExternaDaTelaCheia(tipo, segurar),',
             $botao,
-            'abre a janela "Trabalho externo" com o tipo que falhou; ao fechar, o foco volta ao título do cartão'
+            'abre a janela "Trabalho externo" com o tipo que falhou, segurando o alerta de horário até ela fechar'
+        );
+        self::assertMatchesRegularExpression(
+            "/^function abrirJanelaExternaDaTelaCheia\(tipo, segurar\) \{\s+abrirJanelaDoTrabalhoExterno\(document\.getElementById\('ponto-registrar-titulo'\) \|\| btnPonto, tipo\);/",
+            self::corpo($tela, 'function abrirJanelaExternaDaTelaCheia(tipo, segurar) {'),
+            'ao fechar, o foco volta ao título do cartão'
         );
         self::assertMatchesRegularExpression(
             '/\}\s+mostrarFalhaDoToque\(tipo, foraDoRaio\.titulo, foraDoRaio\.detalhe, botoes, externo\);\s+\}$/',
@@ -440,15 +451,45 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString('botoes: Array.isArray(botoes) ? botoes : [],', self::corpo($tela, 'function mostrarFalhaDoToque(tipo, titulo, detalhe, botoes, externo) {'));
 
         // A tela vermelha põe o botão entre o "Tentar novamente" e o "Fechar", com o ícone e a classe dados, e fecha
-        // antes de chamar o `aoClicar` (a janela abre com a tela cheia já fechada).
+        // (sem soltar quem espera) antes de chamar o `aoClicar`: a janela abre com a tela cheia já fechada.
         $telaCheia = self::arquivo('public/js/ponto-tela-cheia.js');
         $aMais = self::corpo($telaCheia, 'function botaoAMais(botao) {');
         self::assertStringContainsString("el.className = 'pe-tc-btn ' + (botao.classe || 'pe-tc-btn--externo');", $aMais);
         self::assertStringContainsString("icone.className = 'bi ' + botao.icone;", $aMais);
         self::assertStringContainsString('el.appendChild(document.createTextNode(String(botao.texto || \'\')));', $aMais, 'o rótulo por texto, nunca por innerHTML');
-        self::assertMatchesRegularExpression("/fechar\(\);\s+if \(typeof botao\.aoClicar === 'function'\) \{\s+botao\.aoClicar\(evento\);/", $aMais);
+        self::assertMatchesRegularExpression("/fecharTela\(false\);\s+try \{\s+if \(typeof botao\.aoClicar === 'function'\) \{\s+botao\.aoClicar\(evento, segurar\);/", $aMais);
         self::assertStringContainsString('fecharBotao.parentNode.insertBefore(botaoAMais(botao), fecharBotao);', self::corpo($telaCheia, 'function erro(dados) {'));
         self::assertStringContainsString('.pe-tc-btn--externo { border: 1px solid #fff; background: transparent; color: #fff; font-weight: bold; }', self::arquivo('public/css/ponto-eletronico.css'));
+    }
+
+    #[TestDox('E8: a janela externa aberta pela tela vermelha segura o alerta de horário e o aviso flutuante até fechar; o "Registrar" solta antes de refazer o toque')]
+    public function testJanelaExternaSeguraOAlertaDeHorario(): void
+    {
+        $tela = self::tela();
+        $abrir = self::corpo($tela, 'function abrirJanelaExternaDaTelaCheia(tipo, segurar) {');
+
+        // Só segura com a janela de fato aberta (sem o PontoAbas ela não abre, e a espera sai já, pela tela cheia).
+        self::assertMatchesRegularExpression(
+            "/const fundo = document\.getElementById\(JANELA_DO_TRABALHO_EXTERNO\);\s+if \(!fundo \|\| fundo\.hidden \|\| typeof segurar !== 'function' \|\| typeof MutationObserver !== 'function'\) \{\s+return;\s+\}\s+const soltar = segurar\(\);/",
+            $abrir
+        );
+        // "Cancelar", o "x" e Esc: o `hidden` volta e a espera sai. O observador sai junto, e a soltura vale uma vez.
+        self::assertMatchesRegularExpression(
+            "/const vigia = new MutationObserver\(function \(\) \{\s+if \(fundo\.hidden\) \{\s+soltarAJanelaExterna\(\);\s+\}\s+\}\);\s+"
+            . "soltarAJanelaExterna = function \(\) \{\s+vigia\.disconnect\(\);\s+soltarAJanelaExterna = function \(\) \{\};\s+soltar\(\);\s+\};\s+"
+            . "vigia\.observe\(fundo, \{ attributes: true, attributeFilter: \['hidden'\] \}\);/",
+            $abrir
+        );
+        self::assertStringContainsString('let soltarAJanelaExterna = function () {};', $tela, 'sem janela segurando, não faz nada');
+        self::assertSame(2, substr_count($tela, 'abrirJanelaExternaDaTelaCheia('), 'a declaração e a tela vermelha: só ela abre a janela segurando');
+        // O "Registrar" solta ANTES de refazer o toque: a validação nova abre com `fase()` vazio (o `mostrarFalhaDoToque`
+        // a abre antes da tela vermelha), e a soltura confere depois, com ela já aberta.
+        $registrar = self::corpo($tela, "botaoRegistrarExterno.addEventListener('click', function () {");
+        self::assertLessThan(strpos($registrar, 'registrarComoTrabalhoExterno('), strpos($registrar, 'soltarAJanelaExterna();'));
+        self::assertLessThan(strpos($registrar, 'soltarAJanelaExterna();'), strpos($registrar, 'window.PontoAbas.fecharJanela();'));
+        self::assertStringContainsString("if (window.PontoTelaCheia.fase() === '') {", self::corpo($tela, 'function mostrarFalhaDoToque(tipo, titulo, detalhe, botoes, externo) {'));
+        // O fechar da janela é o `hidden` do PontoAbas, por qualquer caminho.
+        self::assertMatchesRegularExpression('/janelaAberta\.hidden = true;\s*janelaAberta = null;/', self::arquivo('public/js/ponto-abas.js'));
     }
 
     #[TestDox('E8: a batida externa que com certeza não entrou (atrasada, não entrou, texto recusado) fecha a validação sem resultado e volta para a janela, sem a tela vermelha')]

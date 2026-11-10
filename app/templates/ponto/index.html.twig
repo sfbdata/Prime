@@ -1400,6 +1400,8 @@
     let textoDoTrabalhoExterno = '';
     // O tipo da batida que falhou (desenho L824, `ctx.t`), posto ao abrir a janela: é o que vai no envio.
     let tipoDoTrabalhoExterno = null;
+    // E8: a janela aberta pela tela vermelha segura a espera da tela cheia; isto a solta (`abrirJanelaExternaDaTelaCheia`).
+    let soltarAJanelaExterna = function () {};
     // Os dois porquês de o envio não sair pelo caminho externo (o botão de bater ocupado ou o dia completo) e o da fila
     // antiga (ponto-fila.js de antes da E12 no cache do navegador), que guardaria a batida sem a marca e sem o texto.
     const AVISO_EXTERNO_EM_ANDAMENTO = 'Um registro ainda está em andamento. Espere a resposta e registre o trabalho externo de novo.';
@@ -1425,6 +1427,30 @@
             window.PontoAbas.mostrarErro(fundo, erro);
         }
         campo.focus();
+    }
+
+    // E8: a janela "Trabalho externo" aberta pela tela vermelha. O alerta de horário e o aviso flutuante que esperavam a
+    // tela cheia fechar esperam também a janela (`segurar`, de js/ponto-tela-cheia.js), até ela fechar por qualquer
+    // caminho. O "Registrar" solta antes de refazer o toque (a validação nova abre, e a espera segue até ela fechar);
+    // "Cancelar", o "x" e Esc soltam pelo `hidden` da janela. Sem a janela aberta ou sem o observador, a espera sai já.
+    function abrirJanelaExternaDaTelaCheia(tipo, segurar) {
+        abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo);
+        const fundo = document.getElementById(JANELA_DO_TRABALHO_EXTERNO);
+        if (!fundo || fundo.hidden || typeof segurar !== 'function' || typeof MutationObserver !== 'function') {
+            return;
+        }
+        const soltar = segurar();
+        const vigia = new MutationObserver(function () {
+            if (fundo.hidden) {
+                soltarAJanelaExterna();
+            }
+        });
+        soltarAJanelaExterna = function () {
+            vigia.disconnect();
+            soltarAJanelaExterna = function () {};
+            soltar();
+        };
+        vigia.observe(fundo, { attributes: true, attributeFilter: ['hidden'] });
     }
 
     // A batida externa com certeza não entrou (atrasada, que nem saiu; recusada antes de gravar; ou o servidor recusou o
@@ -1457,8 +1483,9 @@
                 texto: 'Registrar como trabalho externo',
                 icone: 'bi-briefcase',
                 classe: 'pe-tc-btn--externo',
-                // O foco volta ao título do cartão quando a janela fecha (não ao "Bater Ponto", revisão da E8).
-                aoClicar: () => abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo),
+                // O foco volta ao título do cartão quando a janela fecha (não ao "Bater Ponto", revisão da E8), e o alerta
+                // de horário que esperava a tela cheia espera também a janela.
+                aoClicar: (evento, segurar) => abrirJanelaExternaDaTelaCheia(tipo, segurar),
             });
         }
         mostrarFalhaDoToque(tipo, foraDoRaio.titulo, foraDoRaio.detalhe, botoes, externo);
@@ -1510,6 +1537,7 @@
                 return;
             }
             window.PontoAbas.fecharJanela();
+            soltarAJanelaExterna();
             registrarComoTrabalhoExterno(motivo, tipoDoTrabalhoExterno);
         });
     }
