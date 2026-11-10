@@ -90,10 +90,15 @@ container é recriado. O script faz os dois, para o `php` e para o `worker` (mes
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-cd /opt/jusprime && ./scripts/deploy-prod-tls.sh
+cd /opt/jusprime && PULAR_GIT_PULL=1 ./scripts/deploy-prod-tls.sh
 ```
 
 Não troque por `docker compose restart`: restart não relê o `.env.prod` nem pega imagem nova.
+
+`PULAR_GIT_PULL=1` mantém o código na versão publicada (a tag em que o deploy automático deixou a VPS),
+como o próprio deploy automático faz. Sem ele, o script atualiza o código pelo repositório: num checkout
+na tag ele para antes do build; num checkout no master ele traria para produção o que entrou depois da
+última versão, sem passar pela publicação.
 
 ## 4. O worker
 
@@ -148,7 +153,7 @@ pedidos novos são recusados com a mensagem honesta ("IA não configurada nesta 
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-cd /opt/jusprime && sed -i '/^IA_HABILITADA=/d' .env.prod && ./scripts/deploy-prod-tls.sh
+cd /opt/jusprime && sed -i '/^IA_HABILITADA=/d' .env.prod && PULAR_GIT_PULL=1 ./scripts/deploy-prod-tls.sh
 docker exec -w /var/www/app jusprime_php_prod php bin/console app:inteligencia:status
 ```
 
@@ -157,7 +162,7 @@ vazada, contrato encerrado), apague a chave e revogue-a no painel do provedor:
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-cd /opt/jusprime && sed -i '/^ANTHROPIC_API_KEY=/d' .env.prod && ./scripts/deploy-prod-tls.sh
+cd /opt/jusprime && sed -i '/^ANTHROPIC_API_KEY=/d' .env.prod && PULAR_GIT_PULL=1 ./scripts/deploy-prod-tls.sh
 ```
 
 Para desligar só **um** escritório, sem deploy: `/admin/inteligencia` daquele escritório → desligar.

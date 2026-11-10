@@ -140,8 +140,13 @@ nada, é preciso reconstruir a imagem):
 
 ```bash
 # Execute manualmente no terminal externo, dentro da VPS
-./scripts/deploy-prod-tls.sh
+PULAR_GIT_PULL=1 ./scripts/deploy-prod-tls.sh
 ```
+
+`PULAR_GIT_PULL=1` mantém o código na versão publicada, como o deploy automático faz. O `mcp:server`
+precisa estar numa versão já publicada pelo caminho normal (PR, release e deploy automático). Sem a
+variável, o script atualiza o código pelo repositório e traria para produção o que entrou no master depois
+da última versão.
 
 ---
 

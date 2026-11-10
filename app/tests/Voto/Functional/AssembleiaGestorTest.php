@@ -427,6 +427,165 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame(EstadoDaAssembleia::Rascunho, $this->em->find(Assembleia::class, $assembleia->getId())?->getEstado());
     }
 
+    #[TestDox('Tela das pautas: Nº só com algarismo, cada caixa marcada para o salvar sem recarregar e o texto de falha')]
+    public function testTelaDasPautasPreparaOSalvarSemRecarregar(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create()->_real();
+
+        $tela = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/pautas');
+
+        self::assertResponseIsSuccessful();
+        $caixa = $tela->filter('.voto-tela .voto-assistente[data-voto-pautas]');
+        self::assertCount(1, $caixa);
+        self::assertSame('Não foi possível salvar. Confira a conexão e tente de novo.', $caixa->attr('data-voto-falha'));
+        self::assertSame('Corrija a pauta ou repita o clique para seguir sem salvá-la.', $caixa->attr('data-voto-repetir'));
+        self::assertSame('Pauta incluída.', $caixa->attr('data-voto-incluida'));
+        $erro = $caixa->filter('.voto-assistente-corpo > .voto-erro[data-voto-erro][role="alert"]');
+        self::assertCount(1, $erro, 'o erro da etapa (edErro do desenho) mora no corpo do assistente');
+        self::assertNotNull($erro->attr('hidden'), 'começa escondido');
+        self::assertCount(1, $caixa->filter('.voto-assistente-corpo > .voto-erro[data-voto-erro] + .voto-rodape'), 'logo acima do rodapé, como no desenho');
+        self::assertCount(1, $caixa->filter('.voto-assistente-corpo > .voto-pauta-bloco > form#pauta-' . $pauta->getId() . '[data-voto-pauta-form="existente"]'), 'a pauta que já existe grava por fetch');
+        self::assertCount(1, $caixa->filter('.voto-assistente-corpo > form#pauta-nova[data-voto-pauta-form="nova"]'), 'a pauta nova é gravada antes de sair');
+        $numeros = $caixa->filter('form[data-voto-pauta-form] .voto-opcao > input[name="opcao_numero[]"]');
+        self::assertCount(4, $numeros, '1 Sim e 2 Não na pauta e na pauta nova');
+        self::assertSame(4, $caixa->filter('input[name="opcao_numero[]"][data-voto-numero][inputmode="numeric"][maxlength="1"]')->count(), 'todo Nº só aceita um algarismo');
+    }
+
+    #[TestDox('Salvar a pauta por fetch responde JSON, grava e não deixa toast para a próxima tela')]
+    public function testSalvarPautaPorFetchRespondeJson(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-' . $pauta->getId() . ' input[name="_token"]')->attr('value');
+
+        $this->client->xmlHttpRequest('POST', $url . '/' . $pauta->getId() . '/editar', [
+            '_token' => $token, 'titulo' => 'Pintura da fachada', 'descricao' => '',
+            'opcao_numero' => ['2', '1', '3'], 'opcao_rotulo' => ['Não', 'Sim', 'Adiar'],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true, 'mensagem' => 'Pauta salva.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame('Pintura da fachada', $this->em->getConnection()->fetchOne('SELECT titulo FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId()]));
+        self::assertSame([[0, 'Abstenção'], [1, 'Sim'], [2, 'Não'], [3, 'Adiar']], $this->opcoesNoBanco((int) $pauta->getId()));
+        $tela = $this->client->request('GET', $url);
+        self::assertCount(0, $tela->filter('.voto-toast'), 'o aviso foi no JSON, não na sessão');
+    }
+
+    #[TestDox('Nº com letra é recusado: por fetch, 422 com a mensagem; no envio comum, toast de erro; nada muda')]
+    public function testNumeroComLetraERecusado(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-' . $pauta->getId() . ' input[name="_token"]')->attr('value');
+        $dados = ['_token' => $token, 'titulo' => 'Pintura da fachada', 'opcao_numero' => ['a', '2'], 'opcao_rotulo' => ['Sim', 'Não']];
+
+        $this->client->xmlHttpRequest('POST', $url . '/' . $pauta->getId() . '/editar', $dados);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['ok' => false, 'mensagem' => 'Número a deve ter 1 dígito(s).'], json_decode((string) $this->client->getResponse()->getContent(), true));
+
+        $this->client->request('POST', $url . '/' . $pauta->getId() . '/editar', $dados);
+        self::assertResponseRedirects($url . '#pauta-' . $pauta->getId());
+        $tela = $this->client->followRedirect();
+        self::assertSame('Número a deve ter 1 dígito(s).', trim($tela->filter('.voto-toast.voto-toast-erro')->text()));
+
+        $this->client->xmlHttpRequest('POST', $url, ['_token' => $token, 'titulo' => 'Obra', 'opcao_numero' => ['x'], 'opcao_rotulo' => ['Sim']]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Aprovação das contas', $this->em->getConnection()->fetchOne('SELECT titulo FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId()]));
+        self::assertSame([[0, 'Abstenção'], [1, 'Sim'], [2, 'Não']], $this->opcoesNoBanco((int) $pauta->getId()));
+        self::assertSame([(int) $pauta->getId()], $this->pautasDa((int) $assembleia->getId()), 'a pauta com letra não foi criada');
+    }
+
+    #[TestDox('Incluir a pauta por fetch (gravada antes de sair da tela) responde JSON e cria a pauta')]
+    public function testIncluirPautaPorFetchRespondeJson(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-nova input[name="_token"]')->attr('value');
+
+        $this->client->xmlHttpRequest('POST', $url, ['_token' => $token, 'titulo' => 'Obra na garagem', 'opcao_numero' => ['1', '2'], 'opcao_rotulo' => ['Sim', 'Não']]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true, 'mensagem' => 'Pauta incluída.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        $pautas = $this->pautasDa((int) $assembleia->getId());
+        self::assertCount(1, $pautas);
+        self::assertSame([[0, 'Abstenção'], [1, 'Sim'], [2, 'Não']], $this->opcoesNoBanco($pautas[0]));
+    }
+
+    #[TestDox('Remover a pauta por fetch responde JSON e remove só ela')]
+    public function testRemoverPautaPorFetchRespondeJson(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $fica = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia, 'ordem' => 1])->comOpcoesPadrao()->create()->_real();
+        $sai = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia, 'ordem' => 2, 'titulo' => 'Obra'])->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-nova input[name="_token"]')->attr('value');
+
+        $this->client->xmlHttpRequest('POST', $url . '/' . $sai->getId() . '/remover', ['_token' => $token]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true, 'mensagem' => 'Pauta removida.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame([(int) $fica->getId()], $this->pautasDa((int) $assembleia->getId()));
+    }
+
+    #[TestDox('Pauta que não existe mais (ou de outro escritório) no salvar por fetch: 404 em JSON, sem mexer na alheia')]
+    public function testSalvarPorFetchPautaInexistenteDa404EmJson(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $alheia = PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-nova input[name="_token"]')->attr('value');
+        $dados = ['_token' => $token, 'titulo' => 'Invasora', 'opcao_numero' => ['1'], 'opcao_rotulo' => ['Sim']];
+        $esperado = ['ok' => false, 'mensagem' => 'Esta pauta não existe mais. Recarregue a página.'];
+
+        foreach ([999999999, (int) $alheia->getId()] as $pautaId) {
+            $this->client->xmlHttpRequest('POST', $url . '/' . $pautaId . '/editar', $dados);
+            self::assertResponseStatusCodeSame(404);
+            self::assertSame($esperado, json_decode((string) $this->client->getResponse()->getContent(), true));
+        }
+        self::assertSame('Aprovação das contas', $this->em->getConnection()->fetchOne('SELECT titulo FROM voto.assembleia_pauta WHERE id = ?', [$alheia->getId()]));
+    }
+
+    #[TestDox('Sessão expirada no salvar por fetch: 403 com o aviso (a tela tenta de novo, não descarta), e a pauta não muda')]
+    public function testSalvarPorFetchComTokenVencido(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create()->_real();
+
+        $this->client->xmlHttpRequest('POST', '/voto/assembleias/' . $assembleia->getId() . '/pautas/' . $pauta->getId() . '/editar', [
+            '_token' => 'vencido', 'titulo' => 'Outra', 'opcao_numero' => ['1'], 'opcao_rotulo' => ['Sim'],
+        ]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['ok' => false, 'mensagem' => 'A sessão expirou. Recarregue a página e tente de novo.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame('Aprovação das contas', $this->em->getConnection()->fetchOne('SELECT titulo FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId()]));
+    }
+
+    /** @return list<array{int, string}> número e nome de cada opção da pauta, pelo número */
+    private function opcoesNoBanco(int $pautaId): array
+    {
+        return array_map(
+            static fn (array $l): array => [(int) $l['numero'], (string) $l['rotulo']],
+            $this->em->getConnection()->fetchAllAssociative('SELECT numero, rotulo FROM voto.assembleia_opcao WHERE pauta_id = ? ORDER BY numero', [$pautaId]),
+        );
+    }
+
     /**
      * Grava os votos como a cédula grava: a participação da unidade e a soma no contador da opção.
      *
