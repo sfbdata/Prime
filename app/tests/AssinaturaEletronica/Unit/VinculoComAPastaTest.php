@@ -18,7 +18,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A aplicação do vínculo pendente (spec assinatura-documentos-etapa-3, E3-11 e E3-12): tudo conferido de novo com quem
- * vinculou; na recusa nada vai para a pasta, o vínculo fica pendente e a trilha diz o motivo.
+ * vinculou; na recusa nada vai para a pasta, a trilha diz o motivo e o vínculo pendente se desfaz (o "Vincular à pasta"
+ * volta), salvo quando outro processo já o aplicou ou trocou no meio.
  */
 #[CoversClass(VinculoComAPasta::class)]
 #[CoversClass(ArquivoAssinadoNaPasta::class)]
@@ -45,7 +46,7 @@ final class VinculoComAPastaTest extends TestCase
         self::assertSame(7, $this->ultimoGravado(TipoDeEvento::VinculoFeito)->getUsuario()?->getId(), 'em nome de quem vinculou');
     }
 
-    #[TestDox('quem vinculou perdeu o acesso (permissão ou cadeado): não aplica, fica pendente e a trilha diz o motivo')]
+    #[TestDox('quem vinculou perdeu o acesso (permissão ou cadeado): não aplica, a trilha diz o motivo e o vínculo se desfaz')]
     public function testPerdeuOAcesso(): void
     {
         $documento = $this->pendenteQueConcluiu();
@@ -87,10 +88,69 @@ final class VinculoComAPastaTest extends TestCase
         self::assertFalse($this->vinculo()->aplicar($documento));
         $this->assertNaoAplicado($documento, 'sem_quem_vinculou');
 
-        (new \ReflectionProperty(DocumentoParaAssinar::class, 'vinculadoPor'))->setValue($documento, null);
-        self::assertFalse($this->vinculo()->aplicar($documento));
+        $this->naBase = [];
+        $this->gravados = [];
+        $removido = $this->pendenteQueConcluiu();
+        (new \ReflectionProperty(DocumentoParaAssinar::class, 'vinculadoPor'))->setValue($removido, null);
+        self::assertFalse($this->vinculo()->aplicar($removido));
         self::assertSame('assinatura_eletronica.vinculo_motivo.sem_quem_vinculou', $this->ultimoGravado(TipoDeEvento::VinculoNaoAplicado)->getDados()['motivo']);
         self::assertNull($this->ultimoGravado(TipoDeEvento::VinculoNaoAplicado)->getUsuario());
+        self::assertNull($removido->getPasta());
+        self::assertFalse($removido->isVinculoPendente());
+    }
+
+    #[TestDox('falhou e se desfez: pode vincular de novo, e o segundo vínculo vai para a pasta')]
+    public function testVinculaDeNovoDepoisDaFalha(): void
+    {
+        $documento = $this->pendenteQueConcluiu();
+        $this->acesso[42]['editar'] = false;
+        self::assertFalse($this->vinculo()->aplicar($documento));
+        $this->assertNaoAplicado($documento, 'sem_permissao');
+
+        $this->pasta(43, 'P-0043');
+        $saida = $this->useCase()->executar(self::ator(), $this->tenant, 1, 43);
+
+        self::assertTrue($saida['aplicado']);
+        self::assertSame(43, $documento->getPasta()?->getId());
+        self::assertCount(1, $this->naPasta);
+        self::assertSame(['vinculo_definido', 'vinculo_nao_aplicado', 'vinculo_feito'], $this->tiposGravados());
+    }
+
+    /** @return iterable<string, array{\Closure(self, DocumentoParaAssinar): void, bool}> */
+    public static function outroProcessoNoMeio(): iterable
+    {
+        yield 'já aplicado por outro processo' => [
+            static function (self $teste, DocumentoParaAssinar $d): void {
+                $d->marcarVinculoFeito((new PastaDocumento())->setTenant($d->getTenant())->setPasta($d->getPasta()));
+            },
+            true,
+        ];
+        yield 'desfeito e vinculado a outra pasta por outro processo' => [
+            static function (self $teste, DocumentoParaAssinar $d): void {
+                $d->descartarVinculoNaoAplicado();
+                $d->definirVinculo($teste->pasta(43, 'P-0043'), self::ator(), new \DateTimeImmutable('2026-11-09 09:50:00'));
+            },
+            false,
+        ];
+    }
+
+    /** @param \Closure(self, DocumentoParaAssinar): void $noMeio */
+    #[DataProvider('outroProcessoNoMeio')]
+    #[TestDox('falha com o vínculo mudado no meio ($_dataName): relido na trava, não desfaz nem grava evento')]
+    public function testFalhaComOutroProcessoNoMeio(\Closure $noMeio, bool $naPasta): void
+    {
+        $documento = $this->pendenteQueConcluiu();
+        $this->acesso[42]['editar'] = false;
+        $this->aoTravar = fn (DocumentoParaAssinar $d) => $noMeio($this, $d);
+        $antes = $this->tiposGravados();
+
+        self::assertSame($naPasta, $this->vinculo()->aplicar($documento), 'verdadeiro só quando o documento já está na pasta');
+
+        self::assertSame($antes, $this->tiposGravados(), 'sem "não aplicado"');
+        self::assertNotNull($documento->getPasta(), 'o vínculo do outro processo fica');
+        self::assertSame(7, $documento->getVinculadoPor()?->getId());
+        self::assertSame(!$naPasta, $documento->isVinculoPendente());
+        self::assertSame([], $this->naPasta);
     }
 
     #[TestDox('modelo de contrato: categoria Contrato e a situação do contrato da pasta vira Assinado (regular)')]
@@ -135,7 +195,7 @@ final class VinculoComAPastaTest extends TestCase
         self::assertCount(2, $this->disco->chavesGravadas, 'o PDF final e uma cópia só');
     }
 
-    #[TestDox('falha ao gravar a cópia na pasta: não aplica, fica pendente e a trilha diz o motivo')]
+    #[TestDox('falha ao gravar a cópia na pasta: não aplica, a trilha diz o motivo e o vínculo se desfaz')]
     public function testFalhaAoGravar(): void
     {
         $documento = $this->pendenteQueConcluiu();
@@ -206,14 +266,18 @@ final class VinculoComAPastaTest extends TestCase
         return $documento;
     }
 
+    /** A falha desfaz o vínculo pendente (o "Vincular à pasta" volta) e a trilha diz o motivo em nome de quem vinculou. */
     private function assertNaoAplicado(DocumentoParaAssinar $documento, string $motivo): void
     {
-        self::assertTrue($documento->isVinculoPendente(), 'o vínculo continua pendente');
+        self::assertFalse($documento->isVinculoPendente(), 'o vínculo pendente se desfaz');
+        self::assertNull($documento->getPasta(), 'sem pasta: o "Vincular à pasta" volta');
+        self::assertNull($documento->getVinculadoPor());
+        self::assertNull($documento->getVinculadoEm());
         self::assertNull($documento->getPastaDocumento());
         self::assertSame([], $this->naPasta, 'nada vai para a pasta');
         self::assertSame([], $this->historico);
         $evento = $this->ultimoGravado(TipoDeEvento::VinculoNaoAplicado);
         self::assertSame(['nup' => 'P-0042', 'motivo' => 'assinatura_eletronica.vinculo_motivo.' . $motivo, 'chave' => 1], $evento->getDados());
-        self::assertSame($documento->getVinculadoPor(), $evento->getUsuario());
+        self::assertSame(7, $evento->getUsuario()?->getId(), 'em nome de quem vinculou, lido antes de desfazer');
     }
 }

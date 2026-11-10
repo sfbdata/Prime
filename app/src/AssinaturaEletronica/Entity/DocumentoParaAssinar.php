@@ -37,8 +37,9 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Etapa 3 (contrato da etapa 3, seção 2): o código de validação `BJA-XXXX-XXXX-XXXX` nasce no envio, uma vez; o PDF
  * final com selo é guardado uma vez, só do documento concluído; o vínculo à pasta é sempre por id (o NUP não é único),
- * fica pendente até o PDF final ir para a pasta e guarda quem o definiu (a conclusão acontece na rota pública, sem
- * usuário logado). Pasta, usuário e arquivo da pasta apagados viram nulo (`ON DELETE SET NULL`).
+ * fica pendente até o PDF final ir para a pasta (ou se desfaz, se a aplicação falhar) e guarda quem o definiu (a
+ * conclusão acontece na rota pública, sem usuário logado). Pasta, usuário e arquivo da pasta apagados viram nulo
+ * (`ON DELETE SET NULL`).
  *
  * Etapa 5 (contrato da etapa 5, seção 2, item 3): gov.br e ICP assinam sem rubrica e concluem como a Simples. As
  * versões do PDF (original, para assinar e devolvidas) moram em {@see VersaoDoPdf}.
@@ -158,7 +159,7 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
     #[ORM\JoinColumn(name: 'pasta_id', nullable: true, onDelete: 'SET NULL')]
     private ?Pasta $pasta = null;
 
-    /** Verdadeiro do vínculo definido até o PDF final ir para a pasta. */
+    /** Verdadeiro do vínculo definido até o PDF final ir para a pasta, ou até a aplicação falhar e o vínculo se desfazer. */
     #[ORM\Column(name: 'vinculo_pendente', options: ['default' => false])]
     private bool $vinculoPendente = false;
 
@@ -420,6 +421,23 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         }
 
         $this->pastaDocumento = $arquivo;
+        $this->vinculoPendente = false;
+    }
+
+    /**
+     * A aplicação do vínculo pendente falhou (spec assinatura-documentos-etapa-3, E3-11): o vínculo se desfaz e o
+     * "Vincular à pasta" volta, como no desenho (`vincExec` não grava o vínculo na falha). Só o pendente: o vínculo
+     * feito nunca é desfeito (sem "desvincular", E3-10). Quem chama grava antes o evento "vínculo não aplicado".
+     */
+    public function descartarVinculoNaoAplicado(): void
+    {
+        if (!$this->vinculoPendente) {
+            throw new \LogicException('O documento não tem vínculo pendente.');
+        }
+
+        $this->pasta = null;
+        $this->vinculadoPor = null;
+        $this->vinculadoEm = null;
         $this->vinculoPendente = false;
     }
 

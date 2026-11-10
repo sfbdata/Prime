@@ -23,8 +23,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * `VinculoPendenteListener` quando o PDF final é guardado.
  *
  * Tudo é conferido de novo com QUEM VINCULOU (não com quem está na tela): pasta que sumiu, pasta na lápide, usuário
- * removido, sem permissão de editar a pasta ou fora do cadeado. Na recusa nada é gravado na pasta, o vínculo continua
- * pendente e a trilha ganha "vínculo não aplicado" com o motivo.
+ * removido, sem permissão de editar a pasta ou fora do cadeado. Na recusa (e na falha do PDF final ou da cópia) nada é
+ * gravado na pasta, a trilha ganha "vínculo não aplicado" com o motivo e o vínculo pendente se desfaz: o "Vincular à
+ * pasta" volta, como no desenho (`vincExec` não grava o vínculo na falha). Não é "desvincular" (E3-10): o vínculo feito
+ * nunca é desfeito.
  *
  * Idempotente: vínculo já feito não grava de novo; duas chamadas ao mesmo tempo (o `garantir` do PDF final dispara o
  * evento que chama de volta) não duplicam o arquivo, pela trava da linha e pela marca de "em andamento".
@@ -46,7 +48,10 @@ final class VinculoComAPasta
     ) {
     }
 
-    /** Verdadeiro quando o documento está na pasta (agora ou antes); falso quando o vínculo segue pendente ou não há. */
+    /**
+     * Verdadeiro quando o documento está na pasta (agora ou antes); falso quando não há vínculo, quando ele segue
+     * pendente (documento ainda aguardando) ou quando a aplicação falhou e o vínculo se desfez.
+     */
     public function aplicar(DocumentoParaAssinar $documento): bool
     {
         if (!$documento->isVinculoPendente()) {
@@ -71,18 +76,18 @@ final class VinculoComAPasta
         $autor = $documento->getVinculadoPor();
         $motivo = $this->impedimento($pasta, $autor, $documento);
         if ($motivo !== null || $pasta === null || $autor === null) {
-            return $this->falhar($documento, $motivo ?? 'pasta_apagada');
+            return $this->falhar($documento, $pasta, $motivo ?? 'pasta_apagada');
         }
 
         try {
             $pdf = $this->pdfFinal->garantir($documento);
         } catch (\Throwable $e) {
-            return $this->falharComErro($documento, 'pdf_indisponivel', $e);
+            return $this->falharComErro($documento, $pasta, 'pdf_indisponivel', $e);
         }
         try {
             $arquivo = $this->arquivos->copiar($documento, $pasta, $autor, $pdf);
         } catch (\Throwable $e) {
-            return $this->falharComErro($documento, 'falha_ao_salvar', $e);
+            return $this->falharComErro($documento, $pasta, 'falha_ao_salvar', $e);
         }
 
         if (!$this->gravar($documento, $arquivo, $autor)) {
@@ -124,25 +129,38 @@ final class VinculoComAPasta
         }, fn (): array => $this->arquivos->chavesNovas($arquivo), ArquivoAssinadoNaPasta::CONTEXTO);
     }
 
-    private function falharComErro(DocumentoParaAssinar $documento, string $motivo, \Throwable $erro): bool
+    private function falharComErro(DocumentoParaAssinar $documento, ?Pasta $pasta, string $motivo, \Throwable $erro): bool
     {
         $this->logger->error('Vínculo da assinatura: documento {id} não foi para a pasta ({motivo}): {erro}', ['id' => $documento->getId(), 'motivo' => $motivo, 'erro' => $erro->getMessage()]);
 
-        return $this->falhar($documento, $motivo);
+        return $this->falhar($documento, $pasta, $motivo);
     }
 
-    /** "Vínculo à pasta {nup} não aplicado: {motivo}" na trilha, em nome de quem vinculou. O vínculo fica pendente. */
-    private function falhar(DocumentoParaAssinar $documento, string $motivo): bool
+    /**
+     * "Vínculo à pasta {nup} não aplicado: {motivo}" na trilha, em nome de quem vinculou, e o vínculo pendente desfeito.
+     * Na transação, com a linha travada e relida: se outro processo já aplicou o vínculo, ou ele já não é o da pasta
+     * desta tentativa, nada é gravado nem desfeito. O número e quem vinculou são lidos antes de desfazer.
+     *
+     * @param Pasta|null $pastaDaTentativa a pasta lida no começo da tentativa (nula quando já tinha sido apagada)
+     *
+     * @return bool verdadeiro só quando, relido, o documento já está na pasta (aplicado por outro processo)
+     */
+    private function falhar(DocumentoParaAssinar $documento, ?Pasta $pastaDaTentativa, string $motivo): bool
     {
-        $nup = $documento->getPasta()?->getNup() ?? $this->nupDaTrilha($documento);
         $texto = $this->tradutor->trans('assinatura_eletronica.vinculo_motivo.' . $motivo);
-        $this->documentos->emTransacao(function () use ($documento, $nup, $texto): void {
-            if ($this->documentos->travarERecarregar($documento, $documento->getTenant())) {
-                $this->trilha->acrescentar($documento, TipoDeEvento::VinculoNaoAplicado, ['nup' => $nup, 'motivo' => $texto], $documento->getVinculadoPor());
+        $this->documentos->emTransacao(function () use ($documento, $pastaDaTentativa, $texto): void {
+            if (!$this->documentos->travarERecarregar($documento, $documento->getTenant())
+                || !$documento->isVinculoPendente()
+                || $documento->getPasta()?->getId() !== $pastaDaTentativa?->getId()) {
+                return;
             }
+            $nup = $documento->getPasta()?->getNup() ?? $this->nupDaTrilha($documento);
+            $quemVinculou = $documento->getVinculadoPor();
+            $this->trilha->acrescentar($documento, TipoDeEvento::VinculoNaoAplicado, ['nup' => $nup, 'motivo' => $texto], $quemVinculou);
+            $documento->descartarVinculoNaoAplicado();
         });
 
-        return false;
+        return !$documento->isVinculoPendente() && $documento->getPasta() !== null;
     }
 
     /** A pasta apagada de vez (SET NULL) não tem mais número: vale o do último evento de vínculo. */

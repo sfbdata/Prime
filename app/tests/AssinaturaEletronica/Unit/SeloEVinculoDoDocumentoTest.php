@@ -191,6 +191,44 @@ final class SeloEVinculoDoDocumentoTest extends TestCase
         self::assertNull($documento->getPastaDocumento());
     }
 
+    #[TestDox('vínculo não aplicado: o pendente se desfaz (pasta, quem e quando) e o documento pode ser vinculado de novo')]
+    public function testDescartarVinculoNaoAplicado(): void
+    {
+        $documento = $this->concluido();
+        $documento->definirVinculo($this->pasta(1), new User(), new \DateTimeImmutable('2026-11-09 10:00:00'));
+
+        $documento->descartarVinculoNaoAplicado();
+
+        self::assertNull($documento->getPasta());
+        self::assertNull($documento->getVinculadoPor());
+        self::assertNull($documento->getVinculadoEm());
+        self::assertFalse($documento->isVinculoPendente());
+        self::assertNull($documento->getPastaDocumento());
+
+        $outra = $this->pasta(2);
+        $documento->definirVinculo($outra, new User(), new \DateTimeImmutable('2026-11-09 10:05:00'));
+        self::assertSame($outra, $documento->getPasta());
+        self::assertTrue($documento->isVinculoPendente());
+    }
+
+    #[TestDox('vínculo não aplicado: sem vínculo, ou com o vínculo já feito, recusa e nada muda (sem "desvincular")')]
+    public function testDescartarSoOPendente(): void
+    {
+        $semVinculo = $this->concluido();
+        self::assertLogica('O documento não tem vínculo pendente.', static fn () => $semVinculo->descartarVinculoNaoAplicado());
+
+        $feito = $this->concluido();
+        $pasta = $this->pasta();
+        $feito->definirVinculo($pasta, new User(), new \DateTimeImmutable());
+        $arquivo = $this->arquivoDa($pasta);
+        $feito->marcarVinculoFeito($arquivo);
+        self::assertLogica('O documento não tem vínculo pendente.', static fn () => $feito->descartarVinculoNaoAplicado());
+
+        self::assertSame($pasta, $feito->getPasta());
+        self::assertSame($arquivo, $feito->getPastaDocumento());
+        self::assertNotNull($feito->getVinculadoPor());
+    }
+
     private function rascunho(): DocumentoParaAssinar
     {
         $documento = new DocumentoParaAssinar($this->tenant, null, new \DateTimeImmutable('2026-11-09 09:00:00'));

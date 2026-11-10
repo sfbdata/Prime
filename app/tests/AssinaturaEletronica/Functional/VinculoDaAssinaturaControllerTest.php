@@ -58,6 +58,9 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
 
     private ArmazenamentoEmMemoriaNoContainer $disco;
 
+    /** Ligado: o PDF final dublado falha, como o gerador que não conseguiu montar o PDF com selo. */
+    private bool $pdfFalha = false;
+
     protected function setUp(): void
     {
         $this->client = static::createClient();
@@ -226,6 +229,42 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertTrue($this->linha($id)['vinculo']['feito']);
     }
 
+    #[TestDox('concluído com a aplicação falhando: o vínculo se desfaz, a trilha diz o motivo e dá para vincular de novo a outra pasta')]
+    public function testFalhouEVinculaDeNovoAOutraPasta(): void
+    {
+        [$eu, $tenant] = $this->entrar(true);
+        $this->conceder($eu, $tenant, 'resources.pasta.view', 'resources.pasta.edit');
+        [$id] = $this->documentoEnviado();
+        $this->situacao($id, 'concluido');
+        $primeira = $this->criarPasta($tenant, 'PRIMEIRA FALHOU');
+        $segunda = $this->criarPasta($tenant, 'SEGUNDA DEU CERTO');
+        $this->pdfFalha = true;
+
+        $this->vincular($id, (int) $primeira->getId());
+
+        self::assertResponseIsSuccessful();
+        $json = $this->json();
+        self::assertFalse($json['aplicado']);
+        self::assertFalse($json['documento']['vinculado'], 'sem vínculo: o "Vincular à pasta" volta');
+        self::assertNull($json['documento']['vinculo']);
+        self::assertContains('Vínculo à pasta ' . $primeira->getNup() . ' não aplicado: o PDF assinado não pôde ser gerado', array_column($json['documento']['eventos'], 'texto'));
+        self::assertSame([], $this->arquivosDaPasta($primeira));
+        self::assertFalse($this->linha($id)['vinculado']);
+
+        $this->pdfFalha = false;
+        $this->vincular($id, (int) $segunda->getId());
+
+        self::assertResponseIsSuccessful();
+        $json = $this->json();
+        self::assertTrue($json['aplicado']);
+        self::assertSame((int) $segunda->getId(), $json['documento']['vinculo']['pasta']);
+        self::assertTrue($json['documento']['vinculo']['feito']);
+        self::assertCount(1, $this->arquivosDaPasta($segunda));
+        self::assertSame([], $this->arquivosDaPasta($primeira));
+        self::assertSame(['vinculo_nao_aplicado', 'vinculo_feito'], array_values(array_filter($this->trilha($id), static fn (string $t): bool => str_starts_with($t, 'vinculo_'))));
+        self::assertSame((string) $segunda->getNup(), $this->linha($id)['vinculo']['nup']);
+    }
+
     #[TestDox('quem não vê a pasta: a linha diz que há vínculo, sem número, cliente nem link')]
     public function testQuemNaoVeAPasta(): void
     {
@@ -340,16 +379,20 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
             $alvo = (string) $no['alias'];
         }
 
-        $container->set($alvo, new class ($this->disco, self::PDF_FINAL) implements PdfFinalDoDocumento {
+        $container->set($alvo, new class ($this->disco, self::PDF_FINAL, fn (): bool => $this->pdfFalha) implements PdfFinalDoDocumento {
             /** @var array<int, ChaveDeArquivo> */
             private array $guardados = [];
 
-            public function __construct(private readonly ArmazenamentoEmMemoriaNoContainer $disco, private readonly string $conteudo)
+            public function __construct(private readonly ArmazenamentoEmMemoriaNoContainer $disco, private readonly string $conteudo, private readonly \Closure $falha)
             {
             }
 
             public function garantir(DocumentoParaAssinar $doc): ChaveDeArquivo
             {
+                if (($this->falha)() === true) {
+                    throw new \RuntimeException('PDF final indisponível no teste.');
+                }
+
                 return $this->guardados[(int) $doc->getId()] ??= $this->disco->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($doc), FonteDeConteudo::deTexto($this->conteudo))->chave;
             }
         });

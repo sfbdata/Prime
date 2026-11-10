@@ -15,7 +15,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 /**
  * O PDF final com selo foi guardado: o vínculo pendente vai para a pasta (spec assinatura-documentos-etapa-3, E3-11).
  * O evento chega depois do COMMIT de quem guardou o PDF (a assinatura do último signatário, ou o primeiro download).
- * Nenhuma falha daqui volta para quem guardou: o vínculo fica pendente e a falha vai para o log.
+ * Documento na Lixeira também: a Lixeira é reversível e o vínculo foi decidido antes.
+ * Nenhuma falha daqui volta para quem guardou: a recusa desfaz o vínculo pendente, com "vínculo não aplicado" na
+ * trilha, e o "Vincular à pasta" volta na tela; o erro inesperado vai para o log.
  */
 #[AsEventListener(event: PdfFinalGuardado::class, method: 'aoGuardarPdfFinal')]
 final readonly class VinculoPendenteListener

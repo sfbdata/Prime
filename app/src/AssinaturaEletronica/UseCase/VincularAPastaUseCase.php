@@ -31,7 +31,8 @@ use Psr\Log\LoggerInterface;
  *
  * Aguardando: o vínculo fica pendente e a trilha ganha "Definido o vínculo à pasta {nup} ao concluir". Concluído: o
  * vínculo é aplicado na hora pelo {@see VinculoComAPasta}, que escreve "Documento assinado vinculado à pasta {nup}" ou,
- * na falha, "Vínculo à pasta {nup} não aplicado: {motivo}" (um evento só por vínculo, como no desenho).
+ * na falha, "Vínculo à pasta {nup} não aplicado: {motivo}" (um evento só por vínculo, como no desenho). Na falha o
+ * vínculo se desfaz: o JSON volta com `vinculado: false` e o "Vincular à pasta" reaparece (desenho, `vincExec`).
  */
 final readonly class VincularAPastaUseCase
 {
@@ -94,7 +95,10 @@ final readonly class VincularAPastaUseCase
         return $pasta;
     }
 
-    /** O vínculo já gravado não se desfaz se a aplicação falhar: fica pendente, com a falha na trilha e no log. */
+    /**
+     * A recusa e a falha conhecida desfazem o vínculo no {@see VinculoComAPasta}, com o evento na trilha. O erro
+     * inesperado vai para o log e o vínculo fica como estava.
+     */
     private function aplicarSeConcluido(DocumentoParaAssinar $documento): bool
     {
         if ($documento->getSituacao() !== SituacaoDoDocumento::Concluido) {

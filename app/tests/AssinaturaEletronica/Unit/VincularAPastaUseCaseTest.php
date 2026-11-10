@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * "Vincular à pasta" (spec assinatura-documentos-etapa-3, E3-10 e E3-11): a pasta pelo id, do escritório, fora da
- * lápide e que quem vincula edita; aguardando fica pendente, concluído vai na hora.
+ * lápide e que quem vincula edita; aguardando fica pendente, concluído vai na hora (ou, na falha, o vínculo se desfaz).
  */
 #[CoversClass(VincularAPastaUseCase::class)]
 final class VincularAPastaUseCaseTest extends TestCase
@@ -154,7 +154,7 @@ final class VincularAPastaUseCaseTest extends TestCase
         $this->useCase()->executar(self::ator(), (new Tenant())->setName('Outro'), 1, 42);
     }
 
-    #[TestDox('concluído com a aplicação recusada (PDF final indisponível): o vínculo fica gravado e pendente, sem arquivo')]
+    #[TestDox('concluído com a aplicação recusada (PDF final indisponível): o vínculo se desfaz, sem arquivo, e o "Vincular à pasta" volta')]
     public function testConcluidoSemPdf(): void
     {
         $documento = $this->concluido();
@@ -164,8 +164,12 @@ final class VincularAPastaUseCaseTest extends TestCase
         $saida = $this->useCase()->executar(self::ator(), $this->tenant, 1, 42);
 
         self::assertFalse($saida['aplicado']);
-        self::assertTrue($documento->isVinculoPendente());
+        self::assertFalse($documento->isVinculoPendente());
+        self::assertNull($documento->getPasta());
+        self::assertNull($documento->getVinculadoPor());
+        self::assertFalse($saida['documento']['vinculado'], 'o JSON volta sem vínculo: o botão reaparece');
         self::assertSame(['vinculo_nao_aplicado'], $this->tiposGravados());
+        self::assertSame(7, $this->ultimoGravado(TipoDeEvento::VinculoNaoAplicado)->getUsuario()?->getId(), 'em nome de quem vinculou');
         self::assertSame(
             ['nup' => 'P-0042', 'motivo' => 'assinatura_eletronica.vinculo_motivo.pdf_indisponivel', 'chave' => 1],
             $this->ultimoGravado(TipoDeEvento::VinculoNaoAplicado)->getDados(),
