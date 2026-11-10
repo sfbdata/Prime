@@ -75,14 +75,6 @@ final readonly class ArquivosDoRascunho
     }
 
     /**
-     * O parágrafo de dc:374 cabe no documento? Conferido antes de gravar qualquer arquivo, com o teto de blocos sem o
-     * parágrafo; {@see comParagrafoDoOriginal()} confere de novo com o documento travado.
-     *
-     * @param list<array<string, int|string>> $blocos já normalizados
-     *
-     * @throws AcaoRecusada
-     */
-    /**
      * Algum bloco é o parágrafo de evidência de um original (dc:374)? Sem página do PDF, é ele que diz que o conteúdo
      * ainda é o do original e não foi trocado.
      *
@@ -93,6 +85,14 @@ final readonly class ArquivosDoRascunho
         return $this->semParagrafo($blocos)['lugar'] !== null;
     }
 
+    /**
+     * O parágrafo de dc:374 cabe no documento? Conferido antes de gravar qualquer arquivo, com o teto de blocos sem o
+     * parágrafo; {@see comParagrafoDoOriginal()} confere de novo com o documento travado.
+     *
+     * @param list<array<string, int|string>> $blocos já normalizados
+     *
+     * @throws AcaoRecusada
+     */
     public function exigirLugarParaOParagrafo(array $blocos, DocumentoParaAssinar $documento, bool $mudaOriginal, ?OriginalJaAssinado $novo): void
     {
         if ($this->paragrafoQueFica($documento, $mudaOriginal, $novo) !== null) {

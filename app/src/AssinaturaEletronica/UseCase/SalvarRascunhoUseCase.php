@@ -37,8 +37,9 @@ use Psr\Clock\ClockInterface;
  *
  * Etapa 5, bloco 5A: o PDF enviado que já chega com assinatura digital vira a versão `original` (arquivo próprio, com a
  * conferência do motor) e o conteúdo ganha o parágrafo de dc:374. O original muda quando chega PDF novo ou quando o
- * conteúdo fica sem página do PDF e sem o parágrafo do original (conteúdo trocado): aí o anterior sai. Todo salvamento de rascunho existente trava e relê o documento, e o
- * conteúdo fica só com o parágrafo do original guardado depois de salvar (duas abas não deixam evidência trocada).
+ * conteúdo fica sem página do PDF e sem o parágrafo do original (conteúdo trocado): aí o anterior sai. Todo
+ * salvamento de rascunho existente trava e relê o documento, e o conteúdo fica só com o parágrafo do original guardado
+ * depois de salvar (duas abas não deixam evidência trocada).
  */
 final readonly class SalvarRascunhoUseCase
 {
