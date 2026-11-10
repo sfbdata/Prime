@@ -21,7 +21,8 @@ use App\Ponto\Enum\TipoJustificativa;
  * detalhe: a trilha diz quem fez o quê, quando e de quem.
  *
  * O texto segue o do desenho 16 (dc L544, L601, L768), com as partes separadas por " · ": a batida é "Entrada às
- * 08:01:12", com " · sem internet" quando veio da fila; a justificativa é "dd/mm/aaaa · Tipo · Saída às 18:00". Ficam,
+ * 08:01:12", com " · trabalho externo" (E12) quando foi fora do raio e " · sem internet" quando veio da fila; a
+ * justificativa é "dd/mm/aaaa · Tipo · Saída às 18:00". Ficam,
  * como extras necessários, o nome do colaborador na frente (o autor da linha nem sempre é ele), a data da batida (a
  * da fila e a do esquecimento não são do dia do evento), o " · home office" (a marca do lugar, como o " · trabalho
  * externo" do desenho) e o período do lote ("dd/mm/aaaa a dd/mm/aaaa (N dias)", ou "dd/mm/aaaa (N justificativas)"
@@ -258,6 +259,7 @@ final class DetalheDaTrilhaDoPonto
         $tipo    = self::BATIDAS[self::textoDe($detalhe, 'tipo') ?? ''] ?? (self::textoDe($detalhe, 'tipo') ?? 'Batida');
         $momento = self::momento(self::textoDe($detalhe, 'data_hora'), 'H:i:s \d\e d/m/Y');
         $marcas  = (($detalhe['home_office'] ?? false) === true ? ' · home office' : '')
+            . (($detalhe['trabalho_externo'] ?? false) === true ? ' · trabalho externo' : '')
             . (($detalhe['sem_internet'] ?? false) === true ? ' · sem internet' : '');
 
         return $tipo . ($momento !== null ? ' às ' . $momento : '') . $marcas;

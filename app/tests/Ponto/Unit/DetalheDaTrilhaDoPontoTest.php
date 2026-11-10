@@ -35,6 +35,8 @@ final class DetalheDaTrilhaDoPontoTest extends TestCase
         yield 'batida com segundos, sem a sede' => ['batida_registrada', $batida, 'Ana: Entrada às 08:01:12 de 10/03/2026'];
         yield 'batida da fila sem internet' => ['batida_registrada', ['sem_internet' => true] + $batida, 'Ana: Entrada às 08:01:12 de 10/03/2026 · sem internet'];
         yield 'batida em home office e sem internet' => ['batida_registrada', ['home_office' => true, 'sem_internet' => true] + $batida, 'Ana: Entrada às 08:01:12 de 10/03/2026 · home office · sem internet'];
+        yield 'batida de trabalho externo (E12) da fila sem internet' => ['batida_registrada', ['trabalho_externo' => true, 'sem_internet' => true, 'sede' => null] + $batida, 'Ana: Entrada às 08:01:12 de 10/03/2026 · trabalho externo · sem internet'];
+        yield 'evento antigo, sem a chave trabalho_externo' => ['batida_registrada', ['sem_internet' => false] + $batida, 'Ana: Entrada às 08:01:12 de 10/03/2026'];
         yield 'evento antigo, sem a chave sem_internet' => ['batida_registrada', ['tipo' => 'saida', 'data_hora' => '2026-03-10 18:00:00'] + $batida, 'Ana: Saída às 18:00:00 de 10/03/2026'];
         yield 'batida do esquecimento' => ['batida_do_esquecimento', ['tipo' => 'saida', 'data_hora' => '2026-03-09 18:00:00', 'justificativa_id' => 4] + $batida, 'Ana: Saída às 18:00:00 de 09/03/2026 · pedida no esquecimento'];
 
