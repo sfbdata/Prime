@@ -74,6 +74,17 @@ final class AssinarFolhaInputTest extends TestCase
         self::assertSame('O dia 6 foi ? de folga.', $pedido->ressalvaParaGravar());
     }
 
+    #[TestDox('Ressalva com o caractere NUL (U+0000), que é UTF-8 válido: sai antes de contar e de gravar (o banco cortaria o texto nele)')]
+    public function testRessalvaComNul(): void
+    {
+        $pedido = new AssinarFolhaInput(2026, 10, 'ressalva', "O dia 6\0 foi de folga.");
+
+        self::assertSame([], $this->mensagens($pedido));
+        self::assertSame('O dia 6 foi de folga.', $pedido->ressalvaParaGravar());
+        self::assertSame([], $this->mensagens(new AssinarFolhaInput(2026, 10, 'ressalva', str_repeat("á\0", 1000))), '1.000 letras e 1.000 NUL: o NUL não conta');
+        self::assertSame("Linha 1\nLinha 2", (new AssinarFolhaInput(2026, 10, 'ressalva', "Linha 1\r\0\nLinha 2"))->ressalvaParaGravar(), 'o NUL entre o CR e o LF não vira uma quebra a mais');
+    }
+
     #[TestDox('Ressalva com quebras CRLF: 1.000 caracteres contados como o navegador conta (a quebra vale 1) passam e o texto para gravar tem só LF; o CR solto também vira LF')]
     public function testRessalvaComQuebrasCrlf(): void
     {

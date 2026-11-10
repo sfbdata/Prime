@@ -47,8 +47,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * Pós-condições: uma folha emitida nova (a vista), um aceite novo que passa a valer e os dois eventos na trilha do
  * escritório. Não há desfazer (P33): uma nova assinatura só depois de a folha mudar (decisão 1).
  * Regras: o mesmo instante ({@see RelogioDaFolha}) no texto selado e nas colunas da folha vista e do aceite; o IP e o
- * navegador sem UTF-8 inválido e cortados no tamanho da coluna, e a ressalva sem UTF-8 inválido, com as quebras em LF e
- * aparada ({@see AssinarFolhaInput::ressalvaParaGravar()}), ANTES de selar, para o selo conferir com o que foi gravado.
+ * navegador sem UTF-8 inválido nem NUL e cortados no tamanho da coluna, e a ressalva sem UTF-8 inválido nem NUL, com
+ * as quebras em LF e aparada ({@see AssinarFolhaInput::ressalvaParaGravar()}), ANTES de selar, para o selo conferir com
+ * o que foi gravado.
  */
 final class AssinarFolhaDoPontoUseCase
 {
@@ -155,10 +156,13 @@ final class AssinarFolhaDoPontoUseCase
         return $situacao === SituacaoDoAceiteDaFolha::Ressalva ? AcaoDaTrilhaDoPonto::FolhaAssinadaComRessalva : AcaoDaTrilhaDoPonto::FolhaAssinada;
     }
 
-    /** Sem UTF-8 inválido (o byte vira "?": o texto selado é JSON), aparado e cortado no tamanho da coluna. */
+    /**
+     * Sem UTF-8 inválido (o byte vira "?": o texto selado é JSON), sem o NUL (o banco cortaria a coluna nele e o aceite
+     * não conferiria com o texto selado), aparado e cortado no tamanho da coluna.
+     */
     private static function cortado(?string $valor, int $limite): ?string
     {
-        $valor = $valor === null ? '' : trim(mb_scrub($valor, 'UTF-8'));
+        $valor = $valor === null ? '' : trim(str_replace("\0", '', mb_scrub($valor, 'UTF-8')));
 
         return $valor === '' ? null : mb_substr($valor, 0, $limite);
     }

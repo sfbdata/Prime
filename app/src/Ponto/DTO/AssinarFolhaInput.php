@@ -14,7 +14,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
  * competência, a posição da pessoa (`concordo` ou `ressalva`) e o texto da ressalva, como chegaram. O textarea fica
  * sempre à vista: no "Concordo" o texto é ignorado, como no desenho; na ressalva ele é obrigatório e tem até 1.000
  * caracteres, contados como o `maxlength` do navegador conta (a quebra de linha vale 1). O IP e o navegador vêm do
- * pedido (prova do aceite), sem validação: quem grava tira o UTF-8 inválido e corta no tamanho da coluna.
+ * pedido (prova do aceite), sem validação: quem grava tira o UTF-8 inválido e o NUL e corta no tamanho da coluna.
  *
  * Quem assina e o escritório não vêm daqui: são a pessoa e o escritório da sessão.
  */
@@ -55,8 +55,9 @@ final class AssinarFolhaInput
 
     /**
      * O texto da ressalva como é contado, selado e gravado; null no concordo (o texto digitado não é gravado, como no
-     * desenho). O byte de UTF-8 inválido vira "?" (o texto selado é JSON), a quebra CRLF e o CR solto viram LF (o
-     * navegador conta a quebra como 1 caractere e manda CRLF) e o texto sai aparado.
+     * desenho). O byte de UTF-8 inválido vira "?" (o texto selado é JSON), o NUL (U+0000, UTF-8 válido que o
+     * `mb_scrub` deixa) sai, porque o banco cortaria a coluna nele e o aceite viraria "alterado" logo depois de assinado,
+     * a quebra CRLF e o CR solto viram LF (o navegador conta a quebra como 1 caractere e manda CRLF) e o texto sai aparado.
      */
     public function ressalvaParaGravar(): ?string
     {
@@ -64,6 +65,6 @@ final class AssinarFolhaInput
             return null;
         }
 
-        return trim(str_replace(["\r\n", "\r"], "\n", mb_scrub($this->ressalva, 'UTF-8')));
+        return trim(str_replace(["\r\n", "\r"], "\n", str_replace("\0", '', mb_scrub($this->ressalva, 'UTF-8'))));
     }
 }

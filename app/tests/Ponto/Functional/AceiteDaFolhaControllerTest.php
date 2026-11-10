@@ -84,6 +84,19 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->estadoDoAceite()->daCompetencia($this->escritorio, $this->maria, 2026, 10)->alterada, 'o selo confere com o que foi gravado');
     }
 
+    #[TestDox('Navegador e ressalva com o caractere NUL (U+0000), que é UTF-8 válido: o NUL sai antes de selar; grava o texto inteiro, sem o NUL, e o aceite vale (não aparece como alterado)')]
+    public function testNulNoNavegadorENaRessalva(): void
+    {
+        $this->enviar(['situacao' => 'ressalva', 'ressalva' => "O dia 6\0 foi de folga."], navegador: "Mozilla/5.0\0 (teste do aceite)");
+
+        self::assertResponseRedirects('/ponto/?competencia=2026-10');
+        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos('success'));
+        $aceites = $this->aceitesNoBanco($this->escritorio, $this->maria);
+        self::assertCount(1, $aceites);
+        self::assertSame(['O dia 6 foi de folga.', self::NAVEGADOR], [$aceites[0]['ressalva'], $aceites[0]['navegador']]);
+        self::assertFalse($this->estadoDoAceite()->daCompetencia($this->escritorio, $this->maria, 2026, 10)->alterada, 'o selo confere com o que foi gravado');
+    }
+
     #[TestDox('Ressalva de 1.000 caracteres com quebras CRLF (o navegador conta a quebra como 1): passa e grava só LF')]
     public function testRessalvaComQuebrasCrlf(): void
     {
