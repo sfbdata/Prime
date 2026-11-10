@@ -221,6 +221,13 @@ tela de seleção de escritório.
   (`podeAnalisarAPropria`) e manda o formulário para as mesmas rotas. A porta sem a ficha
   (`AnalisarJustificativaUseCase::abonarPorId`, aba Equipe) aplica a mesma regra. Analisar a justificativa de OUTRA
   pessoa segue só a permissão do perfil, como antes.
+  A mesma regra vale para **corrigir a própria batida** (decisão B da E10): as quatro rotas do ajuste
+  (`AjusteDeBatidaController`: incluir, ajustar, desconsiderar e restaurar) respondem 403 com "Só o usuário primário do
+  escritório ou o Master pode corrigir a própria batida.". Quem decide é a mesma `AnaliseDaPropriaJustificativa::permite()`,
+  na página "Ajustar batida" e de novo nos UseCases ao gravar (`IncluirBatidaUseCase`, `AjustarBatidaUseCase`,
+  `DesconsiderarBatidaUseCase`, `RestaurarBatidaUseCase`). Na ficha, `editarBatidasHabilitado: podeAnalisarJustificativas`
+  (`tenant/edit_user_role.html.twig`) esconde o "+", o link da hora, o "x" e o Restaurar da própria ficha de quem não é
+  primário.
 - **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
   (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega toda permissão de perfil** no
   `PermissionChecker` (módulos, admin e `resources.*` por tipo) até alguém atribuir outro. Só
