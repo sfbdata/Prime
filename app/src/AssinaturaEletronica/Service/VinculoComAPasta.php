@@ -83,6 +83,25 @@ final class VinculoComAPasta
         }
     }
 
+    /**
+     * O worker desistiu do PDF final (a falha que lança, depois de todas as tentativas do Messenger): o vínculo pendente
+     * vira "vínculo não aplicado" com o motivo do PDF indisponível e se desfaz, com o erro no log. Se outro processo
+     * guardou o PDF final no meio (o primeiro download), segue o caminho de sempre e vai para a pasta. Sem vínculo
+     * pendente, ou com o documento ainda aguardando, nada muda.
+     *
+     * @return bool verdadeiro só quando o documento está na pasta
+     */
+    public function pdfFinalFalhou(DocumentoParaAssinar $documento, \Throwable $erro): bool
+    {
+        if (!$documento->isVinculoPendente()
+            || $documento->getSituacao() !== SituacaoDoDocumento::Concluido
+            || ChavesDeAssinaturaEletronica::pdfFinal($documento) !== null) {
+            return $this->aplicar($documento);
+        }
+
+        return $this->falharComErro($documento, $documento->getPasta(), 'pdf_indisponivel', $erro);
+    }
+
     private function tentar(DocumentoParaAssinar $documento): bool
     {
         $pasta = $documento->getPasta();

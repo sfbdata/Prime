@@ -52,6 +52,31 @@ final class DocumentoParaAssinarRepositoryTest extends KernelTestCase
         self::assertFalse($documento->ehRascunho());
     }
 
+    #[TestDox('reabrir: o EntityManager fechado por uma exceção na transação volta a gravar; aberto, segue o mesmo')]
+    public function testReabrirSeFechado(): void
+    {
+        $tenant = $this->escritorio();
+        $documento = $this->documento($tenant, 'Contrato');
+        $this->documentos->reabrirSeFechado();
+        self::assertTrue($this->em()->contains($documento), 'aberto: nada foi trocado');
+
+        try {
+            $this->documentos->emTransacao(static fn () => throw new \RuntimeException('falha dentro da transação'));
+        } catch (\RuntimeException) {
+        }
+        self::assertFalse($this->em()->isOpen(), 'a exceção na transação fechou o EntityManager');
+
+        $this->documentos->reabrirSeFechado();
+
+        self::assertTrue($this->em()->isOpen());
+        // O EntityManager reaberto começa vazio: o escritório é lido de novo, como o ouvinte da falha faz.
+        $tenant = $this->em()->find(Tenant::class, $tenant->getId());
+        self::assertInstanceOf(Tenant::class, $tenant);
+        $outro = $this->documento($tenant, 'Depois da falha');
+        self::assertNotNull($outro->getId(), 'grava de novo');
+        self::assertSame('Contrato', $this->documentos->doEscritorio((int) $documento->getId(), $tenant)?->getNome());
+    }
+
     #[TestDox('travar e reler: documento de outro escritório ou que sumiu devolve falso')]
     public function testTravarERecarregarForaDoEscritorio(): void
     {
