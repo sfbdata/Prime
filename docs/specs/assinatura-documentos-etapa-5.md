@@ -20,7 +20,7 @@ presencial.
 | E5-5 | Duplicar | Copia só o original e a análise dele, nunca a versão já assinada por outros (dc:368 levaria `pres.atual`). |
 | E5-6 | Quadro antes de salvar | Endpoint que confere sem gravar (o arquivo só sobe ao salvar o rascunho); o quadro mostra o resultado do motor do servidor. |
 | E5-7 | Documento que já chega com assinatura alterada | Segue o desenho: deixa enviar, o quadro vermelho avisa, e o PDF devolvido com qualquer `alterada` é recusado (dc:385). |
-| E5-8 | Tetos | PDF devolvido até 20 MB (teto do motor); original enviado no rascunho até 10 MB (como hoje). |
+| E5-8 | Tetos | PDF devolvido até 20 MB (teto do motor); original enviado no rascunho até 10 MB (como hoje). Memória medida no 5C (10/11/2026): teste temporário com `memory_reset_peak_usage()` antes e `memory_get_peak_usage()` depois, base e devolvido de 19 a 20 MB, validador por dublê; acréscimo sobre o processo de +19 MiB só no motor, +39 MiB na pré-conferência (com a leitura da base) e +60 MiB na assinatura final inteira (`AssinarComCertificadoUseCase`), abaixo dos 256M de `EntregaDoPdfDaAssinatura::limitar()`. Não medido: a cópia que o cliente HTTP do validador real possa fazer do corpo. |
 | E5-9 | E-mail | Continua obrigatório para todos no envio (convite e avisos por e-mail, convenção da etapa 2). |
 
 ## 2. Contrato comum (bloco 5.0, depois do bloco 0 da etapa 3 integrado)
@@ -30,7 +30,8 @@ presencial.
    `arquivo_chave`, `nome_original`, `sha256` char(64), `tamanho` int, `analise` JSON, `criado_em`; colunas da etapa 6:
    `cadeia` JSON NULL, `cadeia_situacao` varchar(20) NULL, `cadeia_conferida_em` timestamp NULL; único
    (`documento_id`, `ordem`)).
-2. Entidade `VersaoDoPdf` + repositório (`ultima`, `original`, `paraAssinar`), enum `OrigemDaVersao`.
+2. Entidade `VersaoDoPdf` + repositório (`ultima`, `original`; o `paraAssinar` saiu no 5C, porque a releitura sob a trava
+   é pela `ultima`), enum `OrigemDaVersao`.
 3. `Signatario::registrarAssinaturaComCertificado(...)` e `DocumentoParaAssinar::assinarComCertificado(...)` (sem
    rubrica; conclusão como na Simples).
 4. `ChavesDeAssinaturaEletronica::versao` e `novaVersao`; `arquivosEmUso` com as versões; R2 (`FontesDeReferencia`,

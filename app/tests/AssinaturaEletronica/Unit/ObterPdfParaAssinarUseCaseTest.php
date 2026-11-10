@@ -82,10 +82,6 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
         $this->lojaDeTravas = new TravasContadas();
         $this->versoes = $this->createMock(VersaoDoPdfRepository::class);
         $this->versoes->method('ultima')->willReturnCallback(fn (DocumentoParaAssinar $d): ?VersaoDoPdf => $this->versoesDe($d)[0] ?? null);
-        $this->versoes->method('paraAssinar')->willReturnCallback(fn (DocumentoParaAssinar $d): ?VersaoDoPdf => array_values(array_filter(
-            $this->versoesDe($d),
-            static fn (VersaoDoPdf $v): bool => $v->getOrigem() === OrigemDaVersao::ParaAssinar,
-        ))[0] ?? null);
         $this->versoes->method('proximaOrdem')->willReturnCallback(fn (DocumentoParaAssinar $d): int => (($this->versoesDe($d)[0] ?? null)?->getOrdem() ?? 0) + 1);
         $this->versoes->method('salvar')->willReturnCallback(function (VersaoDoPdf $versao): void {
             $this->versoesNaBase[] = $versao;
