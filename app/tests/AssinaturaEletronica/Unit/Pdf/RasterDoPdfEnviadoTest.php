@@ -7,6 +7,7 @@ namespace App\Tests\AssinaturaEletronica\Unit\Pdf;
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
 use App\AssinaturaEletronica\Pdf\MedidasDoPdfEnviado;
 use App\AssinaturaEletronica\Pdf\RasterDoPdfEnviado;
+use App\AssinaturaEletronica\Service\ValidadorDeBlocos;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -27,6 +28,8 @@ final class RasterDoPdfEnviadoTest extends TestCase
     /** Antes, a página de 200 x 200 pol ia inteira a 225 dpi (45000 x 45000 px) e só parava no tempo de 60 s. */
     private const RAPIDO_SEGUNDOS = 20.0;
     private const DOCUMENTO = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    private const LEITURA_INCOMPLETA = 'O tamanho das páginas do PDF enviado não foi lido até o fim.';
+    private const ENCAIXADA = 'A página do PDF enviado ficou sem medida e vai inteira, encaixada.';
 
     protected function setUp(): void
     {
@@ -186,6 +189,100 @@ final class RasterDoPdfEnviadoTest extends TestCase
         [$pico, $segundos] = array_map(floatval(...), \array_slice(explode(' ', $processo->getOutput()), 3));
         // Medido no contêiner: 59 MB e 4,6 s (a leitura das 2000 medidas leva 1,1 s). Passar de 128 MB seria Fatal.
         self::assertLessThan(96.0, $pico, sprintf('Pico de %.1f MB em %.1f s.', $pico, $segundos));
+    }
+
+    #[TestDox('Leitura de todas parada no tempo: nenhuma página é medida de novo, todas vão inteiras, com log')]
+    public function testTempoDaLeituraDeTodasSemNovaMedida(): void
+    {
+        $area = AreaTemporariaPrivada::criar('testeraster');
+        $avisos = new AvisosDeTeste();
+        $pdf = PdfDeCaixas::gerar('/MediaBox [0 0 595 842]', '/MediaBox [0 0 595 842]');
+        $raster = new RasterDoPdfEnviado(self::gsQueMede($area, 'exec sleep 30', 'exec sleep 30'), $pdf, $avisos, self::DOCUMENTO, 0.5);
+
+        $inicio = microtime(true);
+        try {
+            self::assertSame([2449, 3255], self::tamanho($raster->pagina(1)));
+            self::assertSame([2449, 3255], self::tamanho($raster->pagina(2)));
+            $chamadas = self::chamadas($area);
+        } finally {
+            $raster->liberar();
+            $area->liberar();
+        }
+
+        self::assertSame(['todas'], $chamadas, 'Só a leitura de todas, nenhuma de uma página.');
+        self::assertLessThan(self::RAPIDO_SEGUNDOS, microtime(true) - $inicio);
+        self::assertSame([
+            [self::LEITURA_INCOMPLETA, 1, 'tempo'],
+            [self::ENCAIXADA, 1, 'tempo'],
+            [self::ENCAIXADA, 2, 'tempo'],
+        ], self::motivos($avisos));
+    }
+
+    #[TestDox('As novas medidas página a página somam no máximo o orçamento do documento; depois dele, FitPage com log')]
+    public function testOrcamentoDasNovasMedidas(): void
+    {
+        $area = AreaTemporariaPrivada::criar('testeraster');
+        $avisos = new AvisosDeTeste();
+        $pdf = PdfDeCaixas::gerar('/MediaBox [0 0 595 842]', '/MediaBox [0 0 595 842]', '/MediaBox [0 0 595 842]');
+        // Orçamento de 2 s; cada nova medida leva 1,2 s e não mede: a 1ª cabe, a 2ª para no que sobrou, a 3ª nem roda.
+        $raster = new RasterDoPdfEnviado(self::gsQueMede($area, 'exit 1', 'exec sleep 1.2'), $pdf, $avisos, self::DOCUMENTO, 2.0);
+
+        try {
+            foreach ([1, 2, 3] as $numero) {
+                self::assertSame([2449, 3255], self::tamanho($raster->pagina($numero)));
+            }
+            $chamadas = self::chamadas($area);
+        } finally {
+            $raster->liberar();
+            $area->liberar();
+        }
+
+        self::assertSame(['todas', 'uma', 'uma'], $chamadas);
+        self::assertSame([
+            [self::LEITURA_INCOMPLETA, 1, 'codigo 1'],
+            [self::ENCAIXADA, 1, 'sem medida'],
+            [self::ENCAIXADA, 2, 'tempo'],
+            [self::ENCAIXADA, 3, 'orcamento'],
+        ], self::motivos($avisos));
+    }
+
+    /**
+     * Um Ghostscript que, ao medir, anota a chamada (`todas` ou `uma`) e roda o trecho pedido; ao desenhar, chama o
+     * binário de verdade.
+     */
+    private static function gsQueMede(AreaTemporariaPrivada $area, string $aoMedirTodas, string $aoMedirUma): string
+    {
+        $script = <<<'SH'
+            #!/bin/sh
+            medir=0; todas=0
+            for a in "$@"; do
+              case "$a" in
+                -dNODISPLAY) medir=1 ;;
+                -dBJULTIMA=%d) todas=1 ;;
+              esac
+            done
+            if [ "$medir" = 1 ] && [ "$todas" = 1 ]; then echo todas >> %s; %s; fi
+            if [ "$medir" = 1 ]; then echo uma >> %s; %s; fi
+            exec %s "$@"
+
+            SH;
+        $chamadas = escapeshellarg($area->caminho() . '/chamadas');
+        $gs = $area->gravar(sprintf($script, ValidadorDeBlocos::PAGINAS_SEM_CONTAGEM, $chamadas, $aoMedirTodas, $chamadas, $aoMedirUma, escapeshellarg(GhostscriptDeTeste::binario())), 'sh');
+        chmod($gs, 0o700);
+
+        return $gs;
+    }
+
+    /** @return list<string> */
+    private static function chamadas(AreaTemporariaPrivada $area): array
+    {
+        return file($area->caminho() . '/chamadas', \FILE_IGNORE_NEW_LINES) ?: [];
+    }
+
+    /** @return list<array{string, mixed, mixed}> mensagem, página e motivo de cada aviso */
+    private static function motivos(AvisosDeTeste $avisos): array
+    {
+        return array_map(static fn (array $registro): array => [$registro[1], $registro[2]['pagina'] ?? null, $registro[2]['motivo'] ?? null], $avisos->registros);
     }
 
     /** A página 1 com um Ghostscript que falha na leitura das medidas e desenha com o binário de verdade. */

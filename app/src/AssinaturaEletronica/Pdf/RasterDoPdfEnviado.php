@@ -27,10 +27,12 @@ use Psr\Log\LoggerInterface;
  * girada, o Ghostscript pode arredondar o meio pixel para o outro lado: sai uma linha ou coluna de pixel a mais (em
  * branco) ou a menos na borda.
  *
- * Página que a leitura de todas deixou sem medida (teto, tempo, linha recusada) é medida de novo, sozinha, com o mesmo
- * programa e os mesmos tetos. Se ainda assim ficar sem medida, vai inteira com `-dPDFFitPage`: o Ghostscript encaixa
- * a página, sem cortar, numa imagem do tamanho da caixa com a folga, e o log registra o documento, a página e o
- * motivo. Nesse último caso o Ghostscript ignora o Rotate: a página deitada pelo Rotate fica de lado na folha.
+ * Página que a leitura de todas deixou sem medida (teto, falha, linha recusada) é medida de novo, sozinha, com o mesmo
+ * programa e os mesmos tetos, e todas essas novas medidas do documento somam no máximo {@see TEMPO_DE_MEDIDA}. Se a
+ * leitura de todas estourou o tempo, não há nova medida. Página que ficou sem medida vai inteira com `-dPDFFitPage`:
+ * o Ghostscript encaixa a página, sem cortar, numa imagem do tamanho da caixa com a folga, e o log registra o
+ * documento, a página e o motivo. Nesse último caso o Ghostscript ignora o Rotate: a página deitada pelo Rotate fica
+ * de lado na folha.
  */
 final class RasterDoPdfEnviado
 {
@@ -43,12 +45,21 @@ final class RasterDoPdfEnviado
     private const ENCAIXE_PX = [2449, 3255];
     private const PONTOS_POR_POLEGADA = 72;
     private const TEMPO_POR_PAGINA = 60.0;
+    /**
+     * O tempo da leitura de todas as medidas e, à parte, o orçamento de todas as novas medidas página a página do
+     * documento, somadas: um PDF que faz cada leitura demorar não multiplica o tempo pelo número de páginas.
+     */
+    private const TEMPO_DE_MEDIDA = 30.0;
     private const FINALIDADE = 'assinaturapdf';
 
     private ?AreaTemporariaPrivada $area = null;
     private ?string $pdf = null;
     /** @var array<int, array{float, float}>|null largura e altura de cada página, em pontos */
     private ?array $medidas = null;
+    /** O que ainda sobra, em segundos, para medir de novo as páginas que a leitura de todas não trouxe. */
+    private float $orcamentoDeNovaMedida;
+    /** Por que não se mede mais nenhuma página de novo (`tempo` ou `orcamento`); nulo enquanto se mede. */
+    private ?string $semNovaMedida = null;
 
     public function __construct(
         private readonly string $ghostscriptBin,
@@ -56,7 +67,10 @@ final class RasterDoPdfEnviado
         private readonly LoggerInterface $logger,
         /** Quem é o documento no log: o hash da folha (o SHA-256 do envio), nunca o conteúdo. */
         private readonly string $documento,
+        /** {@see TEMPO_DE_MEDIDA}; o padrão é o de produção, e os testes do tempo usam menos. */
+        private readonly float $tempoDeMedida = self::TEMPO_DE_MEDIDA,
     ) {
+        $this->orcamentoDeNovaMedida = $tempoDeMedida;
     }
 
     /**
@@ -88,6 +102,8 @@ final class RasterDoPdfEnviado
         $this->area = null;
         $this->pdf = null;
         $this->medidas = null;
+        $this->orcamentoDeNovaMedida = $this->tempoDeMedida;
+        $this->semNovaMedida = null;
     }
 
     /** @throws FalhaAoMontarPdf */
@@ -120,18 +136,37 @@ final class RasterDoPdfEnviado
     private function medida(int $numero): ?array
     {
         if ($this->medidas === null) {
-            [$this->medidas, $motivo] = MedidasDoPdfEnviado::ler($this->ghostscriptBin, (string) $this->pdf, 1, ValidadorDeBlocos::PAGINAS_SEM_CONTAGEM);
+            [$this->medidas, $motivo] = MedidasDoPdfEnviado::ler($this->ghostscriptBin, (string) $this->pdf, 1, ValidadorDeBlocos::PAGINAS_SEM_CONTAGEM, $this->tempoDeMedida);
             if ($motivo !== null) {
                 $this->logger->warning('O tamanho das páginas do PDF enviado não foi lido até o fim.', ['documento' => $this->documento, 'pagina' => $numero, 'motivo' => $motivo]);
             }
-        }
-        if (isset($this->medidas[$numero])) {
-            return $this->medidas[$numero];
+            // A leitura de todas estourou o tempo: a de uma página abre o mesmo PDF e estouraria também.
+            $this->semNovaMedida = $motivo === 'tempo' ? 'tempo' : null;
         }
 
-        [$daPagina, $motivo] = MedidasDoPdfEnviado::ler($this->ghostscriptBin, (string) $this->pdf, $numero, $numero);
-        if (isset($daPagina[$numero])) {
-            return $this->medidas[$numero] = $daPagina[$numero];
+        return $this->medidas[$numero] ?? $this->novaMedida($numero);
+    }
+
+    /**
+     * A leitura só da página, dentro do que sobra do orçamento do documento ({@see TEMPO_DE_MEDIDA}). Sem orçamento,
+     * ou depois de a leitura de todas estourar o tempo, a página não é medida de novo.
+     *
+     * @return array{float, float}|null
+     */
+    private function novaMedida(int $numero): ?array
+    {
+        if ($this->semNovaMedida === null && $this->orcamentoDeNovaMedida <= 0) {
+            $this->semNovaMedida = 'orcamento';
+        }
+
+        $motivo = $this->semNovaMedida;
+        if ($motivo === null) {
+            $inicio = microtime(true);
+            [$daPagina, $motivo] = MedidasDoPdfEnviado::ler($this->ghostscriptBin, (string) $this->pdf, $numero, $numero, $this->orcamentoDeNovaMedida);
+            $this->orcamentoDeNovaMedida -= microtime(true) - $inicio;
+            if (isset($daPagina[$numero])) {
+                return $this->medidas[$numero] = $daPagina[$numero];
+            }
         }
 
         $this->logger->warning('A página do PDF enviado ficou sem medida e vai inteira, encaixada.', ['documento' => $this->documento, 'pagina' => $numero, 'motivo' => $motivo ?? 'sem medida']);
