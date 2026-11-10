@@ -6,7 +6,6 @@ namespace App\Tests\AssinaturaEletronica\Unit\Selo;
 
 use App\AssinaturaEletronica\Service\Selo\EscolhaDoSeladorDePdf;
 use App\AssinaturaEletronica\Service\Selo\HttpSeladorDePdf;
-use App\AssinaturaEletronica\Service\Selo\SeladorDePdf;
 use App\AssinaturaEletronica\Service\Selo\SeladorDePdfNaoConfigurado;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;

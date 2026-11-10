@@ -11,6 +11,7 @@ use App\AssinaturaEletronica\EventListener\VinculoPendenteListener;
 use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
 use App\AssinaturaEletronica\MessageHandler\GerarPdfFinalDoDocumentoHandler;
 use App\AssinaturaEletronica\Service\ArquivoAssinadoNaPasta;
+use App\AssinaturaEletronica\Service\Selo\CadeiaDoSeloPendente;
 use App\AssinaturaEletronica\Service\VinculoComAPasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
@@ -23,6 +24,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 
 /**
  * A aplicação do vínculo pendente (spec assinatura-documentos-etapa-3, E3-11 e E3-12): tudo conferido de novo com quem
@@ -291,7 +294,7 @@ final class VinculoComAPastaTest extends TestCase
         };
         $tenants = $this->createStub(TenantRepository::class);
         $tenants->method('find')->willReturnCallback(fn (mixed $id): ?Tenant => $id === 9 ? $this->tenant : null);
-        $worker = new GerarPdfFinalDoDocumentoHandler($tenants, $this->documentos, $this->pdfFinal(), $this->barramento());
+        $worker = new GerarPdfFinalDoDocumentoHandler($tenants, $this->documentos, $this->pdfFinal(), $this->barramento(), new CadeiaDoSeloPendente(new LockFactory(new InMemoryStore())));
 
         $worker($pedido);
         $worker($pedido); // a mesma mensagem entregue de novo: o PDF já está guardado e nada muda
