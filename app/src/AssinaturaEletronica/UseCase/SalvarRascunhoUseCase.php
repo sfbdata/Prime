@@ -114,8 +114,9 @@ final readonly class SalvarRascunhoUseCase
     }
 
     /**
-     * Tudo que pode recusar, antes de gravar qualquer arquivo. O original muda quando chega PDF novo com página dele ou
-     * quando o rascunho fica sem página do PDF; o PDF novo é conferido pelo motor (só ele vira original, se assinado).
+     * Tudo que pode recusar, antes de gravar qualquer arquivo. O original muda quando chega PDF novo ou quando, sem PDF
+     * novo, o rascunho fica sem página do PDF; o PDF novo é conferido pelo motor e, se assinado, vira o original mesmo
+     * sem página dele no conteúdo (o `pres` do `subir` do desenho não depende dos blocos, dc:373-374).
      *
      * @return array{blocos: list<array<string, int|string>>, paginas: ?int, mudaOriginal: bool, original: ?OriginalJaAssinado}
      *
@@ -138,7 +139,7 @@ final readonly class SalvarRascunhoUseCase
         $blocos = ValidadorDeBlocos::normalizar($entrada->dados->blocos, $temArquivo, $paginas);
         $temPagina = \in_array('pg', array_column($blocos, 'k'), true);
         $mudaOriginal = !$temPagina || $entrada->arquivo !== null;
-        $original = $temPagina && $entrada->arquivo !== null ? $this->arquivos->conferirOriginal($entrada->arquivo) : null;
+        $original = $entrada->arquivo !== null ? $this->arquivos->conferirOriginal($entrada->arquivo) : null;
         $this->arquivos->exigirLugarParaOParagrafo($blocos, $documento, $mudaOriginal, $original);
 
         return ['blocos' => $blocos, 'paginas' => $paginas, 'mudaOriginal' => $mudaOriginal, 'original' => $original];

@@ -50,13 +50,12 @@ final readonly class ArquivosDoRascunho
 
     public function gravarPdf(DocumentoParaAssinar $documento, UploadedFile $pdf, ?int $paginas, TrocaDeArquivos $troca): void
     {
-        $nome = mb_substr(trim($pdf->getClientOriginalName()), 0, self::NOME_MAXIMO);
         $fonte = FonteDeUploadHttp::de($pdf);
         $chave = $fonte->gravarEm($this->armazenamento, ChavesDeAssinaturaEletronica::novoArquivo($documento, $fonte->extensao))->chave;
         $troca->gravada($chave);
         $troca->semUso(ChavesDeAssinaturaEletronica::arquivo($documento));
 
-        $documento->definirArquivo($chave->nome, $nome !== '' ? $nome : 'documento.pdf', $paginas);
+        $documento->definirArquivo($chave->nome, self::nomeDoPdf($pdf), $paginas);
     }
 
     /** O PDF enviado, conferido pelo motor sem gravar nada: nulo quando não traz assinatura digital. */
@@ -64,7 +63,15 @@ final readonly class ArquivosDoRascunho
     {
         $bytes = $pdf->getContent();
 
-        return OriginalJaAssinado::de($bytes, $this->conferencia->conferir($bytes));
+        return OriginalJaAssinado::de($bytes, $this->conferencia->conferir($bytes), self::nomeDoPdf($pdf));
+    }
+
+    /** O nome do PDF enviado, como o computador da pessoa o mandou; vazio vira "documento.pdf". */
+    private static function nomeDoPdf(UploadedFile $pdf): string
+    {
+        $nome = mb_substr(trim($pdf->getClientOriginalName()), 0, self::NOME_MAXIMO);
+
+        return $nome !== '' ? $nome : 'documento.pdf';
     }
 
     /**
@@ -134,7 +141,7 @@ final readonly class ArquivosDoRascunho
             $documento,
             $this->versoes->proximaOrdem($documento),
             $chave->nome,
-            (string) $documento->getArquivoEnviadoNome(),
+            $novo->nome,
             $novo->sha256,
             \strlen($novo->bytes),
             SerializacaoDaConferencia::paraJson($novo->conferencia),

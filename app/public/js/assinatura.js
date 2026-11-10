@@ -783,7 +783,9 @@
     async function formDoRascunho() {
         const w = s.w, dados = dadosDoRascunho(), fd = new FormData();
         fd.append('dados', JSON.stringify(dados));
-        if (w.arquivo && dados.blocos.some(b => b.k === 'pg')) { fd.append('arquivo', w.arquivo, w.arquivo.name); }
+        /* O PDF vai quando o conteúdo tem página dele ou quando chegou assinado (w.pres): o original fica mesmo sem
+           página no conteúdo, como o `pres` do desenho (dc:373-374). */
+        if (w.arquivo && (w.pres || dados.blocos.some(b => b.k === 'pg'))) { fd.append('arquivo', w.arquivo, w.arquivo.name); }
         const lg = await arquivoDaLogo(w.logo);
         if (lg) { fd.append('logo', lg, lg.name); }
         return fd;
