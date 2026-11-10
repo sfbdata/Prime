@@ -956,6 +956,36 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   Frente: `FolhaPontoBuilder.php`, `TenantController.php`, `folha_pdf.html.twig` e o XLSX. Combinar antes.
 - Testes: folha antes e depois igual quando não há ajuste; ajuste muda a folha e guarda o valor antigo; reverter desfaz;
   ninguém consegue apagar batida pela tela nem pelo "desfazer" da auditoria; mês com ajuste no PDF e no XLSX.
+- Decisões da etapa (09/11/2026, Coordenador e plano `plano-e10-ponto.md` da pasta bluejus-coordenacao):
+  - migration `Version20261109280000`: tabela `ponto_ajuste` (inclusão, ajuste, desconsideração e restauração, com
+    escritório, pessoa, data e tipo anterior e novo, autor, motivo e justificativa ligada), o gatilho
+    `registro_ponto_so_insercao`, a coluna `sede.removida_em` e o CHECK da linhagem da inclusão;
+  - a batida gravada não muda: o gatilho recusa QUALQUER UPDATE em `registro_ponto` e só deixa apagar na purga do
+    próprio escritório (`bluejus.purga_do_escritorio`); todo setter da `RegistroPonto` recusa depois do id. Uma
+    migration de dado futura que precise mudar batida desliga o gatilho dentro dela e liga de novo no fim;
+  - a correção é uma linhagem em `ponto_ajuste` (cada passo aponta o anterior; vale a cabeça, o passo sem sucessor). O
+    alvo é `b{id}` (batida gravada) ou `a{id}` (inclusão). A batida efetiva sai de um leitor só,
+    `RegistroPontoRepository`, e um teste de arquitetura barra a leitura direta;
+  - na ficha do gestor: o "+" vira "Incluir" com motivo, "Editar" vira "Ajustar", "Excluir" vira "Desconsiderar" (com
+    janela) e entra "Restaurar". Rotas próprias em `AjusteDeBatidaController`, CSRF por ação. Só o primário ou o Master faz as
+    quatro na PRÓPRIA ficha (P43); nas dos outros, quem tem a gestão de usuários. Batida ligada a justificativa
+    não se ajusta pela ficha: o gestor decide na análise;
+  - a hora ajustada leva "aj" na folha, no PDF e no XLSX, também depois de uma restauração (é ajuste);
+  - o esquecimento abonado grava uma inclusão ligada à justificativa; voltar para análise desconsidera essa inclusão; a
+    justificativa que já mexeu na folha não se exclui;
+  - travas: a da pessoa (4210) sempre antes da trilha (4203);
+  - remover sede: a sede sem batida é apagada; a com batida é encerrada (`removida_em`), some da lista, da cerca e do
+    fuso do home office, não se edita, não se remove de novo e o "desfazer" da auditoria não a altera; as batidas
+    antigas mantêm o `sede_id` e o nome;
+  - a purga apaga `ponto_ajuste` antes das batidas, com o escape do gatilho.
+- Limites aceitos:
+  - a inclusão do esquecimento ajustada depois deixa de contar como esquecimento na interjornada (a cabeça é do gestor);
+  - `CompararViradaDoBancoDeHorasCommand` lê `registro_ponto` cru e não vê quem só tem inclusão (tarefa à parte);
+  - a restauração devolve a hora e o tipo, mas não o selo "enviada sem internet" nem o "feita pelo colaborador";
+  - o aviso "batida criada pelo abono antes desta versão" é deduzido pela falta de inclusão (raro: corrida da R1 ou
+    esquecimento antigo sem tipo ou hora);
+  - remover sede: três corridas raras aceitas (documentadas em `RemocaoDaSedeDoPonto`);
+  - os UseCases do ajuste são testados por integração no banco (a trilha e a gravação são classes final).
 
 **E11. Alertas que não bloqueiam.**
 - Entra: P21 (a: avisa sem recusar, com "Registrar assim mesmo"; os mínimos vêm da Jornada do escritório). A chave
@@ -1319,8 +1349,12 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
 - Pontos que se fecham com o Coordenador ao abrir a etapa: teto de idade da fila (E14), saldo de antes dos lotes (E17).
   A chave do selo da trilha (E9) já foi decidida.
 - Pendências do dono: seção 10. Nenhuma trava a E1.
+- E10 implementada na branch `ponto-e10b` (blocos A, B, C e D e as correções das revisões), com a migration
+  `Version20261109280000`. Decisões e limites registrados na E10 (seção 5). Integra na `ponto-desenho` e vai ao ar
+  junto com a E9, no PR único do fim.
 - Migrations: `Version20261109180000` (E7, `ponto_config_escritorio`), `Version20261109190000` (E9, tabela
-  `ponto_auditoria`), `Version20261109210000` (E4), `Version20261109220000` (E13) e `Version20261109230000` (E12).
+  `ponto_auditoria`), `Version20261109210000` (E4), `Version20261109220000` (E13), `Version20261109230000` (E12) e
+  `Version20261109280000` (E10).
 
 ## 10. Pendências do dono e ganchos
 
