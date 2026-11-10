@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\EstadoDoPontoDoDiaOutput;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
@@ -98,7 +99,8 @@ final class ObterEstadoDoPontoDoDiaUseCase
         }
         $linha = $this->linhaDaFolha($eu, $tenant, $ontem, $batidas);
         $dia = $ontem->format('Y-m-d');
-        if ($linha === null || $linha['entradaId'] === null || $linha['saidaId'] !== null
+        // Pelo alvo, não pelo id do registro: a entrada incluída pelo gestor (E10) não tem registro, e conta.
+        if ($linha === null || $linha['entradaAlvo'] === null || $linha['saidaAlvo'] !== null
             || $linha['fimSemana'] || $linha['isFeriado'] || $linha['antesDoPrimeiroRegistro']) {
             return null;
         }
@@ -108,7 +110,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
     }
 
     /**
-     * @param list<RegistroPonto> $batidas
+     * @param list<MarcacaoDoPonto> $batidas
      *
      * @return ?array<string, mixed>
      */

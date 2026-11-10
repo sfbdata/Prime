@@ -7,6 +7,7 @@ namespace App\Ponto\Service;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Repository\RegistroPontoRepository;
 
 /**
@@ -18,6 +19,7 @@ use App\Ponto\Repository\RegistroPontoRepository;
  * `TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS` depois (a entrada esquecida não fica aberta para sempre). O dia
  * marcado é o da entrada ou retorno que abriu o turno, que é a linha da folha. Do outro escritório só se leem os
  * horários (`RegistroPontoRepository::horariosEmOutrosEscritorios`), com o filtro de escritório suspenso de propósito.
+ * Dos dois lados, as batidas efetivas (E10): o ajuste do gestor vale aqui como vale na folha.
  */
 final class RegistroEmOutroEscritorioNoTurno
 {
@@ -59,7 +61,7 @@ final class RegistroEmOutroEscritorioNoTurno
     }
 
     /**
-     * @param list<RegistroPonto> $batidas em ordem de horário
+     * @param list<MarcacaoDoPonto> $batidas as efetivas, em ordem de horário
      *
      * @return list<array{\DateTimeImmutable, \DateTimeImmutable}> cada turno aberto aqui: [abriu, fechou)
      */

@@ -18,6 +18,7 @@ use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Service\HomeOfficeResolver;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
@@ -174,7 +175,7 @@ final class PontoController extends AbstractController
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
 
-        /** @var RegistroPonto[] $batidas */
+        /** @var list<MarcacaoDoPonto> $batidas as efetivas (E10) */
         $batidas = $repository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
         $jornadaDoEscritorio = $this->jornadas->findByUserETenant($user, $tenant);
         // A folha usa a versão da jornada de cada dia (spec ponto-jornada-vigencia §3.2); a meta de hoje, a de hoje.
@@ -1370,7 +1371,7 @@ final class PontoController extends AbstractController
         $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
 
-        /** @var \App\Ponto\Entity\RegistroPonto[] $batidas */
+        /** @var list<MarcacaoDoPonto> $batidas as efetivas (E10) */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
         $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);
@@ -1456,7 +1457,7 @@ final class PontoController extends AbstractController
         $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
 
-        /** @var RegistroPonto[] $batidas */
+        /** @var list<MarcacaoDoPonto> $batidas as efetivas (E10) */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
         $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);

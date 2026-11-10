@@ -100,6 +100,19 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertSame('2026-10-19', $saida->ontemSemSaida);
     }
 
+    #[TestDox('Regularizar ontem com a batida efetiva (E10): a entrada incluída pelo gestor conta, e a saída incluída fecha o dia')]
+    public function testRegularizarOntemPelaBatidaEfetiva(): void
+    {
+        [$user, $tenant] = $this->pessoa();
+        $this->incluir($user, $tenant, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');   // segunda, só a inclusão
+
+        self::assertSame('2026-10-19', $this->casoDeUsoEm('2026-10-20 10:00')->executar($user, $tenant)->ontemSemSaida, 'a entrada incluída não tem registro, e conta');
+
+        $this->incluir($user, $tenant, RegistroPonto::TIPO_SAIDA, '2026-10-19 17:00');
+
+        self::assertNull($this->casoDeUsoEm('2026-10-20 10:00')->executar($user, $tenant)->ontemSemSaida, 'a saída incluída fecha o dia');
+    }
+
     #[TestDox('Regularizar ontem some: com saída, num fim de semana, sem batida ou com o esquecimento da saída já pedido')]
     public function testSemRegularizarOntem(): void
     {
@@ -267,6 +280,15 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         $this->em->flush();
 
         return [$user, $tenant];
+    }
+
+    /** A batida incluída pelo gestor (E10): só em `ponto_ajuste`, pela gravação do ajuste, dentro da transação. */
+    private function incluir(User $user, Tenant $tenant, string $tipo, string $quando): void
+    {
+        $c = static::getContainer();
+        $trilha = $c->get(\App\Ponto\Service\TrilhaDoPonto::class);
+        $gravacao = new \App\Ponto\Service\GravacaoDoAjusteDoPonto($this->em, $trilha, $c->get(\App\Ponto\Service\HorarioFuturoDaBatida::class), $c->get(\Psr\Clock\ClockInterface::class));
+        $trilha->emTransacao(static fn () => $gravacao->incluir($tenant, $user, $tipo, new \DateTimeImmutable($quando), 'Inclusão do gestor.', $user, null));
     }
 
     private function batida(User $user, Tenant $tenant, string $tipo, string $quando): void

@@ -28,7 +28,7 @@ class FolhaPontoBuilder
     ) {}
 
     /**
-     * @param RegistroPonto[] $batidas
+     * @param MarcacaoDoPonto[] $batidas as batidas efetivas do período (E10: a original sem ajuste ou a ajustada)
      * @param Feriado[] $feriados
      * @param array<string, JustificativaPonto> $justificativasDoMes Justificativas indexadas por 'Y-m-d'
      * @param JornadaColaborador|HistoricoDeJornadas|null $jornada As versões da jornada pessoal (cada dia usa a que
@@ -40,7 +40,7 @@ class FolhaPontoBuilder
      *                                            no banco). Admissão e data de cadastro não entram nessa conta.
      * @param ?\DateTimeImmutable $hoje         O dia de hoje da folha (dia futuro e hoje sem saída). Omitido, o de
      *                                            agora; o banco passa o dia de referência dos lotes (E17).
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, trabalhoExterno: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, tipo: string, hora: string}>}>
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, trabalhoExterno: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, alvo: ?string, tipo: string, hora: string}>}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -104,34 +104,13 @@ class FolhaPontoBuilder
                 'repousoId' => $escolha->repouso?->getId(),
                 'retornoId' => $escolha->retorno?->getId(),
                 'saidaId'   => $escolha->saida?->getId(),
-                // E10: o alvo do ajuste ('b{id}' ou 'a{id}'), a cabeça da linhagem (a "cabeça esperada" que a tela manda
-                // de volta) e o ajuste que a batida efetiva carrega ({tipo, por, em}, para a marca "aj" do desenho).
-                'entradaAlvo'   => self::alvoDe($escolha->entrada),
-                'repousoAlvo'   => self::alvoDe($escolha->repouso),
-                'retornoAlvo'   => self::alvoDe($escolha->retorno),
-                'saidaAlvo'     => self::alvoDe($escolha->saida),
-                'entradaCabeca' => $escolha->entrada?->cabeca(),
-                'repousoCabeca' => $escolha->repouso?->cabeca(),
-                'retornoCabeca' => $escolha->retorno?->cabeca(),
-                'saidaCabeca'   => $escolha->saida?->cabeca(),
-                'entradaAjuste' => self::ajusteDe($escolha->entrada),
-                'repousoAjuste' => self::ajusteDe($escolha->repouso),
-                'retornoAjuste' => self::ajusteDe($escolha->retorno),
-                'saidaAjuste'   => self::ajusteDe($escolha->saida),
+                ...self::ajustesDaEscolha($escolha),   // E10: {tipo}Alvo, {tipo}Cabeca e {tipo}Ajuste
                 // Dia ambíguo (dois registros distintos do mesmo tipo, retorno antes do repouso): só
                 // avisa, na tela do colaborador e na ficha do admin. O PDF e o XLSX assinados não mudam.
                 'aConferir' => $escolha->aConferir,
                 // As batidas do dia que não entram na conta, para o admin alcançar e corrigir — antes
                 // desta mudança elas não apareciam em lugar nenhum da folha.
-                'batidasDesconsideradas' => array_map(
-                    static fn (RegistroPonto $batida): array => [
-                        'id'   => $batida->getId(),
-                        'alvo' => self::alvoDe($batida),
-                        'tipo' => $batida->getTipo(),
-                        'hora' => $batida->getDataHora()->format('H:i:s'),
-                    ],
-                    $escolha->desconsideradas,
-                ),
+                'batidasDesconsideradas' => self::foraDaConta($escolha),
                 'fimSemana'       => $indiceDiaSemana >= 6,
                 'domingo'         => $indiceDiaSemana === 7,
                 'antesDoPrimeiroRegistro' => $diaForaDaContagem,
@@ -317,7 +296,7 @@ class FolhaPontoBuilder
     /**
      * Indica se o dia teve ao menos uma batida em home office (para o selo no espelho).
      *
-     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia, como sempre foi
+     * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia, como sempre foi
      */
     private function diaTeveHomeOffice(array $batidasDoDia): bool
     {
@@ -328,6 +307,44 @@ class FolhaPontoBuilder
         }
 
         return false;
+    }
+
+    /**
+     * E10: o alvo do ajuste de cada batida escolhida ('b{id}' ou 'a{id}'), a cabeça da linhagem (a "cabeça esperada"
+     * que a tela manda de volta) e o ajuste que a batida efetiva carrega ({tipo, por, em}, para a marca "aj" do
+     * desenho). Fora de `buildRows` só para o método caber no limite de tamanho; as chaves são o contrato da tela.
+     *
+     * @return array<string, mixed>
+     */
+    private static function ajustesDaEscolha(BatidasEscolhidas $escolha): array
+    {
+        $alvos = $cabecas = $ajustes = [];
+        foreach (RegistroPonto::TIPOS_VALIDOS as $tipo) {
+            $batida = $escolha->doTipo($tipo);
+            $alvos[$tipo . 'Alvo'] = self::alvoDe($batida);
+            $cabecas[$tipo . 'Cabeca'] = $batida?->cabeca();
+            $ajustes[$tipo . 'Ajuste'] = self::ajusteDe($batida);
+        }
+
+        return $alvos + $cabecas + $ajustes;
+    }
+
+    /**
+     * As batidas do dia que ficaram fora da escolha, com o alvo do ajuste de cada uma (E10).
+     *
+     * @return list<array{id: ?int, alvo: ?string, tipo: ?string, hora: string}>
+     */
+    private static function foraDaConta(BatidasEscolhidas $escolha): array
+    {
+        return array_map(
+            static fn (MarcacaoDoPonto $batida): array => [
+                'id'   => $batida->getId(),
+                'alvo' => self::alvoDe($batida),
+                'tipo' => $batida->getTipo(),
+                'hora' => $batida->getDataHora()->format('H:i:s'),
+            ],
+            $escolha->desconsideradas,
+        );
     }
 
     /**
@@ -363,7 +380,7 @@ class FolhaPontoBuilder
      * Indica se alguma batida escolhida do dia veio da fila do aparelho, guardada sem internet (selo "Sem internet",
      * spec ponto-desenho-0811 E14). Como o home office: as batidas fora da conta não acendem o selo.
      *
-     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia
+     * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia
      */
     private function diaTeveBatidaSemInternet(array $batidasDoDia): bool
     {
@@ -564,9 +581,10 @@ class FolhaPontoBuilder
     }
 
     /**
-     * As batidas da pessoa NESTE escritório no período, numa consulta só, separadas por 'AAAA-MM'.
+     * As batidas efetivas da pessoa NESTE escritório no período, numa consulta só, separadas por 'AAAA-MM'. O banco
+     * por lotes (`BancoDeHorasPorLotes`) soma estas mesmas: o ajuste do gestor muda o banco como muda a folha (E10).
      *
-     * @return array<string, list<RegistroPonto>>
+     * @return array<string, list<MarcacaoDoPonto>>
      */
     private function batidasPorMes(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
     {

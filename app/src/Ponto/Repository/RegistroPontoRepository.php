@@ -9,36 +9,120 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Enum\TipoDoAjuste;
+use App\Ponto\Model\AjusteDaMarcacao;
 use App\Ponto\Model\AlvoDoAjuste;
+use App\Ponto\Model\BatidaAjustada;
+use App\Ponto\Model\MarcacaoDoPonto;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
+ * As batidas do Ponto e a linhagem dos ajustes delas.
+ *
+ * E10 (plano-e10-ponto §1): os leitores devolvem a batida EFETIVA, a que a folha conta ({@see MarcacaoDoPonto}). É o
+ * registro original nunca ajustado ({@see RegistroPonto}) ou a cabeça de uma linhagem de `ponto_ajuste` que ainda tem
+ * data e hora ({@see BatidaAjustada}: a alteração, a restauração e a inclusão do gestor). A desconsiderada some. Todos
+ * saem de `SQL_EFETIVAS`; só `doEnvio` (a idempotência do envio, E13) e o `findUltimaSaida` (sem uso) leem o registro
+ * original. Os leitores são SQL nativo, que não passa pelo filtro de escritório: o escritório vai escrito em cada
+ * consulta, nos dois lados da união. Nenhum outro lugar lê `RegistroPonto` nem `PontoAjuste` direto
+ * (`LeitorUnicoDaBatidaArquiteturaTest`).
+ *
  * @extends ServiceEntityRepository<RegistroPonto>
  */
 class RegistroPontoRepository extends ServiceEntityRepository
 {
-    use ConsultaSemFiltroDeEscritorio;
+    /**
+     * As batidas EFETIVAS do recorte (E10): o registro sem nenhum ajuste e a cabeça (o ajuste sem sucessor) de cada
+     * linhagem que ainda tem data e hora. A janela `:inicio` a `:fim` vale para os dois lados: o registro pela hora
+     * gravada, o ajuste pela hora nova (índice `idx_ponto_ajuste_pessoa_data`). Sem janela, `-infinity` e `infinity`.
+     *
+     * - `{colunas}`: as colunas do registro original (alias `o`), tiradas do mapeamento; nulas na inclusão.
+     * - `{escopo_o}` e `{escopo_a}`: o mesmo recorte de pessoa e escritório (`ESCOPO_*`), no registro e no ajuste.
+     * - `efetiva_*`: a forma que a folha conta. `ajuste_*`: a cabeça, nula na batida sem ajuste; `ajuste_inclusao` é a
+     *   raiz da inclusão (o alvo 'a{id}'), nula na linhagem de um registro.
+     *
+     * O ajuste preso a um registro de outro escritório (só por SQL cru) não esconde o registro nem entra na conta.
+     */
+    private const SQL_EFETIVAS = <<<'SQL'
+SELECT {colunas}, o.data_hora AS efetiva_quando, o.tipo AS efetiva_tipo, o.user_id AS efetiva_pessoa,
+       o.tenant_id AS efetiva_escritorio, NULL::int AS ajuste_id, NULL::int AS ajuste_inclusao,
+       NULL::varchar AS ajuste_tipo, NULL::varchar AS ajuste_autor, NULL::timestamp AS ajuste_em,
+       NULL::int AS ajuste_justificativa
+FROM registro_ponto o
+WHERE {escopo_o} AND o.data_hora BETWEEN :inicio AND :fim
+  AND NOT EXISTS (SELECT 1 FROM ponto_ajuste l WHERE l.registro_ponto_id = o.id AND l.tenant_id = o.tenant_id)
+UNION ALL
+SELECT {colunas}, a.data_hora_nova, a.tipo_marcacao_nova, a.user_id, a.tenant_id, a.id,
+       CASE WHEN a.registro_ponto_id IS NULL THEN COALESCE(a.inclusao_id, a.id) END,
+       a.tipo, a.autor_nome, a.criado_em, a.justificativa_id
+FROM ponto_ajuste a
+LEFT JOIN registro_ponto o ON o.id = a.registro_ponto_id AND o.tenant_id = a.tenant_id
+WHERE {escopo_a} AND a.data_hora_nova BETWEEN :inicio AND :fim
+  AND (a.registro_ponto_id IS NULL OR o.id IS NOT NULL)
+  AND NOT EXISTS (SELECT 1 FROM ponto_ajuste s WHERE s.anterior_id = a.id)
+SQL;
 
-    /** A consulta de `pontoAbertoHojeEmOutrosEscritorios`: o escopo inteiro escrito à mão (SQL nativo, sem filtro). */
+    /** O recorte das efetivas: a pessoa NESTE escritório. `{x}` vira o alias do registro e o do ajuste. */
+    private const ESCOPO_DA_PESSOA = '{x}.user_id = :usuario AND {x}.tenant_id = :escritorio';
+
+    /** O recorte das efetivas: a equipe inteira NESTE escritório. */
+    private const ESCOPO_DA_EQUIPE = '{x}.tenant_id = :escritorio';
+
+    /** O recorte das efetivas: a pessoa nos OUTROS escritórios com que ela tem vínculo ativo. */
+    private const ESCOPO_DOS_OUTROS_ESCRITORIOS = '{x}.user_id = :usuario AND {x}.tenant_id <> :escritorio'
+        . ' AND EXISTS (SELECT 1 FROM user_tenant ut WHERE ut.user_id = {x}.user_id AND ut.tenant_id = {x}.tenant_id AND ut.is_active)';
+
+    /** O recorte das efetivas: a pessoa nos escritórios da lista, nunca no atual. */
+    private const ESCOPO_DOS_ESCRITORIOS_DA_LISTA = '{x}.user_id = :usuario AND {x}.tenant_id <> :escritorio AND {x}.tenant_id IN (:escritorios)';
+
+    /** As colunas do registro quando a consulta não monta a batida (só agrega ou devolve horários). */
+    private const SO_O_ID = 'o.id AS id';
+
+    /**
+     * A ordem das efetivas (plano-e10-ponto §1): hora, o registro (a inclusão, sem registro, por último) e o ajuste. A
+     * inversa é a mesma lida de trás para frente (no PostgreSQL, ASC põe o nulo por último e DESC, primeiro).
+     */
+    private const EM_ORDEM = 'e.efetiva_quando, e.id, e.ajuste_id';
+    private const EM_ORDEM_INVERSA = 'e.efetiva_quando DESC, e.id DESC, e.ajuste_id DESC';
+
+    /** As colunas da forma efetiva e da cabeça que a montagem da batida lê, com o tipo de cada uma. */
+    private const COLUNAS_DA_EFETIVA = [
+        'efetiva_quando' => 'datetime_immutable',
+        'efetiva_tipo' => 'string',
+        'efetiva_pessoa' => 'integer',
+        'ajuste_id' => 'integer',
+        'ajuste_inclusao' => 'integer',
+        'ajuste_tipo' => 'string',
+        'ajuste_autor' => 'string',
+        'ajuste_em' => 'datetime_immutable',
+        'ajuste_justificativa' => 'integer',
+    ];
+
+    /** Sem janela de datas: todas as batidas da pessoa (o PostgreSQL compara timestamp com o infinito). */
+    private const DESDE_SEMPRE = '-infinity';
+    private const ATE_SEMPRE = 'infinity';
+
+    /**
+     * A consulta de `pontoAbertoHojeEmOutrosEscritorios`: o escopo inteiro escrito à mão (SQL nativo, sem filtro), sobre
+     * as batidas efetivas (`{efetivas}`).
+     */
     private const SQL_PONTO_ABERTO_EM_OUTROS_ESCRITORIOS = <<<'SQL'
+WITH e AS ({efetivas})
 SELECT ultima.tenant_id, t.name AS nome
 FROM (
-    SELECT DISTINCT ON (rp.tenant_id) rp.tenant_id, rp.tipo, rp.data_hora
-    FROM registro_ponto rp
-    WHERE rp.user_id = :usuario AND rp.tenant_id <> :atual AND rp.tenant_id IN (:escritorios)
-      AND rp.data_hora BETWEEN :inicio AND :agora
-    ORDER BY rp.tenant_id, rp.data_hora DESC, rp.id DESC
+    SELECT DISTINCT ON (e.efetiva_escritorio) e.efetiva_escritorio AS tenant_id, e.efetiva_tipo AS tipo
+    FROM e
+    ORDER BY e.efetiva_escritorio, e.efetiva_quando DESC, e.id DESC, e.ajuste_id DESC
 ) ultima
 JOIN (
-    SELECT rp.tenant_id
-    FROM registro_ponto rp
-    WHERE rp.user_id = :usuario AND rp.tenant_id <> :atual AND rp.tenant_id IN (:escritorios)
-      AND rp.data_hora BETWEEN :inicio AND :agora
-    GROUP BY rp.tenant_id
-    HAVING bool_or(rp.tipo = 'entrada')
+    SELECT e.efetiva_escritorio AS tenant_id
+    FROM e
+    GROUP BY e.efetiva_escritorio
+    HAVING bool_or(e.efetiva_tipo = 'entrada')
 ) com_entrada ON com_entrada.tenant_id = ultima.tenant_id
 JOIN user_tenant ut ON ut.user_id = :usuario AND ut.tenant_id = ultima.tenant_id AND ut.is_active
 JOIN tenant t ON t.id = ultima.tenant_id AND t.is_active
@@ -47,23 +131,22 @@ ORDER BY t.name, t.id
 SQL;
 
     /**
-     * A consulta de `ultimaSaidaQueFechouTurno`: a batida imediatamente anterior a cada saída (LAG, por hora e id) da
-     * pessoa NESTE escritório; vale a saída mais recente até `:ate` cuja anterior é entrada ou retorno, dentro da janela
-     * do turno.
+     * A consulta de `ultimaSaidaQueFechouTurno`: a batida efetiva imediatamente anterior a cada saída (LAG, na ordem
+     * das efetivas) da pessoa NESTE escritório; vale a saída mais recente até `:fim` cuja anterior é entrada ou
+     * retorno, dentro da janela do turno.
      */
     private const SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO = <<<'SQL'
-SELECT b.id
+SELECT b.*
 FROM (
-    SELECT rp.id, rp.tipo, rp.data_hora,
-           LAG(rp.tipo) OVER (ORDER BY rp.data_hora, rp.id) AS tipo_anterior,
-           LAG(rp.data_hora) OVER (ORDER BY rp.data_hora, rp.id) AS quando_anterior
-    FROM registro_ponto rp
-    WHERE rp.user_id = :usuario AND rp.tenant_id = :escritorio AND rp.data_hora <= :ate
+    SELECT e.*,
+           LAG(e.efetiva_tipo) OVER (ORDER BY e.efetiva_quando, e.id, e.ajuste_id) AS tipo_anterior,
+           LAG(e.efetiva_quando) OVER (ORDER BY e.efetiva_quando, e.id, e.ajuste_id) AS quando_anterior
+    FROM ({efetivas}) e
 ) b
-WHERE b.tipo = 'saida'
+WHERE b.efetiva_tipo = 'saida'
   AND b.tipo_anterior IN ('entrada', 'retorno')
-  AND b.quando_anterior >= b.data_hora - make_interval(hours => :janela)
-ORDER BY b.data_hora DESC, b.id DESC
+  AND b.quando_anterior >= b.efetiva_quando - make_interval(hours => :janela)
+ORDER BY b.efetiva_quando DESC, b.id DESC, b.ajuste_id DESC
 LIMIT 1
 SQL;
 
@@ -76,46 +159,31 @@ SQL;
     }
 
     /**
-     * As batidas da competência NESTE escritório: alimentam a folha, o espelho exportado e o saldo do banco de horas.
+     * As batidas efetivas da competência NESTE escritório: alimentam a folha, o espelho exportado e o saldo do banco de
+     * horas.
      *
-     * @return RegistroPonto[]
+     * @return list<MarcacaoDoPonto>
      */
     public function findByUserAndCompetencia(User $user, Tenant $tenant, int $ano, int $mes): array
     {
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
 
-        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO, auditoria 1.13).
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant = :tenant')
-            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
-            ->setParameter('user', $user)
-            ->setParameter('tenant', $tenant)
-            ->setParameter('inicio', $inicioMes)
-            ->setParameter('fim', $fimMes)
-            ->orderBy('r.dataHora', 'ASC')
-            ->getQuery()
-            ->getResult();
+        // Escritório escrito na consulta: é dado de ponto (risco ALTO, auditoria 1.13).
+        return $this->efetivas(self::ESCOPO_DA_PESSOA, 'ORDER BY ' . self::EM_ORDEM, self::daPessoa($user, $tenant, $inicioMes, $fimMes));
     }
 
     /**
-     * Data da primeira batida do colaborador no escritório — marca o início da contagem da
-     * folha. Retorna null quando o colaborador ainda não registrou ponto nenhuma vez.
+     * Data da primeira batida efetiva do colaborador no escritório: marca o início da contagem da folha. A inclusão do
+     * gestor conta; a desconsiderada, não. Retorna null quando o colaborador ainda não tem batida nenhuma.
      */
     public function findDataPrimeiraBatida(User $user, Tenant $tenant): ?\DateTimeImmutable
     {
-        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO).
-        $primeira = $this->createQueryBuilder('r')
-            ->select('MIN(r.dataHora)')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant = :tenant')
-            ->setParameter('user', $user)
-            ->setParameter('tenant', $tenant)
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        if ($primeira === null) {
+        $primeira = $this->conexao()->fetchOne(
+            sprintf('SELECT MIN(e.efetiva_quando) FROM (%s) e', self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID)),
+            self::daPessoa($user, $tenant, self::DESDE_SEMPRE, self::ATE_SEMPRE),
+        );
+        if ($primeira === null || $primeira === false) {
             return null;
         }
 
@@ -123,25 +191,25 @@ SQL;
     }
 
     /**
+     * Os meses com batida efetiva da pessoa NESTE escritório, do mais novo para o mais antigo (o seletor de competência).
+     *
      * @return array<int, array{valor: string, label: string, ano: int, mes: int}>
      */
     public function findCompetenciasComRegistroPorUsuario(User $user, Tenant $tenant): array
     {
         // SQL nativo NÃO passa pelo TenantFilter: o escopo de tenant é manual e obrigatório.
-        $sql = <<<'SQL'
+        $sql = sprintf(<<<'SQL'
 SELECT DISTINCT
-    TO_CHAR(data_hora, 'YYYY-MM') AS valor,
-    TO_CHAR(data_hora, 'MM/YYYY') AS label,
-    EXTRACT(YEAR FROM data_hora)::int AS ano,
-    EXTRACT(MONTH FROM data_hora)::int AS mes
-FROM registro_ponto
-WHERE user_id = :userId AND tenant_id = :tenantId
+    TO_CHAR(e.efetiva_quando, 'YYYY-MM') AS valor,
+    TO_CHAR(e.efetiva_quando, 'MM/YYYY') AS label,
+    EXTRACT(YEAR FROM e.efetiva_quando)::int AS ano,
+    EXTRACT(MONTH FROM e.efetiva_quando)::int AS mes
+FROM (%s) e
 ORDER BY valor DESC
-SQL;
+SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
 
-        $rows = $this->getEntityManager()
-            ->getConnection()
-            ->executeQuery($sql, ['userId' => $user->getId(), 'tenantId' => $tenant->getId()])
+        $rows = $this->conexao()
+            ->executeQuery($sql, self::daPessoa($user, $tenant, self::DESDE_SEMPRE, self::ATE_SEMPRE))
             ->fetchAllAssociative();
 
         return array_map(static function (array $row): array {
@@ -155,95 +223,62 @@ SQL;
     }
 
     /**
-     * As batidas do dia NESTE escritório (aviso de horário do ponto).
+     * As batidas efetivas do dia NESTE escritório (aviso de horário do ponto).
      *
-     * @return RegistroPonto[]
+     * @return list<MarcacaoDoPonto>
      */
     public function findBatidasDoDia(User $user, Tenant $tenant, \DateTimeImmutable $dia): array
     {
-        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO, auditoria 1.13).
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant = :tenant')
-            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
-            ->setParameter('user', $user)
-            ->setParameter('tenant', $tenant)
-            ->setParameter('inicio', $dia->setTime(0, 0, 0))
-            ->setParameter('fim', $dia->setTime(23, 59, 59))
-            ->orderBy('r.dataHora', 'ASC')
-            ->getQuery()
-            ->getResult();
+        // Escritório escrito na consulta: é dado de ponto (risco ALTO, auditoria 1.13).
+        return $this->efetivas(self::ESCOPO_DA_PESSOA, 'ORDER BY ' . self::EM_ORDEM, self::daPessoa($user, $tenant, $dia->setTime(0, 0, 0), $dia->setTime(23, 59, 59)));
     }
 
     /**
-     * As batidas do dia da pessoa NESTE escritório (spec `presenca-e-ponto-no-cabecalho.md` §3, atalho do cabeçalho):
-     * tenant explícito além do `TenantFilter`, porque o atalho mostra o estado do ponto e não pode misturar o de outro
-     * escritório da mesma pessoa. Quem escolhe a batida de cada tipo é a `EscolhaDasBatidasDoDia`, não esta consulta.
+     * As batidas efetivas do dia da pessoa NESTE escritório (spec `presenca-e-ponto-no-cabecalho.md` §3, atalho do
+     * cabeçalho): o escritório vai escrito na consulta, porque o atalho mostra o estado do ponto e não pode misturar o
+     * de outro escritório da mesma pessoa. Quem escolhe a batida de cada tipo é a `EscolhaDasBatidasDoDia`, não esta
+     * consulta.
      *
-     * @return list<RegistroPonto>
+     * @return list<MarcacaoDoPonto>
      */
     public function batidasDoDiaNoEscritorio(User $user, Tenant $tenant, \DateTimeImmutable $dia): array
     {
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant = :tenant')
-            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
-            ->setParameter('user', $user)
-            ->setParameter('tenant', $tenant)
-            ->setParameter('inicio', $dia->setTime(0, 0, 0))
-            ->setParameter('fim', $dia->setTime(23, 59, 59))
-            ->orderBy('r.dataHora', 'ASC')
-            ->getQuery()
-            ->getResult();
+        return $this->efetivas(self::ESCOPO_DA_PESSOA, 'ORDER BY ' . self::EM_ORDEM, self::daPessoa($user, $tenant, $dia->setTime(0, 0, 0), $dia->setTime(23, 59, 59)));
     }
 
     /**
-     * As batidas do dia de TODA a equipe NESTE escritório, numa consulta só (aba "Equipe" da /ponto, spec
-     * `ponto-desenho-0811.md` E5): a situação de hoje de cada pessoa. O escritório vai escrito na consulta, além do
-     * filtro; quem escolhe a batida de cada tipo é a `EscolhaDasBatidasDoDia`, não esta consulta.
+     * As batidas efetivas do dia de TODA a equipe NESTE escritório, numa consulta só (aba "Equipe" da /ponto, spec
+     * `ponto-desenho-0811.md` E5): a situação de hoje de cada pessoa. O escritório vai escrito na consulta; quem
+     * escolhe a batida de cada tipo é a `EscolhaDasBatidasDoDia`, não esta consulta.
      *
-     * @return list<RegistroPonto> por pessoa e, dentro dela, por horário
+     * @return list<MarcacaoDoPonto> por pessoa e, dentro dela, na ordem das efetivas
      */
     public function batidasDoDiaDaEquipe(Tenant $tenant, \DateTimeImmutable $dia): array
     {
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.tenant = :tenant')
-            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
-            ->setParameter('tenant', $tenant)
-            ->setParameter('inicio', $dia->setTime(0, 0, 0))
-            ->setParameter('fim', $dia->setTime(23, 59, 59))
-            ->orderBy('r.user', 'ASC')
-            ->addOrderBy('r.dataHora', 'ASC')
-            ->addOrderBy('r.id', 'ASC')
-            ->getQuery()
-            ->getResult();
+        return $this->efetivas(self::ESCOPO_DA_EQUIPE, 'ORDER BY e.efetiva_pessoa, ' . self::EM_ORDEM, [
+            'escritorio' => $tenant->getId(),
+            'inicio' => self::quando($dia->setTime(0, 0, 0)),
+            'fim' => self::quando($dia->setTime(23, 59, 59)),
+        ]);
     }
 
     /**
-     * A última batida da pessoa NESTE escritório entre `$inicio` e `$ate` (por hora e depois id), com o escritório escrito
-     * na consulta: decide se a saída ou a ida ao repouso fecham um turno aberto aqui (spec seguranca-b-jornada §3.3).
+     * A última batida efetiva da pessoa NESTE escritório entre `$inicio` e `$ate` (na ordem das efetivas), com o
+     * escritório escrito na consulta: decide se a saída ou a ida ao repouso fecham um turno aberto aqui (spec
+     * seguranca-b-jornada §3.3).
      */
-    public function ultimaBatidaNoTenant(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $ate): ?RegistroPonto
+    public function ultimaBatidaNoTenant(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $ate): ?MarcacaoDoPonto
     {
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant = :tenant')
-            ->andWhere('r.dataHora BETWEEN :inicio AND :ate')
-            ->setParameter('user', $user)
-            ->setParameter('tenant', $tenant)
-            ->setParameter('inicio', $inicio)
-            ->setParameter('ate', $ate)
-            ->orderBy('r.dataHora', 'DESC')
-            ->addOrderBy('r.id', 'DESC')
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+        return $this->efetivas(self::ESCOPO_DA_PESSOA, 'ORDER BY ' . self::EM_ORDEM_INVERSA . ' LIMIT 1', self::daPessoa($user, $tenant, $inicio, $ate))[0] ?? null;
     }
 
     /**
      * A batida da pessoa NESTE escritório que já entrou com este identificador de envio (E13, spec ponto-desenho-0811):
      * a nova tentativa do mesmo toque responde "já registrada" em vez de gravar de novo. Tenant explícito além do filtro;
      * o mesmo envio gravado em outro escritório não aparece aqui, e quem o barra é o índice único (user_id, id_envio).
+     *
+     * E10: lê o registro ORIGINAL, de propósito. O envio já gravado é o mesmo toque, mesmo que um ajuste o tenha
+     * corrigido ou tirado da conta depois: gravar de novo seria a duplicata que a idempotência existe para impedir.
      */
     public function doEnvio(User $user, Tenant $tenant, string $idEnvio): ?RegistroPonto
     {
@@ -289,29 +324,20 @@ SQL;
     }
 
     /**
-     * O primeiro repouso do dia NESTE escritório (repouso mínimo, regra da batida): tenant explícito além do filtro
-     * (spec `ponto-por-escritorio.md` §2.1). Com `$ate`, só o repouso até esse instante do dia: a batida guardada sem
-     * internet (spec ponto-desenho-0811 E14) não mede o intervalo contra um repouso batido depois dela.
+     * O primeiro repouso efetivo do dia NESTE escritório (repouso mínimo, regra da batida): escritório escrito na
+     * consulta (spec `ponto-por-escritorio.md` §2.1). Com `$ate`, só o repouso até esse instante do dia: a batida
+     * guardada sem internet (spec ponto-desenho-0811 E14) não mede o intervalo contra um repouso batido depois dela.
      */
-    public function findRepousoDoDia(User $user, Tenant $tenant, \DateTimeImmutable $dia, ?\DateTimeImmutable $ate = null): ?RegistroPonto
+    public function findRepousoDoDia(User $user, Tenant $tenant, \DateTimeImmutable $dia, ?\DateTimeImmutable $ate = null): ?MarcacaoDoPonto
     {
         $inicio = $dia->setTime(0, 0, 0);
         $fim    = $ate !== null ? min($ate, $dia->setTime(23, 59, 59)) : $dia->setTime(23, 59, 59);
 
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant = :tenant')
-            ->setParameter('tenant', $tenant)
-            ->andWhere('r.tipo = :tipo')
-            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
-            ->setParameter('user', $user)
-            ->setParameter('tipo', RegistroPonto::TIPO_REPOUSO)
-            ->setParameter('inicio', $inicio)
-            ->setParameter('fim', $fim)
-            ->orderBy('r.dataHora', 'ASC')
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+        return $this->efetivas(
+            self::ESCOPO_DA_PESSOA,
+            'WHERE e.efetiva_tipo = :tipo ORDER BY ' . self::EM_ORDEM . ' LIMIT 1',
+            self::daPessoa($user, $tenant, $inicio, $fim) + ['tipo' => RegistroPonto::TIPO_REPOUSO],
+        )[0] ?? null;
     }
 
     /**
@@ -334,94 +360,60 @@ SQL;
     }
 
     /**
-     * A última saída da pessoa NESTE escritório que FECHOU um turno: a batida imediatamente anterior a ela (por hora e
-     * id, no mesmo escritório) é entrada ou retorno, no máximo `$janelaHoras` antes (interjornada, spec
-     * `ponto-esquecimento-nao-trava.md` R4). A saída solta não conta. Sem limite de quantas saídas olhar. SQL nativo com
-     * usuário e escritório explícitos: não depende do filtro.
+     * A última saída efetiva da pessoa NESTE escritório que FECHOU um turno: a batida efetiva imediatamente anterior a
+     * ela (na ordem das efetivas, no mesmo escritório) é entrada ou retorno, no máximo `$janelaHoras` antes
+     * (interjornada, spec `ponto-esquecimento-nao-trava.md` R4). A saída solta não conta. Sem limite de quantas saídas
+     * olhar. SQL nativo com usuário e escritório explícitos: não depende do filtro.
      *
      * Só a saída até `$ate` (sem ele, até agora): a batida guardada sem internet (spec ponto-desenho-0811 E14) mede a
      * interjornada contra a saída anterior a ela, nunca contra uma saída batida depois.
      */
-    public function ultimaSaidaQueFechouTurno(User $user, Tenant $tenant, int $janelaHoras, ?\DateTimeImmutable $ate = null): ?RegistroPonto
+    public function ultimaSaidaQueFechouTurno(User $user, Tenant $tenant, int $janelaHoras, ?\DateTimeImmutable $ate = null): ?MarcacaoDoPonto
     {
-        $id = $this->getEntityManager()->getConnection()->fetchOne(self::SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO, [
-            'usuario' => $user->getId(),
-            'escritorio' => $tenant->getId(),
-            'janela' => $janelaHoras,
-            'ate' => ($ate ?? new \DateTimeImmutable())->format('Y-m-d H:i:s'),
-        ]);
-        if ($id === false || $id === null) {
-            return null;
-        }
-
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.id = :id')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant = :tenant')
-            ->setParameter('id', (int) $id)
-            ->setParameter('user', $user)
-            ->setParameter('tenant', $tenant)
-            ->getQuery()
-            ->getOneOrNullResult();
+        return $this->hidratadas(
+            self::SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO,
+            self::ESCOPO_DA_PESSOA,
+            self::daPessoa($user, $tenant, self::DESDE_SEMPRE, $ate ?? new \DateTimeImmutable()) + ['janela' => $janelaHoras],
+        )[0] ?? null;
     }
 
     /**
-     * As batidas da pessoa NAQUELE escritório no período, em ordem de horário. Duas fontes usam: a lista de pendências
-     * (spec `ponto-esquecimento-nao-trava.md` R5) e o banco de horas por lotes (spec ponto-desenho-0811, E17), que lê
-     * todos os meses desde o início da contagem numa consulta só (`FolhaPontoBuilder::saldosDoBancoComJornada`).
-     * Cross-tenant de propósito: a lista mostra à própria pessoa os outros escritórios dela, então o filtro de
-     * escritório fica suspenso e o escritório vai escrito na consulta (o banco passa sempre o escritório da folha).
-     * Quem chama já conferiu o vínculo ativo e o módulo de ponto.
+     * As batidas efetivas da pessoa NAQUELE escritório no período, na ordem das efetivas. Duas fontes usam: a lista de
+     * pendências (spec `ponto-esquecimento-nao-trava.md` R5) e o banco de horas por lotes (spec ponto-desenho-0811,
+     * E17), que lê todos os meses desde o início da contagem numa consulta só
+     * (`FolhaPontoBuilder::saldosDoBancoComJornada`). Cross-tenant de propósito: a lista mostra à própria pessoa os
+     * outros escritórios dela; o SQL nativo não passa pelo filtro de escritório, e o escritório vai escrito na consulta
+     * (o banco passa sempre o escritório da folha). Quem chama já conferiu o vínculo ativo e o módulo de ponto.
      *
-     * @return list<RegistroPonto>
+     * @return list<MarcacaoDoPonto>
      */
     public function batidasDoPeriodoNoEscritorio(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
     {
-        return $this->semFiltroDeEscritorio(fn (): array => $this->createQueryBuilder('r')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant = :tenant')
-            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
-            ->setParameter('user', $user)
-            ->setParameter('tenant', $tenant)
-            ->setParameter('inicio', $inicio)
-            ->setParameter('fim', $fim)
-            ->orderBy('r.dataHora', 'ASC')
-            ->addOrderBy('r.id', 'ASC')
-            ->getQuery()
-            ->getResult());
+        return $this->efetivas(self::ESCOPO_DA_PESSOA, 'ORDER BY ' . self::EM_ORDEM, self::daPessoa($user, $tenant, $inicio, $fim));
     }
 
     /**
-     * Só os HORÁRIOS das batidas da pessoa em qualquer outro escritório no período (`RegistroEmOutroEscritorioNoTurno`,
-     * spec `ponto-esquecimento-nao-trava.md` R8): o sinal da folha do admin diz só que houve registro, nunca onde. Só os
-     * escritórios com que a pessoa tem vínculo ativo. O filtro de escritório fica suspenso de propósito; a consulta não
-     * devolve escritório nem entidade.
+     * Só os HORÁRIOS das batidas efetivas da pessoa em qualquer outro escritório no período
+     * (`RegistroEmOutroEscritorioNoTurno`, spec `ponto-esquecimento-nao-trava.md` R8): o sinal da folha do admin diz só
+     * que houve registro, nunca onde. Só os escritórios com que a pessoa tem vínculo ativo. Cross-tenant de propósito
+     * (SQL nativo, fora do filtro de escritório); a consulta não devolve escritório nem entidade.
      *
      * @return list<\DateTimeImmutable>
      */
     public function horariosEmOutrosEscritorios(User $user, Tenant $exceto, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
     {
-        $linhas = $this->semFiltroDeEscritorio(fn (): array => $this->createQueryBuilder('r')
-            ->select('r.dataHora AS quando')
-            ->andWhere('r.user = :user')
-            ->andWhere('r.tenant <> :exceto')
-            ->andWhere('EXISTS (SELECT ut.id FROM App\Entity\Auth\UserTenant ut WHERE ut.user = r.user AND ut.tenant = r.tenant AND ut.isActive = true)')
-            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
-            ->setParameter('user', $user)
-            ->setParameter('exceto', $exceto)
-            ->setParameter('inicio', $inicio)
-            ->setParameter('fim', $fim)
-            ->orderBy('r.dataHora', 'ASC')
-            ->getQuery()
-            ->getArrayResult());
+        $horarios = $this->conexao()->fetchFirstColumn(
+            sprintf('SELECT e.efetiva_quando FROM (%s) e ORDER BY e.efetiva_quando', self::sqlDasEfetivas(self::ESCOPO_DOS_OUTROS_ESCRITORIOS, self::SO_O_ID)),
+            self::daPessoa($user, $exceto, $inicio, $fim),
+        );
 
-        return array_map(static fn (array $l): \DateTimeImmutable => \DateTimeImmutable::createFromInterface($l['quando']), $linhas);
+        return array_map(static fn (mixed $quando): \DateTimeImmutable => new \DateTimeImmutable((string) $quando), $horarios);
     }
 
     /**
      * Os OUTROS escritórios em que a pessoa está com o ponto aberto hoje (spec `ponto-por-escritorio.md` §2.2): a
-     * última batida do dia até o `agora` (por horário e depois id) não é saída, e houve entrada no dia até o `agora`.
-     * Batida lançada para depois do `agora` não conta.
+     * última batida efetiva do dia até o `agora` (na ordem das efetivas) não é saída, e houve entrada no dia até o
+     * `agora`. Batida lançada para depois do `agora` não conta.
      *
      * Cross-tenant DE PROPÓSITO: SQL nativo não passa pelo `TenantFilter`, e o escopo é todo escrito aqui. Só a própria
      * pessoa, só os escritórios em `$escritorios` (já conferidos pelo serviço: vínculo ativo e módulo de ponto), nunca o
@@ -439,15 +431,9 @@ SQL;
         \DateTimeImmutable $inicio,
         \DateTimeImmutable $agora,
     ): array {
-        $linhas = $this->getEntityManager()->getConnection()->executeQuery(
-            self::SQL_PONTO_ABERTO_EM_OUTROS_ESCRITORIOS,
-            [
-                'usuario' => $user->getId(),
-                'atual' => $atual->getId(),
-                'escritorios' => $escritorios,
-                'inicio' => $inicio->format('Y-m-d H:i:s'),
-                'agora' => $agora->format('Y-m-d H:i:s'),
-            ],
+        $linhas = $this->conexao()->executeQuery(
+            str_replace('{efetivas}', self::sqlDasEfetivas(self::ESCOPO_DOS_ESCRITORIOS_DA_LISTA, self::SO_O_ID), self::SQL_PONTO_ABERTO_EM_OUTROS_ESCRITORIOS),
+            self::daPessoa($user, $atual, $inicio, $agora) + ['escritorios' => $escritorios],
             ['escritorios' => ArrayParameterType::INTEGER],
         )->fetchAllAssociative();
 
@@ -474,6 +460,107 @@ SQL;
             ->setParameter('tenant', $sede->getTenant())
             ->getQuery()
             ->execute();
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // E10 (plano-e10-ponto §1): a montagem das batidas efetivas.
+    // ---------------------------------------------------------------------------------------------------------------
+
+    /**
+     * As efetivas do recorte, montadas, com o que vem depois da união (`$depois`: filtro, ordem e limite sobre `e`).
+     *
+     * @param array<string, mixed> $parametros
+     *
+     * @return list<MarcacaoDoPonto>
+     */
+    private function efetivas(string $escopo, string $depois, array $parametros): array
+    {
+        return $this->hidratadas('SELECT e.* FROM ({efetivas}) e ' . $depois, $escopo, $parametros);
+    }
+
+    /**
+     * Roda a consulta (com `{efetivas}` no lugar da união) e monta cada linha: o registro original, gerido pelo ORM,
+     * quando não há ajuste; a {@see BatidaAjustada} da cabeça, quando há.
+     *
+     * @param array<string, mixed> $parametros
+     *
+     * @return list<MarcacaoDoPonto>
+     */
+    private function hidratadas(string $consulta, string $escopo, array $parametros): array
+    {
+        $mapa = new ResultSetMappingBuilder($this->getEntityManager());
+        $mapa->addRootEntityFromClassMetadata(RegistroPonto::class, 'o');
+        foreach (self::COLUNAS_DA_EFETIVA as $coluna => $tipo) {
+            $mapa->addScalarResult($coluna, $coluna, $tipo);
+        }
+        $sql = str_replace('{efetivas}', self::sqlDasEfetivas($escopo, $mapa->generateSelectClause()), $consulta);
+
+        /** @var list<array<int|string, mixed>> $linhas */
+        $linhas = $this->getEntityManager()->createNativeQuery($sql, $mapa)->setParameters($parametros)->getResult();
+
+        return array_map(self::efetivaDaLinha(...), $linhas);
+    }
+
+    /** @param array<int|string, mixed> $linha */
+    private static function efetivaDaLinha(array $linha): MarcacaoDoPonto
+    {
+        $original = $linha[0] ?? null;
+        if ($linha['ajuste_id'] === null) {
+            return $original instanceof RegistroPonto ? $original : throw new \LogicException('Batida efetiva sem registro e sem ajuste.');
+        }
+        $original = $original instanceof RegistroPonto ? $original : null;
+
+        return new BatidaAjustada(
+            $original?->getId(),
+            $linha['ajuste_inclusao'] === null ? null : (int) $linha['ajuste_inclusao'],
+            (int) $linha['ajuste_id'],
+            (int) $linha['efetiva_pessoa'],
+            (string) $linha['efetiva_tipo'],
+            self::instante($linha['efetiva_quando']),
+            new AjusteDaMarcacao(
+                TipoDoAjuste::from((string) $linha['ajuste_tipo']),
+                (string) $linha['ajuste_autor'],
+                self::instante($linha['ajuste_em']),
+                $linha['ajuste_justificativa'] === null ? null : (int) $linha['ajuste_justificativa'],
+            ),
+            $original?->isHomeOffice() ?? false,
+            $original?->getObservacao(),
+        );
+    }
+
+    private static function instante(mixed $valor): \DateTimeImmutable
+    {
+        return $valor instanceof \DateTimeImmutable ? $valor : throw new \LogicException('Batida efetiva sem data e hora.');
+    }
+
+    /** A união das efetivas para o recorte, com as colunas do registro pedidas. */
+    private static function sqlDasEfetivas(string $escopo, string $colunas): string
+    {
+        return strtr(self::SQL_EFETIVAS, [
+            '{colunas}' => $colunas,
+            '{escopo_o}' => str_replace('{x}', 'o', $escopo),
+            '{escopo_a}' => str_replace('{x}', 'a', $escopo),
+        ]);
+    }
+
+    /**
+     * Os parâmetros do recorte da pessoa num escritório (no dos outros escritórios, o escritório é o que fica de fora).
+     *
+     * @return array{usuario: ?int, escritorio: ?int, inicio: string, fim: string}
+     */
+    private static function daPessoa(User $user, Tenant $tenant, \DateTimeInterface|string $inicio, \DateTimeInterface|string $fim): array
+    {
+        return ['usuario' => $user->getId(), 'escritorio' => $tenant->getId(), 'inicio' => self::quando($inicio), 'fim' => self::quando($fim)];
+    }
+
+    private static function quando(\DateTimeInterface|string $instante): string
+    {
+        return $instante instanceof \DateTimeInterface ? $instante->format('Y-m-d H:i:s') : $instante;
+    }
+
+    private function conexao(): Connection
+    {
+        return $this->getEntityManager()->getConnection();
     }
 
     // ---------------------------------------------------------------------------------------------------------------

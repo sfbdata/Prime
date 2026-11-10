@@ -9,7 +9,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\MembroDaEquipeOutput;
 use App\Ponto\DTO\PainelDaEquipeOutput;
-use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\Service\CalculadoraJornada;
@@ -78,18 +78,18 @@ final class ConsultarEquipeDoPontoUseCase
         return [...$eu_, ...$outros];
     }
 
-    /** @return array<int, list<RegistroPonto>> as batidas de hoje, pelo id da pessoa */
+    /** @return array<int, list<MarcacaoDoPonto>> as batidas efetivas de hoje, pelo id da pessoa (a incluída pelo gestor também) */
     private function batidasDeHojePorPessoa(Tenant $escritorio, \DateTimeImmutable $agora): array
     {
         $porPessoa = [];
         foreach ($this->registros->batidasDoDiaDaEquipe($escritorio, $agora) as $batida) {
-            $porPessoa[(int) $batida->getUser()?->getId()][] = $batida;
+            $porPessoa[$batida->pessoaId()][] = $batida;
         }
 
         return $porPessoa;
     }
 
-    /** @param list<RegistroPonto> $batidasDeHoje */
+    /** @param list<MarcacaoDoPonto> $batidasDeHoje */
     private function membro(UserTenant $vinculo, User $eu, Tenant $escritorio, array $batidasDeHoje, \DateTimeImmutable $agora): MembroDaEquipeOutput
     {
         $pessoa = $vinculo->getUser();
