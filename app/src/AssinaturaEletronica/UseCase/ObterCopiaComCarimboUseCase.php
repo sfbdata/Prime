@@ -78,6 +78,10 @@ final readonly class ObterCopiaComCarimboUseCase
      * O `d.pres.atual || d.pres.chave` do desenho (dc:383-384, 390): o último PDF devolvido por um signatário gov.br ou
      * ICP ou, sem ele, o original que já chegou assinado. O PDF para assinar (E5-1) é gerado pelo BlueJus e fica de
      * fora: sozinho, ele não é um "documento já assinado".
+     *
+     * Único ponto da busca da versão carimbada: nenhum outro lugar a refaz, e o repositório não ganha método para ela
+     * aqui. Na integração, o corpo deste método passa a ser
+     * `VersaoDoPdfRepository::ultimaQueNaoEParaAssinar($documento)`, que outra frente está criando.
      */
     private function ultimaAssinada(DocumentoParaAssinar $documento): ?VersaoDoPdf
     {
