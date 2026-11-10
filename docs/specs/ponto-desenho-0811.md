@@ -427,16 +427,21 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
         flash e sem redirecionar, com a frase em `mensagem` na recusa (404, 403 e 422, como antes). Sem caminho de
         formulário comum: a tela não tem esse formulário (a lixeira abre a janela), e extra só entra se for necessário
         (decisão do Coordenador, 09/11/2026);
-      - na tela (`ponto-abas.js`): a janela fecha, a linha sai e o foco volta para a aba. O número de "Minhas
+      - na tela (`ponto-abas.js`): a janela fecha, a linha sai e o foco volta para a aba. O leitor de tela ouve
+        "Justificativa de dd/mm/aaaa excluída." (a frase do flash de antes) numa região só para ele no fim do cartão
+        (`.pe-abas-voz`, aria-live), no molde do aviso da troca de escala da E5. O número de "Minhas
         Justificativas" acompanha a lista e some no zero; sem nenhuma linha, a frase da lista vazia do servidor. O
         número da Equipe baixa um quando a linha contava lá (a própria em análise de quem pode analisá-la, P43 a), e o
         painel da Equipe já buscado é buscado de novo quando a aba abrir. Sem a linha na tela, a aba abre de novo do
         servidor (`data-url-volta`);
       - excluir mexe na Folha (sai o selo do dia e o "+" do esquecimento volta) e nas pendências (a que o esquecimento
         cobria volta): o index ouve `ponto:justificativa-excluida` e chama `atualizarTelaDoPonto`, o caminho de depois
-        da batida (REGIOES_TROCADAS e o cartão da Folha, tudo ou nada). Falhou: fica como está, sem recarregar.
-      - testes: `ExcluirJustificativaControllerTest` (JSON sem flash e as recusas) e `PontoAbasJsTest`
-        (a linha sai, os números acompanham, a lista vazia, sem HTML montado com dado, o index atualiza sem recarregar).
+        da batida (REGIOES_TROCADAS e o cartão da Folha, tudo ou nada). Falhou: o mesmo plano B da batida (recarrega
+        em 1,5 s), porque essa busca pode ter passado à frente da de uma batida e a descartado, e o tipo recém-batido
+        ficaria livre na tela (revisão do Coordenador, 09/11/2026).
+      - testes: `ExcluirJustificativaControllerTest` (JSON sem flash e as recusas), `PontoAbasJsTest` (a linha sai, os
+        números acompanham, a lista vazia, o anúncio, sem HTML montado com dado, o index atualiza e cai no plano B) e
+        `TelaDoPontoSemRecarregarJsTest` (três recargas na tela).
 - Arquivos: `templates/ponto/_abas*.html.twig`, `_janelas_justificativa.html.twig`, `index.html.twig` (coluna da
   direita e REGIOES_TROCADAS), `public/js/ponto-abas.js`, `public/css/ponto-eletronico.css` (seção do cartão de abas e
   da janela), `PontoController` (rota de excluir; `abaAberta` e `podeAnalisarAPropria` no index), `TenantController`
@@ -576,7 +581,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     `veConfiguracoes`, `veAuditoria` (`GestaoDoPonto`) e `equipeAAnalisar` (`contarAAnalisar`, só para quem vê a Equipe;
     para os outros, 0 sem consulta), e o endereço abre `?aba=equipe` e `?aba=configuracoes`, além de justificativas e
     auditoria. Quem não vê a aba pedida cai em Pendências (`_abas.html.twig`). Testes em `AbasDeGestaoDoPontoTest`
-    (pela /ponto: o número da Equipe do gestor e do primário, o colaborador sem as abas, o endereço de cada aba);
+    (pela /ponto: o número da Equipe do gestor e do primário, o colaborador sem as abas, o endereço de cada aba e
+    `?aba=xyz` caindo em Pendências);
   - ligado na integração (09/11/2026): `AbonoPelaAnaliseDaJustificativa` chama
     `AnalisarJustificativaUseCase::abonarPorId` (E9); a recusa dele (`AnaliseDeJustificativaRecusadaException`) vira o
     motivo da frase; cada justificativa grava na própria transação, então uma recusa não desfaz as outras;

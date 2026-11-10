@@ -15,7 +15,7 @@
     molde das de gestão (painel buscado em `ponto_auditoria`), para quem tem `GestaoDoPonto::veAuditoria`.
 
     Recebe: pendencias, justificativas, abaAberta ('pendencias', 'justificativas', 'equipe', 'auditoria' ou
-    'configuracoes'), podeAnalisarAPropria, competenciaSelecionada (a volta da exclusão reabre a aba no mesmo mês) e,
+    'configuracoes'), podeAnalisarAPropria, competenciaSelecionada (o plano B da exclusão, sem a linha na tela, reabre a aba no mesmo mês) e,
     das abas de gestão, veEquipe, veAuditoria, veConfiguracoes e equipeAAnalisar (o número da aba Equipe).
 #}
 {% set veEquipe = veEquipe|default(false) %}
@@ -76,4 +76,8 @@
         <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-configuracoes" aria-labelledby="ponto-aba-configuracoes"
              data-carregar="{{ path('ponto_configuracoes') }}"{{ aberta == 'configuracoes' ? '' : ' hidden' }}></div>
     {% endif %}
+    {# Só para leitor de tela (aria-live), no molde do aviso da troca de escala da E5: a exclusão diz "Justificativa de
+       dd/mm/aaaa excluída." (a frase do flash de antes; a tela tira a linha sem recarregar). Fora dos painéis, para não
+       sair com a lista nem com a troca depois da batida. #}
+    <div class="pe-abas-voz" aria-live="polite" data-abas-aviso></div>
 </section>

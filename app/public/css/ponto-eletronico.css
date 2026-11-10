@@ -1139,7 +1139,9 @@
     font-size: 13px;
 }
 .pe-eq-erro[hidden] { display: none; }
-.pe-eq-voz {
+/* Só para leitor de tela: o aviso da troca de escala (E5) e o da exclusão da justificativa (E3, cartão de abas). */
+.pe-eq-voz,
+.pe-abas-voz {
     position: absolute;
     width: 1px;
     height: 1px;

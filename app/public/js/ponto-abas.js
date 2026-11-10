@@ -186,6 +186,15 @@
         confirmar.focus();
     }
 
+    // Só para leitor de tela (`[data-abas-aviso]`, aria-live), no molde do aviso da troca de escala da E5.
+    function anunciar(texto) {
+        const sec = cartao();
+        const voz = sec ? sec.querySelector('[data-abas-aviso]') : null;
+        if (voz) {
+            voz.textContent = texto;
+        }
+    }
+
     // O número da aba (o `span.pe-aba-num` do botão) acompanha a lista; no zero some, como o servidor faz.
     function baixarNumeroDaAba(aba, valor) {
         const numero = aba ? aba.querySelector('.pe-aba-num') : null;
@@ -215,10 +224,11 @@
     }
 
     // Excluída (P41; spec E3, "sem recarregar"): a linha sai na hora e o número da aba acompanha; sem nenhuma, a frase
-    // da lista vazia, a mesma do servidor. A Folha (o selo do dia e o "+" do esquecimento) e as pendências mudam junto:
+    // da lista vazia, a mesma do servidor. O leitor de tela ouve "Justificativa de dd/mm/aaaa excluída." (o flash de antes). A Folha (o selo do dia e o "+" do esquecimento) e as pendências mudam junto:
     // o index as busca pelo caminho de depois da batida (`ponto:justificativa-excluida`), sem recarregar a página.
     function tirarLinhaExcluida(linha) {
         const contavaNaEquipe = linha.querySelector('[data-analisar]') !== null;
+        const data = linha.querySelector('.pe-just-data');
         const corpo = linha.parentElement;
         linha.remove();
         const restantes = corpo.querySelectorAll('tr.pe-just-lin').length;
@@ -232,6 +242,7 @@
         if (contavaNaEquipe) {
             tirarDaEquipe();
         }
+        anunciar(data ? 'Justificativa de ' + data.textContent.trim() + ' excluída.' : 'Justificativa excluída.');
         document.dispatchEvent(new CustomEvent('ponto:justificativa-excluida'));
     }
 
@@ -357,7 +368,7 @@
     document.addEventListener('input', apagarErroAoEditar);
     document.addEventListener('change', apagarErroAoEditar);
 
-    // Entrou com `?aba=justificativas` (volta da análise ou da exclusão): o formulário do mês leva a aba junto.
+    // Entrou com `?aba=justificativas` (volta da análise, ou o plano B da exclusão): o formulário do mês leva a aba junto.
     function iniciar() {
         const escolhida = abasDoCartao().find(function (aba) { return aba.getAttribute('aria-selected') === 'true'; });
         if (escolhida) {

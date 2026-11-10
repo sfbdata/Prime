@@ -273,7 +273,8 @@ final class PontoController extends AbstractController
             // Virada do dia na tela: a próxima meia-noite no fuso do servidor, em ms (a tela soma o tempo passado).
             'proximaViradaMs'          => (int) $agora->modify('tomorrow')->format('Uv'),
             'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
-            // Cartão de abas (E3): Pendências abre ao entrar (P37); a volta da análise e da exclusão reabre a das justificativas.
+            // Cartão de abas (E3): Pendências abre ao entrar (P37); a volta da análise reabre a das justificativas (a da exclusão
+            // também, mas só no plano B do js/ponto-abas.js, quando a linha não está na tela).
             'abaAberta'                => \in_array($request->query->get('aba'), self::ABAS_PELO_ENDERECO, true) ? (string) $request->query->get('aba') : 'pendencias',
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
         ] + $this->abasDeGestao($user, $tenant, $gestao, $aAnalisarDaEquipe));
@@ -698,8 +699,8 @@ final class PontoController extends AbstractController
     /**
      * P41 (desenho do Ponto, E3): o colaborador exclui a própria justificativa ainda em análise, depois de
      * confirmar na janela. JSON para o `fetch` da aba, sem flash e sem redirecionar: a tela tira a linha na hora
-     * (um flash aqui sobraria para a próxima página). 404 de outro escritório, 403 de outra pessoa ou sem token,
-     * 422 já analisada, sempre com a frase em `mensagem`.
+     * (um flash aqui sobraria para a próxima página). As recusas do UseCase vêm com a frase em `mensagem`: 404 de
+     * outro escritório, 403 de outra pessoa e 422 já analisada. Sem token, o 403 do `validarCsrfAjax`, sem `mensagem`.
      *
      * Ponto único da exclusão: só a aba nova chama esta rota. Com o Ponto antigo de volta, tirar o atributo da rota
      * (a linha abaixo) desliga a exclusão inteira no servidor.

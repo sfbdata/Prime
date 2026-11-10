@@ -53,7 +53,8 @@ final class ExcluirJustificativaEmAnaliseUseCase
     }
 
     /**
-     * @return \DateTimeInterface o dia da justificativa excluída, para a mensagem da tela
+     * @return \DateTimeInterface o dia da justificativa excluída. A rota de excluir não o usa: a tela tira a linha e anuncia
+     *                            o dia que a linha já mostrava
      *
      * @throws ExclusaoDeJustificativaRecusadaException
      */

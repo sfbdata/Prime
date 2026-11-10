@@ -176,6 +176,7 @@ final class AbasDeGestaoDoPontoTest extends JusPrimeWebTestCase
 
         self::assertCount(0, $tela->filter('#ponto-aba-equipe, #ponto-aba-configuracoes, #ponto-painel-equipe, #ponto-painel-configuracoes'));
         self::assertCount(2, $tela->filter(self::BARRA . ' > button[role="tab"]'));
+        self::assertCount(1, $tela->filter('section.pe-abas > div.pe-abas-voz[aria-live="polite"][data-abas-aviso]:last-child:empty'), 'o aviso da exclusão, só para leitor de tela');
     }
 
     #[TestDox('Na /ponto, o primário vê a Equipe com a própria em análise no número (ele analisa a própria, P43 a)')]
@@ -214,6 +215,19 @@ final class AbasDeGestaoDoPontoTest extends JusPrimeWebTestCase
             self::assertCount(1, $tela->filter(self::BARRA . ' > button#ponto-aba-pendencias[aria-selected="true"][tabindex="0"]'), $aba . ': cai em Pendências');
             self::assertCount(1, $tela->filter('section.pe-abas > div#ponto-regiao-pendencias:not([hidden])'), $aba);
         }
+    }
+
+    #[TestDox('Na /ponto, uma aba que não existe (?aba=xyz) cai em Pendências, mesmo para quem vê todas')]
+    public function testAbaDesconhecidaCaiEmPendencias(): void
+    {
+        $gestor = $this->gestorDoPontoEDaEquipe();
+
+        $tela = $this->tela($gestor, '/ponto/?aba=xyz');
+
+        self::assertCount(1, $tela->filter(self::BARRA . ' > button#ponto-aba-pendencias[aria-selected="true"][tabindex="0"]'));
+        self::assertCount(0, $tela->filter(self::BARRA . ' > button[role="tab"][aria-selected="true"]:not(#ponto-aba-pendencias)'));
+        self::assertCount(1, $tela->filter('section.pe-abas > div#ponto-regiao-pendencias:not([hidden])'));
+        self::assertCount(0, $tela->filter('section.pe-abas > div[role="tabpanel"]:not([hidden]):not(#ponto-regiao-pendencias)'), 'só o painel das pendências aberto');
     }
 
     #[TestDox('Na /ponto, quem só gere as sedes vê Configurações e não a Equipe (nem o endereço dela)')]

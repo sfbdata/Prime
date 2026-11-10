@@ -49,8 +49,11 @@ final class TelaDoPontoSemRecarregarJsTest extends TestCase
             $depois,
             'recarrega só quando a atualização falhou; o botão só volta com a tela já atualizada'
         );
-        // Só duas recargas na tela: o plano B acima e o botão "Atualizar" da pessoa.
-        self::assertSame(2, substr_count($tela, 'window.location.reload()'));
+        // Só três recargas na tela: o plano B acima, o mesmo plano B da busca depois de excluir uma justificativa (E3) e o
+        // botão "Atualizar" da pessoa.
+        self::assertSame(3, substr_count($tela, 'window.location.reload()'));
+        $exclusao = self::trecho($tela, "document.addEventListener('ponto:justificativa-excluida', () => {", "\n    });");
+        self::assertStringContainsString('setTimeout(() => window.location.reload(), 1500);', $exclusao);
         self::assertStringContainsString("btnAtualizarPagina.addEventListener('click', () => window.location.reload());", $tela);
     }
 

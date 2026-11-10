@@ -1615,10 +1615,14 @@
     }
 
     // Excluir a justificativa (E3, js/ponto-abas.js) tira a linha na hora. A Folha (o selo do dia e o "+" do esquecimento)
-    // e as pendências mudam junto e vêm pelo caminho de depois da batida, sem recarregar a página. Falhou: fica como
-    // está, como depois da fila. O botão da batida não é tocado: a exclusão não o trava.
+    // e as pendências mudam junto e vêm pelo caminho de depois da batida, sem recarregar a página. Falhou: o mesmo plano B
+    // da batida (recarregar). Esta busca pode ter passado à frente da de uma batida, que foi descartada; sem a recarga, o
+    // tipo recém-batido ficaria livre na tela (risco de batida em dobro). O botão da batida não é tocado.
     document.addEventListener('ponto:justificativa-excluida', () => {
-        atualizarTelaDoPonto().catch((erro) => console.error('Falha ao atualizar a tela depois de excluir a justificativa:', erro));
+        atualizarTelaDoPonto().catch((erro) => {
+            console.error('Falha ao atualizar a tela depois de excluir a justificativa:', erro);
+            setTimeout(() => window.location.reload(), 1500);
+        });
     });
 
     // Recusa definitiva, com o tipo e o dia, porque a batida pode ter sido guardada até 72 h antes.

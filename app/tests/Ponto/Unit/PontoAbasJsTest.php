@@ -103,15 +103,37 @@ final class PontoAbasJsTest extends TestCase
         }
     }
 
-    #[TestDox('O index atualiza a Folha e as pendências depois de excluir pelo caminho de depois da batida, sem recarregar')]
+    #[TestDox('O index atualiza a Folha e as pendências depois de excluir pelo caminho de depois da batida; falhou, o plano B da batida')]
     public function testIndexAtualizaDepoisDeExcluir(): void
     {
         $index  = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
-        $ouvido = self::trecho($index, "document.addEventListener('ponto:justificativa-excluida', () => {", '});');
+        $ouvido = self::trecho($index, "document.addEventListener('ponto:justificativa-excluida', () => {", "\n    });");
 
-        self::assertStringContainsString('atualizarTelaDoPonto().catch(', $ouvido, 'as regiões da batida e o cartão da Folha, tudo ou nada');
-        self::assertStringNotContainsString('reload', $ouvido, 'falhou: fica como está');
+        self::assertStringContainsString('atualizarTelaDoPonto().catch((erro) => {', $ouvido, 'as regiões da batida e o cartão da Folha, tudo ou nada');
+        self::assertMatchesRegularExpression(
+            '/\.catch\(\(erro\) => \{\s+console\.error\([^;]+;\s+setTimeout\(\(\) => window\.location\.reload\(\), 1500\);\s+\}\);/',
+            $ouvido,
+            'falhou: recarrega, como a batida (a busca pode ter descartado a de uma batida)',
+        );
         self::assertStringNotContainsString('liberarBotaoBatida', $ouvido, 'o botão da batida não é da exclusão');
+    }
+
+    #[TestDox('Leitor de tela: a exclusão anuncia "Justificativa de dd/mm/aaaa excluída." na região só para ele, por textContent')]
+    public function testAnunciaAExclusao(): void
+    {
+        $js    = self::js();
+        $tirar = self::trecho($js, 'function tirarLinhaExcluida(linha) {', 'async function confirmarExclusao(botao) {');
+
+        self::assertStringContainsString("const data = linha.querySelector('.pe-just-data');", $tirar);
+        self::assertStringContainsString("anunciar(data ? 'Justificativa de ' + data.textContent.trim() + ' excluída.' : 'Justificativa excluída.');", $tirar);
+        $anunciar = self::trecho($js, 'function anunciar(texto) {', 'function baixarNumeroDaAba(aba, valor) {');
+        self::assertStringContainsString("sec.querySelector('[data-abas-aviso]')", $anunciar);
+        self::assertStringContainsString('voz.textContent = texto;', $anunciar);
+
+        $abas = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/_abas.html.twig');
+        self::assertMatchesRegularExpression('#<div class="pe-abas-voz" aria-live="polite" data-abas-aviso></div>\s+</section>#', $abas, 'fora dos painéis, no fim do cartão');
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/ponto-eletronico.css');
+        self::assertMatchesRegularExpression('/\.pe-eq-voz,\s+\.pe-abas-voz \{[^}]*clip: rect\(0, 0, 0, 0\);/', $css, 'escondida como a da E5');
     }
 
     #[TestDox('A janela: Esc fecha, clicar fora não fecha (o desenho não fecha), o foco não sai dela')]
