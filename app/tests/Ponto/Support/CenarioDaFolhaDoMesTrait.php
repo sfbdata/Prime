@@ -15,12 +15,14 @@ use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Repository\TrilhaDoPontoRepository;
+use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\CodigoDaFolha;
 use App\Ponto\Service\ConteudoDaFolhaDoMes;
 use App\Ponto\Service\DadosDaFolhaExportada;
 use App\Ponto\Service\EmissaoDaFolha;
 use App\Ponto\Service\EstadoDoAceiteDaFolha;
+use App\Ponto\Service\FeriadosDaPessoa;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\FuncaoDoAceite;
 use App\Ponto\Service\FuncoesDoPonto;
@@ -104,6 +106,8 @@ trait CenarioDaFolhaDoMesTrait
             $container->get(FolhaPontoBuilder::class),
             $container->get(DadosDaFolhaExportada::class),
             new LinhasDaFolhaImpressa(),
+            $container->get(FeriadosDaPessoa::class),
+            $container->get(CalculadoraJornada::class),
         );
     }
 

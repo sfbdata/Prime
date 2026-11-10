@@ -42,7 +42,7 @@ final class LinhasDaFolhaImpressaTest extends TestCase
         self::assertSame('Registro incompleto', $incompleto->observacao);
         self::assertSame([true, false], [$incompleto->incompleto, $incompleto->foraDeSequencia]);
         self::assertSame('Horário fora de sequência: revisar', $fora->observacao, 'fora de sequência OU incompleto, nunca os dois');
-        self::assertTrue($fora->foraDeSequencia);
+        self::assertSame([true, false], [$fora->foraDeSequencia, $fora->incompleto], 'o incompleto do motor no par invertido não conta: a linha mostra só o fora de sequência');
         self::assertSame('Falta Justificada: em análise', $emAnalise->observacao);
         self::assertSame('Atestado Médico: recusada', $recusada->observacao);
         self::assertSame(['rejeitado'], $recusada->justificativas);
@@ -106,6 +106,16 @@ final class LinhasDaFolhaImpressaTest extends TestCase
         self::assertSame(['FERIADO', true, 'Feriado: Finados'], [$semBatida->semana, $semBatida->feriadoSemBatida, $semBatida->observacao]);
         self::assertSame(['0:00', '0:00', '+0:00'], [$semBatida->trabalhadas, $semBatida->extras, $semBatida->saldo]);
         self::assertSame(['Segunda', false], [$comBatida->semana, $comBatida->feriadoSemBatida]);
+    }
+
+    #[TestDox('Feriado de quem monta a folha (todo dia de feriado): vale também no dia que o motor não apurou, sem mudar as horas')]
+    public function testFeriadoDoMesEmDiaNaoApurado(): void
+    {
+        $linhas = $this->impressao->imprimir([$this->dia('2026-10-28'), $this->dia('2026-10-29')], [], ['2026-10-28' => 'Dia do Servidor Público']);
+
+        self::assertSame(['Dia do Servidor Público', 'FERIADO', true, 'Feriado: Dia do Servidor Público'], [$linhas[0]->feriado, $linhas[0]->semana, $linhas[0]->feriadoSemBatida, $linhas[0]->observacao]);
+        self::assertSame(['', '', ''], [$linhas[0]->trabalhadas, $linhas[0]->extras, $linhas[0]->saldo], 'as horas do motor (dia sem conta)');
+        self::assertSame([null, 'Quinta', ''], [$linhas[1]->feriado, $linhas[1]->semana, $linhas[1]->observacao]);
     }
 
     /** @param array<string, string> $horarios */

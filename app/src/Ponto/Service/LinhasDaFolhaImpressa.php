@@ -20,7 +20,13 @@ use App\Ponto\Entity\JustificativaPonto;
  * office, sem internet e trabalho externo.
  *
  * "Fora de sequência" é a regra da célula "Saldo dia" da tela (`ponto/_folha_saldo_dia.html.twig`): um horário menor
- * que o anterior que existe. As duas ficam iguais (teste de paridade).
+ * que o anterior que existe. As duas ficam iguais (teste de paridade). A marca "incompleto" da linha é a do dia que
+ * mostra "Registro incompleto": o motor marca também o dia com as quatro batidas e um par invertido, que aqui mostra
+ * "Horário fora de sequência: revisar" e conta só como "a revisar" (desenho L616, L618 e L626).
+ *
+ * O feriado é o de TODO dia de feriado do mês (desenho L612, L622 e L678), que quem monta a folha passa em
+ * `$feriadosDoMes`: o motor só marca o feriado no dia que ele apura (com jornada, não futuro, depois do início da
+ * contagem). As horas continuam as do motor.
  */
 final class LinhasDaFolhaImpressa
 {
@@ -36,28 +42,30 @@ final class LinhasDaFolhaImpressa
     /**
      * @param array<int, array<string, mixed>> $linhas         as de `FolhaPontoBuilder::buildRows`, um dia por linha
      * @param JustificativaPonto[]             $justificativas todas as do mês, na ordem da consulta (id crescente no dia)
+     * @param array<string, string>            $feriadosDoMes  'AAAA-MM-DD' => o nome do feriado, em todo dia de feriado
      *
      * @return list<LinhaDaFolhaImpressa>
      */
-    public function imprimir(array $linhas, array $justificativas): array
+    public function imprimir(array $linhas, array $justificativas, array $feriadosDoMes = []): array
     {
         $porDia = [];
         foreach ($justificativas as $justificativa) {
             $porDia[$justificativa->getData()?->format('Y-m-d') ?? ''][] = $justificativa;
         }
 
-        return array_values(array_map(fn (array $linha): LinhaDaFolhaImpressa => $this->linha($linha, $porDia[(string) $linha['chaveDia']] ?? []), $linhas));
+        return array_values(array_map(fn (array $linha): LinhaDaFolhaImpressa => $this->linha($linha, $porDia[(string) $linha['chaveDia']] ?? [], $feriadosDoMes[(string) $linha['chaveDia']] ?? null), $linhas));
     }
 
     /**
      * @param array<string, mixed>     $linha
      * @param list<JustificativaPonto> $justificativasDoDia
+     * @param ?string                  $feriadoDoDia        o nome do feriado do dia; sem ele, o que o motor marcou
      */
-    public function linha(array $linha, array $justificativasDoDia): LinhaDaFolhaImpressa
+    public function linha(array $linha, array $justificativasDoDia, ?string $feriadoDoDia = null): LinhaDaFolhaImpressa
     {
         $fora = self::foraDeSequencia($linha);
         $batidas = self::batidas($linha);
-        $feriado = empty($linha['isFeriado']) ? null : (string) ($linha['nomeFeriado'] ?? '');
+        $feriado = $feriadoDoDia ?? (empty($linha['isFeriado']) ? null : (string) ($linha['nomeFeriado'] ?? ''));
         $semBatida = $feriado !== null && !self::temBatida($linha);
 
         return new LinhaDaFolhaImpressa(
@@ -72,7 +80,7 @@ final class LinhasDaFolhaImpressa
             ($linha['saldoAcumulado'] ?? 0) < 0,
             $this->observacao($linha, $fora, $feriado, $justificativasDoDia),
             $fora,
-            (bool) ($linha['registroIncompleto'] ?? false),
+            !$fora && !empty($linha['registroIncompleto']),
             $feriado,
             array_map(static fn (JustificativaPonto $justificativa): string => (string) $justificativa->getStatus(), $justificativasDoDia),
         );

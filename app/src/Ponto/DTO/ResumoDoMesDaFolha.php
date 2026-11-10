@@ -23,7 +23,9 @@ final readonly class ResumoDoMesDaFolha
     }
 
     /**
-     * Os números da folha exportada e as contagens das linhas impressas.
+     * Os números da folha exportada e as contagens das linhas impressas: incompletos são os dias cuja linha mostra
+     * "Registro incompleto" e a revisar os que mostram "Horário fora de sequência: revisar" (desenho L616, L618 e
+     * L626). Os dois nunca caem no mesmo dia ({@see \App\Ponto\Service\LinhasDaFolhaImpressa}).
      *
      * @param array<string, mixed>       $dados  o array de {@see \App\Ponto\Service\DadosDaFolhaExportada::montar()}
      * @param list<LinhaDaFolhaImpressa> $linhas

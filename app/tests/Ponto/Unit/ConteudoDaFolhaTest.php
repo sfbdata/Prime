@@ -100,20 +100,24 @@ final class ConteudoDaFolhaTest extends TestCase
         self::assertSame('', CabecalhoDaFolha::ctpsMascarada('  '));
     }
 
-    #[TestDox('Resumo do mês: os totais da folha exportada e os dias incompletos e a revisar, contados nas linhas')]
+    #[TestDox('Resumo do mês: os totais da folha exportada e os dias incompletos e a revisar, contados pelo que cada linha mostra')]
     public function testResumoDoMes(): void
     {
         $impressao = new LinhasDaFolhaImpressa();
+        // O dia com as quatro batidas e a saída antes da entrada: o motor marca incompleto, a linha mostra "a revisar".
+        $invertido = $impressao->linha($this->dia(['saida' => '07:30:00', 'registroIncompleto' => true]), []);
         $linhas = [
             $impressao->linha($this->dia(['saida' => '', 'registroIncompleto' => true]), []),
             $impressao->linha($this->dia(['retorno' => '11:00:00']), []),
+            $invertido,
             $impressao->linha($this->dia(), []),
         ];
 
         $resumo = ResumoDoMesDaFolha::daFolhaExportada($this->dadosExportados(), $linhas);
 
         self::assertSame(['168:00', '2:00', '+1:00', '+3:00', '0:00'], [$resumo->trabalhadas, $resumo->extras, $resumo->saldoAnterior, $resumo->saldoAtual, $resumo->horasACompensar]);
-        self::assertSame('1 · 1', $resumo->textoDosIncompletos());
+        self::assertSame('1 · 2', $resumo->textoDosIncompletos());
+        self::assertSame('0 · 1', ResumoDoMesDaFolha::daFolhaExportada($this->dadosExportados(), [$invertido])->textoDosIncompletos(), 'desenho L616, L618 e L626');
     }
 
     #[TestDox('Carimbo do aceite (L700) e faixa de validação (L703): os textos com data e hora da emissão')]

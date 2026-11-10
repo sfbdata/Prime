@@ -8,7 +8,9 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\CabecalhoDaFolha;
 use App\Ponto\DTO\ConteudoDaFolha;
+use App\Ponto\DTO\LinhaDaFolhaImpressa;
 use App\Ponto\DTO\ResumoDoMesDaFolha;
+use App\Ponto\Entity\Feriado;
 use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
@@ -22,6 +24,9 @@ use App\Repository\UserTenantRepository;
  * o início da contagem e o {@see DadosDaFolhaExportada}; tudo com o escritório escrito à mão, nunca o da sessão.
  *
  * `$hoje` é o dia de referência (o relógio de quem chama): o dia depois dele não tem conta e sai com as horas vazias.
+ *
+ * O feriado da linha impressa sai dos mesmos feriados que o motor recebe, filtrados pela mesma regra (os que valem para
+ * a pessoa no dia, {@see FeriadosDaPessoa}), em todo dia do mês: o motor só marca o feriado no dia que apura.
  */
 final class ConteudoDaFolhaDoMes
 {
@@ -39,6 +44,8 @@ final class ConteudoDaFolhaDoMes
         private readonly FolhaPontoBuilder $builder,
         private readonly DadosDaFolhaExportada $dadosDaFolha,
         private readonly LinhasDaFolhaImpressa $impressao,
+        private readonly FeriadosDaPessoa $feriadosDaPessoa,
+        private readonly CalculadoraJornada $calculadora,
     ) {
     }
 
@@ -66,21 +73,42 @@ final class ConteudoDaFolhaDoMes
         );
         $jornadaDoCabecalho = $this->jornadas->historicoDe($pessoa, $escritorio)?->vigenteEm($fimDoMes);
         $dados = $this->dadosDaFolha->montar($pessoa, $escritorio, $ano, $mes, $linhas, $feriados, $jornadaDoCabecalho, $jornadaDoEscritorio, $inicioDaContagem);
+        $impressas = $this->impressao->imprimir($linhas, $justificativas, $this->feriadosDoMes($feriados, $pessoa, $inicioDoMes, $fimDoMes));
 
-        return $this->conteudo($escritorio, $pessoa, $ano, $mes, $linhas, $justificativas, $dados);
+        return $this->conteudo($escritorio, $pessoa, $ano, $mes, $linhas, $impressas, $dados);
     }
 
     /**
-     * @param array<int, array<string, mixed>>         $linhas
-     * @param \App\Ponto\Entity\JustificativaPonto[] $justificativas
-     * @param array<string, mixed>                     $dados
+     * O nome do feriado de cada dia de feriado do mês, pela regra do motor (o feriado do dia entre os que valem para a
+     * pessoa nele), também no dia que o motor não apura: o futuro, o de antes do início da contagem e o sem jornada.
+     *
+     * @param Feriado[] $feriados os do escritório
+     *
+     * @return array<string, string> 'AAAA-MM-DD' => o nome
      */
-    private function conteudo(Tenant $escritorio, User $pessoa, int $ano, int $mes, array $linhas, array $justificativas, array $dados): ConteudoDaFolha
+    private function feriadosDoMes(array $feriados, User $pessoa, \DateTimeImmutable $inicioDoMes, \DateTimeImmutable $fimDoMes): array
+    {
+        $nomes = [];
+        for ($dia = $inicioDoMes; $dia <= $fimDoMes; $dia = $dia->modify('+1 day')) {
+            $feriado = $this->calculadora->getFeriadoDoDia($dia, $this->feriadosDaPessoa->filtrar($feriados, $pessoa, $dia));
+            if ($feriado !== null) {
+                $nomes[$dia->format('Y-m-d')] = (string) $feriado->getNome();
+            }
+        }
+
+        return $nomes;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $linhas
+     * @param list<LinhaDaFolhaImpressa>       $impressas
+     * @param array<string, mixed>             $dados
+     */
+    private function conteudo(Tenant $escritorio, User $pessoa, int $ano, int $mes, array $linhas, array $impressas, array $dados): ConteudoDaFolha
     {
         $jornadaDoEscritorio = $escritorio->getJornadaTenant();
         $minimoIntrajornada = $jornadaDoEscritorio?->getMinimoMinutosRepouso() ?? self::MINIMO_INTRAJORNADA;
         $minimoInterjornada = $jornadaDoEscritorio?->getMinimoMinutosInterjornada() ?? self::MINIMO_INTERJORNADA;
-        $impressas = $this->impressao->imprimir($linhas, $justificativas);
 
         return new ConteudoDaFolha(
             $ano,
