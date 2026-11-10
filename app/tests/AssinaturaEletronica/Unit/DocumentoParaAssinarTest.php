@@ -130,6 +130,25 @@ final class DocumentoParaAssinarTest extends TestCase
         self::assertTrue($vencido->estaNaLixeira());
     }
 
+    #[TestDox('"Cancelar envio" recusa o documento na Lixeira: o vencido que está lá continua Aguardando (Expirado)')]
+    public function testCancelarEnvioRecusaNaLixeira(): void
+    {
+        $agora = new \DateTimeImmutable('2026-11-09 12:00:00');
+        $vencido = self::documento();
+        self::situacao($vencido, SituacaoDoDocumento::Aguardando);
+        self::venceEm($vencido, new \DateTimeImmutable('2026-11-09 11:59:59'));
+        $vencido->moverParaLixeira(null, $agora);
+
+        try {
+            $vencido->cancelarEnvio();
+            self::fail('o cancelar envio passou na Lixeira');
+        } catch (AcaoRecusada $e) {
+            self::assertSame('assinatura_eletronica.erro.cancelar_fora_do_envio', $e->getMessage());
+        }
+        self::assertSame(SituacaoDoDocumento::Aguardando, $vencido->getSituacao());
+        self::assertTrue($vencido->estaVencido($agora));
+    }
+
     #[TestDox('restaurar tira da Lixeira e não reativa o envio cancelado')]
     public function testRestaurar(): void
     {

@@ -27,8 +27,8 @@ use Doctrine\ORM\Mapping as ORM;
  * Um documento da tela Assinatura (contrato da etapa 1, seção 3.2). Nasce rascunho; só o rascunho aceita alteração.
  * Os blocos chegam montados pelo navegador e já validados ({@see \App\AssinaturaEletronica\Service\ValidadorDeBlocos}).
  *
- * Lixeira (desenho): mover cancela o envio que aguardava assinatura; restaurar não o reativa. Só rascunho na Lixeira
- * sai de vez (os enviados ficam para preservar as evidências).
+ * Lixeira (desenho): mover cancela o envio que aguardava assinatura só dentro do prazo (o vencido continua Expirado);
+ * restaurar não o reativa. Só rascunho na Lixeira sai de vez (os enviados ficam para preservar as evidências).
  *
  * Etapa 2 (contrato da etapa 2, seção 4.1): enviar congela o conteúdo (Rascunho vira Aguardando, com o hash do conteúdo
  * canônico e o prazo contado da hora do envio); cada signatário assina na vez dele (com "em ordem", depois de todos os
@@ -423,10 +423,13 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         $this->vinculoPendente = false;
     }
 
-    /** "Cancelar envio" do detalhe: só o que aguarda assinatura. Documento e evidências ficam. */
+    /**
+     * "Cancelar envio" do detalhe: só o que aguarda assinatura fora da Lixeira. Documento e evidências ficam. Na Lixeira
+     * o vencido continua Aguardando (Expirado na tela) e não tem envio a cancelar.
+     */
     public function cancelarEnvio(): void
     {
-        if ($this->situacao !== SituacaoDoDocumento::Aguardando) {
+        if ($this->situacao !== SituacaoDoDocumento::Aguardando || $this->estaNaLixeira()) {
             throw new AcaoRecusada('assinatura_eletronica.erro.cancelar_fora_do_envio');
         }
 
