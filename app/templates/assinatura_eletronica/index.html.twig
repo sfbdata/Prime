@@ -35,11 +35,11 @@
     vincular: path('assinatura_eletronica_vincular', {id: 0}),
     pastas: path('assinatura_eletronica_pastas')
 }) %}
-{# Etapa 5, bloco 5A: a conferência do PDF do passo 1 (sem gravar) e a "Cópia com carimbo visível" do bloco 5B. A rota
-   do carimbo chega com o 5B: até lá o caminho fica escrito aqui, com o mesmo marcador 0 no lugar do {id}. #}
+{# Etapa 5, bloco 5A: a conferência do PDF do passo 1 (sem gravar) e a "Cópia com carimbo visível" do bloco 5B, com o
+   mesmo marcador 0 no lugar do {id}. #}
 {%- set urls = urls|merge({
     pdf_conferir: path('assinatura_eletronica_pdf_conferir'),
-    carimbo: '/assinatura/documentos/0/carimbo'
+    carimbo: path('assinatura_eletronica_carimbo', {id: 0})
 }) %}
 <div class="bja" id="bjaPagina"
      data-eu="{{ eu|json_encode|e('html_attr') }}"
