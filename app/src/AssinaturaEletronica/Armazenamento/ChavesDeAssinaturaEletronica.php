@@ -111,7 +111,8 @@ final class ChavesDeAssinaturaEletronica
 
     /**
      * Versão nova do PDF de um documento (etapa 5): sempre PDF, o nome é cunhado pelo storage. Grava-se o arquivo
-     * antes de criar a {@see VersaoDoPdf}, que recebe o nome da chave.
+     * antes de criar a {@see VersaoDoPdf}, que recebe o nome da chave. Toda versão tem arquivo próprio criado aqui,
+     * inclusive o `original` (cópia do PDF enviado): nunca reaproveita a chave do PDF do documento.
      */
     public static function novaVersao(DocumentoParaAssinar $documento): NovoArquivo
     {

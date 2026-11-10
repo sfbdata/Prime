@@ -74,6 +74,21 @@ class VersaoDoPdfRepository extends ServiceEntityRepository
         $em->flush();
     }
 
+    /**
+     * Apaga na hora (com `flush`) o `original` de um rascunho, para o original novo entrar em seguida sem bater nos
+     * índices únicos (o Doctrine grava os INSERT antes dos DELETE num mesmo `flush`). O arquivo sai depois do COMMIT,
+     * por quem chama ({@see \App\Shared\Armazenamento\RemocaoAposTransacao}).
+     *
+     * @throws \LogicException versão que não é o original de documento em rascunho
+     */
+    public function remover(VersaoDoPdf $versao): void
+    {
+        $versao->exigirRemovivel();
+        $em = $this->getEntityManager();
+        $em->remove($versao);
+        $em->flush();
+    }
+
     private function primeiraDaOrigem(DocumentoParaAssinar $documento, OrigemDaVersao $origem): ?VersaoDoPdf
     {
         return $this->doDocumentoQb($documento)

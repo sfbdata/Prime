@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Entity;
 
 use App\AssinaturaEletronica\Enum\OrigemDaVersao;
 use App\AssinaturaEletronica\Enum\SituacaoDaCadeia;
+use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\Shared\Attribute\SemIsolamentoDeTenant;
 use Doctrine\ORM\Mapping as ORM;
@@ -14,14 +15,22 @@ use Doctrine\ORM\Mapping as ORM;
  * Uma versão guardada do PDF de um documento (contrato da etapa 5, seção 2, itens 1 e 2): o original que já chegou com
  * assinaturas digitais, o PDF para assinar congelado na primeira geração (E5-1) ou o PDF que um signatário gov.br ou
  * ICP devolveu assinado. O arquivo é guardado byte a byte e nunca muda: a versão só se cria, e a seguinte tem de
- * começar com a anterior.
+ * começar com a anterior. A única que sai é o `original` de documento em rascunho ({@see exigirRemovivel()}): o rascunho
+ * troca o PDF, e o arquivo dela sai depois do COMMIT.
+ *
+ * Cada versão tem arquivo próprio, gravado por
+ * {@see \App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica::novaVersao()}: nunca reaproveita a chave
+ * do PDF do documento (`arquivo_enviado_chave`), para a troca do PDF no rascunho, a exclusão e o espelho tratarem cada
+ * arquivo uma vez só.
  *
  * `ordem` conta de 1 para cima dentro do documento (único por documento): a última versão é a de maior ordem, e quem
- * cria a seguinte decide com a linha do documento travada. `analise` é o resultado do motor de conferência no JSON
+ * cria a seguinte decide com a linha do documento travada. No máximo um `original` e um `para_assinar` por documento
+ * (índices únicos parciais). `analise` é o resultado do motor de conferência no JSON
  * versionado da {@see \App\AssinaturaEletronica\Service\SerializacaoDaConferencia} (`{"v":1,...}`).
  *
  * Etapa 6 (E6-7): `cadeia` guarda o JSON do {@see \App\AssinaturaEletronica\Service\Cadeia\ResultadoDaCadeia}, com a
- * situação e a hora da conferência. Gravada uma vez; só a conferência que ficou indisponível pode ser refeita.
+ * situação (confirmada ou recusada) e a hora da conferência, gravada uma vez. Validador indisponível não grava nada
+ * (E6-4): o envio do PDF assinado é recusado e o signatário tenta de novo.
  *
  * Sem `tenant_id`: o escritório é o do documento (CASCADE). O signatário que devolveu vira nulo se a linha dele sair
  * (`ON DELETE SET NULL`), e a versão continua como prova.
@@ -29,6 +38,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: VersaoDoPdfRepository::class)]
 #[ORM\Table(name: 'assinatura_eletronica_versao')]
 #[ORM\UniqueConstraint(name: 'uniq_assinatura_eletronica_versao_ordem', columns: ['documento_id', 'ordem'])]
+#[ORM\UniqueConstraint(name: 'uniq_assinatura_eletronica_versao_original', columns: ['documento_id'], options: ['where' => "((origem)::text = 'original'::text)"])]
+#[ORM\UniqueConstraint(name: 'uniq_assinatura_eletronica_versao_para_assinar', columns: ['documento_id'], options: ['where' => "((origem)::text = 'para_assinar'::text)"])]
 #[SemIsolamentoDeTenant('Filho do documento (TenantAware, CASCADE): só é lido a partir do documento já filtrado pelo escritório ou, na tela pública, pelo token do signatário')]
 class VersaoDoPdf
 {
@@ -125,13 +136,16 @@ class VersaoDoPdf
     }
 
     /**
-     * O PDF para assinar congelado na primeira geração (E5-1), de documento já enviado.
+     * O PDF para assinar congelado na primeira geração (E5-1), de documento aguardando assinatura.
      *
      * @param array<string, mixed> $analise
      */
     public static function paraAssinar(DocumentoParaAssinar $documento, int $ordem, string $arquivoChave, string $nomeOriginal, string $sha256, int $tamanho, array $analise, \DateTimeImmutable $agora): self
     {
         self::exigirEnviado($documento);
+        if ($documento->getSituacao() !== SituacaoDoDocumento::Aguardando) {
+            throw new \LogicException('O PDF para assinar só é gerado com o documento aguardando assinatura.');
+        }
 
         return new self($documento, null, $ordem, OrigemDaVersao::ParaAssinar, $arquivoChave, $nomeOriginal, $sha256, $tamanho, $analise, $agora);
     }
@@ -153,26 +167,35 @@ class VersaoDoPdf
     }
 
     /**
-     * O que o validador de cadeia disse (E6-7). Indisponível vem sem o JSON; confirmada e recusada, com ele. Uma vez só:
-     * depois de confirmada ou recusada, a conferência não é trocada.
+     * O que o validador de cadeia disse (E6-7): confirmada ou recusada, com o JSON da resposta. Uma vez só. Indisponível
+     * nunca é gravado (E6-4): quem chama recusa o envio do PDF assinado antes de chegar aqui.
      *
-     * @param array<string, mixed>|null $cadeia o JSON do ResultadoDaCadeia (`{"v":1,...}`)
+     * @param array<string, mixed> $cadeia o JSON do ResultadoDaCadeia (`{"v":1,...}`)
      */
-    public function registrarCadeia(SituacaoDaCadeia $situacao, ?array $cadeia, \DateTimeImmutable $agora): void
+    public function registrarCadeia(SituacaoDaCadeia $situacao, array $cadeia, \DateTimeImmutable $agora): void
     {
-        if ($this->cadeiaSituacao !== null && $this->cadeiaSituacao !== SituacaoDaCadeia::Indisponivel) {
+        if ($this->cadeiaSituacao !== null) {
             throw new \LogicException('A cadeia desta versão já foi conferida.');
         }
-        if (($situacao === SituacaoDaCadeia::Indisponivel) !== ($cadeia === null)) {
-            throw new \LogicException('Só a cadeia indisponível fica sem o resultado do validador.');
+        if ($situacao === SituacaoDaCadeia::Indisponivel) {
+            throw new \LogicException('Cadeia indisponível não é gravada (E6-4).');
         }
-        if ($cadeia !== null) {
-            self::exigirAnalise($cadeia);
-        }
+        self::exigirAnalise($cadeia);
 
         $this->cadeia = $cadeia;
         $this->cadeiaSituacao = $situacao;
         $this->cadeiaConferidaEm = self::emSegundos($agora);
+    }
+
+    /**
+     * Só o `original` de documento em rascunho sai (o rascunho troca o PDF; o 5A apaga o original antigo antes de guardar o
+     * novo). As demais versões são prova do envio e só saem com o documento (CASCADE).
+     */
+    public function exigirRemovivel(): void
+    {
+        if ($this->origem !== OrigemDaVersao::Original || !$this->documento->ehRascunho()) {
+            throw new \LogicException('Só o original de documento em rascunho sai.');
+        }
     }
 
     public function getId(): ?int

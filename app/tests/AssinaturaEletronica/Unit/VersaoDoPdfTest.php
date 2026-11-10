@@ -51,7 +51,7 @@ final class VersaoDoPdfTest extends TestCase
         self::assertLogica('O original só é guardado no rascunho.', static fn () => VersaoDoPdf::original($enviado, 1, 'o.pdf', 'o.pdf', self::SHA, 1, self::ANALISE, new \DateTimeImmutable()));
     }
 
-    #[TestDox('para assinar: só de documento enviado, sem signatário')]
+    #[TestDox('para assinar: só de documento enviado e aguardando assinatura, sem signatário')]
     public function testParaAssinar(): void
     {
         $versao = VersaoDoPdf::paraAssinar(self::enviado(), 1, 'para.pdf', 'para_assinar_contrato.pdf', self::SHA, 99, self::ANALISE, new \DateTimeImmutable());
@@ -61,6 +61,24 @@ final class VersaoDoPdfTest extends TestCase
 
         $rascunho = self::rascunho();
         self::assertLogica('Só documento enviado tem PDF para assinar ou devolvido.', static fn () => VersaoDoPdf::paraAssinar($rascunho, 1, 'p.pdf', 'p.pdf', self::SHA, 1, self::ANALISE, new \DateTimeImmutable()));
+        $cancelado = self::enviado();
+        $cancelado->moverParaLixeira(null, new \DateTimeImmutable());
+        self::assertLogica('O PDF para assinar só é gerado com o documento aguardando assinatura.', static fn () => VersaoDoPdf::paraAssinar($cancelado, 1, 'p.pdf', 'p.pdf', self::SHA, 1, self::ANALISE, new \DateTimeImmutable()));
+    }
+
+    #[TestDox('remoção: só o original de documento em rascunho sai; o PDF para assinar, a devolvida e o original depois do envio, não')]
+    public function testRemovivel(): void
+    {
+        $documento = self::rascunho();
+        $original = VersaoDoPdf::original($documento, 1, 'o.pdf', 'o.pdf', self::SHA, 1, self::ANALISE, new \DateTimeImmutable());
+        $original->exigirRemovivel();
+
+        $documento->enviar(str_repeat('f', 64), new \DateTimeImmutable('2026-11-09 10:00:00'));
+        $paraAssinar = VersaoDoPdf::paraAssinar($documento, 2, 'p.pdf', 'p.pdf', self::SHA, 1, self::ANALISE, new \DateTimeImmutable());
+        $devolvida = VersaoDoPdf::devolvida($documento->getSignatarios()[1], 3, 'd.pdf', 'd.pdf', self::SHA, 1, self::ANALISE, new \DateTimeImmutable());
+        foreach ([$original, $paraAssinar, $devolvida] as $versao) {
+            self::assertLogica('Só o original de documento em rascunho sai.', static fn () => $versao->exigirRemovivel());
+        }
     }
 
     #[TestDox('devolvida: do signatário gov.br ou ICP de documento enviado; o documento é o do signatário')]
@@ -130,21 +148,19 @@ final class VersaoDoPdfTest extends TestCase
         self::assertLogica('A cadeia desta versão já foi conferida.', static fn () => $versao->registrarCadeia(SituacaoDaCadeia::Recusada, $cadeia, new \DateTimeImmutable()));
     }
 
-    #[TestDox('cadeia indisponível vem sem JSON e pode ser refeita; recusada e confirmada exigem o JSON versionado')]
+    #[TestDox('cadeia indisponível nunca é gravada (E6-4); recusada exige o JSON versionado e também não troca')]
     public function testCadeiaIndisponivel(): void
     {
         $versao = self::devolvida();
-        self::assertLogica('Só a cadeia indisponível fica sem o resultado do validador.', static fn () => $versao->registrarCadeia(SituacaoDaCadeia::Indisponivel, ['v' => 1], new \DateTimeImmutable()));
-        self::assertLogica('Só a cadeia indisponível fica sem o resultado do validador.', static fn () => $versao->registrarCadeia(SituacaoDaCadeia::Recusada, null, new \DateTimeImmutable()));
+        self::assertLogica('Cadeia indisponível não é gravada (E6-4).', static fn () => $versao->registrarCadeia(SituacaoDaCadeia::Indisponivel, ['v' => 1], new \DateTimeImmutable()));
+        self::assertNull($versao->getCadeiaSituacao());
         self::assertLogica('JSON da versão sem o número da versão do formato ("v").', static fn () => $versao->registrarCadeia(SituacaoDaCadeia::Recusada, ['assinaturas' => []], new \DateTimeImmutable()));
-
-        $versao->registrarCadeia(SituacaoDaCadeia::Indisponivel, null, new \DateTimeImmutable());
-        self::assertSame(SituacaoDaCadeia::Indisponivel, $versao->getCadeiaSituacao());
-        self::assertNull($versao->getCadeia());
+        self::assertNull($versao->getCadeiaSituacao());
 
         $versao->registrarCadeia(SituacaoDaCadeia::Recusada, ['v' => 1, 'assinaturas' => []], new \DateTimeImmutable());
         self::assertSame(SituacaoDaCadeia::Recusada, $versao->getCadeiaSituacao());
         self::assertFalse($versao->cadeiaConfirmada());
+        self::assertLogica('A cadeia desta versão já foi conferida.', static fn () => $versao->registrarCadeia(SituacaoDaCadeia::Confirmada, ['v' => 1, 'assinaturas' => []], new \DateTimeImmutable()));
     }
 
     private static function devolvida(): VersaoDoPdf

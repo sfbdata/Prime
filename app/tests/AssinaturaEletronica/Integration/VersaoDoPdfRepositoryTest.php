@@ -122,6 +122,64 @@ final class VersaoDoPdfRepositoryTest extends KernelTestCase
         $this->versoes->salvar(VersaoDoPdf::original($documento, 1, 'b.pdf', 'b.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()));
     }
 
+    #[TestDox('um original por documento (índice único parcial), mesmo com outra ordem')]
+    public function testUmOriginalPorDocumento(): void
+    {
+        $documento = $this->documento($this->escritorio());
+        $this->versoes->salvar(VersaoDoPdf::original($documento, 1, 'a.pdf', 'a.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()));
+
+        $this->expectException(UniqueConstraintViolationException::class);
+        $this->versoes->salvar(VersaoDoPdf::original($documento, 2, 'b.pdf', 'b.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()));
+    }
+
+    #[TestDox('um PDF para assinar por documento (índice único parcial); devolvidas, várias')]
+    public function testUmParaAssinarPorDocumento(): void
+    {
+        $documento = $this->documento($this->escritorio());
+        $documento->enviar(str_repeat('f', 64), new \DateTimeImmutable('2026-11-09 11:00:00'));
+        $govbr = $documento->getSignatarios()[1];
+        $this->versoes->salvar(VersaoDoPdf::paraAssinar($documento, 1, 'p.pdf', 'p.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()));
+        $this->versoes->salvar(VersaoDoPdf::devolvida($govbr, 2, 'd1.pdf', 'd1.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()));
+        $this->versoes->salvar(VersaoDoPdf::devolvida($govbr, 3, 'd2.pdf', 'd2.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()));
+        self::assertCount(3, $this->versoes->doDocumento($documento));
+
+        $this->expectException(UniqueConstraintViolationException::class);
+        $this->versoes->salvar(VersaoDoPdf::paraAssinar($documento, 4, 'p2.pdf', 'p2.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()));
+    }
+
+    #[TestDox('remover: o original do rascunho sai na hora, e o original novo entra em seguida com a mesma ordem')]
+    public function testRemoverOriginalDoRascunho(): void
+    {
+        $documento = $this->documento($this->escritorio());
+        $antigo = VersaoDoPdf::original($documento, 1, 'antigo.pdf', 'antigo.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable());
+        $this->versoes->salvar($antigo);
+        $id = $antigo->getId();
+
+        $this->versoes->remover($antigo);
+        $this->versoes->salvar(VersaoDoPdf::original($documento, $this->versoes->proximaOrdem($documento), 'novo.pdf', 'novo.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()));
+
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM assinatura_eletronica_versao WHERE id = ?', [$id]));
+        self::assertSame(['novo.pdf'], array_map(static fn (VersaoDoPdf $v): string => $v->getArquivoChave(), $this->versoes->doDocumento($documento)));
+        self::assertSame(1, $this->versoes->original($documento)?->getOrdem());
+    }
+
+    #[TestDox('remover: versão de documento enviado é prova e fica')]
+    public function testRemoverRecusaDepoisDoEnvio(): void
+    {
+        $documento = $this->documento($this->escritorio());
+        $original = VersaoDoPdf::original($documento, 1, 'o.pdf', 'o.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable());
+        $this->versoes->salvar($original);
+        $documento->enviar(str_repeat('f', 64), new \DateTimeImmutable('2026-11-09 11:00:00'));
+
+        try {
+            $this->versoes->remover($original);
+            self::fail('versão de documento enviado não sai');
+        } catch (\LogicException $e) {
+            self::assertSame('Só o original de documento em rascunho sai.', $e->getMessage());
+        }
+        self::assertSame(1, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM assinatura_eletronica_versao WHERE id = ?', [$original->getId()]));
+    }
+
     #[TestDox('documento ainda sem id: as consultas recusam em vez de buscar por nulo')]
     public function testDocumentoSemId(): void
     {

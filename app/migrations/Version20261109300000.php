@@ -14,6 +14,8 @@ use Doctrine\Migrations\AbstractMigration;
  * - `origem`: `original` (o PDF que já chegou com assinaturas digitais), `para_assinar` (o PDF que o BlueJus gerou,
  *   congelado na primeira geração) ou `devolvida` (o PDF assinado por um signatário gov.br ou ICP);
  * - `ordem`: de 1 para cima dentro do documento, única por documento (a última versão é a de maior ordem);
+ * - um `original` e um `para_assinar` no máximo por documento (índices únicos parciais; o mapeamento os declara com a
+ *   expressão como o PostgreSQL a devolve, para o `schema:validate` não propor trocá-los);
  * - `arquivo_chave`, `nome_original`, `sha256` e `tamanho`: o arquivo guardado byte a byte;
  * - `analise`: o resultado do motor de conferência em JSON versionado (`{"v":1,...}`);
  * - `cadeia`, `cadeia_situacao` e `cadeia_conferida_em`: o resultado do validador de cadeia da etapa 6 (E6-7), que não
@@ -35,6 +37,8 @@ final class Version20261109300000 extends AbstractMigration
         $this->addSql('CREATE INDEX IDX_75879D8845C0CF75 ON assinatura_eletronica_versao (documento_id)');
         $this->addSql('CREATE INDEX IDX_75879D886D3EB874 ON assinatura_eletronica_versao (signatario_id)');
         $this->addSql('CREATE UNIQUE INDEX uniq_assinatura_eletronica_versao_ordem ON assinatura_eletronica_versao (documento_id, ordem)');
+        $this->addSql("CREATE UNIQUE INDEX uniq_assinatura_eletronica_versao_original ON assinatura_eletronica_versao (documento_id) WHERE origem = 'original'");
+        $this->addSql("CREATE UNIQUE INDEX uniq_assinatura_eletronica_versao_para_assinar ON assinatura_eletronica_versao (documento_id) WHERE origem = 'para_assinar'");
         $this->addSql('ALTER TABLE assinatura_eletronica_versao ADD CONSTRAINT FK_75879D8845C0CF75 FOREIGN KEY (documento_id) REFERENCES assinatura_eletronica_documento (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE assinatura_eletronica_versao ADD CONSTRAINT FK_75879D886D3EB874 FOREIGN KEY (signatario_id) REFERENCES assinatura_eletronica_signatario (id) ON DELETE SET NULL NOT DEFERRABLE');
     }
