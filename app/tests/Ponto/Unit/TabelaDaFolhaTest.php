@@ -58,6 +58,7 @@ final class TabelaDaFolhaTest extends TestCase
         self::assertSame($tamanho, (int) $desenhada['tamanho'], 'o tamanho da fonte');
         self::assertLessThanOrEqual(self::LARGURA_DA_OBSERVACAO, $this->pagina->largura($desenhada['texto'], 'normal', $desenhada['tamanho']), 'cabe na coluna');
         self::assertSame($cortada, str_contains($desenhada['texto'], '...'), 'cortada com "..."');
+        self::assertTrue(mb_check_encoding($desenhada['texto'], 'UTF-8'), 'o corte não parte um caractere');
         if ($cortada) {
             self::assertStringStartsWith('Entrada', $desenhada['texto'], 'o corte é só na parte dos ajustes, que vem primeiro');
             self::assertMatchesRegularExpression('/\.\.\. · ' . preg_quote($inteiros[0], '/') . '/u', $desenhada['texto'], 'o "..." fica no fim dos ajustes, antes do resto');
@@ -101,6 +102,27 @@ final class TabelaDaFolhaTest extends TestCase
         self::assertSame(['Feriado: ' . self::FERIADO . ' · Atestado Médico: em análise', 9], [$encolhe['texto'], (int) $encolhe['tamanho']]);
         self::assertSame([$this->pagina->caber($longa->observacao, 'normal', 8, self::LARGURA_DA_OBSERVACAO), 8], [$cortada['texto'], (int) $cortada['tamanho']]);
         self::assertStringEndsWith('...', $cortada['texto']);
+    }
+
+    #[TestDox('Só com os ajustes (as quatro batidas ajustadas), que nem em 8 cabem: corta os ajustes com "..." em 8, sem separador sobrando e sem partir um caractere')]
+    public function testSoAjustesQueNaoCabem(): void
+    {
+        $ajuste = static fn (string $em): array => ['tipo' => 'ajuste', 'por' => 'Gestora Ana', 'em' => $em];
+        $linha = $this->linha([
+            'entradaAjuste' => $ajuste('13/10/2026'), 'repousoAjuste' => $ajuste('14/10/2026'),
+            'retornoAjuste' => $ajuste('15/10/2026'), 'saidaAjuste' => $ajuste('16/10/2026'),
+            'entrada' => '08:00:00', 'repouso' => '12:00:00', 'retorno' => '13:00:00', 'saida' => '17:00:00',
+        ], []);
+        $desenhada = $this->observacaoDesenhada($linha);
+
+        self::assertGreaterThan(self::LARGURA_DA_OBSERVACAO, $this->pagina->largura($linha->observacao, 'normal', 8), 'o cenário: nem em 8 cabe');
+        self::assertSame(8, (int) $desenhada['tamanho']);
+        self::assertStringStartsWith('Entrada ajustada em 13/10/2026', $desenhada['texto']);
+        self::assertStringEndsWith('...', $desenhada['texto']);
+        self::assertStringNotContainsString(' · ...', $desenhada['texto'], 'sem separador sobrando antes do "..."');
+        self::assertLessThanOrEqual(self::LARGURA_DA_OBSERVACAO, $this->pagina->largura($desenhada['texto'], 'normal', $desenhada['tamanho']), 'cabe na coluna');
+        self::assertTrue(mb_check_encoding($desenhada['texto'], 'UTF-8'), 'o corte não parte um caractere');
+        self::assertSame($linha->observacao, $linha->paraAImpressao()['observacao'], 'a impressão dos registros continua com o texto inteiro');
     }
 
     #[TestDox('Se nem o feriado, a pendência e as justificativas sozinhos cabem em 8, corta o texto todo com "...", como antes')]
