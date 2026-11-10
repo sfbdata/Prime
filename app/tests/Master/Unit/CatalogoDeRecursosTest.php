@@ -49,14 +49,14 @@ final class CatalogoDeRecursosTest extends TestCase
         self::assertSame('ponto', CatalogoDeRecursos::LINHAS[8]['chave'], 'Ponto entra nas Telas, antes do Voto');
         self::assertSame('Ponto Eletrônico', CatalogoDeRecursos::titulo('ponto'));
         self::assertTrue(CatalogoDeRecursos::LINHAS[8]['tela']);
-        // As funções do Ponto: a tela cheia, os sons e a geolocalização na ordem do bj-recursos.js do desenho 16 (E7 e E8),
-        // o comprovante depois da geolocalização (E15) e o lembrete antes dos alertas de intervalo, como no FEATS (E8 e E11).
+        // As funções do Ponto na ordem do bj-recursos.js do desenho 16: a tela cheia e os sons (E8), o comprovante (E15)
+        // antes da geolocalização (E7), e o lembrete antes dos alertas de intervalo, como no FEATS (E8 e E11).
         self::assertSame(
             [
                 ['Funções', 'ponto-animacao', 'Ponto: validação em tela cheia', 'bi-clock-history', 'Relógio completando a volta e confirmação ocupando toda a tela.', false, false],
                 ['Funções', 'ponto-sons', 'Ponto: sons', 'bi-volume-up', 'Plim no registro e alerta diferente quando o ponto falha.', false, false],
-                ['Funções', 'ponto-geo', 'Ponto: geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.', false, false],
                 ['Funções', 'ponto-comprovante', 'Ponto: comprovante em imagem', 'bi-receipt', "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", false, false],
+                ['Funções', 'ponto-geo', 'Ponto: geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.', false, false],
                 ['Funções', 'ponto-lembrete', 'Ponto: lembrete de saída', 'bi-bell', 'Avisa quando passar do horário previsto e a saída não foi registrada.', false, false],
                 ['Funções', 'ponto-alertas', 'Ponto: alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', false, false],
             ],

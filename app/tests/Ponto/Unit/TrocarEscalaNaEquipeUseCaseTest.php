@@ -130,6 +130,7 @@ final class TrocarEscalaNaEquipeUseCaseTest extends TestCase
         self::assertSame(1800, $nova->getCargaHorariaSemanal());
         self::assertFalse($nova->isAlertaHabilitado(), 'o alerta segue como estava');
         self::assertSame([[1, 2, 3, 4, 5], '09:00', '12:00', '13:00', '16:00', 360], self::bloco(array_values($nova->getBlocos()->toArray())[0]));
+        self::assertSame('30h · seg a sex (6h)', $this->eventosDaTrilha[0]['detalhe']['escala'], 'a trilha leva o rótulo da escala (desenho L778)');
     }
 
     private function naEquipe(): void

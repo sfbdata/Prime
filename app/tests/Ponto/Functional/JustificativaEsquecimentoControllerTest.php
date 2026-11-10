@@ -15,6 +15,7 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -69,6 +70,45 @@ final class JustificativaEsquecimentoControllerTest extends JusPrimeWebTestCase
         self::assertSame('saida', $justificativa->getTipoRegistroEsquecido());
         self::assertSame('18:05', $justificativa->getHoraRegistroEsquecido()?->format('H:i'));
         self::assertSame($chave, $justificativa->getData()->format('Y-m-d'));
+    }
+
+    /** @return iterable<string, array{string, string}> aba enviada, sufixo da volta */
+    public static function abasDaVolta(): iterable
+    {
+        yield 'aba aberta' => ['equipe', '&aba=equipe'];
+        yield 'Pendências, o padrão' => ['pendencias', ''];
+        yield 'aba que não existe' => ['inventada', ''];
+    }
+
+    #[DataProvider('abasDaVolta')]
+    #[TestDox('POST do atalho volta para a aba que estava aberta (desenho L768): $_dataName')]
+    public function testAtalhoVoltaParaAAbaAberta(string $aba, string $sufixo): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+        $dia = $this->diaUtilDoMesAnterior();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', '/ponto/justificativa/nova', [
+            'justificativa_ponto' => [
+                '_token'                => $this->gerarCsrf('justificativa_ponto'),
+                'tipo'                  => 'esquecimento_registro',
+                'datas'                 => $dia->format('Y-m-d'),
+                'tipoRegistroEsquecido' => 'saida',
+                'horaRegistroEsquecido' => '18:05',
+                'motivo'                => 'Esqueci de bater a saída.',
+            ],
+            'competencia' => $dia->format('Y-m'),
+            'aba'         => $aba,
+        ]);
+
+        self::assertResponseRedirects('/ponto/?competencia=' . $dia->format('Y-m') . $sufixo);
+        self::assertCount(1, $this->justificativasDo($user));
     }
 
     #[TestDox('POST do atalho sem a hora não cria nada')]

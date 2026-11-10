@@ -20,6 +20,7 @@ use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\NomeDoArquivoDaFolha;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
@@ -385,12 +386,7 @@ final class PontoController extends AbstractController
         $user = $this->getUser();
         $tenant = $this->assertAccess($user);
 
-        // Competência de origem (fora do form): devolve o colaborador ao mês que ele estava vendo.
-        // Sem isso, justificar um dia do mês anterior joga de volta no mês corrente.
-        $competenciaOrigem = (string) $request->request->get('competencia', '');
-        $voltaParaFolha = preg_match('/^\d{4}-\d{2}$/D', $competenciaOrigem) === 1
-            ? ['competencia' => $competenciaOrigem]
-            : [];
+        $voltaParaFolha = $this->voltaDaJanela($request);
 
         $form = $this->createForm(JustificativaPontoType::class);
         $form->handleRequest($request);
@@ -1344,6 +1340,28 @@ final class PontoController extends AbstractController
      * vê cai no padrão. A aba escondida (Comprovantes com o comprovante desligado, Banco antes da E17) cai no padrão
      * no template (`_abas.html.twig`), que sabe quais desenhou.
      */
+    /**
+     * Para onde a janela "Registro de esquecimento" ou "Justificar falta" volta: o mês e a aba que a pessoa via (fora do
+     * form). Sem o mês, justificar um dia do mês anterior joga de volta no mês corrente; sem a aba, volta sempre para
+     * Pendências, e o desenho (L768, `addJ`) só fecha a janela. Aba que não existe fica fora (cai no padrão).
+     *
+     * @return array{competencia?: string, aba?: string}
+     */
+    private function voltaDaJanela(Request $request): array
+    {
+        $volta = [];
+        $competencia = (string) $request->request->get('competencia', '');
+        if (preg_match('/^\d{4}-\d{2}$/D', $competencia) === 1) {
+            $volta['competencia'] = $competencia;
+        }
+        $aba = (string) $request->request->get('aba', '');
+        if ($aba !== self::ABAS_DO_CARTAO[0] && in_array($aba, self::ABAS_DO_CARTAO, true)) {
+            $volta['aba'] = $aba;
+        }
+
+        return $volta;
+    }
+
     private function abaAberta(Request $request): string
     {
         $aba = (string) $request->query->get('aba', '');
@@ -1493,8 +1511,7 @@ final class PontoController extends AbstractController
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        $nomeArquivoBase = preg_replace('/[^A-Za-z0-9]+/', '', $dados['nomeUsuario']) ?: 'Usuario';
-        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.pdf', $nomeArquivoBase, $mes, $ano);
+        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.pdf', NomeDoArquivoDaFolha::doPdf((string) $dados['nomeUsuario']), $mes, $ano);
 
         $inline = $request->query->getBoolean('inline', false);
         $disposition = $inline
@@ -1566,12 +1583,7 @@ final class PontoController extends AbstractController
             $nomeUsuario = (string) $targetUser->getUserIdentifier();
         }
 
-        $nomeUsuario = preg_replace('/[^A-Za-z0-9]+/', '', $nomeUsuario) ?? 'Usuario';
-        if ($nomeUsuario === '') {
-            $nomeUsuario = 'Usuario';
-        }
-
-        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.xlsx', $nomeUsuario, $mes, $ano);
+        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.xlsx', NomeDoArquivoDaFolha::doXlsx($nomeUsuario), $mes, $ano);
 
         $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantXlsx, $folhaPontoBuilder, $inicioContagemXlsx);
 

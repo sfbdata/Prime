@@ -203,6 +203,7 @@ final class VersoesDaJornadaUseCaseTest extends TestCase
         self::assertSame([1, 2, 3], array_column($this->eventosDaTrilha, 'sequencia'), 'uma cadeia só, sem buraco');
         self::assertSame(7, $this->eventosDaTrilha[0]['tenant_id']);
         self::assertSame('Ana', $this->eventosDaTrilha[0]['detalhe']['colaborador']);
+        self::assertArrayNotHasKey('escala', $this->eventosDaTrilha[0]['detalhe'], 'a ficha não tem o rótulo do catálogo: fica o texto da versão');
     }
 
     /** @param list<array{0: list<int>, 1: int}> $blocos */

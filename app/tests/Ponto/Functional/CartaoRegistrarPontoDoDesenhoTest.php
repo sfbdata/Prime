@@ -74,6 +74,15 @@ final class CartaoRegistrarPontoDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(1, $tela->filter('.pe-grade > .pe-dir > #ponto-regiao-folha + section.pe-abas'));
     }
 
+    #[TestDox('A barra do topo mostra a divisória e "Ponto Eletrônico", como Agenda e Metas (desenho L83-L84)')]
+    public function testNomeDaTelaNaBarra(): void
+    {
+        $tela = $this->tela();
+
+        self::assertCount(1, $tela->filter('.navtop-page-sep + .navtop-page-title'));
+        self::assertSame('Ponto Eletrônico', trim($tela->filter('.navtop-page-title')->text()));
+    }
+
     #[TestDox('O cartão segue o desenho: barra com a digital e o banco de horas; corpo na ordem do desenho')]
     public function testArranjoDoCartao(): void
     {

@@ -181,7 +181,9 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
 
         $celula = $tela->filter('tr.pe-just-lin > td.pe-just-celtipo');
         self::assertCount(1, $celula);
-        self::assertCount(0, $celula->filter('.pe-just-sub'));
+        // L184: o subtítulo sai sempre, vazio aqui; o margin-top dele separa o selo do motivo.
+        self::assertSame('', trim($celula->filter('td.pe-just-celtipo > div.pe-just-sub')->text()));
+        self::assertCount(1, $celula->filter('td.pe-just-celtipo > span.pe-just-tipo + div.pe-just-sub + div.pe-just-mot'));
         self::assertSame('Audiência no fórum', trim($celula->filter('.pe-just-mot')->text()));
 
         // Sem a batida ligada, o lápis e a lixeira continuam (antes e depois do campo do servidor da etapa).

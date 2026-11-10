@@ -56,7 +56,8 @@
                         <td><span class="pe-just-data">{{ j.data|date('d/m/Y') }}</span></td>
                         <td class="pe-just-celtipo">
                             {%- if j.labelTipo %}<span class="pe-just-tipo">{{ j.labelTipo }}</span>{% endif -%}
-                            {%- if sub %}<div class="pe-just-sub">{{ sub }}</div>{% endif -%}
+                            {#- L184: o subtítulo sai sempre, mesmo vazio; o margin-top dele separa o selo do motivo. -#}
+                            <div class="pe-just-sub">{{ sub }}</div>
                             {#- E4 (L184): o motivo escrito na janela, abaixo do tipo. As de antes da E4 não têm. -#}
                             {%- if j.motivo is not empty %}<div class="pe-just-mot">{{ j.motivo }}</div>{% endif -%}
                         </td>

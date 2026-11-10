@@ -148,18 +148,19 @@ final class DetalheDaTrilhaDoPonto
     }
 
     /**
-     * A troca de escala (versão da jornada salva ou excluída, escala pessoal limpa).
+     * A troca de escala (versão da jornada salva ou excluída, escala pessoal limpa). A troca da aba Equipe leva o
+     * rótulo da escala do catálogo em `escala` (desenho L778); a ficha, sem rótulo, fica sem a chave.
      *
      * @param 'versao_salva'|'versao_excluida'|'escala_limpa' $operacao
      *
      * @return array<string, mixed>
      */
-    public static function daEscala(User $pessoa, string $operacao, ?\DateTimeInterface $valeAPartirDe = null): array
+    public static function daEscala(User $pessoa, string $operacao, ?\DateTimeInterface $valeAPartirDe = null, ?string $escala = null): array
     {
         return self::colaborador($pessoa) + [
             'operacao'          => $operacao,
             'vale_a_partir_de'  => $valeAPartirDe?->format('Y-m-d'),
-        ];
+        ] + ($escala === null ? [] : ['escala' => $escala]);
     }
 
     /**
@@ -196,6 +197,10 @@ final class DetalheDaTrilhaDoPonto
             return self::textoDaEquipe($detalhe);   // várias pessoas: sem o "Nome: " na frente (desenho L818)
         }
         $quem = self::textoDe($detalhe, 'colaborador') ?? 'Colaborador';
+        $escala = $evento === AcaoDaTrilhaDoPonto::EscalaAlterada ? self::textoDe($detalhe, 'escala') : null;
+        if ($escala !== null) {
+            return $quem . ' · ' . $escala;   // a troca da aba Equipe, como o desenho (L778): "Ana · 44h · seg a sáb (7h20)"
+        }
 
         return $quem . ': ' . match ($evento) {
             AcaoDaTrilhaDoPonto::BatidaRegistrada     => self::textoDaBatida($detalhe),

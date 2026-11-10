@@ -173,6 +173,15 @@ final class PontoJanelasJsTest extends TestCase
         self::assertStringNotContainsString('bootstrap', $parcial);
     }
 
+    #[TestDox('Trocar de aba atualiza a aba para onde as janelas de esquecimento e de justificativa voltam (desenho L768)')]
+    public function testAbaDaVoltaAcompanhaAAbaAberta(): void
+    {
+        $gravar = self::trecho(self::abas(), 'function gravarAba(nome) {', 'function abrirAba(');
+
+        self::assertStringContainsString("document.querySelectorAll('input[data-aba-da-volta]').forEach(function (campo) { campo.value = nome; });", $gravar);
+        self::assertLessThan(strpos($gravar, "getElementById('competencia-ponto-index-form')"), strpos($gravar, 'data-aba-da-volta'), 'antes do retorno sem o formulário do mês');
+    }
+
     private static function janelas(): string
     {
         return (string) file_get_contents(__DIR__ . '/../../../public/js/ponto-janelas.js');
