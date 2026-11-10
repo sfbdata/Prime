@@ -109,7 +109,7 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
     {
         $chaves = fn (bool $comprovante, bool $folha): array => array_map(
             static fn (FuncaoDoPontoOutput $funcao): string => $funcao->chave,
-            $this->casoDeUso(true, null, true, $comprovante, $folha)->executar($this->pessoa(['ROLE_USER']), new Tenant())?->funcoes ?? [],
+            $this->casoDeUso(true, null, true, $comprovante, $folha)->executar($this->pessoa(['ROLE_USER']), new Tenant())->funcoes ?? [],
         );
 
         self::assertSame(['ponto-comprovante', 'ponto-geo'], $chaves(true, false));

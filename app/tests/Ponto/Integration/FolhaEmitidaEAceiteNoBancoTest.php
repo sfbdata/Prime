@@ -94,14 +94,16 @@ final class FolhaEmitidaEAceiteNoBancoTest extends KernelTestCase
     {
         [$a, $b] = [$this->escritorio(), $this->escritorio()];
         [$maria, $joao] = [$this->pessoa(), $this->pessoa()];
-        self::assertNull($this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10));
+        $semAceite = $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10);
+        self::assertNull($semAceite);
 
         $primeiro = $this->assinar($this->emitir($a, $maria, 2026, 10), 1, SituacaoDoAceiteDaFolha::Concordo, null);
-        self::assertSame(1, $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10)?->getNumero());
+        $valeDepoisDoPrimeiro = $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10);
         $segundo = $this->assinar($this->emitir($a, $maria, 2026, 10), 2, SituacaoDoAceiteDaFolha::Ressalva, 'Faltou o dia 3.');
+        $valeDepoisDoSegundo = $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10);
 
-        self::assertSame($segundo->getId(), $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10)?->getId());
-        self::assertSame(2, $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10)?->getNumero());
+        self::assertSame([$primeiro->getId(), 1], [$valeDepoisDoPrimeiro?->getId(), $valeDepoisDoPrimeiro?->getNumero()]);
+        self::assertSame([$segundo->getId(), 2], [$valeDepoisDoSegundo?->getId(), $valeDepoisDoSegundo?->getNumero()]);
         self::assertNotSame($primeiro->getId(), $segundo->getId());
         self::assertNull($this->aceites->ultimoDaCompetencia($b, $maria, 2026, 10), 'outro escritório');
         self::assertNull($this->aceites->ultimoDaCompetencia($a, $joao, 2026, 10), 'outra pessoa');
