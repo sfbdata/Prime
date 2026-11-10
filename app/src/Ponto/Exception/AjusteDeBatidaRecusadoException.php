@@ -37,6 +37,12 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
     /** A própria batida, de quem não é primário nem Master (P43): o controller responde 403. */
     public const DA_PROPRIA_BATIDA = 'da_propria_batida';
 
+    /**
+     * Ajustar ou desconsiderar pela ficha a batida com justificativa ainda em análise (E10, decisão C5): quem decide é a
+     * análise. Inclui a batida de trabalho externo (E12).
+     */
+    public const EM_ANALISE = 'em_analise';
+
     public const MENSAGEM_MUDOU = 'Esta batida mudou desde que a folha foi aberta. Confira a folha e tente de novo.';
 
     public const MENSAGEM_NAO_ENCONTRADA = 'Batida não encontrada nesta folha.';
@@ -50,6 +56,8 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
     public const MENSAGEM_LIGADA_A_JUSTIFICATIVA = 'Esta batida saiu da conta pela análise da justificativa e só volta com um novo abono.';
 
     public const MENSAGEM_DA_PROPRIA_BATIDA = 'Só o usuário primário do escritório ou o Master pode corrigir a própria batida.';
+
+    public const MENSAGEM_EM_ANALISE = 'Esta batida tem uma justificativa em análise. Abone ou recuse a justificativa antes de ajustar ou desconsiderar a batida.';
 
     private function __construct(public readonly string $motivo, string $mensagem)
     {
@@ -94,5 +102,10 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
     public static function daPropriaBatida(): self
     {
         return new self(self::DA_PROPRIA_BATIDA, self::MENSAGEM_DA_PROPRIA_BATIDA);
+    }
+
+    public static function emAnalise(): self
+    {
+        return new self(self::EM_ANALISE, self::MENSAGEM_EM_ANALISE);
     }
 }

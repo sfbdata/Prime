@@ -122,6 +122,25 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $this->ajustes($this->colaborador));
     }
 
+    #[TestDox('C5: a batida de trabalho externo em análise volta à ficha com o aviso ao ajustar e ao desconsiderar, e nada é gravado')]
+    public function testBatidaComJustificativaEmAnalise(): void
+    {
+        $id = $this->batida($this->colaborador, 'saida', '2026-10-21 18:00:00');
+        $justificativa = $this->justificativa($this->colaborador, $this->escritorio, new \DateTimeImmutable('2026-10-21'), 'pendente', ['tipo' => 'trabalho_externo']);
+        $justificativa->setRegistroPonto($this->em()->getReference(RegistroPonto::class, $id));
+        $this->em()->flush();
+
+        $this->ajustar($this->colaborador, "b{$id}", '', '18:30:00');
+        $this->assertVoltouParaAFicha($this->colaborador);
+        self::assertSame([AjusteDeBatidaRecusadoException::MENSAGEM_EM_ANALISE], $this->avisos('danger'));
+
+        $this->desconsiderar($this->colaborador, "b{$id}", 'Batida em dobro.');
+        $this->assertVoltouParaAFicha($this->colaborador);
+        // O redirect não é seguido: o aviso do ajuste ainda está na sessão, e o do desconsiderar entra depois dele.
+        self::assertSame(array_fill(0, 2, AjusteDeBatidaRecusadoException::MENSAGEM_EM_ANALISE), $this->avisos('danger'));
+        self::assertSame([], $this->ajustes($this->colaborador));
+    }
+
     #[TestDox('Ajustar sem motivo: a página volta com o erro no campo e nada é gravado')]
     public function testAjustarSemMotivo(): void
     {

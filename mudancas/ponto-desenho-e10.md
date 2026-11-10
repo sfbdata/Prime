@@ -5,6 +5,8 @@ tipo: alteracao
 - Ponto Eletrônico, etapa E10 do desenho 16 (VS 08.11.26): a batida gravada é só inserção (P65 a, P29, D18, P66). Migration `Version20261109280000`: tabela `ponto_ajuste`, gatilho `registro_ponto_so_insercao` (recusa qualquer UPDATE; DELETE só na purga do próprio escritório), coluna `sede.removida_em` e o CHECK da linhagem da inclusão. Todo setter da `RegistroPonto` recusa depois do id.
 - Correção por linhagem em `ponto_ajuste` (inclusão, ajuste, desconsideração, restauração; vale a cabeça). Leitor único das batidas efetivas no `RegistroPontoRepository` (consultas, folha, banco de horas, PDF e XLSX), com teste de arquitetura.
 - Ficha do gestor: "Incluir" (com motivo), "Ajustar", "Desconsiderar" e "Restaurar", em `AjusteDeBatidaController` com UseCases próprios; saem `pontoAdd`, `pontoEdit` e `pontoDelete` do `TenantController`. Na própria ficha, só o primário ou o Master faz as quatro (P43). Batida ligada a justificativa não se ajusta pela ficha.
+- Decisão C5: com a justificativa ligada ainda em análise (o trabalho externo da E12, o esquecimento), `AjustarBatidaUseCase` e o `DesconsiderarBatidaUseCase` pela tela recusam com `em_analise` (`JustificativaPontoRepository::temEmAnaliseLigadaA`); decidida, a ficha corrige como qualquer batida. A análise segue desconsiderando, e o Restaurar segue recusando a desconsideração dela.
+- Ficha: a janela do "+" vira "Incluir batida" com o botão "Incluir", e a dica do "+" diz "Incluir saída" (o rótulo, não o código). Na própria ficha de quem não corrige (P43), a aba "Batidas de Ponto" diz por que os botões somem.
 - Marca "aj" na hora ajustada (folha, PDF, XLSX), com a dica "Ajustado por NOME em dd/mm/aaaa. Registro original preservado."
 - Esquecimento abonado vira inclusão ligada à justificativa; voltar para análise a desconsidera; a justificativa que já mexeu na folha não se exclui. A purga apaga os ajustes com o escape do gatilho. O "desfazer" da auditoria não toca batida.
 - Remover sede (na página "Sedes do ponto" e na aba Configurações): sem batida, apaga; com batida, encerra (`Ponto\Service\RemocaoDaSedeDoPonto`), e a sede some da lista, da cerca e do fuso do home office; as batidas mantêm a sede. Sai `RegistroPontoRepository::desvincularSede`.
@@ -12,7 +14,9 @@ tipo: alteracao
 ## Para o cliente
 - O registro de ponto gravado não muda mais. Quando o gestor corrige uma batida, o Ponto guarda a correção ao lado, e o registro original continua preservado.
 - Na ficha do colaborador, o gestor passa a ter "Incluir", "Ajustar", "Desconsiderar" e "Restaurar" batida, sempre com o motivo da correção. "Editar" e "Excluir" saem.
-- O gestor não corrige as próprias batidas: na ficha dele, só o usuário principal do escritório ou o Master corrige.
+- O gestor não corrige as próprias batidas: na ficha dele, só o usuário principal do escritório ou o Master corrige. A aba "Batidas de Ponto" da própria ficha agora explica por que os botões de correção não aparecem.
+- O botão "+" da folha agora diz o que faz ("Incluir saída", "Incluir entrada") e abre a janela "Incluir batida".
+- A batida que tem uma justificativa ainda em análise (por exemplo, o trabalho externo) não pode ser ajustada nem desconsiderada pela ficha: o gestor primeiro abona ou recusa a justificativa. Depois disso, a correção pela ficha volta a funcionar normalmente.
 - A hora corrigida aparece com a marca "aj" na folha de ponto, no PDF e na planilha. Passando o mouse, aparece quem corrigiu e quando.
 - A batida desconsiderada não conta nas horas, mas continua visível na linha "Desconsideradas" do dia, e pode ser restaurada.
 - O esquecimento abonado continua entrando na folha, agora como uma correção ligada à justificativa. Se a justificativa voltar para análise, a batida sai da conta.

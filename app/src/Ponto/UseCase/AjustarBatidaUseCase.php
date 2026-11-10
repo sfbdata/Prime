@@ -8,6 +8,7 @@ use App\Ponto\DTO\AjustarBatidaInput;
 use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Exception\AjusteDeBatidaRecusadoException;
 use App\Ponto\Model\AlvoDoAjuste;
+use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\Service\GravacaoDoAjusteDoPonto;
@@ -20,7 +21,8 @@ use App\Ponto\Service\TrilhaDoPonto;
  *
  * Sob a trava da pessoa, a batida é lida de novo e a cabeça dela tem de ser a que a tela mostrou: outro ajuste no meio
  * tempo recusa (o gestor confere a folha e tenta de novo). A própria batida só o primário ou o Master corrige (P43).
- * Recusado, nada é gravado.
+ * A batida com justificativa ainda em análise (o trabalho externo da E12, o esquecimento) não se ajusta: quem decide é a
+ * análise; decidida, ajusta-se como qualquer outra (decisão C5). Recusado, nada é gravado.
  */
 final class AjustarBatidaUseCase
 {
@@ -29,12 +31,14 @@ final class AjustarBatidaUseCase
         private readonly GravacaoDoAjusteDoPonto $gravacao,
         private readonly RegistroPontoRepository $registros,
         private readonly AnaliseDaPropriaJustificativa $analiseDaPropria,
+        private readonly JustificativaPontoRepository $justificativas,
     ) {
     }
 
     /**
      * @throws AjusteDeBatidaRecusadoException a própria batida (P43), batida fora desta folha, outro ajuste no meio,
-     *                                         batida fora da conta, motivo vazio, horário futuro ou nada a mudar
+     *                                         justificativa em análise, batida fora da conta, motivo vazio, horário
+     *                                         futuro ou nada a mudar
      */
     public function executar(AjustarBatidaInput $input): PontoAjuste
     {
@@ -54,6 +58,9 @@ final class AjustarBatidaUseCase
     {
         $this->gravacao->travar($input->pessoa);
         $alvo = $this->alvoComACabecaQueATelaMostrou($input);
+        if ($this->justificativas->temEmAnaliseLigadaA($alvo)) {
+            throw AjusteDeBatidaRecusadoException::emAnalise();
+        }
 
         return $this->gravacao->alterar($alvo, $input->tipo, $input->dataHora, $input->motivo, $input->autor);
     }

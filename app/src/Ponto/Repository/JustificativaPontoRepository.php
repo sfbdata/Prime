@@ -7,6 +7,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Model\AlvoDoAjuste;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\QueryBuilder;
@@ -402,6 +403,32 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             ))
             ->setParameter('tenant', $tenant)
             ->setParameter('pendente', 'pendente');
+    }
+
+    /**
+     * Há justificativa EM ANÁLISE ligada à batida do alvo (E10, decisão C5): a do trabalho externo (E12), presa ao
+     * registro original, ou a que gravou a inclusão (o esquecimento). Enquanto ela não for decidida, a ficha não ajusta
+     * nem desconsidera a batida. Escritório explícito, além do filtro: é regra da batida.
+     */
+    public function temEmAnaliseLigadaA(AlvoDoAjuste $alvo): bool
+    {
+        $consulta = $this->createQueryBuilder('j')
+            ->select('COUNT(j.id)')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.status = :pendente')
+            ->setParameter('tenant', $alvo->escritorio)
+            ->setParameter('pendente', 'pendente');
+        if ($alvo->raizInclusao !== null) {
+            $daInclusao = $alvo->raizInclusao->getJustificativa();
+            if ($daInclusao === null) {
+                return false;
+            }
+            $consulta->andWhere('j.id = :ligada')->setParameter('ligada', $daInclusao->getId());
+        } else {
+            $consulta->andWhere('j.registroPonto = :batida')->setParameter('batida', $alvo->raizBatida);
+        }
+
+        return (int) $consulta->getQuery()->getSingleScalarResult() > 0;
     }
 
     /**

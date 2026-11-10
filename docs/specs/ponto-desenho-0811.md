@@ -1020,6 +1020,12 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     janela) e entra "Restaurar". Rotas próprias em `AjusteDeBatidaController`, CSRF por ação. Só o primário ou o Master faz as
     quatro na PRÓPRIA ficha (P43); nas dos outros, quem tem a gestão de usuários. Batida ligada a justificativa
     não se ajusta pela ficha: o gestor decide na análise;
+  - decisão C5 (10/11/2026, Coordenador), que resolve a contradição entre "batida ligada a justificativa não se ajusta
+    pela ficha" e o limite da inclusão do esquecimento ajustada depois: enquanto a justificativa ligada à batida está em
+    análise (o trabalho externo da E12, ou o esquecimento que voltou para análise), a ficha recusa Ajustar e
+    Desconsiderar com o aviso `em_analise`; decidida, a ficha ajusta e desconsidera como qualquer batida (P65). A
+    análise segue desconsiderando (a recusa do trabalho externo), e o Restaurar segue recusando a desconsideração feita
+    por ela (decisão A). O limite 1 continua: a inclusão do esquecimento abonado se ajusta;
   - a hora ajustada leva "aj" na folha, no PDF e no XLSX, também depois de uma restauração (é ajuste);
   - o esquecimento abonado grava uma inclusão ligada à justificativa; voltar para análise desconsidera essa inclusão; a
     justificativa que já mexeu na folha não se exclui;
