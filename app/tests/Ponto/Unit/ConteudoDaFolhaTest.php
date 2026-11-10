@@ -29,7 +29,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ValidacaoDaFolha::class)]
 final class ConteudoDaFolhaTest extends TestCase
 {
-    #[TestDox('P36: as três frases das observações gerais, a declaração e a base legal do desenho (L695 a L705)')]
+    #[TestDox('P36: as três frases das observações gerais, a declaração, a base legal e a nota dela, do desenho (L695 a L705)')]
     public function testFrasesFixas(): void
     {
         self::assertSame([
@@ -39,6 +39,7 @@ final class ConteudoDaFolhaTest extends TestCase
         ], ConteudoDaFolha::OBSERVACOES_GERAIS);
         self::assertSame('Declaro que os registros acima representam fielmente minha jornada de trabalho.', ConteudoDaFolha::DECLARACAO);
         self::assertSame('Art. 74, §2º da CLT  |  Portaria MTP nº 671/2021  |  Art. 13 da Portaria nº 3.626/91', ConteudoDaFolha::BASE_LEGAL);
+        self::assertSame('(Esta folha de ponto substitui o Quadro de Horário de Trabalho, inclusive o de menores.)', ConteudoDaFolha::NOTA_DA_BASE_LEGAL, 'o texto literal do desenho (L703; spec, seção 3, "O que o desenho afirma de lei", item 5)');
         self::assertSame('FOLHA DE PONTO · 03/2026', $this->conteudo(2026, 3)->titulo());
     }
 
