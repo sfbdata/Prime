@@ -21,8 +21,12 @@ final class FichaJanelaIncluirJsTest extends TestCase
     #[TestDox('Incluir batida: abre com o dia e o tipo do "+" e o motivo vazio, como as janelas Desconsiderar e Restaurar')]
     public function testMotivoComecaVazio(): void
     {
-        $abrir = self::trecho(self::ficha(), 'window.abrirModalAddBatida = function (tipo, chaveDia) {', 'modal.show();');
+        $ficha = self::ficha();
+        $abrir = self::trecho($ficha, 'window.abrirModalAddBatida = function (tipo, chaveDia) {', 'modal.show();');
 
+        foreach (['modalAddData', 'modalAddTipo', 'modalAddMotivo'] as $id) {
+            self::assertSame(1, substr_count($ficha, 'id="' . $id . '"'), 'sem o campo ' . $id . ' a janela não abre (getElementById devolve null)');
+        }
         self::assertStringContainsString("document.getElementById('modalAddData').value = chaveDia;", $abrir);
         self::assertStringContainsString("document.getElementById('modalAddTipo').value = tipo;", $abrir);
         self::assertStringContainsString("document.getElementById('modalAddMotivo').value = '';", $abrir, 'o motivo da inclusão anterior não pode reaparecer na próxima');
