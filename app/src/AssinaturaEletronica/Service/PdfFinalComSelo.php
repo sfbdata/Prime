@@ -153,7 +153,7 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
      */
     private function gerar(AreaTemporariaPrivada $area, DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco, PerfilDoPdf $perfil): string
     {
-        [$caminho] = PdfNoTemporario::gravar($area, self::avisando($this->pdf->pedacos($doc, $perfil), $aCadaPedaco));
+        [$caminho] = PdfNoTemporario::gravar($area, self::avisando($this->pdf->pedacos($doc, perfil: $perfil), $aCadaPedaco));
 
         return $caminho;
     }
