@@ -185,7 +185,9 @@ final class HttpValidadorDeCadeiaTest extends TestCase
 
     /**
      * O teto de 45 s do cliente (etapa 6, seção 2.1): o validador não responde a tempo e a falha é de tempo, não de
-     * conexão. O MockResponse que rende um pedaço vazio é a espera que estoura o `timeout` do pedido.
+     * conexão. O MockResponse que rende um pedaço vazio é a espera que estoura o `timeout` do pedido. No curl, o estouro
+     * do `max_duration` chega como TransportException, não TimeoutException: esse cai no caso "fora do ar (falha de
+     * transporte)" dos passageiros, e também não é erro.
      */
     #[TestDox('tempo do cliente esgotado: passageiro, CadeiaIndisponivel com aviso de TimeoutException no log, sem erro')]
     public function testTempoEsgotado(): void
