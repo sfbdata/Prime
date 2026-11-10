@@ -10,10 +10,10 @@ use App\Ponto\Entity\ComprovanteDoPonto;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\NumeroSequencialDoRegistro;
-use App\Ponto\Service\SeloDoComprovante;
+use App\Ponto\Service\ChavesDoHmacDoPonto;
+use App\Ponto\Service\SeloDoComprovanteHmac;
 use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
-use App\Tests\Ponto\Support\SeloDoComprovanteDeTeste;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\DriverException;
@@ -36,6 +36,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 #[CoversClass(RegistrarBatidaDaPessoaUseCase::class)]
 final class NumeroSequencialDoRegistroTest extends KernelTestCase
 {
+    private const SEGREDO = 'segredo-de-teste-do-comprovante';
+
     private EntityManagerInterface $em;
 
     protected function setUp(): void
@@ -80,14 +82,16 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
     public function testDuasTransacoesAoMesmoTempo(): void
     {
         [$a, $b] = [$this->conexaoDeVerdade(), $this->conexaoDeVerdade()];
-        $escritorioId = (int) $a->fetchOne(
-            'INSERT INTO tenant (name, created_at, is_active) VALUES (:nome, NOW(), true) RETURNING id',
-            ['nome' => 'Escritório NSR concorrente ' . uniqid()],
-        );
-        $escritorio = $this->em->getReference(Tenant::class, $escritorioId);
-        [$servicoA, $servicoB] = [$this->servicoNa($a), $this->servicoNa($b)];
+        $escritorioId = null;
 
-        try {
+        try {   // tudo dentro: o finally limpa o que chegou a ser confirmado, falhe onde falhar
+            $escritorioId = (int) $a->fetchOne(
+                'INSERT INTO tenant (name, created_at, is_active) VALUES (:nome, NOW(), true) RETURNING id',
+                ['nome' => 'Escritório NSR concorrente ' . uniqid()],
+            );
+            $escritorio = $this->em->getReference(Tenant::class, $escritorioId);
+            [$servicoA, $servicoB] = [$this->servicoNa($a), $this->servicoNa($b)];
+
             $a->beginTransaction();
             self::assertSame(1, $servicoA->proximo($escritorio), 'A reserva o 1 e segura a linha do contador');
             $this->assertEsperaATrava($b, $servicoB, $escritorio);
@@ -107,8 +111,10 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
                     $conexao->rollBack();
                 }
             }
-            $a->executeStatement('DELETE FROM ponto_contador_nsr WHERE tenant_id = ?', [$escritorioId]);
-            $a->executeStatement('DELETE FROM tenant WHERE id = ?', [$escritorioId]);
+            if ($escritorioId !== null) {
+                $a->executeStatement('DELETE FROM ponto_contador_nsr WHERE tenant_id = ?', [$escritorioId]);
+                $a->executeStatement('DELETE FROM tenant WHERE id = ?', [$escritorioId]);
+            }
             $a->close();
             $b->close();
         }
@@ -145,7 +151,7 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
     #[TestDox('A batida enviada sem internet recebe NSR como as outras, e o dado selado guarda o "sem internet"')]
     public function testEnviadaSemInternetRecebeNsr(): void
     {
-        static::getContainer()->set(SeloDoComprovante::class, new SeloDoComprovanteDeTeste());
+        $this->seloPronto();
         $escritorio = $this->escritorio();
         $batida = $this->batida($escritorio);
         $batida->setEnviadaSemInternet(true);
@@ -179,9 +185,10 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
         self::assertFalse($this->em->getConnection()->fetchOne('SELECT ultimo FROM ponto_contador_nsr WHERE tenant_id = ?', [$escritorio->getId()]), 'o contador nem nasceu');
     }
 
-    #[TestDox('Selo indisponível (produção da fase A): a batida grava com NSR e nenhum comprovante é emitido')]
+    #[TestDox('Sem o segredo do HMAC: a batida grava com NSR e nenhum comprovante é emitido')]
     public function testSeloIndisponivelGravaSoComNsr(): void
     {
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto(null));
         $escritorio = $this->escritorio();
         $registrar = static::getContainer()->get(RegistrarBatidaDaPessoaUseCase::class);
 
@@ -194,10 +201,10 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
         self::assertSame(0, $this->em->getRepository(ComprovanteDoPonto::class)->count([]), 'nada emitido');
     }
 
-    #[TestDox('Selo pronto: na mesma transação, NSR, batida e comprovante com código, HMAC que confere e o NSR selado')]
+    #[TestDox('Selo pronto: na mesma transação, NSR, batida e comprovante com código, o HMAC da chave "ponto-comprovante" na versão 1 e o NSR selado')]
     public function testSeloProntoEmiteComprovante(): void
     {
-        static::getContainer()->set(SeloDoComprovante::class, new SeloDoComprovanteDeTeste());
+        $this->seloPronto();
         $escritorio = $this->escritorio();
         $batida = $this->batida($escritorio);
 
@@ -208,8 +215,10 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
         self::assertSame(1, $batida->getNsr());
         self::assertSame(1, $comprovante->getNsr());
         self::assertSame($batida, $comprovante->getRegistro());
-        self::assertSame(SeloDoComprovanteDeTeste::VERSAO, $comprovante->getVersaoChave());
-        self::assertTrue((new SeloDoComprovanteDeTeste())->conferir($comprovante->getDadosAssinados(), $comprovante->getHmac(), $comprovante->getVersaoChave()));
+        self::assertSame(1, $comprovante->getVersaoChave(), 'a versão atual da chave fica gravada');
+        $chave = hash_hkdf('sha256', self::SEGREDO, 32, SeloDoComprovanteHmac::FINALIDADE);
+        self::assertSame(hash_hmac('sha256', $comprovante->getDadosAssinados(), $chave), $comprovante->getHmac());
+        self::assertSame($batida->getUser(), $comprovante->getUser(), 'a pessoa da batida fica na linha');
         self::assertStringContainsString('"nsr":1,"escritorio_id":' . $escritorio->getId() . ',"nome":"Pessoa do NSR"', $comprovante->getDadosAssinados());
         self::assertStringContainsString('"codigo":"' . $comprovante->getCodigo() . '"', $comprovante->getDadosAssinados());
     }
@@ -217,6 +226,12 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
     private function proximo(Tenant $escritorio): int
     {
         return $this->em->wrapInTransaction(fn (): int => $this->servico()->proximo($escritorio));
+    }
+
+    /** O segredo do Ponto configurado (as chaves da E9): o selo do comprovante fica pronto. */
+    private function seloPronto(): void
+    {
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto(self::SEGREDO));
     }
 
     private function servico(): NumeroSequencialDoRegistro

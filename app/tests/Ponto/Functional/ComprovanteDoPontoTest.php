@@ -11,11 +11,10 @@ use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\ComprovanteDoPonto;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
-use App\Ponto\Service\SeloDoComprovante;
+use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
-use App\Tests\Ponto\Support\SeloDoComprovanteDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -25,8 +24,8 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * E15 do Ponto na tela: a batida com NSR e comprovante (D2, D9), a aba Comprovantes (P48, desenho 16 L193 a L197) e o
- * download da imagem (P49) com a guarda de posse. Sem o segredo do HMAC (o selo de produção desta fase), a batida
- * grava com NSR, nada é emitido e a aba e o "Validar código" não aparecem.
+ * download da imagem (P49) com a guarda de posse. Sem o segredo do HMAC (as chaves da E9 sem segredo), a batida grava
+ * com NSR, nada é emitido e a aba e o "Validar código" não aparecem. Com ele, o selo é o de produção.
  */
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
@@ -57,6 +56,8 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
     #[TestDox('Sem o segredo do HMAC: a batida grava com NSR, nada é emitido, e a aba e o "Validar código" não aparecem')]
     public function testSeloIndisponivel(): void
     {
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto(''));   // o segredo vazio
+
         $resposta = $this->bater();
 
         self::assertSame('Ponto (home office) registrado com sucesso!', $resposta['message'], 'sem o aviso do comprovante');
@@ -183,6 +184,27 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('text/plain', (string) $this->client->getResponse()->headers->get('Content-Type'));
     }
 
+    #[TestDox('O gestor apaga a batida: o comprovante continua na aba da pessoa e ela ainda baixa a imagem')]
+    public function testBatidaApagadaContinuaNaAbaEBaixa(): void
+    {
+        $this->seloPronto();
+        $comprovante = $this->emitir($this->eu, $this->escritorio);
+        $batidaId = $comprovante->getRegistro()?->getId();
+        $gestor = $this->pessoa('gestor');
+        $this->vincularGestor($gestor, $this->escritorio);
+        $this->logarComTenant($this->client, $gestor, $this->escritorio);
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/%d/delete', $this->escritorio->getId(), $this->eu->getId(), $batidaId), ['_token' => 'TOKEN_delete_ponto_' . $batidaId]);
+        self::assertResponseRedirects();
+        $this->em()->clear();
+        self::assertNull($this->emSemFiltro()->find(RegistroPonto::class, $batidaId), 'a batida saiu');
+
+        $codigos = $this->tela('?aba=comprovantes')->filter(self::LINHAS . ' > code')->each(fn (Crawler $c): string => $c->text());
+        self::assertSame([$comprovante->getCodigo()], $codigos, 'continua na aba da pessoa (user_id da linha)');
+        $this->client->request('GET', '/ponto/comprovantes/' . $comprovante->getId() . '/baixar');
+        self::assertResponseIsSuccessful();
+        self::assertSame('image/jpeg', $this->client->getResponse()->headers->get('Content-Type'));
+    }
+
     #[TestDox('Baixar comprovante de outra pessoa, de outro escritório ou que não existe: 404')]
     public function testBaixarDeOutroDa404(): void
     {
@@ -215,9 +237,10 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
+    /** O segredo do Ponto configurado (as chaves da E9): o selo do comprovante fica pronto. */
     private function seloPronto(): void
     {
-        static::getContainer()->set(SeloDoComprovante::class, new SeloDoComprovanteDeTeste());
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto('segredo-de-teste-do-comprovante'));
     }
 
     /** @return array<string, mixed> */

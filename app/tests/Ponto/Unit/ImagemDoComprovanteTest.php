@@ -54,12 +54,22 @@ final class ImagemDoComprovanteTest extends TestCase
         self::assertNotSame($gerar(self::SELO), $gerar(str_repeat('9f', 32)));
     }
 
+    #[TestDox('O "Trabalho externo" do MÉTODO (desenho L584) muda a imagem; sem ele, a linha sai sem a marca')]
+    public function testTrabalhoExternoMudaAImagem(): void
+    {
+        $gerador = $this->gerador();
+        $gerar = fn (DadosDoComprovante $dados): string => $gerador->gerar($dados, self::SELO, 'https://bluejus.test/ponto/validar/X', 'bluejus.test/ponto/validar', 0.5);
+
+        self::assertNotSame($gerar($this->dados()), $gerar($this->dados(trabalhoExterno: false)));
+    }
+
     private function gerador(): ImagemDoComprovante
     {
         return new ImagemDoComprovante(dirname(__DIR__, 3) . '/vendor/dompdf/dompdf/lib/fonts');
     }
 
-    private function dados(): DadosDoComprovante
+    /** A linha do MÉTODO mais longa por padrão: sem internet e trabalho externo. */
+    private function dados(bool $trabalhoExterno = true): DadosDoComprovante
     {
         return new DadosDoComprovante(
             'BJP-ABCD-EFGH-JK23',
@@ -73,6 +83,7 @@ final class ImagemDoComprovanteTest extends TestCase
             DadosDoComprovante::METODO_SISTEMA,
             '-23.55000, -46.63000 · precisão 12 m',
             true,
+            $trabalhoExterno,
         );
     }
 }

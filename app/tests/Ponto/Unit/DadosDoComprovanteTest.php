@@ -31,7 +31,8 @@ final class DadosDoComprovanteTest extends TestCase
         self::assertSame(
             '{"formato":1,"codigo":"BJP-ABCD-EFGH-JK23","nsr":42,"escritorio_id":7,"nome":"Maria da Silva Pereira",'
             . '"escritorio":"Escritório Modelo","cnpj":"12345678000190","data_hora":"2026-11-09T08:01:02-03:00",'
-            . '"tipo":"entrada","metodo":"sistema","local":"-23.55000, -46.63000 · precisão 12 m","sem_internet":false}',
+            . '"tipo":"entrada","metodo":"sistema","local":"-23.55000, -46.63000 · precisão 12 m","sem_internet":false,'
+            . '"trabalho_externo":false}',
             $canonico,
         );
         self::assertStringNotContainsStringIgnoringCase('cpf', $canonico, 'o CPF fica no perfil e nunca entra no selo');
@@ -53,6 +54,16 @@ final class DadosDoComprovanteTest extends TestCase
         self::assertSame('Geolocalização não exigida', $dados->local);
         self::assertTrue($dados->semInternet);
         self::assertTrue(DadosDoComprovante::deCanonico($dados->canonico())->semInternet);
+    }
+
+    #[TestDox('Trabalho externo: hoje sempre falso na batida (a E12 liga), e o leitor guarda o verdadeiro quando vier')]
+    public function testTrabalhoExterno(): void
+    {
+        $dados = DadosDoComprovante::daBatida($this->batida(), 'BJP-ABCD-EFGH-JK23');
+        self::assertFalse($dados->trabalhoExterno);
+
+        $externo = str_replace('"trabalho_externo":false}', '"trabalho_externo":true}', $dados->canonico());
+        self::assertTrue(DadosDoComprovante::deCanonico($externo)->trabalhoExterno);
     }
 
     #[TestDox('Pessoa sem nome: o nome fica vazio, nunca o e-mail')]

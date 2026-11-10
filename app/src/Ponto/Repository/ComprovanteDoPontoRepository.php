@@ -44,33 +44,38 @@ class ComprovanteDoPontoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Os comprovantes da pessoa NESTE escritório, a batida mais nova primeiro (aba Comprovantes, P48).
+     * Os comprovantes da pessoa NESTE escritório, a batida mais nova primeiro (aba Comprovantes, P48). A pessoa é a da
+     * própria linha: o comprovante da batida que o gestor apagou continua aqui. A batida só entra na ordem (a guardada
+     * sem internet tem a hora do aparelho, mais velha que a emissão); sem ela, vale a hora da emissão.
      *
      * @return list<ComprovanteDoPonto>
      */
     public function daPessoaNoEscritorio(User $pessoa, Tenant $escritorio, int $limite): array
     {
         return $this->createQueryBuilder('c')
-            ->innerJoin('c.registro', 'r')
+            ->addSelect('COALESCE(r.dataHora, c.emitidoEm) AS HIDDEN momento')
+            ->leftJoin('c.registro', 'r')
             ->andWhere('c.tenant = :escritorio')
-            ->andWhere('r.user = :pessoa')
+            ->andWhere('c.user = :pessoa')
             ->setParameter('escritorio', $escritorio)
             ->setParameter('pessoa', $pessoa)
-            ->orderBy('r.dataHora', 'DESC')
+            ->orderBy('momento', 'DESC')
             ->addOrderBy('c.id', 'DESC')
             ->setMaxResults($limite)
             ->getQuery()
             ->getResult();
     }
 
-    /** O comprovante pelo id, só se for da pessoa e deste escritório (guarda de posse do download: senão, null). */
+    /**
+     * O comprovante pelo id, só se for da pessoa e deste escritório (guarda de posse do download: senão, null). Também
+     * o da batida que o gestor apagou.
+     */
     public function daPessoaPorId(int $id, User $pessoa, Tenant $escritorio): ?ComprovanteDoPonto
     {
         return $this->createQueryBuilder('c')
-            ->innerJoin('c.registro', 'r')
             ->andWhere('c.id = :id')
             ->andWhere('c.tenant = :escritorio')
-            ->andWhere('r.user = :pessoa')
+            ->andWhere('c.user = :pessoa')
             ->setParameter('id', $id)
             ->setParameter('escritorio', $escritorio)
             ->setParameter('pessoa', $pessoa)

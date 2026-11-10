@@ -89,7 +89,7 @@ final class ImagemDoComprovante
         $this->campo($tela, 'TRABALHADOR', $dados->nome, 552);
         $this->campo($tela, 'EMPREGADOR', $dados->escritorio . ($cnpj !== null ? ' · CNPJ ' . $cnpj : ''), 622);
         $this->campo($tela, 'LOCAL DO REGISTRO', $dados->local, 692);
-        $this->campo($tela, 'MÉTODO · NSR', $metodo . ($dados->semInternet ? ' · Sem internet' : '') . ' · ' . $dados->nsrFormatado(), 762);
+        $this->campo($tela, 'MÉTODO · NSR', $metodo . ($dados->trabalhoExterno ? ' · Trabalho externo' : '') . ($dados->semInternet ? ' · Sem internet' : '') . ' · ' . $dados->nsrFormatado(), 762);
     }
 
     private function campo(TelaDoComprovante $tela, string $rotulo, string $valor, float $y): void

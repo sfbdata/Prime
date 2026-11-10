@@ -26,6 +26,7 @@ use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
 use App\Ponto\Service\AbaDosComprovantes;
 use App\Ponto\Service\CercaDoPonto;
+use App\Ponto\Service\PosicaoNaCerca;
 use App\Ponto\Service\TrabalhoExternoDaBatida;
 use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
@@ -1022,20 +1023,6 @@ final class PontoController extends AbstractController
             $this->trabalhoExterno->avisarGestores($justificativaExterna, $tenant);   // depois do COMMIT; a falha não desfaz a batida
         }
 
-        $dados = [
-            'hora' => $registro->getDataHora()->format('H:i:s'),
-            'tipo' => $tipo,
-        ];
-        if ($justificativaExterna !== null) {
-            $dados['trabalhoExterno'] = true;
-        } elseif ($posicao !== null) {
-            $dados['sede'] = $posicao->sede?->getNome();
-            $dados['distancia'] = $posicao->distancia !== null ? round($posicao->distancia, 2) : null;
-        }
-        if ($comprovante !== null) {   // E15: o código e o "Baixar comprovante" da tela de resultado (E8, desenho L365 e L368)
-            $dados['comprovante'] = ['codigo' => $comprovante->getCodigo(), 'url' => $this->generateUrl('ponto_comprovante_baixar', ['id' => $comprovante->getId()])];
-        }
-
         return $this->json([
             'success' => true,
             'message' => match (true) {
@@ -1043,7 +1030,7 @@ final class PontoController extends AbstractController
                 $homeOfficeHoje                => 'Ponto (home office) registrado com sucesso!',
                 default                        => 'Ponto registrado com sucesso!',
             } . ($comprovante !== null ? ' Comprovante na aba Comprovantes.' : ''),
-            'data'    => $dados,
+            'data'    => $this->dadosDaBatida($registro, $posicao, $justificativaExterna !== null, $comprovante),
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);
     }
@@ -1100,6 +1087,29 @@ final class PontoController extends AbstractController
         }
 
         return true;
+    }
+
+    /**
+     * Os dados da tela de resultado da batida que entrou: hora e tipo; a marca do trabalho externo (E12) ou, quando a
+     * cerca valeu, a sede e a distância; e, com o comprovante emitido, o código e o "Baixar comprovante" (E15; E8,
+     * desenho L365 e L368).
+     *
+     * @return array<string, mixed>
+     */
+    private function dadosDaBatida(RegistroPonto $registro, ?PosicaoNaCerca $posicao, bool $trabalhoExterno, ?ComprovanteDoPonto $comprovante): array
+    {
+        $dados = ['hora' => $registro->getDataHora()->format('H:i:s'), 'tipo' => $registro->getTipo()];
+        if ($trabalhoExterno) {
+            $dados['trabalhoExterno'] = true;
+        } elseif ($posicao !== null) {
+            $dados['sede'] = $posicao->sede?->getNome();
+            $dados['distancia'] = $posicao->distancia !== null ? round($posicao->distancia, 2) : null;
+        }
+        if ($comprovante !== null) {
+            $dados['comprovante'] = ['codigo' => $comprovante->getCodigo(), 'url' => $this->generateUrl('ponto_comprovante_baixar', ['id' => $comprovante->getId()])];
+        }
+
+        return $dados;
     }
 
     /** A resposta da batida que já tinha entrado com o mesmo envio; sem a hora quando quem barrou foi o índice único. */

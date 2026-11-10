@@ -9,12 +9,12 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\ValidacaoDoComprovanteController;
 use App\Ponto\Entity\ComprovanteDoPonto;
 use App\Ponto\Entity\RegistroPonto;
-use App\Ponto\Service\SeloDoComprovante;
+use App\Ponto\Service\ChavesDoHmacDoPonto;
+use App\Ponto\Service\SeloDoComprovanteHmac;
 use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Profile\Entity\UserProfile;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
-use App\Tests\Ponto\Support\SeloDoComprovanteDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -34,6 +34,7 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
     use CenarioDeJustificativaTrait;
 
     private const JSON = ['HTTP_ACCEPT' => 'application/json'];
+    private const SEGREDO = 'segredo-de-teste-do-comprovante';
 
     private KernelBrowser $client;
 
@@ -147,6 +148,20 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         self::assertSame('{"autentico":false,"texto":null}', $inexistente[1]);
     }
 
+    #[TestDox('Dado selado num formato que o leitor não conhece, com o selo conferindo: "Código não localizado."')]
+    public function testFormatoDoDadoDesconhecido(): void
+    {
+        $this->seloPronto();
+        $comprovante = $this->emitir();
+        $formato2 = str_replace('"formato":1,', '"formato":2,', $comprovante->getDadosAssinados());
+        $hmac = hash_hmac('sha256', $formato2, (string) hash_hkdf('sha256', self::SEGREDO, 32, SeloDoComprovanteHmac::FINALIDADE));
+        $this->em()->getConnection()->executeStatement('UPDATE ponto_comprovante SET dados_assinados = :d, hmac = :h WHERE id = :id', ['d' => $formato2, 'h' => $hmac, 'id' => $comprovante->getId()]);
+        $this->em()->clear();
+
+        self::assertSame('{"autentico":false,"texto":null}', $this->json($comprovante->getCodigo()));
+        self::assertStringContainsString('Código não localizado.', $this->pagina($comprovante->getCodigo()));
+    }
+
     #[TestDox('Formato errado também recebe "Código não localizado." (mesma caixa da página, mesmo JSON)')]
     public function testFormatoErrado(): void
     {
@@ -158,9 +173,10 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Código não localizado.', $tela->filter('.pv-erro[role="alert"]')->text());
     }
 
-    #[TestDox('Sem o segredo do HMAC (produção da fase A): mesmo o comprovante que existe responde "Código não localizado."')]
+    #[TestDox('Sem o segredo do HMAC: mesmo o comprovante que existe responde "Código não localizado."')]
     public function testSeloIndisponivel(): void
     {
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto(null));
         $batida = $this->batida($this->pessoaComPerfil(), $this->escritorio('Escritório Validação'));
         $batida->setNsr(1);
         $this->em()->persist($batida);
@@ -254,9 +270,10 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         return (string) $this->client->getResponse()->getContent();
     }
 
+    /** O segredo do Ponto configurado (as chaves da E9): o selo do comprovante fica pronto. */
     private function seloPronto(): void
     {
-        static::getContainer()->set(SeloDoComprovante::class, new SeloDoComprovanteDeTeste());
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto(self::SEGREDO));
     }
 
     private function emitir(?User $pessoa = null, ?Tenant $escritorio = null): ComprovanteDoPonto

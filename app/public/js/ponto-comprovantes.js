@@ -5,6 +5,9 @@
  *
  * Moldura e comportamento das outras janelas da tela: Esc, o "x" e "Fechar" fecham; clicar fora não fecha; o foco
  * não sai da janela com Tab. Tudo por delegação no documento. Sem resposta em 15 s, a janela avisa.
+ *
+ * Cada consulta leva um número; abrir a janela ou digitar outro código passa o número adiante. A resposta que chega
+ * depois disso é de um código que já não está no campo e não muda a tela.
  */
 (function () {
     'use strict';
@@ -14,6 +17,7 @@
     const SEM_RESPOSTA = 'Sem resposta do servidor. Confira a conexão e tente de novo.';
 
     let focoAntes = null;
+    let pedido = 0;   // o número da consulta que vale; resposta de número anterior é descartada
 
     function janela() {
         return document.getElementById('ponto-janela-validar');
@@ -40,6 +44,7 @@
             return;
         }
         focoAntes = botao;
+        pedido++;
         fundo.querySelector('[data-validar-codigo]').value = '';
         mostrar(fundo, '', '');
         fundo.hidden = false;
@@ -106,12 +111,15 @@
             return;
         }
         const botao = form.querySelector('[data-validar-acao]');
+        const esta = ++pedido;
         botao.disabled = true;
         fundo.dataset.ocupada = '1';
         const [resultado, texto] = await consultar(codigo, form.dataset.validarUrl);
         delete fundo.dataset.ocupada;
         botao.disabled = false;
-        mostrar(fundo, resultado, texto);
+        if (esta === pedido) {
+            mostrar(fundo, resultado, texto);
+        }
     }
 
     document.addEventListener('click', function (evento) {
@@ -141,6 +149,7 @@
     document.addEventListener('input', function (evento) {
         const fundo = aberta();
         if (fundo && evento.target.matches('[data-validar-codigo]')) {
+            pedido++;   // a consulta em andamento era do código anterior
             mostrar(fundo, '', '');
         }
     });

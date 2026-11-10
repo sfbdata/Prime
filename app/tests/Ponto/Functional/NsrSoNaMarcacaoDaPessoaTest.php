@@ -8,8 +8,10 @@ use App\Controller\TenantController;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\PontoController;
+use App\Ponto\Entity\ComprovanteDoPonto;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,7 +22,8 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 /**
  * O NSR (E15, D2) é só da marcação que a própria pessoa faz na /ponto. A batida lançada pelo gestor na ficha e a do
  * abono de esquecimento lançado por ele ficam sem NSR (viram ajuste na E10). E o mesmo envio repetido (E13) não gasta
- * número: nem a nova tentativa que a consulta barra, nem a que perde a corrida para o índice único.
+ * número: nem a nova tentativa que a consulta barra, nem a que perde a corrida para o índice único. A batida guardada
+ * sem internet (E14) é marcação da pessoa e recebe NSR na chegada; a recusada pela fila não gasta número.
  */
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
@@ -119,6 +122,73 @@ final class NsrSoNaMarcacaoDaPessoaTest extends JusPrimeWebTestCase
         $conexao = $this->em()->getConnection();
         self::assertSame(0, (int) $conexao->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE tenant_id = ?', [$this->escritorio->getId()]), 'nada entrou aqui');
         self::assertFalse($this->ultimoNsr(), 'o contador que nasceu na transação saiu com o rollback');
+    }
+
+    #[TestDox('A batida da fila sem internet (o corpo do ponto-fila.js) recebe NSR, e o comprovante sela o "sem internet"')]
+    public function testBatidaDaFilaRecebeNsr(): void
+    {
+        $this->homeOffice();
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto('segredo-de-teste-do-comprovante'));
+
+        $resposta = $this->daFila(new \DateTimeImmutable('-1 hour'));
+
+        self::assertArrayNotHasKey('jaRegistrada', $resposta['data']);
+        $batida = $this->unicaBatida();
+        self::assertTrue($batida->isEnviadaSemInternet());
+        self::assertSame(1, $batida->getNsr());
+        self::assertSame(1, $this->ultimoNsr());
+        $comprovante = $this->emSemFiltro()->getRepository(ComprovanteDoPonto::class)->findOneBy(['tenant' => $this->escritorio->getId()]);
+        self::assertNotNull($comprovante);
+        self::assertSame($resposta['data']['comprovante']['codigo'], $comprovante->getCodigo());
+        self::assertStringContainsString('"sem_internet":true', $comprovante->getDadosAssinados());
+    }
+
+    #[TestDox('A fila manda de novo a batida que já entrou (mesmo idEnvio): "já registrada", e o contador continua em 1')]
+    public function testReenvioDaFilaNaoGastaNsr(): void
+    {
+        $this->homeOffice();
+        $aparelho = new \DateTimeImmutable('-1 hour');
+
+        $this->daFila($aparelho);
+        $segunda = $this->daFila($aparelho);
+
+        self::assertTrue($segunda['data']['jaRegistrada']);
+        self::assertSame(1, $this->unicaBatida()->getNsr());
+        self::assertSame(1, $this->ultimoNsr());
+    }
+
+    #[TestDox('A batida da fila velha demais (além de 72 h) é recusada e não gasta número: o contador nem nasce')]
+    public function testFilaVelhaDemaisNaoGastaNsr(): void
+    {
+        $this->homeOffice();
+
+        $this->daFila(new \DateTimeImmutable('-73 hours'), 422);
+
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE tenant_id = ?', [$this->escritorio->getId()]));
+        self::assertFalse($this->ultimoNsr());
+    }
+
+    /**
+     * A batida guardada sem internet com o corpo que o `payloadDe` do `public/js/ponto-fila.js` monta (sem posição: a
+     * pessoa está em home office).
+     *
+     * @return array<string, mixed>
+     */
+    private function daFila(\DateTimeImmutable $aparelho, int $status = 200): array
+    {
+        $this->logarComTenant($this->client, $this->pessoa, $this->escritorio);
+        $corpo = [
+            'tipo'         => 'entrada',
+            'idEnvio'      => self::ID_ENVIO,
+            'horaAparelho' => $aparelho->getTimestamp() * 1000,
+            'semInternet'  => true,
+            'usuarioId'    => $this->pessoa->getId(),
+            'escritorioId' => $this->escritorio->getId(),
+        ];
+        $this->client->request('POST', '/ponto/batida', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], (string) json_encode($corpo));
+        self::assertResponseStatusCodeSame($status, (string) $this->client->getResponse()->getContent());
+
+        return json_decode((string) $this->client->getResponse()->getContent(), true);
     }
 
     private function logarComoGestor(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ponto\Entity;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\ComprovanteDoPontoRepository;
 use App\Shared\Contract\TenantAware;
@@ -17,11 +18,13 @@ use Doctrine\ORM\Mapping as ORM;
  * só então mostra o que está neles; nada é lido da batida viva (o gestor ainda edita a batida até a E10).
  *
  * O comprovante é a prova da marcação e sobrevive à batida: se o gestor apagar a batida, a ligação fica nula
- * (ON DELETE SET NULL) e o código continua autêntico, porque a validação só depende dos dados selados.
+ * (ON DELETE SET NULL) e o código continua autêntico, porque a validação só depende dos dados selados. A pessoa fica
+ * na própria linha (`user_id`, a da batida na emissão): a aba Comprovantes e o download continuam com ela.
  */
 #[ORM\Entity(repositoryClass: ComprovanteDoPontoRepository::class)]
 #[ORM\Table(name: 'ponto_comprovante')]
 #[ORM\Index(name: 'idx_ponto_comprovante_tenant', columns: ['tenant_id'])]
+#[ORM\Index(name: 'idx_ponto_comprovante_user', columns: ['user_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_ponto_comprovante_registro', columns: ['registro_ponto_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_ponto_comprovante_codigo', columns: ['codigo'])]
 class ComprovanteDoPonto implements TenantAware
@@ -31,6 +34,12 @@ class ComprovanteDoPonto implements TenantAware
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
+    /** A pessoa da batida (sem cascata, como `registro_ponto.user_id`). */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'user_id', nullable: false)]
+    private User $user;
+
+    /** @throws \LogicException batida sem pessoa */
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
         #[ORM\JoinColumn(name: 'tenant_id', nullable: false)]
@@ -53,6 +62,7 @@ class ComprovanteDoPonto implements TenantAware
         #[ORM\Column(name: 'dados_assinados', type: 'text')]
         private string $dadosAssinados,
     ) {
+        $this->user = $registro?->getUser() ?? throw new \LogicException('O comprovante sai de uma batida com pessoa.');
     }
 
     public function getId(): ?int
@@ -63,6 +73,11 @@ class ComprovanteDoPonto implements TenantAware
     public function getTenant(): ?Tenant
     {
         return $this->tenant;
+    }
+
+    public function getUser(): User
+    {
+        return $this->user;
     }
 
     /** Null depois que o gestor apaga a batida (o comprovante continua valendo). */

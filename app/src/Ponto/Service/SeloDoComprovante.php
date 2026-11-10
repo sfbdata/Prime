@@ -7,9 +7,10 @@ namespace App\Ponto\Service;
 /**
  * A porta do selo (HMAC) do comprovante da batida (spec ponto-desenho-0811, E15 e seção 10, "Chaves por finalidade").
  *
- * A chave sai do segredo `PONTO_HMAC_SECRET` com a finalidade `ponto-comprovante` (E9). Enquanto o segredo não existe
- * em produção, vale a implementação indisponível: a batida grava com o NSR, nenhum comprovante é emitido, a aba
- * Comprovantes e o "Validar código" não aparecem, e a validação pública responde "Código não localizado.".
+ * A chave sai do segredo `PONTO_HMAC_SECRET` com a finalidade `ponto-comprovante` (E9); a implementação é
+ * {@see SeloDoComprovanteHmac}. Sem o segredo, o selo fica indisponível: a batida grava com o NSR, nenhum comprovante é
+ * emitido, a aba Comprovantes e o "Validar código" não aparecem, e a validação pública responde "Código não
+ * localizado.".
  */
 interface SeloDoComprovante
 {

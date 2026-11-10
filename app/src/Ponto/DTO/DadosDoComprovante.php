@@ -9,14 +9,16 @@ use App\Ponto\Entity\RegistroPonto;
 /**
  * O que o comprovante da batida atesta, na forma canônica que o HMAC sela (E15, D9): o que a imagem mostra, e nada
  * além. Nome inteiro (P50), escritório e CNPJ, data e hora do servidor, tipo, método, o local do registro (P49: as
- * coordenadas com a precisão, ou "Geolocalização não exigida"), a marca "sem internet" (E13 e E14) e o NSR, mais o
- * código e o id do escritório: o par escritório e NSR é único (D2) e prende o selo a uma batida só. Sem CPF.
+ * coordenadas com a precisão, ou "Geolocalização não exigida"), as marcas "sem internet" (E13 e E14) e "trabalho
+ * externo" (E12) e o NSR, mais o código e o id do escritório: o par escritório e NSR é único (D2) e prende o selo a uma
+ * batida só. Sem CPF.
  *
  * A validação (janela e página pública) mostra só {@see self::textoDaValidacao()}: o local fica na imagem, que é da
  * própria pessoa, e nunca sai na página aberta (P50).
  *
  * A forma canônica é um JSON com as chaves sempre na mesma ordem, sem escapar acentos nem barras: o mesmo dado gera
- * sempre o mesmo texto, então o HMAC gravado confere enquanto nada mudar.
+ * sempre o mesmo texto, então o HMAC gravado confere enquanto nada mudar. O número do formato vai junto: o leitor só
+ * aceita o formato que conhece, e o resto não vira comprovante ("Código não localizado." na validação).
  */
 final readonly class DadosDoComprovante
 {
@@ -30,7 +32,7 @@ final readonly class DadosDoComprovante
         RegistroPonto::TIPO_SAIDA   => 'Saída',
     ];
     public const SEM_GEOLOCALIZACAO = 'Geolocalização não exigida';
-    private const CHAVES = ['formato', 'codigo', 'nsr', 'escritorio_id', 'nome', 'escritorio', 'cnpj', 'data_hora', 'tipo', 'metodo', 'local', 'sem_internet'];
+    private const CHAVES = ['formato', 'codigo', 'nsr', 'escritorio_id', 'nome', 'escritorio', 'cnpj', 'data_hora', 'tipo', 'metodo', 'local', 'sem_internet', 'trabalho_externo'];
 
     public function __construct(
         public string $codigo,
@@ -44,6 +46,7 @@ final readonly class DadosDoComprovante
         public string $metodo,
         public string $local,
         public bool $semInternet,
+        public bool $trabalhoExterno,
     ) {
     }
 
@@ -69,6 +72,7 @@ final readonly class DadosDoComprovante
             self::METODO_SISTEMA,
             self::localDaBatida($batida),
             $batida->isEnviadaSemInternet(),
+            false,   // a E12 liga com RegistroPonto::isTrabalhoExterno()
         );
     }
 
@@ -89,10 +93,11 @@ final readonly class DadosDoComprovante
         return json_encode(array_combine(self::CHAVES, [
             self::FORMATO, $this->codigo, $this->nsr, $this->escritorioId, $this->nome, $this->escritorio,
             $this->cnpj, $this->dataHora->format(\DATE_ATOM), $this->tipo, $this->metodo, $this->local, $this->semInternet,
+            $this->trabalhoExterno,
         ]), \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES | \JSON_THROW_ON_ERROR);
     }
 
-    /** @throws \UnexpectedValueException quando o texto não é a forma canônica deste formato */
+    /** @throws \UnexpectedValueException quando o texto não é a forma canônica deste formato (outro número, outras chaves) */
     public static function deCanonico(string $canonico): self
     {
         $dados = json_decode($canonico, true);
@@ -116,6 +121,7 @@ final readonly class DadosDoComprovante
             (string) $dados['metodo'],
             (string) $dados['local'],
             $dados['sem_internet'] === true,
+            $dados['trabalho_externo'] === true,
         );
     }
 
