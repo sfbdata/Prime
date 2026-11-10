@@ -6,6 +6,7 @@ namespace App\Ponto\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\DTO\AbonoDaEquipeOutput;
 use App\Ponto\DTO\AbonoDoLoteOutput;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
@@ -39,7 +40,8 @@ use Doctrine\ORM\EntityManagerInterface;
  * ## Trilha de auditoria (E9)
  *
  * Cada análise gravada entra na trilha do Ponto ({@see TrilhaDoPonto}) na mesma transação, depois da trava da linha:
- * abonada, recusada, voltou para análise e, no "aprovar todos", um evento "Abono em lote" com as abonadas. A batida
+ * abonada, recusada, voltou para análise e, no "aprovar todos" da ficha e no "Abonar selecionadas" da aba Equipe, um
+ * evento "Abono em lote" com as abonadas (detalhes diferentes: `doLote` e `daEquipe`). A batida
  * do esquecimento entra pelo `RegistrarBatidaDoEsquecimentoUseCase`. A análise barrada sob a trava
  * (`AnaliseDeJustificativaRecusadaException`: excluída ou situação mudou) não grava evento, porque nada mudou; já a
  * justificativa recusada pelo gestor grava "Justificativa recusada". Se o fato falha depois do evento (horário futuro
@@ -48,9 +50,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * ## Contrato com a aba Equipe (E5)
  *
  * `abonarPorId` é a porta estável para abonar UMA justificativa sem a ficha: busca pelo escritório, aplica a regra da
- * própria (P43 a) e as recusas rápidas da ficha, e só então `abonar`. A permissão de analisar (`admin.users.manage`,
- * `GestaoDoPonto::veEquipe`) e o aviso do sininho (`NotificacaoService::notificarJustificativaAprovada`) ficam com quem
- * chama, como na ficha. Erro sempre por `AnaliseDeJustificativaRecusadaException`; nada de flash nem Request aqui.
+ * própria (P43 a) e as recusas rápidas da ficha, e só então `abonar`. É a da própria de quem analisa no "Abonar
+ * selecionadas" (desenho L818: analisada uma a uma, com o evento dela). As da equipe vão por `abonarDaEquipe`, numa
+ * transação só com o evento único. A permissão de analisar (`admin.users.manage`, `GestaoDoPonto::veEquipe`) e o aviso
+ * do sininho (`NotificacaoService::notificarJustificativaAprovada`) ficam com quem chama, como na ficha. Erro sempre por
+ * `AnaliseDeJustificativaRecusadaException`; nada de flash nem Request aqui.
  */
 final class AnalisarJustificativaUseCase
 {
@@ -172,6 +176,45 @@ final class AnalisarJustificativaUseCase
     }
 
     /**
+     * "Abonar selecionadas" da aba Equipe (E5, desenho L818): abona as justificativas da equipe que quem chama já
+     * conferiu (escritório da sessão, vínculo ativo) numa transação só, e a trilha ganha UM evento "Abono em lote" com
+     * a lista das abonadas ({@see DetalheDaTrilhaDoPonto::daEquipe}), no mesmo COMMIT dos abonos.
+     *
+     * Cada uma passa pelas regras do abono da ficha com a linha travada (escritório, P43 a, excluída, fora de análise,
+     * batida já registrada, horário futuro): a recusa vira o motivo dela e as outras seguem, sem desfazer nada. Trava
+     * todas as linhas antes de gravar qualquer uma, em ordem de id, como o "aprovar todos"; a trilha é a última trava.
+     * Nenhuma abonada, nenhum evento. Uma falha inesperada volta a transação inteira, abonos e evento juntos.
+     *
+     * @param list<JustificativaPonto> $daEquipe
+     */
+    public function abonarDaEquipe(array $daEquipe, Tenant $tenant, User $analista): AbonoDaEquipeOutput
+    {
+        return $this->em->wrapInTransaction(function () use ($daEquipe, $tenant, $analista): AbonoDaEquipeOutput {
+            $situacoes = $this->travarEmOrdemDeId($daEquipe, $tenant);
+            $abonadas  = [];
+            $recusas   = [];
+            foreach ($daEquipe as $justificativa) {
+                $id     = (int) $justificativa->getId();
+                $recusa = $this->recusaDaEquipeSobATrava($justificativa, $situacoes[$id] ?? null, $tenant, $analista);
+                if ($recusa !== null) {
+                    $recusas[$id] = $recusa->getMessage();
+                    continue;
+                }
+                $this->marcarAbonada($justificativa, $analista, '');
+                ($this->registrarBatida)($justificativa, $tenant);
+                // Por item, como no "aprovar todos": a conferência da batida já registrada (R1) da próxima enxerga esta.
+                $this->em->flush();
+                $abonadas[] = $justificativa;
+            }
+            if ($abonadas !== []) {
+                $this->trilha->registrar($tenant, $analista, AcaoDaTrilhaDoPonto::AbonoEmLote->value, DetalheDaTrilhaDoPonto::daEquipe($abonadas));
+            }
+
+            return new AbonoDaEquipeOutput($abonadas, $recusas);
+        });
+    }
+
+    /**
      * @param \Closure(): void $gravar        roda com a linha travada, só quando a situação é a esperada
      * @param bool             $querEmAnalise abonar e recusar pedem "em análise"; voltar para análise, o contrário
      * @param string|null      $anterior      recebe a situação lida sob a trava
@@ -201,15 +244,69 @@ final class AnalisarJustificativaUseCase
     /** As recusas rápidas da ficha (TenantController::aprovarJustificativa), na mesma ordem. */
     private function exigirAbonavel(JustificativaPonto $justificativa, Tenant $escritorio): void
     {
-        if ($justificativa->getStatus() !== self::EM_ANALISE) {
-            throw AnaliseDeJustificativaRecusadaException::situacaoMudou(NomesDasSituacoesDaJustificativa::texto('analise.so_para_abonar'));
+        $recusa = $justificativa->getStatus() !== self::EM_ANALISE
+            ? self::foraDeAnalise()
+            : $this->recusaDaBatida($justificativa, $escritorio);
+        if ($recusa !== null) {
+            throw $recusa;
         }
+    }
+
+    /**
+     * As regras do abono da ficha para uma da equipe, com a linha já travada e a situação lida sob a trava (null: a
+     * linha sumiu). Null quando pode abonar.
+     */
+    private function recusaDaEquipeSobATrava(JustificativaPonto $justificativa, ?string $situacao, Tenant $tenant, User $analista): ?AnaliseDeJustificativaRecusadaException
+    {
+        $dono = $justificativa->getUser();
+        if ($dono === null || $justificativa->getTenant()?->getId() !== $tenant->getId()) {
+            return AnaliseDeJustificativaRecusadaException::naoEncontrada();
+        }
+        if (!$this->analiseDaPropria->permite($analista, $dono, $tenant)) {
+            return AnaliseDeJustificativaRecusadaException::propria();
+        }
+        if ($situacao === null) {
+            return AnaliseDeJustificativaRecusadaException::excluida();
+        }
+
+        return $situacao !== self::EM_ANALISE ? self::foraDeAnalise() : $this->recusaDaBatida($justificativa, $tenant);
+    }
+
+    /** As recusas da batida do esquecimento, na ordem da ficha: já registrada no dia (R1) e horário que não chegou. */
+    private function recusaDaBatida(JustificativaPonto $justificativa, Tenant $escritorio): ?AnaliseDeJustificativaRecusadaException
+    {
         if (($jaBatida = $this->registrarBatida->recusa($justificativa, $escritorio)) !== null) {
-            throw AnaliseDeJustificativaRecusadaException::batidaJaRegistrada($jaBatida);
+            return AnaliseDeJustificativaRecusadaException::batidaJaRegistrada($jaBatida);
         }
-        if ($this->registrarBatida->pedeHorarioFuturo($justificativa)) {
-            throw AnaliseDeJustificativaRecusadaException::horarioFuturo();
+
+        return $this->registrarBatida->pedeHorarioFuturo($justificativa) ? AnaliseDeJustificativaRecusadaException::horarioFuturo() : null;
+    }
+
+    private static function foraDeAnalise(): AnaliseDeJustificativaRecusadaException
+    {
+        return AnaliseDeJustificativaRecusadaException::situacaoMudou(NomesDasSituacoesDaJustificativa::texto('analise.so_para_abonar'));
+    }
+
+    /**
+     * Trava as linhas em ordem de id (dois lotes não se esperam em ordem trocada) e devolve a situação de cada uma
+     * lida sob a trava, pelo id; a que sumiu fica de fora.
+     *
+     * @param list<JustificativaPonto> $justificativas
+     *
+     * @return array<int, string>
+     */
+    private function travarEmOrdemDeId(array $justificativas, Tenant $tenant): array
+    {
+        $situacoes = [];
+        foreach ($this->emOrdemDeId($justificativas) as $justificativa) {
+            $id     = (int) $justificativa->getId();
+            $status = $this->repositorio->statusNoBancoTravadoPorId($id, $tenant);
+            if ($status !== null) {
+                $situacoes[$id] = $status;
+            }
         }
+
+        return $situacoes;
     }
 
     /** @param array<string, mixed> $extra */

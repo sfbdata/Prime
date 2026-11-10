@@ -21,8 +21,9 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * "Abonar selecionadas" da aba Equipe (spec ponto-desenho-0811, E5, P57): cada id passa pelas portas da ficha, uma
- * recusa não impede as outras, e o abono em si é o da ficha (aqui, um dublê de `AbonoDeJustificativa`).
+ * "Abonar selecionadas" da aba Equipe (spec ponto-desenho-0811, E5, P57; desenho L818): cada id passa pelas portas da
+ * ficha, uma recusa não impede as outras, e o abono em si é o da ficha (aqui, um dublê de `AbonoDeJustificativa`). A
+ * própria de quem analisa vai sozinha (`abonar`); as da equipe vão juntas, numa chamada só (`abonarDaEquipe`).
  */
 #[CoversClass(AbonarJustificativasDaEquipeUseCase::class)]
 #[CoversClass(AbonoEmLoteOutput::class)]
@@ -33,8 +34,12 @@ final class AbonarJustificativasDaEquipeUseCaseTest extends TestCase
     private UserTenantRepository&MockObject $vinculos;
     private Tenant $escritorio;
     private User $gestor;
-    /** @var list<JustificativaPonto> */
+    /** @var list<JustificativaPonto> as abonadas, pelos dois caminhos */
     private array $abonadas = [];
+    /** @var list<JustificativaPonto> as que foram pelo `abonar` (a própria, sozinha) */
+    private array $sozinhas = [];
+    /** @var list<list<JustificativaPonto>> cada chamada do `abonarDaEquipe` */
+    private array $lotesDaEquipe = [];
     /** @var array<int, string> recusa do abono, pelo id da justificativa */
     private array $recusasDoAbono = [];
 
@@ -61,6 +66,8 @@ final class AbonarJustificativasDaEquipeUseCaseTest extends TestCase
         self::assertSame([], $resultado->recusas);
         self::assertCount(2, $this->abonadas);
         self::assertSame('2 justificativas abonadas.', $resultado->mensagemDasAbonadas());
+        self::assertCount(1, $this->lotesDaEquipe, 'as da equipe vão juntas, numa chamada só');
+        self::assertSame([], $this->sozinhas);
     }
 
     #[TestDox('Id de outro escritório ou que não existe, e de quem saiu do escritório: não abona')]
@@ -104,6 +111,55 @@ final class AbonarJustificativasDaEquipeUseCaseTest extends TestCase
 
         self::assertSame(1, $resultado->abonadas);
         self::assertSame([], $resultado->recusas);
+        self::assertCount(1, $this->sozinhas, 'a própria vai sozinha, com o evento dela');
+        self::assertSame([], $this->lotesDaEquipe, 'sem nenhuma da equipe, o abono da equipe não é chamado');
+    }
+
+    #[TestDox('Desenho L818: a própria vai sozinha e as da equipe vão juntas, numa chamada só, sem a própria')]
+    public function testPropriaSozinhaEquipeJunta(): void
+    {
+        $master = self::pessoa('Master')->setRoles(['ROLE_SUPER_ADMIN']);
+        (new \ReflectionProperty(User::class, 'id'))->setValue($master, 900);
+        $ana = self::pessoa('Ana');
+        $bia = self::pessoa('Bia');
+        $propria = self::justificativa($master, '2026-11-06');
+        $daAna = self::justificativa($ana, '2026-11-06');
+        $daBia = self::justificativa($bia, '2026-11-07');
+        $this->achadas([31 => $daAna, 30 => $propria, 32 => $daBia], [31, 30, 32]);
+        $this->vinculos->method('existeVinculoAtivo')->willReturn(true);
+
+        $resultado = $this->useCase()->executar($master, $this->escritorio, [31, 30, 32]);
+
+        self::assertSame(3, $resultado->abonadas);
+        self::assertSame([$propria], $this->sozinhas);
+        self::assertSame([[$daAna, $daBia]], $this->lotesDaEquipe);
+        self::assertSame('3 justificativas abonadas.', $resultado->mensagemDasAbonadas());
+    }
+
+    #[TestDox('Recusas da equipe e da própria saem com a pessoa e o dia, na ordem em que os ids vieram; as outras contam')]
+    public function testRecusasNaOrdemDosIds(): void
+    {
+        $master = self::pessoa('Master')->setRoles(['ROLE_SUPER_ADMIN']);
+        (new \ReflectionProperty(User::class, 'id'))->setValue($master, 900);
+        $ana = self::pessoa('Ana');
+        $bia = self::pessoa('Bia');
+        $this->achadas([
+            50 => self::justificativa($bia, '2026-11-02'),
+            51 => self::justificativa($master, '2026-11-03'),
+            52 => self::justificativa($ana, '2026-11-04'),
+        ], [52, 51, 99, 50]);
+        $this->vinculos->method('existeVinculoAtivo')->willReturn(true);
+        $this->recusasDoAbono[52] = 'Esta batida já foi registrada.';
+        $this->recusasDoAbono[51] = 'Só dá para abonar o que está em análise.';
+
+        $resultado = $this->useCase()->executar($master, $this->escritorio, [52, 51, 99, 50]);
+
+        self::assertSame(1, $resultado->abonadas);
+        self::assertSame([
+            'Ana (04/11/2026): Esta batida já foi registrada.',
+            'Master (03/11/2026): Só dá para abonar o que está em análise.',
+            AbonarJustificativasDaEquipeUseCase::NAO_ENCONTRADA,
+        ], $resultado->recusas);
     }
 
     #[TestDox('O abono da ficha recusa (já analisada, batida já registrada): a recusa sai com a pessoa e o dia')]
@@ -154,7 +210,12 @@ final class AbonarJustificativasDaEquipeUseCaseTest extends TestCase
 
             public function abonar(JustificativaPonto $justificativa, Tenant $escritorio, User $analista): ?string
             {
-                return $this->teste->abonar($justificativa);
+                return $this->teste->abonarSozinha($justificativa);
+            }
+
+            public function abonarDaEquipe(array $daEquipe, Tenant $escritorio, User $analista): array
+            {
+                return $this->teste->abonarDaEquipe($daEquipe);
             }
         };
 
@@ -166,8 +227,35 @@ final class AbonarJustificativasDaEquipeUseCaseTest extends TestCase
         );
     }
 
-    /** O dublê do abono da ficha: guarda a abonada ou devolve a recusa combinada para o id. */
-    public function abonar(JustificativaPonto $justificativa): ?string
+    /** O dublê do abono da própria: guarda a abonada ou devolve a recusa combinada para o id. */
+    public function abonarSozinha(JustificativaPonto $justificativa): ?string
+    {
+        $this->sozinhas[] = $justificativa;
+
+        return $this->abonar($justificativa);
+    }
+
+    /**
+     * O dublê do abono da equipe: guarda a chamada e devolve as recusas combinadas, pelo id.
+     *
+     * @param list<JustificativaPonto> $daEquipe
+     *
+     * @return array<int, string>
+     */
+    public function abonarDaEquipe(array $daEquipe): array
+    {
+        $this->lotesDaEquipe[] = $daEquipe;
+        $recusas = [];
+        foreach ($daEquipe as $justificativa) {
+            if (($recusa = $this->abonar($justificativa)) !== null) {
+                $recusas[(int) $justificativa->getId()] = $recusa;
+            }
+        }
+
+        return $recusas;
+    }
+
+    private function abonar(JustificativaPonto $justificativa): ?string
     {
         $recusa = $this->recusasDoAbono[(int) $justificativa->getId()] ?? '';
         if ($recusa !== '') {

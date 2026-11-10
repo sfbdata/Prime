@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Repository\TrilhaDoPontoRepository;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\TrilhaDoPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -176,6 +177,11 @@ final class TrilhaDoPontoEventosTest extends JusPrimeWebTestCase
         self::assertSame([(int) $a->getId(), (int) $b->getId()], $ids);
         self::assertSame(2, $eventos[0]['detalhe']['quantidade']);
         self::assertSame(1, $eventos[1]['detalhe']['quantidade']);
+        self::assertSame(
+            sprintf('Pessoa colab: Atestado Médico de %s a %s (2 dias)', $this->dia->format('d/m/Y'), $this->dia->modify('+1 day')->format('d/m/Y')),
+            DetalheDaTrilhaDoPonto::texto($eventos[0]['acao'], $eventos[0]['detalhe']),
+            'o "aprovar todos" da ficha continua com o texto dele, diferente do lote da aba Equipe',
+        );
         self::assertSame([(int) $gestor->getId(), (int) $gestor->getId()], array_column($eventos, 'autor_id'));
     }
 

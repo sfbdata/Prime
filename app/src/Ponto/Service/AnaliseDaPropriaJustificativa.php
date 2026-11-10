@@ -39,7 +39,8 @@ final class AnaliseDaPropriaJustificativa
         return $this->regraDosPrimarios->podeGerirPrimarios($analista, $tenant);
     }
 
-    private function ehAPropria(User $analista, User $dono): bool
+    /** A justificativa é de quem analisa (o "Abonar selecionadas" da aba Equipe separa as duas por aqui, E5). */
+    public function ehAPropria(User $analista, User $dono): bool
     {
         return $analista === $dono || ($analista->getId() !== null && $analista->getId() === $dono->getId());
     }

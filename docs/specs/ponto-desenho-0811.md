@@ -619,8 +619,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     (pela /ponto: o número da Equipe do gestor e do primário, o colaborador sem as abas, o endereço de cada aba e
     `?aba=xyz` caindo em Pendências);
   - ligado na integração (09/11/2026): `AbonoPelaAnaliseDaJustificativa` chama
-    `AnalisarJustificativaUseCase::abonarPorId` (E9); a recusa dele (`AnaliseDeJustificativaRecusadaException`) vira o
-    motivo da frase; cada justificativa grava na própria transação, então uma recusa não desfaz as outras;
+    `AnalisarJustificativaUseCase::abonarPorId` (E9) para a própria de quem analisa e
+    `AnalisarJustificativaUseCase::abonarDaEquipe` para as da equipe (ajuste da conferência, A7 e A11, abaixo); a
+    recusa (`AnaliseDeJustificativaRecusadaException`) vira o motivo da frase e não desfaz as outras. Cada abonada
+    recebe o aviso do sininho ("Sua justificativa de ponto foi abonada.") depois do COMMIT, como na ficha (antes do
+    ajuste, o lote não avisava);
   - do sistema, no molde do desenho: a linha "Ninguém registra ponto neste escritório." na tabela vazia, o botão
     desligado mais claro, a frase de erro no topo e o aviso só para leitor de tela. A tabela não tem `pe-resp`: no
     celular rola para o lado. CSS num bloco só no fim de `ponto-eletronico.css`, com os tokens da tela (sem token novo);
@@ -638,11 +641,23 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     limite de pessoas no painel por enquanto; rever quando um escritório passar de 30 pessoas no ponto. Duas sobras
     pequenas ficam anotadas: os feriados relidos por pessoa nas pendências (`ListarPendenciasDeRegistroUseCase`, que a
     E6 mexe; fica para depois dela) e o `historicoDe` lido duas vezes por pessoa (no banco e na escala);
-  - Abono em lote (revisão de 09/11/2026): cada justificativa é abonada e auditada uma por uma, com o registro
-    "Justificativa abonada" da E9; não há um evento único "Abono em lote" (dc L818, D5). Uma falha inesperada no meio
-    do lote deixa gravadas as que vieram antes dela (o lote não abre transação). A recusa esperada do abono da ficha
-    (`AnaliseDeJustificativaRecusadaException`, do AnalisarJustificativaUseCase da outra frente) volta como motivo pelo
-    `AbonoDeJustificativa` quando o adaptador for ligado, vira mensagem e o lote segue;
+  - Abono em lote na trilha (ajuste da conferência de 09/11/2026, A7 e A11; dc L818): a própria de quem analisa é
+    abonada sozinha, na transação dela, com o evento "Justificativa abonada"; as da equipe vão juntas em
+    `abonarDaEquipe`, numa transação só que trava todas as linhas em ordem de id antes de gravar (como o "aprovar
+    todos"; a trilha é a última trava) e passa cada uma pelas regras do abono da ficha sob a trava (escritório, P43 a,
+    excluída, fora de análise, batida já registrada, que enxerga a batida da anterior do mesmo lote, e horário futuro).
+    A recusa vira o motivo dela e as outras seguem. As abonadas ganham UM evento "Abono em lote" no mesmo COMMIT, com o
+    texto do desenho "1 justificativa da equipe" ou "N justificativas da equipe" (sem o nome na frente) e, no detalhe
+    (`DetalheDaTrilhaDoPonto::daEquipe`, chave `da_equipe`), o id da justificativa, a pessoa (id e nome) e o dia de
+    cada abonada, para a auditoria não perder quem foi abonado. Nenhuma abonada, nenhum evento. Uma falha inesperada
+    volta a transação inteira das da equipe (abonos, batidas e evento): nenhum abono fica sem o evento. O "aprovar
+    todos" da ficha (`abonarLote`, `doLote`, uma pessoa) continua com o detalhe e o texto dele. A ordem das recusas
+    na tela é a dos ids pedidos;
+  - "Tentar de novo" do painel que falhou (A13): molde do botão de borda azul do desenho (L196 "Baixar"; o mesmo de
+    L249, L253 e L254): 30px, borda e texto `--pe-azul`/`--pe-link`, fundo `--pe-card`, 12.5px, gap 6px, mouse
+    `--pe-info-bg` (#e5f1f7). O foco do teclado (o desenho não tem) é o da tela, o contorno da chave das
+    Configurações. Nenhuma classe da tela tinha esse molde com o mouse, então a `.pe-painel-tentar` foi acertada no
+    lugar (o botão nasce no `ponto-paineis.js`, não num template);
   - limite conhecido, versão futura agendada (revisão de 09/11/2026): se a pessoa já tem uma versão da jornada que
     começa depois de hoje, a escala trocada na aba vale só até o dia anterior a essa versão, e a aba não avisa.
 - Arquivos: `EquipeDoPontoController`, `ConsultarEquipeDoPontoUseCase`, `TrocarEscalaNaEquipeUseCase`,
@@ -653,7 +668,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   `UserTenantRepository` (legado, só acrescenta); `ListarPendenciasDeRegistroUseCase::soNoEscritorio`;
   `JornadaColaboradorController` (usa `ChoqueDaJornadaProposta`); `_abas_equipe.html.twig`,
   `_justificativa_macros.html.twig`, `_abas_justificativas.html.twig` (usa o macro); `public/js/ponto-equipe.js`; bloco
-  da E5 em `ponto-eletronico.css`.
+  da E5 em `ponto-eletronico.css`. Ajuste da conferência (A7, A11 e A13): `AnalisarJustificativaUseCase::abonarDaEquipe`
+  e o DTO `AbonoDaEquipeOutput`, `DetalheDaTrilhaDoPonto::daEquipe`, o segundo método do `AbonoDeJustificativa`, o
+  aviso no `AbonoPelaAnaliseDaJustificativa`, `AnaliseDaPropriaJustificativa::ehAPropria` (passa a pública) e a
+  `.pe-painel-tentar`.
 - Testes: `SituacaoDeHojeNaEquipeTest`, `CatalogoDeEscalasTest`, `TrocarEscalaNaEquipeUseCaseTest`,
   `AbonarJustificativasDaEquipeUseCaseTest` (com o dublê do abono e o provisório), `EquipeDoPontoTelaTest` (arranjo por
   filho direto e textos, quem entra, situações, escala marcada, banco e pendências iguais aos da /ponto da pessoa,
@@ -663,7 +681,12 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   `EquipeDoPontoSubtituloTest` (o macro sem espaço nas pontas; subtítulo com `&` escapado uma vez nas duas abas),
   `EquipeDoPontoConsultasTest` (teto de consultas por pessoa),
   `AbonoEmLoteDaEquipeTest` (dublê do abono: abonadas, recusa, isolamento, P43 a no lote, guardas),
-  `EquipeDoDesenhoCssTest`, `PontoEquipeJsTest`.
+  `AbonoEmLoteLigadoAFichaTest` (o abono de verdade: um "Abono em lote" para as da equipe e o evento da própria, o
+  evento conta só as abonadas, nenhum evento sem abonada, o texto na aba Auditoria, o aviso do sininho),
+  `AnalisarJustificativaUseCaseTest` (`abonarDaEquipe`: um evento no mesmo COMMIT, recusas sem desfazer as outras, R1
+  dentro do lote, guardas, a trilha que falha não deixa abono), `DetalheDaTrilhaDoPontoTest` (o detalhe e o texto da
+  equipe no plural certo; o do "aprovar todos" não muda), `EquipeDoDesenhoCssTest` (inclui o "Tentar de novo"),
+  `PontoEquipeJsTest`.
 
 **E6. Configurações, parte 1: sedes e feriados na aba.**
 - Entra: P68, P69 (fica: mapa e busca por CEP ou endereço), P70 (a: sede nova nasce com 150 m; as sedes de hoje não

@@ -603,6 +603,8 @@
     font-size: 13.5px;
     color: var(--pe-perigo);
 }
+/* "Tentar de novo": o botão secundário de borda azul do desenho (L196 "Baixar"; o mesmo de L249, L253 e L254), com o
+   mouse dele (#e5f1f7). O foco do teclado é o da tela (o desenho não tem): o contorno da chave das Configurações. */
 .pe-painel-tentar {
     height: 30px;
     padding: 0 11px;
@@ -613,7 +615,12 @@
     font: inherit;
     font-size: 12.5px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
+.pe-painel-tentar:hover { background: var(--pe-info-bg); }
+.pe-painel-tentar:focus-visible { outline: 2px solid var(--pe-link); outline-offset: 2px; }
 
 /* Pendências (L171 a L176). "Trocar de escritório" e a explicação da pendência de outro escritório (P38, sistema,
    fica) usam o molde do botão e o tom do texto da aba. */
