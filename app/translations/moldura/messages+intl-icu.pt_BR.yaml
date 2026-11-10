@@ -20,6 +20,7 @@ moldura:
             expediente: Expediente
             cobrancas: Cobranças
             quem_somos_e_contribua: Quem somos e contribua
+            ponto: Ponto Eletrônico
         escritorio_trocar_conta: '{escritorio}: trocar de conta'
         instalar_aplicativo: Instalar aplicativo
         tela_cheia: Tela cheia

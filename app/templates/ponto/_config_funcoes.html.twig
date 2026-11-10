@@ -1,0 +1,46 @@
+{#
+    Seção "Funções" da aba Configurações do Ponto (spec docs/specs/ponto-desenho-0811.md, E7 e P67; desenho 16 L235
+    a L245): o texto de ajuda e uma linha por função com a camada "Escritório" (o comprovante em imagem da E15, só com
+    o selo pronto, a geolocalização da E7 e o aceite mensal da folha da E16, só com o selo pronto), cada uma com o
+    título, a ajuda e as chaves. A barra de teste "Ver como" do Master não entra (D16).
+
+    Recebe: funcoesDoPonto (App\Ponto\DTO\ConfiguracoesDoPontoOutput ou null). Null: quem vê a aba não administra o
+    ponto do escritório (vê só o que a permissão dele abre), e a seção não aparece.
+
+    - "Escritório": a do escritório da sessão, gravada por POST em `ponto_configuracao_funcao` (token `ajax`, que o
+      interceptador do base.html.twig põe). Com o Global desligado ela fica travada, aparece desligada (o valor
+      guardado continua em `data-ligada`) e a frase do Master aparece embaixo.
+    - "Global": só o Master vê; chama a rota do catálogo do Master (`master_recurso_alternar`, token `master_recursos`).
+
+    O painel chega por innerHTML (js/ponto-paineis.js), e script dentro dele não roda: o comportamento mora em
+    js/ponto-configuracoes.js, por delegação no documento. Só textos fixos aqui; o JS só troca estado e mensagem.
+#}
+{% if funcoesDoPonto|default(null) %}
+    <div class="pe-config-funcoes" data-config-funcoes>
+        <div class="pe-config-ajuda">
+            {%- if funcoesDoPonto.ehMaster -%}
+                Master: a chave Global libera ou bloqueia a função para todos os escritórios. Com a função liberada, cada usuário primário decide o uso no seu escritório.
+            {%- else -%}
+                Usuário primário: define como o ponto funciona no seu escritório, dentro do que o Master liberou.
+            {%- endif -%}
+        </div>
+        {% for funcao in funcoesDoPonto.funcoes %}
+            <div class="pe-config-funcao" data-config-funcao="{{ funcao.chave }}" data-titulo="{{ funcao.titulo }}">
+                <i class="pe-config-icone bi {{ funcao.icone }}" aria-hidden="true"></i>
+                <div class="pe-config-texto"><b>{{ funcao.titulo }}</b><span>{{ funcao.ajuda }}</span></div>
+                {% if funcoesDoPonto.ehMaster %}
+                    <div class="pe-config-chave"><span>Global</span><button type="button" role="switch" class="pe-config-switch"
+                            aria-checked="{{ funcao.global ? 'true' : 'false' }}" aria-label="{{ funcao.titulo }}: liberar para todos"
+                            data-config-global="{{ path('master_recurso_alternar', {chave: funcao.chave}) }}"
+                            data-token="{{ csrf_token('master_recursos') }}"><span></span></button></div>
+                {% endif %}
+                <div class="pe-config-chave"><span>Escritório</span><button type="button" role="switch" class="pe-config-switch"
+                        aria-checked="{{ funcao.escritorioEfetivo ? 'true' : 'false' }}" aria-label="{{ funcao.titulo }}: usar no escritório"
+                        data-config-escritorio="{{ path('ponto_configuracao_funcao', {chave: funcao.chave}) }}"
+                        data-ligada="{{ funcao.escritorio ? '1' : '0' }}"{{ funcao.travada ? ' disabled' }}><span></span></button></div>
+                <span class="pe-config-trava" data-config-trava{{ funcao.travada ? '' : ' hidden' }}>Desativado pelo Master para todos os escritórios.</span>
+                <span class="pe-config-erro" role="alert" data-config-erro hidden></span>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}

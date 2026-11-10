@@ -1,0 +1,250 @@
+/**
+ * Comportamento do painel da aba "Configurações" da tela do Ponto (docs/specs/ponto-desenho-0811.md). O painel chega
+ * depois (js/ponto-paineis.js): tudo por delegação no documento; `ponto:painel-carregado` avisa quando ele chega.
+ *
+ * Funções (E7, templates/ponto/_config_funcoes.html.twig; desenho 16 L235 a L245, `tgG` e `tgE` na L761):
+ * - a chave "Escritório" grava por POST em `data-config-escritorio`, com `{ligada}` (o token `ajax` vem do
+ *   interceptador do base.html.twig). Travada (Global desligado), não responde. Recusada porque o Master desligou o
+ *   Global depois que a aba carregou (422 com `global: false`), a chave trava na hora, com a frase da trava;
+ * - a chave "Global", só do Master, chama a rota do catálogo do Master com `{ativo}` e o token `master_recursos`; ao
+ *   voltar, trava ou destrava a do escritório e avisa como o desenho ("liberado/desativado para todos"), no aviso
+ *   flutuante do Ponto (`window.PontoAvisoFlutuante`, da E8; L266 e `avisar` L468). Sem ele na página, o aviso do
+ *   sistema (`window.bjAviso`) fica de reserva para o texto não se perder.
+ * O servidor decide: a tela só redesenha o que a resposta trouxe. Falha vira a frase da linha, nunca silêncio.
+ *
+ * Trabalho externo (E12 e P74, templates/ponto/_config_trabalho_externo.html.twig; desenho 16 L253, `tgExt` na L820):
+ * a caixa grava por POST em `data-url` com `{permitir}`, do jeito da chave "Escritório" (token `ajax` do interceptador).
+ * Deu certo: a caixa fica como o servidor devolveu (`permitir`). Recusa (403, 422) ou falta de resposta: a caixa volta
+ * como estava e a frase do servidor (`erro`) aparece embaixo.
+ *
+ * Limite e prazo do banco (E17 e P73, templates/ponto/_config_banco.html.twig; desenho 16 L250 e L251): cada campo
+ * grava ao sair dele (`change`, não a cada tecla) por POST em `data-url` com `{limiteHoras}` ou `{prazoMeses}`, do
+ * jeito da caixa do trabalho externo (token `ajax` do interceptador). Campo vazio vai como `null` e o servidor recusa.
+ * Deu certo: o campo fica com o que o servidor devolveu, que vira o valor gravado (`data-gravado`). Recusa (403, 422)
+ * ou falta de resposta: o campo volta ao valor gravado e a frase do servidor (`erro`) aparece embaixo dele. Enquanto
+ * grava, o campo fica só de leitura (e não `disabled`, que tiraria o foco de quem usa as setas do campo).
+ */
+(function () {
+    'use strict';
+
+    // Sem resposta até aqui, a gravação desiste e avisa (a tela não tem `fetch` sem prazo).
+    const GRAVAR_PRAZO_MS = 15000;
+    const TEXTO_FALHA = 'Não foi possível salvar agora. Tente de novo.';
+
+    function elemento(alvo, seletor) {
+        return alvo instanceof Element ? alvo.closest(seletor) : null;
+    }
+
+    function mostrarErro(linha, texto) {
+        const erro = linha.querySelector('[data-config-erro]');
+        if (!erro) {
+            return;
+        }
+        erro.textContent = texto || '';
+        erro.hidden = !texto;
+    }
+
+    // Estado da chave do escritório: travada aparece desligada, mas o valor guardado (`data-ligada`) fica.
+    function desenharEscritorio(linha, liberadaPeloMaster) {
+        const chave = linha.querySelector('[data-config-escritorio]');
+        const trava = linha.querySelector('[data-config-trava]');
+        if (!chave) {
+            return;
+        }
+        chave.disabled = !liberadaPeloMaster;
+        chave.setAttribute('aria-checked', liberadaPeloMaster && chave.dataset.ligada === '1' ? 'true' : 'false');
+        if (trava) {
+            trava.hidden = liberadaPeloMaster;
+        }
+    }
+
+    // O servidor recusou porque o Global está desligado: trava a chave do escritório (a frase da trava, a mesma da
+    // recusa, aparece no lugar do erro, para não sair duas vezes) e, na tela do Master, mostra o Global desligado
+    // também. A linha fica igual à do servidor sem recarregar a aba.
+    function travarPeloGlobal(linha) {
+        const global = linha.querySelector('[data-config-global]');
+        if (global) {
+            global.setAttribute('aria-checked', 'false');
+        }
+        desenharEscritorio(linha, false);
+    }
+
+    async function enviar(url, corpo, token) {
+        const cabecalhos = { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+        if (token) {
+            cabecalhos['X-CSRF-Token'] = token;
+        }
+        const aborto = new AbortController();
+        const prazo = setTimeout(function () { aborto.abort(); }, GRAVAR_PRAZO_MS);
+        try {
+            const resposta = await fetch(url, {
+                method: 'POST',
+                headers: cabecalhos,
+                credentials: 'same-origin',
+                body: JSON.stringify(corpo),
+                signal: aborto.signal,
+            });
+            let dados = null;
+            try {
+                dados = await resposta.json();
+            } catch (e) {
+                dados = null;
+            }
+            if (!resposta.ok || !dados) {
+                return { ok: false, erro: dados && typeof dados.erro === 'string' ? dados.erro : TEXTO_FALHA, dados: dados };
+            }
+
+            return { ok: true, dados: dados };
+        } catch (erro) {
+            return { ok: false, erro: TEXTO_FALHA };
+        } finally {
+            clearTimeout(prazo);
+        }
+    }
+
+    async function alternarEscritorio(botao, linha) {
+        const ligar = botao.dataset.ligada !== '1';
+        botao.setAttribute('aria-busy', 'true');
+        mostrarErro(linha, '');
+        const resultado = await enviar(botao.dataset.configEscritorio, { ligada: ligar }, null);
+        botao.removeAttribute('aria-busy');
+        if (resultado.ok === false && resultado.dados && resultado.dados.global === false) {
+            travarPeloGlobal(linha);
+
+            return;
+        }
+        if (!resultado.ok) {
+            mostrarErro(linha, resultado.erro);
+
+            return;
+        }
+        botao.dataset.ligada = resultado.dados.escritorio ? '1' : '0';
+        desenharEscritorio(linha, resultado.dados.global !== false);
+    }
+
+    async function alternarGlobal(botao, linha) {
+        const liberar = botao.getAttribute('aria-checked') !== 'true';
+        botao.setAttribute('aria-busy', 'true');
+        mostrarErro(linha, '');
+        const resultado = await enviar(botao.dataset.configGlobal, { ativo: liberar }, botao.dataset.token);
+        botao.removeAttribute('aria-busy');
+        if (!resultado.ok) {
+            mostrarErro(linha, resultado.erro);
+
+            return;
+        }
+        const ativo = resultado.dados.ativo === true;
+        botao.setAttribute('aria-checked', ativo ? 'true' : 'false');
+        desenharEscritorio(linha, ativo);
+        const aviso = (linha.dataset.titulo || '') + (ativo ? ' liberado para todos os escritórios.' : ' desativado para todos os escritórios.');
+        if (window.PontoAvisoFlutuante) {
+            window.PontoAvisoFlutuante.mostrar(aviso, 'ok');
+        } else if (window.bjAviso) {
+            window.bjAviso(aviso);
+        }
+    }
+
+    document.addEventListener('click', function (evento) {
+        const linha = elemento(evento.target, '[data-config-funcao]');
+        if (!linha) {
+            return;
+        }
+        const escritorio = elemento(evento.target, '[data-config-escritorio]');
+        const global = elemento(evento.target, '[data-config-global]');
+        const botao = escritorio || global;
+        if (!botao || botao.disabled || botao.getAttribute('aria-busy') === 'true') {
+            return;
+        }
+        if (escritorio) {
+            alternarEscritorio(escritorio, linha);
+
+            return;
+        }
+        alternarGlobal(global, linha);
+    });
+
+    // Trabalho externo (E12, P74). A caixa já mudou quando o `change` chega: o estado de antes é o contrário.
+    function mostrarErroDoExterno(secao, texto) {
+        const erro = secao.querySelector('[data-config-externo-erro]');
+        if (!erro) {
+            return;
+        }
+        erro.textContent = texto || '';
+        erro.hidden = !texto;
+    }
+
+    async function alternarTrabalhoExterno(caixa) {
+        const secao = caixa.closest('[data-config-externo]');
+        if (!secao) {
+            return;
+        }
+        const antes = !caixa.checked;
+        caixa.disabled = true;
+        mostrarErroDoExterno(secao, '');
+        const resultado = await enviar(secao.dataset.url, { permitir: caixa.checked }, null);
+        caixa.disabled = false;
+        if (!resultado.ok) {
+            caixa.checked = antes;
+            mostrarErroDoExterno(secao, resultado.erro);
+
+            return;
+        }
+        caixa.checked = resultado.dados.permitir === true;
+    }
+
+    // Limite e prazo do banco (E17, P73). A frase de erro é a do rótulo do próprio campo.
+    function mostrarErroDoBanco(campo, texto) {
+        if (texto) {
+            campo.setAttribute('aria-invalid', 'true');
+        } else {
+            campo.removeAttribute('aria-invalid');
+        }
+        const rotulo = campo.closest('label');
+        const erro = rotulo ? rotulo.querySelector('[data-config-banco-erro]') : null;
+        if (!erro) {
+            return;
+        }
+        erro.textContent = texto || '';
+        erro.hidden = !texto;
+    }
+
+    async function gravarLimiteDoBanco(campo) {
+        const grade = campo.closest('[data-config-banco]');
+        const nome = campo.dataset.configBancoCampo;
+        if (!grade || !nome) {
+            return;
+        }
+        const corpo = {};
+        corpo[nome] = campo.value === '' ? null : Number(campo.value);
+        campo.readOnly = true;
+        campo.setAttribute('aria-busy', 'true');
+        mostrarErroDoBanco(campo, '');
+        const resultado = await enviar(grade.dataset.url, corpo, null);
+        campo.readOnly = false;
+        campo.removeAttribute('aria-busy');
+        if (!resultado.ok) {
+            campo.value = campo.dataset.gravado || '';
+            mostrarErroDoBanco(campo, resultado.erro);
+
+            return;
+        }
+        const gravado = resultado.dados[nome];
+        if (typeof gravado === 'number') {
+            campo.dataset.gravado = String(gravado);
+            campo.value = String(gravado);
+        }
+    }
+
+    document.addEventListener('change', function (evento) {
+        const caixa = elemento(evento.target, '[data-config-externo-caixa]');
+        if (caixa) {
+            alternarTrabalhoExterno(caixa);
+
+            return;
+        }
+        const campo = elemento(evento.target, '[data-config-banco-campo]');
+        if (campo && campo.getAttribute('aria-busy') !== 'true') {
+            gravarLimiteDoBanco(campo);
+        }
+    });
+})();

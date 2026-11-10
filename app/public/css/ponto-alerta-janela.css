@@ -1,0 +1,116 @@
+/* =============================================================================
+   ponto-alerta-janela.css: a janela do alerta de horário do ponto (templates/ponto/_modal_alerta_ponto.html.twig).
+   A janela aparece em TODA página do sistema (base.html.twig), não só na /ponto: o CSS vem junto com ela.
+
+   Desenho aprovado: docs/design/redesign-08-11-26/16 - Ponto Eletronico - VS 08.11.26.dc.html, moldura de janela
+   (L269 a L273, a mesma das janelas da /ponto, `.pe-janela-*` do ponto-eletronico.css) e o corpo da janela de alerta
+   (L288: texto de 14px e a nota de 12.5px).
+
+   Tudo sob `.pe-alerta-ponto`: o arquivo carrega em toda página e não vale para mais nada. Os tokens moram na própria
+   janela (ela fica fora do `.pe-page`), claro com os hex do desenho e escuro em cima de var(--bs-*), a mesma receita do
+   ponto-eletronico.css. Na /ponto, as regras de lá também alcançam as classes `.pe-janela-*` desta janela: os valores
+   são os mesmos.
+   ============================================================================= */
+
+.pe-alerta-ponto {
+    --pe-texto:        #12242f;
+    --pe-card:         #fff;
+    --pe-azul:         #0a6fa0;
+    --pe-sobre-azul:   #fff;
+    --pe-link-hover:   #0b5f86;
+    --pe-corpo:        #243845;
+    --pe-mudo:         #5b7383;
+    --pe-div:          #e6edf2;
+    --pe-rodape-bg:    #f7f9fb;
+}
+
+[data-bs-theme="dark"] .pe-alerta-ponto {
+    --pe-texto:        var(--bs-body-color);
+    --pe-card:         var(--bs-tertiary-bg);
+    --pe-link-hover:   #3b8fd4;
+    --pe-corpo:        var(--bs-body-color);
+    --pe-mudo:         var(--bs-secondary-color);
+    --pe-div:          var(--bs-border-color-translucent);
+    --pe-rodape-bg:    var(--bs-secondary-bg);
+}
+
+/* Fundo azul escuro por cima de tudo; clicar nele não fecha (o desenho não fecha). */
+.pe-alerta-ponto.pe-janela-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483100;
+    background: rgba(11, 53, 80, .55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    overflow-y: auto;
+}
+.pe-alerta-ponto.pe-janela-fundo[hidden] { display: none; }
+
+.pe-alerta-ponto .pe-janela {
+    width: 100%;
+    max-width: 480px;
+    margin: auto;
+    background: var(--pe-card);
+    border-radius: 3px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+    overflow: hidden;
+    animation: pe-alerta-sobe .2s ease both;
+    color: var(--pe-texto);
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: normal;
+    text-align: left;
+}
+.pe-alerta-ponto .pe-janela:focus { outline: none; }
+@keyframes pe-alerta-sobe { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Barra azul: ícone, título e o "x". */
+.pe-alerta-ponto .pe-janela-topo { display: flex; align-items: center; gap: 9px; padding: 12px 16px; background: var(--pe-azul); color: var(--pe-sobre-azul); }
+.pe-alerta-ponto .pe-janela-topo > .bi { font-size: 17px; }
+.pe-alerta-ponto .pe-janela-titulo { flex: 1; font-size: 16px; }
+.pe-alerta-ponto .pe-janela-fechar {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #fff;
+    font-size: 17px;
+    cursor: pointer;
+}
+.pe-alerta-ponto .pe-janela-fechar:hover { background: rgba(255, 255, 255, .16); }
+
+/* Corpo da janela de alerta do desenho (L288): o texto e, abaixo, a nota (aqui, o horário configurado). Sem horário
+   (a volta do intervalo e a saída chegam sem ele), a nota não deixa uma linha vazia. */
+.pe-alerta-ponto-corpo { padding: 14px 16px; font-size: 14px; line-height: 1.5; color: var(--pe-corpo); }
+.pe-alerta-ponto-corpo > p { margin: 0; }
+.pe-alerta-ponto-corpo > .pe-alerta-ponto-nota { margin-top: 8px; font-size: 12.5px; color: var(--pe-mudo); }
+.pe-alerta-ponto-corpo > .pe-alerta-ponto-nota:empty { display: none; }
+
+/* Rodapé com a ação azul do desenho; aqui ela é o link "Ir para o Ponto Eletrônico". */
+.pe-alerta-ponto .pe-janela-rodape {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--pe-rodape-bg);
+    border-top: 1px solid var(--pe-div);
+}
+.pe-alerta-ponto .pe-janela-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 3px;
+    background: var(--pe-azul);
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    text-decoration: none;
+    cursor: pointer;
+}
+.pe-alerta-ponto .pe-janela-acao:hover,
+.pe-alerta-ponto .pe-janela-acao:focus { background: var(--pe-link-hover); color: #fff; text-decoration: none; }

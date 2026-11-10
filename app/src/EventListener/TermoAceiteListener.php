@@ -96,6 +96,10 @@ final class TermoAceiteListener
         'trabalho_externo_vagas_link',
         'trabalho_externo_vagas_alertas',
         'vagas_publicas_cta',
+        // Validação do comprovante do ponto (E15, P50): a página do QR Code e a consulta da janela, abertas a quem
+        // está logado sem escritório na sessão como a quem não tem conta.
+        'validacao_comprovante_ponto',
+        'validacao_comprovante_ponto_codigo',
     ];
 
     public function __construct(

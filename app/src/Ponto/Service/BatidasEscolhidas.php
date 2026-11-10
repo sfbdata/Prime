@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Ponto\Service;
 
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 
 /**
- * As batidas de um dia que valem: uma por tipo, escolhidas por {@see EscolhaDasBatidasDoDia}.
+ * As batidas de um dia que valem: uma por tipo, escolhidas por {@see EscolhaDasBatidasDoDia}. São batidas efetivas
+ * (E10): a original sem ajuste ou a ajustada pelo gestor ({@see MarcacaoDoPonto}).
  *
  * É a ÚNICA fonte do que a folha mostra e conta. As células, os links de editar e excluir, o
  * intervalo, os minutos, o saldo e o quadro "suas batidas de hoje" leem estas mesmas quatro batidas
@@ -29,21 +31,21 @@ final readonly class BatidasEscolhidas
     public const MARCA_RETORNO_ANTES_DO_REPOUSO = 'retorno_antes_do_repouso';
 
     /**
-     * @param list<RegistroPonto> $desconsideradas as batidas do dia que não foram escolhidas, em ordem de horário
+     * @param list<MarcacaoDoPonto> $desconsideradas as batidas do dia que não foram escolhidas, em ordem de horário
      * @param list<string>        $aConferir       as marcas `MARCA_*`, na ordem em que estão declaradas
      */
     public function __construct(
         public string $regra,
-        public ?RegistroPonto $entrada,
-        public ?RegistroPonto $repouso,
-        public ?RegistroPonto $retorno,
-        public ?RegistroPonto $saida,
+        public ?MarcacaoDoPonto $entrada,
+        public ?MarcacaoDoPonto $repouso,
+        public ?MarcacaoDoPonto $retorno,
+        public ?MarcacaoDoPonto $saida,
         public array $desconsideradas,
         public array $aConferir,
     ) {
     }
 
-    public function doTipo(string $tipo): ?RegistroPonto
+    public function doTipo(string $tipo): ?MarcacaoDoPonto
     {
         return match ($tipo) {
             RegistroPonto::TIPO_ENTRADA => $this->entrada,
@@ -57,13 +59,13 @@ final readonly class BatidasEscolhidas
     /**
      * As escolhidas, na ordem entrada, repouso, retorno e saída, sem as ausentes.
      *
-     * @return list<RegistroPonto>
+     * @return list<MarcacaoDoPonto>
      */
     public function escolhidas(): array
     {
         return array_values(array_filter(
             [$this->entrada, $this->repouso, $this->retorno, $this->saida],
-            static fn (?RegistroPonto $batida): bool => $batida !== null,
+            static fn (?MarcacaoDoPonto $batida): bool => $batida !== null,
         ));
     }
 

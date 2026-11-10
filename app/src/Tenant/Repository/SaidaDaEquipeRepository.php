@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tenant\Repository;
 
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Tenant\Entity\SaidaDaEquipe;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -19,6 +21,20 @@ class SaidaDaEquipeRepository extends ServiceEntityRepository
     public function registrar(SaidaDaEquipe $saida): void
     {
         $this->getEntityManager()->persist($saida);
+    }
+
+    /** A pessoa saiu da equipe deste escritório (a saída é gravada desde 19/10/2026). */
+    public function existeDe(User $usuario, Tenant $tenant): bool
+    {
+        return $this->createQueryBuilder('s')
+            ->select('s.id')
+            ->andWhere('s.usuario = :usuario')
+            ->andWhere('s.tenant = :tenant')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult() !== null;
     }
 
     /**

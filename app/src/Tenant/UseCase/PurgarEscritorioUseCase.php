@@ -380,15 +380,37 @@ final class PurgarEscritorioUseCase
         ['agenda_google_conexao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['jornada_colaborador', 'tenant_id = :tenant'],
+        // Ajustes de batida do Ponto (E10): apontam (NO ACTION) para a justificativa, a batida gravada e uns para os
+        // outros; saem ANTES de justificativa_ponto e de registro_ponto. As referências entre ajustes ficam todas no
+        // mesmo escritório e caem no mesmo DELETE.
+        ['ponto_ajuste', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
+        // Comprovante do ponto (E15): FK tenant_id sem cascata, e o registro_ponto_id só fica nulo quando a batida sai
+        // (SET NULL): a linha sai aqui, antes das batidas. O contador de NSR não é referenciado por ninguém.
+        ['ponto_comprovante', 'tenant_id = :tenant'],
+        ['ponto_contador_nsr', 'tenant_id = :tenant'],
+        // Folha emitida e aceite da folha (E16): FKs de tenant e pessoa sem cascata. O aceite aponta para a folha
+        // emitida vista (NO ACTION), então sai antes dela; nada aponta para o aceite.
+        ['ponto_folha_aceite', 'tenant_id = :tenant'],
+        ['ponto_folha_emitida', 'tenant_id = :tenant'],
+        // A batida gravada só sai na purga: o gatilho `registro_ponto_so_insercao` deixa o DELETE passar só com
+        // `bluejus.purga_do_escritorio` igual ao escritório da linha (ver escapeDaBatidaDoPonto()).
         ['registro_ponto', 'tenant_id = :tenant'],
         // Horas pagas (ajuste manual do banco de horas): FK tenant_id/user_id NOT DEFERRABLE, sem
         // ON DELETE CASCADE (NO ACTION) — deleção explícita, no mesmo bloco das outras tabelas de
         // ponto e ANTES da Fase 4 (que apaga o tenant). Nada referencia esta tabela, então a posição
         // relativa às demais entradas não importa, só precisa vir antes do DELETE FROM tenant.
         ['ponto_lancamento_horas_pagas', 'tenant_id = :tenant'],
+        // Trilha de auditoria do Ponto (E9): a cadeia selada do escritório sai inteira com ele. FK tenant CASCADE;
+        // explícito por convenção. Nada a referencia.
+        ['ponto_auditoria', 'tenant_id = :tenant'],
         ['home_office_config', 'tenant_id = :tenant'],
+        // Configuração do Ponto do escritório (E7): FK tenant_id sem cascata, como a home_office_config.
+        ['ponto_config_escritorio', 'tenant_id = :tenant'],
         ['feriado', 'tenant_id = :tenant'],
+        // Lotação com vigência do Ponto (E6): FKs de tenant e pessoa CASCADE, a de lotação SET NULL; explícito por
+        // convenção. O feriado (acima) segura a lotação (NO ACTION) e sai antes dela.
+        ['lotacao_vigencia', 'tenant_id = :tenant'],
         // Fase 3 — estruturais / permissões do tenant.
         ['aceite_termo', 'tenant_id = :tenant'],
         ['access_request', 'tenant_id = :tenant'],
@@ -599,6 +621,7 @@ final class PurgarEscritorioUseCase
 
             $linhas = [];
 
+            $this->escapeDaBatidaDoPonto($conn, (string) $tenantId);
             foreach (self::ORDEM_DELECAO as [$tabela, $where]) {
                 $n = (int) $conn->executeStatement(
                     sprintf('DELETE FROM %s WHERE %s', $tabela, $where),
@@ -609,6 +632,7 @@ final class PurgarEscritorioUseCase
                     $linhas[$tabela] = $n;
                 }
             }
+            $this->escapeDaBatidaDoPonto($conn, '');
 
             // Fase 3.5 — verificação de integridade (guard anti-drift): nada tenant-scoped pode sobrar.
             $this->garantirTenantVazio($conn, $tenantId);
@@ -759,6 +783,15 @@ final class PurgarEscritorioUseCase
         } catch (\Throwable) {
             // Sem onde registrar; o desfecho segue o que o banco decidiu.
         }
+    }
+
+    /**
+     * A batida gravada do Ponto só sai com a purga deste escritório (gatilho `registro_ponto_so_insercao`, E10).
+     * O escape vale só dentro desta transação (is_local) e volta a vazio logo depois do laço de deleção.
+     */
+    private function escapeDaBatidaDoPonto(Connection $conn, string $tenant): void
+    {
+        $conn->executeStatement("SELECT set_config('bluejus.purga_do_escritorio', :tenant, true)", ['tenant' => $tenant]);
     }
 
     /** Desfaz só o nível que a purga abriu; uma falha aqui não troca a exceção original. */

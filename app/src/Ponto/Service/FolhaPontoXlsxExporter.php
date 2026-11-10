@@ -22,6 +22,11 @@ final class FolhaPontoXlsxExporter
     private const COR_FERIADO     = 'FFCC0000';
     private const COR_CONFORME    = 'FF2E7D32';
 
+    /** E10 (decisão 5): a marca depois da hora que o gestor ajustou ou incluiu, e a legenda dela nas observações. */
+    public const MARCA_DO_AJUSTE = 'aj';
+    public const LEGENDA_DO_AJUSTE = 'aj: horário ajustado pelo gestor; o registro original fica guardado.';
+    private const TIPOS_DA_LINHA = ['entrada', 'repouso', 'retorno', 'saida'];
+
     public function exportar(array $folhaRows, string $nomeArquivo, array $c = []): StreamedResponse
     {
         $response = new StreamedResponse(function () use ($folhaRows, $c) {
@@ -35,7 +40,7 @@ final class FolhaPontoXlsxExporter
             $linha = $this->escreverDadosEmpregado($sheet, $c, $linha);
             $linha = $this->escreverHeaderTabela($sheet, $linha);
             $linha = $this->escreverLinhasDados($sheet, $folhaRows, $linha);
-            $linha = $this->escreverBlocoInferior($sheet, $c, $linha);
+            $linha = $this->escreverBlocoInferior($sheet, $c, $linha, self::mesTemAjuste($folhaRows));
             $linha = $this->escreverAssinaturas($sheet, $c, $linha);
             $this->escreverRodape($sheet, $linha);
 
@@ -304,10 +309,10 @@ final class FolhaPontoXlsxExporter
                 $sF->getFont()->setBold(true);
                 $sF->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             } else {
-                $sheet->setCellValue("C{$lin}", $row['entrada'] ? substr($row['entrada'], 0, 5) : 'Sem registro');
-                $sheet->setCellValue("D{$lin}", $row['repouso'] ? substr($row['repouso'], 0, 5) : 'Sem registro');
-                $sheet->setCellValue("E{$lin}", $row['retorno'] ? substr($row['retorno'], 0, 5) : 'Sem registro');
-                $sheet->setCellValue("F{$lin}", $row['saida']   ? substr($row['saida'], 0, 5) : 'Sem registro');
+                $sheet->setCellValue("C{$lin}", self::horaDaCelula($row, 'entrada'));
+                $sheet->setCellValue("D{$lin}", self::horaDaCelula($row, 'repouso'));
+                $sheet->setCellValue("E{$lin}", self::horaDaCelula($row, 'retorno'));
+                $sheet->setCellValue("F{$lin}", self::horaDaCelula($row, 'saida'));
             }
 
             // Colunas calculadas
@@ -327,9 +332,9 @@ final class FolhaPontoXlsxExporter
                         $justText .= sprintf(' (Parcial: %s às %s)', $j->getHoraInicioAbono()->format('H:i'), $j->getHoraFimAbono()->format('H:i'));
                     }
                 } elseif ($j->getStatus() === 'pendente') {
-                    $justText = ($j->getLabelTipo() ?? '') . ' (pendente)';
+                    $justText = ($j->getLabelTipo() ?? '') . ' (' . NomesDasSituacoesDaJustificativa::texto('folha.pendente') . ')';
                 } else {
-                    $justText = ($j->getLabelTipo() ?? '') . ' (rejeitada)';
+                    $justText = ($j->getLabelTipo() ?? '') . ' (' . NomesDasSituacoesDaJustificativa::texto('folha.recusada') . ')';
                 }
             }
             $this->escreverTexto($sheet, "J{$lin}", (string) $justText);
@@ -356,7 +361,7 @@ final class FolhaPontoXlsxExporter
     }
 
     /** Escreve os 3 blocos inferiores (resumo / intervalos / observações); retorna próxima linha. */
-    private function escreverBlocoInferior(Worksheet $sheet, array $c, int $inicio): int
+    private function escreverBlocoInferior(Worksheet $sheet, array $c, int $inicio, bool $mesTemAjuste = false): int
     {
         $lin = $inicio;
         $sheet->getRowDimension($lin)->setRowHeight(4);
@@ -401,7 +406,7 @@ final class FolhaPontoXlsxExporter
         $intervalos = [
             'Intervalo Intrajornada (mín. ' . $minimoR . '):  ' . ($conformeRepouso ? '✓ Conforme' : '✗ Não Conforme'),
             'Intervalo Interjornada (mín. ' . $minimoI . '):  ' . ($conformeInterjornada ? '✓ Conforme' : '✗ Não Conforme'),
-            'Descanso Semanal Remunerado:  ✓ Conforme',
+            'Descanso Semanal Remunerado:  ' . (($c['descansoSemanalConforme'] ?? true) ? '✓ Conforme' : '✗ Não Conforme'),
             'Trabalho em Feriados:  ' . $feriados . ' dia' . ($feriados !== 1 ? 's' : ''),
             'Trabalho em Finais de Semana:  ' . $fds . ' dia' . ($fds !== 1 ? 's' : ''),
         ];
@@ -411,6 +416,9 @@ final class FolhaPontoXlsxExporter
             '• Feriados trabalhados serão compensados.',
             '• Registros realizados por sistema eletrônico de ponto em conformidade com a Portaria MTP nº 671/2021.',
         ];
+        if ($mesTemAjuste) {
+            $observacoes[] = '• ' . self::LEGENDA_DO_AJUSTE;
+        }
 
         $totalLinhas = max(count($resumo), count($intervalos), count($observacoes));
 
@@ -507,6 +515,40 @@ final class FolhaPontoXlsxExporter
         $lin++;
 
         return $lin;
+    }
+
+    /**
+     * A hora da célula (HH:MM), com a marca do ajuste quando o gestor ajustou ou incluiu a batida; sem batida, "Sem
+     * registro".
+     *
+     * @param array<string, mixed> $row
+     */
+    private static function horaDaCelula(array $row, string $tipo): string
+    {
+        $hora = (string) ($row[$tipo] ?? '');
+        if ($hora === '') {
+            return 'Sem registro';
+        }
+
+        return substr($hora, 0, 5) . (($row[$tipo . 'Ajuste'] ?? null) !== null ? ' ' . self::MARCA_DO_AJUSTE : '');
+    }
+
+    /**
+     * O mês tem hora ajustada impressa (no feriado as horas não saem): a legenda do "aj" entra nas observações.
+     *
+     * @param array<int, array<string, mixed>> $folhaRows
+     */
+    private static function mesTemAjuste(array $folhaRows): bool
+    {
+        foreach ($folhaRows as $row) {
+            foreach (self::TIPOS_DA_LINHA as $tipo) {
+                if (empty($row['isFeriado']) && ($row[$tipo . 'Ajuste'] ?? null) !== null) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

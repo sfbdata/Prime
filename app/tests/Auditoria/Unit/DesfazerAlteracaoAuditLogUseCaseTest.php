@@ -114,6 +114,23 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         self::assertSame('Entidade não existe mais.', $resultado->erro);
     }
 
+    #[TestDox('sede encerrada (Ponto E10, removida com batida): o desfazer recusa e não grava nada')]
+    public function testSedeEncerradaNaoSeAltera(): void
+    {
+        $sede = $this->comId((new Sede())->setNome('Sede Fechada')->setTenant($this->tenant(1)), 9);
+        $sede->encerrar(new \DateTimeImmutable('2026-11-09 10:00:00'));
+        $log = $this->criarLog('update', Sede::class, '9', ['nome' => ['from' => 'Sede Antiga', 'to' => 'Sede Fechada']]);
+        $this->auditLogRepository->method('find')->willReturn($log);
+        $this->em->method('find')->willReturn($sede);
+        $this->em->expects($this->never())->method('flush');
+
+        $resultado = $this->sut->executar(10, 1);
+
+        self::assertFalse($resultado->sucesso);
+        self::assertSame(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_SEDE_REMOVIDA, $resultado->erro);
+        self::assertSame('Sede Fechada', $sede->getNome());
+    }
+
     #[TestDox('a ida/volta da lixeira (diff em excluidoEm) não se desfaz por aqui: aponta para a lixeira da pasta, sem tocar no banco')]
     public function testAlteracaoDaLixeiraNaoSeDesfaz(): void
     {

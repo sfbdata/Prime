@@ -11,12 +11,14 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Ponto\Controller\AjusteDeBatidaController;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 
 /**
@@ -30,6 +32,7 @@ use Symfony\Component\DomCrawler\Crawler;
  */
 #[CoversClass(PontoController::class)]
 #[CoversClass(TenantController::class)]
+#[CoversClass(AjusteDeBatidaController::class)]
 final class FolhaMarcaAConferirTest extends JusPrimeWebTestCase
 {
     #[TestDox('o colaborador ve o dia de dois repousos marcado a conferir, com o repouso que a conta usa')]
@@ -55,7 +58,7 @@ final class FolhaMarcaAConferirTest extends JusPrimeWebTestCase
         self::assertCount(0, $linha->filter('.batida-desconsiderada'), 'o colaborador não edita batidas');
     }
 
-    #[TestDox('o admin ve a marca e alcanca a batida que ficou fora da conta, com editar e excluir')]
+    #[TestDox('o admin ve a marca e alcanca a batida que ficou fora da conta, com ajustar e desconsiderar')]
     public function testAdminAlcancaABatidaDesconsiderada(): void
     {
         $client = static::createClient();
@@ -74,37 +77,62 @@ final class FolhaMarcaAConferirTest extends JusPrimeWebTestCase
 
         $link = $linha->filter(sprintf('a.batida-desconsiderada[data-registro-id="%d"]', $desconsiderada->getId()));
         self::assertCount(1, $link, 'o admin precisa alcançar a batida que ficou fora da conta');
-        self::assertStringContainsString(sprintf('/ponto/%d/edit', $desconsiderada->getId()), (string) $link->attr('href'));
+        self::assertStringContainsString(sprintf('/ponto/b%d/ajustar', $desconsiderada->getId()), (string) $link->attr('href'));
         self::assertStringContainsString('12:00:00', $link->text());
         self::assertCount(
             1,
-            $linha->filter(sprintf('form[action*="/ponto/%d/delete"]', $desconsiderada->getId())),
-            'e excluí-la, com o mesmo formulário das batidas da célula'
+            $this->botaoDesconsiderar($linha, (int) $desconsiderada->getId()),
+            'e desconsiderá-la, com a mesma janela das batidas da célula'
         );
     }
 
-    #[TestDox('o admin exclui de fato a batida desconsiderada pelo formulario da linha')]
-    public function testAdminExcluiABatidaDesconsideradaPeloFormularioDaLinha(): void
+    #[TestDox('o admin desconsidera a batida que ficou fora da conta pela janela da linha; o registro original fica e a linha mostra Desconsideradas com Restaurar')]
+    public function testAdminDesconsideraABatidaForaDaContaPelaJanelaDaLinha(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $admin = $this->criarAdmin($tenant);
         $colaborador = $this->criarColaboradorComum($tenant);
         $dia = $this->diaDoMesCorrente();
-        $desconsiderada = $this->criarDiaComDoisRepousos($colaborador, $tenant, $dia);
-        $id = $desconsiderada->getId();
+        $id = (int) $this->criarDiaComDoisRepousos($colaborador, $tenant, $dia)->getId();
 
         $this->logarComTenant($client, $admin, $tenant);
-        $crawler = $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
-        $formulario = $this->linhaDoDia($crawler, $dia)->filter(sprintf('form[action*="/ponto/%d/delete"]', $id))->form();
-        $client->submit($formulario);
+        $this->desconsiderarPelaJanela($client, $tenant, $colaborador, $dia, $id);
 
         self::assertResponseRedirects();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
-        self::assertNull($em->getRepository(RegistroPonto::class)->find($id), 'o token e a rota do formulário novo têm de funcionar');
+        self::assertNotNull($em->getRepository(RegistroPonto::class)->find($id), 'a batida gravada não se apaga (E10): o registro original fica');
+        self::assertSame(
+            1,
+            (int) $em->getConnection()->fetchOne("SELECT COUNT(*) FROM ponto_ajuste WHERE registro_ponto_id = ? AND tipo = 'desconsideracao'", [$id]),
+            'o token, a rota e a cabeça da janela têm de funcionar'
+        );
 
-        // Sem o segundo repouso, o dia deixa de ser ambíguo.
+        $crawler = $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+        $fora = $this->linhaDoDia($crawler, $dia)->filter('.batidas-fora-por-ajuste .batida-fora-por-ajuste');
+        self::assertCount(1, $fora, 'a desconsiderada aparece na linha do dia');
+        self::assertStringContainsString('Repouso 12:00:00', $fora->text());
+        self::assertCount(1, $fora->filter('button.pe-mais--restaurar'), 'com o Restaurar');
+    }
+
+    /**
+     * Depende do bloco A da E10: a folha monta o dia com os ajustes aplicados. Até ele entrar, a batida desconsiderada
+     * continua na escolha do dia e o "A conferir" não some.
+     */
+    #[TestDox('depois de desconsiderar o segundo repouso, o dia deixa de ser ambíguo')]
+    public function testDepoisDeDesconsiderarODiaDeixaDeFicarAConferir(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaboradorComum($tenant);
+        $dia = $this->diaDoMesCorrente();
+        $id = (int) $this->criarDiaComDoisRepousos($colaborador, $tenant, $dia)->getId();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $this->desconsiderarPelaJanela($client, $tenant, $colaborador, $dia, $id);
+
         $crawler = $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
         self::assertCount(0, $this->linhaDoDia($crawler, $dia)->filter('.a-conferir'));
     }
@@ -134,6 +162,27 @@ final class FolhaMarcaAConferirTest extends JusPrimeWebTestCase
         );
         self::assertCount(0, $linhaAdmin->filter('.a-conferir'));
         self::assertCount(1, $linhaAdmin->filter(sprintf('a.batida-desconsiderada[data-registro-id="%d"]', $repeticao->getId())));
+    }
+
+    /** O "x" da batida na linha: abre a janela "Desconsiderar batida" com a rota, o token e a cabeça nos data-*. */
+    private function botaoDesconsiderar(Crawler $linha, int $registroId): Crawler
+    {
+        return $linha->filter(sprintf('button.pe-mais--excluir[data-acao*="/ponto/b%d/desconsiderar"]', $registroId));
+    }
+
+    /** Faz o que a janela faz: posta na rota do botão, com o token, a cabeça e o motivo. */
+    private function desconsiderarPelaJanela(KernelBrowser $client, Tenant $tenant, User $colaborador, \DateTimeImmutable $dia, int $registroId): void
+    {
+        $crawler = $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+        $botao = $this->botaoDesconsiderar($this->linhaDoDia($crawler, $dia), $registroId);
+        self::assertCount(1, $botao);
+
+        $client->request('POST', (string) $botao->attr('data-acao'), [
+            '_token' => (string) $botao->attr('data-token'),
+            'cabeca' => (string) $botao->attr('data-cabeca'),
+            'motivo' => 'Repouso batido duas vezes.',
+            'competencia' => $dia->format('Y-m'),
+        ]);
     }
 
     /** Um dia do mês corrente que não é hoje: 'ontem' no dia 1º cai fora da competência exibida. */

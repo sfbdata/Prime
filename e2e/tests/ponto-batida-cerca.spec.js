@@ -13,7 +13,7 @@
 //
 // Referências da tela (`app/templates/ponto/index.html.twig`):
 //   #btn-bater-ponto · #ponto-tipos (os quatro tipos, botões de rádio) · #tipo-registro (escondido) · #gps-status
-//   · #batida-aviso · #btn-atualizar-pagina
+//   · #batida-aviso · #btn-atualizar-pagina · #ponto-tela-cheia (E8: o resultado do toque, com `ponto-animacao` ligada)
 // Desenho novo do ponto (E1, 09/11/2026): o select do tipo virou os botões de `#ponto-tipos`, e a lista "Suas
 // batidas de hoje" saiu; a hora de cada batida mora no botão do tipo. Tipo já batido hoje fica sem clique (P7).
 //
@@ -108,12 +108,13 @@ async function abrirPonto(browser, posicao, { aoIniciar = null, offline = false 
     await expect(pagina.locator('#btn-bater-ponto')).toBeVisible();
 
     // Fecha o que por acaso já tenha aberto antes de a rota acima entrar em vigor.
+    // E8: a janela do alerta de horário é a moldura do desenho (sem o modal do Bootstrap): basta escondê-la.
     await pagina.evaluate(() => {
         const alerta = document.getElementById('modalAlertaPonto');
-        if (alerta && window.bootstrap) {
-            window.bootstrap.Modal.getOrCreateInstance(alerta).hide();
+        if (alerta) {
+            alerta.hidden = true;
+            alerta.classList.remove('show');
         }
-        document.querySelectorAll('.modal-backdrop').forEach((f) => f.remove());
     });
     await expect(pagina.locator('#modalAlertaPonto')).toBeHidden();
 
@@ -286,7 +287,15 @@ test.describe('A batida não se perde e a falha nunca passa calada', () => {
         await escolherTipo(pagina, 'entrada');
         await pagina.click('#btn-bater-ponto');
 
-        await expect(pagina.locator('#batida-aviso')).toContainText('sucesso', { timeout: 20000 });
+        // E8: o sucesso aparece na tela cheia (função `ponto-animacao`, ligada por padrão), não mais na caixa. O mock
+        // responde sem `data.hora`: a tela mostra a hora oficial de agora.
+        const telaCheia = pagina.locator('#ponto-tela-cheia');
+        await expect(telaCheia.locator('.pe-tc-ok')).toBeVisible({ timeout: 20000 });
+        await expect(telaCheia.locator('.pe-tc-ok .pe-tc-titulo')).toHaveText('Ponto registrado');
+        await expect(telaCheia.locator('.pe-tc-ok .pe-tc-ok-tipo')).toContainText('Entrada');
+        await expect(pagina.locator('#batida-aviso')).toBeHidden();
+        await telaCheia.locator('[data-tc-concluir]').click();
+        await expect(telaCheia).toBeHidden();
         await expect(pagina.locator('#btn-bater-ponto')).toBeEnabled({ timeout: 20000 });
         expect(await pagina.evaluate(() => document.getElementById('ponto-tipos').__listaAntiga === undefined))
             .toBe(true);

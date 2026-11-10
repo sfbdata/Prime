@@ -8,7 +8,10 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Exception\VersaoDaJornadaNaoEncontradaException;
 use App\Ponto\Exception\VersaoDaJornadaRecusadaException;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
 
 /**
  * Exclui uma versão do histórico da jornada (spec `docs/specs/ponto-jornada-vigencia.md` §10.2, regra 4). Os dias dela
@@ -22,6 +25,7 @@ final class ExcluirVersaoDaJornadaUseCase
 {
     public function __construct(
         private readonly JornadaColaboradorRepository $jornadas,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -53,6 +57,10 @@ final class ExcluirVersaoDaJornadaUseCase
             $restantes[0]->setCobreDiasAnteriores(true);
         }
         $this->jornadas->remover($alvo);
-        $this->jornadas->gravar();
+        // Trilha do Ponto (E9): a troca de escala comita junto com o evento.
+        $this->trilha->emTransacao(function () use ($pessoa, $escritorio, $alvo): void {
+            $this->jornadas->gravar();
+            $this->trilha->registrar($escritorio, $this->trilha->autorDaSessao(), AcaoDaTrilhaDoPonto::EscalaAlterada->value, DetalheDaTrilhaDoPonto::daEscala($pessoa, 'versao_excluida', $alvo->getValeAPartirDe()));
+        });
     }
 }

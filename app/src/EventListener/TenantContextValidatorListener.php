@@ -99,6 +99,10 @@ final class TenantContextValidatorListener
         'indicacao_janela',
         'indicacao_email',
         'indicacao_canal',
+        // Validação do comprovante do ponto (E15, P50): a página do QR Code e a consulta da janela, abertas a quem
+        // está logado sem escritório na sessão como a quem não tem conta.
+        'validacao_comprovante_ponto',
+        'validacao_comprovante_ponto_codigo',
     ];
 
     /**

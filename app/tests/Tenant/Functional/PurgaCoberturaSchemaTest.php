@@ -82,6 +82,20 @@ final class PurgaCoberturaSchemaTest extends KernelTestCase
     }
 
     /**
+     * E10: `ponto_ajuste` aponta (NO ACTION) para `justificativa_ponto` e `registro_ponto`; apagá-la depois de uma delas
+     * quebraria a purga de todo escritório que já ajustou uma batida.
+     */
+    #[TestDox('Os ajustes de batida (ponto_ajuste) saem antes da justificativa e da batida gravada')]
+    public function testAjustesDoPontoAntesDaJustificativaEDaBatida(): void
+    {
+        $ordem = array_column((new \ReflectionClass(PurgarEscritorioUseCase::class))->getConstant('ORDEM_DELECAO'), 0);
+
+        self::assertContains('ponto_ajuste', $ordem);
+        self::assertLessThan(array_search('justificativa_ponto', $ordem, true), array_search('ponto_ajuste', $ordem, true));
+        self::assertLessThan(array_search('registro_ponto', $ordem, true), array_search('ponto_ajuste', $ordem, true));
+    }
+
+    /**
      * Prova 3 da spec voto-redes-do-schema: a rede olha o schema `voto`. A tabela nasce dentro da transação do DAMA e
      * sai no rollback.
      */

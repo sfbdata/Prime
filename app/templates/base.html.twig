@@ -162,6 +162,9 @@
                                 {% set pageTitle = 'moldura.cabecalho.titulo_pagina.cobrancas'|trans %}
                             {% elseif currentRoute starts with 'contribua_' %}
                                 {% set pageTitle = 'moldura.cabecalho.titulo_pagina.quem_somos_e_contribua'|trans %}
+                            {% elseif currentRoute starts with 'ponto_' %}
+                                {# Desenho 16 Ponto Eletrônico, L83-L84: a divisória e o nome da tela na barra. #}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.ponto'|trans %}
                             {% endif %}
                             {% if pageTitle %}
                                 <span class="navtop-page-sep">|</span>

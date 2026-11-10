@@ -72,7 +72,7 @@ escolhida.
 - **P27.** Selos do dia. Hoje: "A conferir", "Registro incompleto", "Home Office". | No desenho: "Fora de sequência" (vermelho, quando um horário é menor que o anterior), "Feriado", "Em andamento" (hoje) e "Registro incompleto". | Decisão: aceito.
 - **P28.** Fica (o desenho não mostra): selos "A conferir" (dia com batidas fora da conta) e "Home Office". Ficam? | Decisão: fica.
 - **P29.** Marca "aj" na batida corrigida. Hoje: não há (a batida corrigida pelo gestor é trocada). | No desenho: "aj" ao lado da hora, com a dica "Ajustado por NOME em dd/mm/aaaa. Registro original preservado." (depende do P65). | Decisão: aceito. Depende do P65 (a).
-- **P30. (PERGUNTA)** "+" do esquecimento. Hoje: "+" na batida que falta, só em dia útil passado que tem alguma batida; ampulheta quando já pediu. | No desenho: "+" em qualquer dia passado da folha; hoje e feriado mostram um traço. | Origem: decisão do dono de 28/07 (spec ponto-atalho-esquecimento-registro). | Opções: (a) desenho; (b) regra de hoje com o "+" no visual do desenho e a ampulheta. Recomendo (b). | Decisão: (a) (contra a recomendação acima). "+" como o desenho; "Em análise" com ampulheta fica na coluna Justificativa.
+- **P30. (PERGUNTA)** "+" do esquecimento. Hoje: "+" na batida que falta, só em dia útil passado que tem alguma batida; ampulheta quando já pediu. | No desenho: "+" em qualquer dia passado da folha; hoje e feriado mostram um traço. | Origem: decisão do dono de 28/07 (spec ponto-atalho-esquecimento-registro). | Opções: (a) desenho; (b) regra de hoje com o "+" no visual do desenho e a ampulheta. Recomendo (b). | Decisão: (a) (contra a recomendação acima). "+" como o desenho; "Em análise" com ampulheta fica na coluna Justificativa. Correção de 09/11/2026 (pedido do Samuel, aprovado pelo Coordenador): o dia de hoje também tem o "+". Função do sistema que volta (regra 2): antes da E2 o "+" já valia hoje (`chaveDia <= dataHoje`; o "Hoje" acima dizia "dia passado" por engano), e a spec ponto-atalho-esquecimento-registro diz que "esqueci de bater a entrada hoje de manhã" é o caso mais comum do atalho. Feriado continua com o traço.
 - **P31.** Coluna Justificativa. Hoje: Abonada, Pendente, Rejeitada, Não abonada, com o tipo e o horário do abono parcial. | No desenho: selos coloridos "Abonada" (verde), "Em análise" (azul) e "Recusada" (vermelho). Se aceito, "Não abonada" e o horário do abono parcial ficam. | Decisão: aceito. "Não abonada" e o horário do abono parcial ficam.
 - **P32.** Fica (o desenho não mostra): rodapé "Saldo do mês / Horas pagas / Total do mês". Fica? | Decisão: fica.
 - **P33.** Assinar a folha. Hoje: não existe (o PDF tem linhas para assinar no papel). | No desenho: no mês já fechado, botão "Assinar folha" com "Concordo: os registros representam fielmente minha jornada" ou "Discordo de parte dos registros (ressalva)" e o texto da ressalva; depois, selo "Assinada em" ou "Ressalva em" e carimbo no PDF. Não dá para desfazer. | Decisão: aceito. O texto do aceite vai ao pacote jurídico, sem travar.
@@ -91,7 +91,7 @@ escolhida.
 - **P40.** Nomes das situações. Hoje: Pendente, Abonado, Rejeitado. | No desenho: Em análise, Abonado, Recusado. Se aceito, muda em todas as telas, inclusive na ficha do gestor e nos avisos do sininho. | Decisão: aceito. O rótulo é um só e muda junto em todas as telas.
 - **P41.** Excluir a justificativa em análise. Hoje: o colaborador só edita. | No desenho: lixeira "Excluir enquanto não analisada" (no desenho apaga sem perguntar; ver seção 4). | Decisão: aceito. Com confirmação antes de apagar (D4).
 - **P42.** Fica (o desenho não mostra): editar a justificativa em análise (tipo, horário, troca do atestado do lote). Fica? | Decisão: fica.
-- **P43. (PERGUNTA)** Gestor abonar a própria justificativa. Hoje: o gestor analisa na ficha de cada colaborador; analisar a própria está em aberto para o dono. | No desenho: na aba "Minhas Justificativas", o usuário primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas. | Origem: spec ponto-edicao-justificativa-analisada (§6, em aberto). | Opções: (a) desenho; (b) ninguém analisa a própria; os botões aparecem só na aba Equipe, para as dos outros. Recomendo (b). | Decisão: (a) (contra a recomendação acima). O primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas, como o desenho.
+- **P43. (PERGUNTA)** Gestor abonar a própria justificativa. Hoje: o gestor analisa na ficha de cada colaborador; analisar a própria está em aberto para o dono. | No desenho: na aba "Minhas Justificativas", o usuário primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas. | Origem: spec ponto-edicao-justificativa-analisada (§6, em aberto). | Opções: (a) desenho; (b) ninguém analisa a própria; os botões aparecem só na aba Equipe, para as dos outros. Recomendo (b). | Decisão: (a) (contra a recomendação acima). O primário e o Master veem "Abonar" e "Recusar" nas próprias justificativas, como o desenho. A mesma regra vale na ficha do colaborador (E3): na própria ficha, quem gere pelo perfil e não é primário nem Master não abona, não recusa, não volta para análise, não usa "Aprovar todos" nem "Justificar Falta" (o lançamento do gestor já sai abonado); os botões não aparecem, uma linha diz o porquê e o servidor recusa com 403. É a exceção ao "fica" do P59 para a própria ficha; a análise da justificativa de outra pessoa segue como antes.
 - **P44.** Janela "Justificar falta". Hoje: janela com calendário de vários dias, tipo, abono parcial, esquecimento e anexo. | No desenho: janela nova (barra azul, botões "Cancelar" e "Enviar") com data única, motivo e atestado opcional. Se aceito, entra a moldura do desenho e os campos de hoje ficam (P45). | Decisão: aceito. Os campos de hoje entram na moldura nova (P45).
 - **P45.** Fica (o desenho não mostra): vários dias de uma vez, os 45 tipos em 6 grupos, abono parcial com horário e anexo PDF, JPG ou PNG até 10 MB. Ficam? | Decisão: fica.
 - **P46.** Janela "Registro de esquecimento". Hoje: janela com o tipo e o horário. | No desenho: "dd/mm/aaaa · Saída", horário com segundos, motivo obrigatório e o aviso "Enviado para aprovação do gestor.". | Decisão: aceito.
@@ -211,8 +211,8 @@ escolhida.
    anotadas no pacote jurídico, sem travar.
 5. Trilha encadeada (D5): leva o que o desenho grava; mudanças de sede, feriado, limite, prazo, modo facial e foto ficam
    só no `audit_log`.
-6. Banco por lotes (P51 a): não zera mais em janeiro; as horas pagas seguem no saldo. Continua a definir na E17: o saldo
-   de antes do início dos lotes ("Sem data de origem").
+6. Banco por lotes (P51 a): não zera mais em janeiro; as horas pagas seguem no saldo. O saldo de antes do início dos
+   lotes ("Sem data de origem") se fechou na E17 (ver lá).
 7. Raio (P70 a): sede nova nasce com 150 m; as sedes de hoje não mudam.
 8. Sem decisão no arquivo de 09/11, valem as recomendações desta tabela: a batida de trabalho externo conta enquanto em
    análise (P18) e o teto de idade da fila sem internet (P20) se fecha na E14.
@@ -274,7 +274,8 @@ casa (ponto); no bloco 1 a mudança é só de aparência, o rigor da revisão é
 **Arquivos da frente jornada-vigencia** (nenhum PR aberto dela em 09/11; pendentes dela: trava nas versões, cabeçalho
 "Jornada alterada em dd/mm" no PDF e XLSX, padrão do escritório com vigência): `JornadaColaboradorController.php`,
 `_jornada_colaborador_tab.html.twig`, `HistoricoDeJornadas.php`, `JornadaColaboradorRepository.php`, os 3 UseCases de
-versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pdf.html.twig`, `FolhaPontoXlsxExporter.php`,
+versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, a folha em imagem da E16 (`ConteudoDaFolhaDoMes` e
+`Service/ImagemDaFolha/`, no lugar do `folha_pdf.html.twig`, que saiu), `FolhaPontoXlsxExporter.php`,
 `JornadaTenant` e `_modal_jornada_tenant.html.twig`. Também foram tocados por ela: `PontoController.php` e
 `TenantController.php`.
 
@@ -293,14 +294,40 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - a virada do dia segue o desenho (os 4 tipos livres e sem horário, "Bater Ponto: Entrada"; o aviso da virada fica) e
     é detectada pela hora do servidor: o instante da carga mais o tempo passado, contra a próxima meia-noite no fuso do
     servidor; o dia e o fuso do aparelho não entram;
-  - o aviso do intervalo (P12) segue a chave `validacaoRepousoHabilitada` da Jornada do escritório: desligada, não
-    aparece;
+  - o mínimo do aviso do intervalo (P12) segue a chave `validacaoRepousoHabilitada` da Jornada do escritório:
+    desligada, o mínimo não aparece (o tempo do intervalo ao vivo, sim: ver "Funções do sistema que voltam", abaixo);
   - as setas do teclado andam entre os tipos livres como num grupo de rádio (tabindex móvel); o desenho só tem o Esc;
   - o botão de som e o de mudo (P81) vão para a E8;
   - os parâmetros de leitura do GPS são os do sistema (spec `ponto-gps-erro-que-explica`), não os do protótipo;
   - a saída prevista usa a escala: antes do repouso batido, entrada mais a duração da escala de hoje (com o almoço);
-    depois dele, entrada mais a meta do dia e o intervalo (o batido, ou o mínimo da Jornada do escritório);
+    depois dele, entrada mais a meta do dia e o intervalo (o batido; no repouso, a conta de "Funções do sistema que
+    voltam", abaixo);
   - os avisos que mandavam olhar "a lista abaixo" apontam para os horários nos botões dos tipos, acima.
+- Funções do sistema que voltam (regra 2: função do sistema não sai; pedido do Samuel de 09/11/2026, aprovado pelo
+  Coordenador; branch `ponto-desenho-funcoes`, sem migration):
+  - tempo do intervalo ao vivo: antes da E1 o "Repouso: HH:MM:SS" contava o intervalo a cada segundo, com ou sem a
+    validação do repouso; a E1 deixou só o mínimo e só com a validação. Volta dentro do aviso do P12 (o texto do desenho
+    fica, com o tempo acrescentado): "Intervalo em andamento há 00:42:10. O mínimo de 1h se completa em HH:MM.",
+    "Intervalo mínimo de 1h cumprido. Em intervalo há 01:05:00." e, sem a validação, "Intervalo em andamento há
+    00:42:10.". O "1h" é o mínimo da Jornada do escritório. O tique é o do relógio do dia (um `setInterval` de 1 s, que
+    a troca depois da batida não repete); o início é a hora da batida de repouso que o cartão já tem, sem busca nova.
+    O "se completa em HH:MM" (o que falta para o mínimo) arredonda para cima, no minuto: 17min50s dá 00:18, e os
+    últimos 59 s dão 00:01, nunca 00:00 (revisão de 09/11/2026);
+  - saída prevista durante o intervalo: antes da E1 a "Previsão de saída" ficava na tela o dia todo, também no
+    repouso; a E1 a escondia enquanto o aviso do intervalo aparecia. Volta como " Saída prevista às HH:MM." no fim do
+    aviso do intervalo, só quando `saidaPrevista()` tem valor (sem meta ou sem escala, não aparece). No repouso, a conta
+    é coerente com a de antes dele (decisões do Coordenador de 09/11/2026, na revisão): entrada mais a meta mais o maior
+    entre o intervalo já feito e o piso, recalculada a cada tique de 1 s junto com o tempo. O piso é o maior entre o
+    almoço da escala (duração menos meta) e o mínimo que o servidor aplica (o da Jornada do escritório com a validação do
+    repouso ligada; zero desligada), com ou sem almoço na escala (re-revisão de 09/11/2026: escala de 8h sem almoço e
+    mínimo de 1h ligado mostra 17:00, não a saída antes do retorno mais cedo possível). Sem escala (duração nula), a saída prevista não aparece no repouso, como antes dele. Escala 08-12/14-18 (meta
+    480, mínimo 60): às 11:00 mostra 18:00, às 12:00 no repouso continua 18:00 e com 2h10 de repouso mostra 18:10. Com
+    o retorno batido, vale o intervalo batido, como já era. Antes da E1 não era assim: a "Previsão de saída" era fixa, entrada
+    mais a duração da escala, calculada só na carga e sem contar o intervalo real. No repouso com a meta já coberta até
+    ele, nenhuma saída prevista: o aviso mostra só o intervalo (dc L771). Antes, a hora era passada e andava com o
+    relógio (entrada 08:00, escala 08-12/14-18, repouso 17:30: às 18:30 "18:00", às 19:45 "18:15"). Depois do retorno,
+    a conta do intervalo batido dá hora fixa e o aviso segue "Passou da saída prevista" (decisão do Coordenador de
+    09/11/2026, na conferência ✓/✗);
 - Depende de: nada técnico.
 - Migration: não.
 - Arquivos: `templates/ponto/index.html.twig`, CSS novo da tela (`public/css/ponto-eletronico.css`, prefixo `.pe-`);
@@ -314,18 +341,27 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 
 **E2. Folha no molde do desenho.**
 - Entra: P22 (sem "Assinar folha"), P23, P24, P25 (filtro do desenho: só dias com batida e feriado com horas; o dia sem
-  batida some da tela e continua descontando do saldo), P26, P27, P28 (fica), P30 (a: "+" em qualquer dia passado; hoje
-  e feriado sem "+"; "Em análise" com ampulheta na coluna Justificativa), P31 ("Não abonada" e o horário do abono
+  batida some da tela e continua descontando do saldo), P26, P27, P28 (fica), P30 (a: "+" em qualquer dia passado e
+  hoje; feriado sem "+"; "Em análise" com ampulheta na coluna Justificativa), P31 ("Não abonada" e o horário do abono
   parcial ficam), P32 (fica), D7, D15, D22.
 - Decisões da etapa (09/11/2026, Coordenador e implementação):
   - a ficha do colaborador ganha o mesmo molde e mostra todos os dias do mês; o filtro do P25 é só da `/ponto`
     (parâmetro `somenteDiasComBatida`). A ficha carrega o CSS da folha pelo próprio partial;
   - ficam do sistema, no estilo do desenho: o selo da jornada na barra da ficha ("40h00m/sem (Personalizada)"), o sinal
     de registro em outro escritório, a dica do "Registro incompleto", "A conferir", "Home Office", as batidas fora da
-    conta do gestor, "Ver PDF" (P89, ainda no modal do sistema até a E16/E4) e "Baixar XLSX" (P88, agora baixa direto);
-  - o "+" (P30 a) vale em qualquer dia passado com batida, inclusive fim de semana; hoje, feriado e dia antes do início
-    da contagem ficam sem ele. A batida que já tem esquecimento pendente ou abonado também fica sem "+" (condição 8 do
-    sistema, para não criar duplicata); o "Em análise" aparece na coluna Justificativa;
+    conta do gestor, "Ver PDF" (P89, ainda no modal do sistema até a E16) e "Baixar XLSX" (P88, agora baixa direto);
+  - o "+" (P30 a) vale em qualquer dia passado com batida, inclusive fim de semana, e no dia de hoje; feriado e dia
+    antes do início da contagem ficam sem ele. A batida que já tem esquecimento pendente ou abonado também fica sem "+"
+    (condição 8 do sistema, para não criar duplicata, hoje inclusive); o "Em análise" aparece na coluna Justificativa.
+    O "+" de hoje é função do sistema que volta (regra 2; correção de 09/11/2026, pedido do Samuel aprovado pelo
+    Coordenador): a E2 o tinha tirado, mas antes dela ele já valia hoje (`chaveDia <= dataHoje`), e a spec
+    ponto-atalho-esquecimento-registro diz que "esqueci de bater a entrada hoje de manhã" é o caso mais comum do atalho.
+    O "+" aparece também na batida de hoje que ainda vai acontecer (o retorno e a saída de quem acabou de entrar), como
+    era antes da E2; o horário futuro é recusado no envio (`HorarioFuturoDaBatida`). O caso "aprovado depois de a
+    pessoa bater a mesma batida" já é recusado (`RegistrarBatidaDoEsquecimentoUseCase::recusa`). O risco que fica é a
+    ordem inversa: às 10h a pessoa pede "repouso 09:30", o pedido é aprovado e a batida real nunca acontece (o tipo já
+    está preenchido pelo ajuste, e nada confere que a pessoa saiu mesmo para o repouso). Quem confere é o gestor, na
+    análise do pedido;
   - o selo "Fora de sequência" vale quando um horário é menor que o anterior e vence os outros; o feriado trabalhado
     ganha o selo "Feriado" na coluna Semana (o motor escrevia "FERIADO - "); o feriado sem batida tem o selo no Saldo dia;
   - o tipo da justificativa vai para a dica do selo (o desenho não tem a linha de baixo); "Não abonada" fica vermelha
@@ -339,16 +375,19 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - ficam como o motor entrega, e a tela difere do desenho: no dia em andamento, o "Trabalhado" mostra as horas apuradas
     até a última batida e o "Saldo mês" fica vazio até a saída (o desenho mostra o acumulado até ontem, mas a /ponto só
     recebe do motor os dias com batida ou justificativa, e o acumulado da última linha recebida deixaria de fora o desconto
-    dos dias escondidos; mostrar esse número pede um campo novo no motor, a decidir na E17); o "Registro incompleto"
+    dos dias escondidos; mostrar esse número pede um campo novo no motor: pendência "Saldo mês do dia em andamento" da
+    E17, decidida pelo Coordenador em 09/11/2026 pela regra 1); o "Registro incompleto"
     segue a marca do motor (dia com entrada e saída sem repouso mostra saldo);
   - consequência do P25 a conhecer: o "Saldo mês" da última linha visível pode diferir do "Saldo do mês" do rodapé
     (que só aparece com horas pagas). O rodapé é o acumulado da última linha que o motor entrega (dia com batida ou com
     justificativa), como antes da E2; o P25 esconde o dia só com justificativa, e o desconto dos dias sem batida até ele
-    entra no rodapé sem aparecer em linha nenhuma. O número certo é o do rodapé, que é o de antes;
+    entra no rodapé sem aparecer em linha nenhuma. O número certo é o do rodapé, que é o de antes. (Mudou na E17: o
+    rodapé da /ponto e o da ficha passam a vir do banco da competência, sem as horas pagas, e contam também os dias sem
+    batida depois da última batida do mês; ver E17, "Rodapé".);
   - com a lista do P23 e o "+" do P30 a, o atalho do esquecimento aparece em meses antigos; o servidor já aceitava
     qualquer dia passado pelo modal completo e o sistema não tem mês fechado, então não há exposição nova;
   - os números são os do motor: o rodapé e o "Saldo mês" de cada linha vêm das linhas sem o filtro; o PDF, o XLSX e
-    `montarDadosFolha` não mudaram.
+    `montarDadosFolha` não mudaram (na E17 o PDF, o XLSX e a ficha passam a usar a jornada da folha; ver E17, "Jornada").
 - Depende de: E1 (CSS e grade).
 - Migration: não.
 - Arquivos: `templates/ponto/_folha_table.html.twig` com as células em `_folha_saldo_dia.html.twig`,
@@ -359,7 +398,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: `FolhaDoDesenhoTest` (arranjo por filho direto, o que saiu contando zero, dia sem batida fora da tela com o
   saldo de antes, selos, meses, ficha com todos os dias, celular por classe, dia sem repouso ou sem entrada, "Em análise" ao lado da justificativa escolhida e "Saldo mês" vazio no dia em andamento) e `FolhaDoDesenhoCssTest` (valores do
   desenho); ajustados: `JustificativaEsquecimentoControllerTest` (dia só com abono sai, sábado passado ganha "+", hoje
-  sem "+"), `HorasPagasFolhaExibicaoTest` (cabeçalho "Saldo mês" e marcação do rodapé), `JornadaComVersoesPelaTelaTest`
+  ganha "+" depois da correção de 09/11/2026, que também cobre o esquecimento pendente de hoje), `HorasPagasFolhaExibicaoTest` (cabeçalho "Saldo mês" e marcação do rodapé), `JornadaComVersoesPelaTelaTest`
   e os dois da troca sem recarregar (seletor novo). `FolhaExportacaoMesmaEscolhaTest` e os do PDF e XLSX sem mudança.
 
 **E3. Cartão de abas: Pendências e Minhas Justificativas.**
@@ -371,20 +410,151 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Migration: não. Excluir a justificativa em análise é regra nova pequena (UseCase próprio, só o dono dela, só em análise,
   só no escritório dela; o anexo sai depois do commit). Abonar e recusar a própria (P43 a) chamam a mesma regra de
   análise de hoje.
-- Arquivos: `_pendencias.html.twig`, `_justificativas_list.html.twig`, `PontoController.php` (rotas de excluir e de
-  analisar a própria; avisar), `NotificacaoService` (textos do P40).
-- Testes: unit do UseCase de excluir (pendente sim; analisada não; de outro usuário não; de outro escritório não);
-  funcional 403 e 422; textos das situações; primário e Master analisam a própria; quem gere pelo perfil e não é
-  primário nem Master não vê os botões na própria.
+- Decisões da etapa (implementada em 09/11/2026 e integrada na branch `ponto-desenho`, a de integração do Ponto, sobre a E2):
+  - parciais NOVOS, só do index novo (decisão do Coordenador, 09/11/2026: o Ponto novo pode ficar atrás de uma chave,
+    com o antigo de volta): `_abas.html.twig` (o cartão), `_abas_pendencias.html.twig`, `_abas_justificativas.html.twig`
+    e `_janelas_justificativa.html.twig`. `_pendencias.html.twig` e `_justificativas_list.html.twig` ficam como estavam;
+    o comportamento mora em `public/js/ponto-abas.js` (a tela não tem `fetch` sem prazo, BatidaNaoTravaNoGpsTest);
+  - uma linha por justificativa, como no desenho (antes: uma por lote, com a situação só do primeiro dia). A situação, a
+    exclusão e a análise são de cada dia, como na ficha do gestor. A troca do atestado continua valendo para o lote
+    inteiro (o sinal do lápis olha os dias do lote no mês);
+  - cada aba é um painel (`role="tabpanel"`) com as duas prontas do servidor; a troca é no navegador e grava a aba no
+    endereço (`?aba=justificativas`) e no formulário do mês. O desenho troca o conteúdo; o painel a mais deixa a
+    troca sem recarregar e a busca da tela depois da batida voltar na mesma aba. A aba das pendências (o número) e o
+    painel delas são regiões trocadas depois da batida;
+  - Pendências sempre aparece, com "Nenhuma pendência de registro." (antes o cartão sumia). O botão "Enviar registro de
+    esquecimento" abre o "+" da folha com o mês aberto, senão o link `?esquecimento=` (o mesmo caminho do "Regularizar");
+  - ficam do sistema, no molde do desenho: "Trocar de escritório" e a explicação da pendência de outro escritório (P38),
+    o "Ver" do atestado, o lápis de editar (P42), "Não abonado" (vermelho da recusada) e o horário do abono parcial
+    (subtítulo "Parcial: 08:00 às 12:00", P45). O "Motivo" do desenho (L184) ficou para a E4, que criou o campo (coluna
+    nova `motivo`) e o mostra abaixo do tipo. Obs. da análise em análise: "Aguardando análise"; "Analisado em" vazio (seção 8);
+  - P41 e D4: a lixeira abre a janela "Excluir justificativa" na moldura do desenho (L269 a L318); o "Excluir" da janela
+    faz o POST (`ponto_justificativa_excluir`, JSON, token da página). `ExcluirJustificativaEmAnaliseUseCase`: busca
+    pelo escritório da sessão (outro escritório: 404), só o dono (403), status lido com a linha travada (já analisada:
+    422, sem fechar o EntityManager), o atestado sai depois do COMMIT e só sem outra referência no escritório;
+  - P43 a: a regra mora em `AnaliseDaPropriaJustificativa::permite` (a própria: só `RegraDosPrimarios::podeGerirPrimarios`,
+    o primário ativo ou o Master; a de outra pessoa segue a regra de hoje). Aplicada no servidor nas cinco rotas da
+    ficha que analisam (abonar, recusar, aprovar todos, voltar para análise e lançar para si, que já sai abonada:
+    decisão do Coordenador, 09/11/2026), pelo `TenantController::exigirQuePodeAnalisar`. Muda o comportamento da
+    ficha: o gestor pelo perfil que não é primário nem Master deixa de analisar a própria lá (403) e, pela mesma
+    decisão (`podeAnalisar`), a ficha dele mesmo não mostra Abonar, Recusar, Aprovar todos, Voltar para análise nem
+    Justificar Falta; no lugar, uma linha diz o porquê. A aba mostra "Abonar"/"Recusar" pela mesma regra e manda o
+    formulário para as MESMAS rotas da ficha (a regra de análise inteira, com a batida do esquecimento e o aviso, mora
+    lá), com `volta=ponto` (volta para a aba, no mês);
+  - P40 fora da tela nova num ponto só, `NomesDasSituacoesDaJustificativa` (`VIGENTES`): os selos e o "Voltar para
+    análise" da ficha, o botão "Recusar", o "Motivo da recusa" e a confirmação da recusa na ficha (decisão do
+    Coordenador, 09/11/2026), as mensagens da análise e da reversão no TenantController e o aviso do sininho
+    ("recusada"). Os avisos antigos já gravados no sininho ficam como estão. "Aprovar Todos (n dias pendentes)" fica;
+  - pontos de liga e desliga (sem chave nesta etapa): P40 em `NomesDasSituacoesDaJustificativa::VIGENTES`; P43 a na
+    última linha de `AnaliseDaPropriaJustificativa::permite`; P41 no atributo da rota `ponto_justificativa_excluir`.
+  - ajustes da revisão e da conferência (09/11/2026, Coordenador):
+    - P40 completo: o aviso do atestado travado (lápis da aba e `SubstituirAnexoDoLoteUseCase`), a mensagem da edição
+      de justificativa já analisada (`JustificativaJaAnalisadaException`) e o "(rejeitada)" do PDF e do XLSX da folha
+      passam pelo `NomesDasSituacoesDaJustificativa` (chaves `anexo.travado`, `edicao.ja_analisada` e
+      `folha.recusada`, "(recusada)", no feminino da Folha, D22). As chaves `lote.sem_pendente` ("Aprovar todos" da
+      ficha) e `reverter.feito_com_batida` (voltar para análise um esquecimento abonado) entram no refactor da análise
+      (E9), que reescreve esses dois trechos do TenantController. O "(pendente)" do PDF e do XLSX fica para a E16,
+      que refaz o PDF (P34 a P36);
+    - o invólucro `#ponto-regiao-folha` fica: o parcial da Folha (o mesmo da ficha) entrega, junto com a
+      `section.pe-folha`, o formulário do mês, a janela de pré-visualização e o script dela. O invólucro os agrupa para
+      o cartão de abas vir logo depois da Folha (`.pe-dir > #ponto-regiao-folha + section.pe-abas`) e para a troca sem
+      recarregar pegar só o cartão. Sem efeito visual: o espaço de 16px fica entre o invólucro e o cartão;
+    - excluir a justificativa tira a linha na hora, sem recarregar, e o número da aba acompanha (o desenho só tira a
+      linha). Feito em 09/11/2026 (branch `ponto-desenho-final`, com a mudança do PontoController depois da E4):
+      - a rota `ponto_justificativa_excluir` responde só ao pedido da tela (token de cabeçalho, como antes): JSON sem
+        flash e sem redirecionar, com a frase em `mensagem` na recusa (404, 403 e 422, como antes). Sem caminho de
+        formulário comum: a tela não tem esse formulário (a lixeira abre a janela), e extra só entra se for necessário
+        (decisão do Coordenador, 09/11/2026);
+      - na tela (`ponto-abas.js`): a janela fecha, a linha sai e o foco volta para a aba. O leitor de tela ouve
+        "Justificativa de dd/mm/aaaa excluída." (a frase do flash de antes) numa região só para ele no fim do cartão
+        (`.pe-abas-voz`, aria-live), no molde do aviso da troca de escala da E5. O número de "Minhas
+        Justificativas" acompanha a lista e some no zero; sem nenhuma linha, a frase da lista vazia do servidor. O
+        número da Equipe baixa um quando a linha contava lá (a própria em análise de quem pode analisá-la, P43 a), e o
+        painel da Equipe já buscado é buscado de novo quando a aba abrir. Sem a linha na tela, a aba abre de novo do
+        servidor (`data-url-volta`);
+      - excluir mexe na Folha (sai o selo do dia e o "+" do esquecimento volta) e nas pendências (a que o esquecimento
+        cobria volta): o index ouve `ponto:justificativa-excluida` e chama `atualizarTelaDoPonto`, o caminho de depois
+        da batida (REGIOES_TROCADAS e o cartão da Folha, tudo ou nada). Falhou: o mesmo plano B da batida (recarrega
+        em 1,5 s), porque essa busca pode ter passado à frente da de uma batida e a descartado, e o tipo recém-batido
+        ficaria livre na tela (revisão do Coordenador, 09/11/2026). Com um toque enviando (`envioEmAndamento`), o toque é
+        dono da tela: a exclusão não começa outra busca (ficaria mais nova que a do toque) e a recarga não acontece (cortaria
+        o envio, e a batida poderia sumir sem ir para a fila).
+      - testes: `ExcluirJustificativaControllerTest` (JSON sem flash e as recusas), `PontoAbasJsTest` (a linha sai, os
+        números acompanham, a lista vazia, o anúncio, sem HTML montado com dado, o index atualiza e cai no plano B) e
+        `TelaDoPontoSemRecarregarJsTest` e `FilaSemInternetJsTest` (três recargas na tela, a da exclusão no ouvinte dela).
+- Arquivos: `templates/ponto/_abas*.html.twig`, `_janelas_justificativa.html.twig`, `index.html.twig` (coluna da
+  direita e REGIOES_TROCADAS), `public/js/ponto-abas.js`, `public/css/ponto-eletronico.css` (seção do cartão de abas e
+  da janela), `PontoController` (rota de excluir; `abaAberta` e `podeAnalisarAPropria` no index), `TenantController`
+  (regra P43 a e `voltaDaAnalise`), `templates/tenant/_justificativas_tab.html.twig` e `NotificacaoService` (P40),
+  catálogo `ponto_pendencias` (`vazia`).
+- Testes: `ExcluirJustificativaEmAnaliseUseCaseTest` (integração: pendente sai e o atestado órfão sai; dia de lote mantém
+  o atestado; analisada, de outra pessoa e de outro escritório não), `ExcluirJustificativaControllerTest` (200, 403 sem
+  token e de outra pessoa, 422, 404 de outro escritório, só POST), `AnaliseDaPropriaJustificativaTest` e
+  `AnaliseDaPropriaJustificativaControllerTest` (primário e Master analisam a própria; gestor pelo perfil recebe 403 nas
+  três rotas e não vê os botões; continua analisando a de outra pessoa; sininho "recusada"), `AbasDoPontoTelaTest`
+  (arranjo por filho direto, aba pelo endereço, linhas e situações, o que saiu contando zero, confirmação antes de
+  apagar, nomes na ficha), `AbasDoDesenhoCssTest`, `PontoAbasJsTest`, `NomesDasSituacoesDaJustificativaTest`; ajustados:
+  `PendenciasDeRegistroTest` (linha nova e lista vazia com texto), `CartaoRegistrarPontoDoDesenhoTest`,
+  `EditarJustificativaAnexoControllerTest` (um lápis por dia em análise) e os dois da troca sem recarregar.
 
 **E4. Janelas no molde do desenho.**
 - Entra: P44 e P46 (moldura do desenho), P45 e P47 (ficam, com os campos do sistema dentro da moldura nova).
 - Depende de: E1.
-- Migration: não.
-- Arquivos: `_justificativa_form`, `_justificativa_calendario`, `_justificativa_campos`,
-  `_justificativa_esquecimento_modal`, `index.html.twig`. Nada da frente.
-- Testes: os de justificativa de hoje continuam verdes; funcional com `role="dialog"`, Esc fecha, erro do formulário no
-  lugar do desenho; abrir sozinho com `?esquecimento=`.
+- Migration: sim (`Version20261109210000`, coluna `motivo` texto nula em `justificativa_ponto`; decisão do Coordenador
+  de 09/11/2026). A etapa nasceu sem migration; o "Motivo" obrigatório do desenho (P44 e P46) pediu a coluna.
+- Feito (09/11/2026, branch `ponto-desenho-e4`, empilhada na E3):
+  - as três janelas da /ponto ("Justificar falta", "Registro de esquecimento" e "Editar justificativa") saíram do modal
+    do Bootstrap para a moldura da E3 (`.pe-janela-fundo > form.pe-janela[role=dialog][aria-modal]`, topo azul,
+    corpo, linha de erro do desenho entre o corpo e o rodapé, "Cancelar" e a ação), dentro de `.pe-page` (tokens
+    `--pe-*` e tema escuro). Esc fecha, clicar fora não fecha, o foco não sai (moldura em `js/ponto-abas.js`, agora
+    exposta em `window.PontoAbas`); o comportamento de cada janela mora em `js/ponto-janelas.js`;
+  - "Justificar falta" (P44 e P45): "Data da falta" vira o calendário de vários dias do sistema na moldura do desenho
+    (abre com hoje do servidor marcado; dia futuro desligado), depois o tipo (os 45 tipos nos 6 grupos, em `<optgroup>`,
+    decisão P45 do Coordenador, 09/11/2026; o desenho não tem o campo, então os rótulos e a ordem dos grupos são os do
+    sistema, `CategoriaJustificativa`: "Legais (CLT / Legislação)", "Operacionais", "Intercorrências", "Técnicas do
+    Sistema", "Situações Críticas" e "Feriados e Regimes Especiais"; a janela "Editar justificativa" usa os mesmos
+    grupos), o aviso da falta não justificada, o bloco do esquecimento (horário com segundos), o abono parcial,
+    "Motivo" (obrigatório) e "Atestado ou documento (opcional)" (`accept` do servidor: PDF, JPG ou PNG). A conferência
+    antes do envio põe a frase na linha de erro: "Informe a data e o motivo." (do desenho) e as do servidor; o alerta
+    do navegador do abono com vários dias virou a linha de erro;
+  - "Registro de esquecimento" (P46): resumo "dd/mm/aaaa · Saída", "Horário" com segundos (`with_seconds` no
+    `JustificativaPontoType`; "14:32" vira 14:32:00) e "Motivo"; "Informe o horário e o motivo." A dica de dentro da
+    janela saiu; o aviso flutuante "Enviado para aprovação do gestor." fica para a E8 (P80). `?esquecimento=` continua
+    clicando o "+" da folha, agora sem esperar o Bootstrap;
+  - "Editar justificativa" (P47): os campos de hoje na moldura nova, mais o "Motivo" (a edição recusa motivo em branco
+    ou longo demais; pedido sem o campo não mexe no motivo). O horário do esquecimento na edição segue em minutos: com o
+    mesmo tipo de batida e o mesmo H:i do gravado, o horário gravado fica intacto, com os segundos (editar só o motivo
+    não troca 14:32:10 por 14:32:00); só um H:i novo é regravado, com :00 (revisão da E4). O motivo editado vai para
+    todos os dias em análise do mesmo lote (mesmo `batchId`, mesma pessoa e mesmo escritório); dia já analisado do lote
+    guarda o motivo dele (revisão da E4). Risco residual aceito (re-revisão da E4): sem troca de anexo, a edição trava
+    só a linha editada; se o gestor analisar outro dia do lote no mesmo instante, esse dia pode ficar com o motivo novo.
+    Muda só o texto (o UPDATE leva só a coluna `motivo`): situação, abono e horas ficam como o gestor deixou. Com troca
+    de anexo não há corrida (o lote todo pendente é conferido sob trava). Na ficha, o resumo do lote mostra o motivo do
+    1º dia, como já mostrava o tipo. O lápis abre por delegação (`data-justificativa-editar`), sem `onclick`;
+  - o motivo aparece na aba "Minhas Justificativas" abaixo do tipo (L184) e, na ficha do gestor, uma linha "Motivo" no
+    resumo do lote (decisão da implementação: quem analisa precisa ver o que foi escrito). Os parciais da ficha
+    (`_justificativa_calendario`, `_justificativa_campos`) ficaram intactos;
+  - achado da revisão da E3: depois da edição (salva ou recusada), a tela volta na aba "Minhas Justificativas", no mês
+    da justificativa (`PontoController::voltaDaEdicao`, `?competencia=AAAA-MM&aba=justificativas`);
+  - motivo: até 2000 caracteres (`JustificativaPontoType::MOTIVO_MAXIMO`), sem os espaços das pontas, o mesmo em cada
+    dia do lote. Um motivo "0" aparece (o teste é `is not empty`, na aba e na ficha);
+  - desvio necessário: a janela da falta, com o calendário, passa da altura da tela (cerca de 780px; em 1366x768 e no
+    celular o topo sumia sem rolagem). A janela usa `margin: auto` no lugar do `margin: 0`: centraliza quando cabe e o
+    fundo rola quando não cabe. Os outros valores da moldura seguem o desenho.
+- Arquivos: `_justificativa_form`, `_justificativa_esquecimento_modal`, `_abas_justificativas`, `index.html.twig`,
+  `tenant/_justificativas_tab`, `public/js/ponto-abas.js`, `public/js/ponto-janelas.js` (novo),
+  `public/css/ponto-eletronico.css` (campos das janelas e calendário), `JustificativaPonto`, `JustificativaPontoType`,
+  `PontoController` (motivo, segundos, `voltaDaEdicao`), a migration e o e2e `ponto-atalho-cabecalho.spec.js`.
+- Testes: `JanelasDoPontoTelaTest` (moldura por filho direto nas três janelas, nada do Bootstrap, campos e ordem,
+  motivo na aba e no lápis, motivo de outro escritório não aparece, `?esquecimento=` com o "+", motivo na ficha),
+  `MotivoDaJustificativaControllerTest` (motivo em cada dia do lote; sem, em branco e longo: nada nasce; segundos;
+  edição grava, recusa e volta na aba; de outra pessoa: 403; edição só do motivo guarda os segundos; motivo editado vai
+  aos dias em análise do lote, não ao dia abonado nem ao lote de outra pessoa ou de outro escritório; recusa não grava
+  em dia nenhum), `PontoJanelasJsTest`, `JanelasDoDesenhoCssTest` (inclui o `margin: auto` da janela);
+  `JanelasDoPontoTelaTest` confere os 6 grupos por filho direto (`select > optgroup[label] > option`) nas duas janelas;
+  ajustados com o motivo e a volta nova: `BatidaEmHorarioFuturoControllerTest`, `JustificativaEsquecimentoControllerTest`,
+  `PendenciasDeRegistroTest`, `NovaJustificativaComAnexoControllerTest`, `EdicaoDeJustificativaAnalisadaControllerTest`,
+  `EditarJustificativaAnexoControllerTest`.
 
 ### Bloco 2: gestão sobre os dados de hoje
 
@@ -402,6 +572,126 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   permissão no perfil vê a aba; isolamento por escritório; abono em lote não abona justificativa de outro escritório, e
   a própria só para o primário e o Master (P43 a); trocar a escala grava versão nova a partir de hoje, não muda os dias
   anteriores e aparece no histórico da ficha.
+- Decisões da etapa (implementada em 09/11/2026, branch `ponto-desenho-e5`, sobre o contrato da E5 e E6; decisões do
+  Coordenador na delegação):
+  - o painel (`EquipeDoPontoController::painel`, `ConsultarEquipeDoPontoUseCase`) é buscado quando a aba abre
+    (`ponto-paineis.js`); a guarda do contrato fica (escritório da sessão, módulo ponto, `GestaoDoPonto::veEquipe`; sem
+    ela, 403). A nota "Dados de exemplo" (L211) não entra (D16);
+  - equipe: vínculos ativos do escritório da sessão com a chave do ponto ligada, por nome. Quem vê vem primeiro, com o
+    subtítulo "Você"; os outros, com o nome do cargo (sem cargo, sem subtítulo);
+  - situação de hoje (P54, regra do desenho sobre as batidas que a folha escolhe para o dia, `SituacaoDeHojeNaEquipe`):
+    sem entrada, "Sem registro"; com saída, "Encerrada"; repouso sem retorno, "Em intervalo"; senão, "Em jornada".
+    Entrada "HH:MM"; último registro "HH:MM · Tipo"; sem batida, "Sem registro" nas duas colunas (seção 8). As batidas
+    de hoje do escritório vêm numa consulta só (`RegistroPontoRepository::batidasDoDiaDaEquipe`);
+  - Banco: o mesmo número do topo da /ponto da pessoa (`FolhaPontoBuilder::calcularSaldoAnual`, mesmos feriados, jornada
+    do escritório e início da contagem). Pendências: as de registro da pessoa neste escritório
+    (`ListarPendenciasDeRegistroUseCase::soNoEscritorio`). O cálculo do banco é a parte cara (cerca de 30 consultas
+    por pessoa, ver "Custo do painel" abaixo): por isso o painel só é buscado quando a aba abre;
+  - 5 indicadores, na ordem do desenho: Em jornada, Em intervalo, Sem registro, Pendências (a soma da coluna) e A
+    analisar (o tamanho da lista);
+  - Escala (P56 a): as 4 escalas do desenho (`CatalogoDeEscalas`, ids e rótulos do `ESC`, L409). Vem marcada a que tem
+    os mesmos minutos em cada dia que a jornada de hoje (a pessoal com blocos ou, sem ela, a do escritório; o horário não
+    conta). Nenhuma igual: entra antes uma opção marcada e desligada, "Personalizada (Xh)" ou "Jornada do escritório
+    (Xh)", com a carga semanal da própria jornada (sem ela, a soma dos dias; "42h30" quando tem minutos);
+  - trocar a escala: POST JSON `/ponto/equipe/{id}/escala` (`ponto_equipe_escala`, token `X-CSRF-Token` da página),
+    `TrocarEscalaNaEquipeUseCase`: a pessoa precisa ter vínculo ativo no escritório (senão 404), a escala precisa ser do
+    catálogo (senão 422), e grava pelo `SalvarVersaoDaJornadaUseCase` uma versão valendo a partir de hoje com o modelo
+    (entrada 09:00, repouso 12:00, retorno 13:00, saída pela carga do dia: 17:20, 18:48, 18:00 ou 16:00). O alerta de
+    ponto fica como está na jornada pessoal (sem ela, ligado). A versão que já começa hoje é atualizada; a primeira nasce
+    sem cobrir os dias de antes. A conferência de choque com outro escritório é a da ficha, extraída para
+    `ChoqueDaJornadaProposta` (a ficha passa a usá-la, mesmo comportamento); na aba, choque responde 409 com a mensagem
+    (a ficha segue com 422). Na tela: deu certo, "Escala de NOME alterada." só para leitor de tela; recusa ou sem
+    resposta (prazo de 15 s), a frase no topo do painel (`role="alert"`) e a escolha volta. O painel não é buscado de
+    novo depois da troca;
+  - "Justificativas a analisar (N)" (P57): as em análise do escritório, de quem tem vínculo ativo nele
+    (`JustificativaPontoRepository::aAnalisarNoEscritorio`). As de quem vê entram só quando ele pode analisar a própria
+    (P43 a, `AnaliseDaPropriaJustificativa`) e vêm primeiro; depois as da equipe, da data mais nova para a mais antiga e
+    por nome. O subtítulo é o da E3, num macro só (`_justificativa_macros.html.twig`, a saída da E3 não muda). O macro
+    sai sem espaço nas pontas e já escapado: quem usa imprime como veio, sem `|trim`, e o `data-info` da aba "Minhas
+    Justificativas" é montado por bloco (`{% set %}` e `{% endset %}`), não com `~`, para não escapá-lo de novo. O número
+    da aba é `JustificativasAAnalisarDaEquipe::contarAAnalisar(User, Tenant): int` (uma contagem, sem carregar a lista);
+  - "Abonar selecionadas" é um formulário (POST `/ponto/equipe/abonar`, `ponto_equipe_abonar`, `ids[]`, token
+    `ponto_equipe_abonar`) que volta para a /ponto na aba Equipe. Desligado sem nada marcado (o JS liga). O lote
+    (`AbonarJustificativasDaEquipeUseCase`) passa cada id pelas portas da ficha: só do escritório da sessão e de quem tem
+    vínculo ativo ("Justificativa não encontrada neste escritório."), a própria só com o P43 a; o abono em si é o da
+    ficha, pela interface `AbonoDeJustificativa` (uma função: abona a justificativa já conferida, ou devolve o motivo
+    de não ter abonado). Mensagens: "1 justificativa abonada." ou "N justificativas abonadas." e uma por recusa
+    ("Nome (dd/mm/aaaa): motivo"); nada marcado, "Selecione ao menos uma justificativa.";
+  - abas na /ponto (09/11/2026, branch `ponto-desenho-final`): o `PontoController::index` passa `veEquipe`,
+    `veConfiguracoes`, `veAuditoria` (`GestaoDoPonto`) e `equipeAAnalisar` (`contarAAnalisar`, só para quem vê a Equipe;
+    para os outros, 0 sem consulta), e o endereço abre `?aba=equipe` e `?aba=configuracoes`, além de justificativas e
+    auditoria. Quem não vê a aba pedida cai em Pendências (`_abas.html.twig`). Testes em `AbasDeGestaoDoPontoTest`
+    (pela /ponto: o número da Equipe do gestor e do primário, o colaborador sem as abas, o endereço de cada aba e
+    `?aba=xyz` caindo em Pendências);
+  - ligado na integração (09/11/2026): `AbonoPelaAnaliseDaJustificativa` chama
+    `AnalisarJustificativaUseCase::abonarPorId` (E9) para a própria de quem analisa e
+    `AnalisarJustificativaUseCase::abonarDaEquipe` para as da equipe (ajuste da conferência, A7 e A11, abaixo); a
+    recusa (`AnaliseDeJustificativaRecusadaException`) vira o motivo da frase e não desfaz as outras. Cada abonada
+    recebe o aviso do sininho ("Sua justificativa de ponto foi abonada.") depois do COMMIT, como na ficha (antes do
+    ajuste, o lote não avisava);
+  - do sistema, no molde do desenho: a linha "Ninguém registra ponto neste escritório." na tabela vazia, o botão
+    desligado mais claro, a frase de erro no topo e o aviso só para leitor de tela. A tabela não tem `pe-resp`: no
+    celular rola para o lado. CSS num bloco só no fim de `ponto-eletronico.css`, com os tokens da tela (sem token novo);
+  - o número de Banco não tem regra própria na aba: é o do motor do saldo, o mesmo do topo da /ponto da pessoa
+    (`EquipeDoPontoTelaTest::testBancoEPendenciasComoNaPontoDaPessoa`). Decisão do Coordenador (09/11, 22h05, §10.4): o
+    banco usa a mesma jornada da folha, e sem versão pessoal os dias contam pela jornada do escritório; quem fizer essa
+    troca é a E17 (`BancoDeHorasPorLotes::calcular`), e quem integrar por último na ponto-desenho troca a chamada da aba;
+  - Custo do painel (revisão de 09/11/2026, Coordenador): cerca de 30 consultas por pessoa, quase todas do
+    `calcularSaldoAnual`, que faz 2 por mês do ano corrido. Medido no `EquipeDoPontoConsultasTest` (1 pessoa contra 3,
+    no caso caro: jornada pessoal, batida desde o ano passado e batida nos últimos 30 dias, que faz as pendências lerem
+    os feriados e os esquecimentos): 31 por pessoa em novembro, 9 fixas mais 2 por mês (33 em dezembro). O teste trava esse teto; subir o teto pede rever este item antes. Em produção, em 09/11/2026, o maior
+    escritório tem 7 pessoas que registram ponto: umas 210 consultas, bem dentro do prazo de 20 s do carregador.
+    **Mudou na E17:** o banco da coluna é o `BancoDeHorasPorLotes` (o mesmo número do topo da /ponto, desde o início da
+    contagem), que lê os meses todos de uma vez: 12 consultas por pessoa, sem crescer com os meses (teto 12). Sem
+    limite de pessoas no painel por enquanto; rever quando um escritório passar de 30 pessoas no ponto. Duas sobras
+    pequenas ficam anotadas: os feriados relidos por pessoa nas pendências (`ListarPendenciasDeRegistroUseCase`, que a
+    E6 mexe; fica para depois dela) e o `historicoDe` lido duas vezes por pessoa (no banco e na escala);
+  - Abono em lote na trilha (ajuste da conferência de 09/11/2026, A7 e A11; dc L818): a própria de quem analisa é
+    abonada sozinha, na transação dela, com o evento "Justificativa abonada"; as da equipe vão juntas em
+    `abonarDaEquipe`, numa transação só que trava todas as linhas em ordem de id antes de gravar (como o "aprovar
+    todos"; a trilha é a última trava) e passa cada uma pelas regras do abono da ficha sob a trava (escritório, P43 a,
+    excluída, fora de análise, batida já registrada, que enxerga a batida da anterior do mesmo lote, e horário futuro).
+    A recusa vira o motivo dela e as outras seguem. As abonadas ganham UM evento "Abono em lote" no mesmo COMMIT, com o
+    texto do desenho "1 justificativa da equipe" ou "N justificativas da equipe" (sem o nome na frente) e, no detalhe
+    (`DetalheDaTrilhaDoPonto::daEquipe`, chave `da_equipe`), o id da justificativa, a pessoa (id e nome) e o dia de
+    cada abonada, para a auditoria não perder quem foi abonado. Nenhuma abonada, nenhum evento. Uma falha inesperada
+    volta a transação inteira das da equipe (abonos, batidas e evento): nenhum abono fica sem o evento. O "aprovar
+    todos" da ficha (`abonarLote`, `doLote`, uma pessoa) continua com o detalhe e o texto dele. A ordem das recusas
+    na tela é a dos ids pedidos;
+  - "Tentar de novo" do painel que falhou (A13): molde do botão de borda azul do desenho (L196 "Baixar"; o mesmo de
+    L249, L253 e L254): 30px, borda e texto `--pe-azul`/`--pe-link`, fundo `--pe-card`, 12.5px, gap 6px, mouse
+    `--pe-info-bg` (#e5f1f7). O foco do teclado (o desenho não tem) é o da tela, o contorno da chave das
+    Configurações. Nenhuma classe da tela tinha esse molde com o mouse, então a `.pe-painel-tentar` foi acertada no
+    lugar (o botão nasce no `ponto-paineis.js`, não num template);
+  - limite conhecido, versão futura agendada (revisão de 09/11/2026): se a pessoa já tem uma versão da jornada que
+    começa depois de hoje, a escala trocada na aba vale só até o dia anterior a essa versão, e a aba não avisa.
+- Arquivos: `EquipeDoPontoController`, `ConsultarEquipeDoPontoUseCase`, `TrocarEscalaNaEquipeUseCase`,
+  `AbonarJustificativasDaEquipeUseCase`, `src/Ponto/Service/` (`CatalogoDeEscalas`, `EscalaDoCatalogo`,
+  `EscalaDaPessoaNaEquipe`, `HojeDaPessoaNaEquipe`, `JustificativasAAnalisarDaEquipe`, `ChoqueDaJornadaProposta`,
+  `AbonoDeJustificativa` e o provisório), `SituacaoDeHojeNaEquipe`, DTOs de saída, exceções `ForaDaEquipeException` e
+  `EscalaDesconhecidaException`; consultas novas em `RegistroPontoRepository`, `JustificativaPontoRepository` e
+  `UserTenantRepository` (legado, só acrescenta); `ListarPendenciasDeRegistroUseCase::soNoEscritorio`;
+  `JornadaColaboradorController` (usa `ChoqueDaJornadaProposta`); `_abas_equipe.html.twig`,
+  `_justificativa_macros.html.twig`, `_abas_justificativas.html.twig` (usa o macro); `public/js/ponto-equipe.js`; bloco
+  da E5 em `ponto-eletronico.css`. Ajuste da conferência (A7, A11 e A13): `AnalisarJustificativaUseCase::abonarDaEquipe`
+  e o DTO `AbonoDaEquipeOutput`, `DetalheDaTrilhaDoPonto::daEquipe`, o segundo método do `AbonoDeJustificativa`, o
+  aviso no `AbonoPelaAnaliseDaJustificativa`, `AnaliseDaPropriaJustificativa::ehAPropria` (passa a pública) e a
+  `.pe-painel-tentar`.
+- Testes: `SituacaoDeHojeNaEquipeTest`, `CatalogoDeEscalasTest`, `TrocarEscalaNaEquipeUseCaseTest`,
+  `AbonarJustificativasDaEquipeUseCaseTest` (com o dublê do abono e o provisório), `EquipeDoPontoTelaTest` (arranjo por
+  filho direto e textos, quem entra, situações, escala marcada, banco e pendências iguais aos da /ponto da pessoa,
+  gestor pelo perfil, lista vazia, outro escritório), `TrocarEscalaNaEquipeTest` (versão de hoje, passado sem mudança
+  com e sem jornada pessoal, o banco antes e depois da primeira troca, duas trocas no mesmo dia, histórico na ficha,
+  choque 409, duas trocas ao mesmo tempo 409, guardas, vínculo suspenso e quem saiu 404),
+  `EquipeDoPontoSubtituloTest` (o macro sem espaço nas pontas; subtítulo com `&` escapado uma vez nas duas abas),
+  `EquipeDoPontoConsultasTest` (teto de consultas por pessoa),
+  `AbonoEmLoteDaEquipeTest` (dublê do abono: abonadas, recusa, isolamento, P43 a no lote, guardas),
+  `AbonoEmLoteLigadoAFichaTest` (o abono de verdade: um "Abono em lote" para as da equipe e o evento da própria, o
+  evento conta só as abonadas, nenhum evento sem abonada, o texto na aba Auditoria, o aviso do sininho),
+  `AnalisarJustificativaUseCaseTest` (`abonarDaEquipe`: um evento no mesmo COMMIT, recusas sem desfazer as outras, R1
+  dentro do lote, guardas, a trilha que falha não deixa abono), `DetalheDaTrilhaDoPontoTest` (o detalhe e o texto da
+  equipe no plural certo; o do "aprovar todos" não muda), `EquipeDoDesenhoCssTest` (inclui o "Tentar de novo"),
+  `PontoEquipeJsTest`.
 
 **E6. Configurações, parte 1: sedes e feriados na aba.**
 - Entra: P68, P69 (fica: mapa e busca por CEP ou endereço), P70 (a: sede nova nasce com 150 m; as sedes de hoje não
@@ -412,6 +702,126 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   (feriado por sede).
 - Testes: feriado por sede vale só para quem é daquela lotação; sede sem coordenada continua ignorada; confirmação antes de
   remover (D4); sede nova com 150 m e as que já existem com o raio delas.
+- Decisões da etapa (implementada em 09/11/2026, branch `ponto-desenho-e6`):
+  - **Desvio necessário do P71 (decidido pelo Coordenador, 09/11/2026):** a abrangência do feriado é "Todas as sedes" ou
+    uma LOTAÇÃO do escritório, não uma sede. O desenho casa a sede do feriado com a lotação da pessoa (inventário 6.2,
+    "casado com a lotação da pessoa em caixa alta"); no sistema a pessoa não tem sede, tem lotação (`user_tenant`).
+    Migration `Version20261109200000`: `feriado.lotacao_id` opcional, ON DELETE NO ACTION (a lotação com feriado não
+    se apaga, abaixo; CASCADE apagaria o feriado e mudaria os meses passados, SET NULL o faria valer para todos). Os
+    feriados que já existem ficam sem lotação: nenhuma folha muda;
+  - a regra mora num ponto só, `FeriadosDaPessoa`: sem lotação vale para todos; com lotação, só para quem tinha aquela
+    lotação no escritório DO FERIADO NAQUELE DIA (vínculo ativo ou não: a folha de quem saiu continua contando o
+    feriado que valia para ela). Sem N+1: nenhuma consulta sem feriado por lotação; com ele, uma por pessoa e escritório
+    (a lotação de hoje e as versões juntas), guardada até o fim do request ou da mensagem do worker (`kernel.reset`);
+  - **lotação com vigência, decisão do Coordenador 09/11, no molde da jornada:** a folha do passado não pode mudar por
+    troca de cadastro (a E16 terá aceite mensal). Tabela `lotacao_vigencia` (pessoa, escritório, lotação opcional,
+    `vale_a_partir_de`), na mesma migration `Version20261109200000`, com uma versão inicial por `user_tenant` (a
+    lotação de hoje, `vale_a_partir_de` nulo: vale desde sempre). Como nenhum feriado tem lotação antes dela, nada muda
+    no passado na virada. `user_tenant.lotacao_id` continua sendo a lotação de hoje; sem versões (vínculo criado
+    depois da migration e que nunca trocou), ela vale para todos os dias. Regras (`HistoricoDeLotacoes`): cada versão
+    vale da sua data até a véspera da seguinte, a inicial vale para trás. A troca pela edição do vínculo
+    (`TenantController::editUserRole`, uma chamada a `RegistrarTrocaDeLotacaoUseCase` antes do flush) grava a versão
+    que vale de HOJE (e, na primeira troca de um vínculo sem versões, a inicial com a lotação de antes); trocar de novo
+    no mesmo dia substitui a versão de hoje. Não há outro caminho que grave `UserTenant::lotacao` (grep de
+    `setLotacao(`: só o formulário; a lotação do convite nunca é copiada para o vínculo; o desfazer da auditoria não
+    reverte o vínculo). Apagar a lotação sem feriado deixa as versões dela sem lotação (SET NULL, como em
+    `user_tenant`; abaixo). O down da migration recusa quando já há troca gravada ou feriado de uma lotação (sem a coluna ele valeria para todo o
+    escritório). Purga do escritório: `lotacao_vigencia` na lista, antes de `lotacao`. A Agenda segue a
+    lotação de hoje do vínculo (é tela do dia, não folha). Aplicada no `FolhaPontoBuilder::buildRows` (folha na
+    tela, ficha do colaborador, PDF, XLSX, saldo até o mês e do ano, horas pagas, "Regularizar ponto de ontem", tudo
+    passa por ele) e em `ListarPendenciasDeRegistroUseCase` (lê o feriado sem a folha). O comando dos nacionais (D21)
+    só conta o feriado sem lotação ao ver se a data já está cadastrada;
+  - Agenda (revisão da E6): na grade (`DatasDoSistemaController`), o feriado de uma lotação só aparece para quem é
+    dela, pelo ID da lotação do vínculo de quem vê (nunca pelo nome); o de "Todas as sedes" aparece para todos; quem
+    está sem lotação só vê os de "Todas as sedes". A regra mora em `ListarDatasDoSistemaUseCase` (parâmetro
+    `idDaLotacao`). A sincronização com o Google (`DatasDaAgendaParaOGoogle`) é POR PESSOA (uma conexão por pessoa e
+    escritório, na conta dela) e aplica a mesma regra de quem vê. O dia útil do escritório (`DiaUtilDoEscritorio`:
+    cobrança do checklist e resumo diário) é a regra do escritório inteiro e só considera os feriados sem lotação: um
+    feriado de Maceió não pula o dia do escritório;
+  - a meta do dia no cartão "Registrar Ponto" (`PontoController::index`: contador de horas excedentes, saída prevista
+    e lembrete de saída) usa a mesma regra, pelo `FeriadosDaPessoa` (commit do orquestrador, 10/11/2026); o aviso de
+    horário (`VerificadorAlertaPonto`, /ponto/alerta-horario), que não olhava feriado nenhum, também (correção do
+    mesmo dia): no feriado da pessoa saem os avisos da escala (entrada, repouso no horário, "Jornada concluída") e
+    ficam os das batidas (6 horas sem repouso, intervalo mínimo); o dia que a escala não cobre (meta 0: folga,
+    domingo) segue o mesmo critério (correção seguinte, também de 10/11/2026); sem escala nenhuma (nem da pessoa nem
+    do escritório) a meta é 0 todo dia e os avisos da escala não saem (com o aviso ligado, nenhum caso em produção em
+    10/11/2026);
+  - **apagar lotação com feriado é recusado (decisões do Coordenador, 09/11/2026):** apagar a lotação apagava em
+    cascata os feriados dela, e os meses passados mudavam (quem não bateu no feriado passava a ter falta). Na aba
+    "Lotações" da edição do escritório (`TenantController::edit`, o único caminho que apaga lotação: a purga apaga o
+    escritório inteiro e o desfazer da auditoria só reverte alteração), a lotação que sumiu da tela e tem feriado
+    fica, com o aviso "Esta lotação tem feriados no Ponto e não pode ser apagada."; o resto do envio (renomear, criar,
+    apagar as outras) continua valendo. A sem feriado apaga, mesmo se estiver no histórico de lotações: as versões
+    que apontavam para ela passam a "sem lotação" (`lotacao_vigencia.lotacao_id` ON DELETE SET NULL). Motivo: no
+    Ponto, lotação sem feriado e "sem lotação" dão o mesmo resultado, então o passado da folha não muda, e a função de
+    apagar lotação fica (regra 2). A regra mora em `ApagarLotacoesQueSairamUseCase` (no lugar do laço de `remove()` do
+    controller: o formulário não escreve a coleção do escritório, então era aquele laço que apagava; agora o caso de
+    uso tira da coleção e o `orphanRemoval` apaga). Defesa no banco: a chave de `feriado.lotacao_id` é NO ACTION (não
+    RESTRICT, que confere na hora e quebraria uma exclusão em cascata num comando só);
+  - lotação recusada na edição do vínculo: com o formulário inválido, a lotação escrita no vínculo em memória voltava
+    ao banco pelo flush do `ObterOuCriarPerfilUseCase` (perfil pessoal ausente), sem versão. O `editUserRole` guarda a
+    lotação de antes do submit, junto com o perfil, e a devolve ao vínculo quando o formulário não grava;
+  - seções por permissão: "Sedes e raio de registro" só com `admin.ponto.manage`, "Feriados do escritório" só com
+    `admin.tenant.settings.manage` (as mesmas das páginas de hoje). Rotas novas no domínio Ponto
+    (`ponto_configuracoes_sede_criar`, `_sede_salvar`, `_sede_remover`, `_feriado_criar`, `_feriado_remover`), JSON:
+    escritório da sessão, módulo do ponto e permissão da seção (403), token da página (403), posse (a sede, o feriado e
+    a lotação de outro escritório: 404). UseCases `SalvarSedeDoPontoUseCase`, `RemoverSedeDoPontoUseCase`,
+    `CadastrarFeriadoDoPontoUseCase`, `RemoverFeriadoDoPontoUseCase`;
+  - sedes (P68, D13): a linha inteira grava ao sair do campo (o desenho grava a cada tecla), uma gravação por linha de
+    cada vez; o erro aparece na linha de baixo. Latitude e longitude aceitam vírgula (só na aba; a página antiga segue
+    recusando). Mesmas validações e frases da página antiga, numa regra só (`RestricoesDaSede`, usada também pelo
+    `SedeType`), mais "Informe o nome da sede.". "Adicionar sede" acrescenta "Nova sede" no navegador; ela só vai
+    para o banco com latitude e longitude válidas (a coluna é obrigatória), então a cerca nunca recebe sede sem
+    coordenada (e continua ignorando, se receber). "Usar minha posição" usa o leitor com prazo do módulo da batida, 6
+    casas; sem posição, "Localização indisponível neste aparelho.";
+  - P70 a: `Sede::RAIO_PADRAO = 150` é o padrão da entidade e do campo vazio do `SedeType`: a sede nova nasce com 150 m
+    na aba e na página antiga; as que já existem ficam com o raio delas (nada no banco muda);
+  - P69: a página "Sedes do ponto" fica, com o link "Mapa e busca por endereço" no cabeçalho da seção (molde do botão
+    de contorno do desenho). P72: "Repete todo ano" no formulário (marcada, como na página "Feriados e Folgas") e a
+    marca "Todo ano" na lista; a data do que repete aparece dd/mm, a do pontual dd/mm/aaaa. A página "Feriados e Folgas"
+    fica; editar nela não toca a abrangência (`FeriadoType` não tem o campo). A lista mostra todos os feriados do
+    escritório, inclusive os nacionais carregados pelo comando (D21);
+  - D4: remover sede e remover feriado abrem a janela na moldura do desenho (`role="dialog"`, Esc fecha, o foco não
+    sai); o "Remover" da janela grava. Remover a sede segue a regra da página antiga (as batidas dela ficam sem a sede,
+    com o nome guardado), e o aviso conta quantas. A "Nova sede" nunca gravada sai sem perguntar;
+  - aviso flutuante do desenho (§2.13) só nesta seção (`.pe-sf-aviso`), com a subida que mantém a centralização (o
+    `bjpUp` do desenho desfaz o `translateX(-50%)` durante a animação). Comportamento em
+    `public/js/ponto-configuracoes-sedes.js` (o `ponto-configuracoes.js` é da E7), carregado pelo index logo depois
+    dele; CSS no bloco "Sedes e feriados" de `ponto-eletronico.css`, só com os tokens `--pe-*` que já existiam.
+- Arquivos da etapa: `Feriado` (lotação), `Sede` (`RAIO_PADRAO`), `SedeType`, `FeriadosDaPessoa`, `FolhaPontoBuilder`,
+  `ListarPendenciasDeRegistroUseCase`, `SeedFeriadosNacionaisCommand`, `ConfiguracoesDoPontoController`, os quatro
+  UseCases, `SedesEFeriadosDoPonto`, `RestricoesDaSede`, os DTOs `SedeDoPonto*` e `FeriadoDoPonto*`,
+  `ConfiguracaoDoPontoRecusadaException`, `templates/ponto/_config_sedes.html.twig`, `_config_sede_linha.html.twig`,
+  `_config_feriados.html.twig`, `_config_feriados_lista.html.twig`, `_abas_configuracoes.html.twig` (os dois includes),
+  `index.html.twig` (uma linha de script). Na revisão: `ListarDatasDoSistemaUseCase`, `DatasDoSistemaController`,
+  `DatasDaAgendaParaOGoogle`, `DiaUtilDoEscritorio` (feriado da lotação na Agenda), `FeriadoController::index` e
+  `feriado/index.html.twig` (coluna "Abrangência" na página "Feriados e Folgas"). Lotação com vigência:
+  `LotacaoComVigencia`, `LotacaoComVigenciaRepository`, `HistoricoDeLotacoes`, `RegistrarTrocaDeLotacaoUseCase`, a
+  chamada em `TenantController::editUserRole` (um parâmetro e uma linha; mais a lotação de antes, devolvida quando o
+  formulário não grava) e `PurgarEscritorioUseCase` (a tabela nova). Apagar lotação: `ApagarLotacoesQueSairamUseCase`,
+  `FeriadoRepository::idsDasLotacoesComFeriado`, a chamada em `TenantController::edit` e a frase
+  `escritorio.flash.lotacao_com_feriado`.
+  Atributos do JS próprios da etapa: `data-pc-sede-*`, `data-pc-feriado-*` e `data-pc-sf-*` (as janelas); o
+  `data-config-*` fica livre para a E7. Raio vazio na sede que já existe mantém o raio dela; a nova nasce com 150 m.
+- Testes da etapa: `FeriadosDaPessoaTest`, `FeriadoPorLotacaoTest` (folha, saldo e pendências de duas pessoas em
+  lotações diferentes; "Todas as sedes"; feriado recorrente da lotação; lotação de outro escritório com o mesmo nome),
+  `ListarDatasDoSistemaUseCaseTest`, `DatasDoSistemaControllerTest`, `SincronizacaoDeDatasComGoogleTest` e
+  `DiaUtilDoEscritorioTest` (a regra na Agenda, no Google e no dia útil), `FeriadoAbrangenciaNaPaginaAntigaTest`,
+  `HistoricoDeLotacoesTest`, `LotacaoComVigenciaTest` (trocar não muda o feriado nem a folha do mês passado; o banco
+  do mês passado num cenário assimétrico, só com o feriado de Maceió, e no vínculo que só tem a versão inicial da
+  migration; de hoje em diante vale a nova; duas trocas no dia, uma versão; outro escritório isolado),
+  `TrocaDeLotacaoNaEdicaoDoVinculoTest` (a troca pela tela grava a versão; lotação de outro escritório recusada;
+  formulário recusado não leva a lotação ao banco; apagar a lotação sem feriado do histórico deixa a versão sem
+  lotação e o mês passado igual), `ApagarLotacaoComFeriadoTest` e `ApagarLotacoesQueSairamUseCaseTest` (com feriado,
+  recusa com a frase; com histórico e sem feriado, apaga e a versão fica sem lotação; sem nada, apaga; o resto do envio
+  vale), `MigracaoDoFeriadoPorLotacaoTest` (também a versão inicial por vínculo, o banco que recusa apagar a lotação com
+  feriado, a versão que fica sem lotação e o down que recusa com troca ou com feriado de lotação),
+  `PurgarEscritorioUseCaseTest` (o feriado da lotação sai antes da lotação),
+  `SeedDosNacionaisComFeriadoPorLotacaoTest`, `ConfiguracoesDoPontoSedesEFeriadosTest` (arranjo por filho direto e
+  textos, seções por permissão, 150 m na nova e na página antiga, raio das existentes, validações, remover com as
+  batidas desvinculadas, 403 por seção, sem token e com permissão só em outro escritório, 404 entre escritórios,
+  editar na página antiga preserva a lotação), `SedesDaCercaDoPontoTest`, `SedesEFeriadosDoDesenhoCssTest`,
+  `PontoConfiguracoesSedesJsTest`; o construtor novo nos testes da folha.
 
 ### Bloco 3: motor novo (cada um atrás da sua chave, nesta ordem)
 
@@ -428,6 +838,30 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: Global desligado trava o Escritório; tela desligada mostra a página "em preparação" do sistema
   (`templates/recurso/em_preparacao.html.twig`) para quem não é Master e a faixa vermelha para o Master; chave nova nasce
   ligada (P96); a aba Configurações aparece para quem gere o ponto pelo perfil (P58 não).
+- Decisões da etapa (implementada em 09/11/2026, branch `ponto-desenho-e7`, contrato do Coordenador):
+  - catálogo: tela `ponto` (Telas, "Ponto Eletrônico", antes do Voto) com o prefixo `ponto_`, e função `ponto-geo`
+    (Funções, "Ponto: geolocalização"), sem linha em `recurso_estado` (nascem ligadas). Ficam abertas com a tela
+    desligada só `ponto_estado_do_dia`, `ponto_alerta_horario` e `ponto_pendencia_do_dia`; a batida cai com a tela;
+  - a rota `master_recurso_alternar` aceita chave com hífen (`[a-z][a-z-]{0,39}`); as chaves sem hífen continuam iguais;
+  - menu e atalho do avatar: o item do Ponto segue `recurso_visivel('ponto')` e `recurso_marca('ponto')`, como o Voto;
+    com a tela desligada o atalho mostra o estado do dia sem o botão de registrar (e sem o "Regularizar ponto de
+    ontem", que leva à tela fechada);
+  - tabela `ponto_config_escritorio` (Version20261109180000, entidade `ConfiguracaoDoPonto`): uma linha por escritório,
+    criada no primeiro salvamento (o repositório a garante com `INSERT ... ON CONFLICT (tenant_id) DO NOTHING`, vazia e
+    com os padrões, e só depois a trava com `SELECT ... FOR UPDATE`: dois primeiros salvamentos ao mesmo tempo não
+    duplicam a linha nem dão erro; a linha vazia vale o mesmo que não ter linha e não entra na trilha, a mudança
+    entra); mapa `chaves` (chave ausente vale ligada), `raio_padrao_metros` 150
+    (P70), `banco_limite_horas` 120 e `banco_prazo_meses` 6 (P73; a faixa de 1 a 24 é da E17) e
+    `permite_trabalho_externo` ligado (P74), com os padrões em constantes da entidade; nenhuma tela edita os ajustes
+    na E7. Entra na purga do escritório;
+  - `ponto-geo` desligada (Global ou Escritório): a batida não exige posição nem confere sede, não grava sede e não
+    vira home office; com a geolocalização desligada, a posição é descartada (latitude, longitude e precisão
+    ficam vazias, como no home office: o escritório escolheu não usar localização). A tela e o atalho não pedem a
+    posição e a caixa da localização some (`geoLigado` no estado do dia e na tela);
+  - tela `ponto` fechada para quem vê (desligada e quem vê não é Master, o mesmo critério do guarda de rota): o
+    cartão diário de pendência não sai, porque o link dele leva à /ponto em preparação;
+  - chave "Escritório" recusada porque o Master desligou o Global depois que a aba carregou: a resposta 422 leva
+    `global: false` e a tela trava a chave na hora (`js/ponto-configuracoes.js`).
 
 **E8. Tela cheia, aviso flutuante, sons, vibração e lembrete.**
 - Entra: P79 a P83 (e P84 a P86, que ficam). As chaves `ponto-animacao`, `ponto-sons` e `ponto-lembrete` entram no
@@ -440,12 +874,57 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: JS e CSS da tela. Nada da frente.
 - Testes: funcional das fases por classe e `aria`; movimento reduzido; com a chave desligada o resultado vira aviso
   flutuante; o áudio do alerta de horário continua liberado.
+- Decisões da etapa (09/11/2026, Coordenador):
+  - correção de texto do desenho: o aviso concorda com o tipo ("Entrada registrada", "Saída registrada", "Repouso
+    registrado", "Retorno registrado"); o desenho escreve "Repouso registrada";
+  - "Enviado para aprovação do gestor." vai no aviso flutuante, no lugar do flash do envio da justificativa. Abonar,
+    recusar e abonar em lote, com a volta para a /ponto, também vão no aviso flutuante;
+  - recusas da fila, batida guardada, sem rede, sem confirmação e sessão vencida ficam em `#batida-aviso`, com o
+    "Conferir" ou o "Atualizar" (P11 b): o "Tentar novamente" da tela vermelha não resolve nenhum deles. O envio
+    atrasado vai para a tela vermelha;
+  - "Tentar novamente" refaz o toque do mesmo tipo; se ele já foi batido, não envia e mostra "{Tipo} já registrado."
+    no aviso flutuante. "Registro selado" só acende quando o servidor confirma. A batida já registrada (o mesmo envio
+    repetido) mostra "Esta batida já tinha sido registrada." na linha de baixo do sucesso. Ao fechar a tela cheia, o
+    foco vai ao título do cartão, nunca ao "Bater Ponto" já liberado;
+  - o som só toca com o áudio rodando, ou depois de esperar a retomada por até 1,5 s. A vibração não depende da chave
+    nem do mudo. O lembrete de saída é conferido no relógio, a cada segundo, e vale também em repouso sem retorno; o
+    "uma vez por dia" fica guardado no aparelho, por pessoa e escritório (o desenho guarda só na página aberta);
+  - o aviso flutuante fica centralizado durante a animação (o keyframe do desenho perdia o `translateX(-50%)`);
+  - a janela do alerta de horário passa para a moldura de janela do desenho (L270 a L316), em toda página, com os
+    textos do sistema (sem o "Aguardar"), os ícones do desenho e o Esc fechando como o "x". O CSS fica em
+    `ponto-alerta-janela.css`, escopado em `.pe-alerta-ponto`. Ao fechar, ela dispara `hidden.bs.modal`, e os avisos
+    globais (espaço, gênero, prêmio do Contribua, revisão do perfil) esperam por `.modal.show, #modalAlertaPonto.show`;
+  - o aviso flutuante, a janela do alerta, o som e o aviso do lembrete e a recarga de segurança esperam a tela cheia
+    fechar, e também a janela aberta no lugar dela: a do trabalho externo (pela tela vermelha ou quando a batida externa
+    volta sozinha) e a "Antes de registrar" da E11. Essa janela abre depois de a validação fechar (o foco fica no
+    "Aguardar"); "Registrar assim mesmo" e "Registrar" soltam a espera antes de refazer o toque, que abre a validação
+    nova, e "Aguardar", "Cancelar", o "x" e o Esc a soltam ao fechar. O lembrete que esperou confere de novo se a saída
+    ainda falta; na hora, ele já olha a saída marcada na página (a guardada na fila, ou a confirmada com a busca da tela
+    falhando);
+  - ligação com a E12: fora do raio (local ou recusa do servidor, inclusive o GPS impreciso) vai para a tela vermelha,
+    com "Registrar como trabalho externo" quando o escritório permite. A batida externa que com certeza não entrou
+    (atrasada, sessão vencida, texto recusado) reabre a janela do trabalho externo, sem tela vermelha, e o "Tentar
+    novamente" de uma batida externa refaz a externa, nunca uma comum. Sem a tela cheia, o fora do raio fica na caixa;
+  - ligação com a E15 (10/11/2026): com o comprovante na resposta (`data.comprovante`), o sucesso em tela cheia mostra o
+    código e "Baixar comprovante" antes do "Concluir" (desenho L365 e L368), com os valores do CSS do desenho. O botão
+    baixa como o "Baixar" da aba Comprovantes (o mesmo download, o erro abaixo dos botões) e para o fechamento sozinho,
+    escondendo a barra dos 10 s (`limparAuto`, L832). O desenho mostra ainda o aviso "Comprovante baixado em imagem.";
+    ele não entra, como na aba (a E15 não o tem). Sem a tela cheia, o aviso do sucesso termina com "Comprovante na aba
+    Comprovantes." (L533). Sem o comprovante na resposta, nada muda.
+- Limites conhecidos da E8: o lembrete de saída e o alerta de horário de saída podem tocar e notificar quase juntos;
+  com um modal antigo aberto por baixo, o foco vai a ele quando a janela do alerta fecha. A saída que fica sem
+  confirmação (o servidor não respondeu a tempo) não segura o lembrete: ele ainda toca (uma vez no dia), e a caixa de
+  hoje já manda conferir. Ao fechar a janela "Antes de registrar" sem registrar, o foco vai ao título do cartão, como
+  na janela do trabalho externo: no "Bater Ponto", um Enter bateria o tipo sugerido.
+  O envio repetido (mesmo `idEnvio`, `jaRegistrada`) responde sem o comprovante: a tela cheia sai sem o código e o
+  "Baixar comprovante", e o comprovante continua na aba Comprovantes. A url do comprovante só entra se for caminho
+  deste site, sem tab nem quebra de linha (o navegador os tira e "/<tab>/outro.site" viraria outro endereço).
 
 **E9. Trilha de auditoria encadeada.**
 - Entra: P64, P66 (fica). D5 (não): a trilha leva o que o desenho grava (inventário §2.11): batidas, ajustes,
   justificativas (envio, exclusão, análise, abono em lote), envio da fila sem internet, folha emitida e assinada, escala
-  alterada, as chaves de função (Global e Escritório) e os eventos da facial. Mudanças de sede, feriado, limite, prazo,
-  modo facial e foto ficam só no `audit_log`, que continua.
+  alterada, a chave de função do Escritório e os eventos da facial. A chave Global do Master, as mudanças de sede,
+  feriado, limite, prazo, modo facial e foto ficam só no `audit_log`, que continua.
 - Depende de: E7.
 - Migration: sim (tabela da trilha).
 - Arquivos: serviço novo de trilha; chamadas nos fluxos de batida, justificativa, análise e chaves; cada etapa seguinte
@@ -458,6 +937,76 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: dois eventos ao mesmo tempo no mesmo escritório mantêm a cadeia; adulterar uma linha acusa "a cadeia foi
   alterada"; escritórios não se misturam; purga do escritório apaga a cadeia dele; mudança de sede ou feriado não entra
   na trilha e continua no `audit_log`.
+- Decisões da etapa (implementada em 09/11/2026 na branch `ponto-desenho-e9`, a integrar na `ponto-desenho`):
+  - tabela `ponto_auditoria` (migration `Version20261109190000`): sequência por escritório a partir de 1 com índice
+    único (escritório, sequência), índice (escritório, em), FK do escritório com CASCADE; `autor_id` SEM FK (um
+    `SET NULL` mudaria coluna selada e quebraria a cadeia; o `audit_log` também guarda o id solto) e `autor_nome`,
+    retrato do momento;
+  - `TrilhaDoPonto::registrar(Tenant, ?User, string $acao, array $detalhe)`: grava por DBAL (nunca dá `flush()` em quem
+    chama), na transação de quem chama ou numa própria; `pg_advisory_xact_lock(4203, escritório)` antes de ler o último
+    elo, a última trava do fluxo; `emTransacao()` para quem grava o fato com `flush()` solto (batida, escala);
+  - selo: HMAC-SHA256 com a chave `hash_hkdf('sha256', PONTO_HMAC_SECRET, 32, 'ponto-trilha')`
+    (`ChavesDoHmacDoPonto`, com `disponivel()`, `versaoAtual()` e `chave()`, reaproveitável pela E15 e E16), sobre o
+    JSON canônico de selo anterior, escritório, sequência, em, autor (id e nome), ação e detalhe; a linha guarda a versão
+    da chave. `PONTO_HMAC_SECRET=` declarado vazio no `.env`; vazio grava sem selo e sem versão;
+  - elo: o `selo_anterior` de cada linha é o ÚLTIMO SELO da cadeia antes dela (o da linha de antes, ou o último que
+    existia, se ela entrou sem selo); a primeira selada depois de um trecho sem selo se prende à última selada antes
+    dele. A `TrilhaDoPonto` grava assim e a `ConferenciaDaCadeiaDoPonto` confere assim;
+  - conferência (`ConferirTrilhaDoPontoUseCase`): íntegra; alterada (com a sequência do primeiro evento que não confere:
+    coluna mexida, linha apagada, elo trocado, selo apagado no meio, versão sem chave; quando o elo quebra logo depois de
+    linhas sem selo, o número apontado é o primeiro delas); trecho sem selo (eventos sem selo, por exemplo os gravados
+    antes do segredo ou numa falta temporária dele, com as faixas dos números: "Os eventos nº X a Y estão sem selo e não
+    podem ser conferidos.", no singular "O evento nº N está sem selo e não pode ser conferido.", na cor de alerta, nunca
+    o verde de íntegra; o texto não afirma a origem, que o sistema não conhece); ou não selada (o servidor sem o
+    segredo). A chave sai da versão gravada em cada linha;
+  - limites aceitos da conferência (revisões de 09/11/2026; não há âncora fora do banco): apagar os últimos eventos não
+    é detectado (não há linha depois para quebrar o elo); qualquer fim da cadeia com o selo tirado (e o conteúdo
+    trocado), ou um evento sem selo acrescentado no fim, aparece como trecho sem selo e não como alterada, e continua
+    assim depois dos eventos seguintes; zerar os selos de todas as linhas (selo e selo anterior) aparece como trecho sem
+    selo, ou não selada sem o segredo. O meio selado continua protegido: alteração, remoção e inserção dão alterada. O
+    aviso nunca fica verde. A conferência percorre a cadeia inteira a cada abertura da aba (achado 9 da revisão), a
+    reavaliar se ficar lenta. Desde a conferência de 10/11/2026 (dc L452) a aba é buscada de novo a cada abertura e,
+    aberta, depois de cada ação gravada na tela (batida, fila, justificativa excluída), então a conferência roda mais
+    vezes; aceito pelo mesmo critério (separar a conferência da lista se ficar lenta). A recarga sai quando a busca da
+    tela termina, nunca antes: o PHP atende uma sessão por vez, e a conferência seguraria a tela e o botão da batida.
+    Limite aceito: a batida tocada enquanto a recarga da Auditoria confere a cadeia espera por ela (a mesma trava da
+    sessão) e é carimbada na chegada ao controller, depois da espera. A janela é o tempo da conferência; o critério é
+    o de cima. Soltar a sessão antes da conferência (`save()`) foi descartado: a resposta regravaria o token e poderia
+    reabrir uma sessão encerrada no meio por um "Sair" em outra aba (revisão de 10/11/2026).
+    Um pedido no meio de outra busca fica guardado e roda depois dela; abrir com a busca em andamento não guarda outro.
+    Limite aceito: a "Sincronização" sai sem esperar e pode entrar depois da recarga; aparece na próxima abertura ou
+    ação. A recarga busca a página que está aberta: na página 2, o
+    evento novo fica na página 1 (desvio da paginação, já aceito). Falhou a recarga: fica o "Tentar de novo";
+  - eventos: batida (inclui o atalho do avatar), justificativa enviada, editada (com ou sem troca do atestado) e
+    excluída pelo colaborador, abonada, recusada, voltou para análise, abono em lote (um evento com as abonadas), lançada
+    já abonada pelo gestor (mais uma "batida do esquecimento abonado" por batida que o lançamento cria, o mesmo evento da
+    análise), batida do esquecimento abonado, escala alterada (as 3 versões da jornada, autor da sessão), a chave de
+    uma função do Escritório ligada ou desligada ("Configuração do escritório", dc L761: "Geolocalização desativado";
+    grava na mesma transação da chave, provado em teste) e a "Sincronização" da fila sem internet (dc L438, ver E14);
+  - atomicidade provada em teste: se o fato falha depois do evento (horário futuro na batida do esquecimento, dentro do
+    abono), o evento sai junto; se a trilha falha, a batida e o abono não ficam gravados;
+  - dados pessoais (LGPD, decidido pelo Coordenador na revisão): o `autor_nome` e o nome do colaborador no detalhe ficam
+    na trilha depois da exclusão da conta, porque a guarda do registro de ponto é obrigação legal; a trilha sai só com a
+    purga do escritório;
+  - aba Auditoria no molde das abas de gestão: `GestaoDoPonto::veAuditoria` (`admin.ponto.manage`; primário e Master
+    passam), rota `ponto_auditoria` com `?pagina=` (300 por página, como manda o desenho no inventário 2.11, L313; o mais
+    recente primeiro), parcial `_abas_auditoria.html.twig`, botões de página por `js/ponto-auditoria.js`; CSS no bloco
+    "Auditoria (E9)";
+  - purga: `ponto_auditoria` na ordem de deleção do `PurgarEscritorioUseCase`;
+  - texto da coluna "Detalhe" no formato do desenho (conferência ✓/✗ de 09/11/2026; dc L544, L601, L768): partes com
+    " · ", a batida com os segundos e " · sem internet" (chave `sem_internet` no detalhe dos eventos novos), a
+    justificativa "dd/mm/aaaa · Tipo · subtítulo" (o subtítulo é a batida esquecida, "Saída às 18:00", ou o abono
+    parcial, "Parcial: 14:00 às 16:00"; o detalhe grava `parcial`, `parcial_de` e `parcial_ate`). Extras necessários
+    que ficam: o nome do colaborador na frente, a data da batida (a da fila e a do esquecimento não são do dia do
+    evento), " · home office" e o período do lote ("dd/mm/aaaa a dd/mm/aaaa (N dias)", ou "dd/mm/aaaa (N
+    justificativas)" quando o lote é de um dia só); a sede saiu do texto e continua no detalhe gravado;
+  - desvio do desenho (dc L601, decisão do Coordenador de 09/11/2026): a observação da análise não entra no detalhe de
+    "Justificativa abonada" e "recusada". Ela já aparece na coluna "Obs. da Análise" (lida da justificativa), é texto
+    livre, que a trilha não grava (pode trazer dado pessoal, e a trilha fica mesmo depois da exclusão da conta) e o
+    "voltar para análise" a apaga, o que a trilha selada não faria;
+  - ficam para depois: os ajustes de batida (E10), a folha e a facial (cada etapa chama a trilha nos eventos dela). A
+    chave Global do Master fica só no `audit_log`, como hoje (`RecursoEstado` é auditável no escopo da plataforma, sem
+    escritório para a cadeia).
 
 **E10. Batida só inserção, com ajuste.**
 - Entra: P65 (a: "Editar" e "Excluir" da ficha viram "Ajustar" e "Desconsiderar"), P29, D18 (o esquecimento abonado
@@ -466,9 +1015,51 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Migration: sim (tabela de ajuste).
 - Arquivos: `TenantController.php` (editar e excluir batida), `RegistrarBatidaDoEsquecimentoUseCase`, reverter abono,
   `EscolhaDasBatidasDoDia`, `FolhaPontoBuilder.php`, `folha_pdf.html.twig` e `FolhaPontoXlsxExporter.php` (marca "aj").
+  O PDF da E16, em imagem, não leva o "aj": o ajuste vai às observações do dia (decisão 20 da E16).
   Frente: `FolhaPontoBuilder.php`, `TenantController.php`, `folha_pdf.html.twig` e o XLSX. Combinar antes.
 - Testes: folha antes e depois igual quando não há ajuste; ajuste muda a folha e guarda o valor antigo; reverter desfaz;
   ninguém consegue apagar batida pela tela nem pelo "desfazer" da auditoria; mês com ajuste no PDF e no XLSX.
+- Decisões da etapa (09/11/2026, Coordenador e plano `plano-e10-ponto.md` da pasta bluejus-coordenacao):
+  - migration `Version20261109280000`: tabela `ponto_ajuste` (inclusão, ajuste, desconsideração e restauração, com
+    escritório, pessoa, data e tipo anterior e novo, autor, motivo e justificativa ligada), o gatilho
+    `registro_ponto_so_insercao`, a coluna `sede.removida_em` e o CHECK da linhagem da inclusão;
+  - a batida gravada não muda: o gatilho recusa QUALQUER UPDATE em `registro_ponto` e só deixa apagar na purga do
+    próprio escritório (`bluejus.purga_do_escritorio`); todo setter da `RegistroPonto` recusa depois do id. Uma
+    migration de dado futura que precise mudar batida desliga o gatilho dentro dela e liga de novo no fim;
+  - a correção é uma linhagem em `ponto_ajuste` (cada passo aponta o anterior; vale a cabeça, o passo sem sucessor). O
+    alvo é `b{id}` (batida gravada) ou `a{id}` (inclusão). A batida efetiva sai de um leitor só,
+    `RegistroPontoRepository`, e um teste de arquitetura barra a leitura direta;
+  - na ficha do gestor: o "+" vira "Incluir" com motivo, "Editar" vira "Ajustar", "Excluir" vira "Desconsiderar" (com
+    janela) e entra "Restaurar". Rotas próprias em `AjusteDeBatidaController`, CSRF por ação. Só o primário ou o Master faz as
+    quatro na PRÓPRIA ficha (P43); nas dos outros, quem tem a gestão de usuários. Batida ligada a justificativa
+    em análise não se ajusta pela ficha: o gestor decide na análise (decisão C5, abaixo);
+  - decisão C5 (10/11/2026, Coordenador), que resolve a contradição entre "batida ligada a justificativa não se ajusta
+    pela ficha" e o limite da inclusão do esquecimento ajustada depois: enquanto a justificativa ligada à batida está em
+    análise (o trabalho externo da E12, ou o esquecimento ligado a uma inclusão), a ficha recusa Ajustar, Desconsiderar
+    e Restaurar com o aviso `em_analise`, e a página "Ajustar batida" nem abre (volta à ficha com o aviso); decidida, a
+    ficha ajusta, desconsidera e restaura como qualquer batida (P65). Recusar o Restaurar fecha o único caminho em que
+    uma inclusão contaria com o esquecimento em análise: o gestor restaurar a inclusão que ele mesmo desconsiderou. O
+    caminho da análise (`DesconsiderarBatidaInput::pelaAnalise`, que a E12 vai ligar à recusa do trabalho externo) não
+    passa por essa recusa, e o Restaurar segue recusando a desconsideração feita por ela (decisão A). O limite 1
+    continua: a inclusão do esquecimento abonado se ajusta;
+  - a hora ajustada leva "aj" na folha da tela e no XLSX (com a legenda nas observações da planilha), também depois de
+    uma restauração (é ajuste). O PDF da E16, em imagem, não leva o "aj" nem a legenda: as observações do dia dizem
+    "<Batida> ajustada em dd/mm/aaaa" (desenho L622; decisão 20 da E16);
+  - o esquecimento abonado grava uma inclusão ligada à justificativa; voltar para análise desconsidera essa inclusão; a
+    justificativa que já mexeu na folha não se exclui;
+  - travas: a da pessoa (4210) sempre antes da trilha (4203);
+  - remover sede: a sede sem batida é apagada; a com batida é encerrada (`removida_em`), some da lista, da cerca e do
+    fuso do home office, não se edita, não se remove de novo e o "desfazer" da auditoria não a altera; as batidas
+    antigas mantêm o `sede_id` e o nome;
+  - a purga apaga `ponto_ajuste` antes das batidas, com o escape do gatilho.
+- Limites aceitos:
+  - a inclusão do esquecimento ajustada depois deixa de contar como esquecimento na interjornada (a cabeça é do gestor);
+  - `CompararViradaDoBancoDeHorasCommand` lê `registro_ponto` cru e não vê quem só tem inclusão (tarefa à parte);
+  - a restauração devolve a hora e o tipo, mas não o selo "enviada sem internet" nem o "feita pelo colaborador";
+  - o aviso "batida criada pelo abono antes desta versão" é deduzido pela falta de inclusão (raro: corrida da R1 ou
+    esquecimento antigo sem tipo ou hora);
+  - remover sede: três corridas raras aceitas (documentadas em `RemocaoDaSedeDoPonto`);
+  - os UseCases do ajuste são testados por integração no banco (a trilha e a gravação são classes final).
 
 **E11. Alertas que não bloqueiam.**
 - Entra: P21 (a: avisa sem recusar, com "Registrar assim mesmo"; os mínimos vêm da Jornada do escritório). A chave
@@ -478,6 +1069,15 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: `PontoController.php` (batida), textos da `_modal_jornada_tenant.html.twig` (frente, PR 3: avisar).
 - Testes: retorno com repouso curto entra e a folha marca "não conforme"; entrada antes da interjornada entra com aviso;
   7º dia seguido avisa; o esquecimento continua sem travar (R1 a R4).
+- Como ficou (09/11, revisão): nada recusa. Com a chave `ponto-alertas` ligada, a primeira tentativa volta com o alerta
+  sem gravar, e "Registrar assim mesmo" refaz a mesma batida com a confirmação. Com a chave desligada, a batida segue
+  sem aviso e sem recusa (desenho L498, `if (!forcar && this.ef('alertas'))`), e a folha continua marcando "não
+  conforme". O intervalo e a interjornada seguem as validações da Jornada do escritório; o 7º dia segue só a chave e
+  conta só o escritório da batida. A saída do mesmo dia (dois turnos) avisa sem a frase da folha, que só compara a
+  entrada com a saída do dia anterior. A batida da fila sem internet grava sem a janela. O "Descanso Semanal Remunerado"
+  do PDF e do XLSX passa a ser calculado: conforme até 6 dias seguidos com registro no mês (desenho L693). O atalho do
+  cabeçalho pergunta com o confirm do navegador e, confirmado, relê o estado e a posição antes do segundo envio; a frase
+  da saída diz que a próxima entrada antes do descanso avisa (ligados) ou só informa o mínimo (desligados).
 
 **E12. Fora do raio vira trabalho externo; raio com a precisão.**
 - Entra: P18 (a: fora do raio, "Registrar como trabalho externo" com local e motivo, para a análise do gestor), P74
@@ -487,6 +1087,68 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: `PontoController.php`, `SedesDaCercaDoPonto`, `ponto-batida.js`.
 - Testes: fora do raio sem a opção do escritório continua recusado; com a opção, entra marcado e cria a justificativa;
   precisão acima do teto pede nova leitura; home office continua sem localização.
+- Decisões da etapa (09/11/2026, Coordenador):
+  - migration `Version20261109230000`: em `registro_ponto`, `trabalho_externo` (padrão falso) e
+    `motivo_trabalho_externo` (texto nulo); em `justificativa_ponto`, `registro_ponto_id` (nulo, FK ON DELETE SET
+    NULL, com índice);
+  - raio com a precisão (`CercaDoPonto`, teto de 50 m, o mesmo número do "GPS impreciso" do desenho). DENTRO: a
+    distância cabe no raio, ou a distância menos a precisão cabe nele com a precisão até 50 m. INCERTA: precisão
+    acima de 50 m e a distância menos a precisão cabe no raio, mas a distância não; responde 422 "GPS impreciso" e
+    pede nova leitura. FORA: o resto, inclusive o escritório sem sede; responde 403. Nunca mais rígido que antes: o
+    que entrava (distância até o raio) continua entrando, com qualquer precisão;
+  - textos do fora do raio (L528). Desvio: a frase " Aproxime-se ou informe o trabalho externo." só aparece com a
+    opção ligada, porque com ela desligada mandaria fazer o que o escritório não permite. Os textos de GPS impreciso
+    não estão no desenho. O raio e a distância saem com ponto de milhar. A sede citada é a mais próxima em metros,
+    no bloco do toque e na caixa da localização; o "fora" continua decidido pela regra de antes. O atalho do
+    cabeçalho não muda nesta etapa e continua citando a sede da regra do "fora";
+  - o pedido (`trabalhoExterno` e `motivoTrabalhoExterno`) vale fora do raio e no GPS impreciso, com a opção do
+    escritório ligada (padrão ligada, P74). Dentro do raio é ignorado e a batida entra normal. Motivo vazio ou com
+    mais de 500 caracteres dá 422 (a caixa tem maxlength 500);
+  - a batida de trabalho externo entra sem sede, com latitude, longitude e precisão, e com o tipo que falhou. Na
+    mesma transação nascem a justificativa `trabalho_externo` pendente ligada a ela (data = dia da batida) e as
+    trilhas; o aviso ao gestor vai depois do commit. Sem internet, ela vai pela fila da E14 com os dois campos;
+  - pela recomendação, a batida conta enquanto a justificativa está em análise. A justificativa ligada NUNCA abona:
+    aprovar só confirma a batida. A recusa tira a batida da conta pelo Desconsiderar da E10 e o reverter a restaura
+    (ligados em 10/11/2026, `AnalisarJustificativaUseCase`: `DesconsiderarBatidaInput::pelaAnalise` na recusa e
+    `desconsideracaoDaJustificativa` mais `restaurar` no reverter, na mesma transação). A batida que já saiu da conta
+    pela ficha fica como está: a recusa só recusa, e o reverter não desfaz a desconsideração da ficha. Se alguém
+    restaurou ou ajustou a batida depois da recusa, o reverter também não mexe nela. Os avisos da ficha dizem o que
+    houve com a batida ("A batida do trabalho externo saiu da conta." e "voltou para a conta"). Pela /ponto (o
+    primário recusando a própria), o aviso flutuante segue o texto do desenho, "Justificativa recusada.". A dica da
+    batida desconsiderada pela análise diz como ela volta: com um novo abono ou, no trabalho externo, quando a
+    justificativa volta para análise. Com a justificativa em análise, a ficha não ajusta, não desconsidera e não
+    restaura a batida externa (decisão C5): quem decide é a análise. Se a batida já tinha saído da conta por outro
+    ajuste, a recusa só recusa;
+  - o colaborador não exclui nem edita a justificativa ligada. A tela mostra "Segue para a análise do gestor." no
+    lugar do lápis e da lixeira; quem analisa a própria justificativa vê só "Abonar" e "Recusar";
+  - o nome do tipo continua o do sistema, "Trabalho Externo (Home Office / Campo)", como no P45. O subtítulo da
+    justificativa ligada é "TIPO às HH:MM" (L545);
+  - a caixa P74 "Permitir trabalho externo, com motivo e análise" (rota `ponto_configuracao_trabalho_externo`) fica
+    no audit_log, não na trilha do Ponto (o desenho não a registra). A tela aberta só vê a mudança depois de
+    recarregar: quem decide é o servidor;
+  - a caixa P74 mora no cabeçalho "Sedes e raio de registro", entre o título e os botões (L253). Para quem não vê
+    as sedes, fica sozinha logo abaixo das funções, para a função não sumir de ninguém. Hoje esse caminho é só
+    proteção: a caixa e as sedes pedem a mesma permissão (`admin.ponto.manage`, `FuncoesDoPonto` e `GestaoDoPonto`),
+    então quem vê a caixa sempre vê as sedes;
+  - a folha não tem selo de trabalho externo (decisão C1 do Coordenador, 10/11/2026, conferência ca6ef6498): o
+    desenho (L153) só mostra o dia da semana, e a batida externa aparece "Em análise" na coluna Justificativa (L743,
+    L751), na trilha e no comprovante (L584). O selo "Sem internet" da E14 fica (⚠): é a marca para o gestor da
+    decisão P20 (a) do dono;
+  - a batida externa passa pela janela "Antes de registrar" da E11, como a comum (o desenho, L808, pula o
+    `alertaPre`): a regra de intervalo vale para qualquer batida, e o "Registrar assim mesmo" mantém a marca e o
+    motivo;
+  - na trilha, a batida externa leva " · trabalho externo" (L544), entre " · home office" e " · sem internet";
+  - a tela vermelha é da E8. Até a ligação, o fora do raio fica na caixa de resultado, com o botão "Registrar como
+    trabalho externo";
+  - sem confirmação e sem rede NÃO reabrem a janela do trabalho externo: a batida pode ter entrado, e um novo envio
+    sairia com outro `idEnvio`. O texto fica guardado na página e a caixa mostra o aviso de hoje. Atrasado, sessão
+    vencida e a recusa do texto reabrem a janela com o texto, se não houver outra janela aberta.
+- Limites conhecidos da E12:
+  - em sessão vencida, o texto digitado se perde ao atualizar a página (não fica guardado fora dela);
+  - uma aba aberta antes da publicação, com a fila antiga na memória, pode mandar sem a marca uma batida externa
+    guardada, e o servidor a recusa como fora do raio;
+  - antes da E10, uma batida apagada deixaria a justificativa solta abonando. O gatilho da E10 barra o DELETE, e as
+    duas vão no mesmo PR.
 
 **E13. Hora oficial e hora do aparelho.**
 - Entra: P5 (a hora do servidor é a hora oficial, ajustada pelo atraso na tela; a hora do aparelho fica guardada só
@@ -496,6 +1158,19 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Migration: sim (hora do aparelho, hora de chegada, marca de envio sem internet, identificador único do envio).
 - Arquivos: `RegistroPonto`, `PontoController.php`, `ponto-batida.js`.
 - Testes: batida grava as duas horas; o mesmo identificador enviado duas vezes não cria duas batidas.
+- Decisões da etapa (09/11/2026, Coordenador):
+  - migration `Version20261109220000`: em `registro_ponto`, `hora_aparelho`, `hora_chegada`, `enviada_sem_internet`
+    (padrão falso) e `id_envio`, com índice único `uniq_registro_ponto_user_envio` em (pessoa, `id_envio`); as linhas
+    antigas ficam vazias, sem preenchimento;
+  - o envio da batida (`POST /ponto/batida`) ganha `idEnvio` (UUID v4 feito no toque, o mesmo em toda nova tentativa) e
+    `horaAparelho` (milissegundos do relógio do aparelho no toque); os dois são opcionais, e sem eles tudo fica como antes;
+  - na batida normal, a hora da batida e a de chegada são o mesmo instante do servidor; a do aparelho é só informação e,
+    inválida, fica vazia sem recusar;
+  - o mesmo `idEnvio` da mesma pessoa no mesmo escritório responde "Esta batida já tinha sido registrada." sem gravar de
+    novo; dois envios ao mesmo tempo são barrados pelo índice único e recebem a mesma resposta; o mesmo `idEnvio` de
+    outra pessoa grava normal;
+  - a leitura dos campos fica em `EnvioDaBatida` (`src/Ponto/Service`), para o `PontoController` mudar o mínimo;
+  - a tela e o atalho do cabeçalho mandam os dois campos; o atalho não tem fila.
 
 **E14. Fila sem internet.**
 - Entra: P20 (a: vale a hora do aparelho, as duas horas ficam guardadas e a batida aparece marcada "enviada sem
@@ -505,6 +1180,42 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: `ponto-batida.js` (fila cifrada, envio ao voltar a internet).
 - Testes: JS da fila (`node --check` e teste do envio); servidor recusa batida guardada além do teto de idade; a folha e o
   gestor veem "enviada sem internet".
+- Decisões da etapa (09/11/2026, Coordenador):
+  - teto de idade da batida guardada: 72 horas. O relógio do aparelho mais de 2 minutos adiantado recusa; até 2 minutos
+    adiantado, vale a hora de chegada;
+  - a fila só existe na tela /ponto (o atalho do cabeçalho não guarda). Fica no IndexedDB, cifrada com AES-GCM 256 e chave
+    não extraível, um IV de 12 bytes por entrada, gravação `durability: 'strict'` (`public/js/ponto-fila.js`). Exige
+    contexto seguro: no dev, conferir por `http://localhost:8080`;
+  - o envio da fila leva `semInternet`, `usuarioId` e `escritorioId`; batida de outra conta ou de outro escritório volta
+    409 logo depois da autenticação e continua guardada, com uma linha própria na caixa da fila;
+  - todas as regras da batida (home office, cerca, outro escritório, repouso, interjornada, entrada do dia) são avaliadas
+    na hora do aparelho;
+  - a etiqueta da folha é o texto do desenho, "Sem internet" (comprovante, L584);
+  - a recusa do servidor tira a entrada da fila e a guarda, cifrada, numa loja própria (`recusas`), na mesma transação.
+    A tela mostra a recusa com o tipo e a data, e só então a apaga. Entrada que não abre ou com mais de 7 dias sai do
+    aparelho;
+  - a batida da fila recebe o NSR da E15: a ligação e o teste ficam com a E15;
+  - evento "Sincronização" da trilha (conferência ✓/✗ de 09/11/2026; dc L438): depois de cada rodada que enviou
+    batidas, a tela avisa `POST /ponto/fila/sincronizada` com os `idEnvio` enviados. O servidor grava um evento com as
+    batidas da pessoa, neste escritório, que vieram da fila e ainda não estavam numa sincronização ("N batidas enviadas
+    ao voltar a internet", autor a própria pessoa). O aviso que se perde (sem resposta) não reenvia: a marca " · sem
+    internet" de cada batida continua na trilha.
+- Comportamentos além do desenho, mantidos por necessidade (conferência ✓/✗ de 09/11/2026; o desenho guarda só quando
+  `navigator.onLine` é falso e envia só no evento `online`):
+  - a batida também vai para a fila quando o envio fica sem resposta do servidor (aparelho "online" sem conexão de
+    fato), com o aviso "Sem conexão com o servidor. A batida ficou guardada neste aparelho e será enviada sozinha
+    quando a conexão voltar.";
+  - a fila também tenta enviar ao abrir a tela, a cada 60 segundos e antes de um toque novo, além do evento `online`
+    (o `online` sozinho não dispara quando o servidor volta com a rede já ligada);
+  - o aviso "Batidas sem internet enviadas." (texto do desenho) só aparece quando a fila esvaziou; com recusa ou
+    entrada que ficou, o aviso diz o que aconteceu com cada uma.
+- Limites conhecidos:
+  - a batida da fila é medida pela jornada de hoje (regra que já existia);
+  - os testes da fila no CI leem o código. O comportamento no IndexedDB foi rodado no node pelo implementador e pela
+    revisão, fora do CI;
+  - a fila permite registrar até 72 horas para trás, só com a marca "Sem internet" (decisão do P20);
+  - o mesmo `idEnvio` tentado de novo em outro escritório responde "já registrada" no segundo, embora a batida esteja no
+    primeiro (caso raro).
 
 **E15. Comprovante, aba Comprovantes e validação.**
 - Entra: P48, P49, P50 (nome inteiro, como o desenho; sem CPF nem localização), D2, D9, D20. A chave
@@ -520,6 +1231,35 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Testes: NSR sem buraco com batidas ao mesmo tempo; código errado e inexistente com a mesma resposta; a página pública
   mostra o nome inteiro e não mostra CPF nem localização; limite de tentativas; com `PONTO_HMAC_SECRET` vazia, a batida
   grava, nada é emitido e nada quebra.
+- Decisões da implementação (Coordenador, 09/11/2026):
+  - O "LOCAL DO REGISTRO" do desenho sai só na imagem do comprovante, que a própria pessoa baixa; a página pública
+    continua sem localização e sem CPF.
+  - O código do comprovante é sorteado, não sai do HMAC. O HMAC-SHA256 sela os dados assinados, e o comprovante mostra
+    esse rótulo.
+  - A imagem sai em JPG, com a fonte DejaVu.
+  - Excluir a batida não apaga o comprovante emitido (a ligação com a batida fica nula, `SET NULL`).
+  - O NSR vai só para a batida que a própria pessoa registra, inclusive a da fila sem internet (E14). A lançada pelo
+    gestor e a criada pelo abono ficam sem NSR. O mesmo envio repetido (E13) não consome número.
+  - Dois limites de tentativas: `ponto_validacao` na página pública e `ponto_comprovante_imagem` no download da imagem.
+  - Fase B (bluejus-2f, pela conferência ✓/✗ e pela re-revisão):
+    - O comprovante tem a camada Escritório (P95, desenho L417, L447 e L757), no cartão "Comprovante em imagem" das
+      Configurações, antes da Geolocalização. Desligado no escritório, nada novo é emitido; o NSR continua, e os
+      comprovantes já emitidos continuam válidos na página pública. Sem o selo pronto, o cartão não aparece.
+    - Escritório desligado x comprovantes já emitidos (Coordenador, 09/11/2026, pela Portaria MTP 671/2021): o
+      comprovante é da pessoa. Quem já tem comprovante naquele escritório continua com a aba, a lista, o "Baixar" e o
+      "Validar código", sem emissão nova; para quem não tem nenhum, a aba some, como no desenho (L757). Com o Global
+      desligado pelo Master, tudo some para todos, como antes.
+    - Na batida da fila sem internet (E14), a data e a hora seladas são as do momento da batida (o "Emitido em" do
+      desenho, L587). A chegada ao servidor fica no registro, fora do selo; o selo guarda só a marca `sem_internet`.
+    - A pessoa fica gravada no comprovante (`user_id`): a aba e o download continuam depois de o gestor apagar a batida.
+    - Correção de texto do desenho (Coordenador, 09/11/2026): a frase da aba diz "gerados para o próprio registro" no
+      lugar de "gerados a partir do próprio registro" (L194), porque o código é sorteado; o resto da frase fica igual.
+      O sistema não promete o que não faz (mesmo critério do Voto).
+    - Omissão do desenho (Coordenador, 09/11/2026): o desenho não mostra o erro do "Baixar" da aba. Com JavaScript,
+      o arquivo vem por fetch e a frase aparece no próprio cartão, no molde do erro da janela "Validar código":
+      limite de pedidos (429) diz "Muitos pedidos seguidos. Tente de novo em 1 minuto."; falha de rede diz "Sem
+      conexão. Tente de novo quando a internet voltar."; outro erro do servidor diz "O comprovante não pôde ser
+      baixado agora. Tente de novo." Sem JavaScript, o link baixa direto, como antes.
 
 **E16. Folha com código BJF, PDF novo e aceite mensal.**
 - Entra: P22 ("Assinar folha"), P33 (o texto do aceite vai ao pacote jurídico, sem travar), P34 e D17 (PDF novo em
@@ -533,19 +1273,151 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   sem código BJF e sem QR, nenhuma folha emitida é gravada e "Assinar folha" não aparece (o aceite se liga à folha
   emitida com código).
 - Migration: sim (folha emitida e aceite).
-- Arquivos: `folha_pdf.html.twig`, exportação do PDF no `PontoController.php`, `FolhaPontoXlsxExporter.php` se o código
+- Arquivos: `folha_pdf.html.twig` (saiu: a folha virou imagem em `Service/ImagemDaFolha/`), exportação do PDF no
+  `PontoController.php`, `FolhaPontoXlsxExporter.php` se o código
   for também no XLSX. Frente: é a pendência 2 dela ("Jornada alterada em dd/mm" no cabeçalho). Combinar quem entra primeiro.
-  A forma de gerar a imagem no servidor se escolhe na E16, de preferência com o que já gera o PDF de hoje.
+  A forma de gerar a imagem no servidor se escolhe na E16, de preferência com o que já gera o PDF de hoje. A janela do
+  "Ver PDF" (P89) troca o modal do Bootstrap pela moldura `.pe-janela` das janelas do Ponto (E4), aqui na E16
+  (decisão do Coordenador de 09/11/2026, na conferência ✓/✗).
 - Testes: código da folha validado pela página pública; aceite só de mês fechado; ressalva sem texto recusada; PDF com
   as pendências do dia e sem "registro em outro escritório"; as três frases no PDF; com `PONTO_HMAC_SECRET` vazia o PDF
   sai sem código e "Assinar folha" some; `FolhaExportacaoMesmaEscolhaTest` verde.
+- Decisões da E16 (09/11/2026; as 3 primeiras por um decisor imparcial, a pedido do Coordenador, pelo desenho 16; as
+  outras pela recomendação do plano, aceitas pelo Coordenador). A 1 vai ao pacote jurídico.
+  1. Assinar de novo: o aceite guarda histórico numerado (número do aceite por pessoa, escritório e mês; nada é
+     apagado) e vale o último, no selo da barra e no carimbo do PDF. O "Assinar folha" aparece no mês fechado sem
+     aceite e volta só no estado "alterada depois do aceite" (desenho L816, D19).
+  2. Cada PDF gerado é uma emissão com código BJF próprio, como no desenho (L721 a L727; "Emitida em", L701; o emissor,
+     linha da folha emitida acima). Só o "Baixar" de dentro da janela do "Ver PDF" entrega o arquivo já gerado, sem
+     nova emissão.
+  3. "Alterada depois do aceite": compara o resumo gravado na emissão vista no aceite com a folha de agora, dia a dia
+     (data, batidas, trabalhado, extra, saldo, observações com ajuste, feriado, sequência, incompleto e situação da
+     justificativa) e os totais do mês (horas trabalhadas, extras, dias incompletos e a revisar). Ficam fora a hora da
+     emissão, o código, o emissor e o próprio aceite, e também o saldo do banco anterior e o atual, as horas a compensar
+     e o controle de intervalos, que mudam com outro mês ou com a configuração do escritório: o aceite é sobre os
+     registros do mês (anotado no pacote jurídico).
+  4. A alteração aparece como um selo "Alterada depois do aceite" no molde do selo da barra, fundo `#a3232b`, no lugar
+     do "Assinada em"; o "Assinar folha" volta (decisão 1).
+  5. PDF em imagem: a página é desenhada com GD e as peças da imagem da E15 e embrulhada num PDF de uma página escrito
+     em PHP (como o `pdfImagem` do desenho, L706). Sem Ghostscript.
+  6. O XLSX não leva código BJF (planilha editável): só troca "(pendente)" por "(em análise)" pela tabela de nomes
+     (P40, chave `folha.pendente`).
+  7. Abono parcial no PDF mantém o horário (função do sistema): "Tipo (parcial: 09:00 às 12:00)".
+  8. CPF e CTPS mascarados como no desenho (`***.547.725-**`). Vai ao pacote jurídico. CPF fora do formato e CTPS com
+     4 caracteres ou menos ficam vazios (mascarar mostraria o que a máscara esconde).
+  9. Pessoa sem código de funcionário: a célula fica vazia no PDF selado (hoje sai o próximo código livre do
+     escritório, que não é da pessoa). Vale também para o XLSX: sem vínculo ativo ou sem código, "Código:" vazio
+     (`DadosDaFolhaExportada`). No XLSX, CPF e CTPS continuam sem máscara (decisões 6 e 8, regra 2: a planilha é
+     editável; a LGPD vai ao pacote jurídico). Coordenador, 10/11/2026.
+  10. Ficha do gestor (mesmo parcial da folha): mostra só o selo do aceite, sem o botão.
+  11. Ordem da barra: "Ver PDF", "Baixar XLSX", "Assinar folha", "Baixar PDF".
+  12. "Ver PDF" sai do modal Bootstrap para a janela do desenho, na moldura `.pe-janela` (decisão do Coordenador).
+      O desenho não tem esta janela: a largura e a altura do quadro são as do modal que ela substitui (1140px e 78vh),
+      e o "Baixar" de dentro salva o mesmo arquivo, sem nova emissão (decisão 2).
+  13. Liga e desliga: a camada Escritório da função `ponto-aceite` entra na E16, como a E7 previu.
+  14. O próprio aceite é selado com HMAC (chave `ponto-folha`) sobre a situação, a ressalva, a data, o IP, o navegador e
+      o código da folha vista: a trilha não guarda o texto da ressalva. O texto selado fica guardado na linha
+      (`dados_assinados`, `DadosDoAceiteDaFolha`, formato 1), como na folha e no comprovante. A folha e o aceite usam a
+      mesma chave `ponto-folha`; o campo `tipo` do texto (`folha` ou `aceite-folha`) separa um do outro, e o texto de
+      um não passa no leitor do outro. A folha também sela o id do escritório. Com o segredo, o aceite só vale (selo da
+      barra, carimbo, "não alterado" e selado na folha nova) se o HMAC dele conferir, o código da folha vista selado nele
+      for o da folha ligada e as colunas forem iguais ao texto selado; qualquer falha conta como "alterada depois do
+      aceite" e o "Assinar folha" volta. Sem o segredo, o aceite já gravado aparece sem conferência.
+  15. Aviso flutuante (L266): o "Baixar PDF" e o "Baixar" do "Ver PDF" usam o da E8 (`window.PontoAvisoFlutuante`,
+      js/ponto-aviso-flutuante.js), também na ficha do gestor, que passa a carregar o arquivo; o JS lê o código da
+      resposta. O aceite usa o envio normal, como a E4: "Folha assinada." no aviso flutuante verde do desenho (L809,
+      `FLASH_AVISO_FLUTUANTE`, como a E4 depois da E8) e as recusas no aviso do topo. Conferência de 10/11/2026: a
+      E16 tinha uma segunda cópia do aviso (`.pe-sf-aviso`), que podia aparecer junto com a da E8 no mesmo lugar.
+  16. Sem o segredo: o PDF sai com o fundo de segurança (semente do conteúdo), sem o código na marca d'água e no
+      microtexto, sem a palavra "AUTENTICA", sem a faixa do QR e sem o selo holográfico; a "Base Legal" sobe. Nenhuma
+      folha emitida é gravada e o "Assinar folha" não aparece.
+  17. A página de validação diz "Comprovante autêntico." também para a folha (desenho L300). O título e a frase
+      da página também seguem os da janela "Validar comprovante" (L297 a L302). O `ValidarCodigoDoPontoUseCase`
+      devolve só o texto que a página mostra (`?string`), porque a página não mostra mais nada do comprovante nem
+      da folha. A frase da página é a da E15, a mesma para o comprovante e para a folha.
+  18. Toda emissão nova grava "Folha emitida" na trilha, inclusive a que o aceite cria para a folha vista.
+  19. Ressalva com até 1.000 caracteres; o PDF mostra uma linha cortada (L697). Ressalva sem texto é recusada.
+  20. Ajuste da E10 no PDF (L622): as observações do dia começam com "<Batida> ajustada em dd/mm/aaaa" de cada batida
+      ajustada (Entrada, Repouso, Retorno e Saída, nessa ordem; a data é a do ajuste), antes do resto. O PDF não leva a
+      marca "aj" nem a legenda dela; a tela e o XLSX continuam com o "aj" (no XLSX, com a legenda nas observações).
+  21. Rótulo do selo no PDF: "HMAC-SHA256", igual ao comprovante (o desenho diz "SHA-256", L700).
+  22. Resumo do PDF (L626): "incompletos" conta os dias cuja linha mostra "Registro incompleto" e "a revisar" os que
+      mostram "Horário fora de sequência: revisar"; nunca os dois no mesmo dia. Desvio do desenho (⚠): o dia de duas
+      batidas sem intervalo continua apurado como hoje (jornada sem intervalo, função do sistema); o desenho o conta como
+      incompleto.
+  23. Feriado no PDF: aparece em todo dia de feriado do mês ("Feriado: nome" e "FERIADO", L612, L622, L678), também em
+      dia futuro, antes do início da contagem ou sem jornada, sem mudar o cálculo das horas.
+  24. Aceite com competência fora do calendário é recusado com "Este mês não está na sua folha de ponto.". O número do
+      aceite sai da mesma leitura que decide se a pessoa pode assinar, e o índice único segura o duplo envio.
+  25. A folha emitida é gravada antes do desenho: se o desenho ou o PDF falharem, a linha e o evento "Folha emitida"
+      ficam (o texto selado é verdadeiro e a transação não fica aberta durante o desenho). Competência fora do
+      calendário responde 400; pessoa sem vínculo ativo no escritório da sessão responde 404, como a que não existe.
+  26. Desvios pequenos no PDF (⚠), pela fonte DejaVu, mais larga que a Arial do desenho: texto que não cabe encolhe até
+      um mínimo antes do "..." (o `cap` do desenho só corta); os rótulos do controle de intervalos mostram os mínimos da
+      jornada, os mesmos do quadro "REGIME DE JORNADA"; nome sem letras vira "USUARIO" no nome do arquivo.
+      Conferência final (Coordenador, 10/11/2026): (a) as duas linhas do endereço (12,5) e os dois nomes da assinatura
+      (10, centrados) também encolhem até 8 antes do "..." (`linhaQueCabe`); (b) as normas da "Base Legal" começam em
+      x = 127, pela largura do rótulo em DejaVu: aceito; (c) "Trabalhadas" e "Extras" da linha de hoje seguem o motor,
+      como a tela (E2): aceito. O "Saldo mês" de hoje no XLSX também é o acumulado até ontem, como a tela e o PDF.
+  27. Observação do dia que não cabe na coluna (P35 a, P34; desenho L622 e L673): a fonte encolhe de 10 até 8 (o
+      mínimo da decisão 26), um ponto por vez, até caber. Se nem em 8 couber, só os ajustes ("<Batida> ajustada em
+      ...", que vêm primeiro) se cortam com "..."; o feriado, a pendência e as justificativas ficam inteiros, na ordem
+      da L622, unidos por " · ". Se nem eles sozinhos couberem, corta o texto todo, como antes. A linha não cresce
+      (página única, altura de linha fixa) e a impressão dos registros (decisão 3) continua com a observação inteira
+      (Coordenador, 10/11/2026).
+  28. O Master só exporta a folha (PDF e XLSX) de quem é ou foi do escritório da sessão (o ex-colaborador também); de
+      quem nunca foi, 404 com a mesma mensagem dos outros (Coordenador, 10/11/2026). Antes ele passava direto, e o PDF
+      gravava a folha selada com o cabeçalho e a trilha deste escritório para quem não é dele. "É ou foi" vale por
+      qualquer um de três rastros (`PassagemPeloEscritorio`): o vínculo, ativo ou não (suspenso, em análise); a saída
+      da equipe gravada (quem sai perde o vínculo: `RemoverColaboradorDoEscritorioUseCase` o apaga); ou uma batida
+      gravada neste escritório (quem saiu antes de 19/10/2026 não tem a saída gravada). Re-revisão de 10/11/2026.
+  29. Limite do PDF da folha (o desenho é omisso; convenção do sistema): 10 pedidos por minuto por pessoa (limitador
+      `ponto_folha_pdf`), porque cada pedido desenha o PDF em imagem no servidor e grava uma emissão. Passou do limite:
+      429 com "Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.", no molde da frase do
+      servidor do comprovante (`ComprovanteDoPontoController::MUITOS_PEDIDOS`) e do .zip da pasta; o "Baixar PDF" mostra a mesma
+      frase no aviso flutuante vermelho. Conferência de 10/11/2026.
+  30. Sem o segredo, o cartão "Aceite mensal da folha" não aparece na aba Configurações, como o do comprovante e a aba
+      Comprovantes (`ObterConfiguracoesDoPontoUseCase`): sem o segredo não há aceite para ligar.
 
 **E17. Banco de horas por lotes.**
 - Obrigatória (P51 a).
 - Entra: P51 (a: aba "Banco de Horas" com os lotes do desenho, sem zerar em janeiro; as horas pagas seguem no saldo),
   P52, P53 (fica), P73, P2 completo.
-- Depende de: E7 (limite e prazo na configuração). O saldo de antes do início dos lotes ("Sem data de origem", seção 3)
-  se fecha com o Coordenador ao abrir a E17.
+- Pendência "Saldo mês do dia em andamento" (vinda da E2; decisão do Coordenador de 09/11/2026, regra 1: o desenho
+  manda). No dia em andamento, a coluna "Saldo mês" da folha mostra o acumulado até ontem (desenho L157). O motor passa a
+  entregar esse número num campo novo da linha de hoje (o `saldoAcumulado` de hoje continua nulo até a saída), calculado
+  com todos os dias do mês, inclusive os que a /ponto não recebe. Até lá a célula fica vazia. Teste: o número da linha de
+  hoje igual ao da linha de ontem na ficha (que mostra todos os dias), e o dia 1º sem número. O PDF da folha (E16)
+  mostra o mesmo número na linha de hoje, vermelho se negativo (`LinhasDaFolhaImpressa`, conferência de 10/11/2026).
+- Depende de: E7 (limite e prazo na configuração).
+- Saldo de antes do início dos lotes ("Sem data de origem", seção 3; decisão do Coordenador de 09/11/2026): os lotes
+  nascem no mês do início da contagem da pessoa e atravessam os anos, e o lançamento de horas pagas de uma competência
+  anterior vira o lote da própria competência. Sem fonte de saldo anterior ao primeiro lote, a linha "Anterior a ..." do
+  desenho não aparece. Se um dia houver essa fonte, ela entra como um lote inicial com a data do primeiro dia do banco.
+- Jornada (decisão do Coordenador de 09/11/2026): o banco conta pela mesma jornada da folha, a pessoal ou, sem ela, a
+  do escritório (spec da jornada, §10.4). Vale em toda tela, no PDF, no XLSX e na ficha do gestor. Antes, quem não tinha
+  jornada pessoal não tinha as faltas contadas no banco. Medição em produção em 09/11/2026: muda 1 pessoa, em 1
+  escritório, com o novo saldo em -24h.
+- Rodapé (decisão do Coordenador de 09/11/2026): o "Saldo do mês" da /ponto e o da ficha do gestor vêm do banco da
+  competência, sem as horas pagas (que somam à parte). A /ponto esconde os dias sem batida e eles contam, então a
+  última linha visível não serve. Em toda competência que a tela deixa escolher, o total bate entre a /ponto, a
+  ficha, o PDF e o XLSX, inclusive no mês só com lançamento de horas pagas.
+- Textos da aba (decididos na revisão):
+  - Selos no singular quando cabe: "Vence hoje", "Vence em 1 dia", "1 mês".
+  - Os dias contam corridos.
+  - Sem lotes, a tabela mostra "Nenhum lote no banco de horas.".
+  - O compensado zerado mostra "0h", e o lote sem vencimento mostra "Sem prazo".
+- Campos na aba Configurações (P73; desenho L245, L250 e L251): "Limite do banco (horas)" e "Prazo de compensação
+  (meses)" na grade do desenho, logo depois das funções, só para quem administra o ponto do escritório. Cada um grava ao
+  sair do campo pela rota `ponto_configuracao_banco_de_horas` (molde da caixa do trabalho externo, E12; a mudança fica
+  só no `audit_log`, D5). Limite inteiro de 1 a 9999 horas, prazo de 1 a 24 meses; fora disso, 422 com a frase embaixo
+  do campo, e o campo volta ao valor gravado.
+  - ⚠ Desvio aprovado: o campo do limite aceita 0 no navegador, como no desenho (L250, `min="0" step="10"`), e o servidor
+    recusa 0 porque o limite zero acenderia o aviso para todo mundo. Decisão do Coordenador, 10/11/2026.
+  - ⚠ Desvio aprovado: o desenho grava a cada tecla (`onInput`, L250 e L251); aqui cada campo grava ao sair dele
+    (`change`), para não gravar "1" e "12" no caminho de "120". Sem aviso de "salvo", como no desenho e na caixa do
+    trabalho externo; a recusa (0, vazio, fora da faixa, falha de rede) aparece embaixo do campo e o valor anterior
+    volta. Decisão do Coordenador, 10/11/2026.
 - Migration: não; os lotes são calculados a partir da folha. Tabela `ponto_banco_lote` só se o cálculo se mostrar
   necessário.
 - Arquivos: `FolhaPontoBuilder.php` (`calcularSaldoAnual`; frente: avisar), serviço novo de lotes.
@@ -571,7 +1443,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 
 ## 6. (d) Migrations necessárias
 
-Número de cada uma: a pedir ao Coordenador. Recomendação geral: reaproveitar as tabelas que existem
+Número de cada uma: a pedir ao Coordenador (já dado: E9, `Version20261109190000`, tabela `ponto_auditoria`). Recomendação geral: reaproveitar as tabelas que existem
 (`registro_ponto`, `justificativa_ponto`, `sede`, `feriado`, `jornada_*`), sem renomear: renomear não traz ganho e mexe
 em todo o Ponto e na frente jornada-vigencia.
 
@@ -579,16 +1451,16 @@ em todo o Ponto e na frente jornada-vigencia.
 |---|---|---|---|---|
 | `ponto_batida` | `registro_ponto` | Já existe com outro nome | Reaproveitar. Colunas novas: marca de trabalho externo e motivo (E12); hora do aparelho, hora de chegada, marca "enviada sem internet", identificador único do envio (E13); método (sistema ou facial) (E18) | E12, E13, E18 |
 | `ponto_ajuste` | Não existe (o gestor faz UPDATE e DELETE) | Precisa criar (P65 a) | Tabela nova: escritório, pessoa, batida (vazia na inclusão), data, tipo, valor anterior, valor novo, autor, criado em, motivo, justificativa ligada | E10 |
-| `ponto_justificativa` | `justificativa_ponto` | Já existe com outro nome | Reaproveitar. Coluna nova opcional: batida ligada (trabalho externo) | E12 |
+| `ponto_justificativa` | `justificativa_ponto` | Já existe com outro nome | Reaproveitar. Colunas novas: `motivo` (texto nulo, feita na E4, `Version20261109210000`); batida ligada, opcional (trabalho externo, E12) | E4, E12 |
 | `ponto_comprovante` | Não existe | Precisa criar | Tabela nova, uma linha por batida: NSR, código, HMAC (com `PONTO_HMAC_SECRET`; vazia, não grava linha), emitido em, dados assinados; mais um contador de NSR por escritório (linha travada na gravação), que sobe mesmo sem comprovante (D2) | E15 |
-| `ponto_folha_aceite` | Não existe | Precisa criar | Escritório, pessoa, ano, mês, situação (concordo ou ressalva), texto da ressalva, aceito em, IP, navegador, folha emitida vista; único por pessoa, escritório e mês | E16 |
+| `ponto_folha_aceite` | Não existe | Precisa criar | Escritório, pessoa, ano, mês, número do aceite, situação (concordo ou ressalva), texto da ressalva, aceito em, IP, navegador, folha emitida vista, selo HMAC e dados assinados; único por pessoa, escritório, mês e número do aceite (histórico; vale o último, decisão 1 da E16) | E16 |
 | (folha emitida, fora da lista do ESPEC) | Não existe | Precisa criar | Código BJF, HMAC, escritório, pessoa, competência, emitida em, emitida por, resumo do conteúdo | E16 |
 | `ponto_sede` | `sede` (legado, `src/Entity/Tenant/Sede.php`: latitude, longitude, raio, fuso) | Já existe com outro nome | Reaproveitar. P70 (a): sede nova nasce com 150 m (padrão na configuração do E7); as sedes de hoje não mudam, sem migration de dado | nenhuma |
 | `ponto_feriado` | `feriado` (por escritório, recorrente ou pontual) | Já existe com outro nome | Reaproveitar. Coluna nova: sede opcional (abrangência, P71) | E6 |
 | `ponto_escala` | `jornada_colaborador` e `bloco_jornada_colaborador` (com vigência), `jornada_tenant` e `bloco_jornada` | Decidido (P56 a) | Não criar tabela. As 4 escalas do desenho viram modelos que preenchem os blocos; trocar a escala na aba Equipe grava uma versão nova da jornada, valendo a partir de hoje (`SalvarVersaoDaJornadaUseCase`) | nenhuma (o uso é na E5) |
 | `ponto_banco_lote` | Não existe; há `ponto_lancamento_horas_pagas` | Decidido (P51 a) | Lotes do desenho, sem zerar em janeiro; horas pagas seguem no saldo. Recomendação mantida: calcular os lotes a partir da folha, sem tabela; tabela só se o cálculo se mostrar necessário | E17 |
 | `ponto_config_escritorio` | Parcial: `jornada_tenant` (validações e alertas), `home_office_config` (por pessoa) | Precisa criar | Tabela nova, uma por escritório: 8 chaves do escritório, modo facial, guardar foto, meses de retenção, limite e prazo do banco, permitir trabalho externo, raio padrão (150 m, P70). Não engordar `jornada_tenant` (PR 3 da frente) | E7 |
-| `ponto_auditoria` | `audit_log` genérico, sem encadeamento | Precisa criar | Escritório, em, autor, ação, detalhe, selo anterior, selo; índice por escritório e data. Só os eventos que o desenho grava (E9); mudanças de configuração (sede, feriado, limite, prazo, modo facial, foto) ficam no `audit_log` (D5 não) | E9 |
+| `ponto_auditoria` | `audit_log` genérico, sem encadeamento | Criada na E9 (`Version20261109190000`) | Escritório, em, autor, ação, detalhe, selo anterior, selo; índice por escritório e data. Só os eventos que o desenho grava (E9); mudanças de configuração (sede, feriado, limite, prazo, modo facial, foto) ficam no `audit_log` (D5 não) | E9 |
 | `recurso_estado` (chaves `ponto-*`) | Existe | Sem migration | Linhas novas só no catálogo do código | E7 |
 | (cadastro facial, fora da lista do ESPEC) | Não existe | Precisa criar | Pessoa, escritório, autorizado em, recusado em, versão do texto, IP, navegador, referência do template no fornecedor, excluído em; fotos no armazenamento privado com prazo | E18 |
 
@@ -607,11 +1479,11 @@ escritório.
 | `ponto` (tela) | Ponto Eletrônico | A tela inteira | Quem não é Master vê "Ponto Eletrônico em preparação"; o Master vê a faixa vermelha | A tela está em uso pelos clientes | Ligada |
 | `ponto-animacao` | Ponto: validação em tela cheia | "Relógio completando a volta e confirmação ocupando toda a tela." | Resultado vira aviso flutuante (a batida facial sempre usa a tela cheia) | Novo | Ligada depois do E8 |
 | `ponto-sons` | Ponto: sons | "Plim no registro e alerta diferente quando o ponto falha." | Some o botão de som; sem plim, sem som de erro, sem som do lembrete | Hoje só há som na janela de alerta de horário | Ligada |
-| `ponto-comprovante` | Ponto: comprovante em imagem | "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança." | Some a aba Comprovantes, o código e "Baixar comprovante" | Novo | Desligada até o E15 e o jurídico |
+| `ponto-comprovante` | Ponto: comprovante em imagem | "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança." | Some a aba Comprovantes, o código e "Baixar comprovante" (no escritório desligado, a aba fica para quem já tem comprovante, sem emissão nova; ver E15 fase B) | Novo | Desligada até o E15 e o jurídico |
 | `ponto-geo` | Ponto: geolocalização | "Exige que o registro seja feito dentro do raio de uma sede." | Sem caixa de localização e sem checagem de raio | Hoje a cerca vale sempre; desligar num escritório é mudança de regra (ligada ao P18) | Ligada |
 | `ponto-facial` | Ponto: reconhecimento facial | "Confirma a identidade pela câmera, com cadastro e autorização prévios." | Some o botão facial e o modo obrigatório | Novo | Desligada até o E18 |
 | `ponto-lembrete` | Ponto: lembrete de saída | "Avisa quando passar do horário previsto e a saída não foi registrada." | Some "Saída prevista"; sem aviso, som e notificação do lembrete | Diferente da janela de alerta de horário de hoje (P84), que continua com a sua própria chave na jornada | Ligada |
-| `ponto-alertas` | Ponto: alertas de intervalo | "Avisa antes da batida sobre intervalo, interjornada e descanso semanal." | Sem a janela "Antes de registrar" e sem o aviso de intervalo | Hoje as validações da Jornada do escritório recusam (P21) | Ligada, depois do E11 |
+| `ponto-alertas` | Ponto: alertas de intervalo | "Avisa antes da batida sobre intervalo, interjornada e descanso semanal." | Sem a janela "Antes de registrar" e sem o aviso de intervalo: a batida segue sem aviso e sem recusa, e a folha continua marcando "não conforme" | Antes do E11 as validações da Jornada do escritório recusavam (P21); desde o E11 nada recusa | Ligada, depois do E11 |
 | `ponto-aceite` | Ponto: aceite da folha | "O colaborador confirma ou registra ressalva na folha fechada." | Some "Assinar folha" (o selo já gravado continua) | Novo | Desligada até o E16 |
 
 Cuidados: a chave da tela não pode derrubar as consultas globais do Ponto (atalho do avatar, alerta de horário, cartão
@@ -645,11 +1517,60 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   revisão de 09/11/2026), sem migration. Decisões da etapa registradas na E1 (seção 5).
 - E2 implementada na branch `ponto-desenho-e2` (empilhada na E1), sem migration. Decisões da etapa registradas na E2
   (seção 5).
+- E3 implementada e integrada na branch de integração `ponto-desenho` (sobre a E2), sem migration, em parciais novos (a tela antiga fica
+  intocada). Decisões e os pontos de liga e desliga do P40, P43 a e P41 registrados na E3 (seção 5).
+- E13 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e13`, servidor, e `ponto-desenho-e13-tela`), com a
+  migration `Version20261109220000`. Decisões da etapa registradas na E13 (seção 5).
+- E14 integrada na branch `ponto-desenho` (as mesmas frentes da E13), sem migration. Decisões e limites registrados na
+  E14 (seção 5).
+- E12 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e12`, servidor, e `ponto-desenho-e12-tela`), com a
+  migration `Version20261109230000`. Decisões e limites registrados na E12 (seção 5). A ligação com a tela vermelha
+  da E8 e com o ajuste da E10 vem depois das duas.
+- E8 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e8` e `ponto-desenho-e8b`, esta já sobre a E12, com a
+  ligação entre as duas), sem migration. Decisões e limites registrados na E8 (seção 5).
+- E4 implementada na branch `ponto-desenho-e4` (empilhada na E3), com a migration `Version20261109210000` (coluna
+  `motivo` em `justificativa_ponto`). Decisões registradas na E4 (seção 5).
+- E7 implementada na branch `ponto-desenho-e7`, com a migration Version20261109180000 (`ponto_config_escritorio`).
+  Decisões registradas na E7 (seção 5).
+- Aceitos na E7 (links que ainda levam à /ponto fechada quando o Master desliga a tela `ponto`; quem não é Master vê
+  a página "em preparação", sem erro nem dado exposto): o botão "Ir para o Ponto Eletrônico" da janela de alerta de
+  horário (`templates/ponto/_modal_alerta_ponto.html.twig`); a volta da análise da própria justificativa pela aba
+  "Minhas Justificativas" (`TenantController::voltaDaAnalise`, redirect para `ponto_index`); e os links das
+  notificações de justificativa abonada, recusada e do "aprovar todos" (`TenantController`,
+  `generateUrl('ponto_index')`). O cartão diário de pendência, esse sim, some com a tela fechada.
+- Para a E15: a futura página pública de validação NÃO pode ter nome de rota com o prefixo `ponto_` (o catálogo do
+  Master derruba toda rota `ponto_*` quando a tela `ponto` é desligada), ou precisa entrar em
+  `CatalogoDeRecursos::ROTAS_SEMPRE_ABERTAS`.
+- E9 implementada na branch `ponto-desenho-e9` integrada na `ponto-desenho`, com a migration
+  `Version20261109190000` (tabela `ponto_auditoria`). Vai ao ar junto com a E10, num PR único no fim. Decisões
+  registradas na E9 (seção 5).
+- E5 implementada na branch `ponto-desenho-e5` e integrada na `ponto-desenho`, sem migration. Decisões registradas na
+  E5 (seção 5). O "Abonar selecionadas" usa o abono da ficha (`AbonoPelaAnaliseDaJustificativa`).
+- Funções do sistema que voltam (regra 2), na branch `ponto-desenho-funcoes`, sem migration: o "+" do esquecimento
+  hoje (P30 e E2), o tempo do intervalo ao vivo e a saída prevista durante o intervalo (E1, "Funções do sistema que
+  voltam").
+- E6 implementada na branch `ponto-desenho-e6`, com a migration `Version20261109200000` (feriado por lotação, desvio
+  necessário do P71, e lotação com vigência). Decisões registradas na E6 (seção 5).
 - Próximo passo: PR da E1 e smoke do dono na tela; depois o PR da E2. A E7 pode correr junto.
-- Pontos que se fecham com o Coordenador ao abrir a etapa: chave do selo da trilha (E9), teto de idade da fila (E14),
-  saldo de antes dos lotes (E17).
+- Pontos que se fecham com o Coordenador ao abrir a etapa: teto de idade da fila (E14), saldo de antes dos lotes (E17).
+  A chave do selo da trilha (E9) já foi decidida.
 - Pendências do dono: seção 10. Nenhuma trava a E1.
-- Nenhuma migration pedida ainda.
+- E10 implementada na branch `ponto-e10b` (blocos A, B, C e D e as correções das revisões), com a migration
+  `Version20261109280000`. Decisões e limites registrados na E10 (seção 5). Integra na `ponto-desenho` e vai ao ar
+  junto com a E9, no PR único do fim.
+- Conferência ✓/✗ da `ca6ef6498` (10/11/2026), grupo A (os mecânicos), na branch `ponto-conferencia-4`, sem migration:
+  a ordem das Funções no catálogo do Master (comprovante antes da geolocalização, como o `bj-recursos.js`); o nome do
+  arquivo da folha sem acento (`NomeDoArquivoDaFolha`, dc L726); as janelas do esquecimento e da justificativa voltam
+  para a aba aberta (campo `aba`, que o `ponto-abas.js` acompanha); o subtítulo da justificativa sempre presente,
+  vazio quando não há; a Auditoria busca de novo a cada vez que abre e, aberta, depois da batida
+  (`data-recarregar-ao-abrir`, dc L452); a troca de escala da aba Equipe grava o rótulo da escala na trilha e mostra
+  "Ana · 44h · seg a sáb (7h20)" (dc L778; a ficha, sem rótulo do catálogo, segue com o texto da versão); e o nome
+  "Ponto Eletrônico" na barra do topo para as rotas `ponto_` (decisão C2 do Coordenador, dc L83 e L84). O feriado por
+  lotação na meta do dia (item 7) já estava na base (`bb3bf6376`). C1 foi para o 9f e C5 para o f3; C3 e C4 ficam
+  como desvio aceito.
+- Migrations: `Version20261109180000` (E7, `ponto_config_escritorio`), `Version20261109190000` (E9, tabela
+  `ponto_auditoria`), `Version20261109210000` (E4), `Version20261109220000` (E13), `Version20261109230000` (E12) e
+  `Version20261109280000` (E10).
 
 ## 10. Pendências do dono e ganchos
 
@@ -662,8 +1583,12 @@ Nenhuma destas trava o código: cada etapa entra pronta com o gancho abaixo e pa
 da chave usada (começa em 1), para que uma troca futura do segredo não quebre a conferência do que já foi selado: a
 conferência escolhe a chave pela versão gravada na linha.
 
+**Deploy (a partir da E9).** Antes de publicar, conferir que `PONTO_HMAC_SECRET` existe no `.env.prod` (só o nome:
+`cut -d= -f1`). Sem ela nada quebra, mas a trilha da E9 grava sem selo e a aba Auditoria mostra "sem selo"; se ela
+faltar por um tempo e voltar, os eventos desse intervalo aparecem como trecho sem selo.
+
 | Pendência (itens) | Por que é do dono | Gancho no código | Etapa que precisa |
 |---|---|---|---|
 | Conferir o relógio (NTP) da VPS (P5) | Produção; o Claude não entra na VPS | Nenhum gancho novo: a batida e a "Hora oficial" já usam o relógio do servidor. O comando de conferência (por exemplo, `timedatectl status`, linha "System clock synchronized") vai ao Samuel em bloco para o terminal externo | E13 (e a linha "Hora oficial" da E1) |
-| Criar em produção o segredo do HMAC do comprovante e da folha (P34, P48, P50) | Credencial | Variável de ambiente `PONTO_HMAC_SECRET`, declarada vazia no `.env` do repositório (só o nome). Vazia: a batida grava com NSR, nenhum comprovante nem folha com código é emitido, a aba Comprovantes, o "Validar código" e o "Assinar folha" não aparecem, e nada quebra. Preenchida: a emissão começa sozinha | E15 e E16 (a E9 pode usar a mesma; ver a E9) |
+| Criar em produção o segredo do HMAC do comprovante e da folha (P34, P48, P50) | Credencial | Variável de ambiente `PONTO_HMAC_SECRET`, declarada vazia no `.env` do repositório (só o nome). Vazia: a batida grava com NSR, nenhum comprovante nem folha com código é emitido, a aba Comprovantes, o "Validar código" e o "Assinar folha" não aparecem, e nada quebra. Preenchida: a emissão começa sozinha | E9 (selo da trilha), E15 e E16 |
 | Contratar o fornecedor da biometria facial com prova de vida (P76, P78, D10) | Contratação | Interface de fornecedor (cadastrar, conferir com prova de vida, excluir cadastro) com um dublê de teste; chave `ponto-facial` desligada até o contrato. O fornecedor real entra depois, num PR pequeno que só implementa a interface | E18 |

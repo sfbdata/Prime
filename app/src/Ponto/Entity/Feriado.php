@@ -2,6 +2,7 @@
 
 namespace App\Ponto\Entity;
 
+use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
@@ -27,6 +28,16 @@ class Feriado implements Auditavel, TenantAware
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
+
+    /**
+     * Abrangência (spec `ponto-desenho-0811.md`, P71 com o desvio da E6): vazia, o feriado vale para todo o escritório;
+     * com uma lotação, só para quem tem aquela lotação no escritório do feriado (`FeriadosDaPessoa`). A lotação com
+     * feriado não é apagada (`ApagarLotacoesQueSairamUseCase`; no banco, ON DELETE NO ACTION): CASCADE apagaria o
+     * feriado e mudaria os meses passados, SET NULL o faria valer para todos.
+     */
+    #[ORM\ManyToOne(targetEntity: Lotacao::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Lotacao $lotacao = null;
 
     public function getId(): ?int
     {
@@ -74,6 +85,17 @@ class Feriado implements Auditavel, TenantAware
     public function setTenant(?Tenant $tenant): static
     {
         $this->tenant = $tenant;
+        return $this;
+    }
+
+    public function getLotacao(): ?Lotacao
+    {
+        return $this->lotacao;
+    }
+
+    public function setLotacao(?Lotacao $lotacao): static
+    {
+        $this->lotacao = $lotacao;
         return $this;
     }
 }

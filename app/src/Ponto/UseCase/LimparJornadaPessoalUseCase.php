@@ -6,7 +6,10 @@ namespace App\Ponto\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
 
 /**
  * "Limpar escala": tira a jornada personalizada e todo o histórico dela (spec `docs/specs/ponto-jornada-vigencia.md`
@@ -21,6 +24,7 @@ final class LimparJornadaPessoalUseCase
 {
     public function __construct(
         private readonly JornadaColaboradorRepository $jornadas,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -50,6 +54,10 @@ final class LimparJornadaPessoalUseCase
             $fica->setCobreDiasAnteriores(true);
         }
 
-        $this->jornadas->gravar();
+        // Trilha do Ponto (E9): a troca de escala comita junto com o evento.
+        $this->trilha->emTransacao(function () use ($pessoa, $escritorio): void {
+            $this->jornadas->gravar();
+            $this->trilha->registrar($escritorio, $this->trilha->autorDaSessao(), AcaoDaTrilhaDoPonto::EscalaAlterada->value, DetalheDaTrilhaDoPonto::daEscala($pessoa, 'escala_limpa'));
+        });
     }
 }

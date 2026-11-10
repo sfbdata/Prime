@@ -10,6 +10,9 @@ use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Enum\TipoDoAjuste;
+use App\Ponto\Model\AjusteDaMarcacao;
+use App\Ponto\Model\BatidaAjustada;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
@@ -21,6 +24,8 @@ use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use App\Ponto\Repository\LotacaoComVigenciaRepository;
+use App\Ponto\Service\FeriadosDaPessoa;
 
 #[CoversClass(FolhaPontoBuilder::class)]
 final class FolhaPontoBuilderTest extends TestCase
@@ -43,6 +48,7 @@ final class FolhaPontoBuilderTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
             $jornadas,
+            new FeriadosDaPessoa($this->createStub(LotacaoComVigenciaRepository::class)),
         );
     }
 
@@ -206,17 +212,23 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertTrue($rows[0]['justificadoDia']);
     }
 
-    public function testCalcularSaldoAteMesRetornaZeroSemJornada(): void
+    /**
+     * Item 12 da E17: sem jornada pessoal no escritório, o banco conta os dias pela jornada vazia, que o JornadaResolver
+     * completa com a padrão (aqui, sem jornada do escritório: 8h de segunda a sexta), a mesma regra da folha da /ponto.
+     * Até a E17 o resultado era zero. Sem batida nenhuma, cada dia útil é falta.
+     */
+    public function testCalcularSaldoAteMesSemJornadaPessoalContaPelaPadrao(): void
     {
         $user = new User();
         $user->setEmail('a@b.com')->setFullName('Teste');
 
-        // Início da contagem válido: isola o guard de jornada como ÚNICO motivo do zero. O stub de
-        // horas pagas soma zero, então o zero continua vindo só do guard de jornada, que é o que
-        // este teste prova (o escritório não tem jornada pessoal da pessoa).
         $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, $this->contagemAntiga(), new Tenant());
 
-        self::assertSame(0, $resultado);
+        $diasUteis = 0;
+        for ($dia = $this->contagemAntiga(); $dia <= new \DateTimeImmutable('2026-03-31'); $dia = $dia->modify('+1 day')) {
+            $diasUteis += (int) $dia->format('N') <= 5 ? 1 : 0;
+        }
+        self::assertSame(-480 * $diasUteis, $resultado);
     }
 
     public function testOmitirInicioContagemFalhaEmVezDeZerarASilenciosamente(): void
@@ -324,26 +336,26 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertSame(-480, $rows[0]['saldoDia']);
     }
 
-    public function testCalcularSaldoAnualIgnoraMesesAnterioresAoPrimeiroRegistro(): void
+    public function testCalcularSaldoAteDezembroIgnoraMesesAnterioresAoPrimeiroRegistro(): void
     {
         // Cenário do veterano: admitido há anos, mas só passou a registrar ponto no fim de 2025.
         $user = $this->usuarioComJornada();
 
         // O stub de horas pagas soma zero e mantém a comparação isolada nas batidas: a diferença
         // medida vem só da janela de contagem.
-        $soNovembroEDezembro = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'), new Tenant());
-        $anoInteiro          = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-01-01'), new Tenant());
+        $soNovembroEDezembro = $this->builder->calcularSaldoAteMes($user, 2025, 12, [], null, new \DateTimeImmutable('2025-11-01'), new Tenant());
+        $anoInteiro          = $this->builder->calcularSaldoAteMes($user, 2025, 12, [], null, new \DateTimeImmutable('2025-01-01'), new Tenant());
 
         self::assertLessThan(0, $soNovembroEDezembro);
         // Contar o ano inteiro seria MUITO mais negativo — é exatamente o débito fantasma que a regra evita.
         self::assertLessThan($soNovembroEDezembro, $anoInteiro);
     }
 
-    public function testCalcularSaldoAnualSemPrimeiroRegistroRetornaZero(): void
+    public function testCalcularSaldoAteDezembroSemPrimeiroRegistroRetornaZero(): void
     {
         $user = $this->usuarioComJornada();
 
-        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, [], null, null, new Tenant()));
+        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2025, 12, [], null, null, new Tenant()));
     }
 
     public function testCalcularSaldoAteMesSemPrimeiroRegistroRetornaZero(): void
@@ -597,7 +609,7 @@ final class FolhaPontoBuilderTest extends TestCase
 
         self::assertSame([BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS], $linha['aConferir']);
         self::assertSame(
-            [['id' => 12, 'tipo' => RegistroPonto::TIPO_REPOUSO, 'hora' => '12:00:00']],
+            [['id' => 12, 'alvo' => 'b12', 'cabeca' => null, 'tipo' => RegistroPonto::TIPO_REPOUSO, 'hora' => '12:00:00']],
             $linha['batidasDesconsideradas']
         );
     }
@@ -612,7 +624,28 @@ final class FolhaPontoBuilderTest extends TestCase
 
         self::assertSame(10, $linha['entradaId']);
         self::assertSame([], $linha['aConferir'], 'repetir o mesmo toque não torna o dia ambíguo');
-        self::assertSame([['id' => 15, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '09:00:00']], $linha['batidasDesconsideradas']);
+        self::assertSame([['id' => 15, 'alvo' => 'b15', 'cabeca' => null, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '09:00:00']], $linha['batidasDesconsideradas']);
+    }
+
+    public function testBatidaAjustadaForaDaContaLevaACabecaDaLinhagem(): void
+    {
+        // E10: o "x" do "Fora da conta" manda a cabeça de volta; sem ela, a inclusão e a batida ajustada voltavam "mudou".
+        $ajuste = new AjusteDaMarcacao(TipoDoAjuste::Alteracao, 'Gestora', new \DateTimeImmutable('2026-04-08 10:00:00'), null);
+        $inclusao = new BatidaAjustada(null, 40, 40, 5, RegistroPonto::TIPO_ENTRADA, new \DateTimeImmutable('2026-04-07 10:00:00'), $ajuste);
+        $ajustada = new BatidaAjustada(16, null, 44, 5, RegistroPonto::TIPO_ENTRADA, new \DateTimeImmutable('2026-04-07 11:00:00'), $ajuste);
+
+        $linha = $this->linhaDoDia7([
+            $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '08:00', '2026-04-07', 10),
+            $inclusao,
+            $ajustada,
+            $this->batidaComId(RegistroPonto::TIPO_SAIDA, '17:00', '2026-04-07', 14),
+        ], []);
+
+        self::assertSame(10, $linha['entradaId']);
+        self::assertSame([
+            ['id' => null, 'alvo' => 'a40', 'cabeca' => 40, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '10:00:00'],
+            ['id' => 16, 'alvo' => 'b16', 'cabeca' => 44, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '11:00:00'],
+        ], $linha['batidasDesconsideradas']);
     }
 
     public function testDiaSemBatidaNaoTemMarcaNemBatidaDesconsiderada(): void
@@ -627,21 +660,65 @@ final class FolhaPontoBuilderTest extends TestCase
     {
         // Como sempre foi: o selo olha as batidas que a folha mostra, não as que ficaram fora da conta.
         $entradaNaSede = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
-        $repeticaoEmCasa = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11);
-        $repeticaoEmCasa->setHomeOffice(true);
+        $repeticaoEmCasa = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11, static fn (RegistroPonto $r) => $r->setHomeOffice(true));
 
         $linha = $this->linhaDoDia7([$entradaNaSede, $repeticaoEmCasa, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
         self::assertFalse($linha['homeOffice'], 'a repetição fora da conta não acende o selo');
 
-        $saidaEmCasa = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13);
-        $saidaEmCasa->setHomeOffice(true);
+        $saidaEmCasa = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13, static fn (RegistroPonto $r) => $r->setHomeOffice(true));
         $linha = $this->linhaDoDia7([$entradaNaSede, $saidaEmCasa], []);
         self::assertTrue($linha['homeOffice'], 'a batida escolhida em home office acende o selo');
     }
 
-    private function batidaComId(string $tipo, string $hora, string $data, int $id): RegistroPonto
+    public function testSeloSemInternetSaiSoDasBatidasEscolhidas(): void
+    {
+        // E14 (spec ponto-desenho-0811): como o home office, o selo olha só as batidas que a folha mostra.
+        $entrada = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
+        $repeticaoDaFila = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11, static fn (RegistroPonto $r) => $r->setEnviadaSemInternet(true));
+
+        $linha = $this->linhaDoDia7([$entrada, $repeticaoDaFila, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
+        self::assertFalse($linha['semInternet'], 'a repetição fora da conta não acende o selo');
+
+        $saidaDaFila = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13, static fn (RegistroPonto $r) => $r->setEnviadaSemInternet(true));
+        $linha = $this->linhaDoDia7([$entrada, $saidaDaFila], []);
+        self::assertTrue($linha['semInternet'], 'a batida escolhida que veio da fila acende o selo');
+    }
+
+    public function testTrabalhoExternoSemSeloNaFolha(): void
+    {
+        // E12, decisão C1 de 10/11/2026: o trabalho externo não tem selo na folha (o desenho, L153, só mostra o dia da
+        // semana); a batida conta e aparece "Em análise" na coluna Justificativa.
+        $entrada = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
+        $saidaExterna = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13, static fn (RegistroPonto $b) => $b->setTrabalhoExterno(true));
+
+        $linha = $this->linhaDoDia7([$entrada, $saidaExterna], []);
+        self::assertArrayNotHasKey('trabalhoExterno', $linha);
+        self::assertSame(['16:00:00', false, false], [$linha['saida'], $linha['homeOffice'], $linha['semInternet']]);
+    }
+
+    public function testJustificativaLigadaABatidaNaoAbonaSaldoMesmoAbonada(): void
+    {
+        // E12: aprovar o trabalho externo só confirma a batida, que já conta; o déficit do dia continua.
+        $ligada = $this->justificativaAbonada('trabalho_externo');
+        $ligada->setRegistroPonto($this->diaDeSeteHoras()[0]);
+        $linha = $this->linhaDoDia7($this->diaDeSeteHoras(), ['2026-04-07' => $ligada]);
+        self::assertSame(-60, $linha['saldoDia']);
+
+        $parcialLigada = $this->justificativaAbonada('trabalho_externo', true, '14:00', '16:00');
+        $parcialLigada->setRegistroPonto($this->diaDeSeteHoras()[0]);
+        self::assertSame(-60, $this->linhaDoDia7($this->diaDeSeteHoras(), ['2026-04-07' => $parcialLigada])['saldoDia'], 'nem o abono parcial soma');
+
+        // A justificativa de trabalho externo avulsa (pela janela de justificar, sem batida) continua abonando.
+        self::assertSame(0, $this->linhaDoDia7($this->diaDeSeteHoras(), ['2026-04-07' => $this->justificativaAbonada('trabalho_externo')])['saldoDia']);
+    }
+
+    /** @param (callable(RegistroPonto): mixed)|null $antesDeGravar E10: depois do id a batida não muda mais. */
+    private function batidaComId(string $tipo, string $hora, string $data, int $id, ?callable $antesDeGravar = null): RegistroPonto
     {
         $registro = $this->batida($tipo, $hora, $data);
+        if ($antesDeGravar !== null) {
+            $antesDeGravar($registro);
+        }
         (new \ReflectionProperty(RegistroPonto::class, 'id'))->setValue($registro, $id);
 
         return $registro;

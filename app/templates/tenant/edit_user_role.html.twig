@@ -284,7 +284,8 @@
                         } only %}
                     </div>
 
-                    {# Aba: Batidas de Ponto #}
+                    {# Aba: Batidas de Ponto. P43 (decisão B da E10): a própria batida só o primário ou o Master corrige
+                       (incluir, ajustar, desconsiderar, restaurar); os botões da folha seguem a mesma decisão da análise. #}
                     <div class="tab-pane fade" id="tab-ponto" role="tabpanel">
                         {% include 'ponto/_folha_table.html.twig' with {
                             titulo: 'escritorio.editar_usuario.batidas_titulo'|trans ~ (
@@ -300,16 +301,20 @@
                             exportarFolhaHabilitado: true,
                             exportarFolhaParametros: {userId: user.id},
                             mostrarBancoHoras: true,
-                            editarBatidasHabilitado: true,
+                            editarBatidasHabilitado: podeAnalisarJustificativas,
+                            avisoSemCorrecao: podeAnalisarJustificativas ? null : constant('App\\Ponto\\Exception\\AjusteDeBatidaRecusadoException::MENSAGEM_DA_PROPRIA_BATIDA'),
                             editarBatidasRotaAdd: 'app_tenant_user_ponto_add',
-                            editarBatidasRotaEdit: 'app_tenant_user_ponto_edit',
-                            editarBatidasRotaDelete: 'app_tenant_user_ponto_delete',
+                            editarBatidasRotaAjustar: 'app_tenant_user_ponto_ajustar',
+                            editarBatidasRotaDesconsiderar: 'app_tenant_user_ponto_desconsiderar',
+                            editarBatidasRotaRestaurar: 'app_tenant_user_ponto_restaurar',
                             editarBatidasParametros: {tenantId: tenantId, id: user.id},
+                            desconsideradasPorDia: desconsideradasPorDia,
                             mostrarJustificativas: true,
                             diasComRegistroEmOutroEscritorio: dias_com_registro_em_outro_escritorio(user, tenantId, competenciaSelecionada),
                             jornadaInfo: jornadaInfo,
                             horasPagasMinutos: horasPagasMinutosPonto,
-                            saldoMesMinutos: saldoMesMinutosPonto
+                            saldoMesMinutos: saldoMesMinutosPonto,
+                            aceiteDaFolha: aceiteDaFolhaPonto
                         } only %}
                     </div>
 
@@ -319,7 +324,8 @@
                             justificativas: justificativas,
                             tenantId: tenantId,
                             user: user,
-                            tiposJustificativa: tiposJustificativa
+                            tiposJustificativa: tiposJustificativa,
+                            podeAnalisar: podeAnalisarJustificativas
                         } only %}
                     </div>
 
@@ -339,7 +345,7 @@
     </div>
 </section>
 
-{# Modal: Adicionar batida manual #}
+{# Modal: Incluir batida (E10, P65 a): o "+" da folha abre com o dia e o tipo; o motivo é obrigatório. #}
 <div class="modal fade" id="modalAddBatida" tabindex="-1" aria-labelledby="modalAddBatidaLabel" aria-hidden="true">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -369,18 +375,53 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ 'escritorio.editar_usuario.batida_observacao'|trans }} <span class="text-muted small">{{ 'escritorio.editar_usuario.opcional'|trans }}</span></label>
-                        <textarea name="registro_ponto_manual[observacao]" class="form-control" rows="2" placeholder="{{ 'escritorio.editar_usuario.batida_observacao_dica'|trans }}"></textarea>
+                        <label class="form-label" for="modalAddMotivo">{{ 'escritorio.editar_usuario.batida_motivo'|trans }}</label>
+                        <textarea name="registro_ponto_manual[motivo]" id="modalAddMotivo" class="form-control" rows="2" required maxlength="2000" placeholder="{{ 'escritorio.editar_usuario.batida_motivo_dica'|trans }}"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>{{ 'escritorio.editar_usuario.batida_incluir'|trans }}</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+{# Janelas do ajuste de batida (E10). O "x" da batida e o "Restaurar" da folha as abrem com o endereço, o token por
+   intenção e a batida (atributos data-*); o motivo é obrigatório. O desenho não mostra a ficha (P60): o molde é o modalAddBatida. #}
+{% for janela in [
+    {id: 'modalDesconsiderarBatida', chave: 'desconsiderar', icone: 'bi-x-circle', botao: 'btn-danger', cabeca: true},
+    {id: 'modalRestaurarBatida', chave: 'restaurar', icone: 'bi-arrow-counterclockwise', botao: 'btn-primary', cabeca: false}
+] %}
+<div class="modal fade" id="{{ janela.id }}" tabindex="-1" aria-labelledby="{{ janela.id }}Label" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="post" action="" data-janela-do-ajuste>
+                <input type="hidden" name="_token" value="">
+                {% if janela.cabeca %}<input type="hidden" name="cabeca" value="">{% endif %}
+                <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="{{ janela.id }}Label"><i class="bi {{ janela.icone }} me-2"></i>{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_titulo')|trans }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="fw-bold mb-1" data-batida-da-janela></p>
+                    <p class="text-muted small">{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_texto')|trans }}</p>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ janela.id }}Motivo">{{ 'escritorio.editar_usuario.batida_motivo'|trans }}</label>
+                        <textarea name="motivo" id="{{ janela.id }}Motivo" class="form-control" rows="2" required maxlength="2000" placeholder="{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_motivo_dica')|trans }}"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
+                    <button type="submit" class="btn {{ janela.botao }}"><i class="bi {{ janela.icone }} me-1"></i>{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_botao')|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
 
 {# Modal: alterar nome do usuário #}
 <div class="modal fade" id="modalEditarNome" tabindex="-1" aria-labelledby="modalEditarNomeLabel" aria-hidden="true">
@@ -455,6 +496,8 @@
 {% endblock %}
 
 {% block javascripts %}
+{# O aviso flutuante da E8 (decisão 15), que o "Baixar PDF" da folha usa (js/ponto-folha.js). #}
+<script src="{{ asset('js/ponto-aviso-flutuante.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Ativa a aba correta com base no query param ?tab=
@@ -491,14 +534,35 @@
         });
 
 
-        // Abre o modal de adicionar batida preenchendo data e tipo
+        // Abre a janela "Incluir batida" com o dia e o tipo do "+"; a hora e o motivo começam vazios a cada abertura
+        // (a hora de uma janela cancelada levaria a incluir no horário errado).
         window.abrirModalAddBatida = function (tipo, chaveDia) {
             document.getElementById('modalAddData').value = chaveDia;
             document.getElementById('modalAddTipo').value = tipo;
+            document.getElementById('modalAddHora').value = '';
+            document.getElementById('modalAddMotivo').value = '';
             document.getElementById('modalAddCompetencia').value = chaveDia.substring(0, 7);
             var modal = new bootstrap.Modal(document.getElementById('modalAddBatida'));
             modal.show();
         };
+
+        // E10: as janelas "Desconsiderar batida" e "Restaurar batida" recebem do botão da folha o endereço, o token
+        // por intenção, a cabeça que a folha mostrou e a batida; o motivo começa vazio a cada abertura.
+        ['modalDesconsiderarBatida', 'modalRestaurarBatida'].forEach(function (id) {
+            var janela = document.getElementById(id);
+            if (!janela) { return; }
+            janela.addEventListener('show.bs.modal', function (e) {
+                var botao = e.relatedTarget;
+                var form = janela.querySelector('form[data-janela-do-ajuste]');
+                if (!botao || !form) { return; }
+                form.action = botao.dataset.acao;
+                form.querySelector('input[name="_token"]').value = botao.dataset.token;
+                var cabeca = form.querySelector('input[name="cabeca"]');
+                if (cabeca) { cabeca.value = botao.dataset.cabeca || ''; }
+                janela.querySelector('[data-batida-da-janela]').textContent = botao.dataset.batida || '';
+                form.querySelector('textarea[name="motivo"]').value = '';
+            });
+        });
 
     });
 </script>

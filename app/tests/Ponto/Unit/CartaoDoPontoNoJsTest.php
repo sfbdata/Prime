@@ -145,7 +145,7 @@ final class CartaoDoPontoNoJsTest extends TestCase
         );
     }
 
-    #[TestDox('Aviso do intervalo (P12): só com o mínimo que o servidor manda, que é 0 com a validação do repouso desligada')]
+    #[TestDox('Aviso do intervalo (P12): o mínimo só com o que o servidor manda, que é 0 com a validação do repouso ou a chave ponto-alertas desligada; aí sai só o tempo do intervalo')]
     public function testAvisoDoIntervaloRespeitaAChave(): void
     {
         $tela = $this->tela();
@@ -155,15 +155,175 @@ final class CartaoDoPontoNoJsTest extends TestCase
             $tela
         );
         self::assertStringContainsString(
-            'data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada ? minimoMinutosRepouso : 0 }}"',
+            'data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada and alertasLigados ? minimoMinutosRepouso : 0 }}"',
             $tela,
             'o mínimo do aviso deixou de passar pela chave do escritório'
         );
-        self::assertStringContainsString(
-            'if (tRepouso && !tRetorno && !tSaida && minimoRepousoMinutos > 0) {',
-            $this->corpoDaFuncao('function atualizarAvisoDoDia('),
-            'com a chave desligada o aviso do intervalo voltou a aparecer'
+
+        // O ramo do repouso vale com a chave ligada ou desligada; com ela desligada (mínimo 0), sai antes de qualquer
+        // texto do mínimo.
+        $aviso = $this->corpoDaFuncao('function atualizarAvisoDoDia(');
+        self::assertStringContainsString('if (tRepouso && !tRetorno && !tSaida) {', $aviso, 'o tempo do intervalo voltou a depender da chave');
+        $semValidacao = strpos($aviso, 'if (minimoRepousoMinutos <= 0) {');
+        self::assertIsInt($semValidacao, 'sem a guarda da chave desligada');
+        self::assertLessThan((int) strpos($aviso, 'formatarMinimo(minimoRepousoMinutos)'), $semValidacao, 'com a chave desligada o mínimo voltou a aparecer');
+        self::assertMatchesRegularExpression(
+            "/if \\(minimoRepousoMinutos <= 0\\) \\{\\s*mostrarAvisoDoDia\\('info', 'bi-hourglass-split', 'Intervalo em andamento há ' \\+ emIntervaloHa \\+ '\\.' \\+ saida\\);\\s*return;/",
+            $aviso,
+            'com a chave desligada, só o tempo do intervalo (e a saída prevista)'
         );
+    }
+
+    #[TestDox('Intervalo ao vivo: o tempo desde a batida de repouso em HH:MM:SS nos três textos (com validação antes e depois do mínimo, e sem validação), sem busca nova')]
+    public function testIntervaloAoVivoNosTresTextos(): void
+    {
+        $aviso = $this->corpoDaFuncao('function atualizarAvisoDoDia(');
+
+        // O início do intervalo é a hora da batida de repouso que o cartão já tem (`data-ponto-do-dia`); o aparelho
+        // atrasado não mostra tempo negativo.
+        self::assertStringContainsString('const decorrido = Math.max(0, Math.floor((agora - tRepouso) / 1000));', $aviso);
+        self::assertStringContainsString('const emIntervaloHa = formatarTempo(decorrido);', $aviso, 'o tempo do intervalo em HH:MM:SS');
+        self::assertStringContainsString(
+            "return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');",
+            $this->corpoDaFuncao('function formatarTempo('),
+            'HH:MM:SS'
+        );
+        self::assertStringContainsString('const restante = minimoRepousoMinutos * 60 - decorrido;', $aviso, 'o mínimo conta do mesmo início');
+
+        // Os três textos (o do desenho fica, com o tempo acrescentado). O "1h" é o mínimo da Jornada do escritório.
+        self::assertStringContainsString(
+            "'Intervalo em andamento há ' + emIntervaloHa + '. O mínimo de ' + minimo + ' se completa em ' + formatarHorasMinutos(faltaEmMinutos * 60) + '.' + saida",
+            $aviso,
+            'com validação, antes do mínimo'
+        );
+        self::assertStringContainsString(
+            "'Intervalo mínimo de ' + minimo + ' cumprido. Em intervalo há ' + emIntervaloHa + '.' + saida",
+            $aviso,
+            'com validação, depois do mínimo: o tempo continua andando'
+        );
+        self::assertStringContainsString("'Intervalo em andamento há ' + emIntervaloHa + '.' + saida", $aviso, 'sem validação');
+        self::assertStringContainsString('const minimo = formatarMinimo(minimoRepousoMinutos);', $aviso, 'o mínimo não é fixo');
+        self::assertStringNotContainsString("'1h'", $aviso, 'o mínimo voltou a ser fixo');
+
+        // Nada de busca nova: o aviso sai do estado do cartão.
+        foreach (['fetch(', 'buscarTelaDoPonto', 'XMLHttpRequest'] as $busca) {
+            self::assertStringNotContainsString($busca, $aviso, 'o aviso do intervalo não busca nada: ' . $busca);
+        }
+        self::assertStringContainsString('tRepouso = parseHMS(pontoHoje.repouso);', $this->corpoDaFuncao('function definirPontoDoDia('));
+    }
+
+    #[TestDox('Intervalo ao vivo: um tique só, o do relógio a cada 1 s; a troca depois da batida não cria outro')]
+    public function testUmTiqueSoSemEmpilhar(): void
+    {
+        $tela = $this->tela();
+
+        // Os quatro relógios da tela, cada um uma vez: a hora oficial, o tempo do dia (que redesenha o aviso), a virada e
+        // o reenvio da fila sem internet (E14).
+        self::assertSame(4, substr_count($tela, 'setInterval('), 'um setInterval novo apareceu na tela do ponto');
+        self::assertSame(1, substr_count($tela, 'setInterval(() => { if (filaTemPendentes) { enviarFila(); } }, FILA_INTERVALO_MS);'), 'o reenvio da fila tem um tique só');
+        self::assertSame(1, substr_count($tela, 'setInterval(updateClock, 1000);'), 'o relógio do dia tem um tique só');
+        self::assertStringContainsString('atualizarAvisoDoDia(agora);', $this->corpoDaFuncao('function updateClock('), 'o aviso anda com o relógio');
+
+        // Depois da batida: troca o estado e redesenha uma vez, sem novo tique. O aviso e o script ficam fora da troca.
+        $aplicar = $this->corpoDaFuncao('aplicarPontoDoDia = function (pontoHoje)');
+        self::assertMatchesRegularExpression('/definirPontoDoDia\(pontoHoje\);\s*updateClock\(\);/', $aplicar);
+        foreach ([$aplicar, $this->corpoDaFuncao('async function atualizarTelaDoPonto('), $this->corpoDaFuncao('function atualizarAvisoDoDia(')] as $trecho) {
+            self::assertStringNotContainsString('setInterval(', $trecho, 'tique empilhado a cada troca da tela');
+            self::assertStringNotContainsString('setTimeout(', $trecho, 'tique empilhado a cada troca da tela');
+        }
+        // A lista cresce com as etapas (a E17 pôs o painel do banco); o que importa é o aviso e o script ficarem fora.
+        self::assertSame(1, preg_match('/const REGIOES_TROCADAS = \[([^\]]*)\];/', $tela, $regioes), 'a lista das regiões trocadas sumiu');
+        self::assertStringContainsString("'ponto-regiao-pendencias'", $regioes[1]);
+        self::assertStringNotContainsString('ponto-aviso-dia', $regioes[1], 'o aviso do dia e o relógio não entram na troca: o script não roda de novo');
+    }
+
+    #[TestDox('Saída prevista também durante o intervalo, nos três textos, só quando há previsão')]
+    public function testSaidaPrevistaNoIntervalo(): void
+    {
+        $aviso = $this->corpoDaFuncao('function atualizarAvisoDoDia(');
+        $repouso = substr($aviso, 0, (int) strpos($aviso, 'const previsao = tSaida ? null : saidaPrevista();'));
+        self::assertStringContainsString('if (tRepouso && !tRetorno && !tSaida) {', $repouso, 'o ramo do repouso vem antes da previsão de fora dele');
+
+        self::assertStringContainsString('const previstaNoRepouso = saidaPrevista(agora);', $repouso, 'a conta é a de `saidaPrevista`, com o agora do tique');
+        self::assertStringContainsString(
+            "const saida = previstaNoRepouso ? ' Saída prevista às ' + formatarHoraDoDia(previstaNoRepouso) + '.' : '';",
+            $repouso,
+            'sem previsão (sem meta, sem escala), nada é acrescentado'
+        );
+        self::assertSame(3, substr_count($repouso, "+ '.' + saida);"), 'os três textos do intervalo levam a saída prevista');
+        self::assertStringContainsString(
+            "return String(data.getHours()).padStart(2, '0') + ':' + String(data.getMinutes()).padStart(2, '0');",
+            $this->corpoDaFuncao('function formatarHoraDoDia('),
+            'HH:MM'
+        );
+    }
+
+    #[TestDox('Saída prevista no repouso coerente com a de antes: entrada + meta + o maior entre o intervalo já feito e o piso (mínimo ou almoço da escala), a cada tique; sem escala, nenhuma')]
+    public function testSaidaPrevistaNoRepousoContaOIntervaloFeito(): void
+    {
+        $prevista = $this->corpoDaFuncao('function saidaPrevista(agora)');
+
+        // Com o retorno batido vale o intervalo batido, como antes.
+        self::assertMatchesRegularExpression(
+            '/if \(tRetorno && tRetorno > tRepouso\) \{\s*return new Date\(tEntrada\.getTime\(\) \+ metaDiaMinutos \* 60000 \+ \(tRetorno - tRepouso\)\);\s*\}/',
+            $prevista
+        );
+        // Sem escala, sem previsão no repouso, como antes dele: o nulo não é mais "tem almoço".
+        $semEscala = strpos($prevista, 'if (duracaoMinutos === null) return null;');
+        self::assertIsInt($semEscala, 'sem escala, a saída prevista voltou a aparecer no repouso');
+        self::assertLessThan((int) strpos($prevista, 'const almocoDaEscalaMs'), $semEscala);
+        self::assertStringNotContainsString('duracaoMinutos === null ||', $prevista, 'o nulo voltou a valer como escala com almoço');
+
+        // O piso: o maior entre o mínimo que o servidor aplica (0 com a validação desligada) e o almoço da escala, com
+        // ou sem almoço. Sem almoço e com o mínimo ligado, a saída não pode ficar antes do retorno mais cedo possível.
+        self::assertStringContainsString('const almocoDaEscalaMs = Math.max(0, duracaoMinutos - metaDiaMinutos) * 60000;', $prevista);
+        self::assertStringContainsString(
+            'const pisoMs = Math.max(minimoRepousoMinutos * 60000, almocoDaEscalaMs);',
+            $prevista,
+            'o piso deixou de ser o maior entre o mínimo aplicado e o almoço da escala: a saída pula ao bater o repouso'
+        );
+        self::assertStringNotContainsString('intervaloPrevistoMinutos', $this->tela(), 'o piso voltou a usar o mínimo cru, sem a chave da validação');
+        // Em repouso, o intervalo já feito até agora; a saída é entrada + meta + o maior dos dois.
+        self::assertStringContainsString('const feitoMs = agora && !tRetorno && !tSaida ? agora - tRepouso : 0;', $prevista);
+        self::assertStringContainsString(
+            'return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + Math.max(feitoMs, pisoMs));',
+            $prevista,
+            'no repouso, a saída prevista voltou a ignorar o intervalo que já passou do piso'
+        );
+
+        // Recalculada no tique: `updateClock` (a cada 1 s) chama `atualizarAvisoDoDia(agora)`, que passa o mesmo agora.
+        self::assertStringContainsString('atualizarAvisoDoDia(agora);', $this->corpoDaFuncao('function updateClock('));
+        self::assertStringContainsString('saidaPrevista(agora)', $this->corpoDaFuncao('function atualizarAvisoDoDia('));
+    }
+
+    #[TestDox('Repouso com a meta já coberta (entrada 08:00, escala 08-12/14-18, repouso 17:30): às 18:30 o aviso não traz "Saída prevista"; depois do retorno a hora é fixa')]
+    public function testSemSaidaPrevistaNoRepousoComAMetaCoberta(): void
+    {
+        $prevista = $this->corpoDaFuncao('function saidaPrevista(agora)');
+        $guarda   = strpos($prevista, 'if (tRepouso - tEntrada >= metaDiaMinutos * 60000) return null;');
+
+        // Sem a guarda, às 18:30 saía "Saída prevista às 18:00." e às 19:45 "18:15.": uma hora passada que andava com
+        // o relógio. Com ela, `saidaPrevista` devolve nulo e os três textos do repouso saem sem a parte da saída.
+        self::assertIsInt($guarda, 'no repouso com a meta coberta, a saída prevista voltou a andar com o relógio');
+        // Depois do retorno, vale a conta do intervalo batido (hora fixa, e o aviso diz "Passou da saída prevista"):
+        // a guarda vem depois desse ramo, e antes do intervalo feito até agora.
+        self::assertGreaterThan((int) strpos($prevista, 'if (tRetorno && tRetorno > tRepouso) {'), $guarda, 'a guarda tirou a previsão de depois do retorno');
+        self::assertLessThan((int) strpos($prevista, 'const feitoMs'), $guarda);
+        self::assertStringContainsString("const saida = previstaNoRepouso ? ' Saída prevista às '", $this->corpoDaFuncao('function atualizarAvisoDoDia('));
+    }
+
+    #[TestDox('"se completa em" arredonda para cima, no minuto: 17min50s dá 00:18; os últimos 59 s dão 00:01, nunca 00:00')]
+    public function testFaltaDoMinimoArredondaParaCima(): void
+    {
+        $aviso = $this->corpoDaFuncao('function atualizarAvisoDoDia(');
+
+        self::assertMatchesRegularExpression(
+            '/if \(restante > 0\) \{[^}]*const faltaEmMinutos = Math\.ceil\(restante \/ 60\);/',
+            $aviso,
+            'o que falta do mínimo voltou a arredondar para baixo'
+        );
+        self::assertStringContainsString("' se completa em ' + formatarHorasMinutos(faltaEmMinutos * 60) + '.'", $aviso);
+        self::assertStringNotContainsString('formatarHorasMinutos(restante)', $aviso, 'arredondado para baixo, os últimos 59 s mostravam 00:00');
     }
 
     private function tela(): string

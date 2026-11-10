@@ -20,6 +20,8 @@ use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use App\Ponto\Repository\LotacaoComVigenciaRepository;
+use App\Ponto\Service\FeriadosDaPessoa;
 
 /**
  * Saldo diário, mensal e anual atravessando a vigência da escolha única
@@ -120,7 +122,7 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
         self::assertSame(240 + 210, $rows[1]['minutosTrabalhadosDia']);
     }
 
-    public function testSaldoAteOMesESaldoAnualSomamAsDuasRegras(): void
+    public function testSaldoAteOMesEAteDezembroSomamAsDuasRegras(): void
     {
         $builder = $this->builder();
         $user = $this->jornadaNeutra()->getUser();
@@ -129,7 +131,7 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
         // "Saldo anterior" da exportação de maio = saldo até abril.
         self::assertSame($mes, $builder->calcularSaldoAteMes($user, 2026, 4, [], null, new \DateTimeImmutable('2026-04-01'), $this->tenant()));
         self::assertSame(2 * $mes, $builder->calcularSaldoAteMes($user, 2026, 5, [], null, new \DateTimeImmutable('2026-04-01'), $this->tenant()));
-        self::assertSame(2 * $mes, $builder->calcularSaldoAnual($user, 2026, [], null, new \DateTimeImmutable('2026-04-01'), $this->tenant()));
+        self::assertSame(2 * $mes, $builder->calcularSaldoAteMes($user, 2026, 12, [], null, new \DateTimeImmutable('2026-04-01'), $this->tenant()));
     }
 
     /**
@@ -143,10 +145,11 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
         $escritorio = $this->tenant();
 
         $builder->calcularSaldoAteMes($user, 2026, 5, [], null, new \DateTimeImmutable('2026-04-01'), $escritorio);
-        $builder->calcularSaldoAnual($user, 2026, [], null, new \DateTimeImmutable('2026-04-01'), $escritorio);
+        $builder->calcularSaldoAteMes($user, 2026, 12, [], null, new \DateTimeImmutable('2026-04-01'), $escritorio);
 
-        // Abril e maio nos dois cálculos, batidas e justificativas: ao menos 8 consultas.
-        self::assertGreaterThanOrEqual(8, count($this->escritoriosConsultados));
+        // Desde a E17 cada cálculo busca o período inteiro de uma vez: batidas, justificativas e horas pagas, três
+        // consultas por cálculo (antes eram duas por mês).
+        self::assertCount(6, $this->escritoriosConsultados);
         foreach ($this->escritoriosConsultados as $consultado) {
             self::assertSame($escritorio, $consultado, 'consulta da folha fora do escritório da folha');
         }
@@ -175,25 +178,32 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
     private function builder(): FolhaPontoBuilder
     {
         $registros = $this->createStub(RegistroPontoRepository::class);
-        $registros->method('findByUserAndCompetencia')->willReturnCallback(
-            function (User $u, Tenant $t, int $ano, int $mes): array {
+        $registros->method('batidasDoPeriodoNoEscritorio')->willReturnCallback(
+            function (User $u, Tenant $t, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array {
                 $this->escritoriosConsultados[] = $t;
 
-                return $ano === 2026 && in_array($mes, [4, 5], true)
-                    ? $this->batidasDaCompetencia(sprintf('%04d-%02d', $ano, $mes))
-                    : [];
+                return array_values(array_filter(
+                    [...$this->batidasDaCompetencia('2026-04'), ...$this->batidasDaCompetencia('2026-05')],
+                    static fn (RegistroPonto $batida): bool => $batida->getDataHora() >= $inicio && $batida->getDataHora() <= $fim,
+                ));
             }
         );
         $justificativas = $this->createStub(JustificativaPontoRepository::class);
-        $justificativas->method('findByUserAndCompetenciaIndexed')->willReturnCallback(
-            function (User $u, Tenant $t, int $ano, int $mes): array {
+        $justificativas->method('findByUserEPeriodoIndexed')->willReturnCallback(
+            function (User $u, Tenant $t): array {
                 $this->escritoriosConsultados[] = $t;
 
                 return [];
             }
         );
         $lancamentos = $this->createStub(LancamentoHorasPagasRepository::class);
-        $lancamentos->method('somarPorPeriodo')->willReturn(0);
+        $lancamentos->method('somarPorCompetenciaDoColaborador')->willReturnCallback(
+            function (User $u, Tenant $t): array {
+                $this->escritoriosConsultados[] = $t;
+
+                return [];
+            }
+        );
         $lancamentos->method('somarPorCompetencia')->willReturn(0);
         $jornadas = $this->createStub(JornadaColaboradorRepository::class);
         $jornadas->method('historicoDe')->willReturnCallback(
@@ -206,6 +216,7 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
             $justificativas,
             $lancamentos,
             $jornadas,
+            new FeriadosDaPessoa($this->createStub(LotacaoComVigenciaRepository::class)),
         );
     }
 

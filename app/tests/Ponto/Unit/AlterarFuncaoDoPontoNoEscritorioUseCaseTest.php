@@ -1,0 +1,197 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Ponto\Unit;
+
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
+use App\Master\Entity\RecursoEstado;
+use App\Master\Repository\ContasDoSistemaRepository;
+use App\Master\Repository\RecursoEstadoRepository;
+use App\Master\Service\RecursosDoSistema;
+use App\Master\Service\RegraDosMasters;
+use App\Ponto\DTO\AlterarFuncaoDoPontoInput;
+use App\Ponto\Entity\ConfiguracaoDoPonto;
+use App\Ponto\Exception\FuncaoDoPontoRecusadaException;
+use App\Ponto\Repository\ConfiguracaoDoPontoRepository;
+use App\Ponto\Service\FuncoesDoPonto;
+use App\Ponto\UseCase\AlterarFuncaoDoPontoNoEscritorioUseCase;
+use App\Service\PermissionChecker;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\HttpFoundation\RequestStack;
+
+/**
+ * A chave "Escritório" de uma função do Ponto (E7, P67): recusa sem a permissão, chave sem a camada e Global
+ * desligado, sempre ANTES da transação; grava com quem e quando, sempre na linha que o repositório garantiu e travou
+ * (o UseCase nunca cria a linha: a corrida do primeiro salvamento é do banco, provada em LigaEDesligaDoPontoTest).
+ */
+#[CoversClass(AlterarFuncaoDoPontoNoEscritorioUseCase::class)]
+#[CoversClass(AlterarFuncaoDoPontoInput::class)]
+#[Group('ponto')]
+final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
+{
+    use TrilhaDoPontoDeTesteTrait;
+
+    private Tenant $tenant;
+    private User $quem;
+    private ConfiguracaoDoPontoRepository&MockObject $configuracoes;
+
+    protected function setUp(): void
+    {
+        $this->tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->tenant, 7);   // a trilha (E9) é por escritório gravado
+        $this->quem = new User();
+        $this->configuracoes = $this->createMock(ConfiguracaoDoPontoRepository::class);
+    }
+
+    #[TestDox('Sem a permissão de administrar o ponto do escritório: recusa (403) e não abre transação')]
+    public function testSemPermissao(): void
+    {
+        $this->configuracoes->expects(self::never())->method('emTransacao');
+
+        $this->recusa(FuncaoDoPontoRecusadaException::SEM_PERMISSAO, fn () => $this->casoDeUso(false)->executar($this->pedido('ponto-geo', false)));
+    }
+
+    #[TestDox('Chave sem a camada Escritório (a tela, ou uma função de outra etapa): recusa (422)')]
+    public function testChaveDesconhecida(): void
+    {
+        $this->configuracoes->expects(self::never())->method('emTransacao');
+
+        foreach (['ponto', 'ponto-facial', 'voto'] as $chave) {
+            $this->recusa(FuncaoDoPontoRecusadaException::DESCONHECIDA, fn () => $this->casoDeUso()->executar($this->pedido($chave, false)));
+        }
+    }
+
+    #[TestDox('Global desligado pelo Master: a chave do escritório fica travada (422) e nada grava')]
+    public function testGlobalDesligadoTrava(): void
+    {
+        $this->configuracoes->expects(self::never())->method('emTransacao');
+        $this->configuracoes->expects(self::never())->method('salvar');
+
+        $this->recusa(
+            FuncaoDoPontoRecusadaException::TRAVADA_PELO_MASTER,
+            fn () => $this->casoDeUso(true, globalLigado: false)->executar($this->pedido('ponto-geo', true)),
+        );
+    }
+
+    #[TestDox('Primeiro salvamento: grava a chave, quem e quando na linha que o repositório garantiu e travou para o escritório da sessão')]
+    public function testPrimeiroSalvamentoGravaNaLinhaGarantida(): void
+    {
+        $this->emTransacaoRoda();
+        $garantida = new ConfiguracaoDoPonto($this->tenant);   // como o INSERT ... ON CONFLICT a deixa: vazia
+        $this->configuracoes->expects(self::once())->method('garantidaETravada')
+            ->with($this->tenant, self::callback(static fn (\DateTimeImmutable $agora): bool => $agora->format('Y-m-d H:i:s') === '2026-11-09 10:00:00'))
+            ->willReturn($garantida);
+        $this->configuracoes->expects(self::once())->method('salvar')->with(self::identicalTo($garantida), true);
+
+        $saida = $this->casoDeUso()->executar($this->pedido('ponto-geo', false));
+
+        self::assertSame($this->tenant, $garantida->getTenant());
+        self::assertSame(['ponto-geo' => false], $garantida->getChaves());
+        self::assertSame($this->quem, $garantida->getAtualizadoPor());
+        self::assertSame('2026-11-09 10:00:00', $garantida->getAtualizadoEm()->format('Y-m-d H:i:s'));
+        self::assertSame(['ponto-geo', true, false], [$saida->chave, $saida->global, $saida->escritorio]);
+        self::assertSame('Geolocalização', $saida->titulo);
+        self::assertCount(1, $this->eventosDaTrilha);
+        self::assertSame(['configuracao_do_escritorio', 7], [$this->eventosDaTrilha[0]['acao'], $this->eventosDaTrilha[0]['tenant_id']]);
+        self::assertSame(['chave' => 'ponto-geo', 'titulo' => 'Geolocalização', 'ligada' => false], $this->eventosDaTrilha[0]['detalhe']);
+    }
+
+    #[TestDox('Linha que já existe: muda só a chave pedida, na linha travada')]
+    public function testAlteraALinhaQueExiste(): void
+    {
+        $this->emTransacaoRoda();
+        $existente = new ConfiguracaoDoPonto($this->tenant);
+        $existente->definir('ponto-geo', false, new User(), new \DateTimeImmutable('2026-11-01'));
+        $this->configuracoes->method('garantidaETravada')->willReturn($existente);
+        $this->configuracoes->expects(self::once())->method('salvar')->with($existente, true);
+
+        $saida = $this->casoDeUso()->executar($this->pedido('ponto-geo', true));
+
+        self::assertSame(['ponto-geo' => true], $existente->getChaves());
+        self::assertSame($this->quem, $existente->getAtualizadoPor());
+        self::assertTrue($saida->escritorio);
+        self::assertSame([true], array_map(static fn (array $evento): mixed => $evento['detalhe']['ligada'], $this->eventosDaTrilha));
+    }
+
+    #[TestDox('Ligar o que já vale ligado (linha recém-garantida, vazia) ou repetir o valor guardado: nada grava')]
+    public function testSemMudancaNaoGrava(): void
+    {
+        $this->emTransacaoRoda();
+        $vazia = new ConfiguracaoDoPonto($this->tenant);
+        $existente = new ConfiguracaoDoPonto($this->tenant);
+        $existente->definir('ponto-geo', false, new User(), new \DateTimeImmutable('2026-11-01'));
+        $this->configuracoes->method('garantidaETravada')->willReturnOnConsecutiveCalls($vazia, $existente);
+        $this->configuracoes->expects(self::never())->method('salvar');
+
+        self::assertTrue($this->casoDeUso()->executar($this->pedido('ponto-geo', true))->escritorio);
+        self::assertFalse($this->casoDeUso()->executar($this->pedido('ponto-geo', false))->escritorio);
+        self::assertSame([[], null], [$vazia->getChaves(), $vazia->getAtualizadoPor()], 'a linha vazia continua vazia');
+        self::assertSame('2026-11-01', $existente->getAtualizadoEm()->format('Y-m-d'), 'quem e quando não mudam');
+        self::assertSame([], $this->eventosDaTrilha, 'a trilha não ganha uma mudança que não mudou');
+    }
+
+    #[TestDox('O corpo JSON precisa de `ligada` booleano')]
+    public function testCorpoDoPedido(): void
+    {
+        self::assertNull(AlterarFuncaoDoPontoInput::doJson($this->quem, $this->tenant, 'ponto-geo', []));
+        self::assertNull(AlterarFuncaoDoPontoInput::doJson($this->quem, $this->tenant, 'ponto-geo', ['ligada' => 'false']));
+        self::assertNull(AlterarFuncaoDoPontoInput::doJson($this->quem, $this->tenant, 'ponto-geo', ['ligada' => 0]));
+        $pedido = AlterarFuncaoDoPontoInput::doJson($this->quem, $this->tenant, 'ponto-geo', ['ligada' => false, 'tenant' => 99]);
+        self::assertNotNull($pedido);
+        self::assertSame($this->tenant, $pedido->tenant, 'o escritório é o da sessão; o corpo não escolhe');
+        self::assertFalse($pedido->ligada);
+    }
+
+    private function emTransacaoRoda(): void
+    {
+        $this->configuracoes->method('emTransacao')->willReturnCallback(static fn (\Closure $trabalho): mixed => $trabalho());
+    }
+
+    private function pedido(string $chave, bool $ligada): AlterarFuncaoDoPontoInput
+    {
+        return new AlterarFuncaoDoPontoInput($this->quem, $this->tenant, $chave, $ligada);
+    }
+
+    private function casoDeUso(bool $podeConfigurar = true, bool $globalLigado = true): AlterarFuncaoDoPontoNoEscritorioUseCase
+    {
+        $estados = $this->createStub(RecursoEstadoRepository::class);
+        $gravados = [];
+        if (!$globalLigado) {
+            $gravados['ponto-geo'] = new RecursoEstado('ponto-geo');
+            $gravados['ponto-geo']->desativar(null, null, null, new \DateTimeImmutable('2026-11-01'));
+        }
+        $estados->method('todosPorChave')->willReturn($gravados);
+        $relogio = new MockClock('2026-11-09 10:00:00');
+        $recursos = new RecursosDoSistema(
+            $estados,
+            $relogio,
+            $this->createStub(Security::class),
+            new RegraDosMasters($this->createStub(ContasDoSistemaRepository::class)),
+            new RequestStack(),
+            new NullLogger(),
+        );
+        $permissoes = $this->createStub(PermissionChecker::class);
+        $permissoes->method('canAdminister')->willReturn($podeConfigurar);
+
+        return new AlterarFuncaoDoPontoNoEscritorioUseCase(new FuncoesDoPonto($recursos, $this->configuracoes, $permissoes), $this->configuracoes, $relogio, $this->trilhaDeTeste());
+    }
+
+    private function recusa(string $motivo, \Closure $acao): void
+    {
+        try {
+            $acao();
+            self::fail('esperava a recusa ' . $motivo);
+        } catch (FuncaoDoPontoRecusadaException $e) {
+            self::assertSame($motivo, $e->motivo);
+        }
+    }
+}

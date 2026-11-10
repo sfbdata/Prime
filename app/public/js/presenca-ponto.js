@@ -15,6 +15,9 @@
     var urlEstado = raiz.getAttribute('data-ponto-estado');
     var urlBatida = raiz.getAttribute('data-ponto-batida');
     var urlPonto = raiz.getAttribute('data-ponto-index');
+    // E7: com a tela do Ponto desligada pelo Master, o atalho vem sem `data-ponto-batida` (_presenca.html.twig). A
+    // linha segue contando o estado do dia, mas sem botão de registrar nem o "Regularizar", que levam à tela fechada.
+    var podeBater = !!urlBatida;
     var PB = window.PontoBatida;
 
     // A releitura do estado no clique tem prazo próprio (spec F1): espera nova no fluxo da batida sem prazo travaria o
@@ -28,6 +31,8 @@
     var AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. Abra o ponto e confira ANTES de bater de novo.';
     var AVISO_SEM_REDE = 'Você está sem internet e não dá para saber se a batida saiu. Quando a conexão voltar, abra o ponto e confira antes de bater de novo.';
     var AVISO_ATRASADO = 'Demorou demais para enviar e a batida não saiu, para não gravar a hora errada. Tente de novo.';
+    // E11 (P21): a frase fixa da janela "Antes de registrar" da tela do ponto (desenho 16, L288).
+    var NOTA_DO_ALERTA = 'O alerta não impede o registro: a folha deve refletir o horário real.';
 
     var estado = null;            // a última resposta de /ponto/estado-do-dia
     var envioEmAndamento = false; // trava do clique: cobre a posição, a releitura e o POST (spec F2)
@@ -59,10 +64,12 @@
         var h = e.hoje || {};
         switch (e.estado) {
             case 'bater_entrada':
+                if (!podeBater) { return null; }   // "Bater ponto" sem a batida seria um botão que não faz nada
                 return { texto: 'Bater ponto', cor: '#0a6fa0', icone: 'bi-fingerprint', acao: 'entrada', dica: 'Clique para registrar a entrada' };
             case 'em_intervalo':
                 return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };
             case 'em_jornada':
+                if (!podeBater) { return { texto: 'Em jornada desde ' + h.entrada, cor: '#1e7b45', icone: 'bi-play-circle', acao: '', dica: '' }; }
                 return { texto: 'Em jornada desde ' + h.entrada, cor: '#1e7b45', icone: 'bi-play-circle', acao: 'saida', dica: 'Clique para registrar a saída' };
             case 'jornada_concluida':
                 return { texto: 'Jornada ' + h.entrada + ' às ' + h.saida, cor: '#5b7383', icone: 'bi-check2-circle', acao: '', dica: '' };
@@ -74,7 +81,7 @@
     /* O aviso de ontem (R3): fica ao lado da linha, que continua oferecendo a batida, e leva ao pedido de
        esquecimento. Null sem pendência de ontem. */
     function aviso() {
-        if (!estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }
+        if (!podeBater || !estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }
 
         return { texto: 'Regularizar ponto de ontem', cor: '#c76a12', icone: 'bi-exclamation-triangle', dica: 'Clique para informar a saída de ontem' };
     }
@@ -102,17 +109,24 @@
         return hora ? String(hora).slice(0, 5) : '';
     }
 
-    /* A frase do dc e, com a validação de interjornada ligada no escritório, o descanso que o servidor vai cobrar na
-       próxima entrada, com o valor configurado (decisão do dono, 19/10). */
+    /* A frase do dc e, com a validação de interjornada ligada no escritório, o descanso mínimo da próxima entrada, com
+       o valor configurado (decisão do dono, 19/10), no formato dos alertas da E11 ("11h", "6h30", "45min"). Desde a
+       E11 nada recusa a entrada: com os alertas ligados ela avisa antes de registrar; desligados, só se informa o
+       mínimo. Estado sem `alertasLigados` (servidor antigo) fica com a frase dos alertas ligados, o padrão (P96). */
     function descanso(min) {
         var h = Math.floor(min / 60);
         var m = min % 60;
+        if (!h) { return m + 'min'; }
 
-        return (h ? h + ' h' : '') + (h && m ? ' ' : '') + (m ? m + ' min' : '');
+        return h + 'h' + (m ? (m < 10 ? '0' : '') + m : '');
     }
     function confirmarSaida(base) {
         var texto = 'Registrar a saída agora (' + new Date().toTimeString().slice(0, 5) + ')?';
-        if (base.interjornadaMinimaMin) { texto += ' A próxima entrada só será aceita depois de ' + descanso(base.interjornadaMinimaMin) + ' de descanso.'; }
+        if (base.interjornadaMinimaMin) {
+            texto += base.alertasLigados === false
+                ? ' O descanso mínimo até a próxima entrada é de ' + descanso(base.interjornadaMinimaMin) + '.'
+                : ' Se a próxima entrada vier antes de ' + descanso(base.interjornadaMinimaMin) + ' de descanso, o sistema vai avisar antes de registrar.';
+        }
 
         return window.confirm(texto);
     }
@@ -121,6 +135,12 @@
        justificativa de esquecimento que já existe, aprovado pelo gestor). Nenhuma batida sai daqui. */
     function regularizarOntem(dia) {
         window.location.href = urlPonto + '?competencia=' + dia.slice(0, 7) + '&esquecimento=' + dia + ':saida';
+    }
+
+    /* E11 (P21): a batida saiu da regra de intervalo (interjornada ou descanso semanal) e o servidor não gravou. Fora
+       disso, null. */
+    function alertaDe(resultado) {
+        return resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string' ? resultado.data.alerta : null;
     }
 
     function mensagemDaCerca(onde) {
@@ -145,28 +165,50 @@
             aoMudar();   // mostra o item ocupado
             if (atual.acao === 'saida' && !confirmarSaida(base)) { return; }   // (2) cancelar destrava no finally
             var momentoDoToque = performance.now();                        // (3) depois da confirmação
-            var payload = { tipo: atual.acao };
-            if (!base.homeOffice) {
-                var position = await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS, function () {});   // (4)
-                if (!position) { avisar(AVISO_SEM_POSICAO); return; }
-                payload.latitude = position.coords.latitude;
-                payload.longitude = position.coords.longitude;
-                payload.precisaoGps = position.coords.accuracy;
-                var onde = PB.avaliarPosicao(                                                    // (5)
-                    { latitude: payload.latitude, longitude: payload.longitude, precisaoGps: payload.precisaoGps },
-                    base.sedes || []
-                );
-                if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }
+            // E13: a hora do aparelho no toque (o servidor guarda só como informação) e o identificador único do
+            // envio. Sem a função (módulo antigo no cache), a batida sai sem ele, como antes. Fila sem internet não
+            // há aqui: é só da tela do ponto (E14); o atalho sem rede segue com o aviso de sempre.
+            var horaAparelho = Date.now();
+            var payload = { tipo: atual.acao, idEnvio: typeof PB.novoIdDeEnvio === 'function' ? PB.novoIdDeEnvio() : undefined, horaAparelho: horaAparelho };
+            // E11: a volta do laço é a do "Registrar assim mesmo". A batida com alerta não gravou; confirmada, passa de
+            // novo pela posição, pela cerca e pela releitura do estado (comparada com `base`, o retrato do clique)
+            // antes do segundo envio, com a hora da confirmação. Se o estado mudou nesse meio, não envia.
+            var confirmouAlerta = false;
+            var resultado;
+            for (;;) {
+                // E7: com a geolocalização desligada (Master ou escritório) não pede a posição nem avalia a cerca,
+                // como o servidor. `!== false`: um estado sem o campo continua pedindo a posição.
+                if (!base.homeOffice && base.geoLigado !== false) {
+                    var position = await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS, function () {});   // (4)
+                    if (!position) { avisar(AVISO_SEM_POSICAO); return; }
+                    payload.latitude = position.coords.latitude;
+                    payload.longitude = position.coords.longitude;
+                    payload.precisaoGps = position.coords.accuracy;
+                    var onde = PB.avaliarPosicao(                                                    // (5)
+                        { latitude: payload.latitude, longitude: payload.longitude, precisaoGps: payload.precisaoGps },
+                        base.sedes || []
+                    );
+                    if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }
+                }
+                var conferido = await lerEstado(RELEITURA_PRAZO_MS);                                 // (6)
+                if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }
+                if (conferido.estado !== base.estado || conferido.dia !== base.dia) {
+                    estado = conferido;
+                    aoMudar();
+                    avisar(AVISO_MUDOU);
+                    return;
+                }
+                resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
+                // E11: o alerta não impede o registro. O atalho pergunta como já pergunta na saída e, confirmado, refaz
+                // a MESMA batida (o mesmo `idEnvio`, nada foi gravado) com a confirmação.
+                var alerta = confirmouAlerta ? null : alertaDe(resultado);
+                if (alerta === null) { break; }
+                if (!window.confirm(alerta + ' ' + NOTA_DO_ALERTA + ' Registrar assim mesmo?')) { return; }
+                confirmouAlerta = true;
+                momentoDoToque = performance.now();
+                payload.horaAparelho = Date.now();
+                payload.confirmarAlerta = true;
             }
-            var conferido = await lerEstado(RELEITURA_PRAZO_MS);                                 // (6)
-            if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }
-            if (conferido.estado !== base.estado || conferido.dia !== base.dia) {
-                estado = conferido;
-                aoMudar();
-                avisar(AVISO_MUDOU);
-                return;
-            }
-            var resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
             if (resultado.tipo === 'sucesso') {
                 sucesso = true;
                 avisosDaBatida = avisosDe(resultado);

@@ -7,7 +7,9 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\EstadoDoPontoDoDiaOutput;
+use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -98,6 +100,19 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertSame('2026-10-19', $saida->ontemSemSaida);
     }
 
+    #[TestDox('Regularizar ontem com a batida efetiva (E10): a entrada incluída pelo gestor conta, e a saída incluída fecha o dia')]
+    public function testRegularizarOntemPelaBatidaEfetiva(): void
+    {
+        [$user, $tenant] = $this->pessoa();
+        $this->incluir($user, $tenant, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');   // segunda, só a inclusão
+
+        self::assertSame('2026-10-19', $this->casoDeUsoEm('2026-10-20 10:00')->executar($user, $tenant)->ontemSemSaida, 'a entrada incluída não tem registro, e conta');
+
+        $this->incluir($user, $tenant, RegistroPonto::TIPO_SAIDA, '2026-10-19 17:00');
+
+        self::assertNull($this->casoDeUsoEm('2026-10-20 10:00')->executar($user, $tenant)->ontemSemSaida, 'a saída incluída fecha o dia');
+    }
+
     #[TestDox('Regularizar ontem some: com saída, num fim de semana, sem batida ou com o esquecimento da saída já pedido')]
     public function testSemRegularizarOntem(): void
     {
@@ -165,6 +180,20 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertNull($this->casoDeUso()->executar($user, $tenant)->interjornadaMinimaMin);
     }
 
+    #[TestDox('E11: o estado diz se os alertas de intervalo valem no escritório (ligados sem registro; desligados pela camada Escritório)')]
+    public function testAlertasLigados(): void
+    {
+        [$user, $tenant] = $this->pessoa();
+        self::assertTrue($this->casoDeUso()->executar($user, $tenant)->alertasLigados, 'P96: nasce ligada');
+
+        $configuracao = new ConfiguracaoDoPonto($tenant);
+        $configuracao->definir(FuncoesDoPonto::ALERTAS, false, $user, new \DateTimeImmutable());
+        $this->em->persist($configuracao);
+        $this->em->flush();
+
+        self::assertFalse($this->casoDeUso()->executar($user, $tenant)->alertasLigados);
+    }
+
     #[TestDox('Regularizar ontem, as demais condições do "+": feriado e abonado bloqueiam; esquecimento de outra batida não; hoje em jornada continua no estado')]
     public function testCondicoesDoMais(): void
     {
@@ -226,6 +255,7 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
             $relogio,   // o fuso do sistema, como o relógio real
             $c->get(\App\Ponto\Repository\JornadaColaboradorRepository::class),
             new \App\Ponto\Service\PublicoDosAvisosDePonto($c->get(\App\Repository\UserTenantRepository::class), $c->get(\App\Ponto\Repository\RegistroPontoRepository::class), $relogio),
+            $c->get(\App\Ponto\Service\FuncoesDoPonto::class),
         );
     }
 
@@ -250,6 +280,15 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         $this->em->flush();
 
         return [$user, $tenant];
+    }
+
+    /** A batida incluída pelo gestor (E10): só em `ponto_ajuste`, pela gravação do ajuste, dentro da transação. */
+    private function incluir(User $user, Tenant $tenant, string $tipo, string $quando): void
+    {
+        $c = static::getContainer();
+        $trilha = $c->get(\App\Ponto\Service\TrilhaDoPonto::class);
+        $gravacao = new \App\Ponto\Service\GravacaoDoAjusteDoPonto($this->em, $trilha, $c->get(\App\Ponto\Service\HorarioFuturoDaBatida::class), $c->get(\Psr\Clock\ClockInterface::class));
+        $trilha->emTransacao(static fn () => $gravacao->incluir($tenant, $user, $tipo, new \DateTimeImmutable($quando), 'Inclusão do gestor.', $user, null));
     }
 
     private function batida(User $user, Tenant $tenant, string $tipo, string $quando): void

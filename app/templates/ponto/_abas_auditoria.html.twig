@@ -1,0 +1,50 @@
+{#
+    Painel da aba "Auditoria" (E9, P64; desenho 16 L222 a L225), buscado por AuditoriaDoPontoController
+    (`ponto_auditoria`). Cabeçalho com a conferência da cadeia, tabela dos eventos (o mais recente primeiro) e o vazio do
+    desenho. 300 eventos por página (inventário 2.11, L313); os botões de página (o desenho não os mostra) trocam pelo
+    js/ponto-auditoria.js, que busca o painel de novo com `?pagina=`; nenhum script roda dentro deste parcial.
+
+    Recebe: trilha (PaginaDaTrilhaDoPontoOutput).
+#}
+{% set conferencia = trilha.conferencia %}
+{% set icone = {integra: 'bi-shield-check', alterada: 'bi-shield-exclamation', nao_selada: 'bi-shield-slash', trecho_sem_selo: 'bi-shield-slash'}[conferencia.situacao] %}
+<div class="pe-audit-cab pe-audit-cab--{{ conferencia.situacao|replace({'_': '-'}) }}" role="status">
+    <i class="bi {{ icone }}" aria-hidden="true"></i>{{ conferencia.texto }}
+</div>
+{% if trilha.eventos is not empty %}
+    <div class="pe-audit-rolagem">
+        <table class="pe-tab pe-audit-tab">
+            <thead><tr><th>Data e hora</th><th>Autor</th><th>Ação</th><th>Detalhe</th><th>Selo</th></tr></thead>
+            <tbody>
+                {% for evento in trilha.eventos %}
+                    <tr>
+                        <td>{{ evento.dataHora }}</td>
+                        <td>{{ evento.autor }}</td>
+                        <td><b>{{ evento.acao }}</b></td>
+                        <td class="pe-audit-detalhe">{{ evento.detalhe }}</td>
+                        <td>
+                            {%- if evento.seloCurto is not null -%}
+                                <code class="pe-audit-selo" title="{{ evento.selo }}">{{ evento.seloCurto }}</code>
+                            {%- else -%}
+                                <span class="pe-audit-sem-selo">sem selo</span>
+                            {%- endif -%}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if trilha.paginas > 1 %}
+        <nav class="pe-audit-paginas" aria-label="Páginas da auditoria">
+            <button type="button" class="pe-audit-pag" data-auditoria-pagina="{{ path('ponto_auditoria', {pagina: trilha.pagina - 1}) }}"{{ trilha.temAnterior ? '' : ' disabled' }}>
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>Mais recentes
+            </button>
+            <span class="pe-audit-pag-txt">Página {{ trilha.pagina }} de {{ trilha.paginas }} ({{ trilha.total }} eventos)</span>
+            <button type="button" class="pe-audit-pag" data-auditoria-pagina="{{ path('ponto_auditoria', {pagina: trilha.pagina + 1}) }}"{{ trilha.temProxima ? '' : ' disabled' }}>
+                Mais antigos<i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </button>
+        </nav>
+    {% endif %}
+{% else %}
+    <div class="pe-abas-vazio">Os eventos aparecem aqui a partir do próximo registro.</div>
+{% endif %}

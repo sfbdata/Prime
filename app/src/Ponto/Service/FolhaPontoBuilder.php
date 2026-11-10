@@ -10,6 +10,7 @@ use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
@@ -23,10 +24,11 @@ class FolhaPontoBuilder
         private readonly JustificativaPontoRepository $justificativaPontoRepository,
         private readonly LancamentoHorasPagasRepository $lancamentoHorasPagasRepository,
         private readonly JornadaColaboradorRepository $jornadaColaboradorRepository,
+        private readonly FeriadosDaPessoa $feriadosDaPessoa,
     ) {}
 
     /**
-     * @param RegistroPonto[] $batidas
+     * @param MarcacaoDoPonto[] $batidas as batidas efetivas do período (E10: a original sem ajuste ou a ajustada)
      * @param Feriado[] $feriados
      * @param array<string, JustificativaPonto> $justificativasDoMes Justificativas indexadas por 'Y-m-d'
      * @param JornadaColaborador|HistoricoDeJornadas|null $jornada As versões da jornada pessoal (cada dia usa a que
@@ -36,7 +38,9 @@ class FolhaPontoBuilder
      *                                            `null` significa colaborador sem nenhum registro de ponto: nenhum
      *                                            dia conta. Dias anteriores a ela ficam fora (sem saldo, sem somar
      *                                            no banco). Admissão e data de cadastro não entram nessa conta.
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, tipo: string, hora: string}>}>
+     * @param ?\DateTimeImmutable $hoje         O dia de hoje da folha (dia futuro e hoje sem saída). Omitido, o de
+     *                                            agora; o banco passa o dia de referência dos lotes (E17).
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, alvo: ?string, cabeca: ?int, tipo: ?string, hora: string}>}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -48,7 +52,8 @@ class FolhaPontoBuilder
         array $feriados = [],
         array $justificativasDoMes = [],
         ?JornadaTenant $jornadaTenant = null,
-        \DateTimeInterface|null|false $inicioContagem = false
+        \DateTimeInterface|null|false $inicioContagem = false,
+        ?\DateTimeImmutable $hoje = null
     ): array {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
         $historico = $jornada instanceof JornadaColaborador ? HistoricoDeJornadas::deUma($jornada) : $jornada;
@@ -73,9 +78,8 @@ class FolhaPontoBuilder
         ];
 
         $rows = [];
-        $saldoAcumulado = 0;
-        $hoje = new \DateTimeImmutable('today');
-
+        $saldoAcumulado = null;
+        $hoje = $hoje?->setTime(0, 0) ?? new \DateTimeImmutable('today');
         $inicioContagemNorm = $inicioContagem !== null
             ? \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0)
             : null;
@@ -86,7 +90,6 @@ class FolhaPontoBuilder
             $diaFuturo = $dia > $hoje;
             // Sem primeiro registro, nenhum dia conta; com ele, os anteriores ficam de fora.
             $diaForaDaContagem = $inicioContagemNorm === null || $dia < $inicioContagemNorm;
-
             $escolha = $this->calculadora->escolherBatidas($batidasPorDia[$chaveDia] ?? [], $dia);
 
             $row = [
@@ -101,19 +104,13 @@ class FolhaPontoBuilder
                 'repousoId' => $escolha->repouso?->getId(),
                 'retornoId' => $escolha->retorno?->getId(),
                 'saidaId'   => $escolha->saida?->getId(),
+                ...self::ajustesDaEscolha($escolha),   // E10: {tipo}Alvo, {tipo}Cabeca e {tipo}Ajuste
                 // Dia ambíguo (dois registros distintos do mesmo tipo, retorno antes do repouso): só
                 // avisa, na tela do colaborador e na ficha do admin. O PDF e o XLSX assinados não mudam.
                 'aConferir' => $escolha->aConferir,
                 // As batidas do dia que não entram na conta, para o admin alcançar e corrigir — antes
                 // desta mudança elas não apareciam em lugar nenhum da folha.
-                'batidasDesconsideradas' => array_map(
-                    static fn (RegistroPonto $batida): array => [
-                        'id'   => $batida->getId(),
-                        'tipo' => $batida->getTipo(),
-                        'hora' => $batida->getDataHora()->format('H:i:s'),
-                    ],
-                    $escolha->desconsideradas,
-                ),
+                'batidasDesconsideradas' => self::foraDaConta($escolha),
                 'fimSemana'       => $indiceDiaSemana >= 6,
                 'domingo'         => $indiceDiaSemana === 7,
                 'antesDoPrimeiroRegistro' => $diaForaDaContagem,
@@ -127,14 +124,15 @@ class FolhaPontoBuilder
                 'minutosTrabalhadosDia' => null,
                 'saldoDia'       => null,
                 'saldoAcumulado' => null,
+                'saldoAcumuladoAteOntem' => null,   // E17: o "Saldo mês" do dia em andamento (desenho L157)
                 'justificadoDia' => false,
                 'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
-                'homeOffice'     => $this->diaTeveHomeOffice($escolha->escolhidas()),
+                ...$this->marcasDoDia($escolha->escolhidas()),   // homeOffice e semInternet
             ];
 
             $jornadaDoDia = $historico?->vigenteEm($dia);
             if ($jornadaDoDia !== null) {
-                $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriados);
+                [$feriadosDaPessoa, $feriadoDoDia] = $this->feriadosDaPessoaNoDia($feriados, $jornadaDoDia->getUser(), $dia);
                 if ($diaFuturo || $diaForaDaContagem) {
                     // Dia futuro ou anterior ao primeiro registro: não exibe saldo nem soma no banco
                     $row['minutosTrabalhadosDia'] = null;
@@ -167,9 +165,10 @@ class FolhaPontoBuilder
                         $row['minutosTrabalhadosDia'] = $minutos;
                         $row['saldoDia']              = null;
                         $row['saldoAcumulado']        = null;
+                        $row['saldoAcumuladoAteOntem'] = $saldoAcumulado;   // null sem dia apurado antes (dia 1º)
                     } else {
                         $minutos = $this->calculadora->calcularMinutosDaEscolha($escolha);
-                        $saldoDia = $this->calculadora->calcularSaldoDiaDaEscolha($jornadaDoDia->getUser(), $dia, $escolha, $jornadaDoDia, $feriados, $jornadaTenant);
+                        $saldoDia = $this->calculadora->calcularSaldoDiaDaEscolha($jornadaDoDia->getUser(), $dia, $escolha, $jornadaDoDia, $feriadosDaPessoa, $jornadaTenant);
 
                         $registroIncompleto = $this->calculadora->registroIncompletoDaEscolha($escolha);
 
@@ -189,7 +188,7 @@ class FolhaPontoBuilder
                                 ? TipoJustificativa::tryFrom($justificativaDoDia->getTipo())
                                 : null;
 
-                            if ($tipoJustificativa !== null && !$tipoJustificativa->abonaSaldo()) {
+                            if ($this->naoPerdoaAJornada($justificativaDoDia, $tipoJustificativa)) {
                                 // Categoria técnica (Esquecimento de Registro e irmãos) e falta não
                                 // justificada: aparecem na folha, mas não perdoam a jornada. A aprovação
                                 // do esquecimento já repôs a batida — o déficit que sobra é atraso ou
@@ -204,7 +203,7 @@ class FolhaPontoBuilder
                             }
                         }
 
-                        $saldoAcumulado += $saldoDia;
+                        $saldoAcumulado = ($saldoAcumulado ?? 0) + $saldoDia;
 
                         $row['minutosTrabalhadosDia'] = $minutos;
                         $row['saldoDia']              = $saldoDia;
@@ -238,18 +237,32 @@ class FolhaPontoBuilder
     }
 
     /**
+     * Os feriados que valem para a pessoa da jornada NO DIA (abrangência pela lotação que ela tinha no dia, E6) e o
+     * feriado do dia entre eles, se houver. A lista volta junto porque o saldo do dia usa a mesma.
+     *
+     * @param Feriado[] $feriados
+     *
+     * @return array{0: list<Feriado>, 1: ?Feriado}
+     */
+    private function feriadosDaPessoaNoDia(array $feriados, ?User $pessoa, \DateTimeImmutable $dia): array
+    {
+        $daPessoa = $this->feriadosDaPessoa->filtrar($feriados, $pessoa, $dia);
+
+        return [$daPessoa, $this->calculadora->getFeriadoDoDia($dia, $daPessoa)];
+    }
+
+    /**
      * Saldo do mês exibido: o ÚLTIMO `saldoAcumulado` não-nulo das linhas da folha — exatamente o
      * número que a última linha preenchida da coluna "Saldo do Mês" mostra. `null` quando nenhuma
      * linha tem saldo apurado (mês sem batida nenhuma; dia em aberto, sem saída, devolve `null` e
-     * por isso a varredura é de trás para frente, como já fazem `calcularSaldoAteMes` e
-     * `calcularSaldoAnual` por dentro).
+     * por isso a varredura é de trás para frente). O banco de horas soma este número mês a mês
+     * (`saldosDaFolhaPorCompetencia`).
      *
      * Atenção ao escopo: é o saldo DAQUELE MÊS, não o banco acumulado — `buildRows` faz o
      * `saldoAcumulado` nascer em zero no primeiro dia do intervalo pedido.
      *
-     * Mora aqui, e não em cada controller, porque as DUAS telas que incluem
-     * `ponto/_folha_table.html.twig` (o `/ponto` do colaborador e a ficha do admin) precisam do
-     * mesmo número; duplicar a varredura nos dois convidaria as duas telas a divergirem.
+     * O banco (`saldosDaFolhaPorCompetencia`) soma este número mês a mês. A /ponto e a ficha do admin tiram o total do
+     * mês do próprio banco (E17), e o PDF e o XLSX fazem a mesma conta sobre as linhas em `DadosDaFolhaExportada::montar`.
      *
      * @param array<int, array<string, mixed>> $rows linhas de `buildRows()`
      */
@@ -265,9 +278,25 @@ class FolhaPontoBuilder
     }
 
     /**
+     * Os selos do dia no espelho, tirados das batidas escolhidas: home office e sem internet. O trabalho externo (E12)
+     * não tem selo (decisão C1 de 10/11/2026): ele aparece "Em análise" na coluna Justificativa.
+     *
+     * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia
+     *
+     * @return array{homeOffice: bool, semInternet: bool}
+     */
+    private function marcasDoDia(array $batidasDoDia): array
+    {
+        return [
+            'homeOffice'  => $this->diaTeveHomeOffice($batidasDoDia),
+            'semInternet' => $this->diaTeveBatidaSemInternet($batidasDoDia),
+        ];
+    }
+
+    /**
      * Indica se o dia teve ao menos uma batida em home office (para o selo no espelho).
      *
-     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia, como sempre foi
+     * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia, como sempre foi
      */
     private function diaTeveHomeOffice(array $batidasDoDia): bool
     {
@@ -278,6 +307,102 @@ class FolhaPontoBuilder
         }
 
         return false;
+    }
+
+    /**
+     * E10: o alvo do ajuste de cada batida escolhida ('b{id}' ou 'a{id}'), a cabeça da linhagem (a "cabeça esperada"
+     * que a tela manda de volta) e o ajuste que a batida efetiva carrega ({tipo, por, em}, para a marca "aj" do
+     * desenho). Fora de `buildRows` só para o método caber no limite de tamanho; as chaves são o contrato da tela.
+     *
+     * @return array<string, mixed>
+     */
+    private static function ajustesDaEscolha(BatidasEscolhidas $escolha): array
+    {
+        $alvos = $cabecas = $ajustes = [];
+        foreach (RegistroPonto::TIPOS_VALIDOS as $tipo) {
+            $batida = $escolha->doTipo($tipo);
+            $alvos[$tipo . 'Alvo'] = self::alvoDe($batida);
+            $cabecas[$tipo . 'Cabeca'] = $batida?->cabeca();
+            $ajustes[$tipo . 'Ajuste'] = self::ajusteDe($batida);
+        }
+
+        return $alvos + $cabecas + $ajustes;
+    }
+
+    /**
+     * As batidas do dia que ficaram fora da escolha, com o alvo do ajuste de cada uma e a cabeça da linhagem (E10): o "x"
+     * do "Fora da conta" manda a cabeça de volta, como o das células, e sem ela a inclusão e a batida ajustada voltariam
+     * com o aviso "mudou".
+     *
+     * @return list<array{id: ?int, alvo: ?string, cabeca: ?int, tipo: ?string, hora: string}>
+     */
+    private static function foraDaConta(BatidasEscolhidas $escolha): array
+    {
+        return array_map(
+            static fn (MarcacaoDoPonto $batida): array => [
+                'id'     => $batida->getId(),
+                'alvo'   => self::alvoDe($batida),
+                'cabeca' => $batida->cabeca(),
+                'tipo'   => $batida->getTipo(),
+                'hora'   => $batida->getDataHora()->format('H:i:s'),
+            ],
+            $escolha->desconsideradas,
+        );
+    }
+
+    /**
+     * O alvo do ajuste da batida (E10): 'b{id}' para a batida gravada, 'a{id}' para a inclusão. Uma batida ainda não
+     * gravada (só nos testes de unidade, que montam a folha sem banco) não tem alvo.
+     */
+    private static function alvoDe(?MarcacaoDoPonto $batida): ?string
+    {
+        if ($batida === null || ($batida instanceof RegistroPonto && $batida->getId() === null)) {
+            return null;
+        }
+
+        return $batida->alvo();
+    }
+
+    /**
+     * O ajuste que a batida efetiva carrega, para a marca "aj" e a dica do desenho ("Ajustado por NOME em dd/mm/aaaa.
+     * Registro original preservado.", L154 e L749). Nulo na batida como foi batida.
+     *
+     * @return array{tipo: string, por: string, em: string}|null
+     */
+    private static function ajusteDe(?MarcacaoDoPonto $batida): ?array
+    {
+        $ajuste = $batida?->ajuste();
+        if ($ajuste === null) {
+            return null;
+        }
+
+        return ['tipo' => $ajuste->tipo->value, 'por' => $ajuste->autorNome, 'em' => $ajuste->em->format('d/m/Y')];
+    }
+
+    /**
+     * Indica se alguma batida escolhida do dia veio da fila do aparelho, guardada sem internet (selo "Sem internet",
+     * spec ponto-desenho-0811 E14). Como o home office: as batidas fora da conta não acendem o selo.
+     *
+     * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia
+     */
+    private function diaTeveBatidaSemInternet(array $batidasDoDia): bool
+    {
+        foreach ($batidasDoDia as $batida) {
+            if ($batida->isEnviadaSemInternet()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A justificativa abonada que aparece na folha sem perdoar a jornada: a de categoria técnica, a falta não
+     * justificada e a ligada a uma batida (trabalho externo, E12), cuja aprovação só confirma a batida, que já conta.
+     */
+    private function naoPerdoaAJornada(JustificativaPonto $justificativa, ?TipoJustificativa $tipo): bool
+    {
+        return $justificativa->analisaUmaBatida() || ($tipo !== null && !$tipo->abonaSaldo());
     }
 
     /**
@@ -298,20 +423,26 @@ class FolhaPontoBuilder
     }
 
     /**
+     * A jornada da folha da /ponto e do banco de horas, montada só aqui: as versões da jornada pessoal no escritório da
+     * folha (cada dia usa a que valia nele, spec seguranca-b-jornada §3.2 e ponto-jornada-vigencia §3.2) e, para quem
+     * não tem jornada pessoal e nos dias antes da primeira versão, a jornada vazia, que o JornadaResolver completa com a
+     * padrão do escritório (§10.4). O banco (topo, aba, saldo anterior do PDF e do XLSX) conta os dias com esta mesma
+     * jornada, então a soma do "Saldo mês" da folha da /ponto é o banco.
+     */
+    public function jornadaDaFolha(User $user, Tenant $tenant): HistoricoDeJornadas|JornadaColaborador
+    {
+        $semJornadaPessoal = (new JornadaColaborador())->setUser($user);
+
+        return $this->jornadaColaboradorRepository->historicoDe($user, $tenant)?->comJornadaAntesDaPrimeira($semJornadaPessoal)
+            ?? $semJornadaPessoal;
+    }
+
+    /**
      * Mesma sentinela do $inicioContagem, e pelo mesmo motivo: distingue "não informado" (erro de
      * chamada) de `null` ("não há tenant"). Enquanto o parâmetro tinha default `null`, qualquer
      * chamador que esquecesse o tenant perdia os lançamentos de horas pagas em SILÊNCIO — sem
      * exceção, sem log, com a folha aparentemente normal e o banco de horas errado.
      */
-    /**
-     * As versões da jornada pessoal no escritório da folha (spec seguranca-b-jornada §3.2 e ponto-jornada-vigencia
-     * §3.2); sem escritório, nenhuma.
-     */
-    private function jornadaNoEscritorio(User $user, ?Tenant $tenant): ?HistoricoDeJornadas
-    {
-        return $tenant === null ? null : $this->jornadaColaboradorRepository->historicoDe($user, $tenant);
-    }
-
     private function exigirTenant(Tenant|null|false $tenant, string $metodo): ?Tenant
     {
         if ($tenant === false) {
@@ -326,8 +457,9 @@ class FolhaPontoBuilder
     }
 
     /**
-     * Calcula o saldo acumulado do banco de horas até o último dia do mês informado.
-     * Útil para obter o "saldo anterior" antes da competência exportada.
+     * O banco de horas até o último dia do mês informado: o "saldo anterior" da competência exportada e o "saldo
+     * depois" do aviso das horas pagas. Desde a E17 (spec ponto-desenho-0811, P51 a) atravessa os anos: soma todas as
+     * competências de `saldosDoBancoPorCompetencia` até o mês pedido, o mesmo número dos lotes da aba "Banco de Horas".
      *
      * @param Feriado[] $feriados
      * @param Tenant|null|false $tenant Escritório do colaborador, obrigatório: `false` (omitido) é erro
@@ -338,178 +470,116 @@ class FolhaPontoBuilder
     {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
         $tenantNorm = $this->exigirTenant($tenant, __FUNCTION__);
+        $inicio = $inicioContagem instanceof \DateTimeInterface ? $inicioContagem : null;
+        $ate = sprintf('%04d-%02d', $ano, $mes);
 
-        // Horas pagas somam SEMPRE, antes de qualquer saída antecipada: um lançamento numa competência
-        // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
-        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, $mes);
-
-        $jornada = $this->jornadaNoEscritorio($user, $tenantNorm);
-        // Sem escritório não há jornada (`jornadaNoEscritorio`): a checagem de $tenantNorm só deixa explícito que as
-        // consultas do laço abaixo levam sempre um escritório.
-        if ($jornada === null || $tenantNorm === null) {
-            return $horasPagas;
-        }
-
-        $hoje = new \DateTimeImmutable('today');
-
-        // Sem nenhum registro de ponto não há o que contar.
-        if ($inicioContagem === null) {
-            return $horasPagas;
-        }
-        $inicioContagemNorm = \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
-
-        $inicioAno = new \DateTimeImmutable(sprintf('%04d-01-01', $ano));
-        $inicio = $inicioContagemNorm > $inicioAno ? $inicioContagemNorm : $inicioAno;
-
-        $limiteMax = new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes));
-        $limiteMax = $limiteMax->modify('last day of this month');
-        $fim = $hoje < $limiteMax ? $hoje : $limiteMax;
-
-        if ($inicio > $fim) {
-            return $horasPagas;
-        }
-
-        $saldoTotal = 0;
-        $mesAtual = (int) $inicio->format('m');
-        $anoAtual = (int) $inicio->format('Y');
-        $mesFim   = (int) $fim->format('m');
-        $anoFim   = (int) $fim->format('Y');
-
-        while ($anoAtual < $anoFim || ($anoAtual === $anoFim && $mesAtual <= $mesFim)) {
-            $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01', $anoAtual, $mesAtual));
-            $fimMes = $inicioMes->modify('last day of this month');
-
-            $inicioEfetivo = $inicio > $inicioMes ? $inicio : $inicioMes;
-            $fimEfetivo    = $fim < $fimMes ? $fim : $fimMes;
-
-            $batidas = $this->registroPontoRepository->findByUserAndCompetencia($user, $tenantNorm, $anoAtual, $mesAtual);
-            $justificativas = $this->justificativaPontoRepository->findByUserAndCompetenciaIndexed($user, $tenantNorm, $anoAtual, $mesAtual);
-
-            $rows = $this->buildRows(
-                $inicioEfetivo->setTime(0, 0, 0),
-                $fimEfetivo->setTime(23, 59, 59),
-                $batidas,
-                true,
-                false,
-                $jornada,
-                $feriados,
-                $justificativas,
-                $jornadaTenant,
-                $inicioContagemNorm
-            );
-
-            if (!empty($rows)) {
-                foreach (array_reverse($rows) as $row) {
-                    if ($row['saldoAcumulado'] !== null) {
-                        $saldoTotal += $row['saldoAcumulado'];
-                        break;
-                    }
-                }
-            }
-
-            $mesAtual++;
-            if ($mesAtual > 12) {
-                $mesAtual = 1;
-                $anoAtual++;
+        $saldo = 0;
+        foreach ($this->saldosDoBancoPorCompetencia($user, $tenantNorm, $feriados, $jornadaTenant, $inicio) as $competencia => $minutos) {
+            if ($competencia <= $ate) {
+                $saldo += $minutos;
             }
         }
 
-        return $saldoTotal + $horasPagas;
+        return $saldo;
     }
 
     /**
-     * Calcula o saldo acumulado do banco de horas para o ano inteiro.
+     * O banco de horas mês a mês ('AAAA-MM' => minutos, da competência mais antiga para a mais nova), a fonte única do
+     * saldo do topo, dos lotes (`BancoDeHorasPorLotes`) e do "saldo anterior" das exportações.
      *
-     * Regras:
-     * - Começa no max(primeira batida do colaborador, 01/01/ano) — admissão/cadastro não contam
-     * - Termina no min(hoje, 31/12/ano) — dias futuros nunca contam
+     * O valor de um mês é o saldo da folha daquele mês (do início da contagem até hoje; dia futuro e hoje sem saída não
+     * contam), com a jornada da folha da /ponto (`jornadaDaFolha`), mais os lançamentos de horas pagas da competência,
+     * com sinal (P53). Atravessa os anos: o banco não zera mais em 1º de janeiro (P51 a). Horas pagas somam sempre: o
+     * lançamento de antes do início da contagem ou de competência futura entra na própria competência. Sem escritório,
+     * nada (não há como filtrar). `$hoje` é o dia de referência (o mesmo dos vencimentos dos lotes); omitido, hoje.
+     *
+     * Consultas fixas, qualquer que seja o número de meses: a jornada, as batidas e as justificativas do período
+     * inteiro e as horas pagas agrupadas por competência. A /ponto abre várias vezes por dia e os meses crescem sem teto.
      *
      * @param Feriado[] $feriados
-     * @param Tenant|null|false $tenant Escritório do colaborador, obrigatório: `false` (omitido) é erro
-     *                                  de chamada e lança; `null` significa "não há tenant" e então os
-     *                                  lançamentos de horas pagas não somam.
+     * @return array<string, int>
      */
-    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, Tenant|null|false $tenant = false): int
+    public function saldosDoBancoPorCompetencia(User $user, ?Tenant $tenant, array $feriados, ?JornadaTenant $jornadaTenant, ?\DateTimeInterface $inicioContagem, ?\DateTimeImmutable $hoje = null): array
     {
-        $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
-        $tenantNorm = $this->exigirTenant($tenant, __FUNCTION__);
-
-        // Horas pagas somam SEMPRE, antes de qualquer saída antecipada: um lançamento numa competência
-        // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
-        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, 12);
-
-        $jornada = $this->jornadaNoEscritorio($user, $tenantNorm);
-        // Sem escritório não há jornada (`jornadaNoEscritorio`): a checagem de $tenantNorm só deixa explícito que as
-        // consultas do laço abaixo levam sempre um escritório.
-        if ($jornada === null || $tenantNorm === null) {
-            return $horasPagas;
+        if ($tenant === null) {
+            return [];
         }
 
-        $hoje = new \DateTimeImmutable('today');
+        return $this->saldosDoBancoComJornada($user, $tenant, $this->jornadaDaFolha($user, $tenant), $feriados, $jornadaTenant, $inicioContagem, $hoje ?? new \DateTimeImmutable('today'));
+    }
 
-        // Sem nenhum registro de ponto não há o que contar.
-        if ($inicioContagem === null) {
-            return $horasPagas;
+    /**
+     * O mesmo banco de `saldosDoBancoPorCompetencia`, com a jornada informada. A tela usa sempre `jornadaDaFolha`; outra
+     * jornada só serve para comparar com a regra de antes da E17 (`app:ponto:banco:comparar-virada`, as versões cruas).
+     *
+     * @param Feriado[] $feriados
+     * @return array<string, int>
+     */
+    public function saldosDoBancoComJornada(User $user, Tenant $tenant, JornadaColaborador|HistoricoDeJornadas|null $jornada, array $feriados, ?JornadaTenant $jornadaTenant, ?\DateTimeInterface $inicioContagem, \DateTimeImmutable $hoje): array
+    {
+        $saldos = $this->saldosDaFolhaPorCompetencia($user, $tenant, $jornada, $feriados, $jornadaTenant, $inicioContagem, $hoje->setTime(0, 0));
+        foreach ($this->lancamentoHorasPagasRepository->somarPorCompetenciaDoColaborador($user, $tenant) as $competencia => $minutos) {
+            $saldos[$competencia] = ($saldos[$competencia] ?? 0) + $minutos;
         }
-        $inicioContagemNorm = \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
+        ksort($saldos, SORT_STRING);
 
-        $inicioAno = new \DateTimeImmutable(sprintf('%04d-01-01', $ano));
-        $inicio = $inicioContagemNorm > $inicioAno ? $inicioContagemNorm : $inicioAno;
+        return $saldos;
+    }
 
-        $fimAno = new \DateTimeImmutable(sprintf('%04d-12-31', $ano));
-        $fim = $hoje < $fimAno ? $hoje : $fimAno;
-
-        if ($inicio > $fim) {
-            return $horasPagas;
+    /**
+     * O saldo da folha de cada mês, do mês do início da contagem até o mês de `$hoje`. Sem jornada ou sem nenhum
+     * registro de ponto, nada conta. Cada mês é a folha do mês, a mesma de `buildRows`: o banco é a soma do "Saldo mês"
+     * de cada competência.
+     *
+     * @param Feriado[] $feriados
+     * @return array<string, int>
+     */
+    private function saldosDaFolhaPorCompetencia(User $user, Tenant $tenant, JornadaColaborador|HistoricoDeJornadas|null $jornada, array $feriados, ?JornadaTenant $jornadaTenant, ?\DateTimeInterface $inicioContagem, \DateTimeImmutable $hoje): array
+    {
+        $inicio = $inicioContagem === null ? null : \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
+        if ($jornada === null || $inicio === null || $inicio > $hoje) {
+            return [];
         }
 
-        $saldoTotal = 0;
-        $mesAtual = (int) $inicio->format('m');
-        $anoAtual = (int) $inicio->format('Y');
-        $mesFim   = (int) $fim->format('m');
-        $anoFim   = (int) $fim->format('Y');
+        $batidasPorMes = $this->batidasPorMes($user, $tenant, $inicio, $hoje->setTime(23, 59, 59));
+        $justificativas = $this->justificativaPontoRepository->findByUserEPeriodoIndexed($user, $tenant, $inicio, $hoje);
 
-        while ($anoAtual < $anoFim || ($anoAtual === $anoFim && $mesAtual <= $mesFim)) {
-            $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01', $anoAtual, $mesAtual));
-            $fimMes = $inicioMes->modify('last day of this month');
-
-            $inicioEfetivo = $inicio > $inicioMes ? $inicio : $inicioMes;
-            $fimEfetivo    = $fim < $fimMes ? $fim : $fimMes;
-
-            $batidas = $this->registroPontoRepository->findByUserAndCompetencia($user, $tenantNorm, $anoAtual, $mesAtual);
-            $justificativas = $this->justificativaPontoRepository->findByUserAndCompetenciaIndexed($user, $tenantNorm, $anoAtual, $mesAtual);
-
+        $saldos = [];
+        for ($mes = $inicio->modify('first day of this month'); $mes <= $hoje; $mes = $mes->modify('+1 month')) {
+            $fimDoMes = $mes->modify('last day of this month');
             $rows = $this->buildRows(
-                $inicioEfetivo->setTime(0, 0, 0),
-                $fimEfetivo->setTime(23, 59, 59),
-                $batidas,
+                $inicio > $mes ? $inicio : $mes,
+                ($hoje < $fimDoMes ? $hoje : $fimDoMes)->setTime(23, 59, 59),
+                $batidasPorMes[$mes->format('Y-m')] ?? [],
                 true,
                 false,
                 $jornada,
                 $feriados,
                 $justificativas,
                 $jornadaTenant,
-                $inicioContagemNorm
+                $inicio,
+                $hoje,
             );
-
-            if (!empty($rows)) {
-                // Procura o último row com saldoAcumulado não-nulo (hoje sem saída retorna null)
-                foreach (array_reverse($rows) as $row) {
-                    if ($row['saldoAcumulado'] !== null) {
-                        $saldoTotal += $row['saldoAcumulado'];
-                        break;
-                    }
-                }
-            }
-
-            $mesAtual++;
-            if ($mesAtual > 12) {
-                $mesAtual = 1;
-                $anoAtual++;
-            }
+            $saldos[$mes->format('Y-m')] = $this->saldoAcumuladoFinal($rows) ?? 0;
         }
 
-        return $saldoTotal + $horasPagas;
+        return $saldos;
+    }
+
+    /**
+     * As batidas efetivas da pessoa NESTE escritório no período, numa consulta só, separadas por 'AAAA-MM'. O banco
+     * por lotes (`BancoDeHorasPorLotes`) soma estas mesmas: o ajuste do gestor muda o banco como muda a folha (E10).
+     *
+     * @return array<string, list<MarcacaoDoPonto>>
+     */
+    private function batidasPorMes(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        $porMes = [];
+        foreach ($this->registroPontoRepository->batidasDoPeriodoNoEscritorio($user, $tenant, $inicio, $fim) as $batida) {
+            $porMes[$batida->getDataHora()->format('Y-m')][] = $batida;
+        }
+
+        return $porMes;
     }
 
     /**
@@ -523,20 +593,5 @@ class FolhaPontoBuilder
         }
 
         return $this->lancamentoHorasPagasRepository->somarPorCompetencia($user, $tenant, $ano, $mes);
-    }
-
-    /**
-     * Soma os lançamentos de um intervalo de meses do mesmo ano (inclusive nas duas pontas).
-     *
-     * Uma query só (`somarPorPeriodo`), não uma por mês: `calcularSaldoAnual` roda no painel
-     * `/ponto`, que todo funcionário abre várias vezes por dia — eram 12 round-trips por load.
-     */
-    private function somarHorasPagasDoPeriodo(User $user, ?Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int
-    {
-        if ($tenant === null) {
-            return 0;
-        }
-
-        return $this->lancamentoHorasPagasRepository->somarPorPeriodo($user, $tenant, $ano, $mesInicial, $mesFinal);
     }
 }

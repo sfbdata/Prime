@@ -165,8 +165,10 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('ponto') %}
-                    <li class="pje-menu-item">
+                {# Ponto Eletrônico: a tela liga e desliga no catálogo do Master (E7); `recurso_marca` mostra ao Master
+                   que ela está desligada. #}
+                {% if can_access_module('ponto') and recurso_visivel('ponto') %}
+                    <li class="pje-menu-item {{ recurso_marca('ponto') }}">
                         <a href="{{ path('ponto_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'ponto_' ? 'active' : '' }}">
                             <i class="bi bi-fingerprint pje-nav-icon"></i>

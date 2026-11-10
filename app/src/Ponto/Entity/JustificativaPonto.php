@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Ponto\Repository\JustificativaPontoRepository::class)]
 #[ORM\Index(fields: ['batchId'], name: 'IDX_JUST_BATCH')]
+#[ORM\Index(name: 'idx_justificativa_ponto_registro_ponto', columns: ['registro_ponto_id'])]
 class JustificativaPonto implements Auditavel, TenantAware
 {
     #[ORM\Id]
@@ -65,6 +66,22 @@ class JustificativaPonto implements Auditavel, TenantAware
 
     #[ORM\Column(type: 'time', nullable: true)]
     private ?\DateTimeInterface $horaRegistroEsquecido = null;
+
+    /**
+     * Motivo escrito por quem justifica (desenho do Ponto, E4: P44 e P46). Obrigatório nas janelas "Justificar falta" e
+     * "Registro de esquecimento"; nulo nas justificativas de antes da E4 e nas que o gestor lança pela ficha.
+     */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $motivo = null;
+
+    /**
+     * A batida que esta justificativa analisa (E12, P18): só a de trabalho externo, feita fora do raio das sedes. Ligada
+     * a uma batida, a justificativa nunca abona saldo, nem abonada: aprovar só confirma a batida, que já conta na folha.
+     * Nula em todas as outras. A batida apagada solta a justificativa (ON DELETE SET NULL).
+     */
+    #[ORM\ManyToOne(targetEntity: RegistroPonto::class)]
+    #[ORM\JoinColumn(name: 'registro_ponto_id', nullable: true, onDelete: 'SET NULL')]
+    private ?RegistroPonto $registroPonto = null;
 
     public function getId(): ?int
     {
@@ -245,6 +262,36 @@ class JustificativaPonto implements Auditavel, TenantAware
         $this->horaRegistroEsquecido = $horaRegistroEsquecido;
 
         return $this;
+    }
+
+    public function getMotivo(): ?string
+    {
+        return $this->motivo;
+    }
+
+    public function setMotivo(?string $motivo): static
+    {
+        $this->motivo = $motivo;
+
+        return $this;
+    }
+
+    public function getRegistroPonto(): ?RegistroPonto
+    {
+        return $this->registroPonto;
+    }
+
+    public function setRegistroPonto(?RegistroPonto $registroPonto): static
+    {
+        $this->registroPonto = $registroPonto;
+
+        return $this;
+    }
+
+    /** Ligada a uma batida (trabalho externo, E12): a análise confirma a batida e nunca abona saldo. */
+    public function analisaUmaBatida(): bool
+    {
+        return $this->registroPonto !== null;
     }
 
     public function getMinutosAbonados(): int

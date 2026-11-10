@@ -65,6 +65,13 @@
     --pe-listra:       #eef2f5;
     --pe-ok-forte:     #1e7b45;
     --pe-incompleto-bg: #fff3cd;
+
+    /* Cartão de abas e janelas (E3, L166 a L191 e L269 a L318 do desenho). */
+    --pe-num-pend:     #8a6200;
+    --pe-tipo-bg:      #bfeaf7;
+    --pe-tipo-cor:     #0b3550;
+    --pe-trava:        #5b6a9a;
+    --pe-rodape-bg:    #f7f9fb;
 }
 
 .pe-page {
@@ -114,6 +121,11 @@
     --pe-listra:       rgba(255, 255, 255, .03);
     --pe-ok-forte:     #5cc98a;
     --pe-incompleto-bg: rgba(224, 195, 106, .14);
+
+    --pe-tipo-bg:      rgba(77, 163, 234, .2);
+    --pe-tipo-cor:     #9ccdf2;
+    --pe-trava:        #9aa6cf;
+    --pe-rodape-bg:    var(--bs-secondary-bg);
 }
 
 .pe-page a:not(.btn) { color: var(--pe-link); }
@@ -147,6 +159,8 @@
 .pe-registrar-barra { display: flex; align-items: center; gap: 9px; padding: 11px 16px; background: var(--pe-azul); color: var(--pe-sobre-azul); }
 .pe-registrar-barra > .bi { font-size: 18px; }
 .pe-registrar-titulo { flex: 1; font-size: 16px; font-weight: bold; }
+/* E8: o foco volta ao título (tabindex -1) quando a tela cheia fecha; ele não aciona nada e não ganha a moldura. */
+.pe-registrar-titulo:focus { outline: none; }
 .pe-banco { text-align: right; line-height: 1.15; }
 .pe-banco-rotulo { display: block; font-size: 10.5px; opacity: .9; }
 .pe-banco-valor { font-size: 15px; font-variant-numeric: tabular-nums; }
@@ -256,6 +270,52 @@
 .pe-aviso-linha > .bi { margin-right: 4px; }
 .pe-aviso-link { margin-left: 4px; font-weight: bold; color: inherit; text-decoration: underline; }
 .pe-page a.pe-aviso-link:not(.btn) { color: inherit; }
+
+/* Fora do raio (E12, P18) na caixa de hoje, até a tela vermelha da E8: o título em negrito numa linha e o detalhe
+   embaixo, como a caixa vermelha "Código não localizado." do desenho (L300 e L301). O botão "Registrar como trabalho
+   externo" (L385: `bi-briefcase`, negrito, ícone ao lado) tem na tela cheia o contorno branco sobre o vermelho; numa
+   caixa clara o desenho é omisso, e vale o botão de contorno do próprio desenho (L249 e L253: 30px, `0 11px`, 12.5px,
+   `gap:6px`, canto de 3px) na cor da caixa, com o fundo branco que vai a #fdecee no hover, como o "Tentar novamente"
+   (L384). */
+.pe-fora-titulo,
+.pe-fora-detalhe { display: block; }
+.pe-fora-externo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: inherit;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: bold;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.pe-fora-externo:hover { background: var(--pe-erro-bg); }
+
+/* Fila sem internet (L127, E14): borda #9fc3d8 com a faixa esquerda #0a6fa0, fundo #e5f1f7, texto #0b4f75 e o
+   `bi-wifi-off` de 15px. Some com a fila vazia (`d-none`). A segunda linha (guardadas em outro escritório) não está no
+   desenho: decisão do Coordenador, no mesmo molde. */
+.pe-fila {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 11px;
+    border: 1px solid var(--pe-info-bd);
+    border-left: 4px solid var(--pe-azul);
+    border-radius: 3px;
+    background: var(--pe-info-bg);
+    color: var(--pe-info-cor);
+    font-size: 12.5px;
+}
+.pe-fila > .bi { font-size: 15px; }
+.pe-fila-texto { flex: 1; min-width: 0; }
+.pe-fila-linha { display: block; }
 
 /* Última pendência (L128). */
 .pe-pendencia {
@@ -449,7 +509,6 @@
 .pe-mais--excluir { color: var(--pe-perigo); }
 /* Batida do gestor na ficha (sistema, fica): a hora é link para editar e herda a cor da linha. */
 .pe-folha-celula { display: inline-flex; align-items: center; gap: 4px; }
-.pe-folha-form { display: inline; margin: 0; }
 .pe-folha .pe-folha-hora { color: inherit; text-decoration: none; }
 .pe-folha .pe-folha-hora:hover { text-decoration: underline; }
 .pe-folha-sub { display: block; margin-top: 3px; font-size: 12px; color: var(--pe-mudo); }
@@ -508,6 +567,453 @@
 .pe-folha-total-rotulo { color: var(--pe-mudo); }
 .pe-folha-total--soma { border-top: 1px solid var(--pe-div); margin-top: 4px; padding-top: 4px; }
 
+/* ── Cartão de abas (etapa E3, L166 a L191 do desenho) ───────────────────────────────────────────
+   Classes do desenho com o prefixo da tela: bjpOculta = pe-oculta (no bloco do celular), bjpJ = pe-just-lin e
+   bjpT = pe-tab. A tabela das justificativas não tem pe-resp (no celular rola para o lado) nem listra ou azul ao
+   passar o mouse (D15). O desenho não tem hover na aba. */
+.pe-abas {
+    background: var(--pe-card);
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px var(--pe-sombra);
+    line-height: normal;
+}
+.pe-abas-barra {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    background: var(--pe-th-bg);
+    border-bottom: 1px solid var(--pe-borda);
+}
+.pe-aba {
+    padding: 12px 14px 9px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: var(--pe-texto-2);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.pe-aba[aria-selected="true"] { border-bottom-color: var(--pe-azul); background: var(--pe-card); color: var(--pe-link); }
+.pe-aba-num {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 3px;
+    background: var(--pe-azul);
+    color: #fff;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.pe-aba-num--pend { background: var(--pe-num-pend); }
+.pe-abas-vazio { padding: 22px; text-align: center; font-size: 13.5px; color: var(--pe-mudo); }
+
+/* Painel das abas de gestão (Equipe e Configurações) enquanto é buscado e quando a busca falha (js/ponto-paineis.js).
+   O desenho não tem os dois estados (o protótipo não busca nada): molde do vazio da aba e do botão do desenho. */
+.pe-painel-carregando { padding: 22px; text-align: center; font-size: 13.5px; color: var(--pe-mudo); }
+.pe-painel-falha {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 18px 16px;
+    font-size: 13.5px;
+    color: var(--pe-perigo);
+}
+/* "Tentar de novo": o botão secundário de borda azul do desenho (L196 "Baixar"; o mesmo de L249, L253 e L254), com o
+   mouse dele (#e5f1f7). O foco do teclado é o da tela (o desenho não tem): o contorno da chave das Configurações. */
+.pe-painel-tentar {
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--pe-azul);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-link);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pe-painel-tentar:hover { background: var(--pe-info-bg); }
+.pe-painel-tentar:focus-visible { outline: 2px solid var(--pe-link); outline-offset: 2px; }
+
+/* Pendências (L171 a L176). "Trocar de escritório" e a explicação da pendência de outro escritório (P38, sistema,
+   fica) usam o molde do botão e o tom do texto da aba. */
+.pe-pend-texto { padding: 10px 16px; font-size: 12.5px; color: var(--pe-mudo); border-bottom: 1px solid var(--pe-div); }
+.pe-pend-lista { max-height: 360px; overflow-y: auto; }
+.pe-pend {
+    display: flex;
+    align-items: center;
+    gap: 6px 14px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-pend-data { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.pe-pend-falta { font-size: 13.5px; color: var(--pe-corpo); }
+.pe-pend-escritorio {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    color: var(--pe-mudo);
+}
+.pe-pend-btn {
+    margin-left: auto;
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--pe-alerta-btn);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-alerta-cor);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+}
+.pe-pend-btn:hover { background: var(--pe-incompleto-bg); }
+.pe-page a.pe-pend-btn:not(.btn),
+.pe-page a.pe-pend-btn:not(.btn):hover { color: var(--pe-alerta-cor); }
+.pe-pend-aviso { flex-basis: 100%; font-size: 12.5px; color: var(--pe-mudo); }
+
+/* Minhas Justificativas (L178 a L190). "Ver" do atestado e o lápis de editar (sistema, ficam) no molde dos vizinhos. */
+.pe-abas-rolagem { overflow-x: auto; }
+.pe-just-data {
+    display: inline-block;
+    padding: 3px 8px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-hover-sec);
+    font-size: 12.5px;
+    font-weight: bold;
+}
+.pe-tab td.pe-just-celtipo { white-space: normal; min-width: 170px; }
+.pe-just-tipo {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--pe-tipo-bg);
+    color: var(--pe-tipo-cor);
+    font-size: 11.5px;
+    font-weight: bold;
+}
+.pe-just-sub { font-size: 12.5px; color: var(--pe-mudo); margin-top: 3px; }
+.pe-just-cel { color: var(--pe-texto-2); }
+.pe-just-anexo { display: inline-flex; align-items: center; gap: 5px; }
+.pe-tab td.pe-just-acoes { text-align: right; }
+.pe-just-trava { color: var(--pe-trava); font-size: 16px; }
+/* E12 (P18): no lugar do lápis e da lixeira da justificativa ligada a uma batida de trabalho externo. O desenho não tem
+   a linha; tamanho e cor do subtítulo da lista (.pe-just-sub, L545). */
+.pe-just-segue { font-size: 12.5px; color: var(--pe-mudo); white-space: nowrap; }
+.pe-just-analise { display: inline-flex; gap: 4px; }
+.pe-just-btn {
+    height: 28px;
+    padding: 0 9px;
+    border: 1px solid;
+    border-radius: 3px;
+    background: var(--pe-card);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.pe-just-btn--abonar { border-color: var(--pe-ok-forte); color: var(--pe-ok-cor); }
+.pe-just-btn--abonar:hover { background: var(--pe-ok-bg); }
+.pe-just-btn--recusar { border-color: var(--pe-perigo); color: var(--pe-erro-cor); }
+.pe-just-btn--recusar:hover { background: var(--pe-erro-bg); }
+.pe-just-icone {
+    width: 28px;
+    height: 28px;
+    margin-left: 4px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-perigo);
+    cursor: pointer;
+    padding: 0;
+}
+.pe-just-icone:hover { background: var(--pe-erro-bg); }
+.pe-just-icone--editar { color: var(--pe-link); }
+.pe-just-icone--editar:hover { background: var(--pe-hover-sec); }
+
+/* ── Auditoria (E9, L222 a L225 do desenho) ──────────────────────────────────────────────────────
+   Cabeçalho com a conferência da cadeia, tabela (bjpT = pe-tab) na rolagem do desenho e o selo abreviado. O desenho
+   tem dois estados do cabeçalho (íntegra e alterada); o "não selada" (sem segredo no servidor ou trecho gravado antes
+   do selo) não está nele e usa o tom do alerta do desenho. As páginas (o desenho não tem: o protótipo guarda poucos
+   eventos) usam o molde dos botões do desenho. */
+.pe-audit-cab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-audit-cab > .bi { font-size: 15px; }
+.pe-audit-cab--integra { color: var(--pe-ok-cor); }
+.pe-audit-cab--alterada { color: var(--pe-perigo); }
+.pe-audit-cab--nao-selada,
+.pe-audit-cab--trecho-sem-selo { color: var(--pe-alerta-cor); }
+.pe-audit-rolagem { max-height: 380px; overflow: auto; }
+.pe-tab td.pe-audit-detalhe { white-space: normal; min-width: 200px; }
+.pe-audit-selo { font-size: 12px; color: var(--pe-info-cor); }
+.pe-audit-sem-selo { font-size: 12px; color: var(--pe-mudo); }
+.pe-audit-paginas {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--pe-div);
+    font-size: 12.5px;
+    color: var(--pe-mudo);
+}
+.pe-audit-pag {
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--pe-azul);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-link);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+/* Molde dos botões claros do desenho (L194, L196): gap 6px e `style-hover` com o fundo #e5f1f7. */
+.pe-audit-pag:hover:not(:disabled) { background: var(--pe-info-bg); }
+.pe-audit-pag:disabled { border-color: var(--pe-borda); color: var(--pe-mudo); cursor: default; }
+
+/* ── Janela (moldura do desenho, L269 a L318): fundo, barra azul, corpo, erro e rodapé ─────────────
+   Clicar fora não fecha; Esc fecha (js/ponto-abas.js). Serve às janelas da aba das justificativas (E3).
+   Desvio necessário (E4): a janela da falta, com o calendário, passa da altura da tela. `margin: auto` na janela
+   centraliza quando cabe e, quando não cabe, deixa o topo no lugar e o fundo rola (com `margin: 0` o topo sumia). */
+.pe-janela-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483100;
+    background: rgba(11, 53, 80, .55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    overflow-y: auto;
+}
+.pe-janela-fundo[hidden] { display: none; }
+.pe-janela {
+    width: 100%;
+    max-width: 480px;
+    margin: auto;
+    background: var(--pe-card);
+    border-radius: 3px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+    overflow: hidden;
+    animation: pe-sobe .2s ease both;
+    color: var(--pe-texto);
+    line-height: normal;
+}
+@keyframes pe-sobe { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.pe-janela-topo { display: flex; align-items: center; gap: 9px; padding: 12px 16px; background: var(--pe-azul); color: var(--pe-sobre-azul); }
+.pe-janela-topo > .bi { font-size: 17px; }
+.pe-janela-titulo { flex: 1; font-size: 16px; }
+.pe-janela-fechar {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #fff;
+    font-size: 17px;
+    cursor: pointer;
+}
+.pe-janela-fechar:hover { background: rgba(255, 255, 255, .16); }
+.pe-janela-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 11px; }
+.pe-janela-info { font-size: 13.5px; color: var(--pe-texto-2); }
+.pe-janela-texto { font-size: 13.5px; line-height: 1.5; color: var(--pe-corpo); }
+.pe-janela-rotulo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 12px; font-weight: bold; color: var(--pe-texto-3); }
+.pe-janela-campo {
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 8px 10px;
+    background: var(--pe-card);
+    color: var(--pe-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: normal;
+    resize: vertical;
+}
+.pe-janela-erro { padding: 0 16px 10px; font-size: 13px; color: var(--pe-perigo); }
+.pe-janela-rodape {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--pe-rodape-bg);
+    border-top: 1px solid var(--pe-div);
+}
+.pe-janela-cancelar {
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-texto-2);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+.pe-janela-acao {
+    height: 36px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 3px;
+    background: var(--pe-azul);
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+.pe-janela-acao:hover { background: var(--pe-link-hover); }
+/* Enviando (sistema): o botão não aceita um segundo clique. */
+.pe-janela-acao:disabled { opacity: .65; cursor: default; }
+
+/* ── Janela "Antes de registrar" (E11, desenho L288): o texto do alerta e a frase fixa abaixo dele ─────────────── */
+.pe-janela-alerta { padding: 14px 16px; font-size: 14px; line-height: 1.5; color: var(--pe-corpo); }
+.pe-janela-alerta-nota { margin-top: 8px; font-size: 12.5px; color: var(--pe-mudo); }
+
+/* ── Campos das janelas "Justificar falta", "Registro de esquecimento" e "Editar justificativa" (E4) ───────
+   Valores dos campos do desenho: entrada de 36px (L277 e L281), seleção de 34px (L290, a da janela de assinar a
+   folha), arquivo em 13px (L283) e a caixa de marcar do "Cadastro facial" (L308). O que o desenho não tem e o sistema mantém (P45 e P47: calendário de
+   vários dias, tipo, abono parcial, bloco do esquecimento) usa esses mesmos componentes. */
+.pe-janela [hidden] { display: none !important; }
+.pe-janela-entrada {
+    height: 36px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 0 10px;
+    background: var(--pe-card);
+    color: var(--pe-texto);
+    font: inherit;
+    font-size: 14px;
+    font-weight: normal;
+}
+.pe-janela-select {
+    height: 34px;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 0 8px;
+    background: var(--pe-card);
+    color: var(--pe-texto);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: normal;
+}
+.pe-janela-arquivo { font: inherit; font-size: 13px; font-weight: normal; color: var(--pe-texto); }
+.pe-janela-nota { font-size: 12.5px; font-weight: normal; color: var(--pe-mudo); }
+.pe-janela-marca {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 11px;
+    background: var(--pe-rodape-bg);
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--pe-corpo);
+    cursor: pointer;
+}
+.pe-janela-marca > input { width: 16px; height: 16px; margin: 2px 0 0; flex: none; }
+.pe-janela-marca .pe-janela-nota { display: block; }
+/* Dois campos lado a lado (tipo de batida e horário; saída e retorno do abono). */
+.pe-janela-par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.pe-janela-par-titulo { grid-column: 1 / -1; font-size: 12px; font-weight: bold; color: var(--pe-texto-3); }
+/* Aviso do tipo "falta não justificada" e do atestado travado: a faixa amarela do desenho (L118). */
+.pe-janela-aviso {
+    padding: 8px 11px;
+    border: 1px solid var(--pe-alerta-bd);
+    border-radius: 3px;
+    background: var(--pe-alerta-bg);
+    color: var(--pe-alerta-cor);
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+.pe-janela-aviso > .bi { margin-right: 5px; }
+
+/* Calendário de vários dias (P45, sistema) no molde do desenho: cantos de 3px, azul do desenho no dia escolhido. */
+.pe-cal { display: flex; flex-direction: column; gap: 6px; }
+.pe-cal-barra { display: flex; align-items: center; gap: 8px; }
+.pe-cal-seta {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-texto-2);
+    cursor: pointer;
+}
+.pe-cal-seta:hover { background: var(--pe-hover-sec); }
+.pe-cal-seta:disabled { opacity: .45; cursor: default; background: var(--pe-card); }
+.pe-cal-mes { flex: 1; text-align: center; font-size: 13.5px; font-weight: bold; color: var(--pe-texto); }
+.pe-cal-grade {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    user-select: none;
+}
+.pe-cal-sem { padding: 4px 0; text-align: center; font-size: 11px; font-weight: bold; color: var(--pe-mudo); }
+.pe-cal-dia {
+    height: 30px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--pe-texto);
+    font: inherit;
+    font-size: 13px;
+    font-weight: normal;
+    cursor: pointer;
+}
+.pe-cal-dia:hover:not(:disabled) { background: var(--pe-info-bg); border-color: var(--pe-info-bd); }
+.pe-cal-dia--fim { color: var(--pe-perigo); }
+.pe-cal-dia--hoje { border-color: var(--pe-azul); }
+.pe-cal-dia[aria-pressed="true"],
+.pe-cal-dia[aria-pressed="true"]:hover { background: var(--pe-azul); border-color: var(--pe-azul); color: #fff; font-weight: bold; }
+.pe-cal-dia:disabled { color: var(--pe-concluida); opacity: .55; cursor: default; }
+.pe-cal-vazio { visibility: hidden; }
+.pe-cal-escolhidos { font-size: 12.5px; font-weight: normal; color: var(--pe-mudo); }
+.pe-cal-escolhidos > b { color: var(--pe-texto); }
+
+/* Motivo na aba "Minhas Justificativas" (L184): 12px, cinza do desenho, embaixo do tipo e do subtítulo. */
+.pe-just-mot { font-size: 12px; color: var(--pe-mudo); overflow-wrap: anywhere; }
+
 /* Celular (L62 a L71): cada dia vira um cartão de quatro colunas, com o nome do campo em cima. */
 @media (max-width: 760px) {
     .pe-tab.pe-resp thead { display: none; }
@@ -519,4 +1025,734 @@
     .pe-tab.pe-resp td.pe-larga { grid-column: span 2; }
     .pe-tab.pe-resp td.pe-toda { grid-column: 1 / -1; }
     .pe-tab.pe-resp td.pe-vazia { display: none; }
+    /* E3 (L62): o escritório da pendência some no celular. */
+    .pe-oculta { display: none !important; }
+}
+
+/* ======================================================================
+   Configurações (E7): a seção das funções da aba Configurações (templates/ponto/_config_funcoes.html.twig;
+   desenho 16 L235 a L245). Texto de ajuda, uma linha por função e as chaves "Global" (só o Master) e "Escritório".
+   As cores das chaves são as do desenho (`gBg`, `eBg` na L761): ligada, desligada e travada pelo Master.
+   ============================================================================= */
+.pe-config-funcoes {
+    --pe-chave-ligada:   #1e7b45;
+    --pe-chave-desligada: #9aabb7;
+    --pe-chave-travada:  #c4ced6;
+    --pe-chave-pino:     #fff;
+}
+[data-bs-theme="dark"] .pe-config-funcoes {
+    --pe-chave-desligada: #5b6b76;
+    --pe-chave-travada:  rgba(255, 255, 255, .14);
+    --pe-chave-pino:     #e9eef2;
+}
+.pe-config-ajuda {
+    padding: 10px 16px;
+    font-size: 12.5px;
+    color: var(--pe-texto-3);
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-config-funcao {
+    display: flex;
+    align-items: center;
+    gap: 10px 16px;
+    flex-wrap: wrap;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-config-icone { font-size: 18px; color: var(--pe-link); width: 20px; text-align: center; }
+.pe-config-texto { flex: 1 1 240px; min-width: 0; }
+.pe-config-texto > b { display: block; font-size: 14px; }
+.pe-config-texto > span { font-size: 12.5px; color: var(--pe-mudo); }
+.pe-config-chave { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--pe-texto-2); }
+.pe-config-switch {
+    width: 42px;
+    height: 22px;
+    border: none;
+    border-radius: 3px;
+    padding: 2px;
+    background: var(--pe-chave-desligada);
+    cursor: pointer;
+    display: flex;
+    justify-content: flex-start;
+}
+.pe-config-switch > span { width: 18px; height: 18px; background: var(--pe-chave-pino); border-radius: 2px; display: block; }
+.pe-config-switch[aria-checked="true"] { background: var(--pe-chave-ligada); justify-content: flex-end; }
+.pe-config-switch:disabled { background: var(--pe-chave-travada); cursor: not-allowed; justify-content: flex-start; }
+/* Gravando (sistema): a chave espera a resposta e não aceita outro clique. */
+.pe-config-switch[aria-busy="true"] { opacity: .65; cursor: progress; }
+.pe-config-switch:focus-visible { outline: 2px solid var(--pe-link); outline-offset: 2px; }
+.pe-config-trava { flex-basis: 100%; font-size: 12px; color: var(--pe-perigo); padding-left: 30px; }
+/* Falha ao gravar (sistema; o desenho não tem): o mesmo molde da frase da trava, na própria linha. */
+.pe-config-erro { flex-basis: 100%; font-size: 12px; color: var(--pe-perigo); padding-left: 30px; }
+.pe-config-trava[hidden],
+.pe-config-erro[hidden] { display: none; }
+
+/* Trabalho externo (E12, P74; desenho L253): a caixa "Permitir trabalho externo, com motivo e análise" na seção do
+   desenho (`padding:12px 16px; border-top:1px solid #e6edf2`). Ela mora no cabeçalho "Sedes e raio de registro"
+   (regra abaixo). Sozinha (só proteção: hoje quem vê a caixa vê as sedes), vem depois da grade do banco (E17) e leva a
+   borda de cima, como a seção das sedes, que no desenho vem logo depois da grade (L253). O rótulo é o do desenho
+   (12.5px, #34505f, `gap:7px`, caixa de 16px); `inline-flex` porque no desenho ele é item de uma linha flex e mede só
+   o texto: em bloco, o clique no vazio à direita marcaria a caixa. A frase de erro (sistema) é a da E7. */
+.pe-config-externo { padding: 12px 16px; border-top: 1px solid var(--pe-div); }
+/* No cabeçalho das sedes (desenho L253): só a caixa, entre o título e os botões, sem a moldura de seção. */
+.pe-sedes-cabeca > .pe-config-externo { padding: 0; border-top: none; }
+.pe-config-externo-marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: normal;
+    color: var(--pe-texto-2);
+}
+.pe-config-externo-marca > input { width: 16px; height: 16px; margin: 0; }
+/* Gravando (sistema): a caixa espera a resposta e não aceita outro clique. */
+.pe-config-externo-marca > input:disabled { cursor: progress; }
+.pe-config-externo-erro { display: block; margin-top: 6px; font-size: 12px; color: var(--pe-perigo); }
+.pe-config-externo-erro[hidden] { display: none; }
+
+/* ======================================================================
+   Tela cheia, aviso flutuante e botão de som (E8, P79 a P81; desenho 16: CSS L40 a L59 e L72 a L75, tela cheia
+   L323 a L391, aviso flutuante L266 e botão de som L136). Valores dos `style=` do desenho; os keyframes `bjp*` viram
+   `pe-tc-*`. A tela cheia e o aviso flutuante têm as cores fixas do desenho (azul-marinho, cortina verde ou vermelha,
+   texto branco) nos dois temas, como no desenho; o botão de som segue os tokens do cartão.
+   ============================================================================= */
+
+/* Botão de som do rodapé do cartão (L136): 36x36, entre "Justificar falta" e a jornada semanal. */
+.pe-som {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-texto-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.pe-som:hover { background: var(--pe-hover-sec); }
+.pe-som svg[hidden] { display: none; }
+
+/* Aviso flutuante (L266, `avisar` L468): um por vez, some em 3,4 s (js/ponto-aviso-flutuante.js). */
+.pe-flutuante {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 2147483000;
+    max-width: calc(100vw - 28px);
+    background: #1e7b45;
+    color: #fff;
+    padding: 11px 16px;
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(18, 36, 47, .25);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    line-height: normal;
+    animation: pe-tc-up .2s ease both;
+}
+.pe-flutuante[hidden] { display: none; }
+.pe-flutuante--ok { background: #1e7b45; }
+.pe-flutuante--erro { background: #a3232b; }
+.pe-flutuante--lembrete { background: #8a6200; }
+.pe-flutuante--gerando { background: #0a6fa0; }
+
+/* A tela cheia (L324): por cima de tudo, inclusive das janelas (2147483100) e do aviso flutuante. */
+.pe-tc {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
+    overflow-y: auto;
+    background: #0b3550;
+    color: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: normal;
+    text-align: left;
+}
+.pe-tc[hidden] { display: none; }
+.pe-tc:focus { outline: none; }
+/* A fase é só o invólucro: o conteúdo dela se mede pela tela (o `min-height: 100%` do desenho). */
+.pe-tc-fase { display: contents; }
+.pe-tc-fase[hidden] { display: none; }
+
+/* Anel de 24 barras (L42 a L47). */
+.pe-tc-anel { --r: min(31vmin, 168px); position: relative; width: calc(var(--r) * 2.3); height: calc(var(--r) * 2.3); flex: none; }
+.pe-tc-anel--mini { --r: min(19vmin, 96px); }
+.pe-tc-raio { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.pe-tc-barra {
+    position: absolute;
+    left: calc(var(--r) * -.0375);
+    top: calc(var(--r) * -1.13);
+    width: calc(var(--r) * .075);
+    height: calc(var(--r) * .26);
+    background: #fff;
+    opacity: .18;
+    transform: scaleY(.6);
+}
+.pe-tc-barra--on { animation: pe-tc-bar-on .28s ease-out forwards; }
+.pe-tc-barra--ok { opacity: 1; transform: none; animation: pe-tc-bar-ok .5s cubic-bezier(.2, .8, .3, 1.25) both; }
+.pe-tc-anel-hora {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--r) * .29);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Validando (L339 a L350). */
+.pe-tc-val {
+    min-height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(16px, 4vh, 34px);
+    padding: 24px 16px;
+    text-align: center;
+}
+.pe-tc-validando { font-size: clamp(22px, 4vw, 32px); }
+.pe-tc-data { font-size: 15px; color: #c7dce9; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.pe-tc-etapas { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px; }
+.pe-tc-etapa { display: flex; align-items: center; gap: 7px; font-size: 14px; opacity: .35; animation: pe-tc-etapa .2s linear forwards; }
+.pe-tc-etapa .bi { color: #59d98e; }
+/* "Registro selado" só acende depois de o servidor confirmar: o JS põe `--selada` no tempo dela (ponto-tela-cheia.js). */
+.pe-tc-etapa--selo { animation: none; }
+.pe-tc-etapa--selo.pe-tc-etapa--selada { animation: pe-tc-etapa .2s linear forwards; }
+
+/* Cortina do resultado (L353 e L377). */
+.pe-tc-cortina { position: fixed; inset: 0; }
+.pe-tc-cortina--ok { background: #1e7b45; animation: pe-tc-wipe .6s ease-out both; }
+.pe-tc-cortina--erro { background: #a3232b; animation: pe-tc-wipe .45s ease-out both; }
+
+/* Traço desenhado do check e do X (L358, L379). */
+.pe-tc-traco { fill: none; stroke: #fff; stroke-width: 7; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.pe-tc-traco--check { animation: pe-tc-draw .4s ease-out .25s forwards; }
+.pe-tc-traco--x1 { animation: pe-tc-draw .22s ease-out .15s forwards; }
+.pe-tc-traco--x2 { animation: pe-tc-draw .22s ease-out .34s forwards; }
+.pe-tc-check { position: absolute; inset: 22%; width: 56%; height: 56%; }
+
+/* Ponto registrado (L352 a L374). */
+.pe-tc-ok {
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(20px, 5vw, 76px);
+    padding: clamp(20px, 5vh, 56px) clamp(16px, 5vw, 56px) 40px;
+}
+.pe-tc-ok-corpo {
+    flex: 0 1 560px;
+    min-width: 0;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.pe-tc-ok-textos { animation: pe-tc-in .4s ease .2s both; }
+.pe-tc-titulo { font-size: clamp(28px, 5vw, 42px); font-weight: bold; }
+.pe-tc-ok-hora { font-size: clamp(48px, 9vw, 76px); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pe-tc-ok-tipo { font-size: clamp(15px, 2.4vw, 18px); }
+.pe-tc-ok-met { font-size: 13.5px; margin-top: 8px; opacity: .95; }
+/* O código do comprovante (L365, `okCod`), só com o comprovante na resposta. */
+.pe-tc-ok-cod {
+    margin-top: 12px;
+    display: inline-block;
+    padding: 7px 12px;
+    border: 1px solid rgba(255, 255, 255, .55);
+    border-radius: 3px;
+    font: bold 15px monospace;
+    letter-spacing: 1px;
+}
+.pe-tc-ok-cod[hidden] { display: none; }
+.pe-tc-tempo {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background: #fff;
+    transform-origin: left;
+    animation: pe-tc-barra 10s linear both;
+}
+
+/* Ponto não registrado (L376 a L388). */
+.pe-tc-erro {
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px 16px;
+    text-align: center;
+    animation: pe-tc-treme .45s ease .15s;
+}
+.pe-tc-erro-titulo { font-size: clamp(16px, 2.6vw, 20px); }
+.pe-tc-erro-detalhe { font-size: 14.5px; max-width: 520px; line-height: 1.5; }
+.pe-tc-erro-detalhe[hidden] { display: none; }
+
+/* Botões do resultado (L369, L370, L384 a L386). */
+.pe-tc-botoes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.pe-tc-botoes--ok { animation: pe-tc-in .4s ease .35s both; }
+.pe-tc-btn {
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 3px;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+/* "Concluir" e "Fechar". */
+.pe-tc-btn--contorno { border: 1px solid rgba(255, 255, 255, .7); background: transparent; color: #fff; }
+.pe-tc-btn--contorno:hover { background: rgba(255, 255, 255, .14); }
+/* "Tentar novamente". */
+.pe-tc-btn--tentar { border: none; background: #fff; color: #7f1c23; font-weight: bold; }
+.pe-tc-btn--tentar:hover { background: #fdecee; }
+/* "Registrar como trabalho externo" (E12, `bi-briefcase`): borda branca, negrito. */
+.pe-tc-btn--externo { border: 1px solid #fff; background: transparent; color: #fff; font-weight: bold; }
+.pe-tc-btn--externo:hover { background: rgba(255, 255, 255, .14); }
+.pe-tc-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.pe-tc-btn[hidden] { display: none; }
+/* "Baixar comprovante" (L368): um link com a cara do botão do desenho, sem o sublinhado nem a cor de link do sistema. */
+.pe-tc-btn--baixar { border: none; background: #fff; color: #145a32; font-weight: bold; text-decoration: none; }
+.pe-tc-btn--baixar:hover { background: #e8f5ee; color: #145a32; text-decoration: none; }
+.pe-tc-btn--baixar:focus { color: #145a32; text-decoration: none; }
+/* O erro do download (omissão do desenho; a frase é a da aba Comprovantes), na linha de baixo dos botões. */
+.pe-tc-falha { flex-basis: 100%; font-size: 13.5px; }
+.pe-tc-falha[hidden] { display: none; }
+
+@keyframes pe-tc-bar-on { 0% { opacity: .18; transform: scaleY(.6); } 60% { opacity: 1; transform: scaleY(1.22); } 100% { opacity: 1; transform: scaleY(1); } }
+@keyframes pe-tc-bar-ok { from { opacity: 0; transform: translateY(calc(var(--r) * .42)) scaleY(.3); } to { opacity: 1; transform: none; } }
+@keyframes pe-tc-draw { to { stroke-dashoffset: 0; } }
+@keyframes pe-tc-wipe { from { clip-path: circle(0 at 50% 42%); } to { clip-path: circle(150vmax at 50% 42%); } }
+@keyframes pe-tc-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes pe-tc-barra { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes pe-tc-treme { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-9px); } 40%, 80% { transform: translateX(9px); } }
+@keyframes pe-tc-etapa { to { opacity: 1; } }
+@keyframes pe-tc-up { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translateX(-50%); } }
+
+/* Movimento reduzido (L72 a L75): as animações da tela cheia acabam na hora, sem atraso. */
+@media (prefers-reduced-motion: reduce) {
+    .pe-tc-barra--on, .pe-tc-barra--ok, .pe-tc-mov { animation-duration: .01ms !important; animation-delay: 0s !important; }
+}
+
+/* ── Limite e prazo do banco (etapa E17, P73; desenho L245, L250 e L251) ─────────────────────────
+   A grade de campos do desenho, logo depois das funções (`repeat(auto-fit, minmax(200px, 1fr)); gap:12px;
+   padding:12px 16px; background:#f7f9fb`, o mesmo fundo do rodapé do cartão). O rótulo é o do desenho (12px bold
+   #4a6373, coluna com `gap:5px`); o campo é o `pe-sf-campo` da E6, que já tem os valores das L250 e L251. A frase de
+   erro (sistema; o desenho não tem) é a da E7, embaixo do campo, sem o negrito do rótulo. */
+.pe-config-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--pe-rodape-bg);
+}
+.pe-config-rotulo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 12px; font-weight: bold; color: var(--pe-texto-3); }
+.pe-config-banco-erro { font-size: 12px; font-weight: normal; color: var(--pe-perigo); }
+.pe-config-banco-erro[hidden] { display: none; }
+/* Gravando (sistema): o campo fica só de leitura até a resposta e não aceita outra mudança. */
+.pe-config-rotulo > .pe-sf-campo[aria-busy="true"] { cursor: progress; }
+/* ── Aba Equipe (etapa E5, L210 a L219 do desenho) ───────────────────────────────────────────────
+   Classes do desenho com o prefixo da tela: bjpT = pe-tab; a linha bjpJ (sem regra no desenho) = pe-eq-lin. Os
+   valores são os do estilo em linha do desenho, com os tokens da tela no lugar dos hex (o tema escuro troca os
+   tokens). O selo da situação é cor cheia com letra branca nos dois temas, como os selos da E3. A tabela não tem
+   pe-resp: no celular rola para o lado. Do sistema, no molde do desenho: o botão desligado, a frase de erro da troca
+   de escala e o aviso só para leitor de tela. */
+.pe-eq-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1px;
+    background: var(--pe-div);
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-eq-kpi { background: var(--pe-card); padding: 10px 14px; }
+.pe-eq-kpi-rotulo { font-size: 11.5px; font-weight: bold; color: var(--pe-texto-3); }
+.pe-eq-kpi-valor { display: block; font-size: 24px; }
+.pe-eq-kpi-valor--jornada { color: var(--pe-ok-forte); }
+.pe-eq-kpi-valor--intervalo { color: var(--pe-link); }
+.pe-eq-kpi-valor--sem { color: var(--pe-num-pend); }
+.pe-eq-kpi-valor--pendencias { color: var(--pe-texto-2); }
+.pe-eq-kpi-valor--analisar { color: var(--pe-perigo); }
+.pe-eq-rolagem { overflow-x: auto; }
+.pe-eq-sub { font-size: 12px; color: var(--pe-mudo); }
+.pe-eq-selo {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+}
+.pe-eq-selo--jornada { background: #1e7b45; }
+.pe-eq-selo--intervalo { background: #0a6fa0; }
+.pe-eq-selo--sem { background: #8a6200; }
+.pe-eq-selo--encerrada { background: #5b7383; }
+.pe-tab td.pe-eq-banco { font-weight: bold; }
+.pe-eq-escala {
+    height: 30px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--pe-texto);
+}
+.pe-eq-escala:disabled { cursor: progress; }
+.pe-tab td.pe-eq-vazia { padding: 18px; text-align: center; font-size: 13.5px; color: var(--pe-mudo); white-space: normal; }
+.pe-eq-barra {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--pe-th-bg);
+    border-top: 1px solid var(--pe-borda);
+    border-bottom: 1px solid var(--pe-borda);
+}
+.pe-eq-barra-titulo { flex: 1 1 200px; font-size: 14px; }
+.pe-eq-btn-abonar {
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--pe-ok-forte);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-ok-cor);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.pe-eq-btn-abonar:disabled { opacity: .55; cursor: not-allowed; }
+.pe-eq-just {
+    display: flex;
+    align-items: center;
+    gap: 10px 14px;
+    flex-wrap: wrap;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--pe-div);
+    font-size: 13.5px;
+    cursor: pointer;
+}
+.pe-eq-just-marca { width: 16px; height: 16px; }
+.pe-eq-just-data { font-variant-numeric: tabular-nums; }
+.pe-eq-just-sub { color: var(--pe-mudo); font-size: 12.5px; flex: 1; min-width: 120px; }
+.pe-eq-just-vazia { padding: 18px; text-align: center; font-size: 13.5px; color: var(--pe-mudo); }
+.pe-eq-erro {
+    margin: 10px 16px;
+    padding: 8px 12px;
+    border: 1px solid var(--pe-erro-bd);
+    border-left: 3px solid var(--pe-erro-esq);
+    border-radius: 3px;
+    background: var(--pe-erro-bg);
+    color: var(--pe-erro-cor);
+    font-size: 13px;
+}
+.pe-eq-erro[hidden] { display: none; }
+/* Só para leitor de tela: o aviso da troca de escala (E5) e o da exclusão da justificativa (E3, cartão de abas). */
+.pe-eq-voz,
+.pe-abas-voz {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Sedes e feriados (etapa E6, L227 a L260 do desenho) ───────────────────────────────────────────
+   Seções "Sedes e raio de registro" (L253 e L254) e "Feriados do escritório" (L256 a L258) da aba Configurações.
+   Classes: pe-sf (comum às duas seções), pe-sedes e pe-sede, pe-fer. A tabela usa pe-tab (bjpT) sem listra nem azul
+   ao passar o mouse (D15). O desenho não tem hover nos botões. Linha de erro, campo recusado, a marca "Todo ano" e a
+   lista vazia são do sistema, no molde do desenho. */
+.pe-sf-secao { padding: 12px 16px; border-top: 1px solid var(--pe-div); }
+/* Sem a linha dupla: a 1ª seção da aba já tem a borda da barra das abas acima, e a que vem logo depois das funções (E7)
+   já tem a borda da última função. */
+.pe-config > .pe-sf-secao:first-child,
+.pe-config-funcoes + .pe-sf-secao { border-top: 0; }
+.pe-sf-contorno {
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--pe-azul);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-link);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    box-sizing: border-box;
+    text-decoration: none;
+    vertical-align: middle;
+}
+.pe-sf-contorno:disabled { opacity: .65; cursor: default; }
+.pe-sf-campo {
+    height: 34px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: normal;
+    color: var(--pe-texto);
+    background: var(--pe-card);
+    box-sizing: border-box;
+    width: 100%;
+}
+.pe-sf-campo[aria-invalid="true"] { border-color: var(--pe-perigo); }
+
+/* Sedes (L253 e L254). */
+.pe-sedes-cabeca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.pe-sedes-titulo { flex: 1 1 160px; font-size: 14px; }
+.pe-sedes-rolagem { overflow-x: auto; }
+.pe-sede-cel-nome { min-width: 150px; }
+.pe-sede-cel-coord { min-width: 110px; }
+.pe-sede-cel-raio { min-width: 80px; }
+.pe-tab td.pe-sede-acoes { text-align: right; }
+.pe-sede-remover {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-perigo);
+    cursor: pointer;
+    padding: 0;
+    vertical-align: middle;
+}
+.pe-tab td.pe-sede-erro { padding: 0 12px 9px; white-space: normal; font-size: 13px; color: var(--pe-perigo); }
+
+/* Feriados (L256 a L258). A caixa "Repete todo ano" segue a caixa de seleção da L245. */
+.pe-fer-titulo { display: block; font-size: 14px; margin-bottom: 8px; }
+.pe-fer-texto { font-size: 12.5px; color: var(--pe-mudo); margin-bottom: 8px; }
+.pe-fer-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; align-items: end; margin: 0; }
+.pe-fer-rotulo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 12px; font-weight: bold; color: var(--pe-texto-3); }
+.pe-fer-repete { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--pe-texto-2); align-self: end; min-height: 34px; }
+.pe-fer-repete > input { width: 16px; height: 16px; margin: 0; }
+.pe-fer-adicionar {
+    height: 34px;
+    border: none;
+    border-radius: 3px;
+    background: var(--pe-azul);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.pe-fer-adicionar:disabled { opacity: .65; cursor: default; }
+.pe-fer-lin { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--pe-div); font-size: 13px; }
+.pe-fer-nome { flex: 1; }
+.pe-fer-marca { display: inline-flex; align-items: center; gap: 5px; color: var(--pe-mudo); }
+.pe-fer-abrangencia { color: var(--pe-mudo); }
+.pe-fer-remover { width: 26px; height: 26px; border: none; background: transparent; color: var(--pe-perigo); cursor: pointer; }
+.pe-fer-vazio { padding: 7px 0; font-size: 13px; color: var(--pe-mudo); }
+
+/* Aviso flutuante (L266, §2.13): verde no que deu certo, vermelho no erro; some em 3,4 s, um por vez. As duas cores
+   valem nos dois temas (texto branco). O desenho anima com bjpUp, cujo `transform: none` desfaz a centralização
+   durante a subida; aqui a subida leva o -50% junto. */
+.pe-page .pe-sf-aviso {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 2147483000;
+    max-width: calc(100vw - 28px);
+    box-sizing: border-box;
+    background: #1e7b45;
+    color: #fff;
+    padding: 11px 16px;
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(18, 36, 47, .25);
+    font-size: 14px;
+    line-height: normal;
+    animation: pe-sf-aviso-sobe .2s ease both;
+}
+.pe-page .pe-sf-aviso--erro { background: #a3232b; }
+@keyframes pe-sf-aviso-sobe { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ===== Bloco 3 do Ponto (contrato): cada etapa escreve só abaixo da sua marca. ===== */
+
+/* --- E17: aba Banco de Horas, aviso do limite e triângulo do topo (P51 a, P52, P2). --- */
+/* Triângulo do topo (L106): ao lado do número, só acima do limite. */
+.pe-banco-alerta { font-size: 12px; color: #ffd666; }
+
+/* Aba Banco de Horas (L201 a L207). Os três quadros numa grade com 1px de fio entre as células; as cores dos números
+   são as da Folha (pe-cor--pos, --neg e --zero: #1e7b45, #a3232b e #34505f do desenho). */
+.pe-bh-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 1px;
+    background: var(--pe-div);
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-bh-kpi { background: var(--pe-card); padding: 12px 16px; }
+.pe-bh-kpi-rotulo { font-size: 11.5px; font-weight: bold; letter-spacing: .3px; color: var(--pe-texto-3); }
+.pe-bh-kpi-valor { display: block; font-size: 22px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+/* Faixa acima do limite (L205). */
+.pe-bh-aviso {
+    padding: 9px 16px;
+    background: var(--pe-incompleto-bg);
+    color: var(--pe-alerta-cor);
+    font-size: 13px;
+    border-bottom: 1px solid var(--pe-alerta-bd);
+}
+/* Lotes (L206): o Saldo em negrito e o selo da situação, com a cor que vem do servidor. */
+.pe-tab td.pe-bh-saldo { font-weight: bold; }
+.pe-bh-selo {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+}
+/* Sem lote (o desenho não tem o vazio; a frase das abas da E3). */
+.pe-tab td.pe-abas-vazio { padding: 22px; white-space: normal; }
+/* Nota da lei (L207). */
+.pe-bh-nota { padding: 10px 16px; font-size: 12px; color: var(--pe-mudo); line-height: 1.5; }
+
+/* --- E15: aba Comprovantes, comprovante em imagem e validação (P48, P49, P50). --- */
+/* Aba Comprovantes (L193 a L197): a linha da explicação com "Validar código", a lista com rolagem e "Baixar". */
+.pe-comp-topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--pe-div);
+}
+.pe-comp-texto { flex: 1 1 220px; font-size: 12.5px; color: var(--pe-mudo); }
+.pe-comp-btn {
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--pe-link);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-link);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    text-decoration: none;
+}
+.pe-comp-btn:hover { background: var(--pe-info-bg); }
+.pe-comp-btn--baixar { height: 30px; padding: 0 11px; font-size: 12.5px; gap: 6px; }
+.pe-page a.pe-comp-btn:not(.btn),
+.pe-page a.pe-comp-btn:not(.btn):hover { color: var(--pe-link); text-decoration: none; }
+.pe-comp-lista { max-height: 360px; overflow-y: auto; }
+.pe-comp {
+    display: flex;
+    align-items: center;
+    gap: 6px 14px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--pe-div);
+    font-size: 13.5px;
+}
+.pe-comp-dh { font-variant-numeric: tabular-nums; }
+.pe-comp-metodo { font-size: 12.5px; color: var(--pe-mudo); }
+.pe-comp-codigo { flex: 1; min-width: 150px; padding: 0; background: none; font-size: 12.5px; color: var(--pe-info-cor); }
+/* Erro do "Baixar" no cartão (omissão do desenho): o molde do erro da janela, .pe-janela-erro, numa linha própria. */
+.pe-comp-falha { flex-basis: 100%; font-size: 13px; color: var(--pe-perigo); }
+.pe-comp-falha[hidden] { display: none; }
+
+/* Janela "Validar comprovante" (L297 a L302): o campo do código e as caixas do resultado. */
+.pe-comp-campo {
+    height: 38px;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    padding: 0 10px;
+    background: var(--pe-card);
+    color: var(--pe-texto);
+    font: bold 15px monospace;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.pe-comp-ok,
+.pe-comp-erro { padding: 10px 12px; border-radius: 3px; font-size: 13.5px; }
+.pe-comp-ok { line-height: 1.45; border: 1px solid var(--pe-ok-bd); border-left: 4px solid var(--pe-ok-forte); background: var(--pe-ok-bg); color: var(--pe-ok-cor); }
+.pe-comp-erro { border: 1px solid var(--pe-erro-bd); border-left: 4px solid var(--pe-erro-esq); background: var(--pe-erro-bg); color: var(--pe-erro-cor); }
+.pe-comp-ok[hidden],
+.pe-comp-erro[hidden] { display: none; }
+
+/* --- E10: marca "aj" da batida ajustada (L154, dica L749) e as ações do gestor na ficha. --- */
+/* Depois da hora, um espaço e o "aj" (L154): 10.5px, negrito, azul do desenho (#0a6fa0 no tema claro), com a dica.
+   Ao passar o mouse, fica branco pela regra da linha (L39, `.pe-lin:hover .pe-pl`, que vence por ser mais específica). */
+.pe-aj {
+    font-size: 10.5px;
+    font-weight: bold;
+    color: var(--pe-link);
+    cursor: help;
+}
+/* "Restaurar" da linha "Desconsideradas" da ficha (sistema; o desenho não mostra a ficha, P60): o molde do "+". */
+.pe-mais--restaurar { color: var(--pe-link); }
+
+/* --- E16: folha, aceite mensal e Ver PDF (P22, P33, D19). --- */
+/* Selo do aceite na barra da folha (L145 e L816): o aceite que vale, com a data. Verde no "Assinada em", ocre no
+   "Ressalva em" e vermelho no "Alterada depois do aceite" (decisão 4, no lugar dos outros dois). Texto branco nos
+   dois temas, como no desenho. */
+.pe-folha-aceite {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 3px;
+    background: #1e7b45;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+.pe-folha-aceite--ressalva { background: #8a6200; }
+.pe-folha-aceite--alterada { background: #a3232b; }
+
+/* Portador dos tokens da janela "Ver PDF" fora da /ponto: a ficha do gestor não tem `.pe-page`
+   em volta, e os tokens `--pe-*` moram em `.pe-page` e `.pe-folha`. O portador leva a classe do cartão só pelos
+   tokens: sem moldura, sem fundo e sem altura (o que tem dentro é `position: fixed`). */
+.pe-folha.pe-folha-janelas {
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+}
+
+/* Janela "Ver PDF" (P89, decisão 12): a moldura do desenho (L269 a L318) com o PDF num quadro. O desenho não tem
+   esta janela; a largura e a altura do quadro são as do modal que ela substitui (modal-xl, 1140px, e 78vh). */
+#ponto-janela-ver-pdf > .pe-janela { max-width: 1140px; }
+.pe-janela-corpo.pe-folha-ver-quadro { padding: 0; }
+.pe-folha-ver-quadro > iframe {
+    display: block;
+    width: 100%;
+    height: 78vh;
+    border: 0;
 }

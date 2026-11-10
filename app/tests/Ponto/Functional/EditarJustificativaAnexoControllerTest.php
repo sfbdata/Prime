@@ -57,6 +57,29 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         self::assertNotSame($c['anexoAntigo'], $anexos[0], 'o anexo deveria ter mudado');
     }
 
+    #[TestDox('Anexo novo e motivo novo na mesma edição: o lote inteiro fica com os dois (quem grava os outros dias é a troca do anexo)')]
+    public function testAnexoEMotivoNoLoteInteiro(): void
+    {
+        [$client, $c] = $this->preparar(3);
+        $primeiro     = $c['lote'][0];
+
+        $client->request(
+            'POST',
+            '/ponto/justificativa/' . $primeiro->getId() . '/editar',
+            ['_token' => 'TOKEN_editar_justificativa_' . $primeiro->getId(), 'tipo' => 'atestado_medico', 'motivo' => 'Motivo com atestado novo.'],
+            ['anexo' => $this->upload()],
+        );
+
+        self::assertResponseRedirects();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        foreach ($c['lote'] as $registro) {
+            $dia = $em->find(JustificativaPonto::class, $registro->getId());
+            self::assertSame('Motivo com atestado novo.', $dia->getMotivo());
+            self::assertNotSame($c['anexoAntigo'], $dia->getAnexoPath());
+        }
+    }
+
     #[TestDox('POST com anexo inválido não grava NADA — nem os outros campos da edição')]
     public function testAnexoInvalidoNaoGravaOsOutrosCampos(): void
     {
@@ -142,11 +165,11 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
             ['anexo' => $this->upload()],
         );
 
-        self::assertResponseRedirects('/ponto/');
+        self::assertResponseRedirects('/ponto/?competencia=2026-04&aba=justificativas', null, 'volta na aba das justificativas, no mês delas (E4)');
 
         $flashes = $client->getRequest()->getSession()->getFlashBag()->peekAll();
         self::assertStringContainsString('não pode ser trocado', implode(' ', $flashes['warning'] ?? []));
-        self::assertStringContainsString('todos os dias precisam voltar a pendente', implode(' ', $flashes['warning'] ?? []));
+        self::assertStringContainsString('todos os dias precisam voltar para análise', implode(' ', $flashes['warning'] ?? []));
         self::assertArrayNotHasKey('success', $flashes, 'recusa nunca vem com mensagem de sucesso');
         self::assertArrayNotHasKey('info', $flashes, 'nem com o aviso de "anexo trocado nos N dias"');
 
@@ -171,15 +194,15 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
     /** @return iterable<string, array{list<string>, string}> */
     public static function lotesNaTela(): iterable
     {
-        // O botão edita o dia mais recente exibido (`batch[0]`); ele precisa estar pendente para haver
-        // botão (C2-01). O sinal do atestado olha o lote inteiro.
+        // E3 do desenho: uma linha por dia, cada dia em análise com o próprio botão (C2-01). O sinal do
+        // atestado olha o lote inteiro, igual em todos os botões do lote.
         yield 'todo pendente: oferece'           => [['pendente', 'pendente'], '1'];
         yield 'um dia abonado: não'              => [['abonado', 'pendente'], '0'];
         yield 'um dia rejeitado: não'            => [['rejeitado', 'pendente'], '0'];
     }
 
     /**
-     * R5: cortesia da tela — o servidor é a garantia. O botão diz ao modal se o campo pode ser
+     * R5: cortesia da tela — o servidor é a garantia. O botão diz à janela se o campo pode ser
      * oferecido; o JS o desabilita (não só esconde) e mostra o aviso. O comportamento do JS fica
      * para o smoke: o PHPUnit lê HTML, não executa script.
      *
@@ -196,13 +219,14 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         $botoes = $crawler->filter('button[title="Editar justificativa"]');
-        self::assertCount(1, $botoes, 'um lote, um botão de editar');
-        self::assertSame($esperado, $botoes->attr('data-pode-trocar-anexo'));
+        self::assertCount(\count(array_keys($status, 'pendente', true)), $botoes, 'um botão de editar por dia em análise (E3: uma linha por dia)');
+        self::assertSame(array_fill(0, $botoes->count(), $esperado), $botoes->each(static fn ($b): string => (string) $b->attr('data-pode-trocar-anexo')));
 
-        self::assertCount(1, $crawler->filter('#modalEditarJustificativa input[type="file"]#editarAnexo[name="anexo"]'));
-        $aviso = $crawler->filter('#modalEditarJustificativa #editarAvisoAnexoAnalisado');
+        // E4: a janela "Editar justificativa" na moldura do desenho, no lugar do modal do Bootstrap.
+        self::assertCount(1, $crawler->filter('#ponto-janela-editar input[type="file"]#editarAnexo[name="anexo"]'));
+        $aviso = $crawler->filter('#ponto-janela-editar #editarAvisoAnexoAnalisado');
         self::assertCount(1, $aviso);
-        self::assertStringContainsString('todos os dias precisam voltar a pendente', $aviso->text());
+        self::assertStringContainsString('todos os dias precisam voltar para análise', $aviso->text());
     }
 
     // ------------------------------------------------------------------ helpers

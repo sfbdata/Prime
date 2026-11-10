@@ -24,6 +24,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
+use App\Ponto\Service\FeriadosDaPessoa;
 
 /**
  * A migration `Version20261107100000` (spec `docs/specs/ponto-jornada-vigencia.md` §4) não muda a folha de ninguém.
@@ -62,7 +63,7 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
 
         // "Antes": o cálculo de até aqui, UMA jornada aplicada a todos os dias.
         $antes = $this->folhaDoTrimestre($pessoa, $escritorio, $ano, $jornada, $inicioContagem);
-        $saldoAntes = $this->construtorComUmaJornadaSo($jornada)->calcularSaldoAnual($pessoa, $ano, [], null, $inicioContagem, $escritorio);
+        $saldoAntes = $this->construtorComUmaJornadaSo($jornada)->calcularSaldoAteMes($pessoa, $ano, 12, [], null, $inicioContagem, $escritorio);
         self::assertNotSame(0, $saldoAntes, 'o cenário precisa de saldo, senão a comparação não prova nada');
 
         self::assertSame(0, $this->executar('--down'));
@@ -82,7 +83,7 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
 
         // "Depois": o histórico que a migration deixou no banco, pelo serviço de verdade.
         self::assertEquals($antes, $this->folhaDoTrimestre($pessoa, $escritorio, $ano, $historico, $inicioContagem));
-        self::assertSame($saldoAntes, $this->servico(FolhaPontoBuilder::class)->calcularSaldoAnual($pessoa, $ano, [], null, $inicioContagem, $escritorio));
+        self::assertSame($saldoAntes, $this->servico(FolhaPontoBuilder::class)->calcularSaldoAteMes($pessoa, $ano, 12, [], null, $inicioContagem, $escritorio));
 
         self::assertSame(
             $criadaEm,
@@ -193,6 +194,7 @@ final class MigracaoDaJornadaComVigenciaTest extends KernelTestCase
             $this->servico(JustificativaPontoRepository::class),
             $this->servico(LancamentoHorasPagasRepository::class),
             $jornadas,
+            $this->servico(FeriadosDaPessoa::class),
         );
     }
 

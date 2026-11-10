@@ -9,6 +9,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: SedeRepository::class)]
 class Sede implements Auditavel
 {
+    /** Raio da sede nova, em metros (spec ponto-desenho-0811.md, P70 a: 150 m; as sedes que já existem não mudam). */
+    public const RAIO_PADRAO = 150;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -24,7 +27,7 @@ class Sede implements Auditavel
     private ?string $longitude = null;
 
     #[ORM\Column]
-    private ?int $raioPermitido = 100; // em metros
+    private ?int $raioPermitido = self::RAIO_PADRAO; // em metros
 
     #[ORM\Column(length: 50)]
     private ?string $timezone = 'America/Sao_Paulo';
@@ -32,6 +35,10 @@ class Sede implements Auditavel
     #[ORM\ManyToOne(inversedBy: 'sedes')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
+
+    /** Ponto E10: a sede com batida não é apagada, é encerrada; some das listas e da cerca e as batidas ficam com ela. */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $removidaEm = null;
 
     public function getId(): ?int
     {
@@ -105,5 +112,24 @@ class Sede implements Auditavel
     {
         $this->tenant = $tenant;
         return $this;
+    }
+
+    public function getRemovidaEm(): ?\DateTimeImmutable
+    {
+        return $this->removidaEm;
+    }
+
+    public function estaRemovida(): bool
+    {
+        return $this->removidaEm !== null;
+    }
+
+    public function encerrar(\DateTimeImmutable $em): void
+    {
+        if ($this->removidaEm !== null) {
+            throw new \LogicException('A sede já foi removida.');
+        }
+
+        $this->removidaEm = $em;
     }
 }

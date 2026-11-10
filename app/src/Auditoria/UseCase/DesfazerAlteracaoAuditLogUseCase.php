@@ -129,6 +129,7 @@ final class DesfazerAlteracaoAuditLogUseCase
 
     public const MENSAGEM_ITEM_NA_LIXEIRA = 'Este item está na lixeira da pasta; restaure-o antes de desfazer a alteração.';
     public const MENSAGEM_ALTERACAO_DA_LIXEIRA = 'A ida e a volta da lixeira não se desfazem por aqui: use a lixeira da pasta.';
+    public const MENSAGEM_SEDE_REMOVIDA = 'Esta sede foi removida e não se altera mais. Nada foi alterado.';
     public const MENSAGEM_CAMPO_NAO_REVERSIVEL = 'O campo "%s" não se desfaz automaticamente. Nada foi alterado.';
     public const MENSAGEM_VALOR_IRRECUPERAVEL = 'O valor anterior do campo "%s" não pôde ser recuperado do registro de auditoria. Nada foi alterado.';
     public const MENSAGEM_ASSOCIACAO_INDISPONIVEL = 'O valor anterior do campo "%s" não existe mais ou não pertence a este escritório. Nada foi alterado.';
@@ -234,6 +235,11 @@ final class DesfazerAlteracaoAuditLogUseCase
         // identity map, que não passa pelo TenantFilter. Sem prova, a entidade não é tocada.
         if (!$this->entidadeDoTenant($entity, $tenantId)) {
             return new DesfazerResultado(false, 'Registro não encontrado.');
+        }
+
+        // Ponto E10: a sede removida que tinha batida fica encerrada (some das telas); o desfazer não a altera por fora.
+        if ($entity instanceof Sede && $entity->estaRemovida()) {
+            return new DesfazerResultado(false, self::MENSAGEM_SEDE_REMOVIDA);
         }
 
         return $entity;

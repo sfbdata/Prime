@@ -3,11 +3,14 @@
 namespace App\Ponto\Repository;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Model\AlvoDoAjuste;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -216,6 +219,30 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
+     * As justificativas de um período inteiro NESTE escritório, indexadas por 'Y-m-d' como as do mês: o banco de horas
+     * por lotes lê todos os meses desde o início da contagem numa consulta só (spec ponto-desenho-0811, E17). Mesma
+     * ordem de `findByUserAndCompetencia` (id crescente dentro do dia), que é parte do desempate de `indexarPorDia`.
+     *
+     * @return array<string, JustificativaPonto>
+     */
+    public function findByUserEPeriodoIndexed(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO, auditoria 1.13).
+        return $this->indexarPorDia($this->createQueryBuilder('j')
+            ->where('j.user = :user')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.data BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio->format('Y-m-d'))
+            ->setParameter('fim', $fim->format('Y-m-d'))
+            ->orderBy('j.data', 'DESC')
+            ->addOrderBy('j.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * Escolhe UMA justificativa por dia, por mérito e de forma determinística.
      *
      * O cálculo da folha só honra uma justificativa por dia, mas o sistema aceita várias — e aceita
@@ -224,8 +251,8 @@ class JustificativaPontoRepository extends ServiceEntityRepository
      * (dois esquecimentos, por exemplo) tanto faz quem vence; o problema é o dia que tem uma que
      * abona e outra que não.
      *
-     * Precedência: **abonada que perdoa o déficit** > abonada que não perdoa (categoria técnica e
-     * falta não justificada) > pendente/rejeitada. Empate dentro do mesmo nível: vence a ÚLTIMA da
+     * Precedência: **abonada que perdoa o déficit** > abonada que não perdoa (categoria técnica,
+     * falta não justificada e a ligada a uma batida, E12) > pendente/rejeitada. Empate dentro do mesmo nível: vence a ÚLTIMA da
      * ordem recebida — que é a de maior id, porque `findByUserAndCompetencia` ordena por id
      * crescente. Quem chamar com uma lista fora dessa ordem recebe outro empate; a ordenação da
      * consulta é parte da regra, não enfeite.
@@ -265,6 +292,11 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             return 0;
         }
 
+        // A ligada a uma batida (trabalho externo, E12) nunca abona, nem abonada: aprovar só confirma a batida.
+        if ($justificativa->analisaUmaBatida()) {
+            return 1;
+        }
+
         $tipo = $justificativa->getTipo() !== null
             ? TipoJustificativa::tryFrom($justificativa->getTipo())
             : null;
@@ -291,6 +323,112 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             ->addOrderBy('j.batchId', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * As justificativas em análise NESTE escritório, de quem tem vínculo ativo nele (aba "Equipe" da /ponto, spec
+     * `ponto-desenho-0811.md` E5, P57), com a pessoa já carregada: data mais nova primeiro, depois o nome. Escritório
+     * escrito na consulta, além do filtro.
+     *
+     * @return list<JustificativaPonto>
+     */
+    public function aAnalisarNoEscritorio(Tenant $tenant): array
+    {
+        return $this->emAnaliseNoEscritorio($tenant)
+            ->addSelect('u')
+            // E12: a batida ligada ao trabalho externo, para o subtítulo "TIPO às HH:MM", na mesma consulta.
+            ->leftJoin('j.registroPonto', 'rp')
+            ->addSelect('rp')
+            ->orderBy('j.data', 'DESC')
+            ->addOrderBy('u.fullName', 'ASC')
+            ->addOrderBy('j.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** Quantas `aAnalisarNoEscritorio` devolveria, sem as de `$semAsDe` (o número da aba "Equipe"). */
+    public function contarAAnalisarNoEscritorio(Tenant $tenant, ?User $semAsDe = null): int
+    {
+        $qb = $this->emAnaliseNoEscritorio($tenant)->select('COUNT(j.id)');
+        if ($semAsDe !== null) {
+            $qb->andWhere('j.user <> :semAsDe')->setParameter('semAsDe', $semAsDe);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * As justificativas destes ids NESTE escritório, com a pessoa (abono em lote da aba "Equipe"). Id de outro
+     * escritório ou que não existe não volta: escritório escrito na consulta, além do filtro.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, JustificativaPonto> pelo id
+     */
+    public function doEscritorioPorIds(array $ids, Tenant $tenant): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<JustificativaPonto> $achadas */
+        $achadas = $this->createQueryBuilder('j')
+            ->addSelect('u')
+            ->join('j.user', 'u')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+
+        $porId = [];
+        foreach ($achadas as $justificativa) {
+            $porId[(int) $justificativa->getId()] = $justificativa;
+        }
+
+        return $porId;
+    }
+
+    /** Em análise, no escritório, de quem tem vínculo ativo nele. */
+    private function emAnaliseNoEscritorio(Tenant $tenant): QueryBuilder
+    {
+        return $this->createQueryBuilder('j')
+            ->join('j.user', 'u')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.status = :pendente')
+            ->andWhere(sprintf(
+                'EXISTS (SELECT ut.id FROM %s ut WHERE ut.user = j.user AND ut.tenant = j.tenant AND ut.isActive = true)',
+                UserTenant::class,
+            ))
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pendente', 'pendente');
+    }
+
+    /**
+     * Há justificativa EM ANÁLISE ligada à batida do alvo (E10, decisão C5): a do trabalho externo (E12), presa ao
+     * registro original, ou a que gravou a inclusão (o esquecimento). Enquanto ela não for decidida, a ficha não ajusta
+     * nem desconsidera a batida. Escritório explícito, além do filtro: é regra da batida.
+     */
+    public function temEmAnaliseLigadaA(AlvoDoAjuste $alvo): bool
+    {
+        $consulta = $this->createQueryBuilder('j')
+            ->select('COUNT(j.id)')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.status = :pendente')
+            ->setParameter('tenant', $alvo->escritorio)
+            ->setParameter('pendente', 'pendente');
+        if ($alvo->raizInclusao !== null) {
+            $daInclusao = $alvo->raizInclusao->getJustificativa();
+            if ($daInclusao === null) {
+                return false;
+            }
+            $consulta->andWhere('j.id = :ligada')->setParameter('ligada', $daInclusao->getId());
+        } else {
+            $consulta->andWhere('j.registroPonto = :batida')->setParameter('batida', $alvo->raizBatida);
+        }
+
+        return (int) $consulta->getQuery()->getSingleScalarResult() > 0;
     }
 
     /**

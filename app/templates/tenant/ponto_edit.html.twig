@@ -1,11 +1,18 @@
+{#
+    Ajustar batida (E10, plano-e10-ponto §4): o link da hora na ficha do colaborador. O desenho não mostra a ficha (P60):
+    fica o molde de antes (cartão de aviso, os mesmos campos), com o Motivo obrigatório. A batida gravada não muda: o
+    ajuste entra como uma linha nova e o registro original fica guardado. O campo oculto `cabeca` é o ajuste que esta
+    página mostrou como a forma atual: se outro ajuste entrar antes de salvar, a gravação é recusada.
+#}
 {% extends 'base.html.twig' %}
 
-{% block title %}Editar Batida de Ponto{% endblock %}
+{% block title %}Ajustar batida{% endblock %}
 
 {% block body %}
+{% set rotulosBatida = {entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída'} %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Editar Batida: {{ user.fullName }}</h1>
+        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Ajustar batida: {{ user.fullName }}</h1>
     </div>
 </section>
 
@@ -17,11 +24,12 @@
                     <div class="card-header">
                         <h3 class="card-title">
                             <i class="bi bi-clock-history me-2"></i>
-                            Batida #{{ registro.id }}: {{ registro.dataHora|date('d/m/Y H:i') }}
+                            {{ rotulosBatida[tipoAtual] ?? tipoAtual }}: {{ dataHoraAtual|date('d/m/Y H:i:s') }}
                         </h3>
                     </div>
                     {{ form_start(form) }}
                     <div class="card-body">
+                        {{ form_errors(form) }}
                         <div class="row g-3 mb-3">
                             <div class="col-6">
                                 {{ form_label(form.data, null, {label_attr: {class: 'form-label'}}) }}
@@ -40,20 +48,21 @@
                             {{ form_errors(form.tipo) }}
                         </div>
                         <div class="mb-3">
-                            {{ form_label(form.observacao, null, {label_attr: {class: 'form-label'}}) }}
-                            {{ form_widget(form.observacao, {attr: {class: 'form-control'}}) }}
-                            {{ form_errors(form.observacao) }}
+                            {{ form_label(form.motivo, null, {label_attr: {class: 'form-label'}}) }}
+                            {{ form_widget(form.motivo, {attr: {class: 'form-control'}}) }}
+                            {{ form_errors(form.motivo) }}
                         </div>
                         <input type="hidden" name="competencia" value="{{ competencia }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('ponto_manual_edit') }}">
+                        <input type="hidden" name="cabeca" value="{{ cabeca }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('ponto_ajustar') }}">
                     </div>
                     <div class="card-footer d-flex justify-content-between gap-2">
-                        <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id, competencia: competencia}) }}#tab-ponto"
+                        <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id, competencia: competencia, tab: 'ponto'}) }}"
                            class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left me-1"></i>Cancelar
                         </a>
                         <button type="submit" class="btn btn-warning">
-                            <i class="bi bi-save me-1"></i>Salvar
+                            <i class="bi bi-save me-1"></i>Salvar ajuste
                         </button>
                     </div>
                     {{ form_end(form) }}

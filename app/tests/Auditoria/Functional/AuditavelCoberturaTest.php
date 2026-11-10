@@ -403,6 +403,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Registro de emissão do PDF do Cálculo (spec calculo-atualizacao-monetaria §7): é ele mesmo o rastro (quem, quando,
         // hash), só se acrescenta e nunca se altera.
         \App\Calculo\Entity\CalculoEmitido::class,
+        // Ajuste de batida do Ponto (E10, plano-e10-ponto §6): é ele mesmo o registro imutável da correção (quem, quando,
+        // motivo, a marcação antes e depois), só se acrescenta e nunca se altera; cada ajuste vai para a trilha do Ponto
+        // no mesmo COMMIT. Auditar seria log de log e levaria ao audit_log o motivo, texto livre que a trilha deixa de fora.
+        \App\Ponto\Entity\PontoAjuste::class,
         // Assinatura de documentos (spec assinatura-documentos-etapa-1 §3.2): o evento da trilha É o rastro do documento
         // (encadeado por hash, só se acrescenta); o signatário é filho do documento (Auditavel) e guardará CPF, IP e
         // localização de quem assina, que não devem ir para o audit_log lido por quem administra; a configuração só
@@ -414,6 +418,16 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // validador trazem titular e CPF do certificado, que não devem ir para o audit_log lido por quem administra;
         // cada versão nasce uma vez (só a cadeia é gravada depois) e o evento da trilha é o rastro dela.
         \App\AssinaturaEletronica\Entity\VersaoDoPdf::class,
+        // Ponto, comprovante da batida (E15): a linha é ela mesma o rastro selado (HMAC sobre o texto guardado), só se
+        // acrescenta e nunca se altera; o ato entra na trilha encadeada do Ponto (batida_registrada). Auditavel
+        // duplicaria o rastro e levaria nome e local ao audit_log lido por quem administra. O contador de NSR é estado
+        // operacional (o último número entregue), gravado só por SQL, como a NumeracaoDeMetas: o número que vale fica
+        // na batida e no comprovante.
+        \App\Ponto\Entity\ComprovanteDoPonto::class,
+        \App\Ponto\Entity\ContadorDeNsr::class,
+        // Ponto (spec ponto-desenho-0811, E9): o evento da trilha encadeada É o rastro do Ponto (selado por HMAC, só se
+        // acrescenta, gravado por DBAL); a entidade é só leitura (`readOnly`) e serve à aba Auditoria.
+        \App\Ponto\Entity\EventoDaTrilhaDoPonto::class,
         // Assembleia de condomínio do Voto (spec voto-assembleia-condominio, seção 2, sigilo): a opção guarda o contador
         // de votos e a participação guarda quem votou e quando; no audit_log a hora de uma coincidiria com a da outra e
         // ligaria a unidade ao voto. A unidade guarda responsável, e-mail e a semente do link pessoal, que não vão para
@@ -421,6 +435,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Voto\Entity\OpcaoDaPauta::class,
         \App\Voto\Entity\ParticipacaoNaPauta::class,
         \App\Voto\Entity\UnidadeDaAssembleia::class,
+        // Folha emitida e aceite da folha (E16): como o comprovante, cada linha é o próprio rastro selado e só se
+        // acrescenta; o ato entra na trilha do Ponto (folha_emitida, folha_assinada). Auditavel levaria nome, IP e
+        // ressalva ao audit_log lido por quem administra.
+        \App\Ponto\Entity\FolhaEmitidaDoPonto::class,
+        \App\Ponto\Entity\AceiteDaFolhaDoPonto::class,
     ];
 
     private EntityManagerInterface $em;

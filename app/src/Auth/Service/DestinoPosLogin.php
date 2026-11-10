@@ -111,7 +111,7 @@ final class DestinoPosLogin
         'app_tenant_edit',
         'app_tenant_users',
         'app_tenant_user_edit_role',
-        'app_tenant_user_ponto_edit',
+        'app_tenant_user_ponto_ajustar',
         'app_tenant_role_index',
         'app_tenant_role_new',
         'app_tenant_role_edit',

@@ -207,6 +207,27 @@ tela de seleção de escritório.
     qualquer secundário e trocam senhas como antes; o perfil
     de sistema segue a regra dos primários acima. O select esconde o que não pode e o POST forjado é recusado.
     **Não cobre:** o aceite do convite não revalida o subconjunto (só a regra dos primários).
+- **Análise da própria justificativa de ponto** (P43 a de `docs/specs/ponto-desenho-0811.md`, E3): quem analisa
+  pela permissão do perfil (`admin.users.manage`, a que as rotas da ficha do colaborador conferem) e não é primário
+  ativo nem Master NÃO analisa a própria justificativa. Na própria ficha ele não abona, não recusa, não volta para
+  análise, não usa "Aprovar todos" e não lança justificativa pelo "Justificar Falta" (a lançada pelo gestor já sai
+  abonada). O primário ativo e o Master passam. A regra mora num lugar só,
+  `App\Ponto\Service\AnaliseDaPropriaJustificativa::permite()` (que usa a `RegraDosPrimarios::podeGerirPrimarios()`),
+  e vale no servidor nas cinco rotas da ficha que analisam, pelo `TenantController::exigirQuePodeAnalisar()` (403 com
+  "Só o usuário primário do escritório ou o Master pode analisar a própria justificativa."): `aprovarJustificativa`,
+  `rejeitarJustificativa`, `aprovarTodosJustificativas`, `reverterJustificativa` e `novaJustificativaAdmin`. A ficha
+  esconde os botões pela mesma decisão (`TenantController::podeAnalisar()`, variável `podeAnalisarJustificativas` do
+  `_justificativas_tab.html.twig`), e a aba "Minhas Justificativas" da /ponto mostra "Abonar" e "Recusar" por ela
+  (`podeAnalisarAPropria`) e manda o formulário para as mesmas rotas. A porta sem a ficha
+  (`AnalisarJustificativaUseCase::abonarPorId`, aba Equipe) aplica a mesma regra. Analisar a justificativa de OUTRA
+  pessoa segue só a permissão do perfil, como antes.
+  A mesma regra vale para **corrigir a própria batida** (decisão B da E10): as quatro rotas do ajuste
+  (`AjusteDeBatidaController`: incluir, ajustar, desconsiderar e restaurar) respondem 403 com "Só o usuário primário do
+  escritório ou o Master pode corrigir a própria batida.". Quem decide é a mesma `AnaliseDaPropriaJustificativa::permite()`,
+  na página "Ajustar batida" e de novo nos UseCases ao gravar (`IncluirBatidaUseCase`, `AjustarBatidaUseCase`,
+  `DesconsiderarBatidaUseCase`, `RestaurarBatidaUseCase`). Na ficha, `editarBatidasHabilitado: podeAnalisarJustificativas`
+  (`tenant/edit_user_role.html.twig`) esconde o "+", o link da hora, o "x" e o Restaurar da própria ficha de quem não é
+  primário.
 - **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
   (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega toda permissão de perfil** no
   `PermissionChecker` (módulos, admin e `resources.*` por tipo) até alguém atribuir outro. Só

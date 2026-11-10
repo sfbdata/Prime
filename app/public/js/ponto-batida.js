@@ -109,9 +109,9 @@
             // tem raio grande o bastante para a pessoa estar dentro. Olhar só a mais próxima
             // bloquearia quem o servidor aceitaria — a tela ficaria mais rígida que a regra.
             //
-            // A sede CITADA na mensagem e a decisiva, nao a mais perto em metros: mandar a
-            // pessoa olhar para a sede errada e conselho ruim, e com raios diferentes elas
-            // divergem. Medido por fuzz: aconteceria em 10% dos bloqueios.
+            // A sede DEVOLVIDA aqui é a decisiva (com raios diferentes, ela e a mais perto em metros
+            // divergem). Ela decide o `fora` e é a que o atalho do cabeçalho cita. A tela do ponto, desde a
+            // E12, CITA a mais próxima em metros (`sedeMaisProxima`), como o servidor e o desenho (L528).
             if ((distancia - sede.raio) < menorExcedente) {
                 menorExcedente = distancia - sede.raio;
                 decisiva = sede;
@@ -138,6 +138,81 @@
             situacao: certamenteFora ? 'fora' : 'indeterminado',
             distancia: distanciaDecisiva,
             sede: decisiva,
+        };
+    }
+
+    // E12 (P18; desenho L528): o título do "fora do raio", o mesmo do servidor.
+    const TITULO_FORA_DO_RAIO = 'Você está fora do raio permitido';
+
+    /**
+     * A sede que a tela CITA quando a pessoa está fora: a válida mais próxima em metros (desenho L528, `maisProx`), a
+     * mesma do servidor (`CercaDoPonto`). Não é a decisiva de `avaliarPosicao` (a do menor excedente), que continua
+     * decidindo o `fora`. Válida: a distância é número e o raio é positivo (as sedes da tela já chegam só com as
+     * válidas, `SedesDaCercaDoPonto`). Na mesma distância, a primeira, como no servidor. Devolve `{ sede, distancia }`,
+     * ou `null` sem posição ou sem sede válida. Usada pelo bloco do toque (`textosDoForaDoRaio`) e pela caixa da
+     * localização da tela: as duas citam a mesma sede.
+     */
+    function sedeMaisProxima(posicao, sedes) {
+        let maisProxima = null;
+        if (!posicao || !Array.isArray(sedes)) {
+            return maisProxima;
+        }
+        for (const candidata of sedes) {
+            const medida = distanciaEmMetros(posicao.latitude, posicao.longitude, candidata.latitude, candidata.longitude);
+            // `Number(null)` é 0 e `NaN > 0` é falso: raio ausente ou inválido não entra (nem vira "0 m").
+            const raio = Number(candidata.raio);
+            if (Number.isFinite(medida) && Number.isFinite(raio) && raio > 0 && (maisProxima === null || medida < maisProxima.distancia)) {
+                maisProxima = { sede: candidata, distancia: medida };
+            }
+        }
+
+        return maisProxima;
+    }
+
+    /**
+     * Os textos de "fora do raio" quando a avaliação LOCAL (`avaliarPosicao`) dá `fora`, na mesma forma do
+     * `foraDoRaio` que o servidor devolve na recusa (`{ titulo, detalhe, trabalhoExterno }`): a tela mostra os dois
+     * pelo mesmo caminho. Textos do desenho (L528), iguais aos do servidor: "A sede mais próxima é NOME, a N m. O raio
+     * permitido é de R m."; sem sede, "O registro exige estar dentro do raio de uma sede do escritório."; com o trabalho
+     * externo permitido no escritório (P74), mais " Aproxime-se ou informe o trabalho externo.".
+     *
+     * Distância e raio saem com o ponto de milhar do pt-BR, como no servidor (`PosicaoNaCerca`, `number_format`); abaixo
+     * de 1000 m, o texto é o do desenho.
+     *
+     * A sede citada é a de `sedeMaisProxima` (a válida mais próxima em metros, como o servidor), e não a decisiva de
+     * `avaliarPosicao`, que continua decidindo o `fora` da tela. Puro: o nome da sede volta dentro de uma string, e quem
+     * mostra põe por `textContent`.
+     */
+    function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {
+        const maisProxima = sedeMaisProxima(posicao, sedes);
+        let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';
+        if (maisProxima) {
+            detalhe = 'A sede mais próxima é ' + String(maisProxima.sede.nome) + ', a ' + Math.round(maisProxima.distancia).toLocaleString('pt-BR')
+                + ' m. O raio permitido é de ' + Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR') + ' m.';
+        }
+        const permitido = trabalhoExternoPermitido === true;
+        if (permitido) {
+            detalhe += ' Aproxime-se ou informe o trabalho externo.';
+        }
+
+        return { titulo: TITULO_FORA_DO_RAIO, detalhe, trabalhoExterno: permitido };
+    }
+
+    /**
+     * O `foraDoRaio` da resposta do servidor (403 fora do raio, 422 GPS impreciso), conferido: `{ titulo, detalhe,
+     * trabalhoExterno }` com o título em texto, ou `null` quando a resposta não traz (as outras recusas). O botão do
+     * trabalho externo só com `trabalhoExterno === true`.
+     */
+    function foraDoRaioDaResposta(data) {
+        const fora = data && typeof data === 'object' ? data.foraDoRaio : null;
+        if (!fora || typeof fora !== 'object' || typeof fora.titulo !== 'string' || fora.titulo === '') {
+            return null;
+        }
+
+        return {
+            titulo: fora.titulo,
+            detalhe: typeof fora.detalhe === 'string' ? fora.detalhe : '',
+            trabalhoExterno: fora.trabalhoExterno === true,
         };
     }
 
@@ -200,9 +275,44 @@
     }
 
     /**
+     * Identificador único do envio de uma batida (E13): UUID v4 em minúsculas, feito UMA vez no toque e repetido em
+     * toda nova tentativa daquela batida (a fila sem internet da tela do ponto, E14). O servidor não grava duas
+     * batidas com o mesmo identificador: a segunda resposta diz que ela já tinha sido registrada.
+     *
+     * `crypto.randomUUID` só existe em contexto seguro (https ou localhost); fora dele (o http://127.0.0.1.nip.io do
+     * dev) o v4 é montado com `crypto.getRandomValues`, que existe em qualquer página. Nunca lança: sem nenhum dos dois
+     * (navegador muito antigo), os bytes saem do `Math.random`, o que ainda basta para não repetir na mesma pessoa.
+     */
+    function novoIdDeEnvio() {
+        try {
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                return String(crypto.randomUUID()).toLowerCase();
+            }
+        } catch (erro) {
+            // Segue para a montagem do v4 abaixo.
+        }
+
+        const bytes = new Uint8Array(16);
+        try {
+            crypto.getRandomValues(bytes);
+        } catch (erro) {
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = Math.floor(Math.random() * 256);
+            }
+        }
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;   // versão 4
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;   // variante RFC 4122
+        const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+
+        return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+    }
+
+    /**
      * Envia a batida e CLASSIFICA o que aconteceu, sem mexer na tela.
      *
-     * Resolve com `{ tipo, mensagem, data }`, em que `tipo` é:
+     * Resolve com `{ tipo, mensagem, data, status, falhaDeRede }`. `status` é o código HTTP da resposta (`null`
+     * quando nenhuma resposta voltou); `falhaDeRede` é `true` só quando o próprio envio falhou (erro de rede ou prazo
+     * estourado, o `catch` do `fetch`), que é o caso em que a tela do ponto guarda a batida na fila (E14). O `tipo` é:
      * - `atrasado`: passou de `LIMITE_ATRASO_ENVIO_MS` desde o toque e NADA foi enviado;
      * - `sucesso`: o servidor confirmou (`mensagem` é a dele);
      * - `recusa`: o servidor respondeu com mensagem e não gravou (`mensagem` é a dele);
@@ -214,14 +324,17 @@
      * `data` é o JSON da resposta quando ela veio e pôde ser lido; `null` nos outros casos.
      */
     async function enviarBatida(url, payload, momentoDoToque) {
-        // O servidor carimba a batida com a hora de CHEGADA da requisição
-        // (`PontoController::batida` → `setDataHora(new \DateTime())`); o payload não leva o
-        // instante do toque. Se a aba foi congelada e o envio só sair minutos depois, a batida
+        // Na batida normal, o servidor carimba a hora de CHEGADA da requisição
+        // (`PontoController::batida` → `setDataHora(new \DateTime())`); a hora do aparelho que o
+        // payload leva desde a E13 (`horaAparelho`) fica guardada ao lado, como informação. A
+        // exceção é a batida que vem da fila sem internet (`semInternet`, E14): nela vale a hora do
+        // aparelho no toque, e quem envia a fila passa o próprio instante do envio, então esta guarda
+        // não a barra. Se a aba foi congelada e o envio normal só sair minutos depois, a batida
         // entraria com a hora errada e com cara de certa. Num módulo de risco ALTO, dado errado
         // silencioso é pior que ausência visível — então aqui NÃO se envia: quem chama devolve o
         // botão e manda repetir, que é o comportamento que a pessoa já conhecia.
         if (performance.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS) {
-            return { tipo: 'atrasado', mensagem: null, data: null };
+            return { tipo: 'atrasado', mensagem: null, data: null, status: null, falhaDeRede: false };
         }
 
         const abortoDoEnvio = new AbortController();
@@ -247,32 +360,37 @@
             } catch (erroDeLeitura) {
                 data = null;
             }
+            // E13: o código vai junto da classificação, para a fila sem internet (E14) separar o 409 (batida de
+            // outra conta ou escritório, que fica guardada) das outras recusas. A classificação não muda.
+            const status = response.status;
 
             if (response.ok && data && data.success) {
-                return { tipo: 'sucesso', mensagem: data.message, data };
+                return { tipo: 'sucesso', mensagem: data.message, data, status, falhaDeRede: false };
             } else if (data && data.message) {
-                return { tipo: 'recusa', mensagem: data.message, data };
+                return { tipo: 'recusa', mensagem: data.message, data, status, falhaDeRede: false };
             } else if (response.status === 401 || response.status === 403 || response.redirected) {
                 // Recusa de regra vem com JSON e foi tratada no ramo acima. Chegar aqui com 401/403
                 // é sessão expirada ou token de segurança inválido: nesses o servidor barra ANTES
                 // de gravar, então dá para afirmar que a batida não entrou.
-                return { tipo: 'nao_entrou', mensagem: null, data };
+                return { tipo: 'nao_entrou', mensagem: null, data, status, falhaDeRede: false };
             } else {
-                return { tipo: 'sem_confirmacao', mensagem: null, data };
+                return { tipo: 'sem_confirmacao', mensagem: null, data, status, falhaDeRede: false };
             }
         } catch (error) {
             // 🔑 Aqui o navegador NÃO SABE se a batida entrou. O aborto cancela só o lado de cá: a
             // requisição já saiu e o servidor pode ter gravado antes de a resposta se perder. Dizer
-            // "não foi registrada" e mandar repetir produzia batida duplicada, e o servidor não tem
-            // guarda de duplicata (`PontoController::batida` só valida repouso e interjornada).
-            // Por isso o aviso manda CONFERIR o bloco de hoje, que mostra inclusive quantos
-            // registros existem de cada tipo.
+            // "não foi registrada" e mandar repetir produzia batida duplicada. Desde a E13 o servidor
+            // não grava duas vezes o mesmo `idEnvio`, mas essa guarda só vale para a MESMA tentativa
+            // mandada de novo (a fila sem internet faz isso): um toque novo da pessoa leva outro
+            // `idEnvio` e entraria como segunda batida. Por isso o aviso manda CONFERIR o bloco de
+            // hoje, que mostra inclusive quantos registros existem de cada tipo.
             // `navigator.onLine` só é confiável quando diz FALSO (o sistema sabe que não há rota).
             // Usá-lo para ESCONDER o botão de atualizar é seguro; usá-lo para afirmar que há
             // internet não seria.
             const semRede = navigator.onLine === false;
             console.error('Erro ao registrar ponto:', error);
-            return { tipo: semRede ? 'sem_rede' : 'sem_confirmacao', mensagem: null, data: null };
+            // `falhaDeRede` só aqui: nenhuma resposta voltou. Com o mesmo `idEnvio`, mandar de novo é seguro (E13).
+            return { tipo: semRede ? 'sem_rede' : 'sem_confirmacao', mensagem: null, data: null, status: null, falhaDeRede: true };
         } finally {
             clearTimeout(prazoDoEnvio);
         }
@@ -310,6 +428,34 @@
     }
 
     /**
+     * Avisa o servidor de que uma rodada da fila sem internet enviou batidas (evento "Sincronização" da auditoria do
+     * Ponto, E14; desenho 16, L438). POST JSON `{idsEnvio}` com prazo próprio (`ENVIO_PRAZO_MS`), como todo envio do
+     * Ponto; o token `ajax` entra pelo interceptador do `base.html.twig`. Não espera a resposta e nunca lança: as
+     * batidas já entraram, e a falha só vai para o console.
+     */
+    function avisarSincronizacaoDaFila(url, idsEnvio) {
+        try {
+            const aborto = new AbortController();
+            const prazo  = setTimeout(() => aborto.abort(), ENVIO_PRAZO_MS);
+            fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ idsEnvio }),
+                signal: aborto.signal,
+            }).then((resposta) => {
+                if (!resposta.ok) {
+                    console.error('A sincronização da fila não entrou na auditoria:', resposta.status);
+                }
+            }).catch((erro) => {
+                console.error('A sincronização da fila não entrou na auditoria:', erro);
+            }).finally(() => clearTimeout(prazo));
+        } catch (erro) {
+            console.error('A sincronização da fila não entrou na auditoria:', erro);
+        }
+    }
+
+    /**
      * Pede a permissão de notificação do sistema (a "janelinha" do alerta do ponto, que aparece
      * mesmo com o navegador minimizado), só se a pessoa ainda não respondeu (`default`).
      *
@@ -338,9 +484,14 @@
         TELA_PRAZO_MS,
         distanciaEmMetros,
         avaliarPosicao,
+        sedeMaisProxima,
+        textosDoForaDoRaio,
+        foraDoRaioDaResposta,
         lerPosicaoComPrazo,
+        novoIdDeEnvio,
         enviarBatida,
         buscarTelaDoPonto,
+        avisarSincronizacaoDaFila,
         pedirPermissaoDeNotificacao,
     });
 })();

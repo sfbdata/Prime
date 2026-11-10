@@ -19,6 +19,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * A linha "Horas pagas" no rodapé da folha (Tarefa 6): aparece só quando há lançamento na
@@ -143,11 +144,12 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('mes sem batida nenhuma: o bloco trata o saldo do mes como zero e o total vira o proprio lancamento')]
+    #[TestDox('pessoa sem inicio da contagem (nunca bateu ponto): o saldo do mes e zero e o total vira o proprio lancamento')]
     public function testBlocoDeTotaisEmMesSemBatidaTrataSaldoDoMesComoZero(): void
     {
-        // Nenhuma linha da folha tem saldo apurado (`saldoAcumuladoFinal` devolve null). Some o total
-        // seria pior do que somar zero: é justamente o mês em que só existe o lançamento.
+        // Sem nenhuma batida não há início da contagem, e o banco não conta falta nenhuma: o saldo do mês é zero, e o
+        // bloco continua existindo, porque é justamente o mês em que só existe o lançamento. Quem já começou a
+        // contagem tem as faltas do mês sem batida no saldo (E17): ver o teste do mês sem registro na ficha, abaixo.
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $colaborador = $this->criarColaboradorComum($tenant);
@@ -449,6 +451,44 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         );
     }
 
+    /**
+     * E17, rodada 4: o mesmo cenário do teste abaixo. No mês do lançamento não há batida, a ficha não mostra linha
+     * nenhuma, mas o "Saldo do mês" dela é a conta do banco para a competência sem as horas pagas: as faltas do mês pela
+     * jornada do escritório (a pessoa não tem jornada pessoal). O mesmo número da /ponto; até aqui a ficha mostrava zero.
+     */
+    #[TestDox('mes do lancamento sem batida: a ficha e a /ponto mostram o mesmo Saldo do mes, que nao e zero')]
+    public function testFichaEPontoDaoOMesmoSaldoDoMesSemBatida(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+        $primeiroDia = (new \DateTimeImmutable())->modify('first day of this month');
+        $mesDoLancamento = $primeiroDia->modify('-2 months');
+        $this->criarRegistro($colaborador, $tenant, $primeiroDia->modify('-5 months')->format('Y-m-d') . ' 09:00:00');
+        $this->criarLancamento($tenant, $colaborador, $autor, (int) $mesDoLancamento->format('Y'), (int) $mesDoLancamento->format('n'), -600);
+        $saldoDoMes = static function (Crawler $tela): string {
+            $valor = $tela->filter('div.pe-folha-totais > div.pe-folha-total:first-child > b.pe-folha-total-valor');
+            self::assertCount(1, $valor);
+
+            return trim($valor->text());
+        };
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $ficha = $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?tab=ponto&competencia=%s', $tenant->getId(), $colaborador->getId(), $mesDoLancamento->format('Y-m')));
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $ficha->filter('#tab-ponto tr.pe-lin'), 'controle: a ficha não mostra linha no mês sem batida');
+        $this->logarComTenant($client, $colaborador, $tenant);
+        $ponto = $client->request('GET', '/ponto/?competencia=' . $mesDoLancamento->format('Y-m'));
+        self::assertResponseIsSuccessful();
+
+        // As duas telas tiram o número da mesma conta (`saldosDoBancoPorCompetencia`), então a igualdade prova só que a
+        // ficha deixou de ter conta própria. A âncora independente é a regex: negativo e diferente de zero.
+        self::assertMatchesRegularExpression('/^-\d+h\d{2}m$/D', $saldoDoMes($ficha), 'as faltas do mês, não zero');
+        self::assertSame($saldoDoMes($ponto), $saldoDoMes($ficha));
+    }
+
     #[TestDox('lancamento de horas pagas mais recente que a ultima batida vira o mes de abertura')]
     public function testFichaAbreNoMesDoLancamentoQuandoEleEMaisRecenteQueAUltimaBatida(): void
     {
@@ -703,7 +743,8 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
      * Jornada sem nenhum dia de trabalho: a carga esperada do dia vira 0 em qualquer dia da semana
      * (`CalculadoraJornada::calcularSaldoDia`), então o saldo do dia é exatamente o que foi batido —
      * o único jeito de fixar o "Saldo do mês" num teste que roda em qualquer data do calendário.
-     * Também garante a jornada pessoal no escritório, sem a qual a ficha do admin nem apura saldo.
+     * Também fixa a jornada da pessoa: sem ela, a folha conta pela jornada do escritório (`jornadaDaFolha`, E17), que
+     * espera horas nos dias úteis e mudaria o número conforme a data em que o teste roda.
      */
     private function criarJornadaSemDiasDeTrabalho(User $user, Tenant $tenant): void
     {

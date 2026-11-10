@@ -11,7 +11,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\LancamentoHorasPagas;
-use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\DadosDaFolhaExportada;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,8 +20,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 /**
  * As duas telas que mostram banco de horas têm de mostrar o MESMO número.
  *
- * O painel `/ponto` passa por `calcularSaldoAnual`; o "Saldo anterior" do espelho/PDF/XLSX passa
- * por `calcularSaldoAteMes`, dentro de `PontoController::montarDadosFolha`. Enquanto essa segunda
+ * O painel `/ponto` passa por `BancoDeHorasPorLotes`; o "Saldo anterior" do espelho/PDF/XLSX passa
+ * por `calcularSaldoAteMes`, dentro de `DadosDaFolhaExportada::montar`. Enquanto essa segunda
  * chamada era condicionada a `$jornada !== null`, um colaborador SEM `JornadaColaborador` via
  * -10h00 numa tela e 0h00 na outra — 600 minutos de diferença no mesmo sistema, para o mesmo mês.
  *
@@ -29,6 +29,7 @@ use PHPUnit\Framework\Attributes\TestDox;
  * -600 min, e os dois caminhos batendo.
  */
 #[CoversClass(PontoController::class)]
+#[CoversClass(DadosDaFolhaExportada::class)]
 final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
 {
     #[TestDox('colaborador sem JornadaColaborador ve o mesmo lancamento no painel e no saldo anterior do espelho')]
@@ -44,13 +45,13 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
         // o mês corrente por padrão, e o rodapé "Horas pagas" (Tarefa 6) formata o valor com a MESMA
         // string ("-10h00m") que o card "Banco de horas" deste teste. Se coincidissem (lançamento
         // feito em janeiro rodando a suíte em janeiro, por exemplo), a asserção do painel passaria
-        // por causa do rodapé, mesmo com `calcularSaldoAnual` quebrado — verde por sorte de
+        // por causa do rodapé, mesmo com `BancoDeHorasPorLotes` quebrado — verde por sorte de
         // calendário. Escolher um mês sempre diferente do corrente fecha essa brecha.
         $mesAtual = (int) (new \DateTimeImmutable())->format('n');
         $mesLancamento = $mesAtual === 1 ? 2 : 1;
         $this->criarLancamento($tenant, $colaborador, $autor, $anoAtual, $mesLancamento, -600);
 
-        // Caminho 1 — painel do colaborador (calcularSaldoAnual).
+        // Caminho 1 — painel do colaborador (BancoDeHorasPorLotes).
         $this->logarComTenant($client, $colaborador, $tenant);
         $client->request('GET', '/ponto/');
 
@@ -61,8 +62,8 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
             'o painel tem de refletir o lançamento mesmo sem jornada individual configurada',
         );
 
-        // Caminho 2 — "Saldo anterior" do espelho/PDF/XLSX (calcularSaldoAteMes), pelo método
-        // privado que os dois exportadores usam, no mês seguinte ao do lançamento.
+        // Caminho 2 — "Saldo anterior" do espelho/PDF/XLSX (calcularSaldoAteMes), pelo
+        // serviço que os dois exportadores usam, no mês seguinte ao do lançamento.
         $dados = $this->montarDadosFolha($colaborador, $tenant, $anoAtual, $mesLancamento + 1);
 
         self::assertSame(
@@ -89,7 +90,7 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Chama o `montarDadosFolha` privado do controller — é ele que o PDF e o XLSX consomem, e a
+     * Chama o `DadosDaFolhaExportada::montar` — é ele que o PDF e o XLSX consomem, e a
      * linha corrigida vive lá dentro. Testar pela rota exigiria abrir um PDF ou um XLSX para ler
      * um número que este acesso direto entrega exato.
      *
@@ -97,14 +98,9 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
      */
     private function montarDadosFolha(User $colaborador, Tenant $tenant, int $ano, int $mes): array
     {
-        $container  = static::getContainer();
-        $controller = $container->get(PontoController::class);
-        $builder    = $container->get(FolhaPontoBuilder::class);
-
-        $metodo = new \ReflectionMethod($controller, 'montarDadosFolha');
-
         /** @var array<string, mixed> $dados */
-        $dados = $metodo->invoke($controller, $colaborador, $tenant, $ano, $mes, [], [], null, null, $builder, null);
+        $dados = static::getContainer()->get(DadosDaFolhaExportada::class)
+            ->montar($colaborador, $tenant, $ano, $mes, [], [], null, null, null);
 
         return $dados;
     }

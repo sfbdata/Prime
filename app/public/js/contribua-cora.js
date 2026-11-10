@@ -121,7 +121,8 @@
     }
     /* Espera outro modal aberto fechar (spec mãe §8: ponto > iOS > prêmio > aviso de espaço > Central). */
     function quandoLivre(fn) {
-        const aberto = document.querySelector('.modal.show');
+        // A janela do alerta de horário do ponto não é modal do Bootstrap: entra no seletor (ela dispara `hidden.bs.modal`).
+        const aberto = document.querySelector('.modal.show, #modalAlertaPonto.show');
         if (!aberto) { fn(); return; }
         aberto.addEventListener('hidden.bs.modal', () => quandoLivre(fn), { once: true });
     }

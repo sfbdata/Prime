@@ -139,15 +139,20 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         );
     }
 
-    #[TestDox('cada impedimento do clique escreve em #batida-aviso')]
+    #[TestDox('cada impedimento do clique responde: na caixa #batida-aviso ou, sem a posição e fora do raio, na tela vermelha (E8)')]
     public function testTodoImpedimentoRespondeNoAviso(): void
     {
         $corpo = $this->corpoDaFuncao("btnPonto.addEventListener('click'");
 
+        // E8 (P10 b): sem a posição, a tela vermelha do desenho (ou o aviso flutuante, com a tela cheia desligada), pelo
+        // `mostrarFalhaDoToque`; a caixa da localização continua com o passo a passo. E12 + E8: no toque do trabalho
+        // externo, o tipo é o da batida que falhou, e o `externo` faz o "Tentar novamente" refazê-la externa. O fora do raio
+        // vai à tela vermelha ou, com a tela cheia desligada, ao bloco na caixa (`mostrarForaDoRaioDoToque`, ver
+        // testCercaAvisaOndeAPessoaLeOResultado). O tipo não escolhido segue na caixa.
         $impedimentos = [
             'tipo não escolhido' => '/!tipoRegistro\.value\s*\)\s*\{\s*mostrarAvisoBatida\(/',
-            'sem posição'        => '/!homeOfficeHoje && !currentLocation\s*\)\s*\{\s*mostrarAvisoBatida\(/',
-            'fora do raio'       => '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*mostrarAvisoBatida\(/',
+            'sem posição'        => '/!dispensaLocalizacao && !currentLocation\s*\)\s*\{\s*mostrarFalhaDoToque\(externo !== null \? externo\.tipo : tipoRegistro\.value, TITULO_SEM_LOCALIZACAO, DETALHE_SEM_LOCALIZACAO, \[\], externo\);\s*return;/',
+            'fora do raio'       => '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*mostrarForaDoRaioDoToque\(foraDoRaioDaTela\(currentLocation\), tipoRegistro\.value, null\);\s*return;/',
         ];
 
         foreach ($impedimentos as $nome => $padrao) {
@@ -200,22 +205,29 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         );
 
         $concluida = $this->corpoDaFuncao('function jornadaConcluida(');
-        foreach (['tipoRegistro', 'currentLocation', 'avaliarPosicao', 'homeOfficeHoje'] as $proibido) {
+        foreach (['tipoRegistro', 'currentLocation', 'avaliarPosicao', 'homeOfficeHoje', 'dispensaLocalizacao'] as $proibido) {
             self::assertStringNotContainsString($proibido, $concluida, 'o dia completo passou a olhar ' . $proibido);
         }
         self::assertStringContainsString("button[role=\"radio\"]:not(:disabled)", $concluida);
     }
 
-    #[TestDox('a cerca responde ao toque em #batida-aviso, não só em #gps-status')]
+    #[TestDox('a cerca responde ao toque onde a pessoa lê o resultado (a tela vermelha ou, sem ela, #batida-aviso), não só em #gps-status')]
     public function testCercaAvisaOndeAPessoaLeOResultado(): void
     {
         $tela = $this->tela();
 
         self::assertMatchesRegularExpression(
-            '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*mostrarAvisoBatida\(/',
+            '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*mostrarForaDoRaioDoToque\(/',
             $tela,
             'quem está fora do raio voltou a tocar no botão sem receber resposta'
         );
+        // E8: a porta responde nos dois casos: sem a tela cheia, o bloco na caixa #batida-aviso; com ela, a tela vermelha.
+        $porta = $this->corpoDaFuncao('function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {');
+        self::assertMatchesRegularExpression(
+            '/if \(!telaCheiaVale\(\)\) \{\s*tocarResultado\(\'erro\'\);\s*mostrarAvisoBatida\(\'\', \'danger\'\);\s*mostrarForaDoRaio\(avisoBatida, foraDoRaio, tipo\);\s*return;\s*\}/',
+            $porta
+        );
+        self::assertStringContainsString('mostrarFalhaDoToque(tipo, foraDoRaio.titulo, foraDoRaio.detalhe, botoes, externo);', $porta);
     }
 
     #[TestDox('a cerca continua impedindo o envio: a regra não afrouxou')]
