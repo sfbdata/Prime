@@ -399,13 +399,22 @@
         }
     }
 
-    /* ── Avisos (toast do desenho; some em 3,4 s) ───────────────────────── */
-    function avisar(texto, tipo) {
+    /* ── Avisos (toast do desenho; some em 3,4 s, menos o fixo, que fica até o próximo aviso) ── */
+    function avisar(texto, tipo, fixo) {
         const cam = camada('toast');
         if (!cam) { return; }
         cam.innerHTML = '<div class="bjaToast' + (tipo ? ' is-' + tipo : '') + '" role="status">' + esc(texto) + '</div>';
         clearTimeout(tToast);
-        tToast = setTimeout(() => { cam.innerHTML = ''; }, 3400);
+        if (!fixo) { tToast = setTimeout(() => { cam.innerHTML = ''; }, 3400); }
+    }
+
+    /* "Baixar PDF com selo" da tela verde: "Gerando o PDF..." até o fim; o 429 mostra o texto do servidor. */
+    function baixarPdf() {
+        window.BJAssinaPdf.baixar(url.pdf, {
+            aoIniciar: () => avisar(TP('gerando'), '', true),
+            aoConcluir: () => avisar(TP('gerado')),
+            aoFalhar: e => avisar((e && e.texto) || TP('falhou'), 'erro'),
+        });
     }
 
     /* Prévia aberta pelo escritório numa aba nova: fecha a aba; se o navegador não deixar, volta. */
@@ -429,7 +438,7 @@
             case 'recusa-nao': a.recusa = false; desenharRecusa(); break;
             case 'recusa-sim': confirmarRecusa(ac); break;
             case 'concluir': camada('ok').innerHTML = ''; break;
-            case 'baixar-pdf': window.BJAssinaPdf.baixar(url.pdf, { aoConcluir: () => avisar(TP('gerado')), aoFalhar: () => avisar(T('erro.geral'), 'erro') }); break;
+            case 'baixar-pdf': baixarPdf(); break;
             default: break;
         }
     });

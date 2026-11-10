@@ -73,7 +73,40 @@ final class TelaDoPdfJsTest extends TestCase
         self::assertCount(1, $html->filter('.bjaOkBts > button.bjaOkPdf[data-bja-acao="baixar-pdf"] + button.bjaOkFim[data-bja-acao="concluir"]'));
         self::assertCount(1, $html->filter('.bjaOkBts > button.bjaOkPdf > i.bi.bi-file-earmark-pdf'));
         self::assertStringContainsString("esc(TP('baixar'))", $js);
-        self::assertStringContainsString("case 'baixar-pdf': window.BJAssinaPdf.baixar(url.pdf, { aoConcluir: () => avisar(TP('gerado'))", $js);
+        self::assertStringContainsString("case 'baixar-pdf': baixarPdf(); break;", $js);
+        self::assertStringContainsString('window.BJAssinaPdf.baixar(url.pdf, {', self::corpo($js, 'baixarPdf'));
+    }
+
+    #[TestDox('"Gerando o PDF..." fica até o fim; a falha mostra o texto do servidor (429) ou "Não foi possível gerar o PDF."')]
+    public function testAvisosDaGeracao(): void
+    {
+        foreach ([self::INTERNA => 'T(\'pdf.', self::PUBLICA => 'TP(\''] as $arquivo => $t) {
+            $js = self::ler($arquivo);
+            $baixar = self::corpo($js, 'baixarPdf');
+            self::assertStringContainsString('aoIniciar: () => avisar(' . $t . "gerando'), '', true),", $baixar, $arquivo);
+            self::assertStringContainsString('aoConcluir: () => avisar(' . $t . "gerado')),", $baixar, $arquivo);
+            self::assertStringContainsString('aoFalhar: e => avisar((e && e.texto) || ' . $t . "falhou'), 'erro'),", $baixar, $arquivo);
+            self::assertStringContainsString('if (!fixo) { tToast = setTimeout(', self::corpo($js, 'avisar'), $arquivo);
+        }
+        $pdf = Yaml::parseFile(self::TEXTOS_TELA)['assinatura_eletronica_tela']['js']['pdf'] ?? [];
+        self::assertSame('Gerando o PDF...', $pdf['gerando'] ?? null);
+        self::assertSame('Muitos PDFs sendo gerados agora. Tente de novo em instantes.', $pdf['muitos'] ?? null);
+        self::assertSame('Não foi possível gerar o PDF. Tente de novo.', $pdf['falhou'] ?? null);
+    }
+
+    #[TestDox('download: o aviso de início vem depois da guarda do segundo clique; PDF sem %%EOF no fim não é salvo')]
+    public function testPdfCortadoE429(): void
+    {
+        $js = self::ler(self::PDF);
+        $baixar = self::corpo($js, 'baixar');
+
+        self::assertLessThan(strpos($baixar, 'if (o.aoIniciar) { o.aoIniciar(); }'), strpos($baixar, 'if (!url || emCurso[url]) { return false; }'));
+        self::assertStringContainsString('if (!r.ok) { throw await erroDaResposta(r); }', $baixar);
+        self::assertStringContainsString("if (corpo && typeof corpo.erro === 'string') { e.texto = corpo.erro; }", self::corpo($js, 'erroDaResposta'));
+        self::assertStringContainsString("return fim.indexOf('%%EOF') >= 0;", self::corpo($js, 'inteiro'));
+        $confere = strpos($baixar, "if (!(await inteiro(blob))) { throw new Error(");
+        self::assertIsInt($confere);
+        self::assertLessThan(strpos($baixar, 'entregar(blob, '), $confere, 'confere o fim antes de salvar');
     }
 
     #[TestDox('estilos da tela verde tirados do desenho: código em monospace 15 com borda, botão branco de 44 px')]

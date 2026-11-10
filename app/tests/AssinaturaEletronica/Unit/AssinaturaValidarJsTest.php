@@ -179,7 +179,7 @@ final class AssinaturaValidarJsTest extends TestCase
             'carregar();',
         ], 'início da tela');
         self::emOrdem($tela, ['function desenharLista() {', "if (el.abaVal) { el.abaVal.hidden = s.aba !== 'val'; }", "if (s.aba === 'val') { return; }"], 'a aba Validar aparece');
-        self::assertStringContainsString('Ficam para depois: Baixar PDF com selo e Vincular à pasta.', $tela, 'o código BJA e a aba Validar já não ficam para depois');
+        self::assertStringContainsString('Etapa 3: Baixar PDF com selo (assinatura-pdf.js) e Vincular à pasta (assinatura-vinculo.js).', $tela, 'o código BJA e a aba Validar já não ficam para depois');
 
         self::assertStringContainsString('raiz.bjaValidar = { validarCodigo: preencherEValidar };', $js);
         self::assertStringContainsString('function preencherEValidar(c) { campo.value = c; validar(); }', $js);

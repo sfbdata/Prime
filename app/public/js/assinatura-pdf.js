@@ -6,8 +6,12 @@
 
    O PDF é montado no servidor (GET /assinatura/documentos/{id}/pdf na tela interna, GET /assinar/{token}/pdf na tela
    do signatário). Aqui só se baixa: o arquivo chega inteiro, vira um link de download com o nome do servidor e quem
-   chamou mostra o aviso. Um clique por URL de cada vez (a geração leva alguns segundos).
-   Uso: BJAssinaPdf.baixar(url, { aoConcluir: () => ..., aoFalhar: erro => ... }).
+   chamou mostra o aviso. Um clique por URL de cada vez (a geração leva cerca de 1,2 s por página): aoIniciar mostra
+   "Gerando o PDF..." e o segundo clique durante a geração é ignorado.
+   Falha: o erro leva `texto` quando o servidor respondeu `{"erro": ...}` (o 429 das vagas e do limitador); sem ele, quem
+   chamou mostra "Não foi possível gerar o PDF.". O PDF que chega sem `%%EOF` no fim foi cortado no servidor (a geração
+   falhou depois do início da resposta) e não é salvo.
+   Uso: BJAssinaPdf.baixar(url, { aoIniciar: () => ..., aoConcluir: () => ..., aoFalhar: erro => ... }).
    ============================================================================= */
 (function () {
     'use strict';
@@ -35,14 +39,33 @@
         setTimeout(() => URL.revokeObjectURL(a.href), 60000);
     }
 
+    /* O erro de uma resposta não 2xx, com o `texto` do `{"erro": ...}` quando o servidor mandou um. */
+    async function erroDaResposta(r) {
+        const e = new Error('PDF com selo: HTTP ' + r.status);
+        if ((r.headers.get('Content-Type') || '').indexOf('json') >= 0) {
+            const corpo = await r.json().catch(() => null);
+            if (corpo && typeof corpo.erro === 'string') { e.texto = corpo.erro; }
+        }
+        return e;
+    }
+
+    /* Todo PDF inteiro termina em %%EOF (com o fim de linha depois); o cortado no meio da geração, não. */
+    async function inteiro(blob) {
+        const fim = await blob.slice(Math.max(0, blob.size - 1024)).text();
+        return fim.indexOf('%%EOF') >= 0;
+    }
+
     async function baixar(url, opcoes) {
         const o = opcoes || {};
         if (!url || emCurso[url]) { return false; }
         emCurso[url] = true;
+        if (o.aoIniciar) { o.aoIniciar(); }
         try {
             const r = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/pdf' } });
-            if (!r.ok) { throw new Error('PDF com selo: HTTP ' + r.status); }
-            entregar(await r.blob(), nomeDoArquivo(r.headers.get('Content-Disposition'), 'documento.pdf'));
+            if (!r.ok) { throw await erroDaResposta(r); }
+            const blob = await r.blob();
+            if (!(await inteiro(blob))) { throw new Error('PDF com selo cortado: sem %%EOF no fim'); }
+            entregar(blob, nomeDoArquivo(r.headers.get('Content-Disposition'), 'documento.pdf'));
             if (o.aoConcluir) { o.aoConcluir(); }
             return true;
         } catch (e) {

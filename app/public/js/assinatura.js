@@ -12,7 +12,7 @@
    O botão só aparece quando a URL dele existe na raiz (data-url-*). Etapa 2: "Gerar links e enviar", Copiar link,
    E-mail (mailto), WhatsApp, Tela do signatário (prévia em nova aba), Enviar lembrete e Cancelar envio. Etapa 4:
    Criar novo modelo, Editar, Excluir e Duplicar e adaptar; o editor vira blocos aqui (lerEd do desenho) e nenhum HTML
-   vai ao servidor. Ficam para depois: Baixar PDF com selo e Vincular à pasta.
+   vai ao servidor. Etapa 3: Baixar PDF com selo (assinatura-pdf.js) e Vincular à pasta (assinatura-vinculo.js).
 
    Etapa 5, bloco 5A (docs/specs/assinatura-documentos-etapa-5.md): o PDF que já chega assinado. O quadro do passo 3 e
    o do detalhe, com os botões, ficam no assinatura-ja-assinado.js (window.BJAJaAssinado); aqui só a ligação: o PDF
@@ -182,12 +182,12 @@
         if (s.tela === 'lista') { desenharLista(); }
     }
 
-    /* ── Avisos (toast do desenho: verde, vermelho, amarelo, azul; some em 3,4 s) ── */
+    /* ── Avisos (toast do desenho: verde, vermelho, amarelo, azul; some em 3,4 s, menos o fixo, que fica até o próximo) ── */
     let tToast = null;
-    function avisar(texto, tipo) {
+    function avisar(texto, tipo, fixo) {
         el.toast.innerHTML = '<div class="bjaToast' + (tipo ? ' is-' + tipo : '') + '" role="status">' + esc(texto) + '</div>';
         clearTimeout(tToast);
-        tToast = setTimeout(() => { el.toast.innerHTML = ''; }, 3400);
+        if (!fixo) { tToast = setTimeout(() => { el.toast.innerHTML = ''; }, 3400); }
     }
 
     /* ── Balão das dicas (data-tip): o do bj-dica.js do desenho, no lugar da dica do navegador. Aparece 280 ms depois de
@@ -355,7 +355,11 @@
     }
     function baixarPdf(id) {
         if (!url.pdf || !window.BJAssinaPdf || id == null) { return; }
-        window.BJAssinaPdf.baixar(comId(url.pdf, id), { aoConcluir: () => avisar(T('pdf.gerado')), aoFalhar: falha });
+        window.BJAssinaPdf.baixar(comId(url.pdf, id), {
+            aoIniciar: () => avisar(T('pdf.gerando'), '', true),
+            aoConcluir: () => avisar(T('pdf.gerado')),
+            aoFalhar: e => avisar((e && e.texto) || T('pdf.falhou'), 'erro'),
+        });
     }
 
     /* ── Modelos (aba Modelos e passo 1): os do escritório primeiro (meus() do desenho), depois os prontos ── */
