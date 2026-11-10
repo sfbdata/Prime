@@ -11,6 +11,8 @@ tipo: alteracao
 - XLSX: a justificativa em análise sai como "(em análise)" pela tabela de nomes (chave `folha.pendente`), sem código BJF.
 - Chave `ponto-aceite` ("Ponto: aceite da folha") no catálogo de recursos do Master, ligada, e na camada Escritório da aba Configurações do Ponto (só com o selo pronto). Migration `Version20261109250000`.
 - Folha de outra pessoa (PDF e XLSX): o Master só exporta a de quem é ou foi do escritório da sessão (vínculo ativo ou não, saída da equipe gravada ou batida nele, `Ponto\Service\PassagemPeloEscritorio`, decisão 28); de quem nunca foi, 404 com a mensagem de sempre.
+- PDF: as duas linhas do endereço e os dois nomes da assinatura que não cabem encolhem até 8 antes do "..." (`PaginaDaFolha::linhaQueCabe`, agora com centralização).
+- XLSX: sem vínculo ativo ou sem código, o "Código:" sai vazio, como no PDF (antes saía o próximo código livre do escritório); o "Saldo mês" da linha de hoje é o acumulado até ontem.
 - PDF: na linha de hoje (dia em andamento, sem saída), o "Saldo mês" é o acumulado até ontem (`saldoAcumuladoAteOntem` do motor da E17), vermelho se negativo, como a tela; no dia 1º, vazio.
 
 ## Para o cliente
@@ -25,6 +27,8 @@ tipo: alteracao
 - Na planilha (XLSX), a justificativa ainda não analisada aparece como "em análise", o mesmo nome usado na tela.
 - A assinatura da folha só aparece quando o BlueJus ligar o selo de segurança. O administrador do ponto pode desligá-la só no seu escritório, em Configurações do Ponto; as assinaturas já feitas continuam aparecendo.
 - Depois de assinar a folha, o aviso "Folha assinada." aparece no rodapé da tela, como os outros avisos do Ponto.
-- Na folha em PDF, a linha do dia de hoje mostra o saldo do mês até ontem, igual à tela, em vez de ficar em branco.
+- Na folha em PDF e na planilha, a linha do dia de hoje mostra o saldo do mês até ontem, igual à tela, em vez de ficar em branco.
+- Na folha em PDF, endereço e nomes compridos ficam com a letra um pouco menor para aparecerem inteiros; só o que ainda não couber é encurtado.
+- Na planilha, a pessoa sem código de funcionário fica com o código em branco, em vez de receber um número que não é dela.
 - No Painel do Master, o catálogo de recursos ganhou a chave "Ponto: aceite da folha", que liga ou desliga a assinatura mensal da folha para todos os escritórios de uma vez. Ela já vem ligada.
 - A equipe do BlueJus só consegue baixar a folha de ponto de quem é ou já foi do escritório, inclusive de quem já saiu da equipe. A folha de uma pessoa que nunca trabalhou no escritório não sai mais com o nome do escritório.

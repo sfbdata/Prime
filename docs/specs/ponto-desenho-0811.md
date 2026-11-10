@@ -1306,7 +1306,9 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, a folha em im
   8. CPF e CTPS mascarados como no desenho (`***.547.725-**`). Vai ao pacote jurídico. CPF fora do formato e CTPS com
      4 caracteres ou menos ficam vazios (mascarar mostraria o que a máscara esconde).
   9. Pessoa sem código de funcionário: a célula fica vazia no PDF selado (hoje sai o próximo código livre do
-     escritório, que não é da pessoa).
+     escritório, que não é da pessoa). Vale também para o XLSX: sem vínculo ativo ou sem código, "Código:" vazio
+     (`DadosDaFolhaExportada`). No XLSX, CPF e CTPS continuam sem máscara (decisões 6 e 8, regra 2: a planilha é
+     editável; a LGPD vai ao pacote jurídico). Coordenador, 10/11/2026.
   10. Ficha do gestor (mesmo parcial da folha): mostra só o selo do aceite, sem o botão.
   11. Ordem da barra: "Ver PDF", "Baixar XLSX", "Assinar folha", "Baixar PDF".
   12. "Ver PDF" sai do modal Bootstrap para a janela do desenho, na moldura `.pe-janela` (decisão do Coordenador).
@@ -1353,6 +1355,10 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, a folha em im
   26. Desvios pequenos no PDF (⚠), pela fonte DejaVu, mais larga que a Arial do desenho: texto que não cabe encolhe até
       um mínimo antes do "..." (o `cap` do desenho só corta); os rótulos do controle de intervalos mostram os mínimos da
       jornada, os mesmos do quadro "REGIME DE JORNADA"; nome sem letras vira "USUARIO" no nome do arquivo.
+      Conferência final (Coordenador, 10/11/2026): (a) as duas linhas do endereço (12,5) e os dois nomes da assinatura
+      (10, centrados) também encolhem até 8 antes do "..." (`linhaQueCabe`); (b) as normas da "Base Legal" começam em
+      x = 127, pela largura do rótulo em DejaVu: aceito; (c) "Trabalhadas" e "Extras" da linha de hoje seguem o motor,
+      como a tela (E2): aceito. O "Saldo mês" de hoje no XLSX também é o acumulado até ontem, como a tela e o PDF.
   27. Observação do dia que não cabe na coluna (P35 a, P34; desenho L622 e L673): a fonte encolhe de 10 até 8 (o
       mínimo da decisão 26), um ponto por vez, até caber. Se nem em 8 couber, só os ajustes ("<Batida> ajustada em
       ...", que vêm primeiro) se cortam com "..."; o feriado, a pendência e as justificativas ficam inteiros, na ordem
