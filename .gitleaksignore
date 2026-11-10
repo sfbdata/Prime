@@ -70,3 +70,18 @@ dcb2c549e4367a802d027b730c2d36c6e649e580:app/translations/tenant/messages+intl-i
 
 # Voto assembleia (09/11/2026): token fictício sequencial (abcdef0123...) do teste unitário da cédula, sem valor real.
 52f005c568b52ad4caf24354ccb75418ef11b551:app/tests/Voto/Unit/RegistrarVotoUseCaseTest.php:generic-api-key:49
+
+# Assinatura (10/11/2026): vetores HMAC reproduzíveis com segredo fictício do próprio teste.
+f58318408a33f1bce7610f9c95a4727d793d9b62:app/tests/AssinaturaEletronica/Unit/ChaveDaAssinaturaTest.php:generic-api-key:25
+f58318408a33f1bce7610f9c95a4727d793d9b62:app/tests/AssinaturaEletronica/Unit/ChaveDaAssinaturaTest.php:generic-api-key:26
+# Mesmo token fictício acima, para comprovar que ele sai do log.
+9cebda38be685ba0d37e0aafb76fd1267e76960d:app/tests/AssinaturaEletronica/Unit/MascaraDoTokenNoLogTest.php:generic-api-key:21
+# Chaves em base64 de textos de teste, usadas só pelo teste do conferente.
+f1067afb967b75cc4363c1852b938a89864bdd91:app/tests/Shared/Unit/Service/ConferenteDeSegredosTest.php:generic-api-key:212
+f1067afb967b75cc4363c1852b938a89864bdd91:app/tests/Shared/Unit/Service/ConferenteDeSegredosTest.php:generic-api-key:213
+# Mensagem da interface "Arquivo protegido por senha.", sem credencial.
+85f7e45bf127f0be150db9e4e6f7a4faff4f4da2:app/translations/assinatura_eletronica_tela/messages+intl-icu.pt_BR.yaml:senha-em-variavel-entre-aspas:388
+# Configuração versionada exclusiva do ambiente test; fixtures já anotadas como segredo:permitido.
+# Não libera o caminho inteiro: só a ocorrência histórica exata de cada variável.
+dec1ad624157d3a0ef467d4970f42c4f4f81b078:app/.env.test:segredo-em-variavel-pt:16
+853ce3a99e38b2b84de560ab31c19bb0f5265991:app/.env.test:segredo-em-variavel-pt:14
