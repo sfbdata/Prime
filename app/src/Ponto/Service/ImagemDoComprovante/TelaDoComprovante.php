@@ -8,6 +8,9 @@ namespace App\Ponto\Service\ImagemDoComprovante;
  * A folha de desenho do comprovante em GD: as medidas são as do desenho (1000 x 1480, L551) e a escala as leva aos
  * pixels da imagem (2,48 no desenho: 2480 x 3670). Cores em hexadecimal com opacidade, como o `rgba` do desenho.
  *
+ * A folha do mês em PDF (E16, desenho L634) usa a mesma tela com outra altura (1414) e outra qualidade de JPEG (92):
+ * os dois vêm do construtor, e o padrão continua sendo o do comprovante.
+ *
  * O GD mede a fonte em pontos a 96 dpi: o tamanho em pixels do desenho vira pontos com 0,75.
  */
 final class TelaDoComprovante
@@ -19,12 +22,18 @@ final class TelaDoComprovante
 
     private \GdImage $imagem;
 
-    /** @param array<string, string> $fontes nome da fonte => caminho do TTF */
+    /**
+     * @param array<string, string> $fontes     nome da fonte => caminho do TTF
+     * @param float                 $altura     nas medidas do desenho (a largura é sempre 1000)
+     * @param int                   $qualidade  do JPEG, de 0 a 100
+     */
     public function __construct(
         private readonly float $escala,
         private readonly array $fontes,
+        private readonly float $altura = self::ALTURA,
+        private readonly int $qualidade = self::QUALIDADE_JPEG,
     ) {
-        $imagem = imagecreatetruecolor($this->px(self::LARGURA), $this->px(self::ALTURA));
+        $imagem = imagecreatetruecolor($this->px(self::LARGURA), $this->px($this->altura));
         if ($imagem === false) {
             throw new \RuntimeException('Não foi possível criar a imagem do comprovante.');
         }
@@ -124,7 +133,7 @@ final class TelaDoComprovante
             $cor = $this->corRgb((int) round($r0 + ($r1 - $r0) * $t), (int) round($g0 + ($g1 - $g0) * $t), (int) round($b0 + ($b1 - $b0) * $t));
             $this->texto($texto, $fonte, $tamanho, $x, $y, $cor);
         }
-        imagesetclip($this->imagem, 0, 0, $this->px(self::LARGURA) - 1, $this->px(self::ALTURA) - 1);
+        imagesetclip($this->imagem, 0, 0, $this->px(self::LARGURA) - 1, $this->px($this->altura) - 1);
     }
 
     /** Largura do texto nas medidas do desenho. */
@@ -182,21 +191,22 @@ final class TelaDoComprovante
 
     /**
      * Fundo inteiro em degradê na diagonal (do canto de cima à esquerda ao de baixo à direita, L555): desenhado numa
-     * imagem pequena e ampliado com suavização, o que no GD sai bem mais barato que pixel a pixel.
+     * imagem pequena (50 de largura, a altura na proporção da tela: 74 no comprovante) e ampliado com suavização, o
+     * que no GD sai bem mais barato que pixel a pixel.
      *
      * @param list<string> $paradas
      */
     public function fundoDiagonal(array $paradas): void
     {
-        [$largura, $altura] = [50, 74];
+        [$largura, $altura] = [50, (int) round(50 * $this->altura / self::LARGURA)];
         $pequena = imagecreatetruecolor($largura, $altura);
         if ($pequena === false) {
             throw new \RuntimeException('Não foi possível criar o fundo do comprovante.');
         }
-        $norma = self::LARGURA ** 2 + self::ALTURA ** 2;
+        $norma = self::LARGURA ** 2 + $this->altura ** 2;
         for ($y = 0; $y < $altura; ++$y) {
             for ($x = 0; $x < $largura; ++$x) {
-                $t = (($x / ($largura - 1)) * self::LARGURA ** 2 + ($y / ($altura - 1)) * self::ALTURA ** 2) / $norma;
+                $t = (($x / ($largura - 1)) * self::LARGURA ** 2 + ($y / ($altura - 1)) * $this->altura ** 2) / $norma;
                 [$r, $g, $b] = Degrade::cor($paradas, $t);
                 imagesetpixel($pequena, $x, $y, (int) imagecolorallocate($pequena, $r, $g, $b));
             }
@@ -205,13 +215,14 @@ final class TelaDoComprovante
     }
 
     /**
-     * JPEG com qualidade 93, como o `toDataURL('image/jpeg', .93)` do desenho (L589). O codificador do GD escreve linha a
-     * linha; o de PNG montaria uma cópia inteira da imagem (uns 30 MB a mais nesta escala).
+     * JPEG com a qualidade do construtor: 93 no comprovante, como o `toDataURL('image/jpeg', .93)` do desenho (L589), e
+     * 92 na folha (L723). O codificador do GD escreve linha a linha; o de PNG montaria uma cópia inteira da imagem
+     * (uns 30 MB a mais nesta escala).
      */
     public function jpeg(): string
     {
         ob_start();
-        imagejpeg($this->imagem, null, self::QUALIDADE_JPEG);
+        imagejpeg($this->imagem, null, $this->qualidade);
 
         return (string) ob_get_clean();
     }

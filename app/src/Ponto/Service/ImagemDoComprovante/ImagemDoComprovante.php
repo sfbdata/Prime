@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Ponto\Service\ImagemDoComprovante;
 
 use App\Ponto\DTO\DadosDoComprovante;
-use BaconQrCode\Common\ErrorCorrectionLevel;
-use BaconQrCode\Encoder\Encoder;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -109,7 +107,7 @@ final class ImagemDoComprovante
         $y0 = TelaDoComprovante::ALTURA - 252;
         $xT = self::X + 116 * $k + 24 * $k;
         $this->faixaHolografica($tela, $y0);
-        $this->qr($tela, $enderecoDoQr, self::X, $y0, 116 * $k);
+        (new QrNaTela($tela))->desenhar($enderecoDoQr, self::X, $y0, 116 * $k);
         $tela->texto('CÓDIGO DE VALIDAÇÃO', 'negrito', 11 * $k, $xT, $y0 + 14 * $k, $tela->cor('#4a6373'));
         $this->codigoCrescente($tela, $dados->codigo, $xT, $y0 + 42 * $k);
         $tela->texto('HMAC-SHA256 ' . substr($selo, 0, 32), 'mono', 10.5 * $k, $xT, $y0 + 60 * $k, $tela->cor('#34505f'));
@@ -124,22 +122,6 @@ final class ImagemDoComprovante
         for ($x = self::X; $x + 96 <= self::X + 812; $x += 104) {
             $tela->degrade($x, $y0 - 22, 96, 13, ['#7fb4cf', '#d9eef7', '#8fcaa5', '#e8dca8', '#7fb4cf'], true);
             $tela->texto('BLUEJUS', 'negrito', 9.5, $x + 48, $y0 - 12, $cor, 0.0, true);
-        }
-    }
-
-    private function qr(TelaDoComprovante $tela, string $endereco, float $x, float $y, float $lado): void
-    {
-        $matriz = Encoder::encode($endereco, ErrorCorrectionLevel::M())->getMatrix();
-        $modulos = $matriz->getWidth();
-        $u = $lado / $modulos;
-        $tela->retangulo($x, $y, $lado + 8, $lado + 8, $tela->cor('#ffffff'));
-        $escuro = $tela->cor(self::AZUL_ESCURO);
-        for ($linha = 0; $linha < $modulos; ++$linha) {
-            for ($coluna = 0; $coluna < $modulos; ++$coluna) {
-                if ($matriz->get($coluna, $linha) === 1) {
-                    $tela->retangulo($x + 4 + $coluna * $u, $y + 4 + $linha * $u, $u + .25, $u + .25, $escuro);
-                }
-            }
         }
     }
 
