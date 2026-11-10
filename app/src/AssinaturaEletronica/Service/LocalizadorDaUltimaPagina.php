@@ -10,8 +10,9 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\LeitorDeObjetosDoPdf;
  * Acha a última página do PDF para o carimbo visível (etapa 5, bloco 5B), no lugar do `getPage(numPages)` do pdf.js
  * que o protótipo usa (bj-assina-pdf.js:23). Desce do catálogo pela árvore /Pages, sempre pelo último filho de /Kids
  * (direto ou em objeto à parte) que não seja um nó vazio (/Count 0), até uma folha. Como no pdf.js, é folha o
- * objeto com /Type /Page ou sem /Kids. Lê o /MediaBox da página, ou o herdado do nó mais próximo que tenha um (sem
- * nenhum válido, o tamanho carta do pdf.js), e o /Annots: vetor direto ou referência a um vetor.
+ * objeto com /Type /Page ou sem /Kids. Lê a área visível do `page.view` do pdf.js (o /CropBox recortado pelo
+ * /MediaBox, cada um da página ou herdado do nó mais próximo que tenha um; sem /MediaBox válido, o tamanho carta) e o
+ * /Annots: vetor direto ou referência a um vetor.
  *
  * Os objetos vêm do `LeitorDeObjetosDoPdf` do motor (a versão mais nova de cada um) e só o primeiro nível de cada
  * dicionário é lido. Sem estado e sem disco. Nunca lança: árvore quebrada, ciclo ou teto de leituras devolvem null.
@@ -173,8 +174,8 @@ final class LocalizadorDaUltimaPagina
     }
 
     /**
-     * O /MediaBox do dicionário mais próximo que tem um, como o `_getInheritableProperty` do pdf.js: inválido ou sem
-     * área vira o tamanho carta, sem procurar mais acima.
+     * A área visível, como o `page.view` do pdf.js: o /CropBox recortado pelo /MediaBox; sem /CropBox válido, ou sem
+     * área em comum com o /MediaBox, o /MediaBox. Sem /MediaBox válido, o tamanho carta.
      *
      * @param \Closure(array{int, int}): ?string           $ler
      * @param list<array<string, array{string, int, int}>> $dicionarios da página para cima
@@ -183,13 +184,34 @@ final class LocalizadorDaUltimaPagina
      */
     private static function caixa(\Closure $ler, array $dicionarios): array
     {
+        $midia = self::caixaHerdada($ler, $dicionarios, '/MediaBox') ?? self::CAIXA_CARTA;
+        $corte = self::caixaHerdada($ler, $dicionarios, '/CropBox');
+        if ($corte === null) {
+            return $midia;
+        }
+        $comum = [max($corte[0], $midia[0]), max($corte[1], $midia[1]), min($corte[2], $midia[2]), min($corte[3], $midia[3])];
+
+        return $comum[2] - $comum[0] > 0 && $comum[3] - $comum[1] > 0 ? $comum : $midia;
+    }
+
+    /**
+     * A caixa do dicionário mais próximo que tem a chave, como o `_getInheritableProperty` do pdf.js: inválida ou sem
+     * área vira null, sem procurar mais acima.
+     *
+     * @param \Closure(array{int, int}): ?string           $ler
+     * @param list<array<string, array{string, int, int}>> $dicionarios da página para cima
+     *
+     * @return array{float, float, float, float}|null
+     */
+    private static function caixaHerdada(\Closure $ler, array $dicionarios, string $chave): ?array
+    {
         foreach ($dicionarios as $entradas) {
-            if (isset($entradas['/MediaBox'])) {
-                return self::retangulo($ler, $entradas['/MediaBox'][0]) ?? self::CAIXA_CARTA;
+            if (isset($entradas[$chave])) {
+                return self::retangulo($ler, $entradas[$chave][0]);
             }
         }
 
-        return self::CAIXA_CARTA;
+        return null;
     }
 
     /**

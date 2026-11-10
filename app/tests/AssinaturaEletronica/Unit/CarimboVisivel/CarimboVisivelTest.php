@@ -218,6 +218,29 @@ final class CarimboVisivelTest extends TestCase
         self::assertStringContainsString('q 0.95 0.98 1 rg 0 0 260.5 32 re f 0.04 0.44 0.63 RG 0.7 w 0.4 0.4 259.7 31.2 re S ', $acrescimo);
     }
 
+    /** @return iterable<string, array{string, string, string, string}> */
+    public static function areasVisiveis(): iterable
+    {
+        yield 'CropBox menor e deslocado' => ['', '/MediaBox[0 0 595 842]/CropBox[50 60 345.5 500]', '/Rect[70 70 325.5 102]', '/BBox[0 0 255.5 32]'];
+        yield 'CropBox herdado do nó' => ['/CropBox[100 200 595 842]', '/MediaBox[0 0 595 842]', '/Rect[120 210 500 242]', '/BBox[0 0 380 32]'];
+        yield 'CropBox maior que o MediaBox, recortado' => ['', '/MediaBox[0 0 300 400]/CropBox[-50 -50 1000 1000]', '/Rect[20 10 280 42]', '/BBox[0 0 260 32]'];
+    }
+
+    #[DataProvider('areasVisiveis')]
+    #[TestDox('área visível: $_dataName (canto em cropX + 20, cropY + 10; largura min(380, largura do corte - 40))')]
+    public function testAreaVisivel(string $no, string $pagina, string $retangulo, string $caixa): void
+    {
+        $original = MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1' . $no . '>>',
+            3 => '<</Type/Page/Parent 2 0 R' . $pagina . '>>',
+        ]);
+        $acrescimo = substr(self::carimbado($original), \strlen($original));
+
+        self::assertStringContainsString($retangulo, $acrescimo);
+        self::assertStringContainsString($caixa, $acrescimo);
+    }
+
     #[TestDox('sete assinaturas: o carimbo leva seis e o código (altura 12 + 10 x 7)')]
     public function testSeteAssinaturas(): void
     {
