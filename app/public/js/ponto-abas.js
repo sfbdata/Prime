@@ -16,6 +16,8 @@
 
     // Prazo da exclusão: sem resposta até aqui, a janela avisa e deixa tentar de novo.
     const EXCLUIR_PRAZO_MS = 15000;
+    // A lista que ficou vazia depois de excluir: a mesma frase do servidor (_abas_justificativas.html.twig).
+    const TEXTO_SEM_JUSTIFICATIVAS = 'Nenhuma justificativa enviada nesta competência.';
     // A aba que abre ao entrar (P37) não vai para o endereço.
     const ABA_PADRAO = 'pendencias';
     // Campo dentro de bloco escondido (o abono parcial fechado, por exemplo) não entra na volta do Tab.
@@ -23,6 +25,8 @@
 
     let janelaAberta = null;
     let focoAntes = null;
+    // A linha da lixeira que abriu a janela de excluir: é ela que sai quando o servidor confirma.
+    let linhaDaExclusao = null;
 
     function cartao() {
         return document.querySelector('section.pe-abas');
@@ -175,16 +179,68 @@
         if (!fundo) {
             return;
         }
+        linhaDaExclusao = botao.closest('tr.pe-just-lin');
         const confirmar = fundo.querySelector('[data-excluir-confirmar]');
         confirmar.dataset.url = botao.dataset.excluirUrl;
         confirmar.disabled = false;
         confirmar.focus();
     }
 
-    // POST com o token da página (o base.html.twig põe o X-CSRF-Token). Deu certo: abre a aba das justificativas no
-    // mesmo mês, com a mensagem do servidor. Recusa (403, 404, 422) ou falta de resposta: a frase fica na janela.
+    // O número da aba (o `span.pe-aba-num` do botão) acompanha a lista; no zero some, como o servidor faz.
+    function baixarNumeroDaAba(aba, valor) {
+        const numero = aba ? aba.querySelector('.pe-aba-num') : null;
+        if (!numero) {
+            return;
+        }
+        if (valor > 0) {
+            numero.textContent = String(valor);
+        } else {
+            numero.remove();
+        }
+    }
+
+    // A justificativa em análise de quem pode analisar a própria (a linha tem "Abonar" e "Recusar", P43 a) conta no
+    // número da aba Equipe (JustificativasAAnalisarDaEquipe). O painel da Equipe já buscado fica velho: é buscado de
+    // novo quando a aba abrir (js/ponto-paineis.js busca o painel sem `data-estado`).
+    function tirarDaEquipe() {
+        const aba = document.getElementById('ponto-aba-equipe');
+        const numero = aba ? aba.querySelector('.pe-aba-num') : null;
+        if (numero) {
+            baixarNumeroDaAba(aba, (parseInt(numero.textContent, 10) || 0) - 1);
+        }
+        const painel = document.getElementById('ponto-painel-equipe');
+        if (painel && painel.dataset.estado === 'pronto') {
+            delete painel.dataset.estado;
+        }
+    }
+
+    // Excluída (P41; spec E3, "sem recarregar"): a linha sai na hora e o número da aba acompanha; sem nenhuma, a frase
+    // da lista vazia, a mesma do servidor. A Folha (o selo do dia e o "+" do esquecimento) e as pendências mudam junto:
+    // o index as busca pelo caminho de depois da batida (`ponto:justificativa-excluida`), sem recarregar a página.
+    function tirarLinhaExcluida(linha) {
+        const contavaNaEquipe = linha.querySelector('[data-analisar]') !== null;
+        const corpo = linha.parentElement;
+        linha.remove();
+        const restantes = corpo.querySelectorAll('tr.pe-just-lin').length;
+        baixarNumeroDaAba(document.getElementById('ponto-aba-justificativas'), restantes);
+        if (restantes === 0) {
+            const vazio = document.createElement('div');
+            vazio.className = 'pe-abas-vazio';
+            vazio.textContent = TEXTO_SEM_JUSTIFICATIVAS;
+            corpo.closest('.pe-abas-rolagem').replaceWith(vazio);
+        }
+        if (contavaNaEquipe) {
+            tirarDaEquipe();
+        }
+        document.dispatchEvent(new CustomEvent('ponto:justificativa-excluida'));
+    }
+
+    // POST com o token da página (o base.html.twig põe o X-CSRF-Token). Deu certo: a janela fecha e a linha sai, sem
+    // recarregar (o servidor não deixa flash para o pedido da tela); sem a linha na tela, a aba abre de novo do servidor.
+    // Recusa (403, 404, 422) ou falta de resposta: a frase fica na linha de erro da janela.
     async function confirmarExclusao(botao) {
         const fundo = janelaAberta;
+        const linha = linhaDaExclusao;
         const aborto = new AbortController();
         const prazo = setTimeout(function () { aborto.abort(); }, EXCLUIR_PRAZO_MS);
         botao.disabled = true;
@@ -200,7 +256,15 @@
             });
             const dados = await resposta.json().catch(function () { return {}; });
             if (resposta.ok && dados.ok === true) {
-                window.location.assign(cartao().dataset.urlVolta);
+                if (!linha || !document.contains(linha)) {
+                    window.location.assign(cartao().dataset.urlVolta);
+                    return;
+                }
+                delete fundo.dataset.ocupada;
+                // O foco volta para a aba das justificativas: a lixeira que abriu a janela saiu com a linha.
+                focoAntes = document.getElementById('ponto-aba-justificativas');
+                fecharJanela();
+                tirarLinhaExcluida(linha);
                 return;
             }
             falha = dados.mensagem || 'Não foi possível excluir a justificativa. Atualize a página e tente de novo.';

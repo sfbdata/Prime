@@ -455,8 +455,24 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
       o cartão de abas vir logo depois da Folha (`.pe-dir > #ponto-regiao-folha + section.pe-abas`) e para a troca sem
       recarregar pegar só o cartão. Sem efeito visual: o espaço de 16px fica entre o invólucro e o cartão;
     - excluir a justificativa tira a linha na hora, sem recarregar, e o número da aba acompanha (o desenho só tira a
-      linha). Pendente: entra com a mudança do PontoController depois da E4, porque o flash "Justificativa de
-      dd/mm/aaaa excluída." sai da rota de excluir.
+      linha). Feito em 09/11/2026 (branch `ponto-desenho-final`, com a mudança do PontoController depois da E4):
+      - a rota `ponto_justificativa_excluir` tem dois caminhos. O pedido da tela (com o X-CSRF-Token, o
+        X-Requested-With ou o Accept de JSON, como no `EspacoEsgotadoListener`) responde JSON sem flash e sem
+        redirecionar, com a frase em `mensagem` na recusa (404, 403 e 422, como antes). O formulário comum, sem
+        JavaScript (`_token` de `excluir_justificativa_<id>`), deixa o flash ("Justificativa de dd/mm/aaaa excluída."
+        ou a frase da já analisada) e volta para `?competencia=AAAA-MM&aba=justificativas`; outra pessoa, outro
+        escritório e o token errado continuam 403, 404 e 403. A tela não tem esse formulário (a lixeira abre a janela):
+        o caminho fica para o envio sem JavaScript;
+      - na tela (`ponto-abas.js`): a janela fecha, a linha sai e o foco volta para a aba. O número de "Minhas
+        Justificativas" acompanha a lista e some no zero; sem nenhuma linha, a frase da lista vazia do servidor. O
+        número da Equipe baixa um quando a linha contava lá (a própria em análise de quem pode analisá-la, P43 a), e o
+        painel da Equipe já buscado é buscado de novo quando a aba abrir. Sem a linha na tela, a aba abre de novo do
+        servidor (`data-url-volta`);
+      - excluir mexe na Folha (sai o selo do dia e o "+" do esquecimento volta) e nas pendências (a que o esquecimento
+        cobria volta): o index ouve `ponto:justificativa-excluida` e chama `atualizarTelaDoPonto`, o caminho de depois
+        da batida (REGIOES_TROCADAS e o cartão da Folha, tudo ou nada). Falhou: fica como está, sem recarregar.
+      - testes: `ExcluirJustificativaControllerTest` (os dois caminhos e as recusas em cada um) e `PontoAbasJsTest`
+        (a linha sai, os números acompanham, a lista vazia, sem HTML montado com dado, o index atualiza sem recarregar).
 - Arquivos: `templates/ponto/_abas*.html.twig`, `_janelas_justificativa.html.twig`, `index.html.twig` (coluna da
   direita e REGIOES_TROCADAS), `public/js/ponto-abas.js`, `public/css/ponto-eletronico.css` (seção do cartão de abas e
   da janela), `PontoController` (rota de excluir; `abaAberta` e `podeAnalisarAPropria` no index), `TenantController`
@@ -592,6 +608,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     ficha, pela interface `AbonoDeJustificativa` (uma função: abona a justificativa já conferida, ou devolve o motivo
     de não ter abonado). Mensagens: "1 justificativa abonada." ou "N justificativas abonadas." e uma por recusa
     ("Nome (dd/mm/aaaa): motivo"); nada marcado, "Selecione ao menos uma justificativa.";
+  - abas na /ponto (09/11/2026, branch `ponto-desenho-final`): o `PontoController::index` passa `veEquipe`,
+    `veConfiguracoes`, `veAuditoria` (`GestaoDoPonto`) e `equipeAAnalisar` (`contarAAnalisar`, só para quem vê a Equipe;
+    para os outros, 0 sem consulta), e o endereço abre `?aba=equipe` e `?aba=configuracoes`, além de justificativas e
+    auditoria. Quem não vê a aba pedida cai em Pendências (`_abas.html.twig`). Testes em `AbasDeGestaoDoPontoTest`
+    (pela /ponto: o número da Equipe do gestor e do primário, o colaborador sem as abas, o endereço de cada aba);
   - ligado na integração (09/11/2026): `AbonoPelaAnaliseDaJustificativa` chama
     `AnalisarJustificativaUseCase::abonarPorId` (E9); a recusa dele (`AnaliseDeJustificativaRecusadaException`) vira o
     motivo da frase; cada justificativa grava na própria transação, então uma recusa não desfaz as outras;
