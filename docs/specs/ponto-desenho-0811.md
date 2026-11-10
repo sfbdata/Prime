@@ -1277,6 +1277,43 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
 - Testes: código da folha validado pela página pública; aceite só de mês fechado; ressalva sem texto recusada; PDF com
   as pendências do dia e sem "registro em outro escritório"; as três frases no PDF; com `PONTO_HMAC_SECRET` vazia o PDF
   sai sem código e "Assinar folha" some; `FolhaExportacaoMesmaEscolhaTest` verde.
+- Decisões da E16 (09/11/2026; as 3 primeiras por um decisor imparcial, a pedido do Coordenador, pelo desenho 16; as
+  outras pela recomendação do plano, aceitas pelo Coordenador). A 1 vai ao pacote jurídico.
+  1. Assinar de novo: o aceite guarda histórico numerado (número do aceite por pessoa, escritório e mês; nada é
+     apagado) e vale o último, no selo da barra e no carimbo do PDF. O "Assinar folha" aparece no mês fechado sem
+     aceite e volta só no estado "alterada depois do aceite" (desenho L816, D19).
+  2. Cada PDF gerado é uma emissão com código BJF próprio, como no desenho (L721 a L727; "Emitida em", L701; o emissor,
+     linha da folha emitida acima). Só o "Baixar" de dentro da janela do "Ver PDF" entrega o arquivo já gerado, sem
+     nova emissão.
+  3. "Alterada depois do aceite": compara o resumo gravado na emissão vista no aceite com a folha de agora, dia a dia
+     (data, batidas, trabalhado, extra, saldo, observações com ajuste, feriado, sequência, incompleto e situação da
+     justificativa) e os totais. Ficam fora a hora da emissão, o código, o emissor e o próprio aceite.
+  4. A alteração aparece como um selo "Alterada depois do aceite" no molde do selo da barra, fundo `#a3232b`, no lugar
+     do "Assinada em"; o "Assinar folha" volta (decisão 1).
+  5. PDF em imagem: a página é desenhada com GD e as peças da imagem da E15 e embrulhada num PDF de uma página escrito
+     em PHP (como o `pdfImagem` do desenho, L706). Sem Ghostscript.
+  6. O XLSX não leva código BJF (planilha editável): só troca "(pendente)" por "(em análise)" pela tabela de nomes
+     (P40, chave `folha.pendente`).
+  7. Abono parcial no PDF mantém o horário (função do sistema): "Tipo (parcial: 09:00 às 12:00)".
+  8. CPF e CTPS mascarados como no desenho (`***.547.725-**`). Vai ao pacote jurídico.
+  9. Pessoa sem código de funcionário: a célula fica vazia no PDF selado (hoje sai o próximo código livre do
+     escritório, que não é da pessoa).
+  10. Ficha do gestor (mesmo parcial da folha): mostra só o selo do aceite, sem o botão.
+  11. Ordem da barra: "Ver PDF", "Baixar XLSX", "Assinar folha", "Baixar PDF".
+  12. "Ver PDF" sai do modal Bootstrap para a janela do desenho, na moldura `.pe-janela` (decisão do Coordenador).
+  13. Liga e desliga: a camada Escritório da função `ponto-aceite` entra na E16, como a E7 previu.
+  14. O próprio aceite é selado com HMAC (chave `ponto-folha`) sobre a situação, a ressalva, a data, o IP, o navegador e
+      o código da folha vista: a trilha não guarda o texto da ressalva.
+  15. Aviso flutuante (L266): a E16 cria o molde para o "Baixar PDF" (o JS lê o código da resposta) e o aceite usa o
+      envio normal com o aviso do topo, como a E4. Se a E8 já tiver o aviso flutuante, usa-se o dela.
+  16. Sem o segredo: o PDF sai com o fundo de segurança (semente do conteúdo), sem o código na marca d'água e no
+      microtexto, sem a palavra "AUTENTICA", sem a faixa do QR e sem o selo holográfico; a "Base Legal" sobe. Nenhuma
+      folha emitida é gravada e o "Assinar folha" não aparece.
+  17. A página de validação diz "Comprovante autêntico." também para a folha (desenho L300).
+  18. Toda emissão nova grava "Folha emitida" na trilha, inclusive a que o aceite cria para a folha vista.
+  19. Ressalva com até 1.000 caracteres; o PDF mostra uma linha cortada (L697). Ressalva sem texto é recusada.
+  20. "ajustada em dd/mm" (L622) depende da E10: a E16 deixa o gancho e liga quando a E10 entrar.
+  21. Rótulo do selo no PDF: "HMAC-SHA256", igual ao comprovante (o desenho diz "SHA-256", L700).
 
 **E17. Banco de horas por lotes.**
 - Obrigatória (P51 a).
@@ -1351,7 +1388,7 @@ em todo o Ponto e na frente jornada-vigencia.
 | `ponto_ajuste` | Não existe (o gestor faz UPDATE e DELETE) | Precisa criar (P65 a) | Tabela nova: escritório, pessoa, batida (vazia na inclusão), data, tipo, valor anterior, valor novo, autor, criado em, motivo, justificativa ligada | E10 |
 | `ponto_justificativa` | `justificativa_ponto` | Já existe com outro nome | Reaproveitar. Colunas novas: `motivo` (texto nulo, feita na E4, `Version20261109210000`); batida ligada, opcional (trabalho externo, E12) | E4, E12 |
 | `ponto_comprovante` | Não existe | Precisa criar | Tabela nova, uma linha por batida: NSR, código, HMAC (com `PONTO_HMAC_SECRET`; vazia, não grava linha), emitido em, dados assinados; mais um contador de NSR por escritório (linha travada na gravação), que sobe mesmo sem comprovante (D2) | E15 |
-| `ponto_folha_aceite` | Não existe | Precisa criar | Escritório, pessoa, ano, mês, situação (concordo ou ressalva), texto da ressalva, aceito em, IP, navegador, folha emitida vista; único por pessoa, escritório e mês | E16 |
+| `ponto_folha_aceite` | Não existe | Precisa criar | Escritório, pessoa, ano, mês, número do aceite, situação (concordo ou ressalva), texto da ressalva, aceito em, IP, navegador, folha emitida vista, selo HMAC; único por pessoa, escritório, mês e número do aceite (histórico; vale o último, decisão 1 da E16) | E16 |
 | (folha emitida, fora da lista do ESPEC) | Não existe | Precisa criar | Código BJF, HMAC, escritório, pessoa, competência, emitida em, emitida por, resumo do conteúdo | E16 |
 | `ponto_sede` | `sede` (legado, `src/Entity/Tenant/Sede.php`: latitude, longitude, raio, fuso) | Já existe com outro nome | Reaproveitar. P70 (a): sede nova nasce com 150 m (padrão na configuração do E7); as sedes de hoje não mudam, sem migration de dado | nenhuma |
 | `ponto_feriado` | `feriado` (por escritório, recorrente ou pontual) | Já existe com outro nome | Reaproveitar. Coluna nova: sede opcional (abrangência, P71) | E6 |
