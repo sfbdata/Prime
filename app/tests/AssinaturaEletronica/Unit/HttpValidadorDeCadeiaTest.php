@@ -11,11 +11,13 @@ use App\Tests\AssinaturaEletronica\Support\CadeiaDeExemplo;
 use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Monolog\Logger;
+use Monolog\LogRecord;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpClient\Exception\TimeoutException;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
@@ -178,6 +180,28 @@ final class HttpValidadorDeCadeiaTest extends TestCase
         }
 
         self::assertTrue($this->log->hasWarningRecords());
+        self::assertFalse($this->log->hasErrorRecords());
+    }
+
+    /**
+     * O teto de 45 s do cliente (etapa 6, seção 2.1): o validador não responde a tempo e a falha é de tempo, não de
+     * conexão. O MockResponse que rende um pedaço vazio é a espera que estoura o `timeout` do pedido.
+     */
+    #[TestDox('tempo do cliente esgotado: passageiro, CadeiaIndisponivel com aviso de TimeoutException no log, sem erro')]
+    public function testTempoEsgotado(): void
+    {
+        $semResposta = new MockResponse((static function (): \Generator {
+            yield '';
+        })());
+
+        try {
+            $this->validador(new MockHttpClient($semResposta))->conferir(self::PDF, 'govbr');
+            self::fail('Devia lançar CadeiaIndisponivel.');
+        } catch (CadeiaIndisponivel $falha) {
+            self::assertInstanceOf(TimeoutException::class, $falha->getPrevious());
+        }
+
+        self::assertTrue($this->log->hasWarningThatPasses(static fn (LogRecord $r): bool => ($r->context['falha'] ?? null) === TimeoutException::class));
         self::assertFalse($this->log->hasErrorRecords());
     }
 
