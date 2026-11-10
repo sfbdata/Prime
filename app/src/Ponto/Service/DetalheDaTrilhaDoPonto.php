@@ -64,7 +64,7 @@ final class DetalheDaTrilhaDoPonto
             'justificativa_id' => $justificativa->getId(),
             'tipo'             => $justificativa->getTipo(),
             'data'             => $justificativa->getData()?->format('Y-m-d'),
-        ] + self::esquecimento($justificativa);
+        ] + self::esquecimento($justificativa) + self::parcial($justificativa);
     }
 
     /**
@@ -88,7 +88,7 @@ final class DetalheDaTrilhaDoPonto
             'de'                => $datas[0],
             'ate'               => $datas[\count($datas) - 1],
             'quantidade'        => \count($lote),
-        ] + self::esquecimento($lote[0]);
+        ] + self::esquecimento($lote[0]) + self::parcial($lote[0]);
     }
 
     /**
@@ -203,6 +203,22 @@ final class DetalheDaTrilhaDoPonto
         return ['batida_esquecida' => $tipo, 'hora_esquecida' => $hora->format('H:i')];
     }
 
+    /**
+     * O abono parcial (só o horário, como o subtítulo da lista): `parcial` e, quando há, `parcial_de` e `parcial_ate`.
+     *
+     * @return array<string, bool|string>
+     */
+    private static function parcial(JustificativaPonto $justificativa): array
+    {
+        if (!$justificativa->isAbonoParcial()) {
+            return [];
+        }
+        $de  = $justificativa->getHoraInicioAbono();
+        $ate = $justificativa->getHoraFimAbono();
+
+        return ['parcial' => true] + ($de !== null && $ate !== null ? ['parcial_de' => $de->format('H:i'), 'parcial_ate' => $ate->format('H:i')] : []);
+    }
+
     /** @param array<string, mixed> $detalhe */
     private static function textoDaBatida(array $detalhe): string
     {
@@ -219,7 +235,7 @@ final class DetalheDaTrilhaDoPonto
     {
         $data = self::momento(self::textoDe($detalhe, 'data'), 'd/m/Y');
 
-        return self::partes([$data, self::tipoDaJustificativa($detalhe), self::textoDoEsquecimento($detalhe)]);
+        return self::partes([$data, self::tipoDaJustificativa($detalhe), self::subtitulo($detalhe)]);
     }
 
     /** @param array<string, mixed> $detalhe */
@@ -228,9 +244,13 @@ final class DetalheDaTrilhaDoPonto
         $de         = self::momento(self::textoDe($detalhe, 'de'), 'd/m/Y');
         $ate        = self::momento(self::textoDe($detalhe, 'ate'), 'd/m/Y');
         $quantidade = (int) ($detalhe['quantidade'] ?? 0);
-        $periodo    = $de === null || $ate === null || $de === $ate ? $de : sprintf('%s a %s', $de, $ate) . ($quantidade > 1 ? sprintf(' (%d dias)', $quantidade) : '');
+        $periodo    = match (true) {
+            $de === null || $ate === null => $de,
+            $de !== $ate                  => sprintf('%s a %s', $de, $ate) . ($quantidade > 1 ? sprintf(' (%d dias)', $quantidade) : ''),
+            default                       => $de . ($quantidade > 1 ? sprintf(' (%d justificativas)', $quantidade) : ''),
+        };
 
-        return self::partes([$periodo, self::tipoDaJustificativa($detalhe), self::textoDoEsquecimento($detalhe)]);
+        return self::partes([$periodo, self::tipoDaJustificativa($detalhe), self::subtitulo($detalhe)]);
     }
 
     /**
@@ -293,16 +313,26 @@ final class DetalheDaTrilhaDoPonto
     }
 
     /**
-     * O subtítulo do esquecimento, como o da lista (`_justificativa_macros.html.twig`): "Saída às 18:00".
+     * O subtítulo, como o da lista (`_justificativa_macros.html.twig`): o do esquecimento, "Saída às 18:00", ou o do
+     * abono parcial, "Parcial: 14:00 às 16:00" (só "Parcial" sem o horário). Eventos gravados antes do parcial no
+     * detalhe saem sem ele.
      *
      * @param array<string, mixed> $detalhe
      */
-    private static function textoDoEsquecimento(array $detalhe): ?string
+    private static function subtitulo(array $detalhe): ?string
     {
         $batida = self::BATIDAS[self::textoDe($detalhe, 'batida_esquecida') ?? ''] ?? null;
         $hora   = self::textoDe($detalhe, 'hora_esquecida');
+        if ($batida !== null && $hora !== null) {
+            return sprintf('%s às %s', $batida, $hora);
+        }
+        if (($detalhe['parcial'] ?? false) !== true) {
+            return null;
+        }
+        $de  = self::textoDe($detalhe, 'parcial_de');
+        $ate = self::textoDe($detalhe, 'parcial_ate');
 
-        return $batida === null || $hora === null ? null : sprintf('%s às %s', $batida, $hora);
+        return $de === null || $ate === null ? 'Parcial' : sprintf('Parcial: %s às %s', $de, $ate);
     }
 
     /**

@@ -52,6 +52,9 @@ final class DetalheDaTrilhaDoPontoTest extends TestCase
         yield 'envio do esquecimento com subtítulo' => ['justificativa_enviada', ['tipo' => 'esquecimento_registro', 'batida_esquecida' => 'saida', 'hora_esquecida' => '18:00'] + $lote, 'Ana: 07/11/2026 · Esquecimento de Registro · Saída às 18:00'];
         yield 'chave do escritório desligada, sem nome na frente' => ['configuracao_do_escritorio', ['chave' => 'ponto-geo', 'titulo' => 'Geolocalização', 'ligada' => false], 'Geolocalização desativado'];
         yield 'chave do escritório ligada' => ['configuracao_do_escritorio', ['chave' => 'ponto-geo', 'titulo' => 'Geolocalização', 'ligada' => true], 'Geolocalização ativado'];
+        yield 'envio de um dia com duas justificativas' => ['justificativa_enviada', ['quantidade' => 2, 'justificativa_ids' => [1, 2]] + $lote, 'Ana: 07/11/2026 (2 justificativas) · Atestado Médico'];
+        yield 'abono parcial com horário' => ['justificativa_abonada', ['parcial' => true, 'parcial_de' => '14:00', 'parcial_ate' => '16:00'] + $atestado, 'Ana: 07/11/2026 · Atestado Médico · Parcial: 14:00 às 16:00'];
+        yield 'abono parcial sem horário' => ['justificativa_enviada', ['parcial' => true] + $lote, 'Ana: 07/11/2026 · Atestado Médico · Parcial'];
         yield 'detalhe sem data' => ['justificativa_excluida', ['colaborador' => 'Ana', 'tipo' => 'atestado_medico'], 'Ana: Atestado Médico'];
     }
 
@@ -61,6 +64,22 @@ final class DetalheDaTrilhaDoPontoTest extends TestCase
     public function testTexto(string $acao, array $detalhe, string $esperado): void
     {
         self::assertSame($esperado, DetalheDaTrilhaDoPonto::texto($acao, $detalhe));
+    }
+
+    #[TestDox('O detalhe gravado da justificativa leva o abono parcial com o horário; a do dia inteiro, não')]
+    public function testDaJustificativaGravaOParcial(): void
+    {
+        $justificativa = (new JustificativaPonto())
+            ->setUser((new User())->setEmail('ana@teste.com')->setFullName('Ana'))
+            ->setTipo('atestado_medico')
+            ->setData(new \DateTimeImmutable('2026-11-07'))
+            ->setAbonoParcial(true)
+            ->setHoraInicioAbono(new \DateTimeImmutable('14:00'))
+            ->setHoraFimAbono(new \DateTimeImmutable('16:00'));
+
+        self::assertSame(['parcial' => true, 'parcial_de' => '14:00', 'parcial_ate' => '16:00'], array_intersect_key(DetalheDaTrilhaDoPonto::daJustificativa($justificativa), array_flip(['parcial', 'parcial_de', 'parcial_ate'])));
+        self::assertSame('Ana: 07/11/2026 · Atestado Médico · Parcial: 14:00 às 16:00', DetalheDaTrilhaDoPonto::texto('justificativa_enviada', DetalheDaTrilhaDoPonto::doLote([$justificativa])));
+        self::assertArrayNotHasKey('parcial', DetalheDaTrilhaDoPonto::daJustificativa($justificativa->setAbonoParcial(false)));
     }
 
     #[TestDox('O detalhe gravado da batida leva a marca da fila sem internet (o texto da trilha lê dela)')]

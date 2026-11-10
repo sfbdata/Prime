@@ -14,11 +14,13 @@ use App\Ponto\Controller\FuncaoDoPontoController;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Repository\ConfiguracaoDoPontoRepository;
+use App\Ponto\Repository\TrilhaDoPontoRepository;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\GestaoDoPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -203,6 +205,26 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
             ['Geolocalização desativado', 'Geolocalização ativado'],
             array_map(static fn (array $e): string => DetalheDaTrilhaDoPonto::texto($e['acao'], json_decode((string) $e['detalhe'], true)), $eventos),
         );
+    }
+
+    #[TestDox('A trilha do Ponto que falha desfaz a mudança da chave: mesma transação, nada gravado')]
+    public function testTrilhaQueFalhaNaoMudaAChave(): void
+    {
+        $this->entrar($this->primario);
+        $container = static::getContainer();
+        $container->set(TrilhaDoPontoRepository::class, new class ($container->get(ManagerRegistry::class)) extends TrilhaDoPontoRepository {
+            public function inserir(array $linha): void
+            {
+                throw new \RuntimeException('Falha simulada da trilha.');
+            }
+        });
+
+        $this->client->request('POST', '/ponto/configuracoes/funcoes/ponto-geo', server: $this->ajax(), content: '{"ligada":false}');
+
+        self::assertResponseStatusCodeSame(500);
+        $linha = $this->configuracao($this->escritorio);
+        self::assertTrue($linha === null || !\array_key_exists('ponto-geo', $linha['chaves']), 'a chave voltou com a transação');
+        self::assertSame(0, (int) $this->emSemFiltro()->getConnection()->fetchOne('SELECT COUNT(*) FROM ponto_auditoria WHERE tenant_id = ?', [$this->escritorio->getId()]));
     }
 
     #[TestDox('Sem linha, o repositório cria a do escritório com os padrões e a trava (SELECT ... FOR UPDATE); de novo, devolve a mesma, sem duplicar nem sobrescrever')]
