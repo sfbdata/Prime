@@ -410,6 +410,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\AssinaturaEletronica\Entity\EventoDaTrilha::class,
         \App\AssinaturaEletronica\Entity\Signatario::class,
         \App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura::class,
+        // Ponto (spec ponto-desenho-0811, E9): o evento da trilha encadeada É o rastro do Ponto (selado por HMAC, só se
+        // acrescenta, gravado por DBAL); a entidade é só leitura (`readOnly`) e serve à aba Auditoria.
+        \App\Ponto\Entity\EventoDaTrilhaDoPonto::class,
     ];
 
     private EntityManagerInterface $em;
