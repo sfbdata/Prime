@@ -90,13 +90,7 @@ final class VinculoComAPasta
 
         // Sem o PDF final guardado: o worker gera e guarda, e o evento traz o vínculo de volta para cá.
         if (ChavesDeAssinaturaEletronica::pdfFinal($documento) === null) {
-            try {
-                $this->mensagens->dispatch(new GerarPdfFinalDoDocumento((int) $documento->getId(), (int) $documento->getTenant()->getId()));
-            } catch (\Throwable $e) {
-                return $this->falharComErro($documento, $pasta, 'pdf_indisponivel', $e);
-            }
-
-            return false;
+            return $this->pedirPdfAoWorker($documento, $pasta);
         }
 
         // Com ele guardado, o `garantir` só devolve a chave.
@@ -121,6 +115,18 @@ final class VinculoComAPasta
         $this->arquivos->depoisDeGuardar($arquivo, $documento, $autor);
 
         return true;
+    }
+
+    /** Pede o PDF final ao worker: o vínculo segue pendente (falso); fila fora do ar desfaz como PDF indisponível. */
+    private function pedirPdfAoWorker(DocumentoParaAssinar $documento, Pasta $pasta): bool
+    {
+        try {
+            $this->mensagens->dispatch(new GerarPdfFinalDoDocumento((int) $documento->getId(), (int) $documento->getTenant()->getId()));
+        } catch (\Throwable $e) {
+            return $this->falharComErro($documento, $pasta, 'pdf_indisponivel', $e);
+        }
+
+        return false;
     }
 
     /** A chave do motivo da recusa, ou nulo quando quem vinculou ainda pode gravar na pasta. */
