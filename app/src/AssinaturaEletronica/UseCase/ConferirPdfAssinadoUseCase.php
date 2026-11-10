@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\UseCase;
 
 use App\AssinaturaEletronica\DTO\PdfAssinadoConferido;
+use App\AssinaturaEletronica\DTO\PdfAssinadoEnviado;
 use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
 use App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeia;
-use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDoPdfAssinado;
 use App\AssinaturaEletronica\Service\ResultadoDoPdfAssinado;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
@@ -25,13 +25,12 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * Na ordem: o signatário pelo token ({@see LinkInvalido} também para quem não é gov.br nem ICP: esta ação não existe
  * para ele); a vez dele, como na Simples (documento aguardando, no prazo, signatário pendente e, com ordem, a vez); o
  * validador de cadeia configurado (sem ele, gov.br e ICP não fecham, E6-4: `cadeia_indisponivel`); o arquivo, só PDF
- * pelo conteúdo e até 20 MB, o teto do motor (E5-8), senão `ilegivel`; e a {@see ConferenciaDoPdfAssinado} com o CPF
- * cadastrado do signatário, quando há. A recusa sai como {@see AcaoRecusada} com a chave do texto do catálogo público.
+ * pelo conteúdo e até 20 MB, o teto do motor (E5-8), senão `ilegivel` ({@see PdfAssinadoEnviado}, o mesmo da assinatura
+ * com certificado); e a {@see ConferenciaDoPdfAssinado} com o CPF cadastrado do signatário, quando há. A recusa sai
+ * como {@see AcaoRecusada} com a chave do texto do catálogo público.
  */
 final readonly class ConferirPdfAssinadoUseCase
 {
-    private const TIPO_DO_PDF = 'application/pdf';
-
     public function __construct(
         private SignatarioDoLink $link,
         private ValidadorDeCadeia $validador,
@@ -55,22 +54,12 @@ final readonly class ConferirPdfAssinadoUseCase
             throw self::recusa(ResultadoDoPdfAssinado::CADEIA_INDISPONIVEL);
         }
 
-        $resultado = $this->conferencia->conferir($signatario->getDocumento(), self::conteudo($pdf), self::cpfCadastrado($signatario));
+        $resultado = $this->conferencia->conferir($signatario->getDocumento(), PdfAssinadoEnviado::de($pdf)->bytes, self::cpfCadastrado($signatario));
         if ($resultado->erro !== null) {
             throw self::recusa($resultado->erro);
         }
 
         return PdfAssinadoConferido::de($resultado, $pdf->getClientOriginalName());
-    }
-
-    /** Os bytes do PDF enviado, depois do tipo pelo conteúdo e do teto do motor (sem ler o arquivo grande). */
-    private static function conteudo(UploadedFile $pdf): string
-    {
-        if (!$pdf->isValid() || (int) $pdf->getSize() > LimitesDaConferencia::PDF_MAXIMO_EM_BYTES || $pdf->getMimeType() !== self::TIPO_DO_PDF) {
-            throw self::recusa(ResultadoDoPdfAssinado::ILEGIVEL);
-        }
-
-        return $pdf->getContent();
     }
 
     /** Só os dígitos do CPF cadastrado; nulo sem ele. */

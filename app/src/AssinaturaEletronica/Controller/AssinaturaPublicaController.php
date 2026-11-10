@@ -6,8 +6,10 @@ namespace App\AssinaturaEletronica\Controller;
 
 use App\AssinaturaEletronica\DTO\ArquivoParaEntregar;
 use App\AssinaturaEletronica\DTO\EntradaDaAssinatura;
+use App\AssinaturaEletronica\DTO\EntradaDoCertificado;
 use App\AssinaturaEletronica\DTO\EvidenciaDaRequisicao;
 use App\AssinaturaEletronica\DTO\LeitorDeCampos;
+use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\GeracaoDoPdfRecusada;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
@@ -18,6 +20,7 @@ use App\AssinaturaEletronica\Service\PaginaDoSignatario;
 use App\AssinaturaEletronica\Service\ResultadoDoPdfAssinado;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
 use App\AssinaturaEletronica\UseCase\AbrirPaginaDoSignatarioUseCase;
+use App\AssinaturaEletronica\UseCase\AssinarComCertificadoUseCase;
 use App\AssinaturaEletronica\UseCase\AssinarDocumentoUseCase;
 use App\AssinaturaEletronica\UseCase\ConferirPdfAssinadoUseCase;
 use App\AssinaturaEletronica\UseCase\ObterArquivoDoSignatarioUseCase;
@@ -66,6 +69,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * congelado na primeira vez. Os mesmos limitadores e a mesma regra de tempo e memória do `GET /assinar/{token}/pdf`; o
  * excesso responde 429 `{"erro": ...}` e o PDF acima do teto responde 422 `{"erro": ...}`, com o texto que a página
  * mostra.
+ *
+ * Etapa 5 (bloco 5C): o `POST /assinar/{token}` despacha pelo nível do signatário do link. gov.br e ICP mandam
+ * multipart (`nome`, `cpf`, `aceite`, `arquivo`) para a {@see AssinarComCertificadoUseCase}, depois da regra de tempo e
+ * memória do motor (a conferência da cadeia leva até 45 s); os demais, o JSON da Simples e da Reforçada, como antes.
  */
 final class AssinaturaPublicaController extends AbstractController
 {
@@ -124,12 +131,17 @@ final class AssinaturaPublicaController extends AbstractController
     }
 
     #[Route('/assinar/{token}', name: 'assinatura_eletronica_publica_assinar', requirements: ['token' => self::TOKEN], methods: ['POST'])]
-    public function assinar(string $token, Request $request, AssinarDocumentoUseCase $assinar): JsonResponse
+    public function assinar(string $token, Request $request, AssinarDocumentoUseCase $assinar, AssinarComCertificadoUseCase $comCertificado): JsonResponse
     {
-        return $this->acao($request, $token, static fn (): array => [
-            'ok' => true,
-            'estado' => $assinar->executar($token, EntradaDaAssinatura::deJson($request->toArray()), EvidenciaDaRequisicao::da($request)),
-        ]);
+        return $this->acao($request, $token, static function (Signatario $signatario) use ($token, $request, $assinar, $comCertificado): array {
+            if (!$signatario->assinaComCertificado()) {
+                return ['ok' => true, 'estado' => $assinar->executar($token, EntradaDaAssinatura::deJson($request->toArray()), EvidenciaDaRequisicao::da($request))];
+            }
+            EntregaDoPdfDaAssinatura::limitar();
+            $entrada = EntradaDoCertificado::doFormulario($request->request->all(), $request->files->get('arquivo'));
+
+            return ['ok' => true, 'estado' => $comCertificado->executar($token, $entrada, EvidenciaDaRequisicao::da($request))];
+        });
     }
 
     #[Route('/assinar/{token}/recusa', name: 'assinatura_eletronica_publica_recusa', requirements: ['token' => self::TOKEN], methods: ['POST'])]
@@ -226,9 +238,10 @@ final class AssinaturaPublicaController extends AbstractController
     }
 
     /**
-     * Porta dos POST: limitadores, signatário do link, CSRF e as recusas como JSON.
+     * Porta dos POST: limitadores, signatário do link, CSRF e as recusas como JSON. A ação recebe o signatário achado
+     * (o "Assinar" despacha pelo nível dele).
      *
-     * @param \Closure(): array<string, mixed> $acao
+     * @param \Closure(Signatario): array<string, mixed> $acao
      */
     private function acao(Request $request, string $token, \Closure $acao): JsonResponse
     {
@@ -237,12 +250,12 @@ final class AssinaturaPublicaController extends AbstractController
         }
 
         try {
-            $this->link->localizar($token);
+            $signatario = $this->link->localizar($token);
             if (!$this->csrf->isTokenValid(new CsrfToken(self::idDoCsrf($token), (string) $request->headers->get('X-CSRF-Token', '')))) {
                 return $this->erro('assinatura_eletronica.erro.sessao_expirada', [], Response::HTTP_FORBIDDEN);
             }
 
-            return $this->json($acao());
+            return $this->json($acao($signatario));
         } catch (LinkInvalido) {
             return $this->erro(LinkInvalido::CHAVE, [], Response::HTTP_NOT_FOUND);
         } catch (MuitasTentativas) {

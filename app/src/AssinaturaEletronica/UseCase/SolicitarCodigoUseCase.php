@@ -26,6 +26,9 @@ use Psr\Clock\ClockInterface;
  * com a evidência da requisição); falhou, só `email_nao_enviado`. Teto de 10 códigos entregues em 24 h por signatário,
  * contado pela trilha: passado o teto, o signatário fica bloqueado até o fim da janela (o bloqueio é gravado mesmo com
  * a recusa).
+ *
+ * Etapa 5 (bloco 5C): quem assina gov.br ou ICP não usa código (a prova é o PDF assinado): para ele a ação não existe,
+ * e o pedido é o mesmo {@see LinkInvalido} do token desconhecido, sem código nem e-mail.
  */
 final readonly class SolicitarCodigoUseCase
 {
@@ -50,6 +53,9 @@ final readonly class SolicitarCodigoUseCase
     public function executar(#[\SensitiveParameter] string $token, EvidenciaDaRequisicao $evidencia): void
     {
         $signatario = $this->link->localizar($token);
+        if ($signatario->assinaComCertificado()) {
+            throw new LinkInvalido();
+        }
         $this->chave->exigirConfigurada();
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\AssinaturaEletronica\Unit;
 
 use App\AssinaturaEletronica\DTO\CartaDaAssinatura;
+use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
@@ -123,6 +125,24 @@ final class SolicitarCodigoUseCaseTest extends TestCase
             self::fail('deveria recusar');
         } catch (AcaoRecusada $e) {
             self::assertSame('assinatura_eletronica.publica.estado.aguardando_anterior', $e->getMessage());
+        }
+        self::assertFalse($bia->temCodigo());
+        self::assertSame([], $this->mailer->enviados);
+        self::assertSame([], $this->gravados);
+    }
+
+    #[TestDox('quem assina gov.br ou ICP não usa código: link inválido, sem código, e-mail nem trilha')]
+    public function testCertificadoNaoPedeCodigo(): void
+    {
+        $bia = $this->documentoEnviado()->getSignatarios()[1];
+        foreach ([NivelDeAssinatura::Govbr, NivelDeAssinatura::Icp] as $nivel) {
+            (new \ReflectionProperty(Signatario::class, 'nivel'))->setValue($bia, $nivel);
+
+            try {
+                $this->solicitar()->executar($this->chave->token($bia), self::evidencia());
+                self::fail('deveria recusar ' . $nivel->value);
+            } catch (LinkInvalido) {
+            }
         }
         self::assertFalse($bia->temCodigo());
         self::assertSame([], $this->mailer->enviados);

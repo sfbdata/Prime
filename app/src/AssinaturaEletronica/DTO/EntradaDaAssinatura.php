@@ -71,17 +71,38 @@ final readonly class EntradaDaAssinatura
     /** @throws AcaoRecusada "Informe o nome completo." (menos de duas palavras) */
     public function exigirNome(): void
     {
-        if (\count(explode(' ', $this->nome)) < 2) {
-            throw new AcaoRecusada('assinatura_eletronica.erro.assinar_nome');
-        }
-
-        LeitorDeCampos::exigirTamanho($this->nome, self::NOME_MAXIMO, 'assinatura_eletronica.erro.assinar_nome_longo');
+        self::exigirNomeCompleto($this->nome);
     }
 
     /** @throws AcaoRecusada "Informe um CPF válido." */
     public function exigirCpf(): void
     {
-        if (!DigitoVerificador::cpfValido($this->cpf)) {
+        self::exigirCpfValido($this->cpf);
+    }
+
+    /**
+     * A regra do nome digitado, a mesma na assinatura com certificado (etapa 5, bloco 5C): duas palavras ou mais e até
+     * 200 caracteres.
+     *
+     * @throws AcaoRecusada
+     */
+    public static function exigirNomeCompleto(string $nome): void
+    {
+        if (\count(explode(' ', $nome)) < 2) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.assinar_nome');
+        }
+
+        LeitorDeCampos::exigirTamanho($nome, self::NOME_MAXIMO, 'assinatura_eletronica.erro.assinar_nome_longo');
+    }
+
+    /**
+     * A regra do CPF digitado (só os dígitos), a mesma na assinatura com certificado.
+     *
+     * @throws AcaoRecusada "Informe um CPF válido."
+     */
+    public static function exigirCpfValido(string $cpf): void
+    {
+        if (!DigitoVerificador::cpfValido($cpf)) {
             throw new AcaoRecusada('assinatura_eletronica.erro.assinar_cpf');
         }
     }
