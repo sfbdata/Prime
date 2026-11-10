@@ -383,11 +383,11 @@ final class TenantController extends AbstractController
                     $lotacoesNoForm[] = $lotacao->getId();
                 }
             }
-            $recusadas = $apagarLotacoes->executar($tenant, $lotacoesNoForm); // com feriado ou histórico no Ponto, fica (E6)
+            $recusadas = $apagarLotacoes->executar($tenant, $lotacoesNoForm); // com feriado no Ponto, fica (E6)
             $entityManager->flush();
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.lotacoes_atualizadas'));
             if ($recusadas !== []) {
-                $this->addFlash('danger', $this->tradutor->trans('escritorio.flash.lotacao_com_historico'));
+                $this->addFlash('danger', $this->tradutor->trans('escritorio.flash.lotacao_com_feriado'));
             }
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
         }

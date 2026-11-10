@@ -387,8 +387,8 @@ final class PurgarEscritorioUseCase
         ['ponto_lancamento_horas_pagas', 'tenant_id = :tenant'],
         ['home_office_config', 'tenant_id = :tenant'],
         ['feriado', 'tenant_id = :tenant'],
-        // Lotação com vigência do Ponto (E6): FKs de tenant e pessoa CASCADE; a de lotação é NO ACTION, como a do
-        // feriado acima: as duas tabelas saem antes de `lotacao`.
+        // Lotação com vigência do Ponto (E6): FKs de tenant e pessoa CASCADE, a de lotação SET NULL; explícito por
+        // convenção. O feriado (acima) segura a lotação (NO ACTION) e sai antes dela.
         ['lotacao_vigencia', 'tenant_id = :tenant'],
         // Fase 3 — estruturais / permissões do tenant.
         ['aceite_termo', 'tenant_id = :tenant'],

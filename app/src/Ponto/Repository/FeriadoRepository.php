@@ -16,6 +16,26 @@ class FeriadoRepository extends ServiceEntityRepository
         parent::__construct($registry, Feriado::class);
     }
 
+    /**
+     * As lotações DO escritório que têm feriado: apagá-las mudaria os meses passados (`ApagarLotacoesQueSairamUseCase`).
+     * Conta o feriado venha de onde vier: a chave do banco (NO ACTION) recusaria do mesmo jeito.
+     *
+     * @return list<int>
+     */
+    public function idsDasLotacoesComFeriado(Tenant $escritorio): array
+    {
+        if ($escritorio->getId() === null) {
+            return [];
+        }
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT l.id FROM lotacao l
+              WHERE l.tenant_id = :escritorio AND EXISTS (SELECT 1 FROM feriado f WHERE f.lotacao_id = l.id)',
+            ['escritorio' => $escritorio->getId()],
+        );
+
+        return array_map('intval', $ids);
+    }
+
     /** @return Feriado[] */
     public function findByTenant(Tenant $tenant): array
     {

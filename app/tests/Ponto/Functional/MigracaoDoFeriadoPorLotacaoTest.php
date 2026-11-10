@@ -23,10 +23,10 @@ use Symfony\Component\Console\Tester\CommandTester;
 /**
  * A migration `Version20261109200000` (spec `docs/specs/ponto-desenho-0811.md`, E6, P71 com o desvio da E6): o
  * feriado ganha a lotação opcional; os que já existiam ficam sem ela (valem para todo o escritório, nenhuma folha
- * muda); o banco recusa apagar a lotação que tem feriado ou versão no histórico (ON DELETE NO ACTION). Lotação com
- * vigência: a tabela `lotacao_vigencia` nasce com uma versão inicial por vínculo (a lotação de hoje, sem data: vale
- * desde sempre). O down tira a tabela e a coluna, e recusa quando alguém já trocou de lotação ou quando há feriado de
- * uma lotação.
+ * muda); o banco recusa apagar a lotação que tem feriado (ON DELETE NO ACTION). Lotação com vigência: a tabela
+ * `lotacao_vigencia` nasce com uma versão inicial por vínculo (a lotação de hoje, sem data: vale desde sempre); apagar
+ * a lotação sem feriado deixa a versão sem lotação (SET NULL). O down tira a tabela e a coluna, e recusa quando alguém
+ * já trocou de lotação ou quando há feriado de uma lotação.
  *
  * Roda dentro da transação do DAMA: o PostgreSQL desfaz a DDL no fim, e o banco volta como estava.
  */
@@ -89,7 +89,7 @@ final class MigracaoDoFeriadoPorLotacaoTest extends KernelTestCase
             (int) $this->banco()->fetchOne('SELECT COUNT(*) FROM lotacao_vigencia'),
             'uma versão por vínculo',
         );
-        self::assertSame('a', $this->banco()->fetchOne("SELECT confdeltype FROM pg_constraint WHERE conname = 'fk_2889a82c7e27c2b8'"), 'lotação no histórico: NO ACTION');
+        self::assertSame('n', $this->banco()->fetchOne("SELECT confdeltype FROM pg_constraint WHERE conname = 'fk_2889a82c7e27c2b8'"), 'lotação apagada: SET NULL');
         self::assertSame('c', $this->banco()->fetchOne("SELECT confdeltype FROM pg_constraint WHERE conname = 'fk_2889a82ca76ed395'"), 'pessoa apagada: CASCADE');
         self::assertSame('c', $this->banco()->fetchOne("SELECT confdeltype FROM pg_constraint WHERE conname = 'fk_2889a82c9033212a'"), 'escritório apagado: CASCADE');
     }
@@ -143,8 +143,8 @@ final class MigracaoDoFeriadoPorLotacaoTest extends KernelTestCase
         self::assertSame(1, (int) $this->banco()->fetchOne('SELECT COUNT(*) FROM feriado WHERE id = ?', [$todas]));
     }
 
-    #[TestDox('O banco recusa apagar a lotação que está no histórico de alguém; sem feriado nem histórico, apaga')]
-    public function testApagarALotacaoDoHistoricoERecusadoPeloBanco(): void
+    #[TestDox('Apagar a lotação sem feriado que está no histórico de alguém: apaga, e a versão e o vínculo ficam sem lotação')]
+    public function testApagarALotacaoDoHistoricoDeixaAVersaoSemLotacao(): void
     {
         self::bootKernel();
         [$escritorio, $lotacao, $comLotacao] = $this->vinculos();
@@ -153,11 +153,12 @@ final class MigracaoDoFeriadoPorLotacaoTest extends KernelTestCase
             [$comLotacao, $escritorio, $lotacao],
         );
 
-        self::assertTrue($this->apagarLotacaoRecusado($lotacao));
-        self::assertSame(1, (int) $this->banco()->fetchOne('SELECT COUNT(*) FROM lotacao_vigencia WHERE lotacao_id = ?', [$lotacao]));
-
-        $this->banco()->executeStatement('DELETE FROM lotacao_vigencia WHERE lotacao_id = ?', [$lotacao]);
-        self::assertFalse($this->apagarLotacaoRecusado($lotacao), 'sem feriado nem histórico, apaga como antes');
+        self::assertFalse($this->apagarLotacaoRecusado($lotacao), 'sem feriado, apaga');
+        self::assertSame(
+            [['lotacao_id' => null]],
+            $this->banco()->fetchAllAssociative('SELECT lotacao_id FROM lotacao_vigencia WHERE user_id = ? AND tenant_id = ?', [$comLotacao, $escritorio]),
+            'a versão fica, sem lotação (SET NULL)',
+        );
         self::assertNull($this->banco()->fetchOne('SELECT lotacao_id FROM user_tenant WHERE user_id = ? AND tenant_id = ?', [$comLotacao, $escritorio]), 'o vínculo fica sem lotação (SET NULL)');
     }
 

@@ -503,7 +503,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->ins('marcador', ['nome' => 'M', 'ordem' => 0, 'criado_at' => $ts, 'tenant_id' => $t, 'criado_por_id' => $u]);
         $this->ins('legenda_cor', ['nome' => 'L', 'cor' => '#000', 'criado_at' => $ts, 'tenant_id' => $t]);
         $this->ins('feriado', ['nome' => 'F', 'data' => $d, 'recorrente' => false, 'tenant_id' => $t]);
-        // E6 do Ponto: o feriado da lotação e a versão do histórico seguram a lotação (chave NO ACTION): saem antes dela.
+        // E6 do Ponto: o feriado da lotação segura a lotação (chave NO ACTION) e sai antes dela; a versão do histórico também.
         $this->ins('feriado', ['nome' => 'FL', 'data' => $d, 'recorrente' => false, 'tenant_id' => $t, 'lotacao_id' => $lot]);
         $this->ins('lotacao_vigencia', ['user_id' => $u, 'tenant_id' => $t, 'lotacao_id' => $lot]);
         $this->ins('registro_ponto', ['data_hora' => $ts, 'tipo' => 'entrada', 'user_id' => $u, 'tenant_id' => $t]);

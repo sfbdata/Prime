@@ -22,8 +22,9 @@ use Doctrine\ORM\Mapping as ORM;
  *   dia substitui a versão daquele dia.
  * - `user_tenant.lotacao_id` continua sendo a lotação de HOJE; sem nenhuma versão, ela vale para todos os dias.
  *
- * Lotação nula: a pessoa estava sem lotação (só os feriados de "Todas as sedes"). A lotação que está em alguma versão
- * não é apagada (`ApagarLotacoesQueSairamUseCase`; no banco, ON DELETE NO ACTION): o histórico não perde a lotação.
+ * Lotação nula: a pessoa estava sem lotação (só os feriados de "Todas as sedes"). Apagar a lotação (só a sem feriado se
+ * apaga, `ApagarLotacoesQueSairamUseCase`) deixa a versão sem lotação (SET NULL, como em `user_tenant`): sem feriado,
+ * a lotação e "sem lotação" dão o mesmo resultado no Ponto, e a folha do passado continua igual.
  */
 #[ORM\Entity(repositoryClass: \App\Ponto\Repository\LotacaoComVigenciaRepository::class)]
 #[ORM\Table(name: 'lotacao_vigencia')]
@@ -38,7 +39,7 @@ class LotacaoComVigencia implements Auditavel, TenantAware
     private ?int $id = null;
 
     #[ORM\ManyToOne(targetEntity: Lotacao::class)]
-    #[ORM\JoinColumn(nullable: true)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Lotacao $lotacao;
 
     /** O dia em que esta versão passa a valer (só a data); nulo na versão inicial, que vale desde sempre. */
