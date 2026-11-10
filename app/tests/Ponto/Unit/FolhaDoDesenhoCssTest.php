@@ -66,6 +66,10 @@ final class FolhaDoDesenhoCssTest extends TestCase
         yield 'Abonada' => ['.pe-just--abonada', ['background' => '#1e7b45']];
         yield 'Em análise' => ['.pe-just--analise', ['background' => '#0a6fa0']];
         yield 'Recusada' => ['.pe-just--recusada,.pe-just--nao-abonada', ['background' => '#a3232b']];
+        // E10: a marca "aj" da batida ajustada (L154: 10.5px, bold, #0a6fa0 = --pe-link, cursor help); no hover da linha
+        // ela fica branca pela regra dos saldos (L39), que alcança todo `.pe-pl`.
+        yield 'marca "aj" (L154)' => ['.pe-aj', ['font-size' => '10.5px', 'font-weight' => 'bold', 'color' => 'var(--pe-link)', 'cursor' => 'help']];
+        yield 'Restaurar da ficha (E10, sistema)' => ['.pe-mais--restaurar', ['color' => 'var(--pe-link)']];
         yield 'folha vazia (L160)' => ['.pe-tab.pe-resp td.pe-folha-vazia', ['padding' => '18px', 'color' => 'var(--pe-mudo)', 'text-align' => 'center']];
     }
 
@@ -75,6 +79,7 @@ final class FolhaDoDesenhoCssTest extends TestCase
         $tokens = self::declaracoes(self::semMedia(self::css()), '.pe-page,.pe-folha');
 
         self::assertSame('#eef3f6', $tokens['--pe-th-bg'] ?? null);
+        self::assertSame('#0a6fa0', $tokens['--pe-link'] ?? null, 'a cor da marca "aj" (L154)');
         self::assertSame('#eef2f5', $tokens['--pe-listra'] ?? null);
         self::assertSame('#1e7b45', $tokens['--pe-ok-forte'] ?? null);
         self::assertSame('#fff3cd', $tokens['--pe-incompleto-bg'] ?? null);
