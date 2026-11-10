@@ -13,6 +13,6 @@ tipo: novidade
 
 ## Para o cliente
 - Documento assinado muito grande (acima de 19 MB) passa a sair com as páginas em imagem um pouco mais leve, para caber no selo e na conferência do BlueJus.
-- A trilha de eventos do documento passa a mostrar se o PDF final saiu com o selo do BlueJus ("PDF final selado pelo BlueJus") ou sem ele ("PDF final guardado sem o selo do BlueJus").
 - O PDF final do documento assinado passa a sair com o selo digital do BlueJus, que permite conferir que o arquivo não foi alterado depois de concluído. O selo entra em uso quando o certificado digital do BlueJus for instalado; até lá, o PDF final sai como hoje. A Assinatura de documentos continua desligada e só aparece para a equipe do BlueJus.
+- Com o selo em uso, a trilha de eventos do documento passa a mostrar se o PDF final saiu com o selo do BlueJus ("PDF final selado pelo BlueJus") ou sem ele ("PDF final guardado sem o selo do BlueJus").
 - Se o serviço do selo estiver fora do ar no momento em que o PDF final é gerado, o sistema tenta de novo sozinho (em 1, 5 e 15 minutos) antes de entregar o PDF sem o selo. Quem clicar em "Baixar PDF com selo" nesse intervalo vê "O PDF deste documento está sendo gerado. Tente de novo em alguns minutos.".
