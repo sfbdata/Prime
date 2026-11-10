@@ -1321,15 +1321,18 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, a folha em im
       barra, carimbo, "não alterado" e selado na folha nova) se o HMAC dele conferir, o código da folha vista selado nele
       for o da folha ligada e as colunas forem iguais ao texto selado; qualquer falha conta como "alterada depois do
       aceite" e o "Assinar folha" volta. Sem o segredo, o aceite já gravado aparece sem conferência.
-  15. Aviso flutuante (L266): a E16 cria o molde para o "Baixar PDF" (o JS lê o código da resposta) e o aceite usa o
-      envio normal com o aviso do topo, como a E4. Se a E8 já tiver o aviso flutuante, usa-se o dela.
+  15. Aviso flutuante (L266): o "Baixar PDF" e o "Baixar" do "Ver PDF" usam o da E8 (`window.PontoAvisoFlutuante`,
+      js/ponto-aviso-flutuante.js), também na ficha do gestor, que passa a carregar o arquivo; o JS lê o código da
+      resposta. O aceite usa o envio normal, como a E4: "Folha assinada." no aviso flutuante verde do desenho (L809,
+      `FLASH_AVISO_FLUTUANTE`, como a E4 depois da E8) e as recusas no aviso do topo. Conferência de 10/11/2026: a
+      E16 tinha uma segunda cópia do aviso (`.pe-sf-aviso`), que podia aparecer junto com a da E8 no mesmo lugar.
   16. Sem o segredo: o PDF sai com o fundo de segurança (semente do conteúdo), sem o código na marca d'água e no
       microtexto, sem a palavra "AUTENTICA", sem a faixa do QR e sem o selo holográfico; a "Base Legal" sobe. Nenhuma
       folha emitida é gravada e o "Assinar folha" não aparece.
   17. A página de validação diz "Comprovante autêntico." também para a folha (desenho L300). O título e a frase
       da página também seguem os da janela "Validar comprovante" (L297 a L302). O `ValidarCodigoDoPontoUseCase`
       devolve só o texto que a página mostra (`?string`), porque a página não mostra mais nada do comprovante nem
-      da folha.
+      da folha. A frase da página é a da E15, a mesma para o comprovante e para a folha.
   18. Toda emissão nova grava "Folha emitida" na trilha, inclusive a que o aceite cria para a folha vista.
   19. Ressalva com até 1.000 caracteres; o PDF mostra uma linha cortada (L697). Ressalva sem texto é recusada.
   20. Ajuste da E10 no PDF (L622): as observações do dia começam com "<Batida> ajustada em dd/mm/aaaa" de cada batida
@@ -1362,6 +1365,13 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, a folha em im
       qualquer um de três rastros (`PassagemPeloEscritorio`): o vínculo, ativo ou não (suspenso, em análise); a saída
       da equipe gravada (quem sai perde o vínculo: `RemoverColaboradorDoEscritorioUseCase` o apaga); ou uma batida
       gravada neste escritório (quem saiu antes de 19/10/2026 não tem a saída gravada). Re-revisão de 10/11/2026.
+  29. Limite do PDF da folha (o desenho é omisso; convenção do sistema): 10 pedidos por minuto por pessoa (limitador
+      `ponto_folha_pdf`), porque cada pedido desenha o PDF em imagem no servidor e grava uma emissão. Passou do limite:
+      429 com "Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.", a frase do servidor do
+      comprovante (`ComprovanteDoPontoController::MUITOS_PEDIDOS`) e do .zip da pasta; o "Baixar PDF" mostra a mesma
+      frase no aviso flutuante vermelho. Conferência de 10/11/2026.
+  30. Sem o segredo, o cartão "Aceite mensal da folha" não aparece na aba Configurações, como o do comprovante e a aba
+      Comprovantes (`ObterConfiguracoesDoPontoUseCase`): sem o segredo não há aceite para ligar.
 
 **E17. Banco de horas por lotes.**
 - Obrigatória (P51 a).
@@ -1371,7 +1381,8 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, a folha em im
   manda). No dia em andamento, a coluna "Saldo mês" da folha mostra o acumulado até ontem (desenho L157). O motor passa a
   entregar esse número num campo novo da linha de hoje (o `saldoAcumulado` de hoje continua nulo até a saída), calculado
   com todos os dias do mês, inclusive os que a /ponto não recebe. Até lá a célula fica vazia. Teste: o número da linha de
-  hoje igual ao da linha de ontem na ficha (que mostra todos os dias), e o dia 1º sem número.
+  hoje igual ao da linha de ontem na ficha (que mostra todos os dias), e o dia 1º sem número. O PDF da folha (E16)
+  mostra o mesmo número na linha de hoje, vermelho se negativo (`LinhasDaFolhaImpressa`, conferência de 10/11/2026).
 - Depende de: E7 (limite e prazo na configuração).
 - Saldo de antes do início dos lotes ("Sem data de origem", seção 3; decisão do Coordenador de 09/11/2026): os lotes
   nascem no mês do início da contagem da pessoa e atravessam os anos, e o lançamento de horas pagas de uma competência
