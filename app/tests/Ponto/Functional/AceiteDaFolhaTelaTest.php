@@ -140,6 +140,21 @@ final class AceiteDaFolhaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $tela->filter(self::JANELA));
     }
 
+    #[TestDox('Aceite mexido no banco (UPDATE numa coluna, o IP): o selo vermelho "Alterada depois do aceite" e o "Assinar folha" volta (decisão 14)')]
+    public function testAceiteMexidoNoBanco(): void
+    {
+        $this->assinar('ressalva', 'O dia 6 foi de folga.');
+        $this->assertSelo($this->tela(), 'Ressalva em 09/11/2026', 'pe-folha-aceite pe-folha-aceite--ressalva');
+        $aceite = (int) $this->aceitesNoBanco($this->escritorio, $this->maria)[0]['id'];
+        self::assertSame(1, $this->em()->getConnection()->executeStatement("UPDATE ponto_folha_aceite SET ip = '10.0.0.1' WHERE id = ?", [$aceite]));
+
+        $tela = $this->tela();
+
+        $this->assertSelo($tela, 'Alterada depois do aceite', 'pe-folha-aceite pe-folha-aceite--alterada');
+        self::assertCount(1, $tela->filter(self::BARRA . ' > button[data-folha-assinar]'));
+        self::assertCount(1, $tela->filter(self::JANELA));
+    }
+
     #[TestDox('Função desligada no Global: o selo gravado fica e o "Assinar folha" some, mesmo com a folha alterada depois do aceite')]
     public function testDesligadaNoGlobalOSeloFica(): void
     {
