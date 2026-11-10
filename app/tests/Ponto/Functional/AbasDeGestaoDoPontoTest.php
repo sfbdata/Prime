@@ -163,7 +163,8 @@ final class AbasDeGestaoDoPontoTest extends JusPrimeWebTestCase
 
         $tela = $this->tela($gestor, '/ponto/');
 
-        $equipe = $tela->filter(self::BARRA . ' > button#ponto-aba-justificativas + button#ponto-aba-equipe[role="tab"][aria-selected="false"]');
+        // Entre as duas podem vir Comprovantes (E15) e Banco de Horas (E17), conforme o escritório (ordem do desenho, L758).
+        $equipe = $tela->filter(self::BARRA . ' > button#ponto-aba-justificativas ~ button#ponto-aba-equipe[role="tab"][aria-selected="false"]');
         self::assertCount(1, $equipe, 'Equipe depois de Minhas Justificativas, fechada ao entrar');
         self::assertSame('Equipe2', trim($equipe->text()), 'só as em análise da equipe deste escritório');
         self::assertCount(1, $equipe->filter('button > span.pe-aba-num.pe-aba-num--pend:last-child'));
@@ -175,7 +176,9 @@ final class AbasDeGestaoDoPontoTest extends JusPrimeWebTestCase
         $tela = $this->tela($colaborador, '/ponto/');
 
         self::assertCount(0, $tela->filter('#ponto-aba-equipe, #ponto-aba-configuracoes, #ponto-painel-equipe, #ponto-painel-configuracoes'));
-        self::assertCount(2, $tela->filter(self::BARRA . ' > button[role="tab"]'));
+        $abas = $tela->filter(self::BARRA . ' > button[role="tab"]')->each(static fn ($aba): string => (string) $aba->attr('id'));
+        // Comprovantes (E15) e Banco de Horas (E17) dependem do escritório; nenhuma aba de gestão aparece.
+        self::assertSame(['ponto-aba-pendencias', 'ponto-aba-justificativas'], array_values(array_diff($abas, ['ponto-aba-comprovantes', 'ponto-aba-banco'])));
     }
 
     #[TestDox('Na /ponto, o primário vê a Equipe com a própria em análise no número (ele analisa a própria, P43 a)')]
