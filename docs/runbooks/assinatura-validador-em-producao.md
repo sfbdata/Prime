@@ -117,6 +117,10 @@ Um comando por vez, **sem** o `scripts/deploy-prod-tls.sh`: ele reconstruiria tu
 automática e sem a trava contra o deploy automático. Aqui só o validador é construído; o php e o worker são recriados
 com a imagem que já está no ar.
 
+**Quando rodar:** fora do expediente e sem Deploy em andamento (no GitHub, Actions, Deploy: nenhuma execução amarela).
+O item c recria o php, e o site pode responder com erro por até 3 minutos. Os itens a e c não usam a trava do Deploy:
+se um Deploy começar no meio, os dois se cruzam.
+
 **a) Construir e subir só o validador.** O site segue no ar. A primeira vez leva alguns minutos (baixa as dependências
 Python).
 
@@ -160,7 +164,8 @@ sem o `-f` dos comandos acima: mostram o token.
 
 - **Falhou o item a** (o build ou o `up` do validador deu erro): o php e o worker não mudaram. Leia o erro (build
   quebrado: passo 7; `bind source path does not exist`: passo 1). Para desistir por agora, faça só os itens 1 e 3 do
-  passo 8.
+  passo 8. Para tentar de novo depois, volte ao passo 2: ele pode ser repetido sem risco (não troca um token que já
+  existe e repõe a URL que o passo 8 esvaziou).
 - **Falhou o item c** (o `up` do php e do worker deu erro, ou o php não ficou `healthy` em 3 minutos): desligue pelo
   passo 8 inteiro, que devolve o php e o worker sem o validador. Depois, `docker logs --tail 50 jusprime_php_prod` e
   fale com o desenvolvimento.
@@ -219,8 +224,23 @@ apenas na rede interna fica sem saída. Confira de dentro do php (mostra só o c
 docker exec jusprime_php_prod curl -sS -o /dev/null -m 10 -w "%{http_code}\n" https://www.google.com
 ```
 
-**Esperado:** `200`. Com `000` e `Could not resolve host`, o php perdeu a saída: desligue pelo passo 8 e fale com o
-desenvolvimento.
+**Esperado:** qualquer código que não seja `000` (normalmente `200`; `301` ou `302` também provam a saída).
+
+Com `000` e `Could not resolve host`, o php perdeu a saída. O passo 8 **não** resolve isso: o php continua na
+`assinatura_net` mesmo com o profile desligado. Tire o php e o worker dessa rede na hora e fale com o desenvolvimento,
+que tira a rede do php por PR:
+
+```bash
+# Execute manualmente no terminal externo (na VPS)
+rede=$(docker network ls --filter name=assinatura_net --format '{{.Name}}'); echo "$rede"
+docker network disconnect "$rede" jusprime_php_prod
+docker network disconnect "$rede" jusprime_worker_prod
+docker exec jusprime_php_prod curl -sS -o /dev/null -m 10 -w "%{http_code}\n" https://www.google.com
+```
+
+**Esperado:** o nome da rede (por exemplo `jusprime_assinatura_net`) e, no último comando, um código que não seja
+`000`. Até o conserto chegar por um Deploy, não recrie o php nem o worker (nem pelo passo 8): qualquer recriação os
+põe de volta na rede. Enquanto isso, gov.br e ICP-Brasil respondem "tente de novo".
 
 Por fim, o `app:conferir-segredos` passa a conferir também o `ASSINATURA_VALIDADOR_TOKEN` (sem mostrar o valor):
 
@@ -296,7 +316,8 @@ primeira atualização certa, um ITI fora do ar não derruba mais o validador. *
     desmarque "Simulação"; em "Só para deploy real: digite a tag de novo", a versão de novo; **Run workflow**.
   - Continuou quebrando, ou o erro é outro (por exemplo `THESE PACKAGES DO NOT MATCH THE HASHES`): fale com o
     desenvolvimento. Se a versão precisa sair antes do conserto, desligue o validador (passo 8), rode o Deploy de novo
-    como acima e, com a versão no ar, religue (passos 3 e 4). Enquanto isso, gov.br e ICP-Brasil ficam recusados como
+    como acima e, com a versão no ar, religue pelos passos 2, 3, 4 e 5 (o passo 8 esvaziou a URL; o passo 2 a repõe sem
+    trocar o token). Enquanto isso, gov.br e ICP-Brasil ficam recusados como
     "não configurado".
 - **O rollback automático do deploy só cobre `php`, `worker` e `scheduler`.** Se um deploy falhar e voltar, o
   validador fica com a imagem da versão que falhou. Para alinhá-lo com a versão que voltou:
@@ -346,7 +367,16 @@ primeira atualização certa, um ITI fora do ar não derruba mais o validador. *
    docker ps -a --filter name=jusprime_validador_pdf_prod --format '{{.Names}}'
    ```
 
-   **Esperado:** `Removed` no primeiro comando e nenhuma linha no segundo.
+   **Esperado:** `Removed` no primeiro comando e nenhuma linha no segundo. Se o segundo ainda mostrar
+   `jusprime_validador_pdf_prod`, tire pelo nome e confira de novo:
+
+   ```bash
+   # Execute manualmente no terminal externo (na VPS)
+   docker rm -f jusprime_validador_pdf_prod
+   docker ps -a --filter name=jusprime_validador_pdf_prod --format '{{.Names}}'
+   ```
+
+Para religar depois: passos 2, 3, 4 e 5.
 
 O token, os arquivos do selo e o volume `validador_ancoras` podem ficar: sem o contêiner, ninguém os usa, e religar
 fica mais rápido (as âncoras já estão no volume).
