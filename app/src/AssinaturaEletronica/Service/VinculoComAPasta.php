@@ -85,21 +85,27 @@ final class VinculoComAPasta
 
     /**
      * O worker desistiu do PDF final (a falha que lança, depois de todas as tentativas do Messenger): o vínculo pendente
-     * vira "vínculo não aplicado" com o motivo do PDF indisponível e se desfaz, com o erro no log. Se outro processo
-     * guardou o PDF final no meio (o primeiro download), segue o caminho de sempre e vai para a pasta. Sem vínculo
-     * pendente, ou com o documento ainda aguardando, nada muda.
+     * vira "vínculo não aplicado" com o motivo do PDF indisponível e se desfaz, com o erro no log. Antes de decidir, o
+     * documento é relido na trava: a instância vem do mapa de identidade do worker, carregada no começo da última
+     * tentativa, e outro processo (o primeiro download) pode ter guardado o PDF final ou aplicado o vínculo nesse meio.
+     * Com o PDF guardado, segue o caminho de sempre e vai para a pasta; guardado só na trava da falha, nada é desfeito
+     * (o evento do PDF guardado aplica o vínculo no outro processo). Sem vínculo pendente, ou com o documento ainda
+     * aguardando, nada muda.
      *
      * @return bool verdadeiro só quando o documento está na pasta
      */
     public function pdfFinalFalhou(DocumentoParaAssinar $documento, \Throwable $erro): bool
     {
+        if (!$this->documentos->emTransacao(fn (): bool => $this->documentos->travarERecarregar($documento, $documento->getTenant()))) {
+            return false;
+        }
         if (!$documento->isVinculoPendente()
             || $documento->getSituacao() !== SituacaoDoDocumento::Concluido
             || ChavesDeAssinaturaEletronica::pdfFinal($documento) !== null) {
             return $this->aplicar($documento);
         }
 
-        return $this->falharComErro($documento, $documento->getPasta(), 'pdf_indisponivel', $erro);
+        return $this->falharComErro($documento, $documento->getPasta(), 'pdf_indisponivel', $erro, semPdfGuardado: true);
     }
 
     private function tentar(DocumentoParaAssinar $documento): bool
@@ -189,11 +195,11 @@ final class VinculoComAPasta
         }, fn (): array => $this->arquivos->chavesNovas($arquivo), ArquivoAssinadoNaPasta::CONTEXTO);
     }
 
-    private function falharComErro(DocumentoParaAssinar $documento, ?Pasta $pasta, string $motivo, \Throwable $erro): bool
+    private function falharComErro(DocumentoParaAssinar $documento, ?Pasta $pasta, string $motivo, \Throwable $erro, bool $semPdfGuardado = false): bool
     {
         $this->logger->error('Vínculo da assinatura: documento {id} não foi para a pasta ({motivo}): {erro}', ['id' => $documento->getId(), 'motivo' => $motivo, 'erro' => $erro->getMessage()]);
 
-        return $this->falhar($documento, $pasta, $motivo);
+        return $this->falhar($documento, $pasta, $motivo, $semPdfGuardado);
     }
 
     /**
@@ -202,16 +208,18 @@ final class VinculoComAPasta
      * desta tentativa, nada é gravado nem desfeito. O número e quem vinculou são lidos antes de desfazer.
      *
      * @param Pasta|null $pastaDaTentativa a pasta lida no começo da tentativa (nula quando já tinha sido apagada)
+     * @param bool       $semPdfGuardado   a falha é a falta do PDF final: relido já com ele guardado, nada é desfeito
      *
      * @return bool verdadeiro só quando, relido, o documento já está na pasta (aplicado por outro processo)
      */
-    private function falhar(DocumentoParaAssinar $documento, ?Pasta $pastaDaTentativa, string $motivo): bool
+    private function falhar(DocumentoParaAssinar $documento, ?Pasta $pastaDaTentativa, string $motivo, bool $semPdfGuardado = false): bool
     {
         $texto = $this->tradutor->trans('assinatura_eletronica.vinculo_motivo.' . $motivo);
-        $this->documentos->emTransacao(function () use ($documento, $pastaDaTentativa, $texto): void {
+        $this->documentos->emTransacao(function () use ($documento, $pastaDaTentativa, $texto, $semPdfGuardado): void {
             if (!$this->documentos->travarERecarregar($documento, $documento->getTenant())
                 || !$documento->isVinculoPendente()
-                || $documento->getPasta()?->getId() !== $pastaDaTentativa?->getId()) {
+                || $documento->getPasta()?->getId() !== $pastaDaTentativa?->getId()
+                || ($semPdfGuardado && ChavesDeAssinaturaEletronica::pdfFinal($documento) !== null)) {
                 return;
             }
             $nup = $documento->getPasta()?->getNup() ?? $this->nupDaTrilha($documento);
