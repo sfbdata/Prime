@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
+use App\Ponto\Exception\CompetenciaDaFolhaInvalidaException;
 use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\Service\BancoDeHorasPorLotes;
@@ -1446,8 +1447,9 @@ final class PontoController extends AbstractController
     /**
      * A folha do mês em PDF (E16): o "Ver PDF" (`inline=1`, P89) e o "Baixar PDF". Cada PDF é uma emissão com código BJF
      * próprio (decisão 2), devolvido no cabeçalho `X-Codigo-Folha` para o aviso da tela; sem o segredo do HMAC, sai sem
-     * código e sem o cabeçalho. Quem pode: a pessoa; a folha de outro colaborador, quem tem vínculo ativo com ele e
-     * `admin.users.manage`, ou o Master. O desenho custa CPU e memória: 10 PDFs por minuto por usuário (`ponto_folha_pdf`).
+     * código e sem o cabeçalho. Quem pode: {@see self::pessoaDaFolhaExportada()}. O desenho custa CPU e memória: 10 PDFs
+     * por minuto por usuário (`ponto_folha_pdf`), contados só depois da permissão. Só a competência fora do calendário
+     * responde 400 (decisão 25); a falha do desenho ou do PDF, com a folha já gravada, é erro do servidor.
      */
     #[Route('/exportar-folha-pdf', name: 'ponto_exportar_pdf')]
     public function exportarFolhaPdf(
@@ -1468,14 +1470,20 @@ final class PontoController extends AbstractController
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
         try {
             $folha = $gerarPdf->executar($tenant, $pessoa, $ano, $mes, $user);
-        } catch (\InvalidArgumentException) {
+        } catch (CompetenciaDaFolhaInvalidaException) {
             throw new BadRequestHttpException('Competência inválida.');
         }
 
         return new Response($folha->pdf, Response::HTTP_OK, $this->cabecalhosDoPdf($folha, $request->query->getBoolean('inline', false)));
     }
 
-    /** A pessoa da folha: quem pede, ou o `userId` de outro colaborador, com a mesma permissão de hoje (P89). */
+    /**
+     * A pessoa da folha exportada em PDF ou XLSX: quem pede, ou o `userId` de outro colaborador (P89). O Master exporta
+     * a de qualquer um, como antes. Para os outros, quem não tem vínculo ativo NESTE escritório responde 404, igual ao
+     * `userId` que não existe (recurso de outro escritório é 404, nunca 403, para não revelar que existe; decisão 25), e
+     * a pessoa daqui só sai para quem tem `admin.users.manage` (sem a permissão, 403). Nada é gasto antes: nem cota, nem
+     * emissão, nem desenho.
+     */
     private function pessoaDaFolhaExportada(Request $request, User $user, Tenant $tenant, UserRepository $userRepository): User
     {
         $targetUserId = (int) $request->query->get('userId', 0);
@@ -1486,11 +1494,13 @@ final class PontoController extends AbstractController
         if ($targetUser === null) {
             throw $this->createNotFoundException('Usuário para exportação não encontrado.');
         }
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-        if (!$isSuperAdmin && !(
-            $this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)
-            && $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')
-        )) {
+        if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            return $targetUser;
+        }
+        if (!$this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)) {
+            throw $this->createNotFoundException('Usuário para exportação não encontrado.');
+        }
+        if (!$this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')) {
             throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
         }
 
@@ -1527,25 +1537,7 @@ final class PontoController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
         $tenant = $this->assertAccess($user);
-
-        $targetUser = $user;
-        $targetUserId = (int) $request->query->get('userId', 0);
-
-        if ($targetUserId > 0 && $targetUserId !== (int) $user->getId()) {
-            $targetUser = $userRepository->find($targetUserId);
-            if ($targetUser === null) {
-                throw $this->createNotFoundException('Usuário para exportação não encontrado.');
-            }
-
-            $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-
-            if (!$isSuperAdmin && !(
-                $this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)
-                && $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')
-            )) {
-                throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
-            }
-        }
+        $targetUser = $this->pessoaDaFolhaExportada($request, $user, $tenant, $userRepository);
 
         $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));

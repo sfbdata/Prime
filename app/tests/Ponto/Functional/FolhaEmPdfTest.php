@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\DTO\AssinarFolhaInput;
+use App\Ponto\DTO\ConteudoDaFolha;
 use App\Ponto\Enum\SituacaoDoAceiteDaFolha;
+use App\Ponto\Service\ImagemDaFolha\DesenhoDaFolha;
+use App\Ponto\Service\ImagemDaFolha\ImagemDaFolha;
 use App\Ponto\Service\PdfDeUmaImagem;
 use App\Ponto\UseCase\GerarPdfDaFolhaUseCase;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDaFolhaDoMesTrait;
 use App\Tests\Ponto\Support\DesenhoDaFolhaEspiao;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -25,7 +31,8 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
  * A folha do mês em PDF pela rota `ponto_exportar_pdf` (spec ponto-desenho-0811, E16, P34 e P89; decisões 2, 5 e 16):
  * a página desenhada em imagem, embrulhada num PDF de uma página; com o segredo do HMAC, cada PDF é uma folha emitida com
  * código próprio, devolvido em `X-Codigo-Folha` e válido na página pública; sem o segredo, o PDF sai sem código e nada
- * é gravado. As permissões são as de antes; 10 PDFs por minuto por usuário.
+ * é gravado. As permissões são as de antes, com uma exceção (decisão 25): a pessoa sem vínculo ativo neste escritório
+ * responde 404, como a que não existe (antes, 403); 10 PDFs por minuto por usuário, contados depois da permissão.
  *
  * O PDF é imagem: o que a folha mostra se lê no conteúdo que chegou ao desenho ({@see DesenhoDaFolhaEspiao}). Antes de
  * cada pedido, o EntityManager é limpo: a rota carrega o escritório, a pessoa e o aceite do zero, como em produção (a
@@ -164,6 +171,75 @@ final class FolhaEmPdfTest extends JusPrimeWebTestCase
         self::assertSame([], $this->folhasNoBanco($this->escritorio, $joao));
     }
 
+    /** @param 'de outro escritório'|'com o vínculo suspenso aqui'|'que não existe' $alvo */
+    #[DataProvider('pedidosDeQuemNaoEstaAqui')]
+    #[TestDox('Pessoa sem vínculo ativo neste escritório ($_dataName): 404 como a que não existe, sem gastar a cota, sem emitir nem desenhar')]
+    public function testPessoaSemVinculoAquiResponde404(bool $comAPermissao, string $alvo): void
+    {
+        $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
+        $quem = $comAPermissao ? $this->gestora() : $this->maria;
+        $alvoId = match ($alvo) {
+            'de outro escritório'         => (int) $this->pessoaComOutubro($this->escritorio('Outro escritório'), 'João Souza')->getId(),
+            'com o vínculo suspenso aqui' => $this->suspensaNesteEscritorio(),
+            'que não existe'              => 999999999,
+        };
+
+        $this->pedir($quem, self::OUTUBRO . '&userId=' . $alvoId);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame([], $desenho->desenhados);
+        self::assertSame([], $this->cota->chavesConsumidas, 'o limitador não foi consumido');
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM ponto_folha_emitida'), 'nenhuma folha emitida');
+        self::assertSame([], $this->acoesNaTrilha($this->escritorio));
+    }
+
+    /** @return iterable<string, array{bool, 'de outro escritório'|'com o vínculo suspenso aqui'|'que não existe'}> */
+    public static function pedidosDeQuemNaoEstaAqui(): iterable
+    {
+        yield 'gestor com admin.users.manage, pessoa de outro escritório' => [true, 'de outro escritório'];
+        yield 'gestor com admin.users.manage, pessoa com o vínculo suspenso aqui' => [true, 'com o vínculo suspenso aqui'];
+        yield 'gestor com admin.users.manage, userId que não existe' => [true, 'que não existe'];
+        // Sem a permissão também é 404: o 403 só vale para quem é deste escritório.
+        yield 'colaborador sem a permissão, pessoa de outro escritório' => [false, 'de outro escritório'];
+    }
+
+    #[TestDox('Master (ROLE_SUPER_ADMIN): exporta a folha de quem não tem vínculo neste escritório, como antes')]
+    public function testMasterExportaAFolhaDeQuemNaoTemVinculoAqui(): void
+    {
+        DesenhoDaFolhaEspiao::instalar(static::getContainer());
+        $master = $this->pessoa('Master do BlueJus', ['ROLE_SUPER_ADMIN']);
+        $this->vincular($master, $this->escritorio);
+        $joao = $this->pessoaComOutubro($this->escritorio('Outro escritório'), 'João Souza');
+
+        $this->pedir($master, self::OUTUBRO . '&userId=' . $joao->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'application/pdf');
+        self::assertResponseHeaderSame('Content-Disposition', 'attachment; filename="folha_ponto_JOAOSOUZA-10-2026.pdf"');
+        self::assertSame([(string) $master->getId()], $this->cota->chavesConsumidas);
+    }
+
+    /** @param 'no desenho'|'no embrulho' $onde */
+    #[DataProvider('falhasDepoisDaEmissao')]
+    #[TestDox('Falha $_dataName: erro do servidor (500), nunca o 400 da competência; a folha emitida e o evento ficam (decisão 25)')]
+    public function testFalhaDepoisDaEmissaoNaoViraCompetenciaInvalida(string $onde): void
+    {
+        static::getContainer()->set(ImagemDaFolha::class, self::desenhoQueFalha($onde));
+
+        $this->pedir($this->maria, self::OUTUBRO);
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertCount(1, $this->folhasNoBanco($this->escritorio, $this->maria), 'a folha emitida fica');
+        self::assertSame(['folha_emitida'], $this->acoesNaTrilha($this->escritorio), 'o evento fica');
+    }
+
+    /** @return iterable<string, array{'no desenho'|'no embrulho'}> */
+    public static function falhasDepoisDaEmissao(): iterable
+    {
+        yield 'no desenho (o QR recusa o endereço com \\InvalidArgumentException)' => ['no desenho'];
+        yield 'no embrulho (o desenho não entrega um JPEG e o PdfDeUmaImagem recusa)' => ['no embrulho'];
+    }
+
     #[TestDox('Gestor com admin.users.manage e vínculo: exporta a folha do colaborador, emitida em nome dele')]
     public function testGestorExportaAFolhaDoColaborador(): void
     {
@@ -236,6 +312,45 @@ final class FolhaEmPdfTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(400);
         self::assertSame([], $desenho->desenhados);
         self::assertSame([], $this->folhasNoBanco($this->escritorio, $this->maria));
+    }
+
+    private function gestora(): User
+    {
+        $gestora = $this->pessoa('Gestora do Ponto');
+        $this->vincular($gestora, $this->escritorio, ['modules.ponto.view', 'admin.users.manage']);
+
+        return $gestora;
+    }
+
+    /** O João com a folha de outubro neste escritório e o vínculo suspenso (inativo): o id dele. */
+    private function suspensaNesteEscritorio(): int
+    {
+        $joao = $this->pessoaComOutubro($this->escritorio, 'João Souza');
+        $vinculo = $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $joao, 'tenant' => $this->escritorio]);
+        self::assertNotNull($vinculo);
+        $vinculo->alterarSituacao(SituacaoNaEquipe::Suspenso);
+        $this->em()->flush();
+
+        return (int) $joao->getId();
+    }
+
+    /** O desenho que falha depois da emissão: lança como o QR que recusa o endereço, ou entrega o que não é JPEG. */
+    private static function desenhoQueFalha(string $onde): DesenhoDaFolha
+    {
+        return new class ($onde) implements DesenhoDaFolha {
+            public function __construct(private readonly string $onde)
+            {
+            }
+
+            public function gerar(ConteudoDaFolha $conteudo, ?string $enderecoDoQr, string $enderecoDaPagina): string
+            {
+                if ($this->onde === 'no desenho') {
+                    throw new \InvalidArgumentException('Endereço do QR recusado.');
+                }
+
+                return 'isto não é um JPEG';
+            }
+        };
     }
 
     /** Entra como a pessoa no escritório e pede o PDF, com o EntityManager limpo (como uma requisição de produção). */
