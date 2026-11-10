@@ -11,10 +11,12 @@ use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 /**
  * As páginas do PDF enviado em imagem: a A4 sai a 225 dpi, como sempre; a página maior que a caixa (1959 x 2604 px,
- * com a folga de 1,25: até 2448 x 3255) já sai do Ghostscript reduzida, numa passada só.
+ * com a folga de 1,25: até 2449 x 3255) já sai do Ghostscript reduzida, numa passada só. A imagem nunca passa do
+ * `-g` calculado, nem quando a medida lida do PDF mente.
  */
 #[CoversClass(RasterDoPdfEnviado::class)]
 #[CoversClass(MedidasDoPdfEnviado::class)]
@@ -59,7 +61,7 @@ final class RasterDoPdfEnviadoTest extends TestCase
             // CropBox de 300 x 400 pt dentro de uma MediaBox enorme, vezes 2: 600 x 800 pt a 225 dpi.
             '/MediaBox [0 0 14400 14400] /CropBox [0 0 300 400] /UserUnit 2',
         );
-        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), $pdf);
+        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), $pdf, new NullLogger());
 
         try {
             self::assertSame([1860, 2631], self::tamanho($raster->pagina(1)));
@@ -85,10 +87,28 @@ final class RasterDoPdfEnviadoTest extends TestCase
         self::assertLessThan(self::RAPIDO_SEGUNDOS, microtime(true) - $inicio);
     }
 
+    #[TestDox('Página sem medida vai a 225 dpi na caixa com a folga; medida falsa corta a página, sem custar mais')]
+    public function testTetoDePixelsSemDependerDaMedida(): void
+    {
+        // O -dPDFINFO deste PDF para no teto lá pela página 23: a 2999 fica sem medida, e a 3000 só tem a linha falsa
+        // (100 x 100 pt) que o nome de uma fonte põe na lista de fontes de cada página.
+        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), PdfDeCaixas::comSaidaGigante(), new NullLogger());
+
+        try {
+            // 595 x 842 pt a 225 dpi = 1859,4 x 2631,3 px.
+            self::assertSame([1859, 2631], self::tamanho($raster->pagina(1)));
+            self::assertSame([2449, 3255], self::tamanho($raster->pagina(2999)));
+            // 100 pt a 225 dpi = 312,5 px: a A4 sai cortada em 313 x 313.
+            self::assertSame([313, 313], self::tamanho($raster->pagina(3000)));
+        } finally {
+            $raster->liberar();
+        }
+    }
+
     /** @return array{int, int} */
     private static function medidas(string $pdf, int $pagina): array
     {
-        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), $pdf);
+        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), $pdf, new NullLogger());
 
         try {
             return self::tamanho($raster->pagina($pagina));

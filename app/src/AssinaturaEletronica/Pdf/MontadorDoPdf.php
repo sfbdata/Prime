@@ -8,6 +8,8 @@ use App\AssinaturaEletronica\Pdf\Diagramacao\DiagramacaoDeDuasColunas;
 use App\AssinaturaEletronica\Pdf\Diagramacao\DiagramacaoDePaginaInteira;
 use App\AssinaturaEletronica\Pdf\Diagramacao\ElementoDaPagina;
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * Monta o PDF de uma {@see FolhaParaMontar} (porta do `pdf(d, modo)`, dc:392-427; E3-1): diagrama o conteúdo, pinta
@@ -28,6 +30,7 @@ final class MontadorDoPdf
         private readonly DiagramacaoDeDuasColunas $duasColunas = new DiagramacaoDeDuasColunas(),
         private readonly CabecalhoDeDuasColunas $cabecalhoDeDuasColunas = new CabecalhoDeDuasColunas(),
         private readonly DesenhoDoConteudo $conteudo = new DesenhoDoConteudo(),
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
 
@@ -45,7 +48,7 @@ final class MontadorDoPdf
      */
     public function emPedacos(FolhaParaMontar $folha): \Generator
     {
-        $recursos = new RecursosDaFolha($folha, new RasterDoPdfEnviado($this->ghostscriptBin, $folha->pdfEnviado));
+        $recursos = new RecursosDaFolha($folha, new RasterDoPdfEnviado($this->ghostscriptBin, $folha->pdfEnviado, $this->logger));
         $escritor = new EscritorDePdf();
 
         try {
