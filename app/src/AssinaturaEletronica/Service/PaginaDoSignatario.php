@@ -103,18 +103,22 @@ final readonly class PaginaDoSignatario
      * Estado de bloqueio: o cartão e o nome do documento no cabeçalho; nada do conteúdo. O documento leva só `nome` e
      * `hashEnviado` (a tela pública, no bloqueio, só lê o nome para o cabeçalho; nem a forma da folha sai).
      *
+     * Etapa 3: para quem já assinou (o estado que a assinatura devolve), também o `codigo` de validação, que a tela
+     * verde mostra na caixa acima de "Baixar PDF com selo" (dc:270).
+     *
      * @return array<string, mixed>
      */
     private function bloqueio(Signatario $signatario, EstadoDaPagina $estado): array
     {
         $documento = $signatario->getDocumento();
+        $cabecalho = ['nome' => $documento->getNome(), 'hashEnviado' => $documento->getHashEnviado()];
+        if ($estado === EstadoDaPagina::JaAssinado || $estado === EstadoDaPagina::Concluido) {
+            $cabecalho['codigo'] = $documento->getCodigo();
+        }
 
         return array_merge($this->vazio($estado, false), [
             'anterior' => $estado === EstadoDaPagina::AguardandoAnterior ? $documento->anteriorPendente($signatario)?->getNome() : null,
-            'documento' => [
-                'nome' => $documento->getNome(),
-                'hashEnviado' => $documento->getHashEnviado(),
-            ],
+            'documento' => $cabecalho,
         ]);
     }
 

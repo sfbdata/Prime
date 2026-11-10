@@ -79,6 +79,7 @@ final class TenantContextValidatorListener
         'assinatura_eletronica_publica_arquivo',
         'assinatura_eletronica_publica_logo',
         'assinatura_eletronica_publica_rubrica',
+        'assinatura_eletronica_publica_pdf',
         'assinatura_eletronica_publica_invalido',
         // Validação pública do código BJA (etapa 3): quem lê o QR do PDF pode estar logado sem escritório ou sem aceite.
         'assinatura_eletronica_publica_validar',

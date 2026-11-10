@@ -12,11 +12,13 @@ use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
 use App\AssinaturaEletronica\Exception\MuitasTentativas;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
+use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PaginaDoSignatario;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
 use App\AssinaturaEletronica\UseCase\AbrirPaginaDoSignatarioUseCase;
 use App\AssinaturaEletronica\UseCase\AssinarDocumentoUseCase;
 use App\AssinaturaEletronica\UseCase\ObterArquivoDoSignatarioUseCase;
+use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
 use App\AssinaturaEletronica\UseCase\RecusarAssinaturaUseCase;
 use App\AssinaturaEletronica\UseCase\SolicitarCodigoUseCase;
 use App\Shared\Http\EntregaDeArquivo;
@@ -42,6 +44,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * da página. Token malformado (a rota de reserva), desconhecido ou de documento que sumiu: a mesma página "Link
  * inválido." com 404 (JSON nos POST). Os POST conferem o CSRF de id `assinar_{sha256 do token}` no cabeçalho
  * X-CSRF-Token, depois de achar o signatário (token ruim é sempre 404, nunca 403).
+ *
+ * Etapa 3 (E3-5): `GET /assinar/{token}/pdf`, o "Baixar PDF com selo" da tela verde, só para quem já assinou e enquanto
+ * o link vale ({@see ObterPdfDaAssinaturaUseCase::doSignatario()}). Gerar o PDF pesa: passa pelos limitadores da página.
  */
 final class AssinaturaPublicaController extends AbstractController
 {
@@ -132,6 +137,21 @@ final class AssinaturaPublicaController extends AbstractController
         return $this->entregar($request, $token, static fn (): ArquivoParaEntregar => $arquivos->rubrica($token, $ordem));
     }
 
+    #[Route('/assinar/{token}/pdf', name: 'assinatura_eletronica_publica_pdf', requirements: ['token' => self::TOKEN], methods: ['GET'])]
+    public function pdf(string $token, Request $request, ObterPdfDaAssinaturaUseCase $obter, EntregaDoPdfDaAssinatura $entrega): Response
+    {
+        if (!$this->dentroDoLimite($request, $token)) {
+            return new Response('', Response::HTTP_TOO_MANY_REQUESTS);
+        }
+        EntregaDoPdfDaAssinatura::limitar();
+
+        try {
+            return $entrega->resposta($obter->doSignatario($token));
+        } catch (LinkInvalido) {
+            return $this->paginaInvalida();
+        }
+    }
+
     /** Reserva: qualquer outro caminho sob /assinar/ (token malformado) é o mesmo "Link inválido." do token desconhecido. */
     #[Route('/assinar/{resto}', name: 'assinatura_eletronica_publica_invalido', requirements: ['resto' => '.+'], methods: ['GET', 'POST'], priority: -10)]
     public function invalido(Request $request): Response
@@ -212,7 +232,7 @@ final class AssinaturaPublicaController extends AbstractController
     private function urls(string $token): array
     {
         $urls = [];
-        foreach (['codigo', 'assinar', 'recusa', 'arquivo', 'logo'] as $nome) {
+        foreach (['codigo', 'assinar', 'recusa', 'arquivo', 'logo', 'pdf'] as $nome) {
             $urls[$nome] = $this->generateUrl('assinatura_eletronica_publica_' . $nome, ['token' => $token]);
         }
         $urls['rubrica'] = $this->generateUrl('assinatura_eletronica_publica_rubrica', ['token' => $token, 'ordem' => 0]);

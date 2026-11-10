@@ -7,8 +7,10 @@ namespace App\AssinaturaEletronica\Controller;
 use App\AssinaturaEletronica\DTO\ArquivoParaEntregar;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Service\AcessoAAssinatura;
+use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\UseCase\ObterArquivoDaAssinaturaUseCase;
 use App\AssinaturaEletronica\UseCase\ObterOriginalComAssinaturasUseCase;
+use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -20,6 +22,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * documento, a rubrica de quem assinou (etapa 2) e a logo padrão do escritório. Documento de outro escritório: 404.
  *
  * Etapa 5, bloco 5A: "Baixar original com as assinaturas" sai como anexo (download), não aberto no navegador.
+ * Etapa 3 (A5): o "Baixar PDF com selo", como download, em qualquer situação ({@see ObterPdfDaAssinaturaUseCase}).
  */
 final class ArquivosDaAssinaturaController extends AbstractController
 {
@@ -52,6 +55,19 @@ final class ArquivosDaAssinaturaController extends AbstractController
     public function original(int $id, ObterOriginalComAssinaturasUseCase $original): Response
     {
         return $this->entregar(fn (Tenant $tenant): ArquivoParaEntregar => $original->executar($tenant, $id), inline: false);
+    }
+
+    #[Route('/assinatura/documentos/{id}/pdf', name: 'assinatura_eletronica_pdf', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function pdf(int $id, ObterPdfDaAssinaturaUseCase $obter, EntregaDoPdfDaAssinatura $entrega): Response
+    {
+        [, $tenant] = $this->acesso->quemPode() ?? throw $this->createAccessDeniedException();
+        EntregaDoPdfDaAssinatura::limitar();
+
+        try {
+            return $entrega->resposta($obter->doEscritorio($tenant, $id));
+        } catch (DocumentoNaoEncontrado $e) {
+            throw $this->createNotFoundException($e->getMessage(), $e);
+        }
     }
 
     #[Route('/assinatura/logo-padrao', name: 'assinatura_eletronica_logo_padrao', methods: ['GET'])]
