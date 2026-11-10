@@ -111,11 +111,30 @@ final class PontoAbasJsTest extends TestCase
 
         self::assertStringContainsString('atualizarTelaDoPonto().catch((erro) => {', $ouvido, 'as regiões da batida e o cartão da Folha, tudo ou nada');
         self::assertMatchesRegularExpression(
-            '/\.catch\(\(erro\) => \{\s+console\.error\([^;]+;\s+setTimeout\(\(\) => window\.location\.reload\(\), 1500\);\s+\}\);/',
+            '/\.catch\(\(erro\) => \{\s+console\.error\([^;]+;\s+setTimeout\(\(\) => \{\s+if \(envioEmAndamento\) \{\s+return;\s+\}\s+window\.location\.reload\(\);\s+\}, 1500\);\s+\}\);/',
             $ouvido,
-            'falhou: recarrega, como a batida (a busca pode ter descartado a de uma batida)',
+            'falhou: recarrega, como a batida (a busca pode ter descartado a de uma batida), mas não com um toque enviando',
         );
         self::assertStringNotContainsString('liberarBotaoBatida', $ouvido, 'o botão da batida não é da exclusão');
+    }
+
+    #[TestDox('Com um toque enviando, a exclusão não busca a tela nem recarrega: o toque é dono da tela até terminar')]
+    public function testExclusaoNaoAtropelaOToque(): void
+    {
+        $index  = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
+        $ouvido = self::trecho($index, "document.addEventListener('ponto:justificativa-excluida', () => {", "\n    });");
+
+        self::assertMatchesRegularExpression(
+            '/^document\.addEventListener\(\'ponto:justificativa-excluida\', \(\) => \{\s+if \(envioEmAndamento\) \{\s+return;\s+\}\s+atualizarTelaDoPonto\(\)/',
+            $ouvido,
+            'nenhuma busca nova que deixaria a do toque mais velha (e descartada)',
+        );
+        $recarga = strpos($ouvido, 'window.location.reload();');
+        $guarda  = strrpos(substr($ouvido, 0, (int) $recarga), 'if (envioEmAndamento) {');
+        self::assertIsInt($recarga);
+        self::assertIsInt($guarda);
+        self::assertGreaterThan((int) strpos($ouvido, 'setTimeout(() => {'), $guarda, 'a guarda é conferida na hora da recarga, dentro do prazo');
+        self::assertStringContainsString('let envioEmAndamento = false;', $index, 'a mesma trava do toque, no escopo do script');
     }
 
     #[TestDox('Leitor de tela: a exclusão anuncia "Justificativa de dd/mm/aaaa excluída." na região só para ele, por textContent')]

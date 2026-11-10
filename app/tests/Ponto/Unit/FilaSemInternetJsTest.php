@@ -281,7 +281,14 @@ final class FilaSemInternetJsTest extends TestCase
             'o minuto e o online não começam uma rodada no meio de um toque'
         );
         self::assertStringContainsString("const URL_DA_BATIDA = '{{ path('ponto_batida') }}';", $tela);
-        self::assertSame(2, substr_count($tela, 'window.location.reload()'), 'a fila não recarrega a página');
+        // Três recargas na tela, nenhuma da fila: o plano B da batida, o botão "Atualizar" e o plano B da busca depois de
+        // excluir uma justificativa (E3), que mora no ouvinte de `ponto:justificativa-excluida` e não recarrega no meio
+        // de um toque (`envioEmAndamento`).
+        self::assertSame(3, substr_count($tela, 'window.location.reload()'), 'a fila não recarrega a página');
+        $exclusao = self::corpo($tela, "document.addEventListener('ponto:justificativa-excluida', () => {");
+        self::assertSame(1, substr_count($exclusao, 'window.location.reload()'), 'a terceira é a da exclusão');
+        self::assertStringNotContainsString('window.location.reload()', self::corpo($tela, 'async function enviarFila() {'));
+        self::assertStringNotContainsString('window.location.reload()', self::corpo($tela, 'async function atualizarDepoisDaFila() {'));
     }
 
     #[TestDox('Textos do desenho e da decisão do Coordenador: caixa, aviso de guardada, enviadas e recusa definitiva')]

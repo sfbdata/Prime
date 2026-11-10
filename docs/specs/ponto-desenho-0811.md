@@ -438,10 +438,12 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
         cobria volta): o index ouve `ponto:justificativa-excluida` e chama `atualizarTelaDoPonto`, o caminho de depois
         da batida (REGIOES_TROCADAS e o cartão da Folha, tudo ou nada). Falhou: o mesmo plano B da batida (recarrega
         em 1,5 s), porque essa busca pode ter passado à frente da de uma batida e a descartado, e o tipo recém-batido
-        ficaria livre na tela (revisão do Coordenador, 09/11/2026).
+        ficaria livre na tela (revisão do Coordenador, 09/11/2026). Com um toque enviando (`envioEmAndamento`), o toque é
+        dono da tela: a exclusão não começa outra busca (ficaria mais nova que a do toque) e a recarga não acontece (cortaria
+        o envio, e a batida poderia sumir sem ir para a fila).
       - testes: `ExcluirJustificativaControllerTest` (JSON sem flash e as recusas), `PontoAbasJsTest` (a linha sai, os
         números acompanham, a lista vazia, o anúncio, sem HTML montado com dado, o index atualiza e cai no plano B) e
-        `TelaDoPontoSemRecarregarJsTest` (três recargas na tela).
+        `TelaDoPontoSemRecarregarJsTest` e `FilaSemInternetJsTest` (três recargas na tela, a da exclusão no ouvinte dela).
 - Arquivos: `templates/ponto/_abas*.html.twig`, `_janelas_justificativa.html.twig`, `index.html.twig` (coluna da
   direita e REGIOES_TROCADAS), `public/js/ponto-abas.js`, `public/css/ponto-eletronico.css` (seção do cartão de abas e
   da janela), `PontoController` (rota de excluir; `abaAberta` e `podeAnalisarAPropria` no index), `TenantController`
