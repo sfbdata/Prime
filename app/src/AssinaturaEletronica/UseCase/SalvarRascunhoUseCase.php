@@ -37,7 +37,7 @@ use Psr\Clock\ClockInterface;
  *
  * Etapa 5, bloco 5A: o PDF enviado que já chega com assinatura digital vira a versão `original` (arquivo próprio, com a
  * conferência do motor) e o conteúdo ganha o parágrafo de dc:374. O original muda quando chega PDF novo ou quando o
- * rascunho perde o PDF: aí o anterior sai. Todo salvamento de rascunho existente trava e relê o documento, e o
+ * conteúdo fica sem página do PDF e sem o parágrafo do original (conteúdo trocado): aí o anterior sai. Todo salvamento de rascunho existente trava e relê o documento, e o
  * conteúdo fica só com o parágrafo do original guardado depois de salvar (duas abas não deixam evidência trocada).
  */
 final readonly class SalvarRascunhoUseCase
@@ -115,8 +115,10 @@ final readonly class SalvarRascunhoUseCase
 
     /**
      * Tudo que pode recusar, antes de gravar qualquer arquivo. O original muda quando chega PDF novo ou quando, sem PDF
-     * novo, o rascunho fica sem página do PDF; o PDF novo é conferido pelo motor e, se assinado, vira o original mesmo
-     * sem página dele no conteúdo (o `pres` do `subir` do desenho não depende dos blocos, dc:373-374).
+     * novo, o conteúdo fica sem página do PDF e sem o parágrafo do original (conteúdo trocado); o PDF novo é conferido
+     * pelo motor e, se assinado, vira o original mesmo sem página dele no conteúdo (o `pres` do `subir` do desenho não
+     * depende dos blocos, dc:373-374). O "Continuar e enviar" reabre sem o PDF, mas com o parágrafo nos blocos: o
+     * original fica.
      *
      * @return array{blocos: list<array<string, int|string>>, paginas: ?int, mudaOriginal: bool, original: ?OriginalJaAssinado}
      *
@@ -138,7 +140,7 @@ final readonly class SalvarRascunhoUseCase
         $temArquivo = $entrada->arquivo !== null || $documento->temArquivo();
         $blocos = ValidadorDeBlocos::normalizar($entrada->dados->blocos, $temArquivo, $paginas);
         $temPagina = \in_array('pg', array_column($blocos, 'k'), true);
-        $mudaOriginal = !$temPagina || $entrada->arquivo !== null;
+        $mudaOriginal = $entrada->arquivo !== null || (!$temPagina && !$this->arquivos->temParagrafoDoOriginal($blocos));
         $original = $entrada->arquivo !== null ? $this->arquivos->conferirOriginal($entrada->arquivo) : null;
         $this->arquivos->exigirLugarParaOParagrafo($blocos, $documento, $mudaOriginal, $original);
 

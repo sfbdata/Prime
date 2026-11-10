@@ -359,21 +359,43 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('Este documento já continha', (string) $blocos[\count($blocos) - 2]['x']);
     }
 
-    #[TestDox('rascunho que perde a página do PDF, sem PDF novo (reaberto: o desenho perde o pres no retomar), perde também o original e o parágrafo')]
-    public function testSemPaginaSaiOOriginal(): void
+    #[TestDox('rascunho que perde a página do PDF, sem PDF novo, com o parágrafo do original: o original fica e o PDF sai do documento')]
+    public function testSemPaginaComParagrafoFicaOOriginal(): void
     {
         $disco = $this->emMemoria();
         $this->entrar(true);
         $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => self::CONTEUDO], $this->assinado());
-        $chave = $this->chave($disco, $this->versoes($id)[0]['arquivo_chave']);
+        $versao = $this->versoes($id)[0];
         $semPagina = array_values(array_filter($this->detalhe($id)['blocos'], static fn (array $b): bool => $b['k'] !== 'pg'));
 
         $this->salvar($id, ['nome' => 'Contrato', 'blocos' => $semPagina]);
         self::assertResponseIsSuccessful();
 
+        self::assertSame([$versao['arquivo_chave']], array_column($this->versoes($id), 'arquivo_chave'), 'o mesmo original');
+        self::assertTrue($disco->memoria->existe($this->chave($disco, $versao['arquivo_chave'])));
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_enviado_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]), 'sem página, o PDF sai do documento');
+        $detalhe = $this->detalhe($id);
+        self::assertSame(['p', 'a'], array_column($detalhe['blocos'], 'k'));
+        self::assertNotNull($detalhe['jaAssinado']);
+    }
+
+    #[TestDox('conteúdo trocado (sem página do PDF e sem o parágrafo), sem PDF novo: o original e o arquivo dele saem')]
+    public function testConteudoTrocadoSaiOOriginal(): void
+    {
+        $disco = $this->emMemoria();
+        $this->entrar(true);
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => self::CONTEUDO], $this->assinado());
+        $chave = $this->chave($disco, $this->versoes($id)[0]['arquivo_chave']);
+
+        $this->salvar($id, ['nome' => 'Contrato', 'blocos' => [['k' => 'p', 'x' => 'Texto novo do contrato.'], ['k' => 'a', 'i' => 0, 'r' => '']]]);
+        self::assertResponseIsSuccessful();
+
         self::assertSame([], $this->versoes($id));
         self::assertFalse($disco->memoria->existe($chave));
-        self::assertSame(['a'], array_column($this->detalhe($id)['blocos'], 'k'));
+        $detalhe = $this->detalhe($id);
+        self::assertSame(['p', 'a'], array_column($detalhe['blocos'], 'k'));
+        self::assertSame('Texto novo do contrato.', $detalhe['blocos'][0]['x']);
+        self::assertNull($detalhe['jaAssinado']);
     }
 
     #[TestDox('PDF assinado sem página dele no conteúdo: o original fica (e o PDF não), com o parágrafo antes do lugar de assinatura; salvar de novo com o PDF mantém um só')]
@@ -400,8 +422,18 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         // A tela manda o PDF de novo a cada salvar enquanto o pres existe: continua um original e um parágrafo.
         $this->salvar($id, ['nome' => 'Contrato', 'blocos' => $detalhe['blocos']], $this->temporario('contrato.pdf', $bytes));
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $this->versoes($id));
+        $versoes = $this->versoes($id);
+        self::assertCount(1, $versoes);
+        self::assertSame('contrato.pdf', $versoes[0]['nome_original']);
         self::assertSame(['p', 'a'], array_column($this->detalhe($id)['blocos'], 'k'));
+
+        // "Continuar e enviar": reaberto sem o PDF, com os blocos guardados (o parágrafo junto). O original fica.
+        $this->salvar($id, ['nome' => 'Contrato', 'blocos' => $this->detalhe($id)['blocos']]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(array_column($versoes, 'arquivo_chave'), array_column($this->versoes($id), 'arquivo_chave'));
+        self::assertSame($bytes, $disco->memoria->ler($this->chave($disco, $versoes[0]['arquivo_chave'])));
+        self::assertSame(['p', 'a'], array_column($this->detalhe($id)['blocos'], 'k'));
+        self::assertNotNull($this->detalhe($id)['jaAssinado']);
     }
 
     #[TestDox('duplicar copia só o original, num arquivo da cópia, com a mesma análise; apagar o documento de origem não apaga o da cópia')]
@@ -428,6 +460,29 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertFalse($disco->memoria->existe($this->chave($disco, $daOrigem['arquivo_chave'])));
         self::assertSame($bytes, $disco->memoria->ler($this->chave($disco, $versoes[0]['arquivo_chave'])));
+    }
+
+    #[TestDox('duplicar o já assinado sem página do PDF: a cópia leva o original e o parágrafo, sem PDF no documento')]
+    public function testDuplicarSemPagina(): void
+    {
+        $this->emMemoria();
+        $this->entrar(true);
+        $bytes = OficinaDePdfAssinado::pdfAssinado();
+        $origem = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => [['k' => 'a', 'i' => 0, 'r' => '']]], $this->temporario('contrato.pdf', $bytes));
+        self::assertResponseStatusCodeSame(201);
+
+        $this->client->request('POST', '/assinatura/documentos/' . $origem . '/duplicar', [], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);
+        self::assertResponseStatusCodeSame(201);
+        $copia = (int) $this->json()['id'];
+
+        $versoes = $this->versoes($copia);
+        self::assertCount(1, $versoes);
+        self::assertSame(['original', hash('sha256', $bytes)], [$versoes[0]['origem'], $versoes[0]['sha256']]);
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_enviado_chave FROM assinatura_eletronica_documento WHERE id = ?', [$copia]));
+        $detalhe = $this->detalhe($copia);
+        self::assertSame(['p', 'a'], array_column($detalhe['blocos'], 'k'));
+        self::assertSame($this->paragrafo($bytes), $detalhe['blocos'][0]['x']);
+        self::assertSame('/assinatura/documentos/' . $copia . '/original', $detalhe['jaAssinado']['original']);
     }
 
     #[TestDox('"Baixar original com as assinaturas": anexo com os bytes enviados e o nome "{nome} - original.pdf"; outro escritório e documento sem original, 404')]
