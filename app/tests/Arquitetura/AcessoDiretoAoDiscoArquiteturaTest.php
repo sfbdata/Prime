@@ -64,6 +64,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Comercial/Campanha/PreparadorDeImagemDaCampanha.php'  => 'GD gera os bytes em memória (destino null); grava pelo armazenamento (COMERCIAL_IMAGEM)',
         'src/Tenant/Service/PreparadorDeLogoDoEscritorio.php'      => 'GD gera os bytes em memória (destino null); grava pelo armazenamento (TENANT_LOGO)',
         'src/AssinaturaEletronica/Service/RegravacaoDaSelfie.php'  => 'GD gera os bytes em memória (destino null); o cofre cifra e grava pelo armazenamento (ASSINATURA_DOCUMENTO)',
+        'src/AssinaturaEletronica/Pdf/EscritorDePdf.php'           => 'GD gera a JPEG da página em memória (destino null); o PDF sai em bytes, quem grava é o armazenamento',
         'src/Comercial/Controller/CampanhaDoMasterController.php'  => 'só lê o upload em trânsito da imagem; quem grava é o armazenamento',
         'src/Inteligencia/Juridico/CatalogoDeQuestoesJuridicas.php' => 'catálogo do repositório (config/inteligencia), não arquivo de usuário',
         'src/Inteligencia/Juridico/DocumentosJuridicosAtuais.php'   => 'modelos do repositório (resources/legal), não arquivo de usuário',

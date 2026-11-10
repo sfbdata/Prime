@@ -14,8 +14,8 @@ use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
  * cada página na GD (moldura, conteúdo, rodapé), passa as páginas de {@see PaginasDepoisDoConteudo} e escreve o PDF.
  * Uma página por vez: gerada, vira JPEG e é liberada antes da seguinte.
  *
- * Folha branca (E3-3): só o fundo das páginas do conteúdo fica branco; cabeçalho e rodapé com QR seguem, e as páginas
- * depois do conteúdo mantêm o fundo.
+ * Folha branca (E3-3, `limpaP` em dc:408 e o `pe()` que sai cedo em dc:411): as páginas do conteúdo ficam com fundo
+ * branco e só o cabeçalho, sem rodapé; as páginas depois do conteúdo mantêm fundo e rodapé.
  */
 final class MontadorDoPdf
 {
@@ -107,7 +107,9 @@ final class MontadorDoPdf
                 $this->cabecalhoDeDuasColunas->desenhar($tela, $recursos);
             }
             $this->conteudo->desenhar($tela, $elementos, $recursos);
-            $this->moldura->rodape($tela, $recursos, $numero, $total, $duas);
+            if (!$folha->folhaBranca) {
+                $this->moldura->rodape($tela, $recursos, $numero, $total, $duas);
+            }
 
             return $escritor->pagina($tela->gd());
         } finally {

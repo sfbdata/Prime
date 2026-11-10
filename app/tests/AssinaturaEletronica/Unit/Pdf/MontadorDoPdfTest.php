@@ -27,6 +27,9 @@ final class MontadorDoPdfTest extends TestCase
 {
     /** Abaixo da assinatura e acima do rodapé: só fundo (íris, ondas, rosácea e marca d'água). */
     private const AREA_SEM_TEXTO = [100.0, 900.0, 300.0, 200.0];
+    /** Rodapé de página inteira: de 1414 - 172 até o selo (raio 58 em 1302); o QR fica em (96, 1246), lado 116. */
+    private const AREA_DO_RODAPE = [92.0, 1240.0, 790.0, 125.0];
+    private const AREA_DO_QR = [100.0, 1250.0, 110.0, 110.0];
     /** Rodapé: o código vermelho começa em 92 + 116 + 24 = 232, com a base em 1414 - 172 + 42. */
     private const INICIO_DO_CODIGO = 232.0;
     private const BASE_DO_CODIGO = 1284.0;
@@ -53,28 +56,38 @@ final class MontadorDoPdfTest extends TestCase
         $depois = $pdf->imagem(2);
         [$r, $g, $b] = PdfLido::media($depois, 300, 400, 200, 200);
         self::assertGreaterThan(150, $r - max($g, $b), 'O miolo da página de depois é o que a extensão pintou.');
-        self::assertLessThan(60, PdfLido::maisEscuro($depois, 100, 1250, 110, 110), 'O QR do rodapé está na página de depois.');
+        self::assertLessThan(60, PdfLido::maisEscuro($depois, ...self::AREA_DO_QR), 'O QR do rodapé está na página de depois.');
     }
 
-    #[TestDox('Folha branca: área sem texto branca, com cabeçalho e rodapé; sem ela, o fundo de segurança aparece')]
+    #[TestDox('Folha branca: conteúdo sem fundo e sem rodapé, só o cabeçalho; a página de depois mantém fundo e rodapé')]
     public function testFolhaBrancaEFundo(): void
     {
-        $branca = (new PdfLido(self::montador()->montar(FolhaDeTeste::folha(mudancas: ['folhaBranca' => true]))))->imagem(1);
+        $pdfBranco = new PdfLido(self::montador()->montar(FolhaDeTeste::folha(mudancas: [
+            'folhaBranca' => true,
+            'paginasDepois' => self::umaPaginaDepois('#c00000'),
+        ])));
+        $branca = $pdfBranco->imagem(1);
+        $depois = $pdfBranco->imagem(2);
         $fundo = (new PdfLido(self::montador()->montar(FolhaDeTeste::folha())))->imagem(1);
 
         foreach (PdfLido::media($branca, ...self::AREA_SEM_TEXTO) as $canal) {
             self::assertGreaterThan(253.5, $canal, 'Folha branca sem fundo.');
         }
         self::assertGreaterThan(250, PdfLido::maisEscuro($branca, ...self::AREA_SEM_TEXTO));
+        // Cabeçalho (régua em 136) fica; o rodapé inteiro (QR, código, hash e selo) sai: `pe()` volta cedo (dc:411).
+        self::assertLessThan(90, PdfLido::maisEscuro($branca, 300, 135, 200, 3));
+        self::assertGreaterThan(250, PdfLido::maisEscuro($branca, ...self::AREA_DO_RODAPE), 'Folha branca sem rodapé.');
 
         [$r, $g, $b] = PdfLido::media($fundo, ...self::AREA_SEM_TEXTO);
         self::assertLessThan(251, min($r, $g, $b), 'O fundo íris tinge a página.');
         self::assertLessThan(235, PdfLido::maisEscuro($fundo, ...self::AREA_SEM_TEXTO), 'Ondas e rosácea aparecem.');
+        self::assertLessThan(60, PdfLido::maisEscuro($fundo, ...self::AREA_DO_QR), 'Sem folha branca, o rodapé aparece.');
 
-        // Cabeçalho (régua em 136) e QR do rodapé seguem na folha branca (E3-3).
-        self::assertLessThan(90, PdfLido::maisEscuro($branca, 300, 135, 200, 3));
-        self::assertLessThan(60, PdfLido::maisEscuro($branca, 100, 1250, 110, 110));
+        // A página depois do conteúdo (o manifesto) não é limpa: fundo e rodapé seguem.
+        self::assertLessThan(235, PdfLido::maisEscuro($depois, ...self::AREA_SEM_TEXTO));
+        self::assertLessThan(60, PdfLido::maisEscuro($depois, ...self::AREA_DO_QR));
         imagedestroy($branca);
+        imagedestroy($depois);
         imagedestroy($fundo);
     }
 
