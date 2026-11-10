@@ -29,7 +29,7 @@ from pyhanko_certvalidator.policy_decl import (
 )
 
 from .ancoras import ConjuntoDeAncoras
-from .conferencia import criar_contexto, silenciar_bibliotecas
+from .conferencia import criar_busca, criar_contexto, silenciar_bibliotecas
 from .configuracao import Configuracao, Revogacao
 from .execucao import ErroConhecido
 
@@ -112,10 +112,12 @@ async def _selar(pdf, assinante, url_da_act: str, conjunto: ConjuntoDeAncoras, r
     carimbador = HTTPTimeStamper(url_da_act, timeout=TEMPO_DA_ACT) if url_da_act else None
     # Sempre com contexto: o pyHanko confere o certificado do selo (validade, cadeia até uma âncora ICP-Brasil,
     # revogação tolerante) ANTES de selar, mesmo no B-B. Nunca sela com e-CNPJ vencido, revogado ou de fora.
-    contexto, backend = criar_contexto(
+    backend, busca = criar_busca(revogacao)
+    contexto = criar_contexto(
         conjunto.icp_raizes,
         conjunto.icp_intermediarias + tuple(c.dump() for c in assinante.cert_registry),
         revogacao,
+        busca,
         politica=POLITICA_DO_SELO,
     )
     metadados = signers.PdfSignatureMetadata(

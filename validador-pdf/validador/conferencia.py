@@ -5,7 +5,9 @@ Roda no processo filho (`execucao.py`). Para cada assinatura comum (/Sig) do PDF
   página redefinida depois da assinatura e o objeto preparado numa revisão e ativado noutra (sombra);
 - cadeia até as âncoras do nível pedido (raízes SÓ do conjunto baixado e conferido; intermediárias em
   `other_certs`; nada do PDF vira raiz), revogação obrigatória para o signatário quando o certificado declara
-  LCR ou OCSP (hard-fail) e tolerante para as ACs de cima;
+  LCR ou OCSP (hard-fail) e tolerante para as ACs de cima; signatário que não declara nenhuma das duas sai
+  confiável, mas com `revogacao=desconhecida` e `motivo=revogacao_nao_declarada` (o PHP só aceita `boa`);
+- LCR e OCSP buscados uma vez por pedido: um backend e um cache para todas as assinaturas e carimbos do PDF;
 - carimbo do tempo da assinatura, conferido contra todas as âncoras (ICP e gov.br);
 - titular: CN, CPF (otherName 2.16.76.1.3.1) e CNPJ (2.16.76.1.3.3), só o que o certificado declara.
 Os campos de saída seguem o JSON v1 da spec; `motivo` é um código, nunca um texto para o usuário.
@@ -28,7 +30,7 @@ from pyhanko.sign.validation import SignatureCoverageLevel, async_validate_pdf_s
 from pyhanko.sign.validation.settings import KeyUsageConstraints
 from pyhanko_certvalidator import ValidationContext
 from pyhanko_certvalidator.fetchers.aiohttp_fetchers import AIOHttpFetcherBackend
-from pyhanko_certvalidator.fetchers.api import FetchLimits
+from pyhanko_certvalidator.fetchers.api import Fetchers, FetchLimits
 from pyhanko_certvalidator.policy_decl import (
     CertRevTrustPolicy,
     RevocationCheckingPolicy,
@@ -152,35 +154,53 @@ def _confianca(ancora: str, conjunto: ConjuntoDeAncoras) -> tuple[tuple[bytes, .
     )
 
 
+def criar_busca(
+    revogacao: Revogacao, assinaturas: int = 1
+) -> tuple[AIOHttpFetcherBackend | None, Fetchers | None]:
+    """Backend e buscadores de LCR e OCSP de UM pedido; (None, None) sem busca na rede.
+
+    Os mesmos buscadores vão para todos os contextos do pedido (cada assinatura e cada carimbo do PDF): o cache
+    deles (por certificado e por URL) evita baixar de novo a mesma LCR, e o teto de requisições vale para o pedido
+    inteiro, `requisicoes_maximas` por assinatura (o que cada uma tinha antes do cache compartilhado).
+    Quem chama fecha o backend (`await backend.close()`).
+    """
+    if not revogacao.buscar_na_rede:
+        return None, None
+    # Sem buscar certificado de emissor (AIA): as URLs viriam de certificados ainda não confiáveis.
+    # LCR e OCSP só são buscados para certificados de um caminho que já chegou a uma âncora.
+    backend = AIOHttpFetcherBackend(
+        per_request_timeout=revogacao.tempo_por_requisicao,
+        limits=FetchLimits(
+            max_requests=revogacao.requisicoes_maximas * max(1, assinaturas),
+            max_cert_requests=0,
+            max_aia_urls_per_object=0,
+        ),
+    )
+    return backend, backend.get_fetchers()
+
+
 def criar_contexto(
     raizes: tuple[bytes, ...],
     intermediarias: tuple[bytes, ...],
     revogacao: Revogacao,
+    busca: Fetchers | None,
     politica: CertRevTrustPolicy = POLITICA_DE_REVOGACAO,
-) -> tuple[ValidationContext, AIOHttpFetcherBackend | None]:
-    """Contexto do pyHanko: raízes só as âncoras dadas (lista vazia = nenhuma, nunca as do sistema)."""
-    backend = None
-    if revogacao.buscar_na_rede:
-        # Sem buscar certificado de emissor (AIA): as URLs viriam de certificados ainda não confiáveis.
-        # LCR e OCSP só são buscados para certificados de um caminho que já chegou a uma âncora.
-        backend = AIOHttpFetcherBackend(
-            per_request_timeout=revogacao.tempo_por_requisicao,
-            limits=FetchLimits(
-                max_requests=revogacao.requisicoes_maximas,
-                max_cert_requests=0,
-                max_aia_urls_per_object=0,
-            ),
-        )
-    contexto = ValidationContext(
+) -> ValidationContext:
+    """Contexto do pyHanko: raízes só as âncoras dadas (lista vazia = nenhuma, nunca as do sistema).
+
+    `busca`: os buscadores de `criar_busca` (obrigatórios com busca na rede, para nunca cair no backend padrão).
+    """
+    if revogacao.buscar_na_rede and busca is None:
+        raise ValueError('busca na rede sem os buscadores do pedido (criar_busca)')
+    return ValidationContext(
         trust_roots=[asn1_x509.Certificate.load(der) for der in raizes],
         other_certs=[asn1_x509.Certificate.load(der) for der in intermediarias],
         allow_fetching=revogacao.buscar_na_rede,
         crls=list(revogacao.lcrs),
         ocsps=list(revogacao.ocsps),
         revinfo_policy=politica,
-        fetcher_backend=backend,
+        fetchers=busca if revogacao.buscar_na_rede else None,
     )
-    return contexto, backend
 
 
 async def _conferir(pdf: bytes, ancora: str, conjunto: ConjuntoDeAncoras, revogacao: Revogacao) -> dict:
@@ -191,22 +211,24 @@ async def _conferir(pdf: bytes, ancora: str, conjunto: ConjuntoDeAncoras, revoga
     todas_as_raizes = conjunto.icp_raizes + conjunto.govbr_raizes
     todas_as_intermediarias = conjunto.icp_intermediarias + conjunto.govbr_intermediarias
     itens = []
-    for assinatura in assinaturas:
-        contexto, backend = criar_contexto(raizes, intermediarias, revogacao)
-        contexto_do_carimbo, backend_do_carimbo = criar_contexto(
-            todas_as_raizes, todas_as_intermediarias, revogacao
-        )
-        try:
+    backend, busca = criar_busca(revogacao, len(assinaturas))
+    try:
+        for assinatura in assinaturas:
+            contexto = criar_contexto(raizes, intermediarias, revogacao, busca)
+            contexto_do_carimbo = criar_contexto(todas_as_raizes, todas_as_intermediarias, revogacao, busca)
             itens.append(await _conferir_uma(assinatura, contexto, contexto_do_carimbo, familia))
-        finally:
-            for b in (backend, backend_do_carimbo):
-                if b is not None:
-                    await b.close()
+    finally:
+        if backend is not None:
+            await backend.close()
     return {'v': 1, 'assinaturas': itens}
 
 
 async def _conferir_uma(assinatura, contexto, contexto_do_carimbo, familia: dict[str, str]) -> dict:
     faixa = _faixa(assinatura)
+    if faixa is None:
+        # /ByteRange que não são 4 inteiros: não há o que conferir nem como casar com o motor (o PHP casa pela
+        # faixa). Sai ilegível: `faixa` nula, `intacta` falsa e `motivo=assinatura_ilegivel`.
+        return _item_ilegivel(assinatura, None)
     _tipos_de_erro.tipos.clear()
     try:
         status = await async_validate_pdf_signature(
@@ -248,10 +270,15 @@ async def _conferir_uma(assinatura, contexto, contexto_do_carimbo, familia: dict
 
 
 def _faixa(assinatura) -> list[int] | None:
+    """O /ByteRange como 4 inteiros não negativos; qualquer outra forma (null, texto, nomes, número real, mais ou
+    menos de 4 números) vira None. Nunca arredonda: a faixa devolvida é a do arquivo ou nenhuma."""
     try:
-        return [int(x) for x in assinatura.byte_range]
+        valores = list(assinatura.byte_range)
     except Exception:
         return None
+    if len(valores) != 4 or not all(isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in valores):
+        return None
+    return [int(v) for v in valores]
 
 
 def _item_ilegivel(assinatura, faixa) -> dict:
@@ -307,6 +334,8 @@ def _revogacao(status, confiavel: bool) -> str:
 
 
 def _motivo(item: dict, status, erros: list[str]) -> str | None:
+    """O primeiro problema, nesta ordem: integridade, assinatura, confiança (com a revogação), modificação depois,
+    cobertura, DocMDP e carimbo. Nulo não quer dizer aceito: o PHP aplica a regra E6-6 aos campos."""
     if not item['intacta']:
         return 'conteudo_alterado'
     if not item['valida']:
@@ -323,6 +352,9 @@ def _motivo(item: dict, status, erros: list[str]) -> str | None:
                 return 'revogacao_indisponivel'
             return 'cadeia_nao_confiavel'
         return MOTIVO_DA_CONFIANCA.get(indicacao.name, 'cadeia_nao_confiavel')
+    if not _declara_revogacao(status.signing_cert):
+        # Cadeia confiável, mas o certificado não declara LCR nem OCSP: a revogação não foi consultada.
+        return 'revogacao_nao_declarada'
     if item['nivel_de_modificacao'] == 'outra':
         return 'modificado_depois'
     if item['cobertura'] == 'parcial':

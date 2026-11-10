@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
+import datetime as dt
 import re
 from types import SimpleNamespace
 
 import pytest
+from cryptography import x509
 
-from validador import conferencia
+from validador import conferencia, selo
 from validador.ancoras import ConjuntoDeAncoras
 from validador.configuracao import Revogacao
 from validador.execucao import ErroConhecido
 
 from . import pdfs, pki
+from .lcr import LcrLocal
 
 
 @pytest.fixture(scope='module')
@@ -182,6 +186,18 @@ def test_revogacao_declarada_e_indisponivel_recusa_hard_fail(icp, ancoras):
     assert item['motivo'] == 'revogacao_indisponivel'
 
 
+def test_signatario_sem_lcr_nem_ocsp_declarado_e_revogacao_nao_declarada(icp, ancoras):
+    folha = icp.ac.emitir_folha('SEM REVOGACAO:12345678909', cpf='12345678909', com_lcr=False, com_ocsp=False)
+    pdf = pdfs.assinar(pdfs.pdf_simples(), folha, cadeia=[icp.ac])
+
+    item = _uma(pdf, ancoras)
+
+    # A cadeia fecha, mas nada foi consultado: o motivo não pode ser nulo (o PHP só aceita revogacao=boa).
+    assert (item['intacta'], item['valida'], item['confiavel'], item['ancora']) == (True, True, True, 'icp')
+    assert item['revogacao'] == 'desconhecida'
+    assert item['motivo'] == 'revogacao_nao_declarada'
+
+
 def test_certificado_vencido(icp, ancoras):
     folha = icp.ac.emitir_folha(
         'VENCIDO:12345678909', cpf='12345678909', inicio=pki.AGORA - 400 * pki.UM_DIA, fim=pki.AGORA - pki.UM_DIA
@@ -201,7 +217,9 @@ def test_carimbo_do_tempo_valido(icp, ancoras):
 
     assert item['carimbo']['presente'] is True
     assert item['carimbo']['valido'] is True
-    assert item['carimbo']['hora'].startswith(str(pki.AGORA.year))
+    # A ACT de teste carimba com a hora do momento da assinatura (depois de pki.AGORA, antes de agora).
+    hora = dt.datetime.fromisoformat(item['carimbo']['hora'])
+    assert pki.AGORA - dt.timedelta(minutes=1) <= hora <= dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=1)
     assert item['motivo'] is None
 
 
@@ -215,6 +233,33 @@ def test_carimbo_de_act_desconhecida_e_invalido_sem_derrubar_a_assinatura(icp, a
     assert item['carimbo']['valido'] is False
     assert item['confiavel'] is True
     assert item['motivo'] == 'carimbo_invalido'
+
+
+def test_byte_trocado_dentro_da_faixa_assinada_e_conteudo_alterado(icp, ancoras):
+    assinado = pdfs.assinar(pdfs.pdf_simples(), icp.folha, cadeia=[icp.ac])
+    adulterado = assinado.replace(b'Contrato original', b'Contrato 0riginal')
+    assert adulterado != assinado and len(adulterado) == len(assinado)
+
+    item = _uma(adulterado, ancoras, lcrs=(icp.ac.lcr(),))
+
+    assert item['intacta'] is False
+    assert item['confiavel'] is False
+    assert item['motivo'] == 'conteudo_alterado'
+
+
+def test_uso_de_chave_sem_assinatura_digital_nem_nao_repudio_e_recusado(icp, ancoras):
+    so_cifragem = x509.KeyUsage(
+        digital_signature=False, content_commitment=False, key_encipherment=True, data_encipherment=False,
+        key_agreement=False, key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
+    )
+    folha = icp.ac.emitir_folha('CIFRAGEM:12345678909', cpf='12345678909', uso_da_chave=so_cifragem)
+    pdf = pdfs.assinar(pdfs.pdf_simples(), folha, cadeia=[icp.ac])
+
+    item = _uma(pdf, ancoras, lcrs=(icp.ac.lcr(),))
+
+    assert (item['intacta'], item['valida'], item['confiavel']) == (True, True, False)
+    assert item['ancora'] is None
+    assert item['motivo'] == 'restricao_do_certificado'
 
 
 def test_acrescimo_que_muda_a_pagina_depois_da_assinatura(icp, ancoras):
@@ -287,6 +332,36 @@ def test_cpf_so_com_zeros_nao_e_cpf(icp, ancoras):
     assert _uma(pdf, ancoras, lcrs=(icp.ac.lcr(),))['titular']['cpf'] is None
 
 
+def _com_byte_range(pdf: bytes, novo: bytes) -> bytes:
+    """Troca o valor do /ByteRange mantendo o tamanho (as posições do xref continuam certas)."""
+    trecho = re.search(rb'/ByteRange\s*(\[[^\]]*\])', pdf)
+    tamanho = trecho.end(1) - trecho.start(1)
+    assert len(novo) <= tamanho
+    return pdf[:trecho.start(1)] + novo.ljust(tamanho) + pdf[trecho.end(1):]
+
+
+@pytest.mark.parametrize(
+    'byte_range', [b'null', b'(abc)', b'[/a /b /c /d]', b'[0 1 2]', b'[-1 1 2 3]', b'[0.5 1 2 3]', b'[]', b'<< >>']
+)
+def test_byte_range_que_nao_sao_4_inteiros_sai_com_faixa_nula_e_ilegivel(icp, ancoras, byte_range):
+    assinado = pdfs.assinar(pdfs.pdf_simples(), icp.folha, cadeia=[icp.ac])
+
+    item = _uma(_com_byte_range(assinado, byte_range), ancoras, lcrs=(icp.ac.lcr(),))
+
+    assert item['faixa'] is None  # nunca uma faixa arredondada ou parcial: o PHP casa os itens por ela
+    assert (item['intacta'], item['valida'], item['confiavel'], item['ancora']) == (False, False, False, None)
+    assert item['motivo'] == 'assinatura_ilegivel'
+
+
+def test_assinatura_sem_byte_range_derruba_o_pdf_inteiro(icp, ancoras):
+    # O pyHanko não monta a assinatura sem a chave /ByteRange: o PDF todo é ilegível (400), não um item.
+    assinado = pdfs.assinar(pdfs.pdf_simples(), icp.folha, cadeia=[icp.ac])
+    sem_chave = assinado.replace(b'/ByteRange', b'/ByteRangX')
+
+    with pytest.raises(ErroConhecido, match='^pdf_ilegivel$'):
+        _conferir(sem_chave, ancoras, lcrs=(icp.ac.lcr(),))
+
+
 def test_pdf_sem_assinatura(ancoras):
     assert _conferir(pdfs.pdf_simples(), ancoras) == {'v': 1, 'assinaturas': []}
 
@@ -300,3 +375,48 @@ def test_pdf_ilegivel(ancoras, corpo):
 def test_ancora_fora_da_lista(ancoras):
     with pytest.raises(ErroConhecido, match='^parametro_invalido$'):
         _conferir(pdfs.pdf_simples(), ancoras, ancora='sistema')
+
+
+def test_lcr_buscada_na_rede_uma_vez_por_pedido_para_todas_as_assinaturas(icp, ancoras):
+    # Duas pessoas da mesma AC: a LCR é a mesma URL. Com busca na rede, o cache é do pedido inteiro.
+    with LcrLocal(icp.ac.lcr()) as servidor_da_lcr:
+        primeira = icp.ac.emitir_folha('PRIMEIRA:12345678909', cpf='12345678909', url_da_lcr=servidor_da_lcr.url)
+        segunda = icp.ac.emitir_folha('SEGUNDA:98765432100', cpf='98765432100', url_da_lcr=servidor_da_lcr.url)
+        pdf = pdfs.assinar(pdfs.pdf_simples(), primeira, cadeia=[icp.ac])
+        pdf = pdfs.assinar(pdf, segunda, campo='Signature2', cadeia=[icp.ac])
+
+        resultado = conferencia.conferir(pdf, 'icp', ancoras, Revogacao(buscar_na_rede=True, tempo_por_requisicao=5))
+
+    itens = resultado['assinaturas']
+    assert [(i['campo'], i['confiavel'], i['revogacao'], i['motivo']) for i in itens] == [
+        ('Signature1', True, 'boa', None),
+        ('Signature2', True, 'boa', None),
+    ]
+    assert servidor_da_lcr.pedidos == ['/ac-teste.crl']
+
+
+def test_contexto_com_busca_na_rede_monta_sem_buscar_nada(icp):
+    # Só monta (nada é validado, nada sai pela rede): pega troca de assinatura do pyHanko numa atualização.
+    revogacao = Revogacao(buscar_na_rede=True, requisicoes_maximas=12)
+
+    async def montar():
+        backend, busca = conferencia.criar_busca(revogacao, assinaturas=3)
+        try:
+            contextos = [
+                conferencia.criar_contexto((icp.raiz.der,), (icp.ac.der,), revogacao, busca, politica=politica)
+                for politica in (conferencia.POLITICA_DE_REVOGACAO, selo.POLITICA_DO_SELO)
+            ]
+        finally:
+            await backend.close()
+        return backend, busca, contextos
+
+    backend, busca, contextos = asyncio.run(montar())
+
+    assert busca is not None
+    assert all(c.fetching_allowed for c in contextos)
+    assert (backend.limits.max_requests, backend.limits.max_cert_requests, backend.limits.max_aia_urls_per_object) == (
+        36, 0, 0
+    )
+    with pytest.raises(ValueError):
+        conferencia.criar_contexto((icp.raiz.der,), (), revogacao, None)
+    assert conferencia.criar_busca(Revogacao(buscar_na_rede=False)) == (None, None)

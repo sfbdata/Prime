@@ -118,6 +118,7 @@ class Entidade:
         com_lcr: bool = True,
         com_ocsp: bool = False,
         uso_da_chave: x509.KeyUsage | None = None,
+        url_da_lcr: str | None = None,
     ) -> Entidade:
         chave = _chave()
         construtor = (
@@ -146,7 +147,7 @@ class Entidade:
         if nomes:
             construtor = construtor.add_extension(x509.SubjectAlternativeName(nomes), critical=False)
         if com_lcr:
-            construtor = construtor.add_extension(_pontos_de_lcr(self.nome), critical=False)
+            construtor = construtor.add_extension(_pontos_de_lcr(self.nome, url_da_lcr), critical=False)
         if com_ocsp:
             construtor = construtor.add_extension(
                 x509.AuthorityInformationAccess(
@@ -253,11 +254,11 @@ def _slug(nome: str) -> str:
     return ''.join(c if c.isalnum() else '-' for c in nome.lower())
 
 
-def _pontos_de_lcr(nome_do_emissor: str) -> x509.CRLDistributionPoints:
+def _pontos_de_lcr(nome_do_emissor: str, url: str | None = None) -> x509.CRLDistributionPoints:
     return x509.CRLDistributionPoints(
         [
             x509.DistributionPoint(
-                full_name=[x509.UniformResourceIdentifier(URL_LCR.format(nome=_slug(nome_do_emissor)))],
+                full_name=[x509.UniformResourceIdentifier(url or URL_LCR.format(nome=_slug(nome_do_emissor)))],
                 relative_name=None,
                 reasons=None,
                 crl_issuer=None,
