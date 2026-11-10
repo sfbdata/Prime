@@ -14,6 +14,7 @@ use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\Service\BancoDeHorasPorLotes;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Ponto\Entity\ComprovanteDoPonto;
+use App\Ponto\Entity\FolhaEmitidaDoPonto;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
@@ -1546,6 +1547,11 @@ final class PontoController extends AbstractController
 
         $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
+        try {
+            FolhaEmitidaDoPonto::exigirCompetencia($ano, $mes);   // a mesma regra e a mesma resposta do PDF (decisão 25)
+        } catch (CompetenciaDaFolhaInvalidaException) {
+            throw new BadRequestHttpException('Competência inválida.');
+        }
 
         /** @var list<MarcacaoDoPonto> $batidas as efetivas (E10) */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);

@@ -20,7 +20,8 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
  * Quem exporta a folha de outra pessoa em XLSX pela rota `ponto_exportar_xlsx` (spec ponto-desenho-0811, E16, P88 e
  * P89; decisão 25): a mesma regra do PDF. A pessoa sem vínculo ativo neste escritório responde 404, como o `userId` que
  * não existe (recurso de outro escritório é 404, nunca 403); a pessoa daqui só sai para quem tem `admin.users.manage`
- * (sem a permissão, 403); o Master exporta a de qualquer um, como antes.
+ * (sem a permissão, 403); o Master exporta a de qualquer um, como antes. A competência fora do calendário responde 400,
+ * como no PDF.
  */
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
@@ -76,6 +77,16 @@ final class FolhaXlsxDeOutraPessoaTest extends JusPrimeWebTestCase
         yield 'Colaborador sem a permissão, pessoa deste escritório: 403' => ['colaborador', 'daqui', 403];
         yield 'Gestor com admin.users.manage, pessoa deste escritório: 200' => ['gestora', 'daqui', 200];
         yield 'Master (ROLE_SUPER_ADMIN), pessoa de outro escritório: 200, como antes' => ['master', 'de outro escritório', 200];
+    }
+
+    #[TestDox('Competência fora do calendário (ano com cinco dígitos): 400 "Competência inválida.", como o PDF, nunca o erro do servidor')]
+    public function testCompetenciaInvalida(): void
+    {
+        $this->pedir($this->maria, '/ponto/exportar-folha-xlsx?mes=10&ano=10000');
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('Competência inválida.', html_entity_decode((string) $this->client->getResponse()->getContent()));
+        self::assertResponseHeaderNotSame('Content-Type', self::PLANILHA);
     }
 
     /** @param 'gestora'|'colaborador'|'master' $quem */
