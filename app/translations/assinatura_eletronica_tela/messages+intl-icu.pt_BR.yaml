@@ -357,3 +357,40 @@ assinatura_eletronica_tela:
             sera_salvo: 'Será salvo na pasta {nup} quando concluído.'
             erro: 'Não foi possível vincular o arquivo.'
             historico: 'vinculou documento assinado: {nome} ({codigo})'
+        # Documento já assinado (etapa 5, bloco 5A: quadro do passo 3 e do detalhe; 5B: carimbo visível). Sem plural do
+        # ICU no catálogo JS: o título tem uma chave para uma assinatura e outra para várias.
+        ja_assinado:
+            titulo_um: 'Documento já assinado: 1 assinatura digital reconhecida'
+            titulo_varios: 'Documento já assinado: {n} assinaturas digitais reconhecidas'
+            titulo_alterada: 'Atenção: há assinatura que não confere com o arquivo'
+            data_nao_informada: 'data não informada'
+            integra_cobre: 'Íntegra: arquivo sem alteração desde esta assinatura'
+            integra_acrescimos: 'Íntegra: esta versão está preservada e há acréscimos posteriores'
+            nao_conferida: 'Não foi possível conferir'
+            emissor: 'Emissor: {emissor}'
+            nao_identificado: 'Não identificado'
+            nota: 'O arquivo original fica guardado sem alteração, e novas assinaturas digitais entram ao final dele, sem apagar as anteriores. Aqui se confere a integridade; a validade do certificado e da cadeia ICP-Brasil é confirmada no Validar do ITI.'
+            # Entra colado ao fim da nota, com o espaço do início, quando o primeiro signatário travou o PDF (DocMDP 1).
+            nota_docmdp: ' O primeiro signatário bloqueou qualquer alteração: nova assinatura digital invalidaria o documento.'
+            paragrafo: 'Este documento já continha {n} assinatura(s) digital(is) de {nomes}. O arquivo original foi preservado sem alteração, com hash SHA-256 {sha}.'
+            baixar_original: 'Baixar original com as assinaturas'
+            copia_carimbo: 'Cópia com carimbo visível'
+            conferir_iti: 'Conferir no Validar (ITI)'
+            aviso_carimbo: 'Para validar as assinaturas, use o original. O carimbo é um acréscimo visual: as assinaturas continuam íntegras, mas os validadores indicam alteração posterior.'
+            aviso_bloqueado: 'O primeiro signatário bloqueou alterações neste PDF: use o original e o manifesto com selo.'
+            nome_original: '{nome} - original.pdf'
+            nome_carimbo: '{nome} - com carimbo.pdf'
+            carimbo:
+                linha: 'Assinatura eletrônica BlueJus: {nome}, CPF ***.{meio}.***-**, em {data}'
+                codigo: 'Código {codigo}. Confira em bluejus.com.br.'
+                sem_assinatura: 'Ainda não há assinatura eletrônica feita pelo BlueJus para carimbar.'
+                erro:
+                    senha: 'Arquivo protegido por senha.' # segredo:permitido mensagem de erro do carimbo, não é credencial
+                    bloqueado: 'O primeiro signatário bloqueou alterações neste PDF.'
+                    estrutura: 'Estrutura do PDF não reconhecida.'
+                    pagina: 'Página não localizada no PDF.'
+                    anotacoes: 'Anotações não localizadas.'
+                    verificacao: 'Verificação final não confirmou a preservação.'
+                # Entra colado ao fim de cada erro acima, com o espaço do início.
+                use_original: ' Use o original.'
+                falhou: 'Não foi possível carimbar. Use o original.'

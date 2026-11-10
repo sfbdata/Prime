@@ -69,3 +69,30 @@ assinatura_eletronica_publica:
             previa: 'Localização não informada nesta pré-visualização.'
             buscando: 'Obtendo a localização...'
             recusada: 'Localização não autorizada. Permita o acesso à localização no navegador para assinar.'
+        # Assinatura gov.br e ICP-Brasil (etapa 5, bloco 5C): baixar o PDF, assinar fora e devolver o arquivo assinado.
+        # Os endereços do assinador do ITI e da página do certificado ficam no código, não aqui.
+        certificado:
+            baixar: 'Baixar PDF para assinar'
+            assinar_govbr: 'Assinar no portal gov.br'
+            assinar_icp: 'Assinar com o seu certificado'
+            enviar: 'Enviar PDF assinado'
+            situacao_inicial: 'Depois de assinar, envie o PDF aqui.'
+            situacao_ok: '{n} assinatura(s) íntegra(s) em {arquivo}. A validade do certificado é confirmada no Validar do ITI.'
+            situacao_ok_preservadas: '{n} assinatura(s) íntegra(s) em {arquivo}, com as anteriores preservadas. A validade do certificado é confirmada no Validar do ITI.'
+            nome_para_assinar: '{nome} - para assinar.pdf'
+            metodo:
+                govbr: 'Conta gov.br'
+                icp: 'Certificado ICP-Brasil'
+                arquivo: '{forma} · arquivo {arquivo} · {n} assinatura(s) digital(is) no arquivo'
+            # Os códigos são os mesmos do motivo do evento `pdf_assinado_recusado` da trilha.
+            erro:
+                sem_pdf: 'Envie o PDF assinado.'
+                sem_assinatura: 'Nenhuma assinatura digital encontrada neste arquivo.'
+                alterada: 'Uma assinatura deste arquivo não confere com o conteúdo.'
+                prefixo: 'Este arquivo não preserva as assinaturas anteriores. Assine o PDF baixado nesta tela, sem imprimir ou salvar como novo.'
+                sem_assinatura_nova: 'Não há assinatura nova neste arquivo.'
+                ilegivel: 'Não foi possível ler este arquivo.'
+                sem_cpf: 'O certificado deste arquivo não traz CPF.'
+                cpf_diferente: 'O CPF do certificado não corresponde ao cadastrado para este signatário.'
+                cadeia_indisponivel: 'Não foi possível conferir a assinatura agora. Tente de novo em alguns minutos.'
+                cadeia_recusada: 'O certificado desta assinatura não foi confirmado pela cadeia oficial.'

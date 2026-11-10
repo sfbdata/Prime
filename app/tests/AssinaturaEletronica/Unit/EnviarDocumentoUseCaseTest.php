@@ -12,6 +12,9 @@ use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
+use App\AssinaturaEletronica\Service\Cadeia\ResultadoDaCadeia;
+use App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeia;
+use App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeiaNaoConfigurado;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\ChaveDoSelo;
 use App\AssinaturaEletronica\Service\CofreDaSelfie;
@@ -32,7 +35,8 @@ use PHPUnit\Framework\TestCase;
  * "Gerar links e enviar" (contrato da etapa 2, seções 3, 4.1 e 6) com os repositórios do domínio dublados: a trava e a
  * releitura, a conferência dos signatários, o sha256 do token de cada um, o convite depois do COMMIT e as falhas do
  * e-mail como evento, sem desfazer o envio. Etapa 3: o código de validação do selo, gerado no envio depois do hash, com
- * a colisão (outra tentativa) e a recusa sem o segredo do selo.
+ * a colisão (outra tentativa) e a recusa sem o segredo do selo. Etapa 5 (E5-2): gov.br e ICP só com o validador de
+ * cadeia configurado.
  */
 #[CoversClass(EnviarDocumentoUseCase::class)]
 #[CoversClass(CorreioDaAssinatura::class)]
@@ -45,6 +49,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
     private User $advogada;
     private CofreDaSelfie $cofre;
     private ChaveDoSelo $selo;
+    private ValidadorDeCadeia $cadeia;
 
     protected function setUp(): void
     {
@@ -52,6 +57,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $this->advogada = self::usuario('advogada@escritorio.test', 'Dra. Advogada');
         $this->cofre = new CofreDaSelfie(str_repeat('ab', 32));
         $this->selo = new ChaveDoSelo('selo-de-teste-com-32-bytes-ou-mais-0123456');
+        $this->cadeia = new ValidadorDeCadeiaNaoConfigurado();
     }
 
     #[TestDox('envia: aguardando, sha256 do token de cada signatário guardado e um convite com o link a cada um, Reply-To de quem enviou')]
@@ -325,6 +331,55 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
     }
 
+    /** @return iterable<string, array{NivelDeAssinatura}> */
+    public static function niveisComCertificado(): iterable
+    {
+        yield 'gov.br' => [NivelDeAssinatura::Govbr];
+        yield 'ICP-Brasil' => [NivelDeAssinatura::Icp];
+    }
+
+    #[DataProvider('niveisComCertificado')]
+    #[TestDox('$_dataName sem o validador de cadeia configurado (E5-2): recusa com o nome e o documento continua rascunho')]
+    public function testCertificadoSemValidador(NivelDeAssinatura $nivel): void
+    {
+        $documento = $this->rascunho();
+        (new \ReflectionProperty(Signatario::class, 'nivel'))->setValue($documento->getSignatarios()[1], $nivel);
+
+        try {
+            $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+            self::fail('deveria recusar');
+        } catch (AcaoRecusada $e) {
+            self::assertSame('assinatura_eletronica.erro.certificado_sem_validador', $e->getMessage());
+            self::assertSame(['nome' => 'Bia Souza'], $e->parametros);
+        }
+        self::assertSame(SituacaoDoDocumento::Rascunho, $documento->getSituacao());
+        self::assertSame([], $this->mailer->enviados);
+    }
+
+    #[DataProvider('niveisComCertificado')]
+    #[TestDox('$_dataName com o validador de cadeia configurado: o envio aceita')]
+    public function testCertificadoComValidador(NivelDeAssinatura $nivel): void
+    {
+        $this->cadeia = new class () implements ValidadorDeCadeia {
+            public function configurado(): bool
+            {
+                return true;
+            }
+
+            public function conferir(string $pdf, string $ancora): ResultadoDaCadeia
+            {
+                throw new \LogicException('O envio só pergunta se o validador está configurado.');
+            }
+        };
+        $documento = $this->rascunho();
+        (new \ReflectionProperty(Signatario::class, 'nivel'))->setValue($documento->getSignatarios()[1], $nivel);
+
+        $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+
+        self::assertSame(SituacaoDoDocumento::Aguardando, $documento->getSituacao());
+        self::assertCount(2, $this->mailer->enviados);
+    }
+
     private static function reforcada(Signatario $signatario): void
     {
         (new \ReflectionProperty(Signatario::class, 'nivel'))->setValue($signatario, NivelDeAssinatura::Reforcada);
@@ -343,6 +398,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
             $this->correio(),
             $this->apresentacao(),
             $this->relogio,
+            $this->cadeia,
         );
     }
 }

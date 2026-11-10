@@ -13,6 +13,7 @@ use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
+use App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeia;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\ChaveDoSelo;
 use App\AssinaturaEletronica\Service\CofreDaSelfie;
@@ -33,6 +34,8 @@ use Psr\Clock\ClockInterface;
  * Etapa 3 (contrato da etapa 3, seção 2, item 4): depois do hash, o código de validação do selo. Colisão com o código
  * de outro documento (de qualquer escritório) tenta de novo com a tentativa seguinte, até {@see TENTATIVAS_DO_CODIGO};
  * o índice único da coluna garante. Sem o segredo do selo, o envio recusa antes da transação.
+ *
+ * Etapa 5 (E5-2): gov.br e ICP só com o validador de cadeia configurado.
  */
 final readonly class EnviarDocumentoUseCase
 {
@@ -49,6 +52,7 @@ final readonly class EnviarDocumentoUseCase
         private CorreioDaAssinatura $correio,
         private ApresentacaoDoDocumento $apresentacao,
         private ClockInterface $relogio,
+        private ValidadorDeCadeia $cadeia,
     ) {
     }
 
@@ -71,7 +75,7 @@ final readonly class EnviarDocumentoUseCase
             }
             $this->documentos->recarregarSignatarios($documento);
             $documento->exigirEnviavel();
-            ConferenciaDoEnvio::exigir($documento, $this->cofre->configurado());
+            ConferenciaDoEnvio::exigir($documento, $this->cofre->configurado(), $this->cadeia->configurado());
 
             $hash = $this->conteudo->hash($documento);
             $documento->enviar($hash, $agora);

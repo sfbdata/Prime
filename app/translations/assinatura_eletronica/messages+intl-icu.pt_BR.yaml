@@ -17,7 +17,7 @@ assinatura_eletronica:
         link_aberto: '{nome} abriu o link'
         codigo_enviado: Código de verificação enviado a {nome}
         codigo_errado: Código incorreto informado por {nome}
-        assinado: '{metodo, select, reforcada {Assinado por {nome} · E-mail e código, selfie, localização {local}} other {Assinado por {nome} · E-mail e código}}'
+        assinado: '{metodo, select, reforcada {Assinado por {nome} · E-mail e código, selfie, localização {local}} govbr {Assinado por {nome} · Conta gov.br} icp {Assinado por {nome} · Certificado ICP-Brasil} other {Assinado por {nome} · E-mail e código}}'
         recusado: 'Recusado por {nome}: {motivo}'
         documento_concluido: Documento concluído
         lembrete_enviado: Lembrete enviado a {nome}
@@ -26,6 +26,10 @@ assinatura_eletronica:
         vinculo_definido: 'Definido o vínculo à pasta {nup} ao concluir'
         vinculo_feito: 'Documento assinado vinculado à pasta {nup}'
         vinculo_nao_aplicado: 'Vínculo à pasta {nup} não aplicado: {motivo}'
+        # Etapa 5: gov.br e ICP (contrato da etapa 5, seção 2, item 5). O `motivo` da recusa é o código do erro do envio
+        # do PDF assinado (o mesmo de `assinatura_eletronica_publica.js.certificado.erro.<motivo>`).
+        pdf_para_assinar_gerado: 'PDF para assinar gerado para {nome}'
+        pdf_assinado_recusado: 'PDF assinado enviado por {nome} recusado: {motivo, select, sem_assinatura {nenhuma assinatura digital no arquivo} alterada {assinatura que não confere com o conteúdo} prefixo {o arquivo não preserva a versão anterior} sem_assinatura_nova {nenhuma assinatura nova no arquivo} ilegivel {arquivo que não pôde ser lido} sem_cpf {certificado sem CPF} cpf_diferente {CPF do certificado diferente do cadastrado} cadeia_recusada {certificado não confirmado pela cadeia oficial} cadeia_indisponivel {validador de certificados indisponível} other {arquivo não aceito}}'
     erro:
         sem_permissao: Você não tem acesso à Assinatura de documentos.
         nao_encontrado: Documento não encontrado.
@@ -67,10 +71,10 @@ assinatura_eletronica:
         envio_sem_signatarios: Adicione ao menos um signatário para enviar.
         envio_nome: Informe o nome de todos os signatários.
         envio_cpf: Confira o CPF informado.
-        envio_nivel: 'A assinatura de {nome} ainda não está disponível. Use a assinatura Simples.'
         envio_email: Informe o e-mail de {nome} para enviar o código de assinatura.
         envio_reforcada_menor: 'A assinatura Reforçada colhe selfie e não é usada para menor ({nome}). Escolha outra forma de assinatura.'
         reforcada_sem_chave: Assinatura reforçada sem chave configurada. Fale com o suporte.
+        certificado_sem_validador: 'A assinatura de {nome} (gov.br ou ICP-Brasil) precisa do validador de certificados, que não está configurado. Fale com o suporte.'
         selo_sem_chave: Código de validação sem chave configurada. Fale com o suporte.
         vinculo_ja_definido: Este documento já está vinculado a uma pasta.
         vinculo_fora_do_envio: Só documentos aguardando assinatura ou concluídos, fora da Lixeira, podem ser vinculados a uma pasta.

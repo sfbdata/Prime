@@ -139,7 +139,7 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
     public static function signatariosRecusados(): iterable
     {
         yield 'sem e-mail' => [[['nome' => 'Ana Lima', 'email' => 'ana@exemplo.com'], ['nome' => 'Bia Souza']], 'Informe o e-mail de Bia Souza para enviar o código de assinatura.'];
-        yield 'nível gov.br' => [[['nome' => 'Ana Lima', 'email' => 'ana@exemplo.com', 'nivel' => 'govbr']], 'A assinatura de Ana Lima ainda não está disponível. Use a assinatura Simples.'];
+        yield 'gov.br sem o validador de cadeia' => [[['nome' => 'Ana Lima', 'email' => 'ana@exemplo.com', 'nivel' => 'govbr']], 'A assinatura de Ana Lima (gov.br ou ICP-Brasil) precisa do validador de certificados, que não está configurado. Fale com o suporte.'];
         yield 'sem nome' => [[['nome' => '', 'email' => 'ana@exemplo.com']], 'Informe o nome de todos os signatários.'];
         yield 'CPF errado' => [[['nome' => 'Ana Lima', 'email' => 'ana@exemplo.com', 'cpf' => '52998224724']], 'Confira o CPF informado.'];
         yield 'sem signatários' => [[], 'Adicione ao menos um signatário para enviar.'];

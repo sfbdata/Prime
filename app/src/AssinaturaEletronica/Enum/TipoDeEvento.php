@@ -6,8 +6,8 @@ namespace App\AssinaturaEletronica\Enum;
 
 /**
  * Os eventos da trilha de auditoria do documento (contrato da etapa 1, seção 3.1; etapa 2, seção 4.3; etapa 3, seção 2,
- * item 9). O texto de cada um sai do catálogo (`assinatura_eletronica.evento.<valor>`), com os parâmetros guardados em
- * `dados` e o `{nome}` do signatário (ou do usuário) do próprio evento.
+ * item 9; etapa 5, seção 2, item 5). O texto de cada um sai do catálogo (`assinatura_eletronica.evento.<valor>`), com
+ * os parâmetros guardados em `dados` e o `{nome}` do signatário (ou do usuário) do próprio evento.
  */
 enum TipoDeEvento: string
 {
@@ -35,6 +35,11 @@ enum TipoDeEvento: string
     case VinculoDefinido = 'vinculo_definido';
     case VinculoFeito = 'vinculo_feito';
     case VinculoNaoAplicado = 'vinculo_nao_aplicado';
+
+    // Etapa 5: gov.br e ICP. O PDF para assinar foi congelado (E5-1), com o `{sha256}` em `dados`; o PDF devolvido foi
+    // recusado, com o código do `{motivo}` em `dados` (o arquivo recusado não é guardado).
+    case PdfParaAssinarGerado = 'pdf_para_assinar_gerado';
+    case PdfAssinadoRecusado = 'pdf_assinado_recusado';
 
     /** A chave do texto do evento no catálogo de idioma. */
     public function chaveDoTexto(): string

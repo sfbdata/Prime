@@ -300,6 +300,10 @@ services:
     # Assinatura, etapa 3: o PDF final com selo. Provisória (lança) até o bloco 1 trocar pela implementação real.
     App\AssinaturaEletronica\Service\PdfFinalDoDocumento: '@App\AssinaturaEletronica\Service\PdfFinalProvisorio'
 
+    # Assinatura, etapa 5 (E5-2): o validador de cadeia gov.br e ICP. "Não configurado" até o bloco 6B trocar pelo cliente
+    # HTTP do contêiner validador_pdf; sem ele, o envio recusa gov.br e ICP.
+    App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeia: '@App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeiaNaoConfigurado'
+
     # Conexão somente-leitura das ferramentas MCP. SEM default de propósito: ausente a
     # variável, o servidor falha com mensagem clara em vez de cair na conexão de escrita.
     # O processor `string:` garante STRING (nunca null): `$dsn` do construtor é
