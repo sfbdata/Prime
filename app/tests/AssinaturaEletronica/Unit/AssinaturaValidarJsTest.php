@@ -13,7 +13,9 @@ use Symfony\Component\Yaml\Yaml;
  * Aba Validar e leitura do QR Code (etapa 3, bloco 2; inventário A7), lidas no `public/js/assinatura-validar.js` como
  * FOLHA: não há navegador nem câmera no PHPUnit. O que se prova são os valores do desenho (dc:275, dc:338-343, dc:380,
  * dc:457): a câmera de trás, o ciclo de 180 ms, o BarcodeDetector antes do jsQR em 640 px, as larguras da foto, o
- * padrão do código, o som de dois tons, a vibração e que todo texto sai do catálogo. Ver a câmera funcionando é smoke
+ * padrão do código, o som de dois tons, a vibração e que todo texto sai do catálogo. E o que a revisão do bloco pediu:
+ * a janela fora das abas com o foco preso nela, a câmera que para quando a janela some, o pedido velho de permissão que
+ * para o próprio fluxo, o escape do resultado e o código no #hash da tela (dc:299). Ver a câmera funcionando é smoke
  * do dono.
  */
 #[CoversNothing]
@@ -104,6 +106,85 @@ final class AssinaturaValidarJsTest extends TestCase
             "esc(T('hash')) + ' <code>' + esc(d.hash || '') + '</code>'",
             "'<div>' + esc(linhaDoSignatario(s)) + '</div>'",
         ], 'resultado');
+    }
+
+    #[TestDox('resultado escapado: o esc troca & < > " e \' por entidade, e todo valor do servidor passa por ele')]
+    public function testEscapeDoResultado(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString("const esc = t => String(t == null ? '' : t).replace(/[&<>\\x22\\x27]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\\x22': '&quot;', '\\x27': '&#39;' }[c]));", $js);
+        preg_match('/function htmlDoResultado\(d\) \{(.*?)\n    \}/s', $js, $m);
+        self::assertNotEmpty($m[1] ?? '', 'htmlDoResultado no arquivo');
+        self::assertDoesNotMatchRegularExpression('/\+ d\.|\+ s\./', $m[1] ?? '', 'nenhum campo do documento entra sem esc');
+        self::assertStringContainsString('<div class="bjaToast is-erro" role="status">\' + esc(texto)', $js, 'o aviso (o erro do servidor) também');
+    }
+
+    #[TestDox('janela da câmera fora das abas (dc:275): achada pelo aria-controls, ligada à parte, foco entra e fica preso')]
+    public function testJanelaForaDasAbasComFocoPreso(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString("const janela = botaoCam ? document.getElementById(botaoCam.getAttribute('aria-controls') || '') : null;", $js);
+        self::assertStringContainsString("[raiz, janela].forEach(n => { n.addEventListener('click', aoClicar); n.addEventListener('change', aoEscolherFoto); });", $js);
+        self::emOrdem($js, ['async function abrirCam() {', 'const meu = ++pedido;', 'if (janela.hidden) { origem = document.activeElement; }', 'janela.hidden = false;', 'focarNaJanela(false);'], 'o foco entra ao abrir');
+        self::emOrdem($js, [
+            "document.addEventListener('focusin', ev => {",
+            'if (janela.hidden || janela.contains(ev.target) || !(ev.target instanceof Node)) { return; }',
+            'focarNaJanela(!!(janela.compareDocumentPosition(ev.target) & Node.DOCUMENT_POSITION_PRECEDING));',
+        ], 'o foco que escapa volta (Shift+Tab não chega às abas)');
+        self::emOrdem($js, ['function fecharCam() {', 'pedido++;', 'pararCam();', 'janela.hidden = true;', 'origem.focus();'], 'fechar devolve o foco');
+    }
+
+    #[TestDox('a câmera para sempre que a janela deixa de estar visível, a cada ciclo de 180 ms')]
+    public function testCameraParaQuandoAJanelaSome(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString('const aberta = () => !janela.hidden && janela.isConnected && janela.getClientRects().length > 0;', $js);
+        self::emOrdem($js, ['const roda = async () => {', 'if (camId !== id) { return; }', 'if (!aberta()) { fecharCam(); return; }', 'setTimeout(roda, CICLO_MS)'], 'ciclo da câmera');
+        self::emOrdem($js, ['function pararCam() {', 'camId = 0;', 'fluxo.getTracks().forEach(t => t.stop()); fluxo = null;', 'video.srcObject = null;'], 'parar apaga a luz');
+    }
+
+    #[TestDox('dois abrirCam seguidos: o pedido velho de permissão dá stop no próprio fluxo e não assume a janela')]
+    public function testPedidoVelhoDaCamera(): void
+    {
+        self::emOrdem(self::js(), [
+            'const meu = ++pedido;',
+            "await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });",
+            'if (meu !== pedido || !aberta()) {',
+            'st.getTracks().forEach(t => t.stop());',
+            'if (meu === pedido) { fecharCam(); }',
+            'return;',
+            'fluxo = st;',
+            'video.srcObject = st;',
+            'lerCamera(meu);',
+            "if (meu === pedido && aberta()) { msg.textContent = T('cam_indisponivel'); }",
+        ], 'abrirCam marcado');
+    }
+
+    #[TestDox('código BJA no #hash (dc:299): a tela abre na aba Validar com o código no campo e valida')]
+    public function testCodigoNoHash(): void
+    {
+        $tela = (string) file_get_contents(self::APP . '/public/js/assinatura.js');
+        $js = self::js();
+
+        self::emOrdem($tela, [
+            '/* ── Início',
+            "const codHash = el.abaVal && window.BJAValidar ? window.BJAValidar.codQr(location.hash) : '';",
+            "if (codHash) { s.aba = 'val'; }",
+            'mostrarTela();',
+            'desenharLista();',
+            "if (codHash) { window.BJAValidar.validarCodigo(el.abaVal.querySelector('[data-bja-validar]'), codHash); }",
+            'carregar();',
+        ], 'início da tela');
+        self::emOrdem($tela, ['function desenharLista() {', "if (el.abaVal) { el.abaVal.hidden = s.aba !== 'val'; }", "if (s.aba === 'val') { return; }"], 'a aba Validar aparece');
+        self::assertStringContainsString('Ficam para depois: Baixar PDF com selo e Vincular à pasta.', $tela, 'o código BJA e a aba Validar já não ficam para depois');
+
+        self::assertStringContainsString('raiz.bjaValidar = { validarCodigo: preencherEValidar };', $js);
+        self::assertStringContainsString('function preencherEValidar(c) { campo.value = c; validar(); }', $js);
+        self::emOrdem($js, ['function validarCodigo(raiz, c) {', 'montar(raiz);', 'raiz.bjaValidar.validarCodigo(c);'], 'validarCodigo');
+        self::assertStringContainsString('window.BJAValidar = { montar: montar, codQr: codQr, validarCodigo: validarCodigo };', $js);
     }
 
     #[TestDox('cartão do código no detalhe (A6, dc:221): o código do documento ou "Gerado no envio", bold 17px monospace #a3232b')]

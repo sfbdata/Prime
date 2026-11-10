@@ -12,7 +12,7 @@
    O botão só aparece quando a URL dele existe na raiz (data-url-*). Etapa 2: "Gerar links e enviar", Copiar link,
    E-mail (mailto), WhatsApp, Tela do signatário (prévia em nova aba), Enviar lembrete e Cancelar envio. Etapa 4:
    Criar novo modelo, Editar, Excluir e Duplicar e adaptar; o editor vira blocos aqui (lerEd do desenho) e nenhum HTML
-   vai ao servidor. Ficam para depois: código BJA, Baixar PDF com selo, Vincular à pasta e aba Validar.
+   vai ao servidor. Ficam para depois: Baixar PDF com selo e Vincular à pasta.
    ============================================================================= */
 (function () {
     'use strict';
@@ -1542,8 +1542,12 @@
     });
 
     /* ── Início ─────────────────────────────────────────────────────────── */
+    /* Código BJA no #hash (dc:299): a tela abre na aba Validar, com o código no campo, já validado. */
+    const codHash = el.abaVal && window.BJAValidar ? window.BJAValidar.codQr(location.hash) : '';
+    if (codHash) { s.aba = 'val'; }
     mostrarTela();
     desenharLista();
+    if (codHash) { window.BJAValidar.validarCodigo(el.abaVal.querySelector('[data-bja-validar]'), codHash); }
     carregar();
     carregarModelos();
 })();

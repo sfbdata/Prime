@@ -36,6 +36,10 @@
         </section>
         {% endif %}
     </main>
+    {% if not limite %}
+    {# A janela da câmera, na raiz da página e fora do cartão, como no desenho (dc:275). #}
+    {% include 'assinatura_eletronica/_validar.html.twig' with {parte: 'camera'} only %}
+    {% endif %}
 </div>
 {% if not limite %}
 <script src="{{ asset('js/bj-traducao.js') }}"></script>

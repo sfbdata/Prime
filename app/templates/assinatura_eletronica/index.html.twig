@@ -102,6 +102,9 @@
     <div class="bjaTela" id="bjaTelaDet" hidden></div>
     <div class="bjaTela" id="bjaTelaMod" hidden></div>
 
+    {# Etapa 3, bloco 2: a janela da câmera da aba Validar, na raiz e fora das abas, como no desenho (dc:275). #}
+    {% include 'assinatura_eletronica/_validar.html.twig' with {parte: 'camera'} only %}
+
     <div class="bjaCamada" id="bjaCamCtx"></div>
     <div class="bjaCamada" id="bjaCamModal"></div>
     <div class="bjaCamada" id="bjaCamToast"></div>

@@ -19,8 +19,9 @@ use Symfony\Component\DomCrawler\Crawler;
 /**
  * A validação pública do código BJA pela HTTP (etapa 3, bloco 2; inventário A7 e A8): a página sem código e com código
  * (a do QR do PDF), a consulta em JSON da aba Validar, o filtro de escritório desligado (a aba logada num escritório
- * acha o código de outro), a Lixeira, o que a resposta NÃO traz (CPF, e-mail), o limitador por IP e o arranjo e os
- * textos do desenho (dc:159-163 e dc:275) por combinador de filho direto.
+ * acha o código de outro), a Lixeira, o que a resposta NÃO traz (CPF, e-mail), o limitador por IP, o escape do nome
+ * do documento e o arranjo e os textos do desenho (dc:159-163 e dc:275) por combinador de filho direto. A janela da
+ * câmera fica na raiz da página, fora das abas e do cartão, como no desenho.
  */
 #[CoversClass(ValidacaoPublicaController::class)]
 #[CoversClass(ValidarCodigoUseCase::class)]
@@ -51,6 +52,7 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
         self::assertCabecalhosPublicos($this->client->getResponse());
         self::assertCount(1, $crawler->filter('body > .bjaPub > header.bjaPubCab[data-bjt-cabecalho] > img.bjaPubMarca[alt="BlueJus"]'));
         self::assertCount(1, $crawler->filter('body > .bjaPub > header.bjaPubCab + main.bjaPubMain > section.bjaCard.bjaValCartao > .bjaVal[data-bja-validar]'));
+        self::assertCount(1, $crawler->filter('body > .bjaPub > main.bjaPubMain + .bjaValCamM#bjaValCam:last-child'), 'a janela da câmera fora do cartão');
         $raiz = $crawler->filter('.bjaVal');
         self::assertNull($raiz->attr('data-resultado'), 'sem código, nada a desenhar');
         self::assertSame('/assinar/validar/consulta', $raiz->attr('data-url-consulta'));
@@ -67,7 +69,10 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
     #[TestDox('arranjo e textos do desenho (dc:159-163 e dc:275), na página pública e na aba Validar da tela')]
     public function testArranjoETextosDoDesenho(): void
     {
-        self::assertComponenteDoDesenho($this->client->request('GET', '/assinar/validar')->filter('main.bjaPubMain > section.bjaValCartao > .bjaVal'));
+        $publica = $this->client->request('GET', '/assinar/validar');
+        self::assertComponenteDoDesenho($publica->filter('main.bjaPubMain > section.bjaValCartao > .bjaVal'));
+        self::assertJanelaDaCamera($publica->filter('body > .bjaPub > .bjaValCamM'));
+        self::assertCount(0, $publica->filter('main .bjaValCamM'), 'a janela não fica dentro do cartão');
 
         $this->entrar(true);
         $crawler = $this->client->request('GET', '/assinatura');
@@ -78,6 +83,11 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
         self::assertComponenteDoDesenho($crawler->filter('#bjaLista > #bjaAbaVal > .bjaVal'));
         self::assertSame('/assinar/validar/consulta', $crawler->filter('#bjaAbaVal > .bjaVal')->attr('data-url-consulta'));
         self::assertNull($crawler->filter('#bjaAbaVal > .bjaVal')->attr('data-resultado'));
+
+        // dc:275: a janela na raiz da tela, depois das telas e antes das camadas; nada dela dentro das abas.
+        self::assertJanelaDaCamera($crawler->filter('#bjaPagina > #bjaTelaMod + .bjaValCamM'));
+        self::assertCount(1, $crawler->filter('#bjaPagina > .bjaValCamM#bjaValCam + #bjaCamCtx'));
+        self::assertCount(0, $crawler->filter('#bjaTelaLista .bjaValCamM, #bjaLista .bjaValCamM'), 'Shift+Tab não chega às abas com a câmera aberta');
     }
 
     #[TestDox('o catálogo da página traz os textos do resultado, da câmera e da foto, como no desenho')]
@@ -142,12 +152,58 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
         self::assertSame('null', $crawler->filter('.bjaVal')->attr('data-resultado'));
         self::assertSame('BJA-0000-0000-0000', $crawler->filter('.bjaVal input.bjaValCod')->attr('value'));
 
-        foreach (['BJA-0000-0000-0000', '', '%20', 'qualquer'] as $digitado) {
+        foreach (['BJA-ZZZZ-ZZZZ-ZZZZ', 'BJA-0000-0000-0000', '', '%20', 'qualquer'] as $digitado) {
             $this->client->request('GET', self::CONSULTA . $digitado);
             self::assertResponseStatusCodeSame(404, $digitado);
             self::assertSame(['documento' => null], $this->json());
             self::assertCabecalhosPublicos($this->client->getResponse());
         }
+    }
+
+    #[TestDox('código fora do formato: "não localizado" sem procurar, e o limitador gasta a cota antes, como em toda procura')]
+    public function testForaDoFormatoGastaACota(): void
+    {
+        $limitador = $this->espiarOLimitador();
+
+        $this->client->request('GET', self::CONSULTA . 'qualquer');
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(['documento' => null], $this->json());
+
+        $crawler = $this->client->request('GET', '/assinar/validar/' . rawurlencode('"<b>"'));
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('null', $crawler->filter('.bjaVal')->attr('data-resultado'));
+        self::assertSame('"<B>"', $crawler->filter('.bjaVal input.bjaValCod')->attr('value'), 'o digitado volta no campo, normalizado');
+        self::assertStringNotContainsString('"<B>"', (string) $this->client->getResponse()->getContent(), 'e escapado');
+
+        self::assertSame(['127.0.0.1', '127.0.0.1'], $limitador->chavesConsumidas, 'uma cota por procura, mesmo fora do formato');
+    }
+
+    #[TestDox('nome com aspas e sinais de tag: escapado no data-resultado da página e na consulta JSON, e volta igual')]
+    public function testNomeEscapado(): void
+    {
+        $nome = 'Contrato "Silva" <Lima> & Cia';
+        [$codigo] = $this->enviadoComCodigo(['nome' => $nome]);
+        $this->sair($this->client);
+
+        $crawler = $this->client->request('GET', '/assinar/validar/' . $codigo);
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        foreach (['<Lima>', '"Silva"', $nome] as $cru) {
+            self::assertStringNotContainsString($cru, $html, 'página: ' . $cru);
+        }
+        self::assertStringContainsString('&lt;Lima&gt;', $html, 'página: o data-resultado escapado para atributo');
+        $resultado = json_decode((string) $crawler->filter('.bjaVal')->attr('data-resultado'), true, 8, \JSON_THROW_ON_ERROR);
+        self::assertSame($nome, $resultado['nome'], 'o data-resultado devolve o nome igual ao JS');
+
+        $this->client->request('GET', self::CONSULTA . $codigo);
+        self::assertResponseIsSuccessful();
+        $corpo = (string) $this->client->getResponse()->getContent();
+        foreach (['<', '>', '"Silva', '&'] as $cru) {
+            self::assertStringNotContainsString($cru, $corpo, 'consulta: ' . $cru);
+        }
+        self::assertStringContainsString('\u003CLima\u003E', $corpo);
+        self::assertStringContainsString('\u0022Silva\u0022', $corpo);
+        self::assertSame($nome, $this->json()['documento']['nome']);
     }
 
     #[TestDox('consulta da aba logada num escritório acha o código de OUTRO escritório; a lista do escritório não muda')]
@@ -243,6 +299,7 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
         self::assertCabecalhosPublicos($this->client->getResponse());
         self::assertStringContainsString('Muitas tentativas. Aguarde alguns minutos e tente de novo.', (string) $this->client->getResponse()->getContent());
         self::assertCount(0, $crawler->filter('[data-bja-validar]'));
+        self::assertCount(0, $crawler->filter('.bjaValCamM'));
         self::assertCount(0, $crawler->filter('script[src*="assinatura-validar.js"]'));
 
         $this->client->request('GET', '/assinar/validar');
@@ -252,12 +309,14 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
     /**
      * Um documento enviado (com código) por um escritório novo, logado.
      *
+     * @param array<string, mixed> $extra o que muda no rascunho (o nome, por exemplo)
+     *
      * @return array{string, array<string, mixed>, int} o código, o `Detalhe` e o id
      */
-    private function enviadoComCodigo(): array
+    private function enviadoComCodigo(array $extra = []): array
     {
         $this->entrar(true);
-        $id = $this->rascunho();
+        $id = $this->rascunho(extra: $extra);
         $detalhe = $this->enviar($id);
         $codigo = (string) ($detalhe['codigo'] ?? '');
         self::assertMatchesRegularExpression('/^BJA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/', $codigo, 'o envio gera o código');
@@ -288,7 +347,7 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
     {
         self::assertCount(1, $raiz);
         self::assertSame(
-            ['bjaValT', 'bjaValTx', 'bjaValLin', 'bjaValLin bjaValLin2', 'bjaValRes', 'bjaValCamM', 'bjaValAviso'],
+            ['bjaValT', 'bjaValTx', 'bjaValLin', 'bjaValLin bjaValLin2', 'bjaValRes', 'bjaValAviso'],
             $raiz->children()->each(static fn (Crawler $n): string => (string) $n->attr('class')),
         );
         self::assertSame('Validar documento assinado', trim($raiz->filter('.bjaVal > b.bjaValT')->text()));
@@ -301,7 +360,7 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Validar', trim($validar->text()));
         self::assertCount(1, $validar->filter('i.bi.bi-shield-check'));
 
-        $camera = $raiz->filter('.bjaVal > .bjaValLin2 > button.bjaP.bjaValCam[data-bja-val="camera"]');
+        $camera = $raiz->filter('.bjaVal > .bjaValLin2 > button.bjaP.bjaValCam[data-bja-val="camera"][aria-haspopup="dialog"][aria-controls="bjaValCam"]');
         self::assertSame('Ler QR Code com a câmera', trim($camera->text()));
         self::assertCount(1, $camera->filter('i.bi.bi-qr-code-scan'));
         $foto = $raiz->filter('.bjaVal > .bjaValLin2 > button.bjaValCam + label.bjaB.bjaValFoto');
@@ -310,8 +369,16 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $foto->filter('label > input[type="file"][accept="image/*"][capture="environment"][data-sem-central="1"][data-bja-val="foto"]'));
         self::assertSame('polite', $raiz->filter('.bjaVal > .bjaValRes')->attr('aria-live'));
         self::assertSame('', trim($raiz->filter('.bjaVal > .bjaValRes')->html()), 'o resultado é desenhado pelo JS');
+        self::assertCount(0, $raiz->filter('.bjaValCamM'), 'a janela da câmera fica fora do componente');
 
-        $janela = $raiz->filter('.bjaVal > .bjaValCamM[role="dialog"][aria-modal="true"][hidden]');
+        self::assertCount(0, $raiz->filter('.card, .modal, .btn, .form-control'), 'só componentes do desenho');
+    }
+
+    /** A janela da câmera do desenho (dc:275), fechada, com o id que o botão da câmera aponta. */
+    private static function assertJanelaDaCamera(Crawler $janela): void
+    {
+        self::assertCount(1, $janela);
+        self::assertCount(1, $janela->filter('.bjaValCamM#bjaValCam[role="dialog"][aria-modal="true"][hidden]'));
         self::assertSame('Ler QR Code', $janela->attr('aria-label'));
         self::assertSame(
             ['bjaValCamT', 'bjaValCamQ', 'bjaValCamMsg', 'bjaValCamBts'],
@@ -324,7 +391,6 @@ final class ValidacaoPublicaControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $tirar->filter('i.bi.bi-camera'));
         self::assertCount(1, $tirar->filter('label > input[type="file"][accept="image/*"][capture="environment"][data-bja-val="foto"]'));
         self::assertSame('Cancelar', trim($janela->filter('.bjaValCamM > .bjaValCamBts > label.bjaValCamFoto + button.bjaB.bjaValCamSair[data-bja-val="fechar"]')->text()));
-
-        self::assertCount(0, $raiz->filter('.card, .modal, .btn, .form-control'), 'só componentes do desenho');
+        self::assertCount(0, $janela->filter('.card, .modal, .btn, .form-control'), 'só componentes do desenho');
     }
 }

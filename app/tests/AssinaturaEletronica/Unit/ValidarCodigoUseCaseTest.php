@@ -119,17 +119,44 @@ final class ValidarCodigoUseCaseTest extends TestCase
         self::assertSame('assinatura_eletronica_tela.js.situacao.cancelado', $this->validar()->executar(self::CODIGO)['situacao'] ?? null);
     }
 
-    #[TestDox('não achado: nulo; vazio e longo demais nem chegam ao repositório')]
+    #[TestDox('não achado: no formato do selo, procura e devolve nulo')]
     public function testNaoAchado(): void
     {
         $this->enviadoComCodigo();
 
-        self::assertNull($this->validar()->executar('BJA-0000-0000-0000'));
-        self::assertNull($this->validar()->executar('   '));
-        self::assertNull($this->validar()->executar(str_repeat('A', 65)));
-        self::assertNull($this->validar()->executar(self::CODIGO . 'X'), 'só a igualdade exata vale');
+        self::assertNull($this->validar()->executar('BJA-ZZZZ-ZZZZ-ZZZZ'));
+        self::assertNull($this->validar()->executar(' bja-2345-6789-abcd '));
 
-        self::assertSame(['BJA-0000-0000-0000', self::CODIGO . 'X'], $this->procurados);
+        self::assertSame(['BJA-ZZZZ-ZZZZ-ZZZZ', 'BJA-2345-6789-ABCD'], $this->procurados);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function foraDoFormato(): iterable
+    {
+        yield 'vazio' => ['   '];
+        yield 'qualquer texto' => ['qualquer'];
+        yield 'longo demais' => [str_repeat('A', 65)];
+        yield 'um símbolo a mais' => [self::CODIGO . 'X'];
+        yield 'grupo curto' => ['BJA-AB23-CD45-EF6'];
+        yield 'zero, fora do alfabeto' => ['BJA-0000-0000-0000'];
+        yield 'um, fora do alfabeto' => ['BJA-1111-AB23-CD45'];
+        yield 'I e O, fora do alfabeto' => ['BJA-IIII-OOOO-AB23'];
+        yield 'outro prefixo' => ['BJB-AB23-CD45-EF67'];
+        yield 'sem os hífens' => ['BJAAB23CD45EF67'];
+        yield 'espaço no meio' => ['BJA-AB23 -CD45-EF67'];
+        yield 'quebra de linha no meio' => ["BJA-AB23-CD45-EF67\nBJA-AB23-CD45-EF67"];
+        yield 'aspas e sinais de tag' => ['BJA-"<>"-CD45-EF67'];
+        yield 'texto que não é UTF-8' => ["\xff\xfe"];
+    }
+
+    #[DataProvider('foraDoFormato')]
+    #[TestDox('fora do formato BJA-XXXX-XXXX-XXXX ($_dataName): nulo, sem ir ao repositório')]
+    public function testForaDoFormatoNaoVaiAoBanco(string $digitado): void
+    {
+        $this->enviadoComCodigo();
+
+        self::assertNull($this->validar()->executar($digitado));
+        self::assertSame([], $this->procurados);
     }
 
     private function validar(): ValidarCodigoUseCase

@@ -82,13 +82,13 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertStringEndsWith('/assinatura/modelos/0/excluir', (string) $raiz->attr('data-url-modelo-excluir'));
     }
 
-    #[TestDox('A raiz tem a lista visível e o assistente, o detalhe, o editor de modelo e as camadas vazios, nessa ordem')]
+    #[TestDox('A raiz tem a lista visível e o assistente, o detalhe, o editor de modelo, a câmera e as camadas vazios, nessa ordem')]
     public function testFilhosDaRaiz(): void
     {
         $crawler = $this->abrir();
 
         self::assertSame(
-            ['bjaTelaLista', 'bjaTelaNovo', 'bjaTelaDet', 'bjaTelaMod', 'bjaCamCtx', 'bjaCamModal', 'bjaCamToast'],
+            ['bjaTelaLista', 'bjaTelaNovo', 'bjaTelaDet', 'bjaTelaMod', 'bjaValCam', 'bjaCamCtx', 'bjaCamModal', 'bjaCamToast'],
             $crawler->filter('.bja > *')->each(static fn (Crawler $n): string => (string) $n->attr('id')),
         );
         self::assertCount(1, $crawler->filter('.bja > .bjaTela#bjaTelaLista:not([hidden])'));

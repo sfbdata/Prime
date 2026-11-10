@@ -8,7 +8,9 @@
    .bjaPub na página); aqui só o que o desenho põe em linha. O estilo em linha do desenho vence o :hover da classe, por
    isso o botão da câmera e os dois botões da janela repetem o valor no :hover.
 
-   Camada da janela da câmera: a do desenho (2147483646); o aviso (2147483647) fica por cima dela.
+   Camada da janela da câmera: a do desenho (2147483646); o aviso (2147483647) fica por cima dela. A janela fica na raiz
+   da página (dentro do .bja ou do .bjaPub, fora das abas e do cartão, dc:275), por isso as regras dela não dependem do
+   .bjaVal.
    ============================================================================= */
 
 /* Contêiner (dc:160): padding 18px 16px, largura máxima 640. */
@@ -21,8 +23,7 @@
 .bjaVal .bjaP.bjaValCam,
 .bjaVal .bjaP.bjaValCam:hover { flex: 1 1 220px; height: 46px; font-size: 15px; background: #0b3550; }
 .bjaVal .bjaB.bjaValFoto { flex: 1 1 220px; height: 46px; font-size: 14px; cursor: pointer; }
-.bjaVal .bjaValFoto > input,
-.bjaVal .bjaValCamFoto > input { display: none; }
+.bjaVal .bjaValFoto > input { display: none; }
 
 /* Resultado (dc:161-162): achado em verde, não achado em vermelho. O <code> sem o estilo do Bootstrap da tela interna
    (o desenho roda sem ele): fonte monoespaçada do navegador, 12px, na cor do quadro. */
@@ -31,19 +32,20 @@
 .bjaVal .bjaValErro { margin-top: 12px; padding: 12px 14px; border: 1px solid #f1c4c9; border-left: 4px solid #a3232b; background: #fdecee; color: #7f1c23; font-size: 13.5px; }
 
 /* Janela da câmera (dc:275). */
-.bjaVal .bjaValCamM { position: fixed; inset: 0; z-index: 2147483646; background: #0b3550; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 18px; text-align: center; font-family: Arial, Helvetica, sans-serif; }
-.bjaVal .bjaValCamT { font-size: clamp(20px, 3.6vw, 26px); }
-.bjaVal .bjaValCamQ { position: relative; width: min(82vw, 58vh, 420px); aspect-ratio: 1 / 1; background: #072538; overflow: hidden; }
-.bjaVal .bjaValCamQ > video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.bjaVal .bjaValCamQ > span { position: absolute; inset: 14%; border: 3px solid #59d98e; }
-.bjaVal .bjaValCamMsg { font-size: 14px; color: #c7dce9; max-width: 420px; }
-.bjaVal .bjaValCamBts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.bjaVal .bjaB.bjaValCamFoto,
-.bjaVal .bjaB.bjaValCamFoto:hover { height: 40px; background: #fff; cursor: pointer; }
-.bjaVal .bjaB.bjaValCamSair,
-.bjaVal .bjaB.bjaValCamSair:hover { height: 40px; background: transparent; color: #fff; border-color: rgba(255, 255, 255, .6); }
+.bjaValCamM { position: fixed; inset: 0; z-index: 2147483646; background: #0b3550; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 18px; text-align: center; font-family: Arial, Helvetica, sans-serif; }
+.bjaValCamM .bjaValCamT { font-size: clamp(20px, 3.6vw, 26px); }
+.bjaValCamM .bjaValCamQ { position: relative; width: min(82vw, 58vh, 420px); aspect-ratio: 1 / 1; background: #072538; overflow: hidden; }
+.bjaValCamM .bjaValCamQ > video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bjaValCamM .bjaValCamQ > span { position: absolute; inset: 14%; border: 3px solid #59d98e; }
+.bjaValCamM .bjaValCamMsg { font-size: 14px; color: #c7dce9; max-width: 420px; }
+.bjaValCamM .bjaValCamBts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.bjaValCamM .bjaValCamFoto > input { display: none; }
+.bjaValCamM .bjaB.bjaValCamFoto,
+.bjaValCamM .bjaB.bjaValCamFoto:hover { height: 40px; background: #fff; cursor: pointer; }
+.bjaValCamM .bjaB.bjaValCamSair,
+.bjaValCamM .bjaB.bjaValCamSair:hover { height: 40px; background: transparent; color: #fff; border-color: rgba(255, 255, 255, .6); }
 /* Tema escuro da tela interna: o fundo do "Tirar foto" é branco nos dois temas, então o texto fica com o azul do desenho. */
-[data-bs-theme="dark"] .bja .bjaVal .bjaValCamFoto { color: #0a6fa0; }
+[data-bs-theme="dark"] .bja .bjaValCamM .bjaValCamFoto { color: #0a6fa0; }
 
 /* Página pública: o componente no cartão do desenho, centralizado como o cartão de bloqueio da página do signatário. */
 .bjaPub .bjaValCartao { max-width: 672px; margin: 24px auto; }

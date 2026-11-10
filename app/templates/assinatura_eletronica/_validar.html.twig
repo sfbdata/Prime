@@ -11,7 +11,22 @@
 
     Contexto: `codigo` (o código já aparado e em maiúsculas, ou vazio), `consultado` (houve procura nesta página) e
     `resultado` (a projeção pública ou null).
+
+    A janela da câmera (dc:275) fica na raiz da página, fora das abas e do cartão, como no desenho: com `parte: 'camera'`
+    (e nenhum outro contexto) este arquivo monta só ela, e cada página a inclui à parte. O botão "Ler QR Code com a
+    câmera" aponta para ela pelo aria-controls.
 #}
+{% if (parte ?? '') == 'camera' %}
+<div class="bjaValCamM" id="bjaValCam" role="dialog" aria-modal="true" aria-label="{{ 'assinatura_eletronica_tela.js.validar.cam_rotulo'|trans }}" hidden>
+    <div class="bjaValCamT">{{ 'assinatura_eletronica_tela.js.validar.cam_titulo'|trans }}</div>
+    <div class="bjaValCamQ"><video autoplay playsinline muted></video><span></span></div>
+    <div class="bjaValCamMsg"></div>
+    <div class="bjaValCamBts">
+        <label class="bjaB bjaValCamFoto"><i class="bi bi-camera"></i>{{ 'assinatura_eletronica_tela.js.validar.cam_tirar_foto'|trans }}<input type="file" data-sem-central="1" accept="image/*" capture="environment" data-bja-val="foto"></label>
+        <button type="button" class="bjaB bjaValCamSair" data-bja-val="fechar">{{ 'assinatura_eletronica_tela.js.validar.cam_cancelar'|trans }}</button>
+    </div>
+</div>
+{% else %}
 <div class="bjaVal" data-bja-validar
      data-url-consulta="{{ path('assinatura_eletronica_publica_validar_consulta')|e('html_attr') }}"
      {%- if consultado %} data-resultado="{{ resultado|json_encode|e('html_attr') }}"{% endif %}>
@@ -23,18 +38,10 @@
         <button type="button" class="bjaP" data-bja-val="validar"><i class="bi bi-shield-check"></i>{{ 'assinatura_eletronica_tela.js.validar.botao'|trans }}</button>
     </div>
     <div class="bjaValLin bjaValLin2">
-        <button type="button" class="bjaP bjaValCam" data-bja-val="camera"><i class="bi bi-qr-code-scan"></i>{{ 'assinatura_eletronica_tela.js.validar.camera'|trans }}</button>
+        <button type="button" class="bjaP bjaValCam" data-bja-val="camera" aria-haspopup="dialog" aria-controls="bjaValCam"><i class="bi bi-qr-code-scan"></i>{{ 'assinatura_eletronica_tela.js.validar.camera'|trans }}</button>
         <label class="bjaB bjaValFoto"><i class="bi bi-image"></i>{{ 'assinatura_eletronica_tela.js.validar.foto'|trans }}<input type="file" data-sem-central="1" accept="image/*" capture="environment" data-bja-val="foto"></label>
     </div>
     <div class="bjaValRes" aria-live="polite"></div>
-    <div class="bjaValCamM" role="dialog" aria-modal="true" aria-label="{{ 'assinatura_eletronica_tela.js.validar.cam_rotulo'|trans }}" hidden>
-        <div class="bjaValCamT">{{ 'assinatura_eletronica_tela.js.validar.cam_titulo'|trans }}</div>
-        <div class="bjaValCamQ"><video autoplay playsinline muted></video><span></span></div>
-        <div class="bjaValCamMsg"></div>
-        <div class="bjaValCamBts">
-            <label class="bjaB bjaValCamFoto"><i class="bi bi-camera"></i>{{ 'assinatura_eletronica_tela.js.validar.cam_tirar_foto'|trans }}<input type="file" data-sem-central="1" accept="image/*" capture="environment" data-bja-val="foto"></label>
-            <button type="button" class="bjaB bjaValCamSair" data-bja-val="fechar">{{ 'assinatura_eletronica_tela.js.validar.cam_cancelar'|trans }}</button>
-        </div>
-    </div>
     <div class="bjaValAviso"></div>
 </div>
+{% endif %}
