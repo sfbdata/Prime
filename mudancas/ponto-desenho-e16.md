@@ -1,0 +1,22 @@
+---
+tipo: alteracao
+---
+## Changelog
+- Ponto Eletrônico, etapa E16 do desenho 16 (VS 08.11.26): folha de ponto com código BJF, PDF novo e aceite mensal (P22, P33 a P36, P87 a P89, D6, D17 e D19).
+- PDF da folha em imagem, gerado no servidor com o arranjo do desenho (GD e um PDF de uma página escrito em PHP, sem Ghostscript): código `BJF-...`, QR Code, "Base Legal", pendências do dia nas observações ("Registro incompleto", "Horário fora de sequência: revisar", "Falta: em análise"; "registro em outro escritório" continua fora), CPF e CTPS mascarados e o carimbo do aceite que vale. Cada PDF gerado é uma emissão nova, gravada em `ponto_folha_emitida` com HMAC-SHA256 (chave `ponto-folha` derivada do segredo do Ponto da E9) e o evento "Folha emitida" na trilha; limite de pedidos por minuto por pessoa (`ponto_folha_pdf`, resposta 429). Sem o segredo, o PDF sai sem código, sem QR e sem selo, e nenhuma folha emitida é gravada.
+- Validação pública: o código BJF vale na mesma página do comprovante (`/ponto/validar`), com "Comprovante autêntico." e o texto da folha, ou "Código não localizado." para todo o resto.
+- Aceite mensal (`ponto_folha_aceite`): "Assinar folha" na barra da folha da /ponto, só no mês fechado da lista da pessoa, sem aceite que valha, com a função ligada e o segredo presente. Janela do desenho (L290) com "Concordo" ou "Discordo de parte dos registros (ressalva)" e a ressalva de até 1.000 caracteres, obrigatória no "Discordo". POST `ponto_folha_assinar` com CSRF, só a própria pessoa no escritório da sessão, com o módulo Ponto; volta para a /ponto na competência com o aviso do topo. Histórico numerado por pessoa, escritório e mês (vale o último), o aceite selado com HMAC sobre a situação, a ressalva, a data, o IP, o navegador e o código da folha vista, emitida junto, e os eventos "Folha assinada" ou "Folha assinada com ressalva" na trilha, sem o texto da ressalva.
+- Selo do aceite na barra: "Assinada em dd/mm/aaaa" (verde), "Ressalva em dd/mm/aaaa" (ocre) ou "Alterada depois do aceite" (vermelho), quando a folha de agora difere da folha vista no aceite (ou o selo dela não confere); nesse caso o "Assinar folha" volta. A ficha do colaborador, aberta pelo gestor, mostra só o selo.
+- Barra da folha na ordem "Ver PDF", "Baixar XLSX", "Assinar folha", "Baixar PDF". "Ver PDF" sai do modal do Bootstrap para a janela do desenho (o "Baixar" de dentro salva o mesmo arquivo, sem nova emissão); "Baixar PDF" mostra o aviso flutuante "Gerando a folha em PDF..." e depois "Folha baixada em PDF. Código ..." (`X-Codigo-Folha`), ou o aviso de falha. Comportamento em `js/ponto-folha.js`.
+- XLSX: a justificativa em análise sai como "(em análise)" pela tabela de nomes (chave `folha.pendente`), sem código BJF.
+- Chave `ponto-aceite` ("Ponto: aceite da folha") no catálogo de recursos do Master, ligada, e na camada Escritório da aba Configurações do Ponto (só com o selo pronto). Migration `Version20261109250000`.
+
+## Para o cliente
+- A folha de ponto em PDF ganhou um novo visual, igual ao modelo aprovado. Com o selo de segurança do BlueJus ligado, cada folha baixada recebe o seu próprio código de validação e um QR Code.
+- Quem recebe a folha pode conferir se ela é verdadeira na mesma página de validação do comprovante, pelo QR Code ou digitando o código, sem precisar entrar no sistema.
+- A folha em PDF passa a mostrar as pendências de cada dia, como registro incompleto ou horário fora de sequência, para que nada fique escondido na hora de conferir.
+- Depois que o mês fecha, o colaborador pode assinar a própria folha: confirma que os registros estão certos ou registra uma ressalva explicando o que discorda. A data da assinatura aparece num selo verde (ou amarelo, quando há ressalva) ao lado do mês.
+- Se algum registro do mês mudar depois da assinatura, o selo fica vermelho, com o aviso "Alterada depois do aceite", e o colaborador pode assinar de novo. O gestor vê o selo na ficha do colaborador.
+- O botão "Ver PDF" abre a folha numa janela no mesmo estilo do resto do Ponto, e o "Baixar PDF" mostra um aviso enquanto a folha é preparada e outro quando ela foi baixada, com o código.
+- Na planilha (XLSX), a justificativa ainda não analisada aparece como "em análise", o mesmo nome usado na tela.
+- A assinatura da folha só aparece quando o BlueJus ligar o selo de segurança. O administrador do ponto pode desligá-la só no seu escritório, em Configurações do Ponto; as assinaturas já feitas continuam aparecendo.
