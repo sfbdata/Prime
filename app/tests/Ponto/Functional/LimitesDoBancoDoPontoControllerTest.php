@@ -76,6 +76,12 @@ final class LimitesDoBancoDoPontoControllerTest extends JusPrimeWebTestCase
 
         foreach ([self::LIMITE, self::PRAZO] as $campo) {
             self::assertCount(1, $painel->filter($campo . ' + span.pe-config-banco-erro[role="alert"][data-config-banco-erro][hidden]:last-child'), 'a frase de erro embaixo do campo, escondida');
+            // O nome do campo é só o rótulo do desenho; a frase de erro é a descrição, e não entra no nome.
+            $entrada = $painel->filter($campo);
+            $rotulo = $painel->filter('#' . $entrada->attr('aria-labelledby'));
+            self::assertCount(1, $rotulo);
+            self::assertSame($entrada->ancestors()->first()->filter('span')->first()->text(), $rotulo->text());
+            self::assertSame('pe-config-banco-erro', $painel->filter('#' . $entrada->attr('aria-describedby'))->attr('class'));
         }
         self::assertCount(0, $grade->filter('.form-control, .form-label, .form-group, .row, [class*="col-"], .btn, .input-group'), 'os componentes do desenho, nada do Bootstrap');
         self::assertCount(1, $painel->filter(self::GRADE . ' + section.pe-sf-secao[data-pc-sedes]'), 'depois da grade vem a seção "Sedes e raio de registro" (L253), com a caixa do trabalho externo no cabeçalho');

@@ -11,14 +11,15 @@
     O limite fica com `min="0" step="10"`, como o desenho (com `min="1"` o navegador recusaria 120); o 0 é recusado no
     servidor, com a frase embaixo do campo. Cada campo grava ao sair dele (change) por POST JSON na rota
     `ponto_configuracao_banco_de_horas`, com o token `ajax` que o interceptador do base.html.twig põe no X-CSRF-Token.
-    `data-gravado` guarda o valor do servidor, para o campo voltar a ele na recusa. O comportamento mora em
+    `data-gravado` guarda o valor do servidor, para o campo voltar a ele na recusa. O nome do campo é só o rótulo do
+    desenho (`aria-labelledby`); a frase de erro fica como descrição (`aria-describedby`), como na E6. O comportamento mora em
     js/ponto-configuracoes.js (o painel chega por innerHTML e script dentro dele não roda).
 #}
 {% if funcoesDoPonto|default(null) %}
     {%- set limite = banco_limite_horas|default(constant('App\\Ponto\\Service\\LimitesPadraoDoBancoDeHoras::LIMITE_EM_HORAS')) -%}
     {%- set prazo = banco_prazo_meses|default(constant('App\\Ponto\\Service\\LimitesPadraoDoBancoDeHoras::PRAZO_EM_MESES')) -%}
     <div class="pe-config-grade" data-config-banco data-url="{{ path('ponto_configuracao_banco_de_horas') }}">
-        <label class="pe-config-rotulo">Limite do banco (horas)<input class="pe-sf-campo" type="number" min="0" step="10" value="{{ limite }}" data-config-banco-campo="limiteHoras" data-gravado="{{ limite }}"><span class="pe-config-banco-erro" role="alert" data-config-banco-erro hidden></span></label>
-        <label class="pe-config-rotulo">Prazo de compensação (meses)<input class="pe-sf-campo" type="number" min="1" max="24" value="{{ prazo }}" data-config-banco-campo="prazoMeses" data-gravado="{{ prazo }}"><span class="pe-config-banco-erro" role="alert" data-config-banco-erro hidden></span></label>
+        <label class="pe-config-rotulo"><span id="pe-banco-limite-rotulo">Limite do banco (horas)</span><input class="pe-sf-campo" type="number" min="0" step="10" value="{{ limite }}" data-config-banco-campo="limiteHoras" data-gravado="{{ limite }}" aria-labelledby="pe-banco-limite-rotulo" aria-describedby="pe-banco-limite-erro"><span class="pe-config-banco-erro" id="pe-banco-limite-erro" role="alert" data-config-banco-erro hidden></span></label>
+        <label class="pe-config-rotulo"><span id="pe-banco-prazo-rotulo">Prazo de compensação (meses)</span><input class="pe-sf-campo" type="number" min="1" max="24" value="{{ prazo }}" data-config-banco-campo="prazoMeses" data-gravado="{{ prazo }}" aria-labelledby="pe-banco-prazo-rotulo" aria-describedby="pe-banco-prazo-erro"><span class="pe-config-banco-erro" id="pe-banco-prazo-erro" role="alert" data-config-banco-erro hidden></span></label>
     </div>
 {% endif %}

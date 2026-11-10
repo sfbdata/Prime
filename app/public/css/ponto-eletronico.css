@@ -1089,12 +1089,11 @@
 
 /* Trabalho externo (E12, P74; desenho L253): a caixa "Permitir trabalho externo, com motivo e análise" na seção do
    desenho (`padding:12px 16px; border-top:1px solid #e6edf2`). Ela mora no cabeçalho "Sedes e raio de registro"
-   (regra abaixo). Sozinha, logo abaixo das funções (só proteção: hoje quem vê a caixa vê as sedes), a borda de cima
-   sai para não dobrar a linha. O rótulo é o do desenho
+   (regra abaixo). Sozinha (só proteção: hoje quem vê a caixa vê as sedes), vem depois da grade do banco (E17) e leva a
+   borda de cima, como a seção das sedes, que no desenho vem logo depois da grade (L253). O rótulo é o do desenho
    (12.5px, #34505f, `gap:7px`, caixa de 16px); `inline-flex` porque no desenho ele é item de uma linha flex e mede só
    o texto: em bloco, o clique no vazio à direita marcaria a caixa. A frase de erro (sistema) é a da E7. */
 .pe-config-externo { padding: 12px 16px; border-top: 1px solid var(--pe-div); }
-.pe-config-funcoes + .pe-config-externo { border-top: none; }
 /* No cabeçalho das sedes (desenho L253): só a caixa, entre o título e os botões, sem a moldura de seção. */
 .pe-sedes-cabeca > .pe-config-externo { padding: 0; border-top: none; }
 .pe-config-externo-marca {
