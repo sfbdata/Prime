@@ -531,10 +531,11 @@
         });
 
 
-        // Abre o modal de adicionar batida preenchendo data e tipo
+        // Abre a janela "Incluir batida" com o dia e o tipo do "+"; o motivo começa vazio a cada abertura.
         window.abrirModalAddBatida = function (tipo, chaveDia) {
             document.getElementById('modalAddData').value = chaveDia;
             document.getElementById('modalAddTipo').value = tipo;
+            document.getElementById('modalAddMotivo').value = '';
             document.getElementById('modalAddCompetencia').value = chaveDia.substring(0, 7);
             var modal = new bootstrap.Modal(document.getElementById('modalAddBatida'));
             modal.show();
