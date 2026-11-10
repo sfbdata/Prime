@@ -93,12 +93,14 @@
 
     // O painel com `data-recarregar-ao-abrir` (a Auditoria, E9) é buscado de novo cada vez que a aba abre: o evento de
     // uma ação feita em outra aba (escala, chave, sede, justificativa excluída) aparece, como o `reg` do desenho (L452).
+    // Com a busca em andamento (a da entrada com `?aba=auditoria`), abrir não guarda outra: ela já traz o de agora.
     document.addEventListener('ponto:aba-aberta', function (evento) {
         const painel = evento.detail && evento.detail.painel;
-        carregar(painel, Boolean(painel && painel.hasAttribute('data-recarregar-ao-abrir')));
+        const deNovo = Boolean(painel && painel.hasAttribute('data-recarregar-ao-abrir') && painel.dataset.estado !== 'carregando');
+        carregar(painel, deNovo);
     });
 
-    // Depois de uma ação já gravada (index.html.twig, `atualizarTelaDoPonto`; js/ponto-batida.js, a "Sincronização"):
+    // Depois de uma ação já gravada (index.html.twig, `atualizarTelaDoPonto`, quando a busca da tela termina):
     // o painel desses que está aberto é buscado de novo, sem o "Carregando..." (o conteúdo fica até a resposta chegar).
     // No meio de uma busca, a nova fica guardada para depois dela. Com falha, fica o "Tentar de novo". Fechado, a próxima
     // abertura busca.

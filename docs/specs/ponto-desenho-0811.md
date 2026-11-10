@@ -965,9 +965,12 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     selo, ou não selada sem o segredo. O meio selado continua protegido: alteração, remoção e inserção dão alterada. O
     aviso nunca fica verde. A conferência percorre a cadeia inteira a cada abertura da aba (achado 9 da revisão), a
     reavaliar se ficar lenta. Desde a conferência de 10/11/2026 (dc L452) a aba é buscada de novo a cada abertura e,
-    aberta, depois de cada ação gravada na tela (batida, fila, justificativa excluída, "Sincronização"), então a
-    conferência roda mais vezes; aceito pelo mesmo critério (separar a conferência da lista se ficar lenta). Um pedido
-    no meio de outra busca fica guardado e roda depois dela. A recarga busca a página que está aberta: na página 2, o
+    aberta, depois de cada ação gravada na tela (batida, fila, justificativa excluída), então a conferência roda mais
+    vezes; aceito pelo mesmo critério (separar a conferência da lista se ficar lenta). A recarga sai quando a busca da
+    tela termina, nunca antes: o PHP atende uma sessão por vez, e a conferência seguraria a tela e o botão da batida.
+    Um pedido no meio de outra busca fica guardado e roda depois dela; abrir com a busca em andamento não guarda outro.
+    Limite aceito: a "Sincronização" sai sem esperar e pode entrar depois da recarga; aparece na próxima abertura ou
+    ação. A recarga busca a página que está aberta: na página 2, o
     evento novo fica na página 1 (desvio da paginação, já aceito). Falhou a recarga: fica o "Tentar de novo";
   - eventos: batida (inclui o atalho do avatar), justificativa enviada, editada (com ou sem troca do atestado) e
     excluída pelo colaborador, abonada, recusada, voltou para análise, abono em lote (um evento com as abonadas), lançada

@@ -1944,16 +1944,20 @@
     // descartada: trocar por ela voltaria a tela para trás e devolveria livre o tipo que acabou de ser batido.
     let ultimaBuscaDaTela = 0;
 
-    async function atualizarTelaDoPonto() {
-        const estaBusca = ++ultimaBuscaDaTela;
-        // E9: a Auditoria aberta mostra o evento novo, como o `reg` do desenho (L452). Quem chama já teve a ação gravada
-        // (a batida aceita, a fila enviada, a justificativa excluída), então ela busca já, mesmo que esta busca da tela
-        // seja descartada ou falhe.
+    function recarregarAuditoriaAberta() {
         if (window.PontoPaineis && window.PontoPaineis.recarregarAbertos) {
             window.PontoPaineis.recarregarAbertos();
         }
+    }
+
+    async function atualizarTelaDoPonto() {
+        const estaBusca = ++ultimaBuscaDaTela;
         // A busca mora no módulo, com prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest).
-        const novo = await window.PontoBatida.buscarTelaDoPonto(window.location.href);
+        // E9: a Auditoria aberta mostra o evento novo, como o `reg` do desenho (L452). Quem chama já teve a ação gravada
+        // (a batida aceita, a fila enviada, a justificativa excluída). Ela busca quando a busca da tela termina (com a
+        // tela, descartada ou com falha), e não antes: o PHP atende uma sessão por vez, e a conferência da cadeia na
+        // Auditoria seguraria a tela e o botão.
+        const novo = await window.PontoBatida.buscarTelaDoPonto(window.location.href).finally(recarregarAuditoriaAberta);
         if (estaBusca < ultimaBuscaDaTela) {
             // Descartada, a tela fica como está; a batida que o servidor confirmou nesta página continua marcada
             // (`confirmadasDaPagina`), mesmo que a busca mais nova falhe depois.
