@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\UseCase;
 
+use App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
@@ -79,7 +80,10 @@ final readonly class VincularAPastaUseCase
 
         return [
             'aplicado' => $aplicado,
-            'pendente' => $documento->getSituacao() === SituacaoDoDocumento::Concluido && $documento->isVinculoPendente(),
+            // Só quando falta o PDF final: com ele guardado, o vínculo pendente aqui é erro inesperado (já no log), e
+            // nada o aplicaria depois; a tela avisa a falha.
+            'pendente' => $documento->getSituacao() === SituacaoDoDocumento::Concluido && $documento->isVinculoPendente()
+                && ChavesDeAssinaturaEletronica::pdfFinal($documento) === null,
             'documento' => $this->apresentacao->detalhe($documento, $this->eventos->doDocumento($documento)),
         ];
     }
