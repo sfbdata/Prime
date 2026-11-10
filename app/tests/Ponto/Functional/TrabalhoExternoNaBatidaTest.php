@@ -430,7 +430,7 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
 
         $linha = $tela->filter(sprintf('table.pe-tab.pe-resp > tbody > tr.pe-lin[data-chave-dia="%s"]', (new \DateTimeImmutable())->format('Y-m-d')));
         self::assertCount(1, $linha);
-        // Decisão C1 de 10/11/2026: sem selo na coluna da semana (desenho L153); a batida aparece na folha.
+        // Decisão C1 de 10/11/2026: sem selo na coluna da semana (desenho L153).
         self::assertCount(0, $linha->filter('td.pe-larga:nth-child(2) > span.pe-tag--extra'));
         self::assertCount(0, $linha->filter('i.bi-briefcase'));
         self::assertStringNotContainsString('Trabalho externo', $linha->filter('td.pe-larga:nth-child(2)')->text());

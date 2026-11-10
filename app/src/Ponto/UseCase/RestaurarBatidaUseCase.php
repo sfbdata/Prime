@@ -23,9 +23,10 @@ use App\Ponto\Service\TrilhaDoPonto;
  *
  * Sob a trava da pessoa, a desconsideração tem de ser desta folha e ainda a cabeça da linhagem. A desconsideração
  * feita pela análise da justificativa (a volta do abono para análise, a recusa do trabalho externo) não se restaura
- * pela tela: só volta com um novo abono (decisão A). Enquanto a justificativa ligada à batida (o trabalho externo
- * da E12 ou o esquecimento da inclusão) está em análise, o Restaurar também recusa (C5): quem decide é a análise. A
- * própria batida só o primário ou o Master restaura (P43). Recusado, nada é gravado.
+ * pela tela: só volta pela análise, com um novo abono (esquecimento) ou com a recusada do trabalho externo voltando
+ * para análise (decisão A). Enquanto a justificativa ligada à batida (o trabalho externo da E12 ou o esquecimento da
+ * inclusão) está em análise, o Restaurar também recusa (C5): quem decide é a análise. A própria batida só o primário
+ * ou o Master restaura (P43). Recusado, nada é gravado.
  */
 final class RestaurarBatidaUseCase
 {

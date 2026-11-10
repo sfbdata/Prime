@@ -408,6 +408,20 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         self::assertSame([[(int) $this->colaborador->getId()]], $espiao->travadasPorEvento, 'no evento a pessoa já estava travada');
     }
 
+    #[TestDox('E12, ordem das travas, recusar o trabalho externo: a linhagem da pessoa já está travada (4210) nos dois eventos (a recusa e a batida desconsiderada)')]
+    public function testRecusarTrabalhoExternoTravaAPessoaAntesDaTrilha(): void
+    {
+        [, $justificativa] = $this->trabalhoExterno();
+        [$espiao, $analisar] = $this->analisarEspiando([$this->colaborador]);
+        self::assertSame([], $this->travadas([$this->colaborador]), 'a pessoa ainda não foi travada neste teste');
+
+        self::assertTrue($analisar->recusar($justificativa, $this->tenant, $this->gestor, 'Sem prova'));
+
+        self::assertSame(['justificativa_recusada', 'batida_desconsiderada'], $this->eventosDaTrilha());
+        $pessoa = [(int) $this->colaborador->getId()];
+        self::assertSame([$pessoa, $pessoa], $espiao->travadasPorEvento, 'nos dois eventos a pessoa já estava travada');
+    }
+
     #[TestDox('E10, ordem das travas, "aprovar todos" com duas pessoas: as duas, ainda livres antes, já estão travadas (4210) no evento do lote, o primeiro da trilha (4203)')]
     public function testAbonarLoteTravaTodasAsPessoasAntesDaTrilha(): void
     {

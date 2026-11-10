@@ -53,7 +53,7 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
 
     public const MENSAGEM_MOTIVO_LONGO = 'O motivo da correção passa de 2000 caracteres. Resuma o texto.';
 
-    public const MENSAGEM_LIGADA_A_JUSTIFICATIVA = 'Esta batida saiu da conta pela análise da justificativa e só volta com um novo abono.';
+    public const MENSAGEM_LIGADA_A_JUSTIFICATIVA = 'Esta batida saiu da conta pela análise da justificativa e só volta por ela: com um novo abono ou, no trabalho externo, quando a justificativa volta para análise.';
 
     public const MENSAGEM_DA_PROPRIA_BATIDA = 'Só o usuário primário do escritório ou o Master pode corrigir a própria batida.';
 

@@ -145,7 +145,7 @@ final class PontoAjusteTest extends TestCase
             'O ajuste não muda nada: a batida já tem este tipo, esta data e esta hora.',
             'Informe o motivo da correção.',
             'O motivo da correção passa de 2000 caracteres. Resuma o texto.',
-            'Esta batida saiu da conta pela análise da justificativa e só volta com um novo abono.',
+            'Esta batida saiu da conta pela análise da justificativa e só volta por ela: com um novo abono ou, no trabalho externo, quando a justificativa volta para análise.',
             'Só o usuário primário do escritório ou o Master pode corrigir a própria batida.',
         ], array_map(static fn (AjusteDeBatidaRecusadoException $r): string => $r->getMessage(), $recusas));
         foreach ($recusas as $recusa) {

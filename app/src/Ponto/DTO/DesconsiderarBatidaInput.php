@@ -14,7 +14,8 @@ use App\Ponto\Entity\JustificativaPonto;
  *
  * - `daTela`: o gestor, pela ficha do colaborador, com a cabeça que a folha mostrou (outro ajuste no meio = recusa).
  * - `pelaAnalise`: a análise da justificativa (a recusa do trabalho externo da E12), ligada à justificativa e sem
- *   conferir a cabeça. A tela não restaura essa desconsideração (decisão A): ela só volta com um novo abono.
+ *   conferir a cabeça. A tela não restaura essa desconsideração (decisão A): ela só volta pela análise, quando a
+ *   justificativa recusada volta para análise (`AnalisarJustificativaUseCase::reverter`).
  */
 final class DesconsiderarBatidaInput
 {

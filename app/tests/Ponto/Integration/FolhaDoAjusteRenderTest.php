@@ -123,7 +123,7 @@ final class FolhaDoAjusteRenderTest extends KernelTestCase
         self::assertSame('Repouso 12:00:00 de 21/10/2026', $restaurar->attr('data-batida'));
 
         $daAnalise = $itens->filter('[data-ajuste-id="61"]');
-        self::assertSame('Esta batida saiu da conta pela análise da justificativa e só volta com um novo abono.', $daAnalise->attr('title'));
+        self::assertSame('Esta batida saiu da conta pela análise da justificativa e só volta por ela: com um novo abono ou, no trabalho externo, quando a justificativa volta para análise.', $daAnalise->attr('title'));
         self::assertCount(0, $daAnalise->filter('button'));
     }
 
