@@ -64,6 +64,7 @@ final class RegraDaCadeiaTest extends TestCase
         $antiga = CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA);
         $alterada = CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA, VereditoDaAssinatura::Alterada);
         $mudaConteudo = CadeiaDeExemplo::assinaturaDoMotor(ordem: 2, acrescimo: ConferenciaDoAcrescimo::MudaConteudo);
+        $acrescimoNaoConferido = CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_DO_CARIMBO, ordem: 3, acrescimo: ConferenciaDoAcrescimo::NaoConferido);
 
         yield 'íntegro com uma nova: o validador decide' => [CadeiaDeExemplo::motor([$boa]), null];
         yield 'nova com acréscimo só da assinatura: o validador decide' => [CadeiaDeExemplo::motor([$antiga, CadeiaDeExemplo::assinaturaDoMotor(ordem: 2, acrescimo: ConferenciaDoAcrescimo::SoAssinatura)]), null];
@@ -78,8 +79,11 @@ final class RegraDaCadeiaTest extends TestCase
         yield 'nenhuma assinatura nova' => [CadeiaDeExemplo::motor([$boa], novas: 0), RegraDaCadeia::SEM_ASSINATURA_NOVA];
         yield 'só o carimbo de documento é novo' => [CadeiaDeExemplo::motor([$antiga, CadeiaDeExemplo::carimboDoMotor()]), RegraDaCadeia::SEM_ASSINATURA_NOVA];
         yield 'nova com acréscimo que muda o conteúdo (M27)' => [CadeiaDeExemplo::motor([$antiga, $mudaConteudo]), RegraDaCadeia::ACRESCIMO_MUDA_CONTEUDO];
-        yield 'acréscimo que muda o conteúdo vem antes do motor não conferido' => [CadeiaDeExemplo::motor([$antiga, $mudaConteudo], situacao: SituacaoDaConferencia::NaoConferido), RegraDaCadeia::ACRESCIMO_MUDA_CONTEUDO];
-        yield 'motor não conferido' => [CadeiaDeExemplo::motor([CadeiaDeExemplo::assinaturaDoMotor(veredito: VereditoDaAssinatura::NaoConferida)], situacao: SituacaoDaConferencia::NaoConferido), RegraDaCadeia::MOTOR_NAO_CONFERIDO];
+        yield 'acréscimo que muda o conteúdo vem antes do não conferido' => [CadeiaDeExemplo::motor([$antiga, $mudaConteudo, $acrescimoNaoConferido], novas: 2, situacao: SituacaoDaConferencia::NaoConferido), RegraDaCadeia::ACRESCIMO_MUDA_CONTEUDO];
+        yield 'nova com acréscimo não conferido' => [CadeiaDeExemplo::motor([$antiga, $acrescimoNaoConferido], situacao: SituacaoDaConferencia::NaoConferido), RegraDaCadeia::ACRESCIMO_NAO_CONFERIDO];
+        yield 'antiga que o motor não lê: o validador decide' => [CadeiaDeExemplo::motor([CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA, VereditoDaAssinatura::NaoConferida), $boa], situacao: SituacaoDaConferencia::NaoConferido), null];
+        yield 'nova que o motor não lê: o validador decide' => [CadeiaDeExemplo::motor([$antiga, CadeiaDeExemplo::assinaturaDoMotor(veredito: VereditoDaAssinatura::NaoConferida, ordem: 2, acrescimo: ConferenciaDoAcrescimo::SoAssinatura)], situacao: SituacaoDaConferencia::NaoConferido), null];
+        yield 'nova seguida do carimbo, situação não conferida: o validador decide' => [CadeiaDeExemplo::motor([$boa, CadeiaDeExemplo::carimboDoMotor()], novas: 2, situacao: SituacaoDaConferencia::NaoConferido), null];
     }
 
     #[DataProvider('antes')]

@@ -17,9 +17,11 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\VereditoDaAssinatura;
  *
  * Antes do validador ({@see antesDoValidador()}): motor `ilegivel` ou `sem_assinatura`, alguma assinatura `alterada`,
  * prefixo que não confere ou não pedido (E5-1), nenhuma assinatura nova, ou assinatura nova com acréscimo
- * `muda_conteudo` ou motor `nao_conferido` (M27: quem muda a página no próprio acréscimo assina o conteúdo mudado, e o
+ * `muda_conteudo` ou `nao_conferido` (M27: quem muda a página no próprio acréscimo assina o conteúdo mudado, e o
  * pyHanko não vê) recusam sem chamá-lo. O carimbo de documento (`/DocTimeStamp`,
- * {@see AssinaturaConferida::carimboDoTempo()}) não conta como assinatura nova: não vai ao validador nem dá CPF.
+ * {@see AssinaturaConferida::carimboDoTempo()}) não conta como assinatura nova: não vai ao validador nem dá CPF. A
+ * situação `nao_conferido` do motor por outro motivo não recusa: o carimbo (`naoverif`), os bytes depois da última
+ * assinatura (DSS), a assinatura antiga ou a nova que o motor não lê vão ao validador, e a cobertura e o `ltv` decidem.
  *
  * Depois ({@see decidir()}): cada assinatura nova do motor (as últimas `assinaturasNovas`, sem o carimbo) tem de casar
  * pela faixa com um item do validador `intacta`, `valida`, `confiavel` com a âncora do nível (ICP também vale para quem
@@ -41,7 +43,7 @@ final class RegraDaCadeia
     public const PREFIXO_NAO_PEDIDO = 'prefixo_nao_pedido';
     public const SEM_ASSINATURA_NOVA = 'sem_assinatura_nova';
     public const ACRESCIMO_MUDA_CONTEUDO = 'acrescimo_muda_conteudo';
-    public const MOTOR_NAO_CONFERIDO = 'motor_nao_conferido';
+    public const ACRESCIMO_NAO_CONFERIDO = 'acrescimo_nao_conferido';
     public const NAO_CONFERIDA = 'assinatura_nao_conferida';
     public const NAO_INTACTA = 'assinatura_nao_intacta';
     public const INVALIDA = 'assinatura_invalida';
@@ -102,8 +104,8 @@ final class RegraDaCadeia
             $motor->prefixo === ConferenciaDoPrefixo::NaoConfere => self::PREFIXO_NAO_CONFERE,
             $motor->prefixo === ConferenciaDoPrefixo::NaoPedida => self::PREFIXO_NAO_PEDIDO,
             $novas === [] => self::SEM_ASSINATURA_NOVA,
-            self::algumaMudaConteudo($novas) => self::ACRESCIMO_MUDA_CONTEUDO,
-            $motor->situacao === SituacaoDaConferencia::NaoConferido => self::MOTOR_NAO_CONFERIDO,
+            self::algumAcrescimo($novas, ConferenciaDoAcrescimo::MudaConteudo) => self::ACRESCIMO_MUDA_CONTEUDO,
+            self::algumAcrescimo($novas, ConferenciaDoAcrescimo::NaoConferido) => self::ACRESCIMO_NAO_CONFERIDO,
             default => null,
         };
     }
@@ -181,10 +183,10 @@ final class RegraDaCadeia
     }
 
     /** @param list<AssinaturaConferida> $novas */
-    private static function algumaMudaConteudo(array $novas): bool
+    private static function algumAcrescimo(array $novas, ConferenciaDoAcrescimo $problema): bool
     {
         foreach ($novas as $nova) {
-            if ($nova->acrescimo === ConferenciaDoAcrescimo::MudaConteudo) {
+            if ($nova->acrescimo === $problema) {
                 return true;
             }
         }
