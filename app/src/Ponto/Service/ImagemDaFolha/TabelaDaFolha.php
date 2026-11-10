@@ -147,24 +147,30 @@ final class TabelaDaFolha
                 return [$linha->observacao, $tamanho];
             }
         }
-        $resto = self::depoisDosAjustes($linha);
-        $cortada = $resto === null ? null : $this->ajustesCortados($linha->ajustes, LinhasDaFolhaImpressa::SEPARADOR . $resto, $maximo);
+        $fim = self::depoisDosAjustes($linha);
+        $cortada = $fim === null ? null : $this->ajustesCortados($linha->ajustes, $fim, $maximo);
 
         return [$cortada ?? $this->pagina->caber($linha->observacao, 'normal', self::OBSERVACAO_MENOR, $maximo), self::OBSERVACAO_MENOR];
     }
 
     /**
-     * O que vem depois dos ajustes na observação (o feriado, a pendência e as justificativas), ou null no dia sem ajuste
-     * ou só com ajustes.
+     * O que vem depois dos ajustes na observação, já com o separador (o feriado, a pendência e as justificativas):
+     * vazio no dia só com ajustes, que também se corta sem o " · " solto antes do "..."; null no dia sem ajuste.
      */
     private static function depoisDosAjustes(LinhaDaFolhaImpressa $linha): ?string
     {
+        if ($linha->ajustes === '') {
+            return null;
+        }
+        if ($linha->observacao === $linha->ajustes) {
+            return '';
+        }
         $comeco = $linha->ajustes . LinhasDaFolhaImpressa::SEPARADOR;
-        if ($linha->ajustes === '' || !str_starts_with($linha->observacao, $comeco)) {
+        if (!str_starts_with($linha->observacao, $comeco)) {
             return null;
         }
 
-        return substr($linha->observacao, strlen($comeco));
+        return LinhasDaFolhaImpressa::SEPARADOR . substr($linha->observacao, strlen($comeco));
     }
 
     /**

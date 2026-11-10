@@ -274,7 +274,8 @@ casa (ponto); no bloco 1 a mudança é só de aparência, o rigor da revisão é
 **Arquivos da frente jornada-vigencia** (nenhum PR aberto dela em 09/11; pendentes dela: trava nas versões, cabeçalho
 "Jornada alterada em dd/mm" no PDF e XLSX, padrão do escritório com vigência): `JornadaColaboradorController.php`,
 `_jornada_colaborador_tab.html.twig`, `HistoricoDeJornadas.php`, `JornadaColaboradorRepository.php`, os 3 UseCases de
-versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.html.twig`, `FolhaPontoXlsxExporter.php`,
+versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, a folha em imagem da E16 (`ConteudoDaFolhaDoMes` e
+`Service/ImagemDaFolha/`, no lugar do `folha_pdf.html.twig`, que saiu), `FolhaPontoXlsxExporter.php`,
 `JornadaTenant` e `_modal_jornada_tenant.html.twig`. Também foram tocados por ela: `PontoController.php` e
 `TenantController.php`.
 
@@ -1272,7 +1273,8 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
   sem código BJF e sem QR, nenhuma folha emitida é gravada e "Assinar folha" não aparece (o aceite se liga à folha
   emitida com código).
 - Migration: sim (folha emitida e aceite).
-- Arquivos: `folha_pdf.html.twig`, exportação do PDF no `PontoController.php`, `FolhaPontoXlsxExporter.php` se o código
+- Arquivos: `folha_pdf.html.twig` (saiu: a folha virou imagem em `Service/ImagemDaFolha/`), exportação do PDF no
+  `PontoController.php`, `FolhaPontoXlsxExporter.php` se o código
   for também no XLSX. Frente: é a pendência 2 dela ("Jornada alterada em dd/mm" no cabeçalho). Combinar quem entra primeiro.
   A forma de gerar a imagem no servidor se escolhe na E16, de preferência com o que já gera o PDF de hoje. A janela do
   "Ver PDF" (P89) troca o modal do Bootstrap pela moldura `.pe-janela` das janelas do Ponto (E4), aqui na E16

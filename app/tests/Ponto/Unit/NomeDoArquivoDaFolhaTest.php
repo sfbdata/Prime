@@ -22,8 +22,8 @@ final class NomeDoArquivoDaFolhaTest extends TestCase
         yield 'acento vira a letra sem acento' => ['JOÃO DA SILVA', 'JOAODASILVA', 'JOAODASILVA'];
         yield 'cedilha e caixa baixa' => ['Conceição Araújo', 'CONCEICAOARAUJO', 'ConceicaoAraujo'];
         yield 'dígitos só no XLSX' => ['Ana 2', 'ANA', 'Ana2'];
-        yield 'sem letra nenhuma' => ['123', 'Usuario', '123'];
-        yield 'vazio' => ['', 'Usuario', 'Usuario'];
+        yield 'sem letra nenhuma: USUARIO no PDF (decisão 26)' => ['123', 'USUARIO', '123'];
+        yield 'vazio' => ['', 'USUARIO', 'Usuario'];
     }
 
     #[DataProvider('nomes')]

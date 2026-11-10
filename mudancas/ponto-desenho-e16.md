@@ -24,4 +24,4 @@ tipo: alteracao
 - Na planilha (XLSX), a justificativa ainda não analisada aparece como "em análise", o mesmo nome usado na tela.
 - A assinatura da folha só aparece quando o BlueJus ligar o selo de segurança. O administrador do ponto pode desligá-la só no seu escritório, em Configurações do Ponto; as assinaturas já feitas continuam aparecendo.
 - No Painel do Master, o catálogo de recursos ganhou a chave "Ponto: aceite da folha", que liga ou desliga a assinatura mensal da folha para todos os escritórios de uma vez. Ela já vem ligada.
-- A equipe do BlueJus só consegue baixar a folha de ponto de quem é ou já foi do escritório, inclusive de quem já saiu da equipe. A folha de uma pessoa que nunca trabalhou no escritório não sai mais com o nome dele.
+- A equipe do BlueJus só consegue baixar a folha de ponto de quem é ou já foi do escritório, inclusive de quem já saiu da equipe. A folha de uma pessoa que nunca trabalhou no escritório não sai mais com o nome do escritório.
