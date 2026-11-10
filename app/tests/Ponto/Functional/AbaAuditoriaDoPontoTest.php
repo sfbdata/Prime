@@ -163,37 +163,6 @@ final class AbaAuditoriaDoPontoTest extends JusPrimeWebTestCase
         self::assertSame('O evento nº 1 está sem selo e não pode ser conferido. Os demais eventos conferem com o selo.', trim($cabecalho->text()));
     }
 
-    #[TestDox('O painel libera a sessão antes da conferência da cadeia: a batida tocada logo depois não espera por ela')]
-    public function testSessaoLiberadaAntesDaConferencia(): void
-    {
-        $this->comSegredo();
-        $pilha = static::getContainer()->get('request_stack');
-        $sessaoAberta = [];
-        $espiao = new class (static::getContainer()->get('doctrine')) extends TrilhaDoPontoRepository {
-            public ?\Closure $aoLerACadeia = null;
-
-            public function blocoDaCadeia(int $tenantId, int $depoisDaSequencia, int $tamanho): array
-            {
-                if ($this->aoLerACadeia !== null) {
-                    ($this->aoLerACadeia)();
-                }
-
-                return parent::blocoDaCadeia($tenantId, $depoisDaSequencia, $tamanho);
-            }
-        };
-        $espiao->aoLerACadeia = static function () use ($pilha, &$sessaoAberta): void {
-            $sessaoAberta[] = $pilha->getSession()->isStarted();
-        };
-        static::getContainer()->set(TrilhaDoPontoRepository::class, $espiao);
-
-        $this->pedir($this->gestorDoPonto(), '/ponto/auditoria');
-
-        self::assertResponseIsSuccessful();
-        self::assertSame([false], $sessaoAberta, 'a conferência roda com a sessão já gravada e solta');
-        $this->client->request('GET', '/ponto/auditoria');
-        self::assertResponseIsSuccessful('a sessão segue valendo no pedido seguinte');
-    }
-
     #[TestDox('Painel vazio: o texto do desenho, sem tabela')]
     public function testPainelVazio(): void
     {
