@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Integration;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\DadosDaFolhaEmitida;
+use App\Ponto\DTO\DadosDoAceiteDaFolha;
+use App\Ponto\Entity\AceiteDaFolhaDoPonto;
 use App\Ponto\Entity\FolhaEmitidaDoPonto;
+use App\Ponto\Enum\SituacaoDoAceiteDaFolha;
 use App\Ponto\Service\CodigoDaFolha;
 use App\Ponto\Service\ConteudoDaFolhaDoMes;
 use App\Ponto\Service\EmissaoDaFolha;
@@ -107,6 +111,23 @@ final class EmitirFolhaDoPontoUseCaseTest extends KernelTestCase
         self::assertSame('FOLHA DE PONTO · 10/2026', $conteudo->titulo());
     }
 
+    #[TestDox('Decisão 16 e seção 7: sem o segredo, o aceite já gravado continua carimbado no conteúdo (sem conferir o selo) e no selo da barra')]
+    public function testSemOSegredoOCarimboContinua(): void
+    {
+        $this->segredo(null);
+        $escritorio = $this->escritorio('Escritório da folha');
+        $maria = $this->pessoaComOutubro($escritorio);
+        $this->aceiteGravadoAntes($escritorio, $maria);
+
+        $conteudo = $this->emitir()->executar($escritorio, $maria, 2026, 10, $maria);
+        $estado = $this->estadoDoAceite()->daCompetencia($escritorio, $maria, 2026, 10);
+
+        self::assertSame(['Aceite com ressalva em 03/11/2026, 09:05:00', 'Ressalva: O dia 6 foi de folga.'], [$conteudo->carimbo?->texto(), $conteudo->carimbo?->textoDaRessalva()]);
+        self::assertNull($conteudo->validacao);
+        self::assertSame(['Ressalva em 03/11/2026', false, false], [$estado->textoDoSelo(), $estado->alterada, $estado->podeAssinar]);
+        self::assertCount(1, $this->folhasNoBanco($escritorio, $maria), 'só a folha vista do aceite: a emissão sem o segredo não grava');
+    }
+
     #[TestDox('Decisão 14: relida do banco, a coluna emitida_em é o instante do texto selado, e o selo confere')]
     public function testColunaIgualAoTextoSelado(): void
     {
@@ -177,6 +198,22 @@ final class EmitirFolhaDoPontoUseCaseTest extends KernelTestCase
     private function emitir(): EmitirFolhaDoPontoUseCase
     {
         return $this->emitirFolha();
+    }
+
+    /**
+     * Um aceite gravado quando o segredo ainda existia: a folha vista (com a impressão da folha de agora) e o aceite com
+     * ressalva, cada um com um selo que ninguém consegue conferir sem o segredo.
+     */
+    private function aceiteGravadoAntes(Tenant $escritorio, User $pessoa): void
+    {
+        [$codigo, $emitidaEm, $aceitoEm] = ['BJF-ABCD-EFGH-JK23', new \DateTimeImmutable('2026-11-03 09:00:00'), new \DateTimeImmutable('2026-11-03 09:05:00')];
+        $folhaDeAgora = $this->conteudoDaFolhaDoMes()->montar($escritorio, $pessoa, 2026, 10, $this->relogioDaFolha()->agora());
+        $dados = DadosDaFolhaEmitida::daEmissao($codigo, $escritorio, $pessoa, 2026, 10, $emitidaEm, $pessoa, $folhaDeAgora->impressaoDosRegistros(), $folhaDeAgora->resumoDosRegistros());
+        $vista = new FolhaEmitidaDoPonto($escritorio, $pessoa, $pessoa, 2026, 10, $codigo, str_repeat('f', 64), 1, $emitidaEm, $dados->impressaoRegistros, $dados->canonico());
+        $selado = DadosDoAceiteDaFolha::daAssinatura($vista, 1, SituacaoDoAceiteDaFolha::Ressalva, 'O dia 6 foi de folga.', $aceitoEm, null, null)->canonico();
+        $this->em()->persist($vista);
+        $this->em()->persist(new AceiteDaFolhaDoPonto($vista, 1, SituacaoDoAceiteDaFolha::Ressalva, 'O dia 6 foi de folga.', $aceitoEm, null, null, str_repeat('e', 64), 1, $selado));
+        $this->em()->flush();
     }
 
     /** @return list<array{acao: string, autor_id: ?int, id: ?int}> */

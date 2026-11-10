@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\AceiteDaFolhaOutput;
 use App\Ponto\DTO\ConteudoDaFolha;
 use App\Ponto\DTO\DadosDaFolhaEmitida;
+use App\Ponto\DTO\DadosDoAceiteDaFolha;
 use App\Ponto\Entity\AceiteDaFolhaDoPonto;
 use App\Ponto\Exception\AssinaturaDaFolhaRecusadaException;
 use App\Ponto\Repository\AceiteDaFolhaDoPontoRepository;
@@ -19,10 +20,13 @@ use App\Ponto\Repository\AceiteDaFolhaDoPontoRepository;
  * (O enum {@see \App\Ponto\Enum\SituacaoDoAceiteDaFolha} é a resposta de um aceite; este serviço é o estado da folha.)
  *
  * "Alterada depois do aceite" compara a impressão dos registros guardada DENTRO dos dados assinados da folha emitida
- * vista no aceite com a da folha de agora (decisão 3). Com o selo pronto, os dados assinados só valem depois de o HMAC
- * conferir: a folha vista que não confere (texto mexido, versão de chave perdida) conta como alterada, porque o aceite
- * não prova mais que a pessoa viu esta folha. Sem o segredo não há como conferir; a comparação usa o texto guardado,
- * para o selo da barra e o carimbo do PDF continuarem (seção 7 da spec).
+ * vista no aceite com a da folha de agora (decisão 3). Com o selo pronto, o aceite só vale depois de conferir a prova
+ * inteira: o HMAC da folha vista, o HMAC do próprio aceite (decisão 14) e a linha do aceite igual ao texto que ele selou
+ * (a folha vista pelo código, a situação, a ressalva, o instante, o IP, o navegador, o escritório, a pessoa, a
+ * competência e o número). O que não confere (texto mexido, coluna trocada, versão de chave perdida) conta como
+ * alterada: o aceite não prova mais o que a pessoa assinou, não vai carimbado nem selado numa folha nova, e o "Assinar
+ * folha" volta. Sem o segredo não há como conferir; vale o que está gravado, para o selo da barra e o carimbo do PDF
+ * continuarem (seção 7 da spec).
  *
  * Pode assinar (decisão 1 e desenho L816): a função `ponto-aceite` vale e o selo está pronto, o mês está fechado pelo
  * relógio do servidor, a competência está na lista da folha da pessoa (do mês do início da contagem dela neste
@@ -58,7 +62,10 @@ final class EstadoDoAceiteDaFolha
         return AceiteDaFolhaOutput::daCompetencia($folhaDeAgora->ano, $folhaDeAgora->mes, $vigente, $alterada, $impedimento);
     }
 
-    /** O aceite que vai carimbado na folha: o que vale, se a folha não mudou depois dele; senão, null. */
+    /**
+     * O aceite que vai carimbado e selado na folha: o que vale, se a folha não mudou depois dele e (com o selo pronto) a
+     * prova dele confere; senão, null.
+     */
     public function aceiteQueCarimba(Tenant $escritorio, User $pessoa, ConteudoDaFolha $folhaDeAgora): ?AceiteDaFolhaDoPonto
     {
         $vigente = $this->aceites->ultimoDaCompetencia($escritorio, $pessoa, $folhaDeAgora->ano, $folhaDeAgora->mes);
@@ -68,17 +75,47 @@ final class EstadoDoAceiteDaFolha
 
     private function alteradaDepois(AceiteDaFolhaDoPonto $aceite, ConteudoDaFolha $folhaDeAgora): bool
     {
-        $vista = $aceite->getFolhaVista();
-        if ($this->selo->disponivel() && !$this->selo->conferir($vista->getDadosAssinados(), $vista->getHmac(), $vista->getVersaoChave())) {
+        if ($this->selo->disponivel() && !$this->provaConfere($aceite)) {
             return true;
         }
         try {
-            $impressaoVista = DadosDaFolhaEmitida::deCanonico($vista->getDadosAssinados())->impressaoRegistros;
+            $impressaoVista = DadosDaFolhaEmitida::deCanonico($aceite->getFolhaVista()->getDadosAssinados())->impressaoRegistros;
         } catch (\UnexpectedValueException) {
             return true;
         }
 
         return !hash_equals($impressaoVista, $folhaDeAgora->impressaoDosRegistros());
+    }
+
+    /** Com o selo pronto: o HMAC da folha vista, o HMAC do aceite e a linha do aceite igual ao que ele selou. */
+    private function provaConfere(AceiteDaFolhaDoPonto $aceite): bool
+    {
+        $vista = $aceite->getFolhaVista();
+
+        return $this->selo->conferir($vista->getDadosAssinados(), $vista->getHmac(), $vista->getVersaoChave())
+            && $this->selo->conferir($aceite->getDadosAssinados(), $aceite->getHmac(), $aceite->getVersaoChave())
+            && self::linhaIgualAoSelado($aceite);
+    }
+
+    /**
+     * As colunas do aceite dizem o mesmo que o texto selado nele (decisão 14). O instante compara o relógio de parede:
+     * a coluna não guarda o fuso, e o texto selado guarda (o fuso do servidor, {@see RelogioDaFolha}).
+     */
+    private static function linhaIgualAoSelado(AceiteDaFolhaDoPonto $aceite): bool
+    {
+        try {
+            $selado = DadosDoAceiteDaFolha::deCanonico($aceite->getDadosAssinados());
+        } catch (\UnexpectedValueException) {
+            return false;
+        }
+
+        return [
+            $selado->codigoDaFolhaVista, $selado->situacao, $selado->ressalva, $selado->aceitoEm->format('Y-m-d H:i:s'),
+            $selado->ip, $selado->navegador, $selado->escritorioId, $selado->pessoaId, $selado->ano, $selado->mes, $selado->numero,
+        ] === [
+            $aceite->getFolhaVista()->getCodigo(), $aceite->getSituacao(), $aceite->getRessalva(), $aceite->getAceitoEm()->format('Y-m-d H:i:s'),
+            $aceite->getIp(), $aceite->getNavegador(), $aceite->getTenant()?->getId(), $aceite->getUser()->getId(), $aceite->getAno(), $aceite->getMes(), $aceite->getNumero(),
+        ];
     }
 
     private function impedimento(Tenant $escritorio, User $pessoa, ConteudoDaFolha $folha, \DateTimeImmutable $agora, bool $jaAssinada): ?string
