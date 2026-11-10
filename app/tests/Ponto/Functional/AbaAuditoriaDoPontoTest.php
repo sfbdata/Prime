@@ -113,7 +113,7 @@ final class AbaAuditoriaDoPontoTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha);
         self::assertSame('Batida registrada', $linha->filter('tr > td:nth-child(3) > b')->text());
         self::assertSame('Pessoa gestor', $linha->filter('tr > td:nth-child(2)')->text());
-        self::assertSame('Ana: Entrada às 08:01 de 10/03/2026, em home office', $linha->filter('tr > td.pe-audit-detalhe:nth-child(4)')->text());
+        self::assertSame('Ana: Entrada às 08:01:00 de 10/03/2026 · home office', $linha->filter('tr > td.pe-audit-detalhe:nth-child(4)')->text());
         $selo = $linha->filter('tr > td:nth-child(5) > code.pe-audit-selo');
         self::assertMatchesRegularExpression('/^[0-9a-f]{8}$/', $selo->text());
         self::assertSame($selo->text(), substr((string) $selo->attr('title'), 0, 8), 'o selo inteiro no title');

@@ -17,6 +17,12 @@ use App\Ponto\Enum\TipoJustificativa;
  * O detalhe gravado é selado: mudar o que se monta aqui vale só para os eventos novos. O texto, não: é lido de novo a
  * cada vez e pode mudar à vontade, inclusive para eventos antigos. Nada de observação livre, anexo ou coordenada no
  * detalhe: a trilha diz quem fez o quê, quando e de quem.
+ *
+ * O texto segue o do desenho 16 (dc L544, L601, L768), com as partes separadas por " · ": a batida é "Entrada às
+ * 08:01:12", com " · sem internet" quando veio da fila; a justificativa é "dd/mm/aaaa · Tipo · Saída às 18:00". Ficam,
+ * como extras necessários, o nome do colaborador na frente (o autor da linha nem sempre é ele), a data da batida (a
+ * da fila e a do esquecimento não são do dia do evento), o " · home office" (a marca do lugar, como o " · trabalho
+ * externo" do desenho) e o período do lote ("de a até (N dias)"), que grava um evento só para o envio inteiro.
  */
 final class DetalheDaTrilhaDoPonto
 {
@@ -31,11 +37,12 @@ final class DetalheDaTrilhaDoPonto
     public static function daBatida(RegistroPonto $batida): array
     {
         return self::colaborador($batida->getUser()) + [
-            'tipo'        => $batida->getTipo(),
-            'data_hora'   => $batida->getDataHora()?->format('Y-m-d H:i:s'),
-            'home_office' => $batida->isHomeOffice(),
-            'sede'        => $batida->getSedeNomeSnapshot(),
+            'tipo'             => $batida->getTipo(),
+            'data_hora'        => $batida->getDataHora()?->format('Y-m-d H:i:s'),
+            'home_office'      => $batida->isHomeOffice(),
+            'sede'             => $batida->getSedeNomeSnapshot(),
             'trabalho_externo' => $batida->isTrabalhoExterno(),   // E12
+            'sem_internet'     => $batida->isEnviadaSemInternet(),
         ];
     }
 
@@ -136,7 +143,7 @@ final class DetalheDaTrilhaDoPonto
 
         return $quem . ': ' . match ($evento) {
             AcaoDaTrilhaDoPonto::BatidaRegistrada     => self::textoDaBatida($detalhe),
-            AcaoDaTrilhaDoPonto::BatidaDoEsquecimento => self::textoDaBatida($detalhe) . ', pedida no esquecimento',
+            AcaoDaTrilhaDoPonto::BatidaDoEsquecimento => self::textoDaBatida($detalhe) . ' · pedida no esquecimento',
             AcaoDaTrilhaDoPonto::JustificativaEnviada,
             AcaoDaTrilhaDoPonto::JustificativaLancada,
             AcaoDaTrilhaDoPonto::AbonoEmLote          => self::textoDoLote($detalhe),
@@ -172,13 +179,12 @@ final class DetalheDaTrilhaDoPonto
     /** @param array<string, mixed> $detalhe */
     private static function textoDaBatida(array $detalhe): string
     {
-        $tipo     = self::BATIDAS[self::textoDe($detalhe, 'tipo') ?? ''] ?? (self::textoDe($detalhe, 'tipo') ?? 'Batida');
-        $momento  = self::momento(self::textoDe($detalhe, 'data_hora'), 'H:i \d\e d/m/Y');
-        $onde     = ($detalhe['home_office'] ?? false) === true ? ', em home office' : '';
-        $sede     = self::textoDe($detalhe, 'sede');
-        $onde     = $onde === '' && $sede !== null ? ', na sede ' . $sede : $onde;
+        $tipo    = self::BATIDAS[self::textoDe($detalhe, 'tipo') ?? ''] ?? (self::textoDe($detalhe, 'tipo') ?? 'Batida');
+        $momento = self::momento(self::textoDe($detalhe, 'data_hora'), 'H:i:s \d\e d/m/Y');
+        $marcas  = (($detalhe['home_office'] ?? false) === true ? ' · home office' : '')
+            . (($detalhe['sem_internet'] ?? false) === true ? ' · sem internet' : '');
 
-        return $tipo . ($momento !== null ? ' às ' . $momento : '') . $onde;
+        return $tipo . ($momento !== null ? ' às ' . $momento : '') . $marcas;
     }
 
     /** @param array<string, mixed> $detalhe */
@@ -186,7 +192,7 @@ final class DetalheDaTrilhaDoPonto
     {
         $data = self::momento(self::textoDe($detalhe, 'data'), 'd/m/Y');
 
-        return self::tipoDaJustificativa($detalhe) . ($data !== null ? ' de ' . $data : '') . self::textoDoEsquecimento($detalhe);
+        return self::partes([$data, self::tipoDaJustificativa($detalhe), self::textoDoEsquecimento($detalhe)]);
     }
 
     /** @param array<string, mixed> $detalhe */
@@ -195,10 +201,9 @@ final class DetalheDaTrilhaDoPonto
         $de         = self::momento(self::textoDe($detalhe, 'de'), 'd/m/Y');
         $ate        = self::momento(self::textoDe($detalhe, 'ate'), 'd/m/Y');
         $quantidade = (int) ($detalhe['quantidade'] ?? 0);
-        $periodo    = $de === null ? '' : ($de === $ate || $ate === null ? ' de ' . $de : ' de ' . $de . ' a ' . $ate);
-        $dias       = $quantidade > 1 ? sprintf(' (%d dias)', $quantidade) : '';
+        $periodo    = $de === null || $ate === null || $de === $ate ? $de : sprintf('%s a %s', $de, $ate) . ($quantidade > 1 ? sprintf(' (%d dias)', $quantidade) : '');
 
-        return self::tipoDaJustificativa($detalhe) . $periodo . $dias . self::textoDoEsquecimento($detalhe);
+        return self::partes([$periodo, self::tipoDaJustificativa($detalhe), self::textoDoEsquecimento($detalhe)]);
     }
 
     /**
@@ -231,16 +236,30 @@ final class DetalheDaTrilhaDoPonto
     {
         $anterior = self::SITUACOES[self::textoDe($detalhe, 'situacao_anterior') ?? ''] ?? null;
 
-        return $anterior === null ? '' : ', estava ' . $anterior;
+        return $anterior === null ? '' : ' · estava ' . $anterior;
     }
 
-    /** @param array<string, mixed> $detalhe */
-    private static function textoDoEsquecimento(array $detalhe): string
+    /**
+     * O subtítulo do esquecimento, como o da lista (`_justificativa_macros.html.twig`): "Saída às 18:00".
+     *
+     * @param array<string, mixed> $detalhe
+     */
+    private static function textoDoEsquecimento(array $detalhe): ?string
     {
         $batida = self::BATIDAS[self::textoDe($detalhe, 'batida_esquecida') ?? ''] ?? null;
         $hora   = self::textoDe($detalhe, 'hora_esquecida');
 
-        return $batida === null || $hora === null ? '' : sprintf(' (%s às %s)', $batida, $hora);
+        return $batida === null || $hora === null ? null : sprintf('%s às %s', $batida, $hora);
+    }
+
+    /**
+     * Junta as partes que vieram com " · ", como o desenho (dc L601, L768).
+     *
+     * @param list<?string> $partes
+     */
+    private static function partes(array $partes): string
+    {
+        return implode(' · ', array_filter($partes, static fn (?string $parte): bool => $parte !== null && $parte !== ''));
     }
 
     /** @param array<string, mixed> $detalhe */

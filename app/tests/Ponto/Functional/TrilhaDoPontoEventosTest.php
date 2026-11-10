@@ -58,8 +58,32 @@ final class TrilhaDoPontoEventosTest extends JusPrimeWebTestCase
         self::assertSame(['batida_registrada'], array_column($eventos, 'acao'));
         self::assertSame((int) $colaborador->getId(), $eventos[0]['autor_id']);
         self::assertSame('Pessoa colab', $eventos[0]['autor_nome']);
-        self::assertSame(['entrada', true], [$eventos[0]['detalhe']['tipo'], $eventos[0]['detalhe']['home_office']]);
+        self::assertSame(['entrada', true, false], [$eventos[0]['detalhe']['tipo'], $eventos[0]['detalhe']['home_office'], $eventos[0]['detalhe']['sem_internet']]);
         self::assertSame(1, $eventos[0]['sequencia']);
+    }
+
+    #[TestDox('A batida que veio da fila sem internet grava a marca no detalhe, e a aba Auditoria mostra " · sem internet" (dc L544)')]
+    public function testBatidaDaFilaGravaSemInternet(): void
+    {
+        $colaborador = $this->pessoa('fila');
+        $this->vincularColaborador($colaborador, $this->escritorio);
+        $this->liberarHomeOffice($colaborador);
+        $aparelho = new \DateTimeImmutable('-3 hours');
+
+        $this->bater($colaborador, [
+            'tipo'         => 'entrada',
+            'idEnvio'      => '7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f',
+            'horaAparelho' => $aparelho->getTimestamp() * 1000,
+            'semInternet'  => true,
+            'usuarioId'    => $colaborador->getId(),
+            'escritorioId' => $this->escritorio->getId(),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $eventos = $this->eventos();
+        self::assertSame(['batida_registrada'], array_column($eventos, 'acao'));
+        self::assertTrue($eventos[0]['detalhe']['sem_internet']);
+        self::assertStringEndsWith(' · home office · sem internet', DetalheDaTrilhaDoPonto::texto('batida_registrada', $eventos[0]['detalhe']));
     }
 
     #[TestDox('Batida recusada (fora da área da sede) não escreve na trilha')]
@@ -178,7 +202,7 @@ final class TrilhaDoPontoEventosTest extends JusPrimeWebTestCase
         self::assertSame(2, $eventos[0]['detalhe']['quantidade']);
         self::assertSame(1, $eventos[1]['detalhe']['quantidade']);
         self::assertSame(
-            sprintf('Pessoa colab: Atestado Médico de %s a %s (2 dias)', $this->dia->format('d/m/Y'), $this->dia->modify('+1 day')->format('d/m/Y')),
+            sprintf('Pessoa colab: %s a %s (2 dias) · Atestado Médico', $this->dia->format('d/m/Y'), $this->dia->modify('+1 day')->format('d/m/Y')),
             DetalheDaTrilhaDoPonto::texto($eventos[0]['acao'], $eventos[0]['detalhe']),
             'o "aprovar todos" da ficha continua com o texto dele, diferente do lote da aba Equipe',
         );
