@@ -86,10 +86,13 @@ final readonly class DuplicarDocumentoUseCase
         }
     }
 
-    /** O original só vem com o PDF (cópia sem página do PDF não guarda PDF), num arquivo próprio da cópia. */
+    /**
+     * O original vem num arquivo próprio da cópia, com ou sem página do PDF no conteúdo (o original não depende dos
+     * blocos, E5-12): a cópia leva o parágrafo dele nos blocos e tem de levar o original junto.
+     */
     private function copiarOriginal(DocumentoParaAssinar $origem, DocumentoParaAssinar $copia, TrocaDeArquivos $troca, \DateTimeImmutable $agora): void
     {
-        $original = $copia->temArquivo() ? $this->versoes->original($origem) : null;
+        $original = $this->versoes->original($origem);
         if ($original === null) {
             return;
         }

@@ -82,6 +82,17 @@ final readonly class ArquivosDoRascunho
      *
      * @throws AcaoRecusada
      */
+    /**
+     * Algum bloco é o parágrafo de evidência de um original (dc:374)? Sem página do PDF, é ele que diz que o conteúdo
+     * ainda é o do original e não foi trocado.
+     *
+     * @param list<array<string, int|string>> $blocos já normalizados
+     */
+    public function temParagrafoDoOriginal(array $blocos): bool
+    {
+        return $this->semParagrafo($blocos)['lugar'] !== null;
+    }
+
     public function exigirLugarParaOParagrafo(array $blocos, DocumentoParaAssinar $documento, bool $mudaOriginal, ?OriginalJaAssinado $novo): void
     {
         if ($this->paragrafoQueFica($documento, $mudaOriginal, $novo) !== null) {
