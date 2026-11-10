@@ -9,6 +9,11 @@
     e "Baixar XLSX" (P89 e P88), "A conferir" e "Home Office" (P28), "Não abonada" e o horário do abono parcial (P31),
     o feriado trabalhado, a dica do "Registro incompleto", o sinal de registro em outro escritório, as batidas fora da
     conta do gestor e os totais do mês (P32). Nada aqui calcula saldo: os números são os do FolhaPontoBuilder.
+
+    E16 (P22, D19; decisões 1, 2, 4, 10, 11, 12 e 15): o selo do aceite que vale (`aceiteDaFolha`, um
+    App\Ponto\DTO\AceiteDaFolhaOutput ou null), o "Assinar folha" só com `assinarFolhaHabilitado` (a /ponto da própria
+    pessoa; a ficha do gestor mostra só o selo), o "Ver PDF" na janela do desenho (sai o modal do Bootstrap) e o "Baixar
+    PDF" com o aviso flutuante. Comportamento em js/ponto-folha.js; a janela do aceite mora em _janela_aceite.html.twig.
 #}
 {% import 'ponto/_folha_macros.html.twig' as folha %}
 {% set competenciaParts = competenciaSelecionada|default('') ? competenciaSelecionada|split('-') : [] %}
@@ -31,6 +36,8 @@
 {% set desconsideradasPorDia = desconsideradasPorDia|default({}) %}
 {% set editarBatidasParametros = editarBatidasParametros|default({}) %}
 {% set jornadaInfo = jornadaInfo|default(null) %}
+{% set aceiteDaFolha = aceiteDaFolha|default(null) %}
+{% set assinarFolhaHabilitado = assinarFolhaHabilitado|default(false) %}
 {# Ficha do admin: dias em que a pessoa bateu em OUTRO escritório com o ponto daqui aberto (spec
    ponto-esquecimento-nao-trava R8). Só o sinal, sem dizer qual escritório; só na tela, como o "Registro incompleto". #}
 {% set diasComRegistroEmOutroEscritorio = diasComRegistroEmOutroEscritorio|default({}) %}
@@ -85,6 +92,14 @@
                 {% endfor %}
             </select>
         {% endif %}
+        {# Selo do aceite (L145 e L816): o último aceite, ou "Alterada depois do aceite" no lugar dele (decisões 1 e 4).
+           Fica com a função desligada ou sem o segredo: some só o "Assinar folha". O texto vem só do `textoDoSelo()`;
+           a situação escolhe só a cor, e só quando a folha não está alterada (a prova que não confere já vem como
+           alterada). A ressalva e a data gravadas não aparecem direto na tela. #}
+        {% set textoDoAceite = aceiteDaFolha is not null ? aceiteDaFolha.textoDoSelo() : null %}
+        {% if textoDoAceite is not null %}
+            <span class="pe-folha-aceite pe-folha-aceite--{{ aceiteDaFolha.alterada ? 'alterada' : aceiteDaFolha.situacao.value }}"><i class="bi bi-pen" aria-hidden="true"></i>{{ textoDoAceite }}</span>
+        {% endif %}
         {% if jornadaInfo is not null %}
             {% set horasDaJornada = jornadaInfo.cargaHorariaSemanal // 60 %}
             {% set minutosDaJornada = jornadaInfo.cargaHorariaSemanal % 60 %}
@@ -95,16 +110,22 @@
             {% set urlPdf       = path('ponto_exportar_pdf',  exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) %}
             {% set urlPdfInline = path('ponto_exportar_pdf',  exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved, inline: 1})) %}
             {% set urlXlsx      = path('ponto_exportar_xlsx', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) %}
-            {% set nomePdf = 'Folha de Ponto ' ~ ('%02d'|format(exportarMesResolved)) ~ '/' ~ exportarAnoResolved ~ '.pdf' %}
-            {# P89 e P88 (ficam): ver o PDF antes de baixar e a planilha. P87: "Baixar PDF" baixa direto, por último. #}
-            <button type="button" class="pe-folha-btn" data-bs-toggle="modal" data-bs-target="#modalPreviewFolhaPonto"
-                    data-url="{{ urlPdfInline }}" data-download="{{ urlPdf }}" data-nome="{{ nomePdf }}">
+            {# P89 e P88 (ficam): ver o PDF antes de baixar e a planilha. Ordem da decisão 11: "Ver PDF", "Baixar XLSX",
+               "Assinar folha" e "Baixar PDF" (P87: baixa direto, por último). #}
+            <button type="button" class="pe-folha-btn" data-folha-ver="{{ urlPdfInline }}">
                 <i class="bi bi-eye" aria-hidden="true"></i>Ver PDF
             </button>
             <button type="button" class="pe-folha-btn" data-folha-baixar="{{ urlXlsx }}">
                 <i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i>Baixar XLSX
             </button>
-            <button type="button" class="pe-folha-btn" data-folha-baixar="{{ urlPdf }}">
+            {# L146 e L816: mês fechado, sem aceite que valha, função ligada e segredo presente (`podeAssinar`), e só na
+               folha da própria pessoa (decisão 10: a ficha do gestor não passa `assinarFolhaHabilitado`). #}
+            {% if assinarFolhaHabilitado and aceiteDaFolha is not null and aceiteDaFolha.podeAssinar %}
+                <button type="button" class="pe-folha-btn" data-folha-assinar>
+                    <i class="bi bi-pen" aria-hidden="true"></i>Assinar folha
+                </button>
+            {% endif %}
+            <button type="button" class="pe-folha-btn" data-folha-pdf="{{ urlPdf }}">
                 <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>Baixar PDF
             </button>
         {% endif %}
@@ -334,62 +355,28 @@
 {% endif %}
 
 {% if exportarFolhaHabilitado %}
-<div class="modal fade" id="modalPreviewFolhaPonto" tabindex="-1" aria-labelledby="modalPreviewFolhaPontoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header py-2">
-                <h5 class="modal-title" id="modalPreviewFolhaPontoLabel">
-                    <i class="bi bi-eye me-1"></i> <span id="previewFolhaNome"></span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+{# Janela "Ver PDF" (P89, decisão 12) na moldura do desenho (L269 a L318), no lugar do modal do Bootstrap; o aviso
+   flutuante do "Baixar PDF" (L266) entra aqui também. O portador leva a classe `pe-folha` só pelos tokens `--pe-*` (a
+   ficha do gestor não tem `.pe-page` em volta) e fica fora do cartão: depois da batida a /ponto troca só o cartão. #}
+<div class="pe-folha pe-folha-janelas" data-folha-janelas>
+    <div class="pe-janela-fundo" id="ponto-janela-ver-pdf" hidden>
+        <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Ver PDF">
+            <div class="pe-janela-topo">
+                <i class="bi bi-eye" aria-hidden="true"></i><b class="pe-janela-titulo">Folha de Ponto {{ exportarAnoResolved and exportarMesResolved ? ('%02d'|format(exportarMesResolved)) ~ '/' ~ exportarAnoResolved : '' }}</b>
+                <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-folha-ver-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
-            <div class="modal-body p-0 d-flex align-items-center justify-content-center" style="min-height: 75vh;">
-                <div id="previewFolhaConteudo" class="w-100 h-100"></div>
+            <div class="pe-janela-corpo" data-folha-ver-corpo>
+                <div class="pe-janela-texto">Gerando a folha em PDF...</div>
             </div>
-            <div class="modal-footer py-2">
-                <a id="previewFolhaDownload" href="#" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-download me-1"></i> Baixar
-                </a>
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            <div class="pe-janela-erro" data-folha-ver-erro hidden></div>
+            <div class="pe-janela-rodape">
+                <button type="button" class="pe-janela-cancelar" data-folha-ver-fechar>Fechar</button>
+                <button type="button" class="pe-janela-acao" data-folha-ver-baixar disabled>Baixar</button>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-(function () {
-    // "Baixar PDF" e "Baixar XLSX" (P87 e P88): a resposta vem como anexo, então ir até ela baixa sem sair da tela.
-    // Delegado no documento: depois da batida a /ponto troca a folha inteira e os botões novos continuam funcionando.
-    document.addEventListener('click', function (e) {
-        var botao = e.target.closest('[data-folha-baixar]');
-        if (botao) {
-            window.location.href = botao.dataset.folhaBaixar;
-        }
-    });
-
-    var modal = document.getElementById('modalPreviewFolhaPonto');
-    if (!modal) { return; }
-
-    // "Ver PDF" (P89, fica): o PDF dentro da janela, com o botão de baixar.
-    modal.addEventListener('show.bs.modal', function (e) {
-        var btn = e.relatedTarget;
-        var conteudo = document.getElementById('previewFolhaConteudo');
-        var quadro = document.createElement('iframe');
-
-        document.getElementById('previewFolhaNome').textContent = btn.dataset.nome;
-        document.getElementById('previewFolhaDownload').href = btn.dataset.download;
-        quadro.src = btn.dataset.url;
-        quadro.className = 'w-100 border-0';
-        quadro.style.height = '78vh';
-        quadro.title = btn.dataset.nome;
-        conteudo.replaceChildren(quadro);
-    });
-
-    modal.addEventListener('hide.bs.modal', function () {
-        document.getElementById('previewFolhaConteudo').replaceChildren();
-    });
-}());
-</script>
+<script src="{{ asset('js/ponto-folha.js') }}"></script>
 {% endif %}
 
 {# O "x" da batida na ficha (E10): abre a janela "Desconsiderar batida" da ficha com o endereço, o token por intenção e

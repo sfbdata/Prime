@@ -1,0 +1,45 @@
+{#
+    Janela "Assinar folha" (E16, P22 e P33; desenho 16 L269 a L318, corpo L290, erro L312, rodapé L313 a L317, título e
+    ícone L766, "Cancelar" L801, envio L809): a moldura das janelas do Ponto (E3 e E4), com a competência, a posição da
+    pessoa e a ressalva. Abre em "Concordo", com a ressalva vazia (`abrirAss`, L816). O campo da ressalva fica sempre à
+    vista, como no desenho; no "Concordo" o texto não é gravado.
+
+    O envio é o formulário normal (POST para `ponto_folha_assinar` e volta para a /ponto na competência, com o aviso do
+    topo, como a E4; decisão 15). "Discordo" sem texto não sai da janela: "Descreva a ressalva." na linha de erro
+    (L809). As outras recusas (mês aberto, já assinada, função desligada) chegam no aviso do topo. Comportamento em
+    js/ponto-folha.js; abrir, Esc, foco e fechar vêm do js/ponto-abas.js (a moldura da E3).
+
+    Recebe `competenciaSelecionada` (AAAA-MM). Só entra na página quando o "Assinar folha" aparece.
+#}
+{% set partesDaCompetencia = competenciaSelecionada|split('-') %}
+<div class="pe-janela-fundo" id="ponto-janela-aceite" hidden>
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Assinar folha" method="post"
+          action="{{ path('ponto_folha_assinar') }}" data-janela-form="aceite" novalidate>
+        <input type="hidden" name="_token" value="{{ csrf_token('ponto_folha_assinar') }}">
+        <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+
+        <div class="pe-janela-topo">
+            <i class="bi bi-pen" aria-hidden="true"></i><b class="pe-janela-titulo">Assinar folha</b>
+            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+
+        <div class="pe-janela-corpo">
+            <div class="pe-janela-texto">Competência <b>{{ partesDaCompetencia[1] }}/{{ partesDaCompetencia[0] }}</b>. Confira os registros antes de confirmar.</div>
+            <label class="pe-janela-rotulo">Sua posição
+                <select name="situacao" class="pe-janela-select" data-aceite-situacao>
+                    <option value="concordo" selected>Concordo: os registros representam fielmente minha jornada</option>
+                    <option value="ressalva">Discordo de parte dos registros (ressalva)</option>
+                </select>
+            </label>
+            <label class="pe-janela-rotulo">Ressalva
+                <textarea name="ressalva" rows="3" maxlength="{{ constant('App\\Ponto\\Entity\\AceiteDaFolhaDoPonto::LIMITE_DA_RESSALVA') }}" class="pe-janela-campo" data-aceite-ressalva></textarea>
+            </label>
+        </div>
+
+        <div class="pe-janela-erro" data-janela-erro hidden></div>
+        <div class="pe-janela-rodape">
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
+            <button type="submit" class="pe-janela-acao" data-janela-enviar>Confirmar</button>
+        </div>
+    </form>
+</div>

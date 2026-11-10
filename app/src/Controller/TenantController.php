@@ -16,6 +16,7 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\EstadoDoAceiteDaFolha;
 use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
@@ -687,7 +688,8 @@ final class TenantController extends AbstractController
         RegraDosPrimarios $regraDosPrimarios,
         HierarquiaDePerfis $hierarquia,
         JornadaColaboradorRepository $jornadaColaboradorRepository,
-        RegistrarTrocaDeLotacaoUseCase $registrarTrocaDeLotacao
+        RegistrarTrocaDeLotacaoUseCase $registrarTrocaDeLotacao,
+        EstadoDoAceiteDaFolha $estadoDoAceite
     ): Response {
         $currentUser = $this->getUser();
 
@@ -948,6 +950,7 @@ final class TenantController extends AbstractController
             'desconsideradasPorDia'  => \App\Ponto\DTO\BatidaDesconsideradaOutput::porDia($registroPontoRepository->desconsideradasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado)),
             'colegas'                => $colegas,
             'formDadosPessoais'      => $formDadosPessoais->createView(),
+            'aceiteDaFolhaPonto'     => $competenciaSelecionada < $competenciaAtualPonto ? $estadoDoAceite->daCompetencia($tenant, $user, $anoSelecionado, $mesSelecionado) : null,   // E16, decisão 10: só o selo
         ]);
     }
 

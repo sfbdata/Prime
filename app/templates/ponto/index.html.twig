@@ -9,8 +9,9 @@
     "Editar justificativa" na moldura do desenho, sem modal do Bootstrap (js/ponto-janelas.js). Etapa E8: a tela cheia
     do registro (ponto/_tela_cheia.html.twig, js/ponto-tela-cheia.js), o aviso flutuante (js/ponto-aviso-flutuante.js),
     os sons e o botão de som (js/ponto-sons.js) e o lembrete de saída, cada um com a sua função (`ponto-animacao`,
-    `ponto-sons`, `ponto-lembrete`). O cabeçalho e o menu do topo do desenho são a moldura do sistema (base.html.twig).
-    CSS da tela: public/css/ponto-eletronico.css.
+    `ponto-sons`, `ponto-lembrete`). Etapa E16: o selo do aceite e o "Assinar folha" na barra da folha, a janela do
+    aceite (ponto/_janela_aceite.html.twig) e o "Ver PDF" na moldura do desenho (js/ponto-folha.js). O cabeçalho e o
+    menu do topo do desenho são a moldura do sistema (base.html.twig). CSS da tela: public/css/ponto-eletronico.css.
 #}
 
 {% block body_class %}pe-body{% endblock %}
@@ -263,7 +264,9 @@
                 esquecimentosEmAnalise: esquecimentosEmAnalise,
                 dataHoje: dataHoje,
                 horasPagasMinutos: horasPagasMinutos,
-                saldoMesMinutos: saldoMesMinutos
+                saldoMesMinutos: saldoMesMinutos,
+                aceiteDaFolha: aceiteDaFolha,
+                assinarFolhaHabilitado: true
             } only %}
             </div>
 
@@ -290,6 +293,11 @@
 
     {# Janela "Antes de registrar" (E11, P21): o alerta do intervalo, da interjornada ou do descanso semanal. #}
     {% include 'ponto/_janela_antes_de_registrar.html.twig' only %}
+
+    {# Janela "Assinar folha" (E16, P33): só quando o botão aparece na barra da folha. #}
+    {% if aceiteDaFolha is not null and aceiteDaFolha.podeAssinar %}
+        {% include 'ponto/_janela_aceite.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
+    {% endif %}
 
     {# Janelas da E4 na moldura do desenho (L269 a L318), dentro da página para herdar os tokens `--pe-*`. Comportamento
        em js/ponto-janelas.js; Esc, foco e fechar vêm do js/ponto-abas.js (a mesma moldura da E3). #}

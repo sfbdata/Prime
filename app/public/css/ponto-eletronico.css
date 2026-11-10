@@ -1715,3 +1715,65 @@
 }
 /* "Restaurar" da linha "Desconsideradas" da ficha (sistema; o desenho não mostra a ficha, P60): o molde do "+". */
 .pe-mais--restaurar { color: var(--pe-link); }
+
+/* --- E16: folha, aceite mensal e Ver PDF (P22, P33, D19). --- */
+/* Selo do aceite na barra da folha (L145 e L816): o aceite que vale, com a data. Verde no "Assinada em", ocre no
+   "Ressalva em" e vermelho no "Alterada depois do aceite" (decisão 4, no lugar dos outros dois). Texto branco nos
+   dois temas, como no desenho. */
+.pe-folha-aceite {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 3px;
+    background: #1e7b45;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+.pe-folha-aceite--ressalva { background: #8a6200; }
+.pe-folha-aceite--alterada { background: #a3232b; }
+
+/* Portador dos tokens da janela "Ver PDF" e do aviso flutuante fora da /ponto: a ficha do gestor não tem `.pe-page`
+   em volta, e os tokens `--pe-*` moram em `.pe-page` e `.pe-folha`. O portador leva a classe do cartão só pelos
+   tokens: sem moldura, sem fundo e sem altura (o que tem dentro é `position: fixed`). */
+.pe-folha.pe-folha-janelas {
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+}
+
+/* Janela "Ver PDF" (P89, decisão 12): a moldura do desenho (L269 a L318) com o PDF num quadro. O desenho não tem
+   esta janela; a altura do quadro é a do modal que ela substitui (78vh). */
+.pe-janela-corpo.pe-folha-ver-quadro { padding: 0; }
+.pe-folha-ver-quadro > iframe {
+    display: block;
+    width: 100%;
+    height: 78vh;
+    border: 0;
+}
+
+/* Aviso flutuante (L266 e L468), o mesmo da E10 (`.pe-sf-aviso`), também na ficha do gestor: verde no que deu certo,
+   azul no "Gerando a folha em PDF..." (L718) e vermelho na falha (L728). */
+.pe-folha-janelas > .pe-sf-aviso {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 2147483000;
+    max-width: calc(100vw - 28px);
+    box-sizing: border-box;
+    background: #1e7b45;
+    color: #fff;
+    padding: 11px 16px;
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(18, 36, 47, .25);
+    font-size: 14px;
+    line-height: normal;
+    animation: pe-sf-aviso-sobe .2s ease both;
+}
+.pe-folha-janelas > .pe-sf-aviso--info { background: #0a6fa0; }
+.pe-folha-janelas > .pe-sf-aviso--erro { background: #a3232b; }

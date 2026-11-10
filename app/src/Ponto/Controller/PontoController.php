@@ -22,6 +22,7 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Service\HomeOfficeResolver;
 use App\Ponto\Service\NomeDoArquivoDaFolha;
+use App\Ponto\Service\EstadoDoAceiteDaFolha;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
@@ -181,6 +182,7 @@ final class PontoController extends AbstractController
         JustificativasAAnalisarDaEquipe $aAnalisarDaEquipe,
         PontoAjusteRepository $ajustes,
         FeriadosDaPessoa $feriadosDaPessoa,
+        EstadoDoAceiteDaFolha $estadoDoAceite,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -336,6 +338,9 @@ final class PontoController extends AbstractController
             'comprovantes'             => $abaDosComprovantes->linhas($user, $tenant),
             // Aba "Banco de Horas" (E17): nulo esconde a aba.
             'bancoDeHoras'             => $bancoDeHoras,
+            // E16 (P22; decisões 1, 4 e 16): o selo do aceite e o "Assinar folha". O mês corrente não tem aceite nem
+            // pode ser assinado (mês aberto), então a folha dele nem é montada para isso.
+            'aceiteDaFolha'            => $competenciaSelecionada < $competenciaAtual ? $estadoDoAceite->daCompetencia($tenant, $user, $anoSelecionado, $mesSelecionado) : null,
         ] + $this->daTelaCheiaEDosAvisos($funcoes, $tenant, $request) + $this->abasDeGestao($user, $tenant, $gestao, $aAnalisarDaEquipe));
     }
 
