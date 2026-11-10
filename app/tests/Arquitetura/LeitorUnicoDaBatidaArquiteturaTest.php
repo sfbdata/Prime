@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
  * A batida gravada nunca muda; a correção do gestor entra em `ponto_ajuste`. Quem ler `RegistroPonto` direto (um
  * `find`, um `findBy`, uma DQL, um QueryBuilder) vê a batida ORIGINAL: a desconsiderada volta para a conta, a
  * alterada aparece com a hora antiga e a incluída some. Por isso só o {@see RegistroPontoRepository} (que devolve a
- * batida EFETIVA) e o repositório da entidade do ajuste leem as duas entidades.
+ * batida EFETIVA) e o repositório da entidade do ajuste leem as duas entidades, fora as exceções justificadas da lista.
  *
  * O que conta, fora dos comentários (lidos pelo tokenizer do PHP): o nome da classe da entidade usado como valor
  * (`RegistroPonto::class`, `PontoAjuste::class`: `getRepository`, `find` do EntityManager, `->from()` e `->join()` do
@@ -47,9 +47,10 @@ final class LeitorUnicoDaBatidaArquiteturaTest extends TestCase
         'src/Ponto/Repository/RegistroPontoRepository.php' => 'o leitor único: a batida efetiva, a linhagem dos ajustes e o envio (E13), que é a original de propósito',
         'src/Ponto/Repository/PontoAjusteRepository.php'   => 'o repositório da entidade do ajuste',
         'src/Ponto/Entity/PontoAjuste.php'                 => 'mapeamento do ORM (targetEntity das ligações), não é leitura',
-        // Provisória: `pontoEdit` e `pontoDelete` (o `find` do registro pelo id) saem no bloco B da E10, com as rotas
-        // de ajuste. Quando saírem, este teste acusa a entrada morta: tire-a daqui.
-        'src/Controller/TenantController.php'              => 'pontoEdit e pontoDelete, que o bloco B da E10 tira',
+        // O Restaurar acha a desconsideração pelo id (`PontoAjusteRepository::find`) para devolvê-la à conta: não conta
+        // batida. Antes de gravar, confere o escritório e a pessoa dela e, pelo leitor único (`alvoDoAjuste`), que ela
+        // ainda é a cabeça da linhagem.
+        'src/Ponto/UseCase/RestaurarBatidaUseCase.php'     => 'acha a desconsideração a restaurar pelo id; a cabeça confere pelo leitor único',
     ];
 
     #[TestDox('Só os arquivos da lista leem RegistroPonto e PontoAjuste direto (a lista é exata, cada entrada justificada)')]

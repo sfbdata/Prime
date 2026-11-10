@@ -403,6 +403,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Registro de emissão do PDF do Cálculo (spec calculo-atualizacao-monetaria §7): é ele mesmo o rastro (quem, quando,
         // hash), só se acrescenta e nunca se altera.
         \App\Calculo\Entity\CalculoEmitido::class,
+        // Ajuste de batida do Ponto (E10, plano-e10-ponto §6): é ele mesmo o registro imutável da correção (quem, quando,
+        // motivo, a marcação antes e depois), só se acrescenta e nunca se altera; cada ajuste vai para a trilha do Ponto
+        // no mesmo COMMIT. Auditar seria log de log e levaria ao audit_log o motivo, texto livre que a trilha deixa de fora.
+        \App\Ponto\Entity\PontoAjuste::class,
         // Assinatura de documentos (spec assinatura-documentos-etapa-1 §3.2): o evento da trilha É o rastro do documento
         // (encadeado por hash, só se acrescenta); o signatário é filho do documento (Auditavel) e guardará CPF, IP e
         // localização de quem assina, que não devem ir para o audit_log lido por quem administra; a configuração só

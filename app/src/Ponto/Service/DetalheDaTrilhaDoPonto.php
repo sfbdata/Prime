@@ -50,17 +50,6 @@ final class DetalheDaTrilhaDoPonto
     }
 
     /**
-     * A batida que o abono de um esquecimento criou: a da análise (`RegistrarBatidaDoEsquecimentoUseCase`) e a do
-     * lançamento já abonado pelo gestor (`TenantController::novaJustificativaAdmin`) gravam o mesmo detalhe.
-     *
-     * @return array<string, mixed>
-     */
-    public static function daBatidaDoEsquecimento(RegistroPonto $batida, JustificativaPonto $justificativa): array
-    {
-        return self::daBatida($batida) + ['justificativa_id' => $justificativa->getId()];
-    }
-
-    /**
      * Um ajuste de batida (E10): o colaborador, a linhagem (o ajuste, o alvo, o que ele desfaz, a justificativa) e a
      * marcação antes e depois, cada uma com tipo e data/hora, ou nula onde não há (a inclusão não tem anterior, a
      * desconsideração não tem nova). Sem o motivo, que é texto livre.
