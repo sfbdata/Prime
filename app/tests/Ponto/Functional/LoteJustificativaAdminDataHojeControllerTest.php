@@ -10,7 +10,6 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Ponto\Entity\JustificativaPonto;
-use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -129,9 +128,16 @@ final class LoteJustificativaAdminDataHojeControllerTest extends JusPrimeWebTest
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
-        $registros = $em->getRepository(RegistroPonto::class)->findBy(['user' => $user->getId()], ['dataHora' => 'ASC']);
 
-        return array_map(static fn (RegistroPonto $r): string => $r->getDataHora()->format('Y-m-d H:i'), $registros);
+        // Desde a E10 o esquecimento abonado vira inclusão em ponto_ajuste: conta as duas fontes.
+        return array_map('strval', $em->getConnection()->fetchFirstColumn(
+            "SELECT to_char(quando, 'YYYY-MM-DD HH24:MI') FROM (
+                 SELECT data_hora AS quando FROM registro_ponto WHERE user_id = :pessoa
+                 UNION ALL
+                 SELECT data_hora_nova FROM ponto_ajuste WHERE user_id = :pessoa AND tipo = 'inclusao'
+             ) batidas ORDER BY quando",
+            ['pessoa' => $user->getId()],
+        ));
     }
 
     private function criarTenant(): Tenant
