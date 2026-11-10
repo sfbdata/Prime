@@ -6,6 +6,7 @@ namespace App\Shared\Service;
 
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -50,5 +51,64 @@ final class ExecucaoDoGhostscript
         } finally {
             $area->liberar();
         }
+    }
+
+    /**
+     * Como {@see rodar()}, mas lê a saída padrão em fluxo e para o gs quando ela passa do teto.
+     *
+     * Serve quando a saída depende do documento e não tem tamanho previsível: nada dela fica inteiro
+     * na memória (o buffer do Process é esvaziado a cada pedaço) e o gs não continua trabalhando
+     * depois que a saída deixou de interessar. A saída de erro é lida e descartada, sem acumular.
+     *
+     * Ao voltar, o processo já terminou: sozinho, parado no teto ou parado no tempo. Nenhum dos três
+     * deixa filho vivo, porque o Process roda o binário com `exec` e o `stop()` espera o fim.
+     *
+     * @param list<string> $comando o binário e os argumentos, já montados
+     *
+     * @throws FalhaNoTemporario  quando não dá para preparar o diretório privado do gs
+     * @throws \RuntimeException  quando o processo nem chega a começar
+     */
+    public static function rodarComTeto(array $comando, float $tempo, int $tetoDeBytes): SaidaDoGhostscript
+    {
+        $area = AreaTemporariaPrivada::criar(self::FINALIDADE_DO_DIRETORIO_PRIVADO);
+        $meu  = $area->caminho();
+
+        try {
+            $processo = new Process($comando, null, ['TMPDIR' => $meu, 'TMP' => $meu, 'TEMP' => $meu]);
+            $processo->setTimeout($tempo);
+
+            return self::lerAteOTeto($processo, $tetoDeBytes);
+        } finally {
+            $area->liberar();
+        }
+    }
+
+    private static function lerAteOTeto(Process $processo, int $teto): SaidaDoGhostscript
+    {
+        $saida          = '';
+        $tetoEstourado  = false;
+        $tempoEstourado = false;
+
+        try {
+            $processo->start();
+            foreach ($processo as $tipo => $pedaco) {
+                if (Process::OUT !== $tipo) {
+                    continue;
+                }
+                $saida .= $pedaco;
+                if (\strlen($saida) > $teto) {
+                    $tetoEstourado = true;
+                    $saida         = substr($saida, 0, $teto);
+                    break;
+                }
+            }
+        } catch (ProcessTimedOutException) {
+            $tempoEstourado = true;
+        } finally {
+            // Parado no teto, no tempo ou por exceção no meio da leitura: o gs não segue sozinho.
+            $processo->stop(0);
+        }
+
+        return new SaidaDoGhostscript($saida, $processo->getExitCode(), $tempoEstourado, $tetoEstourado);
     }
 }
