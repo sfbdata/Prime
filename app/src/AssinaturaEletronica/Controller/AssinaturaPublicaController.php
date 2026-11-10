@@ -15,9 +15,11 @@ use App\AssinaturaEletronica\Exception\MuitasTentativas;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PaginaDoSignatario;
+use App\AssinaturaEletronica\Service\ResultadoDoPdfAssinado;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
 use App\AssinaturaEletronica\UseCase\AbrirPaginaDoSignatarioUseCase;
 use App\AssinaturaEletronica\UseCase\AssinarDocumentoUseCase;
+use App\AssinaturaEletronica\UseCase\ConferirPdfAssinadoUseCase;
 use App\AssinaturaEletronica\UseCase\ObterArquivoDoSignatarioUseCase;
 use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
 use App\AssinaturaEletronica\UseCase\RecusarAssinaturaUseCase;
@@ -25,6 +27,7 @@ use App\AssinaturaEletronica\UseCase\SolicitarCodigoUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\JsonException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -50,6 +53,12 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * o link vale ({@see ObterPdfDaAssinaturaUseCase::doSignatario()}). Gerar o PDF pesa: passa pelos limitadores da página,
  * pelas vagas de geração e pelo par próprio do PDF (`assinatura_pdf_publico`, por IP e por token, só no pedido que gera
  * de verdade); o excesso responde 429 `{"erro": ...}` com o texto que a página mostra.
+ *
+ * Etapa 5 (bloco 5C): `POST /assinar/{token}/pdf-assinado`, a pré-conferência do PDF que o signatário gov.br ou ICP
+ * assinou fora ({@see ConferirPdfAssinadoUseCase}), multipart com `arquivo` e o CSRF do link. Não grava nada. Além da
+ * porta dos POST, passa pelo limitador próprio `assinatura_publica_pdf_assinado` (pelo sha256 do token, gasto só depois
+ * do CSRF) e pela regra de tempo e memória do motor ({@see EntregaDoPdfDaAssinatura::limitar()}). Responde
+ * `{ok, n, arquivo, preservadas}` ou 422 `{erro}` com o texto do catálogo público.
  */
 final class AssinaturaPublicaController extends AbstractController
 {
@@ -64,6 +73,7 @@ final class AssinaturaPublicaController extends AbstractController
         private readonly RateLimiterFactoryInterface $assinaturaCodigoEnvioLimiter,
         private readonly RateLimiterFactoryInterface $assinaturaPdfPublicoLimiter,
         private readonly RateLimiterFactoryInterface $assinaturaPdfPublicoTokenLimiter,
+        private readonly RateLimiterFactoryInterface $assinaturaPublicaPdfAssinadoLimiter,
         private readonly CsrfTokenManagerInterface $csrf,
         private readonly SignatarioDoLink $link,
         private readonly PaginaDoSignatario $pagina,
@@ -160,6 +170,23 @@ final class AssinaturaPublicaController extends AbstractController
         }
     }
 
+    #[Route('/assinar/{token}/pdf-assinado', name: 'assinatura_eletronica_publica_pdf_assinado', requirements: ['token' => self::TOKEN], methods: ['POST'])]
+    public function pdfAssinado(string $token, Request $request, ConferirPdfAssinadoUseCase $conferir): JsonResponse
+    {
+        return $this->acao($request, $token, function () use ($token, $request, $conferir): array {
+            if (!$this->assinaturaPublicaPdfAssinadoLimiter->create(ChaveDaAssinatura::hashDoToken($token))->consume()->isAccepted()) {
+                throw new MuitasTentativas();
+            }
+            $arquivo = $request->files->get('arquivo');
+            if (!$arquivo instanceof UploadedFile) {
+                throw new AcaoRecusada(ResultadoDoPdfAssinado::chave(ResultadoDoPdfAssinado::SEM_PDF));
+            }
+            EntregaDoPdfDaAssinatura::limitar();
+
+            return ['ok' => true] + $conferir->executar($token, $arquivo)->paraJson();
+        });
+    }
+
     /** Reserva: qualquer outro caminho sob /assinar/ (token malformado) é o mesmo "Link inválido." do token desconhecido. */
     #[Route('/assinar/{resto}', name: 'assinatura_eletronica_publica_invalido', requirements: ['resto' => '.+'], methods: ['GET', 'POST'], priority: -10)]
     public function invalido(Request $request): Response
@@ -240,7 +267,7 @@ final class AssinaturaPublicaController extends AbstractController
     private function urls(string $token): array
     {
         $urls = [];
-        foreach (['codigo', 'assinar', 'recusa', 'arquivo', 'logo', 'pdf'] as $nome) {
+        foreach (['codigo', 'assinar', 'recusa', 'arquivo', 'logo', 'pdf', 'pdf_assinado'] as $nome) {
             $urls[$nome] = $this->generateUrl('assinatura_eletronica_publica_' . $nome, ['token' => $token]);
         }
         $urls['rubrica'] = $this->generateUrl('assinatura_eletronica_publica_rubrica', ['token' => $token, 'ordem' => 0]);

@@ -59,6 +59,13 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '10 minutes'
+        # Etapa 5, bloco 5C: a pré-conferência do PDF assinado (gov.br ou ICP) no link do signatário, pelo sha256 do
+        # token. Cada chamada roda o motor sobre até 20 MB (segundos de um processo do PHP), como a conferência do 5A:
+        # 6 por minuto cobre trocar de arquivo e tentar de novo.
+        assinatura_publica_pdf_assinado:
+            policy: sliding_window
+            limit: 6
+            interval: '1 minute'
         # Etapa 6 (docs/specs/assinatura-documentos-etapa-6.md, seção 2.1, bloco 6B): cada conferência no validador_pdf ocupa
         # uma das 2 vagas por até 30 s (tempo_esgotado é passageiro). Por signatário ou, sem ele, por IP; só a chamada
         # ao validador conta (a recusa do motor antes dela não).
