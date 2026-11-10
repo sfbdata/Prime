@@ -82,7 +82,6 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Twig\Environment;
 
@@ -721,12 +720,9 @@ final class PontoController extends AbstractController
 
     /**
      * P41 (desenho do Ponto, E3): o colaborador exclui a própria justificativa ainda em análise, depois de
-     * confirmar na janela. Dois caminhos, separados como no `EspacoEsgotadoListener` (`pedidoDaTela`):
-     *  - o pedido da tela (o `fetch` da aba, com o X-CSRF-Token da página): JSON, sem flash e sem redirecionar,
-     *    porque a tela tira a linha na hora (um flash aqui sobraria para a próxima página). 404 de outro
-     *    escritório, 403 de outra pessoa ou sem token, 422 já analisada, sempre com a frase em `mensagem`;
-     *  - o formulário comum, sem JavaScript (`_token` de `excluir_justificativa_<id>`): a frase vira flash e a
-     *    página volta para a aba das justificativas. Outro escritório e outra pessoa continuam 404 e 403.
+     * confirmar na janela. JSON para o `fetch` da aba, sem flash e sem redirecionar: a tela tira a linha na hora
+     * (um flash aqui sobraria para a próxima página). 404 de outro escritório, 403 de outra pessoa ou sem token,
+     * 422 já analisada, sempre com a frase em `mensagem`.
      *
      * Ponto único da exclusão: só a aba nova chama esta rota. Com o Ponto antigo de volta, tirar o atributo da rota
      * (a linha abaixo) desliga a exclusão inteira no servidor.
@@ -736,70 +732,21 @@ final class PontoController extends AbstractController
         int $id,
         Request $request,
         ExcluirJustificativaEmAnaliseUseCase $excluir,
-    ): Response {
+    ): JsonResponse {
         /** @var User $user */
         $user   = $this->getUser();
         $tenant = $this->assertAccess($user);
-        $daTela = self::pedidoDaTela($request);
 
         // CSRF depois da autorização, como na batida: a falha de acesso tem prioridade.
-        $this->validarTokenDaExclusao($request, $id, $daTela);
+        $this->validarCsrfAjax($request);
 
         try {
-            $dia = $excluir->executar($id, $user, $tenant);
+            $excluir->executar($id, $user, $tenant);
         } catch (ExclusaoDeJustificativaRecusadaException $e) {
-            return $daTela
-                ? $this->json(['ok' => false, 'mensagem' => $e->getMessage()], self::RESPOSTA_DA_RECUSA[$e->motivo])
-                : $this->recusaDaExclusaoSemTela($e, (string) $request->request->get('competencia', ''));
+            return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], self::RESPOSTA_DA_RECUSA[$e->motivo]);
         }
 
-        if ($daTela) {
-            return $this->json(['ok' => true]);
-        }
-
-        return $this->voltarParaAsJustificativas('success', sprintf('Justificativa de %s excluída.', $dia->format('d/m/Y')), $dia->format('Y-m'));
-    }
-
-    /**
-     * O `fetch` da tela leva o X-CSRF-Token que o `base.html.twig` põe em todo POST same-origin (o formulário comum
-     * não leva), além do `X-Requested-With` e do `Accept` de JSON que a aba manda.
-     */
-    private static function pedidoDaTela(Request $request): bool
-    {
-        return $request->isXmlHttpRequest()
-            || $request->headers->has('X-CSRF-Token')
-            || str_contains((string) $request->headers->get('Accept'), 'application/json');
-    }
-
-    private function validarTokenDaExclusao(Request $request, int $id, bool $daTela): void
-    {
-        if ($daTela) {
-            $this->validarCsrfAjax($request);
-
-            return;
-        }
-        if (!$this->isCsrfTokenValid('excluir_justificativa_' . $id, (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-    }
-
-    /** Sem JavaScript: a já analisada vira o aviso na aba; outro escritório e outra pessoa ficam no 404 e no 403. */
-    private function recusaDaExclusaoSemTela(ExclusaoDeJustificativaRecusadaException $recusa, string $competencia): Response
-    {
-        $status = self::RESPOSTA_DA_RECUSA[$recusa->motivo];
-        if ($status !== Response::HTTP_UNPROCESSABLE_ENTITY) {
-            throw new HttpException($status, $recusa->getMessage());
-        }
-
-        return $this->voltarParaAsJustificativas('danger', $recusa->getMessage(), $competencia);
-    }
-
-    /** A aba das justificativas no mês pedido (o index confere o mês e cai no atual se não for um dos dele). */
-    private function voltarParaAsJustificativas(string $tipo, string $mensagem, string $competencia): Response
-    {
-        $this->addFlash($tipo, $mensagem);
-
-        return $this->redirectToRoute('ponto_index', array_filter(['competencia' => $competencia, 'aba' => 'justificativas']));
+        return $this->json(['ok' => true]);
     }
 
     #[Route('/justificativa/{id}/anexo', name: 'ponto_justificativa_anexo', methods: ['GET'])]

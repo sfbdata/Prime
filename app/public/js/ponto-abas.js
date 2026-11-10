@@ -236,7 +236,7 @@
     }
 
     // POST com o token da página (o base.html.twig põe o X-CSRF-Token). Deu certo: a janela fecha e a linha sai, sem
-    // recarregar (o servidor não deixa flash para o pedido da tela); sem a linha na tela, a aba abre de novo do servidor.
+    // recarregar (a rota não deixa flash); sem a linha na tela, a aba abre de novo do servidor.
     // Recusa (403, 404, 422) ou falta de resposta: a frase fica na linha de erro da janela.
     async function confirmarExclusao(botao) {
         const fundo = janelaAberta;
