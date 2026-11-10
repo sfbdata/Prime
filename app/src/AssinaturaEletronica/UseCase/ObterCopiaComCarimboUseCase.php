@@ -67,23 +67,11 @@ final readonly class ObterCopiaComCarimboUseCase
         // Com assinatura BlueJus o documento foi enviado, e todo enviado tem código.
         $resultado = $this->carimbo->carimbar($pdf, $assinaturas, (string) $documento->getCodigo());
 
+        // A recusa vem só com o motivo, como o carimbo a escreveu: quem mostra o aviso (o botão do Detalhe, bloco 5A)
+        // acrescenta o " Use o original.", como o `presCarimbo` do desenho (dc:384).
         return $resultado->pdf !== null
             ? CopiaComCarimbo::carimbada($documento->getNome() . self::SUFIXO_DO_NOME, $resultado->pdf)
-            : CopiaComCarimbo::recusada(self::motivo((string) $resultado->recusa));
-    }
-
-    /**
-     * Só o motivo da recusa, sem o " Use o original." que o {@see CarimboVisivel} acrescenta: quem mostra o aviso (o
-     * botão do Detalhe, bloco 5A) acrescenta o final, como o `presCarimbo` do desenho (dc:384). O motivo em si vai como
-     * o carimbo o escreveu.
-     */
-    private static function motivo(string $recusa): string
-    {
-        if (!str_ends_with($recusa, CarimboVisivel::USE_O_ORIGINAL)) {
-            return $recusa;
-        }
-
-        return substr($recusa, 0, -\strlen(CarimboVisivel::USE_O_ORIGINAL));
+            : CopiaComCarimbo::recusada((string) $resultado->recusa);
     }
 
     /**
