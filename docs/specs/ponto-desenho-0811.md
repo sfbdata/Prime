@@ -872,8 +872,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 **E9. Trilha de auditoria encadeada.**
 - Entra: P64, P66 (fica). D5 (não): a trilha leva o que o desenho grava (inventário §2.11): batidas, ajustes,
   justificativas (envio, exclusão, análise, abono em lote), envio da fila sem internet, folha emitida e assinada, escala
-  alterada, as chaves de função (Global e Escritório) e os eventos da facial. Mudanças de sede, feriado, limite, prazo,
-  modo facial e foto ficam só no `audit_log`, que continua.
+  alterada, a chave de função do Escritório e os eventos da facial. A chave Global do Master, as mudanças de sede,
+  feriado, limite, prazo, modo facial e foto ficam só no `audit_log`, que continua.
 - Depende de: E7.
 - Migration: sim (tabela da trilha).
 - Arquivos: serviço novo de trilha; chamadas nos fluxos de batida, justificativa, análise e chaves; cada etapa seguinte
@@ -918,7 +918,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - eventos: batida (inclui o atalho do avatar), justificativa enviada, editada (com ou sem troca do atestado) e
     excluída pelo colaborador, abonada, recusada, voltou para análise, abono em lote (um evento com as abonadas), lançada
     já abonada pelo gestor (mais uma "batida do esquecimento abonado" por batida que o lançamento cria, o mesmo evento da
-    análise), batida do esquecimento abonado e escala alterada (as 3 versões da jornada, autor da sessão);
+    análise), batida do esquecimento abonado, escala alterada (as 3 versões da jornada, autor da sessão), a chave de
+    uma função do Escritório ligada ou desligada ("Configuração do escritório", dc L475: "Geolocalização desativado";
+    grava na mesma transação da chave, provado em teste) e a "Sincronização" da fila sem internet (dc L438, ver E14);
   - atomicidade provada em teste: se o fato falha depois do evento (horário futuro na batida do esquecimento, dentro do
     abono), o evento sai junto; se a trilha falha, a batida e o abono não ficam gravados;
   - dados pessoais (LGPD, decidido pelo Coordenador na revisão): o `autor_nome` e o nome do colaborador no detalhe ficam
@@ -931,16 +933,18 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - purga: `ponto_auditoria` na ordem de deleção do `PurgarEscritorioUseCase`;
   - texto da coluna "Detalhe" no formato do desenho (conferência ✓/✗ de 09/11/2026; dc L544, L601, L768): partes com
     " · ", a batida com os segundos e " · sem internet" (chave `sem_internet` no detalhe dos eventos novos), a
-    justificativa "dd/mm/aaaa · Tipo · subtítulo". Extras necessários que ficam: o nome do colaborador na frente, a
-    data da batida (a da fila e a do esquecimento não são do dia do evento), " · home office" e o período do lote; a
-    sede saiu do texto e continua no detalhe gravado;
+    justificativa "dd/mm/aaaa · Tipo · subtítulo" (o subtítulo é a batida esquecida, "Saída às 18:00", ou o abono
+    parcial, "Parcial: 14:00 às 16:00"; o detalhe grava `parcial`, `parcial_de` e `parcial_ate`). Extras necessários
+    que ficam: o nome do colaborador na frente, a data da batida (a da fila e a do esquecimento não são do dia do
+    evento), " · home office" e o período do lote ("de dd/mm/aaaa a dd/mm/aaaa (N dias)", ou "dd/mm/aaaa (N
+    justificativas)" quando o lote é de um dia só); a sede saiu do texto e continua no detalhe gravado;
   - desvio do desenho (dc L601, decisão do Coordenador de 09/11/2026): a observação da análise não entra no detalhe de
     "Justificativa abonada" e "recusada". Ela já aparece na coluna "Obs. da Análise" (lida da justificativa), é texto
     livre, que a trilha não grava (pode trazer dado pessoal, e a trilha fica mesmo depois da exclusão da conta) e o
     "voltar para análise" a apaga, o que a trilha selada não faria;
-  - ficam para depois: a chave do Escritório (E7, entra na trilha quando a E7 chegar), os ajustes de batida (E10), a
-    fila sem internet, a folha e a facial (cada etapa chama a trilha nos eventos dela). A chave Global do Master fica só
-    no `audit_log`, como hoje (`RecursoEstado` é auditável no escopo da plataforma, sem escritório para a cadeia).
+  - ficam para depois: os ajustes de batida (E10), a folha e a facial (cada etapa chama a trilha nos eventos dela). A
+    chave Global do Master fica só no `audit_log`, como hoje (`RecursoEstado` é auditável no escopo da plataforma, sem
+    escritório para a cadeia).
 
 **E10. Batida só inserção, com ajuste.**
 - Entra: P65 (a: "Editar" e "Excluir" da ficha viram "Ajustar" e "Desconsiderar"), P29, D18 (o esquecimento abonado
@@ -1024,7 +1028,21 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - a recusa do servidor tira a entrada da fila e a guarda, cifrada, numa loja própria (`recusas`), na mesma transação.
     A tela mostra a recusa com o tipo e a data, e só então a apaga. Entrada que não abre ou com mais de 7 dias sai do
     aparelho;
-  - a batida da fila recebe o NSR da E15: a ligação e o teste ficam com a E15.
+  - a batida da fila recebe o NSR da E15: a ligação e o teste ficam com a E15;
+  - evento "Sincronização" da trilha (conferência ✓/✗ de 09/11/2026; dc L438): depois de cada rodada que enviou
+    batidas, a tela avisa `POST /ponto/fila/sincronizada` com os `idEnvio` enviados. O servidor grava um evento com as
+    batidas da pessoa, neste escritório, que vieram da fila e ainda não estavam numa sincronização ("N batidas enviadas
+    ao voltar a internet", autor a própria pessoa). O aviso que se perde (sem resposta) não reenvia: a marca " · sem
+    internet" de cada batida continua na trilha.
+- Comportamentos além do desenho, mantidos por necessidade (conferência ✓/✗ de 09/11/2026; o desenho guarda só quando
+  `navigator.onLine` é falso e envia só no evento `online`):
+  - a batida também vai para a fila quando o envio fica sem resposta do servidor (aparelho "online" sem conexão de
+    fato), com o aviso "Sem conexão com o servidor. A batida ficou guardada neste aparelho e será enviada sozinha
+    quando a conexão voltar.";
+  - a fila também tenta enviar ao abrir a tela, a cada 60 segundos e antes de um toque novo, além do evento `online`
+    (o `online` sozinho não dispara quando o servidor volta com a rede já ligada);
+  - o aviso "Batidas sem internet enviadas." (texto do desenho) só aparece quando a fila esvaziou; com recusa ou
+    entrada que ficou, o aviso diz o que aconteceu com cada uma.
 - Limites conhecidos:
   - a batida da fila é medida pela jornada de hoje (regra que já existia);
   - os testes da fila no CI leem o código. O comportamento no IndexedDB foi rodado no node pelo implementador e pela
