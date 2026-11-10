@@ -40,7 +40,7 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
 
     private const FUNDO = '.pe-page > div.pe-janela-fundo#ponto-janela-externo[hidden]';
     private const JANELA = self::FUNDO . ' > div.pe-janela[role="dialog"][aria-modal="true"][aria-label="Trabalho externo"]';
-    private const SECAO = '.pe-config > .pe-config-funcoes[data-config-funcoes] + div.pe-config-externo[data-config-externo]';
+    private const SECAO = '.pe-config > section.pe-sf-secao[data-pc-sedes] > .pe-sedes-cabeca > b.pe-sedes-titulo + div.pe-config-externo[data-config-externo]';
 
     private KernelBrowser $client;
     private Tenant $escritorio;
@@ -96,7 +96,7 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $tela->filter('.pe-fora-externo'), 'o botão só nasce na resposta fora do raio, pelo script');
     }
 
-    #[TestDox('Configurações: quem administra o ponto vê a caixa "Permitir trabalho externo, com motivo e análise" logo abaixo das funções')]
+    #[TestDox('Configurações: quem administra o ponto vê a caixa "Permitir trabalho externo, com motivo e análise" no cabeçalho "Sedes e raio de registro", entre o título e os botões (desenho L253)')]
     public function testCaixaParaQuemAdministra(): void
     {
         $primario = $this->pessoa('primario');
@@ -107,7 +107,9 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         $secao = $painel->filter(self::SECAO);
-        self::assertCount(1, $secao, 'seção própria, filha direta do painel, depois das funções (a E6 a leva às sedes)');
+        self::assertCount(1, $secao, 'filha direta do cabeçalho das sedes, logo depois do título');
+        self::assertCount(1, $painel->filter('.pe-sedes-cabeca > div.pe-config-externo + a.pe-sf-contorno'), 'antes dos botões do cabeçalho');
+        self::assertCount(1, $painel->filter('[data-config-externo]'), 'uma caixa só: com as sedes à vista, ela não fica também sozinha');
         self::assertSame('/ponto/configuracoes/trabalho-externo', $secao->attr('data-url'), 'a rota ponto_configuracao_trabalho_externo');
         self::assertCount(1, $secao->filter('div.pe-config-externo > label.pe-config-externo-marca:first-child + span.pe-config-externo-erro[role="alert"][data-config-externo-erro][hidden]:last-child'));
         self::assertCount(1, $secao->filter('label.pe-config-externo-marca > input[type="checkbox"][data-config-externo-caixa]:first-child'));

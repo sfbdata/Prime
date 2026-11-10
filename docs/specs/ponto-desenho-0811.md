@@ -1087,6 +1087,15 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - a caixa P74 "Permitir trabalho externo, com motivo e análise" (rota `ponto_configuracao_trabalho_externo`) fica
     no audit_log, não na trilha do Ponto (o desenho não a registra). A tela aberta só vê a mudança depois de
     recarregar: quem decide é o servidor;
+  - a caixa P74 mora no cabeçalho "Sedes e raio de registro", entre o título e os botões (L253). Para quem não vê
+    as sedes, fica sozinha logo abaixo das funções, para a função não sumir de ninguém;
+  - a etiqueta "Trabalho externo" da folha é o texto do desenho no comprovante (L584, "· Trabalho externo" ao lado
+    de "· Sem internet"), como a "Sem internet" da E14. A folha do desenho não tem a etiqueta; ela entra pela
+    mesma regra da E14, para a batida sem sede aparecer no dia;
+  - a batida externa passa pela janela "Antes de registrar" da E11, como a comum (o desenho, L808, pula o
+    `alertaPre`): a regra de intervalo vale para qualquer batida, e o "Registrar assim mesmo" mantém a marca e o
+    motivo;
+  - na trilha, a batida externa leva " · trabalho externo" (L544), entre " · home office" e " · sem internet";
   - a tela vermelha é da E8. Até a ligação, o fora do raio fica na caixa de resultado, com o botão "Registrar como
     trabalho externo";
   - sem confirmação e sem rede NÃO reabrem a janela do trabalho externo: a batida pode ter entrado, e um novo envio

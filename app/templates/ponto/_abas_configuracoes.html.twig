@@ -1,12 +1,12 @@
 {#
     Painel da aba "Configurações" (desenho 16 L227 a L260), buscado por js/ponto-paineis.js quando a aba abre. Cada
     etapa entra como seção própria, num parcial dela, incluído aqui na ordem do desenho: as chaves das funções (E7),
-    depois sedes (E6) e feriados (E6). A caixa do trabalho externo (E12, P74) fica sozinha logo abaixo das funções;
-    no desenho ela mora no cabeçalho "Sedes e raio de registro" (L253), e vai para lá no commit de ligação.
+    depois sedes (E6) e feriados (E6). A caixa do trabalho externo (E12, P74) mora no cabeçalho "Sedes e raio de
+    registro" (L253); para quem não vê as sedes, fica sozinha logo abaixo das funções.
 #}
 <div class="pe-config">
     {% include 'ponto/_config_funcoes.html.twig' %}
-    {% include 'ponto/_config_trabalho_externo.html.twig' %}
+    {% if not (veSedes ?? false) %}{% include 'ponto/_config_trabalho_externo.html.twig' %}{% endif %}
     {% if veSedes ?? false %}{{ include('ponto/_config_sedes.html.twig') }}{% endif %}
     {% if veFeriados ?? false %}{{ include('ponto/_config_feriados.html.twig') }}{% endif %}
 </div>

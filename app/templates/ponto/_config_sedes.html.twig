@@ -13,6 +13,8 @@
 <section class="pe-sf-secao" aria-labelledby="ponto-sedes-titulo" data-pc-sedes data-pc-sede-url-criar="{{ path('ponto_configuracoes_sede_criar') }}">
     <div class="pe-sedes-cabeca">
         <b class="pe-sedes-titulo" id="ponto-sedes-titulo">Sedes e raio de registro</b>
+        {# E12 (P74, desenho L253): a caixa "Permitir trabalho externo", entre o título e os botões. #}
+        {{ include('ponto/_config_trabalho_externo.html.twig') }}
         <a class="pe-sf-contorno" href="{{ path('app_tenant_sedes', {tenantId: tenantIdDoPonto}) }}"><i class="bi bi-geo-alt" aria-hidden="true"></i>Mapa e busca por endereço</a>
         <button type="button" class="pe-sf-contorno" data-pc-sede-adicionar><i class="bi bi-plus-lg" aria-hidden="true"></i>Adicionar sede</button>
     </div>

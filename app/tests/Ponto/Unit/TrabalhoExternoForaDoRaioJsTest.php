@@ -708,8 +708,11 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString("const caixa = elemento(evento.target, '[data-config-externo-caixa]');", self::configuracoes(), 'por delegação: o painel chega depois');
 
         $parcial = self::arquivo('templates/ponto/_config_trabalho_externo.html.twig');
-        self::assertStringContainsString('data-url="/ponto/configuracoes/trabalho-externo"', $parcial, 'a rota ponto_configuracao_trabalho_externo, escrita');
-        self::assertStringNotContainsString("path('ponto_configuracao_trabalho_externo')", $parcial, 'path() de rota ainda inexistente quebraria o painel');
+        self::assertStringContainsString("data-url=\"{{ path('ponto_configuracao_trabalho_externo') }}\"", $parcial, 'a rota da E12, por path()');
+        self::assertStringNotContainsString('data-url="/ponto/', $parcial, 'sem a URL escrita à mão');
+        // P74 (desenho L253): no cabeçalho das sedes; sozinha só para quem não as vê, para a função não sumir de ninguém.
+        self::assertStringContainsString("{{ include('ponto/_config_trabalho_externo.html.twig') }}", self::arquivo('templates/ponto/_config_sedes.html.twig'));
+        self::assertStringContainsString("{% if not (veSedes ?? false) %}{% include 'ponto/_config_trabalho_externo.html.twig' %}{% endif %}", self::arquivo('templates/ponto/_abas_configuracoes.html.twig'));
     }
 
     #[TestDox('A fila sem internet guarda e reenvia a marca e o local e o motivo do trabalho externo; entrada antiga segue comum')]
