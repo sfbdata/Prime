@@ -93,7 +93,7 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         self::assertSame($inclusao->getId(), $evento['detalhe']['ajuste_id']);
         self::assertSame('a' . $inclusao->getId(), $evento['detalhe']['alvo']);
         self::assertArrayNotHasKey('motivo', $evento['detalhe'], 'o motivo é texto livre: fica fora da trilha');
-        self::assertSame('Ana Colaboradora: Saída às 18:00 de 21/10/2026 incluída', DetalheDaTrilhaDoPonto::texto($evento['acao'], $evento['detalhe']));
+        self::assertSame('Ana Colaboradora: Saída às 18:00:00 de 21/10/2026 incluída', DetalheDaTrilhaDoPonto::texto($evento['acao'], $evento['detalhe']));
     }
 
     #[TestDox('Incluir com a justificativa: evento batida_do_esquecimento, com o ajuste e o mesmo texto do esquecimento; a inclusão fica ligada à justificativa')]
@@ -116,7 +116,7 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         self::assertSame('batida_do_esquecimento', $evento['acao']);
         self::assertSame($justificativa->getId(), $evento['detalhe']['justificativa_id']);
         self::assertSame($inclusao->getId(), $evento['detalhe']['ajuste_id']);
-        self::assertSame('Ana Colaboradora: Saída às 18:00 de 21/10/2026, pedida no esquecimento', DetalheDaTrilhaDoPonto::texto($evento['acao'], $evento['detalhe']));
+        self::assertSame('Ana Colaboradora: Saída às 18:00:00 de 21/10/2026 · pedida no esquecimento', DetalheDaTrilhaDoPonto::texto($evento['acao'], $evento['detalhe']));
     }
 
     #[TestDox('Alterar em cadeia: a primeira linha prende ao registro (anterior nulo), a segunda à primeira; a cabeça segue a última; evento batida_ajustada')]
@@ -138,7 +138,7 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
 
         $evento = $this->ultimoEvento();
         self::assertSame('batida_ajustada', $evento['acao']);
-        self::assertSame('Ana Colaboradora: Saída às 18:30 de 21/10/2026 passou para Retorno às 13:00 de 21/10/2026', DetalheDaTrilhaDoPonto::texto($evento['acao'], $evento['detalhe']));
+        self::assertSame('Ana Colaboradora: Saída às 18:30:00 de 21/10/2026 passou para Retorno às 13:00:00 de 21/10/2026', DetalheDaTrilhaDoPonto::texto($evento['acao'], $evento['detalhe']));
     }
 
     #[TestDox('Desconsiderar e restaurar: a desconsideração vira a cabeça (fora da conta); a restauração desfaz e traz de volta a forma de antes; eventos batida_desconsiderada e ajuste_desfeito')]
@@ -155,7 +155,7 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         self::assertTrue($fora->desconsiderada());
         self::assertSame($desconsideracao->getId(), $fora->cabecaId());
         self::assertSame('batida_desconsiderada', $this->ultimoEvento()['acao']);
-        self::assertSame('Ana Colaboradora: Entrada às 08:05 de 21/10/2026 desconsiderada', $this->textoDoUltimoEvento());
+        self::assertSame('Ana Colaboradora: Entrada às 08:05:00 de 21/10/2026 desconsiderada', $this->textoDoUltimoEvento());
 
         $restauracao = $this->emTransacao(fn (): PontoAjuste => $this->gravacao->restaurar($desconsideracao, 'Não era duplicada.', $this->gestora));
 
@@ -164,7 +164,7 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         self::assertSame($restauracao->getId(), $volta->cabecaId());
         self::assertSame(['entrada', '2026-10-21 08:05:00'], [$volta->tipoAtual, $volta->dataHoraAtual?->format('Y-m-d H:i:s')]);
         self::assertSame('ajuste_desfeito', $this->ultimoEvento()['acao']);
-        self::assertSame('Ana Colaboradora: Entrada às 08:05 de 21/10/2026 restaurada', $this->textoDoUltimoEvento());
+        self::assertSame('Ana Colaboradora: Entrada às 08:05:00 de 21/10/2026 restaurada', $this->textoDoUltimoEvento());
     }
 
     #[TestDox('Desconsiderar com o que desfaz (a inclusão do esquecimento ao voltar a justificativa): evento ajuste_desfeito com o texto do esquecimento')]
@@ -185,7 +185,7 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         $evento = $this->ultimoEvento();
         self::assertSame('ajuste_desfeito', $evento['acao']);
         self::assertSame($inclusao->getId(), $evento['detalhe']['desfaz_id']);
-        self::assertSame('Ana Colaboradora: Saída às 18:00 de 21/10/2026, do esquecimento abonado, desconsiderada ao voltar a justificativa para análise', $this->textoDoUltimoEvento());
+        self::assertSame('Ana Colaboradora: Saída às 18:00:00 de 21/10/2026, do esquecimento abonado, desconsiderada ao voltar a justificativa para análise', $this->textoDoUltimoEvento());
     }
 
     #[TestDox('Desconsiderar com um desfaz que não é a inclusão da raiz do alvo (outra inclusão, ou sem a justificativa dela) lança LogicException e não grava')]

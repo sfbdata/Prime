@@ -347,6 +347,24 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         self::assertSame($ids, $espiao->travadasPorEvento[0], 'no evento do lote as duas pessoas já estavam travadas, não só a primeira');
     }
 
+    #[TestDox('E10, ordem das travas, "Abonar selecionadas" com duas pessoas: as duas, ainda livres antes, já estão travadas (4210) no primeiro evento da trilha (4203)')]
+    public function testAbonarDaEquipeTravaTodasAsPessoasAntesDaTrilha(): void
+    {
+        $outra = $this->pessoa('outra');
+        $this->em->flush();
+        $daEquipe = [$this->esquecimento('08:00', 'pendente', 'entrada', $outra), $this->esquecimento('12:00', 'pendente', 'repouso')];
+        [$espiao, $analisar] = $this->analisarEspiando([$this->colaborador, $outra]);
+        self::assertSame([], $this->travadas([$this->colaborador, $outra]), 'nenhuma das duas foi travada neste teste');
+
+        $resultado = $analisar->abonarDaEquipe($daEquipe, $this->tenant, $this->gestor);
+
+        self::assertCount(2, $resultado->abonadas);
+        self::assertSame(['batida_do_esquecimento', 'batida_do_esquecimento', 'abono_em_lote'], $this->eventosDaTrilha());
+        $ids = [(int) $this->colaborador->getId(), (int) $outra->getId()];
+        sort($ids);
+        self::assertSame($ids, $espiao->travadasPorEvento[0], 'no primeiro evento as duas pessoas já estavam travadas, não só a primeira');
+    }
+
     #[TestDox('"Aprovar todos": a excluída fica de fora e entra no aviso; as outras são abonadas com a batida delas')]
     public function testAbonarLoteDeixaDeForaAExcluida(): void
     {
@@ -435,7 +453,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         self::assertSame([$entrada, $saida], $resultado->abonadas);
         self::assertSame([], $resultado->recusas);
         self::assertSame(['abonado', 'abonado'], [$this->statusNoBanco($entrada), $this->statusNoBanco($saida)]);
-        self::assertSame(2, $this->batidasDoColaborador());
+        self::assertSame(2, $this->inclusoesDoColaborador());
         self::assertSame(['batida_do_esquecimento', 'batida_do_esquecimento', 'abono_em_lote'], $this->eventosDaTrilha());
         $lote = $this->detalheDoUltimoEvento();
         self::assertSame(2, $lote['quantidade']);
@@ -460,7 +478,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
             (int) $sumiu->getId()     => AnaliseDeJustificativaRecusadaException::MENSAGEM_EXCLUIDA,
         ], $resultado->recusas);
         self::assertSame(['abonado', 'pendente'], [$this->statusNoBanco($fica), $this->statusNoBanco($repetida)]);
-        self::assertSame(1, $this->batidasDoColaborador(), 'só a batida da abonada');
+        self::assertSame(1, $this->inclusoesDoColaborador(), 'só a inclusão da abonada');
         self::assertSame(['batida_do_esquecimento', 'abono_em_lote'], $this->eventosDaTrilha());
         self::assertSame([$fica->getId()], array_column($this->detalheDoUltimoEvento()['da_equipe'], 'justificativa_id'));
     }
@@ -496,7 +514,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         }
 
         self::assertSame(['pendente', 'pendente'], [$this->statusNoBanco($entrada), $this->statusNoBanco($saida)], 'os abonos voltaram com a transação');
-        self::assertSame(0, $this->batidasDoColaborador());
+        self::assertSame(0, $this->inclusoesDoColaborador());
         self::assertSame([], $this->eventosDaTrilha());
     }
 

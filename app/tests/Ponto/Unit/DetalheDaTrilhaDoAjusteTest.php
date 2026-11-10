@@ -76,12 +76,12 @@ final class DetalheDaTrilhaDoAjusteTest extends TestCase
         $restauracao = $this->comId(PontoAjuste::restauracao($desconsideracao, 'm', $this->gestora, 'Gestora', new \DateTimeImmutable()), 53);
         $reverter = $this->comId(PontoAjuste::desconsideracao($this->alvoNaInclusao($inclusao), 'm', $this->gestora, 'Gestora', new \DateTimeImmutable(), $this->justificativa(), $inclusao), 54);
 
-        self::assertSame('Ana Colaboradora: Saída às 18:00 de 21/10/2026 incluída', $this->texto(AcaoDaTrilhaDoPonto::BatidaIncluida, $inclusao));
-        self::assertSame('Ana Colaboradora: Saída às 18:00 de 21/10/2026 passou para Saída às 18:30 de 21/10/2026', $this->texto(AcaoDaTrilhaDoPonto::BatidaAjustada, $alteracao));
-        self::assertSame('Ana Colaboradora: Saída às 18:00 de 21/10/2026 desconsiderada', $this->texto(AcaoDaTrilhaDoPonto::BatidaDesconsiderada, $desconsideracao));
-        self::assertSame('Ana Colaboradora: Saída às 18:00 de 21/10/2026 restaurada', $this->texto(AcaoDaTrilhaDoPonto::AjusteDesfeito, $restauracao));
+        self::assertSame('Ana Colaboradora: Saída às 18:00:00 de 21/10/2026 incluída', $this->texto(AcaoDaTrilhaDoPonto::BatidaIncluida, $inclusao));
+        self::assertSame('Ana Colaboradora: Saída às 18:00:00 de 21/10/2026 passou para Saída às 18:30:00 de 21/10/2026', $this->texto(AcaoDaTrilhaDoPonto::BatidaAjustada, $alteracao));
+        self::assertSame('Ana Colaboradora: Saída às 18:00:00 de 21/10/2026 desconsiderada', $this->texto(AcaoDaTrilhaDoPonto::BatidaDesconsiderada, $desconsideracao));
+        self::assertSame('Ana Colaboradora: Saída às 18:00:00 de 21/10/2026 restaurada', $this->texto(AcaoDaTrilhaDoPonto::AjusteDesfeito, $restauracao));
         self::assertSame(
-            'Ana Colaboradora: Saída às 18:00 de 21/10/2026, do esquecimento abonado, desconsiderada ao voltar a justificativa para análise',
+            'Ana Colaboradora: Saída às 18:00:00 de 21/10/2026, do esquecimento abonado, desconsiderada ao voltar a justificativa para análise',
             $this->texto(AcaoDaTrilhaDoPonto::AjusteDesfeito, $reverter),
         );
         self::assertSame(['justificativa_id' => 70, 'desfaz_id' => 50], array_intersect_key(DetalheDaTrilhaDoPonto::daAjuste($reverter), ['desfaz_id' => 0, 'justificativa_id' => 0]));
@@ -96,7 +96,7 @@ final class DetalheDaTrilhaDoAjusteTest extends TestCase
 
         self::assertSame(['a60', 60, 70, 'retorno', '2026-10-21 13:15:00'], [$detalhe['alvo'], $detalhe['ajuste_id'], $detalhe['justificativa_id'], $detalhe['tipo'], $detalhe['data_hora']]);
         self::assertSame(
-            'Ana Colaboradora: Retorno às 13:15 de 21/10/2026, pedida no esquecimento',
+            'Ana Colaboradora: Retorno às 13:15:00 de 21/10/2026 · pedida no esquecimento',
             DetalheDaTrilhaDoPonto::texto(AcaoDaTrilhaDoPonto::BatidaDoEsquecimento->value, $detalhe),
         );
     }

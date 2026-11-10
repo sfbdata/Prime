@@ -24,6 +24,9 @@ interface MarcacaoDoPonto
 
     public function isEnviadaSemInternet(): bool;
 
+    /** A batida feita fora da cerca com o motivo do trabalho externo (E12); a ajustada guarda o da original. */
+    public function isTrabalhoExterno(): bool;
+
     /** Batida feita pelo próprio colaborador (sem observação e sem a marca de lançamento manual); a ajustada, nunca. */
     public function feitaPeloColaborador(): bool;
 

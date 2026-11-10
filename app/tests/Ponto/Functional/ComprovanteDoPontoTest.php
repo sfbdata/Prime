@@ -238,7 +238,7 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('text/plain', (string) $this->client->getResponse()->headers->get('Content-Type'));
     }
 
-    #[TestDox('O gestor apaga a batida: o comprovante continua na aba da pessoa e ela ainda baixa a imagem')]
+    #[TestDox('O gestor desconsidera a batida (E10): o registro e o comprovante ficam, continua na aba da pessoa e ela ainda baixa a imagem')]
     public function testBatidaApagadaContinuaNaAbaEBaixa(): void
     {
         $this->seloPronto();
@@ -247,10 +247,15 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         $gestor = $this->pessoa('gestor');
         $this->vincularGestor($gestor, $this->escritorio);
         $this->logarComTenant($this->client, $gestor, $this->escritorio);
-        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/%d/delete', $this->escritorio->getId(), $this->eu->getId(), $batidaId), ['_token' => 'TOKEN_delete_ponto_' . $batidaId]);
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/b%d/desconsiderar', $this->escritorio->getId(), $this->eu->getId(), $batidaId), [
+            'motivo' => 'Batida em dobro.',
+            'competencia' => (new \DateTimeImmutable())->format('Y-m'),
+            '_token' => 'TOKEN_ponto_desconsiderar_b' . $batidaId,
+        ]);
         self::assertResponseRedirects();
         $this->em()->clear();
-        self::assertNull($this->emSemFiltro()->find(RegistroPonto::class, $batidaId), 'a batida saiu');
+        self::assertNotNull($this->emSemFiltro()->find(RegistroPonto::class, $batidaId), 'o registro original fica (E10: só inserção)');
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM ponto_ajuste WHERE registro_ponto_id = ? AND tipo = 'desconsideracao'", [$batidaId]), 'a batida saiu da conta pela desconsideração');
 
         $codigos = $this->tela('?aba=comprovantes')->filter(self::LINHAS . ' > code')->each(fn (Crawler $c): string => $c->text());
         self::assertSame([$comprovante->getCodigo()], $codigos, 'continua na aba da pessoa (user_id da linha)');

@@ -9,8 +9,9 @@ namespace App\Ponto\Model;
  * `ponto_ajuste`, com o tipo e a data/hora que o último ajuste deu. A raiz é o registro original (alvo 'b{id}') ou a
  * inclusão feita pelo gestor (alvo 'a{id}', sem registro: `getId()` nulo).
  *
- * Da original fica só o home office (e a observação, se quem monta quiser preservá-la); a ajustada nunca é "sem
- * internet" nem "feita pelo colaborador": quem deu a forma atual foi o gestor.
+ * Da original ficam o home office e o trabalho externo (o lugar do trabalho, E12) e a observação, se quem monta quiser
+ * preservá-la; a ajustada nunca é "sem internet" nem "feita pelo colaborador": quem deu a forma atual foi o gestor.
+ * A inclusão do gestor não tem original: nem home office nem trabalho externo.
  */
 final readonly class BatidaAjustada implements MarcacaoDoPonto
 {
@@ -24,6 +25,7 @@ final readonly class BatidaAjustada implements MarcacaoDoPonto
         private AjusteDaMarcacao $ajuste,
         private bool $homeOffice = false,
         private ?string $observacao = null,
+        private bool $trabalhoExterno = false,
     ) {
         if (($registroId === null) === ($inclusaoId === null)) {
             throw new \LogicException('A batida ajustada tem uma raiz só: o registro original ou a inclusão.');
@@ -58,6 +60,11 @@ final readonly class BatidaAjustada implements MarcacaoDoPonto
     public function isEnviadaSemInternet(): bool
     {
         return false;
+    }
+
+    public function isTrabalhoExterno(): bool
+    {
+        return $this->trabalhoExterno;
     }
 
     public function feitaPeloColaborador(): bool

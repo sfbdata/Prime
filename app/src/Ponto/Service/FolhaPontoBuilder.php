@@ -280,7 +280,7 @@ class FolhaPontoBuilder
     /**
      * Os selos do dia no espelho, tirados das batidas escolhidas: home office, sem internet e trabalho externo (E12).
      *
-     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia
+     * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia
      *
      * @return array{homeOffice: bool, semInternet: bool, trabalhoExterno: bool}
      */
@@ -409,7 +409,7 @@ class FolhaPontoBuilder
      * Indica se alguma batida escolhida do dia foi registrada como trabalho externo, fora do raio das sedes (selo
      * "Trabalho externo", spec ponto-desenho-0811 E12). Como o "Sem internet": as batidas fora da conta não acendem.
      *
-     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia
+     * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia
      */
     private function diaTeveTrabalhoExterno(array $batidasDoDia): bool
     {

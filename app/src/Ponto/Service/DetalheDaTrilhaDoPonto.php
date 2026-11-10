@@ -264,7 +264,7 @@ final class DetalheDaTrilhaDoPonto
     }
 
     /**
-     * Um lado do ajuste ('anterior' ou 'novo') no texto da batida: "Saída às 18:00 de 21/10/2026".
+     * Um lado do ajuste ('anterior' ou 'novo') no texto da batida: "Saída às 18:00:00 de 21/10/2026".
      *
      * @param array<string, mixed> $detalhe
      */

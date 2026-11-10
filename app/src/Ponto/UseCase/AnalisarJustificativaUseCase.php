@@ -219,6 +219,15 @@ final class AnalisarJustificativaUseCase
     {
         return $this->em->wrapInTransaction(function () use ($daEquipe, $tenant, $analista): AbonoDaEquipeOutput {
             $situacoes = $this->travarEmOrdemDeId($daEquipe, $tenant);
+            // E10: a linhagem de cada pessoa das que seguem em análise (4210), em ordem crescente de id, antes do
+            // primeiro evento da trilha (4203, a batida do esquecimento da primeira).
+            $emAnalise = array_values(array_filter(
+                $daEquipe,
+                static fn (JustificativaPonto $j): bool => ($situacoes[(int) $j->getId()] ?? null) === self::EM_ANALISE,
+            ));
+            foreach ($this->pessoasEmOrdemDeId($emAnalise) as $pessoa) {
+                $this->gravacao->travar($pessoa);
+            }
             $abonadas  = [];
             $recusas   = [];
             foreach ($daEquipe as $justificativa) {
@@ -229,7 +238,7 @@ final class AnalisarJustificativaUseCase
                     continue;
                 }
                 $this->marcarAbonada($justificativa, $analista, '');
-                ($this->registrarBatida)($justificativa, $tenant);
+                ($this->registrarBatida)($justificativa, $tenant, $analista);
                 // Por item, como no "aprovar todos": a conferência da batida já registrada (R1) da próxima enxerga esta.
                 $this->em->flush();
                 $abonadas[] = $justificativa;

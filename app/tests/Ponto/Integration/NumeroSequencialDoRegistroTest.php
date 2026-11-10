@@ -163,12 +163,13 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
         self::assertStringContainsString('"sem_internet":true', $comprovante->getDadosAssinados());
     }
 
-    #[TestDox('A batida do abono de esquecimento (RegistrarBatidaDoEsquecimentoUseCase) fica sem NSR e não mexe no contador')]
+    #[TestDox('O abono de esquecimento (RegistrarBatidaDoEsquecimentoUseCase) vira inclusão de ajuste (E10): nenhuma batida em registro_ponto, nenhum NSR, o contador nem nasce')]
     public function testBatidaDoEsquecimentoSemNsr(): void
     {
         $escritorio = $this->escritorio();
         $justificativa = new JustificativaPonto();
-        $justificativa->setUser($this->pessoa());
+        $pessoa = $this->pessoa();
+        $justificativa->setUser($pessoa);
         $this->em->flush();   // a guarda do dia (R1) consulta pela pessoa: ela precisa de id
         $justificativa->setTenant($escritorio);
         $justificativa->setData(new \DateTime('2026-03-10'));
@@ -176,12 +177,14 @@ final class NumeroSequencialDoRegistroTest extends KernelTestCase
         $justificativa->setTipo('esquecimento_registro');
         $justificativa->setTipoRegistroEsquecido('saida');
         $justificativa->setHoraRegistroEsquecido(new \DateTime('1970-01-01 18:00:00'));
-
-        $batida = static::getContainer()->get(RegistrarBatidaDoEsquecimentoUseCase::class)($justificativa, $escritorio);
+        $this->em->persist($justificativa);   // a inclusão aponta para ela
         $this->em->flush();
 
-        self::assertNotNull($batida?->getId(), 'a batida do esquecimento foi gravada');
-        self::assertNull($batida->getNsr());
+        $inclusao = static::getContainer()->get(RegistrarBatidaDoEsquecimentoUseCase::class)($justificativa, $escritorio, $this->pessoa());
+        $this->em->flush();
+
+        self::assertNotNull($inclusao?->getId(), 'a inclusão do esquecimento foi gravada');
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE user_id = ?', [$pessoa->getId()]), 'registro_ponto guarda só o que a pessoa bateu');
         self::assertFalse($this->em->getConnection()->fetchOne('SELECT ultimo FROM ponto_contador_nsr WHERE tenant_id = ?', [$escritorio->getId()]), 'o contador nem nasceu');
     }
 

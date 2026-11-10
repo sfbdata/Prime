@@ -12,7 +12,6 @@ use App\Ponto\Entity\ComprovanteDoPonto;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
-use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -48,26 +47,25 @@ final class NsrSoNaMarcacaoDaPessoaTest extends JusPrimeWebTestCase
         $this->vincularColaborador($this->pessoa, $this->escritorio);
     }
 
-    #[TestDox('A batida que o gestor lança na ficha da pessoa fica sem NSR e não mexe no contador')]
+    #[TestDox('O que o gestor lança na ficha da pessoa é inclusão de ajuste (E10): nada em registro_ponto, sem NSR, e o contador não nasce')]
     public function testLancamentoDoGestorSemNsr(): void
     {
         $this->logarComoGestor();
         $ontem = new \DateTimeImmutable('yesterday');
 
         $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/add', $this->escritorio->getId(), $this->pessoa->getId()), [
-            'registro_ponto_manual' => ['data' => $ontem->format('Y-m-d'), 'hora' => '08:15:00', 'tipo' => 'entrada'],
+            'registro_ponto_manual' => ['data' => $ontem->format('Y-m-d'), 'hora' => '08:15:00', 'tipo' => 'entrada', 'motivo' => 'Esqueceu de bater a entrada.'],
             'competencia'           => $ontem->format('Y-m'),
             '_token'                => 'TOKEN_ponto_manual_add',
         ]);
 
         self::assertResponseRedirects();
-        $batida = $this->unicaBatida();
-        self::assertSame(RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL, $batida->getSedeNomeSnapshot(), 'é a batida do lançamento');
-        self::assertNull($batida->getNsr());
+        self::assertSame(0, $this->batidasDaPessoa(), 'registro_ponto guarda só o que a pessoa bateu');
+        self::assertSame(1, $this->inclusoesDaPessoa(), 'é a inclusão do lançamento');
         self::assertFalse($this->ultimoNsr(), 'o contador nem nasceu');
     }
 
-    #[TestDox('A batida do abono de esquecimento lançado pelo gestor fica sem NSR e não mexe no contador')]
+    #[TestDox('O abono de esquecimento lançado pelo gestor é inclusão de ajuste (E10): nada em registro_ponto, sem NSR, e o contador não nasce')]
     public function testAbonoDeEsquecimentoDoGestorSemNsr(): void
     {
         $this->logarComoGestor();
@@ -81,9 +79,8 @@ final class NsrSoNaMarcacaoDaPessoaTest extends JusPrimeWebTestCase
         ]);
 
         self::assertResponseRedirects();
-        $batida = $this->unicaBatida();
-        self::assertSame(SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN, $batida->getObservacao(), 'é a batida do abono');
-        self::assertNull($batida->getNsr());
+        self::assertSame(0, $this->batidasDaPessoa(), 'registro_ponto guarda só o que a pessoa bateu');
+        self::assertSame(1, $this->inclusoesDaPessoa(), 'é a inclusão do abono');
         self::assertFalse($this->ultimoNsr(), 'o contador nem nasceu');
     }
 
@@ -214,6 +211,16 @@ final class NsrSoNaMarcacaoDaPessoaTest extends JusPrimeWebTestCase
         self::assertCount(1, $batidas);
 
         return $batidas[0];
+    }
+
+    private function batidasDaPessoa(): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$this->pessoa->getId(), $this->escritorio->getId()]);
+    }
+
+    private function inclusoesDaPessoa(): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM ponto_ajuste WHERE user_id = ? AND tenant_id = ? AND tipo = 'inclusao'", [$this->pessoa->getId(), $this->escritorio->getId()]);
     }
 
     private function ultimoNsr(): int|false

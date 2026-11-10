@@ -83,7 +83,7 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         $this->assertSemIndiceNemCache();
     }
 
-    #[TestDox('O gestor apaga a batida: o comprovante fica (registro_ponto_id nulo) e o código continua autêntico')]
+    #[TestDox('O gestor desconsidera a batida (E10): o comprovante fica ligado ao registro original e o código continua autêntico')]
     public function testBatidaApagadaPeloGestorContinuaAutentica(): void
     {
         $this->seloPronto();
@@ -99,15 +99,19 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         $esperado = [$this->pagina($comprovante->getCodigo()), $this->json($comprovante->getCodigo())];
 
         $this->logarComTenant($this->client, $gestor, $escritorio);
-        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/%d/delete', $escritorio->getId(), $pessoa->getId(), $batidaId), ['_token' => 'TOKEN_delete_ponto_' . $batidaId]);
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/b%d/desconsiderar', $escritorio->getId(), $pessoa->getId(), $batidaId), [
+            'motivo' => 'Batida em dobro.',
+            'competencia' => (new \DateTimeImmutable())->format('Y-m'),
+            '_token' => 'TOKEN_ponto_desconsiderar_b' . $batidaId,
+        ]);
         self::assertResponseRedirects();
         $this->sair($this->client);
         $this->em()->clear();
 
-        self::assertNull($this->emSemFiltro()->find(RegistroPonto::class, $batidaId), 'a batida saiu');
+        self::assertNotNull($this->emSemFiltro()->find(RegistroPonto::class, $batidaId), 'o registro original fica (E10: só inserção)');
         $restante = $this->emSemFiltro()->find(ComprovanteDoPonto::class, $comprovanteId);
-        self::assertNotNull($restante, 'o comprovante sobrevive (ON DELETE SET NULL)');
-        self::assertNull($restante->getRegistro());
+        self::assertNotNull($restante, 'o comprovante continua');
+        self::assertSame($batidaId, $restante->getRegistro()?->getId(), 'ligado à batida original');
         self::assertSame($esperado, [$this->pagina($comprovante->getCodigo()), $this->json($comprovante->getCodigo())]);
         self::assertStringContainsString('"autentico":true', $esperado[1]);
     }

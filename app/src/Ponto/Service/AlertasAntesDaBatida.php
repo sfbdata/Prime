@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Ponto\Repository\RegistroPontoRepository;
 
 /**
@@ -180,13 +181,13 @@ final class AlertasAntesDaBatida
             : sprintf(self::ALERTA_INTERJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo), $dia));
     }
 
-    private function avisoDoEsquecimento(RegistroPonto $saida, int $minimo): string
+    private function avisoDoEsquecimento(MarcacaoDoPonto $saida, int $minimo): string
     {
         return sprintf(SaidaDeEsquecimento::AVISO_INTERJORNADA, $saida->getDataHora()->format('d/m'), $saida->getDataHora()->format('H:i'), intdiv($minimo, 60));
     }
 
     /** "de ontem", como o desenho; a saída do mesmo dia (dois turnos) diz "de hoje"; outra data, "de dd/mm". */
-    private static function diaDaSaida(RegistroPonto $saida, \DateTimeImmutable $momento): string
+    private static function diaDaSaida(MarcacaoDoPonto $saida, \DateTimeImmutable $momento): string
     {
         $dia = $saida->getDataHora()->format('Y-m-d');
 

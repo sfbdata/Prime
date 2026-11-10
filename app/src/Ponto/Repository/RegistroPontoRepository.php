@@ -511,6 +511,7 @@ SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
             ),
             $original?->isHomeOffice() ?? false,
             $original?->getObservacao(),
+            $original?->isTrabalhoExterno() ?? false,
         );
     }
 

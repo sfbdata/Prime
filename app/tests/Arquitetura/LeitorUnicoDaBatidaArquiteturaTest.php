@@ -47,6 +47,8 @@ final class LeitorUnicoDaBatidaArquiteturaTest extends TestCase
         'src/Ponto/Repository/RegistroPontoRepository.php' => 'o leitor único: a batida efetiva, a linhagem dos ajustes e o envio (E13), que é a original de propósito',
         'src/Ponto/Repository/PontoAjusteRepository.php'   => 'o repositório da entidade do ajuste',
         'src/Ponto/Entity/PontoAjuste.php'                 => 'mapeamento do ORM (targetEntity das ligações), não é leitura',
+        'src/Ponto/Entity/ComprovanteDoPonto.php'          => 'mapeamento do ORM: o comprovante é da batida original (E15), não é leitura',
+        'src/Ponto/Entity/JustificativaPonto.php'          => 'mapeamento do ORM: a justificativa da batida externa aponta a original (E12), não é leitura',
         // O Restaurar acha a desconsideração pelo id (`PontoAjusteRepository::find`) para devolvê-la à conta: não conta
         // batida. Antes de gravar, confere o escritório e a pessoa dela e, pelo leitor único (`alvoDoAjuste`), que ela
         // ainda é a cabeça da linhagem.
