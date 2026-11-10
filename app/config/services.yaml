@@ -297,8 +297,8 @@ services:
     # onde a expressão do prefixo e o recorte por tenant vivem.
     App\Pasta\Service\NumeracaoDePastaInterface: '@App\Pasta\Service\NumeracaoDePasta'
 
-    # Assinatura, etapa 3: o PDF final com selo. Provisória (lança) até o bloco 1 trocar pela implementação real.
-    App\AssinaturaEletronica\Service\PdfFinalDoDocumento: '@App\AssinaturaEletronica\Service\PdfFinalProvisorio'
+    # Assinatura, etapa 3: o PDF final com selo do documento concluído, gerado e guardado uma vez (E3-4).
+    App\AssinaturaEletronica\Service\PdfFinalDoDocumento: '@App\AssinaturaEletronica\Service\PdfFinalComSelo'
 
     # Assinatura, etapa 5 (E5-2): o validador de cadeia gov.br e ICP. "Não configurado" até o bloco 6B trocar pelo cliente
     # HTTP do contêiner validador_pdf; sem ele, o envio recusa gov.br e ICP.

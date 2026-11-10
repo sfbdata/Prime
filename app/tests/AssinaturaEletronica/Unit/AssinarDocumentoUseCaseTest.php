@@ -11,6 +11,7 @@ use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\MuitasTentativas;
+use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
 use App\AssinaturaEletronica\Service\CofreDaSelfie;
 use App\AssinaturaEletronica\UseCase\AssinarDocumentoUseCase;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
@@ -60,9 +61,10 @@ final class AssinarDocumentoUseCaseTest extends TestCase
         self::assertSame('bia@exemplo.com', $vez->getTo()[0]->getAddress());
         self::assertStringContainsString('link=https://app.bluejus.test/assinar/' . $this->chave->token($bia), (string) $vez->getHtmlBody());
         self::assertSame('quem.enviou@escritorio.test', $vez->getReplyTo()[0]->getAddress());
+        self::assertSame([], $this->despachadas, 'sem conclusão, o PDF final não é pedido');
     }
 
-    #[TestDox('o último a assinar conclui o documento e o remetente recebe a conclusão')]
+    #[TestDox('o último a assinar conclui o documento, o remetente recebe a conclusão e o PDF final é pedido ao worker')]
     public function testUltimoConclui(): void
     {
         [$ana, $bia] = $this->documentoEnviado()->getSignatarios();
@@ -75,6 +77,7 @@ final class AssinarDocumentoUseCaseTest extends TestCase
         self::assertSame(SituacaoDoDocumento::Concluido, $ana->getDocumento()->getSituacao());
         self::assertSame(['assinado', 'documento_concluido'], $this->tiposGravados());
         self::assertSame('criadora@escritorio.test', $this->unicoEmail()->getTo()[0]->getAddress());
+        self::assertEquals([new GerarPdfFinalDoDocumento(1, 9)], $this->despachadas, 'a conclusão pede o PDF final ao worker');
     }
 
     #[TestDox('segredo trocado depois do envio: a assinatura vale, mas a vez do próximo não sai (sem link) e vira "email_nao_enviado"')]
@@ -201,6 +204,7 @@ final class AssinarDocumentoUseCaseTest extends TestCase
             $this->pagina(),
             new IdentityTranslator(),
             $this->relogio,
+            $this->barramento(),
         );
     }
 }

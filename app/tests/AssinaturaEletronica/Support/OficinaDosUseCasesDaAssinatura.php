@@ -11,6 +11,7 @@ use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\TipoDeCarta;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
+use App\AssinaturaEletronica\Pdf\MontadorDoPdf;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
@@ -18,6 +19,10 @@ use App\AssinaturaEletronica\Service\ApresentacaoDaConferencia;
 use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\CorreioDaAssinatura;
+use App\AssinaturaEletronica\Service\FolhaDoDocumento;
+use App\AssinaturaEletronica\Service\LogoDaBluejusNoPdf;
+use App\AssinaturaEletronica\Service\ManifestoDoDocumento;
+use App\AssinaturaEletronica\Service\PdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PaginaDoSignatario;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
 use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
@@ -26,6 +31,7 @@ use App\Entity\Tenant\Tenant;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Email\IdentidadeDeEmail;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
+use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use App\Tests\Shared\Doubles\MailerQueGuarda;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -33,12 +39,17 @@ use Symfony\Component\Asset\Package;
 use Symfony\Component\Asset\Packages;
 use Symfony\Component\Asset\VersionStrategy\EmptyVersionStrategy;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Translation\IdentityTranslator;
+use Symfony\Component\Translation\Loader\YamlFileLoader;
+use Symfony\Component\Translation\Translator;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
 
@@ -89,6 +100,9 @@ trait OficinaDosUseCasesDaAssinatura
 
     /** Quando preenchida, `emTransacaoComArquivoNovo` passa pela transação REAL (com os arquivos novos), não só pelo trabalho. */
     private ?TransacaoComArquivoNovo $transacaoReal = null;
+
+    /** @var list<object> as mensagens despachadas pelo {@see barramento()} (etapa 3: o PDF final no worker) */
+    private array $despachadas = [];
 
     private function montarOficina(): void
     {
@@ -219,6 +233,7 @@ trait OficinaDosUseCasesDaAssinatura
         $rotas->add('assinatura_eletronica_logo', new Route('/assinatura/documentos/{id}/logo'));
         $rotas->add('assinatura_eletronica_rubrica', new Route('/assinatura/documentos/{id}/rubrica/{ordem}'));
         $rotas->add('meu_escritorio_logo', new Route('/meu-escritorio/{tenantId}/logo'));
+        $rotas->add('assinatura_eletronica_publica_validar_codigo', new Route('/assinar/validar/{codigo}'));
 
         return new UrlGenerator($rotas, new RequestContext('', 'GET', 'app.bluejus.test', 'https'));
     }
@@ -306,6 +321,48 @@ trait OficinaDosUseCasesDaAssinatura
         self::assertCount(1, $this->mailer->enviados);
 
         return $this->mailer->enviados[0];
+    }
+
+    /** Etapa 3: o barramento que só guarda o que foi despachado, em `$despachadas`. */
+    private function barramento(): MessageBusInterface
+    {
+        $guardar = function (object $mensagem): void {
+            $this->despachadas[] = $mensagem;
+        };
+
+        return new class ($guardar) implements MessageBusInterface {
+            public function __construct(private readonly \Closure $guardar)
+            {
+            }
+
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                ($this->guardar)($message);
+
+                return new Envelope($message, $stamps);
+            }
+        };
+    }
+
+    /** Etapa 3: o tradutor com os catálogos de verdade da Assinatura (os textos do manifesto e dos eventos). */
+    private static function tradutorDaAssinatura(): TranslatorInterface
+    {
+        $tradutor = new Translator('pt_BR');
+        $tradutor->addLoader('yaml', new YamlFileLoader());
+        foreach (glob(__DIR__ . '/../../../translations/assinatura_eletronica*/messages+intl-icu.pt_BR.yaml') ?: [] as $arquivo) {
+            $tradutor->addResource('yaml', $arquivo, 'pt_BR', 'messages+intl-icu');
+        }
+
+        return $tradutor;
+    }
+
+    /** Etapa 3: o PDF com selo de verdade (montador, folha e manifesto) sobre o disco em memória e a trilha dublada. */
+    private function pdfDaAssinatura(): PdfDaAssinatura
+    {
+        $tradutor = self::tradutorDaAssinatura();
+        $folha = new FolhaDoDocumento($this->disco, new LogoDaBluejusNoPdf(\dirname(__DIR__, 3)), new ManifestoDoDocumento($tradutor, $this->eventosDaTrilha), self::urls(), $this->relogio);
+
+        return new PdfDaAssinatura(new MontadorDoPdf(ghostscriptBin: GhostscriptDeTeste::binario()), $folha, $tradutor);
     }
 
     /** O log inteiro (mensagens e contextos) não contém nada do token nem do link. */

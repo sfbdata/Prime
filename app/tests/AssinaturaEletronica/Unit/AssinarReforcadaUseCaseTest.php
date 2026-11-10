@@ -249,6 +249,7 @@ final class AssinarReforcadaUseCaseTest extends TestCase
             $this->pagina(),
             new IdentityTranslator(),
             $this->relogio,
+            $this->barramento(),
         );
     }
 }

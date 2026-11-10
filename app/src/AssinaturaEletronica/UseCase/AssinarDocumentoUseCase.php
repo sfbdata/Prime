@@ -12,10 +12,12 @@ use App\AssinaturaEletronica\DTO\EvidenciaDaRequisicao;
 use App\AssinaturaEletronica\DTO\ReforcoDaAssinatura;
 use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
+use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
 use App\AssinaturaEletronica\Exception\MuitasTentativas;
+use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
@@ -29,6 +31,7 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -47,6 +50,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * cifrada e gravada junto com a rubrica (as duas na lista de arquivos novos), a localização vai para as colunas e as
  * evidências (sha256 da selfie, versão da chave dela, latitude, longitude, precisão) para a trilha. Quem é Simples não
  * tem nada disso, mesmo que o corpo traga selfie ou localização.
+ *
+ * Etapa 3 (E3-4): a assinatura que conclui o documento pede ao worker, depois do COMMIT, o PDF final com selo
+ * ({@see GerarPdfFinalDoDocumento}).
  */
 final readonly class AssinarDocumentoUseCase
 {
@@ -68,6 +74,7 @@ final readonly class AssinarDocumentoUseCase
         private PaginaDoSignatario $pagina,
         private TranslatorInterface $tradutor,
         private ClockInterface $relogio,
+        private MessageBusInterface $mensagens,
     ) {
     }
 
@@ -108,8 +115,21 @@ final readonly class AssinarDocumentoUseCase
         );
         $desfecho->lancarSeRecusado();
         $this->correio->entregar($desfecho->cartas);
+        $this->pedirPdfFinalSeConcluiu($signatario);
 
         return $this->pagina->publico($signatario, $token, $agora);
+    }
+
+    /**
+     * Depois do COMMIT e dos e-mails (uma fila fora do ar não segura a conclusão), só quando esta assinatura concluiu o
+     * documento: a recusa já lançou antes, e o documento concluído por outra assinatura recusa a vez desta.
+     */
+    private function pedirPdfFinalSeConcluiu(Signatario $signatario): void
+    {
+        $documento = $signatario->getDocumento();
+        if ($documento->getSituacao() === SituacaoDoDocumento::Concluido) {
+            $this->mensagens->dispatch(new GerarPdfFinalDoDocumento((int) $documento->getId(), (int) $documento->getTenant()->getId()));
+        }
     }
 
     /**
