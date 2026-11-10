@@ -36,6 +36,9 @@
  *   `segurar()`, a espera sai logo depois do `aoClicar`). `aoTentar` é o "Tentar novamente";
  * - `quandoFechar(fn)`: roda `fn` quando a tela fechar (já, se ela está fechada). Para quem não pode aparecer por cima
  *   dela: o aviso flutuante, a janela do alerta de horário, a recarga do plano B;
+ * - `segurar()`: o mesmo que o botão a mais recebe, para quem fecha a validação e abre uma janela no lugar dela (a
+ *   batida externa que volta para a janela): chamado ANTES de fechar, o fechamento não solta quem espera, e a função
+ *   devolvida solta quando a janela fechar;
  * - `configurar({ focoAoFechar })`: `focoAoFechar()` devolve o elemento que recebe o foco quando a tela fecha;
  * - `fecharSeValidando()`, `fechar()`, `fase()` (`val`, `ok`, `erro`, `tentar` nos 60 ms entre o "Tentar novamente" e
  *   o toque refeito, `janela` com a janela aberta por um botão a mais segurando a espera, ou vazio com a tela fechada)
@@ -441,6 +444,7 @@
         fechar,
         fecharSeValidando,
         quandoFechar,
+        segurar,
         configurar,
         // Nos 60 ms do "Tentar novamente", `tentar`; com a janela de um botão a mais aberta, `janela`: quem pergunta antes
         // de aparecer (o aviso flutuante, o alerta de horário) espera, como com a tela aberta.

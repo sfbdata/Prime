@@ -437,6 +437,8 @@
     // intervalo e da saída e excedente. A tela chama depois da batida, com o `data-ponto-do-dia` que o servidor entregou
     // (spec ponto-atualiza-sem-recarregar). Antes, o estado era `const` lido uma vez na carga.
     let aplicarPontoDoDia = function () {};
+    // E8: a saída do dia ainda falta, pelo relógio e pela página (o relógio a põe; ver `checarLembreteDeSaida`).
+    let saidaAindaPendente = function () { return true; };
 
     // Hora do SERVIDOR (D9): hora feita no navegador é falsificável, e o celular pode estar com o relógio ou o fuso
     // errados. O servidor manda o instante em que montou a página (`data-agora-ms`), o fuso dele e a próxima
@@ -526,13 +528,20 @@
             /* Sem armazenamento: o lembrete vale enquanto a página está aberta. */
         }
         // O plim e o aviso âmbar esperam a tela cheia do registro fechar e saem juntos (o plim não toca por cima dela).
+        // Se esperaram, conferem de novo se a saída ainda falta: ela pode ter sido batida nessa validação. Na hora (sem a
+        // tela cheia aberta), o relógio acabou de conferir; e, na carga, a página ainda não terminou de montar.
+        let naHora = true;
         depoisDaTelaCheia(() => {
+            if (!naHora && !saidaAindaPendente()) {
+                return;
+            }
             if (window.PontoSons) {
                 window.PontoSons.liberar();
                 window.PontoSons.ok();
             }
             avisarFlutuante(AVISO_LEMBRETE_DE_SAIDA, 'lembrete');
         });
+        naHora = false;
         try {
             if (window.Notification && Notification.permission === 'granted') {
                 new Notification('BlueJus Ponto', { body: 'Não esqueça de registrar a saída.' });
@@ -790,6 +799,12 @@
                 dispararLembreteDeSaida();
             }
         }
+
+        // O lembrete que esperou a tela cheia: a saída batida nessa validação já está na página antes de o relógio saber
+        // (`saidaBatidaNaPagina`); o relógio só a recebe quando a busca da tela volta.
+        saidaAindaPendente = function () {
+            return LEMBRETE_LIGADO && !!tEntrada && !tSaida && !saidaBatidaNaPagina();
+        };
 
         function updateClock() {
             const agora = new Date();
@@ -1429,17 +1444,27 @@
         campo.focus();
     }
 
-    // E8: a janela "Trabalho externo" aberta pela tela vermelha. O alerta de horário e o aviso flutuante que esperavam a
-    // tela cheia fechar esperam também a janela (`segurar`, de js/ponto-tela-cheia.js), até ela fechar por qualquer
-    // caminho. O "Registrar" solta antes de refazer o toque (a validação nova abre, e a espera segue até ela fechar);
-    // "Cancelar", o "x" e Esc soltam pelo `hidden` da janela. Sem a janela aberta ou sem o observador, a espera sai já.
-    function abrirJanelaExternaDaTelaCheia(tipo, segurar) {
-        abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo);
-        const fundo = document.getElementById(JANELA_DO_TRABALHO_EXTERNO);
-        if (!fundo || fundo.hidden || typeof segurar !== 'function' || typeof MutationObserver !== 'function') {
+    // E8: a janela "Trabalho externo" aberta no lugar da tela cheia (pelo botão da tela vermelha ou pela batida externa
+    // que volta) devolve o foco ao título do cartão quando fecha: no "Bater Ponto", um Enter bateria o tipo sugerido.
+    function origemDaJanelaExterna() {
+        return document.getElementById('ponto-registrar-titulo') || btnPonto;
+    }
+
+    // E8: o alerta de horário e o aviso flutuante que esperavam a tela cheia fechar esperam também a janela "Trabalho
+    // externo" aberta no lugar dela, até ela fechar por qualquer caminho. `soltar` é a função do `segurar()` de
+    // js/ponto-tela-cheia.js (null: nada a segurar). O "Registrar" solta antes de refazer o toque (a validação nova abre,
+    // e a espera segue até ela fechar); "Cancelar", o "x" e Esc soltam pelo `hidden` da janela. Sem a janela aberta ou
+    // sem o observador, solta já. Uma espera anterior ainda presa sai junto com esta (nunca fica presa para sempre).
+    function soltarQuandoAJanelaExternaFechar(soltar) {
+        if (typeof soltar !== 'function') {
             return;
         }
-        const soltar = segurar();
+        const fundo = document.getElementById(JANELA_DO_TRABALHO_EXTERNO);
+        if (!fundo || fundo.hidden || typeof MutationObserver !== 'function') {
+            soltar();
+            return;
+        }
+        const anterior = soltarAJanelaExterna;
         const vigia = new MutationObserver(function () {
             if (fundo.hidden) {
                 soltarAJanelaExterna();
@@ -1448,9 +1473,18 @@
         soltarAJanelaExterna = function () {
             vigia.disconnect();
             soltarAJanelaExterna = function () {};
+            anterior();
             soltar();
         };
         vigia.observe(fundo, { attributes: true, attributeFilter: ['hidden'] });
+    }
+
+    // E8: a janela aberta pelo botão "Registrar como trabalho externo" da tela vermelha, segurando a espera (`segurar`).
+    function abrirJanelaExternaDaTelaCheia(tipo, segurar) {
+        abrirJanelaDoTrabalhoExterno(origemDaJanelaExterna(), tipo);
+        if (typeof segurar === 'function') {
+            soltarQuandoAJanelaExternaFechar(segurar());
+        }
     }
 
     // A batida externa com certeza não entrou (atrasada, que nem saiu; recusada antes de gravar; ou o servidor recusou o
@@ -1461,7 +1495,7 @@
         if (payload.trabalhoExterno !== true || haJanelaDoPontoAberta()) {
             return;
         }
-        abrirJanelaDoTrabalhoExterno(btnPonto, payload.tipo, porque);
+        abrirJanelaDoTrabalhoExterno(origemDaJanelaExterna(), payload.tipo, porque);
     }
 
     // E12 + E8: o fora do raio do toque (o local, pela avaliação da tela, ou a recusa do servidor com `foraDoRaio`,
@@ -1494,13 +1528,21 @@
     // E12 + E8: a batida externa que com certeza não entrou (atrasada, recusada antes de gravar ou com o texto recusado)
     // não vai para a tela vermelha: a validação fecha sem resultado, a caixa diz o porquê (com o "Atualizar" quando ele
     // ajuda) e a janela reabre com o texto guardado, como na E12. A ordem importa: a tela cheia fecha ANTES de a janela
-    // abrir, senão o fechamento dela levaria o foco para fora da janela.
+    // abrir, senão o fechamento dela levaria o foco para fora da janela. Como no botão da tela vermelha, a espera é
+    // segura ANTES de a validação fechar: o alerta de horário que esperava não abre no meio, e a janela que reabre o
+    // segura até fechar (sem a janela, ele sai já).
     function devolverExternoParaAJanela(payload, porque, oferecerAtualizar) {
-        if (window.PontoTelaCheia) {
-            window.PontoTelaCheia.fecharSeValidando();
+        const tela = window.PontoTelaCheia;
+        const soltar = tela && typeof tela.segurar === 'function' ? tela.segurar() : null;
+        try {
+            if (tela) {
+                tela.fecharSeValidando();
+            }
+            mostrarAvisoBatida(porque, 'danger', oferecerAtualizar);
+            reabrirTrabalhoExterno(payload, porque);
+        } finally {
+            soltarQuandoAJanelaExternaFechar(soltar);
         }
-        mostrarAvisoBatida(porque, 'danger', oferecerAtualizar);
-        reabrirTrabalhoExterno(payload, porque);
     }
 
     // A janela aberta pelo `PontoAbas` (o `janelaAberta` de js/ponto-abas.js, que o módulo não expõe) é a única
@@ -2126,6 +2168,19 @@
             }
         });
         acertarSugestaoDoBotao();
+    }
+
+    // E8: a saída do dia já está na página, antes de o relógio saber: confirmada pelo servidor (`confirmadasDaPagina`) ou
+    // marcada no botão do tipo (a da tela, a guardada na fila). Só para depois da carga: lê `confirmadasDaPagina`, que é
+    // declarada depois do relógio (o lembrete na carga não chega aqui; ver `dispararLembreteDeSaida`).
+    function saidaBatidaNaPagina() {
+        const dia = diaDaTelaAgora();
+        if (confirmadasDaPagina.some((confirmada) => confirmada.tipo === 'saida' && confirmada.dia === dia)) {
+            return true;
+        }
+        const botao = document.querySelector('#ponto-tipos > button[role="radio"][data-tipo="saida"]');
+
+        return !!botao && botao.dataset.registrada === '1';
     }
 
     // E8: registra a batida que o servidor confirmou (ver `confirmadasDaPagina`). Uma por tipo: a nova troca a velha.

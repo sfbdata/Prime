@@ -413,9 +413,10 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         $lembrete = self::corpo($tela, 'function dispararLembreteDeSaida() {');
 
         self::assertMatchesRegularExpression(
-            "/depoisDaTelaCheia\(\(\) => \{\s*if \(window\.PontoSons\) \{\s*window\.PontoSons\.liberar\(\);\s*window\.PontoSons\.ok\(\);\s*\}\s*avisarFlutuante\(AVISO_LEMBRETE_DE_SAIDA, 'lembrete'\);\s*\}\);/",
+            "/depoisDaTelaCheia\(\(\) => \{\s*if \(!naHora && !saidaAindaPendente\(\)\) \{\s*return;\s*\}\s*"
+            . "if \(window\.PontoSons\) \{\s*window\.PontoSons\.liberar\(\);\s*window\.PontoSons\.ok\(\);\s*\}\s*avisarFlutuante\(AVISO_LEMBRETE_DE_SAIDA, 'lembrete'\);\s*\}\);/",
             $lembrete,
-            'o plim e o aviso saem juntos, depois da tela cheia'
+            'o plim e o aviso saem juntos, depois da tela cheia (testLembreteQueEsperouConfereASaida)'
         );
         self::assertSame(1, substr_count($lembrete, 'window.PontoSons.ok();'), 'nenhum plim fora da espera');
         self::assertLessThan(strpos($lembrete, 'depoisDaTelaCheia('), strpos($lembrete, 'localStorage.setItem(chave, dia);'), 'o dia é marcado na hora: o lembrete esperando não se repete');
@@ -425,6 +426,38 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
             self::corpo($tela, 'function depoisDaTelaCheia(fn) {'),
             'sem a tela cheia na página, na hora'
         );
+    }
+
+    #[TestDox('Revisão da junção: o lembrete que esperou a tela cheia confere de novo, ao sair, se a saída ainda falta; batida nessa validação, nem plim nem aviso')]
+    public function testLembreteQueEsperouConfereASaida(): void
+    {
+        $tela = self::tela();
+        $lembrete = self::corpo($tela, 'function dispararLembreteDeSaida() {');
+
+        // `naHora` diz se o `depoisDaTelaCheia` rodou já (sem a tela cheia aberta: o relógio acabou de conferir, e na
+        // carga `confirmadasDaPagina` ainda nem foi declarada) ou depois de ela fechar (aí confere).
+        self::assertMatchesRegularExpression('/let naHora = true;\s*(?:\/\/[^\n]*\n\s*)*depoisDaTelaCheia\(\(\) => \{/', $lembrete);
+        self::assertMatchesRegularExpression("/avisarFlutuante\(AVISO_LEMBRETE_DE_SAIDA, 'lembrete'\);\s*\}\);\s*naHora = false;/", $lembrete);
+        self::assertSame(1, substr_count($lembrete, 'naHora = false;'));
+
+        // A conferência: a do relógio (a entrada, sem a saída) mais a saída que a página já tem antes do relógio.
+        self::assertStringContainsString('let saidaAindaPendente = function () { return true; };', $tela);
+        self::assertLessThan(strpos($tela, 'function dispararLembreteDeSaida() {'), strpos($tela, 'let saidaAindaPendente = '), 'declarada antes do lembrete');
+        self::assertMatchesRegularExpression(
+            '/saidaAindaPendente = function \(\) \{\s*return LEMBRETE_LIGADO && !!tEntrada && !tSaida && !saidaBatidaNaPagina\(\);\s*\};/',
+            $tela
+        );
+        self::assertSame(2, substr_count($tela, 'saidaAindaPendente = '), 'a declaração e a do relógio');
+        // A do relógio é posta antes de o relógio rodar pela primeira vez (que já pode chamar o lembrete).
+        self::assertLessThan(strpos($tela, 'setInterval(updateClock, 1000);'), strpos($tela, 'return LEMBRETE_LIGADO && !!tEntrada && !tSaida && !saidaBatidaNaPagina();'));
+
+        $naPagina = self::corpo($tela, 'function saidaBatidaNaPagina() {');
+        self::assertStringContainsString("if (confirmadasDaPagina.some((confirmada) => confirmada.tipo === 'saida' && confirmada.dia === dia)) {", $naPagina, 'a confirmada pelo servidor nessa validação, antes da busca da tela voltar');
+        self::assertStringContainsString("const botao = document.querySelector('#ponto-tipos > button[role=\"radio\"][data-tipo=\"saida\"]');", $naPagina);
+        self::assertStringContainsString("return !!botao && botao.dataset.registrada === '1';", $naPagina, 'a da tela e a guardada na fila (marcadas no botão)');
+        self::assertStringContainsString("botao.dataset.registrada = '1';", self::corpo($tela, 'function marcarTipoComoBatido(botao, horaTexto) {'));
+        // `confirmadasDaPagina` vem depois do relógio: só a conferência que esperou a lê.
+        self::assertLessThan(strpos($tela, 'let confirmadasDaPagina = [];'), strpos($tela, 'setInterval(updateClock, 1000);'));
     }
 
     #[TestDox('Revisão 8: fechada a tela cheia, o foco vai ao título do cartão (tabindex -1), não ao "Bater Ponto"')]
