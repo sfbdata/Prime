@@ -1337,6 +1337,12 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
       dia futuro, antes do início da contagem ou sem jornada, sem mudar o cálculo das horas.
   24. Aceite com competência fora do calendário é recusado com "Este mês não está na sua folha de ponto.". O número do
       aceite sai da mesma leitura que decide se a pessoa pode assinar, e o índice único segura o duplo envio.
+  25. A folha emitida é gravada antes do desenho: se o desenho ou o PDF falharem, a linha e o evento "Folha emitida"
+      ficam (o texto selado é verdadeiro e a transação não fica aberta durante o desenho). Competência fora do
+      calendário responde 400; pessoa sem vínculo ativo no escritório da sessão responde 404, como a que não existe.
+  26. Desvios pequenos no PDF (⚠), pela fonte DejaVu, mais larga que a Arial do desenho: texto que não cabe encolhe até
+      um mínimo antes do "..." (o `cap` do desenho só corta); os rótulos do controle de intervalos mostram os mínimos da
+      jornada, os mesmos do quadro "REGIME DE JORNADA"; nome sem letras vira "USUARIO" no nome do arquivo.
 
 **E17. Banco de horas por lotes.**
 - Obrigatória (P51 a).
