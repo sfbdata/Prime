@@ -3,7 +3,8 @@
 {#
     Pautas da assembleia. Em rascunho (desenho §2, etapa 4 "Cargos e candidaturas"): atalhos "Cargos e pautas
     frequentes:", uma caixa por pauta (_pauta_form) com "Remover cargo", "Outro cargo ou pauta" e o rodapé
-    "Salvar e sair" | "Voltar" | "Continuar". Publicada: a mesa por pauta (_pauta_linha, cartão "Votações").
+    "Salvar e sair" | "Voltar" | "Continuar", com o erro da etapa acima dele (edErro, L226; preenchido pelo JS quando
+    uma pauta alterada é recusada ao sair). Publicada: a mesa por pauta (_pauta_linha, cartão "Votações").
     Contexto: `assembleia` (AssembleiaNoPainel), `atalhos`, `opcoes_padrao`, `agora`.
 #}
 
@@ -13,7 +14,8 @@
 {% set a = assembleia %}
 {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
 {% if a.podeAlterarPautas %}
-<div class="vC voto-assistente">
+<div class="vC voto-assistente" data-voto-pautas data-voto-falha="{{ 'voto.assembleia.gestor.aviso.falha_ao_salvar'|trans }}"
+     data-voto-repetir="{{ 'voto.assembleia.gestor.aviso.repetir_sem_a_pauta'|trans }}" data-voto-incluida="{{ 'voto.assembleia.gestor.aviso.pauta_incluida'|trans }}">
     <div class="vH"><i class="bi bi-plus-square"></i>{{ 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}</div>
     <div class="voto-assistente-corpo">
         <div><b class="voto-etapa-titulo">{{ 'voto.assembleia.gestor.pautas.titulo'|trans }}</b><div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.pautas.subtitulo'|trans }}</div></div>
@@ -39,6 +41,7 @@
         {% if a.pautas is not empty %}
             <div><button type="button" class="vB" data-voto-mostrar="pauta-nova"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.pautas.outra'|trans }}</button></div>
         {% endif %}
+        <div class="voto-erro" data-voto-erro role="alert" hidden></div>
         <div class="voto-rodape">
             <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
             <span class="voto-espaco"></span>
