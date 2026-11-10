@@ -63,12 +63,15 @@ final class PeDaFolha
         }
     }
 
-    /** A linha de assinatura em y + 56, o título em negrito embaixo e o nome em 10, cortado na largura da linha. */
+    /**
+     * A linha de assinatura em y + 56, o título em negrito embaixo e o nome em 10, centrado; o nome que não cabe na
+     * largura da linha encolhe até 8 antes do "..." (decisões 26 e 27; Coordenador, 10/11/2026).
+     */
     private function assinatura(string $titulo, string $nome, float $de, float $ate, float $y): void
     {
         $this->pagina->retangulo($de, $y + 56, $ate - $de, .8, PaginaDaFolha::TEXTO);
         $this->pagina->texto($titulo, 'negrito', 11, ($de + $ate) / 2, $y + 68, PaginaDaFolha::TEXTO, true);
-        $this->pagina->texto($this->pagina->caber($nome, 'normal', 10, $ate - $de), 'normal', 10, ($de + $ate) / 2, $y + 80, PaginaDaFolha::TEXTO, true);
+        $this->pagina->linhaQueCabe($nome, 'normal', 10, 8, ($de + $ate) / 2, $y + 80, $ate - $de, PaginaDaFolha::TEXTO, true);
     }
 
     /** "Aceite eletrônico em ..." em verde ou "Aceite com ressalva em ..." em vermelho, e a ressalva cortada em 480. */

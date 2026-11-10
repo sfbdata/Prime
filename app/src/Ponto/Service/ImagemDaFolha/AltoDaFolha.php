@@ -59,8 +59,9 @@ final class AltoDaFolha
         if ($cabecalho->cnpj !== '') {
             $this->pagina->texto('CNPJ: ' . $cabecalho->cnpj, 'normal', 12.5, self::X, $y + 42);
         }
-        $this->pagina->texto($this->pagina->caber($cabecalho->enderecoLinha1, 'normal', 12.5, self::LARGURA_DO_EMPREGADOR), 'normal', 12.5, self::X, $y + 61);
-        $this->pagina->texto($this->pagina->caber($cabecalho->enderecoLinha2, 'normal', 12.5, self::LARGURA_DO_EMPREGADOR), 'normal', 12.5, self::X, $y + 80);
+        // O endereço que não cabe encolhe até 8 antes do "..." (decisões 26 e 27; Coordenador, 10/11/2026).
+        $this->pagina->linhaQueCabe($cabecalho->enderecoLinha1, 'normal', 12.5, 8, self::X, $y + 61, self::LARGURA_DO_EMPREGADOR);
+        $this->pagina->linhaQueCabe($cabecalho->enderecoLinha2, 'normal', 12.5, 8, self::X, $y + 80, self::LARGURA_DO_EMPREGADOR);
     }
 
     /** O quadro "REGIME DE JORNADA" em x = 640, com cinco linhas de rótulo e valor a cada 13,5 (L664). */

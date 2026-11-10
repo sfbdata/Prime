@@ -55,7 +55,7 @@ final class ConteudoDaFolhaDeExemplo
             $empregador,
             '12.345.678/0001-90',
             'Quadra QNF 3, 31',
-            'Taguatinga Norte, Taguatinga/DF CEP 72125-530',
+            $nomesLongos ? 'Setor de Habitações Individuais Norte, Conjunto 3, Lote 31, Taguatinga Norte, Taguatinga/DF CEP 72125-530' : 'Taguatinga Norte, Taguatinga/DF CEP 72125-530',
             '40h semanais',
             'Segunda a Sexta',
             '1h00 (mínimo)',

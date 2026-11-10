@@ -90,11 +90,11 @@ final class PaginaDaFolha
         return $tamanho;
     }
 
-    /** Uma linha de texto que encolhe até `minimo` e, se ainda não couber, é cortada com "...". */
-    public function linhaQueCabe(string $texto, string $fonte, float $tamanho, float $minimo, float $x, float $y, float $maximo, string $cor = self::TEXTO): void
+    /** Uma linha de texto que encolhe até `minimo` e, se ainda não couber, é cortada com "..."; `centro` centra em `x`. */
+    public function linhaQueCabe(string $texto, string $fonte, float $tamanho, float $minimo, float $x, float $y, float $maximo, string $cor = self::TEXTO, bool $centro = false): void
     {
         $tamanho = $this->tamanhoQueCabe($texto, $fonte, $tamanho, $minimo, $maximo);
-        $this->texto($this->caber($texto, $fonte, $tamanho, $maximo), $fonte, $tamanho, $x, $y, $cor);
+        $this->texto($this->caber($texto, $fonte, $tamanho, $maximo), $fonte, $tamanho, $x, $y, $cor, $centro);
     }
 
     /** O `quadro` (L654): contorno de fio 0,7 em `rgba(11,53,80,.32)`. */

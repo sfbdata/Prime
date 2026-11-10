@@ -149,6 +149,27 @@ final class ImagemDaFolhaTest extends TestCase
         }
     }
 
+    #[TestDox('Endereço e nomes da assinatura que não cabem encolhem até 8 antes do "..." (decisões 26 e 27); o que cabe fica no tamanho do desenho')]
+    public function testEnderecoENomesEncolhemAntesDeCortar(): void
+    {
+        $pagina = $this->gerador()->desenhar(ConteudoDaFolhaDeExemplo::outubro(nomesLongos: true), self::QR, self::PAGINA, 0.5);
+
+        $endereco = $this->comecandoCom($pagina, 'Setor de Habitações');
+        self::assertCount(1, $endereco);
+        self::assertSame('Setor de Habitações Individuais Norte, Conjunto 3, Lote 31, Taguatinga Norte, Taguatinga/DF CEP 72125-530', $endereco[0]['texto'], 'inteiro, sem "..."');
+        self::assertLessThan(12.5, $endereco[0]['tamanho']);
+        self::assertGreaterThanOrEqual(8.0, $endereco[0]['tamanho']);
+        self::assertLessThanOrEqual(ImagemDaFolha::X + 580 + .5, $endereco[0]['x'] + $pagina->largura($endereco[0]['texto'], $endereco[0]['fonte'], $endereco[0]['tamanho']));
+        self::assertSame(12.5, $this->comecandoCom($pagina, 'Quadra QNF 3')[0]['tamanho'], 'a linha que cabe não encolhe');
+
+        $nomes = $this->comecandoCom($pagina, 'MARIA APARECIDA');
+        usort($nomes, static fn (array $a, array $b): int => $a['y'] <=> $b['y']);
+        $assinatura = $nomes[array_key_last($nomes)];
+        self::assertSame(8.0, $assinatura['tamanho'], 'o nome da assinatura chega a 8 antes de cortar');
+        self::assertStringEndsWith('...', $assinatura['texto']);
+        self::assertSame(10.0, $this->comecandoCom($pagina, 'FARLEI ASSIS')[0]['tamanho'], 'o nome do responsável cabe em 10');
+    }
+
     #[TestDox('A tabela pinta de vermelho as batidas fora de sequência e o saldo negativo')]
     public function testCoresDaTabela(): void
     {
