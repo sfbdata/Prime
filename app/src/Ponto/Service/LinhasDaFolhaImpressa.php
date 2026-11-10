@@ -79,8 +79,8 @@ final class LinhasDaFolhaImpressa
             $batidas,
             self::horas($linha['minutosTrabalhadosDia'] ?? null),
             self::extras($linha['saldoDia'] ?? null),
-            self::saldo($linha['saldoAcumulado'] ?? null),
-            ($linha['saldoAcumulado'] ?? 0) < 0,
+            self::saldo(self::saldoDoMes($linha)),
+            (self::saldoDoMes($linha) ?? 0) < 0,
             $this->observacao($ajustes, $linha, $fora, $feriado, $justificativasDoDia),
             $fora,
             !$fora && !empty($linha['registroIncompleto']),
@@ -88,6 +88,19 @@ final class LinhasDaFolhaImpressa
             array_map(static fn (JustificativaPonto $justificativa): string => (string) $justificativa->getStatus(), $justificativasDoDia),
             implode(self::SEPARADOR, $ajustes),
         );
+    }
+
+    /**
+     * O "Saldo mês" da linha. No dia em andamento (hoje sem saída, E17) o motor não fecha o acumulado e grava o de
+     * até ontem; a folha impressa mostra esse, como a tela (desenho L157). No dia 1º não há nenhum: célula vazia.
+     *
+     * @param array<string, mixed> $linha
+     */
+    private static function saldoDoMes(array $linha): ?int
+    {
+        $acumulado = $linha['saldoAcumulado'] ?? $linha['saldoAcumuladoAteOntem'] ?? null;
+
+        return $acumulado === null ? null : (int) $acumulado;
     }
 
     /**

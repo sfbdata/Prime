@@ -118,6 +118,18 @@ final class LinhasDaFolhaImpressaTest extends TestCase
         self::assertFalse($futuro->saldoNegativo);
     }
 
+    #[TestDox('Dia em andamento (hoje sem saída, E17): o "Saldo mês" é o acumulado até ontem, vermelho se negativo, como a tela (desenho L157); no dia 1º, vazio')]
+    public function testSaldoDoMesNoDiaEmAndamento(): void
+    {
+        $hoje = $this->impressao->linha($this->dia('2026-10-05', ['entrada' => '08:00:00', 'saldoAcumuladoAteOntem' => -45, 'registroIncompleto' => true]), []);
+        $hojeComSaldo = $this->impressao->linha($this->dia('2026-10-05', ['entrada' => '08:00:00', 'saldoAcumuladoAteOntem' => 30]), []);
+        $diaPrimeiro = $this->impressao->linha($this->dia('2026-10-01', ['entrada' => '08:00:00', 'saldoAcumuladoAteOntem' => null]), []);
+
+        self::assertSame(['-0:45', true], [$hoje->saldo, $hoje->saldoNegativo]);
+        self::assertSame(['+0:30', false], [$hojeComSaldo->saldo, $hojeComSaldo->saldoNegativo]);
+        self::assertSame(['', false], [$diaPrimeiro->saldo, $diaPrimeiro->saldoNegativo]);
+    }
+
     #[TestDox('Dia completo: batidas em HH:MM, horas, extras e saldo do mês com sinal; a semana pelo dia')]
     public function testDiaCompleto(): void
     {
