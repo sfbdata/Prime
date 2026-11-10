@@ -983,6 +983,47 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: `PontoController.php`, `SedesDaCercaDoPonto`, `ponto-batida.js`.
 - Testes: fora do raio sem a opção do escritório continua recusado; com a opção, entra marcado e cria a justificativa;
   precisão acima do teto pede nova leitura; home office continua sem localização.
+- Decisões da etapa (09/11/2026, Coordenador):
+  - migration `Version20261109230000`: em `registro_ponto`, `trabalho_externo` (padrão falso) e
+    `motivo_trabalho_externo` (texto nulo); em `justificativa_ponto`, `registro_ponto_id` (nulo, FK ON DELETE SET
+    NULL, com índice);
+  - raio com a precisão (`CercaDoPonto`, teto de 50 m, o mesmo número do "GPS impreciso" do desenho). DENTRO: a
+    distância cabe no raio, ou a distância menos a precisão cabe nele com a precisão até 50 m. INCERTA: precisão
+    acima de 50 m e a distância menos a precisão cabe no raio, mas a distância não; responde 422 "GPS impreciso" e
+    pede nova leitura. FORA: o resto, inclusive o escritório sem sede; responde 403. Nunca mais rígido que antes: o
+    que entrava (distância até o raio) continua entrando, com qualquer precisão;
+  - textos do fora do raio (L528). Desvio: a frase " Aproxime-se ou informe o trabalho externo." só aparece com a
+    opção ligada, porque com ela desligada mandaria fazer o que o escritório não permite. Os textos de GPS impreciso
+    não estão no desenho. O raio e a distância saem com ponto de milhar. A sede citada é a mais próxima em metros,
+    no bloco do toque e na caixa da localização; o "fora" continua decidido pela regra de antes. O atalho do
+    cabeçalho não muda nesta etapa e continua citando a sede da regra do "fora";
+  - o pedido (`trabalhoExterno` e `motivoTrabalhoExterno`) vale fora do raio e no GPS impreciso, com a opção do
+    escritório ligada (padrão ligada, P74). Dentro do raio é ignorado e a batida entra normal. Motivo vazio ou com
+    mais de 500 caracteres dá 422 (a caixa tem maxlength 500);
+  - a batida de trabalho externo entra sem sede, com latitude, longitude e precisão, e com o tipo que falhou. Na
+    mesma transação nascem a justificativa `trabalho_externo` pendente ligada a ela (data = dia da batida) e as
+    trilhas; o aviso ao gestor vai depois do commit. Sem internet, ela vai pela fila da E14 com os dois campos;
+  - pela recomendação, a batida conta enquanto a justificativa está em análise. A justificativa ligada NUNCA abona:
+    aprovar só confirma a batida. A recusa tira a batida da conta pelo Desconsiderar da E10 e o reverter a restaura
+    (ligados depois da E10, no mesmo PR);
+  - o colaborador não exclui nem edita a justificativa ligada. A tela mostra "Segue para a análise do gestor." no
+    lugar do lápis e da lixeira; quem analisa a própria justificativa vê só "Abonar" e "Recusar";
+  - o nome do tipo continua o do sistema, "Trabalho Externo (Home Office / Campo)", como no P45. O subtítulo da
+    justificativa ligada é "TIPO às HH:MM" (L545);
+  - a caixa P74 "Permitir trabalho externo, com motivo e análise" (rota `ponto_configuracao_trabalho_externo`) fica
+    no audit_log, não na trilha do Ponto (o desenho não a registra). A tela aberta só vê a mudança depois de
+    recarregar: quem decide é o servidor;
+  - a tela vermelha é da E8. Até a ligação, o fora do raio fica na caixa de resultado, com o botão "Registrar como
+    trabalho externo";
+  - sem confirmação e sem rede NÃO reabrem a janela do trabalho externo: a batida pode ter entrado, e um novo envio
+    sairia com outro `idEnvio`. O texto fica guardado na página e a caixa mostra o aviso de hoje. Atrasado, sessão
+    vencida e a recusa do texto reabrem a janela com o texto, se não houver outra janela aberta.
+- Limites conhecidos da E12:
+  - em sessão vencida, o texto digitado se perde ao atualizar a página (não fica guardado fora dela);
+  - uma aba aberta antes da publicação, com a fila antiga na memória, pode mandar sem a marca uma batida externa
+    guardada, e o servidor a recusa como fora do raio;
+  - antes da E10, uma batida apagada deixaria a justificativa solta abonando. O gatilho da E10 barra o DELETE, e as
+    duas vão no mesmo PR.
 
 **E13. Hora oficial e hora do aparelho.**
 - Entra: P5 (a hora do servidor é a hora oficial, ajustada pelo atraso na tela; a hora do aparelho fica guardada só
@@ -1248,6 +1289,9 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   migration `Version20261109220000`. Decisões da etapa registradas na E13 (seção 5).
 - E14 integrada na branch `ponto-desenho` (as mesmas frentes da E13), sem migration. Decisões e limites registrados na
   E14 (seção 5).
+- E12 integrada na branch `ponto-desenho` (frentes `ponto-desenho-e12`, servidor, e `ponto-desenho-e12-tela`), com a
+  migration `Version20261109230000`. Decisões e limites registrados na E12 (seção 5). A ligação com a tela vermelha
+  da E8 e com o ajuste da E10 vem depois das duas.
 - E4 implementada na branch `ponto-desenho-e4` (empilhada na E3), com a migration `Version20261109210000` (coluna
   `motivo` em `justificativa_ponto`). Decisões registradas na E4 (seção 5).
 - E7 implementada na branch `ponto-desenho-e7`, com a migration Version20261109180000 (`ponto_config_escritorio`).
@@ -1276,7 +1320,7 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
   A chave do selo da trilha (E9) já foi decidida.
 - Pendências do dono: seção 10. Nenhuma trava a E1.
 - Migrations: `Version20261109180000` (E7, `ponto_config_escritorio`), `Version20261109190000` (E9, tabela
-  `ponto_auditoria`), `Version20261109210000` (E4) e `Version20261109220000` (E13).
+  `ponto_auditoria`), `Version20261109210000` (E4), `Version20261109220000` (E13) e `Version20261109230000` (E12).
 
 ## 10. Pendências do dono e ganchos
 
