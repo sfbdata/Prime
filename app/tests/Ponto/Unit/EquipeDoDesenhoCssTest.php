@@ -62,6 +62,20 @@ final class EquipeDoDesenhoCssTest extends TestCase
         yield 'data da lista' => ['.pe-eq-just-data', ['font-variant-numeric' => 'tabular-nums']];
         yield 'subtítulo da lista' => ['.pe-eq-just-sub', ['color' => 'var(--pe-mudo)', 'font-size' => '12.5px', 'flex' => '1', 'min-width' => '120px']];
         yield 'lista vazia (L218)' => ['.pe-eq-just-vazia', ['padding' => '18px', 'text-align' => 'center', 'font-size' => '13.5px', 'color' => 'var(--pe-mudo)']];
+        yield 'Tentar de novo do painel que falhou (botão de borda azul, L196)' => ['.pe-painel-tentar', ['height' => '30px', 'padding' => '0 11px', 'border' => '1px solid var(--pe-azul)', 'border-radius' => '3px', 'background' => 'var(--pe-card)', 'color' => 'var(--pe-link)', 'font' => 'inherit', 'font-size' => '12.5px', 'cursor' => 'pointer', 'display' => 'flex', 'align-items' => 'center', 'gap' => '6px']];
+        yield 'Tentar de novo, mouse (#e5f1f7, L196)' => ['.pe-painel-tentar:hover', ['background' => 'var(--pe-info-bg)']];
+        yield 'Tentar de novo, foco do teclado (o da tela)' => ['.pe-painel-tentar:focus-visible', ['outline' => '2px solid var(--pe-link)', 'outline-offset' => '2px']];
+    }
+
+    #[TestDox('Os tokens do "Tentar de novo" valem o hex do botão do desenho (L196) no tema claro')]
+    public function testTokensDoTentarDeNovo(): void
+    {
+        $tokens = self::declaracoes(self::semMedia(self::css()), '.pe-page,.pe-folha');
+
+        self::assertSame(
+            ['#0a6fa0', '#fff', '#0a6fa0', '#e5f1f7'],
+            array_map(static fn (string $t): ?string => $tokens[$t] ?? null, ['--pe-azul', '--pe-card', '--pe-link', '--pe-info-bg']),
+        );
     }
 
     #[TestDox('Os tokens usados no lugar dos hex do desenho valem o hex no tema claro')]

@@ -6,8 +6,10 @@ namespace App\Tests\Ponto\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Entity\Notificacao;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Service\AbonoPelaAnaliseDaJustificativa;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\UseCase\AbonarJustificativasDaEquipeUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDeJornadaPorEscritorioTrait;
@@ -17,9 +19,11 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
 /**
- * "Abonar selecionadas" da aba Equipe com o abono de verdade, o da ficha (`AnalisarJustificativaUseCase::abonarPorId`),
- * sem dublê: grava no banco, e a recusa da ficha volta como a frase da pessoa e do dia sem desfazer as outras
- * (spec `docs/specs/ponto-desenho-0811.md`, E5). O resto do lote se prova em AbonoEmLoteDaEquipeTest.
+ * "Abonar selecionadas" da aba Equipe com o abono de verdade, o da ficha (`AnalisarJustificativaUseCase::abonarPorId`
+ * para a própria e `abonarDaEquipe` para as da equipe), sem dublê: grava no banco, a recusa da ficha volta como a frase
+ * da pessoa e do dia sem desfazer as outras, a trilha ganha um "Abono em lote" só para as da equipe (desenho L818) e
+ * cada pessoa recebe o aviso do sininho (spec `docs/specs/ponto-desenho-0811.md`, E5). O resto do lote se prova em
+ * AbonoEmLoteDaEquipeTest.
  */
 #[CoversClass(AbonoPelaAnaliseDaJustificativa::class)]
 #[CoversClass(AbonarJustificativasDaEquipeUseCase::class)]
@@ -77,6 +81,89 @@ final class AbonoEmLoteLigadoAFichaTest extends JusPrimeWebTestCase
         self::assertStringStartsWith(sprintf('Ana Lima (%s): ', $this->hoje->modify('-2 days')->format('d/m/Y')), $avisos[0]);
         self::assertSame('rejeitado', $this->noBanco($daAna)[0]);
         self::assertSame(['abonado', (string) $this->gestora->getId()], $this->noBanco($doBruno));
+    }
+
+    #[TestDox('Desenho L818: 2 da equipe e 1 da própria viram 1 "Justificativa abonada" e 1 "Abono em lote" com "2 justificativas da equipe"')]
+    public function testUmEventoParaAsDaEquipe(): void
+    {
+        $daAna = $this->justificativa($this->ana, -2, 'pendente');
+        $daGestora = $this->justificativa($this->gestora, -1, 'pendente');
+        $doBruno = $this->justificativa($this->bruno, -1, 'pendente');
+
+        $this->abonar([$daAna->getId(), $daGestora->getId(), $doBruno->getId()]);
+
+        self::assertSame(['3 justificativas abonadas.'], $this->flashes('success'));
+        $eventos = $this->eventos();
+        self::assertSame(['justificativa_abonada', 'abono_em_lote'], array_column($eventos, 'acao'));
+        self::assertSame([(int) $this->gestora->getId(), (int) $this->gestora->getId()], array_column($eventos, 'autor_id'));
+        self::assertSame($daGestora->getId(), $eventos[0]['detalhe']['justificativa_id'], 'a própria, sozinha, com o evento dela');
+        self::assertSame([
+            ['justificativa_id' => $daAna->getId(), 'colaborador_id' => $this->ana->getId(), 'colaborador' => 'Ana Lima', 'data' => $this->hoje->modify('-2 days')->format('Y-m-d')],
+            ['justificativa_id' => $doBruno->getId(), 'colaborador_id' => $this->bruno->getId(), 'colaborador' => 'Bruno Reis', 'data' => $this->hoje->modify('-1 day')->format('Y-m-d')],
+        ], $eventos[1]['detalhe']['da_equipe'], 'quem foi abonado fica na auditoria');
+        self::assertSame('2 justificativas da equipe', DetalheDaTrilhaDoPonto::texto($eventos[1]['acao'], $eventos[1]['detalhe']));
+        self::assertSame(['abonado', 'abonado', 'abonado'], [$this->noBanco($daAna)[0], $this->noBanco($daGestora)[0], $this->noBanco($doBruno)[0]]);
+        self::assertSame([(int) $this->gestora->getId(), (int) $this->ana->getId(), (int) $this->bruno->getId()], $this->avisadas(), 'o aviso do sininho, como na ficha');
+    }
+
+    #[TestDox('Recusa de uma da equipe: o evento conta só as abonadas; depois, nada abonado, nenhum evento')]
+    public function testEventoContaSoAsAbonadas(): void
+    {
+        $daAna = $this->justificativa($this->ana, -2, 'rejeitado');
+        $doBruno = $this->justificativa($this->bruno, -1, 'pendente');
+
+        $this->abonar([$daAna->getId(), $doBruno->getId()]);
+
+        $eventos = $this->eventos();
+        self::assertSame(['abono_em_lote'], array_column($eventos, 'acao'));
+        self::assertSame([$doBruno->getId()], array_column($eventos[0]['detalhe']['da_equipe'], 'justificativa_id'));
+        self::assertSame('1 justificativa da equipe', DetalheDaTrilhaDoPonto::texto($eventos[0]['acao'], $eventos[0]['detalhe']));
+        self::assertSame([(int) $this->bruno->getId()], $this->avisadas(), 'a recusada não é avisada');
+
+        $this->abonar([$daAna->getId(), $doBruno->getId()]);   // as duas já analisadas: nada abonado
+
+        self::assertResponseRedirects('/ponto/?aba=equipe');
+        self::assertCount(1, $this->eventos(), 'nada abonado, nenhum evento');
+    }
+
+    #[TestDox('Aba Auditoria: a linha do lote da equipe mostra "Abono em lote" e "2 justificativas da equipe" (desenho L818)')]
+    public function testAbaAuditoriaMostraOTextoDoDesenho(): void
+    {
+        $daAna = $this->justificativa($this->ana, -2, 'pendente');
+        $doBruno = $this->justificativa($this->bruno, -1, 'pendente');
+        $this->abonar([$daAna->getId(), $doBruno->getId()]);
+
+        $painel = $this->client->request('GET', '/ponto/auditoria');
+
+        self::assertResponseIsSuccessful();
+        $linhas = $painel->filter('body > div.pe-audit-rolagem > table.pe-audit-tab > tbody > tr');
+        self::assertCount(1, $linhas);
+        self::assertSame('Abono em lote', $linhas->filter('tr > td:nth-child(3) > b')->text());
+        self::assertSame('2 justificativas da equipe', $linhas->filter('tr > td.pe-audit-detalhe:nth-child(4)')->text());
+    }
+
+    /** @return list<array{acao: string, autor_id: ?int, detalhe: array<string, mixed>}> os eventos da trilha do escritório, em ordem */
+    private function eventos(): array
+    {
+        $linhas = $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT acao, autor_id, detalhe FROM ponto_auditoria WHERE tenant_id = ? ORDER BY sequencia',
+            [$this->escritorio->getId()],
+        );
+
+        return array_map(static fn (array $l): array => [
+            'acao'     => (string) $l['acao'],
+            'autor_id' => $l['autor_id'] === null ? null : (int) $l['autor_id'],
+            'detalhe'  => json_decode((string) $l['detalhe'], true),
+        ], $linhas);
+    }
+
+    /** @return list<int> quem recebeu o aviso "abonada" neste escritório, por id */
+    private function avisadas(): array
+    {
+        return array_map('intval', $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT usuario_id FROM notificacao WHERE tenant_id = ? AND tipo = ? ORDER BY usuario_id',
+            [$this->escritorio->getId(), Notificacao::TIPO_PONTO_JUSTIFICATIVA_APROVADA],
+        ));
     }
 
     /** @param list<int|null> $ids */

@@ -13,6 +13,7 @@ use App\Ponto\Exception\BatidaEmHorarioFuturoException;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\TrilhaDoPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Service\TrilhaDoPonto;
@@ -131,21 +132,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
     public function testTrilhaQueFalhaNaoDeixaOFato(): void
     {
         $justificativa = $this->esquecimento('08:00');
-        $container = static::getContainer();
-        $falha = new class ($container->get(ManagerRegistry::class)) extends TrilhaDoPontoRepository {
-            public function inserir(array $linha): void
-            {
-                throw new \RuntimeException('Falha simulada da trilha.');
-            }
-        };
-        $trilha = new TrilhaDoPonto($falha, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage());
-        $analisar = new AnalisarJustificativaUseCase(
-            $this->em,
-            $container->get(JustificativaPontoRepository::class),
-            $container->get(RegistrarBatidaDoEsquecimentoUseCase::class),
-            $container->get(AnaliseDaPropriaJustificativa::class),
-            $trilha,
-        );
+        $analisar = $this->analisarComTrilhaQueFalha();
 
         try {
             $analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
@@ -232,6 +219,114 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         self::assertSame(AnaliseDeJustificativaRecusadaException::BATIDA_JA_REGISTRADA, $naBatida->motivo);
         self::assertSame('pendente', $this->statusNoBanco($jaBatida));
         self::assertSame(1, $this->batidasDoColaborador(), 'só a batida que já existia');
+    }
+
+    #[TestDox('abonarDaEquipe (E5, desenho L818): abona as da equipe com a batida de cada esquecimento e UM "abono_em_lote" no mesmo COMMIT')]
+    public function testAbonarDaEquipeComUmEventoSo(): void
+    {
+        $entrada = $this->esquecimento('08:00');
+        $saida   = $this->esquecimento('18:00', 'pendente', 'saida');
+
+        $resultado = $this->analisar->abonarDaEquipe([$entrada, $saida], $this->tenant, $this->gestor);
+
+        self::assertSame([$entrada, $saida], $resultado->abonadas);
+        self::assertSame([], $resultado->recusas);
+        self::assertSame(['abonado', 'abonado'], [$this->statusNoBanco($entrada), $this->statusNoBanco($saida)]);
+        self::assertSame(2, $this->batidasDoColaborador());
+        self::assertSame(['batida_do_esquecimento', 'batida_do_esquecimento', 'abono_em_lote'], $this->eventosDaTrilha());
+        $lote = $this->detalheDoUltimoEvento();
+        self::assertSame(2, $lote['quantidade']);
+        self::assertSame([$entrada->getId(), $saida->getId()], array_column($lote['da_equipe'], 'justificativa_id'));
+    }
+
+    #[TestDox('abonarDaEquipe: excluída, já analisada e batida já registrada (R1, a da primeira do lote) viram o motivo de cada uma; o evento conta só a abonada')]
+    public function testAbonarDaEquipeRecusasNaoDesfazemAsOutras(): void
+    {
+        $fica      = $this->esquecimento('08:00');
+        $repetida  = $this->esquecimento('08:30');
+        $jaAbonada = $this->esquecimento('12:00', 'abonado', 'repouso');
+        $sumiu     = $this->esquecimento('18:00', 'pendente', 'saida');
+        $this->excluirPorFora($sumiu);
+
+        $resultado = $this->analisar->abonarDaEquipe([$fica, $repetida, $jaAbonada, $sumiu], $this->tenant, $this->gestor);
+
+        self::assertSame([$fica], $resultado->abonadas);
+        self::assertSame([
+            (int) $repetida->getId()  => sprintf(BatidaJaRegistrada::MENSAGEM, 'entrada'),
+            (int) $jaAbonada->getId() => NomesDasSituacoesDaJustificativa::texto('analise.so_para_abonar'),
+            (int) $sumiu->getId()     => AnaliseDeJustificativaRecusadaException::MENSAGEM_EXCLUIDA,
+        ], $resultado->recusas);
+        self::assertSame(['abonado', 'pendente'], [$this->statusNoBanco($fica), $this->statusNoBanco($repetida)]);
+        self::assertSame(1, $this->batidasDoColaborador(), 'só a batida da abonada');
+        self::assertSame(['batida_do_esquecimento', 'abono_em_lote'], $this->eventosDaTrilha());
+        self::assertSame([$fica->getId()], array_column($this->detalheDoUltimoEvento()['da_equipe'], 'justificativa_id'));
+    }
+
+    #[TestDox('abonarDaEquipe: de outro escritório e a própria sem ser primário nem Master são recusadas; nada abonado, nenhum evento')]
+    public function testAbonarDaEquipeGuardasSemEvento(): void
+    {
+        $daqui = $this->esquecimento('08:00');
+        $outro = (new Tenant())->setName('Outro escritório ' . uniqid());
+        $this->em->persist($outro);
+        $this->em->flush();
+
+        $deFora = $this->analisar->abonarDaEquipe([$daqui], $outro, $this->gestor);
+        $propria = $this->analisar->abonarDaEquipe([$daqui], $this->tenant, $this->colaborador);
+
+        self::assertSame([(int) $daqui->getId() => 'Justificativa não encontrada.'], $deFora->recusas);
+        self::assertSame([(int) $daqui->getId() => AnaliseDaPropriaJustificativa::RECUSA], $propria->recusas);
+        self::assertSame('pendente', $this->statusNoBanco($daqui));
+        self::assertSame([], $this->eventosDaTrilha(), 'nada abonado, nenhum evento');
+    }
+
+    #[TestDox('abonarDaEquipe, atomicidade: a trilha falha no evento do lote: nenhum abono nem batida fica gravado sem ele')]
+    public function testAbonarDaEquipeTrilhaQueFalhaNaoDeixaOsAbonos(): void
+    {
+        $entrada = $this->esquecimento('08:00');
+        $saida   = $this->esquecimento('18:00', 'pendente', 'saida');
+
+        try {
+            $this->analisarComTrilhaQueFalha()->abonarDaEquipe([$entrada, $saida], $this->tenant, $this->gestor);
+            self::fail('A falha da trilha deveria subir.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Falha simulada da trilha.', $e->getMessage());
+        }
+
+        self::assertSame(['pendente', 'pendente'], [$this->statusNoBanco($entrada), $this->statusNoBanco($saida)], 'os abonos voltaram com a transação');
+        self::assertSame(0, $this->batidasDoColaborador());
+        self::assertSame([], $this->eventosDaTrilha());
+    }
+
+    /** A análise com a trilha que falha ao gravar o evento dela; a batida do esquecimento usa a trilha de verdade. */
+    private function analisarComTrilhaQueFalha(): AnalisarJustificativaUseCase
+    {
+        $container = static::getContainer();
+        $falha = new class ($container->get(ManagerRegistry::class)) extends TrilhaDoPontoRepository {
+            public function inserir(array $linha): void
+            {
+                throw new \RuntimeException('Falha simulada da trilha.');
+            }
+        };
+
+        return new AnalisarJustificativaUseCase(
+            $this->em,
+            $container->get(JustificativaPontoRepository::class),
+            $container->get(RegistrarBatidaDoEsquecimentoUseCase::class),
+            $container->get(AnaliseDaPropriaJustificativa::class),
+            new TrilhaDoPonto($falha, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage()),
+        );
+    }
+
+    /** @return array<string, mixed> o detalhe do último evento da trilha do escritório */
+    private function detalheDoUltimoEvento(): array
+    {
+        $detalhe = json_decode((string) $this->em->getConnection()->fetchOne(
+            'SELECT detalhe FROM ponto_auditoria WHERE tenant_id = ? ORDER BY sequencia DESC LIMIT 1',
+            [$this->tenant->getId()],
+        ), true);
+        self::assertIsArray($detalhe);
+
+        return $detalhe;
     }
 
     private function recusaDe(callable $acao): AnaliseDeJustificativaRecusadaException

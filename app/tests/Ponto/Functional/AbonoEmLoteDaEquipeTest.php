@@ -25,8 +25,9 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 /**
  * "Abonar selecionadas" da aba Equipe (spec `docs/specs/ponto-desenho-0811.md`, E5, P57): o formulário volta para a
  * /ponto na aba Equipe, com uma mensagem das abonadas e uma por recusa. O isolamento por escritório e o P43 a são
- * deste bloco; o abono em si é o da ficha (`AbonoDeJustificativa`), que aqui é um dublê: guarda o que recebeu e devolve
- * a recusa combinada. O adaptador de verdade (`AbonoPelaAnaliseDaJustificativa`) se prova em AbonoEmLoteLigadoAFichaTest.
+ * deste bloco; o abono em si é o da ficha (`AbonoDeJustificativa`), que aqui é um dublê: guarda o que recebeu (pelos
+ * dois caminhos, a própria sozinha e as da equipe juntas) e devolve a recusa combinada. O adaptador de verdade
+ * (`AbonoPelaAnaliseDaJustificativa`), com a trilha e o aviso, se prova em AbonoEmLoteLigadoAFichaTest.
  */
 #[CoversClass(EquipeDoPontoController::class)]
 #[CoversClass(AbonarJustificativasDaEquipeUseCase::class)]
@@ -211,6 +212,18 @@ final class AbonoEmLoteDaEquipeTest extends JusPrimeWebTestCase
                 }
 
                 return $recusa;
+            }
+
+            public function abonarDaEquipe(array $daEquipe, Tenant $escritorio, User $analista): array
+            {
+                $recusas = [];
+                foreach ($daEquipe as $justificativa) {
+                    if (($recusa = $this->abonar($justificativa, $escritorio, $analista)) !== null) {
+                        $recusas[(int) $justificativa->getId()] = $recusa;
+                    }
+                }
+
+                return $recusas;
             }
         };
 

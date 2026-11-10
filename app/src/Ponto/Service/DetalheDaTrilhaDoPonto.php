@@ -24,6 +24,9 @@ final class DetalheDaTrilhaDoPonto
 
     private const SITUACOES = ['pendente' => 'em análise', 'abonado' => 'abonada', 'rejeitado' => 'recusada'];
 
+    /** A chave que separa o "Abonar selecionadas" da aba Equipe ({@see daEquipe}) do "aprovar todos" da ficha. */
+    private const DA_EQUIPE = 'da_equipe';
+
     /** @return array<string, mixed> */
     public static function daBatida(RegistroPonto $batida): array
     {
@@ -81,6 +84,32 @@ final class DetalheDaTrilhaDoPonto
     }
 
     /**
+     * O "Abonar selecionadas" da aba Equipe (E5, desenho L818): as justificativas da equipe abonadas de uma vez, de
+     * várias pessoas, num evento "Abono em lote" só. Guarda de cada uma o id, a pessoa e o dia, para a auditoria saber
+     * quem foi abonado; a tela mostra só a quantidade, como o desenho. A chave `da_equipe` separa este detalhe do
+     * "aprovar todos" da ficha ({@see doLote}, de uma pessoa só), que tem o texto dele.
+     *
+     * @param list<JustificativaPonto> $abonadas
+     *
+     * @return array<string, mixed>
+     */
+    public static function daEquipe(array $abonadas): array
+    {
+        if ($abonadas === []) {
+            throw new \LogicException('Evento de lote sem nenhuma justificativa.');
+        }
+
+        return [
+            self::DA_EQUIPE => array_map(static fn (JustificativaPonto $j): array => [
+                'justificativa_id' => $j->getId(),
+            ] + self::colaborador($j->getUser()) + [
+                'data' => $j->getData()?->format('Y-m-d'),
+            ], $abonadas),
+            'quantidade' => \count($abonadas),
+        ];
+    }
+
+    /**
      * A troca de escala (versão da jornada salva ou excluída, escala pessoal limpa).
      *
      * @param 'versao_salva'|'versao_excluida'|'escala_limpa' $operacao
@@ -98,9 +127,13 @@ final class DetalheDaTrilhaDoPonto
     /** @param array<string, mixed> $detalhe */
     public static function texto(string $acao, array $detalhe): string
     {
+        $evento = AcaoDaTrilhaDoPonto::tryFrom($acao);
+        if ($evento === AcaoDaTrilhaDoPonto::AbonoEmLote && \is_array($detalhe[self::DA_EQUIPE] ?? null)) {
+            return self::textoDaEquipe($detalhe);   // várias pessoas: sem o "Nome: " na frente (desenho L818)
+        }
         $quem = self::textoDe($detalhe, 'colaborador') ?? 'Colaborador';
 
-        return $quem . ': ' . match (AcaoDaTrilhaDoPonto::tryFrom($acao)) {
+        return $quem . ': ' . match ($evento) {
             AcaoDaTrilhaDoPonto::BatidaRegistrada     => self::textoDaBatida($detalhe),
             AcaoDaTrilhaDoPonto::BatidaDoEsquecimento => self::textoDaBatida($detalhe) . ', pedida no esquecimento',
             AcaoDaTrilhaDoPonto::JustificativaEnviada,
@@ -165,6 +198,18 @@ final class DetalheDaTrilhaDoPonto
         $dias       = $quantidade > 1 ? sprintf(' (%d dias)', $quantidade) : '';
 
         return self::tipoDaJustificativa($detalhe) . $periodo . $dias . self::textoDoEsquecimento($detalhe);
+    }
+
+    /**
+     * "1 justificativa da equipe" ou "N justificativas da equipe" (desenho L818, no plural certo).
+     *
+     * @param array<string, mixed> $detalhe
+     */
+    private static function textoDaEquipe(array $detalhe): string
+    {
+        $quantidade = \is_int($detalhe['quantidade'] ?? null) ? $detalhe['quantidade'] : \count((array) $detalhe[self::DA_EQUIPE]);
+
+        return $quantidade === 1 ? '1 justificativa da equipe' : sprintf('%d justificativas da equipe', $quantidade);
     }
 
     /** @param array<string, mixed> $detalhe */
