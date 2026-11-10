@@ -53,7 +53,7 @@ final class TelaDoPontoSemRecarregarJsTest extends TestCase
         // botão "Atualizar" da pessoa.
         self::assertSame(3, substr_count($tela, 'window.location.reload()'));
         $exclusao = self::trecho($tela, "document.addEventListener('ponto:justificativa-excluida', () => {", "\n    });");
-        self::assertStringContainsString('setTimeout(() => window.location.reload(), 1500);', $exclusao);
+        self::assertMatchesRegularExpression('/setTimeout\(\(\) => \{\s+if \(envioEmAndamento\) \{\s+return;\s+\}\s+window\.location\.reload\(\);\s+\}, 1500\);/', $exclusao);
         self::assertStringContainsString("btnAtualizarPagina.addEventListener('click', () => window.location.reload());", $tela);
     }
 

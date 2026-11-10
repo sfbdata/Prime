@@ -1649,13 +1649,25 @@
     }
 
     // Excluir a justificativa (E3, js/ponto-abas.js) tira a linha na hora. A Folha (o selo do dia e o "+" do esquecimento)
-    // e as pendências mudam junto e vêm pelo caminho de depois da batida, sem recarregar a página. Falhou: o mesmo plano B
-    // da batida (recarregar). Esta busca pode ter passado à frente da de uma batida, que foi descartada; sem a recarga, o
-    // tipo recém-batido ficaria livre na tela (risco de batida em dobro). O botão da batida não é tocado.
+    // e as pendências mudam junto e vêm pelo caminho de depois da batida, sem recarregar a página. O botão da batida não é
+    // tocado. Com um toque enviando (GPS, fila, POST), o toque é dono da tela até terminar e a busca dele atualiza tudo:
+    // - aqui não começa outra busca, que ficaria mais nova que a do toque e a faria ser descartada (se a do toque já tinha
+    //   saído antes da exclusão, o selo do dia fica até a próxima busca; nada de batida em dobro);
+    // - falhou: o mesmo plano B da batida (recarregar), porque esta busca pode ter passado à frente da de uma batida, e o
+    //   tipo recém-batido ficaria livre na tela. Mas não com um toque enviando na hora: a recarga cortaria o envio, e a
+    //   batida poderia sumir sem ir para a fila (o molde do `if (envioEmAndamento)` da fila).
     document.addEventListener('ponto:justificativa-excluida', () => {
+        if (envioEmAndamento) {
+            return;
+        }
         atualizarTelaDoPonto().catch((erro) => {
             console.error('Falha ao atualizar a tela depois de excluir a justificativa:', erro);
-            setTimeout(() => window.location.reload(), 1500);
+            setTimeout(() => {
+                if (envioEmAndamento) {
+                    return;
+                }
+                window.location.reload();
+            }, 1500);
         });
     });
 
