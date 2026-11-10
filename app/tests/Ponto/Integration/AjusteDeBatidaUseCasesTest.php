@@ -469,25 +469,30 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
         self::assertTrue($this->alvo($alvo)->desconsiderada());
     }
 
-    #[TestDox('C5: a inclusão gravada por um esquecimento que voltou a ficar em análise não se ajusta pela tela')]
+    #[TestDox('C5: a inclusão ligada a um esquecimento em análise (o gestor a restaurou depois que a justificativa voltou para análise) não se ajusta nem se desconsidera pela tela')]
     public function testInclusaoComJustificativaEmAnalise(): void
     {
-        $justificativa = $this->justificativaLigada(null, 'pendente', TipoJustificativa::EsquecimentoRegistro->value);
-        $inclusao = $this->trilha->emTransacao(fn (): PontoAjuste => $this->gravacao->incluir(
-            $this->escritorio,
-            $this->pessoa,
-            'saida',
-            new \DateTimeImmutable('2026-10-21 18:00:00'),
-            'Esquecimento abonado.',
-            $this->gestora,
-            $justificativa,
-        ));
+        $inclusao = $this->inclusaoLigada('pendente');
+        $alvo = 'a' . $inclusao->getId();
         $antes = [$this->quantosAjustes(), $this->quantosEventos()];
 
-        $motivo = $this->motivoDaRecusa(fn () => $this->ajustar('a' . $inclusao->getId(), $inclusao->getId(), 'saida', '2026-10-21 18:30:00'));
+        $ajustar = $this->motivoDaRecusa(fn () => $this->ajustar($alvo, $inclusao->getId(), 'saida', '2026-10-21 18:30:00'));
+        $desconsiderar = $this->motivoDaRecusa(fn () => $this->desconsiderar()->executar(DesconsiderarBatidaInput::daTela($this->escritorio, $this->pessoa, $alvo, $inclusao->getId(), 'Batida em dobro.', $this->gestora)));
 
-        self::assertSame(AjusteDeBatidaRecusadoException::EM_ANALISE, $motivo);
+        self::assertSame([AjusteDeBatidaRecusadoException::EM_ANALISE, AjusteDeBatidaRecusadoException::EM_ANALISE], [$ajustar, $desconsiderar]);
         self::assertSame($antes, [$this->quantosAjustes(), $this->quantosEventos()]);
+    }
+
+    #[TestDox('C5, limite 1: a inclusão do esquecimento abonado se ajusta e se desconsidera pela tela')]
+    public function testInclusaoDoEsquecimentoAbonadoSeCorrige(): void
+    {
+        $inclusao = $this->inclusaoLigada('abonado');
+        $alvo = 'a' . $inclusao->getId();
+
+        $alteracao = $this->ajustar($alvo, $inclusao->getId(), 'saida', '2026-10-21 18:30:00');
+        $this->desconsiderar()->executar(DesconsiderarBatidaInput::daTela($this->escritorio, $this->pessoa, $alvo, $alteracao->getId(), 'Batida em dobro.', $this->gestora));
+
+        self::assertTrue($this->alvo($alvo)->desconsiderada());
     }
 
     // ------------------------------------------------------------------------------------------------- apoio
@@ -605,6 +610,22 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
         $this->em->flush();
 
         return $justificativa;
+    }
+
+    /** A inclusão da saída de 21/10 às 18h ligada a um esquecimento com o status dado. */
+    private function inclusaoLigada(string $status): PontoAjuste
+    {
+        $justificativa = $this->justificativaLigada(null, $status, TipoJustificativa::EsquecimentoRegistro->value);
+
+        return $this->trilha->emTransacao(fn (): PontoAjuste => $this->gravacao->incluir(
+            $this->escritorio,
+            $this->pessoa,
+            'saida',
+            new \DateTimeImmutable('2026-10-21 18:00:00'),
+            'Esquecimento abonado.',
+            $this->gestora,
+            $justificativa,
+        ));
     }
 
     private function novoEscritorio(): Tenant
