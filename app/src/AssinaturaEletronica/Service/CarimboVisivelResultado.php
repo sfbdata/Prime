@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\Service;
 
 /**
- * O que o `CarimboVisivel` devolve: os bytes do PDF carimbado, ou a recusa com o texto do desenho (dc:384), pronta
- * para o aviso vermelho da tela.
+ * O que o `CarimboVisivel` devolve: os bytes do PDF carimbado, ou a recusa só com o motivo (os textos do protótipo).
+ * O aviso vermelho da tela é o motivo mais " Use o original.", que o JS acrescenta (dc:384).
  */
 final readonly class CarimboVisivelResultado
 {

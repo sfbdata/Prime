@@ -44,12 +44,13 @@ final class MontadorDePdfDoCarimbo
     }
 
     /**
-     * Objetos soltos e, se houver, objetos num /ObjStm comprimido (o número seguinte ao maior), com fluxo /XRef no fim.
+     * Objetos soltos e, se houver, objetos num /ObjStm comprimido (o número dado ou o seguinte ao maior), com fluxo
+     * /XRef sem /Index no fim: o fluxo é o número seguinte ao maior solto e o /Size cobre também os comprimidos.
      *
      * @param array<int, string> $soltos
      * @param array<int, string> $comprimidos
      */
-    public static function comFluxoDeXref(array $soltos, array $comprimidos = []): string
+    public static function comFluxoDeXref(array $soltos, array $comprimidos = [], ?int $numeroDoFluxo = null): string
     {
         $pdf = "%PDF-1.7\n%\xE2\xE3\xCF\xD3\n";
         $entradas = [0 => [0, 0, 65535]];
@@ -58,7 +59,7 @@ final class MontadorDePdfDoCarimbo
             $pdf .= $numero . " 0 obj\n" . $corpo . "\nendobj\n";
         }
         if ($comprimidos !== []) {
-            $fluxo = max(array_keys($soltos + $comprimidos)) + 1;
+            $fluxo = $numeroDoFluxo ?? max(array_keys($soltos + $comprimidos)) + 1;
             [$cabecalho, $dados, $ordem] = ['', '', 0];
             foreach ($comprimidos as $numero => $corpo) {
                 $cabecalho .= $numero . ' ' . \strlen($dados) . ' ';
@@ -141,6 +142,20 @@ final class MontadorDePdfDoCarimbo
     }
 
     /**
+     * Entradas `/nome<>` de 7 bytes com nomes diferentes (quatro algarismos na base 36), para encher um dicionário: com
+     * nomes iguais, o PHP guardaria uma entrada só.
+     */
+    public static function entradasDistintas(int $quantas): string
+    {
+        $texto = '';
+        for ($i = 0; $i < $quantas; ++$i) {
+            $texto .= '/' . str_pad(base_convert((string) $i, 10, 36), 4, '0', \STR_PAD_LEFT) . '<>';
+        }
+
+        return $texto;
+    }
+
+    /**
      * zlib do conteúdo. O leitor do motor (como o protótipo) tira CR e LF do fim dos dados antes de inflar: se o
      * comprimido terminar num deles, um espaço a mais no fim do conteúdo muda a soma de conferência.
      */
@@ -158,16 +173,17 @@ final class MontadorDePdfDoCarimbo
     /** @param array<int, array{int, int, int}> $entradas tipo, campo 2 e campo 3 de cada número */
     private static function fecharComFluxo(string $pdf, array $entradas): string
     {
-        $numero = max(array_keys($entradas)) + 1;
+        $numero = max(array_keys(array_filter($entradas, static fn (array $entrada): bool => $entrada[0] !== 2))) + 1;
         $posicao = \strlen($pdf);
         $entradas[$numero] = [1, $posicao, 0];
+        $tamanho = max(array_keys($entradas)) + 1;
         $dados = '';
-        for ($n = 0; $n <= $numero; ++$n) {
+        for ($n = 0; $n < $tamanho; ++$n) {
             [$tipo, $campo2, $campo3] = $entradas[$n] ?? [0, 0, 0];
             $dados .= \chr($tipo) . pack('N', $campo2) . pack('n', $campo3);
         }
 
-        return $pdf . $numero . " 0 obj\n<</Type/XRef/Size " . ($numero + 1) . '/W[1 4 2]/Root 1 0 R/Length ' . \strlen($dados)
+        return $pdf . $numero . " 0 obj\n<</Type/XRef/Size " . $tamanho . '/W[1 4 2]/Root 1 0 R/Length ' . \strlen($dados)
             . ">>\nstream\n" . $dados . "\nendstream\nendobj\nstartxref\n" . $posicao . "\n%%EOF\n";
     }
 }

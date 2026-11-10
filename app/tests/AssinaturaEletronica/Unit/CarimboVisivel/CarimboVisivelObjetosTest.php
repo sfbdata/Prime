@@ -75,8 +75,8 @@ final class CarimboVisivelObjetosTest extends TestCase
     {
         $pdf = MontadorDePdfDoCarimbo::classico([
             1 => MontadorDePdfDoCarimbo::fluxoDeObjetos([2 => '<</B 2>>', 3 => '<</C 3>>']),
-            4 => MontadorDePdfDoCarimbo::fluxoDeObjetos([9 => '<<>>'], LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES - 64),
-            5 => MontadorDePdfDoCarimbo::fluxoDeObjetos([8 => '<<>>'], LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES - 64),
+            4 => MontadorDePdfDoCarimbo::fluxoDeObjetos([9 => '<<>>', 99 => ''], LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES - 64),
+            5 => MontadorDePdfDoCarimbo::fluxoDeObjetos([8 => '<<>>', 98 => ''], LimitesDaConferencia::INFLADO_MAXIMO_EM_BYTES - 64),
         ]);
         $objetos = new CarimboVisivelObjetos($pdf);
 
@@ -100,5 +100,51 @@ final class CarimboVisivelObjetosTest extends TestCase
 
         self::assertSame('<</Velho 1>>', $objetos->objeto(2, 0));
         self::assertSame('<</Ultimo 1>>', $objetos->objeto(3, 0));
+    }
+
+    #[TestDox('teto do corpo de um objeto (o trecho entre `obj` e `endobj`), solto ou dentro de /ObjStm')]
+    public function testTetoDoCorpo(): void
+    {
+        // O montador põe uma quebra de linha de cada lado do corpo: o trecho tem o corpo mais dois bytes.
+        $no = static fn (int $tamanho): string => '(' . str_repeat('a', $tamanho - 2) . ')';
+        $pdf = MontadorDePdfDoCarimbo::classico([
+            1 => $no(CarimboVisivelObjetos::CORPO_MAXIMO_EM_BYTES - 2),
+            2 => $no(CarimboVisivelObjetos::CORPO_MAXIMO_EM_BYTES - 1),
+            3 => MontadorDePdfDoCarimbo::fluxoDeObjetos([4 => $no(CarimboVisivelObjetos::CORPO_MAXIMO_EM_BYTES + 1)]),
+        ]);
+
+        self::assertSame(CarimboVisivelObjetos::CORPO_MAXIMO_EM_BYTES - 2, \strlen((string) (new CarimboVisivelObjetos($pdf))->objeto(1, 0)));
+        foreach ([2, 4] as $numero) {
+            try {
+                (new CarimboVisivelObjetos($pdf))->objeto($numero, 0);
+                self::fail('o objeto ' . $numero . ' passa do teto do corpo');
+            } catch (\OverflowException) {
+                self::addToAssertionCount(1);
+            }
+        }
+    }
+
+    #[TestDox('o /N de cada /ObjStm entra no teto de entradas antes de percorrer o cabeçalho')]
+    public function testNDoFluxoNoTetoDeEntradas(): void
+    {
+        $objetos = [1 => '<</A 1>>'];
+        $fluxos = intdiv(CarimboVisivelObjetos::ENTRADAS_MAXIMAS, LimitesDaConferencia::OBJETOS_MAXIMOS) + 1;
+        for ($numero = 2; $numero < $fluxos + 2; ++$numero) {
+            $objetos[$numero] = "<</Type/ObjStm/N 10000/First 0/Length 0>>\nstream\n\nendstream";
+        }
+        $objetos = new CarimboVisivelObjetos(MontadorDePdfDoCarimbo::classico($objetos));
+
+        $this->expectException(\OverflowException::class);
+        $objetos->objeto(99_999, 0);
+    }
+
+    #[TestDox('passar do teto do que a procura guarda lança')]
+    public function testTetoDoGuardado(): void
+    {
+        $objetos = new CarimboVisivelObjetos('%PDF-1.7');
+        $objetos->guardar(CarimboVisivelObjetos::GUARDADO_MAXIMO_EM_BYTES);
+
+        $this->expectException(\OverflowException::class);
+        $objetos->guardar(1);
     }
 }
