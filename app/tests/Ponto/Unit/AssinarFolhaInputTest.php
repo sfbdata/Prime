@@ -74,6 +74,23 @@ final class AssinarFolhaInputTest extends TestCase
         self::assertSame('O dia 6 foi ? de folga.', $pedido->ressalvaParaGravar());
     }
 
+    #[TestDox('Ressalva com quebras CRLF: 1.000 caracteres contados como o navegador conta (a quebra vale 1) passam e o texto para gravar tem só LF; o CR solto também vira LF')]
+    public function testRessalvaComQuebrasCrlf(): void
+    {
+        $ressalva = implode("\r\n", array_fill(0, 10, str_repeat('a', 99))) . 'a';   // 1.009 caracteres com CRLF, 1.000 com LF
+        $pedido = new AssinarFolhaInput(2026, 10, 'ressalva', $ressalva);
+
+        self::assertSame([], $this->mensagens($pedido));
+        self::assertSame(str_replace("\r\n", "\n", $ressalva), $pedido->ressalvaParaGravar());
+        self::assertSame(1000, mb_strlen((string) $pedido->ressalvaParaGravar()));
+        self::assertSame("Linha 1\nLinha 2\nLinha 3", (new AssinarFolhaInput(2026, 10, 'ressalva', "Linha 1\r\nLinha 2\rLinha 3"))->ressalvaParaGravar());
+        self::assertSame(
+            ['ressalva' => 'A ressalva pode ter até 1.000 caracteres.'],
+            $this->mensagens(new AssinarFolhaInput(2026, 10, 'ressalva', $ressalva . "\r\n" . 'b')),
+            '1.002 com LF: passa do limite',
+        );
+    }
+
     /** @return array<string, string> caminho => mensagem */
     private function mensagens(AssinarFolhaInput $pedido): array
     {

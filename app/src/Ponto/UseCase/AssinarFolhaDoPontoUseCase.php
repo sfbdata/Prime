@@ -47,8 +47,8 @@ use Doctrine\ORM\EntityManagerInterface;
  * Pós-condições: uma folha emitida nova (a vista), um aceite novo que passa a valer e os dois eventos na trilha do
  * escritório. Não há desfazer (P33): uma nova assinatura só depois de a folha mudar (decisão 1).
  * Regras: o mesmo instante ({@see RelogioDaFolha}) no texto selado e nas colunas da folha vista e do aceite; o IP e o
- * navegador sem UTF-8 inválido e cortados no tamanho da coluna, e a ressalva sem UTF-8 inválido e aparada
- * ({@see AssinarFolhaInput::ressalvaParaGravar()}), ANTES de selar, para o selo conferir com o que foi gravado.
+ * navegador sem UTF-8 inválido e cortados no tamanho da coluna, e a ressalva sem UTF-8 inválido, com as quebras em LF e
+ * aparada ({@see AssinarFolhaInput::ressalvaParaGravar()}), ANTES de selar, para o selo conferir com o que foi gravado.
  */
 final class AssinarFolhaDoPontoUseCase
 {

@@ -84,6 +84,20 @@ final class AceiteDaFolhaControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->estadoDoAceite()->daCompetencia($this->escritorio, $this->maria, 2026, 10)->alterada, 'o selo confere com o que foi gravado');
     }
 
+    #[TestDox('Ressalva de 1.000 caracteres com quebras CRLF (o navegador conta a quebra como 1): passa e grava só LF')]
+    public function testRessalvaComQuebrasCrlf(): void
+    {
+        $ressalva = implode("\r\n", array_fill(0, 10, str_repeat('a', 99))) . 'a';   // 1.009 caracteres com CRLF, 1.000 com LF
+
+        $this->enviar(['situacao' => 'ressalva', 'ressalva' => $ressalva]);
+
+        self::assertSame([AceiteDaFolhaController::FOLHA_ASSINADA], $this->avisos('success'));
+        $gravada = (string) $this->aceitesNoBanco($this->escritorio, $this->maria)[0]['ressalva'];
+        self::assertSame(str_replace("\r\n", "\n", $ressalva), $gravada);
+        self::assertSame(1000, mb_strlen($gravada));
+        self::assertFalse($this->estadoDoAceite()->daCompetencia($this->escritorio, $this->maria, 2026, 10)->alterada, 'o selo confere com o que foi gravado');
+    }
+
     #[TestDox('Sem o módulo Ponto no escritório da sessão: 403 e nada gravado')]
     public function testSemOModulo(): void
     {
