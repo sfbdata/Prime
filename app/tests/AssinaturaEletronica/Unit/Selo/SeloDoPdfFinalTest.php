@@ -8,6 +8,7 @@ use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
+use App\AssinaturaEletronica\Service\PdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PdfNoTemporario;
 use App\AssinaturaEletronica\Service\Selo\ClasseDaFalhaNoSelo;
 use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
@@ -30,9 +31,9 @@ use Symfony\Component\Clock\MockClock;
  * O selo no PDF final (spec assinatura-documentos-etapa-8, E8-4), em três partes: {@see SeloDoPdfFinal::aplicar()}
  * sela o PDF no temporário (fora da transação, sem trilha nem o log do "guardado sem o selo"),
  * {@see SeloDoPdfFinal::registrar()} leva o resultado à trilha e {@see SeloDoPdfFinal::avisar()} faz o log. Selado, não
- * configurado, a falha definitiva que fica sem o selo na hora (o PDF acima do teto entre elas, sem ler o arquivo) e as
- * que tentam de novo até a última tentativa. A trilha é a de verdade, sobre o repositório dublado; os eventos gravados
- * ficam em `$gravados`.
+ * configurado, a falha definitiva que fica sem o selo na hora (o PDF acima do teto do motor entre elas, sem ler o
+ * arquivo) e as que tentam de novo até a última tentativa. A trilha é a de verdade, sobre o repositório dublado; os
+ * eventos gravados ficam em `$gravados`.
  */
 #[CoversClass(SeloDoPdfFinal::class)]
 #[CoversClass(ResultadoDoSelo::class)]
@@ -201,10 +202,12 @@ final class SeloDoPdfFinalTest extends TestCase
         }
     }
 
-    #[TestDox('PDF acima do teto do validador: falha definitiva pdf_grande_demais pelo tamanho, sem ler o arquivo nem pedir')]
+    #[TestDox('PDF acima do teto do motor (19 MiB): falha definitiva pdf_grande_demais pelo tamanho, sem ler o arquivo nem pedir')]
     public function testAcimaDoTetoSemLerOArquivo(): void
     {
-        $caminho = $this->pdfEsparso(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES + 1);
+        // O teto do selo é o do motor, abaixo dos 20 MiB do validador: o selado (de 10 a 20 KB a mais) passa no Validar.
+        self::assertLessThan(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES - 20 * 1024, PdfDaAssinatura::TETO_PARA_O_MOTOR);
+        $caminho = $this->pdfEsparso(PdfDaAssinatura::TETO_PARA_O_MOTOR + 1);
         $selo = $this->selo(static fn (): never => self::fail('acima do teto, nenhum pedido sai'));
 
         memory_reset_peak_usage();
@@ -212,20 +215,20 @@ final class SeloDoPdfFinalTest extends TestCase
         $resultado = $selo->aplicar($this->documento, $this->area, $caminho, false);
         $pico = memory_get_peak_usage() - $antes;
 
-        self::assertLessThan(1024 * 1024, $pico, 'os 20 MB não passaram pela memória');
+        self::assertLessThan(1024 * 1024, $pico, 'os 19 MiB não passaram pela memória');
         self::assertSame(HttpSeladorDePdf::PDF_GRANDE_DEMAIS, $resultado->falha?->codigo);
         self::assertSame(ClasseDaFalhaNoSelo::Definitiva, $resultado->falha->classe);
-        self::assertSame(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES + 1, filesize($caminho));
+        self::assertSame(PdfDaAssinatura::TETO_PARA_O_MOTOR + 1, filesize($caminho));
 
         $this->registrarEAvisar($selo, $resultado);
 
         $this->assertGuardadoSemOSelo(HttpSeladorDePdf::PDF_GRANDE_DEMAIS);
     }
 
-    #[TestDox('PDF com o tamanho exato do teto: é lido inteiro e vai ao validador')]
+    #[TestDox('PDF com o tamanho exato do teto do motor: é lido inteiro e vai ao validador')]
     public function testNoTetoVaiAoValidador(): void
     {
-        $caminho = $this->pdfEsparso(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES);
+        $caminho = $this->pdfEsparso(PdfDaAssinatura::TETO_PARA_O_MOTOR);
         $enviados = null;
         $selo = $this->selo(static function (string $pdf) use (&$enviados): ?string {
             $enviados = \strlen($pdf);
@@ -235,7 +238,7 @@ final class SeloDoPdfFinalTest extends TestCase
 
         $resultado = $selo->aplicar($this->documento, $this->area, $caminho, false);
 
-        self::assertSame(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES, $enviados);
+        self::assertSame(PdfDaAssinatura::TETO_PARA_O_MOTOR, $enviados);
         self::assertNull($resultado->falha);
     }
 

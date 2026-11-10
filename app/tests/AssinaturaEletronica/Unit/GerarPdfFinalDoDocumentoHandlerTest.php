@@ -51,6 +51,9 @@ final class GerarPdfFinalDoDocumentoHandlerTest extends TestCase
 
     private CadeiaDoSeloPendente $cadeiaDoSelo;
 
+    /** A falha do barramento dublado, quando a fila está fora do ar. */
+    private ?\Throwable $filaCaida = null;
+
     protected function setUp(): void
     {
         $this->montarOficina();
@@ -110,7 +113,7 @@ final class GerarPdfFinalDoDocumentoHandlerTest extends TestCase
     public function testCadeiaJaMarcadaVoltaAFila(): void
     {
         $this->concluido();
-        self::assertTrue($this->cadeiaDoSelo->marcar(1));
+        self::assertNotNull($this->cadeiaDoSelo->marcar(1));
         $this->pdfFinal->method('garantir')->willThrowException(new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503));
 
         $this->handler()(new GerarPdfFinalDoDocumento(1, 9, 2));
@@ -118,6 +121,24 @@ final class GerarPdfFinalDoDocumentoHandlerTest extends TestCase
         self::assertCount(1, $this->envelopes);
         self::assertEquals(new GerarPdfFinalDoDocumento(1, 9, 3), $this->envelopes[0]->getMessage());
         self::assertTrue($this->cadeiaDoSelo->estaPendente(1));
+    }
+
+    #[TestDox('fila fora do ar ao voltar à fila: a falha sobe para o retry do Messenger (que entrega esta mesma mensagem de novo) e a marca fica')]
+    public function testFilaCaidaAoVoltarAFila(): void
+    {
+        $this->concluido();
+        $this->pdfFinal->method('garantir')->willThrowException(new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503));
+        $this->filaCaida = new \RuntimeException('fila fora do ar');
+
+        try {
+            $this->handler()(new GerarPdfFinalDoDocumento(1, 9, 2));
+            self::fail('a falha da fila deveria subir');
+        } catch (\RuntimeException $e) {
+            self::assertSame($this->filaCaida, $e);
+        }
+
+        self::assertSame([], $this->envelopes);
+        self::assertTrue($this->cadeiaDoSelo->estaPendente(1), 'a cadeia continua no worker, pelo retry da mesma mensagem');
     }
 
     #[TestDox('4ª tentativa: garante como a última (sem o selo, se falhar) e nada volta à fila')]
@@ -198,6 +219,9 @@ final class GerarPdfFinalDoDocumentoHandlerTest extends TestCase
     private function handler(): GerarPdfFinalDoDocumentoHandler
     {
         $guardar = function (Envelope $envelope): void {
+            if ($this->filaCaida !== null) {
+                throw $this->filaCaida;
+            }
             $this->envelopes[] = $envelope;
         };
         $mensagens = new class ($guardar) implements MessageBusInterface {

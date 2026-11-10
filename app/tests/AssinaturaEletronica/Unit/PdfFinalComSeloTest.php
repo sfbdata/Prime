@@ -129,7 +129,7 @@ final class PdfFinalComSeloTest extends TestCase
         self::assertSame($paginas + 2, $pedacos, 'já guardado: nenhum pedaço');
     }
 
-    #[TestDox('gerado acima do teto do motor: gera uma vez de novo no perfil leve, antes do selo, e guarda o leve (mesmo que ainda passe do teto)')]
+    #[TestDox('gerado acima do teto do motor: gera uma vez de novo no perfil leve, antes do selo; o selo recebe o leve, e o guardado é o leve selado, com o sha256 dele')]
     public function testAcimaDoTetoGeraDeNovoNoPerfilLeve(): void
     {
         $documento = $this->concluido();
@@ -139,14 +139,21 @@ final class PdfFinalComSeloTest extends TestCase
             ++$pedacos;
         };
         $this->teto = 1;
+        $this->selando(static fn (string $pdf): string => $pdf . self::SELO);
 
         $chave = $this->servico()->garantir($documento, $aCadaPedaco);
 
+        self::assertCount(1, $this->paraSelar, 'um pedido de selo só');
+        $leve = $this->paraSelar[0];
+        self::assertStringStartsWith('%PDF-', $leve);
+        self::assertLessThan($noDesenho, \strlen($leve), 'o selo recebeu o leve (metade dos pixels, JPEG 70), não o do desenho');
         $guardado = $this->disco->ler($chave);
-        $paginas = (new PdfLido($guardado))->paginas();
+        self::assertSame($leve . self::SELO, $guardado, 'o guardado é o leve selado');
+        self::assertSame(hash('sha256', $guardado), $documento->getHashFinal(), 'o hash_final é o do leve selado');
+        self::assertNotSame(hash('sha256', $leve), $documento->getHashFinal());
+        self::assertSame(['pdf_selado'], $this->tiposGravados());
+        $paginas = (new PdfLido($leve))->paginas();
         self::assertSame(2 * ($paginas + 2), $pedacos, 'gerou duas vezes: no perfil do desenho e no leve, e parou');
-        self::assertLessThan($noDesenho, \strlen($guardado), 'o guardado é o leve (metade dos pixels, JPEG 70)');
-        self::assertSame(hash('sha256', $guardado), $documento->getHashFinal());
     }
 
     #[TestDox('já guardado: devolve a chave guardada sem gerar nem avisar')]

@@ -11,6 +11,7 @@ use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
+use App\AssinaturaEletronica\Service\Selo\CadeiaDoSeloPendente;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Pasta\Entity\Pasta;
@@ -27,7 +28,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * O PDF final nunca é gerado aqui (pesa, e esta requisição não passa pelas vagas nem pelo limitador do download): sem
  * ele guardado, o pedido vai ao worker ({@see GerarPdfFinalDoDocumento}) e o vínculo segue pendente, aplicado pelo
- * listener quando o worker guardar. Fila fora do ar: "vínculo não aplicado" com o motivo do PDF indisponível.
+ * listener quando o worker guardar. Com a cadeia do selo pendente ({@see CadeiaDoSeloPendente}), o worker já tenta o
+ * selo desse documento: nada vai à fila, e o vínculo segue pendente do mesmo jeito (spec assinatura-documentos-etapa-8,
+ * E8-4). Fila fora do ar: "vínculo não aplicado" com o motivo do PDF indisponível.
  *
  * Tudo é conferido de novo com QUEM VINCULOU (não com quem está na tela): pasta que sumiu, pasta na lápide, usuário
  * removido, sem permissão de editar a pasta ou fora do cadeado. Na recusa (e na falha do PDF final ou da cópia) nada é
@@ -50,6 +53,7 @@ final class VinculoComAPasta
         private readonly PermissionChecker $permissoes,
         private readonly PdfFinalDoDocumento $pdfFinal,
         private readonly MessageBusInterface $mensagens,
+        private readonly CadeiaDoSeloPendente $cadeiaDoSelo,
         private readonly ArquivoAssinadoNaPasta $arquivos,
         private readonly TranslatorInterface $tradutor,
         private readonly LoggerInterface $logger,
@@ -117,11 +121,19 @@ final class VinculoComAPasta
         return true;
     }
 
-    /** Pede o PDF final ao worker: o vínculo segue pendente (falso); fila fora do ar desfaz como PDF indisponível. */
+    /**
+     * Pede o PDF final ao worker: o vínculo segue pendente (falso); fila fora do ar desfaz como PDF indisponível. Com a
+     * cadeia do selo pendente, o worker já tem o pedido: não abre outra série de tentativas.
+     */
     private function pedirPdfAoWorker(DocumentoParaAssinar $documento, Pasta $pasta): bool
     {
+        $id = (int) $documento->getId();
+        if ($this->cadeiaDoSelo->estaPendente($id)) {
+            return false;
+        }
+
         try {
-            $this->mensagens->dispatch(new GerarPdfFinalDoDocumento((int) $documento->getId(), (int) $documento->getTenant()->getId()));
+            $this->mensagens->dispatch(new GerarPdfFinalDoDocumento($id, (int) $documento->getTenant()->getId()));
         } catch (\Throwable $e) {
             return $this->falharComErro($documento, $pasta, 'pdf_indisponivel', $e);
         }

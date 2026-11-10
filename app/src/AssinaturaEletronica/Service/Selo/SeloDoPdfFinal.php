@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Service\Selo;
 
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
+use App\AssinaturaEletronica\Service\PdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PdfNoTemporario;
 use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
@@ -21,10 +22,10 @@ use Psr\Log\LoggerInterface;
  * entra na transação de quem guarda, com a linha do documento travada, e o log só sai depois do COMMIT.
  *
  * - {@see aplicar()}: selado, regrava o PDF selado por cima do mesmo arquivo da área. Não configurado: deixa o arquivo
- *   como veio. Falha definitiva (entre elas o PDF acima do teto de 20 MB, que nem é lido), ou qualquer falha na última
- *   tentativa: deixa o arquivo como veio e devolve a falha. Falha passageira, de configuração ou
- *   `selo_certificado_invalido` fora da última tentativa: relança a {@see FalhaNoSelo} para tentar de novo (a de
- *   configuração faz `logger->error` a cada vez).
+ *   como veio. Falha definitiva (entre elas o PDF acima do {@see PdfDaAssinatura::TETO_PARA_O_MOTOR}, de 19 MiB, que
+ *   nem é lido), ou qualquer falha na última tentativa: deixa o arquivo como veio e devolve a falha. Falha passageira,
+ *   de configuração ou `selo_certificado_invalido` fora da última tentativa: relança a {@see FalhaNoSelo} para tentar
+ *   de novo (a de configuração faz `logger->error` a cada vez).
  * - {@see registrar()}, na transação: `pdf_selado`, ou `selo_nao_aplicado` com o código em `dados.motivo`; nada quando
  *   o selo não está configurado.
  * - {@see avisar()}, depois do COMMIT: o `logger->error` do PDF guardado sem o selo.
@@ -139,14 +140,16 @@ final readonly class SeloDoPdfFinal
     }
 
     /**
-     * Os bytes do PDF no temporário. Acima do teto do validador, a falha definitiva sai pelo tamanho, sem ler o arquivo.
+     * Os bytes do PDF no temporário. Acima do {@see PdfDaAssinatura::TETO_PARA_O_MOTOR} (19 MiB), a falha definitiva sai
+     * pelo tamanho, sem ler o arquivo. O teto é o do motor, não os 20 MiB do validador: o selo acrescenta de 10 a 20 KB, e
+     * o selado ainda precisa passar no Validar do BlueJus, que recusa acima de 20 MiB (decisão de 10/11).
      *
      * @throws FalhaNoSelo       `pdf_grande_demais`, definitiva
      * @throws FalhaNoTemporario
      */
     private static function lerAteOTeto(AreaTemporariaPrivada $area, string $caminho): string
     {
-        if (PdfNoTemporario::tamanho($area, $caminho) > HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES) {
+        if (PdfNoTemporario::tamanho($area, $caminho) > PdfDaAssinatura::TETO_PARA_O_MOTOR) {
             throw new FalhaNoSelo(HttpSeladorDePdf::PDF_GRANDE_DEMAIS, ClasseDaFalhaNoSelo::Definitiva);
         }
 

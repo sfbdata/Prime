@@ -45,9 +45,10 @@ use Psr\Log\LoggerInterface;
  * pasta ouve); a falha de quem ouve vai para o log e não impede de devolver o PDF já guardado.
  *
  * Tempo: o PDF é gerado inteiro e guardado antes de entregar (os bytes entregues são os guardados: o hash final e o
- * selo assinam o arquivo inteiro). Acima de umas 100 páginas (cerca de 1,2 s por página, mais o pedido do selo, de até
- * 45 s), o primeiro clique pode dar 504 do nginx (120 s); o PHP termina e guarda, e o clique seguinte entrega o
- * guardado. Quem chama pela web passa `$aCadaPedaco`, chamado a cada pedaço gerado, para renovar as travas da geração
+ * selo assinam o arquivo inteiro). Todo PDF acima de 19 MiB no perfil do desenho (o que já acontece com 8 a 16
+ * páginas) é gerado duas vezes, a segunda no perfil leve, mais o pedido do selo, de até 45 s: o primeiro clique pode
+ * dar 504 do nginx (120 s); o PHP termina e guarda, e o clique seguinte entrega o guardado. Quem chama pela web passa
+ * `$aCadaPedaco`, chamado a cada pedaço gerado, para renovar as travas da geração
  * ({@see VagasDeGeracaoDoPdf::renovar()}).
  */
 final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
