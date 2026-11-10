@@ -16,8 +16,10 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoDoAjuste;
+use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Exception\AjusteDeBatidaRecusadoException;
 use App\Ponto\Model\AlvoDoAjuste;
+use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\PontoAjusteRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
@@ -30,6 +32,7 @@ use App\Ponto\UseCase\IncluirBatidaUseCase;
 use App\Ponto\UseCase\RestaurarBatidaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Psr\Clock\ClockInterface;
@@ -408,6 +411,85 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
         self::assertTrue($this->alvo('b' . $batida->getId())->desconsiderada(), 'a batida continua fora da conta');
     }
 
+    // ------------------------------------------------------------------------ justificativa em análise (decisão C5)
+
+    #[TestDox('C5: a batida de trabalho externo com a justificativa em análise não se ajusta nem se desconsidera pela tela, e nada é gravado')]
+    public function testEmAnaliseRecusaAjustarEDesconsiderar(): void
+    {
+        $batida = $this->batida('saida', '2026-10-21 18:00:00');
+        $this->justificativaLigada($batida, 'pendente');
+        $alvo = 'b' . $batida->getId();
+
+        $ajustar = $this->motivoDaRecusa(fn () => $this->ajustar($alvo, null, 'saida', '2026-10-21 18:30:00'));
+        $desconsiderar = $this->motivoDaRecusa(fn () => $this->desconsiderar()->executar(DesconsiderarBatidaInput::daTela($this->escritorio, $this->pessoa, $alvo, null, 'Batida em dobro.', $this->gestora)));
+
+        self::assertSame([AjusteDeBatidaRecusadoException::EM_ANALISE, AjusteDeBatidaRecusadoException::EM_ANALISE], [$ajustar, $desconsiderar]);
+        $this->assertNadaGravado();
+        self::assertFalse($this->alvo($alvo)->desconsiderada(), 'a batida segue na conta');
+    }
+
+    #[TestDox('C5: a análise segue desconsiderando a batida da justificativa em análise (a recusa do trabalho externo), e o Restaurar pela tela recusa essa desconsideração')]
+    public function testEmAnaliseQuemDecideEAAnalise(): void
+    {
+        $batida = $this->batida('saida', '2026-10-21 18:00:00');
+        $justificativa = $this->justificativaLigada($batida, 'pendente');
+
+        $desconsideracao = $this->desconsiderar()->executar(DesconsiderarBatidaInput::pelaAnalise(
+            $this->escritorio,
+            $this->pessoa,
+            'b' . $batida->getId(),
+            'Trabalho externo recusado.',
+            $this->gestora,
+            $justificativa,
+        ));
+
+        self::assertTrue($this->alvo('b' . $batida->getId())->desconsiderada());
+        $motivo = $this->motivoDaRecusa(fn () => $this->restaurar()->executar(new RestaurarBatidaInput($this->escritorio, $this->pessoa, (int) $desconsideracao->getId(), 'Volta.', $this->gestora)));
+        self::assertSame(AjusteDeBatidaRecusadoException::LIGADA_A_JUSTIFICATIVA, $motivo);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function decididas(): iterable
+    {
+        yield 'abonada' => ['abonado'];
+        yield 'recusada' => ['rejeitado'];
+    }
+
+    #[DataProvider('decididas')]
+    #[TestDox('C5: decidida a justificativa ($_dataName), a ficha ajusta e desconsidera a batida como qualquer outra (P65)')]
+    public function testDecididaAjustaEDesconsidera(string $status): void
+    {
+        $batida = $this->batida('saida', '2026-10-21 18:00:00');
+        $this->justificativaLigada($batida, $status);
+        $alvo = 'b' . $batida->getId();
+
+        $alteracao = $this->ajustar($alvo, null, 'saida', '2026-10-21 18:30:00');
+        $this->desconsiderar()->executar(DesconsiderarBatidaInput::daTela($this->escritorio, $this->pessoa, $alvo, $alteracao->getId(), 'Batida em dobro.', $this->gestora));
+
+        self::assertTrue($this->alvo($alvo)->desconsiderada());
+    }
+
+    #[TestDox('C5: a inclusão gravada por um esquecimento que voltou a ficar em análise não se ajusta pela tela')]
+    public function testInclusaoComJustificativaEmAnalise(): void
+    {
+        $justificativa = $this->justificativaLigada(null, 'pendente', TipoJustificativa::EsquecimentoRegistro->value);
+        $inclusao = $this->trilha->emTransacao(fn (): PontoAjuste => $this->gravacao->incluir(
+            $this->escritorio,
+            $this->pessoa,
+            'saida',
+            new \DateTimeImmutable('2026-10-21 18:00:00'),
+            'Esquecimento abonado.',
+            $this->gestora,
+            $justificativa,
+        ));
+        $antes = [$this->quantosAjustes(), $this->quantosEventos()];
+
+        $motivo = $this->motivoDaRecusa(fn () => $this->ajustar('a' . $inclusao->getId(), $inclusao->getId(), 'saida', '2026-10-21 18:30:00'));
+
+        self::assertSame(AjusteDeBatidaRecusadoException::EM_ANALISE, $motivo);
+        self::assertSame($antes, [$this->quantosAjustes(), $this->quantosEventos()]);
+    }
+
     // ------------------------------------------------------------------------------------------------- apoio
 
     private function incluir(): IncluirBatidaUseCase
@@ -417,12 +499,12 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
 
     private function ajustarUseCase(): AjustarBatidaUseCase
     {
-        return new AjustarBatidaUseCase($this->trilha, $this->gravacao, $this->registros, $this->analiseDaPropria);
+        return new AjustarBatidaUseCase($this->trilha, $this->gravacao, $this->registros, $this->analiseDaPropria, static::getContainer()->get(JustificativaPontoRepository::class));
     }
 
     private function desconsiderar(): DesconsiderarBatidaUseCase
     {
-        return new DesconsiderarBatidaUseCase($this->trilha, $this->gravacao, $this->registros, $this->analiseDaPropria);
+        return new DesconsiderarBatidaUseCase($this->trilha, $this->gravacao, $this->registros, $this->analiseDaPropria, static::getContainer()->get(JustificativaPontoRepository::class));
     }
 
     private function restaurar(): RestaurarBatidaUseCase
@@ -503,6 +585,22 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
             ->setData(new \DateTime('2026-10-21'))
             ->setStatus('recusado')
             ->setTipo('trabalho_externo');
+        $this->em->persist($justificativa);
+        $this->em->flush();
+
+        return $justificativa;
+    }
+
+    /** Justificativa da pessoa no dia 21/10, ligada à batida (trabalho externo, E12) ou solta (o esquecimento). */
+    private function justificativaLigada(?RegistroPonto $batida, string $status, string $tipo = 'trabalho_externo'): JustificativaPonto
+    {
+        $justificativa = (new JustificativaPonto())
+            ->setTenant($this->escritorio)
+            ->setUser($this->pessoa)
+            ->setData(new \DateTime('2026-10-21'))
+            ->setStatus($status)
+            ->setTipo($tipo)
+            ->setRegistroPonto($batida);
         $this->em->persist($justificativa);
         $this->em->flush();
 

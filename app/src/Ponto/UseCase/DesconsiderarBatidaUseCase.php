@@ -8,6 +8,7 @@ use App\Ponto\DTO\DesconsiderarBatidaInput;
 use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Exception\AjusteDeBatidaRecusadoException;
 use App\Ponto\Model\AlvoDoAjuste;
+use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\Service\GravacaoDoAjusteDoPonto;
@@ -21,7 +22,9 @@ use App\Ponto\Service\TrilhaDoPonto;
  * Dois caminhos ({@see DesconsiderarBatidaInput}): o gestor pela ficha confere a cabeça que a folha mostrou; a análise
  * da justificativa (E12) não confere a cabeça e liga a desconsideração à justificativa. Para a análise, "batida não
  * encontrada" quer dizer que não há nada a fazer. Roda na transação de quem chama, se houver (a da análise). A própria
- * batida só o primário ou o Master desconsidera (P43). Recusado, nada é gravado.
+ * batida só o primário ou o Master desconsidera (P43). Pela tela, a batida com justificativa ainda em análise não se
+ * desconsidera: quem decide é a análise; decidida, desconsidera-se como qualquer outra (decisão C5). Recusado, nada é
+ * gravado.
  */
 final class DesconsiderarBatidaUseCase
 {
@@ -30,12 +33,14 @@ final class DesconsiderarBatidaUseCase
         private readonly GravacaoDoAjusteDoPonto $gravacao,
         private readonly RegistroPontoRepository $registros,
         private readonly AnaliseDaPropriaJustificativa $analiseDaPropria,
+        private readonly JustificativaPontoRepository $justificativas,
     ) {
     }
 
     /**
      * @throws AjusteDeBatidaRecusadoException a própria batida (P43), batida fora desta folha, outro ajuste no meio
-     *                                         (só pela tela), batida já fora da conta ou motivo vazio
+     *                                         ou justificativa em análise (só pela tela), batida já fora da conta ou
+     *                                         motivo vazio
      */
     public function executar(DesconsiderarBatidaInput $input): PontoAjuste
     {
@@ -66,6 +71,10 @@ final class DesconsiderarBatidaUseCase
             ?? throw AjusteDeBatidaRecusadoException::naoEncontrada();
         if ($input->conferirCabeca && $alvo->cabecaId() !== $input->cabecaEsperada) {
             throw AjusteDeBatidaRecusadoException::mudou();
+        }
+        // Pela tela (sem justificativa): a análise, que decide a justificativa, desconsidera mesmo em análise.
+        if ($input->justificativa === null && $this->justificativas->temEmAnaliseLigadaA($alvo)) {
+            throw AjusteDeBatidaRecusadoException::emAnalise();
         }
 
         return $alvo;
