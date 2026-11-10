@@ -11,12 +11,16 @@ use App\AssinaturaEletronica\Enum\TipoDeLogo;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\Entity\Tenant\Tenant;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-/** As consultas da tela Assinatura no banco de verdade (DAMA desfaz cada teste). */
+/**
+ * As consultas da tela Assinatura no banco de verdade (DAMA desfaz cada teste). Etapa 3: o código de validação (a porta
+ * da validação pública e a colisão do envio) e o PDF final entre os arquivos em uso.
+ */
 #[CoversClass(DocumentoParaAssinarRepository::class)]
 #[CoversClass(ResumoDoDocumento::class)]
 final class DocumentoParaAssinarRepositoryTest extends KernelTestCase
@@ -89,6 +93,54 @@ final class DocumentoParaAssinarRepositoryTest extends KernelTestCase
 
         self::assertSame(['pdf-1.pdf', 'logo-1.png'], $this->documentos->arquivosEmUso($tenant, ['pdf-1.pdf', 'logo-1.png', 'logo-2.png', 'solto.png']));
         self::assertSame([], $this->documentos->arquivosEmUso($tenant, []));
+    }
+
+    #[TestDox('etapa 3: o PDF final com selo também é arquivo em uso; o de outro escritório não conta')]
+    public function testArquivosEmUsoComPdfFinal(): void
+    {
+        $tenant = $this->escritorio();
+        $concluido = $this->documento($tenant, 'Concluído');
+        $alheio = $this->documento($this->escritorio(), 'Alheio');
+        $this->conexao()->executeStatement('UPDATE assinatura_eletronica_documento SET arquivo_final_chave = ? WHERE id = ?', ['final-1.pdf', $concluido->getId()]);
+        $this->conexao()->executeStatement('UPDATE assinatura_eletronica_documento SET arquivo_final_chave = ? WHERE id = ?', ['final-2.pdf', $alheio->getId()]);
+
+        self::assertSame(['final-1.pdf'], $this->documentos->arquivosEmUso($tenant, ['final-1.pdf', 'final-2.pdf']));
+    }
+
+    #[TestDox('etapa 3: pelo código, acha o documento de qualquer escritório, mesmo na Lixeira; código desconhecido, nada; a lista leva o código')]
+    public function testPorCodigo(): void
+    {
+        $tenant = $this->escritorio();
+        $documento = $this->documento($tenant, 'Contrato');
+        $this->conexao()->executeStatement(
+            "UPDATE assinatura_eletronica_documento SET codigo = 'BJA-AAAA-BBBB-CCCC', excluido_em = NOW(), situacao = 'aguardando' WHERE id = ?",
+            [$documento->getId()],
+        );
+        $this->em()->clear();
+
+        self::assertSame($documento->getId(), $this->documentos->porCodigo('BJA-AAAA-BBBB-CCCC')?->getId());
+        self::assertNull($this->documentos->porCodigo('BJA-ZZZZ-ZZZZ-ZZZZ'));
+        self::assertNull($this->documentos->porCodigo('bja-aaaa-bbbb-cccc'), 'a comparação é exata; quem chama normaliza');
+        self::assertSame('BJA-AAAA-BBBB-CCCC', $this->documentos->resumosDoEscritorio($tenant)[0]->codigo);
+    }
+
+    #[TestDox('etapa 3: código em uso vale para todos os escritórios e a Lixeira, mesmo com o filtro de escritório ligado em outro')]
+    public function testCodigoEmUso(): void
+    {
+        $documento = $this->documento($this->escritorio(), 'Contrato');
+        $this->conexao()->executeStatement(
+            "UPDATE assinatura_eletronica_documento SET codigo = 'BJA-DDDD-EEEE-FFFF', excluido_em = NOW() WHERE id = ?",
+            [$documento->getId()],
+        );
+        $outro = $this->escritorio();
+        $this->em()->getFilters()->enable('tenant')->setParameter('tenant', $outro->getId(), Types::INTEGER);
+
+        try {
+            self::assertTrue($this->documentos->codigoEmUso('BJA-DDDD-EEEE-FFFF'));
+            self::assertFalse($this->documentos->codigoEmUso('BJA-GGGG-HHHH-JJJJ'));
+        } finally {
+            $this->em()->getFilters()->disable('tenant');
+        }
     }
 
     private function escritorio(): Tenant

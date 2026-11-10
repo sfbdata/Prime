@@ -167,6 +167,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ),
             CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
         ];
+        yield ChavesDeAssinaturaEletronica::class . '::novoPdfFinal' => [
+            ChavesDeAssinaturaEletronica::class . '::novoPdfFinal',
+            static fn (?Tenant $t): object => new DocumentoParaAssinar($t ?? new Tenant(), null, new \DateTimeImmutable()),
+            CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+        ];
         yield ChavesDeAssinaturaEletronica::class . '::novaLogoPadrao' => [
             ChavesDeAssinaturaEletronica::class . '::novaLogoPadrao',
             static fn (?Tenant $t): object => new ConfiguracaoDaAssinatura($t ?? new Tenant()),

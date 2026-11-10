@@ -10,6 +10,7 @@ use App\Comercial\Entity\ImagemDaCampanha;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
+use App\Shared\EspelhoRemoto\Liberacao\DatasDasReferencias;
 use App\Shared\EspelhoRemoto\Reconciliacao\FontesDeReferencia;
 use App\Shared\EspelhoRemoto\Reconciliacao\ReferenciaDeArquivo;
 use App\Tests\Factory\Auth\UserFactory;
@@ -36,6 +37,7 @@ use Zenstruck\Foundry\Test\Factories;
  * da `ChavesDeTarefa` (`admin/` e lixo não viram chave).
  */
 #[CoversClass(FontesDeReferencia::class)]
+#[CoversClass(DatasDasReferencias::class)]
 final class FontesDeReferenciaTest extends KernelTestCase
 {
     use Factories;
@@ -262,6 +264,34 @@ final class FontesDeReferenciaTest extends KernelTestCase
         self::assertSame($tenantId, $selfie->chave?->escopo->tenantIdOuNull());
         self::assertSame('beefcafebeefcafebeefcafebeefcafe.cifrado', $selfie->chave?->nome);
         self::assertArrayNotHasKey('assinatura_signatario_selfie#' . $pendente, $porLinha, 'quem não mandou selfie não gera referência');
+    }
+
+    #[TestDox('PDF final com selo (Assinatura, etapa 3): vira chave com o escritório do documento; sem PDF final, não gera referência; a data da liberação é a última alteração e a Lixeira conta')]
+    public function testPdfFinalDaAssinatura(): void
+    {
+        self::bootKernel();
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        [$tenantId, $assinou] = $this->signatariosDaAssinatura();
+        $comFinal = (int) $conexao->fetchOne('SELECT documento_id FROM assinatura_eletronica_signatario WHERE id = ?', [$assinou]);
+        [, $outro] = $this->signatariosDaAssinatura();
+        $semFinal = (int) $conexao->fetchOne('SELECT documento_id FROM assinatura_eletronica_signatario WHERE id = ?', [$outro]);
+        $conexao->executeStatement(
+            "UPDATE assinatura_eletronica_documento SET arquivo_final_chave = ?, alterado_em = '2026-01-02 03:04:05', excluido_em = '2026-02-01 00:00:00' WHERE id = ?",
+            ['5e105e105e105e105e105e105e105e10.pdf', $comFinal],
+        );
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $final = $porLinha['assinatura_documento_final#' . $comFinal] ?? self::fail('PDF final do documento não listado');
+        self::assertSame(CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $final->chave?->categoria);
+        self::assertSame($tenantId, $final->chave?->escopo->tenantIdOuNull());
+        self::assertSame('5e105e105e105e105e105e105e105e10.pdf', $final->chave?->nome);
+        self::assertArrayNotHasKey('assinatura_documento_final#' . $semFinal, $porLinha, 'documento sem PDF final não gera referência');
+
+        $datas = (new DatasDasReferencias($conexao))->para([$final]);
+        $data = $datas[DatasDasReferencias::chaveDe('assinatura_documento_final', $comFinal)] ?? self::fail('data do PDF final não respondida');
+        self::assertSame('2026-01-02 03:04:05', $data['data']?->format('Y-m-d H:i:s'));
+        self::assertTrue($data['naLixeira'], 'documento na Lixeira fica fora da liberação');
     }
 
     /**

@@ -296,6 +296,9 @@ services:
     # onde a expressão do prefixo e o recorte por tenant vivem.
     App\Pasta\Service\NumeracaoDePastaInterface: '@App\Pasta\Service\NumeracaoDePasta'
 
+    # Assinatura, etapa 3: o PDF final com selo. Provisória (lança) até o bloco 1 trocar pela implementação real.
+    App\AssinaturaEletronica\Service\PdfFinalDoDocumento: '@App\AssinaturaEletronica\Service\PdfFinalProvisorio'
+
     # Conexão somente-leitura das ferramentas MCP. SEM default de propósito: ausente a
     # variável, o servidor falha com mensagem clara em vez de cair na conexão de escrita.
     # O processor `string:` garante STRING (nunca null): `$dsn` do construtor é

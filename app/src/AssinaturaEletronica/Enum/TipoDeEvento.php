@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\Enum;
 
 /**
- * Os eventos da trilha de auditoria do documento (contrato da etapa 1, seção 3.1; etapa 2, seção 4.3). O texto de cada
- * um sai do catálogo (`assinatura_eletronica.evento.<valor>`), com os parâmetros guardados em `dados` e o `{nome}` do
- * signatário (ou do usuário) do próprio evento.
+ * Os eventos da trilha de auditoria do documento (contrato da etapa 1, seção 3.1; etapa 2, seção 4.3; etapa 3, seção 2,
+ * item 9). O texto de cada um sai do catálogo (`assinatura_eletronica.evento.<valor>`), com os parâmetros guardados em
+ * `dados` e o `{nome}` do signatário (ou do usuário) do próprio evento.
  */
 enum TipoDeEvento: string
 {
@@ -30,6 +30,11 @@ enum TipoDeEvento: string
     case DocumentoConcluido = 'documento_concluido';
     case LembreteEnviado = 'lembrete_enviado';
     case EnvioCancelado = 'envio_cancelado';
+
+    // Etapa 3: o vínculo à pasta, com o `{nup}` (e o `{motivo}` do não aplicado) em `dados`.
+    case VinculoDefinido = 'vinculo_definido';
+    case VinculoFeito = 'vinculo_feito';
+    case VinculoNaoAplicado = 'vinculo_nao_aplicado';
 
     /** A chave do texto do evento no catálogo de idioma. */
     public function chaveDoTexto(): string

@@ -15,8 +15,9 @@ use App\Shared\Armazenamento\NovoArquivo;
 
 /**
  * As chaves de arquivo da tela Assinatura: o PDF enviado e a logo própria de cada documento, a logo padrão do
- * escritório, a rubrica de cada signatário que assinou (etapa 2) e a selfie cifrada da Reforçada (etapa 7). O escopo sai da ENTIDADE (documento ou configuração): a chave de um escritório nunca é montada com o id
- * de outro. Categoria isolada por escritório em disco (`uploads/pastas/assinatura/<tenantId>/`).
+ * escritório, a rubrica de cada signatário que assinou (etapa 2), a selfie cifrada da Reforçada (etapa 7) e o PDF final
+ * com selo do documento concluído (contrato da etapa 3, seção 2, item 6). O escopo sai da ENTIDADE (documento ou
+ * configuração): a chave de um escritório nunca é montada com o id de outro. Categoria isolada por escritório em disco (`uploads/pastas/assinatura/<tenantId>/`).
  */
 final class ChavesDeAssinaturaEletronica
 {
@@ -85,6 +86,18 @@ final class ChavesDeAssinaturaEletronica
     public static function novaSelfie(Signatario $signatario, string $extensao): NovoArquivo
     {
         return new NovoArquivo(self::escopoDe($signatario->getDocumento()->getTenant()), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $extensao);
+    }
+
+    /** O PDF final com selo do documento concluído (etapa 3); nulo enquanto não foi guardado. */
+    public static function pdfFinal(DocumentoParaAssinar $documento): ?ChaveDeArquivo
+    {
+        return self::chave($documento->getTenant(), $documento->getArquivoFinalChave());
+    }
+
+    /** PDF final novo de um documento concluído (etapa 3): sempre PDF, o nome é cunhado pelo storage. */
+    public static function novoPdfFinal(DocumentoParaAssinar $documento): NovoArquivo
+    {
+        return new NovoArquivo(self::escopoDe($documento->getTenant()), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'pdf');
     }
 
     private static function chave(Tenant $tenant, ?string $nome): ?ChaveDeArquivo

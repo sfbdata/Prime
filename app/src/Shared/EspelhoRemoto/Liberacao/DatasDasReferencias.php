@@ -32,6 +32,7 @@ final class DatasDasReferencias
         // Documento da Assinatura: a última alteração; na Lixeira fica fora da liberação, como o da pasta.
         'assinatura_documento_arquivo' => 'SELECT id, alterado_em AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
         'assinatura_documento_logo' => 'SELECT id, alterado_em AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
+        'assinatura_documento_final' => 'SELECT id, alterado_em AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
     ];
 
     public function __construct(
