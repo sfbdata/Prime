@@ -42,7 +42,8 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Recusa do ajuste ({@see AjusteDeBatidaRecusadoException}): batida fora desta folha responde 404; a própria batida de
  * quem não é primário nem Master responde 403 (P43); as outras voltam à ficha com o aviso. A página "Ajustar batida"
- * nem abre para a batida desconsiderada ou com a justificativa em análise (C5). Nela, o erro de campo (horário futuro, nada a mudar, motivo vazio) volta na própria página, com o que foi digitado.
+ * nem abre para a batida desconsiderada ou com a justificativa em análise (C5). Nela, o erro de campo (horário
+ * futuro, nada a mudar, motivo vazio) volta na própria página, com o que foi digitado.
  */
 #[Route('/tenant/{tenantId}/user/{id}/ponto', requirements: ['tenantId' => '\d+', 'id' => '\d+'])]
 final class AjusteDeBatidaController extends AbstractController
@@ -210,7 +211,6 @@ final class AjusteDeBatidaController extends AbstractController
         }
     }
 
-    /** O formulário da página de ajuste, preenchido com a forma que a folha conta agora. */
     /** O que não deixa a página abrir: a batida fora da conta, ou com a justificativa em análise (C5, já no GET). */
     private function recusaDaPagina(AlvoDoAjuste $batida): ?string
     {
@@ -221,6 +221,7 @@ final class AjusteDeBatidaController extends AbstractController
         };
     }
 
+    /** O formulário da página de ajuste, preenchido com a forma que a folha conta agora. */
     private function formDoAjuste(AlvoDoAjuste $batida, Request $request): FormInterface
     {
         $form = $this->createForm(RegistroPontoManualType::class);

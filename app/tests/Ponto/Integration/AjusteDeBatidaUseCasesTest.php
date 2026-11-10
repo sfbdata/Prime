@@ -483,16 +483,19 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
         self::assertSame($antes, [$this->quantosAjustes(), $this->quantosEventos()]);
     }
 
-    #[TestDox('C5, limite 1: a inclusão do esquecimento abonado se ajusta e se desconsidera pela tela')]
+    #[TestDox('C5, limite 1: a inclusão do esquecimento abonado se ajusta, se desconsidera e se restaura pela tela')]
     public function testInclusaoDoEsquecimentoAbonadoSeCorrige(): void
     {
         $inclusao = $this->inclusaoLigada('abonado');
         $alvo = 'a' . $inclusao->getId();
 
         $alteracao = $this->ajustar($alvo, $inclusao->getId(), 'saida', '2026-10-21 18:30:00');
-        $this->desconsiderar()->executar(DesconsiderarBatidaInput::daTela($this->escritorio, $this->pessoa, $alvo, $alteracao->getId(), 'Batida em dobro.', $this->gestora));
-
+        $desconsideracao = $this->desconsiderar()->executar(DesconsiderarBatidaInput::daTela($this->escritorio, $this->pessoa, $alvo, $alteracao->getId(), 'Batida em dobro.', $this->gestora));
         self::assertTrue($this->alvo($alvo)->desconsiderada());
+
+        $this->restaurarPelaTela($desconsideracao);
+
+        self::assertFalse($this->alvo($alvo)->desconsiderada());
     }
 
     #[TestDox('C5: a batida que o gestor desconsiderou não se restaura enquanto o trabalho externo dela está em análise, e nada é gravado')]
