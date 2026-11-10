@@ -39,12 +39,6 @@ final class AuditoriaDoPontoController extends AbstractController
     public function painel(Request $request, ListarTrilhaDoPontoUseCase $listar): Response
     {
         $escritorio = $this->escritorioDoGestor();
-        // Libera a sessão ANTES da conferência da cadeia, que percorre a trilha inteira: com a sessão aberta, a batida
-        // tocada logo depois esperaria por ela (o PHP serializa por sessão) e seria carimbada atrasada. O painel não
-        // escreve na sessão (molde do FontesPublicasController::atualizar).
-        if ($request->hasSession()) {
-            $request->getSession()->save();
-        }
 
         return $this->render('ponto/_abas_auditoria.html.twig', [
             'trilha' => $listar->executar($escritorio, $request->query->getInt('pagina', 1)),
