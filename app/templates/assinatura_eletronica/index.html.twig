@@ -20,6 +20,7 @@
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/assinatura.css') }}">
+<link rel="stylesheet" href="{{ asset('css/assinatura-validar.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -48,6 +49,8 @@
             <div class="bjaAbas" role="tablist">
                 <button type="button" class="bjaAba" role="tab" id="bjaAbaBtDocs" data-bja-aba="docs" aria-selected="true" aria-controls="bjaAbaDocs"><i class="bi bi-files"></i>{{ 'assinatura_eletronica_tela.aba_documentos'|trans }}</button>
                 <button type="button" class="bjaAba" role="tab" id="bjaAbaBtMods" data-bja-aba="mods" aria-selected="false" aria-controls="bjaAbaMods"><i class="bi bi-collection"></i>{{ 'assinatura_eletronica_tela.aba_modelos'|trans }}</button>
+                {# Etapa 3, bloco 2 (inventário A7): a terceira aba, Validar (dc:432). #}
+                <button type="button" class="bjaAba" role="tab" id="bjaAbaBtVal" data-bja-aba="val" aria-selected="false" aria-controls="bjaAbaVal"><i class="bi bi-shield-check"></i>{{ 'assinatura_eletronica_tela.js.validar.aba'|trans }}</button>
             </div>
 
             <div class="bjaAbaCorpo" id="bjaAbaDocs" role="tabpanel" aria-labelledby="bjaAbaBtDocs">
@@ -87,6 +90,11 @@
             </div>
 
             <div class="bjaAbaCorpo" id="bjaAbaMods" role="tabpanel" aria-labelledby="bjaAbaBtMods" hidden></div>
+
+            {# O mesmo componente da página pública /assinar/validar; a procura vai à consulta pública (sem filtro de escritório). #}
+            <div class="bjaAbaCorpo" id="bjaAbaVal" role="tabpanel" aria-labelledby="bjaAbaBtVal" hidden>
+                {% include 'assinatura_eletronica/_validar.html.twig' with {codigo: '', consultado: false, resultado: null} only %}
+            </div>
         </section>
     </div>
 
@@ -111,5 +119,8 @@
 <script src="{{ asset('js/vendor/qrcode-generator/qrcode.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-modelos.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-folha.js') }}" defer></script>
+{# Etapa 3, bloco 2: a aba Validar (leitura do QR Code pelo jsQR 1.4.0 servido do sistema quando não há BarcodeDetector). #}
+<script src="{{ asset('js/vendor/jsqr/jsQR.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-validar.js') }}" defer></script>
 <script src="{{ asset('js/assinatura.js') }}" defer></script>
 {% endblock %}

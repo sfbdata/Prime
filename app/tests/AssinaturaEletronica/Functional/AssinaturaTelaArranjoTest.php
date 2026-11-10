@@ -100,7 +100,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertSame('', trim($crawler->filter('#bjaTelaMod')->html()), 'o editor de modelo é desenhado pelo JS');
     }
 
-    #[TestDox('Topo da lista: título Assinatura e o botão Novo documento; abas só Documentos e Modelos')]
+    #[TestDox('Topo da lista: título Assinatura e o botão Novo documento; abas Documentos, Modelos e Validar')]
     public function testTopoEAbas(): void
     {
         $crawler = $this->abrir();
@@ -111,19 +111,20 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#bjaTelaLista > .bjaTopo + section.bjaCard#bjaLista'));
 
         self::assertSame(
-            ['Documentos', 'Modelos'],
+            ['Documentos', 'Modelos', 'Validar'],
             $crawler->filter('#bjaLista > .bjaAbas[role="tablist"] > button.bjaAba[role="tab"]')->each(static fn (Crawler $b): string => trim($b->text())),
         );
         self::assertSame(
-            ['docs', 'mods'],
+            ['docs', 'mods', 'val'],
             $crawler->filter('#bjaLista > .bjaAbas > button')->each(static fn (Crawler $b): string => (string) $b->attr('data-bja-aba')),
         );
         self::assertSame('true', $crawler->filter('#bjaLista > .bjaAbas > button[data-bja-aba="docs"]')->attr('aria-selected'));
-        self::assertCount(1, $crawler->filter('#bjaLista > .bjaAbas + #bjaAbaDocs:not([hidden]) + #bjaAbaMods[hidden]'));
+        self::assertCount(1, $crawler->filter('#bjaLista > .bjaAbas + #bjaAbaDocs:not([hidden]) + #bjaAbaMods[hidden] + #bjaAbaVal[hidden]'));
         self::assertSame('', trim($crawler->filter('#bjaAbaMods')->html()), 'a aba Modelos é desenhada pelo JS');
 
-        // Sem a aba Validar. "Criar novo modelo" (etapa 4) é desenhado pelo JS a partir do catálogo da tela.
-        self::assertCount(0, $crawler->filter('[data-bja-aba="val"]'));
+        // Etapa 3: a aba Validar traz o componente do Twig (o arranjo dele está no ValidacaoPublicaControllerTest).
+        self::assertCount(1, $crawler->filter('#bjaAbaVal > .bjaVal[data-bja-validar]'));
+        // "Criar novo modelo" (etapa 4) é desenhado pelo JS a partir do catálogo da tela.
         self::assertCount(0, $crawler->filter('#bjaTelaLista [data-bja-acao="mod-criar"]'), 'o botão não vem no esqueleto');
     }
 
@@ -170,7 +171,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('link[rel="stylesheet"][href*="css/assinatura.css"]'));
     }
 
-    #[TestDox('Scripts: catálogo da tela, pdf.js 3.11.174 com SRI, mammoth e qrcode do vendor, modelos, folha e tela, nessa ordem')]
+    #[TestDox('Scripts: catálogo da tela, pdf.js 3.11.174 com SRI, mammoth, qrcode e jsQR do vendor, modelos, folha, validar e tela, nessa ordem')]
     public function testScripts(): void
     {
         $crawler = $this->abrir();
@@ -190,7 +191,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
 
             return -1;
         };
-        $ordem = array_map($posicao, ['pdf.js/3.11.174/pdf.min.js', 'vendor/mammoth/mammoth.browser.min.js', 'vendor/qrcode-generator/qrcode.js', 'js/assinatura-modelos.js', 'js/assinatura-folha.js', 'js/assinatura.js']);
+        $ordem = array_map($posicao, ['pdf.js/3.11.174/pdf.min.js', 'vendor/mammoth/mammoth.browser.min.js', 'vendor/qrcode-generator/qrcode.js', 'js/assinatura-modelos.js', 'js/assinatura-folha.js', 'vendor/jsqr/jsQR.js', 'js/assinatura-validar.js', 'js/assinatura.js']);
         self::assertNotContains(-1, $ordem, implode(', ', $srcs));
         $ordenada = $ordem;
         sort($ordenada);
@@ -207,7 +208,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
     public function testSemTravessao(): void
     {
         $app = \dirname(__DIR__, 3);
-        foreach (['public/js/assinatura.js', 'public/js/assinatura-folha.js', 'public/js/assinatura-modelos.js', 'public/js/assinatura-publica.js', 'public/css/assinatura.css', 'public/css/assinatura-publica.css', 'templates/assinatura_eletronica/index.html.twig', 'translations/assinatura_eletronica_tela/messages+intl-icu.pt_BR.yaml', 'translations/assinatura_eletronica_publica/messages+intl-icu.pt_BR.yaml'] as $arquivo) {
+        foreach (['public/js/assinatura.js', 'public/js/assinatura-folha.js', 'public/js/assinatura-modelos.js', 'public/js/assinatura-publica.js', 'public/js/assinatura-validar.js', 'public/css/assinatura.css', 'public/css/assinatura-validar.css', 'public/css/assinatura-publica.css', 'templates/assinatura_eletronica/index.html.twig', 'templates/assinatura_eletronica/_validar.html.twig', 'templates/assinatura_eletronica/validar.html.twig', 'translations/assinatura_eletronica_tela/messages+intl-icu.pt_BR.yaml', 'translations/assinatura_eletronica_publica/messages+intl-icu.pt_BR.yaml'] as $arquivo) {
             self::assertDoesNotMatchRegularExpression('/[\x{2014}\x{2013}]/u', (string) file_get_contents($app . '/' . $arquivo), $arquivo);
         }
     }

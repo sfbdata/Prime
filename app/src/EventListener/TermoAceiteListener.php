@@ -83,6 +83,10 @@ final class TermoAceiteListener
         'assinatura_eletronica_publica_logo',
         'assinatura_eletronica_publica_rubrica',
         'assinatura_eletronica_publica_invalido',
+        // Validação pública do código BJA (etapa 3): quem lê o QR do PDF pode estar logado sem escritório ou sem aceite.
+        'assinatura_eletronica_publica_validar',
+        'assinatura_eletronica_publica_validar_codigo',
+        'assinatura_eletronica_publica_validar_consulta',
         // Cédula da assembleia de condomínio (Voto): página pública do morador, não depende de termo nem de escritório.
         'voto_assembleia_cedula',
         'voto_assembleia_cedula_votar',

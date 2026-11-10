@@ -337,6 +337,8 @@ assinatura_eletronica_tela:
             cam_cancelar: 'Cancelar'
             foto_sem_qr: 'QR Code do documento não encontrado na imagem.'
             foto_ilegivel: 'Não foi possível ler a imagem.'
+            # A consulta ao servidor falhou (rede ou erro): o desenho procura na memória e não tem este caso.
+            erro: 'Não foi possível concluir. Tente de novo.'
         # Vínculo à pasta (A6 e A9).
         vinculo:
             vincular: 'Vincular à pasta'

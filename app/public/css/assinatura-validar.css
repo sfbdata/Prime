@@ -1,0 +1,49 @@
+/* =============================================================================
+   assinatura-validar.css: "Validar documento assinado" da Assinatura de documentos (etapa 3, bloco 2; inventário A7).
+   Desenho: docs/design/redesign-08-11-26/17 - Assinatura - VS 08.11.26.dc.html, aba dc:159-163 e câmera dc:275 (os
+   estilos em linha do desenho viraram as classes bjaVal* abaixo, com os mesmos valores).
+
+   Carregado pela tela interna (aba Validar, depois do assinatura.css) e pela página pública /assinar/validar (depois
+   do assinatura-publica.css). Os componentes .bjaF, .bjaP, .bjaB e .bjaToast vêm desses dois arquivos (.bja na tela,
+   .bjaPub na página); aqui só o que o desenho põe em linha. O estilo em linha do desenho vence o :hover da classe, por
+   isso o botão da câmera e os dois botões da janela repetem o valor no :hover.
+
+   Camada da janela da câmera: a do desenho (2147483646); o aviso (2147483647) fica por cima dela.
+   ============================================================================= */
+
+/* Contêiner (dc:160): padding 18px 16px, largura máxima 640. */
+.bjaVal { padding: 18px 16px; max-width: 640px; }
+.bjaVal .bjaValT { display: block; font-size: 15px; margin-bottom: 4px; }
+.bjaVal .bjaValTx { font-size: 13px; color: var(--bja-mudo, #5b7383); margin-bottom: 10px; }
+.bjaVal .bjaValLin { display: flex; gap: 8px; flex-wrap: wrap; }
+.bjaVal .bjaValLin2 { margin-top: 10px; }
+.bjaVal .bjaF.bjaValCod { flex: 1 1 240px; width: auto; font: bold 15px monospace; text-transform: uppercase; letter-spacing: 1px; }
+.bjaVal .bjaP.bjaValCam,
+.bjaVal .bjaP.bjaValCam:hover { flex: 1 1 220px; height: 46px; font-size: 15px; background: #0b3550; }
+.bjaVal .bjaB.bjaValFoto { flex: 1 1 220px; height: 46px; font-size: 14px; cursor: pointer; }
+.bjaVal .bjaValFoto > input,
+.bjaVal .bjaValCamFoto > input { display: none; }
+
+/* Resultado (dc:161-162): achado em verde, não achado em vermelho. O <code> sem o estilo do Bootstrap da tela interna
+   (o desenho roda sem ele): fonte monoespaçada do navegador, 12px, na cor do quadro. */
+.bjaVal .bjaValOk { margin-top: 12px; padding: 12px 14px; border: 1px solid #9fd0b2; border-left: 4px solid #1e7b45; background: #e8f5ee; color: #145a32; font-size: 13.5px; line-height: 1.55; }
+.bjaVal .bjaValOk code { font-family: monospace; font-size: 12px; word-break: break-all; color: inherit; background: none; padding: 0; }
+.bjaVal .bjaValErro { margin-top: 12px; padding: 12px 14px; border: 1px solid #f1c4c9; border-left: 4px solid #a3232b; background: #fdecee; color: #7f1c23; font-size: 13.5px; }
+
+/* Janela da câmera (dc:275). */
+.bjaVal .bjaValCamM { position: fixed; inset: 0; z-index: 2147483646; background: #0b3550; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 18px; text-align: center; font-family: Arial, Helvetica, sans-serif; }
+.bjaVal .bjaValCamT { font-size: clamp(20px, 3.6vw, 26px); }
+.bjaVal .bjaValCamQ { position: relative; width: min(82vw, 58vh, 420px); aspect-ratio: 1 / 1; background: #072538; overflow: hidden; }
+.bjaVal .bjaValCamQ > video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bjaVal .bjaValCamQ > span { position: absolute; inset: 14%; border: 3px solid #59d98e; }
+.bjaVal .bjaValCamMsg { font-size: 14px; color: #c7dce9; max-width: 420px; }
+.bjaVal .bjaValCamBts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.bjaVal .bjaB.bjaValCamFoto,
+.bjaVal .bjaB.bjaValCamFoto:hover { height: 40px; background: #fff; cursor: pointer; }
+.bjaVal .bjaB.bjaValCamSair,
+.bjaVal .bjaB.bjaValCamSair:hover { height: 40px; background: transparent; color: #fff; border-color: rgba(255, 255, 255, .6); }
+/* Tema escuro da tela interna: o fundo do "Tirar foto" é branco nos dois temas, então o texto fica com o azul do desenho. */
+[data-bs-theme="dark"] .bja .bjaVal .bjaValCamFoto { color: #0a6fa0; }
+
+/* Página pública: o componente no cartão do desenho, centralizado como o cartão de bloqueio da página do signatário. */
+.bjaPub .bjaValCartao { max-width: 672px; margin: 24px auto; }

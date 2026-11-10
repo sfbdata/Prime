@@ -30,3 +30,9 @@ framework:
             policy: sliding_window
             limit: 3
             interval: '15 minutes'
+        # Etapa 3 (docs/specs/assinatura-documentos-etapa-3.md, bloco 2): a validação pública do código BJA, por IP.
+        # Conta cada procura (a página com código e a consulta em JSON da aba Validar); a página sem código não procura.
+        assinatura_validacao:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'

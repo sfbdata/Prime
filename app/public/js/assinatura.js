@@ -85,6 +85,7 @@
         telaMod: $('bjaTelaMod'),
         abaDocs: $('bjaAbaDocs'),
         abaMods: $('bjaAbaMods'),
+        abaVal: $('bjaAbaVal'),
         chips: $('bjaChips'),
         busca: $('bjaBusca'),
         pasta: $('bjaPasta'),
@@ -259,6 +260,9 @@
         raiz.querySelectorAll('[data-bja-aba]').forEach(b => b.setAttribute('aria-selected', String(b.getAttribute('data-bja-aba') === s.aba)));
         el.abaDocs.hidden = s.aba !== 'docs';
         el.abaMods.hidden = s.aba !== 'mods';
+        /* Aba Validar (etapa 3, bloco 2): o componente já vem do Twig e é ligado pelo assinatura-validar.js. */
+        if (el.abaVal) { el.abaVal.hidden = s.aba !== 'val'; }
+        if (s.aba === 'val') { return; }
         if (s.aba === 'docs') { desenharDocs(); return; }
         el.abaMods.innerHTML = '<div class="bjaModsTopo"><span class="bjaModsTx">' + esc(T('modelos_intro')) + '</span>'
             + (url.modeloCriar ? '<button type="button" class="bjaP" data-bja-acao="mod-criar"><i class="bi bi-plus-lg"></i>' + esc(T('mod.criar')) + '</button>' : '')

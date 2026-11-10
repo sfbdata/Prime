@@ -1145,13 +1145,16 @@
     },
     "assinatura_eletronica_tela": {
         "templates": [
-            "assinatura_eletronica/index.html.twig"
+            "assinatura_eletronica/index.html.twig",
+            "assinatura_eletronica/_validar.html.twig",
+            "assinatura_eletronica/validar.html.twig"
         ],
         "js": [
             "assinatura.js",
-            "assinatura-folha.js"
+            "assinatura-folha.js",
+            "assinatura-validar.js"
         ],
-        "permitidos": ["bja-body", "Content-Type", "Escape"]
+        "permitidos": ["bja-body", "Content-Type", "Escape", "BlueJus"]
     },
     "assinatura_eletronica_publica": {
         "js": [
