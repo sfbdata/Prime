@@ -62,6 +62,7 @@ final class DadosDaFolhaExportadaTest extends TestCase
         ]);
 
         self::assertSame(['+0:30', '-0:45', 'Sem dado'], array_column($dados['folhaRows'], 'bancoHoras'));
+        self::assertSame('+0:30', $dados['saldoBancoAtual'], 'o saldo do mês no resumo é o do último dia fechado, sem o até ontem de hoje');
     }
 
     /** @param list<array<string, mixed>> $linhas */

@@ -46,7 +46,7 @@ final class ConteudoDaFolhaDeExemplo
 
     private static function cabecalho(bool $nomesLongos): CabecalhoDaFolha
     {
-        $nome = $nomesLongos ? 'MARIA APARECIDA DOS SANTOS FIGUEIREDO DE ALBUQUERQUE CAVALCANTI NASCIMENTO' : 'MARIA DA SILVA';
+        $nome = $nomesLongos ? 'MARIA APARECIDA DOS SANTOS FIGUEIREDO DE ALBUQUERQUE CAVALCANTI NASCIMENTO PEREIRA BARBOSA' : 'MARIA DA SILVA';
         $empregador = $nomesLongos ? 'ESCRITÓRIO DE ADVOCACIA FIGUEIREDO ALBUQUERQUE CAVALCANTI E ASSOCIADOS SOCIEDADE DE ADVOGADOS' : 'ESCRITÓRIO MODELO';
 
         return new CabecalhoDaFolha(
