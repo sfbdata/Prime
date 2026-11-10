@@ -179,6 +179,7 @@ final class AbasDeGestaoDoPontoTest extends JusPrimeWebTestCase
         $abas = $tela->filter(self::BARRA . ' > button[role="tab"]')->each(static fn ($aba): string => (string) $aba->attr('id'));
         // Comprovantes (E15) e Banco de Horas (E17) dependem do escritório; nenhuma aba de gestão aparece.
         self::assertSame(['ponto-aba-pendencias', 'ponto-aba-justificativas'], array_values(array_diff($abas, ['ponto-aba-comprovantes', 'ponto-aba-banco'])));
+        self::assertCount(1, $tela->filter('section.pe-abas > div.pe-abas-voz[aria-live="polite"][data-abas-aviso]:last-child:empty'), 'o aviso da exclusão, só para leitor de tela');
     }
 
     #[TestDox('Na /ponto, o primário vê a Equipe com a própria em análise no número (ele analisa a própria, P43 a)')]
@@ -217,6 +218,19 @@ final class AbasDeGestaoDoPontoTest extends JusPrimeWebTestCase
             self::assertCount(1, $tela->filter(self::BARRA . ' > button#ponto-aba-pendencias[aria-selected="true"][tabindex="0"]'), $aba . ': cai em Pendências');
             self::assertCount(1, $tela->filter('section.pe-abas > div#ponto-regiao-pendencias:not([hidden])'), $aba);
         }
+    }
+
+    #[TestDox('Na /ponto, uma aba que não existe (?aba=xyz) cai em Pendências, mesmo para quem vê todas')]
+    public function testAbaDesconhecidaCaiEmPendencias(): void
+    {
+        $gestor = $this->gestorDoPontoEDaEquipe();
+
+        $tela = $this->tela($gestor, '/ponto/?aba=xyz');
+
+        self::assertCount(1, $tela->filter(self::BARRA . ' > button#ponto-aba-pendencias[aria-selected="true"][tabindex="0"]'));
+        self::assertCount(0, $tela->filter(self::BARRA . ' > button[role="tab"][aria-selected="true"]:not(#ponto-aba-pendencias)'));
+        self::assertCount(1, $tela->filter('section.pe-abas > div#ponto-regiao-pendencias:not([hidden])'));
+        self::assertCount(0, $tela->filter('section.pe-abas > div[role="tabpanel"]:not([hidden]):not(#ponto-regiao-pendencias)'), 'só o painel das pendências aberto');
     }
 
     #[TestDox('Na /ponto, quem só gere as sedes vê Configurações e não a Equipe (nem o endereço dela)')]
