@@ -128,7 +128,9 @@ escritorio:
         remover_acesso: Remover acesso
         # Título da tabela da aba de ponto; o mês e o ano entram depois, como hoje.
         batidas_titulo: Batidas de ponto
-        batida_titulo: Adicionar Batida
+        # E10: o "+" da ficha inclui uma batida, com motivo (P65 a).
+        batida_titulo: Incluir batida
+        batida_incluir: Incluir
         batida_data: Data
         batida_hora: Hora
         batida_tipo: Tipo

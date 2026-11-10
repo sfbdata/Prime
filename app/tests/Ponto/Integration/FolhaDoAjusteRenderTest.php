@@ -136,11 +136,34 @@ final class FolhaDoAjusteRenderTest extends KernelTestCase
         self::assertCount(1, $linha->filter('td[data-r="Saída"] > span.pe-pl.pe-aj'));
     }
 
-    private function render(bool $ficha, bool $editar = true): Crawler
+    #[TestDox('Ficha: o "+" do tipo vazio diz "Incluir saída" (o rótulo com acento, não o código) e abre a janela com o dia e o tipo')]
+    public function testMaisIncluiBatida(): void
+    {
+        $semSaida = ['saida' => null, 'saidaId' => null, 'saidaAlvo' => null, 'saidaCabeca' => null, 'saidaAjuste' => null];
+        $mais = $this->linha($this->render(true, troca: $semSaida))->filter('td[data-r="Saída"] > button.pe-mais');
+
+        self::assertCount(1, $mais);
+        self::assertSame(['Incluir saída', 'Incluir saída'], [$mais->attr('title'), $mais->attr('aria-label')]);
+        self::assertSame("abrirModalAddBatida('saida', '2026-10-21')", $mais->attr('onclick'));
+    }
+
+    #[TestDox('P43: com o aviso da ficha sem correção, a linha que diz por quê fica logo depois da barra; sem ele, nenhuma linha')]
+    public function testAvisoSemCorrecao(): void
+    {
+        $aviso = 'Só o usuário primário do escritório ou o Master pode corrigir a própria batida.';
+
+        $linha = $this->render(true, editar: false, aviso: $aviso)->filter('section.pe-folha > .pe-folha-barra + p[data-folha-sem-correcao]');
+        self::assertSame($aviso, trim($linha->text()));
+        self::assertCount(0, $this->render(true)->filter('[data-folha-sem-correcao]'));
+    }
+
+    /** @param array<string, mixed> $troca campos da linha montada trocados */
+    private function render(bool $ficha, bool $editar = true, array $troca = [], ?string $aviso = null): Crawler
     {
         $html = static::getContainer()->get(Environment::class)->render('ponto/_folha_table.html.twig', [
             'titulo' => 'Folha de Ponto',
-            'folhaRows' => [$this->linhaMontada()],
+            'avisoSemCorrecao' => $aviso,
+            'folhaRows' => [$troca + $this->linhaMontada()],
             'competenciaSelecionada' => '2026-10',
             'carregarCssDaFolha' => false,
             'editarBatidasHabilitado' => $ficha && $editar,
