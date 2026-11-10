@@ -111,7 +111,7 @@ final class HttpSeladorDePdfTest extends TestCase
         yield '503 com código desconhecido' => [self::json(503, 'codigo_novo'), HttpSeladorDePdf::FORA_DO_PROTOCOLO, $passageira, 503];
         yield '422 com código de outra situação' => [self::json(422, 'ocupado'), HttpSeladorDePdf::FORA_DO_PROTOCOLO, $passageira, 422];
         yield '200 em JSON, não PDF' => [new MockResponse('{"v":1}', ['http_code' => 200, 'response_headers' => ['content-type' => 'application/json']]), HttpSeladorDePdf::FORA_DO_PROTOCOLO, $passageira, 200];
-        yield '302 (redirecionamento não é seguido)' => [new MockResponse('', ['http_code' => 302, 'response_headers' => ['location' => 'http://outro.test/']]), HttpSeladorDePdf::FORA_DO_PROTOCOLO, $passageira, 302];
+        yield '302: passageira (que ele não é seguido prova o max_redirects 0 do testSelado)' => [new MockResponse('', ['http_code' => 302, 'response_headers' => ['location' => 'http://outro.test/']]), HttpSeladorDePdf::FORA_DO_PROTOCOLO, $passageira, 302];
         yield 'erro de transporte (validador fora do ar)' => [new MockResponse('', ['error' => 'Connection refused for "http://validador_pdf:8080/v1/selar".']), HttpSeladorDePdf::FALHA_DE_TRANSPORTE, $passageira, null];
     }
 
@@ -178,6 +178,20 @@ final class HttpSeladorDePdfTest extends TestCase
         self::assertSame(200, $falha->situacao);
         self::assertCount(1, $this->log->erros());
         self::assertSame(['original' => \strlen(self::PDF), 'selado' => \strlen($selado)], $this->log->registros[0]['contexto']);
+        $this->assertNadaVazou($falha);
+    }
+
+    #[TestDox('200 que não é PDF (a URL aponta para outra rota): passageira e logger->error já na primeira vez, com o tipo')]
+    public function testDuzentosSemPdf(): void
+    {
+        $resposta = new MockResponse('{"v":1}', ['http_code' => 200, 'response_headers' => ['content-type' => 'application/json']]);
+
+        $falha = $this->falhaDe($this->selador($resposta));
+
+        self::assertSame(HttpSeladorDePdf::FORA_DO_PROTOCOLO, $falha->codigo);
+        self::assertSame(ClasseDaFalhaNoSelo::Passageira, $falha->classe);
+        self::assertCount(1, $this->log->erros());
+        self::assertSame(['tipo' => 'application/json'], $this->log->registros[0]['contexto']);
         $this->assertNadaVazou($falha);
     }
 
