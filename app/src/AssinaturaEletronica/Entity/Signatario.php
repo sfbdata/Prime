@@ -356,10 +356,14 @@ class Signatario
 
     /**
      * O registro da assinatura: nome e CPF como digitados, a rubrica guardada, o método e a evidência da requisição.
-     * O código usado deixa de valer. Só pela transição do documento, que confere a vez antes.
+     * O código usado deixa de valer. Só pela transição do documento, que confere a vez antes. Signatário gov.br ou ICP
+     * não passa por aqui: a prova dele é o PDF assinado ({@see registrarAssinaturaComCertificado()}).
      */
     public function registrarAssinatura(string $nome, string $cpf, string $rubricaChave, string $metodo, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): void
     {
+        if ($this->assinaComCertificado()) {
+            throw new \LogicException('Signatário gov.br ou ICP só assina com certificado.');
+        }
         $this->registrar($nome, $cpf, $rubricaChave, $metodo, $ip, $userAgent, $agora);
     }
 

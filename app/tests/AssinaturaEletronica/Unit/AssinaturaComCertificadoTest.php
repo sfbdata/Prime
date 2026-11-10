@@ -99,6 +99,28 @@ final class AssinaturaComCertificadoTest extends TestCase
         $govbr->registrarAssinaturaComCertificado('Bia Souza', '11144477735', null, null, new \DateTimeImmutable('2026-11-10 08:01:00'));
     }
 
+    #[TestDox('gov.br ou ICP não assina pelo caminho Simples (com rubrica): nada é registrado e o documento não conclui')]
+    public function testCertificadoNaoAssinaComoSimples(): void
+    {
+        $documento = self::enviado(emOrdem: false);
+        [$simples, $govbr, $icp] = $documento->getSignatarios();
+        $agora = new \DateTimeImmutable('2026-11-10 08:00:00');
+        $documento->assinar($simples, 'Ana Maria Lima', '52998224725', 'rubrica.png', 'simples', null, null, $agora);
+        $documento->assinarComCertificado($govbr, 'Bia Souza', '11144477735', null, null, $agora);
+
+        try {
+            $documento->assinar($icp, 'Caio Reis', '52998224725', 'rubrica.png', 'simples', null, null, $agora);
+            self::fail('ICP não assina como Simples');
+        } catch (\LogicException $e) {
+            self::assertSame('Signatário gov.br ou ICP só assina com certificado.', $e->getMessage());
+        }
+
+        self::assertTrue($icp->estaPendente());
+        self::assertNull($icp->getRubricaChave());
+        self::assertSame(SituacaoDoDocumento::Aguardando, $documento->getSituacao());
+        self::assertNull($documento->getConcluidoEm());
+    }
+
     /** Signatários: Ana (Simples), Bia (gov.br) e Caio (ICP). */
     private static function enviado(bool $emOrdem): DocumentoParaAssinar
     {
