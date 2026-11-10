@@ -188,7 +188,7 @@
                                     {% for fora in desconsideradasPorDia[linha.chaveDia] %}
                                         {% set rotuloFora = rotulosBatida[fora.tipo] ?? fora.tipo %}
                                         <span class="pe-folha-celula batida-fora-por-ajuste" data-ajuste-id="{{ fora.ajusteId }}"
-                                              title="{{ fora.pelaAnalise ? 'Esta batida saiu da conta pela análise da justificativa e só volta com um novo abono.' : 'Desconsiderada por ' ~ fora.por ~ ' em ' ~ fora.em ~ '. Registro original preservado.' }}">
+                                              title="{{ fora.pelaAnalise ? constant('App\\Ponto\\Exception\\AjusteDeBatidaRecusadoException::MENSAGEM_LIGADA_A_JUSTIFICATIVA') : 'Desconsiderada por ' ~ fora.por ~ ' em ' ~ fora.em ~ '. Registro original preservado.' }}">
                                             {{ rotuloFora }} {{ fora.hora }}
                                             {% if not fora.pelaAnalise %}
                                                 <button type="button" class="pe-mais pe-mais--restaurar" title="Restaurar batida" aria-label="Restaurar batida"

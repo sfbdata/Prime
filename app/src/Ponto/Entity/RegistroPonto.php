@@ -37,9 +37,9 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
     ];
 
     /**
-     * O `sedeNomeSnapshot` da batida lançada ou editada pelo admin (`TenantController::pontoAdd` e
-     * `pontoEdit`). `EscolhaDasBatidasDoDia` lê este mesmo valor para saber que a batida não é do
-     * colaborador — por isso é constante, e não texto repetido nos dois lados.
+     * O `sedeNomeSnapshot` das batidas que o admin lançou ou editou pela ficha antes da E10. Desde a E10 a correção do
+     * gestor entra como ajuste ({@see PontoAjuste}) e ninguém grava mais este valor, mas as batidas antigas o guardam:
+     * `feitaPeloColaborador` (que a `EscolhaDasBatidasDoDia` usa) o lê para saber que a batida não é do colaborador.
      */
     public const SNAPSHOT_LANCAMENTO_MANUAL = 'Lançamento manual';
 
@@ -351,8 +351,8 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     /**
      * Batida feita pelo próprio colaborador: sem observação e sem a marca de lançamento manual. A mesma regra de
-     * `EscolhaDasBatidasDoDia::ehDoColaborador` (a aprovação de esquecimento grava observação fixa; o lançamento e a
-     * edição do admin gravam o snapshot `Lançamento manual`).
+     * `EscolhaDasBatidasDoDia::ehDoColaborador` (a aprovação de esquecimento gravava observação fixa; o lançamento e a
+     * edição do admin de antes da E10 gravavam o snapshot `Lançamento manual`).
      */
     public function feitaPeloColaborador(): bool
     {
