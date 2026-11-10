@@ -7,8 +7,10 @@ namespace App\Tests\AssinaturaEletronica\Integration;
 use App\AssinaturaEletronica\DTO\DadosDoRascunho;
 use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
+use App\AssinaturaEletronica\Entity\VersaoDoPdf;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
+use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\Entity\Tenant\Tenant;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Types;
@@ -19,7 +21,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * As consultas da tela Assinatura no banco de verdade (DAMA desfaz cada teste). Etapa 3: o código de validação (a porta
- * da validação pública e a colisão do envio) e o PDF final entre os arquivos em uso.
+ * da validação pública e a colisão do envio) e o PDF final entre os arquivos em uso. Etapa 5: as versões guardadas do
+ * PDF também.
  */
 #[CoversClass(DocumentoParaAssinarRepository::class)]
 #[CoversClass(ResumoDoDocumento::class)]
@@ -105,6 +108,21 @@ final class DocumentoParaAssinarRepositoryTest extends KernelTestCase
         $this->conexao()->executeStatement('UPDATE assinatura_eletronica_documento SET arquivo_final_chave = ? WHERE id = ?', ['final-2.pdf', $alheio->getId()]);
 
         self::assertSame(['final-1.pdf'], $this->documentos->arquivosEmUso($tenant, ['final-1.pdf', 'final-2.pdf']));
+    }
+
+    #[TestDox('etapa 5: a versão guardada do PDF é arquivo em uso, mesmo com o documento na Lixeira; a de outro escritório não conta')]
+    public function testArquivosEmUsoComVersao(): void
+    {
+        $tenant = $this->escritorio();
+        $versoes = static::getContainer()->get(VersaoDoPdfRepository::class);
+        $naLixeira = $this->documento($tenant, 'Na Lixeira');
+        $versoes->salvar(VersaoDoPdf::original($naLixeira, 1, 'versao-1.pdf', 'contrato.pdf', str_repeat('a', 64), 10, ['v' => 1], new \DateTimeImmutable()));
+        $naLixeira->moverParaLixeira(null, new \DateTimeImmutable());
+        $alheio = $this->documento($this->escritorio(), 'Alheio');
+        $versoes->salvar(VersaoDoPdf::original($alheio, 1, 'versao-2.pdf', 'contrato.pdf', str_repeat('a', 64), 10, ['v' => 1], new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        self::assertSame(['versao-1.pdf'], $this->documentos->arquivosEmUso($tenant, ['versao-1.pdf', 'versao-2.pdf', 'solto.pdf']));
     }
 
     #[TestDox('etapa 3: pelo código, acha o documento de qualquer escritório, mesmo na Lixeira; código desconhecido, nada; a lista leva o código')]

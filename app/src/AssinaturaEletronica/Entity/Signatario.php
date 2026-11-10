@@ -20,6 +20,8 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Etapa 7 (contrato da etapa 7, seção 4): na Reforçada, a chave do arquivo cifrado da selfie, o sha256 do JPEG e a
  * versão da chave da selfie (M5), e a localização nas colunas que já existiam desde a M1.
+ *
+ * Etapa 5 (contrato da etapa 5, seção 2, item 3): gov.br e ICP assinam sem rubrica; a prova é o PDF devolvido.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'assinatura_eletronica_signatario')]
@@ -358,16 +360,26 @@ class Signatario
      */
     public function registrarAssinatura(string $nome, string $cpf, string $rubricaChave, string $metodo, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): void
     {
-        $this->exigirPendente();
-        $this->situacao = SituacaoDoSignatario::Assinado;
-        $this->assinadoEm = self::emSegundos($agora);
-        $this->nomeDigitado = $nome;
-        $this->cpfDigitado = $cpf;
-        $this->rubricaChave = $rubricaChave;
-        $this->metodo = $metodo;
-        $this->ip = $ip;
-        $this->userAgent = $userAgent;
-        $this->codigoHash = null;
+        $this->registrar($nome, $cpf, $rubricaChave, $metodo, $ip, $userAgent, $agora);
+    }
+
+    /**
+     * O registro da assinatura gov.br ou ICP (contrato da etapa 5, seção 2, item 3): sem rubrica (o lugar de assinatura
+     * mostra só o "Assinado em"), com o nível como método (`govbr` ou `icp`). A prova é o PDF devolvido, guardado como
+     * {@see VersaoDoPdf} na mesma transação. Só pela transição do documento, que confere a vez antes.
+     */
+    public function registrarAssinaturaComCertificado(string $nome, string $cpf, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): void
+    {
+        if (!$this->assinaComCertificado()) {
+            throw new \LogicException('Só signatário gov.br ou ICP assina com certificado.');
+        }
+        $this->registrar($nome, $cpf, null, $this->nivel->value, $ip, $userAgent, $agora);
+    }
+
+    /** Conta gov.br ou certificado ICP-Brasil: assina fora do BlueJus e devolve o PDF assinado. */
+    public function assinaComCertificado(): bool
+    {
+        return $this->nivel === NivelDeAssinatura::Govbr || $this->nivel === NivelDeAssinatura::Icp;
     }
 
     /**
@@ -394,6 +406,21 @@ class Signatario
         $this->exigirPendente();
         $this->situacao = SituacaoDoSignatario::Recusado;
         $this->motivoRecusa = $motivo;
+        $this->ip = $ip;
+        $this->userAgent = $userAgent;
+        $this->codigoHash = null;
+    }
+
+    /** O que toda assinatura registra; o código usado deixa de valer. */
+    private function registrar(string $nome, string $cpf, ?string $rubricaChave, string $metodo, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): void
+    {
+        $this->exigirPendente();
+        $this->situacao = SituacaoDoSignatario::Assinado;
+        $this->assinadoEm = self::emSegundos($agora);
+        $this->nomeDigitado = $nome;
+        $this->cpfDigitado = $cpf;
+        $this->rubricaChave = $rubricaChave;
+        $this->metodo = $metodo;
         $this->ip = $ip;
         $this->userAgent = $userAgent;
         $this->codigoHash = null;

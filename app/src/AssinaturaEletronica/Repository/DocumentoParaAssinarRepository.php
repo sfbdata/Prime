@@ -7,6 +7,7 @@ namespace App\AssinaturaEletronica\Repository;
 use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Entity\VersaoDoPdf;
 use App\AssinaturaEletronica\Enum\CorDaLinha;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
@@ -100,8 +101,9 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     }
 
     /**
-     * Dos nomes de arquivo dados, os que algum documento do escritório ainda usa (PDF enviado, logo própria ou PDF final
-     * com selo), Lixeira incluída. Quem apaga arquivo depois do COMMIT confere aqui antes: arquivo em uso não sai.
+     * Dos nomes de arquivo dados, os que algum documento do escritório ainda usa (PDF enviado, logo própria, PDF final
+     * com selo ou versão guardada do PDF, etapa 5), Lixeira incluída. Quem apaga arquivo depois do COMMIT confere aqui
+     * antes: arquivo em uso não sai.
      *
      * @param list<string> $nomes
      *
@@ -123,9 +125,33 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
             ->getQuery()
             ->getScalarResult());
 
-        $usados = array_merge(array_column($linhas, 'pdf'), array_column($linhas, 'logo'), array_column($linhas, 'final'));
+        $usados = array_merge(array_column($linhas, 'pdf'), array_column($linhas, 'logo'), array_column($linhas, 'final'), $this->versoesEmUso($tenant, $nomes));
 
         return array_values(array_filter($nomes, static fn (string $nome): bool => \in_array($nome, $usados, true)));
+    }
+
+    /**
+     * Dos nomes dados, os das versões guardadas do PDF de documentos do escritório, Lixeira incluída.
+     *
+     * @param list<string> $nomes
+     *
+     * @return list<string>
+     */
+    private function versoesEmUso(Tenant $tenant, array $nomes): array
+    {
+        /** @var list<array{chave: string}> $linhas */
+        $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->getEntityManager()->createQueryBuilder()
+            ->select('v.arquivoChave AS chave')
+            ->from(VersaoDoPdf::class, 'v')
+            ->innerJoin('v.documento', 'd')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('v.arquivoChave IN (:nomes)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nomes', $nomes)
+            ->getQuery()
+            ->getScalarResult());
+
+        return array_column($linhas, 'chave');
     }
 
     /**

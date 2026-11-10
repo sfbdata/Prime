@@ -410,6 +410,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\AssinaturaEletronica\Entity\EventoDaTrilha::class,
         \App\AssinaturaEletronica\Entity\Signatario::class,
         \App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura::class,
+        // Versão guardada do PDF (spec assinatura-documentos-etapa-5, seção 2): a análise do motor e a cadeia do
+        // validador trazem titular e CPF do certificado, que não devem ir para o audit_log lido por quem administra;
+        // cada versão nasce uma vez (só a cadeia é gravada depois) e o evento da trilha é o rastro dela.
+        \App\AssinaturaEletronica\Entity\VersaoDoPdf::class,
         // Assembleia de condomínio do Voto (spec voto-assembleia-condominio, seção 2, sigilo): a opção guarda o contador
         // de votos e a participação guarda quem votou e quando; no audit_log a hora de uma coincidiria com a da outra e
         // ligaria a unidade ao voto. A unidade guarda responsável, e-mail e a semente do link pessoal, que não vão para

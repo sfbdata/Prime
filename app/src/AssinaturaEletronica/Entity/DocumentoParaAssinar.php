@@ -39,6 +39,9 @@ use Doctrine\ORM\Mapping as ORM;
  * final com selo é guardado uma vez, só do documento concluído; o vínculo à pasta é sempre por id (o NUP não é único),
  * fica pendente até o PDF final ir para a pasta e guarda quem o definiu (a conclusão acontece na rota pública, sem
  * usuário logado). Pasta, usuário e arquivo da pasta apagados viram nulo (`ON DELETE SET NULL`).
+ *
+ * Etapa 5 (contrato da etapa 5, seção 2, item 3): gov.br e ICP assinam sem rubrica e concluem como a Simples. As
+ * versões do PDF (original, para assinar e devolvidas) moram em {@see VersaoDoPdf}.
  */
 #[ORM\Entity(repositoryClass: DocumentoParaAssinarRepository::class)]
 #[ORM\Table(name: 'assinatura_eletronica_documento')]
@@ -500,14 +503,25 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
     {
         $this->exigirVez($signatario, $agora);
         $signatario->registrarAssinatura($nome, $cpf, $rubricaChave, $metodo, $ip, $userAgent, $agora);
-        if ($this->contarAssinados() < $this->signatarios->count()) {
-            return false;
-        }
 
-        $this->situacao = SituacaoDoDocumento::Concluido;
-        $this->concluidoEm = self::emSegundos($agora);
+        return $this->concluirSeTodosAssinaram($agora);
+    }
 
-        return true;
+    /**
+     * Registra a assinatura gov.br ou ICP de quem tem a vez (contrato da etapa 5, seção 2, item 3): sem rubrica, com o
+     * nível como método. O último a assinar conclui o documento, como na Simples. Quem chama já conferiu e guardou o
+     * PDF devolvido na mesma transação.
+     *
+     * @return bool se o documento foi concluído agora
+     *
+     * @throws AcaoRecusada fora da vez
+     */
+    public function assinarComCertificado(Signatario $signatario, string $nome, string $cpf, ?string $ip, ?string $userAgent, \DateTimeImmutable $agora): bool
+    {
+        $this->exigirVez($signatario, $agora);
+        $signatario->registrarAssinaturaComCertificado($nome, $cpf, $ip, $userAgent, $agora);
+
+        return $this->concluirSeTodosAssinaram($agora);
     }
 
     /**
@@ -803,6 +817,19 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
     private static function mesmaPasta(Pasta $pasta, ?Pasta $outra): bool
     {
         return $outra !== null && ($outra === $pasta || ($pasta->getId() !== null && $pasta->getId() === $outra->getId()));
+    }
+
+    /** Com todos assinados, o documento conclui na hora da última assinatura. */
+    private function concluirSeTodosAssinaram(\DateTimeImmutable $agora): bool
+    {
+        if ($this->contarAssinados() < $this->signatarios->count()) {
+            return false;
+        }
+
+        $this->situacao = SituacaoDoDocumento::Concluido;
+        $this->concluidoEm = self::emSegundos($agora);
+
+        return true;
     }
 
     /** @throws AcaoRecusada */

@@ -7,6 +7,7 @@ namespace App\AssinaturaEletronica\Armazenamento;
 use App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Entity\VersaoDoPdf;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -15,9 +16,10 @@ use App\Shared\Armazenamento\NovoArquivo;
 
 /**
  * As chaves de arquivo da tela Assinatura: o PDF enviado e a logo própria de cada documento, a logo padrão do
- * escritório, a rubrica de cada signatário que assinou (etapa 2), a selfie cifrada da Reforçada (etapa 7) e o PDF final
- * com selo do documento concluído (contrato da etapa 3, seção 2, item 6). O escopo sai da ENTIDADE (documento ou
- * configuração): a chave de um escritório nunca é montada com o id de outro. Categoria isolada por escritório em disco (`uploads/pastas/assinatura/<tenantId>/`).
+ * escritório, a rubrica de cada signatário que assinou (etapa 2), a selfie cifrada da Reforçada (etapa 7), o PDF final
+ * com selo do documento concluído (contrato da etapa 3, seção 2, item 6) e as versões guardadas do PDF (contrato da
+ * etapa 5, seção 2, item 4). O escopo sai da ENTIDADE (documento, versão ou configuração): a chave de um escritório
+ * nunca é montada com o id de outro. Categoria isolada por escritório em disco (`uploads/pastas/assinatura/<tenantId>/`).
  */
 final class ChavesDeAssinaturaEletronica
 {
@@ -96,6 +98,22 @@ final class ChavesDeAssinaturaEletronica
 
     /** PDF final novo de um documento concluído (etapa 3): sempre PDF, o nome é cunhado pelo storage. */
     public static function novoPdfFinal(DocumentoParaAssinar $documento): NovoArquivo
+    {
+        return new NovoArquivo(self::escopoDe($documento->getTenant()), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'pdf');
+    }
+
+    /** Uma versão guardada do PDF (etapa 5). O escritório é o do documento da versão. */
+    public static function versao(VersaoDoPdf $versao): ChaveDeArquivo
+    {
+        return self::chave($versao->getDocumento()->getTenant(), $versao->getArquivoChave())
+            ?? throw new \LogicException('Versão do PDF sem chave de arquivo.');
+    }
+
+    /**
+     * Versão nova do PDF de um documento (etapa 5): sempre PDF, o nome é cunhado pelo storage. Grava-se o arquivo
+     * antes de criar a {@see VersaoDoPdf}, que recebe o nome da chave.
+     */
+    public static function novaVersao(DocumentoParaAssinar $documento): NovoArquivo
     {
         return new NovoArquivo(self::escopoDe($documento->getTenant()), CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'pdf');
     }

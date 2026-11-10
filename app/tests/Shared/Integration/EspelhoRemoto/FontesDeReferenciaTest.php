@@ -294,6 +294,44 @@ final class FontesDeReferenciaTest extends KernelTestCase
         self::assertTrue($data['naLixeira'], 'documento na Lixeira fica fora da liberação');
     }
 
+    #[TestDox('versão guardada do PDF (Assinatura, etapa 5): vira chave com o escritório do documento; a data da liberação é a da criação e a Lixeira é a do documento')]
+    public function testVersaoDoPdfDaAssinatura(): void
+    {
+        self::bootKernel();
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        [$tenantId, $daLixeira] = $this->signatariosDaAssinatura();
+        [$outroTenant, $ativo] = $this->signatariosDaAssinatura();
+        $versoes = [];
+        foreach ([[$daLixeira, '0a0b0c0d0e0f00010203040506070809.pdf'], [$ativo, '1a1b1c1d1e1f10111213141516171819.pdf']] as [$signatario, $chave]) {
+            $documento = (int) $conexao->fetchOne('SELECT documento_id FROM assinatura_eletronica_signatario WHERE id = ?', [$signatario]);
+            $versoes[] = (int) $conexao->fetchOne(
+                "INSERT INTO assinatura_eletronica_versao (documento_id, signatario_id, ordem, origem, arquivo_chave, nome_original, sha256, tamanho, analise, criado_em)
+                 VALUES (?, NULL, 1, 'original', ?, 'Contrato.pdf', ?, 10, '{\"v\":1}', '2026-03-04 05:06:07') RETURNING id",
+                [$documento, $chave, str_repeat('a', 64)],
+            );
+        }
+        [$naLixeira, $ativa] = $versoes;
+        $conexao->executeStatement(
+            "UPDATE assinatura_eletronica_documento SET excluido_em = '2026-04-01 00:00:00' WHERE id = (SELECT documento_id FROM assinatura_eletronica_versao WHERE id = ?)",
+            [$naLixeira],
+        );
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $versao = $porLinha['assinatura_versao#' . $naLixeira] ?? self::fail('versão do PDF não listada');
+        self::assertSame(CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $versao->chave?->categoria);
+        self::assertSame($tenantId, $versao->chave?->escopo->tenantIdOuNull());
+        self::assertSame('0a0b0c0d0e0f00010203040506070809.pdf', $versao->chave?->nome);
+        $outra = $porLinha['assinatura_versao#' . $ativa] ?? self::fail('versão do outro escritório não listada');
+        self::assertSame($outroTenant, $outra->chave?->escopo->tenantIdOuNull(), 'cada versão leva o escritório do próprio documento');
+
+        $datas = (new DatasDasReferencias($conexao))->para([$versao, $outra]);
+        $lixeira = $datas[DatasDasReferencias::chaveDe('assinatura_versao', $naLixeira)] ?? self::fail('data da versão não respondida');
+        self::assertSame('2026-03-04 05:06:07', $lixeira['data']?->format('Y-m-d H:i:s'), 'a versão nunca muda: a data é a da criação');
+        self::assertTrue($lixeira['naLixeira'], 'documento na Lixeira fica fora da liberação');
+        self::assertFalse(($datas[DatasDasReferencias::chaveDe('assinatura_versao', $ativa)] ?? self::fail('data da versão ativa não respondida'))['naLixeira']);
+    }
+
     /**
      * Um documento da Assinatura com dois signatários gravados, no escritório de uma fábrica.
      *

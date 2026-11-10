@@ -67,6 +67,9 @@ final class FontesDeReferencia implements FonteDeReferencias
         'assinatura_signatario_selfie' => ['sql' => 'SELECT s.id, d.tenant_id AS tenant, s.selfie_chave AS valor FROM assinatura_eletronica_signatario s JOIN assinatura_eletronica_documento d ON d.id = s.documento_id WHERE s.selfie_chave IS NOT NULL ORDER BY s.id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
         // O PDF final com selo do documento concluído (etapa 3): a prova que o escritório baixa e a pasta recebe.
         'assinatura_documento_final' => ['sql' => 'SELECT id, tenant_id AS tenant, arquivo_final_chave AS valor FROM assinatura_eletronica_documento WHERE arquivo_final_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
+        // As versões guardadas do PDF (etapa 5: original já assinado, PDF para assinar e devolvidas): o escritório vem do
+        // documento, a linha da versão não tem tenant próprio.
+        'assinatura_versao' => ['sql' => 'SELECT v.id, d.tenant_id AS tenant, v.arquivo_chave AS valor FROM assinatura_eletronica_versao v JOIN assinatura_eletronica_documento d ON d.id = v.documento_id ORDER BY v.id', 'categoria' => CategoriaDeArquivo::ASSINATURA_DOCUMENTO],
     ];
 
     /** As categorias sem escritório: o escopo é global, e a coluna de escritório não existe (vem NULL). */
