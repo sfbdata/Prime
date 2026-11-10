@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 final class FichaJanelaIncluirJsTest extends TestCase
 {
     #[TestDox('Incluir batida: abre com o dia e o tipo do "+" e com a hora e o motivo vazios, a cada abertura')]
-    public function testMotivoComecaVazio(): void
+    public function testHoraEMotivoComecamVazios(): void
     {
         $ficha = self::ficha();
         $abrir = self::trecho($ficha, 'window.abrirModalAddBatida = function (tipo, chaveDia) {', 'modal.show();');
