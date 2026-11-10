@@ -70,7 +70,6 @@ final class PontoPaineisJsTest extends TestCase
         self::assertStringContainsString("data-carregar=\"{{ path('ponto_auditoria') }}\" data-recarregar-ao-abrir", $abas);
 
         $aoAbrir = self::trecho($paineis, "document.addEventListener('ponto:aba-aberta', function (evento) {", '});');
-        self::assertStringContainsString("carregar(painel, Boolean(painel && painel.hasAttribute('data-recarregar-ao-abrir')));", $aoAbrir);
 
         $abertos = self::trecho($paineis, 'function recarregarAbertos() {', 'window.PontoPaineis');
         self::assertStringContainsString("document.querySelectorAll('section.pe-abas [data-recarregar-ao-abrir]:not([hidden])')", $abertos, 'fechado, a próxima abertura busca');
@@ -83,17 +82,16 @@ final class PontoPaineisJsTest extends TestCase
         $depois = self::trecho($carregar, '} finally {', "\n    }\n");
         self::assertMatchesRegularExpression("/if \\(painel\\.dataset\\.deNovo === '1'\\) \\{\\s+delete painel\\.dataset\\.deNovo;\\s+carregar\\(painel, true\\);/", $depois);
 
-        // No começo da atualização da tela, antes da busca dela: descartada ou com falha, a Auditoria busca do mesmo jeito.
+        // Quando a busca da tela termina (com a tela, descartada ou com falha), e não antes: o PHP atende uma sessão por
+        // vez, e a conferência da cadeia seguraria a tela e o botão depois da batida.
         $depoisDaBatida = self::trecho($tela, 'async function atualizarTelaDoPonto() {', 'let batidaAceita = null;');
-        $recarga = strpos($depoisDaBatida, 'window.PontoPaineis.recarregarAbertos();');
-        $buscaDaTela = strpos($depoisDaBatida, 'await window.PontoBatida.buscarTelaDoPonto(');
-        self::assertIsInt($recarga);
-        self::assertIsInt($buscaDaTela);
-        self::assertLessThan($buscaDaTela, $recarga);
+        self::assertStringContainsString('const novo = await window.PontoBatida.buscarTelaDoPonto(window.location.href).finally(recarregarAuditoriaAberta);', $depoisDaBatida);
+        self::assertSame(2, substr_count($tela, 'recarregarAuditoriaAberta'), 'definida uma vez e chamada só no fim da busca da tela');
+        self::assertSame(1, substr_count($tela, 'window.PontoPaineis.recarregarAbertos();'));
+        self::assertStringNotContainsString('recarregarAbertos', self::js('ponto-batida.js'), 'a "Sincronização" não busca no meio da busca da tela');
 
-        // E depois da "Sincronização" gravada, que sai sem esperar e pode chegar depois da busca da fila.
-        $sincronizacao = self::trecho(self::js('ponto-batida.js'), 'function avisarSincronizacaoDaFila(url, idsEnvio) {', '.catch(');
-        self::assertMatchesRegularExpression('/\\} else if \\(window\\.PontoPaineis [^\\n]+\\{\\s+window\\.PontoPaineis\\.recarregarAbertos\\(\\);/', $sincronizacao);
+        // Abrir com a busca em andamento (entrada com `?aba=auditoria`) não guarda outra: uma busca só na carga.
+        self::assertStringContainsString("painel.hasAttribute('data-recarregar-ao-abrir') && painel.dataset.estado !== 'carregando'", $aoAbrir);
     }
 
     #[TestDox('Na tela, o carregador entra antes do js/ponto-abas.js (ouve antes de a aba avisar)')]

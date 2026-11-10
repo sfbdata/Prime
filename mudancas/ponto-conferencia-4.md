@@ -6,7 +6,7 @@ tipo: novidade
 - O PDF e o XLSX da folha saem com o nome da pessoa sem acento (`NomeDoArquivoDaFolha`): no PDF só letras em maiúsculas ("JOAODASILVA"), no XLSX letras e números.
 - As janelas do esquecimento e da justificativa levam a aba aberta (campo `aba`, acompanhado pelo `ponto-abas.js`): depois de enviar, a tela volta para a mesma aba.
 - O subtítulo da justificativa (`.pe-just-sub`) entra sempre na linha, vazio quando não há, como o desenho.
-- A aba Auditoria busca a trilha de novo a cada vez que abre e, quando está aberta, depois de cada ação gravada na tela: batida, fila, justificativa excluída e "Sincronização" (`data-recarregar-ao-abrir`, `PontoPaineis.recarregarAbertos`). Um pedido de busca no meio de outra fica guardado e roda depois dela.
+- A aba Auditoria busca a trilha de novo a cada vez que abre e, quando está aberta, depois de cada ação gravada na tela: batida, fila e justificativa excluída (`data-recarregar-ao-abrir`, `PontoPaineis.recarregarAbertos`). A recarga sai quando a busca da tela termina, para não segurar a tela depois da batida, e um pedido de busca no meio de outra fica guardado e roda depois dela.
 - A troca de escala na aba Equipe grava o rótulo da escala no detalhe da trilha (`escala`), e a Auditoria mostra "Nome · 44h · seg a sáb (7h20)". A versão salva pela ficha continua com o texto da versão.
 - A barra do topo mostra "Ponto Eletrônico" nas telas do Ponto (rotas `ponto_` no `base.html.twig`).
 - Spec `docs/specs/ponto-desenho-0811.md`: estado da conferência registrado na seção 9.
