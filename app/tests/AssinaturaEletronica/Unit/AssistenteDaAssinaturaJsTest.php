@@ -83,4 +83,19 @@ final class AssistenteDaAssinaturaJsTest extends TestCase
         self::assertStringContainsString("c.toBlob(b => {", $this->funcao('subirLogo'));
         self::assertStringContainsString("'image/png'", $this->funcao('subirLogo'));
     }
+
+    #[TestDox('CSS do desenho: os rótulos da logo e da ordem sem mãozinha (L180, L189); a seleção com 30px também no celular (L149)')]
+    public function testCssDoAssistenteEDaLista(): void
+    {
+        $css = (string) file_get_contents(self::APP . '/public/css/assinatura.css');
+
+        foreach (['.bja .bjaLogoFix {', '.bja .bjaOrdem {'] as $seletor) {
+            $inicio = strpos($css, $seletor);
+            self::assertNotFalse($inicio, $seletor);
+            $regra = substr($css, $inicio, (int) strpos($css, '}', $inicio) - $inicio);
+            self::assertStringNotContainsString('cursor', $regra, $seletor);
+        }
+        self::assertStringContainsString('.bja .bjaTdSel { width: 30px; }', $css);
+        self::assertStringNotContainsString('td.bjaTdSel { width: auto; }', $css, 'o @media não muda a largura da seleção');
+    }
 }
