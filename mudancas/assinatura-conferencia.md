@@ -15,4 +15,4 @@ tipo: correcao
 - Ao criar um documento, um prazo fora de 1 a 90 dias agora mostra o aviso com a regra, em vez de ser trocado sem avisar, e o nome do signatário que falta no cadastro aparece como uma linha em branco para preencher.
 - As janelas de confirmação e os avisos da Assinatura ficaram com o tamanho do desenho.
 - Na prévia do documento, sob a linha de assinatura, aparece o nome cadastrado de quem assina, e a página que pede para esperar alguns minutos ganhou o mesmo cabeçalho da tela de assinar.
-- O histórico do documento enviado começa com "Documento criado", logo antes de "Enviado para assinatura", e o envio que dá certo não acrescenta mais um "Rascunho salvo" antes dele.
+- No histórico do documento, o envio agora mostra "Documento criado" logo antes de "Enviado para assinatura". Quem cria e envia de uma vez vê o histórico começar por aí; quem salvou o rascunho antes continua vendo esse "Rascunho salvo" no começo. Se o envio for recusado por falta de algum dado, o histórico mostra "Rascunho salvo".

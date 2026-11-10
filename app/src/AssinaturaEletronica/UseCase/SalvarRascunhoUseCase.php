@@ -29,7 +29,8 @@ use Psr\Clock\ClockInterface;
  * "Salvar rascunho" (criar e salvar, contrato da etapa 1, seção 4): o JSON, o PDF e a logo vão juntos, e nada fica
  * gravado antes de salvar. Tudo é conferido antes de gravar o primeiro arquivo; o arquivo novo só sai se a transação
  * comprovadamente não confirmou, e o que perdeu o uso só sai depois do COMMIT (e só se nenhum documento do escritório
- * ainda aponta para ele). Todo salvamento acrescenta "Rascunho salvo" à trilha.
+ * ainda aponta para ele). Todo salvamento acrescenta "Rascunho salvo" à trilha, menos a gravação do "Gerar links e
+ * enviar" (`envio=1`): nela o EnviarDocumento registra "Documento criado", ou "Rascunho salvo" se a conferência recusar.
  *
  * O PDF só fica guardado enquanto algum bloco é página dele (`pg`): rascunho sem página perde o PDF. A logo padrão do
  * escritório segue a caixa "Usar esta logo nos próximos documentos": marcada grava, desmarcada limpa, ausente não mexe.
