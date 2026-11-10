@@ -19,7 +19,7 @@ use Doctrine\ORM\Mapping as ORM;
 // nulo não colide no índice único, o mesmo que um índice parcial `WHERE nsr IS NOT NULL`.
 #[ORM\UniqueConstraint(name: 'uniq_registro_ponto_tenant_nsr', columns: ['tenant_id', 'nsr'])]
 // E10: a batida gravada só se insere (gatilho registro_ponto_so_insercao). Data e hora, tipo, pessoa e escritório não
-// mudam depois do id: a correção vai para ponto_ajuste (PontoAjuste).
+// mudam depois do id: a correção vai para ponto_ajuste (PontoAjuste), e os setters desses campos recusam a batida gravada.
 class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 {
     /** O índice único do envio: a batida reconhece pela mensagem do banco a violação que é dele. */
@@ -134,6 +134,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setUser(?User $user): static
     {
+        $this->exigirAindaNaoGravada();
         $this->user = $user;
         return $this;
     }
@@ -145,6 +146,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setTenant(Tenant $tenant): static
     {
+        $this->exigirAindaNaoGravada();
         $this->tenant = $tenant;
         return $this;
     }
@@ -156,6 +158,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setDataHora(\DateTimeInterface $dataHora): static
     {
+        $this->exigirAindaNaoGravada();
         $this->dataHora = $dataHora;
         return $this;
     }
@@ -225,6 +228,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
         if (!in_array($tipo, self::TIPOS_VALIDOS, true)) {
             throw new \InvalidArgumentException('Tipo de registro de ponto invalido.');
         }
+        $this->exigirAindaNaoGravada();
 
         $this->tipo = $tipo;
         return $this;
@@ -362,5 +366,13 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
     public function ajuste(): ?AjusteDaMarcacao
     {
         return null;
+    }
+
+    /** E10: depois do id, data e hora, tipo, pessoa e escritório não mudam (o banco recusa o UPDATE pelo gatilho). */
+    private function exigirAindaNaoGravada(): void
+    {
+        if ($this->id !== null) {
+            throw new \LogicException('Batida já gravada não muda: a correção entra como ajuste (PontoAjuste).');
+        }
     }
 }
