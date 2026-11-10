@@ -6,10 +6,12 @@ namespace App\Tests\AssinaturaEletronica\Functional;
 
 use App\AssinaturaEletronica\Controller\ArquivosDaAssinaturaController;
 use App\AssinaturaEletronica\Controller\AssinaturaPublicaController;
+use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PdfFinalComSelo;
+use App\AssinaturaEletronica\Service\PdfFinalDoDocumento;
 use App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf;
 use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
 use App\Entity\Auth\User;
@@ -20,6 +22,7 @@ use App\Tests\AssinaturaEletronica\Unit\Pdf\FolhaDeTeste;
 use App\Tests\AssinaturaEletronica\Unit\Pdf\PdfLido;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -49,6 +52,7 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
     use NaAssinaturaEnviada;
 
     private const MUITOS = 'Muitos PDFs sendo gerados agora. Tente de novo em instantes.';
+    private const LIMITE = 'Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.';
 
     private ?string $diretorioDoEscritorio = null;
 
@@ -235,16 +239,10 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertTrue($travas->createLock('assinatura_pdf_vaga_1')->acquire(false), 'a geração devolveu a vaga');
     }
 
-    #[TestDox('limitador da geração estourado: 429 com o mesmo texto, na tela (por usuário) e no link (por token)')]
+    #[TestDox('limitador da geração estourado: 429 "Muitos PDFs gerados nos últimos minutos", na tela (por usuário) e no link (por token)')]
     public function testLimitadorDaGeracao(): void
     {
-        $porUsuario = new RateLimiterFactoryEspiao(false);
-        $porIp = new RateLimiterFactoryEspiao();
-        $porToken = new RateLimiterFactoryEspiao(false);
-        // Antes da primeira requisição: o controller do link recebe os limitadores no construtor.
-        static::getContainer()->set('limiter.assinatura_pdf', $porUsuario);
-        static::getContainer()->set('limiter.assinatura_pdf_publico', $porIp);
-        static::getContainer()->set('limiter.assinatura_pdf_publico_token', $porToken);
+        [$porUsuario, $porIp, $porToken] = $this->espiarLimitadores(usuario: false, ip: true, token: false);
         [$usuario] = $this->entrarComDisco();
         [$id, $tokens] = $this->documentoEnviado();
         $ana = (string) $tokens[0];
@@ -253,13 +251,35 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $ana . '/pdf'] as $url) {
             $this->client->request('GET', $url);
             self::assertResponseStatusCodeSame(429, $url);
-            self::assertSame(['erro' => self::MUITOS], $this->json(), $url);
+            self::assertSame(['erro' => self::LIMITE], $this->json(), $url);
         }
 
         self::assertSame(['usuario-' . $usuario->getId()], $porUsuario->chavesConsumidas);
         self::assertCount(1, $porIp->chavesConsumidas);
         self::assertSame([ChaveDaAssinatura::hashDoToken($ana)], $porToken->chavesConsumidas);
         self::assertSame([], $this->pdfsGuardados());
+    }
+
+    #[TestDox('concluído com o PDF guardado: a tela e o link entregam o guardado sem passar por nenhum dos 3 limitadores')]
+    public function testGuardadoNaoGastaACota(): void
+    {
+        $espioes = $this->espiarLimitadores(usuario: false, ip: false, token: false);
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+        self::assertSame('concluido', $this->json()['estado']['estado']);
+        $this->esquecer();
+        $documento = static::getContainer()->get(EntityManagerInterface::class)->find(DocumentoParaAssinar::class, $id);
+        self::assertInstanceOf(DocumentoParaAssinar::class, $documento);
+        static::getContainer()->get(PdfFinalDoDocumento::class)->garantir($documento);
+
+        $daTela = $this->baixar('/assinatura/documentos/' . $id . '/pdf');
+        self::assertSame($daTela, $this->baixar('/assinar/' . $tokens[0] . '/pdf'));
+        foreach ($espioes as $espiao) {
+            self::assertSame([], $espiao->chavesConsumidas);
+        }
+        self::assertCount(1, $this->pdfsGuardados());
     }
 
     #[TestDox('as telas recebem a URL do PDF e carregam o assinatura-pdf.js antes do script da tela; o link traz os textos do PDF')]
@@ -279,6 +299,7 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertScriptAntes($publica, 'js/assinatura-pdf.js', 'js/assinatura-publica.js');
         $catalogo = implode('', $publica->filter('script[type="application/json"][data-bj-t]')->each(static fn (Crawler $s): string => $s->text()));
         self::assertStringContainsString('assinatura_eletronica_tela.js.pdf.baixar', $catalogo);
+        self::assertStringContainsString('Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.', $catalogo, 'o texto do limitador chega ao assinatura-publica.js');
     }
 
     /** @return array{User, Tenant} */
@@ -302,6 +323,22 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('%PDF-', $corpo);
 
         return $corpo;
+    }
+
+    /**
+     * Os 3 limitadores da geração trocados por espiões (aceita ou estourado), antes da primeira requisição: o controller
+     * do link recebe os limitadores no construtor.
+     *
+     * @return array{RateLimiterFactoryEspiao, RateLimiterFactoryEspiao, RateLimiterFactoryEspiao} usuário, IP e token
+     */
+    private function espiarLimitadores(bool $usuario, bool $ip, bool $token): array
+    {
+        $espioes = [new RateLimiterFactoryEspiao($usuario), new RateLimiterFactoryEspiao($ip), new RateLimiterFactoryEspiao($token)];
+        static::getContainer()->set('limiter.assinatura_pdf', $espioes[0]);
+        static::getContainer()->set('limiter.assinatura_pdf_publico', $espioes[1]);
+        static::getContainer()->set('limiter.assinatura_pdf_publico_token', $espioes[2]);
+
+        return $espioes;
     }
 
     /** Lixeira e cancelar pela tela do escritório; a recusa pelo link do outro signatário. */

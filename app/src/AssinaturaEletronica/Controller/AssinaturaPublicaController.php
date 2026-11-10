@@ -9,9 +9,9 @@ use App\AssinaturaEletronica\DTO\EntradaDaAssinatura;
 use App\AssinaturaEletronica\DTO\EvidenciaDaRequisicao;
 use App\AssinaturaEletronica\DTO\LeitorDeCampos;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
+use App\AssinaturaEletronica\Exception\GeracaoDoPdfRecusada;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
 use App\AssinaturaEletronica\Exception\MuitasTentativas;
-use App\AssinaturaEletronica\Exception\MuitosPdfsSendoGerados;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PaginaDoSignatario;
@@ -48,8 +48,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * Etapa 3 (E3-5): `GET /assinar/{token}/pdf`, o "Baixar PDF com selo" da tela verde, só para quem já assinou e enquanto
  * o link vale ({@see ObterPdfDaAssinaturaUseCase::doSignatario()}). Gerar o PDF pesa: passa pelos limitadores da página,
- * pelo par próprio do PDF (`assinatura_pdf_publico`, por IP e por token) e pelas vagas de geração; o excesso responde
- * 429 `{"erro": ...}` com o texto que a página mostra.
+ * pelas vagas de geração e pelo par próprio do PDF (`assinatura_pdf_publico`, por IP e por token, só no pedido que gera
+ * de verdade); o excesso responde 429 `{"erro": ...}` com o texto que a página mostra.
  */
 final class AssinaturaPublicaController extends AbstractController
 {
@@ -148,17 +148,15 @@ final class AssinaturaPublicaController extends AbstractController
         if (!$this->dentroDoLimite($request, $token)) {
             return $this->erro(MuitasTentativas::CHAVE, [], Response::HTTP_TOO_MANY_REQUESTS);
         }
-        if (!self::cabe($this->assinaturaPdfPublicoLimiter, $this->assinaturaPdfPublicoTokenLimiter, $request, $token)) {
-            return $this->erro(MuitosPdfsSendoGerados::CHAVE, [], Response::HTTP_TOO_MANY_REQUESTS);
-        }
+        $cabeNaCota = fn (): bool => self::cabe($this->assinaturaPdfPublicoLimiter, $this->assinaturaPdfPublicoTokenLimiter, $request, $token);
         EntregaDoPdfDaAssinatura::limitar();
 
         try {
-            return $entrega->resposta($obter->doSignatario($token));
+            return $entrega->resposta($obter->doSignatario($token, $cabeNaCota));
         } catch (LinkInvalido) {
             return $this->paginaInvalida();
-        } catch (MuitosPdfsSendoGerados) {
-            return $this->erro(MuitosPdfsSendoGerados::CHAVE, [], Response::HTTP_TOO_MANY_REQUESTS);
+        } catch (GeracaoDoPdfRecusada $e) {
+            return $this->erro($e->chave(), [], Response::HTTP_TOO_MANY_REQUESTS);
         }
     }
 

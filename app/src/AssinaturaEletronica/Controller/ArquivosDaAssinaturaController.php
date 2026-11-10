@@ -6,7 +6,7 @@ namespace App\AssinaturaEletronica\Controller;
 
 use App\AssinaturaEletronica\DTO\ArquivoParaEntregar;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
-use App\AssinaturaEletronica\Exception\MuitosPdfsSendoGerados;
+use App\AssinaturaEletronica\Exception\GeracaoDoPdfRecusada;
 use App\AssinaturaEletronica\Service\AcessoAAssinatura;
 use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\UseCase\ObterArquivoDaAssinaturaUseCase;
@@ -27,8 +27,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * Etapa 5, bloco 5A: "Baixar original com as assinaturas" sai como anexo (download), não aberto no navegador.
  * Etapa 3 (A5): o "Baixar PDF com selo", como download, em qualquer situação ({@see ObterPdfDaAssinaturaUseCase}).
- * Gerar o PDF pesa (cerca de 1,2 s por página): o limitador `assinatura_pdf` (por usuário) e as vagas de geração
- * respondem 429 `{"erro": ...}` com o texto que a tela mostra.
+ * Gerar o PDF pesa (cerca de 1,2 s por página): as vagas de geração e o limitador `assinatura_pdf` (por usuário, só no
+ * pedido que gera de verdade) respondem 429 `{"erro": ...}` com o texto que a tela mostra.
  */
 final class ArquivosDaAssinaturaController extends AbstractController
 {
@@ -72,18 +72,15 @@ final class ArquivosDaAssinaturaController extends AbstractController
         TranslatorInterface $tradutor,
     ): Response {
         [$usuario, $tenant] = $this->acesso->quemPode() ?? throw $this->createAccessDeniedException();
-        $muitos = new JsonResponse(['erro' => $tradutor->trans(MuitosPdfsSendoGerados::CHAVE)], Response::HTTP_TOO_MANY_REQUESTS);
-        if (!$assinaturaPdfLimiter->create('usuario-' . $usuario->getId())->consume()->isAccepted()) {
-            return $muitos;
-        }
+        $cabeNaCota = static fn (): bool => $assinaturaPdfLimiter->create('usuario-' . $usuario->getId())->consume()->isAccepted();
         EntregaDoPdfDaAssinatura::limitar();
 
         try {
-            return $entrega->resposta($obter->doEscritorio($tenant, $id));
+            return $entrega->resposta($obter->doEscritorio($tenant, $id, $cabeNaCota));
         } catch (DocumentoNaoEncontrado $e) {
             throw $this->createNotFoundException($e->getMessage(), $e);
-        } catch (MuitosPdfsSendoGerados) {
-            return $muitos;
+        } catch (GeracaoDoPdfRecusada $e) {
+            return new JsonResponse(['erro' => $tradutor->trans($e->chave())], Response::HTTP_TOO_MANY_REQUESTS);
         }
     }
 

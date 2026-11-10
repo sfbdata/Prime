@@ -91,6 +91,7 @@ final class TelaDoPdfJsTest extends TestCase
         $pdf = Yaml::parseFile(self::TEXTOS_TELA)['assinatura_eletronica_tela']['js']['pdf'] ?? [];
         self::assertSame('Gerando o PDF...', $pdf['gerando'] ?? null);
         self::assertSame('Muitos PDFs sendo gerados agora. Tente de novo em instantes.', $pdf['muitos'] ?? null);
+        self::assertSame('Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.', $pdf['limite'] ?? null);
         self::assertSame('Não foi possível gerar o PDF. Tente de novo.', $pdf['falhou'] ?? null);
     }
 

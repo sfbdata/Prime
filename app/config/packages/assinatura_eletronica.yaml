@@ -44,7 +44,7 @@ framework:
             limit: 6
             interval: '1 minute'
         # Etapa 3 (E3-4 e E3-5): "Baixar PDF com selo". Gerar pesa (cerca de 1,2 s por página, 5 filhos no FPM): limite
-        # próprio, que conta todo pedido do PDF (o guardado do concluído também, folgado para isso). Na tela, por usuário.
+        # próprio, que conta só o pedido que gera de verdade (o download do PDF já guardado não conta). Na tela, por usuário.
         assinatura_pdf:
             policy: sliding_window
             limit: 20
