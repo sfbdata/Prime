@@ -16,7 +16,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Falha (código 1) quando um segredo de produção é fraco ou o do modelo público (auditoria 4.11). Chamado pelo
- * scripts/go-live-check.sh. Nunca imprime valor de segredo: só o nome e o que está errado.
+ * scripts/go-live-check.sh. O que é só aviso (o token do validador de PDF vazio) aparece sem mudar o código de saída.
+ * Nunca imprime valor de segredo: só o nome e o que está errado.
  */
 #[AsCommand(
     name: 'app:conferir-segredos',
@@ -82,8 +83,14 @@ final class ConferirSegredosCommand extends Command
             ),
             $this->conferente->conferirAssinatura($this->segredoDaAssinatura, $this->chaveDaSelfie, $modelo),
             $this->conferente->conferirSelo($this->segredoDoSelo, $this->segredoDaAssinatura, $this->segredoDaAplicacao, $modelo),
-            $this->conferente->conferirValidador($this->tokenDoValidador, $this->segredoDaAplicacao, $this->segredoDaAssinatura, $this->segredoDoSelo, $modelo),
+            $this->problemasDoValidador($modelo),
         );
+        // Aviso não recusa: o token do validador vazio é um estado válido (E6-4) e não derruba o go-live-check.sh.
+        $avisos = $this->conferente->avisosDoValidador($this->tokenDoValidador);
+
+        if ($avisos !== []) {
+            $io->warning($avisos);
+        }
 
         if ($problemas !== []) {
             $io->listing($problemas);
@@ -92,9 +99,31 @@ final class ConferirSegredosCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->success('APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO, ASSINATURA_SELFIE_CHAVE, ASSINATURA_SELO_SEGREDO e ASSINATURA_VALIDADOR_TOKEN conferidos.');
+        $io->success('APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO, ASSINATURA_SELFIE_CHAVE, ASSINATURA_SELO_SEGREDO e ASSINATURA_VALIDADOR_TOKEN conferidos.' . ($avisos !== [] ? ' Veja o aviso acima.' : ''));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * O token do validador comparado com todas as outras chaves que este comando lê: o contêiner do validador não
+     * recebe nenhuma delas, então o token precisa ser próprio.
+     *
+     * @return list<string>
+     */
+    private function problemasDoValidador(string $modelo): array
+    {
+        return $this->conferente->conferirValidador(
+            $this->tokenDoValidador,
+            [
+                'APP_SECRET' => $this->segredoDaAplicacao,
+                'SYNC_CRYPTO_KEY' => $this->chaveDeCifraDoSync,
+                'CONTRIBUA_CRYPTO_KEY' => $this->chaveDeCifraDoContribua,
+                'ASSINATURA_SEGREDO' => $this->segredoDaAssinatura,
+                'ASSINATURA_SELFIE_CHAVE' => $this->chaveDaSelfie,
+                'ASSINATURA_SELO_SEGREDO' => $this->segredoDoSelo,
+            ],
+            $modelo,
+        );
     }
 
     private function lerModelo(InputInterface $input): ?string

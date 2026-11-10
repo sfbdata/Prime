@@ -14,8 +14,9 @@ use PHPUnit\Framework\TestCase;
  * Conferente do `app:conferir-segredos` (auditoria 4.11): recusa APP_SECRET curto ou igual ao do modelo
  * (.env.prod.example) e chave de cifra que não decodifica para 32 bytes. Na Assinatura de documentos, o segredo do link
  * e do código e a chave da selfie, ausentes, fora do formato ou iguais aos do modelo, e o segredo do selo, que também
- * não pode repetir o da Assinatura nem o APP_SECRET. O token do validador de PDF (etapa 6), com as mesmas recusas e
- * mais o formato do token Bearer. Nenhum problema traz o valor conferido.
+ * não pode repetir o da Assinatura nem o APP_SECRET. O token do validador de PDF (etapa 6): vazio é só aviso (E6-4);
+ * preenchido, com as mesmas recusas, o formato do token Bearer e nenhum dos outros segredos repetido. Nenhum problema
+ * nem aviso traz o valor conferido.
  */
 #[CoversClass(ConferenteDeSegredos::class)]
 final class ConferenteDeSegredosTest extends TestCase
@@ -203,39 +204,62 @@ final class ConferenteDeSegredosTest extends TestCase
         }
     }
 
+    /** @return array<string, string> os outros segredos que o comando passa, NOME => valor, todos distintos */
+    private static function outrosSegredos(): array
+    {
+        return [
+            'APP_SECRET' => 'app-secret-de-teste-com-32-bytes-ou-mais',
+            'SYNC_CRYPTO_KEY' => 'c3luYy1kZS10ZXN0ZS1jb20tMzItYnl0ZXMtLS0tLS0=',
+            'CONTRIBUA_CRYPTO_KEY' => 'Y29udHJpYnVhLWRlLXRlc3RlLTMyLWJ5dGVzLS0tLS0=',
+            'ASSINATURA_SEGREDO' => str_repeat('s', 32),
+            'ASSINATURA_SELFIE_CHAVE' => str_repeat('ab', 32),
+            'ASSINATURA_SELO_SEGREDO' => str_repeat('z', 32),
+        ];
+    }
+
     /** @return list<string> */
     private function conferirValidador(string $token): array
     {
-        return (new ConferenteDeSegredos())->conferirValidador(
-            $token,
-            'app-secret-de-teste-com-32-bytes-ou-mais',
-            str_repeat('s', 32),
-            str_repeat('z', 32),
-            $this->modelo,
-        );
+        return (new ConferenteDeSegredos())->conferirValidador($token, self::outrosSegredos(), $this->modelo);
     }
 
-    #[TestDox('Validador de PDF (etapa 6): token próprio de 32 caracteres ou mais, como o do runbook, nenhum problema')]
+    #[TestDox('Validador de PDF (etapa 6): token próprio de 32 caracteres ou mais, como o do runbook, nenhum problema nem aviso')]
     public function testValidadorOk(): void
     {
         self::assertSame([], $this->conferirValidador(bin2hex(random_bytes(32))));
         self::assertSame([], $this->conferirValidador(str_repeat('t', 32)));
         self::assertSame([], $this->conferirValidador('Ab0-._~+/' . str_repeat('t', 23) . '=='), 'os caracteres do token Bearer (RFC 6750)');
+        self::assertSame([], (new ConferenteDeSegredos())->avisosDoValidador(bin2hex(random_bytes(32))));
+    }
+
+    /** @return iterable<string, array{string}> o token vazio: estado válido (E6-4) */
+    public static function validadorVazio(): iterable
+    {
+        yield 'ausente' => [''];
+        yield 'só espaços' => ['   '];
+    }
+
+    #[DataProvider('validadorVazio')]
+    #[TestDox('Validador: token $_dataName não é problema (E6-4), é aviso que aponta o runbook do validador')]
+    public function testValidadorVazioEhAvisoENaoProblema(string $token): void
+    {
+        $conferente = new ConferenteDeSegredos();
+
+        self::assertSame([], $this->conferirValidador($token));
+        $avisos = $conferente->avisosDoValidador($token);
+        self::assertCount(1, $avisos);
+        self::assertStringContainsString('ASSINATURA_VALIDADOR_TOKEN não está definido', $avisos[0]);
+        self::assertStringContainsString('docs/runbooks/assinatura-validador-em-producao.md', $avisos[0]);
     }
 
     /** @return iterable<string, array{string}> o token do validador recusado */
     public static function validadorRecusado(): iterable
     {
-        yield 'ausente' => [''];
-        yield 'só espaços' => ['   '];
         yield 'com 31 caracteres' => [str_repeat('t', 31)];
         yield 'com quebra de linha no fim' => [str_repeat('t', 40) . "\n"];
         yield 'com espaço antes' => [' ' . str_repeat('t', 40)];
         yield 'com espaço no meio' => [str_repeat('t', 20) . ' ' . str_repeat('t', 20)];
         yield 'com caractere fora do token Bearer' => [str_repeat('t', 40) . '"'];
-        yield 'igual ao APP_SECRET' => ['app-secret-de-teste-com-32-bytes-ou-mais'];
-        yield 'igual ao ASSINATURA_SEGREDO' => [str_repeat('s', 32)];
-        yield 'igual ao ASSINATURA_SELO_SEGREDO' => [str_repeat('z', 32)];
         yield 'igual ao do modelo' => ['token-do-modelo-publico-com-32-bytes-ou-mais'];
     }
 
@@ -249,16 +273,27 @@ final class ConferenteDeSegredosTest extends TestCase
 
         self::assertCount(1, $problemas);
         self::assertStringContainsString('ASSINATURA_VALIDADOR_TOKEN', $problemas[0]);
-        if (trim($token) !== '') {
-            self::assertStringNotContainsString(trim($token), $problemas[0]);
+        self::assertStringNotContainsString(trim($token), $problemas[0]);
+    }
+
+    /** @return iterable<string, array{string}> o nome de cada segredo que o comando confere */
+    public static function outroSegredoRepetido(): iterable
+    {
+        foreach (array_keys(self::outrosSegredos()) as $nome) {
+            yield $nome => [$nome];
         }
     }
 
-    #[TestDox('Validador: token ausente aponta o runbook do validador')]
-    public function testValidadorAusenteApontaORunbook(): void
+    #[DataProvider('outroSegredoRepetido')]
+    #[TestDox('Validador recusa o token igual ao $_dataName, com o nome do repetido e sem o valor')]
+    public function testValidadorRecusaTokenIgualAOutroSegredo(string $nome): void
     {
-        $problemas = $this->conferirValidador('');
+        $token = self::outrosSegredos()[$nome];
 
-        self::assertStringContainsString('docs/runbooks/assinatura-validador-em-producao.md', $problemas[0]);
+        $problemas = $this->conferirValidador($token);
+
+        self::assertCount(1, $problemas);
+        self::assertStringContainsString('ASSINATURA_VALIDADOR_TOKEN repete o valor de ' . $nome . ':', $problemas[0]);
+        self::assertStringNotContainsString($token, $problemas[0]);
     }
 }

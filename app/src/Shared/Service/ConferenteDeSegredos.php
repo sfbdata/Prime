@@ -8,8 +8,8 @@ namespace App\Shared\Service;
  * Confere os segredos de produção antes do go-live (auditoria 4.11): o APP_SECRET assina o HMAC do código de troca
  * de senha, a referência de recarga, o link rastreado, o descadastro e o lembrar-me; as chaves de cifra guardam os
  * tokens do sync e o certificado do banco do Contribua. Na Assinatura de documentos, o segredo do link e do código, a
- * chave que cifra a selfie da Reforçada, o segredo do código de validação do selo e o token do validador de PDF.
- * Nenhum problema devolvido traz o valor conferido.
+ * chave que cifra a selfie da Reforçada, o segredo do código de validação do selo e o token do validador de PDF
+ * (este, vazio, é aviso e não problema). Nenhum problema nem aviso devolvido traz o valor conferido.
  */
 final class ConferenteDeSegredos
 {
@@ -109,24 +109,26 @@ final class ConferenteDeSegredos
 
     /**
      * O token do validador de PDF da Assinatura (etapa 6): vai no cabeçalho `Authorization: Bearer` do php e do worker
-     * e fica no ambiente do contêiner `validador_pdf`. Ao menos 32 caracteres, só os do token Bearer (RFC 6750: letras,
+     * e fica no ambiente do contêiner `validador_pdf`. Vazio é um estado válido (E6-4: o validador recusa toda chamada,
+     * e os níveis gov.br e ICP-Brasil e o selo do PDF final ficam desligados): não é problema, é aviso
+     * (`avisosDoValidador()`). Preenchido, precisa de ao menos 32 caracteres, só os do token Bearer (RFC 6750: letras,
      * números e `-._~+/`, com `=` só no fim) e nada antes nem depois, porque o cabeçalho não leva espaço nem quebra de
-     * linha. Nunca igual ao do modelo, ao `APP_SECRET`, ao `ASSINATURA_SEGREDO` nem ao `ASSINATURA_SELO_SEGREDO`: o
-     * contêiner do validador não recebe os outros segredos do BlueJus.
+     * linha. Nunca igual ao do modelo nem a nenhum dos outros segredos que este comando confere (`APP_SECRET`,
+     * `SYNC_CRYPTO_KEY`, `CONTRIBUA_CRYPTO_KEY`, `ASSINATURA_SEGREDO`, `ASSINATURA_SELFIE_CHAVE`,
+     * `ASSINATURA_SELO_SEGREDO`): o contêiner do validador não recebe os outros segredos do BlueJus.
      *
-     * @param string $modelo conteúdo do .env.prod.example, só para comparar (nunca é devolvido)
+     * @param array<string, string> $outrosSegredos NOME => valor dos outros segredos, só para comparar (nunca é devolvido)
+     * @param string                $modelo         conteúdo do .env.prod.example, só para comparar (nunca é devolvido)
      *
-     * @return list<string> os problemas achados, sem os valores; vazio quando está tudo certo
+     * @return list<string> os problemas achados, sem os valores; vazio quando está tudo certo ou o token está vazio
      */
     public function conferirValidador(
         #[\SensitiveParameter] string $tokenDoValidador,
-        #[\SensitiveParameter] string $appSecret,
-        #[\SensitiveParameter] string $segredoDaAssinatura,
-        #[\SensitiveParameter] string $segredoDoSelo,
+        #[\SensitiveParameter] array $outrosSegredos,
         string $modelo,
     ): array {
         if (trim($tokenDoValidador) === '') {
-            return ['ASSINATURA_VALIDADOR_TOKEN não está definido: o validador de PDF recusa toda chamada, e os níveis gov.br e ICP-Brasil e o selo do PDF final ficam desligados. Siga docs/runbooks/assinatura-validador-em-producao.md.'];
+            return [];
         }
         if (preg_match('#^[A-Za-z0-9\-._~+/]+=*\z#', $tokenDoValidador) !== 1) {
             return ['ASSINATURA_VALIDADOR_TOKEN fora do formato: só letras, números e -._~+/ (com = só no fim), sem espaço nem quebra de linha. Gere outro com: openssl rand -hex 32'];
@@ -137,13 +139,28 @@ final class ConferenteDeSegredos
         if (self::igualAoModelo($tokenDoValidador, self::valoresDoModelo($modelo)['ASSINATURA_VALIDADOR_TOKEN'] ?? '')) {
             return ['ASSINATURA_VALIDADOR_TOKEN é o mesmo do .env.prod.example (público no repositório). Gere outro.'];
         }
-        foreach ([$appSecret, $segredoDaAssinatura, $segredoDoSelo] as $outro) {
+        foreach ($outrosSegredos as $nome => $outro) {
             if (hash_equals($outro, $tokenDoValidador)) {
-                return ['ASSINATURA_VALIDADOR_TOKEN repete o APP_SECRET, o ASSINATURA_SEGREDO ou o ASSINATURA_SELO_SEGREDO: precisa ser próprio. Gere outro.'];
+                return [sprintf('ASSINATURA_VALIDADOR_TOKEN repete o valor de %s: precisa ser próprio. Gere outro com: openssl rand -hex 32', $nome)];
             }
         }
 
         return [];
+    }
+
+    /**
+     * O que não recusa os segredos, mas o operador precisa saber: o token do validador vazio (E6-4) deixa os níveis
+     * gov.br e ICP-Brasil e o selo do PDF final desligados. Não muda o código de saída do comando.
+     *
+     * @return list<string> os avisos, sem valores; vazio quando não há o que avisar
+     */
+    public function avisosDoValidador(#[\SensitiveParameter] string $tokenDoValidador): array
+    {
+        if (trim($tokenDoValidador) !== '') {
+            return [];
+        }
+
+        return ['ASSINATURA_VALIDADOR_TOKEN não está definido: o validador de PDF recusa toda chamada, e os níveis gov.br e ICP-Brasil e o selo do PDF final ficam desligados. Para ligar, siga docs/runbooks/assinatura-validador-em-producao.md.'];
     }
 
     private static function problemaDaChaveDeCifra(string $nome, string $chave, string $doModelo): ?string
