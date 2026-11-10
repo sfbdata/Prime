@@ -4,7 +4,9 @@
 
     Desenho 16 L193 a L197: a linha de explicação com "Validar código", a lista com rolagem (data e hora, tipo, método,
     código e "Baixar") e o texto da lista vazia. Só os comprovantes da própria pessoa neste escritório, do mais novo para
-    o mais antigo (até 120, como o desenho guarda). "Baixar" é um link para a imagem gerada no servidor (P49).
+    o mais antigo (até 120, como o desenho guarda). "Baixar" é um link para a imagem gerada no servidor (P49). Com
+    JavaScript, o arquivo vem por fetch e o erro (limite de pedidos, sem conexão) aparece no próprio cartão, no molde
+    do erro da janela "Validar código" (omissão do desenho, decisão do Coordenador de 09/11/2026).
 
     A janela "Validar comprovante" usa a moldura das janelas do desenho (L269 a L318, classes `pe-janela-*`) com o corpo
     da validação (L297 a L302). Sem JavaScript, o formulário abre a página pública de validação; com ele, a consulta é
@@ -21,7 +23,8 @@
             <span>{{ c.tipo }}</span>
             <span class="pe-comp-metodo">{{ c.metodo }}</span>
             <code class="pe-comp-codigo">{{ c.codigo }}</code>
-            <a class="pe-comp-btn pe-comp-btn--baixar" href="{{ path('ponto_comprovante_baixar', {id: c.id})|e('html_attr') }}" download aria-label="Baixar comprovante {{ c.codigo|e('html_attr') }}"><i class="bi bi-download" aria-hidden="true"></i>Baixar</a>
+            <a class="pe-comp-btn pe-comp-btn--baixar" href="{{ path('ponto_comprovante_baixar', {id: c.id})|e('html_attr') }}" download aria-label="Baixar comprovante {{ c.codigo|e('html_attr') }}" data-baixar><i class="bi bi-download" aria-hidden="true"></i>Baixar</a>
+            <div class="pe-comp-falha" role="alert" data-baixar-falha hidden></div>
         </div>
     {% else %}
         <div class="pe-abas-vazio">Os comprovantes aparecem aqui depois do primeiro registro.</div>

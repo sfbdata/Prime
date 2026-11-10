@@ -996,6 +996,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     - Correção de texto do desenho (Coordenador, 09/11/2026): a frase da aba diz "gerados para o próprio registro" no
       lugar de "gerados a partir do próprio registro" (L194), porque o código é sorteado; o resto da frase fica igual.
       O sistema não promete o que não faz (mesmo critério do Voto).
+    - Omissão do desenho (Coordenador, 09/11/2026): o desenho não mostra o erro do "Baixar" da aba. Com JavaScript,
+      o arquivo vem por fetch e a frase aparece no próprio cartão, no molde do erro da janela "Validar código":
+      limite de pedidos (429) diz "Muitos pedidos seguidos. Tente de novo em 1 minuto."; falha de rede diz "Sem
+      conexão. Tente de novo quando a internet voltar."; outro erro do servidor diz "O comprovante não pôde ser
+      baixado agora. Tente de novo." Sem JavaScript, o link baixa direto, como antes.
 
 **E16. Folha com código BJF, PDF novo e aceite mensal.**
 - Entra: P22 ("Assinar folha"), P33 (o texto do aceite vai ao pacote jurídico, sem travar), P34 e D17 (PDF novo em

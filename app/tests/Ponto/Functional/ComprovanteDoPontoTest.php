@@ -122,9 +122,10 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         self::assertMatchesRegularExpression('#^\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}$#', $linha->filter('b.pe-comp-dh')->text());
         self::assertSame(['Entrada', 'Sistema'], $linha->filter('div.pe-comp > span')->each(fn (Crawler $c): string => $c->text()));
         self::assertSame($comprovante->getCodigo(), $linha->filter('code.pe-comp-codigo')->text());
-        $baixar = $linha->filter('a.pe-comp-btn--baixar:last-child');
+        $baixar = $linha->filter('a.pe-comp-btn--baixar[data-baixar]');
         self::assertSame('/ponto/comprovantes/' . $comprovante->getId() . '/baixar', $baixar->attr('href'));
         self::assertSame('Baixar', trim($baixar->text()));
+        self::assertCount(1, $linha->filter('a.pe-comp-btn--baixar + div.pe-comp-falha[role="alert"][data-baixar-falha][hidden]:last-child'), 'o erro do "Baixar" fica no próprio cartão, escondido até falhar');
         self::assertCount(1, $tela->filter('#ponto-janela-validar[hidden] form.pe-janela[role="dialog"][method="get"] input[name="codigo"][placeholder="BJP-XXXX-XXXX-XXXX"]'));
     }
 

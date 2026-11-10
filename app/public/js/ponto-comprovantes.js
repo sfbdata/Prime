@@ -8,6 +8,10 @@
  *
  * Cada consulta leva um número; abrir a janela ou digitar outro código passa o número adiante. A resposta que chega
  * depois disso é de um código que já não está no campo e não muda a tela.
+ *
+ * "Baixar" de cada cartão (omissão do desenho, decisão do Coordenador de 09/11/2026): o arquivo vem por fetch e é
+ * salvo pelo navegador; se o servidor recusa pelo limite (429) ou a rede falha, a frase aparece no próprio cartão,
+ * no molde do erro da janela. Sem JavaScript, o link baixa direto, como antes.
  */
 (function () {
     'use strict';
@@ -15,6 +19,10 @@
     const PRAZO_MS = 15000;
     const FOCAVEIS = 'button:not([disabled]), [href], input:not([type="hidden"])';
     const SEM_RESPOSTA = 'Sem resposta do servidor. Confira a conexão e tente de novo.';
+    const PRAZO_BAIXAR_MS = 30000;   // a imagem em alta é gerada na hora
+    const BAIXAR_LIMITE = 'Muitos pedidos seguidos. Tente de novo em 1 minuto.';
+    const BAIXAR_SEM_REDE = 'Sem conexão. Tente de novo quando a internet voltar.';
+    const BAIXAR_FALHOU = 'O comprovante não pôde ser baixado agora. Tente de novo.';
 
     let focoAntes = null;
     let pedido = 0;   // o número da consulta que vale; resposta de número anterior é descartada
@@ -122,8 +130,75 @@
         }
     }
 
+    function nomeDoArquivo(resposta) {
+        const disposicao = resposta.headers.get('Content-Disposition') || '';
+        const utf8 = disposicao.match(/filename\*=UTF-8''([^;]+)/i);
+        if (utf8) {
+            return decodeURIComponent(utf8[1]);
+        }
+        const simples = disposicao.match(/filename="?([^";]+)"?/i);
+
+        return simples ? simples[1] : 'comprovante.jpg';
+    }
+
+    function salvar(blob, nome) {
+        const endereco = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = endereco;
+        link.download = nome;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(endereco); }, 1000);
+    }
+
+    async function pedirArquivo(url) {
+        const aborto = new AbortController();
+        const prazo = setTimeout(function () { aborto.abort(); }, PRAZO_BAIXAR_MS);
+        try {
+            const resposta = await fetch(url, { credentials: 'same-origin', signal: aborto.signal });
+            if (resposta.status === 429) {
+                return BAIXAR_LIMITE;
+            }
+            if (!resposta.ok) {
+                return BAIXAR_FALHOU;
+            }
+            salvar(await resposta.blob(), nomeDoArquivo(resposta));
+
+            return '';
+        } catch (erro) {
+            return BAIXAR_SEM_REDE;
+        } finally {
+            clearTimeout(prazo);
+        }
+    }
+
+    async function baixar(link) {
+        if (link.dataset.baixando === '1') {
+            return;
+        }
+        const falha = link.parentElement.querySelector('[data-baixar-falha]');
+        link.dataset.baixando = '1';
+        link.setAttribute('aria-busy', 'true');
+        if (falha) {
+            falha.hidden = true;
+            falha.textContent = '';
+        }
+        const erro = await pedirArquivo(link.href);
+        delete link.dataset.baixando;
+        link.removeAttribute('aria-busy');
+        if (falha && erro !== '') {
+            falha.textContent = erro;
+            falha.hidden = false;
+        }
+    }
+
     document.addEventListener('click', function (evento) {
-        if (evento.target.closest('[data-validar-abrir]')) {
+        const link = evento.target.closest('a[data-baixar]');
+        if (link && !evento.ctrlKey && !evento.metaKey && !evento.shiftKey && evento.button === 0) {
+            evento.preventDefault();
+            baixar(link);
+        } else if (evento.target.closest('[data-validar-abrir]')) {
             abrir(evento.target.closest('[data-validar-abrir]'));
         } else if (evento.target.closest('[data-validar-fechar]')) {
             fechar();
