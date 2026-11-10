@@ -5,6 +5,207 @@ Fonte: `bluejus-coordenacao/copia-desenhos-08-11-26/18 - Voto - VS 08.11.26.dc.h
 Inventário bruto do script: `voto-inventario-bruto.md` (mesma pasta deste arquivo).
 Números `L123` = linha do `.dc.html`; `N123` = linha do `bj-voto-nucleo.js`.
 
+## Estado em 10/11/2026 e etapas até o desenho completo
+
+O desenho novo do Voto (`docs/design/redesign-08-11-26/18 - Voto - VS 08.11.26.dc.html`, com `ESPEC_VOTO.md` e `bj-voto-*.js`) é mais novo que o lido nesta spec e traz a mais:
+ata em Word (.docx) com papel timbrado, presença e quórum de instalação por convocação, procuração com limite por pessoa, votação de simulação, regra pronta por pauta com vagas,
+unidade do candidato, botão de WhatsApp e lista de envio em CSV. Estas seções (0 em diante) ainda descrevem o mínimo entregue (v2.45.1), que é um desvio decidido do desenho (link pessoal por unidade).
+Fora da conta, como já decidido: criptografia (cifra, urna, BJV, guardiões, assinatura cega, verificador) e revisão externa.
+Fonte do que está abaixo: conferência de 10/11/2026 (desenho 18 contra o sistema). Legenda: ✓ existe e fiel · ⚠ existe parcial ou diferente · ✗ não existe.
+
+### Funções do sistema que o desenho não mostra e que NÃO saem
+
+- Escritório liberado pelo Master (`LiberacaoDoVoto`, `GuardaDoMasterDoVoto`, `LiberacaoDoVotoNoEscritorio`) e recurso `voto` no catálogo.
+- Link pessoal por unidade (`TokenDaUnidade`, semente + hash, "gerar novo link").
+- Envio de links por e-mail em lotes de 25, "faltam N", reenviar (`EnviarLinksPorEmailUseCase`).
+- "Copiar mensagem" (WhatsApp) por unidade; remover unidade (`voto_assembleia_unidade_remover`).
+- `PapelDoContainer` (404 de rotas públicas no BlueJus, preparação do container voto), `SaudeDoVotoController` (`/saude-do-voto`), purga do schema `voto` e redes do schema.
+- Limitador `voto_cedula_invalido`, cabeçalhos noindex/no-store, filtro de tenant desligado na cédula (`CedulaSemTenantFilterListener`).
+- Encerramento automático por prazo vencido (`EncerrarPautaPorPrazoVencidoUseCase`).
+- Aviso de sigilo na cédula ("o sistema registra que a unidade votou, mas não em quê").
+
+### Etapas e tamanho (P = até 1 dia, M = 2 a 3 dias, G = 4 ou mais)
+
+| # | PR | Entrega | Tam. | Migration | Decisão do dono? |
+|---|---|---|---|---|---|
+| 0 | `voto-desenho-novo` | copiar o desenho mais novo para `docs/design/`, atualizar a spec com os itens novos | P | não | Farlei envia o desenho oficial? |
+| 1 | `voto-regras-pauta` | critério (4), base (3), quórum por pauta, regra pronta, dígitos, Aprovada/Rejeitada; `ApuracaoDaPauta` e ata | M | sim | D1 |
+| 2 | `voto-assistente-completo` | 7 passos com trilho, Categoria/campos do passo 1, Revisar com pendências, "Alterações não salvas" | M | sim (campos da assembleia) | D2 |
+| 3 | `voto-lista-aptos` | upload CSV/XLSX, "Baixar modelo", data da importação, busca | M | pode ser sem | D3 |
+| 4 | `voto-link-qr` | link do evento, QR no servidor, cartaz PNG, código de conferência, WhatsApp e CSV de envio | M | pode ser sem | D4 |
+| 5 | `voto-painel-mesa` | KPIs, passos 1-6, incidentes, presença, quórum de instalação, "abrir mesmo assim" | G | sim | D5 |
+| 6 | `voto-ata-docx` | minuta .docx com timbre; ata PDF/HTML com responsáveis, incidentes, código | M a G | não | D6 |
+| 7 | `voto-cabine` | cabine de urna, nulo, "Próxima votação", simulação, sons, braile, leitor de tela | G | pode ser sem | D7 |
+| 8 | `voto-comprovante` | BJC, imagem/PDF, e-mail, conferência pública | M | sim | D8 |
+| 9 | `voto-identificacao` | Localizar nome + código por e-mail + limite | G | sim | D9 |
+| 10 | `voto-procuracao` | procuração, instrumento anexo, limite | M | sim | D10 |
+| 11 | `voto-horario` | programado no horário + sigilo aberto | M | sim | D11 |
+| 12 | `voto-sessao-permanente` | próxima sessão, retomar, troca de voto, ata parcial | G (muda o modelo de voto) | sim | D12 |
+| 13 | `voto-equipe` | Equipe/perfis, Estatísticas Master, Auditoria simples | G | sim | D13 |
+| 14 | `voto-cenarios` | demais 8 categorias, modalidades chapa/individual/consulta, vagas, foto/propostas | G | sim | D14 |
+
+Ordem recomendada para "falta muita coisa" em produção: 0, 1, 2, 3, 4, 6, 5, 7, 8, depois 9 a 14 conforme o dono pedir.
+Estimativa total do que falta (sem cripto): cerca de 40 a 50 dias de sessão, com os grandes (5, 7, 9, 12, 13, 14) ocupando ~25.
+Uma migration por vez entre PRs abertos: 1, 2, 5, 8 entram em fila.
+
+
+### Conferência por etapa do desenho (o que existe e o que falta)
+
+#### E1. Moldura e abas
+
+| Item do desenho | Estado | Prova / diferença |
+|---|---|---|
+| Título "Voto" e abas Votar / Resultados / Gestão eleitoral / Acompanhar (`.vTab`) | ✓ | `app/templates/voto/index.html.twig:29-50` |
+| Aba Votar do sistema lista votações publicadas | ⚠ | aba mostra só aviso "vazio_gestao" (`index.html.twig:50-53`); o morador entra por link, não por esta aba |
+| Sub-abas da Gestão: Painel, Criar eleição, Lista de aptos, Apuração | ⚠ | viraram páginas separadas (`/voto/assembleias/nova`, `/{id}/pautas`, `/{id}/unidades`); sem a barra de sub-abas (`_sub_abas.html.twig` existe só como trilho do assistente) |
+| Sub-abas Estatísticas, Perfis, Eleitores, Avaliações, Auditoria, Testes; "Atuando como" | ✗ | nenhuma rota (grep `debug:router`/Controllers) |
+| Barra de contexto/escritório e papéis por votação (Comissão, Auditoria, Fiscal, Guardião...) | ✗ | quem tem o módulo `voto` faz tudo (`GuardaDaEquipeDoVoto.php`) |
+| Toast do desenho | ✓ | `_toast.html.twig`, `AvisosDoVoto.php` |
+| Responsivo 760px | ⚠ | `css/voto.css` existe; não conferido item a item (é conferência de tela do Samuel) |
+
+#### E2. Assistente de criação (7 etapas)
+
+| Etapa / campo | Estado | Prova / diferença |
+|---|---|---|
+| Trilho de 7 passos "1. Categoria ... 7. Revisar", clicar vai à etapa | ⚠ | só 3 telas: Evento+Peso (`form.html.twig`), Pautas (`pautas.html.twig`), Unidades e links (`unidades.html.twig`); sem trilho clicável nas 7 |
+| 1 Categoria: 9 cenários prontos (`.vCats`) | ✗ | só condomínio, fixo; nenhum seletor de categoria |
+| 1 Campos Entidade, Nome da votação, Descrição, Finalidade | ⚠ | só `titulo` (evento) (`AssembleiaInput`, `form.html.twig:25`) |
+| 2 Modalidade (chapa/individual/pauta/consulta/institucional) | ✗ | só pauta Sim/Não/numerada |
+| 2 Peso do voto (1 por eleitor / com peso da lista) | ✓ | `PesoDoVoto` fracao/unidade, `form.html.twig:26-29` |
+| 2 Abertura e encerramento: programados no horário x conduzidos pela mesa | ✗ | só mesa (sem Início/Encerramento, sem agendador de abertura) |
+| 2 Alterar voto em sessão permanente | ✗ | não existe |
+| 2 Sigilo (secreto / aberto após / aberto em tempo real) | ⚠ | só secreto prático (`voto-assembleia-condominio.md` §2); aberto/nominal ✗ |
+| 2 Grupos aptos; Ordem das candidaturas (registro / sorteada) | ✗ | |
+| 2 Quórum de instalação 1ª/2ª conv., limite de procurações, "Votação de simulação" (novos) | ✗ | |
+| 3 Acesso: PIN / código por e-mail | ✗ | (desvio decidido: link da unidade); "Localizar nome", código de 6 números, 5 tentativas, foto e art. 299 não existem |
+| 4 Atalhos "Cargos e pautas frequentes" | ✓ | `pautas.html.twig:22-30` |
+| 4 Cargo/pauta + opções Nº e nome, "Candidatura", remover, "Outro cargo ou pauta", validações de texto | ✓ | `_pauta_form.html.twig`, `OpcoesDaPauta.php:35-39` |
+| 4 Dígitos (1 a 5) | ✗ | fixo 1 dígito |
+| 4 Critério (Mais votos / Maioria absoluta / Dois terços / Unanimidade) | ✗ | só "Mais votos" (`ApuracaoDaPauta.php:6-14`) |
+| 4 "Calculado sobre" (válidos / presentes / total de aptos) | ✗ | só votos válidos |
+| 4 Quórum (%) e Quórum 2ª conv. por pauta | ⚠ | fixo: 50% na 1ª, 0% na 2ª, gravado na abertura (`PautaDaAssembleia::abrir`); não editável por pauta |
+| 4 Regra pronta, Vagas (várias vagas), "Numerar", Unidade do candidato, ↑↓ reordenar, descrição/propostas/composição/foto da opção | ✗ | |
+| 5 Lista de aptos: importar planilha XLSX/CSV, "Baixar modelo", contagem aptos/não aptos | ⚠ | só colar texto em textarea (`unidades.html.twig:23`, `LeitorDaListaDeUnidades.php`); sem upload de arquivo, sem XLSX, sem modelo; resumo "N aptos, N inaptos" ✓ (`:30`) |
+| 5 Cabeçalhos aceitos (unidade, bloco, fração, situação...), apto só se apto/adimplente/regular/quite, peso em vírgula, duplicadas/inválidas, bloqueio após abertura | ✓ | `LeitorDaListaDeUnidades.php`, `ImportarUnidadesUseCase.php`, `unidades.html.twig:27,37-40` |
+| 5 Hash da lista, data da importação, lista por nome/e-mail do eleitor | ✗ | hash só serve à urna; "Importada em" ✗ |
+| 6 Equipe (perfis, vagas, "Indicar pessoas") | ✗ | |
+| 7 Revisar: tabela com "Alterar", pendências com ícones, "Tudo pronto para publicar" | ✗ | publicar vai direto de Unidades (`unidades.html.twig:104`, `PublicarAssembleiaUseCase`); exige 1 pauta com 2 opções e 1 unidade apta |
+| Salvar e sair / Voltar / Continuar; erro da etapa; rascunho salvo a cada avanço | ✓ | `form.html.twig:34-39`, `pautas.html.twig` |
+| "Alterações ainda não salvas" | ⚠ | só aviso do navegador nas pautas (`voto-assembleia.js`); sem texto no cabeçalho |
+| "Votação de simulação" + reiniciar/apagar | ✗ | |
+
+#### E3. Publicar, link e QR
+
+| Item | Estado | Prova |
+|---|---|---|
+| Publicar trava a configuração | ✓ | `voto_assembleia_publicar`, `Assembleia::publicar` |
+| Link pessoal por unidade, copiar, mensagem pronta, gerar novo, reenviar | ✓ (desvio) | `unidades.html.twig:74-90`, rotas `voto_assembleia_unidade_*` |
+| Enviar links por e-mail em lotes de 25, "faltam N" | ✓ (extra do sistema) | `EnviarLinksPorEmailUseCase`, `voto_assembleia_link.html.twig` |
+| Janela "Link e QR Code" (link do evento, QR, cartaz PNG, "Copiar link", "Testar acesso", "Abrir terminal presencial", código de conferência XXXX-XXXX) | ✗ | nenhum QR (grep `qrcode` vazio); link único do evento não existe |
+| Botão WhatsApp e "Lista para envio" CSV | ⚠ | só copia a mensagem (`unidades.html.twig:75`); sem `wa.me` nem CSV |
+| Cartão "Eventos com mais de uma votação" (link do evento + relatório consolidado) | ⚠ | a assembleia já é o evento; sem link/QR do evento |
+
+#### E4. Eleitor (cédula, cabine, comprovante)
+
+| Item | Estado | Prova |
+|---|---|---|
+| Portal sem conta, cabeçalho, trilho 1-4, faixa de conferência do endereço e código | ⚠ | `cedula/_layout.html.twig`; sem trilho de passos e sem código de conferência |
+| Localizar seu nome / Confirmar identidade / código por e-mail / "Não sou eu" / limite 20 em 10 min | ✗ | (desvio decidido) token por unidade; limitador só para token inválido (20/min por IP) |
+| Cartão da pauta: nome, descrição, chip, "Aguardando abertura", "Encerra em mm:ss", "Você já votou", inapta | ✓ | `cedula/_pauta.html.twig:21-33` |
+| Votar: escolher opção ou abstenção + confirmar | ⚠ | botões e modal de confirmação (`cedula.html.twig:38-46`), no lugar da CABINE |
+| Cabine de urna (visor, teclado 0-9, BRANCO/CORRIGE/CONFIRMA, LEDs, sons, braile, teclado físico, leitor de tela, `prefers-reduced-motion`) | ✗ | |
+| Nulo ("NÚMERO ERRADO / VOTO NULO"), branco = abstenção | ⚠ | abstenção ✓; nulo ✗ (a ata imprime "Nulos 0" fixo, `ata.html.twig:119`) |
+| Estados uInicio/uVota/uGrava/uFim/uErro, "Próxima votação" | ✗ | cédula mostra todas as pautas numa página |
+| Conhecer candidaturas, Simular votação | ✗ | |
+| Comprovante de participação (BJC, imagem/PDF, QR, 2ª via com faixa) | ✗ | grep `comprovante` vazio |
+| Enviar comprovante por e-mail | ✗ | (o sistema tem e-mail; só falta o modelo) |
+| Conferir comprovante (aba Resultados) | ✗ | |
+| Resultado para o morador após encerrar | ✓ | `cedula/_resultado.html.twig` |
+| Voto único, abstenção, peso, sem ligação unidade/opção | ✓ | `RegistrarVotoUseCase`, `OpcaoDaPautaRepository`, migration `Version20261109170000` |
+
+#### E5. Mesa, painel, acompanhar
+
+| Item | Estado | Prova |
+|---|---|---|
+| Abrir por minutos / sem prazo, 1ª/2ª convocação, prazo, "Sem prazo", encerrar com motivo, auto-encerra | ✓ | `_pauta_linha.html.twig`, `MesaDaAssembleiaController`, `EncerrarPautaPorPrazoVencidoUseCase` |
+| Painel: barra e "Participação {n} de {aptos} aptos ({pct}%)" | ✓ | `_pauta_linha.html.twig:13-14` |
+| Painel: KPIs (Eleitores habilitados, Em análise, Votações abertas, Cédulas, Incidentes) | ✗ | |
+| Painel: passos 1-6 por pauta e "próximo passo" com atalho | ✗ | |
+| Painel: "Incidentes registrados" | ✗ | |
+| Presença registrada, quórum de instalação, "Abrir mesmo assim" (novo) | ✗ | |
+| Procuração por unidade e limite (novo) | ✗ | |
+| Ocorrência por unidade / Avaliações do conselho | ✗ | |
+| Sessão permanente (próxima sessão 60/90 dias, retomar, trocar voto, ata parcial) | ✗ | |
+| "Iniciar apuração" | n/a | sem guardiões o resultado sai no encerramento (decisão do mínimo) |
+| Acompanhar: lista por pauta, "N de M votaram", chip, Assistir em janela própria | ✓ | `_acompanhar.html.twig`, `assistir.html.twig:28-44` |
+| Assistir: % do peso, barra e marca do quórum, atualiza sozinha | ✓ | `assistir.html.twig:30-46` |
+| Voto aberto/nominal, lista nominal, documento de auditoria | ✗ | |
+
+#### E6. Resultados e ata
+
+| Item | Estado | Prova |
+|---|---|---|
+| Aba Resultados por pauta encerrada: faixa, KPIs, barras, abstenções, decisão | ✓ | `_resultados.html.twig` |
+| Situações "Decidido / Quórum não atingido / Empate / Critério não atingido" | ⚠ | `ApuracaoDaPauta.php`; só critério "Mais votos"; sem dois terços/absoluta/unanimidade, sem vagas |
+| Resultado "Aprovada / Rejeitada" por regra pronta (novo) | ✗ | |
+| Ata/relatório consolidado: resumo, identificação, abertura, eleitorado por bloco, encerramento, apuração, relação de votantes, termo, assinaturas | ⚠ | HTML imprimível (`ata.html.twig`), no lugar do PDF A4 com `BJR-...`, QR e página X de Y; faltam: Responsáveis designados, Hash da configuração, Incidentes, código/QR |
+| Minuta de ata em Word (.docx) com papel timbrado (novo) | ✗ | nenhum gerador de .docx em `app/src/Voto` |
+| Ata parcial (sessão permanente) | ✗ | |
+| Relação de votantes (nominal, faixa horária, após encerrar) | ⚠ | existe na ata (`ParticipacaoNaPautaRepository::listarNominalDaPauta`); sem a regra "só perfis autorizados" nem faixa de 1 hora |
+| Inconsistência do desenho: "Resultados" x "Transparência" | n/a | usar "Resultados" |
+
+#### E7. Testes e registros
+
+| Item | Estado |
+|---|---|
+| Aba Testes (97 testes do protótipo, gerar votos de teste) | ✗ (só testes PHPUnit do sistema, `app/tests/Voto/`) |
+| Trilha de auditoria com Verificar/Exportar | ✗ (cripto/cadeia; fora) / trilha simples ✗ |
+| Estatísticas do Gestor Master, Perfis, Eleitores/Validação, Avaliações do conselho | ✗ |
+| Cenários não condomínio (classe, associação, sindicato, cooperativa, ensino, consulta) | ✗ |
+
+
+### 2. Regra de negócio / dado x só tela
+
+Só tela (dado já existe): trilho de 7 passos; revisão (7); KPIs e passos do painel; "Alterações ainda não salvas"; botão WhatsApp com `wa.me`; link do evento (a assembleia já é o evento); janela de link com QR (gerar QR no servidor, lib PHP); cartaz; cabine (teclado/visor sobre o mesmo POST de voto); trilho do portal.
+Regra de negócio / dado novo (precisa migration e UseCase):
+- Critério, base de cálculo, quórum por pauta, dígitos, regra pronta, vagas, empate por vaga (campos novos em `voto.assembleia_pauta`; `ApuracaoDaPauta` reescrito).
+- Quórum de instalação por convocação + presença registrada + "abrir mesmo assim" (tabela de presença; migration).
+- Procuração e limite por pessoa (tabela; instrumento é arquivo: skill `armazenamento-de-arquivos`).
+- Sessão permanente e troca de voto (modelo de voto muda: hoje não há vínculo unidade-opção, trocar voto exige guardar o voto por unidade; CONFLITA com o sigilo prático da §2 da spec do mínimo).
+- Votação programada no horário (Início/Fim + tarefa agendada; hoje só mesa).
+- Sigilo aberto/nominal (guardar quem votou em quê; só se a entidade permitir).
+- Importação por arquivo CSV/XLSX, modelo e data da importação (XLSX exige biblioteca; checar `composer.json`).
+- Identificação forte: "Localizar nome" + código por e-mail + limite 20/10 min (e-mail já existe, `LinkDaUnidadeMailer`); fotos/documento/geo é outro peso.
+- Ata em .docx com timbre (biblioteca de Word; o desenho já traz o algoritmo em `bj-voto-ata.js`: gera zip+XML na mão, 6 KB).
+- Simulação (flag na assembleia, reiniciar/apagar, fora das estatísticas).
+- Comprovante (código BJC, imagem/PDF, e-mail, conferência pública).
+- Equipe/perfis por votação (Comissão, Auditoria...).
+
+
+### 5. Perguntas de negócio D1 a D14 (decisão do dono, ainda aberta)
+
+- D1. Entram já os critérios "Maioria absoluta", "Dois terços" e "Unanimidade" por pauta? (sim/não) Decisão do dono, ainda aberta.
+- D2. A assembleia terá sempre as 7 etapas, ou só as que importam para condomínio (pular Categoria, Acesso e Equipe)? (7 / reduzido) Decisão do dono, ainda aberta.
+- D3. Aceitar XLSX além de CSV? (sim/só CSV) Decisão do dono, ainda aberta.
+- D4. O QR Code leva a um link único do evento (todos os moradores digitam nome e unidade) ou continua o link pessoal por unidade? (evento / pessoal / os dois) Decisão do dono, ainda aberta.
+- D5. Quórum de instalação: abrir abaixo dele só com decisão registrada na ata? (sim/não) Decisão do dono, ainda aberta.
+- D6. Ata: gerar .docx com papel timbrado do escritório (modelo enviado pelo gestor), além do HTML? (sim/não) Decisão do dono, ainda aberta.
+- D7. Cabine de urna estilo urna eletrônica (com sons e braile) é pedida pelo condomínio, ou fica o botão com confirmação atual? (cabine/atual) Decisão do dono, ainda aberta.
+- D8. Comprovante de participação (sem o voto) para o morador: entra? (sim/não) Decisão do dono, ainda aberta.
+- D9. Identificação por "nome + unidade + código de e-mail" substitui o link pessoal? (substitui/convive/não) Decisão do dono, ainda aberta.
+- D10. Procuração: limite padrão por pessoa? (0 = sem limite, ou número) Decisão do dono, ainda aberta.
+- D11. Voto aberto/nominal é permitido para condomínio? (sim/não); programar abertura por horário entra? (sim/não) Decisão do dono, ainda aberta.
+- D12. Sessão permanente e troca de voto (art. 1.353): entram? Obriga guardar quem votou em quê, o que quebra o sigilo atual. (sim/não) Decisão do dono, ainda aberta.
+- D13. Perfis (Comissão, Auditoria, Fiscal) por votação entram, ou basta quem tem o módulo `voto`? (perfis/basta) Decisão do dono, ainda aberta.
+- D14. Outras categorias (classe, associação, sindicato, cooperativa, ensino) entram agora ou só condomínio? (agora/depois) Decisão do dono, ainda aberta.
+
+
+### 6. Totais (itens contados na tabela da seção 1)
+
+✓ 18 · ⚠ 17 · ✗ 40 · n/a 2 (uma contagem por linha de tabela; linhas com vários campos contam uma vez).
+
+---
+
 ## 0. Leia antes (decisões que o desenho força)
 
 1. **O desenho não tem `data-screen-label`.** As "telas" são abas (`sc-if` por `aba`/`sub`) e janelas (`modTem`, `lnkTem`, `cabTem`).
