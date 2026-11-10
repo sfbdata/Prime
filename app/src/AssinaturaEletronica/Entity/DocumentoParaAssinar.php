@@ -14,6 +14,8 @@ use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\Descartavel;
 use App\Shared\Contract\TenantAware;
@@ -32,6 +34,11 @@ use Doctrine\ORM\Mapping as ORM;
  * canônico e o prazo contado da hora do envio); cada signatário assina na vez dele (com "em ordem", depois de todos os
  * anteriores) e o último conclui; a recusa de um encerra o documento; cancelar o envio para os links. Prazo vencido não
  * muda a situação: é calculado. Quem chama decide com a linha travada e relida.
+ *
+ * Etapa 3 (contrato da etapa 3, seção 2): o código de validação `BJA-XXXX-XXXX-XXXX` nasce no envio, uma vez; o PDF
+ * final com selo é guardado uma vez, só do documento concluído; o vínculo à pasta é sempre por id (o NUP não é único),
+ * fica pendente até o PDF final ir para a pasta e guarda quem o definiu (a conclusão acontece na rota pública, sem
+ * usuário logado). Pasta, usuário e arquivo da pasta apagados viram nulo (`ON DELETE SET NULL`).
  */
 #[ORM\Entity(repositoryClass: DocumentoParaAssinarRepository::class)]
 #[ORM\Table(name: 'assinatura_eletronica_documento')]
@@ -127,6 +134,46 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
 
     #[ORM\Column(name: 'arquivo_enviado_paginas', type: 'integer', nullable: true)]
     private ?int $arquivoEnviadoPaginas = null;
+
+    /** O código de validação impresso no PDF (`BJA-XXXX-XXXX-XXXX`), único entre todos os escritórios. Nulo no rascunho. */
+    #[ORM\Column(length: 18, unique: true, nullable: true)]
+    private ?string $codigo = null;
+
+    /** O nome da chave do PDF final com selo, guardado uma vez depois da conclusão. */
+    #[ORM\Column(name: 'arquivo_final_chave', length: 255, nullable: true)]
+    private ?string $arquivoFinalChave = null;
+
+    /** O sha256 do PDF final guardado (prova do arquivo; a validação mostra o `hash_enviado`). */
+    #[ORM\Column(name: 'hash_final', length: 64, nullable: true)]
+    private ?string $hashFinal = null;
+
+    /**
+     * A pasta do vínculo. Lida pelo id: a pasta pode ter ido para a lápide depois do vínculo, e quem aplica o vínculo
+     * pendente confere isso antes de gravar.
+     */
+    #[ORM\ManyToOne(targetEntity: Pasta::class)]
+    #[ORM\JoinColumn(name: 'pasta_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Pasta $pasta = null;
+
+    /** Verdadeiro do vínculo definido até o PDF final ir para a pasta. */
+    #[ORM\Column(name: 'vinculo_pendente', options: ['default' => false])]
+    private bool $vinculoPendente = false;
+
+    /** Quem definiu o vínculo: é com este usuário que o vínculo pendente é aplicado (permissão, cadeado e lápide). */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'vinculado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $vinculadoPor = null;
+
+    #[ORM\Column(name: 'vinculado_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $vinculadoEm = null;
+
+    /**
+     * O arquivo que foi para a pasta. O documento da pasta pode estar na Lixeira dela: leia o id, não inicie o proxy
+     * fora da {@see \App\Shared\Doctrine\Filter\AcessoALixeira}.
+     */
+    #[ORM\ManyToOne(targetEntity: PastaDocumento::class)]
+    #[ORM\JoinColumn(name: 'pasta_documento_id', nullable: true, onDelete: 'SET NULL')]
+    private ?PastaDocumento $pastaDocumento = null;
 
     /** Lixeira: preenchido = o documento está na Lixeira. Sem setter: só pelas transições abaixo. */
     #[ORM\Column(name: 'excluido_em', type: 'datetime_immutable', nullable: true)]
@@ -294,6 +341,78 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         if ($this->signatarios->isEmpty()) {
             throw new AcaoRecusada('assinatura_eletronica.erro.envio_sem_signatarios');
         }
+    }
+
+    /**
+     * O código de validação, gerado no envio a partir do hash enviado ({@see \App\AssinaturaEletronica\Service\ChaveDoSelo}).
+     * Uma vez só: o código impresso no PDF não muda.
+     */
+    public function definirCodigo(string $codigo): void
+    {
+        if ($this->codigo !== null) {
+            throw new \LogicException('O documento já tem código de validação.');
+        }
+        if ($this->hashEnviado === null) {
+            throw new \LogicException('Código de validação de documento não enviado.');
+        }
+
+        $this->codigo = $codigo;
+    }
+
+    /**
+     * Guarda o PDF final com selo: só do documento concluído e uma vez só (o arquivo guardado é a prova).
+     *
+     * @param string $sha256 o sha256 do arquivo guardado, 64 hexadecimais minúsculos
+     */
+    public function guardarArquivoFinal(string $nomeDaChave, string $sha256): void
+    {
+        if ($this->situacao !== SituacaoDoDocumento::Concluido) {
+            throw new \LogicException('Só o documento concluído guarda o PDF final.');
+        }
+        if ($this->arquivoFinalChave !== null) {
+            throw new \LogicException('O PDF final do documento já foi guardado.');
+        }
+        if ($nomeDaChave === '' || preg_match('/^[0-9a-f]{64}$/', $sha256) !== 1) {
+            throw new \LogicException('PDF final sem chave ou com sha256 fora do formato.');
+        }
+
+        $this->arquivoFinalChave = $nomeDaChave;
+        $this->hashFinal = $sha256;
+    }
+
+    /**
+     * Define a pasta do vínculo, por id, e o deixa pendente até o PDF final ir para a pasta. Quem chama confere antes a
+     * permissão na pasta, a lápide e a situação do documento.
+     *
+     * @throws AcaoRecusada quando o documento já tem vínculo
+     */
+    public function definirVinculo(Pasta $pasta, User $por, \DateTimeImmutable $agora): void
+    {
+        if ($this->pasta !== null) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.vinculo_ja_definido');
+        }
+        if (!self::doMesmoEscritorio($this->tenant, $pasta->getTenant())) {
+            throw new \LogicException('A pasta do vínculo é de outro escritório.');
+        }
+
+        $this->pasta = $pasta;
+        $this->vinculadoPor = $por;
+        $this->vinculadoEm = self::emSegundos($agora);
+        $this->vinculoPendente = true;
+    }
+
+    /** O PDF final foi para a pasta do vínculo: guarda o arquivo da pasta e encerra o pendente. */
+    public function marcarVinculoFeito(PastaDocumento $arquivo): void
+    {
+        if ($this->pasta === null || !$this->vinculoPendente) {
+            throw new \LogicException('O documento não tem vínculo pendente.');
+        }
+        if (!self::doMesmoEscritorio($this->tenant, $arquivo->getTenant()) || !self::mesmaPasta($this->pasta, $arquivo->getPasta())) {
+            throw new \LogicException('O arquivo não é da pasta do vínculo.');
+        }
+
+        $this->pastaDocumento = $arquivo;
+        $this->vinculoPendente = false;
     }
 
     /** "Cancelar envio" do detalhe: só o que aguarda assinatura. Documento e evidências ficam. */
@@ -593,6 +712,46 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         return $this->arquivoEnviadoPaginas;
     }
 
+    public function getCodigo(): ?string
+    {
+        return $this->codigo;
+    }
+
+    public function getArquivoFinalChave(): ?string
+    {
+        return $this->arquivoFinalChave;
+    }
+
+    public function getHashFinal(): ?string
+    {
+        return $this->hashFinal;
+    }
+
+    public function getPasta(): ?Pasta
+    {
+        return $this->pasta;
+    }
+
+    public function isVinculoPendente(): bool
+    {
+        return $this->vinculoPendente;
+    }
+
+    public function getVinculadoPor(): ?User
+    {
+        return $this->vinculadoPor;
+    }
+
+    public function getVinculadoEm(): ?\DateTimeImmutable
+    {
+        return $this->vinculadoEm;
+    }
+
+    public function getPastaDocumento(): ?PastaDocumento
+    {
+        return $this->pastaDocumento;
+    }
+
     public function temArquivo(): bool
     {
         return $this->arquivoEnviadoChave !== null;
@@ -628,6 +787,17 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
     private static function emSegundos(\DateTimeImmutable $agora): \DateTimeImmutable
     {
         return (new \DateTimeImmutable('@' . $agora->getTimestamp()))->setTimezone(new \DateTimeZone(date_default_timezone_get()));
+    }
+
+    /** O mesmo objeto ou o mesmo id gravado: uma pasta ou um arquivo de outro escritório nunca entra no vínculo. */
+    private static function doMesmoEscritorio(Tenant $tenant, ?Tenant $outro): bool
+    {
+        return $outro !== null && ($outro === $tenant || ($tenant->getId() !== null && $tenant->getId() === $outro->getId()));
+    }
+
+    private static function mesmaPasta(Pasta $pasta, ?Pasta $outra): bool
+    {
+        return $outra !== null && ($outra === $pasta || ($pasta->getId() !== null && $pasta->getId() === $outra->getId()));
     }
 
     /** @throws AcaoRecusada */
