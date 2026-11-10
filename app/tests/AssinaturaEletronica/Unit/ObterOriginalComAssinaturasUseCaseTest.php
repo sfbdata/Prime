@@ -22,8 +22,8 @@ use Symfony\Component\Translation\Translator;
 
 /**
  * "Baixar original com as assinaturas" (5A, presOrig de dc:383): a versão mais recente que chegou assinada, com a
- * chave do escritório do documento e o nome "{nome} - original.pdf"; sem ela (ou só com o PDF para assinar), não
- * encontrado.
+ * chave do escritório do documento e o nome "{nome} - original.pdf"; sem ela, não encontrado. Que o PDF para assinar
+ * não conta é regra de {@see VersaoDoPdfRepository::ultimaQueNaoEParaAssinar()}, testada com o banco.
  */
 #[CoversClass(ObterOriginalComAssinaturasUseCase::class)]
 final class ObterOriginalComAssinaturasUseCaseTest extends TestCase
@@ -44,15 +44,13 @@ final class ObterOriginalComAssinaturasUseCaseTest extends TestCase
         self::assertSame(CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $arquivo->chave->categoria);
     }
 
-    #[TestDox('sem versão, só com o PDF para assinar ou com documento de outro escritório: não encontrado')]
+    #[TestDox('sem versão assinada ou com documento de outro escritório: não encontrado')]
     public function testNaoEncontrado(): void
     {
         [$tenant, $documento] = self::rascunho();
-        $documento->enviar(str_repeat('f', 64), new \DateTimeImmutable());
-        $paraAssinar = VersaoDoPdf::paraAssinar($documento, 1, 'para.pdf', 'para.pdf', self::SHA, 10, self::ANALISE, new \DateTimeImmutable());
 
         $recusas = 0;
-        foreach ([[$documento, null], [$documento, $paraAssinar], [null, null]] as [$doc, $versao]) {
+        foreach ([[$documento, null], [null, null]] as [$doc, $versao]) {
             try {
                 $this->useCase($doc, $versao)->executar($tenant, 5);
             } catch (DocumentoNaoEncontrado) {
@@ -60,7 +58,7 @@ final class ObterOriginalComAssinaturasUseCaseTest extends TestCase
             }
         }
 
-        self::assertSame(3, $recusas);
+        self::assertSame(2, $recusas);
     }
 
     private function useCase(?DocumentoParaAssinar $documento, ?VersaoDoPdf $ultima): ObterOriginalComAssinaturasUseCase
@@ -68,7 +66,7 @@ final class ObterOriginalComAssinaturasUseCaseTest extends TestCase
         $documentos = $this->createStub(DocumentoParaAssinarRepository::class);
         $documentos->method('doEscritorioMesmoNaLixeira')->willReturn($documento);
         $versoes = $this->createStub(VersaoDoPdfRepository::class);
-        $versoes->method('ultima')->willReturn($ultima);
+        $versoes->method('ultimaQueNaoEParaAssinar')->willReturn($ultima);
         $tradutor = new Translator('pt_BR');
         $tradutor->addLoader('yaml', new YamlFileLoader());
         CatalogoPtBr::registrarEm($tradutor);

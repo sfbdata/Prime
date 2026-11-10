@@ -6,7 +6,6 @@ namespace App\AssinaturaEletronica\UseCase;
 
 use App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica;
 use App\AssinaturaEletronica\DTO\ArquivoParaEntregar;
-use App\AssinaturaEletronica\Enum\OrigemDaVersao;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
@@ -15,8 +14,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * "Baixar original com as assinaturas" (etapa 5, bloco 5A; o `presOrig` do desenho, dc:383): a versão mais recente do
- * PDF que chegou assinado (o original ou o último devolvido), byte a byte, com o nome "{nome} - original.pdf". O PDF
- * para assinar congelado não conta. Documento de outro escritório ou sem essa versão: não encontrado.
+ * PDF que chegou assinado (o original ou o último devolvido, {@see VersaoDoPdfRepository::ultimaQueNaoEParaAssinar()}),
+ * byte a byte, com o nome "{nome} - original.pdf". Documento de outro escritório ou sem essa versão: não encontrado.
  */
 final readonly class ObterOriginalComAssinaturasUseCase
 {
@@ -31,10 +30,7 @@ final readonly class ObterOriginalComAssinaturasUseCase
     public function executar(Tenant $tenant, int $id): ArquivoParaEntregar
     {
         $documento = $this->documentos->doEscritorioMesmoNaLixeira($id, $tenant) ?? throw new DocumentoNaoEncontrado();
-        $versao = $this->versoes->ultima($documento);
-        if ($versao === null || $versao->getOrigem() === OrigemDaVersao::ParaAssinar) {
-            throw new DocumentoNaoEncontrado();
-        }
+        $versao = $this->versoes->ultimaQueNaoEParaAssinar($documento) ?? throw new DocumentoNaoEncontrado();
 
         return new ArquivoParaEntregar(
             ChavesDeAssinaturaEletronica::versao($versao),

@@ -37,7 +37,8 @@ use Psr\Clock\ClockInterface;
  *
  * Etapa 5, bloco 5A: o PDF enviado que já chega com assinatura digital vira a versão `original` (arquivo próprio, com a
  * conferência do motor) e o conteúdo ganha o parágrafo de dc:374. O original muda quando chega PDF novo ou quando o
- * rascunho perde o PDF: aí o anterior sai junto com o parágrafo dele, com o documento travado.
+ * rascunho perde o PDF: aí o anterior sai. Todo salvamento de rascunho existente trava e relê o documento, e o
+ * conteúdo fica só com o parágrafo do original guardado depois de salvar (duas abas não deixam evidência trocada).
  */
 final readonly class SalvarRascunhoUseCase
 {
@@ -70,8 +71,9 @@ final readonly class SalvarRascunhoUseCase
 
         $id = $this->transacao->executar(
             function () use ($ator, $tenant, $documento, $configuracao, $entrada, $blocos, $agora, $troca): int {
-                $this->travarSeOOriginalMuda($documento, $tenant, $blocos['mudaOriginal']);
-                $documento->aplicarRascunho($entrada->dados, $blocos['blocos'], $agora);
+                $this->travarERecarregar($documento, $tenant);
+                $conteudo = $this->arquivos->comParagrafoDoOriginal($blocos['blocos'], $documento, $blocos['mudaOriginal'], $blocos['original']);
+                $documento->aplicarRascunho($entrada->dados, $conteudo, $agora);
                 $this->aplicarPdf($documento, $entrada, $blocos['paginas'], $troca);
                 $this->arquivos->aplicarLogo($documento, $entrada->dados->logo, $entrada->logo, $configuracao, $troca);
                 $this->aplicarPadrao($tenant, $documento, $configuracao, $entrada->dados->usarLogoComoPadrao, $troca);
@@ -136,22 +138,21 @@ final readonly class SalvarRascunhoUseCase
         $temPagina = \in_array('pg', array_column($blocos, 'k'), true);
         $mudaOriginal = !$temPagina || $entrada->arquivo !== null;
         $original = $temPagina && $entrada->arquivo !== null ? $this->arquivos->conferirOriginal($entrada->arquivo) : null;
-        if ($mudaOriginal) {
-            $blocos = $this->arquivos->comParagrafoDoOriginal($blocos, $this->arquivos->originalGuardado($documento), $original);
-        }
+        $this->arquivos->exigirLugarParaOParagrafo($blocos, $documento, $mudaOriginal, $original);
 
         return ['blocos' => $blocos, 'paginas' => $paginas, 'mudaOriginal' => $mudaOriginal, 'original' => $original];
     }
 
     /**
-     * O original só sai com o documento travado (e relido: o travamento descarta o que estava só na memória, por isso
-     * vem antes de aplicar o rascunho). Documento novo ainda não tem original nem linha para travar.
+     * Rascunho existente sempre travado e relido (o travamento descarta o que estava só na memória, por isso vem antes de
+     * aplicar o rascunho): o original guardado e o parágrafo dele só mudam com a linha travada, e decidir "tem versão"
+     * antes de travar seria a mesma corrida entre duas abas. Documento novo ainda não tem linha para travar.
      *
      * @throws DocumentoNaoEncontrado
      */
-    private function travarSeOOriginalMuda(DocumentoParaAssinar $documento, Tenant $tenant, bool $mudaOriginal): void
+    private function travarERecarregar(DocumentoParaAssinar $documento, Tenant $tenant): void
     {
-        if ($mudaOriginal && $documento->getId() !== null && !$this->documentos->travarERecarregar($documento, $tenant)) {
+        if ($documento->getId() !== null && !$this->documentos->travarERecarregar($documento, $tenant)) {
             throw new DocumentoNaoEncontrado();
         }
     }

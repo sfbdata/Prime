@@ -382,6 +382,8 @@ assinatura_eletronica_tela:
             nome_carimbo: '{nome} - com carimbo.pdf'
             # O "Original não encontrado neste navegador." do desenho (dc:383): aqui o original fica no servidor.
             original_nao_encontrado: 'Original não encontrado.'
+            # Passo 1: a conferência não respondeu (limite, servidor, rede); o arquivo pode estar bom.
+            conferir_indisponivel: 'Não foi possível conferir o arquivo agora. Tente de novo em instantes.'
             carimbo:
                 linha: 'Assinatura eletrônica BlueJus: {nome}, CPF ***.{meio}.***-**, em {data}'
                 codigo: 'Código {codigo}. Confira em bluejus.com.br.'

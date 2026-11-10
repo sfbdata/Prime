@@ -67,16 +67,26 @@ final readonly class ArquivosDoRascunho
         return OriginalJaAssinado::de($bytes, $this->conferencia->conferir($bytes));
     }
 
-    /** O original guardado no rascunho; nulo no documento ainda sem id. */
-    public function originalGuardado(DocumentoParaAssinar $documento): ?VersaoDoPdf
+    /**
+     * O parágrafo de dc:374 cabe no documento? Conferido antes de gravar qualquer arquivo, com o teto de blocos sem o
+     * parágrafo; {@see comParagrafoDoOriginal()} confere de novo com o documento travado.
+     *
+     * @param list<array<string, int|string>> $blocos já normalizados
+     *
+     * @throws AcaoRecusada
+     */
+    public function exigirLugarParaOParagrafo(array $blocos, DocumentoParaAssinar $documento, bool $mudaOriginal, ?OriginalJaAssinado $novo): void
     {
-        return $documento->getId() !== null ? $this->versoes->original($documento) : null;
+        if ($this->paragrafoQueFica($documento, $mudaOriginal, $novo) !== null) {
+            self::exigirLugar($this->semParagrafo($blocos)['blocos']);
+        }
     }
 
     /**
-     * Os blocos quando o original muda: sai o parágrafo do original anterior (o texto dele é refeito da análise
-     * guardada) e entra o do novo antes do primeiro lugar de assinatura (`k: a`) ou no fim, como o `salvarDoc` do
-     * desenho (dc:374).
+     * Os blocos com o parágrafo de dc:374 do original que fica depois de salvar, e só ele: todo parágrafo de evidência
+     * que veio da tela sai (o de um original anterior, de outra aba, ou o atual) e o do original que fica entra no lugar
+     * do primeiro que saiu; sem nenhum, antes do primeiro lugar de assinatura (`k: a`) ou no fim, como o `salvarDoc` do
+     * desenho. Roda com o documento travado e relido: o original guardado é o de agora, não o que a tela conhecia.
      *
      * @param list<array<string, int|string>> $blocos já normalizados
      *
@@ -84,18 +94,20 @@ final readonly class ArquivosDoRascunho
      *
      * @throws AcaoRecusada
      */
-    public function comParagrafoDoOriginal(array $blocos, ?VersaoDoPdf $anterior, ?OriginalJaAssinado $novo): array
+    public function comParagrafoDoOriginal(array $blocos, DocumentoParaAssinar $documento, bool $mudaOriginal, ?OriginalJaAssinado $novo): array
     {
-        if ($anterior !== null) {
-            $antigo = $this->blocoDoParagrafo($this->apresentacao->paragrafo(SerializacaoDaConferencia::deJson($anterior->getAnalise()), $anterior->getSha256()));
-            $blocos = array_values(array_filter($blocos, static fn (array $b): bool => $b !== $antigo));
-        }
-        if ($novo === null) {
+        ['blocos' => $blocos, 'lugar' => $lugar] = $this->semParagrafo($blocos);
+        $paragrafo = $this->paragrafoQueFica($documento, $mudaOriginal, $novo);
+        if ($paragrafo === null) {
             return $blocos;
         }
 
-        $lugar = array_search('a', array_column($blocos, 'k'), true);
-        array_splice($blocos, $lugar === false ? \count($blocos) : $lugar, 0, [$this->blocoDoParagrafo($this->apresentacao->paragrafo($novo->conferencia, $novo->sha256))]);
+        self::exigirLugar($blocos);
+        if ($lugar === null) {
+            $assinatura = array_search('a', array_column($blocos, 'k'), true);
+            $lugar = $assinatura === false ? \count($blocos) : $assinatura;
+        }
+        array_splice($blocos, $lugar, 0, [$this->blocoDoParagrafo($paragrafo)]);
 
         return $blocos;
     }
@@ -216,6 +228,59 @@ final readonly class ArquivosDoRascunho
     {
         $troca->semUso(ChavesDeAssinaturaEletronica::logoPadrao($configuracao));
         $configuracao->definirLogoPadrao(TipoDeLogo::Bluejus, null);
+    }
+
+    /**
+     * O texto do parágrafo do original que fica: o novo quando o original muda; senão, o guardado (refeito da análise).
+     */
+    private function paragrafoQueFica(DocumentoParaAssinar $documento, bool $mudaOriginal, ?OriginalJaAssinado $novo): ?string
+    {
+        if ($mudaOriginal) {
+            return $novo !== null ? $this->apresentacao->paragrafo($novo->conferencia, $novo->sha256) : null;
+        }
+        $guardado = $documento->getId() !== null ? $this->versoes->original($documento) : null;
+
+        return $guardado !== null
+            ? $this->apresentacao->paragrafo(SerializacaoDaConferencia::deJson($guardado->getAnalise()), $guardado->getSha256())
+            : null;
+    }
+
+    /**
+     * Os blocos sem nenhum parágrafo de evidência e a posição do primeiro que saiu.
+     *
+     * @param list<array<string, int|string>> $blocos
+     *
+     * @return array{blocos: list<array<string, int|string>>, lugar: ?int}
+     */
+    private function semParagrafo(array $blocos): array
+    {
+        $padrao = $this->apresentacao->padraoDoParagrafo();
+        $restantes = [];
+        $lugar = null;
+        foreach ($blocos as $bloco) {
+            if ($bloco['k'] === 'p' && preg_match($padrao, (string) ($bloco['x'] ?? '')) === 1) {
+                $lugar ??= \count($restantes);
+
+                continue;
+            }
+            $restantes[] = $bloco;
+        }
+
+        return ['blocos' => $restantes, 'lugar' => $lugar];
+    }
+
+    /**
+     * O teto de blocos vale com o parágrafo: sem lugar para ele, a mesma recusa do validador.
+     *
+     * @param list<array<string, int|string>> $blocos sem o parágrafo
+     *
+     * @throws AcaoRecusada
+     */
+    private static function exigirLugar(array $blocos): void
+    {
+        if (\count($blocos) >= ValidadorDeBlocos::BLOCOS_MAXIMO) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.blocos_demais');
+        }
     }
 
     /**

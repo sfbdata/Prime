@@ -65,12 +65,28 @@
         return d && d.folhaBranca ? T('pdf.baixar_rotulo') : T('pdf.baixar');
     }
 
-    /* Confere o PDF do passo 1 sem gravar, pelo pedir() do assinatura.js: a recusa (403, 422) sai como erro com o
-       texto do servidor em `texto`. */
+    /* Falha da conferência no passo 1: a recusa do arquivo (422) e a de acesso com texto (403) mostram o texto do
+       servidor; limite (429), falha do servidor (5xx), rede caída ou 403 sem texto não dizem nada do arquivo, e um PDF
+       bom não pode aparecer como arquivo ruim. */
+    function textoDaFalha(e) {
+        const texto = e && e.texto ? String(e.texto) : '';
+        return texto && (e.status === 422 || e.status === 403) ? texto : J('conferir_indisponivel');
+    }
+
+    /* Confere o PDF do passo 1 sem gravar, pelo pedir() do assinatura.js. Toda falha sai como erro com o texto da tela
+       em `texto` (textoDaFalha). */
     async function conferir(endereco, arquivo, pedir) {
         const fd = new FormData();
         fd.append('arquivo', arquivo, arquivo.name);
-        const j = await pedir(endereco, { method: 'POST', body: fd });
+        let j = null;
+        try {
+            j = await pedir(endereco, { method: 'POST', body: fd });
+        } catch (e) {
+            const falha = new Error('conferência do PDF');
+            falha.status = e && e.status;
+            falha.texto = textoDaFalha(e);
+            throw falha;
+        }
         return j && j.jaAssinado ? j.jaAssinado : null;
     }
 

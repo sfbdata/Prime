@@ -9,7 +9,6 @@ use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Entity\Signatario;
-use App\AssinaturaEletronica\Enum\OrigemDaVersao;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
@@ -204,14 +203,15 @@ final readonly class ApresentacaoDoDocumento
     }
 
     /**
-     * O `pres` do desenho: a última versão, menos o PDF para assinar congelado (esse não chegou assinado).
+     * O `pres` do desenho: a versão atual do PDF que chegou assinado
+     * ({@see VersaoDoPdfRepository::ultimaQueNaoEParaAssinar()}).
      *
      * @return array<string, mixed>|null
      */
     private function jaAssinado(DocumentoParaAssinar $documento): ?array
     {
-        $versao = $this->versoes->ultima($documento);
-        if ($versao === null || $versao->getOrigem() === OrigemDaVersao::ParaAssinar) {
+        $versao = $this->versoes->ultimaQueNaoEParaAssinar($documento);
+        if ($versao === null) {
             return null;
         }
         $quadro = $this->conferencia->quadro(SerializacaoDaConferencia::deJson($versao->getAnalise()));
