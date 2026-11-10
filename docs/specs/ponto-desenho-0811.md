@@ -1101,8 +1101,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     houve com a batida ("A batida do trabalho externo saiu da conta." e "voltou para a conta"). Pela /ponto (o
     primário recusando a própria), o aviso flutuante segue o texto do desenho, "Justificativa recusada.". A dica da
     batida desconsiderada pela análise diz como ela volta: com um novo abono ou, no trabalho externo, quando a
-    justificativa volta para análise. Limite até a decisão C5 (f3): a batida externa em análise ainda se desconsidera
-    pela ficha; aí a recusa só recusa, e o "Restaurar" da ficha a devolve com a justificativa recusada;
+    justificativa volta para análise. Com a justificativa em análise, a ficha não ajusta, não desconsidera e não
+    restaura a batida externa (decisão C5): quem decide é a análise. Se a batida já tinha saído da conta por outro
+    ajuste, a recusa só recusa;
   - o colaborador não exclui nem edita a justificativa ligada. A tela mostra "Segue para a análise do gestor." no
     lugar do lápis e da lixeira; quem analisa a própria justificativa vê só "Abonar" e "Recusar";
   - o nome do tipo continua o do sistema, "Trabalho Externo (Home Office / Campo)", como no P45. O subtítulo da

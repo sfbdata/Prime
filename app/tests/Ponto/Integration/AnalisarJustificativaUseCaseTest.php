@@ -273,7 +273,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         self::assertCount(3, $this->ajustesDoColaborador());
     }
 
-    #[TestDox('E12: batida externa que já saiu da conta pela ficha: a recusa só recusa, e voltar para análise não a devolve')]
+    #[TestDox('E12: batida externa que já saiu da conta por outro ajuste (a ficha antes da C5 barrar a em análise): a recusa só recusa, e voltar para análise não a devolve')]
     public function testRecusarTrabalhoExternoJaForaDaConta(): void
     {
         [$batida, $justificativa] = $this->trabalhoExterno();
@@ -795,7 +795,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
             $trilha,
             $gravacao,
             $this->repositorioDasBatidas(),
-            new DesconsiderarBatidaUseCase($trilha, $gravacao, $this->repositorioDasBatidas(), $container->get(AnaliseDaPropriaJustificativa::class)),
+            new DesconsiderarBatidaUseCase($trilha, $gravacao, $this->repositorioDasBatidas(), $container->get(AnaliseDaPropriaJustificativa::class), $container->get(JustificativaPontoRepository::class)),
         );
     }
 
