@@ -32,8 +32,8 @@ assinatura_eletronica:
         pdf_assinado_recusado: 'PDF assinado enviado por {nome} recusado: {motivo, select, sem_assinatura {nenhuma assinatura digital no arquivo} alterada {assinatura que não confere com o conteúdo} prefixo {o arquivo não preserva a versão anterior} sem_assinatura_nova {nenhuma assinatura nova no arquivo} ilegivel {arquivo que não pôde ser lido} sem_cpf {certificado sem CPF} cpf_diferente {CPF do certificado diferente do cadastrado} cadeia_recusada {certificado não confirmado pela cadeia oficial} cadeia_indisponivel {validador de certificados indisponível} other {arquivo não aceito}}'
         # Etapa 8: o selo PAdES do BlueJus no PDF final (spec da etapa 8, E8-4). O `motivo` do não aplicado é o código
         # da falha, só para a auditoria: não entra no texto.
-        pdf_selado: PDF final selado pelo BlueJus.
-        selo_nao_aplicado: PDF final guardado sem o selo do BlueJus.
+        pdf_selado: PDF final selado pelo BlueJus
+        selo_nao_aplicado: PDF final guardado sem o selo do BlueJus
     erro:
         sem_permissao: Você não tem acesso à Assinatura de documentos.
         nao_encontrado: Documento não encontrado.

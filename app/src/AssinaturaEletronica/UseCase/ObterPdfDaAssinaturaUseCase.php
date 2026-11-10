@@ -45,8 +45,9 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * O concluído sem PDF guardado trava o documento antes da vaga: se outro pedido da web já gera o PDF dele,
  * {@see PdfDoDocumentoSendoGerado}, sem ocupar vaga nem gastar cota. Quem gera renova a vaga e a trava do documento a
  * cada pedaço (o TTL não vence com o gs em subprocesso). O PDF é gerado inteiro e guardado antes de entregar (os bytes
- * entregues são os guardados); acima de umas 100 páginas, o primeiro clique pode dar 504 do nginx (120 s), o PHP
- * termina e guarda, e o clique seguinte entrega o guardado.
+ * entregues são os guardados); com o perfil leve e o selo, o primeiro clique pode dar 504 do nginx (120 s) já com 8 a
+ * 16 páginas ({@see \App\AssinaturaEletronica\Service\PdfFinalComSelo}); o PHP termina e guarda, e o clique seguinte
+ * entrega o guardado.
  *
  * Selo (etapa 8, E8-4): a web tenta selar uma vez, nunca como última tentativa. Não configurado ou falha definitiva:
  * guarda sem o selo, como o worker. A {@see FalhaNoSelo} que tenta de novo não guarda nada: marca a cadeia do selo do

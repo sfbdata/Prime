@@ -60,6 +60,17 @@ final class HttpSeladorDePdfTest extends TestCase
         self::assertSame([], $this->log->registros);
     }
 
+    #[TestDox('URL e token com espaços nas pontas, inclusive o avanço de página (\\x0C): limpos como na etapa 6, e o pedido sai')]
+    public function testEspacosDasPontas(): void
+    {
+        $selado = self::PDF . self::ACRESCIMO;
+        $selador = new HttpSeladorDePdf($this->http(self::pdf($selado)), $this->log, "\x0C " . self::URL . "/\n", "\x0C" . self::TOKEN . "\x0C\t");
+
+        self::assertSame($selado, $selador->selar(self::PDF));
+        self::assertSame('http://validador_pdf:8080/v1/selar', $this->visto['url'] ?? null);
+        self::assertSame(['Authorization: Bearer ' . self::TOKEN], $this->visto['opcoes']['normalized_headers']['authorization'] ?? null);
+    }
+
     #[TestDox('200 com o tipo acompanhado de parâmetro (application/pdf; charset) também vale')]
     public function testTipoComParametro(): void
     {

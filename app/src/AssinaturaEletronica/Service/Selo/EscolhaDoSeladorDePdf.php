@@ -26,7 +26,7 @@ final readonly class EscolhaDoSeladorDePdf
 
     public function selador(): SeladorDePdf
     {
-        if (trim($this->url) === '' || trim($this->token) === '') {
+        if (trim($this->url, HttpSeladorDePdf::ESPACOS) === '' || trim($this->token, HttpSeladorDePdf::ESPACOS) === '') {
             return new SeladorDePdfNaoConfigurado();
         }
 

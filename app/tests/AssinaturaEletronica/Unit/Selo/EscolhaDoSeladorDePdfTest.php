@@ -17,7 +17,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 /**
  * Qual selador vale (spec assinatura-documentos-etapa-8, seção 2): sem a URL ou sem o token do validador (vazios = não
  * configurado, etapa 6, seção 2), o nulo, e nenhum pedido sai; com os dois, o HTTP. A fiação no contêiner:
- * {@see \App\Tests\AssinaturaEletronica\Functional\FiacaoDoSeladorDePdfTest}.
+ * {@see \App\Tests\AssinaturaEletronica\Integration\FiacaoDoSeladorDePdfTest}.
  */
 #[CoversClass(EscolhaDoSeladorDePdf::class)]
 #[CoversClass(SeladorDePdfNaoConfigurado::class)]
@@ -36,6 +36,8 @@ final class EscolhaDoSeladorDePdfTest extends TestCase
         yield 'sem a URL' => ['', self::TOKEN];
         yield 'só espaços na URL' => ['   ', self::TOKEN];
         yield 'só espaços no token' => [self::URL, " \n"];
+        yield 'só avanço de página no token, como a etapa 6' => [self::URL, "\x0C"];
+        yield 'só avanço de página na URL' => ["\x0C ", self::TOKEN];
     }
 
     #[DataProvider('semConfiguracao')]
