@@ -37,8 +37,9 @@ final class NomesDasSituacoesDaJustificativa
             . 'registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para voltá-la '
             . 'para análise.',
         'lote.sem_pendente'      => 'Nenhuma justificativa em análise encontrada neste lote.',
-        'reverter.feito_com_batida' => 'Justificativa de %s voltou para análise. Atenção: o registro de ponto criado '
-            . 'automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.',
+        'reverter.feito_com_batida' => 'Justificativa de %s voltou para análise. A batida criada pelo abono antes desta '
+            . 'versão continua na folha: para tirá-la da conta, use Desconsiderar na aba Batidas de Ponto.',
+        'reverter.feito_desconsiderada' => 'Justificativa de %s voltou para análise e a batida do abono foi desconsiderada.',
         // Folha exportada (PDF e XLSX), entre parênteses depois do tipo: no feminino, como a Folha do desenho (D22).
         'folha.recusada'         => 'recusada',
     ];
@@ -65,8 +66,10 @@ final class NomesDasSituacoesDaJustificativa
             . 'registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para '
             . 'revertê-la para pendente.',
         'lote.sem_pendente'      => 'Nenhuma justificativa pendente encontrada neste lote.',
-        'reverter.feito_com_batida' => 'Justificativa de %s revertida para pendente. Atenção: o registro de ponto criado '
-            . 'automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.',
+        'reverter.feito_com_batida' => 'Justificativa de %s revertida para pendente. A batida criada pelo abono antes '
+            . 'desta versão continua na folha: para tirá-la da conta, use Desconsiderar na aba Batidas de Ponto.',
+        'reverter.feito_desconsiderada' => 'Justificativa de %s revertida para pendente e a batida do abono foi '
+            . 'desconsiderada.',
         'folha.recusada'         => 'rejeitada',
     ];
 

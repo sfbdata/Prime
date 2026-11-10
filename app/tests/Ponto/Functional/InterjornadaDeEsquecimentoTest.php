@@ -108,11 +108,12 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
             'horaRegistroEsquecido' => $saida->format('H:i'),
         ]);
         self::assertResponseRedirects();
-        $observacao = $this->em()->getConnection()->fetchOne(
-            'SELECT observacao FROM registro_ponto WHERE user_id = ? AND tenant_id = ? AND tipo = ?',
+        // E10 (D18): a saída do esquecimento lançado entra como inclusão ligada à justificativa, com o motivo do lançamento.
+        $motivo = $this->em()->getConnection()->fetchOne(
+            "SELECT motivo FROM ponto_ajuste WHERE user_id = ? AND tenant_id = ? AND tipo = 'inclusao' AND tipo_marcacao_nova = ? AND justificativa_id IS NOT NULL",
             [$this->user->getId(), $this->tenant->getId(), 'saida'],
         );
-        self::assertSame(SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN, $observacao, 'o lote gravou a saída com a observação do lançamento');
+        self::assertSame(SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN, $motivo, 'o lote gravou a saída com o motivo do lançamento');
 
         $resposta = $this->bater('entrada');
 
@@ -402,11 +403,13 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         $this->em()->flush();
     }
 
+    /** As gravadas em registro_ponto mais as inclusões do esquecimento abonado (E10, D18), contadas no banco. */
     private function batidasDoTipo(string $tipo): int
     {
         return (int) $this->em()->getConnection()->fetchOne(
-            'SELECT COUNT(*) FROM registro_ponto WHERE user_id = ? AND tenant_id = ? AND tipo = ?',
-            [$this->user->getId(), $this->tenant->getId(), $tipo],
+            "SELECT (SELECT COUNT(*) FROM registro_ponto WHERE user_id = :pessoa AND tenant_id = :escritorio AND tipo = :tipo)
+                  + (SELECT COUNT(*) FROM ponto_ajuste WHERE user_id = :pessoa AND tenant_id = :escritorio AND tipo = 'inclusao' AND tipo_marcacao_nova = :tipo)",
+            ['pessoa' => $this->user->getId(), 'escritorio' => $this->tenant->getId(), 'tipo' => $tipo],
         );
     }
 

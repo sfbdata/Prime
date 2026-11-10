@@ -8,12 +8,15 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\AbonoDaEquipeOutput;
 use App\Ponto\DTO\AbonoDoLoteOutput;
+use App\Ponto\DTO\ReversaoDaJustificativaOutput;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\GravacaoDoAjusteDoPonto;
 use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Service\TrilhaDoPonto;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,6 +50,16 @@ use Doctrine\ORM\EntityManagerInterface;
  * justificativa recusada pelo gestor grava "Justificativa recusada". Se o fato falha depois do evento (horário futuro
  * na batida do esquecimento, por exemplo), a transação volta inteira e o evento sai junto.
  *
+ * ## Batida do esquecimento é ajuste (E10, plano-e10-ponto)
+ *
+ * O abono do esquecimento grava uma INCLUSÃO em `ponto_ajuste`, ligada à justificativa ({@see GravacaoDoAjusteDoPonto});
+ * voltar para análise a abonada desconsidera essa inclusão (evento "Ajuste desfeito"), com o registro guardado. O abono
+ * de antes da E10 gravou a batida em `registro_ponto`: ela fica, e a tela avisa como tirá-la da conta (decisão 3).
+ *
+ * Ordem das travas, sem inversão: a linha da justificativa (`FOR UPDATE`), depois a linhagem da pessoa (4210, logo em
+ * seguida, antes de qualquer evento) e por último a trilha do escritório (4203, dentro de cada evento). No "aprovar
+ * todos", as linhas em ordem de id e as pessoas em ordem crescente de id, antes do evento do lote.
+ *
  * ## Contrato com a aba Equipe (E5)
  *
  * `abonarPorId` é a porta estável para abonar UMA justificativa sem a ficha: busca pelo escritório, aplica a regra da
@@ -58,6 +71,9 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class AnalisarJustificativaUseCase
 {
+    /** O motivo da desconsideração da inclusão do esquecimento quando a justificativa volta para análise. */
+    public const MOTIVO_DA_VOLTA_PARA_ANALISE = 'A justificativa do esquecimento voltou para análise: o abono foi desfeito.';
+
     private const EM_ANALISE = 'pendente';
 
     public function __construct(
@@ -66,6 +82,8 @@ final class AnalisarJustificativaUseCase
         private readonly RegistrarBatidaDoEsquecimentoUseCase $registrarBatida,
         private readonly AnaliseDaPropriaJustificativa $analiseDaPropria,
         private readonly TrilhaDoPonto $trilha,
+        private readonly GravacaoDoAjusteDoPonto $gravacao,
+        private readonly RegistroPontoRepository $batidas,
     ) {
     }
 
@@ -96,7 +114,7 @@ final class AnalisarJustificativaUseCase
     }
 
     /**
-     * Abona e, no esquecimento de registro, grava a batida pedida, tudo na mesma transação.
+     * Abona e, no esquecimento de registro, grava a inclusão da batida pedida, tudo na mesma transação.
      *
      * @throws AnaliseDeJustificativaRecusadaException excluída pelo colaborador ou já analisada
      */
@@ -105,7 +123,7 @@ final class AnalisarJustificativaUseCase
         $this->gravarSobATrava($justificativa, $tenant, true, 'analise.so_para_abonar', function () use ($justificativa, $tenant, $analista, $observacao): void {
             $this->marcarAbonada($justificativa, $analista, $observacao);
             $this->registrarNaTrilha(AcaoDaTrilhaDoPonto::JustificativaAbonada, $justificativa, $tenant, $analista);
-            ($this->registrarBatida)($justificativa, $tenant);
+            ($this->registrarBatida)($justificativa, $tenant, $analista);
         });
     }
 
@@ -122,24 +140,30 @@ final class AnalisarJustificativaUseCase
     }
 
     /**
-     * Volta a justificativa analisada para a análise. A batida que o abono do esquecimento criou fica (E10).
+     * Volta a justificativa analisada para a análise. Da abonada, a inclusão que o abono do esquecimento criou sai da
+     * conta (desconsiderada, evento "Ajuste desfeito"), na mesma transação; a batida do abono de antes da E10, gravada
+     * em `registro_ponto`, fica (decisão 3).
      *
-     * @return string a situação de antes, lida sob a trava
+     * @return ReversaoDaJustificativaOutput a situação de antes, lida sob a trava, e o que houve com a batida do abono
      *
      * @throws AnaliseDeJustificativaRecusadaException excluída ou já em análise
      */
-    public function reverter(JustificativaPonto $justificativa, Tenant $tenant, User $analista): string
+    public function reverter(JustificativaPonto $justificativa, Tenant $tenant, User $analista): ReversaoDaJustificativaOutput
     {
-        $anterior = (string) $justificativa->getStatus();
-        $this->gravarSobATrava($justificativa, $tenant, false, 'reverter.ja_esta', function () use ($justificativa, $tenant, $analista, &$anterior): void {
+        $anterior      = (string) $justificativa->getStatus();
+        $batidaDoAbono = null;
+        $this->gravarSobATrava($justificativa, $tenant, false, 'reverter.ja_esta', function () use ($justificativa, $tenant, $analista, &$anterior, &$batidaDoAbono): void {
             $justificativa->setStatus('pendente');
             $justificativa->setAnalisadoPor(null);
             $justificativa->setDataAnalise(null);
             $justificativa->setObservacaoAnalise(null);
             $this->registrarNaTrilha(AcaoDaTrilhaDoPonto::JustificativaReaberta, $justificativa, $tenant, $analista, ['situacao_anterior' => $anterior]);
+            if ($anterior === 'abonado') {
+                $batidaDoAbono = $this->desfazerAInclusaoDoAbono($justificativa, $analista);
+            }
         }, $anterior);
 
-        return $anterior;
+        return new ReversaoDaJustificativaOutput((string) $anterior, $batidaDoAbono);
     }
 
     /**
@@ -161,12 +185,16 @@ final class AnalisarJustificativaUseCase
                 }
             }
 
+            // A linhagem de cada pessoa (4210), em ordem crescente de id, antes do evento do lote (4203 vem por último).
+            foreach ($this->pessoasEmOrdemDeId($emAnalise) as $pessoa) {
+                $this->gravacao->travar($pessoa);
+            }
             if ($emAnalise !== []) {
                 $this->trilha->registrar($tenant, $analista, AcaoDaTrilhaDoPonto::AbonoEmLote->value, DetalheDaTrilhaDoPonto::doLote($emAnalise));
             }
             foreach ($emAnalise as $justificativa) {
                 $this->marcarAbonada($justificativa, $analista, '');
-                ($this->registrarBatida)($justificativa, $tenant);
+                ($this->registrarBatida)($justificativa, $tenant, $analista);
                 // Por item, como antes: a conferência da batida já registrada (R1) do próximo enxerga esta.
                 $this->em->flush();
             }
@@ -223,6 +251,8 @@ final class AnalisarJustificativaUseCase
     {
         $falha = $this->em->wrapInTransaction(function () use ($justificativa, $tenant, $querEmAnalise, $recusa, $gravar, &$anterior): ?AnaliseDeJustificativaRecusadaException {
             $status = $this->repositorio->statusNoBancoTravadoPorId((int) $justificativa->getId(), $tenant);
+            // E10: a linhagem da pessoa logo depois da linha, antes de qualquer evento da trilha (ordem sem inversão).
+            $this->gravacao->travar(self::pessoaDa($justificativa));
             if ($status === null) {
                 return AnaliseDeJustificativaRecusadaException::excluida();
             }
@@ -309,6 +339,34 @@ final class AnalisarJustificativaUseCase
         return $situacoes;
     }
 
+    /**
+     * A inclusão que o abono deste esquecimento criou sai da conta, ligada à justificativa e desfazendo a inclusão
+     * (evento "Ajuste desfeito"). Roda sob as travas da justificativa e da pessoa.
+     *
+     * @return string|null o que aconteceu com a batida do abono ({@see ReversaoDaJustificativaOutput}); null quando
+     *                     não há o que mencionar (não é esquecimento, ou a inclusão já estava fora da conta)
+     */
+    private function desfazerAInclusaoDoAbono(JustificativaPonto $justificativa, User $analista): ?string
+    {
+        $inclusao = $this->batidas->inclusaoDoEsquecimento($justificativa);
+        if ($inclusao === null) {
+            // Sem inclusão: o abono de antes da E10 gravou a batida em registro_ponto, e ela fica (decisão 3).
+            return $justificativa->getTipo() === 'esquecimento_registro' ? ReversaoDaJustificativaOutput::BATIDA_DE_ANTES : null;
+        }
+        if ($inclusao->desconsiderada()) {
+            return null;
+        }
+
+        $this->gravacao->desconsiderar($inclusao, self::MOTIVO_DA_VOLTA_PARA_ANALISE, $analista, $justificativa, $inclusao->raizInclusao);
+
+        return ReversaoDaJustificativaOutput::BATIDA_DESCONSIDERADA;
+    }
+
+    private static function pessoaDa(JustificativaPonto $justificativa): User
+    {
+        return $justificativa->getUser() ?? throw new \LogicException('Justificativa sem pessoa.');
+    }
+
     /** @param array<string, mixed> $extra */
     private function registrarNaTrilha(AcaoDaTrilhaDoPonto $acao, JustificativaPonto $justificativa, Tenant $tenant, User $analista, array $extra = []): void
     {
@@ -323,6 +381,25 @@ final class AnalisarJustificativaUseCase
         if ($observacao !== '') {
             $justificativa->setObservacaoAnalise($observacao);
         }
+    }
+
+    /**
+     * As pessoas das justificativas, uma vez cada, em ordem crescente de id (a ordem da trava 4210 entre pessoas).
+     *
+     * @param list<JustificativaPonto> $justificativas
+     *
+     * @return list<User>
+     */
+    private function pessoasEmOrdemDeId(array $justificativas): array
+    {
+        $pessoas = [];
+        foreach ($justificativas as $justificativa) {
+            $pessoa = self::pessoaDa($justificativa);
+            $pessoas[(int) $pessoa->getId()] = $pessoa;
+        }
+        ksort($pessoas);
+
+        return array_values($pessoas);
     }
 
     /**

@@ -34,7 +34,33 @@ final class NomesDasSituacoesDaJustificativaTest extends TestCase
         self::assertSame(NomesDasSituacoesDaJustificativa::texto('edicao.ja_analisada'), \App\Ponto\Exception\JustificativaJaAnalisadaException::MENSAGEM);
         self::assertSame('Nenhuma justificativa em análise encontrada neste lote.', NomesDasSituacoesDaJustificativa::texto('lote.sem_pendente'));
         self::assertSame('recusada', NomesDasSituacoesDaJustificativa::texto('folha.recusada'), 'a folha usa o feminino (D22)');
-        self::assertStringStartsWith('Justificativa de 03/11/2026 voltou para análise. Atenção:', NomesDasSituacoesDaJustificativa::texto('reverter.feito_com_batida', '03/11/2026'));
+        self::assertSame(
+            'Justificativa de 03/11/2026 voltou para análise. A batida criada pelo abono antes desta versão continua na folha: '
+            . 'para tirá-la da conta, use Desconsiderar na aba Batidas de Ponto.',
+            NomesDasSituacoesDaJustificativa::texto('reverter.feito_com_batida', '03/11/2026'),
+        );
+        self::assertSame(
+            'Justificativa de 03/11/2026 voltou para análise e a batida do abono foi desconsiderada.',
+            NomesDasSituacoesDaJustificativa::texto('reverter.feito_desconsiderada', '03/11/2026'),
+        );
+    }
+
+    #[TestDox('E10: de antes, a volta do esquecimento abonado usa "revertida para pendente" e o mesmo caminho para tirar a batida')]
+    public function testDeAntesDaVoltaDoEsquecimento(): void
+    {
+        self::assertStringStartsWith('Justificativa de %s revertida para pendente. A batida criada pelo abono', NomesDasSituacoesDaJustificativa::DE_ANTES['reverter.feito_com_batida']);
+        self::assertStringEndsWith('use Desconsiderar na aba Batidas de Ponto.', NomesDasSituacoesDaJustificativa::DE_ANTES['reverter.feito_com_batida']);
+        self::assertSame('Justificativa de %s revertida para pendente e a batida do abono foi desconsiderada.', NomesDasSituacoesDaJustificativa::DE_ANTES['reverter.feito_desconsiderada']);
+    }
+
+    #[TestDox('Sem travessão em nenhum dos dois conjuntos')]
+    public function testSemTravessaoNosDoisConjuntos(): void
+    {
+        foreach ([NomesDasSituacoesDaJustificativa::DO_DESENHO, NomesDasSituacoesDaJustificativa::DE_ANTES] as $conjunto) {
+            foreach ($conjunto as $chave => $texto) {
+                self::assertDoesNotMatchRegularExpression('/[—–]/u', $texto, $chave);
+            }
+        }
     }
 
     #[TestDox('De antes: a chave devolve os textos antigos da ficha ("Rejeitar", "Motivo da rejeição")')]

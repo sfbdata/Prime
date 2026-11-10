@@ -11,7 +11,6 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JustificativaPonto;
-use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -234,13 +233,22 @@ final class BatidaEmHorarioFuturoControllerTest extends JusPrimeWebTestCase
         return array_map(static fn (JustificativaPonto $j): array => [$j->getData()->format('Y-m-d'), $j->getStatus()], $lista);
     }
 
-    /** @return list<string> */
+    /**
+     * As batidas do colaborador contadas no banco: as gravadas em `registro_ponto` e as inclusões do esquecimento
+     * abonado em `ponto_ajuste` (E10, D18), em ordem de data e hora.
+     *
+     * @return list<string>
+     */
     private function batidas(): array
     {
-        $lista = $this->emLimpo()->getRepository(RegistroPonto::class)
-            ->findBy(['user' => $this->colaborador->getId()], ['dataHora' => 'ASC']);
-
-        return array_map(static fn (RegistroPonto $r): string => (string) $r->getDataHora()?->format('Y-m-d H:i'), $lista);
+        return array_map('strval', $this->emLimpo()->getConnection()->fetchFirstColumn(
+            "SELECT to_char(quando, 'YYYY-MM-DD HH24:MI') FROM (
+                 SELECT data_hora AS quando FROM registro_ponto WHERE user_id = :pessoa
+                 UNION ALL
+                 SELECT data_hora_nova FROM ponto_ajuste WHERE user_id = :pessoa AND tipo = 'inclusao'
+             ) batidas ORDER BY quando",
+            ['pessoa' => $this->colaborador->getId()],
+        ));
     }
 
     private function emLimpo(): EntityManagerInterface

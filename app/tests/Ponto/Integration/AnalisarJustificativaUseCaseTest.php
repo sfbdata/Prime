@@ -6,15 +6,19 @@ namespace App\Tests\Ponto\Integration;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\DTO\ReversaoDaJustificativaOutput;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
 use App\Ponto\Exception\BatidaEmHorarioFuturoException;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Repository\TrilhaDoPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
+use App\Ponto\Service\GravacaoDoAjusteDoPonto;
+use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Service\TrilhaDoPonto;
 use App\Ponto\UseCase\AnalisarJustificativaUseCase;
@@ -32,6 +36,10 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
  * A corrida da E3 (docs/specs/ponto-desenho-0811.md): o gestor leu a justificativa, o colaborador a excluiu e comitou,
  * e só então a análise grava. A exclusão comitada é simulada com um DELETE direto na mesma conexão, depois de a
  * entidade estar carregada no EntityManager, como a ficha a deixa: a releitura sob a trava não pode confiar nela.
+ *
+ * E10 (D18): a batida do esquecimento abonado é uma INCLUSÃO em `ponto_ajuste` ligada à justificativa (contada no
+ * banco, não pela folha); voltar a abonada para análise a desconsidera. A ordem das travas é conferida em `pg_locks`:
+ * a linhagem da pessoa (4210) já está segura quando a trilha trava o escritório (4203).
  */
 #[CoversClass(AnalisarJustificativaUseCase::class)]
 final class AnalisarJustificativaUseCaseTest extends KernelTestCase
@@ -67,7 +75,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
 
         self::assertSame(AnaliseDeJustificativaRecusadaException::EXCLUIDA, $recusa->motivo);
         self::assertSame('Esta justificativa foi excluída pelo colaborador.', $recusa->getMessage());
-        self::assertSame(0, $this->batidasDoColaborador(), 'nenhuma batida para um pedido que não existe');
+        self::assertSame(0, $this->inclusoesDoColaborador(), 'nenhuma batida para um pedido que não existe');
         self::assertTrue($this->em->isOpen(), 'a recusa não fecha o EntityManager');
     }
 
@@ -96,10 +104,10 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
 
         self::assertSame(AnaliseDeJustificativaRecusadaException::SITUACAO_MUDOU, $recusa->motivo);
         self::assertSame(NomesDasSituacoesDaJustificativa::texto('analise.so_para_abonar'), $recusa->getMessage());
-        self::assertSame(0, $this->batidasDoColaborador());
+        self::assertSame(0, $this->inclusoesDoColaborador());
     }
 
-    #[TestDox('Caminho feliz: o abono e a batida do esquecimento comitam juntos')]
+    #[TestDox('Caminho feliz: o abono e a inclusão do esquecimento (ligada à justificativa, autor quem abonou) comitam juntos; registro_ponto não ganha linha')]
     public function testAbonarGravaAbonoEBatida(): void
     {
         $justificativa = $this->esquecimento('08:00');
@@ -107,7 +115,12 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         $this->analisar->abonar($justificativa, $this->tenant, $this->gestor, 'Conferido');
 
         self::assertSame('abonado', $this->statusNoBanco($justificativa));
-        self::assertSame(1, $this->batidasDoColaborador());
+        self::assertSame(1, $this->inclusoesDoColaborador());
+        self::assertSame(
+            [['2026-03-10 08:00:00', 'entrada', (int) $justificativa->getId(), (int) $this->gestor->getId()]],
+            $this->inclusoesDaJustificativa($justificativa),
+        );
+        self::assertSame(0, $this->registrosDoColaborador(), 'a batida do esquecimento não entra em registro_ponto (D18)');
         self::assertSame(['justificativa_abonada', 'batida_do_esquecimento'], $this->eventosDaTrilha(), 'os eventos comitam com o abono');
     }
 
@@ -125,7 +138,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
 
         self::assertSame([], $this->eventosDaTrilha(), 'o "abonada" gravado antes da batida voltou com a transação');
         self::assertSame('pendente', $this->statusNoBanco($justificativa));
-        self::assertSame(0, $this->batidasDoColaborador());
+        self::assertSame(0, $this->inclusoesDoColaborador());
     }
 
     #[TestDox('Trilha E9, atomicidade: a trilha falha ao gravar o evento: o abono e a batida não ficam')]
@@ -142,8 +155,189 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         }
 
         self::assertSame('pendente', $this->statusNoBanco($justificativa), 'o abono voltou com a transação');
-        self::assertSame(0, $this->batidasDoColaborador());
+        self::assertSame(0, $this->inclusoesDoColaborador());
         self::assertSame([], $this->eventosDaTrilha());
+    }
+
+    #[TestDox('E10, atomicidade: a trilha falha no evento da INCLUSÃO (depois do "abonada"): nem o abono, nem a inclusão, nem o evento ficam')]
+    public function testTrilhaQueFalhaNaInclusaoNaoDeixaNada(): void
+    {
+        $justificativa = $this->esquecimento('08:00');
+        $container = static::getContainer();
+        $falha = new class ($container->get(ManagerRegistry::class)) extends TrilhaDoPontoRepository {
+            public function inserir(array $linha): void
+            {
+                if ($linha['acao'] === 'batida_do_esquecimento') {
+                    throw new \RuntimeException('Falha simulada na trilha da inclusão.');
+                }
+                parent::inserir($linha);
+            }
+        };
+        $trilhaQueFalha = new TrilhaDoPonto($falha, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage());
+        $analisar = $this->analisarCom($trilhaQueFalha);
+
+        try {
+            $analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
+            self::fail('A falha da trilha na inclusão deveria subir.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Falha simulada na trilha da inclusão.', $e->getMessage());
+        }
+
+        self::assertSame('pendente', $this->statusNoBanco($justificativa), 'o abono voltou com a transação');
+        self::assertSame(0, $this->inclusoesDoColaborador(), 'a inclusão voltou com a transação');
+        self::assertSame([], $this->eventosDaTrilha(), 'o "abonada", gravado antes, voltou junto');
+    }
+
+    #[TestDox('E10: voltar para análise a abonada desconsidera a inclusão do abono (ligada à justificativa, desfazendo a inclusão), com a trilha "ajuste_desfeito" e a inclusão intacta')]
+    public function testReverterAbonadaDesconsideraAInclusao(): void
+    {
+        $justificativa = $this->esquecimento('08:00');
+        $this->analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
+        $inclusao = $this->inclusoesDaJustificativa($justificativa);
+
+        $reversao = $this->analisar->reverter($justificativa, $this->tenant, $this->gestor);
+
+        self::assertSame('abonado', $reversao->situacaoAnterior);
+        self::assertSame(ReversaoDaJustificativaOutput::BATIDA_DESCONSIDERADA, $reversao->batidaDoAbono);
+        self::assertSame('reverter.feito_desconsiderada', $reversao->chaveDoTexto());
+        self::assertFalse($reversao->pedeAtencao());
+        self::assertSame('pendente', $this->statusNoBanco($justificativa));
+        self::assertSame($inclusao, $this->inclusoesDaJustificativa($justificativa), 'a inclusão fica como foi gravada');
+
+        $ajustes = $this->ajustesDoColaborador();
+        self::assertCount(2, $ajustes);
+        [$raiz, $desconsideracao] = $ajustes;
+        self::assertSame('inclusao', $raiz['tipo']);
+        self::assertSame('desconsideracao', $desconsideracao['tipo']);
+        self::assertSame($raiz['id'], $desconsideracao['inclusao_id'], 'presa à linhagem da inclusão');
+        self::assertSame($raiz['id'], $desconsideracao['anterior_id']);
+        self::assertSame($raiz['id'], $desconsideracao['desfaz_id'], 'desfaz a inclusão do abono');
+        self::assertSame((int) $justificativa->getId(), $desconsideracao['justificativa_id'], 'ligada à análise que a fez');
+        self::assertSame((int) $this->gestor->getId(), $desconsideracao['autor_id']);
+        self::assertSame(AnalisarJustificativaUseCase::MOTIVO_DA_VOLTA_PARA_ANALISE, $desconsideracao['motivo']);
+        self::assertSame(['2026-03-10 08:00:00', 'entrada'], [$desconsideracao['data_hora_anterior'], $desconsideracao['tipo_marcacao_anterior']]);
+        self::assertTrue($this->repositorioDasBatidas()->inclusaoDoEsquecimento($justificativa)?->desconsiderada(), 'a batida do abono está fora da conta');
+        self::assertSame(0, $this->registrosDoColaborador());
+        self::assertSame(
+            ['justificativa_abonada', 'batida_do_esquecimento', 'justificativa_reaberta', 'ajuste_desfeito'],
+            $this->eventosDaTrilha(),
+        );
+    }
+
+    #[TestDox('E10: abonar de novo depois de voltar grava outra inclusão, e a nova volta desconsidera a mais nova')]
+    public function testAbonarDeNovoEVoltarDesconsideraAInclusaoMaisNova(): void
+    {
+        $justificativa = $this->esquecimento('08:00');
+        $this->analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
+        $this->analisar->reverter($justificativa, $this->tenant, $this->gestor);
+        $this->analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
+
+        $reversao = $this->analisar->reverter($justificativa, $this->tenant, $this->gestor);
+
+        self::assertSame(ReversaoDaJustificativaOutput::BATIDA_DESCONSIDERADA, $reversao->batidaDoAbono);
+        $tipos = array_column($this->ajustesDoColaborador(), 'tipo');
+        self::assertSame(['inclusao', 'desconsideracao', 'inclusao', 'desconsideracao'], $tipos);
+        $ajustes = $this->ajustesDoColaborador();
+        self::assertSame($ajustes[2]['id'], $ajustes[3]['desfaz_id'], 'a segunda volta desfaz a segunda inclusão');
+    }
+
+    #[TestDox('E10, decisão 3: abono de antes da E10 (batida em registro_ponto, sem inclusão): a batida fica, nada vai para ponto_ajuste e a tela avisa')]
+    public function testReverterAbonoDeAntesDaE10MantemABatida(): void
+    {
+        $justificativa = $this->esquecimento('08:00', 'abonado');
+        $antiga = new RegistroPonto();
+        $antiga->setUser($this->colaborador);
+        $antiga->setTenant($this->tenant);
+        $antiga->setTipo('entrada');
+        $antiga->setDataHora(new \DateTime('2026-03-10 08:00:00'));
+        $antiga->setObservacao(RegistrarBatidaDoEsquecimentoUseCase::OBSERVACAO);
+        $this->em->persist($antiga);
+        $this->em->flush();
+
+        $reversao = $this->analisar->reverter($justificativa, $this->tenant, $this->gestor);
+
+        self::assertSame(ReversaoDaJustificativaOutput::BATIDA_DE_ANTES, $reversao->batidaDoAbono);
+        self::assertSame('reverter.feito_com_batida', $reversao->chaveDoTexto());
+        self::assertTrue($reversao->pedeAtencao());
+        self::assertSame('pendente', $this->statusNoBanco($justificativa));
+        self::assertSame(1, $this->registrosDoColaborador(), 'a batida de antes da E10 fica');
+        self::assertSame([], $this->ajustesDoColaborador());
+        self::assertSame(['justificativa_reaberta'], $this->eventosDaTrilha());
+    }
+
+    #[TestDox('E10: a inclusão do abono que o gestor já desconsiderou não ganha outra desconsideração; a volta só reabre')]
+    public function testReverterComInclusaoJaForaDaContaSoReabre(): void
+    {
+        $justificativa = $this->esquecimento('08:00');
+        $this->analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
+        $gravacao = static::getContainer()->get(GravacaoDoAjusteDoPonto::class);
+        $this->em->wrapInTransaction(function () use ($gravacao, $justificativa): void {
+            $gravacao->travar($this->colaborador);
+            $alvo = $this->repositorioDasBatidas()->inclusaoDoEsquecimento($justificativa);
+            self::assertNotNull($alvo);
+            $gravacao->desconsiderar($alvo, 'Batida errada.', $this->gestor, null, null);
+        });
+
+        $reversao = $this->analisar->reverter($justificativa, $this->tenant, $this->gestor);
+
+        self::assertNull($reversao->batidaDoAbono);
+        self::assertSame('reverter.feito', $reversao->chaveDoTexto());
+        self::assertSame(['inclusao', 'desconsideracao'], array_column($this->ajustesDoColaborador(), 'tipo'));
+    }
+
+    #[TestDox('Voltar para análise uma abonada que não é esquecimento não mexe na folha')]
+    public function testReverterAbonadaSemEsquecimento(): void
+    {
+        $justificativa = $this->esquecimento('08:00', 'abonado');
+        $justificativa->setTipo('atestado_medico');
+        $justificativa->setTipoRegistroEsquecido(null);
+        $justificativa->setHoraRegistroEsquecido(null);
+        $this->em->flush();
+
+        $reversao = $this->analisar->reverter($justificativa, $this->tenant, $this->gestor);
+
+        self::assertNull($reversao->batidaDoAbono);
+        self::assertSame('reverter.feito', $reversao->chaveDoTexto());
+        self::assertSame([], $this->ajustesDoColaborador());
+    }
+
+    #[TestDox('E10, ordem das travas: abonar, voltar para análise e "aprovar todos" seguram a linhagem da pessoa (4210) antes de a trilha travar o escritório (4203)')]
+    public function testTravaDaPessoaVemAntesDaTrilha(): void
+    {
+        $container = static::getContainer();
+        $pessoaId  = (int) $this->colaborador->getId();
+        $espiao    = new class ($container->get(ManagerRegistry::class), $pessoaId) extends TrilhaDoPontoRepository {
+            /** @var list<bool> a trava da pessoa estava segura a cada trava da trilha */
+            public array $comAPessoa = [];
+
+            public function __construct(ManagerRegistry $registry, private readonly int $pessoaId)
+            {
+                parent::__construct($registry);
+            }
+
+            public function travar(int $tenantId): void
+            {
+                $this->comAPessoa[] = (int) $this->getEntityManager()->getConnection()->fetchOne(
+                    "SELECT COUNT(*) FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ? AND objsubid = 2 AND pid = pg_backend_pid() AND granted",
+                    [GravacaoDoAjusteDoPonto::CLASSE_TRAVA, $this->pessoaId],
+                ) > 0;
+                parent::travar($tenantId);
+            }
+        };
+        $analisar = $this->analisarCom(new TrilhaDoPonto($espiao, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage()));
+
+        $sozinha = $this->esquecimento('08:00');
+        $analisar->abonar($sozinha, $this->tenant, $this->gestor, '');
+        $analisar->reverter($sozinha, $this->tenant, $this->gestor);
+        $lote = [$this->esquecimento('12:00', 'pendente', 'repouso'), $this->esquecimento('18:00', 'pendente', 'saida')];
+        $analisar->abonarLote($lote, $this->tenant, $this->gestor);
+
+        self::assertNotSame([], $espiao->comAPessoa);
+        self::assertNotContains(false, $espiao->comAPessoa, 'nenhum evento da trilha travou o escritório antes da pessoa');
+        self::assertSame(
+            ['justificativa_abonada', 'batida_do_esquecimento', 'justificativa_reaberta', 'ajuste_desfeito', 'abono_em_lote', 'batida_do_esquecimento', 'batida_do_esquecimento'],
+            $this->eventosDaTrilha(),
+        );
     }
 
     #[TestDox('"Aprovar todos": a excluída fica de fora e entra no aviso; as outras são abonadas com a batida delas')]
@@ -159,7 +353,8 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         self::assertSame(1, $abono->excluidas);
         self::assertSame(AnaliseDeJustificativaRecusadaException::MENSAGEM_EXCLUIDA, $abono->avisoDasExcluidas());
         self::assertSame('abonado', $this->statusNoBanco($fica));
-        self::assertSame(1, $this->batidasDoColaborador(), 'só a batida da que continuou');
+        self::assertSame(1, $this->inclusoesDoColaborador(), 'só a inclusão da que continuou');
+        self::assertCount(1, $this->inclusoesDaJustificativa($fica));
     }
 
     #[TestDox('abonarPorId (contrato da E5): abona pelo id no escritório e devolve a abonada, com a batida do esquecimento')]
@@ -171,7 +366,7 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
 
         self::assertSame($justificativa, $abonada);
         self::assertSame('abonado', $this->statusNoBanco($justificativa));
-        self::assertSame(1, $this->batidasDoColaborador());
+        self::assertCount(1, $this->inclusoesDaJustificativa($justificativa));
     }
 
     #[TestDox('abonarPorId: id de outro escritório é "não encontrada" e não muda nada lá')]
@@ -218,7 +413,8 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         self::assertSame(AnaliseDeJustificativaRecusadaException::SITUACAO_MUDOU, $foraDeAnalise->motivo);
         self::assertSame(AnaliseDeJustificativaRecusadaException::BATIDA_JA_REGISTRADA, $naBatida->motivo);
         self::assertSame('pendente', $this->statusNoBanco($jaBatida));
-        self::assertSame(1, $this->batidasDoColaborador(), 'só a batida que já existia');
+        self::assertSame(1, $this->registrosDoColaborador(), 'só a batida que já existia');
+        self::assertSame(0, $this->inclusoesDoColaborador());
     }
 
     #[TestDox('abonarDaEquipe (E5, desenho L818): abona as da equipe com a batida de cada esquecimento e UM "abono_em_lote" no mesmo COMMIT')]
@@ -314,6 +510,8 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
             $container->get(RegistrarBatidaDoEsquecimentoUseCase::class),
             $container->get(AnaliseDaPropriaJustificativa::class),
             new TrilhaDoPonto($falha, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage()),
+            $container->get(GravacaoDoAjusteDoPonto::class),
+            $container->get(RegistroPontoRepository::class),
         );
     }
 
@@ -376,11 +574,72 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         ));
     }
 
-    private function batidasDoColaborador(): int
+    /** O que a pessoa bateu (e as batidas do abono de antes da E10). */
+    private function registrosDoColaborador(): int
     {
         return (int) $this->em->getConnection()->fetchOne(
             'SELECT COUNT(*) FROM registro_ponto WHERE user_id = ? AND tenant_id = ?',
             [$this->colaborador->getId(), $this->tenant->getId()],
+        );
+    }
+
+    /** As inclusões ligadas a uma justificativa (o esquecimento abonado, E10), contadas no banco. */
+    private function inclusoesDoColaborador(): int
+    {
+        return (int) $this->em->getConnection()->fetchOne(
+            "SELECT COUNT(*) FROM ponto_ajuste WHERE user_id = ? AND tenant_id = ? AND tipo = 'inclusao' AND justificativa_id IS NOT NULL",
+            [$this->colaborador->getId(), $this->tenant->getId()],
+        );
+    }
+
+    /** @return list<array{string, string, int, int}> data e hora, tipo, justificativa e autor de cada inclusão dela */
+    private function inclusoesDaJustificativa(JustificativaPonto $justificativa): array
+    {
+        $linhas = $this->em->getConnection()->fetchAllAssociative(
+            "SELECT data_hora_nova, tipo_marcacao_nova, justificativa_id, autor_id FROM ponto_ajuste WHERE tipo = 'inclusao' AND justificativa_id = ? ORDER BY id",
+            [$justificativa->getId()],
+        );
+
+        return array_map(static fn (array $l): array => [(string) $l['data_hora_nova'], (string) $l['tipo_marcacao_nova'], (int) $l['justificativa_id'], (int) $l['autor_id']], $linhas);
+    }
+
+    /** @return list<array<string, mixed>> os ajustes do colaborador no escritório, em ordem de gravação */
+    private function ajustesDoColaborador(): array
+    {
+        $linhas = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT id, tipo, inclusao_id, anterior_id, desfaz_id, justificativa_id, autor_id, motivo, tipo_marcacao_anterior, data_hora_anterior'
+            . ' FROM ponto_ajuste WHERE user_id = ? AND tenant_id = ? ORDER BY id',
+            [$this->colaborador->getId(), $this->tenant->getId()],
+        );
+
+        return array_map(static function (array $l): array {
+            foreach (['id', 'inclusao_id', 'anterior_id', 'desfaz_id', 'justificativa_id', 'autor_id'] as $coluna) {
+                $l[$coluna] = $l[$coluna] === null ? null : (int) $l[$coluna];
+            }
+
+            return $l;
+        }, $linhas);
+    }
+
+    private function repositorioDasBatidas(): RegistroPontoRepository
+    {
+        return static::getContainer()->get(RegistroPontoRepository::class);
+    }
+
+    /** A análise com outra trilha em tudo: nos eventos da análise e nos da gravação do ajuste. */
+    private function analisarCom(TrilhaDoPonto $trilha): AnalisarJustificativaUseCase
+    {
+        $container = static::getContainer();
+        $gravacao  = new GravacaoDoAjusteDoPonto($this->em, $trilha, $container->get(HorarioFuturoDaBatida::class), $container->get(ClockInterface::class));
+
+        return new AnalisarJustificativaUseCase(
+            $this->em,
+            $container->get(JustificativaPontoRepository::class),
+            new RegistrarBatidaDoEsquecimentoUseCase($container->get(HorarioFuturoDaBatida::class), $container->get(BatidaJaRegistrada::class), $gravacao, $trilha),
+            $container->get(AnaliseDaPropriaJustificativa::class),
+            $trilha,
+            $gravacao,
+            $this->repositorioDasBatidas(),
         );
     }
 

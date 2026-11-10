@@ -209,7 +209,7 @@ final class TrilhaDoPontoEventosTest extends JusPrimeWebTestCase
         self::assertSame([(int) $gestor->getId(), (int) $gestor->getId()], array_column($eventos, 'autor_id'));
     }
 
-    #[TestDox('Lançar esquecimento já abonado: cada batida criada entra como "batida_do_esquecimento", como na análise')]
+    #[TestDox('Lançar esquecimento já abonado: cada batida criada (inclusão ligada à justificativa, E10) entra como "batida_do_esquecimento", como na análise')]
     public function testLancamentoDeEsquecimentoGravaAsBatidas(): void
     {
         $gestor = $this->pessoa('gestor');
@@ -235,7 +235,15 @@ final class TrilhaDoPontoEventosTest extends JusPrimeWebTestCase
         self::assertSame([$dias[0]->format('Y-m-d') . ' 08:00:00', $dias[1]->format('Y-m-d') . ' 08:00:00'], array_column($batidas, 'data_hora'));
         self::assertSame(['entrada', 'entrada'], array_column($batidas, 'tipo'));
         self::assertSame(array_fill(0, 3, (int) $gestor->getId()), array_column($eventos, 'autor_id'));
-        self::assertSame(2, (int) $this->emSemFiltro()->getConnection()->fetchOne(
+        // E10 (D18): cada batida é uma inclusão ligada à justificativa, e o evento aponta o ajuste; registro_ponto fica vazio.
+        $conexao = $this->emSemFiltro()->getConnection();
+        $inclusoes = $conexao->fetchAllAssociative(
+            "SELECT id, justificativa_id FROM ponto_ajuste WHERE user_id = ? AND tenant_id = ? AND tipo = 'inclusao' ORDER BY id",
+            [$colaborador->getId(), $this->escritorio->getId()],
+        );
+        self::assertSame(array_map('intval', array_column($inclusoes, 'id')), array_column($batidas, 'ajuste_id'));
+        self::assertSame($eventos[0]['detalhe']['justificativa_ids'], array_map('intval', array_column($inclusoes, 'justificativa_id')));
+        self::assertSame(0, (int) $conexao->fetchOne(
             'SELECT COUNT(*) FROM registro_ponto WHERE user_id = ? AND tenant_id = ?',
             [$colaborador->getId(), $this->escritorio->getId()],
         ));
