@@ -42,7 +42,9 @@
     // abriu, o PDF recebido e o endereço dele no quadro.
     const ver = { aborto: null, origem: null, pdf: null, endereco: '' };
 
-    // Tons do aviso da E8: `gerando` azul (L718), `ok` verde (L727, o padrão) e `erro` vermelho (L728).
+    // Tons do aviso da E8: `gerando` azul (L718), `ok` verde (L727, o padrão) e `erro` vermelho (L728). Toda tela que
+    // inclui o ponto/_folha_table.html.twig carrega também o js/ponto-aviso-flutuante.js (a /ponto e a ficha do gestor,
+    // com teste); sem ele não há aviso.
     function avisar(texto, tom) {
         if (window.PontoAvisoFlutuante) {
             window.PontoAvisoFlutuante.mostrar(texto, tom || 'ok');

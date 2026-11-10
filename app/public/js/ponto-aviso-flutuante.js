@@ -13,7 +13,8 @@
  *
  * Na carga, mostra o aviso que o servidor deixou para a tela (`data-aviso-na-carga` e o tom em
  * `data-aviso-na-carga-tom`, os flashes de tipo próprio que o `PontoController::index` lê antes do layout: "Enviado para
- * aprovação do gestor.", "Justificativa abonada.", "Justificativa recusada." e o abono em lote da Equipe).
+ * aprovação do gestor.", "Justificativa abonada.", "Justificativa recusada.", o abono em lote da Equipe e "Folha
+ * assinada." do aceite mensal da E16).
  *
  * Com a tela cheia aberta (js/ponto-tela-cheia.js), o aviso espera ela fechar e aparece depois. Continua um por vez: o
  * que chega enquanto outro espera fica no lugar dele.

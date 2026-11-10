@@ -1367,8 +1367,8 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, a folha em im
       gravada neste escritório (quem saiu antes de 19/10/2026 não tem a saída gravada). Re-revisão de 10/11/2026.
   29. Limite do PDF da folha (o desenho é omisso; convenção do sistema): 10 pedidos por minuto por pessoa (limitador
       `ponto_folha_pdf`), porque cada pedido desenha o PDF em imagem no servidor e grava uma emissão. Passou do limite:
-      429 com "Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.", a frase do servidor do
-      comprovante (`ComprovanteDoPontoController::MUITOS_PEDIDOS`) e do .zip da pasta; o "Baixar PDF" mostra a mesma
+      429 com "Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.", no molde da frase do
+      servidor do comprovante (`ComprovanteDoPontoController::MUITOS_PEDIDOS`) e do .zip da pasta; o "Baixar PDF" mostra a mesma
       frase no aviso flutuante vermelho. Conferência de 10/11/2026.
   30. Sem o segredo, o cartão "Aceite mensal da folha" não aparece na aba Configurações, como o do comprovante e a aba
       Comprovantes (`ObterConfiguracoesDoPontoUseCase`): sem o segredo não há aceite para ligar.

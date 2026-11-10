@@ -20,8 +20,8 @@ use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 /**
  * O envio da janela "Assinar folha" (spec ponto-desenho-0811, E16, P22 e P33; decisões 1, 15 e 19): POST em
  * `/ponto/folha/assinar` com o token `ponto_folha_assinar`, só a própria pessoa, com o módulo Ponto, no escritório da
- * sessão. Volta para a /ponto na competência com o aviso do topo, como as janelas da E4: "Folha assinada." ou a frase
- * da recusa, sem gravar nada.
+ * sessão. Volta para a /ponto na competência, como as janelas da E4: "Folha assinada." no aviso flutuante
+ * (`PontoController::FLASH_AVISO_FLUTUANTE`, decisão 15) ou a frase da recusa no aviso do topo, sem gravar nada.
  */
 #[Group('ponto')]
 #[CoversClass(AceiteDaFolhaController::class)]

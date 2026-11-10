@@ -121,7 +121,7 @@ final class LinhasDaFolhaImpressaTest extends TestCase
     #[TestDox('Dia em andamento (hoje sem saída, E17): o "Saldo mês" é o acumulado até ontem, vermelho se negativo, como a tela (desenho L157); no dia 1º, vazio')]
     public function testSaldoDoMesNoDiaEmAndamento(): void
     {
-        $hoje = $this->impressao->linha($this->dia('2026-10-05', ['entrada' => '08:00:00', 'saldoAcumuladoAteOntem' => -45, 'registroIncompleto' => true]), []);
+        $hoje = $this->impressao->linha($this->dia('2026-10-05', ['entrada' => '08:00:00', 'saldoAcumuladoAteOntem' => -45]), []);
         $hojeComSaldo = $this->impressao->linha($this->dia('2026-10-05', ['entrada' => '08:00:00', 'saldoAcumuladoAteOntem' => 30]), []);
         $diaPrimeiro = $this->impressao->linha($this->dia('2026-10-01', ['entrada' => '08:00:00', 'saldoAcumuladoAteOntem' => null]), []);
 

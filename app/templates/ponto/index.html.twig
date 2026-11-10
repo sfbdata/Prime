@@ -403,9 +403,9 @@
 
     {# E8: aviso flutuante (P80, L266), já no documento para o leitor de tela anunciar a troca. `data-aviso-na-carga` é o
        aviso que o servidor deixou para esta tela, com o tom (`data-aviso-na-carga-tom`): "Enviado para aprovação do
-       gestor." depois do envio da justificativa, "Justificativa abonada." ou "Justificativa recusada." depois da análise
-       e o resultado do abono em lote da Equipe. O `PontoController::index` o lê antes do layout para não aparecer também
-       no topo da página. #}
+       gestor." depois do envio da justificativa, "Justificativa abonada." ou "Justificativa recusada." depois da
+       análise, o resultado do abono em lote da Equipe e "Folha assinada." depois do aceite (E16). O
+       `PontoController::index` o lê antes do layout para não aparecer também no topo da página. #}
     <div id="ponto-aviso-flutuante" class="pe-flutuante" role="status" hidden
          {%- if avisoFlutuante %} data-aviso-na-carga="{{ avisoFlutuante.texto|e('html_attr') }}" data-aviso-na-carga-tom="{{ avisoFlutuante.tom|e('html_attr') }}"{% endif %}></div>
 </div>
