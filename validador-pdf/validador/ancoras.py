@@ -1,8 +1,10 @@
 """Âncoras de confiança (E6-5): ICP-Brasil do pacote oficial do ITI e gov.br pela impressão digital fixada.
 
-- ICP-Brasil: `ACcompactado.zip`, conferido pelo `hashsha512.txt` publicado ao lado ANTES de abrir o zip. Só os
-  certificados autoassinados (assinatura própria conferida) viram raiz; os de emissor diferente são
-  intermediárias; emissor igual ao titular sem a assinatura própria conferir fica de fora.
+- ICP-Brasil: `ACcompactado.zip`, conferido pelo `hashsha512.txt` publicado ao lado ANTES de abrir o zip (isso só
+  pega corrupção: o hash vem pela mesma conexão HTTP). Só vira raiz o certificado autoassinado (assinatura própria
+  conferida) cuja impressão digital SHA-256 está na lista fixada (`Configuracao.icp_raizes_sha256`); autoassinado
+  fora da lista é ignorado com aviso no log. Os de emissor diferente são intermediárias (o pyHanko confere a cadeia
+  até uma raiz fixada); emissor igual ao titular sem a assinatura própria conferir fica de fora.
 - gov.br: a cadeia publicada pelo ITI (PKCS#7). Só vira raiz o certificado autoassinado cuja impressão digital
   SHA-256 está na lista fixada (`Configuracao.govbr_raizes_sha256`); lista vazia = nenhuma raiz gov.br e nenhum
   download.
@@ -104,8 +106,13 @@ def _der(certificado: x509.Certificate) -> bytes:
     return certificado.public_bytes(Encoding.DER)
 
 
-def conferir_pacote_icp(pacote: bytes, conteudo_do_hash: bytes) -> tuple[tuple[bytes, ...], tuple[bytes, ...]]:
-    """Confere o SHA-512 publicado e separa raízes (autoassinadas) de intermediárias. Devolve (raízes, inter.)."""
+def conferir_pacote_icp(
+    pacote: bytes, conteudo_do_hash: bytes, fixadas: frozenset[str]
+) -> tuple[tuple[bytes, ...], tuple[bytes, ...]]:
+    """Confere o SHA-512 publicado e separa raízes (autoassinadas e fixadas) de intermediárias.
+
+    Devolve (raízes, intermediárias). Raiz autoassinada fora de `fixadas` não entra nem como intermediária.
+    """
     try:
         esperado = conteudo_do_hash.decode('ascii').split()[0].lower()
     except (UnicodeDecodeError, IndexError):
@@ -115,6 +122,7 @@ def conferir_pacote_icp(pacote: bytes, conteudo_do_hash: bytes) -> tuple[tuple[b
 
     raizes: dict[str, bytes] = {}
     intermediarias: dict[str, bytes] = {}
+    ignoradas: set[str] = set()
     try:
         with zipfile.ZipFile(io.BytesIO(pacote)) as arquivo:
             entradas = [e for e in arquivo.infolist() if not e.is_dir()]
@@ -140,12 +148,21 @@ def conferir_pacote_icp(pacote: bytes, conteudo_do_hash: bytes) -> tuple[tuple[b
                     if classe is None:
                         continue
                     der = _der(certificado)
-                    destino = raizes if classe == RAIZ else intermediarias
-                    destino[sha256_hex(der)] = der
+                    impressao = sha256_hex(der)
+                    if classe == INTERMEDIARIA:
+                        intermediarias[impressao] = der
+                    elif impressao in fixadas:
+                        raizes[impressao] = der
+                    elif impressao not in ignoradas:
+                        ignoradas.add(impressao)
+                        log.warning(
+                            'raiz icp fora da lista fixada ignorada: %s %s',
+                            impressao, certificado.subject.rfc4514_string()[:120],
+                        )
     except zipfile.BadZipFile:
         raise AncoraRecusada('zip_ilegivel') from None
     if not raizes:
-        raise AncoraRecusada('pacote_sem_raiz')
+        raise AncoraRecusada('pacote_sem_raiz_fixada')
     return tuple(raizes.values()), tuple(intermediarias.values())
 
 
@@ -233,7 +250,9 @@ class RepositorioDeAncoras:
         hash_publicado = self._ler(self._caminho('icp', 'hashsha512.txt'))
         if pacote is not None and hash_publicado is not None:
             try:
-                icp_raizes, icp_intermediarias = conferir_pacote_icp(pacote, hash_publicado)
+                icp_raizes, icp_intermediarias = conferir_pacote_icp(
+                    pacote, hash_publicado, self._configuracao.icp_raizes_sha256
+                )
             except AncoraRecusada as erro:
                 log.warning('ancoras icp guardadas recusadas: %s', erro)
         cadeia = self._ler(self._caminho('govbr', 'cadeia.p7b'))
@@ -267,7 +286,7 @@ class RepositorioDeAncoras:
             try:
                 hash_publicado = self._baixar(self._configuracao.icp_url_do_hash, TETO_DO_HASH)
                 pacote = self._baixar(self._configuracao.icp_url_do_pacote, TETO_DO_PACOTE)
-                icp = conferir_pacote_icp(pacote, hash_publicado)
+                icp = conferir_pacote_icp(pacote, hash_publicado, self._configuracao.icp_raizes_sha256)
                 self._guardar(('icp', 'ACcompactado.zip', pacote), ('icp', 'hashsha512.txt', hash_publicado))
             except Exception as erro:  # rede, hash, zip: mantém a última boa
                 tudo_certo = False
