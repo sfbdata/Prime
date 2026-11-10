@@ -12,7 +12,7 @@ tipo: alteracao
 - Remover sede (na página "Sedes do ponto" e na aba Configurações): sem batida, apaga; com batida, encerra (`Ponto\Service\RemocaoDaSedeDoPonto`), e a sede some da lista, da cerca e do fuso do home office; as batidas mantêm a sede. Sai `RegistroPontoRepository::desvincularSede`.
 
 ## Para o cliente
-- O registro de ponto gravado não muda mais. Quando o gestor corrige uma batida, o Ponto guarda a correção ao lado, e o registro original continua preservado.
+- A correção de uma batida passa a ser guardada ao lado do registro de ponto original, que fica preservado como foi feito. A folha mostra a batida corrigida, e o original continua no histórico.
 - Na ficha do colaborador, o gestor passa a ter "Incluir", "Ajustar", "Desconsiderar" e "Restaurar" batida, sempre com o motivo da correção. "Editar" e "Excluir" saem.
 - O gestor não corrige as próprias batidas: na ficha dele, só o usuário principal do escritório ou o Master corrige. A aba "Batidas de Ponto" da própria ficha agora explica por que os botões de correção não aparecem.
 - O botão "+" da folha agora diz o que faz ("Incluir saída", "Incluir entrada") e abre a janela "Incluir batida".
