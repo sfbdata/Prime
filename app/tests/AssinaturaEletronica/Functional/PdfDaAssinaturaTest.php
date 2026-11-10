@@ -12,6 +12,10 @@ use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PdfFinalComSelo;
 use App\AssinaturaEletronica\Service\PdfFinalDoDocumento;
+use App\AssinaturaEletronica\Service\Selo\ClasseDaFalhaNoSelo;
+use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
+use App\AssinaturaEletronica\Service\Selo\SeladorDePdf;
+use App\AssinaturaEletronica\Service\Selo\SeloDoPdfFinal;
 use App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf;
 use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
 use App\Entity\Auth\User;
@@ -40,6 +44,9 @@ use Symfony\Component\Messenger\Transport\TransportInterface;
  * rota da tela (sem permissão 403; outro escritório 404), a do signatário (só quem já assinou e com o link valendo), o
  * gerado na hora sem guardar e o concluído guardado uma vez só, com o pedido ao worker na conclusão. Gerar pesa: as
  * duas vagas ocupadas e os limitadores respondem 429 com o texto que a tela mostra.
+ *
+ * O selo (etapa 8, E8-4) com o {@see SeladorDePdf} dublado no container: o download guarda e entrega o selado; a falha
+ * do selo que tenta de novo responde o 429 do documento sendo gerado, passa o pedido ao worker e não guarda nada.
  */
 #[CoversClass(ArquivosDaAssinaturaController::class)]
 #[CoversClass(AssinaturaPublicaController::class)]
@@ -47,6 +54,7 @@ use Symfony\Component\Messenger\Transport\TransportInterface;
 #[CoversClass(EntregaDoPdfDaAssinatura::class)]
 #[CoversClass(PdfFinalComSelo::class)]
 #[CoversClass(VagasDeGeracaoDoPdf::class)]
+#[CoversClass(SeloDoPdfFinal::class)]
 final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
 {
     use NaTelaDeAssinatura;
@@ -55,6 +63,7 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
     private const MUITOS = 'Muitos PDFs sendo gerados agora. Tente de novo em instantes.';
     private const LIMITE = 'Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.';
     private const DOCUMENTO_GERANDO = 'O PDF deste documento está sendo gerado. Tente de novo em alguns minutos.';
+    private const SELO = "\n%selo de teste\n%%EOF\n";
 
     private ?string $diretorioDoEscritorio = null;
 
@@ -311,6 +320,56 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertTrue($travas->createLock('assinatura_pdf_documento_' . $id)->acquire(false), 'a trava do documento foi liberada');
     }
 
+    #[TestDox('selo: o primeiro download do concluído guarda e entrega o selado, com o hash_final dele e "PDF final selado" na trilha')]
+    public function testDownloadGuardaOSelado(): void
+    {
+        $recebidos = [];
+        $this->dublarSelador(static function (string $pdf) use (&$recebidos): string {
+            $recebidos[] = $pdf;
+
+            return $pdf . self::SELO;
+        });
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->concluido();
+
+        $daTela = $this->baixar('/assinatura/documentos/' . $id . '/pdf');
+
+        self::assertCount(1, $recebidos);
+        self::assertSame($recebidos[0] . self::SELO, $daTela, 'entregue o selado');
+        self::assertSame(hash('sha256', $daTela), $this->conexao()->fetchOne('SELECT hash_final FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertSame(['pdf_selado'], $this->eventosDoSelo($id));
+        self::assertSame($daTela, $this->baixar('/assinar/' . $tokens[0] . '/pdf'), 'o guardado, sem selar de novo');
+        self::assertCount(1, $recebidos);
+        self::assertCount(1, $this->pdfsGuardados());
+    }
+
+    #[TestDox('selo com falha que tenta de novo no download: 429 "O PDF deste documento está sendo gerado", pedido ao worker e nada guardado')]
+    public function testFalhaNoSeloNoDownload(): void
+    {
+        $this->dublarSelador(static fn (): never => throw new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503));
+        [, $tenant] = $this->entrarComDisco();
+        [$id, $tokens] = $this->concluido();
+        $transporte = static::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transporte);
+
+        // O transporte em memória é zerado a cada requisição (services_resetter): confere depois de cada uma.
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $tokens[0] . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json(), $url);
+            $pedidos = array_map(static fn (Envelope $e): object => $e->getMessage(), $transporte->getSent());
+            self::assertEquals([new GerarPdfFinalDoDocumento($id, (int) $tenant->getId())], $pedidos, $url . ': o pedido ao worker, na 1ª tentativa');
+        }
+
+        self::assertSame([], $this->pdfsGuardados());
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertSame([], $this->eventosDoSelo($id));
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        self::assertTrue($travas->createLock('assinatura_pdf_documento_' . $id)->acquire(false), 'a trava do documento foi liberada');
+        self::assertTrue($travas->createLock('assinatura_pdf_vaga_0')->acquire(false), 'a vaga foi devolvida');
+    }
+
     #[TestDox('as travas são renovadas a cada pedaço: a vaga no PDF gerado na hora; a vaga e a do documento no concluído')]
     public function testRenovaAsTravasACadaPedaco(): void
     {
@@ -349,6 +408,35 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('assinatura_eletronica_tela.js.pdf.baixar', $catalogo);
         self::assertStringContainsString('Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.', $catalogo, 'o texto do limitador chega ao assinatura-publica.js');
         self::assertStringContainsString(self::DOCUMENTO_GERANDO, $catalogo);
+    }
+
+    /**
+     * Troca o selador do container (o não configurado, no teste) por um que responde com `$selar`, antes da primeira
+     * requisição.
+     *
+     * @param \Closure(string): ?string $selar
+     */
+    private function dublarSelador(\Closure $selar): void
+    {
+        static::getContainer()->set(SeladorDePdf::class, new class ($selar) implements SeladorDePdf {
+            public function __construct(private readonly \Closure $selar)
+            {
+            }
+
+            public function selar(string $pdf): ?string
+            {
+                return ($this->selar)($pdf);
+            }
+        });
+    }
+
+    /** @return list<string> os eventos do selo na trilha do documento, na ordem */
+    private function eventosDoSelo(int $id): array
+    {
+        return $this->conexao()->fetchFirstColumn(
+            "SELECT tipo FROM assinatura_eletronica_evento WHERE documento_id = ? AND tipo IN ('pdf_selado', 'selo_nao_aplicado') ORDER BY id",
+            [$id],
+        );
     }
 
     /** @return array{User, Tenant} */

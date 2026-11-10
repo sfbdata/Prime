@@ -15,16 +15,19 @@ use App\AssinaturaEletronica\Exception\LinkInvalido;
 use App\AssinaturaEletronica\Exception\MuitosPdfsGerados;
 use App\AssinaturaEletronica\Exception\MuitosPdfsSendoGerados;
 use App\AssinaturaEletronica\Exception\PdfDoDocumentoSendoGerado;
+use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Service\PdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PdfFinalComSelo;
+use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
 use App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Lock\LockInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * "Baixar PDF com selo" (A5, E3-4 e E3-5). O concluído sai do arquivo guardado, gerado e guardado agora se ainda faltar
@@ -43,6 +46,11 @@ use Symfony\Component\Lock\LockInterface;
  * cada pedaço (o TTL não vence com o gs em subprocesso). O PDF é gerado inteiro e guardado antes de entregar (os bytes
  * entregues são os guardados); acima de umas 100 páginas, o primeiro clique pode dar 504 do nginx (120 s), o PHP
  * termina e guarda, e o clique seguinte entrega o guardado.
+ *
+ * Selo (etapa 8, E8-4): a web tenta selar uma vez, nunca como última tentativa. Não configurado ou falha definitiva:
+ * guarda sem o selo, como o worker. A {@see FalhaNoSelo} que tenta de novo não guarda nada: o pedido vai ao worker
+ * ({@see GerarPdfFinalDoDocumento}, que tenta mais vezes) e a resposta é {@see PdfDoDocumentoSendoGerado}. Assim a web
+ * nunca deixa um documento sem o selo por uma falha passageira.
  */
 final readonly class ObterPdfDaAssinaturaUseCase
 {
@@ -53,6 +61,7 @@ final readonly class ObterPdfDaAssinaturaUseCase
         private PdfFinalComSelo $pdfFinal,
         private ClockInterface $relogio,
         private VagasDeGeracaoDoPdf $vagas,
+        private MessageBusInterface $mensagens,
     ) {
     }
 
@@ -127,11 +136,11 @@ final readonly class ObterPdfDaAssinaturaUseCase
 
     /**
      * O concluído sem PDF guardado: a trava do documento, a vaga e a cota, nessa ordem; as duas travas renovadas a cada
-     * pedaço e liberadas no fim.
+     * pedaço e liberadas no fim. O selo que falha e tenta de novo passa o pedido ao worker.
      *
      * @param \Closure(): bool $cabeNaCota
      *
-     * @throws PdfDoDocumentoSendoGerado
+     * @throws PdfDoDocumentoSendoGerado outro pedido da web já gera, ou o selo falhou e o worker tenta de novo
      * @throws MuitosPdfsSendoGerados
      * @throws MuitosPdfsGerados
      */
@@ -143,7 +152,11 @@ final readonly class ObterPdfDaAssinaturaUseCase
             try {
                 return $this->pdfFinal->garantir($documento, static function () use ($vaga, $doDocumento): void {
                     VagasDeGeracaoDoPdf::renovar($vaga, $doDocumento);
-                });
+                }, false);
+            } catch (FalhaNoSelo) {
+                $this->mensagens->dispatch(new GerarPdfFinalDoDocumento((int) $documento->getId(), (int) $documento->getTenant()->getId()));
+
+                throw new PdfDoDocumentoSendoGerado();
             } finally {
                 $vaga->release();
             }

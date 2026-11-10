@@ -8,6 +8,8 @@ namespace App\AssinaturaEletronica\Exception;
  * "Baixar PDF com selo" do concluído sem PDF guardado enquanto outro pedido da web já gera o PDF deste documento (a
  * trava por documento das {@see \App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf}). Não ocupa vaga nem gasta
  * cota. Vira 429 com "O PDF deste documento está sendo gerado. Tente de novo em alguns minutos.".
+ *
+ * A mesma resposta quando o selo falhou e tenta de novo (etapa 8, E8-4): nada foi guardado e o pedido foi ao worker.
  */
 final class PdfDoDocumentoSendoGerado extends GeracaoDoPdfRecusada
 {

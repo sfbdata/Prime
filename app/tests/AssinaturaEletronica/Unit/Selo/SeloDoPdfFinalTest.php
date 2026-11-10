@@ -8,12 +8,17 @@ use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
+use App\AssinaturaEletronica\Service\PdfNoTemporario;
 use App\AssinaturaEletronica\Service\Selo\ClasseDaFalhaNoSelo;
 use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
+use App\AssinaturaEletronica\Service\Selo\HttpSeladorDePdf;
+use App\AssinaturaEletronica\Service\Selo\ResultadoDoSelo;
 use App\AssinaturaEletronica\Service\Selo\SeladorDePdf;
+use App\AssinaturaEletronica\Service\Selo\SeladorDePdfNaoConfigurado;
 use App\AssinaturaEletronica\Service\Selo\SeloDoPdfFinal;
 use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -21,11 +26,15 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 
 /**
- * O selo no PDF final (spec assinatura-documentos-etapa-8, E8-4): selado, não configurado, a falha definitiva que
- * guarda sem o selo na hora e as que tentam de novo até a última tentativa. A trilha é a de verdade, sobre o
- * repositório dublado; os eventos gravados ficam em `$gravados`.
+ * O selo no PDF final (spec assinatura-documentos-etapa-8, E8-4), em duas partes: {@see SeloDoPdfFinal::aplicar()}
+ * sela o PDF no temporário (fora da transação, sem trilha) e {@see SeloDoPdfFinal::registrar()} leva o resultado à
+ * trilha. Selado, não configurado, a falha definitiva que fica sem o selo na hora (o PDF acima do teto entre elas, sem
+ * ler o arquivo) e as que tentam de novo até a última tentativa. A trilha é a de verdade, sobre o repositório dublado;
+ * os eventos gravados ficam em `$gravados`.
  */
 #[CoversClass(SeloDoPdfFinal::class)]
+#[CoversClass(ResultadoDoSelo::class)]
+#[CoversClass(PdfNoTemporario::class)]
 final class SeloDoPdfFinalTest extends TestCase
 {
     private const PDF = "%PDF-1.7\n(o PDF final da etapa 3)\n%%EOF\n";
@@ -35,6 +44,7 @@ final class SeloDoPdfFinalTest extends TestCase
     /** @var list<EventoDaTrilha> */
     private array $gravados = [];
     private DocumentoParaAssinar $documento;
+    private AreaTemporariaPrivada $area;
 
     protected function setUp(): void
     {
@@ -43,20 +53,48 @@ final class SeloDoPdfFinalTest extends TestCase
         (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, 9);
         $this->documento = new DocumentoParaAssinar($tenant, null, new \DateTimeImmutable('2026-11-10 08:00:00'));
         (new \ReflectionProperty(DocumentoParaAssinar::class, 'id'))->setValue($this->documento, 31);
+        $this->area = AreaTemporariaPrivada::criar('testeselo');
     }
 
-    #[TestDox('selo não configurado: devolve o PDF como veio e não grava nada')]
-    public function testNaoConfigurado(): void
+    protected function tearDown(): void
     {
-        self::assertSame(self::PDF, $this->selo(static fn (): ?string => null)->aplicar($this->documento, self::PDF, false));
+        $this->area->liberar();
+    }
 
+    #[TestDox('o validador responde "não configurado": o PDF fica como veio, e o registro não grava nada')]
+    public function testNaoConfiguradoNoValidador(): void
+    {
+        $caminho = $this->pdfNoTemporario();
+        $selo = $this->selo(static fn (): ?string => null);
+
+        $resultado = $selo->aplicar($this->documento, $caminho, false);
+        $selo->registrar($this->documento, $resultado);
+
+        self::assertFalse($resultado->selou);
+        self::assertNull($resultado->falha);
+        self::assertSame(self::PDF, file_get_contents($caminho));
         self::assertSame([], $this->gravados);
         self::assertSame([], $this->log->registros);
     }
 
-    #[TestDox('selado: devolve o selado e grava "PDF final selado" na trilha, sem usuário (é o worker)')]
+    #[TestDox('selador não configurado no PHP: nem mede nem lê o PDF (o maior que o teto também não vira falha)')]
+    public function testSeladorNaoConfiguradoNemLeOPdf(): void
+    {
+        $selo = new SeloDoPdfFinal(new SeladorDePdfNaoConfigurado(), $this->trilha(), $this->log);
+
+        $resultado = $selo->aplicar($this->documento, $this->area->caminho() . '/nao-existe.pdf', true);
+        $selo->registrar($this->documento, $resultado);
+
+        self::assertFalse($resultado->selou);
+        self::assertNull($resultado->falha);
+        self::assertSame([], $this->gravados);
+        self::assertSame([], $this->log->registros);
+    }
+
+    #[TestDox('selado: regrava o selado por cima do mesmo caminho, sem trilha; o registro grava "PDF final selado", sem usuário')]
     public function testSelado(): void
     {
+        $caminho = $this->pdfNoTemporario();
         $recebido = null;
         $selo = $this->selo(static function (string $pdf) use (&$recebido): string {
             $recebido = $pdf;
@@ -64,9 +102,16 @@ final class SeloDoPdfFinalTest extends TestCase
             return self::SELADO;
         });
 
-        self::assertSame(self::SELADO, $selo->aplicar($this->documento, self::PDF, false));
+        $resultado = $selo->aplicar($this->documento, $caminho, false);
 
         self::assertSame(self::PDF, $recebido);
+        self::assertTrue($resultado->selou);
+        self::assertNull($resultado->falha);
+        self::assertSame(self::SELADO, file_get_contents($caminho));
+        self::assertSame([], $this->gravados, 'aplicar não grava trilha: ela é do registro, na transação de quem guarda');
+
+        $selo->registrar($this->documento, $resultado);
+
         self::assertSame(['pdf_selado'], $this->tipos());
         self::assertSame(['chave' => ChaveDaAssinatura::VERSAO], $this->gravados[0]->getDados());
         self::assertNull($this->gravados[0]->getUsuario());
@@ -82,14 +127,62 @@ final class SeloDoPdfFinalTest extends TestCase
     }
 
     #[DataProvider('tentativas')]
-    #[TestDox('falha definitiva na $_dataName: devolve o PDF como veio, grava "sem o selo" com o código e faz logger->error')]
-    public function testDefinitivaGuardaSemOSeloNaHora(bool $ultima): void
+    #[TestDox('falha definitiva na $_dataName: o PDF fica como veio e a falha volta; o registro grava "sem o selo" com o código e faz logger->error')]
+    public function testDefinitivaFicaSemOSeloNaHora(bool $ultima): void
     {
+        $caminho = $this->pdfNoTemporario();
         $falha = new FalhaNoSelo('nao_selavel', ClasseDaFalhaNoSelo::Definitiva, 422);
+        $selo = $this->falhando($falha);
 
-        self::assertSame(self::PDF, $this->falhando($falha)->aplicar($this->documento, self::PDF, $ultima));
+        $resultado = $selo->aplicar($this->documento, $caminho, $ultima);
+
+        self::assertFalse($resultado->selou);
+        self::assertSame($falha, $resultado->falha);
+        self::assertSame(self::PDF, file_get_contents($caminho));
+        self::assertSame([], $this->gravados);
+        self::assertSame([], $this->log->registros, 'o log do "guardado sem o selo" é do registro');
+
+        $selo->registrar($this->documento, $resultado);
 
         $this->assertGuardadoSemOSelo('nao_selavel');
+    }
+
+    #[TestDox('PDF acima do teto do validador: falha definitiva pdf_grande_demais pelo tamanho, sem ler o arquivo nem pedir')]
+    public function testAcimaDoTetoSemLerOArquivo(): void
+    {
+        $caminho = $this->pdfEsparso(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES + 1);
+        $selo = $this->selo(static fn (): never => self::fail('acima do teto, nenhum pedido sai'));
+
+        memory_reset_peak_usage();
+        $antes = memory_get_usage();
+        $resultado = $selo->aplicar($this->documento, $caminho, false);
+        $pico = memory_get_peak_usage() - $antes;
+
+        self::assertLessThan(1024 * 1024, $pico, 'os 20 MB não passaram pela memória');
+        self::assertSame(HttpSeladorDePdf::PDF_GRANDE_DEMAIS, $resultado->falha?->codigo);
+        self::assertSame(ClasseDaFalhaNoSelo::Definitiva, $resultado->falha->classe);
+        self::assertSame(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES + 1, filesize($caminho));
+
+        $selo->registrar($this->documento, $resultado);
+
+        $this->assertGuardadoSemOSelo(HttpSeladorDePdf::PDF_GRANDE_DEMAIS);
+    }
+
+    #[TestDox('PDF com o tamanho exato do teto: é lido inteiro e vai ao validador')]
+    public function testNoTetoVaiAoValidador(): void
+    {
+        $caminho = $this->pdfEsparso(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES);
+        $enviados = null;
+        $selo = $this->selo(static function (string $pdf) use (&$enviados): ?string {
+            $enviados = \strlen($pdf);
+
+            return null;
+        });
+
+        $resultado = $selo->aplicar($this->documento, $caminho, false);
+
+        self::assertSame(HttpSeladorDePdf::PDF_MAXIMO_EM_BYTES, $enviados);
+        self::assertNull($resultado->falha);
     }
 
     /** @return iterable<string, array{FalhaNoSelo, int}> a falha e quantos `logger->error` antes da última tentativa */
@@ -102,16 +195,18 @@ final class SeloDoPdfFinalTest extends TestCase
     }
 
     #[DataProvider('falhasQueTentamDeNovo')]
-    #[TestDox('$_dataName fora da última tentativa: relança para a mensagem tentar de novo, sem gravar nada')]
+    #[TestDox('$_dataName fora da última tentativa: relança para tentar de novo, com o PDF como veio e sem gravar nada')]
     public function testTentaDeNovo(FalhaNoSelo $falha, int $errosNoLog): void
     {
+        $caminho = $this->pdfNoTemporario();
         try {
-            $this->falhando($falha)->aplicar($this->documento, self::PDF, false);
+            $this->falhando($falha)->aplicar($this->documento, $caminho, false);
             self::fail('Era para relançar a falha.');
         } catch (FalhaNoSelo $relancada) {
             self::assertSame($falha, $relancada);
         }
 
+        self::assertSame(self::PDF, file_get_contents($caminho));
         self::assertSame([], $this->gravados);
         self::assertCount($errosNoLog, $this->log->erros(), 'só a de configuração avisa a cada tentativa');
     }
@@ -126,21 +221,27 @@ final class SeloDoPdfFinalTest extends TestCase
 
     #[DataProvider('falhasNaUltimaTentativa')]
     #[TestDox('$_dataName na última tentativa: cai como a definitiva, com um erro só no log')]
-    public function testUltimaTentativaGuardaSemOSelo(FalhaNoSelo $falha): void
+    public function testUltimaTentativaFicaSemOSelo(FalhaNoSelo $falha): void
     {
+        $caminho = $this->pdfNoTemporario();
+        $selo = $this->falhando($falha);
 
-        self::assertSame(self::PDF, $this->falhando($falha)->aplicar($this->documento, self::PDF, true));
+        $resultado = $selo->aplicar($this->documento, $caminho, true);
+        $selo->registrar($this->documento, $resultado);
 
+        self::assertSame($falha, $resultado->falha);
+        self::assertSame(self::PDF, file_get_contents($caminho));
         $this->assertGuardadoSemOSelo($falha->codigo);
     }
 
     #[TestDox('configuração: o log de cada tentativa diz o código e o documento, sem o PDF')]
     public function testConfiguracaoAvisaACadaTentativa(): void
     {
+        $caminho = $this->pdfNoTemporario();
         $selo = $this->falhando(new FalhaNoSelo('http_431', ClasseDaFalhaNoSelo::Configuracao, 431));
         for ($tentativa = 0; $tentativa < 3; ++$tentativa) {
             try {
-                $selo->aplicar($this->documento, self::PDF, false);
+                $selo->aplicar($this->documento, $caminho, false);
             } catch (FalhaNoSelo) {
             }
         }
@@ -161,6 +262,23 @@ final class SeloDoPdfFinalTest extends TestCase
         self::assertStringNotContainsString('PDF final da etapa 3', $this->log->tudo());
     }
 
+    private function pdfNoTemporario(): string
+    {
+        return $this->area->gravar(self::PDF, 'pdf');
+    }
+
+    /** Um arquivo esparso do tamanho pedido: não ocupa o disco nem passa pela memória para ser criado. */
+    private function pdfEsparso(int $bytes): string
+    {
+        $caminho = $this->area->caminho() . '/esparso.pdf';
+        $arquivo = fopen($caminho, 'xb');
+        self::assertNotFalse($arquivo);
+        self::assertTrue(ftruncate($arquivo, $bytes));
+        fclose($arquivo);
+
+        return $caminho;
+    }
+
     private function falhando(FalhaNoSelo $falha): SeloDoPdfFinal
     {
         return $this->selo(static fn (): never => throw $falha);
@@ -179,13 +297,19 @@ final class SeloDoPdfFinalTest extends TestCase
                 return ($this->selar)($pdf);
             }
         };
+
+        return new SeloDoPdfFinal($selador, $this->trilha(), $this->log);
+    }
+
+    private function trilha(): TrilhaDoDocumento
+    {
         $eventos = $this->createMock(EventoDaTrilhaRepository::class);
         $eventos->method('ultimoHashTravando')->willReturn(null);
         $eventos->method('salvar')->willReturnCallback(function (EventoDaTrilha $evento): void {
             $this->gravados[] = $evento;
         });
 
-        return new SeloDoPdfFinal($selador, new TrilhaDoDocumento($eventos, new MockClock('2026-11-10 09:00:00')), $this->log);
+        return new TrilhaDoDocumento($eventos, new MockClock('2026-11-10 09:00:00'));
     }
 
     /** @return list<string> */

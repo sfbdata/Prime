@@ -8,6 +8,8 @@ use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
 use App\AssinaturaEletronica\MessageHandler\GerarPdfFinalDoDocumentoHandler;
 use App\AssinaturaEletronica\Service\PdfFinalDoDocumento;
+use App\AssinaturaEletronica\Service\Selo\ClasseDaFalhaNoSelo;
+use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TenantRepository;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
@@ -15,13 +17,21 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Tests\AssinaturaEletronica\Support\OficinaDosUseCasesDaAssinatura;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 /**
  * O worker do PDF final (contrato da etapa 3): procura o documento no escritório da mensagem, mesmo na Lixeira, e só
  * garante o PDF do concluído. Escritório ou documento que sumiu, ou que não está concluído: nada a fazer.
+ *
+ * O selo (etapa 8, E8-4): a 4ª tentativa é a última; antes dela, a falha do selo que tenta de novo volta à fila com a
+ * tentativa seguinte e a espera de 1, 5 ou 15 min, e o handler termina sem erro. Os envelopes despachados ficam em
+ * `$envelopes`.
  */
 #[CoversClass(GerarPdfFinalDoDocumentoHandler::class)]
 #[CoversClass(GerarPdfFinalDoDocumento::class)]
@@ -31,6 +41,9 @@ final class GerarPdfFinalDoDocumentoHandlerTest extends TestCase
 
     private TenantRepository&MockObject $tenants;
     private PdfFinalDoDocumento&MockObject $pdfFinal;
+
+    /** @var list<Envelope> */
+    private array $envelopes = [];
 
     protected function setUp(): void
     {
@@ -46,13 +59,92 @@ final class GerarPdfFinalDoDocumentoHandlerTest extends TestCase
         $this->pdfFinal = $this->createMock(PdfFinalDoDocumento::class);
     }
 
-    #[TestDox('documento concluído do escritório da mensagem: garante o PDF final')]
+    #[TestDox('documento concluído do escritório da mensagem: garante o PDF final, sem ser a última tentativa do selo')]
     public function testConcluido(): void
     {
         $documento = $this->concluido();
-        $this->pdfFinal->expects(self::once())->method('garantir')->with(self::identicalTo($documento))->willReturn(self::chave());
+        $this->pdfFinal->expects(self::once())->method('garantir')->with(self::identicalTo($documento), null, false)->willReturn(self::chave());
 
         $this->handler()(new GerarPdfFinalDoDocumento(1, 9));
+
+        self::assertSame([], $this->envelopes);
+    }
+
+    /** @return iterable<string, array{int, int}> a tentativa que falha e a espera até a seguinte, em milissegundos */
+    public static function tentativasQueVoltamAFila(): iterable
+    {
+        yield '1ª tentativa: a 2ª em 1 min' => [1, 60_000];
+        yield '2ª tentativa: a 3ª em 5 min' => [2, 300_000];
+        yield '3ª tentativa: a 4ª em 15 min' => [3, 900_000];
+    }
+
+    #[DataProvider('tentativasQueVoltamAFila')]
+    #[TestDox('falha do selo na $_dataName, e o handler termina sem erro')]
+    public function testFalhaNoSeloVoltaAFila(int $tentativa, int $espera): void
+    {
+        $documento = $this->concluido();
+        $this->pdfFinal->expects(self::once())->method('garantir')->with(self::identicalTo($documento), null, false)
+            ->willThrowException(new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503));
+
+        $this->handler()(new GerarPdfFinalDoDocumento(1, 9, $tentativa));
+
+        self::assertCount(1, $this->envelopes);
+        self::assertEquals(new GerarPdfFinalDoDocumento(1, 9, $tentativa + 1), $this->envelopes[0]->getMessage());
+        $atrasos = $this->envelopes[0]->all(DelayStamp::class);
+        self::assertCount(1, $atrasos);
+        self::assertInstanceOf(DelayStamp::class, $atrasos[0]);
+        self::assertSame($espera, $atrasos[0]->getDelay());
+    }
+
+    #[TestDox('4ª tentativa: garante como a última (sem o selo, se falhar) e nada volta à fila')]
+    public function testQuartaTentativaEAUltima(): void
+    {
+        $documento = $this->concluido();
+        $this->pdfFinal->expects(self::once())->method('garantir')->with(self::identicalTo($documento), null, true)->willReturn(self::chave());
+
+        $this->handler()(new GerarPdfFinalDoDocumento(1, 9, 4));
+
+        self::assertSame([], $this->envelopes);
+    }
+
+    #[TestDox('falha do selo na 4ª tentativa (não devia acontecer): sobe para o Messenger, sem voltar à fila')]
+    public function testFalhaNoSeloNaUltimaSobe(): void
+    {
+        $this->concluido();
+        $falha = new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503);
+        $this->pdfFinal->method('garantir')->willThrowException($falha);
+
+        try {
+            $this->handler()(new GerarPdfFinalDoDocumento(1, 9, 4));
+            self::fail('a falha deveria subir');
+        } catch (FalhaNoSelo $e) {
+            self::assertSame($falha, $e);
+        }
+
+        self::assertSame([], $this->envelopes);
+    }
+
+    #[TestDox('outra falha da geração sobe para o retry do Messenger, sem voltar à fila pelo handler')]
+    public function testOutraFalhaSobe(): void
+    {
+        $this->concluido();
+        $falha = new \RuntimeException('o Ghostscript caiu');
+        $this->pdfFinal->method('garantir')->willThrowException($falha);
+
+        try {
+            $this->handler()(new GerarPdfFinalDoDocumento(1, 9, 2));
+            self::fail('a falha deveria subir');
+        } catch (\RuntimeException $e) {
+            self::assertSame($falha, $e);
+        }
+
+        self::assertSame([], $this->envelopes);
+    }
+
+    #[TestDox('quem despacha hoje não muda: a mensagem começa na 1ª tentativa')]
+    public function testMensagemComecaNaPrimeiraTentativa(): void
+    {
+        self::assertSame(1, (new GerarPdfFinalDoDocumento(1, 9))->tentativa);
     }
 
     #[TestDox('documento concluído e já na Lixeira: o PDF final ainda é guardado (a prova não depende da Lixeira)')]
@@ -79,7 +171,24 @@ final class GerarPdfFinalDoDocumentoHandlerTest extends TestCase
 
     private function handler(): GerarPdfFinalDoDocumentoHandler
     {
-        return new GerarPdfFinalDoDocumentoHandler($this->tenants, $this->documentos, $this->pdfFinal);
+        $guardar = function (Envelope $envelope): void {
+            $this->envelopes[] = $envelope;
+        };
+        $mensagens = new class ($guardar) implements MessageBusInterface {
+            public function __construct(private readonly \Closure $guardar)
+            {
+            }
+
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                $envelope = Envelope::wrap($message, $stamps);
+                ($this->guardar)($envelope);
+
+                return $envelope;
+            }
+        };
+
+        return new GerarPdfFinalDoDocumentoHandler($this->tenants, $this->documentos, $this->pdfFinal, $mensagens);
     }
 
     private static function chave(): ChaveDeArquivo
