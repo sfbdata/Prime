@@ -158,6 +158,8 @@ final class TelaDoComprovante
      * Degradê entre dois pontos, como o `createLinearGradient(x0, y0, x1, y1)` do canvas, pintado só no retângulo do
      * `fillRect`: cada ponto do retângulo leva a cor da sua projeção na reta do degradê, presa entre 0 e 1 (antes do
      * começo, a primeira cor; depois do fim, a última). Pixel a pixel: serve para áreas pequenas, como a faixa vertical.
+     * Custo medido: as 12 faixas da faixa vertical levam uns 300 ms (contra uns 12 ms do degradê antigo), cerca de 15%
+     * da imagem inteira (1,9 a 2,1 s). Aceitável com o limite de 10 imagens por minuto por pessoa.
      *
      * @param array{float, float, float, float} $reta      x0, y0, x1, y1
      * @param array{float, float, float, float} $retangulo x, y, largura, altura

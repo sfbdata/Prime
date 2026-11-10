@@ -97,6 +97,31 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         self::assertCount(1, $tela->filter('.pe-abas-barra > button#ponto-aba-pendencias[aria-selected="true"]'), 'o endereço da aba escondida abre Pendências');
     }
 
+    #[TestDox('Desligado no escritório depois de emitir: o "Baixar" do comprovante que já existe dá 404, e o código continua autêntico na validação pública')]
+    public function testDesligadoDepoisDeEmitir(): void
+    {
+        $this->seloPronto();
+        $comprovante = $this->emitir($this->eu, $this->escritorio);
+        $this->logarComTenant($this->client, $this->eu, $this->escritorio);
+        $this->client->request('GET', '/ponto/comprovantes/' . $comprovante->getId() . '/baixar');
+        self::assertResponseIsSuccessful('controle: com a função ligada, o mesmo pedido baixa a imagem');
+        $configuracao = new ConfiguracaoDoPonto($this->escritorio);
+        $configuracao->definir('ponto-comprovante', false, $this->eu, new \DateTimeImmutable());
+        $this->em()->persist($configuracao);
+        $this->em()->flush();
+
+        $this->client->request('GET', '/ponto/comprovantes/' . $comprovante->getId() . '/baixar');
+        self::assertResponseStatusCodeSame(404, 'a função desligada no escritório esconde o download (P49)');
+
+        $this->sair($this->client);
+        $tela = $this->client->request('GET', '/ponto/validar/' . $comprovante->getCodigo());
+        self::assertResponseIsSuccessful();
+        self::assertSame('Comprovante autêntico.', $tela->filter('main .pv-ok[role="status"] b')->text(), 'o que já foi emitido continua valendo (P50)');
+        $this->client->request('GET', '/ponto/validar?codigo=' . $comprovante->getCodigo(), [], [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseIsSuccessful();
+        self::assertTrue(json_decode((string) $this->client->getResponse()->getContent(), true)['autentico'], 'a janela do "Validar código" também');
+    }
+
     #[TestDox('Com o selo pronto: o aviso da batida aponta a aba, e a aba lista data e hora, tipo, método, código e "Baixar"')]
     public function testSeloProntoEmiteEMostraNaAba(): void
     {

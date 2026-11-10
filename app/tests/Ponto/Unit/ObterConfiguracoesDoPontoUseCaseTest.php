@@ -15,6 +15,7 @@ use App\Ponto\DTO\FuncaoDoPontoOutput;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Repository\ConfiguracaoDoPontoRepository;
 use App\Ponto\Service\FuncoesDoPonto;
+use App\Ponto\Service\SeloDoComprovante;
 use App\Ponto\UseCase\ObterConfiguracoesDoPontoUseCase;
 use App\Service\PermissionChecker;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -27,8 +28,9 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
- * O conteúdo da seção das funções da aba Configurações (E7, P67): só para quem administra o ponto do escritório; o
- * Master ganha a chave Global; travada mostra a do escritório desligada sem perder o valor guardado.
+ * O conteúdo da seção das funções da aba Configurações (E7, E15, P67): só para quem administra o ponto do escritório; o
+ * Master ganha a chave Global; travada mostra a do escritório desligada sem perder o valor guardado; sem o selo do
+ * comprovante, o cartão do comprovante não aparece.
  */
 #[CoversClass(ObterConfiguracoesDoPontoUseCase::class)]
 #[CoversClass(FuncaoDoPontoOutput::class)]
@@ -85,6 +87,16 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertTrue($this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), new Tenant())?->ehMaster);
     }
 
+    #[TestDox('Sem o selo do comprovante (segredo do HMAC ausente): só a geolocalização, sem o cartão do comprovante')]
+    public function testSemSeloSoAGeolocalizacao(): void
+    {
+        $saida = $this->casoDeUso(true, null, true, seloDisponivel: false)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), new Tenant());
+
+        self::assertNotNull($saida);
+        self::assertSame(['ponto-geo'], array_map(static fn (FuncaoDoPontoOutput $funcao): string => $funcao->chave, $saida->funcoes));
+        self::assertTrue($saida->funcoes[0]->escritorioEfetivo(), 'a geolocalização não muda');
+    }
+
     /** @param list<string> $papeis */
     private function pessoa(array $papeis): User
     {
@@ -94,7 +106,7 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         return $user;
     }
 
-    private function casoDeUso(bool $podeConfigurar, ?ConfiguracaoDoPonto $configuracao, bool $globalLigado): ObterConfiguracoesDoPontoUseCase
+    private function casoDeUso(bool $podeConfigurar, ?ConfiguracaoDoPonto $configuracao, bool $globalLigado, bool $seloDisponivel = true): ObterConfiguracoesDoPontoUseCase
     {
         $estados = $this->createStub(RecursoEstadoRepository::class);
         $gravados = [];
@@ -109,7 +121,9 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         $configuracoes->method('doTenant')->willReturn($configuracao);
         $permissoes = $this->createStub(PermissionChecker::class);
         $permissoes->method('canAdminister')->willReturn($podeConfigurar);
+        $selo = $this->createStub(SeloDoComprovante::class);
+        $selo->method('disponivel')->willReturn($seloDisponivel);
 
-        return new ObterConfiguracoesDoPontoUseCase(new FuncoesDoPonto($recursos, $configuracoes, $permissoes), $configuracoes, $regra);
+        return new ObterConfiguracoesDoPontoUseCase(new FuncoesDoPonto($recursos, $configuracoes, $permissoes), $configuracoes, $regra, $selo);
     }
 }

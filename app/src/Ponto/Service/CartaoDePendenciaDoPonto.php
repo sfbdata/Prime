@@ -20,8 +20,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Tela fechada (E7, spec docs/specs/ponto-desenho-0811.md): o Master desligou a tela `ponto` e quem vê não é Master.
  * O cartão leva à /ponto (ou à troca de escritório, para chegar a ela), que responde "em preparação" (503): sem
  * cartão. O critério é o do guarda de rota {@see \App\Master\EventListener\BloqueioDeRecursoDesativado}, por
- * {@see RecursosDoSistema::visivel()} (desligada e quem vê não é Master). A tela não tem a camada Escritório: só a
- * geolocalização tem ({@see FuncoesDoPonto::COM_CAMADA_ESCRITORIO}).
+ * {@see RecursosDoSistema::visivel()} (desligada e quem vê não é Master). A tela não tem a camada Escritório: só o
+ * comprovante em imagem (E15) e a geolocalização (E7) têm ({@see FuncoesDoPonto::COM_CAMADA_ESCRITORIO}).
  *
  * A pendência do cartão é a mais antiga deste escritório, onde o pedido sai pelo modal da tela do ponto; sem ela, a
  * mais antiga de outro escritório, com a orientação de trocar (o nome do escritório só vai para a própria pessoa).

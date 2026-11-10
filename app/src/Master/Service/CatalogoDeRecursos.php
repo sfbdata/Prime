@@ -63,6 +63,7 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-geo', 't' => 'Ponto: geolocalização', 'ic' => 'bi-geo-alt', 'd' => 'Exige que o registro seja feito dentro do raio de uma sede.', 'tela' => false, 'base' => false],
         // Ponto (spec ponto-desenho-0811 §7 e E15): rótulo e descrição do bj-recursos.js. Nasce ligada (sem linha em
         // `recurso_estado`); só emite com o segredo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoComprovante}).
+        // Esta é a camada "Global": como a geolocalização, tem também a camada "Escritório" em ponto_config_escritorio.
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-comprovante', 't' => 'Ponto: comprovante em imagem', 'ic' => 'bi-receipt', 'd' => "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", 'tela' => false, 'base' => false],
     ];
 

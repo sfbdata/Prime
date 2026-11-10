@@ -14,6 +14,7 @@ use App\Ponto\Controller\FuncaoDoPontoController;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Repository\ConfiguracaoDoPontoRepository;
+use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\GestaoDoPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -25,7 +26,8 @@ use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * E7 "Liga e desliga" do Ponto (spec docs/specs/ponto-desenho-0811.md, P67, P95 e P96): a tela `ponto` no catálogo do
- * Master, a função `ponto-geo` nas duas camadas (Global do Master e Escritório) e o efeito dela na batida.
+ * Master, a função `ponto-geo` nas duas camadas (Global do Master e Escritório) e o efeito dela na batida. O cartão do
+ * `ponto-comprovante` (E15) na mesma seção: a ordem do desenho, a chave do escritório e a trava do Master.
  *
  * O arranjo da seção é conferido por filho direto (`>`). O CSRF é previsível (`TOKEN_<id>`).
  */
@@ -38,7 +40,9 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
 {
     use CenarioDeJustificativaTrait;
 
-    private const LINHA = '.pe-config > .pe-config-funcoes[data-config-funcoes] > .pe-config-funcao[data-config-funcao="ponto-geo"]';
+    private const FUNCOES = '.pe-config > .pe-config-funcoes[data-config-funcoes]';
+    private const LINHA = self::FUNCOES . ' > .pe-config-funcao[data-config-funcao="ponto-geo"]';
+    private const COMPROVANTE = self::FUNCOES . ' > .pe-config-funcao[data-config-funcao="ponto-comprovante"]';
     private const TRAVA = 'Desativado pelo Master para todos os escritórios.';
 
     private KernelBrowser $client;
@@ -251,6 +255,72 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         self::assertSame('false', $global->attr('aria-checked'), 'o Master vê o Global desligado');
     }
 
+    #[TestDox('Com o selo pronto, o cartão "Comprovante em imagem" vem antes do da Geolocalização, como o desenho (FEATS, L414 a L423)')]
+    public function testCartaoDoComprovanteAntesDaGeolocalizacao(): void
+    {
+        $this->seloPronto();
+
+        $cartao = $this->linha($this->primario, self::COMPROVANTE);
+
+        self::assertSame(['ponto-comprovante', 'ponto-geo'], $this->funcoesNoPainel());
+        self::assertCount(1, $this->painel->filter(self::COMPROVANTE . ' + .pe-config-funcao[data-config-funcao="ponto-geo"]'), 'irmãos diretos, nesta ordem');
+        self::assertSame(['pe-config-icone', 'pe-config-texto', 'pe-config-chave', 'pe-config-trava', 'pe-config-erro'], $this->filhos($cartao));
+        self::assertCount(1, $cartao->filter('.pe-config-funcao > i.pe-config-icone.bi.bi-receipt:first-child[aria-hidden="true"]'));
+        self::assertSame('Comprovante em imagem', $cartao->filter('.pe-config-funcao > .pe-config-texto > b')->text());
+        self::assertSame("Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", $cartao->filter('.pe-config-funcao > .pe-config-texto > b + span')->text());
+        $chave = $cartao->filter('.pe-config-funcao > .pe-config-texto + .pe-config-chave > span:first-child + button.pe-config-switch[role="switch"]');
+        self::assertSame(['true', 'Comprovante em imagem: usar no escritório', '/ponto/configuracoes/funcoes/ponto-comprovante', '1', null], [$chave->attr('aria-checked'), $chave->attr('aria-label'), $chave->attr('data-config-escritorio'), $chave->attr('data-ligada'), $chave->attr('disabled')]);
+        self::assertCount(1, $cartao->filter('.pe-config-funcao > span.pe-config-trava[hidden]'), 'nasce ligado e sem trava');
+    }
+
+    #[TestDox('Sem o selo do comprovante (segredo do HMAC ausente): o cartão do comprovante não aparece, só o da Geolocalização')]
+    public function testSemSeloSemOCartaoDoComprovante(): void
+    {
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto(''));
+
+        $this->linha($this->primario);
+
+        self::assertSame(['ponto-geo'], $this->funcoesNoPainel(), 'como a aba Comprovantes, o cartão some sem o selo');
+    }
+
+    #[TestDox('O primário desliga o comprovante do escritório: a chave grava e a aba Comprovantes some da /ponto')]
+    public function testPrimarioDesligaOComprovante(): void
+    {
+        $this->seloPronto();
+        self::assertCount(1, $this->telaDoPonto()->filter('.pe-abas-barra > button#ponto-aba-comprovantes'), 'controle: ligado, a aba aparece');
+
+        $this->client->request('POST', '/ponto/configuracoes/funcoes/ponto-comprovante', server: $this->ajax(), content: '{"ligada":false}');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['chave' => 'ponto-comprovante', 'global' => true, 'escritorio' => false], $this->json());
+        self::assertSame(['ponto-comprovante' => false], $this->configuracao($this->escritorio)['chaves']);
+        $chave = $this->linha($this->primario, self::COMPROVANTE)->filter('[data-config-escritorio]');
+        self::assertSame(['false', '0'], [$chave->attr('aria-checked'), $chave->attr('data-ligada')]);
+        self::assertCount(0, $this->telaDoPonto()->filter('#ponto-aba-comprovantes, #ponto-painel-comprovantes, [data-validar-abrir]'), 'a aba e o "Validar código" somem (desenho L447 e L757)');
+    }
+
+    #[TestDox('Global do comprovante desligado pelo Master: o cartão do escritório fica travado, com a frase do Master, e a gravação é recusada (422)')]
+    public function testGlobalDoComprovanteDesligadoTrava(): void
+    {
+        $this->seloPronto();
+        $this->desligar(FuncoesDoPonto::COMPROVANTE);
+        $master = $this->master();
+
+        $cartao = $this->linha($this->primario, self::COMPROVANTE);
+        $chave = $cartao->filter('.pe-config-funcao > .pe-config-chave > button[data-config-escritorio]');
+        self::assertSame(['false', 'disabled'], [$chave->attr('aria-checked'), $chave->attr('disabled')]);
+        self::assertCount(1, $cartao->filter('.pe-config-funcao > span.pe-config-trava:not([hidden])'));
+        self::assertSame(self::TRAVA, $cartao->filter('.pe-config-funcao > span.pe-config-trava')->text());
+        self::assertCount(1, $this->painel->filter(self::LINHA . ' > span.pe-config-trava[hidden]'), 'a geolocalização não trava junto');
+
+        $this->entrar($this->primario);
+        $this->client->request('POST', '/ponto/configuracoes/funcoes/ponto-comprovante', server: $this->ajax(), content: '{"ligada":true}');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => self::TRAVA, 'global' => false], $this->json());
+        self::assertNull($this->configuracao($this->escritorio), 'nada gravou');
+        self::assertSame('false', $this->linha($master, self::COMPROVANTE)->filter('[data-config-global]')->attr('aria-checked'), 'o Master vê o Global desligado');
+    }
+
     #[TestDox('Recusas do pedido: CSRF inválido (403), corpo sem `ligada` (422), função sem a camada Escritório (422)')]
     public function testRecusasDoPedido(): void
     {
@@ -369,14 +439,38 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('const geoLigado = true;', (string) $this->client->getResponse()->getContent());
     }
 
-    /** O painel da aba Configurações de quem pede, e a linha da geolocalização nele. */
-    private function linha(User $quem): Crawler
+    /** O painel da aba Configurações de quem pede, e a linha de uma função nele (a geolocalização, sem dizer qual). */
+    private function linha(User $quem, string $seletor = self::LINHA): Crawler
     {
         $this->entrar($quem);
         $this->painel = $this->client->request('GET', '/ponto/configuracoes');
         self::assertResponseIsSuccessful();
 
-        return $this->painel->filter(self::LINHA);
+        return $this->painel->filter($seletor);
+    }
+
+    /** @return list<string> as chaves dos cartões do último painel aberto, na ordem da tela */
+    private function funcoesNoPainel(): array
+    {
+        self::assertNotNull($this->painel);
+
+        return $this->painel->filter(self::FUNCOES . ' > .pe-config-funcao')->each(static fn (Crawler $no): string => (string) $no->attr('data-config-funcao'));
+    }
+
+    /** A /ponto do primário, logado no escritório (a sessão segue para o pedido seguinte). */
+    private function telaDoPonto(): Crawler
+    {
+        $this->entrar($this->primario);
+        $tela = $this->client->request('GET', '/ponto/');
+        self::assertResponseIsSuccessful();
+
+        return $tela;
+    }
+
+    /** O segredo do Ponto configurado (as chaves da E9): o selo do comprovante fica pronto. */
+    private function seloPronto(): void
+    {
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto('segredo-de-teste-do-comprovante'));
     }
 
     /** @return list<string> a primeira classe de cada filho direto da linha */
