@@ -14,6 +14,22 @@ final class PdfLido
     {
     }
 
+    /**
+     * Junta os pedaços do {@see \App\AssinaturaEletronica\Pdf\MontadorDoPdf::emPedacos()}: só o teste junta o PDF
+     * inteiro numa string; quem grava ou entrega consome pedaço a pedaço.
+     *
+     * @param iterable<string> $pedacos
+     */
+    public static function dosPedacos(iterable $pedacos): self
+    {
+        $bytes = '';
+        foreach ($pedacos as $pedaco) {
+            $bytes .= $pedaco;
+        }
+
+        return new self($bytes);
+    }
+
     public function paginas(): int
     {
         return preg_match('#/Type /Pages /Kids \[[^\]]*\] /Count (\d+)#', $this->bytes, $m) === 1 ? (int) $m[1] : 0;

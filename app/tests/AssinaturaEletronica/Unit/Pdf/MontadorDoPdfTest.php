@@ -6,6 +6,7 @@ namespace App\Tests\AssinaturaEletronica\Unit\Pdf;
 
 use App\AssinaturaEletronica\Pdf\Cor;
 use App\AssinaturaEletronica\Pdf\EscritorDePdf;
+use App\AssinaturaEletronica\Pdf\FolhaParaMontar;
 use App\AssinaturaEletronica\Pdf\Fonte;
 use App\AssinaturaEletronica\Pdf\MedidorDeTexto;
 use App\AssinaturaEletronica\Pdf\ModoDaFolha;
@@ -44,7 +45,7 @@ final class MontadorDoPdfTest extends TestCase
     {
         $folha = FolhaDeTeste::folha(mudancas: ['paginasDepois' => self::umaPaginaDepois('#c00000')]);
 
-        $pdf = new PdfLido(self::montador()->montar($folha));
+        $pdf = self::montar($folha);
 
         self::assertStringStartsWith('%PDF-', $pdf->bytes);
         self::assertStringEndsWith("%%EOF\n", $pdf->bytes);
@@ -62,13 +63,13 @@ final class MontadorDoPdfTest extends TestCase
     #[TestDox('Folha branca: conteúdo sem fundo e sem rodapé, só o cabeçalho; a página de depois mantém fundo e rodapé')]
     public function testFolhaBrancaEFundo(): void
     {
-        $pdfBranco = new PdfLido(self::montador()->montar(FolhaDeTeste::folha(mudancas: [
+        $pdfBranco = self::montar(FolhaDeTeste::folha(mudancas: [
             'folhaBranca' => true,
             'paginasDepois' => self::umaPaginaDepois('#c00000'),
-        ])));
+        ]));
         $branca = $pdfBranco->imagem(1);
         $depois = $pdfBranco->imagem(2);
-        $fundo = (new PdfLido(self::montador()->montar(FolhaDeTeste::folha())))->imagem(1);
+        $fundo = self::montar(FolhaDeTeste::folha())->imagem(1);
 
         foreach (PdfLido::media($branca, ...self::AREA_SEM_TEXTO) as $canal) {
             self::assertGreaterThan(253.5, $canal, 'Folha branca sem fundo.');
@@ -94,8 +95,8 @@ final class MontadorDoPdfTest extends TestCase
     #[TestDox('Rascunho imprime RASCUNHO no rodapé e no título do PDF')]
     public function testRascunho(): void
     {
-        $rascunho = new PdfLido(self::montador()->montar(FolhaDeTeste::folha(mudancas: ['modo' => ModoDaFolha::Rascunho, 'codigo' => null])));
-        $final = new PdfLido(self::montador()->montar(FolhaDeTeste::folha()));
+        $rascunho = self::montar(FolhaDeTeste::folha(mudancas: ['modo' => ModoDaFolha::Rascunho, 'codigo' => null]));
+        $final = self::montar(FolhaDeTeste::folha());
 
         self::assertSame('Documento BlueJus RASCUNHO', $rascunho->titulo());
         self::assertEqualsWithDelta(self::fimDoCodigo('RASCUNHO'), self::fimDoVermelho($rascunho->imagem(1)), 4.0);
@@ -110,7 +111,7 @@ final class MontadorDoPdfTest extends TestCase
         }
         $folha = FolhaDeTeste::folha([['k' => 'pg', 'n' => 1], ['k' => 'pg', 'n' => 2]], ['pdfEnviado' => self::pdfDeDuasCores()]);
 
-        $pdf = new PdfLido(self::montador()->montar($folha));
+        $pdf = self::montar($folha);
 
         self::assertSame(2, $pdf->paginas());
         [$r1, $g1, $b1] = PdfLido::media($pdf->imagem(1), 400, 600, 150, 150);
@@ -119,9 +120,41 @@ final class MontadorDoPdfTest extends TestCase
         self::assertGreaterThan(150, $b2 - max($r2, $g2), 'Página 2 do enviado (azul).');
     }
 
+    #[TestDox('Sem conteúdo e com manifesto, o PDF sai só com o manifesto, como o desenho (dc:406)')]
+    public function testSemConteudoComPaginaDepois(): void
+    {
+        $pdf = self::montar(FolhaDeTeste::folha([], ['paginasDepois' => self::umaPaginaDepois('#c00000')]));
+
+        self::assertSame(1, $pdf->paginas());
+        $pagina = $pdf->imagem(1);
+        [$r, $g, $b] = PdfLido::media($pagina, 300, 400, 200, 200);
+        self::assertGreaterThan(150, $r - max($g, $b), 'A única página é a de depois do conteúdo.');
+        self::assertLessThan(60, PdfLido::maisEscuro($pagina, ...self::AREA_DO_QR));
+        imagedestroy($pagina);
+    }
+
+    #[TestDox('Sem conteúdo e sem manifesto, fica uma página com moldura e rodapé (o PDF nunca sai vazio)')]
+    public function testSemConteudoSemPaginaDepois(): void
+    {
+        $pdf = self::montar(FolhaDeTeste::folha([]));
+
+        self::assertSame(1, $pdf->paginas());
+        $pagina = $pdf->imagem(1);
+        [$r, $g, $b] = PdfLido::media($pagina, 300, 400, 200, 200);
+        self::assertLessThan(20, $r - min($g, $b), 'O miolo é só o fundo.');
+        self::assertLessThan(60, PdfLido::maisEscuro($pagina, ...self::AREA_DO_QR), 'Com moldura e rodapé.');
+        imagedestroy($pagina);
+    }
+
     private static function montador(): MontadorDoPdf
     {
         return new MontadorDoPdf(GhostscriptDeTeste::binario());
+    }
+
+    /** O PDF inteiro, juntando os pedaços (só o teste junta; ver {@see MontadorDoPdf::emPedacos()}). */
+    private static function montar(FolhaParaMontar $folha): PdfLido
+    {
+        return PdfLido::dosPedacos(self::montador()->emPedacos($folha));
     }
 
     private static function umaPaginaDepois(string $cor): PaginasDepoisDoConteudo

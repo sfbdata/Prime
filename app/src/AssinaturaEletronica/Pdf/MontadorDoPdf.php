@@ -32,22 +32,12 @@ final class MontadorDoPdf
     }
 
     /**
-     * Os bytes do PDF.
+     * O PDF em pedaços: o início, uma página por pedaço e o fim, na ordem do arquivo.
      *
-     * @throws FalhaAoMontarPdf
-     */
-    public function montar(FolhaParaMontar $folha): string
-    {
-        $pdf = '';
-        foreach ($this->emPedacos($folha) as $pedaco) {
-            $pdf .= $pedaco;
-        }
-
-        return $pdf;
-    }
-
-    /**
-     * O PDF em pedaços (início, uma página por pedaço, fim), para quem quiser gravar sem juntar tudo na memória.
+     * Quem grava ou entrega (armazenamento, resposta de download) consome pedaço a pedaço e nunca junta tudo numa
+     * string. O porquê é memória: cada página é uma JPEG de 2480 x 3507 px, e a string do PDF inteiro soma todas elas
+     * ao pico da montagem. Medido com 28 páginas e limite de 128 MB: juntando, o pico foi de 122 MB e a montagem
+     * falhou; consumindo os pedaços, o mesmo documento ficou em 66 MB.
      *
      * @return \Generator<int, string>
      *
@@ -76,8 +66,11 @@ final class MontadorDoPdf
     }
 
     /**
-     * As páginas do conteúdo, sem as vazias do fim (`while (!ops[ops.length - 1].length) ops.pop()`). Sem conteúdo
-     * nenhum, fica uma página com moldura e rodapé: o PDF nunca sai sem página.
+     * As páginas do conteúdo, sem as vazias do fim (`while (!ops[ops.length - 1].length) ops.pop()`, dc:406).
+     *
+     * Sem conteúdo nenhum, o desenho fica com `ops` vazio e `total = 1`: com páginas depois do conteúdo (o
+     * manifesto), o PDF sai só com elas. Sem páginas depois, o desenho sairia sem página nenhuma; aqui fica uma
+     * página com moldura e rodapé (desvio aceito), para o PDF nunca sair vazio.
      *
      * @return list<list<ElementoDaPagina>>
      */
@@ -91,7 +84,11 @@ final class MontadorDoPdf
             array_pop($paginas);
         }
 
-        return $paginas === [] ? [[]] : $paginas;
+        if ($paginas === [] && $folha->paginasDepois->quantas() === 0) {
+            return [[]];
+        }
+
+        return $paginas;
     }
 
     /** @param list<ElementoDaPagina> $elementos */
